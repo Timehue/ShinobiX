@@ -1,0 +1,1625 @@
+{
+  "id": "starter-fire",
+  "label": "independent-cinder-all-clips-v3-final-techniques/normal-review",
+  "sourceManifestSha256": "ceaa30a578f9929dcb16cbbd3a5c721c55886efff0423013288624034dd60b1c",
+  "crop": {
+    "left": 162,
+    "top": 37,
+    "width": 178,
+    "height": 182
+  },
+  "nativePixelsPreserved": true,
+  "resizing": false,
+  "foregroundThreshold": 3,
+  "strips": [
+    {
+      "name": "front-block-0-half-0.png",
+      "sha256": "370874b19a7327f3651421698f80b8e729b4ef0db821f631c522095507e237e3",
+      "sources": [
+        {
+          "name": "starter-fire-fire-strike-front-0-normals.png",
+          "sha256": "df4c6cd26e40026e3f32c37e7a90530801e3d48ea0193461b6a93ba86b3735a5",
+          "move": "fire-strike",
+          "view": "front",
+          "time": 0.04
+        },
+        {
+          "name": "starter-fire-fire-strike-front-1-normals.png",
+          "sha256": "043e8d13bfcfe79972cbac286516faf6bb47f0a1bd8044c22cb84b88a30da412",
+          "move": "fire-strike",
+          "view": "front",
+          "time": 0.12
+        },
+        {
+          "name": "starter-fire-fire-strike-front-2-normals.png",
+          "sha256": "960b4e3ce1086b25ed0ebcba1f5b30fecd2d1261fdc127783cbce99694d2894b",
+          "move": "fire-strike",
+          "view": "front",
+          "time": 0.24
+        },
+        {
+          "name": "starter-fire-fire-strike-front-3-normals.png",
+          "sha256": "37ca107e12871a7166a04a9f71999cfbd33fae1877de1a5d8863a783f1745b58",
+          "move": "fire-strike",
+          "view": "front",
+          "time": 0.36
+        },
+        {
+          "name": "starter-fire-fire-strike-front-4-normals.png",
+          "sha256": "5936c48d61920d894aa4785d0b94e5e44375e69b4285c40971e20582ab52d1bd",
+          "move": "fire-strike",
+          "view": "front",
+          "time": 0.48
+        },
+        {
+          "name": "starter-fire-fire-strike-front-5-normals.png",
+          "sha256": "c48d10fa5335b6666698943f0ddc97f7787a3b66006d5ff901c5eb9957e03768",
+          "move": "fire-strike",
+          "view": "front",
+          "time": 0.6
+        },
+        {
+          "name": "starter-fire-fire-pulse-front-0-normals.png",
+          "sha256": "0ab1fff76c9d941355991068e9655113ac0f3c0d8645c292943480094fbeae0b",
+          "move": "fire-pulse",
+          "view": "front",
+          "time": 0.04
+        },
+        {
+          "name": "starter-fire-fire-pulse-front-1-normals.png",
+          "sha256": "db67fe474e0e29dbd7c345fd27f5f47ac36af5f58f76b71b15fc91c40d3abcf9",
+          "move": "fire-pulse",
+          "view": "front",
+          "time": 0.12
+        },
+        {
+          "name": "starter-fire-fire-pulse-front-2-normals.png",
+          "sha256": "baae36ff939bbb0ca921066b4e21eb4ff47246b18cb7af6cdad13aa202c94331",
+          "move": "fire-pulse",
+          "view": "front",
+          "time": 0.24
+        },
+        {
+          "name": "starter-fire-fire-pulse-front-3-normals.png",
+          "sha256": "fa930ec3cf01c3d2f8018c89b997ea90eb0e4f7caf4631086d170f57c2d76f88",
+          "move": "fire-pulse",
+          "view": "front",
+          "time": 0.36
+        },
+        {
+          "name": "starter-fire-fire-pulse-front-4-normals.png",
+          "sha256": "4539fe32ae801fea20784139ccf175792346be4e28282212bb1b7d2cc39f8bea",
+          "move": "fire-pulse",
+          "view": "front",
+          "time": 0.48
+        },
+        {
+          "name": "starter-fire-fire-pulse-front-5-normals.png",
+          "sha256": "d185a6bdc0a6aafd47f45c2f380bf4d7cf6d444998707bf7adfb79d4ef07b93b",
+          "move": "fire-pulse",
+          "view": "front",
+          "time": 0.6
+        },
+        {
+          "name": "starter-fire-fire-breaker-front-0-normals.png",
+          "sha256": "f459487b663c15cf4890b3549857a511395586b6e77bcd0a2ead0be1f1b9a236",
+          "move": "fire-breaker",
+          "view": "front",
+          "time": 0.04
+        },
+        {
+          "name": "starter-fire-fire-breaker-front-1-normals.png",
+          "sha256": "fd325afb5511faa506aa3c92c6338173ceced5963cbf2dc0ff5213e80b916400",
+          "move": "fire-breaker",
+          "view": "front",
+          "time": 0.12
+        },
+        {
+          "name": "starter-fire-fire-breaker-front-2-normals.png",
+          "sha256": "b8e98c5c20b332cadf077f4a81427cc414bcc770b1d3aac4ff50380ba128834b",
+          "move": "fire-breaker",
+          "view": "front",
+          "time": 0.24
+        },
+        {
+          "name": "starter-fire-fire-breaker-front-3-normals.png",
+          "sha256": "37ca107e12871a7166a04a9f71999cfbd33fae1877de1a5d8863a783f1745b58",
+          "move": "fire-breaker",
+          "view": "front",
+          "time": 0.36
+        },
+        {
+          "name": "starter-fire-fire-breaker-front-4-normals.png",
+          "sha256": "eda0ee24196ba67dc2e12cea89991ecd0ffc20629276dc4f9f0011e26859d17f",
+          "move": "fire-breaker",
+          "view": "front",
+          "time": 0.48
+        },
+        {
+          "name": "starter-fire-fire-breaker-front-5-normals.png",
+          "sha256": "c48d10fa5335b6666698943f0ddc97f7787a3b66006d5ff901c5eb9957e03768",
+          "move": "fire-breaker",
+          "view": "front",
+          "time": 0.6
+        }
+      ],
+      "width": 1320,
+      "height": 624
+    },
+    {
+      "name": "front-block-0-half-1.png",
+      "sha256": "5c93fd52a0849a4f264d55d9d36c09d516f2457697f0be9706870655dc505fc3",
+      "sources": [
+        {
+          "name": "starter-fire-fire-strike-front-6-normals.png",
+          "sha256": "a3375be795f72124ac73626d81b0657d8b6cf2f32394859b25dbd1bf7401a364",
+          "move": "fire-strike",
+          "view": "front",
+          "time": 0.76
+        },
+        {
+          "name": "starter-fire-fire-strike-front-7-normals.png",
+          "sha256": "145eb1e1092a9a805071531b9e219b64e817d2522ddd64f55b23fb7b8821ca8a",
+          "move": "fire-strike",
+          "view": "front",
+          "time": 0.96
+        },
+        {
+          "name": "starter-fire-fire-strike-front-8-normals.png",
+          "sha256": "290a70d60bdf2fbcc27c16a1939a5c96a1405f3f23f06c8247c5263e7e865272",
+          "move": "fire-strike",
+          "view": "front",
+          "time": 1.2
+        },
+        {
+          "name": "starter-fire-fire-strike-front-9-normals.png",
+          "sha256": "1c67b301b1262377f3d6a76bdc4dea134aed800248858d62d9f00eef01a1ec50",
+          "move": "fire-strike",
+          "view": "front",
+          "time": 1.44
+        },
+        {
+          "name": "starter-fire-fire-strike-front-10-normals.png",
+          "sha256": "9d4e27bd7e634c8269a020936fddba100d65e42fb71a3c6d805d9e46d1a756f6",
+          "move": "fire-strike",
+          "view": "front",
+          "time": 1.68
+        },
+        {
+          "name": "starter-fire-fire-strike-front-11-normals.png",
+          "sha256": "ce6e4d2ac55c210f9e75e1944f4aa8b949c9d08eb17cfe42cf86ea3a99bd8096",
+          "move": "fire-strike",
+          "view": "front",
+          "time": 1.92
+        },
+        {
+          "name": "starter-fire-fire-pulse-front-6-normals.png",
+          "sha256": "5597b289beba07e601d6b458ad17f7418af5891f49f7e8809b7ee3a0a178d598",
+          "move": "fire-pulse",
+          "view": "front",
+          "time": 0.76
+        },
+        {
+          "name": "starter-fire-fire-pulse-front-7-normals.png",
+          "sha256": "0e9f5fd30d46e07f2966a4451786949d2b56cfc4f41d7b0a36aaa962b8f02a7a",
+          "move": "fire-pulse",
+          "view": "front",
+          "time": 0.96
+        },
+        {
+          "name": "starter-fire-fire-pulse-front-8-normals.png",
+          "sha256": "43faae75a271213a3b8070cf27cd7c7e608efd92f8b0b27839d27ba1f9614275",
+          "move": "fire-pulse",
+          "view": "front",
+          "time": 1.2
+        },
+        {
+          "name": "starter-fire-fire-pulse-front-9-normals.png",
+          "sha256": "948acbdfe4f49f4737dfc2f1390a3daef6413dab5c56341256731bcbd45cb7a0",
+          "move": "fire-pulse",
+          "view": "front",
+          "time": 1.44
+        },
+        {
+          "name": "starter-fire-fire-pulse-front-10-normals.png",
+          "sha256": "2f6046799b17e279d852080bff9019ecd1f0bbad098e4cab365764bdffb121ff",
+          "move": "fire-pulse",
+          "view": "front",
+          "time": 1.68
+        },
+        {
+          "name": "starter-fire-fire-pulse-front-11-normals.png",
+          "sha256": "90d984abe8eb6f8f6255ab3b97136bdef75e8b26d81ad725d69a31bb773ace02",
+          "move": "fire-pulse",
+          "view": "front",
+          "time": 1.92
+        },
+        {
+          "name": "starter-fire-fire-breaker-front-6-normals.png",
+          "sha256": "a3375be795f72124ac73626d81b0657d8b6cf2f32394859b25dbd1bf7401a364",
+          "move": "fire-breaker",
+          "view": "front",
+          "time": 0.76
+        },
+        {
+          "name": "starter-fire-fire-breaker-front-7-normals.png",
+          "sha256": "145eb1e1092a9a805071531b9e219b64e817d2522ddd64f55b23fb7b8821ca8a",
+          "move": "fire-breaker",
+          "view": "front",
+          "time": 0.96
+        },
+        {
+          "name": "starter-fire-fire-breaker-front-8-normals.png",
+          "sha256": "290a70d60bdf2fbcc27c16a1939a5c96a1405f3f23f06c8247c5263e7e865272",
+          "move": "fire-breaker",
+          "view": "front",
+          "time": 1.2
+        },
+        {
+          "name": "starter-fire-fire-breaker-front-9-normals.png",
+          "sha256": "6144caa5f4539db30d3479a521ac4197156466f44557db4d1bc49f59091c2110",
+          "move": "fire-breaker",
+          "view": "front",
+          "time": 1.44
+        },
+        {
+          "name": "starter-fire-fire-breaker-front-10-normals.png",
+          "sha256": "ef33ac4d852ee1833b4df04e7610ae201ce5e0cf40f6a3d878bda56c3a5ba93b",
+          "move": "fire-breaker",
+          "view": "front",
+          "time": 1.68
+        },
+        {
+          "name": "starter-fire-fire-breaker-front-11-normals.png",
+          "sha256": "90d984abe8eb6f8f6255ab3b97136bdef75e8b26d81ad725d69a31bb773ace02",
+          "move": "fire-breaker",
+          "view": "front",
+          "time": 1.92
+        }
+      ],
+      "width": 1320,
+      "height": 624
+    },
+    {
+      "name": "front-block-1-half-0.png",
+      "sha256": "9e61789d5b4bbb0206e98f7869ea2c65818bc2ae055fecac7bebaf7de694ce72",
+      "sources": [
+        {
+          "name": "starter-fire-earth-pulse-front-0-normals.png",
+          "sha256": "383b65b7b9755d10bd307b961fad687a5570e49271c1a1b3cf9f66c51a47cc18",
+          "move": "earth-pulse",
+          "view": "front",
+          "time": 0.04
+        },
+        {
+          "name": "starter-fire-earth-pulse-front-1-normals.png",
+          "sha256": "db67fe474e0e29dbd7c345fd27f5f47ac36af5f58f76b71b15fc91c40d3abcf9",
+          "move": "earth-pulse",
+          "view": "front",
+          "time": 0.12
+        },
+        {
+          "name": "starter-fire-earth-pulse-front-2-normals.png",
+          "sha256": "de7cf2b0cf9b8ca352ba149bfb8f928e1f614dee60105aaf43f27cf26786ec33",
+          "move": "earth-pulse",
+          "view": "front",
+          "time": 0.24
+        },
+        {
+          "name": "starter-fire-earth-pulse-front-3-normals.png",
+          "sha256": "fa930ec3cf01c3d2f8018c89b997ea90eb0e4f7caf4631086d170f57c2d76f88",
+          "move": "earth-pulse",
+          "view": "front",
+          "time": 0.36
+        },
+        {
+          "name": "starter-fire-earth-pulse-front-4-normals.png",
+          "sha256": "4539fe32ae801fea20784139ccf175792346be4e28282212bb1b7d2cc39f8bea",
+          "move": "earth-pulse",
+          "view": "front",
+          "time": 0.48
+        },
+        {
+          "name": "starter-fire-earth-pulse-front-5-normals.png",
+          "sha256": "d185a6bdc0a6aafd47f45c2f380bf4d7cf6d444998707bf7adfb79d4ef07b93b",
+          "move": "earth-pulse",
+          "view": "front",
+          "time": 0.6
+        },
+        {
+          "name": "starter-fire-ember-scar-front-0-normals.png",
+          "sha256": "136b4d1ce34fbb590cb3f79b5d13ebc0dfcebb4abf05d841edc88aed6fb1550f",
+          "move": "ember-scar",
+          "view": "front",
+          "time": 0.04
+        },
+        {
+          "name": "starter-fire-ember-scar-front-1-normals.png",
+          "sha256": "2accea67543d1bb02001cd33a99f5b69165402c55fb31acb97d3bf249215bc1f",
+          "move": "ember-scar",
+          "view": "front",
+          "time": 0.12
+        },
+        {
+          "name": "starter-fire-ember-scar-front-2-normals.png",
+          "sha256": "baae36ff939bbb0ca921066b4e21eb4ff47246b18cb7af6cdad13aa202c94331",
+          "move": "ember-scar",
+          "view": "front",
+          "time": 0.24
+        },
+        {
+          "name": "starter-fire-ember-scar-front-3-normals.png",
+          "sha256": "fa930ec3cf01c3d2f8018c89b997ea90eb0e4f7caf4631086d170f57c2d76f88",
+          "move": "ember-scar",
+          "view": "front",
+          "time": 0.36
+        },
+        {
+          "name": "starter-fire-ember-scar-front-4-normals.png",
+          "sha256": "4539fe32ae801fea20784139ccf175792346be4e28282212bb1b7d2cc39f8bea",
+          "move": "ember-scar",
+          "view": "front",
+          "time": 0.48
+        },
+        {
+          "name": "starter-fire-ember-scar-front-5-normals.png",
+          "sha256": "d185a6bdc0a6aafd47f45c2f380bf4d7cf6d444998707bf7adfb79d4ef07b93b",
+          "move": "ember-scar",
+          "view": "front",
+          "time": 0.6
+        },
+        {
+          "name": "starter-fire-expose-front-0-normals.png",
+          "sha256": "383b65b7b9755d10bd307b961fad687a5570e49271c1a1b3cf9f66c51a47cc18",
+          "move": "expose",
+          "view": "front",
+          "time": 0.04
+        },
+        {
+          "name": "starter-fire-expose-front-1-normals.png",
+          "sha256": "df7e48a7e5db8fec2300429ecddc24bca01f82003c7255299da8d5a5b883b209",
+          "move": "expose",
+          "view": "front",
+          "time": 0.12
+        },
+        {
+          "name": "starter-fire-expose-front-2-normals.png",
+          "sha256": "de7cf2b0cf9b8ca352ba149bfb8f928e1f614dee60105aaf43f27cf26786ec33",
+          "move": "expose",
+          "view": "front",
+          "time": 0.24
+        },
+        {
+          "name": "starter-fire-expose-front-3-normals.png",
+          "sha256": "fdf83d2b6fcd4e1ef3fdcaad7ee41ba28ee91657cd39c6008c0896fce045df8f",
+          "move": "expose",
+          "view": "front",
+          "time": 0.36
+        },
+        {
+          "name": "starter-fire-expose-front-4-normals.png",
+          "sha256": "4539fe32ae801fea20784139ccf175792346be4e28282212bb1b7d2cc39f8bea",
+          "move": "expose",
+          "view": "front",
+          "time": 0.48
+        },
+        {
+          "name": "starter-fire-expose-front-5-normals.png",
+          "sha256": "d185a6bdc0a6aafd47f45c2f380bf4d7cf6d444998707bf7adfb79d4ef07b93b",
+          "move": "expose",
+          "view": "front",
+          "time": 0.6
+        }
+      ],
+      "width": 1320,
+      "height": 624
+    },
+    {
+      "name": "front-block-1-half-1.png",
+      "sha256": "47b39bc890315c5a9f61b61cfbdbf29a4161c27324f4328a80d0f5cdae39f87f",
+      "sources": [
+        {
+          "name": "starter-fire-earth-pulse-front-6-normals.png",
+          "sha256": "5597b289beba07e601d6b458ad17f7418af5891f49f7e8809b7ee3a0a178d598",
+          "move": "earth-pulse",
+          "view": "front",
+          "time": 0.76
+        },
+        {
+          "name": "starter-fire-earth-pulse-front-7-normals.png",
+          "sha256": "0e9f5fd30d46e07f2966a4451786949d2b56cfc4f41d7b0a36aaa962b8f02a7a",
+          "move": "earth-pulse",
+          "view": "front",
+          "time": 0.96
+        },
+        {
+          "name": "starter-fire-earth-pulse-front-8-normals.png",
+          "sha256": "43faae75a271213a3b8070cf27cd7c7e608efd92f8b0b27839d27ba1f9614275",
+          "move": "earth-pulse",
+          "view": "front",
+          "time": 1.2
+        },
+        {
+          "name": "starter-fire-earth-pulse-front-9-normals.png",
+          "sha256": "e1168938ec138d53a1df00032196357adb8fb1ee5f7a4127bad0ac000c7e0d6b",
+          "move": "earth-pulse",
+          "view": "front",
+          "time": 1.44
+        },
+        {
+          "name": "starter-fire-earth-pulse-front-10-normals.png",
+          "sha256": "ef33ac4d852ee1833b4df04e7610ae201ce5e0cf40f6a3d878bda56c3a5ba93b",
+          "move": "earth-pulse",
+          "view": "front",
+          "time": 1.68
+        },
+        {
+          "name": "starter-fire-earth-pulse-front-11-normals.png",
+          "sha256": "873ac99ecb155eb82b11628cd7d71d9194c59965165976b1d25ca453c9a607c7",
+          "move": "earth-pulse",
+          "view": "front",
+          "time": 1.92
+        },
+        {
+          "name": "starter-fire-ember-scar-front-6-normals.png",
+          "sha256": "5597b289beba07e601d6b458ad17f7418af5891f49f7e8809b7ee3a0a178d598",
+          "move": "ember-scar",
+          "view": "front",
+          "time": 0.76
+        },
+        {
+          "name": "starter-fire-ember-scar-front-7-normals.png",
+          "sha256": "0e9f5fd30d46e07f2966a4451786949d2b56cfc4f41d7b0a36aaa962b8f02a7a",
+          "move": "ember-scar",
+          "view": "front",
+          "time": 0.96
+        },
+        {
+          "name": "starter-fire-ember-scar-front-8-normals.png",
+          "sha256": "43faae75a271213a3b8070cf27cd7c7e608efd92f8b0b27839d27ba1f9614275",
+          "move": "ember-scar",
+          "view": "front",
+          "time": 1.2
+        },
+        {
+          "name": "starter-fire-ember-scar-front-9-normals.png",
+          "sha256": "948acbdfe4f49f4737dfc2f1390a3daef6413dab5c56341256731bcbd45cb7a0",
+          "move": "ember-scar",
+          "view": "front",
+          "time": 1.44
+        },
+        {
+          "name": "starter-fire-ember-scar-front-10-normals.png",
+          "sha256": "ef33ac4d852ee1833b4df04e7610ae201ce5e0cf40f6a3d878bda56c3a5ba93b",
+          "move": "ember-scar",
+          "view": "front",
+          "time": 1.68
+        },
+        {
+          "name": "starter-fire-ember-scar-front-11-normals.png",
+          "sha256": "90d984abe8eb6f8f6255ab3b97136bdef75e8b26d81ad725d69a31bb773ace02",
+          "move": "ember-scar",
+          "view": "front",
+          "time": 1.92
+        },
+        {
+          "name": "starter-fire-expose-front-6-normals.png",
+          "sha256": "4d67515f3b2391092fe7ed65e4786a8ae6977f8e04e74c7c97e787d5bf2f024d",
+          "move": "expose",
+          "view": "front",
+          "time": 0.76
+        },
+        {
+          "name": "starter-fire-expose-front-7-normals.png",
+          "sha256": "5df4b8ff3c1b6474fd600795bde43a53bca322c371b771611fcea3076f2be946",
+          "move": "expose",
+          "view": "front",
+          "time": 0.96
+        },
+        {
+          "name": "starter-fire-expose-front-8-normals.png",
+          "sha256": "289ccb9b958e14f2ef6d62269914658c06416e863b7f3a7c0f604f62dd7d77ba",
+          "move": "expose",
+          "view": "front",
+          "time": 1.2
+        },
+        {
+          "name": "starter-fire-expose-front-9-normals.png",
+          "sha256": "e1168938ec138d53a1df00032196357adb8fb1ee5f7a4127bad0ac000c7e0d6b",
+          "move": "expose",
+          "view": "front",
+          "time": 1.44
+        },
+        {
+          "name": "starter-fire-expose-front-10-normals.png",
+          "sha256": "ef33ac4d852ee1833b4df04e7610ae201ce5e0cf40f6a3d878bda56c3a5ba93b",
+          "move": "expose",
+          "view": "front",
+          "time": 1.68
+        },
+        {
+          "name": "starter-fire-expose-front-11-normals.png",
+          "sha256": "9e947e79c75eb2ff57a3d36f7c8b7be5e402d3236657befa9efa2824788aff7f",
+          "move": "expose",
+          "view": "front",
+          "time": 1.92
+        }
+      ],
+      "width": 1320,
+      "height": 624
+    },
+    {
+      "name": "front-block-2-half-0.png",
+      "sha256": "d303457cf4d386a8c91476bc5ae116542cfa87b748a40da24bed5d106cb4e9a0",
+      "sources": [
+        {
+          "name": "starter-fire-rally-front-0-normals.png",
+          "sha256": "136b4d1ce34fbb590cb3f79b5d13ebc0dfcebb4abf05d841edc88aed6fb1550f",
+          "move": "rally",
+          "view": "front",
+          "time": 0.04
+        },
+        {
+          "name": "starter-fire-rally-front-1-normals.png",
+          "sha256": "058d483a40fa4b34fccad13a1fe604211769782e354227b83f65a922ac4bb0a0",
+          "move": "rally",
+          "view": "front",
+          "time": 0.12
+        },
+        {
+          "name": "starter-fire-rally-front-2-normals.png",
+          "sha256": "baae36ff939bbb0ca921066b4e21eb4ff47246b18cb7af6cdad13aa202c94331",
+          "move": "rally",
+          "view": "front",
+          "time": 0.24
+        },
+        {
+          "name": "starter-fire-rally-front-3-normals.png",
+          "sha256": "fa930ec3cf01c3d2f8018c89b997ea90eb0e4f7caf4631086d170f57c2d76f88",
+          "move": "rally",
+          "view": "front",
+          "time": 0.36
+        },
+        {
+          "name": "starter-fire-rally-front-4-normals.png",
+          "sha256": "4539fe32ae801fea20784139ccf175792346be4e28282212bb1b7d2cc39f8bea",
+          "move": "rally",
+          "view": "front",
+          "time": 0.48
+        },
+        {
+          "name": "starter-fire-rally-front-5-normals.png",
+          "sha256": "d185a6bdc0a6aafd47f45c2f380bf4d7cf6d444998707bf7adfb79d4ef07b93b",
+          "move": "rally",
+          "view": "front",
+          "time": 0.6
+        },
+        {
+          "name": "starter-fire-protect-front-0-normals.png",
+          "sha256": "1497c88054b27c152d2b9fd58058aeeadf77e7489c81593116065e1ee0ed2446",
+          "move": "protect",
+          "view": "front",
+          "time": 0.04
+        },
+        {
+          "name": "starter-fire-protect-front-1-normals.png",
+          "sha256": "d0325ebb7ffa59c0b10765f7cad356e4001317c93e7374ad0a02ed31e9d3fafd",
+          "move": "protect",
+          "view": "front",
+          "time": 0.12
+        },
+        {
+          "name": "starter-fire-protect-front-2-normals.png",
+          "sha256": "8cc74f8eaf76ccbfb0a545296dbf5c1bad913f9774b59e2c3c00483257cbe97e",
+          "move": "protect",
+          "view": "front",
+          "time": 0.24
+        },
+        {
+          "name": "starter-fire-protect-front-3-normals.png",
+          "sha256": "750008ab73f1279958ea01c24234f6730fe508652ab55cdca3c5ad694b9ce51c",
+          "move": "protect",
+          "view": "front",
+          "time": 0.36
+        },
+        {
+          "name": "starter-fire-protect-front-4-normals.png",
+          "sha256": "6d0ffd925f072a9c9b960d2be9ec681937cbb8fcf021c52ff9f34ab1e4b011b6",
+          "move": "protect",
+          "view": "front",
+          "time": 0.48
+        },
+        {
+          "name": "starter-fire-protect-front-5-normals.png",
+          "sha256": "e92644ae7e8101aecb097c1b4578d703bda9eca4d9e3376b1c2d8ed338212e79",
+          "move": "protect",
+          "view": "front",
+          "time": 0.6
+        },
+        {
+          "name": "starter-fire-starter-fire-signature-front-0-normals.png",
+          "sha256": "97866d0cff7c56fd5aa483cf278a38e5276f6f0f192bcce8c6c2f73db42b3cc4",
+          "move": "starter-fire-signature",
+          "view": "front",
+          "time": 0.04
+        },
+        {
+          "name": "starter-fire-starter-fire-signature-front-1-normals.png",
+          "sha256": "8a2c6047a14d04d4cb52a01cc3dd484e2994ea410e042f8e055f83bf1aa71fc0",
+          "move": "starter-fire-signature",
+          "view": "front",
+          "time": 0.12
+        },
+        {
+          "name": "starter-fire-starter-fire-signature-front-2-normals.png",
+          "sha256": "e5bd8e0a1644e5141e9f92305982d4ac1790d3845978415a5660ba45ee7083fa",
+          "move": "starter-fire-signature",
+          "view": "front",
+          "time": 0.24
+        },
+        {
+          "name": "starter-fire-starter-fire-signature-front-3-normals.png",
+          "sha256": "37ca107e12871a7166a04a9f71999cfbd33fae1877de1a5d8863a783f1745b58",
+          "move": "starter-fire-signature",
+          "view": "front",
+          "time": 0.36
+        },
+        {
+          "name": "starter-fire-starter-fire-signature-front-4-normals.png",
+          "sha256": "eda0ee24196ba67dc2e12cea89991ecd0ffc20629276dc4f9f0011e26859d17f",
+          "move": "starter-fire-signature",
+          "view": "front",
+          "time": 0.48
+        },
+        {
+          "name": "starter-fire-starter-fire-signature-front-5-normals.png",
+          "sha256": "15699ea3e8e99894b9aecc8fc7f7fb2e3f07b954ee719882c2d0c665e7778650",
+          "move": "starter-fire-signature",
+          "view": "front",
+          "time": 0.6
+        }
+      ],
+      "width": 1320,
+      "height": 624
+    },
+    {
+      "name": "front-block-2-half-1.png",
+      "sha256": "a77e879e7eb47f3185166d4019cb8822ce7fade8f237e1288e39127624ca1d58",
+      "sources": [
+        {
+          "name": "starter-fire-rally-front-6-normals.png",
+          "sha256": "5597b289beba07e601d6b458ad17f7418af5891f49f7e8809b7ee3a0a178d598",
+          "move": "rally",
+          "view": "front",
+          "time": 0.76
+        },
+        {
+          "name": "starter-fire-rally-front-7-normals.png",
+          "sha256": "0e9f5fd30d46e07f2966a4451786949d2b56cfc4f41d7b0a36aaa962b8f02a7a",
+          "move": "rally",
+          "view": "front",
+          "time": 0.96
+        },
+        {
+          "name": "starter-fire-rally-front-8-normals.png",
+          "sha256": "43faae75a271213a3b8070cf27cd7c7e608efd92f8b0b27839d27ba1f9614275",
+          "move": "rally",
+          "view": "front",
+          "time": 1.2
+        },
+        {
+          "name": "starter-fire-rally-front-9-normals.png",
+          "sha256": "948acbdfe4f49f4737dfc2f1390a3daef6413dab5c56341256731bcbd45cb7a0",
+          "move": "rally",
+          "view": "front",
+          "time": 1.44
+        },
+        {
+          "name": "starter-fire-rally-front-10-normals.png",
+          "sha256": "2f6046799b17e279d852080bff9019ecd1f0bbad098e4cab365764bdffb121ff",
+          "move": "rally",
+          "view": "front",
+          "time": 1.68
+        },
+        {
+          "name": "starter-fire-rally-front-11-normals.png",
+          "sha256": "90d984abe8eb6f8f6255ab3b97136bdef75e8b26d81ad725d69a31bb773ace02",
+          "move": "rally",
+          "view": "front",
+          "time": 1.92
+        },
+        {
+          "name": "starter-fire-protect-front-6-normals.png",
+          "sha256": "744935db4615e180a13f47b71b15fcf31423eadb852d494a594040eb3e9b1df2",
+          "move": "protect",
+          "view": "front",
+          "time": 0.76
+        },
+        {
+          "name": "starter-fire-protect-front-7-normals.png",
+          "sha256": "07443c8a9f81c347492073e9b01fe53e243b2119a9d7304490b7f900e74b14e7",
+          "move": "protect",
+          "view": "front",
+          "time": 0.96
+        },
+        {
+          "name": "starter-fire-protect-front-8-normals.png",
+          "sha256": "a13924628bd1bc840092de88e7c18613c16e871f16c8360aa9b10e578125209b",
+          "move": "protect",
+          "view": "front",
+          "time": 1.2
+        },
+        {
+          "name": "starter-fire-protect-front-9-normals.png",
+          "sha256": "6448b3d42e12a0ef174bf3f59ad55e7565e76c5cb214764cf6f23dc2e5ca37bf",
+          "move": "protect",
+          "view": "front",
+          "time": 1.44
+        },
+        {
+          "name": "starter-fire-protect-front-10-normals.png",
+          "sha256": "ef33ac4d852ee1833b4df04e7610ae201ce5e0cf40f6a3d878bda56c3a5ba93b",
+          "move": "protect",
+          "view": "front",
+          "time": 1.68
+        },
+        {
+          "name": "starter-fire-protect-front-11-normals.png",
+          "sha256": "9e947e79c75eb2ff57a3d36f7c8b7be5e402d3236657befa9efa2824788aff7f",
+          "move": "protect",
+          "view": "front",
+          "time": 1.92
+        },
+        {
+          "name": "starter-fire-starter-fire-signature-front-6-normals.png",
+          "sha256": "a3375be795f72124ac73626d81b0657d8b6cf2f32394859b25dbd1bf7401a364",
+          "move": "starter-fire-signature",
+          "view": "front",
+          "time": 0.76
+        },
+        {
+          "name": "starter-fire-starter-fire-signature-front-7-normals.png",
+          "sha256": "7297ea426fd29fab4abd26ad19e0896149a9c85ea98fef43801d6eda9b255a9a",
+          "move": "starter-fire-signature",
+          "view": "front",
+          "time": 0.96
+        },
+        {
+          "name": "starter-fire-starter-fire-signature-front-8-normals.png",
+          "sha256": "ec03e207651f811f793d15309842c856d7dfea190901cbb0003fa5662c268143",
+          "move": "starter-fire-signature",
+          "view": "front",
+          "time": 1.2
+        },
+        {
+          "name": "starter-fire-starter-fire-signature-front-9-normals.png",
+          "sha256": "d9da65f71c125833c05696340eb7b6ee16d1b026f05b8921613b2b78e26f1c52",
+          "move": "starter-fire-signature",
+          "view": "front",
+          "time": 1.44
+        },
+        {
+          "name": "starter-fire-starter-fire-signature-front-10-normals.png",
+          "sha256": "ef33ac4d852ee1833b4df04e7610ae201ce5e0cf40f6a3d878bda56c3a5ba93b",
+          "move": "starter-fire-signature",
+          "view": "front",
+          "time": 1.68
+        },
+        {
+          "name": "starter-fire-starter-fire-signature-front-11-normals.png",
+          "sha256": "873ac99ecb155eb82b11628cd7d71d9194c59965165976b1d25ca453c9a607c7",
+          "move": "starter-fire-signature",
+          "view": "front",
+          "time": 1.92
+        }
+      ],
+      "width": 1320,
+      "height": 624
+    },
+    {
+      "name": "side-block-0-half-0.png",
+      "sha256": "4141aa2fe812584d8b5c9807ab262606d1686bf7834de61fff77b8c6bf573938",
+      "sources": [
+        {
+          "name": "starter-fire-fire-strike-side-0-normals.png",
+          "sha256": "ea9530c6d4e7cff55ba3a1e48088459f3f3faf87ddf8ed8865d8e77f7587f682",
+          "move": "fire-strike",
+          "view": "side",
+          "time": 0.04
+        },
+        {
+          "name": "starter-fire-fire-strike-side-1-normals.png",
+          "sha256": "b97e7693bf8eb6dc284e04064b8195eae2196d90e219f0c20b4613dfa94083c5",
+          "move": "fire-strike",
+          "view": "side",
+          "time": 0.12
+        },
+        {
+          "name": "starter-fire-fire-strike-side-2-normals.png",
+          "sha256": "54cba0a406d75b390abea3339d6228326635023537251c634cd9459dbd4776e4",
+          "move": "fire-strike",
+          "view": "side",
+          "time": 0.24
+        },
+        {
+          "name": "starter-fire-fire-strike-side-3-normals.png",
+          "sha256": "2e8bd7d990819e26a61b205e76dfe2e7004335737b7e0f026094c93f722636ea",
+          "move": "fire-strike",
+          "view": "side",
+          "time": 0.36
+        },
+        {
+          "name": "starter-fire-fire-strike-side-4-normals.png",
+          "sha256": "6a2acbaf6c305d3349d10490b7d0beb78b90e44a970fd95403fa8e7a6ea4b3e8",
+          "move": "fire-strike",
+          "view": "side",
+          "time": 0.48
+        },
+        {
+          "name": "starter-fire-fire-strike-side-5-normals.png",
+          "sha256": "99428a81ee49022142f3913fb1dc4c71d54419c8faa2441accec50e8583eafe2",
+          "move": "fire-strike",
+          "view": "side",
+          "time": 0.6
+        },
+        {
+          "name": "starter-fire-fire-pulse-side-0-normals.png",
+          "sha256": "db6154e28d019bbbf03a1f9dc54a2540d80f33863579eb13c77c38570e58dd54",
+          "move": "fire-pulse",
+          "view": "side",
+          "time": 0.04
+        },
+        {
+          "name": "starter-fire-fire-pulse-side-1-normals.png",
+          "sha256": "ad651deb6a93b1bc8cb930faeb3b87aaeade924818dfc89b0f31abd3796a857e",
+          "move": "fire-pulse",
+          "view": "side",
+          "time": 0.12
+        },
+        {
+          "name": "starter-fire-fire-pulse-side-2-normals.png",
+          "sha256": "a140d87f9790a5b6e79f81e2b04f3d156006f6c577f1f870061ae399d6b83c25",
+          "move": "fire-pulse",
+          "view": "side",
+          "time": 0.24
+        },
+        {
+          "name": "starter-fire-fire-pulse-side-3-normals.png",
+          "sha256": "34a274c122bf129ef032bdeb6c23f5ea1bd980d3070d68a2897222d8221b5a33",
+          "move": "fire-pulse",
+          "view": "side",
+          "time": 0.36
+        },
+        {
+          "name": "starter-fire-fire-pulse-side-4-normals.png",
+          "sha256": "09de44b37603f027d2010fea9e1c9504c0029140df24d40d30ede4285362042f",
+          "move": "fire-pulse",
+          "view": "side",
+          "time": 0.48
+        },
+        {
+          "name": "starter-fire-fire-pulse-side-5-normals.png",
+          "sha256": "420fd6ff9c6dd9b095c7605ddafdf44b1cc2b2b99719d3afa5b81e2b78046f8e",
+          "move": "fire-pulse",
+          "view": "side",
+          "time": 0.6
+        },
+        {
+          "name": "starter-fire-fire-breaker-side-0-normals.png",
+          "sha256": "6152995f64eae4eafd1f50017ccdb773015c17395fceda8712321e17e9e1f3bb",
+          "move": "fire-breaker",
+          "view": "side",
+          "time": 0.04
+        },
+        {
+          "name": "starter-fire-fire-breaker-side-1-normals.png",
+          "sha256": "b97e7693bf8eb6dc284e04064b8195eae2196d90e219f0c20b4613dfa94083c5",
+          "move": "fire-breaker",
+          "view": "side",
+          "time": 0.12
+        },
+        {
+          "name": "starter-fire-fire-breaker-side-2-normals.png",
+          "sha256": "cf06a2b7df235563a60370c788cfa683a58c6fe8429b9f13b0ac3668e07e5643",
+          "move": "fire-breaker",
+          "view": "side",
+          "time": 0.24
+        },
+        {
+          "name": "starter-fire-fire-breaker-side-3-normals.png",
+          "sha256": "2e8bd7d990819e26a61b205e76dfe2e7004335737b7e0f026094c93f722636ea",
+          "move": "fire-breaker",
+          "view": "side",
+          "time": 0.36
+        },
+        {
+          "name": "starter-fire-fire-breaker-side-4-normals.png",
+          "sha256": "6a2acbaf6c305d3349d10490b7d0beb78b90e44a970fd95403fa8e7a6ea4b3e8",
+          "move": "fire-breaker",
+          "view": "side",
+          "time": 0.48
+        },
+        {
+          "name": "starter-fire-fire-breaker-side-5-normals.png",
+          "sha256": "99428a81ee49022142f3913fb1dc4c71d54419c8faa2441accec50e8583eafe2",
+          "move": "fire-breaker",
+          "view": "side",
+          "time": 0.6
+        }
+      ],
+      "width": 1320,
+      "height": 624
+    },
+    {
+      "name": "side-block-0-half-1.png",
+      "sha256": "4043df2cfc1eb9e6d4326c3a84ad882e47b54a3f3d68874f7bbf1da59f9c6d73",
+      "sources": [
+        {
+          "name": "starter-fire-fire-strike-side-6-normals.png",
+          "sha256": "40af138d5785b87fd32cfb196cd72c6cbb1a2a871c6437dc01e24a167c466633",
+          "move": "fire-strike",
+          "view": "side",
+          "time": 0.76
+        },
+        {
+          "name": "starter-fire-fire-strike-side-7-normals.png",
+          "sha256": "de398d9bce03d9ee921cfdc1e72e2169a16e23538b9f6e17e2ee0a9cb6ab8b90",
+          "move": "fire-strike",
+          "view": "side",
+          "time": 0.96
+        },
+        {
+          "name": "starter-fire-fire-strike-side-8-normals.png",
+          "sha256": "c53a2f1fa3f6f50893e7b1f44c07d53c9034ba4d7bc0a143ff389f7f36164f6b",
+          "move": "fire-strike",
+          "view": "side",
+          "time": 1.2
+        },
+        {
+          "name": "starter-fire-fire-strike-side-9-normals.png",
+          "sha256": "8621a112aae145e2af3bb87079f9318df7019ff95d6fa3fd27608d29cb7dbc9f",
+          "move": "fire-strike",
+          "view": "side",
+          "time": 1.44
+        },
+        {
+          "name": "starter-fire-fire-strike-side-10-normals.png",
+          "sha256": "70c1c9e9a1e3a8be46de3ed03b5e0b0a44a0070aa7f480b44f8fe1ff6f05dfa6",
+          "move": "fire-strike",
+          "view": "side",
+          "time": 1.68
+        },
+        {
+          "name": "starter-fire-fire-strike-side-11-normals.png",
+          "sha256": "03109c7d8f18fc28b06b84a7db7bbd68a9b95713f142bb54816154e3af7110f2",
+          "move": "fire-strike",
+          "view": "side",
+          "time": 1.92
+        },
+        {
+          "name": "starter-fire-fire-pulse-side-6-normals.png",
+          "sha256": "cabe25235ae94264163367acd222d099f889584fddb8def111904f2db951c6bc",
+          "move": "fire-pulse",
+          "view": "side",
+          "time": 0.76
+        },
+        {
+          "name": "starter-fire-fire-pulse-side-7-normals.png",
+          "sha256": "3a933a639caee1578a9e166dc0cdcd47496cb1fab5a792c56237c41d4a27c60e",
+          "move": "fire-pulse",
+          "view": "side",
+          "time": 0.96
+        },
+        {
+          "name": "starter-fire-fire-pulse-side-8-normals.png",
+          "sha256": "2b21b5604768790673777dfd62c22dcf6d658d7e82da7f77ff9d75c38aace1de",
+          "move": "fire-pulse",
+          "view": "side",
+          "time": 1.2
+        },
+        {
+          "name": "starter-fire-fire-pulse-side-9-normals.png",
+          "sha256": "1ae34c3785ee5b19d8902ea256cdc2e629cf23eb3658e262c8ce4b69da3ef032",
+          "move": "fire-pulse",
+          "view": "side",
+          "time": 1.44
+        },
+        {
+          "name": "starter-fire-fire-pulse-side-10-normals.png",
+          "sha256": "db5221c85c2877a68a405e33cefb33ef5869c0b513247ddfc90a4e450f4b6970",
+          "move": "fire-pulse",
+          "view": "side",
+          "time": 1.68
+        },
+        {
+          "name": "starter-fire-fire-pulse-side-11-normals.png",
+          "sha256": "e162222d5da8ae1f5e18af3e3dbb50981ccd65409b72a7b5a62d8ca19528d476",
+          "move": "fire-pulse",
+          "view": "side",
+          "time": 1.92
+        },
+        {
+          "name": "starter-fire-fire-breaker-side-6-normals.png",
+          "sha256": "40af138d5785b87fd32cfb196cd72c6cbb1a2a871c6437dc01e24a167c466633",
+          "move": "fire-breaker",
+          "view": "side",
+          "time": 0.76
+        },
+        {
+          "name": "starter-fire-fire-breaker-side-7-normals.png",
+          "sha256": "de398d9bce03d9ee921cfdc1e72e2169a16e23538b9f6e17e2ee0a9cb6ab8b90",
+          "move": "fire-breaker",
+          "view": "side",
+          "time": 0.96
+        },
+        {
+          "name": "starter-fire-fire-breaker-side-8-normals.png",
+          "sha256": "c53a2f1fa3f6f50893e7b1f44c07d53c9034ba4d7bc0a143ff389f7f36164f6b",
+          "move": "fire-breaker",
+          "view": "side",
+          "time": 1.2
+        },
+        {
+          "name": "starter-fire-fire-breaker-side-9-normals.png",
+          "sha256": "4c6694b3c3bffd2db7d61015a827b712a38c054010f69ede5b6b4824bfd36e97",
+          "move": "fire-breaker",
+          "view": "side",
+          "time": 1.44
+        },
+        {
+          "name": "starter-fire-fire-breaker-side-10-normals.png",
+          "sha256": "e47c4f34008af9570649e9b9a42419ab039047199c2e1a6092645087aa39d4ce",
+          "move": "fire-breaker",
+          "view": "side",
+          "time": 1.68
+        },
+        {
+          "name": "starter-fire-fire-breaker-side-11-normals.png",
+          "sha256": "e162222d5da8ae1f5e18af3e3dbb50981ccd65409b72a7b5a62d8ca19528d476",
+          "move": "fire-breaker",
+          "view": "side",
+          "time": 1.92
+        }
+      ],
+      "width": 1320,
+      "height": 624
+    },
+    {
+      "name": "side-block-1-half-0.png",
+      "sha256": "624671b49fd0c1102a85a9dc97d1a16ba69769d6a77b0c47160f79bc02d3b44b",
+      "sources": [
+        {
+          "name": "starter-fire-earth-pulse-side-0-normals.png",
+          "sha256": "8c5a803d2eb3a6145ded90fe7de36e8dd11ebc5b749af7211e4a092afda9067c",
+          "move": "earth-pulse",
+          "view": "side",
+          "time": 0.04
+        },
+        {
+          "name": "starter-fire-earth-pulse-side-1-normals.png",
+          "sha256": "ad651deb6a93b1bc8cb930faeb3b87aaeade924818dfc89b0f31abd3796a857e",
+          "move": "earth-pulse",
+          "view": "side",
+          "time": 0.12
+        },
+        {
+          "name": "starter-fire-earth-pulse-side-2-normals.png",
+          "sha256": "a140d87f9790a5b6e79f81e2b04f3d156006f6c577f1f870061ae399d6b83c25",
+          "move": "earth-pulse",
+          "view": "side",
+          "time": 0.24
+        },
+        {
+          "name": "starter-fire-earth-pulse-side-3-normals.png",
+          "sha256": "34a274c122bf129ef032bdeb6c23f5ea1bd980d3070d68a2897222d8221b5a33",
+          "move": "earth-pulse",
+          "view": "side",
+          "time": 0.36
+        },
+        {
+          "name": "starter-fire-earth-pulse-side-4-normals.png",
+          "sha256": "09de44b37603f027d2010fea9e1c9504c0029140df24d40d30ede4285362042f",
+          "move": "earth-pulse",
+          "view": "side",
+          "time": 0.48
+        },
+        {
+          "name": "starter-fire-earth-pulse-side-5-normals.png",
+          "sha256": "2f95f3f656e497a037c88a06ae0e4c3b4af762cc30f69832e81e0a5bb9528d72",
+          "move": "earth-pulse",
+          "view": "side",
+          "time": 0.6
+        },
+        {
+          "name": "starter-fire-ember-scar-side-0-normals.png",
+          "sha256": "cbe0795787d06b8d02431fdfbd9b940504ff27828b4312839d201f4b419c0a61",
+          "move": "ember-scar",
+          "view": "side",
+          "time": 0.04
+        },
+        {
+          "name": "starter-fire-ember-scar-side-1-normals.png",
+          "sha256": "4ec876a1ddcdd22cddab6de7098ed907921b1dbd1e3fae98eb7fa3414ecb3737",
+          "move": "ember-scar",
+          "view": "side",
+          "time": 0.12
+        },
+        {
+          "name": "starter-fire-ember-scar-side-2-normals.png",
+          "sha256": "e2efc42256e365e54c11393dd6fd2bd99b37d4eb4112b3a8a9f76c3d4d48454e",
+          "move": "ember-scar",
+          "view": "side",
+          "time": 0.24
+        },
+        {
+          "name": "starter-fire-ember-scar-side-3-normals.png",
+          "sha256": "7b146d22e450c72094ee2a8ee55d27b14c986d7efc88534dcc782dd2feb49423",
+          "move": "ember-scar",
+          "view": "side",
+          "time": 0.36
+        },
+        {
+          "name": "starter-fire-ember-scar-side-4-normals.png",
+          "sha256": "09de44b37603f027d2010fea9e1c9504c0029140df24d40d30ede4285362042f",
+          "move": "ember-scar",
+          "view": "side",
+          "time": 0.48
+        },
+        {
+          "name": "starter-fire-ember-scar-side-5-normals.png",
+          "sha256": "4f0312e14e75d769e8f6960605330f92c3cb539c56544143b7bbee6fc43ca323",
+          "move": "ember-scar",
+          "view": "side",
+          "time": 0.6
+        },
+        {
+          "name": "starter-fire-expose-side-0-normals.png",
+          "sha256": "8c5a803d2eb3a6145ded90fe7de36e8dd11ebc5b749af7211e4a092afda9067c",
+          "move": "expose",
+          "view": "side",
+          "time": 0.04
+        },
+        {
+          "name": "starter-fire-expose-side-1-normals.png",
+          "sha256": "4ec876a1ddcdd22cddab6de7098ed907921b1dbd1e3fae98eb7fa3414ecb3737",
+          "move": "expose",
+          "view": "side",
+          "time": 0.12
+        },
+        {
+          "name": "starter-fire-expose-side-2-normals.png",
+          "sha256": "a140d87f9790a5b6e79f81e2b04f3d156006f6c577f1f870061ae399d6b83c25",
+          "move": "expose",
+          "view": "side",
+          "time": 0.24
+        },
+        {
+          "name": "starter-fire-expose-side-3-normals.png",
+          "sha256": "34a274c122bf129ef032bdeb6c23f5ea1bd980d3070d68a2897222d8221b5a33",
+          "move": "expose",
+          "view": "side",
+          "time": 0.36
+        },
+        {
+          "name": "starter-fire-expose-side-4-normals.png",
+          "sha256": "09de44b37603f027d2010fea9e1c9504c0029140df24d40d30ede4285362042f",
+          "move": "expose",
+          "view": "side",
+          "time": 0.48
+        },
+        {
+          "name": "starter-fire-expose-side-5-normals.png",
+          "sha256": "2f95f3f656e497a037c88a06ae0e4c3b4af762cc30f69832e81e0a5bb9528d72",
+          "move": "expose",
+          "view": "side",
+          "time": 0.6
+        }
+      ],
+      "width": 1320,
+      "height": 624
+    },
+    {
+      "name": "side-block-1-half-1.png",
+      "sha256": "23b0ebafbd8e580280282c245086056d71727ef91af98e47e6d105ca6c1318a3",
+      "sources": [
+        {
+          "name": "starter-fire-earth-pulse-side-6-normals.png",
+          "sha256": "cabe25235ae94264163367acd222d099f889584fddb8def111904f2db951c6bc",
+          "move": "earth-pulse",
+          "view": "side",
+          "time": 0.76
+        },
+        {
+          "name": "starter-fire-earth-pulse-side-7-normals.png",
+          "sha256": "3a933a639caee1578a9e166dc0cdcd47496cb1fab5a792c56237c41d4a27c60e",
+          "move": "earth-pulse",
+          "view": "side",
+          "time": 0.96
+        },
+        {
+          "name": "starter-fire-earth-pulse-side-8-normals.png",
+          "sha256": "2b21b5604768790673777dfd62c22dcf6d658d7e82da7f77ff9d75c38aace1de",
+          "move": "earth-pulse",
+          "view": "side",
+          "time": 1.2
+        },
+        {
+          "name": "starter-fire-earth-pulse-side-9-normals.png",
+          "sha256": "1ae34c3785ee5b19d8902ea256cdc2e629cf23eb3658e262c8ce4b69da3ef032",
+          "move": "earth-pulse",
+          "view": "side",
+          "time": 1.44
+        },
+        {
+          "name": "starter-fire-earth-pulse-side-10-normals.png",
+          "sha256": "db5221c85c2877a68a405e33cefb33ef5869c0b513247ddfc90a4e450f4b6970",
+          "move": "earth-pulse",
+          "view": "side",
+          "time": 1.68
+        },
+        {
+          "name": "starter-fire-earth-pulse-side-11-normals.png",
+          "sha256": "e162222d5da8ae1f5e18af3e3dbb50981ccd65409b72a7b5a62d8ca19528d476",
+          "move": "earth-pulse",
+          "view": "side",
+          "time": 1.92
+        },
+        {
+          "name": "starter-fire-ember-scar-side-6-normals.png",
+          "sha256": "d34a95d69f0cf10580ebdafdb70b778d15cf146fe53723221a4c36626c94ae39",
+          "move": "ember-scar",
+          "view": "side",
+          "time": 0.76
+        },
+        {
+          "name": "starter-fire-ember-scar-side-7-normals.png",
+          "sha256": "77099cb2c19b28298339fb80abacccb286f8cf2edf8507455faecbd778f8ee51",
+          "move": "ember-scar",
+          "view": "side",
+          "time": 0.96
+        },
+        {
+          "name": "starter-fire-ember-scar-side-8-normals.png",
+          "sha256": "4b61a9cf5628c902a879cc5de0e039e964be2aae6154eb503f52bbe48075dffc",
+          "move": "ember-scar",
+          "view": "side",
+          "time": 1.2
+        },
+        {
+          "name": "starter-fire-ember-scar-side-9-normals.png",
+          "sha256": "ccc2bd415860265227d8959e849839b3de206817b0a65ce23fc04a4592c48dfe",
+          "move": "ember-scar",
+          "view": "side",
+          "time": 1.44
+        },
+        {
+          "name": "starter-fire-ember-scar-side-10-normals.png",
+          "sha256": "e47c4f34008af9570649e9b9a42419ab039047199c2e1a6092645087aa39d4ce",
+          "move": "ember-scar",
+          "view": "side",
+          "time": 1.68
+        },
+        {
+          "name": "starter-fire-ember-scar-side-11-normals.png",
+          "sha256": "e162222d5da8ae1f5e18af3e3dbb50981ccd65409b72a7b5a62d8ca19528d476",
+          "move": "ember-scar",
+          "view": "side",
+          "time": 1.92
+        },
+        {
+          "name": "starter-fire-expose-side-6-normals.png",
+          "sha256": "d34a95d69f0cf10580ebdafdb70b778d15cf146fe53723221a4c36626c94ae39",
+          "move": "expose",
+          "view": "side",
+          "time": 0.76
+        },
+        {
+          "name": "starter-fire-expose-side-7-normals.png",
+          "sha256": "77099cb2c19b28298339fb80abacccb286f8cf2edf8507455faecbd778f8ee51",
+          "move": "expose",
+          "view": "side",
+          "time": 0.96
+        },
+        {
+          "name": "starter-fire-expose-side-8-normals.png",
+          "sha256": "2b21b5604768790673777dfd62c22dcf6d658d7e82da7f77ff9d75c38aace1de",
+          "move": "expose",
+          "view": "side",
+          "time": 1.2
+        },
+        {
+          "name": "starter-fire-expose-side-9-normals.png",
+          "sha256": "1ae34c3785ee5b19d8902ea256cdc2e629cf23eb3658e262c8ce4b69da3ef032",
+          "move": "expose",
+          "view": "side",
+          "time": 1.44
+        },
+        {
+          "name": "starter-fire-expose-side-10-normals.png",
+          "sha256": "70c1c9e9a1e3a8be46de3ed03b5e0b0a44a0070aa7f480b44f8fe1ff6f05dfa6",
+          "move": "expose",
+          "view": "side",
+          "time": 1.68
+        },
+        {
+          "name": "starter-fire-expose-side-11-normals.png",
+          "sha256": "03109c7d8f18fc28b06b84a7db7bbd68a9b95713f142bb54816154e3af7110f2",
+          "move": "expose",
+          "view": "side",
+          "time": 1.92
+        }
+      ],
+      "width": 1320,
+      "height": 624
+    },
+    {
+      "name": "side-block-2-half-0.png",
+      "sha256": "8c9664474e87c5981641c116c55a85b44e6e4ed742ff82ceed286af9e71f7d52",
+      "sources": [
+        {
+          "name": "starter-fire-rally-side-0-normals.png",
+          "sha256": "cbe0795787d06b8d02431fdfbd9b940504ff27828b4312839d201f4b419c0a61",
+          "move": "rally",
+          "view": "side",
+          "time": 0.04
+        },
+        {
+          "name": "starter-fire-rally-side-1-normals.png",
+          "sha256": "4ec876a1ddcdd22cddab6de7098ed907921b1dbd1e3fae98eb7fa3414ecb3737",
+          "move": "rally",
+          "view": "side",
+          "time": 0.12
+        },
+        {
+          "name": "starter-fire-rally-side-2-normals.png",
+          "sha256": "e2efc42256e365e54c11393dd6fd2bd99b37d4eb4112b3a8a9f76c3d4d48454e",
+          "move": "rally",
+          "view": "side",
+          "time": 0.24
+        },
+        {
+          "name": "starter-fire-rally-side-3-normals.png",
+          "sha256": "7b146d22e450c72094ee2a8ee55d27b14c986d7efc88534dcc782dd2feb49423",
+          "move": "rally",
+          "view": "side",
+          "time": 0.36
+        },
+        {
+          "name": "starter-fire-rally-side-4-normals.png",
+          "sha256": "63adfec6506de356ad6aa6df49df270d9456ba31f2536ab0b08b5f5c545328e6",
+          "move": "rally",
+          "view": "side",
+          "time": 0.48
+        },
+        {
+          "name": "starter-fire-rally-side-5-normals.png",
+          "sha256": "4f0312e14e75d769e8f6960605330f92c3cb539c56544143b7bbee6fc43ca323",
+          "move": "rally",
+          "view": "side",
+          "time": 0.6
+        },
+        {
+          "name": "starter-fire-protect-side-0-normals.png",
+          "sha256": "80521e2a71888a2a68afdf7db4cbc16e47197f46f51304f0d654f891be8cfc02",
+          "move": "protect",
+          "view": "side",
+          "time": 0.04
+        },
+        {
+          "name": "starter-fire-protect-side-1-normals.png",
+          "sha256": "abe9fa16bc12fd9c0e41e627a7b03955b139bfd48c096d9bda3acee82422e241",
+          "move": "protect",
+          "view": "side",
+          "time": 0.12
+        },
+        {
+          "name": "starter-fire-protect-side-2-normals.png",
+          "sha256": "2e5c567902797c3ae5034d621956773f83a3576bec8dcd5edd20839c00081fb4",
+          "move": "protect",
+          "view": "side",
+          "time": 0.24
+        },
+        {
+          "name": "starter-fire-protect-side-3-normals.png",
+          "sha256": "230ab842c43f95e430fc39c0d62592a8847a73be1081956be6665f2473923c33",
+          "move": "protect",
+          "view": "side",
+          "time": 0.36
+        },
+        {
+          "name": "starter-fire-protect-side-4-normals.png",
+          "sha256": "bbc8cbdf74734f396ef5e2f205fb595c2775b70016abb6b4f8e61a20aabb6c59",
+          "move": "protect",
+          "view": "side",
+          "time": 0.48
+        },
+        {
+          "name": "starter-fire-protect-side-5-normals.png",
+          "sha256": "a6275c274cba72d42b50f29a9fe24fc02bd5abdf1a9ae56c3f448917b3504aa7",
+          "move": "protect",
+          "view": "side",
+          "time": 0.6
+        },
+        {
+          "name": "starter-fire-starter-fire-signature-side-0-normals.png",
+          "sha256": "820f959da139655e3ffb208784762edfdf30bcaf69b5f92fa11efd7dd850d0e7",
+          "move": "starter-fire-signature",
+          "view": "side",
+          "time": 0.04
+        },
+        {
+          "name": "starter-fire-starter-fire-signature-side-1-normals.png",
+          "sha256": "b97e7693bf8eb6dc284e04064b8195eae2196d90e219f0c20b4613dfa94083c5",
+          "move": "starter-fire-signature",
+          "view": "side",
+          "time": 0.12
+        },
+        {
+          "name": "starter-fire-starter-fire-signature-side-2-normals.png",
+          "sha256": "cf06a2b7df235563a60370c788cfa683a58c6fe8429b9f13b0ac3668e07e5643",
+          "move": "starter-fire-signature",
+          "view": "side",
+          "time": 0.24
+        },
+        {
+          "name": "starter-fire-starter-fire-signature-side-3-normals.png",
+          "sha256": "2a116eb86ef240a451e362e87afcb46ab2d76e668715b0fcce085f2f4ccd0b1d",
+          "move": "starter-fire-signature",
+          "view": "side",
+          "time": 0.36
+        },
+        {
+          "name": "starter-fire-starter-fire-signature-side-4-normals.png",
+          "sha256": "1eb8483f2cbd95913c08e16eb6da8ac5b3351d4dfe57a18fc83fedaa72166aff",
+          "move": "starter-fire-signature",
+          "view": "side",
+          "time": 0.48
+        },
+        {
+          "name": "starter-fire-starter-fire-signature-side-5-normals.png",
+          "sha256": "73c815112eb2501c01df302b66c70847e008bb56563c65aac885bd8d1a40cb33",
+          "move": "starter-fire-signature",
+          "view": "side",
+          "time": 0.6
+        }
+      ],
+      "width": 1320,
+      "height": 624
+    },
+    {
+      "name": "side-block-2-half-1.png",
+      "sha256": "5d08b453c31c00d2faab655d30f20443f733e43938f6d6c70991e78bcc43c413",
+      "sources": [
+        {
+          "name": "starter-fire-rally-side-6-normals.png",
+          "sha256": "d34a95d69f0cf10580ebdafdb70b778d15cf146fe53723221a4c36626c94ae39",
+          "move": "rally",
+          "view": "side",
+          "time": 0.76
+        },
+        {
+          "name": "starter-fire-rally-side-7-normals.png",
+          "sha256": "77099cb2c19b28298339fb80abacccb286f8cf2edf8507455faecbd778f8ee51",
+          "move": "rally",
+          "view": "side",
+          "time": 0.96
+        },
+        {
+          "name": "starter-fire-rally-side-8-normals.png",
+          "sha256": "4b61a9cf5628c902a879cc5de0e039e964be2aae6154eb503f52bbe48075dffc",
+          "move": "rally",
+          "view": "side",
+          "time": 1.2
+        },
+        {
+          "name": "starter-fire-rally-side-9-normals.png",
+          "sha256": "ef34d0c271cde1dd3ed51c6a760133d5c204151be8c0a02020f7a3c5b3f410c7",
+          "move": "rally",
+          "view": "side",
+          "time": 1.44
+        },
+        {
+          "name": "starter-fire-rally-side-10-normals.png",
+          "sha256": "70c1c9e9a1e3a8be46de3ed03b5e0b0a44a0070aa7f480b44f8fe1ff6f05dfa6",
+          "move": "rally",
+          "view": "side",
+          "time": 1.68
+        },
+        {
+          "name": "starter-fire-rally-side-11-normals.png",
+          "sha256": "e162222d5da8ae1f5e18af3e3dbb50981ccd65409b72a7b5a62d8ca19528d476",
+          "move": "rally",
+          "view": "side",
+          "time": 1.92
+        },
+        {
+          "name": "starter-fire-protect-side-6-normals.png",
+          "sha256": "5b6fbf6da14689ec6d69d9a72304b343ba27669cc282fa18415c3fbc6adc0a62",
+          "move": "protect",
+          "view": "side",
+          "time": 0.76
+        },
+        {
+          "name": "starter-fire-protect-side-7-normals.png",
+          "sha256": "9f9ffebf1a76bc2bd7a5fe6a03e2230488b9a8422f30b2c0d66d0404f828ac24",
+          "move": "protect",
+          "view": "side",
+          "time": 0.96
+        },
+        {
+          "name": "starter-fire-protect-side-8-normals.png",
+          "sha256": "d1e02fe96a81f51491c7711ee7332d0c11039a513202f55988152eac32307c0f",
+          "move": "protect",
+          "view": "side",
+          "time": 1.2
+        },
+        {
+          "name": "starter-fire-protect-side-9-normals.png",
+          "sha256": "4ba520acfc004130f150809c6cd3998d2e829d6e497c204e41d86643f319730c",
+          "move": "protect",
+          "view": "side",
+          "time": 1.44
+        },
+        {
+          "name": "starter-fire-protect-side-10-normals.png",
+          "sha256": "e47c4f34008af9570649e9b9a42419ab039047199c2e1a6092645087aa39d4ce",
+          "move": "protect",
+          "view": "side",
+          "time": 1.68
+        },
+        {
+          "name": "starter-fire-protect-side-11-normals.png",
+          "sha256": "e162222d5da8ae1f5e18af3e3dbb50981ccd65409b72a7b5a62d8ca19528d476",
+          "move": "protect",
+          "view": "side",
+          "time": 1.92
+        },
+        {
+          "name": "starter-fire-starter-fire-signature-side-6-normals.png",
+          "sha256": "875d5425c1a58843b053fd338c53bb62f057c827b53ee624de01a83a29ed3eee",
+          "move": "starter-fire-signature",
+          "view": "side",
+          "time": 0.76
+        },
+        {
+          "name": "starter-fire-starter-fire-signature-side-7-normals.png",
+          "sha256": "6cf406e495d1ae51d0a2d772b60cc0ae47fd0131571fdda46c6fe59002cc30d2",
+          "move": "starter-fire-signature",
+          "view": "side",
+          "time": 0.96
+        },
+        {
+          "name": "starter-fire-starter-fire-signature-side-8-normals.png",
+          "sha256": "5f4b33668d0a61150471f78b6de21582c1b11a7765317e2338161995eab36aa0",
+          "move": "starter-fire-signature",
+          "view": "side",
+          "time": 1.2
+        },
+        {
+          "name": "starter-fire-starter-fire-signature-side-9-normals.png",
+          "sha256": "09313137bdc06c5d288a95b13649192ddd6689c8e124cb1468ceec16690a19f6",
+          "move": "starter-fire-signature",
+          "view": "side",
+          "time": 1.44
+        },
+        {
+          "name": "starter-fire-starter-fire-signature-side-10-normals.png",
+          "sha256": "70c1c9e9a1e3a8be46de3ed03b5e0b0a44a0070aa7f480b44f8fe1ff6f05dfa6",
+          "move": "starter-fire-signature",
+          "view": "side",
+          "time": 1.68
+        },
+        {
+          "name": "starter-fire-starter-fire-signature-side-11-normals.png",
+          "sha256": "e162222d5da8ae1f5e18af3e3dbb50981ccd65409b72a7b5a62d8ca19528d476",
+          "move": "starter-fire-signature",
+          "view": "side",
+          "time": 1.92
+        }
+      ],
+      "width": 1320,
+      "height": 624
+    }
+  ],
+  "review": "pending"
+}

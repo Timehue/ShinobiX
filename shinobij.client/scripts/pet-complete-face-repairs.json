@@ -1355,6 +1355,143 @@
           ]
         }
       ]
+    },
+    "starter-fire": {
+      "y": [
+        -0.18,
+        -0.02
+      ],
+      "z": [
+        0.25,
+        0.4
+      ],
+      "cameraPadding": 1.4,
+      "status": "repair",
+      "finding": "Original fifteen source raw slices including the opposite head angle and all 216 actual technique frames inspected. Muzzle and lower face shear during recoil and turned death; left ear has a separate independent drift. Complete jaw and ear binding is an unapproved intermediate; visible leg support and anatomically aligned motion still require repair.",
+      "revision": "20261018-cinder-cub-complete-jaw-and-ears-v1",
+      "supersedesSourceSha256": "44d056d2461d54b04fbcb59a84553a4bfcbfa020c67dd61c68041f5d1090266f",
+      "repairRegion": {
+        "y": [
+          -0.2,
+          -0.13
+        ],
+        "z": [
+          0.68,
+          0.76
+        ],
+        "x": [
+          0.62,
+          0.82
+        ],
+        "union": [
+          {
+            "y": [
+              0.46,
+              0.5
+            ],
+            "z": [
+              0.31,
+              0.36
+            ],
+            "x": [
+              0.8,
+              0.9
+            ]
+          }
+        ]
+      },
+      "union": [
+        {
+          "y": [
+            -0.2,
+            -0.13
+          ],
+          "z": [
+            0.68,
+            0.76
+          ],
+          "x": [
+            0.62,
+            0.82
+          ],
+          "union": [
+            {
+              "y": [
+                0.46,
+                0.5
+              ],
+              "z": [
+                0.31,
+                0.36
+              ],
+              "x": [
+                0.8,
+                0.9
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "legendary-13": {
+      "y": [
+        0,
+        0.14
+      ],
+      "z": [
+        0.55,
+        0.72
+      ],
+      "cameraPadding": 1.3,
+      "status": "repair",
+      "finding": "All 24 source/battle whole-face and full-body slices actually inspected. Armored Polar Bear muzzle is stretched sideways in idle, secondary idle, recoil, rest and victory. The cheeks and muzzle move separately from the brow, with the face collapsing on recoil. Raw body, armor and four paws remain attached. All 216 actual technique frames actually inspected via 12 native lossless strips: muzzle shears during windup and the strike shifts support paws; face repair and a separate support check are required. Separate measured complete-face candidate, not promoted. Geometry, animation curves and accessories must be conserved, independent face and full-body numerical checks plus actual candidate visual review required.",
+      "union": [
+        {
+          "y": [
+            0.26,
+            0.36
+          ],
+          "z": [
+            0.2,
+            0.35
+          ],
+          "x": [
+            0.45,
+            0.55
+          ]
+        },
+        {
+          "y": [
+            -0.17,
+            -0.08
+          ],
+          "z": [
+            0.62,
+            0.76
+          ],
+          "x": [
+            0.4,
+            0.54
+          ]
+        }
+      ],
+      "revision": "20261017-independent-complete-face-v2",
+      "supersedesSourceSha256": "7d18a5a650b3c11d84e2c57c69f21bf9e03295e189b2f5b33c257725d83d43c9",
+      "repairRegion": {
+        "y": [
+          -0.17,
+          -0.08
+        ],
+        "z": [
+          0.62,
+          0.76
+        ],
+        "x": [
+          0.4,
+          0.54
+        ]
+      },
+      "continuousInfluencePacking": true
     }
   }
 }

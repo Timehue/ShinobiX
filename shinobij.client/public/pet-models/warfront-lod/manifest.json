@@ -25,8 +25,8 @@
     "minSilhouetteIoU": 0.975
   },
   "totals": {
-    "sourceBytes": 112000072,
-    "lodBytes": 72368936,
+    "sourceBytes": 113099956,
+    "lodBytes": 72917224,
     "sourceTriangles": 5956618,
     "lodTriangles": 1624735
   },
@@ -158,27 +158,27 @@
     },
     {
       "sourceUrl": "/pet-models/roster/legendary-13.glb",
-      "lodUrl": "/pet-models/warfront-lod/roster/legendary-13.glb?v=20260902-battle-lod-v1-7d18a5a650b3-74876733a929",
-      "sourceBytes": 590652,
-      "lodBytes": 366036,
-      "sourceSha256": "7d18a5a650b3c11d84e2c57c69f21bf9e03295e189b2f5b33c257725d83d43c9",
-      "lodSha256": "74876733a929e10172d494e76b60564b91ac33989847341675a85aaa63995f65",
+      "lodUrl": "/pet-models/warfront-lod/roster/legendary-13.glb?v=20260902-battle-lod-v1-ace7249f33d8-ddc85a710a5a",
+      "sourceBytes": 1223764,
+      "lodBytes": 610208,
+      "sourceSha256": "ace7249f33d8223b8d87fb1b0abedf60e6be96ffca1fd33495826e701a54939d",
+      "lodSha256": "ddc85a710a5a7adbd5fde0cd09d4abc7ee15f42e18d302dd94e3a85bf2b3e879",
       "sourceTriangles": 40000,
       "lodTriangles": 10000,
       "reduction": 0.75,
       "lowPolySource": false,
       "sourceVertices": 25245,
-      "lodVertices": 7954,
+      "lodVertices": 7932,
       "skins": 1,
-      "joints": 21,
+      "joints": 33,
       "animations": 13,
       "materials": 1,
       "textures": 1,
       "boundsMaxDelta": 0,
       "silhouettes": {
-        "front": 0.997626,
-        "threeQuarter": 0.996576,
-        "side": 0.997628
+        "front": 0.99726,
+        "threeQuarter": 0.996574,
+        "side": 0.9969
       }
     },
     {
@@ -3808,25 +3808,25 @@
     },
     {
       "sourceUrl": "/pet-models/starter-fire.glb",
-      "lodUrl": "/pet-models/warfront-lod/starter-fire.glb?v=20260902-battle-lod-v1-44d056d2461d-f05f407204d4",
-      "sourceBytes": 319516,
-      "lodBytes": 315760,
-      "sourceSha256": "44d056d2461d54b04fbcb59a84553a4bfcbfa020c67dd61c68041f5d1090266f",
-      "lodSha256": "f05f407204d4e523b0a639be7d7651c9ac8a06ada9c3c1c3933a991d5e5ee9d1",
+      "lodUrl": "/pet-models/warfront-lod/starter-fire.glb?v=20260902-battle-lod-v1-2d88f6315b33-28c59477df48",
+      "sourceBytes": 786288,
+      "lodBytes": 619876,
+      "sourceSha256": "2d88f6315b33a32a8ed3a032cedee52ddb39230a32d7c82fe269d11550fd574c",
+      "lodSha256": "28c59477df4809a218a8b17c7dd39a1cacb43fc8440c546dc290a16fd40160e4",
       "sourceTriangles": 15042,
       "lodTriangles": 10528,
       "reduction": 0.300093,
       "lowPolySource": true,
       "sourceVertices": 10756,
-      "lodVertices": 8176,
+      "lodVertices": 8162,
       "skins": 1,
-      "joints": 21,
+      "joints": 35,
       "animations": 13,
       "materials": 1,
       "textures": 1,
       "boundsMaxDelta": 0,
       "silhouettes": {
-        "front": 0.997228,
+        "front": 0.997441,
         "threeQuarter": 0.998592,
         "side": 0.996043
       }

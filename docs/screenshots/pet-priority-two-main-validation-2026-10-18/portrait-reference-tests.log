@@ -1,0 +1,14 @@
+✔ every reviewed portrait belongs to its exact production identity and is an opaque delivery WebP (381.2199ms)
+✔ all five base starters use scenic portraits without changing their battle cutouts (1.3503ms)
+✔ owned and timestamped identities resolve the same portrait, including starter stages (1.8139ms)
+✔ dedicated custom cards and explicit palette variants retain priority over the built-in replacement (0.303ms)
+✔ unknown creator companions retain legacy artwork and never borrow another species portrait (0.3031ms)
+✔ the production references remain byte-identical, including model-baked 2.5D atlases (720.7781ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2080.0987

@@ -14,6 +14,11 @@ import { PET_SHOWDOWN_ANIMATION_ASSET_REVISION } from "./pet-showdown-animation-
 
 const pet = (id: string, evolutionStage?: 0 | 1 | 2, rarity: "standard" | "rare" | "legendary" = "standard") => ({ id, evolutionStage, rarity });
 
+test("Cinder Cub's concave flame keeps its authored contours without a leaking inverted hull", () => {
+    assert.equal(petCombatModel(pet("starter-fire", 0))?.outlineScale, 1);
+    assert.equal(petCombatModel(pet("starter-water", 0))?.outlineScale, 1.026);
+});
+
 test("all five base starter forms have an approved combat model", () => {
     assert.equal(PET_COMBAT_MODEL_IDS.length, 15);
     for (const element of ["fire", "water", "wind", "lightning", "earth"]) {

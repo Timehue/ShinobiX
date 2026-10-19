@@ -1307,7 +1307,7 @@
       ],
       "referenceSha256": [
         "c4e0c2951cfdd4bb5f5c50cef894026daf772814b4f2648c8bc306a64ee1c09f",
-        "0a93288abf0eb20f1486f5e601a38cd2b34890b129d5df74b2e071b0cb38b59c"
+        "adb903cf3c1b800fe4eefe09f13e002d9107651287a2955feac6fc738c826dd0"
       ],
       "scene": "an old mountain shrine approach in warm late afternoon, mossy stone steps, cedar trees and distant tiled gates",
       "prompt": "Use case: identity-preserve. Asset: one finished square companion hero portrait for Shinobi Journey, a polished shinobi RPG. Image 1 is the edit target and main character reference: Armored Polar Bear (legendary-13). Keep this exact companion recognizable and faithful to the game: preserve species, face, colors, markings, silhouette, proportions, costume and equipment. If Image 2 is supplied it is a grid of poses of the ONE production model, provided only to confirm the anatomy and outfit; never reproduce the grid or duplicate the creature. Resolve old illustration details against that production identity. Add no new wearable equipment. Replace the empty or old backdrop with a complete, professionally painted setting: an old mountain shrine approach in warm late afternoon, mossy stone steps, cedar trees and distant tiled gates. The scene fills the entire image edge to edge, with a grounded contact shadow or a physically appropriate perch/water surface. Unified collection style: clean anime ink, refined restrained cel shading with convincing rounded volume, tactile cloth and fur/feathers/scales, softly painted environments, indigo shadows and natural atmospheric depth. Retain the existing stylized character design; do not turn it photorealistic or generic. One complete creature dominates at about 75-80 percent of canvas height; keep all ears, feet, wings, weapons and tails inside safe margins for square and slightly wide card crops. Face and eyes read clearly at 200px. Background has lower detail and contrast than the subject. Use dramatic but controlled hero lighting and atmospheric depth, keeping any elemental effects sparse and behind the silhouette. No additional characters, duplicate heads, extra limbs, new weapons, redesigned armor, text, watermark, logo, UI frame, border, collage or multiple panels. Return one finished portrait. Approved current production identity: Armored Polar Bear is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation. Body profile: heavy. The approved model identity takes priority over obsolete accessories or anatomy in Image 1. Do not invent new physical features.",
@@ -1342,6 +1342,13 @@
           "sha256": "0a93288abf0eb20f1486f5e601a38cd2b34890b129d5df74b2e071b0cb38b59c",
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
+        },
+        {
+          "reference": "pet-models/warfront-impostors/roster/legendary-13.webp",
+          "previousSha256": "0a93288abf0eb20f1486f5e601a38cd2b34890b129d5df74b2e071b0cb38b59c",
+          "sha256": "adb903cf3c1b800fe4eefe09f13e002d9107651287a2955feac6fc738c826dd0",
+          "animationReview": "docs/audits/pet-priority-two-omitted-final-review-2026-10-18.json",
+          "reason": "Track the twice visually reviewed Polar Bear animation atlas from PR #434. Preserve the previous reference hash and all portrait master, delivery, quality-review and symbol-review records; this is an animation-reference update, not a new portrait review."
         }
       ]
     },
