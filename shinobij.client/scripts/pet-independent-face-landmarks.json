@@ -3918,6 +3918,174 @@
         "appendedAnatomicalLimbJoints": 12,
         "coverageActuallyRechecked": true
       }
+    },
+    "starter-water": {
+      "camera": {
+        "y": [
+          -2,
+          -2
+        ],
+        "bounds": [
+          -0.521050905100379,
+          0.5378694228774356,
+          0.08902682025582895,
+          0.867510465712348,
+          0.5249263796862593,
+          1.092091630796229
+        ],
+        "cameraPadding": 1.15
+      },
+      "status": "landmark-coverage-reviewed",
+      "sourceSha256": "d4b09247b2ad1ada7c179771d631b2bd833f02d917bb082950011454df2ca036",
+      "coverageEvidence": "../docs/screenshots/pet-independent-starter-base-five-progress-2026-10-18/starter-water-landmark-coverage.png",
+      "landmarks": {
+        "upperFace": {
+          "center": [
+            -0.05674661963544839,
+            0.47621103726509917,
+            0.9132040622946693
+          ],
+          "radius": 0.1,
+          "pickedPixel": [
+            148,
+            181
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "muzzle": {
+          "center": [
+            -0.07881525875501585,
+            0.29621565375031933,
+            0.9720916307962291
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            144,
+            205
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "lowerFace": {
+          "center": [
+            -0.1068162687811897,
+            0.17902682025582894,
+            0.9083119478198135
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            146,
+            218
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "jawChin": {
+          "center": [
+            0.29786942287743556,
+            0.22356013670053784,
+            0.8049263796862594
+          ],
+          "radius": 0.12,
+          "pickedPixel": [
+            119,
+            211
+          ],
+          "pickedView": "head-side",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "headband": {
+          "center": [
+            -0.033875840161281055,
+            0.6875104657123481,
+            0.9356037831611339
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            151,
+            154
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "leftEye": {
+          "center": [
+            -0.281050905100379,
+            0.4480356836075018,
+            0.8358610309804059
+          ],
+          "radius": 0.09,
+          "pickedPixel": [
+            121,
+            183
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "rightEye": {
+          "center": [
+            0.14940495891154565,
+            0.45795873980357027,
+            0.8371698588843718
+          ],
+          "radius": 0.09,
+          "pickedPixel": [
+            175,
+            183
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        }
+      },
+      "geometrySha256": "5fe60d84a7985d5ce94010509071ef66c2641a975332dcba83598f452dd76a0b",
+      "geometryToVisibleBind": [
+        1.0000022434374227,
+        0,
+        0,
+        0,
+        0,
+        1.0000021612066388,
+        -4.9221901693430326e-8,
+        0,
+        0,
+        -2.332222390211136e-8,
+        1.0000024035001451,
+        0,
+        6.307249826587036e-9,
+        5.106183531555786e-9,
+        -0.000002386740333135129,
+        1
+      ],
+      "headCountVisuallyVerified": 1,
+      "heads": [
+        {
+          "id": "primary",
+          "landmarks": [
+            "upperFace",
+            "muzzle",
+            "lowerFace",
+            "jawChin",
+            "headband",
+            "leftEye",
+            "rightEye"
+          ]
+        }
+      ],
+      "coverageReview": {
+        "reviewedAt": "2026-10-18T14:40:22.292Z",
+        "frontAndSideActuallyInspected": true,
+        "originalSourceFrozenBeforeRepair": true,
+        "bothEyesAndWholeFaceSampled": true,
+        "sourceAndBattleMinimumTwentyVerticesAndThreeEdgesPerPatch": true
+      }
     }
   }
 }

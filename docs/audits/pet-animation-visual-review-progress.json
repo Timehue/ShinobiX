@@ -30510,7 +30510,7 @@
     },
     "starter-water": {
       "name": "Ripple Seal",
-      "firstPass": "repaired-and-double-checked",
+      "firstPass": "source-battle-first-pass-complete",
       "secondPass": "complete",
       "beforeSha256": "c3aad17071ee7945ba073ae02917a4d4c654d20aa8970817090dc1d7eb775ea4",
       "beforeEvidence": [
@@ -30539,7 +30539,7 @@
         "shinobij.client/.tmp/pet-reviewed-skulls/starter-orthogonal-candidates.json",
         "shinobij.client/.tmp/pet-animation-audit/selected-pets-starter-orthogonal-candidates-motion-audit.json"
       ],
-      "candidateSha256": "d4b09247b2ad1ada7c179771d631b2bd833f02d917bb082950011454df2ca036",
+      "candidateSha256": "90150dd50ff366a8e6504448c2a857ca8c20214e5cfe8e0fd1973fa921e521eb",
       "rigNormalization": {
         "id": "starter-water",
         "path": ".tmp/pet-rig-candidates/starter-water.glb",
@@ -30554,173 +30554,23 @@
         "shinobij.client/.tmp/pet-shape-review/body-starter-orthogonal-candidates/starter-water-front.webp",
         "shinobij.client/.tmp/pet-shape-review/body-starter-orthogonal-candidates/starter-water-side.webp"
       ],
-      "promotedSha256": "d4b09247b2ad1ada7c179771d631b2bd833f02d917bb082950011454df2ca036",
+      "promotedSha256": "90150dd50ff366a8e6504448c2a857ca8c20214e5cfe8e0fd1973fa921e521eb",
       "conservation": "geometry, topology, atlas, clip names/times preserved; rig scale, rest frames and animation deltas deterministically retargeted; localized seam and skull binding repaired",
-      "secondPassSource": {
-        "sha256": "d4b09247b2ad1ada7c179771d631b2bd833f02d917bb082950011454df2ca036",
-        "clips": [
-          "idle",
-          "idle_2",
-          "walk",
-          "gallop",
-          "gallop_jump",
-          "attack",
-          "idle_hitreact1",
-          "death",
-          "entrance",
-          "cast",
-          "guard",
-          "rest",
-          "victory"
-        ],
-        "progress": [
-          0,
-          0.125,
-          0.375,
-          0.625,
-          0.875,
-          1
-        ],
-        "headViews": [
-          "head-front",
-          "head-side"
-        ],
-        "bodyViews": [
-          "front",
-          "side"
-        ],
-        "evidence": [
-          "shinobij.client/.tmp/pet-shape-review/starters-source-second-head/starter-water-head-front.webp",
-          "shinobij.client/.tmp/pet-shape-review/starters-source-second-head/starter-water-head-side.webp",
-          "shinobij.client/.tmp/pet-shape-review/starters-source-second-body/starter-water-front.webp",
-          "shinobij.client/.tmp/pet-shape-review/starters-source-second-body/starter-water-side.webp"
-        ],
-        "evidenceSha256": {
-          "shinobij.client/.tmp/pet-shape-review/starters-source-second-head/starter-water-head-front.webp": "8ee96ad09f287f1de4ba7e28b49b5c50edef5cd69a4d1e8c67e393a33f323bfe",
-          "shinobij.client/.tmp/pet-shape-review/starters-source-second-head/starter-water-head-side.webp": "d6bc01b3e3fe59f6d071d2460e76b6a5dd514164a9e015b69b8479fd1f9dc4ba",
-          "shinobij.client/.tmp/pet-shape-review/starters-source-second-body/starter-water-front.webp": "f72dcc6c2620b2e57eb716a9ba4ffdd6a617aade2ac3e4f8e9b1d31462af9b0c",
-          "shinobij.client/.tmp/pet-shape-review/starters-source-second-body/starter-water-side.webp": "b7f27180b3cfafb9b304ac35ae3772751e985d4dcfa7d632c3a6d35e6915a8aa"
-        },
-        "finding": "All 13 clips inspected at six alternate phases in front and side head and full-body views for this source asset. Ripple Seal blue eyes, blue nose, whisker cheeks and metal forehead plate retain their shapes through attack and sideways death; two flippers, two feet, scarf and three-lobed tail remain intact after rig scale correction.",
-        "reviewedAt": "2026-10-15T05:41:06.405Z",
-        "reviewer": "Codex visual inspection"
-      },
-      "secondPassBattle": {
-        "sha256": "d1c6d69bf8d800a84b2f3e12c821a1c1fe432d7a36051cfdbb33319e8cba61c8",
-        "clips": [
-          "idle",
-          "idle_2",
-          "walk",
-          "gallop",
-          "gallop_jump",
-          "attack",
-          "idle_hitreact1",
-          "death",
-          "entrance",
-          "cast",
-          "guard",
-          "rest",
-          "victory"
-        ],
-        "progress": [
-          0,
-          0.125,
-          0.375,
-          0.625,
-          0.875,
-          1
-        ],
-        "headViews": [
-          "head-front",
-          "head-side"
-        ],
-        "bodyViews": [
-          "front",
-          "side"
-        ],
-        "evidence": [
-          "shinobij.client/.tmp/pet-shape-review/starters-lod-second-head/starter-water-head-front.webp",
-          "shinobij.client/.tmp/pet-shape-review/starters-lod-second-head/starter-water-head-side.webp",
-          "shinobij.client/.tmp/pet-shape-review/starters-lod-second-body/starter-water-front.webp",
-          "shinobij.client/.tmp/pet-shape-review/starters-lod-second-body/starter-water-side.webp"
-        ],
-        "evidenceSha256": {
-          "shinobij.client/.tmp/pet-shape-review/starters-lod-second-head/starter-water-head-front.webp": "9a1d2e98a0817783b559e67649c6ebdccf8856e750ebe6c04b8c7f633aa2f942",
-          "shinobij.client/.tmp/pet-shape-review/starters-lod-second-head/starter-water-head-side.webp": "9bd6a423ff4330b6fa657201160f8c11fc6469216d2d55dc4255d397e911d908",
-          "shinobij.client/.tmp/pet-shape-review/starters-lod-second-body/starter-water-front.webp": "4cee574d2ba41bab659ab23a54b049e241cbeb72725fe5f6a7ffc31890f32c8f",
-          "shinobij.client/.tmp/pet-shape-review/starters-lod-second-body/starter-water-side.webp": "46ae27b410c8b98ad977ed6883cf6ff3d80aebd88ebe0ec75ddea46ea7f536d3"
-        },
-        "finding": "All 13 clips inspected at six alternate phases in front and side head and full-body views for this battle asset. Ripple Seal blue eyes, blue nose, whisker cheeks and metal forehead plate retain their shapes through attack and sideways death; two flippers, two feet, scarf and three-lobed tail remain intact after rig scale correction.",
-        "reviewedAt": "2026-10-15T05:41:06.585Z",
-        "reviewer": "Codex visual inspection"
-      },
-      "runtimeVisualPass": {
-        "sourceSha256": "d4b09247b2ad1ada7c179771d631b2bd833f02d917bb082950011454df2ca036",
-        "battleSha256": "d1c6d69bf8d800a84b2f3e12c821a1c1fe432d7a36051cfdbb33319e8cba61c8",
-        "rendererSha256": "5f9f24e92abe45bafcccd21f72a1ba8de81e0f0cd2a44f6f2aa440ee08e0d1cb",
-        "rows": [
-          "idle",
-          "run",
-          "dash",
-          "windup",
-          "strike",
-          "recover",
-          "stagger",
-          "dodge",
-          "guard",
-          "rest",
-          "cast",
-          "entrance",
-          "victory",
-          "dead",
-          "revive",
-          "attack-sequence"
-        ],
-        "phases": [
-          0.025,
-          0.1,
-          0.25,
-          0.5,
-          0.75,
-          1
-        ],
-        "views": [
-          "front",
-          "side"
-        ],
-        "evidence": [
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/starter-water-source-head.webp",
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/starter-water-source-body.webp",
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/starter-water-battle-head.webp",
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/starter-water-battle-body.webp"
-        ],
-        "evidenceSha256": {
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/starter-water-source-head.webp": "665e62d62dbc2e41661fea5c287b53cd25c295465238407632110ca7c9316b9d",
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/starter-water-source-body.webp": "52b5dc3ac9957e8bf7e352cf257495ba194e8f0270c99c9b6be03d4159a186a2",
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/starter-water-battle-head.webp": "e74bb91cc93ad4fbf7d5c5186f5e5ead045417a7dee53643548dc23d8c26d179",
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/starter-water-battle-body.webp": "a157eb420ffeb94d22872defbd38a593209995218e0ed3054f6e76f8f3c2303f"
-        },
-        "finding": "All sixteen production rows inspected in both versions, front and side, head and body. White seal round muzzle, blue eyes and nose, whisker markings, metal headband, blue scarf, flippers, belly and forked tail remain coherent throughout all runtime rows in both versions.",
-        "reviewer": "Codex visual inspection",
-        "reviewedAt": "2026-10-15T08:10:32.921Z"
-      },
+      "status": "double-checked-locally-main-live-pending",
       "finalReceipt": {
-        "sourceSha256": "d4b09247b2ad1ada7c179771d631b2bd833f02d917bb082950011454df2ca036",
-        "battleSha256": "d1c6d69bf8d800a84b2f3e12c821a1c1fe432d7a36051cfdbb33319e8cba61c8",
-        "atlasSha256": "9517615f6b0fd4e1f659ec678a7d7e66ce2f09a14b301ec1906515d2d6adcb36",
-        "rendererSha256": "5f9f24e92abe45bafcccd21f72a1ba8de81e0f0cd2a44f6f2aa440ee08e0d1cb",
-        "evidence": [
-          "docs/screenshots/pet-shape-2026-10-15/starter-water-source-clips-head-1.webp",
-          "docs/screenshots/pet-shape-2026-10-15/starter-water-source-clips-body-1.webp",
-          "docs/screenshots/pet-shape-2026-10-15/starter-water-battle-clips-head-1.webp",
-          "docs/screenshots/pet-shape-2026-10-15/starter-water-battle-clips-body-1.webp",
-          "docs/screenshots/pet-shape-2026-10-15/starter-water-runtime-source-head.webp",
-          "docs/screenshots/pet-shape-2026-10-15/starter-water-runtime-source-body.webp",
-          "docs/screenshots/pet-shape-2026-10-15/starter-water-runtime-battle-head.webp",
-          "docs/screenshots/pet-shape-2026-10-15/starter-water-runtime-battle-body.webp",
-          "docs/screenshots/pet-shape-2026-10-15/starter-water-numeric-evidence.json"
-        ],
-        "packagedAt": "2026-10-15T08:15:55.798Z"
+        "sourceSha256": "90150dd50ff366a8e6504448c2a857ca8c20214e5cfe8e0fd1973fa921e521eb",
+        "battleSha256": "47cd31858838ca83f67f6c2c77dcceb23f6999ddd55a41a01875ef1673ea07b5",
+        "atlasSha256": "b8a2dae4aca66d42b0ca5196676ad971461db2d2bb5d94d820b0c0ac9b1c3d40",
+        "rendererSha256": "b2253b71fbcb21a83d82de35ab5783dd57b525cfc94740fb131dd1eb0049a897",
+        "report": "docs/audits/pet-ripple-seal-complete-face-v10-final-review-2026-10-18.json",
+        "packagedAt": "2026-10-19T13:21:23.358Z"
+      },
+      "completeFaceRepairGate": {
+        "closed": false,
+        "status": "repaired-double-checked-locally-main-live-pending",
+        "sourceSha256": "90150dd50ff366a8e6504448c2a857ca8c20214e5cfe8e0fd1973fa921e521eb",
+        "battleSha256": "47cd31858838ca83f67f6c2c77dcceb23f6999ddd55a41a01875ef1673ea07b5",
+        "report": "docs/audits/pet-ripple-seal-complete-face-v10-final-review-2026-10-18.json"
       }
     },
     "starter-wind": {
