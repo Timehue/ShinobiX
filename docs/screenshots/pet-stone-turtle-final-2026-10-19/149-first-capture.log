@@ -1,0 +1,14 @@
+scripts/audit-independent-pet-faces.mjs --label=stone-turtle-v2 complete
+scripts/audit-all-pet-animation-poses.mjs --label=stone-turtle-v2-source complete
+scripts/capture-pet-shape-audit.mjs --label=stone-turtle-v2-source-head complete
+.tmp/slice-pet-reviewed-label.mjs  complete
+scripts/capture-pet-shape-audit.mjs --label=stone-turtle-v2-source-body complete
+.tmp/slice-pet-reviewed-label.mjs  complete
+scripts/audit-all-pet-animation-poses.mjs --label=stone-turtle-v2-battle complete
+scripts/capture-pet-shape-audit.mjs --label=stone-turtle-v2-battle-head complete
+.tmp/slice-pet-reviewed-label.mjs  complete
+scripts/capture-pet-shape-audit.mjs --label=stone-turtle-v2-battle-body complete
+.tmp/slice-pet-reviewed-label.mjs  complete
+.tmp/capture-spark-contact-diagnostic.mjs --label=stone-turtle-v2-techniques complete
+.tmp/make-technique-inspection-strips.mjs  complete
+All first-pass images captured; visual approval still pending.

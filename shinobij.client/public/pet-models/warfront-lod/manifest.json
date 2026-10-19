@@ -25,8 +25,8 @@
     "minSilhouetteIoU": 0.975
   },
   "totals": {
-    "sourceBytes": 116646780,
-    "lodBytes": 74618396,
+    "sourceBytes": 116873600,
+    "lodBytes": 74707112,
     "sourceTriangles": 5974738,
     "lodTriangles": 1636735
   },
@@ -3533,11 +3533,11 @@
     },
     {
       "sourceUrl": "/pet-models/roster/standard-5.glb",
-      "lodUrl": "/pet-models/warfront-lod/roster/standard-5.glb?v=20260902-battle-lod-v1-fc639cee5499-3ad722e9394b",
-      "sourceBytes": 594912,
-      "lodBytes": 374908,
-      "sourceSha256": "fc639cee5499a0c1d8965c7c886c8af83cf3ee3d750ff1146bb162aaddd7a82d",
-      "lodSha256": "3ad722e9394b82d157458eb9c8a1a62eb3120dfa6bc2710719a2b23038d44c35",
+      "lodUrl": "/pet-models/warfront-lod/roster/standard-5.glb?v=20260902-battle-lod-v1-ebe7f3606ab0-46e6a383b093",
+      "sourceBytes": 821732,
+      "lodBytes": 463624,
+      "sourceSha256": "ebe7f3606ab0d81ad1f3ae2a7b35d2aa9cc3342e03fb892f7fed71bbe37b9916",
+      "lodSha256": "46e6a383b0932501ae62f766cf8325a7297e5b1adf8d493cc9b147e5f6507c53",
       "sourceTriangles": 40000,
       "lodTriangles": 10000,
       "reduction": 0.75,

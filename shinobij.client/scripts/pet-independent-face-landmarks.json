@@ -4830,6 +4830,207 @@
         "independentOfBindingEnvelopes": true,
         "exclusionMasks": false
       }
+    },
+    "standard-5": {
+      "camera": {
+        "y": [
+          -2,
+          -2
+        ],
+        "bounds": [
+          -0.4009766183916246,
+          0.23211111124838987,
+          0.3544563372068751,
+          0.7979407400364025,
+          0.4258247730710121,
+          0.9323733100979325
+        ],
+        "cameraPadding": 1.15
+      },
+      "status": "full-face-coverage-reviewed",
+      "sourceSha256": "fc639cee5499a0c1d8965c7c886c8af83cf3ee3d750ff1146bb162aaddd7a82d",
+      "coverageEvidence": "../docs/screenshots/pet-independent-starter-base-five-progress-2026-10-18/starter-earth-landmark-coverage.png",
+      "landmarks": {
+        "upperFace": {
+          "center": [
+            -0.16097661839162458,
+            0.6179407400364024,
+            0.7058247730710121
+          ],
+          "radius": 0.1,
+          "pickedPixel": [
+            132,
+            175
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "muzzle": {
+          "center": [
+            -0.021880382124581557,
+            0.5408704119483914,
+            0.8123733100979325
+          ],
+          "radius": 0.12,
+          "pickedPixel": [
+            150,
+            188
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "lowerFace": {
+          "center": [
+            0.27161901936820554,
+            0.5406691795050763,
+            0.5605094754930667
+          ],
+          "radius": 0.13,
+          "pickedPixel": [
+            168,
+            180
+          ],
+          "pickedView": "head-side",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head",
+          "anatomy": "Lower jaw behind the beak, above the scarf."
+        },
+        "jawChin": {
+          "center": [
+            0.16302860655385282,
+            0.4559867237705457,
+            0.6486829450643616
+          ],
+          "radius": 0.09,
+          "pickedPixel": [
+            119,
+            195
+          ],
+          "pickedView": "head-side",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "headband": {
+          "center": [
+            0.017246697574591567,
+            0.7354617189520428,
+            0.7465056060646835
+          ],
+          "radius": 0.13,
+          "pickedPixel": [
+            157,
+            159
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "leftEye": {
+          "center": [
+            -0.16032226054314735,
+            0.6395180185337462,
+            0.7120908907678873
+          ],
+          "radius": 0.09,
+          "pickedPixel": [
+            132,
+            172
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "rightEye": {
+          "center": [
+            0.15964015285698807,
+            0.6426897232572927,
+            0.6692603429824724
+          ],
+          "radius": 0.12,
+          "pickedPixel": [
+            178,
+            172
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "lowerBeak": {
+          "center": [
+            0.024844530103011797,
+            0.4570994302402723,
+            0.7893371521464175
+          ],
+          "radius": 0.09,
+          "pickedPixel": [
+            157,
+            200
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        }
+      },
+      "geometrySha256": "51f68e0d34108b53decb15ed795f4b48b88280c4943ed7c52cc883457ec7385e",
+      "geometryToVisibleBind": [
+        1.000000036404393,
+        0,
+        0,
+        0,
+        0,
+        0.9999998560648966,
+        -3.377767443524249e-8,
+        0,
+        0,
+        -1.8382351890666726e-8,
+        1.0000000921821464,
+        0,
+        -0.0000013646979642595314,
+        1.5012239429346153e-7,
+        -1.4679535295658575e-8,
+        1
+      ],
+      "headCountVisuallyVerified": 1,
+      "heads": [
+        {
+          "id": "primary",
+          "landmarks": [
+            "upperFace",
+            "muzzle",
+            "lowerFace",
+            "jawChin",
+            "headband",
+            "leftEye",
+            "rightEye",
+            "lowerBeak"
+          ]
+        }
+      ],
+      "coverageReviewedAt": "2026-10-16T02:44:45.184Z",
+      "coverageReview": {
+        "reviewedAt": "2026-10-19T18:25:28.648Z",
+        "frontAndSideActuallyInspected": true,
+        "originalSourceFrozenBeforeRepair": true,
+        "bothEyesAndWholeFaceSampled": true,
+        "sourceAndBattleMinimumTwentyVerticesAndThreeEdgesPerPatch": true,
+        "sameOriginalMeshAs": "starter-earth",
+        "previousThreeRegionsRetainedExactly": true,
+        "extendedRegionsFrozenBeforeCandidate": true
+      },
+      "coverageExtension": {
+        "sourceSha256": "fc639cee5499a0c1d8965c7c886c8af83cf3ee3d750ff1146bb162aaddd7a82d",
+        "sharedWith": "starter-earth",
+        "added": [
+          "jawChin",
+          "headband",
+          "leftEye",
+          "rightEye",
+          "lowerBeak"
+        ],
+        "reason": "Shared source mesh has identical geometry and visible bind. Previously reviewed Pebble original face landmarks extend Stone Turtle coverage to the lower beak/chin, headband and both eyes; existing Stone Turtle landmarks remain unchanged."
+      }
     }
   }
 }
