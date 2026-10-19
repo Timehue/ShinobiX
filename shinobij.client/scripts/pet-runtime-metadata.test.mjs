@@ -37,6 +37,8 @@ function runtime(source) {
 test('all 161 emitted atlas revisions retain certified values and key order', () => {
     const actual = runtime(revisionSource).WARFRONT_IMPOSTOR_ATLAS_REVISIONS;
     assert.equal(certified.entries.length, 161);
+    assert.equal(certified.selectedCount,161);
+    assert.equal(certified.complete,true);
     assert.equal(JSON.stringify(actual), JSON.stringify(expectedRevisions));
 });
 

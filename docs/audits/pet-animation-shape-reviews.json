@@ -15730,7 +15730,12 @@
         "docs/screenshots/pet-pebble-main-validation-2026-10-19/pet-model-certification.mjs",
         "docs/screenshots/pet-pebble-main-validation-2026-10-19/pet-pebble-tortoise-distinct.test.mjs",
         "docs/audits/pet-pebble-main-runtime-equivalence-2026-10-19.json",
-        "docs/audits/pet-pebble-main-validation-2026-10-19.json"
+        "docs/audits/pet-pebble-main-validation-2026-10-19.json",
+        "docs/screenshots/pet-pebble-manifest-count-fix-2026-10-19/ci-original-failure.log",
+        "docs/screenshots/pet-pebble-manifest-count-fix-2026-10-19/full-atlas-check.log",
+        "docs/screenshots/pet-pebble-manifest-count-fix-2026-10-19/metadata-tests.log",
+        "docs/screenshots/pet-pebble-manifest-count-fix-2026-10-19/metadata-regression.mjs",
+        "docs/audits/pet-pebble-manifest-count-fix-2026-10-19.json"
       ],
       "evidenceSha256": {
         "docs/screenshots/pet-pebble-distinct-final-2026-10-19/000-first-raw-starter-earth-head-front-0.png": "e79412b7e4302a7df7e81fd24db602bfe514870cf25440724ca6ef48d8f31364",
@@ -15914,7 +15919,12 @@
         "docs/screenshots/pet-pebble-main-validation-2026-10-19/pet-model-certification.mjs": "cc1aa7b5a595adaeafb461336b485589b7e54533b2be072e6ae3fe7ee1e4a5ed",
         "docs/screenshots/pet-pebble-main-validation-2026-10-19/pet-pebble-tortoise-distinct.test.mjs": "e6a9b96115cd7912ee03b56bb099cbc4316ce1ce207cabf270240ebc262205b4",
         "docs/audits/pet-pebble-main-runtime-equivalence-2026-10-19.json": "51870a300b7662bafde6f29cd750346f6f3f0dc6b6f1c65e8997a18fd9ad10dd",
-        "docs/audits/pet-pebble-main-validation-2026-10-19.json": "a7cabe5b640eeaafd5b11c881fd50af8c99c8c1eeac887897bc79225b4858395"
+        "docs/audits/pet-pebble-main-validation-2026-10-19.json": "a7cabe5b640eeaafd5b11c881fd50af8c99c8c1eeac887897bc79225b4858395",
+        "docs/screenshots/pet-pebble-manifest-count-fix-2026-10-19/ci-original-failure.log": "ee76ef04fc9e4e4c9b8852c640913a10abb98f0b56dc82c7941eca7a5e731ba0",
+        "docs/screenshots/pet-pebble-manifest-count-fix-2026-10-19/full-atlas-check.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "docs/screenshots/pet-pebble-manifest-count-fix-2026-10-19/metadata-tests.log": "e66c9e410c74f05721ab9eed46ff9dc9a1a4a6adf265567fd344ece6ef832466",
+        "docs/screenshots/pet-pebble-manifest-count-fix-2026-10-19/metadata-regression.mjs": "e5e3043302a64924e44795c4a48395fefb31c7d6df073e80532c6b9119ac436d",
+        "docs/audits/pet-pebble-manifest-count-fix-2026-10-19.json": "2b8dc6b125411e4819f4630f1038455ebe898c574e8858c36008be277dd5431c"
       },
       "findings": [
         "Pebble now owns its green chibi model, blue headband/scarf and one gold-brown back shell. Removed the duplicate shell cap and rebuilt a smooth green scalp. Relocated joints to the actual limbs and rebound face/body/limbs continuously to remove stretched appendages. Authored supported motion using the existing canonical motion tool, then corrected only vertical root clearance in attack, cast and recoil. No Stone Turtle geometry was copied."
