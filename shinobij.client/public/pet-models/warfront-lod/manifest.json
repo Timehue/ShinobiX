@@ -25,8 +25,8 @@
     "minSilhouetteIoU": 0.975
   },
   "totals": {
-    "sourceBytes": 113099956,
-    "lodBytes": 72917224,
+    "sourceBytes": 115424192,
+    "lodBytes": 74011772,
     "sourceTriangles": 5956618,
     "lodTriangles": 1624735
   },
@@ -4008,17 +4008,17 @@
     },
     {
       "sourceUrl": "/pet-models/starter-wind.glb",
-      "lodUrl": "/pet-models/warfront-lod/starter-wind.glb?v=20260902-battle-lod-v1-7db0c6998907-601e725c6fbb",
-      "sourceBytes": 423060,
-      "lodBytes": 428284,
-      "sourceSha256": "7db0c699890741263cddd7f65e6ccc2fe7cf8d62fe56fc5b210ae40333ef55d9",
-      "lodSha256": "601e725c6fbb01ef2395dfcca5088c82ff044eb04118f8e06cc9330b43151a90",
+      "lodUrl": "/pet-models/warfront-lod/starter-wind.glb?v=20260902-battle-lod-v1-b59c81236963-92215482a22b",
+      "sourceBytes": 480264,
+      "lodBytes": 474080,
+      "sourceSha256": "b59c81236963a6ebb39e801e5c2053d707dbd8fd88f45225f54c7b0bcb92f583",
+      "lodSha256": "92215482a22b72e392797efc8d0241d0766bed4bf89b7370664ca13f0c8632f7",
       "sourceTriangles": 15396,
       "lodTriangles": 10776,
       "reduction": 0.300078,
       "lowPolySource": true,
       "sourceVertices": 11068,
-      "lodVertices": 8494,
+      "lodVertices": 8497,
       "skins": 1,
       "joints": 21,
       "animations": 13,
@@ -4026,7 +4026,7 @@
       "textures": 1,
       "boundsMaxDelta": 0,
       "silhouettes": {
-        "front": 0.9987,
+        "front": 0.999134,
         "threeQuarter": 0.999251,
         "side": 0.998865
       }

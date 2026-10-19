@@ -1,0 +1,42 @@
+✔ Gale Chick: frozen independent face landmarks detect the released jaw distortion (504.6494ms)
+✔ Gale Chick: repair reproduces reviewed bytes while preserving sculpt, bind and every authored curve (69.0807ms)
+✔ Gale Chick source: eight independently frozen face regions survive all clips and 468 blends (444.7227ms)
+✔ Gale Chick battle: eight independently frozen face regions survive all clips and 468 blends (282.7781ms)
+✔ Cinder Cub's concave flame keeps its authored contours without a leaking inverted hull (1.5663ms)
+✔ all five base starter forms have an approved combat model (0.6465ms)
+✔ Pebble Tortoise replaces the duplicate-head-shell asset with the reviewed one-shell rig (0.2284ms)
+✔ all ten evolved starter forms have a combat model (0.3145ms)
+✔ the four-pet Showdown lineup resolves to its species-authored animation assets (0.2112ms)
+✔ Showdown models carry their visually certified forward-axis correction (0.1883ms)
+✔ unrelated unmodeled pets keep the safe standee fallback (0.1965ms)
+✔ malformed legacy identities fall back instead of crashing model resolution (0.3183ms)
+✔ all built-in Coliseum AI opponents resolve to approved roster models (0.2969ms)
+✔ all 146 approved roster models have a certified motion family (2.0881ms)
+✔ breeding-exclusive Mythics keep their own combat identity and model (0.8573ms)
+✔ hatched owned-instance ids resolve their breeding Mythic template model (0.3196ms)
+✔ legacy owned-instance ids recover the roster template from their safe prefix (0.1487ms)
+✔ timestamped encounter clones retain their canonical combat model (0.1509ms)
+✔ legacy evolved saves infer the model from rarity (0.2241ms)
+✔ close-up presentation falls back only for the unapproved legendary Wind model (0.2164ms)
+✔ every anatomy family gets a grounded, size-capped victory beat (0.3316ms)
+✔ all 161 production combat models inherit the grounded victory envelope (2.1608ms)
+✔ all 161 production pets have complete proper skeletal animation banks (321.088ms)
+✔ all 161 catalog identities resolve to a versioned runtime GLB with the full clip contract (184.9219ms)
+✔ Celestial Lion has the full pet animation bank and animated wings in every clip (2.2049ms)
+✔ every reviewed portrait belongs to its exact production identity and is an opaque delivery WebP (194.5614ms)
+✔ all five base starters use scenic portraits without changing their battle cutouts (0.8113ms)
+✔ owned and timestamped identities resolve the same portrait, including starter stages (1.2728ms)
+✔ dedicated custom cards and explicit palette variants retain priority over the built-in replacement (0.2004ms)
+✔ unknown creator companions retain legacy artwork and never borrow another species portrait (0.2388ms)
+✔ the production references remain byte-identical, including model-baked 2.5D atlases (177.5411ms)
+✔ Warfront maps a revisioned authored source to its certified battle LOD (2.6986ms)
+✔ source A/B and unknown assets retain the authored model (0.1882ms)
+✔ compact runtime metadata retains every certified expanded LOD entry exactly (2.2674ms)
+ℹ tests 34
+ℹ suites 0
+ℹ pass 34
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1782.1904

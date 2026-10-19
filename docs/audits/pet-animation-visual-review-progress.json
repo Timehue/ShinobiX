@@ -30575,7 +30575,7 @@
     },
     "starter-wind": {
       "name": "Gale Chick",
-      "firstPass": "repaired-and-double-checked",
+      "firstPass": "source-battle-first-pass-complete",
       "secondPass": "complete",
       "beforeSha256": "1416802ce898388978aeda88f93404382e8b63411de1328e9c98dbe9848100f9",
       "beforeEvidence": [
@@ -30629,106 +30629,8 @@
         "shinobij.client/.tmp/pet-shape-review/body-starter-seams-final/starter-wind-front.webp",
         "shinobij.client/.tmp/pet-shape-review/body-starter-seams-final/starter-wind-side.webp"
       ],
-      "promotedSha256": "7db0c699890741263cddd7f65e6ccc2fe7cf8d62fe56fc5b210ae40333ef55d9",
+      "promotedSha256": "b59c81236963a6ebb39e801e5c2053d707dbd8fd88f45225f54c7b0bcb92f583",
       "conservation": "geometry, topology, atlas, clip names/times preserved; rig scale, rest frames and animation deltas deterministically retargeted; localized seam and skull binding repaired",
-      "secondPassSource": {
-        "sha256": "7db0c699890741263cddd7f65e6ccc2fe7cf8d62fe56fc5b210ae40333ef55d9",
-        "clips": [
-          "idle",
-          "idle_2",
-          "walk",
-          "gallop",
-          "gallop_jump",
-          "attack",
-          "idle_hitreact1",
-          "death",
-          "entrance",
-          "cast",
-          "guard",
-          "rest",
-          "victory"
-        ],
-        "progress": [
-          0,
-          0.125,
-          0.375,
-          0.625,
-          0.875,
-          1
-        ],
-        "headViews": [
-          "head-front",
-          "head-side"
-        ],
-        "bodyViews": [
-          "front",
-          "side"
-        ],
-        "evidence": [
-          "shinobij.client/.tmp/pet-shape-review/starter-contact-source-head/starter-wind-head-front.webp",
-          "shinobij.client/.tmp/pet-shape-review/starter-contact-source-head/starter-wind-head-side.webp",
-          "shinobij.client/.tmp/pet-shape-review/starter-contact-source-body/starter-wind-front.webp",
-          "shinobij.client/.tmp/pet-shape-review/starter-contact-source-body/starter-wind-side.webp"
-        ],
-        "evidenceSha256": {
-          "shinobij.client/.tmp/pet-shape-review/starter-contact-source-head/starter-wind-head-front.webp": "0e26c7d0d06ef2e967702e0250fdc8866d818b2aeca6e10167221f86dab30305",
-          "shinobij.client/.tmp/pet-shape-review/starter-contact-source-head/starter-wind-head-side.webp": "575c0f5525d22d6a3c70a48bdf5d82bf1c680137bb8db10ae54d61cf4d97aba8",
-          "shinobij.client/.tmp/pet-shape-review/starter-contact-source-body/starter-wind-front.webp": "1140f183d410938ee96eea3ae2cba65b428bf9cdc908600d14b9f704ba94f39d",
-          "shinobij.client/.tmp/pet-shape-review/starter-contact-source-body/starter-wind-side.webp": "c2a6464ede4bc2374c4a91e75e029dee13aba469a51b5f0ae35d86f076a1b435"
-        },
-        "finding": "Final shipping source asset: all 13 clips and six alternate phases actually inspected in front/side head and body sheets. All 13 clips, all six phases, front/side head and body sheets actually inspected. Yellow chick beak, blue eyes, headband, scarf, wings, orange feet and feathered tail remain intact with stable grounded support.",
-        "reviewedAt": "2026-10-15T15:23:41.888Z",
-        "reviewer": "Codex visual inspection"
-      },
-      "secondPassBattle": {
-        "sha256": "601e725c6fbb01ef2395dfcca5088c82ff044eb04118f8e06cc9330b43151a90",
-        "clips": [
-          "idle",
-          "idle_2",
-          "walk",
-          "gallop",
-          "gallop_jump",
-          "attack",
-          "idle_hitreact1",
-          "death",
-          "entrance",
-          "cast",
-          "guard",
-          "rest",
-          "victory"
-        ],
-        "progress": [
-          0,
-          0.125,
-          0.375,
-          0.625,
-          0.875,
-          1
-        ],
-        "headViews": [
-          "head-front",
-          "head-side"
-        ],
-        "bodyViews": [
-          "front",
-          "side"
-        ],
-        "evidence": [
-          "shinobij.client/.tmp/pet-shape-review/starter-contact-battle-head/starter-wind-head-front.webp",
-          "shinobij.client/.tmp/pet-shape-review/starter-contact-battle-head/starter-wind-head-side.webp",
-          "shinobij.client/.tmp/pet-shape-review/starter-contact-battle-body/starter-wind-front.webp",
-          "shinobij.client/.tmp/pet-shape-review/starter-contact-battle-body/starter-wind-side.webp"
-        ],
-        "evidenceSha256": {
-          "shinobij.client/.tmp/pet-shape-review/starter-contact-battle-head/starter-wind-head-front.webp": "0daf876a3aef21981bb58624f2f49bc1cc953700b9d77fc6a6c557b36e67c160",
-          "shinobij.client/.tmp/pet-shape-review/starter-contact-battle-head/starter-wind-head-side.webp": "474cba76a598ddc42772ee57d7b17a2ea7beae62e14565202c866e713d945407",
-          "shinobij.client/.tmp/pet-shape-review/starter-contact-battle-body/starter-wind-front.webp": "863b6fe7441b603e41f8f7d66dc671dea42d20a396445a2caa168dbabcfa7279",
-          "shinobij.client/.tmp/pet-shape-review/starter-contact-battle-body/starter-wind-side.webp": "fef3ccd0d909402bb36e2b2b64b456fb485764be5d285ce52d9ec1ee7a410917"
-        },
-        "finding": "Final shipping battle asset: all 13 clips and six alternate phases actually inspected in front/side head and body sheets. All 13 clips, all six phases, front/side head and body sheets actually inspected. Yellow chick beak, blue eyes, headband, scarf, wings, orange feet and feathered tail remain intact with stable grounded support.",
-        "reviewedAt": "2026-10-15T15:23:42.274Z",
-        "reviewer": "Codex visual inspection"
-      },
       "footContactCorrection": {
         "status": "complete-final-source-battle-and-runtime-rechecked",
         "finding": "Rig orthogonalization introduced small support-foot lift; restore authored vertical foot trajectories without changing horizontal gait or skull shape.",
@@ -30796,73 +30698,35 @@
         }
       },
       "preContactPromotedSha256": "88b1ae6adec0ec9ff2060e76b3e15b9bf1f17f73242d18c31b026e1f3fab10a1",
-      "runtimeVisualPass": {
-        "sourceSha256": "7db0c699890741263cddd7f65e6ccc2fe7cf8d62fe56fc5b210ae40333ef55d9",
-        "battleSha256": "601e725c6fbb01ef2395dfcca5088c82ff044eb04118f8e06cc9330b43151a90",
-        "rendererSha256": "5f9f24e92abe45bafcccd21f72a1ba8de81e0f0cd2a44f6f2aa440ee08e0d1cb",
-        "rows": [
-          "idle",
-          "run",
-          "dash",
-          "windup",
-          "strike",
-          "recover",
-          "stagger",
-          "dodge",
-          "guard",
-          "rest",
-          "cast",
-          "entrance",
-          "victory",
-          "dead",
-          "revive",
-          "attack-sequence"
-        ],
-        "phases": [
-          0.025,
-          0.1,
-          0.25,
-          0.5,
-          0.75,
-          1
-        ],
-        "views": [
-          "front",
-          "side"
-        ],
-        "evidence": [
-          "shinobij.client/.tmp/pet-shape-review/runtime-starter-contact-final/starter-wind-source-head.webp",
-          "shinobij.client/.tmp/pet-shape-review/runtime-starter-contact-final/starter-wind-source-body.webp",
-          "shinobij.client/.tmp/pet-shape-review/runtime-starter-contact-final/starter-wind-battle-head.webp",
-          "shinobij.client/.tmp/pet-shape-review/runtime-starter-contact-final/starter-wind-battle-body.webp"
-        ],
-        "evidenceSha256": {
-          "shinobij.client/.tmp/pet-shape-review/runtime-starter-contact-final/starter-wind-source-head.webp": "756db864af060df0a04e2f253ac42155867d481c9d28f72fd1db5a813973e87b",
-          "shinobij.client/.tmp/pet-shape-review/runtime-starter-contact-final/starter-wind-source-body.webp": "7bbdf53f8dda3d98392be88a63f0b963f3510c5168af9a1729341c28b9c7fb85",
-          "shinobij.client/.tmp/pet-shape-review/runtime-starter-contact-final/starter-wind-battle-head.webp": "7e541e4dc454edd97ff6cbfa7e728a945812c318396f310e8daa49e62f488593",
-          "shinobij.client/.tmp/pet-shape-review/runtime-starter-contact-final/starter-wind-battle-body.webp": "46e3e3ceca823a456ba5a79c723920a9f503f53787a08915cdb343bdd38360cc"
-        },
-        "finding": "All 16 continuous production transition rows at six phases, front/side head and body, source and battle, actually inspected. Faces, body joins and support remain coherent through idle, movement, attack sequence, death and revive. All 13 clips, all six phases, front/side head and body sheets actually inspected. Yellow chick beak, blue eyes, headband, scarf, wings, orange feet and feathered tail remain intact with stable grounded support.",
-        "reviewer": "Codex visual inspection",
-        "reviewedAt": "2026-10-15T15:25:10.964Z"
+      "status": "double-checked-locally-main-live-pending",
+      "originalAnimationReview": {
+        "report": "docs/audits/pet-gale-chick-original-review-2026-10-18.json",
+        "sourceRawSlicesActuallyInspected": 12,
+        "battleRawSlicesActuallyInspected": 12,
+        "nativeTechniqueFramesActuallyInspected": 216,
+        "result": "repair-required"
+      },
+      "repairProgress": {
+        "report": "docs/audits/pet-gale-chick-repair-progress-2026-10-19.json",
+        "sourcePromoted": true,
+        "sourceRawSlicesActuallyInspected": 15,
+        "battleRawSlicesActuallyInspected": 15,
+        "nativeTechniqueFramesActuallyInspected": 216
       },
       "finalReceipt": {
-        "sourceSha256": "7db0c699890741263cddd7f65e6ccc2fe7cf8d62fe56fc5b210ae40333ef55d9",
-        "battleSha256": "601e725c6fbb01ef2395dfcca5088c82ff044eb04118f8e06cc9330b43151a90",
-        "atlasSha256": "bd3faa514bb194e240f61c9a404e1216b421c04a0cc0384fd6d151510e9fb267",
-        "rendererSha256": "5f9f24e92abe45bafcccd21f72a1ba8de81e0f0cd2a44f6f2aa440ee08e0d1cb",
-        "evidence": [
-          "docs/screenshots/pet-shape-2026-10-15/starter-wind-source-clips-head-1.webp",
-          "docs/screenshots/pet-shape-2026-10-15/starter-wind-source-clips-body-1.webp",
-          "docs/screenshots/pet-shape-2026-10-15/starter-wind-battle-clips-head-1.webp",
-          "docs/screenshots/pet-shape-2026-10-15/starter-wind-battle-clips-body-1.webp",
-          "docs/screenshots/pet-shape-2026-10-15/starter-wind-runtime-source-head.webp",
-          "docs/screenshots/pet-shape-2026-10-15/starter-wind-runtime-source-body.webp",
-          "docs/screenshots/pet-shape-2026-10-15/starter-wind-runtime-battle-head.webp",
-          "docs/screenshots/pet-shape-2026-10-15/starter-wind-runtime-battle-body.webp",
-          "docs/screenshots/pet-shape-2026-10-15/starter-wind-numeric-evidence.json"
-        ],
-        "packagedAt": "2026-10-15T15:25:15.569Z"
+        "sourceSha256": "b59c81236963a6ebb39e801e5c2053d707dbd8fd88f45225f54c7b0bcb92f583",
+        "battleSha256": "92215482a22b72e392797efc8d0241d0766bed4bf89b7370664ca13f0c8632f7",
+        "atlasSha256": "237a58b359e30eb1deb7f73bc9d2f3ecc19a2c1975c8cb007f378410c34f3703",
+        "rendererSha256": "b2253b71fbcb21a83d82de35ab5783dd57b525cfc94740fb131dd1eb0049a897",
+        "report": "docs/audits/pet-gale-chick-complete-face-v1-final-review-2026-10-19.json",
+        "packagedAt": "2026-10-19T14:55:22.833Z"
+      },
+      "completeFaceRepairGate": {
+        "closed": false,
+        "status": "repaired-double-checked-locally-main-live-pending",
+        "sourceSha256": "b59c81236963a6ebb39e801e5c2053d707dbd8fd88f45225f54c7b0bcb92f583",
+        "battleSha256": "92215482a22b72e392797efc8d0241d0766bed4bf89b7370664ca13f0c8632f7",
+        "report": "docs/audits/pet-gale-chick-complete-face-v1-final-review-2026-10-19.json"
       }
     },
     "starter-lightning": {
