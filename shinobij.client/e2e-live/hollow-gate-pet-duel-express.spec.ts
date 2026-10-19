@@ -1,5 +1,5 @@
 import { expect, type APIRequestContext, type Page, type Response, type TestInfo } from '@playwright/test';
-import { test } from './helpers/reconnecting-request';
+import { API_CONNECTION_RETRIES, test } from './helpers/reconnecting-request';
 import { uniqueNameStamp } from './helpers/player-names';
 import { LATEST_PATCH_NOTE } from '../src/data/patch-notes';
 import { WORLD_GEO_VERSION } from '../../shared/sector-geo';
@@ -624,7 +624,7 @@ test('a lost terminal resume reply recovers stale positive browser HP on the nex
     // at zero HP, and both terminal resume requests execute on Express.
     await page.route(`**/api/save/${diver.name}*`, async route => {
         if (route.request().method() !== 'GET') return route.continue();
-        const response = await route.fetch();
+        const response = await route.fetch({ maxRetries: API_CONNECTION_RETRIES });
         const saved = await response.json() as Json & { character?: Json };
         if (saved.character) saved.character = { ...saved.character, hp: before.hp, hospitalized: false,
             hollowGateRun: before.hollowGateRun, lastHollowGateStart: before.lastHollowGateStart };
@@ -633,7 +633,7 @@ test('a lost terminal resume reply recovers stale positive browser HP on the nex
     let lostReply = false;
     await page.route('**/api/hollow-gate/resume', async route => {
         if (lostReply) return route.continue();
-        const response = await route.fetch();
+        const response = await route.fetch({ maxRetries: API_CONNECTION_RETRIES });
         const terminal = await response.json() as Json;
         expect(terminal.ended).toBe(true);
         expect(terminal.token).toBe(dive.started.token);
