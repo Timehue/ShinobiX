@@ -43,6 +43,7 @@ before(async () => {
     for (const [name, path] of [
         ['step', './step.js'], ['combatStart', './combat-start.js'], ['combatSettle', './combat-settle.js'],
         ['event', './event.js'], ['descend', './descend.js'],
+        ['soloState', '../solo-pve/state.js'], ['soloAction', '../solo-pve/action.js'],
     ] as const) {
         handlers[name] = (await import(path)).default as unknown as Handler;
     }
@@ -121,6 +122,27 @@ async function finishFight(runId: string, outcome: 'win' | 'loss' | 'fled') {
     await writeSoloPveSession(session);
 }
 
+test('active legacy fight resumes at 40 without rewriting its predecessor; the next accepted action seals adoption', async () => {
+    await seed();
+    const started = await call('combatStart', { floor: 1, kind: 'battle', nodeId: HOUND.node, mode: 'pve' });
+    assert.equal(started.status, 200, JSON.stringify(started.body));
+    const { readSoloPveSession, writeSoloPveSession } = await import('../solo-pve/_store.js');
+    const session = (await readSoloPveSession(String(started.body.runId)))!;
+    session.hollowGateRoundLimit = 25; session.round = 25; session.player.hp = session.player.maxHp = 100000;
+    await writeSoloPveSession(session);
+    const resumed = await call('combatStart', { floor: 1, kind: 'battle', nodeId: HOUND.node, mode: 'pve' });
+    assert.equal(resumed.body.resumed, true); assert.equal((resumed.body.session as typeof session).hollowGateRoundLimit, 40);
+    const state = await call('soloState', { sessionId: session.sessionId });
+    assert.equal(state.status, 200); assert.equal((state.body.session as typeof session).hollowGateRoundLimit, 40);
+    assert.equal((await readSoloPveSession(session.sessionId))!.hollowGateRoundLimit, 25, 'read-only resume leaves exact compare-set input intact');
+    const moved = await call('soloAction', { sessionId: session.sessionId, expectedVersion: session.version,
+        moveToken: 'legacy-cap-adopt-action', type: 'wait' });
+    assert.equal(moved.status, 200, JSON.stringify(moved.body)); assert.equal(moved.body.applied, true);
+    const next = (await readSoloPveSession(session.sessionId))!;
+    assert.equal(next.status, 'active'); assert.equal(next.round, 26); assert.equal(next.hollowGateRoundLimit, 40);
+    assert.equal(next.version, session.version + 1);
+});
+
 for (const interrupted of [false, true]) test(`named boss round-cap reason survives ${interrupted ? 'save-proof repair' : 'terminal receipt replay'}`, async () => {
     const nodeId = 'floor:1:ambush:boss-threat';
     await seed({ floorDepth: 1, bossProfileId: 'rift-boss-mirror-shard', bossName: 'Mirror-Shard Warden',
@@ -136,7 +158,7 @@ for (const interrupted of [false, true]) test(`named boss round-cap reason survi
     const { sealHollowGateTelegraph } = await import('../../shared/hollow-gate-telegraph.js');
     const session = (await readSoloPveSession(String(started.body.runId)))!;
     assert.equal(session.encounter.metadata?.namedBossProfileId, 'rift-boss-mirror-shard', 'the actual combat-start route resolves the sealed profile');
-    session.player.hp = 400; session.round = 25; session.activeSide = 'enemy'; sealHollowGateTelegraph(session);
+    session.player.hp = 400; session.round = 40; session.activeSide = 'enemy'; sealHollowGateTelegraph(session);
     endSoloPveTurn(session);
     assert.equal(session.player.hp, 400); assert.equal(session.terminalReason, 'round-limit');
     session.terminalEvidence = { finishedAt: Date.now(), finalMoveToken: 'fairness-terminal-move', finalVersion: session.version,
@@ -153,7 +175,7 @@ for (const interrupted of [false, true]) test(`named boss round-cap reason survi
     assert.equal(first!.status, interrupted ? 500 : 200, JSON.stringify(first!.body));
     const replay = await call('combatSettle', { runId: started.body.runId });
     assert.equal(replay.status, 200, JSON.stringify(replay.body));
-    assert.equal(replay.body.terminalReason, 'round-limit'); assert.equal(replay.body.opponentName, 'Mirror-Shard Warden');
+    assert.equal(replay.body.terminalReason, 'round-limit'); assert.equal(replay.body.roundLimit, 40); assert.equal(replay.body.opponentName, 'Mirror-Shard Warden');
     const saved = await kv.get<Record<string, any>>(saveKey);
     assert.equal(saved!.character.ryo, 400, 'the metadata repair pays no reward');
     assert.equal(saved!.character.hp, interrupted ? 250 : 0, 'existing Second Wind and hospital policies stay unchanged');

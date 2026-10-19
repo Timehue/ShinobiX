@@ -21,6 +21,7 @@ import {
     normalizeHollowGateNodeId,
 } from './_combat-session.js';
 import { loadAiFightProfile } from '../missions/_ai-fight-encounter.js';
+import { soloPveSessionForResponse } from '../solo-pve/_session.js';
 import { buildHollowGateSoloPveEncounter } from './_encounter.js';
 import { recordBetaMetric } from '../_beta-metrics.js';
 import { findTowerBattleStartConflict, towerBattleActiveErrorBody } from '../_tower-battle-guard.js';
@@ -102,7 +103,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             resumed: true,
                             runId: active.runId,
                             combatMode,
-                            ...(activeSession ? { session: activeSession } : {}),
+                            ...(activeSession ? { session: soloPveSessionForResponse(activeSession) } : {}),
                         },
                     };
                 }

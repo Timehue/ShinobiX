@@ -13,6 +13,11 @@ function params(level=100,kind:'battle'|'ambush'|'elite'|'boss'|'beast'='battle'
     return {binding,run,save:balanceSave(level,false),now:1000,admin:null};
 }
 
+test('every shrine shinobi encounter seals 40 rounds at creation', () => {
+    for (const kind of ['battle', 'ambush', 'elite', 'boss', 'beast'] as const)
+        assert.equal(buildHollowGateSoloPveEncounter(params(17, kind)).hollowGateRoundLimit, 40);
+});
+
 test('named boss honors its authored kit and opener while retaining shrine numbers at every level', () => {
     const named = builtinAiProfile('rift-boss-mirror-shard')!;
     for (const level of [5, 17, 50, 100]) {

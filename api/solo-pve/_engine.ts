@@ -5,6 +5,7 @@ import { COMBAT_RESOURCES_V2, v2ResourceRegen } from '../_combat-resources.js';
 import { applyHuntCombatAction } from './_hunt-combat.js';
 import { appendSoloPveCombatEvent } from './_legacy-totals.js';
 import { hollowGateSessionDirective, sealHollowGateTelegraph } from '../../shared/hollow-gate-telegraph.js';
+import { HOLLOW_GATE_SHINOBI_ROUND_LIMIT, hollowGateShinobiRoundLimit } from '../../shared/hollow-gate-round-limit.js';
 import {
     pveAiCompetence,
     pveEasyBandAllowsLethal,
@@ -829,6 +830,7 @@ function runSoloPveCompanionPhase(session: SoloPveSession): void {
 
 export function endSoloPveTurn(session: SoloPveSession): void {
     if (session.status !== 'active') return;
+    if (session.encounter.kind === 'hollow-gate') session.hollowGateRoundLimit = HOLLOW_GATE_SHINOBI_ROUND_LIMIT;
     const current = session.activeSide;
     const before = session.encounter.kind === 'hollow-gate' ? eventSnapshot(session) : null;
     const logStart = session.log.length, eventRound = session.round;
@@ -914,7 +916,7 @@ function resolveSoloPveTurnEnd(session: SoloPveSession): void {
                 session.log.push(`${aged.name}'s shield expires.`);
             }
         }
-        if (session.round > MAX_ROUNDS) {
+        if (session.round > (hollowGateShinobiRoundLimit(session) ?? MAX_ROUNDS)) {
             session.terminalReason = 'round-limit';
             session.status = 'done';
             session.winner = 'enemy';
@@ -2346,8 +2348,8 @@ export function applySoloPveAction(
     if (source.huntCombat) return applyHuntCombatAction(source, action, opts);
     if (action.type === 'huntAction') return { applied: false, reason: 'not-a-hunt-battle', session: source };
     const session = cloneSession(source);
-    if (session.encounter.kind === 'hollow-gate') {
-        session.hollowGateRoundLimit ??= MAX_ROUNDS;
+    if (session.encounter.kind === 'hollow-gate' && session.status === 'active') {
+        session.hollowGateRoundLimit = HOLLOW_GATE_SHINOBI_ROUND_LIMIT;
         if (session.hollowGateTelegraph?.round !== session.round) sealHollowGateTelegraph(session);
     }
     const result = directAction(session, 'player', action, opts);
