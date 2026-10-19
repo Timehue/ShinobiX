@@ -7,6 +7,7 @@ import type { TowerAction } from './_engine.js';
 import type { TowerActor, TowerSession } from './_tower-session.js';
 
 export const HUNT_AI_POLICY = 'hunt-v1';
+export const HUNT_REACTIVE_POLICY = 'wounded-v1';
 type HuntJutsu = {id:string;ap?:number;range?:number;target?:string;effectPower?:number;
     chakraCost?:number;staminaCost?:number;aiHpBelowPct?:number;aiHpAbovePct?:number;tags?:Array<{name?:string}>};
 
@@ -15,9 +16,16 @@ function healthGate(actor: TowerActor, j: HuntJutsu): boolean {
     return (j.aiHpBelowPct === undefined || hp <= j.aiHpBelowPct) && (j.aiHpAbovePct === undefined || hp >= j.aiHpAbovePct);
 }
 
-/** Ordinary easy-band contracts retain both original opening rounds. Rank
- * changes decision depth; it must not create an abrupt early-level burst cliff. */
+/** A sealed, visibly wounded lone C+ target may answer on round two. Old
+ * sessions, beginner contracts and every multi-creature formation keep their
+ * original clock. The resolver still owns AP, mastery and easy-band caps. */
 export function huntHoldsBurst(session: TowerSession, actor: TowerActor): boolean {
+    if (actor.character.huntReactivePolicy === HUNT_REACTIVE_POLICY && session.round === 2
+        && Number(actor.character.level) > 15 && ['C','B','A','S'].includes(String(actor.character.huntRank))
+        && actor.hp <= actor.maxHp * .75
+        && !session.pendingEnemyWaves?.some(w => w.actors.some(a => a.hp > 0))
+        && session.actors.filter(a => a.side === 'enemy' && a.hp > 0).length === 1
+        && session.actors.some(a => a.side === 'squad' && Number(a.character.level) > 15)) return false;
     return pveEasyBandHoldsBurst(Number(actor.character.level) || 1, session.round);
 }
 export function huntOpeningIsPreparation(session: TowerSession, actor: TowerActor): boolean {

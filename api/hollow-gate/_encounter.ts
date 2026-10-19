@@ -17,6 +17,14 @@ const LOADOUTS: Record<'burst' | 'bruiser' | 'hunter' | 'boss', string[]> = {
     boss: ['starter-gen-lightning-2', 'starter-nin-fire-2', 'starter-buki-water-2', 'starter-tai-lightning-2', 'starter-nin-earth-1', 'starter-gen-fire-1', 'starter-universal-flicker'],
 };
 
+/** Stable per sealed node: no reroll on resume, and no saved run/map migration. */
+function corridorLoadout(run: HollowGateRunToken, binding: HollowGateCombatBinding): 'burst' | 'bruiser' | 'hunter' {
+    let hash = 2166136261;
+    for (const char of `${run.seed}:${binding.floor}:${binding.nodeId}:${binding.kind}`)
+        hash = Math.imul(hash ^ char.charCodeAt(0), 16777619);
+    return (['hunter', 'burst', 'bruiser'] as const)[(hash >>> 0) % 3]!;
+}
+
 function augmentEffects(run: HollowGateRunToken) {
     const augment = run.chosenAugmentId ? AUGMENT_CATALOG[run.chosenAugmentId] : undefined;
     const value = Math.max(0, Number(augment?.combat?.value ?? 0));
@@ -55,7 +63,9 @@ export function buildHollowGateProfile(params: {
     const stats = Object.fromEntries(Object.entries(aiStatsForLevel(level)).map(([key, value]) => [key, Math.max(1, Math.round(value * statMult))]));
     const baseHp = aiHpForLevel(level, boss ? 0.18 : elite ? 0.1 : 0.04);
     const hp = Math.max(1, Math.floor(baseHp * (boss ? scale.hpMult : 1 + depth * 0.06) * kindHpMult * augment.enemyHpMult * gentle * (1 - augment.enemyHpShavePct)));
-    const loadoutId = boss ? 'boss' : elite || wanderer?.role === 'bandit' ? 'bruiser' : ambush || wanderer?.role === 'night-ninja' ? 'burst' : 'hunter';
+    const loadoutId = boss ? 'boss' : elite || wanderer?.role === 'bandit' ? 'bruiser'
+        : wanderer?.role === 'night-ninja' ? 'burst' : wanderer || beast ? 'hunter'
+        : level > 30 && (kind === 'battle' || ambush) ? corridorLoadout(run, binding) : ambush ? 'burst' : 'hunter';
     return {
         id: binding.enemyProfileId,
         name: wanderer ? hollowGateWandererName(wanderer) : boss ? (run.bossName || hollowGateHoundName(binding.floor, kind)) : hollowGateHoundName(binding.floor, kind),
@@ -84,11 +94,12 @@ export function buildHollowGateSoloPveEncounter(params: {
 }): SoloPveSession {
     const character = params.save.character as Record<string, unknown>;
     const augment = augmentEffects(params.run);
+    const profile = buildHollowGateProfile({ binding: params.binding, run: params.run, playerLevel: Math.max(1, Math.floor(Number(character.level) || 1)) });
     const session = buildSoloPveAiEncounter({
         sessionId: params.binding.runId,
         playerName: params.binding.playerName,
         save: params.save,
-        profile: buildHollowGateProfile({ binding: params.binding, run: params.run, playerLevel: Math.max(1, Math.floor(Number(character.level) || 1)) }),
+        profile,
         now: params.now,
         admin: params.admin,
         difficultyMode: 'AI_FIGHT',
@@ -109,8 +120,17 @@ export function buildHollowGateSoloPveEncounter(params: {
         environment: { biome: 'shadow' },
     });
     const wanderer = params.binding.kind === 'battle' ? hollowGateWandererForNode(params.run, params.binding.nodeId) : undefined;
-    session.shrineAi = { version: 1, healsUsed: 0, healLimit: params.binding.kind === 'elite' || params.binding.kind === 'boss' ? 2 : 1 };
-    session.log.push(`Shrine tactics: ${session.enemy.name} can use Basic Heal ${session.shrineAi.healLimit === 1 ? 'once' : 'twice'}. After a support technique it must return to offense for a round. Clear removes active defenses; Cleanse removes afflictions.`);
+    const corridor = !wanderer && (params.binding.kind === 'battle' || params.binding.kind === 'ambush');
+    session.shrineAi = { version: 1, healsUsed: 0, healLimit: params.binding.kind === 'elite' || params.binding.kind === 'boss' ? 2
+        : corridor && profile.loadoutId !== 'bruiser' ? 0 : 1,
+        ...(corridor ? { supportLimit: 1, supportsUsed: 0 } : {}) };
+    if (corridor) session.log.push(profile.loadoutId === 'bruiser'
+        ? 'Bruiser stance: close-range pressure and a defensive ward. Clear its ward; keep distance to limit its attacks.'
+        : profile.loadoutId === 'burst' ? 'Striker stance: gap-closing attacks and afflictions. Use defensive techniques during its approach; Cleanse active afflictions.'
+        : 'Hunter stance: ranged pressure and afflictions. Close distance or move beyond technique range; Cleanse active afflictions.');
+    const healText = session.shrineAi.healLimit === 0 ? 'cannot use Basic Heal' : `can use Basic Heal ${session.shrineAi.healLimit === 1 ? 'once' : 'twice'}`;
+    session.log.push(`Shrine tactics: ${session.enemy.name} ${healText}. After a support technique it must return to offense for a round. Clear removes active defenses; Cleanse removes afflictions.`);
+    if (corridor) session.log.push('This creature has one shared use of Basic Heal or a purely defensive technique for the entire fight. Damaging techniques, movement, Clear and Cleanse remain available.');
     if (wanderer) session.enemy.character.avatarImage = hollowGateWandererArt(wanderer);
     return session;
 }
