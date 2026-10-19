@@ -3,7 +3,7 @@ import type { SoloPveJutsu } from './_session.js';
 import { test } from 'node:test';
 import { shrineFixture, simulateBalance, huntFixture } from '../../scripts/test-fixtures/hunt-shrine.js';
 import { shrinePlannerApplies, SHRINE_AI_POLICY } from './_ai-turn-policy.js';
-import { runSoloPveAiUntilPlayer } from './_engine.js';
+import { applySoloPveAction, runSoloPveAiUntilPlayer } from './_engine.js';
 
 test('shrine policy is explicitly sealed, rollback-safe and cannot select another host',()=>{
     assert.ok(shrinePlannerApplies({policy:SHRINE_AI_POLICY,kind:'hollow-gate',env:{}}));
@@ -14,7 +14,7 @@ test('shrine policy is explicitly sealed, rollback-safe and cannot select anothe
     for(const kind of ['battle','elite','boss'] as const) {
         const s=shrineFixture(100,kind);
         assert.equal(s.enemy.character.aiTurnPolicy,SHRINE_AI_POLICY);
-        assert.equal(s.shrineAi!.healLimit,kind==='battle'?1:2);
+        assert.equal(s.shrineAi!.healLimit,kind==='battle'?0:2);
         assert.match(s.log.join('\n'),/Basic Heal.*support technique/);
     }
 });
@@ -119,5 +119,45 @@ test('the no-sustain comparison uses only catalog skills without healing or defe
         assert.equal(kit.length,8);
         assert.equal(kit.filter(j=>Number(j.effectPower)>1).length,6);
         assert.ok(kit.every(j=>Array.isArray(j.tags)&&j.tags.every(t=>!support.has(t.name))));
+    }
+});
+
+test('ordinary shared support is consumed once, Clear stays useful, and mixed offense remains legal',()=>{
+    let s=shrineFixture(100,'battle');
+    const ward={id:'one-ward',name:'One Ward',type:'Any',target:'SELF',ap:40,range:4,effectPower:0,cooldown:0,tags:[{name:'Reflect',percent:60}]};
+    const hit={id:'mixed-hit',name:'Mixed Hit',type:'Taijutsu',target:'OPPONENT',ap:60,range:10,effectPower:36,cooldown:0,tags:[{name:'Shield',percent:10}]};
+    s.enemy.character.jutsu=[ward];s.enemy.character.jutsuMastery=[{jutsuId:ward.id,level:50},{jutsuId:hit.id,level:50}];
+    s.enemy.pos=62;s.player.pos=63;s.activeSide='enemy';s.ap.enemy=100;s.actionsThisTurn=0;
+    assert.equal(s.shrineAi!.supportLimit,1);
+    runSoloPveAiUntilPlayer(s);
+    assert.equal(s.shrineAi!.supportsUsed,1);
+    assert.ok(s.enemy.statuses.some(t=>t.name==='Reflect'));
+    const clear=applySoloPveAction(s,{type:'clear'});
+    assert.ok(clear.applied);s=clear.session;
+    assert.ok(!s.enemy.statuses.some(t=>t.name==='Reflect'&&t.rounds>0));
+    s.round+=3;s.activeSide='enemy';s.ap.enemy=100;s.actionsThisTurn=0;s.cooldowns.enemy={};
+    const seq=s.eventSeq;
+    runSoloPveAiUntilPlayer(s);
+    assert.equal(s.shrineAi!.supportsUsed,1);
+    assert.ok(!s.events.some(e=>e.seq>seq&&e.actor==='enemy'&&e.actionId===ward.id),'cleared ward cannot be replaced');
+    s.enemy.character.jutsu=[ward,hit];s.round+=3;s.activeSide='enemy';s.ap.enemy=100;s.actionsThisTurn=0;s.cooldowns.enemy={};
+    const hitSeq=s.eventSeq;
+    runSoloPveAiUntilPlayer(s);
+    assert.ok(s.events.some(e=>e.seq>hitSeq&&e.actor==='enemy'&&e.actionId===hit.id));
+    assert.equal(s.shrineAi!.supportsUsed,1,'mixed damage never consumes pure-support allowance');
+    assert.deepEqual(structuredClone(s).shrineAi,s.shrineAi);
+});
+
+test('absent shared budget preserves existing sessions and elite/boss lifetime limits',()=>{
+    for(const kind of ['battle','elite','boss'] as const) {
+        const s=shrineFixture(100,kind);
+        delete s.shrineAi!.supportLimit;delete s.shrineAi!.supportsUsed;
+        s.shrineAi!.healLimit=2;s.enemy.character.jutsu=[];s.enemy.pos=0;s.player.pos=119;
+        for(const round of [3,6]) {
+            s.round=round;s.enemy.hp=1;s.activeSide='enemy';s.ap.enemy=100;s.actionsThisTurn=0;s.cooldowns.enemy={};
+            runSoloPveAiUntilPlayer(s);
+        }
+        assert.equal(s.shrineAi!.healsUsed,2);
+        assert.equal(s.shrineAi!.supportsUsed,undefined);
     }
 });
