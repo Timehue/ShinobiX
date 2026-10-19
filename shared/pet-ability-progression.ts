@@ -78,10 +78,17 @@ function materialize<T extends AuthoredPetAbility>(
     source: T, baseAbilityId: string, tier: PetAbilityTier, unlockLevel: number,
     upgrade?: PetAbilityUpgrade,
 ): ProgressionPetAbility<T> {
+    const authored = { ...source } as T & Record<string, unknown>;
+    // Authored/legacy payloads cannot self-author progression or sealed mastery.
+    // Only the resolver's slot, level and upgrade parameters own these values.
+    for (const key of Object.keys(authored)) {
+        if (/mastery|upgrade/i.test(key)
+            || ['abilityId', 'baseAbilityId', 'unlockLevel', 'tier', 'restrained'].includes(key)) delete authored[key];
+    }
     return {
-        ...source,
+        ...authored,
         abilityId: baseAbilityId + ':' + tier + (upgrade ? ':mastery-' + unlockLevel : ''),
-        baseAbilityId, unlockLevel, tier, ...(upgrade ? { upgrade } : {}),
+        baseAbilityId, unlockLevel, tier, upgrade,
         name: String(source.name ?? 'Companion Art'), kind: String(source.kind ?? 'damage'),
         power: Number.isFinite(Number(source.power)) ? Math.max(0, Number(source.power)) : 0,
         signature: tier === 'signature',

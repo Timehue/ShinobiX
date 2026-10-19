@@ -76,7 +76,7 @@ test('low-level counter techniques leave full-health pets alive on either side a
     for (const side of ['player', 'enemy'] as const) {
         const hit = (guarding = false, hp?: number) => {
             const attacker = fixture('mythic-0', 'kitsune'), defender = fixture('mythic-1', 'phoenix');
-            const battle = createShowdownSession({ sessionId: 'burst', playerName: 'A', enemyTeamName: 'B', format: '1v1', tier: 'warrior', seed: 7920,
+            const battle = createShowdownSession({ rulesetVersion: 'legacy-v2', sessionId: 'burst', playerName: 'A', enemyTeamName: 'B', format: '1v1', tier: 'warrior', seed: 7920,
                 playerPets: [side === 'player' ? attacker : defender], enemyPets: [side === 'enemy' ? attacker : defender], rewardEligible: false });
             const actor = battle[side][0], target = battle[side === 'player' ? 'enemy' : 'player'][0];
             if (hp !== undefined) target.hp = hp;
@@ -104,6 +104,8 @@ function makeSession(
     rewardEligible = false,
 ): ShowdownSession {
     return createShowdownSession({
+        // Retained-session invariants; progression-v3 has its own full-roster suite.
+        rulesetVersion: 'legacy-v2',
         sessionId: 'testsession', playerName: 'Tester', format, tier: 'warrior', seed,
         playerPets, enemyPets, enemyTeamName: 'Test Foes', rewardEligible,
     });

@@ -4,6 +4,7 @@ import { rankedBuildForPet, sameTacticsBuild } from '../../../shared/pet-tactics
 import type { Pet } from '../types/pet';
 import { petDisplayName } from '../lib/pet';
 import { PetTacticsBuildEditor } from './PetTacticsBuildEditor';
+import { PetAbilityProgression } from './PetAbilityProgression';
 
 export function PetRankedTechniques({ pet, onSave, disabled, lockedReason, onOpenRanked, inspector = false }: {
     pet: Pet; onSave: (build: TacticsBuild) => Promise<void>; disabled?: boolean; lockedReason?: string;
@@ -13,13 +14,15 @@ export function PetRankedTechniques({ pet, onSave, disabled, lockedReason, onOpe
     const committed = rankedBuildForPet(pet);
     const baseKey = JSON.stringify(committed);
     const [draft, setDraft] = useState<{ baseKey: string; build: TacticsBuild } | null>(null);
-    if (!committed) return <p>Loadout editing is unavailable for this companion.</p>;
+    if (!committed) return <><PetAbilityProgression pet={pet} compact={inspector} /><p>Loadout editing is unavailable for this companion.</p></>;
     const build = draft?.baseKey === baseKey ? draft.build : committed;
     const unsaved = !sameTacticsBuild(committed, build);
     return <section className="pet-ranked-techniques">{!inspector && <h3>Battle loadout</h3>}
+        <PetAbilityProgression pet={pet} compact={inspector} />
         <PetTacticsBuildEditor build={build} name={petDisplayName(pet)} onChange={next => setDraft({ baseKey, build: next })}
+            progressionLevel={pet.level}
             summaryLabel={inspector ? 'Edit loadout' : undefined} defaultExpanded={!inspector}
-            description="Choose four abilities for all battles, including PvE summons from pet level 50. Your signature is always equipped. Effects and costs follow each mode’s rules."
+            description="Save four preferred abilities. Progression battles use only earned moves, with eligible defaults for locked slots. Locked preferences resume when earned. Your signature unlocks at level 20. Competitive Tactics uses the full normalized kit."
             savedBuild={pet.rankedBuild} onSave={onSave} disabled={disabled} lockedReason={lockedReason} />
         {onOpenRanked && <div className="pet-ranked-techniques-navigation">
             <button type="button" disabled={unsaved} onClick={onOpenRanked}>Open ranked Pet Colosseum</button>

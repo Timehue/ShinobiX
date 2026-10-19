@@ -1,3 +1,4 @@
+import { petUnmasteredPower } from '../../../shared/pet-ability-mastery';
 import { petBattleJutsus } from "../../../shared/pet-battle-loadout";
 /*
  * Pet utility helpers.
@@ -75,16 +76,13 @@ export function isPetOnExpedition(
 export function petCombatDamage(pet: Pet): number {
     const bestDamageJutsu = Math.max(
         0,
-        ...petBattleJutsus(pet).filter((jutsu) => jutsu.kind === "damage").map((jutsu) => jutsu.power),
+        ...petBattleJutsus(pet, { forceProgression: true }).filter((jutsu) => jutsu.kind === "damage").map((jutsu) => petUnmasteredPower(jutsu.power, jutsu.upgrade)),
     );
-    // All four stats feed the summon's strike: attack + its best damage jutsu
-    // are the core, speed (agility) adds bite, and the pet's bulk (hp + def —
-    // its battle "presence") chips in a little so every stat matters.
+    // Power drives strikes. Vitality and Guard preserve the companion, while
+    // Agility affects action timing rather than adding a second damage bonus.
     return Math.max(20, Math.floor(
         pet.attack * 1.25
         + bestDamageJutsu * 0.6
-        + pet.speed * 0.35
-        + (pet.hp + pet.defense) * 0.025
         + pet.level * 2,
     ));
 }

@@ -24,6 +24,32 @@ import {
 
 const NOW = 1_800_000_000_000;
 
+it('new sealed companions prepare signatures with two actual actions and bound support', () => {
+    const session = createSoloPveSession({
+        sessionId: 'prepared-companion', ownerSlug: 'alice', encounter: { kind: 'test', id: 'prepared' },
+        player: makeFighter('Alice', 62), enemy: makeFighter('Rival', 63, { hp: 10000, maxHp: 10000 }), now: NOW,
+        companion: { petId: 'pet-1', name: 'Fang', hp: 1000, damage: 50, happiness: 100, loyal: true,
+            rulesetVersion: 'progression-v3', defense: 80, spDefense: 80, referenceHp: 778,
+            moves: [
+                { name: 'Strike', kind: 'damage', power: 45, cooldown: 1, rounds: 2, signature: false },
+                { name: 'Final Art', kind: 'damage', power: 90, cooldown: 3, rounds: 2, signature: true },
+            ], pveGearId: '' },
+    });
+    const summoned = applySoloPveAction(session, { type: 'summon' }).session;
+    const first = applySoloPveAction(summoned, { type: 'wait' }).session;
+    assert.equal(first.events.some(event => event.actor === 'companion' && event.actionName === 'Final Art'), false);
+    assert.equal(first.companion?.ordinaryActions, 2);
+    const second = applySoloPveAction(first, { type: 'wait' }).session;
+    assert.ok(second.events.some(event => event.actor === 'companion' && event.actionName === 'Final Art'));
+    const injured = structuredClone(summoned);
+    injured.companion!.hp = 200;
+    injured.companion!.moves = [{ name: 'Mend', kind: 'heal', power: 900, cooldown: 3, rounds: 2, signature: false }];
+    const healed = applySoloPveAction(injured, { type: 'wait' }).session;
+    const healing = healed.events.filter(event => event.actor === 'companion' && event.actionName === 'Mend');
+    assert.equal(healing.length, 1);
+    assert.equal(healing[0].after.companion!.hp - healing[0].before.companion!.hp, 175);
+});
+
 function makeFighter(name: string, pos: number, over: Partial<PvpFighter> = {}): PvpFighter {
     return {
         name,

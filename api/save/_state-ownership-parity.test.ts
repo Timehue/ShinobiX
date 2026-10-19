@@ -144,6 +144,7 @@ const FROZEN = {
         'worldAiChainWins', 'worldAiChainHeals', 'worldAiContextWins', 'worldAiPendingChain', 'worldAiPendingOutcome', 'serverHuntTrails', 'serverFieldMissionRuns', 'raidProgressionSettlements', 'serverFreeDungeonProbeReceipts',
     ],
     ALWAYS_SERVER_LEDGER_CHARACTER_FIELDS: [
+        'petShowdownAdmission',
         'clanExchangeSettlements', 'clanMissionPointReceipts', 'clanWarRewardReceipts', 'mentorRewardReceipts', 'clanDonationXp',
         'bankRyo', 'rankedRating', 'petRankedRating', 'rankedSeasonSettlementReceipts',
         'professionXp', 'professionRank', 'serverSettlementReceipts', 'pvpRewardSettlementReceipts', 'hollowGateExternalCredits', 'settledHollowGateEventIds', 'settledHollowGateCombatIds', 'hollowGatePendingOperation',

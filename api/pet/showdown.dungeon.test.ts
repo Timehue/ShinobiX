@@ -54,7 +54,29 @@ test('Dungeon command admission binds exact parent proof and resumes one immutab
     assert.equal(stored!.enemy[0].name, 'Sealed Rare Beast');
     assert.deepEqual(stored!.dungeonRun, { runToken: f.runToken, petId: 'hero' });
     assert.equal(stored!.rewardEligible, false);
+    assert.equal(stored!.rulesetVersion, 'legacy-v2', 'the authored boss remains under its calibrated gate rules');
 });
+test('a failed Dungeon admission leaves its parent and charge untouched, then concurrent retries spend once', async t => {
+    const f = await fixture('admissionfailure');
+    f.character.pets[0].loadout = { consumable: 'consum-smoke-pellet' };
+    await kv.set(`save:${f.name}`, { _saveVersion: 1, character: f.character });
+    const fault = t.mock.method(kv as typeof kv & { compareSetMany: NonNullable<typeof kv.compareSetMany> }, 'compareSetMany', async () => { throw new Error('fixture-admission-write-failed'); });
+    assert.equal((await f.start()).status, 500);
+    const unchanged = (await kv.get<Json>(`save:${f.name}`))!;
+    assert.equal(unchanged._saveVersion, 1);
+    assert.equal(unchanged.character.activeDungeonRun.petArenaSessionId, undefined);
+    assert.equal(unchanged.character.pets[0].loadout.consumable, 'consum-smoke-pellet');
+    assert.deepEqual(await kv.keys(`pet:showdown:${f.name}:*`), []);
+    fault.mock.restore();
+    const [a, b] = await Promise.all([f.start(), f.start()]);
+    assert.equal(a.status, 200, JSON.stringify(a.body)); assert.equal(b.status, 200, JSON.stringify(b.body));
+    assert.equal(a.body.state.sessionId, b.body.state.sessionId);
+    const committed = (await kv.get<Json>(`save:${f.name}`))!;
+    assert.equal(committed._saveVersion, 2);
+    assert.equal(committed.character.pets[0].loadout.consumable, undefined);
+    assert.equal(committed.character.activeDungeonRun.petArenaSessionId, a.body.state.sessionId);
+});
+
 test('a commanded win writes the parent once, pays nothing, and lost replies recover', async () => {
     const f = await fixture('win'); const opened = await f.start();
     assert.equal(opened.status, 200, JSON.stringify(opened.body));
@@ -131,22 +153,46 @@ test('Dungeon admission and settlement preserve idle regeneration through canoni
     assert.equal(settled.body._saveVersion, 3);
 });
 
-test('Dungeon terminal commits the kickoff item once and preserves a replacement equipped later', async () => {
+test('Dungeon admission spends the kickoff item once and preserves a same-ID replacement equipped later', async () => {
     for (const replace of [false, true]) {
         const f = await fixture(replace ? 'newitem' : 'item');
         f.character.pets[0].loadout = { consumable: 'consum-smoke-pellet' };
         await kv.set(`save:${f.name}`, { _saveVersion: 1, character: f.character });
         const opened = await f.start(); assert.equal(opened.status, 200);
         const save = (await kv.get<Json>(`save:${f.name}`))!;
+        assert.equal(save.character.pets[0].loadout.consumable, undefined, 'the sealed charge is paid at entry');
         if (replace) {
-            save.character.pets[0].loadout.consumable = 'consum-second-wind';
+            save.character.pets[0].loadout.consumable = 'consum-smoke-pellet';
             await kv.set(`save:${f.name}`, save);
         }
         const settled = await call(f.name, { action: 'forfeit', sessionId: opened.body.state.sessionId });
         assert.equal(settled.status, 200);
-        assert.equal(settled.body.character.pets[0].loadout.consumable, replace ? 'consum-second-wind' : undefined);
+        assert.equal(settled.body.character.pets[0].loadout.consumable, replace ? 'consum-smoke-pellet' : undefined);
         const retry = await call(f.name, { action: 'forfeit', sessionId: opened.body.state.sessionId });
         assert.equal(retry.body._saveVersion, settled.body._saveVersion);
-        assert.equal(retry.body.character.pets[0].loadout.consumable, replace ? 'consum-second-wind' : undefined);
+        assert.equal(retry.body.character.pets[0].loadout.consumable, replace ? 'consum-smoke-pellet' : undefined);
     }
+});
+
+test('a retained Dungeon session preserves its legacy terminal charge owner exactly once', async () => {
+    const f = await fixture('legacycharge');
+    f.character.pets[0].loadout = { consumable: 'consum-smoke-pellet' };
+    await kv.set(`save:${f.name}`, { _saveVersion: 1, character: f.character });
+    const opened = await f.start(); assert.equal(opened.status, 200);
+    const sessionKey = `pet:showdown:${f.name}:${opened.body.state.sessionId}`;
+    const session = (await kv.get<Json>(sessionKey))!;
+    delete session.consumablesCommitted;
+    await kv.set(sessionKey, session);
+    const saved = (await kv.get<Json>(`save:${f.name}`))!;
+    saved.character.pets[0].loadout.consumable = 'consum-smoke-pellet';
+    await kv.set(`save:${f.name}`, saved);
+    const terminal = await call(f.name, { action: 'forfeit', sessionId: session.sessionId });
+    assert.equal(terminal.status, 200, JSON.stringify(terminal.body));
+    assert.equal(terminal.body.character.pets[0].loadout.consumable, undefined);
+    const replacement = (await kv.get<Json>(`save:${f.name}`))!;
+    replacement.character.pets[0].loadout.consumable = 'consum-smoke-pellet';
+    await kv.set(`save:${f.name}`, replacement);
+    const retry = await call(f.name, { action: 'forfeit', sessionId: session.sessionId });
+    assert.equal(retry.status, 200, JSON.stringify(retry.body));
+    assert.equal(retry.body.character.pets[0].loadout.consumable, 'consum-smoke-pellet');
 });

@@ -152,6 +152,29 @@ test('eligibility rejects unknown and locked IDs and admits exact unlock boundar
     }
 });
 
+test('raw mastery and eligibility metadata cannot promote an unearned variant', () => {
+    const known = resolvePetAbilityProgression(inputFor('standard-0', 100));
+    const basic = known.abilities.find(move => move.tier === 'basic')!;
+    const signature = known.abilities.find(move => move.tier === 'signature')!;
+    const forged = {
+        id: basic.baseAbilityId, name: 'Renamed Fang', kind: 'damage', power: 60,
+        abilityId: signature.abilityId, baseAbilityId: signature.baseAbilityId,
+        upgrade: 'signature-mastery', unlockLevel: 1, tier: 'signature',
+        signature: true, signatureMastery: true, mastery: true, utilityMastery: true,
+    };
+    const result = resolvePetAbilityProgression({ templateId: 'standard-0', level: 1, abilities: [forged] });
+    assert.equal(result.abilities.length, 1);
+    const materialized = result.abilities[0];
+    assert.equal(materialized.abilityId, basic.abilityId);
+    assert.equal(materialized.tier, 'basic');
+    assert.equal(materialized.signature, false);
+    assert.equal(materialized.upgrade, undefined);
+    assert.equal(Object.hasOwn(materialized, 'signatureMastery'), false);
+    assert.equal(Object.hasOwn(materialized, 'mastery'), false);
+    assert.equal(Object.hasOwn(materialized, 'utilityMastery'), false);
+    assert.equal(petAbilityEligibility({ templateId: 'standard-0', level: 1, abilities: [forged] }, signature.abilityId).eligible, false);
+});
+
 test('competitive IDs translate with explicit progression gates and normalized exception', () => {
     for (const id of PET_ABILITY_SPECIES_IDS) {
         const species = tacticsSpecies(id);

@@ -22,6 +22,8 @@ import { DUEL_TPS, type DuelEvent } from "./pet-duel-sim";
 
 function pet(id: string, element: string, over: Partial<Pet> = {}): Pet {
     return {
+        // Retained-seal command coverage uses the original authored slot indices.
+        battleLoadoutVersion: 'legacy-v1',
         id, name: id, species: id, level: 20,
         hp: 820, attack: 92, defense: 44, speed: 96,
         element, trait: "Swift",
@@ -354,6 +356,8 @@ test("an empty input log replays as the uncommanded fight", () => {
  *  and clashes. */
 function bruiser(id: string, element: string): Pet {
     return {
+        // Retained-seal choreography keeps the original authored melee kit.
+        battleLoadoutVersion: 'legacy-v1',
         id, name: id, species: id, level: 20,
         hp: 820, attack: 92, defense: 44, speed: 96,
         element, trait: "Swift",

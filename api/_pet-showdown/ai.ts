@@ -20,11 +20,12 @@ import type { Pet } from '../_pet-sim/pet-types.js';
 import { growthPointsSpent, normalizePetGrowth, sanitizeGrowthAllocation } from '../pet/_growth.js';
 import {
     SHOWDOWN_ELEMENT_BEATS,
+    SHOWDOWN_GUARD_COST,
     SHOWDOWN_METER_MAX,
     type ShowdownCommand,
     type ShowdownTier,
 } from '../../shared/pet-showdown-contract.js';
-import { nextRand, SELF_KINDS, storedStatusKind, type ShowdownPet, type ShowdownSession } from './engine.js';
+import { estimateShowdownMoveDamage, nextRand, SELF_KINDS, showdownPetSpeed, storedStatusKind, type ShowdownMove, type ShowdownPet, type ShowdownSession } from './engine.js';
 
 // Local deterministic sampler for team generation (session rng not built yet).
 function makeRand(seed: number): () => number {
@@ -91,8 +92,8 @@ export const SHOWDOWN_TEAM_NAMES: Record<ShowdownTier, string[]> = {
  *
  *  `opts.mirrorLevels` is the SPARRING levelling rule. By default the whole AI
  *  team stands at the player team's AVERAGE level, which is the right shape for
- *  a tier the player chose and for the arena's paid bout — one opposition, one
- *  difficulty. Sparring is a drill against your own roster, so there the AI is
+ *  authored campaign difficulty. Colosseum uses its own strongest-first
+ *  slot matching below. Sparring is a drill against your own roster, so there the AI is
  *  levelled slot-for-slot instead: your Lv 9 leads against a Lv 9, your Lv 1
  *  reserve against a Lv 1. Averaging would hand a lopsided roster a fight its
  *  low pets cannot practise in and its high pets cannot learn from. */
@@ -280,8 +281,18 @@ export function buildColosseumAiTeam(
     sparring = false,
     opts?: { leadTemplateId?: string },
 ) {
-    const team = buildShowdownAiTeam(playerPets, size, tier, seed, {
-        mirrorLevels: sparring,
+    // Match the strongest selected pets first. Averaging a strong lead with
+    // low-level reserves made adding an untouched bench weaken every rival.
+    // Sparring deliberately keeps the player's chosen slot order instead.
+    const level = (pet: Pet) => Math.max(1, Math.min(100, Number(pet.level) || 1));
+    const strength = (pet: Pet) => Math.max(0, Number(pet.hp) || 0) / 8
+        + Math.max(0, Number(pet.attack) || 0) + Math.max(0, Number(pet.defense) || 0)
+        + Math.max(0, Number(pet.speed) || 0);
+    const matched = sparring ? playerPets : playerPets.map((pet, index) => ({ pet, index }))
+        .sort((a, b) => level(b.pet) - level(a.pet) || strength(b.pet) - strength(a.pet) || a.index - b.index)
+        .map(({ pet }) => pet);
+    const team = buildShowdownAiTeam(matched, size, tier, seed, {
+        mirrorLevels: true,
         // Difficulty comes from training, policy and loadout, not an unrelated
         // rarity cliff. Story/boss callers keep their authored generic pools.
         mirrorRarities: true,
@@ -292,7 +303,7 @@ export function buildColosseumAiTeam(
         pets: team.pets.map((pet, index) => {
             const tpl = PET_CATALOG[String(pet.templateId)];
             const earned = Math.max(0, Number(pet.level) - 1);
-            const reference = playerPets[index] as unknown as Record<string, unknown> | undefined;
+            const reference = matched[index] as unknown as Record<string, unknown> | undefined;
             // Scrappers leave half their points unspent. Warriors/champions
             // spend a legal balanced budget; traits and gear supply the tier edge.
             const spent = sparring && reference
@@ -319,6 +330,60 @@ function rngOf(session: ShowdownSession): () => number {
     // The AI shares the session rng stream (and the engine's single PRNG
     // implementation) so replays are exact.
     return () => nextRand(session);
+}
+
+function readyForAi(session: ShowdownSession, pet: ShowdownPet, move: ShowdownMove): boolean {
+    return pet.readiness >= move.hold && (session.rulesetVersion !== 'progression-v3'
+        || pet.level >= (move.unlockLevel ?? 1) && (move.availableAtRound ?? 0) <= session.round + 1);
+}
+
+function signatureReadyForAi(session: ShowdownSession, pet: ShowdownPet): boolean {
+    return pet.meter >= SHOWDOWN_METER_MAX && readyForAi(session, pet, pet.signatureMove)
+        && (session.rulesetVersion !== 'progression-v3' || pet.signatureMove.abilityId !== 'unavailable:signature'
+            && pet.level >= (pet.signatureMove.unlockLevel ?? 20));
+}
+
+/** Only the new ruleset uses forecasts. Retained sessions must consume exactly
+ * their original random stream and retain their original command choices. */
+function threatenedResponse(session: ShowdownSession, pet: ShowdownPet, foes: ShowdownPet[]): ShowdownCommand | null {
+    if (session.rulesetVersion !== 'progression-v3' || session.tier === 'scrapper') return null;
+    const tempo = (actor: ShowdownPet, move: ShowdownMove) => showdownPetSpeed(actor) * move.priority;
+    const attacks = (actor: ShowdownPet) => [
+        ...actor.moves.map((move, index) => ({ move, index, signature: false })),
+        ...(signatureReadyForAi(session, actor) ? [{ move: actor.signatureMove, index: -1, signature: true }] : []),
+    ].filter(({ move, signature }) => readyForAi(session, actor, move) && (signature || move.cost <= actor.stamina));
+    const threats = foes.filter(foe => !foe.winded && !foe.statuses.some(status => status.kind === 'stun')
+        && (!foe.guarding || signatureReadyForAi(session, foe)))
+        .map(foe => ({ foe, attacks: attacks(foe) }));
+    const incoming = threats.reduce((sum, threat) => sum + Math.max(0, ...threat.attacks.map(({ move, signature }) =>
+        estimateShowdownMoveDamage(session, threat.foe, pet, move, signature))), 0);
+    const taunter = foes.find(foe => foe.statuses.some(status => status.kind === 'taunt'));
+    const candidates = attacks(pet).flatMap(attack => (taunter ? [taunter] : foes).map(foe => ({
+        ...attack, foe, damage: estimateShowdownMoveDamage(session, pet, foe, attack.move, attack.signature),
+    }))).filter(candidate => candidate.damage > 0);
+    const lethal = candidates.filter(candidate => candidate.damage >= candidate.foe.hp * 1.08
+        && !(candidate.foe.consumable && candidate.foe.consumable.endure > 0)
+        && (incoming < pet.hp || threats.every(threat =>
+            threat.attacks.every(attack => tempo(pet, candidate.move) > tempo(threat.foe, attack.move) + 1))))
+        .sort((a, b) => (a.signature ? 40 : a.move.cost) - (b.signature ? 40 : b.move.cost) || a.damage - b.damage)[0];
+    const command = (candidate: typeof candidates[number]): ShowdownCommand => candidate.signature
+        ? { kind: 'super', petId: pet.id, targetId: candidate.foe.id, abilityId: candidate.move.abilityId }
+        : { kind: 'move', petId: pet.id, moveIndex: candidate.index, targetId: candidate.foe.id, abilityId: candidate.move.abilityId };
+    if (lethal) return command(lethal);
+    if (incoming < pet.hp) return null;
+    const protect = attacks(pet).find(attack => attack.move.kind === 'protect'
+        && !pet.statuses.some(status => status.kind === 'protectSpent'));
+    if (protect) return protect.signature
+        ? { kind: 'super', petId: pet.id, targetId: pet.id, abilityId: protect.move.abilityId }
+        : { kind: 'move', petId: pet.id, moveIndex: protect.index, targetId: pet.id, abilityId: protect.move.abilityId };
+    const guarded = { ...pet, guarding: true };
+    const guardedIncoming = threats.reduce((sum, threat) => sum + Math.max(0, ...threat.attacks.map(({ move, signature }) =>
+        estimateShowdownMoveDamage(session, threat.foe, guarded, move, signature))), 0);
+    if (pet.stamina >= SHOWDOWN_GUARD_COST && guardedIncoming < pet.hp) return { kind: 'guard', petId: pet.id };
+    // If defense cannot save this pet, spend its action on damage rather than
+    // weather or setup that will never pay back. No unaffordable overdraft.
+    const strike = candidates.sort((a, b) => b.damage - a.damage || a.move.cost - b.move.cost)[0];
+    return strike ? command(strike) : null;
 }
 
 /** Pick this round's commands for every living AI FIELD pet.
@@ -351,14 +416,16 @@ export function chooseShowdownAiCommands(
         // flip is rare — it held in only ~2% of pet-rounds — so the AI also
         // rotates on the HALF flip and on stamina, which is what actually
         // makes the bench visible in play.
-        if (!switchedThisRound && tier !== 'scrapper' && reserves.length && pet.hp / pet.maxHp > 0.3) {
+        const canRotate = session.rulesetVersion !== 'progression-v3'
+            || !pet.winded && !pet.statuses.some(status => status.kind === 'movelock');
+        if (!switchedThisRound && canRotate && tier !== 'scrapper' && reserves.length && pet.hp / pet.maxHp > 0.3) {
             const threatened = foes.some((f) => elementBeats(f.element, pet.element));
             // Full flip: a reserve that beats something on the field.
             const counterpick = reserves.find((ally) => foes.some((f) => elementBeats(ally.element, f.element)));
             // Half flip: a reserve that at least is not itself beaten.
             const safePick = reserves.find((ally) => !foes.some((f) => elementBeats(f.element, ally.element)));
             // Stamina rotation: nothing castable, but a rested reserve waits.
-            const cheapest = Math.min(...pet.moves.map((m) => m.cost));
+            const cheapest = Math.min(...pet.moves.filter(m => session.rulesetVersion !== 'progression-v3' || readyForAi(session, pet, m)).map((m) => m.cost));
             const spent = pet.stamina < cheapest;
             const restedPick = reserves.find((ally) => ally.stamina / ally.maxStamina >= 0.7);
             const eagerness = tier === 'champion' ? 0.55 : 0.25;
@@ -389,6 +456,8 @@ function choosePetCommand(
     tier: ShowdownTier,
     rand: () => number,
 ): ShowdownCommand {
+    const response = threatenedResponse(session, pet, foes);
+    if (response) return response;
     // Target selection: focus the kill. Champion weights element advantage in.
     const scored = foes.map((f) => ({
         foe: f,
@@ -401,7 +470,7 @@ function choosePetCommand(
         : scored[0].foe;
 
     // Super discipline: champion holds until it can confirm value; others pop it.
-    if (pet.meter >= SHOWDOWN_METER_MAX && pet.readiness >= pet.signatureMove.hold) {
+    if (signatureReadyForAi(session, pet)) {
         const eager = tier === 'scrapper' ? 0.9 : tier === 'warrior' ? 0.75 : (target.hp / target.maxHp < 0.75 ? 1 : 0.3);
         if (rand() < eager) {
             return { kind: 'super', petId: pet.id, targetId: target.id };
@@ -410,7 +479,7 @@ function choosePetCommand(
 
     const ready = pet.moves
         .map((m, i) => ({ m, i }))
-        .filter(({ m }) => pet.readiness >= m.hold);
+        .filter(({ m }) => readyForAi(session, pet, m));
     const affordable = ready.filter(({ m }) => m.cost <= pet.stamina);
 
     // Heal check: patch a bloodied self/ally when the kit allows it.
@@ -494,6 +563,47 @@ function choosePetCommand(
                 if (session.round <= 1) score += 25;
             }
             if (m.kind === 'lifesteal' && pet.hp / pet.maxHp < 0.5) score += 50;
+            if (session.rulesetVersion === 'progression-v3') {
+                // Value the realized hit and the remaining effect window. Raw
+                // listed power overvalues low-hit control and repeated setup.
+                const dealt = estimateShowdownMoveDamage(session, pet, target, m);
+                const unshielded = { ...target, statuses: target.statuses.filter(status => status.kind !== 'shield') };
+                const pressure = estimateShowdownMoveDamage(session, pet, unshielded, m);
+                const absorbed = Math.max(0, pressure - dealt);
+                score = (dealt + absorbed * .8) / Math.max(1, target.maxHp) * 300;
+                const stored = storedStatusKind(m.kind, session.format, foes.length);
+                const held = (SELF_KINDS.has(m.kind) ? selfStatuses : foeStatuses).has(stored);
+                if (['stun', 'freeze', 'confuse'].includes(m.kind)) score += foeStatuses.has('steadfast') || held ? 0 : m.kind === 'stun' ? 38 : 22;
+                else if (m.kind === 'heal') score = worstAllyHp < .8 ? Math.min(.175, 1 - worstAllyHp) * 300 : -100;
+                else if (['shield', 'barrier', 'absorb'].includes(m.kind)) {
+                    const pool = selfStatuses.get('shield')?.magnitude ?? 0;
+                    const incoming = Math.max(0, ...foes.flatMap(foe => foe.moves.filter(move => readyForAi(session, foe, move)).map(move => estimateShowdownMoveDamage(session, foe, pet, move))));
+                    score = Math.max(0, Math.min(pet.maxHp * .225 - pool, incoming)) / pet.maxHp * (pet.hp / pet.maxHp < .4 ? 330 : 220);
+                } else if (m.kind === 'buff' || m.kind === 'weather') score = held || m.kind === 'weather' && session.weather?.element === pet.element ? -100 : session.round <= 2 && target.hp / target.maxHp > .6 ? 45 : 15;
+                else if (m.kind === 'protect') score = pet.statuses.some(status => status.kind === 'protectSpent') ? -100 : foes.some(foe => signatureReadyForAi(session, foe)) ? 90 : 5;
+                else if (m.kind === 'cleanse') score = allies.some(ally => ally.statuses.some(status => ['burn', 'wound', 'freeze', 'confuse', 'stun', 'mark', 'slow', 'debuff', 'movelock', 'taunt'].includes(status.kind))) ? 75 : -100;
+                else if (['burn', 'dot', 'wound'].includes(m.kind) && !held) score += 24;
+                else if (m.kind === 'slow' && !held) {
+                    const targetSpeed = showdownPetSpeed(target);
+                    const crosses = allies.filter(ally => {
+                        const speed = showdownPetSpeed(ally);
+                        return speed <= targetSpeed && speed > targetSpeed * .75;
+                    }).length;
+                    score += Math.min(30, crosses * 15);
+                } else if (m.kind === 'mark' && !held) {
+                    const marked = { ...target, statuses: [...target.statuses, { kind: 'mark', rounds: 3, magnitude: 1.25, bornRound: session.round }] };
+                    const followup = Math.max(0, ...allies.flatMap(ally => [
+                        ...ally.moves.filter(move => readyForAi(session, ally, move) && move.cost <= ally.stamina),
+                        ...(ally.level >= 20 && ally.meter >= 50 ? [ally.signatureMove] : []),
+                    ].map(move => {
+                        const signature = move === ally.signatureMove;
+                        return estimateShowdownMoveDamage(session, ally, marked, move, signature)
+                            - estimateShowdownMoveDamage(session, ally, target, move, signature);
+                    })));
+                    score += followup / target.maxHp * 300;
+                } else if (['debuff', 'movelock', 'taunt'].includes(m.kind) && !held) score += target.hp / target.maxHp > .5 ? 28 : 8;
+                if (m.kind === 'lifesteal') score += Math.min(1 - pet.hp / pet.maxHp, dealt * .25 / pet.maxHp) * 300;
+            }
 
             // ── Stamina pressure ────────────────────────────────────────────
             // Costs are proportional to power now, so raw power alone would

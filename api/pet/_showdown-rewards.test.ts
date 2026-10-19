@@ -156,7 +156,8 @@ describe('showdown.ts wires practice as unpaid', () => {
         const arenaAt = indexOfOrFail("if (action === 'arena') {");
         const arenaBlock = src.slice(arenaAt, indexOfOrFail("action === 'encounter'"));
         assert.equal(/body\.tier/.test(arenaBlock), false, 'the arena entry must not read a tier from the body');
-        assert.ok(/const tier: ShowdownTier = avgLevel/.test(arenaBlock), 'its tier is derived from the team brought');
+        assert.ok(/const tier: ShowdownTier = strongestLevel/.test(arenaBlock), 'its tier is derived from the strongest selected pet');
+        assert.ok(arenaBlock.includes('Math.max(1, ...chosen.map'), 'low-level reserves cannot dilute the tier');
         assert.ok(arenaBlock.includes('DAILY_ARENA_WIN_CAP'), 'it checks the daily cap BEFORE the fight, not only at settlement');
     });
 

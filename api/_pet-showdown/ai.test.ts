@@ -1,18 +1,19 @@
 /*
  * Showdown AI team generation — the sparring levelling rule.
  *
- * The default (arena, chosen-tier practice) stands the whole AI team at the
+ * The authored campaign builder stands the whole AI team at the
  * player team's AVERAGE level. Sparring mirrors levels SLOT FOR SLOT, which is
  * the whole reason the mode is worth practising in: a roster of Lv 9 / Lv 7 /
  * Lv 4 / Lv 1 averaged to one number gives the Lv 1 an unwinnable fight and the
  * Lv 9 a free one. Both shapes are pinned here because the mirrored path is an
  * OPTION on a hot function — the easy regression is it quietly becoming the
- * default and moving arena difficulty with it.
+ * default and moving authored campaign difficulty with it. Colosseum uses
+ * strongest-first slot matching to resist low-level bench dilution.
  */
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { buildColosseumAiTeam, buildShowdownAiTeam, chooseShowdownAiCommands } from './ai.js';
-import { createShowdownSession, sealShowdownPet } from './engine.js';
+import { createShowdownSession, estimateShowdownMoveDamage, sealShowdownPet } from './engine.js';
 import { PET_CATALOG } from '../pet/_catalog.js';
 import { normalizePetGrowth } from '../pet/_growth.js';
 import type { Pet } from '../_pet-sim/pet-types.js';
@@ -100,6 +101,27 @@ describe('buildShowdownAiTeam', () => {
 });
 
 describe('Colosseum progression and AI side ownership', () => {
+    it('matches strongest selected pets first without allowing a cheap bench to dilute active rivals', () => {
+        const lead = pet('lead', 75);
+        const reserve = { ...pet('reserve', 1), rarity: 'mythic' } as Pet;
+        const solo = buildColosseumAiTeam([lead], 1, 'champion', 91);
+        const team = buildColosseumAiTeam([reserve, lead, pet('middle', 30)], 3, 'champion', 91);
+        assert.deepEqual(team.pets.map(p => p.level), [75, 30, 1]);
+        assert.deepEqual(team.pets.map(p => p.rarity), ['standard', 'standard', 'mythic']);
+        assert.equal(team.pets[0].level, solo.pets[0].level);
+        assert.equal(lead.level, 75, 'matching never mutates the chosen roster');
+        assert.equal(reserve.level, 1);
+    });
+
+    it('uses stable stat strength to resolve equal-level Colosseum slots', () => {
+        const weak = pet('weak', 30);
+        const strong = { ...pet('strong', 30), hp: 1000, rarity: 'rare' } as Pet;
+        const team = buildColosseumAiTeam([weak, strong], 2, 'warrior', 28);
+        assert.deepEqual(team.pets.map(p => p.rarity), ['rare', 'standard']);
+        const sparring = buildColosseumAiTeam([weak, strong], 2, 'warrior', 28, true);
+        assert.deepEqual(sparring.pets.map(p => p.rarity), ['standard', 'rare']);
+    });
+
     it('every practice tier matches roster rarity while preserving its own loadout difficulty', () => {
         const players = [{ ...pet('a', 30), rarity: 'standard' }, { ...pet('b', 30), rarity: 'mythic' }] as Pet[];
         for (const tier of ['scrapper', 'warrior', 'champion'] as const) {
@@ -188,6 +210,10 @@ describe('Colosseum progression and AI side ownership', () => {
                 const session = createShowdownSession({ sessionId: 'heal', playerName: 'test', format: '1v1', tier: 'warrior', seed,
                     playerPets: [pet('player', 1)], enemyPets: [pet('enemy', 1)], enemyTeamName: 'AI', rewardEligible: false });
                 const actor = session[side][0];
+                // Isolate ally ownership from the separate lethal-threat policy.
+                const foe = session[side === 'player' ? 'enemy' : 'player'][0];
+                foe.moves = [];
+                foe.meter = 0;
                 actor.hp = Math.round(actor.maxHp * 0.2);
                 actor.moves = [{ ...actor.moves[0], kind: 'heal', cls: 'status', power: 60, cost: 10 }];
                 const [command] = chooseShowdownAiCommands(session, side);
@@ -195,5 +221,122 @@ describe('Colosseum progression and AI side ownership', () => {
             }
             assert.ok(heals >= 16, `${side} must recognize its own wounded ally`);
         }
+    });
+});
+
+describe('versioned AI move legality', () => {
+    const fixture = (seed: number, level = 19) => {
+        const session = createShowdownSession({ sessionId: 'legality', playerName: 'test', format: '1v1', tier: 'warrior', seed,
+            playerPets: [pet('player', level)], enemyPets: [pet('enemy', level)], enemyTeamName: 'AI', rewardEligible: false });
+        session.rulesetVersion = 'progression-v3';
+        const actor = session.enemy[0];
+        actor.level = level;
+        actor.readiness = 20;
+        actor.meter = 100;
+        actor.stamina = 100;
+        actor.maxStamina = 100;
+        const base = actor.moves[0];
+        actor.moves = [
+            { ...base, name: 'Eligible Strike', kind: 'damage', power: 60, cost: 10, hold: 0, unlockLevel: 1 },
+            { ...base, name: 'Future Art', kind: 'damage', power: 1000, cost: 10, hold: 0, unlockLevel: 75 },
+            { ...base, name: 'Recovering Art', kind: 'damage', power: 1000, cost: 10, hold: 0, unlockLevel: 5, availableAtRound: 3 },
+        ];
+        actor.signatureMove = { ...actor.signatureMove, unlockLevel: 20, hold: 0 };
+        return session;
+    };
+
+    it('never submits a level-locked move, recovering move or early signature', () => {
+        for (let seed = 1; seed <= 32; seed++) {
+            const session = fixture(seed);
+            const [command] = chooseShowdownAiCommands(session);
+            assert.equal(command.kind, 'move');
+            if (command.kind === 'move') assert.equal(command.moveIndex, 0);
+        }
+    });
+
+    it('admits a move exactly when the next round reaches its reuse boundary', () => {
+        const session = fixture(19, 30);
+        session.enemy[0].meter = 0;
+        session.round = 1;
+        const before = chooseShowdownAiCommands(session)[0];
+        assert.equal(before.kind, 'move');
+        if (before.kind === 'move') assert.equal(before.moveIndex, 0);
+        session.round = 2;
+        const boundary = chooseShowdownAiCommands(session)[0];
+        assert.equal(boundary.kind, 'move');
+        if (boundary.kind === 'move') assert.equal(boundary.moveIndex, 2);
+    });
+
+    it('never chooses an unavailable signature placeholder at any earned level', () => {
+        for (const level of [20, 75, 100]) for (let seed = 1; seed <= 12; seed++) {
+            const session = fixture(seed, level);
+            session.enemy[0].signatureMove.abilityId = 'unavailable:signature';
+            assert.notEqual(chooseShowdownAiCommands(session)[0].kind, 'super');
+        }
+    });
+
+    it('retained sessions keep their old unversioned command policy', () => {
+        let signatures = 0;
+        for (let seed = 1; seed <= 32; seed++) {
+            const session = fixture(seed);
+            session.rulesetVersion = undefined;
+            if (chooseShowdownAiCommands(session)[0].kind === 'super') signatures++;
+        }
+        assert.ok(signatures >= 20, 'old numeric/version seals must retain the prior AI behavior');
+    });
+});
+
+describe('new AI threat and finishing decisions', () => {
+    const fixture = () => {
+        const session = createShowdownSession({ sessionId: 'threat', playerName: 'test', format: '1v1', tier: 'warrior', seed: 51,
+            playerPets: [pet('foe', 30)], enemyPets: [pet('actor', 30)], enemyTeamName: 'AI', rewardEligible: false });
+        session.rulesetVersion = 'progression-v3';
+        const actor = session.enemy[0], foe = session.player[0];
+        actor.role = foe.role = 'defender';
+        actor.readiness = foe.readiness = 10;
+        actor.meter = foe.meter = 0;
+        actor.stamina = actor.maxStamina = foe.stamina = foe.maxStamina = 100;
+        actor.moves = [
+            { ...actor.moves[0], name: 'Direct Strike', kind: 'damage', cls: 'physical', power: 60, cost: 10, hold: 0, unlockLevel: 1 },
+            { ...actor.moves[0], name: 'Sky Setup', kind: 'weather', cls: 'status', power: 500, cost: 10, hold: 0, unlockLevel: 5 },
+        ];
+        foe.moves = [{ ...foe.moves[0], kind: 'damage', cls: 'physical', power: 100, cost: 10, hold: 0, unlockLevel: 1 }];
+        return session;
+    };
+
+    it('confirms a reachable finish instead of spending the action on setup', () => {
+        const session = fixture();
+        session.player[0].hp = 1;
+        const chosen = chooseShowdownAiCommands(session)[0];
+        assert.equal(chosen.kind, 'move');
+        if (chosen.kind === 'move') assert.equal(chosen.moveIndex, 0);
+    });
+
+    it('uses Guard when an available enemy strike is lethal and guarding survives it', () => {
+        const session = fixture();
+        const actor = session.enemy[0], foe = session.player[0];
+        const incoming = estimateShowdownMoveDamage(session, foe, actor, foe.moves[0]);
+        assert.ok(incoming > 0);
+        actor.hp = Math.ceil(incoming * 0.75);
+        const chosen = chooseShowdownAiCommands(session)[0];
+        assert.equal(chosen.kind, 'guard');
+    });
+
+    it('strikes rather than setting up when neither Guard nor waiting can save the pet', () => {
+        const session = fixture();
+        session.enemy[0].hp = 1;
+        const chosen = chooseShowdownAiCommands(session)[0];
+        assert.equal(chosen.kind, 'move');
+        if (chosen.kind === 'move') assert.equal(chosen.moveIndex, 0);
+    });
+
+    it('forecasts do not consume the original RNG or a marked target status', () => {
+        const session = fixture();
+        session.player[0].statuses.push({ kind: 'mark', magnitude: 1, rounds: 2, bornRound: 0 });
+        const before = structuredClone(session);
+        const a = estimateShowdownMoveDamage(session, session.enemy[0], session.player[0], session.enemy[0].moves[0]);
+        const b = estimateShowdownMoveDamage(session, session.enemy[0], session.player[0], session.enemy[0].moves[0]);
+        assert.equal(a, b);
+        assert.deepEqual(session, before);
     });
 });
