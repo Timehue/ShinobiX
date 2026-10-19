@@ -375,11 +375,12 @@ export const projectLadder = (order: LadderEntry[]) => order.map((e, i) => ({ ra
 // ── Server-authoritative resolution (ported deterministic engines) ─────────────
 /** One derivation of the ladder duel's inputs, so the SCORED result and the
  *  WATCHED replay can never come from different numbers. */
-function coliseumInput(attacker: LadderPet, defender: LadderPet, seed: number) {
+function coliseumInput(attacker: LadderPet, defender: LadderPet, seed: number, rulesetVersion: 'progression-v3' | 'legacy-v2') {
     // toPet yields the combat-relevant subset the engine reads; the Showdown
     // seal only ever touches those fields, so the cast is runtime-safe.
     return {
         sessionId: `ladder:${seed}`,
+        rulesetVersion,
         seed,
         fromName: attacker.name || "Challenger",
         toName: defender.name || "Defender",
@@ -396,14 +397,14 @@ function coliseumInput(attacker: LadderPet, defender: LadderPet, seed: number) {
  *  slot is inert, since there is no settlement transaction to charge it
  *  against. Showdown's judge always decides, so a challenge can no longer
  *  come back a draw. */
-export function resolveColiseum(attacker: LadderPet, defender: LadderPet, seed: number): boolean {
-    return resolveWarDuel(coliseumInput(attacker, defender, seed)).outcome === "from";
+export function resolveColiseum(attacker: LadderPet, defender: LadderPet, seed: number, rulesetVersion: 'progression-v3' | 'legacy-v2' = 'legacy-v2'): boolean {
+    return resolveWarDuel(coliseumInput(attacker, defender, seed, rulesetVersion)).outcome === "from";
 }
 
 /** Re-derive the watchable script for a scored coliseum challenge. Same inputs
  *  as resolveColiseum, so what the challenger watches is what was scored. */
-export function coliseumScript(attacker: LadderPet, defender: LadderPet, seed: number): ShowdownReplayScript {
-    return resolveWarDuel(coliseumInput(attacker, defender, seed)).script;
+export function coliseumScript(attacker: LadderPet, defender: LadderPet, seed: number, rulesetVersion: 'progression-v3' | 'legacy-v2' = 'legacy-v2'): ShowdownReplayScript {
+    return resolveWarDuel(coliseumInput(attacker, defender, seed, rulesetVersion)).script;
 }
 /** Resolve the same Beastbound Warfront used by the arena: best of three 4v4
  * clashes, from authoritative pet stats and each owner's sealed positions.

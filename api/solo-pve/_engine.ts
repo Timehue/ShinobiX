@@ -1,3 +1,4 @@
+import { petSignatureMastery } from '../../shared/pet-ability-mastery.js';
 import { damageCombatHealth } from '../combat-core/health.js';
 import { pveSpecialistDamagePercent } from '../../shared/relics.js';
 import { COMBAT_RESOURCES_V2, v2ResourceRegen } from '../_combat-resources.js';
@@ -21,6 +22,7 @@ import {
     companionHealOnSummonPct,
     companionConsumableHealPct,
     companionMoveDamage,
+    companionIncomingDamage,
     companionObeys,
     companionOwnerLifestealPct,
     pickCompanionMove,
@@ -209,6 +211,8 @@ function eventSnapshot(session: SoloPveSession): SoloPveEventSnapshot {
             ...fighterEventState(session.companion),
             roundsLeft: session.companion.roundsLeft,
             cooldowns: { ...session.companion.cooldowns },
+            ...(session.companion.signatureReadyAfter !== undefined ? { signatureActionsRemaining: Math.max(0,
+                session.companion.signatureReadyAfter - (session.companion.ordinaryActions ?? 0)) } : {}),
         } } : {}),
         ap: { ...session.ap },
         cooldowns: structuredClone(session.cooldowns),
@@ -666,31 +670,36 @@ function companionDealDamage(session: SoloPveSession, companion: SoloPveCompanio
 }
 
 function companionCast(session: SoloPveSession, companion: SoloPveCompanion, move: CompanionMove | null): CombatResolutionFacts | undefined {
+    const progression = companion.signatureReadyAfter !== undefined;
+    const mastery = petSignatureMastery(move, progression && move?.signature === true);
     if (move) companion.cooldowns[move.name] = Math.max(1, move.cooldown);
     const rounds = move?.rounds ?? 2;
     const kind = move?.kind ?? 'damage';
     const label = move ? ` uses ${move.name}` : ' strikes';
     if (kind === 'cleanse') {
         companion.statuses = removeCombatStatusesByKind(companion.statuses, 'negative').statuses;
+        if (mastery.mastered) addCompanionStatus(companion, { name: 'Stun Prevent', rounds: mastery.cleanseResistRounds, kind: 'positive' });
         session.log.push(`${companion.name}${label} and clears harmful conditions.`);
         return undefined;
     }
     if (kind === 'heal') {
-        const heal = Math.max(1, Math.floor(companion.maxHp * 0.25 + Number(move?.power ?? 0) * 0.5));
+        const heal = progression ? Math.max(1, Math.floor(companion.maxHp * mastery.healPct))
+            : Math.max(1, Math.floor(companion.maxHp * 0.25 + Number(move?.power ?? 0) * 0.5));
         companion.hp = Math.min(companion.maxHp, companion.hp + heal);
         session.log.push(`${companion.name}${label} and recovers ${heal} HP.`);
         return { healing: heal };
     }
     if (kind === 'shield' || kind === 'barrier') {
-        const amount = Math.max(1, Math.floor(companion.maxHp * 0.2));
-        companion.shield += amount;
+        const amount = Math.max(1, Math.floor(companion.maxHp * (progression ? mastery.shieldPct : .2)));
+        companion.shield = progression ? Math.max(companion.shield, amount) : companion.shield + amount;
         companion.shieldExpiresAtRound = shieldExpiryForGrant(session.round);
         session.log.push(`${companion.name}${label} and raises a ${amount} HP shield.`);
         return { shielding: amount };
     }
     if (kind === 'buff' || kind === 'haste' || kind === 'absorb' || kind === 'taunt') {
         const status = kind === 'absorb' ? 'Absorb' : kind === 'taunt' ? 'Decrease Damage Taken' : 'Increase Damage Given';
-        addCompanionStatus(companion, { name: status, rounds, percent: kind === 'absorb' ? 30 : 25, kind: 'positive' });
+        addCompanionStatus(companion, { name: status, rounds: kind === 'taunt' && mastery.mastered ? rounds + 1 : rounds,
+            percent: kind === 'absorb' ? mastery.mastered ? 35 : 30 : mastery.mastered ? 30 : 25, kind: 'positive' });
         session.log.push(`${companion.name}${label} and steels itself.`);
         return undefined;
     }
@@ -702,11 +711,15 @@ function companionCast(session: SoloPveSession, companion: SoloPveCompanion, mov
     // the Stun was aged away at the end of this same enemy turn without ever costing AP.
     switch (kind) {
         case 'stun': case 'freeze': case 'movelock':
+            if (progression && Number(session.enemy.character.companionControlImmuneUntil ?? 0) > session.round) {
+                session.log.push(session.enemy.name + ' resists repeated companion control.'); break;
+            }
+            if (progression) session.enemy.character.companionControlImmuneUntil = session.round + 3;
             addCompanionStatus(session.enemy, { name: 'Stun', rounds: 1, kind: 'negative', activeRound: session.round + 1 }); break;
         case 'wound':
             addCompanionStatus(session.enemy, { name: 'Wound', rounds, amount: Math.max(1, Math.floor(dealt * 0.4)), kind: 'negative', activeRound: session.round + 1 }); break;
         case 'dot': case 'burn':
-            addCompanionStatus(session.enemy, { name: 'Poison', rounds, percent: 8, kind: 'negative' });
+            addCompanionStatus(session.enemy, { name: 'Poison', rounds: progression ? Math.min(2, rounds) : rounds, percent: progression ? 4 : 8, kind: 'negative' });
             if (kind === 'burn') addCompanionStatus(session.enemy, { name: 'Decrease Damage Given', rounds, percent: 15, kind: 'negative' });
             break;
         case 'crush': case 'confuse': case 'debuff': case 'slow':
@@ -714,7 +727,7 @@ function companionCast(session: SoloPveSession, companion: SoloPveCompanion, mov
         case 'mark':
             addCompanionStatus(session.enemy, { name: 'Increase Damage Taken', rounds, percent: 20, kind: 'negative' }); break;
         case 'lifesteal':
-            if (dealt > 0) companion.hp = Math.min(companion.maxHp, companion.hp + Math.max(1, Math.floor(dealt * 0.5)));
+            if (dealt > 0) companion.hp = Math.min(companion.maxHp, companion.hp + Math.max(1, Math.floor(dealt * (progression ? .25 : .5))));
             break;
         case 'push': {
             const choices = hexNeighbors(session.enemy.pos)
@@ -774,7 +787,8 @@ function runSoloPveCompanionPhase(session: SoloPveSession): void {
         let actions = 0;
         while (ap >= MOVE_AP && actions < MAX_ACTIONS && session.status === 'active' && companion.hp > 0) {
             const move = pickCompanionMove(companion.moves, companion.cooldowns, companion.hp / Math.max(1, companion.maxHp),
-                companion.statuses.some(status => status.kind === 'negative'));
+                companion.statuses.some(status => status.kind === 'negative'),
+                companion.signatureReadyAfter === undefined ? undefined : { ordinaryActions: companion.ordinaryActions ?? 0, requiredActions: companion.signatureReadyAfter });
             const selfCast = !!move && companionMoveDamage(1, move) === 0;
             if (!selfCast && hexDistance(companion.pos, session.enemy.pos) > COMPANION_RANGE) {
                 const candidates = hexNeighbors(companion.pos)
@@ -796,6 +810,7 @@ function runSoloPveCompanionPhase(session: SoloPveSession): void {
             const before = eventSnapshot(session);
             const logStart = session.log.length;
             const resolution = companionCast(session, companion, move);
+            if (!move?.signature && companion.signatureReadyAfter !== undefined) companion.ordinaryActions = (companion.ordinaryActions ?? 0) + 1;
             ap -= BASIC_ATTACK_AP;
             actions += 1;
             appendCompanionEvent(
@@ -1156,9 +1171,15 @@ function resolveDirectAction(session: SoloPveSession, side: SoloPveSide, action:
             maxStamina: 999,
             shield: 0,
             statuses: [],
-            character: { companion: true, visual: seal.petId, specialty: 'Taijutsu', level: 1, stats: {} },
+            character: { companion: true, visual: seal.petId, specialty: 'Taijutsu', level: 1, stats:
+                seal.rulesetVersion === 'progression-v3' ? {
+                    taijutsuDefense: seal.defense ?? 0, bukijutsuDefense: seal.defense ?? 0,
+                    ninjutsuDefense: seal.spDefense ?? 0, genjutsuDefense: seal.spDefense ?? 0,
+                } : {} },
             pos: spot,
             petId: seal.petId,
+            ...(seal.rulesetVersion === 'progression-v3' ? { signatureReadyAfter: 2, ordinaryActions: 0 } : {}),
+            ...(seal.rulesetVersion === 'progression-v3' ? { defense: seal.defense, spDefense: seal.spDefense, referenceHp: seal.referenceHp } : {}),
             baseDamage: seal.damage,
             happiness: seal.happiness,
             loyal: seal.loyal,
@@ -1831,7 +1852,9 @@ function enemyActsOnCompanion(session: SoloPveSession): boolean {
     const logStart = session.log.length;
     const level = Number(session.enemy.character.level ?? 1);
     const fraction = level >= 80 ? 0.3 : level >= 40 ? 0.26 : 0.22;
-    let damage = Math.max(1, Math.floor(companion.maxHp * fraction));
+    let damage = companion.defense === undefined
+        ? Math.max(1, Math.floor(companion.maxHp * fraction))
+        : companionIncomingDamage(companion.referenceHp ?? companion.maxHp, companion.defense, fraction);
     const enemyStatuses = activeStatuses(session.enemy, session.round);
     if (enemyStatuses.some(status => status.source === 'item-smoke-bomb')) damage = 0;
     else if (enemyStatuses.some(status => status.source === 'item-attack-pill')) damage = Math.floor(damage * 1.15);

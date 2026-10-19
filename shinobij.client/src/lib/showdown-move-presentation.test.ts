@@ -13,8 +13,11 @@ test("every actual sealed pet loadout has distinct primary geometry, including s
                 playerPets: [{ ...pet, templateId: pet.id, level }], enemyPets: [{ ...pet, templateId: pet.id, id: "enemy", level }], enemyTeamName: "QA" });
             const kit = showdownStateView(session).player[0].moves;
             const presentations = buildMovePresentations(kit);
-            assert.equal(presentations.size, kit.length, `${pet.name}: all moves resolve`);
-            assert.equal(new Set([...presentations.values()].map(p => p.grammar)).size, kit.length, `${pet.name} level ${level}`);
+            // A restrained or advanced tier can intentionally reuse the same
+            // authored technique. It keeps that identity's geometry.
+            const identities = new Set(kit.map(move => movePresentationKey(move.name, move.signature)));
+            assert.equal(presentations.size, identities.size, `${pet.name}: all authored identities resolve`);
+            assert.equal(new Set([...presentations.values()].map(p => p.grammar)).size, identities.size, `${pet.name} level ${level}`);
             assert.deepEqual([...buildMovePresentations([...kit].reverse())], [...presentations], `${pet.name}: order cannot reshuffle artwork`);
             for (const move of kit) {
                 assert.deepEqual(resolveMovePresentation(presentations, { moveName: move.name, moveKind: move.kind, element: move.element, super: move.signature }), presentations.get(movePresentationKey(move.name, move.signature)));

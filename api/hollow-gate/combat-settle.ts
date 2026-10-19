@@ -262,7 +262,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // always has. A Showdown duel draws its partners at random, the way
                 // a road beast's team is drawn, so their consumables fire without
                 // being spent, as they do on the road. The lead is listed first.
-                petIds = verifiedPetResult.engine === 'showdown' ? fielded.slice(0, 1) : fielded;
+                petIds = verifiedPetResult.consumablesCommitted ? []
+                    : verifiedPetResult.engine === 'showdown' ? fielded.slice(0, 1) : fielded;
             } else {
                 const validation = validateHollowGateSoloPveSession({ binding, session, activeEncounter: run.activeEncounter, playerName, token });
                 if (!validation.ok) return { status: 409, body: { error: `Hollow Gate settlement rejected: ${validation.reason}.` } };

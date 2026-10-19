@@ -1,3 +1,4 @@
+import { petSignatureMastery } from '../../shared/pet-ability-mastery.js';
 import { pveSpecialistDamagePercent } from '../../shared/relics.js';
 import { HUNT_AI_POLICY, pickHuntAiAction } from './_hunt-ai.js';
 import { primeTowerSignature, resolveTowerSignature, recordTowerKnockouts, cancelInvalidTowerSignature } from './_combat-tactics.js';
@@ -159,9 +160,9 @@ type PvpItemLike = {
 function towerStatusMatches(name: string, canonicalName: string): boolean {
     return canonicalTagName(name) === canonicalName;
 }
-function addTowerStatus(actor: TowerActor, status: PvpStatus): void {
+function addTowerStatus(actor: TowerActor, status: PvpStatus, preserveDuration = false): void {
     const name = canonicalTagName(status.name);
-    const adjusted: PvpStatus = { ...status, name, rounds: status.source === 'item-smoke-bomb' ? status.rounds : statusDurationFor(name, status.rounds) };
+    const adjusted: PvpStatus = { ...status, name, rounds: preserveDuration || status.source === 'item-smoke-bomb' ? status.rounds : statusDurationFor(name, status.rounds) };
     if (STACKABLE_STATUS.has(name)) {
         actor.statuses = [...actor.statuses, adjusted];
         return;
@@ -3634,7 +3635,10 @@ function runCompanionTurn(session: TowerSession, floor: TowerFloor, actor: Tower
         const moves = (Array.isArray(c.companionMoves) ? c.companionMoves : []) as CompanionMove[];
         const hpFrac = actor.maxHp > 0 ? actor.hp / actor.maxHp : 1;
         const move = pickCompanionMove(moves, (actor.cooldowns ?? {}) as Record<string, number>, hpFrac,
-            actor.statuses.some(status => status.kind === 'negative'));
+            actor.statuses.some(status => status.kind === 'negative'),
+            c.companionSignatureReadyAfter === undefined ? undefined : {
+                ordinaryActions: Number(c.companionOrdinaryActions ?? 0), requiredActions: Number(c.companionSignatureReadyAfter),
+            });
         const selfCast = !!move && companionMoveDamage(1, move) === 0;
         // Out of reach for anything offensive → spend a step closing the distance.
         if (!selfCast && hexDistance(actor.pos, target.pos, session.map.width) > COMPANION_RANGE) {
@@ -3649,6 +3653,7 @@ function runCompanionTurn(session: TowerSession, floor: TowerFloor, actor: Tower
         const castCost = towerAdjustedApCost(session, actor, BASIC_ATTACK_AP);
         if (ap < castCost) break;
         companionCast(session, floor, actor, target, move);
+        if (!move?.signature && c.companionSignatureReadyAfter !== undefined) c.companionOrdinaryActions = Number(c.companionOrdinaryActions ?? 0) + 1;
         ap -= castCost; acted++;
     }
     session.activeAp = ap;
@@ -3658,6 +3663,8 @@ function runCompanionTurn(session: TowerSession, floor: TowerFloor, actor: Tower
 function companionCast(
     session: TowerSession, floor: TowerFloor, actor: TowerActor, target: TowerActor, move: CompanionMove | null,
 ): void {
+    const progression = actor.character.companionSignatureReadyAfter !== undefined;
+    const mastery = petSignatureMastery(move, progression && move?.signature === true);
     if (rejectObjectiveLockedBoss(session, actor, target)) return;
     if (move) actor.cooldowns = { ...(actor.cooldowns ?? {}), [move.name]: Math.max(1, move.cooldown) };
     const rounds = move?.rounds ?? 2;
@@ -3668,35 +3675,37 @@ function companionCast(
     switch (kind) {
         case 'cleanse': {
             actor.statuses = actor.statuses.filter(status => status.kind !== 'negative');
+            if (mastery.mastered) addTowerStatus(actor, { name: 'Stun Prevent', rounds: mastery.cleanseResistRounds, kind: 'positive' } as never, true);
             session.log.push(`${actor.name}${label} and clears harmful conditions.`);
             return;
         }
         case 'heal': {
-            const heal = Math.max(1, Math.floor(actor.maxHp * 0.25 + (move?.power ?? 0) * 0.5));
+            const heal = progression ? Math.max(1, Math.floor(actor.maxHp * mastery.healPct))
+                : Math.max(1, Math.floor(actor.maxHp * 0.25 + (move?.power ?? 0) * 0.5));
             actor.hp = Math.min(actor.maxHp, actor.hp + heal);
             session.log.push(`${actor.name}${label} and recovers ${heal} HP.`);
             return;
         }
         case 'shield': case 'barrier': {
-            const amt = Math.max(1, Math.floor(actor.maxHp * 0.2));
-            actor.shield = Math.max(0, Number(actor.shield ?? 0)) + amt;
+            const amt = Math.max(1, Math.floor(actor.maxHp * (progression ? mastery.shieldPct : .2)));
+            actor.shield = progression ? Math.max(actor.shield, amt) : Math.max(0, Number(actor.shield ?? 0)) + amt;
             actor.shieldExpiresAtRound = shieldExpiryForGrant(session.round);
             session.log.push(`${actor.name}${label} and raises a ${amt} HP shield.`);
             return;
         }
         case 'buff': case 'haste': {
-            addTowerStatus(actor, { name: 'Increase Damage Given', rounds, percent: 25, kind: 'positive' } as never);
-            session.log.push(`${actor.name}${label} and steels itself (+25% damage).`);
+            addTowerStatus(actor, { name: 'Increase Damage Given', rounds, percent: mastery.mastered ? 30 : 25, kind: 'positive' } as never);
+            session.log.push(`${actor.name}${label} and steels itself (+${mastery.mastered ? 30 : 25}% damage).`);
             return;
         }
         case 'absorb': {
-            addTowerStatus(actor, { name: 'Absorb', rounds, percent: 30, kind: 'positive' } as never);
+            addTowerStatus(actor, { name: 'Absorb', rounds, percent: mastery.mastered ? 35 : 30, kind: 'positive' } as never);
             session.log.push(`${actor.name}${label} and hardens.`);
             return;
         }
         case 'taunt': {
-            addTowerStatus(actor, { name: 'Decrease Damage Taken', rounds, percent: 25, kind: 'positive' } as never);
-            session.log.push(`${actor.name}${label} and braces (−25% damage taken).`);
+            addTowerStatus(actor, { name: 'Decrease Damage Taken', rounds: mastery.mastered ? rounds + 1 : rounds, percent: mastery.mastered ? 30 : 25, kind: 'positive' } as never, mastery.mastered);
+            session.log.push(`${actor.name}${label} and braces (−${mastery.mastered ? 30 : 25}% damage taken).`);
             return;
         }
         case 'move': {
@@ -3712,11 +3721,15 @@ function companionCast(
     session.log.push(`${actor.name}${label} → ${target.name} for ${dealt}.`);
     switch (kind) {
         case 'stun': case 'freeze': case 'movelock':
+            if (progression && Number(target.character.companionControlImmuneUntil ?? 0) > session.round) {
+                session.log.push(target.name + ' resists repeated companion control.'); break;
+            }
+            if (progression) target.character.companionControlImmuneUntil = session.round + 3;
             addTowerStatus(target, { name: 'Stun', rounds: 1, kind: 'negative' } as never); break;
         case 'wound':
             addTowerStatus(target, { name: 'Wound', rounds, amount: Math.max(1, Math.floor(dealt * 0.4)), kind: 'negative' } as never); break;
         case 'dot': case 'burn':
-            addTowerStatus(target, { name: 'Poison', rounds, percent: 8, kind: 'negative' } as never);
+            addTowerStatus(target, { name: 'Poison', rounds: progression ? Math.min(2, rounds) : rounds, percent: progression ? 4 : 8, kind: 'negative' } as never);
             if (kind === 'burn') addTowerStatus(target, { name: 'Decrease Damage Given', rounds, percent: 15, kind: 'negative' } as never);
             break;
         case 'crush':
@@ -3728,7 +3741,7 @@ function companionCast(
             // tower's equivalent is the shared incoming-damage amp.
             addTowerStatus(target, { name: 'Increase Damage Taken', rounds, percent: 20, kind: 'negative' } as never); break;
         case 'lifesteal':
-            if (dealt > 0) actor.hp = Math.min(actor.maxHp, actor.hp + Math.max(1, Math.floor(dealt * 0.5)));
+            if (dealt > 0) actor.hp = Math.min(actor.maxHp, actor.hp + Math.max(1, Math.floor(dealt * (progression ? .25 : .5))));
             break;
         case 'push':
             pushAwayFrom(session, target, actor.pos, 1); break;

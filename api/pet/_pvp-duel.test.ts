@@ -139,9 +139,10 @@ test('the settlement snapshot is one the settlement will actually accept', () =>
     const snapshot = pvpSettlementSnapshot(pets);
     assert.deepEqual(
         parseSealedPetSnapshots(snapshot, ['p0']),
-        snapshot,
-        'the snapshot round-trips through the settlement parser',
+        snapshot.map(pet => ({ ...pet, battleLoadoutVersion: 'legacy-v1' })),
+        'the historical snapshot round-trips with an explicit retained rules marker',
     );
+    assert.equal(snapshot[0].battleLoadoutVersion, undefined, 'parsing must not mutate the stored historical proof');
     const raw = snapshot[0] as unknown as Record<string, unknown>;
     assert.ok(!('image' in raw) && !('bodyImage' in raw), 'no art keys at all, not even hosted ones');
     assert.ok(!('training' in raw) && !('expedition' in raw), 'no busy-state keys at all, not even null ones');
@@ -151,6 +152,15 @@ test('the settlement snapshot is one the settlement will actually accept', () =>
         'the consumable slot is empty: a sealed duel does not fire one, so settlement must not spend one',
     );
     assert.equal((raw.loadout as Record<string, unknown>).weapon, 'fang', 'the rest of the loadout is untouched');
+});
+
+test('current settlement projections retain their progression marker and exact sealed abilities', () => {
+    const pets = [mkPet('p0', { battleLoadoutVersion: 'progression-v3', level: 1,
+        jutsus: [{ name: 'Earned Art', power: 90, cooldown: 2, currentCooldown: 0, kind: 'damage',
+            abilityId: 'fixture:earned-art:basic', baseAbilityId: 'fixture:earned-art', unlockLevel: 1 }] })];
+    const snapshot = pvpSettlementSnapshot(pets);
+    assert.deepEqual(parseSealedPetSnapshots(snapshot, ['p0']), snapshot);
+    assert.deepEqual(snapshot[0].jutsus, pets[0].jutsus, 'settlement does not reinterpret already sealed current abilities');
 });
 
 test('an inline sprite blob never reaches the seal', () => {

@@ -3,6 +3,7 @@ import { PetBattleReadiness } from "../components/PetBattleReadiness";
 import { PetRankedTechniques } from "../components/PetRankedTechniques";
 import { PetYardModelPreview } from "../components/PetYardModelPreview";
 import { petBattleJutsus } from "../../../shared/pet-battle-loadout";
+import { petBattleChannels, petBattleStamina } from "../../../shared/pet-battle-stats";
 import { petCareReactionKind, type PetCareAction, type PetCareCue } from '../lib/pet-yard-interactions';
 import { useState, useEffect, useLayoutEffect, useMemo, useRef, Suspense, useTransition } from "react";
 import { cacheDynamicImport, lazyWithRetry, retryDynamicImport } from "../lib/lazyWithRetry";
@@ -145,6 +146,8 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
     const growthCap = petGrowthAttributeCap(selectedPet?.level ?? 1);
     const hasGrowthDraft = Object.entries(growthDraft).some(([key, value]) => value !== committedGrowth[key as keyof PetGrowthAllocation]);
     const growthPreview = selectedPet && hasGrowthDraft ? derivePetGrowthStats({ ...selectedPet, growthAllocation: growthDraft }) : null;
+    const battleChannels = selectedPet ? petBattleChannels(selectedPet) : null;
+    const previewChannels = selectedPet && growthPreview ? petBattleChannels({ ...selectedPet, ...growthPreview }) : null;
     const breedingPetIds = activeClientBreedingParentIds(character);
     const selectedPetBreedingLocked = Boolean(selectedPet && breedingPetIds.has(selectedPet.id));
     // Bond upkeep (shared/pet-happiness.ts). petCurrentHappiness projects the
@@ -1182,7 +1185,11 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                                 <span> ATK: {selectedPet.attack}{growthPreview && growthPreview.attack !== selectedPet.attack ? ` → ${growthPreview.attack}` : ""}</span>
                                 <span> DEF: {selectedPet.defense}{growthPreview && growthPreview.defense !== selectedPet.defense ? ` → ${growthPreview.defense}` : ""}</span>
                                 <span> SPD: {selectedPet.speed}{growthPreview && growthPreview.speed !== selectedPet.speed ? ` → ${growthPreview.speed}` : ""}</span>
+                                <span> Special ATK: {battleChannels?.spAttack}{previewChannels && previewChannels.spAttack !== battleChannels?.spAttack ? ` → ${previewChannels.spAttack}` : ""}</span>
+                                <span> Special DEF: {battleChannels?.spDefense}{previewChannels && previewChannels.spDefense !== battleChannels?.spDefense ? ` → ${previewChannels.spDefense}` : ""}</span>
+                                <span> Colosseum STA: {petBattleStamina({ ...selectedPet, growthAllocation: growthDraft })}</span>
                             </div>
+                            <p className="pet-growth-stat-explanation">Special channels derive from Attack and Defense with this companion&apos;s role. Battle gear and effects are applied on entry. Agility affects initiative where the format orders pet actions by speed; adventure companions act in a fixed summon phase. Happiness affects adventure summons and training; sealed Colosseum stats do not use happiness.</p>
                             {selectedPet.description && <p className="pet-description">{selectedPet.description}</p>}
                             <div className="menu">
                                 <button disabled={progressBusy || selectedPetBreedingLocked || selectedPetIsOverflow} aria-describedby={selectedPetBreedingLocked || selectedPetIsOverflow ? "pet-yard-roster-lock" : undefined} onClick={() => void assignRosterRole("active")}>
@@ -1255,12 +1262,12 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                                     <h4 style={{ margin: 0 }}>Growth Build</h4>
                                     <strong style={{ color: growthUnspent > 0 ? "#67e8f9" : "#94a3b8" }}>{growthUnspent} point{growthUnspent === 1 ? "" : "s"} available</strong>
                                 </div>
-                                <p className="hint" style={{ margin: "4px 0 8px" }}>Each level grants 1 point plus automatic core growth. Any one attribute may hold at most {growthCap} points at Level {selectedPet.level}.</p>
+                                <p className="hint" style={{ margin: "4px 0 8px" }}>Each level after 1 grants 1 point plus automatic core growth. Any one attribute may hold at most {growthCap} points at Level {selectedPet.level}.</p>
                                 {([
-                                    ["vitality", "Vitality", "HP"],
-                                    ["power", "Power", "Attack"],
-                                    ["guard", "Guard", "Defense"],
-                                    ["agility", "Agility", "Speed / initiative"],
+                                    ["vitality", "Vitality", "HP / survival"],
+                                    ["power", "Power", "Physical & special offense"],
+                                    ["guard", "Guard", "Physical & special defense; small bounded stamina gain"],
+                                    ["agility", "Agility", "Speed / initiative; no added damage or extra actions"],
                                 ] as const).map(([key, label, effect]) => (
                                     <div key={key} style={{ display: "grid", gridTemplateColumns: "1fr auto auto auto", alignItems: "center", gap: 6, marginTop: 5 }}>
                                         <span><strong>{label}</strong> <span className="hint">· {effect}</span></span>
@@ -1274,6 +1281,7 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                                     <button type="button" onClick={() => void resetGrowth()} disabled={growthBusy || Object.values(committedGrowth).every((value) => value <= 0)}>Respec</button>
                                 </div>
                                 <p className="hint" style={{ margin: "6px 0 0" }}>Respecs are free outside active battles and return every committed point.</p>
+                                <p className="hint">Progression update: ownership, level, XP, evolution, equipment and your earned point total are preserved. Review your build freely; resetting redistributes your existing points without adding any.</p>
                             </section>
                                 <div className="pet-training-panel">
                                     <h4>Training</h4>

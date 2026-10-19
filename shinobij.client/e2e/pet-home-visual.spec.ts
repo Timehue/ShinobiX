@@ -6,6 +6,28 @@ import { PET_SCENIC_PORTRAITS } from "../src/lib/pet-portrait-assets.generated";
 import AxeBuilder from "@axe-core/playwright";
 import { gotoSettled, reloadSettled } from "./helpers/network-settle";
 
+test("arena visit feed preserves recorded paid wins after navigation", async ({ page }, testInfo) => {
+    test.setTimeout(150_000);
+    test.skip(!['chromium-desktop', 'chromium-mobile'].includes(testInfo.project.name), 'visit-feed scope is checked on desktop and mobile');
+    const fixture = await installPetHomeApi(page);
+    Object.assign(fixture.character, { dailyPetWins: 3, totalPetWins: 3, lastDailyReset: new Date().toISOString().slice(0, 10) });
+    await openHome(page);
+    await page.getByRole('button', { name: 'Pet Arena', exact: true }).click();
+    const feed = page.getByRole('log', { name: 'Pet battle log' });
+    await expect(feed).toContainText('No events this visit');
+    await expect(feed).toContainText('Paid wins recorded today: 3/100');
+    await expect(feed).not.toContainText('Awaiting bell');
+    await expect(page.locator('.pet-arena-readiness')).toContainText(/3\s*\/\s*100/);
+    await feed.screenshot({ path: testInfo.outputPath('arena-visit-feed-three-paid-wins.png') });
+    await page.getByRole('button', { name: 'Pet Yard', exact: true }).click();
+    await expect(page.locator('.pet-yard-screen')).toBeVisible();
+    await page.getByRole('button', { name: 'Pet Arena', exact: true }).click();
+    await expect(feed).toContainText('No events this visit');
+    await expect(feed).toContainText('Paid wins recorded today: 3/100');
+    await expect(page.locator('.pet-arena-readiness')).toContainText(/3\s*\/\s*100/);
+    await feed.screenshot({ path: testInfo.outputPath('arena-visit-feed-remounted.png') });
+});
+
 type PetFixture = Record<string, unknown> & {
     id: string;
     name: string;
@@ -1045,7 +1067,10 @@ test("refined companion and Sunscar pages", async ({ page }, testInfo) => {
     await expect(page.getByRole("heading", { name: "Loadout", exact: true })).toBeVisible();
     await fit("yard-equipment", ".pet-yard-refined");
     await activities.getByRole("button", { name: "Battle & techniques", exact: true }).click();
-    await expect(page.getByText("Ember Fang", { exact: true })).toBeVisible();
+    // Progression displays the earned native kit while retaining the owned fixture's stored jutsus.
+    await expect(page.locator('.pet-progression-active').getByText(/^Advanced: Ember Lash/)).toBeVisible();
+    await expect(page.getByText("Ember Fang", { exact: true })).toHaveCount(0);
+    expect(state.character.pets[0]).toMatchObject({ id: "qa-fire-1", templateId: "rare-26", level: 60, jutsus: [{ name: "Ember Fang", kind: "damage", power: 24, cooldown: 3 }] });
     await expect(page.getByRole("button", { name: "Deploy Sumi" })).toBeEnabled();
     await fit("yard-techniques", ".pet-yard-refined");
     await activities.getByRole("button", { name: "Expeditions", exact: true }).click();

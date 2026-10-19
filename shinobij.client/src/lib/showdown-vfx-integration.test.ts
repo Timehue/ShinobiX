@@ -1,12 +1,13 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { PET_CATALOG } from "../../../api/pet/_catalog";
-import { createShowdownSession, resolveShowdownRound, showdownStateView, type ShowdownSession } from "../../../api/_pet-showdown/engine";
+import { createShowdownSession, resolveShowdownRound, sealShowdownPet, showdownStateView, type ShowdownSession } from "../../../api/_pet-showdown/engine";
 import type { Pet } from "../../../api/_pet-sim/pet-types";
 import type { ShowdownCommand, ShowdownEvent, ShowdownFormat } from "../../../shared/pet-showdown-contract";
 import { buildMovePresentations, movePresentationKey, resolveMovePresentation, showdownTechniqueHitIds, techniquePhase } from "./showdown-move-presentation";
 import { showdownActionTargetId, showdownContactEffectKind, showdownContactOutcome } from "./showdown-contact-vfx";
 import { showdownDodgeCues, showdownPresentationEvent } from "./showdown-playback";
+import { tacticsPreset } from '../../../shared/pet-tactics-roster';
 
 type Action = Extract<ShowdownEvent, { t: "action" }>;
 type Side = "player" | "enemy";
@@ -78,18 +79,27 @@ test("all real move slots reach their assigned effects through live commands on 
 
 test("Guard chip keeps the elemental impact; Protect, absorption and dodge do not", () => {
     for (const defense of ["guard", "protect", "shield", "dodge"] as const) {
-        const template = defense === "protect"
-            ? Object.values(PET_CATALOG).find(candidate => fixture(candidate.id).player[0].moves.some(move => move.kind === "protect"))
-            : PET_CATALOG["standard-0"];
-        assert.ok(template, "a real sealed loadout must retain at least one Protect technique");
-        const session = fixture(template.id);
+        const session = fixture('standard-0');
+        if (defense === 'protect') {
+            session.enemy[0] = sealShowdownPet({ ...PET_CATALOG['starter-earth-r'], templateId: 'starter-earth-r', id: 'enemy-0', level: 30,
+                rankedBuild: { ...tacticsPreset('starter-earth-r'), moveIds: ['earth-strike', 'earth-pulse', 'earth-breaker', 'protect'] },
+            } as Pet, 'progression-v3');
+            assert.ok(session.enemy[0].moves.some(move => move.kind === 'protect'), 'a real saved loadout retains its earned Protect technique');
+        }
+        if (defense === 'shield') {
+            // A legal bounded shield fully absorbs a young companion's basic
+            // technique; it need not absorb an entire same-level signature.
+            session.player[0] = sealShowdownPet({ ...pet('standard-0', 'player-0'), level: 1 }, 'progression-v3');
+        }
         const actor = session.player[0], target = session.enemy[0];
-        if (defense === "shield") target.statuses.push({ kind: defense, rounds: 3, magnitude: 100000, bornRound: session.round });
+        if (defense === "shield") target.statuses.push({ kind: defense, rounds: 2, magnitude: Math.floor(target.maxHp * .225), bornRound: session.round });
         if (defense === "dodge") target.consumable = { id: "smoke", name: "Smoke", dodge: 1, mitigate: 0, thorns: 0, endure: 0, lifeline: 0, cleanse: 0 };
         const response: ShowdownCommand = defense === "protect"
             ? { kind: "move", petId: target.id, moveIndex: target.moves.findIndex(move => move.kind === "protect"), targetId: target.id }
             : { kind: defense === "guard" ? "guard" : "rest", petId: target.id };
-        const action = cast(session, "player", { kind: "super", petId: actor.id, targetId: target.id }, response);
+        const action = cast(session, "player", defense === 'shield'
+            ? { kind: 'move', petId: actor.id, moveIndex: 1, targetId: target.id }
+            : { kind: "super", petId: actor.id, targetId: target.id }, response);
         assert.equal(showdownActionTargetId(action), target.id, "even a dodge keeps the original aim");
         const contact = action.targets.find(t => t.id === action.targetId && !t.splash);
         const kind = showdownContactEffectKind(action.moveKind, contact);
