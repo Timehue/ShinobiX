@@ -25,18 +25,19 @@
  *                       · guard     — everything else; battles hold doorways and
  *                                     corridor junctions (chokepoints), not random
  *                                     open floor
- *                     Tile COUNTS are unchanged from the legacy generators — this
- *                     improves WHERE things are, not how much there is.
+ *                     New floors carry one fewer ordinary fight. Legacy mode
+ *                     reproduces the old sealed layout during recovery.
  *   6. Invariants   — assert exit + descend reachable; else regenerate (cheap).
  *
- * Pure. Same output shape + tile kinds/terrains + content counts as the legacy
- * generators (balance unchanged — this improves STRUCTURE, not rates). Throws only
- * if every attempt fails (caller falls back to the maze generator).
+ * Pure. Keeps the output shape and tile kinds/terrains. New floors reduce ordinary
+ * fight density; legacy mode preserves sealed floors exactly. Throws if every
+ * attempt fails; seeded production floors must never silently change generators.
  */
 import { bspSplit, bspRoomCenter, bspCarveCorridor, hollowGateReachableSet, type BSPRect } from "./hollow-gate-bsp";
 import { pickRoomTheme } from "../data/hollow-gate-atlas";
 import { HOLLOW_GATE_SHRINE_W, HOLLOW_GATE_SHRINE_H } from "../constants/game";
 import type { HollowGateShrineRun, HollowGateTile, HollowGateTileKind, HollowGateTerrain } from "../types/character";
+import { hollowGateOrdinaryBattleCount } from '../../../shared/hollow-gate-pacing';
 
 const CARD: ReadonlyArray<readonly [number, number]> = [[0, -1], [0, 1], [-1, 0], [1, 0]];
 
@@ -46,9 +47,9 @@ export type HollowGateFloorDims = { width: number; height: number };
 
 /** Public entry: a fully-connected, intentionally-laid-out floor. Retries a few
  *  times if an invariant fails (regenerate-on-invalid is microseconds at 425 cells). */
-export function generateHollowGateFloor(floor: number, isFinalFloor: boolean, dims?: HollowGateFloorDims, rng: () => number = Math.random): HollowGateShrineRun {
+export function generateHollowGateFloor(floor: number, isFinalFloor: boolean, dims?: HollowGateFloorDims, rng: () => number = Math.random, legacyPacing = false): HollowGateShrineRun {
     for (let attempt = 0; attempt < 20; attempt += 1) {
-        const run = tryGenerateFloor(floor, isFinalFloor, dims, rng);
+        const run = tryGenerateFloor(floor, isFinalFloor, dims, rng, legacyPacing);
         if (run) return run;
     }
     throw new Error("hollow-gate floor generation failed after retries");
@@ -70,7 +71,7 @@ function chamberInLeaf(node: BSPRect, rng: () => number): BSPRect {
     return { x: roomX, y: roomY, w: roomW, h: roomH };
 }
 
-function tryGenerateFloor(floor: number, isFinalFloor: boolean, dims: HollowGateFloorDims | undefined, rng: () => number): HollowGateShrineRun | null {
+function tryGenerateFloor(floor: number, isFinalFloor: boolean, dims: HollowGateFloorDims | undefined, rng: () => number, legacyPacing: boolean): HollowGateShrineRun | null {
     const w = dims?.width ?? HOLLOW_GATE_SHRINE_W;
     const h = dims?.height ?? HOLLOW_GATE_SHRINE_H;
     const total = w * h;
@@ -228,7 +229,7 @@ function tryGenerateFloor(floor: number, isFinalFloor: boolean, dims: HollowGate
     const keeperRoomId = [...afterSanctum].sort((a, b) => {
         const depth = (ri: number) => Math.min(...cellsOfRoom(ri).map((i) => dist[i]));
         return depth(a) - depth(b);
-    })[0] ?? -1;
+    })[0] ?? (legacyPacing ? -1 : spawnRoom);
     const guardRoomIds = afterSanctum.filter((ri) => ri !== keeperRoomId);
 
     // Greedy placement with BFS-grid spacing (anti-clump). Candidates are pre-
@@ -263,10 +264,10 @@ function tryGenerateFloor(floor: number, isFinalFloor: boolean, dims: HollowGate
     // The entrance chamber is a SAFE room: no hostiles ever spawn in it.
     const hostileSafe = (cells: number[]) => notSpawnRoom(cells);
 
-    // Content grows with depth. Battles ramp to floor 5 then plateau at 9 (the
-    // deep floors are dense but still crossable); elites + traps keep climbing
+    // Content grows with depth. Battles ramp to floor 5 then plateau at 8 (9 in
+    // legacy mode). Deep floors stay crossable; elites + traps keep climbing
     // (floor 5 → 3 elites, 5 traps) so the full five-floor descent stays tense.
-    const battleCount = 4 + Math.min(5, floor);
+    const battleCount = hollowGateOrdinaryBattleCount(floor, legacyPacing);
     const eliteCount = 1 + Math.floor(floor / 2);
     const trapCount = 3 + Math.floor(floor / 2);
     const chestCount = 3;
@@ -286,10 +287,18 @@ function tryGenerateFloor(floor: number, isFinalFloor: boolean, dims: HollowGate
     //    junctions — fights that GUARD passage instead of loitering in corners.
     const junctions = corridorCells.filter((i) => walkableNeighbors(i) >= 3);
     const pathDoors = doorCells.filter((i) => onPath.has(i) || CARD.some(([dx, dy]) => onPath.has(((Math.floor(i / w) + dy) * w + (i % w + dx)))));
-    const chokepoints = shuffle(hostileSafe([...pathDoors, ...junctions]));
+    const keeperApproach = new Set([...cellsOfRoom(keeperRoomId), ...doorsOfRoom(keeperRoomId)]);
+    for (const door of doorsOfRoom(keeperRoomId)) for (const [dx, dy] of CARD) {
+        const x = door % w + dx, y = Math.floor(door / w) + dy;
+        if (x >= 0 && x < w && y >= 0 && y < h) keeperApproach.add(y * w + x);
+    }
+    const ordinarySafe = (cells: number[]) => legacyPacing ? cells : cells.filter(i => !keeperApproach.has(i)
+        && !(placedByKind.elite ?? []).some(elite => manhattan(i, elite, w) < 2));
+    const chokepoints = shuffle(ordinarySafe(hostileSafe([...pathDoors, ...junctions])));
     let battlesPlaced = place("battle", Math.ceil(battleCount * 0.6), chokepoints, 3);
-    battlesPlaced += place("battle", battleCount - battlesPlaced, shuffle(hostileSafe(guardRoomCells)), 2);
-    place("battle", battleCount - battlesPlaced, shuffle(hostileSafe([...roomCells, ...corridorCells])), 2); // top-up
+    battlesPlaced += place("battle", battleCount - battlesPlaced, shuffle(ordinarySafe(hostileSafe(guardRoomCells))), 2);
+    place("battle", battleCount - battlesPlaced, shuffle(ordinarySafe(hostileSafe([...roomCells, ...corridorCells]))), 2); // same exclusions on top-up
+    if (!legacyPacing && (placedByKind.battle?.length ?? 0) !== battleCount) return null;
 
     // ── Treasury: a locked vault door, chest hoard + shard vein inside ───────
     const treasuryCells = treasuryRoomId >= 0 ? cellsOfRoom(treasuryRoomId) : [];

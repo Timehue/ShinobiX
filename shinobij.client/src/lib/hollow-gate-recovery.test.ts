@@ -250,6 +250,32 @@ describe("hollow gate recovery — the flow never starts or spends anything", ()
         assert.deepEqual(calls, {});
     });
 
+    it("recovers a legacy sealed floor through the real flow without replacing its rooms, fog or open encounter", async () => {
+        for (const floor of [1, 2, 3, 4, 5]) {
+            const old = generateHollowGateShrineRun(floor, undefined, SEED, true);
+            const manifest = sealed(old, floor);
+            const battle = indexOfKind(old, 'battle');
+            const here = walkableEmpty(old)[0];
+            const activeCombat = { runId: 'old-fight', floor, nodeId: `floor:${floor}:tile:${battle}`, kind: 'battle' as const, mode: 'pve' as const };
+            respond(200, { ok: true, live: true, run: state({ floor, manifest, activeCombat,
+                position: { x: here % old.width, y: Math.floor(here / old.width) }, visited: mask(old.tiles.length, [here]),
+                resolvedEncounterIds: [] }) });
+            const { calls, params } = harness();
+            const global = globalThis as { window?: unknown };
+            global.window = globalThis;
+            try { assert.equal(await recoverHollowGateRun(params), 'recovered'); }
+            finally { delete global.window; }
+            const recovered = calls.run[0] as HollowGateShrineRun;
+            assert.deepEqual(hollowGateBoardManifest(recovered.tiles), hollowGateBoardManifest(old.tiles));
+            assert.deepEqual(recovered.roomThemes, old.roomThemes, 'old rooms survive instead of manifest fallback geometry');
+            assert.deepEqual(recovered.tiles.map(t => [t.kind, t.terrain, t.roomId]), old.tiles.map(t => [t.kind, t.terrain, t.roomId]));
+            assert.deepEqual([recovered.playerX, recovered.playerY], [here % old.width, Math.floor(here / old.width)]);
+            assert.equal(recovered.tiles[here].revealed, true);
+            assert.equal(recovered.tiles[battle].resolved, false);
+            assert.deepEqual(recovered.activeCombat, activeCombat);
+        }
+    });
+
     it("does not offer the picker again once the augment is chosen", async () => {
         respond(200, { ok: true, live: true, run: state({ floor: 2 }) });
         const { calls, params } = harness();

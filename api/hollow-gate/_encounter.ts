@@ -62,7 +62,11 @@ export function buildHollowGateProfile(params: {
     const statMult = (boss ? 1.18 : 1 + depth * 0.035) * kindStatMult * augment.enemyStatMult * gentle;
     const stats = Object.fromEntries(Object.entries(aiStatsForLevel(level)).map(([key, value]) => [key, Math.max(1, Math.round(value * statMult))]));
     const baseHp = aiHpForLevel(level, boss ? 0.18 : elite ? 0.1 : 0.04);
-    const hp = Math.max(1, Math.floor(baseHp * (boss ? scale.hpMult : 1 + depth * 0.06) * kindHpMult * augment.enemyHpMult * gentle * (1 - augment.enemyHpShavePct)));
+    // New shrine mobs keep their attacks, defenses and depth/augment rules,
+    // with less HP attrition. Stored sessions resume before this factory runs.
+    // Bosses (including named Rift bosses) retain their original HP exactly.
+    const mobHpMult = boss ? 1 : elite ? 0.60 : 0.65;
+    const hp = Math.max(1, Math.floor(baseHp * (boss ? scale.hpMult : 1 + depth * 0.06) * kindHpMult * augment.enemyHpMult * gentle * (1 - augment.enemyHpShavePct) * mobHpMult));
     const loadoutId = boss ? 'boss' : elite || wanderer?.role === 'bandit' ? 'bruiser'
         : wanderer?.role === 'night-ninja' ? 'burst' : wanderer || beast ? 'hunter'
         : level > 30 && (kind === 'battle' || ambush) ? corridorLoadout(run, binding) : ambush ? 'burst' : 'hunter';

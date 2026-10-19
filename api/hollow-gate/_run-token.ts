@@ -176,6 +176,8 @@ export interface HollowGateRunToken {
     recentStepIds?: string[];
     recentConsumableIds?: string[];
     wardSteps?: number;
+    /** Accepted steps of relief from roaming hunter contact after a mob victory. */
+    hunterBreatherSteps?: number;
     divinerUsed?: boolean;
     pendingAmbush?: HollowGatePendingEncounter | null;
     wanderers?: Record<string, HollowGateWanderer[]>;
