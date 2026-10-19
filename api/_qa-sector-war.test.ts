@@ -129,7 +129,8 @@ it('creates and replaces only a valid two-account contest, resetting its score a
     assert.equal(replaced.body?.contest?.defenderPoints, 0);
 });
 
-it('repeated QA seeds give new players a fresh real pet table after finished and pending duels', async () => {
+it('repeated QA seeds give new players a fresh real pet table after finished and pending duels', async (t) => {
+    t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
     const first = await seedPair('qafirst');
     const seeded = await post(first);
     assert.equal(seeded.status, 200);
@@ -178,10 +179,18 @@ it('repeated QA seeds give new players a fresh real pet table after finished and
     const pending = await kv.get(`sector-pet:${id}`);
     const retainedGarrison = { ...done, garrison: true };
     await kv.set(`sector-pet-garrison:${id}`, retainedGarrison);
-    assert.equal((await post({ action: 'replace', contestId: id })).status, 200);
+    const replaced = await post({ action: 'replace', contestId: id });
+    assert.equal(replaced.status, 200);
+    assert.ok(replaced.body!.contest.startedAt > Date.now());
     assert.deepEqual(await kv.get(`sector-pet:${id}`), pending, 'replacement preserves the superseded table');
     assert.deepEqual(await kv.get(`sector-pet-garrison:${id}`), retainedGarrison, 'replacement preserves the garrison replay');
     assert.equal((await state(third.attackerName)).body?.session.p1.name, third.attackerName);
+    const prematureAnswer = await join(third.defenderName, 'p2');
+    assert.equal(prematureAnswer.status, 409);
+    assert.equal(prematureAnswer.body?.error, 'No active sector war for that id.');
+    assert.deepEqual(await kv.get(`sector-pet:${id}`), pending, 'a premature reply preserves the pending replay');
+    assert.deepEqual(await kv.get(`sector-pet-garrison:${id}`), retainedGarrison, 'a premature reply preserves the garrison replay');
+    t.mock.timers.setTime(replaced.body!.contest.startedAt);
     const lateAnswer = await join(third.defenderName, 'p2');
     assert.equal(lateAnswer.status, 200, JSON.stringify(lateAnswer.body));
     assert.equal(lateAnswer.body?.session.status, 'done');
