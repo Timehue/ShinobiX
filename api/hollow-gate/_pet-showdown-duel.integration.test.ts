@@ -19,7 +19,7 @@ type Handler = (req: never, res: never) => Promise<unknown>;
 type Reply = { status: number; body: Record<string, any> };
 type SessionRecord = {
     sessionId: string; playerName: string; format: string; round: number; finished: boolean;
-    outcome: 'win' | 'loss' | null; rewardEligible: boolean; bindingKind?: string;
+    outcome: 'win' | 'loss' | null; rewardEligible: boolean; bindingKind?: string; rulesetVersion?: string;
     player: Array<{ id: string; level: number }>; enemy: Array<{ id: string; name: string; level: number }>;
 };
 
@@ -178,6 +178,7 @@ for (const size of [1, 2, 3] as const) {
         const session = (await readSession(state.sessionId))!;
         assert.equal(session.rewardEligible, false, 'the duel itself never pays; the Gate settles it');
         assert.equal(session.bindingKind, 'hollow-gate');
+        assert.equal(session.rulesetVersion, 'progression-v3');
         assert.deepEqual(await kv.get(`sd-hg:${PLAYER}:${state.sessionId}`), { runId, petIds });
         assert.equal(await ryo(), 400, 'opening the duel costs and pays nothing');
     });
@@ -235,6 +236,25 @@ test('a reload resumes the same duel instead of drawing a new one', async () => 
     assert.deepEqual(resumed.body.petIds, opened.body.petIds);
     assert.deepEqual(resumed.body.state.enemy.map((hound: { id: string }) => hound.id), state.enemy.map((hound: { id: string }) => hound.id));
     assert.equal((await kv.keys(`pet:showdown:${PLAYER}:*`)).length, 1, 'one encounter, one duel');
+});
+
+test('a failed bound admission preserves its charge and concurrent retries publish one paid combat', async t => {
+    await seed([{ ...LEAD, loadout: { consumable: 'consum-smoke-pellet' } }, ...PARTNERS]);
+    const { runId } = await sendPet();
+    const fault = t.mock.method(kv as typeof kv & { compareSetMany: NonNullable<typeof kv.compareSetMany> }, 'compareSetMany', async () => { throw new Error('fixture-admission-write-failed'); });
+    assert.equal((await openDuel(runId)).status, 500);
+    const unchanged = (await kv.get<Record<string, any>>(saveKey))!;
+    assert.equal(unchanged._saveVersion, 1);
+    assert.equal(unchanged.character.pets[0].loadout.consumable, 'consum-smoke-pellet');
+    assert.deepEqual(await kv.keys(`pet:showdown:${PLAYER}:*`), []);
+    fault.mock.restore();
+    const [a, b] = await Promise.all([openDuel(runId), openDuel(runId)]);
+    assert.equal(a.status, 200, JSON.stringify(a.body)); assert.equal(b.status, 200, JSON.stringify(b.body));
+    assert.equal(a.body.state.sessionId, b.body.state.sessionId);
+    const committed = (await kv.get<Record<string, any>>(saveKey))!;
+    assert.equal(committed._saveVersion, 2);
+    assert.equal(committed.character.pets[0].loadout.consumable, undefined);
+    assert.equal((await kv.keys(`pet:showdown:${PLAYER}:*`)).length, 1);
 });
 
 test('a won 3v3 duel resolves the encounter and pays its Hollow Gate reward exactly once', async () => {
@@ -418,6 +438,54 @@ test('a decided duel still settles after a lost reply or a lapsed session', asyn
     assert.equal(settled.status, 200, JSON.stringify(settled.body));
     assert.equal(settled.body.won, true);
     assert.equal(await ryo(), 400 + Math.floor(hollowGateCombatReward(1, 'battle').ryo * rewardMultiplierForToken(run)));
+});
+
+test('a paid lead charge cannot consume a same-ID replacement after its combat artifact expires', async () => {
+    const item = 'consum-smoke-pellet';
+    await seed([{ ...LEAD, loadout: { consumable: item } }, ...PARTNERS]);
+    const { runId } = await sendPet();
+    const { state } = (await openDuel(runId)).body;
+    const saved = (await kv.get<Record<string, any>>(saveKey))!;
+    assert.equal(saved.character.pets[0].loadout.consumable, undefined, 'the lead charge is paid in the admission transaction');
+    saved.character.pets[0].loadout.consumable = item;
+    await kv.set(saveKey, saved);
+    await decide(state.sessionId, 'win');
+    const finish = await showdown({ action: 'turn', sessionId: state.sessionId, commands: [] });
+    assert.equal(finish.status, 200, JSON.stringify(finish.body));
+    const receipt = await kv.get<Record<string, unknown>>(`hg-pet-result:${PLAYER}:${state.sessionId}`);
+    assert.equal(receipt?.consumablesCommitted, true);
+    await kv.del(sessionKey(state.sessionId), `sd-hg:${PLAYER}:${state.sessionId}`);
+    const settled = await gate('combatSettle', { runId, petReceipt: state.sessionId });
+    assert.equal(settled.status, 200, JSON.stringify(settled.body));
+    assert.equal(settled.body.won, true);
+    const retry = await gate('combatSettle', { runId, petReceipt: state.sessionId });
+    assert.equal(retry.status, 200, JSON.stringify(retry.body));
+    assert.equal((await kv.get<Record<string, any>>(saveKey))!.character.pets[0].loadout.consumable, item);
+});
+
+test('a retained Gate session keeps its original terminal spending contract', async () => {
+    const item = 'consum-smoke-pellet';
+    await seed([{ ...LEAD, loadout: { consumable: item } }, ...PARTNERS]);
+    const { runId } = await sendPet();
+    const { state } = (await openDuel(runId)).body;
+    const session = (await kv.get<Record<string, unknown>>(sessionKey(state.sessionId)))!;
+    delete session.consumablesCommitted;
+    await kv.set(sessionKey(state.sessionId), session);
+    const saved = (await kv.get<Record<string, any>>(saveKey))!;
+    saved.character.pets[0].loadout.consumable = item;
+    await kv.set(saveKey, saved);
+    await decide(state.sessionId, 'win');
+    const terminal = await showdown({ action: 'turn', sessionId: state.sessionId, commands: [] });
+    assert.equal(terminal.status, 200, JSON.stringify(terminal.body));
+    const receipt = await kv.get<Record<string, unknown>>(`hg-pet-result:${PLAYER}:${state.sessionId}`);
+    assert.equal(receipt?.consumablesCommitted, undefined);
+    assert.equal((await gate('combatSettle', { runId, petReceipt: state.sessionId })).status, 200);
+    const charged = (await kv.get<Record<string, any>>(saveKey))!;
+    assert.equal(charged.character.pets[0].loadout.consumable, undefined);
+    charged.character.pets[0].loadout.consumable = item;
+    await kv.set(saveKey, charged);
+    assert.equal((await gate('combatSettle', { runId, petReceipt: state.sessionId })).status, 200);
+    assert.equal((await kv.get<Record<string, any>>(saveKey))!.character.pets[0].loadout.consumable, item);
 });
 
 test('the duel takes only its run selector, and the arena door stays shut to the Gate', async () => {

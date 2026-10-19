@@ -4,7 +4,7 @@ import { PET_CATALOG } from '../api/pet/_catalog.ts';
 import { rollWildPet, grantWildPet } from '../api/pet/_encounter.ts';
 import { activeTrainingPetIds } from '../api/_entitlements.ts';
 import { settleFinishedTraining, settleServerPetExpedition } from '../api/pet/_progress.ts';
-import { createShowdownSession, showdownStateView } from '../api/_pet-showdown/engine.ts';
+import { createShowdownSession, resolveShowdownRound, showdownStateView } from '../api/_pet-showdown/engine.ts';
 import { petCombatModel } from '../shinobij.client/src/lib/pet-3d-models.ts';
 import { alternateSpeciesPool, selectOffspringTemplate } from '../api/pet/_breeding.ts';
 import { isBreedableTemplate, migrateOwnedPet, resolvePetTemplateId } from '../api/pet/_owned-pet.ts';
@@ -56,5 +56,24 @@ test('Celestial Lion can be captured, bred, trained, sent on expedition, and fie
     const fighter = showdownStateView(session).player[0];
     assert.equal(fighter.templateId, 'mythic-15');
     assert.equal(fighter.element, 'Wind');
-    assert.ok(fighter.moves.some((move) => move.name === 'Tempest Roar'));
+    assert.ok(fighter.moves.some((move) => move.name === 'Galeclaw Pounce'));
+    assert.ok(!fighter.moves.some((move) => move.name === 'Tempest Roar'), 'training to level two cannot unlock the advanced art');
+    for (const level of [9, 10, 19, 20, 75]) {
+        const progressedSession = createShowdownSession({
+            sessionId: `celestial-lion-level-${level}`, playerName: 'Tester', format: '1v1', tier: 'warrior', seed: 7,
+            playerPets: [{ ...trained.pet, level }], enemyPets: [{ ...PET_CATALOG['rare-24'], templateId: 'rare-24', id: 'enemy-direwolf' }],
+            enemyTeamName: 'Practice', rewardEligible: false,
+        });
+        const progressed = showdownStateView(progressedSession).player[0];
+        assert.equal(progressed.moves.some((move) => move.name === 'Tempest Roar'), level >= 10);
+        const available = progressed.moves.filter((move) => (move.unlockLevel ?? 1) <= level);
+        assert.equal(available.some((move) => move.signature), level >= 20);
+        const actor = progressedSession.player[0];
+        actor.meter = 100; actor.readiness = 100;
+        resolveShowdownRound(progressedSession, [{ kind: 'super', petId: actor.id, targetId: progressedSession.enemy[0].id }],
+            [{ kind: 'rest', petId: progressedSession.enemy[0].id }]);
+        assert.equal(actor.meter === 100, level < 20, 'a fully prepared forged early signature cannot spend its meter');
+    }
+    assert.equal(trained.pet.level, 2, 'previewing later milestones cannot mutate the owned pet');
+    assert.equal(trained.pet.xp, 10);
 });

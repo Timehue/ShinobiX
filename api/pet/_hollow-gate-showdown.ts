@@ -26,6 +26,7 @@ import {
     writeHollowGatePetResult,
 } from '../hollow-gate/_pet-authority.js';
 import { buildServerHollowHound } from './battle-start.js';
+import { admitShowdown, type AdmittedShowdown } from './_showdown-admission.js';
 import { showdownBusyIssue } from './_showdown-readiness.js';
 import { rollShowdownTeam, type ShowdownFieldSizeRoll } from './_wanderer-showdown.js';
 
@@ -75,6 +76,8 @@ export async function mintHollowGatePetReceipt(
     binding: ShowdownHollowGateBinding,
     outcome: 'win' | 'loss',
 ): Promise<boolean> {
+    const session = await kv.get<AdmittedShowdown>(sessionKey(playerName, sessionId));
+    const previous = parseHollowGatePetResultReceipt(await kv.get(hollowGatePetResultKey(playerName, sessionId)));
     const receipt: HollowGatePetResultReceipt = {
         version: HOLLOW_GATE_PET_AUTHORITY_VERSION,
         engine: 'showdown',
@@ -83,6 +86,7 @@ export async function mintHollowGatePetReceipt(
         runId: binding.runId,
         outcome,
         playerPetIds: binding.petIds,
+        ...(session?.consumablesCommitted || previous?.consumablesCommitted ? { consumablesCommitted: true } : {}),
         settledAt: Date.now(),
     };
     return writeHollowGatePetResult(receipt);
@@ -174,33 +178,36 @@ export async function startHollowGatePetShowdown(playerName: string, rawRef: unk
         const decided = parseHollowGatePetResultReceipt(await kv.get(hollowGatePetResultKey(playerName, sessionId)));
         if (decided) return { ok: true, kind: 'decided', petReceipt: sessionId, outcome: decided.outcome };
 
-        const save = await kv.get<{ character?: Record<string, unknown> }>(`save:${playerName}`);
-        const character = save?.character;
-        if (!character) return { ok: false, status: 404, error: 'No save found.' };
-        const carried = activeCarriedPets<Record<string, unknown>>(character) as unknown as Pet[];
-        const ready = carried.filter((pet) => !showdownBusyIssue(character, [pet]));
-        // The shrine offers "Send pet" only for an active pet cleared for PvE,
-        // so that is the pet that leads.
-        const lead = ready.find((pet) => String(pet.id) === String(character.activePetId ?? '') && pet.unlockedForPve === true);
-        if (!lead) return { ok: false, status: 409, error: 'Your active pet cannot enter the seal right now.' };
+        const opened = await admitShowdown(playerName, async character => {
+            const carried = activeCarriedPets<Record<string, unknown>>(character) as unknown as Pet[];
+            const ready = carried.filter((pet) => !showdownBusyIssue(character, [pet]));
+            // The shrine offers "Send pet" only for an active pet cleared for PvE,
+            // so that is the pet that leads.
+            const lead = ready.find((pet) => String(pet.id) === String(character.activePetId ?? '') && pet.unlockedForPve === true);
+            if (!lead) return { ok: false as const, status: 409, error: 'Your active pet cannot enter the seal right now.' };
 
-        const { format, chosen } = rollShowdownTeam(ready, { lead, roll: rollOverride });
-        const hounds = buildHollowGateHoundPack(parent, chosen);
-        if (!chosen.length || hounds.pets.length !== chosen.length) {
-            return { ok: false, status: 500, error: 'The Hounds could not assemble.' };
-        }
-        const session = createShowdownSession({
-            sessionId, playerName, format, tier: HOUND_TACTICS, seed: randomInt(1, 0x7fffffff),
-            playerPets: chosen, enemyPets: hounds.pets, enemyTeamName: hounds.teamName,
-            // The Gate pays this encounter from its own run ledger; the duel never does.
-            rewardEligible: false,
+            const { format, chosen } = rollShowdownTeam(ready, { lead, roll: rollOverride });
+            const hounds = buildHollowGateHoundPack(parent, chosen);
+            if (!chosen.length || hounds.pets.length !== chosen.length) {
+                return { ok: false as const, status: 500, error: 'The Hounds could not assemble.' };
+            }
+            const session = createShowdownSession({
+                sessionId, playerName, format, tier: HOUND_TACTICS, seed: randomInt(1, 0x7fffffff),
+                playerPets: chosen, enemyPets: hounds.pets, enemyTeamName: hounds.teamName,
+                // The Gate pays this encounter from its own run ledger; the duel never does.
+                rewardEligible: false, rulesetVersion: 'progression-v3',
+            });
+            session.bindingKind = 'hollow-gate';
+            // The chosen lead spends its sealed item; drawn partners retain theirs.
+            // The save and combat artifact share the admission CAS.
+            if (session.player[0].consumable) session.player[0].consumableSpent = true;
+            const petIds = chosen.map((pet) => String(pet.id));
+            // The run record first: a bound session must never exist without it.
+            await kv.set(sidecarKey, { runId: parent.runId, petIds } satisfies ShowdownHollowGateBinding, { ex: SESSION_TTL_SECONDS });
+            return { ok: true as const, session, character };
         });
-        session.bindingKind = 'hollow-gate';
-        const petIds = chosen.map((pet) => String(pet.id));
-        // The run record first: a bound session must never exist without it.
-        await kv.set(sidecarKey, { runId: parent.runId, petIds } satisfies ShowdownHollowGateBinding, { ex: SESSION_TTL_SECONDS });
-        await kv.set(sessionKey(playerName, sessionId), session, { ex: SESSION_TTL_SECONDS });
-        return { ok: true, kind: 'session', session, petIds, resumed: false };
+        if (!opened.ok) return opened;
+        return { ok: true, kind: 'session', session: opened.session, petIds: opened.session.player.map(pet => pet.id), resumed: false };
     }, { failClosed: true });
 
     // A decided duel whose finishing reply was lost may still lack its

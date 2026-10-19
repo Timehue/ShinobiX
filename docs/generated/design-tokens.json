@@ -2504,6 +2504,10 @@
             "line": 1550
           },
           {
+            "source": "shinobij.client/src/styles/pet-progression.css",
+            "line": 18
+          },
+          {
             "source": "shinobij.client/src/styles/pet-techniques.css",
             "line": 53
           },

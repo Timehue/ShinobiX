@@ -102,7 +102,7 @@ export const SERVER_OWNED_CHARACTER_FIELDS: ReadonlySet<string> = new Set([
     'defeatedAiIds', 'hunterRank', 'redeemedHunterRanks', 'apexWeekClaimed', 'element',
     'elements', 'claimedAwakenings', 'redeemedAwakeningActions', 'elderFocus',
     'activeDungeonRun', 'redeemedDungeonRuns', 'redeemedHollowGateRuns', 'riftFirstClears', 'riftQuestBossReceipt',
-    'redeemedPetBattleTokens', 'redeemedPetExpeditionTokens', 'claimedServerMissions',
+    'redeemedPetBattleTokens', 'petShowdownAdmission', 'redeemedPetExpeditionTokens', 'claimedServerMissions',
     'redeemedPetGauntletRuns', 'petGauntletRewardDate', 'petGauntletRewardCount',
     'petGauntletPremiumDate', 'petGauntletFateClaimed', 'petGauntletBoneClaimed',
     'petGauntletEntryDate', 'petGauntletEntryCount', 'redeemedWandererQuests',

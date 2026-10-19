@@ -571,6 +571,66 @@ describe('kv.compareSetMany on a real Postgres', () => {
         assert.deepEqual((await row('pgit:race:b'))?.value, { n: rounds });
     });
 
+    pgTest('paid pet admission commits the save and combat together, retaining guards and duplicate-key refusal', async () => {
+        const { showdownAdmissionStore } = await import('./pet/_showdown-admission.js');
+        const { writeVersionedPlayerSaveWithStore } = await import('./save/_mutate-player-save.js');
+        const { inPlayerSaveCommit } = await import('./_save-write-guard.js');
+        const saveKey = 'pgit:pet-admission:a-save';
+        const sessionKey = 'pgit:pet-admission:z-session';
+        const saved = { _saveVersion: 4, character: { name: 'admissionfixture', ryo: 100,
+            pets: [{ id: 'lead', loadout: { consumable: 'consum-smoke-pellet' } }] } };
+        const next = { ...saved.character, pets: [{ id: 'lead', loadout: {} }],
+            petShowdownAdmission: { sessionId: 'sealedfixture01', at: 1 } };
+        const combat = { sessionId: 'sealedfixture01', consumablesCommitted: true };
+        await seed(saveKey, saved);
+        await seed(sessionKey, { sessionId: 'occupied' });
+        let guardedCalls = 0;
+        const underlying = {
+            get: storage.kv.get.bind(storage.kv),
+            compareSetMany: async (ops: readonly KvCasOp[]) => {
+                assert.equal(inPlayerSaveCommit(), true, 'the canonical commit authority survives the wrapper');
+                guardedCalls += 1;
+                return storage.kv.compareSetMany!(ops);
+            },
+        };
+        const store = showdownAdmissionStore(underlying, { op: 'cas', key: sessionKey, expected: null, value: combat, ex: 2700 });
+        await locks.withKvLock(saveKey, async () => {
+            // The save sorts first and is written before the occupied artifact
+            // refuses its insert. Postgres must roll that debit back too.
+            const writes = await dataWrites();
+            await assert.rejects(writeVersionedPlayerSaveWithStore(store, saveKey, saved, next), /player-save-version-conflict/);
+            assert.ok(await dataWrites() > writes, 'the refused transaction actually attempted data writes');
+            assert.deepEqual((await row(saveKey))?.value, saved);
+            assert.deepEqual((await row(sessionKey))?.value, { sessionId: 'occupied' });
+            await admin.query('DELETE FROM public.kv_store WHERE key = $1', [sessionKey]);
+            const written = await writeVersionedPlayerSaveWithStore(store, saveKey, saved, next);
+            assert.equal(written._saveVersion, 5);
+            const save = await row(saveKey), session = await row(sessionKey);
+            assert.equal(save?.xmin, session?.xmin, 'item debit, pointer and combat share one real transaction');
+            assert.deepEqual((save?.value as { character: unknown }).character, next);
+            assert.deepEqual(session?.value, combat);
+            assert.ok(session?.expires_at && session.expires_at.getTime() - Date.now() > 2690_000);
+            assert.ok(session.expires_at.getTime() - Date.now() <= 2700_000);
+            const duplicate = showdownAdmissionStore(underlying, { op: 'cas', key: saveKey, expected: null, value: combat });
+            await assert.rejects(writeVersionedPlayerSaveWithStore(duplicate, saveKey, written.record, next), /appears twice/);
+            assert.equal((await row(saveKey))?.xmin, save?.xmin, 'duplicate keys cannot partially advance the save');
+        }, critical);
+        assert.equal(guardedCalls, 3);
+
+        // The wrapper also preserves the storage lease fence. A stolen lease
+        // must refuse both the save and the unpublished combat.
+        const fencedKey = 'pgit:pet-admission:fenced-session';
+        const current = (await row(saveKey))!.value as Record<string, unknown>;
+        const fenced = showdownAdmissionStore(underlying, { op: 'cas', key: fencedKey, expected: null, value: combat });
+        await locks.withKvLock(saveKey, async () => {
+            await admin.query("UPDATE public.kv_store SET value = to_jsonb('another-worker'::text) WHERE key = $1", [`lock:${saveKey}`]);
+            const before = await row(saveKey);
+            await assert.rejects(writeVersionedPlayerSaveWithStore(fenced, saveKey, current, next), locks.LockOwnershipLostError);
+            assert.equal((await row(saveKey))?.xmin, before?.xmin);
+            assert.equal(await row(fencedKey), null);
+        }, critical);
+    });
+
     pgTest('under a live lock the lease check passes and the batch commits', async () => {
         await seed('pgit:lock:save', { v: 1 });
         await seed('pgit:lock:clan', { v: 1 });

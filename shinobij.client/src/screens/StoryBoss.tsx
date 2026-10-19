@@ -12,7 +12,8 @@ import { gameConfirm } from "../components/GameAlert";
 import { getActiveAuraSphereBonuses } from "../lib/aura-sphere";
 import { activeCarriedPets } from "../lib/entitlements";
 import { getOffenseStat } from "../lib/combat-math";
-import { isPetOnExpedition, petCombatDamage, petCurrentHappiness, petDisplayName } from "../lib/pet";
+import { isPetOnExpedition, petCurrentHappiness, petDisplayName } from "../lib/pet";
+import { petCombatDamage } from '../lib/pet-combat-damage';
 import {
     PET_HAPPINESS_OBEDIENT,
     petHappinessCombatMult,

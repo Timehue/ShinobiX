@@ -79,6 +79,7 @@ type SectorPetSession = {
      *  the watch action refuses those (a Showdown re-derivation could disagree
      *  with the recorded winner). New resolutions always stamp 'showdown'. */
     engine?: 'showdown';
+    rulesetVersion?: 'progression-v3' | 'legacy-v2';
     /** True when the defender seat was filled by the defending village's SEALED
      *  garrison team rather than a live player. Scores at garrison weight and
      *  never refreshes `lastLiveBattleAt` — see applySectorWarBattle. */
@@ -302,6 +303,7 @@ async function applyPetOutcomeToContest(session: SectorPetSession): Promise<Sect
 /** One derivation of the war-duel input for BOTH the resolve and the watch, so
  *  the fight a viewer watches is byte-for-byte the fight that was recorded. */
 function sectorWarInput(args: {
+    rulesetVersion?: 'progression-v3' | 'legacy-v2';
     sectorWarId: string;
     seed: number;
     terrain: string | null;
@@ -309,6 +311,7 @@ function sectorWarInput(args: {
     p2: { name: string; pet: Pet; team?: Pet[] };
 }): WarDuelInput {
     return {
+        rulesetVersion: args.rulesetVersion ?? 'legacy-v2',
         sessionId: `sectorwar:${args.sectorWarId}:${args.seed}`,
         seed: args.seed,
         fromName: args.p1.name,
@@ -361,7 +364,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 return res.status(409).json({ error: 'This battle predates the new arena and cannot be replayed.' });
             }
             const script: ShowdownReplayScript = resolveWarDuel(sectorWarInput({
-                sectorWarId, seed: session.seed, terrain: session.terrain ?? null,
+                sectorWarId, rulesetVersion: session.rulesetVersion, seed: session.seed, terrain: session.terrain ?? null,
                 p1: session.p1, p2: session.p2,
             })).script;
             return res.status(200).json({ script });
@@ -404,13 +407,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const p1 = gate.p1 === me ? mine : theirs;
             const p2 = gate.p1 === me ? theirs : mine;
             const seed = openPetDuelSeed(engageId);
-            const duel = resolveWarDuel(sectorWarInput({ sectorWarId, seed, terrain, p1, p2 }));
+            const duel = resolveWarDuel(sectorWarInput({ sectorWarId, seed, terrain, p1, p2, rulesetVersion: 'progression-v3' }));
             const session: SectorPetSession = {
                 sectorWarId, sector: gate.contest.sector,
                 attackerVillage: gate.contest.attackerVillage, defenderVillage: gate.contest.defenderVillage,
                 p1, p2, status: 'done', seed,
                 winner: duel.outcome === 'from' ? 'p1' : 'p2',
-                terrain, engine: 'showdown', open: { engageId, initiator: me },
+                terrain, engine: 'showdown', rulesetVersion: 'progression-v3', open: { engageId, initiator: me },
                 createdAt: now, updatedAt: now,
             };
             // The battle is decided here, so both fighters' holds end with this
@@ -505,13 +508,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // of which ANBU's kennel it borrowed.
                 const p2 = { name: maskedGarrisonDefenderName(contest.defenderVillage, defender, fielded.appointees), pet: garrisonTeam[0]!, team: garrisonTeam };
                 const p1 = { name: me, pet, team };
-                const duel = resolveWarDuel(sectorWarInput({ sectorWarId, seed, terrain, p1, p2 }));
+                const duel = resolveWarDuel(sectorWarInput({ sectorWarId, seed, terrain, p1, p2, rulesetVersion: 'progression-v3' }));
                 const session: SectorPetSession = {
                     sectorWarId, sector: contest.sector,
                     attackerVillage: contest.attackerVillage, defenderVillage: contest.defenderVillage,
                     p1, p2, status: 'done', seed,
                     winner: duel.outcome === 'from' ? 'p1' : 'p2',
-                    terrain, engine: 'showdown', garrison: true, garrisonDefenderSlug: defender.slug,
+                    terrain, engine: 'showdown', rulesetVersion: 'progression-v3', garrison: true, garrisonDefenderSlug: defender.slug,
                     createdAt: now, updatedAt: now,
                 };
                 session.warResult = warResultFrom(await applyPetOutcomeToContest(session));
@@ -558,7 +561,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (!isAttacker) return { status: 409 as const, body: { error: 'Waiting for an attacker to send a pet.' } };
                 const session: SectorPetSession = {
                     sectorWarId, sector: contest.sector, attackerVillage, defenderVillage,
-                    p1: { name: me, pet, team }, status: 'awaiting-defender', createdAt: now, updatedAt: now,
+                    p1: { name: me, pet, team }, status: 'awaiting-defender', rulesetVersion: 'progression-v3', createdAt: now, updatedAt: now,
                 };
                 await kv.set(sessionKey(sectorWarId), session, { ex: SESSION_TTL_SEC });
                 await alertSectorPreparation(contest, `pet-table:${now}`, 'pet', now).catch(() => undefined);
@@ -586,7 +589,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // Fixed by the table, not this request: a retry after a lost session
             // write fights the duel the contest already scored (petDuelSeed).
             const seed = petDuelSeed(sectorWarId, existing.createdAt);
-            const duel = resolveWarDuel(sectorWarInput({ sectorWarId, seed, terrain, p1: existing.p1, p2: { name: me, pet, team } }));
+            const duel = resolveWarDuel(sectorWarInput({ sectorWarId, seed, terrain, rulesetVersion: existing.rulesetVersion, p1: existing.p1, p2: { name: me, pet, team } }));
             // Showdown's judge always decides — 'draw' survives in the type only
             // for sessions the retired engine recorded.
             const winner: 'p1' | 'p2' = duel.outcome === 'from' ? 'p1' : 'p2';

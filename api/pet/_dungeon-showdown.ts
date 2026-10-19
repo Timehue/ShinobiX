@@ -10,27 +10,27 @@ import { buildDungeonSealBeast } from './_authored-encounter.js';
 import { publishShowdownPresence } from './_showdown-presence.js';
 import { activeCarriedPets } from '../_entitlements.js';
 import { showdownBusyIssue } from './_showdown-readiness.js';
+import { admitShowdown, type AdmittedShowdown } from './_showdown-admission.js';
 
 export type DungeonShowdownSession = ShowdownSession & { dungeonRun?: { runToken: string; petId: string } };
 const keyOf = (name: string, id: string) => `pet:showdown:${name}:${id}`;
-const TTL = 45 * 60;
 type Failure = { ok: false; error: string };
 type Commit = { ok: true; character: Record<string, unknown>; _saveVersion: number };
 
 /** One immutable command session per exact parent run. Lost replies resume it. */
 export async function startDungeonShowdown(name: string, runToken: string, petId: string): Promise<(Commit & { session: DungeonShowdownSession }) | (Commit & { completed: true }) | Failure> {
-    const mutation = await retryOnSaveVersionConflict(() => mutatePlayerSave<{ session?: DungeonShowdownSession; completed?: true }>(name, async ({ character }) => {
+    const mutation = await admitShowdown<DungeonShowdownSession>(name, async character => {
         let authority;
         try { authority = resolveDungeonPetAuthority({ character, dungeonRunToken: runToken }); }
         catch (cause) { return { ok: false as const, status: 409, error: cause instanceof Error ? cause.message : 'This Dungeon seal is unavailable.' }; }
-        if (dungeonPetWasWon(authority.activeRun)) return { ok: true as const, value: { completed: true as const }, character, write: false };
+        if (dungeonPetWasWon(authority.activeRun)) return { ok: false as const, status: 200, error: 'dungeon-already-complete' };
         const existing = authority.activeRun.petArenaSessionId;
         if (typeof existing === 'string') {
             const session = await kv.get<DungeonShowdownSession>(keyOf(name, existing));
             if (!session || session.playerName !== name || session.dungeonRun?.runToken !== runToken) {
                 return { ok: false as const, status: 409, error: 'This Dungeon battle has expired. Leave this run before starting another.' };
             }
-            return { ok: true as const, value: { session }, character, write: false };
+            return { ok: true as const, session, character, write: false };
         }
         if (authority.activeRun.petDefeated === true) return { ok: false as const, status: 409, error: 'The Rare Beast seal is already complete.' };
         const mine = activeCarriedPets<Pet>(character).find(pet => pet.id === petId);
@@ -41,7 +41,7 @@ export async function startDungeonShowdown(name: string, runToken: string, petId
         const beast: Pet = buildDungeonCommandBeast();
         const sessionId = randomUUID().replace(/-/g, '');
         const session: DungeonShowdownSession = {
-            ...createShowdownSession({ sessionId, playerName: name, format: '1v1', tier: 'champion', seed: randomInt(1, 0x7fffffff), playerPets: [mine], enemyPets: [beast], enemyTeamName: beast.name, rewardEligible: false }),
+            ...createShowdownSession({ sessionId, playerName: name, format: '1v1', tier: 'champion', seed: randomInt(1, 0x7fffffff), playerPets: [mine], enemyPets: [beast], enemyTeamName: beast.name, rewardEligible: false, rulesetVersion: 'legacy-v2' }),
             dungeonRun: { runToken, petId: mine.id },
         };
         // Presentation identity is assigned only AFTER combat sealing. Passing
@@ -51,14 +51,15 @@ export async function startDungeonShowdown(name: string, runToken: string, petId
         // is committed even though the battle itself has no arena purse.
         if (session.player[0].consumable) session.player[0].consumableSpent = true;
         const nextCharacter = { ...character, activeDungeonRun: { ...authority.activeRun, petArenaSessionId: sessionId } };
-        // Store combat first. A failed CAS leaves an unreachable, unpaid orphan;
-        // publishing a pointer to missing combat could strand the parent run.
-        await kv.set(keyOf(name, sessionId), session, { ex: TTL });
-        return { ok: true as const, value: { session }, character: nextCharacter };
-    }));
+        return { ok: true as const, session, character: nextCharacter };
+    });
+    if (!mutation.ok && mutation.status === 200) {
+        const record = await kv.get<Record<string, unknown>>(`save:${name}`);
+        return { ok: true, completed: true, character: record?.character as Record<string, unknown>, _saveVersion: Number(record?._saveVersion ?? 0) };
+    }
     if (!mutation.ok) return { ok: false, error: mutation.error };
-    const opened = { ok: true as const, character: mutation.character, _saveVersion: mutation._saveVersion };
-    const session = mutation.value.session;
+    const opened = { ok: true as const, character: mutation.character, _saveVersion: mutation._saveVersion ?? 0 };
+    const session = mutation.session;
     if (opened.ok && session?.finished) {
         const recorded = await settleDungeonShowdown(name, session);
         return recorded.ok ? { ...recorded, session } : recorded;
@@ -90,7 +91,9 @@ export async function settleDungeonShowdown(name: string, session: DungeonShowdo
         const applied = applyDungeonPetTerminal({ character, dungeonRunToken: binding.runToken, proofId: session.sessionId, outcome, petIds: [binding.petId] });
         if (!applied.ok) return { ok: false as const, status: 409, error: applied.error };
         if (applied.alreadyApplied) return { ok: true as const, value: null, character, write: false };
-        const consumableId = session.player[0].consumable?.id;
+        // Retained sessions predate admission spending. Their existing parent
+        // settlement remains the owner; new sessions already paid at entry.
+        const consumableId = (session as AdmittedShowdown).consumablesCommitted ? undefined : session.player[0].consumable?.id;
         const pets = Array.isArray(applied.character.pets) ? applied.character.pets as Array<Record<string, unknown>> : [];
         const next = consumableId ? { ...applied.character, pets: pets.map(pet => {
             const loadout = pet.loadout as Record<string, unknown> | undefined;

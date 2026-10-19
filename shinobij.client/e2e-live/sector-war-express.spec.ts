@@ -177,7 +177,11 @@ test('a real sector pet war is discoverable, replayed, persistent, and isolated 
     expect(decided).toMatchObject({ status: 'done', appliedToContest: true, engine: 'showdown' });
 
     await expect(page.getByText(/Your pet won the sector duel|Your pet was defeated/)).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByRole('dialog', { name: /Pet Showdown/ })).toBeVisible({ timeout: 30_000 });
+    const replay = page.getByRole('dialog', { name: /Pet Showdown/ });
+    await expect(replay).toBeVisible({ timeout: 30_000 });
+    // Watch the complete recorded duel using the viewer's existing fast-playback control.
+    await replay.getByRole('button', { name: 'Normal playback', exact: true }).click();
+    await expect(replay.getByRole('button', { name: 'Fast playback', exact: true })).toBeVisible();
     const result = page.getByRole('dialog', { name: /Victory|Defeat/ });
     await expect(result).toBeVisible({ timeout: 60_000 });
     await result.getByRole('button', { name: 'Leave the Showdown', exact: true }).click();

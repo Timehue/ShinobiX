@@ -2061,8 +2061,11 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
             )}
 
             <section className={`summary-box pet-arena-log${visibleLog.length === 0 ? " is-idle" : ""}`} role="log" aria-label="Pet battle log" aria-live="polite" aria-relevant="additions text">
-                <div className="pet-arena-log-heading"><GameIcon name="scroll" size={18} /><span><small>Arena feed</small><strong>Battle record</strong></span><em>{visibleLog.length ? `${visibleLog.length} events` : "Awaiting bell"}</em></div>
-                {visibleLog.length === 0 ? <p className="hint">Your live combat calls and decisive moments will appear here after the bell.</p> : visibleLog.map((line, index) => <BattleLogLine key={`${line}-${index}`} line={line} />)}
+                <div className="pet-arena-log-heading"><GameIcon name="scroll" size={18} /><span><small>Arena feed</small><strong>Events this visit</strong></span><em>{visibleLog.length ? `${visibleLog.length} events` : "No events this visit"}</em></div>
+                {visibleLog.length === 0 ? <>
+                    <p className="hint">No challenge events have been recorded on this screen during this visit. Colosseum and Training Grounds show round history inside each battle.</p>
+                    {(character.dailyPetWins ?? 0) > 0 && <p className="hint">Paid wins recorded today: {character.dailyPetWins}/{SHOWDOWN_DAILY_WIN_CAP}. These wins are tracked separately from this visit&apos;s feed.</p>}
+                </> : visibleLog.map((line, index) => <BattleLogLine key={`${line}-${index}`} line={line} />)}
             </section>
             </>
             )}

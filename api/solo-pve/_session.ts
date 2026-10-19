@@ -103,6 +103,11 @@ export type SoloPveFighterEventState = {
 };
 
 export type SoloPveCompanion = PvpFighter & {
+    signatureReadyAfter?: number;
+    ordinaryActions?: number;
+    defense?: number;
+    spDefense?: number;
+    referenceHp?: number;
     petId: string;
     baseDamage: number;
     happiness: number;
@@ -116,7 +121,7 @@ export type SoloPveCompanion = PvpFighter & {
 export type SoloPveEventSnapshot = {
     player: SoloPveFighterEventState;
     enemy: SoloPveFighterEventState;
-    companion?: SoloPveFighterEventState & { roundsLeft: number; cooldowns: Record<string, number> };
+    companion?: SoloPveFighterEventState & { roundsLeft: number; cooldowns: Record<string, number>; signatureActionsRemaining?: number };
     ap: Record<SoloPveSide, number>;
     cooldowns: Record<SoloPveSide, Record<string, number>>;
     groundEffects: PvpGroundEffect[];

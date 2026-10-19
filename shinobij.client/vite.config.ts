@@ -3,6 +3,7 @@ import { compactGlbDelivery } from './scripts/compact-glb-delivery.mjs';
 import { sectorRuntimeData } from './scripts/sector-runtime-data.mjs';
 import { packedWorldData } from './scripts/packed-world-data.mjs';
 import { packStaticCatalog } from './scripts/pack-static-catalog.mjs';
+import { progressionCatalogDelivery } from './scripts/progression-catalog-delivery.mjs';
 import { CHRONICLE_LEGACY_SOURCES } from '../shared/legacy-card-sources.ts';
 import { hollowRifts } from './src/data/hollow-rifts.ts';
 import { fileURLToPath, URL } from 'node:url';
@@ -478,6 +479,7 @@ export default defineConfig({
                 if (file.endsWith('/src/data/hollow-rifts.ts')) return { code: packStaticCatalog(source, 'hollowRifts', hollowRifts), map: null };
             },
         },
+        progressionCatalogDelivery(),
         plugin(),
         runtimePublicAssetsPlugin(),
         ViteImageOptimizer({
@@ -1317,6 +1319,9 @@ export default defineConfig({
         alias: {
             '@': fileURLToPath(new URL('./src', import.meta.url))
         }
+    },
+    worker: {
+        plugins: () => [progressionCatalogDelivery()],
     },
     build: {
         // 2026-09-02 Railway parity drain: production-length public build args
