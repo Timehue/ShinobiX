@@ -42,6 +42,7 @@ before(async () => {
     ({ __resetRateLimitsForTest: resetRateLimits } = await import('../_ratelimit.js'));
     for (const [name, path] of [
         ['step', './step.js'], ['combatStart', './combat-start.js'], ['combatSettle', './combat-settle.js'],
+        ['event', './event.js'], ['descend', './descend.js'],
     ] as const) {
         handlers[name] = (await import(path)).default as unknown as Handler;
     }
@@ -249,4 +250,76 @@ test('an untouched pet duel sealed before the Showdown cutover still falls back 
     assert.equal(shinobi.status, 200, JSON.stringify(shinobi.body));
     assert.equal(shinobi.body.combatMode, 'solo-pve');
     assert.equal(await kv.get(bindingKey), null);
+});
+
+test('mob victory grants exactly three accepted steps of hunter relief; settlement/step replays cannot renew it', async () => {
+    await seed({ wanderers: { '1': [{ role: 'night-ninja', nodeId: 'floor:1:tile:21', origin: 21, tile: 18 }] } });
+    const started = await call('combatStart', { floor: 1, kind: 'battle', nodeId: HOUND.node, mode: 'pve' });
+    assert.equal(started.status, 200, JSON.stringify(started.body));
+    await finishFight(String(started.body.runId), 'win');
+    assert.equal((await call('combatSettle', { runId: started.body.runId })).status, 200);
+    assert.equal((await kv.get<HollowGateRunToken>(runKey))!.hunterBreatherSteps, 3);
+    const firstBody = { requestId: 'breather-replay-step01', fromX: 5, fromY: 1, toX: 4, toY: 1 };
+    const first = await call('step', firstBody);
+    assert.equal(first.status, 200, JSON.stringify(first.body)); assert.equal(first.body.ambush, null);
+    assert.equal((await kv.get<HollowGateRunToken>(runKey))!.hunterBreatherSteps, 2);
+    await call('step', firstBody);
+    await call('combatSettle', { runId: started.body.runId });
+    assert.equal((await kv.get<HollowGateRunToken>(runKey))!.hunterBreatherSteps, 2, 'neither receipt replays relief');
+    for (const [from, to] of [[4, 3], [3, 4]] as const) {
+        const moved = await step([from, 1], [to, 1]);
+        assert.equal(moved.status, 200, JSON.stringify(moved.body)); assert.equal(moved.body.ambush, null);
+    }
+    const contact = await step([4, 1], [3, 1]);
+    assert.equal(contact.status, 200); assert.equal((contact.body.ambush as { kind: string }).kind, 'battle');
+});
+
+test('an unspent Medic gets a contact buffer; spent Medic cannot grant a permanent hunter sanctuary', async () => {
+    await seed({ resolvedEncounterIds: [`1:battle:${HOUND.node}`], wanderers: { '1': [
+        { role: 'medic', nodeId: 'floor:1:tile:19', origin: 19, tile: 19 },
+        { role: 'night-ninja', nodeId: 'floor:1:tile:21', origin: 21, tile: 18 },
+    ] } });
+    const moved = await step([5, 1], [4, 1]);
+    assert.equal(moved.status, 200); assert.equal(moved.body.ambush, null);
+    const healed = await call('event', { action: 'traveler-heal', nodeId: 'floor:1:tile:19' });
+    assert.equal(healed.status, 200, JSON.stringify(healed.body));
+    const contact = await step([4, 1], [3, 1]);
+    assert.equal(contact.status, 200); assert.equal((contact.body.ambush as { kind: string }).kind, 'battle');
+});
+
+test('hunter relief never suppresses a sealed Chronicle/threat ambush or clears a fixed elite', async () => {
+    for (const variantId of [undefined, 'rift-hollow-stalker']) {
+        await seed({ variantId, threat: 96, hunterBreatherSteps: 3, resolvedEncounterIds: [`1:battle:${HOUND.node}`] });
+        const moved = await step([5, 1], [4, 1]);
+        assert.equal(moved.status, 200);
+        assert.equal((moved.body.ambush as { kind: string }).kind, variantId ? 'card' : 'ambush');
+    }
+    await seed({ position: { x: 11, y: 1 }, hunterBreatherSteps: 3 });
+    assert.equal((await step([11, 1], [10, 1])).status, 200);
+    const elite = await call('combatStart', { floor: 1, kind: 'elite', nodeId: 'floor:1:tile:25', mode: 'pve' });
+    assert.equal(elite.status, 200, JSON.stringify(elite.body));
+});
+
+test('previously sealed combat keeps its stored HP and spent resources instead of rebuilding', async () => {
+    await seed();
+    const started = await call('combatStart', { floor: 1, kind: 'battle', nodeId: HOUND.node, mode: 'pve' });
+    const { readSoloPveSession, writeSoloPveSession } = await import('../solo-pve/_store.js');
+    const session = (await readSoloPveSession(String(started.body.runId)))!;
+    session.enemy.maxHp = 16_742; session.enemy.hp = 12_345; session.enemy.chakra = 7;
+    await writeSoloPveSession(session);
+    const resumed = await call('combatStart', { floor: 1, kind: 'battle', nodeId: HOUND.node, mode: 'pve' });
+    assert.equal(resumed.status, 200); assert.equal(resumed.body.resumed, true);
+    assert.equal(resumed.body.runId, session.sessionId);
+    assert.deepEqual(resumed.body.session, session);
+});
+
+test('descending clears hunter relief once and preserves the old sealed floor on replay', async () => {
+    await seed({ position: { x: 13, y: 9 }, hunterBreatherSteps: 2 });
+    const original = (await kv.get<HollowGateRunToken>(runKey))!.floorManifests;
+    const descended = await call('descend', { fromFloor: 1 });
+    assert.equal(descended.status, 200, JSON.stringify(descended.body));
+    await call('descend', { fromFloor: 1 });
+    const run = (await kv.get<HollowGateRunToken>(runKey))!;
+    assert.equal(run.currentFloor, 2); assert.equal(run.hunterBreatherSteps, 0);
+    assert.deepEqual(run.floorManifests, original);
 });
