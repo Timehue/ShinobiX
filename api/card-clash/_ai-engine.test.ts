@@ -44,6 +44,55 @@ import {
   projectAiMatch,
 } from "./_ai-engine.js";
 
+for (const difficulty of ["easy", "medium"] as const) {
+  test(`${difficulty} Keeper checks later legal attackers after an earlier monster cannot win`, () => {
+    const session = createAiMatch(`match-later-attacker-${difficulty}`, "Tester", [...CHRONICLE_FIXED_FALLBACK_DECK], difficulty, 1_000, () => 0);
+    const state = session.state;
+    Object.assign(state, { activePlayer: "p2", turnNumber: 17, phase: "battle", responseWindow: null });
+    state.p2.hand = [];
+    state.p1.lifePoints = 200;
+    state.p1.monsterZones.fill(null);
+    state.p2.monsterZones.fill(null);
+    state.p1.magicTrapZones.fill(null);
+    state.p2.magicTrapZones.fill(null);
+    const body = (cardId: string, owner: "p1" | "p2", zoneIndex: number, position: "attack" | "defense" = "attack") => ({
+      instanceId: `${owner}-${cardId}-${zoneIndex}`, cardId, owner, zoneIndex, position,
+      faceUp: true, summonedOnTurn: 1, lastPositionChangeTurn: 1, lastAttackTurn: 0,
+      temporaryAttack: 0, temporaryDefense: 0,
+    });
+    // Untouched catalog stats: Rookie ties the elemental defense of the Dummy;
+    // the next weak Dummy cannot win, but Guard/Frog can clear it legally.
+    for (const id of ["tc-06", "tc-01", "tc-07", "tc-09"]) assert.equal(getChronicleCard(id)?.cardClass, "monster");
+    ["tc-06", "tc-01", "tc-07", "tc-09"].forEach((id, index) => { state.p2.monsterZones[index] = body(id, "p2", index); });
+    state.p1.monsterZones[0] = body("tc-01", "p1", 0, "defense");
+    advanceAi(session, 2_000);
+    assert.equal(session.state.winner, "p2", "a later legal attacker clears the defender and the remaining attacker deals lethal");
+  });
+
+  test(`${difficulty} Keeper does not reuse spent attackers to force the same lethal`, () => {
+    const session = createAiMatch(`match-spent-attacker-${difficulty}`, "Tester", [...CHRONICLE_FIXED_FALLBACK_DECK], difficulty, 1_000, () => 0);
+    const state = session.state;
+    Object.assign(state, { activePlayer: "p2", turnNumber: 17, phase: "battle", responseWindow: null });
+    state.p2.hand = [];
+    state.p1.lifePoints = 200;
+    state.p1.monsterZones.fill(null); state.p2.monsterZones.fill(null);
+    state.p1.magicTrapZones.fill(null); state.p2.magicTrapZones.fill(null);
+    const body = (cardId: string, owner: "p1" | "p2", zoneIndex: number, position: "attack" | "defense" = "attack", lastAttackTurn = 0) => ({
+      instanceId: `${owner}-${cardId}-${zoneIndex}`, cardId, owner, zoneIndex, position,
+      faceUp: true, summonedOnTurn: 1, lastPositionChangeTurn: 1, lastAttackTurn,
+      temporaryAttack: 0, temporaryDefense: 0,
+    });
+    state.p2.monsterZones[0] = body("tc-01", "p2", 0);
+    state.p2.monsterZones[1] = body("tc-07", "p2", 1, "attack", 17);
+    state.p2.monsterZones[2] = body("tc-09", "p2", 2, "attack", 17);
+    state.p1.monsterZones[0] = body("tc-01", "p1", 0, "defense");
+    advanceAi(session, 2_000);
+    assert.equal(session.state.winner, null);
+    assert.equal(session.state.p1.lifePoints, 200);
+    assert.equal(session.state.p2.monsterZones[0]?.lastAttackTurn, 0);
+  });
+}
+
 test("AI deck is a legal 40-card Chronicle deck at every difficulty band", () => {
   for (const difficulty of CHRONICLE_AI_DIFFICULTIES) {
     const deck = generateAiServerDeck(difficulty);
