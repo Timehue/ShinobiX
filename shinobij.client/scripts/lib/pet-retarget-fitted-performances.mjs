@@ -21,7 +21,11 @@ export async function retargetFittedPetPerformances(bytes,{expectedSha256}={}){
     for(const part of ['front','hind'])for(const side of ['L','R'])for(const section of ['upper','lower','paw']){
         const name=`${part}_${section}.${side}`,node=rig.byName.get(name);
         let legacy=rig.byName.get(oldName(name));
-        if(legacy===undefined){const human=part==='front'?['upper_arm','forearm','hand']:['thigh','shin','foot'];legacy=rig.byName.get(`legacy_${human[['upper','lower','paw'].indexOf(section)]}.${side}`);}
+        if(legacy===undefined){
+            const human=part==='front'?['upper_arm','forearm','hand']:['thigh','shin','foot'];
+            const originalName=`${human[['upper','lower','paw'].indexOf(section)]}.${side}`;
+            legacy=rig.byName.get(`legacy_${originalName}`)??rig.byName.get(originalName);
+        }
         assert.ok(node!==undefined&&legacy!==undefined,`${name}: missing original/fitted pair`);
         const a=rig.nodes[legacy],b=rig.nodes[node];
         const parentA=a.parent.getWorldQuaternion(new Quaternion()),parentB=b.parent.getWorldQuaternion(new Quaternion());

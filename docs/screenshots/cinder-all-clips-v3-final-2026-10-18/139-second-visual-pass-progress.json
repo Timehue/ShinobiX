@@ -1,0 +1,863 @@
+{
+  "id": "starter-fire",
+  "rawSlicesActuallyInspected": 30,
+  "runtime": [
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-runtime-landmark-low/starter-fire-source-head-0.png",
+      "sha256": "b8b82c0b7db0d7668c424c6fd8f5b980043a54f5cbfe87a3fffa7f865bb522df",
+      "actuallyInspected": true,
+      "result": "pass-at-visible-sampled-poses",
+      "diagnostic": false
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-runtime-landmark-low/starter-fire-source-head-normals-0.png",
+      "sha256": "bf9683dd167ae56acaa51866dd069e893f5cb7a1b010d124659e824d970cbe11",
+      "actuallyInspected": true,
+      "result": "pass-at-visible-sampled-poses",
+      "diagnostic": true
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-runtime-landmark-low/starter-fire-source-head-1.png",
+      "sha256": "4cd44dca31a4799f9eecf254d8f35e61ba9a5f1614f36697c31fc771e6361ef1",
+      "actuallyInspected": true,
+      "result": "pass-at-visible-sampled-poses",
+      "diagnostic": false
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-runtime-landmark-low/starter-fire-source-head-normals-1.png",
+      "sha256": "02a35928d60f840cb642dbeea949a0d89de7b4bc69bcee88e54d5f0ba51e172f",
+      "actuallyInspected": true,
+      "result": "pass-at-visible-sampled-poses",
+      "diagnostic": true
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-runtime-landmark-low/starter-fire-source-head-2.png",
+      "sha256": "7bd50fec6a34ec44d10e52e94dcd75e8487ad41decc2debb02996a637b066bc4",
+      "actuallyInspected": true,
+      "result": "pass-at-visible-sampled-poses",
+      "diagnostic": false
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-runtime-landmark-low/starter-fire-source-head-normals-2.png",
+      "sha256": "5c9d1f4a4a7c2385ba38129586e188597dbe62388e8bd81efa8b739d3d788e75",
+      "actuallyInspected": true,
+      "result": "pass-at-visible-sampled-poses",
+      "diagnostic": true
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-runtime-landmark-low/starter-fire-source-head-3.png",
+      "sha256": "ed20642ea4a73e3e8343fdba4f0fae23ec92611dd0ec318ee0cf800fc0d303ee",
+      "actuallyInspected": true,
+      "result": "pass-at-visible-sampled-poses",
+      "diagnostic": false
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-runtime-landmark-low/starter-fire-source-head-normals-3.png",
+      "sha256": "2acccd65854d705050b5d31118b8f9e9cfb09c08bacc1b957db5b9f3c56f60e3",
+      "actuallyInspected": true,
+      "result": "pass-at-visible-sampled-poses",
+      "diagnostic": true
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-runtime-landmark-low/starter-fire-source-body-0.png",
+      "sha256": "7c47fff4b6e53fdcf34b1070302400289a714a1e46aecb69b08226e1cf83bfcf",
+      "actuallyInspected": true,
+      "result": "pass-at-visible-sampled-poses",
+      "diagnostic": false
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-runtime-landmark-low/starter-fire-source-body-normals-0.png",
+      "sha256": "c63792245f8c247df921e68a8e7573830793422d67cf33be56638c9f34f50ccc",
+      "actuallyInspected": true,
+      "result": "pass-at-visible-sampled-poses",
+      "diagnostic": true
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-runtime-landmark-low/starter-fire-source-body-1.png",
+      "sha256": "3e66327ad8dbdf8de481ebe0ffc45fc1c668e0c2a7ad66454efa53cde043924c",
+      "actuallyInspected": true,
+      "result": "pass-at-visible-sampled-poses",
+      "diagnostic": false
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-runtime-landmark-low/starter-fire-source-body-normals-1.png",
+      "sha256": "7eee04d48cc3a67999949cdd639b7116916ecc564d6446e8e33e7621170f69f4",
+      "actuallyInspected": true,
+      "result": "pass-at-visible-sampled-poses",
+      "diagnostic": true
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-runtime-landmark-low/starter-fire-source-body-2.png",
+      "sha256": "c4424b055d11678e132641bd5e01737f88d69a0938a8a1508a8bad0bc3e928d4",
+      "actuallyInspected": true,
+      "result": "pass-at-visible-sampled-poses",
+      "diagnostic": false
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-runtime-landmark-low/starter-fire-source-body-normals-2.png",
+      "sha256": "dbb452acb3d495cfa1d1cb52def4ad56e4dd187210ad8ee986534294fdc10b13",
+      "actuallyInspected": true,
+      "result": "pass-at-visible-sampled-poses",
+      "diagnostic": true
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-runtime-landmark-low/starter-fire-source-body-3.png",
+      "sha256": "bdabf80907fc5969e5759aa3f4be720ec0daea0847ae4690371da3708fab1d36",
+      "actuallyInspected": true,
+      "result": "pass-at-visible-sampled-poses",
+      "diagnostic": false
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-runtime-landmark-low/starter-fire-source-body-normals-3.png",
+      "sha256": "c9e5367c8fe8fb86ed139bd273b038c83ca6713bfc6fc4aa4d76451d881a1663",
+      "actuallyInspected": true,
+      "result": "pass-at-visible-sampled-poses",
+      "diagnostic": true
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-runtime-landmark-low/starter-fire-battle-head-0.png",
+      "sha256": "d59f2cafdd14fc5751dcc06972d57f1031da6f5ef5938cde221ecb4c88d712d8",
+      "actuallyInspected": true,
+      "result": "pass-at-visible-sampled-poses",
+      "diagnostic": false
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-runtime-landmark-low/starter-fire-battle-head-normals-0.png",
+      "sha256": "66c2256abed9efd8b2e6a674666656adda2b9f8da57006faf86afe7a7b155fe3",
+      "actuallyInspected": true,
+      "result": "pass-at-visible-sampled-poses",
+      "diagnostic": true
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-runtime-landmark-low/starter-fire-battle-head-1.png",
+      "sha256": "614d252c0cd3d8f579f68f1a83cdfdcc4c88a8f41b01758edba06c54cec3af48",
+      "actuallyInspected": true,
+      "result": "pass-at-visible-sampled-poses",
+      "diagnostic": false
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-runtime-landmark-low/starter-fire-battle-head-normals-1.png",
+      "sha256": "5171c1caccf40e1f69eae3e56deb71cb24d5025c3db979897d49628ca7cda960",
+      "actuallyInspected": true,
+      "result": "pass-at-visible-sampled-poses",
+      "diagnostic": true
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-runtime-landmark-low/starter-fire-battle-head-2.png",
+      "sha256": "86dee5cedf9ee2ee0450caf4f446d5f942ab3b983546840034f7589e379302f6",
+      "actuallyInspected": true,
+      "result": "pass-at-visible-sampled-poses",
+      "diagnostic": false
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-runtime-landmark-low/starter-fire-battle-head-normals-2.png",
+      "sha256": "87e88fdb40d586dbcbb3c43c2d98f83d74bcbdea7dd5beb002ae1357f4162a44",
+      "actuallyInspected": true,
+      "result": "pass-at-visible-sampled-poses",
+      "diagnostic": true
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-runtime-landmark-low/starter-fire-battle-head-3.png",
+      "sha256": "a9aa62c09e50dec32a4e9b56d88dff50fb31ebb18e1191b0d6185816ba63fcdf",
+      "actuallyInspected": true,
+      "result": "pass-at-visible-sampled-poses",
+      "diagnostic": false
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-runtime-landmark-low/starter-fire-battle-head-normals-3.png",
+      "sha256": "c0208e6f907ec56693dcaac8ef0cf6f01e3d3bd24f21f1d0f14b76a12f25b32a",
+      "actuallyInspected": true,
+      "result": "pass-at-visible-sampled-poses",
+      "diagnostic": true
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-runtime-landmark-low/starter-fire-battle-body-0.png",
+      "sha256": "4fb546e857b0c3f0b7e322d5693dfcd802588db4328a1aa27e97b73f54aab43d",
+      "actuallyInspected": true,
+      "result": "pass-at-visible-sampled-poses",
+      "diagnostic": false
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-runtime-landmark-low/starter-fire-battle-body-normals-0.png",
+      "sha256": "a58d8cd5476e45e3bd99910f8aa811a70c08f7eeeabe877bbdc85f7863eea664",
+      "actuallyInspected": true,
+      "result": "pass-at-visible-sampled-poses",
+      "diagnostic": true
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-runtime-landmark-low/starter-fire-battle-body-1.png",
+      "sha256": "c79079cbe63b1a8a699ca87ada3a3e6dfd24ff3f4d82119c8b4d21e71f16ed7b",
+      "actuallyInspected": true,
+      "result": "pass-at-visible-sampled-poses",
+      "diagnostic": false
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-runtime-landmark-low/starter-fire-battle-body-normals-1.png",
+      "sha256": "11f57cf51bc5ccac04e908cd5373104168cd48c50e5708185571bdb9b4e09ee2",
+      "actuallyInspected": true,
+      "result": "pass-at-visible-sampled-poses",
+      "diagnostic": true
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-runtime-landmark-low/starter-fire-battle-body-2.png",
+      "sha256": "61729d895977e6172ccc97e44a177690265d60182d0cc717c09c6e638a492dbb",
+      "actuallyInspected": true,
+      "result": "pass-at-visible-sampled-poses",
+      "diagnostic": false
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-runtime-landmark-low/starter-fire-battle-body-normals-2.png",
+      "sha256": "2eb9c7175dea4bf2c7d39f549ac26973d8789aaa42926fbce1e30deb9f935e7b",
+      "actuallyInspected": true,
+      "result": "pass-at-visible-sampled-poses",
+      "diagnostic": true
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-runtime-landmark-low/starter-fire-battle-body-3.png",
+      "sha256": "ee5f7dda2aa1d7baf585f927279c4b2a7f878ff44661aa8b047379b220913537",
+      "actuallyInspected": true,
+      "result": "pass-at-visible-sampled-poses",
+      "diagnostic": false
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-runtime-landmark-low/starter-fire-battle-body-normals-3.png",
+      "sha256": "1f73e829edc16f5a46c148ba4b6283ba063d41392a33f72a43e759f6290d268f",
+      "actuallyInspected": true,
+      "result": "pass-at-visible-sampled-poses",
+      "diagnostic": true
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-runtime-landmark-medium/starter-fire-source-head-0.png",
+      "sha256": "e0e82407409d033f8856feaed33538b482be1527607d4118b911109ae67a8a5d",
+      "actuallyInspected": true,
+      "result": "pass-at-visible-sampled-poses",
+      "diagnostic": false
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-runtime-landmark-medium/starter-fire-source-head-normals-0.png",
+      "sha256": "bf9683dd167ae56acaa51866dd069e893f5cb7a1b010d124659e824d970cbe11",
+      "actuallyInspected": true,
+      "result": "pass-at-visible-sampled-poses",
+      "diagnostic": true
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-runtime-landmark-medium/starter-fire-source-head-1.png",
+      "sha256": "cc6ae32ba6fd26650b2cd9ff4ebe23296e38c7ddef0f496ff97617eb0b2fbcb6",
+      "actuallyInspected": true,
+      "result": "pass-at-visible-sampled-poses",
+      "diagnostic": false
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-runtime-landmark-medium/starter-fire-source-head-normals-1.png",
+      "sha256": "02a35928d60f840cb642dbeea949a0d89de7b4bc69bcee88e54d5f0ba51e172f",
+      "actuallyInspected": true,
+      "result": "pass-at-visible-sampled-poses",
+      "diagnostic": true
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-runtime-landmark-medium/starter-fire-source-head-2.png",
+      "sha256": "28ad49aec2104d533ea7577aae61326c7611e80b9b044ac7e4d96cb0f159c709",
+      "actuallyInspected": true,
+      "result": "pass-at-visible-sampled-poses",
+      "diagnostic": false
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-runtime-landmark-medium/starter-fire-source-head-normals-2.png",
+      "sha256": "5c9d1f4a4a7c2385ba38129586e188597dbe62388e8bd81efa8b739d3d788e75",
+      "actuallyInspected": true,
+      "result": "pass-at-visible-sampled-poses",
+      "diagnostic": true
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-runtime-landmark-medium/starter-fire-source-head-3.png",
+      "sha256": "d151574a938989bbade4f622ae74196dc5c3f0a6798b0a028b054f7ec7fec7b7",
+      "actuallyInspected": true,
+      "result": "pass-at-visible-sampled-poses",
+      "diagnostic": false
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-runtime-landmark-medium/starter-fire-source-head-normals-3.png",
+      "sha256": "2acccd65854d705050b5d31118b8f9e9cfb09c08bacc1b957db5b9f3c56f60e3",
+      "actuallyInspected": true,
+      "result": "pass-at-visible-sampled-poses",
+      "diagnostic": true
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-runtime-landmark-medium/starter-fire-source-body-0.png",
+      "sha256": "ef0935f651438eeb6001d628e6b69f6f18eae550faeb29f87fd5ff2f48e047de",
+      "actuallyInspected": true,
+      "result": "pass-at-visible-sampled-poses",
+      "diagnostic": false
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-runtime-landmark-medium/starter-fire-source-body-normals-0.png",
+      "sha256": "c63792245f8c247df921e68a8e7573830793422d67cf33be56638c9f34f50ccc",
+      "actuallyInspected": true,
+      "result": "pass-at-visible-sampled-poses",
+      "diagnostic": true
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-runtime-landmark-medium/starter-fire-source-body-1.png",
+      "sha256": "1de4a4d5ed30b33eed5a0591a72ecb27ccd2576c60b03dd672f76224eeb8d004",
+      "actuallyInspected": true,
+      "result": "pass-at-visible-sampled-poses",
+      "diagnostic": false
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-runtime-landmark-medium/starter-fire-source-body-normals-1.png",
+      "sha256": "7eee04d48cc3a67999949cdd639b7116916ecc564d6446e8e33e7621170f69f4",
+      "actuallyInspected": true,
+      "result": "pass-at-visible-sampled-poses",
+      "diagnostic": true
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-runtime-landmark-medium/starter-fire-source-body-2.png",
+      "sha256": "e5cbc98dfcbb6ed7463fe60d467f0b1aae7efbc573b4a65e3ea0f1347ea88181",
+      "actuallyInspected": true,
+      "result": "pass-at-visible-sampled-poses",
+      "diagnostic": false
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-runtime-landmark-medium/starter-fire-source-body-normals-2.png",
+      "sha256": "dbb452acb3d495cfa1d1cb52def4ad56e4dd187210ad8ee986534294fdc10b13",
+      "actuallyInspected": true,
+      "result": "pass-at-visible-sampled-poses",
+      "diagnostic": true
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-runtime-landmark-medium/starter-fire-source-body-3.png",
+      "sha256": "408aa25b33397b0990a0a1f2cb471f792849c4628e1c21aad699ff84fbc8cc96",
+      "actuallyInspected": true,
+      "result": "pass-at-visible-sampled-poses",
+      "diagnostic": false
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-runtime-landmark-medium/starter-fire-source-body-normals-3.png",
+      "sha256": "c9e5367c8fe8fb86ed139bd273b038c83ca6713bfc6fc4aa4d76451d881a1663",
+      "actuallyInspected": true,
+      "result": "pass-at-visible-sampled-poses",
+      "diagnostic": true
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-runtime-landmark-medium/starter-fire-battle-head-0.png",
+      "sha256": "75291d85668d42ea6d7180c4e39ce96779a20ae6161d8542e33f31a86351c779",
+      "actuallyInspected": true,
+      "result": "pass-at-visible-sampled-poses",
+      "diagnostic": false
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-runtime-landmark-medium/starter-fire-battle-head-normals-0.png",
+      "sha256": "66c2256abed9efd8b2e6a674666656adda2b9f8da57006faf86afe7a7b155fe3",
+      "actuallyInspected": true,
+      "result": "pass-at-visible-sampled-poses",
+      "diagnostic": true
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-runtime-landmark-medium/starter-fire-battle-head-1.png",
+      "sha256": "df7874b029fcb49693e000c96b12b2a143e54b4e4fbc4b47e0cd6edf04724ae5",
+      "actuallyInspected": true,
+      "result": "pass-at-visible-sampled-poses",
+      "diagnostic": false
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-runtime-landmark-medium/starter-fire-battle-head-normals-1.png",
+      "sha256": "5171c1caccf40e1f69eae3e56deb71cb24d5025c3db979897d49628ca7cda960",
+      "actuallyInspected": true,
+      "result": "pass-at-visible-sampled-poses",
+      "diagnostic": true
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-runtime-landmark-medium/starter-fire-battle-head-2.png",
+      "sha256": "e3a62491d39f12db8c7bf257f4e576bd8d7b0fb77f83de27848a7e75248c595c",
+      "actuallyInspected": true,
+      "result": "pass-at-visible-sampled-poses",
+      "diagnostic": false
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-runtime-landmark-medium/starter-fire-battle-head-normals-2.png",
+      "sha256": "87e88fdb40d586dbcbb3c43c2d98f83d74bcbdea7dd5beb002ae1357f4162a44",
+      "actuallyInspected": true,
+      "result": "pass-at-visible-sampled-poses",
+      "diagnostic": true
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-runtime-landmark-medium/starter-fire-battle-head-3.png",
+      "sha256": "98bb894a5e693a91bde0a9487b78b3670eb4ddc1adcba6dd9fa88ab51ee62326",
+      "actuallyInspected": true,
+      "result": "pass-at-visible-sampled-poses",
+      "diagnostic": false
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-runtime-landmark-medium/starter-fire-battle-head-normals-3.png",
+      "sha256": "c0208e6f907ec56693dcaac8ef0cf6f01e3d3bd24f21f1d0f14b76a12f25b32a",
+      "actuallyInspected": true,
+      "result": "pass-at-visible-sampled-poses",
+      "diagnostic": true
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-runtime-landmark-medium/starter-fire-battle-body-0.png",
+      "sha256": "81d84b21b952c2ef2e283f443951c1b362b72d2a775f5fd0c53c6b8c4e91bcdb",
+      "actuallyInspected": true,
+      "result": "pass-at-visible-sampled-poses",
+      "diagnostic": false
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-runtime-landmark-medium/starter-fire-battle-body-normals-0.png",
+      "sha256": "a58d8cd5476e45e3bd99910f8aa811a70c08f7eeeabe877bbdc85f7863eea664",
+      "actuallyInspected": true,
+      "result": "pass-at-visible-sampled-poses",
+      "diagnostic": true
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-runtime-landmark-medium/starter-fire-battle-body-1.png",
+      "sha256": "9d48844929414bd9847131b4a2375c367c1c0ed8593d0252cdde3536762af2d5",
+      "actuallyInspected": true,
+      "result": "pass-at-visible-sampled-poses",
+      "diagnostic": false
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-runtime-landmark-medium/starter-fire-battle-body-normals-1.png",
+      "sha256": "11f57cf51bc5ccac04e908cd5373104168cd48c50e5708185571bdb9b4e09ee2",
+      "actuallyInspected": true,
+      "result": "pass-at-visible-sampled-poses",
+      "diagnostic": true
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-runtime-landmark-medium/starter-fire-battle-body-2.png",
+      "sha256": "99db37dd51b968a585e1776a5951b80e07fb927b662375b341d0380ce2f01b48",
+      "actuallyInspected": true,
+      "result": "pass-at-visible-sampled-poses",
+      "diagnostic": false
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-runtime-landmark-medium/starter-fire-battle-body-normals-2.png",
+      "sha256": "2eb9c7175dea4bf2c7d39f549ac26973d8789aaa42926fbce1e30deb9f935e7b",
+      "actuallyInspected": true,
+      "result": "pass-at-visible-sampled-poses",
+      "diagnostic": true
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-runtime-landmark-medium/starter-fire-battle-body-3.png",
+      "sha256": "871aecb748c1a77d5f2c078aa8f3df5f7f7c478db4c393c0345b61369bbc321f",
+      "actuallyInspected": true,
+      "result": "pass-at-visible-sampled-poses",
+      "diagnostic": false
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-runtime-landmark-medium/starter-fire-battle-body-normals-3.png",
+      "sha256": "1f73e829edc16f5a46c148ba4b6283ba063d41392a33f72a43e759f6290d268f",
+      "actuallyInspected": true,
+      "result": "pass-at-visible-sampled-poses",
+      "diagnostic": true
+    }
+  ],
+  "runtimeColorSlicesActuallyInspected": 32,
+  "runtimeNormalSlicesActuallyInspected": 32,
+  "nativeTechniqueFramesActuallyInspected": 216,
+  "companionIdleFramesActuallyInspected": 24,
+  "atlasActuallyInspected": true,
+  "secondPassComplete": true,
+  "obsoleteRuntimeReview": "Old detail-camera low battle head0 seen, not approved due poor framing; replaced by landmark-based head cameras and paired same-pose normals.",
+  "raw": [
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-source-head/starter-fire-head-front-0.png",
+      "sha256": "0521422397ac57a5eaedb2ed2b4238ddb6c47f7b927cbd5c61fc9ca1ac57b215",
+      "actuallyInspected": true,
+      "assessment": "Visible face, eyes, muzzle and full body/ear silhouettes coherent through sampled poses; no detached legs. Diagnostic raw lighting retained as stated in capture manifest."
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-source-head/starter-fire-head-front-1.png",
+      "sha256": "1d3e81b844dc489857c66a8e6356d448e2887d6860042a6244d4e5b4731146a8",
+      "actuallyInspected": true,
+      "assessment": "Visible face, eyes, muzzle and full body/ear silhouettes coherent through sampled poses; no detached legs. Diagnostic raw lighting retained as stated in capture manifest."
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-source-head/starter-fire-head-front-2.png",
+      "sha256": "bdbbe1033a8ea7f3c12cf47db3756cd6b9acd29f23e2466115af623dc13932be",
+      "actuallyInspected": true,
+      "assessment": "Visible face, eyes, muzzle and full body/ear silhouettes coherent through sampled poses; no detached legs. Diagnostic raw lighting retained as stated in capture manifest."
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-source-head/starter-fire-head-side-0.png",
+      "sha256": "95134b62eeeb96cffaac535b6307797725df8163731cfb496062a34779d3822c",
+      "actuallyInspected": true,
+      "assessment": "Visible face, eyes, muzzle and full body/ear silhouettes coherent through sampled poses; no detached legs. Diagnostic raw lighting retained as stated in capture manifest."
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-source-head/starter-fire-head-side-1.png",
+      "sha256": "807a5469436cc2eb5c4a2c16f3ace2fb1ea9bd7f3811ae99ea9691bfcd6a93d1",
+      "actuallyInspected": true,
+      "assessment": "Visible face, eyes, muzzle and full body/ear silhouettes coherent through sampled poses; no detached legs. Diagnostic raw lighting retained as stated in capture manifest."
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-source-head/starter-fire-head-side-2.png",
+      "sha256": "7f9c1105269dd438d3d0f7e5f6329f47e92b4dfc3a523351f2f520bfb6c853b9",
+      "actuallyInspected": true,
+      "assessment": "Visible face, eyes, muzzle and full body/ear silhouettes coherent through sampled poses; no detached legs. Diagnostic raw lighting retained as stated in capture manifest."
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-source-head/starter-fire-head-other-side-0.png",
+      "sha256": "74442084d1252311eca56966f0c1ab8d00c1bb6c4aef182e708680743a6c9702",
+      "actuallyInspected": true,
+      "assessment": "Visible face, eyes, muzzle and full body/ear silhouettes coherent through sampled poses; no detached legs. Diagnostic raw lighting retained as stated in capture manifest."
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-source-head/starter-fire-head-other-side-1.png",
+      "sha256": "075c345094fc954c6125845c3fb39d2cb278bf32bfd4f0db7543f575db27fcc9",
+      "actuallyInspected": true,
+      "assessment": "Visible face, eyes, muzzle and full body/ear silhouettes coherent through sampled poses; no detached legs. Diagnostic raw lighting retained as stated in capture manifest."
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-source-head/starter-fire-head-other-side-2.png",
+      "sha256": "f88cab8d2b77ad7d97261a6b0e5bceb7a7affac33b3dce3af6bda60947df644f",
+      "actuallyInspected": true,
+      "assessment": "Visible face, eyes, muzzle and full body/ear silhouettes coherent through sampled poses; no detached legs. Diagnostic raw lighting retained as stated in capture manifest."
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-source-body/starter-fire-front-0.png",
+      "sha256": "f06a661c5dab4d812d452c329cc139ffb73e2c077246f24f7a3d87f5fc540e66",
+      "actuallyInspected": true,
+      "assessment": "Visible face, eyes, muzzle and full body/ear silhouettes coherent through sampled poses; no detached legs. Diagnostic raw lighting retained as stated in capture manifest."
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-source-body/starter-fire-front-1.png",
+      "sha256": "8a809ab00ff5d60455728b72b43db0b7feff20a5f79156b7fef22f1738dfe303",
+      "actuallyInspected": true,
+      "assessment": "Visible face, eyes, muzzle and full body/ear silhouettes coherent through sampled poses; no detached legs. Diagnostic raw lighting retained as stated in capture manifest."
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-source-body/starter-fire-front-2.png",
+      "sha256": "1485938a99c00e2087063d45a782921f28fcb525acb9ff65c9ae77487664a33d",
+      "actuallyInspected": true,
+      "assessment": "Visible face, eyes, muzzle and full body/ear silhouettes coherent through sampled poses; no detached legs. Diagnostic raw lighting retained as stated in capture manifest."
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-source-body/starter-fire-side-0.png",
+      "sha256": "3a8c4459e41f07bf726dfa63008b853a668f0e6fb8dcd6eabf4d019c603b0c85",
+      "actuallyInspected": true,
+      "assessment": "Visible face, eyes, muzzle and full body/ear silhouettes coherent through sampled poses; no detached legs. Diagnostic raw lighting retained as stated in capture manifest."
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-source-body/starter-fire-side-1.png",
+      "sha256": "253cdb6bd8b177206ff63d0787de35cf3fb62d250d0ffb88b5d33a8a49f44049",
+      "actuallyInspected": true,
+      "assessment": "Visible face, eyes, muzzle and full body/ear silhouettes coherent through sampled poses; no detached legs. Diagnostic raw lighting retained as stated in capture manifest."
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-source-body/starter-fire-side-2.png",
+      "sha256": "015b79eb1ca79cb1d50ea6715121a7bde1d47b5e540ada4184a4664b5bd70499",
+      "actuallyInspected": true,
+      "assessment": "Visible face, eyes, muzzle and full body/ear silhouettes coherent through sampled poses; no detached legs. Diagnostic raw lighting retained as stated in capture manifest."
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-battle-head/starter-fire-head-front-0.png",
+      "sha256": "e85d599aefa477669aa159277d2c57af66ba90ef637ee1a90a1210bea86a3995",
+      "actuallyInspected": true,
+      "assessment": "Visible face, eyes, muzzle and full body/ear silhouettes coherent through sampled poses; no detached legs. Diagnostic raw lighting retained as stated in capture manifest."
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-battle-head/starter-fire-head-front-1.png",
+      "sha256": "1734415f58cd078e6ed0bbdd77a3368797534074ba609344debc13e168efa3d1",
+      "actuallyInspected": true,
+      "assessment": "Visible face, eyes, muzzle and full body/ear silhouettes coherent through sampled poses; no detached legs. Diagnostic raw lighting retained as stated in capture manifest."
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-battle-head/starter-fire-head-front-2.png",
+      "sha256": "953bbb2340d270227e6a046935e4a8bcd803070726283a2a3ccc170cda19ea0e",
+      "actuallyInspected": true,
+      "assessment": "Visible face, eyes, muzzle and full body/ear silhouettes coherent through sampled poses; no detached legs. Diagnostic raw lighting retained as stated in capture manifest."
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-battle-head/starter-fire-head-side-0.png",
+      "sha256": "24640aa27eb2a98540cd757b258400558ddefa30ae923ac60feec06e124e1851",
+      "actuallyInspected": true,
+      "assessment": "Visible face, eyes, muzzle and full body/ear silhouettes coherent through sampled poses; no detached legs. Diagnostic raw lighting retained as stated in capture manifest."
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-battle-head/starter-fire-head-side-1.png",
+      "sha256": "d1f64a8d0b3acf8629b47fddb4b152a10b4e60dbcd002baad030797bd5a7176a",
+      "actuallyInspected": true,
+      "assessment": "Visible face, eyes, muzzle and full body/ear silhouettes coherent through sampled poses; no detached legs. Diagnostic raw lighting retained as stated in capture manifest."
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-battle-head/starter-fire-head-side-2.png",
+      "sha256": "433a0c80d0dff7433edc7660b6da88f05393765e080aa58c4f451aab95b8a4b2",
+      "actuallyInspected": true,
+      "assessment": "Visible face, eyes, muzzle and full body/ear silhouettes coherent through sampled poses; no detached legs. Diagnostic raw lighting retained as stated in capture manifest."
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-battle-head/starter-fire-head-other-side-0.png",
+      "sha256": "ab40c855199aa85d99ce9e57a10c593bdb8fceeb30da43285ee154731aecfeed",
+      "actuallyInspected": true,
+      "assessment": "Visible face, eyes, muzzle and full body/ear silhouettes coherent through sampled poses; no detached legs. Diagnostic raw lighting retained as stated in capture manifest."
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-battle-head/starter-fire-head-other-side-1.png",
+      "sha256": "3f574b42ee7f92aafa2f09f96cd34f2703b3c90921e6b5b4c19f6efa2cb4b7d2",
+      "actuallyInspected": true,
+      "assessment": "Visible face, eyes, muzzle and full body/ear silhouettes coherent through sampled poses; no detached legs. Diagnostic raw lighting retained as stated in capture manifest."
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-battle-head/starter-fire-head-other-side-2.png",
+      "sha256": "c99cb7d5a7a9c726a69546de1608cdd77515c7758403eade41472cc8fa267b29",
+      "actuallyInspected": true,
+      "assessment": "Visible face, eyes, muzzle and full body/ear silhouettes coherent through sampled poses; no detached legs. Diagnostic raw lighting retained as stated in capture manifest."
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-battle-body/starter-fire-front-0.png",
+      "sha256": "eb38ff5fe804eb9728ffedd98e0f03ec62d659e4a74cca024ccda0b7f5881154",
+      "actuallyInspected": true,
+      "assessment": "Visible face, eyes, muzzle and full body/ear silhouettes coherent through sampled poses; no detached legs. Diagnostic raw lighting retained as stated in capture manifest."
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-battle-body/starter-fire-front-1.png",
+      "sha256": "64476beaa7e6a4df6aff6bca14cc3871d846f76aeaec13ffbd2d89dfebb76f93",
+      "actuallyInspected": true,
+      "assessment": "Visible face, eyes, muzzle and full body/ear silhouettes coherent through sampled poses; no detached legs. Diagnostic raw lighting retained as stated in capture manifest."
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-battle-body/starter-fire-front-2.png",
+      "sha256": "9e88813d15af76f422e179fb2bb8d0afd7729023034bd35e20b476037a82c9c5",
+      "actuallyInspected": true,
+      "assessment": "Visible face, eyes, muzzle and full body/ear silhouettes coherent through sampled poses; no detached legs. Diagnostic raw lighting retained as stated in capture manifest."
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-battle-body/starter-fire-side-0.png",
+      "sha256": "db20b571b2c9257113dd6c700b95a71b70d82f24eac3c06a6740a788c10552d9",
+      "actuallyInspected": true,
+      "assessment": "Visible face, eyes, muzzle and full body/ear silhouettes coherent through sampled poses; no detached legs. Diagnostic raw lighting retained as stated in capture manifest."
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-battle-body/starter-fire-side-1.png",
+      "sha256": "ee092a8de6f7f2f84b18d81d908d50803571a93a4bf0b81fa8bffd74fc7d3cc3",
+      "actuallyInspected": true,
+      "assessment": "Visible face, eyes, muzzle and full body/ear silhouettes coherent through sampled poses; no detached legs. Diagnostic raw lighting retained as stated in capture manifest."
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-cinder-all-clips-v3-final-battle-body/starter-fire-side-2.png",
+      "sha256": "6bfd30813bce46f06baea77295116d569939292295e1205656baf976f289ce9d",
+      "actuallyInspected": true,
+      "assessment": "Visible face, eyes, muzzle and full body/ear silhouettes coherent through sampled poses; no detached legs. Diagnostic raw lighting retained as stated in capture manifest."
+    }
+  ],
+  "runtimeColorReadabilityLimit": "Dark fur detail limited in production low/medium frames; paired same-pose normal attachments plus detailed raw face/body views resolve deformation inspection. No claim that black production color readability is improved.",
+  "techniques": [
+    {
+      "path": ".tmp/pet-companion-techniques/independent-cinder-all-clips-v3-final-techniques/inspection-strips/front-block-0-half-0.png",
+      "sha256": "8009aa939084977bf80a228f1b018166e2f1cdafbfe22fa2e2b9023ec3660582",
+      "actuallyInspected": true,
+      "result": "pass-for-visible-deformation-with-stated-color-readability-limit",
+      "diagnostic": false
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-cinder-all-clips-v3-final-techniques/normal-review/inspection-strips/front-block-0-half-0.png",
+      "sha256": "370874b19a7327f3651421698f80b8e729b4ef0db821f631c522095507e237e3",
+      "actuallyInspected": true,
+      "result": "pass-for-visible-deformation-with-stated-color-readability-limit",
+      "diagnostic": true
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-cinder-all-clips-v3-final-techniques/inspection-strips/front-block-0-half-1.png",
+      "sha256": "7e850cba9a057dcaea1890aa4f66e293827b8adc588ac61e47672659d2a67daf",
+      "actuallyInspected": true,
+      "result": "pass-for-visible-deformation-with-stated-color-readability-limit",
+      "diagnostic": false
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-cinder-all-clips-v3-final-techniques/normal-review/inspection-strips/front-block-0-half-1.png",
+      "sha256": "5c93fd52a0849a4f264d55d9d36c09d516f2457697f0be9706870655dc505fc3",
+      "actuallyInspected": true,
+      "result": "pass-for-visible-deformation-with-stated-color-readability-limit",
+      "diagnostic": true
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-cinder-all-clips-v3-final-techniques/inspection-strips/front-block-1-half-0.png",
+      "sha256": "0f5c0ba5d5dd256fed3d47a67f7ecfc362416abeb5c1abf8337838e21b6d34e1",
+      "actuallyInspected": true,
+      "result": "pass-for-visible-deformation-with-stated-color-readability-limit",
+      "diagnostic": false
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-cinder-all-clips-v3-final-techniques/normal-review/inspection-strips/front-block-1-half-0.png",
+      "sha256": "9e61789d5b4bbb0206e98f7869ea2c65818bc2ae055fecac7bebaf7de694ce72",
+      "actuallyInspected": true,
+      "result": "pass-for-visible-deformation-with-stated-color-readability-limit",
+      "diagnostic": true
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-cinder-all-clips-v3-final-techniques/inspection-strips/front-block-1-half-1.png",
+      "sha256": "4376d2106a97337dc69040ea68e0570f207905faa0d0c5c3cfe2df620ad8dc4e",
+      "actuallyInspected": true,
+      "result": "pass-for-visible-deformation-with-stated-color-readability-limit",
+      "diagnostic": false
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-cinder-all-clips-v3-final-techniques/normal-review/inspection-strips/front-block-1-half-1.png",
+      "sha256": "47b39bc890315c5a9f61b61cfbdbf29a4161c27324f4328a80d0f5cdae39f87f",
+      "actuallyInspected": true,
+      "result": "pass-for-visible-deformation-with-stated-color-readability-limit",
+      "diagnostic": true
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-cinder-all-clips-v3-final-techniques/inspection-strips/front-block-2-half-0.png",
+      "sha256": "09c17ef3e669ad63421555674ab0e8bddb5c1f9a24d74a2fbfbf8b9f8fd6f0e2",
+      "actuallyInspected": true,
+      "result": "pass-for-visible-deformation-with-stated-color-readability-limit",
+      "diagnostic": false
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-cinder-all-clips-v3-final-techniques/normal-review/inspection-strips/front-block-2-half-0.png",
+      "sha256": "d303457cf4d386a8c91476bc5ae116542cfa87b748a40da24bed5d106cb4e9a0",
+      "actuallyInspected": true,
+      "result": "pass-for-visible-deformation-with-stated-color-readability-limit",
+      "diagnostic": true
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-cinder-all-clips-v3-final-techniques/inspection-strips/front-block-2-half-1.png",
+      "sha256": "e35816a998c0ce39fc8e8d64a8119f409b96fce32ca41b78a855c5ba9aab1b12",
+      "actuallyInspected": true,
+      "result": "pass-for-visible-deformation-with-stated-color-readability-limit",
+      "diagnostic": false
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-cinder-all-clips-v3-final-techniques/normal-review/inspection-strips/front-block-2-half-1.png",
+      "sha256": "a77e879e7eb47f3185166d4019cb8822ce7fade8f237e1288e39127624ca1d58",
+      "actuallyInspected": true,
+      "result": "pass-for-visible-deformation-with-stated-color-readability-limit",
+      "diagnostic": true
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-cinder-all-clips-v3-final-techniques/inspection-strips/side-block-0-half-0.png",
+      "sha256": "3a5ac1510b45127f6fc08be8cd90d8a77f905d9ef28284cd56b43b0ec50ade00",
+      "actuallyInspected": true,
+      "result": "pass-for-visible-deformation-with-stated-color-readability-limit",
+      "diagnostic": false
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-cinder-all-clips-v3-final-techniques/normal-review/inspection-strips/side-block-0-half-0.png",
+      "sha256": "4141aa2fe812584d8b5c9807ab262606d1686bf7834de61fff77b8c6bf573938",
+      "actuallyInspected": true,
+      "result": "pass-for-visible-deformation-with-stated-color-readability-limit",
+      "diagnostic": true
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-cinder-all-clips-v3-final-techniques/inspection-strips/side-block-0-half-1.png",
+      "sha256": "4c01156cc1ae8bf6300c6469ab9dbf2daa44510765978c0ce77886047be4c82c",
+      "actuallyInspected": true,
+      "result": "pass-for-visible-deformation-with-stated-color-readability-limit",
+      "diagnostic": false
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-cinder-all-clips-v3-final-techniques/normal-review/inspection-strips/side-block-0-half-1.png",
+      "sha256": "4043df2cfc1eb9e6d4326c3a84ad882e47b54a3f3d68874f7bbf1da59f9c6d73",
+      "actuallyInspected": true,
+      "result": "pass-for-visible-deformation-with-stated-color-readability-limit",
+      "diagnostic": true
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-cinder-all-clips-v3-final-techniques/inspection-strips/side-block-1-half-0.png",
+      "sha256": "66eb3779239ade870f08901c52c86f140cbe06ebc082d1e12cfb1f0647eb2fc9",
+      "actuallyInspected": true,
+      "result": "pass-for-visible-deformation-with-stated-color-readability-limit",
+      "diagnostic": false
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-cinder-all-clips-v3-final-techniques/normal-review/inspection-strips/side-block-1-half-0.png",
+      "sha256": "624671b49fd0c1102a85a9dc97d1a16ba69769d6a77b0c47160f79bc02d3b44b",
+      "actuallyInspected": true,
+      "result": "pass-for-visible-deformation-with-stated-color-readability-limit",
+      "diagnostic": true
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-cinder-all-clips-v3-final-techniques/inspection-strips/side-block-1-half-1.png",
+      "sha256": "6c80b709d4f09efc23d21b260ae76dbfa172acad55f9bb86cfc761f29241f278",
+      "actuallyInspected": true,
+      "result": "pass-for-visible-deformation-with-stated-color-readability-limit",
+      "diagnostic": false
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-cinder-all-clips-v3-final-techniques/normal-review/inspection-strips/side-block-1-half-1.png",
+      "sha256": "23b0ebafbd8e580280282c245086056d71727ef91af98e47e6d105ca6c1318a3",
+      "actuallyInspected": true,
+      "result": "pass-for-visible-deformation-with-stated-color-readability-limit",
+      "diagnostic": true
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-cinder-all-clips-v3-final-techniques/inspection-strips/side-block-2-half-0.png",
+      "sha256": "65c09bf1e8d9f15082e918ea1d3aa2074b7f12d3f7d51e348a02635ffb6a4d71",
+      "actuallyInspected": true,
+      "result": "pass-for-visible-deformation-with-stated-color-readability-limit",
+      "diagnostic": false
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-cinder-all-clips-v3-final-techniques/normal-review/inspection-strips/side-block-2-half-0.png",
+      "sha256": "8c9664474e87c5981641c116c55a85b44e6e4ed742ff82ceed286af9e71f7d52",
+      "actuallyInspected": true,
+      "result": "pass-for-visible-deformation-with-stated-color-readability-limit",
+      "diagnostic": true
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-cinder-all-clips-v3-final-techniques/inspection-strips/side-block-2-half-1.png",
+      "sha256": "3d6ed278be772f20995fb342e8782f17bd6909e0922051a9aeebdb1b6f2c70fb",
+      "actuallyInspected": true,
+      "result": "pass-for-visible-deformation-with-stated-color-readability-limit",
+      "diagnostic": false
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-cinder-all-clips-v3-final-techniques/normal-review/inspection-strips/side-block-2-half-1.png",
+      "sha256": "5d08b453c31c00d2faab655d30f20443f733e43938f6d6c70991e78bcc43c413",
+      "actuallyInspected": true,
+      "result": "pass-for-visible-deformation-with-stated-color-readability-limit",
+      "diagnostic": true
+    }
+  ],
+  "nativeTechniqueNormalFramesActuallyInspected": 216,
+  "companion": [
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/cinder-all-clips-v3-final-companions/starter-fire/idle-sheet-0.webp",
+      "sha256": "6131dbc2b3453fb75682dd9f2c4ec8a9b6101c415c2d786401b1fe98cba3db43",
+      "actuallyInspected": true,
+      "result": "pass-for-visible-deformation-with-stated-color-readability-limit"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/cinder-all-clips-v3-final-companions/starter-fire/idle-sheet-1.webp",
+      "sha256": "4d0e755fb56037fb06584e580b3c2710487369c2e706582306d98afacbaf375e",
+      "actuallyInspected": true,
+      "result": "pass-for-visible-deformation-with-stated-color-readability-limit"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/cinder-all-clips-v3-final-companions/starter-fire/idle-sheet-2.webp",
+      "sha256": "668510558ef099d73d5ff3e0017ea4c7b1e019c0be99e957ff952ad7c2588dbc",
+      "actuallyInspected": true,
+      "result": "pass-for-visible-deformation-with-stated-color-readability-limit"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/cinder-all-clips-v3-final-companions/starter-fire/idle-sheet-3.webp",
+      "sha256": "8e142482fb29432d89eba0418368a13dfdd3fac3186cef021c489e551f428854",
+      "actuallyInspected": true,
+      "result": "pass-for-visible-deformation-with-stated-color-readability-limit"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/cinder-all-clips-v3-final-companions/starter-fire/idle-sheet-4.webp",
+      "sha256": "5c306fc2a46bbeef8ed55566e02a9e694f3f62f2615535ec47398f87a3a18c57",
+      "actuallyInspected": true,
+      "result": "pass-for-visible-deformation-with-stated-color-readability-limit"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/cinder-all-clips-v3-final-companions/starter-fire/idle-sheet-5.webp",
+      "sha256": "d5156f23de2ce3e752fae1bc13813ce130dcbcc1bdab39fe694dac3a12d197dc",
+      "actuallyInspected": true,
+      "result": "pass-for-visible-deformation-with-stated-color-readability-limit"
+    }
+  ],
+  "atlas": {
+    "path": "public/pet-models/warfront-impostors/starter-fire.webp",
+    "sha256": "8d8d591169d533a4d4f0c1bd8a0f6a5ee14d0511ba1291feccfa8aa2e7b51831",
+    "actuallyInspected": true,
+    "result": "pass-for-visible-deformation-with-stated-color-readability-limit"
+  },
+  "atlasCellsActuallyInspected": 16,
+  "localVisualDeformationResult": "pass",
+  "productionColorReadabilityApproved": false,
+  "live": false
+}

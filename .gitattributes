@@ -82,3 +82,11 @@ shinobij.client/src/generated/story-content/*.ts text eol=lf
 docs/screenshots/azure-all-clips-v2-final-2026-10-18/*.log text eol=lf
 
 docs/audits/azure-*.json text eol=lf
+
+docs/screenshots/polar-all-clips-v2-final-2026-10-18/*.log text eol=lf
+
+docs/screenshots/cinder-all-clips-v3-final-2026-10-18/*.log text eol=lf
+
+docs/audits/pet-priority-two-*.json text eol=lf
+
+docs/screenshots/pet-priority-two-main-validation-2026-10-18/*.log text eol=lf

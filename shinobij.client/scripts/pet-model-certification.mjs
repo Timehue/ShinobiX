@@ -524,7 +524,7 @@ async function main() {
             const entry = await auditGlb(path, {
                 requireRig: true, minimumAtlasBytes: starter ? 4_000 : 40_000,
                 minimumVertices: starter ? 6_000 : 8_000,
-                expectedJointCount: starter ? 21 : undefined,
+                expectedJointCount: starter ? (model.visualId === 'starter-fire' ? 35 : 21) : undefined,
                 rejectOversizedDetachedProxy: starter,
             });
             (starter ? starters : roster).push({ ...entry, id: pet.id, assetId: model.visualId, runtimeUrl: model.url });

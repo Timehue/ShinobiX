@@ -23233,7 +23233,7 @@
         "shinobij.client/.tmp/pet-shape-review/legendary-13-candidate-head-exposure.webp",
         "shinobij.client/.tmp/pet-shape-review/legendary-13-candidate-body-exposure.webp"
       ],
-      "promotedSha256": "7d18a5a650b3c11d84e2c57c69f21bf9e03295e189b2f5b33c257725d83d43c9",
+      "promotedSha256": "99b8e9ddd07c7d2de5142f06dd68acc370d14d97b9bb24b63ab7bbea335a5d6a",
       "conservation": "geometry, topology, atlas, bone nodes and all animation curves unchanged",
       "secondPassSource": {
         "sha256": "7d18a5a650b3c11d84e2c57c69f21bf9e03295e189b2f5b33c257725d83d43c9",
@@ -23384,22 +23384,36 @@
         "reviewedAt": "2026-10-15T07:08:46.790Z"
       },
       "finalReceipt": {
-        "sourceSha256": "7d18a5a650b3c11d84e2c57c69f21bf9e03295e189b2f5b33c257725d83d43c9",
-        "battleSha256": "74876733a929e10172d494e76b60564b91ac33989847341675a85aaa63995f65",
-        "atlasSha256": "0a93288abf0eb20f1486f5e601a38cd2b34890b129d5df74b2e071b0cb38b59c",
-        "rendererSha256": "5f9f24e92abe45bafcccd21f72a1ba8de81e0f0cd2a44f6f2aa440ee08e0d1cb",
-        "evidence": [
-          "docs/screenshots/pet-shape-2026-10-15/legendary-13-source-clips-head-1.webp",
-          "docs/screenshots/pet-shape-2026-10-15/legendary-13-source-clips-body-1.webp",
-          "docs/screenshots/pet-shape-2026-10-15/legendary-13-battle-clips-head-1.webp",
-          "docs/screenshots/pet-shape-2026-10-15/legendary-13-battle-clips-body-1.webp",
-          "docs/screenshots/pet-shape-2026-10-15/legendary-13-runtime-source-head.webp",
-          "docs/screenshots/pet-shape-2026-10-15/legendary-13-runtime-source-body.webp",
-          "docs/screenshots/pet-shape-2026-10-15/legendary-13-runtime-battle-head.webp",
-          "docs/screenshots/pet-shape-2026-10-15/legendary-13-runtime-battle-body.webp",
-          "docs/screenshots/pet-shape-2026-10-15/legendary-13-numeric-evidence.json"
+        "sourceSha256": "ace7249f33d8223b8d87fb1b0abedf60e6be96ffca1fd33495826e701a54939d",
+        "battleSha256": "ddc85a710a5a7adbd5fde0cd09d4abc7ee15f42e18d302dd94e3a85bf2b3e879",
+        "atlasSha256": "adb903cf3c1b800fe4eefe09f13e002d9107651287a2955feac6fc738c826dd0",
+        "rendererSha256": "b2253b71fbcb21a83d82de35ab5783dd57b525cfc94740fb131dd1eb0049a897",
+        "report": "docs/audits/pet-priority-two-omitted-final-review-2026-10-18.json",
+        "packagedAt": "2026-10-18T23:14:51.216Z"
+      },
+      "independentReviewLedger": "docs/audits/pet-independent-face-recheck-2026-10-15.json",
+      "omittedClipRetargetingGate": {
+        "status": "repaired-double-checked-locally-main-live-pending",
+        "inventory": "docs/audits/pet-fitted-limb-clip-inventory-expanded-2026-10-18.json",
+        "clips": [
+          "idle_2",
+          "gallop_jump",
+          "death",
+          "entrance",
+          "victory"
         ],
-        "packagedAt": "2026-10-15T07:25:00.605Z"
+        "channelInventoryIsNotMotionLossProof": true,
+        "reason": "Original humanoid limbs retained their unprefixed names; missing fitted-channel scan previously omitted this rig.",
+        "evidence": "docs/audits/pet-omitted-limb-roster-baselines-2026-10-18.json",
+        "allThirteenClipsMeasured": true,
+        "originalPawCoverageViewsActuallyInspected": 12,
+        "candidateApproved": false,
+        "limits": "Original cross-bound influence is separately decomposed by fore/hind limb pair. Authored loss is per clip/paw; no blanket hind-paw death claim.",
+        "sourceSha256": "ace7249f33d8223b8d87fb1b0abedf60e6be96ffca1fd33495826e701a54939d",
+        "battleSha256": "ddc85a710a5a7adbd5fde0cd09d4abc7ee15f42e18d302dd94e3a85bf2b3e879",
+        "shippingProgress": "docs/audits/pet-priority-two-omitted-shipping-progress-2026-10-18.json",
+        "closed": false,
+        "report": "docs/audits/pet-priority-two-omitted-final-review-2026-10-18.json"
       }
     },
     "legendary-14": {
@@ -30300,7 +30314,7 @@
         "shinobij.client/.tmp/pet-shape-review/body-starter-orthogonal-candidates/starter-fire-front.webp",
         "shinobij.client/.tmp/pet-shape-review/body-starter-orthogonal-candidates/starter-fire-side.webp"
       ],
-      "promotedSha256": "44d056d2461d54b04fbcb59a84553a4bfcbfa020c67dd61c68041f5d1090266f",
+      "promotedSha256": "6f94b3fc988241b616ca1274a1f7685e2714e2f37e450d73f5aa5f2e9008cebe",
       "conservation": "geometry, topology, atlas, clip names/times preserved; rig scale, rest frames and animation deltas deterministically retargeted; localized seam and skull binding repaired",
       "secondPassSource": {
         "sha256": "44d056d2461d54b04fbcb59a84553a4bfcbfa020c67dd61c68041f5d1090266f",
@@ -30451,22 +30465,40 @@
         "reviewedAt": "2026-10-15T08:03:41.541Z"
       },
       "finalReceipt": {
-        "sourceSha256": "44d056d2461d54b04fbcb59a84553a4bfcbfa020c67dd61c68041f5d1090266f",
-        "battleSha256": "f05f407204d4e523b0a639be7d7651c9ac8a06ada9c3c1c3933a991d5e5ee9d1",
-        "atlasSha256": "028686524ec8048f8de5e61409eec6f491f68e9b489f7101a62e6eeaca78fe37",
-        "rendererSha256": "5f9f24e92abe45bafcccd21f72a1ba8de81e0f0cd2a44f6f2aa440ee08e0d1cb",
-        "evidence": [
-          "docs/screenshots/pet-shape-2026-10-15/starter-fire-source-clips-head-1.webp",
-          "docs/screenshots/pet-shape-2026-10-15/starter-fire-source-clips-body-1.webp",
-          "docs/screenshots/pet-shape-2026-10-15/starter-fire-battle-clips-head-1.webp",
-          "docs/screenshots/pet-shape-2026-10-15/starter-fire-battle-clips-body-1.webp",
-          "docs/screenshots/pet-shape-2026-10-15/starter-fire-runtime-source-head.webp",
-          "docs/screenshots/pet-shape-2026-10-15/starter-fire-runtime-source-body.webp",
-          "docs/screenshots/pet-shape-2026-10-15/starter-fire-runtime-battle-head.webp",
-          "docs/screenshots/pet-shape-2026-10-15/starter-fire-runtime-battle-body.webp",
-          "docs/screenshots/pet-shape-2026-10-15/starter-fire-numeric-evidence.json"
+        "sourceSha256": "2d88f6315b33a32a8ed3a032cedee52ddb39230a32d7c82fe269d11550fd574c",
+        "battleSha256": "28c59477df4809a218a8b17c7dd39a1cacb43fc8440c546dc290a16fd40160e4",
+        "atlasSha256": "8d8d591169d533a4d4f0c1bd8a0f6a5ee14d0511ba1291feccfa8aa2e7b51831",
+        "rendererSha256": "b2253b71fbcb21a83d82de35ab5783dd57b525cfc94740fb131dd1eb0049a897",
+        "report": "docs/audits/pet-priority-two-omitted-final-review-2026-10-18.json",
+        "packagedAt": "2026-10-18T23:14:51.216Z"
+      },
+      "independentReviewLedger": "docs/audits/pet-independent-face-recheck-2026-10-15.json",
+      "omittedClipRetargetingGate": {
+        "status": "repaired-double-checked-locally-main-live-pending",
+        "inventory": "docs/audits/pet-fitted-limb-clip-inventory-2026-10-18.json",
+        "reportedByUserApprovedHandoff": false,
+        "sourceSha256": "2d88f6315b33a32a8ed3a032cedee52ddb39230a32d7c82fe269d11550fd574c",
+        "battleSha256": "28c59477df4809a218a8b17c7dd39a1cacb43fc8440c546dc290a16fd40160e4",
+        "missingFittedClips": [
+          "idle_2",
+          "gallop_jump",
+          "death",
+          "entrance",
+          "victory"
         ],
-        "packagedAt": "2026-10-15T08:06:06.008Z"
+        "priorVisualReceiptsDoNotCloseThisGate": true,
+        "evidence": "docs/audits/pet-omitted-limb-roster-baselines-2026-10-18.json",
+        "allThirteenClipsMeasured": true,
+        "originalPawCoverageViewsActuallyInspected": 12,
+        "candidateApproved": false,
+        "limits": "Original cross-bound influence is separately decomposed by fore/hind limb pair. Authored loss is per clip/paw; no blanket hind-paw death claim.",
+        "firstProductionTechniquePass": "sampled-deformation-pass-with-paired-semantic-attachments",
+        "firstProductionTechniqueEvidence": "docs/audits/pet-cinder-omitted-paired-review-2026-10-18.json",
+        "pairedFramesActuallyInspected": 216,
+        "productionColorReadabilityApproved": false,
+        "closed": false,
+        "shippingProgress": "docs/audits/pet-priority-two-omitted-shipping-progress-2026-10-18.json",
+        "report": "docs/audits/pet-priority-two-omitted-final-review-2026-10-18.json"
       }
     },
     "starter-water": {
