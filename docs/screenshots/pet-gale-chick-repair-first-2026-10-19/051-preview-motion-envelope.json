@@ -1,0 +1,2602 @@
+{
+  "id": "starter-wind",
+  "frames": 216,
+  "manifestSha256": "b0e104ab4d49e447e03f75c8811ef803b5ddd06284c9f8c2403d10e1a33a409a",
+  "minimumTopMargin": 23,
+  "foregroundWithinEveryCapture": true,
+  "scope": "Original production color and clock; threshold 3 from uniform RGB 17,27,38 background. Separate actual visual review required.",
+  "rows": [
+    {
+      "name": "starter-wind-wind-strike-front-0.png",
+      "sha256": "61eca0b1068bd23adbb3460c9b42aaabef5c22a122bb7bfe785c5b64593b9ec9",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        75,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-strike-front-1.png",
+      "sha256": "f3b15fc54ed84e48843e9c553b624b22400e40ed741c259f7660f293e68212b8",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        78,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-strike-front-2.png",
+      "sha256": "4d52b5a0e1287c6277d5fde40375dd4e979ffa3ae66868ff6fc648a2d9dac361",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        78,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-strike-front-3.png",
+      "sha256": "da060c4f283c5d1604a631949ce233a9627ccf6b3d8ab186567261a5a402e6a1",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        75,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-strike-front-4.png",
+      "sha256": "fad63a4387ac99f043105f80a4a5b5283584281968499e4e11d1a5333fc86ce8",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        23,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-strike-front-5.png",
+      "sha256": "672d44dd505ac08295ddcb9e9ef35fc819549972f1f9f1974f19cf8e2cccd118",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        60,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-strike-front-6.png",
+      "sha256": "91dcd786d67ed9ac39f5acf9abcc9d4fbdcb6e957f12711e291032d20aa59081",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        71,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-strike-front-7.png",
+      "sha256": "f33bc91c889a7cf0f22ee75c128164a048725e6c7f8cb7a727f288d16b464020",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        75,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-strike-front-8.png",
+      "sha256": "43eb5043bdfc565a79fe02911cd70af501df0d9f68f858715c534585bef89364",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        76,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-strike-front-9.png",
+      "sha256": "5c91a4f3917f881656f2e75d5a80bf7970b73b6887c93620693771fb109a1a8c",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        75,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-strike-front-10.png",
+      "sha256": "cc2e67ed78073fdc17e56cec6d48051c2c2f5bd56133d0ab40d55eb483b8c596",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        76,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-strike-front-11.png",
+      "sha256": "7360fc9666203eb1f31b941183e1d296a2b4cbe2a146556f7bc99eb47805a4f2",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        75,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-strike-side-0.png",
+      "sha256": "be44457b60a81ffd5b28fd21f580c919c94ddfca77388e4fa14de7829fc06a46",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        75,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-strike-side-1.png",
+      "sha256": "8f96909cb83b37abe8970bc6152b14806c83a042be4f0e61d6d0f852d4cb96a2",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        78,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-strike-side-2.png",
+      "sha256": "54c86a6ec8de2b9289415adfe77b74a91b00e939a417a67a85cdb7a184b3e5af",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        79,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-strike-side-3.png",
+      "sha256": "2d67638a97a988e483d4fc14f09d70137a10c3ada33159f3e1cdaaaf11ec4f76",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        74,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-strike-side-4.png",
+      "sha256": "54f8c893b1aa924f91532b54ba44f30e922cd3a582f84e49a0df422f272ac356",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        48,
+        365,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-strike-side-5.png",
+      "sha256": "5ec1a9117459a685c27f81b4ad2d0cea1ac7b58cc56dcb2fa56face315f2209f",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        64,
+        358,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-strike-side-6.png",
+      "sha256": "287c7050cc54f418563d45616824e1d3fadbcce39aebf90ca0c623b606705cc0",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        73,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-strike-side-7.png",
+      "sha256": "8923040d0eee3e8c5214b3902747eeb7fbe81378558209dee9868102c18142fc",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        76,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-strike-side-8.png",
+      "sha256": "7261ff6d2d6e2d24e2d78e3595130ec041ed2bb764315ad1ac13548e80549586",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        77,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-strike-side-9.png",
+      "sha256": "4c153b7c2754e2b389081c448f843e8872c12c6da0ec227d04400e32939cb36f",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        77,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-strike-side-10.png",
+      "sha256": "bbed639f98dded293f851752de138525b84daaed1d362715b07e604d71c683bc",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        77,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-strike-side-11.png",
+      "sha256": "7e210c89c9e24aba87334091d0d6e949c72e97631e840e9edeb9b4d420307f80",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        76,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-pulse-front-0.png",
+      "sha256": "4e8696fb41bf12df92d76976ab6fcf8eee1068e2afebc46d7b41c3f8cb8082bb",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        74,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-pulse-front-1.png",
+      "sha256": "d10c0d147a019fb7359c2d8ff4cd57c06c4e11d94c7b54e4138b9b72a45ae8b8",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        73,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-pulse-front-2.png",
+      "sha256": "72bfce757fc85ae97a92eaa3aaddd5b3665282f72012c22ba5817f0f83ca5440",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        73,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-pulse-front-3.png",
+      "sha256": "8b7c84ab5d8199e03a35a1999be3bcc838bd50d3505e9369a3169e1af28d0f13",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        71,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-pulse-front-4.png",
+      "sha256": "36243f880b42e7dbe171a751c80dd1d89ed0d7faab1dc5ecb1b917439d2028bc",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        60,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-pulse-front-5.png",
+      "sha256": "f9e6046eb3ffd81e175267fb945518088888ce5036cb74dba13b1281608a9b96",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        61,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-pulse-front-6.png",
+      "sha256": "d0cb408f835b7ff541d85e42b65fd86795827ab77549d61876ac5f937cb9f212",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        67,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-pulse-front-7.png",
+      "sha256": "3503e147fcae7a3a509002660a1fe4b648875491c86ca927717878bdaf66ca19",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        71,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-pulse-front-8.png",
+      "sha256": "afab4e24a7e170ade85dbcc86807d9d27326e97dc14206b633c18c5111c9d2df",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        73,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-pulse-front-9.png",
+      "sha256": "57d29aeb64531cb031c6ea9ffca03d05c349a28cdcb1c72d7a92bdb9ebdbabf4",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        74,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-pulse-front-10.png",
+      "sha256": "e12cf98f9acf4a349d5bc698ac9ab7bf564e36dd2a4f3a3ca74149b7c15f05cc",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        76,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-pulse-front-11.png",
+      "sha256": "22177efc3baba313148c5025955f79e10d1c74aa5e4f96604acfafa6717ae0f1",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        74,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-pulse-side-0.png",
+      "sha256": "4301395157346e8243b7bb352a2063fd71d2533b256c2adecc7ecfcebe94603b",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        75,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-pulse-side-1.png",
+      "sha256": "4e6ca9fdbd882a14126841e50388f4032f7a3f383e1f99754ec07fb7d833fa46",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        74,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-pulse-side-2.png",
+      "sha256": "e1276e50780a7fcf30ed2ced6886ff6b7b078c1d7055d9bbf133f459454d5a3c",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        74,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-pulse-side-3.png",
+      "sha256": "7424a6bf1ff765787123d25991de604933a0ab5dfa22e90331e1d4896534a6a2",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        71,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-pulse-side-4.png",
+      "sha256": "d84b20f2151c794befe5c5281236eb53126a58e63310011474ec0aa1f00de9a2",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        64,
+        335,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-pulse-side-5.png",
+      "sha256": "7683fd085af009ff952cbc82c4fb9a4578f56f1e8a9c5c4b68d5ec858b5a5677",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        66,
+        340,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-pulse-side-6.png",
+      "sha256": "406d01e75c76f507353b9163ea09fa9fbec977cb8162cea77f2886ae829c9737",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        69,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-pulse-side-7.png",
+      "sha256": "12ee82e9051e6ebbe8dd1789c70967bd9788bb374ce1a4580e5faad8bbfc17ae",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        73,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-pulse-side-8.png",
+      "sha256": "f6ee6d833046616229384c1cab236bb71a96b29006d8f60a61bfbdd9bbda21c1",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        75,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-pulse-side-9.png",
+      "sha256": "3cff4a6a8c0262161121ab7ca7ee52e624b03c38fbc66f316c38ea3253c0f99f",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        76,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-pulse-side-10.png",
+      "sha256": "f7d3b8f5f83eeb0d3e3545bf4c2091afc91a3902907875055ed9af5bdc565578",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        77,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-pulse-side-11.png",
+      "sha256": "24aa129b9efe015fa5ddbc24b13a3f4c9914fd506ff75adb03342a834784acf9",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        76,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-breaker-front-0.png",
+      "sha256": "4ac1d6ec50adcd37a9f0343f5f06995915a449d4043b245bf0ead4b177338560",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        74,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-breaker-front-1.png",
+      "sha256": "f3b7e75faf8d4a671626f853fde500679455e85cc5a34397bd32bfab141898ad",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        76,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-breaker-front-2.png",
+      "sha256": "6a3744dd357e316c6379d1288faaaf092c559d3a548743f20919776a0422a7ce",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        78,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-breaker-front-3.png",
+      "sha256": "6d25e6b00c76c9ebf853b633bf92787253b9bbc8986a49169f20816e793262ba",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        74,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-breaker-front-4.png",
+      "sha256": "356693562689d29f478152f53c8d3b6d9e9ef9e255548482c8a1f4f17654952f",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        25,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-breaker-front-5.png",
+      "sha256": "27c3de865d146f1159e40e7843a40b09e152cf4d46c4e8dc102b457cdd66e062",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        61,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-breaker-front-6.png",
+      "sha256": "0a8822bba55fe200884ab5c57f5a40a1645f5003923d70c1fa91b0539b5109ee",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        71,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-breaker-front-7.png",
+      "sha256": "7e2ffae3aba3c4a8a89bf698b4705c02abb3e71a7aa61a48eaf15d51bd91e2cf",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        75,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-breaker-front-8.png",
+      "sha256": "cc0ce9344ec946c771546d643313842689da2b6925bec51d0b326b099b9a8ddf",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        76,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-breaker-front-9.png",
+      "sha256": "700542ab2696a17930d6b65d997222fba8dca74019eb24d5b4e950e304a289f2",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        75,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-breaker-front-10.png",
+      "sha256": "c7e76a186fbb388ffe5e01ce89a8348e029ea8b978b4c8a1811cdf7a5fd46ab6",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        76,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-breaker-front-11.png",
+      "sha256": "3cda03d8ead8dd9fc149daad82fcdbfbb0bc3619abecc152125f01aa96af0365",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        75,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-breaker-side-0.png",
+      "sha256": "3ec30b493b25a1d964309fbdc8fb0d34296395932ac83a1c5b8c310448f7ca26",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        75,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-breaker-side-1.png",
+      "sha256": "196c950d382cc407b7219f41020a50cdd4d9ec807f90481803a6abc9fc3c8420",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        78,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-breaker-side-2.png",
+      "sha256": "7f78bac84cde7bda013f57e313383ceff0c218bd0a86c71d0a1bc14a4a4f9baf",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        79,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-breaker-side-3.png",
+      "sha256": "1825b59a762c4c9ec71cf53eea16eba5b9a24e6e6e3be3e4d6055054ddd1fcb7",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        74,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-breaker-side-4.png",
+      "sha256": "025a904888e9f7e85f79b999b276acb218550e4212b6ad193fe947d478746805",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        50,
+        368,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-breaker-side-5.png",
+      "sha256": "d62348efb3fdf1bdaac256ddca47d896b65402cccd3455e1196104e67e49bec9",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        65,
+        359,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-breaker-side-6.png",
+      "sha256": "3f64d87560c9371ce58e971073b7dfa7c4dc65377d0d027d13a3b15867815e9f",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        73,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-breaker-side-7.png",
+      "sha256": "26f2922f22437492c800c2f4b5659522e3460c2401aef0656ef3c6792345dbe6",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        77,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-breaker-side-8.png",
+      "sha256": "7140cff05af94a510b1cd100421110ce5c04e02182cdb7914d1bfed5983fac38",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        77,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-breaker-side-9.png",
+      "sha256": "be8641fbbfa44b42f9b97ef38db27ecc04a214c897062454ca7ec66aab1d78d0",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        77,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-breaker-side-10.png",
+      "sha256": "d0a69ffa8581e1088e27cf8fe18777e4e04283cb088776fdc38de9f604a3d0f6",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        77,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-breaker-side-11.png",
+      "sha256": "b3c338f9a6f1baa9d810e7ca58bc7f06a2f900da80c7189bbda36d76be15c014",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        76,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-water-pulse-front-0.png",
+      "sha256": "c751e161cb8e24130f094ad1b60ef669a6d4f1c687903bdb1191dff9781c9dcb",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        74,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-water-pulse-front-1.png",
+      "sha256": "f551decfaaa1104b18f6fa0c2029c72120d5eeb7f10f061fd3e0ac6cde9e750c",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        73,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-water-pulse-front-2.png",
+      "sha256": "630829177b385eaf0a4e4ebf08c9346c68affbe867504274187279222cec8a14",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        73,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-water-pulse-front-3.png",
+      "sha256": "082d5eac248bbdb0016f53026f9e8ad9982fb9f404bb54bc210d76f669be543f",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        71,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-water-pulse-front-4.png",
+      "sha256": "951f83effe7e8840968bf0329d28fda1490eb9d616da1d1862ede6c417510dc1",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        60,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-water-pulse-front-5.png",
+      "sha256": "c4690836ad263e0fe4caf0ded033dcdbf09004484b7c54cdb53b7ca02c776c80",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        61,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-water-pulse-front-6.png",
+      "sha256": "2eca2f4f66e33bb8f8bff3eef378b4b741a121cc3aad742d0492ee13068ca035",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        67,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-water-pulse-front-7.png",
+      "sha256": "ac74c122cac810422a068f7a7f28d34e3dd5927c9b04e9b94cbe83de7cf7e942",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        71,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-water-pulse-front-8.png",
+      "sha256": "a3d86ebc88eaab3243bee9266a8b763c78df7bb27e105d17a8608cff9f2b37ab",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        73,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-water-pulse-front-9.png",
+      "sha256": "c40015b240320afe321a40c3013b160edbf01848ee1c184f45c70eb5891656eb",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        74,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-water-pulse-front-10.png",
+      "sha256": "6508fe1233faf4370c2d7055786e8ec640c5a3a790b8bd668a5b770ff22465e5",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        76,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-water-pulse-front-11.png",
+      "sha256": "22177efc3baba313148c5025955f79e10d1c74aa5e4f96604acfafa6717ae0f1",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        74,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-water-pulse-side-0.png",
+      "sha256": "2f6756c792dfec1f7291b5e4c9db76832a0d41c35a3726af951933b81d7a27b0",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        75,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-water-pulse-side-1.png",
+      "sha256": "8d7f8a1a54392e664bf9f43401650d9cc346d6ae18ff0714f7ade6bad39d0b00",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        74,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-water-pulse-side-2.png",
+      "sha256": "8ef7029403ff7e15f71ae705cdd2dda2a5fc90f8088989345156fa6026c53c3e",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        74,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-water-pulse-side-3.png",
+      "sha256": "9c1a58b5ffb45916f1031354ad46c4d622b100eba1fa9b44079f3551e45f9b9d",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        71,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-water-pulse-side-4.png",
+      "sha256": "2d2cd3f31f9d1806fc91ed78f51adb2015e4144549b2ad4abe3b62a87314f3a6",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        63,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-water-pulse-side-5.png",
+      "sha256": "5d5847ceb4adf4364e14aa46f8f80adb609902fd11e92683eb8589cf49f29aa9",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        65,
+        340,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-water-pulse-side-6.png",
+      "sha256": "2b054a4e5a2e6dbac78750cf26ae0e5c33f87ed2bf80f8b25ca49fc14d83ab2d",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        69,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-water-pulse-side-7.png",
+      "sha256": "c64e75fa34cf95d3158a6312ac5a3fca14dc5e83c83c4e34e6962dd5f45a724c",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        73,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-water-pulse-side-8.png",
+      "sha256": "e5b6a0b1d25b135971cdabd9645f8b37f660f582aac7351b6cb39f8623965e7a",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        75,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-water-pulse-side-9.png",
+      "sha256": "1da3b74702d0e8afb2f3cd39f82ef140063195c16d1e8c8c8f27330dc31927dd",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        75,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-water-pulse-side-10.png",
+      "sha256": "9b36faccca30cf43a9ed93b98d4edebf29cab3e0d57621266798875008c466e4",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        77,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-water-pulse-side-11.png",
+      "sha256": "24aa129b9efe015fa5ddbc24b13a3f4c9914fd506ff75adb03342a834784acf9",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        76,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-expose-front-0.png",
+      "sha256": "a4808adebaba87e8df08ada8221118ac73f6bb4242a8e788fabab80e683fdae0",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        74,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-expose-front-1.png",
+      "sha256": "502c8d7a071bc608e73acb997af779c3161e028c1d363cd1c579e5431e238ff8",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        74,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-expose-front-2.png",
+      "sha256": "1a6fac4024813e9718d40a5d42c84d32b0680bb44fad4c453ceb49a01f3f2d57",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        73,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-expose-front-3.png",
+      "sha256": "8ec0afe3426425331924e1127e7cfcf624af96a3a7adc2e491d23d6b2f7eb937",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        71,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-expose-front-4.png",
+      "sha256": "49f319038163bfe77849d922c4291050654d50716442d6736ad7d5aa3f3fa3d2",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        60,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-expose-front-5.png",
+      "sha256": "e682a9f80d456ce3dcff88df5a494d4a1a8c385077fe6f7009822f453c5f6289",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        61,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-expose-front-6.png",
+      "sha256": "1a576ce6cf0406fe05dd2e08eb34e0207f62d0c6e4dfcc48d718d7a9829b38e5",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        67,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-expose-front-7.png",
+      "sha256": "3a0fcaedc5d838df25b40cffaa4cbff7321cad4676bf43654b12e44181d7d532",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        71,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-expose-front-8.png",
+      "sha256": "277b6b285e5c72b2535f30fc3442cc5feaa4ec15774dc573cb316e38dea5467f",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        73,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-expose-front-9.png",
+      "sha256": "6c3291bda5110a0df1bb356fe0532d880018e57f9fdf72c1838d374f0f91280a",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        74,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-expose-front-10.png",
+      "sha256": "e12cf98f9acf4a349d5bc698ac9ab7bf564e36dd2a4f3a3ca74149b7c15f05cc",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        76,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-expose-front-11.png",
+      "sha256": "22177efc3baba313148c5025955f79e10d1c74aa5e4f96604acfafa6717ae0f1",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        74,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-expose-side-0.png",
+      "sha256": "1e7e7041998b7a3c55161a66639a34a45005a5a9f564ab75dc6bc189efb311b1",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        75,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-expose-side-1.png",
+      "sha256": "692879c2db7c5699d21b018a36f44113e46defe9774eafaa8664c89998536678",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        74,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-expose-side-2.png",
+      "sha256": "e24bef15d96c17f40883fd495d5e793008a342cffc984690fe550132ac8eef7f",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        74,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-expose-side-3.png",
+      "sha256": "6b8c86ed710084770de302499c20217ed1bdc9b98e22c8b67cf49e818183037a",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        73,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-expose-side-4.png",
+      "sha256": "01cd9e87449b7ed7a0b1ced404f7604cc8c098807fddb00a7cf102e910436bad",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        64,
+        335,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-expose-side-5.png",
+      "sha256": "b0e34fde5a9329464702d5c55e583596b65bea2d448f69c41e0f3ce10a09f638",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        65,
+        340,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-expose-side-6.png",
+      "sha256": "4ed15c2fe21f3337f642442668ebf99840229300548fe2ce6b991f8261fe2949",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        69,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-expose-side-7.png",
+      "sha256": "dc2600e6c8afdd310db933ab4ca76b4c2a65eab9f206255dfbf2379daa352895",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        73,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-expose-side-8.png",
+      "sha256": "a97c0769d9f21e5dfa7ebc6a436d899585fa1ba25f511a27d5baa7f46290ed24",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        75,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-expose-side-9.png",
+      "sha256": "0e2dbbfdb2363a3fc3cdd8b0fd9de0547ed378aba46298d222018fe6a21513af",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        76,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-expose-side-10.png",
+      "sha256": "86cfc65a1c0eb0acbb9fa346f646af271c07ae65bc74a29196c5a5aeba58c46d",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        77,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-expose-side-11.png",
+      "sha256": "6a3d1240c010a0f633e14deb786f6f3da6c24b821299354b4c5d9c793aee1226",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        76,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-rally-front-0.png",
+      "sha256": "a8727034438264167083bf8c06385fd474c7fa1f96815b115bdae0499706d244",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        74,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-rally-front-1.png",
+      "sha256": "af2e16d0a4f71337560d413cae488bc1dcf22da89b7aecec9684a114fed3ff68",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        73,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-rally-front-2.png",
+      "sha256": "4d9bf0d8d448ba050c4a80a0de2409381643c98a352354d87ea1815a94dc16d7",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        73,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-rally-front-3.png",
+      "sha256": "33bc9aaf434b231c1b922dbcf891bb657f2e9e8d0643d0816e4a72fd2f3bdbb9",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        70,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-rally-front-4.png",
+      "sha256": "508453525ba1a35ed0828f5f9875975958e197cadf435e44f7d8a60996a2746b",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        60,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-rally-front-5.png",
+      "sha256": "d1e015c93c7a348c74114eed55aa4a9c3edc12b4a9e40f625949412e10892c09",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        62,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-rally-front-6.png",
+      "sha256": "3b61ca96c5b669a43257fb92e798f0701c6f5d5e0279c00508253fd6b0d5cca1",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        68,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-rally-front-7.png",
+      "sha256": "f20cff162f3c2ab3db175cc7930d85a4f401dc455d7cd6a9c45a1c7735a56f57",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        71,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-rally-front-8.png",
+      "sha256": "020612d22c4cce58ceedd656825cef7b2ec3e4696b3724ea3bddb1429e6bfa3c",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        73,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-rally-front-9.png",
+      "sha256": "bdc24a60a555c30e9843f089db154d2bbb48fbfbd5a8618180fc8ec073bc904a",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        74,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-rally-front-10.png",
+      "sha256": "115e9e3f2ee4cfd475313dae0d2bbfdadc53f4c040b00415ca7fdffad53ab768",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        76,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-rally-front-11.png",
+      "sha256": "2880e356e9c0b43c36669633afaf23e536cf14cad2e46941e6bc4bb169c64138",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        75,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-rally-side-0.png",
+      "sha256": "f7ce518e1f5761d596ee1bc2bc4b8448f0cbd6ca663f82bc248bb1c9e51a88ee",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        75,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-rally-side-1.png",
+      "sha256": "e41c096078e76f029d7f543d6a82eac271bf88fb502f280a615f5f2ad126f1cb",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        75,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-rally-side-2.png",
+      "sha256": "b1b68f7b62cbe306b3a53bfda02f2fbaa95d42e83ff841dd2385f787e19d293f",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        74,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-rally-side-3.png",
+      "sha256": "c1d59a883716b566b7e98832f7361c75359f05580e76a8d235c51af3175b8eb7",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        71,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-rally-side-4.png",
+      "sha256": "bc25abc676fac02c980bfc62841909799b327208df475219dd44854fa249811d",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        64,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-rally-side-5.png",
+      "sha256": "b91084cd026c1b9fa540067c02551fae3f9dc52dc0f4f6234588079619c8678b",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        66,
+        340,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-rally-side-6.png",
+      "sha256": "6a5d7eb2c61c95c990112f6d764b3b041521cf25ef09303f1f2bf577124de156",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        70,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-rally-side-7.png",
+      "sha256": "5cd4999bceccd5bc956f0ad4c1a9602a9a88a4dc66dfb77d30e74ce5cadd0fc5",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        73,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-rally-side-8.png",
+      "sha256": "0cdec669ea3a8706c690ff74ba579b75e8d83e20de88fc50798ed8bc803fd9a3",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        75,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-rally-side-9.png",
+      "sha256": "5e9cf7c49ea0698334d52acbeb04951772226d35c07cf8ebb8182ff4407aadf8",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        75,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-rally-side-10.png",
+      "sha256": "0adaf13ece21919fc998ca8c374d4e31daa454c2cbb48f3c94a3959cc4cd0c7c",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        77,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-rally-side-11.png",
+      "sha256": "6a3d1240c010a0f633e14deb786f6f3da6c24b821299354b4c5d9c793aee1226",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        76,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-protect-front-0.png",
+      "sha256": "54368947bd896845d5ed3cda4d0b5e5b044e89e53f61b0a587347b225222d036",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        74,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-protect-front-1.png",
+      "sha256": "6cdc1d6048911abca1484322c761cb4cb8d55932761ed5563bb9afe15a2f3d92",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        77,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-protect-front-2.png",
+      "sha256": "bfb6c08df30a1393bca9e87f9a43c7fdc14080487bcbd4df5bdea08bb8b68ec6",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        78,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-protect-front-3.png",
+      "sha256": "3b003451e599f45cb0e6f5cbe2b09ceb9d37259f8cb69554264f7bbf8004dc36",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        78,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-protect-front-4.png",
+      "sha256": "13d8d586a2060fd7483eae12fdf9206193a2d35e3df4ef3bc1c9603ac578553f",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        78,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-protect-front-5.png",
+      "sha256": "da6140f4fd8e3787b91bb65595a5571219ffe14673e56d705f414776c098f55a",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        78,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-protect-front-6.png",
+      "sha256": "726cf3de0449876820345c4b9b808bce628c117d0cf90c268d9718a0df7b5983",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        78,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-protect-front-7.png",
+      "sha256": "4fc3392d7fee8345a223766af9555bda67b482eb25ce23331f428c749f922a58",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        78,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-protect-front-8.png",
+      "sha256": "61b89ee39af4ad9338feebe3828b77187573ad7681bd54a0b4ba1ede04e48331",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        78,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-protect-front-9.png",
+      "sha256": "6da6dbb78a89802838cbdfddf9ae265fff5e81f3ecc968eff92de1896fc263b7",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        77,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-protect-front-10.png",
+      "sha256": "4fec97715b0a2a916d63de23da73c25b3462a5ac0b7248695916adf70fd2c3da",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        76,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-protect-front-11.png",
+      "sha256": "412cf68f39bfe9667f270d2286a7efffc94f0545aeff6937f8b46ad9b0fb503a",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        74,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-protect-side-0.png",
+      "sha256": "97e7819cf25cf3ed0a8816ea7175463d0a5f88a3973a0fec76d2f99c2233e1ff",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        77,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-protect-side-1.png",
+      "sha256": "3e87c32aa2ccc691a34f42eefdbbf4dffb95211d3265cf0f74748228fb3eb270",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        79,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-protect-side-2.png",
+      "sha256": "87857f3ce4a770d3370f000a6d36240943c79b1a37bd2b813f79acb170ae9aaa",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        79,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-protect-side-3.png",
+      "sha256": "8ab723b719e9f0b49d98409050fceb5cc28c848865aa71df522a74dda4c36195",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        79,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-protect-side-4.png",
+      "sha256": "aa1a48031fe622ff20cc3abd493b9c27266e89c19d2eac34ac55581e9b835102",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        79,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-protect-side-5.png",
+      "sha256": "f15a48dac6c0a58cab493e1f862c8b0ff27109d704ec175cfbee76abfb82ee74",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        79,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-protect-side-6.png",
+      "sha256": "bacfd813aec22f64d2ff2b0bf1ecc82540f5cc17b0134c7d3231316471e41001",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        79,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-protect-side-7.png",
+      "sha256": "fa37ae4637782cca41fa04f5201f2a74ba85f7d2b7dedfc10746ffb38fba3d39",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        79,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-protect-side-8.png",
+      "sha256": "246047dac374b2ba6845c22bfa2286917e4b2dccf15129c8cd95c65b47be65cb",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        79,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-protect-side-9.png",
+      "sha256": "c25be4a1409527c8ccd21c11b190b56617eb0628d351b2eca1cdbc1d4756a3f2",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        79,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-protect-side-10.png",
+      "sha256": "2cfd268418a172a616e8fea7f009a3469f2d314d145615a0b9fc40fc2ac30f81",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        77,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-protect-side-11.png",
+      "sha256": "280d5eb384a29c2d6d99d161d1b1810571113268660f6616b4128d9ca899ab71",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        76,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-sky-front-0.png",
+      "sha256": "69b25892f9f93908cbb9be51332d5db97af28f657c518c46c3ea3873bf3ef201",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        74,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-sky-front-1.png",
+      "sha256": "916d240ee9acc7a4c7b1326c6a1ef7635b92148daba35818c9b051e8b3df32b1",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        73,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-sky-front-2.png",
+      "sha256": "bd4b5e1e0f023eafbbced612ab1811c9c806d2c1cd2420cfe2b24816ae2837ae",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        73,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-sky-front-3.png",
+      "sha256": "0478c7d19c5997b466c3c3eeeecbafa926a2032c1e7c35461bd073786ebbb26e",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        70,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-sky-front-4.png",
+      "sha256": "4302e57f573fc112aa6b53e8b0ec1e35e13c785cdf25227276965856e7c883c4",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        60,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-sky-front-5.png",
+      "sha256": "4764d2418169e7db70e25ac813330b421ee36515d545fa32298ecacf229368c0",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        62,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-sky-front-6.png",
+      "sha256": "85d8ab43a0a453775751bd5419356bae69f41cb604a139c7285fef1e21784b04",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        68,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-sky-front-7.png",
+      "sha256": "9d1f074d704aa91b6771040335dfd4076a00eedffee809516e64d67016daa7d2",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        71,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-sky-front-8.png",
+      "sha256": "4fc01ae297de05e734c6e4b71e1347883ed0dc2b2cd01802c7a42ec10bf1b039",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        73,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-sky-front-9.png",
+      "sha256": "9ebe918c3c3681c7548caba8bb6886770da0363b9eda1059bf7bfb57d93e68d1",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        74,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-sky-front-10.png",
+      "sha256": "8fcc6c2472a47d058d060f03996523bb461cf9ef5fdae7c8b6ed3af0829b603e",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        76,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-sky-front-11.png",
+      "sha256": "c3f12bc62b85ca48ef4a5a5dba3ca9ade61de89c7f5f8d447d286cc8d72ea2a9",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        75,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-sky-side-0.png",
+      "sha256": "bebcf7b819a8ac63a98c4972ec5ee3a14ceb433a3046c9d103c4d25b64a0f66f",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        75,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-sky-side-1.png",
+      "sha256": "5367e1e74ad77cb15e22d1de51a3f47ab36bee3c4b346fc8d184c8afbeefecdf",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        74,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-sky-side-2.png",
+      "sha256": "7c5ceb72c3c2f451667475efb1b691b38bc2c2cd49f0598a6e3f063a00c28fc5",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        74,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-sky-side-3.png",
+      "sha256": "31185501f5048c44f643371ebb01de568266fec40bd976e395864b2126677fa6",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        71,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-sky-side-4.png",
+      "sha256": "5c73edebc9e6bd8a00e2061b2e77109d86b3841a11eccb5fa840eb204659720e",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        64,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-sky-side-5.png",
+      "sha256": "22e17a444134285df3bc28a9a2fbcd2f695db6b8ab3c940af6d7d01744a6612c",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        66,
+        340,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-sky-side-6.png",
+      "sha256": "4e9f52a85abd03df62eec3addbba830345448a5a8ba0700ddf28c4f3471be914",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        70,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-sky-side-7.png",
+      "sha256": "a42f8878f090ffe3f8994a61f6ae1b14da1b3335512ea1b5dc3b47176143a8f1",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        73,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-sky-side-8.png",
+      "sha256": "9bdc3c9ac9c750c33c8010050f5a6b255eb14cb5674d8f40dc2d527881f150b1",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        75,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-sky-side-9.png",
+      "sha256": "b38e8edce426b6d862ab36038a4be532b53107b05cfa90785c7e141b4ac3abfd",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        75,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-sky-side-10.png",
+      "sha256": "9b36faccca30cf43a9ed93b98d4edebf29cab3e0d57621266798875008c466e4",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        77,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-wind-sky-side-11.png",
+      "sha256": "3243938f28cfdebf47fba3398296599d9d018ec12d6657cd5d62cd8641a51e85",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        76,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-starter-wind-signature-front-0.png",
+      "sha256": "d9b7ddae3c7461fcb1383c523c11285fa2119489f62f5f2553b1d0148e17688f",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        74,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-starter-wind-signature-front-1.png",
+      "sha256": "8fd34e4e32f57b85031977eef3f4259756bebe7b6fda07362c05dfb10f47a464",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        77,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-starter-wind-signature-front-2.png",
+      "sha256": "c94b25addcf29ea9a8abbe6a1bd20fcc74197a91511c5ab3f0bfb7190ba477cf",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        79,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-starter-wind-signature-front-3.png",
+      "sha256": "0ac616c09ea0bde8d8502ebe1cf37b9c0b04ae7b658ee700abe9475bc18a14e0",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        75,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-starter-wind-signature-front-4.png",
+      "sha256": "c3b7a6b0a36eb0b07b1f3df67ca68e411933543a59c2e2365dd8118565e42cc0",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        28,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-starter-wind-signature-front-5.png",
+      "sha256": "62395d0d1f5fbe2f4a0227ff21d3003e72063c9cc43ee5549b8d23b7915fefa9",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        63,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-starter-wind-signature-front-6.png",
+      "sha256": "0733379d662c2862e5234110a56fc45dc18b57f633b539fd822196744f196908",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        71,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-starter-wind-signature-front-7.png",
+      "sha256": "8bdab716ed14a09ad24cf6f16fb1367d7edc83256931ef4467c4abdc09d39f59",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        75,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-starter-wind-signature-front-8.png",
+      "sha256": "d541e7b1d7792e388a1637443d2f07b50aff9c31ced8801f208b1eea015c1f28",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        76,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-starter-wind-signature-front-9.png",
+      "sha256": "a1378a2c4fd7fff84a6e7a35fa8edc19aa326b6c99ba5cdac7515381002addce",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        75,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-starter-wind-signature-front-10.png",
+      "sha256": "f39dd2633ce700fc7fd41886830f9b52bf2a945475924284af719d0ccb31be59",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        76,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-starter-wind-signature-front-11.png",
+      "sha256": "523546e0d73098d8b29b2c90fec47db73256655b4aef4104e3026d4674f7ce3c",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        74,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-starter-wind-signature-side-0.png",
+      "sha256": "add843469785bc0563df2e012a3dc28df8f30b44b3b8a808be09e871b75fbcba",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        75,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-starter-wind-signature-side-1.png",
+      "sha256": "adaab9a2c08c3bce6c27ddf016193d726dcfddea526a10dd44528bfce6b31ae6",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        78,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-starter-wind-signature-side-2.png",
+      "sha256": "2b126c36f2d7cb8154c094cbaa4838590bc6412eb701e3d91a33c5274580d5a6",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        79,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-starter-wind-signature-side-3.png",
+      "sha256": "1506e7fabf216b38c496f9c675841a8676393d452881c8e29356ec8d19b40115",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        76,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-starter-wind-signature-side-4.png",
+      "sha256": "a796edd2df2d3094230b536c4bbbaad83188403571c04ffe842ef6a2a96f1f5d",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        40,
+        361,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-starter-wind-signature-side-5.png",
+      "sha256": "e00381caaf0348394431af73a5e87c9d6b28babf60b0c354890c63a12c3b424b",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        66,
+        355,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-starter-wind-signature-side-6.png",
+      "sha256": "8d3a0024a8b21abcb909a49b47b6782347635632bb473689d2667cd07423774b",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        73,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-starter-wind-signature-side-7.png",
+      "sha256": "8b886b8f771b977c283326a941df3778e8b9e81f887ba6c44283dd10aa888fd0",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        76,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-starter-wind-signature-side-8.png",
+      "sha256": "ecadc59410386c9ec3075c71ab9fa4f57c8054cffdae3e81dbc604d6c16abcf8",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        77,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-starter-wind-signature-side-9.png",
+      "sha256": "8adb4633da287a6ea940422a1e3ee0300654c848033098bdd06cb3daf3053f8b",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        77,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-starter-wind-signature-side-10.png",
+      "sha256": "f4e9b2afb5faf5ffad3f99ba336d385f6dfb49cce284a6cb6e7b97807713ff3f",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        77,
+        333,
+        214
+      ]
+    },
+    {
+      "name": "starter-wind-starter-wind-signature-side-11.png",
+      "sha256": "7e210c89c9e24aba87334091d0d6e949c72e97631e840e9edeb9b4d420307f80",
+      "width": 500,
+      "height": 260,
+      "bounds": [
+        166,
+        76,
+        333,
+        214
+      ]
+    }
+  ]
+}

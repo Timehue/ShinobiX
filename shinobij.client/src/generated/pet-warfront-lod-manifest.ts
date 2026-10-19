@@ -160,7 +160,7 @@ const modelRows = [
     ["starter-water.glb","-90150dd50ff3-47cd31858838",15958,11170],
     ["starter-wind-l.glb","-2b04bfe8ef5c-30714eb45c4a",12822,8974],
     ["starter-wind-r.glb","-e01087a57731-5d3860becf2a",26000,10000],
-    ["starter-wind.glb","-7db0c6998907-601e725c6fbb",15396,10776]
+    ["starter-wind.glb","-b59c81236963-92215482a22b",15396,10776]
 ] as const;
 export const WARFRONT_PET_LOD_MANIFEST = Object.fromEntries(modelRows.map(([source, revision, sourceTriangles, lodTriangles]) => [
     `/pet-models/${source}`,

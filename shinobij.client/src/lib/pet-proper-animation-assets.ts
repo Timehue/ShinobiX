@@ -35,7 +35,7 @@ const REPAIRED_RIG_REVISIONS: Readonly<Record<string, string>> = {
     'rare-44': '20260916-bird-face-binding-v2',
     'legendary-1': '20260916-bird-face-binding-v2',
     'mythic-5': '20260916-bird-face-binding-v2',
-    'starter-wind': '20261015-reviewed-contact-v1',
+    'starter-wind': '20261019-gale-chick-complete-face-v1',
     'starter-wind-r': '20261015-reviewed-orthogonal-rig-v1',
     'starter-wind-l': '20261015-reviewed-contact-v1',
     ...PET_SKIN_REPAIR_REVISIONS,

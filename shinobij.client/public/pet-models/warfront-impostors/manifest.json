@@ -20282,11 +20282,11 @@
     },
     {
       "sourceUrl": "/pet-models/starter-wind.glb",
-      "lodUrl": "/pet-models/warfront-lod/starter-wind.glb?v=20260902-battle-lod-v1-7db0c6998907-601e725c6fbb",
-      "lodSha256": "601e725c6fbb01ef2395dfcca5088c82ff044eb04118f8e06cc9330b43151a90",
+      "lodUrl": "/pet-models/warfront-lod/starter-wind.glb?v=20260902-battle-lod-v1-b59c81236963-92215482a22b",
+      "lodSha256": "92215482a22b72e392797efc8d0241d0766bed4bf89b7370664ca13f0c8632f7",
       "atlasUrl": "/pet-models/warfront-impostors/starter-wind.webp",
-      "atlasSha256": "bd3faa514bb194e240f61c9a404e1216b421c04a0cc0384fd6d151510e9fb267",
-      "atlasBytes": 80042,
+      "atlasSha256": "237a58b359e30eb1deb7f73bc9d2f3ecc19a2c1975c8cb007f378410c34f3703",
+      "atlasBytes": 80350,
       "width": 512,
       "height": 512,
       "columns": 4,
@@ -20387,25 +20387,25 @@
         "cast": 0.9056
       },
       "occupiedPixels": [
-        2891,
-        2823,
-        2765,
-        2860,
-        2822,
-        2878,
-        2820,
-        2887,
-        2737,
-        3064,
-        2804,
-        2795,
-        2798,
-        2911,
-        2919,
-        2930
+        2886,
+        2836,
+        2775,
+        2876,
+        2829,
+        2875,
+        2821,
+        2881,
+        2749,
+        3075,
+        2825,
+        2816,
+        2788,
+        2906,
+        2937,
+        2914
       ],
       "trianglesPerFrame": 10776,
-      "projectedAspect": 0.895923
+      "projectedAspect": 0.903946
     }
   ]
 }
