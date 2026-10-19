@@ -507,7 +507,8 @@ import {
     type HollowGatePveFightRef,
 } from "./lib/hollow-gate-pve";
 import { hollowGateRunAfterUnresolvedFight, loadHollowGateFight, loadHollowGateShrineView, useHollowGateAppFlow, useHollowGateRunMirror, useHollowGateShrineWarmup } from "./lib/hollow-gate-app-flow";
-import { enterHollowGateShrineFlow, recoverHollowGateRunLazily, reportHollowGateEntryFailure } from "./lib/hollow-gate-entry";
+import { enterHollowGateShrineFlow, recoverHollowGateRunOnBoot, reportHollowGateEntryFailure } from "./lib/hollow-gate-entry";
+import { HollowGateRecoveryView } from "./components/HollowGateRecoveryView";
 import type { StoryBossSettleResult } from "./lib/story-combat-api";
 import { requestStoryBossFight } from "./lib/story-fight-theme";
 import { useSealedFightPresence } from "./lib/use-sealed-fight-presence";
@@ -2509,13 +2510,9 @@ export default function App() {
             const normalized = normalizeAdminCharacter(snap.character);
             prevCharRef.current = normalized;
             charDirtyRef.current = false;
-            // A reload mid-run keeps the run's start marker but not its board (the
-            // save holds only the server's projection). Rebuild it from the server.
-            const recoverBoardlessHollowGateRun = () => {
-                if (normalized.hollowGateRun || !normalized.lastHollowGateStart?.token || normalized.hospitalized) return;
-                void recoverHollowGateRunLazily({ character: normalized, setHollowGateRun, setHollowGateLog, setHollowGateEvent,
-                    setHollowGateHiddenChamber, setCharacter, setCurrentBiome, setCurrentWeather, setScreen, pushHollowGateLog });
-            };
+            const recoverBoardlessHollowGateRun = () => recoverHollowGateRunOnBoot({ character: normalized, setHollowGateRun, setHollowGateLog, setHollowGateEvent,
+                    setHollowGateHiddenChamber, setCharacter, setCurrentBiome, setCurrentWeather, setScreen, pushHollowGateLog,
+                    isCurrent: capturePvpCreateScope(normalized.name).isCurrent });
             scopeSaveAuthorityToAccount(snap.character.name);
             const restoredPvpScope = {
                 ownerName: snap.character.name,
@@ -2769,8 +2766,8 @@ export default function App() {
                                 setScreen("hollowGateShrine");
                             } else {
                                 setScreen("village");
-                                recoverBoardlessHollowGateRun();
                             }
+                            recoverBoardlessHollowGateRun();
                         } else {
                             // arena (and other hospitalizing fights): the server
                             // applies hp:0 + hospitalized atomically with the unlock,
@@ -4724,6 +4721,7 @@ export default function App() {
         return enterHollowGateShrineFlow({
             eventCfg, character, setHollowGateRun, setHollowGateLog, setHollowGateEvent, setHollowGateHiddenChamber,
             setCharacter, setCurrentBiome, setCurrentWeather, setScreen, setHollowGateIntroPage, pushHollowGateLog,
+            isCurrent: character ? capturePvpCreateScope(character.name).isCurrent : () => false,
         }).catch(reportHollowGateEntryFailure);
     }    // ── Admin-only ops for the Hollow Gate panel ──────────────────────────
     function adminHollowGateForceUnlock(unlock: boolean) {
@@ -5486,6 +5484,7 @@ export default function App() {
                     />
                 )}
 
+                {!activeTriggeredEvent && screen === "hollowGateShrine" && character && !hollowGateRun && <HollowGateRecoveryView />}
                 {!activeTriggeredEvent && screen === "hollowGateShrine" && character && hollowGateRun && !hollowGatePveFight && !hollowGatePetFight && (
                     <HollowGateShrineView
                         character={character}

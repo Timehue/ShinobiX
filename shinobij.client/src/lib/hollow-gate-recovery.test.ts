@@ -226,6 +226,30 @@ describe("hollow gate recovery — the flow never starts or spends anything", ()
         assert.equal(picker?.title, "Choose Your Hollow Gate Augment", "the still-open choice is offered again");
     });
 
+    it("replaces a stale saved full board with sealed floor progress without changing HP", async () => {
+        respond(200, { ok: true, live: true, run: state({ floor: 2 }) });
+        const { calls, params } = harness();
+        const old = { name: "diver", hp: 1587, hollowGateRun: { floor: 1, runToken: "token-live", tiles: [{ kind: "trap" }] } };
+        params.character = old as never;
+        const global = globalThis as { window?: unknown };
+        global.window = globalThis;
+        try { assert.equal(await recoverHollowGateRun(params), "recovered"); }
+        finally { delete global.window; }
+        const update = calls.character[0] as (previous: typeof old) => typeof old;
+        const next = update(old);
+        assert.equal(next.hp, 1587);
+        assert.equal(next.hollowGateRun.floor, 2);
+        assert.notDeepEqual(next.hollowGateRun.tiles, old.hollowGateRun.tiles);
+        assert.equal(next.hollowGateRun.runToken, "token-live");
+    });
+
+    it("does not publish a delayed recovery into a different session", async () => {
+        respond(200, { ok: true, live: true, run: state({ floor: 2 }) });
+        const { calls, params } = harness();
+        assert.equal(await recoverHollowGateRun({ ...params, isCurrent: () => false }), "error");
+        assert.deepEqual(calls, {});
+    });
+
     it("does not offer the picker again once the augment is chosen", async () => {
         respond(200, { ok: true, live: true, run: state({ floor: 2 }) });
         const { calls, params } = harness();

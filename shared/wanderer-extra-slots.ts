@@ -44,6 +44,12 @@ export const TRADE_WANDERER_CHANCE = 0.12;
 /** The rift a player holds a seal for, as the save stores it. */
 export type RiftSealView = { id: string; targetSector: number };
 
+/** The authored quest creature uses player + 1, capped at the existing L100
+ * combat ceiling. Its sector roll determines identity, never combat level. */
+export function riftSpawnCombatLevel(playerLevel: number): number {
+    return Math.min(100, Math.max(1, Math.floor(Number(playerLevel) || 1)) + 1);
+}
+
 function slotWanderer(
     archetype: WandererArchetypeId,
     id: string,
