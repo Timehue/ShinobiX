@@ -18,6 +18,7 @@
  * deliberately left alone.
  */
 import type { Character } from "../types/character";
+import { petExpeditionProfessionMultiplier } from "../../../shared/pet-expedition-contract";
 import type { Profession } from "../types/core";
 import {
     ANTI_ALT_ACCOUNT_AGE_MS,
@@ -73,7 +74,7 @@ function targetTooYoungForRewards(opponent: Character | null | undefined): boole
 // exactly the duplication that change removed.
 
 // Pet Tamer Phase 2 bonuses (client-side). Training speed % faster, expedition
-// reward multiplier, daily First Expedition 2x flag.
+// reward multiplier, and legacy first-expedition bookkeeping.
 export function petTamerTrainingSpeedPct(character: Character | null | undefined): number {
     if (!character || character.profession !== "petTamer") return 0;
     const rank = Math.max(0, Math.min(PROFESSION_MAX_RANK, character.professionRank ?? 1));
@@ -82,10 +83,7 @@ export function petTamerTrainingSpeedPct(character: Character | null | undefined
 }
 
 export function petTamerExpeditionMult(character: Character | null | undefined): number {
-    if (!character || character.profession !== "petTamer") return 1;
-    const rank = Math.max(0, Math.min(PROFESSION_MAX_RANK, character.professionRank ?? 1));
-    // Unlock +10%; +1.5% per rank to +25% at rank 10.
-    return 1 + (10 + rank * 1.5) / 100;
+    return petExpeditionProfessionMultiplier(character?.profession);
 }
 
 // Returns true if this is the first expedition the player has claimed today

@@ -1,6 +1,7 @@
 import { expect, test, type Page, type Route, type TestInfo } from "@playwright/test";
 import { PUBLIC_CAPABILITY_IDS } from "../../shared/public-capabilities";
 import { PET_CAP_BASE } from "../src/lib/entitlements";
+import { craftMaterialName } from "../../shared/crafting-recipes";
 import { PET_SCENIC_PORTRAITS } from "../src/lib/pet-portrait-assets.generated";
 import AxeBuilder from "@axe-core/playwright";
 import { gotoSettled, reloadSettled } from "./helpers/network-settle";
@@ -1095,6 +1096,29 @@ test("refined companion and Sunscar pages", async ({ page }, testInfo) => {
     expect(withoutAbortedFetches(errors)).toEqual([]);
 });
 
+test("expedition route levels and base rewards remain clear on desktop and touch", async ({ page }, testInfo) => {
+    test.setTimeout(180_000);
+    test.skip(!['chromium-desktop', 'chromium-mobile'].includes(testInfo.project.name), 'Admission controls use desktop and touch coverage.');
+    const state = await installPetHomeApi(page);
+    state.character.pets[0].maxLevel = 100;
+    for (const level of [20, 50, 80, 100]) {
+        state.character.pets[0].level = level;
+        if (level === 20) await gotoSettled(page, '/#/pets');
+        else await reloadSettled(page);
+        await page.getByRole('navigation', { name: 'Pet Yard activities' }).getByRole('button', { name: 'Expeditions', exact: true }).click();
+        const routes = page.getByRole('radiogroup', { name: 'Expedition route' });
+        for (const [name, minimum] of [['Scout Routes', 20], ['Forage Wilds', 50], ['Explore Old Ruins', 80]] as const) {
+            const route = routes.getByRole('radio', { name: new RegExp(name) });
+            await expect(route).toContainText(`Lv. ${minimum}+`);
+            if (level >= minimum) await expect(route).toBeEnabled();
+            else await expect(route).toBeDisabled();
+        }
+        await expect(routes.getByRole('radio', { name: /Scout Routes/ }).locator('dl > div').filter({ hasText: 'Secure ryo' })).toContainText('180');
+        await expect(routes.getByRole('radio', { name: /Explore Old Ruins/ }).locator('dl > div').filter({ hasText: 'Secure ryo' })).toContainText('2,160');
+        await expect(page.getByText('All eligible pets earn ryo, materials, and pet XP.', { exact: false })).toBeVisible();
+    }
+});
+
 test("refined integration companion actions and recovery", async ({ page }, testInfo) => {
     test.setTimeout(180_000);
     test.skip(!['desktop', 'phone', 'chromium-desktop', 'chromium-mobile'].includes(testInfo.project.name), 'Interaction coverage uses desktop and touch; visual coverage runs at all four widths.');
@@ -1166,13 +1190,19 @@ test("refined integration companion actions and recovery", async ({ page }, test
     const overflow = state.character.pets[5];
     overflow.expedition = { type: 'scout', startedAt: Date.now() - 100_000, endsAt: Date.now() - 1000, token: 'qa-return', risk: 'safe', provision: 'none', choiceVersion: 1, place: 'Cactus Flats' };
     let claims = 0;
+    const mixedHaul = ['hunt-beast-meat', 'hunt-wolf-fang', 'hunt-legendary-material',
+        'gather-river-fish', 'gather-river-fish-fine', 'gather-river-fish-superior',
+        'gather-iron-sand-fine', 'gather-rime-crystal-pristine', 'gather-ember-ore',
+        'gather-field-herb', 'gather-binding-fiber', 'gather-heartwood-bark'].map(itemId => ({ itemId, count: 1 }));
     await page.route('**/api/missions/report-pet-event', async route => {
         const body = route.request().postDataJSON();
         expect(body).toMatchObject({ petId: overflow.id, expeditionToken: 'qa-return', returnChoice: 'secure' });
         if (++claims === 1) return json(route, { error: 'The return desk is unavailable.' }, 503);
         delete overflow.expedition;
         overflow.xp = Number(overflow.xp) + 40;
-        return json(route, { ok: true, character: state.character, _saveVersion: ++state.saveVersion, petXpEarned: 40, story: 'Returned safely from Cactus Flats.' });
+        return json(route, { ok: true, character: state.character, _saveVersion: ++state.saveVersion, petXpEarned: 40,
+            materialRewards: mixedHaul, foundFate: 3,
+            story: 'Returned safely from Cactus Flats.' });
     });
     await reloadSettled(page);
     await page.getByRole('button', { name: /Select Stoneback Tanuki/ }).click();
@@ -1182,6 +1212,10 @@ test("refined integration companion actions and recovery", async ({ page }, test
     await expect(page.getByRole('dialog')).toHaveCount(0);
     await page.getByRole('button', { name: 'Secure haul', exact: true }).click();
     await expect(page.getByRole('dialog')).toContainText('Returned safely from Cactus Flats');
+    for (const material of mixedHaul) {
+        await expect(page.getByRole('dialog').locator('.expedition-reward-row').filter({ has: page.getByText(craftMaterialName(material.itemId), { exact: true }) })).toContainText('+1');
+    }
+    await expect(page.getByRole('dialog').locator('.expedition-reward-row').filter({ hasText: 'Fate Shard' })).toContainText('+3');
     await page.getByRole('dialog').getByRole('button', { name: 'Continue', exact: true }).click();
     await expect(page.getByRole('button', { name: 'Select Stoneback Tanuki', exact: true })).toBeFocused();
     await expect(page.getByRole('button', { name: 'Launch expedition', exact: true })).toBeDisabled();
