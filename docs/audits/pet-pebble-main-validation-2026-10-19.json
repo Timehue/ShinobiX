@@ -1,0 +1,102 @@
+{
+  "ids": [
+    "starter-earth"
+  ],
+  "recordedAt": "2026-10-19T20:14:54.032Z",
+  "expected": {
+    "mainBase": "7c04fc5a1a55c92cfb51b267bb6393c2555f7f1c",
+    "pets": {
+      "starter-earth": {
+        "source": "c99b0471489b65a5fe2c4b9b50bf781c48f4820f7eacdb092cf983a15ca51894",
+        "battle": "64524351ebb7534dd603645a6d8015ec745829d9bfa75ced0a8a9340e725f0b3",
+        "atlas": "3932b6d65a58b31ebea53cea6c8ccdfba0e5461e714581563e04fbb38f04d60d"
+      }
+    },
+    "copiedEvidence": 167
+  },
+  "mainBaseline": "7c04fc5a1a55c92cfb51b267bb6393c2555f7f1c",
+  "focusedTests": {
+    "passed": 41,
+    "failed": 0,
+    "scope": "40 combined tests plus the added production-shipping exclusion regression (all 11 metadata tests rechecked)."
+  },
+  "structuralChecks": {
+    "passed": 161,
+    "distinctAssets": 161,
+    "failed": 0
+  },
+  "existingReviewReceiptChecks": {
+    "passed": 161,
+    "failed": 0
+  },
+  "clientProductionBuild": "passed",
+  "serverBuild": "passed",
+  "clientLint": {
+    "errors": 0,
+    "existingWarnings": 24
+  },
+  "finalQaLint": "passed",
+  "deliveryInventory": 483,
+  "nonselectedManifestEntriesUnchanged": true,
+  "nonselectedReviewAndAnatomyMetadataUnchanged": true,
+  "stoneTurtleAssetUnchanged": true,
+  "selectedOriginalAppearanceEquivalent": true,
+  "scalpStructuralRecognition": {
+    "reason": "Reviewed smooth green scalp is a separate head-bound surface at the blue headband; component size alone previously classified it as a cage and duplicate anatomy.",
+    "restrictedToSourceSha256": "c99b0471489b65a5fe2c4b9b50bf781c48f4820f7eacdb092cf983a15ca51894",
+    "vertices": 1006,
+    "triangles": 1785,
+    "guards": [
+      "exact reviewed source bytes",
+      "own rebuild provenance",
+      "exact scalp topology count",
+      "head bounds",
+      "single green-skin UV",
+      "full head-bone weighting"
+    ],
+    "negativeTests": [
+      "other pet",
+      "one changed byte",
+      "different triangle count",
+      "out-of-bounds positions",
+      "wrong texture coordinates",
+      "wrong bone weights",
+      "missing rebuild provenance"
+    ],
+    "otherProxyAndDuplicateChecksRetained": true
+  },
+  "evidence": [
+    "docs/screenshots/pet-pebble-main-validation-2026-10-19/focused-tests.log",
+    "docs/screenshots/pet-pebble-main-validation-2026-10-19/metadata-final.log",
+    "docs/screenshots/pet-pebble-main-validation-2026-10-19/structure.log",
+    "docs/screenshots/pet-pebble-main-validation-2026-10-19/reviews.log",
+    "docs/screenshots/pet-pebble-main-validation-2026-10-19/production-build.log",
+    "docs/screenshots/pet-pebble-main-validation-2026-10-19/client-lint.log",
+    "docs/screenshots/pet-pebble-main-validation-2026-10-19/qa-lint.log",
+    "docs/screenshots/pet-pebble-main-validation-2026-10-19/server-build.log",
+    "docs/screenshots/pet-pebble-main-validation-2026-10-19/verify-dist.log",
+    "docs/screenshots/pet-pebble-main-validation-2026-10-19/all-161-structural-audit.json",
+    "docs/screenshots/pet-pebble-main-validation-2026-10-19/pet-reviewed-scalp-component.mjs",
+    "docs/screenshots/pet-pebble-main-validation-2026-10-19/pet-model-certification.mjs",
+    "docs/screenshots/pet-pebble-main-validation-2026-10-19/pet-pebble-tortoise-distinct.test.mjs",
+    "docs/audits/pet-pebble-main-runtime-equivalence-2026-10-19.json"
+  ],
+  "evidenceSha256": {
+    "docs/screenshots/pet-pebble-main-validation-2026-10-19/focused-tests.log": "0a5b4152338a30b2f04d61ad3ef9c4228d745bc7729980b7244b55c29dbdb375",
+    "docs/screenshots/pet-pebble-main-validation-2026-10-19/metadata-final.log": "a397ff1a80f65e0787652e7935bb28cd8472e293e2f8e55be79e8304e8535747",
+    "docs/screenshots/pet-pebble-main-validation-2026-10-19/structure.log": "a83bac7a21ab9ba121b0710d89b61bea8a5376192e80b23dc25661af6c75d136",
+    "docs/screenshots/pet-pebble-main-validation-2026-10-19/reviews.log": "e502f96d1106b60651428f7a4c13aeade0d6a5c433c39ef0bbb948f06582dadb",
+    "docs/screenshots/pet-pebble-main-validation-2026-10-19/production-build.log": "5e802bc16fd1f65d69244cad71d4fd951653946a147b6af5f8979c200d5c2190",
+    "docs/screenshots/pet-pebble-main-validation-2026-10-19/client-lint.log": "dc4900f5293c47586c9de03801bb4d39d185ba0d35a6890df5d2cfa1e758db9c",
+    "docs/screenshots/pet-pebble-main-validation-2026-10-19/qa-lint.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "docs/screenshots/pet-pebble-main-validation-2026-10-19/server-build.log": "8f20ad03db6b8d3edc74fb49d72e37f6e3fec391b4343e594828271743c6564c",
+    "docs/screenshots/pet-pebble-main-validation-2026-10-19/verify-dist.log": "9c8c5337ab2c8940e611ea96f1bad5cf4f747d39886e308b18ae4f541cbb5ce8",
+    "docs/screenshots/pet-pebble-main-validation-2026-10-19/all-161-structural-audit.json": "4d5911bb081f3a8293a013a0bd51b18d2790bc67d62d422c9748ab1fa2e2b2a9",
+    "docs/screenshots/pet-pebble-main-validation-2026-10-19/pet-reviewed-scalp-component.mjs": "d0ede25aa9636a28c81e8054bd20b845ad4dab75a0bf395591f230715522511f",
+    "docs/screenshots/pet-pebble-main-validation-2026-10-19/pet-model-certification.mjs": "cc1aa7b5a595adaeafb461336b485589b7e54533b2be072e6ae3fe7ee1e4a5ed",
+    "docs/screenshots/pet-pebble-main-validation-2026-10-19/pet-pebble-tortoise-distinct.test.mjs": "e6a9b96115cd7912ee03b56bb099cbc4316ce1ce207cabf270240ebc262205b4",
+    "docs/audits/pet-pebble-main-runtime-equivalence-2026-10-19.json": "51870a300b7662bafde6f29cd750346f6f3f0dc6b6f1c65e8997a18fd9ad10dd"
+  },
+  "wholeRosterVisuallyComplete": false,
+  "liveForPebble": false
+}

@@ -76,7 +76,7 @@ const forbiddenClientExtensions = new Set([
 // 2026-10-12: continuous four-influence bindings replace hard anatomical cuts
 // across 155 pet models, with refreshed LODs and matching animated atlases.
 // The final double-checked client measures 536.2 MiB. Retain full UNORM8 weights
-// and reserve 539 MiB (2.8 MiB headroom); the exact 480-file roster, hashes,
+// and reserve 539 MiB (2.8 MiB headroom); the exact 483-file roster, hashes,
 // authoring exclusions, and independent JS/CSS budgets remain enforced.
 // 2026-10-14: art landed on main since then used that headroom up, and the 12
 // new Chronicle cards (24 WebPs with their 512 px variants, 0.92 MiB in all,
@@ -90,7 +90,7 @@ const forbiddenClientExtensions = new Set([
 // The completed pet shape review grows certified GLB delivery by 5,745,888 B
 // while matching animated atlases shrink by 50,338 B. Credit only that fixed
 // 5,695,550 B increase; preserve the existing non-art headroom and JS/CSS gates.
-// The exact selected 480-file pet inventory and delivery hashes remain enforced.
+// The exact selected 483-file pet inventory and delivery hashes remain enforced.
 const maxChronicleArtBytes = 144 * 1024 * 1024;
 const maxPetShapeReviewGrowthBytes = 5695550;
 const maxOtherClientBytes = 451 * 1024 * 1024 + maxPetShapeReviewGrowthBytes;
@@ -202,8 +202,8 @@ console.log(`[verify:dist] Rally: ${rallyAtlasFiles.length} atlases / ${rallyAtl
 // approved runtime manifests, including bytes, and reject retired full GLBs.
 const petLodManifest = JSON.parse(readFileSync(join(root, 'shinobij.client', 'public', 'pet-models', 'warfront-lod', 'manifest.json'), 'utf8'));
 const petImpostorManifest = JSON.parse(readFileSync(join(root, 'shinobij.client', 'public', 'pet-models', 'warfront-impostors', 'manifest.json'), 'utf8'));
-if (petLodManifest.entries?.length !== 160 || petImpostorManifest.entries?.length !== 160) {
-    fail('pet runtime manifests must each contain 160 selected models');
+if (petLodManifest.entries?.length !== 161 || petImpostorManifest.entries?.length !== 161) {
+    fail('pet runtime manifests must each contain 161 selected models');
 }
 const expectedPetFiles = new Map();
 function addExpectedPetFile(url, bytes, sha256) {
@@ -223,7 +223,7 @@ for (const entry of petLodManifest.entries) {
     }
     addExpectedPetFile(impostor.atlasUrl, impostor.atlasBytes, impostor.atlasSha256);
 }
-if (expectedPetFiles.size !== 480) fail(`expected 480 selected pet assets, found ${expectedPetFiles.size}`);
+if (expectedPetFiles.size !== 483) fail(`expected 483 selected pet assets, found ${expectedPetFiles.size}`);
 for (const [relativePath, expected] of expectedPetFiles) {
     if (!clientRelativeFileSet.has(relativePath)) fail(`client dist is missing ${relativePath}`);
     const file = join(clientDist, relativePath);
@@ -237,6 +237,7 @@ for (const [relativePath, expected] of expectedPetFiles) {
 const unexpectedPetFile = clientRelativeFiles.find((file) =>
     file.startsWith('pet-models/') && /\.(?:glb|webp)$/iu.test(file) && !expectedPetFiles.has(file));
 if (unexpectedPetFile) fail(`client dist copied an unselected pet asset: ${unexpectedPetFile}`);
+console.log(`[verify:dist] Pets: ${expectedPetFiles.size} runtime files match exact certified delivery bytes.`);
 const clientIndex = readFileSync(join(clientDist, 'index.html'), 'utf8');
 const referencedClientAssets = [...clientIndex.matchAll(/(?:src|href)=["']\/([^"']+)["']/g)].map((match) => match[1]);
 const missingReferencedClientAsset = referencedClientAssets.find((file) => !clientRelativeFileSet.has(file));

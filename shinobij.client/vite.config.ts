@@ -125,8 +125,6 @@ const PUBLIC_LOCAL_ONLY_ASSETS = new Set([
     'assets/warfront/kage-fire-impact-burst-v1.png',
     'assets/warfront/kage-tactics-temple-court-v2-landscape.webp',
     'assets/warfront/kage-tactics-temple-court-v2-portrait.webp',
-    // Pebble now resolves to the reviewed standard-5 roster model.
-    'pet-models/starter-earth.glb',
     // Kept as the authoring input for showdown-v2, which is the live resolver's
     // Raijin model. The top-level copy is never requested by the game.
     'pet-models/starter-lightning-l.glb',

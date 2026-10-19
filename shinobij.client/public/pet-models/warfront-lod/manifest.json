@@ -25,10 +25,10 @@
     "minSilhouetteIoU": 0.975
   },
   "totals": {
-    "sourceBytes": 115424192,
-    "lodBytes": 74011772,
-    "sourceTriangles": 5956618,
-    "lodTriangles": 1624735
+    "sourceBytes": 116646780,
+    "lodBytes": 74618396,
+    "sourceTriangles": 5974738,
+    "lodTriangles": 1636735
   },
   "entries": [
     {
@@ -3779,6 +3779,31 @@
         "front": 0.999145,
         "threeQuarter": 0.997662,
         "side": 0.997911
+      }
+    },
+    {
+      "sourceUrl": "/pet-models/starter-earth.glb",
+      "lodUrl": "/pet-models/warfront-lod/starter-earth.glb?v=20260902-battle-lod-v1-c99b0471489b-64524351ebb7",
+      "sourceBytes": 1143828,
+      "lodBytes": 549180,
+      "sourceSha256": "c99b0471489b65a5fe2c4b9b50bf781c48f4820f7eacdb092cf983a15ca51894",
+      "lodSha256": "64524351ebb7534dd603645a6d8015ec745829d9bfa75ced0a8a9340e725f0b3",
+      "sourceTriangles": 18120,
+      "lodTriangles": 12000,
+      "reduction": 0.337748,
+      "lowPolySource": true,
+      "sourceVertices": 12625,
+      "lodVertices": 9218,
+      "skins": 1,
+      "joints": 21,
+      "animations": 13,
+      "materials": 1,
+      "textures": 1,
+      "boundsMaxDelta": 0,
+      "silhouettes": {
+        "front": 0.996987,
+        "threeQuarter": 0.997698,
+        "side": 0.997748
       }
     },
     {
