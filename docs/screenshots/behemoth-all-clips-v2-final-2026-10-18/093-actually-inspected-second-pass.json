@@ -1,0 +1,507 @@
+{
+  "id": "legendary-17",
+  "raw": [
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-behemoth-all-clips-v2-final-source-head/legendary-17-head-front-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "c2007767150710f0e46c643e02b07495926d61741d7639c5a62f82eaa65d4a7a"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-behemoth-all-clips-v2-final-source-head/legendary-17-head-front-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "855845f4d895e3cbaabc1dbe06cf5dc7211a5a2a69f9bbea80b26bdbcb53a5ca"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-behemoth-all-clips-v2-final-source-head/legendary-17-head-front-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "c4d7c85fd01b798cbfcb6c50f0bd5067e7797167c7cdc3861f2352824c6d9f52"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-behemoth-all-clips-v2-final-source-head/legendary-17-head-side-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "834717cb88bd709a27dd3417d369d3b5a14fc7f7a92a9b8c5e5bfb2db8378a55"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-behemoth-all-clips-v2-final-source-head/legendary-17-head-side-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "ef42c639c6316ddbb19ab00158941e6933d30d1877181a51b4dfc236cd965881"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-behemoth-all-clips-v2-final-source-head/legendary-17-head-side-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "6eff7d4f00b63f90cb921bf6b48219a259327e60f932503c78b6d51162c717bb"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-behemoth-all-clips-v2-final-source-head/legendary-17-head-other-side-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "6d0733c9663b6aacf35552ccf2a5fee834efe0f4b0c07c30069a27736cc07624"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-behemoth-all-clips-v2-final-source-head/legendary-17-head-other-side-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "2d023ede045b0688eaaa7f7689fce623c9d59b5d21eaf2bff4075b8df3cdc3f8"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-behemoth-all-clips-v2-final-source-head/legendary-17-head-other-side-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "fcf9b3f7ddb33fa014cd01a8b77475d628f7cc7f7cd0158eec7e34a289ffd792"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-behemoth-all-clips-v2-final-source-body/legendary-17-front-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "f5bb2341c3f04b509bcbe66da30e327915ae1f333c662eccda3f48ce69521c4c"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-behemoth-all-clips-v2-final-source-body/legendary-17-front-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "5b89ab28943c34dadfbf7c3150523d491942834732d1711487182e6626ba1954"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-behemoth-all-clips-v2-final-source-body/legendary-17-front-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "3c7d5dc9d81a14eafbae2880da47e7f23244190b398d6a1782c3b9d5bbf76da4"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-behemoth-all-clips-v2-final-source-body/legendary-17-side-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "2364d09383d06b13238ed74fd27162a6709a6397be0d921b77370c48c84111bf"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-behemoth-all-clips-v2-final-source-body/legendary-17-side-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "baa1ae1182e560fdbed18a2f33838f52b1c5ce1c886bc41fb80d4091cbbecef1"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-behemoth-all-clips-v2-final-source-body/legendary-17-side-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "d1ce21c831bbb5b987e942494bb7e613550701f27c3d7bf9abf3e8e5c402f746"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-behemoth-all-clips-v2-final-battle-head/legendary-17-head-front-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "a89c0b9f8fb19ff80dca4dd08796376cd0f46c86ae9c80a14a9ec31c74923d5d"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-behemoth-all-clips-v2-final-battle-head/legendary-17-head-front-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "7d01242ffdbfbc5fab5927be5cef7a256b6c586213579b9c3ff44d3dd3af878b"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-behemoth-all-clips-v2-final-battle-head/legendary-17-head-front-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "023443d9a3e2b4887eca6c530dd15eda4067541e789cd957dae8f359aa803e8b"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-behemoth-all-clips-v2-final-battle-head/legendary-17-head-side-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "88229d2d4e7c577947f91e52579896f4ec8b6c8587679d0a0d245c0a5aab40b2"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-behemoth-all-clips-v2-final-battle-head/legendary-17-head-side-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "fb6d9fc518be663e3414a1a4192d857d7a884746f0ae48a86b90892834ec911b"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-behemoth-all-clips-v2-final-battle-head/legendary-17-head-side-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "252eb0ece4c37fb97215087000b60819f915b3a1100331305167b778805e8748"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-behemoth-all-clips-v2-final-battle-head/legendary-17-head-other-side-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "f4e0fd610c9e80962e9a9dcd674ce8bd508b2bda41b461c01a751acf0c18cfbf"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-behemoth-all-clips-v2-final-battle-head/legendary-17-head-other-side-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "addcf67e168989dd5dd750a1a804ae23a3e1b6eee635f73941ef6b70f203ea00"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-behemoth-all-clips-v2-final-battle-head/legendary-17-head-other-side-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "a6f9ed4dc3ad7658ea977f42541ed1c36efd298242c82ee6df319abcb32d420d"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-behemoth-all-clips-v2-final-battle-body/legendary-17-front-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "ceb9a3570688d12d6ad929fb5cb5ca3ffe950fa6511d07431d7ca94a3ad45217"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-behemoth-all-clips-v2-final-battle-body/legendary-17-front-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "384c1f83460072c36b306e6dab661bd0115eafc396cf59af872645e19b9aaf08"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-behemoth-all-clips-v2-final-battle-body/legendary-17-front-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "d809b017599955c5c6cc9c3c6ff531928c4874b44f663c24888fb745705a5455"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-behemoth-all-clips-v2-final-battle-body/legendary-17-side-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "299012eca593ee2e3afcad1eaa19dc7c61dec6128350aa3dff6b4553deb23bb1"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-behemoth-all-clips-v2-final-battle-body/legendary-17-side-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "dfaa9fff528b92b53a115a376bf363eab2f4a9a4259f0412a95ca4d32b996769"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-behemoth-all-clips-v2-final-battle-body/legendary-17-side-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "30c238dddaaad4c85471280be8b95114a38b1cc786d6987a82774e37c6322e6c"
+    }
+  ],
+  "rawSlicesActuallyInspected": 30,
+  "runtimeSheetsActuallyInspected": 0,
+  "nativeTechniqueFramesActuallyInspected": 216,
+  "advancingCompanionFramesActuallyInspected": 0,
+  "atlasCellsActuallyInspected": 16,
+  "secondPassComplete": true,
+  "notes": "All 30 final source and regenerated battle raw slices actually inspected. Full face and limb connections remain coherent. Horn tips are cropped in closeups; full-body views retain the sculpt. Opposite-side death is naturally occluded by shoulder; front and primary-side views retain the muzzle.",
+  "runtime": [
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-behemoth-all-clips-v2-final-runtime-low/legendary-17-source-head-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "a297605a6aafec82e3fffc57db01fc97000accd05cc8bf3bfcd6ac7131a9e6ee"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-behemoth-all-clips-v2-final-runtime-low/legendary-17-source-head-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "44221a24efd1dce423174a39297a2d11073bbc066c4e31ca64220095de6fe44e"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-behemoth-all-clips-v2-final-runtime-low/legendary-17-source-head-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "d68d7693488daf9a40587cad1a216fb8204a5fb1fca6748f4170433b27787366"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-behemoth-all-clips-v2-final-runtime-low/legendary-17-source-head-3.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "21459012d45e616840ea13bd62c8dfc9a6543256cdd03953342285445d54235d"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-behemoth-all-clips-v2-final-runtime-low/legendary-17-source-body-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "84218616caafcf3132976cb258b95a5f838d059b88a1646b5302e07a7beb689a"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-behemoth-all-clips-v2-final-runtime-low/legendary-17-source-body-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "80280734bc5f01c349a5ed762f22fd1cca7ee0943063c3e51ac8e98c494bd5d3"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-behemoth-all-clips-v2-final-runtime-low/legendary-17-source-body-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "22dd68d4546bba4b73cc3e5b791506d12efb656a46ebf4804876daf410066284"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-behemoth-all-clips-v2-final-runtime-low/legendary-17-source-body-3.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "15d64ed30d64ac55e2f60071291f050ab9d4198a664a94260cde1b5f03bc617c"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-behemoth-all-clips-v2-final-runtime-low/legendary-17-battle-head-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "8d24626d22cc1d68db9bfa97849da8e5b5cdb46ddf568f73419968c3da10e784"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-behemoth-all-clips-v2-final-runtime-low/legendary-17-battle-head-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "c21df77753e2335d028673a71d4ec7384974d2e6557466c476e3e15305db918d"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-behemoth-all-clips-v2-final-runtime-low/legendary-17-battle-head-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "02f962e7bfd6a65d9993c326f67d7243ea68293a3ea0a21674cd046fe0bcb9ac"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-behemoth-all-clips-v2-final-runtime-low/legendary-17-battle-head-3.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "80a74548a8cd5a4f030f87593cfc64429502f5e71795c0f36a1b13b3acc5aa00"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-behemoth-all-clips-v2-final-runtime-low/legendary-17-battle-body-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "608a0862ad86ea9b880cac6ba18b60f5423e16fddc79acd6b1d4c0906d948182"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-behemoth-all-clips-v2-final-runtime-low/legendary-17-battle-body-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "a48bda442ccde8288e241398fc2820ab0aec8530396a5f53fe0543190af3539a"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-behemoth-all-clips-v2-final-runtime-low/legendary-17-battle-body-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "41e6c8bc8eb415373ce6a8d238c9be83c212fe0bda7d2d140ed77c1fd496d4f3"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-behemoth-all-clips-v2-final-runtime-low/legendary-17-battle-body-3.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "08c1021fd81b6320436b54a8a457c2c2b0dbadfb616a8f54b268ca248578e5bd"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-behemoth-all-clips-v2-final-runtime-medium/legendary-17-source-head-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "c1430582b7e5843ba422c4384852c59193b8249682df8b92356e9a17c9e63b4b"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-behemoth-all-clips-v2-final-runtime-medium/legendary-17-source-head-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "25acee1f0e0a3bdd41bfeb9ab4fbe5815f54147ff65aa5ecc3cc3f2fce347c04"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-behemoth-all-clips-v2-final-runtime-medium/legendary-17-source-head-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "b3bb14bd3eee373bb69377cbc03c10822442839ba7a3bc82db952d1fecabec90"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-behemoth-all-clips-v2-final-runtime-medium/legendary-17-source-head-3.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "4a5f1d8c62872e1fed1d6de01990a40a27138297b1c7109e55adbdb12badee16"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-behemoth-all-clips-v2-final-runtime-medium/legendary-17-source-body-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "89fd7d023d45b7db8ae4eb98cd6535c4e537f13e08639ae37828b3d2862da7e1"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-behemoth-all-clips-v2-final-runtime-medium/legendary-17-source-body-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "4ff3e7d2dc0cc223afcab65d315c8ac3557e672fd9c26dd54c8fd8d7274ad549"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-behemoth-all-clips-v2-final-runtime-medium/legendary-17-source-body-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "ee577372b2196cc21c2b03378edcf9120d4b2061c1dfb1af6b657d5ca96bdd01"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-behemoth-all-clips-v2-final-runtime-medium/legendary-17-source-body-3.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "d1315a28ca078d7a11769994f0b40e731babe15e68765f41853eb51553e67fb0"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-behemoth-all-clips-v2-final-runtime-medium/legendary-17-battle-head-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "f0556c835101693499c75dc9fef4a7804f784944299fe23e997ffdad08b178e5"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-behemoth-all-clips-v2-final-runtime-medium/legendary-17-battle-head-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "3f8b127a14da8a788f3e23e37b872c5da6308a45b8cb3c58780a1034f902c0ec"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-behemoth-all-clips-v2-final-runtime-medium/legendary-17-battle-head-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "eda411113e5f04e962712fbb68c6fdac80dc0d32e8bdbd55e4cb5e8c3766adf6"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-behemoth-all-clips-v2-final-runtime-medium/legendary-17-battle-head-3.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "3c9c0f94c54c8af14be39b7f299fa95422f6c5675037bbec0b9117ab7cc6e6aa"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-behemoth-all-clips-v2-final-runtime-medium/legendary-17-battle-body-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "c8af47b07184c6be12e1486ff007b6f4d862e0c70dce7eed431ad66f3855c7f6"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-behemoth-all-clips-v2-final-runtime-medium/legendary-17-battle-body-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "a94bec5c55659970a186c87504595da2ca04d210cc35e3532ca67657cf537fec"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-behemoth-all-clips-v2-final-runtime-medium/legendary-17-battle-body-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "252fafb19c9fa1a6f515f27d178b54985fc705200611848457022710f751b5cc"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-behemoth-all-clips-v2-final-runtime-medium/legendary-17-battle-body-3.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "4231b687aa50489166e826adfd6e5864405fc26069821c57c7c115c7a07caa55"
+    }
+  ],
+  "techniques": [
+    {
+      "path": ".tmp/pet-companion-techniques/independent-behemoth-all-clips-v2-final-techniques/inspection-strips/front-block-0-half-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "a371d51622802450a1996b035ef03657be100bd6f56dbaa4e7a2edffa9a8c1fc"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-behemoth-all-clips-v2-final-techniques/inspection-strips/front-block-0-half-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "a85af510f25ee910590ad02c2c9dbb07287262a35c750687f1d3c3739f2b6b5e"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-behemoth-all-clips-v2-final-techniques/inspection-strips/front-block-1-half-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "aa57b39553661e92bb4c2042ecd1ddf7e52ca7039a5005a3301d95effe2a23bf"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-behemoth-all-clips-v2-final-techniques/inspection-strips/front-block-1-half-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "35d9a4fb79dcaef7e691ffb0b24a1bd6ff1d58ec115efeee233350a60a66e089"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-behemoth-all-clips-v2-final-techniques/inspection-strips/front-block-2-half-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "62418b66cefd4ba1c59b53d8f20a2a08849d07a08cf6a4fd97933e6a6b0594ad"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-behemoth-all-clips-v2-final-techniques/inspection-strips/front-block-2-half-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "e32cdfd76bb23e3bc45a41b0a87e564cdde9ccbdf8a4008b6902db9df3e5c2aa"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-behemoth-all-clips-v2-final-techniques/inspection-strips/side-block-0-half-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "a44052cda987e90575321052d9564c4c9ee16a8d47dcfcb4da5f470588d2abcc"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-behemoth-all-clips-v2-final-techniques/inspection-strips/side-block-0-half-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "7afa3582ea7ceb23d7e63fe265e2ecead6df40e237378ccd33ccbe570ec2812f"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-behemoth-all-clips-v2-final-techniques/inspection-strips/side-block-1-half-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "43a6553db88da1adb2596316c8ca561b32a26d093688671d6d6b6318859214ad"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-behemoth-all-clips-v2-final-techniques/inspection-strips/side-block-1-half-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "adc9f9ae4266d4210af0ca308dfad4f228b5025efaae5873dc7c0663eef31df8"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-behemoth-all-clips-v2-final-techniques/inspection-strips/side-block-2-half-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "fa0803d27bd4223520ca6703233bf7324a791e9caa93b54c556dd1636e904c39"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-behemoth-all-clips-v2-final-techniques/inspection-strips/side-block-2-half-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "7ce0bad33fef95d1411876f498076ffcc61f896175b44dbf396446fc1e24ccf0"
+    }
+  ],
+  "companion": [
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/behemoth-all-clips-v2-final-companions/legendary-17/idle-sheet-0.webp",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "d291555b142b13e27c45cdb347015eccfb37e719ae21241c37d4c85ccd418eeb"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/behemoth-all-clips-v2-final-companions/legendary-17/idle-sheet-1.webp",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "6e2a34f902e4dd30da3a7412f04c6a2f9a4d6fa1724f77f22019403589a38608"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/behemoth-all-clips-v2-final-companions/legendary-17/idle-sheet-2.webp",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "f6a2710c1edb1309255218ec384a578ba5cd1ad7a21177e450888a83da63ab32"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/behemoth-all-clips-v2-final-companions/legendary-17/idle-sheet-3.webp",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "94bb58ef89a9c4bf69c75251267e636b1f543545275b6757293585721cfd37f2"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/behemoth-all-clips-v2-final-companions/legendary-17/idle-sheet-4.webp",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "2d8a05bf986e0d91df9874e13fa962da02507cb0647d68fad4b27a8d85d5d442"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/behemoth-all-clips-v2-final-companions/legendary-17/idle-sheet-5.webp",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "48f2cbb421878f2aea0f82ccc62e34ba1cd253f8f963852a1ba9c472fbffe9f4"
+    }
+  ],
+  "atlas": {
+    "path": "public/pet-models/warfront-impostors/roster/legendary-17.webp",
+    "actuallyInspected": true,
+    "result": "pass",
+    "sha256": "cf7967c15bf63e18bab8e02f84b1a9ad50f56230bacb97fceaaf558754964c0c"
+  },
+  "runtimeSlicesActuallyInspected": 32,
+  "companionIdleFramesActuallyInspected": 24,
+  "atlasActuallyInspected": true
+}

@@ -1423,7 +1423,7 @@
       ],
       "referenceSha256": [
         "edf6602b9496143174ff73b18c58d85d554c22cfb65d0a22ccd7d93a9dda42d5",
-        "0eca5048ae2d79c892d5599eec99571d98179d3d811b0bb7a466a35168ebb018"
+        "b5d20515ebbc0268b36da8c88a0a9ed4c47a70df5a7b76a5f12c0d6f3d827313"
       ],
       "scene": "a weathered shinobi village training courtyard at golden hour, stone paving, bamboo fencing, tiled eaves and a softly glowing distant lantern",
       "prompt": "Use case: identity-preserve image revision. Image 1 is the finished square Inferno Chimera portrait to correct; Image 2 is a small grid showing the same ONE approved game model from different angles, solely an anatomy reference. Return ONE creature, never a grid. Redo the creature pose as a clear powerful four-legged feline demon, matching Image 2: exactly one horned orange-brown feline head, two swept dark horns, dark throat mane, muscular orange-brown fur, four distinct naturally attached legs with exactly four visible separated clawed paws on the ground, one thin brown tail attached to the pelvis with a small flame tuft only at its tip. Use a balanced three-quarter side stance with readable hind legs, no oversized foreground hand or hidden fused limb. Reduce the crowded giant detached flame plume: use a restrained short flame mane rising directly from the upper neck/back, consistent with the game model, without obscuring the body silhouette. Preserve the polished anime game illustration, warm stone-paved shinobi courtyard, bamboo fence, sunset village scenery, strong face and restrained dimensional cel shading. Remove the spiral-leaf emblem on the upper-right banner and any single inward spiral village crest elsewhere, leaving plain cloth and stone. No new emblem, text, logo, watermark, extra creature, extra head, duplicate limbs or weapons. Keep all horns, feet and tail tip within square safe margins. Finished professional game-studio portrait with clean anatomy and no forbidden village spiral.",
@@ -1476,6 +1476,13 @@
           "sha256": "0eca5048ae2d79c892d5599eec99571d98179d3d811b0bb7a466a35168ebb018",
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
+        },
+        {
+          "reference": "pet-models/warfront-impostors/roster/legendary-15.webp",
+          "previousSha256": "0eca5048ae2d79c892d5599eec99571d98179d3d811b0bb7a466a35168ebb018",
+          "sha256": "b5d20515ebbc0268b36da8c88a0a9ed4c47a70df5a7b76a5f12c0d6f3d827313",
+          "animationReview": "docs/audits/pet-chimera-all-clips-v2-final-review-2026-10-18.json",
+          "reason": "Update reference to twice visually reviewed animation atlas. Preserve all portrait master, delivery and quality/symbol review records; this is not a new portrait review."
         }
       ]
     },
@@ -1530,7 +1537,7 @@
       ],
       "referenceSha256": [
         "ddf9343ef648ea42a094d1478c793ac6471628b507339007901d27b1f4f1b0f7",
-        "194c607465b6921262a9d5e236ef06e5b174027d0d4fb4cc21192e136f570d7d"
+        "cf7967c15bf63e18bab8e02f84b1a9ad50f56230bacb97fceaaf558754964c0c"
       ],
       "scene": "a quiet terracotta-roofed village lookout at sunset, carved wooden beams, hazy mountain silhouettes and amber clouds",
       "prompt": "Use case: precise-object-removal edit. Image 1 is the finished game companion portrait and the ONLY edit target. Remove the forbidden spiral-with-pointed-leaf village emblem everywhere in this image, including tiny, distant or partial versions. Specifically: Exact spiral-leaf emblem on the left red banner; remove it entirely. Make ALL background banners, flags, lantern faces and carved emblem panels completely plain, unmarked surfaces of the same original material and color. Make any marked metal forehead plate blank metal, retaining its existing shape and rivets. No replacement emblem, no spiral crest, no close variation, no watermark, no writing. This is a small cleanup, not a redesign: preserve the exact existing creature identity, face, body, pose, limb and tail count, anatomy, clothing, equipment, colors, scene geometry, scenery, lighting, composition and generous safe margins. Keep all existing high-quality detail outside removed insignias. Retain the same square finished professional anime game-art style. Return the cleaned single portrait.",
@@ -1575,6 +1582,13 @@
           "sha256": "194c607465b6921262a9d5e236ef06e5b174027d0d4fb4cc21192e136f570d7d",
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
+        },
+        {
+          "reference": "pet-models/warfront-impostors/roster/legendary-17.webp",
+          "previousSha256": "194c607465b6921262a9d5e236ef06e5b174027d0d4fb4cc21192e136f570d7d",
+          "sha256": "cf7967c15bf63e18bab8e02f84b1a9ad50f56230bacb97fceaaf558754964c0c",
+          "animationReview": "docs/audits/pet-behemoth-all-clips-v2-final-review-2026-10-18.json",
+          "reason": "Update reference to twice visually reviewed animation atlas. Preserve all portrait master, delivery and quality/symbol review records; this is not a new portrait review."
         }
       ]
     },
@@ -2268,7 +2282,7 @@
       ],
       "referenceSha256": [
         "0071527baa4b7c2ea5595a6ae7ea61a259b433387d8ee2502271bb7af0b09232",
-        "aad57d1bc7eb997f641fbd2d3663dca2244c55fb727c35a9f650ba401fcf0dde"
+        "73e35b150e202643e92fc3d624584b723b84f963dc24a8aaadab0de15a750c5b"
       ],
       "scene": "a moonlit ancient shrine approach, distant torii gates, gently drifting blank paper charms, pale lunar mist and restrained blue rim light; its existing tails form the composition",
       "prompt": "Use case: precise-object-edit. Asset: finished square Eclipse Kitsune companion portrait for a polished shinobi RPG. Image 1 is the edit target. Full-size audit: five short straight neon-cyan vertical bars are accidentally drawn across the dark tail fan. Remove every cyan line/bar entirely and restore uninterrupted dark fur/shading. Preserve the exact five visible tails, their arrangement, the face, golden eye, four-legged pose and all existing scene lighting.  Preserve the character's established face, colors, markings, proportions, correct outfit and exact number of intended tails and limbs. Preserve the same full scenic shinobi environment, lighting, crisp anime ink and refined rounded cel shading. One creature in one square portrait. No text, watermark, frame, collage, duplicate heads, extra limbs or new weapons.",
@@ -2319,6 +2333,13 @@
           "upstreamCommit": "1c765d155",
           "reviewReceipt": "docs/audits/pet-animation-shape-reviews.json",
           "reason": "Integrate independently double-checked animation and anatomy repair atlas. Historical reference hashes remain in this history; scenic portrait master and delivery are unchanged."
+        },
+        {
+          "reference": "pet-models/warfront-impostors/roster/mythic-0.webp",
+          "previousSha256": "aad57d1bc7eb997f641fbd2d3663dca2244c55fb727c35a9f650ba401fcf0dde",
+          "sha256": "73e35b150e202643e92fc3d624584b723b84f963dc24a8aaadab0de15a750c5b",
+          "animationReview": "docs/audits/pet-eclipse-kitsune-all-clips-v2-final-review-2026-10-18.json",
+          "reason": "Update reference to twice visually reviewed animation atlas. Preserve all portrait master, delivery and quality/symbol review records; this is not a new portrait review."
         }
       ]
     },
