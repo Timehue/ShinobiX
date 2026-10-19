@@ -1,4 +1,4 @@
-import test from 'node:test';
+import test, { describe } from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile,writeFile,mkdtemp,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
@@ -7,6 +7,10 @@ import {loadPetDeformationProbe} from './lib/pet-deformation-probe.mjs';
 import {retargetFittedPetPerformances,OMITTED_FITTED_PERFORMANCE_CLIPS} from './lib/pet-retarget-fitted-performances.mjs';
 import {freezeVisibleSoleRegions,selectVisibleSoleRegions,measureVisibleLimbPerformances} from './lib/pet-visible-limb-performance.mjs';
 
+// Await both stages inside a suite before child tests and cleanup can run.
+// Registering root tests between top-level awaits lets the source-stage tests
+// finish and delete the temp directory while battle-stage setup still uses it.
+await describe('Azure omitted authored performances', async () => {
 const fixture=name=>new URL('./fixtures/'+name,import.meta.url);
 const original=await loadPetDeformationProbe(fixture('pet-complete-face-20261015/mythic-6-v1.glb'));
 const annotation=JSON.parse(await readFile(fixture('pet-omitted-limb-performances/mythic-6-visible-paws.json')));
@@ -74,4 +78,5 @@ for(const stage of ['source','battle'])test(`Azure shipping ${stage}: regenerate
     const repaired=repairedCases.get('source');
     for(const clip of repaired.animations){const actual=model.animations.find(c=>c.name===clip.name);assert.equal(actual.tracks.length,clip.tracks.length);for(const track of clip.tracks){const t=actual.tracks.find(t=>t.name===track.name);assert.ok(t);assert.deepEqual(t.times,track.times);assert.deepEqual(t.values,track.values);assert.equal(t.getInterpolation(),track.getInterpolation());}}
     if(stage==='source')assert.equal(model.sha256,'29fe007d1943642b97042072c25a4d7a0fcd5b2be1f28ad0e7dd71971bb17692');
+});
 });
