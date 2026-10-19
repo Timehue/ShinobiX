@@ -1,3 +1,4 @@
+import { HOLLOW_GATE_SHINOBI_ROUND_LIMIT, HOLLOW_GATE_LEGACY_SHINOBI_ROUND_LIMIT } from '../../../shared/hollow-gate-round-limit';
 import { playerLensDiscipline } from "../lib/player-lens-discipline";
 import { CombatGridAppearanceControls, CombatGridOutline } from "../components/CombatGridAppearance";
 import { useCombatGridAppearance } from "../lib/use-combat-grid-appearance";
@@ -711,6 +712,8 @@ export function MissionArenaFight({
         player: { pos: myPos }, enemy: { hp: gateEnemyHp, maxHp: gateEnemyMaxHp, pos: enemyPos, name: enemy?.name },
         hollowGateTelegraph: session.hollowGateTelegraph, gridWidth: w, gridHeight: h,
     }) : null;
+    const gateRoundLimit = session.hollowGateRoundLimit ?? (session.status === 'active' ? HOLLOW_GATE_SHINOBI_ROUND_LIMIT : HOLLOW_GATE_LEGACY_SHINOBI_ROUND_LIMIT);
+    const gateRoundsLeft = Math.max(0, gateRoundLimit - session.round + 1);
     const gateHazards = new Set(gateDirective?.hazardTiles ?? []);
     const gateSafe = new Set(gateDirective?.safeTiles ?? []);
 
@@ -1425,7 +1428,7 @@ export function MissionArenaFight({
                         )}
                         {gateDirective && (
                             <>
-                                <span className="hg-round-limit" role="status">Round {Math.min(session.round, session.hollowGateRoundLimit ?? 25)}/{session.hollowGateRoundLimit ?? 25} · Win by the end of the final round; reaching the limit counts as defeat.</span>
+                                <span className="hg-round-limit" role="status">Round {Math.min(session.round, gateRoundLimit)}/{gateRoundLimit} · {gateRoundsLeft} {gateRoundsLeft === 1 ? 'round' : 'rounds'} left. Unresolved after the final round counts as defeat.</span>
                                 <span className="twp-strip-sep">·</span>
                                 <span className={`hg-combat-directive hg-tone-${gateDirective.tone} hg-phase-${gateDirective.phase}`} aria-live="polite">
                                     <strong>{hollowGate?.kind === "boss" ? `PHASE ${gateDirective.phase} · ` : ""}{gateDirective.phaseName}</strong>

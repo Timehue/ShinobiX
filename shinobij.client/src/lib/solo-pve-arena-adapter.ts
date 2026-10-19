@@ -1,3 +1,4 @@
+import { hollowGateShinobiRoundLimit } from '../../../shared/hollow-gate-round-limit';
 import {
     fetchSoloPveState,
     submitSoloPveAction,
@@ -167,10 +168,11 @@ export function soloPveBeatStream(session: SoloPveSession): ServerArenaBeat[] {
 
 export function soloPveSessionForArena(session: SoloPveSession): ServerArenaSession {
     const companion = companionActor(session);
+    const roundLimit = hollowGateShinobiRoundLimit(session);
     return {
         sessionId: session.sessionId,
         hollowGateTelegraph: session.hollowGateTelegraph,
-        hollowGateRoundLimit: session.hollowGateRoundLimit,
+        hollowGateRoundLimit: roundLimit,
         terminalReason: session.terminalReason,
         runtimeVersion: session.version,
         map: { width: 12, height: 10, biome: session.environment.biome, blockedTiles: session.environment.blockedTiles },
@@ -184,7 +186,7 @@ export function soloPveSessionForArena(session: SoloPveSession): ServerArenaSess
         winner: session.winner === "player" ? "squad" : session.winner,
         log: session.log,
         // The diagnostic runtime is loaded with the combat screen, not boot.
-        debugSource: { sessionId: session.sessionId, eventSeq: session.eventSeq, events: session.events, status: session.status, outcome: session.outcome, terminalReason: session.terminalReason,
+        debugSource: { sessionId: session.sessionId, eventSeq: session.eventSeq, events: session.events, status: session.status, outcome: session.outcome, terminalReason: session.terminalReason, hollowGateRoundLimit: roundLimit,
             player: { name: session.player.name }, enemy: { name: session.enemy.name, character: { level: session.enemy.character.level } } },
         groundEffects: session.groundEffects.map((effect) => ({ ...effect, owner: effect.owner })),
         weather: {

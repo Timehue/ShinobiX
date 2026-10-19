@@ -8,7 +8,7 @@ import type { CompanionMove, CompanionSeal } from '../combat-core/companion.js';
 import type { AuthoritativeCombatEvent } from '../combat-core/events.js';
 import { timeStartingShield } from '../combat-core/shields.js';
 import { assertSoloPveLoadoutCompatible } from './_compatibility.js';
-import { MAX_ROUNDS } from '../combat-core/constants.js';
+import { HOLLOW_GATE_SHINOBI_ROUND_LIMIT, hollowGateShinobiRoundLimit } from '../../shared/hollow-gate-round-limit.js';
 import { sealHollowGateTelegraph, type HollowGateTelegraph } from '../../shared/hollow-gate-telegraph.js';
 import type { SoloPveTerminalReason } from '../../shared/solo-pve-terminal.js';
 
@@ -339,10 +339,17 @@ export function createSoloPveSession(params: CreateSoloPveSessionParams): SoloPv
         ...(Object.keys(seededVitals).length > 0 ? { seededVitals } : {}),
     };
     if (session.encounter.kind === 'hollow-gate') {
-        session.hollowGateRoundLimit = MAX_ROUNDS;
+        session.hollowGateRoundLimit = HOLLOW_GATE_SHINOBI_ROUND_LIMIT;
         sealHollowGateTelegraph(session);
     }
     return session;
+}
+
+/** Wire projection only: never alter a stored predecessor used by compare-set. */
+export function soloPveSessionForResponse(session: SoloPveSession): SoloPveSession {
+    const limit = session.status === 'active' ? hollowGateShinobiRoundLimit(session) : undefined;
+    return limit !== undefined && session.hollowGateRoundLimit !== limit
+        ? { ...session, hollowGateRoundLimit: limit } : session;
 }
 
 /** The sealed active TTL a session was created with (clamped exactly as creation clamps it). */

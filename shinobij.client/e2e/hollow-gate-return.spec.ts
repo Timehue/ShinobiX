@@ -5,8 +5,9 @@ test('Warden decision shows its sealed cue and round-cap warning without horizon
     await page.route('**/api/solo-pve/state**', async route => route.fulfill({ json: { ok: true,
         session: await page.evaluate(() => (window as unknown as { wardenQaSession: unknown }).wardenQaSession) } }));
     await page.goto('/e2e/fixtures/hollow-gate-warden.html');
-    const warning = page.getByRole('status').filter({ hasText: 'Round 18/25' });
+    const warning = page.getByRole('status').filter({ hasText: 'Round 18/40' });
     await expect(warning).toBeVisible();
+    await expect(warning).toContainText('23 rounds left');
     const instruction = page.getByText('Stand inside the violet ward column before Mirror-Shard Warden acts.', { exact: true });
     await expect(instruction).toBeVisible();
     for (const rule of [warning, instruction]) {
@@ -20,11 +21,28 @@ test('Warden decision shows its sealed cue and round-cap warning without horizon
 test('Warden cap result explains the terminal reason and names the actual opponent', async ({ page }, info) => {
     await page.goto('/e2e/fixtures/hollow-gate-warden.html?cap=1');
     const result = page.getByRole('dialog', { name: 'Hollow Gate combat result' });
-    await expect(result).toContainText('The 25-round limit expired before Mirror-Shard Warden was defeated. This dive has ended.');
+    await expect(result).toContainText('The 40-round limit expired before Mirror-Shard Warden was defeated. This dive has ended.');
     await expect(result).not.toContainText('Hollow Hound');
     await page.screenshot({ path: info.outputPath('warden-cap-result.png'), fullPage: true });
     await result.getByRole('button', { name: 'Continue', exact: true }).click();
     await expect(page.locator('body')).toHaveAttribute('data-resolved', 'yes');
+});
+
+test('a historical terminal 25-round result is not reopened or relabeled as 40', async ({ page }) => {
+    await page.goto('/e2e/fixtures/hollow-gate-warden.html?cap=1&legacy=1');
+    const result = page.getByRole('dialog', { name: 'Hollow Gate combat result' });
+    await expect(result).toContainText('The 25-round limit expired before Mirror-Shard Warden was defeated.');
+    await expect(result).not.toContainText('40-round');
+});
+
+test('a replayed legacy receipt keeps 25 even when the initial fight prop was active', async ({ page }) => {
+    await page.route('**/api/solo-pve/state**', async route => route.fulfill({ json: { ok: true,
+        session: await page.evaluate(() => ({ ...(window as unknown as { wardenQaSession: object }).wardenQaSession,
+            version: 2, status: 'done', outcome: 'loss', winner: 'enemy', terminalReason: 'round-limit', round: 26, hollowGateRoundLimit: 25 })) } }));
+    await page.goto('/e2e/fixtures/hollow-gate-warden.html?legacyReceipt=1');
+    const result = page.getByRole('dialog', { name: 'Hollow Gate combat result' });
+    await expect(result).toContainText('The 25-round limit expired before Mirror-Shard Warden was defeated.');
+    await expect(result).not.toContainText('40-round');
 });
 
 async function install(page: Page, outcome: 'win' | 'loss' | 'ended', failFirst = false, active = false) {

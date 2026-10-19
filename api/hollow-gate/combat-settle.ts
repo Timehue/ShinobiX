@@ -1,6 +1,7 @@
 import { creditElderWins } from '../../shared/elder-elections.js';
 import { HOLLOW_GATE_HUNTER_BREATHER_STEPS } from '../../shared/hollow-gate-pacing.js';
 import { hollowGateLossHp } from '../../shared/hollow-gate-loss.js';
+import { hollowGateShinobiRoundLimit } from '../../shared/hollow-gate-round-limit.js';
 import type { SoloPveTerminalReason } from '../../shared/solo-pve-terminal.js';
 import { createHash, randomInt } from 'node:crypto';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
@@ -58,6 +59,7 @@ const VEIL_OF_THE_HOLLOW_ID = 'veil-of-the-hollow';
 type CombatReceipt = {
     terminalReason?: SoloPveTerminalReason;
     opponentName?: string;
+    roundLimit?: number;
     version?: 2;
     won: boolean;
     revived?: boolean;
@@ -74,7 +76,7 @@ function combatReplayBody(receipt: CombatReceipt, current: Record<string, unknow
         revived: receipt.revived ?? false, escaped: receipt.escaped ?? false,
         petDefeat: receipt.petDefeat ?? false, ended: receipt.ended ?? false,
         reward: receipt.reward, elementalShards: receipt.elementalShards,
-        terminalReason: receipt.terminalReason, opponentName: receipt.opponentName,
+        terminalReason: receipt.terminalReason, opponentName: receipt.opponentName, roundLimit: receipt.roundLimit,
         character: current?.character ?? null, _saveVersion: Number(current?._saveVersion ?? 0) };
 }
 
@@ -250,7 +252,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             const endedReceipt = { ...existingReceipt!, ended: true };
                             const next = { ...projection, hollowGatePendingOperation: makeHollowGatePendingOperation({
                                 token, kind: 'combat', id: runId, before: run, after: null,
-                                response: { ok: true, won: endedReceipt.won, ended: true, terminalReason: endedReceipt.terminalReason, opponentName: endedReceipt.opponentName },
+                                response: { ok: true, won: endedReceipt.won, ended: true, terminalReason: endedReceipt.terminalReason, opponentName: endedReceipt.opponentName, roundLimit: endedReceipt.roundLimit },
                             }) };
                             return writeVersionedPlayerSaveWithStore(kv, `save:${playerName}`, latest, next, {}, { hollowGateCurrencySource: 'run' });
                         }, { failClosed: true, ttlSec: 10 });
@@ -331,7 +333,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const elementalShards = won && !endedProjection && binding!.kind === 'boss'
                     && randomInt(0, 10_000) < Math.floor(Math.min(0.8, 0.5 + binding!.floor * 0.03) * 10_000) ? 1 : 0;
                 const receipt: CombatReceipt = { version: 2, won, revived, escaped, petDefeat,
-                    ...(session ? { terminalReason: session.terminalReason, opponentName: session.enemy?.name } : {}),
+                    ...(session ? { terminalReason: session.terminalReason, opponentName: session.enemy?.name, roundLimit: hollowGateShinobiRoundLimit(session) } : {}),
                     ...(endedProjection ? { ended: true } : {}), reward, elementalShards, settledAt: Date.now() };
                 const placed = await kv.set(receiptKey, receipt, { nx: true, ex: COMBAT_RECEIPT_TTL_SECONDS });
                 if (!placed) {
@@ -487,7 +489,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 next.settledHollowGateCombatIds = [...settledIds.filter((id) => id !== runId).slice(-199), runId];
                 next.hollowGatePendingOperation = makeHollowGatePendingOperation({
                     token, kind: 'combat', id: runId, before: run, after: runAfterCombatSettlement(run, binding, receipt),
-                    response: { ok: true, won, revived, escaped, petDefeat, reward: receipt.reward, elementalShards, terminalReason: receipt.terminalReason, opponentName: receipt.opponentName },
+                    response: { ok: true, won, revived, escaped, petDefeat, reward: receipt.reward, elementalShards, terminalReason: receipt.terminalReason, opponentName: receipt.opponentName, roundLimit: receipt.roundLimit },
                 });
                 // Retain the receipt when commitment is uncertain. Retry checks
                 // the server-owned applied IDs before deciding whether to pay.
@@ -520,6 +522,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 ended: banked.receipt.ended ?? false,
                 terminalReason: banked.receipt.terminalReason,
                 opponentName: banked.receipt.opponentName,
+                roundLimit: banked.receipt.roundLimit,
                 reward: banked.receipt.reward,
                 elementalShards: banked.receipt.elementalShards,
                 character: banked.character,

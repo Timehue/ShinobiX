@@ -24,6 +24,7 @@ export type HollowGateCombatStartResult = {
 export type HollowGateCombatSettleResult = {
     terminalReason?: import('../../../shared/solo-pve-terminal').SoloPveTerminalReason;
     opponentName?: string;
+    roundLimit?: number;
     ok: boolean;
     won: boolean;
     revived?: boolean;
