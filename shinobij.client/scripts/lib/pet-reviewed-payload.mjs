@@ -10,6 +10,7 @@ const client=resolve(import.meta.dirname,'../..'),modelRoot=resolve(client,'publ
 const receipts=JSON.parse(await readFile(resolve(client,'../docs/audits/pet-animation-shape-reviews.json'))).pets;
 const sha=bytes=>createHash('sha256').update(bytes).digest('hex');
 export function assertPayloadPreservedOrReviewed(path,bytes,json,bin,proof){
+    if(json.extras?.pebbleFullRemake){assertReviewedFullRemakePebblePayload(path,bytes,json);return;}
     if(json.extras?.pebbleDistinctRebuild){assertReviewedDistinctPebblePayload(path,bytes,json);return;}
     const prefix=sha(bin.subarray(0,proof.preservedPayloadBytes));
     if(prefix===proof.preservedPayloadSha256)return;
@@ -23,19 +24,28 @@ export function assertPayloadPreservedOrReviewed(path,bytes,json,bin,proof){
     assert.deepEqual(receipt.clips,PET_REVIEW_CLIPS);assert.deepEqual(receipt.views,['front','side']);
 }
 
-// Pebble's new sculpt deliberately replaces obsolete prefix receipts. Require
-// the exact twice-reviewed source/LOD and complete visual evidence instead.
+// The earlier detached-scalp attempt was explicitly rejected by the user.
 export function assertReviewedDistinctPebblePayload(path,bytes,json){
+    assert.fail(`${path}: rejected Pebble scalp replacement requires the complete new sculpt`);
+}
+
+// Complete sculpt replacement has a new topology and UV atlas. Its independent
+// checks replace obsolete binary-prefix and bone-origin contact receipts.
+export function assertReviewedFullRemakePebblePayload(path,bytes,json){
     const row=runtimePetModels.find(row=>row.pet.id==='starter-earth'&&(resolve(path)===resolve(row.path)||resolve(path)===resolve(modelRoot,'warfront-lod',relative(modelRoot,row.path))));
-    assert.ok(row,'Distinct rebuild is only approved for Pebble runtime assets');
-    const recipe=json.extras?.pebbleDistinctRebuild;
-    assert.equal(recipe?.sourceSha256,'0a1706f3bfbe4399202530b788c5b1573ceecaf6a345fa38296e389f4c5feae5');
-    assert.equal(recipe?.sharedStoneTurtleGeometry,false);
-    assert.equal(recipe?.removedCapTriangles,2499);assert.equal(recipe?.scalpVertices,1006);
+    assert.ok(row,'Full remake is only approved for Pebble runtime assets');
+    const recipe=json.extras?.pebbleFullRemake;
+    assert.equal(recipe?.revision,'20261019-full-sculpt-reviewed-v9');
+    assert.equal(recipe?.privateCandidateOnly,false);
+    assert.equal(recipe?.geometryEntirelyNew,true);assert.equal(recipe?.uvAtlasEntirelyNew,true);
     const stage=resolve(path)===resolve(row.path)?'sha256':'lodSha256',receipt=receipts['starter-earth'];
-    assert.equal(sha(bytes),stage==='sha256'?'c99b0471489b65a5fe2c4b9b50bf781c48f4820f7eacdb092cf983a15ca51894':'64524351ebb7534dd603645a6d8015ec745829d9bfa75ced0a8a9340e725f0b3','Reviewed distinct Pebble payload is stale');
+    assert.equal(sha(bytes),stage==='sha256'?'e3c992fa17abf531f99572620499560295a9a99b3d4518eee180f13a0b69890b':'0d32d4a122c8d5524a71489a420ed730986a95bce855bbe864b7dfb341f20bcc','Reviewed full remake Pebble payload is stale');
     assert.equal(sha(bytes),receipt?.[stage]);
+    assert.notEqual(receipt.acceptance,'rejected-by-user');
     assert.ok(receipt.reviewer&&receipt.reviewedAt&&receipt.fullBodyReviewed&&receipt.skullShapeReviewed&&receipt.transitionsReviewed&&receipt.independentFullFaceReviewed);
     assert.equal(receipt.companionIdleFramesReviewed,24);assert.equal(receipt.equippedTechniqueFramesReviewed,216);
+    assert.equal(receipt.fullRemakeReview?.faceRegions,13);assert.equal(receipt.fullRemakeReview?.exclusionMasks,false);
+    assert.equal(receipt.fullRemakeReview?.rawVisualPasses,2);assert.equal(receipt.fullRemakeReview?.techniqueVisualPasses,2);
+    assert.equal(receipt.fullRemakeReview?.completeSkinComponents,1);
     assert.deepEqual(receipt.clips,PET_REVIEW_CLIPS);assert.deepEqual(receipt.views,['front','side']);
 }

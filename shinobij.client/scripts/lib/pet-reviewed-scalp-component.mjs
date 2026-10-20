@@ -1,8 +1,7 @@
 import {createHash} from 'node:crypto';
 
-/** A disconnected surface can be an authored anatomical part. This allowance
- * is restricted to the exact, twice-viewed Pebble scalp, rather than relaxing
- * the general oversized-proxy or duplicate-anatomy checks for other meshes. */
+/** Historical identification used only by the rejected-attempt regression.
+ * Production certification no longer imports or grants this old allowance. */
 export function reviewedPebbleScalp(glb, primitive, id, component, reader) {
     if (id !== 'starter-earth' || createHash('sha256').update(glb.file).digest('hex') !== 'c99b0471489b65a5fe2c4b9b50bf781c48f4820f7eacdb092cf983a15ca51894') return false;
     const recipe = glb.json.extras?.pebbleDistinctRebuild;

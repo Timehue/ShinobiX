@@ -12,25 +12,28 @@ import {createIndependentFaceProbe} from '../src/pet-independent-face-probe.ts';
 import {reviewedPebbleScalp} from './lib/pet-reviewed-scalp-component.mjs';
 import {assertReviewedDistinctPebblePayload} from './lib/pet-reviewed-payload.mjs';
 
-const source=new URL('../public/pet-models/starter-earth.glb',import.meta.url);
+// Preserve the rejected attempt as a regression fixture. Passing its old
+// numerical checks never grants approval to put it back in the game.
+const source=new URL('./fixtures/pet-pebble-full-remake-private/rejected-public-scalp.glb',import.meta.url);
+const battle=new URL('./fixtures/pet-pebble-full-remake-private/rejected-public-scalp-battle.glb',import.meta.url);
 const fixture=new URL('./fixtures/pet-pebble-tortoise-distinct/starter-earth-before.glb',import.meta.url);
 const meshSha='789f87dd462a45e3794f3fbe4be71f9d71dec0c2ef8faa844a5a4a59d20257bf';
 const expected='c99b0471489b65a5fe2c4b9b50bf781c48f4820f7eacdb092cf983a15ca51894';
-const annotation=JSON.parse(await readFile(new URL('./pet-independent-face-landmarks.json',import.meta.url))).pets['starter-earth'];
+const annotation=JSON.parse(await readFile(new URL('./fixtures/pet-pebble-full-remake-private/rejected-public-face-landmarks.json',import.meta.url)));
 const contactFixture=new URL('./fixtures/pet-pebble-tortoise-distinct/contact-motion-before.glb',import.meta.url);
 const groundedClips=['attack','cast','idle_hitreact1'];
 
-test('distinct-model provenance rejects changed bytes, a borrowed identity or shared geometry',async()=>{
+test('rejected scalp attempt cannot be readmitted by its old provenance',async()=>{
     const bytes=await readFile(source),model=await loadPetDeformationProbe(source),path=fileURLToPath(source);
-    assert.doesNotThrow(()=>assertReviewedDistinctPebblePayload(path,bytes,model.json));
+    assert.throws(()=>assertReviewedDistinctPebblePayload(path,bytes,model.json),/rejected Pebble scalp/);
     const changed=Buffer.from(bytes);changed[changed.length-1]^=1;
-    assert.throws(()=>assertReviewedDistinctPebblePayload(path,changed,model.json),/payload is stale/);
-    assert.throws(()=>assertReviewedDistinctPebblePayload(fileURLToPath(new URL('../public/pet-models/roster/standard-5.glb',import.meta.url)),bytes,model.json),/only approved for Pebble/);
+    assert.throws(()=>assertReviewedDistinctPebblePayload(path,changed,model.json),/rejected Pebble scalp/);
+    assert.throws(()=>assertReviewedDistinctPebblePayload(fileURLToPath(new URL('../public/pet-models/roster/standard-5.glb',import.meta.url)),bytes,model.json),/rejected Pebble scalp/);
     const shared=structuredClone(model.json);shared.extras.pebbleDistinctRebuild.sharedStoneTurtleGeometry=true;
     assert.throws(()=>assertReviewedDistinctPebblePayload(path,bytes,shared));
 });
 
-test('only the exact reviewed, green, skull-bound scalp is recognized as separate anatomy',async()=>{
+test('historical scalp identification is confined to its exact rejected fixture',async()=>{
     const model=await loadPetDeformationProbe(source),mesh=model.meshes[0],g=mesh.geometry,primitive=model.json.meshes[0].primitives[0];
     const glb={file:await readFile(source),json:model.json},start=g.attributes.position.count-1006,vertices=new Set();let triangles=0;
     for(let i=0;i<g.index.count;i+=3)if(g.index.getX(i)>=start){triangles++;for(let k=0;k<3;k++)vertices.add(g.index.getX(i+k));}
@@ -72,7 +75,7 @@ test('Independent full-surface samples detect the pre-correction floor penetrati
 });
 
 for(const stage of ['source','battle'])test(`Pebble ${stage}: attack, cast and recoil clear the floor at independent offset times`,async()=>{
-    const m=await loadPetDeformationProbe(stage==='source'?source:new URL('../public/pet-models/warfront-lod/starter-earth.glb',import.meta.url));
+    const m=await loadPetDeformationProbe(stage==='source'?source:battle);
     const result=groundSweep(m);assert.ok(result.every(r=>r.clearance>=-.0005),JSON.stringify(result));assert.equal(m.json.extras.characterMotion.plantedAttack,true);assert.equal(m.json.extras.characterMotion.plantedRecoil,true);
 });
 
@@ -118,7 +121,7 @@ test('Scalp cleanup preserves the original eyes, muzzle and chin geometry and UV
 });
 
 for(const stage of ['source','battle'])test(`Pebble ${stage}: ten independently marked face regions remain coherent through all clips and 468 blends`,async()=>{
-    const model=await loadPetDeformationProbe(stage==='source'?source:new URL('../public/pet-models/warfront-lod/starter-earth.glb',import.meta.url));
+    const model=await loadPetDeformationProbe(stage==='source'?source:battle);
     const probe=createIndependentFaceProbe(model.meshes,annotation),mixer=new THREE.AnimationMixer(model.scene),restore=snapshotPetPose(model.scene);let samples=0;
     for(const clip of model.animations)for(const time of petClipSampleTimes(clip,24)){
         mixer.stopAllAction();restore();const action=mixer.clipAction(clip).reset().setLoop(THREE.LoopOnce,1);action.clampWhenFinished=true;action.play();action.time=time;mixer.update(0);model.update();probe.measure(time);samples++;
