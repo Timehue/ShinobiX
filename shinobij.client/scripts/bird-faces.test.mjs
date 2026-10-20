@@ -13,6 +13,8 @@ const BIND_BASELINES=JSON.parse(await readFile(new URL('./fixtures/pet-bind-2026
 // metadata indices cannot reconstruct the original mesh inside the new file.
 // Use the independently frozen pre-repair assets, with their original hashes.
 const COMPLETE_FACE_BASELINES = {
+    'standard-17': '33aab8bafe18f533fb36c0209590e831a2ff2951cab3b823757fcc3eb75bf06c',
+    'rare-27': '65e88536b4be529b118cba3e76b0718197366a346b3c5a9a96f0a5aa6219d249',
     'legendary-6': '969f6f0ac6355377d7d6bb3a65799aa98bd2a8591e09c78c8bb3f6badcdd2579',
     'legendary-16': 'd761f0769ecacdd38a5290f5a9536c74f8aeae358fa0cbeb37a9d115880798f8',
 };

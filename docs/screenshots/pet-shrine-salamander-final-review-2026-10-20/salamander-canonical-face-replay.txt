@@ -1,0 +1,12 @@
+✔ rare-22: independent anatomy detects the released face binding defect (269.532ms)
+✔ rare-22 source: repaired anatomy passes every clip and blend (1374.6965ms)
+✔ rare-22 warfront-lod/: repaired anatomy passes every clip and blend (401.8102ms)
+✔ rare-22: pinned repair conserves sculpt and rig, validates authored or explicitly reviewed curves, and reproduces shipping bytes (54249.5694ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 57037.0249
