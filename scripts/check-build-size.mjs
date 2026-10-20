@@ -864,7 +864,11 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // and mode-specific replay returns add 5,677 B to the 9,569,959 B local baseline.
 // Measured product graph: 9,575,636 B. Allow 9.58 MB, leaving 4,364 B headroom;
 // startup, per-chunk, CSS and asset gates remain unchanged.
-const TOTAL_JS_CSS_FAIL_BYTES = 9_580_000;
+// 2026-10-20: integrating current main's pet progression and Gate/assault
+// handoffs with these recovery and identity fixes measures 9,580,795 B.
+// Allow 2 KB for the combined graph (1,205 B headroom); startup raw/gzip,
+// per-chunk, CSS and asset limits remain unchanged.
+const TOTAL_JS_CSS_FAIL_BYTES = 9_582_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai
