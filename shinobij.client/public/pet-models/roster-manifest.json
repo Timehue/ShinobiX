@@ -903,7 +903,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "FC639CEE5499A0C1D8965C7C886C8AF83CF3EE3D750FF1146BB162AADDD7A82D",
+      "sha256": "EBE7F3606AB0D81AD1F3AE2A7B35D2AA9CC3342E03FB892F7FED71BBE37B9916",
       "validation": {
         "ok": true,
         "reason": null,
