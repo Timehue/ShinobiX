@@ -3,6 +3,20 @@ import assert from 'node:assert/strict';
 import {placeWandererLabel} from './wanderer-label-layout';
 const bounds={x:0,y:0,width:368,height:368};
 const overlaps=(a:typeof bounds,b:typeof bounds)=>a.x<b.x+b.width+4&&a.x+a.width+4>b.x&&a.y<b.y+b.height+4&&a.y+a.height+4>b.y;
+test('a caretaker name finds the close gap below speech instead of choosing a detached grid row',()=>{
+    const name={x:128,y:170,width:74,height:15},owner={x:153,y:193,width:22,height:22};
+    const occupied=[{x:157,y:197,width:14,height:14},{x:124,y:187,width:79,height:38},{x:140,y:159,width:41,height:36},{x:186,y:160,width:43,height:48}];
+    // A clear position exists at y=229, between the quantized search rows.
+    assert(occupied.every(other=>!overlaps({...name,y:229},other)));
+    for(const previous of [{x:0,y:0},{x:0,y:-38}]){
+        const shift=placeWandererLabel(name,bounds,occupied,previous,owner),placed={...name,x:name.x+shift.x,y:name.y+shift.y};
+        assert(occupied.every(other=>!overlaps(placed,other)));
+        assert(placed.x>=0&&placed.y>=0&&placed.x+placed.width<=bounds.width&&placed.y+placed.height<=bounds.height);
+        const distance=Math.hypot(Math.max(owner.x-placed.x-placed.width,placed.x-owner.x-owner.width,0),Math.max(owner.y-placed.y-placed.height,placed.y-owner.y-owner.height,0));
+        assert(distance<=28,`caretaker caption must stay near its owner; got ${distance}px`);
+        assert.deepEqual(placeWandererLabel(name,bounds,occupied,shift,owner),shift,'a clear nearby placement stays stable through the next frame');
+    }
+});
 test('the actual phone Sada/Pell collision resolves with a small nudge and keeps valid placement stable',()=>{
     const sada={x:117,y:257,width:69,height:13},pell={x:183,y:257,width:64,height:13},neri={x:60,y:239,width:67,height:13};
     const shift=placeWandererLabel(sada,bounds,[pell,neri],{x:0,y:0}),placed={...sada,x:sada.x+shift.x,y:sada.y+shift.y};
