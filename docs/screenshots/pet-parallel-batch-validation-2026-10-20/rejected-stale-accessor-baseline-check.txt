@@ -1,0 +1,118 @@
+✔ standard-7 retains its mesh and wings while the eyes/beak remain cohesive in all clips (545.9552ms)
+✔ standard-10 retains its mesh and wings while the eyes/beak remain cohesive in all clips (329.6671ms)
+✔ standard-17 retains its mesh and wings while the eyes/beak remain cohesive in all clips (424.6064ms)
+✔ standard-35 retains its mesh and wings while the eyes/beak remain cohesive in all clips (260.2545ms)
+✔ standard-36 retains its mesh and wings while the eyes/beak remain cohesive in all clips (272.954ms)
+✔ standard-37 retains its mesh and wings while the eyes/beak remain cohesive in all clips (316.8751ms)
+✖ standard-39 retains its mesh and wings while the eyes/beak remain cohesive in all clips (5.6275ms)
+✖ standard-44 retains its mesh and wings while the eyes/beak remain cohesive in all clips (5.5989ms)
+✔ rare-3 retains its mesh and wings while the eyes/beak remain cohesive in all clips (277.0061ms)
+✔ rare-7 retains its mesh and wings while the eyes/beak remain cohesive in all clips (358.2025ms)
+✔ rare-10 retains its mesh and wings while the eyes/beak remain cohesive in all clips (284.8361ms)
+✔ rare-17 retains its mesh and wings while the eyes/beak remain cohesive in all clips (546.8506ms)
+✔ rare-18 retains its mesh and wings while the eyes/beak remain cohesive in all clips (309.2062ms)
+✔ rare-27 retains its mesh and wings while the eyes/beak remain cohesive in all clips (469.3983ms)
+✔ rare-35 retains its mesh and wings while the eyes/beak remain cohesive in all clips (371.0806ms)
+✔ rare-36 retains its mesh and wings while the eyes/beak remain cohesive in all clips (329.4605ms)
+✖ rare-37 retains its mesh and wings while the eyes/beak remain cohesive in all clips (6.952ms)
+✖ rare-38 retains its mesh and wings while the eyes/beak remain cohesive in all clips (9.1697ms)
+✔ rare-39 retains its mesh and wings while the eyes/beak remain cohesive in all clips (304.6258ms)
+✔ rare-44 retains its mesh and wings while the eyes/beak remain cohesive in all clips (345.8794ms)
+✔ legendary-1 retains its mesh and wings while the eyes/beak remain cohesive in all clips (336.0262ms)
+✔ legendary-6 retains its mesh and wings while the eyes/beak remain cohesive in all clips (416.9444ms)
+✔ legendary-10 retains its mesh and wings while the eyes/beak remain cohesive in all clips (305.2581ms)
+✔ legendary-14 retains its mesh and wings while the eyes/beak remain cohesive in all clips (284.3546ms)
+✔ legendary-16 retains its mesh and wings while the eyes/beak remain cohesive in all clips (521.3186ms)
+✔ legendary-21 retains its mesh and wings while the eyes/beak remain cohesive in all clips (395.2824ms)
+✔ mythic-5 retains its mesh and wings while the eyes/beak remain cohesive in all clips (603.5076ms)
+✔ starter-wind retains its mesh and wings while the eyes/beak remain cohesive in all clips (913.8109ms)
+✔ starter-wind-r retains its mesh and wings while the eyes/beak remain cohesive in all clips (402.4087ms)
+✔ starter-wind-l retains its mesh and wings while the eyes/beak remain cohesive in all clips (833.9245ms)
+✔ Cinder Cub's concave flame keeps its authored contours without a leaking inverted hull (1.8162ms)
+✔ all five base starter forms have an approved combat model (0.4751ms)
+✔ Pebble Tortoise owns a distinct asset in close-ups and combat (0.469ms)
+✔ all ten evolved starter forms have a combat model (0.3141ms)
+✔ the four-pet Showdown lineup resolves to its species-authored animation assets (0.2496ms)
+✔ Showdown models carry their visually certified forward-axis correction (0.2441ms)
+✔ unrelated unmodeled pets keep the safe standee fallback (0.2205ms)
+✔ malformed legacy identities fall back instead of crashing model resolution (0.2986ms)
+✔ all built-in Coliseum AI opponents resolve to approved roster models (0.296ms)
+✔ all 146 approved roster models have a certified motion family (2.5569ms)
+✔ breeding-exclusive Mythics keep their own combat identity and model (0.3272ms)
+✔ hatched owned-instance ids resolve their breeding Mythic template model (0.4184ms)
+✔ legacy owned-instance ids recover the roster template from their safe prefix (0.3454ms)
+✔ timestamped encounter clones retain their canonical combat model (0.2284ms)
+✔ legacy evolved saves infer the model from rarity (0.1898ms)
+✔ close-up presentation falls back only for the unapproved legendary Wind model (0.1646ms)
+✔ every anatomy family gets a grounded, size-capped victory beat (0.4759ms)
+✔ all 161 production combat models inherit the grounded victory envelope (1.6772ms)
+✔ all approved roster models are colored, skinned, animated single-pet assets (444.1044ms)
+✔ all 161 production pets have complete proper skeletal animation banks (287.9962ms)
+✔ all 161 catalog identities resolve to a versioned runtime GLB with the full clip contract (221.841ms)
+✔ Celestial Lion has the full pet animation bank and animated wings in every clip (2.585ms)
+ℹ tests 52
+ℹ suites 0
+ℹ pass 48
+ℹ fail 4
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 11538.5666
+
+✖ failing tests:
+
+test at scripts\bird-faces.test.mjs:69:5
+✖ standard-39 retains its mesh and wings while the eyes/beak remain cohesive in all clips (5.6275ms)
+  TypeError: Cannot read properties of undefined (reading 'bufferView')
+      at GLTFParser.loadAccessor (file:///C:/Users/Tyler%20R/.codex/worktrees/40c2/NinjaK/shinobij.client/node_modules/three/examples/jsm/loaders/GLTFLoader.js:3078:20)
+      at GLTFParser.getDependency (file:///C:/Users/Tyler%20R/.codex/worktrees/40c2/NinjaK/shinobij.client/node_modules/three/examples/jsm/loaders/GLTFLoader.js:2902:24)
+      at assignAttributeAccessor (file:///C:/Users/Tyler%20R/.codex/worktrees/40c2/NinjaK/shinobij.client/node_modules/three/examples/jsm/loaders/GLTFLoader.js:4795:17)
+      at addPrimitiveAttributes (file:///C:/Users/Tyler%20R/.codex/worktrees/40c2/NinjaK/shinobij.client/node_modules/three/examples/jsm/loaders/GLTFLoader.js:4811:17)
+      at GLTFParser.loadGeometries (file:///C:/Users/Tyler%20R/.codex/worktrees/40c2/NinjaK/shinobij.client/node_modules/three/examples/jsm/loaders/GLTFLoader.js:3775:24)
+      at GLTFParser.loadMesh (file:///C:/Users/Tyler%20R/.codex/worktrees/40c2/NinjaK/shinobij.client/node_modules/three/examples/jsm/loaders/GLTFLoader.js:3820:24)
+      at file:///C:/Users/Tyler%20R/.codex/worktrees/40c2/NinjaK/shinobij.client/node_modules/three/examples/jsm/loaders/GLTFLoader.js:2896:34
+      at GLTFParser._invokeOne (file:///C:/Users/Tyler%20R/.codex/worktrees/40c2/NinjaK/shinobij.client/node_modules/three/examples/jsm/loaders/GLTFLoader.js:2835:19)
+      at GLTFParser.getDependency (file:///C:/Users/Tyler%20R/.codex/worktrees/40c2/NinjaK/shinobij.client/node_modules/three/examples/jsm/loaders/GLTFLoader.js:2894:24)
+      at GLTFParser.createNodeMesh (file:///C:/Users/Tyler%20R/.codex/worktrees/40c2/NinjaK/shinobij.client/node_modules/three/examples/jsm/loaders/GLTFLoader.js:4158:17)
+
+test at scripts\bird-faces.test.mjs:69:5
+✖ standard-44 retains its mesh and wings while the eyes/beak remain cohesive in all clips (5.5989ms)
+  TypeError: Cannot read properties of undefined (reading 'bufferView')
+      at GLTFParser.loadAccessor (file:///C:/Users/Tyler%20R/.codex/worktrees/40c2/NinjaK/shinobij.client/node_modules/three/examples/jsm/loaders/GLTFLoader.js:3078:20)
+      at GLTFParser.getDependency (file:///C:/Users/Tyler%20R/.codex/worktrees/40c2/NinjaK/shinobij.client/node_modules/three/examples/jsm/loaders/GLTFLoader.js:2902:24)
+      at assignAttributeAccessor (file:///C:/Users/Tyler%20R/.codex/worktrees/40c2/NinjaK/shinobij.client/node_modules/three/examples/jsm/loaders/GLTFLoader.js:4795:17)
+      at addPrimitiveAttributes (file:///C:/Users/Tyler%20R/.codex/worktrees/40c2/NinjaK/shinobij.client/node_modules/three/examples/jsm/loaders/GLTFLoader.js:4811:17)
+      at GLTFParser.loadGeometries (file:///C:/Users/Tyler%20R/.codex/worktrees/40c2/NinjaK/shinobij.client/node_modules/three/examples/jsm/loaders/GLTFLoader.js:3775:24)
+      at GLTFParser.loadMesh (file:///C:/Users/Tyler%20R/.codex/worktrees/40c2/NinjaK/shinobij.client/node_modules/three/examples/jsm/loaders/GLTFLoader.js:3820:24)
+      at file:///C:/Users/Tyler%20R/.codex/worktrees/40c2/NinjaK/shinobij.client/node_modules/three/examples/jsm/loaders/GLTFLoader.js:2896:34
+      at GLTFParser._invokeOne (file:///C:/Users/Tyler%20R/.codex/worktrees/40c2/NinjaK/shinobij.client/node_modules/three/examples/jsm/loaders/GLTFLoader.js:2835:19)
+      at GLTFParser.getDependency (file:///C:/Users/Tyler%20R/.codex/worktrees/40c2/NinjaK/shinobij.client/node_modules/three/examples/jsm/loaders/GLTFLoader.js:2894:24)
+      at GLTFParser.createNodeMesh (file:///C:/Users/Tyler%20R/.codex/worktrees/40c2/NinjaK/shinobij.client/node_modules/three/examples/jsm/loaders/GLTFLoader.js:4158:17)
+
+test at scripts\bird-faces.test.mjs:69:5
+✖ rare-37 retains its mesh and wings while the eyes/beak remain cohesive in all clips (6.952ms)
+  TypeError: Cannot read properties of undefined (reading 'bufferView')
+      at GLTFParser.loadAccessor (file:///C:/Users/Tyler%20R/.codex/worktrees/40c2/NinjaK/shinobij.client/node_modules/three/examples/jsm/loaders/GLTFLoader.js:3078:20)
+      at GLTFParser.getDependency (file:///C:/Users/Tyler%20R/.codex/worktrees/40c2/NinjaK/shinobij.client/node_modules/three/examples/jsm/loaders/GLTFLoader.js:2902:24)
+      at assignAttributeAccessor (file:///C:/Users/Tyler%20R/.codex/worktrees/40c2/NinjaK/shinobij.client/node_modules/three/examples/jsm/loaders/GLTFLoader.js:4795:17)
+      at addPrimitiveAttributes (file:///C:/Users/Tyler%20R/.codex/worktrees/40c2/NinjaK/shinobij.client/node_modules/three/examples/jsm/loaders/GLTFLoader.js:4811:17)
+      at GLTFParser.loadGeometries (file:///C:/Users/Tyler%20R/.codex/worktrees/40c2/NinjaK/shinobij.client/node_modules/three/examples/jsm/loaders/GLTFLoader.js:3775:24)
+      at GLTFParser.loadMesh (file:///C:/Users/Tyler%20R/.codex/worktrees/40c2/NinjaK/shinobij.client/node_modules/three/examples/jsm/loaders/GLTFLoader.js:3820:24)
+      at file:///C:/Users/Tyler%20R/.codex/worktrees/40c2/NinjaK/shinobij.client/node_modules/three/examples/jsm/loaders/GLTFLoader.js:2896:34
+      at GLTFParser._invokeOne (file:///C:/Users/Tyler%20R/.codex/worktrees/40c2/NinjaK/shinobij.client/node_modules/three/examples/jsm/loaders/GLTFLoader.js:2835:19)
+      at GLTFParser.getDependency (file:///C:/Users/Tyler%20R/.codex/worktrees/40c2/NinjaK/shinobij.client/node_modules/three/examples/jsm/loaders/GLTFLoader.js:2894:24)
+      at GLTFParser.createNodeMesh (file:///C:/Users/Tyler%20R/.codex/worktrees/40c2/NinjaK/shinobij.client/node_modules/three/examples/jsm/loaders/GLTFLoader.js:4158:17)
+
+test at scripts\bird-faces.test.mjs:69:5
+✖ rare-38 retains its mesh and wings while the eyes/beak remain cohesive in all clips (9.1697ms)
+  TypeError: Cannot read properties of undefined (reading 'bufferView')
+      at GLTFParser.loadAccessor (file:///C:/Users/Tyler%20R/.codex/worktrees/40c2/NinjaK/shinobij.client/node_modules/three/examples/jsm/loaders/GLTFLoader.js:3078:20)
+      at GLTFParser.getDependency (file:///C:/Users/Tyler%20R/.codex/worktrees/40c2/NinjaK/shinobij.client/node_modules/three/examples/jsm/loaders/GLTFLoader.js:2902:24)
+      at assignAttributeAccessor (file:///C:/Users/Tyler%20R/.codex/worktrees/40c2/NinjaK/shinobij.client/node_modules/three/examples/jsm/loaders/GLTFLoader.js:4795:17)
+      at addPrimitiveAttributes (file:///C:/Users/Tyler%20R/.codex/worktrees/40c2/NinjaK/shinobij.client/node_modules/three/examples/jsm/loaders/GLTFLoader.js:4811:17)
+      at GLTFParser.loadGeometries (file:///C:/Users/Tyler%20R/.codex/worktrees/40c2/NinjaK/shinobij.client/node_modules/three/examples/jsm/loaders/GLTFLoader.js:3775:24)
+      at GLTFParser.loadMesh (file:///C:/Users/Tyler%20R/.codex/worktrees/40c2/NinjaK/shinobij.client/node_modules/three/examples/jsm/loaders/GLTFLoader.js:3820:24)
+      at file:///C:/Users/Tyler%20R/.codex/worktrees/40c2/NinjaK/shinobij.client/node_modules/three/examples/jsm/loaders/GLTFLoader.js:2896:34
+      at GLTFParser._invokeOne (file:///C:/Users/Tyler%20R/.codex/worktrees/40c2/NinjaK/shinobij.client/node_modules/three/examples/jsm/loaders/GLTFLoader.js:2835:19)
+      at GLTFParser.getDependency (file:///C:/Users/Tyler%20R/.codex/worktrees/40c2/NinjaK/shinobij.client/node_modules/three/examples/jsm/loaders/GLTFLoader.js:2894:24)
+      at GLTFParser.createNodeMesh (file:///C:/Users/Tyler%20R/.codex/worktrees/40c2/NinjaK/shinobij.client/node_modules/three/examples/jsm/loaders/GLTFLoader.js:4158:17)
