@@ -446,7 +446,6 @@
 
 .pp-card:hover .pp-card-art img,
 .pp-card:focus-within .pp-card-art img {
-    transform: scale(1);
     filter: saturate(1.06) brightness(1);
 }
 
@@ -766,6 +765,5 @@
     .pp-line { animation: none !important; }
     .pp-card { opacity: 1; transform: none; }
     .pp-card:hover, .pp-card:focus-within { transform: none; }
-    .pp-card:hover .pp-card-art img, .pp-card:focus-within .pp-card-art img { transform: scale(1); }
     .pp-card:hover .pp-sheen { animation: none; }
 }

@@ -566,12 +566,10 @@
 
 .central-card:focus-visible .central-card-art img {
     filter: saturate(1.04) contrast(1.06) brightness(0.96);
-    transform: scale(1);
 }
 @media (hover: hover) {
     .central-card:hover .central-card-art img {
         filter: saturate(1.04) contrast(1.06) brightness(0.96);
-        transform: scale(1);
     }
 }
 

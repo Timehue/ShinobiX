@@ -623,7 +623,6 @@
 @media (max-width: 560px) {
     .spire-hero { flex-direction: column; gap: 12px; }
     .spire-hero-portrait { width: 100%; height: 128px; }
-    .spire-hero-portrait img { object-position: center; }
     .spire-ladder { grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); }
     .spire-ascend { min-width: 0; }
 }
@@ -643,7 +642,7 @@
     width: 152px; height: 152px; border-radius: 18px; object-fit: contain; object-position: center;
     border: 3px solid var(--boss-accent, #f0a15a); background: #0b0705;
     box-shadow: 0 0 44px var(--boss-glow, rgba(240,161,90,0.5)), inset 0 -34px 46px rgba(0,0,0,0.55);
-    opacity: 0; transform: scale(1); animation: spireIntroPop 0.55s 0.05s cubic-bezier(0.18,1.3,0.4,1) forwards;
+    opacity: 0; transform: scale(0.82); animation: spireIntroPop 0.55s 0.05s cubic-bezier(0.18,1.3,0.4,1) forwards;
 }
 .spire-intro-name {
     font-family: var(--font-display, inherit); font-size: 2.4rem; font-weight: 800; line-height: 1; margin-top: 14px;

@@ -71,7 +71,7 @@
 }
 
 .pet-mentor-portraits img:first-child { left: 0; top: 0; z-index: 2; }
-.pet-mentor-portraits img:last-child { right: 0; bottom: 0; border-color: #76c893; transform: scale(1); }
+.pet-mentor-portraits img:last-child { right: 0; bottom: 0; border-color: #76c893; transform: scale(.82); }
 
 .pet-mentor-hero-copy { min-width: 0; }
 .pet-mentor-kicker,
@@ -264,7 +264,6 @@
     .pet-mentor-story { min-height: 118px; margin-top: 13px; }
     .pet-mentor-story::after,
     .pet-mentor-story.is-finale::after { background: linear-gradient(90deg, rgba(5, 10, 17, .94), rgba(5, 10, 17, .63) 72%, rgba(5, 10, 17, .24)); }
-    .pet-mentor-story img { object-position: center; }
     .pet-mentor-story figcaption { width: 78%; padding: 13px 14px; }
     .pet-mentor-story figcaption > p { display: none; }
     .pet-mentor-actions { flex-wrap: wrap; }

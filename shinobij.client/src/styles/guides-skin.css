@@ -362,7 +362,6 @@
 
 @media (hover: hover) {
     .guide-card:hover .guide-card-media img {
-        transform: scale(1);
         filter: saturate(1);
     }
 }

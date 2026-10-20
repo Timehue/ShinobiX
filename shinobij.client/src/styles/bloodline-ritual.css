@@ -65,7 +65,6 @@
 @keyframes bl-ritual-fill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 @keyframes bl-mote-flow { 0% { opacity: 0; transform: rotate(var(--mote-angle)) translateX(190px) scale(.5); } 25% { opacity: .8; } 100% { opacity: 0; transform: rotate(calc(var(--mote-angle) + 45deg)) translateX(30px) scale(1.5); } }
 @media (max-width: 600px) {
-    .bl-ritual-art { object-position: center; }
     .bl-ritual-seal { top: 42%; width: min(52vw, 230px); }
     .bl-ritual-motes > i { top: 42%; }
     .bl-ritual-skip { right: 50%; transform: translateX(50%); white-space: nowrap; }
