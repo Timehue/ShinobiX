@@ -74,8 +74,9 @@ describe("Tower completed-run recovery", () => {
         assert.match(hostSource, /view\.session\.worldBossEvent \? onWorldBossExit \?\? onExit : onExit/);
     });
     it("offers recovery-preserving exits during pending actions, settlement, and recovery failures", () => {
-        assert.match(fightSource, /className="tower-fight-leave"\s+disabled=\{\(isTeamPvp \|\| isHunt \|\| isWorldBoss\) && busy\}/);
-        assert.equal(fightSource.match(/onLeave=\{leaveUnsettled\}/g)?.length, 2, "both result presentations need the safe escape");
+        assert.match(fightSource, /className="tower-fight-leave"\s+disabled=\{\(isTeamPvp \|\| isHunt \|\| isWorldBoss \|\| isStoryTrial\) && busy\}/);
+        assert.match(fightSource, /const settlementNotice = <SettlementStatusNotice[^;]*onLeave=\{leaveUnsettled\}/);
+        assert.equal(fightSource.match(/\{settlementNotice\}/g)?.length, 2, "both result presentations need the shared safe escape");
         assert.match(fightSource, /const leaveUnsettled = onLeaveActive \? async \(\) =>/);
         assert.match(fightSource, /withTowerRequestDeadline\(\(\) => settleFn\(runId, me\)\)/);
         assert.match(hostSource, /clearFightKey\(\);\s*writeRecoveryKey\(view\.runId\);\s*onExit\(\);\s*\}\}>Leave and recover later/);
@@ -105,6 +106,6 @@ describe("Tower completed-run recovery", () => {
         assert.doesNotMatch(hostSource, /phase: "pvpFight"/);
         assert.match(hostSource, /if \(towerPvpMatchIdFromRunKey\(saved\)\) return \{ phase: "lobby" \}/);
         assert.match(fightSource, /\(onLeaveActive \?\? onExit\)\(\)/);
-        assert.match(fightSource, /Reopen Battle Towers to recover it/);
+        assert.match(fightSource, /Resume from \$\{isClanBoss \? 'Clan Hall → Boss' : 'Battle Towers'\}/);
     });
 });

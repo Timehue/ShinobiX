@@ -81,8 +81,8 @@ test("Team Arena ready checks expire safely and transfer focus between timed sta
 });
 
 test("Team PvP presentation keeps live-player art and hides disabled consumable actions", () => {
-    assert.match(fight, /isTeamPvp && typeof sealed === "string" && sealed/);
-    assert.match(fight, /isTeamPvp && typeof a\.character\?\.avatarImage === "string"/);
+    assert.match(fight, /\(isTeamPvp \|\| isNarrativeGroup\) && typeof sealed === "string" && sealed/);
+    assert.match(fight, /\(isTeamPvp \|\| isNarrativeGroup\) && typeof a\.character\?\.avatarImage === "string"/);
     // Only the open Team Arena hides thrown ammunition and items. A match that sealed a
     // consumable kit (ranked 2v2, Clan War 2v2) shows it, because the server accepts it.
     assert.match(fight, /const teamPvpGearLocked = isTeamPvp && !teamPvpConsumables/);

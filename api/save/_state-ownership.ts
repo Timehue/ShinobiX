@@ -475,6 +475,7 @@ export const SAVE_FIELD_CONTRACT: readonly SaveFieldDef[] = [
     f('activeStoryReckoningSeal', 'top', 'server-payout-stamp', 'story', ['ledger-toplevel']),
     f('activeRiftQuestSeal', 'top', 'server-payout-stamp', 'hollow-gate', ['ledger-toplevel']),
     f('activeQuestbookSeal', 'top', 'server-payout-stamp', 'wanderers', ['ledger-toplevel']),
+    f('banditTollReceipts', 'top', 'server-payout-stamp', 'wanderers', ['ledger-toplevel', 'combat-strip-toplevel']),
     f('creatorJutsus', 'top', 'shared-admin-content', 'authored-content', ['ledger-toplevel', 'shared-admin-content', 'public-combat-toplevel'], 'players: frozen to stored (mirror); admin slots: published content'),
     f('creatorAis', 'top', 'shared-admin-content', 'authored-content', ['ledger-toplevel', 'shared-admin-content', 'combat-strip-toplevel']),
     f('creatorMissions', 'top', 'shared-admin-content', 'authored-content', ['ledger-toplevel', 'shared-admin-content', 'combat-strip-toplevel']),

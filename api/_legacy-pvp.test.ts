@@ -47,6 +47,21 @@ test('extract parses the battle log with exact move.ts line formats', () => {
     assert.equal(loserDeltas.taijutsuDamage, 90);
 });
 
+test('readable combat messages preserve healing and Wound credit from retained formats', () => {
+    const base = { p1: fighter('Rill'), p2: fighter('Kazan') };
+    const old = extractPvpLegacyDeltas({ ...base, log: [
+        'Rill absorbs 30 HP.', "Rill's armor steals 20 HP.", 'Kazan bleeds 40 (Wound).',
+    ] }, 'Rill', 'Kazan');
+    const current = extractPvpLegacyDeltas({ ...base, log: [
+        'Rill restores 30 HP through Absorb.', "Rill's armor restores 20 HP through Lifesteal.", 'Kazan loses 40 HP to Wound.',
+    ] }, 'Rill', 'Kazan');
+    assert.deepEqual(current, old);
+    assert.equal(current.winnerDeltas.healingDone, 50);
+    assert.equal(current.winnerDeltas.ninjutsuDamage, 40);
+    const armor = extractPvpLegacyDeltas({ ...base, log: ["Rill's armor restores 12 HP through Absorb."] }, 'Rill', 'Kazan');
+    assert.equal(armor.winnerDeltas.healingDone, 12);
+});
+
 test('comeback, upset, and ranked flags', () => {
     const session = {
         p1: fighter('Underdog', { hp: 100, maxHp: 1000, level: 50 }),  // 10% HP left

@@ -96,7 +96,7 @@ export function BountyBoardPanel({
                 Active bounties — defeat the target in a duel to claim the pool.
             </p>
             {bounties === null ? (
-                <p className="hint">Checking the bounty ledger…</p>
+                <p className="hint">Loading bounties…</p>
             ) : bounties.length === 0 ? (
                 <p className="hint">No active bounties are posted.</p>
             ) : (

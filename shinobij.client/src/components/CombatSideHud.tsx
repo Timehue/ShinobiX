@@ -1,20 +1,13 @@
 import React from "react";
-import { K_AMP_PVE } from "../lib/combat-math";
 import { isImageAvatar } from "../lib/avatar";
 import { partitionCombatDisplayStatuses, TEMPO_AP_SWING, type CombatDisplayStatus } from "../lib/combat-action-display";
 
-// Tags that feed the diminishing-returns soft-cap pools in combat (see
-// combat-math.ts). For these, stacking is NOT linear — the HUD surfaces the
-// approximate effective % so players can read their build instead of assuming
-// e.g. 3×35% = +105%.
+// These values are effect strength, not a literal change to final damage.
+// Different tags share pools, so a per-tag estimate would be misleading.
 const POOL_TAGS = new Set([
     "Increase Damage Given", "Increase Damage Taken", "Ignition",
     "Decrease Damage Given", "Decrease Damage Taken",
 ]);
-function effectivePoolPercent(rawPct: number): number {
-    const raw = Math.max(0, rawPct) / 100;
-    return Math.round((raw / (raw + K_AMP_PVE)) * 100); // K_AMP == K_DR == 0.5
-}
 
 // Post-damage defensive tags that stack additively and are hard-capped in combat
 // (cappedPostDamage in move.ts / combat-math.ts caps the applied % at 60). The
@@ -25,6 +18,31 @@ const CAP_SUM_TAGS = new Set(["Absorb", "Reflect", "Lifesteal"]);
 // literal percentage multipliers on the fighter's current stats.
 const POTENCY_TAGS = new Set(["Increase Generals", "Increase Discipline"]);
 const HARD_CAP_PCT = 60;
+
+const STATUS_HELP: Record<string, string> = {
+    "Poison": "Spending chakra or stamina on jutsu also costs HP. Basic attacks and free casts do not trigger it.",
+    "Wound": "Lose the shown HP at the end of your turn. Cleanse can remove Wound before it ticks.",
+    "Drain": "Lose the shown HP and up to that much chakra at the end of your turn.",
+    "Absorb": "Restore HP from damage received after shields. Cannot prevent a knockout; Pierce bypasses it.",
+    "Reflect": "Return a share of damage received after shields to the attacker. Pierce bypasses it.",
+    "Lifesteal": "Restore HP when your attacks deal damage.",
+    "Recoil": "Lose HP when your own attacks deal damage.",
+    "Stun": "Your turn has fewer AP. You can still act with the AP remaining.",
+    "Lag": `Each action costs ${TEMPO_AP_SWING} more AP.`,
+    "Overclock": `Each action costs ${TEMPO_AP_SWING} less AP, with a minimum cost of 1 AP.`,
+    "Bloodline Seal": "Suppresses bloodline and temporary general-stat/style-offense bonuses. Jutsu remain usable.",
+    "Elemental Seal": "Blocks Fire, Water, Wind, Earth, and Lightning jutsu. Other elements remain usable.",
+    "Debuff Prevent": "Blocks new negative status effects. Existing effects remain.",
+    "Buff Prevent": "Blocks new buffs. Direct healing and shields still work.",
+    "Cleanse Prevent": "Blocks Cleanse, so negative effects cannot be removed with it.",
+    "Clear Prevent": "Prevents the opponent's Clear action from removing your buffs and shield.",
+    "Stun Prevent": "Blocks new Stun effects. Does not remove an existing Stun.",
+    "Barrier": "This wall tile blocks movement for both sides.",
+    "Increase Heal": "Boosts healing from Heal, Siphon, and Lifesteal.",
+    "Smoke Bomb": "Blocks direct-hit damage from both fighters. Pierce and ongoing damage still apply.",
+    "Attack Pill": "Deal 15% more direct-hit damage. Does not strengthen Pierce or ongoing damage.",
+    "Defense Pill": "Take 15% less direct-hit damage. Pierce and ongoing damage bypass this protection.",
+};
 
 // Short, single-line labels for the verbose damage-modifier tags. The full
 // canonical name stays in the hover tooltip; this just keeps "Decrease Damage
@@ -69,7 +87,9 @@ type HudStatusInput = { name: string; rounds: number; amount?: number; percent?:
 function groupStatuses(statuses: readonly HudStatusInput[]): GroupedStatus[] {
     const grouped: GroupedStatus[] = [];
     for (const s of statuses) {
-        const name = s.source === "item-smoke-bomb" ? "Smoke Bomb" : s.name;
+        const name = s.source === "item-smoke-bomb" ? "Smoke Bomb"
+            : s.source === "item-attack-pill" ? "Attack Pill"
+                : s.source === "item-defense-pill" ? "Defense Pill" : s.name;
         const g = grouped.find((x) => x.name === name);
         if (g) {
             g.count += 1;
@@ -83,8 +103,8 @@ function groupStatuses(statuses: readonly HudStatusInput[]): GroupedStatus[] {
     return grouped;
 }
 
-// The value that actually fires for a grouped status: effective % for soft-cap
-// pool tags once stacked, the 60%-capped total for Absorb/Reflect/Lifesteal,
+// The displayed value: effect strength for pooled tags and stat bonuses,
+// the 60%-capped total for Absorb/Reflect/Lifesteal,
 // the flat AP swing for Lag/Overclock (their stored % is never read), else the
 // raw rounded %/amount (a Wound/Drain tick lands in full). Shared by panel + strip.
 function statusValueText(s: GroupedStatus): string {
@@ -96,10 +116,9 @@ function statusValueText(s: GroupedStatus): string {
     const capped = s.percent != null && CAP_SUM_TAGS.has(s.name);
     const potency = s.percent != null && POTENCY_TAGS.has(s.name);
     const rawPct = s.percent != null ? Math.round(s.percent) : null;
-    const effPct = pooled ? effectivePoolPercent(s.percent ?? 0) : null;
     const cappedPct = capped ? Math.min(rawPct ?? 0, HARD_CAP_PCT) : null;
     return s.percent != null
-        ? (pooled && s.count > 1 ? `~${effPct}%` : capped ? `${cappedPct}%` : potency ? `${rawPct}% potency` : `${rawPct}%`)
+        ? (pooled || potency || s.name === "Poison" ? `${rawPct}% strength` : capped ? `${cappedPct}%` : `${rawPct}%`)
         : s.amount != null ? `${Math.round(s.amount)}` : "active";
 }
 
@@ -275,7 +294,7 @@ export function PendingEffectsStrip({ statuses }: { statuses: readonly (CombatDi
             <strong>Next round</strong>
             <div>
                 {grouped.map((status) => (
-                    <span className="pending-effect-pill" key={status.name} title={`${status.name} activates next round`}>
+                    <span className="pending-effect-pill" key={status.name} title={`${status.name} activates next round. ${STATUS_HELP[status.name] ?? ""} Lasts ${status.rounds} rounds.`}>
                         {tinyStatusLabel(status.name)}{status.count > 1 ? <b>×{status.count}</b> : null}
                         <small>{statusValueText(status)} · {status.rounds}r</small>
                     </span>
@@ -306,25 +325,21 @@ export function CombatEffectsPanel({
                 <p className="empty-effects">No active effects</p>
             ) : (
                 grouped.map((s, i) => {
-                    // Pool tags stack into a diminishing-returns curve, so a raw
-                    // sum (e.g. "63%") overstates the real effect. Show the rounded
-                    // effective % once stacked; a single instance reads its own
-                    // face value. Always round — the raw percents carry mastery
-                    // scaling that would otherwise print as "21.799999999999997%".
+                    // Always label pooled strength, even for one stack: its raw
+                    // percentage is never a literal final-damage multiplier.
                     const pooled = s.percent != null && POOL_TAGS.has(s.name);
                     const capped = s.percent != null && CAP_SUM_TAGS.has(s.name);
                     const potency = s.percent != null && POTENCY_TAGS.has(s.name);
                     const rawPct = s.percent != null ? Math.round(s.percent) : null;
-                    const effPct = pooled ? effectivePoolPercent(s.percent ?? 0) : null;
                     const valueText = statusValueText(s);
                     const label = SHORT_LABELS[s.name] ?? s.name;
                     const title = pooled
-                        ? `${s.name} — ${s.count} stack${s.count > 1 ? "s" : ""} · +${rawPct}% raw ≈ ${effPct}% effective. Diminishing-returns pool shared with other damage modifiers.`
+                        ? `${s.name} — ${rawPct}% effect strength across ${s.count} stack${s.count > 1 ? "s" : ""}. This is not the final damage change: bonuses have diminishing returns and combine with other damage modifiers.`
                         : capped
-                            ? `${s.name} — ${s.count} stack${s.count > 1 ? "s" : ""} · +${rawPct}% total${(rawPct ?? 0) > HARD_CAP_PCT ? `, capped at ${HARD_CAP_PCT}%` : ""}.`
+                            ? `${s.name} — ${s.count} stack${s.count > 1 ? "s" : ""} · ${rawPct}% total${(rawPct ?? 0) > HARD_CAP_PCT ? `, capped at ${HARD_CAP_PCT}%` : ""}. ${STATUS_HELP[s.name] ?? ""}`
                             : potency
-                                ? `${s.name} — ${s.count} stack${s.count > 1 ? "s" : ""} · ${rawPct}% raw potency, converted into a flat bonus through diminishing returns.`
-                            : s.name;
+                                ? `${s.name} — ${rawPct}% effect strength. Adds a flat stat bonus with diminishing returns; it is not a percentage increase to your current stats.`
+                            : `${s.name}. ${STATUS_HELP[s.name] ?? ""}`;
                     return (
                         <div key={i} className="effect-pill" title={title}>
                             <span>{label}{s.count > 1 ? <span className="effect-stack"> ×{s.count}</span> : null}</span>
@@ -365,7 +380,7 @@ export function MobileEffectsStrip({
                     <span
                         key={i}
                         className={`cme-chip ${tone === "negative" ? "cme-neg" : "cme-pos"}`}
-                        title={`${g.name}${g.count > 1 ? ` ×${g.count}` : ""} · ${value} · ${g.rounds}r`}
+                        title={`${g.name}${g.count > 1 ? ` ×${g.count}` : ""} · ${value} · ${g.rounds} rounds. ${STATUS_HELP[g.name] ?? (POOL_TAGS.has(g.name) ? "Effect strength has diminishing returns; it is not the final damage percentage." : "")}`}
                     >
                         {tinyStatusLabel(g.name)}{g.count > 1 ? <b>×{g.count}</b> : null}
                         <small>{value !== "active" ? `${value} ` : ""}{g.rounds}r</small>

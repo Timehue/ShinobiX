@@ -75,7 +75,7 @@ async function ensureCurrentWeek(now: number): Promise<string | null> {
     await announce({
         type: 'clan-boss-spawn', importance: 'high',
         title: `${boss?.icon ?? '👹'} Weekly Clan Boss: ${boss?.name ?? 'A great foe'}`,
-        message: 'A boss has risen against every clan. Rally a party of 3, bring it down, and compete — the top 3 clans earn treasury rewards when the week ends.',
+        message: 'A boss has risen against every clan. Bring a party of up to four and compete for your clan — the top three clans earn treasury rewards when the week ends.',
     });
     return weekId;
 }
@@ -145,7 +145,7 @@ async function settleWeek(week: ClanBossWeek, now: number): Promise<boolean> {
             await announce({
                 type: 'clan-boss-results', importance: 'high',
                 title: `🏆 Clan Boss Week Over — ${winner.clanName} takes #1!`,
-                message: 'The clan boss week has ended and the top clans have been rewarded. A fresh boss appears now.',
+                message: 'The clan boss week has ended. Rewards have been delivered to eligible clan treasuries and participating members. Check the Clan Boss screen for the next campaign.',
             }, { receiptId: `clan-boss-results:${week.weekId}` }); // a resumed run announces once
         }
 

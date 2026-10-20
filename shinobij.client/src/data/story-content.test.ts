@@ -115,7 +115,7 @@ test("Frostfang's quarry count and Kessa's escape stay internally consistent", (
 test("the four village themes stay distinct through the grid reveal, finale, and epilogue", () => {
     const sharedFeedstocks = [
         /Stormveil supplies the reasons people fight/i,
-        /Ashen Leaf supplies futures people were becoming/i,
+        /Ashen Leaf supplies the futures people could have lived/i,
         /Frostfang supplies the choice to leave/i,
         /Moonshadow supplies trust people placed in someone/i,
     ];
@@ -447,11 +447,11 @@ test("Legacy canon is witnessed action, never heredity, reincarnation, or a pres
 
     assert.match(copy, /Ancients, people from the Sunken Court's age/i);
     assert.match(copy, /\bWithheld\b/i);
-    assert.match(copy, /refused cession/i);
-    assert.match(copy, /What survived was the shape of the choice/i);
+    assert.match(copy, /refused to surrender a defining choice/i);
+    assert.match(copy, /Witnesses use Legacy for a pattern someone chooses to repeat/i);
     assert.match(copy, /Legacy is not an ancestor coming back.*not something sleeping in a Bloodline/i);
-    assert.match(copy, /A Legacy returns when someone freely repeats one under witness/i);
-    assert.match(copy, /under witness/i);
+    assert.match(copy, /A Legacy honors someone whose actions fit one of those patterns/i);
+    assert.match(copy, /witnesses found the same kinds of choices in other people's deeds/i);
     assert.doesNotMatch(copy, /pass through a family|LEGACY-BEARING|dormant Legacy|passing from parent to child|preserve one part of a person/i);
 
     const riftCopy = hollowRifts

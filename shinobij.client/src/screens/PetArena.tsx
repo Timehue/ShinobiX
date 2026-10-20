@@ -598,7 +598,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                 status: "settled",
                 detail: typeof completed === "object"
                     ? completed.detail
-                    : "Battle record confirmed. Rewards and one-use items are sealed.",
+                    : "Battle result saved. Rewards and item use have been recorded.",
             });
         } catch (error) {
             if (settlementAttemptRef.current !== attempt || !playerScopeIsActive(attempt.scope)) return;
@@ -1115,7 +1115,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                 return;
             }
         } catch {
-            setArenaChallengeMsg("Error: Network error accepting the Warfront challenge. Nothing was started.");
+            setArenaChallengeMsg("The Warfront challenge acceptance could not be confirmed. Reopen the invitation to check for an active battle.");
             return;
         }
         onArenaResponseHandled?.();
@@ -1722,7 +1722,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                 ? "Pet Gauntlet"
                 : "Pet Colosseum";
     const arenaHeroEyebrow = isHollowGate
-        ? "The Hollow Gate · sealed encounter"
+        ? "The Hollow Gate battle"
         : arenaView === "tactical"
             ? "Four bonded pets · one sealed ring"
             : arenaView === "gauntlet"
@@ -1768,13 +1768,13 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                     aria-live={activeSettlementPresentation.status === "error" ? "assertive" : "polite"}
                     aria-atomic="true"
                 >
-                    <span className="pet-settlement-notice__eyebrow">Sealed battle record</span>
+                    <span className="pet-settlement-notice__eyebrow">Saved battle record</span>
                     <strong>{activeSettlementPresentation.label}</strong>
                     <p>
                         {warfrontReceiptQueued && activeSettlementPresentation.status !== "settled"
                             ? `Your Warfront result is queued. You can leave Pet Arena and return to retry. ${activeSettlementPresentation.detail ?? ""}`
                             : activeSettlementPresentation.status === "pending"
-                            ? activeSettlementPresentation.detail || "Recording the sealed result. Keep this battle open."
+                            ? activeSettlementPresentation.detail || "Saving the battle result. Keep this battle open."
                             : activeSettlementPresentation.detail}
                     </p>
                     {activeSettlementPresentation.status === "error" ? (
@@ -1874,7 +1874,8 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
 
             {arenaView === "gauntlet" && (
                 <Suspense fallback={<div className="summary-box" style={{ padding: "2rem", textAlign: "center", color: "var(--text-dim)" }}>Loading the Gauntlet…</div>}>
-                    <PetGauntlet sharedImages={sharedImages} character={character} updateCharacter={updateCharacter} />
+                    <PetGauntlet sharedImages={sharedImages} character={character} updateCharacter={updateCharacter}
+                        onVersionedCharacter={onVersionedCharacter ? (next, version) => { onVersionedCharacter(next, version, character.name); } : undefined} />
                 </Suspense>
             )}
 
@@ -2162,7 +2163,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                                             <div className="wf-pregame-readout-grid">
                                                 <div><span>OPENING</span><strong>Deploy all four</strong><small>Choose any four of ten cells. Two rival positions are scouted before you lock yours.</small></div>
                                                 <div><span>THE CLASH</span><strong>Control sight and space</strong><small>Owned cells prevent shoving; shoji, cover, smoke, range, and roles shape every route.</small></div>
-                                                <div><span>VICTORY</span><strong>Best of three</strong><small>First to two clashes. Bodies standing, then remaining health, decides each clash.</small></div>
+                                                <div><span>VICTORY</span><strong>Best of three</strong><small>Win two clashes to win the match. Each clash is decided by pets still standing, then remaining HP.</small></div>
                                             </div>
                                             <p><span>♜ RE-FORM</span>Between clashes, you may move any pet to any open deployment cell.</p>
                                             <p><span>◐ ELEMENTS</span>Type advantage matters, but the band is yours to build — bring whatever you think wins.</p>

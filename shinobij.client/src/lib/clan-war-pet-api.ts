@@ -43,7 +43,7 @@ async function post(body: Record<string, unknown>): Promise<PetResponse> {
         body: JSON.stringify(body),
     });
     const data = await r.json().catch(() => ({})) as PetResponse;
-    if (!r.ok) return { error: data.error ?? "The clan war pet duel did not answer. Try again in a moment." };
+    if (!r.ok) return { error: data.error ?? "Your clan war pet duel could not be confirmed. Reopen the battle to check its status." };
     return data;
 }
 

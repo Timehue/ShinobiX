@@ -1,5 +1,6 @@
 import { after, before, test } from 'node:test';
 import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
 
 process.env.NODE_ENV = 'test';
 process.env.SHINOBIX_QA_MEMORY_KV = '1';
@@ -34,10 +35,10 @@ after(() => {
     delete process.env.SESSION_SECRET;
 });
 
-function request() {
+function request(body: Record<string, unknown> = {}, authToken = token) {
     return {
-        method: 'POST', body: { action: 'start' },
-        headers: { 'content-type': 'application/json', 'x-player-token': token },
+        method: 'POST', body: { action: 'start', ...body },
+        headers: { 'content-type': 'application/json', 'x-player-token': authToken },
         socket: { remoteAddress: '127.0.0.1' },
     } as never;
 }
@@ -65,4 +66,55 @@ test('Gauntlet start debits the stored wallet after the daily free run', async (
     const stored = await kv.get<{ character?: { ryo?: number; petGauntletEntryCount?: number } }>(`save:${PLAYER}`);
     assert.equal(stored?.character?.ryo, 500);
     assert.equal(stored?.character?.petGauntletEntryCount, 2);
+});
+
+test('repeated, concurrent and interrupted Gauntlet admissions keep one seal and charge each new entry once', async () => {
+    const player = 'gauntletentryretry';
+    const auth = (await import('../_auth.js')).issuePlayerToken(player)!;
+    await kv.set(`save:${player}`, { _saveVersion: 1, character: { name: player, ryo: 10000 } });
+    const start = async (requestId: string) => {
+        const result = response(); await handler(request({ requestId }, auth), result.res); return result.out;
+    };
+    const freeId = randomUUID();
+    const free = await start(freeId), freeRetry = await start(freeId);
+    assert.equal(free.statusCode, 200); assert.equal(freeRetry.statusCode, 200);
+    assert.equal(freeRetry.body?.resumed, true);
+    assert.equal(freeRetry.body?.seed, free.body?.seed);
+    assert.equal(freeRetry.body?._saveVersion, free.body?._saveVersion);
+    const paidId = randomUUID();
+    const paid = await start(paidId), paidRetry = await start(paidId);
+    assert.equal(paid.body?.chargedRyo, 1500);
+    assert.equal(paidRetry.body?.chargedRyo, 0);
+    assert.equal((paidRetry.body?.character as { ryo: number }).ryo, 8500);
+    assert.equal(paidRetry.body?._saveVersion, paid.body?._saveVersion);
+    const concurrentId = randomUUID();
+    const pair = await Promise.all([start(concurrentId), start(concurrentId)]);
+    assert.ok(pair.every(result => result.statusCode === 200));
+    assert.equal(pair[0].body?.seed, pair[1].body?.seed);
+    assert.equal((await kv.get<any>(`save:${player}`)).character.ryo, 7000);
+    const interruptedId = randomUUID();
+    const before = await kv.get(`save:${player}`);
+    const realCommit = kv.compareSetMany!.bind(kv);
+    kv.compareSetMany = async operations => {
+        if (operations.some(operation => operation.key === `petgauntlet:tok:${interruptedId}`)) throw new Error('Controlled entry transaction outage');
+        return realCommit(operations);
+    };
+    try { assert.equal((await start(interruptedId)).statusCode, 500); }
+    finally { kv.compareSetMany = realCommit; }
+    assert.deepEqual(await kv.get(`save:${player}`), before);
+    assert.equal(await kv.get(`petgauntlet:tok:${interruptedId}`), null);
+    assert.equal((await start(interruptedId)).statusCode, 200);
+    assert.equal((await kv.get<any>(`save:${player}`)).character.ryo, 5500);
+    const lostAckId = randomUUID();
+    kv.compareSetMany = async operations => {
+        const result = await realCommit(operations);
+        if (result && operations.some(operation => operation.key === `petgauntlet:tok:${lostAckId}`)) throw new Error('Controlled lost transaction acknowledgment');
+        return result;
+    };
+    try { assert.equal((await start(lostAckId)).statusCode, 200); }
+    finally { kv.compareSetMany = realCommit; }
+    const recovered = await start(lostAckId);
+    assert.equal(recovered.statusCode, 200);
+    assert.equal(recovered.body?.resumed, true);
+    assert.equal((await kv.get<any>(`save:${player}`)).character.ryo, 4000);
 });

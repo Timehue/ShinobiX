@@ -1,15 +1,21 @@
 import { readFileSync } from "node:fs";
+import { previewRootFor, smokeE2ePort } from "../e2e-ports";
 import { expect, test, type Page } from "@playwright/test";
 import { STARTER_PETS } from "../src/data/starter-pets";
 import { ASCENSION_STONE_ID, AWAKENING_STONE_ID, evolvePet, evolutionLineFor } from "../src/data/pet-evolutions";
 import { expectUiAuditBoot, installUiAuditRuntime, uiAuditSave } from "./helpers/ui-audit-runtime";
 import { quietRoadCooldowns } from "../e2e-live/helpers/quiet-road";
 
-const manifest = JSON.parse(readFileSync(new URL("../dist/.vite/manifest.json", import.meta.url), "utf8")) as Record<string, { file: string; css?: string[] }>;
-const evolutionChunk = `/${manifest["src/components/PetEvolutionCutscene.tsx"].file}`;
-const bindingChunk = `/${manifest["src/components/WildPetBinding.tsx"].file}`;
-const crisisChunk = `/${manifest["src/screens/WorldCrisis80.tsx"].file}`;
-const crisisCss = `/${manifest["src/screens/WorldCrisis80.tsx"].css!.find(asset => readFileSync(new URL(`../dist/${asset}`, import.meta.url), "utf8").includes(".reckoning{"))!}`;
+let evolutionChunk: string, bindingChunk: string, crisisChunk: string, crisisCss: string;
+test.beforeEach(() => {
+    // Collection precedes the preview snapshot; resolve its assets at test time.
+    const previewRoot = previewRootFor(smokeE2ePort());
+    const manifest = JSON.parse(readFileSync(new URL(`../${previewRoot}/.vite/manifest.json`, import.meta.url), "utf8")) as Record<string, { file: string; css?: string[] }>;
+    evolutionChunk = `/${manifest["src/components/PetEvolutionCutscene.tsx"].file}`;
+    bindingChunk = `/${manifest["src/components/WildPetBinding.tsx"].file}`;
+    crisisChunk = `/${manifest["src/screens/WorldCrisis80.tsx"].file}`;
+    crisisCss = `/${manifest["src/screens/WorldCrisis80.tsx"].css!.find(asset => readFileSync(new URL(`../${previewRoot}/${asset}`, import.meta.url), "utf8").includes(".reckoning{"))!}`;
+});
 const starter = { ...STARTER_PETS[0].pet, level: 90, evolutionStage: 0 as const, unlockedForPve: true, happiness: 100 };
 
 function petSave() {

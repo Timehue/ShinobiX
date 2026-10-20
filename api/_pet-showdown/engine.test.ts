@@ -861,6 +861,22 @@ test('utility move descriptions state the actual weather and ward rules', () => 
     assert.match(moveEffectText('weather', 70, 'Fire'), /Fire damage \+18%; Water damage -12% for 8 rounds/);
     assert.match(moveEffectText('barrier', 100), /105 damage for up to 2 rounds/);
     assert.match(moveEffectText('protect', 90), /Fails if used in consecutive rounds/);
+    assert.match(moveEffectText('protect', 90), /Ongoing damage still applies/);
+    assert.match(moveEffectText('push', 90), /no reserve.*loses stamina/i);
+    assert.match(moveEffectText('push', 90), /Direct damage: 62% of a normal hit/);
+});
+
+test('a signature shield tooltip matches the shield granted by combat', () => {
+    const session = makeSession([makePet('caster', { speed: 200 })], [makePet('foe', { speed: 5 })]);
+    const caster = session.player[0];
+    caster.signatureMove = { ...caster.signatureMove, kind: 'shield', power: 100, hold: 0 };
+    caster.meter = SHOWDOWN_METER_MAX;
+    caster.readiness = 3;
+    const signature = showdownStateView(session).player[0].moves.find(move => move.signature)!;
+    const advertisedShield = Number(signature.effect.match(/Absorbs (\d+) damage/)?.[1]);
+    assert.ok(advertisedShield > 105, 'the signature advertises its boosted shield, not the ordinary-cast amount');
+    resolveShowdownRound(session, [{ kind: 'super', petId: 'caster', targetId: 'caster' }], [{ kind: 'rest', petId: 'foe' }]);
+    assert.equal(caster.statuses.find(status => status.kind === 'shield')?.magnitude, advertisedShield);
 });
 
 test('a self-buff is stored on the ACTOR under its renamed kind', () => {

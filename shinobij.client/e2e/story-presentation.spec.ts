@@ -234,7 +234,7 @@ test('Ashen Leaf finale continues through personal consequence, epilogue and imm
     await expect.poll(() => runtime.lastCommit()?.postedState ?? '').toContain('"status":"seen"');
     const entry = page.locator('.story-archive-entry').filter({ hasText: chapter.title });
     await entry.locator('.story-archive-toggle').click();
-    await expect(entry).toContainText('Show her the better winter.');
+    await expect(entry).toContainText(hub.choices![0].text);
     await entry.getByRole('button', { name: 'Watch cinematic replay' }).scrollIntoViewIfNeeded();
     await screenshot(page, info, 'finale-archive');
     const calls = { starts, settlements, unlocks };
@@ -289,11 +289,11 @@ for (const [index, content] of contents.entries()) {
         await expect.poll(() => starts).toBe(1);
         const result = page.locator('.story-fight-complete-card');
         await expect(result).toBeVisible();
-        const retry = result.getByRole('button', { name: before ? 'Retry reward' : 'Retry record delivery' });
+        const retry = result.getByRole('button', { name: before ? 'Retry reward' : 'Retry saving progress' });
         await expect(retry).toBeEnabled();
         if (!before) {
             await expect(result).toContainText('75 ryo');
-            await expect(result).toContainText('Legacy contribution delivery is pending');
+            await expect(result).toContainText('Your Legacy progress is still pending');
             await expect(result).not.toContainText('123,456');
         }
         await screenshot(page, info, `${villages[index]}-partial-result`);

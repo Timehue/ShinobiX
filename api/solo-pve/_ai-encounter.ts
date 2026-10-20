@@ -17,6 +17,8 @@ import type { PvpFighter } from '../pvp/session.js';
 import { hydrateCharacterFromSave, sealItemCharges } from '../pvp/session.js';
 import { createSoloPveSession, type SoloPveEncounter, type SoloPveEnvironment, type SoloPveSession } from './_session.js';
 import { CATALOG_CHALLENGE_WEAPON_POLICY, standardPveAiPlannerDisabled, type SoloPveAiPolicy } from './_ai-turn-policy.js';
+import { narrativeEnemyIdentity, narrativeEnemyJutsuIds } from '../../shared/narrative-enemy-identity.js';
+import { attachNarrativeGroupCombat } from './_group-combat.js';
 
 export type SoloPveAiProfile = Record<string, unknown> & { id: string };
 
@@ -234,7 +236,7 @@ export function buildSoloPveAiEncounter(params: {
         : null;
     if (!saveCharacter) throw new Error('Cannot build solo PvE without an authoritative player save.');
 
-    const profile = params.scaling && Number.isFinite(params.scaling.level)
+    const sourceProfile = params.scaling && Number.isFinite(params.scaling.level)
         ? relevelAiProfile(
             params.profile as unknown as RelevelableProfile,
             params.scaling.level,
@@ -243,6 +245,18 @@ export function buildSoloPveAiEncounter(params: {
             resolveAiProfileJutsu(params.profile.jutsuIds, params.admin),
         ) as unknown as SoloPveAiProfile
         : params.profile;
+    const ownIdentity = narrativeEnemyIdentity(sourceProfile.id);
+    const identity = ownIdentity ?? narrativeEnemyIdentity(typeof sourceProfile.narrativeIdentityId === 'string' ? sourceProfile.narrativeIdentityId : undefined);
+    const identityIds = identity ? narrativeEnemyJutsuIds(identity, sourceProfile.pveNamedChallenge === true && Array.isArray(sourceProfile.jutsuIds) ? sourceProfile.jutsuIds.length : 7) : [];
+    const profile = identity ? { ...sourceProfile, avatarImage: identity.portrait,
+        ...(ownIdentity ? { visual: sourceProfile.id } : {}),
+        jutsuIds: identityIds, rules: [],
+        ...(sourceProfile.tacticalTell ? { tacticalTell: 'Watch this opponent’s active effects. Clear removes visible defenses; Cleanse removes afflictions. Track each technique’s cooldown before committing your next attack.' } : {}),
+        jutsu: resolveAiProfileJutsu(identityIds, params.admin, sourceProfile.pveNamedChallenge === true ? MAX_CHALLENGE_AI_LOADOUT_JUTSU : undefined).map((jutsu, index) => ({ ...jutsu,
+            ...(identity.moveNames?.[index] ? { name: identity.moveNames[index] } : {}),
+            ...(identity.moveDescriptions?.[index] ? { battleDescription: identity.moveDescriptions[index] } : {}),
+        })),
+    } : sourceProfile;
     const banded = params.difficultyMode === false
         ? false
         : pveDifficultyGuardEnabled(params.difficultyMode ?? 'AI_FIGHT', params.env ?? process.env);
@@ -280,7 +294,7 @@ export function buildSoloPveAiEncounter(params: {
             ? Math.max(0, Math.min(player[field], Math.floor(stored)))
             : player[field];
     };
-    return createSoloPveSession({
+    const session = createSoloPveSession({
         sessionId: params.sessionId,
         ownerSlug: params.playerName,
         encounter: Object.keys(flags).length > 0
@@ -299,4 +313,6 @@ export function buildSoloPveAiEncounter(params: {
         ...(Number(params.weeklyBossRoundBudget) > 0 ? { weeklyBossRoundBudget: params.weeklyBossRoundBudget } : {}),
         ...(Number(params.activeTtlSeconds) > 0 ? { activeTtlSeconds: params.activeTtlSeconds } : {}),
     });
+    attachNarrativeGroupCombat(session, params.profile.id, params.profile.narrativeGroupId);
+    return session;
 }

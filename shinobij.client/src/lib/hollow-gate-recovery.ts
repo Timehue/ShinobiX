@@ -93,7 +93,7 @@ export async function fetchHollowGateResume(playerName: string): Promise<HollowG
             body: JSON.stringify({ playerName }),
         });
         const data = await response.json().catch(() => ({})) as { ok?: boolean; live?: boolean; run?: HollowGateResumeState; error?: string };
-        if (!response.ok || !data.ok) return { kind: "error", error: data.error || `Hollow Gate resume failed (${response.status}).` };
+        if (!response.ok || !data.ok) return { kind: "error", error: data.error || `Your Hollow Gate run could not be recovered. Reopen the shrine to retry.` };
         return data.live && data.run ? { kind: "live", state: data.run } : { kind: "gone" };
     } catch {
         return { kind: "error", error: "The Hollow Gate resume service is unreachable." };

@@ -484,7 +484,7 @@
           },
           {
             "type": "p",
-            "text": "Wound and Drain tick at the end of the affected fighter’s turn, giving that fighter a chance to Cleanse first. Poison also hurts you when you spend Chakra or Stamina on jutsu. If you are poisoned, compare the value of another cast with the damage it will cause you."
+            "text": "Wound and Drain tick at the end of the affected fighter’s turn in Solo/PvP, or at round end in Towers. Cleanse can remove them before they tick. Poison also hurts you when you spend Chakra or Stamina on jutsu. If you are poisoned, compare the value of another cast with the damage it will cause you."
           },
           {
             "type": "p",
@@ -682,7 +682,7 @@
           },
           {
             "type": "p",
-            "text": "Some weapon and armor drops are improved versions of a catalog item. Each step adds 0.5 EP to a weapon or 0.5 percentage points of damage reduction to armor, staying below the next tier. Buying or crafting better gear unlocks drops from higher eligible upgrade tiers. Upgrade pieces cannot be bought or crafted, and spares sell for 500 ryo."
+            "text": "Some weapon and armor drops are improved versions of a catalog item. Each step adds 0.5 EP to a weapon or 0.5 percentage points of armor protection strength, staying below the next tier. Protection combines with other reductions with diminishing returns. Buying or crafting better gear unlocks drops from higher eligible upgrade tiers. Upgrade pieces cannot be bought or crafted, and spares sell for 500 ryo."
           },
           {
             "type": "p",
@@ -819,7 +819,7 @@
           },
           {
             "type": "p",
-            "text": "A hostile encounter can stop you with a Fight or Flee choice. Fleeing costs half your current HP, rounded down without knocking you out, and 10% of carried ryo up to the discharge cost for your level. Banked ryo is safe. The encounter shows the actual price before you choose, so recover and bank spare ryo before a long trip."
+            "text": "Road bandits offer Fight or Pay 500 ryo. Paying uses carried ryo and costs no HP. Other hostile road encounters offer Fight or Flee. Fleeing costs half your current HP, rounded down without knocking you out, and 10% of carried ryo up to the discharge cost for your level. Neither option takes banked ryo. The encounter shows the price before you choose."
           }
         ]
       },

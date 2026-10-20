@@ -55,12 +55,12 @@ export const CLAN_UPGRADE_MAX_LEVEL = 50;
 export const clanMissionDefinitions = [
     { key: "battle", name: "Win 20 Battles", description: "Clan members combine for 20 battle wins.", target: 20, reward: "+450 Clan XP / +2,500 Treasury Ryo" },
     { key: "mission", name: "Complete 50 Missions", description: "Clan members combine for 50 mission completions.", target: 50, reward: "+650 Clan XP / +3,500 Treasury Ryo" },
-    { key: "guard", name: "Defend Village 10 Times", description: "Keep village guard pressure active and defend the village.", target: 10, reward: "+500 Clan XP / +2,000 Treasury Ryo" },
+    { key: "guard", name: "Build a Guard Roster of 10", description: "Reach a combined total of 10: guards in reward-active clan sectors plus clan members at level 5 or higher.", target: 10, reward: "+500 Clan XP / +2,000 Treasury Ryo" },
     { key: "territory", name: "Claim Territory", description: "Capture and keep one reward-active clan sector.", target: 1, reward: "Prestige milestone (no item payout)" },
-    { key: "anbu", name: "ANBU Recon Support", description: "Coordinate with ANBU scouts, sector guards, and raid defense missions.", target: 10, reward: "+300 Clan XP / intel advantage" },
-    { key: "donation", name: "Donate 25,000 Ryo", description: "Grow the clan treasury through member donations.", target: 25000, reward: "+700 Clan XP / +1 Aura Stone" },
-    { key: "training", name: "Train 100 Hours", description: "Long-term clan discipline objective.", target: 100, reward: "+600 Clan XP" },
-    { key: "raid", name: "Defeat 5 Raid Bosses", description: "Raid contribution objective for future PvE events.", target: 5, reward: "+900 Clan XP / +1 Mythic Seal" },
+    { key: "anbu", name: "ANBU Recon Support", description: "Reach 10 recon points. Each guard in a reward-active clan sector adds 1 point; every 5 recorded clan battle wins add 1 point.", target: 10, reward: "+300 Clan XP" },
+    { key: "donation", name: "Hold 25,000 Treasury Ryo", description: "Keep at least 25,000 Ryo in the clan treasury. Progress uses the current balance, so spending can lower it.", target: 25000, reward: "+700 Clan XP / +1 Aura Stone" },
+    { key: "training", name: "Build 100 Activity Points", description: "Combined battle, mission, and event contributions count toward this score. Each contribution adds 1.5 points, rounded down after totaling. No training timer is required.", target: 100, reward: "+600 Clan XP" },
+    { key: "raid", name: "Earn 15 Event Contributions", description: "Every 3 recorded clan event contributions fill 1 of the 5 progress steps. Reach 15 contributions to complete the objective.", target: 5, reward: "+900 Clan XP / +1 Mythic Seal" },
 ] as const;
 
 // ── Clan war (CW) tables ─────────────────────────────────────────────────

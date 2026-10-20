@@ -1,7 +1,23 @@
 import { strict as assert } from 'node:assert';
 import test from 'node:test';
 import type { Character } from '../types/character';
-import { aiFightExitScreen, aiFightNonWinMessage } from './ai-fight-result';
+import { aiFightExitScreen, aiFightNonWinMessage, aiFightWinRewardText } from './ai-fight-result';
+import type { AiFightSettleResult } from './ai-fight-settle';
+
+test('zero-ryo receipts preserve stat growth and distinguish a limit from practice', () => {
+    const receipt: AiFightSettleResult = { settled: true, outcome: 'win', ryo: 0, statPoints: 2,
+        capped: true, replayed: false, character: null, fetchMissionsCredited: [] };
+    const growthOnly = aiFightWinRewardText(receipt, false, false);
+    assert.match(growthOnly, /\+2 stat points/);
+    assert.match(growthOnly, /prevented a ryo payout/);
+    assert.doesNotMatch(growthOnly, /Practice|no rewards/);
+    assert.match(aiFightWinRewardText({ ...receipt, ryo: 25 }, false, false), /\+25 ryo.*reduced this payout/);
+    const noGrowth = { ...receipt, statPoints: 0 };
+    assert.doesNotMatch(aiFightWinRewardText(noGrowth, false, false), /Practice/);
+    assert.match(aiFightWinRewardText({ ...noGrowth, capped: false }, true, false), /Practice bout/);
+    assert.match(aiFightWinRewardText({ ...noGrowth, replayed: true }, false, true), /already collected/);
+    assert.doesNotMatch(aiFightWinRewardText({ ...receipt, settled: false }, false, false), /\+2/);
+});
 
 test('a knockout returns to the hospital; a surviving or recovered fighter keeps the original destination', () => {
     assert.equal(aiFightExitScreen(true, 'worldMap'), 'hospital');

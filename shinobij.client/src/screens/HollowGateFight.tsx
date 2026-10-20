@@ -64,26 +64,26 @@ export function HollowGateFight({
             recordMode="Hollow Gate"
             hollowGate={{ floor: fight.floor, kind: fight.kind }}
             retreatSealed={fight.session.encounter.metadata?.noRetreat === true}
-            enemyAvatarOverride={sharedImages?.["hollow-gate:hound:combat"] || "/hollow-gate/hollow-hound-idle.webp"}
+            enemyAvatarOverride={fight.session.enemy.character.visual === "hollow-hound" ? sharedImages?.["hollow-gate:hound:combat"] || "/hollow-gate/hollow-hound-idle.webp" : undefined}
             renderResult={({ settleState, settleResult, retry }) => {
                 const result = settleResult as HollowGateCombatSettleResult | null;
-                const title = result?.won ? "Seal Broken" : result?.escaped ? "Withdrawn" : result?.revived ? "Second Wind" : "Run Ended";
+                const title = !result ? "Battle ended" : result.won ? "Victory" : result.escaped ? "Escaped" : result.revived ? "Second Wind" : "Run ended";
                 const detail = result?.won
-                    ? formatHollowGateCombatReward(result) || "The Gate verified the victory."
+                    ? formatHollowGateCombatReward(result) || "Victory confirmed. No direct reward from this encounter."
                     : result?.escaped
                         ? "The escape was verified. Threat returns to zero."
                         : result?.revived
                             ? "Second Wind restored you at half health."
-                            : "The Hollow Hound ended this dive.";
+                            : "You did not survive this encounter. Your Hollow Gate run has ended.";
                 return (
                     <div className="story-fight-complete" role="dialog" aria-label="Hollow Gate combat result">
                         <div className="story-fight-complete-card">
                             <p className="story-fight-complete-kicker">Hollow Gate</p>
                             <h2>{title}</h2>
                             {settleState === "failed"
-                                ? <button onClick={retry}>Try again</button>
+                                ? <><p>Your battle result could not be confirmed. Press Retry to check it.</p><button onClick={retry}>Retry</button></>
                                 : settleState !== "settled" || !result
-                                    ? <p>Verifying the sealed encounter…</p>
+                                    ? <p>Confirming your battle result…</p>
                                     : <><p className="story-fight-complete-rewards">{detail}</p><button onClick={finish}>Continue</button></>}
                         </div>
                     </div>

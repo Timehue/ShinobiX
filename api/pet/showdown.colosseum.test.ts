@@ -127,6 +127,23 @@ for (const collectDuringBattle of [false, true]) test(`a paid win preserves trai
     assert.equal(replay.body.state.outcome, 'win');
 });
 
+test('a lost winning reply cannot be discarded by a stale concession', async () => {
+    const state = await start('arena');
+    const session = (await kv.get<ShowdownSession>(key(state.sessionId)))!;
+    await kv.set(key(state.sessionId), { ...session, finished: true, outcome: 'win' });
+    const before = await kv.get(`save:${player}`);
+    const concession = await post({ action: 'forfeit', sessionId: state.sessionId });
+    assert.equal(concession.status, 409);
+    assert.equal((await kv.get<ShowdownSession>(key(state.sessionId)))!.outcome, 'win');
+    assert.deepEqual(await kv.get(`save:${player}`), before);
+    const receipt = await post({ action: 'turn', sessionId: state.sessionId, commands: [] });
+    assert.equal(receipt.status, 200);
+    assert.ok(receipt.body.reward > 0);
+    const paid = await kv.get(`save:${player}`);
+    assert.equal((await post({ action: 'turn', sessionId: state.sessionId, commands: [] })).body.reward, 0);
+    assert.deepEqual(await kv.get(`save:${player}`), paid);
+});
+
 test('practice terminals, concessions, and daily-capped paid admission never change balances', async () => {
     const state = await start();
     const saved = await kv.get(`save:${player}`);

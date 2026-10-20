@@ -618,7 +618,7 @@ test('a lethal hit terminalizes the persisted PvP session before Absorb can revi
     assert.equal(terminal.p2.hp, 0, 'the defender remains at zero HP');
     assert.equal(terminal.status, 'done', 'the terminal session is persisted in the same move');
     assert.equal(terminal.winner, 'p1');
-    assert.equal(terminal.log.some((line) => line.startsWith('bob absorbs ')), false, 'no post-death absorb heal is recorded');
+    assert.equal(terminal.log.some((line) => line.startsWith('bob restores ')), false, 'no post-death absorb heal is recorded');
 });
 
 // Owner ruling 2026-10-05: a player who Cleanses as soon as they are debuffed takes
@@ -701,8 +701,8 @@ test('Drain and Wound tick in full at the END of the holder turn, through armor 
     const turnEnd = storedSession(battleId);
     assert.equal(turnEnd.p2.hp, 5000 - 300 - 90, 'the full 300 Drain and the full 90 Wound land');
     assert.equal(turnEnd.p2.chakra, 1000 - 300, 'Drain takes its full 300 chakra too');
-    assert.ok(turnEnd.log.includes('bob drained 300 HP+chakra.'), turnEnd.log.join(' | '));
-    assert.ok(turnEnd.log.includes('bob bleeds 90 (Wound).'), turnEnd.log.join(' | '));
+    assert.ok(turnEnd.log.includes('bob loses 300 HP and 300 chakra to Drain.'), turnEnd.log.join(' | '));
+    assert.ok(turnEnd.log.includes('bob loses 90 HP to Wound.'), turnEnd.log.join(' | '));
 });
 
 test('a player who Cleanses as their first action takes no Wound or Drain', async () => {

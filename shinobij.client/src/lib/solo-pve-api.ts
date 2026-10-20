@@ -135,7 +135,7 @@ export type SoloPveRejectionEvent = {
 };
 
 export type SoloPveSession = {
-    huntCombat?: { formation: import('../../../shared/hunt-combat').HuntFormation; battle: import('./towers-api').TowerSession };
+    huntCombat?: { purpose?: 'story-twins' | 'narrative-group'; groupId?: string; requiredEnemyIds?: string[]; formation: Omit<import('../../../shared/hunt-combat').HuntFormation, 'count'> & { count: number }; battle: import('./towers-api').TowerSession };
     runtime: 'solo-pve';
     schemaVersion: 1;
     sessionId: string;

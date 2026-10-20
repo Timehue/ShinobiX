@@ -32,7 +32,7 @@ export async function settleHollowGateCardAmbush(playerName: string, token: stri
             body: JSON.stringify({ playerName, token, matchId }),
         });
         const data = await response.json().catch(() => ({})) as CardSettleResult;
-        return response.ok && data.ok ? data : { ...data, ok: false, error: data.error ?? "The rift card result could not be sealed." };
+        return response.ok && data.ok ? data : { ...data, ok: false, error: data.error ?? "Your rift card result could not be saved. Press Continue again to retry." };
     } catch {
         return { ok: false, error: "The rift card service is unreachable." };
     }

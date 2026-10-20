@@ -1,6 +1,6 @@
 import { maybeRequestPlayReview } from '../lib/native-play';
 import { gearDropRewardLine } from '../lib/items';
-import { aiFightNonWinMessage } from '../lib/ai-fight-result';
+import { aiFightNonWinMessage, aiFightWinRewardText } from '../lib/ai-fight-result';
 import type { AiFightSettleResult } from '../lib/ai-fight-settle';
 import type { OrdinaryPveEncounter } from '../../../shared/ordinary-pve-encounter';
 import { EncounterDifficultyBadge } from './EncounterDifficultyBadge';
@@ -69,7 +69,6 @@ export default function AiFightResultCard({
     // WIN. Reward numbers come from the server's settle response — never a local
     // prediction, because the daily soft cap and a profession payout can both
     // change what is actually granted.
-    const grantedNothing = settleResult && settleResult.outcome === "win" && settleResult.ryo <= 0;
     // An upgrade gear piece belongs with the rest of the winnings (the global pop-up still fires).
     const gearLine = settleState === "settled" && settleResult?.settled && !settleResult.replayed
         ? gearDropRewardLine(settleResult.gearDropItemId)
@@ -85,23 +84,12 @@ export default function AiFightResultCard({
                 {settleState !== "settled" || !settleResult
                     ? (
                         <p className="story-fight-complete-rewards">
-                            {settleState === "failed" ? "The reward could not be verified." : "Tallying rewards…"}
+                            {settleState === "failed" ? "Your reward could not be confirmed. Press Retry to check it." : "Confirming your rewards…"}
                         </p>
                     )
-                    : !settleResult.settled
-                        ? <p className="story-fight-complete-rewards">No reward was granted for this fight.</p>
-                        : settleResult.replayed
-                            ? <p className="story-fight-complete-rewards">This reward was already collected.</p>
-                            : grantedNothing && !worldEncounter
-                                // A practice bout pays nothing by design — say so
-                                // plainly rather than showing a bare "+0 ryo".
-                                ? <p className="story-fight-complete-rewards">Practice bout — no rewards.</p>
-                                : grantedNothing
-                                    ? <p className="story-fight-complete-rewards">Encounter cleared. Contract rewards remain available at their normal turn-in.</p>
-                                    : (
+                    : (
                                     <p className="story-fight-complete-rewards">
-                                        +{settleResult.ryo} ryo · +{settleResult.statPoints} stat points{settleResult.capped ? " (daily ryo cap reached)" : ""}
-                                        <span className="story-fight-complete-title">Win PvE and PvP fights for stat growth, and train or complete daily missions for more.</span>
+                                        {aiFightWinRewardText(settleResult, spar, worldEncounter)}
                                     </p>
                                     )}
                 {gearLine && <p className="story-fight-complete-rewards" data-testid="ai-fight-gear-drop">{gearLine}</p>}

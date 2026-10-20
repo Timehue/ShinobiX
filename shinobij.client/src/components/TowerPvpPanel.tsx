@@ -235,7 +235,7 @@ export function TowerPvpPanel({
                     <small>{realtimeConnected ? "Realtime channel connected" : "HTTP recovery mode"}</small>
                 </div>
             </header>
-            <p className="tower-pvp-intro">Four live players are split into balanced two-person teams. PvP uses the Tower board and canonical combat tags; consumables, rating, currency, and progression rewards are disabled.</p>
+            <p className="tower-pvp-intro">Four players are split into balanced two-person teams. Fight on the Tower board with the standard combat effects. Consumables are disabled, and matches award no rating, currency, or progression.</p>
             {error && <div className="tower-pvp-error" role="alert">{error}</div>}
 
             {presence.state === "idle" && (

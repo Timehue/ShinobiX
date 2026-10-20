@@ -34,7 +34,7 @@ export function NamedForgeRevealModal({ kind, phase, stats, onContinue, returnFo
         <section className={`nf nf--${kind} is-${phase}`} role="status" aria-live="polite" aria-atomic="true">
             <div className="nf-relic" aria-hidden="true"><span><Icon /></span></div>
             <div className="nf-copy">
-                <span>{rolling ? 'Master forge · fate in motion' : 'One of one · roll sealed'}</span>
+                <span>{rolling ? 'Master forge · fate in motion' : 'Named gear · roll saved'}</span>
                 <h3>{rolling ? `Rolling ${itemLabel}` : `${itemLabel} Awakened`}</h3>
                 <p>{rolling ? 'Heat, chakra, and chance are converging…' : 'Your roll is revealed. Take a moment to inspect it.'}</p>
             </div>

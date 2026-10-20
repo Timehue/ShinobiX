@@ -147,7 +147,7 @@ describe('Tower MPvP session authority', () => {
         assert.equal(projectTowerPvpTerminal(created), true);
         assert.equal(created.winner, 'amber');
         assert.equal(created.combat.winner, 'squad');
-        assert.match(created.combat.log.at(-1) ?? '', /remaining vitality/);
+        assert.match(created.combat.log.at(-1) ?? '', /remaining HP percentage/);
     });
 
     it('projects simultaneous defeat as a draw', () => {

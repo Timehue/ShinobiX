@@ -1,0 +1,5 @@
+/* Encounter dialogue must stay legible over the map. The global menu skin
+   gives .card a translucent !important background, so override it here. */
+.card.world-wanderer-dialog {
+    background: #111827 !important;
+}

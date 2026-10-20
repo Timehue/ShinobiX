@@ -114,6 +114,7 @@ const FROZEN = {
         'rationsCookedDate', 'rationsCookedToday', 'storesDonatedDate', 'rationsDonatedToday', 'craftPointsDonatedToday',
     ],
     COMBAT_STRIP_TOPLEVEL_FIELDS: [
+        'banditTollReceipts',
         'currentBiome', 'activeTraining', 'activeJutsuTraining',
         'acceptedMissionIds', 'missionProgress',
         // Owner-approved continuous-world cursor, 2026-10-07.
@@ -173,6 +174,7 @@ const FROZEN = {
         'dailyBattleFloors', 'dailyBattleDate', 'lastTaxDate',
     ],
     SERVER_LEDGER_TOPLEVEL_FIELDS: [
+        'banditTollReceipts',
         'currentSector', 'currentTile', 'worldPosition', 'worldTravelReceipt', 'pendingTravel',
         '_trainingReceipts', 'activeTraining',
         'activeWandererQuestSeal', 'activeStoryReckoningSeal',

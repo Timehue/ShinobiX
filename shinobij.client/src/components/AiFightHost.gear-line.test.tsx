@@ -49,7 +49,7 @@ test("a win that granted an upgrade gear piece names it with the other winnings"
 });
 
 test("an armor piece shows its damage reduction", () => {
-    assert.match(render(settled({ gearDropItemId: "reinforced-vest-s1" })), /Upgrade gear found: Amberhide Vest · [\d.]+% damage reduction, up from [\d.]+% on the Reinforced Vest/);
+    assert.match(render(settled({ gearDropItemId: "reinforced-vest-s1" })), /Upgrade gear found: Amberhide Vest · [\d.]+% armor protection, up from [\d.]+% on the Reinforced Vest/);
 });
 
 test("no gear line without a drop, while tallying, after a failure, or on a replayed reward", () => {

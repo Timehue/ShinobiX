@@ -65,7 +65,7 @@ const RULES: ReadonlyArray<readonly [RegExp, BattleLogCategory]> = [
     [/^Stun:|^Push:|^Pull:|\bSeal\b|loses \d+ AP/i, "control"],
 
     // Damage (red) — generic, last among the semantic rules
-    [/[\d,]+ damage|^Damage Dealt:|^Poison:|^Drain:|^Wound:|^Recoil:|^Pierce:|\bbleeds\b|Poison damage|\bdrained\b|reflected damage|recoil/i, "damage"],
+    [/[\d,]+ damage|loses [\d,]+ HP|^Damage Dealt:|^Poison:|^Drain:|^Wound:|^Recoil:|^Pierce:|\bbleeds\b|Poison damage|\bdrained\b|reflected damage|recoil/i, "damage"],
 ];
 
 /** Classify a single battle-log line into a semantic color category. */

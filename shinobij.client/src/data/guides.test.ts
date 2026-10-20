@@ -31,6 +31,7 @@ import { ANBU_RAID_MIN_LEVEL, STRONGHOLD_MIN_LEVEL } from "../../../shared/secto
 import { LOADOUT_CAP_BASE, LOADOUT_CAP_SUB, PET_CAP_BASE, PET_CAP_SUB } from "../lib/entitlements";
 import { PET_TUTORIAL_LESSONS } from "../lib/pet-tutorial";
 import { GUIDE_CATEGORIES, GUIDES } from "./guides";
+import { BANDIT_TOLL_RYO } from "../../../shared/road-toll";
 
 function textForGuide(id: string): string {
     const guide = GUIDES.find((candidate) => candidate.id === id);
@@ -169,6 +170,9 @@ test("high-drift guide numbers stay aligned with current game constants", () => 
     }
 
     assert.match(world, new RegExp(`${MAX_WILD_SECTOR} ordinary sectors`, "i"));
+    assert.match(world, new RegExp(`Road bandits offer Fight or Pay ${BANDIT_TOLL_RYO} ryo`, "i"));
+    assert.match(world, /Paying uses carried ryo and costs no HP/);
+    assert.match(world, /Other hostile road encounters offer Fight or Flee/);
     assert.match(endgame, new RegExp(`${numberText(HOLLOW_GATE_DEPTH)}-floor`, "i"));
     assert.match(
         endgame,

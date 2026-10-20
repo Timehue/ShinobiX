@@ -19,6 +19,10 @@ test("the Awakening Stone opens before an unawakened player's first trip to Cent
 
 test("a first-departure story fires only when actually leaving the village", () => {
     const awakened = hero({ elements: ["Fire"] } as Partial<Character>);
+    assert.equal(departureNarrative({ character: awakened, screen: "village", nextScreen: "pets", triggeredEvents: [], creatorEvents: [] }), null,
+        "an already-awakened player must not receive a first-element summons when leaving the village");
+    assert.equal(departureNarrative({ character: awakened, screen: "village", nextScreen: "worldMap", triggeredEvents: [], creatorEvents: [leaveVn] })?.id, "creator-leave",
+        "skipping an obsolete summons still permits the unrelated departure scene");
     assert.equal(departureNarrative({ character: awakened, screen: "village", nextScreen: "worldMap", triggeredEvents: [AWAKENING_VN_ID], creatorEvents: [leaveVn] })?.id, "creator-leave");
     assert.equal(departureNarrative({ character: hero(), screen: "worldMap", nextScreen: "centralHub", triggeredEvents: [AWAKENING_VN_ID], creatorEvents: [leaveVn] }), null);
 });
