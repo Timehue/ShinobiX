@@ -50,6 +50,9 @@ daily allowance above its old 20-shard price without bypassing the same XP cap.
 
 Each craft produces one item; existing batches support up to 20 crafts:
 
+There is **no additional ryo fee and no craft-point fee** for any of these food
+recipes. The listed ingredients are their complete crafting cost.
+
 - Treats: 4 Beast Meat/River Fish (any fish grade), 2 Field Herbs.
 - Elemental Treats: 2 Treats, 4 common-or-better Rime Crystal/Ember Ore/Stormglass
   Shard (any mix), 4 Field Herbs.
@@ -100,6 +103,11 @@ per cell, two seeds and swapped sides):
 This redesign increases available power and is not balance-neutral. Diminishing
 returns make these extreme builds inefficient against balanced mirrors; they
 remain legal rather than universally competitive. Rounding can make one point
-show +0 to a small base stat, which the UI displays honestly. These controlled
+show +0 to a small base stat, which the UI displays honestly. Final damage can
+also round unchanged after compression: the level-100 Spark Pup advanced-opening
+probe stays at 364 damage after ten additional third-tier Power points, while
+twenty points raises it to 366. Strict investment-direction regression checks
+therefore use a twenty-point reallocation, preserving their strict assertions.
+These controlled
 AI samples do not establish complete human PvP balance or every cross-species
 matchup. No production player save or live currency data was changed.

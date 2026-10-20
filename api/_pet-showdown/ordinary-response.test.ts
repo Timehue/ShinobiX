@@ -15,7 +15,7 @@ const balanced = (level: number): PetGrowthAllocation => {
 };
 function fixture(level: number, allocation = balanced(level)): Pet {
     const template = PET_CATALOG['starter-lightning'];
-    return { ...template, id: 'starter-lightning', templateId: 'starter-lightning', level, trait: undefined,
+    return { ...template, id: 'starter-lightning', templateId: 'starter-lightning', level, trait: undefined, growthVersion: 2,
         growthBaseStats: { hp: template.hp, attack: template.attack, defense: template.defense, speed: template.speed },
         growthAllocation: allocation } as Pet;
 }
@@ -82,9 +82,11 @@ test('earned advanced Jolt Bite remains stronger than the affordable native basi
 test('ordinary response safety preserves Power, Guard and Vitality investment direction', () => {
     for (const level of [75, 100]) for (const advanced of [false, true]) {
         const allocation = balanced(level), base = opening(level, advanced);
-        const power = { ...allocation, vitality: allocation.vitality - 10, power: allocation.power + 10 };
-        const guard = { ...allocation, power: allocation.power - 10, guard: allocation.guard + 10 };
-        const vitality = { ...allocation, power: allocation.power - 10, vitality: allocation.vitality + 10 };
+        // Third-tier points buy 0.25% base each. Ten points can round to the
+        // same final compressed hit; twenty still exercises strict direction.
+        const power = { ...allocation, vitality: allocation.vitality - 20, power: allocation.power + 20 };
+        const guard = { ...allocation, power: allocation.power - 20, guard: allocation.guard + 20 };
+        const vitality = { ...allocation, power: allocation.power - 20, vitality: allocation.vitality + 20 };
         for (const candidate of [power, guard, vitality]) assert.deepEqual(sanitizeGrowthAllocation(candidate, level), candidate);
         const powered = opening(level, advanced, power);
         const defended = opening(level, advanced, allocation, guard);
