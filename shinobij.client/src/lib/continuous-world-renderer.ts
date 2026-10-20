@@ -1,9 +1,12 @@
 import type { ContinuousWorldSpace, WorldChunk, WorldPoint } from '../../../shared/continuous-world-space';
 import type { WorldNavigation } from '../../../shared/continuous-world-navigation';
-import { sectorWalkMask } from '../../../shared/sector-walk-mask';
+import { sectorWalkMask,isWalkableTile } from '../../../shared/sector-walk-mask';
 import { sectorBiomeOf } from '../../../shared/sector-geo';
 import { sectorFloorImage } from './sector-floor-layout';
+import { sectorLifePainting,sectorLifePaintingRevision,sectorGroundMarks,sectorGroundRevision } from './sector-life-art';
 import { worldRoadCrossings } from '../../../shared/world-road-crossings';
+import { sectorBannerRevision,tintSectorBanners } from './sector-banner';
+import {recordDisplayedSectorFloor,forgetDisplayedSectorFloor,forgetDisplayedFloors} from './sector-displayed-floor';
 
 const colors: Record<string, string> = { forest: '#495338', central: '#747052', snow: '#b5bdba', shadow: '#55505c', volcano: '#4a3d36' };
 const hash = (x: number, y: number) => Math.abs(Math.sin(x * 12.9898 + y * 78.233) * 43758.5453) % 1;
@@ -20,7 +23,8 @@ export function createContinuousWorldRenderer(canvas: HTMLCanvasElement, space: 
         return true;
     };
     const output = canvas.getContext('2d')!;
-    const images = new Map<number, HTMLImageElement>(), ground = new Map<string, HTMLCanvasElement>(), rock = new Map<string, HTMLCanvasElement>();
+    type FloorImage=HTMLImageElement&{floorSource:string;failedRevision?:number};
+    const images = new Map<number, FloorImage>(), pending=new Map<number,FloorImage>(), ground = new Map<string, HTMLCanvasElement>(), rock = new Map<string, HTMLCanvasElement>();
     const roadTextures = new Map<number, CanvasPattern>(), chunks = new Map(space.chunks.map(c => [c.sector, c]));
     const materials = new Map<string, HTMLImageElement>(), fieldSources = new Map<string, string>();
     const paintings = new Map<number, HTMLCanvasElement>();
@@ -43,7 +47,7 @@ export function createContinuousWorldRenderer(canvas: HTMLCanvasElement, space: 
     let width = canvas.clientWidth, height = canvas.clientHeight;
     const resize = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(() => { width = canvas.clientWidth; height = canvas.clientHeight; });
     resize?.observe(canvas);
-    let revision = 0, lastDraw = '';
+    let revision = 0, lastDraw = '', groundVersion=sectorGroundRevision(),bannerVersion=sectorBannerRevision();
     let lastView: { tilePx: number; chunk: WorldChunk; crossings: typeof crossings; x: number; y: number } | undefined;
     // An image counts as arrived once it is DECODED, not merely loaded: drawing a
     // loaded-but-undecoded 1024px webp decodes it synchronously inside a frame,
@@ -74,22 +78,40 @@ export function createContinuousWorldRenderer(canvas: HTMLCanvasElement, space: 
     };
     const imageFor = (sector: number) => {
         let image = images.get(sector);
-        if (!image) {
-            const created = image = new Image();
-            // Its feathered painting is built here too, in the decode's own task, rather
-            // than by the first frame that draws this map (a full-size canvas and two
-            // full-canvas fills). An image evicted meanwhile is not built.
-            whenDecoded(created, () => { if (images.get(sector) === created) painting(sector, created); revision++; });
-            created.src = sectorFloorImage(sector); images.set(sector, created);
+        const source=sectorLifePainting(sector)??sectorFloorImage(sector);
+        const loading=pending.get(sector);
+        if ((image?.floorSource!==source||image.failedRevision!==undefined&&image.failedRevision!==sectorLifePaintingRevision())&&(loading?.floorSource!==source||loading.failedRevision!==undefined&&loading.failedRevision!==sectorLifePaintingRevision())) {
+            const created=new Image() as FloorImage;created.floorSource=source;pending.set(sector,created);
+            // Keep the decoded previous floor until the new phase is ready. A
+            // failed or superseded image must never blank the terrain or win late.
+            whenDecoded(created,()=>{
+                if(pending.get(sector)!==created) {
+                    if(images.get(sector)===created) {painting(sector,created);revision++;}
+                    return;
+                }
+                pending.delete(sector);
+                if((sectorLifePainting(sector)??sectorFloorImage(sector))!==source)return;
+                const old=paintings.get(sector);if(old)shrink(old);
+                paintings.delete(sector);roadTextures.delete(sector);images.set(sector,created);
+                painting(sector,created);revision++;
+            });
+            if(sectorLifePainting(sector))created.onerror=()=>{
+                if(pending.get(sector)!==created)return;
+                const base=sectorLifePainting(sector,true);
+                created.failedRevision=sectorLifePaintingRevision();
+                created.onerror=null;created.src=base&&base!==source?base:sectorFloorImage(sector);
+            };
+            created.src=source;
+            if(!image) { image=created;images.set(sector,created); }
         }
-        return image;
+        return image!;
     };
     function painting(sector: number, image: HTMLImageElement) {
         let result = paintings.get(sector);
         if (!result) {
             result = document.createElement('canvas'); result.width = result.height = image.naturalWidth;
             const context = result.getContext('2d')!, size = result.width, feather = size / 12 * .65;
-            context.drawImage(image, 0, 0); context.globalCompositeOperation = 'destination-in';
+            context.drawImage(image, 0, 0); tintSectorBanners(context,sector,size); context.globalCompositeOperation = 'destination-in';
             for (const horizontal of [true, false]) {
                 const fade = context.createLinearGradient(0, 0, horizontal ? size : 0, horizontal ? 0 : size);
                 fade.addColorStop(0, '#fff0'); fade.addColorStop(feather / size, '#fff'); fade.addColorStop(1 - feather / size, '#fff'); fade.addColorStop(1, '#fff0');
@@ -188,6 +210,17 @@ export function createContinuousWorldRenderer(canvas: HTMLCanvasElement, space: 
         }
         // Only maps already requested: the camera's own neighbourhood decides what loads (see draw).
         for (const chunk of visible) { const image = images.get(chunk.sector); if (usable(image)) ctx.drawImage(painting(chunk.sector, image), chunk.x, chunk.y, 12, 12); }
+        // Scraped earth is painted into the same cached ground as the sector.
+        // It has no upright sprite, shadow, interaction marker or collision.
+        for(const chunk of visible)for(const mark of sectorGroundMarks(chunk.sector)) {
+            if(!isWalkableTile(chunk.sector,mark.tile))continue;
+            ctx.save();ctx.translate(chunk.x+mark.tile%12+.5,chunk.y+Math.floor(mark.tile/12)+.5);ctx.rotate(mark.direction??hash(mark.tile,mark.seed)*Math.PI);
+            ctx.globalCompositeOperation='multiply';ctx.globalAlpha=mark.fade*(mark.worked?.6:.3);ctx.strokeStyle='#514635';ctx.lineWidth=.055;ctx.lineCap='round';
+            if(mark.worked){ctx.globalCompositeOperation='source-over';ctx.scale(1,.7);const soil=ctx.createRadialGradient(0,0,.08,0,0,.45);soil.addColorStop(0,'#81704e');soil.addColorStop(1,'#81704e00');ctx.fillStyle=soil;ctx.fillRect(-.5,-.5,1,1);}
+            else if(mark.direction===undefined)for(const offset of [-.18,0,.16]){ctx.beginPath();ctx.moveTo(-.3,offset);ctx.quadraticCurveTo(-.06,offset-.11,.29,offset+.05);ctx.stroke();}
+            else {ctx.fillStyle=ctx.strokeStyle;for(const side of [-1,1]){ctx.beginPath();ctx.ellipse(side*.11,side*.12,.055,.13,0,0,Math.PI*2);ctx.fill();}}
+            ctx.restore();
+        }
         // A low rock line where two walkable-looking strips touch without a step between them.
         for (const wall of walls) {
             if (wall.x < left - 1 || wall.x > right + 1 || wall.y < top - 1 || wall.y > bottom + 1) continue;
@@ -223,11 +256,13 @@ export function createContinuousWorldRenderer(canvas: HTMLCanvasElement, space: 
         return tile;
     }
     function draw(position: WorldPoint, sector: number) {
+        if(bannerVersion!==sectorBannerRevision()){bannerVersion=sectorBannerRevision();for(const surface of paintings.values())shrink(surface);paintings.clear();revision++;}
+        if(groundVersion!==sectorGroundRevision()){groundVersion=sectorGroundRevision();revision++;}
         if (!resize) { width = canvas.clientWidth; height = canvas.clientHeight; }
         const tilePx = width / 12, dpr = Math.min(devicePixelRatio, 2), scale = tilePx * dpr;
         // The painting is static: actors/weather animate in separate DOM layers.
         // Keep the raster while idle; image arrivals, camera, zone or size invalidate it.
-        const signature = `${position.x}:${position.y}:${sector}:${width}:${height}:${dpr}:${revision}`;
+        const signature = `${position.x}:${position.y}:${sector}:${width}:${height}:${dpr}:${revision}:${sectorLifePaintingRevision()}`;
         if (signature === lastDraw && lastView) return lastView;
         if (canvas.width !== Math.round(width * dpr) || canvas.height !== Math.round(height * dpr)) { canvas.width = Math.round(width * dpr); canvas.height = Math.round(height * dpr); }
         if (scale !== tileScale) { for (const tile of tiles.values()) release(tile.surface); tiles.clear(); tileScale = scale; tileRange = NaN; }
@@ -269,16 +304,19 @@ export function createContinuousWorldRenderer(canvas: HTMLCanvasElement, space: 
         for (const id of images.keys()) if (!keep.has(id) && images.size > 4) {
             // A floor painting is the size of its map (several MB); free it now, not at the next GC.
             const art = paintings.get(id); if (art) shrink(art);
-            images.delete(id); paintings.delete(id); roadTextures.delete(id);
+            images.delete(id);pending.delete(id); paintings.delete(id); roadTextures.delete(id);
+            forgetDisplayedSectorFloor(images,id);
         }
         // With tiles still stale, the next frame repaints even if nothing moved.
         lastDraw = behind ? '' : signature;
+        const shown=images.get(sector);if(!behind&&usable(shown))recordDisplayedSectorFloor(images,sector,shown.currentSrc||shown.src);
         return lastView = { tilePx, chunk: current, crossings, x: width / 2 + (current.x - position.x) * tilePx, y: height / 2 + (current.y - position.y) * tilePx };
     }
     return { draw, chunks, get imageCount() { return images.size; }, dispose() {
+        forgetDisplayedFloors(images);
         resize?.disconnect();
         // Shrink every offscreen canvas this renderer made, so leaving the world returns its GPU memory at once.
         for (const surface of [...[...tiles.values()].map(tile => tile.surface), ...spare, ...paintings.values(), ...ground.values(), ...rock.values()]) shrink(surface);
-        tiles.clear(); spare.length = 0; images.clear(); paintings.clear(); materials.clear(); ground.clear(); rock.clear(); roadTextures.clear(); blockBiome.clear();
+        tiles.clear(); spare.length = 0; images.clear();pending.clear(); paintings.clear(); materials.clear(); ground.clear(); rock.clear(); roadTextures.clear(); blockBiome.clear();
     } };
 }

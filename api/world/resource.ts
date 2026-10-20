@@ -19,6 +19,7 @@ import { safeLogValue } from '../_safe-log.js';
 import { battleLockedFor } from '../_elapsed-state.js';
 import { applyWorldBossCrystalHarvest, worldBossCrystalCanBeMined } from '../world-boss-event/_crystals.js';
 import { readActiveWorldBossEvent } from '../world-boss-event/_event.js';
+import { rememberMinedGround } from './_harvest-ground.js';
 const resourceTxId = (name: string, id: string) => `resource-gathering:${createHash('sha256').update(`${name}:${id}`).digest('hex')}`;
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -149,6 +150,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         });
         if (!result.ok) return res.status(result.status).json({ error: result.error });
         const value = result.value as Record<string, unknown>;
+        await rememberMinedGround(identity.name,value.receipt as ResourceReceipt|undefined,now);
         const receipt = value.receipt as { outcome?: string; worldBossEventId?: string } | undefined;
         const minedCharacter = result.character as Record<string, unknown> | undefined;
         const worldBossHollowShard = action === 'resolve' && receipt?.outcome === 'success' && receipt.worldBossEventId && node?.worldBossCrystal

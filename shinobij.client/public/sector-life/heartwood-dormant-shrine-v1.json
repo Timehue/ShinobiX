@@ -1,0 +1,25 @@
+{
+  "sector": 15,
+  "artKey": 42,
+  "provider": "built-in image_gen",
+  "method": "Full-sector paint edits admitted into the actual shrine-front area, with exact roof and terrain protection before WebP delivery.",
+  "box": {
+    "left": 165,
+    "top": 748,
+    "width": 200,
+    "height": 105
+  },
+  "changedOutside": 0,
+  "baseSha256": "5c6b769560de3cb9109370fabd27d5b2c24620c8439fe42c52da1b8805b02798",
+  "litSourceSha256": "a104a1e390033ab9656082054abe1ba262b168341401519196deaafc9deaa50c",
+  "unlitSourceSha256": "ccaf80bed5908f4cd728bdab094ff64e6b4469b388a3578afe196c01b61f38c7",
+  "deliveredSha256": "466955b013dc1728641f23b312b83c7b8a42553562739f0e7a7ab8993eeafeaf",
+  "bytes": 218026,
+  "prompts": "output/living-world/shrine-image-prompts.json",
+  "visualReview": "reviewed-in-game",
+  "evidence": [
+    "output/living-world/browser/desktop-shrine-unlit-floor.png",
+    "output/living-world/browser/phone-shrine-unlit-floor.png"
+  ],
+  "reviewNotes": "Reviewed full floor and desktop/phone terrain: lamps flank the left shrine approach; roofs, roads and the staffed tea stop are preserved. Existing player-like keeper and visitors occupy walkable shrine positions."
+}

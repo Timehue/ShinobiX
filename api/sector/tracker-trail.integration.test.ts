@@ -1,5 +1,9 @@
 import assert from 'node:assert/strict';
 import { before, beforeEach, after, describe, it, mock } from 'node:test';
+import { lifeEventView,parseLifeState,lifeStorageKey,LIFE_WINDOW_MS } from '../../shared/sector-life.js';
+import { PLAYABLE_WILD_SECTOR_IDS } from '../../shared/sector-geo.js';
+import { WANDERER_BUCKET_MS } from '../../shared/wanderer-roster.js';
+import { worldPositionModel } from '../../shared/continuous-world-layout.js';
 
 process.env.NODE_ENV = 'test';
 process.env.SHINOBIX_QA_MEMORY_KV = '1';
@@ -197,4 +201,35 @@ describe('tracker trail', () => {
         assert.equal(forged.statusCode, 409);
         assert.equal(forged.body?.reason, 'trail-cold');
     });
+});
+
+for(const resolution of ['capture','forfeit'] as const)it(`a world tracking event follows the real ${resolution} result and returns its party without another reward`,async()=>{
+    let site:{time:number;sector:number;w:RosterWanderer}|undefined;
+    const bucket=Math.floor(Date.now()/WANDERER_BUCKET_MS);
+    for(let round=0;round<16&&!site;round++)for(const sector of PLAYABLE_WILD_SECTOR_IDS){const time=bucket*WANDERER_BUCKET_MS+round*LIFE_WINDOW_MS+60_000,view=lifeEventView(sector,parseLifeState(null,time),time);if(view.kind==='tracks'&&view.tracker){site={time,sector,w:view.tracker};break;}}
+    assert(site,'a real natural tracker offers a world trail');mock.timers.setTime(site.time);
+    const previous=tracker;tracker={w:site.w,sector:site.sector};
+    const player=`trailplayerworld${resolution}`,life=(await import('./life.js')).default as unknown as Handler;
+    const getLife=async()=>{const out:Out={statusCode:200};const res={setHeader(){},status(code:number){out.statusCode=code;return res;},json(value:Record<string,unknown>){out.body=value;return res;},end(){return res;}};await life({method:'GET',query:{sector:site!.sector,playerName:player},headers:{'x-player-token':issuePlayerToken(player)}} as never,res as never);assert.equal(out.statusCode,200,JSON.stringify(out.body));return out.body!.view;};
+    try {
+        await seedPlayer(player,site.sector);const save=await kv.get<any>(`save:${player}`);await kv.set(`save:${player}`,{...save,character:{...save.character,itemStacks:[{itemId:'beast-seal-reinforced',count:1}]}});
+        const first=await getLife(),present=onlineStore.get(player)!;assert(worldPositionModel().fallback(site.sector,first.tile));
+        assert(onlineStore.commitWorldPosition(player,worldPositionModel().fallback(site.sector,first.tile)!,present.movementSeq??0));
+        const inspect=await post(life,player,{sector:site.sector,window:first.window,step:0});assert.equal(inspect.statusCode,200);assert.equal(inspect.body?.view.step,1);
+        const trail=await startTrail(player),key=lifeStorageKey(site.sector);const linked=await kv.get<any>(key);assert.equal(linked.hunt.trailId,trail.id);assert.equal(linked.step,2);
+        const retry=await startTrail(player);assert.equal(retry.id,trail.id,'a lost reply recovers the same committed lead');
+        const forged=await post(life,player,{sector:site.sector,window:first.window,step:2,hunt:{result:'bound'},result:'bound'});assert.equal(forged.statusCode,409);assert.equal((await kv.get<any>(key)).hunt.result,undefined);
+        standIn(player,trail.sectors[0]);assert.equal((await post(service,player,{action:'tracker-trail-step',sector:trail.sectors[0],trailId:trail.id})).body?.ok,true);
+        standIn(player,trail.sectors[1]);const hit=await post(wildStart,player,{sector:trail.sectors[1],requestId:trail.requestId,trackerTrailId:trail.id});assert.equal(hit.statusCode,200,JSON.stringify(hit.body));
+        const token=hit.body!.token;assert.equal((await post(wildBinding,player,{action:'start',token})).statusCode,200);
+        const finished=await post(wildBinding,player,resolution==='capture'?{action:'capture',token,sealId:'beast-seal-reinforced',attemptId:'worldtrailcapture0001'}:{action:'forfeit',token});assert.equal(finished.statusCode,200,JSON.stringify(finished.body));
+        if(resolution==='capture')assert.equal(finished.body?.capture.success,true,'the existing first-binding tutorial gives its normal guaranteed chance');
+        const beforeRefresh=await kv.get(`save:${player}`),result=await getLife();assert.equal(result.phase,'aftermath');assert.equal(result.hunt,undefined,'the public scene does not expose private trail receipt identifiers');
+        const remembered=await kv.get<any>(key);assert.equal(remembered.hunt.result,resolution==='capture'?'bound':'unbound');assert.equal(result.step,3);
+        assert.deepEqual(await kv.get(`save:${player}`),beforeRefresh,'world aftermath does not grant or spend anything');
+        const hunter=result.actors.find((a:any)=>a.id===`hunter:${site!.sector}`);assert(hunter);const frames=hunter.motion.frames;
+        const arrival=frames.find((f:number[],i:number)=>frames[i+1]?.[1]===hunter.restTile&&f[1]===hunter.restTile&&frames[i+1][0]-f[0]>=180_000);assert(arrival);
+        mock.timers.setTime(remembered.hunt.startedAt+arrival[0]+1000);const rested=await getLife();assert.equal(rested.actors.find((a:any)=>a.id===hunter.id).activity,'Resting after the animal trail');
+        const stable=await kv.get(key);await getLife();assert.deepEqual(await kv.get(key),stable,'re-reading cannot replay or extend the result');
+    } finally {tracker=previous;}
 });

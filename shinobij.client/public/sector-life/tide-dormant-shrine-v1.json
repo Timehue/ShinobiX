@@ -1,0 +1,55 @@
+{
+  "sector": 4,
+  "artKey": 34,
+  "key": "tide-dormant-shrine-v1",
+  "provider": "built-in image_gen",
+  "method": "Full-sector generated edits admitted only at the four authored shrine lamp areas; protected original architecture and all other terrain remain exact before compression.",
+  "areas": [
+    {
+      "left": 675,
+      "top": 407,
+      "width": 54,
+      "height": 54
+    },
+    {
+      "left": 808,
+      "top": 407,
+      "width": 54,
+      "height": 54
+    },
+    {
+      "left": 675,
+      "top": 465,
+      "width": 54,
+      "height": 54
+    },
+    {
+      "left": 808,
+      "top": 465,
+      "width": 54,
+      "height": 54
+    }
+  ],
+  "protected": [
+    {
+      "left": 688,
+      "top": 260,
+      "width": 166,
+      "height": 156
+    }
+  ],
+  "changedOutside": 0,
+  "baseSha256": "8ec543caa2385420c3be5aaf0f120aae56407db48498f200b9d530a780c3d380",
+  "sourceHashes": {
+    "unlit": "ae6e59b5eea3461a3ca6380a71ffef5d3b7ef7e0e6cf541a1dbab739350d2429",
+    "lit": "5a22def310c088664e15462e1e6f504382e4b82dd722027df2d65de916c2e053"
+  },
+  "deliveredSha256": "9e03de55a7403ff2fed70b21aebc35571124d754b6e147ec6aaf00e6d20d7ba4",
+  "bytes": 245994,
+  "prompts": "output/living-world/regional-shrine-image-prompts.json",
+  "visualReview": "passed: full-floor and actual desktop/phone scene review; authored keeper/visitor posts leave the painted lamps and walking approach clear",
+  "evidence": [
+    "output/living-world/browser/desktop-regional-shrine-tide-dormant.png",
+    "output/living-world/browser/phone-regional-shrine-tide-dormant.png"
+  ]
+}

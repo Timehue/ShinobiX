@@ -24,6 +24,7 @@ import "../styles/index/15-world-map-territory.css";
 import "../styles/index/29-clan-exchange-storefront.css";
 import "../styles/atlas-skin.css";
 import "../styles/world-map-mobile.css";
+import "../components/WorldWandererDialog.css";
 import { useWorldMapLayout } from "../lib/use-world-map-layout";
 import { getWorldMapRegionForPoint, WORLD_MAP_REGIONS } from "../lib/world-map-regions";
 import { visiblePoll } from "../lib/poll";
@@ -127,7 +128,6 @@ import { createPortal } from "react-dom";
 import { travelMaskMs } from "../lib/travel-mask";
 import { serverNow } from "../lib/server-clock";
 import { storyReckoningActionFailure } from "../lib/story-reckoning-feedback";
-
 const AnbuVaultRaid = lazy(() => import("../features/anbuInfiltration/AnbuVaultRaid").then(m => ({ default: m.AnbuVaultRaid }))); const WorldBossQueueHost = lazy(() => import("../components/WorldBossQueueHost").then(m => ({ default: m.WorldBossQueueHost })));
 import { SectorMap } from "../components/SectorMap";
 import { SceneCritters } from "../components/SceneCritters";
@@ -2138,7 +2138,7 @@ function WorldMapContent({
     function adoptFleeTotals(fled: Extract<RoadFleeResult, { ok: true }>) {
         if (onServerVersion?.(fled._saveVersion) !== false) updateCharacter(prev => prev ? ({ ...prev, hp: fled.totals.hp, ryo: fled.totals.ryo }) : prev);
     }
-    const { traces: sectorTraces, setTraces: setSectorTraces, modal: tracesModal, setModal: setTracesModal, open: openSectorTraces } = useSectorTraces(selectedSector, character.name);
+    const { traces: sectorTraces, setTraces: setSectorTraces, modal: tracesModal, setModal: setTracesModal, open: openSectorTraces, lifeProps: lifeTracesProps } = useSectorTraces(selectedSector, character.name,followTracker);
     async function claimWandererGift(w: Wanderer) {
         setWandererDialog({ w, busy: true });
         try {
@@ -4448,7 +4448,7 @@ function WorldMapContent({
                 {savedFindsBanner}
                 {petMentor.guide}
                 <div className="instance-frame sector-instance-frame">
-                    <WorldSectorCanvas
+                    <WorldSectorCanvas {...lifeTracesProps}
                         obstacles={sectorObstacles}
                         suspended={!!vaultRaid}
                         sector={selectedSector}
