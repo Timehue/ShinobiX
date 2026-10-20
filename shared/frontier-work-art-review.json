@@ -1,0 +1,69 @@
+{
+  "status": "admitted: protected art, native contact/continuity, source/build/size and native performance gates passed",
+  "visualReview": "passed native desktop/phone contact, matching terrain and real inspection points; unchanged original roads/resources; current inward Gen stop leaves quest portraits distinct and inside the captured viewport",
+  "provider": "built-in image_gen",
+  "recipe": "scripts/bake-frontier-work-paintings.mjs",
+  "prompts": "output/living-world/frontier/art-and-prompts.json",
+  "records": [
+    {
+      "sector": 55,
+      "name": "hollow-damaged-pack",
+      "base": "s12",
+      "area": {
+        "left": 340,
+        "top": 630,
+        "width": 110,
+        "height": 110
+      },
+      "inspection": 89,
+      "baseSha256": "8eb6cbe2aab12834c6e954ab7c416b5255ae9d3215928a2b68e1fd49e7e76296",
+      "sourceSha256": "b4a307b9ddb9572f200a71fab8490d3f61e5e3e1bc1995f12e6786d36d807568",
+      "file": "shinobij.client/public/sector-life/hollow-road-gear-v1.webp",
+      "sha256": "53f2c72206889ed38dd83ef49e6b8c814ad1f55a8c0b0ce2c735b6c8f63a7ca2",
+      "bytes": 262252,
+      "changedOutside": 0,
+      "key": "hollow-road-gear-v1",
+      "baseFile": "shinobij.client/public/sector-map/s12.webp",
+      "sourceFile": "output/living-world/frontier/hollow-damaged-pack-provider-v1.png",
+      "width": 1024,
+      "height": 1024
+    },
+    {
+      "sector": 60,
+      "name": "lava-damaged-frame",
+      "base": "s52",
+      "area": {
+        "left": 400,
+        "top": 460,
+        "width": 110,
+        "height": 140
+      },
+      "inspection": 78,
+      "baseSha256": "d5986abb091be6b109e1a4c891f3baf355ea4cd43e711eaa4c45ebd24132d936",
+      "sourceSha256": "9a27015b74999fe6973f8656ee8967eabbaa2984a9f0a146bfbe7f0ae7f3427a",
+      "file": "shinobij.client/public/sector-life/lavafront-road-gear-v1.webp",
+      "sha256": "ec1a77321a553e51922216c6e0cd499a323b5a49fad22a0a1a9fe0ff3031301e",
+      "bytes": 261050,
+      "changedOutside": 0,
+      "key": "lavafront-road-gear-v1",
+      "baseFile": "shinobij.client/public/sector-map/s52.webp",
+      "sourceFile": "output/living-world/frontier/lava-damaged-frame-provider-v1.png",
+      "width": 1024,
+      "height": 1024
+    }
+  ],
+  "nativeEvidence": [
+    "output/living-world/frontier/native-v2.log",
+    "output/living-world/frontier/native-v3.log",
+    "output/living-world/frontier/native-v5.log"
+  ],
+  "visualEvidence": [
+    "output/living-world/frontier/browser-v3/desktop-55-inspection-inspection.png",
+    "output/living-world/frontier/browser-v3/phone-55-inspection-inspection.png",
+    "output/living-world/frontier/browser-v2/desktop-60-inspection-inspection.png",
+    "output/living-world/frontier/browser-v2/phone-60-inspection-inspection.png"
+  ],
+  "dialogueReview": "No claims of split straps, damage, victims, ownership or collected supplies; actual pose and the drawn floor gate pack/carrying-gear descriptions. Missing-floor presentation checks plain ground. Real same-person witness memories survive this fallback.",
+  "admittedAt": "2026-10-20T06:02:53.371Z",
+  "performanceEvidence": "output/living-world/frontier/native-performance-v1.log"
+}

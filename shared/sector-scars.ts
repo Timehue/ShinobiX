@@ -18,6 +18,7 @@
  */
 
 export type SectorScarKind = "duel";
+export type DuelWitness={id:string;name:string;tile:number;at:number};
 
 export type SectorScar = {
     kind: SectorScarKind;
@@ -27,6 +28,10 @@ export type SectorScar = {
     fallen: string;
     /** Server instant the fight settled. */
     at: number;
+    /** Authoritative battle-start tile; absent on older sector-only reports. */
+    tile?: number;
+    /** Present server NPCs who could see the fight begin. Absent on old records. */
+    witnesses?: DuelWitness[];
 };
 
 /** How many scars one sector keeps. Oldest falls off first. */
@@ -48,7 +53,8 @@ export function parseScars(value: unknown): SectorScar[] {
         const victor = cleanName(raw.victor);
         const at = Math.floor(Number(raw.at) || 0);
         if (!victor || at <= 0 || raw.kind !== "duel") continue;
-        out.push({ kind: "duel", victor, fallen: cleanName(raw.fallen), at });
+        out.push({ kind: "duel", victor, fallen: cleanName(raw.fallen), at,
+            ...(Number.isInteger(raw.tile)&&Number(raw.tile)>=0&&Number(raw.tile)<144?{tile:Number(raw.tile)}:{}) });
     }
     return out;
 }

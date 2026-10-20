@@ -1,0 +1,73 @@
+{
+  "sector": 56,
+  "artKey": 13,
+  "key": "hollowgate-dormant-shrine-v1",
+  "provider": "built-in image_gen",
+  "method": "Full-sector generated edits admitted only at the four authored shrine lamp areas; protected original architecture and all other terrain remain exact before compression.",
+  "areas": [
+    {
+      "left": 166,
+      "top": 227,
+      "width": 54,
+      "height": 54
+    },
+    {
+      "left": 296,
+      "top": 227,
+      "width": 54,
+      "height": 54
+    },
+    {
+      "left": 129,
+      "top": 147,
+      "width": 54,
+      "height": 54
+    },
+    {
+      "left": 333,
+      "top": 147,
+      "width": 54,
+      "height": 54
+    }
+  ],
+  "protected": [
+    {
+      "left": 174,
+      "top": 92,
+      "width": 166,
+      "height": 146
+    },
+    {
+      "left": 223,
+      "top": 236,
+      "width": 65,
+      "height": 11
+    },
+    {
+      "left": 173,
+      "top": 232,
+      "width": 12,
+      "height": 9
+    },
+    {
+      "left": 330,
+      "top": 232,
+      "width": 10,
+      "height": 9
+    }
+  ],
+  "changedOutside": 0,
+  "baseSha256": "e346a17ac75b4a7bb186f5c5512cc673cc2889c9e969825c3baa3f18f7a164c4",
+  "sourceHashes": {
+    "unlit": "6863ed442dfdc1416f408cb834c0914411f3e9029e234d64e3d7bbf6cf47796b",
+    "lit": "a3b47e6eca042439b42c821e890c85b5f24e278db1c680fb74e8957aa490736a"
+  },
+  "deliveredSha256": "150d1faffd02c992d305a1992e8e753f5d0129cf2128249a3efab55cf749966f",
+  "bytes": 288278,
+  "prompts": "output/living-world/regional-shrine-image-prompts.json",
+  "visualReview": "passed: full-floor and actual desktop/phone scene review; authored keeper/visitor posts leave the painted lamps and walking approach clear",
+  "evidence": [
+    "output/living-world/browser/desktop-regional-shrine-hollowgate-dormant.png",
+    "output/living-world/browser/phone-regional-shrine-hollowgate-dormant.png"
+  ]
+}

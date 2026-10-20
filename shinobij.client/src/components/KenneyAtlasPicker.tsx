@@ -19,6 +19,11 @@ import {
 import { hollowGateTileIconForKind } from "../data/hollow-gate-flavor";
 import { publishSharedImage } from "../lib/shared-images";
 
+const nativePresentationStyle0 = { width: 60, padding: "4px 6px", background: "rgba(0,0,0,0.4)", color: "#e9d5ff", border: "1px solid rgba(168,85,247,0.4)", borderRadius: 4 } satisfies import('react').CSSProperties;
+const nativePresentationStyle1 = { fontSize: 9, padding: "0 3px", marginTop: 1, background: "transparent", color: "#fda4af", border: "1px solid rgba(248,113,113,0.3)", borderRadius: 3, cursor: "pointer" } satisfies import('react').CSSProperties;
+const nativePresentationStyle2 = { marginBottom: 6, fontSize: 12, color: "#c4b5fd", fontWeight: 600 } satisfies import('react').CSSProperties;
+const nativePresentationStyle3 = { marginBottom: 12, display: "grid", gridTemplateColumns: "100px 1fr", gap: 6, alignItems: "center" } satisfies import('react').CSSProperties;
+const nativePresentationStyle4 = { fontSize: 12, color: "#e9d5ff", textAlign: "right", paddingRight: 6 } satisfies import('react').CSSProperties;
 export function KenneyAtlasPicker({
     sharedImages,
     setSharedImages,
@@ -140,7 +145,7 @@ export function KenneyAtlasPicker({
                         type="number" min={4} max={64}
                         value={atlasTileSize}
                         onChange={(e) => setAtlasTileSize(Math.max(4, Number(e.target.value) || 16))}
-                        style={{ width: 60, padding: "4px 6px", background: "rgba(0,0,0,0.4)", color: "#e9d5ff", border: "1px solid rgba(168,85,247,0.4)", borderRadius: 4 }}
+                        style={nativePresentationStyle0}
                     />
                 </label>
                 <label style={{ display: "grid", gap: 2 }}>
@@ -149,7 +154,7 @@ export function KenneyAtlasPicker({
                         type="number" min={0} max={8}
                         value={atlasGap}
                         onChange={(e) => setAtlasGap(Math.max(0, Number(e.target.value) || 0))}
-                        style={{ width: 60, padding: "4px 6px", background: "rgba(0,0,0,0.4)", color: "#e9d5ff", border: "1px solid rgba(168,85,247,0.4)", borderRadius: 4 }}
+                        style={nativePresentationStyle0}
                     />
                 </label>
                 <label style={{ display: "grid", gap: 2, flex: "1 1 200px" }}>
@@ -353,7 +358,7 @@ export function KenneyAtlasPicker({
                                 <button
                                     disabled={busySlot === s.id}
                                     onClick={(e) => { e.stopPropagation(); void clearSlot(s.id); }}
-                                    style={{ fontSize: 9, padding: "0 3px", marginTop: 1, background: "transparent", color: "#fda4af", border: "1px solid rgba(248,113,113,0.3)", borderRadius: 3, cursor: "pointer" }}
+                                    style={nativePresentationStyle1}
                                 >×</button>
                             )}
                         </div>
@@ -369,13 +374,13 @@ export function KenneyAtlasPicker({
 
                 return (
                     <>
-                        <div style={{ marginBottom: 6, fontSize: 12, color: "#c4b5fd", fontWeight: 600 }}>
+                        <div style={nativePresentationStyle2}>
                             📍 Content icons — variants picked deterministically per tile
                         </div>
-                        <div style={{ marginBottom: 12, display: "grid", gridTemplateColumns: "100px 1fr", gap: 6, alignItems: "center" }}>
+                        <div style={nativePresentationStyle3}>
                             {rolesGrouped.map(({ role, cfg, slots }) => (
                                 <Fragment key={role}>
-                                    <div style={{ fontSize: 12, color: "#e9d5ff", textAlign: "right", paddingRight: 6 }}>
+                                    <div style={nativePresentationStyle4}>
                                         {cfg.label}<br/>
                                         <span style={{ fontSize: 10, color: "#a78bfa" }}>{slots.length} variant{slots.length === 1 ? "" : "s"}</span>
                                     </div>
@@ -386,15 +391,15 @@ export function KenneyAtlasPicker({
                             ))}
                         </div>
 
-                        <div style={{ marginBottom: 6, fontSize: 12, color: "#c4b5fd", fontWeight: 600 }}>
+                        <div style={nativePresentationStyle2}>
                             🏛 Room themes — each theme bundles 4 tiles; rooms get a random theme per run
                         </div>
-                        <div style={{ marginBottom: 12, display: "grid", gridTemplateColumns: "100px 1fr", gap: 6, alignItems: "center" }}>
+                        <div style={nativePresentationStyle3}>
                             {HOLLOW_GATE_THEMES.map(theme => {
                                 const themeSlots = HOLLOW_GATE_THEME_SLOTS.filter(s => s.variantGroup === `theme-${theme.id}`);
                                 return (
                                     <Fragment key={theme.id}>
-                                        <div style={{ fontSize: 12, color: "#e9d5ff", textAlign: "right", paddingRight: 6 }}>
+                                        <div style={nativePresentationStyle4}>
                                             {theme.label}<br/>
                                             <span style={{ fontSize: 10, color: "#a78bfa" }}>wall · floor · corridor · door</span>
                                         </div>
@@ -439,7 +444,7 @@ export function KenneyAtlasPicker({
                                                                 className="atlas-slot-clear"
                                                                 disabled={busySlot === s.id}
                                                                 onClick={(e) => { e.stopPropagation(); void clearSlot(s.id); }}
-                                                                style={{ fontSize: 9, padding: "0 3px", marginTop: 1, background: "transparent", color: "#fda4af", border: "1px solid rgba(248,113,113,0.3)", borderRadius: 3, cursor: "pointer" }}
+                                                                style={nativePresentationStyle1}
                                                             >×</button>
                                                         )}
                                                     </div>

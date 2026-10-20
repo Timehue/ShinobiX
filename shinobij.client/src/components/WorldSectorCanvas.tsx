@@ -27,6 +27,9 @@ export type WorldSectorCanvasPlayer = {
 };
 
 export type WorldSectorCanvasProps = {
+    lifeTraces?: import('../lib/sector-traces').SectorTracesView | null;
+    onOpenLifeTraces?: (view:'signs'|'shrine')=>void;
+    onLifeTrack?:(wanderer:import('../../../shared/wanderer-roster').Wanderer)=>void;
     gatheringCharacter?: import('../types/character').Character;
     onGatheringCommit?: import('../types/character').VersionedCharacterCommit;
     worldBossCrystals?: { active?: boolean; eventId?: string; minedNodeIds?: readonly string[] };
