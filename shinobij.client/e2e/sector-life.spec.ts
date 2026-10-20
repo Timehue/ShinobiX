@@ -616,16 +616,16 @@ for(const visitor of ['Ashen Leaf Village','Frostfang Village'])test(`village re
     const patrol=page.locator('.sector-wanderer-figure[title^="Frostfang Village Patrol"]');
     await expect(patrol).toBeVisible();await patrol.click();
     const dialog=page.getByRole('dialog'),rival=visitor==='Ashen Leaf Village';
-    await expect(dialog).toContainText(rival?'Leaf Rat. Keep walking.':/one of ours|friendly face|Walk it easy/);
+    await expect(dialog).toContainText(rival?'Leaf Rat. Keep walking.':/one of ours|friendly face|Safe travels/);
     await expect(dialog.getByRole('button',{name:'Move along',exact:true})).toBeVisible();
-    if(!rival)await expect(dialog.getByRole('button',{name:'Stand your ground',exact:true})).toHaveCount(0);
+    if(!rival)await expect(dialog.getByRole('button',{name:'Fight patrol',exact:true})).toHaveCount(0);
     await dialog.screenshot({path:`${evidence}/${info.project.name}-frostfang-${rival?'rival':'home'}-patrol.png`});
     await dialog.getByRole('button',{name:'Move along',exact:true}).click();
     const tile=page.locator('.continuous-world-tile').nth(102);await tile.focus();await tile.press('Enter');
     const worker=page.getByRole('button',{name:/Quartermaster Ise:.*Talk/});
     await expect(worker).toBeVisible({timeout:30_000});await worker.click();
     await expect(dialog).toContainText(rival?"Don't touch our supplies. Ask first.":'Good to see one of ours.');
-    await expect(dialog).toContainText('counting the blankets');
+    await expect(dialog).toContainText('checking the blankets');
     await dialog.screenshot({path:`${evidence}/${info.project.name}-frostfang-${rival?'rival':'home'}-quartermaster.png`});
 });
 async function doRoadWork(page:Page,view:ReturnType<typeof lifeEventView>,clocked=false) {
