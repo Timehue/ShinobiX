@@ -3,15 +3,19 @@ import { installUiAuditRuntime, uiAuditSave } from './helpers/ui-audit-runtime';
 import { rollWanderers, wandererDayBucketFromMs } from '../../shared/wanderer-roster';
 import { quietRoadCooldowns } from '../e2e-live/helpers/quiet-road';
 
+// A verified roster window containing each service under test. The live
+// six-hour roll can legitimately contain no merchant or medic anywhere.
+const ENCOUNTER_TIME = Date.UTC(2026, 9, 20, 6);
+
 for (const enoughRyo of [true, false]) test(`road bandit replaces Flee with a 500 ryo toll (${enoughRyo ? 'paid' : 'insufficient funds'})`, async ({ page }, info) => {
-    const now = Date.now();
+    const now = ENCOUNTER_TIME;
     await page.clock.setFixedTime(now);
     const bucket = wandererDayBucketFromMs(now);
     const sector = Array.from({ length: 60 }, (_, i) => i + 1).find(sector => rollWanderers(sector, bucket).some(w => w.archetype === 'bandit'))!;
     const bandit = rollWanderers(sector, bucket).find(w => w.archetype === 'bandit')!;
     const save = uiAuditSave();
     save.currentSector = sector; save.currentTile = bandit.homeTile; save.worldGeoV = 2;
-    const cooldowns = quietRoadCooldowns(Array.from({ length: 66 }, (_, i) => i + 1));
+    const cooldowns = quietRoadCooldowns(Array.from({ length: 66 }, (_, i) => i + 1), now);
     delete cooldowns[bandit.id];
     save.character = { ...save.character, ryo: enoughRyo ? 1500 : 499, wandererCooldowns: cooldowns };
     await installUiAuditRuntime(page, save);
@@ -50,14 +54,14 @@ for (const enoughRyo of [true, false]) test(`road bandit replaces Flee with a 50
 
 for (const [archetype, action] of [['merchant', 'Buy bone charms'], ['medic', 'Pay for treatment'], ['tracker', 'Accept delivery']] as const) {
     test(`${archetype} prompt names the actual service`, async ({ page }, info) => {
-        const now = Date.now();
+        const now = ENCOUNTER_TIME;
         await page.clock.setFixedTime(now);
         const bucket = wandererDayBucketFromMs(now);
         const sector = Array.from({ length: 60 }, (_, i) => i + 1).find(sector => rollWanderers(sector, bucket).some(w => w.archetype === archetype))!;
         const npc = rollWanderers(sector, bucket).find(w => w.archetype === archetype)!;
         const save = uiAuditSave();
         save.currentSector = sector; save.currentTile = npc.homeTile; save.worldGeoV = 2;
-        const cooldowns = quietRoadCooldowns(Array.from({ length: 66 }, (_, i) => i + 1));
+        const cooldowns = quietRoadCooldowns(Array.from({ length: 66 }, (_, i) => i + 1), now);
         delete cooldowns[npc.id];
         save.character = { ...save.character, wandererCooldowns: cooldowns };
         await installUiAuditRuntime(page, save);

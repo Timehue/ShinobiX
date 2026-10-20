@@ -4,14 +4,15 @@ import { rollWanderers, wandererDayBucketFromMs } from '../../shared/wanderer-ro
 import { quietRoadCooldowns } from '../e2e-live/helpers/quiet-road';
 
 for (const verified of [false, true]) test(`epic boss progress uses its fight receipt (${verified ? 'verified win' : 'unrelated wins'})`, async ({ page }, info) => {
-    const now = Date.now();
+    // Pin a known quest-giver window rather than depending on today's roll.
+    const now = Date.UTC(2026, 9, 20, 6);
     await page.clock.setFixedTime(now);
     const bucket = wandererDayBucketFromMs(now);
     const sector = Array.from({ length: 60 }, (_, i) => i + 1).find(id => rollWanderers(id, bucket).some(w => w.verb === 'quest'))!;
     const giver = rollWanderers(sector, bucket).find(w => w.verb === 'quest')!;
     const save = uiAuditSave();
     save.currentSector = sector; save.currentTile = giver.homeTile; save.worldGeoV = 2;
-    const cooldowns = quietRoadCooldowns(Array.from({ length: 66 }, (_, i) => i + 1));
+    const cooldowns = quietRoadCooldowns(Array.from({ length: 66 }, (_, i) => i + 1), now);
     delete cooldowns[giver.id];
     save.wandererCooldowns = cooldowns;
     save.character = { ...save.character, totalAiKills: 500,
