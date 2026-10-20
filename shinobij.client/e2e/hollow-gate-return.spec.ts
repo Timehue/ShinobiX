@@ -1,5 +1,166 @@
 import { test, expect, type Page } from '@playwright/test';
 
+test('a successful fresh entry publishes its counter and intro once, then resumes without another entry', async ({ page }) => {
+    const requests: Array<{ path: string; body: Record<string, unknown> }> = [];
+    const run = { token: 'fresh-rift-token', seed: 'seal-rift-seed', floorDepth: 3, floor: 1,
+        variantId: 'rift-mirror-shard', variantLabel: 'Mirror-Shard Warden', bossName: 'Mirror-Shard Warden',
+        chosenAugmentId: null, augmentOffers: [], position: null, keys: 0, torch: 10, threat: 0, wardSteps: 0,
+        divinerUsed: false, secondWindArmed: false, resolvedEncounterIds: [], resolvedEventIds: [], visited: null,
+        manifest: null, activeCombat: null, pendingAmbush: null, entryCurrencies: {} };
+    await page.route('**/api/hollow-gate/**', route => {
+        const path = new URL(route.request().url()).pathname, body = route.request().postDataJSON();
+        requests.push({ path, body });
+        if (path.endsWith('/start')) return route.fulfill({ json: { ok: true, ...run, _saveVersion: 2,
+            character: { name: 'PreviewRunner', village: 'Moonshadow Village', hp: 10000, maxHp: 10000, dailyHollowGateRuns: 1,
+                lastDailyReset: new Date().toISOString().slice(0, 10), itemStacks: [], hollowGateIntroSeen: false,
+                lastHollowGateStart: { token: run.token, requestId: body.requestId } } } });
+        if (path.endsWith('/floor-seal')) return route.fulfill({ json: { ok: true, wanderers: [], floorFeatures: [] } });
+        if (path.endsWith('/resume')) return route.fulfill({ json: { ok: true, live: true, run } });
+        return route.abort();
+    });
+    await page.goto('/e2e/fixtures/rift-entry-preview.html');
+    await page.getByRole('button', { name: 'Preview descent', exact: true }).click();
+    await page.getByRole('button', { name: 'Enter', exact: true }).click();
+    await expect(page.getByTestId('entry-finished')).toHaveText('1');
+    await expect(page.getByTestId('entry-screen')).toHaveText('hollowGateShrine');
+    await expect(page.getByTestId('entry-count')).toHaveText('1');
+    await expect(page.getByTestId('entry-token')).toHaveText(run.token);
+    await expect(page.getByTestId('entry-intro')).toHaveText('0');
+    await expect(page.getByTestId('entry-intro-updates')).toHaveText('1');
+    expect(requests.map(request => request.path)).toEqual(['/api/hollow-gate/start', '/api/hollow-gate/floor-seal']);
+    expect(requests[0].body.requestId).toBeTruthy();
+    expect(requests[1].body.token).toBe(run.token);
+    await page.getByRole('button', { name: 'Return to map', exact: true }).click();
+    await page.getByRole('button', { name: 'Preview descent', exact: true }).click();
+    await expect(page.getByTestId('entry-finished')).toHaveText('2');
+    await expect(page.getByTestId('entry-screen')).toHaveText('hollowGateShrine');
+    await expect(page.getByTestId('entry-count')).toHaveText('1');
+    await expect(page.getByTestId('entry-intro-updates')).toHaveText('1');
+    expect(requests.map(request => request.path)).toEqual(['/api/hollow-gate/start', '/api/hollow-gate/floor-seal', '/api/hollow-gate/resume']);
+});
+
+for (const interruption of ['encounter', 'combat', 'screen', 'account']) test(`rift entry preview cancels on ${interruption} without starting or charging`, async ({ page }, info) => {
+    const starts: unknown[] = [];
+    await page.route('**/api/hollow-gate/start', route => { starts.push(route.request().postDataJSON()); return route.fulfill({ status: 503, json: { error: 'Test server unavailable' } }); });
+    await page.goto('/e2e/fixtures/rift-entry-preview.html');
+    await page.getByRole('button', { name: 'Preview descent', exact: true }).click();
+    const preview = page.getByRole('alertdialog', { name: 'Mirror-Shard Warden' });
+    await expect(preview).toContainText('Entry is free for this event.');
+    await page.evaluate(kind => (window as unknown as { interruptPreview: (kind: string) => void }).interruptPreview(kind), interruption);
+    await expect(preview).toHaveCount(0);
+    await expect(page.getByTestId('entry-finished')).toHaveText('1');
+    await expect(page.getByTestId('entry-count')).toHaveText('0');
+    if (interruption === 'encounter') {
+        await page.getByRole('button', { name: 'Fight', exact: true }).click();
+        await expect(page.getByRole('region', { name: 'Active combat' })).toBeVisible();
+        await expect(page.getByRole('alertdialog')).toHaveCount(0);
+        await page.screenshot({ path: info.outputPath('combat-without-rift-preview.png'), fullPage: true });
+    }
+    expect(starts).toEqual([]);
+});
+
+test('cancelled rift preview stays cancelled; a fresh explicit Enter sends exactly one start', async ({ page }) => {
+    let starts = 0;
+    await page.route('**/api/hollow-gate/start', route => { starts++; return route.fulfill({ status: 503, json: { error: 'Test server unavailable' } }); });
+    await page.goto('/e2e/fixtures/rift-entry-preview.html');
+    await page.getByRole('button', { name: 'Preview descent', exact: true }).click();
+    await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+    await expect(page.getByTestId('entry-finished')).toHaveText('1'); expect(starts).toBe(0);
+    await page.getByRole('button', { name: 'Preview descent', exact: true }).click();
+    await page.getByRole('button', { name: 'Enter', exact: true }).click();
+    await expect(page.getByTestId('entry-finished')).toHaveText('2'); expect(starts).toBe(1);
+});
+
+for (const resolution of ['confirm', 'escape']) test(`an interrupted rift button cannot accept an unrelated queued prompt before ${resolution}`, async ({ page }) => {
+    await page.goto('/e2e/fixtures/rift-entry-preview.html');
+    await page.getByRole('button', { name: 'Preview descent', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Enter', exact: true })).toBeVisible();
+    await page.evaluate(() => {
+        const oldEnter = document.querySelector<HTMLButtonElement>('.game-alert-ok')!;
+        const fixture = window as unknown as { queueOtherPrompt: () => void; interruptPreview: (kind: string) => void };
+        fixture.queueOtherPrompt(); fixture.interruptPreview('encounter'); oldEnter.click();
+    });
+    const other = page.getByRole('alertdialog', { name: 'Other action' });
+    await expect(other).toBeVisible();
+    await expect(page.getByTestId('other-confirmed')).toHaveText('false');
+    if (resolution === 'escape') await page.keyboard.press('Escape');
+    else await other.getByRole('button', { name: 'Confirm', exact: true }).click();
+    await expect(other).toHaveCount(0);
+    await expect(page.getByTestId('other-confirmed')).toHaveText(String(resolution === 'confirm'));
+});
+
+for (const interruption of ['combat', 'account']) test(`an accepted rift start interrupted by ${interruption} preserves only its owning account receipt`, async ({ page }) => {
+    let release!: () => void;
+    const held = new Promise<void>(resolve => { release = resolve; });
+    let starts = 0;
+    await page.route('**/api/hollow-gate/start', async route => {
+        starts++; await held;
+        await route.fulfill({ json: { ok: true, token: 'accepted-rift-token', seed: 'accepted-rift-seed', _saveVersion: 2,
+            character: { name: 'PreviewRunner', hp: 10000, maxHp: 10000, dailyHollowGateRuns: 1,
+                lastHollowGateStart: { token: 'accepted-rift-token', requestId: 'accepted-rift-request' } } } });
+    });
+    await page.goto('/e2e/fixtures/rift-entry-preview.html');
+    await page.getByRole('button', { name: 'Preview descent', exact: true }).click();
+    await page.getByRole('button', { name: 'Enter', exact: true }).click();
+    await expect.poll(() => starts).toBe(1);
+    await page.evaluate(kind => (window as unknown as { interruptPreview: (kind: string) => void }).interruptPreview(kind), interruption);
+    release();
+    await expect(page.getByTestId('entry-finished')).toHaveText('1');
+    await expect(page.getByTestId('entry-screen')).toHaveText('worldMap');
+    await expect(page.getByTestId('entry-token')).toHaveText(interruption === 'combat' ? 'accepted-rift-token' : 'none');
+    await expect(page.getByTestId('entry-count')).toHaveText(interruption === 'combat' ? '1' : '0');
+    if (interruption === 'combat') await expect(page.getByRole('region', { name: 'Active combat' })).toBeVisible();
+    expect(starts).toBe(1);
+});
+
+test('a delayed floor seal cannot replace combat and the accepted run stays recoverable', async ({ page }) => {
+    let release!: () => void, seals = 0, starts = 0;
+    const held = new Promise<void>(resolve => { release = resolve; });
+    await page.route('**/api/hollow-gate/start', route => {
+        starts++;
+        return route.fulfill({ json: { ok: true, token: 'seal-rift-token', seed: 'seal-rift-seed', floorDepth: 3, _saveVersion: 2,
+            character: { name: 'PreviewRunner', hp: 10000, maxHp: 10000, dailyHollowGateRuns: 1,
+                lastHollowGateStart: { token: 'seal-rift-token', requestId: 'seal-rift-request' } } } });
+    });
+    await page.route('**/api/hollow-gate/floor-seal', async route => { seals++; await held; await route.fulfill({ json: { ok: true } }); });
+    await page.goto('/e2e/fixtures/rift-entry-preview.html');
+    await page.getByRole('button', { name: 'Preview descent', exact: true }).click();
+    await page.getByRole('button', { name: 'Enter', exact: true }).click();
+    await expect.poll(() => seals).toBe(1);
+    await page.evaluate(() => (window as unknown as { interruptPreview: (kind: string) => void }).interruptPreview('combat'));
+    release();
+    await expect(page.getByTestId('entry-finished')).toHaveText('1');
+    await expect(page.getByTestId('entry-screen')).toHaveText('worldMap');
+    await expect(page.getByRole('region', { name: 'Active combat' })).toBeVisible();
+    await expect(page.getByTestId('entry-token')).toHaveText('seal-rift-token');
+    await expect(page.getByTestId('entry-count')).toHaveText('1');
+    expect(starts).toBe(1); expect(seals).toBe(1);
+});
+
+for (const source of ['resume', 'marker']) test(`a delayed ${source} recovery cannot replace a new combat scene`, async ({ page }) => {
+    let release!: () => void, resumes = 0, starts = 0;
+    const held = new Promise<void>(resolve => { release = resolve; });
+    await page.route('**/api/hollow-gate/start', route => { starts++; return route.abort(); });
+    await page.route('**/api/hollow-gate/resume', async route => {
+        resumes++; await held;
+        await route.fulfill({ json: { ok: true, live: true, run: { token: 'resume-rift-token', seed: 'resume-rift-seed', floorDepth: 3, floor: 1,
+            chosenAugmentId: null, augmentOffers: [], position: null, keys: 0, torch: 10, threat: 0, wardSteps: 0, divinerUsed: false,
+            secondWindArmed: false, resolvedEncounterIds: [], resolvedEventIds: [], visited: null, manifest: null,
+            activeCombat: null, pendingAmbush: null, entryCurrencies: {} } } });
+    });
+    await page.goto(`/e2e/fixtures/rift-entry-preview.html?${source}=1`);
+    await page.getByRole('button', { name: 'Preview descent', exact: true }).click();
+    await expect.poll(() => resumes).toBe(1);
+    await page.evaluate(() => (window as unknown as { interruptPreview: (kind: string) => void }).interruptPreview('combat'));
+    release();
+    await expect(page.getByTestId('entry-finished')).toHaveText('1');
+    await expect(page.getByTestId('entry-screen')).toHaveText('worldMap');
+    await expect(page.getByRole('region', { name: 'Active combat' })).toBeVisible();
+    await expect(page.getByRole('alertdialog')).toHaveCount(0);
+    await expect(page.getByTestId('entry-token')).toHaveText('resume-rift-token');
+    expect(starts).toBe(0);
+});
+
 test('Warden decision shows its sealed cue and round-cap warning without horizontal overflow', async ({ page }, info) => {
     const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
     await page.route('**/api/solo-pve/state**', async route => route.fulfill({ json: { ok: true,

@@ -491,7 +491,7 @@ export type { CreatorEvent, PendingArenaStoryBattle, StoryStep };
 
 // Shrine floor generation (ASCII layouts + BSP + maze, ./lib/hollow-gate-dungeon)
 // is loaded ON DEMAND — see ./lib/hollow-gate-generator-loader for why that is free.
-import { loadHollowGateMovementDrain, loadHollowGateTileRuntime, warmHollowGateGenerator } from "./lib/hollow-gate-generator-loader";
+import { loadHollowGateMovementDrain, loadHollowGateTileRuntime } from "./lib/hollow-gate-generator-loader";
 import { buildHollowGateRunFromStart, HOLLOW_GATE_FLOOR_LOAD_FAILED } from "./lib/hollow-gate-run-build";
 import { hollowGateEncounterPresentation } from "./lib/hollow-gate-presentation";
 import { resumeHollowGateServerRun, settleHollowGateRunOnly, startHollowGateServerRun, attachStartedRun, clearHollowGateRunLocal, reportHollowGateRunError } from "./lib/hollow-gate-server";
@@ -509,6 +509,7 @@ import {
 } from "./lib/hollow-gate-pve";
 import { hollowGateRunAfterUnresolvedFight, loadHollowGateFight, loadHollowGateShrineView, useHollowGateAppFlow, useHollowGateRunMirror, useHollowGateShrineWarmup } from "./lib/hollow-gate-app-flow";
 import { enterHollowGateShrineFlow, recoverHollowGateRunOnBoot, reportHollowGateEntryFailure } from "./lib/hollow-gate-entry";
+import { useHollowGateEntryPreview } from './lib/use-hollow-gate-entry-preview';
 import { HollowGateRecoveryView } from "./components/HollowGateRecoveryView";
 import type { StoryBossSettleResult } from "./lib/story-combat-api";
 import { requestStoryBossFight } from "./lib/story-fight-theme";
@@ -4408,6 +4409,7 @@ export default function App() {
     // fresh identity each render, defeating their memo. These latest-ref wrappers delegate
     // to the current fn — stable identity, no stale closure, behavior identical.
     const { onClose: handleAiFightClosed, stableNavigate } = useAiFightCloseNavigation({ account: character?.name ?? '', sealedFightOpen, missionBattleActive, setMissionBattleActive, navigate });
+    const hollowGateEntryPreview = useHollowGateEntryPreview(screen, character?.name, sealedFightOpen || isPresenceBattleActive(), () => sealedFightEngagedRef.current || isPresenceBattleActive());
     const logoutPlayerRef = useRef(logoutPlayer);
     logoutPlayerRef.current = logoutPlayer;
     // logoutPlayer is async (it awaits the final save); the menu props take a
@@ -4716,17 +4718,13 @@ export default function App() {
         if (isPetOnExpedition(pet)) return false;
         return Boolean(pet.unlockedForPve);
     }
-    // buildHollowGateRunFromStart moved verbatim to lib/hollow-gate-run-build.ts
-    // (it closed over nothing App owns). Its callers below now handle the
-    // rejection its on-demand generator import can produce.
     async function enterHollowGateShrine(eventCfg?: HollowGateEventConfig) {
-        // Fetch the shrine's code while the player confirms the key and the run starts.
-        void loadHollowGateShrineView().catch(() => undefined); warmHollowGateGenerator();
-        return enterHollowGateShrineFlow({
+        return hollowGateEntryPreview.run(signal => enterHollowGateShrineFlow({
             eventCfg, character, setHollowGateRun, setHollowGateLog, setHollowGateEvent, setHollowGateHiddenChamber,
             setCharacter, setCurrentBiome, setCurrentWeather, setScreen, setHollowGateIntroPage, pushHollowGateLog, commitCharacter: commitVersionedCharacter, currentRunToken: () => hollowGateMovementRunRef.current?.runToken ?? characterRef.current?.hollowGateRun?.runToken ?? characterRef.current?.lastHollowGateStart?.token,
+            signal, canEnter: () => screenRef.current === 'worldMap' && !sealedFightEngagedRef.current && !isPresenceBattleActive(),
             isCurrent: character ? capturePvpCreateScope(character.name).isCurrent : () => false,
-        }).catch(reportHollowGateEntryFailure);
+        }).catch(reportHollowGateEntryFailure));
     }    // ── Admin-only ops for the Hollow Gate panel ──────────────────────────
     function adminHollowGateForceUnlock(unlock: boolean) {
         if (!character) return;
@@ -5699,6 +5697,7 @@ export default function App() {
                         key={worldMapKey} onLaunchClanWarBattle={launchClanWarBattle}
                         onLaunchWeeklyBoss={() => navigate("weeklyBoss")}
                         onExplorePresentationActiveChange={setWorldExplorePresentationActive}
+                        onEntryEncounterActiveChange={hollowGateEntryPreview.onEncounterActiveChange}
                         setCurrentBiome={setCurrentBiome}
                         setScreen={navigate}
                         character={character}

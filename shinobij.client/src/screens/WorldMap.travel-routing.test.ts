@@ -49,6 +49,8 @@ function harness(options: { sector?: number; tile?: number; ok?: boolean; travel
     const state = createContext({
         currentSector: options.sector ?? 12, selectedSector: options.sector ?? 12,
         combatActive: false, isCombatActive: () => state.combatActive,
+        entryEncounterChanges: [] as boolean[],
+        onEntryEncounterActiveChange(active: boolean) { state.entryEncounterChanges.push(active); },
         huntEncounterRef: { current: null as unknown },
         wandererDialog: null as unknown, wandererChoiceRef: { current: null as unknown },
         requiresWandererChoice: (dialog: { msg?: unknown; w?: { verb?: string } } | null) => !!dialog && !dialog.msg && dialog.w?.verb === 'attack',
@@ -397,10 +399,12 @@ test('recovering a remote ambush waits for real arrival before opening the encou
     h.call('presentExploreAmbush', 57, 'receipt');
     await h.respond();
     assert.equal(h.state.dialog, null);
+    assert.deepEqual(h.state.entryEncounterChanges, [], 'the preview remains available until real arrival');
     h.arrive();
     assert.equal(h.state.currentSector, 57);
     assert.equal(h.state.sectorPlayerPos, 17);
     assert.equal(h.state.dialog.ambush.requestId, 'receipt');
+    assert.deepEqual(h.state.entryEncounterChanges, [true], 'arrival retires any pending entry preview before showing the hostile choice');
 });
 
 test('a delayed Explore arrival cannot replace another hostile choice or an active fight', async () => {
@@ -415,6 +419,7 @@ test('a delayed Explore arrival cannot replace another hostile choice or an acti
         h.state.combatActive = activeCombat;
         h.arrive();
         assert.equal(h.state.dialog, waiting);
+        assert.deepEqual(h.state.entryEncounterChanges, []);
         assert.deepEqual(h.fights, []);
     }
 });

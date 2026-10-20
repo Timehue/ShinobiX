@@ -11,6 +11,8 @@ export function sameAiFightIdentity(left: AiFightRequest, right: AiFightRequest)
     if (left.battleKind === 'raidAi' && left.raidToken && right.raidToken) return left.raidToken === right.raidToken;
     if (left.battleKind === 'dungeon' && left.dungeonRunToken && right.dungeonRunToken) return left.dungeonRunToken === right.dungeonRunToken;
     if (left.opponentId !== right.opponentId) return false;
+    if (left.battleKind === 'practice' && (left.practiceLevel !== undefined || right.practiceLevel !== undefined)
+        && (left.practiceLevel ?? left.opponentLevel) !== (right.practiceLevel ?? right.opponentLevel)) return false;
     if (left.worldExploreRequestId !== right.worldExploreRequestId || left.raidToken !== right.raidToken
         || left.dungeonRunToken !== right.dungeonRunToken) return false;
     const a = left.worldEncounter, b = right.worldEncounter;

@@ -90,7 +90,7 @@ export function BattleArenaLobby({
                             min={1}
                             max={MAX_LEVEL}
                             value={aiLevel}
-                            onChange={(event) => onAiLevelChange(Math.max(1, Math.min(MAX_LEVEL, Number(event.target.value))))}
+                            onChange={(event) => onAiLevelChange(Math.max(1, Math.min(MAX_LEVEL, Math.floor(Number(event.target.value)))))}
                         />
                         <button onClick={onBeginAiBattle}>Start AI battle</button>
                     </section>

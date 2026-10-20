@@ -328,6 +328,7 @@ function WorldMapContent({
     capturePvpCreateScope,
     onLaunchWeeklyBoss,
     onExplorePresentationActiveChange,
+    onEntryEncounterActiveChange,
     onLaunchClanWarBattle,
 }: {
     setCurrentBiome: (biome: Biome) => void;
@@ -335,6 +336,7 @@ function WorldMapContent({
     character: Character;
     updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>;
     combatActive: boolean;
+    onEntryEncounterActiveChange?: (active: boolean) => void;
     isCombatActive: () => boolean;
     creatorEvents: CreatorEvent[];
     creatorRaids: CreatorRaid[];
@@ -1948,6 +1950,10 @@ function WorldMapContent({
     const [wandererDialog, setWandererDialog] = useState<WorldWandererDialogState | null>(null);
     const wandererChoiceRef = useRef<WorldWandererDialogState | null>(null);
     useLayoutEffect(() => { wandererChoiceRef.current = wandererDialog; }, [wandererDialog]);
+    useLayoutEffect(() => {
+        onEntryEncounterActiveChange?.(requiresWandererChoice(wandererDialog) || !!bossDialog || worldBossQueueOpen);
+        return () => onEntryEncounterActiveChange?.(false);
+    }, [wandererDialog, bossDialog, worldBossQueueOpen, onEntryEncounterActiveChange]);
     useEffect(() => {
         if (legacyAvailable) return;
         setSageOffer(null);
@@ -1966,12 +1972,12 @@ function WorldMapContent({
             if (w.verb === "bountyHunter") pendingBountyHunterRef.current = { hunterId: w.id, sector: selectedSector };
             return;
         }
-        if (wandererForcesChoice(w)) wandererChoiceRef.current = { w };
+        if (wandererForcesChoice(w)) {
+            onEntryEncounterActiveChange?.(true);
+            wandererChoiceRef.current = { w };
+        }
         rememberWanderer(w);
-        // Fresh scene, fresh verdict: whether the LAST giver's offer was taken must
-        // never carry into this one's decline check. (The rift-accept branch closes
-        // its VN directly rather than through a close path, so the stamp it leaves
-        // would otherwise outlive the scene that set it.)
+        // A directly closed rift VN can leave a giver verdict; retire it for this scene.
         if (isRoamingGiverEventId(w.id)) giverAcceptedRef.current = null;
         // The Wandering Sage opens his Legacy-offer VN instead of the dialog.
         if (w.id === LEGACY_SAGE_WANDERER_ID) {
@@ -1982,8 +1988,7 @@ function WorldMapContent({
             }
             return;
         }
-        // A story road event opens its VN directly (no verb dialog) — same
-        // pattern as the Sage. The event stays available until a choice is made.
+        // Story road events open their VN directly and remain available until a choice.
         if (w.id.startsWith(ROAD_WANDERER_PREFIX)) {
             const roadEvent = roadEventBySynthId(w.id, readStoryRoadContent());
             if (roadEvent && selectedSector != null) {
@@ -1993,8 +1998,7 @@ function WorldMapContent({
             }
             return;
         }
-        // A rift giver brings a field report from a target sector; this opens the
-        // intro VN (accept seals the rift + reveals its structure on the map).
+        // Rift reports open the intro VN; accepting seals and reveals the rift.
         if (isStoryReckoningId(w.id)) {
             const arc = storyReckoningForEventId(w.id);
             if (!arc || selectedSector == null) return;
@@ -2061,8 +2065,7 @@ function WorldMapContent({
             return;
         }
         if (petMentor.engage(w)) return;
-        // A roaming mercenary or contract hunter stops you like a bandit: Fight
-        // (the merc's server-resolved clash, the hunter's sealed fight) or pay to Flee.
+        // Mercenaries and contract hunters require Fight or a paid Flee.
         if (isMercAiId(w.id) || w.verb === "bountyHunter") { setWandererDialog({ w }); return; }
         if (w.archetype === "nemesis") { setWandererDialog({ w, nemesis: true }); return; } // Kagero walks his own sectors (lib/road-cast)
         // The world remembers your Quest Book choices (character.questStandings): a
@@ -2072,15 +2075,11 @@ function WorldMapContent({
             setWandererDialog({ w, standingLine: react.line, peace: true });
             return;
         }
-        // Every wanderer — bandits included — opens a dialog first (a threat line
-        // + Fight/Flee for bandits; greetings + actions for the rest).
+        // Every wanderer opens a dialog first, with Fight/Flee for hostile encounters.
         const encounter = ordinaryWandererEncounter(w, character.level, selectedSector);
         setWandererDialog({ w: encounter ? { ...w, level: encounter.level, avatarImage: ordinaryPvePortrait(encounter) } : w, standingLine: react?.line, ...(encounter ? { encounter } : {}) });
     }
-    // Choosing Fight against a roaming merc resolves SERVER-SIDE (no client Arena;
-    // the server calls the clash). Fleeing it is the priced road flee. The result reuses
-    // the resolved-dialog path. The merc NPC is hidden client-side after the clash;
-    // the server enforces the real 15-min per-target cooldown.
+    // Merc Fight resolves server-side; road Flee is priced and the server owns cooldowns.
     async function engageRoamingMerc(w: Wanderer) {
         if (!villageWarAdmissionOpen || !capabilityAdmissionAllowed(mutationAvailability("villageWar"))) {
             setWandererDialog({ w, msg: "Village War actions are paused. This patrol remains visible while live admission recovers." });
@@ -3160,6 +3159,7 @@ function WorldMapContent({
             if (isCombatActive() || (requiresWandererChoice(wandererChoiceRef.current) && wandererChoiceRef.current?.ambush?.requestId !== worldExploreRequestId)) return;
             const preview = exploreAmbushDialogState(sector, worldExploreRequestId, character.level, encounter);
             wandererChoiceRef.current = preview;
+            if (requiresWandererChoice(preview)) onEntryEncounterActiveChange?.(true);
             setWandererDialog((current) => current?.ambush?.requestId === worldExploreRequestId ? current : preview);
         });
         return true;
