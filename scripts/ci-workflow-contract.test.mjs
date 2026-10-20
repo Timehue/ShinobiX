@@ -241,7 +241,7 @@ test('live Express CI includes persistence and route integration regressions', (
 });
 
 test('live Express CI keeps the Exchange and sector-war player journeys isolated and evidenced', () => {
-    const job = workflow.slice(workflow.indexOf('\n  e2e_village_stores:'), workflow.indexOf('\n  test_build:'));
+    const job = workflow.slice(workflow.indexOf('\n  e2e_village_stores_matrix:'), workflow.indexOf('\n  test_build:'));
     const command = job.split('\n').find(line => line.trim().startsWith('run:') && line.includes('sunscar-exchange-express.spec.ts'));
     assert.ok(command, 'the required live Express job must execute the Exchange journey');
     assert.ok(command.includes('sector-war-express.spec.ts'), 'the same built release must execute the sector-war journey');
@@ -253,7 +253,7 @@ test('live Express CI keeps the Exchange and sector-war player journeys isolated
 test('required live Express CI runs the two-client sector presence journey on a realtime server of its own', () => {
     // It sat outside CI, so when the sector became the continuous world it broke
     // on main and nothing noticed. The spec refuses to run without realtime.
-    const job = workflow.slice(workflow.indexOf('\n  e2e_village_stores:'), workflow.indexOf('\n  test_build:'));
+    const job = workflow.slice(workflow.indexOf('\n  e2e_village_stores_matrix:'), workflow.indexOf('\n  test_build:'));
     const step = job.split('\n      - name: ').find(block => block.includes('connected-sector-presence.spec.ts'));
     assert.ok(step, 'the required live Express job must execute the two-client presence journey');
     const command = step.split('\n').find(line => line.trim().startsWith('run:'));
@@ -293,7 +293,7 @@ test('current Warfront coverage keeps low-cost interactions and real renderer au
 });
 
 test('required live Express CI runs defeat recovery on desktop and mobile without replacing earlier evidence', () => {
-    const job = workflow.slice(workflow.indexOf('\n  e2e_village_stores:'), workflow.indexOf('\n  test_build:'));
+    const job = workflow.slice(workflow.indexOf('\n  e2e_village_stores_matrix:'), workflow.indexOf('\n  test_build:'));
     const commands = job.split('\n').filter(line => line.trim().startsWith('run:') && line.includes('first-defeat-recovery-express.spec.ts'));
     assert.equal(commands.length, 2, 'both complete recovery projects must execute');
     for (const project of ['desktop', 'mobile']) {
@@ -310,7 +310,7 @@ test('required live Express CI runs the hospital ward and roaming Weekly Boss jo
     // Fight" shipped as a loop that never started a fight. Its own step means its
     // own server: recovery fixtures and these journeys must each respect the
     // 25 accounts per IP that registration allows in 15 minutes.
-    const job = workflow.slice(workflow.indexOf('\n  e2e_village_stores:'), workflow.indexOf('\n  test_build:'));
+    const job = workflow.slice(workflow.indexOf('\n  e2e_village_stores_matrix:'), workflow.indexOf('\n  test_build:'));
     const command = job.split('\n').find(line => line.trim().startsWith('run:') && line.includes('mmorpg-behaviors-express.spec.ts'));
     assert.ok(command, 'the required live Express job must execute the MMO behaviour spec');
     assert.ok(command.includes('--project=chromium-desktop-live') && command.includes('--project=chromium-mobile-live'));
@@ -322,7 +322,7 @@ test('required live Express CI runs the hospital ward and roaming Weekly Boss jo
 test('required live Express CI binds a real wild companion on desktop and mobile', () => {
     // The journey sat outside CI, so when the sector became the continuous
     // world its tile click timed out on every run and nothing noticed.
-    const job = workflow.slice(workflow.indexOf('\n  e2e_village_stores:'), workflow.indexOf('\n  test_build:'));
+    const job = workflow.slice(workflow.indexOf('\n  e2e_village_stores_matrix:'), workflow.indexOf('\n  test_build:'));
     const command = job.split('\n').find(line => line.trim().startsWith('run:') && line.includes('wild-binding-express.spec.ts'));
     assert.ok(command, 'the required live Express job must execute the wild-binding journey');
     assert.ok(command.includes('--project=chromium-desktop-live') && command.includes('--project=chromium-mobile-live'));
@@ -334,7 +334,7 @@ test('required live Express CI runs the Hollow Gate pet duel on desktop and mobi
     // The journey sat outside CI, so when PR #347 put hunting wanderers on the
     // first floor it failed 2 runs of 4 and nothing noticed for two days. A
     // retry would hide the next flake the same way.
-    const job = workflow.slice(workflow.indexOf('\n  e2e_village_stores:'), workflow.indexOf('\n  test_build:'));
+    const job = workflow.slice(workflow.indexOf('\n  e2e_village_stores_matrix:'), workflow.indexOf('\n  test_build:'));
     const command = job.split('\n').find(line => line.trim().startsWith('run:') && line.includes('hollow-gate-pet-duel-express.spec.ts'));
     assert.ok(command, 'the required live Express job must execute the Hollow Gate pet duel');
     assert.ok(command.includes('--project=chromium-desktop-live') && command.includes('--project=chromium-mobile-live'));
@@ -409,4 +409,16 @@ test('responsive matrix schedules each slice exactly once with matching evidence
     assert.ok(evidenceTotals.length >= 8);
     assert.ok(evidenceTotals.every(total => total === denominator));
     assert.doesNotMatch(responsive, /--grep|--project|--max-failures/, 'splitting must retain the complete browser suite');
+});
+
+test('live Express sharding preserves ten exclusive invocations and a fail-closed stable aggregate', () => {
+ const matrix=workflow.split('  e2e_village_stores_matrix:\n')[1]?.split('\n  e2e_village_stores:')[0];
+ assert.ok(matrix);assert.match(matrix,/shard: \[1, 2, 3\]/);assert.match(matrix,/fail-fast: false/);
+ const steps=matrix.split('      - name: ').filter(step=>step.includes('run: npm run test:e2e:live'));
+ assert.equal(steps.length,10);const groups=steps.map(step=>Number(step.match(/if: \$\{\{ matrix\.shard == ([123]) \}\}/)?.[1]));
+ assert.deepEqual(groups,[1,1,2,3,3,3,2,3,3,3]);for(const step of steps)assert.doesNotMatch(step,/continue-on-error|--grep|--shard|--max-failures/);
+ assert.match(matrix,/name: evidence-e2e-village-stores-\$\{\{ matrix\.shard \}\}-of-3/);
+ const aggregate=workflow.split('  e2e_village_stores:\n')[1]?.split('\n  test_build:')[0];assert.ok(aggregate);
+ assert.match(aggregate,/needs: e2e_village_stores_matrix/);assert.ok(aggregate.includes('if: ${{ always() }}'));assert.ok(aggregate.includes('test "$VILLAGE_SHARDS" = success'));
+ assert.match(workflow.split('  test_build:\n')[1],/- e2e_village_stores\n/);
 });
