@@ -1,4 +1,4 @@
-.clan-boss-guard {
+.cb {
     display: grid;
     gap: 3px;
     padding: 8px 10px;
@@ -11,5 +11,5 @@
     line-height: 1.4;
     overflow-wrap: anywhere;
 }
-.clan-boss-guard summary { cursor: pointer; color: #edcf8c; }
-.clan-boss-guard p { margin: 6px 0 0; }
+.cb summary { cursor: pointer; color: #edcf8c; }
+.cb p { margin: 6px 0 0; }
