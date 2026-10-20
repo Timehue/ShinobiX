@@ -234,7 +234,7 @@ export const Messages = memo(function Messages({ character, onBack, initialWith,
     return (
         <div className="card" style={{ maxWidth: 720, margin: "0 auto", padding: 0, overflow: "hidden" }}>
             <div style={{ position: "relative" }}>
-                <img src={courierHero} alt="" style={{ display: "block", width: "100%", height: 170, objectFit: "cover", objectPosition: "center 32%" }} />
+                <img src={courierHero} alt="" style={{ display: "block", width: "100%", height: 170, objectFit: "contain", objectPosition: "center" }} />
                 <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(8,11,15,.05) 25%, rgba(8,11,15,.94))" }} />
                 <button onClick={onBack} style={{ position: "absolute", top: 10, right: 10 }}>← Back</button>
                 <div style={{ position: "absolute", left: 18, right: 18, bottom: 10 }}>

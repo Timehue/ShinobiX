@@ -68,7 +68,7 @@
 }
 
 .guides-masthead > img {
-    object-fit: cover;
+    object-fit: contain;
     object-position: center;
     filter: saturate(.88) contrast(1.04);
 }
@@ -254,7 +254,7 @@
 .guide-featured-media img {
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: contain;
 }
 
 .guide-featured-copy {
@@ -355,14 +355,13 @@
 .guide-card-media img {
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: contain;
     filter: saturate(.84);
     transition: transform .28s ease, filter .28s ease;
 }
 
 @media (hover: hover) {
     .guide-card:hover .guide-card-media img {
-        transform: scale(1.025);
         filter: saturate(1);
     }
 }
@@ -517,7 +516,7 @@
 .guide-reader-hero img {
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: contain;
     filter: saturate(.9);
 }
 
@@ -850,7 +849,7 @@
     display: block;
     width: 100%;
     aspect-ratio: 16 / 9;
-    object-fit: cover;
+    object-fit: contain;
 }
 
 .guide-figure figcaption {

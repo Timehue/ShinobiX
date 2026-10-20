@@ -89,7 +89,7 @@
 .icx-preview-shinobi img {
     width: 46px;
     height: 46px;
-    object-fit: cover;
+    object-fit: contain;
     border-radius: 8px;
 }
 
