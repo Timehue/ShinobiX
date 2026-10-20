@@ -1,4 +1,4 @@
-import { nearestWalkableTile, sectorWalkMask, walkPath } from "../../../shared/sector-walk-mask";
+import { nearestInMask, sectorWalkMask, pathInMask,walkableInMask, type WalkMask } from "../../../shared/sector-walk-mask";
 import { sectorObstaclesOn } from "./sector-obstacles";
 import type { loadContinuousWorld } from "./continuous-world-client";
 type Position = { col: number; row: number };
@@ -7,6 +7,7 @@ type World = Awaited<ReturnType<typeof loadContinuousWorld>>;
 
 let world: World | undefined, loading = false;
 const regions = new Map<number, Region | null>();
+const emptyClearance:readonly number[]=[];
 /** One sector's walkable ground in the connected world (its painting, its road
  *  halves and its open land), in that sector's tile coordinates. Null until the
  *  world graph has loaded; the caller keeps to the painted board meanwhile. */
@@ -45,21 +46,35 @@ function regionPath(region: Region, from: number, to: number): number[] {
 
 /** Keep a partial cardinal leg intact when a moving destination changes.
  *  `world` lets an actor in the connected world use its sector's open land too. */
-export function createSectorNavigator(world = false) {
+export function createSectorNavigator(world = false, clearance?:()=>readonly number[]|undefined) {
     let route: number[] = [], destination = "", board = "";
+    let maskKey='',customMask:WalkMask|undefined;
+    let initialLeg:boolean|undefined;
     return (sector: number, position: Position, target: Position): Position => {
-        const region = world ? sectorRegion(sector) : null;
-        if (!region && !sectorWalkMask(sector, sectorObstaclesOn())) { route = []; destination = ""; return target; }
+        const blocked=clearance?.()??emptyClearance,keyed=`${sector}:${blocked.join(',')}`;
+        if(blocked.length&&maskKey!==keyed){customMask=sectorWalkMask(sector)?.map((row,y)=>[...row].map((cell,x)=>blocked.includes(y*12+x)?'#':cell).join(''));maskKey=keyed;}
+        const mask=blocked.length?customMask:sectorWalkMask(sector,sectorObstaclesOn());
+        const region = world&&!blocked.length ? sectorRegion(sector) : null;
+        if (!region && !mask) { route = []; destination = ""; return target; }
+        // A newly mounted routine can already be between two cells. Continue
+        // that clear cardinal leg instead of rounding it back to its origin.
+        initialLeg??=!Number.isInteger(position.col)||!Number.isInteger(position.row);
+        if(initialLeg){
+            const cardinal=Math.abs(position.col-target.col)<.000001||Math.abs(position.row-target.row)<.000001;
+            const clear=[position,target].every(p=>[Math.floor(p.col),Math.ceil(p.col)].every(x=>[Math.floor(p.row),Math.ceil(p.row)].every(y=>x>=0&&x<12&&y>=0&&y<12&&walkableInMask(mask,y*12+x))));
+            if(cardinal&&clear&&Math.hypot(position.col-target.col,position.row-target.row)<.5)return target;
+            initialLeg=false;
+        }
         const point = (step: number): Position => region ? region.points[step]! : { col: step % 12, row: Math.floor(step / 12) };
         const nearest = (p: Position) => region ? nearestPoint(region, p)
-            : nearestWalkableTile(sector, Math.round(p.row) * 12 + Math.round(p.col), sectorObstaclesOn());
-        const key = `${region ? "w" : "m"}${sector}`, to = nearest(target);
+            : nearestInMask(mask, Math.round(p.row) * 12 + Math.round(p.col));
+        const key = `${region ? "w" : "m"}${keyed}`, to = nearest(target);
         const away = (step: number) => Math.hypot(point(step).col - position.col, point(step).row - position.row);
         if (destination !== `${key}:${to}` || !route.length) {
             // Mid-step, plan onward from the tile being entered. Planning from the
             // nearest tile could turn a chaser back each time its target moved.
             const from = board === key && route.length && away(route[0]!) > .02 ? route[0]! : nearest(position);
-            route = region ? regionPath(region, from, to) : walkPath(sector, from, to, sectorObstaclesOn()) ?? [from];
+            route = region ? regionPath(region, from, to) : pathInMask(mask, from, to) ?? [from];
             destination = `${key}:${to}`; board = key;
         }
         while (route.length > 1 && away(route[0]!) < .02) route.shift();

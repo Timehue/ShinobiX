@@ -1,0 +1,61 @@
+{
+  "sector": 23,
+  "artKey": 16,
+  "key": "moonwell-dormant-shrine-v1",
+  "provider": "built-in image_gen",
+  "method": "Full-sector generated edits admitted only at the four authored shrine lamp areas; protected original architecture and all other terrain remain exact before compression.",
+  "areas": [
+    {
+      "left": 181,
+      "top": 751,
+      "width": 54,
+      "height": 54
+    },
+    {
+      "left": 287,
+      "top": 751,
+      "width": 54,
+      "height": 54
+    },
+    {
+      "left": 181,
+      "top": 810,
+      "width": 54,
+      "height": 54
+    },
+    {
+      "left": 287,
+      "top": 810,
+      "width": 54,
+      "height": 54
+    }
+  ],
+  "protected": [
+    {
+      "left": 174,
+      "top": 604,
+      "width": 166,
+      "height": 146
+    },
+    {
+      "left": 223,
+      "top": 748,
+      "width": 66,
+      "height": 13
+    }
+  ],
+  "changedOutside": 0,
+  "baseSha256": "c3e90a8224692e36bcb4e98548a3bec10688b57b37cb8f1499c941e531db3feb",
+  "sourceHashes": {
+    "unlit": "daa05879402f76795260846f8d521238223bab4cd75cab73356d83c704951fbe",
+    "lit": "372487bd9d2cc6915a8bbdbd1c5678e68352c8c776bb6574dab7956857d5ab5d"
+  },
+  "deliveredSha256": "496909e96b75e64821d6348c4754151c6ca88bbbc2c02b1c4b13552ebeb15999",
+  "bytes": 290010,
+  "prompts": "output/living-world/regional-shrine-image-prompts.json",
+  "visualReview": "passed: full-floor and actual desktop/phone scene review; authored keeper/visitor posts leave the painted lamps and walking approach clear",
+  "evidence": [
+    "output/living-world/browser/desktop-regional-shrine-moonwell-dormant.png",
+    "output/living-world/browser/phone-regional-shrine-moonwell-dormant.png"
+  ]
+}

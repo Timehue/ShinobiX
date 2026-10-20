@@ -19,6 +19,7 @@ const rosterSource = readFileSync(new URL("../lib/sector-player-roster.ts", impo
 const overlaySource = readFileSync(new URL("../components/WorldSectorOverlayLayer.tsx", import.meta.url), "utf8");
 const fieldMarkerSource = readFileSync(new URL("../components/SectorStoryFieldMarker.tsx", import.meta.url), "utf8");
 const dialogSource = readFileSync(new URL("../components/WorldWandererDialog.tsx", import.meta.url), "utf8");
+const ordinaryActionSource = readFileSync(new URL("../lib/ordinary-wanderer-actions.ts", import.meta.url), "utf8");
 const storyFieldRouteBoundarySource = readFileSync(new URL("../components/StoryFieldRouteBoundary.tsx", import.meta.url), "utf8");
 
 function lineCount(source: string): number {
@@ -292,21 +293,22 @@ test("WorldWandererDialog prices the bandit toll and the other hostile flee choi
     // a patrol of a village at war with yours stops you too, and its Fight is
     // the patrol fight.
     const hostileChoices = sliceBetween(dialogSource,
-        "wandererForcesChoice(wandererDialog.w) ? (",
-        ') : !wandererDialog.msg && wandererDialog.w.verb === "merchant"');
+        "wandererForcesChoice(w) ? (",
+        ') : !msg && ordinary');
     assertOrdered(hostileChoices, [
         'onClick={dismissWandererDialog}>Pass in peace</button>',
-        'onClick={() => startWandererAttack(wandererDialog.w, false)}',
+        'onClick={() => startWandererAttack(w, false)}',
         '>Fight anyway</button>',
         'roadFleePriceLine(character)}',
-        'onClick={() => wandererDialog.w.verb === "patrol" ? startPatrolFight(wandererDialog.w) : startWandererAttack(wandererDialog.w, !!wandererDialog.nemesis)}>Fight</button>',
-        'onClick={() => fleeWanderer(wandererDialog.w)}>{toll ? `Pay ${BANDIT_TOLL_RYO} ryo` : \'Flee\'}</button>',
+        'onClick={() => w.verb === "patrol" ? startPatrolFight(w) : startWandererAttack(w, !!nemesis)}>Fight</button>',
+        "onClick={() => fleeWanderer(w)}>{toll ? `Pay ${BANDIT_TOLL_RYO} ryo` : 'Flee'}</button>",
     ], "hostile encounter choice order");
     assert.match(worldMapSource, /function requiresWandererChoice\(d: WorldWandererDialogState \| null\) \{\s*return !!d && !d\.msg && wandererForcesChoice\(d\.w\);/u,
         "the dialog's Fight/Flee and WorldMap's no-free-Escape guard read the same rule");
     assert.doesNotMatch(hostileChoices, /onClick=\{dismissWandererDialog\}>Flee/u, "the paid flee must not route through the free dismissal");
     assert.doesNotMatch(dialogSource, /Combat is starting/u, "a contract hunter no longer starts its fight on contact");
-    assert.match(dialogSource, /wandererDialog\.w\.verb === "merchant"[\s\S]*onClick=\{closeWandererDialog\}>Leave<\/button>/u);
+    assert.match(ordinaryActionSource,/merchant:\[work\('Buy bone charms',tradeWithWanderer\),rumor,leave\]/u);
+    assert.match(ordinaryActionSource,/leave=action\('Leave',closeWandererDialog\)/u,'ordinary merchants retain free departure through the shared action model');
 });
 
 test("WorldMap charges a flee on the server and never lets Escape or the backdrop run for free", () => {

@@ -15,7 +15,7 @@ const merge = (sector: number | null, patch: Partial<Entry>) => (previous: Entry
  * sector on demand, so one dropped request no longer leaves them inert.
  * State is keyed by sector, so another sector's snapshot or open sheet is never shown.
  */
-export function useSectorTraces(sector: number | null, playerName: string) {
+export function useSectorTraces(sector: number | null, playerName: string,onTrack?:(wanderer:import('../../../shared/wanderer-roster').Wanderer)=>void) {
     const [entry, setEntry] = useState<Entry>({ sector, traces: null, modal: null });
     const current = useRef(sector);
     const own = entry.sector === sector ? entry : { sector, traces: null, modal: null };
@@ -43,6 +43,7 @@ export function useSectorTraces(sector: number | null, playerName: string) {
     }
     return {
         traces: own.traces, modal: own.modal, open,
+        lifeProps: { lifeTraces: own.traces, onOpenLifeTraces: (view: TracesModalState['view']) => open({ view }),onLifeTrack:onTrack },
         setTraces: (traces: SectorTracesView) => setEntry(merge(sector, { traces })),
         setModal: (modal: TracesModalState | null) => setEntry(merge(sector, { modal })),
     };

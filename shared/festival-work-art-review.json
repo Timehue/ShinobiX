@@ -1,0 +1,342 @@
+{
+  "status": "admitted after native visual, functional and frame-budget review",
+  "provider": "built-in image_gen",
+  "baseFile": "shinobij.client/public/sector-map/s14.webp",
+  "baseSha256": "2fabf298946f2a661c793ee37b366fb9e8b58bdd6cb5a9f82fc15708b5d2cfb8",
+  "sourceSha256": "0821ca996219594f0ab5262aa5ca5538a89a3e159a72012dae6e678c361b2025",
+  "packedDetailSha256": "46a530dd7e35d2fe06baed784a2d035d86abf47bb77d8128d093e9a588a471be",
+  "openArea": {
+    "left": 744,
+    "top": 648,
+    "width": 140,
+    "height": 140
+  },
+  "coverArea": {
+    "left": 768,
+    "top": 679,
+    "width": 60,
+    "height": 54
+  },
+  "cropOrigin": {
+    "left": 680,
+    "top": 560,
+    "width": 256,
+    "height": 256
+  },
+  "staffTile": 104,
+  "buildingSideTile": 92,
+  "records": [
+    {
+      "state": "open",
+      "file": "output/living-world/festival/open-protected-candidate-v1.webp",
+      "sha256": "bf0eb467a9e04cf791e0177e224501d6fd278154d23bfee6d032f7e3a7db519f",
+      "bytes": 294216,
+      "changedOutside": 0
+    },
+    {
+      "state": "packed",
+      "file": "output/living-world/festival/packed-protected-candidate-v1.webp",
+      "sha256": "33dbba044e8b433824e771268fd3b2b744872df3cdb86bd074aadba15010474c",
+      "bytes": 294528,
+      "changedOutside": 0
+    }
+  ],
+  "notes": "Only the attached counter enters the canonical floor. Packed differs from open only in the small cover area, so roofs, kettle, pot, ledge and surrounding terrain stay stable. Original public floor unchanged.",
+  "visualReview": "passed desktop/phone native scene, phase/floor/path/weather/cache/image-failure/Talk/readability review",
+  "paintings": [
+    {
+      "key": "festival-tea-counter-open-v1",
+      "file": "shinobij.client/public/sector-life/festival-tea-counter-open-v1.webp",
+      "sha256": "bf0eb467a9e04cf791e0177e224501d6fd278154d23bfee6d032f7e3a7db519f",
+      "bytes": 294216,
+      "width": 1024,
+      "height": 1024,
+      "changedOutside": 0
+    },
+    {
+      "key": "festival-tea-counter-packed-v1",
+      "file": "shinobij.client/public/sector-life/festival-tea-counter-packed-v1.webp",
+      "sha256": "33dbba044e8b433824e771268fd3b2b744872df3cdb86bd074aadba15010474c",
+      "bytes": 294528,
+      "width": 1024,
+      "height": 1024,
+      "changedOutside": 0
+    }
+  ],
+  "prompts": "output/living-world/festival/art-and-prompts.json",
+  "source": "output/living-world/festival/open-counter-provider-v1.png",
+  "packedSource": "output/living-world/festival/packed-counter-closeup-provider-v3.png",
+  "recipe": "scripts/bake-festival-work-paintings.mjs",
+  "nativeReview": "All40 routine map captures and4 additional crowded-counter captures inspected.14 desktop/phone functional cases passed native-v3.log;2 current-head crowded-counter cases passed crowding-v2.log after bounded close-name correction; same run also passed2 winter regressions with4 inspected captures. Functional checks use Playwright Clock; they are not native frame measurements. Actual Date-only native RAF performance is tracked separately. Current-head fast-path validation:2 crowded-counter and2 winter regressions passed crowding-v3.log; all8 new map captures inspected in close-placement-final-sheet.png. Native performance v1 original first-motion phone3.7ms over3ms budget is preserved; optimized v2 comparisons passed unchanged budgets; initial and settled movement retained separately.",
+  "reviewSources": [
+    {
+      "file": "shared/sector-festival-work.ts",
+      "sha256": "7c6c888f135e3e9d07d45fbaa1f1311b0fb8c60ee0cf3ad5ba034127c8900248"
+    },
+    {
+      "file": "shinobij.client/src/lib/ground-work-surface.ts",
+      "sha256": "cce54cd0e4ecd8c7f82383ecb2d8721c9faae0f6f7f96b0d7db5f6880a3df0d0"
+    },
+    {
+      "file": "shinobij.client/src/lib/sector-life-art.ts",
+      "sha256": "722617742eee42b1ffc9aa3595e7e528d80bc6f663639a951efd14addd05f9d0"
+    },
+    {
+      "file": "shinobij.client/src/lib/wanderer-label-layout.ts",
+      "sha256": "7890893bddb9b47f3b12ec4ed7a5b4ffc9e670c52f76c7dbf67d27aeb3314d39"
+    }
+  ],
+  "captures": [
+    {
+      "file": "output/living-world/festival/crowding-v2/desktop-crowded-counter-initial.png",
+      "sha256": "09920210ab0e402daa4822aedb6ac9b4fd222b1711434f6c2127617bc19bd5fd",
+      "bytes": 863900
+    },
+    {
+      "file": "output/living-world/festival/crowding-v2/desktop-crowded-counter.png",
+      "sha256": "341ec39f82712cfa2ba64a76263fe7843db345bd52c26b6f7370c56ae7996753",
+      "bytes": 865981
+    },
+    {
+      "file": "output/living-world/festival/crowding-v2/phone-crowded-counter-initial.png",
+      "sha256": "e5bb40e871be928a9e67520472a0396ba9d285f50bb3632165321b54b3ddbe1d",
+      "bytes": 313632
+    },
+    {
+      "file": "output/living-world/festival/crowding-v2/phone-crowded-counter.png",
+      "sha256": "71501d9a7f3b25883bee88be118f119f36638afc89acd86bb1d495435117c413",
+      "bytes": 313943
+    },
+    {
+      "file": "output/living-world/festival/crowding-v3/desktop-crowded-counter-initial.png",
+      "sha256": "791945f297ee7c2b74677774e83342a2b11077fc261fd0d03f17957d361d305b",
+      "bytes": 866318
+    },
+    {
+      "file": "output/living-world/festival/crowding-v3/desktop-crowded-counter.png",
+      "sha256": "8dc2f271d98bcaf4249190defd3bc2627119b1cfc5279877c10ff7ee41720929",
+      "bytes": 866062
+    },
+    {
+      "file": "output/living-world/festival/crowding-v3/phone-crowded-counter-initial.png",
+      "sha256": "b4d05cbc1378d7f10e562c62b2df789dc276a2b20df020cda4488e5079c9414b",
+      "bytes": 314371
+    },
+    {
+      "file": "output/living-world/festival/crowding-v3/phone-crowded-counter.png",
+      "sha256": "556d6e90c65ad97aab6827ea8e6fdad25e43ed35cdaf46e41854d5a25ca472a2",
+      "bytes": 314391
+    },
+    {
+      "file": "output/living-world/festival/native-v3/desktop-cached-closure-initial.png",
+      "sha256": "7b8acbca8880c52199021e6c28ae1c88a311b3f8182151af29dbc873330cf27f",
+      "bytes": 872868
+    },
+    {
+      "file": "output/living-world/festival/native-v3/desktop-cached-closure.png",
+      "sha256": "99c14c27d02b31708bf4671628a7b20886b6ab8a950f8f7c7257db337355b69b",
+      "bytes": 865542
+    },
+    {
+      "file": "output/living-world/festival/native-v3/desktop-collecting-bowls.png",
+      "sha256": "89f9ed51bcb58a6a868e43d0553092eb49e7ec30d807c254ef761fffd2ebd4f9",
+      "bytes": 744746
+    },
+    {
+      "file": "output/living-world/festival/native-v3/desktop-covered-counter.png",
+      "sha256": "d507afe06687cff6fe79bff5674e8b44a5ff22bc839a0ec322432a4562f16e3c",
+      "bytes": 766688
+    },
+    {
+      "file": "output/living-world/festival/native-v3/desktop-missing-counter-initial.png",
+      "sha256": "b87d4df700ff51830efdf605b0fe7de1bd6eb732c8797f7d6220a79768a2de14",
+      "bytes": 881496
+    },
+    {
+      "file": "output/living-world/festival/native-v3/desktop-missing-counter.png",
+      "sha256": "5ce84b4264e8e6d57e1bc828f3e0cc6a7bbe42f8d0f70ac97077552b24d790d6",
+      "bytes": 882056
+    },
+    {
+      "file": "output/living-world/festival/native-v3/desktop-opening-initial.png",
+      "sha256": "b97da2765f38f23f78c28bb5115d21fe35b4ad7f2d674dbe5f970ff5e282926e",
+      "bytes": 743943
+    },
+    {
+      "file": "output/living-world/festival/native-v3/desktop-opening.png",
+      "sha256": "4a4f02567396f7556bebb969387d889d1ca0a8be659c1cf48334cbb0254d4aa4",
+      "bytes": 744179
+    },
+    {
+      "file": "output/living-world/festival/native-v3/desktop-opposite-corner-steps.png",
+      "sha256": "2d7eecbebaa669e46505b9fd905cf4539023d004067cfc16ac984179b1eeab73",
+      "bytes": 871284
+    },
+    {
+      "file": "output/living-world/festival/native-v3/desktop-packing-counter.png",
+      "sha256": "548fbca1012b3ad3c906c65a84cd720faffe182f734fb8cc7f85c2d3a932798e",
+      "bytes": 767702
+    },
+    {
+      "file": "output/living-world/festival/native-v3/desktop-packing-initial.png",
+      "sha256": "049586732e518fe273ece0011a2bafa218b2701ad783857d0bd562e3eab2c106",
+      "bytes": 768517
+    },
+    {
+      "file": "output/living-world/festival/native-v3/desktop-packing.png",
+      "sha256": "5e30e848e75b964bef4a5ecce11e5695cfff4f3a3844e816c5871ac93aa99e39",
+      "bytes": 768854
+    },
+    {
+      "file": "output/living-world/festival/native-v3/desktop-preparing-counter.png",
+      "sha256": "ea2d125a7d8c740436f5c6c547fb15c592b9e07d884d8894f389f415d82ce703",
+      "bytes": 743062
+    },
+    {
+      "file": "output/living-world/festival/native-v3/desktop-rain-initial.png",
+      "sha256": "2fe4c641c94b4db02e14c3c7991df7bc74e2564e6bcb0846094cc7bb22680b3b",
+      "bytes": 872911
+    },
+    {
+      "file": "output/living-world/festival/native-v3/desktop-rain.png",
+      "sha256": "b10ff56a26b09d441f6a575a31782e2c18fef6a96d15e9a9bce6c419249f6935",
+      "bytes": 871095
+    },
+    {
+      "file": "output/living-world/festival/native-v3/desktop-reduced-motion-initial.png",
+      "sha256": "7fe8bf32dd175fb5b4c046c243852337647c98b0f5d16bf22ecbcf9e9d521c7d",
+      "bytes": 871172
+    },
+    {
+      "file": "output/living-world/festival/native-v3/desktop-reduced-motion.png",
+      "sha256": "1bcef132cf43cda05f2b0314dea0c44ecf6ad1e5130fb48a334353edffbb8679",
+      "bytes": 870703
+    },
+    {
+      "file": "output/living-world/festival/native-v3/desktop-second-square-lap.png",
+      "sha256": "986dd20ba327a1aa8293b6ef1be3d4a04dd4cfde88364261cba108d18c328878",
+      "bytes": 875177
+    },
+    {
+      "file": "output/living-world/festival/native-v3/desktop-square-steps-initial.png",
+      "sha256": "334c887c2f94c331de370f5511a39b841f4cccbd4a7ca78642159f87a4b225e0",
+      "bytes": 865801
+    },
+    {
+      "file": "output/living-world/festival/native-v3/desktop-square-steps.png",
+      "sha256": "f8a5d44f8d72dbc97910dda59e35c6c1b2bb779d4b21bb0d5c6795f7ddbe06a3",
+      "bytes": 869829
+    },
+    {
+      "file": "output/living-world/festival/native-v3/phone-cached-closure-initial.png",
+      "sha256": "196cd9f3ba9d519e632a1cb236a51b3dd0c8156641397a25a6049f605c435119",
+      "bytes": 326148
+    },
+    {
+      "file": "output/living-world/festival/native-v3/phone-cached-closure.png",
+      "sha256": "18d9788fefd428bff50a4f5ef559d7215fdcb0eff0a86bb19771756253f858dc",
+      "bytes": 326550
+    },
+    {
+      "file": "output/living-world/festival/native-v3/phone-collecting-bowls.png",
+      "sha256": "15206248ba1854eb9f35c30e4645876e6c44181926188533630941332f38fa5f",
+      "bytes": 282024
+    },
+    {
+      "file": "output/living-world/festival/native-v3/phone-covered-counter.png",
+      "sha256": "701bb4e3a08bac71d950b14d141089a5c27515d46c7f03fa5ecbda3adef8cfc5",
+      "bytes": 289314
+    },
+    {
+      "file": "output/living-world/festival/native-v3/phone-missing-counter-initial.png",
+      "sha256": "54536775cbb083a75c2b608db75fd18112a95d461af1d6614bbf24d1b192690a",
+      "bytes": 327449
+    },
+    {
+      "file": "output/living-world/festival/native-v3/phone-missing-counter.png",
+      "sha256": "5a481f42710f24c08c69332c754d9b17672cf96cb023e9d57a034363ddf05031",
+      "bytes": 327423
+    },
+    {
+      "file": "output/living-world/festival/native-v3/phone-opening-initial.png",
+      "sha256": "837e6e4bf81897fbee1d74799f627c3aa91bdb2b6169abf30af9570132178d07",
+      "bytes": 281383
+    },
+    {
+      "file": "output/living-world/festival/native-v3/phone-opening.png",
+      "sha256": "efa6481105fe9afb8f777987ddcce0c81bfea57a6d4d4bfa5380202b223e4560",
+      "bytes": 281425
+    },
+    {
+      "file": "output/living-world/festival/native-v3/phone-opposite-corner-steps.png",
+      "sha256": "7a7277a8e1e6e10414c046417057f80a116f16dc2810a8b71bb895b81d2186e9",
+      "bytes": 326786
+    },
+    {
+      "file": "output/living-world/festival/native-v3/phone-packing-counter.png",
+      "sha256": "9e5940f84c1e3d0855c2f13afe40673df2f22d9a2066f457176e0f8363945676",
+      "bytes": 289748
+    },
+    {
+      "file": "output/living-world/festival/native-v3/phone-packing-initial.png",
+      "sha256": "dd0b22ed046fc5ca755f6dab38fe956cd83047bd59e2e919d35a2f2d58629216",
+      "bytes": 288842
+    },
+    {
+      "file": "output/living-world/festival/native-v3/phone-packing.png",
+      "sha256": "02d6a210b71707c73dea635424d88aeee476a0d935f22a71a27e68ddff5381ee",
+      "bytes": 289712
+    },
+    {
+      "file": "output/living-world/festival/native-v3/phone-preparing-counter.png",
+      "sha256": "4ae92a646aa52be401bd883c3304d70921cb2daa444854cb2ddad157101b12e1",
+      "bytes": 281362
+    },
+    {
+      "file": "output/living-world/festival/native-v3/phone-rain-initial.png",
+      "sha256": "aefa59894163d8436250b2ac56394036730eada651b3b3d58d5db62956416769",
+      "bytes": 324894
+    },
+    {
+      "file": "output/living-world/festival/native-v3/phone-rain.png",
+      "sha256": "f325212969d763ceaa1b5c2875d508c4dcc7195a1d8831a086c19a15cdee414d",
+      "bytes": 327667
+    },
+    {
+      "file": "output/living-world/festival/native-v3/phone-reduced-motion-initial.png",
+      "sha256": "860da51951691ca42d42de551bff254585683d0fd227b121c92c18dec9481a73",
+      "bytes": 326544
+    },
+    {
+      "file": "output/living-world/festival/native-v3/phone-reduced-motion.png",
+      "sha256": "3d27e7059845f070afe8a7d84588ac77cc31a7c89fc249afcefb7ab1e58ade53",
+      "bytes": 325446
+    },
+    {
+      "file": "output/living-world/festival/native-v3/phone-second-square-lap.png",
+      "sha256": "8a39ce94f28b8cc42b062ffa6b78f6dac3035b1d85bc3c1d542f64da964a7637",
+      "bytes": 326901
+    },
+    {
+      "file": "output/living-world/festival/native-v3/phone-square-steps-initial.png",
+      "sha256": "6f7140d718d6153f03f8547daa59a572378f084b7328782a4310f08bd77042b7",
+      "bytes": 314201
+    },
+    {
+      "file": "output/living-world/festival/native-v3/phone-square-steps.png",
+      "sha256": "f50befb5d26bb71e719ea01d4d35b048c2d00d1699a1a6103373920c57306a6d",
+      "bytes": 327789
+    }
+  ],
+  "nativePerformance": {
+    "log": "output/living-world/festival/native-performance-v2.log",
+    "records": [
+      "output/living-world/festival/performance/desktop-paired.json",
+      "output/living-world/festival/performance/phone-paired.json",
+      "output/living-world/festival/performance/desktop-crowded-labels-paired.json",
+      "output/living-world/festival/performance/phone-crowded-labels-paired.json"
+    ],
+    "earlierOverBudget": "output/living-world/festival/performance/initial-motion-before-fast-path-v1/phone-paired.json",
+    "notes": "All4 native Date-only/no-Clock comparisons passed. Earlier first-motion phone overage3.7ms versus3ms was retained and led to validated preferred/previous close-name reuse. Current initial and settled movement both retain the original2ms desktop/3ms phone incremental callback limit. No universal FPS or physical-device claim."
+  }
+}

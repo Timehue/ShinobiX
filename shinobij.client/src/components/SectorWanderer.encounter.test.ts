@@ -52,7 +52,7 @@ test("a hunter held back by another hostile's choice confronts you once it is ma
     // count that refusal as its greeting and stand beside the player in silence
     // until they walked out of range; now only an ACCEPTED confrontation counts.
     assert.match(source, /if \(isHunter\) greetedRef\.current = onEngageRef\.current\(wanderer\) !== false;/u);
-    assert.match(source, /onEngage: \(w: Wanderer\) => boolean \| void;/u);
+    assert.match(source, /onEngage: \(w: Wanderer(?:,[^)]*)?\) => boolean \| void;/u);
 });
 
 test("arriving in a sector leaves time to read it before anyone closes in", () => {

@@ -1,5 +1,7 @@
 import { MAX_PENDING_FINDS, pendingGatherFinds } from '../../shared/gathering.js';
 import { sealGatherFind } from './_gather.js';
+import { gatherGroundOrigin } from './_harvest-ground.js';
+import { onlineStore as gatheringPresence } from '../_realtime/online-store.js';
 import { safeLogValue } from '../_safe-log.js';
 import { isIncapacitated } from '../_elapsed-state.js';
 import { randomInt, randomUUID } from 'node:crypto';
@@ -354,7 +356,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     poolReserved: poolEnabled,
                 }
                 : rolledOutcome?.kind === 'gather'
-                    ? { kind: 'gather' as const, find: sealGatherFind(requestId, requestedSector, () => randomInt(1_000_000_000) / 1_000_000_000)! }
+                    ? { kind: 'gather' as const, find: sealGatherFind(requestId, requestedSector, () => randomInt(1_000_000_000) / 1_000_000_000,Date.now(),gatherGroundOrigin(gatheringPresence.get(playerName),requestedSector,Date.now()))! }
                     : rolledOutcome?.kind === 'battle'
                         ? { kind: 'battle' as const, encounter: rollOrdinaryPveEncounter({
                             sourceId: requestId, playerLevel: Number(character.level), sector: requestedSector,

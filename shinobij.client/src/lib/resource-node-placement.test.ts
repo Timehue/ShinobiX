@@ -1,4 +1,4 @@
-// The 2026-10-14 world-wide gathering pass put a node in every playable sector.
+// Gathering requires suitable painted terrain, rather than one node per sector.
 // Each new node had to land somewhere a player can see and tap it: never on a
 // structure, the village gate, a road exit or a story marker, and never touching
 // another marker, because on a phone the 48px touch floor makes every icon
@@ -12,7 +12,7 @@ import { sectorFloorLayout } from "./sector-floor-layout";
 
 const GRID = 12;
 /** Nodes 1..24 predate the pass; their placement was reviewed separately. */
-const ADDED = RESOURCE_NODES.slice(24);
+const ADDED = RESOURCE_NODES.filter(node => Number(node.id.slice(9)) > 24);
 const cheb = (a: number, b: number) => Math.max(Math.abs(a % GRID - b % GRID), Math.abs(Math.floor(a / GRID) - Math.floor(b / GRID)));
 
 function storyTiles(sector: number): number[] {
@@ -42,7 +42,7 @@ function ownedTiles(sector: number): Map<number, string> {
 }
 
 test("the added gathering nodes never stand on a structure, gate, road exit or story marker", () => {
-    assert.equal(ADDED.length, 67);
+    assert.equal(ADDED.length, 63);
     for (const node of ADDED) {
         const owned = ownedTiles(node.sector);
         for (const [label, tile] of [["target", node.target], ["approach", node.approach]] as const) {
