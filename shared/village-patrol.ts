@@ -39,8 +39,8 @@ export function patrolNameFor(ownerVillage: unknown, stance: PatrolStance | null
 const PATROL_LINES: Record<PatrolStance, readonly string[]> = {
     home: [
         "You're one of ours. Keep your head down past the next ridge.",
-        "This road answers to our village. Walk it easy, and tell us what you see.",
-        "Good to see a friendly face out here. The wilds have been loud today.",
+        "Our village controls this road. Safe travels, and tell us if you see trouble.",
+        "Good to see a friendly face out here. Need news from the road?",
     ],
     rival: [
         "You're a long way from your own village. Mind your manners on our road.",

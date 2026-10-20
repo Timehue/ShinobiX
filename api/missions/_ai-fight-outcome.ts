@@ -1,6 +1,7 @@
 import type { TowerActor, TowerSession } from '../towers/_tower-session.js';
 import type { PvpFighter } from '../pvp/session.js';
 import { isSoloPveSession, type SoloPveSession } from '../solo-pve/_session.js';
+import { narrativeGroupWinConfirmed } from '../solo-pve/_group-proof.js';
 
 /*
  * Step 4 — the outcome of a sealed AI fight, read from the SESSION.
@@ -116,7 +117,7 @@ export function resolveAiFightOutcome(session: AiFightSession | null | undefined
     if (!session) return 'unknown';
     if (session.status !== 'done') return 'forfeit';
     if (isSoloPveSession(session)) {
-        if (session.winner === 'player') return 'win';
+        if (session.winner === 'player') return narrativeGroupWinConfirmed(session) ? 'win' : 'unknown';
         if (session.winner === 'draw') return 'draw';
         return 'loss';
     }

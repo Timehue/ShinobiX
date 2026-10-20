@@ -39,7 +39,7 @@ export const STARTER_PETS: StarterPetOption[] = [
     {
         element: "Fire",
         role: "Assassin, fragile burst",
-        blurb: "Hits hardest, but fragile. Win the exchange before it can hit you back.",
+        blurb: "Heavy fire attacks, but low HP and defense.",
         accent: "#f97316",
         icon: "🔥",
         strongVs: "Wind",
@@ -71,7 +71,7 @@ export const STARTER_PETS: StarterPetOption[] = [
     {
         element: "Water",
         role: "Sage, sustain healer",
-        blurb: "Durable and self-healing. Out-lasts opponents in a long fight.",
+        blurb: "Durable and self-healing. Built to last through long fights.",
         accent: "#38bdf8",
         icon: "💧",
         strongVs: "Fire",

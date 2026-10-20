@@ -1,0 +1,244 @@
+{
+  "id": "starter-lightning",
+  "recordedAt": "2026-10-19T15:44:31.949Z",
+  "sourceSha256": "5b96adb25eca071c6b1df6c020cd19def0a37d4b779c41eade34114f4089406f",
+  "originalGeometryUnchanged": true,
+  "originalLandmarksPreservedInHistory": true,
+  "sourceAndBattleTwelveRegionCoverage": [
+    {
+      "id": "starter-lightning",
+      "stage": "source",
+      "patches": {
+        "upperFace": {
+          "vertices": 115,
+          "edges": 208,
+          "complete": true
+        },
+        "muzzle": {
+          "vertices": 54,
+          "edges": 105,
+          "complete": true
+        },
+        "lowerFace": {
+          "vertices": 57,
+          "edges": 112,
+          "complete": true
+        },
+        "jawChin": {
+          "vertices": 37,
+          "edges": 69,
+          "complete": true
+        },
+        "earLeft": {
+          "vertices": 153,
+          "edges": 294,
+          "complete": true
+        },
+        "earRight": {
+          "vertices": 109,
+          "edges": 208,
+          "complete": true
+        },
+        "headband": {
+          "vertices": 152,
+          "edges": 213,
+          "complete": true
+        },
+        "leftEye": {
+          "vertices": 99,
+          "edges": 211,
+          "complete": true
+        },
+        "rightEye": {
+          "vertices": 81,
+          "edges": 185,
+          "complete": true
+        },
+        "lowerMaskRim": {
+          "vertices": 41,
+          "edges": 82,
+          "complete": true
+        },
+        "maskLeftRim": {
+          "vertices": 61,
+          "edges": 107,
+          "complete": true
+        },
+        "maskRightRim": {
+          "vertices": 49,
+          "edges": 98,
+          "complete": true
+        }
+      }
+    },
+    {
+      "id": "starter-lightning",
+      "stage": "battle",
+      "patches": {
+        "upperFace": {
+          "vertices": 88,
+          "edges": 142,
+          "complete": true
+        },
+        "muzzle": {
+          "vertices": 38,
+          "edges": 64,
+          "complete": true
+        },
+        "lowerFace": {
+          "vertices": 34,
+          "edges": 48,
+          "complete": true
+        },
+        "jawChin": {
+          "vertices": 26,
+          "edges": 43,
+          "complete": true
+        },
+        "earLeft": {
+          "vertices": 108,
+          "edges": 175,
+          "complete": true
+        },
+        "earRight": {
+          "vertices": 84,
+          "edges": 148,
+          "complete": true
+        },
+        "headband": {
+          "vertices": 144,
+          "edges": 198,
+          "complete": true
+        },
+        "leftEye": {
+          "vertices": 85,
+          "edges": 171,
+          "complete": true
+        },
+        "rightEye": {
+          "vertices": 69,
+          "edges": 150,
+          "complete": true
+        },
+        "lowerMaskRim": {
+          "vertices": 25,
+          "edges": 42,
+          "complete": true
+        },
+        "maskLeftRim": {
+          "vertices": 46,
+          "edges": 69,
+          "complete": true
+        },
+        "maskRightRim": {
+          "vertices": 32,
+          "edges": 56,
+          "complete": true
+        }
+      }
+    }
+  ],
+  "originalLowerFaceIncludedScarfVertices": [
+    5451,
+    5452,
+    5444,
+    5446,
+    5445,
+    5457,
+    5456,
+    5450
+  ],
+  "correctionReason": "Original lowerFace sphere included eight red scarf vertices. Rigidly constraining that garment to the head caused new jacket distortion. Independently inspected original-texture/geometry markers now cover the navy mask, jaw and three added lower/side mask rims, excluding scarf cloth; original upper-face, ears, headband and eyes unchanged.",
+  "correctedCoverageActuallyInspected": true,
+  "lowerFaceAndJawInteriorCoverageExpandedByThreeIndependentMaskRims": true,
+  "allNumericThresholdsUnchanged": true,
+  "repairMasksUsedForAnatomicalCoverage": false,
+  "rejectedPrivateCandidates": 5,
+  "productionSourcePromoted": false,
+  "footFloorIssueStillPending": true,
+  "independentAnimationRecheck": "Original still fails corrected twelve-region face measurements in source and battle; no animation approval",
+  "evidence": [
+    "docs/screenshots/pet-spark-pup-anatomy-correction-2026-10-19/000-original-mask-coverage.png",
+    "docs/screenshots/pet-spark-pup-anatomy-correction-2026-10-19/001-corrected-landmarks.json",
+    "docs/screenshots/pet-spark-pup-anatomy-correction-2026-10-19/002-coverage.json",
+    "docs/screenshots/pet-spark-pup-anatomy-correction-2026-10-19/003-source-battle-coverage.log",
+    "docs/screenshots/pet-spark-pup-anatomy-correction-2026-10-19/004-original-material-points.json",
+    "docs/screenshots/pet-spark-pup-anatomy-correction-2026-10-19/005-corrected-material-points.json",
+    "docs/screenshots/pet-spark-pup-anatomy-correction-2026-10-19/006-rejected-diagnostics.json",
+    "docs/screenshots/pet-spark-pup-anatomy-correction-2026-10-19/007-original-texture.png",
+    "docs/screenshots/pet-spark-pup-anatomy-correction-2026-10-19/008-rejected-v2-starter-lightning-head-front-0.png",
+    "docs/screenshots/pet-spark-pup-anatomy-correction-2026-10-19/009-rejected-v2-starter-lightning-head-front-1.png",
+    "docs/screenshots/pet-spark-pup-anatomy-correction-2026-10-19/010-rejected-v3-starter-lightning-head-front-1.png",
+    "docs/screenshots/pet-spark-pup-anatomy-correction-2026-10-19/011-rejected-v4-starter-lightning-head-front-1.png",
+    "docs/screenshots/pet-spark-pup-anatomy-correction-2026-10-19/012-rejected-v5-starter-lightning-head-front-1.png",
+    "docs/screenshots/pet-spark-pup-anatomy-correction-2026-10-19/013-rejected-v5-starter-lightning-head-side-1.png",
+    "docs/screenshots/pet-spark-pup-anatomy-correction-2026-10-19/014-rejected-v1-candidate.json",
+    "docs/screenshots/pet-spark-pup-anatomy-correction-2026-10-19/015-rejected-v1-faces.log",
+    "docs/screenshots/pet-spark-pup-anatomy-correction-2026-10-19/016-rejected-v1-geometry.log",
+    "docs/screenshots/pet-spark-pup-anatomy-correction-2026-10-19/017-rejected-v2-candidate.json",
+    "docs/screenshots/pet-spark-pup-anatomy-correction-2026-10-19/018-rejected-v2-faces.log",
+    "docs/screenshots/pet-spark-pup-anatomy-correction-2026-10-19/019-rejected-v2-geometry.log",
+    "docs/screenshots/pet-spark-pup-anatomy-correction-2026-10-19/020-rejected-v3-candidate.json",
+    "docs/screenshots/pet-spark-pup-anatomy-correction-2026-10-19/021-rejected-v3-faces.log",
+    "docs/screenshots/pet-spark-pup-anatomy-correction-2026-10-19/022-rejected-v3-geometry.log",
+    "docs/screenshots/pet-spark-pup-anatomy-correction-2026-10-19/023-rejected-v4-candidate.json",
+    "docs/screenshots/pet-spark-pup-anatomy-correction-2026-10-19/024-rejected-v4-faces.log",
+    "docs/screenshots/pet-spark-pup-anatomy-correction-2026-10-19/025-rejected-v4-geometry.log",
+    "docs/screenshots/pet-spark-pup-anatomy-correction-2026-10-19/026-rejected-v5-candidate.json",
+    "docs/screenshots/pet-spark-pup-anatomy-correction-2026-10-19/027-rejected-v5-faces.log",
+    "docs/screenshots/pet-spark-pup-anatomy-correction-2026-10-19/028-rejected-v5-geometry.log",
+    "docs/screenshots/pet-spark-pup-anatomy-correction-2026-10-19/029-rejected-helper-snapshot.mjs",
+    "docs/screenshots/pet-spark-pup-anatomy-correction-2026-10-19/030-unaffected-replay-tests.log",
+    "docs/screenshots/pet-spark-pup-anatomy-correction-2026-10-19/corrected-original-face-probe.json",
+    "docs/screenshots/pet-spark-pup-anatomy-correction-2026-10-19/corrected-original-face-probe.log"
+  ],
+  "evidenceSha256": {
+    "docs/screenshots/pet-spark-pup-anatomy-correction-2026-10-19/000-original-mask-coverage.png": "5f952c71dea4ddb144a75628086116b0917c1b797d83cf77f0c17c8a761294c1",
+    "docs/screenshots/pet-spark-pup-anatomy-correction-2026-10-19/001-corrected-landmarks.json": "5d6da71390b68562653db08606d58164e7eaadd49ec85de5646d83212ace4059",
+    "docs/screenshots/pet-spark-pup-anatomy-correction-2026-10-19/002-coverage.json": "eba7cfa15dfd651c72df9a4a82f3fb838681eb3f094673a11e18e04cdf460757",
+    "docs/screenshots/pet-spark-pup-anatomy-correction-2026-10-19/003-source-battle-coverage.log": "cc26f1ec72d4c7a20d760767aeb39ea268b361b8ea2248dd743c47a993e5b70b",
+    "docs/screenshots/pet-spark-pup-anatomy-correction-2026-10-19/004-original-material-points.json": "8cac2e5fbdce51644483fff73f8f8af8d1b96015d8b90a77cd378dd17e252c7f",
+    "docs/screenshots/pet-spark-pup-anatomy-correction-2026-10-19/005-corrected-material-points.json": "9fa3f425c632ae0bcc133ecf6770e0c169fe2d0c47579ed99cc935aeeed893cc",
+    "docs/screenshots/pet-spark-pup-anatomy-correction-2026-10-19/006-rejected-diagnostics.json": "4a7da973676ac3b18cf1698c83f32032972386ecd4bb14ec3368b79111f9cdb5",
+    "docs/screenshots/pet-spark-pup-anatomy-correction-2026-10-19/007-original-texture.png": "cc2f784903a5bf28b499c407af3363c3e4d49fc1b0b9126a4ec123a54c42c8dd",
+    "docs/screenshots/pet-spark-pup-anatomy-correction-2026-10-19/008-rejected-v2-starter-lightning-head-front-0.png": "3c94909eee3f717dc7ff274e247cfeb9e838d116cd02eed539cfb6c05e0303c7",
+    "docs/screenshots/pet-spark-pup-anatomy-correction-2026-10-19/009-rejected-v2-starter-lightning-head-front-1.png": "0a0a15a3c1e4c13465dbd4ab4884770fc21af99c508b8bcec23f31227b51cbb1",
+    "docs/screenshots/pet-spark-pup-anatomy-correction-2026-10-19/010-rejected-v3-starter-lightning-head-front-1.png": "d8d09fdd2e63c4162026a69208518ee406339ffd20611c18e4ac34eb35028ee4",
+    "docs/screenshots/pet-spark-pup-anatomy-correction-2026-10-19/011-rejected-v4-starter-lightning-head-front-1.png": "9feb77ad28fab6a6ab6046f0deef005af593bd7f44e57aa074596e1a204f1ab7",
+    "docs/screenshots/pet-spark-pup-anatomy-correction-2026-10-19/012-rejected-v5-starter-lightning-head-front-1.png": "3ce8db52b6289eb4199fab92633367e10f8f3ed3a05c3e6d4c4ba3cedc419211",
+    "docs/screenshots/pet-spark-pup-anatomy-correction-2026-10-19/013-rejected-v5-starter-lightning-head-side-1.png": "4752e3335fe8687ab0379a0ba0cd3dc014e1b4e02f8f35f5ca700be6fd57ac57",
+    "docs/screenshots/pet-spark-pup-anatomy-correction-2026-10-19/014-rejected-v1-candidate.json": "52606ce167e658227bbaa6d5a23ffef0e9d231fcf5c06c3ff51e89447331c9b3",
+    "docs/screenshots/pet-spark-pup-anatomy-correction-2026-10-19/015-rejected-v1-faces.log": "0db52375352f83ee0f5526df83821f619ee3f6f3ad24bebde9dd629aa79dce12",
+    "docs/screenshots/pet-spark-pup-anatomy-correction-2026-10-19/016-rejected-v1-geometry.log": "583d64e142316b2dde5f462d0fb5a6b926594fc56a88e590c95665ddb9374e0a",
+    "docs/screenshots/pet-spark-pup-anatomy-correction-2026-10-19/017-rejected-v2-candidate.json": "6ad390f550ca3344698b173e5adc19535445b170cdb722c9b20463f70da0c832",
+    "docs/screenshots/pet-spark-pup-anatomy-correction-2026-10-19/018-rejected-v2-faces.log": "0db52375352f83ee0f5526df83821f619ee3f6f3ad24bebde9dd629aa79dce12",
+    "docs/screenshots/pet-spark-pup-anatomy-correction-2026-10-19/019-rejected-v2-geometry.log": "5a4e93d1f81297f6797612e109174a9567c7542cb91187728f83942f2f8a710a",
+    "docs/screenshots/pet-spark-pup-anatomy-correction-2026-10-19/020-rejected-v3-candidate.json": "059ba90252b348c0a3feed9e643f3a63f70d71d6bdebf0e4d0d1c22cc6292b11",
+    "docs/screenshots/pet-spark-pup-anatomy-correction-2026-10-19/021-rejected-v3-faces.log": "0db52375352f83ee0f5526df83821f619ee3f6f3ad24bebde9dd629aa79dce12",
+    "docs/screenshots/pet-spark-pup-anatomy-correction-2026-10-19/022-rejected-v3-geometry.log": "9e596a98df02265f67a8870b5da94fb73bd631a33cd867337c80ba14e24ffd6c",
+    "docs/screenshots/pet-spark-pup-anatomy-correction-2026-10-19/023-rejected-v4-candidate.json": "a2abb573b4f331930611bbcc2a052411605efed701f44913c5c5f3b317bdeafc",
+    "docs/screenshots/pet-spark-pup-anatomy-correction-2026-10-19/024-rejected-v4-faces.log": "0db52375352f83ee0f5526df83821f619ee3f6f3ad24bebde9dd629aa79dce12",
+    "docs/screenshots/pet-spark-pup-anatomy-correction-2026-10-19/025-rejected-v4-geometry.log": "7ec2b0bf00ca9a316af096281b3f797a4fb0b6f808ae5ae94c4747cf3b3cad89",
+    "docs/screenshots/pet-spark-pup-anatomy-correction-2026-10-19/026-rejected-v5-candidate.json": "8ef595aafaa99f7aa27843e539b9122829637914cf96c416d412ffec9a65556e",
+    "docs/screenshots/pet-spark-pup-anatomy-correction-2026-10-19/027-rejected-v5-faces.log": "0db52375352f83ee0f5526df83821f619ee3f6f3ad24bebde9dd629aa79dce12",
+    "docs/screenshots/pet-spark-pup-anatomy-correction-2026-10-19/028-rejected-v5-geometry.log": "0a1728a8f5bccfd54b4512a0f5a03e66d4173d0f68e5ad1b6511e1d81cbea059",
+    "docs/screenshots/pet-spark-pup-anatomy-correction-2026-10-19/029-rejected-helper-snapshot.mjs": "b6b81cdcdde4ab09300962eef6e1b7e1c1286d4b194b5018026bc9d5f62cb0d9",
+    "docs/screenshots/pet-spark-pup-anatomy-correction-2026-10-19/030-unaffected-replay-tests.log": "2d89d0dd1d2163f51604e1f451279bc81648da479a11c324ae18c161799c47c1",
+    "docs/screenshots/pet-spark-pup-anatomy-correction-2026-10-19/corrected-original-face-probe.json": "0335d9e3fefdef8854b11ddae474d88288d45255c60a269d1bf13f595bfc816e",
+    "docs/screenshots/pet-spark-pup-anatomy-correction-2026-10-19/corrected-original-face-probe.log": "6613c5b827cbcc86b96a9023fc6bea4049bf23d1641004a3284ce0a6b6eb41e0"
+  },
+  "correctedOriginalProbes": [
+    {
+      "stage": "source",
+      "failed": true,
+      "peakDrift": 0.837708460464258,
+      "blendPoses": 468
+    },
+    {
+      "stage": "battle",
+      "failed": true,
+      "peakDrift": 0.8417043543609496,
+      "blendPoses": 468
+    }
+  ]
+}

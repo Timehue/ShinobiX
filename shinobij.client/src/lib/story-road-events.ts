@@ -21,6 +21,7 @@ import type { StoryRoadEvent, StoryRoadNpcArchetype } from "../data/story-road-e
 import { applyStoryChoiceReceipt } from "./story-choice-mutations";
 import { queueStoryReport } from "./story-history-mutations";
 import { sectorWandererHomeTile } from "./wanderer-placement";
+import { storyRoadFightProfile } from "../../../shared/story-road-fights";
 
 export const ROAD_WANDERER_PREFIX = "story-road-";
 
@@ -75,7 +76,7 @@ export function synthRoadWanderer(event: StoryRoadEvent, sector: number): Wander
         homeTile: home,
         waypoints: [home],
         movement: "stationary",
-        greeting: 'Could I speak with you?',
+        greeting: `${event.npcName} stops when they see you and asks for a moment to talk.`,
         tellTint: "#e6c477",
         avatarKey: ROAD_ART[event.npcArchetype],
     };
@@ -111,7 +112,8 @@ export function roadEventToCreatorEvent(event: StoryRoadEvent, biome: Biome, cha
             nextPage: choice.nextPage,
             conclusion: choice.conclusion,
             trait: choice.trait,
-            ...(choice.battle ? { battle: { encounterType: "ai" as const, bossName: choice.battle.bossName, bossIcon: choice.battle.bossIcon } } : {}),
+            ...(choice.battle ? { battle: { encounterType: "ai" as const, bossName: choice.battle.bossName, bossIcon: choice.battle.bossIcon,
+                aiProfileId: storyRoadFightProfile(event.id, choice.battle.bossName)?.id } } : {}),
         })),
     }));
     return {

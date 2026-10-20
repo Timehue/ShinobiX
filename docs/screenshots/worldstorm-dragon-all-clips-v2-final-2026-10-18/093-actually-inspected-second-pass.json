@@ -1,0 +1,501 @@
+{
+  "id": "mythic-1",
+  "raw": [
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-worldstorm-dragon-all-clips-v2-final-source-head/mythic-1-head-front-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "fdee73b98f4bc1136854ec3abd7afaf3115c1d6ca60f7a4ad9223029f65b6188"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-worldstorm-dragon-all-clips-v2-final-source-head/mythic-1-head-front-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "2d9b085e2373c36afafe3df4e97d10fc0323c0c963a1133e5546a1b71b4c93c3"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-worldstorm-dragon-all-clips-v2-final-source-head/mythic-1-head-front-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "f706ad2c2aafde66245b9277c005cd199025f9354bcffe003b87aceb85d39e78"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-worldstorm-dragon-all-clips-v2-final-source-head/mythic-1-head-side-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "bac330a67614c8cb40da4299ef049f83eed6598f2a224656192f1274171456d0"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-worldstorm-dragon-all-clips-v2-final-source-head/mythic-1-head-side-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "62e4ddb3c6123f1590bd35118a5fadbf815ab9d7b56133156bb6283a04c54d5b"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-worldstorm-dragon-all-clips-v2-final-source-head/mythic-1-head-side-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "942be0baee9797bd68ccd1e91e90506a74b2ada4327b091a7bed12b06651b308"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-worldstorm-dragon-all-clips-v2-final-source-head/mythic-1-head-other-side-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "95cab6ed9457b9597e3bde7eac5d5dcec0350be2b9a0e3e0d11f8f3d30a41532"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-worldstorm-dragon-all-clips-v2-final-source-head/mythic-1-head-other-side-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "4d09480a7d44caeac7ac6588cd2e164d24666ddc1ab7099eca12aa44cf843f74"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-worldstorm-dragon-all-clips-v2-final-source-head/mythic-1-head-other-side-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "f6fa6253c9f59363d729fe0a7a0e27a5d27348d44470ec0b0690affbff631041"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-worldstorm-dragon-all-clips-v2-final-source-body/mythic-1-front-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "5ca542266aeb77f3eedaa27fc6af07e1e6f3a48971f86097aa3cf79c85709795"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-worldstorm-dragon-all-clips-v2-final-source-body/mythic-1-front-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "3feb110b5c8e63283dd6d8d5dc911c7b422ecf8bb9224bd348ccb2c6c60fa7e0"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-worldstorm-dragon-all-clips-v2-final-source-body/mythic-1-front-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "88ac03d50f50558e5b8306f67f4f6ec4018e647593990c5ffe3762f823bf12fa"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-worldstorm-dragon-all-clips-v2-final-source-body/mythic-1-side-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "b0a68b436395a378eddee698dcc2cf35a71cf82dba298a8b264c6e904994b8ce"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-worldstorm-dragon-all-clips-v2-final-source-body/mythic-1-side-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "4d01f0c5047679ead7631bd0a93923d211c090d643ef5508097cf22a1821381e"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-worldstorm-dragon-all-clips-v2-final-source-body/mythic-1-side-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "84da14b19957f4c2ab56d5958a86d4295d72ee358ba593ba0c7ec1aca6217fa3"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-worldstorm-dragon-all-clips-v2-final-battle-head/mythic-1-head-front-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "9bf3509bf36f63116d5912e5e43885f234c440d913539d918dc422419cd55696"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-worldstorm-dragon-all-clips-v2-final-battle-head/mythic-1-head-front-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "1fd74f8dc22f65160c9705bd444539787cf5ee1e3e530ddef767c64ee072e882"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-worldstorm-dragon-all-clips-v2-final-battle-head/mythic-1-head-front-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "fef540e7ffe92f9d8e304513331e967dd45e5064dd89f7ab11892980938ac42d"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-worldstorm-dragon-all-clips-v2-final-battle-head/mythic-1-head-side-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "8c12ac90eff0eae15cd9da60b1505571092b17b9588691373a83359a23a6d986"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-worldstorm-dragon-all-clips-v2-final-battle-head/mythic-1-head-side-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "362ef23442481e5d76f8a3c5c69d96264881ae93fbf2e7b12dca83183c424ccb"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-worldstorm-dragon-all-clips-v2-final-battle-head/mythic-1-head-side-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "1468d57602b17419889a480fb5c072585cf61d7cc6ec795f74b5df9df1c96f96"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-worldstorm-dragon-all-clips-v2-final-battle-head/mythic-1-head-other-side-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "82ebdbb2e63b73fa7633a07ea933d3b660d24142bd1a3f51a6aa7cec6b119ef6"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-worldstorm-dragon-all-clips-v2-final-battle-head/mythic-1-head-other-side-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "e39cfc2794e5906273348c9bcdf9ef36bb80e1444c2c6deff0d6da782704fe1d"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-worldstorm-dragon-all-clips-v2-final-battle-head/mythic-1-head-other-side-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "0c28b4b3d82e7f5c8c67f8542b52d4e40188edb97520944a6b48e598f7ffca51"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-worldstorm-dragon-all-clips-v2-final-battle-body/mythic-1-front-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "bb642a6ebf436ce8af456bc35e69e8f29c8fd7834d241dbb2a4b444119271546"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-worldstorm-dragon-all-clips-v2-final-battle-body/mythic-1-front-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "e0c2a708c259c63c5b6cf675d4e9d2edf177f9213839ba0014da95ed1ccc3e84"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-worldstorm-dragon-all-clips-v2-final-battle-body/mythic-1-front-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "9e7bd185b7837ed4d662fb1ad5e9b5d38ae5588fd02d87eb9c8de6d77121fecd"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-worldstorm-dragon-all-clips-v2-final-battle-body/mythic-1-side-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "3178750228500b5a36ab27368f291909938b9a848dfdf4c9334c3a11bff842ce"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-worldstorm-dragon-all-clips-v2-final-battle-body/mythic-1-side-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "ee88efa8f18c319d62575438d5e8e454fb72ce876fd44bf9667f06d3673e0baa"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-worldstorm-dragon-all-clips-v2-final-battle-body/mythic-1-side-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "6e719ac706a40e949c029caed06d892cbb4421ff51893cd6bce0363b7ec63bef"
+    }
+  ],
+  "runtime": [
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-worldstorm-dragon-all-clips-v2-final-runtime-low/mythic-1-source-body-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "c974fc39a92d73a0be80df285eb329950f18f1a36daa037a51393c40707f7914"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-worldstorm-dragon-all-clips-v2-final-runtime-low/mythic-1-source-body-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "ab9c707127c1a96aa48bdd5aae04df65bd69a8ffdc5940118244b1ee3362877c"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-worldstorm-dragon-all-clips-v2-final-runtime-low/mythic-1-source-body-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "120208029d0dab5b6ae9f973ca8035602ee44dbc848077a531c806adb99e7ee5"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-worldstorm-dragon-all-clips-v2-final-runtime-low/mythic-1-source-body-3.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "45428f0a240e8981517b146e84af5f662dbf71085efa1129561807d745ab8db1"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-worldstorm-dragon-all-clips-v2-final-runtime-low/mythic-1-source-head-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "eb7cdaea80c78686a8a8b228e4ce02826d5dafe703022ccd1e925ba0b46ae012"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-worldstorm-dragon-all-clips-v2-final-runtime-low/mythic-1-source-head-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "f2e11ede2271f77440392eb052bd1b9cb50c009019b5034f094c48f3472f49c1"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-worldstorm-dragon-all-clips-v2-final-runtime-low/mythic-1-source-head-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "7f19f42dc16a89723b2552161ab41dc15ace304bb1383b5595d7b69fb434f63a"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-worldstorm-dragon-all-clips-v2-final-runtime-low/mythic-1-source-head-3.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "04b13eff7317adc5fb2644b1903661c5ff8949e8151a57383bc0e3fe2ad2c79d"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-worldstorm-dragon-all-clips-v2-final-runtime-low/mythic-1-battle-body-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "808acc36d225afcb972454644abe6bae67e5acf0cc00db361b747cd7a3765c83"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-worldstorm-dragon-all-clips-v2-final-runtime-low/mythic-1-battle-body-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "ee5c3d3772ca51be877517840ad2459a782896ec5fc3f40bc5e769606c97130d"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-worldstorm-dragon-all-clips-v2-final-runtime-low/mythic-1-battle-body-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "f770144b73b1d5ada9c935423889f52694cf57e8d8656c7dbdf3a76c625b5fb4"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-worldstorm-dragon-all-clips-v2-final-runtime-low/mythic-1-battle-body-3.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "c7d9fc7db590986c3b6c6bf294578de756af9072ca7cc60d2fc8055d8104744c"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-worldstorm-dragon-all-clips-v2-final-runtime-low/mythic-1-battle-head-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "bd0fc69c69f655be8a8598eaa7444c18bdb01f72510bf9804f2fbf963fafed97"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-worldstorm-dragon-all-clips-v2-final-runtime-low/mythic-1-battle-head-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "e8954789cec17ecaa70b79e41e80faabf34a022d3ebd0652c3ee035ab28843d8"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-worldstorm-dragon-all-clips-v2-final-runtime-low/mythic-1-battle-head-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "cf2f4ef923475df81cfae078c85020eedec9c2f14272922db8a60bf213c52df8"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-worldstorm-dragon-all-clips-v2-final-runtime-low/mythic-1-battle-head-3.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "907433cc683ad806f0fd71ac2804393fb6640c9b4b2fa25b53c0dd2ea355101e"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-worldstorm-dragon-all-clips-v2-final-runtime-medium/mythic-1-source-body-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "8eb5f6187fcc2a122746c8bed5112c9ec3579c28403a44082b56866a987bc29f"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-worldstorm-dragon-all-clips-v2-final-runtime-medium/mythic-1-source-body-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "07a0b2900fa7699e0522d62d89dee0a7e92c10fe3c12e5555c59bc0026f54f51"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-worldstorm-dragon-all-clips-v2-final-runtime-medium/mythic-1-source-body-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "cb9139f58e3779f8ee1fcc781d0ec9409b0585a708b25274cb86919cee9e34b4"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-worldstorm-dragon-all-clips-v2-final-runtime-medium/mythic-1-source-body-3.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "53022459f519fe74f43f6b0733a2107ad1a167d82c56ae1906e04e6ee55b6e7a"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-worldstorm-dragon-all-clips-v2-final-runtime-medium/mythic-1-source-head-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "502c6c9a20226c47bf5762a09a51bef06a4357f12b5064c17859ffa3748213a5"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-worldstorm-dragon-all-clips-v2-final-runtime-medium/mythic-1-source-head-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "740dd8971e63b873740053ca0bc65a8317186aad9456a199b1522dc7503acff9"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-worldstorm-dragon-all-clips-v2-final-runtime-medium/mythic-1-source-head-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "07692878f6a2c86f99e4b1cfad3138a73a1d1c3105c24bccf109af8fe9c2b8d9"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-worldstorm-dragon-all-clips-v2-final-runtime-medium/mythic-1-source-head-3.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "540d2037697f967fc2ed9dfaedbe8e9daea6a615db5620621e6c1fcd052cefd9"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-worldstorm-dragon-all-clips-v2-final-runtime-medium/mythic-1-battle-body-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "9e26bac2e802648184507cf9b31ec97e21e0279aefa6e28104261da9251b127c"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-worldstorm-dragon-all-clips-v2-final-runtime-medium/mythic-1-battle-body-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "d5ee1ac8ba569fbeb7b2110d35ff869b9e7b32c0b62bad00b69ebff15bd7e834"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-worldstorm-dragon-all-clips-v2-final-runtime-medium/mythic-1-battle-body-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "222753409ca41cb1305c9a35adfb554b628738a9dcae6168877d3cebee4f5397"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-worldstorm-dragon-all-clips-v2-final-runtime-medium/mythic-1-battle-body-3.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "487cc1baad230185916b9516a7da08935cfe9bb5cc85c9bd2cf5096ff837d787"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-worldstorm-dragon-all-clips-v2-final-runtime-medium/mythic-1-battle-head-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "74fa09e41e559083cedd6b6a7ad59b864e71b312a88e1d6673d3812099bed2cd"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-worldstorm-dragon-all-clips-v2-final-runtime-medium/mythic-1-battle-head-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "8c61c59e3b7b48cefa9a2c0640451bdfd032a59342dbac72e07ec9e93417c273"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-worldstorm-dragon-all-clips-v2-final-runtime-medium/mythic-1-battle-head-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "47e9014bc73c09a0a57b024c3d257742b8f40aef3b100ba900dcbcd34381f9af"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-worldstorm-dragon-all-clips-v2-final-runtime-medium/mythic-1-battle-head-3.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "62499606b772a02f64219a8d8d092f70892b3a5f335c5b6846a4feda9e555fc5"
+    }
+  ],
+  "techniques": [
+    {
+      "path": ".tmp/pet-companion-techniques/independent-worldstorm-dragon-all-clips-v2-final-techniques/inspection-strips/front-block-0-half-0.png",
+      "sha256": "af4fcb500e9b6f785c203a21a2fd6f7ce7f30fb9a8c6fdea40a4020b59b2b6b1",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-worldstorm-dragon-all-clips-v2-final-techniques/inspection-strips/front-block-0-half-1.png",
+      "sha256": "458e849d150a369c5caa4c075e096cbda3e74044fea513e8c7c9361e3118770c",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-worldstorm-dragon-all-clips-v2-final-techniques/inspection-strips/front-block-1-half-0.png",
+      "sha256": "72300cfb163b7ffe98236aeddd81bc6a2b612f2f709f50e50081758dd1b7a96a",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-worldstorm-dragon-all-clips-v2-final-techniques/inspection-strips/front-block-1-half-1.png",
+      "sha256": "ac413d04b1213c85c1ab92ce2aa5f0b92bfd0247ab4be122a1a60072c749a630",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-worldstorm-dragon-all-clips-v2-final-techniques/inspection-strips/front-block-2-half-0.png",
+      "sha256": "49b8a0b173f4f0938c3cad6152e6658b6500e7e9c303a2d475945fb31bbd209d",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-worldstorm-dragon-all-clips-v2-final-techniques/inspection-strips/front-block-2-half-1.png",
+      "sha256": "d8ad536225aeb660c7cf46da4f23448087067459d2da4593aba5a53776962803",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-worldstorm-dragon-all-clips-v2-final-techniques/inspection-strips/side-block-0-half-0.png",
+      "sha256": "46dc24a1b97ab45891a9bbb684ba0735211119ce296058af6f8ee204a9043e77",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-worldstorm-dragon-all-clips-v2-final-techniques/inspection-strips/side-block-0-half-1.png",
+      "sha256": "c1180b128b85dc1bef4801ff469958e17c4662ce8867d6d081e167ec8c3ebfa6",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-worldstorm-dragon-all-clips-v2-final-techniques/inspection-strips/side-block-1-half-0.png",
+      "sha256": "b2449180c93632693f757dd22c475e680f9055c8dad84aa7d965ecb773867cf5",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-worldstorm-dragon-all-clips-v2-final-techniques/inspection-strips/side-block-1-half-1.png",
+      "sha256": "e86a092e23a354db7e787c2a5281766e0515c5517433016588c78718be26a981",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-worldstorm-dragon-all-clips-v2-final-techniques/inspection-strips/side-block-2-half-0.png",
+      "sha256": "b802c6cea9ecd70921f0ddeade6c8cfe070730af1184fa0b0415f71b8fd4bf3f",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-worldstorm-dragon-all-clips-v2-final-techniques/inspection-strips/side-block-2-half-1.png",
+      "sha256": "ba973f1a4e27c6120ce6eb015d35825e98c1fe0ceccafc9426f5c4d6f3f56c50",
+      "actuallyInspected": true,
+      "result": "pass"
+    }
+  ],
+  "companion": [
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/worldstorm-dragon-all-clips-v2-final-companions/mythic-1/idle-sheet-0.webp",
+      "sha256": "4ecf06f06a74c21becdf9eba96db5a8b67a7cc6e5f08acfc3541fe971307d336",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/worldstorm-dragon-all-clips-v2-final-companions/mythic-1/idle-sheet-1.webp",
+      "sha256": "c83599b513be45c03470d533bedbbf107993df75ad770428f46c5ffa6a301019",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/worldstorm-dragon-all-clips-v2-final-companions/mythic-1/idle-sheet-2.webp",
+      "sha256": "f2a47b3245ca564ef5ff9bfd454a51008013ff193b168e7004b5d9037021145f",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/worldstorm-dragon-all-clips-v2-final-companions/mythic-1/idle-sheet-3.webp",
+      "sha256": "f585cb0486738e1956b0ec941bca80577b78fe7823495c4f9192af246d54a6e6",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/worldstorm-dragon-all-clips-v2-final-companions/mythic-1/idle-sheet-4.webp",
+      "sha256": "a3c4afc4c2661034a531b3e162bd3737117d1cc34708029cc4a3b46a8b53a636",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/worldstorm-dragon-all-clips-v2-final-companions/mythic-1/idle-sheet-5.webp",
+      "sha256": "76a94ad0862dd908fd5e7db401c80a49dedf796016ecdac0bd54703f2b1ce1a8",
+      "actuallyInspected": true,
+      "result": "pass"
+    }
+  ],
+  "secondPassComplete": true,
+  "notes": "All 30 final raw slices, 32 production runtime transition slices, 216 native technique frames, 24 advancing idle frames and 16 atlas cells actually inspected/pass. Skull, muzzle, purple mane, neck, shoulder/hip/paw attachments remain coherent in source and regenerated battle delivery. Primary raw side death head is naturally occluded; front and opposite side resolve it. Production defeat/revive rolls the whole body and hides the face in some side closeups; front head and full-body sequences resolve the pose. Closeup framing crops some horn tips; body views retain the complete sculpt.",
+  "atlas": {
+    "path": "public/pet-models/warfront-impostors/roster/mythic-1.webp",
+    "sha256": "6b903ccb6dea931f978768cfcfa92279282b6d14c2082d8a379f1bfaa41df9c5",
+    "actuallyInspected": true,
+    "result": "pass"
+  },
+  "atlasCellsActuallyInspected": 16,
+  "recordedAt": "2026-10-19T07:55:32.325Z"
+}

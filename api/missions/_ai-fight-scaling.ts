@@ -20,8 +20,9 @@
  * That is why this module resolves missions and returns undefined for
  * everything else: "undefined" is not a gap here, it is the correct, verified
  * answer, and it keeps the server byte-identical to the client for those modes.
- * If a future entry point starts re-levelling, add it here AND to the parity
- * test — do not infer a curve.
+ * The consensual Arena selector is handled separately by the generic authority
+ * resolver's validated practiceLevel, using the same relevelAiProfile builder.
+ * Legacy opponentLevel still grants no scaling in any mode.
  *
  * MISSION_AI_* below mirror shinobij.client/src/data/combat-missions.ts.
  * `scripts/ai-fight-scaling-parity.test.ts` fails if they drift.

@@ -243,7 +243,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // Server-minted seed → server recomputes the winner (outside the lock).
             const seed = crypto.randomInt(1, 0x7fffffff);
             const warfront = mode === 'tactical' ? resolveLadderWarfront(myDef, targetDef, seed) : null;
-            const won = warfront ? warfront.winner === 'blue' : resolveColiseum(myDef.pets[0], targetDef.pets[0], seed);
+            const won = warfront ? warfront.winner === 'blue' : resolveColiseum(myDef.pets[0], targetDef.pets[0], seed, 'progression-v3');
 
             const myEntry: LadderEntry = order0.find((e) => e.slug === me)
                 ?? { slug: me, name: myDef.name, village: myDef.village, record: { wins: 0, losses: 0, defended: 0, defeated: 0 }, summary: myDef.pets.map(petLite), updatedAt: now };
@@ -301,10 +301,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // construction rather than by keeping two engines in step.
                 : {
                     kind: 'showdown' as const,
+                    rulesetVersion: 'progression-v3' as const,
                     seed,
                     player: myDef.pets[0],
                     enemy: targetDef.pets[0],
-                    script: coliseumScript(myDef.pets[0], targetDef.pets[0], seed),
+                    script: coliseumScript(myDef.pets[0], targetDef.pets[0], seed, 'progression-v3'),
                 };
 
             return res.status(200).json({ won, mode, targetId, rank, challengesLeft: Math.max(0, DAILY_CHALLENGES - used), replay });

@@ -503,7 +503,7 @@ test("a stale successful field response stays open until same-choice replay is a
     await highLine.click();
 
     const recovery = page.locator(".story-field-status");
-    await expect(recovery).toContainText("Your choice was sealed, but this view could not refresh");
+    await expect(recovery).toContainText("Your choice was saved, but this screen could not refresh");
     await expect(novel).toBeVisible();
     expect(runtime.fieldAttempts()).toBe(1);
     await recovery.getByRole("button", { name: "Retry", exact: true }).click();

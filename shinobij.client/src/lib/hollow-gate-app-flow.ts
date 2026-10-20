@@ -4,6 +4,7 @@ import type { HollowGatePetFightRef } from "../components/HollowGatePetFight";
 import type { Character, HollowGateShrineRun, HollowGateTile, VersionedCharacterCommit } from "../types/character";
 import type { Screen } from "../types/core";
 import { hollowGateHoundName } from "../../../shared/hollow-gate-contract";
+import { HOLLOW_GATE_LOSS_HP_PERCENT } from "../../../shared/hollow-gate-loss";
 import { applyAttunementToRun } from "./hollow-gate-attunement";
 import type { HollowGateCombatSettleResult } from "./hollow-gate-combat-api";
 // The procedural floor generator is loaded on demand — see
@@ -100,6 +101,8 @@ export function hollowGateRunAfterUnresolvedFight(
     saved: HollowGateShrineRun | null | undefined,
     patch: Partial<HollowGateShrineRun> = {},
 ): HollowGateShrineRun | null {
+    if (!live || saved === null) return null;
+    if (saved?.runToken && saved.runToken !== live.runToken) return live;
     const current = saved && Array.isArray(saved.tiles) ? saved : live;
     return current ? { ...current, activeCombat: undefined, threat: 0, ...patch } : null;
 }
@@ -453,7 +456,14 @@ export function useHollowGateAppFlow(params: {
     }
 
     function onPetBattleEnd(result: HollowGateCombatSettleResult, gate: HollowGatePetFightRef) {
+        if (runRef.current?.runToken !== gate.token || runRef.current.floor !== gate.floor) return;
         setPetFight(null);
+        if (result.ended || result.character?.hollowGateRun === null || (result.character && result.character.hp <= 0)) {
+            clearRunUi();
+            clearRunState();
+            setScreen(result.character?.hospitalized || (result.character && result.character.hp <= 0) ? "hospital" : "worldMap");
+            return;
+        }
         if (result.won) {
             onBattleWin({
                 isBoss: gate.kind === "boss",
@@ -464,8 +474,8 @@ export function useHollowGateAppFlow(params: {
             return;
         }
         setRun((previous) => hollowGateRunAfterPetDefeat(previous, result.character?.hollowGateRun));
-        const recoil = Math.max(1, Math.floor((result.character?.maxHp ?? character?.maxHp ?? 1) * 0.20));
-        pushLog(`The Hollow Hound wins the pet duel. ${recoil} HP recoils through the seal; the encounter remains unresolved.`);
+        pushLog(result.alreadyReported ? "The pet result was already sealed. No HP or rewards are applied again."
+            : `The Hollow Hound wins the pet duel. The seal takes ${HOLLOW_GATE_LOSS_HP_PERCENT}% of maximum HP, stopping at 1 HP; the encounter remains unresolved.`);
     }
 
     return {

@@ -207,7 +207,7 @@ export function ArenaCoopLobby({ character, sharedImages, onExit }: {
                                             <button key={pet.id} className={petVisualVariantClass(pet)} onClick={() => togglePick(pet.id)}
                                                 style={{ padding: "0.25rem", background: sel ? "#0e7490" : "var(--slate-800)", border: sel ? "2px solid #22d3ee" : "2px solid transparent", borderRadius: 8, display: "grid", justifyItems: "center", gap: 2 }}>
                                                 {img
-                                                    ? <img src={img} alt="" style={{ width: 40, height: 40, borderRadius: "50%", objectFit: "cover" }} />
+                                                    ? <img src={img} alt="" style={{ width: 40, height: 40, borderRadius: "50%", objectFit: "contain" }} />
                                                     : <div style={{ width: 40, height: 40, borderRadius: "50%", background: "var(--slate-700)" }} />}
                                                 <span style={{ fontSize: "0.62rem", maxWidth: 64, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{petDisplayName(pet)}</span>
                                             </button>

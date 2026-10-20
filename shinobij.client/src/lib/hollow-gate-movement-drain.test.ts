@@ -8,7 +8,7 @@ function fixture() {
     let live: HollowGateShrineRun | null = { width: 5, height: 3, playerX: 1, playerY: 1, floor: 1, runToken: 'run-one', keys: 0, torch: 8, threat: 0, completed: false,
         tiles: Array.from({ length: 15 }, () => ({ kind: 'empty', revealed: true, resolved: false })) };
     let player = 'scout'; const calls: string[] = [];
-    const effect = (x: number, kind: 'empty' | 'chest' = 'empty'): HollowGateMoveEffect => ({ wallBump: false, torchSputtered: false, ambushImmediate: false,
+    const effect = (x: number, kind: 'empty' | 'chest' | 'descend' = 'empty'): HollowGateMoveEffect => ({ wallBump: false, torchSputtered: false, ambushImmediate: false,
         justResolved: { tile: { kind, revealed: true, resolved: false }, nx: x, ny: 1 }, step: { requestId: `step-${x}-request`, fromX: x - 1, fromY: 1, toX: x, toY: 1 } });
     const ctx: Parameters<typeof drainHollowGateMovement>[0] = { playerName: player, run: live, currentPlayer: () => player, currentRun: () => live,
         queue: { current: [effect(2), effect(3)] }, setRun: update => { live = update(live); }, log: () => calls.push('log'), stopWalk: () => calls.push('stop'),
@@ -47,4 +47,13 @@ test('a rejected combat step stops the walker and reopens the exact unresolved n
     const f = fixture(); f.ctx.sealStep = async () => ({ ok: false, position: { x: 1, y: 1 }, sealedCombat: { nodeId: 'floor:1:tile:6', kind: 'elite' } });
     f.ctx.openBattle = opts => { assert.deepEqual(opts, { nodeId: 'floor:1:tile:6', isElite: true }); f.calls.push('battle'); };
     await drainHollowGateMovement(f.ctx); assert.deepEqual(f.calls, ['stop', 'log', 'battle']); assert.equal(f.run().playerX, 1);
+});
+
+ test('a threat ambush on the stairs takes priority over the descent dialog', async () => {
+    const f = fixture(); f.ctx.queue.current = [f.effect(2, 'descend'), f.effect(3)];
+    f.ctx.sealStep = async () => ({ ok: true, position: { x: 2, y: 1 }, torch: 7, threat: 100,
+        ambush: { kind: 'ambush', nodeId: 'floor:1:ambush:threat-v9' } });
+    await drainHollowGateMovement(f.ctx);
+    assert.ok(!f.calls.some(c => c.startsWith('tile:'))); assert.ok(f.calls.includes('pending'));
+    assert.equal(f.run().playerX, 2); assert.equal(f.ctx.queue.current.length, 0);
 });

@@ -70,6 +70,6 @@ export function requireServerSettlement(
     notify: (message: string) => void = browserNotice,
 ): boolean {
     if (isServerSettlementReady(action)) return true;
-    notify(`${ACTION_LABELS[action]} is temporarily unavailable while secure server settlement is being completed. Nothing was spent or changed.`);
+    notify(`${ACTION_LABELS[action]} is temporarily unavailable while its reward and save system is being updated. This action spent nothing.`);
     return false;
 }

@@ -1,8 +1,11 @@
+import { petSignatureMastery } from '../../shared/pet-ability-mastery.js';
 import { damageCombatHealth } from '../combat-core/health.js';
 import { pveSpecialistDamagePercent } from '../../shared/relics.js';
 import { COMBAT_RESOURCES_V2, v2ResourceRegen } from '../_combat-resources.js';
 import { applyHuntCombatAction } from './_hunt-combat.js';
 import { appendSoloPveCombatEvent } from './_legacy-totals.js';
+import { hollowGateSessionDirective, sealHollowGateTelegraph } from '../../shared/hollow-gate-telegraph.js';
+import { HOLLOW_GATE_SHINOBI_ROUND_LIMIT, hollowGateShinobiRoundLimit } from '../../shared/hollow-gate-round-limit.js';
 import {
     pveAiCompetence,
     pveEasyBandAllowsLethal,
@@ -21,6 +24,7 @@ import {
     companionHealOnSummonPct,
     companionConsumableHealPct,
     companionMoveDamage,
+    companionIncomingDamage,
     companionObeys,
     companionOwnerLifestealPct,
     pickCompanionMove,
@@ -65,11 +69,9 @@ import { characterOwnsElement } from '../pvp/_elements.js';
 import { isForgedNamedWeaponId } from '../save/_forged-items.js';
 import { trimPvpLog, type PvpFighter, type PvpGroundEffect, type PvpStatus } from '../pvp/session.js';
 import {
-    hollowGateCombatDirective,
     hollowGateHazardDamage,
     type HollowGateCombatDirective,
 } from '../../shared/hollow-gate-combat-director.js';
-import type { HollowGateHoundKind } from '../../shared/hollow-gate-contract.js';
 import {
     CATALOG_CHALLENGE_WEAPON_POLICY,
     enemyActionKey,
@@ -138,21 +140,7 @@ function otherSide(side: SoloPveSide): SoloPveSide {
 }
 
 function hollowGateDirective(session: SoloPveSession): HollowGateCombatDirective | null {
-    if (session.encounter.kind !== 'hollow-gate') return null;
-    const metadata = session.encounter.metadata ?? {};
-    const kind = String(metadata.combatKind ?? '');
-    if (kind !== 'battle' && kind !== 'elite' && kind !== 'ambush' && kind !== 'beast' && kind !== 'boss') return null;
-    return hollowGateCombatDirective({
-        floor: metadata.floor,
-        kind: kind as HollowGateHoundKind,
-        turn: session.round,
-        enemyHp: session.enemy.hp,
-        enemyMaxHp: session.enemy.maxHp,
-        playerPos: session.player.pos,
-        enemyPos: session.enemy.pos,
-        gridWidth: GRID_W,
-        gridHeight: GRID_H,
-    });
+    return hollowGateSessionDirective(session);
 }
 
 /**
@@ -209,6 +197,8 @@ function eventSnapshot(session: SoloPveSession): SoloPveEventSnapshot {
             ...fighterEventState(session.companion),
             roundsLeft: session.companion.roundsLeft,
             cooldowns: { ...session.companion.cooldowns },
+            ...(session.companion.signatureReadyAfter !== undefined ? { signatureActionsRemaining: Math.max(0,
+                session.companion.signatureReadyAfter - (session.companion.ordinaryActions ?? 0)) } : {}),
         } } : {}),
         ap: { ...session.ap },
         cooldowns: structuredClone(session.cooldowns),
@@ -514,16 +504,19 @@ function appendFx(session: SoloPveSession, side: SoloPveSide, events: CombatFxEv
 function checkWinner(session: SoloPveSession): void {
     if (session.status === 'done') return;
     if (session.player.hp <= 0 && session.enemy.hp <= 0) {
+        session.terminalReason = 'knockout';
         session.status = 'done';
         session.winner = 'draw';
         session.outcome = 'draw';
         session.log.push('Both fighters fall. The encounter ends in a draw.');
     } else if (session.enemy.hp <= 0) {
+        session.terminalReason = 'knockout';
         session.status = 'done';
         session.winner = 'player';
         session.outcome = 'win';
         session.log.push(`${session.player.name} wins.`);
     } else if (session.player.hp <= 0) {
+        session.terminalReason = 'knockout';
         session.status = 'done';
         session.winner = 'enemy';
         session.outcome = 'loss';
@@ -574,6 +567,7 @@ function startTurn(session: SoloPveSession, side: SoloPveSide): void {
         session.weeklyBossGuard.dealtThisTurn = 0;
     }
     checkWinner(session);
+    if (side === 'player' && session.status === 'active') sealHollowGateTelegraph(session);
 }
 
 function companionRoll(session: SoloPveSession): number {
@@ -624,6 +618,7 @@ function appendCompanionEvent(
         status: session.status,
         winner: session.winner,
         outcome: session.outcome,
+        ...(session.terminalReason ? { terminalReason: session.terminalReason } : {}),
         combat: projectSoloCombatEvent({
             session, before, after, sequence, roundBefore: session.round,
             actor: 'companion', target, actionType: action, actionId: actionName,
@@ -659,54 +654,66 @@ function companionDealDamage(session: SoloPveSession, companion: SoloPveCompanio
     const lifestealPct = companionOwnerLifestealPct(companion.pveGearId);
     if (dealt > 0 && lifestealPct > 0 && session.player.hp > 0) {
         const heal = Math.max(1, Math.floor(dealt * lifestealPct / 100));
+        const restored = Math.min(heal, Math.max(0, session.player.maxHp - session.player.hp));
         session.player.hp = Math.min(session.player.maxHp, session.player.hp + heal);
-        session.log.push(`${session.player.name} draws ${heal} HP from ${companion.name}'s strike.`);
+        session.log.push(`${session.player.name} restores ${restored} HP through ${companion.name}'s Lifesteal.`);
     }
     return { dealt, rawDamage: uncapped, resolvedDamage: dealt };
 }
 
 function companionCast(session: SoloPveSession, companion: SoloPveCompanion, move: CompanionMove | null): CombatResolutionFacts | undefined {
+    const progression = companion.signatureReadyAfter !== undefined;
+    const mastery = petSignatureMastery(move, progression && move?.signature === true);
     if (move) companion.cooldowns[move.name] = Math.max(1, move.cooldown);
     const rounds = move?.rounds ?? 2;
     const kind = move?.kind ?? 'damage';
     const label = move ? ` uses ${move.name}` : ' strikes';
     if (kind === 'cleanse') {
         companion.statuses = removeCombatStatusesByKind(companion.statuses, 'negative').statuses;
+        if (mastery.mastered) addCompanionStatus(companion, { name: 'Stun Prevent', rounds: mastery.cleanseResistRounds, kind: 'positive' });
         session.log.push(`${companion.name}${label} and clears harmful conditions.`);
         return undefined;
     }
     if (kind === 'heal') {
-        const heal = Math.max(1, Math.floor(companion.maxHp * 0.25 + Number(move?.power ?? 0) * 0.5));
+        const heal = progression ? Math.max(1, Math.floor(companion.maxHp * mastery.healPct))
+            : Math.max(1, Math.floor(companion.maxHp * 0.25 + Number(move?.power ?? 0) * 0.5));
+        const restored = Math.min(heal, Math.max(0, companion.maxHp - companion.hp));
         companion.hp = Math.min(companion.maxHp, companion.hp + heal);
-        session.log.push(`${companion.name}${label} and recovers ${heal} HP.`);
+        session.log.push(`${companion.name}${label} and restores ${restored} HP.`);
         return { healing: heal };
     }
     if (kind === 'shield' || kind === 'barrier') {
-        const amount = Math.max(1, Math.floor(companion.maxHp * 0.2));
-        companion.shield += amount;
+        const amount = Math.max(1, Math.floor(companion.maxHp * (progression ? mastery.shieldPct : .2)));
+        companion.shield = progression ? Math.max(companion.shield, amount) : companion.shield + amount;
         companion.shieldExpiresAtRound = shieldExpiryForGrant(session.round);
         session.log.push(`${companion.name}${label} and raises a ${amount} HP shield.`);
         return { shielding: amount };
     }
     if (kind === 'buff' || kind === 'haste' || kind === 'absorb' || kind === 'taunt') {
         const status = kind === 'absorb' ? 'Absorb' : kind === 'taunt' ? 'Decrease Damage Taken' : 'Increase Damage Given';
-        addCompanionStatus(companion, { name: status, rounds, percent: kind === 'absorb' ? 30 : 25, kind: 'positive' });
-        session.log.push(`${companion.name}${label} and steels itself.`);
+        addCompanionStatus(companion, { name: status, rounds: kind === 'taunt' && mastery.mastered ? rounds + 1 : rounds,
+            percent: kind === 'absorb' ? mastery.mastered ? 35 : 30 : mastery.mastered ? 30 : 25, kind: 'positive' });
+        const duration = kind === 'taunt' && mastery.mastered ? rounds + 1 : rounds;
+        session.log.push(`${companion.name}${label} and ${kind === 'absorb' ? 'gains Absorb to restore HP after taking damage' : kind === 'taunt' ? 'takes less damage' : 'deals more damage'} for ${duration} rounds.`);
         return undefined;
     }
     const resolution = companionDealDamage(session, companion, move);
     const dealt = resolution.dealt;
-    session.log.push(`${companion.name}${label} -> ${session.enemy.name} for ${dealt}.`);
+    session.log.push(`${companion.name}${label}, dealing ${dealt} damage to ${session.enemy.name}.`);
     // The companion acts after the enemy's turn has already started (its AP is set). A
     // Stun or Wound therefore starts next round, like any jutsu status; applied at once,
     // the Stun was aged away at the end of this same enemy turn without ever costing AP.
     switch (kind) {
         case 'stun': case 'freeze': case 'movelock':
+            if (progression && Number(session.enemy.character.companionControlImmuneUntil ?? 0) > session.round) {
+                session.log.push(session.enemy.name + ' resists repeated companion control.'); break;
+            }
+            if (progression) session.enemy.character.companionControlImmuneUntil = session.round + 3;
             addCompanionStatus(session.enemy, { name: 'Stun', rounds: 1, kind: 'negative', activeRound: session.round + 1 }); break;
         case 'wound':
             addCompanionStatus(session.enemy, { name: 'Wound', rounds, amount: Math.max(1, Math.floor(dealt * 0.4)), kind: 'negative', activeRound: session.round + 1 }); break;
         case 'dot': case 'burn':
-            addCompanionStatus(session.enemy, { name: 'Poison', rounds, percent: 8, kind: 'negative' });
+            addCompanionStatus(session.enemy, { name: 'Poison', rounds: progression ? Math.min(2, rounds) : rounds, percent: progression ? 4 : 8, kind: 'negative' });
             if (kind === 'burn') addCompanionStatus(session.enemy, { name: 'Decrease Damage Given', rounds, percent: 15, kind: 'negative' });
             break;
         case 'crush': case 'confuse': case 'debuff': case 'slow':
@@ -714,7 +721,7 @@ function companionCast(session: SoloPveSession, companion: SoloPveCompanion, mov
         case 'mark':
             addCompanionStatus(session.enemy, { name: 'Increase Damage Taken', rounds, percent: 20, kind: 'negative' }); break;
         case 'lifesteal':
-            if (dealt > 0) companion.hp = Math.min(companion.maxHp, companion.hp + Math.max(1, Math.floor(dealt * 0.5)));
+            if (dealt > 0) companion.hp = Math.min(companion.maxHp, companion.hp + Math.max(1, Math.floor(dealt * (progression ? .25 : .5))));
             break;
         case 'push': {
             const choices = hexNeighbors(session.enemy.pos)
@@ -774,7 +781,8 @@ function runSoloPveCompanionPhase(session: SoloPveSession): void {
         let actions = 0;
         while (ap >= MOVE_AP && actions < MAX_ACTIONS && session.status === 'active' && companion.hp > 0) {
             const move = pickCompanionMove(companion.moves, companion.cooldowns, companion.hp / Math.max(1, companion.maxHp),
-                companion.statuses.some(status => status.kind === 'negative'));
+                companion.statuses.some(status => status.kind === 'negative'),
+                companion.signatureReadyAfter === undefined ? undefined : { ordinaryActions: companion.ordinaryActions ?? 0, requiredActions: companion.signatureReadyAfter });
             const selfCast = !!move && companionMoveDamage(1, move) === 0;
             if (!selfCast && hexDistance(companion.pos, session.enemy.pos) > COMPANION_RANGE) {
                 const candidates = hexNeighbors(companion.pos)
@@ -796,6 +804,7 @@ function runSoloPveCompanionPhase(session: SoloPveSession): void {
             const before = eventSnapshot(session);
             const logStart = session.log.length;
             const resolution = companionCast(session, companion, move);
+            if (!move?.signature && companion.signatureReadyAfter !== undefined) companion.ordinaryActions = (companion.ordinaryActions ?? 0) + 1;
             ap -= BASIC_ATTACK_AP;
             actions += 1;
             appendCompanionEvent(
@@ -824,6 +833,29 @@ function runSoloPveCompanionPhase(session: SoloPveSession): void {
 
 export function endSoloPveTurn(session: SoloPveSession): void {
     if (session.status !== 'active') return;
+    if (session.encounter.kind === 'hollow-gate') session.hollowGateRoundLimit = HOLLOW_GATE_SHINOBI_ROUND_LIMIT;
+    const current = session.activeSide;
+    const before = session.encounter.kind === 'hollow-gate' ? eventSnapshot(session) : null;
+    const logStart = session.log.length, eventRound = session.round;
+    try {
+        resolveSoloPveTurnEnd(session);
+    } finally {
+        if (before) {
+            const after = eventSnapshot(session), sequence = session.eventSeq + 1;
+            appendSoloPveCombatEvent(session, {
+                kind: 'system', seq: sequence, round: eventRound, actor: current, target: null,
+                action: 'roundEnd', actionName: 'Arena Resolution', before, after,
+                log: session.log.slice(logStart), vfx: [], status: session.status,
+                winner: session.winner, outcome: session.outcome,
+                ...(session.terminalReason ? { terminalReason: session.terminalReason } : {}),
+                combat: projectSoloCombatEvent({ session, before, after, sequence, roundBefore: eventRound,
+                    actor: current, target: null, actionType: 'roundEnd', applied: true }),
+            });
+        }
+    }
+}
+
+function resolveSoloPveTurnEnd(session: SoloPveSession): void {
     const current = session.activeSide;
     // Wound and Drain tick on the fighter whose turn is ending, after they have had
     // the whole turn to Cleanse them (owner ruling 2026-10-05; the same rule as PvP's
@@ -863,6 +895,7 @@ export function endSoloPveTurn(session: SoloPveSession): void {
             session.companion.statuses = reconcileGroundStatuses(session.companion, session.groundEffects, 'p1').statuses;
         }
         if (session.weeklyBossGuard && session.round >= session.weeklyBossGuard.roundBudget) {
+            session.terminalReason = 'survived';
             session.status = 'done';
             session.winner = 'player';
             session.outcome = 'win';
@@ -886,7 +919,8 @@ export function endSoloPveTurn(session: SoloPveSession): void {
                 session.log.push(`${aged.name}'s shield expires.`);
             }
         }
-        if (session.round > MAX_ROUNDS) {
+        if (session.round > (hollowGateShinobiRoundLimit(session) ?? MAX_ROUNDS)) {
+            session.terminalReason = 'round-limit';
             session.status = 'done';
             session.winner = 'enemy';
             session.outcome = 'loss';
@@ -958,7 +992,7 @@ function spendPoison(session: SoloPveSession, side: SoloPveSide, chakra: number,
     const damage = poisonSpendDamage(value, chakra + stamina, session.round);
     if (damage <= 0) return;
     setFighter(session, side, damageCombatHealth(value, damage));
-    session.log.push(`${value.name} takes ${damage} Poison damage from exertion.`);
+    session.log.push(`${value.name} loses ${damage} HP to Poison for spending resources on jutsu.`);
     checkWinner(session);
 }
 
@@ -1156,9 +1190,15 @@ function resolveDirectAction(session: SoloPveSession, side: SoloPveSide, action:
             maxStamina: 999,
             shield: 0,
             statuses: [],
-            character: { companion: true, visual: seal.petId, specialty: 'Taijutsu', level: 1, stats: {} },
+            character: { companion: true, visual: seal.petId, specialty: 'Taijutsu', level: 1, stats:
+                seal.rulesetVersion === 'progression-v3' ? {
+                    taijutsuDefense: seal.defense ?? 0, bukijutsuDefense: seal.defense ?? 0,
+                    ninjutsuDefense: seal.spDefense ?? 0, genjutsuDefense: seal.spDefense ?? 0,
+                } : {} },
             pos: spot,
             petId: seal.petId,
+            ...(seal.rulesetVersion === 'progression-v3' ? { signatureReadyAfter: 2, ordinaryActions: 0 } : {}),
+            ...(seal.rulesetVersion === 'progression-v3' ? { defense: seal.defense, spDefense: seal.spDefense, referenceHp: seal.referenceHp } : {}),
             baseDamage: seal.damage,
             happiness: seal.happiness,
             loyal: seal.loyal,
@@ -1177,14 +1217,15 @@ function resolveDirectAction(session: SoloPveSession, side: SoloPveSide, action:
         const healPct = companionHealOnSummonPct(seal.pveGearId) + companionConsumableHealPct(seal.consumableId);
         if (healPct > 0) {
             const heal = Math.max(1, Math.floor(self.maxHp * healPct / 100));
+            const restored = Math.min(heal, Math.max(0, self.maxHp - self.hp));
             setFighter(session, side, { ...self, hp: Math.min(self.maxHp, self.hp + heal) });
-            session.log.push(`${seal.name}'s bond restores ${heal} HP to ${self.name}.`);
+            session.log.push(`${seal.name}'s bond restores ${restored} HP to ${self.name}.`);
         }
         return { applied: true };
     }
     if (action.type === 'wait') {
         session.log.push(`${self.name} ends the turn.`);
-        endSoloPveTurn(session);
+        if (session.encounter.kind !== 'hollow-gate') endSoloPveTurn(session);
         return { applied: true };
     }
     if (action.type === 'move') {
@@ -1306,7 +1347,7 @@ function resolveDirectAction(session: SoloPveSession, side: SoloPveSide, action:
                 chakra: Math.min(self.maxChakra, self.chakra + restoreChakra),
                 stamina: Math.min(self.maxStamina, self.stamina + restoreStamina),
             });
-            session.log.push(`${self.name} uses ${item.name ?? 'an item'}.`);
+            session.log.push(`${self.name} uses ${item.name ?? 'an item'}: restores ${Math.min(restoreChakra, Math.max(0, self.maxChakra - self.chakra))} chakra and ${Math.min(restoreStamina, Math.max(0, self.maxStamina - self.stamina))} stamina.`);
         } else if (item.id === 'item-attack-pill' || item.id === 'item-defense-pill' || item.id === 'item-smoke-bomb') {
             const smoke = item.id === 'item-smoke-bomb';
             // Like every other tag, the effect starts next round (matching
@@ -1329,10 +1370,10 @@ function resolveDirectAction(session: SoloPveSession, side: SoloPveSide, action:
                 });
             }
             session.log.push(`${self.name} uses ${item.name ?? 'an item'}: ${smoke
-                ? 'next round, both fighters deal 0 ordinary damage; Pierce bypasses the smoke.'
+                ? 'next round, both fighters deal 0 direct-hit damage, except Pierce. Ongoing damage still applies.'
                 : item.id === 'item-attack-pill'
                     ? 'deals 15% more damage for 2 rounds, starting next round.'
-                    : 'takes 15% less damage for 2 rounds, starting next round.'}`);
+                    : 'takes 15% less direct-hit damage for 2 rounds, starting next round. Pierce and ongoing damage bypass this protection.'}`);
         } else {
             const tags = item.weaponTags?.length ? item.weaponTags : item.weaponEffect ? [{ name: item.weaponEffect, percent: item.weaponEffectValue }] : [{ name: 'Heal' }];
             // weaponSwing: true mirrors the PvP item fix (api/pvp/move.ts) — a
@@ -1351,7 +1392,7 @@ function resolveDirectAction(session: SoloPveSession, side: SoloPveSide, action:
                         name: 'Decrease Damage Given', rounds: 1, percent, kind: 'negative',
                     }, { isStackable: (name) => STACKABLE_STATUS.has(name) }),
                 });
-                session.log.push(`Smoke: ${updated.name} also deals ${percent}% less damage for 1 round.`);
+                session.log.push(`Smoke: ${updated.name} also deals less damage for 1 round (${percent}% effect strength).`);
             }
         }
         if (cooldown > 0) session.cooldowns[side][cooldownKey] = cooldown;
@@ -1367,6 +1408,7 @@ function resolveDirectAction(session: SoloPveSession, side: SoloPveSide, action:
         setFighter(session, side, { ...self, hp: Math.max(0, self.hp - hpCost) });
         spendAction(session, side, 100);
         if (opts.escapeSucceeds?.() === true) {
+            session.terminalReason = 'escaped';
             session.status = 'done';
             session.winner = 'enemy';
             session.outcome = 'fled';
@@ -1374,11 +1416,12 @@ function resolveDirectAction(session: SoloPveSession, side: SoloPveSide, action:
         } else {
             session.log.push(`${self.name} fails to escape and loses ${hpCost} HP.`);
             checkWinner(session);
-            if (session.status === 'active') endSoloPveTurn(session);
+            if (session.status === 'active' && session.encounter.kind !== 'hollow-gate') endSoloPveTurn(session);
         }
         return { applied: true };
     }
     if (action.type === 'abandon') {
+        session.terminalReason = 'abandoned';
         // Abandon is an explicit terminal forfeit, not an escape attempt. It is
         // deliberately independent of AP and the sealed flee roll so closing an
         // unresolved battle can always settle exactly once. The same 10% max-HP
@@ -1448,7 +1491,8 @@ function directAction(
         action,
         action.type === 'jutsu' && fighter(session, otherSide(side)).hp <= 0,
     );
-    if (actionLog.some((line) => line.endsWith('Poison damage from exertion.'))) {
+    if (actionLog.some((line) => line.endsWith('Poison damage from exertion.')
+        || line.endsWith('HP to Poison for spending resources on jutsu.'))) {
         vfx.push({ key: 'poisonCloud', target: side, anchor: 'caster' });
     }
     const after = eventSnapshot(session);
@@ -1469,6 +1513,7 @@ function directAction(
         status: session.status,
         winner: session.winner,
         outcome: session.outcome,
+        ...(session.terminalReason ? { terminalReason: session.terminalReason } : {}),
         combat: projectSoloCombatEvent({
             session, before, after, sequence, roundBefore: eventRound,
             actor: side, target, actionType: action.type, actionId: identity.actionId,
@@ -1479,6 +1524,8 @@ function directAction(
     };
     appendSoloPveCombatEvent(session, event);
     session.log = trimPvpLog(session.log);
+    if (session.encounter.kind === 'hollow-gate' && session.status === 'active'
+        && (action.type === 'wait' || action.type === 'flee')) endSoloPveTurn(session);
     return { ...result, event };
 }
 
@@ -1831,7 +1878,9 @@ function enemyActsOnCompanion(session: SoloPveSession): boolean {
     const logStart = session.log.length;
     const level = Number(session.enemy.character.level ?? 1);
     const fraction = level >= 80 ? 0.3 : level >= 40 ? 0.26 : 0.22;
-    let damage = Math.max(1, Math.floor(companion.maxHp * fraction));
+    let damage = companion.defense === undefined
+        ? Math.max(1, Math.floor(companion.maxHp * fraction))
+        : companionIncomingDamage(companion.referenceHp ?? companion.maxHp, companion.defense, fraction);
     const enemyStatuses = activeStatuses(session.enemy, session.round);
     if (enemyStatuses.some(status => status.source === 'item-smoke-bomb')) damage = 0;
     else if (enemyStatuses.some(status => status.source === 'item-attack-pill')) damage = Math.floor(damage * 1.15);
@@ -1872,6 +1921,7 @@ function enemyActsOnCompanion(session: SoloPveSession): boolean {
         status: session.status,
         winner: session.winner,
         outcome: session.outcome,
+        ...(session.terminalReason ? { terminalReason: session.terminalReason } : {}),
         combat: projectSoloCombatEvent({
             session, before, after, sequence, roundBefore: session.round,
             actor: 'enemy', target: 'companion', actionType: 'basicAttack', actionId: 'basic-attack', applied: true,
@@ -2303,6 +2353,10 @@ export function applySoloPveAction(
     if (source.huntCombat) return applyHuntCombatAction(source, action, opts);
     if (action.type === 'huntAction') return { applied: false, reason: 'not-a-hunt-battle', session: source };
     const session = cloneSession(source);
+    if (session.encounter.kind === 'hollow-gate' && session.status === 'active') {
+        session.hollowGateRoundLimit = HOLLOW_GATE_SHINOBI_ROUND_LIMIT;
+        if (session.hollowGateTelegraph?.round !== session.round) sealHollowGateTelegraph(session);
+    }
     const result = directAction(session, 'player', action, opts);
     if (result.applied && session.status === 'active' && session.activeSide === 'player' && !playerHasLegalAction(session)) {
         endSoloPveTurn(session);

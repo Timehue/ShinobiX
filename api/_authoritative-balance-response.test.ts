@@ -40,7 +40,10 @@ describe('authoritative balance response migration', () => {
         const expeditionApi = read('api/missions/report-pet-event.ts');
         const expeditionClient = read('shinobij.client/src/screens/PetYard.tsx');
         assert.match(gauntletApi, /balances,\s*score,\s*rank/);
-        assert.match(gauntletClient, /ryo:\s*rep\.balances\.ryo/);
+        assert.match(gauntletClient, /versionedRef\.current\(rep\.character, rep\._saveVersion!/);
+        assert.match(gauntletClient, /updateCharacterRef\.current\(rep\.character\)/);
+        assert.doesNotMatch(gauntletClient, /ryo:\s*[^\n]*\+/,
+            'Gauntlet must adopt the committed snapshot rather than add displayed awards');
         assert.match(arenaApi, /balances:\s*\{\s*ryo:\s*Number\(updatedChar\.ryo\)\s*\}/);
         const applyArenaSettlement = arenaClient.slice(
             arenaClient.indexOf('const applyPetBattleSettlement'),

@@ -3,7 +3,7 @@
  *
  * Lobby (format + difficulty tier + team picker) → server-minted session
  * (/api/pet/showdown, engine lives server-side only) → fullscreen cinematic
- * playback via PetShowdownBattle. Ryo is client-owned: the finishing turn's
+ * playback via PetShowdownBattle. Rewards are server-owned: the finishing turn's
  * response carries the settled character snapshot, which this screen ADOPTS via
  * updateCharacter (the same pattern as /api/pet/battle-result callers).
  *
@@ -22,6 +22,7 @@ import type { Screen } from "../types/core";
 import type { PetArenaOpponent } from "../data/pet-arena-opponents";
 import { colosseumPetBusyReason, isPetAvailableForColosseum } from "../lib/pet";
 import { activeCarriedPetIds } from "../lib/entitlements";
+import { adoptShowdownEntrySnapshot, showdownEntryRoster } from "../lib/showdown-entry-roster";
 import { petScenicPortraitImage as petCardImage } from "../lib/pet-scenic-portrait";
 import { petPvpGearById } from "../data/pet-config";
 import { clearPetColosseumPetHint, readPetColosseumPetHint } from "../lib/pet-arena-navigation";
@@ -32,7 +33,7 @@ import {
     startWandererShowdown,
     submitShowdownTurn,
     forfeitShowdown,
-    fetchShowdownState,
+    recoverShowdownSession,
     SHOWDOWN_BENCH_SIZE,
     SHOWDOWN_FORMAT_SIZE,
     showdownTeamSize,
@@ -62,18 +63,19 @@ const SESSION_BREADCRUMB_KEY = "showdown.session.v1";
 // gone from KV and the crumb is noise.
 const SESSION_BREADCRUMB_TTL_MS = 45 * 60 * 1000;
 
-type SessionBreadcrumb = { sessionId: string; petIds: string[]; playerName: string; roadChallenge?: boolean };
+type SessionBreadcrumb = { sessionId: string; petIds: string[]; playerName: string; roadChallenge?: boolean; bout?: "practice" | "arena" };
 
 function readSessionBreadcrumb(playerName: string): SessionBreadcrumb | null {
     try {
         const raw = localStorage.getItem(SESSION_BREADCRUMB_KEY);
         if (!raw) return null;
-        const parsed = JSON.parse(raw) as { sessionId?: unknown; petIds?: unknown; playerName?: unknown; roadChallenge?: unknown; savedAt?: unknown };
+        const parsed = JSON.parse(raw) as { sessionId?: unknown; petIds?: unknown; playerName?: unknown; roadChallenge?: unknown; bout?: unknown; savedAt?: unknown };
         if (typeof parsed.sessionId !== "string" || !Array.isArray(parsed.petIds)) return null;
         if (parsed.playerName !== playerName) return null;
         if (Date.now() - (Number(parsed.savedAt) || 0) > SESSION_BREADCRUMB_TTL_MS) return null;
         return { sessionId: parsed.sessionId, petIds: parsed.petIds.map(String), playerName,
-            roadChallenge: parsed.roadChallenge === true };
+            roadChallenge: parsed.roadChallenge === true,
+            ...(parsed.bout === "practice" || parsed.bout === "arena" ? { bout: parsed.bout } : {}) };
     } catch {
         return null;
     }
@@ -162,6 +164,10 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
     const [starting, setStarting] = useState<false | "matching" | "fielding">(false);
     const [error, setError] = useState<string | null>(null);
     const [battle, setBattle] = useState<{ state: ShowdownStateView; key: number } | null>(null);
+    const [recovery, setRecovery] = useState<true | string | null>(() => !pendingWanderer?.wanderer && readSessionBreadcrumb(character.name) ? true : null);
+    const [recoveryAttempt, setRecoveryAttempt] = useState(0);
+    const [recoveryNotice, setRecoveryNotice] = useState<string | null>(null);
+    const [forfeitStatus, setForfeitStatus] = useState({ pending: false, error: null as string | null });
     const battleKey = useRef(1);
     const [roadChallenge, setRoadChallenge] = useState(() => Boolean(
         pendingWanderer?.wanderer || (bout === "arena" && readSessionBreadcrumb(character.name)?.roadChallenge),
@@ -207,53 +213,61 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
     }, [onFullscreenActiveChange, onBattleActiveChange]);
     useEffect(() => () => setSignals(false, false), [setSignals]);
 
-    // Refresh-resume: an unresolved server session picks the fight back up.
-    //
-    // A FINISHED session is not resumed but CLAIMED. It is where a win whose
-    // settling response was lost to the network sits — the server already
-    // resolved and paid it, and only the client is missing the settled
-    // character. Re-posting an empty round re-reads that settlement (the
-    // receipt in api/pet/showdown.ts makes the payout exactly-once, and a
-    // practice session answers from memory without touching the save). The
-    // crumb is dropped on the same pass, so a decided session is only ever
-    // claimed once and never outlives its own TTL.
+    const adoptSettlement = useCallback((settlement?: ShowdownTurnResponse | null) => {
+        const next = settlement?.character as Character | undefined;
+        if (!next || typeof next !== "object") return;
+        if (onVersionedCharacter && Number.isSafeInteger(settlement?._saveVersion)) {
+            onVersionedCharacter(next, settlement!._saveVersion!);
+        } else updateCharacter(next);
+    }, [onVersionedCharacter, updateCharacter]);
+
+    // Retain the pointer until the server confirms expiry or a terminal receipt.
+    // An unavailable state endpoint must never look like an abandoned fight.
     useEffect(() => {
         if (pendingWanderer?.wanderer) return;
         const crumb = readSessionBreadcrumb(character.name);
         if (!crumb) return;
         let cancelled = false;
         void (async () => {
-            const state = await fetchShowdownState(character.name, crumb.sessionId);
-            if (cancelled) return;
-            if (state && !state.finished) {
-                if (crumb.roadChallenge) setRoadChallenge(true);
-                // A resumed fight mounts just as directly as a fresh one, so it
-                // needs the same warm-up — after a reload nothing is cached.
-                // The full roster here, not the picked team: `selected` is
-                // restored from the crumb on the line below, so there is no
-                // team yet. A superset resolves the same pets by id.
-                setSignals(true, true);
-                await warmShowdownModels(state, pets);
-                if (cancelled) return;
-                setSelected(crumb.petIds);
-                setBattle({ state, key: battleKey.current++ });
+            if (crumb.bout && crumb.bout !== bout) {
+                setScreen(crumb.bout === "arena" ? "petColiseum" : "petShowdown");
                 return;
             }
-            writeSessionBreadcrumb(null);
-            if (!state || state.outcome !== "win") {
+            const recovered = await recoverShowdownSession(character.name, crumb.sessionId);
+            if (cancelled) return;
+            if ("error" in recovered) { setRecovery(recovered.error); return; }
+            if ("expired" in recovered) {
+                writeSessionBreadcrumb(null);
+                setRecovery(null);
+                setError("Your saved pet battle has expired.");
                 if (crumb.roadChallenge) setScreen("worldMap");
                 return;
             }
-            const settlement = await submitShowdownTurn(character.name, crumb.sessionId, []);
-            if (cancelled || !settlement || "expired" in settlement) return;
-            const settled = settlement.character as Character | undefined;
-            if (settled && typeof settled === "object") updateCharacter(settled);
+            const { state, settlement } = recovered;
+            if (!state.finished) {
+                if (crumb.roadChallenge) setRoadChallenge(true);
+                const sealedRoster = showdownEntryRoster(state, character.pets);
+                setSignals(true, true);
+                await warmShowdownModels(state, sealedRoster.pets);
+                if (cancelled) return;
+                setFormat(state.format);
+                setSelected(sealedRoster.petIds);
+                writeSessionBreadcrumb({ ...crumb, petIds: sealedRoster.petIds });
+                setBattle({ state, key: battleKey.current++ });
+                setRecovery(null);
+                return;
+            }
+            adoptSettlement(settlement);
+            writeSessionBreadcrumb(null);
+            setRecovery(null);
+            setSignals(false, false);
+            setRecoveryNotice(`Your pet battle ${state.outcome === "win" ? "victory" : "defeat"} is saved.`);
             if (crumb.roadChallenge) setScreen("worldMap");
         })();
         return () => { cancelled = true; };
-        // Mount-only: the breadcrumb is a one-shot restore.
+        // Restore on mount or explicit retry, never on a character refresh.
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [recoveryAttempt]);
 
     const togglePet = (pet: Pet) => {
         if (busyReason(pet)) return;
@@ -278,20 +292,28 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
         }
         // Preserve a real session for resume if navigation wins the request,
         // but do not warm/mount its arena or reactivate fullscreen after exit.
-        writeSessionBreadcrumb({ sessionId: result.state.sessionId, petIds: selected, playerName: character.name });
+        const sealedRoster = showdownEntryRoster(result.state, character.pets);
+        writeSessionBreadcrumb({ sessionId: result.state.sessionId, petIds: sealedRoster.petIds, playerName: character.name, bout });
+        // Admission can consume a one-use item. Adopt its committed save before
+        // model loading or another autosave can display the pre-entry loadout.
+        if ('character' in result) adoptShowdownEntrySnapshot(result, onVersionedCharacter);
         if (!mounted.current) return;
+        setSelected(sealedRoster.petIds);
+        setFormat(result.state.format);
         // The opponent is only known now, so its models can only be warmed now.
         // Hold the lobby rather than mount into a fight whose other side has no
         // body yet — the CTA names this beat, so the wait is legible.
         setStarting("fielding");
-        // `selectedPets` is exactly what the battle below receives, so the
-        // warm-up and the renderer resolve identical art.
-        await warmShowdownModels(result.state, selectedPets);
+        // A paid retry can recover an older sealed roster. Warm the pets in
+        // that response rather than the lobby's new selection.
+        await warmShowdownModels(result.state, sealedRoster.pets);
         if (!mounted.current) return;
         setStarting(false);
+        setForfeitStatus({ pending: false, error: null });
+        setRecoveryNotice(null);
         setBattle({ state: result.state, key: battleKey.current++ });
         setSignals(true, true);
-    }, [starting, selected, size, character.name, format, tier, bout, selectedPets, setSignals]);
+    }, [starting, selected, size, character.name, character.pets, format, tier, bout, setSignals, onVersionedCharacter]);
 
     const launchRoadChallenge = async () => {
         const ref = pendingWanderer?.wanderer;
@@ -309,7 +331,7 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
         // before another autosave can restore the old cooldown or location.
         onVersionedCharacter?.(result.character as Character, result.saveVersion);
         writeSessionBreadcrumb({ sessionId: result.state.sessionId, petIds: result.petIds, playerName: character.name,
-            roadChallenge: true });
+            roadChallenge: true, bout: "arena" });
         // The server has committed the fight. Hold the navigation lock during
         // model loading too, before the fullscreen battle renderer mounts.
         setSignals(true, true);
@@ -342,29 +364,43 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
             // The server renews its 45-minute session lease on each round.
             // Keep the refresh pointer on the same lease while this fight runs.
             writeSessionBreadcrumb({ sessionId: activeSession, petIds: selected, playerName: character.name,
-                ...(roadChallenge ? { roadChallenge: true } : {}) });
+                bout, ...(roadChallenge ? { roadChallenge: true } : {}) });
         }
         return response;
-    }, [character.name, activeSession, selected, roadChallenge]);
+    }, [character.name, activeSession, selected, roadChallenge, bout]);
 
     const handleFinished = useCallback((outcome: "win" | "loss", settlement: ShowdownTurnResponse | null) => {
         // Decided: release the nav lock; the fullscreen result panel stays up.
         setSignals(true, false);
         writeSessionBreadcrumb(null);
         void outcome;
-        const settledCharacter = settlement?.character as Character | undefined;
-        if (settledCharacter && typeof settledCharacter === "object") {
-            updateCharacter(settledCharacter);
-        }
-    }, [setSignals, updateCharacter]);
+        adoptSettlement(settlement);
+    }, [setSignals, adoptSettlement]);
 
-    const handleForfeit = useCallback(() => {
-        if (activeSession) void forfeitShowdown(character.name, activeSession);
+    const handleForfeit = useCallback(async () => {
+        if (!activeSession || forfeitStatus.pending) return;
+        setForfeitStatus({ pending: true, error: null });
+        const confirmed = await forfeitShowdown(character.name, activeSession);
+        if (!mounted.current) return;
+        if (!confirmed) {
+            // The last turn may have won even if its reply never reached us.
+            const recovered = await recoverShowdownSession(character.name, activeSession);
+            if (!mounted.current) return;
+            if ("error" in recovered || ("state" in recovered && !recovered.state.finished)) {
+                setForfeitStatus({ pending: false, error: "The concession could not be confirmed. Your battle is still saved. Try again." });
+                return;
+            }
+            if ("state" in recovered) {
+                adoptSettlement(recovered.settlement);
+                setRecoveryNotice(`Your pet battle ${recovered.state.outcome === "win" ? "victory" : "defeat"} is saved.`);
+            }
+        }
+        setForfeitStatus({ pending: false, error: null });
         writeSessionBreadcrumb(null);
         setBattle(null);
         setSignals(false, false);
         if (roadChallenge) setScreen("worldMap");
-    }, [activeSession, character.name, setSignals, setScreen, roadChallenge]);
+    }, [activeSession, character.name, setSignals, setScreen, roadChallenge, forfeitStatus.pending, adoptSettlement]);
 
     const handleExit = useCallback(() => {
         writeSessionBreadcrumb(null);
@@ -378,6 +414,17 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
         setSignals(false, false);
         void launch();
     }, [launch, setSignals]);
+
+    if (recovery) {
+        return <div className="showdown-screen pet-battle-theme pet-battle-lobby">
+            <div className="showdown-header"><h1>Recovering your pet battle</h1></div>
+            {recovery === true ? <p role="status">Checking your saved battle…</p> : <>
+                <p className="showdown-error" role="alert">{recovery}</p>
+                <button type="button" className="showdown-cta" onClick={() => { setRecovery(true); setRecoveryAttempt((value) => value + 1); }}>Retry battle recovery</button>
+                <button type="button" className="showdown-chip" onClick={() => setScreen(roadChallenge ? "worldMap" : "petArena")}>{roadChallenge ? "Return to the road" : "Return to Pet Arena"}</button>
+            </>}
+        </div>;
+    }
 
     if (roadChallenge && !battle) {
         return <div className="showdown-screen pet-battle-theme pet-battle-lobby">
@@ -453,8 +500,8 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
                         the numbers being promised. */}
                     {tier === "sparring" && (
                         <p className="showdown-choice-note">
-                            Each opponent is rolled fresh and stood at the level of the pet it faces — one for one,
-                            across the {SHOWDOWN_FORMAT_SIZE[format]} on the field and the bench behind them. Nothing is paid and nothing is capped.
+                            Each opponent matches the level of the pet it faces, across the {SHOWDOWN_FORMAT_SIZE[format]} active pets and their reserves.
+                            Training Grounds is free, has no daily limit, and awards no rewards.
                         </p>
                     )}
                 </div>}
@@ -469,7 +516,7 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
                     <li><b>Elements</b> — Fire &gt; Wind &gt; Lightning &gt; Earth &gt; Water &gt; Fire.
                         Attacking the element you beat deals <b>×1.5</b>; attacking the one that
                         beats you deals <b>×0.75</b>. Your own-element techniques carry a
-                        <b> same-type bonus</b>; the neutral Swift Strike skips the wheel both
+                        <b> same-type bonus</b>; the neutral Tackle skips the wheel both
                         ways — the safe jab into a bad matchup.</li>
                     <li><b>Physical &amp; Special</b> — contact techniques roll Attack against
                         Defense; elemental casts roll the pet's Special side, which follows its
@@ -478,31 +525,37 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
                     <li><b>Conditions</b> — a pet holds two at a time; a third pushes the oldest
                         off. Fire thaws freeze, frost smothers burn. Shields sit outside the
                         limit.</li>
-                    <li><b>Stamina</b> — a technique's cost tracks its power, and stamina comes
-                        back slowly. Every kit is a ladder: a <b>jab</b> you can throw all day,
-                        <b> techniques</b> in the middle, and one <b>haymaker</b> worth about half
-                        the pool. The jab and the mid tier trade at the same rate, so the haymaker
-                        is not the efficient pick — you are paying for it to land <em>now</em>.</li>
+                    <li><b>Progression</b> - start with Tackle and a restrained species attack.
+                        Role utility unlocks at 5, advanced offense at 10, and the signature at 20.
+                        Species upgrades at 30, 50 and 75 replace earlier variants.
+                        Levels 76–100 continue stat growth.</li>
+                    <li><b>Stamina</b> - your role sets the visible pool, with a small bounded
+                        contribution from Guard investment. Strong attacks and sustain cost more;
+                        Rest recovers stamina and heals no HP. Healing and shielding have reuse
+                        windows, shown on each move.</li>
                     <li><b>Overdraft</b> — you may cast a move you cannot afford: it still fires,
                         but the pet <b>bleeds HP</b> for the shortfall and <b>loses its next
                         action</b>.</li>
                     <li><b>Hold</b> — the heaviest techniques and signatures need a round or two in
                         battle before they come online.</li>
-                    <li><b>Response window</b> — extreme direct hits are softened at every level
-                        so a full-health pet can respond. Ordinary hits below 60% maximum HP keep
-                        their damage. Focus fire and lingering damage can still finish a pet within a round.</li>
+                    <li><b>Response window</b> - extreme direct hits are softened after offense,
+                        defense and battle effects are applied. Guard, shields and switching offer
+                        counterplay. Focus fire and lingering damage can still finish a wounded pet.</li>
                     <li><b>Turn order</b> — switches happen first, then Guard and protection.
                         Other actions use speed × move priority; haymakers and signatures swing late.</li>
-                    <li><b>Signature</b> — your first ultimate gains 50 charge each round on the
-                        field, ready after two rounds even if you guard or heal. Dealing and taking
-                        damage also build charge. Casting spends the full bar; later ultimates
-                        charge through combat. Unprepared signature damage approaches 60% maximum
-                        HP; Empower, Mark or a favorable field raises that limit to 75%. Guard and
-                        shields reduce it further. Wounded pets can still be finished.</li>
+                    <li><b>Signature</b> - unlocked at level 20, with meter and battle readiness
+                        required before casting. Dealing and taking damage build charge. Casting
+                        spends the full bar. Mark, Empower or favorable weather visibly prepare a
+                        stronger hit; level 75 mastery rewards that preparation. Guard and shields
+                        reduce the hit further.</li>
+                    <li><b>Sealed rules</b> - your roster, level, equipment and earned moves are
+                        fixed when you enter. Happiness affects adventure summons and training,
+                        while Colosseum stats do not use it. Competitive Tactics has separate
+                        normalized attributes and a full competitive kit.</li>
                     <li><b>25 rounds, then the judges</b> — most fights end well before. From
                         round 14 <b>attrition</b> bleeds both sides and healing fades; a fight
-                        still standing after round 25 goes to the ladder: pets left, total
-                        health, total stamina, then the speed arrow.</li>
+                        still standing after round 25 is judged by pets remaining, total
+                        HP, total stamina, then speed.</li>
                 </ul>
             </details>
 
@@ -553,7 +606,8 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
                 </div>
             </div>
 
-            {error && <div className="showdown-error">{error}</div>}
+            {error && <div className="showdown-error" role="alert">{error}</div>}
+            {recoveryNotice && <p role="status">{recoveryNotice}</p>}
 
             <div className="showdown-launch">
                 <button
@@ -591,6 +645,8 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
                     sharedImages={sharedImages}
                     submitTurn={handleSubmitTurn}
                     onForfeit={handleForfeit}
+                    forfeitStatus={forfeitStatus}
+                    inputLocked={forfeitStatus.pending}
                     onFinished={handleFinished}
                     onExit={handleExit}
                     onRematch={handleRematch}

@@ -1,0 +1,16 @@
+{
+  "reviewedModels": 161,
+  "scope": "entire-roster",
+  "failures": [
+    "starter-fire-r: production animation renderer changed after review",
+    "starter-fire-l: production animation renderer changed after review",
+    "starter-water-r: production animation renderer changed after review",
+    "starter-water-l: production animation renderer changed after review",
+    "starter-wind-r: production animation renderer changed after review",
+    "starter-wind-l: production animation renderer changed after review",
+    "starter-lightning-r: production animation renderer changed after review",
+    "starter-lightning-l: production animation renderer changed after review",
+    "starter-earth-r: production animation renderer changed after review",
+    "starter-earth-l: production animation renderer changed after review"
+  ]
+}

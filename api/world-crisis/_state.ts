@@ -192,7 +192,7 @@ async function loadWorldCrisisState(): Promise<WorldCrisisState> {
 
 function awakeningMessage(state: WorldCrisisState): string {
     const player = state.awakenedBy ?? 'An unnamed shinobi';
-    return `${player} crossed a line the old works could not classify. A quartered seal has lit beneath every village, and recall wardens are advancing through the outskirts. Every shinobi is called to defend.`;
+    return `${player} reached level 37, triggering an alarm in the ancient machinery beneath the villages. A quartered seal has lit beneath each village, and recall wardens are advancing on all four outskirts. Travel to your village outskirts and win defense battles to help stop them.`;
 }
 
 async function ensureWorldCrisisOutbox(state: WorldCrisisState): Promise<void> {

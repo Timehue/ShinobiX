@@ -115,7 +115,8 @@ const warfrontPetSnapshot = (pet: Pet): Pet => ({
     attack: pet.attack,
     defense: pet.defense,
     speed: pet.speed,
-    jutsus: petBattleJutsus(pet).slice(0, 8)
+    battleLoadoutVersion: 'progression-v3',
+    jutsus: petBattleJutsus(pet, { forceProgression: true }).slice(0, 8)
         .map((jutsu) => ({ ...jutsu, name: String(jutsu.name).slice(0, 80) })),
     unlockedForPve: pet.unlockedForPve,
     ...(pet.rankedBuild ? { rankedBuild: rankedBuildForPet(pet) ?? undefined } : {}),

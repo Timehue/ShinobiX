@@ -1,0 +1,145 @@
+{
+  "date": "2026-10-18",
+  "scope": "Readability and runtime-accuracy pass over repository-authored combat logs, status messages, combat rejection messages, and player menu help. Continues the tutorial, story, item, jutsu, and quest audits.",
+  "method": "Read authored messages and surrounding resolution code. Used an AST inventory to locate log templates and menu help, then expanded it to inline help boxes after visual review. Checked changed mechanical claims against actual status scheduling, damage/healing resolution, resource caps, loadout admission, and shared campaign rules. Automated checks supplement the manual review.",
+  "reviewedSurfaces": [
+    "PvP and the shared jutsu resolver used by Solo PvE, Tower, and Clan Boss combat",
+    "Solo PvE and Tower companion, hazard, item, turn-end, and outcome messages",
+    "Structured Pet Showdown announcements, condition titles, Guard/Rest help, and consumable results",
+    "All 100 Legacy combat descriptions; 84 revised",
+    "Combat status HUD, pending effects, log formatting, and rejection explanations",
+    "Player menu hints, inline rules, loadout and Legacy help, named forge notes, Tower, clan, and war help",
+    "All 11 built-in Guide Library articles and seven companion tutorial lessons"
+  ],
+  "importantCorrections": [
+    {
+      "topic": "Status timing",
+      "change": "Shared combat messages follow the actual immediate-versus-next-round scheduling instead of saying only '2 turns'. Tower-specific Barrier wording describes its immediate wall, while ordinary shared jutsu statuses describe next-round activation. Wound and Drain messages and tooltips also distinguish Solo/PvP turn-end ticks from Tower round-end ticks. Shield help states that the pool lasts through the current and next round unless broken, and that gaining more shield refreshes its duration.",
+      "evidence": [
+        "api/pvp/move.ts:statusForJutsu",
+        "api/pvp/move.ts:resolveTagStatuses",
+        "api/towers/_engine.ts:placeTowerBarrier and towerResolverLines",
+        "api/combat-core/shields.ts"
+      ]
+    },
+    {
+      "topic": "Poison",
+      "change": "Explains that spending chakra or stamina on jutsu causes HP loss. Basic attacks and free casts do not trigger it. Zone-sourced Poison ends when the target leaves the zone or the zone expires; corrected the older tooltip claim that it could persist.",
+      "evidence": [
+        "api/pvp/move.ts:poisonSpendDamage",
+        "api/pvp/move.ts:reconcileGroundStatuses",
+        "api/solo-pve/_status-timing.test.ts"
+      ]
+    },
+    {
+      "topic": "Effect strength",
+      "change": "Damage and stat modifiers no longer present their stored strength as a literal final damage percentage. Fixed Attack/Defense Pill bonuses remain separate from pooled jutsu strength in the status HUD.",
+      "evidence": [
+        "api/pvp/move.ts:resolveDamageNumber",
+        "api/combat-core/formulas.ts",
+        "shinobij.client/src/components/CombatSideHud.test.ts"
+      ]
+    },
+    {
+      "topic": "Actual recovery",
+      "change": "Potion, summon-heal, companion-heal, and companion-owner Lifesteal logs report capped recovery rather than the requested amount. Gameplay formulas and resource costs are unchanged.",
+      "evidence": [
+        "api/solo-pve/_solo-pve.test.ts:summon healing logs only the HP actually restored",
+        "api/towers/_engine.test.ts:potion logs report actual recovery when resource bars are nearly full"
+      ]
+    },
+    {
+      "topic": "Pet event narration",
+      "change": "Replaces internal labels such as 'is buff' and 'is cleanse' with readable outcomes. Adds HP/damage units, explains utility consumable results, and avoids claiming an attempted offensive status necessarily landed through immunity.",
+      "evidence": [
+        "api/_pet-showdown/engine.ts",
+        "shared/pet-showdown-contract.ts:ShowdownEvent",
+        "shinobij.client/src/lib/showdown-event-text.test.ts"
+      ]
+    },
+    {
+      "topic": "Legacy combat flavor",
+      "change": "Checked every Legacy combat line against its AP, targeting, and effect tags. Support techniques describe preparation instead of promising nonexistent hits, shields, healing, or movement. Revised 84 of the 100 combat lines.",
+      "evidence": [
+        "shinobij.client/src/data/legacy-jutsu.ts",
+        "api/pvp/_legacy-jutsu-catalog.ts"
+      ]
+    },
+    {
+      "topic": "Menu accuracy",
+      "change": "Clarifies Tower loss and entry rules, fixes Supporter's PvP slot help and separate Legacy signature slots, corrects automatic card phases, explains one-war versus permanent village structures, defender terrain bonuses, and the one-Supply-attempt personal limit.",
+      "evidence": [
+        "api/endless/_run.ts",
+        "api/pvp/session.ts:normalizeHumanPvpLoadout",
+        "api/_entitlements.ts:maxLoadout",
+        "shared/village-war-campaign.ts:WAR_OPERATION_CAPS",
+        "shinobij.client/src/components/ChronicleDuelBoard.tsx"
+      ]
+    },
+    {
+      "topic": "Progression compatibility",
+      "change": "Updated Legacy combat-log readers to recognize both retained messages and the revised wording. Tests compare old/new healing and Wound credit so clearer copy does not remove earned progress. Updated the Solo Poison animation trigger to recognize the revised message; differential PvP/Solo tests verify that the visual event is retained.",
+      "evidence": [
+        "api/_legacy-pvp.test.ts",
+        "api/_legacy-pve.test.ts",
+        "api/combat-core/pvp-solo-jutsu-parity.test.ts"
+      ]
+    }
+  ],
+  "firstDialoguePassExamples": [
+    {
+      "file": "shinobij.client/src/lib/academy-narrative.ts",
+      "before": "Good. If the Gate tries to decide who you should be, remind it that refusal is still an answer.",
+      "after": "Then make your own choices. You do not have to accept the life someone else plans for you."
+    },
+    {
+      "file": "shinobij.client/src/lib/academy-narrative.ts",
+      "before": "Then look past every answer that arrives too neatly. The Gate is precise, and precision can still be a lie.",
+      "after": "Then investigate the Gate. Find evidence and question what people tell you, including me."
+    },
+    {
+      "file": "shinobij.client/src/lib/academy-narrative.ts",
+      "before": "Then remember: a village is its people before it is its walls. Protecting one may someday mean arguing with the other.",
+      "after": "Then protect the people who live there. Sometimes that may mean questioning your village's leaders."
+    },
+    {
+      "file": "shinobij.client/src/lib/academy-narrative.ts",
+      "before": "You promised to put the village first. I'll help you remember every person hidden inside that word.",
+      "after": "You promised to protect your village's people. I'll help you bring them home safely."
+    },
+    {
+      "file": "shinobij.client/src/components/OnboardingCoach.tsx",
+      "before": "Claim the Academy Trial at the Mission Hall. The reward is real. So was what happened to that dummy.",
+      "after": "Open the Mission Hall and claim your Academy Trial reward. I heard the voice from that dummy repeat your vow, too. We need to find out how it knew."
+    },
+    {
+      "file": "shinobij.client/src/components/OnboardingCoach.tsx",
+      "before": "We found the Gate's trace. Let's get the evidence home. We cross the village gate together.",
+      "after": "We found a road marker linked to the Hollow Gate. Press Return to village so we can report what happened."
+    }
+  ],
+  "validation": {
+    "status": "Complete",
+    "focusedEngineAndPresentationTests": "509 passed in the combined focused run, including cross-mode timing and Poison visual-event compatibility.",
+    "legacyAndCompanionCompatibilityTests": "38 passed",
+    "menuAndRecoveryTests": "55 passed",
+    "catalogInvariance": "All 100 Legacy jutsu match the pre-audit gameplay fields after removing description and battleDescription.",
+    "lint": "Full frontend lint: 0 errors and 23 existing warnings. Affected-file and final Legacy text lint: 0 errors and 0 warnings.",
+    "browserSmoke": "12 desktop/mobile checks passed. Revised Tower menu screenshots inspected.",
+    "fullRegressionSuite": {
+      "total": 15999,
+      "passed": 15971,
+      "failed": 0,
+      "skipped": 28
+    },
+    "strictCombatLayout": "6 passed: Chromium, three Chromium display-scale variants, Firefox, and WebKit. Representative mobile combat screenshot inspected.",
+    "build": "Final server and client builds passed. Final distribution, Chronicle runtime, generated catalog, and size checks passed.",
+    "finalCatalogCheck": "2 passed after the final flavor corrections; all 100 Legacy jutsu retain identical gameplay fields.",
+    "diffCheck": "Passed; only existing Git line-ending notices."
+  },
+  "limits": [
+    "Creator-authored remote/admin dialogue and dynamically supplied player content are outside this repository-only audit.",
+    "Browser checks cover representative revised surfaces; this is not a playthrough of every possible combat encounter."
+  ],
+  "followUpCorrection": "The error/reward/result audit restored the confirmed supernatural dummy incident to the Mission Hall instruction. The story shows a voice repeating the vow; it does not yet identify literal possession."
+}

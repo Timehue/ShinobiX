@@ -24,6 +24,32 @@ import {
 
 const NOW = 1_800_000_000_000;
 
+it('new sealed companions prepare signatures with two actual actions and bound support', () => {
+    const session = createSoloPveSession({
+        sessionId: 'prepared-companion', ownerSlug: 'alice', encounter: { kind: 'test', id: 'prepared' },
+        player: makeFighter('Alice', 62), enemy: makeFighter('Rival', 63, { hp: 10000, maxHp: 10000 }), now: NOW,
+        companion: { petId: 'pet-1', name: 'Fang', hp: 1000, damage: 50, happiness: 100, loyal: true,
+            rulesetVersion: 'progression-v3', defense: 80, spDefense: 80, referenceHp: 778,
+            moves: [
+                { name: 'Strike', kind: 'damage', power: 45, cooldown: 1, rounds: 2, signature: false },
+                { name: 'Final Art', kind: 'damage', power: 90, cooldown: 3, rounds: 2, signature: true },
+            ], pveGearId: '' },
+    });
+    const summoned = applySoloPveAction(session, { type: 'summon' }).session;
+    const first = applySoloPveAction(summoned, { type: 'wait' }).session;
+    assert.equal(first.events.some(event => event.actor === 'companion' && event.actionName === 'Final Art'), false);
+    assert.equal(first.companion?.ordinaryActions, 2);
+    const second = applySoloPveAction(first, { type: 'wait' }).session;
+    assert.ok(second.events.some(event => event.actor === 'companion' && event.actionName === 'Final Art'));
+    const injured = structuredClone(summoned);
+    injured.companion!.hp = 200;
+    injured.companion!.moves = [{ name: 'Mend', kind: 'heal', power: 900, cooldown: 3, rounds: 2, signature: false }];
+    const healed = applySoloPveAction(injured, { type: 'wait' }).session;
+    const healing = healed.events.filter(event => event.actor === 'companion' && event.actionName === 'Mend');
+    assert.equal(healing.length, 1);
+    assert.equal(healing[0].after.companion!.hp - healing[0].before.companion!.hp, 175);
+});
+
 function makeFighter(name: string, pos: number, over: Partial<PvpFighter> = {}): PvpFighter {
     return {
         name,
@@ -199,10 +225,10 @@ describe('generic AI solo-PvE encounter seal', () => {
             [21, 21],
         );
         assert.deepEqual(
-            cast.session.log.filter((line) => line.startsWith('+21% Damage Given')),
+            cast.session.log.filter((line) => line.startsWith('Increase Damage Given (stack')),
             [
-                '+21% Damage Given (stack 1/2): Alice for 2 turns.',
-                '+21% Damage Given (stack 2/2): Alice for 2 turns.',
+                'Increase Damage Given (stack 1/2): Alice deals more damage for 2 rounds, starting next round.',
+                'Increase Damage Given (stack 2/2): Alice deals more damage for 2 rounds, starting next round.',
             ],
         );
         // The cast header must name Alice for BOTH tokens. Resolving %target to
@@ -1087,6 +1113,22 @@ describe('solo-PvE engine', () => {
         assert.deepEqual(first.session.events.map((event) => event.action), second.session.events.map((event) => event.action));
     });
 
+    it('summon healing logs only the HP actually restored', () => {
+        const session = createSoloPveSession({
+            sessionId: 'summon-healing', ownerSlug: 'alice',
+            encounter: { kind: 'test', id: 'companion' }, now: NOW,
+            player: makeFighter('Alice', 62, { hp: 975 }), enemy: makeFighter('Rival', 63),
+            companion: {
+                petId: 'pet-1', name: 'Fang', hp: 300, damage: 120, happiness: 100, loyal: false,
+                moves: [], pveGearId: 'pve-guardians-blessing',
+            },
+        });
+        const result = applySoloPveAction(session, { type: 'summon' });
+        assert.equal(result.applied, true);
+        assert.equal(result.session.player.hp, 1000);
+        assert.ok(result.session.log.includes("Fang's bond restores 25 HP to Alice."));
+    });
+
     it('summons a sealed independent companion and runs its deterministic phase before the enemy', () => {
         const session = createSoloPveSession({
             sessionId: 'companion',
@@ -1118,8 +1160,9 @@ describe('solo-PvE engine', () => {
         smoked.player.statuses.push(smoke);
         smoked.enemy.statuses.push(smoke);
         const smokedTurn = applySoloPveAction(smoked, { type: 'wait' });
-        assert.ok(smokedTurn.session.log.some(line => line.includes('Fang') && line.includes('for 0.')),
+        assert.ok(smokedTurn.session.log.some(line => line.includes('Fang') && line.includes('dealing 0 damage')),
             'the pet cannot deal ordinary damage through smoke');
+        assert.equal(smokedTurn.session.enemy.hp, smoked.enemy.hp, 'the zero-damage log agrees with the enemy HP');
         const tail = advanced.session.events.slice(1).map((event) => event.actor);
         assert.equal(tail[0], 'player');
         assert.ok(tail.indexOf('companion') > tail.indexOf('player'));
@@ -1293,6 +1336,7 @@ describe('solo-PvE action service', () => {
             finalEventSeq: 1,
             winner: 'player',
             outcome: 'win',
+            reason: 'knockout',
             itemsUsed: {},
             settlementState: 'pending',
         });

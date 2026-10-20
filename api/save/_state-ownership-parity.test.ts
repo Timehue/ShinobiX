@@ -52,6 +52,7 @@ const FROZEN = {
         'editablePets', 'petEncounterVn', 'ancientChestVn', 'hollowGateEventConfig',
     ],
     COMBAT_STRIP_CHAR_FIELDS: [
+        'petShowdownAdmission',
         'brokerCertificates', 'brokerCrateLedger',
         'resourceGathering', 'gatheringToolUses',
         'pendingGatherFinds', 'redeemedGatherFinds', 'gatherIntroSeen', 'gearTierUnlocks', 'equippedNamedGear',
@@ -114,6 +115,7 @@ const FROZEN = {
         'rationsCookedDate', 'rationsCookedToday', 'storesDonatedDate', 'rationsDonatedToday', 'craftPointsDonatedToday',
     ],
     COMBAT_STRIP_TOPLEVEL_FIELDS: [
+        'banditTollReceipts',
         'currentBiome', 'activeTraining', 'activeJutsuTraining',
         'acceptedMissionIds', 'missionProgress',
         // Owner-approved continuous-world cursor, 2026-10-07.
@@ -122,6 +124,7 @@ const FROZEN = {
         'petEncounterVn', 'ancientChestVn', 'editablePets',
     ],
     STRICT_SERVER_LEDGER_CHARACTER_FIELDS: [
+        'petShowdownAdmission',
         'clanExchangeSettlements', 'clanMissionPointReceipts', 'clanWarRewardReceipts', 'mentorRewardReceipts', 'clanDonationXp',
         'settledHollowGateEventIds', 'settledHollowGateCombatIds', 'hollowGatePendingOperation',
         'level', 'xp', 'experience', 'ryo', 'bankRyo',
@@ -144,6 +147,7 @@ const FROZEN = {
         'worldAiChainWins', 'worldAiChainHeals', 'worldAiContextWins', 'worldAiPendingChain', 'worldAiPendingOutcome', 'serverHuntTrails', 'serverFieldMissionRuns', 'raidProgressionSettlements', 'serverFreeDungeonProbeReceipts',
     ],
     ALWAYS_SERVER_LEDGER_CHARACTER_FIELDS: [
+        'petShowdownAdmission',
         'clanExchangeSettlements', 'clanMissionPointReceipts', 'clanWarRewardReceipts', 'mentorRewardReceipts', 'clanDonationXp',
         'bankRyo', 'rankedRating', 'petRankedRating', 'rankedSeasonSettlementReceipts',
         'professionXp', 'professionRank', 'serverSettlementReceipts', 'pvpRewardSettlementReceipts', 'hollowGateExternalCredits', 'settledHollowGateEventIds', 'settledHollowGateCombatIds', 'hollowGatePendingOperation',
@@ -173,6 +177,7 @@ const FROZEN = {
         'dailyBattleFloors', 'dailyBattleDate', 'lastTaxDate',
     ],
     SERVER_LEDGER_TOPLEVEL_FIELDS: [
+        'banditTollReceipts',
         'currentSector', 'currentTile', 'worldPosition', 'worldTravelReceipt', 'pendingTravel',
         '_trainingReceipts', 'activeTraining',
         'activeWandererQuestSeal', 'activeStoryReckoningSeal',

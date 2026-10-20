@@ -215,7 +215,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     speaker: "Narrator",
                     dialogue: [
                         "The sky obeys, the quiet hour is everything he promised, and nothing in the tower needs re-rigging for your hand.",
-                        "By first bell, the routing clerks have replaced Raiko's seal with yours without lifting their eyes. The meter of the elders' cut finds your account within the week.",
+                        "By first bell, the routing clerks have replaced Raiko's seal with yours without lifting their eyes. The ledger now lists you among those promised a share of the elders' profits.",
                         "Somewhere below, the board chalks a fresh bout between two friends, and the odds are very good. The floor has already begun drawing out their reasons.",
                         "The cistern never went still. It only changed seats. Up the hill the Hollow Gate marks Stormveil's quarter paid, on time, by a fresh hand, exactly as it has every season since the founders stopped giving and started being taken from.",
                     ],
@@ -227,7 +227,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     dialogue: [
                         "I've chalked more than one succession onto that board. Every new hand promised kinder odds. I was fool enough to price the promise.",
                         "So I put my stool where the tower can see it. Each time the board posts two friends, I read their reasons before I chalk the purse. If you want me quiet, come down and move me yourself.",
-                        "The board has you at even, child. I erased the line. Show me a result before I quote another.",
+                        "I won't bet on your good intentions, child. Show me what you do with that seat.",
                     ],
                 },
             ],
@@ -248,7 +248,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                         "By morning the whole village knows the vault is dark. It has returned forty years of stored refusals and doubts to the people it took them from. Many suddenly remember that they once wanted to leave, object, or choose differently.",
                         "It is quiet, and it is not calm. People keep touching their own wrists like a healed break. Two soldiers resigned at first bell. One asked to re-enlist an hour later, and Sova entered him with a note: BY CHOICE, and underlined it.",
                         "The hearths burn wood now. Supplies are short, and losing the Vault's heat has put families at risk. Crews begin gathering fuel for the next storm.",
-                        "Far below the dark Vault, the lower draw goes quiet. No marked exit remains for it to collect.",
+                        "Far below the dark Vault, the lower draw goes quiet. No bound choices remain for the Gate to take.",
                     ],
                 },
                 {
@@ -531,7 +531,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     scene: "The tower, the returns run raw, the sealed vault humming behind new locks",
                     speaker: "Narrator",
                     dialogue: [
-                        "Nine parts in ten go home, raw and unrehearsed, and the market survives it the hard way, fire by fire.",
+                        "Most records go home without anyone preparing the owners for what they contain. Arguments break out across the market, and several end in fires.",
                         "The last tenth sits sealed under your covenant: audited, consented, lawful. At the first noon audit, two owners demand release and one asks for another week. The glass obeys all three.",
                         "The audits pass, season after season, and the line grows shorter. 'Trust the keeper,' people say. By the fourth audit, the last lock closes in an almost empty square, with no one near enough to hear whether an owner changed their mind.",
                         "Below the foundations, the deeper pipe opens once against the new law, finds nothing lawful left to draw, and shuts.",

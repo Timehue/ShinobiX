@@ -1,0 +1,23 @@
+warning: in the working copy of '.gitattributes', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/audits/pet-animation-shape-reviews.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/audits/pet-animation-visual-review-progress.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'shinobij.client/public/pet-models/warfront-impostors/manifest.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'shinobij.client/public/pet-models/warfront-lod/manifest.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'shinobij.client/scripts/check-pet-shape-review.mjs', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'shinobij.client/scripts/check-pet-shape-review.test.mjs', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'shinobij.client/scripts/generate-warfront-pet-lods.mjs', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'shinobij.client/scripts/lib/pet-reviewed-payload.mjs', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'shinobij.client/scripts/lib/pet-reviewed-scalp-component.mjs', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'shinobij.client/scripts/pet-independent-face-landmarks.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'shinobij.client/scripts/pet-pebble-tortoise-distinct.test.mjs', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'shinobij.client/scripts/pet-review-cameras.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'shinobij.client/scripts/pet-skull-regions.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'shinobij.client/scripts/pet-studio-assets.test.mjs', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'shinobij.client/src/generated/pet-warfront-impostor-url-manifest.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'shinobij.client/src/generated/pet-warfront-lod-manifest.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'shinobij.client/src/lib/pet-proper-animation-assets.ts', LF will be replaced by CRLF the next time Git touches it
+{
+  "reviewedModels": 1,
+  "scope": "changed-models",
+  "failures": []
+}

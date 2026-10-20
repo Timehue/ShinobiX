@@ -176,7 +176,7 @@
 .pet-arena-activity-nav button.active .pet-arena-activity-icon { border-color: rgba(102,224,223,.45); color: var(--arena-cyan); background: rgba(102,224,223,.1); }
 /* Painted mode emblems (assets/coliseum/arena-mode-*.webp) fill the chip; the
    frame and active ring above still carry selection state. */
-.pet-arena-activity-icon img { display: block; width: 100%; height: 100%; object-fit: cover; border-radius: inherit; }
+.pet-arena-activity-icon img { display: block; width: 100%; height: 100%; object-fit: contain; border-radius: inherit; }
 .pet-arena-activity-nav button:disabled .pet-arena-activity-icon img { filter: grayscale(.7) brightness(.7); }
 .pet-arena-activity-nav button > span:last-child { display: grid; min-width: 0; gap: .2rem; }
 .pet-arena-activity-nav strong { overflow: hidden; color: inherit; font-size: .74rem; letter-spacing: .04em; text-overflow: ellipsis; white-space: nowrap; }

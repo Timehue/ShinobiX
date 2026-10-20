@@ -201,7 +201,7 @@ html:has(.landing-lightbox[open]) { overflow: hidden; scrollbar-gutter: stable; 
 .landing-clan--reverse { padding-block: 0; background: var(--landing-surface-deep); overflow: hidden; }
 .landing-clan--reverse .landing-clan-inner { grid-template-columns: 1fr 1fr; gap: 70px; }
 .landing-companion-art { position: relative; height: 630px; margin-left: -10%; width: 110%; }
-.landing-companion-art img { width: 100%; height: 100%; object-fit: cover; object-position: center 28%; mask-image: linear-gradient(90deg, #000 65%, transparent); }
+.landing-companion-art img { width: 100%; height: 100%; object-fit: contain; object-position: center; mask-image: linear-gradient(90deg, #000 65%, transparent); }
 .landing-clan--reverse .landing-clan-copy { padding: 65px 0; }
 .landing-companion-traits { display: flex; flex-wrap: wrap; gap: 20px; margin: 24px 0 10px; }
 .landing-companion-traits span { display: flex; align-items: center; gap: 8px; color: #c6b695; text-transform: uppercase; font-size: 8px; letter-spacing: .1em; }
@@ -367,7 +367,7 @@ html:has(.landing-lightbox[open]) { overflow: hidden; scrollbar-gutter: stable; 
     .landing-clan-media figcaption { padding-inline: 4px; font-size: 7px; letter-spacing: 0; }
     .landing-clan--reverse .landing-clan-inner { grid-template-columns: 1fr; gap: 0; }
     .landing-companion-art { height: 440px; width: calc(100% + 40px); margin-left: -20px; }
-    .landing-companion-art img { object-position: center 23%; mask-image: linear-gradient(0deg, transparent, #000 25%); }
+    .landing-companion-art img { object-position: center; mask-image: linear-gradient(0deg, transparent, #000 25%); }
     .landing-clan--reverse .landing-clan-copy { padding: 0 0 54px; }
     .landing-companion-traits { flex-direction: row; flex-wrap: wrap; gap: 14px; }
     .landing-begin { min-height: 390px; padding: 60px 22px; }

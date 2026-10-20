@@ -363,7 +363,7 @@ test("product truth and player focus visual matrix", async ({ page }, testInfo) 
     await page.evaluate(() => localStorage.setItem("rankUp.celebrated.v1", "4"));
     await loadScreen(page, "centralHub");
     await page.locator(".central-card").filter({ hasText: "Celestial Tower" }).click();
-    await page.getByRole("button", { name: /Battle Towers Curated squad floors/ }).click();
+    await page.getByRole('dialog', { name: 'Celestial Tower', exact: true }).getByRole('button', { name: /^Battle Towers/ }).click();
     // The towers screen is a LAZY route (`lazyWithRetry` in App.tsx), so this
     // click starts a dynamic chunk fetch and the heading cannot exist until it
     // lands. The default 10s assertion timeout is a race against that fetch on

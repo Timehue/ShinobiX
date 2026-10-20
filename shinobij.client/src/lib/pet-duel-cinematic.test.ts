@@ -15,6 +15,8 @@ const mk = (o: Partial<Pet>): Pet => ({
 } as Pet);
 
 const SEEDS = [1, 7, 42, 2024, 99999];
+// These choreography contracts cover replays of the retained authored kits.
+const retainedSeal = (pet: Pet): Pet => ({ ...pet, battleLoadoutVersion: 'legacy-v1' });
 
 test("cinematic Coliseum exposes the exact Shrine apex combat packages", () => {
     assert.deepEqual(petCinematicTraitCombat("Fateweaver"), {
@@ -104,7 +106,7 @@ test("cinematic choreography uses open-field range shifts, self buffs, and no at
             j({ name: "Riptide Shift", kind: "move", power: 1, cooldown: 3 }),
         ],
     });
-    const duel = runPetDuelCinematic(ember, selkie, 20260601);
+    const duel = runPetDuelCinematic(retainedSeal(ember), retainedSeal(selkie), 20260601);
     const distances = duel.snapshots.map((snapshot) => {
         const a = snapshot.actors.find((actor) => actor.id === "player-0")!;
         const b = snapshot.actors.find((actor) => actor.id === "enemy-0")!;
@@ -232,7 +234,7 @@ test("Eclipse Kitsune alternates pressure beats instead of orbiting or following
             j({ name: "Riptide Shift", kind: "move", power: 1, cooldown: 3 }),
         ],
     });
-    const duel = runPetDuelCinematic(kitsune, selkie, 20260601);
+    const duel = runPetDuelCinematic(retainedSeal(kitsune), retainedSeal(selkie), 20260601);
     let activeTicks = 0, simultaneousTicks = 0, followRun = 0, longestFollowRun = 0;
     let orbitRun = 0, longestOrbitRun = 0;
     const moving = new Map<string, number>([["player-0", 0], ["enemy-0", 0]]);
@@ -382,12 +384,12 @@ test("elemental self-payoffs and 2v2 cross-element chains resolve as explicit re
         id: "fire-solo", element: "Fire", attack: 140,
         jutsus: [j({ name: "Ignite", kind: "burn", power: 120, cooldown: 1 }), j({ name: "Burst", kind: "push", power: 100, cooldown: 1 })],
     });
-    const solo = runPetDuelCinematic(fireSolo, mk({ id: "solo-target", element: "Earth", hp: 720 }), 13);
+    const solo = runPetDuelCinematic(retainedSeal(fireSolo), retainedSeal(mk({ id: "solo-target", element: "Earth", hp: 720 })), 13);
     assert.ok(solo.events.some((event) => event.combo === "Inferno Pressure"), "Fire should pay off its own Burn setup");
 
     const fire = mk({ id: "fire", element: "Fire", attack: 140, speed: 100, jutsus: [j({ name: "Ignite Field", kind: "burn", power: 120, cooldown: 1, aoe: true })] });
     const wind = mk({ id: "wind", element: "Wind", attack: 140, speed: 100, jutsus: [j({ name: "Gale Burst", kind: "push", power: 115, cooldown: 1, aoe: true })] });
-    const party = runPetPartyDuelCinematic(fire, wind, mk({ id: "earth", element: "Earth", hp: 700 }), mk({ id: "water", element: "Water", hp: 700 }), 17);
+    const party = runPetPartyDuelCinematic(retainedSeal(fire), retainedSeal(wind), retainedSeal(mk({ id: "earth", element: "Earth", hp: 700 })), retainedSeal(mk({ id: "water", element: "Water", hp: 700 })), 17);
     assert.ok(party.events.some((event) => event.actorId === "player-1" && event.combo === "Firestorm Chain"), "Wind should extend its ally's Fire setup");
 });
 
@@ -402,7 +404,7 @@ test("a solo Support remains a complete 1v1 fighter", () => {
     });
     const foe = mk({ id: "foe", element: "Fire", hp: 650, attack: 75, defense: 40, speed: 80 });
     for (const seed of [1, 7, 42]) {
-        const duel = runPetDuelCinematic(support, foe, seed);
+        const duel = runPetDuelCinematic(retainedSeal(support), retainedSeal(foe), seed);
         assert.equal(duel.result, "win", `solo support should remain viable at seed ${seed}`);
         assert.ok(duel.events.some((event) => event.actorId === "player-0" && ["shield", "hit", "cast"].includes(event.type)), "support must create its own combat flow");
     }
@@ -435,7 +437,8 @@ test("ranged and melee roles use distinct spacing, while melee can close and lan
         id: "melee", role: "assassin", subRole: "assassin", element: "Fire", speed: 110, attack: 125,
         jutsus: [j({ name: "Crush", kind: "crush", power: 110, cooldown: 2 }), j({ name: "Flash", kind: "move", power: 1, cooldown: 3 })],
     });
-    const duel = runPetDuelCinematic(kiter, melee, 91, 1, 1, false, true, undefined, null, true);
+    // Retained-seal spacing contract keeps its original authored role kit.
+    const duel = runPetDuelCinematic(retainedSeal(kiter), retainedSeal(melee), 91, 1, 1, false, true, undefined, null, true);
     const meanRange = (id: string) => duel.snapshots.reduce((sum, snapshot) => sum + (snapshot.actors.find((actor) => actor.id === id)?.ai?.desiredRange ?? 0), 0) / duel.snapshots.length;
     const meleeHits = duel.events.filter((event) => event.actorId === "enemy-0" && event.type === "hit");
     assert.ok(meanRange("player-0") - meanRange("enemy-0") > 3, "kiter must hold a visibly wider preferred range");
@@ -448,7 +451,8 @@ test("disadvantaged AI retreats and the advantaged pursuer recognizes burst wind
     const weak = mk({ id: "weak", hp: 650, attack: 75, speed: 75, element: "Wind", role: "sage", subRole: "support", jutsus: [j({ name: "Mend", kind: "heal", power: 100, cooldown: 4 }), j({ name: "Slow", kind: "slow", power: 90, cooldown: 2 })] });
     // accuracy=false pins the miss-free scripted exchange this AI-state check was
     // authored against (the default is now the ON constant in Node too).
-    const duel = runPetDuelCinematic(strong, weak, 55, 1, 1, false, true, false, null, true);
+    // Retained-seal scripted burst contract keeps its original authored kit.
+    const duel = runPetDuelCinematic(retainedSeal(strong), retainedSeal(weak), 55, 1, 1, false, true, false, null, true);
     assert.ok(duel.snapshots.some((snapshot) => snapshot.actors.find((actor) => actor.id === "enemy-0")?.ai?.state === "retreat"));
     assert.ok(duel.snapshots.some((snapshot) => snapshot.actors.find((actor) => actor.id === "player-0")?.ai?.state === "burst"));
 });

@@ -71,6 +71,9 @@ const SETTLES_ITSELF = new Set([
     'pet/breeding-status.ts',
     'pet/sanctuary-transfer.ts',
     'pet/showdown.ts',
+    // Sealed combat and its entry item share the canonical save transaction;
+    // the helper settles idle recovery and carries its cursor into that write.
+    'pet/_showdown-admission.ts',
     // Training retries its own exact compare-and-set with a proposal token, and
     // starting a fight on a player (a Combat raid, an open Pet/Card war battle)
     // drops the attacker's shield fire-and-forget under a fail-open lock.

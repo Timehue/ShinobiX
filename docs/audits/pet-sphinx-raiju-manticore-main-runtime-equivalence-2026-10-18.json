@@ -1,0 +1,27 @@
+{
+  "ids": [
+    "legendary-23",
+    "legendary-24",
+    "legendary-26"
+  ],
+  "mainBase": "100cd1ba1a6a96ae3fad303690cf37861882fe44",
+  "recordedAt": "2026-10-19T06:38:07.682Z",
+  "rendererSha256": "b2253b71fbcb21a83d82de35ab5783dd57b525cfc94740fb131dd1eb0049a897",
+  "allFiveProductionRendererFilesIdentical": true,
+  "pet3dModelConfigurationIdentical": true,
+  "reviewedCompanionSha256": "193c79e909badc0efab2f09ecb45882406ea66463fc5801966dd395344fcf9a9",
+  "mainCompanionSha256": "a9a7f88b421c346b1bd54defa33916b47fec4ff3eaeb4cba476f3a00fc924d83",
+  "companionDifferences": {
+    "reviewedHeight": "config.visualId === 'legendary-6' || config.visualId === 'legendary-10' || config.visualId === 'mythic-5' ? 1.8 : 2.15",
+    "mainHeight": "config.visualId === 'mythic-5' ? 1.8 : 2.15",
+    "selectedPetsAffected": false,
+    "selectedHeightInBoth": 2.15,
+    "chromaticImport": "import { CHROMATIC_PET_SURFACE } from '../lib/pet-model-surface';\n",
+    "reviewedSurface": "appearance === 'chromatic' ? CHROMATIC_PET_SURFACE : appearance === 'original' ? undefined : petModelVariantSurface(pet)",
+    "mainSurface": "appearance === 'original' ? undefined : petModelVariantSurface(pet)",
+    "reviewedAppearance": "original",
+    "selectedSurfaceInBoth": "undefined"
+  },
+  "allOtherCompanionCodeExact": true,
+  "scope": "Original appearance only"
+}

@@ -1,0 +1,62 @@
+{
+  "passed": true,
+  "results": [
+    {
+      "viewport": "desktop",
+      "boundaries": [
+        1,
+        4,
+        5,
+        9,
+        10,
+        19,
+        20,
+        29,
+        30,
+        49,
+        50,
+        74,
+        75,
+        100
+      ],
+      "lockedPreferenceSaved": true,
+      "savedPreferencesPreserved": true,
+      "earnedInactivePreferenceLabeled": true,
+      "nativeFinalArtPreserved": true,
+      "nativeWithoutSavedPreferences": true,
+      "firstSaveExplicit": true,
+      "horizontalOverflow": false,
+      "accessibilityViolations": 0,
+      "pageErrors": 0
+    },
+    {
+      "viewport": "mobile",
+      "boundaries": [
+        1,
+        4,
+        5,
+        9,
+        10,
+        19,
+        20,
+        29,
+        30,
+        49,
+        50,
+        74,
+        75,
+        100
+      ],
+      "lockedPreferenceSaved": true,
+      "savedPreferencesPreserved": true,
+      "earnedInactivePreferenceLabeled": true,
+      "nativeFinalArtPreserved": true,
+      "nativeWithoutSavedPreferences": true,
+      "firstSaveExplicit": true,
+      "horizontalOverflow": false,
+      "accessibilityViolations": 0,
+      "pageErrors": 0
+    }
+  ],
+  "screenshots": "docs/pet-progression-evidence/ui"
+}

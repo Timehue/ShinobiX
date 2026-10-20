@@ -29,7 +29,7 @@ export function departureNarrative({ character, screen, nextScreen, triggeredEve
     if (routeCharacter && (leavingVillage || openingUnawakenedCentralHub) && normalizeOnboardingStep(routeCharacter.onboardingStep) === "done") {
         // Built-in: introduce awakening before the first post-Academy trip
         // to Central Hub, or on the legacy first departure from the village.
-        if (routeCharacter.level >= 2 && !triggeredEvents.includes(AWAKENING_VN_ID)) {
+        if (routeCharacter.level >= 2 && getCharacterElements(routeCharacter).length === 0 && !triggeredEvents.includes(AWAKENING_VN_ID)) {
             return { id: AWAKENING_VN_ID, event: canonicalNarrativeEvent(awakeningLv2VnEvent, creatorEvents.find(e => e.id === AWAKENING_VN_ID)) };
         }
 

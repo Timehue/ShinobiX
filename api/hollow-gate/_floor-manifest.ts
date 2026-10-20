@@ -1,4 +1,5 @@
 import { RIFT_WEEKLY_DISTORTIONS } from '../sector/_rift-quest.js';
+import { hollowGateOrdinaryBattleCount } from '../../shared/hollow-gate-pacing.js';
 
 export type HollowGateFloorManifest = {
     floor: number;
@@ -93,7 +94,6 @@ export function validateHollowGateFloorManifest(raw: {
         if ((counts[kind] ?? 0) > limit) return { ok: false, reason: `too-many-${kind}` };
     }
     const exactCounts: Record<string, number> = {
-        battle: 4 + Math.min(5, floor),
         elite: 1 + Math.floor(floor / 2),
         chest: 3,
         shard_vein: 1 + Math.floor(floor / 2),
@@ -105,6 +105,10 @@ export function validateHollowGateFloorManifest(raw: {
         pet_event: 0,
         tile_game: 0,
     };
+    // Rolling releases and existing sealed maps keep the old bounded count.
+    if (counts.battle !== hollowGateOrdinaryBattleCount(floor) && counts.battle !== hollowGateOrdinaryBattleCount(floor, true)) {
+        return { ok: false, reason: 'invalid-battle-count' };
+    }
     for (const [kind, expected] of Object.entries(exactCounts)) {
         if ((counts[kind] ?? 0) !== expected) return { ok: false, reason: `invalid-${kind}-count` };
     }

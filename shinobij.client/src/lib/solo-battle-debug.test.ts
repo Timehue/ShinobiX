@@ -15,6 +15,13 @@ function session(events: SoloPveCombatEvent[], eventSeq = events.at(-1)?.seq ?? 
         events, eventSeq, status: 'active', outcome: null } as SoloPveSession;
 }
 
+test('legacy losses keep an unknown terminal reason instead of inventing a knockout', () => {
+    const old = { ...session([event(1)]), status: 'done' as const, outcome: 'loss' as const };
+    const record = mergeSoloBattleDebug(undefined, old, 1);
+    assert.equal(record.terminalReason, undefined);
+    assert.match(soloBattleDebugText(record), /not recorded/);
+});
+
 test('a live journal preserves opening actions after the server rolling window passes 80 events', () => {
     const opening = mergeSoloBattleDebug(undefined, session(Array.from({ length: 80 }, (_, i) => event(i + 1))), 1);
     const later = mergeSoloBattleDebug(opening, session(Array.from({ length: 80 }, (_, i) => event(i + 21))), 2);
@@ -77,8 +84,9 @@ test('an oversized source line is shortened explicitly instead of claiming a ful
 
 test('a new fight after reload retains the prior recent journals within the three-fight bound', () => {
     const previous = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+    const capturedAt = Date.now();
     const earlier = ['old-fight-a', 'old-fight-b'].map((id, index) => mergeSoloBattleDebug(undefined,
-        { ...session([event(1)]), sessionId: id }, Date.now() - 1000 - index));
+        { ...session([event(1)]), sessionId: id }, capturedAt - 1000 - index));
     let stored = JSON.stringify(earlier);
     Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: {
         getItem: () => stored, setItem: (_key: string, value: string) => { stored = value; },

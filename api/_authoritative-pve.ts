@@ -236,7 +236,8 @@ export function weeklyBossEnemyTemplate(profile: Record<string, unknown> | null 
     const offense = clampInt(stats[`${specialty.toLowerCase()}Offense`], 700, 3200, 1700);
     const defense = clampInt(stats[`${specialty.toLowerCase()}Defense`], 500, 2800, 1400);
     return {
-        name: typeof profile?.name === 'string' ? profile.name.slice(0, 80) : (fallback.name ?? 'Weekly Boss'),
+        // Keep this spawn's announced identity if its source profile is renamed.
+        name: (fallback.name?.trim() || (typeof profile?.name === 'string' ? profile.name.trim() : '') || 'Weekly Boss').slice(0, 80),
         specialty,
         level,
         // This is a score attack. The boss survives until the server round cap or player wipe.

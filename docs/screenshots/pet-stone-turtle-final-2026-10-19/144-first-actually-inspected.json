@@ -1,0 +1,417 @@
+{
+  "id": "standard-5",
+  "sourceSha256": "ebe7f3606ab0d81ad1f3ae2a7b35d2aa9cc3342e03fb892f7fed71bbe37b9916",
+  "firstPassComplete": true,
+  "secondPassComplete": false,
+  "live": false,
+  "rows": [
+    {
+      "stage": "source",
+      "part": "head",
+      "path": ".tmp/pet-independent-face-recheck/slices/stone-turtle-v2-source-head/standard-5-head-front-0.png",
+      "sha256": "555cc3df40071e03bcb20d640c17d8a428a3d74d91044813d0ab5b8cc72a3d56",
+      "actuallyInspected": true,
+      "result": "pass",
+      "notes": "Final source front locomotion head samples inspected: intact beak/chin, eyes and headband; no scarf tearing.",
+      "reviewedAt": "2026-10-19T21:07:09.869Z"
+    },
+    {
+      "stage": "source",
+      "part": "head",
+      "path": ".tmp/pet-independent-face-recheck/slices/stone-turtle-v2-source-head/standard-5-head-front-1.png",
+      "sha256": "0e2030710a12b3d7870c221d7cd52ba04961f580eb282e030a6f6aebce563133",
+      "actuallyInspected": true,
+      "result": "pass",
+      "notes": "Final source attack/recoil/defeat/entrance/cast front face inspected: jaw remains coherent with skull, scarf stays intact.",
+      "reviewedAt": "2026-10-19T21:07:39.118Z"
+    },
+    {
+      "stage": "source",
+      "part": "head",
+      "path": ".tmp/pet-independent-face-recheck/slices/stone-turtle-v2-source-head/standard-5-head-front-2.png",
+      "sha256": "4096a871a0335106c012f378a1f1d112defa090483e8c72560874d7c26eca5f1",
+      "actuallyInspected": true,
+      "result": "pass",
+      "notes": "Final source guard/rest/victory front closeups inspected: coherent face, beak/chin and headband.",
+      "reviewedAt": "2026-10-19T21:08:05.784Z"
+    },
+    {
+      "stage": "source",
+      "part": "head",
+      "path": ".tmp/pet-independent-face-recheck/slices/stone-turtle-v2-source-head/standard-5-head-other-side-0.png",
+      "sha256": "28a3c3dd0f29b05b643fa44f895734419234857a5fc161851475cca14c3ab17b",
+      "actuallyInspected": true,
+      "result": "pass",
+      "notes": "Final source opposite-side locomotion face samples inspected: intact eyes, cheek, jaw and band.",
+      "reviewedAt": "2026-10-19T21:08:32.040Z"
+    },
+    {
+      "stage": "source",
+      "part": "head",
+      "path": ".tmp/pet-independent-face-recheck/slices/stone-turtle-v2-source-head/standard-5-head-other-side-1.png",
+      "sha256": "cd5d034f7b50508e8aba6b55871d9e9bdf3baa8475431b3588075afe72a6eb84",
+      "actuallyInspected": true,
+      "result": "pass",
+      "notes": "Final source opposite-side attack/recoil/defeat/entrance/cast closeups inspected: repaired lower jaw follows head, scarf and neckline coherent.",
+      "reviewedAt": "2026-10-19T21:08:58.211Z"
+    },
+    {
+      "stage": "source",
+      "part": "head",
+      "path": ".tmp/pet-independent-face-recheck/slices/stone-turtle-v2-source-head/standard-5-head-other-side-2.png",
+      "sha256": "f68503a790180232f4d48ef5166a647bbe024636a94f3027b999045cab2edb6d",
+      "actuallyInspected": true,
+      "result": "pass",
+      "notes": "Final source opposite-side guard/rest/victory closeups inspected: stable eyes, beak/chin and headband.",
+      "reviewedAt": "2026-10-19T21:09:24.375Z"
+    },
+    {
+      "stage": "source",
+      "part": "head",
+      "path": ".tmp/pet-independent-face-recheck/slices/stone-turtle-v2-source-head/standard-5-head-side-0.png",
+      "sha256": "840bdde6bf82f71b1dc4024a413626df321ed3f129ce027768ef7c34e1aa9706",
+      "actuallyInspected": true,
+      "result": "pass",
+      "notes": "Final source side locomotion closeups inspected: cheeks, beak/chin, eyes and band retain shapes.",
+      "reviewedAt": "2026-10-19T21:09:47.820Z"
+    },
+    {
+      "stage": "source",
+      "part": "head",
+      "path": ".tmp/pet-independent-face-recheck/slices/stone-turtle-v2-source-head/standard-5-head-side-1.png",
+      "sha256": "fb05429752631195b35f42d9cdbc59dd9baeba78e99f430505e10131afb8f91c",
+      "actuallyInspected": true,
+      "result": "pass",
+      "notes": "Final source side attack/recoil/cast face inspected: jaw coherent. Front/opposite-side samples cover occluded late defeat.",
+      "reviewedAt": "2026-10-19T21:10:13.366Z"
+    },
+    {
+      "stage": "source",
+      "part": "head",
+      "path": ".tmp/pet-independent-face-recheck/slices/stone-turtle-v2-source-head/standard-5-head-side-2.png",
+      "sha256": "a39001412ba267e8696e387072384cbfde10af6d65a4b43c75e44599e0c4b8c6",
+      "actuallyInspected": true,
+      "result": "pass",
+      "notes": "Final source side guard/rest/victory closeups inspected: stable face and intact headband.",
+      "reviewedAt": "2026-10-19T21:10:44.151Z"
+    },
+    {
+      "stage": "source",
+      "part": "body",
+      "path": ".tmp/pet-independent-face-recheck/slices/stone-turtle-v2-source-body/standard-5-front-0.png",
+      "sha256": "915d357f4482620c27d01b9a7a948096505c9ce850d521708fbfae88a9a08966",
+      "actuallyInspected": true,
+      "result": "pass",
+      "notes": "Final source front locomotion full body inspected: coherent shoulders/arms, hips/legs, scarf, shell and sword.",
+      "reviewedAt": "2026-10-19T21:11:14.518Z"
+    },
+    {
+      "stage": "source",
+      "part": "body",
+      "path": ".tmp/pet-independent-face-recheck/slices/stone-turtle-v2-source-body/standard-5-front-1.png",
+      "sha256": "87226e5caefaba60e6f649595da23a8760988336db7e7e35af50ca3f1f8cfc01",
+      "actuallyInspected": true,
+      "result": "pass",
+      "notes": "Final source attack/recoil/defeat/entrance/cast front body inspected: limbs stay joined and original articulation retained; no stretched face/scarf.",
+      "reviewedAt": "2026-10-19T21:11:44.023Z"
+    },
+    {
+      "stage": "source",
+      "part": "body",
+      "path": ".tmp/pet-independent-face-recheck/slices/stone-turtle-v2-source-body/standard-5-front-2.png",
+      "sha256": "2412fcd1cf649215bc5f43c3064c83dff3737c6ae9fcb5205ed58023b64b6b1d",
+      "actuallyInspected": true,
+      "result": "pass",
+      "notes": "Final source front guard/rest/victory body inspected: coherent shell, arms, legs, feet and sword.",
+      "reviewedAt": "2026-10-19T21:12:17.455Z"
+    },
+    {
+      "stage": "source",
+      "part": "body",
+      "path": ".tmp/pet-independent-face-recheck/slices/stone-turtle-v2-source-body/standard-5-side-0.png",
+      "sha256": "7658393e5961cce978ad92a955e58b71d14c88ec0f157c8990fcc7703caa4c5a",
+      "actuallyInspected": true,
+      "result": "pass",
+      "notes": "Final source side locomotion body inspected: feet and legs move with hips; arms, shell and weapon remain coherent.",
+      "reviewedAt": "2026-10-19T21:12:50.812Z"
+    },
+    {
+      "stage": "source",
+      "part": "body",
+      "path": ".tmp/pet-independent-face-recheck/slices/stone-turtle-v2-source-body/standard-5-side-1.png",
+      "sha256": "a0405a382cfae6a87a037a3995565775a76d20b02dc539a88c1e3a893690c19f",
+      "actuallyInspected": true,
+      "result": "pass",
+      "notes": "Source side attack, recoil, defeat, entrance and cast inspected; jaw, scarf, shell and limbs remain joined.",
+      "reviewedAt": "2026-10-19T21:14:53.723Z"
+    },
+    {
+      "stage": "source",
+      "part": "body",
+      "path": ".tmp/pet-independent-face-recheck/slices/stone-turtle-v2-source-body/standard-5-side-2.png",
+      "sha256": "970a8395b4491f5362492d839379843f2fc3afba73ac227fd776bf2a58d3f73a",
+      "actuallyInspected": true,
+      "result": "pass",
+      "notes": "Source side guard, rest and victory inspected; continuous face, scarf, shell and limb attachments.",
+      "reviewedAt": "2026-10-19T21:15:12.259Z"
+    },
+    {
+      "stage": "battle",
+      "part": "head",
+      "path": ".tmp/pet-independent-face-recheck/slices/stone-turtle-v2-battle-head/standard-5-head-front-0.png",
+      "sha256": "e673220ba8c25415c1bf1580afcd8857f812ce9f49ba851337a9a3501cd6a879",
+      "actuallyInspected": true,
+      "result": "pass",
+      "notes": "Battle front idle and locomotion face inspected; beak, jaw, eyes and scarf coherent.",
+      "reviewedAt": "2026-10-19T21:15:20.171Z"
+    },
+    {
+      "stage": "battle",
+      "part": "head",
+      "path": ".tmp/pet-independent-face-recheck/slices/stone-turtle-v2-battle-head/standard-5-head-front-1.png",
+      "sha256": "e71dd055bced63aa9df1434a64fd7d546c4e7797b60ba0f0dae254459187406b",
+      "actuallyInspected": true,
+      "result": "pass",
+      "notes": "Battle frontal action and defeat head samples inspected; beak and lower jaw no longer pull into scarf.",
+      "reviewedAt": "2026-10-19T21:15:27.385Z"
+    },
+    {
+      "stage": "battle",
+      "part": "head",
+      "path": ".tmp/pet-independent-face-recheck/slices/stone-turtle-v2-battle-head/standard-5-head-front-2.png",
+      "sha256": "641c44b60b5dee9d2eefab845b0b6d693df057f831b266dec147f27791da27f7",
+      "actuallyInspected": true,
+      "result": "pass",
+      "notes": "Battle frontal guard, rest and victory head inspected; facial silhouette stable across sampled poses.",
+      "reviewedAt": "2026-10-19T21:15:33.539Z"
+    },
+    {
+      "stage": "battle",
+      "part": "head",
+      "path": ".tmp/pet-independent-face-recheck/slices/stone-turtle-v2-battle-head/standard-5-head-other-side-0.png",
+      "sha256": "eb5a0db840fea535ab3dbaf95eda754732b0ae684ddfa6eb41571ea7d1de8db1",
+      "actuallyInspected": true,
+      "result": "pass",
+      "notes": "Battle opposite-side locomotion face inspected; continuous beak/chin profile and intact headband/scarf.",
+      "reviewedAt": "2026-10-19T21:15:42.676Z"
+    },
+    {
+      "stage": "battle",
+      "part": "head",
+      "path": ".tmp/pet-independent-face-recheck/slices/stone-turtle-v2-battle-head/standard-5-head-other-side-1.png",
+      "sha256": "3c60302443bfb2f43b0151639990c75e1f4db199b45d3abf5d786c31a0395b77",
+      "actuallyInspected": true,
+      "result": "pass",
+      "notes": "Battle opposite-side attack/recoil/defeat/entrance/cast inspected; no jaw stretching into scarf.",
+      "reviewedAt": "2026-10-19T21:15:51.431Z"
+    },
+    {
+      "stage": "battle",
+      "part": "head",
+      "path": ".tmp/pet-independent-face-recheck/slices/stone-turtle-v2-battle-head/standard-5-head-other-side-2.png",
+      "sha256": "246dcdc950b2173bd8d85c2aaf013d9a2e5a62d92b0f6a024425d66da9b02d14",
+      "actuallyInspected": true,
+      "result": "pass",
+      "notes": "Battle opposite-side guard/rest/victory face inspected; no visible splitting or drift.",
+      "reviewedAt": "2026-10-19T21:16:00.951Z"
+    },
+    {
+      "stage": "battle",
+      "part": "head",
+      "path": ".tmp/pet-independent-face-recheck/slices/stone-turtle-v2-battle-head/standard-5-head-side-0.png",
+      "sha256": "65569d5c3f59a76bd28985b2d5fa40f4d2d0c69c3b9d7ba44a9b7723fd0850e3",
+      "actuallyInspected": true,
+      "result": "pass",
+      "notes": "Battle side locomotion face inspected; chin/beak/headband stay attached and scarf retains shape.",
+      "reviewedAt": "2026-10-19T21:16:11.598Z"
+    },
+    {
+      "stage": "battle",
+      "part": "head",
+      "path": ".tmp/pet-independent-face-recheck/slices/stone-turtle-v2-battle-head/standard-5-head-side-1.png",
+      "sha256": "528c8b1a83b41fc9b23df5e08e7f5bf756ed5edf7830844e076ff42c8f39a590",
+      "actuallyInspected": true,
+      "result": "pass",
+      "notes": "Battle side action face inspected; visible jaw coherent. Late defeat face occluded by shoulder in this camera, covered by front and opposite-side sheets.",
+      "reviewedAt": "2026-10-19T21:16:19.922Z"
+    },
+    {
+      "stage": "battle",
+      "part": "head",
+      "path": ".tmp/pet-independent-face-recheck/slices/stone-turtle-v2-battle-head/standard-5-head-side-2.png",
+      "sha256": "801f379e09076bf9568ef9f4fb7ce931b65ba24a16ca1707ba09839abc8560bd",
+      "actuallyInspected": true,
+      "result": "pass",
+      "notes": "Battle side guard/rest/victory face inspected; attached beak, cheeks, chin and headband.",
+      "reviewedAt": "2026-10-19T21:16:30.127Z"
+    },
+    {
+      "stage": "battle",
+      "part": "body",
+      "path": ".tmp/pet-independent-face-recheck/slices/stone-turtle-v2-battle-body/standard-5-front-0.png",
+      "sha256": "1e01e76415f479a06f6cef6ff82c8d53c25e1d58a37d50a950bc5a7fe88e45d5",
+      "actuallyInspected": true,
+      "result": "pass",
+      "notes": "Battle front idle and locomotion body inspected; hips, legs, shoulders and head articulate together without disconnection.",
+      "reviewedAt": "2026-10-19T21:16:40.645Z"
+    },
+    {
+      "stage": "battle",
+      "part": "body",
+      "path": ".tmp/pet-independent-face-recheck/slices/stone-turtle-v2-battle-body/standard-5-front-1.png",
+      "sha256": "a6955c95fc0d43ebd1c078db9ac8c9ef23137a2d824d64c3142e6b2030639826",
+      "actuallyInspected": true,
+      "result": "pass",
+      "notes": "Battle front actions/defeat inspected; intact limbs, torso, shell, beak and scarf throughout sampled poses.",
+      "reviewedAt": "2026-10-19T21:16:48.700Z"
+    },
+    {
+      "stage": "battle",
+      "part": "body",
+      "path": ".tmp/pet-independent-face-recheck/slices/stone-turtle-v2-battle-body/standard-5-front-2.png",
+      "sha256": "502370a575fc682408f66e38bdf250d3bc998a4a8c475ad7d7a8b5f8ed59f56b",
+      "actuallyInspected": true,
+      "result": "pass",
+      "notes": "Battle frontal guard/rest/victory body inspected; body and limb attachments stay coherent.",
+      "reviewedAt": "2026-10-19T21:16:57.080Z"
+    },
+    {
+      "stage": "battle",
+      "part": "body",
+      "path": ".tmp/pet-independent-face-recheck/slices/stone-turtle-v2-battle-body/standard-5-side-0.png",
+      "sha256": "47fd919c082b537999d5cf430a9fb66e0d284916d1de04f9d617e752845ddd0c",
+      "actuallyInspected": true,
+      "result": "pass",
+      "notes": "Battle side idle/walk/run/jump body inspected; leg bends and arm swing remain connected with torso and shell.",
+      "reviewedAt": "2026-10-19T21:17:05.694Z"
+    },
+    {
+      "stage": "battle",
+      "part": "body",
+      "path": ".tmp/pet-independent-face-recheck/slices/stone-turtle-v2-battle-body/standard-5-side-1.png",
+      "sha256": "94dab39b3836dcd99673ce550fc9b30c18218f149a215cb5612cfca8d68893f0",
+      "actuallyInspected": true,
+      "result": "pass",
+      "notes": "Battle side action body inspected; coherent shell/torso/limbs through crouch, recoil, fall and cast.",
+      "reviewedAt": "2026-10-19T21:17:14.458Z"
+    },
+    {
+      "stage": "battle",
+      "part": "body",
+      "path": ".tmp/pet-independent-face-recheck/slices/stone-turtle-v2-battle-body/standard-5-side-2.png",
+      "sha256": "bd915cb3b2e6663e9874956c196f45b8f343dc7dc2e9086e5fe6ba7e638eba41",
+      "actuallyInspected": true,
+      "result": "pass",
+      "notes": "Battle side guard/rest/victory body inspected; shell, limbs, scarf and head remain attached.",
+      "reviewedAt": "2026-10-19T21:17:27.575Z"
+    }
+  ],
+  "techniques": [
+    {
+      "path": ".tmp/pet-companion-techniques/stone-turtle-v2-techniques/inspection-strips/front-block-0-half-0.png",
+      "sha256": "c2ba529549bf48cce82c8ce2acd6f4a31494e5532df69cbcb42e4031e7b772c5",
+      "actuallyInspected": true,
+      "result": "pass",
+      "notes": "Front Earth strike/pulse/breaker windup and strike inspected; feet clear floor, face and limbs coherent.",
+      "reviewedAt": "2026-10-19T21:17:40.376Z"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/stone-turtle-v2-techniques/inspection-strips/front-block-0-half-1.png",
+      "sha256": "ccd12fc7c965a51776681cfd088147db3b9c2f92433914792cd1623081af5fd6",
+      "actuallyInspected": true,
+      "result": "pass",
+      "notes": "Front Earth strike/pulse/breaker recovery and idle inspected; intact limbs/face with no floor intersection.",
+      "reviewedAt": "2026-10-19T21:17:52.846Z"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/stone-turtle-v2-techniques/inspection-strips/front-block-1-half-0.png",
+      "sha256": "d16ae80910e5e958aec4b0b16fb79dab63aef9bdf17fd429e179ee0f12b78baf",
+      "actuallyInspected": true,
+      "result": "pass",
+      "notes": "Front Lightning pulse/expose/rally windup and strike inspected; face coherent and feet above surface.",
+      "reviewedAt": "2026-10-19T21:18:06.424Z"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/stone-turtle-v2-techniques/inspection-strips/front-block-1-half-1.png",
+      "sha256": "a286471dad8661186aac387630a285d1d7ff9bec4811be0d9ab3c33e9eaaffbd",
+      "actuallyInspected": true,
+      "result": "pass",
+      "notes": "Front Lightning pulse/expose/rally recovery and idle inspected; no limb split, face distortion or ground clipping.",
+      "reviewedAt": "2026-10-19T21:18:27.673Z"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/stone-turtle-v2-techniques/inspection-strips/front-block-2-half-0.png",
+      "sha256": "08892a7451930923ffb0e937fd39883054087d22e505821eedfc1b2cbddf589f",
+      "actuallyInspected": true,
+      "result": "pass",
+      "notes": "Front protect/purify/signature windup and strike inspected; coherent model with clear feet and stable jaw.",
+      "reviewedAt": "2026-10-19T21:18:53.216Z"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/stone-turtle-v2-techniques/inspection-strips/front-block-2-half-1.png",
+      "sha256": "5f2bba5474f2ac9463b4fc342b2873cfed96993135c267fc1a8ff2128e9018bf",
+      "actuallyInspected": true,
+      "result": "pass",
+      "notes": "Front protect/purify/signature recovery and idle inspected; feet clear ground and face/body continuous.",
+      "reviewedAt": "2026-10-19T21:19:18.483Z"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/stone-turtle-v2-techniques/inspection-strips/side-block-0-half-0.png",
+      "sha256": "537a49d852e003372994c4dae8f37dc76683e15e81ad8cec95c4ddfc7d821637",
+      "actuallyInspected": true,
+      "result": "pass",
+      "notes": "Side Earth strike/pulse/breaker early phases inspected; repaired windup feet no longer sink, shell and limbs move together.",
+      "reviewedAt": "2026-10-19T21:19:28.566Z"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/stone-turtle-v2-techniques/inspection-strips/side-block-0-half-1.png",
+      "sha256": "0de3f70176d192671156e9a0c90f5e29612c3323034efe76f9155c4cc4cb0fc9",
+      "actuallyInspected": true,
+      "result": "pass",
+      "notes": "Side Earth strike/pulse/breaker recovery/idle inspected; feet clear floor and face/shell/limbs remain coherent.",
+      "reviewedAt": "2026-10-19T21:19:44.200Z"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/stone-turtle-v2-techniques/inspection-strips/side-block-1-half-0.png",
+      "sha256": "dda9e008ee3a05d103aa3700184353ede227e3ff3a63c8b71c68ed34427026aa",
+      "actuallyInspected": true,
+      "result": "pass",
+      "notes": "Side Lightning pulse/expose/rally early phases inspected; no face shear, disconnected limbs or floor penetration.",
+      "reviewedAt": "2026-10-19T21:19:59.027Z"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/stone-turtle-v2-techniques/inspection-strips/side-block-1-half-1.png",
+      "sha256": "3c9137eba002a51559bb9a1b4c9cef9785fb07cd2ec18cb14efdec3ec349f69e",
+      "actuallyInspected": true,
+      "result": "pass",
+      "notes": "Side Lightning pulse/expose/rally recovery and idle inspected; stable face, attached limbs and clear feet.",
+      "reviewedAt": "2026-10-19T21:20:14.917Z"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/stone-turtle-v2-techniques/inspection-strips/side-block-2-half-0.png",
+      "sha256": "7d252258fa754dab0cc97be1a66e5c633c770728a438cbae1133f2d09653f73b",
+      "actuallyInspected": true,
+      "result": "pass",
+      "notes": "Side protect/purify/signature early phases inspected; stable jaw, connected limbs/shell and clear feet.",
+      "reviewedAt": "2026-10-19T21:20:32.578Z"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/stone-turtle-v2-techniques/inspection-strips/side-block-2-half-1.png",
+      "sha256": "14d06842ff5232c3c7131915fcc2b54b0d4dcfdbc148dbca2d4839265dc54cc9",
+      "actuallyInspected": true,
+      "result": "pass",
+      "notes": "Side protect/purify/signature recovery and idle inspected; stable face/body, no floor clipping.",
+      "reviewedAt": "2026-10-19T21:20:46.766Z"
+    }
+  ],
+  "minimumContactClearance": 0.0011642543307026458,
+  "atlas": {
+    "path": "public/pet-models/warfront-impostors/roster/standard-5.webp",
+    "actuallyInspected": true,
+    "result": "pass",
+    "notes": "All sixteen atlas cells actually inspected: coherent stone head, shell, limbs and scarf; no overflow or stretched appendages.",
+    "reviewedAt": "2026-10-19T21:21:37.015Z",
+    "sha256": "01518c72b9d921e7946f8665e3e46bf8fb613f7e99176f320f8b90909e7e3ce5"
+  },
+  "atlasCellsActuallyInspected": 16
+}

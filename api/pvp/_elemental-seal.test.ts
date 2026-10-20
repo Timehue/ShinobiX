@@ -86,7 +86,7 @@ describe('Elemental Seal — application', () => {
 
     it('logs the seal so the battle log shows why casts start failing', () => {
         const r = applyJutsu(fighter('A'), fighter('B'), sealJutsu(), 1, 'central', 3);
-        assert.ok(r.lines.some((line) => /Elemental Seal: B's elemental jutsu are sealed\./.test(line)));
+        assert.ok(r.lines.some((line) => /Elemental Seal: B cannot use Fire, Water, Wind, Earth, or Lightning jutsu next round\./.test(line)));
     });
 });
 

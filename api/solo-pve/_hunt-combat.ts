@@ -13,7 +13,10 @@ import { HUNT_AI_POLICY, HUNT_REACTIVE_POLICY } from '../towers/_hunt-ai.js';
 import { pveEasyBandHoldsBurst, pveDifficultyBand } from '../_pve-difficulty.js';
 
 export type HuntCombatState = {
-    formation: HuntFormation;
+    purpose?: 'story-twins' | 'narrative-group';
+    groupId?: string;
+    requiredEnemyIds?: string[];
+    formation: Omit<HuntFormation, 'count'> & { count: number };
     battle: TowerSession;
     usedJutsuIds?: string[];
 };
@@ -104,7 +107,7 @@ function projectedFighter(actor: TowerActor, previous: PvpFighter): PvpFighter {
     return { ...previous, hp, maxHp, chakra, maxChakra, stamina, maxStamina, shield, statuses, pos, character };
 }
 
-function projectHuntCombat(session: SoloPveSession): void {
+export function projectHuntCombat(session: SoloPveSession): void {
     const battle = session.huntCombat!.battle;
     const player = battle.actors.find(actor => actor.id === 'player')!;
     const enemies = [...battle.actors, ...(battle.pendingEnemyWaves ?? []).flatMap(wave => wave.actors)].filter(actor => actor.side === 'enemy');
@@ -137,13 +140,14 @@ export function applyHuntCombatAction(source: SoloPveSession, command: SoloPveAc
     if (intent.type === 'abandon' || intent.type === 'flee') {
         if (intent.type === 'flee' && (activeActor(battle)?.id !== player.id || battle.activeAp < 100)) return { applied: false, reason: 'cannot-act', session: source };
         const cost = Math.max(1, Math.floor(player.maxHp * .1));
+        const lostHp = Math.min(player.hp, cost);
         player.hp = Math.max(0, player.hp - cost);
         if (intent.type === 'abandon' || opts.escapeSucceeds?.() === true || player.hp === 0) {
             battle.status = 'done'; battle.winner = 'enemy'; battle.objectiveState.failed = true;
             session.outcome = intent.type === 'flee' && player.hp > 0 ? 'fled' : 'loss';
-            battle.log.push(`${player.name} leaves the hunt, losing ${cost} HP.`);
+            battle.log.push(`${player.name} leaves the ${session.huntCombat?.purpose === 'story-twins' ? 'trial' : session.huntCombat?.purpose === 'narrative-group' ? 'encounter' : 'hunt'}, losing ${lostHp} HP.`);
         } else {
-            battle.log.push(`${player.name} fails to escape and loses ${cost} HP.`);
+            battle.log.push(`${player.name} fails to escape and loses ${lostHp} HP.`);
             endTurn(battle, floor);
             runAiUntilHuman(battle, floor, rng);
         }

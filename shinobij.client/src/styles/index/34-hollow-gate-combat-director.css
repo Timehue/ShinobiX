@@ -1,6 +1,22 @@
 /* Hollow Gate encounter director: readable mechanics, spectral Hound motion,
    and phase-aware arena treatment inside the normal mission/explore combat UI. */
 
+/* Arena rules must remain readable without scrolling the terrain strip. */
+#combat .combat-grid-environment-details.hg-arena-rules {
+    flex-wrap: wrap;
+    white-space: normal;
+    overflow-x: visible;
+}
+#combat .hg-arena-rules > .hg-round-limit,
+#combat .hg-arena-rules > .hg-combat-directive {
+    flex: 1 1 100%;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+    white-space: normal;
+    line-height: 1.3;
+}
+
 .hg-combat-directive {
     display: inline-grid;
     grid-template-columns: auto minmax(12rem, 1fr);
@@ -162,7 +178,7 @@
     }
 
     .hg-combat-directive strong { grid-row: auto; }
-    .hg-combat-directive small { display: none; }
+    .hg-combat-directive small { display: block; overflow-wrap: anywhere; }
     .hg-combat-directive > span { white-space: normal; }
 }
 

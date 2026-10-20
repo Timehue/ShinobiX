@@ -1,4 +1,6 @@
 import { SHOWDOWN_DAILY_WIN_CAP } from '../../shared/pet-showdown-contract.js';
+import { grantShowdownParticipationXp } from './_showdown-xp.js';
+import { admitShowdown, arenaAdmissionId, clearArenaAdmission, showdownAdmissionKey } from './_showdown-admission.js';
 import { randomInt, randomUUID } from 'node:crypto';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
@@ -195,7 +197,7 @@ function viewOf(session: ShowdownSession): Record<string, unknown> {
     };
 }
 
-function parseCommands(raw: unknown, maxCount: number): ShowdownCommand[] {
+export function parseCommands(raw: unknown, maxCount: number): ShowdownCommand[] {
     if (!Array.isArray(raw)) return [];
     const out: ShowdownCommand[] = [];
     for (const entry of raw.slice(0, maxCount)) {
@@ -204,16 +206,17 @@ function parseCommands(raw: unknown, maxCount: number): ShowdownCommand[] {
         const petId = String(c.petId ?? '').slice(0, 96);
         if (!petId) continue;
         const kind = String(c.kind ?? '');
+        const abilityId = typeof c.abilityId === 'string' ? c.abilityId.slice(0, 160) : undefined;
         if (kind === 'guard' || kind === 'rest') {
             out.push({ kind, petId });
         } else if (kind === 'switch') {
             const benchPetId = String(c.benchPetId ?? '').slice(0, 96);
             if (benchPetId) out.push({ kind, petId, benchPetId });
         } else if (kind === 'super') {
-            out.push({ kind, petId, targetId: String(c.targetId ?? '').slice(0, 96) });
+            out.push({ kind, petId, targetId: String(c.targetId ?? '').slice(0, 96), ...(abilityId !== undefined ? { abilityId } : {}) });
         } else if (kind === 'move') {
             const moveIndex = Math.max(0, Math.min(7, Math.floor(Number(c.moveIndex) || 0)));
-            out.push({ kind, petId, moveIndex, targetId: String(c.targetId ?? '').slice(0, 96) });
+            out.push({ kind, petId, moveIndex, targetId: String(c.targetId ?? '').slice(0, 96), ...(abilityId !== undefined ? { abilityId } : {}) });
         }
     }
     return out;
@@ -382,7 +385,9 @@ export async function settleShowdownWin(playerName: string, session: ShowdownSes
             receipt,
             witnessedPlayerPets as unknown as Pet[],
         );
-        const updatedChar = witness.character;
+        const petProgression = grantShowdownParticipationXp(witness.character, session);
+        const updatedChar = arenaAdmissionId(petProgression.character) === session.sessionId
+            ? { ...petProgression.character, petShowdownAdmission: undefined } : petProgression.character;
         const updated = bumpSaveVersion({ ...record, character: updatedChar }, {
             previousCharacter: char,
             regenAt: carriedRegenCursor(recovery.character, updatedChar, recovery.regen),
@@ -395,6 +400,9 @@ export async function settleShowdownWin(playerName: string, session: ShowdownSes
             .catch(() => undefined);
         return {
             reward,
+            petXpTotal: petProgression.total,
+            petXp: petProgression.awards,
+            ...(petProgression.total > 0 ? { petXpMessage: `${petProgression.total} pet XP shared among ${petProgression.awards.length} participating companions.` } : {}),
             progressionEligible: true,
             circuitEligible: true,
             totalPetWins: updatedChar.totalPetWins,
@@ -742,6 +750,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const mySave = await kv.get<Record<string, unknown>>(`save:${playerName}`);
             const myChar = mySave?.character as Record<string, unknown> | undefined;
             if (!myChar) return res.status(404).json({ error: 'No save found.' });
+            const pendingId = arenaAdmissionId(myChar);
+            if (pendingId) {
+                const pending = await kv.get<ShowdownSession>(showdownAdmissionKey(playerName, pendingId));
+                if (pending?.playerName === playerName && pending.rewardEligible && !pending.finished) {
+                    return res.status(200).json({ ok: true, resumed: true, state: viewOf(pending), character: myChar, _saveVersion: Number(mySave?._saveVersion ?? 0) });
+                }
+            }
             const myPets = activeCarriedPets<Record<string, unknown>>(myChar);
             const chosen = petIds
                 .map((id) => myPets.find((pet) => String(pet?.id ?? '') === id))
@@ -806,8 +821,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // The ARENA picks the opposition, scaled to the team you brought —
             // never a tier from the body, which would let a player dial the
             // faucet's difficulty down and farm it.
-            const avgLevel = Math.round(chosen.reduce((sum, p) => sum + (Number(p.level) || 1), 0) / Math.max(1, chosen.length));
-            const tier: ShowdownTier = avgLevel >= 60 ? 'champion' : avgLevel >= 30 ? 'warrior' : 'scrapper';
+            const strongestLevel = Math.max(1, ...chosen.map(p => Math.min(100, Number(p.level) || 1)));
+            const tier: ShowdownTier = strongestLevel >= 60 ? 'champion' : strongestLevel >= 30 ? 'warrior' : 'scrapper';
             const seed = randomInt(1, 0x7fffffff);
             // A Hollow Gate encounter fields the run's own Hound; everything
             // else gets the arena's scaled AI team.
@@ -818,27 +833,44 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const teamName = built.teamName;
             if (!enemyPets.length) return res.status(500).json({ error: 'Could not assemble an opponent team.' });
 
-            const sessionId = randomUUID().replace(/-/g, '');
-            const session = createShowdownSession({
-                sessionId, playerName, format, tier, seed,
-                playerPets: chosen, enemyPets, enemyTeamName: teamName,
-                // SEALED at kickoff, never read from the body afterwards. An
-                // arena bout pays (magnitude rides on sealedOpponentLevel, which
-                // createShowdownSession derives from the team the server just
-                // built); a Hollow Gate bout does NOT — its rewards come from
-                // the run's own settlement, and paying twice would be a faucet.
-                rewardEligible: !hollowGate,
+            const opened = await admitShowdown(playerName, async character => {
+                const existingId = arenaAdmissionId(character);
+                const existing = existingId ? await kv.get<ShowdownSession>(showdownAdmissionKey(playerName, existingId)) : null;
+                if (existing?.playerName === playerName && existing.rewardEligible && !existing.finished) {
+                    return { ok: true as const, session: existing, character, write: false };
+                }
+                const currentRoster = activeCarriedPets<Pet>(character);
+                const currentChosen = petIds.map(id => currentRoster.find(pet => pet.id === id)).filter(Boolean) as Pet[];
+                if (currentChosen.length !== petIds.length) return { ok: false as const, status: 409, error: 'A selected companion is no longer carried.' };
+                const busy = showdownBusyIssue(character, currentChosen);
+                if (busy) return { ok: false as const, status: 409, error: busy };
+                const daily = String(character.lastDailyReset ?? '') === utcDateKey() ? Number(character.dailyPetWins ?? 0) : 0;
+                if (daily >= DAILY_ARENA_WIN_CAP) return { ok: false as const, status: 409, error: 'You have hit the daily arena win limit. Come back tomorrow.' };
+                const currentLevel = Math.max(1, ...currentChosen.map(pet => Math.min(100, Number(pet.level) || 1)));
+                const currentTier: ShowdownTier = currentLevel >= 60 ? 'champion' : currentLevel >= 30 ? 'warrior' : 'scrapper';
+                const currentEnemy = hollowHound ? { pets: [hollowHound], teamName: hollowHound.name }
+                    : buildColosseumAiTeam(currentChosen, currentChosen.length, currentTier, seed);
+                const sessionId = randomUUID().replace(/-/g, '');
+                const session = createShowdownSession({
+                    sessionId, playerName, format, tier: currentTier, seed,
+                    playerPets: currentChosen, enemyPets: currentEnemy.pets, enemyTeamName: currentEnemy.teamName,
+                    // Parent-bound battles settle their own purse; paid arena eligibility is server-sealed.
+                    rewardEligible: !hollowGate,
+                });
+                if (hollowGate) session.bindingKind = 'hollow-gate';
+                armTurnDeadline(session);
+                return { ok: true as const, session, character: { ...character, petShowdownAdmission: { sessionId, at: Date.now() } } };
             });
-            if (hollowGate) session.bindingKind = 'hollow-gate';
-            armTurnDeadline(session);
-            await kv.set(sessionKey(playerName, sessionId), session, { ex: SESSION_TTL_SECONDS });
+            if (!opened.ok) return res.status(opened.status).json({ error: opened.error });
+            const session = opened.session;
+            const sessionId = session.sessionId;
             await publishShowdownPresence(kv, playerName, sessionId); // F01: a live showdown is provable presence
             if (hollowGate) {
                 // Server-only bookkeeping, stored beside the session and never
                 // surfaced to the client.
                 await kv.set(showdownHollowGateKey(playerName, sessionId), hollowGate, { ex: SESSION_TTL_SECONDS });
             }
-            return res.status(200).json({ ok: true, state: viewOf(session), dailyCap: DAILY_ARENA_WIN_CAP });
+            return res.status(200).json({ ok: true, state: viewOf(session), dailyCap: DAILY_ARENA_WIN_CAP, character: opened.character, _saveVersion: opened._saveVersion });
         }
 
         if (action === 'encounter') {
@@ -1032,8 +1064,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     firstPact: { encounterId: firstPactBinding.encounterId, ...settled },
                 });
             }
+            // A lost finishing response can leave a won bout awaiting payout.
+            // A concession must not delete that result before it is recovered.
+            if (concededSession.outcome === 'win') return res.status(409).json({ error: 'Your pets have already won. Recover the battle result before leaving.' });
             // Unbound bout: nothing is waiting on it, so the session goes away
             // as before rather than lingering for a full lease.
+            if (concededSession.rewardEligible) await clearArenaAdmission(playerName, concededSession.sessionId);
             await kv.del(key).catch(() => undefined);
             return res.status(200).json({ ok: true, conceded: true });
         }
@@ -1146,6 +1182,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     }
                 }
             }
+            if (session.rewardEligible) await clearArenaAdmission(playerName, session.sessionId);
             if (!replayed) await kv.set(key, session, { ex: SESSION_TTL_SECONDS }).catch(() => undefined);
             /*
              * HOLLOW GATE HANDSHAKE. A bound bout mints the receipt the run's

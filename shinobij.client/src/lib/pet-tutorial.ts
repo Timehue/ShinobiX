@@ -57,18 +57,18 @@ export const PET_TUTORIAL_LESSONS: readonly PetTutorialLesson[] = [
         eyebrow: "Companion foundations",
         title: "Know the beast beside you",
         shortTitle: "Your companion",
-        summary: "Read roles, elements, availability, and the difference between caring for a pet and fielding one.",
+        summary: "Learn your pet's role and element, and check whether it is available to fight.",
         practiceLabel: "Open the Pet Yard",
         destination: { kind: "screen", screen: "pets" },
         pages: [
             {
                 kicker: "Lesson 1 · The bond",
                 title: "A pet is a fighter, not equipment",
-                body: "{pet} keeps a level, element, role, techniques, gear, and assignments of its own. Start by reading the whole card. Raw power matters, but a pet that answers the matchup and knows its job will beat a larger number surprisingly often.",
+                body: "{pet} has its own level, element, role, techniques, and gear. Open its card in the Pet Yard to review them. A pet with lower power can still win by using an element or technique that counters its opponent.",
                 points: [
-                    "Level and stats describe how hard the pet can trade.",
-                    "Element decides favorable and unfavorable matchups.",
-                    "Role describes battlefield behavior: defender, assassin, tracker, or sage.",
+                    "Level and stats affect damage, defense, health, and speed.",
+                    "A move's element can increase or reduce its damage against the target's element.",
+                    "Each pet has a role: defender, assassin, tracker, or sage. In automatic battles, that role controls how it fights.",
                 ],
                 callout: "Tomoe: ‘If you only read the power number, Kuro has already read more of the fight than you.’",
             },
@@ -85,7 +85,7 @@ export const PET_TUTORIAL_LESSONS: readonly PetTutorialLesson[] = [
             },
             {
                 kicker: "Lesson 1 · Readiness",
-                title: "Available means available",
+                title: "Check whether your pet can fight",
                 body: "Training can continue during pet battles. Breeding and active expeditions keep a companion away, while Sanctuary pets need a carried slot before they can join. Check readiness and collect completed expeditions before building your team.",
                 points: [
                     "Your Active companion helps in shinobi fights once its PvE use is unlocked and is preselected by some battle entries.",
@@ -96,7 +96,7 @@ export const PET_TUTORIAL_LESSONS: readonly PetTutorialLesson[] = [
             {
                 kicker: "Lesson 1 · Matchups",
                 title: "Learn the five-part wheel",
-                body: "The elemental chain is Fire → Wind → Lightning → Earth → Water → Fire. In Showdown, attacking the element you beat deals more damage; attacking the element that beats you deals less. Neutral moves are the safe answer when the wheel turns against you.",
+                body: "Fire beats Wind. Wind beats Lightning. Lightning beats Earth. Earth beats Water. Water beats Fire. In Showdown, a move deals more damage against an element it beats and less against the element that beats it. Neutral moves avoid these damage changes.",
                 points: [
                     "Do not confuse your pet's element with every move's element.",
                     "A balanced roster gives you an answer when one lead matchup is bad.",
@@ -130,22 +130,22 @@ export const PET_TUTORIAL_LESSONS: readonly PetTutorialLesson[] = [
             },
             {
                 kicker: "Lesson 2 · Technique economy",
-                title: "Stamina is timing",
-                body: "A kit is a ladder: a cheap jab, middle techniques, and a heavy finisher. Stamina returns slowly. You may overdraft and cast without enough stamina, but the missing cost comes out of health and the pet loses its next action.",
+                title: "Check stamina before choosing a technique",
+                body: "Each technique has a stamina cost. Stamina recovers slowly. You can use a technique without enough stamina; this is called an overdraft. The missing stamina is paid from health, and your pet loses its next action.",
                 points: [
-                    "Cheap moves keep pressure without emptying the tank.",
-                    "Heavy techniques pay for immediate impact, not efficiency.",
-                    "Hold counters delay the strongest techniques; plan the round they come online.",
+                    "Use low-cost moves to attack while saving stamina.",
+                    "High-cost techniques can have a stronger immediate effect, but leave less stamina for later rounds.",
+                    "A technique with a hold counter becomes available when that counter reaches zero.",
                 ],
             },
             {
                 kicker: "Lesson 2 · Survival",
-                title: "Guard, conditions, and tempo",
-                body: "Guard resolves early. Conditions can change a winning race, but a pet holds only two at a time; a third pushes off the oldest. Fire thaws freeze, frost smothers burn, and shields sit outside the condition limit.",
+                title: "Guard and status conditions",
+                body: "Guard acts early in the round. A pet can have two status conditions at a time; a third replaces the oldest. Fire removes Freeze, and frost removes Burn. Shields do not count toward the two-condition limit.",
                 points: [
                     "Turn order uses speed multiplied by move priority. Speed alone does not decide who acts first.",
                     "The first signature also charges each round on the field. After using it, build the meter again by dealing and taking damage.",
-                    "A defensive turn is good when it ruins the opponent's expensive turn.",
+                    "Use Guard when you expect a strong enemy attack.",
                 ],
             },
             {
@@ -153,7 +153,7 @@ export const PET_TUTORIAL_LESSONS: readonly PetTutorialLesson[] = [
                 title: "Know how the judges decide",
                 body: "Attrition begins late so endless healing cannot stall forever. After 25 rounds, the judges compare pets remaining, total health, total stamina, then the speed arrow. If you are ahead, keep your companions alive. If you are behind, look for a knockout before the last round.",
                 points: [
-                    "A surviving reserve is worth more than pretty damage numbers.",
+                    "The judges compare surviving pets before remaining health or stamina. Keep your reserves alive.",
                     "Do not overdraft blindly near the judge limit.",
                     "Training Grounds is unlimited. Repeat the matchup until you can explain why you won or lost.",
                 ],
@@ -188,19 +188,19 @@ export const PET_TUTORIAL_LESSONS: readonly PetTutorialLesson[] = [
                 body: "Check the selected format, field only available pets, and review the elemental spread. In larger formats the bench is part of the plan: it can cover a bad lead, keep a healthy companion for a close judges' decision, or carry a synergy your opening line needs.",
                 points: [
                     "Pick a legal full team before asking the arena to match you.",
-                    "Use neutral pressure when a lead is trapped by the element wheel.",
-                    "Save a signature for a target that matters; spectacle is not the same as value.",
+                    "Use a neutral move or switch pets when the starting matchup puts you at an elemental disadvantage.",
+                    "Use your signature technique when its effect will help you win the fight.",
                 ],
                 callout: "Tomoe: ‘Home sand does not make Kuro invincible. Preparation just makes him look that way.’",
             },
             {
                 kicker: "Lesson 3 · Review",
                 title: "Learn from the last bout",
-                body: "After the result, separate decisions from luck. Ask whether your target, stamina curve, switch timing, and defensive turns were sound. One unlucky condition is noise; repeatedly entering the same bad element is a habit.",
+                body: "After a fight, review your targets, stamina use, switches, and Guard turns. If you keep losing to the same element, change your starting pet or techniques before trying again.",
                 points: [
                     "Review the feed before rematching.",
                     "Change one part of the plan at a time so you know what helped.",
-                    "The strongest habit is recognizing when practice is cheaper than pride.",
+                    "Use free Training Grounds matches to test changes before returning to the Colosseum.",
                 ],
             },
         ],
@@ -232,7 +232,7 @@ export const PET_TUTORIAL_LESSONS: readonly PetTutorialLesson[] = [
                 title: "Switch when the better matchup is worth a turn",
                 body: "A switch replaces one active companion and uses its action for the round. Switch before that pet is too damaged to contribute later, or when a reserve can take the incoming hit in a better elemental matchup. The other active pet can keep up the pressure.",
                 points: [
-                    "Preserve useful pets; do not preserve one that has no favorable work left.",
+                    "Switch out a wounded pet if it can help against a different opponent later.",
                     "Track hold counters and signature meters across both sides.",
                     "A forced switch can be stronger than raw damage because it breaks the opponent's plan.",
                 ],
@@ -243,8 +243,8 @@ export const PET_TUTORIAL_LESSONS: readonly PetTutorialLesson[] = [
                 body: "A defender can buy time for an assassin's heavy attack. A tracker can weaken a target for its partner to finish. You can also pair elements so each pet covers the other's weakness. Choose what you want the pair to do, then practice that plan.",
                 points: [
                     "Practice the same pair against several elemental spreads.",
-                    "Change order as well as membership.",
-                    "Keep one dependable neutral action somewhere in the pair.",
+                    "Try changing the starting pair as well as which pets you bring.",
+                    "Give at least one pet a neutral technique to use against difficult elemental matchups.",
                 ],
             },
         ],
@@ -307,11 +307,11 @@ export const PET_TUTORIAL_LESSONS: readonly PetTutorialLesson[] = [
         pages: [
             {
                 kicker: "Lesson 6 · Objective",
-                title: "Everything you watch is the scoreboard",
+                title: "Win two clashes to win the match",
                 body: "Warfront fields all four of your pets against all four of theirs. Wipe out the opposing team to win a clash. If both sides survive, companions standing decide the result, followed by remaining health. Win two clashes to take the Rite.",
                 points: [
                     "Pets auto-fight by role: defenders hold, sages sustain, trackers pressure, assassins hunt.",
-                    "Your work happens before the clash, not during it.",
+                    "Choose your formation before combat. Your pets fight automatically during each clash.",
                     "Watch who makes first contact and which pet falls first. Those are useful clues for the next formation.",
                 ],
                 callout: "Tomoe: ‘Watch where Kuro takes his first hit. A different starting cell might spare him the second.’",
@@ -319,7 +319,7 @@ export const PET_TUTORIAL_LESSONS: readonly PetTutorialLesson[] = [
             {
                 kicker: "Lesson 6 · Formation",
                 title: "The front line is the decision",
-                body: "Place each pet in one of ten starting cells: two ranks by five files. Front cells engage sooner; back cells give ranged pets and support more time. Two enemy positions are scouted before a casual match, while the rest stay sealed. Your spacing changes who can reach, protect, or strike several pets at once.",
+                body: "Place each pet in one of ten starting cells arranged in two rows of five. Front cells engage sooner; back cells give ranged pets and support more time. Two enemy positions are scouted before a casual match, while the rest stay sealed. Your spacing changes who can reach, protect, or strike several pets at once.",
                 points: [
                     "Put durable defenders between opponents and fragile support.",
                     "Spread out against splash attacks; keep allies close enough to support each other.",
@@ -332,18 +332,18 @@ export const PET_TUTORIAL_LESSONS: readonly PetTutorialLesson[] = [
                 body: "Every pet strengthens the whole band. Defenders and sages add health; trackers and assassins add attack. A pet contributes 50% more when it shares a bandmate's element. Choose roles for the bonuses you need, then check how the elements affect them.",
                 points: [
                     "Any mix of elements is allowed. A wider spread helps cover bad matchups.",
-                    "Shared elements strengthen bonds, but a narrow band is more exposed to its counter. Decide whether that trade suits your team.",
-                    "Build for what your band gives each other, not just for four strong pets.",
+                    "Shared elements increase the team bonus, but several pets may then share the same elemental weakness.",
+                    "Check the team bonuses when choosing your four pets.",
                 ],
             },
             {
                 kicker: "Lesson 6 · The re-form",
                 title: "Adjust after you have seen them fight",
-                body: "In casual Warfront, each unfinished clash pauses to show what every pet has left. Reposition your team or hold the line before the next clash. Your band regroups between clashes, and the side that lost regroups harder. Ranked Warfront instead uses the formation you saved for every clash, so your defense can fight while you are offline.",
+                body: "Between clashes in casual Warfront, review your pets' remaining health and change their starting positions if needed. Both teams recover between clashes, with more recovery for the losing side. Ranked Warfront uses your saved formation for every clash, including while you are offline.",
                 points: [
                     "Pull a badly wounded pet off the front before it is finished.",
                     "A pet that fell returns wounded for the next clash. You can still turn the match around.",
-                    "Holding the line is a real answer when your read was already right.",
+                    "Keep the same positions if your formation is working well.",
                     "Enter Ranked Beastbound Warfront from Arena District, save four pets and their cells, then challenge a nearby rank. Update your saved defense after training or changing the team.",
                 ],
             },
@@ -364,11 +364,11 @@ export const PET_TUTORIAL_LESSONS: readonly PetTutorialLesson[] = [
             {
                 kicker: "Lesson 7 · Run economy",
                 title: "The battle starts in the bazaar",
-                body: "Gauntlet is an endurance run, not a single roster check. Recruit from the Beastmaster's Bazaar, improve the squad over time, and avoid spending so aggressively on one round that the next counter has no answer.",
+                body: "A Gauntlet run lasts for multiple rounds. Recruit pets from the Beastmaster's Bazaar and improve your squad between fights. Save some currency so you can respond to stronger opponents later.",
                 points: [
-                    "Draft for a working field first; chase perfect rarity later.",
+                    "Recruit enough pets for a usable team before spending on rarer pets.",
                     "Repeated pets can be merged into stronger versions.",
-                    "Run-wide relics and boosts compound, so read every pickup before buying around it.",
+                    "Relics and boosts can affect the rest of your run. Read their effects before buying them.",
                 ],
             },
             {
@@ -383,11 +383,11 @@ export const PET_TUTORIAL_LESSONS: readonly PetTutorialLesson[] = [
             },
             {
                 kicker: "Lesson 7 · Synergy",
-                title: "Shared traits turn a roster into a composition",
-                body: "Pets that share an element or role activate synergies. A synergy is worthwhile when it strengthens what the board is already built to do; forcing one by benching the only answer to the next enemy can make the badge prettier and the team worse.",
+                title: "Shared elements and roles unlock team bonuses",
+                body: "Pets that share an element or role activate team bonuses called synergies. Check each bonus before changing your team. Keep a pet that counters the next enemy even if replacing it would unlock another synergy.",
                 points: [
                     "Read the enemy preview and elemental edge before every round.",
-                    "Reposition between fights; yesterday's front line is not a vow.",
+                    "Change starting positions between fights to suit the next enemy.",
                     "A flexible five-pet formation usually outlives a one-combo draft.",
                 ],
             },
@@ -397,7 +397,7 @@ export const PET_TUTORIAL_LESSONS: readonly PetTutorialLesson[] = [
                 body: "Enemy scaling rises each round while your roster, relics, merges, and mistakes persist. Review the latest combat result, patch the exposed weakness, and preserve enough flexibility for the rounds you have not seen.",
                 points: [
                     "A narrow win is a warning before the scaling rises again.",
-                    "Upgrade the piece that changes the next loss, not the piece you like looking at.",
+                    "Upgrade the pet or role that struggled in the last fight.",
                     "Weekly score rewards consistency across the whole run, not one spectacular round.",
                 ],
                 callout: "Tomoe: ‘A champion wins a fight. A handler gets the whole pack home.’",

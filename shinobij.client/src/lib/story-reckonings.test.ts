@@ -103,7 +103,7 @@ test("conditional reckoning callbacks keep each source choice on the player", ()
         ["story-reckoning-mori-working-copy", "al58-refused-the-cut", /I refused your lesson/],
         ["story-reckoning-sova-true-roll", "ff42-held-the-doubt", /I kept my own notes on Essen/],
         ["story-reckoning-yura-exemption", "ff58-took-the-exemption", /I took the exemption/],
-        ["story-reckoning-iro-sealed-shelf", "ms58-took-the-shelf", /I took the shelf/],
+        ["story-reckoning-iro-sealed-shelf", "ms58-took-the-shelf", /I accepted access to those files/],
     ] as const;
     for (const [id, trait, expected] of cases) {
         const quest = storyReckoningById(id);

@@ -10,6 +10,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { resolveWarDuel } from './war-duel.js';
+import { replayFromOpposingSide } from './_viewer-replay.js';
 import { buildWarTeam, WAR_TEAM_SIZE } from './war-team.js';
 import { SHOWDOWN_BENCH_SIZE, SHOWDOWN_FORMAT_SIZE } from '../../shared/pet-showdown-contract.js';
 import type { Pet } from '../_pet-sim/pet-types.js';
@@ -27,6 +28,26 @@ function mkPet(id: string, over: Record<string, unknown> = {}): Pet {
 }
 
 const team = (prefix: string, n = WAR_TEAM_SIZE) => Array.from({ length: n }, (_, i) => mkPet(`${prefix}${i}`));
+
+test('opposing viewers see their own roster, health, actions and verdict without changing the sealed fight', () => {
+    const { script, outcome } = resolveWarDuel({ sessionId: 'viewer', seed: 909, fromName: 'A', toName: 'B', fromPets: team('a'), toPets: team('b') });
+    const before = structuredClone(script);
+    const defender = replayFromOpposingSide(script, 'A');
+    assert.deepEqual(defender.initialState.player, script.initialState.enemy);
+    assert.deepEqual(defender.finalState.player, script.finalState.enemy);
+    assert.equal(defender.initialState.enemyTeamName, 'A');
+    assert.equal(defender.finalState.outcome, outcome === 'to' ? 'win' : 'loss');
+    for (let i = 0; i < script.events.length; i++) {
+        const original = script.events[i]!;
+        const flipped = defender.events[i]!;
+        if (original.t === 'action' && flipped.t === 'action') {
+            assert.notEqual(original.actorSide, flipped.actorSide);
+            assert.equal(original.actorId, flipped.actorId);
+        }
+    }
+    assert.deepEqual(replayFromOpposingSide(defender, script.initialState.enemyTeamName), script);
+    assert.deepEqual(script, before, 'projection must not change the stored canonical replay');
+});
 
 test('a war duel is 2v2 with a two-pet bench, whatever arrives', () => {
     // The format is FIXED, not inferred from how many pets the submission flow

@@ -208,19 +208,19 @@ export function PetTacticsArena({ playerName, character, sharedImages = {}, onEx
             onFinished={() => setTerminalPresented(true)} onRematch={leaveResult} hideRematch
             exitLabel={view.ranked && settlement !== 'recorded' ? 'Record ranked result' : 'Back to squad builder'} eventLabel={`Pet Arena · ${view.opponent}`}
             resultTitle={() => view.result === 'draw' ? 'DRAW' : view.result === 'win' ? 'VICTORY' : 'DEFEAT'}
-            resultNote={() => `${view.ranked ? settlement === 'recorded' ? 'Pet Elo recorded' : 'Recording Pet Elo' : 'Unrated sparring'} · ${view.reason ?? 'sealed result'} · ${view.round} rounds`}
+            resultNote={() => `${view.ranked ? settlement === 'recorded' ? 'Pet Elo recorded' : 'Recording Pet Elo' : 'Unrated sparring'} · ${view.reason ?? 'Battle complete'} · ${view.round} rounds`}
             hidePlayerHud={commandReady} externalControls={!terminalPresented || !!error ? <div className="pta-console">
                 {network}
                 {commandReady ? <CommandDeck key={`${view.roomId}:${view.round}`} view={view} seconds={seconds} busy={busy} images={sharedImages}
                     onLock={orders => void run('orders', { round: view.round + 1, orders })} />
-                    : <div className="pta-wait" role="status">{view.phase === 'finished' ? 'Playing the sealed result…' : presented < view.round ? 'Round resolving' : 'Waiting for both players to finish playback'}<small>Both players share the same planning clock.</small></div>}
+                    : <div className="pta-wait" role="status">{view.phase === 'finished' ? 'Playing the confirmed battle result…' : presented < view.round ? 'Round resolving' : 'Waiting for both players to finish playback'}<small>Both players share the same planning clock.</small></div>}
             </div> : null} />;
     }
     return <section className="pet-tactics" aria-label="Pet Arena">
         <header className="pta-heading"><div><span className="pta-kicker">{ranked ? 'Ranked Pet Colosseum · player controlled' : 'Live PvP · sparring'}</span><h1>Pet Arena</h1><p>Two minds. Four companions. Every order matters.</p></div>{!ranked && <button type="button" onClick={onExit}>Back to Pet Arena</button>}</header>
         {network}
-        {recovering ? <p role="status">Recovering your arena session…</p> : queued && !view ? <div className="pta-invite"><h2>Finding a ranked opponent</h2><p role="status">Your build is sealed in the queue. Both players will choose their own orders every round.</p><button type="button" disabled={busy} onClick={() => void run('queue-leave')}>Cancel ranked search</button></div> : view?.phase === 'waiting' ? <div className="pta-invite">
-            <span className="pta-kicker">Your squad is sealed</span><h2>Bring a challenger</h2><p>Give this code to another player. They join with their own account and squad.</p>
+        {recovering ? <p role="status">Recovering your arena session…</p> : queued && !view ? <div className="pta-invite"><h2>Finding a ranked opponent</h2><p role="status">Your loadout is locked for this match. Both players choose their own orders each round.</p><button type="button" disabled={busy} onClick={() => void run('queue-leave')}>Cancel ranked search</button></div> : view?.phase === 'waiting' ? <div className="pta-invite">
+            <span className="pta-kicker">Your squad is locked in</span><h2>Bring a challenger</h2><p>Give this code to another player. They join with their own account and squad.</p>
             <strong className="pta-room-code" aria-label="Arena room code">{view.roomId.toUpperCase()}</strong>
             <p>Room closes in {seconds}s. Your owned pets and rating are unaffected.</p>
             <button type="button" disabled={busy} onClick={() => void run('concede')}>Close room</button>
@@ -343,7 +343,7 @@ function CommandDeck({ view, seconds, busy, images, onLock }: { view: TacticsVie
     };
     return <div className={`pta-orders ${locked ? 'is-locked' : ''}`}>
         <header className="pta-orders-heading">
-            <div><span className="pta-kicker">Pet Arena · Round {view.round + 1}</span><strong>{locked ? 'Your orders are sealed' : 'Plan your next play'}</strong></div>
+            <div><span className="pta-kicker">Pet Arena · Round {view.round + 1}</span><strong>{locked ? 'Orders locked in' : 'Plan your next play'}</strong></div>
             <span className={`pta-opponent-state ${view.ready.opponent ? 'is-ready' : ''}`}><i />{view.ready.opponent ? 'Opponent ready' : 'Opponent planning'}</span>
             <span className={`pta-clock ${seconds <= 10 ? 'urgent' : ''}`} role="timer" aria-label={`${seconds} seconds remaining`}><b>{seconds}</b><small>SEC</small></span>
         </header>

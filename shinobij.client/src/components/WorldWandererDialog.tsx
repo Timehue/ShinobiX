@@ -7,7 +7,7 @@ import {
     metricLabel,
     questbookEntry,
     questbookStage,
-    questbookStageText,
+    questbookStageText, questbookStageProgress,
 } from "../lib/questbook";
 import { EpicBellCountdown } from "./EpicBellCountdown";
 import {
@@ -31,6 +31,7 @@ import { wandererForcesChoice, wandererKindLabel } from "../lib/road-cast";
 import { EncounterDifficultyBadge } from './EncounterDifficultyBadge';
 import type { OrdinaryPveEncounter } from '../../../shared/ordinary-pve-encounter';
 
+import { BANDIT_TOLL_RYO, offersBanditToll } from '../../../shared/road-toll';
 import { ordinaryWandererActions } from '../lib/ordinary-wanderer-actions';
 
 type ActionResult = void | Promise<unknown>;
@@ -60,7 +61,6 @@ export type WorldWandererDialogState = Readonly<{
     choiceError?: string;
     encounter?: OrdinaryPveEncounter;
 }>;
-
 export type WorldWandererDialogProps = Readonly<{
     wandererDialog: WorldWandererDialogState;
     character: Character;
@@ -99,8 +99,8 @@ export type WorldWandererDialogProps = Readonly<{
 
 function memoryLine(character: Character, wanderer: Wanderer): string | null {
     const met = character.wandererMemories?.[wanderer.archetype] ?? 0;
-    if (met >= 3) return "They recognize your stance before you speak.";
-    if (met >= 1) return "Their eyes linger. You have met their kind before.";
+    if (met >= 3) return "You've dealt with several wanderers who do this kind of work.";
+    if (met >= 1) return "You've met this kind of wanderer before.";
     return null;
 }
 
@@ -143,13 +143,14 @@ export function WorldWandererDialog(props:WorldWandererDialogProps) {
     const gained=(metric:keyof Character,baseline:number)=>Math.max(0,((character[metric] as number|undefined)??0)-baseline);
     const ordinary=ordinaryWandererActions(props);
     const remembered = memoryLine(character, w);
+    const toll = offersBanditToll(wandererDialog);
 
     return (
-        <div className="card" style={{ maxWidth: 360, width: "88%", maxHeight: "88dvh", overflowY: "auto", textAlign: "center", padding: 16 }} onClick={(event) => event.stopPropagation()}>
+        <div className="card world-wanderer-dialog" style={{ maxWidth: 360, width: "88%", maxHeight: "88dvh", overflowY: "auto", textAlign: "center", padding: 16 }} onClick={(event) => event.stopPropagation()}>
             <img
                 src={w.avatarImage || wandererAvatar(w.avatarKey)}
                 alt={w.name}
-                style={{ width: 96, height: 96, objectFit: "cover", borderRadius: "50%", border: `2px solid ${w.tellTint}`, margin: "0 auto 8px" }}
+                style={{ width: 96, height: 96, objectFit: "contain", borderRadius: "50%", border: `2px solid ${w.tellTint}`, margin: "0 auto 8px" }}
             />
             <h3 style={{ margin: "0 0 2px" }}>{w.name}</h3>
             {wandererDialog.encounter && <EncounterDifficultyBadge encounter={wandererDialog.encounter} showTell />}
@@ -167,11 +168,11 @@ export function WorldWandererDialog(props:WorldWandererDialogProps) {
                     <>
                         {/* A hostile that has caught you is fought or fled, and the
                             flee price is shown before the choice, never after. */}
-                        <p style={{ fontSize: smallTextSize, color: mutedTextColor, margin: "-6px 0 12px" }}>{roadFleePriceLine(character)}</p>
+                        <p style={{ fontSize: smallTextSize, color: mutedTextColor, margin: "-6px 0 12px" }}>{toll ? `Pay ${BANDIT_TOLL_RYO} ryo to pass without fighting. You will not lose HP.` : roadFleePriceLine(character)}</p>
                         {wandererDialog.choiceError && <p role="alert" style={{ fontSize: ".76rem", color: "var(--red-300)", margin: "-6px 0 12px" }}>{wandererDialog.choiceError}</p>}
                         <div style={choiceRow}>
                             <button disabled={busy} onClick={() => w.verb === "patrol" ? startPatrolFight(w) : startWandererAttack(w, !!nemesis)}>Fight</button>
-                            <button disabled={busy} onClick={() => fleeWanderer(w)}>Flee</button>
+                            <button disabled={busy} onClick={() => fleeWanderer(w)}>{toll ? `Pay ${BANDIT_TOLL_RYO} ryo` : 'Flee'}</button>
                         </div>
                     </>
                 )
@@ -185,7 +186,7 @@ export function WorldWandererDialog(props:WorldWandererDialogProps) {
                     const entry = questbookEntry(epic.id);
                     const stage = questbookStage(epic.id, epic.stage);
                     if (entry && stage) {
-                        const got = gained(stage.metric,epic.baseline);
+                        const got = questbookStageProgress(character, epic, stage);
                         const done = !stage.choice && got >= stage.count;
                         const isFinal = epic.stage >= entry.stages.length - 1;
                         const bossArena = !!stage.bossId && stage.metric === "totalAiKills";
@@ -295,7 +296,7 @@ export function WorldWandererDialog(props:WorldWandererDialogProps) {
                                     </button>
                                 ))}
                                 {em.quests.every(q => lockedQuestMetrics(character).includes(q.metric)) && (
-                                    <p style={{ fontSize: compactTextSize, color: mutedTextColor, margin: 0 }}>They have nothing for you on this road yet. Walk a while longer and come back.</p>
+                                    <p style={{ fontSize: compactTextSize, color: mutedTextColor, margin: 0 }}>Their errands require activities you have not unlocked yet. Check back after unlocking more activities.</p>
                                 )}
                             </div>
                         )}

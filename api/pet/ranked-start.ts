@@ -191,6 +191,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const matchToken = randomUUID();
                 const token: RankedPetMatchToken = {
                     authority: PET_RANKED_AUTHORITY,
+                    rulesetVersion: 'progression-v3',
                     pairId: myMatch.pairId,
                     a: me,
                     b: opponent,

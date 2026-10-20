@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
-import { productionManifest } from './helpers/production-preview';
+import { readFileSync } from "node:fs";
+import { previewRootFor, smokeE2ePort } from "../e2e-ports";
 import { expectUiAuditBoot, installUiAuditRuntime } from "./helpers/ui-audit-runtime";
 
 // A lazy screen whose chunk will not load gets ONE automatic page reload (the
@@ -15,12 +16,14 @@ const ENGINE_PROJECTS = new Set(["chromium-desktop", "firefox-desktop", "webkit-
 
 test.beforeEach(async ({ page: _page }, testInfo) => {
     test.skip(!ENGINE_PROJECTS.has(testInfo.project.name), "one run per browser engine");
+    // Collection runs before webServer creates its immutable snapshot.
+    const manifest = JSON.parse(readFileSync(new URL(`../${previewRootFor(smokeE2ePort())}/.vite/manifest.json`, import.meta.url), "utf8"));
+    worldBossesHubChunk = `/${manifest["src/screens/WorldBossesHub.tsx"].file}`;
 });
 
 // Weekly and world bosses now share the lazy-loaded hub chunk; keep this stale-
 // chunk recovery check aligned with the route that actually loads both tabs.
 let worldBossesHubChunk: string;
-test.beforeAll(() => { worldBossesHubChunk = `/${productionManifest()["src/screens/WorldBossesHub.tsx"].file}`; });
 const NEW_VERSION_CARD = { name: "A new version is available" } as const;
 
 function countDocumentLoads(page: Page): () => number {

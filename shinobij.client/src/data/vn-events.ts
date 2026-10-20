@@ -38,11 +38,11 @@ export const awakeningLv2VnEvent: CreatorEvent = {
             speaker: "Narrator",
             dialogue: [
                 "Narrator: The pull comes from Central. Every time you turn away, the feeling tightens along your palm.",
-                "Village Elder: This is a recorded summons. Stop a moment and open your hand. If the numbness eases when you face Central, the Stone is calling your field record.",
-                "Village Elder: The Awakening Stone is under Central Hub. It reads which of the five chakra natures answers you most easily: Water, Wind, Earth, Lightning, or Fire.",
+                "Village Elder: This is a recorded summons. Stop a moment and open your hand. The Awakening Stone at Central Hub is calling you.",
+                "Village Elder: Visit the Awakening Stone at Central Hub to reveal your first chakra element: Water, Wind, Earth, Lightning, or Fire.",
                 "Village Elder: It does not choose your future. It gives you a place to begin training.",
-                "Village Elder: Your first reading is due at the Second Rank. The keepers grant another at the Twentieth without charge.",
-                "Village Elder: Take the central road and show the keeper your field record. Keep that hand loose until the pulling stops.",
+                "Village Elder: Your first element awakening is free at level 2. You can awaken a second element for free at level 20.",
+                "Village Elder: Open Central Hub and visit the Awakening Stone when you are ready.",
                 "Narrator: The seal marks Central on your route sheet. You have your next destination.",
             ],
         },
@@ -64,12 +64,12 @@ export const auraSphereLv9VnEvent: CreatorEvent = {
     vnPages: [
         {
             title: "A Timed Issue Seal",
-            scene: "A seal sewn into your field kit opens at Ninth Rank, revealing an aura fitting and a recorded message.",
+            scene: "At level 9, a seal on your field kit opens to reveal an Aura Sphere and a recorded message.",
             speaker: "Village Elder",
             dialogue: [
-                "Village Elder: If this message opened, your field record reached Ninth Rank. Put the kit on something steady before you work the clasp.",
-                "Village Elder: This is an Aura Sphere. It stores the dust left when your chakra is tested hard and holds the shape you teach it.",
-                "Village Elder: It will not make you stronger by itself. You still have to do the work.",
+                "Village Elder: You have reached level 9. Put the kit on something steady before you work the clasp.",
+                "Village Elder: This is an Aura Sphere. Upgrade it with Aura Dust to gain combat bonuses.",
+                "Village Elder: Equip it and open its upgrade controls to see which bonuses you can improve.",
             ],
         },
         {
@@ -77,10 +77,10 @@ export const auraSphereLv9VnEvent: CreatorEvent = {
             scene: "Mist turns slowly over the opened aura fitting while the issue seal finishes its message.",
             speaker: "Village Elder",
             dialogue: [
-                "Village Elder: If a sphere is already fitted, use that one. Otherwise, set the issue sphere in the aura fitting of your field kit.",
-                "Village Elder: The fitting holds one sphere. One is enough trouble to keep polished.",
+                "Village Elder: Open your Profile and equip the Aura Sphere in your aura slot if you do not already have one equipped.",
+                "Village Elder: You can equip one Aura Sphere at a time.",
                 "Village Elder: Bring it Aura Dust from real service: battles, raids, village war, dangerous hunts, and old field caches.",
-                "Village Elder: Check its surface after each feeding. When the pattern changes, come back and tell me what you see.",
+                "Village Elder: In your Profile, use Feed Aura Dust to level up the sphere. Check the displayed cost and bonuses first.",
             ],
         },
     ],
@@ -111,7 +111,7 @@ export const hiddenDungeonVnEvent: CreatorEvent = {
             scene: "A masked shinobi steps from a hall of old torii gates.",
             speaker: "Dungeon Warden",
             dialogue: [
-                "Dungeon Warden: Field record. Let me see it. Fiftieth Rank or better, or I turn you around here.",
+                "Dungeon Warden: You must be level 50 or higher to enter this dungeon.",
                 "Dungeon Warden: The first seal is mine. Defeat the guardian and I open the inner hall. Lose, and I drag you back to these steps once.",
                 "Player: Once?",
                 "Dungeon Warden: One rescue rope, one pair of shoulders, and a whole night before the next shift. Show me you can stop when the floor turns bad.",
@@ -135,8 +135,8 @@ export const hiddenDungeonVnEvent: CreatorEvent = {
             scene: "A rare sector beast circles the final chamber, watching both you and your companion.",
             speaker: "Dungeon Warden",
             dialogue: [
-                "Dungeon Warden: The last seal belongs to your companion. It must choose to stand with you when the chamber turns hostile.",
-                "Dungeon Warden: Win together and the treasury opens. If the bond breaks, the door stays shut.",
+                "Dungeon Warden: The third seal opens when you win the companion battle. Bring a companion that is available to fight.",
+                "Dungeon Warden: Win that battle to open the treasury. If you lose, the treasury stays locked.",
             ],
             leftName: "Player",
             rightName: "Dungeon Warden",

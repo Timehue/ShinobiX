@@ -105,16 +105,16 @@ export const ACHIEVEMENTS: ReadonlyArray<Achievement> = [
     { id: "mission-1000", name: "Mission Master",    desc: "Complete 1,000 missions.", category: "Missions", icon: "🏯", check: c => (c.totalMissionsCompleted ?? 0) >= 1000 },
 
     // Exploration
-    { id: "explore-100",  name: "Wanderer",     desc: "Explore 100 sectors.",   category: "Exploration", icon: "🌲", check: c => (c.totalTilesExplored ?? 0) >= 100 },
-    { id: "explore-1000", name: "Cartographer", desc: "Explore 1,000 sectors.", category: "Exploration", icon: "🧭", check: c => (c.totalTilesExplored ?? 0) >= 1000 },
-    { id: "explore-5000", name: "World Walker", desc: "Explore 5,000 sectors.", category: "Exploration", icon: "🌍", check: c => (c.totalTilesExplored ?? 0) >= 5000 },
+    { id: "explore-100",  name: "Wanderer",     desc: "Use Explore 100 times.",   category: "Exploration", icon: "🌲", check: c => (c.totalTilesExplored ?? 0) >= 100 },
+    { id: "explore-1000", name: "Cartographer", desc: "Use Explore 1,000 times.", category: "Exploration", icon: "🧭", check: c => (c.totalTilesExplored ?? 0) >= 1000 },
+    { id: "explore-5000", name: "World Walker", desc: "Use Explore 5,000 times.", category: "Exploration", icon: "🌍", check: c => (c.totalTilesExplored ?? 0) >= 5000 },
 
     // Wealth
     { id: "ryo-25k",   name: "Pocket Coin",   desc: "Carry 25,000 ryo.",                          category: "Wealth", icon: "💰", check: c => c.ryo >= 25000 },
     { id: "ryo-500k",  name: "Vault Keeper",  desc: "Bank 500,000 ryo.",                          category: "Wealth", icon: "🏦", check: c => c.bankRyo >= 500000 },
     { id: "ryo-5m",    name: "Ryo Tycoon",    desc: "Accumulate 5,000,000 ryo (wallet + bank).",  category: "Wealth", icon: "💎", check: c => (c.ryo + c.bankRyo) >= 5000000 },
-    { id: "honor-100", name: "Honor Bound",   desc: "Earn 100 Honor Seals.",                      category: "Wealth", icon: "🛡", check: c => (c.honorSeals ?? 0) >= 100 },
-    { id: "honor-500", name: "Sealed Legend", desc: "Earn 500 Honor Seals.",                      category: "Wealth", icon: "🏆", check: c => (c.honorSeals ?? 0) >= 500 },
+    { id: "honor-100", name: "Honor Bound",   desc: "Hold 100 Honor Seals.",                      category: "Wealth", icon: "🛡", check: c => (c.honorSeals ?? 0) >= 100 },
+    { id: "honor-500", name: "Sealed Legend", desc: "Hold 500 Honor Seals.",                      category: "Wealth", icon: "🏆", check: c => (c.honorSeals ?? 0) >= 500 },
     { id: "fate-250",  name: "Fated One",     desc: "Hold 250 Fate Shards.",                      category: "Wealth", icon: "🔮", check: c => (c.fateShards ?? 0) >= 250 },
     { id: "fate-2500", name: "Fate Weaver",   desc: "Hold 2,500 Fate Shards.",                    category: "Wealth", icon: "🌌", check: c => (c.fateShards ?? 0) >= 2500 },
 
@@ -135,7 +135,7 @@ export const ACHIEVEMENTS: ReadonlyArray<Achievement> = [
     { id: "tower-bait-clear", name: "Turn the Tide", desc: "Bait a boss charge into a pillar and clear the floor.", category: "Trials", icon: "◆", check: c => Boolean(c.battleTowerRecords?.honors["tower-bait-clear"]) },
     { id: "tower-dodge-clear", name: "Untouchable", desc: "Evade a signature boss strike and clear the floor.", category: "Trials", icon: "◆", check: c => Boolean(c.battleTowerRecords?.honors["tower-dodge-clear"]) },
     { id: "tower-elite-clear", name: "Against the Odds", desc: "Clear a floor using the Elite Shortcut.", category: "Trials", icon: "◆", check: c => Boolean(c.battleTowerRecords?.honors["tower-elite-clear"]) },
-    { id: "tower-25",     name: "Tower Survivor", desc: "Win 25 Endless Tower runs.",  category: "Trials", icon: "🗼", check: c => (c.totalEndlessTowerWins ?? 0) >= 25 },
+    { id: "tower-25",     name: "Tower Survivor", desc: "Win 25 Endless Tower waves.",  category: "Trials", icon: "🗼", check: c => (c.totalEndlessTowerWins ?? 0) >= 25 },
     // Endless Spire milestones — a wearable-title chase up the ascension ladder (floors 5/10/15/20).
     { id: "spire-5",      name: "Spire Ascendant", desc: "Ascend to Endless Spire floor 5.",  category: "Trials", icon: "🗼", check: c => (c.battleTowerAscension ?? 0) >= 5 },
     { id: "spire-10",     name: "Spire Conqueror", desc: "Ascend to Endless Spire floor 10.", category: "Trials", icon: "⚔️", check: c => (c.battleTowerAscension ?? 0) >= 10 },
@@ -175,9 +175,9 @@ export const ACHIEVEMENTS: ReadonlyArray<Achievement> = [
     { id: "profession-mastery-10", name: "Beyond Rank", desc: "Invest 10 profession mastery points.", category: "Professions", icon: "🌟", check: c => objectValueTotal(c.masterySpec) >= 10, progress: c => numericProgress(objectValueTotal(c.masterySpec), 10, "mastery points") },
 
     // Hollow Gate, dungeons, and tower endurance
-    { id: "hollow-clear-1", name: "First Descent", desc: "Complete your first Hollow Gate run.", category: "Hollow Gate", icon: "🏮", check: c => count(c.redeemedHollowGateRuns) >= 1, progress: c => arrayProgress(c.redeemedHollowGateRuns, 1, "Gate clears") },
-    { id: "hollow-clear-10", name: "Gatewalker", desc: "Complete 10 Hollow Gate runs.", category: "Hollow Gate", icon: "🚪", check: c => count(c.redeemedHollowGateRuns) >= 10, progress: c => arrayProgress(c.redeemedHollowGateRuns, 10, "Gate clears") },
-    { id: "hollow-clear-50", name: "Gatebound", desc: "Complete 50 Hollow Gate runs.", category: "Hollow Gate", icon: "🕳", check: c => count(c.redeemedHollowGateRuns) >= 50, progress: c => arrayProgress(c.redeemedHollowGateRuns, 50, "Gate clears") },
+    { id: "hollow-clear-1", name: "First Descent", desc: "Extract from or forfeit your first Hollow Gate run.", category: "Hollow Gate", icon: "🏮", check: c => count(c.redeemedHollowGateRuns) >= 1, progress: c => arrayProgress(c.redeemedHollowGateRuns, 1, "runs finished") },
+    { id: "hollow-clear-10", name: "Gatewalker", desc: "Extract from or forfeit 10 Hollow Gate runs.", category: "Hollow Gate", icon: "🚪", check: c => count(c.redeemedHollowGateRuns) >= 10, progress: c => arrayProgress(c.redeemedHollowGateRuns, 10, "runs finished") },
+    { id: "hollow-clear-50", name: "Gatebound", desc: "Extract from or forfeit 50 Hollow Gate runs.", category: "Hollow Gate", icon: "🕳", check: c => count(c.redeemedHollowGateRuns) >= 50, progress: c => arrayProgress(c.redeemedHollowGateRuns, 50, "runs finished") },
     { id: "hollow-warden-1", name: "Warden Fallen", desc: "Defeat your first Hollow Gate Warden.", category: "Hollow Gate", icon: "👁", check: c => whole(c.hollowGateWardenKills) >= 1, progress: c => numericProgress(c.hollowGateWardenKills, 1, "Wardens") },
     { id: "hollow-warden-25", name: "Wardenbane", desc: "Defeat 25 Hollow Gate Wardens.", category: "Hollow Gate", icon: "🗡", check: c => whole(c.hollowGateWardenKills) >= 25, progress: c => numericProgress(c.hollowGateWardenKills, 25, "Wardens") },
     { id: "dungeon-clear-1", name: "Hidden Door", desc: "Complete your first hidden dungeon.", category: "Hollow Gate", icon: "🗝", check: c => count(c.redeemedDungeonRuns) >= 1, progress: c => arrayProgress(c.redeemedDungeonRuns, 1, "dungeons") },

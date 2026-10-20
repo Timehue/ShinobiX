@@ -178,6 +178,7 @@ function sameReceiptFacts(a: HollowGatePetResultReceipt, b: HollowGatePetResultR
         && a.playerName === b.playerName
         && a.runId === b.runId
         && a.outcome === b.outcome
+        && Boolean(a.consumablesCommitted) === Boolean(b.consumablesCommitted)
         && JSON.stringify(a.playerPetIds) === JSON.stringify(b.playerPetIds);
 }
 

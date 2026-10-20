@@ -8,6 +8,7 @@ import type {
     HollowGateTile,
     HollowGateTileKind,
     HollowGateVariant,
+    VersionedCharacterCommit,
 } from "../types/character";
 import type { Screen, WeatherType } from "../types/core";
 import { applyAttunementToRun } from "./hollow-gate-attunement";
@@ -55,6 +56,7 @@ export type HollowGateResumeState = {
     floorDepth: number;
     floor: number;
     variantId?: string;
+    variantLabel?: string;
     riftDistortionId?: string;
     floorWidth?: number;
     floorHeight?: number;
@@ -82,6 +84,7 @@ export type HollowGateResumeState = {
 
 export type HollowGateResumeResult =
     | { kind: "live"; state: HollowGateResumeState }
+    | { kind: "ended"; token: string; character: Character; saveVersion: unknown }
     | { kind: "gone" }
     | { kind: "error"; error: string };
 
@@ -92,8 +95,12 @@ export async function fetchHollowGateResume(playerName: string): Promise<HollowG
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ playerName }),
         });
-        const data = await response.json().catch(() => ({})) as { ok?: boolean; live?: boolean; run?: HollowGateResumeState; error?: string };
-        if (!response.ok || !data.ok) return { kind: "error", error: data.error || `Hollow Gate resume failed (${response.status}).` };
+        const data = await response.json().catch(() => ({})) as { ok?: boolean; live?: boolean; run?: HollowGateResumeState;
+            ended?: boolean; token?: string; character?: Character; _saveVersion?: unknown; error?: string };
+        if (!response.ok || !data.ok) return { kind: "error", error: data.error || 'Your Hollow Gate run could not be recovered. Reopen the shrine to retry.' };
+        if (data.ended) return data.character && data.token
+            ? { kind: 'ended', token: data.token, character: data.character, saveVersion: data._saveVersion }
+            : { kind: 'error', error: 'The ended Hollow Gate save could not be read safely.' };
         return data.live && data.run ? { kind: "live", state: data.run } : { kind: "gone" };
     } catch {
         return { kind: "error", error: "The Hollow Gate resume service is unreachable." };
@@ -102,10 +109,12 @@ export async function fetchHollowGateResume(playerName: string): Promise<HollowG
 
 /** The variant a run was generated with. Generation reads only its floor count
  *  and dimensions, so these rebuild the same floor the run started with. */
-export function hollowGateResumeVariant(state: HollowGateResumeState): HollowGateVariant | undefined {
+export function hollowGateResumeVariant(state: HollowGateResumeState, previous?: HollowGateVariant): HollowGateVariant | undefined {
     if (!state.variantId) return undefined;
     return {
         id: state.variantId,
+        label: state.variantLabel || (previous?.id === state.variantId ? previous.label : undefined)
+            || (state.bossName ? `${state.bossName}${state.variantId.startsWith("rift-") ? " Rift" : ""}` : undefined),
         maxFloor: state.floorDepth,
         width: state.floorWidth,
         height: state.floorHeight,
@@ -241,6 +250,8 @@ export function rebuildHollowGateRun(
 export type HollowGateRecoveryParams = {
     /** A delayed recovery must not publish into a different account/session. */
     isCurrent?: () => boolean;
+    currentRunToken: () => string | undefined;
+    commitCharacter: VersionedCharacterCommit;
     character: Character;
     setHollowGateRun: SetState<HollowGateShrineRun | null>;
     setHollowGateLog: SetState<string[]>;
@@ -258,20 +269,43 @@ export type HollowGateRecoveryParams = {
  * "gone" means the save's run has ended; "error" means it could not be read or
  * drawn right now. Neither starts a run or spends anything.
  */
-export async function recoverHollowGateRun(params: HollowGateRecoveryParams): Promise<"recovered" | "gone" | "error"> {
+export async function recoverHollowGateRun(params: HollowGateRecoveryParams): Promise<"recovered" | "ended" | "gone" | "error"> {
+    const requestedToken = params.character.hollowGateRun?.runToken ?? params.character.lastHollowGateStart?.token;
+    const scopeToken = requestedToken ?? params.currentRunToken();
+    const current = () => params.isCurrent?.() !== false && params.currentRunToken() === scopeToken
+        && (!requestedToken || scopeToken === requestedToken);
     const resumed = await fetchHollowGateResume(params.character.name);
-    if (params.isCurrent?.() === false) return "error";
-    if (resumed.kind !== "live") return resumed.kind;
+    if (!current()) return "error";
+    if (resumed.kind === 'ended') {
+        if (!requestedToken || resumed.token !== requestedToken || params.currentRunToken() !== requestedToken
+            || resumed.character.name !== params.character.name || resumed.character.hollowGateRun !== null
+            || !params.commitCharacter(resumed.character, resumed.saveVersion)) return 'error';
+        params.setHollowGateRun(null);
+        params.setHollowGateEvent(null);
+        params.setHollowGateHiddenChamber(null);
+        params.setScreen(resumed.character.hospitalized || resumed.character.hp <= 0 ? 'hospital' : 'worldMap');
+        return 'ended';
+    }
+    if (resumed.kind !== "live") {
+        if (resumed.kind === "gone" && params.character.hp <= 0) {
+            params.setHollowGateRun(null);
+            params.setScreen("hospital");
+        }
+        return resumed.kind;
+    }
     const state = resumed.state;
-    const variant = hollowGateResumeVariant(state);
+    const variant = hollowGateResumeVariant(state, params.character.hollowGateRun?.variant);
     let run: HollowGateShrineRun;
     try {
         const { generateHollowGateShrineRun } = await loadHollowGateGenerator();
-        run = applyAttunementToRun(rebuildHollowGateRun(state, generateHollowGateShrineRun(state.floor, variant, state.seed), variant), params.character, false);
+        // The immutable manifest identifies the old count without a save migration.
+        // Reproduce its original seeded layout, rooms and fog before rebuilding.
+        const legacyPacing = state.manifest && Object.values(state.manifest.nodes).filter(kind => kind === 'battle').length === 4 + Math.min(5, state.floor);
+        run = applyAttunementToRun(rebuildHollowGateRun(state, generateHollowGateShrineRun(state.floor, variant, state.seed, Boolean(legacyPacing)), variant), params.character, false);
     } catch {
         return "error";
     }
-    if (params.isCurrent?.() === false) return "error";
+    if (!current()) return "error";
     params.setHollowGateRun(run);
     params.setHollowGateLog(["You return to your unfinished run. The floor, your path and every cleared tile are as you left them."]);
     params.setHollowGateEvent(null);

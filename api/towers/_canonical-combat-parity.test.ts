@@ -166,7 +166,7 @@ describe('Tower direct-cast canonical tag parity', () => {
             assert.deepEqual(towerReceipt(getActor(s, target.id)!), fighterReceipt(reference.opponent), `${tag}: target`);
             // Tower owns the round and cast headers; parity is the shared
             // resolver receipt that follows them.
-            assert.deepEqual(s.log.slice(2), reference.lines, `${tag}: shared receipt lines`);
+            assert.deepEqual(s.log.slice(2), reference.lines.map(line => line.replaceAll('at turn end', 'at round end')), `${tag}: shared receipt lines`);
             assert.equal(s.activeAp, 40, `${tag}: neutral 60 AP shell`);
             covered.push(tag);
         }
@@ -491,7 +491,7 @@ describe('Tower jutsu eligibility and resource-spend parity', () => {
             assert.equal(caster.chakra, 480, route.id);
             assert.equal(caster.stamina, 490, route.id);
             assert.equal(caster.cooldowns[route.id], 3, route.id);
-            assert.equal(s.log.filter(line => line.includes('Poison damage from exertion.')).length, 1, route.id);
+            assert.equal(s.log.filter(line => line.includes('HP to Poison for spending resources on jutsu.')).length, 1, route.id);
         }
     });
 
@@ -562,8 +562,8 @@ describe('Tower-grid Barrier policy', () => {
         assert.ok(tile >= 0 && tile < MAP.width * MAP.height);
         assert.notEqual(tile, getActor(s, 'caster')!.pos);
         assert.notEqual(tile, getActor(s, 'target')!.pos);
-        assert.equal(s.log.some(line => line.startsWith('Barrier:') && line.includes('Tower hex')), true);
-        assert.equal(s.log.some(line => line.startsWith('Barrier:') && line.includes('blocks hex')), false,
+        assert.equal(s.log.some(line => line.startsWith('Barrier:') && line.includes('Tower tile')), true);
+        assert.equal(s.log.some(line => line.startsWith('Barrier:') && line.includes('blocks tile')), false,
             'the shared PvP-grid coordinate never leaks into the Tower receipt');
 
         const caster = getActor(s, 'caster')!;

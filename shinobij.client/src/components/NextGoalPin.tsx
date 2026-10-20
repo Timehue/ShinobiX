@@ -63,7 +63,7 @@ export function NextGoalPin({
                 label: "Claim Academy Reward",
                 progress: 0,
                 target: 1,
-                detail: "Open the Logbook and claim your Academy reward.",
+                detail: "Open the Logbook and claim your Academy Training checklist reward.",
                 goScreen: "logbook" as Screen,
                 goLabel: "Open Logbook",
             }

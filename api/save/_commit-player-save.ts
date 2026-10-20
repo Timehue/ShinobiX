@@ -99,6 +99,8 @@ export type PlayerSaveCommit = {
 };
 
 export type PlayerSaveCommitOptions = {
+    /** Publish an authority proof atomically with its save/ledger mutation. */
+    atomicProof?: { key: string; value: unknown; ex: number };
     /** Test seam for the fail-closed gate (defaults to CURRENCY_LEDGER_GATE_ENFORCED). */
     gateEnforced?: boolean;
     now?: number;
@@ -130,15 +132,23 @@ async function commitInScope(
     opts: PlayerSaveCommitOptions,
 ): Promise<boolean> {
     const { playerName, saveKey, expected, intended } = commit;
+    const proof = opts.atomicProof;
+    if (proof && (proof.key.startsWith('save:') || proof.key.startsWith('ledger:') || !store.compareSetMany)) {
+        throw new Error('Invalid atomic player-save proof');
+    }
+    const proofOps = proof ? [{ op: 'cas' as const, key: proof.key, expected: null, value: proof.value, ex: proof.ex }] : [];
     const after = projectBalances(characterOf(intended));
     const movesCurrency = Object.keys(after).length > 0
         && balancesDiffer(projectBalances(characterOf(expected)), after);
 
     // Fast path: currency did not move, so the ledger cannot have become more
     // wrong. One compare-and-set, exactly as before this helper existed.
-    if (!movesCurrency) return await store.compareSet(saveKey, expected, intended);
+    if (!movesCurrency) return proof
+        ? await store.compareSetMany!([{ op: 'cas', key: saveKey, expected, value: intended }, ...proofOps])
+        : await store.compareSet(saveKey, expected, intended);
 
     if (!store.compareSetMany || currencyLedgerAtomicDisabled()) {
+        if (proof) throw new Error('Atomic authority proofs require the currency ledger transaction');
         const committed = await store.compareSet(saveKey, expected, intended);
         if (committed && store.set) {
             await syncCurrencyLedger(playerName, intended, {
@@ -165,6 +175,7 @@ async function commitInScope(
         const ops: KvCasOp[] = [
             { op: 'cas', key: saveKey, expected, value: intended },
             { op: 'cas', key: ledgerKey, expected: ledger ?? null, value: buildCurrencyLedgerRow(playerName, intended, continuing, opts.now) },
+            ...proofOps,
         ];
         if (await store.compareSetMany(ops)) {
             // Counted only once committed: a caller without the save lock (the

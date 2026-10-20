@@ -72,7 +72,7 @@ export function SageOfferModal({ offer, playerName, actionsAllowed, canMutate, o
     async function handleDecline() {
         if (busyRef.current) return;
         if (!actionsAllowed || !canMutate()) {
-            setNote("Legacy choices are paused until live service admission returns. You can safely step away; the offer remains server-owned.");
+            setNote("Legacy choices are temporarily paused. You can leave this screen; your current offer is saved.");
             return;
         }
         const request = ++requestRef.current;
@@ -96,7 +96,7 @@ export function SageOfferModal({ offer, playerName, actionsAllowed, canMutate, o
     async function handleAccept(legacyId: string) {
         if (busyRef.current) return;
         if (!actionsAllowed || !canMutate()) {
-            setNote("Legacy choices are paused until live service admission returns. No permanent choice was submitted.");
+            setNote("Legacy choices are temporarily paused. No permanent choice was submitted.");
             return;
         }
         const picked = offer.offers.find((o) => o.legacyId === legacyId);
@@ -118,7 +118,7 @@ export function SageOfferModal({ offer, playerName, actionsAllowed, canMutate, o
             if (!mountedRef.current || request !== requestRef.current) return;
             if (result?.ok && result.legacy) {
                 if (!result.character || typeof result._saveVersion !== "number") {
-                    setNote("The Sage sealed your path, but the Hall's record did not arrive. Refresh before continuing.");
+                    setNote("Your permanent Legacy choice was saved, but your updated character could not be loaded. Refresh before continuing.");
                     return;
                 }
                 // The Legacy is sealed for life even if a newer save was adopted
@@ -140,7 +140,7 @@ export function SageOfferModal({ offer, playerName, actionsAllowed, canMutate, o
                 setNote("“Ah. I'm afraid this offer has closed, shinobi. Don't worry about it. I found you once, and I will find you again.”");
                 scheduleDeparture(() => { (onDismissed ?? onDeclined)(); onClose(); });
             } else if (result?.reason === "sealed") {
-                setNote("Your path was already sealed to another Legacy. The Sage bows and departs.");
+                setNote("You have already chosen a permanent Legacy. The Sage bows and departs.");
                 scheduleDeparture(() => { (onDismissed ?? onDeclined)(); onClose(); });
             } else {
                 setNote("The Sage could not confirm your permanent choice. Refresh your character before choosing again.");
@@ -180,7 +180,7 @@ export function SageOfferModal({ offer, playerName, actionsAllowed, canMutate, o
         <Modal open onClose={close} ariaLabel="The Wandering Sage legacy offer" size="md" bare disableBackdropClose={busy}>
             <div className="card" style={{ maxWidth: 460, width: "94%", maxHeight: "88dvh", overflowY: "auto", padding: 16 }} onClick={(e) => e.stopPropagation()}>
                 <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 10 }}>
-                    <img src={wanderingSagePortrait} alt="Wandering Sage" style={{ width: 64, height: 64, objectFit: "cover", borderRadius: "50%", border: "2px solid var(--purple-400)" }} />
+                    <img src={wanderingSagePortrait} alt="Wandering Sage" style={{ width: 64, height: 64, objectFit: "contain", borderRadius: "50%", border: "2px solid var(--purple-400)" }} />
                     <div>
                         <h3 style={{ margin: 0 }}>The Wandering Sage</h3>
                         <p style={{ margin: 0, fontSize: ".75rem", color: "#9aa3b2" }}>“Your path has opened these legacies to you.”</p>

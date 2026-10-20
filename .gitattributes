@@ -12,6 +12,8 @@ docs/screenshots/**/*.json text eol=lf
 # These inspected logs are hashed exactly; keep checkout bytes stable.
 docs/screenshots/oni-all-clips-v2-final-2026-10-18/*.log text eol=lf
 docs/audits/oni-*.json text eol=lf
+docs/audits/pet-omitted-*.json text eol=lf
+shinobij.client/scripts/fixtures/pet-omitted-limb-performances/*.json text eol=lf
 shinobij.client/src/generated/story-content/*.json text eol=lf
 shinobij.client/src/generated/story-content/*.ts text eol=lf
 
@@ -83,18 +85,123 @@ docs/screenshots/azure-all-clips-v2-final-2026-10-18/*.log text eol=lf
 
 docs/audits/azure-*.json text eol=lf
 
+docs/screenshots/pet-omitted-next-three-first-2026-10-18/*.log text eol=lf
+
+docs/audits/pet-priority-two-omitted-*.json text eol=lf
+
+docs/screenshots/pet-priority-two-final-progress-2026-10-18/*.log text eol=lf
+
+docs/audits/pet-priority-two-final-visual-progress-2026-10-18.json text eol=lf
+
 docs/screenshots/polar-all-clips-v2-final-2026-10-18/*.log text eol=lf
 
 docs/screenshots/cinder-all-clips-v3-final-2026-10-18/*.log text eol=lf
 
-docs/audits/pet-priority-two-*.json text eol=lf
+docs/audits/pet-priority-two-omitted-final-review-2026-10-18.json text eol=lf
 
 docs/screenshots/pet-priority-two-main-validation-2026-10-18/*.log text eol=lf
-
+docs/screenshots/pet-chimera-omitted-first-2026-10-18/*.log text eol=lf
+docs/screenshots/pet-eclipse-omitted-first-2026-10-18/*.log text eol=lf
+docs/screenshots/pet-next-three-omitted-shipping-progress-2026-10-18/*.log text eol=lf
 docs/screenshots/behemoth-all-clips-v2-final-2026-10-18/*.log text eol=lf
 
-docs/screenshots/chimera-all-clips-v2-final-2026-10-18/*.log text eol=lf
-
-docs/screenshots/eclipse-kitsune-all-clips-v2-final-2026-10-18/*.log text eol=lf
-
 docs/screenshots/pet-next-three-main-validation-2026-10-18/*.log text eol=lf
+
+docs/screenshots/pet-sphinx-raiju-manticore-main-validation-2026-10-18/*.log text eol=lf
+
+docs/screenshots/pet-six-mythic-main-validation-2026-10-18/*.log text eol=lf
+
+docs/screenshots/pet-ripple-main-validation-2026-10-18/*.log text eol=lf
+
+docs/screenshots/pet-gale-main-validation-2026-10-19/*.log text eol=lf
+
+docs/audits/pet-gale*.json text eol=lf
+
+docs/audits/pet-spark*.json text eol=lf
+
+docs/screenshots/*gale*/*.mjs text eol=lf
+
+docs/screenshots/*gale*/*.tsx text eol=lf
+
+docs/screenshots/*gale*/*.ts text eol=lf
+
+docs/screenshots/*gale*/*.log text eol=lf
+
+docs/screenshots/*spark*/*.mjs text eol=lf
+
+docs/screenshots/*spark*/*.tsx text eol=lf
+
+docs/screenshots/*spark*/*.ts text eol=lf
+
+docs/screenshots/*spark*/*.log text eol=lf
+
+docs/screenshots/pet-spark-main-validation-2026-10-19/*.log text eol=lf
+
+docs/audits/pet-pebble*.json text eol=lf
+
+docs/screenshots/*pebble*/*.mjs text eol=lf
+
+docs/screenshots/*pebble*/*.log text eol=lf
+
+docs/screenshots/*pebble*/*.json text eol=lf
+
+docs/screenshots/*pebble*/*.ts text eol=lf
+
+docs/audits/pet-stone*.json text eol=lf
+docs/screenshots/pet-red-fox-technique-followup-2026-10-20/*.txt text eol=lf
+docs/screenshots/pet-reviewed-legendary-stone-release-2026-10-20/*.txt text eol=lf
+docs/screenshots/pet-reviewed-legendary-stone-release-2026-10-20/*.mjs text eol=lf
+
+docs/screenshots/*stone*/*.mjs text eol=lf
+
+docs/screenshots/*stone*/*.log text eol=lf
+
+docs/screenshots/*stone*/*.json text eol=lf
+
+# Unreleased Pebble authoring and regression evidence is fingerprinted by bytes.
+docs/asset-sources/pebble-tortoise-remake-2026-10-19/*.md text eol=lf
+docs/asset-sources/pebble-tortoise-remake-2026-10-19/*.mjs text eol=lf
+docs/asset-sources/pebble-tortoise-remake-2026-10-19/*.py text eol=lf
+docs/asset-sources/pebble-tortoise-remake-2026-10-19/*.json text eol=lf
+shinobij.client/scripts/fixtures/pet-pebble-full-remake-private/*.json text eol=lf
+shinobij.client/scripts/pet-pebble-full-remake-private.test.mjs text eol=lf
+docs/screenshots/pet-pebble-full-remake-v9-2026-10-19/**/*.mjs text eol=lf
+docs/screenshots/pet-pebble-full-remake-v9-2026-10-19/*.txt text eol=lf
+docs/screenshots/pet-pebble-full-remake-main-validation-2026-10-19/*.txt text eol=lf
+docs/screenshots/pet-pebble-full-remake-progress-2026-10-19/*.md text eol=lf
+docs/audits/pet-priority-two-*.json text eol=lf
+docs/screenshots/chimera-all-clips-v2-final-2026-10-18/*.log text eol=lf
+docs/screenshots/eclipse-kitsune-all-clips-v2-final-2026-10-18/*.log text eol=lf
+docs/screenshots/sphinx-all-clips-v2-final-2026-10-18/*.log text eol=lf
+docs/screenshots/raiju-all-clips-v2-final-2026-10-18/*.log text eol=lf
+docs/screenshots/manticore-all-clips-v2-final-2026-10-18/*.log text eol=lf
+docs/screenshots/pet-sphinx-front-leg-ownership-v3-first-2026-10-18/*.log text eol=lf
+docs/screenshots/pet-raiju-omitted-first-2026-10-18/*.log text eol=lf
+docs/screenshots/pet-manticore-omitted-first-2026-10-18/*.log text eol=lf
+docs/screenshots/worldstorm-dragon-all-clips-v2-final-2026-10-18/*.log text eol=lf
+docs/screenshots/solar-stag-all-clips-v2-final-2026-10-18/*.log text eol=lf
+docs/screenshots/skyglass-kirin-all-clips-v2-final-2026-10-18/*.log text eol=lf
+docs/screenshots/thunderbloom-kirin-all-clips-v2-final-2026-10-18/*.log text eol=lf
+docs/screenshots/gravepeak-behemoth-all-clips-v2-final-2026-10-18/*.log text eol=lf
+docs/screenshots/celestial-lion-all-clips-v2-final-2026-10-18/*.log text eol=lf
+docs/screenshots/ripple-seal-complete-face-v10-final-2026-10-18/*.log text eol=lf
+docs/screenshots/gale-chick-complete-face-v1-final-2026-10-19/*.log text eol=lf
+docs/screenshots/pet-gale-chick-repair-first-2026-10-19/*.log text eol=lf
+
+# Preserve exact reviewed companion evidence across checkouts.
+docs/audits/pet-ember-ocelot-*.json text eol=lf
+docs/audits/pet-shrine-salamander-*.json text eol=lf
+docs/audits/pet-pyre-kestrel-*.json text eol=lf
+docs/audits/pet-standard-17-atlas-*.json text eol=lf
+docs/audits/pet-parallel-review-*/*.json text eol=lf
+docs/screenshots/pet-ember-ocelot-*/*.txt text eol=lf
+docs/screenshots/pet-shrine-salamander-*/*.txt text eol=lf
+docs/screenshots/pet-pyre-kestrel-*/*.txt text eol=lf
+docs/screenshots/pet-shrine-salamander-*/**/*.mjs text eol=lf
+shinobij.client/scripts/fixtures/pet-visible-ground-20261020/manifest.json text eol=lf
+
+# Audit hashes describe committed text bytes, including on Windows.
+docs/audits/pet-*.json text eol=lf
+docs/screenshots/**/*.log text eol=lf
+docs/screenshots/**/*.mjs text eol=lf
+docs/screenshots/**/*.txt text eol=lf

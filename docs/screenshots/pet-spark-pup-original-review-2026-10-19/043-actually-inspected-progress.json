@@ -1,0 +1,255 @@
+{
+  "id": "starter-lightning",
+  "sourceSha256": "5b96adb25eca071c6b1df6c020cd19def0a37d4b779c41eade34114f4089406f",
+  "battleSha256": "6125a968fa0163c556163c6756e7434577f5c16c8c91fbd454b927fc08b527b4",
+  "rows": [
+    {
+      "category": "raw",
+      "stage": "source",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-starter-base-five-baseline-source-head/starter-lightning-head-front-0.png",
+      "sha256": "245de8d7b01208e95be0395cc8ada6b6293e861e2a77af7b027136f889f2efc7",
+      "actuallyInspected": true
+    },
+    {
+      "category": "raw",
+      "stage": "source",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-starter-base-five-baseline-source-head/starter-lightning-head-front-1.png",
+      "sha256": "17e47c5ed2007299e13af6ea3727308e109d83c14858d627e4933f68859f2203",
+      "actuallyInspected": true
+    },
+    {
+      "category": "raw",
+      "stage": "source",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-starter-base-five-baseline-source-head/starter-lightning-head-front-2.png",
+      "sha256": "b65b6521899b73590c6ac7b1ca7aaec0d0916f6cd7bd00dcdeac92c8391878e5",
+      "actuallyInspected": true
+    },
+    {
+      "category": "raw",
+      "stage": "source",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-starter-base-five-baseline-source-head/starter-lightning-head-side-0.png",
+      "sha256": "54b456d31459810afa9566392ebebf4974633af4d73e620247603e426cf5e5a1",
+      "actuallyInspected": true
+    },
+    {
+      "category": "raw",
+      "stage": "source",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-starter-base-five-baseline-source-head/starter-lightning-head-side-1.png",
+      "sha256": "5c621f2cba9dea1feacc042b4fa74993fbcadf9e05856217c1f7c67fa2e3f271",
+      "actuallyInspected": true
+    },
+    {
+      "category": "raw",
+      "stage": "source",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-starter-base-five-baseline-source-head/starter-lightning-head-side-2.png",
+      "sha256": "7fb0f301c465cb9da93376cc052aa3be07c6615040dfdccc891c53d24476d75b",
+      "actuallyInspected": true
+    },
+    {
+      "category": "raw",
+      "stage": "source",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-starter-base-five-baseline-source-body/starter-lightning-front-0.png",
+      "sha256": "fe5fa352c32eb3c9978d9da66b1d8225c90dd02e6cc8001ccfe6a68137303a2f",
+      "actuallyInspected": true
+    },
+    {
+      "category": "raw",
+      "stage": "source",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-starter-base-five-baseline-source-body/starter-lightning-front-1.png",
+      "sha256": "2e5edeb4870461de355e7021f381f4a939978d6148f2aca9101930eb4c5e8e70",
+      "actuallyInspected": true
+    },
+    {
+      "category": "raw",
+      "stage": "source",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-starter-base-five-baseline-source-body/starter-lightning-front-2.png",
+      "sha256": "c324e41f807bc42161314521042be6989ddaa3c7197d50662085579a5476cec5",
+      "actuallyInspected": true
+    },
+    {
+      "category": "raw",
+      "stage": "source",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-starter-base-five-baseline-source-body/starter-lightning-side-0.png",
+      "sha256": "a651d6c490936fd9bc7846e835fbc3d4c84280331fc2143fa4661507bfcd86fb",
+      "actuallyInspected": true
+    },
+    {
+      "category": "raw",
+      "stage": "source",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-starter-base-five-baseline-source-body/starter-lightning-side-1.png",
+      "sha256": "93090172cee0e61be8289d565237a286f49d33d3b9d4c9d3b2f7ff0f4f1462f6",
+      "actuallyInspected": true
+    },
+    {
+      "category": "raw",
+      "stage": "source",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-starter-base-five-baseline-source-body/starter-lightning-side-2.png",
+      "sha256": "5962bb3758d75c58a1d9901c897492d9c5d0a69aba7c6d6ad678d14964bec225",
+      "actuallyInspected": true
+    },
+    {
+      "category": "raw",
+      "stage": "battle",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-starter-base-five-baseline-battle-head/starter-lightning-head-front-0.png",
+      "sha256": "cb9203c5f9b295ec070dba844ef2776ec12185b7b24e3ad6b6d50b69724c63db",
+      "actuallyInspected": true
+    },
+    {
+      "category": "raw",
+      "stage": "battle",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-starter-base-five-baseline-battle-head/starter-lightning-head-front-1.png",
+      "sha256": "35c0d3e209dea0ef3e13e4f73b1be4890e95b0f8853055666bffe6f73c3e0516",
+      "actuallyInspected": true
+    },
+    {
+      "category": "raw",
+      "stage": "battle",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-starter-base-five-baseline-battle-head/starter-lightning-head-front-2.png",
+      "sha256": "a78a20881ea4b4ca390ad8ce36473854753969a574de41c7f0b8c319adc0770c",
+      "actuallyInspected": true
+    },
+    {
+      "category": "raw",
+      "stage": "battle",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-starter-base-five-baseline-battle-head/starter-lightning-head-side-0.png",
+      "sha256": "f0cd2d99e94af8798002202ed7372e8d12a240c0346e821936ea524a9f01b0ab",
+      "actuallyInspected": true
+    },
+    {
+      "category": "raw",
+      "stage": "battle",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-starter-base-five-baseline-battle-head/starter-lightning-head-side-1.png",
+      "sha256": "6c2da47d6f11fcd62a860ac3b2a27da8dbce89e48a373414873cbe2eeddf92b0",
+      "actuallyInspected": true
+    },
+    {
+      "category": "raw",
+      "stage": "battle",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-starter-base-five-baseline-battle-head/starter-lightning-head-side-2.png",
+      "sha256": "1f6284c308b140e9ce4fb0b9d9de766f44105ab532a8e0e73655142807652b86",
+      "actuallyInspected": true
+    },
+    {
+      "category": "raw",
+      "stage": "battle",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-starter-base-five-baseline-battle-body/starter-lightning-front-0.png",
+      "sha256": "c5fc9f51344ef9798eccb6cee79ff0cef9e9328b19ee5cd359f4427d327729c1",
+      "actuallyInspected": true
+    },
+    {
+      "category": "raw",
+      "stage": "battle",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-starter-base-five-baseline-battle-body/starter-lightning-front-1.png",
+      "sha256": "b1e832b9e80e4f501c6fbfcb5b7ecd739500fad553a814184aff30fd1360c31a",
+      "actuallyInspected": true
+    },
+    {
+      "category": "raw",
+      "stage": "battle",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-starter-base-five-baseline-battle-body/starter-lightning-front-2.png",
+      "sha256": "644a9f3b6e675201692a3522089d5eef7ac3c7f643c49d99904c81ffc8214305",
+      "actuallyInspected": true
+    },
+    {
+      "category": "raw",
+      "stage": "battle",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-starter-base-five-baseline-battle-body/starter-lightning-side-0.png",
+      "sha256": "c839e8a8623848a37c1fc230bedb6ef7afdd77bc504afbcf87e5ef7ae142598e",
+      "actuallyInspected": true
+    },
+    {
+      "category": "raw",
+      "stage": "battle",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-starter-base-five-baseline-battle-body/starter-lightning-side-1.png",
+      "sha256": "a16fd6094d30100fb1d4c26c8f25c8c0495b80cd24e55e9a743cb308be0d2bbd",
+      "actuallyInspected": true
+    },
+    {
+      "category": "raw",
+      "stage": "battle",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-starter-base-five-baseline-battle-body/starter-lightning-side-2.png",
+      "sha256": "952e3a85c77529b965eb25f1b63043177f85d61e5c3abb4d82444c2254667d1e",
+      "actuallyInspected": true
+    },
+    {
+      "category": "techniques",
+      "path": ".tmp/pet-companion-techniques/independent-starter-lightning-techniques-v1/inspection-strips/front-block-0-half-0.png",
+      "sha256": "d888270df2542e008a70803c835d30b3f2e263af49a5621483f46bbc8bf26277",
+      "actuallyInspected": true
+    },
+    {
+      "category": "techniques",
+      "path": ".tmp/pet-companion-techniques/independent-starter-lightning-techniques-v1/inspection-strips/front-block-0-half-1.png",
+      "sha256": "bad23d073f445b26f9cb75f55381ea2eb4f900f0c11f73260b0f067d4176bdbf",
+      "actuallyInspected": true
+    },
+    {
+      "category": "techniques",
+      "path": ".tmp/pet-companion-techniques/independent-starter-lightning-techniques-v1/inspection-strips/front-block-1-half-0.png",
+      "sha256": "4aeb696e269118aa1c43646a290f77d2f2c368d45c52149d59e7defaf0ef54c3",
+      "actuallyInspected": true
+    },
+    {
+      "category": "techniques",
+      "path": ".tmp/pet-companion-techniques/independent-starter-lightning-techniques-v1/inspection-strips/front-block-1-half-1.png",
+      "sha256": "130c6bb3aa1d953653bbd662271fb38ba891d96932c2c3475a695c1de63f37a9",
+      "actuallyInspected": true
+    },
+    {
+      "category": "techniques",
+      "path": ".tmp/pet-companion-techniques/independent-starter-lightning-techniques-v1/inspection-strips/front-block-2-half-0.png",
+      "sha256": "ed3431bf7d8d9b972b7be66fb728632dd2e765306a86d1381e3f5a7bfe6f9b04",
+      "actuallyInspected": true
+    },
+    {
+      "category": "techniques",
+      "path": ".tmp/pet-companion-techniques/independent-starter-lightning-techniques-v1/inspection-strips/front-block-2-half-1.png",
+      "sha256": "a05996c8c3d58eb0641712f93194ce3929ddd4143e7f27866de72d41d4cd1b78",
+      "actuallyInspected": true
+    },
+    {
+      "category": "techniques",
+      "path": ".tmp/pet-companion-techniques/independent-starter-lightning-techniques-v1/inspection-strips/side-block-0-half-0.png",
+      "sha256": "96b9c8117ba3d242e2999f73862f210c10184de1c111158c44ee3840c4c8aa08",
+      "actuallyInspected": true
+    },
+    {
+      "category": "techniques",
+      "path": ".tmp/pet-companion-techniques/independent-starter-lightning-techniques-v1/inspection-strips/side-block-0-half-1.png",
+      "sha256": "e182584fa16e77fb2d32efff4326dafda4cefb3454a263606166757b61eaa8c6",
+      "actuallyInspected": true
+    },
+    {
+      "category": "techniques",
+      "path": ".tmp/pet-companion-techniques/independent-starter-lightning-techniques-v1/inspection-strips/side-block-1-half-0.png",
+      "sha256": "4415405a7f58641f5520290e535207553c79d7cd2afb35084f78948471a81ef8",
+      "actuallyInspected": true
+    },
+    {
+      "category": "techniques",
+      "path": ".tmp/pet-companion-techniques/independent-starter-lightning-techniques-v1/inspection-strips/side-block-1-half-1.png",
+      "sha256": "87d64edf39e58e05ae6a8dd50cb17a9fce3ba3fd0d2a4bb73292a85e606bc77b",
+      "actuallyInspected": true
+    },
+    {
+      "category": "techniques",
+      "path": ".tmp/pet-companion-techniques/independent-starter-lightning-techniques-v1/inspection-strips/side-block-2-half-0.png",
+      "sha256": "7190860f58d371b525e20cbf3adf5a18d88a55440eb8088213adf555165aa5bf",
+      "actuallyInspected": true
+    },
+    {
+      "category": "techniques",
+      "path": ".tmp/pet-companion-techniques/independent-starter-lightning-techniques-v1/inspection-strips/side-block-2-half-1.png",
+      "sha256": "fd0b7d323e80a7e323135e7cd0fc6250f8a404107e8fc84655e13e42956175a3",
+      "actuallyInspected": true
+    }
+  ],
+  "result": "repair-required",
+  "recordedAt": "2026-10-19T15:14:08.869Z",
+  "findings": [
+    "Lower face/mask shears relative to the eyes during recoil, visible in source and battle head closeups.",
+    "Frozen independent nine-region landmarks flag lower-face and jaw drift in the released source and battle assets.",
+    "Rear paw clips below the companion platform during the strong-strike windup, particularly side view at 0.36 seconds for Lightning Strike, Lightning Breaker and signature.",
+    "All source and battle raw samples and 216 actual equipped-technique frames inspected. Remaining repair and two final visual passes pending."
+  ]
+}

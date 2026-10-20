@@ -1,0 +1,152 @@
+{
+  "sha256": "c56b6391da217d8aa076c5cde6ea150b0eefa78b33d0ba347390e58001fc3a83",
+  "poses": 10454,
+  "blends": 468,
+  "exclusionMasks": false,
+  "rows": [
+    {
+      "name": "crown",
+      "maximum": 1.1606784345859023e-15,
+      "pose": {
+        "clip": "attack",
+        "time": 0.8592587411403656
+      },
+      "vertices": 70,
+      "edges": 167,
+      "failed": false
+    },
+    {
+      "name": "forehead",
+      "maximum": 1.642671331679896e-15,
+      "pose": {
+        "clip": "cast",
+        "time": 0.04121714319501604
+      },
+      "vertices": 468,
+      "edges": 933,
+      "failed": false
+    },
+    {
+      "name": "leftEye",
+      "maximum": 1.8260281050583573e-15,
+      "pose": {
+        "clip": "attack",
+        "time": 0.6262394487857819
+      },
+      "vertices": 1796,
+      "edges": 4514,
+      "failed": false
+    },
+    {
+      "name": "rightEye",
+      "maximum": 1.7556835801774039e-15,
+      "pose": {
+        "clip": "attack",
+        "time": 0.6928163468837738
+      },
+      "vertices": 1713,
+      "edges": 4435,
+      "failed": false
+    },
+    {
+      "name": "muzzle",
+      "maximum": 1.5814668716263176e-15,
+      "pose": {
+        "clip": "attack",
+        "time": 0.678252637386322
+      },
+      "vertices": 408,
+      "edges": 913,
+      "failed": false
+    },
+    {
+      "name": "leftCheek",
+      "maximum": 1.5284134611108005e-15,
+      "pose": {
+        "clip": "attack",
+        "time": 0.7531517148017883
+      },
+      "vertices": 226,
+      "edges": 455,
+      "failed": false
+    },
+    {
+      "name": "rightCheek",
+      "maximum": 1.579998137911387e-15,
+      "pose": {
+        "clip": "attack",
+        "time": 0.7177827060222626
+      },
+      "vertices": 211,
+      "edges": 440,
+      "failed": false
+    },
+    {
+      "name": "lowerFace",
+      "maximum": 2.2801208260512797e-15,
+      "pose": {
+        "clip": "attack",
+        "time": 0.678252637386322
+      },
+      "vertices": 159,
+      "edges": 320,
+      "failed": false
+    },
+    {
+      "name": "backSkull",
+      "maximum": 1.8798690819787602e-15,
+      "pose": {
+        "clip": "attack",
+        "time": 0.09986542165279388
+      },
+      "vertices": 410,
+      "edges": 905,
+      "failed": false
+    },
+    {
+      "name": "chin",
+      "maximum": 1.7798835640977666e-15,
+      "pose": {
+        "clip": "attack",
+        "time": 0.6928163468837738
+      },
+      "vertices": 50,
+      "edges": 96,
+      "failed": false
+    },
+    {
+      "name": "underChin",
+      "maximum": 1.8825862187204317e-15,
+      "pose": {
+        "clip": "cast",
+        "time": 0.8418631255626678
+      },
+      "vertices": 20,
+      "edges": 34,
+      "failed": false
+    },
+    {
+      "name": "leftJaw",
+      "maximum": 1.9580578894442263e-15,
+      "pose": {
+        "clip": "attack",
+        "time": 0.7240242958068848
+      },
+      "vertices": 35,
+      "edges": 59,
+      "failed": false
+    },
+    {
+      "name": "rightJaw",
+      "maximum": 1.7745627791612277e-15,
+      "pose": {
+        "clip": "attack",
+        "time": 0.7552322447299957
+      },
+      "vertices": 25,
+      "edges": 44,
+      "failed": false
+    }
+  ],
+  "visualApproval": false
+}

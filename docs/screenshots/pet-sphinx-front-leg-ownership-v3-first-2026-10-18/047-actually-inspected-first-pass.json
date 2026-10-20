@@ -1,0 +1,229 @@
+{
+  "id": "legendary-23",
+  "raw": [
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-front-leg-ownership-v3-source-head/legendary-23-head-front-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "0b502238134f804b1991db09dcc5617bdbfe3aed90185970c7afb77d49a28701"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-front-leg-ownership-v3-source-head/legendary-23-head-front-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "6d774a3b29f9e5ba39f1213453e0054907b3dcca63547707107f81eecf500191"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-front-leg-ownership-v3-source-head/legendary-23-head-front-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "5963002682e4ef19a274ddce712a33cd57059b98512764336eac648071b432b1"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-front-leg-ownership-v3-source-head/legendary-23-head-side-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "5355d8a09c887332f066087fb0e66e4ac7da71cdf4c5f5789f1acd248258fccb"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-front-leg-ownership-v3-source-head/legendary-23-head-side-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "d505bffa6f6845bd9b23bbab710512a27490e848db3e089b710d696b6a87cf42"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-front-leg-ownership-v3-source-head/legendary-23-head-side-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "f4876455f72faa8c8b263cace312d7a422378a9f8e9aaf0668be9e5eb145e06f"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-front-leg-ownership-v3-source-body/legendary-23-front-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "7a197519e6d08af108f366bba8281723de3fa031e5a7fe4e7b8d1556cc4f6971"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-front-leg-ownership-v3-source-body/legendary-23-front-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "13187853d278ce3d59c482086f4dada5b2b23c12746851aaf1d7db0249f9aa07"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-front-leg-ownership-v3-source-body/legendary-23-front-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "3386633d317c08dc384da5d304b7514c9cd5ea4c587ea5267547e3211e2e2f85"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-front-leg-ownership-v3-source-body/legendary-23-side-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "8ace3031fbf6543201d3b9c27ea166145eb8e0d338149d5f28165bced3b6a82c"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-front-leg-ownership-v3-source-body/legendary-23-side-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "f1bd84c1b03edd6be7dce6822d4bbab0e00c2e06fb9197e857fb44aba245f218"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-front-leg-ownership-v3-source-body/legendary-23-side-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "0697bba62f693903a3dfb24ffb7313681d0326fefb0c67fce96304213340c8e3"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-front-leg-ownership-v3-battle-head/legendary-23-head-front-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "05a16c7e87d57ad417da74653bc2613f9fe7bc99851df7901ba29c4240f9b03e"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-front-leg-ownership-v3-battle-head/legendary-23-head-front-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "f2d5e53c372a28c5597b51b430e4ffc6b61478ceae85813850efa8c5181e6194"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-front-leg-ownership-v3-battle-head/legendary-23-head-front-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "5f102d60884cbae179ca735dd2d73184d4efd12b524ec34b294b0895de6a7fcb"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-front-leg-ownership-v3-battle-head/legendary-23-head-side-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "8fc926f31c53e310e9248ae621640177b5e760f2efa4046d5ebe220913573250"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-front-leg-ownership-v3-battle-head/legendary-23-head-side-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "26a00507d08621bbd1916b17503a8a19a526656983a471e9cd8fdc7450b2cba5"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-front-leg-ownership-v3-battle-head/legendary-23-head-side-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "71c48cfc225ddf511387cbffd007c2e0a83007091e38b28fa31a968ec14f3595"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-front-leg-ownership-v3-battle-body/legendary-23-front-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "82ebbbc2b7e7d3bdf6526dbf9b2e602f4f283b66e90317885d9b1dde70871edf"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-front-leg-ownership-v3-battle-body/legendary-23-front-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "14b01e4a6eab1735e0d7d6bf91aaf3153fca548e956dd480d967808f6207ed57"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-front-leg-ownership-v3-battle-body/legendary-23-front-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "e18f8a6b0fc36d5f45e91d99bc474e62be2d5642355f3b91071c7240f3e5d157"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-front-leg-ownership-v3-battle-body/legendary-23-side-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "f7d2e8dfc9423e97b45959d2eadaaf5ad5e14dcdd3e0477535ff78c28e5f7a93"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-front-leg-ownership-v3-battle-body/legendary-23-side-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "4fe38701be28e8ebe242394eeccef1ff1267589b81f00abfd8e864cb9594ba0f"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-front-leg-ownership-v3-battle-body/legendary-23-side-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "4953bc9dcff9bf50d2b72b1b8274bc1f6728075fb1403bee453d07c0acfc3ac6"
+    }
+  ],
+  "secondPassComplete": false,
+  "sourcePromoted": false,
+  "techniques": [
+    {
+      "path": ".tmp/pet-companion-techniques/independent-sphinx-front-leg-ownership-v3-legendary-23-techniques/inspection-strips/front-block-0-half-0.png",
+      "sha256": "31714120d4a8e7a2697c4819ca410c809129d54fab45aa0534f7add599eca11c",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-sphinx-front-leg-ownership-v3-legendary-23-techniques/inspection-strips/front-block-0-half-1.png",
+      "sha256": "4c0eb0fa644b7d9e6a4b7426a793881380f9d4e23fc1fb9bafcd26d1513238a0",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-sphinx-front-leg-ownership-v3-legendary-23-techniques/inspection-strips/front-block-1-half-0.png",
+      "sha256": "533c85372a4b6d69276294928934ab8fd0c5a90d794741aa36596793d81907d7",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-sphinx-front-leg-ownership-v3-legendary-23-techniques/inspection-strips/front-block-1-half-1.png",
+      "sha256": "28e4cbc78e72c806fa1e1a991b742aa05d268eb2711730068593cd783cab4bff",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-sphinx-front-leg-ownership-v3-legendary-23-techniques/inspection-strips/front-block-2-half-0.png",
+      "sha256": "b762f29b259034aaf8d58186046adb7d490e416fe80e734d7d1876ba500b1257",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-sphinx-front-leg-ownership-v3-legendary-23-techniques/inspection-strips/front-block-2-half-1.png",
+      "sha256": "fe72068c9a1904256ab367c373491b0fe1a66fab926308c9d0d75e51f9399855",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-sphinx-front-leg-ownership-v3-legendary-23-techniques/inspection-strips/side-block-0-half-0.png",
+      "sha256": "5b203039494652c58687c4472c68db066d4f767b351ef784ca55489bd3cdc505",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-sphinx-front-leg-ownership-v3-legendary-23-techniques/inspection-strips/side-block-0-half-1.png",
+      "sha256": "2938664ce8450c86edeb1e2cc3ea6c396252feedf896aca7c353a199b1d1f80b",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-sphinx-front-leg-ownership-v3-legendary-23-techniques/inspection-strips/side-block-1-half-0.png",
+      "sha256": "3c6156a4f999346a877d5ff109876c677d2b3edfee57ec485c706e5b9c063fea",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-sphinx-front-leg-ownership-v3-legendary-23-techniques/inspection-strips/side-block-1-half-1.png",
+      "sha256": "37573bfc92fcc0a43be4b533c44d13d5dd13bd323dac3d23af0bbe53f4767a64",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-sphinx-front-leg-ownership-v3-legendary-23-techniques/inspection-strips/side-block-2-half-0.png",
+      "sha256": "37eb903fde45afe3295e90f6a672a466e26c7fd6f65b5241e890ffbe7837a46b",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-sphinx-front-leg-ownership-v3-legendary-23-techniques/inspection-strips/side-block-2-half-1.png",
+      "sha256": "005720a61e92f8c65375ab45111b6a85549db6e1e38b535a27dfe0451eabd87e",
+      "actuallyInspected": true,
+      "result": "pass"
+    }
+  ],
+  "nativeTechniqueFramesActuallyInspected": 216,
+  "nativeTechniqueStripsActuallyInspected": 12,
+  "firstPass": "source-and-direct-battle-raw-and-native-techniques-pass",
+  "notes": "All 24 raw slices and 216 native technique frames actually inspected. Skull, muzzle, mane, shoulder/hip attachments and paw motion remain coherent in the reviewed front/side views. Direct-retargeted old LOD remains diagnostic. Final regenerated delivery, runtime, advancing idle, atlas, own-leg regression and second pass remain pending."
+}
