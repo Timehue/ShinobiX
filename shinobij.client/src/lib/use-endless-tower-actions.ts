@@ -61,7 +61,7 @@ export function useEndlessTowerActions({ character, commitCharacter }: EndlessTo
                 const notices = [
                     result.milestone?.boneCharms ? `+${result.milestone.boneCharms} Bone Charms` : "",
                     result.milestone?.fateShards ? `+${result.milestone.fateShards} Fate Shards` : "",
-                    fight.wave % 10 === 0 ? "33% HP heal · 50% chakra & stamina refill" : "",
+                    fight.wave % 10 === 0 ? "Restore up to 33% of max HP and 50% of max chakra and stamina" : "",
                 ].filter(Boolean);
                 if (notices.length > 0) gameToast(`⭐ ${fight.wave}-Kill Milestone! ${notices.join(" · ")}.`);
             }

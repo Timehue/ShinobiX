@@ -151,7 +151,7 @@ describe("exclusive save-conflict restore", () => {
             }) as typeof fetch;
             const h = createHarness({ request });
 
-            await assert.rejects(h.restore(), /authoritative save version/i, `version ${String(invalidVersion)} must be rejected`);
+            await assert.rejects(h.restore(), /restored save could not be confirmed/i, `version ${String(invalidVersion)} must be rejected`);
             assert.equal(calls, 1, "an invalid acknowledgement must not trigger verification");
             assertNoAuthoritySideEffects(h);
         }

@@ -149,14 +149,14 @@ function drillBand(state: FirstFightCoachState): FirstFightCoachLine | null {
     const { history } = state;
     if (state.round === 1 && !history.attacked && !history.casted && state.distance > 4) {
         return band("drill-range", state.hasFlicker
-            ? "It hangs back. Flicker in for 20, or let it come."
+            ? "Flicker costs 20 AP. Move closer, or wait for it."
             : "It hangs back. Step in, or let it come to you.");
     }
     if (state.distance > 4 && !state.enemyInMelee) return band("drill-out-of-reach", "Out of reach. Step in, or let it close.");
     if (state.distance >= 0 && state.distance <= 4 && !history.casted) {
         return band("drill-in-range", state.hasKunai
-            ? "In range. Jutsu 60, kunai 40. Watch the AP bar."
-            : "In range. A jutsu is 60 AP. Watch the bar.");
+            ? "In range. Check each jutsu's AP cost; kunai: 40 AP."
+            : "In range. Check each jutsu's AP cost before casting.");
     }
     // The payoff of the whole 40/60 design, made tangible: a heavy cast leaves
     // exactly 40 AP, and the cheap technique is lit. Say it once per turn.
@@ -170,30 +170,30 @@ function drillBubble(state: FirstFightCoachState, seen: ReadonlySet<string>): Fi
     if (seen.has("drill-hexed") || !has(state.myDebuffs, "Decrease Damage Given")) return null;
     const forty = state.fortyJutsu;
     if (!forty || (forty.selfOnly && !forty.ready)) {
-        return bubble("drill-hexed", "It hexed your strikes; that fades in two turns. Cheap moves change a fight, heavy ones finish it.");
+        return bubble("drill-hexed", "Your damage is reduced for two turns. Check your status icons before choosing your next attack.");
     }
     if (!forty.ready) {
         // The player already spent the cheap technique on it, so it sits on
         // cooldown: never point at a card that cannot be pressed. Name the
         // mirror instead, which is the lesson anyway.
-        return bubble("drill-hexed", `It hexed your strikes, the way your ${forty.name} hexed it. Forty each way; it fades in two turns.`);
+        return bubble("drill-hexed", `Your damage is reduced for two turns. Your ${forty.name} also reduced its damage and is now on cooldown.`);
     }
     return bubble("drill-hexed", forty.selfOnly
-        ? `It hexed your strikes. Your ${forty.name} costs forty and steadies you. Cheap moves change a fight, heavy ones finish it.`
-        : `It hexed your strikes. Your ${forty.name} does the same to it for forty, and still leaves you sixty.`);
+        ? `Your damage is reduced. ${forty.name} costs 40 AP and targets you. Check its effect before using it.`
+        : `Your damage is reduced. Use ${forty.name} for 40 AP to reduce its damage too.`);
 }
 
 // ── Fight 3: the braced guardian (bubble only, light) ───────────────────────
 function storyBubble(state: FirstFightCoachState, seen: ReadonlySet<string>): FirstFightCoachLine | null {
     const { history } = state;
     if (!seen.has("story-braced") && state.enemyShield > 0) {
-        return bubble("story-braced", "It's braced. That shield absorbs a heavy technique completely. Break it with something cheap first, then commit.");
+        return bubble("story-braced", "Its shield absorbs damage before HP. Use low-cost attacks to break it, then use your strongest technique.");
     }
     if (!seen.has("story-wasted") && history.castedSixtyIntoShield && state.enemyShield > 0) {
-        return bubble("story-wasted", "Most of that went into the shield. Break the guard with cheap hits; save the big one for underneath.");
+        return bubble("story-wasted", "The shield absorbed most of that hit. Break it with low-cost attacks before spending more AP on a strong jutsu.");
     }
     if (!seen.has("story-open") && history.enemyShieldSeen && state.enemyShield <= 0 && state.myTurn) {
-        return bubble("story-open", "Guard's down. Now the heavy one.");
+        return bubble("story-open", "The shield is gone. Use a strong jutsu to damage its HP.");
     }
     return null;
 }
@@ -202,10 +202,10 @@ function storyBubble(state: FirstFightCoachState, seen: ReadonlySet<string>): Fi
 function errandBubble(state: FirstFightCoachState, seen: ReadonlySet<string>): FirstFightCoachLine | null {
     const poisoned = has(state.myDebuffs, "Poison");
     if (!seen.has("errand-poisoned") && poisoned) {
-        return bubble("errand-poisoned", "That net poisoned you. Every technique you pay for now bites back. Cleanse clears it, or end this fast. Your call.");
+        return bubble("errand-poisoned", state.cleanseReady ? "Poison damages you when a jutsu spends chakra or stamina. Cleanse removes it." : "Poison damages you when a jutsu spends chakra or stamina. Basic attacks avoid that extra damage.");
     }
     if (!seen.has("errand-bite") && poisoned && state.history.castedSixtyWhilePoisoned && state.myTurn && state.cleanseReady) {
-        return bubble("errand-bite", "Felt that? Poison taxes the heavy casts hardest. Cleanse costs sixty AP and nothing else.");
+        return bubble("errand-bite", "Poison deals more damage when a jutsu spends more chakra or stamina. Cleanse removes Poison for 60 AP.");
     }
     return null;
 }

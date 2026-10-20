@@ -187,10 +187,10 @@ export function resolveHollowGateTile(
                     pushHollowGateLog(`${flavor} The trap's killing blow lands, and then Second Wind restores half your HP.`);
                     setHollowGateEvent({ title: "Second Wind", body: "The stored Hollow Shards burst into violet flame and restore half your HP.", kind: "trap", choices: [{ label: "Press on", tone: "primary", onSelect: () => setHollowGateEvent(null) }] });
                 } else if (result.ended) {
-                    pushHollowGateLog(`${flavor} The seals tear ${damage} HP from you. You collapse and the server closes the run.`);
+                    pushHollowGateLog(`${flavor} The seals tear ${damage} HP from you. You collapse, ending the run.`);
                     setHollowGateEvent({
                         title: "You Have Fallen",
-                        body: `${flavor}\n\nThe trap drains your final breath. Your verified run ledger is reconciled and you are admitted to the village hospital.\n\nRUN SUMMARY\n${buildHollowGateRunSummary()}`,
+                        body: `${flavor}\n\nThe trap defeats you, ending your run. You are taken to the village hospital.\n\nRUN SUMMARY\n${buildHollowGateRunSummary()}`,
                         kind: "trap",
                         choices: [{ label: "Leave shrine", tone: "danger", onSelect: () => { setHollowGateEvent(null); leaveHollowGateShrine({ death: true }); } }],
                     });
@@ -335,7 +335,7 @@ export function resolveHollowGateTile(
                     });
                     const result = eventResult.lockedResult;
                     if (!eventResult.ok || !result) {
-                        pushHollowGateLog("The sealed door did not answer. Your Shrine Key was not spent; try again.");
+                        pushHollowGateLog("The door result could not be confirmed. Check your remaining Shrine Keys before trying again.");
                         return;
                     }
                     adoptServerEvent(eventResult);
@@ -348,7 +348,7 @@ export function resolveHollowGateTile(
                     if (result.outcome === "trap") {
                         const damage = Math.max(0, Math.floor(eventResult.damage ?? 0));
                         pushHollowGateLog(`Trap behind the door! You take ${damage} HP damage.`);
-                        setHollowGateEvent({ title: eventResult.ended ? "Cursed Trap Door" : eventResult.revived ? "Second Wind" : "Trap Door", body: eventResult.ended ? "The binding seal drains the last of your chakra. Your verified run ledger is reconciled and the run ends." : eventResult.revived ? "The cursed seal lands a killing blow, but Second Wind restores half your HP." : `Behind the chains, a cursed seal lashes out.\n\nYou take ${damage} HP damage.`, kind: "trap", choices: [{ label: eventResult.ended ? "Leave shrine" : "Press on", tone: "danger", onSelect: () => { setHollowGateEvent(null); if (eventResult.ended) leaveHollowGateShrine({ death: true }); } }] });
+                        setHollowGateEvent({ title: eventResult.ended ? "Cursed Trap Door" : eventResult.revived ? "Second Wind" : "Trap Door", body: eventResult.ended ? "The trap drains the last of your HP, ending your run. You are taken to the village hospital." : eventResult.revived ? "The cursed seal lands a killing blow, but Second Wind restores half your HP." : `Behind the chains, a cursed seal lashes out.\n\nYou take ${damage} HP damage.`, kind: "trap", choices: [{ label: eventResult.ended ? "Leave shrine" : "Press on", tone: "danger", onSelect: () => { setHollowGateEvent(null); if (eventResult.ended) leaveHollowGateShrine({ death: true }); } }] });
                         return;
                     }
                     const encounter = result.pet;
@@ -366,7 +366,7 @@ export function resolveHollowGateTile(
                         choices: [{ label: `Befriend ${encounter.name}`, tone: "primary", onSelect: () => {
                             if (!requireServerSettlement("hollowGatePetBefriend")) return;
                             void befriendHollowGatePetServer(character.name, petToken).then((befriended) => {
-                                if (!befriended.character) return alert(befriended.error || "The pet could not be befriended.");
+                                if (!befriended.character) return alert(befriended.error || "The pet recruitment could not be confirmed. Check your roster before trying again.");
                                 // Befriended even if refused as stale (the coordinator
                                 // then reads the stored save back); close the encounter.
                                 onVersionedCharacter(befriended.character, befriended.saveVersion);

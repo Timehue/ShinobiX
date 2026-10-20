@@ -53,7 +53,7 @@ export function StoryFieldScene({ questId, pointId, character, biome, review = f
         }
         if (!result.character || !adopted) {
             setStatus('error');
-            setError('Your choice was sealed, but this view could not refresh. Retry to recover it.');
+            setError('Your choice was saved, but this screen could not refresh. Retry to load it.');
             return;
         }
         setStatus('saved');

@@ -1,0 +1,658 @@
+{
+  "date": "2026-10-18",
+  "status": "complete",
+  "scope": "Manual clarity and factual pass on player error messages, reward notifications, and victory/draw/defeat presentation. Follow-up correction to the Academy dummy dialogue.",
+  "method": "Reviewed player-client message inventories and the relevant rendering branches. Traced changed outcome and payout claims to the server engine, settlement receipt, or recovery path. Retained protocol identifiers and gameplay rules.",
+  "inventory": {
+    "playerTextCandidates": 3542,
+    "errorCandidates": 1069,
+    "rewardAndOutcomeCandidates": 629,
+    "note": "Inventory candidates include CSS tokens, diagnostic strings, and narrative text; these are discovery counts, not unique revised messages."
+  },
+  "findings": [
+    {
+      "issue": "The Academy reward instruction erased a supernatural story fact.",
+      "evidence": [
+        "shinobij.client/src/components/AcademyStoryMoments.tsx:AcademySparOmen",
+        "shinobij.client/src/lib/academy-narrative.ts:academyStoryMomentFor"
+      ],
+      "resolution": "The instruction now recalls the dummy repeating the vow and the companion hearing it. It does not assert an unconfirmed explanation such as literal possession."
+    },
+    {
+      "issue": "A zero-ryo win could be mislabeled as practice even when stat points were awarded.",
+      "evidence": [
+        "api/missions/report-ai-fight.ts:no-purse dungeon settlement",
+        "api/missions/_ai-fight-reward.ts:aiFightReward"
+      ],
+      "resolution": "Reward narration reads each confirmed grant and uses the actual spar flag. A reduced payout is distinguished from a stopped ryo payout."
+    },
+    {
+      "issue": "Endless Tower called an unclaimed wave total banked ryo and announced loss consequences before confirmation.",
+      "evidence": [
+        "api/endless/_run.ts:recordEndlessWin",
+        "api/endless/_run.ts:cashOutEndless",
+        "api/endless/run.ts:settle"
+      ],
+      "resolution": "Wave rewards say they enter the unclaimed run total. Losses use the existing retryable settlement state before asserting a loss of ryo or showing Hospital navigation. Milestone currencies remain kept."
+    },
+    {
+      "issue": "Weekly Boss announced delivered rewards at expiry or allocation, before individual credits were confirmed.",
+      "evidence": [
+        "api/weekly-boss.ts:distributeRewards phases 1–3",
+        "api/weekly-boss.ts:applyWeeklyBossReward"
+      ],
+      "resolution": "Allocated rewards are labeled scheduled/pending. Confirmed delivery requires the player credit marker or a completed historical distribution listing the player. A successful gear roll is no longer presented as a guaranteed gear grant because pickGearDrop can return no upgrade."
+    },
+    {
+      "issue": "Ambiguous failures claimed no changes or no active fight after a response was lost.",
+      "evidence": [
+        "shinobij.client/src/lib/inventory-settlement.ts:openWarCrate",
+        "shinobij.client/src/screens/Hospital.tsx:paid healing",
+        "shinobij.client/src/screens/PetArena.tsx:challenge acceptance",
+        "shinobij.client/src/screens/ShinobiCouncilHall.tsx:claim"
+      ],
+      "resolution": "Messages describe an unconfirmed result and tell the player where to check before repeating the action."
+    },
+    {
+      "issue": "Draws, loss headings, and technical result language obscured the outcome.",
+      "evidence": [
+        "shinobij.client/src/components/StoryBossFightHost.tsx:renderResult",
+        "shinobij.client/src/features/dojo-circuit/CircuitCombatResult.tsx",
+        "shinobij.client/src/screens/HollowGateFight.tsx:renderResult"
+      ],
+      "resolution": "Draw and defeat labels are explicit. Pending Hollow Gate results no longer default to Run ended. Confirmed rewards and pending progress use ordinary language."
+    }
+  ],
+  "gameplayChanges": "No reward rates, resource costs, combat formulas, difficulty, or progression requirements changed. Endless loss presentation now uses the existing settlement/retry path on every terminal outcome.",
+  "changedPassages": [
+    {
+      "file": "shinobij.client/src/components/StoryBossFightHost.tsx",
+      "before": "Your win still counts. Retry the reward now.",
+      "after": "The fight ended in a win, but your Academy progress and reward are not confirmed yet. Press Retry reward.",
+      "reason": "Do not claim persisted progress before the settlement receipt.",
+      "line": 470
+    },
+    {
+      "file": "shinobij.client/src/components/StoryBossFightHost.tsx",
+      "before": "Your victory still counts. Retry the reward now.",
+      "after": "The fight ended in a win, but chapter completion and rewards are not confirmed yet. Press Retry reward.",
+      "reason": "Do not claim chapter completion before the receipt.",
+      "line": 505
+    },
+    {
+      "file": "shinobij.client/src/components/StoryBossFightHost.tsx",
+      "before": "Sealing your reward…",
+      "after": "Saving your reward…",
+      "reason": "State the failed action and recovery step in plain language.",
+      "line": 470
+    },
+    {
+      "file": "shinobij.client/src/components/StoryBossFightHost.tsx",
+      "before": "Personal reward committed.",
+      "after": "Reward received.",
+      "reason": "State the failed action and recovery step in plain language.",
+      "line": 471
+    },
+    {
+      "file": "shinobij.client/src/components/StoryBossFightHost.tsx",
+      "before": "{theme.bossName} has fallen.",
+      "after": "You defeated {theme.bossName}.",
+      "reason": "A combat victory need not mean the character died.",
+      "line": 503
+    },
+    {
+      "file": "shinobij.client/src/components/StoryBossFightHost.tsx",
+      "before": "Chapter Held",
+      "after": "{draw ? \"Draw\" : \"Defeat\"}",
+      "reason": "State the failed action and recovery step in plain language.",
+      "line": 521
+    },
+    {
+      "file": "shinobij.client/src/components/StoryBossFightHost.tsx",
+      "before": "stands firm. No progress was made. Recover and try again.",
+      "after": "was not defeated. This chapter is still open. Recover if needed, then try again.",
+      "reason": "Earlier choices remain saved even though this boss attempt did not complete the chapter.",
+      "line": 523
+    },
+    {
+      "file": "shinobij.client/src/components/WeeklyBossResult.tsx",
+      "before": "Your damage hasn&apos;t been confirmed. Retry settlement to bank this saved attempt.",
+      "after": "Your damage hasn&apos;t been confirmed. Press Retry saving result to record this attempt.",
+      "reason": "State the failed action and recovery step in plain language.",
+      "line": 18
+    },
+    {
+      "file": "shinobij.client/src/components/WeeklyBossResult.tsx",
+      "before": "Banking your damage to this week&apos;s leaderboard…",
+      "after": "Saving your damage to this week&apos;s leaderboard…",
+      "reason": "State the failed action and recovery step in plain language.",
+      "line": 18
+    },
+    {
+      "file": "shinobij.client/src/components/NextGoalPin.tsx",
+      "before": "Open the Logbook and claim your Academy reward.",
+      "after": "Open the Logbook and claim your Academy Training checklist reward.",
+      "reason": "This pin concerns the separate Academy Training checklist, claimed in the Logbook; the spar Trial reward is claimed in the Mission Hall.",
+      "line": 66
+    },
+    {
+      "file": "shinobij.client/src/lib/use-endless-tower-actions.ts",
+      "before": "33% HP heal · 50% chakra & stamina refill",
+      "after": "Restore up to 33% of max HP and 50% of max chakra and stamina",
+      "reason": "Recovery is capped by maximum resource totals.",
+      "line": 64
+    },
+    {
+      "file": "shinobij.client/src/lib/world-boss-raid-result.ts",
+      "before": "} stats ·",
+      "after": "} stat points ·",
+      "reason": "Receipt field is statPoints.",
+      "line": 9
+    },
+    {
+      "file": "shinobij.client/src/components/BlackMarketCrate.tsx",
+      "before": "Rewards have been added to your purse.",
+      "after": "Rewards have been added to your character.",
+      "reason": "Rewards can include items and multiple currencies.",
+      "line": 52
+    },
+    {
+      "file": "shinobij.client/src/lib/inventory-settlement.ts",
+      "before": "Could not open the war crate. Nothing was changed; please retry.",
+      "after": "The war crate opening could not be confirmed. Refresh your inventory before opening another crate.",
+      "reason": "A lost response does not prove that the server made no changes; this endpoint sends no replay request ID.",
+      "line": 30
+    },
+    {
+      "file": "shinobij.client/src/lib/endless-api.ts",
+      "before": "The Endless Tower seal rejected this action.",
+      "after": "The Endless Tower action could not be confirmed. Reopen the tower to check your run before trying again.",
+      "reason": "State the failed action and recovery step in plain language.",
+      "line": 13
+    },
+    {
+      "file": "shinobij.client/src/lib/endless-api.ts",
+      "before": "The Endless Tower wave could not be sealed.",
+      "after": "The next Endless Tower wave could not be started. Reopen the tower to check for an active fight.",
+      "reason": "State the failed action and recovery step in plain language.",
+      "line": 27
+    },
+    {
+      "file": "shinobij.client/src/lib/echoes-witness.ts",
+      "before": "Could not seal the witness record.",
+      "after": "Your witness record could not be saved. Try again.",
+      "reason": "State the failed action and recovery step in plain language.",
+      "line": 40
+    },
+    {
+      "file": "shinobij.client/src/screens/EchoesOfWar.tsx",
+      "before": "Could not seal the witness record.",
+      "after": "Your witness record could not be saved. Try again.",
+      "reason": "State the failed action and recovery step in plain language.",
+      "line": 456
+    },
+    {
+      "file": "shinobij.client/src/lib/hollow-gate-card-api.ts",
+      "before": "The rift card result could not be sealed.",
+      "after": "Your rift card result could not be saved. Press Continue again to retry.",
+      "reason": "State the failed action and recovery step in plain language.",
+      "line": 35
+    },
+    {
+      "file": "shinobij.client/src/lib/hollow-gate-combat-api.ts",
+      "before": "The Hollow Gate encounter could not settle.",
+      "after": "Your Hollow Gate battle result could not be confirmed. Retry before leaving.",
+      "reason": "State the failed action and recovery step in plain language.",
+      "line": 68
+    },
+    {
+      "file": "shinobij.client/src/lib/hollow-gate-combat-api.ts",
+      "before": "The Hollow Gate staircase could not seal the next floor.",
+      "after": "The next Hollow Gate floor could not be saved. Try the staircase again.",
+      "reason": "State the failed action and recovery step in plain language.",
+      "line": 84
+    },
+    {
+      "file": "shinobij.client/src/lib/hollow-gate-entry.ts",
+      "before": "This floor is not sealed yet, so you cannot move. Reconnect to finish the seal.",
+      "after": "This floor is still loading from the server. Reconnect before moving.",
+      "reason": "State the failed action and recovery step in plain language.",
+      "line": 25
+    },
+    {
+      "file": "shinobij.client/src/lib/hollow-gate-event-api.ts",
+      "before": "The floor seal did not go through. Reconnect and try again.",
+      "after": "Your action on this floor could not be confirmed. Reconnect and try again.",
+      "reason": "State the failed action and recovery step in plain language.",
+      "line": 89
+    },
+    {
+      "file": "shinobij.client/src/lib/hollow-gate-locked-door-api.ts",
+      "before": "The pet could not be befriended.",
+      "after": "The pet recruitment could not be confirmed. Check your roster before trying again.",
+      "reason": "State the failed action and recovery step in plain language.",
+      "line": 22
+    },
+    {
+      "file": "shinobij.client/src/lib/hollow-gate-tile.ts",
+      "before": "The pet could not be befriended.",
+      "after": "The pet recruitment could not be confirmed. Check your roster before trying again.",
+      "reason": "State the failed action and recovery step in plain language.",
+      "line": 465
+    },
+    {
+      "file": "shinobij.client/src/lib/hollow-gate-tile.ts",
+      "before": "The next floor could not be sealed. Retry the staircase.",
+      "after": "The next floor could not be saved. Try the staircase again.",
+      "reason": "State the failed action and recovery step in plain language.",
+      "line": 347
+    },
+    {
+      "file": "shinobij.client/src/lib/hollow-gate-recovery.ts",
+      "before": "Hollow Gate resume failed (${response.status}).",
+      "after": "Your Hollow Gate run could not be recovered. Reopen the shrine to retry.",
+      "reason": "State the failed action and recovery step in plain language.",
+      "line": 96
+    },
+    {
+      "file": "shinobij.client/src/lib/hollow-gate-step-api.ts",
+      "before": "Hollow Gate step failed (${response.status}).",
+      "after": "Your Hollow Gate move could not be confirmed. Reconnect to check your position.",
+      "reason": "State the failed action and recovery step in plain language.",
+      "line": 68
+    },
+    {
+      "file": "shinobij.client/src/lib/ai-fight-api.ts",
+      "before": "AI fight start failed (${response.status}).",
+      "after": "The fight could not be started. Reopen the encounter to check for an active fight.",
+      "reason": "State the failed action and recovery step in plain language.",
+      "line": 109
+    },
+    {
+      "file": "shinobij.client/src/lib/ai-fight-api.ts",
+      "before": "World fight resume failed (${response.status}).",
+      "after": "Your World Map fight could not be recovered. Reopen the map to retry.",
+      "reason": "State the failed action and recovery step in plain language.",
+      "line": 147
+    },
+    {
+      "file": "shinobij.client/src/lib/ai-fight-api.ts",
+      "before": "AI fight resume failed (${response.status}).",
+      "after": "Your fight could not be recovered. Reopen the encounter to retry.",
+      "reason": "State the failed action and recovery step in plain language.",
+      "line": 175
+    },
+    {
+      "file": "shinobij.client/src/lib/pve-outcome-api.ts",
+      "before": "Fight outcome confirmation failed (${response.status}).",
+      "after": "Your battle result could not be confirmed. Retry to check it.",
+      "reason": "State the failed action and recovery step in plain language.",
+      "line": 48
+    },
+    {
+      "file": "shinobij.client/src/lib/pet-sanctuary-api.ts",
+      "before": "Sanctuary request failed (${response.status}).",
+      "after": "Your Sanctuary change could not be confirmed. Refresh your roster before trying again.",
+      "reason": "State the failed action and recovery step in plain language.",
+      "line": 8
+    },
+    {
+      "file": "shinobij.client/src/lib/pet-breeding-api.ts",
+      "before": "Breeding request failed (${response.status}).",
+      "after": "Your Hatchery request could not be confirmed. Reopen the Hatchery to check the pairing or egg.",
+      "reason": "State the failed action and recovery step in plain language.",
+      "line": 43
+    },
+    {
+      "file": "shinobij.client/src/components/SectorChat.tsx",
+      "before": "Your voice cannot reach this sector yet. Give it a moment.",
+      "after": "Your connection to this sector is not ready. Wait a moment before sending another message.",
+      "reason": "State the failed action and recovery step in plain language.",
+      "line": 19
+    },
+    {
+      "file": "shinobij.client/src/components/SectorChat.tsx",
+      "before": "The message did not carry. Check your connection and try again.",
+      "after": "Your message could not be confirmed. Check the chat before sending it again.",
+      "reason": "State the failed action and recovery step in plain language.",
+      "line": 20
+    },
+    {
+      "file": "shinobij.client/src/components/SectorChat.tsx",
+      "before": "The sector could not hear you. Try again in a moment.",
+      "after": "The sector chat could not send your message. Try again in a moment.",
+      "reason": "State the failed action and recovery step in plain language.",
+      "line": 21
+    },
+    {
+      "file": "shinobij.client/src/lib/anbu-infiltration-api.ts",
+      "before": "The infiltration did not answer. Try again in a moment.",
+      "after": "The infiltration request could not be confirmed. Reopen the stronghold to check your progress.",
+      "reason": "State the failed action and recovery step in plain language.",
+      "line": 124
+    },
+    {
+      "file": "shinobij.client/src/lib/clan-war-pet-api.ts",
+      "before": "The clan war pet duel did not answer. Try again in a moment.",
+      "after": "Your clan war pet duel could not be confirmed. Reopen the battle to check its status.",
+      "reason": "State the failed action and recovery step in plain language.",
+      "line": 46
+    },
+    {
+      "file": "shinobij.client/src/lib/sector-war-garrison-api.ts",
+      "before": "The garrison assault did not answer. Try again in a moment.",
+      "after": "Your garrison assault could not be confirmed. Reopen the War Map to check its status.",
+      "reason": "State the failed action and recovery step in plain language.",
+      "line": 26
+    },
+    {
+      "file": "shinobij.client/src/lib/tower-pvp-api.ts",
+      "before": "The Team Arena did not answer. Try again in a moment.",
+      "after": "The Team Arena request could not be confirmed. Reopen the lobby to check your match.",
+      "reason": "State the failed action and recovery step in plain language.",
+      "line": 73
+    },
+    {
+      "file": "shinobij.client/src/lib/pet-showdown-api.ts",
+      "before": "Network error — the seal did not answer.",
+      "after": "The pet battle request could not be confirmed. Reopen the encounter to check its status.",
+      "reason": "State the failed action and recovery step in plain language.",
+      "line": 141
+    },
+    {
+      "file": "shinobij.client/src/components/HollowGatePetFight.tsx",
+      "before": "The Gate did not answer: ${error.message}",
+      "after": "The Hollow Gate pet battle could not start: ${error.message}",
+      "reason": "State the failed action and recovery step in plain language.",
+      "line": 158
+    },
+    {
+      "file": "shinobij.client/src/lib/server-settlement-gate.ts",
+      "before": "is temporarily unavailable while secure server settlement is being completed. Nothing was spent or changed.",
+      "after": "is temporarily unavailable while its reward and save system is being updated. This action spent nothing.",
+      "reason": "Gate rejects locally before any action is sent.",
+      "line": 73
+    },
+    {
+      "file": "shinobij.client/src/components/ActivitySpine.tsx",
+      "before": "Live eligibility is unavailable. Wait for capability refresh before starting this activity.",
+      "after": "The game could not check whether you can start this activity. Wait for it to refresh.",
+      "reason": "State the failed action and recovery step in plain language.",
+      "line": 85
+    },
+    {
+      "file": "shinobij.client/src/screens/Hospital.tsx",
+      "before": "Network error - heal failed.",
+      "after": "Your healing could not be confirmed. Refresh your HP and ryo before trying again.",
+      "reason": "Network failure can occur after the server applies a paid heal.",
+      "line": 193
+    },
+    {
+      "file": "shinobij.client/src/screens/ShinobiCouncilHall.tsx",
+      "before": "The council could not be reached, so the seat was not claimed. Check your connection and try again — nothing has changed.",
+      "after": "Your Kage claim could not be confirmed. Refresh the council to check who holds the seat before trying again.",
+      "reason": "A lost response does not prove the mutation failed.",
+      "line": 173
+    },
+    {
+      "file": "shinobij.client/src/screens/PetArena.tsx",
+      "before": "Error: Network error accepting the Warfront challenge. Nothing was started.",
+      "after": "The Warfront challenge acceptance could not be confirmed. Reopen the invitation to check for an active battle.",
+      "reason": "Acceptance may have committed before the response was lost.",
+      "line": 1118
+    },
+    {
+      "file": "shinobij.client/src/lib/combat-action-display.ts",
+      "before": "Complete the encounter objective before targeting that enemy.",
+      "after": "Defeat the remaining reinforcements before targeting the boss.",
+      "reason": "The engine rejects boss targeting while its objective reinforcements survive.",
+      "line": 87
+    },
+    {
+      "file": "shinobij.client/src/components/HealerInjuredList.tsx",
+      "before": "Error: The heal did not reach the ward. Check your connection and try again.",
+      "after": "Error: Your heal could not be confirmed. Refresh the ward to check the patient's HP before trying again.",
+      "reason": "The request may have completed before its response was lost.",
+      "line": 179
+    },
+    {
+      "file": "shinobij.client/src/components/AiFightHost.tsx",
+      "before": "Recovered your sealed ambush reward from the Guild ledger.",
+      "after": "Your saved ambush reward has been recovered.",
+      "reason": "Use a direct statement of the result or the action to retry.",
+      "line": 346
+    },
+    {
+      "file": "shinobij.client/src/screens/Dungeon.tsx",
+      "before": "All seals verified",
+      "after": "All three trials complete",
+      "reason": "Use a direct statement of the result or the action to retry.",
+      "line": 139
+    },
+    {
+      "file": "shinobij.client/src/screens/Dungeon.tsx",
+      "before": "Three clean signals. No rescue rope used. Take what the vault owes you; I have the next challenger to keep breathing.",
+      "after": "You cleared all three trials. Your reward is ready. I need to prepare for the next challenger.",
+      "reason": "Use a direct statement of the result or the action to retry.",
+      "line": 140
+    },
+    {
+      "file": "shinobij.client/src/screens/Dungeon.tsx",
+      "before": "The Warden, Chronicle, and Rare Beast proofs are bound to this run. Claim the reserved reward now; if the request is interrupted, this screen remains recoverable.",
+      "after": "You defeated the Warden, won the Chronicle Showdown, and beat the Rare Beast. Claim your dungeon reward below. If the claim is interrupted, reopen this dungeon to check it.",
+      "reason": "The stage is complete only after all three server-verified trials; reward is not granted until claimed.",
+      "line": 141
+    },
+    {
+      "file": "shinobij.client/src/features/dojo-circuit/CircuitCombatResult.tsx",
+      "before": "won ? 'A hand well played.' : draw ? 'An unfinished chapter.' : 'A wiser return.'",
+      "after": "won ? 'Victory' : draw ? 'Draw' : 'Defeat'",
+      "reason": "Use a direct statement of the result or the action to retry.",
+      "line": 9
+    },
+    {
+      "file": "shinobij.client/src/features/dojo-circuit/CircuitCombatResult.tsx",
+      "before": "won ? earned ? 'Courage, recorded.' : 'A trial won.' : draw ? 'The trial is drawn.' : 'Every path has a next step.'",
+      "after": "won ? earned ? 'Victory · Seal of Courage earned' : 'Victory' : draw ? 'Draw' : 'Defeat'",
+      "reason": "Use a direct statement of the result or the action to retry.",
+      "line": 29
+    },
+    {
+      "file": "shinobij.client/src/components/PetTacticsArena.tsx",
+      "before": "view.reason ?? 'sealed result'",
+      "after": "view.reason ?? 'Battle complete'",
+      "reason": "Use a direct statement of the result or the action to retry.",
+      "line": 211
+    },
+    {
+      "file": "shinobij.client/src/components/PetTacticsArena.tsx",
+      "before": "Playing the sealed result…",
+      "after": "Playing the confirmed battle result…",
+      "reason": "Use a direct statement of the result or the action to retry.",
+      "line": 216
+    },
+    {
+      "file": "shinobij.client/src/components/PetShowdownBattle.tsx",
+      "before": "The server refused this round. Nothing was lost — try resolving it again.",
+      "after": "This round could not be confirmed. Retry to check and resolve the same round.",
+      "reason": "No response does not prove a round was not processed; retry uses the same round.",
+      "line": 3935
+    },
+    {
+      "file": "shinobij.client/src/lib/world-boss-event-api.ts",
+      "before": "'Turn-in failed (' + response.status + ').'",
+      "after": "'Your Hollow Shard turn-in could not be confirmed. Refresh the event before trying again.'",
+      "reason": "Use a direct statement of the result or the action to retry.",
+      "line": 159
+    },
+    {
+      "file": "shinobij.client/src/lib/world-boss-event-api.ts",
+      "before": "The Hollow Shard store is offline. Try again shortly.",
+      "after": "Your Hollow Shard turn-in could not be confirmed. Refresh the event and your shard balance before trying again.",
+      "reason": "A fetch error does not establish that the whole store is offline or that the deposit did not commit.",
+      "line": 161
+    },
+    {
+      "file": "shinobij.client/src/lib/weekly-boss-reward-sync.ts",
+      "before": "Your Weekly Boss rewards have arrived. Check your bag.",
+      "after": "Your Weekly Boss rewards have arrived. Your ryo, stat points, and item totals have been refreshed.",
+      "reason": "Sync adopts the credited character, including currencies and stat pool as well as items.",
+      "line": 99
+    },
+    {
+      "file": "shinobij.client/src/components/OnboardingCoach.tsx",
+      "before": "Open the Mission Hall and claim your Academy Trial reward. You earned it by completing the spar.",
+      "after": "Open the Mission Hall and claim your Academy Trial reward. I heard the voice from that dummy repeat your vow, too. We need to find out how it knew.",
+      "reason": "Preserve the confirmed dummy incident: glowing magenta seals, a voice repeating the vow, and the companion as a witness. Literal possession has not yet been established.",
+      "line": 483
+    },
+    {
+      "file": "shinobij.client/src/components/GameAlert.tsx",
+      "before": "The server could not be reached. Check your connection and try again.",
+      "after": "The request could not be confirmed. Check your connection and current progress before trying again.",
+      "reason": "A network failure does not prove the action never reached the server.",
+      "line": 96
+    },
+    {
+      "file": "shinobij.client/src/components/GameAlert.tsx",
+      "before": "The server could not finish that. Try again in a moment.",
+      "after": "The server reported an error. Check your current progress before trying again.",
+      "reason": "A server fault can occur after a save has been committed.",
+      "line": 97
+    },
+    {
+      "file": "shinobij.client/src/components/GameAlert.tsx",
+      "before": "Unexpected token '<'",
+      "after": "The server response could not be read. Check your current progress before trying the action again.",
+      "reason": "Do not expose JSON parser errors or mistake an unreadable response for a proven lack of server changes.",
+      "line": 108
+    },
+    {
+      "file": "shinobij.client/src/components/CacheRewardReveal.tsx",
+      "before": "These rewards have been added to your inventory.",
+      "after": "These rewards have been added to your character.",
+      "reason": "Caches grant currency as well as inventory items.",
+      "line": 26
+    },
+    {
+      "file": "shinobij.client/src/components/CacheRewardReveal.tsx",
+      "before": "Collect rewards",
+      "after": "Done",
+      "reason": "The close action dismisses a reveal; the rewards were already granted.",
+      "line": 28
+    },
+    {
+      "file": "shinobij.client/src/components/StoryRewardSummary.tsx",
+      "before": "Personal reward committed",
+      "after": "Reward received",
+      "reason": "Use ordinary language for a confirmed receipt.",
+      "line": 14
+    },
+    {
+      "file": "shinobij.client/src/components/StoryRewardSummary.tsx",
+      "before": "Previously committed reward",
+      "after": "Reward already received",
+      "reason": "A replay must not look like a second payout.",
+      "line": 14
+    },
+    {
+      "file": "shinobij.client/src/components/StoryBossFightHost.tsx",
+      "before": "Retry record delivery",
+      "after": "Retry saving progress",
+      "reason": "Distinguish already received rewards from progress records still being saved.",
+      "line": 484
+    },
+    {
+      "file": "shinobij.client/src/components/WeeklyBossResult.tsx",
+      "before": "Assault Logged",
+      "after": "Damage recorded",
+      "reason": "Weekly Boss is an unlimited-health score attack; this confirms contribution, not a boss kill.",
+      "line": 14
+    },
+    {
+      "file": "shinobij.client/src/screens/Inventory.tsx",
+      "before": "These rewards have already been added to your inventory.",
+      "after": "These rewards have already been added to your character.",
+      "reason": "The cache receipt includes currency.",
+      "line": 799
+    },
+    {
+      "file": "shinobij.client/src/lib/pvp-reward-claim.ts",
+      "before": "Draw confirmed — terminal battle effects are settled.",
+      "after": "Draw confirmed. Your battle result and any HP or item changes have been saved.",
+      "reason": "Explain what was confirmed.",
+      "line": 316
+    },
+    {
+      "file": "shinobij.client/src/lib/combat-action-display.ts",
+      "before": "You need more AP or another action slot before acting.",
+      "after": "That action is unavailable. Check its AP cost, cooldown, and your remaining actions this turn.",
+      "reason": "Solo-PvE also emits cannot-act for a basic action still on cooldown.",
+      "line": 58
+    },
+    {
+      "file": "shinobij.client/src/lib/combat-action-display.ts",
+      "before": "Retreat is sealed in this encounter.",
+      "after": "You cannot flee from this encounter.",
+      "reason": "Name the blocked action directly.",
+      "line": 93
+    },
+    {
+      "file": "shinobij.client/src/lib/ai-fight-result.ts",
+      "before": "You left the fight.",
+      "after": "You did not win this fight.",
+      "reason": "A surviving loser may have lost a timeout decision rather than fled.",
+      "line": 36
+    },
+    {
+      "file": "shinobij.client/src/screens/MissionArenaFight.tsx",
+      "before": "cleared, but the reward could not be registered with the server. Retry before leaving — otherwise there will be nothing to claim.",
+      "after": "won, but the Mission Hall has not confirmed your reward. Press Retry to check it before leaving.",
+      "reason": "The request may have succeeded before its response was lost.",
+      "line": 1995
+    },
+    {
+      "file": "shinobij.client/src/screens/WorldMap.tsx",
+      "line": 2513,
+      "before": "The account did not settle. Return to the outskirts and try again.",
+      "after": "Your quest report could not be confirmed. Return to the outskirts and try again.",
+      "reason": "This failure is a story-quest report response, not a login or currency account operation."
+    }
+  ],
+  "validation": {
+    "focusedTests": "29 passed; additional receipt/recovery tests: 54 passed",
+    "fullTests": "Final npm run test:ci: 16,004 tests; 15,976 passed, 28 skipped, 0 failed, 0 cancelled. Duration: 903,187.65 ms.",
+    "lint": "Full npm run lint: 0 errors, 23 pre-existing warnings. Affected 66 frontend files and final test-fixture updates: 0 errors or warnings.",
+    "build": "Final server/client builds, runtime artifact verification, and size checks passed. The final client contains the corrected quest error and omits the turn-in destination that does not apply to every world encounter.",
+    "browser": "20 passed, 2 viewport-inapplicable cases skipped in the final desktop/mobile run. Verified the restored Academy dialogue, readable error modal, pending/confirmed Weekly Boss payouts, live reward/gear delivery, ranked result recovery without WebGL2, and PvP result usability.",
+    "layout": "Strict Solo-PvE viewport matrix: all 6 configured Chromium/DPR, Firefox, and WebKit projects passed (7.3 minutes).",
+    "focused": "109 affected tests passed; 17 final error/result tests passed, including interrupted/unreadable crate responses; 13 Pet Arena settlement contract tests passed. Final AI receipt helper: 4 tests passed after its last text refinement.",
+    "screenshotsReviewed": [
+      "Desktop Mission Hall Academy reward prompt: full corrected dummy callback visible and claim button readable.",
+      "Mobile Mission Hall: full corrected callback and claim action readable.",
+      "Mobile Weekly Boss: scheduled rewards explicitly labeled delivery pending.",
+      "Strict mobile Solo-PvE canvas/HUD/action layout: readable and unobstructed."
+    ],
+    "diff": "git diff --check passed; only existing CRLF normalization notices.",
+    "initialRunNotes": "One stale Pet Arena source assertion expected the incorrect Nothing was started guarantee. It was updated to require an unconfirmed response and recovery instruction, then passed individually and in the complete rerun. Initial browser fixture/locator issues were corrected before the final clean browser run.",
+    "logs": {
+      "fullTests": ".tmp/error-reward-result-full-clean.log",
+      "browser": ".tmp/error-reward-result-browser-verified.log",
+      "layout": ".tmp/error-reward-result-layout.log",
+      "clientBuild": ".tmp/error-reward-result-client-final.log",
+      "artifactVerification": ".tmp/error-reward-result-artifacts-final.log",
+      "size": ".tmp/error-reward-result-size-verified.log",
+      "fullLint": ".tmp/error-reward-result-lint.log",
+      "affectedLint": ".tmp/error-reward-result-affected-lint.log",
+      "finalCopyLint": ".tmp/error-reward-result-copy-lint-final.log"
+    }
+  },
+  "buildSize": {
+    "measuredProductJsCssBytes": 9551323,
+    "previousAggregateCeilingBytes": 9550000,
+    "aggregateCeilingBytes": 9570000,
+    "reason": "Account for the requested clarity passes and receipt presentation under the existing aggregate-budget policy.",
+    "independentStartupChunkCssAndAssetLimits": "unchanged and passed",
+    "initialMeasuredProductJsCssBytes": 9551340
+  }
+}

@@ -9,6 +9,11 @@
  *
  * body: { playerName, fleeId, kind: 'road' }
  *     | { playerName, fleeId, kind: 'explore', sector, requestId }
+ *     | { playerName, fleeId, kind: 'toll', sector, wandererId }
+ *
+ *   toll    : a verified natural bandit accepts 500 carried ryo instead of a
+ *             fight. No HP is charged. Its payment receipt and cooldown commit
+ *             with the wallet in one save write (see _road-toll.ts).
  *
  *   road    : a bandit, night ninja, contract hunter, war mercenary or the
  *             roaming Weekly Boss. Nothing outside the save changes, so there
@@ -44,6 +49,7 @@ import {
     ownsExploreReceipt,
 } from '../missions/_generic-ai-fight-authority.js';
 import { roadFleeCost, type RoadFleeCost } from '../../shared/road-flee.js';
+import { banditTollMutation } from './_road-toll.js';
 
 const OPAQUE_ID = /^[A-Za-z0-9_-]{8,96}$/;
 // A day, so a reply lost late in a long session still replays rather than
@@ -81,7 +87,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
         if (!identity.admin && !(await enforceRateLimitKv(req, res, 'road-flee', 20, 60_000, identity.name))) return;
 
-        const kind = body.kind === 'explore' ? 'explore' : body.kind === 'road' ? 'road' : '';
+        const kind = body.kind === 'toll' ? 'toll' : body.kind === 'explore' ? 'explore' : body.kind === 'road' ? 'road' : '';
         const fleeId = opaqueId(body.fleeId);
         if (!kind || !fleeId) return res.status(400).json({ error: 'Missing flee details.' });
         const requestId = kind === 'explore' ? opaqueId(body.requestId) : '';
@@ -92,6 +98,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         const receiptKey = roadFleeReceiptKey(playerName, fleeId);
         const committed = await mutatePlayerSave<Reply>(playerName, async ({ character: char, record, saveKey }) => {
+            if (kind === 'toll') return banditTollMutation(
+                { character: char, record, saveKey, playerName }, fleeId,
+                typeof body.wandererId === 'string' ? body.wandererId : '', sector, Date.now(),
+            );
             const totals = { hp: num(char.hp), ryo: num(char.ryo) };
             const answer = (reply: Reply) => ({ ok: true as const, write: false, character: char, value: reply });
 

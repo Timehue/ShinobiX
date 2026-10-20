@@ -316,7 +316,7 @@ export function useRankedQueue({
                         : undefined;
                     if (!rankedAuthority || !match || !opponentName || typeof match.initiator !== "boolean") {
                         retireAfterPollFailure(
-                            "The ranked server returned an incomplete match proof. Rejoin the queue before starting a battle.",
+                            "Your ranked match could not be verified. Rejoin the queue before starting a battle.",
                         );
                         return;
                     }

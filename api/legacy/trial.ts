@@ -65,12 +65,12 @@ const MYTHIC_AWAKEN_MSGS: ReadonlyArray<(p: string, defName: string, flavor: str
 ];
 const MYTHIC_BIND_MSGS: ReadonlyArray<(p: string, defName: string) => string> = [
     (p, n) => `${p} has completed the Binding of the ${n}. Few shinobi ever reach Stage III.`,
-    (p, n) => `The ${n} and ${p} can no longer be told apart. The Binding holds. Stage III.`,
+    (p, n) => `${p} has completed the Binding trial for the ${n}, reaching Stage III.`,
 ];
 const SUMMIT_MSGS: ReadonlyArray<(p: string, defName: string, mythicTitle: string) => string> = [
     (p, n, t) => `${p} has carried the ${n} to Stage V, Mythic. "${t}" now walks the world.`,
-    (p, n, t) => `A path is complete: ${p} stands at the summit of the ${n}. History will use the name "${t}".`,
-    (p, n, _t) => `The Hall of Legends has begun carving: the ${n} has reached its summit in ${p}'s hands.`,
+    (p, n, t) => `A path is complete: ${p} has completed all five stages of the ${n} and earned the title "${t}".`,
+    (p, n, _t) => `${p} has completed Stage V of the ${n}. Their achievement is recorded in the Hall of Legends.`,
 ];
 // Local pride: posted only into the affinity village's chat when a favored
 // Legacy awakens — a proud beat even for quiet basic/rare paths, so each

@@ -63,6 +63,20 @@ describe("Academy narrative milestones", () => {
         assert.equal(veteran.ok && veteran.changed, false);
     });
 
+    it('opens the Logbook immediately after recovery and claiming, before the step autosave', () => {
+        const claimed = { onboardingStep: 'cafeteria', academyTrialClaimed: true, academyIncidentSeen: true, hp: 1_000, maxHp: 1_000, ryo: 2_060 };
+        const result = applyAcademyNarrativeAction(claimed, {}, 'logbook');
+        assert.equal(result.ok, true);
+        if (result.ok) assert.deepEqual(result.character, { ...claimed, onboardingStep: 'sectorReturn' });
+        for (const invalid of [
+            { ...claimed, academyTrialClaimed: false },
+            { ...claimed, academyIncidentSeen: false },
+            { ...claimed, hp: 999 },
+            { ...claimed, maxHp: undefined },
+            { ...claimed, onboardingStep: 'academySpar' },
+        ]) assert.equal(applyAcademyNarrativeAction(invalid, {}, 'logbook').ok, false);
+    });
+
     it("requires the trace before the seal and the seal before completion", () => {
         const step = { onboardingStep: "sectorReturn" };
         assert.equal(applyAcademyNarrativeAction(step, {}, "seal").ok, false);

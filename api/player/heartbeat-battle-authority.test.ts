@@ -116,6 +116,14 @@ before(async () => {
     ({ resetLapseReconciliationForTests } = await import('../_battle-lapse.js'));
     ({ PET_BREEDING_MIGRATION_VERSION } = await import('../pet/_owned-pet.js'));
     handler = (await import('./heartbeat.js')).default as unknown as Handler;
+    // Measure background reconciliation, not cold TSX compilation of the
+    // settlement dependency graph under a heavily parallel full-suite run.
+    // The heartbeat still initiates the real reconciliation; every terminal,
+    // HP, save and projection assertion below remains in place.
+    await Promise.all([
+        import('../solo-pve/_abandon.js'),
+        import('../pve/_fight-outcome-settlement.js'),
+    ]);
 });
 
 beforeEach(async () => {

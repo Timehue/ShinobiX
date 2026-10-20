@@ -27,11 +27,11 @@ export async function openWarCrate(playerName: string): Promise<
             _saveVersion?: number;
         };
         if (!response.ok || !data.ok || !data.character || !data.rewards) {
-            return { ok: false, error: data.error || 'Could not open the war crate. Please retry.' };
+            return { ok: false, error: data.error || 'The war crate opening could not be confirmed. Refresh your inventory before opening another crate.' };
         }
         return { ok: true, character: data.character, rewards: data.rewards, _saveVersion: data._saveVersion };
     } catch {
-        return { ok: false, error: 'Could not open the war crate. Nothing was changed; please retry.' };
+        return { ok: false, error: 'The war crate opening could not be confirmed. Refresh your inventory before opening another crate.' };
     }
 }
 

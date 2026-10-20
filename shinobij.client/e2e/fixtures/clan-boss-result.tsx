@@ -28,7 +28,7 @@ document.documentElement.dataset.vp = viewportClassForWidth(window.innerWidth);
 export function ClanBossResultFixture() {
     const [returned, setReturned] = useState(false);
     if (returned) return <main style={{ color: 'white', padding: 24 }}>
-        <h1 data-testid="returned-screen">{ordinary ? 'Battle Towers' : 'Clan Hall'}</h1>
+        <h1 data-testid="returned-screen">{ordinary ? 'Battle Towers' : 'Clan Boss'}</h1>
     </main>;
     return <BattleTowerFight character={seed.character} runId={session.runId} initialSession={session}
         variant={ordinary ? 'tower' : 'clan-boss'}
@@ -39,7 +39,7 @@ export function ClanBossResultFixture() {
             if (params.has('reject') && qa.settlements === 1) return { error: 'Contribution receipt pending.' };
             if (qa.bankings === 0) qa.bankings++;
             return { ok: true, alreadySettled: qa.settlements > 1, character: seed.character, _saveVersion: 7,
-                result: { won: session.winner === 'squad', damage: 16_747 }, pool: 5_253 };
+                result: { won: session.winner === 'squad', damage: 16_747 }, pool: params.has('defeated') ? 0 : 5_253 };
         }}
         onVersionedCharacter={() => { qa.commits++; return true; }}
         onExit={() => { qa.exits++; setReturned(true); }} />;

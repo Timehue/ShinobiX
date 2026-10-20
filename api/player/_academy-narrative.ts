@@ -71,7 +71,11 @@ export function applyAcademyNarrativeAction(
     }
     if (action === 'logbook') {
         if (step === 'sectorReturn' || step === 'done') return { ok: true, character, changed: false };
-        if ((step !== 'logbook' && step !== 'firstMission') || character.academyTrialClaimed !== true) {
+        // Recovery and claiming can finish before the client-owned step autosave.
+        // Trust the earned reward and acknowledged aftermath at that boundary.
+        const recoveredClaim = step === 'cafeteria' && character.academyIncidentSeen === true
+            && Number(character.maxHp) > 0 && Number(character.hp) >= Number(character.maxHp);
+        if ((step !== 'logbook' && step !== 'firstMission' && !recoveredClaim) || character.academyTrialClaimed !== true) {
             return { ok: false, status: 409, error: 'Claim the Academy Trial before continuing through the Logbook.' };
         }
         return { ok: true, character: { ...character, onboardingStep: 'sectorReturn' }, changed: true };

@@ -128,7 +128,7 @@ function npcDialogue(npc: FirstPactNpcDefinition, progress: FirstPactProgress): 
         return {
             lines: progress.stableQuest.tournamentWins === 0
                 ? ["Orin has the entry slate. Get Vale onto it before the assessor reaches this yard."]
-                : [`${progress.stableQuest.tournamentWins} bell${progress.stableQuest.tournamentWins === 1 ? "" : "s"} won. The beasts can hear the next crowd. Go finish it.`],
+                : [`${progress.stableQuest.tournamentWins} round${progress.stableQuest.tournamentWins === 1 ? "" : "s"} won. The beasts can hear the next crowd. Go finish it.`],
         };
     }
     // A citizen with a writ served on their quarter speaks about that before
@@ -183,12 +183,12 @@ function npcDialogue(npc: FirstPactNpcDefinition, progress: FirstPactProgress): 
             // Once the Court has lost to this claimant twice, it stops
             // explaining itself and starts keeping count.
             lines.push(
-                `${progress.standingCourt.clears} full docket${progress.standingCourt.clears === 1 ? "" : "s"} answered. Your name now appears on every sitting.`,
+                `${progress.standingCourt.clears} Court challenge${progress.standingCourt.clears === 1 ? "" : "s"} completed. Your victories are on the record.`,
                 "I will sit again. One victory can be dismissed as an exception. Repeated victories force the Court to change its rule.",
             );
         } else if (progress.standingCourt.round > 0) {
             lines.push(
-                `${progress.standingCourt.round} of ${FIRST_PACT_STANDING_COURT_LENGTH} sittings stand. Finish all five in this run. Lose one and Orin returns the docket to its first sitting.`,
+                `You have won ${progress.standingCourt.round} of ${FIRST_PACT_STANDING_COURT_LENGTH} battles in this Court challenge. Win all five in one run. If you lose, the challenge restarts from the first battle.`,
             );
         } else if (progress.mainStep === "complete" || progress.mainStep === "return-to-threshold") {
             lines.push(
@@ -250,8 +250,8 @@ function npcDialogue(npc: FirstPactNpcDefinition, progress: FirstPactProgress): 
         }
         if (open.length) {
             lines.push(reserve > 0
-                ? `Entering a finding costs ${FIRST_PACT_FINDING_COST.toLocaleString()}, and I will not take it out of the ${reserve.toLocaleString()} this docket is still weighing. Answer the Balancing, or earn past the threshold first.`
-                : `Entering a finding costs ${FIRST_PACT_FINDING_COST.toLocaleString()}. You are carrying ${spendable.toLocaleString()}. Come back heavier.`);
+                ? `Entering a finding costs ${FIRST_PACT_FINDING_COST.toLocaleString()} standing. You must keep ${reserve.toLocaleString()} standing reserved for the Balancing trial. Begin that trial or earn enough extra standing to pay for the finding.`
+                : `Entering a finding costs ${FIRST_PACT_FINDING_COST.toLocaleString()} standing. You have ${spendable.toLocaleString()} standing available. Earn more standing by defeating Court squads, then return.`);
         } else if (progress.findings.length) {
             lines.push(`${progress.findings.length} finding${progress.findings.length === 1 ? "" : "s"} entered under your name. ${progress.findings.length === 1 ? "It" : "They"} will outlast this room, which I am reliably told is the point of the exercise.`);
         }
@@ -266,7 +266,7 @@ function npcDialogue(npc: FirstPactNpcDefinition, progress: FirstPactProgress): 
             lines: [
                 "The Arbiter refused your hearing. You need enough public standing to force it onto the schedule.",
                 `You are ${owed.toLocaleString()} short of the required ${FIRST_PACT_BALANCING_STANDING.toLocaleString()}.`,
-                "Four Court details are active in the quarters. Defeat enough of them, then report back here.",
+                "Four Court squads are active in the city districts. Defeat them to earn standing, then report back here.",
             ],
         };
         if (mainEncounter && trial) {
@@ -275,13 +275,13 @@ function npcDialogue(npc: FirstPactNpcDefinition, progress: FirstPactProgress): 
             const opening = trial.round === 1
                 ? [
                     "The champion's gate is open. The Court has issued a finding on your companions and scheduled four sittings.",
-                    "Its claim is simple: four independent wills create four risks. Give up refusal, and the Court promises to keep all four bodies safe.",
+                    "Its claim is simple: four independent wills create four risks. The Court promises to keep your four companions safe if they give up the right to refuse orders.",
                     firstPactVow(progress.mainQuest.pactVow)?.consequence ?? "It expects one command to be easier to preserve than four living choices.",
                 ]
                 : trial.round === trial.of
                     ? [
                         "You answered three sittings. The Echo is the fourth and final opponent.",
-                        "It fields a defender, sage, assassin, and tracker. Use all four companions; one repeated answer will not cover every role.",
+                        "It fields a defender, sage, assassin, and tracker. Bring all four companions and plan for each enemy role.",
                     ]
                     : [`Sitting ${trial.round} of ${trial.of}. The Court changed its formation. Change yours before the gate opens.`];
             return {
@@ -337,20 +337,20 @@ function npcDialogue(npc: FirstPactNpcDefinition, progress: FirstPactProgress): 
     } : { lines: ["The east bell rang without the rope moving. My rookbeasts knew a breath before I did.", "I need the next watch to believe the birds, not the repair notice."] };
     if (npc.id === "engineer-tam") {
         if (progress.mainStep === "investigate-city-omens" && !progress.mainQuest.omens.includes("aqueduct")) return {
-            lines: ["The lower intake is pulling above recorded demand. There is no open valve that can account for it.", "The animals stop at the blue grates. Watch the weed: the current bends toward a draw that has not begun."],
+            lines: ["The lower intake is pulling above recorded demand. There is no open valve that can account for it.", "The animals refuse to cross the blue grates. Watch the weeds in the water: the current flows toward an intake whose valves are all shut."],
             action: { kind: "main-beat", beat: "omen-aqueduct", label: "Record the impossible current" },
         };
         if (progress.mainStep === "meet-engineer-tam") return {
             lines: [
                 "Vey reports that you crossed the Celestial Tower threshold from another age with this seal. I cannot test the crossing. I can test the seal.",
                 "Its cut and alloy match the oldest intake plate. That plate pairs two witnesses who consent to remember each other.",
-                "I can bypass the lower lock once before the pressure trips it. Two assassins hold the inner route. When either strikes, it can withdraw behind the healthiest reserve.",
+                "I can bypass the lower lock to get you inside. Two assassins guard the inner route. Keep your reserves ready to replace injured companions.",
             ],
             action: { kind: "main-beat", beat: "meet-engineer", label: "Open the old Gateworks route" },
         };
         const mainEncounter = expectedFirstPactMainEncounter(progress);
         if (mainEncounter?.id === "lattice-guardian") return {
-            lines: ["The bypass is open and the pressure is climbing. Each assassin can strike, then put a fresh reserve in front of your answer.", mainEncounter.lesson],
+            lines: ["The bypass is open. The Wardens start with two assassins, and they have two more companions in reserve.", mainEncounter.lesson],
             action: { kind: "main-battle", encounterId: mainEncounter.id, label: `Descend: ${mainEncounter.title}` },
         };
         return { lines: ["The lower intake is still above recorded demand with every listed valve shut.", "The animals refuse the blue grates. I have stopped calling that a maintenance problem."] };
@@ -409,7 +409,7 @@ function mainQuestCopy(progress: FirstPactProgress): { kicker: string; title: st
             return { kicker: `Chapter I · Omens ${progress.mainQuest.omens.length}/3`, title: "What the Animals Know", detail: `Collect three named observations for Vey. Still needed: ${missing.join(", ")}.`, target: targets[next] };
         }
         case "return-to-vey": return { kicker: "Chapter I · Evidence", title: "Before the Wording Changes", detail: "Bring the three unedited observations to Vey.", target: { x: 42, y: 12 } };
-        case "challenge-court-menagerie": return { kicker: "Chapter II · The Court", title: "The Courtesy of Teeth", detail: "Meet Registrar Orin at the southern Colosseum gate and answer the Court Menagerie.", target: { x: 42, y: 34 } };
+        case "challenge-court-menagerie": return { kicker: "Chapter II · The Court", title: "The Courtesy of Teeth", detail: "Meet Registrar Orin at the southern Colosseum gate to begin the battle against the Court Menagerie.", target: { x: 42, y: 34 } };
         case "recover-withheld-record": return { kicker: "Chapter II · Withheld", title: "A Record Without an Owner", detail: "Return to Vey and recover the handlers' original pact.", target: { x: 42, y: 12 } };
         case "meet-engineer-tam": return { kicker: "Chapter III · Intake", title: "What the Gate Keeps", detail: "Carry the original record to Tam at the Gateworks.", target: { x: 68, y: 46 } };
         case "challenge-lattice-guardian": return { kicker: "Chapter III · Intake", title: "The Lattice Wardens", detail: "Descend through the route Tam opened.", target: { x: 68, y: 46 } };
@@ -426,7 +426,7 @@ function mainQuestCopy(progress: FirstPactProgress): { kicker: string; title: st
                     kicker: "Chapter IV · The Docket",
                     title: "Force a Hearing",
                     detail: nextWrit
-                        ? `Answer active Court writs in the quarters. You need ${owed.toLocaleString()} more standing to force the hearing.`
+                        ? `Defeat Court squads in the city districts to earn standing. You need ${owed.toLocaleString()} more standing to unlock the hearing.`
                         : `The Court will not sit yet. Earn ${owed.toLocaleString()} more standing, then return to Orin.`,
                     target: giver?.position ?? { x: 42, y: 34 },
                 };
@@ -457,8 +457,8 @@ function mainQuestCopy(progress: FirstPactProgress): { kicker: string; title: st
                     : "The Standing Court",
                 title: sitting.title,
                 detail: progress.standingCourt.round > 0
-                    ? `Sitting ${sitting.round + 1} of ${FIRST_PACT_STANDING_COURT_LENGTH}. Lose one and the docket opens again at the top.`
-                    : "The Arbiter has reopened the docket in the High Court square. Five sittings, start to finish.",
+                    ? `Round ${sitting.round + 1} of ${FIRST_PACT_STANDING_COURT_LENGTH}. If you lose, restart from round 1.`
+                    : "The Arbiter awaits in the High Court square. Win five battles in one challenge.",
                 target: { x: 52, y: 12 },
             };
         }

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { after, before, beforeEach, describe, it, mock } from 'node:test';
+import { rollWanderers, wandererDayBucketFromMs } from '../../shared/wanderer-roster.js';
 
 /*
  * POST /api/sector/road-flee: fleeing a road ambush is charged by the server.
@@ -92,6 +93,101 @@ async function flee(body: Json): Promise<Out> {
 async function character(name: string): Promise<Json> {
     return ((await kv.get<Json>(`save:${name}`))!.character) as Json;
 }
+
+function tollTarget(archetype = 'bandit') {
+    for (let sector = 1; sector <= 66; sector++) {
+        const w = rollWanderers(sector, wandererDayBucketFromMs(FIXED_NOW)).find(w => w.archetype === archetype);
+        if (w) return { kind: 'toll', sector, wandererId: w.id };
+    }
+    throw new Error('No target in the fixed roster');
+}
+
+describe('bandit toll', () => {
+    it('charges exactly 500 carried ryo and no HP, ignoring client prices, and retires the bandit', async () => {
+        const name = `${PREFIX}toll`;
+        const target = tollTarget();
+        await seed(name, { bankRyo: 20_000 });
+        const out = await flee({ playerName: name, fleeId: 'toll_00000001', ...target, cost: 0 });
+        assert.equal(out.body?.ok, true, JSON.stringify(out.body));
+        assert.deepEqual(out.body?.cost, { hp: 0, ryo: 500 });
+        assert.deepEqual(out.body?.totals, { hp: 900, ryo: 4500 });
+        const saved = await character(name);
+        assert.equal(saved.bankRyo, 20_000);
+        assert.ok(Number((saved.wandererCooldowns as Json)[target.wandererId]) > FIXED_NOW);
+        assert.notEqual((saved.wandererMoves as Json)[target.wandererId], target.sector);
+    });
+
+    it('replays a lost reply without a second charge and rejects a fresh payment for the same bandit', async () => {
+        const name = `${PREFIX}tollreplay`;
+        await seed(name);
+        const body = { playerName: name, fleeId: 'toll_replay_001', ...tollTarget() };
+        assert.equal((await flee(body)).body?.ok, true);
+        assert.equal((await flee(body)).body?.replay, true);
+        assert.equal((await flee({ ...body, fleeId: 'toll_replay_002' })).body?.ok, false);
+        assert.equal((await character(name)).ryo, 4500);
+    });
+
+    it('refuses insufficient carried funds without taking HP, banked ryo, or a partial payment', async () => {
+        const name = `${PREFIX}tollpoor`;
+        await seed(name, { ryo: 499, bankRyo: 20_000 });
+        const out = await flee({ playerName: name, fleeId: 'toll_poor_0001', ...tollTarget() });
+        assert.equal(out.body?.reason, 'no-ryo');
+        const saved = await character(name);
+        assert.equal(saved.ryo, 499);
+        assert.equal(saved.hp, 900);
+        assert.equal(saved.bankRyo, 20_000);
+        assert.equal(saved.wandererCooldowns, undefined);
+    });
+
+    it('accepts exactly 500 ryo and leaves zero carried ryo', async () => {
+        const name = `${PREFIX}tollexact`;
+        await seed(name, { ryo: 500 });
+        assert.equal((await flee({ playerName: name, fleeId: 'toll_exact_001', ...tollTarget() })).body?.ok, true);
+        assert.equal((await character(name)).ryo, 0);
+    });
+
+    it('refuses other NPCs, synthetic ambushes, stale bandits and wrong sectors without charging', async () => {
+        const name = `${PREFIX}tollinvalid`;
+        await seed(name);
+        const target = tollTarget();
+        for (const invalid of [tollTarget('merchant'), { ...target, wandererId: 'explore-ambush-fake' },
+            { ...target, wandererId: target.wandererId.replace(/-\d+-\d+$/, '-0-0') }, { ...target, sector: 0 }]) {
+            assert.equal((await flee({ playerName: name, fleeId: 'toll_invalid_01', ...invalid })).body?.ok, false);
+        }
+        assert.equal((await character(name)).ryo, 5000);
+    });
+
+    it('commits no payment receipt when the save write conflicts, so retry charges once', async () => {
+        const name = `${PREFIX}tollconflict`;
+        await seed(name);
+        const body = { playerName: name, fleeId: 'toll_conflict_1', ...tollTarget() };
+        const original = kv.compareSet;
+        kv.compareSet = async (key, expected, value, options) => key === `save:${name}` ? false : original.call(kv, key, expected, value, options);
+        try { assert.equal((await flee(body)).statusCode, 503); }
+        finally { kv.compareSet = original; }
+        assert.equal((await character(name)).ryo, 5000);
+        assert.equal((await kv.get<Json>(`save:${name}`))?.banditTollReceipts, undefined);
+        assert.equal((await flee(body)).body?.ok, true);
+        assert.equal((await character(name)).ryo, 4500);
+    });
+
+    it('keeps the receipt with a committed payment when its acknowledgement is lost', async () => {
+        const name = `${PREFIX}tollack`;
+        await seed(name);
+        const body = { playerName: name, fleeId: 'toll_ack_000001', ...tollTarget() };
+        const original = kv.compareSet;
+        let armed = true;
+        kv.compareSet = async (key, expected, value, options) => {
+            const result = await original.call(kv, key, expected, value, options);
+            if (key === `save:${name}` && armed) { armed = false; throw new Error('lost toll acknowledgement'); }
+            return result;
+        };
+        try { assert.equal((await flee(body)).body?.ok, true); }
+        finally { kv.compareSet = original; }
+        assert.equal((await flee(body)).body?.replay, true);
+        assert.equal((await character(name)).ryo, 4500);
+    });
+});
 
 describe('road flee', () => {
     it('charges half the HP and a capped tenth of the purse from the save, ignoring any amount sent', async () => {

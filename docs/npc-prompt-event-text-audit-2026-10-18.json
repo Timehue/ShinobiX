@@ -1,0 +1,640 @@
+{
+  "date": "2026-10-18",
+  "status": "complete",
+  "scope": "NPC greetings, interaction prompts and world-event announcements, plus the user-requested replacement of bandit Flee with a fixed 500 ryo toll.",
+  "method": "Read greetings and prompts in their interaction context; trace callbacks, server settlement and event triggers; retain established lore and simplify instructions; regenerate authored story assets.",
+  "coverage": {
+    "greetings": [
+      "Natural wanderer roster",
+      "Territory-dependent patrols",
+      "Eight Legacy emissaries",
+      "Rift quest givers",
+      "Kagero",
+      "Contract hunters",
+      "Scribe Ihara",
+      "Tamer Tomoe",
+      "Story field points and story road encounters"
+    ],
+    "interactions": [
+      "WorldWandererDialog callbacks",
+      "Merchant purchases",
+      "Paid medic treatment",
+      "Tracker trails and delivery packages",
+      "Gifts",
+      "Chronicle Showdowns",
+      "Quests and Legacy errands",
+      "Stronghold entrance"
+    ],
+    "announcements": [
+      "World-boss event phase transitions",
+      "Weekly Boss spawn and automatic settlement",
+      "Clan Boss spawn, sector pressure and weekly settlement",
+      "Boost events",
+      "Level-37 and level-80 world crises",
+      "Sector-war declaration and resolution",
+      "Village stores and structures",
+      "Kage changes",
+      "Bounties",
+      "Legacy awakening, Binding and Stage V completion",
+      "Era unlocks"
+    ]
+  },
+  "revisionCount": 61,
+  "factualFindings": [
+    {
+      "finding": "The user requested a real toll instead of the bandit Flee option.",
+      "implementation": "Natural bandits offer Fight or Pay 500 ryo. The server resolves the current bandit, deducts carried ryo only, and commits the receipt with the wallet change and existing wanderer cooldown/relocation. Payment costs no HP. Insufficient funds leave the encounter open. Lost replies can be retried without a second charge. Other hostile types retain their existing choices; existing peace/truce behavior still applies.",
+      "evidence": [
+        "shared/road-toll.ts",
+        "api/sector/_road-toll.ts",
+        "api/sector/road-flee.ts",
+        "api/save/_state-ownership.ts",
+        "shinobij.client/src/screens/WorldMap.tsx",
+        "shinobij.client/src/components/WorldWandererDialog.tsx",
+        "shinobij.client/src/lib/save-ownership.ts"
+      ]
+    },
+    {
+      "finding": "Fishing has no shade, weather or dusk catch bonuses. Nodes require Fishing skill and a usable pole.",
+      "evidence": [
+        "shared/resource-gathering.ts",
+        "shared/gathering-tools.ts",
+        "api/world/_resource-gathering.ts",
+        "shinobij.client/src/lib/road-cast.ts"
+      ]
+    },
+    {
+      "finding": "Memory counts identify archetypes, not personal acquaintance with the specific NPC.",
+      "evidence": [
+        "shinobij.client/src/screens/WorldMap.tsx:rememberWanderer",
+        "shinobij.client/src/components/WorldWandererDialog.tsx:memoryLine"
+      ]
+    },
+    {
+      "finding": "The medic restores HP, chakra and stamina; the merchant immediately exchanges ryo for bone charms.",
+      "evidence": [
+        "api/sector/_wanderer-service.ts",
+        "api/sector/wanderer-service.ts"
+      ]
+    },
+    {
+      "finding": "Weekly Boss rewards are delivered automatically after expiry, with rank-specific Core and Key rewards and once-per-week limits. The World Bosses hub contains the Weekly tab.",
+      "evidence": [
+        "api/weekly-boss.ts:distributeRewardsIfExpired",
+        "shinobij.client/src/screens/WeeklyBossArena.tsx",
+        "shinobij.client/src/screens/CentralHub.tsx"
+      ]
+    },
+    {
+      "finding": "Clan Boss weekly settlement and the next spawn are separate steps. Sector threat percentages are not the boss HP percentage.",
+      "evidence": [
+        "api/cron/_clan-boss-weekly.ts",
+        "api/clan-boss/assault-settle.ts"
+      ]
+    },
+    {
+      "finding": "World crisis alarms trigger at levels 37 and 80. The second crisis offers shinobi Collection Cell fights or three-companion pursuit-pack battles.",
+      "evidence": [
+        "shared/world-crisis.ts",
+        "shared/world-crisis-80.ts",
+        "api/world-crisis/_state.ts",
+        "api/world-crisis-80/_state.ts"
+      ]
+    },
+    {
+      "finding": "Story field greetings retain authored objects and events. The unclear mapped-lee greeting still describes the mapped shelter and waxed pages found in daylight.",
+      "evidence": [
+        "shinobij.client/src/data/story-field-scenes.ts",
+        "shinobij.client/src/generated/story-content/manifest.ts"
+      ]
+    },
+    {
+      "finding": "The rival miner fight is optional and does not unlock gathering at the node.",
+      "evidence": [
+        "shared/wanderer-roster.ts:rivalMiner",
+        "shinobij.client/src/components/WorldWandererDialog.tsx",
+        "api/world/_resource-gathering.ts"
+      ]
+    }
+  ],
+  "validation": {
+    "fullSuite": {
+      "command": "npm run test:ci",
+      "tests": 16016,
+      "passed": 15988,
+      "skipped": 28,
+      "failed": 0,
+      "cancelled": 0,
+      "log": ".tmp/npc-prompt-event-full-verified.log"
+    },
+    "focused": [
+      {
+        "passed": 34,
+        "coverage": "Toll settlement, exact price, HP preservation, replay, failed writes, receipt ownership, fishing guidance and client request behavior.",
+        "log": ".tmp/npc-prompt-event-final-focused.log"
+      },
+      {
+        "passed": 6,
+        "coverage": "Both world-crisis authorities and Legacy trial announcement behavior.",
+        "log": ".tmp/npc-prompt-event-announcement-final-tests.log"
+      },
+      {
+        "passed": 40,
+        "coverage": "Save ownership mirrors, map/dialogue projection constraints and asset fixture lifecycle.",
+        "log": ".tmp/npc-prompt-event-integration-final.log"
+      }
+    ],
+    "lint": {
+      "errors": 0,
+      "existingWarnings": 23,
+      "log": ".tmp/npc-prompt-event-lint-final.log"
+    },
+    "build": {
+      "server": "passed",
+      "client": "passed",
+      "generatedStoryContent": "verified",
+      "runtimeArtifacts": "passed",
+      "sizeBudget": "passed",
+      "productJsCssBytes": 9552021,
+      "productJsCssCeilingBytes": 9570000,
+      "logs": [
+        ".tmp/npc-prompt-event-server-finalized.log",
+        ".tmp/npc-prompt-event-client-finalized.log",
+        ".tmp/npc-prompt-event-artifacts-finalized.log",
+        ".tmp/npc-prompt-event-size-finalized.log"
+      ]
+    },
+    "browser": {
+      "passed": 10,
+      "projects": [
+        "chromium-desktop",
+        "chromium-mobile"
+      ],
+      "coverage": "Bandit Fight/Pay choice, payment request and response, insufficient funds, opaque dialogue backing, merchant/medic/tracker prompts.",
+      "log": ".tmp/npc-prompt-event-browser-finalized.log",
+      "output": "shinobij.client/test-results/npc-prompt-event-final"
+    },
+    "strictLayout": {
+      "passed": 6,
+      "projects": [
+        "chromium-layout",
+        "chromium-dpr125",
+        "chromium-dpr15",
+        "chromium-dpr2",
+        "firefox-layout",
+        "webkit-layout"
+      ],
+      "scenario": "Solo-PvE combat layout viewport matrix",
+      "capturePhase": "after",
+      "strict": true,
+      "log": ".tmp/npc-prompt-event-layout-final.log"
+    },
+    "visualReview": [
+      "Desktop merchant greeting and purchase prompt",
+      "Mobile bandit toll prompt and opaque background",
+      "Mobile combat HUD after strict layout capture"
+    ],
+    "diffCheck": "passed",
+    "integrationCorrections": [
+      "Synchronized the client protected-save field mirror with the new server-owned toll receipt.",
+      "Updated presentation assertions for the user-requested bandit toll while preserving existing file line budgets.",
+      "Grouped asynchronous Azure asset fixture preparation under a parent test suite so cleanup cannot delete a fixture still being prepared."
+    ]
+  },
+  "revisions": [
+    {
+      "file": "shared/wanderer-roster.ts",
+      "before": "Hand over your ryo, road-rat. Choose quick.",
+      "after": "Five hundred ryo and you can pass. Refuse, and we fight.",
+      "reason": "Greeting names the real service or choice; removes unsupported prices, equipment assumptions, weather forecasts, or vague offers.",
+      "line": 155
+    },
+    {
+      "file": "shared/wanderer-roster.ts",
+      "before": "Toll road. New policy. Started about when I saw you coming.",
+      "after": "The toll is 500 ryo. Pay up, or draw your weapon.",
+      "reason": "Greeting names the real service or choice; removes unsupported prices, equipment assumptions, weather forecasts, or vague offers.",
+      "line": 158
+    },
+    {
+      "file": "shared/wanderer-roster.ts",
+      "before": "Care for a hand, friend? Small stakes. Mostly.",
+      "after": "Care for a Chronicle Showdown, friend? I have a deck ready.",
+      "reason": "Greeting names the real service or choice; removes unsupported prices, equipment assumptions, weather forecasts, or vague offers.",
+      "line": 167
+    },
+    {
+      "file": "shared/wanderer-roster.ts",
+      "before": "One game. I win, we call it tuition. You win, the purse is yours.",
+      "after": "One Chronicle Showdown. Beat me and earn some ryo.",
+      "reason": "Greeting names the real service or choice; removes unsupported prices, equipment assumptions, weather forecasts, or vague offers.",
+      "line": 170
+    },
+    {
+      "file": "shared/wanderer-roster.ts",
+      "before": "Road prices, friend. Everything costs more out where the patrols don't reach.",
+      "after": "Bone charms for sale, friend. Useful things to carry on a long road.",
+      "reason": "Greeting names the real service or choice; removes unsupported prices, equipment assumptions, weather forecasts, or vague offers.",
+      "line": 218
+    },
+    {
+      "file": "shared/wanderer-roster.ts",
+      "before": "Keep your blade low and your coins ready.",
+      "after": "Looking for bone charms? I trade them for ryo. Keep that blade down, though.",
+      "reason": "Greeting names the real service or choice; removes unsupported prices, equipment assumptions, weather forecasts, or vague offers.",
+      "line": 219
+    },
+    {
+      "file": "shared/wanderer-roster.ts",
+      "before": "Everything's for sale except the mule. People keep asking about the mule.",
+      "after": "I sell bone charms. The mule stays with me. People keep asking about the mule.",
+      "reason": "Greeting names the real service or choice; removes unsupported prices, equipment assumptions, weather forecasts, or vague offers.",
+      "line": 220
+    },
+    {
+      "file": "shared/wanderer-roster.ts",
+      "before": "Bandage, tonic, steady hands. Sit down if you need mending.",
+      "after": "For a fee, I can restore your HP, chakra, and stamina. Need treatment?",
+      "reason": "Greeting names the real service or choice; removes unsupported prices, equipment assumptions, weather forecasts, or vague offers.",
+      "line": 230
+    },
+    {
+      "file": "shared/wanderer-roster.ts",
+      "before": "Something big crossed here before dawn, dragging a paw. If that beast of yours is game, it's worth following.",
+      "after": "Something big crossed here before dawn, dragging a paw. Want to follow its tracks? You don't need a pet of your own.",
+      "reason": "Greeting names the real service or choice; removes unsupported prices, equipment assumptions, weather forecasts, or vague offers.",
+      "line": 252
+    },
+    {
+      "file": "shared/wanderer-roster.ts",
+      "before": "I can point you toward teeth, coin, or trouble. Sometimes all three.",
+      "after": "I can help you track a wild beast, or give you a package to deliver for pay.",
+      "reason": "Greeting names the real service or choice; removes unsupported prices, equipment assumptions, weather forecasts, or vague offers.",
+      "line": 253
+    },
+    {
+      "file": "shared/wanderer-roster.ts",
+      "before": "Package sealed. Name checked. You made good time.",
+      "after": "There you are. Hand me the package and I'll pay you for the delivery.",
+      "reason": "Greeting names the real service or choice; removes unsupported prices, equipment assumptions, weather forecasts, or vague offers.",
+      "line": 262
+    },
+    {
+      "file": "shared/wanderer-roster.ts",
+      "before": "You carried a lantern out here. That's how I found you.",
+      "after": "I saw you moving along the road. You should have stayed in the village.",
+      "reason": "Greeting names the real service or choice; removes unsupported prices, equipment assumptions, weather forecasts, or vague offers.",
+      "line": 295
+    },
+    {
+      "file": "shared/wanderer-roster.ts",
+      "before": "Nobody patrols this road after dark. Nobody but me.",
+      "after": "The patrol has gone past. Now it's just you and me.",
+      "reason": "Greeting names the real service or choice; removes unsupported prices, equipment assumptions, weather forecasts, or vague offers.",
+      "line": 296
+    },
+    {
+      "file": "shared/wanderer-roster.ts",
+      "before": "Put the light out. We'll settle this the way the dark likes it.",
+      "after": "Draw your weapon. Let's see how well you fight in the dark.",
+      "reason": "Greeting names the real service or choice; removes unsupported prices, equipment assumptions, weather forecasts, or vague offers.",
+      "line": 299
+    },
+    {
+      "file": "shared/wanderer-roster.ts",
+      "before": "The fish are biting today, but only for someone patient.",
+      "after": "Looking for a place to fish? I can point out the shoals nearby.",
+      "reason": "Greeting names the real service or choice; removes unsupported prices, equipment assumptions, weather forecasts, or vague offers.",
+      "line": 323
+    },
+    {
+      "file": "shared/wanderer-roster.ts",
+      "before": "Pull up a stone. The current tells you everything if you let it.",
+      "after": "Have a seat. Tell me how much fishing you've done, and I'll suggest a shoal.",
+      "reason": "Greeting names the real service or choice; removes unsupported prices, equipment assumptions, weather forecasts, or vague offers.",
+      "line": 324
+    },
+    {
+      "file": "shared/wanderer-roster.ts",
+      "before": "The storm is an hour out.",
+      "after": "That sky looks like trouble.",
+      "reason": "Greeting names the real service or choice; removes unsupported prices, equipment assumptions, weather forecasts, or vague offers.",
+      "line": 351
+    },
+    {
+      "file": "shared/wanderer-roster.ts",
+      "before": "Every bead is a fight without a weapon.",
+      "after": "Each bead marks a fight I won without a weapon.",
+      "reason": "Greeting names the real service or choice; removes unsupported prices, equipment assumptions, weather forecasts, or vague offers.",
+      "line": 353
+    },
+    {
+      "file": "shinobij.client/src/lib/legacy-emissaries.ts",
+      "before": "The storm is an hour out, maybe less.",
+      "after": "That sky looks like trouble.",
+      "reason": "Preserves the speaker and lore while removing a false weather timer and making the offer understandable.",
+      "line": 49
+    },
+    {
+      "file": "shinobij.client/src/lib/legacy-emissaries.ts",
+      "before": "Every bead on this string is a fight I didn't need a weapon for.",
+      "after": "Each bead on this string marks a fight I won without a weapon.",
+      "reason": "Preserves the speaker and lore while removing a false weather timer and making the offer understandable.",
+      "line": 79
+    },
+    {
+      "file": "shinobij.client/src/lib/legacy-emissaries.ts",
+      "before": "The red column gained three names since dawn. If you're here to wager, read who pays when you lose.",
+      "after": "Three more names on my list of debts since dawn. Looking for work? I have trials for shinobi and Chronicle players.",
+      "reason": "Preserves the speaker and lore while removing a false weather timer and making the offer understandable.",
+      "line": 109
+    },
+    {
+      "file": "shared/village-patrol.ts",
+      "before": "This road answers to our village. Walk it easy, and tell us what you see.",
+      "after": "Our village controls this road. Safe travels, and tell us if you see trouble.",
+      "reason": "Matches territory ownership and the road-rumor action.",
+      "line": 42
+    },
+    {
+      "file": "shared/village-patrol.ts",
+      "before": "Good to see a friendly face out here. The wilds have been loud today.",
+      "after": "Good to see a friendly face out here. Need news from the road?",
+      "reason": "Matches territory ownership and the road-rumor action.",
+      "line": 43
+    },
+    {
+      "file": "shinobij.client/src/components/WorldWandererDialog.tsx",
+      "before": "They recognize your stance before you speak.",
+      "after": "You've dealt with several wanderers who do this kind of work.",
+      "reason": "Button names the action its callback performs; memory counts track archetypes rather than individual NPC recognition; locked errands depend on unlocks, not walking.",
+      "line": 90
+    },
+    {
+      "file": "shinobij.client/src/components/WorldWandererDialog.tsx",
+      "before": "Their eyes linger. You have met their kind before.",
+      "after": "You've met this kind of wanderer before.",
+      "reason": "Button names the action its callback performs; memory counts track archetypes rather than individual NPC recognition; locked errands depend on unlocks, not walking.",
+      "line": 91
+    },
+    {
+      "file": "shinobij.client/src/components/WorldWandererDialog.tsx",
+      "before": ">Stand your ground</button>",
+      "after": ">Fight patrol</button>",
+      "reason": "Button names the action its callback performs; memory counts track archetypes rather than individual NPC recognition; locked errands depend on unlocks, not walking.",
+      "line": 184
+    },
+    {
+      "file": "shinobij.client/src/components/WorldWandererDialog.tsx",
+      "before": ">Contest the seam</button>",
+      "after": ">Fight miner</button>",
+      "reason": "Button names the action its callback performs; memory counts track archetypes rather than individual NPC recognition; locked errands depend on unlocks, not walking.",
+      "line": 191
+    },
+    {
+      "file": "shinobij.client/src/components/WorldWandererDialog.tsx",
+      "before": "\"Take a favor\"",
+      "after": "\"Accept delivery\"",
+      "reason": "Button names the action its callback performs; memory counts track archetypes rather than individual NPC recognition; locked errands depend on unlocks, not walking.",
+      "line": 199
+    },
+    {
+      "file": "shinobij.client/src/components/WorldWandererDialog.tsx",
+      "before": "\"Deliver favor\"",
+      "after": "\"Hand over package\"",
+      "reason": "Button names the action its callback performs; memory counts track archetypes rather than individual NPC recognition; locked errands depend on unlocks, not walking.",
+      "line": 213
+    },
+    {
+      "file": "shinobij.client/src/components/WorldWandererDialog.tsx",
+      "before": "\"Take it\"",
+      "after": "\"Accept gift\"",
+      "reason": "Button names the action its callback performs; memory counts track archetypes rather than individual NPC recognition; locked errands depend on unlocks, not walking.",
+      "line": 218
+    },
+    {
+      "file": "shinobij.client/src/components/WorldWandererDialog.tsx",
+      "before": ">Deal me in</button>",
+      "after": ">Play Chronicle Showdown</button>",
+      "reason": "Button names the action its callback performs; memory counts track archetypes rather than individual NPC recognition; locked errands depend on unlocks, not walking.",
+      "line": 230
+    },
+    {
+      "file": "shinobij.client/src/components/WorldWandererDialog.tsx",
+      "before": "They have nothing for you on this road yet. Walk a while longer and come back.",
+      "after": "Their errands require activities you have not unlocked yet. Check back after unlocking more activities.",
+      "reason": "Button names the action its callback performs; memory counts track archetypes rather than individual NPC recognition; locked errands depend on unlocks, not walking.",
+      "line": 350
+    },
+    {
+      "file": "shinobij.client/src/screens/WorldMap.tsx",
+      "before": "The bleeding stops, and you can move without wincing.",
+      "after": "Your HP, chakra, and stamina are fully restored.",
+      "reason": "Names the actual delivery recipient and restorative resources; a failed service request does not establish an NPC motive.",
+      "line": 1449
+    },
+    {
+      "file": "shinobij.client/src/screens/WorldMap.tsx",
+      "before": "gives you a sealed favor. Deliver it to",
+      "after": "gives you a sealed package. Take it to the courier in",
+      "reason": "Names the actual delivery recipient and restorative resources; a failed service request does not establish an NPC motive.",
+      "line": 1468
+    },
+    {
+      "file": "shinobij.client/src/screens/WorldMap.tsx",
+      "before": "You already carry a sealed favor for sector ${data.favor.targetSector}. Finish that road first.",
+      "after": "You already have a package for the courier in sector ${data.favor.targetSector}. Deliver that package first.",
+      "reason": "Names the actual delivery recipient and restorative resources; a failed service request does not establish an NPC motive.",
+      "line": 1470
+    },
+    {
+      "file": "shinobij.client/src/screens/WorldMap.tsx",
+      "before": "They decide not to trust the package to you.",
+      "after": "The delivery could not be started. Check your active delivery before trying again.",
+      "reason": "Names the actual delivery recipient and restorative resources; a failed service request does not establish an NPC motive.",
+      "line": 1475
+    },
+    {
+      "file": "shinobij.client/src/screens/WorldMap.tsx",
+      "before": "Wrong road. The delivery belongs in sector ${data.favor.targetSector}.",
+      "after": "The courier is in sector ${data.favor.targetSector}. Take the package there.",
+      "reason": "Names the actual delivery recipient and restorative resources; a failed service request does not establish an NPC motive.",
+      "line": 1487
+    },
+    {
+      "file": "shinobij.client/src/lib/road-cast.ts",
+      "before": "Fish the shade when the sun is high. They hide from it, same as you would.",
+      "after": "Equip a fishing pole in Inventory before you cast.",
+      "reason": "Fishing uses skill requirements, tool durability and per-node attempts; weather, shade and dusk do not affect catches. Highest eligible difficulty is not a guaranteed best payout.",
+      "line": 147
+    },
+    {
+      "file": "shinobij.client/src/lib/road-cast.ts",
+      "before": "Rain stirs the bottom. After a storm, cast deeper than you think you should.",
+      "after": "Practicing raises your Fishing skill and helps you catch better fish.",
+      "reason": "Fishing uses skill requirements, tool durability and per-node attempts; weather, shade and dusk do not affect catches. Highest eligible difficulty is not a guaranteed best payout.",
+      "line": 148
+    },
+    {
+      "file": "shinobij.client/src/lib/road-cast.ts",
+      "before": "Don't fight the line. Let it run, then take it back a little at a time.",
+      "after": "A worn-out pole won't help you. Check its durability before fishing.",
+      "reason": "Fishing uses skill requirements, tool durability and per-node attempts; weather, shade and dusk do not affect catches. Highest eligible difficulty is not a guaranteed best payout.",
+      "line": 149
+    },
+    {
+      "file": "shinobij.client/src/lib/road-cast.ts",
+      "before": "At dusk they come up to feed. That's when the patient ones eat well.",
+      "after": "Each shoal allows three attempts before it needs time to refill.",
+      "reason": "Fishing uses skill requirements, tool durability and per-node attempts; weather, shade and dusk do not affect catches. Highest eligible difficulty is not a guaranteed best payout.",
+      "line": 150
+    },
+    {
+      "file": "shinobij.client/src/lib/road-cast.ts",
+      "before": "Try the ${best.name}. At your skill, that water will give you the most.",
+      "after": "Try ${best.name}. Your Fishing skill is high enough to fish there.",
+      "reason": "Fishing uses skill requirements, tool durability and per-node attempts; weather, shade and dusk do not affect catches. Highest eligible difficulty is not a guaranteed best payout.",
+      "line": 162
+    },
+    {
+      "file": "shinobij.client/src/lib/road-cast.ts",
+      "before": "Start at the ${best.name}. The deeper water here will fight you until your hands learn it.",
+      "after": "You need Fishing skill ${best.difficulty} to fish at ${best.name}. Practice at an easier shoal first.",
+      "reason": "Fishing uses skill requirements, tool durability and per-node attempts; weather, shade and dusk do not affect catches. Highest eligible difficulty is not a guaranteed best payout.",
+      "line": 163
+    },
+    {
+      "file": "shinobij.client/src/lib/story-road-events.ts",
+      "before": "${event.npcName} stops mid-stride when they see you — whatever brought them onto this road, it was you.",
+      "after": "${event.npcName} stops when they see you and asks for a moment to talk.",
+      "reason": "Opens the event conversation naturally without claiming an unestablished motive.",
+      "line": 78
+    },
+    {
+      "file": "shinobij.client/src/features/villageWar/WarStrongholdEntrance.tsx",
+      "before": ">Retreat</button>",
+      "after": ">Stay outside</button>",
+      "reason": "This button closes the entrance prompt; it does not enter or retreat from a battle.",
+      "line": 33
+    },
+    {
+      "file": "api/weekly-boss.ts",
+      "before": "${boss.bossName ?? 'A fearsome boss'} rampages for 72 hours. Seek it out and deal all the damage you can — the top damagers claim a Weekly Boss Core, Dungeon Keys, ryo, and stat points. Enter the hunt via Central Hub → Weekly Boss.",
+      "after": "${boss.bossName ?? 'A fearsome boss'} is available until ${new Date(boss.expiresAt).toISOString()}. Compete by dealing damage. When the event ends, rewards are delivered automatically: ryo and stat points for ranked participants, Weekly Boss Cores for the top 10, and Dungeon Keys for the top 25. Open Central Hub → World Bosses → Weekly. Weekly reward limits apply.",
+      "reason": "Uses the actual expiry and navigation; rewards are automatic, rank-dependent and limited per week.",
+      "line": 686
+    },
+    {
+      "file": "api/cron/_clan-boss-weekly.ts",
+      "before": "The clan boss week has ended and the top clans have been rewarded. A fresh boss appears now.",
+      "after": "The clan boss week has ended. Rewards have been delivered to eligible clan treasuries and participating members. Check the Clan Boss screen for the next campaign.",
+      "reason": "Settlement credits precede this announcement; creating the next campaign is a separate cron step and can fail.",
+      "line": 148
+    },
+    {
+      "file": "api/clan-boss/assault-settle.ts",
+      "before": "${assault.clanName} broke ${boss.name}",
+      "after": "${assault.clanName} defeated ${boss.name}",
+      "reason": "Names defeat and sector threat rather than implying the milestone percentage is the boss health.",
+      "line": 186
+    },
+    {
+      "file": "api/clan-boss/assault-settle.ts",
+      "before": "coordinated operations against ${boss.name} have forced the weekly threat down to ${milestone}%.",
+      "after": "coordinated operations against ${boss.name} have reduced sector threat to ${milestone}%.",
+      "reason": "Names defeat and sector threat rather than implying the milestone percentage is the boss health.",
+      "line": 203
+    },
+    {
+      "file": "api/_boost-event.ts",
+      "before": "runs for the next ${hours} hour${hours === 1 ? '' : 's'}.",
+      "after": "started for ${hours} hour${hours === 1 ? '' : 's'} and ends at ${new Date(event.endsAt).toISOString()}.",
+      "reason": "A persistent announcement needs an absolute expiry rather than implying a fresh duration whenever read.",
+      "line": 90
+    },
+    {
+      "file": "api/world-crisis/_state.ts",
+      "before": "${player} crossed a line the old works could not classify. A quartered seal has lit beneath every village, and recall wardens are advancing through the outskirts. Every shinobi is called to defend.",
+      "after": "${player} reached level 37, triggering an alarm in the ancient machinery beneath the villages. A quartered seal has lit beneath each village, and recall wardens are advancing on all four outskirts. Travel to your village outskirts and win defense battles to help stop them.",
+      "reason": "Names the actual level trigger and defense action while preserving the quartered seal and recall-warden incident.",
+      "line": 195
+    },
+    {
+      "file": "api/world-crisis-80/_state.ts",
+      "before": "${player} reached level 80 and triggered the public alarm. Village record keepers opened four regional reports already filed by Kite Harrow and found the same quartered claim in each. People serving Hollow Gate's old claims answered by sending Collection Cells and pursuit packs toward every village ledger. Every shinobi and companion handler is called to the outskirts.",
+      "after": "${player} reached level 80 and triggered the public alarm. Village record keepers opened four regional reports already filed by Kite Harrow. Each bears the same quartered claim from Hollow Gate. Its agents have sent Collection Cells and pursuit packs to seize the village records. Travel to your village outskirts: fight a three-person Collection Cell as a shinobi, or send three companions against a pursuit pack.",
+      "reason": "Preserves the already-filed reports, record keepers, shared quartered claim, and alarm order while explaining both playable defense actions.",
+      "line": 205
+    },
+    {
+      "file": "shinobij.client/src/data/story-field-scenes.ts",
+      "before": "Morning throws thin shadows from waxed pages buried edge-up along the mapped lee.",
+      "after": "In the sheltered stretch marked on your map, the morning sun reveals waxed pages sticking out of the snow.",
+      "reason": "Keeps the mapped shelter, waxed pages and daylight discovery while replacing an obscure nautical term.",
+      "line": 348
+    },
+    {
+      "file": "api/legacy/trial.ts",
+      "before": "The ${n} and ${p} can no longer be told apart. The Binding holds. Stage III.",
+      "after": "${p} has completed the Binding trial for the ${n}, reaching Stage III.",
+      "reason": "States the completed trial and stage instead of implying literal fusion.",
+      "line": 68
+    },
+    {
+      "file": "api/legacy/trial.ts",
+      "before": "${p} stands at the summit of the ${n}. History will use the name \"${t}\".",
+      "after": "${p} has completed all five stages of the ${n} and earned the title \"${t}\".",
+      "reason": "Names completed progression and the awarded title.",
+      "line": 72
+    },
+    {
+      "file": "api/legacy/trial.ts",
+      "before": "The Hall of Legends has begun carving: the ${n} has reached its summit in ${p}'s hands.",
+      "after": "${p} has completed Stage V of the ${n}. Their achievement is recorded in the Hall of Legends.",
+      "reason": "Clarifies the final stage and permanent Hall entry.",
+      "line": 73
+    },
+    {
+      "file": "shinobij.client/src/components/WorldWandererDialog.tsx",
+      "before": "Trade",
+      "after": "Buy bone charms",
+      "reason": "Makes the immediate purchase or paid recovery explicit before the player clicks.",
+      "line": 172
+    },
+    {
+      "file": "shinobij.client/src/components/WorldWandererDialog.tsx",
+      "before": "Treat wounds",
+      "after": "Pay for treatment",
+      "reason": "Makes the immediate purchase or paid recovery explicit before the player clicks.",
+      "line": 178
+    },
+    {
+      "file": "shared/wanderer-roster.ts",
+      "before": "This seam is mine. I staked it before you could walk.",
+      "after": "Been digging here all morning. Come to work, or to challenge me?",
+      "reason": "The miner fight is optional; gathering is not locked behind defeating this NPC.",
+      "line": 334
+    },
+    {
+      "file": "shared/wanderer-roster.ts",
+      "before": "Find your own rock. This one already has a name on it.",
+      "after": "Mind the loose stone. If you want a fight, ask for one.",
+      "reason": "The miner fight is optional; gathering is not locked behind defeating this NPC.",
+      "line": 335
+    },
+    {
+      "file": "shared/wanderer-roster.ts",
+      "before": "If you want this vein, you'll have to move me off it.",
+      "after": "Think you're stronger than me? Put down your pick and prove it.",
+      "reason": "The miner fight is optional; gathering is not locked behind defeating this NPC.",
+      "line": 336
+    }
+  ],
+  "presentationFixes": [
+    {
+      "file": "shinobij.client/src/components/WorldWandererDialog.css",
+      "change": "An opaque encounter card keeps the map and HUD text from showing behind dialogue. Scoped specificity overrides the shared translucent menu skin.",
+      "verified": "Computed background color and desktop/mobile screenshots."
+    }
+  ]
+}

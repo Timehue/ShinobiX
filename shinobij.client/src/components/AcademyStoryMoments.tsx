@@ -78,17 +78,17 @@ export function AcademySparOmen(props: SharedProps) {
     const vow = academyVowDefinition(props.character.academyVow);
     const petName = props.guidePet?.name ?? "Your companion";
     return <StoryMoment art={academyDummyArt} alt="The Academy training dummy after the spar" variant="omen" beats={[
-        { kicker: "Academy Spar · Aftermath", title: "The dummy falls. Its seals do not.", body: "For one breath, every training mark burns magenta and turns toward you. The instructors keep cheering. None of them seem to see it." },
-        { kicker: "A Voice Without Breath", title: "Your answer comes back in the wrong voice.", speaker: petName, body: `That sounded like you, but it wasn't you. It repeated your exact words: “${vow.sparCallback}” You heard it too, right? There's foxfire on your sleeve. Let's get you patched up, then find out where it leads.` },
-    ]} doneLabel="Keep the vow" onDone={() => persistMilestone(props, "incident")} onSkip={props.onSkip} pet={<PetWitness pet={props.guidePet} images={props.sharedImages} />} />;
+        { kicker: "Academy Spar · Aftermath", title: "The dummy's seals glow after the fight.", body: "The seals on the fallen dummy glow magenta. A voice from the dummy repeats the vow you made to Shiranui. The instructors keep cheering; they do not seem to notice." },
+        { kicker: "Your Companion Heard It Too", title: "The dummy repeated your vow.", speaker: petName, body: `I heard it say, “${vow.sparCallback}” That's what you told Shiranui. There's a trail of foxfire on your sleeve, too. Let's recover at the Noodle Den, then follow it.` },
+    ]} doneLabel="Continue to recovery" onDone={() => persistMilestone(props, "incident")} onSkip={props.onSkip} pet={<PetWitness pet={props.guidePet} images={props.sharedImages} />} />;
 }
 
 export function AcademyFieldTrace(props: SharedProps & { currentSector: number }) {
     useBodyScrollLock(true);
     const vow = academyVowDefinition(props.character.academyVow);
     return <StoryMoment art={hollowTraceArt} alt="Blue foxfire tracks leading to a Hollow Gate scar on a weathered road marker" variant="trace" beats={[
-        { kicker: `First Field Assignment · Sector ${props.currentSector}`, title: "The foxfire stops at an old road marker.", body: "Blue-white tracks end beneath a cut of magenta light. A frayed route ribbon hangs above it, pulled upward against the wind." },
-        { kicker: "Hollow Gate Trace", title: "The mark is measuring the road.", speaker: props.guidePet?.name ?? "Your companion", body: `The rings moved when you said, “${vow.quote}” I saw it. Remember the shape. We're taking this back together.` },
+        { kicker: `First Field Assignment · Sector ${props.currentSector}`, title: "The foxfire stops at an old road marker.", body: "The foxfire trail ends at an old road marker. Three glowing rings turn around the stone. You repeat your vow to Shiranui, and the rings shift toward you." },
+        { kicker: "Hollow Gate Trace", title: "The rings reacted to your vow.", speaker: props.guidePet?.name ?? "Your companion", body: `The rings moved when you said, “${vow.quote}” I saw it too. Remember their shape so we can report what happened. Return to the village when you're ready.` },
     ]} doneLabel="Return with the evidence" onDone={() => persistMilestone(props, "trace", props.currentSector)} onSkip={props.onSkip} pet={<PetWitness pet={props.guidePet} images={props.sharedImages} />} />;
 }
 
@@ -144,7 +144,7 @@ export function AcademyReturnCeremony(props: SharedProps & {
                         <p className="asm-body">{rite.opening} {rite.villagePromise}</p>
                         <blockquote>“{vow.quote}”</blockquote>
                         <p className="asm-seal-line">{vow.keepsakeLine}</p>
-                        <small>Permanent narrative keepsake · No combat stats · This is not a Genin promotion</small>
+                        <small>A permanent keepsake of your first assignment. It gives no combat bonuses. You become a Genin at level 15.</small>
                         <button type="button" className="asm-primary" autoFocus disabled={saving} onClick={() => { void acceptSeal(); }}>{saving ? "Saving…" : "Accept the Field Seal"}</button>
                         <button type="button" className="asm-skip" onClick={props.onSkip}>Skip Academy</button>
                     </> : <>

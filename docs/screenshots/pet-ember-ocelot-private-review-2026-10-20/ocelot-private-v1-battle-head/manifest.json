@@ -1,0 +1,76 @@
+{
+  "schema": 1,
+  "errors": [],
+  "pets": [
+    {
+      "id": "rare-26",
+      "name": "Ember Ocelot",
+      "url": "/.tmp/ember-ocelot-floor/battle-candidate-v1.glb",
+      "sha256": "ece4d1caca0f78e3033882f1d074710d2b4b018ed6029fb86eda2de9c679ddce",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "progress": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ],
+      "views": [
+        "head-front",
+        "head-side",
+        "head-other-side",
+        "head-under-front",
+        "head-under-side"
+      ],
+      "materialTreatment": {
+        "mode": "production-diffuse",
+        "materials": 1,
+        "metalnessMax": 0.05,
+        "roughnessRange": [
+          0.58,
+          0.82
+        ]
+      },
+      "region": {
+        "y": [
+          -2,
+          -2
+        ],
+        "bounds": [
+          -0.2415218292829856,
+          0.4041633528211252,
+          0.12337479982129682,
+          0.6135673810725,
+          0.6397992422823668,
+          1.1196238093725097
+        ],
+        "cameraPadding": 1.15
+      },
+      "sheets": [
+        "rare-26-head-front.webp",
+        "rare-26-head-side.webp",
+        "rare-26-head-other-side.webp",
+        "rare-26-head-under-front.webp",
+        "rare-26-head-under-side.webp"
+      ],
+      "review": "pending",
+      "anatomySha256": "3e786b64095a69d079dacd9e64121620c805c8e29f926a4830e04d05c7fa94f9"
+    }
+  ],
+  "artisticCertification": false
+}

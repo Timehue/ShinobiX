@@ -162,7 +162,7 @@ describe('Tower N-actor AOE cutover', () => {
         assert.deepEqual(s.log, [
             '--- Round 1 ---',
             'caster uses Manyfold → target-b.',
-            ...reference.lines,
+            ...reference.lines.map(line => line.replaceAll('at turn end', 'at round end')),
         ]);
     });
 
@@ -275,13 +275,13 @@ describe('Tower N-actor AOE cutover', () => {
 
         assert.equal(s.log.filter(line => line.includes('reflected damage.')).length, 4, 'active Reflect reacts per target');
         assert.equal(s.log.filter(line => line.includes('damage reflected by') && line.includes('armor')).length, 4, 'item reflect reacts per target');
-        assert.equal(s.log.filter(line => line.includes("caster's armor steals")).length, 4, 'item lifesteal reacts per target');
+        assert.equal(s.log.filter(line => line.includes("caster's armor restores")).length, 4, 'item lifesteal reacts per target');
         assert.equal(s.log.filter(line => line.startsWith('Recoil: caster takes')).length, 4, 'active Recoil reacts per target');
         assert.equal(s.log.filter(line => line.startsWith('Lifesteal: caster heals') && line.endsWith(' HP.')).length, 4, 'active Lifesteal reacts per target');
         assert.equal(s.log.filter(line => line.startsWith('Siphon: caster heals')).length, 4, 'Siphon reacts per target');
         assert.equal(s.log.filter(line => line.includes('absorbed by') && line.includes('shield')).length, 3, 'each non-empty shield mutates once');
-        assert.equal(s.log.filter(line => line.includes(' absorbs ') && !line.includes('armor absorbs') && line.endsWith(' HP.')).length, 4, 'active Absorb reacts per target');
-        assert.equal(s.log.filter(line => line.includes("armor absorbs")).length, 4, 'item absorb reacts per target');
+        assert.equal(s.log.filter(line => line.includes(' restores ') && !line.includes('armor restores') && line.endsWith('through Absorb.')).length, 4, 'active Absorb reacts per target');
+        assert.equal(s.log.filter(line => line.includes("armor restores") && line.endsWith("through Absorb.")).length, 4, 'item absorb reacts per target');
         assert.equal(s.log.at(-1), 'The blast also catches target-a, target-c, target-d.');
 
         // Exact receipt pins the sequential combination of reflect/recoil/heals and

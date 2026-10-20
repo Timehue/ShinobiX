@@ -26,7 +26,7 @@ test("completed Tower sessions retain their recovery breadcrumb and reopen resul
     assert.match(wrapper, /Retry recovery/);
     assert.match(wrapper, /Stop recovery and return to lobby/);
     assert.match(wrapper, /onLeaveActive=\{\(\) => \{[\s\S]*?clearFightKey\(\)/, "leaving the view must release navigation without discarding recovery");
-    assert.match(fight, /The server run will continue and may auto-pass your turns/);
+    assert.match(fight, /The fight continues, and your turns may be skipped/);
 });
 
 test("Tower settlement is explicit, retryable, and blocks accidental receipt loss", () => {
@@ -47,8 +47,8 @@ test("Tower settlement is explicit, retryable, and blocks accidental receipt los
     const sharedStart = fight.indexOf('aria-labelledby="tower-story-result-title"');
     const resultEnd = fight.indexOf("</ShinobiCombatShell>", sharedStart);
     assert.ok(spireStart >= 0 && sharedStart > spireStart && resultEnd > sharedStart, "both terminal frames must remain identifiable");
-    assert.match(fight.slice(spireStart, sharedStart), /\{completionActions\("Return to the Spire"\)\}/);
-    assert.match(fight.slice(sharedStart, resultEnd), /\{completionActions\(clanBossResult\?\.returnLabel/);
+    assert.match(fight.slice(spireStart, sharedStart), /\{completionActions\("Leave the Spire"\)\}/);
+    assert.match(fight.slice(sharedStart, resultEnd), /\{completionActions\(isClanBoss \? 'Return to Clan Boss'/);
     assert.match(fight, /already-first-cleared/);
     assert.match(fight, /Weekly floor reward already banked/);
     assert.match(fight, /Your completed run is still saved/);
@@ -165,7 +165,7 @@ test("Tower AI teammates use one authenticated novice-recruit Ready Room path", 
     assert.match(api, /Start a host-only Story run/);
     assert.match(api, /postJson\('\/api\/towers\/start', \{ hostName, floor, hostLoadout, routeChoice \}\)/);
     assert.match(readyRoom, /Live squad · optional novice recruits/);
-    assert.match(readyRoom, /reward-ineligible AI recruits/);
+    assert.match(readyRoom, /one AI helper, which acts automatically and earns no rewards/);
     assert.match(readyRoom, /action: "add-ai"/);
     assert.match(readyRoom, /action: "remove-ai"/);
     assert.match(readyRoom, /novice AI · no rewards/);

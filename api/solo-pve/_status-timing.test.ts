@@ -99,7 +99,7 @@ describe('solo PvE Drain and Cleanse', () => {
         assert.equal(s.log.some(line => line.includes('Alice drained')), false, 'nothing ticks before the player acts');
         const after = enemyRound(s);
         const lines = after.log.slice(s.log.length);
-        const tick = lines.findIndex(line => line === 'Alice drained 300 HP+chakra.');
+        const tick = lines.findIndex(line => line === 'Alice loses 300 HP and 300 chakra to Drain.');
         assert.ok(tick >= 0, lines.join(' | '));
         assert.ok(tick < lines.findIndex(line => /damage to Alice/.test(line)), 'the tick ends the player turn, before the enemy acts');
     });
@@ -185,7 +185,7 @@ describe('solo PvE companion statuses', () => {
         for (let round = 0; round < 4; round++) {
             const before = s;
             s = enemyRound(s);
-            bleeds += s.log.slice(before.log.length).filter(line => line.startsWith('Rival bleeds')).length;
+            bleeds += s.log.slice(before.log.length).filter(line => line.startsWith('Rival loses') && line.endsWith('HP to Wound.')).length;
             s.companion = undefined; // one application only
         }
         assert.equal(bleeds, 2);

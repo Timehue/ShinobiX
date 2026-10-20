@@ -197,7 +197,8 @@ export function PetDuelReplayScreen<S>({ pets, config }: { pets: Pet[]; config: 
         return (
             <div>
                 <div style={{ textAlign: "center", padding: 8, fontWeight: 700 }}>{banner(session)}</div>
-                <PetShowdownReplay script={script} playerPets={pets} onExit={replayFromCard ? () => setArrivedDecided(true) : onBack} />
+                <PetShowdownReplay script={script} playerPets={pets} onExit={replayFromCard ? () => setArrivedDecided(true) : onBack}
+                    exitLabel={replayFromCard ? 'Back to battle result' : config.backLabel} />
             </div>
         );
     }

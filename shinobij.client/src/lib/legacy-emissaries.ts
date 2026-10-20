@@ -46,16 +46,16 @@ export const EMISSARY_DEFS: readonly EmissaryDef[] = [
     {
         slug: "storm-caller-ryn", name: "Storm-Caller Ryn", categories: ["ninjutsu"],
         tellTint: "#60a5fa",
-        greeting: "You picked a bad day for this road. The storm is an hour out, maybe less.",
+        greeting: "You picked a bad day for this road. That sky looks like trouble.",
         lore: [
             "I spent ten years learning to call lightning down. The trick I use most is knowing when it's coming anyway.",
             "The Split-Reed storm tore the east watch loose while I was still shouting evacuation orders. I learned to shout earlier after that.",
             "The Sage and I shared a road camp once. He asked three questions, ate half my rice, and snored through the rain. Very mysterious man.",
         ],
-        trialLine: "Your trial route runs under that storm. Pack oilcloth and leave the metal pole here.",
+        trialLine: "Keep your trial objectives where you can read them. The weather changes faster than those orders.",
         quests: [
-            { id: "eq-storm-conduits", label: "Defeat 8 threats along Ryn's storm route", metric: "totalAiKills", target: 8 },
-            { id: "eq-storm-skyward", label: "Scout 15 open-road tiles before the rain closes in", metric: "totalTilesExplored", target: 15 },
+            { id: "eq-storm-conduits", label: "Win 8 AI battles for Ryn", metric: "totalAiKills", target: 8 },
+            { id: "eq-storm-skyward", label: "Use Explore 15 times for Ryn", metric: "totalTilesExplored", target: 15 },
         ],
     },
     {
@@ -67,25 +67,25 @@ export const EMISSARY_DEFS: readonly EmissaryDef[] = [
             "A canal blade took my left cheek. The porcelain repair fogs in cold weather and makes children stare. I stare back.",
             "Two reports used the same traveler's name this morning. One called them cautious, one reckless. I trust the mismatch more than either verdict.",
         ],
-        trialLine: "I put a moth-mark on the first post this morning. Start there, and check both sides of each post along the route.",
+        trialLine: "Read each trial objective before you start. When you return, I want to hear how you did the work.",
         quests: [
-            { id: "eq-veil-unseen", label: "Win 5 battles along Suzu's marked route", metric: "totalAiKills", target: 5 },
-            { id: "eq-veil-moths", label: "Trace 12 tiles between Suzu's moth-marked posts", metric: "totalTilesExplored", target: 12 },
+            { id: "eq-veil-unseen", label: "Win 5 AI battles for Suzu", metric: "totalAiKills", target: 5 },
+            { id: "eq-veil-moths", label: "Use Explore 12 times for Suzu", metric: "totalTilesExplored", target: 12 },
         ],
     },
     {
         slug: "iron-pilgrim-daigo", name: "Iron Disciple Daigo", categories: ["taijutsu"],
         tellTint: "#f59e0b",
-        greeting: "Every bead on this string is a fight I didn't need a weapon for.",
+        greeting: "Each bead on this string marks a fight I won without a weapon.",
         lore: [
             "I broke my hands twice learning this. The third time, the stone broke first. Nobody sings about the first two times.",
             "The east-post road wore through three pairs of sandals. My training partner rode a cart and called it footwork. We still argue.",
             "A young man once asked me to bless his fists. I blessed his neighbors instead. He understood, eventually.",
         ],
-        trialLine: "Bring your fight tally back when the trial is done. I want to hear where you struggled, too. The record keeper only counts the wins.",
+        trialLine: "Bring your trial record back when the work is done. I want to hear where you struggled, too. That part never fits on the form.",
         quests: [
-            { id: "eq-iron-tally", label: "Defeat 10 foes and return Daigo's full tally", metric: "totalAiKills", target: 10 },
-            { id: "eq-iron-road", label: "Walk 20 tiles of the lantern road", metric: "totalTilesExplored", target: 20 },
+            { id: "eq-iron-tally", label: "Win 10 AI battles for Daigo", metric: "totalAiKills", target: 10 },
+            { id: "eq-iron-road", label: "Use Explore 20 times for Daigo", metric: "totalTilesExplored", target: 20 },
         ],
     },
     {
@@ -97,16 +97,16 @@ export const EMISSARY_DEFS: readonly EmissaryDef[] = [
             "Six blades need oil, two need new wraps, and one bites anyone but me. Carrying a collection is mostly maintenance.",
             "When the shrine burned, I carried the swords out two at a time. The novices carried the water. Their part was harder.",
         ],
-        trialLine: "I read your trial order. The form is sound and the route is ugly. Check your edge, then go.",
+        trialLine: "I read your trial order. Follow the objectives it lists, and check your edge before you take a fight.",
         quests: [
-            { id: "eq-blade-rites", label: "Fell 8 foes with a clean form Hana can inspect", metric: "totalAiKills", target: 8 },
-            { id: "eq-blade-vigil", label: "Stand a vigil of 6 victories", metric: "totalAiKills", target: 6 },
+            { id: "eq-blade-rites", label: "Win 8 AI battles for Hana", metric: "totalAiKills", target: 8 },
+            { id: "eq-blade-vigil", label: "Win 6 AI battles for Hana", metric: "totalAiKills", target: 6 },
         ],
     },
     {
         slug: "duel-broker-kesshi", name: "Duel-Broker Kesshi", categories: ["pvp", "cards", "war"],
         tellTint: "#f87171",
-        greeting: "The red column gained three names since dawn. If you're here to wager, read who pays when you lose.",
+        greeting: "Three more names on my list of debts since dawn. Looking for work? I have trials for shinobi and Chronicle players.",
         lore: [
             "This ledger is chained to me. Or I am chained to it. The interest compounds either way.",
             "I brokered a duel between two Kage once. The village that watched still owes me.",
@@ -114,8 +114,8 @@ export const EMISSARY_DEFS: readonly EmissaryDef[] = [
         ],
         trialLine: "Your trial is on my books, shinobi. The odds beside your name are better than I expected.",
         quests: [
-            { id: "eq-broker-ledger", label: "Win 4 Chronicle Showdowns for the ledger", metric: "cardClashWins", target: 4 },
-            { id: "eq-broker-debts", label: "Collect 8 battle debts owed to Kesshi", metric: "totalAiKills", target: 8 },
+            { id: "eq-broker-ledger", label: "Win 4 Shinobi Chronicle Showdowns for Kesshi", metric: "cardClashWins", target: 4 },
+            { id: "eq-broker-debts", label: "Win 8 AI battles for Kesshi", metric: "totalAiKills", target: 8 },
         ],
     },
     {
@@ -127,10 +127,10 @@ export const EMISSARY_DEFS: readonly EmissaryDef[] = [
             "I was here when the Gate rebuilt a Kage dead for generations from an old intake record. We had no word for the result then. Now we call it a Hollow.",
             "The Hollow below does not hate you. It repeats whatever the old intake taught it. Learn the pattern before you step close.",
         ],
-        trialLine: "Your trial reaches an old intake floor. I will watch the boundary and pull you out if it breaks.",
+        trialLine: "Check the objectives in your trial record before you take a fight. I can't pull you out once it starts.",
         quests: [
-            { id: "eq-hollow-toll", label: "Pay the threshold's toll: 10 foes", metric: "totalAiKills", target: 10 },
-            { id: "eq-hollow-depths", label: "Chart 18 tiles toward the deep places", metric: "totalTilesExplored", target: 18 },
+            { id: "eq-hollow-toll", label: "Win 10 AI battles for the Hollow Warden", metric: "totalAiKills", target: 10 },
+            { id: "eq-hollow-depths", label: "Use Explore 18 times for the Hollow Warden", metric: "totalTilesExplored", target: 18 },
         ],
     },
     {
@@ -144,8 +144,8 @@ export const EMISSARY_DEFS: readonly EmissaryDef[] = [
         ],
         trialLine: "Your trial is village work: long rounds, tired people, and no applause. Check the lamp oil before you go.",
         quests: [
-            { id: "eq-lantern-rounds", label: "Walk 14 tiles of Mei's lantern rounds", metric: "totalTilesExplored", target: 14 },
-            { id: "eq-lantern-watch", label: "Turn back 6 threats to the village", metric: "totalAiKills", target: 6 },
+            { id: "eq-lantern-rounds", label: "Use Explore 14 times for Mei", metric: "totalTilesExplored", target: 14 },
+            { id: "eq-lantern-watch", label: "Win 6 AI battles for Mei", metric: "totalAiKills", target: 6 },
         ],
     },
     {
@@ -157,10 +157,10 @@ export const EMISSARY_DEFS: readonly EmissaryDef[] = [
             "Every beast I ever followed knew a road no cartographer did. So I stopped following cartographers.",
             "I watched a beast take three straight at the coliseum, then walk its tamer home like the tamer was the pet. The scribes gave it a card. It had earned one.",
         ],
-        trialLine: "Your trial starts beyond my last reliable marker. Take chalk, mark the return turns, and do not trust the stream crossing.",
+        trialLine: "Follow the objectives in your trial record. Tell me what you find along the way; my maps could use the corrections.",
         quests: [
-            { id: "eq-mapless-edges", label: "Scout 25 tiles past the map's edge", metric: "totalTilesExplored", target: 25 },
-            { id: "eq-mapless-companions", label: "Win 3 pet duels while Ojii studies your handling", metric: "totalPetWins", target: 3 },
+            { id: "eq-mapless-edges", label: "Use Explore 25 times for Ojii", metric: "totalTilesExplored", target: 25 },
+            { id: "eq-mapless-companions", label: "Win 3 pet battles for Ojii", metric: "totalPetWins", target: 3 },
         ],
     },
 ];

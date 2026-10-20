@@ -61,7 +61,7 @@ export const WORLD_BOSS_DEFINITIONS = [
         battlePortrait: '/world-boss/donkaku-portrait-v1.webp',
         mapGlow: 'white-red',
         traitName: 'Hollow Gate Aegis',
-        traitDescription: 'Raises a fresh shield at each health phase, up to a quarter of its health.',
+        traitDescription: 'Raises a new shield at each health phase. Unbroken shields can stack, up to a limit.',
         combatTrait: 'aegis',
     },
 ] as const;

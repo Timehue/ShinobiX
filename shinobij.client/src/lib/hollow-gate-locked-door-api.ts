@@ -19,7 +19,7 @@ export async function befriendHollowGatePetServer(playerName: string, token: str
         const data = await response.json().catch(() => null) as { character?: Character; trait?: string | null; destination?: "roster" | "sanctuary" | null; _saveVersion?: number; error?: string } | null;
         return response.ok && data
             ? { character: data.character, trait: data.trait, destination: data.destination, saveVersion: data._saveVersion }
-            : { error: data?.error || 'The pet could not be befriended.' };
+            : { error: data?.error || 'The pet recruitment could not be confirmed. Check your roster before trying again.' };
     } catch {
         return { error: 'The pet server is unreachable.' };
     }

@@ -446,7 +446,7 @@ function DeployPanel({ band, enemyBand, enemyPlan, sharedImages, onBegin, onExit
                         );
                     })}
                 </div>
-                <p className="wfr-scout-note">Two starts are public; two stay sealed until combat.</p>
+                <p className="wfr-scout-note">Two enemy starting positions are shown. The other two are hidden until combat.</p>
                 <button
                     type="button"
                     className="wfr-inspect-ack"
@@ -763,7 +763,7 @@ function ReformPanel({ clash, band, enemyBand, formation, deployment, sharedImag
             >
                 <p className="wfr-eyebrow">Tactical report · Clash {clash.index + 1}</p>
                 <h3>Read. Re-form. Rematch.</h3>
-                <div className="wfr-report-facts" aria-label="Authoritative clash facts">
+                <div className="wfr-report-facts" aria-label="Clash details">
                     <span><small>Winner</small><strong>{winnerLabel}</strong></span>
                     <span><small>First KO</small><strong>{firstKoPet?.name ?? "None"}</strong></span>
                     <span><small>Highest damage threat</small><strong>{threatPet ? `${threatPet.name} · ${Math.round(report.highestDamageThreat?.damage ?? 0)}` : "None"}</strong></span>
@@ -797,7 +797,7 @@ function ReformPanel({ clash, band, enemyBand, formation, deployment, sharedImag
                         unpreparable re-form holds the line it just fought. */}
                     {preparationError
                         ? <p role="alert">RE-FORM UNAVAILABLE · holding the current formation…</p>
-                        : <p>{recorded ? "SEALED REPLAY · revealing the next recorded formation…" : "AUTO RE-FORM · locking a deterministic response from this public clash…"}</p>}
+                        : <p>{recorded ? "MATCH REPLAY · revealing the next saved formation…" : "AUTO RE-FORM · locking a deterministic response from this public clash…"}</p>}
                 </div>
             ) : (
                 <>

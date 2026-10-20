@@ -1,9 +1,9 @@
-import { Suspense, type ComponentProps } from 'react';
+import type { ComponentProps } from 'react';
 import { lazyWithRetry } from '../lib/lazyWithRetry';
 import type { SoloPveSession } from '../lib/solo-pve-api';
 import { MissionArenaFight } from './MissionArenaFight';
 
-// Hunts reuse the Tower grid screen; every other AI fight keeps the arena screen.
+// Hunts and authored groups share the grid screen; other fights use the arena.
 // The choice lives in this lazy module so the host's eager code stays unchanged.
 const HuntTowerFight = lazyWithRetry(() => import('./HuntTowerFight'));
 
@@ -17,16 +17,15 @@ export default function AiFightScreen({ huntSession, huntSettleFn, enemyAvatar, 
 }) {
     if (!huntSession.huntCombat) return <MissionArenaFight {...arena} />;
     return (
-        <Suspense fallback={null}>
             <HuntTowerFight
                 character={arena.character}
                 sharedImages={arena.sharedImages}
                 session={huntSession}
                 settleFn={huntSettleFn}
                 enemyAvatar={enemyAvatar}
+                renderResult={huntSession.huntCombat.purpose === 'narrative-group' ? arena.renderResult : undefined}
                 onRecordBattle={arena.onRecordBattle}
                 onExit={arena.onExit}
             />
-        </Suspense>
     );
 }

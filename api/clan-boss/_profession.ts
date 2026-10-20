@@ -52,7 +52,7 @@ export async function awardOperationProfessionXp(input: {
         };
         return { ok: true, character: nextCharacter, value: { awarded, xp, rank } };
     }));
-    if (!out.ok) throw new Error('Clan Boss profession delivery is pending. Retry this assault result.');
+    if (!out.ok) throw new Error('Clan Boss profession credit is pending. Retry this result.');
     // A granted award answers with the committed character, like the replies above.
     return out.value.awarded > 0 ? { ...out.value, character: out.character } : out.value;
 }
