@@ -1,0 +1,20 @@
+{
+  "at": "2026-10-20T05:56:05.585Z",
+  "id": "rare-26",
+  "sourceSha256": "5d018d1191f4abbc79147e6e9cb3c4555469946229cbf009291e6c1e60ed2466",
+  "battleSha256": "b12986b479f2dabe03452925abb12184c0481c128a0b3ed1e97af49b059efdb1",
+  "atlasSha256": "090b66c88d9740f1e59a5505d6b1495a45b8705d80dd0480110ccd821027923b",
+  "privateFirstReview": "docs/audits/pet-ember-ocelot-private-review-2026-10-20.json",
+  "independentReview": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-26/private-final-independent/independent-final-visual-review.json",
+  "canonicalRecipe": "shinobij.client/scripts/lib/pet-visible-ground-calibration.mjs",
+  "privateCandidateRenderDataIdentical": true,
+  "finalAtlasByteIdenticalToReviewed": true,
+  "unselectedManifestEntriesUnchanged": true,
+  "authoringRegression": {
+    "tests": 2,
+    "passed": 2,
+    "failed": 0
+  },
+  "status": "canonical-installed-regressions-and-final-receipt-pending",
+  "liveVerified": false
+}

@@ -61,11 +61,11 @@ declare const _revisionRows: readonly [
     readonly ["roster/rare-2.glb","c1f6d3ffe756"],
     readonly ["roster/rare-20.glb","2e484d56a0bf"],
     readonly ["roster/rare-21.glb","cecea21b1676"],
-    readonly ["roster/rare-22.glb","76372e8c3701"],
+    readonly ["roster/rare-22.glb","3f85620c1b35"],
     readonly ["roster/rare-23.glb","6e0bfcede1cf"],
     readonly ["roster/rare-24.glb","0cba30bad3e7"],
     readonly ["roster/rare-25.glb","01a3c3b6c9eb"],
-    readonly ["roster/rare-26.glb","fecf9db567bc"],
+    readonly ["roster/rare-26.glb","090b66c88d97"],
     readonly ["roster/rare-27.glb","b0ebd712e4d4"],
     readonly ["roster/rare-28.glb","8720c563daef"],
     readonly ["roster/rare-29.glb","848307230048"],
@@ -105,7 +105,7 @@ declare const _revisionRows: readonly [
     readonly ["roster/standard-14.glb","f08b3aac59dc"],
     readonly ["roster/standard-15.glb","415cc868789b"],
     readonly ["roster/standard-16.glb","d58ec1060481"],
-    readonly ["roster/standard-17.glb","670b6733b43a"],
+    readonly ["roster/standard-17.glb","b83236e03bf7"],
     readonly ["roster/standard-18.glb","0b3d55f1ad10"],
     readonly ["roster/standard-19.glb","564a8c326fe0"],
     readonly ["roster/standard-2.glb","8af4ffc23f4c"],
@@ -165,7 +165,7 @@ declare const _revisionRows: readonly [
 ];
 const sources = ([["legendary",30],["mythic",16],["rare",50],["standard",50]] as const).flatMap(([rarity, count]) => Array.from({ length: count }, (_, index) => `roster/${rarity}-${index}.glb`).sort().filter(source => source !== "roster/rare-1.glb" && source !== "roster/standard-7.glb"));
 const extras = ["showdown-v2/rare-1.glb","showdown-v2/standard-7.glb","showdown-v2/starter-fire-l.glb","showdown-v2/starter-lightning-l.glb","starter-earth-l.glb","starter-earth-r.glb","starter-earth.glb","starter-fire-r.glb","starter-fire.glb","starter-lightning-r.glb","starter-lightning.glb","starter-water-l.glb","starter-water-r.glb","starter-water.glb","starter-wind-l.glb","starter-wind-r.glb","starter-wind.glb"];
-const revisions = "70dd5a3cb9718c34b46a2be59e958e48254974c46ba7619bc7374432c3f8adb903cf3c1bf2a62898da12b5d20515ebbc8ec159e76fbccf7967c15bf67478104cfa4027620f72e7e3a86e52e7aaa874382613faba3248336ada755d0277f2a8d54838f697279e53a915ce72c6a440fb23c0ea0e3098c9771f9bde91b7dbdde7f9268d998b889ac89c7e9c9055d8f5a4b7df91ab9f639717562f0683d8142941118efb74750c4f695a9b4a73d288aabb570116466173e35b150e206b903ccb6dea0fb7ab9f3c23f7553dd8776359cc80a5954aa87a49ee67a21a52775d2b8d26937c2377058ede8187ae6b29e38dde82adc193c76a0a6f41b3c21ade171ab9e5912c74dd2b4232e52267fec3b399d1ac615a46ce2673d50d2d2aff35059f70eb62b1cf7fc57a567d94967d3c4be230f5bc9bc0ebf727432b43abf7514312015820985a798f982fb4540efa8b286101308cf76511fbd091c1f6d3ffe7562e484d56a0bfcecea21b167676372e8c37016e0bfcede1cf0cba30bad3e701a3c3b6c9ebfecf9db567bcb0ebd712e4d48720c563daef848307230048274f49508f443aa89c6dcc26dbeac6155c33e4e02e22b7599f4c21ceebf9bba668be0ff1ef3e000e33f646d53194efc95dcce085c4e9c08cfae84707de579ddcb6f9af5a31af6add65a842af1a2764e7f831511017b0e17f53f5f4f4c08937bfe8ffcba6c8d2066706db30243cea3e699046bb932c53596a89ca30e9b33d6f53441d373a09a12aaea038c5c5920a4b4e5ea5ae9171987c4918fd5033835c19f66ebacb5120b4e9ef31edeae4e337742a12eea80dfb7ce2da06b22599c069cdd5e1348e0b8f4ff08b3aac59dc415cc868789bd58ec1060481670b6733b43a0b3d55f1ad10564a8c326fe08af4ffc23f4c8909eb057b73f95b7801bba7f75e0fad7e18ee783c8f1edf2bae751331d8471aa38270a0e81c4e7ac6d50cf38e543b6238289a66a00376d1017203ff74ad8b3f68ead8f4e57091cae22f4d835729e458a520e5cb43953237a9ef83c918c15a263bee42a4eddd6b43d8ee08efc1778079e73587147c93c397dc4ec4a3ed154674f5bfacafc0ca67cadefef61b09b176cfebdddea2cb13d7701763b2754c261c4c134d1381eadb45056bd97bee06de9d08734a28c7b7cb597d9100b3b66cb26fc101518c72b9d9fab51497dd32f8689425ff4252b7a2882a4448b5faabf249d7eb1e6265c804d827f138021309fcd0ef351a84bcbcdbb320d8613dc19efe80e863de194992f624862a8d8d591169d5445a60b32c3ede7f69de776c420a841e8d65adda24740df2b8a2dae4aca667acd41e4db73c178d131687237a58b359e3".match(/.{12}/g)!;
+const revisions = "70dd5a3cb9718c34b46a2be59e958e48254974c46ba7619bc7374432c3f8adb903cf3c1bf2a62898da12b5d20515ebbc8ec159e76fbccf7967c15bf67478104cfa4027620f72e7e3a86e52e7aaa874382613faba3248336ada755d0277f2a8d54838f697279e53a915ce72c6a440fb23c0ea0e3098c9771f9bde91b7dbdde7f9268d998b889ac89c7e9c9055d8f5a4b7df91ab9f639717562f0683d8142941118efb74750c4f695a9b4a73d288aabb570116466173e35b150e206b903ccb6dea0fb7ab9f3c23f7553dd8776359cc80a5954aa87a49ee67a21a52775d2b8d26937c2377058ede8187ae6b29e38dde82adc193c76a0a6f41b3c21ade171ab9e5912c74dd2b4232e52267fec3b399d1ac615a46ce2673d50d2d2aff35059f70eb62b1cf7fc57a567d94967d3c4be230f5bc9bc0ebf727432b43abf7514312015820985a798f982fb4540efa8b286101308cf76511fbd091c1f6d3ffe7562e484d56a0bfcecea21b16763f85620c1b356e0bfcede1cf0cba30bad3e701a3c3b6c9eb090b66c88d97b0ebd712e4d48720c563daef848307230048274f49508f443aa89c6dcc26dbeac6155c33e4e02e22b7599f4c21ceebf9bba668be0ff1ef3e000e33f646d53194efc95dcce085c4e9c08cfae84707de579ddcb6f9af5a31af6add65a842af1a2764e7f831511017b0e17f53f5f4f4c08937bfe8ffcba6c8d2066706db30243cea3e699046bb932c53596a89ca30e9b33d6f53441d373a09a12aaea038c5c5920a4b4e5ea5ae9171987c4918fd5033835c19f66ebacb5120b4e9ef31edeae4e337742a12eea80dfb7ce2da06b22599c069cdd5e1348e0b8f4ff08b3aac59dc415cc868789bd58ec1060481b83236e03bf70b3d55f1ad10564a8c326fe08af4ffc23f4c8909eb057b73f95b7801bba7f75e0fad7e18ee783c8f1edf2bae751331d8471aa38270a0e81c4e7ac6d50cf38e543b6238289a66a00376d1017203ff74ad8b3f68ead8f4e57091cae22f4d835729e458a520e5cb43953237a9ef83c918c15a263bee42a4eddd6b43d8ee08efc1778079e73587147c93c397dc4ec4a3ed154674f5bfacafc0ca67cadefef61b09b176cfebdddea2cb13d7701763b2754c261c4c134d1381eadb45056bd97bee06de9d08734a28c7b7cb597d9100b3b66cb26fc101518c72b9d9fab51497dd32f8689425ff4252b7a2882a4448b5faabf249d7eb1e6265c804d827f138021309fcd0ef351a84bcbcdbb320d8613dc19efe80e863de194992f624862a8d8d591169d5445a60b32c3ede7f69de776c420a841e8d65adda24740df2b8a2dae4aca667acd41e4db73c178d131687237a58b359e3".match(/.{12}/g)!;
 export const WARFRONT_IMPOSTOR_ATLAS_REVISIONS = Object.fromEntries([...sources, ...extras].map((source, index) => [
     `/pet-models/${source}`, revisions[index],
 ])) as { readonly [Row in typeof _revisionRows[number] as `/pet-models/${Row[0]}`]: Row[1] };

@@ -4485,7 +4485,10 @@
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
         }
-      ]
+      ],
+      "referenceArchives": {
+        "pet-models/warfront-impostors/roster/rare-22.webp": "art-source/pet-portrait-refresh/reference-archive/rare-22-76372e8c3701.webp"
+      }
     },
     {
       "id": "rare-23",
@@ -4701,7 +4704,10 @@
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
         }
-      ]
+      ],
+      "referenceArchives": {
+        "pet-models/warfront-impostors/roster/rare-26.webp": "art-source/pet-portrait-refresh/reference-archive/rare-26-fecf9db567bc.webp"
+      }
     },
     {
       "id": "rare-27",
@@ -6801,6 +6807,9 @@
         "outputSha256": "a59aab1886ffdab85dde57162e39861693f15e73d240383c9f29156263f81046",
         "notes": "Storm Gull has unrelated three-comma crests on the large left and distant right flags.",
         "reviewedAt": "2026-10-15T23:34:52.445Z"
+      },
+      "referenceArchives": {
+        "pet-models/warfront-impostors/roster/standard-17.webp": "art-source/pet-portrait-refresh/reference-archive/standard-17-670b6733b43a.webp"
       }
     },
     {
