@@ -27,7 +27,7 @@ test('split CI exposes stable required check names with bounded jobs', () => {
     for (const name of requiredNames) {
         assert.equal(occurrences(`name: ${name}\n`), 1, `${name} must remain a unique stable check context`);
     }
-    assert.match(workflow, /name: CI \/ e2e-responsive \/ \$\{\{ matrix\.shard \}\}-of-5/);
+    assert.match(workflow, /name: CI \/ e2e-responsive \/ \$\{\{ matrix\.shard \}\}-of-7/);
     assert.match(workflow, /name: CI \/ e2e-combat \/ \$\{\{ matrix\.shard \}\}/);
     const timeouts = [...workflow.matchAll(/timeout-minutes:\s*(\d+)/g)].map((match) => Number(match[1]));
     assert.ok(timeouts.length >= requiredNames.length, 'every job must declare a timeout');
@@ -68,7 +68,7 @@ test('split CI preserves every release gate and builds each artifact once', () =
     for (const command of commands) assert.ok(workflow.includes(command), `missing CI gate: ${command}`);
     assert.equal(occurrences('npm run build:server'), 1, 'server release artifact must be built exactly once');
     assert.equal(occurrences('npm run build --prefix shinobij.client'), 1, 'client release artifact must be built exactly once');
-    assert.ok(workflow.includes('npm run test:e2e --prefix shinobij.client -- --shard=${{ matrix.shard }}/5'), 'responsive certification must run all five Playwright shards');
+    assert.ok(workflow.includes('npm run test:e2e --prefix shinobij.client -- --shard=${{ matrix.shard }}/7'), 'responsive certification must run all seven Playwright shards');
     assert.ok(workflow.includes('node-version-file: .nvmrc'), 'CI must take its Node version from .nvmrc');
 });
 
@@ -94,7 +94,7 @@ test('responsive browser discovery installs runtime and direct QA build dependen
     // but fails while discovering the ranked replay fixture on a fresh runner.
     const responsive = responsiveShards();
     assert.ok(responsive, 'the responsive shard job must exist');
-    assert.match(responsive, /shard: \[1, 2, 3, 4, 5\]/, 'every responsive shard must be scheduled');
+    assert.match(responsive, /shard: \[1, 2, 3, 4, 5, 6, 7\]/, 'every responsive shard must be scheduled');
     const rootInstall = responsive.search(/run: npm ci 2>&1/);
     const browserRun = responsive.indexOf('run: npm run test:e2e --prefix shinobij.client');
     assert.ok(rootInstall >= 0 && browserRun > rootInstall,
@@ -396,4 +396,17 @@ test('named forge and Chronicle packs run every dedicated project in required CI
         assert.ok(step.includes(log), 'retain the dedicated suite output');
         assert.doesNotMatch(step, /continue-on-error|--project|--grep|--shard/);
     }
+});
+
+
+test('responsive matrix schedules each slice exactly once with matching evidence and denominator', () => {
+    const responsive = responsiveShards();
+    const shards = JSON.parse(responsive.match(/shard: (\[[^\]]+\])/)?.[1]);
+    const denominator = Number(responsive.match(/--shard=\$\{\{ matrix\.shard \}\}\/(\d+)/)?.[1]);
+    assert.deepEqual(shards, Array.from({length: denominator}, (_, index) => index + 1));
+    assert.equal(denominator, 7);
+    const evidenceTotals = [...responsive.matchAll(/-of-(\d+)/g)].map(match => Number(match[1]));
+    assert.ok(evidenceTotals.length >= 8);
+    assert.ok(evidenceTotals.every(total => total === denominator));
+    assert.doesNotMatch(responsive, /--grep|--project|--max-failures/, 'splitting must retain the complete browser suite');
 });

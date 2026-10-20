@@ -600,20 +600,19 @@ jobs:
           retention-days: 14
 
   e2e_responsive_matrix:
-    name: CI / e2e-responsive / ${{ matrix.shard }}-of-5
+    name: CI / e2e-responsive / ${{ matrix.shard }}-of-7
     needs: release_artifact
     if: ${{ always() }}
     runs-on: ubuntu-latest
-    # Run 36622735387 exhausted shards 1 and 2 before all browser cases ran,
-    # so the suite is split five ways. Each shard now runs only its smoke slice;
-    # the CSP, Stronghold and dedicated suites run in e2e_responsive_flows. On
-    # main a slice took 12-26 minutes and setup about 2, so 35 minutes leaves
-    # room for a slow runner inside the workflow's sub-36-minute job budget.
+    # Run 39433723955 exhausted the five-way smoke slice twice; its retry
+    # reached 634/700 cases before cancellation. Seven slices preserve every
+    # browser case while keeping the existing 31-minute step and 35-minute job
+    # ceilings. CSP, Stronghold and dedicated suites remain in the flow jobs.
     timeout-minutes: 35
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5]
+        shard: [1, 2, 3, 4, 5, 6, 7]
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -623,18 +622,18 @@ jobs:
           cache-dependency-path: shinobij.client/package-lock.json
       - name: Initialize evidence
         run: |
-          mkdir -p .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-5
-          printf 'sha=%s\nrun_id=%s\nrun_attempt=%s\nshard=%s-of-5\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "${{ matrix.shard }}" > .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-5/provenance.txt
+          mkdir -p .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-7
+          printf 'sha=%s\nrun_id=%s\nrun_attempt=%s\nshard=%s-of-7\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "${{ matrix.shard }}" > .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-7/provenance.txt
       - name: Require successful release artifact
         if: ${{ needs.release_artifact.result != 'success' }}
         run: |
-          echo "release-artifact=${{ needs.release_artifact.result }}" | tee .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-5/upstream-results.log
+          echo "release-artifact=${{ needs.release_artifact.result }}" | tee .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-7/upstream-results.log
           exit 1
       # Ranked browser fixtures need root storage packages.
       - name: Install server runtime and QA dependencies
-        run: npm ci 2>&1 | tee .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-5/root-install.log
+        run: npm ci 2>&1 | tee .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-7/root-install.log
       - name: Install client dependencies
-        run: npm ci --prefix shinobij.client 2>&1 | tee .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-5/client-install.log
+        run: npm ci --prefix shinobij.client 2>&1 | tee .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-7/client-install.log
       - name: Download joined release artifact
         uses: actions/download-artifact@v8
         with:
@@ -655,21 +654,21 @@ jobs:
         uses: ./.github/actions/playwright-browsers
         with:
           browsers: chromium firefox webkit
-          log: .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-5/browser-install.log
+          log: .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-7/browser-install.log
       - name: Cross-browser responsive and accessibility smoke
         # Below the job ceiling, so a hung smoke fails here and the evidence
-        # upload below still runs. The slowest slice measured 26.4 minutes.
+        # upload below still runs, including when a runner becomes slow.
         timeout-minutes: 31
-        run: npm run test:e2e --prefix shinobij.client -- --shard=${{ matrix.shard }}/5 2>&1 | tee .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-5/playwright.log
+        run: npm run test:e2e --prefix shinobij.client -- --shard=${{ matrix.shard }}/7 2>&1 | tee .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-7/playwright.log
       - name: Retain responsive browser evidence
         if: always()
         continue-on-error: true
         uses: actions/upload-artifact@v7
         with:
           include-hidden-files: true
-          name: evidence-e2e-responsive-${{ matrix.shard }}-of-5-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          name: evidence-e2e-responsive-${{ matrix.shard }}-of-7-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
-            .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-5/
+            .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-7/
             shinobij.client/playwright-report/
             shinobij.client/test-results/
           if-no-files-found: warn
