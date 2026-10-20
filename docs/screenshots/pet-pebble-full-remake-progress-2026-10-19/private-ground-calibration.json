@@ -1,0 +1,115 @@
+{
+  "sourceSha256": "d2052ba00628709f23b67c1d5b474a103ee8120d8dfbe4c0730fc90deaafa8f8",
+  "sha256": "c56b6391da217d8aa076c5cde6ea150b0eefa78b33d0ba347390e58001fc3a83",
+  "presentationGround": {
+    "source": -0.9769887286036918,
+    "battle": -0.9776359174628287
+  },
+  "reports": [
+    {
+      "clip": "idle",
+      "keys": 547,
+      "maximumLift": 0.02417995276003826,
+      "minimumBefore": -0.9996686813637301,
+      "ground": -0.9769887286036918,
+      "padding": 0.0015
+    },
+    {
+      "clip": "idle_2",
+      "keys": 429,
+      "maximumLift": 0.04068929709276048,
+      "minimumBefore": -1.0161780256964523,
+      "ground": -0.9769887286036918,
+      "padding": 0.0015
+    },
+    {
+      "clip": "walk",
+      "keys": 299,
+      "maximumLift": 0.024908250231685636,
+      "minimumBefore": -1.0003969788353775,
+      "ground": -0.9769887286036918,
+      "padding": 0.0015
+    },
+    {
+      "clip": "gallop",
+      "keys": 221,
+      "maximumLift": 0.050816479285019756,
+      "minimumBefore": -1.0263052078887116,
+      "ground": -0.9769887286036918,
+      "padding": 0.0015
+    },
+    {
+      "clip": "gallop_jump",
+      "keys": 210,
+      "maximumLift": 0.024177673325422866,
+      "minimumBefore": -0.9996664019291147,
+      "ground": -0.9769887286036918,
+      "padding": 0.0015
+    },
+    {
+      "clip": "attack",
+      "keys": 328,
+      "maximumLift": 0.022676146609890147,
+      "minimumBefore": -0.998164875213582,
+      "ground": -0.9769887286036918,
+      "padding": 0.0015
+    },
+    {
+      "clip": "idle_hitreact1",
+      "keys": 184,
+      "maximumLift": 0.022676206615529604,
+      "minimumBefore": -0.9981649352192214,
+      "ground": -0.9769887286036918,
+      "padding": 0.0015
+    },
+    {
+      "clip": "death",
+      "keys": 613,
+      "maximumLift": 0.7724484847472667,
+      "minimumBefore": -1.7479372133509585,
+      "ground": -0.9769887286036918,
+      "padding": 0.0015
+    },
+    {
+      "clip": "entrance",
+      "keys": 299,
+      "maximumLift": 0.11518027319165192,
+      "minimumBefore": -1.0906690017953438,
+      "ground": -0.9769887286036918,
+      "padding": 0.0015
+    },
+    {
+      "clip": "cast",
+      "keys": 354,
+      "maximumLift": 0.022676146609890147,
+      "minimumBefore": -0.998164875213582,
+      "ground": -0.9769887286036918,
+      "padding": 0.0015
+    },
+    {
+      "clip": "guard",
+      "keys": 361,
+      "maximumLift": 0.024176195167958547,
+      "minimumBefore": -0.9996649237716504,
+      "ground": -0.9769887286036918,
+      "padding": 0.0015
+    },
+    {
+      "clip": "rest",
+      "keys": 605,
+      "maximumLift": 0.024406474787076027,
+      "minimumBefore": -0.9998952033907679,
+      "ground": -0.9769887286036918,
+      "padding": 0.0015
+    },
+    {
+      "clip": "victory",
+      "keys": 551,
+      "maximumLift": 0.029816290546767932,
+      "minimumBefore": -1.0053050191504598,
+      "ground": -0.9769887286036918,
+      "padding": 0.0015
+    }
+  ],
+  "acceptance": "Private candidate; offset-grid and production contact verification pending"
+}

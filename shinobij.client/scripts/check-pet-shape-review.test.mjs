@@ -7,6 +7,11 @@ import {join,resolve,dirname,basename} from 'node:path';
 import {createHash} from 'node:crypto';
 const model = { id:'mythic-4',sha256:'current-asset' };
 const review = { sha256:model.sha256, reviewer:'visual reviewer',reviewedAt:'2026-10-14',evidence:['all-clip-gallery'],clips:PET_REVIEW_CLIPS,views:['front','side'],fullBodyReviewed:true,skullShapeReviewed:true,transitionsReviewed:true };
+
+test('user rejection overrides matching hashes and completed automated or visual checks',()=>{
+    const rejected={...review,acceptance:'rejected-by-user',userRejection:{reason:'Head silhouette remains deformed'}};
+    assert.match(petShapeReviewFailures([model],{[model.id]:rejected}).join('\n'),/rejected by user; rebuild and fresh review required/);
+});
 test('a model replacement cannot inherit its old visual approval',()=>{
     assert.deepEqual(petShapeReviewFailures([model],{[model.id]:review}),[]);
     assert.match(petShapeReviewFailures([{...model,sha256:'new-animation'}],{[model.id]:review})[0],/changed after review/);

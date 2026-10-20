@@ -30896,10 +30896,10 @@
     },
     "starter-earth": {
       "name": "Pebble Tortoise",
-      "firstPass": "complete",
-      "secondPass": "complete",
-      "status": "double-checked-locally-main-live-pending",
-      "notes": "Pebble now owns its green chibi model, blue headband/scarf and one gold-brown back shell. Removed the duplicate shell cap and rebuilt a smooth green scalp. Relocated joints to the actual limbs and rebound face/body/limbs continuously to remove stretched appendages. Authored supported motion using the existing canonical motion tool, then corrected only vertical root clearance in attack, cast and recoil. No Stone Turtle geometry was copied.",
+      "firstPass": "complete-new-sculpt",
+      "secondPass": "complete-offset-timings",
+      "status": "double-checked-locally-awaiting-main-and-live",
+      "notes": "The rejected detached scalp is superseded by a full continuous sculpt. Main/live proof pending.",
       "clips": [
         "idle",
         "idle_2",
@@ -30916,21 +30916,45 @@
         "victory"
       ],
       "finalReceipt": {
-        "sourceSha256": "c99b0471489b65a5fe2c4b9b50bf781c48f4820f7eacdb092cf983a15ca51894",
-        "battleSha256": "64524351ebb7534dd603645a6d8015ec745829d9bfa75ced0a8a9340e725f0b3",
-        "atlasSha256": "3932b6d65a58b31ebea53cea6c8ccdfba0e5461e714581563e04fbb38f04d60d",
+        "sourceSha256": "e3c992fa17abf531f99572620499560295a9a99b3d4518eee180f13a0b69890b",
+        "battleSha256": "0d32d4a122c8d5524a71489a420ed730986a95bce855bbe864b7dfb341f20bcc",
+        "atlasSha256": "fe80e863de1972674df6ae6cbff4710766e6b183ee2a401a5b4d1f152142c354",
         "rendererSha256": "b2253b71fbcb21a83d82de35ab5783dd57b525cfc94740fb131dd1eb0049a897",
-        "report": "docs/audits/pet-pebble-distinct-final-review-2026-10-19.json",
-        "packagedAt": "2026-10-19T19:53:25.471Z"
+        "report": "docs/audits/pet-pebble-full-remake-final-review-2026-10-19.json"
       },
       "completeFaceRepairGate": {
-        "closed": false,
-        "status": "distinct-model-double-checked-locally-main-live-pending",
-        "sourceSha256": "c99b0471489b65a5fe2c4b9b50bf781c48f4820f7eacdb092cf983a15ca51894",
-        "battleSha256": "64524351ebb7534dd603645a6d8015ec745829d9bfa75ced0a8a9340e725f0b3",
-        "report": "docs/audits/pet-pebble-distinct-final-review-2026-10-19.json"
+        "closed": true,
+        "status": "new-anatomy-double-reviewed-locally",
+        "sourceSha256": "e3c992fa17abf531f99572620499560295a9a99b3d4518eee180f13a0b69890b",
+        "battleSha256": "0d32d4a122c8d5524a71489a420ed730986a95bce855bbe864b7dfb341f20bcc",
+        "report": "docs/audits/pet-pebble-full-remake-final-review-2026-10-19.json"
       },
-      "limits": "Two sampled visual passes of all thirteen authored clips, front/both-side head views and front/side full body. Second pass also covers all sixteen production runtime rows at low/medium quality, 216 actual equipped-technique frames, 24 advancing companion-idle frames and 16 atlas cells. Ten frozen facial regions checked through all clips and 468 blends in each model version. This is local evidence; main/live verification remains pending and the full 161-pet audit remains open."
+      "limits": "Two visual sample sets across eight views of every raw clip on both stages; full runtime low/medium, 864 technique frames, 24 advancing idle frames and 16 atlas frames. Metadata-only finalization proves identical render JSON and binary payload. Main/live verification and the remaining roster stay open.",
+      "userRejection": "docs/audits/pet-pebble-user-rejection-2026-10-19.json",
+      "rejectedPredecessor": {
+        "sourceSha256": "c99b0471489b65a5fe2c4b9b50bf781c48f4820f7eacdb092cf983a15ca51894",
+        "report": "docs/audits/pet-pebble-user-rejection-2026-10-19.json",
+        "acceptance": "rejected-by-user"
+      },
+      "sourceSha256": "e3c992fa17abf531f99572620499560295a9a99b3d4518eee180f13a0b69890b",
+      "battleSha256": "0d32d4a122c8d5524a71489a420ed730986a95bce855bbe864b7dfb341f20bcc",
+      "findings": [
+        "Entirely new closed continuous anatomical skin and baked UV atlas. Fixed private thigh/chin defects and battle-only underarm stretch; twice visually reviewed all 13 clips and 9 techniques."
+      ],
+      "independentFaceAnnotation": {
+        "path": "shinobij.client/scripts/pet-independent-face-landmarks.json",
+        "sourceSha256": "e3c992fa17abf531f99572620499560295a9a99b3d4518eee180f13a0b69890b",
+        "geometrySha256": "b20417cb38d066a73a01749af3f876bb67796efbeaf5e1f4ed9d429ed129cfe3",
+        "regions": 13,
+        "exclusionMasks": false,
+        "sourceAndBattleCoverageComplete": true,
+        "animationApproval": true
+      },
+      "companionTechniqueAudit": {
+        "status": "double-checked-locally",
+        "report": "docs/audits/pet-pebble-full-remake-final-review-2026-10-19.json",
+        "framesActuallyInspectedPerStagePerPass": 216
+      }
     },
     "starter-fire-r": {
       "name": "Ember Wolf",

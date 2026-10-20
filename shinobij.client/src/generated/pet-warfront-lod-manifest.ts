@@ -151,7 +151,7 @@ const modelRows = [
     ["showdown-v2/starter-lightning-l.glb","-7e17429e0f22-168738a3690d",39677,16870],
     ["starter-earth-l.glb","-f73c65852cf9-20c781a4e181",14206,9944],
     ["starter-earth-r.glb","-0a5245954cdf-bc881dd5538d",18489,12000],
-    ["starter-earth.glb","-c99b0471489b-64524351ebb7",18120,12000],
+    ["starter-earth.glb","-e3c992fa17ab-0d32d4a122c8",39488,9998],
     ["starter-fire-r.glb","-c0db7fb6a691-496393ff0190",13704,9592],
     ["starter-fire.glb","-2d88f6315b33-28c59477df48",15042,10528],
     ["starter-lightning-r.glb","-74cd2d1668cf-939fbb095a13",26000,10000],

@@ -1,4 +1,4 @@
-import {assertReviewedDistinctPebblePayload} from '../../scripts/lib/pet-reviewed-payload.mjs';
+import {assertReviewedFullRemakePebblePayload} from '../../scripts/lib/pet-reviewed-payload.mjs';
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import test from "node:test";
@@ -81,8 +81,8 @@ test("all 161 production pets have complete proper skeletal animation banks", ()
                 ? resolve(import.meta.dirname, `../../public/pet-models/${pet.id}.glb`)
                 : resolve(import.meta.dirname, `../../public/pet-models/roster/${pet.id}.glb`);
         const json = parseGlb(path);
-        const distinctPebble = pet.id==='starter-earth' && Boolean(json.extras?.pebbleDistinctRebuild);
-        if(distinctPebble)assertReviewedDistinctPebblePayload(path,readFileSync(path),json);
+        const distinctPebble = pet.id==='starter-earth' && Boolean(json.extras?.pebbleFullRemake);
+        if(distinctPebble)assertReviewedFullRemakePebblePayload(path,readFileSync(path),json);
         const limbRepair = json.extras?.[reviewedLimbRepairs[pet.id]];
         if (limbRepair) {
             assert.equal(json.skins[0].joints.length, pet.id === 'mythic-15' ? 41 : pet.id === 'mythic-10' ? 29 : ['mythic-3', 'mythic-13', 'mythic-14', 'starter-fire'].includes(pet.id) ? 35 : 33, `${pet.id}: fitted anatomical joint count`);

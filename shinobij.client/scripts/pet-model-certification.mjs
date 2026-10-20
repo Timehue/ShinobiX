@@ -1,10 +1,10 @@
 import { createHash } from "node:crypto";
+import { reviewedPebbleAccessory } from './lib/pet-pebble-reviewed-accessories.mjs';
 import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { basename, resolve } from "node:path";
 import sharp from "sharp";
 import { MeshoptDecoder } from "three/examples/jsm/libs/meshopt_decoder.module.js";
 import { runtimePetModels } from "./lib/pet-runtime-audit.mjs";
-import { reviewedPebbleScalp } from './lib/pet-reviewed-scalp-component.mjs';
 
 const clientRoot = resolve(import.meta.dirname, "..");
 const modelRoot = resolve(clientRoot, "public/pet-models");
@@ -358,8 +358,9 @@ function geometryMetrics(glb, id, requireRig, minimumVertices = 8_000, rejectOve
     if (rejectOversizedDetachedProxy) {
         const components = compressedComponentMetrics(glb, primitive, id, Math.max(...size));
         const oversized = components.slice(1).find(component => {
-            if (reviewedPebbleScalp(glb, primitive, id, component, normalizedAccessorReader)) {
-                reviewedAnatomicalComponents.push({role:'smooth green scalp',triangles:component.triangles,vertices:component.vertices.size,review:'docs/audits/pet-pebble-distinct-final-review-2026-10-19.json'});
+            const accessory=reviewedPebbleAccessory(glb,primitive,id,component,normalizedAccessorReader);
+            if(accessory){
+                reviewedAnatomicalComponents.push({role:accessory,triangles:component.triangles,vertices:component.vertices.size,review:'docs/audits/pet-pebble-full-remake-final-review-2026-10-19.json'});
                 return false;
             }
             return component.spanRatio > 0.45;

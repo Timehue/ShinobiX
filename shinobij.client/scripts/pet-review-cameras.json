@@ -2337,21 +2337,21 @@
       "cameraPadding": 1.4
     },
     "starter-earth": {
+      "bounds": [
+        -0.75,
+        0.75,
+        -0.2,
+        1,
+        -1.1,
+        1.1
+      ],
+      "cameraPadding": 1,
       "y": [
         -2,
         -2
       ],
-      "bounds": [
-        -0.67,
-        0.67,
-        -0.16,
-        1.05,
-        -0.55,
-        0.93
-      ],
-      "cameraPadding": 0.7,
-      "status": "no-repair",
-      "finding": "Camera for the distinct green Pebble model. Complete face binding is authored by rebuild-pebble-tortoise.mjs; independent ten-region animation review remains a separate gate."
+      "status": "new-continuous-anatomy",
+      "finding": "Entirely new continuous Pebble sculpt. Complete face gate uses thirteen independent spherical patches, including under-chin and rear jaw, without exclusions."
     },
     "starter-fire-r": {
       "y": [
