@@ -25,10 +25,10 @@
     "minSilhouetteIoU": 0.975
   },
   "totals": {
-    "sourceBytes": 117079024,
-    "lodBytes": 74523776,
-    "sourceTriangles": 5974738,
-    "lodTriangles": 1636735
+    "sourceBytes": 118766516,
+    "lodBytes": 74661820,
+    "sourceTriangles": 5996106,
+    "lodTriangles": 1634733
   },
   "entries": [
     {

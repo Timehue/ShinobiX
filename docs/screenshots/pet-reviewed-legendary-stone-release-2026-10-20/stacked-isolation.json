@@ -1,0 +1,28 @@
+{
+  "base": "afb655fabcad4b694aebadc1858a46b5234006e5",
+  "validatedCommit": "2a5c2495e2b38acb4cfcb5912c6e81ab9c4a7b5d",
+  "batchPets": 18,
+  "reviewedAssetHashesMatched": 54,
+  "pebbleFullRemakePreserved": true,
+  "pebbleCanonicalHashes": {
+    "starter-earth.glb": "e3c992fa17abf531f99572620499560295a9a99b3d4518eee180f13a0b69890b",
+    "warfront-lod/starter-earth.glb": "0d32d4a122c8d5524a71489a420ed730986a95bce855bbe864b7dfb341f20bcc",
+    "warfront-impostors/starter-earth.webp": "fe80e863de1972674df6ae6cbff4710766e6b183ee2a401a5b4d1f152142c354"
+  },
+  "manifests": [
+    {
+      "path": "shinobij.client/public/pet-models/roster-manifest.json",
+      "unselectedEntriesUnchanged": 128
+    },
+    {
+      "path": "shinobij.client/public/pet-models/warfront-lod/manifest.json",
+      "unselectedEntriesUnchanged": 143
+    },
+    {
+      "path": "shinobij.client/public/pet-models/warfront-impostors/manifest.json",
+      "unselectedEntriesUnchanged": 143
+    }
+  ],
+  "changedAssetFiles": 42,
+  "unselectedAssetFilesChanged": 0
+}
