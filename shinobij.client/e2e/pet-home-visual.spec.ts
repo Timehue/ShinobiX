@@ -6,6 +6,11 @@ import { PET_SCENIC_PORTRAITS } from "../src/lib/pet-portrait-assets.generated";
 import AxeBuilder from "@axe-core/playwright";
 import { gotoSettled, reloadSettled } from "./helpers/network-settle";
 
+// Full-page captures below and retained failure video preserve visual evidence.
+// Packaging the redundant trace screenshot resources can exhaust tracing's
+// separate 45s worker budget after every lifecycle assertion has passed.
+test.use({ trace: { mode: 'retain-on-failure', screenshots: false, snapshots: true, sources: true } });
+
 test("arena visit feed preserves recorded paid wins after navigation", async ({ page }, testInfo) => {
     test.setTimeout(150_000);
     test.skip(!['chromium-desktop', 'chromium-mobile'].includes(testInfo.project.name), 'visit-feed scope is checked on desktop and mobile');
@@ -254,6 +259,21 @@ async function installPetHomeApi(page: Page) {
         roleRequests: [] as Array<{ action: string; petId: string; assign?: boolean }>,
     };
 
+    const saveSnapshot = () => ({
+        character: state.character, currentBiome: 'forest', currentSector: 0,
+        acceptedMissionIds: [], missionProgress: {}, triggeredEvents: [], _saveVersion: state.saveVersion,
+    });
+    // Capture the live mocked server state before this document starts its
+    // 12s restore clock. The first save fetch stays in-page, like capabilities
+    // and battle-lock below; later reads still use the stateful route.
+    await page.route(url => url.origin === origin && url.pathname === '/', async route => {
+        if (!route.request().isNavigationRequest()) return route.continue();
+        const response = await route.fetch();
+        const snapshot = JSON.stringify(saveSnapshot()).replaceAll('<', '\\u003c');
+        return route.fulfill({ response, body: (await response.text()).replace('<head>',
+            `<head><script>window.__petHomeBootSave=${snapshot};</script>`) });
+    });
+
     await page.addInitScript((replies) => {
         // WebKit's page.route drops /api/* requests sent just after a fresh
         // document starts. They reject with "<url> due to access control
@@ -278,6 +298,12 @@ async function installPetHomeApi(page: Page) {
             if (url.origin === window.location.origin) {
                 const method = (init?.method ?? (input instanceof Request ? input.method : "GET")).toUpperCase();
                 const path = url.pathname.toLowerCase();
+                const boot = window as typeof window & { __petHomeBootSave?: unknown };
+                if (method === 'GET' && path === '/api/save/pethomevisualqa' && boot.__petHomeBootSave) {
+                    const snapshot = boot.__petHomeBootSave;
+                    delete boot.__petHomeBootSave;
+                    return reply(snapshot);
+                }
                 if (method === "GET" && path === "/api/player/capabilities") return reply(replies.capabilities);
                 if (method === "GET" && path === "/api/images") return reply(url.searchParams.get("ids") === "1" ? replies.imageManifest : {});
                 // The player card reads today's Sunscar crate count on every boot.
@@ -313,15 +339,7 @@ async function installPetHomeApi(page: Page) {
             return json(route, url.searchParams.get("ids") === "1" ? EMPTY_IMAGE_MANIFEST : {});
         }
         if (path === "/api/save/pethomevisualqa") {
-            if (request.method() === "GET") return json(route, {
-                character: state.character,
-                currentBiome: "forest",
-                currentSector: 0,
-                acceptedMissionIds: [],
-                missionProgress: {},
-                triggeredEvents: [],
-                _saveVersion: state.saveVersion,
-            });
+            if (request.method() === "GET") return json(route, saveSnapshot());
             state.saveVersion += 1;
             return json(route, { ok: true, _saveVersion: state.saveVersion });
         }
@@ -411,6 +429,22 @@ async function openHome(page: Page) {
 async function reloadHome(page: Page) {
     await reloadSettled(page);
     await expect(page.getByRole("heading", { name: "Your Companions", exact: true })).toBeVisible();
+}
+
+async function welcomeHatch(page: Page, state: Awaited<ReturnType<typeof installPetHomeApi>>, sessionId: string) {
+    // Finish this session's durable ACK before a hard reload swaps the server fixture.
+    const [response] = await Promise.all([
+        page.waitForResponse(response => {
+            const request = response.request();
+            if (new URL(request.url()).pathname !== '/api/pet/breeding/hatch' || request.method() !== 'POST') return false;
+            const body = request.postDataJSON() as { sessionId?: string; acknowledgeReveal?: boolean };
+            return body.sessionId === sessionId && body.acknowledgeReveal === true;
+        }, { timeout: 10_000 }),
+        page.getByRole('button', { name: 'Welcome home', exact: true }).click(),
+    ]);
+    expect(response.ok()).toBe(true);
+    await expect.poll(() => state.character.petBreedingHatchReceipts.find(receipt => receipt.sessionId === sessionId)?.revealPending).toBe(false);
+    await expect(page.locator('[data-pet-hatch-reveal]')).toHaveCount(0);
 }
 
 async function shot(page: Page, testInfo: TestInfo, name: string) {
@@ -661,7 +695,8 @@ test("Pet Home visual lifecycle certification", async ({ page }, testInfo) => {
     await expect(page.locator(".pet-sanctuary-card", { hasText: "Ashglow Kit" })).toBeVisible();
 
     state.character.pets = structuredClone(basePets);
-    state.character.petBreeding = session("egg", 0);
+    const normalSession = session("egg", 0);
+    state.character.petBreeding = normalSession;
     state.hatchPet = pet("rare-26:550e8400-e29b-41d4-a716-446655440000", "rare-26", "Ashglow Kit", "Fire", "rare", 7, {
         origin: "bred", generation: 3, parentInstanceIds: ["qa-fire-1", "qa-fire-2"], trait: "Lucky",
     });
@@ -670,18 +705,20 @@ test("Pet Home visual lifecycle certification", async ({ page }, testInfo) => {
     await expect(page.locator(".hatch-pet")).toBeVisible();
     await expect.poll(() => page.locator(".hatch-pet").evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(0);
     await shot(page, testInfo, "12-normal-hatch-reveal");
-    await page.getByRole("button", { name: "Welcome home" }).click();
+    await welcomeHatch(page, state, normalSession.sessionId);
 
     state.character.pets = structuredClone(basePets);
-    state.character.petBreeding = session("egg", 0);
+    const chromaticSession = session("egg", 0);
+    state.character.petBreeding = chromaticSession;
     state.hatchPet = pet("legendary-6:550e8400-e29b-41d4-a716-446655440001", "legendary-6", "Aurora Phoenix", "Fire", "legendary", 9, {
         origin: "bred", generation: 3, parentInstanceIds: ["qa-fire-1", "qa-fire-2"], paletteVariantId: "chromatic-v1", trait: "Battleborn",
     });
     await reloadHome(page);
+    await expect(page.getByRole('dialog', { name: 'Aurora Phoenix' })).toBeVisible();
     await expect(page.getByText("Chromatic miracle")).toBeVisible();
     await expect(page.locator(".hatch-pet")).toBeVisible();
     await shot(page, testInfo, "13-chromatic-hatch-reveal");
-    await page.getByRole("button", { name: "Welcome home" }).click();
+    await welcomeHatch(page, state, chromaticSession.sessionId);
 
     state.character.pets = structuredClone(basePets);
     state.character.petBreeding = null;
