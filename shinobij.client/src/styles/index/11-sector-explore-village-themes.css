@@ -5,30 +5,11 @@
 /* Instance-frame coordinate geometry is owned by layout/adaptive-stages.css. */
 
 .instance-actions {
-    padding: 6px !important;
     font-size: 10px !important;
-    overflow: hidden !important;
 }
 
-
-
-.instance-actions button {
-    display: block !important;
-    width: 100% !important;
-    max-width: 100% !important;
-    min-width: 0 !important;
-    box-sizing: border-box !important;
-}
-
-.scene-title {
-    padding: 4px 8px !important;
-    font-size: 12px !important;
-}
-
-.walkable-tile {
-    min-height: 0 !important;
-    font-size: 16px !important;
-}
+/* Remaining action, title and tile styles are supplied by the later
+   13-sector-final-overrides.css rules in this same eager stylesheet. */
 
 .battle-avatar,
 .combat-layout {
@@ -46,12 +27,6 @@
     height: 195px !important;
     aspect-ratio: auto !important;
 }
-
-    .combat-avatar img {
-        width: 100% !important;
-        height: 100% !important;
-        object-fit: cover !important;
-    }
 
     .battle-avatar img,
     .combat-avatar img {
