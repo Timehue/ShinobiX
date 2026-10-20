@@ -7,7 +7,7 @@ import {
     metricLabel,
     questbookEntry,
     questbookStage,
-    questbookStageText,
+    questbookStageText, questbookStageProgress,
 } from "../lib/questbook";
 import { EpicBellCountdown } from "./EpicBellCountdown";
 import {
@@ -30,10 +30,10 @@ import { roadFleePriceLine } from "../lib/road-flee-api";
 import { wandererForcesChoice, wandererKindLabel } from "../lib/road-cast";
 import { EncounterDifficultyBadge } from './EncounterDifficultyBadge';
 import type { OrdinaryPveEncounter } from '../../../shared/ordinary-pve-encounter';
-
+import { BANDIT_TOLL_RYO, offersBanditToll } from '../../../shared/road-toll';
+import './WorldWandererDialog.css';
 type ActionResult = void | Promise<unknown>;
 type WandererAction = (wanderer: Wanderer) => ActionResult;
-
 export type WorldWandererDialogState = Readonly<{
     w: Wanderer;
     msg?: string;
@@ -49,7 +49,6 @@ export type WorldWandererDialogState = Readonly<{
     choiceError?: string;
     encounter?: OrdinaryPveEncounter;
 }>;
-
 export type WorldWandererDialogProps = Readonly<{
     wandererDialog: WorldWandererDialogState;
     character: Character;
@@ -88,8 +87,8 @@ export type WorldWandererDialogProps = Readonly<{
 
 function memoryLine(character: Character, wanderer: Wanderer): string | null {
     const met = character.wandererMemories?.[wanderer.archetype] ?? 0;
-    if (met >= 3) return "They recognize your stance before you speak.";
-    if (met >= 1) return "Their eyes linger. You have met their kind before.";
+    if (met >= 3) return "You've dealt with several wanderers who do this kind of work.";
+    if (met >= 1) return "You've met this kind of wanderer before.";
     return null;
 }
 
@@ -135,9 +134,10 @@ export function WorldWandererDialog({
     handleStoryReckoningAbandon,
 }: WorldWandererDialogProps) {
     const remembered = memoryLine(character, wandererDialog.w);
+    const toll = offersBanditToll(wandererDialog);
 
     return (
-        <div className="card" style={{ maxWidth: 360, width: "88%", maxHeight: "88dvh", overflowY: "auto", textAlign: "center", padding: 16 }} onClick={(event) => event.stopPropagation()}>
+        <div className="card world-wanderer-dialog" style={{ maxWidth: 360, width: "88%", maxHeight: "88dvh", overflowY: "auto", textAlign: "center", padding: 16 }} onClick={(event) => event.stopPropagation()}>
             <img
                 src={wandererDialog.w.avatarImage || wandererAvatar(wandererDialog.w.avatarKey)}
                 alt={wandererDialog.w.name}
@@ -157,38 +157,38 @@ export function WorldWandererDialog({
                     </div>
                 ) : (
                     <>
-                        {/* A hostile that has caught you is fought or fled, and the
-                            flee price is shown before the choice, never after. */}
-                        <p style={{ fontSize: ".74rem", color: "#9aa3b2", margin: "-6px 0 12px" }}>{roadFleePriceLine(character)}</p>
+                        {/* Show the bandit toll or other hostile's flee price
+                            before the player chooses. */}
+                        <p style={{ fontSize: ".74rem", color: "#9aa3b2", margin: "-6px 0 12px" }}>{toll ? `Pay ${BANDIT_TOLL_RYO} ryo to pass without fighting. You will not lose HP.` : roadFleePriceLine(character)}</p>
                         {wandererDialog.choiceError && <p role="alert" style={{ fontSize: ".76rem", color: "var(--red-300)", margin: "-6px 0 12px" }}>{wandererDialog.choiceError}</p>}
                         <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
                             <button disabled={wandererDialog.busy} onClick={() => wandererDialog.w.verb === "patrol" ? startPatrolFight(wandererDialog.w) : startWandererAttack(wandererDialog.w, !!wandererDialog.nemesis)}>Fight</button>
-                            <button disabled={wandererDialog.busy} onClick={() => fleeWanderer(wandererDialog.w)}>Flee</button>
+                            <button disabled={wandererDialog.busy} onClick={() => fleeWanderer(wandererDialog.w)}>{toll ? `Pay ${BANDIT_TOLL_RYO} ryo` : 'Flee'}</button>
                         </div>
                     </>
                 )
             ) : !wandererDialog.msg && wandererDialog.w.verb === "merchant" ? (
                 <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
-                    <button disabled={wandererDialog.busy} onClick={() => tradeWithWanderer(wandererDialog.w)}>{wandererDialog.busy ? "…" : "Trade"}</button>
+                    <button disabled={wandererDialog.busy} onClick={() => tradeWithWanderer(wandererDialog.w)}>{wandererDialog.busy ? "…" : "Buy bone charms"}</button>
                     <button onClick={() => askRoadRumor(wandererDialog.w)}>Ask about the road</button>
                     <button onClick={closeWandererDialog}>Leave</button>
                 </div>
             ) : !wandererDialog.msg && wandererDialog.w.verb === "medic" ? (
                 <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
-                    <button disabled={wandererDialog.busy} onClick={() => visitWandererMedic(wandererDialog.w)}>{wandererDialog.busy ? "…" : "Treat wounds"}</button>
+                    <button disabled={wandererDialog.busy} onClick={() => visitWandererMedic(wandererDialog.w)}>{wandererDialog.busy ? "…" : "Pay for treatment"}</button>
                     <button onClick={() => askRoadRumor(wandererDialog.w)}>Ask about the road</button>
                     <button onClick={closeWandererDialog}>Leave</button>
                 </div>
             ) : !wandererDialog.msg && wandererDialog.w.verb === "patrol" ? (
                 <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
-                    {wandererDialog.w.patrolStance !== "home" && <button onClick={() => startPatrolFight(wandererDialog.w)}>Stand your ground</button>}{/* your own village's patrol never fights you */}
+                    {wandererDialog.w.patrolStance !== "home" && <button onClick={() => startPatrolFight(wandererDialog.w)}>Fight patrol</button>}{/* your own village's patrol never fights you */}
                     <button onClick={() => askRoadRumor(wandererDialog.w)}>Ask about the road</button>
                     <button onClick={closeWandererDialog}>Move along</button>
                 </div>
             ) : !wandererDialog.msg && (wandererDialog.w.verb === "angler" || wandererDialog.w.verb === "contest") ? (
                 <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>{/* The miner's fight is optional: he never chases you off. */}
                     {wandererDialog.w.verb === "angler" ? <><button onClick={() => askAngler(wandererDialog.w)}>Ask about the water</button><button onClick={() => askRoadRumor(wandererDialog.w)}>Ask about the road</button><button onClick={closeWandererDialog}>Leave</button></>
-                        : <><button disabled={wandererDialog.busy} onClick={() => startWandererAttack(wandererDialog.w, false)}>Contest the seam</button><button onClick={closeWandererDialog}>Leave him to it</button></>}
+                        : <><button disabled={wandererDialog.busy} onClick={() => startWandererAttack(wandererDialog.w, false)}>Fight miner</button><button onClick={closeWandererDialog}>Leave him to it</button></>}
                 </div>
             ) : !wandererDialog.msg && wandererDialog.w.verb === "tracker" ? (
                 <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
@@ -196,7 +196,7 @@ export function WorldWandererDialog({
                         pet you can capture. No pet needed: the capture battle lends
                         a Guild Fox to players who have none. */}
                     <button disabled={wandererDialog.busy} onClick={() => followTracker(wandererDialog.w)}>{wandererDialog.busy ? "…" : "Follow tracks"}</button>
-                    <button disabled={wandererDialog.busy} onClick={() => startWandererFavor(wandererDialog.w)}>{wandererDialog.busy ? "…" : "Take a favor"}</button>
+                    <button disabled={wandererDialog.busy} onClick={() => startWandererFavor(wandererDialog.w)}>{wandererDialog.busy ? "…" : "Accept delivery"}</button>
                     <button onClick={() => askRoadRumor(wandererDialog.w)}>Ask about the road</button>
                     <button onClick={closeWandererDialog}>Leave</button>
                 </div>
@@ -210,12 +210,12 @@ export function WorldWandererDialog({
                 </div>
             ) : !wandererDialog.msg && wandererDialog.w.verb === "courier" ? (
                 <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
-                    <button disabled={wandererDialog.busy} onClick={() => claimWandererFavor(wandererDialog.w)}>{wandererDialog.busy ? "…" : "Deliver favor"}</button>
+                    <button disabled={wandererDialog.busy} onClick={() => claimWandererFavor(wandererDialog.w)}>{wandererDialog.busy ? "…" : "Hand over package"}</button>
                     <button onClick={closeWandererDialog}>Leave</button>
                 </div>
             ) : !wandererDialog.msg && wandererDialog.w.verb === "gift" ? (
                 <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
-                    <button disabled={wandererDialog.busy} onClick={() => claimWandererGift(wandererDialog.w)}>{wandererDialog.busy ? "…" : "Take it"}</button>
+                    <button disabled={wandererDialog.busy} onClick={() => claimWandererGift(wandererDialog.w)}>{wandererDialog.busy ? "…" : "Accept gift"}</button>
                     <button onClick={() => askRoadRumor(wandererDialog.w)}>Ask about the road</button>
                     <button onClick={closeWandererDialog}>Leave</button>
                 </div>
@@ -227,7 +227,7 @@ export function WorldWandererDialog({
                 </div>
             ) : !wandererDialog.msg && wandererDialog.w.verb === "gamble" ? (
                 <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
-                    <button onClick={() => startWandererCardDuel(wandererDialog.w)}>Deal me in</button>
+                    <button onClick={() => startWandererCardDuel(wandererDialog.w)}>Play Chronicle Showdown</button>
                     <button onClick={() => askRoadRumor(wandererDialog.w)}>Ask about the road</button>
                     <button onClick={closeWandererDialog}>Leave</button>
                 </div>
@@ -237,7 +237,7 @@ export function WorldWandererDialog({
                     const entry = questbookEntry(epic.id);
                     const stage = questbookStage(epic.id, epic.stage);
                     if (entry && stage) {
-                        const got = Math.max(0, ((character[stage.metric] as number | undefined) ?? 0) - epic.baseline);
+                        const got = questbookStageProgress(character, epic, stage);
                         const done = !stage.choice && got >= stage.count;
                         const isFinal = epic.stage >= entry.stages.length - 1;
                         const bossArena = !!stage.bossId && stage.metric === "totalAiKills";
@@ -347,7 +347,7 @@ export function WorldWandererDialog({
                                     </button>
                                 ))}
                                 {em.quests.every(q => lockedQuestMetrics(character).includes(q.metric)) && (
-                                    <p style={{ fontSize: ".78rem", color: "#9aa3b2", margin: 0 }}>They have nothing for you on this road yet. Walk a while longer and come back.</p>
+                                    <p style={{ fontSize: ".78rem", color: "#9aa3b2", margin: 0 }}>Their errands require activities you have not unlocked yet. Check back after unlocking more activities.</p>
                                 )}
                             </div>
                         )}

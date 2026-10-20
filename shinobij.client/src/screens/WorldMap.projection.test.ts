@@ -278,11 +278,12 @@ test("WorldWandererDialog stays hook-free, network-free, persistence-free, porta
     assert.doesNotMatch(dialogSource, /\bcreatePortal\s*\(/u);
     assert.doesNotMatch(dialogSource, /\bDate\.now\s*\(|\bnew Date\s*\(|\b(?:setInterval|setTimeout)\s*\(/u);
     assert.doesNotMatch(dialogSource, /\b(?:mutationAvailability|capabilityAdmissionAllowed|postWandererService|engageMerc|coolWanderer)\b/u);
-    assert.match(dialogSource, /return \(\s*<div className="card"/u);
+    assert.match(dialogSource, /return \(\s*<div className="card world-wanderer-dialog"/u);
     assert.doesNotMatch(dialogSource, /position:\s*"fixed"|inset:\s*0|zIndex:\s*9999/u);
 });
 
-test("WorldWandererDialog makes every hostile that stops you a priced Fight/Flee choice", () => {
+test("WorldWandererDialog prices the bandit toll and the other hostile flee choices", () => {
+    assert.match(dialogSource, /const toll = offersBanditToll\(wandererDialog\);/u);
     // ⚖ OWNER RULING (2026-10-08): a hostile that catches you in a sector stops
     // you with Fight/Flee, bounty hunters included, and fleeing costs half your
     // HP plus part of the ryo you carry (shared/road-flee.ts). Only a bandit
@@ -297,9 +298,9 @@ test("WorldWandererDialog makes every hostile that stops you a priced Fight/Flee
         'onClick={dismissWandererDialog}>Pass in peace</button>',
         'onClick={() => startWandererAttack(wandererDialog.w, false)}',
         '>Fight anyway</button>',
-        '{roadFleePriceLine(character)}',
+        'roadFleePriceLine(character)}',
         'onClick={() => wandererDialog.w.verb === "patrol" ? startPatrolFight(wandererDialog.w) : startWandererAttack(wandererDialog.w, !!wandererDialog.nemesis)}>Fight</button>',
-        'onClick={() => fleeWanderer(wandererDialog.w)}>Flee</button>',
+        'onClick={() => fleeWanderer(wandererDialog.w)}>{toll ? `Pay ${BANDIT_TOLL_RYO} ryo` : \'Flee\'}</button>',
     ], "hostile encounter choice order");
     assert.match(worldMapSource, /function requiresWandererChoice\(d: WorldWandererDialogState \| null\) \{\s*return !!d && !d\.msg && wandererForcesChoice\(d\.w\);/u,
         "the dialog's Fight/Flee and WorldMap's no-free-Escape guard read the same rule");
@@ -315,7 +316,7 @@ test("WorldMap charges a flee on the server and never lets Escape or the backdro
         "fleeRoadAmbush(character.name, asked.fleeId,",
         "if (!fled.ok) {",
         "setWandererDialog((current) => current?.w.id === w.id ? null : current);",
-        "coolWanderer(w.id, WANDERER_FLEE_COOLDOWN_MS);",
+        "coolWanderer(w.id, toll ? undefined : WANDERER_FLEE_COOLDOWN_MS);",
         "onServerVersion?.(fled._saveVersion)",
     ], "flee settles on the server before the hostile backs off");
     assert.doesNotMatch(flee, /ryo: [^f]|hp: [^f]/u, "the client adopts the server's totals and never computes its own");

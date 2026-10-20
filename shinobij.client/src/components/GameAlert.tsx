@@ -93,8 +93,8 @@ function useDialogFocusTrap(
 
 const routeAlert = createAlertRouter();
 
-const SERVER_UNREACHABLE_NOTICE = "The server could not be reached. Check your connection and try again.";
-const SERVER_FAILED_NOTICE = "The server could not finish that. Try again in a moment.";
+const SERVER_UNREACHABLE_NOTICE = "The request could not be confirmed. Check your connection and current progress before trying again.";
+const SERVER_FAILED_NOTICE = "The server reported an error. Check your current progress before trying again.";
 
 /**
  * Every alert() passes through here, so a raw browser or server error that a
@@ -104,7 +104,8 @@ const SERVER_FAILED_NOTICE = "The server could not finish that. Try again in a m
  */
 export function playerAlertText(message: string): string {
     const text = message.trim();
-    if (/^(Failed to fetch|Load failed|NetworkError when attempting to fetch resource\.?)$/.test(text) || /^Unexpected token/.test(text)) return SERVER_UNREACHABLE_NOTICE;
+    if (/^(Failed to fetch|Load failed|NetworkError when attempting to fetch resource\.?)$/.test(text)) return SERVER_UNREACHABLE_NOTICE;
+    if (/^Unexpected (token|end of JSON input)/.test(text)) return "The server response could not be read. Check your current progress before trying the action again.";
     if (/^Internal server error\.?$/.test(text)) return SERVER_FAILED_NOTICE;
     return message;
 }

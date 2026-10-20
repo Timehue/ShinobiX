@@ -855,7 +855,16 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // over the measured 9,488,761 B baseline above. Allow 9.55 MB, retaining about
 // 20 KB of aggregate headroom. Cave movement and gift handlers remain lazy;
 // startup raw/gzip, per-chunk, CSS and asset limits are unchanged.
-const TOTAL_JS_CSS_FAIL_BYTES = 9_550_000;
+// 2026-10-18: the requested dialogue, tooltip, combat-message and reward/result
+// clarity passes, including receipt-aware payout notices, measure 9,551,340 B
+// locally. Allow 9.57 MB (18,660 B of aggregate headroom). These are text and
+// small presentation helpers; startup raw/gzip, per-chunk, CSS and asset gates
+// remain unchanged.
+// 2026-10-19: confirmed pet recovery/concessions, recoverable Gauntlet reports
+// and mode-specific replay returns add 5,677 B to the 9,569,959 B local baseline.
+// Measured product graph: 9,575,636 B. Allow 9.58 MB, leaving 4,364 B headroom;
+// startup, per-chunk, CSS and asset gates remain unchanged.
+const TOTAL_JS_CSS_FAIL_BYTES = 9_580_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai

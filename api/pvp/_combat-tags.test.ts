@@ -146,7 +146,7 @@ describe('lethal hits resolve before absorb heals', () => {
         const result = applyJutsu(fighter('A'), defender, jutsu([]), 1, 'central', 1);
 
         assert.equal(result.opponent.hp, 0, 'a lethal hit must leave the defender defeated');
-        assert.equal(result.lines.some(line => line.startsWith('B absorbs ')), false, 'Absorb must not heal after a lethal hit');
+        assert.equal(result.lines.some(line => line.startsWith('B restores ')), false, 'Absorb must not heal after a lethal hit');
         assert.equal(result.fx.some(event => event.who === 'opp' && event.kind === 'heal'), false, 'the client must not animate a post-death absorb heal');
     });
 
@@ -156,7 +156,7 @@ describe('lethal hits resolve before absorb heals', () => {
         const result = applyJutsu(fighter('A'), defender, jutsu([]), 1, 'central', 1);
 
         assert.equal(result.opponent.hp, 0, 'a lethal hit must also bypass the item absorb heal');
-        assert.equal(result.lines.some(line => line.includes("B's armor absorbs")), false, 'item absorb must not log a post-death heal');
+        assert.equal(result.lines.some(line => line.includes("B's armor restores")), false, 'item absorb must not log a post-death heal');
         assert.equal(result.fx.some(event => event.who === 'opp' && event.kind === 'heal'), false, 'item absorb must not animate a post-death heal');
     });
 });

@@ -70,7 +70,7 @@ export function EndlessTowerLobby({
             <div style={{ padding: "1rem 1.4rem 1.4rem" }}>
             <p style={{ color: "var(--text-dim)", marginTop: 0 }}>
                 Each wave is harder than the last. Every 5th floor is a milestone (×2 rewards); every 10th is a boss floor (×3).
-                Banked rewards are lost if you die — retreat to bank what you've earned.
+                Defeat loses the run's unclaimed ryo. Retreat between waves to keep it; milestone currencies stay yours.
             </p>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.8rem", margin: "1rem 0" }}>
                 <div className="card" style={{ padding: "0.8rem" }}>

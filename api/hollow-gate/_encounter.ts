@@ -9,6 +9,7 @@ import type { HollowGateCombatBinding, HollowGateCombatKind } from './_combat-se
 import { hollowGateWandererForNode } from './_wanderers.js';
 import { hollowGateWandererName, hollowGateWandererArt } from '../../shared/hollow-gate-wanderers.js';
 import { SHRINE_AI_POLICY } from '../solo-pve/_ai-turn-policy.js';
+import { narrativeEnemyIdentity } from '../../shared/narrative-enemy-identity.js';
 
 const LOADOUTS: Record<'burst' | 'bruiser' | 'hunter' | 'boss', string[]> = {
     burst: ['starter-tai-water-2', 'starter-nin-lightning-2', 'starter-buki-fire-2', 'starter-tai-fire-2', 'starter-tai-earth-1', 'starter-universal-flicker'],
@@ -56,10 +57,12 @@ export function buildHollowGateProfile(params: {
     const baseHp = aiHpForLevel(level, boss ? 0.18 : elite ? 0.1 : 0.04);
     const hp = Math.max(1, Math.floor(baseHp * (boss ? scale.hpMult : 1 + depth * 0.06) * kindHpMult * augment.enemyHpMult * gentle * (1 - augment.enemyHpShavePct)));
     const loadoutId = boss ? 'boss' : elite || wanderer?.role === 'bandit' ? 'bruiser' : ambush || wanderer?.role === 'night-ninja' ? 'burst' : 'hunter';
+    const authoredBoss = boss && narrativeEnemyIdentity(run.bossProfileId) ? run.bossProfileId : undefined;
     return {
         id: binding.enemyProfileId,
         name: wanderer ? hollowGateWandererName(wanderer) : boss ? (run.bossName || hollowGateHoundName(binding.floor, kind)) : hollowGateHoundName(binding.floor, kind),
-        visual: wanderer ? 'shinobi' : 'hollow-hound',
+        visual: authoredBoss ?? (wanderer ? 'shinobi' : 'hollow-hound'),
+        ...(authoredBoss ? { narrativeIdentityId: authoredBoss } : {}),
         ...(wanderer ? { avatarImage: hollowGateWandererArt(wanderer) } : {}),
         level,
         hp,

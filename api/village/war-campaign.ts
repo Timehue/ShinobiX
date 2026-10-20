@@ -16,6 +16,7 @@ import { STANDARD_PVE_AI_POLICY } from '../solo-pve/_ai-turn-policy.js';
 import { buildGarrisonEncounter } from '../_sector-war-garrison-encounter.js';
 import { sealWarTeam } from '../_pet-showdown/war-team.js';
 import { resolveWarDuel, type WarDuelInput } from '../_pet-showdown/war-duel.js';
+import { replayFromOpposingSide } from '../_pet-showdown/_viewer-replay.js';
 import { resolveChronicleDeckMutation, resolveChronicleDeckWithSave } from '../card-clash/_deck.js';
 import { createAiMatch, applyPlayerAction, projectAiMatch, type AiMatchSession } from '../card-clash/_ai-engine.js';
 import { createMatch, applyAction, advanceExpiredChronicleTurn, projectMatchForViewer,
@@ -569,7 +570,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             await syncCompletedCombat(run);
             if (action === 'watch') {
                 if (!run.pet || !run.petWinner) refuse('No pet replay is ready.');
-                return { script: resolveWarDuel(run.pet).script };
+                const script = resolveWarDuel(run.pet).script;
+                return { script: me === run.defender ? replayFromOpposingSide(script, run.pet.fromName) : script };
             }
             if (run.card || run.aiCard) {
                 if (run.card) run.card = advanceExpiredChronicleTurn(run.card, Date.now());

@@ -271,7 +271,7 @@ export const hollowRifts: HollowRift[] = [
                     "Hot animal breath rolls out of the rift. Old collars hang from the roots, sorted from largest to smallest.",
                     "One throat calls from below. A dozen animals answer on the same note.",
                     "Nara lies breathing at the center of the warren. Her old collar is still buckled, while a larger outline pulls itself around her like a second shadow.",
-                    "The shadow tightens when she tries to rise and loosens when she goes still. Strike the controlling shape when it separates; Nara is alive inside its hold.",
+                    "The shadow tightens when she tries to rise and loosens when she goes still. You need to defeat the shadow controlling her. Nara is still alive inside its hold.",
                 ],
                 choices: [
                     { text: "Descend into the warren.", descend: true },

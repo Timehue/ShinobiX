@@ -106,7 +106,7 @@ export async function startAiFight(params: {
             if (resumed) return resumed;
         }
     }
-    if (!response.ok) throw new Error(data.error ?? `AI fight start failed (${response.status}).`);
+    if (!response.ok) throw new Error(data.error ?? `The fight could not be started. Reopen the encounter to check for an active fight.`);
     if (!data.token || !data.sessionId || !data.session || data.session.runtime !== "solo-pve") {
         throw new Error("The combat server returned an incomplete solo-PvE session.");
     }
@@ -144,7 +144,7 @@ export async function resumeWorldAiFight(playerName: string): Promise<AiFightWor
     // The server uses an explicit 409 handoff when the single active pointer is
     // generic. Treat it like "no World fight" so the host probes resumeAiFight.
     if (response.status === 409 && data.mode === "generic") return null;
-    if (!response.ok) throw new Error(data.error ?? `World fight resume failed (${response.status}).`);
+    if (!response.ok) throw new Error(data.error ?? `Your World Map fight could not be recovered. Reopen the map to retry.`);
     if (data.resumed === true && data.pendingWorldChain?.request) {
         return { resumed: true, pendingWorldChain: data.pendingWorldChain };
     }
@@ -172,7 +172,7 @@ export async function resumeGenericAiFight(playerName: string): Promise<AiFightS
     // older function deployment and a newer client bundle overlap.
     if (response.status === 204 || response.status === 404) return null;
     const data = await response.json().catch(() => ({})) as Partial<AiFightStart> & { error?: string };
-    if (!response.ok) throw new Error(data.error ?? `AI fight resume failed (${response.status}).`);
+    if (!response.ok) throw new Error(data.error ?? `Your fight could not be recovered. Reopen the encounter to retry.`);
     if (!data.token || !data.sessionId || !data.session || data.session.runtime !== "solo-pve"
         || !data.opponentId || !data.opponentName || !data.battleKind) {
         throw new Error("The combat server returned an incomplete resumed AI encounter.");

@@ -176,7 +176,7 @@ export function HealerInjuredList({
             setHealed(s => new Set(s).add(targetName));
             setTreatedAt(t => ({ ...t, [targetName.toLowerCase()]: serverNow() }));
         } catch {
-            setHealMsg(m => ({ ...m, [targetName]: "Error: The heal did not reach the ward. Check your connection and try again." }));
+            setHealMsg(m => ({ ...m, [targetName]: "Error: Your heal could not be confirmed. Refresh the ward to check the patient's HP before trying again." }));
         } finally {
             setHealing(s => { const next = new Set(s); next.delete(targetName); return next; });
         }

@@ -65,7 +65,7 @@ export async function settleHollowGateCombat(params: {
         body: JSON.stringify(params),
     });
     const data = await response.json().catch(() => ({})) as Partial<HollowGateCombatSettleResult>;
-    if (!response.ok || data.ok !== true || typeof data.won !== 'boolean') throw new Error(data.error ?? 'The Hollow Gate encounter could not settle.');
+    if (!response.ok || data.ok !== true || typeof data.won !== 'boolean') throw new Error(data.error ?? 'Your Hollow Gate battle result could not be confirmed. Retry before leaving.');
     return data as HollowGateCombatSettleResult;
 }
 
@@ -81,7 +81,7 @@ export async function descendHollowGateRun(params: {
     });
     const data = await response.json().catch(() => ({})) as { ok?: boolean; floor?: number; error?: string };
     if (!response.ok || data.ok !== true || !Number.isFinite(data.floor)) {
-        throw new Error(data.error ?? 'The Hollow Gate staircase could not seal the next floor.');
+        throw new Error(data.error ?? 'The next Hollow Gate floor could not be saved. Try the staircase again.');
     }
     return Math.max(1, Math.floor(Number(data.floor)));
 }

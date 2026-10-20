@@ -152,10 +152,10 @@ export const WANDERER_ARCHETYPES: Record<WandererArchetypeId, WandererArchetypeM
         names: ["Kano Two-Blades", "Genta Red-Sash", "Saito the Cinder", "Renga of the Waste", "Hibiki the Restless"],
         greetings: [
             "This stretch of road is mine. Pay the toll or bleed.",
-            "Hand over your ryo, road-rat. Choose quick.",
+            "Five hundred ryo and you can pass. Refuse, and we fight.",
             "Wrong road to walk alone.",
             "Far from home. That makes this easy.",
-            "Toll road. New policy. Started about when I saw you coming.",
+            "The toll is 500 ryo. Pay up, or draw your weapon.",
         ],
     },
     gambler: {
@@ -164,10 +164,10 @@ export const WANDERER_ARCHETYPES: Record<WandererArchetypeId, WandererArchetypeM
         tellTint: "#ffd24a",
         names: ["Saji Two-Coins", "Miraa the Sly", "Old Tatsu", "Kael of Sixes"],
         greetings: [
-            "Care for a hand, friend? Small stakes. Mostly.",
+            "Care for a Chronicle Showdown, friend? I have a deck ready.",
             "May the better liar win. I'm a very good liar.",
             "Fresh Chronicle deck, and nobody on this road brave enough to sit down. You look brave.",
-            "One game. I win, we call it tuition. You win, the purse is yours.",
+            "One Chronicle Showdown. Show me what you can do with that deck.",
         ],
     },
     pilgrim: {
@@ -215,9 +215,9 @@ export const WANDERER_ARCHETYPES: Record<WandererArchetypeId, WandererArchetypeM
         tellTint: "#fbbf24",
         names: ["Miko of the Pack", "Suri Lantern-Hands", "Jin the Mule", "Tama Roadstall"],
         greetings: [
-            "Road prices, friend. Everything costs more out where the patrols don't reach.",
-            "Keep your blade low and your coins ready.",
-            "Everything's for sale except the mule. People keep asking about the mule.",
+            "Bone charms for sale, friend. Useful things to carry on a long road.",
+            "Looking for bone charms? I trade them for ryo. Keep that blade down, though.",
+            "I sell bone charms. The mule stays with me. People keep asking about the mule.",
         ],
     },
     medic: {
@@ -227,7 +227,7 @@ export const WANDERER_ARCHETYPES: Record<WandererArchetypeId, WandererArchetypeM
         names: ["Nurse Enka", "Field Medic Ren", "Old Stitch", "Sister Koma"],
         greetings: [
             "You look like the road has been chewing on you.",
-            "Bandage, tonic, steady hands. Sit down if you need mending.",
+            "For a fee, I can restore your HP, chakra, and stamina. Need treatment?",
             "I don't ask who hit first. I patch whoever's bleeding.",
         ],
     },
@@ -249,8 +249,8 @@ export const WANDERER_ARCHETYPES: Record<WandererArchetypeId, WandererArchetypeM
         names: ["Ibo the Tracker", "Kana Reed-Eyes", "Old Pawprint", "Shin of the Bent Grass"],
         greetings: [
             "Fresh tracks cross this dirt. Something bold is nearby.",
-            "Something big crossed here before dawn, dragging a paw. If that beast of yours is game, it's worth following.",
-            "I can point you toward teeth, coin, or trouble. Sometimes all three.",
+            "Something big crossed here before dawn, dragging a paw. Want to follow its tracks? You don't need a pet of your own.",
+            "I can help you track a wild beast, or give you a package to deliver for pay.",
         ],
     },
     courier: {
@@ -259,7 +259,7 @@ export const WANDERER_ARCHETYPES: Record<WandererArchetypeId, WandererArchetypeM
         tellTint: "#fde68a",
         names: ["Road Courier"],
         greetings: [
-            "Package sealed. Name checked. You made good time.",
+            "There you are. Hand me the package and I'll pay you for the delivery.",
         ],
     },
     bountyHunter: {
@@ -292,11 +292,11 @@ export const WANDERER_ARCHETYPES: Record<WandererArchetypeId, WandererArchetypeM
         tellTint: "#a78bfa",
         names: ["Sumi of the Unlit Road", "Hollow-Moon Kaito", "Nightjar Reiko", "Oboro Three-Shadows", "Tsukika the Quiet Blade"],
         greetings: [
-            "You carried a lantern out here. That's how I found you.",
-            "Nobody patrols this road after dark. Nobody but me.",
+            "I saw you moving along the road. You should have stayed in the village.",
+            "The patrol has gone past. Now it's just you and me.",
             "I've followed you since the moon came up. Turn around.",
             "The day belongs to the villages. The night is mine.",
-            "Put the light out. We'll settle this the way the dark likes it.",
+            "Draw your weapon. Let's see how well you fight in the dark.",
         ],
     },
     // Something the rift you carry a seal for let loose. It stands only in that
@@ -320,8 +320,8 @@ export const WANDERER_ARCHETYPES: Record<WandererArchetypeId, WandererArchetypeM
         names: ["Nao of the Long Line", "Reed-Hat Sora", "Old Net Kiyo", "Tide-Reader Mio"],
         greetings: [
             "Quiet feet, please. They can hear you through the bank.",
-            "The fish are biting today, but only for someone patient.",
-            "Pull up a stone. The current tells you everything if you let it.",
+            "Looking for a place to fish? I can point out the shoals nearby.",
+            "Have a seat. Tell me how much fishing you've done, and I'll suggest a shoal.",
         ],
     },
     // A rival miner working a seam. You may contest the seam with him.
@@ -331,9 +331,9 @@ export const WANDERER_ARCHETYPES: Record<WandererArchetypeId, WandererArchetypeM
         tellTint: "#d97706",
         names: ["Old Ganzo Ironhand", "Gravel-Tooth Benzo", "Seam-Boss Tetsu", "Pickaxe Hiru"],
         greetings: [
-            "This seam is mine. I staked it before you could walk.",
-            "Find your own rock. This one already has a name on it.",
-            "If you want this vein, you'll have to move me off it.",
+            "Been digging here all morning. Come to work, or to challenge me?",
+            "Mind the loose stone. If you want a fight, ask for one.",
+            "Think you're stronger than me? Put down your pick and prove it.",
         ],
     },
     // Kagero, the one road rival (shared/road-nemesis.ts holds his voice).
@@ -348,9 +348,9 @@ export const WANDERER_ARCHETYPES: Record<WandererArchetypeId, WandererArchetypeM
     // per window (lib/legacy-emissaries.ts rollEmissarySpawn), never rolled into
     // the natural cast — these entries exist to satisfy the archetype record;
     // the synth supplies the real voice/tint from EMISSARY_DEFS.
-    "storm-caller-ryn":   { verb: "legacyQuest", weight: 0, tellTint: "#60a5fa", names: ["Storm-Caller Ryn"],   greetings: ["You picked a bad day for this road. The storm is an hour out."] },
+    "storm-caller-ryn":   { verb: "legacyQuest", weight: 0, tellTint: "#60a5fa", names: ["Storm-Caller Ryn"],   greetings: ["You picked a bad day for this road. That sky looks like trouble."] },
     "veil-mother-suzu":   { verb: "legacyQuest", weight: 0, tellTint: "#c084fc", names: ["Veil-Mother Suzu"],   greetings: ["Don't mind the moths."] },
-    "iron-pilgrim-daigo": { verb: "legacyQuest", weight: 0, tellTint: "#f59e0b", names: ["Iron Disciple Daigo"], greetings: ["Every bead is a fight without a weapon."] },
+    "iron-pilgrim-daigo": { verb: "legacyQuest", weight: 0, tellTint: "#f59e0b", names: ["Iron Disciple Daigo"], greetings: ["Each bead marks a fight I won without a weapon."] },
     "blade-keeper-hana":  { verb: "legacyQuest", weight: 0, tellTint: "#e2e8f0", names: ["Blade-Keeper Hana"],  greetings: ["Do not touch the hilts without asking."] },
     "duel-broker-kesshi": { verb: "legacyQuest", weight: 0, tellTint: "#f87171", names: ["Duel-Broker Kesshi"], greetings: ["Everything's a wager, friend."] },
     "hollow-warden":      { verb: "legacyQuest", weight: 0, tellTint: "#4ade80", names: ["The Hollow Warden"],  greetings: ["The lower vents carry voices. Speak softly."] },

@@ -7,6 +7,10 @@ import { storyKageForVillage, STORY_KAGE_DIFFICULTY, STORY_KAGE_DIFFICULTY_LABEL
 import { aiStatsForLevel } from '../_ai-level-curves.js';
 import { maxChakraForLevel, maxStaminaForLevel } from '../_xp-engine.js';
 import { resolveAiProfileJutsu } from '../_ai-opponent-loadout.js';
+import { CHRONICLE_STORY_SOURCES } from '../../shared/story-card-sources.js';
+import { STORY_COMBAT_IDENTITIES } from '../../shared/story-combat-identity.js';
+import { storyTwinTrial } from '../../shared/story-twin-trials.js';
+import { narrativeGroupFor } from '../../shared/narrative-groups.js';
 
 /*
  * Server-authoritative story-boss combat (SERVER_COMBAT_MIGRATION_PLAN Stage 4,
@@ -45,6 +49,7 @@ export interface StoryCombatBinding {
     expiresAt: number;
     status: 'active' | 'won' | 'lost' | 'abandoned';
     settledAt?: number;
+    requiredEnemyIds?: string[];
     /**
      * Which story-lane fight this binding seals. Absent means 'boss', so
      * bindings written before the Academy spar migration keep validating as
@@ -106,6 +111,8 @@ export function createStoryCombatBinding(params: {
         village: params.village,
         progressIndex: params.progressIndex,
         opponentId: storyOpponentId(params.village, levelReq),
+        ...((storyTwinTrial(storyOpponentId(params.village, levelReq)) ?? narrativeGroupFor(storyOpponentId(params.village, levelReq))?.members)
+            ? { requiredEnemyIds: (storyTwinTrial(storyOpponentId(params.village, levelReq)) ?? narrativeGroupFor(storyOpponentId(params.village, levelReq))!.members).map(member => member.id) } : {}),
         rewardFingerprint: storyCombatRewardFingerprint(params.village, params.progressIndex),
         createdAt: now,
         expiresAt: now + STORY_COMBAT_SESSION_TTL_MS,
@@ -136,6 +143,17 @@ export function validateSealedStoryRun(params: {
     if (binding.settledAt || binding.status !== 'active') return { ok: false, reason: 'already-settled' };
     if (session.status !== 'done') return { ok: false, reason: 'not-complete' };
     if (session.winner !== 'player') return { ok: false, reason: 'not-won' };
+    if (binding.requiredEnemyIds) {
+        const battle = session.huntCombat?.purpose ? session.huntCombat.battle : undefined;
+        if (!battle || battle.runId !== binding.runId) return { ok: false, reason: 'wrong-run' };
+        if (battle.status !== 'done' || battle.winner !== 'squad' || battle.actors.some(actor => actor.side === 'enemy' && actor.hp > 0)
+            || binding.requiredEnemyIds.some(id => {
+                const actors = battle.actors.filter(actor => actor.id === id);
+                return actors.length !== 1 || actors[0].side !== 'enemy' || actors[0].hp > 0;
+            })) {
+            return { ok: false, reason: 'not-complete' };
+        }
+    }
     if (session.ownerSlug !== playerName) return { ok: false, reason: 'not-a-member' };
     const expectedKind = binding.kind === 'spar' ? 'academy-spar' : 'story-boss';
     if (session.encounter.kind !== expectedKind
@@ -228,6 +246,19 @@ const FIRST_CHAPTER_KIT = {
     ],
 } as const;
 
+const LEVEL_85_SIGNATURE_POWER: Record<string, number> = {
+    'Stormveil Village': 72,
+    'Ashen Leaf Village': 72,
+    'Frostfang Village': 73,
+    'Moonshadow Village': 65,
+};
+const FINAL_STORY_BUDGETS: Record<string, { hp: number; statScale: number }> = {
+    'Stormveil Village': { hp: 10_000, statScale: .61 },
+    'Ashen Leaf Village': { hp: 10_300, statScale: .65 },
+    'Frostfang Village': { hp: 10_300, statScale: .59 },
+    'Moonshadow Village': { hp: 10_000, statScale: .64 },
+};
+
 /**
  * Server-owned story boss stats, scaled from the milestone level like
  * missionEnemyTemplate (api/_authoritative-pve.ts) with a boss-arc ramp:
@@ -242,32 +273,54 @@ export function storyBossEnemyTemplate(params: {
     const progressIndex = clampInt(params.progressIndex, 0, STORY_LEVELS.length - 1, 0);
     const level = STORY_LEVELS[progressIndex];
     const finale = progressIndex === STORY_LEVELS.length - 1 ? storyKageForVillage(params.village) : undefined;
+    const finaleBudget = finale ? FINAL_STORY_BUDGETS[params.village] : undefined;
+    const identity = STORY_COMBAT_IDENTITIES[storyOpponentId(params.village, level)];
     const arc = STORY_LEVELS.length <= 1 ? 1 : progressIndex / (STORY_LEVELS.length - 1);
-    const specialty = finale?.specialty ?? (['Genjutsu', 'Taijutsu', 'Ninjutsu', 'Bukijutsu'] as const)[progressIndex % 4];
+    const specialty = finale?.specialty ?? identity?.specialty ?? (['Genjutsu', 'Taijutsu', 'Ninjutsu', 'Bukijutsu'] as const)[progressIndex % 4];
     const power = 1 + arc * 0.25;
     const offense = clampInt((150 + level * 27) * power, 180, 3200, 500);
     const defense = clampInt((120 + level * 20) * power, 140, 2600, 400);
+    const storyName = CHRONICLE_STORY_SOURCES.find((source) => source.village === params.village && source.levelReq === level)?.bossName;
     const name = typeof params.displayName === 'string' && params.displayName.trim()
         ? params.displayName.trim().slice(0, 80)
-        : finale?.name ?? `${params.village.replace(/ Village$/, '')} Story Boss`;
+        : finale?.name ?? storyName ?? `${params.village.replace(/ Village$/, '')} Story Boss`;
     const firstChapter = progressIndex === 0;
+    const retrievalTrial = level === 65 && params.village === 'Ashen Leaf Village';
+    const executionerTrial = level === 65 && params.village === 'Moonshadow Village';
+    const lateTrial = (level === 75 || level === 85) && !!identity;
+    const hp = firstChapter ? FIRST_CHAPTER_KIT.hp : clampInt((240 + level * level * 1.05) * (1.05 + arc * 0.4), 250, 14_000, 1000);
+    const stats: Record<string, number> = finale ? aiStatsForLevel(level, resolveAiProfileJutsu([...finale.jutsuIds])) : {
+        [`${specialty.toLowerCase()}Offense`]: offense,
+        [`${specialty.toLowerCase()}Defense`]: defense,
+        strength: clampInt((80 + level * 8) * power, 80, 1100, 200),
+        speed: clampInt((80 + level * 7) * power, 80, 1000, 200),
+        intelligence: clampInt((80 + level * 7) * power, 80, 1000, 200),
+        willpower: clampInt((80 + level * 7) * power, 80, 1000, 200),
+    };
+    if (executionerTrial || lateTrial) {
+        // One-school armor made matching disciplines endure many more attacks.
+        // Give these encounters equal school defenses and clear recovery rules.
+        for (const school of ['ninjutsu', 'taijutsu', 'bukijutsu', 'genjutsu']) stats[`${school}Defense`] = Math.floor(defense * (lateTrial ? .75 : .5));
+    }
+    if (finale) {
+        // Apex planning, the full kit and mastery remain intact. The old full
+        // cap-stat sheet plus 14k HP overwhelmed modest acquired loadouts.
+        const scale = finaleBudget!.statScale;
+        for (const key of Object.keys(stats)) stats[key] = Math.floor(stats[key] * scale);
+    }
     return {
         id: storyOpponentId(params.village, level),
         name,
         specialty,
         level,
-        hp: firstChapter ? FIRST_CHAPTER_KIT.hp : clampInt((240 + level * level * 1.05) * (1.05 + arc * 0.4), 250, 14_000, 1000),
-        // A finale spends the same legal stat budget as a level-100 player.
-        // No over-cap multipliers; its existing HP and armor stay unchanged.
-        stats: finale ? aiStatsForLevel(level, resolveAiProfileJutsu([...finale.jutsuIds])) : {
-            [`${specialty.toLowerCase()}Offense`]: offense,
-            [`${specialty.toLowerCase()}Defense`]: defense,
-            strength: clampInt((80 + level * 8) * power, 80, 1100, 200),
-            speed: clampInt((80 + level * 7) * power, 80, 1000, 200),
-            intelligence: clampInt((80 + level * 7) * power, 80, 1000, 200),
-            willpower: clampInt((80 + level * 7) * power, 80, 1000, 200),
-        },
+        // Authored budgets are applied before the ordinary difficulty band or
+        // group split. Later singles gain pressure through signature cadence.
+        hp: finaleBudget ? finaleBudget.hp : lateTrial ? Math.ceil(hp * 1.15) : retrievalTrial ? Math.ceil(hp * 1.2) : hp,
+        // Explicit authored stats are sealed before combat; no Tower floor
+        // multiplier or player-loadout-dependent scaling is applied.
+        stats,
         visual: storyOpponentId(params.village, level),
+        ...(identity ? { avatarImage: identity.portrait } : {}),
         boss: true,
         ...(finale ? {
             masterAi: true,
@@ -285,17 +338,22 @@ export function storyBossEnemyTemplate(params: {
         // a visible setup, a guard and Flicker give the planner choices while
         // the catalog cooldowns leave real recovery windows. Basic Clear is
         // available through the ordinary action system, with its usual checks.
-        jutsu: firstChapter || finale ? undefined : [{
+        jutsu: firstChapter && identity ? resolveAiProfileJutsu([...FIRST_CHAPTER_KIT.jutsuIds]).map((jutsu, index) => ({
+            ...jutsu, type: identity.specialty, element: identity.element,
+            name: index === 0 ? `${identity.signature.replace(/ (Strike|Bite|Feint)$/, '')} Guard` : identity.signature,
+            battleDescription: index === 0 ? 'Gain a shield and Absorb to recover HP when hit.' : 'Damage the target and restore HP through Siphon.',
+        })) : finale ? undefined : [{
             id: `story-${progressIndex}-signature`,
-            name: `${specialty} Signature`,
+            name: identity?.signature ?? `${specialty} Signature`,
             type: specialty,
-            element: 'None',
+            element: identity?.element ?? 'None',
             ap: 60,
             range: specialty === 'Taijutsu' ? 1 : 3,
-            effectPower: clampInt(22 + level * 0.55, 24, 72, 35),
+            effectPower: executionerTrial ? 38 : (level === 85 && identity ? LEVEL_85_SIGNATURE_POWER[params.village] : undefined)
+                ?? clampInt(22 + level * 0.55, 24, 72, 35),
             chakraCost: specialty === 'Taijutsu' || specialty === 'Bukijutsu' ? 0 : 18,
             staminaCost: specialty === 'Taijutsu' || specialty === 'Bukijutsu' ? 18 : 0,
-            cooldown: 2,
+            cooldown: lateTrial ? 1 : 2,
             method: 'SINGLE',
         }],
     };

@@ -207,7 +207,7 @@ export function Arena({
             battleKind: "practice",
             returnScreen: "arena",
         })) {
-            alert("The sealed practice arena is unavailable. No fight was started.");
+            alert("The practice battle could not open. No fight was started.");
         }
     }
 
@@ -220,7 +220,7 @@ export function Arena({
         rankedSession?: RankedQueueClientSession,
     ): Promise<PlayerChallengeResult> {
         if (mode === "ranked" && !rankedAuthority) {
-            alert("A current server-ranked match proof is required. Rejoin the ranked queue.");
+            alert("This ranked match could not be verified. Rejoin the ranked queue.");
             return { outcome: "rejected" };
         }
         const rankedChallengeCurrent = () => mode !== "ranked" || Boolean(

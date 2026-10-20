@@ -9,7 +9,7 @@ import { onStoryBossFightRequest, type StoryFightTheme } from "../lib/story-figh
 import { reportPveFightOutcome } from "../lib/pve-outcome-api";
 import { soloPveArenaTransport, soloPveSessionForArena } from "../lib/solo-pve-arena-adapter";
 
-// Story-boss fights render through MissionArenaFight — the SAME server-authoritative
+// Ordinary story-boss fights render through MissionArenaFight — the SAME server-authoritative
 // arena shell combat missions use (a sealed solo-PvE session and intent-only actions,
 // CombatSideHud dossiers + the 12×10 hex board). A story fight is a plain solo
 // encounter, structurally identical to a combat mission, so they share
@@ -22,7 +22,10 @@ import { soloPveArenaTransport, soloPveSessionForArena } from "../lib/solo-pve-a
 // request-bus listener is always live, so we code-split the screen and warm it on the
 // fight request (in parallel with the start-combat network round-trip) — resident by the
 // time the session opens, so there is no visible load gap.
-const MissionArenaFight = lazyWithRetry(() => import("../screens/MissionArenaFight").then((m) => ({ default: m.MissionArenaFight })));
+const SoloStoryFight = lazyWithRetry(() => import("../screens/MissionArenaFight").then(m => ({ default: m.MissionArenaFight })));
+const TwinStoryFight = lazyWithRetry(() => import("../screens/StoryTwinFight"));
+// Select the multi-actor grid for paired trials and authored groups;
+// their commands and chapter rewards still use the same Solo-PvE lifecycle.
 // Result details are needed only after a story battle, not during initial boot.
 const StoryRewardSummary = lazyWithRetry(() => import("./StoryRewardSummary").then((m) => ({ default: m.StoryRewardSummary })));
 const loadStoryCombatApi = () => retryDynamicImport(() => import("../lib/story-combat-api"));
@@ -354,6 +357,7 @@ export function StoryBossFightHost({
 
     if (!activeFight || !character) return null;
     const currentFight: ActiveStoryFight = activeFight;
+    const MissionArenaFight = currentFight.session.huntCombat?.purpose ? TwinStoryFight : SoloStoryFight;
     const theme = currentFight.theme;
     const isSpar = theme.kind === "academySpar";
     const originatingPlayerName = currentFight.originatingPlayerName;
@@ -420,6 +424,7 @@ export function StoryBossFightHost({
     return (
         <Suspense fallback={null}>
             <MissionArenaFight
+                sealedSession={currentFight.session}
                 character={character}
                 runId={currentFight.runId}
                 initialSession={soloPveSessionForArena(currentFight.session)}
@@ -447,7 +452,7 @@ export function StoryBossFightHost({
                 coachSpeaker={companionCoachName(character)}
                 enemyAvatarOverride={theme.bossPortrait}
                 onExit={closeFight}
-                renderResult={({ won, settleState, settleResult, retry }) => {
+                renderResult={({ won, draw, settleState, settleResult, retry }) => {
                     const result = (settleResult as StoryBossSettleResult | null)
                         ?? (committedReward?.requestId === currentFight.requestId ? committedReward.result : null);
                     // The tutorial spar gets its own plain-language card: a new
@@ -459,17 +464,17 @@ export function StoryBossFightHost({
                     if (isSpar) {
                         return (
                             <RequiredStoryResultDialog
-                                label={won ? "Sparring match won" : "Sparring match lost"}
+                                label={won ? "Sparring match won" : draw ? "Sparring match drawn" : "Sparring match lost"}
                                 focusVersion={`${won ? "won" : "lost"}-${settleState}-${result ? "ready" : "waiting"}`}
                             >
                                 <div className="story-fight-complete-card">
-                                    <p className="story-fight-complete-kicker">{won ? "First Win" : "Knocked Down"}</p>
+                                    <p className="story-fight-complete-kicker">{won ? "First Win" : draw ? "Draw" : "Spar lost"}</p>
                                     <h2>Academy Sparring Match</h2>
                                     {won
                                         ? (!result
-                                            ? <p className="story-fight-complete-rewards">{settleState === "failed" ? "The sparring reward could not be verified. Your win still counts. Retry the reward now." : "Sealing your reward…"}</p>
-                                            : <Suspense fallback={<p role="status">Personal reward committed.</p>}><StoryRewardSummary result={result} /></Suspense>)
-                                        : <p className="story-fight-complete-boss">The dummy got the better of you. It was only a spar, so there is no hospital stay. Step back onto the mat when you are ready.</p>}
+                                            ? <p className="story-fight-complete-rewards">{settleState === "failed" ? "The sparring reward could not be verified. The fight ended in a win, but your Academy progress and reward are not confirmed yet. Press Retry reward." : "Saving your reward…"}</p>
+                                            : <Suspense fallback={<p role="status">Reward received.</p>}><StoryRewardSummary result={result} /></Suspense>)
+                                        : <p className="story-fight-complete-boss">{draw ? "The spar ended in a draw." : "The dummy won this spar."} There is no hospital stay for this practice fight. Try again when you are ready.</p>}
                                     {/* escape-hatch-exempt — deliberate, unlike the PvP and AI-fight
                                         result screens. Those two keep a DURABLE handle on an unsettled
                                         reward (a 48h server receipt, or a retained token plus an active
@@ -481,7 +486,7 @@ export function StoryBossFightHost({
                                         completion marker does, and THEN add the exit — not to add the
                                         exit on its own. */}
                                     {won && settleState === "failed"
-                                        ? <button onClick={retry}>{result ? 'Retry record delivery' : 'Retry reward'}</button>
+                                        ? <button onClick={retry}>{result ? 'Retry saving progress' : 'Retry reward'}</button>
                                         : <button disabled={won && (settleState !== "settled" || !result)} onClick={closeFight}>Continue</button>}
                                 </div>
                             </RequiredStoryResultDialog>
@@ -500,28 +505,31 @@ export function StoryBossFightHost({
                                 <div className="story-fight-complete-card">
                                     <p className="story-fight-complete-kicker">{result?.finale ? "Village Story Complete" : result ? "Chapter Complete" : "Battle Won"}</p>
                                     <h2>{theme.chapterLabel ?? theme.bossName}</h2>
-                                    <p className="story-fight-complete-boss">{theme.bossName} has fallen.</p>
+                                    <p className="story-fight-complete-boss">You defeated {theme.bossName}.</p>
                                     {!result
-                                        ? <p className="story-fight-complete-rewards">{settleState === "failed" ? "The reward could not be verified. Your victory still counts. Retry the reward now." : "Sealing your reward…"}</p>
-                                        : <Suspense fallback={<p role="status">Personal reward committed.</p>}><StoryRewardSummary result={result} /></Suspense>}
+                                        ? <p className="story-fight-complete-rewards">{settleState === "failed" ? "The reward could not be verified. The fight ended in a win, but chapter completion and rewards are not confirmed yet. Press Retry reward." : "Saving your reward…"}</p>
+                                        : <Suspense fallback={<p role="status">Reward received.</p>}><StoryRewardSummary result={result} /></Suspense>}
                                     {/* escape-hatch-exempt — same in-memory run id as the branch above;
                                         see that comment for why leaving is destructive here and what
                                         the real fix is. */}
                                     {settleState === "failed"
-                                        ? <button onClick={retry}>{result ? 'Retry record delivery' : 'Retry reward'}</button>
+                                        ? <button onClick={retry}>{result ? 'Retry saving progress' : 'Retry reward'}</button>
                                         : <button disabled={settleState !== "settled" || !result} onClick={closeFight}>Continue</button>}
                                 </div>
                             </RequiredStoryResultDialog>
                         );
                     }
                     // LOSS / DRAW — themed defeat card (no reward; try again from the Story Hall).
+                    const pending = !!currentFight.session.huntCombat?.purpose && settleState !== 'settled';
                     return (
-                        <RequiredStoryResultDialog label="Chapter failed" focusVersion="failed">
+                        <RequiredStoryResultDialog label={draw ? "Story battle drawn" : "Story battle lost"} focusVersion={settleState}>
                             <div className="story-fight-complete-card">
-                                <p className="story-fight-complete-kicker">Chapter Held</p>
+                                <p className="story-fight-complete-kicker">{draw ? "Draw" : "Defeat"}</p>
                                 <h2>{theme.chapterLabel ?? theme.bossName}</h2>
-                                <p className="story-fight-complete-boss">{theme.bossName} stands firm. No progress was made. Recover and try again.</p>
-                                <button onClick={closeFight}>Return to story</button>
+                                <p className="story-fight-complete-boss">You did not defeat {theme.bossName}. This chapter is still open. Recover if needed, then try again.</p>
+                                {pending && settleState === 'failed' && <p role="alert">Battle result not saved. Retry to continue.</p>}
+                                {pending && settleState !== 'failed' ? <p role="status">Saving battle result…</p>
+                                    : <button onClick={pending ? retry : closeFight}>{pending ? 'Retry saving result' : 'Return to story'}</button>}
                             </div>
                         </RequiredStoryResultDialog>
                     );

@@ -115,7 +115,7 @@ async function requestFreeDungeonProbe(playerName: string, sector: number, reque
         : null;
     const sealedSector = data.sector ?? active?.sector;
     if (typeof sealedSector !== 'number' || !Number.isSafeInteger(sealedSector) || sealedSector < 1 || sealedSector > 66) {
-        throw dungeonProbeFailure('The dungeon server omitted the sealed discovery sector.');
+        throw dungeonProbeFailure('The Dungeon location could not be loaded.');
     }
     if (typeof data.found !== 'boolean' || (data.found && (typeof data.token !== 'string' || !data.token))) {
         throw dungeonProbeFailure('The dungeon server returned an incomplete discovery.');

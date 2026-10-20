@@ -58,8 +58,8 @@ function stageSaga(l: CharacterLegacy): Array<{ stage: number; ts: number }> {
 // keyed on the active trial kind (a stage marker), never on rank. Additive.
 const STAGE_WITNESS: Record<string, string> = {
     awaken: "This is the first waking of your path. Show me it is real.",
-    bind: "Here the path and its bearer stop being two things. Do not flinch.",
-    prove: "You carry the name already. Now earn the right to keep it.",
+    bind: "Keep proving your chosen path through the work this trial asks of you.",
+    prove: "You carry the name already. Complete this trial to advance it.",
     mythic: "This is the last thing the path will ever ask of you. Make it worthy.",
 };
 // A short relative-age string for a saga/timeline date (render reads Date.now
@@ -158,7 +158,7 @@ export function LegacyPanel({ character, onVersionedCharacter }: {
     async function handleTrial(action: "start" | "complete" | "reroll") {
         if (busy) return;
         // The reroll sits right under Check Progress and wipes the current proof's progress in one tap.
-        if (action === "reroll" && !await gameConfirm("Ask for a different proof? You'll lose all progress on the current proof.", { title: "Ask for a different proof", confirmLabel: "Reset progress", danger: true, initialFocus: "cancel" })) return;
+        if (action === "reroll" && !await gameConfirm("Change this trial's objective? All progress on the current trial will reset.", { title: "Change trial objective", confirmLabel: "Reset progress", danger: true, initialFocus: "cancel" })) return;
         setBusy(true);
         if (action === "start" || action === "reroll") {
             const result = action === "start" ? await trialStart(character.name) : await trialReroll(character.name);
@@ -187,7 +187,7 @@ export function LegacyPanel({ character, onVersionedCharacter }: {
             if (!mountedRef.current) return;
             if (result?.ok && result.legacy && def) {
                 if (!result.character || typeof result._saveVersion !== "number") {
-                    setTrialNote("Your trial is sealed, but the Hall's updated record did not arrive. Refresh before continuing.");
+                    setTrialNote("Your trial is complete, but your updated character could not be loaded. Refresh before continuing.");
                     setBusy(false);
                     return;
                 }
@@ -360,10 +360,10 @@ export function LegacyPanel({ character, onVersionedCharacter }: {
                             <div style={{ marginTop: 8, border: `1px solid ${LEGACY_ACCENT}44`, background: `${LEGACY_ACCENT}0f`, borderRadius: 10, padding: 10, display: "flex", gap: 10 }}>
                                 {sig.image && <span className="jutsu-signature-art"><img src={sig.image} alt="" onError={hideImg} /></span>}
                                 <div style={{ minWidth: 0 }}>
-                                    <div style={{ fontSize: ".58rem", letterSpacing: ".1em", textTransform: "uppercase", color: LEGACY_ACCENT }}>◆ Signature Technique · your 16th slot</div>
+                                    <div style={{ fontSize: ".58rem", letterSpacing: ".1em", textTransform: "uppercase", color: LEGACY_ACCENT }}>◆ Signature Technique · separate Legacy slot</div>
                                     <b style={{ fontSize: ".86rem", color: "#e2e8f0" }}>{sig.name}</b>
                                     <p style={{ margin: "2px 0 0", fontSize: ".67rem", color: "#94a3b8" }}>
-                                        {shape} · {sig.ap} AP · a 16th slot outside your fifteen · mastery {legacySignatureMasteryLevel(status.legacy.stage)}/50 (rises with your stage)
+                                        {shape} · {sig.ap} AP · a separate slot outside your regular loadout · mastery {legacySignatureMasteryLevel(status.legacy.stage)}/50 (rises with your stage)
                                     </p>
                                     {effectTags.length > 0 && (
                                         <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 5 }}>
@@ -380,7 +380,7 @@ export function LegacyPanel({ character, onVersionedCharacter }: {
                                 <div style={{ minWidth: 0 }}>
                                     <div style={{ fontSize: ".58rem", letterSpacing: ".1em", textTransform: "uppercase", color: "#9aa3b2" }}><GameArtIcon kind="key" size={14} /> Sealed until the {TRIAL_NAMES.bind}</div>
                                     <b style={{ fontSize: ".86rem", color: "#cbd5e1" }}>{sig.name}</b>
-                                    <p style={{ margin: "2px 0 0", fontSize: ".67rem", color: "#94a3b8" }}>{shape} · reach Stage III (Bound) and it becomes your 16th slot, a technique only your Legacy can use.</p>
+                                    <p style={{ margin: "2px 0 0", fontSize: ".67rem", color: "#94a3b8" }}>{shape} · reach Stage III (Bound) and it becomes available in your separate Legacy slot.</p>
                                 </div>
                             </div>
                         );
@@ -515,7 +515,7 @@ export function LegacyPanel({ character, onVersionedCharacter }: {
                             title={`${em?.name ?? "The Sage"} will set the same trial a different way. Your progress resets. The tasks change, but the trial is just as hard.`}
                             style={{ width: "100%", marginTop: 6, background: "transparent", borderColor: "#6b7280", color: "#9aa3b2", fontSize: ".78rem" }}
                         >
-                            Ask for a different proof (progress resets)
+                            Change trial objective (progress resets)
                         </button>
                     )}
                 </div>

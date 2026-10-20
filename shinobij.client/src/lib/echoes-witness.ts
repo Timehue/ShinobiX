@@ -37,7 +37,7 @@ export async function recordEchoesWitness(
     });
     const data = await response.json().catch(() => null) as Record<string, unknown> | null;
     if (!response.ok || data?.ok !== true) {
-        throw new Error(typeof data?.error === "string" ? data.error : "Could not seal the witness record.");
+        throw new Error(typeof data?.error === "string" ? data.error : "Your witness record could not be saved. Try again.");
     }
     const era = echoesWitnessEra(data.eraId);
     const returnedChoice = data.choiceId;

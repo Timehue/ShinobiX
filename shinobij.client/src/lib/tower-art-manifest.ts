@@ -1,4 +1,5 @@
 import battleTowersKeyArtV1 from "../assets/towers/battle-towers-key-art-v1.webp";
+import { storyTwinArt } from '../../../shared/story-twin-art';
 import banditSprite from "../assets/towers/enemies/bandit.webp";
 import archerSprite from "../assets/towers/enemies/archer.webp";
 import blockerSprite from "../assets/towers/enemies/blocker.webp";
@@ -183,6 +184,8 @@ export type TowerCombatantArt =
 
 /** Resolve server visual IDs without disguising missing art as an unrelated fighter. */
 export function resolveTowerCombatantArt(visual: string, sharedImages?: Record<string, string>): TowerCombatantArt {
+    const twin = storyTwinArt(visual);
+    if (twin) return { kind: 'portrait', src: twin, label: visual };
     const src = resolveTowerEnemyPortrait(visual, TOWER_ENEMY_PORTRAITS, sharedImages);
     return src
         ? { kind: "portrait", src, label: visual }

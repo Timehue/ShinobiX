@@ -28,8 +28,8 @@ test('a gear step drop can be sold for 500 ryo', async ({ page }) => {
     const dialog = page.getByRole('dialog', { name: 'Scarlet Reed Katana item details', exact: true });
     // Step 2 of a common weapon: 14 EP plus two half points.
     await expect(dialog).toContainText('Damage: 15 EP');
-    // It is its own named piece, and the description says which item it outclasses.
-    await expect(dialog).toContainText('A prized find that outclasses the Training Katana.');
+    // It is its own named piece, and the description names its base weapon.
+    await expect(dialog).toContainText('An improved Training Katana.');
     await expect(dialog).toContainText('Damage 15 EP');
     await expect(dialog).toContainText('Sell Value: 500 ryo');
     const sell = dialog.getByRole('button', { name: 'Sell for 500 ryo', exact: true });

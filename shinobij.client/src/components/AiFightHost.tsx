@@ -291,7 +291,7 @@ export function AiFightHost({
                     const generic = await resumeGenericAiFight(originatingPlayerName);
                     if (!generic || !requestIsCurrent(originatingPlayerKey, requestId)) return;
                     const resumedRequest = requestForResumedGenericFight(generic, originatingPlayerName);
-                    if (!resumedRequest) throw new Error("The resumed AI encounter has no sealed request identity.");
+                    if (!resumedRequest) throw new Error("Your unfinished battle could not be identified. Reopen the encounter to try again.");
                     acknowledgeExploreFightStart(originatingPlayerName, generic);
                     acknowledgeRaidFightStart(originatingPlayerName, generic);
                     setStartFailure(null);
@@ -343,7 +343,7 @@ export function AiFightHost({
                         _saveVersion: recovered._saveVersion,
                         fetchMissionsCredited: [],
                     });
-                    window.setTimeout(() => alert("Recovered your sealed ambush reward from the Guild ledger."), 40);
+                    window.setTimeout(() => alert("Your saved ambush reward has been recovered."), 40);
                     return;
                 }
                 if (!started.worldContext) return;
@@ -442,7 +442,7 @@ export function AiFightHost({
                     const sealedRequest = sealedWorldRequest
                         ? adoptRequestedFightPresentation(sealedWorldRequest, request)
                         : requestForStartedGenericFight(started, request);
-                    if (!sealedRequest) throw new Error("The combat server did not return a sealed encounter identity.");
+                    if (!sealedRequest) throw new Error("The battle could not be confirmed. Reopen the encounter to try again.");
                     if (sealedRequest.returnScreen === 'dojoCircuit' && started.battleKind === 'practice') rememberCircuitCombatSession(originatingPlayerName, started.sessionId);
                     const sameRequestedEncounter = sameAiFightIdentity(sealedRequest, request);
                     acknowledgeExploreFightStart(originatingPlayerName, started, sameRequestedEncounter ? request.worldExploreRequestId : undefined);

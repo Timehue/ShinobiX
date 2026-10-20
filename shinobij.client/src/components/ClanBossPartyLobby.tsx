@@ -34,7 +34,7 @@ export function ClanBossPartyLobby({
         return (
             <section className="operation-lobby" aria-labelledby="operation-lobby-title">
                 <div className="operation-lobby-heading">
-                    <div><h4 id="operation-lobby-title">Operation Party</h4><p>Real clanmates must explicitly join and ready. No offline player will be replaced or presented as AI.</p></div>
+                    <div><h4 id="operation-lobby-title">Operation Party</h4><p>Clanmates must join and mark themselves ready before the assault can begin.</p></div>
                     <span className="operation-population">{envelope.population.publicParties} open {envelope.population.publicParties === 1 ? "party" : "parties"} · {envelope.population.openSeats} seats</span>
                 </div>
                 {envelope.invitations.length > 0 ? (
@@ -53,7 +53,7 @@ export function ClanBossPartyLobby({
                         <h5>Clan Finder</h5>
                         {envelope.publicParties.map((candidate) => <PartySummary key={candidate.id} party={candidate} actionLabel="Join" onAction={() => onAction("join", { target: candidate.id })} />)}
                     </div>
-                ) : <p className="operation-empty">No public clan party is waiting right now. This is the real current population.</p>}
+                ) : <p className="operation-empty">No public clan parties are waiting. Create a party or ask a clanmate to start one.</p>}
                 <div className="operation-create-actions">
                     <button type="button" disabled={busy} onClick={() => onAction("create", { visibility: "public" })}>Create public party</button>
                     <button type="button" disabled={busy} onClick={() => onAction("create", { visibility: "private" })}>Create private / solo party</button>
@@ -119,10 +119,10 @@ export function ClanBossPartyLobby({
                 </div>
             ) : null}
 
-            {party.status === "queued" && party.members.length === 1 && !party.fallbackAvailable ? <p className="operation-wait-note">Waiting for a real clanmate. Solo fallback unlocks after a bounded two-minute wait; no population is fabricated.</p> : null}
+            {party.status === "queued" && party.members.length === 1 && !party.fallbackAvailable ? <p className="operation-wait-note">Waiting for a clanmate. You can start alone after two minutes.</p> : null}
             {party.status === "starting" ? <p className="operation-state-message" role="status">Sealing the encounter…</p> : null}
             {party.status === "active" ? <p className="operation-state-message" role="status">Operation active. Rejoin through the combat banner if your browser refreshed.</p> : null}
-            {party.status === "completed" ? <p className="operation-state-message is-complete" role="status">Operation complete. Contribution and sector results are sealed.</p> : null}
+            {party.status === "completed" ? <p className="operation-state-message is-complete" role="status">Operation complete. Your contribution and the sector results have been saved.</p> : null}
             {party.status === "completed" && isLeader ? <button type="button" className="operation-new-party" onClick={() => onAction("disband")}>Close summary & form again</button> : null}
         </section>
     );

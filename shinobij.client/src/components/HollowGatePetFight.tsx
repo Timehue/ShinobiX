@@ -155,7 +155,7 @@ function HollowGatePetFightView({ character, fight, sharedImages, onSettled, onU
         } catch (error) {
             setPhase("error");
             setMessage(error instanceof Error
-                ? `The Gate did not answer: ${error.message}`
+                ? `The Hollow Gate pet battle could not start: ${error.message}`
                 : "The Gate did not answer.");
         } finally {
             settleInFlight.current = false;

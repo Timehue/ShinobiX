@@ -79,6 +79,19 @@ afterEach(() => {
 const commit = (s: Store, expected: Rec | null, intended: Rec, opts: Parameters<typeof commitMod.commitPlayerSaveRecord>[2] = {}) =>
     commitMod.commitPlayerSaveRecord(s, { playerName: 'Coinkeeper', saveKey: SAVE, expected, intended }, opts);
 
+test('authority proofs publish with free or paid save changes and refuse the whole transaction on collision', async () => {
+    for (const charged of [false, true]) {
+        const before = saveRecord(charged ? 3 : 1);
+        await store.set(SAVE, before);
+        const next = saveRecord(charged ? 4 : 2, { ryo: charged ? 500 : 1000 });
+        const proof = { key: `petgauntlet:tok:${charged}`, value: { player: 'coinkeeper', seed: 42 }, ex: 3600 };
+        assert.equal(await commit(store, before, next, { atomicProof: proof }), true);
+        assert.deepEqual(await store.get(proof.key), proof.value);
+        assert.equal(await commit(store, next, saveRecord(charged ? 5 : 3, { ryo: 100 }), { atomicProof: proof }), false);
+        assert.deepEqual(await store.get(SAVE), next);
+    }
+});
+
 describe('fast path — currency did not move', () => {
     test('one compare-and-set, no ledger read or write', async () => {
         const before = saveRecord(4);

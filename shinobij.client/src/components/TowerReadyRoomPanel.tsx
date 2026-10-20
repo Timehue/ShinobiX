@@ -604,7 +604,7 @@ export function TowerReadyRoomPanel({
                 </div>
             </header>
             <p className="tower-ready-room-intro">
-                Assemble a 2–4 member Story squad or a four-player Spire team. Every live shinobi controls their own turn; Story allows deliberately basic, reward-ineligible AI recruits (one maximum) that act automatically.
+                Bring 2–4 fighters for Story floors or exactly four players for the Spire. Each player controls their own turn. Story parties can include one AI helper, which acts automatically and earns no rewards.
             </p>
             {error && (
                 <div className="tower-ready-room-error" role="alert">
@@ -642,7 +642,7 @@ export function TowerReadyRoomPanel({
                             <section className="tower-ready-room-path tower-ready-room-path--host" aria-labelledby="tower-ready-room-host-title">
                                 <span>Host a squad</span>
                                 <h3 id="tower-ready-room-host-title" ref={openRoomHeadingRef} tabIndex={-1}>Choose an expedition</h3>
-                                <p>Create a server-owned room for the floor currently selected below.</p>
+                                <p>Create a ready room for the floor selected below.</p>
                                 <div className="tower-ready-room-create">
                                     <button className="tower-ready-room-story-path" type="button"
                                         onClick={() => storyFloor != null && createRoom({ mode: "story", floor: storyFloor })}

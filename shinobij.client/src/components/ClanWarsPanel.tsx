@@ -85,8 +85,8 @@ export function ClanWarsPanel({ character, clanName, provisions, storesOpen = tr
                 </button>
             </div>
             <p className="hint">
-                Clan wars are independent of Village Wars and run until one clan's HP hits 0.
-                Send anonymous challenges in the <strong>Shinobi Council Hall → Clan Battles</strong> tab.
+                Clan Wars use 24 hours of preparation followed by 72 hours of scored battles.
+                Declare a campaign in <strong>Shinobi Council Hall → Clan Battles</strong>. Older HP wars continue under their original rules.
             </p>
 
             {showClanWarManual && <ClanWarManual legacy={!!activeWar&&!activeWar.campaignView} onClose={() => setShowClanWarManual(false)} />}

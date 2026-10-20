@@ -33,7 +33,7 @@ export const CARAVAN_EVENTS: readonly CaravanEvent[] = [
     ] },
     { id: 'wounded-courier', kind: 'traveler', title: 'A message still sealed', scene: 'A masked courier has tied his sleeve above a kunai wound. The sealing tag on his dispatch case is unbroken. “The message matters. My leg can wait.”', choices: [
         choice('treat', 'Use the medical pack', 'Spend medicine. Gain reputation and a future warning.', 'He gives you a description of the men who hit him. Your guards memorize it.', { reputation: 4, morale: 5, addFlags: ['courier-warning', 'helped-traveler'] }, { cost: { tool: 'medicine' } }),
-        choice('carry', 'Give him a place on the wagon', 'Lose 5 cargo capacity. Gain reputation.', 'The crew shifts a crate and makes room. He keeps the dispatch under his good arm.', { cargo: -5, reputation: 3, morale: 3, addFlags: ['helped-traveler'] }),
+        choice('carry', 'Give him a place on the wagon', 'Lose up to 5 cargo. Gain reputation.', 'The crew shifts a crate and makes room. He keeps the dispatch under his good arm.', { cargo: -5, reputation: 3, morale: 3, addFlags: ['helped-traveler'] }),
         choice('water', 'Leave water and a marker', 'Spend 1 supply. Gain a little reputation.', 'He drinks, then gives you the patrol signal to paint on the marker.', { reputation: 1 }, { cost: { supplies: 1 } }),
     ] },
     { id: 'false-patrol', kind: 'event', title: 'An unfamiliar patrol', scene: 'Three supposed shinobi block the road. Their flak vests are spotless, but the village marks on their forehead protectors are reversed. Their leader asks for a transit fee.', choices: [
@@ -43,7 +43,7 @@ export const CARAVAN_EVENTS: readonly CaravanEvent[] = [
     ] },
     { id: 'spice-merchant', kind: 'merchant', title: 'A scale with two pans', scene: 'A spice seller has more water than spices today. “Everyone packed for yesterday’s weather.” She taps the full jars beside her stall.', choices: [
         choice('buy', 'Buy provisions', 'Pay 4% of the contract’s base reward. Gain 3 supplies.', 'The jars are sealed in front of you. The seller wraps them against the heat.', { supplies: 3 }, { cost: { ryoFraction: .04 } }),
-        choice('barter', 'Trade spare packing material', 'Lose 7 cargo. Gain 2 supplies.', 'Your crew parts with the extra padding. The water is welcome; the crates ride less softly.', { cargo: -7, supplies: 2 }),
+        choice('barter', 'Trade spare packing material', 'Lose up to 7 cargo. Gain 2 supplies.', 'Your crew parts with the extra padding. The water is welcome; the crates ride less softly.', { cargo: -7, supplies: 2 }),
         choice('leave', 'Thank her and move on', 'No cost.', 'She lifts a cup as the last wagon passes.'),
     ] },
     { id: 'wheelwright', kind: 'merchant', title: 'The traveling wheelwright', scene: 'A wheelwright listens to your wagon roll. “Rear left. You can keep going, but you will hear it again.”', choices: [
@@ -59,7 +59,7 @@ export const CARAVAN_EVENTS: readonly CaravanEvent[] = [
     { id: 'customs-seal', kind: 'event', title: 'The inspection rope', scene: 'A customs officer lifts the rope across the road. “We are looking for unmarked consignments. Leave your seals where I can see them.”', requiresFlag: 'black-box', choices: [
         choice('surrender', 'Declare the black box', 'Lose its bonus. Gain reputation.', 'The officer signs a receipt for the box. “You did the right paperwork, at least.”', { bonus: -8, reputation: 3, removeFlags: ['black-box'] }),
         choice('detour', 'Turn back before the checkpoint', 'Spend 3 supplies. Keep the delivery promise.', 'You take a rough smugglers’ track around the customs post.', { morale: -3 }, { cost: { supplies: 3 } }),
-        choice('open', 'Break the seal yourself', 'Lose 8 cargo and the bonus. Discover what was inside.', 'The box holds dry sand and one finger bone. The officer calls for a containment jar.', { cargo: -8, bonus: -8, discovery: 'The bone consignment', removeFlags: ['black-box'] }),
+        choice('open', 'Break the seal yourself', 'Lose up to 8 cargo and the bonus. Discover what was inside.', 'The box holds dry sand and one finger bone. The officer calls for a containment jar.', { cargo: -8, bonus: -8, discovery: 'The bone consignment', removeFlags: ['black-box'] }),
     ] },
     { id: 'water-auction', kind: 'merchant', title: 'The last cool jar', scene: 'Two caravans are bidding over the last jar in a shaded stall. An older driver stands aside with an empty cup.', weather: ['heat', 'festival', 'clear'], choices: [
         choice('share', 'Buy it and share', 'Pay 3% of base reward. Gain 1 supply and goodwill.', 'The seller finds a second cup. The older driver leaves directions to a sheltered well.', { supplies: 1, morale: 7, reputation: 2, addFlags: ['well-directions', 'helped-traveler'] }, { cost: { ryoFraction: .03 } }),
@@ -89,61 +89,61 @@ export const CARAVAN_EVENTS: readonly CaravanEvent[] = [
     { id: 'glass-sand', kind: 'hazard', title: 'A field of glass', scene: 'A recent lightning strike has fused the sand into brittle sheets. Your point scout tests the surface with a kunai; the crust breaks over a deep drift.', choices: [
         choice('mats', 'Lay down packing mats', 'Spend 2 supplies. Cross safely.', 'The crew advances one wagon at a time, carrying the mats forward.', {}, { cost: { supplies: 2 } }),
         choice('walk', 'Walk the cargo across', 'Lose 10% stamina. Protect the wagons.', 'You make three trips before the last crate reaches ordinary sand.', { staminaPercent: -10, morale: 2 }),
-        choice('drive', 'Keep the wheels moving', 'Lose 12 cargo. Save supplies.', 'Two crates shake loose when a wheel drops through the glass.', { cargo: -12, morale: -3 }),
+        choice('drive', 'Keep the wheels moving', 'Lose up to 12 cargo. Save supplies.', 'Two crates shake loose when a wheel drops through the glass.', { cargo: -12, morale: -3 }),
     ] },
     { id: 'white-heat', kind: 'hazard', title: 'The white hour', scene: 'The horizon disappears into glare. A driver takes a long moment to remember which wagon is his.', choices: [
         choice('water', 'Open the extra water', 'Spend water. Restore 5 morale.', 'Wet cloths go around the crew. The wagons wait until everyone can focus again.', { morale: 5 }, { cost: { tool: 'water' } }),
         choice('shade', 'Rig a shade stop', 'Spend 2 supplies. Cross the hot hour safely.', 'You stretch the spare cloth between the wagons and wait out the worst of it.', {}, { cost: { supplies: 2 } }),
-        choice('push', 'Push to the next ridge', 'Lose 8 cargo and 10% stamina.', 'The crew gets through, but haste and shaking hands cost two corner braces.', { cargo: -8, staminaPercent: -10, morale: -5 }),
-        choice('wait', 'Shelter under the cargo covers', 'Lose 14 cargo and 5 morale. No stamina or supplies needed.', 'You strip the covers from the exposed crates and shelter the crew beneath them. Everyone survives the white hour, but the unprotected goods spoil in the heat.', { cargo: -14, morale: -5 }),
+        choice('push', 'Push to the next ridge', 'Lose up to 8 cargo and 10% stamina.', 'The crew gets through, but haste and shaking hands cost two corner braces.', { cargo: -8, staminaPercent: -10, morale: -5 }),
+        choice('wait', 'Shelter under the cargo covers', 'Lose up to 14 cargo and 5 morale. No stamina or supplies needed.', 'You strip the covers from the exposed crates and shelter the crew beneath them. Everyone survives the white hour, but the unprotected goods spoil in the heat.', { cargo: -14, morale: -5 }),
     ] },
     { id: 'sand-wall', kind: 'hazard', title: 'The moving wall', scene: 'Your scout signals with two fingers: a wall of sand is approaching. Sealing tags snap against the cargo. Anchor the covers or lead the carts below the cut bank.', choices: [
         choice('chakra-seal', 'Reinforce the cargo seals with chakra', 'Spend 12% maximum chakra. Protect the load and restore up to 10 cargo. Once per mission.', 'Chakra runs through the paper bindings. The covers hold against the storm, and the pressure draws the loosened crates back into place.', { chakraPercent: -12, cargo: 10, morale: 3 }, { utility: 'seal' }),
         choice('anchor', 'Anchor the covers', 'Spend a repair kit. Keep the load intact.', 'The canvas strains against its ties. Every knot holds.', { morale: 3 }, { cost: { tool: 'repair' } }),
-        choice('shelter', 'Shelter beneath the bank', 'Spend 2 supplies. Lose 2 cargo.', 'Sand works into the lower crates, but the bank takes most of the storm.', { cargo: -2 }, { cost: { supplies: 2 } }),
-        choice('ride', 'Ride it out on the road', 'Lose 16 cargo and 6 morale.', 'The drivers count each other by touch until the wind clears.', { cargo: -16, morale: -6 }),
+        choice('shelter', 'Shelter beneath the bank', 'Spend 2 supplies. Lose up to 2 cargo.', 'Sand works into the lower crates, but the bank takes most of the storm.', { cargo: -2 }, { cost: { supplies: 2 } }),
+        choice('ride', 'Ride it out on the road', 'Lose up to 16 cargo and 6 morale.', 'The drivers count each other by touch until the wind clears.', { cargo: -16, morale: -6 }),
     ] },
     { id: 'flash-flood', kind: 'hazard', title: 'Water in the dry channel', scene: 'Brown water appears around a bend in a channel that was dry a moment ago. The rear wheels are still on the low crossing.', choices: [
         choice('haul', 'Haul the rear wagon up', 'Lose 12% stamina. Gain 4 morale.', 'You pull until your heels find stone. The wheel clears the lip just before the surge.', { staminaPercent: -12, morale: 4 }),
-        choice('cut', 'Cut loose the bottom crates', 'Lose 14 cargo. Keep the crew safe.', 'The lightened wagon climbs. Its discarded crates turn slowly in the current.', { cargo: -14 }),
-        choice('rope', 'Rig a recovery line', 'Spend 2 supplies. Lose 3 cargo.', 'The line holds the wagon steady while the crew unloads its rear axle.', { cargo: -3 }, { cost: { supplies: 2 } }),
+        choice('cut', 'Cut loose the bottom crates', 'Lose up to 14 cargo. Keep the crew safe.', 'The lightened wagon climbs. Its discarded crates turn slowly in the current.', { cargo: -14 }),
+        choice('rope', 'Rig a recovery line', 'Spend 2 supplies. Lose up to 3 cargo.', 'The line holds the wagon steady while the crew unloads its rear axle.', { cargo: -3 }, { cost: { supplies: 2 } }),
     ] },
     { id: 'loose-scree', kind: 'hazard', title: 'Stone under the wheels', scene: 'Loose scree covers the descent. The lead wagon starts sliding sideways before the brake catches.', choices: [
         choice('braces', 'Brace the wheels', 'Spend a repair kit. Safe descent.', 'Wooden shoes drag behind the wheels and keep the wagons straight.', {}, { cost: { tool: 'repair' } }),
-        choice('guide', 'Guide each wagon by hand', 'Lose 9% stamina and 3 cargo.', 'The crew eases every axle over the worst patches.', { staminaPercent: -9, cargo: -3 }),
-        choice('speed', 'Take the descent quickly', 'Lose 13 cargo.', 'Speed carries you through the scree. The last landing breaks a crate’s corner.', { cargo: -13 }),
+        choice('guide', 'Guide each wagon by hand', 'Lose 9% stamina and up to 3 cargo.', 'The crew eases every axle over the worst patches.', { staminaPercent: -9, cargo: -3 }),
+        choice('speed', 'Take the descent quickly', 'Lose up to 13 cargo.', 'Speed carries you through the scree. The last landing breaks a crate’s corner.', { cargo: -13 }),
     ] },
     { id: 'shifting-marker', kind: 'event', title: 'A marker facing east', scene: 'A patrol marker points toward untracked dunes. Fresh shovel marks surround its base, and a strand of shinobi wire glints between two stones.', choices: [
         choice('clone', 'Test the false route with a scout clone', 'Spend 8% maximum chakra. Reveal two extra rows and identify the trap. Once per mission.', 'The clone springs the hidden wire while you watch from cover. Its memories expose the ambush lane and two stretches of the true road.', { chakraPercent: -8, scout: 2, addFlags: ['tripwire-warning'] }, { utility: 'clone' }),
         choice('map', 'Check the scout scroll', 'Spend a scout scroll. Reveal another row.', 'The marker has been turned. You correct it and mark the true pass.', { scout: 1, reputation: 2 }, { cost: { tool: 'map' } }),
         choice('scout', 'Send the forward scouts', 'Spend 1 supply. Avoid the trap.', 'They return with a strip of tripwire and a very firm recommendation.', { addFlags: ['tripwire-warning'] }, { cost: { supplies: 1 } }),
-        choice('tracks', 'Follow the older wheel tracks', 'Lose 6 cargo on a rough alternate road.', 'The older road is real, though most of its paving is gone.', { cargo: -6 }),
+        choice('tracks', 'Follow the older wheel tracks', 'Lose up to 6 cargo on a rough alternate road.', 'The older road is real, though most of its paving is gone.', { cargo: -6 }),
     ] },
     { id: 'cargo-rattle', kind: 'event', title: 'Something inside the crate', scene: 'One crate rattles after the wagons stop. The manifest describes ceramic bowls. Bowls should not keep rattling.', choices: [
         choice('open', 'Check the crate', 'Spend 1 supply. Save the packing.', 'A desert lizard has nested between the bowls. You lift it out in a folded cloth.', { cargo: 5, discovery: 'A stowaway in the bowls' }, { cost: { supplies: 1 } }),
         choice('feed', 'Lure it out with pet feed', 'Spend pet feed. Gain morale.', 'The lizard follows the feed into the shade. The drivers name it after their employer.', { morale: 8, cargo: 5 }, { cost: { tool: 'feed' } }),
-        choice('seal', 'Add another layer of rope', 'Lose 6 cargo to broken ceramics.', 'The rattling stops on the next hill. A fine white dust leaks through the seams.', { cargo: -6 }),
+        choice('seal', 'Add another layer of rope', 'Lose up to 6 cargo to broken ceramics.', 'The rattling stops on the next hill. A fine white dust leaks through the seams.', { cargo: -6 }),
     ] },
     { id: 'leaking-oil', kind: 'event', title: 'The broken cargo seal', scene: 'Your rear guard spots a dark trail in the sand. Lamp oil seeps beneath a torn cargo tag. The stopper is sound, but a seam has split below the binding wire.', choices: [
         choice('chakra-seal', 'Bind the damaged cases with chakra', 'Spend 12% maximum chakra. Restore up to 10 cargo. Once per mission.', 'You press a fresh tag across the seam and feed chakra through its ink. The binding holds until the quartermaster can replace the vessel.', { chakraPercent: -12, cargo: 10, morale: 3 }, { utility: 'seal' }),
         choice('patch', 'Patch the vessel', 'Spend a repair kit. Restore 8 cargo.', 'The pitch sets before much more oil escapes. You bind the vessel and replace its torn paper seal.', { cargo: 8 }, { cost: { tool: 'repair' } }),
         choice('decant', 'Use spare water skins', 'Spend 2 supplies. Stop the leak.', 'The crew labels the skins clearly. Nobody wants a mistake at the next rest stop.', {}, { cost: { supplies: 2 } }),
-        choice('discard', 'Leave the damaged vessel', 'Lose 10 cargo. Remove the fire risk.', 'You bury the oil well away from the road.', { cargo: -10 }),
+        choice('discard', 'Leave the damaged vessel', 'Lose up to 10 cargo. Remove the fire risk.', 'You bury the oil well away from the road.', { cargo: -10 }),
     ] },
     { id: 'rope-bridge', kind: 'event', title: 'The bridge keeper', scene: 'The keeper has closed the bridge to heavy wagons. “One at a time used to be enough. Look at the south anchor.”', choices: [
         choice('repair', 'Rebuild the anchor', 'Spend a repair kit. Gain reputation.', 'The keeper tests the new binding himself, then waves the first wagon across.', { reputation: 3, morale: 4 }, { cost: { tool: 'repair' } }),
         choice('unload', 'Unload and carry the cargo', 'Lose 14% stamina. Cross safely.', 'Everyone takes a turn. The keeper brings out water after the final load.', { staminaPercent: -14, supplies: 1 }),
-        choice('ford', 'Use the lower ford', 'Spend 1 supply and lose 7 cargo.', 'The ford is passable. Keeping the lowest crates dry is another matter.', { cargo: -7 }, { cost: { supplies: 1 } }),
-        choice('lighten', 'Leave the heaviest crates at the bridge', 'Lose 14 cargo and 3 morale. No stamina or supplies needed.', 'The keeper tests the lightened wagons and admits them one at a time. You leave the heavy crates marked for a later recovery patrol.', { cargo: -14, morale: -3 }),
+        choice('ford', 'Use the lower ford', 'Spend 1 supply and lose up to 7 cargo.', 'The ford is passable. Keeping the lowest crates dry is another matter.', { cargo: -7 }, { cost: { supplies: 1 } }),
+        choice('lighten', 'Leave the heaviest crates at the bridge', 'Lose up to 14 cargo and 3 morale. No stamina or supplies needed.', 'The keeper tests the lightened wagons and admits them one at a time. You leave the heavy crates marked for a later recovery patrol.', { cargo: -14, morale: -3 }),
     ] },
     { id: 'raider-toll', kind: 'combat', title: 'A toll paid in steel', scene: 'A masked raider plants a hooked blade across the road. Two accomplices watch from the ridge, kunai ready. “One crate from every wagon. Then we all keep moving.”', choices: [
         choice('tracker', 'Follow your Tracker around the ambush', 'Tracker companion + 1 pet feed. Avoid this fight and scout another row. Once per mission.', 'Your companion finds the lookout’s return trail. You reward it with feed as the last wagon slips through the blind side of the ridge.', { scout: 1, morale: 3 }, { utility: 'tracker', cost: { tool: 'feed' } }),
         choice('fight', 'Hold the line', 'Fight a raider. Protect your cargo.', 'You signal the drivers to close the wagons. The cargo stays behind your escort line as you draw your weapon.', { combat: 'raider' }),
         choice('smoke', 'Cover a withdrawal', 'Spend smoke bombs. Lose 4 morale.', 'Smoke fills the gap between the wagons. You take a side road before it clears.', { morale: -4 }, { cost: { tool: 'smoke' } }),
-        choice('toll', 'Surrender part of the load', 'Lose 18 cargo. Avoid combat.', 'The raider counts the crates twice, then lowers his blade. His lookouts melt back into the rocks.', { cargo: -18, morale: -5 }),
+        choice('toll', 'Surrender part of the load', 'Lose up to 18 cargo. Avoid combat.', 'The raider counts the crates twice, then lowers his blade. His lookouts melt back into the rocks.', { cargo: -18, morale: -5 }),
     ] },
     { id: 'ridge-ambush', kind: 'combat', title: 'Movement on the ridge', scene: 'A kunai flashes above the road. Your scout drops to one knee and signals a second shinobi on the opposite slope. Wire crosses the pass at axle height.', choices: [
-        choice('fight', 'Drive them off the ridge', 'Fight a raider. Small cargo exposure.', 'The wagons keep moving while you climb toward the nearest attacker.', { combat: 'raider', cargo: -3 }),
+        choice('fight', 'Drive them off the ridge', 'Fight a raider. Lose up to 3 cargo.', 'The wagons keep moving while you climb toward the nearest attacker.', { combat: 'raider', cargo: -3 }),
         choice('warned', 'Use the warning to cut their line', 'Tripwire warning required. Avoid combat.', 'You cut the release rope before their signal. The ambush collapses into shouting.', { reputation: 3, removeFlags: ['tripwire-warning'] }, { requiresFlag: 'tripwire-warning' }),
         choice('smoke', 'Hide the convoy’s movement', 'Spend smoke bombs. Cross safely.', 'The attackers throw at shadows while the wagons pass beneath the bank.', {}, { cost: { tool: 'smoke' } }),
     ] },
@@ -159,7 +159,7 @@ export const CARAVAN_EVENTS: readonly CaravanEvent[] = [
     ] },
     { id: 'watchtower-ledger', kind: 'ruins', title: 'The last watch ledger', scene: 'A patrol ledger lies beneath a collapsed watchtower roof. The last shinobi on watch recorded three convoy signals that never reached the next post.', choices: [
         choice('copy', 'Copy the missing shipments', 'Spend 1 supply. Start following the missing shipment trail.', 'Several entries share a receiver’s mark. You copy that mark onto your own manifest.', { discovery: 'The missing shipment ledger', addFlags: ['shipment-evidence'], reputation: 3 }, { cost: { supplies: 1 } }),
-        choice('cache', 'Search the watch store', 'Gain 2 supplies; lose 5 cargo to falling rubble.', 'There is still usable canvas below the shelves. Getting it out brings down the last beam.', { supplies: 2, cargo: -5 }),
+        choice('cache', 'Search the watch store', 'Gain 2 supplies; lose up to 5 cargo to falling rubble.', 'There is still usable canvas below the shelves. Getting it out brings down the last beam.', { supplies: 2, cargo: -5 }),
         choice('mark', 'Mark the tower for the archivists', 'Gain 1 reputation.', 'You leave a clear marker where the ledger can be recovered safely.', { reputation: 1 }),
     ] },
     { id: 'sunken-bell', kind: 'ruins', title: 'A bell under the dunes', scene: 'Only the crown of a bronze bell rises from the sand. Your oldest driver says it once called caravans home before dark.', choices: [
@@ -174,7 +174,7 @@ export const CARAVAN_EVENTS: readonly CaravanEvent[] = [
     ] },
     { id: 'buried-coins', kind: 'treasure', title: 'Coins in the wash', scene: 'The last flood exposed a scatter of old coins. Most are green with age. A few still show the Sunscar mint mark.', choices: [
         choice('collect', 'Collect what is visible', 'Gain a 4% delivery bonus.', 'The coins go into a cloth bag for the outpost assessor.', { bonus: 4 }),
-        choice('dig', 'Search beneath the bank', 'Spend 2 supplies. Find 8% bonus or a sealed guardian.', 'You work along the seam below the bank.', {}, { cost: { supplies: 2 }, outcomes: [
+        choice('dig', 'Search beneath the bank', 'Spend 2 supplies. Search for an 8% delivery bonus, risking a guardian fight.', 'You work along the seam below the bank.', {}, { cost: { supplies: 2 }, outcomes: [
             { weight: 3, result: 'A broken jar spills more coins into the light.', effect: { bonus: 8, discovery: 'Sunscar’s old mint' } },
             { weight: 1, result: 'A seal brightens beneath the jar. The chamber’s guardian wakes.', effect: { combat: 'sentinel', discovery: 'The mint guardian' } },
         ] }),
@@ -186,12 +186,12 @@ export const CARAVAN_EVENTS: readonly CaravanEvent[] = [
         choice('leave', 'Give it room', 'No cost.', 'The fox drops behind when the road turns to stone.'),
     ] },
     { id: 'nesting-flock', kind: 'pet', title: 'The road is a nest', scene: 'Small desert birds have nested in the wheel ruts. The adults stand their ground, wings spread over the eggs.', choices: [
-        choice('detour', 'Guide the wagons around', 'Lose 4 cargo on softer sand. Gain reputation.', 'The birds settle as soon as the wheels clear the nests.', { cargo: -4, reputation: 2, morale: 5 }),
+        choice('detour', 'Guide the wagons around', 'Lose up to 4 cargo on softer sand. Gain reputation.', 'The birds settle as soon as the wheels clear the nests.', { cargo: -4, reputation: 2, morale: 5 }),
         choice('feed', 'Draw the flock to a safer hollow', 'Spend feed. The crew moves the nests carefully.', 'The adults follow the food, then return to find their eggs above the next flood line.', { reputation: 3, morale: 6 }, { cost: { tool: 'feed' } }),
         choice('carry', 'Carry the nests beyond the road', 'Lose 7% stamina. Gain morale.', 'Your companion keeps watch over the last clutch while the rear wagon passes.', { staminaPercent: -7, morale: 4 }),
     ] },
     { id: 'rare-pet-trail', kind: 'pet', title: 'Tracks that shine at dusk', rare: true, weight: .16, scene: 'Pale tracks cross the road without disturbing the dust. The caravan’s tamer kneels beside them. “A wild companion. We still have to earn its trust.”', choices: [
-        choice('follow', 'Let the tamer follow the trail', 'Spend feed. Opens the normal wild encounter rules; no guaranteed capture.', 'You keep the wagons quiet while the tamer approaches the hollow.', { petTrail: true, discovery: 'The luminous pet trail', reputation: 3 }, { cost: { tool: 'feed' } }),
+        choice('follow', 'Let the tamer follow the trail', 'Spend pet feed to start a wild companion encounter. Capture is not guaranteed.', 'You keep the wagons quiet while the tamer approaches the hollow.', { petTrail: true, discovery: 'The luminous pet trail', reputation: 3 }, { cost: { tool: 'feed' } }),
         choice('record', 'Record the trail for the Pet Yard', 'Gain a discovery and reputation.', 'The tamer copies the tracks and the hour of their appearance.', { discovery: 'The luminous pet trail', reputation: 2 }),
     ] },
     { id: 'buried-shrine', kind: 'ruins', title: 'The buried shrine', rare: true, weight: .12, scene: 'The storm has uncovered a shrine staircase bound with old sealing tags. Below the torii, a stone bowl holds water untouched by sand. A faint chakra trace runs along its rim.', choices: [
@@ -218,7 +218,7 @@ export const CARAVAN_EVENTS: readonly CaravanEvent[] = [
         choice('supplies', 'Give them a water skin', 'Spend 1 supply. Gain reputation.', 'The water skin passes straight to the smallest child.', { reputation: 2, addFlags: ['helped-traveler'] }, { cost: { supplies: 1 } }),
     ] },
     { id: 'festival-drummer', kind: 'traveler', title: 'A drum without a strap', scene: 'A drummer carries his instrument in both arms. “I played the finish line yesterday. Today I am walking to the next one.”', choices: [
-        choice('ride', 'Give him a ride', 'Lose 3 cargo space. Gain 14 morale.', 'He keeps a quiet marching rhythm against the rim. The tired drivers begin keeping time.', { cargo: -3, morale: 14 }),
+        choice('ride', 'Give him a ride', 'Lose up to 3 cargo. Gain 14 morale.', 'He keeps a quiet marching rhythm against the rim. The tired drivers begin keeping time.', { cargo: -3, morale: 14 }),
         choice('strap', 'Make him a new strap', 'Spend 1 supply. Gain reputation and morale.', 'He plays you to the next ridge before turning toward his own road.', { reputation: 2, morale: 6, addFlags: ['helped-traveler'] }, { cost: { supplies: 1 } }),
         choice('listen', 'Stop for one song', 'Gain 4 morale.', 'Nobody talks during the song. The road sounds different afterward.', { morale: 4 }),
     ] },
@@ -237,7 +237,7 @@ export const CARAVAN_EVENTS: readonly CaravanEvent[] = [
     ] },
     { id: 'ruin-guardian', kind: 'elite', title: 'The seal at the arch', scene: 'A stone guardian stands where the map shows an empty arch. Its gaze follows the sealed cargo on your rear wagon.', choices: [
         choice('fight', 'Break the guardian’s watch', 'Elite encounter. A discovery after the fight.', 'The first step beneath the arch wakes the inscription along its arms.', { combat: 'sentinel', discovery: 'The cargo-watching guardian' }),
-        choice('detour', 'Take the caravan around the ruins', 'Spend 3 supplies and lose 5 cargo.', 'The old outer road is rough, but nothing watches it now.', { cargo: -5 }, { cost: { supplies: 3 } }),
+        choice('detour', 'Take the caravan around the ruins', 'Spend 3 supplies and lose up to 5 cargo.', 'The old outer road is rough, but nothing watches it now.', { cargo: -5 }, { cost: { supplies: 3 } }),
     ] },
 ];
 export function caravanEvent(id: string): CaravanEvent {

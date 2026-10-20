@@ -835,7 +835,7 @@ export function CentralHub({
                     badge: "Endless climb",
                     art: celestialTowerArt,
                     artPosition: "72% center",
-                    text: "Climb scaling floors, protect your banked ryo, and claim permanent milestones.",
+                    text: "Climb harder waves, retreat to claim your run ryo, and earn permanent milestones.",
                     action: () => setShowCelestialPanel(true),
                 },
             ],
@@ -1074,9 +1074,9 @@ export function CentralHub({
                         <p className="celestial-panel-sub">Four ways to climb: the endless gauntlet, curated Battle Tower squad floors, the tower's preserved memories, or a crossing into the living past.</p>
                         <div style={{ background: "rgba(15,23,42,0.5)", border: "1px solid rgba(148,163,184,0.25)", borderRadius: 6, padding: "0.7rem 0.9rem", margin: "0.4rem 0 0.8rem", fontSize: "0.85rem", lineHeight: 1.5 }}>
                             <div><strong>How it works</strong></div>
-                            <div>· Each wave drops a random AI scaled to your level + current wave. Every 10th wave is a boss.</div>
-                            <div>· Win → bank ryo, advance to the next wave with whatever HP you have left.</div>
-                            <div>· Die → all banked ryo is lost. Hospital trip applies. <strong>Milestone currencies stay credited.</strong></div>
+                            <div>· Fight a stronger AI opponent each wave. Every 10th wave is a boss.</div>
+                            <div>· Win to add ryo to your unclaimed haul. Carry your remaining HP into the next wave.</div>
+                            <div>· Defeat loses the run’s unclaimed ryo and sends you to the Hospital. <strong>Milestone currencies stay credited.</strong></div>
                             <div style={{ marginTop: 6 }}><strong>Kill milestones</strong> (auto-credited, repeat every 20 kills):</div>
                             <div>· Kills 5, 10 → <span style={{ color: "#a78bfa" }}>+5 Bone Charms</span></div>
                             <div>· Kill 15 → <span style={{ color: "var(--gold)" }}>+5 Fate Shards</span></div>
@@ -1098,12 +1098,12 @@ export function CentralHub({
                             <button className="celestial-option-btn celestial-endless-btn" onClick={() => { setShowCelestialPanel(false); setScreen("endlessTower"); }}>
                                 <span className="celestial-option-icon"><GiStoneTower /></span>
                                 <strong>Enter Celestial Tower</strong>
-                                <small>Fight until you fall. Banked ryo lost on death — milestones survive.</small>
+                                <small>Climb increasingly difficult waves. Retreat to claim your run ryo; defeat loses unclaimed ryo. Milestone rewards stay yours.</small>
                             </button>
                             <button className="celestial-option-btn" onClick={() => { setShowCelestialPanel(false); setScreen("battleTowers"); }}>
                                 <span className="celestial-option-icon"><GiCrossedSwords /></span>
                                 <strong>Battle Towers</strong>
-                                <small>Curated squad floors — objectives, gimmicks, bosses. Free retries; first-clear rewards &amp; a leaderboard.</small>
+                                <small>Squad battles with objectives, hazards, and bosses. Cleared floors are free to replay; new floors award first-clear rewards.</small>
                             </button>
                             <button className="celestial-option-btn" onClick={() => { setShowCelestialPanel(false); setScreen("echoesOfWar"); }}>
                                 <span className="celestial-option-icon"><GiScrollUnfurled /></span>
@@ -2029,7 +2029,7 @@ export function CentralHub({
                                                         ))}
                                                     </div>
                                                     {/* Poison has its own weapon ceiling, so its strength is fixed rather than rolled. */}
-                                                    <div className="no-row"><span>Every rolled percentage applies in combat exactly as rolled. Poison is always {WEAPON_POISON_TAG_CAP}%. Heal, Shield, and Drain ignore the rolled percentage: as the only tag a swing heals or shields {WEAPON_FLAT_TAG_SOLO} or drains {WEAPON_DRAIN_TICK_SOLO} HP and chakra per turn; with 2 tags, {WEAPON_FLAT_TAG_SPLIT} and {WEAPON_DRAIN_TICK_SPLIT}. Drain cannot be reduced.</span></div>
+                                                    <div className="no-row"><span>Rolled percentages set effect strength; damage and stat bonuses have diminishing returns. Poison is always {WEAPON_POISON_TAG_CAP}%. Heal, Shield, and Drain ignore the rolled percentage: as the only tag a swing heals or shields {WEAPON_FLAT_TAG_SOLO} or drains {WEAPON_DRAIN_TICK_SOLO} HP and chakra per turn; with 2 tags, {WEAPON_FLAT_TAG_SPLIT} and {WEAPON_DRAIN_TICK_SPLIT}. Drain cannot be reduced.</span></div>
                                                 </div>
                                                 <div className="no-section no-wide">
                                                     <div className="no-label">Tag Formula Notes</div>
@@ -2037,9 +2037,9 @@ export function CentralHub({
                                                         <div className="no-row"><span><GameArtIcon kind="roleDefender" size={15} /> Shield</span><span className="no-pct">Flat {WEAPON_FLAT_TAG_SOLO} shield per swing as the only tag, {WEAPON_FLAT_TAG_SPLIT} with 2 tags; limited by your shield cap</span></div>
                                                         <div className="no-row"><span><GameArtIcon kind="vitality" size={15} /> Heal</span><span className="no-pct">Flat {WEAPON_FLAT_TAG_SOLO} HP per swing as the only tag, {WEAPON_FLAT_TAG_SPLIT} with 2 tags</span></div>
                                                         <div className="no-row"><span><GameArtIcon kind="vitality" size={15} /> Siphon</span><span className="no-pct">Restores its rolled percent of damage dealt, after shield and mitigation</span></div>
-                                                        <div className="no-row"><span><GameArtIcon kind="elementFire" size={15} /> Ignition</span><span className="no-pct">Increases target damage taken for 2 turns; combat amplification caps apply</span></div>
-                                                        <div className="no-row"><span><GameArtIcon kind="warning" size={15} /> Poison / Drain</span><span className="no-pct">{COMBAT_RESOURCES_V2 ? "Drain saps HP+chakra each round; Poison bites when the target spends chakra/stamina to cast" : "Deals rolled% of enemy chakra as damage per round"}</span></div>
-                                                        <div className="no-row"><span><GameArtIcon kind="attack" size={15} /> IDG / Generals / DDT / Reflect / Absorb</span><span className="no-pct">Apply at their rolled strength; buffs last 2 turns</span></div>
+                                                        <div className="no-row"><span><GameArtIcon kind="elementFire" size={15} /> Ignition</span><span className="no-pct">Makes the target take more damage for 2 rounds, starting next round. Has diminishing returns.</span></div>
+                                                        <div className="no-row"><span><GameArtIcon kind="warning" size={15} /> Poison / Drain</span><span className="no-pct">{COMBAT_RESOURCES_V2 ? "Drain removes HP and chakra at turn end. Poison costs HP when jutsu spend chakra or stamina. Both start next round." : "Deals rolled% of enemy chakra as damage per round"}</span></div>
+                                                        <div className="no-row"><span><GameArtIcon kind="attack" size={15} /> IDG / Generals / DDT / Reflect / Absorb</span><span className="no-pct">Effects start next round and last 2 rounds. Stat and damage bonuses have diminishing returns; Reflect and Absorb are capped.</span></div>
                                                     </div>
                                                 </div>
                                             </div>

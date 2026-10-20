@@ -19,7 +19,7 @@ test("the line names the piece and says how much stronger it is", () => {
     assert.ok(line.includes(weapon.name));
     assert.match(line, /Damage 14\.5 EP, up from 14 on the /);
     const armor = starterItems.find(item => item.id === "reinforced-vest-s1")!;
-    assert.match(gearDropRewardLine(armor.id)!, /% damage reduction, up from [\d.]+% on the /);
+    assert.match(gearDropRewardLine(armor.id)!, /% armor protection, up from [\d.]+% on the /);
 });
 
 test("no hyphens in the wording this feature adds (existing base item names keep theirs)", () => {

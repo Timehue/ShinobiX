@@ -180,7 +180,7 @@ test('a real sector pet war is discoverable, replayed, persistent, and isolated 
     await expect(page.getByRole('dialog', { name: /Pet Showdown/ })).toBeVisible({ timeout: 30_000 });
     const result = page.getByRole('dialog', { name: /Victory|Defeat/ });
     await expect(result).toBeVisible({ timeout: 60_000 });
-    await result.getByRole('button', { name: 'Leave the Showdown', exact: true }).click();
+    await result.getByRole('button', { name: 'Back to World Map', exact: true }).click();
     await page.locator('.app-shell[data-screen="worldMap"]').waitFor({ state: 'visible' });
 
     const scored = (await warMap(request, attacker.headers)).contests.find((entry: Json) => entry.id === contest.id) as Json;
@@ -286,7 +286,7 @@ test('attacking an enemy in a Pet war\'s sector is a pet battle, opened on both 
 
         const result = page.getByRole('dialog', { name: /Victory|Defeat/ });
         await expect(result).toBeVisible({ timeout: 60_000 });
-        await result.getByRole('button', { name: 'Leave the Showdown', exact: true }).click();
+        await result.getByRole('button', { name: 'Back to World Map', exact: true }).click();
         await backToSector(page);
 
         // The loser cannot be set on again at once, and whoever tries is told why
@@ -296,7 +296,7 @@ test('attacking an enemy in a Pet war\'s sector is a pet battle, opened on both 
         if (!attackerWon) {
             const targetResult = defenderPage.getByRole('dialog', { name: /Victory|Defeat/ });
             await expect(targetResult).toBeVisible({ timeout: 60_000 });
-            await targetResult.getByRole('button', { name: 'Leave the Showdown', exact: true }).click();
+            await targetResult.getByRole('button', { name: 'Back to World Map', exact: true }).click();
             await backToSector(defenderPage);
         }
         const again = winnerPage.getByRole('button', { name: `Pet battle ${loserName}`, exact: true });

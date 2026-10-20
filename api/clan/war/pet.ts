@@ -1,4 +1,5 @@
 import { sealWarTeam } from '../../_pet-showdown/war-team.js';
+import { replayFromOpposingSide } from '../../_pet-showdown/_viewer-replay.js';
 import type { VercelRequest, VercelResponse } from '../../_vercel.js';
 import { kv } from '../../_storage.js';
 import { cors, safeName } from '../../_utils.js';
@@ -135,7 +136,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // story, and these sessions age out on their 2h TTL.
                 return res.status(409).json({ error: 'This battle predates the new arena and cannot be replayed.' });
             }
-            return res.status(200).json({ script: clanWarPetDuelScript(session) });
+            const script = clanWarPetDuelScript(session);
+            return res.status(200).json({ script: side === 'to' ? replayFromOpposingSide(script, session.from[0]?.name || 'Challengers') : script });
         }
         if (action !== 'submit') return res.status(400).json({ error: `Unknown action: ${action}` });
 

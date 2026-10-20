@@ -77,8 +77,9 @@ test('an oversized source line is shortened explicitly instead of claiming a ful
 
 test('a new fight after reload retains the prior recent journals within the three-fight bound', () => {
     const previous = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+    const capturedAt = Date.now();
     const earlier = ['old-fight-a', 'old-fight-b'].map((id, index) => mergeSoloBattleDebug(undefined,
-        { ...session([event(1)]), sessionId: id }, Date.now() - 1000 - index));
+        { ...session([event(1)]), sessionId: id }, capturedAt - 1000 - index));
     let stored = JSON.stringify(earlier);
     Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: {
         getItem: () => stored, setItem: (_key: string, value: string) => { stored = value; },

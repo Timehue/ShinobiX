@@ -311,7 +311,7 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
         ...CHAPTER_ONE_PRESENTATION,
         artKey: 'foothold',
         briefing: {
-            situation: 'Bandit outriders hold the forest gate and its two elemental Pylons. Take the first platform before their relief squad arrives.',
+            situation: 'Bandit outriders hold the forest gate and its two elemental Pylons. Defeat the outriders to secure the first platform.',
             tactics: [
                 'Read each Pylon\'s element before committing a technique into its lane.',
                 'Rotate wounded allies out of the Bandits\' Hamstring pressure instead of trading in place.',

@@ -317,7 +317,9 @@ test("a Warfront challenge lets each participant command their own roster agains
         "the responder must replay the server-accepted roster, seed, and plans in their own orientation");
     assert.doesNotMatch(arenaSource, /startArenaMatch\(myTeam, blue,/,
         "mutable local pets must not replace the accepted server snapshots");
-    assert.match(arenaSource, /if \(!response\.ok\)[\s\S]*Nothing was started/);
+    assert.match(arenaSource, /if \(!response\.ok\)[\s\S]*The Warfront challenge acceptance could not be confirmed[\s\S]*Reopen the invitation to check for an active battle/);
+    assert.doesNotMatch(arenaSource, /Network error accepting the Warfront challenge\. Nothing was started/,
+        "a lost acceptance response must not promise the server started no battle");
     assert.match(arenaSource, /startArenaMatch\(pendingArenaMatch\.blue,[\s\S]*pendingArenaMatch\.plans\)/);
     assert.match(challenge, /plans: \{ blue: bluePlan, red: redPlan \}/);
     assert.match(arenaSource, /<PetWarfrontRite[\s\S]*red=\{arenaMatch\.red\}/,

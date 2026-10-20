@@ -89,15 +89,15 @@ export const QUEST_BOOK: Record<string, QuestBookEntry> = {
         id: "qb-bell", title: "The Bell That Doesn't Ring", giver: "Sister Yuki",
         bandMin: 20, bandMax: 45, weight: 8, fateShards: 1, award: "Bellbearer",
         stages: [
-            { key: "thief",  text: "Find the Ashbound raider who stole the clapper from Yuki's ruined temple.", metric: "totalAiKills", count: 1, bossId: "ashbound-raider" },
+            { key: "thief",  text: "Defeat the Ashbound Raider using this quest's Fight button to recover Yuki's stolen bell clapper.", metric: "totalAiKills", count: 1, bossId: "ashbound-raider" },
             { key: "curse",  text: "Court-era seals on the clapper are trying to finish the temple's last alarm. How will you carry it?", metric: "totalAiKills", count: 0,
                 choice: { prompt: "“If that clapper completes one ring, the old guardian will answer. Decide how much time we can spare.”", options: [
-                    { key: "raw",     label: "Wrap it and run",   blurb: "Reach the temple sooner, but face the Bell-Wraith at full strength. Yuki adds a fate shard for the risk.", bossStatBonus: 4, bonusFateShards: 1, standing: "bell-raw" },
-                    { key: "cleanse", label: "Quiet the seals first", blurb: "Spend time breaking the alarm sequence. The guardian will wake weaker.", standing: "bell-cleansed" },
+                    { key: "raw",     label: "Wrap it and run",   blurb: "Leave the seals active. Face a stronger Bell-Wraith and earn 1 extra Fate Shard when you finish the quest.", bossStatBonus: 4, bonusFateShards: 1, standing: "bell-raw" },
+                    { key: "cleanse", label: "Quiet the seals first", blurb: "Disable the alarm seals before carrying the clapper. The Bell-Wraith will be weaker; this choice adds no extra Fate Shard.", standing: "bell-cleansed" },
                 ] } },
-            { key: "carry",  text: "Carry the wrapped clapper across 4 tiles before it completes the old alarm.", metric: "totalTilesExplored", count: 4,
+            { key: "carry",  text: "Use Explore 4 times within 30 minutes to carry the clapper to safety. If time runs out, this stage starts over.", metric: "totalTilesExplored", count: 4,
                 timer: { durationMs: 30 * 60 * 1000, failResetToStage: 2 } },
-            { key: "wraith", text: "Return the clapper, then stop the temple guardian that answers the broken alarm.", metric: "totalAiKills", count: 1, bossId: "bell-wraith" },
+            { key: "wraith", text: "Defeat the Bell-Wraith using this quest's Fight button to stop the temple guardian.", metric: "totalAiKills", count: 1, bossId: "bell-wraith" },
         ],
     },
     // Q2 — band ~12–35. Trail → waves(boss) → BRANCH (spare/execute) → boss.
@@ -105,14 +105,14 @@ export const QUEST_BOOK: Record<string, QuestBookEntry> = {
         id: "qb-caravan", title: "The Hollow Caravan", giver: "Caravan-master Doteki",
         bandMin: 12, bandMax: 35, weight: 7, fateShards: 0, award: "Caravan's Shield",
         stages: [
-            { key: "trail",   text: "Track Doteki's missing caravan across 3 tiles. Count the wheel ruts, abandoned loads, and blood.", metric: "totalTilesExplored", count: 3 },
-            { key: "ambush",  text: "At the wreck, survive 3 bandit waves and disarm their captain, Goro.", metric: "totalAiKills", count: 3, bossId: "bandit-captain-goro" },
+            { key: "trail",   text: "Use Explore 3 times to follow the missing caravan's trail. Repeat visits count.", metric: "totalTilesExplored", count: 3 },
+            { key: "ambush",  text: "Defeat both opponents in each of 3 waves using this quest's Fight button. Face Goro and his bodyguard in the final wave to secure the caravan wreck.", metric: "totalAiKills", count: 3, bossId: "bandit-captain-goro" },
             { key: "judgment", text: "Goro drops his blade. Genjutsu marks behind his ears explain the empty look in his eyes. What now?", metric: "totalAiKills", count: 0,
                 choice: { prompt: "Goro was forced to lead the attack, but caravan guards still died. Decide what happens to him.", options: [
                     { key: "spare",   label: "Spare Goro",   blurb: "Bind his wounds and take his testimony. He may help on the road later.", standing: "goro-spared" },
                     { key: "execute", label: "Execute Goro", blurb: "Carry out the caravan guards' sentence and collect their larger bounty. Goro's allies will remember it.", bonusRyoPct: 50, standing: "goro-executed" },
                 ] } },
-            { key: "strings", text: "Cut the strings: defeat the genjutsu puppeteer Itoguchi who drove the captain.", metric: "totalAiKills", count: 1, bossId: "puppeteer-itoguchi" },
+            { key: "strings", text: "Defeat Itoguchi using this quest's Fight button to stop the puppeteer behind the attack.", metric: "totalAiKills", count: 1, bossId: "puppeteer-itoguchi" },
         ],
     },
     // Q3 — band ~40–65, WAR-GATED. A heavy moral branch with two mutually-exclusive
@@ -126,7 +126,7 @@ export const QUEST_BOOK: Record<string, QuestBookEntry> = {
                     { key: "trust",  label: "Protect the witness", blurb: "Escort them to an independent waystation, where a neutral courier can carry their testimony without returning them to Frostfang custody. Earns the title Border-Walker.", title: "Border-Walker", standing: "defector-trusted" },
                     { key: "turnin", label: "Make the arrest",      blurb: "Deliver the prisoner and route copies to your village's intelligence office for interrogation and a larger bounty. Earns the title Kage's Blade.", title: "Kage's Blade", bonusRyoPct: 40, standing: "defector-turned" },
                 ] } },
-            { key: "silencer", text: "Frostfang Hunter-nin Shirakawa catches the trail and moves to erase the signaler before the testimony arrives. Stop them.", metric: "totalAiKills", count: 1, bossId: "hunter-shirakawa" },
+            { key: "silencer", text: "Defeat Shirakawa and both members of the erasure team using this quest's Fight button to protect the signaler.", metric: "totalAiKills", count: 1, bossId: "hunter-shirakawa" },
         ],
     },
     // Q4 — pet-mode campaign. Scales to the player's pets; ends on a mythic boss pet.
@@ -134,8 +134,8 @@ export const QUEST_BOOK: Record<string, QuestBookEntry> = {
         id: "qb-gauntlet", title: "The Colosseum Gauntlet", giver: "Tamer Tomoe",
         bandMin: 1, bandMax: 100, weight: 9, fateShards: 1, award: "Beast-Crowned",
         stages: [
-            { key: "gauntlet", text: "Win three pet duels to prepare your companion for Tomoe's gauntlet.", metric: "totalPetWins", count: 3 },
-            { key: "stormhound", text: "Face Tomoe's final companion, Raijū the Storm-Hound, and win the pet duel.", metric: "totalPetWins", count: 1, bossId: "raiju-storm-hound" },
+            { key: "gauntlet", text: "Win 3 pet battles to prepare your companion for Tomoe's gauntlet.", metric: "totalPetWins", count: 3 },
+            { key: "stormhound", text: "Win 1 more pet battle against any opponent to finish Tomoe's gauntlet. You can find a match in the Pet Colosseum.", metric: "totalPetWins", count: 1 },
         ],
     },
     // Q5 — band any, MEDIUM. Card-flavored but cheat-safe: the real reward hangs on a
@@ -144,8 +144,8 @@ export const QUEST_BOOK: Record<string, QuestBookEntry> = {
         id: "qb-debt", title: "The Gambler's Debt", giver: "Saji Two-Coins",
         bandMin: 1, bandMax: 100, weight: 5, fateShards: 0, award: "House Breaker",
         stages: [
-            { key: "table", text: "Saji owes the House. Buy him time by winning 2 Shinobi Chronicle Showdowns against its enforcers.", metric: "cardClashWins", count: 2 },
-            { key: "collection", text: "The House calls the debt anyway. Its bodyguard, Kuroban, finds Saji's hide and decides you owe as well.", metric: "totalAiKills", count: 1, bossId: "house-kuroban" },
+            { key: "table", text: "Win 2 Shinobi Chronicle Showdowns to help Saji repay the House. Any opponent counts.", metric: "cardClashWins", count: 2 },
+            { key: "collection", text: "Defeat Kuroban and both House collectors using this quest's Fight button to clear Saji's debt.", metric: "totalAiKills", count: 1, bossId: "house-kuroban" },
         ],
     },
     // Q6 — CAPSTONE, rivalry-gated, VERY HARD. The nemesis arc delivered as a quest;
@@ -155,9 +155,9 @@ export const QUEST_BOOK: Record<string, QuestBookEntry> = {
         bandMin: 50, bandMax: 100, weight: 12, fateShards: 1, award: "Ash-Ender",
         requiresRivalry: true, clearsRivalry: true,
         stages: [
-            { key: "cinder", text: "Find Cinder, Kazan's fire-style lieutenant, at the abandoned volcano watch and cut off the Ashbound scouts.", metric: "totalAiKills", count: 1, bossId: "ashbound-cinder" },
-            { key: "slag",   text: "Break through Slag, the armored lieutenant holding the road into Kazan's lair.", metric: "totalAiKills", count: 1, bossId: "ashbound-slag" },
-            { key: "kazan",  text: "Kazan waits in the lair with every lesson learned from your rivalry. End it.", metric: "totalAiKills", count: 1, bossId: "kazan-ashbound" },
+            { key: "cinder", text: "Defeat Cinder and both Ashbound scouts using this quest's Fight button to drive off Kazan's scout team.", metric: "totalAiKills", count: 1, bossId: "ashbound-cinder" },
+            { key: "slag",   text: "Defeat Slag using this quest's Fight button to clear the road into Kazan's lair.", metric: "totalAiKills", count: 1, bossId: "ashbound-slag" },
+            { key: "kazan",  text: "Defeat Kazan using this quest's Fight button to finish the rivalry. His strength scales with your rivalry.", metric: "totalAiKills", count: 1, bossId: "kazan-ashbound" },
         ],
     },
 };

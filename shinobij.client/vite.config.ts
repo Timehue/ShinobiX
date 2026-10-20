@@ -1500,6 +1500,9 @@ export default defineConfig({
         },
     },
     server: {
+        // Immutable test previews/results are not source. Watching snapshots
+        // while another run removes them can terminate Vite's Windows watcher.
+        watch: { ignored: ['**/.playwright-dist-*/**', '**/test-results/**'] },
         port: parseInt(env.DEV_SERVER_PORT || '50891'),
         ...(httpsConfig ? { https: httpsConfig } : {}),
     }

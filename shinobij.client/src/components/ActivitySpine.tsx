@@ -82,7 +82,7 @@ export function ActivitySpine({
                             const liveAdmissionAllowed = projectedAdmissionAllowed(activity.requiredCapabilityIds) && !!activityDestination(activity.screen);
                             const blocked = activity.eligibility === "blocked" || !liveAdmissionAllowed;
                             const effectiveBlocker = activity.blocker ?? (!liveAdmissionAllowed
-                                ? "Live eligibility is unavailable. Wait for capability refresh before starting this activity."
+                                ? "The game could not check whether you can start this activity. Wait for it to refresh."
                                 : undefined);
                             const effectiveEligibility = blocked ? "blocked" : activity.eligibility;
                             const openActivity = () => {
