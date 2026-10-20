@@ -15859,7 +15859,10 @@
         "docs/screenshots/pet-pebble-full-remake-main-validation-2026-10-19/battle/side-block-1-half-0.png",
         "docs/screenshots/pet-pebble-full-remake-main-validation-2026-10-19/battle/side-block-1-half-1.png",
         "docs/screenshots/pet-pebble-full-remake-main-validation-2026-10-19/battle/side-block-2-half-0.png",
-        "docs/screenshots/pet-pebble-full-remake-main-validation-2026-10-19/battle/side-block-2-half-1.png"
+        "docs/screenshots/pet-pebble-full-remake-main-validation-2026-10-19/battle/side-block-2-half-1.png",
+        "docs/screenshots/pet-pebble-full-remake-main-validation-2026-10-19/ci-contract-failure-excerpt.txt",
+        "docs/screenshots/pet-pebble-full-remake-main-validation-2026-10-19/ci-followup-34-tests.txt",
+        "docs/screenshots/pet-pebble-full-remake-main-validation-2026-10-19/ci-contract-targeted-lint.txt"
       ],
       "evidenceSha256": {
         "docs/screenshots/pet-pebble-full-remake-v9-2026-10-19/source-extra-first/idle.png": "a5126c3062fa38fddd56ca20f0a8a8280670bcc5a5d750f34f812e7f5b557a3d",
@@ -16161,7 +16164,10 @@
         "docs/screenshots/pet-pebble-full-remake-main-validation-2026-10-19/battle/side-block-1-half-0.png": "0674376a7de76a44604da30342035a3be4bb619cefab69fb84df373335d3e161",
         "docs/screenshots/pet-pebble-full-remake-main-validation-2026-10-19/battle/side-block-1-half-1.png": "4a4efa86057d6156d580e46065cef5c8ce3747c52aae2b89383661dc01e370c0",
         "docs/screenshots/pet-pebble-full-remake-main-validation-2026-10-19/battle/side-block-2-half-0.png": "e35c64ff75322f051967781079bc1ab383eeb083a01ae763d1dcdbffe74a5399",
-        "docs/screenshots/pet-pebble-full-remake-main-validation-2026-10-19/battle/side-block-2-half-1.png": "ba644d7b88a0054ace71a4c0a3d7e9c7b9ec8cf46700d717be22576e966a2b73"
+        "docs/screenshots/pet-pebble-full-remake-main-validation-2026-10-19/battle/side-block-2-half-1.png": "ba644d7b88a0054ace71a4c0a3d7e9c7b9ec8cf46700d717be22576e966a2b73",
+        "docs/screenshots/pet-pebble-full-remake-main-validation-2026-10-19/ci-contract-failure-excerpt.txt": "150a769c99421468ecf46384e293ba978c9e92f8d94ed0b65d8b9f4f1ff36e43",
+        "docs/screenshots/pet-pebble-full-remake-main-validation-2026-10-19/ci-followup-34-tests.txt": "aec0ade3ed2f0b496638b931971bd3666b7dfd996ea773dadad0f405d556ca97",
+        "docs/screenshots/pet-pebble-full-remake-main-validation-2026-10-19/ci-contract-targeted-lint.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
       },
       "mainValidation": "docs/audits/pet-pebble-full-remake-main-validation-2026-10-19.json"
     },
