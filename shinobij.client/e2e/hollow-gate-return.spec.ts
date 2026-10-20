@@ -98,6 +98,30 @@ test('a delayed floor seal cannot replace combat and the accepted run stays reco
     expect(starts).toBe(1); expect(seals).toBe(1);
 });
 
+for (const source of ['resume', 'marker']) test(`a delayed ${source} recovery cannot replace a new combat scene`, async ({ page }) => {
+    let release!: () => void, resumes = 0, starts = 0;
+    const held = new Promise<void>(resolve => { release = resolve; });
+    await page.route('**/api/hollow-gate/start', route => { starts++; return route.abort(); });
+    await page.route('**/api/hollow-gate/resume', async route => {
+        resumes++; await held;
+        await route.fulfill({ json: { ok: true, live: true, run: { token: 'resume-rift-token', seed: 'resume-rift-seed', floorDepth: 3, floor: 1,
+            chosenAugmentId: null, augmentOffers: [], position: null, keys: 0, torch: 10, threat: 0, wardSteps: 0, divinerUsed: false,
+            secondWindArmed: false, resolvedEncounterIds: [], resolvedEventIds: [], visited: null, manifest: null,
+            activeCombat: null, pendingAmbush: null, entryCurrencies: {} } } });
+    });
+    await page.goto(`/e2e/fixtures/rift-entry-preview.html?${source}=1`);
+    await page.getByRole('button', { name: 'Preview descent', exact: true }).click();
+    await expect.poll(() => resumes).toBe(1);
+    await page.evaluate(() => (window as unknown as { interruptPreview: (kind: string) => void }).interruptPreview('combat'));
+    release();
+    await expect(page.getByTestId('entry-finished')).toHaveText('1');
+    await expect(page.getByTestId('entry-screen')).toHaveText('worldMap');
+    await expect(page.getByRole('region', { name: 'Active combat' })).toBeVisible();
+    await expect(page.getByRole('alertdialog')).toHaveCount(0);
+    await expect(page.getByTestId('entry-token')).toHaveText('resume-rift-token');
+    expect(starts).toBe(0);
+});
+
 test('Warden decision shows its sealed cue and round-cap warning without horizontal overflow', async ({ page }, info) => {
     const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
     await page.route('**/api/solo-pve/state**', async route => route.fulfill({ json: { ok: true,

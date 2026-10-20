@@ -8,7 +8,10 @@ import type { Screen } from '../../src/types/core';
 import '../../src/index.css';
 
 const initial = { name: 'PreviewRunner', village: 'Moonshadow Village', hp: 10000, maxHp: 10000,
-    level: 100, itemStacks: [], equipment: {}, stats: {}, dailyHollowGateRuns: 0 } as unknown as Character;
+    level: 100, itemStacks: [], equipment: {}, stats: {}, dailyHollowGateRuns: 0,
+    ...(new URLSearchParams(location.search).has('resume') ? { hollowGateRun: { runToken: 'resume-rift-token' } } : {}),
+    ...(new URLSearchParams(location.search).has('marker') ? { lastHollowGateStart: { token: 'resume-rift-token', requestId: 'resume-rift-request' } } : {}),
+} as unknown as Character;
 const cfg = { id: 'rift-mirror-shard', label: 'Mirror-Shard Warden', keyCost: 0, requiresUnlock: false,
     maxFloor: 3, bossName: 'Mirror-Shard Warden' } as HollowGateEventConfig;
 
@@ -27,7 +30,8 @@ export function Fixture() {
         void preview.run(signal => enterHollowGateShrineFlow({ character, eventCfg: cfg, signal,
             isCurrent: () => current.current.account === account,
             canEnter: () => current.current.screen === 'worldMap' && !current.current.combat,
-            currentRunToken: () => undefined, commitCharacter: next => { setCharacter(next); return true; }, setCharacter,
+            currentRunToken: () => character.hollowGateRun?.runToken ?? character.lastHollowGateStart?.token,
+            commitCharacter: next => { setCharacter(next); return true; }, setCharacter,
             setScreen, setCurrentBiome: () => undefined, setCurrentWeather: () => undefined,
             setHollowGateRun: () => undefined, setHollowGateLog: () => undefined, setHollowGateEvent: () => undefined,
             setHollowGateHiddenChamber: () => undefined, setHollowGateIntroPage: () => undefined, pushHollowGateLog: () => undefined,
@@ -45,7 +49,7 @@ export function Fixture() {
         <button onClick={() => { void gameConfirm('An unrelated confirmation', { title: 'Other action' }); }}>Other prompt</button>
         <output data-testid="entry-finished">{finished}</output>
         <output data-testid="entry-count">{character.dailyHollowGateRuns ?? 0}</output>
-        <output data-testid="entry-token">{character.lastHollowGateStart?.token ?? 'none'}</output>
+        <output data-testid="entry-token">{character.hollowGateRun?.runToken ?? character.lastHollowGateStart?.token ?? 'none'}</output>
         <output data-testid="entry-screen">{screen}</output>
         <output data-testid="other-confirmed">{String(otherConfirmed)}</output>
         {encounter && <section role="dialog" aria-label="Kano encounter"><h2>Kano</h2><button onClick={() => { setEncounter(false); preview.onEncounterActiveChange(false); setCombat(true); }}>Fight</button></section>}

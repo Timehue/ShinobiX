@@ -88,8 +88,8 @@ export async function enterHollowGateShrineFlow(params: HollowGateEntryParams) {
     if (character.hp <= 0) {
         const token = character.hollowGateRun?.runToken ?? character.lastHollowGateStart?.token;
         if (params.currentRunToken() !== token) return;
-        await recoverHollowGateRunLazily({ ...params, character });
-        if (params.isCurrent?.() !== false && params.currentRunToken() === token) setScreen("hospital");
+        await recoverHollowGateRunLazily({ ...params, character, isCurrent: () => !interrupted() });
+        if (!interrupted() && params.currentRunToken() === token) setScreen("hospital");
         return;
     }
     // A live run whose board never reached the save (a reload mid-run): rebuild
@@ -98,11 +98,11 @@ export async function enterHollowGateShrineFlow(params: HollowGateEntryParams) {
     // replaying the start marker; terminal and unreadable responses stop entry.
     if (!character.hollowGateRun && character.lastHollowGateStart?.token) {
         const recovered = await recoverHollowGateRunLazily({
-            ...params, character,
+            ...params, character, isCurrent: () => !interrupted(),
         });
-        if (recovered !== 'gone' || params.currentRunToken() !== character.lastHollowGateStart.token) return;
+        if (interrupted() || recovered !== 'gone' || params.currentRunToken() !== character.lastHollowGateStart.token) return;
     }
-    if (params.isCurrent?.() === false) return;
+    if (interrupted()) return;
     // Event gates reshape the run (fewer floors / smaller board / bespoke
     // boss) and may relax the entry gates; the standard shrine when absent.
     const variant = eventCfg ? variantFromEventConfig(eventCfg) : undefined;
@@ -156,9 +156,9 @@ export async function enterHollowGateShrineFlow(params: HollowGateEntryParams) {
     // the key was already consumed when the run was started. The Character
     // normalizer resets daily counters at midnight UTC.
     if (character.hollowGateRun && !character.hollowGateRun.completed) {
-        const recovered = await recoverHollowGateRunLazily({ character, isCurrent: params.isCurrent, currentRunToken: params.currentRunToken, commitCharacter: params.commitCharacter, setHollowGateRun, setHollowGateLog,
+        const recovered = await recoverHollowGateRunLazily({ character, isCurrent: () => !interrupted(), currentRunToken: params.currentRunToken, commitCharacter: params.commitCharacter, setHollowGateRun, setHollowGateLog,
             setHollowGateEvent, setHollowGateHiddenChamber, setCharacter, setCurrentBiome, setCurrentWeather, setScreen, pushHollowGateLog });
-        if (recovered !== "recovered" && recovered !== 'ended' && params.isCurrent?.() !== false) alert("Your unfinished Hollow Gate run could not be read safely. Reconnect and retry; no new run was started.");
+        if (recovered !== "recovered" && recovered !== 'ended' && !interrupted()) alert("Your unfinished Hollow Gate run could not be read safely. Reconnect and retry; no new run was started.");
         return;
     }
 

@@ -261,6 +261,34 @@ describe("hollow gate recovery — the flow never starts or spends anything", ()
         assert.deepEqual(calls, {});
     });
 
+    for (const source of ['live', 'marker', 'zero-hp']) for (const interrupt of ['signal', 'combat'])
+        it(`entry recovery from ${source} cannot publish over ${interrupt} interruption`, async () => {
+            const savedAlert = globalThis.alert;
+            const notices: string[] = [];
+            globalThis.alert = message => { notices.push(String(message)); };
+            try {
+                for (const reply of [{ ok: true, live: true, run: state({ floor: 1 }) }, { ok: false, error: 'Unavailable' }]) {
+                    let release!: (response: Response) => void, requested!: () => void;
+                    const started = new Promise<void>(resolve => { requested = resolve; });
+                    globalThis.fetch = (() => { requested(); return new Promise<Response>(resolve => { release = resolve; }); }) as typeof fetch;
+                    const { calls, params } = harness();
+                    const controller = new AbortController();
+                    let allowed = true;
+                    const character = { name: 'diver', hp: source === 'zero-hp' ? 0 : 100,
+                        ...(source === 'marker' ? { lastHollowGateStart: { token: 'token-live', requestId: 'old-start-request' } }
+                            : { hollowGateRun: { runToken: 'token-live' } }) } as never;
+                    const pending = enterHollowGateShrineFlow({ ...params, character, isCurrent: () => true,
+                        canEnter: () => allowed, signal: controller.signal, setHollowGateIntroPage: (() => undefined) as never });
+                    await started;
+                    if (interrupt === 'signal') controller.abort(); else allowed = false;
+                    release(new Response(JSON.stringify(reply), { status: reply.ok ? 200 : 503 }));
+                    await pending;
+                    assert.deepEqual(calls, {}, 'the live board, character, routing and dialogs remain owned by the new scene');
+                }
+                assert.deepEqual(notices, [], 'an interrupted recovery cannot paint a failure notice over combat');
+            } finally { globalThis.alert = savedAlert; }
+        });
+
     it("recovers a legacy sealed floor through the real flow without replacing its rooms, fog or open encounter", async () => {
         for (const floor of [1, 2, 3, 4, 5]) {
             const old = generateHollowGateShrineRun(floor, undefined, SEED, true);
