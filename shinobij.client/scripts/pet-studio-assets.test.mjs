@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { runtimePetModels } from './lib/pet-runtime-audit.mjs';
-import {assertPayloadPreservedOrReviewed,assertReviewedDistinctPebblePayload} from './lib/pet-reviewed-payload.mjs';
+import {assertPayloadPreservedOrReviewed,assertReviewedFullRemakePebblePayload} from './lib/pet-reviewed-payload.mjs';
 import { PET_STUDIO_ASSET_REVISION, PET_PERFORMANCE_ASSET_REVISION } from '../src/lib/pet-proper-animation-assets.ts';
 
 test('every live pet and battle LOD keeps its reviewed mesh payload and polished curves', async () => {
@@ -14,8 +14,8 @@ test('every live pet and battle LOD keeps its reviewed mesh payload and polished
     for (const path of paths) {
         const bytes = await readFile(path), length = bytes.readUInt32LE(12);
         const json = JSON.parse(bytes.subarray(20, 20 + length)), binary = bytes.subarray(28 + length);
-        if(json.extras.pebbleDistinctRebuild){
-            assertReviewedDistinctPebblePayload(path,bytes,json);
+        if(json.extras.pebbleFullRemake){
+            assertReviewedFullRemakePebblePayload(path,bytes,json);
         }else{
         const proof = json.extras.studioPolish;
         assert.equal(proof?.revision, PET_STUDIO_ASSET_REVISION, path);

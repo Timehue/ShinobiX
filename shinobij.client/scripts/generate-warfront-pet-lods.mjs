@@ -62,7 +62,14 @@ const LOW_POLY_SOURCE_LIMIT = 25_000;
 // their sources pass the same inspection. Bounds use source mesh coordinates.
 const REVIEWED_DEFORMATION_LOCKS = {
     // Retain Pebble's independently frozen scalp and headband patches.
-    'starter-earth.glb': [[-.16,.16,.56,.88,.54,.86],[-.17,.17,.13,.47,.74,1.02]],
+    'starter-earth.glb': [
+        [-.22,.22,.55,.99,-.06,.38],
+        [-.115,.115,-.18,.05,.37,.565],
+        [-.60,.60,-.12,.32,.34,.82],
+        [-.75,-.40,-.43,-.37,0,.335], [.40,.75,-.43,-.37,0,.335],
+        [-.49,-.15,-.866,-.818,-.085,.245], [.15,.49,-.866,-.818,-.085,.245],
+        [-.49,-.30,-.41,-.19,-.14,.18], [.30,.49,-.41,-.19,-.14,.18],
+    ],
     'roster/standard-4.glb': [[0.18, 0.29, -0.12, 0.025, 0.54, 0.68]],
     'roster/rare-15.glb': [[0.31, 0.41, -0.29, -0.17, 0.44, 0.55]],
     'roster/rare-23.glb': [[0.59, 0.71, -0.32, -0.19, 0.20, 0.31]],
