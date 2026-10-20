@@ -75,8 +75,8 @@
 
 .arena-fullscreen .battlefield-actor-portrait-image {
     display: block;
-    object-fit: cover;
-    object-position: center 22%;
+    object-fit: contain;
+    object-position: center;
     z-index: 2;
 }
 

@@ -150,7 +150,7 @@
     background: #0a111b;
     box-shadow: 0 3px 11px rgba(0, 0, 0, .38);
 }
-.map-instance .pet-mentor-road-art img { width: 100%; height: 100%; object-fit: cover; object-position: 56% center; }
+.map-instance .pet-mentor-road-art img { width: 100%; height: 100%; object-fit: contain; object-position: center; }
 .map-instance .mentor-action { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; align-items: center; gap: 10px; width: 100%; min-height: 54px; padding: 4px 7px; border: 0; border-radius: 8px; background: transparent; color: inherit; box-shadow: none; text-align: left; }
 .map-instance .mentor-action > span:nth-child(2) { display: grid; min-width: 0; gap: 2px; }
 .map-notice-content { min-width: 0; }

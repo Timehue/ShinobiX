@@ -141,7 +141,7 @@ export function WorldWandererDialog({
             <img
                 src={wandererDialog.w.avatarImage || wandererAvatar(wandererDialog.w.avatarKey)}
                 alt={wandererDialog.w.name}
-                style={{ width: 96, height: 96, objectFit: "cover", borderRadius: "50%", border: `2px solid ${wandererDialog.w.tellTint}`, margin: "0 auto 8px" }}
+                style={{ width: 96, height: 96, objectFit: "contain", borderRadius: "50%", border: `2px solid ${wandererDialog.w.tellTint}`, margin: "0 auto 8px" }}
             />
             <h3 style={{ margin: "0 0 2px" }}>{wandererDialog.w.name}</h3>
             {wandererDialog.encounter && <EncounterDifficultyBadge encounter={wandererDialog.encounter} showTell />}

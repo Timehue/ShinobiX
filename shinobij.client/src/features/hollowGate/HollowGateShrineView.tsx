@@ -521,7 +521,7 @@ export function HollowGateShrineView({
                                             <p className="act-label" style={{ color: "#a855f7", letterSpacing: 2 }}>HOLLOW GATE — INTRODUCTION</p>
                                             <h2 id="hg-intro-title" style={{ margin: "0 0 12px", color: "#faf5ff" }}>{page.title}</h2>
                                             {introImage && (
-                                                <img src={introImage} alt={page.title} style={{ width: "100%", maxHeight: 240, objectFit: "cover", borderRadius: 8, marginBottom: 12 }} />
+                                                <img src={introImage} alt={page.title} style={{ width: "100%", maxHeight: 240, objectFit: "contain", borderRadius: 8, marginBottom: 12 }} />
                                             )}
                                             <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
                                                 {page.lines.map((line, i) => (
@@ -938,7 +938,7 @@ export function HollowGateShrineView({
                                 return (
                                     <HollowGateEventDialog titleId="hg-event-title" busy={hollowGateEvent.pending || exitPending} onDismiss={hollowGateEvent.onDismiss}>
                                             {tileImage && (
-                                                <img src={tileImage} alt={hollowGateEvent.title} style={{ width: "100%", height: 180, objectFit: hollowGateEvent.image ? "contain" : "cover", borderRadius: 8, marginBottom: 12 }} />
+                                                <img src={tileImage} alt={hollowGateEvent.title} style={{ width: "100%", height: 180, objectFit: "contain", borderRadius: 8, marginBottom: 12 }} />
                                             )}
                                             <h3 id="hg-event-title" style={{ margin: "0 0 12px", color: "#faf5ff" }}>{hollowGateEvent.title}</h3>
                                             <p style={{ whiteSpace: "pre-wrap", lineHeight: 1.5 }}>{hollowGateEvent.body}</p>

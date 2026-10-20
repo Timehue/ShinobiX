@@ -1219,7 +1219,7 @@ body > .combat-detail-backdrop .combat-item-detail-popover .combat-jutsu-detail-
     aspect-ratio: 16 / 9;
     border: 1px solid rgba(216, 181, 112, .14);
     border-radius: 6px;
-    object-fit: cover;
+    object-fit: contain;
 }
 .story-archive-copy h4 {
     margin: 0 0 7px;
@@ -2300,7 +2300,7 @@ body > .combat-detail-backdrop .combat-item-detail-popover .combat-jutsu-detail-
     flex-shrink: 0;
     border-radius: 9px;
     border: 1px solid rgba(224, 68, 68, 0.55);
-    object-fit: cover;
+    object-fit: contain;
 }
 
 .story-fight-bark-body {
@@ -3697,7 +3697,7 @@ body > .combat-detail-backdrop .combat-item-detail-popover .combat-jutsu-detail-
     width: 38px;
     height: 38px;
     border-radius: 7px;
-    object-fit: cover;
+    object-fit: contain;
 }
 
 .bt-node-glyph { font-size: 22px; line-height: 1; }
@@ -7108,8 +7108,8 @@ html body > .arena-fullscreen.shinobi-combat-shell .combat-jutsu-help:focus-visi
         max-width: none !important;
         max-height: none !important;
         padding: 0 !important;
-        object-fit: cover !important;
-        object-position: center 42% !important;
+        object-fit: contain !important;
+        object-position: center;
         border-radius: inherit !important;
     }
 

@@ -119,7 +119,7 @@ export function CardHall(props: CardHallProps) {
           height: 108,
           margin: "0 auto 14px",
           display: "block",
-          objectFit: "cover",
+          objectFit: "contain",
           borderRadius: "50%",
           border: "1px solid var(--sj-border-strong)",
           boxShadow: "0 10px 26px rgba(0,0,0,.4)",

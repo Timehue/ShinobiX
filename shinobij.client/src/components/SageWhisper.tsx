@@ -39,7 +39,7 @@ export function SageWhisper({ text, kicker = "A whisper on the road", onClose }:
         >
             <img
                 src={sageFace} alt=""
-                style={{ width: 52, height: 52, borderRadius: "50%", border: "2px solid rgba(192,132,252,.6)", flexShrink: 0, objectFit: "cover" }}
+                style={{ width: 52, height: 52, borderRadius: "50%", border: "2px solid rgba(192,132,252,.6)", flexShrink: 0, objectFit: "contain" }}
                 onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
             />
             <div style={{ minWidth: 0 }}>
