@@ -3232,6 +3232,10 @@
         "valuePx": 600,
         "occurrences": [
           {
+            "source": "shinobij.client/src/styles/index/39-sector-world.css",
+            "line": 33
+          },
+          {
             "source": "shinobij.client/src/styles/mission-arena-fight.css",
             "line": 430
           },
@@ -3304,6 +3308,10 @@
           {
             "source": "shinobij.client/src/styles/index/22-pet-battle-sprites.css",
             "line": 1172
+          },
+          {
+            "source": "shinobij.client/src/styles/index/39-sector-world.css",
+            "line": 33
           },
           {
             "source": "shinobij.client/src/styles/index/40-village-social-panels.css",
