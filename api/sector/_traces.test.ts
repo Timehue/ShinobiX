@@ -125,6 +125,19 @@ describe('sector shrines', () => {
         assert.deepEqual(state.topWeek[1], { name: 'ben', amount: 300 });
     });
 
+    it('records the first supported instant once without changing offering arithmetic',()=>{
+        const initial=parseShrineState(null),almost=applyOffering(initial,'aki',SHRINE_TIERS[1].at-1,NOW);
+        assert.equal(almost.kindledAt,undefined);
+        const supported=applyOffering(almost,'ben',1,NOW+1000);
+        assert.equal(supported.kindledAt,NOW+1000);
+        const later=applyOffering(parseShrineState(supported),'aki',500,NOW+60_000);
+        assert.equal(later.kindledAt,supported.kindledAt);assert.equal(later.total,SHRINE_TIERS[1].at+500);
+        assert.equal(later.weekTotal,later.total);
+        const legacy=applyOffering(parseShrineState({total:SHRINE_TIERS[1].at}),'ben',1,NOW);
+        assert.equal(legacy.kindledAt,undefined,'a new gift must not pretend an old supported shrine was just kindled');
+        for(const kindledAt of [-1,Infinity,NaN,'123'])assert.equal(parseShrineState({kindledAt}).kindledAt,undefined);
+    });
+
     it('weekly board rolls over on ISO-week change, lifetime total persists', () => {
         let state = parseShrineState(null);
         state = applyOffering(state, 'aki', 500, NOW);

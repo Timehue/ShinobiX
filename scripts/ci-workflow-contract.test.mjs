@@ -169,12 +169,62 @@ test('built CSP and every Stronghold audit feed the required responsive gate wit
     assert.deepEqual([...strongholdOrder].sort((a, b) => a - b), strongholdOrder);
     assert.match(responsive, /name: Retain responsive browser evidence\n\s+if: always\(\)/);
     assert.match(flows, /name: Retain responsive flow evidence\n\s+if: always\(\)/);
-    assert.match(flows, /shard: \[1, 2\]/, 'every responsive flow shard must be scheduled');
+    assert.match(flows, /shard: \[1, 2, 3, 4, 5, 6\]/, 'every responsive flow shard must be scheduled');
+    for(const shard of ['1/4','2/4','3/4','4/4'])assert(flows.includes(`lifeShard: ${shard}`),'every living-sector slice must be gated');
     assert.match(flows, /needs: release_artifact\n\s+if: \$\{\{ always\(\) \}\}/);
     const aggregate = workflow.split('  e2e_responsive:\n')[1]?.split('\n  e2e_combat_matrix:\n')[0];
     assert.match(aggregate, /needs: \[e2e_responsive_matrix, e2e_responsive_flows\]/);
     assert.ok(aggregate.includes('test "$RESPONSIVE_MATRIX" = success'));
     assert.ok(aggregate.includes('test "$RESPONSIVE_FLOWS" = success'), 'the required aggregate must fail when a flow shard fails');
+});
+
+test('living-world source fixtures have dedicated gates instead of running on the immutable preview',()=>{
+    const flows=responsiveFlows();
+    const playwrightConfig=readFileSync(new URL('../shinobij.client/playwright.config.ts',import.meta.url),'utf8');
+    for(const name of ['sector-life','resource-surface','chronicle-stop','ground-wildlife','dock-shipment']){
+        assert(playwrightConfig.includes(`**/${name}.spec.ts`),`${name} must be classified as a source fixture`);
+        assert(flows.includes(`--config playwright.${name}.config.ts`),`${name} needs its own source server`);
+    }
+    assert.match(flows,/--config playwright\.sector-life\.config\.ts --shard=\$\{\{ matrix\.lifeShard \}\} --forbid-only/);
+    assert.match(flows,/groundProject: desktop/);
+    assert.match(flows,/groundProject: phone/);
+    assert.match(flows,/--config playwright\.ground-wildlife\.config\.ts --project=\$\{\{ matrix\.groundProject \}\} --forbid-only/);
+    assert(flows.includes('output/living-world/wildlife/browser/'));
+    assert.match(flows,/dockProject: desktop/);
+    assert.match(flows,/dockProject: phone/);
+    assert.match(flows,/--config playwright\.dock-shipment\.config\.ts --project=\$\{\{ matrix\.dockProject \}\} --forbid-only/);
+    assert(flows.includes('output/living-world/shipment/browser/'));
+    assert(playwrightConfig.includes('**/world-companion.spec.ts'));
+    assert(playwrightConfig.includes('**/local-fauna.spec.ts'));
+    const localFaunaConfig=readFileSync(new URL('../shinobij.client/playwright.sector-life.config.ts',import.meta.url),'utf8');
+    assert(localFaunaConfig.includes('local-fauna.spec.ts'),'local lamp/shore fauna must run in the life shards');
+    assert(localFaunaConfig.includes('regional-training.spec.ts'),'native training and cached crew closure must run in the life shards');
+    assert(playwrightConfig.includes('**/regional-training.spec.ts'));
+    assert(localFaunaConfig.includes('regional-winter.spec.ts'),'the supplied winter scene and cached protected departure must run in the life shards');
+    assert(playwrightConfig.includes('**/regional-winter.spec.ts'));
+    assert(localFaunaConfig.includes('shrine-work.spec.ts'),'the real keeper sweep and cached night closure must run in the life shards');
+    assert(playwrightConfig.includes('**/shrine-work.spec.ts'));
+    assert(localFaunaConfig.includes('shrine-traffic.spec.ts'),'cached shrine departure and independent next-wave arrival must run in the life shards');
+    assert(playwrightConfig.includes('**/shrine-traffic.spec.ts'));
+    assert(localFaunaConfig.includes('midlands-field.spec.ts'),'the actual painted field, courier circuit and missing-floor fallback must run in the life shards');
+    assert(playwrightConfig.includes('**/midlands-field.spec.ts'));
+    assert(localFaunaConfig.includes('festival-work.spec.ts'),'the staffed counter, paired square steps and cached closure must run in the life shards');
+    assert(playwrightConfig.includes('**/festival-work.spec.ts'));
+    assert(localFaunaConfig.includes('road-visits.spec.ts'));
+    assert(playwrightConfig.includes('**/road-visits.spec.ts'));
+    assert(localFaunaConfig.includes('frontier-work.spec.ts'));
+    assert(playwrightConfig.includes('**/frontier-work.spec.ts'));
+    assert(flows.includes('output/living-world/local-fauna/browser/'));
+    assert(flows.includes('output/living-world/training/browser/'));
+    assert(flows.includes('output/living-world/winter/browser/'));
+    assert(flows.includes('output/living-world/leaf-work/browser/'));
+    assert(flows.includes('output/living-world/shrine-traffic/browser/'));
+    assert(flows.includes('output/living-world/field-work/browser/'));
+    assert(flows.includes('output/living-world/festival/browser/'));
+    assert(flows.includes('output/living-world/road-visits/browser/'));
+    assert(flows.includes('output/living-world/frontier/browser/'));
+    assert.match(flows,/--config playwright\.companion\.config\.ts --project=\$\{\{ matrix\.groundProject \}\} --forbid-only/);
+    assert(flows.includes('output/living-world/companion/browser/'));
 });
 
 test('artifact consumers verify immutable provenance and failure evidence stays reachable', () => {

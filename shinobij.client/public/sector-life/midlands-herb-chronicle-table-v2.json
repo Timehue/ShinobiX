@@ -1,0 +1,28 @@
+{
+  "sector": 42,
+  "artKey": 30,
+  "key": "midlands-herb-chronicle-table-v2",
+  "baseFile": "shinobij.client/public/sector-life/midlands-chronicle-table-v1.webp",
+  "baseSha256": "54c751121f321ff3553e16a5fc91e11ae10324f65f0a97a801ae5485947b48cb",
+  "source": "output/living-world/field-work/garden-provider-v1.png",
+  "sourceSha256": "3f37cfad0f45ecb59c81ef80377d99a2e3a1463acd56aa42fd8b848386b1e8fe",
+  "provider": "built-in image_gen",
+  "prompts": "output/living-world/field-work/garden-prompt-v1.json",
+  "areas": [
+    {
+      "left": 600,
+      "top": 700,
+      "width": 350,
+      "height": 250
+    }
+  ],
+  "feather": 8,
+  "width": 1024,
+  "height": 1024,
+  "changedOutside": 0,
+  "deliveredSha256": "814c3dd762c46800923bd8263c2fe9e2e078f663fc9b52125339751e9f4f539c",
+  "bytes": 274346,
+  "method": "Full-sector garden edit admitted only in the reviewed lower-right grass. Original tea/cards/mats/barrel, all roads, all rocks and the northern ore seam remain exact before delivery compression.",
+  "visualReview": "passed: both protected full floors, all26 final native desktop/phone captures and10 actual Chronicle playing views inspected. Suzu works127/115; handover89/90 keeps both Talk clicks and event marker independent; tool/near-owner captions, wet/cached exits and actual-floor fallback passed.",
+  "nativeReview": "shared/midlands-field-art-review.json"
+}

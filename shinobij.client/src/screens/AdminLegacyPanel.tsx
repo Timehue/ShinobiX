@@ -1,3 +1,4 @@
+import {legacyNoMargin,legacyPanelPadding,legacyTitleMargin,legacyLeftGap,legacyWideField,legacyMutedNote,legacyCompactNote} from '../lib/admin-legacy-styles';
 /*
  * Admin Legacy dashboard (docs/legacy-system-plan.md §16) — the operator's
  * console for the Legacy system: player inspection + eligibility, Sage
@@ -250,15 +251,15 @@ export function AdminLegacyPanel({ adminPw }: { adminPw: string }) {
 
     return (
         <div className="card" style={{ display: 'grid', gap: 14 }}>
-            <h3 style={{ margin: 0 }}>🌠 Legacy Operations</h3>
+            <h3 style={legacyNoMargin}>🌠 Legacy Operations</h3>
             {status && <p style={{ margin: 0, fontSize: '.78rem', color: status.startsWith('✗') ? '#f87171' : '#86efac' }}>{status}</p>}
 
             <AdminWorldCrisisControls adminPw={adminPw} />
             <AdminWorldCrisis80Controls adminPw={adminPw} />
 
             {/* Player inspector */}
-            <section className="card" style={{ padding: 12 }}>
-                <h4 style={{ margin: '0 0 8px' }}>Player Inspector</h4>
+            <section className="card" style={legacyPanelPadding}>
+                <h4 style={legacyTitleMargin}>Player Inspector</h4>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                     <input placeholder="player name" value={inspectName} onChange={(e) => setInspectName(e.target.value)} />
                     <button disabled={busy} onClick={() => void inspect()}>Inspect</button>
@@ -266,14 +267,14 @@ export function AdminLegacyPanel({ adminPw }: { adminPw: string }) {
                 </div>
                 {view && (
                     <div style={{ marginTop: 10, display: 'grid', gap: 8, fontSize: '.78rem' }}>
-                        <p style={{ margin: 0 }}>
+                        <p style={legacyNoMargin}>
                             <b>Sealed legacy:</b> {view.sealed?.legacyId ?? '— none —'}
                             {view.legacy && <> · stage {view.legacy.stage} · titles: {view.legacy.titles.join(', ') || '—'}</>}
                             {view.offer && <> · <b>offer:</b> {view.offer.status} ({view.offer.offers.map((o) => o.legacyId).join(', ')})</>}
                             {view.trial && <> · <b>trial:</b> {view.trial.kind} for {view.trial.legacyId}</>}
                         </p>
                         {view.customTitle && (
-                            <p style={{ margin: 0 }}>
+                            <p style={legacyNoMargin}>
                                 <b>Worn title:</b> «{view.customTitle}»
                                 <button
                                     disabled={busy}
@@ -318,28 +319,28 @@ export function AdminLegacyPanel({ adminPw }: { adminPw: string }) {
             </section>
 
             {/* Suspects */}
-            <section className="card" style={{ padding: 12 }}>
-                <h4 style={{ margin: '0 0 8px' }}>Suspicion Queue <button style={{ marginLeft: 8 }} onClick={() => void loadSuspects()}>Refresh</button></h4>
-                <input placeholder="clear-suspicion reason (required, audited)" value={suspectReason} onChange={(e) => setSuspectReason(e.target.value)} style={{ width: '100%', marginBottom: 6 }} />
-                {suspects.length === 0 ? <p style={{ margin: 0, fontSize: '.78rem', color: '#9aa3b2' }}>No flagged players.</p>
+            <section className="card" style={legacyPanelPadding}>
+                <h4 style={legacyTitleMargin}>Suspicion Queue <button style={legacyLeftGap} onClick={() => void loadSuspects()}>Refresh</button></h4>
+                <input placeholder="clear-suspicion reason (required, audited)" value={suspectReason} onChange={(e) => setSuspectReason(e.target.value)} style={legacyWideField} />
+                {suspects.length === 0 ? <p style={legacyMutedNote}>No flagged players.</p>
                     : suspects.map((s) => (
-                        <p key={s.player} style={{ margin: '2px 0', fontSize: '.78rem' }}>
+                        <p key={s.player} style={legacyCompactNote}>
                             ⚠ <b>{s.player}</b> — {s.flags} flag{s.flags === 1 ? '' : 's'} · {new Date(s.ts).toLocaleString()}
-                            <button style={{ marginLeft: 8 }} onClick={() => { setInspectName(s.player); void inspect(); }}>Inspect</button>
+                            <button style={legacyLeftGap} onClick={() => { setInspectName(s.player); void inspect(); }}>Inspect</button>
                             <button style={{ marginLeft: 4 }} onClick={() => void clearSuspicion(s.player)}>Clear Flags</button>
                         </p>
                     ))}
             </section>
 
             {/* Custom titles */}
-            <section className="card" style={{ padding: 12 }}>
-                <h4 style={{ margin: '0 0 8px' }}>Custom Titles <button style={{ marginLeft: 8 }} onClick={() => void loadTitleLog()}>Refresh</button></h4>
-                <input placeholder="revocation reason (required, audited)" value={revokeReason} onChange={(e) => setRevokeReason(e.target.value)} style={{ width: '100%', marginBottom: 6 }} />
-                {titleLog.length === 0 ? <p style={{ margin: 0, fontSize: '.78rem', color: '#9aa3b2' }}>No recent custom titles.</p>
+            <section className="card" style={legacyPanelPadding}>
+                <h4 style={legacyTitleMargin}>Custom Titles <button style={legacyLeftGap} onClick={() => void loadTitleLog()}>Refresh</button></h4>
+                <input placeholder="revocation reason (required, audited)" value={revokeReason} onChange={(e) => setRevokeReason(e.target.value)} style={legacyWideField} />
+                {titleLog.length === 0 ? <p style={legacyMutedNote}>No recent custom titles.</p>
                     : titleLog.slice(0, 30).map((t, i) => (
-                        <p key={i} style={{ margin: '2px 0', fontSize: '.78rem' }}>
+                        <p key={i} style={legacyCompactNote}>
                             <b>{t.player}</b>: “{t.title}” · {new Date(t.ts).toLocaleDateString()}
-                            <button className="danger-button" style={{ marginLeft: 8 }} onClick={() => void revokeTitle(t.player)}>Revoke + Refund</button>
+                            <button className="danger-button" style={legacyLeftGap} onClick={() => void revokeTitle(t.player)}>Revoke + Refund</button>
                         </p>
                     ))}
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8, borderTop: '1px solid rgba(148,163,184,.15)', paddingTop: 8 }}>
@@ -350,20 +351,20 @@ export function AdminLegacyPanel({ adminPw }: { adminPw: string }) {
             </section>
 
             {/* Sage funnel (launch-week observability) */}
-            <section className="card" style={{ padding: 12 }}>
-                <h4 style={{ margin: '0 0 8px' }}>Sage Funnel <button style={{ marginLeft: 8 }} onClick={() => void loadMetrics()}>Refresh</button></h4>
+            <section className="card" style={legacyPanelPadding}>
+                <h4 style={legacyTitleMargin}>Sage Funnel <button style={legacyLeftGap} onClick={() => void loadMetrics()}>Refresh</button></h4>
                 {metrics.length === 0
-                    ? <p style={{ margin: 0, fontSize: '.78rem', color: '#9aa3b2' }}>Daily offers / accepts / declines — press Refresh after launch to watch the Sage work.</p>
+                    ? <p style={legacyMutedNote}>Daily offers / accepts / declines — press Refresh after launch to watch the Sage work.</p>
                     : metrics.map((m) => (
-                        <p key={m.date} style={{ margin: '2px 0', fontSize: '.78rem' }}>
+                        <p key={m.date} style={legacyCompactNote}>
                             <b>{m.date}</b>: {m.offers} offers · {m.accepts} accepted · {m.declines} declined
                         </p>
                     ))}
             </section>
 
             {/* Manual announcement */}
-            <section className="card" style={{ padding: 12 }}>
-                <h4 style={{ margin: '0 0 8px' }}>Post Announcement</h4>
+            <section className="card" style={legacyPanelPadding}>
+                <h4 style={legacyTitleMargin}>Post Announcement</h4>
                 <div style={{ display: 'grid', gap: 6 }}>
                     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                         <select value={annImportance} onChange={(e) => setAnnImportance(e.target.value)}>
@@ -377,11 +378,11 @@ export function AdminLegacyPanel({ adminPw }: { adminPw: string }) {
             </section>
 
             {/* Eras */}
-            <section className="card" style={{ padding: 12 }}>
-                <h4 style={{ margin: '0 0 8px' }}>World Eras <button style={{ marginLeft: 8 }} onClick={() => void loadEras()}>Refresh</button></h4>
-                <input placeholder="era action reason (required for force-unlock)" value={eraReason} onChange={(e) => setEraReason(e.target.value)} style={{ width: '100%', marginBottom: 6 }} />
+            <section className="card" style={legacyPanelPadding}>
+                <h4 style={legacyTitleMargin}>World Eras <button style={legacyLeftGap} onClick={() => void loadEras()}>Refresh</button></h4>
+                <input placeholder="era action reason (required for force-unlock)" value={eraReason} onChange={(e) => setEraReason(e.target.value)} style={legacyWideField} />
                 {eras.length === 0 && (
-                    <p style={{ margin: 0, fontSize: '.78rem', color: '#9aa3b2' }}>Press <b>Refresh</b> to load the five world eras and their live milestone counters.</p>
+                    <p style={legacyMutedNote}>Press <b>Refresh</b> to load the five world eras and their live milestone counters.</p>
                 )}
                 {eras.map((e) => (
                     <div key={e.id} style={{ borderTop: '1px solid rgba(148,163,184,.15)', padding: '8px 0', fontSize: '.78rem' }}>
@@ -415,10 +416,10 @@ export function AdminLegacyPanel({ adminPw }: { adminPw: string }) {
             </section>
 
             {/* Overlay */}
-            <section className="card" style={{ padding: 12 }}>
-                <h4 style={{ margin: '0 0 8px' }}>
+            <section className="card" style={legacyPanelPadding}>
+                <h4 style={legacyTitleMargin}>
                     Tuning Overlay (shared:legacy-defs)
-                    <button style={{ marginLeft: 8 }} onClick={() => void loadOverlay()}>Load</button>
+                    <button style={legacyLeftGap} onClick={() => void loadOverlay()}>Load</button>
                     <button style={{ marginLeft: 4 }} onClick={() => void saveOverlay()}>Save</button>
                 </h4>
                 <p style={{ margin: '0 0 6px', fontSize: '.72rem', color: '#9aa3b2' }}>
@@ -428,12 +429,12 @@ export function AdminLegacyPanel({ adminPw }: { adminPw: string }) {
             </section>
 
             {/* Hall corrections */}
-            <section className="card" style={{ padding: 12 }}>
-                <h4 style={{ margin: '0 0 8px' }}>Hall of Legends Corrections <button style={{ marginLeft: 8 }} onClick={() => void loadHall()}>Refresh</button></h4>
-                <input placeholder="correction note / reason (required, shown publicly on revoked entries)" value={hallReason} onChange={(e) => setHallReason(e.target.value)} style={{ width: '100%', marginBottom: 6 }} />
-                {hallEntries.length === 0 ? <p style={{ margin: 0, fontSize: '.78rem', color: '#9aa3b2' }}>No hall entries yet.</p>
+            <section className="card" style={legacyPanelPadding}>
+                <h4 style={legacyTitleMargin}>Hall of Legends Corrections <button style={legacyLeftGap} onClick={() => void loadHall()}>Refresh</button></h4>
+                <input placeholder="correction note / reason (required, shown publicly on revoked entries)" value={hallReason} onChange={(e) => setHallReason(e.target.value)} style={legacyWideField} />
+                {hallEntries.length === 0 ? <p style={legacyMutedNote}>No hall entries yet.</p>
                     : hallEntries.slice(0, 30).map((h) => (
-                        <p key={h.id} style={{ margin: '2px 0', fontSize: '.78rem' }}>
+                        <p key={h.id} style={legacyCompactNote}>
                             #{h.id} <b>{h.title}</b>{h.player ? ` — ${h.player}` : ''} · {h.status} · {new Date(h.ts).toLocaleDateString()}
                             {['revoked', 'hidden', 'active'].filter((s) => s !== h.status).map((s) => (
                                 <button key={s} style={{ marginLeft: 6 }} className={s === 'active' ? '' : 'danger-button'} onClick={() => void correctHall(h.id, s)}>{s}</button>

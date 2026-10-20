@@ -136,7 +136,7 @@ export function withPatrolStance(
     return wanderers.map((w) => w.verb !== "patrol" ? w : {
         ...w,
         name: patrolNameFor(ownerVillage, stance, w.name),
-        greeting: patrolGreeting(stance, wandererHash32(w.id)),
+        greeting: patrolGreeting(stance, wandererHash32(w.id), ownerVillage, playerVillage),
         factionVillage: ownerVillage,
         patrolStance: stance,
         // At war, the holder's patrol hunts you down like a bandit.

@@ -130,6 +130,8 @@ import "../styles/pet-tactics.css";
 
 // Cinematic-duel hero banner matched to the selected pet's element. Falls back
 // to the generic blue-vs-red showdown for None / unknown elements.
+const nativePresentationStyle0 = { padding: "2rem", textAlign: "center", color: "var(--text-dim)" } satisfies import('react').CSSProperties;
+const nativePresentationStyle1 = { display: "grid", gap: "0.5rem", alignContent: "start" } satisfies import('react').CSSProperties;
 const DUEL_HERO_BY_ELEMENT: Record<string, string> = {
     Fire: duelFire, Water: duelWater, Wind: duelWind, Lightning: duelLightning, Earth: duelEarth,
 };
@@ -1873,7 +1875,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
 
 
             {arenaView === "gauntlet" && (
-                <Suspense fallback={<div className="summary-box" style={{ padding: "2rem", textAlign: "center", color: "var(--text-dim)" }}>Loading the Gauntlet…</div>}>
+                <Suspense fallback={<div className="summary-box" style={nativePresentationStyle0}>Loading the Gauntlet…</div>}>
                     <PetGauntlet sharedImages={sharedImages} character={character} updateCharacter={updateCharacter} />
                 </Suspense>
             )}
@@ -2013,7 +2015,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                 coliseum renderer and the continuous duel player are both gone. */}
             {battleReady && selectedPet && battleOpponent && watchedDuel && (
                 <div ref={battlefieldRef} className="pet-arena-stage-wrap" style={{ scrollMarginTop: "12px" }}>
-                    <Suspense fallback={<div className="summary-box" style={{ padding: "2rem", textAlign: "center", color: "var(--text-dim)" }}>Loading the arena…</div>}>
+                    <Suspense fallback={<div className="summary-box" style={nativePresentationStyle0}>Loading the arena…</div>}>
                         <PetShowdownReplay
                             key={watchedDuel.id}
                             script={watchedDuel.script}
@@ -2203,7 +2205,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                                 </div>
 
                                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "0.7rem" }}>
-                                    <div className="summary-box" style={{ display: "grid", gap: "0.5rem", alignContent: "start" }}>
+                                    <div className="summary-box" style={nativePresentationStyle1}>
                                         <strong><GameArtIcon kind="roleAssassin" size={18} /> Fight AI</strong>
                                         <p className="hint" style={{ margin: 0 }}>The rival leads with its most durable pets. Both bands are sealed before the first clash.</p>
                                         <button
@@ -2222,7 +2224,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                                         </button>
                                     </div>
 
-                                    <div className="summary-box" style={{ display: "grid", gap: "0.5rem", alignContent: "start" }}>
+                                    <div className="summary-box" style={nativePresentationStyle1}>
                                         <strong><GameArtIcon kind="attack" size={18} /> Challenge a Player</strong>
                                         <input
                                             aria-label="Player name to challenge"
@@ -2238,7 +2240,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                                         {arenaChallengeMsg && <p className="hint" style={{ margin: 0, color: arenaChallengeMsg.startsWith("Success:") ? "var(--green-400)" : "var(--red-400)" }}>{arenaChallengeMsg.replace(/^(Success|Error):\s*/, "")}</p>}
                                     </div>
 
-                                    <div className="summary-box" style={{ display: "grid", gap: "0.5rem", alignContent: "start" }}>
+                                    <div className="summary-box" style={nativePresentationStyle1}>
                                         <strong><GameArtIcon kind="petTamer" size={18} /> Co-op with Friends</strong>
                                         <button style={{ background: "#6d28d9" }} onClick={() => setShowCoop(true)}>Open co-op lobby</button>
                                     </div>
@@ -2252,7 +2254,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
             {/* Full-screen game-mode overlays — launched from the Hollow Warfront
                 view; rendered here so they sit above whichever view is active. */}
             {arenaMatch && (
-                <Suspense fallback={<div className="summary-box" style={{ padding: "2rem", textAlign: "center", color: "var(--text-dim)" }}>Loading the Warfront…</div>}>
+                <Suspense fallback={<div className="summary-box" style={nativePresentationStyle0}>Loading the Warfront…</div>}>
                     <PetWarfrontRite
                         blue={arenaMatch.blue} red={arenaMatch.red} seed={arenaMatch.seed}
                         sharedImages={sharedImages}
@@ -2285,7 +2287,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                 </Suspense>
             )}
             {showCoop && (
-                <Suspense fallback={<div className="summary-box" style={{ padding: "2rem", textAlign: "center", color: "var(--text-dim)" }}>Loading co-op…</div>}>
+                <Suspense fallback={<div className="summary-box" style={nativePresentationStyle0}>Loading co-op…</div>}>
                     <ArenaCoopLobby character={character} sharedImages={sharedImages} onExit={() => setShowCoop(false)} />
                 </Suspense>
             )}
