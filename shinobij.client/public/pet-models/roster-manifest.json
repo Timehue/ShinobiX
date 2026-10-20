@@ -2775,11 +2775,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "33AAB8BAFE18F533FB36C0209590E831A2FF2951CAB3B823757FCC3EB75BF06C",
+      "sha256": "51165945D7192F3654F8E7B1A5C3819233B024DEE0D949DF5C63B3E37991C769",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 1039244,
+        "bytes": 634176,
         "triangles": 40000,
         "vertices": 26500,
         "materials": 1,
@@ -2822,6 +2822,65 @@
         "changedVertices": 21751,
         "iterations": 48,
         "localizedSeamVertices": 7114
+      },
+      "reviewedSkullRepair": {
+        "revision": "20261015-independent-complete-face-v2",
+        "id": "standard-17",
+        "sourceSha256": "33aab8bafe18f533fb36c0209590e831a2ff2951cab3b823757fcc3eb75bf06c",
+        "region": {
+          "y": [
+            0.2,
+            0.4
+          ],
+          "z": [
+            -0.26,
+            -0.08
+          ],
+          "x": [
+            0.32,
+            0.55
+          ],
+          "status": "repair",
+          "finding": "All raw source/battle clips inspected. Beak silhouette is mostly coherent, but independent lower-beak geometry finds small residual neck/chest influence in the source asset. Correct that residual binding and verify without claiming a large visible baseline collapse.",
+          "revision": "20261015-independent-complete-face-v2",
+          "supersedesSourceSha256": "33aab8bafe18f533fb36c0209590e831a2ff2951cab3b823757fcc3eb75bf06c",
+          "union": [
+            {
+              "y": [
+                0.26,
+                0.3
+              ],
+              "z": [
+                0.45,
+                0.5
+              ],
+              "x": [
+                0.35,
+                0.5
+              ]
+            }
+          ]
+        },
+        "envelopeMatrix": [
+          0.9999997584082239,
+          0,
+          0,
+          0,
+          0,
+          0.9999999119410802,
+          4.56655779579318e-8,
+          0,
+          0,
+          1.954066727871684e-8,
+          0.9999997400337239,
+          0,
+          2.1392487998790968e-7,
+          8.469072354522211e-8,
+          1.560669389555347e-8,
+          1
+        ],
+        "changedVertices": 6032,
+        "rigidVertices": 2768
       }
     },
     "standard-18": {
@@ -10820,7 +10879,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "641B2C364EA101F17BFB3F24F3D06FD6A8E7BEB9A2194DE97248EA38459A4AD9",
+      "sha256": "F50D9633162CA2E010369E6AB0151C0C27601B4DBF891CC187F688E28FA1D86D",
       "visualReview": {
         "passed": true,
         "reason": "Shrine Salamander is a complete glossy ember-orange elemental lizard with exactly four webbed limbs, large gold eyes, dark wraps and one continuous tail ending in an attached flame."
@@ -10870,7 +10929,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 576084,
+        "bytes": 576756,
         "triangles": 40000,
         "vertices": 25252,
         "skins": 1,
@@ -10907,9 +10966,9 @@
         "localizedSeamVertices": 60
       },
       "reviewedSkullRepair": {
-        "revision": "20261014-reviewed-skull-v1",
+        "revision": "20261015-independent-complete-face-v2",
         "id": "rare-22",
-        "sourceSha256": "e0f5145842f9e6a1528639b5143843fa88341cabc95505f0133bc067a3bccbad",
+        "sourceSha256": "641b2c364ea101f17bfb3f24f3d06fd6a8e7beb9a2194de97248ea38459a4ad9",
         "region": {
           "y": [
             -0.25,
@@ -10920,29 +10979,72 @@
             0.42
           ],
           "status": "repair",
-          "finding": "All 13 original body and complete head clips inspected front/side. Gecko cheeks and snout distort during strike/defeat; expanded capture includes the complete jaw. Forward mask excludes the rear flame prop. Candidate review and complete second pass pending.",
-          "cameraPadding": 1.25
+          "finding": "Actually inspected all 24 enlarged source/battle head and whole-body front/side slices, all 13 clips at six phases. Shrine Salamander eyes, muzzle and side cheek look stable at these sampled poses; no dramatic facial distortion observed. Numerical independent lower-face probe identifies one source chin vertex with non-head influence and 0.00889 drift; battle patch passes. A small front-chin binding correction will be compared before acceptance. Scarf folds, head ties, four limbs, digits, torso, tail and flame stay coherent.",
+          "cameraPadding": 1.25,
+          "revision": "20261015-independent-complete-face-v2",
+          "supersedesSourceSha256": "641b2c364ea101f17bfb3f24f3d06fd6a8e7beb9a2194de97248ea38459a4ad9",
+          "repairRegion": {
+            "y": [
+              -0.14,
+              -0.07
+            ],
+            "z": [
+              0.83,
+              0.93
+            ],
+            "x": [
+              0.18,
+              0.26
+            ]
+          },
+          "union": [
+            {
+              "y": [
+                -0.14,
+                -0.07
+              ],
+              "z": [
+                0.83,
+                0.93
+              ],
+              "x": [
+                0.18,
+                0.26
+              ]
+            }
+          ]
         },
         "envelopeMatrix": [
-          0.9999999415733918,
+          0.9999999541877033,
           0,
           0,
           0,
           0,
-          0.9999999599326184,
-          1.9464013845116312e-8,
+          0.9999999725469302,
+          1.9464014067160917e-8,
           0,
           0,
-          -2.0050209853517131e-7,
-          0.9999998392405471,
+          -2.0050210108868427e-7,
+          0.9999998518548573,
           0,
           -5.551115123125783e-17,
-          2.164679798744018e-7,
-          1.3511026808465942e-7,
+          2.1646798253893706e-7,
+          1.4772458178935466e-7,
           1
         ],
-        "changedVertices": 5481,
-        "rigidVertices": 2427
+        "changedVertices": 466,
+        "rigidVertices": 163,
+        "supersededRepair": {
+          "revision": "20261014-reviewed-skull-v1",
+          "sourceSha256": "e0f5145842f9e6a1528639b5143843fa88341cabc95505f0133bc067a3bccbad"
+        }
+      },
+      "visibleGroundCalibration": {
+        "revision": "20261020-visible-ground-v1",
+        "sourceSha256": "f50d9633162ca2e010369e6ab0151c0c27601b4dbf891cc187f688e28fa1d86d",
+        "battleSha256": "2c016dcee0d876195d77f3a30720c8d9751abac98347aaa8c6dbb154198b0d27",
+        "review": "docs/audits/pet-shrine-salamander-private-review-2026-10-20.json",
+        "independentReview": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-22/private-final-independent/independent-final-visual-review.json"
       }
     },
     "rare-23": {
@@ -11360,7 +11462,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "DF79D8D98FD47D32038B4F00B8860D4C286BDCF95617B64D4D0B9B5CA3815B4F",
+      "sha256": "5D018D1191F4ABBC79147E6E9CB3C4555469946229CBF009291E6C1E60ED2466",
       "visualReview": {
         "passed": true,
         "reason": "Ember Ocelot is a polished orange anime wildcat with dark rosettes, navy ninja wraps, four feline legs and one coherent ringed tail."
@@ -11410,7 +11512,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 551992,
+        "bytes": 551216,
         "triangles": 40000,
         "vertices": 25339,
         "skins": 1,
@@ -11447,9 +11549,9 @@
         "localizedSeamVertices": 235
       },
       "reviewedSkullRepair": {
-        "revision": "20261014-reviewed-skull-v1",
+        "revision": "20261015-independent-complete-face-v2",
         "id": "rare-26",
-        "sourceSha256": "047f2a4dfeb0a95ff2b58431e4f0c72d3d4bb7a0978e84fc13fba631c51c49a6",
+        "sourceSha256": "df79d8d98fd47d32038b4f00b8860d4c286bdcf95617b64d4d0b9b5ca3815b4f",
         "region": {
           "y": [
             0.15,
@@ -11460,28 +11562,71 @@
             -0.05
           ],
           "status": "repair",
-          "finding": "All 13 original animations visually inspected in complete front and side body and head sheets. Ocelot lower muzzle changes shape during strike and defeat."
+          "finding": "Actually inspected all 24 enlarged source/battle face and complete-body front/side sheets: all 13 clips at six phases. Ember Ocelot eyes and headband remain stable while the white chin/lower lip is subtly drawn toward the scarf during idle_2, jump, hit and death. Both assets have non-head influences in independent muzzle/lower-face/side-jaw patches. Whiskers, four legs, paws, torso and tail remain coherent; scarf and head ties must retain their motion. Face candidate and second visual pass required.",
+          "revision": "20261015-independent-complete-face-v2",
+          "supersedesSourceSha256": "df79d8d98fd47d32038b4f00b8860d4c286bdcf95617b64d4d0b9b5ca3815b4f",
+          "repairRegion": {
+            "y": [
+              0.1,
+              0.16
+            ],
+            "z": [
+              0.65,
+              0.7
+            ],
+            "x": [
+              0.45,
+              0.55
+            ]
+          },
+          "union": [
+            {
+              "y": [
+                0.1,
+                0.16
+              ],
+              "z": [
+                0.65,
+                0.7
+              ],
+              "x": [
+                0.45,
+                0.55
+              ]
+            }
+          ]
         },
         "envelopeMatrix": [
-          1.0000000156759459,
+          1.000000017112202,
           0,
           0,
           0,
           0,
-          0.9999999830203627,
+          0.9999999844566191,
           5.5694829304009374e-9,
           0,
           0,
-          -1.8649597521847028e-7,
-          0.9999998624026865,
+          -1.8649597549602603e-7,
+          0.9999998638389426,
           0,
           0,
-          1.3129837322933824e-7,
-          1.3280190491737898e-7,
+          1.2933827819860966e-7,
+          1.3423816136448607e-7,
           1
         ],
-        "changedVertices": 11019,
-        "rigidVertices": 5962
+        "changedVertices": 6763,
+        "rigidVertices": 4968,
+        "supersededRepair": {
+          "revision": "20261014-reviewed-skull-v1",
+          "sourceSha256": "047f2a4dfeb0a95ff2b58431e4f0c72d3d4bb7a0978e84fc13fba631c51c49a6"
+        }
+      },
+      "visibleGroundCalibration": {
+        "revision": "20261020-visible-ground-v1",
+        "sourceSha256": "5d018d1191f4abbc79147e6e9cb3c4555469946229cbf009291e6c1e60ed2466",
+        "battleSha256": "b12986b479f2dabe03452925abb12184c0481c128a0b3ed1e97af49b059efdb1",
+        "review": "docs/audits/pet-ember-ocelot-private-review-2026-10-20.json",
+        "independentReview": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-26/private-final-independent/independent-final-visual-review.json"
       }
     },
     "rare-27": {

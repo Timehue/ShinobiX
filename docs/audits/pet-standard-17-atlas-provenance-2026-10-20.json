@@ -1,0 +1,31 @@
+{
+  "id": "standard-17",
+  "at": "2026-10-20T06:04:44.405Z",
+  "finding": "Preexisting atlas manifest referenced an older battle LOD. Source and battle geometry were unchanged; regenerated only the selected atlas from the reviewed current battle model.",
+  "previousBattleSha256InAtlas": "d48f982377b2507bcd8f5d74c36524553ce0fcd490c92c06612421f4aee1c74b",
+  "currentReviewedBattleSha256": "a058ddb1e4d0cf81416cbcdb77b35158ee65a601c8b5227b8ea9bea76a8b7b8c",
+  "oldAtlasSha256": "44107b02214104d921194a02820d1261374a8c5e7af3f823784733c0a149b4da",
+  "newAtlasSha256": "b83236e03bf7c7be6836ec8c2ade2906f34e5aee1fdc452b4de6521ff7ce4999",
+  "independentNewAtlasFramesActuallyInspected": 16,
+  "independentFollowup": "docs/audits/pet-parallel-review-a-2026-10-20/standard-17-atlas-followup.json",
+  "localAtlasApproval": true,
+  "liveVerified": false,
+  "evidence": [
+    {
+      "path": "docs/screenshots/pet-parallel-integration-2026-10-20/standard-17/previous-atlas.webp",
+      "sha256": "44107b02214104d921194a02820d1261374a8c5e7af3f823784733c0a149b4da"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-integration-2026-10-20/standard-17/previous-atlas-manifest.json",
+      "sha256": "19fdb471187d8552b4a6504dc7a82dfa2b2e6ceec07b4ab59764e92665b244af"
+    },
+    {
+      "path": "docs/audits/pet-parallel-review-a-2026-10-20/standard-17-atlas-followup.json",
+      "sha256": "c0b75cbc987866ddcc0167c3bf33105a1440ba50cb264c6b8d8ec3acd4bd0208"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/standard-17/standard-17-regenerated-atlas.webp",
+      "sha256": "b83236e03bf7c7be6836ec8c2ade2906f34e5aee1fdc452b4de6521ff7ce4999"
+    }
+  ]
+}
