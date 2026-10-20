@@ -37,7 +37,7 @@ for (const template of Object.values(PET_CATALOG) as Template[]) for (const leve
     const allocation: PetGrowthAllocation = { vitality: each, power: each, guard: each, agility: each };
     const attributes = ['vitality', 'power', 'guard', 'agility'] as const;
     for (let i = 0; i < earned % 4; i++) allocation[attributes[i]]++;
-    const raw = { ...template, templateId: template.id, level, trait: undefined,
+    const raw = { ...template, templateId: template.id, level, trait: undefined, growthVersion: 2,
         growthBaseStats: { hp: template.hp, attack: template.attack, defense: template.defense, speed: template.speed },
         growthAllocation: allocation } as unknown as Pet;
     for (const scenario of ['tackle', 'native-basic', 'advanced'] as const) {

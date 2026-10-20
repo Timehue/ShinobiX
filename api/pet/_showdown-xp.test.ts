@@ -59,7 +59,7 @@ describe('Colosseum participation XP', () => {
         const next = (result.character.pets as Record<string, unknown>[])[0];
         assert.equal(next.level, 2);
         assert.equal(next.xp, 10);
-        assert.equal(next.growthPoints, 1);
+        assert.equal(next.growthPoints, 3);
         for (const field of ['id', 'nickname', 'origin', 'evolutionStage', 'loadout', 'rankedBuild', 'growthAllocation']) {
             assert.deepEqual(next[field], source[field as keyof typeof source]);
         }
