@@ -22,6 +22,8 @@ export function Fixture() {
     const [encounter, setEncounter] = useState(false);
     const [finished, setFinished] = useState(0);
     const [otherConfirmed, setOtherConfirmed] = useState(false);
+    const [introPage, setIntroPage] = useState<number | null>(null);
+    const [introUpdates, setIntroUpdates] = useState(0);
     const [character, setCharacter] = useState(initial);
     const current = useRef({ screen, account, combat });
     useLayoutEffect(() => { current.current = { screen, account, combat }; }, [screen, account, combat]);
@@ -34,7 +36,7 @@ export function Fixture() {
             commitCharacter: next => { setCharacter(next); return true; }, setCharacter,
             setScreen, setCurrentBiome: () => undefined, setCurrentWeather: () => undefined,
             setHollowGateRun: () => undefined, setHollowGateLog: () => undefined, setHollowGateEvent: () => undefined,
-            setHollowGateHiddenChamber: () => undefined, setHollowGateIntroPage: () => undefined, pushHollowGateLog: () => undefined,
+            setHollowGateHiddenChamber: () => undefined, setHollowGateIntroPage: value => { setIntroPage(value); setIntroUpdates(n => n + 1); }, pushHollowGateLog: () => undefined,
         })).finally(() => { setFinished(n => n + 1); });
     };
     Object.assign(window, { queueOtherPrompt: () => { void gameConfirm('An unrelated confirmation', { title: 'Other action' }).then(setOtherConfirmed); }, interruptPreview: (kind: string) => {
@@ -49,6 +51,8 @@ export function Fixture() {
         <button onClick={() => { void gameConfirm('An unrelated confirmation', { title: 'Other action' }); }}>Other prompt</button>
         <output data-testid="entry-finished">{finished}</output>
         <output data-testid="entry-count">{character.dailyHollowGateRuns ?? 0}</output>
+        <output data-testid="entry-intro">{String(introPage)}</output>
+        <output data-testid="entry-intro-updates">{introUpdates}</output>
         <output data-testid="entry-token">{character.hollowGateRun?.runToken ?? character.lastHollowGateStart?.token ?? 'none'}</output>
         <output data-testid="entry-screen">{screen}</output>
         <output data-testid="other-confirmed">{String(otherConfirmed)}</output>

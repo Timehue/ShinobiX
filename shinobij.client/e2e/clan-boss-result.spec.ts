@@ -48,6 +48,8 @@ for (const outcome of ['cap', 'victory', 'wipe'] as const) test(`Clan Boss ${out
     await expect(result).not.toContainText('Battle Towers');
     if (outcome === 'cap') {
         await expect(result).toContainText('Round limit reached; boss still standing');
+        await expect(result.locator('.tower-result-debrief')).toContainText('20 / 20');
+        await expect(result.locator('.tower-result-debrief')).not.toContainText('21 / 20');
         await expect(result).not.toContainText('Assault victory');
         await page.screenshot({ path: info.outputPath('clan-golem-cap-result.png'), fullPage: true });
     }

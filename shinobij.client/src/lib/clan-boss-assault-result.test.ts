@@ -3,6 +3,7 @@ import test from 'node:test';
 import { clanBossAssaultResult, clanBossSettlementError } from './clan-boss-assault-result';
 
 const assault = () => ({
+    status: 'done',
     runId: 'cboss-golem-live-regression',
     winner: 'enemy',
     round: 21,
@@ -21,6 +22,7 @@ test('a surviving Golem timeout names the assault limit without claiming victory
     assert.deepEqual(result, {
         chapter: 'Clan Boss', title: 'Assault limit reached', encounter: 'Ancient Stone Golem',
         objective: 'Round limit reached; boss still standing', returnLabel: 'Return to Clan Hall',
+        roundsLabel: '20 / 20',
     });
     assert.doesNotMatch(JSON.stringify(result), /9004|Tower|victory|defeated/);
     assert.deepEqual(session, before, 'presentation must leave the authoritative outcome and cap untouched');
@@ -32,6 +34,17 @@ test('an assault victory remains distinct from defeating the entire shared clan 
     assert.equal(result.title, 'Assault victory');
     assert.equal(result.objective, 'Assault objective complete');
     assert.doesNotMatch(result.title, /Clan boss defeated/i);
+});
+
+test('only terminal clan results clamp the engine next-round sentinel to the completed round limit', () => {
+    const session = assault(), before = structuredClone(session);
+    assert.equal(presentation(session)!.roundsLabel, '20 / 20');
+    assert.deepEqual(session, before);
+    session.round = 10;
+    assert.equal(presentation(session)!.roundsLabel, '10 / 20');
+    session.status = 'active'; session.round = 21;
+    assert.equal(presentation(session)!.roundsLabel, undefined);
+    assert.equal(clanBossAssaultResult(session, 'tower'), null);
 });
 
 test('a squad wipe is defeat even if it happens on the last round', () => {

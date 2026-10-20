@@ -75,7 +75,9 @@ describe("Tower completed-run recovery", () => {
     });
     it("offers recovery-preserving exits during pending actions, settlement, and recovery failures", () => {
         assert.match(fightSource, /className="tower-fight-leave"\s+disabled=\{\(isTeamPvp \|\| isHunt \|\| isWorldBoss\) && busy\}/);
-        assert.equal(fightSource.match(/onLeave=\{leaveUnsettled\}/g)?.length, 2, "both result presentations need the safe escape");
+        assert.match(fightSource, /const settlementNotice = <SettlementStatusNotice[^\n]*onLeave=\{leaveUnsettled\}/);
+        assert.equal(fightSource.match(/\{settlementNotice\}/g)?.length, 2, "both result presentations reuse the same safe escape");
+        assert.equal(fightSource.match(/\{completionActions\(/g)?.length, 2, "both frames reuse the same guarded exit controls");
         assert.match(fightSource, /const leaveUnsettled = onLeaveActive \? async \(\) =>/);
         assert.match(fightSource, /withTowerRequestDeadline\(\(\) => settleFn\(runId, me\)\)/);
         assert.match(hostSource, /clearFightKey\(\);\s*writeRecoveryKey\(view\.runId\);\s*onExit\(\);\s*\}\}>Leave and recover later/);

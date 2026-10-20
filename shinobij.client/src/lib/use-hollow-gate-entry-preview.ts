@@ -17,21 +17,14 @@ export function useHollowGateEntryPreview(screen: Screen, account: string | unde
         if (active) cancel();
     }, [cancel]);
 
-    const begin = () => {
-        if (screen !== 'worldMap' || !account || combatActive || isCombatActive?.() || encounterActive.current || request.current) return null;
+    const run = async (operation: (signal: AbortSignal) => Promise<void>) => {
+        if (screen !== 'worldMap' || !account || combatActive || isCombatActive?.() || encounterActive.current || request.current) return;
         const controller = new AbortController();
         request.current = controller;
-        return controller;
-    };
-    const finish = (controller: AbortController) => {
-        if (request.current === controller) request.current = null;
-    };
-    const run = async (operation: (signal: AbortSignal) => Promise<void>) => {
-        const controller = begin();
-        if (!controller) return;
         void loadHollowGateShrineView().catch(() => undefined);
         warmHollowGateGenerator();
-        try { await operation(controller.signal); } finally { finish(controller); }
+        try { await operation(controller.signal); }
+        finally { if (request.current === controller) request.current = null; }
     };
-    return { begin, finish, run, onEncounterActiveChange };
+    return { run, onEncounterActiveChange };
 }

@@ -49,8 +49,6 @@ export async function recoverHollowGateRunOnBoot(params: HollowGateRecoveryParam
 
 type HollowGateEntryParams = {
     isCurrent?: () => boolean;
-    /** Account ownership survives a cancelled preview so a paid start can be recovered. */
-    isAccountCurrent?: () => boolean;
     canEnter?: () => boolean;
     signal?: AbortSignal;
     currentRunToken: () => string | undefined;
@@ -78,7 +76,7 @@ export async function enterHollowGateShrineFlow(params: HollowGateEntryParams) {
     } = params;
     const interrupted = () => params.isCurrent?.() === false || params.canEnter?.() === false || params.signal?.aborted === true;
     const preserveStartedRun = (start: Awaited<ReturnType<typeof startHollowGateServerRun>>) => {
-        if (start?.character && (params.isAccountCurrent?.() ?? params.isCurrent?.() ?? true)) {
+        if (start?.character && params.isCurrent?.() !== false) {
             params.commitCharacter(start.character, start._saveVersion);
         }
     };
@@ -128,28 +126,7 @@ export async function enterHollowGateShrineFlow(params: HollowGateEntryParams) {
             alert("Your paid Hollow Gate start could not be recovered safely. No new key was spent; retry after reconnecting.");
             return;
         }
-        const recoveredBase = recovered.character ?? character;
-        const run = await buildHollowGateRunFromStart(recovered, variant, recoveredBase).catch(() => null);
-        if (interrupted()) { preserveStartedRun(recovered); return; }
-        if (!run) {
-            alert(HOLLOW_GATE_FLOOR_LOAD_FAILED);
-            return;
-        }
-        const floorSeal = await sealHollowGateFloor(character.name, recovered.token, run);
-        if (interrupted()) { preserveStartedRun(recovered); return; }
-        const sealedRun = { ...run, wanderers: floorSeal.wanderers, floorFeatures: floorSeal.floorFeatures, floorFeaturesVersion: floorSeal.floorFeatures ? 1 as const : undefined, detourTileIndex: floorSeal.detour?.tileIndex, detourExtraSteps: floorSeal.detour?.extraSteps, riftSignalTileIndex: floorSeal.riftSignal?.tileIndex };
-        setHollowGateRun(sealedRun);
-        setHollowGateLog([
-            "You recover the descent interrupted at the broken torii. The same sealed key record restores your route.",
-            ...(!floorSeal.ok ? [FLOOR_SEAL_PENDING_LINE] : []),
-        ]);
-        setHollowGateEvent(null);
-        setHollowGateHiddenChamber(null);
-        setCharacter({ ...recoveredBase, hollowGateRun: sealedRun });
-        setCurrentBiome("shadow");
-        setCurrentWeather(weatherForBiome("shadow"));
-        setScreen("hollowGateShrine");
-        attachStartedRun(recovered, { playerName: character.name, setRun: setHollowGateRun, setCharacter, setEvent: setHollowGateEvent, pushLog: pushHollowGateLog });
+        await publishStartedRun(recovered, recovered.character ?? character);
         return;
     }
     // Restore an in-progress run, if any. Resuming a run is always free —
@@ -212,41 +189,35 @@ export async function enterHollowGateShrineFlow(params: HollowGateEntryParams) {
         return;
     }
 
-    // The returned committed save contains the exact server-side key debit.
-    const afterKey = serverStart.character;
+    await publishStartedRun(serverStart, serverStart.character, { keyCost, runsToday, todayKey });
 
-    const run = await buildHollowGateRunFromStart(serverStart, variant, character).catch(() => null);
-    if (interrupted()) { preserveStartedRun(serverStart); return; }
-    if (!run) {
-        alert(HOLLOW_GATE_FLOOR_LOAD_FAILED);
-        return;
-    }
-    const floorSeal = await sealHollowGateFloor(character.name, serverStart.token, run);
-    if (interrupted()) { preserveStartedRun(serverStart); return; }
-    const sealedRun = { ...run, wanderers: floorSeal.wanderers, floorFeatures: floorSeal.floorFeatures, floorFeaturesVersion: floorSeal.floorFeatures ? 1 as const : undefined, detourTileIndex: floorSeal.detour?.tileIndex, detourExtraSteps: floorSeal.detour?.extraSteps, riftSignalTileIndex: floorSeal.riftSignal?.tileIndex };
-    setHollowGateRun(sealedRun);
-    setHollowGateLog([
-        keyCost > 0
+    // Fresh and replayed starts share the same awaited publication boundary.
+    // Recovery keeps its original counters and does not replay the entry intro.
+    async function publishStartedRun(start: NonNullable<Awaited<ReturnType<typeof startHollowGateServerRun>>>, base: Character,
+        fresh?: { keyCost: number; runsToday: number; todayKey: string }) {
+        const run = await buildHollowGateRunFromStart(start, variant, fresh ? character! : base).catch(() => null);
+        if (interrupted()) { preserveStartedRun(start); return; }
+        if (!run) { alert(HOLLOW_GATE_FLOOR_LOAD_FAILED); return; }
+        const floorSeal = await sealHollowGateFloor(character!.name, start.token!, run);
+        if (interrupted()) { preserveStartedRun(start); return; }
+        const sealedRun = { ...run, wanderers: floorSeal.wanderers, floorFeatures: floorSeal.floorFeatures,
+            floorFeaturesVersion: floorSeal.floorFeatures ? 1 as const : undefined, detourTileIndex: floorSeal.detour?.tileIndex,
+            detourExtraSteps: floorSeal.detour?.extraSteps, riftSignalTileIndex: floorSeal.riftSignal?.tileIndex };
+        setHollowGateRun(sealedRun);
+        setHollowGateLog([fresh ? fresh.keyCost > 0
             ? "You press a Hollow Gate Key against the broken torii. The seal bends. You descend."
-            : `The ${gateName} stands open because its event seal is already released. You descend.`,
-        ...(!floorSeal.ok ? [FLOOR_SEAL_PENDING_LINE] : []),
-    ]);
-    setHollowGateEvent(null);
-    setHollowGateHiddenChamber(null);
-    // First-time entry shows the intro VN (3 pages) before the grid is interactable.
-    const isFirstEntry = !!variant || !character.hollowGateIntroSeen;
-    setHollowGateIntroPage(isFirstEntry ? 0 : null);
-    setCharacter({
-        ...afterKey,
-        hollowGateRun: sealedRun,
-        ...(!variant ? { hollowGateIntroSeen: true } : {}),
-        dailyHollowGateRuns: runsToday + 1,
-        lastDailyReset: todayKey,
-    });
-    setCurrentBiome("shadow");
-    setCurrentWeather(weatherForBiome("shadow"));
-    setScreen("hollowGateShrine");
-    // Attach the server token (already minted above, pre-Key) + present the augment
-    // picker. No-op without a token (flag off / unreachable) — the token-first fallback.
-    attachStartedRun(serverStart, { playerName: character.name, setRun: setHollowGateRun, setCharacter, setEvent: setHollowGateEvent, pushLog: pushHollowGateLog });
+            : `The ${gateName} stands open because its event seal is already released. You descend.`
+            : "You recover the descent interrupted at the broken torii. The same sealed key record restores your route.",
+            ...(!floorSeal.ok ? [FLOOR_SEAL_PENDING_LINE] : [])]);
+        setHollowGateEvent(null);
+        setHollowGateHiddenChamber(null);
+        if (fresh) setHollowGateIntroPage(variant || !character!.hollowGateIntroSeen ? 0 : null);
+        setCharacter({ ...base, hollowGateRun: sealedRun, ...(fresh ? {
+            ...(!variant ? { hollowGateIntroSeen: true } : {}), dailyHollowGateRuns: fresh.runsToday + 1, lastDailyReset: fresh.todayKey,
+        } : {}) });
+        setCurrentBiome("shadow");
+        setCurrentWeather(weatherForBiome("shadow"));
+        setScreen("hollowGateShrine");
+        attachStartedRun(start, { playerName: character!.name, setRun: setHollowGateRun, setCharacter, setEvent: setHollowGateEvent, pushLog: pushHollowGateLog });
+    }
 }

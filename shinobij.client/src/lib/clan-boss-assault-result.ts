@@ -1,4 +1,5 @@
 type AssaultSession = {
+    status: string;
     winner: string | null;
     round: number;
     roundCap?: number;
@@ -13,8 +14,9 @@ export function clanBossAssaultResult(session: AssaultSession, variant?: string)
     const squad = session.actors.filter(actor => actor.side === 'squad');
     const wiped = squad.length > 0 && squad.every(actor => actor.hp <= 0);
     const victory = session.winner === 'squad';
-    const limitReached = !victory && !wiped && Number.isFinite(session.roundCap)
-        && Number(session.roundCap) > 0 && session.round >= Number(session.roundCap);
+    const cap = session.roundCap ?? 0;
+    const capped = Number.isFinite(cap) && cap > 0;
+    const limitReached = !victory && !wiped && capped && session.round >= cap;
     return {
         chapter: 'Clan Boss',
         title: victory ? 'Assault victory' : wiped ? 'Assault defeated' : limitReached ? 'Assault limit reached' : 'Assault ended',
@@ -23,6 +25,7 @@ export function clanBossAssaultResult(session: AssaultSession, variant?: string)
         objective: victory ? 'Assault objective complete' : wiped ? 'Squad defeated'
             : limitReached ? 'Round limit reached; boss still standing' : 'Assault objective incomplete',
         returnLabel: 'Return to Clan Hall',
+        roundsLabel: session.status === 'done' && capped ? `${Math.min(session.round, cap)} / ${cap}` : undefined,
     };
 }
 

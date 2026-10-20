@@ -340,7 +340,7 @@ function towerRoundPresentation(session: TowerSession): TowerRoundPresentation {
     };
 }
 
-function TowerBattleDebrief({ session, score, teamLabel = "Squad", objectiveLabel, worldBossReceipt }: { session: TowerSession; score?: number; teamLabel?: string; objectiveLabel?: string; worldBossReceipt?: WorldBossRaidReceipt }) {
+function TowerBattleDebrief({ session, score, teamLabel = "Squad", objectiveLabel, worldBossReceipt, roundsLabel }: { session: TowerSession; score?: number; teamLabel?: string; objectiveLabel?: string; worldBossReceipt?: WorldBossRaidReceipt; roundsLabel?: string }) {
     const squad = session.actors.filter(actor => actor.side === "squad");
     const standing = squad.filter(actor => actor.hp > 0).length;
     const totalHp = squad.reduce((sum, actor) => sum + Math.max(0, actor.hp), 0);
@@ -358,7 +358,7 @@ function TowerBattleDebrief({ session, score, teamLabel = "Squad", objectiveLabe
                 <div><dt>Team damage banked</dt><dd>{worldBossReceipt.bankedDamage.toLocaleString()}</dd></div>
                 <div><dt>Shared boss health remaining</dt><dd>{worldBossReceipt.hpRemaining.toLocaleString()} HP</dd></div>
             </>}
-            <div><dt>{roundPresentation.debriefLabel}</dt><dd>{roundPresentation.debriefValue}</dd></div>
+            <div><dt>{roundPresentation.debriefLabel}</dt><dd>{roundsLabel ?? roundPresentation.debriefValue}</dd></div>
             <div><dt>{teamLabel} standing</dt><dd>{standing} / {squad.length}</dd></div>
             <div><dt>Team health</dt><dd>{healthPercent}%</dd></div>
             {Number.isFinite(score) && <div><dt>Clear score</dt><dd>{score}</dd></div>}
@@ -1099,6 +1099,22 @@ export function BattleTowerFight({
             onLeaveActive();
         }
     } : undefined;
+    // Both result frames share the same save/exit boundary and primary focus.
+    const settlementNotice = <SettlementStatusNotice state={settlement} required={shouldSettle} onRetry={() => void performSettlement()} onLeave={leaveUnsettled} primaryRef={!resultCanExit ? resultPrimaryRef : undefined} />;
+    const completionActions = (returnLabel: string) => (
+        <div className="tower-completion-actions">
+            {onContinue && <button type="button" className="tower-plan-next" disabled={!resultCanExit} onClick={() => { if (resultCanExit) onContinue(); }}>Plan next floor</button>}
+            <button ref={resultCanExit ? resultPrimaryRef : undefined} className="tower-completion-return" onClick={exitResult}
+                aria-disabled={!resultCanExit} disabled={!resultCanExit}
+                title={!resultCanExit ? "Wait for your result to save before leaving so it stays recoverable." : undefined}>
+                {returnLabel}
+            </button>
+        </div>
+    );
+    const towerRecordReceipts = <>
+        {!isTeamPvp && settlement.phase === "settled" && <TowerPersonalBestReceipt comparison={settlement.response?.personalBest} />}
+        {!isTeamPvp && settlement.response?.character && TOWER_HONORS.filter(honor => settlement.response!.character!.battleTowerRecords?.honors[honor.id] && !initialHonorsRef.current[honor.id]).map(honor => <p key={honor.id} className="tower-result-milestone-receipt">Achievement earned: {honor.name}</p>)}
+    </>;
     useTowerDialogFocus({
         open: session.status === "done" && resultReady,
         dialogRef: resultDialogRef,
@@ -2443,16 +2459,9 @@ export function BattleTowerFight({
                             </>
                         )}
                         <TowerBattleDebrief session={session} score={mySettlementResult?.score} teamLabel={isTeamPvp ? "Team" : "Squad"} />
-                        {!isTeamPvp && settlement.phase === "settled" && <TowerPersonalBestReceipt comparison={settlement.response?.personalBest} />}
-                        {!isTeamPvp && settlement.response?.character && TOWER_HONORS.filter(honor => settlement.response!.character!.battleTowerRecords?.honors[honor.id] && !initialHonorsRef.current[honor.id]).map(honor => <p key={honor.id} className="tower-result-milestone-receipt">Achievement earned: {honor.name}</p>)}
-                        <SettlementStatusNotice state={settlement} required={shouldSettle} onRetry={() => void performSettlement()} onLeave={leaveUnsettled} primaryRef={!resultCanExit ? resultPrimaryRef : undefined} />
-                        <div className="tower-completion-actions">
-                        {onContinue && <button type="button" className="tower-plan-next" disabled={!resultCanExit} onClick={() => { if (resultCanExit) onContinue(); }}>Plan next floor</button>}
-                        <button ref={resultCanExit ? resultPrimaryRef : undefined} className="tower-completion-return" onClick={exitResult} aria-disabled={!resultCanExit} disabled={!resultCanExit}
-                            title={!resultCanExit ? "Wait for your result to save before leaving so it stays recoverable." : undefined}>
-                            Return to the Spire
-                        </button>
-                        </div>
+                        {towerRecordReceipts}
+                        {settlementNotice}
+                        {completionActions("Return to the Spire")}
                         </div>
                     </div>
                 </div>
@@ -2469,6 +2478,7 @@ export function BattleTowerFight({
                             art={isWorldBoss && enemyAvatarOverride ? enemyAvatarOverride : storyTheme?.backdropImage} />
                         <div className="tower-completion-body">
                         <TowerBattleDebrief session={session} score={mySettlementResult?.score} teamLabel={isTeamPvp || isWorldBoss ? "Team" : "Squad"}
+                            roundsLabel={clanBossResult?.roundsLabel}
                             objectiveLabel={clanBossResult?.objective ?? (isWorldBoss ? worldBossRaidResult(session.winner, settlement.worldBossReceipt).objective : undefined)}
                             worldBossReceipt={settlement.worldBossReceipt} />
                         {isTeamPvp && pvpContextLabel === 'Team Arena' && <p className="hint">Competitive exhibition complete · no rating, currency, items, or progression rewards.</p>}
@@ -2486,17 +2496,9 @@ export function BattleTowerFight({
                             <p key={milestone} className="tower-result-milestone-receipt">{buildTowerMilestoneReceipt(milestone)}</p>
                         ))}
                         {storyFieldReport && <p className="tower-result-milestone-receipt">{storyFieldReport}</p>}
-                        {!isTeamPvp && !isWorldBoss && !isClanBoss && settlement.phase === "settled" && <TowerPersonalBestReceipt comparison={settlement.response?.personalBest} />}
-                        {!isTeamPvp && !isWorldBoss && !isClanBoss && settlement.response?.character && TOWER_HONORS.filter(honor => settlement.response!.character!.battleTowerRecords?.honors[honor.id] && !initialHonorsRef.current[honor.id]).map(honor => <p key={honor.id} className="tower-result-milestone-receipt">Achievement earned: {honor.name}</p>)}
-                        <SettlementStatusNotice state={settlement} required={shouldSettle} onRetry={() => void performSettlement()} onLeave={leaveUnsettled} primaryRef={!resultCanExit ? resultPrimaryRef : undefined} />
-                        <div className="tower-completion-actions">
-                        {onContinue && <button type="button" className="tower-plan-next" disabled={!resultCanExit} onClick={() => { if (resultCanExit) onContinue(); }}>Plan next floor</button>}
-                        <button ref={resultCanExit ? resultPrimaryRef : undefined} className="tower-completion-return" onClick={exitResult}
-                            aria-disabled={!resultCanExit} disabled={!resultCanExit}
-                            title={!resultCanExit ? "Wait for your result to save before leaving so it stays recoverable." : undefined}>
-                            {clanBossResult?.returnLabel ?? (isWorldBoss ? worldBossReturnLabel : isCaravanAmbush ? 'Return to the caravan' : isHunt ? 'Return to the map' : isTeamPvp ? `Return to ${pvpContextLabel}` : "Return to the Tower")}
-                        </button>
-                        </div>
+                        {!isWorldBoss && !isClanBoss && towerRecordReceipts}
+                        {settlementNotice}
+                        {completionActions(clanBossResult?.returnLabel ?? (isWorldBoss ? worldBossReturnLabel : isCaravanAmbush ? 'Return to the caravan' : isHunt ? 'Return to the map' : isTeamPvp ? `Return to ${pvpContextLabel}` : "Return to the Tower"))}
                         </div>
                     </div>
                 </div>

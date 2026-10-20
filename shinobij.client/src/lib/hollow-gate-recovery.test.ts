@@ -218,6 +218,48 @@ describe("hollow gate recovery — the flow never starts or spends anything", ()
         assert.equal((await fetchHollowGateResume("diver")).kind, "error");
     });
 
+    it('publishes a recovered paid start once using its original request without incrementing counters or replaying the intro', async () => {
+        const { calls, params } = harness();
+        const original = { name: 'diver', hp: 8400, maxHp: 10000, dailyHollowGateRuns: 2, lastDailyReset: '2026-10-20',
+            hollowGateIntroSeen: false, itemStacks: [], ryo: 123,
+            lastHollowGateStart: { token: 'token-live', requestId: 'paid-start-request', at: 123 } } as unknown as Character;
+        const requests: Array<{ url: string; body: Record<string, unknown> }> = [];
+        globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+            const url = String(input), body = JSON.parse(String(init?.body ?? '{}'));
+            requests.push({ url, body });
+            if (url === '/api/hollow-gate/resume') return new Response(JSON.stringify({ ok: true, live: false }));
+            if (url === '/api/hollow-gate/start') return new Response(JSON.stringify({ ok: true, token: 'token-live', seed: SEED,
+                floorDepth: 5, chosenAugmentId: OFFERS[0].id, augmentOffers: OFFERS, character: original, _saveVersion: 7 }));
+            if (url === '/api/hollow-gate/floor-seal') return new Response(JSON.stringify({ ok: true, wanderers: [], floorFeatures: [] }));
+            throw new Error(`Unexpected entry request: ${url}`);
+        }) as typeof fetch;
+        const global = globalThis as { window?: unknown };
+        global.window = globalThis;
+        try {
+            await enterHollowGateShrineFlow({ ...params, character: original,
+                setHollowGateIntroPage: value => { (calls.intro ??= []).push(value); } });
+        } finally { delete global.window; }
+
+        assert.deepEqual(requests.map(request => request.url), ['/api/hollow-gate/resume', '/api/hollow-gate/start', '/api/hollow-gate/floor-seal']);
+        assert.deepEqual(requests[1].body, { playerName: 'diver', floorDepth: 5, requestId: 'paid-start-request' }, 'replay the paid request; never generate a second entry id');
+        assert.equal(requests[2].body.token, 'token-live');
+        assert.equal(requests[2].body.floor, 1);
+        assert.equal(calls.intro, undefined, 'recovery does not replay an intro even when the old local intro flag is false');
+        const character = calls.character.reduce<Character | null>((previous, update) => typeof update === 'function' ? update(previous) : update as Character, original)!;
+        assert.equal(character.hp, 8400);
+        assert.equal(character.dailyHollowGateRuns, 2, 'an already capped paid run must recover without a third daily admission');
+        assert.equal(character.lastDailyReset, '2026-10-20');
+        assert.equal(character.hollowGateIntroSeen, false);
+        assert.deepEqual(character.itemStacks, [], 'no second key or inventory mutation');
+        assert.equal(character.hollowGateRun?.runToken, 'token-live');
+        assert.equal(character.hollowGateRun?.chosenAugment?.id, OFFERS[0].id);
+        assert.deepEqual(calls.screen, ['hollowGateShrine']);
+        assert.deepEqual(calls.biome, ['shadow']);
+        assert.equal(calls.log.length, 1);
+        assert.match((calls.log[0] as string[])[0], /recover the descent interrupted/);
+        assert.deepEqual(calls.event, [null], 'the already selected augment is not offered again');
+    });
+
     it("returns to the shrine with the rebuilt run, and offers an unchosen augment again", async () => {
         respond(200, { ok: true, live: true, run: state({ floor: 2, chosenAugmentId: null }) });
         const { calls, params } = harness();

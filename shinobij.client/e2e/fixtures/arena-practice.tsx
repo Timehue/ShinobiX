@@ -21,7 +21,7 @@ const initial = { name: 'ArenaDiver', level: 100, hp: 10000, maxHp: 10000, chakr
 
 // Use the real Arena launcher, sealed host, combat screen, close handoff and
 // navigation guard. Only the API is supplied by Playwright; no local reducer.
-function Fixture() {
+export function Fixture() {
     const [character, setCharacter] = useState(initial);
     const [screen, setScreen] = useState<Screen>(() => sessionStorage.getItem('arena-qa-screen') as Screen || 'arena');
     const screenRef = useRef(screen);

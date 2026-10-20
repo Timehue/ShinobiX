@@ -1,5 +1,44 @@
 import { test, expect, type Page } from '@playwright/test';
 
+test('a successful fresh entry publishes its counter and intro once, then resumes without another entry', async ({ page }) => {
+    const requests: Array<{ path: string; body: Record<string, unknown> }> = [];
+    const run = { token: 'fresh-rift-token', seed: 'seal-rift-seed', floorDepth: 3, floor: 1,
+        variantId: 'rift-mirror-shard', variantLabel: 'Mirror-Shard Warden', bossName: 'Mirror-Shard Warden',
+        chosenAugmentId: null, augmentOffers: [], position: null, keys: 0, torch: 10, threat: 0, wardSteps: 0,
+        divinerUsed: false, secondWindArmed: false, resolvedEncounterIds: [], resolvedEventIds: [], visited: null,
+        manifest: null, activeCombat: null, pendingAmbush: null, entryCurrencies: {} };
+    await page.route('**/api/hollow-gate/**', route => {
+        const path = new URL(route.request().url()).pathname, body = route.request().postDataJSON();
+        requests.push({ path, body });
+        if (path.endsWith('/start')) return route.fulfill({ json: { ok: true, ...run, _saveVersion: 2,
+            character: { name: 'PreviewRunner', village: 'Moonshadow Village', hp: 10000, maxHp: 10000, dailyHollowGateRuns: 1,
+                lastDailyReset: new Date().toISOString().slice(0, 10), itemStacks: [], hollowGateIntroSeen: false,
+                lastHollowGateStart: { token: run.token, requestId: body.requestId } } } });
+        if (path.endsWith('/floor-seal')) return route.fulfill({ json: { ok: true, wanderers: [], floorFeatures: [] } });
+        if (path.endsWith('/resume')) return route.fulfill({ json: { ok: true, live: true, run } });
+        return route.abort();
+    });
+    await page.goto('/e2e/fixtures/rift-entry-preview.html');
+    await page.getByRole('button', { name: 'Preview descent', exact: true }).click();
+    await page.getByRole('button', { name: 'Enter', exact: true }).click();
+    await expect(page.getByTestId('entry-finished')).toHaveText('1');
+    await expect(page.getByTestId('entry-screen')).toHaveText('hollowGateShrine');
+    await expect(page.getByTestId('entry-count')).toHaveText('1');
+    await expect(page.getByTestId('entry-token')).toHaveText(run.token);
+    await expect(page.getByTestId('entry-intro')).toHaveText('0');
+    await expect(page.getByTestId('entry-intro-updates')).toHaveText('1');
+    expect(requests.map(request => request.path)).toEqual(['/api/hollow-gate/start', '/api/hollow-gate/floor-seal']);
+    expect(requests[0].body.requestId).toBeTruthy();
+    expect(requests[1].body.token).toBe(run.token);
+    await page.getByRole('button', { name: 'Return to map', exact: true }).click();
+    await page.getByRole('button', { name: 'Preview descent', exact: true }).click();
+    await expect(page.getByTestId('entry-finished')).toHaveText('2');
+    await expect(page.getByTestId('entry-screen')).toHaveText('hollowGateShrine');
+    await expect(page.getByTestId('entry-count')).toHaveText('1');
+    await expect(page.getByTestId('entry-intro-updates')).toHaveText('1');
+    expect(requests.map(request => request.path)).toEqual(['/api/hollow-gate/start', '/api/hollow-gate/floor-seal', '/api/hollow-gate/resume']);
+});
+
 for (const interruption of ['encounter', 'combat', 'screen', 'account']) test(`rift entry preview cancels on ${interruption} without starting or charging`, async ({ page }, info) => {
     const starts: unknown[] = [];
     await page.route('**/api/hollow-gate/start', route => { starts.push(route.request().postDataJSON()); return route.fulfill({ status: 503, json: { error: 'Test server unavailable' } }); });

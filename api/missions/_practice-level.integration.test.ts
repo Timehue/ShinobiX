@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { before, test } from 'node:test';
 import type { SoloPveSession } from '../solo-pve/_session.js';
+import type { VercelRequest, VercelResponse } from '../_vercel.js';
 
 process.env.NODE_ENV = 'test';
 process.env.SHINOBIX_QA_MEMORY_KV = '1';
@@ -8,13 +9,22 @@ process.env.SESSION_SECRET = 'offline-practice-level-regression';
 
 let kv: typeof import('../_storage.js').kv;
 let issuePlayerToken: typeof import('../_auth.js').issuePlayerToken;
-let start: typeof import('./ai-fight-start.js').default;
-let report: typeof import('./report-ai-fight.js').default;
+type Handler = (req: VercelRequest, res: VercelResponse) => Promise<unknown>;
+let start: Handler;
+let report: Handler;
+function importedHandler(module: unknown): Handler {
+    // tsx supplies the function directly; Node's CJS dynamic-import interop
+    // exposes the transpiled module object under a second default export.
+    const exported = (module as { default?: unknown }).default;
+    const handler = typeof exported === 'function' ? exported : (exported as { default?: unknown })?.default;
+    assert.equal(typeof handler, 'function', 'the imported API route must expose a callable handler');
+    return handler as Handler;
+}
 before(async () => {
     ({ kv } = await import('../_storage.js'));
     ({ issuePlayerToken } = await import('../_auth.js'));
-    start = (await import('./ai-fight-start.js')).default;
-    report = (await import('./report-ai-fight.js')).default;
+    start = importedHandler(await import('./ai-fight-start.js'));
+    report = importedHandler(await import('./report-ai-fight.js'));
 });
 
 async function call(handler: typeof start, playerName: string, body: Record<string, unknown>) {
