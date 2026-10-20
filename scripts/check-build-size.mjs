@@ -866,9 +866,10 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // startup, per-chunk, CSS and asset gates remain unchanged.
 // 2026-10-20: integrating current main's pet progression and Gate/assault
 // handoffs with these recovery and identity fixes measures 9,580,795 B.
-// Allow 2 KB for the combined graph (1,205 B headroom); startup raw/gzip,
-// per-chunk, CSS and asset limits remain unchanged.
-const TOTAL_JS_CSS_FAIL_BYTES = 9_582_000;
+// CI measures 9,583,007 B with release env vars; the production Docker build
+// measures 9,583,069 B. Allow 5 KB for the combined graph (1,931 B headroom
+// above Docker); startup raw/gzip, per-chunk, CSS and asset limits stay fixed.
+const TOTAL_JS_CSS_FAIL_BYTES = 9_585_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai

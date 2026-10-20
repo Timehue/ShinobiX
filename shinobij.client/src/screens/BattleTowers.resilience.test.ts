@@ -47,8 +47,8 @@ test("Tower settlement is explicit, retryable, and blocks accidental receipt los
     const sharedStart = fight.indexOf('aria-labelledby="tower-story-result-title"');
     const resultEnd = fight.indexOf("</ShinobiCombatShell>", sharedStart);
     assert.ok(spireStart >= 0 && sharedStart > spireStart && resultEnd > sharedStart, "both terminal frames must remain identifiable");
-    assert.match(fight.slice(spireStart, sharedStart), /\{completionActions\("Return to the Spire"\)\}/);
-    assert.match(fight.slice(sharedStart, resultEnd), /\{completionActions\(clanBossResult\?\.returnLabel/);
+    assert.match(fight.slice(spireStart, sharedStart), /\{completionActions\("Leave the Spire"\)\}/);
+    assert.match(fight.slice(sharedStart, resultEnd), /\{completionActions\(isClanBoss \? 'Return to Clan Boss'/);
     assert.match(fight, /already-first-cleared/);
     assert.match(fight, /Weekly floor reward already banked/);
     assert.match(fight, /Your completed run is still saved/);
