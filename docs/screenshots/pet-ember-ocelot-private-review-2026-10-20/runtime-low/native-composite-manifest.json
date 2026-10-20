@@ -1,0 +1,121 @@
+{
+  "records": [
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/ocelot-private-v1-runtime-low/native-source-head.png",
+      "sha256": "3c771eb05ce292453420b834ad4c832da10e4ac07fdd6c1e28ad75281a809c06",
+      "width": 1440,
+      "height": 2160,
+      "inputs": [
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/ocelot-private-v1-runtime-low/rare-26-source-head-0.png",
+          "sha256": "af785811f9a8c02e02ae72716f6814573c84347a51f6afe1459b4a83de315d4a",
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/ocelot-private-v1-runtime-low/rare-26-source-head-1.png",
+          "sha256": "736355f3e8b26acdc41c7c23bbdee2c0c74e1d8ed06fd679fc93ed7c3384c36e",
+          "top": 540
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/ocelot-private-v1-runtime-low/rare-26-source-head-2.png",
+          "sha256": "e581d44df2e169238935d066123cd022dfd92af7ca87f24c2f9ee558facf42e2",
+          "top": 1080
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/ocelot-private-v1-runtime-low/rare-26-source-head-3.png",
+          "sha256": "4d0d1ca586fc3d5b2463daa630618aab7274952640931df676ec036b29676622",
+          "top": 1620
+        }
+      ],
+      "resizing": false
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/ocelot-private-v1-runtime-low/native-source-body.png",
+      "sha256": "e9f88115f19d9d2b71588a41a41d244ae63ff153357e9ebff35473fe6f72f43c",
+      "width": 1440,
+      "height": 2160,
+      "inputs": [
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/ocelot-private-v1-runtime-low/rare-26-source-body-0.png",
+          "sha256": "1d0984472264abb28cc0a84c8187622c6404146d196f45b01ff2cf381b3e1b0e",
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/ocelot-private-v1-runtime-low/rare-26-source-body-1.png",
+          "sha256": "a6fe47e275ef79a0880fecd393330c5f2b38a74a8d732abc83684be911c4a43d",
+          "top": 540
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/ocelot-private-v1-runtime-low/rare-26-source-body-2.png",
+          "sha256": "530ee35f158656a422e4382e4dc55409ff9ff6ff0b4cf815f7a5ce61ae274cab",
+          "top": 1080
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/ocelot-private-v1-runtime-low/rare-26-source-body-3.png",
+          "sha256": "7e6f29bef407827f394c87641f0daa77673c374c1da18ab6b5d9766029effea7",
+          "top": 1620
+        }
+      ],
+      "resizing": false
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/ocelot-private-v1-runtime-low/native-battle-head.png",
+      "sha256": "201aedec4da68fa777b488e005d3fb97b52a7ea48acad11a20db9ebf2017b361",
+      "width": 1440,
+      "height": 2160,
+      "inputs": [
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/ocelot-private-v1-runtime-low/rare-26-battle-head-0.png",
+          "sha256": "77df62ec0352d64ed801f1dc3b1f09aa593eefb512154fdcefb67bebfad6b7c7",
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/ocelot-private-v1-runtime-low/rare-26-battle-head-1.png",
+          "sha256": "bec53006619d36efb6bae11f4469a12cc837d97f000b447cd0e835254f7f313e",
+          "top": 540
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/ocelot-private-v1-runtime-low/rare-26-battle-head-2.png",
+          "sha256": "5d81a29d77616d39bbfadcc8be3f4be1b15884c3f86449cfc7a261c686b0a64b",
+          "top": 1080
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/ocelot-private-v1-runtime-low/rare-26-battle-head-3.png",
+          "sha256": "6b9e9d45694e839e2e4451fedefbf4e0d791fdc960886f27f1ec0dc37155aeef",
+          "top": 1620
+        }
+      ],
+      "resizing": false
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/ocelot-private-v1-runtime-low/native-battle-body.png",
+      "sha256": "9eb81534cc16a46a5a46597df1c33161473f5e60b60e9ae7b452ffac61ff2273",
+      "width": 1440,
+      "height": 2160,
+      "inputs": [
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/ocelot-private-v1-runtime-low/rare-26-battle-body-0.png",
+          "sha256": "e86df9b28ad7efda4a906000493e9e2ad94c6b3e554535d97fc04b38a266384e",
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/ocelot-private-v1-runtime-low/rare-26-battle-body-1.png",
+          "sha256": "cadd87d33c9261cff4e502d71f47253fe5f36a31fbf547f543a95d11635ef361",
+          "top": 540
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/ocelot-private-v1-runtime-low/rare-26-battle-body-2.png",
+          "sha256": "0959a90838058361d28719ff66f722c79ed42ac9a65154744008c1d14a9ba46f",
+          "top": 1080
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/ocelot-private-v1-runtime-low/rare-26-battle-body-3.png",
+          "sha256": "efa80916366223220ddfa97bcecea8748295683ebccd5cc1f3691af366cc0843",
+          "top": 1620
+        }
+      ],
+      "resizing": false
+    }
+  ],
+  "review": "pending"
+}

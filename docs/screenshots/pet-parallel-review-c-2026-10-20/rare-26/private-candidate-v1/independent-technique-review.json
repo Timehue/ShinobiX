@@ -1,0 +1,175 @@
+{
+  "candidate": "private-v1",
+  "reviewedAt": "2026-10-20T04:29:41.368Z",
+  "sourceCandidateSha256": "3c5421e5be9a4d1bdd3d5ff650e154c6bf2025606d417608e597347586f8feb1",
+  "battleCandidateSha256": "ece4d1caca0f78e3033882f1d074710d2b4b018ed6029fb86eda2de9c679ddce",
+  "rendererSha256": "b2253b71fbcb21a83d82de35ab5783dd57b525cfc94740fb131dd1eb0049a897",
+  "companionComponentSha256": "472645f0ade2c17a8be0a8f9fa5af0fdb9d47f4c835e24e6a374c8219b33e4ab",
+  "captureManifestSha256": "93af736c4addce5adc1bc8ce92d6946cd61dd0f2401cb53c7f1951efe212cc92",
+  "stageActuallyViewed": "battle",
+  "framesActuallyViewed": 216,
+  "moves": [
+    "fire-strike",
+    "fire-pulse",
+    "fire-breaker",
+    "earth-pulse",
+    "open-wound",
+    "expose",
+    "rally",
+    "protect",
+    "rare-26-signature"
+  ],
+  "views": [
+    "front",
+    "side"
+  ],
+  "panels": [
+    {
+      "name": "techniques-block-0-half-0.png",
+      "sha256": "a2d8d2b8dc3ed8bf718de461da19e6e399b418dbfd065aeba6f9c250bd79bf93",
+      "sources": [
+        {
+          "path": "C:\\Users\\Tyler R\\.codex\\worktrees\\40c2\\NinjaK\\shinobij.client\\.tmp\\pet-companion-techniques\\ocelot-private-v1-techniques\\inspection-strips\\front-block-0-half-0.png",
+          "sha256": "111b7f4238f6c0e0803f259f2ad0e1d8c7770b88ea11dcde2705e9046b290898",
+          "width": 1386,
+          "height": 657,
+          "top": 0
+        },
+        {
+          "path": "C:\\Users\\Tyler R\\.codex\\worktrees\\40c2\\NinjaK\\shinobij.client\\.tmp\\pet-companion-techniques\\ocelot-private-v1-techniques\\inspection-strips\\side-block-0-half-0.png",
+          "sha256": "d860850d6caa946c5ebecdd07d8080ba257d947182a3c08db0a83285ac1dec63",
+          "width": 1386,
+          "height": 657,
+          "top": 657
+        }
+      ],
+      "nativePixelsPreserved": true,
+      "resizing": false,
+      "review": "independent candidate technique visual pass",
+      "actuallyViewed": true
+    },
+    {
+      "name": "techniques-block-0-half-1.png",
+      "sha256": "4bda58e752b8c23605ed9f4e8a938673e202cd573d0786268393df98c0ade659",
+      "sources": [
+        {
+          "path": "C:\\Users\\Tyler R\\.codex\\worktrees\\40c2\\NinjaK\\shinobij.client\\.tmp\\pet-companion-techniques\\ocelot-private-v1-techniques\\inspection-strips\\front-block-0-half-1.png",
+          "sha256": "69b4e1c24923f09fcdf4a2be088bb9f2bc89445af56ce7df987318e04f033d63",
+          "width": 1386,
+          "height": 657,
+          "top": 0
+        },
+        {
+          "path": "C:\\Users\\Tyler R\\.codex\\worktrees\\40c2\\NinjaK\\shinobij.client\\.tmp\\pet-companion-techniques\\ocelot-private-v1-techniques\\inspection-strips\\side-block-0-half-1.png",
+          "sha256": "39b98f3d94f0666f06c7150fe65d7e15292c7fa831d031834a899c60a1c8be21",
+          "width": 1386,
+          "height": 657,
+          "top": 657
+        }
+      ],
+      "nativePixelsPreserved": true,
+      "resizing": false,
+      "review": "independent candidate technique visual pass",
+      "actuallyViewed": true
+    },
+    {
+      "name": "techniques-block-1-half-0.png",
+      "sha256": "640040f533e6e3210755581b8ee7ac49dfa79cabd505b41952d6b5145a8a7f32",
+      "sources": [
+        {
+          "path": "C:\\Users\\Tyler R\\.codex\\worktrees\\40c2\\NinjaK\\shinobij.client\\.tmp\\pet-companion-techniques\\ocelot-private-v1-techniques\\inspection-strips\\front-block-1-half-0.png",
+          "sha256": "cc9f5f730746aa11e9c299ca147c27d3625c0819a92afa7b4756cb827d301022",
+          "width": 1386,
+          "height": 657,
+          "top": 0
+        },
+        {
+          "path": "C:\\Users\\Tyler R\\.codex\\worktrees\\40c2\\NinjaK\\shinobij.client\\.tmp\\pet-companion-techniques\\ocelot-private-v1-techniques\\inspection-strips\\side-block-1-half-0.png",
+          "sha256": "aaf1e01921a35ca35c71a0baae1a371c346f18f3dffefb0b8ef33a4ccf404808",
+          "width": 1386,
+          "height": 657,
+          "top": 657
+        }
+      ],
+      "nativePixelsPreserved": true,
+      "resizing": false,
+      "review": "independent candidate technique visual pass",
+      "actuallyViewed": true
+    },
+    {
+      "name": "techniques-block-1-half-1.png",
+      "sha256": "445f45f32b97e9b2360dbbd0fe67849a8dd34818a71f6d38343c47df4751cf63",
+      "sources": [
+        {
+          "path": "C:\\Users\\Tyler R\\.codex\\worktrees\\40c2\\NinjaK\\shinobij.client\\.tmp\\pet-companion-techniques\\ocelot-private-v1-techniques\\inspection-strips\\front-block-1-half-1.png",
+          "sha256": "da5f9b248b1bd003654f9944b6ba8e97a4c5e833b0e75e69f02eee9520d342f4",
+          "width": 1386,
+          "height": 657,
+          "top": 0
+        },
+        {
+          "path": "C:\\Users\\Tyler R\\.codex\\worktrees\\40c2\\NinjaK\\shinobij.client\\.tmp\\pet-companion-techniques\\ocelot-private-v1-techniques\\inspection-strips\\side-block-1-half-1.png",
+          "sha256": "b6a2e5383a08c3d0bdcc98ae655999d9a158314379a38a6331716e24ee0eeb13",
+          "width": 1386,
+          "height": 657,
+          "top": 657
+        }
+      ],
+      "nativePixelsPreserved": true,
+      "resizing": false,
+      "review": "independent candidate technique visual pass",
+      "actuallyViewed": true
+    },
+    {
+      "name": "techniques-block-2-half-0.png",
+      "sha256": "9ba348ef1b3537d1c9e49f99cdf8387e0f44cc635e4528fa05b33c5acac166e1",
+      "sources": [
+        {
+          "path": "C:\\Users\\Tyler R\\.codex\\worktrees\\40c2\\NinjaK\\shinobij.client\\.tmp\\pet-companion-techniques\\ocelot-private-v1-techniques\\inspection-strips\\front-block-2-half-0.png",
+          "sha256": "ef4016ffaab373e9ffb68ae73b873e07f0d41a13f0930f766e00a1b457e38eab",
+          "width": 1386,
+          "height": 657,
+          "top": 0
+        },
+        {
+          "path": "C:\\Users\\Tyler R\\.codex\\worktrees\\40c2\\NinjaK\\shinobij.client\\.tmp\\pet-companion-techniques\\ocelot-private-v1-techniques\\inspection-strips\\side-block-2-half-0.png",
+          "sha256": "e04d434f05b0be73091b77b92eb795568945aad1a7b98db5780fdbb142d55a9d",
+          "width": 1386,
+          "height": 657,
+          "top": 657
+        }
+      ],
+      "nativePixelsPreserved": true,
+      "resizing": false,
+      "review": "independent candidate technique visual pass",
+      "actuallyViewed": true
+    },
+    {
+      "name": "techniques-block-2-half-1.png",
+      "sha256": "9f0cff05f3106cedcbefbf34b9137934bbce9863833042b4dcdc04244e88fd51",
+      "sources": [
+        {
+          "path": "C:\\Users\\Tyler R\\.codex\\worktrees\\40c2\\NinjaK\\shinobij.client\\.tmp\\pet-companion-techniques\\ocelot-private-v1-techniques\\inspection-strips\\front-block-2-half-1.png",
+          "sha256": "f7151de7d08b60d8af8b36171b649591fbb5b1091639a3391075d12a7f6d3e0e",
+          "width": 1386,
+          "height": 657,
+          "top": 0
+        },
+        {
+          "path": "C:\\Users\\Tyler R\\.codex\\worktrees\\40c2\\NinjaK\\shinobij.client\\.tmp\\pet-companion-techniques\\ocelot-private-v1-techniques\\inspection-strips\\side-block-2-half-1.png",
+          "sha256": "67c6497d174a773bdb7c64787c66931f2de6d4f54b724fa61fada6f6f1dc7366",
+          "width": 1386,
+          "height": 657,
+          "top": 657
+        }
+      ],
+      "nativePixelsPreserved": true,
+      "resizing": false,
+      "review": "independent candidate technique visual pass",
+      "actuallyViewed": true
+    }
+  ],
+  "result": "Technique-frame visual pass: rear feet remain continuously visible above the opaque floor through Fire Breaker 0.24/0.36 and physical windups 0.12-0.36 in fire-strike/open-wound/signature, then strike/recovery. Original Fire Breaker side2/3 and all four physical side5 frames also independently viewed to cover full head beyond strip crop. No new full-face, limb, body, tail or bandana discontinuity seen in all 216 actual production technique frames.",
+  "scopeLimit": "Source candidate not viewed in this technique capture; full repair remains unapproved pending dense geometry, source+battle raw/runtime, atlas, root integration and live verification.",
+  "wholePetApproval": false
+}

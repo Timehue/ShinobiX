@@ -187,3 +187,21 @@ docs/screenshots/celestial-lion-all-clips-v2-final-2026-10-18/*.log text eol=lf
 docs/screenshots/ripple-seal-complete-face-v10-final-2026-10-18/*.log text eol=lf
 docs/screenshots/gale-chick-complete-face-v1-final-2026-10-19/*.log text eol=lf
 docs/screenshots/pet-gale-chick-repair-first-2026-10-19/*.log text eol=lf
+
+# Preserve exact reviewed companion evidence across checkouts.
+docs/audits/pet-ember-ocelot-*.json text eol=lf
+docs/audits/pet-shrine-salamander-*.json text eol=lf
+docs/audits/pet-pyre-kestrel-*.json text eol=lf
+docs/audits/pet-standard-17-atlas-*.json text eol=lf
+docs/audits/pet-parallel-review-*/*.json text eol=lf
+docs/screenshots/pet-ember-ocelot-*/*.txt text eol=lf
+docs/screenshots/pet-shrine-salamander-*/*.txt text eol=lf
+docs/screenshots/pet-pyre-kestrel-*/*.txt text eol=lf
+docs/screenshots/pet-shrine-salamander-*/**/*.mjs text eol=lf
+shinobij.client/scripts/fixtures/pet-visible-ground-20261020/manifest.json text eol=lf
+
+# Audit hashes describe committed text bytes, including on Windows.
+docs/audits/pet-*.json text eol=lf
+docs/screenshots/**/*.log text eol=lf
+docs/screenshots/**/*.mjs text eol=lf
+docs/screenshots/**/*.txt text eol=lf

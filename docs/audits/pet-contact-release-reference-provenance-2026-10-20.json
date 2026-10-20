@@ -1,0 +1,33 @@
+{
+  "base": "27c0c02d4fab40bf9f8a99be05a13c541db30142",
+  "selectedIds": [
+    "rare-22",
+    "rare-26",
+    "standard-17"
+  ],
+  "archived": [
+    {
+      "id": "rare-22",
+      "reference": "pet-models/warfront-impostors/roster/rare-22.webp",
+      "archive": "art-source/pet-portrait-refresh/reference-archive/rare-22-76372e8c3701.webp",
+      "originalSha256": "76372e8c37010a058bbc5b3253713ac5463da36ef76f93289cdc3080d8d60641",
+      "newAtlasSha256": "3f85620c1b35570598fc35992ccfa32c4fe85ff3f898838ec0517c2d25f1971d"
+    },
+    {
+      "id": "rare-26",
+      "reference": "pet-models/warfront-impostors/roster/rare-26.webp",
+      "archive": "art-source/pet-portrait-refresh/reference-archive/rare-26-fecf9db567bc.webp",
+      "originalSha256": "fecf9db567bcee5f617c40cf3e2fb73722d063a27b3fe4858e36c705b35b4cb2",
+      "newAtlasSha256": "090b66c88d9740f1e59a5505d6b1495a45b8705d80dd0480110ccd821027923b"
+    },
+    {
+      "id": "standard-17",
+      "reference": "pet-models/warfront-impostors/roster/standard-17.webp",
+      "archive": "art-source/pet-portrait-refresh/reference-archive/standard-17-670b6733b43a.webp",
+      "originalSha256": "670b6733b43a1fd994e591f57dfd7e6aaafdc44b50d7624ef13566ecbe61630c",
+      "newAtlasSha256": "b83236e03bf7c7be6836ec8c2ade2906f34e5aee1fdc452b4de6521ff7ce4999"
+    }
+  ],
+  "originalPortraitReferencesAndHashesPreserved": true,
+  "portraitImagesChanged": false
+}

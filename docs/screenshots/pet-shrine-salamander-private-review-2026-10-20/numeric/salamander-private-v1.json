@@ -1,0 +1,1355 @@
+{
+  "summary": {
+    "assets": 2,
+    "failures": 0
+  },
+  "artisticCertification": false,
+  "results": [
+    {
+      "id": "rare-22",
+      "name": "Shrine Salamander",
+      "stage": "source",
+      "sha256": "8d9ba61b7433416f2cbfe62593ff6bfa3b378afec3051a5ae79ef921ca7d88ba",
+      "annotationSourceSha256": "641b2c364ea101f17bfb3f24f3d06fd6a8e7beb9a2194de97248ea38459a4ad9",
+      "landmarks": {
+        "upperFace": {
+          "center": [
+            -0.16080877377134678,
+            0.15838331861622856,
+            0.7710750239561697
+          ],
+          "radius": 0.1,
+          "pickedPixel": [
+            126,
+            171
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "muzzle": {
+          "center": [
+            0.038640133321936075,
+            0.06291041840518008,
+            0.9938192214393022
+          ],
+          "radius": 0.1,
+          "pickedPixel": [
+            154,
+            192
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "lowerFace": {
+          "center": [
+            0.08619824698608056,
+            -0.005657865878168094,
+            0.9943977016428922
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            161,
+            204
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "jawChin": {
+          "center": [
+            0.3868835162847437,
+            0.08598380417768794,
+            0.611573973305355
+          ],
+          "radius": 0.12,
+          "pickedPixel": [
+            196,
+            186
+          ],
+          "pickedView": "head-side",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        }
+      },
+      "clips": [
+        {
+          "clip": "idle",
+          "poses": 949,
+          "regions": [
+            {
+              "name": "upperFace",
+              "vertices": 96,
+              "edges": 253,
+              "maxDrift": 2.3318761478130538e-15,
+              "worldMinRatio": 0.9999998667460925,
+              "worldMaxRatio": 1.0000000007597596,
+              "maximumPose": 0.8350419998168945
+            },
+            {
+              "name": "muzzle",
+              "vertices": 86,
+              "edges": 199,
+              "maxDrift": 2.780690235116843e-15,
+              "worldMinRatio": 0.9999998670726338,
+              "worldMaxRatio": 1.0000000040935306,
+              "maximumPose": 1.5180689096450806
+            },
+            {
+              "name": "lowerFace",
+              "vertices": 62,
+              "edges": 125,
+              "maxDrift": 3.63779702884337e-15,
+              "worldMinRatio": 0.9999998670352204,
+              "worldMaxRatio": 1.0000000039429269,
+              "maximumPose": 1.5180689096450806
+            },
+            {
+              "name": "jawChin",
+              "vertices": 116,
+              "edges": 283,
+              "maxDrift": 2.0101284892225974e-15,
+              "worldMinRatio": 0.9999998657817415,
+              "worldMaxRatio": 1.0000000016161106,
+              "maximumPose": 0.9225027859210968
+            }
+          ]
+        },
+        {
+          "clip": "idle_2",
+          "poses": 685,
+          "regions": [
+            {
+              "name": "upperFace",
+              "vertices": 96,
+              "edges": 253,
+              "maxDrift": 3.024740616155694e-15,
+              "worldMinRatio": 0.9999999840976844,
+              "worldMaxRatio": 1.0000002669893813,
+              "maximumPose": 0.07915683835744858
+            },
+            {
+              "name": "muzzle",
+              "vertices": 86,
+              "edges": 199,
+              "maxDrift": 3.3265004264435538e-15,
+              "worldMinRatio": 0.9999999840956804,
+              "worldMaxRatio": 1.0000002658550604,
+              "maximumPose": 0.44716668128967285
+            },
+            {
+              "name": "lowerFace",
+              "vertices": 62,
+              "edges": 125,
+              "maxDrift": 4.35184516956959e-15,
+              "worldMinRatio": 0.9999999842696271,
+              "worldMaxRatio": 1.0000002669544485,
+              "maximumPose": 0.44716668128967285
+            },
+            {
+              "name": "jawChin",
+              "vertices": 116,
+              "edges": 283,
+              "maxDrift": 2.0967095170730115e-15,
+              "worldMinRatio": 0.9999999841046919,
+              "worldMaxRatio": 1.0000002668967527,
+              "maximumPose": 0.4749410152435303
+            }
+          ]
+        },
+        {
+          "clip": "walk",
+          "poses": 523,
+          "regions": [
+            {
+              "name": "upperFace",
+              "vertices": 96,
+              "edges": 253,
+              "maxDrift": 2.4226443412836497e-15,
+              "worldMinRatio": 0.9999999998296134,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.4537239670753479
+            },
+            {
+              "name": "muzzle",
+              "vertices": 86,
+              "edges": 199,
+              "maxDrift": 3.293027833397847e-15,
+              "worldMinRatio": 0.9999999998296278,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.4537239670753479
+            },
+            {
+              "name": "lowerFace",
+              "vertices": 62,
+              "edges": 125,
+              "maxDrift": 3.4835258715622167e-15,
+              "worldMinRatio": 0.9999999998296144,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.4537239670753479
+            },
+            {
+              "name": "jawChin",
+              "vertices": 116,
+              "edges": 283,
+              "maxDrift": 1.83351928376261e-15,
+              "worldMinRatio": 0.999999999829605,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.34133362770080566
+            }
+          ]
+        },
+        {
+          "clip": "gallop",
+          "poses": 343,
+          "regions": [
+            {
+              "name": "upperFace",
+              "vertices": 96,
+              "edges": 253,
+              "maxDrift": 2.237428687830118e-15,
+              "worldMinRatio": 0.9999999983823211,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.3490791916847229
+            },
+            {
+              "name": "muzzle",
+              "vertices": 86,
+              "edges": 199,
+              "maxDrift": 3.0633737498278363e-15,
+              "worldMinRatio": 0.9999999983824778,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.31791140139102936
+            },
+            {
+              "name": "lowerFace",
+              "vertices": 62,
+              "edges": 125,
+              "maxDrift": 4.007613571848363e-15,
+              "worldMinRatio": 0.9999999983822732,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.31791140139102936
+            },
+            {
+              "name": "jawChin",
+              "vertices": 116,
+              "edges": 283,
+              "maxDrift": 2.0101284892225974e-15,
+              "worldMinRatio": 0.9999999983822334,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.3490791916847229
+            }
+          ]
+        },
+        {
+          "clip": "gallop_jump",
+          "poses": 339,
+          "regions": [
+            {
+              "name": "upperFace",
+              "vertices": 96,
+              "edges": 253,
+              "maxDrift": 2.3508839743987548e-15,
+              "worldMinRatio": 0.9999993909790695,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.47557105123996735
+            },
+            {
+              "name": "muzzle",
+              "vertices": 86,
+              "edges": 199,
+              "maxDrift": 3.3250307994990885e-15,
+              "worldMinRatio": 0.9999993910385261,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.47557105123996735
+            },
+            {
+              "name": "lowerFace",
+              "vertices": 62,
+              "edges": 125,
+              "maxDrift": 4.07659649592802e-15,
+              "worldMinRatio": 0.9999993909627904,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.36342765390872955
+            },
+            {
+              "name": "jawChin",
+              "vertices": 116,
+              "edges": 283,
+              "maxDrift": 2.0420372848129438e-15,
+              "worldMinRatio": 0.9999993909450786,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.47557105123996735
+            }
+          ]
+        },
+        {
+          "clip": "attack",
+          "poses": 533,
+          "regions": [
+            {
+              "name": "upperFace",
+              "vertices": 96,
+              "edges": 253,
+              "maxDrift": 3.4261364842497707e-15,
+              "worldMinRatio": 0.9999998707303416,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.6408386826515198
+            },
+            {
+              "name": "muzzle",
+              "vertices": 86,
+              "edges": 199,
+              "maxDrift": 3.901737651890125e-15,
+              "worldMinRatio": 0.99999987072688,
+              "worldMaxRatio": 1.000000000709195,
+              "maximumPose": 0.515999972820282
+            },
+            {
+              "name": "lowerFace",
+              "vertices": 62,
+              "edges": 125,
+              "maxDrift": 4.926591029993252e-15,
+              "worldMinRatio": 0.9999998708339923,
+              "worldMaxRatio": 1.0000000007121228,
+              "maximumPose": 0.6408386826515198
+            },
+            {
+              "name": "jawChin",
+              "vertices": 116,
+              "edges": 283,
+              "maxDrift": 2.624353424723445e-15,
+              "worldMinRatio": 0.9999998707468114,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.49311287701129913
+            }
+          ]
+        },
+        {
+          "clip": "idle_hitreact1",
+          "poses": 297,
+          "regions": [
+            {
+              "name": "upperFace",
+              "vertices": 96,
+              "edges": 253,
+              "maxDrift": 2.242846927484911e-15,
+              "worldMinRatio": 0.9999998707303416,
+              "worldMaxRatio": 1.0000000016160688,
+              "maximumPose": 0.5259305834770203
+            },
+            {
+              "name": "muzzle",
+              "vertices": 86,
+              "edges": 199,
+              "maxDrift": 2.8881764690828338e-15,
+              "worldMinRatio": 0.99999987072688,
+              "worldMaxRatio": 1.0000000022291482,
+              "maximumPose": 0.29726511240005493
+            },
+            {
+              "name": "lowerFace",
+              "vertices": 62,
+              "edges": 125,
+              "maxDrift": 3.4867261716138935e-15,
+              "worldMinRatio": 0.9999998708339923,
+              "worldMaxRatio": 1.0000000022291482,
+              "maximumPose": 0.29726511240005493
+            },
+            {
+              "name": "jawChin",
+              "vertices": 116,
+              "edges": 283,
+              "maxDrift": 1.9695156464107993e-15,
+              "worldMinRatio": 0.9999998707468114,
+              "worldMaxRatio": 1.0000000001382447,
+              "maximumPose": 0.29726511240005493
+            }
+          ]
+        },
+        {
+          "clip": "death",
+          "poses": 699,
+          "regions": [
+            {
+              "name": "upperFace",
+              "vertices": 96,
+              "edges": 253,
+              "maxDrift": 2.3249256818376752e-15,
+              "worldMinRatio": 0.99999995599814,
+              "worldMaxRatio": 1.0000017157434629,
+              "maximumPose": 0.292961910367012
+            },
+            {
+              "name": "muzzle",
+              "vertices": 86,
+              "edges": 199,
+              "maxDrift": 2.798939782802287e-15,
+              "worldMinRatio": 0.9999999560024241,
+              "worldMaxRatio": 1.0000015342267634,
+              "maximumPose": 1.0367942452430725
+            },
+            {
+              "name": "lowerFace",
+              "vertices": 62,
+              "edges": 125,
+              "maxDrift": 3.831907565608822e-15,
+              "worldMinRatio": 0.9999999559969666,
+              "worldMaxRatio": 1.0000016828891636,
+              "maximumPose": 1.3256006240844727
+            },
+            {
+              "name": "jawChin",
+              "vertices": 116,
+              "edges": 283,
+              "maxDrift": 1.851065322623787e-15,
+              "worldMinRatio": 0.9999999559956919,
+              "worldMaxRatio": 1.0000017154837815,
+              "maximumPose": 0.292961910367012
+            }
+          ]
+        },
+        {
+          "clip": "entrance",
+          "poses": 485,
+          "regions": [
+            {
+              "name": "upperFace",
+              "vertices": 96,
+              "edges": 253,
+              "maxDrift": 2.7491236992347964e-15,
+              "worldMinRatio": 0.9999993909790695,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.8078228235244751
+            },
+            {
+              "name": "muzzle",
+              "vertices": 86,
+              "edges": 199,
+              "maxDrift": 3.434930901852177e-15,
+              "worldMinRatio": 0.9999993910385261,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.8078228235244751
+            },
+            {
+              "name": "lowerFace",
+              "vertices": 62,
+              "edges": 125,
+              "maxDrift": 4.4936977413865264e-15,
+              "worldMinRatio": 0.9999993909627904,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.8078228235244751
+            },
+            {
+              "name": "jawChin",
+              "vertices": 116,
+              "edges": 283,
+              "maxDrift": 2.3168856418952514e-15,
+              "worldMinRatio": 0.9999993909450786,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.6704096794128418
+            }
+          ]
+        },
+        {
+          "clip": "cast",
+          "poses": 575,
+          "regions": [
+            {
+              "name": "upperFace",
+              "vertices": 96,
+              "edges": 253,
+              "maxDrift": 2.5213898924288366e-15,
+              "worldMinRatio": 0.9999997198240329,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.8150821328163147
+            },
+            {
+              "name": "muzzle",
+              "vertices": 86,
+              "edges": 199,
+              "maxDrift": 3.3733111800266696e-15,
+              "worldMinRatio": 0.9999997198108638,
+              "worldMaxRatio": 1.0000000006990093,
+              "maximumPose": 0.8150821328163147
+            },
+            {
+              "name": "lowerFace",
+              "vertices": 62,
+              "edges": 125,
+              "maxDrift": 4.208524324669808e-15,
+              "worldMinRatio": 0.9999997199598807,
+              "worldMaxRatio": 1.0000000006990093,
+              "maximumPose": 0.8150821328163147
+            },
+            {
+              "name": "jawChin",
+              "vertices": 116,
+              "edges": 283,
+              "maxDrift": 2.104403889782096e-15,
+              "worldMinRatio": 0.999999719806876,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.5489328503608704
+            }
+          ]
+        },
+        {
+          "clip": "guard",
+          "poses": 586,
+          "regions": [
+            {
+              "name": "upperFace",
+              "vertices": 96,
+              "edges": 253,
+              "maxDrift": 2.449769503496309e-15,
+              "worldMinRatio": 0.9999999865228194,
+              "worldMaxRatio": 1.0000004698265668,
+              "maximumPose": 0.2723197788000107
+            },
+            {
+              "name": "muzzle",
+              "vertices": 86,
+              "edges": 199,
+              "maxDrift": 3.0034297306822618e-15,
+              "worldMinRatio": 0.9999999866484189,
+              "worldMaxRatio": 1.0000004698612932,
+              "maximumPose": 0.0270241005346179
+            },
+            {
+              "name": "lowerFace",
+              "vertices": 62,
+              "edges": 125,
+              "maxDrift": 3.4994981051163867e-15,
+              "worldMinRatio": 0.9999999865404082,
+              "worldMaxRatio": 1.0000004700684555,
+              "maximumPose": 0.5487971305847168
+            },
+            {
+              "name": "jawChin",
+              "vertices": 116,
+              "edges": 283,
+              "maxDrift": 2.08123543461416e-15,
+              "worldMinRatio": 0.9999999865259183,
+              "worldMaxRatio": 1.0000004701619347,
+              "maximumPose": 0.09354496374726295
+            }
+          ]
+        },
+        {
+          "clip": "rest",
+          "poses": 983,
+          "regions": [
+            {
+              "name": "upperFace",
+              "vertices": 96,
+              "edges": 253,
+              "maxDrift": 2.3318761478130538e-15,
+              "worldMinRatio": 0.9999998251518556,
+              "worldMaxRatio": 1,
+              "maximumPose": 1.57590651512146
+            },
+            {
+              "name": "muzzle",
+              "vertices": 86,
+              "edges": 199,
+              "maxDrift": 3.0634069893800294e-15,
+              "worldMinRatio": 0.9999998251556902,
+              "worldMaxRatio": 1.0000000005884813,
+              "maximumPose": 0.05828980356454849
+            },
+            {
+              "name": "lowerFace",
+              "vertices": 62,
+              "edges": 125,
+              "maxDrift": 3.4963094957024624e-15,
+              "worldMinRatio": 0.9999998251940365,
+              "worldMaxRatio": 1.0000000005998644,
+              "maximumPose": 1.1095880270004272
+            },
+            {
+              "name": "jawChin",
+              "vertices": 116,
+              "edges": 283,
+              "maxDrift": 2.164974639595996e-15,
+              "worldMinRatio": 0.9999998251321685,
+              "worldMaxRatio": 1,
+              "maximumPose": 1.6237874031066895
+            }
+          ]
+        },
+        {
+          "clip": "victory",
+          "poses": 897,
+          "regions": [
+            {
+              "name": "upperFace",
+              "vertices": 96,
+              "edges": 253,
+              "maxDrift": 2.7026172616134614e-15,
+              "worldMinRatio": 0.9999999744742221,
+              "worldMaxRatio": 1.0000000433189733,
+              "maximumPose": 0.25981931388378143
+            },
+            {
+              "name": "muzzle",
+              "vertices": 86,
+              "edges": 199,
+              "maxDrift": 3.0681565376735675e-15,
+              "worldMinRatio": 0.9999999744475444,
+              "worldMaxRatio": 1.0000000420690476,
+              "maximumPose": 0.25981931388378143
+            },
+            {
+              "name": "lowerFace",
+              "vertices": 62,
+              "edges": 125,
+              "maxDrift": 4.013870583576985e-15,
+              "worldMinRatio": 0.9999999744475444,
+              "worldMaxRatio": 1.0000000441986308,
+              "maximumPose": 0.25981931388378143
+            },
+            {
+              "name": "jawChin",
+              "vertices": 116,
+              "edges": 283,
+              "maxDrift": 2.104403889782096e-15,
+              "worldMinRatio": 0.9999999745247271,
+              "worldMaxRatio": 1.0000000447593225,
+              "maximumPose": 0.25981931388378143
+            }
+          ]
+        }
+      ],
+      "blends": [
+        {
+          "name": "upperFace",
+          "vertices": 96,
+          "edges": 253,
+          "maxDrift": 2.3249256818376752e-15,
+          "worldMinRatio": 0.9999999562550416,
+          "worldMaxRatio": 1.00000000832321,
+          "maximumPose": {
+            "from": "rest",
+            "to": "idle_2",
+            "blend": 0.75
+          }
+        },
+        {
+          "name": "muzzle",
+          "vertices": 86,
+          "edges": 199,
+          "maxDrift": 3.0681565376735675e-15,
+          "worldMinRatio": 0.9999999562593277,
+          "worldMaxRatio": 1.0000000087263738,
+          "maximumPose": {
+            "from": "rest",
+            "to": "idle_2",
+            "blend": 0.75
+          }
+        },
+        {
+          "name": "lowerFace",
+          "vertices": 62,
+          "edges": 125,
+          "maxDrift": 4.013870583576985e-15,
+          "worldMinRatio": 0.9999999562539051,
+          "worldMaxRatio": 1.0000000087263738,
+          "maximumPose": {
+            "from": "rest",
+            "to": "idle_2",
+            "blend": 0.75
+          }
+        },
+        {
+          "name": "jawChin",
+          "vertices": 116,
+          "edges": 283,
+          "maxDrift": 2.1273200343075884e-15,
+          "worldMinRatio": 0.9999999562526759,
+          "worldMaxRatio": 1.0000000038414694,
+          "maximumPose": {
+            "from": "rest",
+            "to": "idle_2",
+            "blend": 0.75
+          }
+        }
+      ],
+      "blendPoses": 468,
+      "failed": false
+    },
+    {
+      "id": "rare-22",
+      "name": "Shrine Salamander",
+      "stage": "battle",
+      "sha256": "02a6796d1dd38c72894e16b940be50bacd8e212a4c9f9ffb4348b2749074dbe5",
+      "annotationSourceSha256": "641b2c364ea101f17bfb3f24f3d06fd6a8e7beb9a2194de97248ea38459a4ad9",
+      "landmarks": {
+        "upperFace": {
+          "center": [
+            -0.16080877377134678,
+            0.15838331861622856,
+            0.7710750239561697
+          ],
+          "radius": 0.1,
+          "pickedPixel": [
+            126,
+            171
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "muzzle": {
+          "center": [
+            0.038640133321936075,
+            0.06291041840518008,
+            0.9938192214393022
+          ],
+          "radius": 0.1,
+          "pickedPixel": [
+            154,
+            192
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "lowerFace": {
+          "center": [
+            0.08619824698608056,
+            -0.005657865878168094,
+            0.9943977016428922
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            161,
+            204
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "jawChin": {
+          "center": [
+            0.3868835162847437,
+            0.08598380417768794,
+            0.611573973305355
+          ],
+          "radius": 0.12,
+          "pickedPixel": [
+            196,
+            186
+          ],
+          "pickedView": "head-side",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        }
+      },
+      "clips": [
+        {
+          "clip": "idle",
+          "poses": 949,
+          "regions": [
+            {
+              "name": "upperFace",
+              "vertices": 23,
+              "edges": 53,
+              "maxDrift": 2.5053926141184434e-15,
+              "worldMinRatio": 0.9999998683980555,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.2998654544353485
+            },
+            {
+              "name": "muzzle",
+              "vertices": 29,
+              "edges": 53,
+              "maxDrift": 2.933400806926639e-15,
+              "worldMinRatio": 0.9999998689484838,
+              "worldMaxRatio": 1.0000000035784764,
+              "maximumPose": 1.5951176881790161
+            },
+            {
+              "name": "lowerFace",
+              "vertices": 22,
+              "edges": 30,
+              "maxDrift": 4.079771732601946e-15,
+              "worldMinRatio": 0.9999998673118072,
+              "worldMaxRatio": 1.0000000039796724,
+              "maximumPose": 0.9287499785423279
+            },
+            {
+              "name": "jawChin",
+              "vertices": 27,
+              "edges": 49,
+              "maxDrift": 2.3078888757681662e-15,
+              "worldMinRatio": 0.9999998662767663,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.9225027859210968
+            }
+          ]
+        },
+        {
+          "clip": "idle_2",
+          "poses": 685,
+          "regions": [
+            {
+              "name": "upperFace",
+              "vertices": 23,
+              "edges": 53,
+              "maxDrift": 2.9698759541069657e-15,
+              "worldMinRatio": 0.9999999840943448,
+              "worldMaxRatio": 1.0000002649412143,
+              "maximumPose": 1.0311219692230225
+            },
+            {
+              "name": "muzzle",
+              "vertices": 29,
+              "edges": 53,
+              "maxDrift": 3.2543160064189047e-15,
+              "worldMinRatio": 0.9999999841554194,
+              "worldMaxRatio": 1.0000002653199664,
+              "maximumPose": 0.3918590098619461
+            },
+            {
+              "name": "lowerFace",
+              "vertices": 22,
+              "edges": 30,
+              "maxDrift": 4.4990242644653885e-15,
+              "worldMinRatio": 0.9999999848184178,
+              "worldMaxRatio": 1.0000002669005004,
+              "maximumPose": 0.4749410152435303
+            },
+            {
+              "name": "jawChin",
+              "vertices": 27,
+              "edges": 49,
+              "maxDrift": 2.2423370405388127e-15,
+              "worldMinRatio": 0.999999984270194,
+              "worldMaxRatio": 1.0000002670475578,
+              "maximumPose": 0.15206444263458252
+            }
+          ]
+        },
+        {
+          "clip": "walk",
+          "poses": 523,
+          "regions": [
+            {
+              "name": "upperFace",
+              "vertices": 23,
+              "edges": 53,
+              "maxDrift": 2.7977410986711825e-15,
+              "worldMinRatio": 0.9999999998298196,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.4537239670753479
+            },
+            {
+              "name": "muzzle",
+              "vertices": 29,
+              "edges": 53,
+              "maxDrift": 3.498284591755041e-15,
+              "worldMinRatio": 0.9999999998296085,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.4537239670753479
+            },
+            {
+              "name": "lowerFace",
+              "vertices": 22,
+              "edges": 30,
+              "maxDrift": 3.910673307462378e-15,
+              "worldMinRatio": 0.9999999998296144,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.4537239670753479
+            },
+            {
+              "name": "jawChin",
+              "vertices": 27,
+              "edges": 49,
+              "maxDrift": 1.846311100614533e-15,
+              "worldMinRatio": 0.9999999998296054,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.599415123462677
+            }
+          ]
+        },
+        {
+          "clip": "gallop",
+          "poses": 343,
+          "regions": [
+            {
+              "name": "upperFace",
+              "vertices": 23,
+              "edges": 53,
+              "maxDrift": 2.263252828459794e-15,
+              "worldMinRatio": 0.999999998384271,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.5090738236904144
+            },
+            {
+              "name": "muzzle",
+              "vertices": 29,
+              "edges": 53,
+              "maxDrift": 3.2543160064189047e-15,
+              "worldMinRatio": 0.9999999983822718,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.45297181606292725
+            },
+            {
+              "name": "lowerFace",
+              "vertices": 22,
+              "edges": 30,
+              "maxDrift": 4.4990242644653885e-15,
+              "worldMinRatio": 0.9999999983822732,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.45297181606292725
+            },
+            {
+              "name": "jawChin",
+              "vertices": 27,
+              "edges": 49,
+              "maxDrift": 2.0330392088708207e-15,
+              "worldMinRatio": 0.9999999983822367,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.3490791916847229
+            }
+          ]
+        },
+        {
+          "clip": "gallop_jump",
+          "poses": 339,
+          "regions": [
+            {
+              "name": "upperFace",
+              "vertices": 23,
+              "edges": 53,
+              "maxDrift": 2.7148701116804897e-15,
+              "worldMinRatio": 0.9999993917129297,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.47557105123996735
+            },
+            {
+              "name": "muzzle",
+              "vertices": 29,
+              "edges": 53,
+              "maxDrift": 3.5322823254112764e-15,
+              "worldMinRatio": 0.999999390959438,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.47557105123996735
+            },
+            {
+              "name": "lowerFace",
+              "vertices": 22,
+              "edges": 30,
+              "maxDrift": 4.576465825061015e-15,
+              "worldMinRatio": 0.9999993909627904,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.36342765390872955
+            },
+            {
+              "name": "jawChin",
+              "vertices": 27,
+              "edges": 49,
+              "maxDrift": 2.2612600514710094e-15,
+              "worldMinRatio": 0.9999993909472348,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.12045031040906906
+            }
+          ]
+        },
+        {
+          "clip": "attack",
+          "poses": 533,
+          "regions": [
+            {
+              "name": "upperFace",
+              "vertices": 23,
+              "edges": 53,
+              "maxDrift": 3.905819896161195e-15,
+              "worldMinRatio": 0.9999998708273984,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.515999972820282
+            },
+            {
+              "name": "muzzle",
+              "vertices": 29,
+              "edges": 53,
+              "maxDrift": 4.144914931367601e-15,
+              "worldMinRatio": 0.9999998707312204,
+              "worldMaxRatio": 1.0000000007079939,
+              "maximumPose": 0.6408386826515198
+            },
+            {
+              "name": "lowerFace",
+              "vertices": 22,
+              "edges": 30,
+              "maxDrift": 5.108396117770711e-15,
+              "worldMinRatio": 0.9999998709456132,
+              "worldMaxRatio": 1.000000000428867,
+              "maximumPose": 0.680370956659317
+            },
+            {
+              "name": "jawChin",
+              "vertices": 27,
+              "edges": 49,
+              "maxDrift": 2.6110781988490687e-15,
+              "worldMinRatio": 0.9999998710634679,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.6408386826515198
+            }
+          ]
+        },
+        {
+          "clip": "idle_hitreact1",
+          "poses": 297,
+          "regions": [
+            {
+              "name": "upperFace",
+              "vertices": 23,
+              "edges": 53,
+              "maxDrift": 2.5075453219027806e-15,
+              "worldMinRatio": 0.9999998708273984,
+              "worldMaxRatio": 1.0000000001111697,
+              "maximumPose": 0.5259305834770203
+            },
+            {
+              "name": "muzzle",
+              "vertices": 29,
+              "edges": 53,
+              "maxDrift": 3.0681985550169758e-15,
+              "worldMinRatio": 0.9999998707312204,
+              "worldMaxRatio": 1.0000000022494537,
+              "maximumPose": 0.29726511240005493
+            },
+            {
+              "name": "lowerFace",
+              "vertices": 22,
+              "edges": 30,
+              "maxDrift": 3.911571796459291e-15,
+              "worldMinRatio": 0.9999998709456132,
+              "worldMaxRatio": 1.0000000017157717,
+              "maximumPose": 0.29726511240005493
+            },
+            {
+              "name": "jawChin",
+              "vertices": 27,
+              "edges": 49,
+              "maxDrift": 1.8578147078639473e-15,
+              "worldMinRatio": 0.9999998710634679,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.29726511240005493
+            }
+          ]
+        },
+        {
+          "clip": "death",
+          "poses": 699,
+          "regions": [
+            {
+              "name": "upperFace",
+              "vertices": 23,
+              "edges": 53,
+              "maxDrift": 2.612231983780851e-15,
+              "worldMinRatio": 0.999999956051025,
+              "worldMaxRatio": 1.0000016274728312,
+              "maximumPose": 1.0367942452430725
+            },
+            {
+              "name": "muzzle",
+              "vertices": 29,
+              "edges": 53,
+              "maxDrift": 2.7503035174320695e-15,
+              "worldMinRatio": 0.9999999559967235,
+              "worldMaxRatio": 1.0000015276523966,
+              "maximumPose": 1.080426812171936
+            },
+            {
+              "name": "lowerFace",
+              "vertices": 22,
+              "edges": 30,
+              "maxDrift": 3.82711003385739e-15,
+              "worldMinRatio": 0.9999999559969666,
+              "worldMaxRatio": 1.0000016588088092,
+              "maximumPose": 1.3256006240844727
+            },
+            {
+              "name": "jawChin",
+              "vertices": 27,
+              "edges": 49,
+              "maxDrift": 1.9583086491368015e-15,
+              "worldMinRatio": 0.9999999559958442,
+              "worldMaxRatio": 1.0000017089944058,
+              "maximumPose": 1.0367942452430725
+            }
+          ]
+        },
+        {
+          "clip": "entrance",
+          "poses": 485,
+          "regions": [
+            {
+              "name": "upperFace",
+              "vertices": 23,
+              "edges": 53,
+              "maxDrift": 3.1747690850093384e-15,
+              "worldMinRatio": 0.9999993917129297,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.8078228235244751
+            },
+            {
+              "name": "muzzle",
+              "vertices": 29,
+              "edges": 53,
+              "maxDrift": 3.2548809428013255e-15,
+              "worldMinRatio": 0.999999390959438,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.43930569291114807
+            },
+            {
+              "name": "lowerFace",
+              "vertices": 22,
+              "edges": 30,
+              "maxDrift": 4.576465825061015e-15,
+              "worldMinRatio": 0.9999993909627904,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.6704096794128418
+            },
+            {
+              "name": "jawChin",
+              "vertices": 27,
+              "edges": 49,
+              "maxDrift": 2.2916767110598145e-15,
+              "worldMinRatio": 0.9999993909472348,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.6704096794128418
+            }
+          ]
+        },
+        {
+          "clip": "cast",
+          "poses": 575,
+          "regions": [
+            {
+              "name": "upperFace",
+              "vertices": 23,
+              "edges": 53,
+              "maxDrift": 2.684892710246905e-15,
+              "worldMinRatio": 0.999999720201091,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.5489328503608704
+            },
+            {
+              "name": "muzzle",
+              "vertices": 29,
+              "edges": 53,
+              "maxDrift": 3.4153095123730064e-15,
+              "worldMinRatio": 0.9999997197871376,
+              "worldMaxRatio": 1.0000000006885499,
+              "maximumPose": 0.8150821328163147
+            },
+            {
+              "name": "lowerFace",
+              "vertices": 22,
+              "edges": 30,
+              "maxDrift": 4.4990242644653885e-15,
+              "worldMinRatio": 0.9999997199598807,
+              "worldMaxRatio": 1.0000000005348084,
+              "maximumPose": 0.7017222510443794
+            },
+            {
+              "name": "jawChin",
+              "vertices": 27,
+              "edges": 49,
+              "maxDrift": 2.2232529739923996e-15,
+              "worldMinRatio": 0.9999997204159581,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.5489328503608704
+            }
+          ]
+        },
+        {
+          "clip": "guard",
+          "poses": 586,
+          "regions": [
+            {
+              "name": "upperFace",
+              "vertices": 23,
+              "edges": 53,
+              "maxDrift": 2.4788702299722506e-15,
+              "worldMinRatio": 0.9999999869070318,
+              "worldMaxRatio": 1.0000004699018359,
+              "maximumPose": 0.2723197788000107
+            },
+            {
+              "name": "muzzle",
+              "vertices": 29,
+              "edges": 53,
+              "maxDrift": 2.921083889396042e-15,
+              "worldMinRatio": 0.9999999868007896,
+              "worldMaxRatio": 1.0000004697944762,
+              "maximumPose": 0.5487971305847168
+            },
+            {
+              "name": "lowerFace",
+              "vertices": 22,
+              "edges": 30,
+              "maxDrift": 3.91516369050949e-15,
+              "worldMinRatio": 0.9999999865589051,
+              "worldMaxRatio": 1.0000004690276103,
+              "maximumPose": 0.2723197788000107
+            },
+            {
+              "name": "jawChin",
+              "vertices": 27,
+              "edges": 49,
+              "maxDrift": 2.165606638075937e-15,
+              "worldMinRatio": 0.999999986526753,
+              "worldMaxRatio": 1.0000004699335427,
+              "maximumPose": 0.2723197788000107
+            }
+          ]
+        },
+        {
+          "clip": "rest",
+          "poses": 983,
+          "regions": [
+            {
+              "name": "upperFace",
+              "vertices": 23,
+              "edges": 53,
+              "maxDrift": 2.684892710246905e-15,
+              "worldMinRatio": 0.9999998252388044,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.05828980356454849
+            },
+            {
+              "name": "muzzle",
+              "vertices": 29,
+              "edges": 53,
+              "maxDrift": 3.068348365742146e-15,
+              "worldMinRatio": 0.9999998251483735,
+              "worldMaxRatio": 1.0000000004948502,
+              "maximumPose": 0.05828980356454849
+            },
+            {
+              "name": "lowerFace",
+              "vertices": 22,
+              "edges": 30,
+              "maxDrift": 3.914490461428679e-15,
+              "worldMinRatio": 0.9999998251940365,
+              "worldMaxRatio": 1.0000000000168328,
+              "maximumPose": 0.8167659475448283
+            },
+            {
+              "name": "jawChin",
+              "vertices": 27,
+              "edges": 49,
+              "maxDrift": 2.2636143051554657e-15,
+              "worldMinRatio": 0.9999998252330868,
+              "worldMaxRatio": 1,
+              "maximumPose": 1.192859172821045
+            }
+          ]
+        },
+        {
+          "clip": "victory",
+          "poses": 897,
+          "regions": [
+            {
+              "name": "upperFace",
+              "vertices": 23,
+              "edges": 53,
+              "maxDrift": 2.8550126043000166e-15,
+              "worldMinRatio": 0.9999999754652729,
+              "worldMaxRatio": 1.0000000383122045,
+              "maximumPose": 1.5464445352554321
+            },
+            {
+              "name": "muzzle",
+              "vertices": 29,
+              "edges": 53,
+              "maxDrift": 3.1069061322335474e-15,
+              "worldMinRatio": 0.9999999747936987,
+              "worldMaxRatio": 1.0000000404800344,
+              "maximumPose": 0.5840738117694855
+            },
+            {
+              "name": "lowerFace",
+              "vertices": 22,
+              "edges": 30,
+              "maxDrift": 4.5060485064701206e-15,
+              "worldMinRatio": 0.9999999747936987,
+              "worldMaxRatio": 1.000000044589488,
+              "maximumPose": 0.25981931388378143
+            },
+            {
+              "name": "jawChin",
+              "vertices": 27,
+              "edges": 49,
+              "maxDrift": 2.41612929391875e-15,
+              "worldMinRatio": 0.9999999745247271,
+              "worldMaxRatio": 1.0000000442001944,
+              "maximumPose": 0.25981931388378143
+            }
+          ]
+        }
+      ],
+      "blends": [
+        {
+          "name": "upperFace",
+          "vertices": 23,
+          "edges": 53,
+          "maxDrift": 2.682882307336589e-15,
+          "worldMinRatio": 0.999999956307911,
+          "worldMaxRatio": 1.000000006154863,
+          "maximumPose": {
+            "from": "rest",
+            "to": "idle_2",
+            "blend": 0.75
+          }
+        },
+        {
+          "name": "muzzle",
+          "vertices": 29,
+          "edges": 53,
+          "maxDrift": 3.259396908820234e-15,
+          "worldMinRatio": 0.9999999562536507,
+          "worldMaxRatio": 1.0000000083494207,
+          "maximumPose": {
+            "from": "rest",
+            "to": "idle_2",
+            "blend": 0.75
+          }
+        },
+        {
+          "name": "lowerFace",
+          "vertices": 22,
+          "edges": 30,
+          "maxDrift": 4.5060485064701206e-15,
+          "worldMinRatio": 0.9999999562539051,
+          "worldMaxRatio": 1.0000000083494207,
+          "maximumPose": {
+            "from": "rest",
+            "to": "idle_2",
+            "blend": 0.75
+          }
+        },
+        {
+          "name": "jawChin",
+          "vertices": 27,
+          "edges": 49,
+          "maxDrift": 2.0642385642932746e-15,
+          "worldMinRatio": 0.9999999562528442,
+          "worldMaxRatio": 1,
+          "maximumPose": {
+            "from": "rest",
+            "to": "idle_2",
+            "blend": 0.75
+          }
+        }
+      ],
+      "blendPoses": 468,
+      "failed": false
+    }
+  ]
+}
