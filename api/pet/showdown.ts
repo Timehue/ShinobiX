@@ -1064,6 +1064,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     firstPact: { encounterId: firstPactBinding.encounterId, ...settled },
                 });
             }
+            // A lost finishing response can leave a won bout awaiting payout.
+            // A concession must not delete that result before it is recovered.
+            if (concededSession.outcome === 'win') return res.status(409).json({ error: 'Your pets have already won. Recover the battle result before leaving.' });
             // Unbound bout: nothing is waiting on it, so the session goes away
             // as before rather than lingering for a full lease.
             if (concededSession.rewardEligible) await clearArenaAdmission(playerName, concededSession.sessionId);

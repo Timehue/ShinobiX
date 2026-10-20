@@ -1,7 +1,7 @@
 /*
  * Client side of the server-authoritative Pet Gauntlet rewards + weekly board.
  *
- * `start` fetches a SERVER-MINTED per-run seed plus a single-use run token; the UI
+ * `start` fetches a SERVER-MINTED per-run seed plus a sealed single-use run token; the UI
  * seeds startGauntletRun with that seed so the server can replay the exact run.
  * `report` sends the player's decision TRANSCRIPT (drafts / rerolls / items /
  * relics / premium buys / per-fight placement) — the server RE-SIMULATES the run
@@ -12,6 +12,7 @@
  * auth-wrapped global fetch (installAuthFetch), so no name/token plumbing here.
  */
 import type { Character } from "../types/character";
+import type { GauntletRun } from './pet-gauntlet';
 
 // One player decision in a run, in the order performed. Fight outcomes are NOT
 // recorded — the server re-fights each round. Mirrors GauntletAction in
@@ -43,36 +44,76 @@ export interface GauntletReward {
     fateShards: number;
     boneCharms: number;
     balances: { ryo: number; fateShards: number; boneCharms: number };
-    score: number;
+    score: number | null;
     rank: number | null;
     weekKey: string;
-    roundsCleared: number;
-    heartsLeft: number;
+    roundsCleared: number | null;
+    heartsLeft: number | null;
+    character?: Character;
+    _saveVersion?: number;
 }
 
-export async function startGauntlet(): Promise<GauntletStart | null> {
+export type PendingGauntlet = { player: string; run: GauntletRun; meta: { token: string; weekKey: string; rewardEligible: boolean }; transcript: GauntletAction[] };
+const pendingKey = 'pet.gauntlet.pending.v1';
+export function pendingGauntlet(player: string): PendingGauntlet | null {
+    try {
+        const value = JSON.parse(localStorage.getItem(pendingKey) || 'null') as PendingGauntlet | null;
+        return value?.player === player && value.meta?.token && Array.isArray(value.transcript)
+            && (value.run?.status === 'won' || value.run?.status === 'lost') ? value : null;
+    } catch { return null; }
+}
+export function rememberGauntlet(value: PendingGauntlet | null) {
+    try { if (value) localStorage.setItem(pendingKey, JSON.stringify(value)); else localStorage.removeItem(pendingKey); } catch { /* unavailable storage */ }
+}
+
+const entryKey = 'pet.gauntlet.entry.v1';
+const entryRequests = new Map<string, { requestId: string; savedAt: number }>();
+export async function startGauntlet(player = ''): Promise<GauntletStart | null> {
+    let entry = entryRequests.get(player);
+    try {
+        const saved = JSON.parse(localStorage.getItem(entryKey) || 'null');
+        if (saved?.player === player && typeof saved.requestId === 'string' && Number.isFinite(saved.savedAt)) entry = saved;
+    } catch { /* unavailable storage */ }
+    if (!entry || Date.now() - entry.savedAt >= 3_600_000) entry = { requestId: crypto.randomUUID(), savedAt: Date.now() };
+    entryRequests.set(player, entry);
+    const requestId = entry.requestId;
+    try { localStorage.setItem(entryKey, JSON.stringify({ ...entry, player })); } catch { /* retain the in-memory retry */ }
+    const confirmed = () => {
+        if (entryRequests.get(player)?.requestId === requestId) entryRequests.delete(player);
+        try { if (JSON.parse(localStorage.getItem(entryKey) || 'null')?.requestId === requestId) localStorage.removeItem(entryKey); } catch { /* unavailable storage */ }
+    };
     try {
         const r = await fetch("/api/pet/gauntlet", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ action: "start" }),
+            body: JSON.stringify({ action: "start", requestId }),
         });
-        if (!r.ok) return null;
-        return (await r.json()) as GauntletStart;
+        const data = await r.json().catch(() => null) as (GauntletStart & { error?: string }) | null;
+        if (!r.ok) {
+            if (r.status === 409 && data?.error === 'This Gauntlet entry has already finished. Its reward is saved.') confirmed();
+            return null;
+        }
+        if (typeof data?.runToken !== 'string' || !Number.isSafeInteger(data.seed)) return null;
+        confirmed();
+        return data;
     } catch {
         return null;
     }
 }
 
-export async function reportGauntlet(runToken: string, transcript: GauntletAction[]): Promise<GauntletReward | null> {
+export async function reportGauntlet(runToken: string, transcript: GauntletAction[]): Promise<GauntletReward | { expired: true } | null> {
     try {
         const r = await fetch("/api/pet/gauntlet", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ action: "report", runToken, transcript }),
         });
+        const data = await r.json().catch(() => null) as (GauntletReward & { code?: string }) | null;
+        if (r.status === 409 && data?.code === 'GAUNTLET_REPORT_EXPIRED') return { expired: true };
         if (!r.ok) return null;
-        return (await r.json()) as GauntletReward;
+        return Number.isFinite(data?.ryo) && Number.isFinite(data?.fateShards) && Number.isFinite(data?.boneCharms)
+            && typeof data?.character?.name === 'string' && Number.isSafeInteger(data._saveVersion)
+            && (data.score === null || Number.isFinite(data.score)) && (data.rank === null || Number.isFinite(data.rank)) ? data : null;
     } catch {
         return null;
     }

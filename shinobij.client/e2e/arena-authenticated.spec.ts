@@ -155,12 +155,14 @@ function applyAuthoritativeAction(session: SoloPveSession, payload: SoloActionPa
 async function installArenaApi(page: Page, options: {
     holdAndFailFirstPracticeStart?: boolean;
     certifyRankedQueueLifecycle?: boolean;
+    finishPracticeOutcome?: 'win' | 'loss';
 } = {}) {
     let save: SavePayload | null = null;
     let saveVersion = 0;
     let activeSession: SoloPveSession | null = null;
     let practiceStartCount = 0;
     let genericResumeSuccessCount = 0;
+    let allowPracticeSettle = false;
     const practiceStartPayloads: PracticeStartPayload[] = [];
     const actionPayloads: SoloActionPayload[] = [];
     const rankedQueueActions: string[] = [];
@@ -270,7 +272,18 @@ async function installArenaApi(page: Page, options: {
                 return json(route, { applied: false, reason: "stale-version", session: activeSession }, 409);
             }
             activeSession = applyAuthoritativeAction(activeSession, payload);
+            if (options.finishPracticeOutcome) activeSession = { ...activeSession, status: 'done',
+                winner: options.finishPracticeOutcome === 'win' ? 'player' : 'enemy', outcome: options.finishPracticeOutcome,
+                enemy: options.finishPracticeOutcome === 'win' ? { ...activeSession.enemy, hp: 0 } : activeSession.enemy,
+                player: options.finishPracticeOutcome === 'loss' ? { ...activeSession.player, hp: 0 } : activeSession.player };
             return json(route, { applied: true, session: activeSession });
+        }
+
+        if (path === '/api/missions/report-ai-fight' && options.finishPracticeOutcome) {
+            if (!allowPracticeSettle) return json(route, { error: 'Temporary practice result outage.' }, 503);
+            activeSession = null;
+            return json(route, { ok: true, outcome: options.finishPracticeOutcome, ryo: 0, statPoints: 0,
+                character: save?.character, _saveVersion: saveVersion });
         }
 
         if (path === "/api/pvp/bounty") return json(route, { ok: true, bounties: [] });
@@ -342,8 +355,35 @@ async function installArenaApi(page: Page, options: {
         rankedWeaponChoices: () => [...rankedWeaponChoices],
         releaseRankedJoin: () => releaseRankedJoin?.(),
         releaseRankedPoll: () => releaseRankedPoll?.(),
+        allowPracticeSettle: () => { allowPracticeSettle = true; },
+        character: () => save?.character,
     };
 }
+
+for (const outcome of ['win', 'loss'] as const) test(`practice ${outcome} waits for its result and returns to Battle Arena without hospitalization`, async ({ page }, info) => {
+    test.setTimeout(120000);
+    test.skip(!['chromium-desktop', 'chromium-mobile'].includes(info.project.name), 'Practice completion on desktop and phone.');
+    const api = await installArenaApi(page, { finishPracticeOutcome: outcome });
+    await createAccount(page);
+    await expect.poll(api.hasSave).toBe(true);
+    await restoreVillage(page);
+    await openBattleArena(page);
+    const startingHp = api.character()?.hp;
+    await chooseLevelAndStart(page);
+    await combatSurface(page).getByRole('button', { name: /^Attack/ }).click();
+    const result = page.getByRole('dialog', { name: outcome === 'win' ? 'Fight won' : 'Fight lost', exact: true });
+    await expect(result.getByRole('button', { name: 'Retry', exact: true })).toBeVisible();
+    api.allowPracticeSettle();
+    await result.getByRole('button', { name: 'Retry', exact: true }).click();
+    await expect(result.getByRole('button', { name: 'Retry', exact: true })).toHaveCount(0);
+    await expect(result.getByRole('button', { name: 'Go to Hospital', exact: true })).toHaveCount(0);
+    await page.screenshot({ path: info.outputPath(`practice-${outcome}-result.png`), fullPage: true });
+    await result.getByRole('button', { name: outcome === 'win' ? 'Continue' : 'Return', exact: true }).click();
+    await expect(combatSurface(page)).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'Battle Arena', exact: true })).toBeVisible();
+    expect(api.character()?.hospitalized).not.toBe(true);
+    expect(api.character()?.hp).toBe(startingHp);
+});
 
 async function createAccount(page: Page) {
     await page.goto("/", { waitUntil: "networkidle" });

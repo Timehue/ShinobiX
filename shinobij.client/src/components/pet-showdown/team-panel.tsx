@@ -34,7 +34,7 @@ const STATUS_TITLE: Record<string, string> = {
     mark: "Marked — the next hit lands harder",
     slow: "Slowed — acts later in the round",
     movelock: "Trapped — cannot switch out",
-    protect: "Braced — blocks all damage this round",
+    protect: "Protected — blocks direct hits this round; ongoing damage still applies",
     haste: "Hastened — acts earlier in the round",
     crush: "Crushed — defence lowered",
     taunt: "Taunting — draws single-target attacks",
@@ -43,7 +43,7 @@ const STATUS_TITLE: Record<string, string> = {
 
 function statusTitle(s: { kind: string; rounds: number; magnitude: number }): string {
     const base = STATUS_TITLE[s.kind] ?? s.kind;
-    const pool = s.kind === "shield" && s.magnitude > 0 ? ` (${s.magnitude} left)` : "";
+    const pool = s.kind === "shield" && s.magnitude > 0 ? ` (${s.magnitude} shield HP left)` : "";
     return `${base}${pool} · ${s.rounds} round${s.rounds === 1 ? "" : "s"}`;
 }
 

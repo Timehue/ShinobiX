@@ -97,7 +97,7 @@ export async function fetchHollowGateResume(playerName: string): Promise<HollowG
         });
         const data = await response.json().catch(() => ({})) as { ok?: boolean; live?: boolean; run?: HollowGateResumeState;
             ended?: boolean; token?: string; character?: Character; _saveVersion?: unknown; error?: string };
-        if (!response.ok || !data.ok) return { kind: "error", error: data.error || `Hollow Gate resume failed (${response.status}).` };
+        if (!response.ok || !data.ok) return { kind: "error", error: data.error || 'Your Hollow Gate run could not be recovered. Reopen the shrine to retry.' };
         if (data.ended) return data.character && data.token
             ? { kind: 'ended', token: data.token, character: data.character, saveVersion: data._saveVersion }
             : { kind: 'error', error: 'The ended Hollow Gate save could not be read safely.' };

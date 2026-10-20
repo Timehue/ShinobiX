@@ -120,8 +120,8 @@ test("early system events stay valid away from a village meeting", () => {
     assert.doesNotMatch(awakening, /elder waits|felt it from the gatehouse|gate towers are visible/i);
 
     const aura = auraSphereLv9VnEvent.vnPages?.flatMap((page) => [page.scene, ...page.dialogue]).join(" ") ?? "";
-    assert.match(aura, /seal sewn into your field kit opens/i);
-    assert.match(aura, /If a sphere is already fitted, use that one/i);
+    assert.match(aura, /seal on your field kit opens/i);
+    assert.match(aura, /if you do not already have one equipped/i);
     assert.doesNotMatch(aura, /training since dawn|elder waits beside/i);
 
     const chest = defaultAncientChestVn.vnPages?.flatMap((page) => [page.scene, ...page.dialogue]).join(" ") ?? "";
@@ -258,11 +258,20 @@ test("story narration suppresses every generic Player portrait across the catalo
     assert.ok(narratorPlayerSlots >= 500, `expected broad narrator coverage, found ${narratorPlayerSlots}`);
 });
 
-test("story and event copy uses shinobi-world language instead of generic fantasy or raw game terms", () => {
+test("story and event copy uses shinobi-world language and explicit level requirements", () => {
     const playerFacingCopy = pages.flatMap(visiblePageText).join("\n");
     assert.doesNotMatch(playerFacingCopy, /\bpilgrims?\b/i);
     assert.doesNotMatch(playerFacingCopy, /\b(?:wizard|paladin|cleric|sorcerer|adventurer|quest giver)s?\b/i);
-    assert.doesNotMatch(playerFacingCopy, /\b(?:shinobi\s+)?level\s+\d+\b|\blevel of strength\b|\bshinobi tile game\b/i);
+    assert.doesNotMatch(playerFacingCopy, /\blevel of strength\b|\bshinobi tile game\b/i);
+    // Use the level numbers shown in the UI. Ordinal ranks confused these
+    // requirements with ranks such as Genin.
+    const instructions = [awakeningLv2VnEvent, auraSphereLv9VnEvent, hiddenDungeonVnEvent]
+        .flatMap(event => event.vnPages?.flatMap(page => [page.scene, ...page.dialogue]) ?? []).join("\n");
+    assert.match(instructions, /free at level 2\b/i);
+    assert.match(instructions, /free at level 20\b/i);
+    assert.match(instructions, /reached level 9\b/i);
+    assert.match(instructions, /level 50 or higher/i);
+    assert.doesNotMatch(instructions, /\b(?:second|ninth|twentieth|fiftieth) rank\b/i);
     assert.doesNotMatch(playerFacingCopy, /priests read entrails|more dangerous pilgrim/i);
     assert.match(playerFacingCopy, /shrine keeper/i);
     assert.match(playerFacingCopy, /field record/i);

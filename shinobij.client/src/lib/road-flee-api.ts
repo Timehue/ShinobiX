@@ -39,7 +39,8 @@ export function exploreAmbushFightRequest(sector: number, worldExploreRequestId:
 }
 
 /** Which ambush is being fled: a hostile on the road, or an exploration's rolled battle. */
-export type RoadFleeTarget = { kind: "road" } | { kind: "explore"; sector: number; requestId: string };
+export type RoadFleeTarget = { kind: "road" } | { kind: "explore"; sector: number; requestId: string }
+    | { kind: "toll"; sector: number; wandererId: string };
 
 export type RoadFleeResult =
     | { ok: true; cost: RoadFleeCost; totals: { hp: number; ryo: number }; _saveVersion?: number }
@@ -50,7 +51,9 @@ export type RoadFleeResult =
  * an amount. `fleeId` is one per Flee choice, so a retry is never charged twice.
  */
 export async function fleeRoadAmbush(playerName: string, fleeId: string, target: RoadFleeTarget): Promise<RoadFleeResult> {
-    const fallback = "You could not break away. Fight, or try to run again.";
+    const fallback = target.kind === 'toll'
+        ? 'The toll payment could not be confirmed. Retry the payment to check it without paying twice.'
+        : "You could not break away. Fight, or try to run again.";
     try {
         const res = await fetch("/api/sector/road-flee", {
             method: "POST",

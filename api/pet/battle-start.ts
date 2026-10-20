@@ -40,6 +40,7 @@ import {
     type DungeonPetBattleBinding,
 } from './_dungeon-battle.js';
 import { loadPvpPetDuel, pvpPetDuelOutcomeFor, pvpSettlementSnapshot, resolvePvpPetDuel } from './_pvp-duel.js';
+import { replayFromOpposingSide } from '../_pet-showdown/_viewer-replay.js';
 
 /*
  * /api/pet/battle-start - POST only
@@ -595,7 +596,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     // same seal rather than restaging the fight.
                     ...(pvpResolution && pvpOutcome
                         ? {
-                            showdownScript: pvpResolution.script,
+                            showdownScript: pvpSelfIsA ? pvpResolution.script : replayFromOpposingSide(pvpResolution.script, pvpFoeName),
                             winnerName: pvpResolution.winnerName,
                             outcome: pvpOutcome,
                         }
@@ -629,8 +630,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             reportKey,
             seed,
             ...(dungeon ? { dungeon: true } : {}),
-            // The fight itself, for a player challenge. Both participants get
-            // this same script from their own call, so the duel they watch is
+            // The fight itself, presented from the caller's seat. Both watch
+            // the same sealed actions, so the duel they watch is
             // the duel that was rated — there is nothing left for the client to
             // simulate, and deliberately no local fallback if it is absent.
             //
@@ -642,7 +643,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // every duel as a loss. `winnerName` is still returned, for display.
             ...(pvpResolution && pvpOutcome
                 ? {
-                    showdownScript: pvpResolution.script,
+                    showdownScript: pvpSelfIsA ? pvpResolution.script : replayFromOpposingSide(pvpResolution.script, pvpFoeName),
                     winnerName: pvpResolution.winnerName,
                     outcome: pvpOutcome,
                 }

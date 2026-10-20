@@ -138,7 +138,7 @@ export async function startHollowGatePetDuel(
     hollowGate: ShowdownHollowGateRef,
 ): Promise<HollowGatePetDuelStart> {
     const r = await post({ action: "hollow-gate", playerName, hollowGate: { token: hollowGate.token, runId: hollowGate.runId } });
-    if (!r) return { error: "Network error — the seal did not answer.", retryable: true };
+    if (!r) return { error: "The pet battle request could not be confirmed. Reopen the encounter to check its status.", retryable: true };
     const data = await r.json().catch(() => null) as {
         state?: ShowdownStateView; petIds?: unknown; decided?: { petReceipt?: unknown; outcome?: unknown }; error?: string;
     } | null;
@@ -206,7 +206,7 @@ export async function startAuthoredEncounter(
     encounter: ShowdownEncounterRef,
 ): Promise<{ state: ShowdownStateView; character?: unknown; _saveVersion?: number } | { completed: true; character: unknown; _saveVersion: number } | { error: string }> {
     const r = await post({ action: "encounter", playerName, petIds: [petId], encounter });
-    if (!r) return { error: "Network error — the seal did not answer." };
+    if (!r) return { error: "The pet battle request could not be confirmed. Reopen the encounter to check its status." };
     const data = await r.json().catch(() => null) as { state?: ShowdownStateView; error?: string; completed?: boolean; character?: unknown; _saveVersion?: number } | null;
     if (r.ok && encounter.kind === 'dungeon-seal' && data?.completed === true && data.character && Number.isSafeInteger(data._saveVersion)) return { completed: true, character: data.character, _saveVersion: data._saveVersion! };
     if (!r.ok || !data?.state) return { error: data?.error ?? "This encounter cannot be fought right now." };
@@ -247,8 +247,9 @@ export async function submitShowdownTurn(
 export async function forfeitShowdown(playerName: string, sessionId: string, onCommit?: (character: unknown, version: number) => boolean): Promise<boolean> {
     const r = await post({ action: "forfeit", playerName, sessionId });
     if (!r?.ok) return false;
+    const data = await r.json().catch(() => null) as { ok?: boolean; character?: unknown; _saveVersion?: number } | null;
+    if (data?.ok !== true) return false;
     if (onCommit) {
-        const data = await r.json().catch(() => null) as { character?: unknown; _saveVersion?: number } | null;
         if (!data?.character || !Number.isSafeInteger(data._saveVersion)) return false;
         if (!onCommit(data.character, data._saveVersion!)) return false;
     }
@@ -278,4 +279,23 @@ export async function fetchShowdownState(
     if (!r || !r.ok) return null;
     const data = await r.json().catch(() => null) as { state?: ShowdownStateView } | null;
     return data?.state ?? null;
+}
+
+export type ShowdownRecovery = { state: ShowdownStateView; settlement?: ShowdownTurnResponse } | { expired: true } | { error: string };
+
+/** Retain the resume pointer on an outage; claim either terminal outcome before closing it. */
+export async function recoverShowdownSession(playerName: string, sessionId: string): Promise<ShowdownRecovery> {
+    const r = await post({ action: 'state', playerName, sessionId });
+    if (r?.status === 404) return { expired: true };
+    const data = await r?.json().catch(() => null) as { state?: ShowdownStateView } | null;
+    if (!r?.ok || data?.state?.sessionId !== sessionId || typeof data.state.finished !== 'boolean') {
+        return { error: 'Your pet battle could not be loaded. Your saved battle is still available; try again.' };
+    }
+    if (!data.state.finished) return { state: data.state };
+    const settlement = await submitShowdownTurn(playerName, sessionId, []);
+    if (settlement && 'expired' in settlement) return settlement;
+    if (!settlement?.ok || !settlement.state?.finished || settlement.state.sessionId !== sessionId) {
+        return { error: 'Your pet battle result could not be confirmed. Try again before starting another battle.' };
+    }
+    return { state: settlement.state, settlement };
 }

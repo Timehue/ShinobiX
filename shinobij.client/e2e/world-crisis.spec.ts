@@ -285,7 +285,7 @@ test("World News report calls every shinobi into the server-authoritative outski
     await expect(page.getByRole("heading", { level: 1, name: "The Fourfold Breach" })).toBeVisible();
     await expect(page.getByText("VILLAGE OBJECTIVE")).toBeVisible();
     await expect(page.getByRole("heading", { name: "The villages answer together" })).toBeVisible();
-    await expect(page.getByText("Difficulty and contribution are sealed by the server.")).toBeVisible();
+    await expect(page.getByText('This event sets its own difficulty and records your contribution.')).toBeVisible();
     await expectNoHorizontalOverflow(page);
     await page.screenshot({
         path: testInfo.outputPath(`fourfold-breach-${testInfo.project.name}.png`),

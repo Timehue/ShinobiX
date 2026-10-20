@@ -1,4 +1,5 @@
 import academySparringSprite from "../assets/combat-actors/builtin-ai-academy-sparring-idle.webp";
+import { storyTwinArt } from '../../../shared/story-twin-art';
 import mistSentinelSprite from "../assets/combat-actors/builtin-ai-mist-sentinel-idle.webp";
 import emberDuelistSprite from "../assets/combat-actors/builtin-ai-ember-duelist-idle.webp";
 import examProctorSprite from "../assets/combat-actors/builtin-ai-exam-proctor-idle.webp";
@@ -47,6 +48,8 @@ import clanLeviathanSprite from "../assets/combat-actors/bosses/clan-boss-leviat
 import clanGolemSprite from "../assets/combat-actors/bosses/clan-boss-golem-idle.webp";
 import { worldBossDefinitionForVisual, worldBossDefinitionForGuardVisual } from "../../../shared/world-boss-event";
 import { STORY_KAGE_PORTRAITS } from '../../../shared/story-kage-art';
+import { STORY_COMBAT_IDENTITIES } from '../../../shared/story-combat-identity';
+import { narrativeEnemyIdentity } from '../../../shared/narrative-enemy-identity';
 
 const HOLLOW_HOUND_SPRITE = "/hollow-gate/hollow-hound-idle.webp";
 const STORY_KAGE_SPRITES: Record<string, string> = { ...STORY_KAGE_PORTRAITS, 'story-ai-ashen-leaf-village-100': hoshinaHollowSprite };
@@ -123,11 +126,20 @@ const BUNDLED_AI_BATTLE_SPRITES: Record<string, string> = {
     "builtin-ai-rogue-ninja": rogueNinjaSprite,
     "builtin-ai-shadow-weaver": shadowWeaverSprite,
     "builtin-ai-central-champion": centralChampionSprite,
+    "road-ai-brask": examProctorSprite,
+    "road-ai-magpie": examProctorSprite,
+    "road-ai-havek": examProctorSprite,
+    "road-ai-hela-dray": frostSealerSprite,
+    "road-ai-black-bridge": shadowWeaverSprite,
+    "road-ai-anji-vesk": shadowWeaverSprite,
+    "road-ai-forty-first": centralChampionSprite,
+    "road-ai-foreman-dray": centralChampionSprite,
+    "road-ai-anchor-warden": centralChampionSprite,
     ...HUNT_BATTLE_SPRITES,
     ...APEX_BATTLE_SPRITES,
     ...RIFT_BOSS_SPRITES,
     ...TOWER_BATTLE_SPRITES,
-    "academy-spar-dummy": academySparringSprite,
+    "academy-spar-dummy": "/combat-actors/narrative/academy-training-dummy.webp",
     "hollow-hound": HOLLOW_HOUND_SPRITE,
     "boss-hollow-gate-warden": HOLLOW_HOUND_SPRITE,
     "ashen-dragon": apexEmberDrakeSprite,
@@ -213,6 +225,10 @@ export function battlefieldAiSprite(
     const published = sharedImages?.[`ai:${suppliedId}:body`]
         || sharedImages?.[`ai:${id}:body`];
     if (published) return published;
+    const twin = storyTwinArt(id);
+    if (twin) return twin;
+    const authored = STORY_COMBAT_IDENTITIES[id] ?? narrativeEnemyIdentity(id);
+    if (authored) return authored.body || (authored.sprite && (BUNDLED_AI_BATTLE_SPRITES[authored.sprite] || ORDINARY_PVE_SPRITES[authored.sprite])) || authored.portrait;
     if (/^Tsukika\b/i.test(identity?.name ?? '') && (id === 'nightblade' || identity?.archetype === 'assassin')) return tsukikaSprite;
     if (/^Kagero\b/i.test(identity?.name ?? '')) return kageroSprite;
     return worldBossDefinitionForVisual(id)?.battleSprite

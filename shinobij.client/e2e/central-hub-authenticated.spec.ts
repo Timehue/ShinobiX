@@ -329,7 +329,11 @@ for (const contract of bloodlineAwakeningContracts) {
         // offering a choice that changes nothing.
         await tagSelect.selectOption("Poison");
         await expect(page.locator(".tag-percent-select")).toHaveCount(0);
-        await expect(page.locator(".tag-picker").first().locator(".tag-effect-help")).toContainText(`Poisons the target at ${contract.poisonCeiling}% for 2 rounds`);
+        const poisonHelp = page.locator(".tag-picker").first().locator(".tag-effect-help");
+        await expect(poisonHelp).toContainText('Poisons the target for 2 rounds.');
+        // Combat charges spent chakra/stamina × capped potency × 12 HP.
+        await expect(poisonHelp).toContainText(`base HP damage equal to ${contract.poisonCeiling * 12}% of the amount spent`);
+        await expect(poisonHelp).toContainText('free casts cause none');
 
         // Rank-specific tag power is certified on a tag whose strength really varies.
         await tagSelect.selectOption("Decrease Damage Given");

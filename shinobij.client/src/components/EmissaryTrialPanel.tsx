@@ -92,7 +92,7 @@ export function EmissaryTrialPanel({ playerName, emissary, onVersionedCharacter 
         setBusy(false);
         if (r?.ok && r.legacy) {
             if (!r.character || typeof r._saveVersion !== "number") {
-                setNote("“Your trial is sealed, but its authoritative record did not arrive. Refresh before continuing.”");
+                setNote("“Your trial is complete, but your updated character could not be loaded. Refresh before continuing.”");
                 return;
             }
             // The trial is sealed even if a newer save was adopted first and this

@@ -8,6 +8,20 @@ async function openGuideLibrary(page: Page) {
     await expect(page.getByRole("heading", { name: "Game guides", exact: true })).toBeVisible();
 }
 
+test("world guide distinguishes the bandit toll from other road escape costs", async ({ page }, info) => {
+    await openGuideLibrary(page);
+    await page.getByRole("searchbox", { name: "Search guides" }).fill("Travel, Exploration");
+    await page.getByRole("button", { name: "Read Travel, Exploration, and World Events" }).click();
+    const costs = page.getByText("Road bandits offer Fight or Pay 500 ryo.", { exact: false });
+    await costs.scrollIntoViewIfNeeded();
+    await expect(costs).toBeVisible();
+    await expect(costs).toContainText("Paying uses carried ryo and costs no HP.");
+    await expect(costs).toContainText("Other hostile road encounters offer Fight or Flee.");
+    const width = await page.evaluate(() => ({ viewport: innerWidth, document: document.documentElement.scrollWidth }));
+    expect(width.document).toBeLessThanOrEqual(width.viewport);
+    await page.screenshot({ path: info.outputPath("road-encounter-costs.png"), fullPage: true });
+});
+
 test("public guide archive searches live systems and renders every cover", async ({ page }) => {
     const runtimeErrors: string[] = [];
     page.on("pageerror", (error) => runtimeErrors.push(error.message));

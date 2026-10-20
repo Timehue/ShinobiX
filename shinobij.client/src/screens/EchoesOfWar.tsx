@@ -453,7 +453,7 @@ function EchoesOfWarContent({ character, creatorCards, updateCharacter, onVersio
                     setWitnessReceipt({ playerName, eraId: response.eraId, choiceId: response.choiceId });
                 } catch (error) {
                     if (requestId !== witnessRequest.current || characterNameRef.current !== playerName) return;
-                    setWitnessError(error instanceof Error ? error.message : "Could not seal the witness record.");
+                    setWitnessError(error instanceof Error ? error.message : "Your witness record could not be saved. Try again.");
                 } finally {
                     if (requestId === witnessRequest.current && characterNameRef.current === playerName) setWitnessPending(null);
                 }

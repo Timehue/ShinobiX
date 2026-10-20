@@ -265,7 +265,7 @@ describe('bounded shield and normalized timeout score', () => {
         });
         const done = applyPvpServerAutoWait(starting);
         assert.equal(done.winner, 'p1');
-        assert.match(done.log.at(-1) ?? '', /normalized effective health/i);
+        assert.match(done.log.at(-1) ?? '', /remaining HP plus shield relative to maximum HP/i);
     });
 
     test('timeout resolves before an unmatched round-26 start-of-turn DoT', () => {

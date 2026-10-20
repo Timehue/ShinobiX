@@ -45,8 +45,9 @@ describe("TagPicker player-creator percent choices", () => {
         for (const [rank, percent, ceiling, spend] of [["B Rank", 25, 12, 144], ["A Rank", 30, 12, 144], ["S Rank", 35, 14, 168]] as const) {
             const html = render("Poison", rank, percent);
             assert.doesNotMatch(html, /aria-label="Poison strength"/, `${rank} should not offer a Poison strength choice`);
-            assert.match(html, new RegExp(`Poisons the target at ${ceiling}% for 2 rounds`), `${rank} help shows the ${ceiling}% ceiling`);
-            assert.match(html, new RegExp(`${spend}% of the chakra/stamina`), `${rank} help shows the real HP share`);
+            assert.match(html, /Poisons the target for 2 rounds/, `${rank} help states the duration`);
+            assert.match(html, new RegExp(`${spend}% of the amount spent`), `${rank} help converts its ${ceiling}% ceiling into the real HP share`);
+            assert.match(html, /free casts cause none/);
         }
     });
 });

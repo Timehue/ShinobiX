@@ -60,11 +60,11 @@ test('named source opt-in restores specialty allocation and preserves low-level 
     assert.equal((build(challenge).enemy.character.equipment as Record<string, unknown>)?.hand, 'elderbranch-katana');
 });
 
-test('each final Kage keeps its exclusive policy, legal full rotation and original HP', () => {
+test('each final Kage keeps its exclusive policy, legal full rotation and exact authored HP', () => {
     for (const village of ['Stormveil Village', 'Ashen Leaf Village', 'Frostfang Village', 'Moonshadow Village']) {
         const profile = storyBossEnemyTemplate({ village, progressIndex: 8 });
         const s = build(profile);
-        assert.equal(s.enemy.maxHp, 14000);
+        assert.equal(s.enemy.maxHp, profile.hp, 'equipping the challenge weapon does not alter the authored HP budget');
         assert.equal(profile.pveDifficulty, 'final-kage');
         assert.equal(s.enemy.character.masterAi, true);
         assert.equal((s.enemy.character.jutsu as unknown[]).length, 12);

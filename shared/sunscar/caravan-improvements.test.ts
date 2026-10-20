@@ -10,6 +10,21 @@ import { caravanChoiceBlock, caravanFieldCharacter, caravanObjectiveProgress, ca
 import type { CaravanWeather } from './caravan-types.js';
 
 const now = Date.UTC(2026, 8, 19, 12);
+
+test('cargo-loss hints remain true with and without high-morale protection', () => {
+    for (const event of CARAVAN_EVENTS) for (const choice of event.choices) {
+        const loss = -(choice.effect.cargo ?? 0);
+        if (loss <= 0) continue;
+        assert.match(choice.hint, new RegExp(`up to ${loss} cargo`, 'i'), `${event.id}/${choice.id}`);
+        for (const morale of [79, 80]) {
+            const { character, run } = encounter(event.id);
+            Object.assign(run, { morale, cargo: 100, supplies: 30 });
+            const result = resolveCaravanChoice(run, choice.id, character, now);
+            const expectedLoss = morale >= 80 ? -Math.ceil(-loss * .85) : loss;
+            assert.equal(100 - result.run.cargo, expectedLoss, `${event.id}/${choice.id} morale ${morale}`);
+        }
+    }
+});
 const base = { name: 'field-escort', level: 30, hp: 100, maxHp: 100, chakra: 100, maxChakra: 100, stamina: 100, maxStamina: 100, ryo: 10000, pets: [] };
 function encounter(id: string, overrides: Record<string, unknown> = {}) {
     const character = departCaravan({ ...structuredClone(base), ...overrides }, base.name, { contractId: 'market-goods', tools: ['water', 'repair', 'feed'] }, now);
