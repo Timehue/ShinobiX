@@ -22,7 +22,7 @@ const BREEDING_ERROR_COPY: Readonly<Record<string, string>> = {
     "hatch-requirements-incomplete": "This egg needs more gameplay time in Sanctuary before it can hatch.",
     "hatch-deferred-active-battle": "Your egg is ready. It will hatch after your current battle finishes.",
     "pairing-produced-no-egg": "This pairing did not produce an egg.",
-    "sealed-breeding-result-missing": "This egg's sealed record could not be read. Refresh the Shinobi Hatchery and try again.",
+    "sealed-breeding-result-missing": "This egg's details could not be loaded. Refresh the Shinobi Hatchery and try again.",
     "sealed-breeding-template-missing": "This egg's companion could not be found. Refresh the Shinobi Hatchery and try again.",
 };
 const UNKNOWN_BREEDING_ERROR = "The Shinobi Hatchery could not complete that request. Refresh and try again.";
@@ -40,7 +40,7 @@ async function parse<T>(response: Response): Promise<T> {
             : Object.hasOwn(BREEDING_ERROR_COPY, reported) ? BREEDING_ERROR_COPY[reported]
             : /^[a-z0-9]+(?:-[a-z0-9]+)+$/.test(reported) ? UNKNOWN_BREEDING_ERROR
             : reported;
-        throw new Error(copy || `Breeding request failed (${response.status}).`);
+        throw new Error(copy || `Your Hatchery request could not be confirmed. Reopen the Hatchery to check the pairing or egg.`);
     }
     return body;
 }

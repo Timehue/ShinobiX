@@ -1,0 +1,98 @@
+{
+  "id": "starter-wind",
+  "sourcePromoted": false,
+  "rows": [
+    {
+      "category": "head",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-gale-chick-complete-face-v1-source-first-head/starter-wind-head-front-0.png",
+      "sha256": "f0fbb168c2cc2d34576d61fc98eacaf7f3dc23a61d906c2ad54e2a46013465f9",
+      "actuallyInspected": true
+    },
+    {
+      "category": "head",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-gale-chick-complete-face-v1-source-first-head/starter-wind-head-front-1.png",
+      "sha256": "17154cd52e725a00a35cc43e56a519ff95de2e2c97fc4ab9cde3c8b8ec534bad",
+      "actuallyInspected": true
+    },
+    {
+      "category": "head",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-gale-chick-complete-face-v1-source-first-head/starter-wind-head-front-2.png",
+      "sha256": "e569f01cf5a3c69245b095f848503143f9fc674f8c379366769652a24cb8fcdf",
+      "actuallyInspected": true
+    },
+    {
+      "category": "head",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-gale-chick-complete-face-v1-source-first-head/starter-wind-head-side-0.png",
+      "sha256": "8f39d64f714b8ad8bb71f223727c5e1d0a71fe45f553801bbff1ee53e6978923",
+      "actuallyInspected": true
+    },
+    {
+      "category": "head",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-gale-chick-complete-face-v1-source-first-head/starter-wind-head-side-1.png",
+      "sha256": "0f59df3a055ab9eab1889eecaf5b75ea57af24bb55b55c1d644dbe45b1b8c5eb",
+      "actuallyInspected": true
+    },
+    {
+      "category": "head",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-gale-chick-complete-face-v1-source-first-head/starter-wind-head-side-2.png",
+      "sha256": "3840b5e5b505f7da785e2bd31434e607242f8b3b0ab7a67541cf12cb35f4a3c8",
+      "actuallyInspected": true
+    },
+    {
+      "category": "head",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-gale-chick-complete-face-v1-source-first-head/starter-wind-head-other-side-0.png",
+      "sha256": "228c3ee83bb8b32f53783ea3c395c8b2c9970d70487b908b20c1aa93274e438e",
+      "actuallyInspected": true
+    },
+    {
+      "category": "head",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-gale-chick-complete-face-v1-source-first-head/starter-wind-head-other-side-1.png",
+      "sha256": "a98a20098f2eab32068cc90b2c087fffa512f3f6fced9baae3f7bddeaf3b9b4b",
+      "actuallyInspected": true
+    },
+    {
+      "category": "head",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-gale-chick-complete-face-v1-source-first-head/starter-wind-head-other-side-2.png",
+      "sha256": "692d07b58d1a57e08eae7e659376caa4eada411f476bff1e4dc8b095a46a69cc",
+      "actuallyInspected": true
+    },
+    {
+      "category": "body",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-gale-chick-complete-face-v1-source-first-body/starter-wind-front-0.png",
+      "sha256": "929f77fc0fa04c1134706d72e9eb905cbd8415774aed79a431a49edc9cd9861f",
+      "actuallyInspected": true
+    },
+    {
+      "category": "body",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-gale-chick-complete-face-v1-source-first-body/starter-wind-front-1.png",
+      "sha256": "8fff2713f051b79cf38fcf3da28ad7cd264ae27d5a79bc180e281745622da31d",
+      "actuallyInspected": true
+    },
+    {
+      "category": "body",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-gale-chick-complete-face-v1-source-first-body/starter-wind-front-2.png",
+      "sha256": "54dd7828e433d8064b855ff520288628a0d3d0ffed51c5510922702af951f463",
+      "actuallyInspected": true
+    },
+    {
+      "category": "body",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-gale-chick-complete-face-v1-source-first-body/starter-wind-side-0.png",
+      "sha256": "162e666359f6ddb2bf38960ae81424e3958d23b7c74edd03c928f3847ace7ae7",
+      "actuallyInspected": true
+    },
+    {
+      "category": "body",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-gale-chick-complete-face-v1-source-first-body/starter-wind-side-1.png",
+      "sha256": "21012949ce94e43ee539e227bd56bd448c41ff7b5d5edc79d42f6f9bf35212db",
+      "actuallyInspected": true
+    },
+    {
+      "category": "body",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-gale-chick-complete-face-v1-source-first-body/starter-wind-side-2.png",
+      "sha256": "4f8ccfd07956d73fce8fa9cad59f8790cfb4bd2aa5a4972d8fc6da01621268e8",
+      "actuallyInspected": true
+    }
+  ],
+  "finding": "Candidate recoil/death head front and side retain rounded headband boundary and whole lower face; remaining raw and technique coverage pending.",
+  "recordedAt": "2026-10-19T13:56:16.089Z"
+}

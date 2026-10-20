@@ -37,6 +37,7 @@ export type HollowGateStartResult = {
     seed?: string;
     floorDepth?: number;
     variantId?: string;
+    variantLabel?: string;
     riftDistortionId?: string;
     floorWidth?: number;
     floorHeight?: number;

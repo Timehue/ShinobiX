@@ -6,6 +6,7 @@
  * is never presented as a creature, god, or portal.
  */
 
+import { STORY_COMBAT_IDENTITIES } from './story-combat-identity.js';
 export const WORLD_CRISIS_ID = 'fourfold-breach-v1';
 export const WORLD_CRISIS_TITLE = 'The Fourfold Breach';
 export const WORLD_CRISIS_TRIGGER_LEVEL = 37;
@@ -91,7 +92,7 @@ export const WORLD_CRISIS_ENCOUNTERS: Record<WorldCrisisVillage, WorldCrisisEnco
         village: 'Stormveil Village',
         sourceId: `${WORLD_CRISIS_ID}:stormveil`,
         name: 'Storm Engine Warden',
-        portrait: '/portraits/hollow-warden.webp',
+        portrait: STORY_COMBAT_IDENTITIES['story-ai-stormveil-village-35'].portrait,
         biome: 'forest',
         loadoutId: 'bruiser',
         statBonus: 3,
@@ -100,7 +101,7 @@ export const WORLD_CRISIS_ENCOUNTERS: Record<WorldCrisisVillage, WorldCrisisEnco
         village: 'Ashen Leaf Village',
         sourceId: `${WORLD_CRISIS_ID}:ashen-leaf`,
         name: 'First Flame Sentinel',
-        portrait: '/portraits/first-flame-avatar.webp',
+        portrait: STORY_COMBAT_IDENTITIES['story-ai-ashen-leaf-village-35'].portrait,
         biome: 'volcano',
         loadoutId: 'burst',
         statBonus: 3,
@@ -108,8 +109,8 @@ export const WORLD_CRISIS_ENCOUNTERS: Record<WorldCrisisVillage, WorldCrisisEnco
     'Frostfang Village': {
         village: 'Frostfang Village',
         sourceId: `${WORLD_CRISIS_ID}:frostfang`,
-        name: 'Oathbound Ice Captain',
-        portrait: '/portraits/meter-warden-kree.webp',
+        name: 'Oathbound Ice Captain and Escorts',
+        portrait: STORY_COMBAT_IDENTITIES['story-ai-frostfang-village-35'].portrait,
         biome: 'snow',
         loadoutId: 'defender',
         statBonus: 4,
@@ -118,7 +119,7 @@ export const WORLD_CRISIS_ENCOUNTERS: Record<WorldCrisisVillage, WorldCrisisEnco
         village: 'Moonshadow Village',
         sourceId: `${WORLD_CRISIS_ID}:moonshadow`,
         name: 'Contract-Bound Shadow',
-        portrait: '/portraits/masked-auction-enforcer.webp',
+        portrait: STORY_COMBAT_IDENTITIES['story-ai-moonshadow-village-35'].portrait,
         biome: 'shadow',
         loadoutId: 'boss',
         statBonus: 4,

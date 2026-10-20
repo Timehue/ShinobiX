@@ -170,10 +170,10 @@ describe('applyJutsu characterization — amp / DR pools', () => {
         const mastery8Stacks = mastery8.self.statuses.filter((status) => status.name === 'Increase Damage Given');
         assert.deepEqual(mastery8Stacks.map((status) => status.percent), [21, 21]);
         assert.deepEqual(
-            mastery8.lines.filter((line) => line.startsWith('+21% Damage Given')),
+            mastery8.lines.filter((line) => line.startsWith('Increase Damage Given (stack')),
             [
-                '+21% Damage Given (stack 1/2): A for 2 turns.',
-                '+21% Damage Given (stack 2/2): A for 2 turns.',
+                'Increase Damage Given (stack 1/2): A deals more damage for 2 rounds, starting next round.',
+                'Increase Damage Given (stack 2/2): A deals more damage for 2 rounds, starting next round.',
             ],
         );
         const mastery8FollowUp = applyJutsu(
@@ -190,10 +190,10 @@ describe('applyJutsu characterization — amp / DR pools', () => {
         const mastery50Stacks = mastery50.self.statuses.filter((status) => status.name === 'Increase Damage Given');
         assert.deepEqual(mastery50Stacks.map((status) => status.percent), [30, 30]);
         assert.deepEqual(
-            mastery50.lines.filter((line) => line.startsWith('+30% Damage Given')),
+            mastery50.lines.filter((line) => line.startsWith('Increase Damage Given (stack')),
             [
-                '+30% Damage Given (stack 1/2): A for 2 turns.',
-                '+30% Damage Given (stack 2/2): A for 2 turns.',
+                'Increase Damage Given (stack 1/2): A deals more damage for 2 rounds, starting next round.',
+                'Increase Damage Given (stack 2/2): A deals more damage for 2 rounds, starting next round.',
             ],
         );
         const mastery50FollowUp = applyJutsu(

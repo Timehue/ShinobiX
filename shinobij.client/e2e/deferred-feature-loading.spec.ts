@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
-import { productionManifest } from './helpers/production-preview';
+import { readFileSync } from "node:fs";
+import { previewRootFor, smokeE2ePort } from "../e2e-ports";
 import { expectUiAuditBoot, installUiAuditRuntime, uiAuditSave } from "./helpers/ui-audit-runtime";
 
 test.beforeEach(({ browserName }, testInfo) => {
@@ -7,7 +8,7 @@ test.beforeEach(({ browserName }, testInfo) => {
 });
 
 test("village restoration defers PvP until entering a combat gateway", async ({ page }) => {
-    const manifest = productionManifest();
+    const manifest = JSON.parse(readFileSync(new URL(`../${previewRootFor(smokeE2ePort())}/.vite/manifest.json`, import.meta.url), "utf8"));
     const pvpPath = `/${manifest["src/screens/PvpBattleScreen.tsx"].file}`;
     const requests: string[] = [];
     page.on("request", request => requests.push(request.url()));

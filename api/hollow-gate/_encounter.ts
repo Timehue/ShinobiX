@@ -8,7 +8,11 @@ import { AUGMENT_CATALOG, type HollowGateRunToken } from './_run-token.js';
 import type { HollowGateCombatBinding, HollowGateCombatKind } from './_combat-session.js';
 import { hollowGateWandererForNode } from './_wanderers.js';
 import { hollowGateWandererName, hollowGateWandererArt } from '../../shared/hollow-gate-wanderers.js';
+import { resolveAiProfileJutsu } from '../_ai-opponent-loadout.js';
+import { soloPveJutsuCompatibility } from '../solo-pve/_compatibility.js';
+import { validateServerAiRules } from '../combat-core/ai-authoring.js';
 import { SHRINE_AI_POLICY } from '../solo-pve/_ai-turn-policy.js';
+import { narrativeEnemyIdentity } from '../../shared/narrative-enemy-identity.js';
 
 const LOADOUTS: Record<'burst' | 'bruiser' | 'hunter' | 'boss', string[]> = {
     burst: ['starter-tai-water-2', 'starter-nin-lightning-2', 'starter-buki-fire-2', 'starter-tai-fire-2', 'starter-tai-earth-1', 'starter-universal-flicker'],
@@ -62,14 +66,20 @@ export function buildHollowGateProfile(params: {
     const statMult = (boss ? 1.18 : 1 + depth * 0.035) * kindStatMult * augment.enemyStatMult * gentle;
     const stats = Object.fromEntries(Object.entries(aiStatsForLevel(level)).map(([key, value]) => [key, Math.max(1, Math.round(value * statMult))]));
     const baseHp = aiHpForLevel(level, boss ? 0.18 : elite ? 0.1 : 0.04);
-    const hp = Math.max(1, Math.floor(baseHp * (boss ? scale.hpMult : 1 + depth * 0.06) * kindHpMult * augment.enemyHpMult * gentle * (1 - augment.enemyHpShavePct)));
+    // New shrine mobs keep their attacks, defenses and depth/augment rules,
+    // with less HP attrition. Stored sessions resume before this factory runs.
+    // Bosses (including named Rift bosses) retain their original HP exactly.
+    const mobHpMult = boss ? 1 : elite ? 0.60 : 0.65;
+    const hp = Math.max(1, Math.floor(baseHp * (boss ? scale.hpMult : 1 + depth * 0.06) * kindHpMult * augment.enemyHpMult * gentle * (1 - augment.enemyHpShavePct) * mobHpMult));
     const loadoutId = boss ? 'boss' : elite || wanderer?.role === 'bandit' ? 'bruiser'
         : wanderer?.role === 'night-ninja' ? 'burst' : wanderer || beast ? 'hunter'
         : level > 30 && (kind === 'battle' || ambush) ? corridorLoadout(run, binding) : ambush ? 'burst' : 'hunter';
+    const authoredBoss = boss && narrativeEnemyIdentity(run.bossProfileId) ? run.bossProfileId : undefined;
     return {
         id: binding.enemyProfileId,
         name: wanderer ? hollowGateWandererName(wanderer) : boss ? (run.bossName || hollowGateHoundName(binding.floor, kind)) : hollowGateHoundName(binding.floor, kind),
-        visual: wanderer ? 'shinobi' : 'hollow-hound',
+        visual: authoredBoss ?? (wanderer ? 'shinobi' : 'hollow-hound'),
+        ...(authoredBoss ? { narrativeIdentityId: authoredBoss } : {}),
         ...(wanderer ? { avatarImage: hollowGateWandererArt(wanderer) } : {}),
         level,
         hp,
@@ -91,10 +101,24 @@ export function buildHollowGateSoloPveEncounter(params: {
     save: Record<string, unknown>;
     now: number;
     admin: AdminCombatContent | null;
+    namedBossProfile?: SoloPveAiProfile | null;
 }): SoloPveSession {
     const character = params.save.character as Record<string, unknown>;
     const augment = augmentEffects(params.run);
     const profile = buildHollowGateProfile({ binding: params.binding, run: params.run, playerLevel: Math.max(1, Math.floor(Number(character.level) || 1)) });
+    const named = params.binding.kind === 'boss' && params.run.bossProfileId === params.namedBossProfile?.id ? params.namedBossProfile : null;
+    const namedJutsu = named ? resolveAiProfileJutsu(named.jutsuIds, params.admin) : [];
+    const program = named ? validateServerAiRules(named.rules, namedJutsu.map(jutsu => jutsu.id)) : null;
+    const supported = !!named && namedJutsu.length > 0 && !!program?.ok && namedJutsu.every(jutsu => soloPveJutsuCompatibility(jutsu).length === 0);
+    // The run already selected this authored opponent. Adopt its existing kit
+    // and rules only; shrine curves, mastery, resources and support budget stay sealed here.
+    if (supported) Object.assign(profile, {
+        jutsuIds: namedJutsu.map(jutsu => jutsu.id), rules: program.rules,
+        preserveNarrativeRules: true,
+        loadoutId: named.loadoutId,
+        ...(!params.run.bossName && typeof named.name === 'string' ? { name: named.name } : {}),
+        ...(typeof named.avatarImage === 'string' ? { avatarImage: named.avatarImage } : {}),
+    });
     const session = buildSoloPveAiEncounter({
         sessionId: params.binding.runId,
         playerName: params.binding.playerName,
@@ -115,6 +139,7 @@ export function buildHollowGateSoloPveEncounter(params: {
                 combatKind: params.binding.kind,
                 augmentId: params.run.chosenAugmentId ?? 'none',
                 noRetreat: augment.noRetreat,
+                ...(supported ? { namedBossProfileId: named.id } : {}),
             },
         },
         environment: { biome: 'shadow' },

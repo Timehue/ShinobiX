@@ -1,4 +1,8 @@
 import { creditElderWins } from '../../shared/elder-elections.js';
+import { HOLLOW_GATE_HUNTER_BREATHER_STEPS } from '../../shared/hollow-gate-pacing.js';
+import { hollowGateLossHp } from '../../shared/hollow-gate-loss.js';
+import { hollowGateShinobiRoundLimit } from '../../shared/hollow-gate-round-limit.js';
+import type { SoloPveTerminalReason } from '../../shared/solo-pve-terminal.js';
 import { createHash, randomInt } from 'node:crypto';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
@@ -9,7 +13,7 @@ import { enforceRateLimit } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
 import { writeVersionedPlayerSaveWithStore } from '../save/_mutate-player-save.js';
 import { hollowGateProtectedCurrencyBaseline } from './_external-credits.js';
-import { hollowGatePendingOperationOf, hollowGateSavedTokenMismatch, makeHollowGatePendingOperation, recoverHollowGatePendingOperation } from './_pending-operation.js';
+import { hollowGateEndedRunCharacter, hollowGatePendingOperationOf, hollowGateSavedTokenMismatch, makeHollowGatePendingOperation, recoverHollowGatePendingOperation } from './_pending-operation.js';
 import { gainXp } from '../_xp-engine.js';
 import { sessionSeededVitals, vitalLostSinceSeal } from '../missions/_ai-fight-outcome.js';
 import { markPveOutcomeSettled, stampPveOutcomeBody } from '../pve/_fight-outcome-settlement.js';
@@ -53,15 +57,28 @@ const ELEMENTAL_SHARD_ID = 'elemental-shard';
 const VEIL_OF_THE_HOLLOW_ID = 'veil-of-the-hollow';
 
 type CombatReceipt = {
+    terminalReason?: SoloPveTerminalReason;
+    opponentName?: string;
+    roundLimit?: number;
     version?: 2;
     won: boolean;
     revived?: boolean;
     escaped?: boolean;
     petDefeat?: boolean;
+    ended?: boolean;
     reward: HollowGateCombatReward;
     elementalShards: number;
     settledAt: number;
 };
+
+function combatReplayBody(receipt: CombatReceipt, current: Record<string, unknown> | null) {
+    return { ok: true, alreadyReported: true, won: receipt.won,
+        revived: receipt.revived ?? false, escaped: receipt.escaped ?? false,
+        petDefeat: receipt.petDefeat ?? false, ended: receipt.ended ?? false,
+        reward: receipt.reward, elementalShards: receipt.elementalShards,
+        terminalReason: receipt.terminalReason, opponentName: receipt.opponentName, roundLimit: receipt.roundLimit,
+        character: current?.character ?? null, _saveVersion: Number(current?._saveVersion ?? 0) };
+}
 
 export function hollowGateCombatReceiptNeedsRecovery(
     receipt: Pick<CombatReceipt, 'version'>,
@@ -94,6 +111,7 @@ function runAfterCombatSettlement(
     binding: HollowGateCombatBinding,
     receipt: CombatReceipt,
 ): HollowGateRunToken | null {
+    if (receipt.ended) return null;
     const encounterKey = hollowGateEncounterKey(binding.floor, binding.kind, binding.nodeId);
     const resolved = Array.isArray(run.resolvedEncounterIds) ? run.resolvedEncounterIds : [];
     const alreadyResolved = resolved.includes(encounterKey);
@@ -128,6 +146,7 @@ function runAfterCombatSettlement(
         ...run,
         ...(activeIsThisFight ? { activeEncounter: null } : {}),
         ...(activeIsThisFight ? { threat: 0, pendingAmbush: null } : {}),
+        ...(activeIsThisFight && receipt.won && binding.kind !== 'boss' ? { hunterBreatherSteps: HOLLOW_GATE_HUNTER_BREATHER_STEPS } : {}),
         ...(receipt.revived ? { secondWindArmed: false } : {}),
         resolvedEncounterIds: receipt.revived || receipt.escaped || receipt.petDefeat || alreadyResolved
             ? resolved
@@ -207,26 +226,47 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const appliedIds = Array.isArray(currentCharacter?.settledHollowGateCombatIds)
                     ? currentCharacter.settledHollowGateCombatIds as unknown[]
                     : [];
+                if (currentCharacter && hollowGateSavedTokenMismatch(currentCharacter, token)) {
+                    if (hollowGateCombatReceiptNeedsRecovery(existingReceipt, appliedIds, runId)) {
+                        return { status: 409, body: { error: 'The saved run does not match this combat.' } };
+                    }
+                    // A paid old result remains readable. Never reconcile its
+                    // projection into the player's newer dive or repeat effects.
+                    return { status: 200, body: combatReplayBody(existingReceipt, current) };
+                }
                 if (hollowGateCombatReceiptNeedsRecovery(existingReceipt, appliedIds, runId)) {
                     // The process can stop after reserving a receipt but before
                     // the atomic save write. Such an orphan is safe to rerun.
                     await kv.del(receiptKey);
                     existingReceipt = null;
                 } else {
+                    if (binding.combatMode === 'pet' && currentCharacter && hollowGateEndedRunCharacter(currentCharacter, token)
+                        && !(existingReceipt.ended && !run && currentCharacter.hollowGateRun === null && !currentCharacter.lastHollowGateStart)) {
+                        // A legacy paid result can outlive its run. Repair only
+                        // the stale projection; never repeat damage or rewards.
+                        const cleaned = await withKvLock(`save:${playerName}`, async () => {
+                            const latest = await kv.get<Record<string, unknown>>(`save:${playerName}`);
+                            const char = latest?.character as Record<string, unknown> | undefined;
+                            const projection = char && hollowGateEndedRunCharacter(char, token);
+                            if (!latest || !projection) return null;
+                            const endedReceipt = { ...existingReceipt!, ended: true };
+                            const next = { ...projection, hollowGatePendingOperation: makeHollowGatePendingOperation({
+                                token, kind: 'combat', id: runId, before: run, after: null,
+                                response: { ok: true, won: endedReceipt.won, ended: true, terminalReason: endedReceipt.terminalReason, opponentName: endedReceipt.opponentName, roundLimit: endedReceipt.roundLimit },
+                            }) };
+                            return writeVersionedPlayerSaveWithStore(kv, `save:${playerName}`, latest, next, {}, { hollowGateCurrencySource: 'run' });
+                        }, { failClosed: true, ttlSec: 10 });
+                        if (!cleaned) return { status: 409, body: { error: 'The saved run changed before recovery.' } };
+                        existingReceipt = { ...existingReceipt, ended: true };
+                        await kv.set(receiptKey, existingReceipt, { ex: COMBAT_RECEIPT_TTL_SECONDS });
+                        await recoverHollowGatePendingOperation(kv, runKey, run, playerName, token);
+                        await kv.set(bindingKey, settleHollowGateCombatBinding(binding, existingReceipt.won, existingReceipt.settledAt), { ex: HOLLOW_GATE_COMBAT_TTL_SECONDS });
+                        return { status: 200, body: { ok: true, alreadyReported: true, ...existingReceipt,
+                            character: cleaned.record.character, _saveVersion: cleaned._saveVersion } };
+                    }
                     if (run) await persistRunCombatSettlement(runKey, run, binding, existingReceipt, token);
                     else await kv.set(bindingKey, settleHollowGateCombatBinding(binding, existingReceipt.won, existingReceipt.settledAt), { ex: HOLLOW_GATE_COMBAT_TTL_SECONDS });
-                    return { status: 200, body: {
-                        ok: true,
-                        alreadyReported: true,
-                        won: existingReceipt.won,
-                        revived: existingReceipt.revived ?? false,
-                        escaped: existingReceipt.escaped ?? false,
-                        petDefeat: existingReceipt.petDefeat ?? false,
-                        reward: existingReceipt.reward,
-                        elementalShards: existingReceipt.elementalShards,
-                        character: current?.character ?? null,
-                        _saveVersion: Number(current?._saveVersion ?? 0),
-                    } };
+                    return { status: 200, body: combatReplayBody(existingReceipt, current) };
                 }
             }
             if (binding.status !== 'active' || binding.settledAt) {
@@ -260,7 +300,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // always has. A Showdown duel draws its partners at random, the way
                 // a road beast's team is drawn, so their consumables fire without
                 // being spent, as they do on the road. The lead is listed first.
-                petIds = verifiedPetResult.engine === 'showdown' ? fielded.slice(0, 1) : fielded;
+                petIds = verifiedPetResult.consumablesCommitted ? []
+                    : verifiedPetResult.engine === 'showdown' ? fielded.slice(0, 1) : fielded;
             } else {
                 const validation = validateHollowGateSoloPveSession({ binding, session, activeEncounter: run.activeEncounter, playerName, token });
                 if (!validation.ok) return { status: 409, body: { error: `Hollow Gate settlement rejected: ${validation.reason}.` } };
@@ -278,6 +319,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (existing) return { receipt: existing, character: char, saveVersion: Number(record._saveVersion ?? 0) };
                 if (hollowGateSavedTokenMismatch(char, token)) return { error: 'The saved run does not match this combat.' };
 
+                const endedProjection = binding!.combatMode === 'pet' ? hollowGateEndedRunCharacter(char, token) : null;
                 const reward = won ? hollowGateCombatReward(binding!.floor, binding!.kind, char.profession) : hollowGateCombatReward(binding!.floor, binding!.kind, undefined);
                 if (won) {
                     const multiplier = rewardMultiplierForToken(run);
@@ -285,12 +327,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         reward[key] = Math.floor(reward[key] * multiplier);
                     }
                 }
-                if (!won) {
+                if (!won || endedProjection) {
                     for (const key of Object.keys(reward) as Array<keyof HollowGateCombatReward>) reward[key] = 0;
                 }
-                const elementalShards = won && binding!.kind === 'boss'
+                const elementalShards = won && !endedProjection && binding!.kind === 'boss'
                     && randomInt(0, 10_000) < Math.floor(Math.min(0.8, 0.5 + binding!.floor * 0.03) * 10_000) ? 1 : 0;
-                const receipt: CombatReceipt = { version: 2, won, revived, escaped, petDefeat, reward, elementalShards, settledAt: Date.now() };
+                const receipt: CombatReceipt = { version: 2, won, revived, escaped, petDefeat,
+                    ...(session ? { terminalReason: session.terminalReason, opponentName: session.enemy?.name, roundLimit: hollowGateShinobiRoundLimit(session) } : {}),
+                    ...(endedProjection ? { ended: true } : {}), reward, elementalShards, settledAt: Date.now() };
                 const placed = await kv.set(receiptKey, receipt, { nx: true, ex: COMBAT_RECEIPT_TTL_SECONDS });
                 if (!placed) {
                     const raced = await kv.get<CombatReceipt>(receiptKey);
@@ -315,13 +359,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         riftQuestAcceptedAt: run.riftQuestAcceptedAt,
                     }, savedGateRunToken)
                     : null;
-                if (binding!.combatMode === 'pet' && petIds.length) {
+                if (!endedProjection && binding!.combatMode === 'pet' && petIds.length) {
                     const pets = Array.isArray(next.pets) ? next.pets as Array<Record<string, unknown>> : [];
                     next.pets = pets.map((pet) => petIds.includes(String(pet?.id ?? '')) && pet.loadout && typeof pet.loadout === 'object'
                         ? { ...pet, loadout: { ...(pet.loadout as Record<string, unknown>), consumable: undefined } }
                         : pet);
                 }
-                if (won) {
+                if (endedProjection) {
+                    next = endedProjection;
+                } else if (won) {
                     // The win writes the fight's surviving HP as an absolute
                     // value, so a settle held back past HP lost elsewhere since
                     // the fight was sealed set HP back up over it. Read against
@@ -362,10 +408,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const savedRun = next.hollowGateRun && typeof next.hollowGateRun === 'object'
                         ? next.hollowGateRun as Record<string, unknown>
                         : {};
-                    const recoil = Math.max(1, Math.floor(num(next.maxHp) * 0.20));
                     next = {
                         ...next,
-                        hp: Math.max(1, Math.floor(num(next.hp)) - recoil),
+                        hp: hollowGateLossHp(next.hp, next.maxHp),
                         hospitalized: false,
                         hollowGateRun: { ...savedRun, threat: 0, activeCombat: undefined },
                     };
@@ -444,7 +489,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 next.settledHollowGateCombatIds = [...settledIds.filter((id) => id !== runId).slice(-199), runId];
                 next.hollowGatePendingOperation = makeHollowGatePendingOperation({
                     token, kind: 'combat', id: runId, before: run, after: runAfterCombatSettlement(run, binding, receipt),
-                    response: { ok: true, won, revived, escaped, petDefeat, reward: receipt.reward, elementalShards },
+                    response: { ok: true, won, revived, escaped, petDefeat, reward: receipt.reward, elementalShards, terminalReason: receipt.terminalReason, opponentName: receipt.opponentName, roundLimit: receipt.roundLimit },
                 });
                 // Retain the receipt when commitment is uncertain. Retry checks
                 // the server-owned applied IDs before deciding whether to pay.
@@ -474,6 +519,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 revived,
                 escaped,
                 petDefeat,
+                ended: banked.receipt.ended ?? false,
+                terminalReason: banked.receipt.terminalReason,
+                opponentName: banked.receipt.opponentName,
+                roundLimit: banked.receipt.roundLimit,
                 reward: banked.receipt.reward,
                 elementalShards: banked.receipt.elementalShards,
                 character: banked.character,

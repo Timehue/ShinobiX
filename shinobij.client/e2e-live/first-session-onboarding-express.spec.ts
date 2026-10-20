@@ -409,12 +409,12 @@ test(`a new player completes the full persisted Academy first session against bu
     expect((await settleResponse).status()).toBe(200);
     await expect(sparResult).toContainText(/stat points/);
     await sparResult.getByRole('button', { name: 'Continue' }).click();
-    const sparAftermath = page.getByRole('dialog', { name: 'The dummy falls. Its seals do not.' });
+    const sparAftermath = page.getByRole('dialog', { name: "The dummy's seals glow after the fight." });
     await expect(sparAftermath).toBeVisible();
     await sparAftermath.getByRole('button', { name: 'Continue' }).click();
-    const echoedVow = page.getByRole('dialog', { name: 'Your answer comes back in the wrong voice.' });
+    const echoedVow = page.getByRole('dialog', { name: 'The dummy repeated your vow.' });
     await expect(echoedVow).toBeVisible();
-    await echoedVow.getByRole('button', { name: 'Keep the vow' }).click();
+    await echoedVow.getByRole('button', { name: 'Continue to recovery' }).click();
     await expect(page.getByRole('button', { name: 'Go to Noodle Den' })).toBeVisible();
     await waitForPersisted(page, playerName, (save) => (
         save.character?.onboardingStep === 'cafeteria'
@@ -484,7 +484,7 @@ test(`a new player completes the full persisted Academy first session against bu
     const fieldTrace = page.getByRole('dialog', { name: 'The foxfire stops at an old road marker.' });
     await expect(fieldTrace).toBeVisible();
     await fieldTrace.getByRole('button', { name: 'Continue' }).click();
-    const measuredRoad = page.getByRole('dialog', { name: 'The mark is measuring the road.' });
+    const measuredRoad = page.getByRole('dialog', { name: 'The rings reacted to your vow.' });
     await expect(measuredRoad).toBeVisible();
     await measuredRoad.getByRole('button', { name: 'Return with the evidence' }).click();
     await waitForPersisted(page, playerName, (save) => (

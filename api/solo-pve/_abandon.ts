@@ -70,11 +70,13 @@ export function finalizeAbandonedSession(
     const nextVersion = session.version + 1;
     return {
         ...resolved,
+        terminalReason: lapsed ? 'lapsed' : resolved.terminalReason ?? 'abandoned',
         version: nextVersion,
         recentMoveTokens: [...session.recentMoveTokens, moveToken].slice(-SOLO_PVE_MOVE_TOKEN_HISTORY),
         lastActionAt: actionAt,
         expiresAt: actionAt + SOLO_PVE_TERMINAL_TTL_SECONDS * 1000,
         terminalEvidence: {
+            reason: lapsed ? 'lapsed' : resolved.terminalReason ?? 'abandoned',
             finishedAt: actionAt,
             ...(lapsed ? { lapsedAt: actionAt } : {}),
             finalMoveToken: moveToken,
@@ -96,7 +98,13 @@ function transitionAbandon(session: SoloPveSession, at: number, lapsed: boolean)
     const resolved = applySoloPveAction(session, { type: 'abandon' }, { escapeSucceeds: () => false });
     if (!resolved.applied || resolved.session.status !== 'done') return null;
     if (lapsed) {
-        resolved.session.log.push('The encounter lapsed unattended and counts as abandoned.');
+        const line = 'The encounter lapsed unattended and counts as abandoned.';
+        resolved.session.log.push(line);
+        const last = resolved.session.events.at(-1);
+        if (last?.action === 'abandon') {
+            last.log.push(line);
+            last.terminalReason = 'lapsed';
+        }
     }
     return finalizeAbandonedSession(session, resolved.session, moveToken, at, lapsed);
 }

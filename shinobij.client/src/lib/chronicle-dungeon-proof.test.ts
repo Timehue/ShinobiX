@@ -64,5 +64,5 @@ test("Dungeon Card host waits for a versioned authoritative terminal before adva
     assert.match(source, /!result\.character \|\| !Number\.isSafeInteger\(version\)/);
     assert.match(source, /onVersionedCharacter\?\.\(result\.character, version\)/);
     assert.match(source, /\(dungeonRunToken \|\| echoes \|\| hollowGateCardMatchId\) && !dungeonTerminalReady/);
-    assert.match(source, /The Dungeon Card proof is still waiting for server confirmation/);
+    assert.match(source, /Your Dungeon card battle result has not been confirmed yet/);
 });

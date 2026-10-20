@@ -12,6 +12,7 @@ import { loadTowerPvpFighter, readTowerPvpMatch } from '../towers/_pvp-store.js'
 import { projectTowerPvpMatchForViewer } from '../towers/_pvp-session.js';
 import { settleTowerPvpMatch } from '../towers/_pvp-lifecycle.js';
 import { sealChallengedPets } from '../pet/_pvp-duel.js';
+import { replayFromOpposingSide } from '../_pet-showdown/_viewer-replay.js';
 import { TOURNAMENT_KEY, tournamentLock, readTournament, progressTournament, tickTournaments, cancelTournament,
     entryForPlayer, matchMembers, loadoutKey, replayKey, type TournamentLoadout, type PetTournamentResult } from './_store.js';
 
@@ -147,7 +148,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         if (action === 'battle') {
                             const battle = await readTowerPvpMatch(match!.battleId);
                             const replay = current.mode === 'pet' ? await kv.get<PetTournamentResult>(replayKey(match!.id)) : null;
-                            return { match: battle ? projectTowerPvpMatchForViewer(battle, playerId) : null, script: replay?.script ?? null };
+                            const a = current.entries.find(entry => entry.id === match!.a);
+                            const b = current.entries.find(entry => entry.id === match!.b);
+                            const script = replay && b?.members.some(member => member.id === playerId)
+                                ? replayFromOpposingSide(replay.script, a?.members[0]?.name ?? 'Opponent') : replay?.script ?? null;
+                            return { match: battle ? projectTowerPvpMatchForViewer(battle, playerId) : null, script };
                         }
                     } else fail(400, 'Unknown tournament action.');
                 }

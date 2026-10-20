@@ -91,13 +91,13 @@ export function CardClashDuel({
             if (!result.character || !Number.isSafeInteger(version) || version < 1) {
                 setError(echoes
                     ? "The showdown result is not confirmed yet. Retry the final action — nothing is lost."
-                    : "The Dungeon Card proof could not be reconciled. Retry the final action.");
+                    : "Your Dungeon card battle result could not be confirmed. Retry the final action.");
                 return false;
             }
             if (!onVersionedCharacter?.(result.character, version)) {
                 setError(echoes
-                    ? "The showdown result belongs to a no-longer-active save session."
-                    : "The Dungeon Card proof belongs to a no-longer-active save session.");
+                    ? "This showdown belongs to an older game session. Reopen it to load your current progress."
+                    : "This Dungeon card battle belongs to an older game session. Reopen the Dungeon to load your current progress.");
                 return false;
             }
             if (echoes) {
@@ -145,7 +145,7 @@ export function CardClashDuel({
                         dungeonRunToken,
                         echoes?.encounterId,
                     );
-                if (!result.ok || !result.session) { setError(result.error ?? "Could not prepare the sealed showdown."); return; }
+                if (!result.ok || !result.session) { setError(result.error ?? "The card battle could not be prepared."); return; }
                 const liveMatchId = hollowGateCardMatchId ?? echoes?.resumeMatchId ?? result.matchId ?? result.session.matchId;
                 setMatchId(liveMatchId);
                 if (result.session.status !== "complete") onMatchStarted?.(liveMatchId);
@@ -153,13 +153,13 @@ export function CardClashDuel({
                 if (dungeonRunToken && result.session.status === "complete" && (!result.character || !result._saveVersion)) {
                     authoritative = await chronicleAiAction(result.matchId!, { action: "state" });
                     if (!authoritative.ok || !authoritative.session) {
-                        setError(authoritative.error ?? "The Dungeon Card proof could not be reconciled.");
+                        setError(authoritative.error ?? "Your Dungeon card battle result could not be loaded.");
                         return;
                     }
                 }
                 await presentSession(authoritative);
             } catch {
-                setError("Could not prepare the sealed showdown.");
+                setError("The card battle could not be prepared.");
             } finally {
                 setBusy(false);
             }
@@ -188,7 +188,7 @@ export function CardClashDuel({
                 ? "The rift card result is still waiting for server confirmation."
                 : echoes
                 ? "The showdown result is still waiting for server confirmation."
-                : "The Dungeon Card proof is still waiting for server confirmation.");
+                : "Your Dungeon card battle result has not been confirmed yet.");
             return;
         }
         setBusy(true);
@@ -197,10 +197,18 @@ export function CardClashDuel({
             else if (duel?.winner === "draw") await (onDungeonDraw ?? onDungeonLose ?? onDungeonLeave)();
             else await (onDungeonLose ?? onDungeonLeave)();
         } catch (reason) {
-            setError(reason instanceof Error ? reason.message : "The encounter could not be sealed. Retry Continue.");
+            setError(reason instanceof Error ? reason.message : "The encounter result could not be confirmed. Select Continue to try again.");
         } finally {
             setBusy(false);
         }
+    }
+
+    function leaveShowdown() {
+        if (hollowGateCardMatchId && dungeonTerminalReady) {
+            if (!busy) void resolve();
+            return;
+        }
+        onDungeonLeave();
     }
 
     const done = duel?.status === "complete" && resolutionReady;
@@ -228,13 +236,13 @@ export function CardClashDuel({
         ? "Rift · Chronicle Ambush"
         : echoes
         ? `Echoes of War · Floor ${echoes.floor} · ${echoes.opponentName}, ${echoes.opponentTitle}`
-        : tileDifficulty === "hard" ? "Sealed Encounter · Hard" : tileDifficulty === "easy" ? "Sealed Encounter · Easy" : "Sealed Encounter · Medium";
+        : tileDifficulty === "hard" ? "Card battle · Hard" : tileDifficulty === "easy" ? "Card battle · Easy" : "Card battle · Medium";
 
     return <main className={`chronicle-shell chronicle-encounter ${duel && !done ? "chronicle-shell--duel-active" : ""}`} style={sceneStyle}>
         <header className="chronicle-header">
             {/* Never disabled: this is the only exit, and the server owns the
                 match state — abandoning mid-request is always safe. */}
-            <button onClick={onDungeonLeave}>Leave Showdown</button>
+            <button onClick={leaveShowdown}>Leave Showdown</button>
             <h1>Shinobi Chronicle Showdown<small>{headerSmall}</small></h1>
         </header>
         {busy && !duel ? <section className="chronicle-panel"><h2>Preparing the table</h2><p>The server is validating the 40-card decks.</p></section> : null}
@@ -271,8 +279,8 @@ export function CardClashDuel({
                 <button className="echoes-primary" onClick={resolve}>Continue</button>
             </section>
         ) : done ? (
-            <section className="chronicle-panel" style={{ marginBottom: 12, textAlign: "center" }}><h2>{won ? "Seal Claimed" : hollowGateCardMatchId ? draw ? "Draw — Ambush Fades" : "Keeper Wins" : draw ? "Draw — Seal Holds" : "Seal Holds"}</h2><p>{won ? "You won the Chronicle Showdown." : hollowGateCardMatchId ? "The ambush fades after dealing 20% max HP recoil." : draw ? "A draw is not enough to break the seal." : "The Chronicle Keeper won the showdown."}</p><button onClick={() => void resolve()} disabled={busy}>Continue</button></section>
+            <section className="chronicle-panel" style={{ marginBottom: 12, textAlign: "center" }}><h2>{won ? "Seal Claimed" : hollowGateCardMatchId ? draw ? "Draw — Ambush Fades" : "Keeper Wins" : draw ? "Draw — Seal Holds" : "Seal Holds"}</h2><p>{won ? "You won the Chronicle Showdown." : hollowGateCardMatchId ? "The ambush fades after 33% max HP recoil, stopping at 1 HP." : draw ? "A draw is not enough to break the seal." : "The Chronicle Keeper won the showdown."}</p><button onClick={() => void resolve()} disabled={busy}>Continue</button></section>
         ) : null}
-        {duel ? <ChronicleDuelBoard key={matchId || "duel"} state={duel} onResolutionReadyChange={setResolutionReady} cardsById={cardsById} playerAvatar={character.avatarImage} opponentAvatar={opponentAvatar ?? chronicleDuelistAvatar(foeName)} busy={busy} aiActing={aiActing} error={error} onExit={onDungeonLeave} exitLabel="Leave encounter" onAction={(intent) => void act(intent)} /> : null}
+        {duel ? <ChronicleDuelBoard key={matchId || "duel"} state={duel} onResolutionReadyChange={setResolutionReady} cardsById={cardsById} playerAvatar={character.avatarImage} opponentAvatar={opponentAvatar ?? chronicleDuelistAvatar(foeName)} busy={busy} aiActing={aiActing} error={error} onExit={leaveShowdown} exitLabel="Leave encounter" onAction={(intent) => void act(intent)} /> : null}
     </main>;
 }

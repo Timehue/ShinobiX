@@ -6,6 +6,7 @@ import {
     SOLO_PVE_MOVE_TOKEN_HISTORY,
     SOLO_PVE_SESSION_TTL_SECONDS,
     SOLO_PVE_TERMINAL_TTL_SECONDS,
+    soloPveSessionForResponse,
     type SoloPveAction,
     type SoloPveCombatEvent,
     type SoloPveRejectionEvent,
@@ -116,6 +117,7 @@ export async function executeSoloPveAction(
                 finalEventSeq: resolved.session.eventSeq,
                 winner: resolved.session.winner,
                 outcome: resolved.session.outcome,
+                ...(resolved.session.terminalReason ? { reason: resolved.session.terminalReason } : {}),
                 itemsUsed: { ...resolved.session.itemsUsed },
                 ...(resolved.session.companionUsage ? { companionUsage: { ...resolved.session.companionUsage } } : {}),
                 settlementState: resolved.session.settlementState,
@@ -164,5 +166,6 @@ export async function executeSoloPveAction(
         const terminal = await read(lapsedSession.sessionId);
         if (terminal) result.body.session = terminal;
     }
+    if (result.body.session) result.body.session = soloPveSessionForResponse(result.body.session);
     return result;
 }

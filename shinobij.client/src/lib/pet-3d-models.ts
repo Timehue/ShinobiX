@@ -49,7 +49,7 @@ const MODEL_PROFILES: Readonly<Record<string, PetCombatModelProfile>> = {
     "starter-lightning": "quadruped",
     "starter-lightning-r": "quadruped",
     "starter-lightning-l": "quadruped",
-    "starter-earth": "heavy",
+    "starter-earth": "biped",
     "starter-earth-r": "heavy",
     "starter-earth-l": "heavy",
 };
@@ -74,15 +74,6 @@ const MODEL_TARGET_HEIGHTS: Readonly<Record<string, number>> = {
 const MODEL_FIT_OVERRIDES: Readonly<Record<string, PetCombatModelConfig["fit"]>> = {
     "starter-fire-r": "longest",
     "starter-fire-l": "longest",
-};
-
-/** Starter assets that have been retired from live presentation while keeping
- * their persistent pet identity. Pebble's original reconstruction duplicated
- * the segmented shell pattern as a second cap on its head. Stone Turtle is the
- * reviewed biped tortoise rig: one back shell, a normal head, and the same ninja
- * silhouette as Pebble's authored portrait. */
-const STARTER_ROSTER_MODEL_REPLACEMENTS: Readonly<Record<string, string>> = {
-    "starter-earth": "standard-5",
 };
 
 export const PET_COMBAT_MODEL_IDS = Object.freeze(Object.keys(MODEL_PROFILES));
@@ -116,20 +107,6 @@ export function petCombatModel(pet: PetCombatModelIdentity): PetCombatModelConfi
     // is fetched for the colour atlas, and pet ids come from saves and encounter
     // snapshots, so the path segment must be a literal this module owns.
     const requestedVisualId = petVisualId(canonicalPet);
-    const replacementModelId = STARTER_ROSTER_MODEL_REPLACEMENTS[requestedVisualId];
-    if (replacementModelId) {
-        const replacement = approvedRosterCombatModel({
-            id: replacementModelId,
-            name: canonicalPet.name ?? "Pebble Tortoise",
-        });
-        return replacement
-            ? {
-                ...replacement,
-                identityVisualId: requestedVisualId,
-                targetHeight: MODEL_TARGET_HEIGHTS[requestedVisualId] ?? replacement.targetHeight,
-            }
-            : null;
-    }
     const visualId = PET_COMBAT_MODEL_IDS.find((id) => id === requestedVisualId);
     if (visualId === undefined) {
         return approvedRosterCombatModel({ id: requestedVisualId, name: canonicalPet.name ?? requestedVisualId });
@@ -148,7 +125,7 @@ export function petCombatModel(pet: PetCombatModelIdentity): PetCombatModelConfi
         yawOffset: (STARTER_YAW_CORRECTIONS[visualId] ?? 0) + petShowdownAnimationYawOffset(visualId),
         // These split-UV surfaces already carry their authored dark contours.
         // A scaled hull leaks through Raijin's face and Cinder's concave flame.
-        outlineScale: ["starter-lightning-l", "starter-fire"].includes(visualId) ? 1 : 1.026,
+        outlineScale: ["starter-lightning-l", "starter-fire", "starter-earth"].includes(visualId) ? 1 : 1.026,
     };
 }
 

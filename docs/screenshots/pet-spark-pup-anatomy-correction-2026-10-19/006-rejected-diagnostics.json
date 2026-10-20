@@ -1,0 +1,65 @@
+{
+  "id": "starter-lightning",
+  "recordedAt": "2026-10-19T15:42:45.695Z",
+  "originalSourceSha256": "5b96adb25eca071c6b1df6c020cd19def0a37d4b779c41eade34114f4089406f",
+  "rejected": [
+    {
+      "version": 1,
+      "sourceSha256": "b81a6ff9a6e82f313933af5cd62a1ce4b205f2f969caf61b1383b62d29bebaad",
+      "sourcePromoted": false,
+      "actuallyInspectedSourceSliceIndices": [],
+      "finding": "12 new full-geometry warnings; no visual approval.",
+      "faceAndGeometryReportsRetainedPrivately": true
+    },
+    {
+      "version": 2,
+      "sourceSha256": "72a9b57a9ea5a87ce9ae98ce3505887ba052023b95574ef8fbbd86af6c34b377",
+      "sourcePromoted": false,
+      "actuallyInspectedSourceSliceIndices": [
+        0,
+        1
+      ],
+      "finding": "Face probes and geometry pass, but front recoil/defeat visually split the red scarf. Only source slices 0 and 1 inspected; remaining 13 unseen.",
+      "faceAndGeometryReportsRetainedPrivately": true
+    },
+    {
+      "version": 3,
+      "sourceSha256": "b0743b0ba56bb47f9384f3fcf36957035d4055037047b67fd2ea660c204f3319",
+      "sourcePromoted": false,
+      "actuallyInspectedSourceSliceIndices": [
+        1
+      ],
+      "finding": "7 geometry warnings and excessive jacket/shoulder distortion in front attack/recoil/defeat slice 1. Remaining 14 unseen.",
+      "faceAndGeometryReportsRetainedPrivately": true
+    },
+    {
+      "version": 4,
+      "sourceSha256": "3ecb3614462b70d3633af4fad9a6f4805f341dac0a52e354b44ddfa5538e0308",
+      "sourcePromoted": false,
+      "actuallyInspectedSourceSliceIndices": [
+        1
+      ],
+      "finding": "8 garment seam geometry warnings and visually damaged scarf in front attack/recoil/defeat slice 1. Remaining 14 unseen.",
+      "faceAndGeometryReportsRetainedPrivately": true
+    },
+    {
+      "version": 5,
+      "sourceSha256": "1c35e024d87dcb7b9148e68dff323cd7acfb00169902b101c423976f12e878a8",
+      "sourcePromoted": false,
+      "actuallyInspectedSourceSliceIndices": [
+        1,
+        4
+      ],
+      "finding": "Face and geometry pass after local edge treatment, but front slice 1 and side slice 4 expose excessive jacket folds around shoulders/torso. Remaining 13 unseen. Rejected helper extension restored; snapshot retained privately.",
+      "faceAndGeometryReportsRetainedPrivately": true
+    }
+  ],
+  "diagnosticBoundaryCandidate": {
+    "sourcePromoted": false,
+    "sha256": "4ea6a2ae785c7593e2abbde5d752f5da86816f350d4c4f3f83744a0e92673bbd",
+    "independentFaceResult": "fail",
+    "peakDrift": 0.1983273618836711,
+    "visualInspection": false
+  },
+  "nextFinding": "The original lowerFace independent sphere includes eight red scarf vertices. Correct independent anatomical coverage on unchanged original geometry before another repair. Original tests and annotations remain preserved as historical evidence."
+}

@@ -1,3 +1,4 @@
+import { describeShowdownBeat } from "../lib/showdown-event-text";
 import { type DisplayEntry, TeamPanel } from './pet-showdown/team-panel';
 import { ELEMENT_TINT, elementCrest, KIND_FAMILY } from './pet-showdown/presentation-tokens';
 /*
@@ -70,6 +71,7 @@ import { playPetSfx, primePetSfx, petHaptic } from "../lib/pet-sfx";
 import { appendCapped, petDuelImpactStrength } from "../lib/pet-duel-presentation";
 import { promptablePets } from "../lib/showdown-turn";
 import { showdownMatchupElement } from "../lib/showdown-hud";
+import { showdownMoveAvailability } from "../lib/showdown-move-availability";
 import { showdownActionTargetId, showdownContactEffectKind } from "../lib/showdown-contact-vfx";
 import { prefersReducedMotion } from "../lib/device-tier";
 import {
@@ -1819,6 +1821,8 @@ function moveInspector(move: ShowdownMoveView, fallbackElement: string, staminaN
             { k: "STA", v: move.signature ? "meter" : String(move.cost) },
             { k: "PACE", v: pace },
             { k: "HOLD", v: move.hold > 0 ? `R${move.hold + 1}` : "ready" },
+            ...(move.unlockLevel != null ? [{ k: "LEVEL", v: String(move.unlockLevel) }] : []),
+            ...(move.reuseRounds ? [{ k: "REUSE", v: `${move.reuseRounds} rounds` }] : []),
         ],
         warn: holding
             ? `Still charging — unleashes from round ${move.hold + 1}.`
@@ -1837,7 +1841,7 @@ function moveInspector(move: ShowdownMoveView, fallbackElement: string, staminaN
  *  Attack/Skill submenu in front of them, which cost a tap every single round
  *  to reach the only decision the round actually asks. */
 function buildMenuRows({
-    commander, mustSwitch, moves, signature, staminaNow, meterNow, benchCount, fieldCount,
+    commander, mustSwitch, moves, signature, staminaNow, meterNow, benchCount, fieldCount, commandRound,
 }: {
     commander: ShowdownPetView | null;
     mustSwitch: boolean;
@@ -1849,6 +1853,7 @@ function buildMenuRows({
     benchCount: number;
     /** Living pets on YOUR side of the field — switch redirection differs in 1v1. */
     fieldCount: number;
+    commandRound: number;
 }): MenuRowSpec[] {
     if (!commander) return [];
     const element = commander.element;
@@ -1900,39 +1905,40 @@ function buildMenuRows({
     // Every technique sits at the root, the basic strike included, each under
     // its own name — "Attack" as an alias hid what the button actually threw.
     // Overdraft is allowed (it just costs HP), so a move you cannot afford
-    // stays selectable — only an unmet HOLD disables its pill.
-    const rows: MenuRowSpec[] = moves.map((entry): MenuRowSpec => ({
-        key: `move-${entry.index}`,
-        icon: kindGlyph(entry.move.kind, entry.move.element),
-        family: KIND_FAMILY[entry.move.kind],
-        // The pill wears the TECHNIQUE's element, so the neutral basic reads
-        // grey next to the pet's own colour — the wheel-dodge is visible
-        // before the inspector says a word.
-        element: entry.move.element ?? element,
-        label: entry.move.name,
-        note: entry.move.hold > commander.readiness ? "…" : `${entry.move.cost}`,
-        tone: "attack",
-        disabled: entry.move.hold > commander.readiness,
-        action: { t: "move", moveIndex: entry.index, super: false },
-        detail: moveInspector(entry.move, element, staminaNow, commander.readiness),
-    }));
+    // stays selectable. Server-sealed level, reuse and readiness gates disable
+    // a technique until it can legally be chosen.
+    const rows: MenuRowSpec[] = moves.map((entry): MenuRowSpec => {
+        const gate = showdownMoveAvailability(entry.move, commander, commandRound);
+        return {
+            key: `move-${entry.index}`,
+            icon: kindGlyph(entry.move.kind, entry.move.element),
+            family: KIND_FAMILY[entry.move.kind],
+            // The pill wears the technique's element, including neutral Tackle.
+            element: entry.move.element ?? element,
+            label: entry.move.name,
+            note: gate.label ?? `${entry.move.cost}`,
+            tone: "attack",
+            disabled: gate.blocked,
+            action: { t: "move", moveIndex: entry.index, super: false },
+            detail: { ...moveInspector(entry.move, element, staminaNow, commander.readiness),
+                ...(gate.reason ? { warn: gate.reason } : {}) },
+        };
+    });
     if (signature) {
-        const sigHolding = signature.hold > commander.readiness;
-        const ready = meterNow >= 100 && !sigHolding;
+        const signatureGate = showdownMoveAvailability(signature, commander, commandRound);
+        const ready = meterNow >= 100 && !signatureGate.blocked;
         rows.push({
             key: "signature",
             icon: "signature",
             element,
             label: signature.name,
-            note: ready ? "READY" : `${Math.round(meterNow)}%`,
+            note: signatureGate.label ?? (ready ? "READY" : `${Math.round(meterNow)}%`),
             tone: "signature",
             disabled: !ready,
             action: { t: "move", moveIndex: -1, super: true },
             detail: {
                 ...moveInspector(signature, element, staminaNow, commander.readiness),
-                warn: sigHolding
-                    ? `Still charging — unleashes from round ${signature.hold + 1}.`
-                    : ready ? undefined : "The signature meter is not full yet.",
+                warn: signatureGate.reason ?? (ready ? undefined : "The signature meter is not full yet."),
             },
         });
     }
@@ -1953,7 +1959,7 @@ function buildMenuRows({
             // SHOWDOWN_METER_ON_GUARDED_HIT, not _ON_HIT_TAKEN) — it is only ahead
             // per point of health, because the hit is halved. Both figures come
             // from the contract so the sentence cannot drift from the table.
-            description: `Brace. Direct hits are halved this round; ongoing damage still applies. A guarded hit banks ${SHOWDOWN_METER_ON_GUARDED_HIT} meter instead of the usual ${SHOWDOWN_METER_ON_HIT_TAKEN} — less per hit, but more per point of health spent. Guard resolves before almost everything else.`,
+            description: `Guard reduces direct-hit damage this round; ongoing damage still applies. A guarded hit grants ${SHOWDOWN_METER_ON_GUARDED_HIT} signature meter instead of the usual ${SHOWDOWN_METER_ON_HIT_TAKEN}. Guard resolves before attacks.`,
             stats: [
                 { k: "METER", v: `+${SHOWDOWN_METER_ON_GUARDED_HIT}` },
                 { k: "STA", v: String(SHOWDOWN_GUARD_COST) },
@@ -1975,7 +1981,7 @@ function buildMenuRows({
             title: "Catch Breath",
             element,
             category: "Stance",
-            description: "Give up your turn to buy stamina back. It heals nothing and it swings late, so expect to eat the round's attacks first — this is a tempo cost you pay to keep casting.",
+            description: "Spend this action restoring stamina without healing HP. Rest acts late, so enemies may attack before it resolves.",
             stats: [
                 { k: "PWR", v: "—" },
                 { k: "STA", v: `+${Math.round(SHOWDOWN_REST_PCT * 100)}%` },
@@ -2202,7 +2208,7 @@ const SR_ONLY: React.CSSProperties = {
 };
 
 export const PetShowdownBattle = withPetSceneRecall(PetShowdownBattleView, ['onExit', 'onRematch', 'onForfeit']);
-function PetShowdownBattleView({ initialState, playerPets, sharedImages, submitTurn, onForfeit, onFinished, onExit, onRematch, resultNote, resultTitle, exitLabel = "Leave the Showdown", hideRematch = false, eventLabel, spectator = false, reducedMotion: motionPreference, wildBinding, onRenderMode, onCommandReady, inputLocked = false, externalControls, hidePlayerHud = false, onRoundPresented }: {
+function PetShowdownBattleView({ initialState, playerPets, sharedImages, submitTurn, onForfeit, forfeitStatus, onFinished, onExit, onRematch, resultNote, resultTitle, exitLabel = "Leave the Showdown", hideRematch = false, eventLabel, spectator = false, reducedMotion: motionPreference, wildBinding, onRenderMode, onCommandReady, inputLocked = false, externalControls, hidePlayerHud = false, onRoundPresented }: {
     eventLabel?: string;
     initialState: ShowdownStateView;
     /** The player's real roster Pets (for 3D model + art resolution). */
@@ -2210,6 +2216,7 @@ function PetShowdownBattleView({ initialState, playerPets, sharedImages, submitT
     sharedImages: Record<string, string>;
     submitTurn: (commands: ShowdownCommand[], expectedRound: number) => Promise<ShowdownTurnResult>;
     onForfeit: () => void;
+    forfeitStatus?: { pending: boolean; error: string | null };
     /** WATCHING, not fighting: the command phase auto-submits empty orders and
      *  the whole command deck stays hidden, so a server-scripted match (a war
      *  duel, a stored replay) plays start to finish with no input. The driver
@@ -2492,6 +2499,7 @@ function PetShowdownBattleView({ initialState, playerPets, sharedImages, submitT
             if (takeoverRef.current?.inert) return;
             if (confirmForfeit) {
                 e.preventDefault();
+                if (forfeitStatus?.pending) return;
                 playPetSfx("uiCancel");
                 setConfirmForfeit(false);
             } else if (pendingMove) {
@@ -2508,7 +2516,7 @@ function PetShowdownBattleView({ initialState, playerPets, sharedImages, submitT
         };
         window.addEventListener("keydown", onKeyDown);
         return () => window.removeEventListener("keydown", onKeyDown);
-    }, [confirmForfeit, pendingMove, pickingSwitch]);
+    }, [confirmForfeit, pendingMove, pickingSwitch, forfeitStatus?.pending]);
 
     // ── Fighter slot map (positions + model configs, stable per roster) ─────
     const slots = useMemo(() => {
@@ -2723,7 +2731,7 @@ function PetShowdownBattleView({ initialState, playerPets, sharedImages, submitT
         // fade in 1.25s and the verdicts live in banners — neither reaches a
         // screen reader, so the same numbers go out on the live region at the
         // moment of contact rather than when the beat opens.
-        const spoken = describeBeat(event, stateView);
+        const spoken = describeShowdownBeat(event, (id) => nameOf(stateView, id));
         if (spoken) later(() => setAnnouncement(spoken), durationMs * (event.t === "action" ? actionRhythm(event).contact : event.t === "switch" ? (event.reinforcement ? .64 : .77) : 0.1));
 
         if (event.t === "roundStart") {
@@ -3444,8 +3452,8 @@ function PetShowdownBattleView({ initialState, playerPets, sharedImages, submitT
         }
         const targetId = needsEnemy ? (livingEnemies[0]?.id ?? "") : needsAlly ? commander.id : commander.id;
         pushCommand(superCast
-            ? { kind: "super", petId: commander.id, targetId }
-            : { kind: "move", petId: commander.id, moveIndex, targetId });
+            ? { kind: "super", petId: commander.id, targetId, ...(move.abilityId ? { abilityId: move.abilityId } : {}) }
+            : { kind: "move", petId: commander.id, moveIndex, targetId, ...(move.abilityId ? { abilityId: move.abilityId } : {}) });
     };
 
 
@@ -3462,10 +3470,11 @@ function PetShowdownBattleView({ initialState, playerPets, sharedImages, submitT
         if (!pendingMove) return;
         const wasSuper = pendingMove.super;
         const moveIndex = pendingMove.moveIndex;
+        const move = wasSuper ? commander.moves.find(m => m.signature) : commander.moves[moveIndex];
         setPendingMove(null);
         pushCommand(wasSuper
-            ? { kind: "super", petId: commander.id, targetId }
-            : { kind: "move", petId: commander.id, moveIndex, targetId });
+            ? { kind: "super", petId: commander.id, targetId, ...(move?.abilityId ? { abilityId: move.abilityId } : {}) }
+            : { kind: "move", petId: commander.id, moveIndex, targetId, ...(move?.abilityId ? { abilityId: move.abilityId } : {}) });
     };
 
 
@@ -3497,6 +3506,7 @@ function PetShowdownBattleView({ initialState, playerPets, sharedImages, submitT
                 : confirmForfeit && !battleDecided ? "forfeit"
                     : null;
     const concede = () => {
+        if (forfeitStatus?.pending) return;
         // Guard the action, not just its visibility: a click can still land on
         // the button in the frame where the fight resolves.
         if (battleDecided || expired) { setConfirmForfeit(false); return; }
@@ -3566,6 +3576,7 @@ function PetShowdownBattleView({ initialState, playerPets, sharedImages, submitT
         meterNow,
         benchCount: livingBench.length,
         fieldCount: livingPlayer.length,
+        commandRound: stateView.round + 1,
     });
     const runMenuAction = (action: MenuAction) => {
         if (!commander) return;
@@ -3905,6 +3916,7 @@ function PetShowdownBattleView({ initialState, playerPets, sharedImages, submitT
                 </div>}
 
                 <div className="showdown-bottombar" inert={Boolean(panel)}>
+                    {stateView.commandFeedback?.length ? <div className="showdown-stalled" role="status"><div className="showdown-stalled-title">Order updated</div>{stateView.commandFeedback.map((message, index) => <p key={`${index}-${message}`} className="showdown-stalled-body">{message}</p>)}</div> : null}
                     {/* No pet can be given an order this round. Name the reason
                         and show it resolving — the failure this replaces was a
                         silent empty bar. The button is a manual escape hatch in
@@ -3931,7 +3943,7 @@ function PetShowdownBattleView({ initialState, playerPets, sharedImages, submitT
                             <div className="showdown-stalled-body">
                                 {spectator ? <>This round could not be loaded. Retry playback when ready.</> : failedOrders.length > 0
                                     ? <>The server refused this round. Your {failedOrders.length === 1 ? "order is" : `${failedOrders.length} orders are`} still here — send {failedOrders.length === 1 ? "it" : "them"} again.</>
-                                    : <>The server refused this round. Nothing was lost — try resolving it again.</>}
+                                    : <>This round could not be confirmed. Retry to check and resolve the same round.</>}
                             </div>
                             {failedOrders.length > 0 && (
                                 <ul className="showdown-stalled-body" style={{ listStyle: "none", margin: 0, padding: 0 }}>
@@ -3952,8 +3964,8 @@ function PetShowdownBattleView({ initialState, playerPets, sharedImages, submitT
                             </div>
                         </div>
                     )}
-                    {externalControls}
-                    {phase === "command" && commander && !failedOrders && !externalControls && (
+                    {panel !== 'forfeit' && externalControls}
+                    {!panel && phase === "command" && commander && !failedOrders && !externalControls && (
                         <section className="pta-console pet-native-console" aria-label="Battle commands">
                             <div className="pta-orders">
                             <header className="pta-orders-heading">
@@ -3966,6 +3978,7 @@ function PetShowdownBattleView({ initialState, playerPets, sharedImages, submitT
                                     targeting={!!pendingMove && targetingAllies} onPickTarget={pickTarget}
                                     commanderId={commander.id} art={panelArt} benchedIds={playerBenchedIds}
                                     hoveredId={activeHover} />
+                                {commander.attack != null && <details className="pet-native-stat-details"><summary>Sealed combat stats</summary><p>Physical ATK {commander.attack} · DEF {commander.defense}<br />Special ATK {commander.spAttack} · DEF {commander.spDefense}<br />Speed {commander.speed} · Stamina {commander.maxStamina}</p><p>Special channels follow this companion&apos;s role. Current battle effects may change action order.</p></details>}
                             </aside>
                             <div className="pet-native-actions">
                             {/* Targeting takes over the menu column: the choice is
@@ -4019,8 +4032,8 @@ function PetShowdownBattleView({ initialState, playerPets, sharedImages, submitT
                             </div>
                             </div>
                             <footer className="pet-native-review"><b>{draft.length}/{promptable.length} orders chosen</b><span>The final choice sends this round. Earlier orders can be undone.</span>
-                                <details><summary>Battle rules</summary><p>Guard reduces direct-hit damage. Rest restores energy and costs your action. Switching changes who receives the next attacks.</p>
-                                    {stateView.damageRules === 'response-v2' && <p>Unprepared signatures approach 60% of maximum HP. Empower, Mark or a favorable field raises that limit to 75%. Guard and shields reduce the hit further; wounded pets can still be finished.</p>}
+                                <details><summary>Battle rules</summary><p>Guard reduces direct-hit damage. Rest restores stamina and uses your action. Switching changes who receives the next attacks.</p>
+                                    {stateView.rulesetVersion === 'progression-v3' ? <p>Earned abilities are sealed on entry. Healing and shielding have reuse windows. Mark, Empower or favorable weather prepare stronger signatures; level 75 mastery rewards preparation. Guard, shields and switching offer counterplay.</p> : stateView.damageRules === 'response-v2' && <p>Unprepared signatures approach 60% of maximum HP. Empower, Mark or a favorable field raises that limit to 75%. Guard and shields reduce the hit further; wounded pets can still be finished.</p>}
                                 </details>
                             </footer>
                             </div>
@@ -4093,12 +4106,13 @@ function PetShowdownBattleView({ initialState, playerPets, sharedImages, submitT
                 {panel === "forfeit" && (
                     <div className="showdown-result" role="alertdialog" aria-modal="true" aria-label="Forfeit the battle?">
                         <div className="showdown-result-title loss">Forfeit the battle?</div>
+                        {forfeitStatus?.error && <p role="alert">{forfeitStatus.error}</p>}
                         {/* The safe answer takes the focus: this prompt sits over
                             a live fight, and the destructive one is the reason
                             Escape closes the prompt instead of answering it. */}
                         <div className="showdown-result-buttons">
-                            <button type="button" className="showdown-cta danger" onClick={concede}>Yes, concede</button>
-                            <button type="button" className="showdown-chip" autoFocus onClick={() => setConfirmForfeit(false)}>Keep fighting</button>
+                            <button type="button" className="showdown-cta danger" disabled={forfeitStatus?.pending} onClick={concede}>{forfeitStatus?.pending ? "Recording concession…" : "Yes, concede"}</button>
+                            <button type="button" className="showdown-chip" disabled={forfeitStatus?.pending} autoFocus onClick={() => setConfirmForfeit(false)}>Keep fighting</button>
                         </div>
                     </div>
                 )}
@@ -4150,67 +4164,6 @@ function petViewOf(state: ShowdownStateView, petId: string): ShowdownPetView | u
 
 /** One beat in plain speech, for the live region. Same figures the popups and
  *  banners paint — nothing here is computed, it is all read off the event. */
-function describeBeat(event: ShowdownEvent, state: ShowdownStateView): string {
-    switch (event.t) {
-        case "roundStart":
-            return `Round ${event.round}.`;
-        case "action": {
-            const actor = nameOf(state, event.actorId);
-            if (event.moveKind === "guard") return `${actor} braces behind its guard.`;
-            if (event.moveKind === "rest") return `${actor} catches its breath.`;
-            const hits = event.targets.map((target) => {
-                const who = nameOf(state, target.id);
-                const parts: string[] = [];
-                if (target.damage > 0) parts.push(`${who} takes ${target.damage}${target.guarded ? " through its guard" : ""}`);
-                else if (target.heal > 0) parts.push(`${who} recovers ${target.heal}`);
-                else if (target.applied) parts.push(`${who} is ${target.applied}`);
-                else parts.push(`${who} takes nothing`);
-                if (target.effectiveness === "super") parts.push("super effective");
-                else if (target.effectiveness === "weak") parts.push("not very effective");
-                if (target.ko) parts.push(`${who} is knocked out`);
-                return parts.join(", ");
-            });
-            const overdraft = event.overexertDamage
-                ? ` ${actor} overexerts for ${event.overexertDamage} and loses its next action.`
-                : "";
-            return `${actor} used ${event.moveName}. ${hits.join(". ")}.${overdraft}`;
-        }
-        case "skip": {
-            const actor = nameOf(state, event.actorId);
-            return event.reason === "winded" ? `${actor} is winded and loses its action.`
-                : event.reason === "stun" ? `${actor} is stunned and loses its action.`
-                    : event.reason === "freeze" ? `${actor} is frozen solid and loses its action.`
-                        : `${actor} is down.`;
-        }
-        case "confused": {
-            const actor = nameOf(state, event.actorId);
-            return `${actor} hurt itself in confusion for ${event.selfDamage}.${event.ko ? ` ${actor} is knocked out.` : ""}`;
-        }
-        case "switch": {
-            const arriving = nameOf(state, event.inId);
-            return event.side === "player"
-                ? `${arriving} takes the field.`
-                : `The enemy sends in ${arriving}.`;
-        }
-        case "dot": {
-            const who = nameOf(state, event.targetId);
-            return `${who} takes ${event.damage} from ${event.kind}.${event.ko ? ` ${who} is knocked out.` : ""}`;
-        }
-        case "consumable": {
-            const owner = nameOf(state, event.petId);
-            const who = nameOf(state, event.targetId);
-            const result = event.damage > 0 ? ` ${who} takes ${event.damage}.`
-                : event.heal > 0 ? ` ${who} recovers ${event.heal}.`
-                    : "";
-            return `${owner}'s ${event.itemName} fires.${result}`;
-        }
-        case "end":
-            return event.outcome === "win" ? "Victory. The battle is over." : "Defeat. The battle is over.";
-        default:
-            return "";
-    }
-}
-
 /** One drafted order in words. Used where the orders have to be shown back to
  *  the player as proof they were kept. */
 function describeCommand(state: ShowdownStateView, command: ShowdownCommand): string {

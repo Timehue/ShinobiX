@@ -86,6 +86,15 @@ test("the angler names a shoal in this sector that suits your skill", () => {
     assert.ok(master.includes(hardest.name), master);
 });
 
+test('an angler at a difficult shoal explains the skill requirement instead of inviting an impossible attempt', () => {
+    const node = RESOURCE_NODES.find(node => node.activity === 'fishing' && node.difficulty > 1
+        && !RESOURCE_NODES.some(other => other.sector === node.sector && other.activity === 'fishing' && other.difficulty === 1))!;
+    assert.ok(node);
+    const tip = anglerTip(node.sector, undefined, BUCKET);
+    assert.match(tip, /You need Fishing skill/);
+    assert.match(tip, /Practice at an easier shoal first/);
+});
+
 test("each road fight ends with a line about the one you fought", () => {
     assert.match(roadFightAftermath({ sourceId: "nemesis", won: true, nemesisTier: 1 })!, /Kagero/u);
     assert.match(roadFightAftermath({ sourceId: `w-38-5000-${WANDERER_TRADE_INDEX}`, name: "Seam-Boss Tetsu", won: true, nemesisTier: 1 })!, /seam to you/u);

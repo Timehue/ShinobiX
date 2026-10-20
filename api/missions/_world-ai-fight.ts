@@ -25,6 +25,7 @@ import { patrolNameFor, patrolStance } from '../../shared/village-patrol.js';
 import { getSectorOwnerVillage } from '../_sector-war-store.js';
 import { activeVillageWarEnemiesOf } from '../world-state.js';
 import { activeWorldCrisisEncounter } from '../world-crisis/_state.js';
+import { narrativeGroupFor } from '../../shared/narrative-groups.js';
 import {
     isWorldAiFightKind,
     type WorldAiFightActivePointer,
@@ -719,7 +720,11 @@ export async function buildWorldAiFightSpec(params: {
             statBonus += Math.min(8, tier * 2);
             if (tier >= 4) name += ', Risen';
         }
-        return { profile: runtimeProfile(`world-questbook-${seal.id}-${stage.bossId}`, name, level + levelOffset, statBonus, boss.loadoutId, true), environment,
+        const profileId = `world-questbook-${seal.id}-${stage.bossId}`;
+        const groupId = stage.bossId === 'bandit-captain-goro' ? `goro-wave-${completedWaves + 1}` : undefined;
+        name = narrativeGroupFor(profileId, groupId)?.name ?? name;
+        return { profile: { ...runtimeProfile(profileId, name, level + levelOffset, statBonus, boss.loadoutId, true),
+            ...(groupId ? { narrativeGroupId: groupId } : {}) }, environment,
             context: { kind: request.kind, sourceId: seal.id, sector: request.sector, stage: seal.stage, displayName: name, finalStage: true, sealVersion } };
     }
 

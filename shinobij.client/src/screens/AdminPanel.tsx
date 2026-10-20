@@ -3080,7 +3080,7 @@ export function AdminPanel({
                                         {vnCast.map((m) => (
                                             <span key={m.name} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "3px 4px 3px 8px", border: "1px solid #334155", borderRadius: 999 }}>
                                                 {m.image
-                                                    ? <img src={m.image} alt={m.name} style={{ width: 22, height: 22, borderRadius: "50%", objectFit: "cover" }} />
+                                                    ? <img src={m.image} alt={m.name} style={{ width: 22, height: 22, borderRadius: "50%", objectFit: "contain" }} />
                                                     : <span style={{ width: 22, height: 22, borderRadius: "50%", background: "#1e293b", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 10 }}>{m.name.slice(0, 2).toUpperCase()}</span>}
                                                 <span style={{ fontSize: "0.85rem" }}>{m.name}</span>
                                                 <button type="button" title={`Remove ${m.name} from cast`} className="danger-button" style={{ padding: "0 7px", lineHeight: "20px" }} onClick={() => saveVnCast(vnCast.filter((c) => c.name !== m.name))}>×</button>
@@ -4212,7 +4212,7 @@ export function AdminPanel({
                                     style={{ display: "flex", alignItems: "center", gap: "0.6rem", flexWrap: "wrap" }}>
                                     {item.image
                                         ? <img src={item.image} alt={item.name}
-                                            style={{ width: 48, height: 48, objectFit: "cover", borderRadius: 6, flexShrink: 0, border: "1px solid #334155" }} />
+                                            style={{ width: 48, height: 48, objectFit: "contain", borderRadius: 6, flexShrink: 0, border: "1px solid #334155" }} />
                                         : <div style={{ width: 48, height: 48, borderRadius: 6, background: "#0f172a", border: "1px dashed #334155", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>🖼️</div>
                                     }
                                     <div style={{ flex: 1, minWidth: 0 }}>
@@ -5139,7 +5139,7 @@ export function AdminPanel({
                             const isCreator = creatorCards.some((c) => c.id === card.id);
                             return (
                                 <div key={card.id} className="summary-box" style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
-                                    {card.image && <img src={card.image} alt={card.name} style={{ width: 40, height: 40, objectFit: "cover", borderRadius: 4 }} />}
+                                    {card.image && <img src={card.image} alt={card.name} style={{ width: 40, height: 40, objectFit: "contain", borderRadius: 4 }} />}
                                     <span style={adminFlexible}><strong>{card.name}</strong> | {card.element} | {card.rarity}</span>
                                     <button onClick={() => loadAdminCard(card)}>Edit</button>
                                     {isCreator && (
@@ -5609,7 +5609,7 @@ export function AdminPanel({
                                 ? <p className="hint">No items pending review.</p>
                                 : reviewItems.map(item => (
                                     <div key={item.id} className="summary-box" style={adminAlignedRow}>
-                                        {item.image && <img src={item.image} alt={item.name} style={{ width: 48, height: 48, objectFit: "cover", borderRadius: 6, border: "1px solid #334155" }} />}
+                                        {item.image && <img src={item.image} alt={item.name} style={{ width: 48, height: 48, objectFit: "contain", borderRadius: 6, border: "1px solid #334155" }} />}
                                         <div style={adminFlexible}>
                                             <strong>{item.name}</strong>
                                             <p className="hint" style={adminNoMargin}>{item.slot} · {item.rarity}</p>
@@ -5629,7 +5629,7 @@ export function AdminPanel({
                                 ? <p className="hint">No bloodlines created yet.</p>
                                 : reviewBloodlines.map(bl => (
                                     <div key={bloodlineReviewKey(bl)} className="summary-box" style={adminAlignedRow}>
-                                        {bl.image && <img src={bl.image} alt={bl.name} style={{ width: 48, height: 48, objectFit: "cover", borderRadius: 6, border: "1px solid #334155" }} />}
+                                        {bl.image && <img src={bl.image} alt={bl.name} style={{ width: 48, height: 48, objectFit: "contain", borderRadius: 6, border: "1px solid #334155" }} />}
                                         <div style={adminFlexible}>
                                             <strong>{bl.name}</strong>
                                             <p className="hint" style={adminNoMargin}>{bl.ownerName ? `By ${bl.ownerName} · ` : ""}{bl.rank}{bl.specialElement ? ` · ${bl.specialElement}` : ""} · {bl.totalPoints} pts · {bl.jutsus.length} jutsus</p>

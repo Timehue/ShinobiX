@@ -35,10 +35,14 @@ const RE_BASIC_HEAL = /^(.+) uses Basic Heal, restoring (\d+) HP\.$/;
 const RE_HIT_HEAL = /^(?:Siphon|Lifesteal): (.+) heals (\d+) HP\.$/;
 const RE_ABSORB_HEAL = /^(.+) absorbs (\d+) HP\.$/;
 const RE_ARMOR_HEAL = /^(.+)'s armor (?:absorbs|steals) (\d+) HP\.$/;
+// Retained battles use the old copy; new battles name the healing effect.
+const RE_RESOLVED_ARMOR_HEAL = /^(.+)'s armor restores (\d+) HP through (?:Absorb|Lifesteal)\.$/;
+const RE_RESOLVED_ABSORB_HEAL = /^(.+) restores (\d+) HP through Absorb\.$/;
 const RE_SHIELD = /^Shield: (.+) gains (\d+) shield\.$/;
 const RE_BLOCKED = /^(\d+) absorbed by (.+)'s shield\.$/;
 const RE_DAMAGE = /^(\d+) damage to (.+)\.$/;
 const RE_WOUND_TICK = /^(.+) bleeds (\d+) \(Wound\)\.$/;
+const RE_WOUND_LOSS = /^(.+) loses (\d+) HP to Wound\.$/;
 
 const STYLE_STATS: Record<string, { kills: keyof LegacyStatDeltas; damage: keyof LegacyStatDeltas }> = {
     Ninjutsu: { kills: 'ninjutsuKills', damage: 'ninjutsuDamage' },
@@ -97,7 +101,8 @@ export function extractPvpLegacyDeltas(session: SessionLike, winnerName: string,
     const other = (name: string) => (name === session.p1.name ? session.p2.name : session.p1.name);
 
     for (const line of session.log ?? []) {
-        let m = RE_HEAL.exec(line) ?? RE_BASIC_HEAL.exec(line) ?? RE_HIT_HEAL.exec(line) ?? RE_ABSORB_HEAL.exec(line) ?? RE_ARMOR_HEAL.exec(line);
+        let m = RE_RESOLVED_ARMOR_HEAL.exec(line) ?? RE_RESOLVED_ABSORB_HEAL.exec(line)
+            ?? RE_HEAL.exec(line) ?? RE_BASIC_HEAL.exec(line) ?? RE_HIT_HEAL.exec(line) ?? RE_ABSORB_HEAL.exec(line) ?? RE_ARMOR_HEAL.exec(line);
         if (m) { setSafeRecordValue(healing, m[1], (healing[m[1]] ?? 0) + Number(m[2])); continue; }
         m = RE_SHIELD.exec(line);
         if (m) { setSafeRecordValue(shieldCasts, m[1], (shieldCasts[m[1]] ?? 0) + 1); continue; }
@@ -105,7 +110,7 @@ export function extractPvpLegacyDeltas(session: SessionLike, winnerName: string,
         if (m) { setSafeRecordValue(blocked, m[2], (blocked[m[2]] ?? 0) + Number(m[1])); continue; }
         m = RE_DAMAGE.exec(line);
         if (m) { const dealer = other(m[2]); setSafeRecordValue(damageDealt, dealer, (damageDealt[dealer] ?? 0) + Number(m[1])); continue; }
-        m = RE_WOUND_TICK.exec(line);
+        m = RE_WOUND_TICK.exec(line) ?? RE_WOUND_LOSS.exec(line);
         if (m) { const dealer = other(m[1]); setSafeRecordValue(damageDealt, dealer, (damageDealt[dealer] ?? 0) + Number(m[2])); continue; }
     }
 

@@ -67,3 +67,23 @@ test("the price line says what running costs, or that it costs nothing", () => {
     assert.equal(roadFleePriceLine({ hp: 1, ryo: 0, level: 10 }), "You have nothing left to lose by running.");
     assert.match(roadFleePriceLine({ hp: 200, ryo: 1_000, level: 10 }), /^If you flee, you lose 100 HP and drop 100 ryo\.$/u);
 });
+
+test('the bandit payment identifies the bandit and sector without sending a price', async () => {
+    let sent: Record<string, unknown> = {};
+    await withFetch((async (_url: string, init: RequestInit) => {
+        sent = JSON.parse(String(init.body));
+        return new Response(JSON.stringify({ ok: true, cost: { hp: 0, ryo: 500 }, totals: { hp: 900, ryo: 4500 } }));
+    }) as typeof fetch, async () => {
+        const result = await fleeRoadAmbush('kira', 'toll_000000001', { kind: 'toll', sector: 12, wandererId: 'w-12-5000-0' });
+        assert.equal(result.ok, true);
+    });
+    assert.deepEqual(sent, { playerName: 'kira', fleeId: 'toll_000000001', kind: 'toll', sector: 12, wandererId: 'w-12-5000-0' });
+});
+
+test('an uncertain toll response explains that retrying checks the same payment safely', async () => {
+    await withFetch((async () => { throw new Error('lost reply'); }) as typeof fetch, async () => {
+        const result = await fleeRoadAmbush('kira', 'toll_000000001', { kind: 'toll', sector: 12, wandererId: 'w-12-5000-0' });
+        assert.equal(result.ok, false);
+        assert.match(result.ok ? '' : result.error, /without paying twice/);
+    });
+});

@@ -1,4 +1,21 @@
 import type { Character } from '../types/character';
+import type { AiFightSettleResult } from './ai-fight-settle';
+
+/** Only a confirmed receipt determines amounts; zero ryo alone does not imply practice. */
+export function aiFightWinRewardText(result: AiFightSettleResult, spar: boolean, worldEncounter: boolean): string {
+    if (!result.settled) return 'No reward was granted for this fight.';
+    if (result.replayed) return 'This reward was already collected.';
+    const rewards = [
+        result.ryo > 0 ? `+${result.ryo.toLocaleString()} ryo` : '',
+        result.statPoints > 0 ? `+${result.statPoints} stat points` : '',
+    ].filter(Boolean);
+    const limit = result.capped ? result.ryo > 0
+        ? ' The daily ryo limit reduced this payout.'
+        : ' The daily ryo limit prevented a ryo payout.' : '';
+    if (rewards.length) return rewards.join(' · ') + limit;
+    if (spar) return 'Practice bout — no rewards.';
+    return `No direct ryo or stat points were awarded for this ${worldEncounter ? 'encounter' : 'fight'}.` + limit;
+}
 
 /** Follow the current accepted consequence, including a heal after settlement. */
 export function aiFightExitScreen(hospitalized: boolean, returnScreen?: string): string | undefined {
@@ -16,5 +33,5 @@ export function aiFightNonWinMessage(
     if (state !== 'settled' || !character) return 'Confirming your battle result and recovery status…';
     if (character.hospitalized) return 'Your HP reached zero. You were brought to the hospital for treatment. No reward was earned.';
     if (spar) return `${draw ? 'The spar ended in a draw.' : 'You lost this spar.'} A spar never sends anyone to the hospital, so you keep your ${character.hp.toLocaleString()} HP.`;
-    return `${draw ? 'Neither side could finish the fight.' : 'You left the fight.'} You have ${character.hp.toLocaleString()} HP remaining. No reward was earned.`;
+    return `${draw ? 'The fight ended in a draw.' : 'You did not win this fight.'} You have ${character.hp.toLocaleString()} HP remaining. No reward was earned.`;
 }

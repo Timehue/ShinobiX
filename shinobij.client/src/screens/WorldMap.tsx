@@ -24,6 +24,7 @@ import "../styles/index/15-world-map-territory.css";
 import "../styles/index/29-clan-exchange-storefront.css";
 import "../styles/atlas-skin.css";
 import "../styles/world-map-mobile.css";
+import "../components/WorldWandererDialog.css";
 import { useWorldMapLayout } from "../lib/use-world-map-layout";
 import { getWorldMapRegionForPoint, WORLD_MAP_REGIONS } from "../lib/world-map-regions";
 import { visiblePoll } from "../lib/poll";
@@ -127,7 +128,6 @@ import { createPortal } from "react-dom";
 import { travelMaskMs } from "../lib/travel-mask";
 import { serverNow } from "../lib/server-clock";
 import { storyReckoningActionFailure } from "../lib/story-reckoning-feedback";
-
 const AnbuVaultRaid = lazy(() => import("../features/anbuInfiltration/AnbuVaultRaid").then(m => ({ default: m.AnbuVaultRaid }))); const WorldBossQueueHost = lazy(() => import("../components/WorldBossQueueHost").then(m => ({ default: m.WorldBossQueueHost })));
 import { SectorMap } from "../components/SectorMap";
 import { SceneCritters } from "../components/SceneCritters";
@@ -235,6 +235,7 @@ import { contractHunterLevel } from "../../../shared/contract-hunter";
 import { contractHunterWanderers } from "../lib/contract-hunter-wanderers";
 import { postWandererService, type WandererFavor } from "../lib/wanderer-service";
 import { exploreAmbushDialogState, exploreAmbushFightRequest, fleeRoadAmbush, roadFleePriceLine, type RoadFleeResult } from "../lib/road-flee-api";
+import { offersBanditToll } from '../../../shared/road-toll';
 import { homeVillageForSector } from "../data/war-map-sectors";
 import { isLegacyServerLive, useLegacyAvailability, useLegacyMutationAvailability, fetchSageState, fetchLegacyStatus, synthSageWanderer, LEGACY_SAGE_WANDERER_ID, type SageOfferView } from "../lib/legacy";
 import { rollEmissarySpawn, EMISSARY_BY_SLUG, type EmissarySlug, type EmissaryQuestDef } from "../lib/legacy-emissaries";
@@ -328,6 +329,7 @@ function WorldMapContent({
     capturePvpCreateScope,
     onLaunchWeeklyBoss,
     onExplorePresentationActiveChange,
+    onEntryEncounterActiveChange,
     onLaunchClanWarBattle,
 }: {
     setCurrentBiome: (biome: Biome) => void;
@@ -335,6 +337,7 @@ function WorldMapContent({
     character: Character;
     updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>;
     combatActive: boolean;
+    onEntryEncounterActiveChange?: (active: boolean) => void;
     isCombatActive: () => boolean;
     creatorEvents: CreatorEvent[];
     creatorRaids: CreatorRaid[];
@@ -1445,7 +1448,7 @@ function WorldMapContent({
                 stamina: data.totals!.stamina ?? prev.stamina,
             }) : prev);
             const offer = data.offer as { cost?: number };
-            setWandererDialog({ w, msg: `${w.name} patches you up for ${offer.cost ?? 0} ryo. The bleeding stops, and you can move without wincing.` });
+            setWandererDialog({ w, msg: `${w.name} patches you up for ${offer.cost ?? 0} ryo. Your HP, chakra, and stamina are fully restored.` });
         } else if (data.reason === "already-well") {
             setWandererDialog({ w, msg: `"You are already steady. Save your ryo for worse days."` });
         } else if (data.reason === "no-ryo") {
@@ -1464,14 +1467,14 @@ function WorldMapContent({
         if (data.ok && data.favor) {
             coolWanderer(w.id);
             if (onServerVersion?.(data._saveVersion) !== false) updateCharacter(prev => prev ? ({ ...prev, activeWandererFavor: data.favor as WandererFavor }) : prev);
-            setWandererDialog({ w, msg: `${w.name} gives you a sealed favor. Deliver it to ${sectorRegionName(data.favor.targetSector)}, sector ${data.favor.targetSector}.` });
+            setWandererDialog({ w, msg: `${w.name} gives you a sealed package. Take it to the courier in ${sectorRegionName(data.favor.targetSector)}, sector ${data.favor.targetSector}.` });
         } else if (data.reason === "busy" && data.favor) {
-            setWandererDialog({ w, msg: `You already carry a sealed favor for sector ${data.favor.targetSector}. Finish that road first.` });
+            setWandererDialog({ w, msg: `You already have a package for the courier in sector ${data.favor.targetSector}. Deliver that package first.` });
         } else if (data.reason === "cooldown") {
             coolWanderer(w.id);
             setWandererDialog({ w, msg: "They have already moved on. Search another sector." });
         } else {
-            setWandererDialog({ w, msg: data.error ?? "They decide not to trust the package to you." });
+            setWandererDialog({ w, msg: data.error ?? "The delivery could not be started. Check your active delivery before trying again." });
         }
     }
     async function claimWandererFavor(w: Wanderer) {
@@ -1483,7 +1486,7 @@ function WorldMapContent({
             if (onServerVersion?.(data._saveVersion) !== false) updateCharacter(prev => prev ? ({ ...prev, activeWandererFavor: null, ryo: data.totals!.ryo ?? prev.ryo, boneCharms: data.totals!.boneCharms ?? prev.boneCharms }) : prev);
             setWandererDialog({ w, msg: `The courier breaks the seal and pays you ${data.reward.ryo} ryo and ${data.reward.boneCharms} bone charm${data.reward.boneCharms === 1 ? "" : "s"}.` });
         } else if (data.reason === "wrong-sector" && data.favor) {
-            setWandererDialog({ w, msg: `Wrong road. The delivery belongs in sector ${data.favor.targetSector}.` });
+            setWandererDialog({ w, msg: `The courier is in sector ${data.favor.targetSector}. Take the package there.` });
         } else {
             // "none"/"expired" cleared the favor server-side and bumped the save;
             // adopt that version so the next autosave is not a stale 409.
@@ -1651,7 +1654,7 @@ function WorldMapContent({
                 const parts = [`${d.reward.ryo} ryo`];
                 if (d.reward.fateShards > 0) parts.push(`${d.reward.fateShards} fate shard${d.reward.fateShards === 1 ? "" : "s"}`);
                 if (d.reward.boneCharms > 0) parts.push(`${d.reward.boneCharms} bone charm${d.reward.boneCharms === 1 ? "" : "s"}`);
-                setTimeout(() => alert(`${recovering ? "Recovered ambush ledger: " :"You overwhelmed the bandits and felled their warlord! Loot: "}${parts.join(", ")}.`), 40);
+                setTimeout(() => alert(`${recovering ? "Recovered battle result: " :"You overwhelmed the bandits and felled their warlord! Loot: "}${parts.join(", ")}.`), 40);
                 return true;
             }
         } catch { /* fall through to the no-loot message */ }
@@ -1948,6 +1951,10 @@ function WorldMapContent({
     const [wandererDialog, setWandererDialog] = useState<WorldWandererDialogState | null>(null);
     const wandererChoiceRef = useRef<WorldWandererDialogState | null>(null);
     useLayoutEffect(() => { wandererChoiceRef.current = wandererDialog; }, [wandererDialog]);
+    useLayoutEffect(() => {
+        onEntryEncounterActiveChange?.(requiresWandererChoice(wandererDialog) || !!bossDialog || worldBossQueueOpen);
+        return () => onEntryEncounterActiveChange?.(false);
+    }, [wandererDialog, bossDialog, worldBossQueueOpen, onEntryEncounterActiveChange]);
     useEffect(() => {
         if (legacyAvailable) return;
         setSageOffer(null);
@@ -1966,12 +1973,12 @@ function WorldMapContent({
             if (w.verb === "bountyHunter") pendingBountyHunterRef.current = { hunterId: w.id, sector: selectedSector };
             return;
         }
-        if (wandererForcesChoice(w)) wandererChoiceRef.current = { w };
+        if (wandererForcesChoice(w)) {
+            onEntryEncounterActiveChange?.(true);
+            wandererChoiceRef.current = { w };
+        }
         rememberWanderer(w);
-        // Fresh scene, fresh verdict: whether the LAST giver's offer was taken must
-        // never carry into this one's decline check. (The rift-accept branch closes
-        // its VN directly rather than through a close path, so the stamp it leaves
-        // would otherwise outlive the scene that set it.)
+        // A directly closed rift VN can leave a giver verdict; retire it for this scene.
         if (isRoamingGiverEventId(w.id)) giverAcceptedRef.current = null;
         // The Wandering Sage opens his Legacy-offer VN instead of the dialog.
         if (w.id === LEGACY_SAGE_WANDERER_ID) {
@@ -1982,8 +1989,7 @@ function WorldMapContent({
             }
             return;
         }
-        // A story road event opens its VN directly (no verb dialog) — same
-        // pattern as the Sage. The event stays available until a choice is made.
+        // Story road events open their VN directly and remain available until a choice.
         if (w.id.startsWith(ROAD_WANDERER_PREFIX)) {
             const roadEvent = roadEventBySynthId(w.id, readStoryRoadContent());
             if (roadEvent && selectedSector != null) {
@@ -1993,8 +1999,7 @@ function WorldMapContent({
             }
             return;
         }
-        // A rift giver brings a field report from a target sector; this opens the
-        // intro VN (accept seals the rift + reveals its structure on the map).
+        // Rift reports open the intro VN; accepting seals and reveals the rift.
         if (isStoryReckoningId(w.id)) {
             const arc = storyReckoningForEventId(w.id);
             if (!arc || selectedSector == null) return;
@@ -2061,8 +2066,7 @@ function WorldMapContent({
             return;
         }
         if (petMentor.engage(w)) return;
-        // A roaming mercenary or contract hunter stops you like a bandit: Fight
-        // (the merc's server-resolved clash, the hunter's sealed fight) or pay to Flee.
+        // Mercenaries and contract hunters require Fight or a paid Flee.
         if (isMercAiId(w.id) || w.verb === "bountyHunter") { setWandererDialog({ w }); return; }
         if (w.archetype === "nemesis") { setWandererDialog({ w, nemesis: true }); return; } // Kagero walks his own sectors (lib/road-cast)
         // The world remembers your Quest Book choices (character.questStandings): a
@@ -2072,18 +2076,14 @@ function WorldMapContent({
             setWandererDialog({ w, standingLine: react.line, peace: true });
             return;
         }
-        // Every wanderer — bandits included — opens a dialog first (a threat line
-        // + Fight/Flee for bandits; greetings + actions for the rest).
+        // Every wanderer opens a dialog first, with Fight/Flee for hostile encounters.
         const encounter = ordinaryWandererEncounter(w, character.level, selectedSector);
         setWandererDialog({ w: encounter ? { ...w, level: encounter.level, avatarImage: ordinaryPvePortrait(encounter) } : w, standingLine: react?.line, ...(encounter ? { encounter } : {}) });
     }
-    // Choosing Fight against a roaming merc resolves SERVER-SIDE (no client Arena;
-    // the server calls the clash). Fleeing it is the priced road flee. The result reuses
-    // the resolved-dialog path. The merc NPC is hidden client-side after the clash;
-    // the server enforces the real 15-min per-target cooldown.
+    // Merc Fight resolves server-side; road Flee is priced and the server owns cooldowns.
     async function engageRoamingMerc(w: Wanderer) {
         if (!villageWarAdmissionOpen || !capabilityAdmissionAllowed(mutationAvailability("villageWar"))) {
-            setWandererDialog({ w, msg: "Village War actions are paused. This patrol remains visible while live admission recovers." });
+            setWandererDialog({ w, msg: "Village War battles are temporarily paused. Try this patrol again when battles reopen." });
             return;
         }
         const sec = selectedSector;
@@ -2100,7 +2100,7 @@ function WorldMapContent({
         }
     }
     // Closing the dialog. A hostile that has caught you is never waved off here:
-    // it is fought or fled (fleeWanderer, which costs HP and ryo), so Escape does
+    // it is fought, paid off (bandits), or fled (other hostiles), so Escape does
     // nothing. Passing a bandit in peace is free and puts it on the short flee
     // cooldown. Other dialogs cool only when you take their interaction, and
     // resolved (`msg`) dialogs just close.
@@ -2114,15 +2114,16 @@ function WorldMapContent({
         if (requiresWandererChoice(wandererDialog)) return;
         dismissWandererDialog();
     }
-    // Running from a hostile. The server charges the price (shared/road-flee.ts)
-    // and only then does the encounter end; a failed request keeps the choice
-    // open, and its fleeId makes a retry of a flee that did land free.
+    // The server charges a bandit's fixed toll or another hostile's flee price.
+    // Only a confirmed payment ends the encounter; failure keeps the choice
+    // open, and the same fleeId makes retrying a committed payment free.
     async function fleeWanderer(w: Wanderer) {
         const d = wandererDialog;
         if (!d || d.w.id !== w.id || d.busy) return;
         const asked = { ...d, fleeId: d.fleeId ?? crypto.randomUUID(), choiceError: undefined };
         setWandererDialog({ ...asked, busy: true });
-        const fled = await fleeRoadAmbush(character.name, asked.fleeId, asked.ambush ? { kind: "explore", ...asked.ambush } : { kind: "road" });
+        const toll = offersBanditToll(asked);
+        const fled = await fleeRoadAmbush(character.name, asked.fleeId, toll ? { kind: 'toll', sector: selectedSector ?? 0, wandererId: w.id } : asked.ambush ? { kind: "explore", ...asked.ambush } : { kind: "road" });
         const settledAmbush = !!asked.ambush && (fled.ok || fled.reason === "already-resolved" || fled.reason === "invalid-encounter");
         if (!fled.ok) {
             setWandererDialog((current) => current?.w.id !== w.id ? current : settledAmbush ? { w, msg: fled.error } : { ...asked, choiceError: fled.error });
@@ -2131,13 +2132,12 @@ function WorldMapContent({
         }
         setWandererDialog((current) => current?.w.id === w.id ? null : current);
         if (settledAmbush) completeWorldRewardOperation(character.name, asked.ambush!.requestId);
-        else coolWanderer(w.id, WANDERER_FLEE_COOLDOWN_MS);
+        else coolWanderer(w.id, toll ? undefined : WANDERER_FLEE_COOLDOWN_MS);
         adoptFleeTotals(fled);
     }
     function adoptFleeTotals(fled: Extract<RoadFleeResult, { ok: true }>) {
         if (onServerVersion?.(fled._saveVersion) !== false) updateCharacter(prev => prev ? ({ ...prev, hp: fled.totals.hp, ryo: fled.totals.ryo }) : prev);
     }
-
     const { traces: sectorTraces, setTraces: setSectorTraces, modal: tracesModal, setModal: setTracesModal, open: openSectorTraces, lifeProps: lifeTracesProps } = useSectorTraces(selectedSector, character.name,followTracker);
     async function claimWandererGift(w: Wanderer) {
         setWandererDialog({ w, busy: true });
@@ -2510,7 +2510,7 @@ function WorldMapContent({
             if (resp.reason === "incomplete") {
                 if (!recovering) setTimeout(() => alert(`Not yet: ${resp.progress ?? 0} / ${resp.target ?? arc.task.target} complete.`), 40);
             } else if (!recovering) {
-                setTimeout(() => alert("The account did not settle. Return to the outskirts and try again."), 40);
+                setTimeout(() => alert("Your quest report could not be confirmed. Return to the outskirts and try again."), 40);
             }
             return false;
         }
@@ -2522,7 +2522,7 @@ function WorldMapContent({
             setCreatorEventLine(0);
             setSelectedCreatorEvent(storyReckoningPayoffEvent(arc, biomeForWorldSector(selectedSector), resp.character ?? character));
         } else {
-            setTimeout(() => alert(`${recovering ? "Recovered reckoning ledger: " : ""}You recovered ${arc.task.targetName}. Return to ${arc.npcName} at the outskirts.`), 40);
+            setTimeout(() => alert(`${recovering ? "Recovered quest progress: " : ""}You recovered ${arc.task.targetName}. Return to ${arc.npcName} at the outskirts.`), 40);
         }
         return true;
     }
@@ -3160,6 +3160,7 @@ function WorldMapContent({
             if (isCombatActive() || (requiresWandererChoice(wandererChoiceRef.current) && wandererChoiceRef.current?.ambush?.requestId !== worldExploreRequestId)) return;
             const preview = exploreAmbushDialogState(sector, worldExploreRequestId, character.level, encounter);
             wandererChoiceRef.current = preview;
+            if (requiresWandererChoice(preview)) onEntryEncounterActiveChange?.(true);
             setWandererDialog((current) => current?.ambush?.requestId === worldExploreRequestId ? current : preview);
         });
         return true;
@@ -3989,7 +3990,7 @@ function WorldMapContent({
             returnScreen: "worldMap",
         });
         if (launched) setSelectedCreatorEvent(null);
-        else alert("The sealed practice arena is unavailable. Your event remains open.");
+        else alert("The practice battle could not open. Your event remains open.");
     }
     if (activePetEncounter && !petVnDone) {
         const petActorImage = petCardImage(activePetEncounter, sharedImages);
@@ -4604,8 +4605,8 @@ function WorldMapContent({
                                 <ModalDialogScrim label={`${bossDialog.name} — encounter`} onBackdrop={() => undefined} onEscape={() => undefined}>
                                     <div className="card" style={{ maxWidth: 380, width: "88%", maxHeight: "88dvh", overflowY: "auto", textAlign: "center", padding: 18, border: "1px solid rgba(236,91,56,.6)" }} onClick={(e) => e.stopPropagation()}>
                                         {bossDialog.portrait
-                                            ? <img src={bossDialog.portrait} alt={bossDialog.name} style={{ width: 104, height: 104, objectFit: "cover", borderRadius: "50%", border: "2px solid #ec5b38", margin: "0 auto 8px", boxShadow: "0 0 18px rgba(236,91,56,.6)" }} />
-                                            : <img src="/portraits/hollow-warden.webp" alt="" style={{ width: 104, height: 104, objectFit: "cover", borderRadius: "50%", border: "2px solid #ec5b38", margin: "0 auto 8px", boxShadow: "0 0 18px rgba(236,91,56,.6)" }} />}
+                                            ? <img src={bossDialog.portrait} alt={bossDialog.name} style={{ width: 104, height: 104, objectFit: "contain", borderRadius: "50%", border: "2px solid #ec5b38", margin: "0 auto 8px", boxShadow: "0 0 18px rgba(236,91,56,.6)" }} />
+                                            : <img src="/portraits/hollow-warden.webp" alt="" style={{ width: 104, height: 104, objectFit: "contain", borderRadius: "50%", border: "2px solid #ec5b38", margin: "0 auto 8px", boxShadow: "0 0 18px rgba(236,91,56,.6)" }} />}
                                         <h3 style={{ margin: "0 0 4px", color: "#ffb4a0" }}><GameArtIcon kind="attack" size={17} /> {bossDialog.name}</h3>
                                         <p style={{ fontSize: ".78rem", color: "#9aa3b2", margin: "0 0 8px" }}>The Weekly Boss bears down on you. Stand and deal all the damage you can for the server-wide leaderboard, or flee. Fleeing spends no attempt.</p>
                                         <p style={{ fontSize: ".72rem", color: "var(--gold)", margin: "0 0 8px" }}>Attempts used: {bossDialog.attemptsUsed}/3</p>
@@ -5125,7 +5126,7 @@ function WorldMapContent({
                             aria-label="Open Sunscar Festival"
                         >
                             {currentSector === sector.id && <span className="atlas-you-label" aria-hidden="true">YOU</span>}
-                            <img src={festivalMarkerArt} alt="" style={{ width: 28, height: 28, objectFit: "cover", borderRadius: "50%" }} />
+                            <img src={festivalMarkerArt} alt="" style={{ width: 28, height: 28, objectFit: "contain", borderRadius: "50%" }} />
                         </button>
                         </WorldMapPin>
                     );
@@ -5186,7 +5187,7 @@ function WorldMapContent({
                             <span
                                 className="atlas-boss-flag"
                                 title={`${roamingBoss?.bossName ?? "Weekly Boss"} is rampaging here. Travel in to challenge it`}
-                            ><img src="/portraits/hollow-warden.webp" alt="" style={{ width: 19, height: 19, borderRadius: "50%", objectFit: "cover" }} /></span>
+                            ><img src="/portraits/hollow-warden.webp" alt="" style={{ width: 19, height: 19, borderRadius: "50%", objectFit: "contain" }} /></span>
                         )}
                         {huntTrail && (
                             <span

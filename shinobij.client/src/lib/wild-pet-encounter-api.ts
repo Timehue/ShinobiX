@@ -115,7 +115,7 @@ async function requestWildPetEncounter(playerName: string, sector: number, reque
             ? data.requestId
             : "";
         if (!Number.isSafeInteger(sealedSector) || sealedSector < 1) {
-            return { kind: "blocked", error: "The pet server omitted the sealed sector.", retryable: true };
+            return { kind: "blocked", error: "The wild companion encounter location could not be loaded.", retryable: true };
         }
         if (!sealedRequestId) return { kind: "blocked", error: "The pet server omitted the recovery id.", retryable: true };
         if (data?.resolved === true

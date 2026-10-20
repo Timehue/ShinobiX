@@ -10,7 +10,7 @@ export async function mutateEndlessRun(playerName: string, action: 'start' | 'se
         try {
             const response = await fetch('/api/endless/run', init);
             const data = await response.json().catch(() => null) as EndlessMutationResult | null;
-            return response.ok && data ? data : { error: data?.error || 'The Endless Tower seal rejected this action.' };
+            return response.ok && data ? data : { error: data?.error || 'The Endless Tower action could not be confirmed. Reopen the tower to check your run before trying again.' };
         } catch { if (attempt === 1) return { error: 'The Endless Tower server is unreachable.' }; }
     }
     return { error: 'The Endless Tower server is unreachable.' };
@@ -24,7 +24,7 @@ export async function startEndlessWave(playerName: string, runToken: string): Pr
     });
     const data = await response.json().catch(() => ({})) as Partial<EndlessWaveStartResult>;
     if (!response.ok || !data.runId || !data.wave || !data.session) {
-        throw new Error(data.error ?? 'The Endless Tower wave could not be sealed.');
+        throw new Error(data.error ?? 'The next Endless Tower wave could not be started. Reopen the tower to check for an active fight.');
     }
     return data as EndlessWaveStartResult;
 }

@@ -6,6 +6,8 @@ import { isRetiredVnArt } from './vn-retired-artwork';
 import { resolveCinematicActorImage } from './vn-presentation';
 import { worldBossDefinitionForVisual, worldBossDefinitionForGuardVisual } from '../../../shared/world-boss-event';
 import { STORY_KAGE_PORTRAITS } from '../../../shared/story-kage-art';
+import { STORY_ROAD_FIGHTS } from '../../../shared/story-road-fights';
+import { narrativeEnemyIdentity } from '../../../shared/narrative-enemy-identity';
 
 export type TowerEnemySpriteKey =
     | "bandit"
@@ -95,23 +97,9 @@ export function canonicalBeastPortraitId(aiProfileId: string): string {
     return /^endless-(.+)-w\d+$/.exec(aiProfileId)?.[1] ?? aiProfileId;
 }
 
-// Road bosses without bespoke portraits deliberately use a stable, character-
-// appropriate painted stand-in. This is preferable to rendering the event's
-// landscape backdrop inside Arena's circular fighter portrait.
-const STORY_ROAD_BATTLE_PORTRAITS: Record<string, string> = {
-    "Tally-Captain Brask": "/portraits/captain-joss-arne.webp",
-    "The Magpie": "/portraits/corvo-latch.webp",
-    "Instructor Havek": "/portraits/instructor-havek.webp",
-    "Raid Captain Hela Dray": "/portraits/captain-hela-dray.webp",
-    "Black Bridge Raiders": "/portraits/pale-pack-runner.webp",
-    "Anji Vesk": "/portraits/anji-vesk.webp",
-    "The Forty-First": "/portraits/sergeant-essen.webp",
-    "Foreman Dray": "/portraits/foreman-dray.webp",
-    "Anchor Warden": "/portraits/hollow-warden.webp",
-};
-
 export function storyRoadBattlePortrait(bossName?: string): string | undefined {
-    return bossName ? STORY_ROAD_BATTLE_PORTRAITS[bossName] : undefined;
+    const road = STORY_ROAD_FIGHTS.find(entry => entry.name === bossName);
+    return road ? narrativeEnemyIdentity(road.id)?.portrait : undefined;
 }
 
 type DungeonArtEvent = Pick<CreatorEvent, "id" | "avatarImage" | "vnPages">;

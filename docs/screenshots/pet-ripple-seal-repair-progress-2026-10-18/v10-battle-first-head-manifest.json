@@ -1,0 +1,72 @@
+{
+  "schema": 1,
+  "errors": [],
+  "pets": [
+    {
+      "id": "starter-water",
+      "name": "Ripple Seal",
+      "url": "/.tmp/ripple-seal-complete-face-v10/warfront-lod/starter-water.glb",
+      "sha256": "47cd31858838ca83f67f6c2c77dcceb23f6999ddd55a41a01875ef1673ea07b5",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "progress": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ],
+      "views": [
+        "head-front",
+        "head-side",
+        "head-other-side"
+      ],
+      "materialTreatment": {
+        "mode": "production-diffuse",
+        "materials": 1,
+        "metalnessMax": 0.05,
+        "roughnessRange": [
+          0.58,
+          0.82
+        ]
+      },
+      "region": {
+        "y": [
+          -2,
+          -2
+        ],
+        "bounds": [
+          -0.521050905100379,
+          0.5378694228774356,
+          0.08902682025582895,
+          0.867510465712348,
+          0.5249263796862593,
+          1.092091630796229
+        ],
+        "cameraPadding": 1.15
+      },
+      "sheets": [
+        "starter-water-head-front.webp",
+        "starter-water-head-side.webp",
+        "starter-water-head-other-side.webp"
+      ],
+      "review": "pending",
+      "anatomySha256": "1687398b1f847752672e855fb952be50aaeed0572b8c5033a5889aef8d0ae274"
+    }
+  ],
+  "artisticCertification": false
+}

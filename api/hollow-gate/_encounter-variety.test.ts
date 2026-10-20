@@ -5,12 +5,54 @@ import { createHollowGateCombatBinding } from './_combat-session.js';
 import type { HollowGateRunToken } from './_run-token.js';
 import { balanceSave } from '../../scripts/test-fixtures/hunt-shrine.js';
 import { runSoloPveAiUntilPlayer } from '../solo-pve/_engine.js';
+import { builtinAiProfile } from '../_ai-profile-catalog.js';
 
 function params(level=100,kind:'battle'|'ambush'|'elite'|'boss'|'beast'='battle',node=8) {
     const run:HollowGateRunToken={playerName:'fixture',mintedAt:1,floorDepth:5,currentFloor:1,seed:'followup-route',entryCurrencies:{},offeredAugmentIds:[],chosenAugmentId:null,dailyRunOrdinal:1};
     const binding=createHollowGateCombatBinding({playerName:'fixture',token:'offline',floor:1,nodeId:`floor:1:tile:${node}`,kind,runId:'variety',now:1000});
     return {binding,run,save:balanceSave(level,false),now:1000,admin:null};
 }
+
+test('every shrine shinobi encounter seals 40 rounds at creation', () => {
+    for (const kind of ['battle', 'ambush', 'elite', 'boss', 'beast'] as const)
+        assert.equal(buildHollowGateSoloPveEncounter(params(17, kind)).hollowGateRoundLimit, 40);
+});
+
+test('named boss honors its authored kit and opener while retaining shrine numbers at every level', () => {
+    const named = builtinAiProfile('rift-boss-mirror-shard')!;
+    for (const level of [5, 17, 50, 100]) {
+        const p = params(level, 'boss'); p.run.bossProfileId = named.id; p.run.bossName = named.name;
+        const generic = buildHollowGateSoloPveEncounter(p);
+        const actual = buildHollowGateSoloPveEncounter({ ...p, namedBossProfile: named });
+        assert.equal(actual.encounter.metadata?.namedBossProfileId, named.id);
+        assert.deepEqual((actual.enemy.character.jutsu as Array<{ id: string }>).map(j => j.id), named.jutsuIds);
+        assert.deepEqual(actual.enemy.character.aiRules, named.rules, 'the named boss retains its validated thematic script');
+        for (const key of ['level', 'stats', 'armorRawDR', 'jutsuMastery', 'aiTurnPolicy'])
+            if (key !== 'jutsuMastery') assert.deepEqual(actual.enemy.character[key], generic.enemy.character[key], key);
+        assert.deepEqual(actual.enemy.character.jutsuMastery,
+            named.jutsuIds.map(jutsuId => ({ jutsuId, level: (generic.enemy.character.jutsuMastery as Array<{ level: number }>)[0].level })));
+        for (const key of ['hp', 'maxHp', 'chakra', 'maxChakra', 'stamina', 'maxStamina'] as const) assert.equal(actual.enemy[key], generic.enemy[key], key);
+        assert.deepEqual(actual.shrineAi, generic.shrineAi);
+        actual.activeSide = 'enemy'; actual.ap.enemy = 100; actual.enemy.pos = 27; actual.player.pos = 26;
+        runSoloPveAiUntilPlayer(actual);
+        const opener = actual.events.find(e => e.actor === 'enemy' && e.kind === 'action');
+        const authoredOpener = named.rules.find(rule => rule.condition === 'specific_round' && rule.value === 1 && rule.action === 'use_specific_jutsu');
+        if (level >= 50) assert.equal(opener?.actionId, authoredOpener?.jutsuId, 'the legal shrine runner uses the authored opener from this boss’s current kit');
+        else assert.ok(opener, 'low-level policy retains its legal accessible fallback');
+        assert.ok(actual.events.every(e => e.after.ap.enemy >= 0 && e.after.ap.player >= 0));
+    }
+});
+
+test('missing, mismatched or unsupported named profiles keep the existing generic boss kit', () => {
+    const p = params(100, 'boss'); p.run.bossProfileId = 'unknown';
+    const original = buildHollowGateSoloPveEncounter(p);
+    for (const namedBossProfile of [null, { id: 'different', jutsuIds: ['starter-gen-lightning-2'] },
+        { id: 'unknown', jutsuIds: ['missing-technique'], rules: [] },
+        { id: 'unknown', jutsuIds: ['starter-gen-lightning-2'], rules: [{ condition: 'always', action: 'use_specific_jutsu', jutsuId: 'missing-technique' }] }]) {
+        const actual = buildHollowGateSoloPveEncounter({ ...p, namedBossProfile });
+        assert.deepEqual(actual.enemy, original.enemy); assert.equal(actual.encounter.metadata?.namedBossProfileId, undefined);
+    }
+});
 
 test('new ordinary corridor nodes vary deterministic legal kits without additional scaling',()=>{
     for(const level of [31,50,100]) for(const kind of ['battle','ambush'] as const) {
@@ -60,4 +102,12 @@ test('ordinary hunter/striker cannot heal while bruiser retains one and elite/bo
             assert.ok(!s.events.some(e=>e.actor==='enemy'&&e.action==='basicHeal'));
         }
     }
+});
+
+test('named profile supplies a missing event name while respecting a sealed display override', () => {
+    const p = params(100, 'boss'), named = builtinAiProfile('rift-boss-mirror-shard')!;
+    p.run.bossProfileId = named.id;
+    assert.equal(buildHollowGateSoloPveEncounter({ ...p, namedBossProfile: named }).enemy.name, named.name);
+    p.run.bossName = 'The Sealed Mirror';
+    assert.equal(buildHollowGateSoloPveEncounter({ ...p, namedBossProfile: named }).enemy.name, 'The Sealed Mirror');
 });

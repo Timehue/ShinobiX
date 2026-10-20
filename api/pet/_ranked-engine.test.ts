@@ -80,11 +80,27 @@ describe('private ranked pet engine', () => {
         assert.equal(snapshot.attack, petStatCeil('standard', 'attack'));
         assert.equal(snapshot.defense, petStatCeil('standard', 'defense'));
         assert.equal(snapshot.speed, petStatCeil('standard', 'speed'));
-        assert.equal(snapshot.jutsus[0].power, petJutsuPowerCeil('standard'));
-        assert.equal(snapshot.jutsus[0].cooldown, 0);
-        assert.equal(snapshot.jutsus[0].kind, 'damage');
+        assert.deepEqual(snapshot.jutsus, [], 'a corrupt unknown kind cannot manufacture an eligible species technique');
+        assert.equal(snapshot.battleLoadoutVersion, 'progression-v3');
+        const boundedMove = snapshotPetForRanked(pet('bounded-move', {
+            jutsus: [{ name: 'Fang', power: 999_999, cooldown: -50, kind: 'damage' }],
+        }))!.jutsus[0];
+        assert.equal(boundedMove.power, petJutsuPowerCeil('standard'));
+        assert.equal(boundedMove.cooldown, 0);
+        assert.equal(boundedMove.kind, 'damage');
         assert.equal(snapshot.loadout?.pvp?.length, 80);
         assert.equal(snapshot.loadout?.consumable?.length, 80);
+    });
+
+    it('new ranked snapshots admit only earned abilities even with a forged retained marker', () => {
+        const raw = pet('standard-0-owned', { templateId: 'standard-0', level: 1,
+            battleLoadoutVersion: 'legacy-v1', jutsus: [] });
+        const snapshot = snapshotPetForRanked(raw)!;
+        assert.equal(snapshot.battleLoadoutVersion, 'progression-v3');
+        assert.ok(snapshot.jutsus.length > 0);
+        assert.ok(snapshot.jutsus.every(move => move.unlockLevel === 1 && !move.signature));
+        const earned = snapshotPetForRanked({ ...raw, level: 20 })!;
+        assert.ok(earned.jutsus.some(move => move.signature && move.unlockLevel === 20));
     });
 
     it('replays deterministically and seals the winner plus rating reward in its digest', () => {

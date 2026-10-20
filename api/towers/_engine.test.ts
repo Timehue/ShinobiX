@@ -661,7 +661,7 @@ describe('Battle Towers engine (P1.A2)', () => {
         assert.equal(s.actionsThisTurn, 1);
         assert.equal(afterActor.cooldowns['tower-parity-blast'], 3);
         assert.ok(s.log.some(line => line.includes('sq-1 uses Tower Parity Blast')));
-        for (const line of expected.lines) assert.ok(s.log.includes(line), `tower log should include PvP line: ${line}`);
+        for (const line of expected.lines.map(entry => entry.replaceAll('at turn end', 'at round end'))) assert.ok(s.log.includes(line), `tower log should include PvP line: ${line}`);
     });
 
     it('move is adjacent-only and blocked by occupants', () => {
@@ -900,7 +900,7 @@ describe('Battle Towers environmental features (pylons / wards / hazards)', () =
         assert.equal(getActor(session, 'sq-1')!.hp, hp - 5);
         // Chakra is subsequently refreshed by the next-round resource hook; the
         // shared Drain log pins that the HP+chakra tick itself executed.
-        assert.ok(session.log.some(line => line.includes('drained 5 HP+chakra')));
+        assert.ok(session.log.some(line => line.includes('loses 5 HP and 5 chakra to Drain')));
     });
 
     it('features stay deterministic (settle recompute reproduces them byte-for-byte)', () => {
@@ -1141,6 +1141,23 @@ describe('Battle Towers loadout combat (jutsu resources / cooldowns / weapons / 
         assert.equal(getActor(s, 'sq-1')!.stamina, COMBAT_RESOURCES_V2 ? Math.min(100, 50 + v2ResourceRegen(1) + 20) : 70);
         assert.equal(getActor(s, 'sq-1')!.itemCharges!['pot'], 1, 'one charge spent');
         assert.equal(getActor(s, 'sq-1')!.itemsUsed!['pot'], 1, 'spent potion recorded for settlement');
+    });
+
+    it('potion logs report actual recovery when resource bars are nearly full', () => {
+        const sq = makeActor('sq-1', 'squad', 0, {
+            chakra: 10, maxChakra: 100, stamina: 50, maxStamina: 100, itemCharges: { pot: 2 },
+            character: { specialty: 'Ninjutsu', stats: {}, pvpItems: [{ id: 'pot', slot: 'potion', restoreChakra: 50, restoreStamina: 20, apCost: 35 }], equipment: { potion: 'pot' } },
+        });
+        const s = makeSession([sq, bigEnemy()]);
+        startRound(s);
+        const actor = getActor(s, 'sq-1')!;
+        actor.chakra = 95;
+        actor.stamina = 98;
+        assert.ok(applyAction(s, floor, { actorId: 'sq-1', type: 'item', itemId: 'pot' }, makeRng(1)).applied);
+        assert.equal(actor.chakra, 100);
+        assert.equal(actor.stamina, 100);
+        assert.ok(s.log.some(line => line.includes('restores 5 chakra and 2 stamina.')));
+        assert.equal(actor.itemCharges!['pot'], 1);
     });
 
     it('combat-item cooldowns block reuse without spending an extra charge', () => {
@@ -1427,10 +1444,10 @@ describe('Battle Towers tag/status combat (heal / DoT / buff / stun / self-cast)
             [21, 21],
         );
         assert.deepEqual(
-            s.log.filter((line) => line.startsWith('+21% Damage Given')),
+            s.log.filter((line) => line.startsWith('Increase Damage Given (stack')),
             [
-                '+21% Damage Given (stack 1/2): sq-1 for 2 turns.',
-                '+21% Damage Given (stack 2/2): sq-1 for 2 turns.',
+                'Increase Damage Given (stack 1/2): sq-1 deals more damage for 2 rounds, starting next round.',
+                'Increase Damage Given (stack 2/2): sq-1 deals more damage for 2 rounds, starting next round.',
             ],
         );
         // Towers logged a bare "X uses Y." and dropped authored flavor entirely,

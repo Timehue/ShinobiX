@@ -14,6 +14,8 @@ import { makeId } from "./utils";
 import { isControlJutsu, isPressureJutsu, isSelfSupportJutsu, normalizeJutsu } from "./jutsu";
 import { STAT_KEYS, addToAllStats, maxChakraForLevel, maxStaminaForLevel, normalizeStats } from "./stats";
 import { aiArmorFactorFromRaw, aiHpForLevel, aiRawDamageReductionForLevel, aiStatsForLevel } from "./ai-stats";
+import { STORY_ROAD_FIGHTS } from "../../../shared/story-road-fights";
+import { narrativeEnemyIdentity } from '../../../shared/narrative-enemy-identity';
 
 export function blankAiRule(): AiRule {
     return { id: makeId(), condition: "always", value: 1, action: "use_highest_power_jutsu" };
@@ -454,6 +456,21 @@ export const builtinAis: CreatorAi[] = [
     ((): CreatorAi => { const b = makeBuiltinAi("rift-boss-mirror-shard", "Mirror-Shard Warden", "🪞", 75, "Hollow Gate Rift", aiJutsuLoadout("control"), 100, 5200, "control", true); return { ...b, isBossAi: true, image: "/portraits/rift-boss-mirror-shard.webp" }; })(),
     ((): CreatorAi => { const b = makeBuiltinAi("rift-boss-gate-heir", "Hollow Gate Heir", "🌀", 88, "Hollow Gate Rift", aiJutsuLoadout("boss"), 120, 6000, "boss", true); return { ...b, isBossAi: true, image: "/portraits/rift-boss-gate-heir.webp" }; })(),
 ];
+
+// Resolve road duels from a published catalog on both sides of the fight.
+// The prose never supplies stats, rewards, or an arbitrary runtime opponent.
+for (const road of STORY_ROAD_FIGHTS) {
+    const base = builtinAis.find(profile => profile.id === road.baseProfileId);
+    if (!base) throw new Error(`Missing road-story base profile: ${road.baseProfileId}`);
+    builtinAis.push({ ...base, id: road.id, name: road.name });
+}
+for (const profile of builtinAis) {
+    const identity = narrativeEnemyIdentity(profile.id);
+    if (!identity) continue;
+    profile.image = identity.portrait;
+    profile.jutsuIds = [...identity.jutsuIds];
+    profile.rules = buildBasicCombatAiRules(jutsusByIds(starterJutsus, profile.jutsuIds));
+}
 
 export function normalizeAiProfile(ai: Partial<CreatorAi>, allJutsus: Jutsu[] = starterJutsus): CreatorAi {
     const fallback = starterAiProfile(allJutsus);

@@ -155,7 +155,7 @@ async function bootAtBossSector(page: Page, mapZoomOptOut: boolean) {
     }
     save.character = { ...save.character, wandererCooldowns };
 
-    await installUiAuditRuntime(page, save);
+    const runtime = await installUiAuditRuntime(page, save);
     await page.addInitScript(() => {
         localStorage.setItem("legacyRumors.seen.v1:auditninja", JSON.stringify([10, 20, 30, 40, 45]));
     });
@@ -169,7 +169,53 @@ async function bootAtBossSector(page: Page, mapZoomOptOut: boolean) {
     // Standing in a field sector reopens that sector, or lands on the atlas.
     await expect.poll(async () => await page.locator(".generated-world-map").count() > 0
         || await page.locator(".sector-hud").isVisible(), { timeout: 45_000 }).toBe(true);
+    return runtime;
 }
+
+test('a raider knocked out in combat goes to Hospital once its contribution saves', async ({ page }, info) => {
+    test.skip(!['chromium-desktop', 'chromium-mobile'].includes(info.project.name), 'Desktop and phone lifecycle coverage.');
+    const runtime = await bootAtBossSector(page, false);
+    let session = worldBossSession();
+    let settled = false;
+    let allowSettle = false;
+    await page.route('**/api/world-boss-event**', route => {
+        if (new URL(route.request().url()).pathname.endsWith('/settle')) {
+            if (!allowSettle) return route.fulfill({ status: 503, json: { error: 'Temporary knockout receipt outage.' } });
+            settled = true;
+            const character = { ...runtime.serverSave().character!, hp: 0, hospitalized: true, hospitalizedUntil: Date.now() + 600_000 };
+            const version = runtime.currentVersion() + 1;
+            runtime.commitServerCharacter(character, version);
+            return json(route, { settled: true, bankedDamage: 15000, hpRemaining: 100000, character, _saveVersion: version });
+        }
+        const view = worldBossState(session);
+        if (settled) view.queue.match.status = 'settled';
+        return json(route, view);
+    });
+    await page.route('**/api/towers/**', route => {
+        if (route.request().method() === 'POST' && new URL(route.request().url()).pathname.endsWith('/action')) {
+            session = { ...session, status: 'done', winner: 'enemy', actionVersion: session.actionVersion + 1,
+                actors: session.actors.map(actor => actor.side === 'squad' ? { ...actor, hp: 0 } : actor) };
+            return json(route, { applied: true, session, actionVersion: session.actionVersion });
+        }
+        return json(route, { session });
+    });
+    await enterRaid(page);
+    await page.getByRole('button', { name: /^End turn/ }).click();
+    const retry = page.getByRole('button', { name: 'Try again', exact: true });
+    await expect(retry).toBeVisible();
+    await expect(page.locator('.app-shell')).toHaveAttribute('data-screen', 'worldMap');
+    expect(settled).toBe(false);
+    allowSettle = true;
+    await retry.click();
+    // The App's hospital navigation guard reacts to the saved admission. It
+    // takes precedence over the ordinary raid return-to-queue control.
+    await expect(page.locator('.screen-battleTowerFight')).toHaveCount(0);
+    await expect(page.getByRole('dialog', { name: 'Chicxulub', exact: true })).toHaveCount(0);
+    await expect(page.locator('.app-shell')).toHaveAttribute('data-screen', 'hospital');
+    expect(settled).toBe(true);
+    expect(runtime.serverSave().character?.hospitalized).toBe(true);
+    await page.screenshot({ path: info.outputPath('raid-knockout-hospital.png'), fullPage: true });
+});
 
 /** Open the raid the way this build offers it. Today that is the atlas marker
  * of the sector you stand in. Once the boss stands inside its sector, the
@@ -268,5 +314,60 @@ test(`the World Map tip stands down for the world boss raid (${setting.name})`, 
     // ...and the tip returns with the map, or the player loses it for good.
     await expect(tip).toBeVisible();
     expect(runtimeErrors).toEqual([]);
+});
+}
+
+for (const hpRemaining of [100_000, 0]) {
+test(`raid completion confirms shared health ${hpRemaining} and returns to the boss queue`, async ({ page }, info) => {
+    test.skip(!['chromium-desktop', 'chromium-mobile'].includes(info.project.name), 'Desktop and phone lifecycle coverage.');
+    test.setTimeout(90_000);
+    await bootAtBossSector(page, false);
+    let session = worldBossSession();
+    let settled = false, attempts = 0;
+    let allowSettle = false;
+    await page.route('**/api/world-boss-event**', route => {
+        if (new URL(route.request().url()).pathname.endsWith('/settle')) {
+            attempts++;
+            if (!allowSettle) return route.fulfill({ status: 503, json: { error: 'Temporary raid receipt outage.' } });
+            settled = true;
+            return json(route, { settled: true, eventId: 'e2e-world-boss', matchId: 'e2e-world-boss-match',
+                bankedDamage: 15000, hpRemaining, contribution: null, reward: null, rewardSummary: '' });
+        }
+        const view = worldBossState(session);
+        if (settled) {
+            view.event.hp = hpRemaining;
+            view.queue.match.status = 'settled';
+        }
+        return json(route, view);
+    });
+    await page.route('**/api/towers/**', route => {
+        if (route.request().method() === 'POST' && new URL(route.request().url()).pathname.endsWith('/action')) {
+            // UI contract fixture: handler integration separately verifies real
+            // combat and banked damage. Supply the terminal server projection.
+            session = { ...session, status: 'done', winner: 'squad', actionVersion: session.actionVersion + 1,
+                actors: session.actors.map(actor => actor.side === 'enemy' ? { ...actor, hp: 0 } : actor) };
+            return json(route, { applied: true, session, actionVersion: session.actionVersion });
+        }
+        return json(route, { session });
+    });
+    await enterRaid(page);
+    await expect(page.locator('.screen-battleTowerFight')).toBeVisible();
+    await page.getByRole('button', { name: /^End turn/ }).click();
+    const result = page.getByRole('dialog').filter({ has: page.getByRole('button', { name: 'Return to boss queue', exact: true }) });
+    await expect(result.getByRole('button', { name: 'Try again', exact: true })).toBeVisible();
+    await expect(result).not.toContainText('World boss defeated');
+    await expect(result.getByRole('button', { name: 'Return to boss queue', exact: true })).toBeDisabled();
+    allowSettle = true;
+    await result.getByRole('button', { name: 'Try again', exact: true }).click();
+    await expect(result).toContainText(hpRemaining === 0 ? 'World boss defeated' : 'Boss driven back');
+    await expect(result).toContainText(hpRemaining === 0 ? 'shared boss health is depleted' : 'boss still has health remaining');
+    await page.screenshot({ path: info.outputPath(`raid-receipt-${hpRemaining}.png`), fullPage: true });
+    await result.getByRole('button', { name: 'Return to boss queue', exact: true }).click();
+    await expect(page.locator('.screen-battleTowerFight')).toHaveCount(0);
+    const queue = page.getByRole('dialog', { name: 'Chicxulub', exact: true });
+    await expect(queue).toBeVisible();
+    await queue.getByRole('button', { name: 'Close team queue', exact: true }).click();
+    await expect(page.locator('.app-shell')).toHaveAttribute('data-screen', 'worldMap');
+    expect(attempts).toBeGreaterThan(1);
 });
 }

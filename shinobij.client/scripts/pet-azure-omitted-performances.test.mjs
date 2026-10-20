@@ -1,4 +1,4 @@
-import test from 'node:test';
+import test, { describe } from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile,writeFile,mkdtemp,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
@@ -7,15 +7,16 @@ import {loadPetDeformationProbe} from './lib/pet-deformation-probe.mjs';
 import {retargetFittedPetPerformances,OMITTED_FITTED_PERFORMANCE_CLIPS} from './lib/pet-retarget-fitted-performances.mjs';
 import {freezeVisibleSoleRegions,selectVisibleSoleRegions,measureVisibleLimbPerformances} from './lib/pet-visible-limb-performance.mjs';
 
+// Await both stages inside a suite before child tests and cleanup can run.
+// Registering root tests between top-level awaits lets the source-stage tests
+// finish and delete the temp directory while battle-stage setup still uses it.
+await describe('Azure omitted authored performances', async () => {
 const fixture=name=>new URL('./fixtures/'+name,import.meta.url);
 const original=await loadPetDeformationProbe(fixture('pet-complete-face-20261015/mythic-6-v1.glb'));
 const annotation=JSON.parse(await readFile(fixture('pet-omitted-limb-performances/mythic-6-visible-paws.json')));
 const regions=freezeVisibleSoleRegions(original,annotation),temp=await mkdtemp(join(tmpdir(),'azure-omitted-clips-'));
 const repairedCases=new Map();
-const fixtureChecks=[];
-// Finish every asynchronous fixture load before registering any tests or
-// cleanup. A first cohort could otherwise remove the later battle.glb file.
-const fixtureTest=(name,check)=>fixtureChecks.push([name,check]);
+test.after(async()=>{await rm(temp,{recursive:true,force:true,maxRetries:5,retryDelay:100});});
 
 for(const [stage,pin] of [['source','8c2c2bfc468365ec3cac2083756048ee0641393f7de5257514dc501203ce4daa'],['battle','0a2285ed8991899dc6e3654c8d366e70b92b271830cba57471d7730122be51b4']]){
     const path=fixture('pet-omitted-limb-performances/mythic-6-before-'+stage+'.glb');
@@ -27,7 +28,7 @@ for(const [stage,pin] of [['source','8c2c2bfc468365ec3cac2083756048ee0641393f7de
     const selection=selectVisibleSoleRegions(after,regions,{original,stage});
     const baseline=measureVisibleLimbPerformances(base,selectVisibleSoleRegions(base,regions,{original,stage}),{legacy:true});
     const missing=measureVisibleLimbPerformances(before,selection),restored=measureVisibleLimbPerformances(after,selection);
-    fixtureTest(`Azure ${stage}: independent original paw surfaces reproduce lost jump, entrance and victory motion in the old asset`,()=>{
+    test(`Azure ${stage}: independent original paw surfaces reproduce lost jump, entrance and victory motion in the old asset`,()=>{
         assert.equal(baseline.length,13);assert.equal(missing.length,13);assert.equal(restored.length,13);
         for(const name of ['gallop_jump','entrance','victory'])for(const paw of Object.keys(regions)){
             const b=baseline.find(c=>c.clip===name).patches[paw].maxLimbContribution;
@@ -37,7 +38,7 @@ for(const [stage,pin] of [['source','8c2c2bfc468365ec3cac2083756048ee0641393f7de
             assert.ok(value>b*.2&&value<b*4,`${name}/${paw}: authored performance missing or implausibly amplified`);
         }
     });
-    fixtureTest(`Azure ${stage}: no invented limb tracks in death or fallback idle_2`,()=>{
+    test(`Azure ${stage}: no invented limb tracks in death or fallback idle_2`,()=>{
         for(const name of ['death','idle_2']){
             assert.equal(candidate.report.clips.find(c=>c.name===name).retargetedChannels.length,0);
             for(const paw of Object.keys(regions)){
@@ -46,7 +47,7 @@ for(const [stage,pin] of [['source','8c2c2bfc468365ec3cac2083756048ee0641393f7de
             }
         }
     });
-    fixtureTest(`Azure ${stage}: exact sculpt, topology, skin streams, original bone frames and bind matrices remain intact`,()=>{
+    test(`Azure ${stage}: exact sculpt, topology, skin streams, original bone frames and bind matrices remain intact`,()=>{
         assert.deepEqual(after.json.nodes,before.json.nodes);
         const a=before.meshes[0],b=after.meshes[0];assert.deepEqual(b.geometry.index.array,a.geometry.index.array);
         for(const name of Object.keys(a.geometry.attributes))assert.deepEqual(b.geometry.attributes[name].array,a.geometry.attributes[name].array);
@@ -54,7 +55,7 @@ for(const [stage,pin] of [['source','8c2c2bfc468365ec3cac2083756048ee0641393f7de
         for(const name of ['materials','textures','samplers'])assert.deepEqual(after.json[name],before.json[name]);
         before.json.images.forEach((img,i)=>{const a=before.json.bufferViews[img.bufferView],b=after.json.bufferViews[after.json.images[i].bufferView];assert.deepEqual(before.binary.subarray(a.byteOffset,a.byteOffset+a.byteLength),after.binary.subarray(b.byteOffset,b.byteOffset+b.byteLength));});
     });
-    fixtureTest(`Azure ${stage}: every existing animation curve stays exact across all thirteen clips`,()=>{
+    test(`Azure ${stage}: every existing animation curve stays exact across all thirteen clips`,()=>{
         for(const clip of before.animations){const other=after.animations.find(c=>c.name===clip.name);assert.equal(other.duration,clip.duration);
             for(const t of clip.tracks){const q=other.tracks.find(q=>q.name===t.name);assert.ok(q);assert.deepEqual(q.times,t.times);assert.deepEqual(q.values,t.values);assert.equal(q.getInterpolation(),t.getInterpolation());}
             if(!OMITTED_FITTED_PERFORMANCE_CLIPS.includes(clip.name))assert.equal(other.tracks.length,clip.tracks.length);
@@ -63,7 +64,6 @@ for(const [stage,pin] of [['source','8c2c2bfc468365ec3cac2083756048ee0641393f7de
     });
 }
 
-for(const [name,check] of fixtureChecks)test(name,check);
 for(const stage of ['source','battle'])test(`Azure shipping ${stage}: regenerated asset retains the independent authored paw motion and exact repaired curves`,async()=>{
     const model=await loadPetDeformationProbe(new URL(`../public/pet-models/${stage==='battle'?'warfront-lod/':''}roster/mythic-6.glb`,import.meta.url));
     const base=stage==='source'?original:await loadPetDeformationProbe(fixture('pet-omitted-limb-performances/mythic-6-original-lod.glb'));
@@ -79,5 +79,4 @@ for(const stage of ['source','battle'])test(`Azure shipping ${stage}: regenerate
     for(const clip of repaired.animations){const actual=model.animations.find(c=>c.name===clip.name);assert.equal(actual.tracks.length,clip.tracks.length);for(const track of clip.tracks){const t=actual.tracks.find(t=>t.name===track.name);assert.ok(t);assert.deepEqual(t.times,track.times);assert.deepEqual(t.values,track.values);assert.equal(t.getInterpolation(),track.getInterpolation());}}
     if(stage==='source')assert.equal(model.sha256,'29fe007d1943642b97042072c25a4d7a0fcd5b2be1f28ad0e7dd71971bb17692');
 });
-
-test.after(async()=>{await rm(temp,{recursive:true,force:true,maxRetries:5,retryDelay:100});});
+});

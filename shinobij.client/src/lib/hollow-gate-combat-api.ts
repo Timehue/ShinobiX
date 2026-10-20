@@ -22,11 +22,15 @@ export type HollowGateCombatStartResult = {
 };
 
 export type HollowGateCombatSettleResult = {
+    terminalReason?: import('../../../shared/solo-pve-terminal').SoloPveTerminalReason;
+    opponentName?: string;
+    roundLimit?: number;
     ok: boolean;
     won: boolean;
     revived?: boolean;
     escaped?: boolean;
     petDefeat?: boolean;
+    ended?: boolean;
     alreadyReported?: boolean;
     reward?: Record<string, number>;
     elementalShards?: number;
@@ -65,8 +69,13 @@ export async function settleHollowGateCombat(params: {
         body: JSON.stringify(params),
     });
     const data = await response.json().catch(() => ({})) as Partial<HollowGateCombatSettleResult>;
-    if (!response.ok || data.ok !== true || typeof data.won !== 'boolean') throw new Error(data.error ?? 'The Hollow Gate encounter could not settle.');
+    if (!response.ok || data.ok !== true || typeof data.won !== 'boolean') throw new Error(data.error ?? 'Your Hollow Gate battle result could not be confirmed. Retry before leaving.');
     return data as HollowGateCombatSettleResult;
+}
+
+export class HollowGateDescentError extends Error {
+    pendingAmbush?: { nodeId: string; kind: 'battle' | 'ambush' | 'boss' | 'card' } | null;
+    constructor(message: string, pendingAmbush?: HollowGateDescentError['pendingAmbush']) { super(message); this.pendingAmbush = pendingAmbush; }
 }
 
 export async function descendHollowGateRun(params: {
@@ -79,9 +88,9 @@ export async function descendHollowGateRun(params: {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(params),
     });
-    const data = await response.json().catch(() => ({})) as { ok?: boolean; floor?: number; error?: string; character?: Character; _saveVersion?: number };
+    const data = await response.json().catch(() => ({})) as { ok?: boolean; floor?: number; error?: string; character?: Character; _saveVersion?: number; pendingAmbush?: { nodeId: string; kind: 'battle' | 'ambush' | 'boss' | 'card' } | null };
     if (!response.ok || data.ok !== true || !Number.isFinite(data.floor)) {
-        throw new Error(data.error ?? 'The Hollow Gate staircase could not seal the next floor.');
+        throw new HollowGateDescentError(data.error ?? 'The next Hollow Gate floor could not be saved. Try the staircase again.', data.pendingAmbush);
     }
     if (data.character) onVersionedCharacter?.(data.character, data._saveVersion);
     return Math.max(1, Math.floor(Number(data.floor)));

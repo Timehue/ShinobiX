@@ -1,0 +1,22 @@
+{
+  "id": "standard-5",
+  "recordedAt": "2026-10-19T22:22:57.604Z",
+  "reviewedComponentSha256": "472645f0ade2c17a8be0a8f9fa5af0fdb9d47f4c835e24e6a374c8219b33e4ab",
+  "mainComponentSha256": "c500075b2b259a3061a6706bfb7d3bb4e2f545e620d85dbd01f9a99597350419",
+  "fiveProductionRendererFilesIdentical": {
+    "src/components/PetModel3D.tsx": "c390b3b0def3df92b00df569ac4e19c72a63c80eddbb9b440b605d794906f67c",
+    "src/lib/pet-combat-rig-motion.ts": "0c6c6e86f6c126e9fde0fb5c5379d6d10c0e2c1e0807c08594b73ebde9c4b7ca",
+    "src/lib/pet-animation-lifecycle.ts": "862e981668282dd13ced9c71ffca5e945725cfde2f27dde0ebdeb617587fea3b",
+    "src/lib/pet-baked-support.ts": "3113c36bb7d5f17baebf46b816b664eda67bd4d0ef31c3e3b26f430ef1005205",
+    "src/lib/pet-model-bounds.ts": "c91b6c18f503cfd2f7e87182dae665d70d622069ee036746e290fa5452737407"
+  },
+  "selectedAppearance": "original",
+  "selectedSurfaceTreatment": "undefined in both",
+  "selectedPreviewHeight": 2.15,
+  "onlyComponentDifferences": [
+    "An unused chromatic appearance branch and its import",
+    "1.8 framing for legendary-6 and legendary-10, which are not Stone Turtle"
+  ],
+  "selectedPetOriginalAppearanceEquivalent": true,
+  "scope": "Mechanical comparison of reviewed component and current-main component for Stone Turtle original appearance. Does not approve chromatic appearance or other pets."
+}

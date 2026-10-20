@@ -6232,7 +6232,7 @@ export function FirstPact({
                             {[
                                 [1, "A City Still Breathing", "Bring Vey three named observations from the Bell Quarter, Guardian Gardens, and Aqueduct."],
                                 [2, "The Courtesy of Teeth", "Defeat the Court Menagerie and recover the first handlers' original pact."],
-                                [3, "What the Gate Keeps", "Let Tam verify the seal, then cross the learning lattice without repeating your formation."],
+                                [3, "What the Gate Keeps", "Let Tam verify the seal, then defeat the Lattice Wardens to reach the old intake."],
                                 [4, "Four Wills, One Answer", "Choose what you owe your companions, force a hearing, and answer all four Court sittings."],
                             ].map(([chapter, title, copy]) => <article key={String(chapter)} className={progress.chapter > Number(chapter) || progress.mainStep === "complete" ? "complete" : progress.chapter === Number(chapter) ? "active" : "locked"}>
                                 <span>Chapter {chapter}</span><strong>{title}</strong><p>{copy}</p>

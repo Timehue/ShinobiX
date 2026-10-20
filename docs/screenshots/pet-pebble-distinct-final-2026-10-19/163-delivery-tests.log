@@ -1,0 +1,47 @@
+✔ Pebble floor correction reproduces reviewed bytes without changing its sculpt or limb articulation (3382.7289ms)
+✔ Independent full-surface samples detect the pre-correction floor penetration (6638.2253ms)
+✔ Pebble source: attack, cast and recoil clear the floor at independent offset times (6245.2866ms)
+✔ Pebble battle: attack, cast and recoil clear the floor at independent offset times (4539.5761ms)
+✔ Pebble rebuild is reproducible from its own pinned source and retains all thirteen takes (168.1103ms)
+✔ Scalp cleanup preserves the original eyes, muzzle and chin geometry and UVs (203.6371ms)
+✔ Pebble source: ten independently marked face regions remain coherent through all clips and 468 blends (787.8961ms)
+✔ Pebble battle: ten independently marked face regions remain coherent through all clips and 468 blends (447.469ms)
+✔ all 161 emitted atlas revisions retain certified values and key order (54.8297ms)
+✔ packed atlas revisions keep ordinary object descriptors and independent mutation behavior (18.6876ms)
+✔ revision generator roundtrips the certified complete inventory and refuses unsupported keys or reassociated hashes (7.7122ms)
+✔ impostor metadata-only check exits before any asset bake, file mutation or directory traversal (19.7072ms)
+✔ all 161 LOD entries retain certified ordered URLs, suffixes and triangle counts (8.5105ms)
+✔ LOD metadata retains plain writable objects and independent nested entries (12.536ms)
+✔ LOD generator roundtrips all certified entries without changing URLs or metadata (6.2249ms)
+✔ LOD metadata-only check exits without processing any model (4.6873ms)
+✔ LOD metadata-only generation exits without processing any model (3.505ms)
+✔ both compact exports preserve every expanded readonly literal type (483.7501ms)
+✔ Cinder Cub's concave flame keeps its authored contours without a leaking inverted hull (1.6648ms)
+✔ all five base starter forms have an approved combat model (0.4123ms)
+✔ Pebble Tortoise owns a distinct asset in close-ups and combat (0.3878ms)
+✔ all ten evolved starter forms have a combat model (0.2437ms)
+✔ the four-pet Showdown lineup resolves to its species-authored animation assets (0.2378ms)
+✔ Showdown models carry their visually certified forward-axis correction (0.2282ms)
+✔ unrelated unmodeled pets keep the safe standee fallback (0.1998ms)
+✔ malformed legacy identities fall back instead of crashing model resolution (0.2479ms)
+✔ all built-in Coliseum AI opponents resolve to approved roster models (0.2684ms)
+✔ all 146 approved roster models have a certified motion family (2.1271ms)
+✔ breeding-exclusive Mythics keep their own combat identity and model (0.2797ms)
+✔ hatched owned-instance ids resolve their breeding Mythic template model (0.2629ms)
+✔ legacy owned-instance ids recover the roster template from their safe prefix (0.1592ms)
+✔ timestamped encounter clones retain their canonical combat model (0.1191ms)
+✔ legacy evolved saves infer the model from rarity (0.1765ms)
+✔ close-up presentation falls back only for the unapproved legendary Wind model (0.1264ms)
+✔ every anatomy family gets a grounded, size-capped victory beat (0.2041ms)
+✔ all 161 production combat models inherit the grounded victory envelope (1.0494ms)
+✔ Warfront maps a revisioned authored source to its certified battle LOD (3.8761ms)
+✔ source A/B and unknown assets retain the authored model (0.2028ms)
+✔ compact runtime metadata retains every certified expanded LOD entry exactly (2.3644ms)
+ℹ tests 39
+ℹ suites 0
+ℹ pass 39
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 23003.9486

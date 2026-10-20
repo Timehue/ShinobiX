@@ -127,6 +127,23 @@ for (const collectDuringBattle of [false, true]) test(`a paid win preserves trai
     assert.equal(replay.body.state.outcome, 'win');
 });
 
+test('a lost winning reply cannot be discarded by a stale concession', async () => {
+    const state = await start('arena');
+    const session = (await kv.get<ShowdownSession>(key(state.sessionId)))!;
+    await kv.set(key(state.sessionId), { ...session, finished: true, outcome: 'win' });
+    const before = await kv.get(`save:${player}`);
+    const concession = await post({ action: 'forfeit', sessionId: state.sessionId });
+    assert.equal(concession.status, 409);
+    assert.equal((await kv.get<ShowdownSession>(key(state.sessionId)))!.outcome, 'win');
+    assert.deepEqual(await kv.get(`save:${player}`), before);
+    const receipt = await post({ action: 'turn', sessionId: state.sessionId, commands: [] });
+    assert.equal(receipt.status, 200);
+    assert.ok(receipt.body.reward > 0);
+    const paid = await kv.get(`save:${player}`);
+    assert.equal((await post({ action: 'turn', sessionId: state.sessionId, commands: [] })).body.reward, 0);
+    assert.deepEqual(await kv.get(`save:${player}`), paid);
+});
+
 test('practice terminals, concessions, and daily-capped paid admission never change balances', async () => {
     const state = await start();
     const saved = await kv.get(`save:${player}`);
@@ -141,13 +158,46 @@ test('practice terminals, concessions, and daily-capped paid admission never cha
     assert.equal((await post({ action: 'forfeit', sessionId: paid.sessionId })).body.conceded, true);
     assert.equal((await post({ action: 'state', sessionId: paid.sessionId })).status, 404);
     assert.equal((await post({ action: 'forfeit', sessionId: paid.sessionId })).status, 200);
-    assert.deepEqual(await kv.get(`save:${player}`), saved);
+    const conceded = (await kv.get<Record<string, any>>(`save:${player}`))!;
+    assert.equal(conceded.character.ryo, (saved as Record<string, any>).character.ryo);
+    assert.equal(conceded.character.dailyPetWins, 0);
+    assert.equal(conceded.character.totalPetWins, 0);
+    assert.equal(conceded.character.petShowdownAdmission, undefined);
     const capped = structuredClone(saved) as Record<string, any>;
     capped.character.dailyPetWins = SHOWDOWN_DAILY_WIN_CAP;
     await kv.set(`save:${player}`, capped);
     const refused = await post({ action: 'arena', format: '1v1', petIds: [ids[0]] });
     assert.equal(refused.status, 409);
     assert.equal(refused.body.capped, true);
+});
+
+test('concurrent paid admissions resume one paid roster through turns and a concession releases it', async () => {
+    const saved = (await kv.get<Record<string, any>>(`save:${player}`))!;
+    saved.character.pets[0].loadout = { consumable: 'consum-smoke-pellet' };
+    await kv.set(`save:${player}`, saved);
+    const request = { action: 'arena', format: '1v1', petIds: [ids[0]] };
+    const [a, b] = await Promise.all([post(request), post(request)]);
+    assert.equal(a.status, 200, JSON.stringify(a.body)); assert.equal(b.status, 200, JSON.stringify(b.body));
+    const id = a.body.state.sessionId;
+    assert.equal(b.body.state.sessionId, id);
+    assert.equal((await kv.keys(`pet:showdown:${player}:*`)).length, 1);
+    const paid = (await kv.get<Record<string, any>>(`save:${player}`))!;
+    assert.equal(paid._saveVersion, 2);
+    assert.equal(paid.character.pets[0].loadout.consumable, undefined);
+    assert.equal(paid.character.petShowdownAdmission.sessionId, id);
+    const turn = await post({ action: 'turn', sessionId: id, expectedRound: 0, commands: [{ kind: 'guard', petId: ids[0] }] });
+    assert.equal(turn.status, 200, JSON.stringify(turn.body));
+    assert.equal(turn.body.state.finished, false);
+    const reconnect = await post(request);
+    assert.equal(reconnect.body.state.sessionId, id);
+    assert.equal(reconnect.body.state.round, turn.body.state.round);
+    assert.equal(reconnect.body._saveVersion, 2, 'ongoing turns never release or recharge the paid entry');
+    const forfeit = await post({ action: 'forfeit', sessionId: id });
+    assert.equal(forfeit.status, 200, JSON.stringify(forfeit.body));
+    assert.equal((await kv.get<Record<string, any>>(`save:${player}`))!.character.petShowdownAdmission, undefined);
+    const next = await post(request);
+    assert.equal(next.status, 200, JSON.stringify(next.body));
+    assert.notEqual(next.body.state.sessionId, id);
 });
 
 test('retrying a resolved round refreshes its state without resolving another combat round', async () => {

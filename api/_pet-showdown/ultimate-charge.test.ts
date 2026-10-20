@@ -7,7 +7,7 @@ import { SHOWDOWN_METER_MAX, type ShowdownCommand } from '../../shared/pet-showd
 
 function fixture(templateId = 'standard-0', reserves = 0) {
     const pets = (side: string) => Array.from({ length: 1 + reserves }, (_, i) => ({ ...PET_CATALOG[templateId], templateId, id: `${side}-${i}`, level: 30 }) as Pet);
-    const session = createShowdownSession({ sessionId: 'charge-test', playerName: 'A', enemyTeamName: 'B', format: '1v1', tier: 'warrior', seed: 54321,
+    const session = createShowdownSession({ rulesetVersion: 'legacy-v2', sessionId: 'charge-test', playerName: 'A', enemyTeamName: 'B', format: '1v1', tier: 'warrior', seed: 54321,
         playerPets: pets('p'), enemyPets: pets('e'), rewardEligible: false });
     return session;
 }
@@ -86,7 +86,7 @@ test('extreme live ultimates preserve a full-health response, Guard halves each 
     for (const side of ['player', 'enemy'] as const) for (const level of [1, 25, 50, 100]) {
         const cast = (guarded: boolean, wounded = false) => {
             const make = (id: string) => ({ ...PET_CATALOG['standard-0'], id, templateId: 'standard-0', level }) as Pet;
-            const session = createShowdownSession({ sessionId: 'ultimate-damage', playerName: 'A', enemyTeamName: 'B', format: '3v3', tier: 'warrior', seed: 7,
+            const session = createShowdownSession({ rulesetVersion: 'legacy-v2', sessionId: 'ultimate-damage', playerName: 'A', enemyTeamName: 'B', format: '3v3', tier: 'warrior', seed: 7,
                 playerPets: [0, 1, 2].map(i => make(`p-${i}`)), enemyPets: [0, 1, 2].map(i => make(`e-${i}`)), rewardEligible: false });
             const foes = session[side === 'player' ? 'enemy' : 'player'], actor = session[side][0];
             actor.meter = 100; actor.readiness = 2; actor.attack = actor.spAttack = 10000;

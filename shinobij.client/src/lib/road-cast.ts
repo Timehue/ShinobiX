@@ -145,10 +145,10 @@ export function withPatrolStance(
 }
 
 const BAIT_LORE = [
-    "Fish the shade when the sun is high. They hide from it, same as you would.",
-    "Rain stirs the bottom. After a storm, cast deeper than you think you should.",
-    "Don't fight the line. Let it run, then take it back a little at a time.",
-    "At dusk they come up to feed. That's when the patient ones eat well.",
+    "Equip a fishing pole in Inventory before you cast.",
+    "Practicing raises your Fishing skill and helps you catch better fish.",
+    "A worn-out pole won't help you. Check its durability before fishing.",
+    "Each shoal allows three attempts before it needs time to refill.",
 ];
 
 /** What the angler tells you about the water in `sector`. */
@@ -160,8 +160,8 @@ export function anglerTip(sector: number, resourceGathering: unknown, dayBucket:
     const lore = BAIT_LORE[Math.abs(dayBucket + sector) % BAIT_LORE.length];
     if (!best) return `"${lore}"`;
     const fit = best.difficulty <= level
-        ? `Try the ${best.name}. At your skill, that water will give you the most.`
-        : `Start at the ${best.name}. The deeper water here will fight you until your hands learn it.`;
+        ? `Try ${best.name}. Your Fishing skill is high enough to fish there.`
+        : `You need Fishing skill ${best.difficulty} to fish at ${best.name}. Practice at an easier shoal first.`;
     return `"${fit} ${lore}"`;
 }
 

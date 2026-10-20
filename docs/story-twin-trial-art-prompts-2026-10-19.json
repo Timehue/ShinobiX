@@ -1,0 +1,22 @@
+{
+  "provider": "Built-in image_gen.imagegen",
+  "created": "2026-10-19",
+  "assets": [
+    {
+      "fight": "glacier",
+      "prompt": "Create a new wide landscape 16:9 illustrated encounter key art for a shinobi RPG, the Glacier Twins Jonin rank trial. Use the attached image ONLY as character and costume reference: exactly two separate adult male white-haired twins with blue eyes, long high ponytails, blue-gray layered shinobi garments, white fur trim, dark boots, blue glowing oath symbols on wrists. Show them full body in a vast frost-covered stone proving courtyard in a northern mountain village at blue hour. Left twin Iceblade crouches forward with two luminous icy daggers, poised to rush; right twin Frostseal stands apart making a precise two-hand jutsu seal as a translucent circular ice ward forms around him. Both face toward an unseen challenger near the viewer. Distinct readable silhouettes, at least one body-width space between them, no overlapping bodies. Frostseal has NO held sword. Snowy parapets, faint hanging banners with abstract decorative marks, dramatic glacier peaks and cold mist behind. Detailed polished anime fantasy game illustration, painterly atmospheric background with crisp character rendering, ice blue and slate palette, controlled cyan light, strong grounded anatomy. No text, no lettering, no logo, no UI, no frame, no other people. Landscape composition with upper sky and outer edges uncluttered so it works behind a story dialogue panel. This is new scenery and a new composition, not the existing cutout pasted on a background.",
+      "reference": "C:/Users/Tyler R/.codex/worktrees/9d01/NinjaK/shinobij.client/public/combat-actors/narrative/glacier-twins.webp",
+      "output": "shinobij.client/public/scenes/story/story-frostfang-village-50-twins.webp",
+      "original": "exec-ce22cefb-e431-4af4-a599-87f07e236fec.png",
+      "conversion": "sharp resize width 1536, WebP quality 86; original PNG preserved"
+    },
+    {
+      "fight": "tempest",
+      "prompt": "Create a new wide landscape 16:9 illustrated encounter key art for a shinobi RPG, the Tempest Twins Jonin rank trial. Use attached image ONLY as character and costume reference: exactly two separate adult male ninja twins wearing dark navy and charcoal sleeveless layered shinobi clothing, blue sashes, bracers and boots. Left twin Stormblade has black spiky tied-back hair and an uncovered face; he advances with ONE short sword crackling with blue lightning. Right twin Stormseal has silver-gray spiky tied-back hair and a dark lower-face mask; he stands apart making a deliberate two-hand jutsu seal, with a branching blue lightning seal suspended in front of his hands, NO held sword. Both face an unseen challenger near the viewer. Distinct readable full-body silhouettes, at least one body-width space between them, no overlapping bodies. Setting: broad rain-dark stone proving platform atop a storm mountain village, carved stone rails, distant dramatic wind-bent towers and mountain ridges under dark thunderclouds. Strong gusts move their sashes, rain streaks, restrained electric blue rim lighting reflected on stone. Polished detailed anime fantasy game key art, painterly atmospheric setting, crisp anatomy, navy storm palette with subtle warm distant windows. No text, no lettering, no logo, no UI, no frame, no other people. Wide landscape framing, uncluttered outer edges and upper sky for story dialogue overlay. New composition and scenery, not the existing cutout pasted on a background.",
+      "reference": "C:/Users/Tyler R/.codex/worktrees/9d01/NinjaK/shinobij.client/public/combat-actors/narrative/tempest-twins.webp",
+      "output": "shinobij.client/public/scenes/story/story-stormveil-village-50-twins.webp",
+      "original": "exec-793d2313-bdb6-4e0f-82d0-e8735e29e815.png",
+      "conversion": "sharp resize width 1536, WebP quality 86; original PNG preserved"
+    }
+  ]
+}

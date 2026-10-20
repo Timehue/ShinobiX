@@ -19,7 +19,7 @@ type Handler = (req: never, res: never) => Promise<unknown>;
 type Reply = { status: number; body: Record<string, any> };
 type SessionRecord = {
     sessionId: string; playerName: string; format: string; round: number; finished: boolean;
-    outcome: 'win' | 'loss' | null; rewardEligible: boolean; bindingKind?: string;
+    outcome: 'win' | 'loss' | null; rewardEligible: boolean; bindingKind?: string; rulesetVersion?: string;
     player: Array<{ id: string; level: number }>; enemy: Array<{ id: string; name: string; level: number }>;
 };
 
@@ -58,6 +58,7 @@ before(async () => {
     for (const [name, path] of [
         ['step', './step.js'], ['combatStart', './combat-start.js'], ['combatSettle', './combat-settle.js'],
         ['runSettle', './settle.js'], ['showdown', '../pet/showdown.js'],
+        ['resume', './resume.js'],
     ] as const) {
         handlers[name] = (await import(path)).default as unknown as Handler;
     }
@@ -71,6 +72,117 @@ beforeEach(async () => {
 });
 
 after(() => setFieldSizeRoll(null));
+
+test('a low-HP pet loss keeps the 1-HP floor and repeats/reloads never charge twice', async () => {
+    await seed();
+    const saved = (await kv.get<Record<string, any>>(saveKey))!;
+    saved.character.hp = 10;
+    await kv.set(saveKey, saved);
+    const { runId } = await sendPet();
+    const { state } = (await openDuel(runId)).body;
+    await decide(state.sessionId, 'loss');
+    await showdown({ action: 'turn', sessionId: state.sessionId, commands: [] });
+    const first = await gate('combatSettle', { runId, petReceipt: state.sessionId });
+    assert.equal(first.status, 200, JSON.stringify(first.body));
+    const after = (await kv.get<Record<string, any>>(saveKey))!;
+    assert.equal(after.character.hp, 1);
+    assert.notEqual(after.character.hospitalized, true);
+    assert.ok(after.character.hollowGateRun);
+    for (let n = 0; n < 2; n++) {
+        const replay = await gate('combatSettle', { runId, petReceipt: state.sessionId });
+        assert.equal(replay.status, 200);
+        assert.equal(replay.body.alreadyReported, true);
+        assert.deepEqual(await kv.get(saveKey), after);
+    }
+    const resumed = await invoke('resume', {});
+    assert.equal(resumed.body.live, true);
+    assert.equal(resumed.body.run.pendingAmbush, null);
+    assert.equal(resumed.body.run.activeCombat, null);
+});
+
+for (const outcome of ['win', 'loss'] as const) test(`an unpaid pet ${outcome} with actual zero HP retires without revival or rewards`, async () => {
+    await seed();
+    const { runId } = await sendPet();
+    const { state } = (await openDuel(runId)).body;
+    await decide(state.sessionId, outcome);
+    await showdown({ action: 'turn', sessionId: state.sessionId, commands: [] });
+    const saved = (await kv.get<Record<string, any>>(saveKey))!;
+    saved.character.hp = 0;
+    await kv.set(saveKey, saved);
+    const settled = await gate('combatSettle', { runId, petReceipt: state.sessionId });
+    assert.equal(settled.status, 200, JSON.stringify(settled.body));
+    assert.equal(settled.body.ended, true);
+    const after = (await kv.get<Record<string, any>>(saveKey))!;
+    assert.equal(after.character.hp, 0);
+    assert.equal(after.character.ryo, 400);
+    assert.equal(after.character.hollowGateRun, null);
+    assert.equal(await kv.get(runKey), null);
+    assert.equal((await gate('combatSettle', { runId, petReceipt: state.sessionId })).status, 200);
+    assert.deepEqual(await kv.get(saveKey), after);
+});
+
+test('repairing a paid legacy living pet loss never retroactively increases its old penalty', async () => {
+    await seed();
+    const { runId } = await sendPet();
+    const ghost = (await kv.get<HollowGateRunToken>(runKey))!;
+    const { state } = (await openDuel(runId)).body;
+    await decide(state.sessionId, 'loss');
+    await showdown({ action: 'turn', sessionId: state.sessionId, commands: [] });
+    assert.equal((await gate('combatSettle', { runId, petReceipt: state.sessionId })).status, 200);
+    const saved = (await kv.get<Record<string, any>>(saveKey))!;
+    saved.character.hp = 400; // The old 20% loss on a 500-max-HP character.
+    delete saved.character.hollowGatePendingOperation;
+    await kv.set(saveKey, saved);
+    await kv.set(runKey, ghost);
+    const repaired = await gate('combatSettle', { runId, petReceipt: state.sessionId });
+    assert.equal(repaired.status, 200, JSON.stringify(repaired.body));
+    assert.equal(repaired.body.alreadyReported, true);
+    assert.deepEqual(await kv.get(saveKey), saved);
+    assert.equal((await kv.get<HollowGateRunToken>(runKey))!.activeEncounter, null);
+    assert.equal((await invoke('resume', {})).body.live, true);
+});
+
+for (const outcome of ['win', 'loss'] as const) {
+    test(`an already-paid legacy pet ${outcome} cannot reopen a genuinely ended run`, async () => {
+        await seed();
+        const { runId } = await sendPet();
+        const { state } = (await openDuel(runId)).body;
+        await decide(state.sessionId, outcome);
+        await showdown({ action: 'turn', sessionId: state.sessionId, commands: [] });
+        assert.equal((await gate('combatSettle', { runId, petReceipt: state.sessionId })).status, 200);
+        const settledRun = (await kv.get<HollowGateRunToken & { appliedSaveOperationIds: string[] }>(runKey))!;
+        assert.ok(settledRun.appliedSaveOperationIds.includes(`combat:${runId}`));
+        const { publishHollowGatePresence } = await import('./_presence.js');
+        await publishHollowGatePresence(kv, PLAYER, TOKEN);
+        const ended = (await kv.get<Record<string, any>>(saveKey))!;
+        ended.character.hp = 0;
+        ended.character.hospitalized = true;
+        ended.character.hollowGateRun = null;
+        ended.character.lastHollowGateStart = { token: TOKEN, requestId: 'legacy-start' };
+        delete ended.character.hollowGatePendingOperation;
+        await kv.set(saveKey, ended);
+        await kv.set(runKey, settledRun);
+        const beforeRyo = ended.character.ryo;
+        const repaired = await gate('combatSettle', { runId, petReceipt: state.sessionId });
+        assert.equal(repaired.status, 200, JSON.stringify(repaired.body));
+        assert.equal(repaired.body.ended, true);
+        assert.equal(await kv.get(runKey), null);
+        assert.equal(await kv.get(`battle-state:${PLAYER}`), null);
+        const after = (await kv.get<Record<string, any>>(saveKey))!;
+        assert.equal(after.character.hp, 0);
+        assert.equal(after.character.hospitalized, true);
+        assert.equal(after.character.hollowGateRun, null);
+        assert.equal(after.character.lastHollowGateStart, undefined);
+        assert.equal(after.character.ryo, beforeRyo);
+        for (let retry = 0; retry < 2; retry++) {
+            assert.equal((await gate('combatSettle', { runId, petReceipt: state.sessionId })).status, 200);
+            assert.deepEqual(await kv.get(saveKey), after, 'cleanup retries do not rewrite or charge the save');
+            assert.equal(await kv.get(runKey), null);
+            assert.equal(await kv.get(`battle-state:${PLAYER}`), null);
+        }
+        assert.equal((await invoke('resume', {})).body.live, false);
+    });
+}
 
 async function invoke(name: string, body: Record<string, unknown>): Promise<Reply> {
     const reply: Reply = { status: 200, body: {} };
@@ -178,6 +290,7 @@ for (const size of [1, 2, 3] as const) {
         const session = (await readSession(state.sessionId))!;
         assert.equal(session.rewardEligible, false, 'the duel itself never pays; the Gate settles it');
         assert.equal(session.bindingKind, 'hollow-gate');
+        assert.equal(session.rulesetVersion, 'progression-v3');
         assert.deepEqual(await kv.get(`sd-hg:${PLAYER}:${state.sessionId}`), { runId, petIds });
         assert.equal(await ryo(), 400, 'opening the duel costs and pays nothing');
     });
@@ -235,6 +348,25 @@ test('a reload resumes the same duel instead of drawing a new one', async () => 
     assert.deepEqual(resumed.body.petIds, opened.body.petIds);
     assert.deepEqual(resumed.body.state.enemy.map((hound: { id: string }) => hound.id), state.enemy.map((hound: { id: string }) => hound.id));
     assert.equal((await kv.keys(`pet:showdown:${PLAYER}:*`)).length, 1, 'one encounter, one duel');
+});
+
+test('a failed bound admission preserves its charge and concurrent retries publish one paid combat', async t => {
+    await seed([{ ...LEAD, loadout: { consumable: 'consum-smoke-pellet' } }, ...PARTNERS]);
+    const { runId } = await sendPet();
+    const fault = t.mock.method(kv as typeof kv & { compareSetMany: NonNullable<typeof kv.compareSetMany> }, 'compareSetMany', async () => { throw new Error('fixture-admission-write-failed'); });
+    assert.equal((await openDuel(runId)).status, 500);
+    const unchanged = (await kv.get<Record<string, any>>(saveKey))!;
+    assert.equal(unchanged._saveVersion, 1);
+    assert.equal(unchanged.character.pets[0].loadout.consumable, 'consum-smoke-pellet');
+    assert.deepEqual(await kv.keys(`pet:showdown:${PLAYER}:*`), []);
+    fault.mock.restore();
+    const [a, b] = await Promise.all([openDuel(runId), openDuel(runId)]);
+    assert.equal(a.status, 200, JSON.stringify(a.body)); assert.equal(b.status, 200, JSON.stringify(b.body));
+    assert.equal(a.body.state.sessionId, b.body.state.sessionId);
+    const committed = (await kv.get<Record<string, any>>(saveKey))!;
+    assert.equal(committed._saveVersion, 2);
+    assert.equal(committed.character.pets[0].loadout.consumable, undefined);
+    assert.equal((await kv.keys(`pet:showdown:${PLAYER}:*`)).length, 1);
 });
 
 test('a won 3v3 duel resolves the encounter and pays its Hollow Gate reward exactly once', async () => {
@@ -321,7 +453,7 @@ test('a lost duel withdraws the encounter unpaid, and the Hound can be raised ag
     assert.equal(lost.body.petDefeat, true);
     assert.equal(await ryo(), 400, 'a pet defeat pays nothing');
     const save = (await kv.get<{ character: { hp: number; hollowGateRun: unknown } }>(saveKey))!.character;
-    assert.equal(save.hp, 400, 'the seal recoils 20% of max HP');
+    assert.equal(save.hp, 335, 'the seal recoils 33% of max HP');
     assert.ok(save.hollowGateRun, 'a pet defeat never ends the run');
     const withdrawn = (await kv.get<HollowGateRunToken>(runKey))!;
     assert.equal(withdrawn.activeEncounter, null);
@@ -418,6 +550,54 @@ test('a decided duel still settles after a lost reply or a lapsed session', asyn
     assert.equal(settled.status, 200, JSON.stringify(settled.body));
     assert.equal(settled.body.won, true);
     assert.equal(await ryo(), 400 + Math.floor(hollowGateCombatReward(1, 'battle').ryo * rewardMultiplierForToken(run)));
+});
+
+test('a paid lead charge cannot consume a same-ID replacement after its combat artifact expires', async () => {
+    const item = 'consum-smoke-pellet';
+    await seed([{ ...LEAD, loadout: { consumable: item } }, ...PARTNERS]);
+    const { runId } = await sendPet();
+    const { state } = (await openDuel(runId)).body;
+    const saved = (await kv.get<Record<string, any>>(saveKey))!;
+    assert.equal(saved.character.pets[0].loadout.consumable, undefined, 'the lead charge is paid in the admission transaction');
+    saved.character.pets[0].loadout.consumable = item;
+    await kv.set(saveKey, saved);
+    await decide(state.sessionId, 'win');
+    const finish = await showdown({ action: 'turn', sessionId: state.sessionId, commands: [] });
+    assert.equal(finish.status, 200, JSON.stringify(finish.body));
+    const receipt = await kv.get<Record<string, unknown>>(`hg-pet-result:${PLAYER}:${state.sessionId}`);
+    assert.equal(receipt?.consumablesCommitted, true);
+    await kv.del(sessionKey(state.sessionId), `sd-hg:${PLAYER}:${state.sessionId}`);
+    const settled = await gate('combatSettle', { runId, petReceipt: state.sessionId });
+    assert.equal(settled.status, 200, JSON.stringify(settled.body));
+    assert.equal(settled.body.won, true);
+    const retry = await gate('combatSettle', { runId, petReceipt: state.sessionId });
+    assert.equal(retry.status, 200, JSON.stringify(retry.body));
+    assert.equal((await kv.get<Record<string, any>>(saveKey))!.character.pets[0].loadout.consumable, item);
+});
+
+test('a retained Gate session keeps its original terminal spending contract', async () => {
+    const item = 'consum-smoke-pellet';
+    await seed([{ ...LEAD, loadout: { consumable: item } }, ...PARTNERS]);
+    const { runId } = await sendPet();
+    const { state } = (await openDuel(runId)).body;
+    const session = (await kv.get<Record<string, unknown>>(sessionKey(state.sessionId)))!;
+    delete session.consumablesCommitted;
+    await kv.set(sessionKey(state.sessionId), session);
+    const saved = (await kv.get<Record<string, any>>(saveKey))!;
+    saved.character.pets[0].loadout.consumable = item;
+    await kv.set(saveKey, saved);
+    await decide(state.sessionId, 'win');
+    const terminal = await showdown({ action: 'turn', sessionId: state.sessionId, commands: [] });
+    assert.equal(terminal.status, 200, JSON.stringify(terminal.body));
+    const receipt = await kv.get<Record<string, unknown>>(`hg-pet-result:${PLAYER}:${state.sessionId}`);
+    assert.equal(receipt?.consumablesCommitted, undefined);
+    assert.equal((await gate('combatSettle', { runId, petReceipt: state.sessionId })).status, 200);
+    const charged = (await kv.get<Record<string, any>>(saveKey))!;
+    assert.equal(charged.character.pets[0].loadout.consumable, undefined);
+    charged.character.pets[0].loadout.consumable = item;
+    await kv.set(saveKey, charged);
+    assert.equal((await gate('combatSettle', { runId, petReceipt: state.sessionId })).status, 200);
+    assert.equal((await kv.get<Record<string, any>>(saveKey))!.character.pets[0].loadout.consumable, item);
 });
 
 test('the duel takes only its run selector, and the arena door stays shut to the Gate', async () => {

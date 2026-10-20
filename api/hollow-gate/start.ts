@@ -113,6 +113,7 @@ function utcDateKey(): string { return new Date().toISOString().slice(0, 10); }
 
 type PublishedEventGate = {
     id: string;
+    label?: string;
     floors: number;
     width: number;
     height: number;
@@ -128,12 +129,14 @@ export function normalizePublishedEventGate(raw: unknown, requestedId: string): 
     if (config.active !== true || String(config.id ?? '') !== requestedId) return null;
     const bossAiId = String(config.bossAiId ?? '').trim().slice(0, 128);
     const bossName = String(config.bossName ?? '').trim().slice(0, 64);
+    const label = String(config.label ?? '').trim().slice(0, 120);
     const dimension = (value: unknown, min: number, max: number, fallback: number): number => {
         const parsed = Math.floor(Number(value));
         return Number.isFinite(parsed) ? Math.max(min, Math.min(max, parsed)) : fallback;
     };
     return {
         id: requestedId,
+        ...(label ? { label } : {}),
         floors: canonicalHollowGateDepth(config.maxFloor),
         width: dimension(config.width, 15, 31, 25),
         height: dimension(config.height, 11, 21, 17),
@@ -367,12 +370,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 dailyRunOrdinal: ord,
                 ...(riftDef ? {
                     variantId: riftDef.id,
+                    variantLabel: `${riftDef.bossName} Rift`,
                     riftDistortionId: riftWeeklyDistortion().id,
                     riftQuestAcceptedAt: currentRiftSeal!.at,
                     bossProfileId: riftDef.bossAiId,
                     bossName: riftDef.bossName,
                 } : eventDef ? {
                     variantId: eventDef.id,
+                    ...(eventDef.label ? { variantLabel: eventDef.label } : {}),
                     ...(eventDef.bossAiId ? { bossProfileId: eventDef.bossAiId } : {}),
                     ...(eventDef.bossName ? { bossName: eventDef.bossName } : {}),
                 } : {}),
@@ -458,6 +463,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             seed: committed.runToken.seed,
             floorDepth: committed.runToken.floorDepth,
             variantId: committed.runToken.variantId,
+            variantLabel: committed.runToken.variantLabel,
             floorWidth: committed.runToken.floorWidth,
             floorHeight: committed.runToken.floorHeight,
             riftDistortionId: committed.runToken.riftDistortionId,

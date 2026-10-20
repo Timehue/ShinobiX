@@ -10,6 +10,7 @@ const WEEKLY_BOSS_UNREACHABLE = "The Weekly Boss could not be reached. Check you
 import { visiblePoll } from "../lib/poll";
 import { isWeeklyBossRoamEnabled, weeklyBossRoamState } from "../lib/weekly-boss-roam";
 import { weeklyBossScoreView } from "../lib/weekly-boss-hp";
+import { weeklyBossRewardConfirmed } from "../lib/weekly-boss-reward-presentation";
 import type { Character, PlayerRecord, VersionedCharacterCommit } from "../types/character";
 import type { CreatorAi } from "../types/creator-ai";
 import type { Screen } from "../types/core";
@@ -326,6 +327,7 @@ export function WeeklyBossArena({
     const myRank = sortedEntries.findIndex(([n]) => n === myKey);
     const myRankDisplay = myRank >= 0 ? myRank + 1 : null;
     const mySummary = bossState.distributionSummary?.find(e => e.name === myKey);
+    const myRewardConfirmed = weeklyBossRewardConfirmed(bossState, character.name);
     // Server caps the player at 3 arena attempts per boss spawn. Show the
     // counter prominently so the player knows when they're about to burn
     // their last try.
@@ -387,7 +389,7 @@ export function WeeklyBossArena({
                             <img
                                 src={bossImage}
                                 alt={bossState.bossName ?? "Weekly Boss"}
-                                style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                                style={{ width: "100%", height: "100%", objectFit: "contain" }}
                                 onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
                             />
                         </div>
@@ -547,18 +549,18 @@ export function WeeklyBossArena({
             </div>
             {expired && mySummary && (
                 <div style={{ background: "rgba(15,118,110,0.18)", border: "1px solid rgba(74,222,128,0.4)", borderRadius: 6, padding: "0.6rem 0.8rem", margin: "0.8rem 0 0.4rem", fontSize: "0.85rem" }}>
-                    <strong style={{ color: "var(--green-400)" }}>✓ Rewards distributed.</strong> You earned:
+                    <strong style={{ color: "var(--green-400)" }}>{myRewardConfirmed ? "✓ Weekly reward delivery confirmed." : "Reward delivery pending."}</strong> {myRewardConfirmed ? "Weekly reward allocation:" : "Scheduled reward:"}
                     <ul style={{ margin: "4px 0 0 18px" }}>
                         <li>+{mySummary.ryo.toLocaleString()} ryo · +10 stat points{mySummary.isMvp ? " (MVP ×2 ryo)" : ""}</li>
                         {mySummary.gotCore && <li>+1 Weekly Boss Core (top 10)</li>}
                         {mySummary.gotKey && <li>+1 Dungeon Key (top 25)</li>}
-                        {mySummary.gotGear && <li>+1 upgrade gear piece (a lucky 5% drop, check your bag)</li>}
+                        {myRewardConfirmed && <li>Check Inventory for any additional item drops. Weekly Boss rewards are paid once per week.</li>}
                     </ul>
                 </div>
             )}
             {expired && !mySummary && myDamage > 0 && (
                 <p style={{ color: "var(--text-dim)", marginTop: "0.8rem", fontSize: "0.85rem" }}>
-                    Rewards distributed — your save has been credited (refresh to see updated totals).
+                    {myRewardConfirmed ? "Your weekly reward delivery is confirmed. Refresh to see your updated totals." : "Your reward delivery is not confirmed yet. This page will keep checking."}
                 </p>
             )}
         </div>
@@ -594,6 +596,7 @@ type WeeklyBossState = {
     startedAt: number;
     expiresAt?: number;
     rewardsDistributed?: boolean;
+    creditedPlayers?: string[];
     distributedAt?: number;
     distributionSummary?: WeeklyBossRewardEntry[];
     // Legacy fields — kept for type-compat with pre-despawn state shapes.

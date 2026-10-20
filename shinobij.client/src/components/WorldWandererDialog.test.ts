@@ -18,17 +18,17 @@ function dialog(verb:string,busy=false,home=false) {
 }
 test('ordinary NPC choices preserve labels, option order and action targets',()=>{
     const cases:[string,string[],string][]=[
-        ['merchant',['Trade','Ask about the road','Leave'],'tradeWithWanderer'],
-        ['medic',['Treat wounds','Ask about the road','Leave'],'visitWandererMedic'],
-        ['patrol',['Stand your ground','Ask about the road','Move along'],'startPatrolFight'],
+        ['merchant',['Buy bone charms','Ask about the road','Leave'],'tradeWithWanderer'],
+        ['medic',['Pay for treatment','Ask about the road','Leave'],'visitWandererMedic'],
+        ['patrol',['Fight patrol','Ask about the road','Move along'],'startPatrolFight'],
         ['angler',['Ask about the water','Ask about the road','Leave'],'askAngler'],
-        ['contest',['Contest the seam','Leave him to it'],'startWandererAttack'],
-        ['tracker',['Follow tracks','Take a favor','Ask about the road','Leave'],'followTracker'],
+        ['contest',['Fight miner','Leave him to it'],'startWandererAttack'],
+        ['tracker',['Follow tracks','Accept delivery','Ask about the road','Leave'],'followTracker'],
         ['trackerTrail',['Approach the beast','Give up the trail','Leave'],'followTrackerTrail'],
-        ['courier',['Deliver favor','Leave'],'claimWandererFavor'],
-        ['gift',['Take it','Ask about the road','Leave'],'claimWandererGift'],
+        ['courier',['Hand over package','Leave'],'claimWandererFavor'],
+        ['gift',['Accept gift','Ask about the road','Leave'],'claimWandererGift'],
         ['petDuel',['Send out your pet','Leave'],'startWandererPetDuel'],
-        ['gamble',['Deal me in','Ask about the road','Leave'],'startWandererCardDuel'],
+        ['gamble',['Play Chronicle Showdown','Ask about the road','Leave'],'startWandererCardDuel'],
     ];
     for(const [verb,labels,callback] of cases){const {actions,calls,w}=dialog(verb);assert.deepEqual(actions.map(a=>a.label),labels,verb);actions[0].run();assert.equal(calls[0][0],callback);assert.equal(calls[0][1],w);actions.at(-1)!.run();assert.equal(calls.at(-1)![0],'closeWandererDialog');}
     assert.deepEqual(dialog('patrol',false,true).actions.map(a=>a.label),['Ask about the road','Move along']);
@@ -37,7 +37,7 @@ test('busy NPC choices retain the established disabled and leave behavior',()=>{
     for(const verb of ['merchant','medic','tracker','trackerTrail','courier','gift']){
         const {actions}=dialog(verb,true);assert.equal(actions[0].label,'…',verb);assert.equal(actions[0].disabled,true);assert.equal(actions.at(-1)!.disabled,false);
     }
-    const contest=dialog('contest',true).actions;assert.equal(contest[0].label,'Contest the seam');assert.equal(contest[0].disabled,true);
+    const contest=dialog('contest',true).actions;assert.equal(contest[0].label,'Fight miner');assert.equal(contest[0].disabled,true);
     assert.equal(dialog('trackerTrail',true).actions[1].disabled,true);
 });
 
@@ -76,6 +76,14 @@ test('rendered peaceful passage and wild-beast encounters retain their separate 
     beast.buttons[0].click();assert.deepEqual(beast.calls[0],['startWandererPetDuel',beast.w]);
     beast.buttons[1].click();assert.deepEqual(beast.calls[1],['closeWandererDialog']);
 });
+
+test('a natural bandit preserves the fixed toll and its authoritative flee callback',()=>{
+    const w={id:'w-12-3-9',name:'Road bandit',verb:'attack',archetype:'bandit',greeting:'Stop.',level:30};
+    const view=renderedDialog('attack',false,{hp:100,ryo:1000},{w});
+    assert.deepEqual(view.buttons.map(button=>button.label),['Fight','Pay 500 ryo']);
+    assert.match(view.text,/Pay 500 ryo to pass without fighting\. You will not lose HP\./);
+    view.buttons[1].click();assert.deepEqual(view.calls[0],['fleeWanderer',w]);
+});
 test('quest button reuse preserves completed and unfinished errands, busy text and callback arguments',()=>{
     for(const busy of [false,true])for(const verb of ['quest','legacyQuest']){
         const emissary=EMISSARY_BY_SLUG.values().next().value!,id=verb==='quest'?'test-quest':emissary.quests[0].id;
@@ -93,7 +101,9 @@ test('quest button reuse preserves completed and unfinished errands, busy text a
 test('epic continue and final reward retain their callbacks, while leave and abandon remain available',()=>{
     const entry=Object.values(QUEST_BOOK).find(q=>q.stages.length>1&&!q.stages[0].choice&&!q.stages.at(-1)!.choice)!;
     for(const index of [0,entry.stages.length-1])for(const busy of [false,true]){
-        const stage=entry.stages[index],{buttons,calls,w}=renderedDialog('quest',busy,{activeQuestbook:{id:entry.id,stage:index,baseline:0,choices:{}},[stage.metric]:stage.count});
+        const stage=entry.stages[index];
+        const worldAiContextWins=stage.bossId?Array.from({length:stage.count},(_,i)=>({kind:'questbook-boss',sourceId:entry.id,stage:index,sealVersion:`${entry.id}:${index}:0:fixture`,proofId:`fixture-${i}`})):[];
+        const {buttons,calls,w}=renderedDialog('quest',busy,{activeQuestbook:{id:entry.id,stage:index,baseline:0,choices:{}},[stage.metric]:stage.count,worldAiContextWins});
         assert.deepEqual(buttons.map(b=>b.label),[busy?'…':index===0?'Continue':'Claim reward','Abandon','Leave']);
         assert.equal(buttons[0].disabled,busy);assert.equal(buttons[1].disabled,undefined);buttons[0].click();
         assert.deepEqual(calls[0],index===0?['advanceEpic',false]:['claimEpic',w]);buttons[1].click();assert.deepEqual(calls[1],['abandonEpic',w]);

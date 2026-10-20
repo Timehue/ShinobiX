@@ -68,7 +68,8 @@ test("AiFightHost renders the code-split authoritative solo shell", () => {
     assert.doesNotMatch(host, /<BattleTowerFight|screens\/BattleTowerFight/);
     const huntShell = readFileSync(new URL("../screens/HuntTowerFight.tsx", import.meta.url), "utf8");
     assert.match(huntShell, /stateFn=\{fetchHuntCombatState\}[\s\S]{0,80}actionRetryFn=\{submitHuntCombatAction\}/);
-    assert.match(huntShell, /variant="hunt"/);
+    assert.match(huntShell, /variant=\{session\.huntCombat\?\.purpose === 'narrative-group' \? 'narrative-group' : 'hunt'\}/);
+    assert.match(huntShell, /renderResult=\{renderResult\}/);
 });
 
 test("AiFightHost requires standalone solo-PvE and has no local or Tower authority", () => {
@@ -175,7 +176,7 @@ test("creator VN battles use canonical non-paying practice until an event receip
     const triggered = app.slice(triggeredStart, triggeredEnd);
     assert.match(launch, /requestAiFight\(/);
     assert.match(launch, /battleKind: "practice"/);
-    assert.match(launch, /const launched = requestAiFight\([\s\S]{0,700}if \(launched\) setSelectedCreatorEvent\(null\);\s*else alert\("The sealed practice arena is unavailable\. Your event remains open\."\);/,
+    assert.match(launch, /const launched = requestAiFight\([\s\S]{0,700}if \(launched\) setSelectedCreatorEvent\(null\);\s*else alert\("The practice battle could not open\. Your event remains open\."\);/,
         "an accepted launch must dismiss the VN covering the fight, while a missing host leaves it open for retry");
     assert.doesNotMatch(launch, /battleKind: "world"|setScreen\("arena"\)/);
     assert.doesNotMatch(worldMap, /onStartEventEncounter/);
@@ -183,7 +184,7 @@ test("creator VN battles use canonical non-paying practice until an event receip
         "App must route the global triggered-event path through the extracted sealed launcher");
     assert.match(triggeredBattle, /requestAiFight\(/);
     assert.match(triggeredBattle, /battleKind: "practice"/);
-    assert.match(triggeredBattle, /if \(!requestAiFight\(\{[\s\S]{0,700}\}\)\) return void window\.alert\("The sealed practice arena is unavailable\. Your event remains open\."\);\s*setActiveEvent\(null\);/,
+    assert.match(triggeredBattle, /if \(!requestAiFight\(\{[\s\S]{0,700}\}\)\) return void window\.alert\("The practice battle could not open\. Your event remains available\."\);\s*setActiveEvent\(null\);/,
         "the global triggered-event path must also dismiss its VN as soon as the combat host accepts the launch");
     assert.doesNotMatch(triggeredBattle, /onResolved:/,
         "the VN must not remain mounted over combat until a later settlement callback");
@@ -390,7 +391,7 @@ test("fresh generic fights use the server-sealed identity just like refresh reco
 });
 
 test("a malformed start response cannot wedge the Retry gate", () => {
-    const validation = host.indexOf('if (!sealedRequest) throw new Error("The combat server did not return a sealed encounter identity.")');
+    const validation = host.indexOf('if (!sealedRequest) throw new Error("The battle could not be confirmed. Reopen the encounter to try again.")');
     const arm = host.indexOf("activeRef.current = true", validation);
     const paint = host.indexOf("setFight({", validation);
     assert.ok(validation >= 0 && arm > validation && paint > arm,

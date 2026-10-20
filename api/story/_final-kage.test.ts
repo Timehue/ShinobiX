@@ -49,7 +49,9 @@ test('all four story finales seal the highest legal policy, mastery and player c
     for (const [village, authored] of Object.entries(STORY_KAGE_ENCOUNTERS)) {
         const template = storyBossEnemyTemplate({ village, progressIndex: FINAL_INDEX });
         const session = encounter(village);
-        assert.equal(template.hp, 14_000, `${village}: existing server HP is unchanged`);
+        assert.equal(template.hp, ['Ashen Leaf Village', 'Frostfang Village'].includes(village) ? 10_300 : 10_000,
+            `${village}: explicit finale HP budget`);
+        assert.equal(session.enemy.maxHp, template.hp, 'no additional Tower or peer HP multiplier');
         assert.equal(template.armorRawDR, 0.18, `${village}: existing armor is unchanged`);
         assert.equal(session.enemy.name, authored.name);
         assert.equal(session.enemy.character.visual, storyOpponentId(village, 100));
