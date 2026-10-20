@@ -4604,8 +4604,8 @@ function WorldMapContent({
                                 <ModalDialogScrim label={`${bossDialog.name} — encounter`} onBackdrop={() => undefined} onEscape={() => undefined}>
                                     <div className="card" style={{ maxWidth: 380, width: "88%", maxHeight: "88dvh", overflowY: "auto", textAlign: "center", padding: 18, border: "1px solid rgba(236,91,56,.6)" }} onClick={(e) => e.stopPropagation()}>
                                         {bossDialog.portrait
-                                            ? <img src={bossDialog.portrait} alt={bossDialog.name} style={{ width: 104, height: 104, objectFit: "cover", borderRadius: "50%", border: "2px solid #ec5b38", margin: "0 auto 8px", boxShadow: "0 0 18px rgba(236,91,56,.6)" }} />
-                                            : <img src="/portraits/hollow-warden.webp" alt="" style={{ width: 104, height: 104, objectFit: "cover", borderRadius: "50%", border: "2px solid #ec5b38", margin: "0 auto 8px", boxShadow: "0 0 18px rgba(236,91,56,.6)" }} />}
+                                            ? <img src={bossDialog.portrait} alt={bossDialog.name} style={{ width: 104, height: 104, objectFit: "contain", borderRadius: "50%", border: "2px solid #ec5b38", margin: "0 auto 8px", boxShadow: "0 0 18px rgba(236,91,56,.6)" }} />
+                                            : <img src="/portraits/hollow-warden.webp" alt="" style={{ width: 104, height: 104, objectFit: "contain", borderRadius: "50%", border: "2px solid #ec5b38", margin: "0 auto 8px", boxShadow: "0 0 18px rgba(236,91,56,.6)" }} />}
                                         <h3 style={{ margin: "0 0 4px", color: "#ffb4a0" }}><GameArtIcon kind="attack" size={17} /> {bossDialog.name}</h3>
                                         <p style={{ fontSize: ".78rem", color: "#9aa3b2", margin: "0 0 8px" }}>The Weekly Boss bears down on you. Stand and deal all the damage you can for the server-wide leaderboard, or flee. Fleeing spends no attempt.</p>
                                         <p style={{ fontSize: ".72rem", color: "var(--gold)", margin: "0 0 8px" }}>Attempts used: {bossDialog.attemptsUsed}/3</p>
@@ -5125,7 +5125,7 @@ function WorldMapContent({
                             aria-label="Open Sunscar Festival"
                         >
                             {currentSector === sector.id && <span className="atlas-you-label" aria-hidden="true">YOU</span>}
-                            <img src={festivalMarkerArt} alt="" style={{ width: 28, height: 28, objectFit: "cover", borderRadius: "50%" }} />
+                            <img src={festivalMarkerArt} alt="" style={{ width: 28, height: 28, objectFit: "contain", borderRadius: "50%" }} />
                         </button>
                         </WorldMapPin>
                     );
@@ -5186,7 +5186,7 @@ function WorldMapContent({
                             <span
                                 className="atlas-boss-flag"
                                 title={`${roamingBoss?.bossName ?? "Weekly Boss"} is rampaging here. Travel in to challenge it`}
-                            ><img src="/portraits/hollow-warden.webp" alt="" style={{ width: 19, height: 19, borderRadius: "50%", objectFit: "cover" }} /></span>
+                            ><img src="/portraits/hollow-warden.webp" alt="" style={{ width: 19, height: 19, borderRadius: "50%", objectFit: "contain" }} /></span>
                         )}
                         {huntTrail && (
                             <span

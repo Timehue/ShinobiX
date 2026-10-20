@@ -120,7 +120,7 @@ export function RankedFormatWeaponPicker({
                         style={{ textAlign: "left", display: "flex", gap: 8, alignItems: "center", padding: 8 }}
                     >
                         {weapon.image && (
-                            <img src={weapon.image} alt="" style={{ width: 36, height: 36, objectFit: "cover", borderRadius: 6, flexShrink: 0 }} />
+                            <img src={weapon.image} alt="" style={{ width: 36, height: 36, objectFit: "contain", borderRadius: 6, flexShrink: 0 }} />
                         )}
                         <span>
                             <strong>{weapon.name}</strong>

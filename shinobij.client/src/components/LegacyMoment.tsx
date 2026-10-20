@@ -105,7 +105,7 @@ export function LegacyMoment({
                             >
                                 <img
                                     src={moment.speaker.portrait} alt=""
-                                    style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                                    style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }}
                                     onError={(e) => { (e.currentTarget.parentElement as HTMLElement).style.display = "none"; }}
                                 />
                             </span>

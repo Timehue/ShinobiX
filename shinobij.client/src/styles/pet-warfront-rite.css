@@ -272,7 +272,7 @@
     background: rgba(10, 22, 30, 0.85);
     flex: 0 0 auto;
 }
-.wfr-portrait img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.wfr-portrait img { width: 100%; height: 100%; object-fit: contain; display: block; }
 .wfr-portrait.is-placement-art img {
     object-fit: contain;
     filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.62));

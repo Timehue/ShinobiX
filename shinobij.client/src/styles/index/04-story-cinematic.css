@@ -134,7 +134,7 @@
 .vn-character img {
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: contain;
 }
 
 /* Speaker spotlight: the non-speaking portrait dims back so the current speaker
@@ -312,7 +312,7 @@
     .vn-character-preview-row img {
         width: 76px;
         height: 76px;
-        object-fit: cover;
+        object-fit: contain;
         border-radius: 10px;
     }
 
@@ -361,7 +361,7 @@
     .vn-avatar-editor-preview img {
         width: 100%;
         height: 100%;
-        object-fit: cover;
+        object-fit: contain;
     }
 
 .vn-battle-trigger-editor {

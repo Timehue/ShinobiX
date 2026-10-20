@@ -221,7 +221,7 @@
     color: var(--text-dim);
 }
 
-    .cf-thumb img { width: 100%; height: 100%; object-fit: cover; }
+    .cf-thumb img { width: 100%; height: 100%; object-fit: contain; }
 
     .cf-thumb-icon { display: grid; place-items: center; color: inherit; }
     .cf-thumb-icon svg { width: 30px; height: 30px; }

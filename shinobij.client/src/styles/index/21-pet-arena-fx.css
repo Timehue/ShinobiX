@@ -42,7 +42,7 @@
 .pet-arena-avatar img {
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: contain;
 }
 
 .pet-arena-card strong {

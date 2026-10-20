@@ -3079,7 +3079,7 @@ export function AdminPanel({
                                         {vnCast.map((m) => (
                                             <span key={m.name} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "3px 4px 3px 8px", border: "1px solid #334155", borderRadius: 999 }}>
                                                 {m.image
-                                                    ? <img src={m.image} alt={m.name} style={{ width: 22, height: 22, borderRadius: "50%", objectFit: "cover" }} />
+                                                    ? <img src={m.image} alt={m.name} style={{ width: 22, height: 22, borderRadius: "50%", objectFit: "contain" }} />
                                                     : <span style={{ width: 22, height: 22, borderRadius: "50%", background: "#1e293b", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 10 }}>{m.name.slice(0, 2).toUpperCase()}</span>}
                                                 <span style={{ fontSize: "0.85rem" }}>{m.name}</span>
                                                 <button type="button" title={`Remove ${m.name} from cast`} className="danger-button" style={{ padding: "0 7px", lineHeight: "20px" }} onClick={() => saveVnCast(vnCast.filter((c) => c.name !== m.name))}>×</button>
@@ -4211,7 +4211,7 @@ export function AdminPanel({
                                     style={{ display: "flex", alignItems: "center", gap: "0.6rem", flexWrap: "wrap" }}>
                                     {item.image
                                         ? <img src={item.image} alt={item.name}
-                                            style={{ width: 48, height: 48, objectFit: "cover", borderRadius: 6, flexShrink: 0, border: "1px solid #334155" }} />
+                                            style={{ width: 48, height: 48, objectFit: "contain", borderRadius: 6, flexShrink: 0, border: "1px solid #334155" }} />
                                         : <div style={{ width: 48, height: 48, borderRadius: 6, background: "#0f172a", border: "1px dashed #334155", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>🖼️</div>
                                     }
                                     <div style={{ flex: 1, minWidth: 0 }}>
@@ -4612,7 +4612,7 @@ export function AdminPanel({
                                     return (
                                         <div key={p.id} style={{ width: 92, textAlign: "center", border: selected ? "2px solid #8b5cf6" : img ? "1px solid #334155" : "1px solid #b45309", borderRadius: 8, padding: 6, background: "#0f172a" }}>
                                             <div style={{ width: 72, height: 72, margin: "0 auto", borderRadius: 8, overflow: "hidden", display: "grid", placeItems: "center", background: "#1e293b" }}>
-                                                {img ? <img src={img} alt={p.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <span style={{ fontSize: 11, color: "#f59e0b" }}>no image</span>}
+                                                {img ? <img src={img} alt={p.name} style={{ width: "100%", height: "100%", objectFit: "contain" }} /> : <span style={{ fontSize: 11, color: "#f59e0b" }}>no image</span>}
                                             </div>
                                             <div style={{ fontSize: "0.66rem", color: "#cbd5e1", margin: "4px 0", lineHeight: 1.1, height: 24, overflow: "hidden" }}>{p.name}</div>
                                             <button
@@ -5138,7 +5138,7 @@ export function AdminPanel({
                             const isCreator = creatorCards.some((c) => c.id === card.id);
                             return (
                                 <div key={card.id} className="summary-box" style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
-                                    {card.image && <img src={card.image} alt={card.name} style={{ width: 40, height: 40, objectFit: "cover", borderRadius: 4 }} />}
+                                    {card.image && <img src={card.image} alt={card.name} style={{ width: 40, height: 40, objectFit: "contain", borderRadius: 4 }} />}
                                     <span style={{ flex: 1 }}><strong>{card.name}</strong> | {card.element} | {card.rarity}</span>
                                     <button onClick={() => loadAdminCard(card)}>Edit</button>
                                     {isCreator && (
@@ -5608,7 +5608,7 @@ export function AdminPanel({
                                 ? <p className="hint">No items pending review.</p>
                                 : reviewItems.map(item => (
                                     <div key={item.id} className="summary-box" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                                        {item.image && <img src={item.image} alt={item.name} style={{ width: 48, height: 48, objectFit: "cover", borderRadius: 6, border: "1px solid #334155" }} />}
+                                        {item.image && <img src={item.image} alt={item.name} style={{ width: 48, height: 48, objectFit: "contain", borderRadius: 6, border: "1px solid #334155" }} />}
                                         <div style={{ flex: 1 }}>
                                             <strong>{item.name}</strong>
                                             <p className="hint" style={{ margin: 0 }}>{item.slot} · {item.rarity}</p>
@@ -5628,7 +5628,7 @@ export function AdminPanel({
                                 ? <p className="hint">No bloodlines created yet.</p>
                                 : reviewBloodlines.map(bl => (
                                     <div key={bloodlineReviewKey(bl)} className="summary-box" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                                        {bl.image && <img src={bl.image} alt={bl.name} style={{ width: 48, height: 48, objectFit: "cover", borderRadius: 6, border: "1px solid #334155" }} />}
+                                        {bl.image && <img src={bl.image} alt={bl.name} style={{ width: 48, height: 48, objectFit: "contain", borderRadius: 6, border: "1px solid #334155" }} />}
                                         <div style={{ flex: 1 }}>
                                             <strong>{bl.name}</strong>
                                             <p className="hint" style={{ margin: 0 }}>{bl.ownerName ? `By ${bl.ownerName} · ` : ""}{bl.rank}{bl.specialElement ? ` · ${bl.specialElement}` : ""} · {bl.totalPoints} pts · {bl.jutsus.length} jutsus</p>
@@ -6062,7 +6062,7 @@ export function AdminPanel({
                                                     <div key={asset.key} style={{ display: "grid", gridTemplateColumns: "120px 1fr auto", gap: 10, alignItems: "center", padding: 8, background: "rgba(15,9,28,0.4)", border: "1px solid rgba(168,85,247,0.25)", borderRadius: 6 }}>
                                                         <div style={{ width: 120, height: 120, background: "rgba(0,0,0,0.45)", border: "1px dashed rgba(168,85,247,0.4)", borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
                                                             {currentImage
-                                                                ? <img src={currentImage} alt={asset.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                                                                ? <img src={currentImage} alt={asset.name} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
                                                                 : <span style={{ color: "#a78bfa", fontSize: 11, textAlign: "center", padding: 6 }}>No image yet</span>}
                                                         </div>
                                                         <div style={{ display: "grid", gap: 6 }}>
@@ -6444,7 +6444,7 @@ export function AdminPanel({
                                                 <div key={key} className="summary-box" style={{ display: "grid", gridTemplateColumns: "90px 1fr", gap: 10, alignItems: "center" }}>
                                                     <div style={{ width: 90, height: 90, background: "rgba(0,0,0,0.45)", border: "1px dashed rgba(250,204,21,0.4)", borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", position: "relative" }}>
                                                         {currentImage
-                                                            ? <img src={currentImage} alt={slotDef.label} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                                                            ? <img src={currentImage} alt={slotDef.label} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
                                                             : <span style={{ color: "#facc15", fontSize: 11, textAlign: "center", padding: 4 }}>No image</span>}
                                                         {currentImage && (
                                                             <span

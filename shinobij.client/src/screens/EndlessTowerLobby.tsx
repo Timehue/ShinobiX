@@ -60,7 +60,7 @@ export function EndlessTowerLobby({
     return (
         <div className="card" style={{ maxWidth: 720, margin: "1rem auto", padding: 0, overflow: "hidden" }}>
             <div style={{ position: "relative" }}>
-                <img src={endlessTowerHero} alt="" style={{ display: "block", width: "100%", height: 220, objectFit: "cover", objectPosition: "center 22%" }} />
+                <img src={endlessTowerHero} alt="" style={{ display: "block", width: "100%", height: 220, objectFit: "contain", objectPosition: "center" }} />
                 <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(8,11,15,0) 30%, rgba(8,11,15,.94))" }} />
                 <div style={{ position: "absolute", left: 22, right: 22, bottom: 12 }}>
                     <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: ".14em", textTransform: "uppercase", color: "var(--sj-spirit-bright)" }}>Celestial Tower · Solo Ascent</div>

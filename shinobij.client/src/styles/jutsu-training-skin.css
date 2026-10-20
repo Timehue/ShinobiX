@@ -325,7 +325,7 @@
     font: 800 16px var(--font-display);
 }
 
-.jutsu-plan-art img { width: 100%; height: 100%; object-fit: cover; }
+.jutsu-plan-art img { width: 100%; height: 100%; object-fit: contain; }
 .jutsu-plan-preview > div { display: grid; gap: 5px; min-width: 0; }
 .jutsu-plan-preview > div > span { color: #91a3ba; font: 700 10px Inter, sans-serif; text-transform: uppercase; letter-spacing: 0.08em; }
 .jutsu-plan-preview .jutsu-plan-bloodline { color: #d8b4fe; font-style: normal; }
@@ -445,7 +445,7 @@
 .jutsu-mobile-info-content { display: grid; gap: 14px; min-width: 0; }
 .jutsu-mobile-info-hero { display: grid; grid-template-columns: 70px minmax(0, 1fr); align-items: center; gap: 12px; }
 .jutsu-mobile-info-hero > span { display: grid; width: 70px; aspect-ratio: 1; place-items: center; overflow: hidden; border: 1px solid rgba(232, 212, 150, 0.38); border-radius: 10px; background: #071022; color: #f3e3aa; font: 800 13px var(--font-display); }
-.jutsu-mobile-info-hero img { width: 100%; height: 100%; object-fit: cover; }
+.jutsu-mobile-info-hero img { width: 100%; height: 100%; object-fit: contain; }
 .jutsu-mobile-info-hero > div { display: grid; gap: 5px; min-width: 0; }
 .jutsu-mobile-info-hero strong { color: #f3e3aa; font: 800 17px/1.2 var(--font-display); letter-spacing: 0.06em; }
 .jutsu-mobile-info-hero small { color: #93a4ba; font: 650 11px/1.35 Inter, sans-serif; }

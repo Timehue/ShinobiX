@@ -22,7 +22,7 @@ export function PetRankedModeCards({ availablePetCount, onOpenPetLadder }: {
                 title={locked ? `Locked: ${availablePetCount}/${card.requirement} available pets` : undefined}
                 onClick={() => onOpenPetLadder(card.mode)}
                 style={{ position: "relative", padding: 0, border: "1px solid rgba(244,196,81,.3)", borderRadius: 14, overflow: "hidden", cursor: locked ? "not-allowed" : "pointer", textAlign: "left", height: 132, background: "#11141f" }}>
-                <img src={card.img} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", opacity: locked ? .32 : .85, filter: locked ? "grayscale(.75)" : undefined }} />
+                <img src={card.img} alt="" style={{ width: "100%", height: "100%", objectFit: "contain", display: "block", opacity: locked ? .32 : .85, filter: locked ? "grayscale(.75)" : undefined }} />
                 <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(8,10,18,.05), rgba(8,10,18,.85))" }} />
                 <div style={{ position: "absolute", left: 14, right: 14, bottom: 12 }}>
                     <div style={{ fontSize: 19, fontWeight: 800, color: "#f7d98a", textShadow: "0 2px 8px #000" }}>{card.emoji} {card.title}</div>
