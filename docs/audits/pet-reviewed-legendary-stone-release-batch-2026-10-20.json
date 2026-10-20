@@ -1,9 +1,9 @@
 {
   "preparedAt": "2026-10-20T02:34:53.825Z",
-  "status": "18-pet-batch-awaiting-rebase-and-final-validation",
+  "status": "stacked-on-full-Pebble-remake-awaiting-final-CI-and-live",
   "baseStoneHead": "7e746090b8e79cdafa123d124c0f242f982c4068",
   "baseMain": "6277f0711fa74c1e243c60d4c6b059253170edac",
-  "primaryReviewCommit": "a46090b5a4ad873063894e7d0a657722d2de4fce",
+  "primaryReviewCommit": "56d0e809dcc72c5428a2faa1ccd7916c8e51fa5f",
   "ids": [
     "legendary-5",
     "legendary-6",
@@ -797,7 +797,27 @@
       {
         "path": "docs/screenshots/pet-reviewed-legendary-stone-release-2026-10-20/add-red-fox-to-reviewed-batch.mjs",
         "sha256": "f7d240da404c366249d38da086e6fa6df48b9261c69bcbe0f084958db6a57106"
+      },
+      {
+        "path": "docs/screenshots/pet-reviewed-legendary-stone-release-2026-10-20/stacked-isolation.json",
+        "sha256": "dc09502754424024d4c640148697331994b5a92dc51f30d82833607e5b5c5a05"
+      },
+      {
+        "path": "docs/screenshots/pet-reviewed-legendary-stone-release-2026-10-20/check-stacked-isolation.mjs",
+        "sha256": "6d503733f410ab3d79312277e4fb6cf91c8c1c0622b0ac7baeae9e00e04fd528"
       }
-    ]
-  }
+    ],
+    "finalLocalChecks": {
+      "status": "running",
+      "plannedTests": 102,
+      "fullProductionBuild": "running",
+      "finalChangedFileLint": {
+        "errors": 0
+      },
+      "all54ReviewedAssetHashesMatch": true,
+      "unselectedAssetsChanged": 0,
+      "unselectedManifestEntriesPreserved": true
+    }
+  },
+  "stackedBase": "afb655fabcad4b694aebadc1858a46b5234006e5"
 }
