@@ -73,10 +73,10 @@ run once, in the aggregate: each takes under a minute, and running them in every
 shard would only triple them. Require the stable `CI / server-contracts`
 aggregate rather than individual shards.
 
-Responsive coverage runs as five `e2e_responsive_matrix` shards, named
-`CI / e2e-responsive / 1-of-5` through `CI / e2e-responsive / 5-of-5`. Each has a
+Responsive coverage runs as seven `e2e_responsive_matrix` shards, named
+`CI / e2e-responsive / 1-of-7` through `CI / e2e-responsive / 7-of-7`. Each has a
 35-minute ceiling and runs only its slice of the complete Playwright suite,
-partitioned with `--shard=N/5`. The smoke step has its own 31-minute limit, so a
+partitioned with `--shard=N/7`. The smoke step has its own 31-minute limit, so a
 hung slice fails while there is still time to upload its evidence. On main in
 October 2026 a slice took 12 to 26 minutes and setup about 2.
 
@@ -101,7 +101,10 @@ Stronghold checks had passed. It moved to five when three-shard run
 `36622735387` exhausted shards 1 and 2 before every browser case ran. The flow
 suites left the slices after shards 2 and 5 reached 32 to 34 of their 35 minutes
 on main, and PR #407's shard 2 was cancelled at the ceiling with every test
-passing. Each change kept the whole suite. Require the stable
+passing. Run `39433723955` exhausted the five-way first slice twice; its retry
+reached 634 of 700 cases before cancellation. Seven slices retain all 3,499
+test/project cases exactly once (six slices of 500, one of 499), with the same
+step and job ceilings. Each change kept the whole suite. Require the stable
 `CI / e2e-responsive` aggregate rather than individual matrix children.
 
 The actual combat work runs as the `e2e_combat_matrix` job with the emitted names
