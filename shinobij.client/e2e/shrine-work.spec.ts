@@ -11,6 +11,46 @@ type Pose={col:number;row:number;activity?:string};
 declare global{interface Window{shrineWorkPose:()=>Pose;shrineWorkVisitors:()=>Pose[]}}
 const evidence=process.env.SHRINE_WORK_EVIDENCE_DIR??'../output/living-world/leaf-work/browser';mkdirSync(evidence,{recursive:true});
 
+test('a crowded shrine greeting leaves the caretaker name attached to its owner',async({page},info)=>{
+    // A deterministic DOM geometry fixture: unlike the native journey below,
+    // this keeps the transient greeting present through the layout pass.
+    await page.route('**/__caption-layout',route=>route.fulfill({contentType:'text/html',body:`<meta name="viewport" content="width=device-width,initial-scale=1"><style>
+        body{margin:0}.continuous-world-map,.pixel-map{position:relative;width:368px;height:368px}
+        .sector-avatar-body,.sector-wanderer-label,.sector-wanderer-bubble,.obstacle{position:absolute;box-sizing:border-box}
+        .sector-avatar-body{width:22px;height:22px;background:#976}.sector-wanderer-label{height:15px;font:11px sans-serif;background:#ddd}
+        .sector-wanderer-bubble{font:12px sans-serif;background:#eef;border:1px solid #446}
+        </style><div class="continuous-world-map"><div class="pixel-map">
+        <div class="sector-wanderer-figure"><span class="sector-wanderer-bubble" style="left:76.492px;top:153.38px;width:168px;height:35.8125px">Mind your hands around the shrine.</span><span class="sector-avatar-body" style="left:153.294px;top:192.63px;width:22.078125px;height:22.078125px"></span><span class="sector-wanderer-label" style="left:127.33px;top:188.052px;width:74px;height:14.546875px">Shrine Keeper</span></div>
+        <div class="sector-wanderer-figure"><span class="sector-avatar-body" style="left:276px;top:162px"></span><span class="sector-wanderer-label" style="left:250px;top:139px;width:74px">Tea Seller Ren</span></div>
+        <div class="sector-avatar-figure"><span class="sector-avatar-body" style="left:183px;top:223px"></span></div>
+        <div class="obstacle sector-life-point" style="left:106px;top:197px;width:48px;height:48px"></div>
+        <div class="obstacle sector-ground-landmark-label" style="left:212px;top:206px;width:58px;height:15px">Stronghold</div>
+        <div class="obstacle sector-ground-landmark-label" style="left:75px;top:130px;width:86px;height:15px">Heartwood Shrine</div>
+        <div class="obstacle" data-work-tool-clearance style="left:164px;top:212px;width:18px;height:25px"></div>
+        <div class="obstacle resource-world-node" style="left:137px;top:256px;width:54px;height:54px"></div>
+        </div></div>`}));
+    await page.goto('/__caption-layout');
+    const {labels:geometry,obstacles}=await page.evaluate(async()=>{
+        const {layoutWandererLabels}=await import('/src/lib/wanderer-label-layout.ts');
+        layoutWandererLabels(document.querySelector<HTMLElement>('.sector-wanderer-figure')!);
+        await new Promise<void>(resolve=>requestAnimationFrame(()=>resolve()));
+        const rect=(node:Element)=>{const r=node.getBoundingClientRect();return{x:r.x,y:r.y,width:r.width,height:r.height};};
+        return {labels:Array.from(document.querySelectorAll('.sector-wanderer-label,.sector-wanderer-bubble')).map(node=>({speech:node.classList.contains('sector-wanderer-bubble'),text:node.textContent,rect:rect(node),body:rect(node.parentElement!.querySelector('.sector-avatar-body')!)})),
+            obstacles:Array.from(document.querySelectorAll('.obstacle,.sector-avatar-body')).map(rect)};
+    });
+    writeFileSync(`${evidence}/${info.project.name}-greeting-geometry.json`,JSON.stringify({labels:geometry,obstacles},null,2));
+    await page.screenshot({path:`${evidence}/${info.project.name}-greeting-geometry.png`});
+    for(const {speech,rect:r,body:b} of geometry){
+        expect(r.x).toBeGreaterThanOrEqual(0);expect(r.y).toBeGreaterThanOrEqual(0);expect(r.x+r.width).toBeLessThanOrEqual(368);expect(r.y+r.height).toBeLessThanOrEqual(368);
+        if(!speech)expect(Math.hypot(Math.max(b.x-r.x-r.width,r.x-b.x-b.width,0),Math.max(b.y-r.y-r.height,r.y-b.y-b.height,0))).toBeLessThanOrEqual(28);
+        for(const other of geometry.filter(other=>other.rect!==r)){
+            const o=other.rect;expect(r.x<o.x+o.width&&r.x+r.width>o.x&&r.y<o.y+o.height&&r.y+r.height>o.y).toBe(false);
+        }
+        for(const o of obstacles)expect(r.x<o.x+o.width&&r.x+r.width>o.x&&r.y<o.y+o.height&&r.y+r.height>o.y,'captions leave authored obstacles and portraits clear').toBe(false);
+    }
+    await expect(page.getByText('Mind your hands around the shrine.',{exact:true})).toBeVisible();
+});
+
 for(const mode of ['round','weather and help','cached night','reduced motion'] as const)test(`Heartwood leaf work ${mode}: actual native caretaker, tool and approach remain coherent`,async({page},info)=>{
     test.setTimeout(240_000);
     const day=Math.floor(Date.now()/WORLD_DAY_MS)*WORLD_DAY_MS,start=day+5*WORLD_HOUR_MS;
