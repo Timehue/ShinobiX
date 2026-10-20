@@ -1019,18 +1019,18 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
-  e2e_village_stores:
-    name: CI / e2e-village-stores
+  e2e_village_stores_matrix:
+    name: CI / e2e-village-stores / ${{ matrix.shard }}-of-3
     needs: release_artifact
     if: ${{ always() }}
     runs-on: ubuntu-latest
-    # The recovery matrix exercises real admission timers on both viewports in
-    # addition to the existing economy, Academy and route journeys. The job's 24
-    # successful runs on 2026-10-13/14 took 23.3-28.5 min. The Hollow Gate pet
-    # duel step came after them; its four cases took 1.6 min locally, server
-    # start included. 35 leaves room for it and stays under the contract's
-    # 36-minute cap.
+    # Preserve all ten real-server commands while keeping setup plus journeys
+    # below the existing 35-minute ceiling. Every child is required by the aggregate.
     timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -1041,7 +1041,7 @@ jobs:
       - name: Initialize evidence
         run: |
           mkdir -p .ci-evidence/e2e-village-stores
-          printf 'sha=%s\nrun_id=%s\nrun_attempt=%s\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" > .ci-evidence/e2e-village-stores/provenance.txt
+          printf 'sha=%s\nrun_id=%s\nrun_attempt=%s\nshard=%s-of-3\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "${{ matrix.shard }}" > .ci-evidence/e2e-village-stores/provenance.txt
       - name: Require successful release artifact
         if: ${{ needs.release_artifact.result != 'success' }}
         run: |
@@ -1081,16 +1081,19 @@ jobs:
       # Keep the required check name stable while covering the shared server
       # routing and save lifecycle used by the economy and Academy journeys.
       - name: Live Express economy, Academy persistence and route wiring
+        if: ${{ matrix.shard == 1 }}
         run: npm run test:e2e:live --prefix shinobij.client -- village-stores-express.spec.ts first-session-onboarding-express.spec.ts server-route-smoke-express.spec.ts --project=chromium-desktop-live 2>&1 | tee .ci-evidence/e2e-village-stores/playwright.log
       # Each project creates 14 accounts including external healers and landing
       # restoration. Give each invocation a fresh server so the real 25/IP/15m
       # registration budget is respected while retaining every recovery case.
       - name: Live Express defeat, landing and daily recovery on desktop
+        if: ${{ matrix.shard == 1 }}
         env:
           PLAYWRIGHT_JSON_OUTPUT_NAME: ../.ci-evidence/e2e-village-stores/defeat-recovery-desktop.json
           PLAYWRIGHT_HTML_OUTPUT_DIR: ../.ci-evidence/e2e-village-stores/defeat-recovery-desktop-html
         run: npm run test:e2e:live --prefix shinobij.client -- first-defeat-recovery-express.spec.ts landing-style-routing.spec.ts daily-login-recovery-express.spec.ts --project=chromium-desktop-live --workers=1 --retries=0 --forbid-only --reporter=line,json,html --output=test-results/defeat-recovery-ci-desktop 2>&1 | tee .ci-evidence/e2e-village-stores/defeat-recovery-desktop.log
       - name: Live Express defeat, landing and daily recovery on mobile
+        if: ${{ matrix.shard == 2 }}
         env:
           PLAYWRIGHT_JSON_OUTPUT_NAME: ../.ci-evidence/e2e-village-stores/defeat-recovery-mobile.json
           PLAYWRIGHT_HTML_OUTPUT_DIR: ../.ci-evidence/e2e-village-stores/defeat-recovery-mobile-html
@@ -1098,20 +1101,25 @@ jobs:
       # Its own step, so its own server: registration is limited to 25 accounts
       # per IP per 15 minutes, and each recovery project has its own budget.
       - name: Live Express hospital ward and roaming Weekly Boss on desktop and mobile
+        if: ${{ matrix.shard == 3 }}
         run: npm run test:e2e:live --prefix shinobij.client -- mmorpg-behaviors-express.spec.ts --project=chromium-desktop-live --project=chromium-mobile-live --workers=2 --output=test-results/mmo-behaviors-ci 2>&1 | tee .ci-evidence/e2e-village-stores/mmo-behaviors.log
       - name: Live Express authored missions on desktop and mobile
+        if: ${{ matrix.shard == 3 }}
         run: npm run test:e2e:live --prefix shinobij.client -- authored-missions-express.spec.ts --project=chromium-desktop-live --project=chromium-mobile-live --output=test-results/authored-missions-ci 2>&1 | tee .ci-evidence/e2e-village-stores/authored-missions.log
       - name: Live Express PvP cancellation, settlement, ranked and Kage journeys
+        if: ${{ matrix.shard == 3 }}
         env:
           LIVE_E2E_REALTIME: '1'
         run: npm run test:e2e:live --prefix shinobij.client -- pvp-lifecycle-express.spec.ts ranked-queue-express.spec.ts kage-challenge-express.spec.ts --project=chromium-desktop-live --project=chromium-mobile-live --output=test-results/pvp-lifecycle-ci 2>&1 | tee .ci-evidence/e2e-village-stores/pvp-lifecycle.log
       # Wild pet binding rides on this server: the step registers 12 of the 25
       # accounts per IP that registration allows in 15 minutes.
       - name: Live Express gathering, recipes, crafting settlement and wild pet binding
+        if: ${{ matrix.shard == 2 }}
         env:
           LIVE_E2E_REALTIME: '1'
         run: npm run test:e2e:live --prefix shinobij.client -- resource-gathering.spec.ts recipes.spec.ts crafting-lifecycle.spec.ts wild-binding-express.spec.ts --project=chromium-desktop-live --project=chromium-mobile-live --workers=1 --retries=0 --forbid-only --output=test-results/fieldwork-crafting-ci 2>&1 | tee .ci-evidence/e2e-village-stores/fieldwork-crafting.log
       - name: Live Express Exchange and sector-war player journeys
+        if: ${{ matrix.shard == 3 }}
         run: npm run test:e2e:live --prefix shinobij.client -- sunscar-exchange-express.spec.ts sector-war-express.spec.ts --project=chromium-desktop-live --retries=1 --output=test-results/economy-war-journeys-ci 2>&1 | tee .ci-evidence/e2e-village-stores/economy-war-journeys.log
       # Two real clients on one realtime server: a desktop mover and a 390x844
       # touch observer that the spec opens itself, so the desktop project covers
@@ -1120,6 +1128,7 @@ jobs:
       # The tavern push journey is the same shape (a desktop listener and the
       # spec's own phone speaker) and needs the same realtime server.
       - name: Live Express two-client sector presence and tavern push
+        if: ${{ matrix.shard == 3 }}
         env:
           LIVE_E2E_REALTIME: '1'
         run: npm run test:e2e:live --prefix shinobij.client -- connected-sector-presence.spec.ts tavern-chat-push.spec.ts --project=chromium-desktop-live --workers=1 --retries=0 --forbid-only --output=test-results/sector-presence-ci 2>&1 | tee .ci-evidence/e2e-village-stores/sector-presence.log
@@ -1130,6 +1139,7 @@ jobs:
       # village state, and it registers one diver per case, 4 of the 25 accounts
       # per IP that registration allows in 15 minutes.
       - name: Live Express Hollow Gate pet duel on desktop and mobile
+        if: ${{ matrix.shard == 3 }}
         run: npm run test:e2e:live --prefix shinobij.client -- hollow-gate-pet-duel-express.spec.ts --project=chromium-desktop-live --project=chromium-mobile-live --workers=1 --retries=0 --forbid-only --output=test-results/hollow-gate-pet-duel-ci 2>&1 | tee .ci-evidence/e2e-village-stores/hollow-gate-pet-duel.log
       - name: Retain Village Stores browser evidence
         if: always()
@@ -1137,11 +1147,36 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           include-hidden-files: true
-          name: evidence-e2e-village-stores-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          name: evidence-e2e-village-stores-${{ matrix.shard }}-of-3-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             .ci-evidence/e2e-village-stores/
             shinobij.client/playwright-report/
             shinobij.client/test-results/
+          if-no-files-found: warn
+          retention-days: 14
+
+  e2e_village_stores:
+    name: CI / e2e-village-stores
+    needs: e2e_village_stores_matrix
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require all live Express shards
+        env:
+          VILLAGE_SHARDS: ${{ needs.e2e_village_stores_matrix.result }}
+        run: |
+          mkdir -p .ci-evidence/e2e-village-stores-aggregate
+          printf 'live-express-shards=%s\n' "$VILLAGE_SHARDS" | tee .ci-evidence/e2e-village-stores-aggregate/results.log
+          test "$VILLAGE_SHARDS" = success
+      - name: Retain live Express aggregate evidence
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v7
+        with:
+          include-hidden-files: true
+          name: evidence-e2e-village-stores-aggregate-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .ci-evidence/e2e-village-stores-aggregate/
           if-no-files-found: warn
           retention-days: 14
 
