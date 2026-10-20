@@ -3,7 +3,7 @@ import { uiAuditE2ePort } from './e2e-ports';
 const port = process.env.HOLLOW_GATE_RETURN_PORT ?? uiAuditE2ePort();
 const baseURL = `http://127.0.0.1:${port}`;
 export default defineConfig({
-    testDir: './e2e', testMatch: '**/hollow-gate-return.spec.ts', workers: 1, retries: 0,
+    testDir: './e2e', testMatch: ['**/hollow-gate-return.spec.ts', '**/clan-boss-result.spec.ts', '**/arena-practice.spec.ts'], workers: 1, retries: 0,
     timeout: 60_000, expect: { timeout: 15_000 }, reporter: 'line', outputDir: 'test-results/hollow-gate-return',
     use: { baseURL, serviceWorkers: 'block', trace: 'retain-on-failure', screenshot: 'only-on-failure',
         contextOptions: { reducedMotion: 'reduce' } },

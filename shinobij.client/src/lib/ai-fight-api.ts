@@ -49,6 +49,7 @@ export async function startAiFight(params: {
     playerName: string;
     opponentId: string;
     opponentLevel: number;
+    practiceLevel?: number;
     battleKind: AiFightBattleKind;
     sector?: number;
     worldExploreRequestId?: string;
@@ -69,6 +70,7 @@ export async function startAiFight(params: {
                     opponentId: params.opponentId,
                     opponentLevel: params.opponentLevel,
                 } : {}),
+                ...(params.battleKind === "practice" && params.practiceLevel !== undefined ? { practiceLevel: params.practiceLevel } : {}),
                 ...(typeof params.sector === "number" ? { sector: params.sector } : {}),
                 ...(params.worldExploreRequestId ? { worldExploreRequestId: params.worldExploreRequestId } : {}),
                 ...(params.raidToken ? { raidToken: params.raidToken } : {}),

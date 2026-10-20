@@ -22,7 +22,7 @@
 // host component so they share the request singleton — disable the Fast-Refresh
 // "only export components" rule for that deliberate mix.
 /* eslint-disable react-refresh/only-export-components */
-import { useEffect, useId, useLayoutEffect, useRef, useState, type RefObject } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { useBodyScrollLock } from "../lib/useBodyScrollLock";
 import { createAlertRouter } from "../lib/slow-down-notice";
@@ -430,6 +430,8 @@ export type GameConfirmOptions = {
     cancelLabel?: string;
     danger?: boolean;       // red Confirm button for destructive actions
     initialFocus?: "confirm" | "cancel";
+    /** Cancel a confirmation when the scene that requested it is interrupted. */
+    signal?: AbortSignal;
 };
 
 /** A destructive confirm opens on Cancel, so a stray Enter cannot accept it. An explicit initialFocus wins. */
@@ -445,6 +447,7 @@ type ConfirmRequest = {
 };
 
 let activeConfirmListener: ((req: ConfirmRequest) => void) | null = null;
+let cancelConfirmListener: ((req: ConfirmRequest) => void) | null = null;
 let pendingConfirms: ConfirmRequest[] = [];
 
 /**
@@ -454,13 +457,27 @@ let pendingConfirms: ConfirmRequest[] = [];
  * awaiting callers never hang.
  */
 export function gameConfirm(message: string, opts?: GameConfirmOptions): Promise<boolean> {
+    if (opts?.signal?.aborted) return Promise.resolve(false);
     return new Promise<boolean>((resolve) => {
+        let settled = false;
+        const finish = (ok: boolean) => {
+            if (settled) return;
+            settled = true;
+            opts?.signal?.removeEventListener("abort", cancel);
+            resolve(ok && !opts?.signal?.aborted);
+        };
         const req: ConfirmRequest = {
             message: String(message ?? ""),
             opts,
-            resolve,
+            resolve: finish,
             restoreFocus: typeof document === "undefined" ? null : document.activeElement as HTMLElement | null,
         };
+        const cancel = () => {
+            pendingConfirms = pendingConfirms.filter(request => request !== req);
+            cancelConfirmListener?.(req);
+            finish(false);
+        };
+        opts?.signal?.addEventListener("abort", cancel, { once: true });
         if (activeConfirmListener) activeConfirmListener(req);
         else pendingConfirms.push(req);
     });
@@ -483,6 +500,7 @@ export function GameConfirmHost() {
     }, [current]);
 
     useEffect(() => {
+        cancelConfirmListener = (req) => setQueue(q => q.filter(request => request !== req));
         activeConfirmListener = (req) => setQueue((q) => {
             if (q.length === 0) restoreFocusRef.current = req.restoreFocus;
             return [...q, req];
@@ -497,20 +515,22 @@ export function GameConfirmHost() {
         }
         return () => {
             activeConfirmListener = null;
+            cancelConfirmListener = null;
             // Resolve anything still open as cancelled so awaiting callers unblock.
             setQueue((q) => { q.forEach((r) => r.resolve(false)); return []; });
         };
     }, []);
 
-    const settle = (ok: boolean) =>
+    const settle = useCallback((ok: boolean) =>
         setQueue((q) => {
-            if (q.length === 0) return q;
-            q[0].resolve(ok);
+            // A cancelled dialog's old click/keydown must not accept its successor.
+            if (!current || q[0] !== current) return q;
+            current.resolve(ok);
             return q.slice(1);
-        });
+        }), [current]);
 
     useLayoutEffect(() => {
-        if (queue.length === 0) return;
+        if (!current) return;
         // Escape = cancel. Enter activates the preferred, focused button, so
         // no window-level Enter handler is needed
         // (which also avoids the double-settle the alert host had to guard against).
@@ -519,7 +539,7 @@ export function GameConfirmHost() {
         }
         window.addEventListener("keydown", onKey);
         return () => window.removeEventListener("keydown", onKey);
-    }, [queue.length]);
+    }, [current, settle]);
 
     useBodyScrollLock(queue.length > 0);
     useDialogFocusTrap(queue.length > 0, cardRef, restoreFocusRef);

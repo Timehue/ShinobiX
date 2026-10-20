@@ -9,6 +9,7 @@ import { cleanOrdinaryPveEncounter, rollOrdinaryPveEncounter, type OrdinaryPveEn
 import { ordinaryAiProfile } from './_ordinary-ai-encounter.js';
 import { computeAiFightBaseReward } from './_ai-fight-token.js';
 import { WORLD_EXPLORE_RECEIPT_TTL_SECONDS } from '../world/_explore-authority.js';
+import { MAX_LEVEL } from '../_xp-engine.js';
 
 export type GenericAiFightBattleKind = 'practice' | 'explore' | 'raidAi' | 'dungeon';
 
@@ -23,7 +24,7 @@ export type GenericAiFightAuthority = {
     raidMissionId?: string;
     raidTokenKey?: string;
     raidTokenRecord?: RaidAiTokenRecord;
-    /** Server-built profile/scaling for a dedicated adapter. Never request data. */
+    /** Server-owned profile/scaling, including the bounded consensual practice choice. */
     profile?: AiFightProfile;
     scaling?: AiFightScaling;
     dungeonRunToken?: string;
@@ -213,7 +214,15 @@ export async function resolveGenericAiFightAuthority(params: {
     const requestedOpponentId = cleanProfileId(params.body.opponentId);
     if (battleKind === 'practice') {
         if (!requestedOpponentId) throw new Error('A published practice opponent is required.');
-        return { battleKind, opponentId: requestedOpponentId };
+        // Arena explicitly offers a level selector. Other practice adapters
+        // (authored events, Dojo Circuit) omit it and retain their sealed kit.
+        // Never reuse legacy opponentLevel: road/raid/dungeon requests carry
+        // that display field too and cannot choose their encounter difficulty.
+        const level = params.body.practiceLevel;
+        if (level !== undefined && (typeof level !== 'number' || !Number.isInteger(level) || level < 1 || level > MAX_LEVEL)) {
+            throw new Error(`Practice level must be an integer from 1 to ${MAX_LEVEL}.`);
+        }
+        return { battleKind, opponentId: requestedOpponentId, ...(level !== undefined ? { scaling: { level } } : {}) };
     }
     if (battleKind === 'dungeon') {
         return resolveDungeonAiFightAuthority({

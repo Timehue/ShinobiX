@@ -49,6 +49,8 @@ export async function recoverHollowGateRunOnBoot(params: HollowGateRecoveryParam
 
 type HollowGateEntryParams = {
     isCurrent?: () => boolean;
+    canEnter?: () => boolean;
+    signal?: AbortSignal;
     currentRunToken: () => string | undefined;
     commitCharacter: VersionedCharacterCommit;
     eventCfg?: HollowGateEventConfig;
@@ -72,13 +74,20 @@ export async function enterHollowGateShrineFlow(params: HollowGateEntryParams) {
         setHollowGateHiddenChamber, setCharacter, setCurrentBiome, setCurrentWeather,
         setScreen, setHollowGateIntroPage, pushHollowGateLog,
     } = params;
+    const interrupted = () => params.isCurrent?.() === false || params.canEnter?.() === false || params.signal?.aborted === true;
+    const preserveStartedRun = (start: Awaited<ReturnType<typeof startHollowGateServerRun>>) => {
+        if (start?.character && params.isCurrent?.() !== false) {
+            params.commitCharacter(start.character, start._saveVersion);
+        }
+    };
+    if (interrupted()) return;
     if (!requireServerSettlement("hollowGateRun")) return;
     if (!character) return;
     if (character.hp <= 0) {
         const token = character.hollowGateRun?.runToken ?? character.lastHollowGateStart?.token;
         if (params.currentRunToken() !== token) return;
-        await recoverHollowGateRunLazily({ ...params, character });
-        if (params.isCurrent?.() !== false && params.currentRunToken() === token) setScreen("hospital");
+        await recoverHollowGateRunLazily({ ...params, character, isCurrent: () => !interrupted() });
+        if (!interrupted() && params.currentRunToken() === token) setScreen("hospital");
         return;
     }
     // A live run whose board never reached the save (a reload mid-run): rebuild
@@ -87,11 +96,11 @@ export async function enterHollowGateShrineFlow(params: HollowGateEntryParams) {
     // replaying the start marker; terminal and unreadable responses stop entry.
     if (!character.hollowGateRun && character.lastHollowGateStart?.token) {
         const recovered = await recoverHollowGateRunLazily({
-            ...params, character,
+            ...params, character, isCurrent: () => !interrupted(),
         });
-        if (recovered !== 'gone' || params.currentRunToken() !== character.lastHollowGateStart.token) return;
+        if (interrupted() || recovered !== 'gone' || params.currentRunToken() !== character.lastHollowGateStart.token) return;
     }
-    if (params.isCurrent?.() === false) return;
+    if (interrupted()) return;
     // Event gates reshape the run (fewer floors / smaller board / bespoke
     // boss) and may relax the entry gates; the standard shrine when absent.
     const variant = eventCfg ? variantFromEventConfig(eventCfg) : undefined;
@@ -110,41 +119,23 @@ export async function enterHollowGateShrineFlow(params: HollowGateEntryParams) {
             variant?.id,
             pending.requestId,
         );
+        if (interrupted()) { preserveStartedRun(recovered); return; }
     }
     if (pending?.requestId && recovered?.reason !== "hollow-gate-start-spent") {
         if (!recovered?.token || recovered.token !== pending.token) {
             alert("Your paid Hollow Gate start could not be recovered safely. No new key was spent; retry after reconnecting.");
             return;
         }
-        const recoveredBase = recovered.character ?? character;
-        const run = await buildHollowGateRunFromStart(recovered, variant, recoveredBase).catch(() => null);
-        if (!run) {
-            alert(HOLLOW_GATE_FLOOR_LOAD_FAILED);
-            return;
-        }
-        const floorSeal = await sealHollowGateFloor(character.name, recovered.token, run);
-        const sealedRun = { ...run, wanderers: floorSeal.wanderers, floorFeatures: floorSeal.floorFeatures, floorFeaturesVersion: floorSeal.floorFeatures ? 1 as const : undefined, detourTileIndex: floorSeal.detour?.tileIndex, detourExtraSteps: floorSeal.detour?.extraSteps, riftSignalTileIndex: floorSeal.riftSignal?.tileIndex };
-        setHollowGateRun(sealedRun);
-        setHollowGateLog([
-            "You recover the descent interrupted at the broken torii. The same sealed key record restores your route.",
-            ...(!floorSeal.ok ? [FLOOR_SEAL_PENDING_LINE] : []),
-        ]);
-        setHollowGateEvent(null);
-        setHollowGateHiddenChamber(null);
-        setCharacter({ ...recoveredBase, hollowGateRun: sealedRun });
-        setCurrentBiome("shadow");
-        setCurrentWeather(weatherForBiome("shadow"));
-        setScreen("hollowGateShrine");
-        attachStartedRun(recovered, { playerName: character.name, setRun: setHollowGateRun, setCharacter, setEvent: setHollowGateEvent, pushLog: pushHollowGateLog });
+        await publishStartedRun(recovered, recovered.character ?? character);
         return;
     }
     // Restore an in-progress run, if any. Resuming a run is always free —
     // the key was already consumed when the run was started. The Character
     // normalizer resets daily counters at midnight UTC.
     if (character.hollowGateRun && !character.hollowGateRun.completed) {
-        const recovered = await recoverHollowGateRunLazily({ character, isCurrent: params.isCurrent, currentRunToken: params.currentRunToken, commitCharacter: params.commitCharacter, setHollowGateRun, setHollowGateLog,
+        const recovered = await recoverHollowGateRunLazily({ character, isCurrent: () => !interrupted(), currentRunToken: params.currentRunToken, commitCharacter: params.commitCharacter, setHollowGateRun, setHollowGateLog,
             setHollowGateEvent, setHollowGateHiddenChamber, setCharacter, setCurrentBiome, setCurrentWeather, setScreen, pushHollowGateLog });
-        if (recovered !== "recovered" && recovered !== 'ended' && params.isCurrent?.() !== false) alert("Your unfinished Hollow Gate run could not be read safely. Reconnect and retry; no new run was started.");
+        if (recovered !== "recovered" && recovered !== 'ended' && !interrupted()) alert("Your unfinished Hollow Gate run could not be read safely. Reconnect and retry; no new run was started.");
         return;
     }
 
@@ -176,8 +167,8 @@ export async function enterHollowGateShrineFlow(params: HollowGateEntryParams) {
     }
     const floorsLine = eventCfg ? `\nEvent gate: ${hollowGateRunMaxFloor({ variant })} floor${hollowGateRunMaxFloor({ variant }) === 1 ? "" : "s"}, final boss: ${hollowGateBossDisplayName({ variant })}.` : "";
     const keyLine = keyCost > 0 ? `This consumes 1 Hollow Gate Key (${ownedKeys} owned). Keys are one-time use.` : "Entry is free for this event.";
-    const ok = await gameConfirm(`Enter the ${gateName}?\n${floorsLine}\n${keyLine}\nDaily runs: ${runsToday}/${DAILY_HOLLOW_GATE_CAP}.`, { title: gateName, confirmLabel: "Enter" });
-    if (!ok) return;
+    const ok = await gameConfirm(`Enter the ${gateName}?\n${floorsLine}\n${keyLine}\nDaily runs: ${runsToday}/${DAILY_HOLLOW_GATE_CAP}.`, { title: gateName, confirmLabel: "Enter", signal: params.signal });
+    if (!ok || interrupted()) return;
 
     // Server daily-cap HARD-block (audit #7): with the server-auth flag on, ask the
     // server BEFORE spending the Key — a 'daily-cap' reply (e.g. a backdated reset
@@ -186,6 +177,7 @@ export async function enterHollowGateShrineFlow(params: HollowGateEntryParams) {
     // The settle ledger scales with floorDepth — a short event gate
     // declares its own depth so settlement matches the shorter run.
     const serverStart = await startHollowGateServerRun(character.name, hollowGateRunMaxFloor({ variant }), variant?.id);
+    if (interrupted()) { preserveStartedRun(serverStart); return; }
     if (serverStart?.reason === "daily-cap") {
         alert("The daily entry seal has reached its limit. Return at dawn.");
         return;
@@ -197,39 +189,35 @@ export async function enterHollowGateShrineFlow(params: HollowGateEntryParams) {
         return;
     }
 
-    // The returned committed save contains the exact server-side key debit.
-    const afterKey = serverStart.character;
+    await publishStartedRun(serverStart, serverStart.character, { keyCost, runsToday, todayKey });
 
-    const run = await buildHollowGateRunFromStart(serverStart, variant, character).catch(() => null);
-    if (!run) {
-        alert(HOLLOW_GATE_FLOOR_LOAD_FAILED);
-        return;
-    }
-    const floorSeal = await sealHollowGateFloor(character.name, serverStart.token, run);
-    const sealedRun = { ...run, wanderers: floorSeal.wanderers, floorFeatures: floorSeal.floorFeatures, floorFeaturesVersion: floorSeal.floorFeatures ? 1 as const : undefined, detourTileIndex: floorSeal.detour?.tileIndex, detourExtraSteps: floorSeal.detour?.extraSteps, riftSignalTileIndex: floorSeal.riftSignal?.tileIndex };
-    setHollowGateRun(sealedRun);
-    setHollowGateLog([
-        keyCost > 0
+    // Fresh and replayed starts share the same awaited publication boundary.
+    // Recovery keeps its original counters and does not replay the entry intro.
+    async function publishStartedRun(start: NonNullable<Awaited<ReturnType<typeof startHollowGateServerRun>>>, base: Character,
+        fresh?: { keyCost: number; runsToday: number; todayKey: string }) {
+        const run = await buildHollowGateRunFromStart(start, variant, fresh ? character! : base).catch(() => null);
+        if (interrupted()) { preserveStartedRun(start); return; }
+        if (!run) { alert(HOLLOW_GATE_FLOOR_LOAD_FAILED); return; }
+        const floorSeal = await sealHollowGateFloor(character!.name, start.token!, run);
+        if (interrupted()) { preserveStartedRun(start); return; }
+        const sealedRun = { ...run, wanderers: floorSeal.wanderers, floorFeatures: floorSeal.floorFeatures,
+            floorFeaturesVersion: floorSeal.floorFeatures ? 1 as const : undefined, detourTileIndex: floorSeal.detour?.tileIndex,
+            detourExtraSteps: floorSeal.detour?.extraSteps, riftSignalTileIndex: floorSeal.riftSignal?.tileIndex };
+        setHollowGateRun(sealedRun);
+        setHollowGateLog([fresh ? fresh.keyCost > 0
             ? "You press a Hollow Gate Key against the broken torii. The seal bends. You descend."
-            : `The ${gateName} stands open because its event seal is already released. You descend.`,
-        ...(!floorSeal.ok ? [FLOOR_SEAL_PENDING_LINE] : []),
-    ]);
-    setHollowGateEvent(null);
-    setHollowGateHiddenChamber(null);
-    // First-time entry shows the intro VN (3 pages) before the grid is interactable.
-    const isFirstEntry = !!variant || !character.hollowGateIntroSeen;
-    setHollowGateIntroPage(isFirstEntry ? 0 : null);
-    setCharacter({
-        ...afterKey,
-        hollowGateRun: sealedRun,
-        ...(!variant ? { hollowGateIntroSeen: true } : {}),
-        dailyHollowGateRuns: runsToday + 1,
-        lastDailyReset: todayKey,
-    });
-    setCurrentBiome("shadow");
-    setCurrentWeather(weatherForBiome("shadow"));
-    setScreen("hollowGateShrine");
-    // Attach the server token (already minted above, pre-Key) + present the augment
-    // picker. No-op without a token (flag off / unreachable) — the token-first fallback.
-    attachStartedRun(serverStart, { playerName: character.name, setRun: setHollowGateRun, setCharacter, setEvent: setHollowGateEvent, pushLog: pushHollowGateLog });
+            : `The ${gateName} stands open because its event seal is already released. You descend.`
+            : "You recover the descent interrupted at the broken torii. The same sealed key record restores your route.",
+            ...(!floorSeal.ok ? [FLOOR_SEAL_PENDING_LINE] : [])]);
+        setHollowGateEvent(null);
+        setHollowGateHiddenChamber(null);
+        if (fresh) setHollowGateIntroPage(variant || !character!.hollowGateIntroSeen ? 0 : null);
+        setCharacter({ ...base, hollowGateRun: sealedRun, ...(fresh ? {
+            ...(!variant ? { hollowGateIntroSeen: true } : {}), dailyHollowGateRuns: fresh.runsToday + 1, lastDailyReset: fresh.todayKey,
+        } : {}) });
+        setCurrentBiome("shadow");
+        setCurrentWeather(weatherForBiome("shadow"));
+        setScreen("hollowGateShrine");
+        attachStartedRun(start, { playerName: character!.name, setRun: setHollowGateRun, setCharacter, setEvent: setHollowGateEvent, pushLog: pushHollowGateLog });
+    }
 }
