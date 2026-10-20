@@ -26,6 +26,13 @@
     text-align: center; pointer-events: none; text-shadow: 0 1px 1px #000;
 }
 .sector-ground-landmark:focus-visible, .sector-village-entrance:focus-visible { outline: 2px solid #ffe1a0; outline-offset: 2px; }
+/* Shrine approaches contain the painted lamps; keep the title above the roof. */
+.sector-ground-shrine .sector-ground-landmark-label { top: 0; transform: translate(-50%, -100%); }
+/* The dock loading crates are below this building. Keep their goods visible. */
+[data-world-chunk="2"] .sector-ground-stronghold .sector-ground-landmark-label { top: 0; transform: translate(-50%, -100%); }
+@media (max-width: 600px), (max-height: 600px) {
+    [data-world-chunk="2"] .sector-ground-stronghold .sector-ground-landmark-label { left: 15%; top: 25%; }
+}
 @media (hover: hover) { .sector-ground-landmark.is-active:hover img { filter: brightness(1.1); } }
 .sector-ground-shrine.shrine-tier-5 img { filter: drop-shadow(0 0 4px #f0d38066); }
 .sector-village-entrance { transform: translate(-50%, -50%); }

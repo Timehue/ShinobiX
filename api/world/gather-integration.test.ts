@@ -5,6 +5,7 @@ import { syncBuiltinESMExports } from 'node:module';
 import { sealGatherFind } from './_gather.js';
 import { countOwned } from '../craft/_forge.js';
 import { MAX_PENDING_FINDS } from '../../shared/gathering.js';
+import { worldPositionModel } from '../../shared/continuous-world-layout.js';
 process.env.NODE_ENV='test';
 process.env.SHINOBIX_QA_MEMORY_KV='1';
 process.env.SESSION_SECRET='gather-integration-test-secret';
@@ -91,6 +92,8 @@ test('one atomic explore seals the find, consumes one pool slot, and replays wit
     // Date alike) for the whole check.
     t.mock.timers.enable({apis:['Date'],now:Date.now()});
     const player='gatherintegrationatomic';await seed(player,{itemStacks:[{itemId:'hunt-beast-meat',count:3},{itemId:'gather-iron-sand',count:3},{itemId:'gather-heartwood-bark',count:1},{itemId:'gather-binding-fiber',count:2}]});
+    const cursor=worldPositionModel().fallback(33,5)!;assert(online.commitWorldPosition(player,cursor,online.get(player)!.movementSeq??0));
+    online.get(player)!.lastSeenAt=Date.now(); // The store captures its clock before this test freezes Date.
     const {sectorPoolKey,cleanSectorPoolRow}=await import('./_sector-pool.js');
     const poolKey=sectorPoolKey(33,Date.now());const beforePool=cleanSectorPoolRow(await kv.get(poolKey)).explores;
     const original=crypto.randomInt;
@@ -102,6 +105,7 @@ test('one atomic explore seals the find, consumes one pool slot, and replays wit
     finally{crypto.randomInt=original;syncBuiltinESMExports();}
     assert.equal(first!.status,200);
     assert.equal((first!.body.outcome as Json).kind,'gather');
+    assert(Number.isInteger(((first!.body.outcome as Json).find as Json).groundTile),'real exploration seals the accepted location rather than a request-body tile');
     const c=first!.body.character as Json;assert.equal(c.ryo,99);assert.equal(c.serverExploresToday,1);
     assert.equal((c.pendingGatherFinds as unknown[]).length,1);
     assert.equal(cleanSectorPoolRow(await kv.get(poolKey)).explores,beforePool+1);

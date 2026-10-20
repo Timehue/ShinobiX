@@ -1,0 +1,61 @@
+{
+  "sector": 44,
+  "artKey": 10,
+  "key": "ancients-dormant-shrine-v1",
+  "provider": "built-in image_gen",
+  "method": "Full-sector generated edits admitted only at the four authored shrine lamp areas; protected original architecture and all other terrain remain exact before compression.",
+  "areas": [
+    {
+      "left": 569,
+      "top": 819,
+      "width": 54,
+      "height": 54
+    },
+    {
+      "left": 733,
+      "top": 819,
+      "width": 54,
+      "height": 54
+    },
+    {
+      "left": 569,
+      "top": 895,
+      "width": 54,
+      "height": 54
+    },
+    {
+      "left": 733,
+      "top": 895,
+      "width": 54,
+      "height": 54
+    }
+  ],
+  "protected": [
+    {
+      "left": 601,
+      "top": 689,
+      "width": 168,
+      "height": 146
+    },
+    {
+      "left": 650,
+      "top": 834,
+      "width": 62,
+      "height": 20
+    }
+  ],
+  "changedOutside": 0,
+  "baseSha256": "6706e1b023774c664023481d0ef5c15cf73b13e5e0ab4dd8c68b930d368839f2",
+  "sourceHashes": {
+    "unlit": "3ae1b3d859da54231816b0df359543c1ea3b15e7d38e8806b56fdbbc831a0a6f",
+    "lit": "c3d1c25d4e9df01fb8c9ea1d08510110d466b3e7681ae8795f5e5701a4a4b76e"
+  },
+  "deliveredSha256": "562726c624b21fef0ab09d734fa1fb96d3da929a0e1261a78c56b3b5b80dc3f1",
+  "bytes": 299878,
+  "prompts": "output/living-world/regional-shrine-image-prompts.json",
+  "visualReview": "passed: full-floor and actual desktop/phone scene review; authored keeper/visitor posts leave the painted lamps and walking approach clear",
+  "evidence": [
+    "output/living-world/browser/desktop-regional-shrine-ancients-dormant.png",
+    "output/living-world/browser/phone-regional-shrine-ancients-dormant.png"
+  ]
+}

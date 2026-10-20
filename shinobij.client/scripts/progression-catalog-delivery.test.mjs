@@ -66,6 +66,29 @@ test('literal packing refuses executable expressions and leaves unrelated module
     assert.equal(progressionCatalogDelivery().transform('const value = 1;', '/shared/other.ts'), undefined);
 });
 
+test('world catalog delivery retains every card, reviewed effect, reckoning and technique description', async () => {
+    for (const [relative, name] of [
+        ['../../shared/tile-cards.ts', 'shinobiTileCards'],
+        ['../../shared/chronicle-duel.ts', 'REVIEWED_MONSTER_EFFECTS'],
+        ['../src/data/story-reckonings.ts', 'storyReckonings'],
+        ['../src/data/jutsu.ts', 'nonBloodlineFlavor'],
+    ]) {
+        const source = readFileSync(new URL(relative, import.meta.url), 'utf8');
+        const parsed = ts.createSourceFile('catalog.ts', source, ts.ScriptTarget.Latest, true);
+        const declaration = parsed.statements.flatMap(statement => ts.isVariableStatement(statement) ? [...statement.declarationList.declarations] : [])
+            .find(binding => binding.name.getText(parsed) === name);
+        const isolated = `export const ${name} = ${declaration.initializer.getText(parsed)};`;
+        const original = (await moduleFrom(isolated))[name];
+        const packed = progressionCatalogDelivery().transform(isolated, relative.replace('../../shared/', '/shared/').replace('../src/', '/src/')).code;
+        const delivered = (await moduleFrom(packed))[name];
+        assert.deepEqual(delivered, original);
+        assert.equal(Object.isFrozen(delivered), Object.isFrozen(original));
+        assert.deepEqual(Object.keys(delivered), Object.keys(original));
+        assert.deepEqual(staticCatalogValue(source, name), original);
+        assert(packed.length < isolated.length - 6000);
+    }
+});
+
 test('pet identities and legacy technique rows pack exactly with safe scalar constants', async () => {
     for (const [relative, name, minimum] of [
         ['../../shared/pet-tactics-catalog.ts', 'PET_TACTICS_IDENTITIES', 4500],

@@ -19,6 +19,7 @@
  */
 
 import { isPlayableWildSector } from '../../shared/sector-geo.js';
+import { shrineTier } from '../../shared/shrines.js';
 
 export const TRAIL_SIGN_TTL_MS = 72 * 60 * 60 * 1000;
 export const MAX_SIGNS_PER_SECTOR = 8;
@@ -49,6 +50,8 @@ export type ShrineState = {
     topWeek: ShrineOffering[];
     lastWeek: { week: string; topWeek: ShrineOffering[] } | null;
     updatedAt: number;
+    /** First supported tier, written with the offering; later gifts preserve it. */
+    kindledAt?: number;
     /**
      * Offering receipts (api/_save-debit-saga.ts): proof, written with the
      * offering itself, that a request id was already credited here. Server-only;
@@ -161,6 +164,7 @@ export function parseShrineState(value: unknown): ShrineState {
             ? { week: lastWeekRaw.week, topWeek: offerings(lastWeekRaw.topWeek) }
             : null,
         updatedAt: Math.max(0, Math.floor(Number(raw.updatedAt)) || 0),
+        ...(Number.isSafeInteger(raw.kindledAt)&&raw.kindledAt!>0?{kindledAt:raw.kindledAt}:{}),
         ...(Array.isArray(raw.settlementReceipts) ? { settlementReceipts: raw.settlementReceipts } : {}),
     };
 }
@@ -186,6 +190,7 @@ export function applyOffering(state: ShrineState, name: string, amount: number, 
         topWeek: board.slice(0, TOP_OFFERERS_KEPT),
         lastWeek,
         updatedAt: now,
+        ...(state.kindledAt?{kindledAt:state.kindledAt}:shrineTier(state.total)===0&&shrineTier(state.total+amount)>0?{kindledAt:now}:{}),
         ...(state.settlementReceipts ? { settlementReceipts: state.settlementReceipts } : {}),
     };
 }

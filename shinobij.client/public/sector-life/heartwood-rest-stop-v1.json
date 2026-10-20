@@ -1,0 +1,21 @@
+{
+  "sector": 15,
+  "artKey": 42,
+  "provider": "built-in image_gen",
+  "method": "Full-sector painted edit; exact-base composition outside the authored area. No independent prop sprites.",
+  "source": "output/living-world/painted/sources/heartwood-rest-stop-v1-provider.png",
+  "sourceSha256": "48876b76654d177ba768c34a9e2c4f8eb7a4b1d93222adda26614125ae69b031",
+  "baseSha256": "4690023a96dcbde3354e0d23543a977b4131deaf11401d89482a3a276f909060",
+  "deliveredSha256": "5c6b769560de3cb9109370fabd27d5b2c24620c8439fe42c52da1b8805b02798",
+  "box": {
+    "left": 700,
+    "top": 620,
+    "width": 155,
+    "height": 175
+  },
+  "changedOutside": 0,
+  "bytes": 211678,
+  "visualReview": "reviewed-in-game: purposeful staff, established NPC figures, matching terrain and ground contact",
+  "prompt": "Paint one tiny weathered tea/rest spot east of the existing southern shrine courtyard. Match the original overhead camera, lighting, materials and ground contact. Preserve all roads, entrances, buildings and frame. No people or UI.",
+  "reviewEvidence": "output/living-world/browser/desktop-sector-15-aftermath.png"
+}
