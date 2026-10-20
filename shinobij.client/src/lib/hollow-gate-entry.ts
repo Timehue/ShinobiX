@@ -22,7 +22,7 @@ export { reportHollowGateEntryFailure } from "./hollow-gate-entry-failure";
 type SetState<T> = Dispatch<SetStateAction<T>>;
 
 /** The run log line while the server has not sealed the floor (it refuses every move until it does). */
-const FLOOR_SEAL_PENDING_LINE = "This floor is not sealed yet, so you cannot move. Reconnect to finish the seal.";
+const FLOOR_SEAL_PENDING_LINE = "This floor is still loading from the server. Reconnect before moving.";
 
 /**
  * recoverHollowGateRun, loaded on demand: a mid-run reload is rare, so its
@@ -207,7 +207,7 @@ export async function enterHollowGateShrineFlow(params: HollowGateEntryParams) {
         setHollowGateLog([fresh ? fresh.keyCost > 0
             ? "You press a Hollow Gate Key against the broken torii. The seal bends. You descend."
             : `The ${gateName} stands open because its event seal is already released. You descend.`
-            : "You recover the descent interrupted at the broken torii. The same sealed key record restores your route.",
+            : "You resume your interrupted descent at the broken torii. Your route is restored without spending another key.",
             ...(!floorSeal.ok ? [FLOOR_SEAL_PENDING_LINE] : [])]);
         setHollowGateEvent(null);
         setHollowGateHiddenChamber(null);

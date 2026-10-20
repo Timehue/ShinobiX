@@ -22,7 +22,7 @@ describe("Academy first-session wiring", () => {
     });
 
     it("persists each beat only after its explicit acknowledgement", () => {
-        assert.match(momentsSource, /doneLabel="Keep the vow"[\s\S]*persistMilestone\(props, "incident"\)/);
+        assert.match(momentsSource, /doneLabel="Continue to recovery"[\s\S]*persistMilestone\(props, "incident"\)/);
         assert.match(momentsSource, /doneLabel="Return with the evidence"[\s\S]*persistMilestone\(props, "trace", props\.currentSector\)/);
         assert.match(momentsSource, /saveAction\("seal"\)[\s\S]*Accept the Field Seal/);
         assert.match(momentsSource, /const finish = async \(screen: Screen, route\?: FirstContractRoute, intent\?: "openAwakening"\)[\s\S]*saveAction\("complete", route\)/);

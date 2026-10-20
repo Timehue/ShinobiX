@@ -183,7 +183,7 @@ function WildPetBindingView({
                 <span className="wild-binding-intro-art-label">WILD COMPANION</span>
             </div>
             <div className="wild-binding-intro-copy">
-                <p className="wild-binding-eyebrow">WILD ENCOUNTER / SEALED DISCOVERY</p>
+                <p className="wild-binding-eyebrow">WILD COMPANION ENCOUNTER</p>
                 <h2>{pet.name}</h2>
                 <p className="wild-binding-intro-lead">A wild {pet.rarity} companion blocks the trail. Face it, lower its Resolve, then commit a Beast Seal before its HP reaches zero.</p>
                 {pet.trait && wildTraitHint(pet.trait) && <p className="wild-binding-intro-trait"><span>FIELD CLUE · {pet.trait}</span>{wildTraitHint(pet.trait)}</p>}

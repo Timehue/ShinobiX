@@ -706,7 +706,7 @@
 }
 .profile-page-card .stat-group .stat-grid {
     display: grid !important;
-    grid-template-columns: 1fr 1fr !important;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr)) !important;
     gap: 8px !important;
 }
 

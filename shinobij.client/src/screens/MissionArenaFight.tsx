@@ -709,7 +709,7 @@ export function MissionArenaFight({
     const hasGateCombatants = !!hollowGate && !!enemy && !!myActor;
     const gateDirective = hasGateCombatants && gateFloor != null && gateKind && gateEnemyHp != null && gateEnemyMaxHp != null ? hollowGateSessionDirective({
         round: session.round, encounter: { kind: 'hollow-gate', metadata: { floor: gateFloor, combatKind: gateKind } },
-        player: { pos: myPos }, enemy: { hp: gateEnemyHp, maxHp: gateEnemyMaxHp, pos: enemyPos, name: enemy?.name },
+        player: { pos: myPos }, enemy: { hp: gateEnemyHp, maxHp: gateEnemyMaxHp, pos: enemyPos, name: enemy?.name, character: { visual: enemy?.character?.visual } },
         hollowGateTelegraph: session.hollowGateTelegraph, gridWidth: w, gridHeight: h,
     }) : null;
     const gateRoundLimit = session.hollowGateRoundLimit ?? (session.status === 'active' ? HOLLOW_GATE_SHINOBI_ROUND_LIMIT : HOLLOW_GATE_LEGACY_SHINOBI_ROUND_LIMIT);
@@ -1204,14 +1204,14 @@ export function MissionArenaFight({
         setMode(same ? "idle" : "weapon");
     }
 
-    // Avatar resolution — player's live avatar; enemy's sealed avatar or the
-    // published AI portrait (ai:<id>), matching how the Mission Hall card resolves it.
+    // The Mirror trial copies the player's appearance, but keeps its sealed kit.
     const playerAvatar = resolveOwnAvatar(character, sharedImages) || me.slice(0, 2).toUpperCase();
     const enemyVisual = String(enemy?.character?.visual ?? "");
+    const mirrorTrial = enemyVisual === "story-ai-moonshadow-village-50";
     const sealedEnemyAvatar = typeof enemy?.character?.avatarImage === "string" ? enemy!.character.avatarImage as string : "";
-    const enemyAvatar = (encounter && ordinaryPvePortrait(encounter)) || enemyAvatarOverride || sealedEnemyAvatar || sharedImages?.[`ai:${enemyVisual}`] || (enemy?.name ? enemy.name.slice(0, 2).toUpperCase() : "EN");
+    const enemyAvatar = mirrorTrial ? playerAvatar : (encounter && ordinaryPvePortrait(encounter)) || enemyAvatarOverride || sealedEnemyAvatar || sharedImages?.[`ai:${enemyVisual}`] || (enemy?.name ? enemy.name.slice(0, 2).toUpperCase() : "EN");
     const enemyName = enemy?.name ?? "Enemy";
-    const enemyBattleSprite = battlefieldAiSprite(enemyVisual, sharedImages, { name: enemyName, archetype: encounter?.archetype });
+    const enemyBattleSprite = mirrorTrial ? null : battlefieldAiSprite(enemyVisual, sharedImages, { name: enemyName, archetype: encounter?.archetype });
     // The pet's portrait is resolved from the player's OWN save (character.pets) rather
     // than sealed into the session — a base64 pet image would bloat every 2.5s poll.
     // Portrait-first — `pet.image` alone misses published and replacement art.
@@ -1990,7 +1990,7 @@ export function MissionArenaFight({
                                     : settleState === "settled"
                                         ? `${missionName ?? "Mission"} cleared. Return to the Mission Hall to claim your reward.`
                                         : settleState === "failed"
-                                            ? `${missionName ?? "Mission"} cleared, but the reward could not be registered with the server. Retry before leaving — otherwise there will be nothing to claim.`
+                                                ? `${missionName ?? "Mission"} won, but the Mission Hall has not confirmed your reward. Press Retry to check it before leaving.`
                                             : `${missionName ?? "Mission"} cleared. Registering your reward…`}
                             </p>
                             {won && settleState === "failed"

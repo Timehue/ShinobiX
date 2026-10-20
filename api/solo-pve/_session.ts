@@ -191,7 +191,7 @@ export type SoloPveSession = {
     encounter: SoloPveEncounter;
     player: PvpFighter;
     enemy: PvpFighter;
-    /** Hunt combat is resolved only by the embedded Tower engine. Player/enemy
+    /** Multi-actor hunts and paired story trials use the embedded grid engine. Player/enemy
      * below remain settlement projections; the actor collection owns combat. */
     huntCombat?: import('./_hunt-combat.js').HuntCombatState;
     /** New shrine encounters only; lifetime AI support budget survives reconnects. */

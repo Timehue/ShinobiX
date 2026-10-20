@@ -39,7 +39,7 @@ export function openHollowGateDescent(ctx: HollowGateTileCtx, flavor: string, ov
                     const next = applyAttunementToRun(generator.generateHollowGateShrineRun(floor, run.variant, run.serverSeed), character, false);
                     const sealed = await deps.seal(character.name, run.runToken, next);
                     if (!current()) return;
-                    if (!sealed.ok) return fail(sealed.error || 'The next floor could not be sealed. Retry the staircase.');
+                    if (!sealed.ok) return fail(sealed.error || 'The next floor could not be saved. Try the staircase again.');
                     ctx.setHollowGateRun({ ...next, keys: run.keys, torch: Math.min(10, run.torch + 4),
                         entryCurrencies: run.entryCurrencies, runToken: run.runToken, serverSeed: run.serverSeed,
                         riftDistortionId: run.riftDistortionId, augmentOffers: run.augmentOffers, chosenAugment: run.chosenAugment,

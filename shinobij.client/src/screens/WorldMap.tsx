@@ -235,6 +235,7 @@ import { contractHunterLevel } from "../../../shared/contract-hunter";
 import { contractHunterWanderers } from "../lib/contract-hunter-wanderers";
 import { postWandererService, type WandererFavor } from "../lib/wanderer-service";
 import { exploreAmbushDialogState, exploreAmbushFightRequest, fleeRoadAmbush, roadFleePriceLine, type RoadFleeResult } from "../lib/road-flee-api";
+import { offersBanditToll } from '../../../shared/road-toll';
 import { homeVillageForSector } from "../data/war-map-sectors";
 import { isLegacyServerLive, useLegacyAvailability, useLegacyMutationAvailability, fetchSageState, fetchLegacyStatus, synthSageWanderer, LEGACY_SAGE_WANDERER_ID, type SageOfferView } from "../lib/legacy";
 import { rollEmissarySpawn, EMISSARY_BY_SLUG, type EmissarySlug, type EmissaryQuestDef } from "../lib/legacy-emissaries";
@@ -1447,7 +1448,7 @@ function WorldMapContent({
                 stamina: data.totals!.stamina ?? prev.stamina,
             }) : prev);
             const offer = data.offer as { cost?: number };
-            setWandererDialog({ w, msg: `${w.name} patches you up for ${offer.cost ?? 0} ryo. The bleeding stops, and you can move without wincing.` });
+            setWandererDialog({ w, msg: `${w.name} patches you up for ${offer.cost ?? 0} ryo. Your HP, chakra, and stamina are fully restored.` });
         } else if (data.reason === "already-well") {
             setWandererDialog({ w, msg: `"You are already steady. Save your ryo for worse days."` });
         } else if (data.reason === "no-ryo") {
@@ -1466,14 +1467,14 @@ function WorldMapContent({
         if (data.ok && data.favor) {
             coolWanderer(w.id);
             if (onServerVersion?.(data._saveVersion) !== false) updateCharacter(prev => prev ? ({ ...prev, activeWandererFavor: data.favor as WandererFavor }) : prev);
-            setWandererDialog({ w, msg: `${w.name} gives you a sealed favor. Deliver it to ${sectorRegionName(data.favor.targetSector)}, sector ${data.favor.targetSector}.` });
+            setWandererDialog({ w, msg: `${w.name} gives you a sealed package. Take it to the courier in ${sectorRegionName(data.favor.targetSector)}, sector ${data.favor.targetSector}.` });
         } else if (data.reason === "busy" && data.favor) {
-            setWandererDialog({ w, msg: `You already carry a sealed favor for sector ${data.favor.targetSector}. Finish that road first.` });
+            setWandererDialog({ w, msg: `You already have a package for the courier in sector ${data.favor.targetSector}. Deliver that package first.` });
         } else if (data.reason === "cooldown") {
             coolWanderer(w.id);
             setWandererDialog({ w, msg: "They have already moved on. Search another sector." });
         } else {
-            setWandererDialog({ w, msg: data.error ?? "They decide not to trust the package to you." });
+            setWandererDialog({ w, msg: data.error ?? "The delivery could not be started. Check your active delivery before trying again." });
         }
     }
     async function claimWandererFavor(w: Wanderer) {
@@ -1485,7 +1486,7 @@ function WorldMapContent({
             if (onServerVersion?.(data._saveVersion) !== false) updateCharacter(prev => prev ? ({ ...prev, activeWandererFavor: null, ryo: data.totals!.ryo ?? prev.ryo, boneCharms: data.totals!.boneCharms ?? prev.boneCharms }) : prev);
             setWandererDialog({ w, msg: `The courier breaks the seal and pays you ${data.reward.ryo} ryo and ${data.reward.boneCharms} bone charm${data.reward.boneCharms === 1 ? "" : "s"}.` });
         } else if (data.reason === "wrong-sector" && data.favor) {
-            setWandererDialog({ w, msg: `Wrong road. The delivery belongs in sector ${data.favor.targetSector}.` });
+            setWandererDialog({ w, msg: `The courier is in sector ${data.favor.targetSector}. Take the package there.` });
         } else {
             // "none"/"expired" cleared the favor server-side and bumped the save;
             // adopt that version so the next autosave is not a stale 409.
@@ -1653,7 +1654,7 @@ function WorldMapContent({
                 const parts = [`${d.reward.ryo} ryo`];
                 if (d.reward.fateShards > 0) parts.push(`${d.reward.fateShards} fate shard${d.reward.fateShards === 1 ? "" : "s"}`);
                 if (d.reward.boneCharms > 0) parts.push(`${d.reward.boneCharms} bone charm${d.reward.boneCharms === 1 ? "" : "s"}`);
-                setTimeout(() => alert(`${recovering ? "Recovered ambush ledger: " :"You overwhelmed the bandits and felled their warlord! Loot: "}${parts.join(", ")}.`), 40);
+                setTimeout(() => alert(`${recovering ? "Recovered battle result: " :"You overwhelmed the bandits and felled their warlord! Loot: "}${parts.join(", ")}.`), 40);
                 return true;
             }
         } catch { /* fall through to the no-loot message */ }
@@ -2082,7 +2083,7 @@ function WorldMapContent({
     // Merc Fight resolves server-side; road Flee is priced and the server owns cooldowns.
     async function engageRoamingMerc(w: Wanderer) {
         if (!villageWarAdmissionOpen || !capabilityAdmissionAllowed(mutationAvailability("villageWar"))) {
-            setWandererDialog({ w, msg: "Village War actions are paused. This patrol remains visible while live admission recovers." });
+            setWandererDialog({ w, msg: "Village War battles are temporarily paused. Try this patrol again when battles reopen." });
             return;
         }
         const sec = selectedSector;
@@ -2099,7 +2100,7 @@ function WorldMapContent({
         }
     }
     // Closing the dialog. A hostile that has caught you is never waved off here:
-    // it is fought or fled (fleeWanderer, which costs HP and ryo), so Escape does
+    // it is fought, paid off (bandits), or fled (other hostiles), so Escape does
     // nothing. Passing a bandit in peace is free and puts it on the short flee
     // cooldown. Other dialogs cool only when you take their interaction, and
     // resolved (`msg`) dialogs just close.
@@ -2113,15 +2114,16 @@ function WorldMapContent({
         if (requiresWandererChoice(wandererDialog)) return;
         dismissWandererDialog();
     }
-    // Running from a hostile. The server charges the price (shared/road-flee.ts)
-    // and only then does the encounter end; a failed request keeps the choice
-    // open, and its fleeId makes a retry of a flee that did land free.
+    // The server charges a bandit's fixed toll or another hostile's flee price.
+    // Only a confirmed payment ends the encounter; failure keeps the choice
+    // open, and the same fleeId makes retrying a committed payment free.
     async function fleeWanderer(w: Wanderer) {
         const d = wandererDialog;
         if (!d || d.w.id !== w.id || d.busy) return;
         const asked = { ...d, fleeId: d.fleeId ?? crypto.randomUUID(), choiceError: undefined };
         setWandererDialog({ ...asked, busy: true });
-        const fled = await fleeRoadAmbush(character.name, asked.fleeId, asked.ambush ? { kind: "explore", ...asked.ambush } : { kind: "road" });
+        const toll = offersBanditToll(asked);
+        const fled = await fleeRoadAmbush(character.name, asked.fleeId, toll ? { kind: 'toll', sector: selectedSector ?? 0, wandererId: w.id } : asked.ambush ? { kind: "explore", ...asked.ambush } : { kind: "road" });
         const settledAmbush = !!asked.ambush && (fled.ok || fled.reason === "already-resolved" || fled.reason === "invalid-encounter");
         if (!fled.ok) {
             setWandererDialog((current) => current?.w.id !== w.id ? current : settledAmbush ? { w, msg: fled.error } : { ...asked, choiceError: fled.error });
@@ -2130,13 +2132,12 @@ function WorldMapContent({
         }
         setWandererDialog((current) => current?.w.id === w.id ? null : current);
         if (settledAmbush) completeWorldRewardOperation(character.name, asked.ambush!.requestId);
-        else coolWanderer(w.id, WANDERER_FLEE_COOLDOWN_MS);
+        else coolWanderer(w.id, toll ? undefined : WANDERER_FLEE_COOLDOWN_MS);
         adoptFleeTotals(fled);
     }
     function adoptFleeTotals(fled: Extract<RoadFleeResult, { ok: true }>) {
         if (onServerVersion?.(fled._saveVersion) !== false) updateCharacter(prev => prev ? ({ ...prev, hp: fled.totals.hp, ryo: fled.totals.ryo }) : prev);
     }
-
     const { traces: sectorTraces, setTraces: setSectorTraces, modal: tracesModal, setModal: setTracesModal, open: openSectorTraces } = useSectorTraces(selectedSector, character.name);
     async function claimWandererGift(w: Wanderer) {
         setWandererDialog({ w, busy: true });
@@ -2509,7 +2510,7 @@ function WorldMapContent({
             if (resp.reason === "incomplete") {
                 if (!recovering) setTimeout(() => alert(`Not yet: ${resp.progress ?? 0} / ${resp.target ?? arc.task.target} complete.`), 40);
             } else if (!recovering) {
-                setTimeout(() => alert("The account did not settle. Return to the outskirts and try again."), 40);
+                setTimeout(() => alert("Your quest report could not be confirmed. Return to the outskirts and try again."), 40);
             }
             return false;
         }
@@ -2521,7 +2522,7 @@ function WorldMapContent({
             setCreatorEventLine(0);
             setSelectedCreatorEvent(storyReckoningPayoffEvent(arc, biomeForWorldSector(selectedSector), resp.character ?? character));
         } else {
-            setTimeout(() => alert(`${recovering ? "Recovered reckoning ledger: " : ""}You recovered ${arc.task.targetName}. Return to ${arc.npcName} at the outskirts.`), 40);
+            setTimeout(() => alert(`${recovering ? "Recovered quest progress: " : ""}You recovered ${arc.task.targetName}. Return to ${arc.npcName} at the outskirts.`), 40);
         }
         return true;
     }
@@ -3989,7 +3990,7 @@ function WorldMapContent({
             returnScreen: "worldMap",
         });
         if (launched) setSelectedCreatorEvent(null);
-        else alert("The sealed practice arena is unavailable. Your event remains open.");
+        else alert("The practice battle could not open. Your event remains open.");
     }
     if (activePetEncounter && !petVnDone) {
         const petActorImage = petCardImage(activePetEncounter, sharedImages);

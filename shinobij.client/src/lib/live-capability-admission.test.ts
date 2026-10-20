@@ -201,7 +201,7 @@ test("global maintenance pauses player restore and polling while preserving oper
     assert.match(entry, /const legalSlug = \(\(\) => \{[\s\S]*legalPageForPath\(window\.location\.pathname\)/);
     assert.match(entry, /legalSlug \? \([\s\S]*<LegalPage slug=\{legalSlug\} \/>[\s\S]*\) : \([\s\S]*<LiveCapabilitiesProvider>/,
         "exact legal paths must render before the capability provider and maintenance boundary mount");
-    assert.match(blocker, /current screen and resumable operation state remain mounted and preserved/);
+    assert.match(blocker, /Keep this screen open; you can resume when maintenance ends/);
     assert.match(app, /screen === "start" && \(!restoringSession \|\| gameplayViewAvailability === "unavailable"\)/);
     assert.match(authFetch, /export function installAuthFetch\(\): void \{\s*if \(installed \|\| typeof window === 'undefined' \|\| !window\.fetch\) return;[\s\S]*clearRecoveryAdminSession\(\);\s*installed = true;/,
         "the interceptor must consume recovery-owned credentials synchronously on boot before it can attach them");

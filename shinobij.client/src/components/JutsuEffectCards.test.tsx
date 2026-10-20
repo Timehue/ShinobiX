@@ -53,7 +53,7 @@ it("groups a repeated tag into one colored two-stack card with current and max v
 
 it("collapses the repeated plain-language effect summary", () => {
     const summary = describeJutsuEffects(overload, 8);
-    assert.equal((summary.match(/Increases your damage given/g) ?? []).length, 1);
+    assert.equal((summary.match(/Strengthens your attacks/g) ?? []).length, 1);
     assert.match(summary, /Triggers 2 times per cast\./);
 });
 

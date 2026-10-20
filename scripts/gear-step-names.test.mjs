@@ -40,8 +40,8 @@ test("no piece still sounds like the item it upgrades", () => {
 
 test("the description names the item it outclasses and keeps the exact numbers", () => {
     const kunai = steps.find((item) => item.id === "rustfang-kunai-s1");
-    assert.match(kunai.description, /^A prized find that outclasses the Rustfang Kunai\. \[Damage 14\.5 EP \| Increase Damage Given 10% \| 40 AP \| Range 4 \| CD 5\]$/);
+    assert.match(kunai.description, /^An improved Rustfang Kunai\. Deals damage\. Starting next round, strengthens your damage dealt for 2 rounds\. \[Damage 14\.5 EP \| Increase Damage Given 10% \| 40 AP \| Range 4 \| CD 5\]$/);
     const hood = steps.find((item) => item.id === "cloth-hood-s2");
-    assert.equal(hood.description, "A prized find that outclasses the Cloth Hood: 2% damage reduction, up from 1%.");
+    assert.equal(hood.description, "Improved armor with 2% protection, compared with 1% on the Cloth Hood. Protection combines with your other armor and defensive effects with diminishing returns; it is not a flat 2% reduction in final damage.");
     for (const item of steps) assert.ok(!item.description.includes("An upgrade of"), item.id);
 });

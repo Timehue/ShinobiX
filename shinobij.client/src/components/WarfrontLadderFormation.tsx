@@ -11,7 +11,7 @@ export function WarfrontLadderFormation({ pets, plan, onChange, disabled }: {
 }) {
     const [selectedSlot, setSelectedSlot] = useState(0);
     return <div className="pl-setup">
-        <h4>Sealed formation</h4>
+        <h4>Saved formation</h4>
         <p className="pl-sub">Choose a pet, then its starting cell. Front cells engage sooner; back cells protect ranged pets. Spread out to reduce splash damage, or keep allies close for support.</p>
         <div className="pl-formation-pets" role="group" aria-label="Pet to position">
             {Array.from({ length: 4 }, (_, slot) => <button key={slot} type="button"

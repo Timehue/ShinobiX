@@ -354,7 +354,7 @@ export const MAJOR_STORY_DIRECTIONS: Readonly<Record<string, VnCinematicDirectio
     "stormveil:the surge valve": { shot: "wide", focus: "center", backgroundMotion: "push", transition: "whip", tone: "danger", atmosphere: "rain", impact: "heavy", cue: "battle" },
     "stormveil:the village climbs": { shot: "wide", focus: "center", backgroundMotion: "pan-right", transition: "dip-black", tone: "elegy", atmosphere: "rain", titleCard: true, cue: "title" },
     "stormveil:the man becoming weather": { shot: "close", focus: "left", backgroundMotion: "push", tone: "danger", atmosphere: "rain", leftActorPose: "tense", impact: "soft", cue: "reveal" },
-    "stormveil:her daughter says the why": { shot: "close", focus: "left", backgroundMotion: "none", transition: "crossfade", tone: "elegy", atmosphere: "rain", leftActorPose: "grieving", cue: "reveal" },
+    "stormveil:mira reads her mother's grievance": { shot: "close", focus: "left", backgroundMotion: "none", transition: "crossfade", tone: "elegy", atmosphere: "rain", leftActorPose: "grieving", cue: "reveal" },
     "stormveil:vanta opens the books": { shot: "medium", focus: "left", backgroundMotion: "drift", tone: "elegy", atmosphere: "rain", leftActorPose: "solemn", cue: "paper" },
     "stormveil:the blank board": { backgroundImage: STORYWIDE_CLIMAX_ENVIRONMENTS.stormveil, shot: "wide", focus: "center", backgroundMotion: "push", transition: "whiteout", tone: "danger", atmosphere: "rain", rightActorPose: "tense", impact: "heavy", cue: "battle" },
 

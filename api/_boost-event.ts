@@ -87,7 +87,7 @@ export async function startBoostEvent(input: {
         type: 'boost_event',
         importance: 'high',
         title: event.title,
-        message: `A ${formatBoostMultiplier(event.multiplier)} boost to ${what} runs for the next ${hours} hour${hours === 1 ? '' : 's'}.`,
+        message: `A ${formatBoostMultiplier(event.multiplier)} boost to ${what} started for ${hours} hour${hours === 1 ? '' : 's'} and ends at ${new Date(event.endsAt).toISOString()}.`,
         meta: { boostEventId: event.id, endsAt: event.endsAt },
     }, { receiptId: `boost-event:${event.id}` });
     return { ok: true, event };

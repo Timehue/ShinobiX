@@ -14,13 +14,13 @@ import { isPlayerSaveVersionConflict, retryOnSaveVersionConflict, SAVE_VERSION_C
  * /api/pet/gauntlet — Pet Gauntlet rewards + weekly leaderboard.
  *
  *   GET  [?week=current|<key>][&top=N]        → { weekKey, total, leaderboard }
- *   POST { action:'start' }                    → { runToken, seed, weekKey, rewardEligible, maxRounds }
+ *   POST { action:'start', requestId? }        → { runToken, seed, weekKey, rewardEligible, maxRounds }
  *   POST { action:'report', runToken,
  *          transcript }                        → { ryo, fateShards, boneCharms, score, rank, ... }
  *
  * SERVER-AUTHORITATIVE (mint-token + SERVER RE-SIMULATION — P1 reward integrity;
  * see docs/DATABASE_AND_BACKGROUND_JOB_AUDIT.md §5 + auth-and-anti-cheat §2):
- *   • `start` mints a single-use run token that SEALS the Ryo schedule + the daily
+ *   • `start` seals a single-use entry proof with the Ryo schedule + the daily
  *     rewarded-run eligibility AND a PER-RUN random seed. The seed is server-minted
  *     (was a client random before) so the server can replay the run; variety is
  *     unchanged (each run still gets its own random draw).
@@ -102,38 +102,40 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (!enforceRateLimit(req, res, 'pet-gauntlet-start', 10, 60_000, me)) return;
             const idx = currentWeekIndex();
             const weekKey = weekKeyOf(idx);
-            // A lost commit race wrote nothing, so re-running (re-read + one
-            // debit) charges exactly once.
-            const reservation = await retryOnSaveVersionConflict(() => mutatePlayerSave<{ chargedRyo: number }>(me, ({ character: char }) => {
-                const result = debitGauntletEntry(char, dayStamp());
-                if (!result.ok) return { ok: false, status: 409, error: `A new Gauntlet run costs ${result.required.toLocaleString()} ryo. Not enough ryo.` };
-                return { ok: true, character: result.character, value: { chargedRyo: result.charged } };
-            }));
-            if (!reservation.ok) return res.status(reservation.status).json({ error: reservation.error });
-            const startChar = reservation.character;
-            const used = startChar?.petGauntletRewardDate === dayStamp() ? Number(startChar.petGauntletRewardCount ?? 0) : 0;
-            const rewardEligible = used < REWARDED_RUNS_PER_DAY;
-            // Per-run random seed, minted + sealed server-side so `report` can replay
-            // the exact run. The client uses this seed for startGauntletRun (it used
-            // to mint its own random one — same variety, now verifiable).
-            const sealed: SealedRun = {
-                player: me, weekKey, seed: randomInt(1, 0x7fffffff), rewardEligible,
-                perRound: RYO_PER_ROUND, clearBonus: CLEAR_BONUS, maxRounds: MAX_ROUNDS, startHearts: START_HEARTS,
-            };
-            const id = randomUUID();
-            await kv.set(tokenKey(id), sealed, { ex: TOKEN_TTL_SECONDS });
-            return res.status(200).json({
-                runToken: id,
-                seed: sealed.seed,
-                weekKey,
-                rewardEligible,
-                maxRounds: MAX_ROUNDS,
-                rewardedRunsLeft: Math.max(0, REWARDED_RUNS_PER_DAY - used),
-                chargedRyo: reservation.value.chargedRyo,
-                balances: { ryo: Number(startChar.ryo ?? 0) },
-                character: startChar,
-                _saveVersion: reservation._saveVersion,
-            });
+            const requestId = String(body.requestId ?? '');
+            if (requestId && !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(requestId)) return res.status(400).json({ error: 'Invalid Gauntlet entry request.' });
+            const id = requestId || randomUUID();
+            return await withKvLock(tokenKey(id), async () => {
+                const reply = (sealed: SealedRun, character: Record<string, unknown>, version: number, chargedRyo: number, resumed = false) => {
+                    const used = character.petGauntletRewardDate === dayStamp() ? Number(character.petGauntletRewardCount ?? 0) : 0;
+                    return res.status(200).json({ runToken: id, seed: sealed.seed, weekKey: sealed.weekKey, rewardEligible: sealed.rewardEligible,
+                        maxRounds: sealed.maxRounds, rewardedRunsLeft: Math.max(0, REWARDED_RUNS_PER_DAY - used), chargedRyo, resumed,
+                        balances: { ryo: Number(character.ryo ?? 0) }, character, _saveVersion: version });
+                };
+                const existing = await kv.get<SealedRun>(tokenKey(id));
+                if (existing) {
+                    if (existing.player !== me) return res.status(403).json({ error: 'That Gauntlet entry belongs to another player.' });
+                    const saved = await kv.get<{ character?: Record<string, unknown>; _saveVersion?: number }>(`save:${me}`);
+                    if (!saved?.character) return res.status(404).json({ error: 'Player save not found.' });
+                    return reply(existing, saved.character, Number(saved._saveVersion), 0, true);
+                }
+                const reservation = await retryOnSaveVersionConflict(() => mutatePlayerSave<{ chargedRyo: number; sealed: SealedRun }>(me, ({ character: char }) => {
+                    if (Array.isArray(char.redeemedPetGauntletRuns) && char.redeemedPetGauntletRuns.some(entry => (entry as { token?: unknown })?.token === id)) {
+                        return { ok: false, status: 409, error: 'This Gauntlet entry has already finished. Its reward is saved.' };
+                    }
+                    const result = debitGauntletEntry(char, dayStamp());
+                    if (!result.ok) return { ok: false, status: 409, error: `A new Gauntlet run costs ${result.required.toLocaleString()} ryo. Not enough ryo.` };
+                    const used = char.petGauntletRewardDate === dayStamp() ? Number(char.petGauntletRewardCount ?? 0) : 0;
+                    const sealed: SealedRun = { player: me, weekKey, seed: randomInt(1, 0x7fffffff), rewardEligible: used < REWARDED_RUNS_PER_DAY,
+                        perRound: RYO_PER_ROUND, clearBonus: CLEAR_BONUS, maxRounds: MAX_ROUNDS, startHearts: START_HEARTS };
+                    // The existing run-seal row and the save/ledger commit in
+                    // one transaction. A lost reply cannot debit another entry.
+                    return { ok: true, character: result.character, value: { chargedRyo: result.charged, sealed },
+                        atomicProof: { key: tokenKey(id), value: sealed, ex: TOKEN_TTL_SECONDS } };
+                }));
+                if (!reservation.ok) return res.status(reservation.status).json({ error: reservation.error });
+                return reply(reservation.value.sealed, reservation.character, reservation._saveVersion, reservation.value.chargedRyo);
+            }, { failClosed: true });
         }
 
         // ── report: consume token, pay sealed Ryo, update weekly board ─────────
@@ -142,10 +144,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const id = String(body.runToken ?? '');
             if (!id) return res.status(400).json({ error: 'Missing run token.' });
 
-            // Atomically consume the token (read + delete under its own lock) so a
-            // replayed report can't be paid twice.
+            // The save receipt prevents double payment. The leaderboard must
+            // accept the result before payout can retire the run seal.
             const sealed = await kv.get<SealedRun>(tokenKey(id));
-            if (!sealed) return res.status(409).json({ error: 'Run token already used or expired.' });
+            if (!sealed) {
+                const saved = await kv.get<{ character?: Record<string, unknown>; _saveVersion?: number }>(`save:${me}`);
+                const char = saved?.character;
+                const receipts = Array.isArray(char?.redeemedPetGauntletRuns) ? char.redeemedPetGauntletRuns as Array<Record<string, unknown>> : [];
+                const prior = receipts.find(entry => entry.token === id);
+                if (!char || !prior) return res.status(409).json({ code: 'GAUNTLET_REPORT_EXPIRED', error: 'Run token expired and no saved reward receipt is available.' });
+                // A reply lost after both commits still has a paid receipt.
+                // Historical receipts do not contain a score or weekly rank.
+                return res.status(200).json({ ryo: Number(prior.ryo ?? 0), fateShards: Number(prior.fateShards ?? 0), boneCharms: Number(prior.boneCharms ?? 0),
+                    balances: { ryo: Number(char.ryo ?? 0), fateShards: Number(char.fateShards ?? 0), boneCharms: Number(char.boneCharms ?? 0) },
+                    character: char, _saveVersion: saved!._saveVersion, score: null, rank: null, weekKey: '', roundsCleared: null, heartsLeft: null });
+            }
             if (sealed.player !== me) return res.status(403).json({ error: 'Run token belongs to another player.' });
 
             // RE-SIMULATE the run from the SEALED seed + the client's decision
@@ -172,8 +185,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const wantShard = replay.boughtFateShard;
             const wantCharm = replay.boughtBoneCharm;
             const day = dayStamp();
-            let name = me;
-            let village: string | undefined;
+            const current = await kv.get<{ character?: Record<string, unknown> }>(`save:${me}`);
+            if (!current?.character) return res.status(404).json({ error: 'Player save not found.' });
+            const name = String(current.character.name ?? me).slice(0, 40);
+            const village = typeof current.character.village === 'string' ? current.character.village : undefined;
+            // Deliver the non-currency score first. A failed leaderboard write
+            // leaves an unpaid seal for retry, rather than retaining a paid
+            // seal whose rolling reward receipt could later be evicted.
+            let rank: number | null = null;
+            await withKvLock(lbKey(sealed.weekKey), async () => {
+                const list = (await kv.get<LbEntry[]>(lbKey(sealed.weekKey))) ?? [];
+                const i = list.findIndex((e) => e.slug === me);
+                const entry: LbEntry = { slug: me, name, village, score, roundsCleared, heartsLeft, at: Date.now() };
+                if (i >= 0) { if (score > list[i].score) list[i] = entry; }
+                else list.push(entry);
+                list.sort((a, b) => b.score - a.score || a.at - b.at);
+                const trimmed = list.slice(0, LB_MAX);
+                await kv.set(lbKey(sealed.weekKey), trimmed, { ex: 60 * 24 * 3600 });
+                const pos = trimmed.findIndex((e) => e.slug === me);
+                rank = pos >= 0 ? pos + 1 : null;
+            }, { failClosed: true });
             let grantedFateShards = 0;
             let grantedBoneCharms = 0;
             let saveVersion = 0;
@@ -183,8 +214,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // The run's receipt commits with the payout, so re-running the whole
             // settlement after a lost compare-and-set pays it once.
             const committed = await retryOnSaveVersionConflict(() => mutatePlayerSave<null>(me, async ({ character: char }) => {
-                name = String(char.name ?? me).slice(0, 40);
-                if (typeof char.village === 'string') village = char.village;
                 balances = { ryo: Number(char.ryo ?? 0), fateShards: Number(char.fateShards ?? 0), boneCharms: Number(char.boneCharms ?? 0) };
                 // Daily once-per-currency claim via NX; fail CLOSED (a KV hiccup just
                 // means no grant this time — never a double-grant, never a crash).
@@ -192,7 +221,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const prior = receipts.find((entry) => entry.token === id);
                 if (prior) {
                     ryo = Number(prior.ryo ?? 0); grantedFateShards = Number(prior.fateShards ?? 0); grantedBoneCharms = Number(prior.boneCharms ?? 0);
-                    await kv.del(tokenKey(id)).catch(() => undefined);
                     return { ok: true, write: false, character: char, value: null };
                 }
                 const rewardedToday = char.petGauntletRewardDate === day ? Math.max(0, Number(char.petGauntletRewardCount ?? 0)) : 0;
@@ -219,7 +247,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     ok: true,
                     character: next,
                     value: null,
-                    afterCommit: () => kv.del(tokenKey(id)).then(() => undefined, () => undefined),
                 };
             }));
             if (!committed.ok) {
@@ -229,24 +256,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 saveVersion = committed._saveVersion;
             }
 
-            // ── Update the weekly leaderboard (best-per-player). ────────────────
             if (saveMissing) return res.status(404).json({ error: 'Player save not found.' });
+            if (!committed.ok) return res.status(503).json({ error: 'Gauntlet result could not be settled. Please retry.' });
             if (!settled) return res.status(503).json({ error: 'Gauntlet result could not be settled. Please retry.' });
-            let rank: number | null = null;
-            await withKvLock(lbKey(sealed.weekKey), async () => {
-                const list = (await kv.get<LbEntry[]>(lbKey(sealed.weekKey))) ?? [];
-                const i = list.findIndex((e) => e.slug === me);
-                const entry: LbEntry = { slug: me, name, village, score, roundsCleared, heartsLeft, at: Date.now() };
-                if (i >= 0) { if (score > list[i].score) list[i] = entry; }
-                else list.push(entry);
-                list.sort((a, b) => b.score - a.score || a.at - b.at);
-                const trimmed = list.slice(0, LB_MAX);
-                await kv.set(lbKey(sealed.weekKey), trimmed, { ex: 60 * 24 * 3600 });   // keep ~60 days
-                const pos = trimmed.findIndex((e) => e.slug === me);
-                rank = pos >= 0 ? pos + 1 : null;
-            }, { failClosed: true });
-
-            return res.status(200).json({ ryo, fateShards: grantedFateShards, boneCharms: grantedBoneCharms, balances, score, rank, weekKey: sealed.weekKey, roundsCleared, heartsLeft, _saveVersion: saveVersion });
+            await kv.del(tokenKey(id));
+            return res.status(200).json({ ryo, fateShards: grantedFateShards, boneCharms: grantedBoneCharms, balances, score, rank, weekKey: sealed.weekKey, roundsCleared, heartsLeft, character: committed.character, _saveVersion: saveVersion });
         }
 
         return res.status(400).json({ error: 'Invalid action.' });

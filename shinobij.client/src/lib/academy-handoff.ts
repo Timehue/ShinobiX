@@ -49,7 +49,7 @@ export function buildAcademyHandoff(character: AcademyHandoffCharacter): Academy
     if (canAwaken) {
         return {
             id: "academy-handoff-awakening",
-            title: "Academy complete—shape your first build",
+            title: "Academy complete. Awaken your first element",
             summary: "Your training route is complete. Follow the Awakening Stone's call now, or take a rookie mission and return when you are ready.",
             primary: {
                 label: "Visit the Awakening Stone",
@@ -67,7 +67,7 @@ export function buildAcademyHandoff(character: AcademyHandoffCharacter): Academy
 
     return {
         id: "academy-handoff-choice",
-        title: "Academy complete—choose your next path",
+        title: "Academy complete. Choose your next activity",
         summary: "The guided route is over. Continue with repeatable field work, or follow your village's story.",
         primary: {
             label: "Take an E-Rank mission",
@@ -77,7 +77,7 @@ export function buildAcademyHandoff(character: AcademyHandoffCharacter): Academy
         secondary: {
             label: "Continue your story",
             screen: "storyHall",
-            detail: "Follow the next authored chapter and village conflict.",
+            detail: "Open the Story Hall to play the next chapter of your village story.",
         },
     };
 }

@@ -12,6 +12,7 @@ import { applyContestBattleByWinner, contestGarrisonReady, isSectorWarActive, la
 import { fieldGarrisonDefender, maskedGarrisonDefenderName, NO_GARRISON_DEFENDER_ERROR } from '../_sector-war-garrison-defender.js';
 import { commitSectorWarBattle, loadSectorWar, type SectorWarBattleCommit, type SectorWarBattleDecision } from '../_sector-war-store.js';
 import { resolveWarDuel, type WarDuelInput } from '../_pet-showdown/war-duel.js';
+import { replayFromOpposingSide } from '../_pet-showdown/_viewer-replay.js';
 import { sealWarTeam } from '../_pet-showdown/war-team.js';
 import type { ShowdownReplayScript } from '../../shared/pet-showdown-contract.js';
 import type { Pet } from '../_pet-sim/pet-types.js';
@@ -367,7 +368,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 sectorWarId, rulesetVersion: session.rulesetVersion, seed: session.seed, terrain: session.terrain ?? null,
                 p1: session.p1, p2: session.p2,
             })).script;
-            return res.status(200).json({ script });
+            return res.status(200).json({ script: viewer.side === 'p2' ? replayFromOpposingSide(script, session.p1.name) : script });
         }
         // ── engage: an open-world pet battle against an enemy in this sector ──
         // Owner ruling 2026-10-08: in a Pet war, a battle the two villages'

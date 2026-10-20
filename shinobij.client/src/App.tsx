@@ -1327,7 +1327,7 @@ export default function App() {
             if (result.activeCombat) {
                 return;
             } else if (!result.ok) {
-                pushHollowGateLog(result.error || "The saved Hollow Gate floor could not be resealed.");
+                pushHollowGateLog(result.error || "Your saved Hollow Gate floor could not be restored.");
             } else if (result.pendingAmbush) {
                 setHollowGatePendingAmbush({ ...result.pendingAmbush, token, floor });
             }
@@ -1356,7 +1356,7 @@ export default function App() {
             const fight = { ...active, runId: started.runId };
             if (started.combatMode === "pet" || active.mode === "pet") launchHollowGatePetFight(fight);
             else if (started.session) launchHollowGatePveFight(fight, started.session);
-            else throw new Error("The Hollow Gate returned no sealed combat session.");
+            else throw new Error("The Hollow Gate battle could not be loaded.");
         }).catch((error) => {
             if (!cancelled) reportHollowGateRunError(error, "The active encounter could not be resumed. Retry from the shrine.", () => clearHollowGateRunState(true)); // self-heal on run-expiry instead of locking the player in the shrine
         });
@@ -2355,7 +2355,7 @@ export default function App() {
             : null;
         if (challenge.mode === "ranked" && !rankedAuthority) {
             if (!acceptanceIsCurrent()) return;
-            alert("This ranked challenge is missing its server match proof. Decline it and rejoin the ranked queue.");
+            alert("This ranked invitation could not be verified. Decline it and rejoin the ranked queue.");
             return;
         }
         if (processingChallengeIds.includes(challenge.id)) return;
@@ -2482,7 +2482,7 @@ export default function App() {
                 signal: createScope.signal,
             })).then((notified) => {
                 if (!notified && acceptanceIsCurrent() && createScope.isCurrent()) {
-                    alert(`${challenge.fromName} may not be pulled in automatically. Ask them to reopen the game or wait for heartbeat.`);
+                    alert(`${challenge.fromName} may not join automatically. Ask them to reopen the game, or wait for their connection to update.`);
                 }
             });
         } catch (error) {
@@ -2648,7 +2648,7 @@ export default function App() {
                         void postBattleLock({ action: "resolve", playerName: normalized.name, battleId: bootLock.battleId });
                         try { localStorage.removeItem(`arena.battle.v3.${normalized.name}`); } catch { /* private mode */ }
                         setPendingAiProfileId("");
-                        gameToast("Legacy local Arena combat was safely retired. Start a sealed spar when you're ready.");
+                        gameToast("This older Arena battle is no longer supported. Start a new spar when you're ready.");
                         setScreen("battleArena");
                         return;
                     } else if (recovery === "shrine") {
@@ -2679,7 +2679,7 @@ export default function App() {
                             setActiveDungeonEvent(null);
                             setActiveDungeonRunToken(dungeonToken);
                             setDungeonLine(0);
-                            gameToast("Dungeon combat upgraded. Challenge the sealed Warden to continue your reserved run.");
+                            gameToast("Dungeon combat has been updated. Challenge the Warden again to continue your saved run.");
                             setScreen("dungeon");
                         } else {
                             setScreen("worldMap");
@@ -2693,7 +2693,7 @@ export default function App() {
                         void postBattleLock({ action: "resolve", playerName: normalized.name, battleId: bootLock.battleId });
                         try { localStorage.removeItem(arenaStoryCtxKey(normalized.name)); localStorage.removeItem(`arena.battle.v3.${normalized.name}`); } catch { /* private mode */ }
                         setPendingArenaStoryBattle(null); setTemporaryStoryAi(null); setPendingAiProfileId("");
-                        gameToast("Legacy local story combat was safely retired. Re-enter the sealed encounter to continue.");
+                        gameToast("This older story battle is no longer supported. Re-enter the encounter to continue.");
                         setScreen(legacyKind === "academySparring" ? "village" : "worldMap");
                         return;
                     } else if (recovery === "story-fallback") {
@@ -2750,7 +2750,7 @@ export default function App() {
                                 void mutateDungeonRunServer(normalized.name, "abandon", dungeonToken).then((result) => {
                                     commitVersionedCharacter({ ...result.character, hp: 0, hospitalized: true }, result._saveVersion);
                                 }).catch(() => {
-                                    gameToast("The interrupted dungeon run remains reserved and will be reconciled on the next load.");
+                                    gameToast("Your interrupted Dungeon run is saved. It will be checked again when you reload.");
                                 });
                             }
                             // If this KO recovery is the first to settle the run's token, reconcile
@@ -4596,7 +4596,7 @@ export default function App() {
                     setDungeonLine(0);
                 }
             },
-        })) alert("The sealed Dungeon arena is unavailable. The run remains reserved.");
+        })) alert("The Dungeon battle could not open. Your run is still saved.");
     }
     // Onboarding "guaranteed first win" — a scripted spar against a deliberately
     // weak Lv-1 training dummy (lib/academy-spar), which the player beats in a
@@ -4940,7 +4940,7 @@ export default function App() {
                 ? { ...prev, hollowGateRun: { ...prev.hollowGateRun!, activeCombat } } : prev);
             if (mode === "pet") launchHollowGatePetFight(activeCombat);
             else if (started.session) launchHollowGatePveFight(activeCombat, started.session);
-            else throw new Error("The Hollow Gate returned no sealed combat session.");
+            else throw new Error("The Hollow Gate battle could not be loaded.");
             return;
         } catch (error) {
             if (currentCombatScope()) reportHollowGateRunError(error, "The Hollow Gate encounter could not start.", () => clearHollowGateRunState(true));

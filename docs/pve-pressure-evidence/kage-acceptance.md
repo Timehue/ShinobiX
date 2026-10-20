@@ -1,5 +1,7 @@
 # Final story Kage acceptance controls
 
+**Historical baseline:** the [2026-10-19 unlock-level balance pass](../story-late-balance-2026-10-19.md) supersedes the HP/stat values below. The full catalog kits and Apex policy remain current; the older measured outcomes describe their recorded configuration.
+
 The four chapter-nine story bosses use an exclusive apex chooser: five legal
 actions at most, beam eight and 192 resolver previews per decision. The seal
 requires `story-boss`, `final-kage`, and `masterAi` together. Ordinary level 86+

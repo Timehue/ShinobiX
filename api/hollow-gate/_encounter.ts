@@ -12,6 +12,7 @@ import { resolveAiProfileJutsu } from '../_ai-opponent-loadout.js';
 import { soloPveJutsuCompatibility } from '../solo-pve/_compatibility.js';
 import { validateServerAiRules } from '../combat-core/ai-authoring.js';
 import { SHRINE_AI_POLICY } from '../solo-pve/_ai-turn-policy.js';
+import { narrativeEnemyIdentity } from '../../shared/narrative-enemy-identity.js';
 
 const LOADOUTS: Record<'burst' | 'bruiser' | 'hunter' | 'boss', string[]> = {
     burst: ['starter-tai-water-2', 'starter-nin-lightning-2', 'starter-buki-fire-2', 'starter-tai-fire-2', 'starter-tai-earth-1', 'starter-universal-flicker'],
@@ -73,10 +74,12 @@ export function buildHollowGateProfile(params: {
     const loadoutId = boss ? 'boss' : elite || wanderer?.role === 'bandit' ? 'bruiser'
         : wanderer?.role === 'night-ninja' ? 'burst' : wanderer || beast ? 'hunter'
         : level > 30 && (kind === 'battle' || ambush) ? corridorLoadout(run, binding) : ambush ? 'burst' : 'hunter';
+    const authoredBoss = boss && narrativeEnemyIdentity(run.bossProfileId) ? run.bossProfileId : undefined;
     return {
         id: binding.enemyProfileId,
         name: wanderer ? hollowGateWandererName(wanderer) : boss ? (run.bossName || hollowGateHoundName(binding.floor, kind)) : hollowGateHoundName(binding.floor, kind),
-        visual: wanderer ? 'shinobi' : 'hollow-hound',
+        visual: authoredBoss ?? (wanderer ? 'shinobi' : 'hollow-hound'),
+        ...(authoredBoss ? { narrativeIdentityId: authoredBoss } : {}),
         ...(wanderer ? { avatarImage: hollowGateWandererArt(wanderer) } : {}),
         level,
         hp,
@@ -111,6 +114,7 @@ export function buildHollowGateSoloPveEncounter(params: {
     // and rules only; shrine curves, mastery, resources and support budget stay sealed here.
     if (supported) Object.assign(profile, {
         jutsuIds: namedJutsu.map(jutsu => jutsu.id), rules: program.rules,
+        preserveNarrativeRules: true,
         loadoutId: named.loadoutId,
         ...(!params.run.bossName && typeof named.name === 'string' ? { name: named.name } : {}),
         ...(typeof named.avatarImage === 'string' ? { avatarImage: named.avatarImage } : {}),

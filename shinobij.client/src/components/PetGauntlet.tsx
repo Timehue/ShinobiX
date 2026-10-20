@@ -22,7 +22,7 @@ import {
     GAUNTLET_REROLL_COST, GAUNTLET_ITEMS, GAUNTLET_RELICS, GAUNTLET_START_HEARTS, GAUNTLET_SHARD_COST, GAUNTLET_CHARM_COST, GAUNTLET_SPIKE_ROUND, itemCost,
     type GauntletRun, type GauntletBuffs,
 } from "../lib/pet-gauntlet";
-import { startGauntlet, reportGauntlet, type GauntletReward, type GauntletAction } from "../lib/pet-gauntlet-api";
+import { startGauntlet, reportGauntlet, pendingGauntlet, rememberGauntlet, type GauntletReward, type GauntletAction } from "../lib/pet-gauntlet-api";
 import { GAUNTLET_NEW_RUN_FEE } from "../lib/entry-fee";
 import { resolveSynergies, applySynergiesToSquad } from "../lib/pet-synergies";
 import { teamStatTotals, elementalEdge, type TeamStatTotals } from "../lib/pet-gauntlet-stats";
@@ -153,17 +153,21 @@ function TeamStatCard({ title, accent, totals, edge, footer }: { title: string; 
     );
 }
 
-export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: { sharedImages?: Record<string, string>; character: Character; updateCharacter: (c: Character) => void }) {
+export function PetGauntlet({ sharedImages = {}, character, updateCharacter, onVersionedCharacter }: { sharedImages?: Record<string, string>; character: Character; updateCharacter: (c: Character) => void; onVersionedCharacter?: (c: Character, version: number) => void }) {
+    const [pending] = useState(() => pendingGauntlet(character.name));
     // run is null until the server hands back the weekly seed + run token.
-    const [run, setRun] = useState<GauntletRun | null>(null);
-    const [meta, setMeta] = useState<{ token: string; weekKey: string; rewardEligible: boolean } | null>(null);
+    const [run, setRun] = useState<GauntletRun | null>(pending?.run ?? null);
+    const [meta, setMeta] = useState<{ token: string; weekKey: string; rewardEligible: boolean } | null>(pending?.meta ?? null);
     const [reward, setReward] = useState<GauntletReward | null>(null);   // shown on the end screen
     const reportedRef = useRef(false);                                   // report the finished run exactly once
+    const [reportError, setReportError] = useState(false);
+    const [reportExpired, setReportExpired] = useState(false);
+    const [reportAttempt, setReportAttempt] = useState(0);
     // The player's decision transcript (drafts / rerolls / items / relics / premium
     // buys / per-fight placement), in order — replayed server-side to re-simulate the
     // run. Fight outcomes are NOT recorded (the server re-fights each round). Reset on
     // each new run; a run-changing action is recorded next to its setRun call.
-    const transcriptRef = useRef<GauntletAction[]>([]);
+    const transcriptRef = useRef<GauntletAction[]>(pending?.transcript ?? []);
     const record = (a: GauntletAction) => { transcriptRef.current.push(a); };
     const [shopOpen, setShopOpen] = useState(false);                     // the relic bazaar overlay (opened on demand)
     // The active fight: the precomputed board result the board renderer plays.
@@ -173,6 +177,8 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
     useEffect(() => { charRef.current = character; }, [character]);
     const updateCharacterRef = useRef(updateCharacter);
     useEffect(() => { updateCharacterRef.current = updateCharacter; }, [updateCharacter]);
+    const versionedRef = useRef(onVersionedCharacter);
+    useEffect(() => { versionedRef.current = onVersionedCharacter; }, [onVersionedCharacter]);
 
     const fielded = useMemo(() => (run ? fieldedPets(run) : []), [run]);
     const synergies = useMemo(() => resolveSynergies(fielded), [fielded]);
@@ -227,16 +233,22 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
     // await), never synchronously in the effect body.
     const [nonce, setNonce] = useState(0);
     useEffect(() => {
+        if (pending && nonce === 0) return;
         let alive = true;
         void (async () => {
-            const s = await startGauntlet();
+            const s = await startGauntlet(charRef.current.name);
             if (!alive) return;
-            if (s?.character) updateCharacterRef.current(s.character);
+            if (s?.character) {
+                if (versionedRef.current && Number.isSafeInteger(s._saveVersion)) versionedRef.current(s.character, s._saveVersion!);
+                else updateCharacterRef.current(s.character);
+            }
             setMeta(s ? { token: s.runToken, weekKey: s.weekKey, rewardEligible: s.rewardEligible } : null);
             setCells({});
             setSelId(null);
             setFight(null);
             setReward(null);
+            setReportError(false);
+            setReportExpired(false);
             reportedRef.current = false;
             transcriptRef.current = [];
             // Seed the run with the SERVER-MINTED per-run seed so the server can
@@ -246,7 +258,7 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
             setRun(startGauntletRun(seed >>> 0));
         })();
         return () => { alive = false; };
-    }, [nonce]);
+    }, [nonce, pending]);
 
     // When a run ends, report it once → the server pays Ryo (sealed schedule) and
     // returns the credited amount + weekly rank, which we mirror onto the local
@@ -257,22 +269,22 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
         reportedRef.current = true;
         const { token } = meta;
         const transcript = transcriptRef.current;
+        rememberGauntlet({ player: character.name, run, meta, transcript });
+        let alive = true;
         void (async () => {
             const rep = await reportGauntlet(token, transcript);
-            if (!rep) return;
-            setReward(rep);
-            // Mirror the SERVER-granted amounts onto the local character (reconcile).
-            if (rep.ryo > 0 || rep.fateShards > 0 || rep.boneCharms > 0) {
-                const c = charRef.current;
-                updateCharacter({
-                    ...c,
-                    ryo: rep.balances.ryo,
-                    fateShards: rep.balances.fateShards,
-                    boneCharms: rep.balances.boneCharms,
-                });
+            if (!alive) return;
+            if (!rep) { setReportError(true); return; }
+            if ('expired' in rep) { setReportExpired(true); return; }
+            if (rep.character) {
+                if (versionedRef.current && Number.isSafeInteger(rep._saveVersion)) versionedRef.current(rep.character, rep._saveVersion!);
+                else updateCharacterRef.current(rep.character);
             }
+            rememberGauntlet(null);
+            setReward(rep);
         })();
-    }, [run, meta, updateCharacter]);
+        return () => { alive = false; reportedRef.current = false; };
+    }, [run, meta, character.name, reportAttempt]);
 
     if (!run) {
         return <section className="summary-box" style={{ padding: "2rem", textAlign: "center", color: "#94a3b8" }}>Entering the weekly Gauntlet…</section>;
@@ -338,9 +350,10 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
     }
 
     const newRun = () => {
+        if (run && (run.status === 'won' || run.status === 'lost') && meta && !reward) return;
         // The start endpoint debits the stored wallet under its save lock. This
         // local check only gives immediate feedback; it cannot grant a paid run.
-        if ((charRef.current.ryo ?? 0) < GAUNTLET_NEW_RUN_FEE) {
+        if (meta && (charRef.current.ryo ?? 0) < GAUNTLET_NEW_RUN_FEE) {
             return alert(`A new Gauntlet run costs ${GAUNTLET_NEW_RUN_FEE.toLocaleString()} ryo. Not enough ryo.`);
         }
         setRun(null);
@@ -361,6 +374,7 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                     Drafted pets vanish when the run ends — but clearing rounds pays <strong style={{ color: "#fcd34d" }}>Ryo</strong>, and the deepest clears
                     climb the weekly <strong style={{ color: "#c4b5fd" }}>Hall of Legends</strong> board.
                     {meta && !meta.rewardEligible && <em style={{ color: "#fca5a5" }}> · Daily Ryo cap reached — this run is for the leaderboard.</em>}
+                    {!meta && <em> · Practice run — entry not confirmed. This run has no rewards.</em>}
                 </p>
             </div>
 
@@ -374,7 +388,7 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                 <span style={{ color: "#93c5fd" }}>Round {Math.min(run.round, run.maxRounds)} / {run.maxRounds}</span>
                 <span style={{ marginLeft: "auto", display: "inline-flex", gap: 8 }}>
                     {!over && <button type="button" style={btn("#a855f7")} onClick={() => setShopOpen(true)}><GameArtIcon kind="shop" size={18} /> Shop</button>}
-                    <button type="button" style={btn("#475569")} onClick={newRun}>↻ New run ({GAUNTLET_NEW_RUN_FEE.toLocaleString()} ryo)</button>
+                    <button type="button" style={btn("#475569")} disabled={over && !!meta && !reward} onClick={newRun}>{meta ? '↻ New run' : 'Retry entry'} ({!meta ? 'up to ' : ''}{GAUNTLET_NEW_RUN_FEE.toLocaleString()} ryo)</button>
                 </span>
             </div>
 
@@ -395,12 +409,17 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                                     {reward.boneCharms > 0 && <><GameArtIcon kind="boneCharm" size={22} /> +{reward.boneCharms} Bone Charm{reward.boneCharms === 1 ? "" : "s"}</>}
                                 </span>
                             )}
-                            <span className="hint" style={{ fontSize: "0.78rem" }}>Weekly score {reward.score.toLocaleString()}{reward.rank ? ` · rank #${reward.rank}` : ""} · see the Hall of Legends → Gauntlet board</span>
+                            <span className="hint" style={{ fontSize: "0.78rem" }}>{reward.score === null ? 'Saved reward receipt recovered' : `Weekly score ${reward.score.toLocaleString()}${reward.rank ? ` · rank #${reward.rank}` : ''}`} · see the Hall of Legends → Gauntlet board</span>
                         </div>
                     ) : (
-                        <p className="hint" style={{ fontSize: "0.74rem", opacity: 0.75 }}>Tallying the result…</p>
+                        reportExpired ? <div role="alert"><p>This report has expired, and no saved reward receipt is available.</p>
+                            {meta && <button type="button" onClick={() => { rememberGauntlet(null); setMeta(null); }}>Dismiss expired report</button>}
+                        </div> : !meta ? <p className="hint">Practice run complete — no rewards.</p> : reportError ? <div role="alert">
+                            <p>Your Gauntlet result could not be confirmed. Your report is saved for retry.</p>
+                            <button type="button" onClick={() => { reportedRef.current = false; setReportError(false); setReportAttempt(value => value + 1); }}>Retry Gauntlet result</button>
+                        </div> : <p className="hint" role="status">Tallying the result…</p>
                     )}
-                    <div><button type="button" style={{ ...btn("#f59e0b"), padding: "8px 18px", fontSize: "0.9rem" }} onClick={newRun}>Run the weekly Gauntlet again</button></div>
+                    <div><button type="button" disabled={!!meta && !reward} style={{ ...btn("#f59e0b"), padding: "8px 18px", fontSize: "0.9rem" }} onClick={newRun}>Run the weekly Gauntlet again</button></div>
                 </div>
             ) : (
                 <>

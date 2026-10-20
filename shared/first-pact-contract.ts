@@ -129,7 +129,7 @@ export const FIRST_PACT_TOURNAMENT = [
         tier: "champion",
         requiredWins: 2,
         // Two defenders, so there is a protection pattern to break.
-        lesson: "Break the champion's guard pattern before its signature turn arrives.",
+        lesson: "The champion opens with two defenders. Check their protection effects before committing your strongest attack.",
         defeat: "Officials congratulate the Fang's owner on taking Vale's yard before the order is signed. Sena stays at the rail and tells Orin to keep the entry open.",
         roster: {
             roles: ["defender", "defender", "assassin", "sage"],
@@ -178,21 +178,21 @@ export const FIRST_PACT_VOWS = [
         id: "open-road",
         choice: "They may leave me. Their place beside me stays open.",
         anchors: ["exit"] as const,
-        consequence: "The Court opens the west gate and tries to split your formation by offering one companion the exit you promised.",
+        consequence: "The Court argues that letting a companion leave puts the other three at risk. It wants you to promise obedience on their behalf.",
         returnCopy: "One companion pauses at the threshold, looks back, and then crosses after you. The road remained open, and the choice remained theirs.",
     },
     {
         id: "shared-reason",
         choice: "I tell them why I fight. Trust is theirs to give.",
         anchors: ["reason", "trust"] as const,
-        consequence: "The Court repeats your reason as an order and shapes its opening exchange around the response it expects.",
+        consequence: "The Court says a shared reason is too uncertain to rely on. It wants your companions to follow orders even when they disagree.",
         returnCopy: "At the threshold, the Court repeats your reason in its command voice. One companion waits until the order ends, then crosses beside you for the reason you shared.",
     },
     {
         id: "kept-future",
         choice: "Record where they disagreed with me. Their future is not mine to edit.",
         anchors: ["future"] as const,
-        consequence: "The Court repeats every disagreement Vey recorded and uses each one to pull your four companions toward a different position.",
+        consequence: "The Court treats each recorded disagreement as evidence that your team cannot be trusted. It wants Vey to replace those entries with a pledge of obedience.",
         returnCopy: "Vey leaves every disagreement uncrossed beside your vow. Your four reach the threshold at different paces, wait until all are ready, and cross together.",
     },
 ] as const satisfies readonly {
@@ -230,8 +230,8 @@ export const FIRST_PACT_MAIN_ENCOUNTERS = [
         victoryStep: "recover-withheld-record",
         chapterOnWin: 2,
         standing: 250,
-        // A defender pair, so the restraint the lesson names is really there.
-        lesson: "The Menagerie locks one active position at a time. Rotate before the restraint lands and keep both positions available.",
+        // The opening defender pair supports the protection advice below.
+        lesson: "The Menagerie opens with two defenders. Check their protection effects and choose your targets before attacking.",
         defeat: "The handlers lead the Menagerie out at an easy pace. A clerk offers to read the Court's ownership finding. Vey tells her to save her breath.",
         roster: {
             roles: ["defender", "defender", "tracker", "sage"],
@@ -248,8 +248,8 @@ export const FIRST_PACT_MAIN_ENCOUNTERS = [
         victoryStep: "make-first-pact",
         chapterOnWin: 3,
         standing: 350,
-        // Assassins pivot, so the lattice really does move out from under you.
-        lesson: "Both assassins can strike and withdraw behind the healthiest reserve. Keep a counter ready for the pet that pivots in.",
+        // Two opening assassins put pressure on the player's active pair.
+        lesson: "The Wardens open with two assassins. Watch their attack choices and switch injured companions into reserve when you can.",
         defeat: "The intake lock closes and the wardens step back behind it. Tam checks the pressure dial, swears once, and starts resetting the bypass.",
         roster: {
             roles: ["assassin", "assassin", "tracker", "defender"],
@@ -262,7 +262,8 @@ export const FIRST_PACT_MAIN_ENCOUNTERS = [
      * southern Colosseum gate rather than one confrontation. Each round is a
      * different argument -- assessment, then the arena itself, then a wall that
      * will not die, then the Court's own reading of you -- and each is drawn
-     * from a roster that guarantees the mechanic its lesson names.
+     * from a roster with the roles its lesson names. Individual techniques
+     * still depend on the species selected by the battle builder.
      *
      * Rounds share `requiredStep`, so `requiredTrialWins` is what orders them.
      * Only the last round carries the story forward; the first three advance
@@ -278,7 +279,7 @@ export const FIRST_PACT_MAIN_ENCOUNTERS = [
         victoryStep: "challenge-court-echo",
         chapterOnWin: 4,
         standing: 200,
-        lesson: "The Assessors mark a pet before striking it. Rotate or change that pet's action before they use the mark.",
+        lesson: "The Assessors open with two trackers. Check the effects of their techniques before choosing your next actions.",
         defeat: "The Assessors finish their notes without looking up. One writes a word beside your name, covers it with a thumb, and hands the page to Orin.",
         roster: {
             roles: ["tracker", "tracker", "assassin", "defender"],
@@ -296,7 +297,7 @@ export const FIRST_PACT_MAIN_ENCOUNTERS = [
         victoryStep: "challenge-court-echo",
         chapterOnWin: 4,
         standing: 250,
-        lesson: "The Chorus changes the arena weather instead of attacking directly. Keep a reserve whose element answers the current weather.",
+        lesson: "The Chorus brings three sages. Watch for weather changes, and check which of your companions benefits before switching.",
         defeat: "The Chorus leaves the summoned weather hanging over the empty ring. Orin waits for an order to clear it; none comes.",
         roster: {
             roles: ["sage", "sage", "sage", "tracker"],
@@ -314,7 +315,7 @@ export const FIRST_PACT_MAIN_ENCOUNTERS = [
         victoryStep: "challenge-court-echo",
         chapterOnWin: 4,
         standing: 300,
-        lesson: "The Wall recovers while its guard order remains unbroken. Force it to change roles before you spend your strongest turn.",
+        lesson: "The Wall brings three defenders. Check for blocks and shields before spending stamina on your strongest attacks.",
         defeat: "The Wall returns to its starting marks without waiting for praise. Its handlers check the spacing and never address the animals by name.",
         roster: {
             roles: ["defender", "defender", "defender", "sage"],
@@ -334,7 +335,7 @@ export const FIRST_PACT_MAIN_ENCOUNTERS = [
         standing: 700,
         // One of each role: the Echo answers every argument the first three
         // rounds made separately, which is the whole point of it going last.
-        lesson: "Use all four companions and let the reserves answer openings the Court considers expendable.",
+        lesson: "The Echo brings one companion of each role. Use your reserves to replace injured pets or improve an elemental matchup.",
         defeat: "The Echo returns your companions one at a time and waits for your response. Orin keeps the hearing open for another attempt.",
         roster: {
             roles: ["defender", "sage", "assassin", "tracker"],
@@ -395,7 +396,7 @@ export const FIRST_PACT_DISTRICT_WRITS = [
         tier: "champion",
         standing: 175,
         summons: "They brought muzzles before dawn, though nobody measured my rookbeasts. The bell rang while the detail was still on the stairs. I need them away from the roost before the next ringing.",
-        lesson: "The detail targets the loudest active pet first. Draw that restraint, then answer with the reserve they ignored.",
+        lesson: "The detail opens with two trackers. Check their status effects and keep a healthy reserve ready.",
         defeat: "The detail calls the bout inconclusive and camps below the roost. Isu keeps one hand on the bell rope and sends her relief warden home.",
         roster: {
             roles: ["tracker", "tracker", "defender", "sage"],
@@ -412,7 +413,7 @@ export const FIRST_PACT_DISTRICT_WRITS = [
         tier: "champion",
         standing: 175,
         summons: "The auditor put my haulers in the STOCK column beside the feed sacks. I asked for a separate count. She ordered me off my own counter. Help me clear it before she returns.",
-        lesson: "The auditors treat reserves as surplus. Rotate all four companions so their count cannot erase either reserve.",
+        lesson: "The auditors bring one companion of each role. Switch reserves in when an active pet needs rest or faces a poor matchup.",
         defeat: "The auditor keeps her count and schedules another visit. Rho moves the feed sacks indoors and leaves the haulers in the yard with their name boards.",
         roster: {
             roles: ["sage", "tracker", "assassin", "defender"],
@@ -429,7 +430,7 @@ export const FIRST_PACT_DISTRICT_WRITS = [
         tier: "champion",
         standing: 175,
         summons: "The order says every branch outside the old plan must go. This tree and that plan are both four hundred years old, but only one is still growing. Keep their saws off it.",
-        lesson: "The Order strikes whatever reaches from the front. Let the second active position finish the turn while the first draws the cut.",
+        lesson: "The Order opens with a defender and a sage. Check their protection and weather effects before choosing your attacks.",
         defeat: "The Order leaves its cut marks on the trunk. Kaio brings a brush and water, then starts washing the chalk off before the detail has cleared the path.",
         roster: {
             roles: ["defender", "sage", "sage", "assassin"],
@@ -446,7 +447,7 @@ export const FIRST_PACT_DISTRICT_WRITS = [
         tier: "champion",
         standing: 175,
         summons: "The detail has an order for four beasts, signed today while Sena is at the Colosseum. I can keep this gate shut for a minute. I need you to make that minute enough.",
-        lesson: "The impound completes its claim on the fourth turn. Break its formation before then.",
+        lesson: "Defeat all four companions in the impound team to stop this seizure. Switch injured pets into reserve when you can.",
         defeat: "The detail falls back to the ward gate with the order still valid. Pell resets the bar, braces it with his shoulder, and tells you to hurry back.",
         roster: {
             roles: ["defender", "defender", "tracker", "assassin"],
@@ -1061,7 +1062,7 @@ export const FIRST_PACT_STANDING_COURT_ROUNDS: readonly FirstPactStandingCourtRo
          * it lost. The rerun is not a difficulty setting; it is the consequence
          * of having won.
          */
-        lesson: "The Arbiter mirrors the roles and elements of the four you brought. Change active positions and target order before the reflection settles into your formation.",
+        lesson: "The Arbiter brings the same roles and elements as your team. Check the opposing moves and choose your active pair and targets carefully.",
         defeat: "The Arbiter files the result and steps off the sand. The mirrored four leave in your usual order. Nothing is taken, and the docket returns to its first sitting.",
         roster: { mirrorsPlayer: true, growthShareBonus: .35 },
     },

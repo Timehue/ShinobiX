@@ -6,6 +6,7 @@ import {
     SHARED_JUTSU_FIELDS_EXCLUDED_FROM_MODE_EXCEPTIONS,
 } from './mode-exceptions.js';
 import { buildJutsuParityInventory, TAG_BEHAVIOR_FAMILIES } from './jutsu-parity-inventory.js';
+import { NARRATIVE_ENEMY_IDENTITIES, narrativeEnemyJutsuIds } from '../../shared/narrative-enemy-identity.js';
 
 describe('executable jutsu parity inventory', () => {
     test('derives the shipped census and classifies every executable jutsu', () => {
@@ -27,8 +28,13 @@ describe('executable jutsu parity inventory', () => {
             [...CANONICAL_TAG_NAMES].sort(),
         );
         const inventory = buildJutsuParityInventory();
-        assert.equal(inventory.aiReferencedJutsuIds.length, 30);
+        // The themed enemy kits exercise eight additional existing techniques.
+        assert.equal(inventory.aiReferencedJutsuIds.length, 38);
         assert.deepEqual(inventory.missingAiJutsuIds, []);
+        const executableIds = new Set(inventory.rows.map(row => row.id));
+        for (const identity of Object.values(NARRATIVE_ENEMY_IDENTITIES))
+            for (const id of narrativeEnemyJutsuIds(identity, 12))
+                assert.ok(executableIds.has(id), `${id}: narrative and veteran kits must use executable catalog techniques`);
     });
 
     test('includes creator-published jutsu when the authoritative admin store supplies them', () => {

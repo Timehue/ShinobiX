@@ -83,7 +83,7 @@ export const storyReckonings: StoryReckoning[] = [
                 speaker: "Elder Vanta",
                 dialogue: [
                     "I brought the old collection ledger. There's an account we still need to close.",
-                    "Kesa Volt's account is closed, but the old machinery did not stop reaching for people who still remember her.",
+                    "The old machinery is still using Kesa Volt's name to reach the people who remember her.",
                     "A collector named Sesk carries one of the seals that kept her reason profitable. I signed enough ledgers to know the stamp.",
                 ],
             },
@@ -94,7 +94,7 @@ export const storyReckonings: StoryReckoning[] = [
                 dialogue: [
                     "I cannot send village guard after him. Half the paper that protects him has my handwriting on it.",
                     "You are not on that paper. Find Sesk, take back Kesa's storm-seal, and bring it here where I have to look at it.",
-                    "We'll enter the recovered seal as evidence and stop further collections under that account.",
+                    "We'll enter the recovered seal as evidence and stop Sesk collecting under her name.",
                 ],
                 choices: [
                     { text: "Take the writ. Hunt down Warden Sesk.", accept: true },
@@ -143,8 +143,8 @@ export const storyReckonings: StoryReckoning[] = [
                 speaker: "Mira Volt",
                 dialogue: [
                     "I need your help finding something that belonged to my mother.",
-                    "My mother's ridge marker was broken up for pressed flowers. Kesa Volt, reduced to resale value one more time.",
-                    "Pickers carried the pieces beyond this gate. Meet me at the ridge gate with the weather still readable; we'll choose the high line or the picker road from there.",
+                    "Someone broke up my mother's ridge marker and sold the pieces as weights for pressing flowers. They even found a way to profit from her memorial.",
+                    "Flower pickers carried the pieces beyond this gate. Meet me at the ridge gate before the rain, and we'll choose which path to take.",
                 ],
                 choices: [
                     { text: "Take the writ. Meet Mira at the ridge gate.", accept: true },
@@ -211,7 +211,7 @@ export const storyReckonings: StoryReckoning[] = [
                 speaker: "Toma Reed",
                 dialogue: [
                     "Two piles. Names I can still read, and names the fire made me guess. I am taking my time with both.",
-                    "The drain took a whole column of names last month. Scrubbed clean, filed under weather. My family was in that column. Reed.",
+                    "Last month, the Register lost a whole column of names. The clerks blamed weather damage, but the names were deliberately scraped away. My family was in that column. Reed.",
                     "The plates were broken up and dumped outside the village. I want to gather them before the names wear away. I'd rather not do it alone.",
                 ],
             },
@@ -307,7 +307,7 @@ export const storyReckonings: StoryReckoning[] = [
                 speaker: "Elder Mori",
                 dialogue: [
                     "There is a redactor working this road now. Sella. She strikes names for the drain and feeds the struck cedar to the fire-crews for a cut, and she is very good at both.",
-                    "One of those plates says Aren Reed. A boy Toma still sets a place for. Struck, filed, and marked for the burning.",
+                    "One of those plates bears Aren Reed's name. They altered his life, and now they are trying to burn the record of who he used to be.",
                     "I co-signed the orders that made her work lawful. She can use them to block any order I issue now. The Register has never been able to classify your line properly. You have a better chance of confronting her.",
                 ],
             },
@@ -363,7 +363,7 @@ export const storyReckonings: StoryReckoning[] = [
                 scene: "The Frostfang outskirts, snow whipping past the gate stones",
                 speaker: "Elder Sova",
                 dialogue: [
-                    "Leave the coat. I have spent enough nights at this gate to know when the cold is merely uncomfortable. Keep your hands free for the pages.",
+                    "Do not worry about me. I have spent enough nights at this gate to manage the cold. Keep your hands free for the pages.",
                     "There is the Count, which is the official book, and there is the roll, which is who was actually alive. For forty winters I have kept both and shown only one.",
                     "The true roll came apart in the last storm. The pages of the struck names, the ones the Vault stopped counting. They are out there in the drifts.",
                 ],
@@ -459,9 +459,9 @@ export const storyReckonings: StoryReckoning[] = [
                 scene: "The ridge road, ice fences groaning",
                 speaker: "Captain Yura",
                 dialogue: [
-                    "There is a man on his list right now, struck for arrears, his warmth-token confiscated. He will not last three nights without it. Kree wrote the deadline himself and posted watchers at the road.",
+                    "There is a man on his list whose warmth-token was confiscated over unpaid fees. He is stranded in the cold, and Kree has posted watchers to keep him off the road.",
                     "Warmth was never supposed to have a meter. I checked those totals for twelve years and never walked home with the people whose rooms went cold.",
-                    "I broke my oath to the Count. Kree won't recognize an arrest order from me, and his watchers know my face. I need your help reaching him.",
+                    "I signed off Kree's totals for years. Now that I have challenged them, he refuses to recognize my authority. His watchers know my face. I need your help reaching him.",
                 ],
             },
             {
@@ -469,13 +469,13 @@ export const storyReckonings: StoryReckoning[] = [
                 scene: "The ridge gate, snow starting",
                 speaker: "Captain Yura",
                 dialogue: [
-                    "Find Kree. Take back the struck token before the third night. Bring it here and I will put it back in the hand it was cut from myself.",
+                    "Find Kree and recover the confiscated warmth-token. Bring it here, and I will return it to its owner myself.",
                     "Then I will stand at the gate with my mark bare and answer for every name I called and never followed. It is a long list. Somebody should have to read it.",
-                    "Go. He has already lost one night.",
+                    "Go when you are ready. We need to get him out of the cold.",
                 ],
                 choices: [
                     { text: "Take the contract. Hunt down Meter-Warden Kree.", accept: true },
-                    { text: "Not yet.", trait: "ffr-yura-weighed-it", conclusion: "'He has already lost one night,' Yura says. She turns back to the road and keeps her bare hand visible." },
+                    { text: "Not yet.", trait: "ffr-yura-weighed-it", conclusion: "'Come back when you can help,' Yura says. She turns back to the road and keeps her bare hand visible." },
                 ],
             },
         ],
@@ -614,7 +614,7 @@ export const storyReckonings: StoryReckoning[] = [
                 dialogue: [
                     "There is an enforcer working the outskirts, moving sealed files off my shelf and onto an auction block. Masked. He does not haggle. He appraises.",
                     "One of the files on his block tonight is a child. Sold at nine years old, filed under load-bearing, held ever since because the file was worth more sealed than the child was worth free.",
-                    "I sealed that shelf. I know exactly which drawer. I cannot open my own archive against my own seal without ending myself as its master. You are bound by no seal I ever set.",
+                    "My seal protected that shelf, and the enforcer is using my own authorization to move the files. I cannot pretend this is someone else's mistake. Help me recover the file so I can return it publicly.",
                 ],
             },
             {
@@ -623,7 +623,7 @@ export const storyReckonings: StoryReckoning[] = [
                 speaker: "Shade Master Iro",
                 dialogue: [
                     "Find the enforcer and recover the file before it is sold again. Bring it here. I'll break my seal and return the record to the person named inside.",
-                    "When I break that seal, my own rules remove me as archive master. I should have broken it years ago.",
+                    "Breaking that seal in public will expose what I allowed. I should have done it years ago.",
                     "Go. The block opens at the turn of the moon.",
                 ],
                 choices: [
@@ -644,7 +644,7 @@ export const storyReckonings: StoryReckoning[] = [
                 ],
                 choices: [
                     { text: "\"I refused the shelf you offered me. Open it for everyone you kept on it.\"", requireTrait: "ms58-refused-the-shelf", trait: "msr-iro-shelf-refused", conclusion: "Iro records your refusal on the shelf inventory. 'Then stand here while I break the next seal.' He opens the next drawer himself." },
-                    { text: "\"I took the shelf once. I will help unshelf every name on it.\"", requireTrait: "ms58-took-the-shelf", trait: "msr-iro-shelf-emptied", conclusion: "Iro records what you took and accepts your help returning it. Together you open the next drawer and read its name into the mist, then reach for the one beside it." },
+                    { text: "\"I accepted access to those files. I will help return them to the people they belong to.\"", requireTrait: "ms58-took-the-shelf", trait: "msr-iro-shelf-emptied", conclusion: "Iro records what you took and accepts your help returning it. Together you open the next drawer and read its name into the mist, then reach for the one beside it." },
                     { text: "\"Let the child name themselves now. However they want.\"", trait: "msr-iro-child-named", conclusion: "He hands the unsealed file to the person it stole a childhood from and asks them, for the first time anyone has, what they would like to be called. He writes down whatever they say." },
                 ],
             },
@@ -711,9 +711,9 @@ export const storyReckonings: StoryReckoning[] = [
                     "I am riveting the die beside the manifest. My receipt is the countersigned copy, which is less dramatic and considerably harder to pry off a wall. Hold the lamp.",
                 ],
                 choices: [
-                    { text: "\"We split a penalty once and you nailed the manifest up for anyone to read. This is that, bigger.\"", requireTrait: "rd48-split-the-penalty", trait: "hr-harrow-partner", conclusion: "She remembers the crate. Most people who split a penalty with her spend the rest of their lives pretending they did not. She writes your name in the readers' column of a book she does not usually show anyone." },
+                    { text: "\"I witnessed what was in that crate. You posted the manifest for everyone to read. We can do that again.\"", requireTrait: "rd48-split-the-penalty", trait: "hr-harrow-partner", conclusion: "She remembers the crate. Most people who witnessed it with her have since denied being there. She writes your name in the readers' column of a book she does not usually show anyone." },
                     { text: "\"You owed me a favor. Publishing this evidence will settle it.\"", requireTrait: "rd48-favor-on-the-books", trait: "hr-harrow-favor-called", conclusion: "She opens the ledger to the line she wrote, favor owed, your name spelled right, and draws one clean stroke through it. Paid, she says, and looks almost sorry to close the account." },
-                    { text: "\"Last time I turned you in for the fee. I'd rather have done this instead.\"", requireTrait: "rd48-collected-the-fee", trait: "hr-harrow-fee-mended", conclusion: "She shows you the entry she made after you collected the two hundred: worth watching. Beneath it, she records your help recovering the forging die." },
+                    { text: "\"Last time I reported you over a fee Bellis never paid. I'd rather have helped you.\"", requireTrait: "rd48-collected-the-fee", trait: "hr-harrow-fee-mended", conclusion: "She shows you the entry she made after your report to Bellis: worth watching. Beneath it, she records your help recovering the forging die." },
                     { text: "\"Read the whole scheme out at every village at once. No favors, no seats spared.\"", trait: "hr-harrow-read-it-all", conclusion: "She sends the manifest to all four waystation boards on the same night, every seat named and every buyer priced. When the courier asks which copy is hers, Harrow says, 'None. Keep moving.'" },
                 ],
             },

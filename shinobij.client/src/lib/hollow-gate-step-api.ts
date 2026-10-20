@@ -65,7 +65,7 @@ export async function sealHollowGateStep(params: {
             body: JSON.stringify(params),
         });
         const data = await response.json().catch(() => ({})) as HollowGateStepResult;
-        return response.ok && data.ok ? data : { ...data, ok: false, error: data.error || `Hollow Gate step failed (${response.status}).` };
+        return response.ok && data.ok ? data : { ...data, ok: false, error: data.error || `Your Hollow Gate move could not be confirmed. Reconnect to check your position.` };
     } catch {
         return { ok: false, error: "The Hollow Gate step service is unreachable." };
     }

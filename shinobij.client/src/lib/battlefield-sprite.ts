@@ -44,9 +44,9 @@ export function inferSpriteKind(src: string): BattlefieldSpriteKind {
     if (/forest-hawk/i.test(src)) return "flying";
     if (/(moon-serpent|leviathan)/i.test(src)) return "serpentine";
     if (/(wild-boar|wolf|lizard|panther|bear|chakra-beast|warren-alpha|hollow-hound)/i.test(src)) return "quadruped";
-    if (/golem/i.test(src)) return "construct";
+    if (/(golem|wooden-root-guardian|first-flame-sentinel|frost-seal-guardian)/i.test(src)) return "construct";
     // `/world-boss/` is the roaming event bosses' public art folder.
-    if (/(apex-|boss-|\/world-boss\/|ravager|armored|spectral|worldstorm|drake|oni|gate-heir|mirror-shard)/i.test(src)) return "boss";
+    if (/(apex-|boss-|\/world-boss\/|ravager|armored|spectral|worldstorm|drake|oni|gate-heir|mirror-shard|scorpion-queen|tempest-twins|glacier-twins)/i.test(src)) return "boss";
     return "humanoid";
 }
 

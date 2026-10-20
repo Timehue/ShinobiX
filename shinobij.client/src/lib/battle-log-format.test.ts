@@ -23,6 +23,9 @@ describe("classifyBattleLogLine — core categories (user-mandated)", () => {
         assert.equal(classifyBattleLogLine("Mira bleeds 120 (Wound)."), "damage");
         assert.equal(classifyBattleLogLine("Mira takes 90 Poison damage."), "damage");
         assert.equal(classifyBattleLogLine("Mira drained 60 HP+chakra."), "damage");
+        assert.equal(classifyBattleLogLine("Mira loses 60 HP and 12 chakra to Drain."), "damage");
+        assert.equal(classifyBattleLogLine("Mira loses 120 HP to Wound."), "damage");
+        assert.equal(classifyBattleLogLine("Mira restores 17 HP through Absorb."), "heal");
         assert.equal(classifyBattleLogLine("Raiko takes 200 reflected damage."), "damage");
         assert.equal(classifyBattleLogLine("Pierce: bypasses defenses."), "damage");
     });

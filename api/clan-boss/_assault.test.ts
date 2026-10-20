@@ -278,7 +278,7 @@ describe('clan-boss player-combat parity guard', () => {
         assert.equal(clanBoss.opponent.hp, pvp.opponent.hp);
         assert.equal(clanBoss.opponent.statuses.filter(status => status.name === 'Wound').length, 1, 'Wound applies once, not as an immediate DoT duplicate');
         assert.ok(clanBoss.lines.some(line => line.includes('damage to boss')));
-        assert.ok(clanBoss.lines.some(line => line.includes('Wound: boss bleeds')));
+        assert.ok(clanBoss.lines.some(line => line.includes('Wound: boss will lose')));
     });
 
     it('reuses PvP combat resolution while documenting remaining tower-local drift', () => {
