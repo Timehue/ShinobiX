@@ -199,7 +199,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const { runId, seed, bossHp } = reserved.receipt;
         let session = await readSession(runId);
         if (!session) {
-            session = buildTowerEncounter({ floor, squad, runId, seed, partySize: squad.length, now: reserved.receipt.at });
+            session = buildTowerEncounter({ floor, squad, runId, seed, partySize: squad.length, towerId: 'clan-boss', now: reserved.receipt.at });
             // Override the boss's HP to the SHARED pool (capped per assault) so it's
             // the persistent clan boss being chipped, not a fresh chunk.
             configureClanBossEncounter(session, floor, bossHp);

@@ -491,7 +491,9 @@ export function buildTowerEncounter(p: BuildEncounterParams): TowerSession {
     // Story floors scale enemy HP/damage DOWN for a party smaller than the balance baseline.
     // Endless Spire is ALWAYS full-strength (the tier is the escalation, never a party discount),
     // so skip party scaling entirely when this is an ascension run.
-    if (!p.ascension) applyPartyScaling(session, floor);
+    // Clan operations keep their authored three-player enemy strength even
+    // when fewer members join. Their shared pool must not become a solo boss.
+    if (!p.ascension && p.towerId !== 'clan-boss') applyPartyScaling(session, floor);
     if (publicTactics && useLargeEnvironment) initializeTowerTactics(session);
     if (p.embedFloor) session.encounterFloor = structuredClone(floor);
     return session;

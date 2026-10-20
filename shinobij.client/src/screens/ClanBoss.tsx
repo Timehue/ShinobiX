@@ -280,7 +280,7 @@ export function ClanBoss({ character, clanmates, hostLoadout, sharedImages, onRe
             </div>
 
             {flash ? <p className="clan-raid-flash" role="status">{flash}</p> : null}
-            {pendingRun ? <button type="button" className="operation-rejoin" onClick={() => { setFight(pendingRun); setPendingRun(null); }}>Rejoin your accepted operation</button> : null}
+            {pendingRun ? <button type="button" className="operation-rejoin" onClick={() => { setFight(pendingRun); setPendingRun(null); }}>{pendingRun.session.status === "done" ? "Finish assault results" : "Rejoin your accepted operation"}</button> : null}
             {!clanBossActionsAvailable ? <p className="clan-raid-flash" role="status">New assaults and party changes are paused. Status and accepted-operation recovery remain available.</p> : null}
 
             {!clan.killed && partyState && partiesUsable ? <ClanBossPartyLobby envelope={partyState} playerSlug={playerSlug} clanmates={clanmates} busy={busy || !clanBossActionsAvailable || !partyActionsAvailable} onAction={act} onStart={start} /> : null}
@@ -292,7 +292,7 @@ export function ClanBoss({ character, clanmates, hostLoadout, sharedImages, onRe
                 <p>Hunts supply materials → the existing Crafter makes pills, smoke bombs, and potions → the Tower engine seals and consumes equipped supplies → server contribution credits damage, healing, shielding, cleanses, objectives, and survival.</p>
             </div>
 
-            <p className="hint operation-score-note">Your clan has removed <strong>{clan.damageDealt.toLocaleString()}</strong> HP with <strong>{clan.participants}</strong> participating member{clan.participants === 1 ? "" : "s"}. This authored boss uses <strong>{boss?.mechanic}</strong> mechanics. Most assaults are expected to chip the persistent pool; active support and objective play qualify for threshold rewards without competing against damage dealers.</p>
+            <p className="hint operation-score-note">Your clan has removed <strong>{clan.damageDealt.toLocaleString()}</strong> HP with <strong>{clan.participants}</strong> participating member{clan.participants === 1 ? "" : "s"}. This authored boss uses <strong>{boss?.mechanic}</strong> mechanics. Bring three players for serious damage; solo assaults can bank little or none; active support and objective play qualify for threshold rewards without competing against damage dealers.</p>
             <p className="hint operation-score-note">Each assault applies profession XP, clan points, and sector pressure immediately. Qualified personal Ryo and Fate Shards are paid once by the weekly payout after the campaign ends. Each active contributor also has a 5% chance of an upgrade gear piece from every assault, paid immediately.</p>
 
             <h4>Clan Standings</h4>

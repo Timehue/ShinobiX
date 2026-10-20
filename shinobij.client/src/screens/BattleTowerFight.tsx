@@ -1,4 +1,5 @@
 import { TowerResultHeader } from "../components/TowerResultHeader";
+import { clanBossOutcomeLog } from "../../../shared/clan-boss-operation";
 import { sameJsonValue } from "../lib/pvp-session-runtime";
 import { TowerPersonalBestReceipt } from "../components/TowerPersonalBestReceipt";
 import { TOWER_DISRUPT_AP, TOWER_SIGNATURES, TOWER_HONORS, towerSignaturePattern } from "../../../shared/tower-progression";
@@ -543,7 +544,7 @@ export function BattleTowerFight({
     const [session, setSession] = useState<TowerSession>(initialSession);
     const clanBossResult = clanBossAssaultResult(session, variant);
     const isClanBoss = clanBossResult !== null;
-    const displayLog = session.log;
+    const displayLog = isClanBoss ? session.log.map(line => clanBossOutcomeLog(line, session.floor)) : session.log;
     const battleTabs = useBattleTabs(session.log.length);
     const combatFloor = session.sealedCatalogFloor ?? session.encounterFloor;
     const [mode, setMode] = useState<Mode>("idle");
@@ -1140,12 +1141,12 @@ export function BattleTowerFight({
         onRecordBattle(makeBattleEntry({
             id: `tower-${runId}`,
             ts: Date.now(),
-            mode: isCaravanAmbush ? "Caravan ambush" : isWorldBoss ? "World Boss Raid" : isHunt ? "World Encounter" : "Tower",
+            mode: isClanBoss ? "Clan Boss Assault" : isCaravanAmbush ? "Caravan ambush" : isWorldBoss ? "World Boss Raid" : isHunt ? "World Encounter" : "Tower",
             opponent: boss?.name ?? enemyNames[0] ?? "Tower enemies",
             outcome,
             rounds: session.round ?? 1,
             self: me,
-            actions: buildActionsFromTowerLog(session.log ?? [], allyNames, enemyNames),
+            actions: buildActionsFromTowerLog(displayLog, allyNames, enemyNames),
         }));
         // Fire once when the floor resolves; the recordedRef guard makes extra
         // session updates no-ops, so we intentionally don't list every field.

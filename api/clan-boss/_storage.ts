@@ -27,19 +27,18 @@ import type { ClanBossContributionResult } from '../../shared/clan-boss-operatio
 // ── The clan's shared boss ─────────────────────────────────────────────────
 // Every clan faces the SAME boss with its OWN persistent HP bar (= this pool),
 // scaled per-capita so a small clan can still finish. This IS the boss's health;
-// parties chip it down across many assaults over the week.
-export const CB_BASE_POOL = 14000;
-export const CB_POOL_PER_MEMBER = 8000;
+// parties bank damage across assaults over the week. Existing progress keeps
+// its sealed poolMax; these defaults apply when a clan's progress is created.
+export const CB_BASE_POOL = 48000;
+export const CB_POOL_PER_MEMBER = 24000;
 export const CB_MEMBER_CAP = 25;           // pool stops scaling past this roster size
 
 // ── One assault ────────────────────────────────────────────────────────────
-// A party fights the boss at min(remaining pool, CB_ASSAULT_HP_CAP) HP. The cap is
-// set ABOVE what a 3-party can burn down before the boss wears them out, so an
-// assault normally ends in a WIPE (or a round-out) having only CHIPPED the boss —
-// the boss is truly slain only on the FINAL assault, once the remaining pool drops
-// below what a party can finish. So the whole boss takes MANY attempts, and "every
-// challenge ends in a wipe besides the clear." Banked chip-damage is what matters.
-export const CB_ASSAULT_HP_CAP = 24000;
+// A party fights at min(remaining pool, CB_ASSAULT_HP_CAP) HP against fixed
+// three-player encounter strength. Strong coordinated parties can clear this
+// slice; clearing it only kills the weekly boss when no persistent pool remains.
+// Wipes and round-outs also bank damage. Accepted runs retain their sealed HP.
+export const CB_ASSAULT_HP_CAP = 72000;
 export const CB_ASSAULTS_PER_MEMBER = 5;
 export const CB_MAX_PARTY = 4;             // one to four accepted, ready clanmates
 export const CB_ASSAULT_LOG_CAP = 200;
