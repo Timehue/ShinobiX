@@ -169,7 +169,7 @@ test('built CSP and every Stronghold audit feed the required responsive gate wit
     assert.deepEqual([...strongholdOrder].sort((a, b) => a - b), strongholdOrder);
     assert.match(responsive, /name: Retain responsive browser evidence\n\s+if: always\(\)/);
     assert.match(flows, /name: Retain responsive flow evidence\n\s+if: always\(\)/);
-    assert.match(flows, /shard: \[1, 2, 3, 4, 5, 6, 7, 8, 9, 10\]/, 'every responsive flow shard must be scheduled');
+    assert.match(flows, /shard: \[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12\]/, 'every responsive flow shard must be scheduled');
     for(let shard=1;shard<=8;shard++)assert(flows.includes(`lifeShard: ${shard}/8`),'every living-sector slice must be gated');
     assert.match(flows, /needs: release_artifact\n\s+if: \$\{\{ always\(\) \}\}/);
     const aggregate = workflow.split('  e2e_responsive:\n')[1]?.split('\n  e2e_combat_matrix:\n')[0];
@@ -190,6 +190,12 @@ test('living-world source fixtures have dedicated gates instead of running on th
     assert.match(flows,/groundProject: phone/);
     assert.match(flows,/--config playwright\.ground-wildlife\.config\.ts --project=\$\{\{ matrix\.groundProject \}\} --forbid-only/);
     assert(flows.includes('output/living-world/wildlife/browser/'));
+    assert.match(flows,/shard: 11\n\s+dockProject: desktop/);
+    assert.match(flows,/shard: 12\n\s+dockProject: phone/);
+    const dockStep = flows.split('- name: Dock shipment delivery and cached aftermath')[1]?.split('- name:')[0];
+    assert(dockStep.includes('if: ${{ matrix.shard == 11 || matrix.shard == 12 }}'));
+    const lifeStep = flows.split('- name: Living sectors, weather and native actor routines')[1]?.split('- name:')[0];
+    assert(lifeStep.includes('if: ${{ matrix.shard >= 3 && matrix.shard <= 10 }}'));
     assert.match(flows,/dockProject: desktop/);
     assert.match(flows,/dockProject: phone/);
     assert.match(flows,/--config playwright\.dock-shipment\.config\.ts --project=\$\{\{ matrix\.dockProject \}\} --forbid-only/);
