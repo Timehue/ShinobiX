@@ -1,0 +1,90 @@
+✔ standard-7 retains its mesh and wings while the eyes/beak remain cohesive in all clips (594.6949ms)
+✔ standard-10 retains its mesh and wings while the eyes/beak remain cohesive in all clips (479.8506ms)
+✔ standard-17 retains its mesh and wings while the eyes/beak remain cohesive in all clips (454.2159ms)
+✔ standard-35 retains its mesh and wings while the eyes/beak remain cohesive in all clips (336.5848ms)
+✔ standard-36 retains its mesh and wings while the eyes/beak remain cohesive in all clips (297.0704ms)
+✔ standard-37 retains its mesh and wings while the eyes/beak remain cohesive in all clips (285.6404ms)
+✖ standard-39 retains its mesh and wings while the eyes/beak remain cohesive in all clips (20.0597ms)
+✔ standard-44 retains its mesh and wings while the eyes/beak remain cohesive in all clips (242.451ms)
+✔ rare-3 retains its mesh and wings while the eyes/beak remain cohesive in all clips (301.6833ms)
+✔ rare-7 retains its mesh and wings while the eyes/beak remain cohesive in all clips (400.3494ms)
+✔ rare-10 retains its mesh and wings while the eyes/beak remain cohesive in all clips (379.2675ms)
+✔ rare-17 retains its mesh and wings while the eyes/beak remain cohesive in all clips (509.5988ms)
+✔ rare-18 retains its mesh and wings while the eyes/beak remain cohesive in all clips (282.0288ms)
+✔ rare-27 retains its mesh and wings while the eyes/beak remain cohesive in all clips (397.7098ms)
+✔ rare-35 retains its mesh and wings while the eyes/beak remain cohesive in all clips (430.8474ms)
+✔ rare-36 retains its mesh and wings while the eyes/beak remain cohesive in all clips (398.376ms)
+✔ rare-37 retains its mesh and wings while the eyes/beak remain cohesive in all clips (506.7776ms)
+✖ rare-38 retains its mesh and wings while the eyes/beak remain cohesive in all clips (33.3749ms)
+✔ rare-39 retains its mesh and wings while the eyes/beak remain cohesive in all clips (334.0062ms)
+✔ rare-44 retains its mesh and wings while the eyes/beak remain cohesive in all clips (578.8869ms)
+✔ legendary-1 retains its mesh and wings while the eyes/beak remain cohesive in all clips (573.2942ms)
+✔ legendary-6 retains its mesh and wings while the eyes/beak remain cohesive in all clips (307.1265ms)
+✔ legendary-10 retains its mesh and wings while the eyes/beak remain cohesive in all clips (402.1818ms)
+✔ legendary-14 retains its mesh and wings while the eyes/beak remain cohesive in all clips (333.3941ms)
+✔ legendary-16 retains its mesh and wings while the eyes/beak remain cohesive in all clips (427.4535ms)
+✔ legendary-21 retains its mesh and wings while the eyes/beak remain cohesive in all clips (435.4605ms)
+✔ mythic-5 retains its mesh and wings while the eyes/beak remain cohesive in all clips (438.5176ms)
+✔ starter-wind retains its mesh and wings while the eyes/beak remain cohesive in all clips (858.2979ms)
+✔ starter-wind-r retains its mesh and wings while the eyes/beak remain cohesive in all clips (274.7481ms)
+✔ starter-wind-l retains its mesh and wings while the eyes/beak remain cohesive in all clips (595.9605ms)
+✔ Cinder Cub's concave flame keeps its authored contours without a leaking inverted hull (1.6378ms)
+✔ all five base starter forms have an approved combat model (0.3889ms)
+✔ Pebble Tortoise owns a distinct asset in close-ups and combat (0.3189ms)
+✔ all ten evolved starter forms have a combat model (0.2395ms)
+✔ the four-pet Showdown lineup resolves to its species-authored animation assets (0.2572ms)
+✔ Showdown models carry their visually certified forward-axis correction (0.2523ms)
+✔ unrelated unmodeled pets keep the safe standee fallback (0.2205ms)
+✔ malformed legacy identities fall back instead of crashing model resolution (0.3721ms)
+✔ all built-in Coliseum AI opponents resolve to approved roster models (0.3258ms)
+✔ all 146 approved roster models have a certified motion family (2.1204ms)
+✔ breeding-exclusive Mythics keep their own combat identity and model (0.3409ms)
+✔ hatched owned-instance ids resolve their breeding Mythic template model (0.3088ms)
+✔ legacy owned-instance ids recover the roster template from their safe prefix (0.1682ms)
+✔ timestamped encounter clones retain their canonical combat model (0.133ms)
+✔ legacy evolved saves infer the model from rarity (0.1979ms)
+✔ close-up presentation falls back only for the unapproved legendary Wind model (0.1645ms)
+✔ every anatomy family gets a grounded, size-capped victory beat (0.2553ms)
+✔ all 161 production combat models inherit the grounded victory envelope (1.6189ms)
+✔ all approved roster models are colored, skinned, animated single-pet assets (334.146ms)
+✔ all 161 production pets have complete proper skeletal animation banks (332.7657ms)
+✔ all 161 catalog identities resolve to a versioned runtime GLB with the full clip contract (316.5833ms)
+✔ Celestial Lion has the full pet animation bank and animated wings in every clip (4.8608ms)
+ℹ tests 52
+ℹ suites 0
+ℹ pass 50
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 12414.5355
+
+✖ failing tests:
+
+test at scripts\bird-faces.test.mjs:73:5
+✖ standard-39 retains its mesh and wings while the eyes/beak remain cohesive in all clips (20.0597ms)
+  AssertionError [ERR_ASSERTION]: skull vertices must not follow a wing joint
+      at TestContext.<anonymous> (file:///C:/Users/Tyler%20R/.codex/worktrees/40c2/NinjaK/.tmp/oni-live-release/shinobij.client/scripts/bird-faces.test.mjs:119:24)
+      at async Test.run (node:internal/test_runner/test:1208:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at scripts\bird-faces.test.mjs:73:5
+✖ rare-38 retains its mesh and wings while the eyes/beak remain cohesive in all clips (33.3749ms)
+  AssertionError [ERR_ASSERTION]: skull vertices must not follow a wing joint
+      at TestContext.<anonymous> (file:///C:/Users/Tyler%20R/.codex/worktrees/40c2/NinjaK/.tmp/oni-live-release/shinobij.client/scripts/bird-faces.test.mjs:119:24)
+      at async Test.run (node:internal/test_runner/test:1208:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }

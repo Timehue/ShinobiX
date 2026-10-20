@@ -1,0 +1,65 @@
+[
+  {
+    "name": "standard-7-head-other-side-diagnostic-native-0.png",
+    "sha256": "cf0e590dc53da0c5e49f6636f834193b39bbb3dd6a62d8a8872a39d9288c212b",
+    "source": "standard-7-head-other-side.webp",
+    "y": 0,
+    "actuallyViewed": true
+  },
+  {
+    "name": "standard-7-head-other-side-diagnostic-native-1.png",
+    "sha256": "d9271100540b8e7984fb2960a810a5ca8d3688b9abdbf44fca3259c9a3c9dc50",
+    "source": "standard-7-head-other-side.webp",
+    "y": 1720,
+    "actuallyViewed": true
+  },
+  {
+    "name": "standard-7-head-other-side-diagnostic-native-2.png",
+    "sha256": "bfd4ded42734f6ad876df558ed54e044436fda57451e18b042c99f98352663a4",
+    "source": "standard-7-head-other-side.webp",
+    "y": 3440,
+    "actuallyViewed": true
+  },
+  {
+    "name": "standard-7-head-under-front-diagnostic-native-0.png",
+    "sha256": "28738215979df65cd623a135a279ff11156cf2d94ada212e9685c932b51c289e",
+    "source": "standard-7-head-under-front.webp",
+    "y": 0,
+    "actuallyViewed": true
+  },
+  {
+    "name": "standard-7-head-under-front-diagnostic-native-1.png",
+    "sha256": "7797c13658a0102760bc3c2f07d0f7b5db2791cf6b2a269811edc3f69f2f009c",
+    "source": "standard-7-head-under-front.webp",
+    "y": 1720,
+    "actuallyViewed": true
+  },
+  {
+    "name": "standard-7-head-under-front-diagnostic-native-2.png",
+    "sha256": "562fc0dac60cddc13686166c89a9b24bfd05b7655e319beb05effa73d4afac71",
+    "source": "standard-7-head-under-front.webp",
+    "y": 3440,
+    "actuallyViewed": true
+  },
+  {
+    "name": "standard-7-head-under-side-diagnostic-native-0.png",
+    "sha256": "564d98c3a15bf951b9104cef3ebc612eced6355567597057985135f3a4b30867",
+    "source": "standard-7-head-under-side.webp",
+    "y": 0,
+    "actuallyViewed": true
+  },
+  {
+    "name": "standard-7-head-under-side-diagnostic-native-1.png",
+    "sha256": "9cf47a71e2d99fdc75e33e27f794324ec6403a4a746d43d6c29d8a43bc89bec1",
+    "source": "standard-7-head-under-side.webp",
+    "y": 1720,
+    "actuallyViewed": true
+  },
+  {
+    "name": "standard-7-head-under-side-diagnostic-native-2.png",
+    "sha256": "c2d6cda60ae4cc254665f83ce6d24633ed5a66eb718ee0de37d84fda7ac83943",
+    "source": "standard-7-head-under-side.webp",
+    "y": 3440,
+    "actuallyViewed": true
+  }
+]

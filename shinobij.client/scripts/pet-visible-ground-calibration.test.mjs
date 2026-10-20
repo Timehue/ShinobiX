@@ -15,6 +15,7 @@ const expected = {
     'rare-26': { source: '5d018d1191f4abbc79147e6e9cb3c4555469946229cbf009291e6c1e60ed2466', battle: 'b12986b479f2dabe03452925abb12184c0481c128a0b3ed1e97af49b059efdb1' },
     'rare-29': { source: '2b54c6728cb11057b0f92bacd91f990bfa4d44a6c2c6e933fac08e11f31c1bd9', battle: '4922b143c199ae44aa2627eda51635b28f05ec46b267100a09dcfcfe5ba798f3' },
 };
+expected['rare-31']={source:'8c102514d48c26ecb6d7d67b5eb224636c444fba97018da5ee6064ecaf1b633d',battle:'03642ccd9c191d832ecfca0791ebafc3b9ffa1b5cfd7c38fa5b4a062a4a73464'};
 const input = (id, stage) => fileURLToPath(new URL(`./fixtures/pet-visible-ground-20261020/${id}-${stage}.glb`, import.meta.url));
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 
@@ -62,7 +63,7 @@ for (const id of Object.keys(expected)) test(`${id} replays its pinned visible-f
                 }
             }
             mixer.stopAllAction();
-            assert.equal(poses, { 'rare-22': 1871, 'rare-26': 1731, 'rare-29': 1667 }[id]); assert.ok(maximumHorizontalError < .000002);
+            assert.equal(poses, { 'rare-22': 1871, 'rare-26': 1731, 'rare-29': 1667, 'rare-31':1811 }[id]); assert.ok(maximumHorizontalError < .000002);
             assert.ok(minimumClearance >= .001, stage + ': visible surface intersects floor');
             // Reject the actual original failure using surface vertices, rather
             // than trusting the repair metadata or a handful of foot joints.
