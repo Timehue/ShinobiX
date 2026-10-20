@@ -7,7 +7,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { gotoSettled, reloadSettled } from "./helpers/network-settle";
 
 // Full-page captures below and retained failure video preserve visual evidence.
-// Re-encoding their redundant trace filmstrip can exhaust trace packaging's
+// Packaging the redundant trace screenshot resources can exhaust tracing's
 // separate 45s worker budget after every lifecycle assertion has passed.
 test.use({ trace: { mode: 'retain-on-failure', screenshots: false, snapshots: true, sources: true } });
 
