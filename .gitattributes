@@ -205,3 +205,21 @@ docs/audits/pet-*.json text eol=lf
 docs/screenshots/**/*.log text eol=lf
 docs/screenshots/**/*.mjs text eol=lf
 docs/screenshots/**/*.txt text eol=lf
+
+# Exact bytes for the selected independent pet review evidence.
+docs/screenshots/**/*.json text eol=lf
+
+# Review hashes describe exact JSON capture bytes.
+docs/screenshots/**/*.json -text
+
+# Review hashes describe exact JSON capture bytes.
+docs/screenshots/**/*.json -text
+
+# Review hashes describe exact JSON capture bytes.
+docs/screenshots/** -text
+
+# Review hashes describe exact JSON capture bytes.
+docs/screenshots/** -text whitespace=cr-at-eol
+
+# Review hashes describe exact JSON capture bytes.
+docs/screenshots/** -text whitespace=cr-at-eol

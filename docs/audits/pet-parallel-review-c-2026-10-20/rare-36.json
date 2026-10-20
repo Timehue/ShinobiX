@@ -1,0 +1,417 @@
+{
+  "id": "rare-36",
+  "reviewer": "parallel-c",
+  "approval": true,
+  "status": "local-visual-pass-awaiting-root-integration-and-live-verification",
+  "sourceSha256": "921d037ff87bc5047c6f2f0388583b5e8b96131876981fec4ccf92528321b936",
+  "battleSha256": "d20db7d82144cdb79e075defc94e9ff65954a178706733ceddadd0e1a70fb680",
+  "atlasSha256": "46d53194efc92fc848bad47a4fa2d7af236f5f6cdda9f822c10706d2cd6db2e5",
+  "seen": [
+    {
+      "path": "docs/screenshots/pet-independent-face-2026-10-15/rare-36-source-front.webp",
+      "sha256": "5fbc80995a738f9d49dbae784151806d5a276c047d29260c746159b52e13d53e",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "retained",
+      "reviewedAt": "2026-10-20T06:50:27.417Z",
+      "notes": "Personally viewed all 13 raw clips at six phases in source and battle fullbody and face front/side sheets. Complete beak, eye rims, cheek/lower beak, neck, wings, talons and tail remain coherent; death side occlusion covered by front views."
+    },
+    {
+      "path": "docs/screenshots/pet-independent-face-2026-10-15/rare-36-source-side.webp",
+      "sha256": "633eb3ae443ad269dd11357f8b026a206db9ecad1c019aabbbf1490a2db889e5",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "retained",
+      "reviewedAt": "2026-10-20T06:50:27.420Z",
+      "notes": "Personally viewed all 13 raw clips at six phases in source and battle fullbody and face front/side sheets. Complete beak, eye rims, cheek/lower beak, neck, wings, talons and tail remain coherent; death side occlusion covered by front views."
+    },
+    {
+      "path": "docs/screenshots/pet-independent-face-2026-10-15/rare-36-source-head-front.webp",
+      "sha256": "3b36c19a679fa036a754a6d256862afeb56f7c7741d8216513fbcff9cdb4473a",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "retained",
+      "reviewedAt": "2026-10-20T06:50:27.421Z",
+      "notes": "Personally viewed all 13 raw clips at six phases in source and battle fullbody and face front/side sheets. Complete beak, eye rims, cheek/lower beak, neck, wings, talons and tail remain coherent; death side occlusion covered by front views."
+    },
+    {
+      "path": "docs/screenshots/pet-independent-face-2026-10-15/rare-36-source-head-side.webp",
+      "sha256": "44bba7137bb01aab51b15273854fefd832a127011256a4db86e90507d29c5e81",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "retained",
+      "reviewedAt": "2026-10-20T06:50:27.421Z",
+      "notes": "Personally viewed all 13 raw clips at six phases in source and battle fullbody and face front/side sheets. Complete beak, eye rims, cheek/lower beak, neck, wings, talons and tail remain coherent; death side occlusion covered by front views."
+    },
+    {
+      "path": "docs/screenshots/pet-independent-face-2026-10-15/rare-36-battle-front.webp",
+      "sha256": "fc90ad42feb40bfe43290b76525d0aa510280018efd7a89f2af7e5cce35500d2",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "retained",
+      "reviewedAt": "2026-10-20T06:50:27.422Z",
+      "notes": "Personally viewed all 13 raw clips at six phases in source and battle fullbody and face front/side sheets. Complete beak, eye rims, cheek/lower beak, neck, wings, talons and tail remain coherent; death side occlusion covered by front views."
+    },
+    {
+      "path": "docs/screenshots/pet-independent-face-2026-10-15/rare-36-battle-side.webp",
+      "sha256": "31166f51afd906183dcebdb71f3505caa97a01636902b5bf931031ea466560ff",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "retained",
+      "reviewedAt": "2026-10-20T06:50:27.423Z",
+      "notes": "Personally viewed all 13 raw clips at six phases in source and battle fullbody and face front/side sheets. Complete beak, eye rims, cheek/lower beak, neck, wings, talons and tail remain coherent; death side occlusion covered by front views."
+    },
+    {
+      "path": "docs/screenshots/pet-independent-face-2026-10-15/rare-36-battle-head-front.webp",
+      "sha256": "570fa84c324dc8e29fdbc6d196dd1eeab73c40938c63928bee31a16f870b8cf3",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "retained",
+      "reviewedAt": "2026-10-20T06:50:27.423Z",
+      "notes": "Personally viewed all 13 raw clips at six phases in source and battle fullbody and face front/side sheets. Complete beak, eye rims, cheek/lower beak, neck, wings, talons and tail remain coherent; death side occlusion covered by front views."
+    },
+    {
+      "path": "docs/screenshots/pet-independent-face-2026-10-15/rare-36-battle-head-side.webp",
+      "sha256": "38056be9aa9d60c8a02149ff6c0b091a24e665953d189fd2f76da9c8e5d1a207",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "retained",
+      "reviewedAt": "2026-10-20T06:50:27.424Z",
+      "notes": "Personally viewed all 13 raw clips at six phases in source and battle fullbody and face front/side sheets. Complete beak, eye rims, cheek/lower beak, neck, wings, talons and tail remain coherent; death side occlusion covered by front views."
+    },
+    {
+      "path": "docs/screenshots/pet-independent-face-2026-10-15/rare-36-runtime-low-source-body.webp",
+      "sha256": "ebb52d2f6f7e7af4d56c1d712730c1ba2b87dd8981996f1d2f7ac391da3cae59",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "retained",
+      "reviewedAt": "2026-10-20T06:52:20.497Z",
+      "notes": "Personally inspected all 16 rows of all eight low/medium source/battle runtime sheets. Face and lower beak stay coherent through strike, stagger, death and revive; wings, chest, legs and talons follow body without separation."
+    },
+    {
+      "path": "docs/screenshots/pet-independent-face-2026-10-15/rare-36-runtime-low-source-head.webp",
+      "sha256": "5b56e5c21787b72792187e49baa764055e05f7909e1a608f1595db65745acd20",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "retained",
+      "reviewedAt": "2026-10-20T06:52:20.499Z",
+      "notes": "Personally inspected all 16 rows of all eight low/medium source/battle runtime sheets. Face and lower beak stay coherent through strike, stagger, death and revive; wings, chest, legs and talons follow body without separation."
+    },
+    {
+      "path": "docs/screenshots/pet-independent-face-2026-10-15/rare-36-runtime-low-battle-body.webp",
+      "sha256": "a7ab34b099e0245dd547cb57f7eb7735757ae11e306e1049a243725fc3584886",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "retained",
+      "reviewedAt": "2026-10-20T06:52:20.500Z",
+      "notes": "Personally inspected all 16 rows of all eight low/medium source/battle runtime sheets. Face and lower beak stay coherent through strike, stagger, death and revive; wings, chest, legs and talons follow body without separation."
+    },
+    {
+      "path": "docs/screenshots/pet-independent-face-2026-10-15/rare-36-runtime-low-battle-head.webp",
+      "sha256": "21615cc49b31b4eb1837cd9aa1f8f6c32080838a51c474a2f2f67fdce0c97207",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "retained",
+      "reviewedAt": "2026-10-20T06:52:20.501Z",
+      "notes": "Personally inspected all 16 rows of all eight low/medium source/battle runtime sheets. Face and lower beak stay coherent through strike, stagger, death and revive; wings, chest, legs and talons follow body without separation."
+    },
+    {
+      "path": "docs/screenshots/pet-independent-face-2026-10-15/rare-36-runtime-medium-source-body.webp",
+      "sha256": "f5b57f8e4f083b8758a5566f8ca6c7f1bb77b6461a3835ce665344351f530eba",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "retained",
+      "reviewedAt": "2026-10-20T06:52:20.501Z",
+      "notes": "Personally inspected all 16 rows of all eight low/medium source/battle runtime sheets. Face and lower beak stay coherent through strike, stagger, death and revive; wings, chest, legs and talons follow body without separation."
+    },
+    {
+      "path": "docs/screenshots/pet-independent-face-2026-10-15/rare-36-runtime-medium-source-head.webp",
+      "sha256": "6658719163ef43bf26b5c96acef76a943d7d0cb51fa5ff70e2e71723b6fc7fb2",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "retained",
+      "reviewedAt": "2026-10-20T06:52:20.502Z",
+      "notes": "Personally inspected all 16 rows of all eight low/medium source/battle runtime sheets. Face and lower beak stay coherent through strike, stagger, death and revive; wings, chest, legs and talons follow body without separation."
+    },
+    {
+      "path": "docs/screenshots/pet-independent-face-2026-10-15/rare-36-runtime-medium-battle-body.webp",
+      "sha256": "56d0e091a0917a6ce561f5863f1f360591758b51621484b1447321da752e6237",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "retained",
+      "reviewedAt": "2026-10-20T06:52:20.503Z",
+      "notes": "Personally inspected all 16 rows of all eight low/medium source/battle runtime sheets. Face and lower beak stay coherent through strike, stagger, death and revive; wings, chest, legs and talons follow body without separation."
+    },
+    {
+      "path": "docs/screenshots/pet-independent-face-2026-10-15/rare-36-runtime-medium-battle-head.webp",
+      "sha256": "0904bdd31f3b2205bfb17dcf4b943d1d99d6f1bca583e06172bb180007d45735",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "retained",
+      "reviewedAt": "2026-10-20T06:52:20.504Z",
+      "notes": "Personally inspected all 16 rows of all eight low/medium source/battle runtime sheets. Face and lower beak stay coherent through strike, stagger, death and revive; wings, chest, legs and talons follow body without separation."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-36/techniques-block-0-half-0.png",
+      "sha256": "5550569ed00ebbedc9a6fef0f87874834575d5d508193c3da06ad3493c839182",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "panel",
+      "reviewedAt": "2026-10-20T06:54:10.785Z",
+      "notes": "First personal pass all 216 actual nine equipped-technique front/side frames. Complete face, beak, wings, chest, talons remain continuous and fully framed; feet do not visibly intersect floor."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-36/techniques-block-0-half-1.png",
+      "sha256": "5bd33be6395303ec22c2f6dd13145516a766abe579284c7d2cfe63dbfe469815",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "panel",
+      "reviewedAt": "2026-10-20T06:54:10.787Z",
+      "notes": "First personal pass all 216 actual nine equipped-technique front/side frames. Complete face, beak, wings, chest, talons remain continuous and fully framed; feet do not visibly intersect floor."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-36/techniques-block-1-half-0.png",
+      "sha256": "59ec1d8b9045af4eb549a67eb08f6fd0774e51da54443de418496ae8ef744c8c",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "panel",
+      "reviewedAt": "2026-10-20T06:54:10.787Z",
+      "notes": "First personal pass all 216 actual nine equipped-technique front/side frames. Complete face, beak, wings, chest, talons remain continuous and fully framed; feet do not visibly intersect floor."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-36/techniques-block-1-half-1.png",
+      "sha256": "23b74c59d89531923068fae9263bf3bfac3569d40bfbda99b78d7e7f1deacefb",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "panel",
+      "reviewedAt": "2026-10-20T06:54:10.788Z",
+      "notes": "First personal pass all 216 actual nine equipped-technique front/side frames. Complete face, beak, wings, chest, talons remain continuous and fully framed; feet do not visibly intersect floor."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-36/techniques-block-2-half-0.png",
+      "sha256": "314cc789840b38f0d0e1c425ff1fba942a310ad01316405104117d0614d4b039",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "panel",
+      "reviewedAt": "2026-10-20T06:54:10.789Z",
+      "notes": "First personal pass all 216 actual nine equipped-technique front/side frames. Complete face, beak, wings, chest, talons remain continuous and fully framed; feet do not visibly intersect floor."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-36/techniques-block-2-half-1.png",
+      "sha256": "9860aed17241ff6e623be7081895e78c6fbb72ad583198afddabc5660b8f76a6",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "panel",
+      "reviewedAt": "2026-10-20T06:54:10.790Z",
+      "notes": "First personal pass all 216 actual nine equipped-technique front/side frames. Complete face, beak, wings, chest, talons remain continuous and fully framed; feet do not visibly intersect floor."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-36/idle-block-0.png",
+      "sha256": "20e53cdc81a445533b586119f77077eb37191711da6fc2489e39fe90057c46e2",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "panel",
+      "reviewedAt": "2026-10-20T06:57:07.434Z",
+      "notes": "Personally inspected all 24 advancing idle frames; complete face, wings, chest and talons remain coherent and fully framed."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-36/idle-block-1.png",
+      "sha256": "1bc4ee961c9db4910aa56532a80766387d1e161e679ee6a3fb89f5b442fb6478",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "panel",
+      "reviewedAt": "2026-10-20T06:57:07.436Z",
+      "notes": "Personally inspected all 24 advancing idle frames; complete face, wings, chest and talons remain coherent and fully framed."
+    },
+    {
+      "path": "shinobij.client/public/pet-models/warfront-impostors/roster/rare-36.webp",
+      "sha256": "46d53194efc92fc848bad47a4fa2d7af236f5f6cdda9f822c10706d2cd6db2e5",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "atlas",
+      "reviewedAt": "2026-10-20T06:57:08.022Z",
+      "notes": "Personally inspected all 16 atlas cells; beak, wings, body, talons and headband remain coherent."
+    },
+    {
+      "path": "docs/screenshots/pet-independent-face-2026-10-15/rare-36-anatomical-landmark-coverage.png",
+      "sha256": "980d50d8433144a8f9944a0a11383a71a46c935f866f8f47548fe99bb99e282b",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "retained",
+      "reviewedAt": "2026-10-20T06:57:08.643Z",
+      "notes": "Personally inspected complete beak, eye rims, cheek and lower beak/chin landmarks front/side; no separation or collapse."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-36/techniques-block-2-half-1.png",
+      "sha256": "9860aed17241ff6e623be7081895e78c6fbb72ad583198afddabc5660b8f76a6",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "panel",
+      "reviewedAt": "2026-10-20T06:59:01.715Z",
+      "notes": "Second personal technique pass in reverse order all 216 actual front/side frames. Rechecked full beak/chin, eye rims, wing/body continuity, talons/floor contact and complete framing. No visible defect."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-36/techniques-block-2-half-0.png",
+      "sha256": "314cc789840b38f0d0e1c425ff1fba942a310ad01316405104117d0614d4b039",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "panel",
+      "reviewedAt": "2026-10-20T06:59:01.717Z",
+      "notes": "Second personal technique pass in reverse order all 216 actual front/side frames. Rechecked full beak/chin, eye rims, wing/body continuity, talons/floor contact and complete framing. No visible defect."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-36/techniques-block-1-half-1.png",
+      "sha256": "23b74c59d89531923068fae9263bf3bfac3569d40bfbda99b78d7e7f1deacefb",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "panel",
+      "reviewedAt": "2026-10-20T06:59:01.718Z",
+      "notes": "Second personal technique pass in reverse order all 216 actual front/side frames. Rechecked full beak/chin, eye rims, wing/body continuity, talons/floor contact and complete framing. No visible defect."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-36/techniques-block-1-half-0.png",
+      "sha256": "59ec1d8b9045af4eb549a67eb08f6fd0774e51da54443de418496ae8ef744c8c",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "panel",
+      "reviewedAt": "2026-10-20T06:59:01.719Z",
+      "notes": "Second personal technique pass in reverse order all 216 actual front/side frames. Rechecked full beak/chin, eye rims, wing/body continuity, talons/floor contact and complete framing. No visible defect."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-36/techniques-block-0-half-1.png",
+      "sha256": "5bd33be6395303ec22c2f6dd13145516a766abe579284c7d2cfe63dbfe469815",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "panel",
+      "reviewedAt": "2026-10-20T06:59:01.720Z",
+      "notes": "Second personal technique pass in reverse order all 216 actual front/side frames. Rechecked full beak/chin, eye rims, wing/body continuity, talons/floor contact and complete framing. No visible defect."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-36/techniques-block-0-half-0.png",
+      "sha256": "5550569ed00ebbedc9a6fef0f87874834575d5d508193c3da06ad3493c839182",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "panel",
+      "reviewedAt": "2026-10-20T06:59:01.720Z",
+      "notes": "Second personal technique pass in reverse order all 216 actual front/side frames. Rechecked full beak/chin, eye rims, wing/body continuity, talons/floor contact and complete framing. No visible defect."
+    }
+  ],
+  "findings": [],
+  "pending": [
+    "Root integration",
+    "Release and exact live delivery verification"
+  ],
+  "updatedAt": "2026-10-20T06:59:02.593Z",
+  "techniques": {
+    "result": "pass",
+    "actualStage": "battle",
+    "modelSha256": "d20db7d82144cdb79e075defc94e9ff65954a178706733ceddadd0e1a70fb680",
+    "rendererSha256": "b2253b71fbcb21a83d82de35ab5783dd57b525cfc94740fb131dd1eb0049a897",
+    "companionComponentSha256": "472645f0ade2c17a8be0a8f9fa5af0fdb9d47f4c835e24e6a374c8219b33e4ab",
+    "moves": [
+      "wind-strike",
+      "wind-pulse",
+      "wind-breaker",
+      "water-pulse",
+      "open-wound",
+      "intercept",
+      "aegis",
+      "purify",
+      "rare-36-signature"
+    ],
+    "frames": 216,
+    "views": [
+      "front",
+      "side"
+    ],
+    "allTwelveNativeStripsActuallyViewed": true,
+    "secondVisualPass": {
+      "result": "pass",
+      "method": "All216frames viewed again in six lossless native panels, reverse block order.",
+      "actuallyViewed": true
+    },
+    "manifest": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-36/technique-capture-manifest.json"
+  },
+  "rawAnimations": {
+    "result": "pass",
+    "sourceAndBattle": true,
+    "clips": 13,
+    "phases": 6,
+    "views": [
+      "front",
+      "side",
+      "head-front",
+      "head-side"
+    ],
+    "independentSecondReviewOfRetainedEvidence": true
+  },
+  "productionTransitions": {
+    "result": "pass",
+    "rows": 16,
+    "sourceAndBattle": true,
+    "views": [
+      "front",
+      "side"
+    ],
+    "bodyAndHead": true,
+    "independentSecondReviewOfRetainedEvidence": true,
+    "presets": [
+      "low",
+      "medium"
+    ]
+  },
+  "companionIdle": {
+    "result": "pass",
+    "frames": 24,
+    "independentSecondReviewOfRetainedEvidence": true
+  },
+  "atlas": {
+    "result": "pass",
+    "frames": 16
+  },
+  "evidenceSha256": {
+    "docs/screenshots/pet-independent-face-2026-10-15/rare-36-source-front.webp": "5fbc80995a738f9d49dbae784151806d5a276c047d29260c746159b52e13d53e",
+    "docs/screenshots/pet-independent-face-2026-10-15/rare-36-source-side.webp": "633eb3ae443ad269dd11357f8b026a206db9ecad1c019aabbbf1490a2db889e5",
+    "docs/screenshots/pet-independent-face-2026-10-15/rare-36-source-head-front.webp": "3b36c19a679fa036a754a6d256862afeb56f7c7741d8216513fbcff9cdb4473a",
+    "docs/screenshots/pet-independent-face-2026-10-15/rare-36-source-head-side.webp": "44bba7137bb01aab51b15273854fefd832a127011256a4db86e90507d29c5e81",
+    "docs/screenshots/pet-independent-face-2026-10-15/rare-36-battle-front.webp": "fc90ad42feb40bfe43290b76525d0aa510280018efd7a89f2af7e5cce35500d2",
+    "docs/screenshots/pet-independent-face-2026-10-15/rare-36-battle-side.webp": "31166f51afd906183dcebdb71f3505caa97a01636902b5bf931031ea466560ff",
+    "docs/screenshots/pet-independent-face-2026-10-15/rare-36-battle-head-front.webp": "570fa84c324dc8e29fdbc6d196dd1eeab73c40938c63928bee31a16f870b8cf3",
+    "docs/screenshots/pet-independent-face-2026-10-15/rare-36-battle-head-side.webp": "38056be9aa9d60c8a02149ff6c0b091a24e665953d189fd2f76da9c8e5d1a207",
+    "docs/screenshots/pet-independent-face-2026-10-15/rare-36-runtime-low-source-body.webp": "ebb52d2f6f7e7af4d56c1d712730c1ba2b87dd8981996f1d2f7ac391da3cae59",
+    "docs/screenshots/pet-independent-face-2026-10-15/rare-36-runtime-low-source-head.webp": "5b56e5c21787b72792187e49baa764055e05f7909e1a608f1595db65745acd20",
+    "docs/screenshots/pet-independent-face-2026-10-15/rare-36-runtime-low-battle-body.webp": "a7ab34b099e0245dd547cb57f7eb7735757ae11e306e1049a243725fc3584886",
+    "docs/screenshots/pet-independent-face-2026-10-15/rare-36-runtime-low-battle-head.webp": "21615cc49b31b4eb1837cd9aa1f8f6c32080838a51c474a2f2f67fdce0c97207",
+    "docs/screenshots/pet-independent-face-2026-10-15/rare-36-runtime-medium-source-body.webp": "f5b57f8e4f083b8758a5566f8ca6c7f1bb77b6461a3835ce665344351f530eba",
+    "docs/screenshots/pet-independent-face-2026-10-15/rare-36-runtime-medium-source-head.webp": "6658719163ef43bf26b5c96acef76a943d7d0cb51fa5ff70e2e71723b6fc7fb2",
+    "docs/screenshots/pet-independent-face-2026-10-15/rare-36-runtime-medium-battle-body.webp": "56d0e091a0917a6ce561f5863f1f360591758b51621484b1447321da752e6237",
+    "docs/screenshots/pet-independent-face-2026-10-15/rare-36-runtime-medium-battle-head.webp": "0904bdd31f3b2205bfb17dcf4b943d1d99d6f1bca583e06172bb180007d45735",
+    "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-36/techniques-block-0-half-0.png": "5550569ed00ebbedc9a6fef0f87874834575d5d508193c3da06ad3493c839182",
+    "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-36/techniques-block-0-half-1.png": "5bd33be6395303ec22c2f6dd13145516a766abe579284c7d2cfe63dbfe469815",
+    "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-36/techniques-block-1-half-0.png": "59ec1d8b9045af4eb549a67eb08f6fd0774e51da54443de418496ae8ef744c8c",
+    "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-36/techniques-block-1-half-1.png": "23b74c59d89531923068fae9263bf3bfac3569d40bfbda99b78d7e7f1deacefb",
+    "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-36/techniques-block-2-half-0.png": "314cc789840b38f0d0e1c425ff1fba942a310ad01316405104117d0614d4b039",
+    "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-36/techniques-block-2-half-1.png": "9860aed17241ff6e623be7081895e78c6fbb72ad583198afddabc5660b8f76a6",
+    "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-36/idle-block-0.png": "20e53cdc81a445533b586119f77077eb37191711da6fc2489e39fe90057c46e2",
+    "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-36/idle-block-1.png": "1bc4ee961c9db4910aa56532a80766387d1e161e679ee6a3fb89f5b442fb6478",
+    "shinobij.client/public/pet-models/warfront-impostors/roster/rare-36.webp": "46d53194efc92fc848bad47a4fa2d7af236f5f6cdda9f822c10706d2cd6db2e5",
+    "docs/screenshots/pet-independent-face-2026-10-15/rare-36-anatomical-landmark-coverage.png": "980d50d8433144a8f9944a0a11383a71a46c935f866f8f47548fe99bb99e282b",
+    "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-36/technique-capture-manifest.json": "c9e5745e8b712a835d19ec957856b39d4e92c31ef77085d2e8ca4cdd3d8d93e1",
+    "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-36/technique-strip-manifest.json": "10312fc979cde0ff0fbb5a1098df00d7cebdb8c12ead2424e94762c3083bfed3",
+    "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-36/front-block-0-half-0.png": "2e1ac3f4ce6a49bc9bec8ce9888c521c58eeb8d8cfd0c692b2ce29ae7dcc1cd1",
+    "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-36/front-block-0-half-1.png": "5720822f9598b67147236a8cb7b74dc3aaa97b779ccff8f304f4a148a5a902d0",
+    "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-36/front-block-1-half-0.png": "c397ec9dffad81fa34ab72f6c7942a020597b254eec0abe6879429ac1ba55abf",
+    "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-36/front-block-1-half-1.png": "77e567815f8ffb9286c30289c0ab76323c60daa2ce8dc36b143d8607a1d78606",
+    "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-36/front-block-2-half-0.png": "ca4026196dc3603f0c6392a682d1190d5fc56b8e650d4ab762a6147d444cdb97",
+    "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-36/front-block-2-half-1.png": "58752fec2c7290214ba6d9a4610f3ffe87a8882bdfcaf4ea6684833d04fa0d4f",
+    "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-36/side-block-0-half-0.png": "b93c07992250bd862f37824a9d8eb8a9a06be78f111d0976cace596ec86608e9",
+    "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-36/side-block-0-half-1.png": "f81eebdce53e05efd68bf8d9934d50c80264ae4d18f874dce4e2df0c32c44efc",
+    "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-36/side-block-1-half-0.png": "fd148286ada2d86e174c45221cad0c627860eb25c4001e536763f874894e582a",
+    "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-36/side-block-1-half-1.png": "ac9d66869a7e51ecbfee0873d0625e6193b03a1081832af1785c6939a1e7689c",
+    "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-36/side-block-2-half-0.png": "68b0f5ef22c4892a004a6697a86c1bc1f78fb230ec4f5bf95e97d8c4feb87572",
+    "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-36/side-block-2-half-1.png": "b5e925f70c27c377d74bfa5aef51950c73c5c05cb2a4bdd02e9e57489e3bfb30",
+    "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-36/panels-manifest.json": "5bb3895283ac335b41ca25c2286bbddebaa57340a0126c640ac45336f09d6d88"
+  },
+  "limits": "Local exact-byte sampled visual review; no claim of authenticated live player modal verification. Default companion technique capture selected battle model only.",
+  "name": "Zephyr Osprey"
+}
