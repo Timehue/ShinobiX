@@ -50,5 +50,25 @@
       "sha256": "ec74de1fd9800d367d18f4184a64fd678d3d3bbf50ed35c20c0a7fccd00725fc",
       "rawDiagnosticSha256": "33dfecf2be207a21f3f85261b0fd107538ad6f80a4d1e05ee3348f3d013006b9"
     }
-  ]
+  ],
+  "ciPackagingCorrection": {
+    "at": "2026-10-20T07:14:14.220Z",
+    "priorHead": "0c8bbbc98699769f92cb666f377d820a0303cd22",
+    "failure": "CI referenced an immutable original Kestrel baseline present locally but omitted from the Git index.",
+    "fix": "Include exact original fixture used by the existing stronger bird regression. Kestrel production model/camera/receipt remain at main baseline.",
+    "fixture": {
+      "path": "shinobij.client/scripts/fixtures/pet-complete-face-20261015/rare-27-v1.glb",
+      "sha256": "65e88536b4be529b118cba3e76b0718197366a346b3c5a9a96f0a5aa6219d249"
+    },
+    "recheck": {
+      "path": "docs/screenshots/pet-contact-release-validation-2026-10-20/packaging-bird-recheck.txt",
+      "sha256": "f99d7a5652fe9df60f2c90322bee54e10cf73ba1156fc4cd42c2ed5dd0edf9f3",
+      "testsPassed": 33,
+      "failed": 0
+    },
+    "originalCiFailure": {
+      "path": "docs/screenshots/pet-contact-release-validation-2026-10-20/original-ci-missing-baseline.txt",
+      "sha256": "5787c28af94f174dec941a8095d0268a3983283ed0bc6d68a5c9659b717a0580"
+    }
+  }
 }
