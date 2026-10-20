@@ -26,7 +26,7 @@ export function presentItem(item: GameItem, petFoodXp?: number): ItemPresentatio
     const resource = RESOURCE_ITEMS.find(candidate => candidate.id === item.id);
     if (resource) {
         return { category: resource.activity === 'fishing' ? 'Cooking Ingredient' : 'Crafting Material',
-            use: resource.activity === 'fishing' ? 'Cook at the Cafeteria' : 'Spend in the Crafter or refine at the Shinobi Outpost', showPlayerSlot: false, effectLabel: 'Ingredient Use' };
+            use: resource.activity === 'fishing' ? 'Cook at the Noodle Den' : 'Spend in the Crafter or refine at the Shinobi Outpost', showPlayerSlot: false, effectLabel: 'Ingredient Use' };
     }
     const searchable = `${item.id} ${item.name} ${item.description}`.toLowerCase();
     const weapon = slot === "hand" && !isGloveItem(item);

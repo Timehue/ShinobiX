@@ -454,7 +454,7 @@ export function OnboardingCoach({
     const bannerText: string | null = (() => {
         switch (step) {
             case "training": return trainingRecommendation(character, savedBloodlines).companionLine;
-            case "jutsu": return "Next, let's give you one technique your bloodline didn't hand you. Pick any untrained jutsu. The first level is free.";
+            case "jutsu": return "Open Jutsu Training and choose an untrained jutsu to learn. Its first level is free.";
             case "jutsuLoadout": {
                 // Every new character starts with STARTING_STAT_POINTS (20) unspent, and
                 // nothing in the tutorial mentioned them: the only prompt lives in the
@@ -473,17 +473,17 @@ export function OnboardingCoach({
                 const equipped = academyEquippedItemCount(character.equipment);
                 return `Before we spar, put on the Rustfang Kunai and Shinobi Vest from your Inventory. That's ${Math.min(equipped, ACADEMY_STARTER_GEAR_TARGET)} of ${ACADEMY_STARTER_GEAR_TARGET} equipped.`;
             }
-            case "academySpar": return "That spar knocked you out. Get patched up at the Hospital, wait for free checkout, then we'll step back onto the mat.";
+            case "academySpar": return "You are knocked out. Open the Hospital and wait for free checkout before starting the Academy spar.";
             case "cafeteria": {
                 const awakening = "You're Level 2 now, so your free first-element awakening is unlocked. Finish the Academy route and we'll guide you to the Awakening Stone.";
                 return character.hp >= character.maxHp
                     ? `${awakening} You're already at full HP, so we can keep moving.`
                     : `${awakening} Recover in the Noodle Den before we move on.`;
             }
-            case "firstMission": return "Claim the Academy Trial at the Mission Hall. The reward is real. So was what happened to that dummy.";
-            case "logbook": return "Open your Logbook. Shiranui left us a foxfire trail to follow.";
+            case "firstMission": return "Open the Mission Hall and claim your Academy Trial reward. I heard the voice from that dummy repeat your vow, too. We need to find out how it knew.";
+            case "logbook": return "Open your Logbook to review your Academy goals. Then we'll follow Shiranui's foxfire trail outside the village.";
             case "sectorReturn": return visitedSector
-                ? "We found the Gate's trace. Let's get the evidence home. We cross the village gate together."
+                ? "We found a road marker linked to the Hollow Gate. Press Return to village so we can report what happened."
                 : "Follow Shiranui's foxfire on the World Map and travel to any numbered sector.";
             default: return null;
         }

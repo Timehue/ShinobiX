@@ -14,6 +14,25 @@ const character = (values: Partial<Character>): Character => ({
 } as Character);
 
 describe('achievement presentation truth', () => {
+    it('describes repeatable action totals and current balances using the server eligibility rules', () => {
+        const cases: Array<[string, Partial<Character>, Partial<Character>, RegExp]> = [
+            ['explore-100', { totalTilesExplored: 100 }, { totalTilesExplored: 99 }, /Use Explore 100 times/],
+            ['honor-100', { honorSeals: 100 }, { honorSeals: 99 }, /Hold 100 Honor Seals/],
+            ['tower-25', { totalEndlessTowerWins: 25 }, { totalEndlessTowerWins: 24 }, /25 Endless Tower waves/],
+            ['hollow-clear-1', { redeemedHollowGateRuns: ['ended-run'] }, { redeemedHollowGateRuns: [] }, /Extract from or forfeit/],
+        ];
+        for (const [id, qualifying, belowThreshold, wording] of cases) {
+            const badge = ACHIEVEMENTS.find(entry => entry.id === id);
+            assert.ok(badge);
+            assert.match(badge.desc, wording);
+            for (const [values, eligible] of [[qualifying, true], [belowThreshold, false]] as const) {
+                const subject = character(values);
+                assert.equal(badge.check(subject), eligible, id);
+                assert.equal(eligibleAchievementIds(subject as unknown as Record<string, unknown>).includes(id), eligible, id);
+            }
+        }
+    });
+
     it('uses the same exam receipt and wording for each career badge on client and server', () => {
         for (const milestone of CAREER_MILESTONES) {
             const badge = ACHIEVEMENTS.find((entry) => entry.id === milestone.id);

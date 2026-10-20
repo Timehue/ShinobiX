@@ -156,9 +156,9 @@ export async function depositWorldBossHollowShards(input: { eventId: string; pla
             body: JSON.stringify({ action: 'depositHollowShards', ...input, requestId: crypto.randomUUID() }),
         });
         const body = await response.json().catch(() => ({})) as WorldBossHollowShardDeposit;
-        return response.ok ? { ...body, ok: true } : { ...body, ok: false, error: body.error ?? 'Turn-in failed (' + response.status + ').' };
+        return response.ok ? { ...body, ok: true } : { ...body, ok: false, error: body.error ?? 'Your Hollow Shard turn-in could not be confirmed. Refresh the event before trying again.' };
     } catch {
-        return { ok: false, error: 'The Hollow Shard store is offline. Try again shortly.' };
+        return { ok: false, error: 'Your Hollow Shard turn-in could not be confirmed. Refresh the event and your shard balance before trying again.' };
     }
 }
 

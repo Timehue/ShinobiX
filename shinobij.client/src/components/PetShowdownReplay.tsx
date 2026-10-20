@@ -20,13 +20,14 @@ import type { ShowdownReplayScript } from "../../../shared/pet-showdown-contract
  * round banners, actions, the verdict. Subsequent auto-submits (there are none
  * in practice, since the script ends the match) would receive an empty turn.
  */
-export function PetShowdownReplay({ script, playerPets, sharedImages = {}, onExit }: {
+export function PetShowdownReplay({ script, playerPets, sharedImages = {}, onExit, exitLabel }: {
     script: ShowdownReplayScript;
     /** The viewer's roster, for model/art resolution of any pets they own.
      *  Pets that are not theirs resolve from the state view like AI enemies. */
     playerPets: Pet[];
     sharedImages?: Record<string, string>;
     onExit: () => void;
+    exitLabel?: string;
 }) {
     // "Watch again" is a remount (key) plus an explicit serving-flag reset in
     // onRematch — never a render-time ref write, which the compiler forbids.
@@ -116,6 +117,7 @@ export function PetShowdownReplay({ script, playerPets, sharedImages = {}, onExi
             onForfeit={onExit}
             onFinished={() => { /* verdict is already on the war record; nothing settles from a replay */ }}
             onExit={onExit}
+            exitLabel={exitLabel}
             onRematch={() => { served.current = false; setRunKey((k) => k + 1); }}
         />
     );

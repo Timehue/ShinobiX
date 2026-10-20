@@ -307,7 +307,7 @@ describe('summoned companion (mission pet)', () => {
         startRound(s);
         runAiUntilHuman(s, mkFloor(), () => 0.9);
         assert.ok(getActor(s, 'sq-1')!.hp > 400, 'the owner was healed by the pet\'s strike');
-        assert.ok(s.log.some(l => l.includes('draws')), 'and it is reported in the log');
+        assert.ok(s.log.some(l => l.includes('restores') && l.includes('Lifesteal')), 'and it is reported in the log');
     });
 
     it('expires off the field after its sealed round budget', () => {

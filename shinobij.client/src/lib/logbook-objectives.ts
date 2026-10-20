@@ -170,8 +170,8 @@ export function buildLogbookObjectives(character: Character, ctx: ObjectiveConte
             unlockLevel: 1,
             requirements: [
                 academyAwakeningRequirement,
-                { label: "Equip your jutsu loadout", progress: equippedJutsuCount, target: 4, detail: "Add a 4th jutsu", goScreen: "profile", goLabel: "Open profile" },
-                { label: "Win your first combat mission", progress: totalAiKills, target: 1, detail: "Complete the E-Rank Drill or another Arena or hunt fight", goScreen: "battleArena", goLabel: "Go Arena" },
+                { label: "Equip 4 jutsu", progress: equippedJutsuCount, target: 4, detail: "Fill four equipped jutsu slots in your Profile", goScreen: "profile", goLabel: "Open profile" },
+                { label: "Win your first AI battle", progress: totalAiKills, target: 1, detail: "Complete the E-Rank Drill or another Arena or hunt fight", goScreen: "battleArena", goLabel: "Go Arena" },
                 { label: "Gain 5 permanent stat points", progress: statsTrained, target: 5, detail: "Combat growth and assigned points count. Unspent points do not; completed timed training is one way to grow.", goScreen: "training", goLabel: "Go train" },
                 { label: "Complete your first mission", progress: totalMissionsCompleted, target: 1, detail: "Claim the Academy Trial or a rookie mission reward", goScreen: "missions", goLabel: "Go to Mission Hall" },
                 { label: "Train one jutsu to mastery Lv 3", progress: highestJutsuMastery, target: 3, detail: "Complete and claim lessons for the same jutsu in the Jutsu Training Hall", goScreen: "jutsuTraining", goLabel: "Train jutsu" },
@@ -187,17 +187,17 @@ export function buildLogbookObjectives(character: Character, ctx: ObjectiveConte
     if (showEarlyChapters) {
         const firstStepsRequirements: ObjectiveRequirement[] = [
             { label: "Reach level 3", progress: character.level, target: 3, detail: "Train stats and run your dailies — every point levels you", goScreen: "training", goLabel: "Go train" },
-            { label: "Win 3 AI battles", progress: totalAiKills, target: 3, detail: "Combat missions count after you claim them", goScreen: "missions", goLabel: "Go combat" },
+            { label: "Win 3 AI battles", progress: totalAiKills, target: 3, detail: "AI victories count when the fight is settled; mission rewards are claimed separately", goScreen: "missions", goLabel: "Go combat" },
             { label: "Complete 3 missions", progress: totalMissionsCompleted, target: 3, detail: "Return to Mission Hall to claim rewards", goScreen: "missions", goLabel: "Go missions" },
             { label: "Gain 18 permanent stat points", progress: statsTrained, target: 18, detail: "Counts combat growth and allocated points. Unspent points do not count; completed timed training is one way to grow.", goScreen: "training", goLabel: "Go train" },
             { label: "Equip 4 jutsu", progress: equippedJutsuCount, target: 4, detail: "Keep a full starter loadout", goScreen: "jutsuTraining", goLabel: "Go jutsu" },
         ];
         if ((character.pets ?? []).length > 0 || character.activePetId) {
             firstStepsRequirements.push({
-                label: "Check your starter companion",
+                label: "Select an active companion",
                 progress: character.activePetId ? 1 : 0,
                 target: 1,
-                detail: "Your companion grows with you; deep pet battles can wait",
+                detail: "Select a pet as your active companion in the Pet Yard",
                 goScreen: "pets",
                 goLabel: "Visit Pet Yard",
             });
@@ -223,7 +223,7 @@ export function buildLogbookObjectives(character: Character, ctx: ObjectiveConte
                 unlockLevel: 5,
                 requirements: [
                     { label: "Reach level 7", progress: character.level, target: 7, detail: "Keep training running and clear your field/hunt dailies", goScreen: "training", goLabel: "Go train" },
-                    { label: "Scout 5 world map tiles", progress: totalTilesExplored, target: 5, detail: "Explore safely and return for rewards", goScreen: "worldMap", goLabel: "Open World Map" },
+                    { label: "Use Explore 5 times on the World Map", progress: totalTilesExplored, target: 5, detail: "Explore safely and return for rewards", goScreen: "worldMap", goLabel: "Open World Map" },
                     { label: "Complete 5 missions", progress: totalMissionsCompleted, target: 5, detail: "Combat and field claims both count", goScreen: "missions", goLabel: "Go missions" },
                     { label: "Win 5 AI battles", progress: totalAiKills, target: 5, detail: "Use Basic Attack, jutsu, then Wait when AP is low", goScreen: "missions", goLabel: "Go combat" },
                     { label: "Gain 60 permanent stat points", progress: statsTrained, target: 60, detail: "Counts combat growth and allocated points. Unspent points do not count; completed timed training is one way to grow.", goScreen: "training", goLabel: "Go train" },
@@ -251,7 +251,7 @@ export function buildLogbookObjectives(character: Character, ctx: ObjectiveConte
                         { label: "Complete 10 missions", progress: totalMissionsCompleted, target: 10, detail: "Claim rewards back at Mission Hall", goScreen: "missions", goLabel: "Go missions" },
                         { label: "Win 10 AI battles", progress: totalAiKills, target: 10, detail: "Rookie combat missions are safe practice", goScreen: "missions", goLabel: "Go combat" },
                         { label: "Gain 120 permanent stat points", progress: statsTrained, target: 120, detail: "Counts combat growth and allocated points. Unspent points do not count; completed timed training is one way to grow.", goScreen: "training", goLabel: "Go train" },
-                        { label: "Scout 10 world map tiles", progress: totalTilesExplored, target: 10, detail: "Learn the field route before harder work", goScreen: "worldMap", goLabel: "Open World Map" },
+                        { label: "Use Explore 10 times on the World Map", progress: totalTilesExplored, target: 10, detail: "Learn the field route before harder work", goScreen: "worldMap", goLabel: "Open World Map" },
                         { label: "Keep 4 jutsu equipped", progress: equippedJutsuCount, target: 4, detail: "A complete loadout matters more than one trick", goScreen: "jutsuTraining", goLabel: "Go jutsu" },
                         { label: "Train one jutsu to mastery Lv 3", progress: highestJutsuMastery, target: 3, detail: "Complete and claim lessons for the same jutsu in the Jutsu Training Hall", goScreen: "jutsuTraining", goLabel: "Train jutsu" },
                     ],
@@ -274,8 +274,8 @@ export function buildLogbookObjectives(character: Character, ctx: ObjectiveConte
                 { label: "Awaken your first element", progress: ownedElements.length, target: 1, detail: ownedElements[0] ?? "No element awakened", goScreen: "centralHub", goLabel: "Awakening Stone" },
                 { label: "Gain 400 permanent stat points", progress: statsTrained, target: 400, detail: "Counts combat growth and allocated points. Unspent points do not count; completed timed training is one way to grow.", goScreen: "training", goLabel: "Go train" },
                 { label: "Complete 20 missions", progress: totalMissionsCompleted, target: 20, goScreen: "missions", goLabel: "Go missions" },
-                { label: "Kill 20 AI", progress: totalAiKills, target: 20, goScreen: "missions", goLabel: "Go combat" },
-                { label: "Explore 50 tiles", progress: totalTilesExplored, target: 50, goScreen: "worldMap", goLabel: "Open World Map" },
+                { label: "Win 20 AI battles", progress: totalAiKills, target: 20, goScreen: "missions", goLabel: "Go combat" },
+                { label: "Use Explore 50 times", progress: totalTilesExplored, target: 50, goScreen: "worldMap", goLabel: "Open World Map" },
                 { label: "Train one jutsu to mastery Lv 3", progress: highestJutsuMastery, target: 3, detail: "Complete and claim lessons for the same jutsu in the Jutsu Training Hall", goScreen: "jutsuTraining", goLabel: "Train jutsu" },
             ],
         });
@@ -293,7 +293,7 @@ export function buildLogbookObjectives(character: Character, ctx: ObjectiveConte
                 { label: "Reach the Chunin advancement gate (Level 39)", progress: character.level, target: 39, detail: "The level hold lifts once you pass", goScreen: "training", goLabel: "Earn points" },
                 { label: "Awaken your second element", progress: ownedElements.length, target: 2, detail: ownedElements[1] ?? "Second element not awakened", goScreen: "centralHub", goLabel: "Awakening Stone" },
                 { label: "Complete 50 missions", progress: totalMissionsCompleted, target: 50, goScreen: "missions", goLabel: "Go missions" },
-                { label: "Explore 100 tiles", progress: character.totalTilesExplored ?? 0, target: 100, goScreen: "worldMap", goLabel: "Open World Map" },
+                { label: "Use Explore 100 times", progress: character.totalTilesExplored ?? 0, target: 100, goScreen: "worldMap", goLabel: "Open World Map" },
                 // Solo-clearable on a low-population server: founding your own clan
                 // satisfies this just as well as joining one — no invite needed (L-2).
                 { label: "Join or found a clan", progress: character.clan ? 1 : 0, target: 1, detail: character.clan ?? "Join one, or create your own at the Clan Hall — no invite needed", goScreen: "clan", goLabel: "Go clan" },
@@ -311,8 +311,8 @@ export function buildLogbookObjectives(character: Character, ctx: ObjectiveConte
             progressionImpact: examProgressionImpact("jonin"),
             unlockLevel: 50,
             requirements: [
-                { label: "Get 10 PvP kills", progress: character.totalPvpKills ?? 0, target: 10 },
-                { label: "Raid a village 20 times", progress: character.totalVillageRaids ?? 0, target: 20 },
+                { label: "Win 10 PvP battles", progress: character.totalPvpKills ?? 0, target: 10 },
+                { label: "Complete 20 village raids", progress: character.totalVillageRaids ?? 0, target: 20 },
                 { label: "Defeat Rogue Ninja", progress: defeatedAiIds.includes("builtin-ai-rogue-ninja") ? 1 : 0, target: 1, detail: rogueNinjaExists ? "Level 47 arena AI" : "Rogue Ninja missing", aiId: "builtin-ai-rogue-ninja" },
             ],
         });
@@ -327,7 +327,7 @@ export function buildLogbookObjectives(character: Character, ctx: ObjectiveConte
             progressionImpact: examProgressionImpact("specialJonin"),
             unlockLevel: 80,
             requirements: [
-                { label: "Kill 100 players in PvP", progress: character.totalPvpKills ?? 0, target: 100 },
+                { label: "Win 100 PvP battles", progress: character.totalPvpKills ?? 0, target: 100 },
                 { label: "Become Kage or Elder", progress: (isKage || isElder) ? 1 : 0, target: 1, detail: isKage ? `Seated Kage of ${character.village}` : isElder ? "Village Elder" : "Not a Kage or Elder" },
             ],
         });

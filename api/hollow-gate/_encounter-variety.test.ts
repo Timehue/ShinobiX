@@ -26,6 +26,7 @@ test('named boss honors its authored kit and opener while retaining shrine numbe
         const actual = buildHollowGateSoloPveEncounter({ ...p, namedBossProfile: named });
         assert.equal(actual.encounter.metadata?.namedBossProfileId, named.id);
         assert.deepEqual((actual.enemy.character.jutsu as Array<{ id: string }>).map(j => j.id), named.jutsuIds);
+        assert.deepEqual(actual.enemy.character.aiRules, named.rules, 'the named boss retains its validated thematic script');
         for (const key of ['level', 'stats', 'armorRawDR', 'jutsuMastery', 'aiTurnPolicy'])
             if (key !== 'jutsuMastery') assert.deepEqual(actual.enemy.character[key], generic.enemy.character[key], key);
         assert.deepEqual(actual.enemy.character.jutsuMastery,
@@ -35,7 +36,8 @@ test('named boss honors its authored kit and opener while retaining shrine numbe
         actual.activeSide = 'enemy'; actual.ap.enemy = 100; actual.enemy.pos = 27; actual.player.pos = 26;
         runSoloPveAiUntilPlayer(actual);
         const opener = actual.events.find(e => e.actor === 'enemy' && e.kind === 'action');
-        if (level >= 50) assert.equal(opener?.actionId, 'starter-gen-lightning-2', 'existing scripted opener uses the legal shrine runner');
+        const authoredOpener = named.rules.find(rule => rule.condition === 'specific_round' && rule.value === 1 && rule.action === 'use_specific_jutsu');
+        if (level >= 50) assert.equal(opener?.actionId, authoredOpener?.jutsuId, 'the legal shrine runner uses the authored opener from this boss’s current kit');
         else assert.ok(opener, 'low-level policy retains its legal accessible fallback');
         assert.ok(actual.events.every(e => e.after.ap.enemy >= 0 && e.after.ap.player >= 0));
     }

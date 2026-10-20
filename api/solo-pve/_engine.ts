@@ -654,8 +654,9 @@ function companionDealDamage(session: SoloPveSession, companion: SoloPveCompanio
     const lifestealPct = companionOwnerLifestealPct(companion.pveGearId);
     if (dealt > 0 && lifestealPct > 0 && session.player.hp > 0) {
         const heal = Math.max(1, Math.floor(dealt * lifestealPct / 100));
+        const restored = Math.min(heal, Math.max(0, session.player.maxHp - session.player.hp));
         session.player.hp = Math.min(session.player.maxHp, session.player.hp + heal);
-        session.log.push(`${session.player.name} draws ${heal} HP from ${companion.name}'s strike.`);
+        session.log.push(`${session.player.name} restores ${restored} HP through ${companion.name}'s Lifesteal.`);
     }
     return { dealt, rawDamage: uncapped, resolvedDamage: dealt };
 }
@@ -676,8 +677,9 @@ function companionCast(session: SoloPveSession, companion: SoloPveCompanion, mov
     if (kind === 'heal') {
         const heal = progression ? Math.max(1, Math.floor(companion.maxHp * mastery.healPct))
             : Math.max(1, Math.floor(companion.maxHp * 0.25 + Number(move?.power ?? 0) * 0.5));
+        const restored = Math.min(heal, Math.max(0, companion.maxHp - companion.hp));
         companion.hp = Math.min(companion.maxHp, companion.hp + heal);
-        session.log.push(`${companion.name}${label} and recovers ${heal} HP.`);
+        session.log.push(`${companion.name}${label} and restores ${restored} HP.`);
         return { healing: heal };
     }
     if (kind === 'shield' || kind === 'barrier') {
@@ -691,12 +693,13 @@ function companionCast(session: SoloPveSession, companion: SoloPveCompanion, mov
         const status = kind === 'absorb' ? 'Absorb' : kind === 'taunt' ? 'Decrease Damage Taken' : 'Increase Damage Given';
         addCompanionStatus(companion, { name: status, rounds: kind === 'taunt' && mastery.mastered ? rounds + 1 : rounds,
             percent: kind === 'absorb' ? mastery.mastered ? 35 : 30 : mastery.mastered ? 30 : 25, kind: 'positive' });
-        session.log.push(`${companion.name}${label} and steels itself.`);
+        const duration = kind === 'taunt' && mastery.mastered ? rounds + 1 : rounds;
+        session.log.push(`${companion.name}${label} and ${kind === 'absorb' ? 'gains Absorb to restore HP after taking damage' : kind === 'taunt' ? 'takes less damage' : 'deals more damage'} for ${duration} rounds.`);
         return undefined;
     }
     const resolution = companionDealDamage(session, companion, move);
     const dealt = resolution.dealt;
-    session.log.push(`${companion.name}${label} -> ${session.enemy.name} for ${dealt}.`);
+    session.log.push(`${companion.name}${label}, dealing ${dealt} damage to ${session.enemy.name}.`);
     // The companion acts after the enemy's turn has already started (its AP is set). A
     // Stun or Wound therefore starts next round, like any jutsu status; applied at once,
     // the Stun was aged away at the end of this same enemy turn without ever costing AP.
@@ -989,7 +992,7 @@ function spendPoison(session: SoloPveSession, side: SoloPveSide, chakra: number,
     const damage = poisonSpendDamage(value, chakra + stamina, session.round);
     if (damage <= 0) return;
     setFighter(session, side, damageCombatHealth(value, damage));
-    session.log.push(`${value.name} takes ${damage} Poison damage from exertion.`);
+    session.log.push(`${value.name} loses ${damage} HP to Poison for spending resources on jutsu.`);
     checkWinner(session);
 }
 
@@ -1214,8 +1217,9 @@ function resolveDirectAction(session: SoloPveSession, side: SoloPveSide, action:
         const healPct = companionHealOnSummonPct(seal.pveGearId) + companionConsumableHealPct(seal.consumableId);
         if (healPct > 0) {
             const heal = Math.max(1, Math.floor(self.maxHp * healPct / 100));
+            const restored = Math.min(heal, Math.max(0, self.maxHp - self.hp));
             setFighter(session, side, { ...self, hp: Math.min(self.maxHp, self.hp + heal) });
-            session.log.push(`${seal.name}'s bond restores ${heal} HP to ${self.name}.`);
+            session.log.push(`${seal.name}'s bond restores ${restored} HP to ${self.name}.`);
         }
         return { applied: true };
     }
@@ -1343,7 +1347,7 @@ function resolveDirectAction(session: SoloPveSession, side: SoloPveSide, action:
                 chakra: Math.min(self.maxChakra, self.chakra + restoreChakra),
                 stamina: Math.min(self.maxStamina, self.stamina + restoreStamina),
             });
-            session.log.push(`${self.name} uses ${item.name ?? 'an item'}.`);
+            session.log.push(`${self.name} uses ${item.name ?? 'an item'}: restores ${Math.min(restoreChakra, Math.max(0, self.maxChakra - self.chakra))} chakra and ${Math.min(restoreStamina, Math.max(0, self.maxStamina - self.stamina))} stamina.`);
         } else if (item.id === 'item-attack-pill' || item.id === 'item-defense-pill' || item.id === 'item-smoke-bomb') {
             const smoke = item.id === 'item-smoke-bomb';
             // Like every other tag, the effect starts next round (matching
@@ -1366,10 +1370,10 @@ function resolveDirectAction(session: SoloPveSession, side: SoloPveSide, action:
                 });
             }
             session.log.push(`${self.name} uses ${item.name ?? 'an item'}: ${smoke
-                ? 'next round, both fighters deal 0 ordinary damage; Pierce bypasses the smoke.'
+                ? 'next round, both fighters deal 0 direct-hit damage, except Pierce. Ongoing damage still applies.'
                 : item.id === 'item-attack-pill'
                     ? 'deals 15% more damage for 2 rounds, starting next round.'
-                    : 'takes 15% less damage for 2 rounds, starting next round.'}`);
+                    : 'takes 15% less direct-hit damage for 2 rounds, starting next round. Pierce and ongoing damage bypass this protection.'}`);
         } else {
             const tags = item.weaponTags?.length ? item.weaponTags : item.weaponEffect ? [{ name: item.weaponEffect, percent: item.weaponEffectValue }] : [{ name: 'Heal' }];
             // weaponSwing: true mirrors the PvP item fix (api/pvp/move.ts) — a
@@ -1388,7 +1392,7 @@ function resolveDirectAction(session: SoloPveSession, side: SoloPveSide, action:
                         name: 'Decrease Damage Given', rounds: 1, percent, kind: 'negative',
                     }, { isStackable: (name) => STACKABLE_STATUS.has(name) }),
                 });
-                session.log.push(`Smoke: ${updated.name} also deals ${percent}% less damage for 1 round.`);
+                session.log.push(`Smoke: ${updated.name} also deals less damage for 1 round (${percent}% effect strength).`);
             }
         }
         if (cooldown > 0) session.cooldowns[side][cooldownKey] = cooldown;
@@ -1487,7 +1491,8 @@ function directAction(
         action,
         action.type === 'jutsu' && fighter(session, otherSide(side)).hp <= 0,
     );
-    if (actionLog.some((line) => line.endsWith('Poison damage from exertion.'))) {
+    if (actionLog.some((line) => line.endsWith('Poison damage from exertion.')
+        || line.endsWith('HP to Poison for spending resources on jutsu.'))) {
         vfx.push({ key: 'poisonCloud', target: side, anchor: 'caster' });
     }
     const after = eventSnapshot(session);

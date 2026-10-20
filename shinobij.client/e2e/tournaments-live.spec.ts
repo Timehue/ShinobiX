@@ -86,8 +86,26 @@ for (const mode of ['standard', 'ranked', '2v2', 'pet'] as TournamentMode[]) {
                 await expect(players[1].getByRole('button', { name: 'Watch Colosseum match' })).toBeVisible();
                 const replayA = await api(players[0], '/api/tournaments/event', { action: 'battle', eventId: event.id, matchId: event.matches[0].id });
                 const replayB = await api(players[1], '/api/tournaments/event', { action: 'battle', eventId: event.id, matchId: event.matches[0].id });
-                expect(replayA.script).toEqual(replayB.script);
+                expect(replayA.script.initialState.player).toEqual(replayB.script.initialState.enemy);
+                expect(replayA.script.finalState.enemy).toEqual(replayB.script.finalState.player);
+                expect(replayA.script.finalState.outcome).not.toBe(replayB.script.finalState.outcome);
                 expect(replayA.script.events.length).toBeGreaterThan(0);
+                // Keep the terminal UI check bounded; the real server above
+                // supplies both rosters, all actions and the scored verdict.
+                for (const [index, replay] of [replayA, replayB].entries()) {
+                    await players[index].route('**/api/tournaments/event', route => {
+                        if (route.request().method() === 'POST' && route.request().postDataJSON().action === 'battle') {
+                            return route.fulfill({ json: { ...replay, script: { ...replay.script, events: replay.script.events.filter((entry: { t: string }) => entry.t === 'end') } } });
+                        }
+                        return route.continue();
+                    });
+                    await players[index].getByRole('button', { name: 'Watch Colosseum match' }).click();
+                    await expect(players[index].getByRole('dialog', { name: replay.script.finalState.outcome === 'win' ? 'Victory' : 'Defeat', exact: true })).toBeVisible({ timeout: 45_000 });
+                    await players[index].screenshot({ path: info.outputPath(`pet-tournament-${names[index]}-verdict.png`) });
+                    await players[index].getByRole('button', { name: 'Back to tournament', exact: true }).click();
+                    await expect(players[index].getByRole('button', { name: 'Watch Colosseum match' })).toBeVisible();
+                    await expect(players[index].getByText('Champion ·', { exact: false })).toBeVisible();
+                }
             } else {
                 await players[0].getByRole('button', { name: 'Enter tournament match' }).click();
                 await expect(players[0].getByRole('heading', { name: new RegExp(`${mode === '2v2' ? '2v2' : '1v1'} Tournament`) })).toBeVisible();

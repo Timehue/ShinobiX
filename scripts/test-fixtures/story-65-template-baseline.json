@@ -1,0 +1,1762 @@
+[
+  {
+    "village": "Stormveil Village",
+    "progressIndex": 0,
+    "profile": {
+      "id": "story-ai-stormveil-village-4",
+      "name": "Stormveil Training Scout",
+      "specialty": "Genjutsu",
+      "level": 4,
+      "hp": 520,
+      "stats": {
+        "genjutsuOffense": 258,
+        "genjutsuDefense": 200,
+        "strength": 112,
+        "speed": 108,
+        "intelligence": 108,
+        "willpower": 108
+      },
+      "visual": "story-ai-stormveil-village-4",
+      "avatarImage": "/portraits/pve/skirmisher.webp",
+      "boss": true,
+      "armorRawDR": 0.05,
+      "maxChakra": 1000,
+      "maxStamina": 1000,
+      "jutsuIds": [
+        "starter-gen-wind-1",
+        "starter-gen-wind-2"
+      ],
+      "rules": [
+        {
+          "condition": "self_status_absent",
+          "value": 0,
+          "status": "Absorb",
+          "action": "use_specific_jutsu",
+          "jutsuId": "starter-gen-wind-1"
+        },
+        {
+          "condition": "always",
+          "value": 0,
+          "action": "use_highest_power_jutsu"
+        },
+        {
+          "condition": "distance_lower_than",
+          "value": 2,
+          "action": "use_basic_attack"
+        },
+        {
+          "condition": "distance_higher_than",
+          "value": 4,
+          "action": "move_towards_opponent"
+        },
+        {
+          "condition": "always",
+          "value": 0,
+          "action": "end_turn"
+        },
+        {
+          "condition": "always",
+          "value": 0,
+          "action": "use_basic_attack"
+        }
+      ],
+      "jutsu": [
+        {
+          "id": "starter-gen-wind-1",
+          "name": "Scout Wind Guard",
+          "type": "Genjutsu",
+          "element": "Wind",
+          "method": "SINGLE",
+          "target": "OPPONENT",
+          "ap": 40,
+          "range": 4,
+          "effectPower": 0,
+          "chakraCost": 125,
+          "staminaCost": 125,
+          "cooldown": 7,
+          "battleDescription": "Gain a shield and Absorb to recover HP when hit.",
+          "tags": [
+            {
+              "name": "Shield",
+              "percent": 0
+            },
+            {
+              "name": "Absorb",
+              "percent": 30
+            }
+          ]
+        },
+        {
+          "id": "starter-gen-wind-2",
+          "name": "Scout Wind Strike",
+          "type": "Genjutsu",
+          "element": "Wind",
+          "method": "SINGLE",
+          "target": "OPPONENT",
+          "ap": 60,
+          "range": 4,
+          "effectPower": 36,
+          "chakraCost": 250,
+          "staminaCost": 250,
+          "cooldown": 7,
+          "battleDescription": "Damage the target and restore HP through Siphon.",
+          "tags": [
+            {
+              "name": "Siphon",
+              "percent": 30
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "village": "Stormveil Village",
+    "progressIndex": 1,
+    "profile": {
+      "id": "story-ai-stormveil-village-15",
+      "name": "Tempest Guard Captain",
+      "specialty": "Taijutsu",
+      "level": 15,
+      "hp": 523,
+      "stats": {
+        "taijutsuOffense": 572,
+        "taijutsuDefense": 433,
+        "strength": 206,
+        "speed": 190,
+        "intelligence": 190,
+        "willpower": 190
+      },
+      "visual": "story-ai-stormveil-village-15",
+      "avatarImage": "/portraits/tempest-guard-captain.webp",
+      "boss": true,
+      "armorRawDR": 0.06625,
+      "maxChakra": 180,
+      "maxStamina": 180,
+      "jutsu": [
+        {
+          "id": "story-1-signature",
+          "name": "Tempest Guard Strike",
+          "type": "Taijutsu",
+          "element": "Lightning",
+          "ap": 60,
+          "range": 1,
+          "effectPower": 30,
+          "chakraCost": 0,
+          "staminaCost": 18,
+          "cooldown": 2,
+          "method": "SINGLE"
+        }
+      ]
+    }
+  },
+  {
+    "village": "Stormveil Village",
+    "progressIndex": 2,
+    "profile": {
+      "id": "story-ai-stormveil-village-25",
+      "name": "Lightning-Sealed Informant",
+      "specialty": "Genjutsu",
+      "level": 25,
+      "hp": 1030,
+      "stats": {
+        "genjutsuOffense": 876,
+        "genjutsuDefense": 658,
+        "strength": 297,
+        "speed": 270,
+        "intelligence": 270,
+        "willpower": 270
+      },
+      "visual": "story-ai-stormveil-village-25",
+      "avatarImage": "/portraits/pve/elementalist.webp",
+      "boss": true,
+      "armorRawDR": 0.0825,
+      "maxChakra": 220,
+      "maxStamina": 220,
+      "jutsu": [
+        {
+          "id": "story-2-signature",
+          "name": "Lightning Seal Pulse",
+          "type": "Genjutsu",
+          "element": "Lightning",
+          "ap": 60,
+          "range": 3,
+          "effectPower": 35,
+          "chakraCost": 18,
+          "staminaCost": 0,
+          "cooldown": 2,
+          "method": "SINGLE"
+        }
+      ]
+    }
+  },
+  {
+    "village": "Stormveil Village",
+    "progressIndex": 3,
+    "profile": {
+      "id": "story-ai-stormveil-village-35",
+      "name": "Storm Engine Warden",
+      "specialty": "Ninjutsu",
+      "level": 35,
+      "hp": 1831,
+      "stats": {
+        "ninjutsuOffense": 1197,
+        "ninjutsuDefense": 896,
+        "strength": 393,
+        "speed": 355,
+        "intelligence": 355,
+        "willpower": 355
+      },
+      "visual": "story-ai-stormveil-village-35",
+      "avatarImage": "/portraits/pve/defender.webp",
+      "boss": true,
+      "armorRawDR": 0.09875,
+      "maxChakra": 260,
+      "maxStamina": 260,
+      "jutsu": [
+        {
+          "id": "story-3-signature",
+          "name": "Storm Engine Discharge",
+          "type": "Ninjutsu",
+          "element": "Lightning",
+          "ap": 60,
+          "range": 3,
+          "effectPower": 41,
+          "chakraCost": 18,
+          "staminaCost": 0,
+          "cooldown": 2,
+          "method": "SINGLE"
+        }
+      ]
+    }
+  },
+  {
+    "village": "Stormveil Village",
+    "progressIndex": 4,
+    "profile": {
+      "id": "story-ai-stormveil-village-50",
+      "name": "Jonin Rank Trial: Twin Tempest Duelists",
+      "specialty": "Bukijutsu",
+      "level": 50,
+      "hp": 3581,
+      "stats": {
+        "bukijutsuOffense": 1687,
+        "bukijutsuDefense": 1260,
+        "strength": 540,
+        "speed": 483,
+        "intelligence": 483,
+        "willpower": 483
+      },
+      "visual": "story-ai-stormveil-village-50",
+      "avatarImage": "/combat-actors/narrative/tempest-twins.webp",
+      "boss": true,
+      "armorRawDR": 0.115,
+      "maxChakra": 320,
+      "maxStamina": 320,
+      "jutsu": [
+        {
+          "id": "story-4-signature",
+          "name": "Twin Tempest Assault",
+          "type": "Bukijutsu",
+          "element": "Lightning",
+          "ap": 60,
+          "range": 3,
+          "effectPower": 49,
+          "chakraCost": 0,
+          "staminaCost": 18,
+          "cooldown": 2,
+          "method": "SINGLE"
+        }
+      ]
+    }
+  },
+  {
+    "village": "Stormveil Village",
+    "progressIndex": 5,
+    "profile": {
+      "id": "story-ai-stormveil-village-65",
+      "name": "Tempest Execution Squad",
+      "specialty": "Bukijutsu",
+      "level": 65,
+      "hp": 6079,
+      "stats": {
+        "bukijutsuOffense": 2202,
+        "bukijutsuDefense": 1641,
+        "strength": 693,
+        "speed": 618,
+        "intelligence": 618,
+        "willpower": 618
+      },
+      "visual": "story-ai-stormveil-village-65",
+      "avatarImage": "/portraits/pve/assassin.webp",
+      "boss": true,
+      "armorRawDR": 0.13125,
+      "maxChakra": 380,
+      "maxStamina": 380,
+      "jutsu": [
+        {
+          "id": "story-5-signature",
+          "name": "Tempest Execution Strike",
+          "type": "Bukijutsu",
+          "element": "Lightning",
+          "ap": 60,
+          "range": 3,
+          "effectPower": 57,
+          "chakraCost": 0,
+          "staminaCost": 18,
+          "cooldown": 2,
+          "method": "SINGLE"
+        }
+      ]
+    }
+  },
+  {
+    "village": "Stormveil Village",
+    "progressIndex": 6,
+    "profile": {
+      "id": "story-ai-stormveil-village-75",
+      "name": "Mira Volt, Estate Bout Rigger",
+      "specialty": "Ninjutsu",
+      "level": 75,
+      "hp": 8297,
+      "stats": {
+        "ninjutsuOffense": 2582,
+        "ninjutsuDefense": 1923,
+        "strength": 807,
+        "speed": 718,
+        "intelligence": 718,
+        "willpower": 718
+      },
+      "visual": "story-ai-stormveil-village-75",
+      "avatarImage": "/portraits/mira-volt.webp",
+      "boss": true,
+      "armorRawDR": 0.14750000000000002,
+      "maxChakra": 420,
+      "maxStamina": 420,
+      "jutsu": [
+        {
+          "id": "story-6-signature",
+          "name": "Mira’s Lightning Arc",
+          "type": "Ninjutsu",
+          "element": "Lightning",
+          "ap": 60,
+          "range": 3,
+          "effectPower": 63,
+          "chakraCost": 18,
+          "staminaCost": 0,
+          "cooldown": 2,
+          "method": "SINGLE"
+        }
+      ]
+    }
+  },
+  {
+    "village": "Stormveil Village",
+    "progressIndex": 7,
+    "profile": {
+      "id": "story-ai-stormveil-village-85",
+      "name": "Hollow Tempest General",
+      "specialty": "Ninjutsu",
+      "level": 85,
+      "hp": 10956,
+      "stats": {
+        "ninjutsuOffense": 2979,
+        "ninjutsuDefense": 2218,
+        "strength": 926,
+        "speed": 822,
+        "intelligence": 822,
+        "willpower": 822
+      },
+      "visual": "story-ai-stormveil-village-85",
+      "avatarImage": "/portraits/pve/defender.webp",
+      "boss": true,
+      "armorRawDR": 0.16375,
+      "maxChakra": 460,
+      "maxStamina": 460,
+      "jutsu": [
+        {
+          "id": "story-7-signature",
+          "name": "Hollow Tempest Blast",
+          "type": "Ninjutsu",
+          "element": "Lightning",
+          "ap": 60,
+          "range": 3,
+          "effectPower": 68,
+          "chakraCost": 18,
+          "staminaCost": 0,
+          "cooldown": 2,
+          "method": "SINGLE"
+        }
+      ]
+    }
+  },
+  {
+    "village": "Stormveil Village",
+    "progressIndex": 8,
+    "profile": {
+      "id": "story-ai-stormveil-village-100",
+      "name": "Kage Raiko Veyr, Hollow Storm Tyrant",
+      "specialty": "Ninjutsu",
+      "level": 100,
+      "hp": 14000,
+      "stats": {
+        "strength": 2500,
+        "speed": 2500,
+        "intelligence": 2500,
+        "willpower": 2500,
+        "bukijutsuOffense": 2500,
+        "bukijutsuDefense": 2500,
+        "taijutsuOffense": 2500,
+        "taijutsuDefense": 2500,
+        "genjutsuOffense": 2500,
+        "genjutsuDefense": 2500,
+        "ninjutsuOffense": 2500,
+        "ninjutsuDefense": 2500
+      },
+      "visual": "story-ai-stormveil-village-100",
+      "boss": true,
+      "masterAi": true,
+      "pveDifficulty": "final-kage",
+      "pveDifficultyLabel": "Final Kage - Apex tactics",
+      "tacticalTell": "Voltaic Surge Focus charges the next assault. Watch the lightning aura; spent signatures must recover before they can repeat. Each signature costs 60 AP and has a seven-round cooldown. Track spent techniques, clear the offensive setup or break the guard, then commit during the recovery window.",
+      "avatarImage": "/portraits/cinematic/storywide/kage-raiko-veyr-hollow.webp",
+      "armorRawDR": 0.18,
+      "maxChakra": 10000,
+      "maxStamina": 10000,
+      "jutsuIds": [
+        "starter-nin-lightning-2",
+        "starter-nin-lightning-aoe",
+        "starter-nin-water-2",
+        "starter-nin-wind-2",
+        "starter-nin-wind-aoe",
+        "starter-nin-lightning-4",
+        "starter-buki-water-1",
+        "starter-universal-flicker",
+        "starter-gen-lightning-3",
+        "starter-tai-lightning-3",
+        "starter-nin-water-1",
+        "starter-nin-water-aoe"
+      ]
+    }
+  },
+  {
+    "village": "Ashen Leaf Village",
+    "progressIndex": 0,
+    "profile": {
+      "id": "story-ai-ashen-leaf-village-4",
+      "name": "Wooden Root Guardian",
+      "specialty": "Genjutsu",
+      "level": 4,
+      "hp": 520,
+      "stats": {
+        "genjutsuOffense": 258,
+        "genjutsuDefense": 200,
+        "strength": 112,
+        "speed": 108,
+        "intelligence": 108,
+        "willpower": 108
+      },
+      "visual": "story-ai-ashen-leaf-village-4",
+      "avatarImage": "/combat-actors/narrative/wooden-root-guardian.webp",
+      "boss": true,
+      "armorRawDR": 0.05,
+      "maxChakra": 1000,
+      "maxStamina": 1000,
+      "jutsuIds": [
+        "starter-gen-wind-1",
+        "starter-gen-wind-2"
+      ],
+      "rules": [
+        {
+          "condition": "self_status_absent",
+          "value": 0,
+          "status": "Absorb",
+          "action": "use_specific_jutsu",
+          "jutsuId": "starter-gen-wind-1"
+        },
+        {
+          "condition": "always",
+          "value": 0,
+          "action": "use_highest_power_jutsu"
+        },
+        {
+          "condition": "distance_lower_than",
+          "value": 2,
+          "action": "use_basic_attack"
+        },
+        {
+          "condition": "distance_higher_than",
+          "value": 4,
+          "action": "move_towards_opponent"
+        },
+        {
+          "condition": "always",
+          "value": 0,
+          "action": "end_turn"
+        },
+        {
+          "condition": "always",
+          "value": 0,
+          "action": "use_basic_attack"
+        }
+      ],
+      "jutsu": [
+        {
+          "id": "starter-gen-wind-1",
+          "name": "Root Guardian Guard",
+          "type": "Genjutsu",
+          "element": "Earth",
+          "method": "SINGLE",
+          "target": "OPPONENT",
+          "ap": 40,
+          "range": 4,
+          "effectPower": 0,
+          "chakraCost": 125,
+          "staminaCost": 125,
+          "cooldown": 7,
+          "battleDescription": "Gain a shield and Absorb to recover HP when hit.",
+          "tags": [
+            {
+              "name": "Shield",
+              "percent": 0
+            },
+            {
+              "name": "Absorb",
+              "percent": 30
+            }
+          ]
+        },
+        {
+          "id": "starter-gen-wind-2",
+          "name": "Root Guardian Strike",
+          "type": "Genjutsu",
+          "element": "Earth",
+          "method": "SINGLE",
+          "target": "OPPONENT",
+          "ap": 60,
+          "range": 4,
+          "effectPower": 36,
+          "chakraCost": 250,
+          "staminaCost": 250,
+          "cooldown": 7,
+          "battleDescription": "Damage the target and restore HP through Siphon.",
+          "tags": [
+            {
+              "name": "Siphon",
+              "percent": 30
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "village": "Ashen Leaf Village",
+    "progressIndex": 1,
+    "profile": {
+      "id": "story-ai-ashen-leaf-village-15",
+      "name": "Rootbound Guard Initiate",
+      "specialty": "Taijutsu",
+      "level": 15,
+      "hp": 523,
+      "stats": {
+        "taijutsuOffense": 572,
+        "taijutsuDefense": 433,
+        "strength": 206,
+        "speed": 190,
+        "intelligence": 190,
+        "willpower": 190
+      },
+      "visual": "story-ai-ashen-leaf-village-15",
+      "avatarImage": "/portraits/pve/defender.webp",
+      "boss": true,
+      "armorRawDR": 0.06625,
+      "maxChakra": 180,
+      "maxStamina": 180,
+      "jutsu": [
+        {
+          "id": "story-1-signature",
+          "name": "Rootbound Guard Strike",
+          "type": "Taijutsu",
+          "element": "Earth",
+          "ap": 60,
+          "range": 1,
+          "effectPower": 30,
+          "chakraCost": 0,
+          "staminaCost": 18,
+          "cooldown": 2,
+          "method": "SINGLE"
+        }
+      ]
+    }
+  },
+  {
+    "village": "Ashen Leaf Village",
+    "progressIndex": 2,
+    "profile": {
+      "id": "story-ai-ashen-leaf-village-25",
+      "name": "Archive Spirit of the Root",
+      "specialty": "Genjutsu",
+      "level": 25,
+      "hp": 1030,
+      "stats": {
+        "genjutsuOffense": 876,
+        "genjutsuDefense": 658,
+        "strength": 297,
+        "speed": 270,
+        "intelligence": 270,
+        "willpower": 270
+      },
+      "visual": "story-ai-ashen-leaf-village-25",
+      "avatarImage": "/portraits/story-archive-spirit.webp",
+      "boss": true,
+      "armorRawDR": 0.0825,
+      "maxChakra": 220,
+      "maxStamina": 220,
+      "jutsu": [
+        {
+          "id": "story-2-signature",
+          "name": "Archive Echo",
+          "type": "Genjutsu",
+          "element": "Earth",
+          "ap": 60,
+          "range": 3,
+          "effectPower": 35,
+          "chakraCost": 18,
+          "staminaCost": 0,
+          "cooldown": 2,
+          "method": "SINGLE"
+        }
+      ]
+    }
+  },
+  {
+    "village": "Ashen Leaf Village",
+    "progressIndex": 3,
+    "profile": {
+      "id": "story-ai-ashen-leaf-village-35",
+      "name": "First Flame Sentinel",
+      "specialty": "Ninjutsu",
+      "level": 35,
+      "hp": 1831,
+      "stats": {
+        "ninjutsuOffense": 1197,
+        "ninjutsuDefense": 896,
+        "strength": 393,
+        "speed": 355,
+        "intelligence": 355,
+        "willpower": 355
+      },
+      "visual": "story-ai-ashen-leaf-village-35",
+      "avatarImage": "/combat-actors/narrative/first-flame-sentinel.webp",
+      "boss": true,
+      "armorRawDR": 0.09875,
+      "maxChakra": 260,
+      "maxStamina": 260,
+      "jutsu": [
+        {
+          "id": "story-3-signature",
+          "name": "First Flame Burst",
+          "type": "Ninjutsu",
+          "element": "Fire",
+          "ap": 60,
+          "range": 3,
+          "effectPower": 41,
+          "chakraCost": 18,
+          "staminaCost": 0,
+          "cooldown": 2,
+          "method": "SINGLE"
+        }
+      ]
+    }
+  },
+  {
+    "village": "Ashen Leaf Village",
+    "progressIndex": 4,
+    "profile": {
+      "id": "story-ai-ashen-leaf-village-50",
+      "name": "Jonin Trial: Rootbound Master",
+      "specialty": "Ninjutsu",
+      "level": 50,
+      "hp": 3581,
+      "stats": {
+        "ninjutsuOffense": 1687,
+        "ninjutsuDefense": 1260,
+        "strength": 540,
+        "speed": 483,
+        "intelligence": 483,
+        "willpower": 483
+      },
+      "visual": "story-ai-ashen-leaf-village-50",
+      "avatarImage": "/portraits/pve/defender.webp",
+      "boss": true,
+      "armorRawDR": 0.115,
+      "maxChakra": 320,
+      "maxStamina": 320,
+      "jutsu": [
+        {
+          "id": "story-4-signature",
+          "name": "Rootbound Master’s Strike",
+          "type": "Ninjutsu",
+          "element": "Earth",
+          "ap": 60,
+          "range": 3,
+          "effectPower": 49,
+          "chakraCost": 18,
+          "staminaCost": 0,
+          "cooldown": 2,
+          "method": "SINGLE"
+        }
+      ]
+    }
+  },
+  {
+    "village": "Ashen Leaf Village",
+    "progressIndex": 5,
+    "profile": {
+      "id": "story-ai-ashen-leaf-village-65",
+      "name": "Rootbound Retrieval Squad",
+      "specialty": "Bukijutsu",
+      "level": 65,
+      "hp": 6079,
+      "stats": {
+        "bukijutsuOffense": 2202,
+        "bukijutsuDefense": 1641,
+        "strength": 693,
+        "speed": 618,
+        "intelligence": 618,
+        "willpower": 618
+      },
+      "visual": "story-ai-ashen-leaf-village-65",
+      "avatarImage": "/portraits/pve/skirmisher.webp",
+      "boss": true,
+      "armorRawDR": 0.13125,
+      "maxChakra": 380,
+      "maxStamina": 380,
+      "jutsu": [
+        {
+          "id": "story-5-signature",
+          "name": "Rootbound Retrieval Assault",
+          "type": "Bukijutsu",
+          "element": "Earth",
+          "ap": 60,
+          "range": 3,
+          "effectPower": 57,
+          "chakraCost": 0,
+          "staminaCost": 18,
+          "cooldown": 2,
+          "method": "SINGLE"
+        }
+      ]
+    }
+  },
+  {
+    "village": "Ashen Leaf Village",
+    "progressIndex": 6,
+    "profile": {
+      "id": "story-ai-ashen-leaf-village-75",
+      "name": "Ancestor-Bound Flame Beast",
+      "specialty": "Ninjutsu",
+      "level": 75,
+      "hp": 8297,
+      "stats": {
+        "ninjutsuOffense": 2582,
+        "ninjutsuDefense": 1923,
+        "strength": 807,
+        "speed": 718,
+        "intelligence": 718,
+        "willpower": 718
+      },
+      "visual": "story-ai-ashen-leaf-village-75",
+      "avatarImage": "/portraits/story-flame-beast.webp",
+      "boss": true,
+      "armorRawDR": 0.14750000000000002,
+      "maxChakra": 420,
+      "maxStamina": 420,
+      "jutsu": [
+        {
+          "id": "story-6-signature",
+          "name": "Ancestral Flame",
+          "type": "Ninjutsu",
+          "element": "Fire",
+          "ap": 60,
+          "range": 3,
+          "effectPower": 63,
+          "chakraCost": 18,
+          "staminaCost": 0,
+          "cooldown": 2,
+          "method": "SINGLE"
+        }
+      ]
+    }
+  },
+  {
+    "village": "Ashen Leaf Village",
+    "progressIndex": 7,
+    "profile": {
+      "id": "story-ai-ashen-leaf-village-85",
+      "name": "Rootbound Elder Champion",
+      "specialty": "Ninjutsu",
+      "level": 85,
+      "hp": 10956,
+      "stats": {
+        "ninjutsuOffense": 2979,
+        "ninjutsuDefense": 2218,
+        "strength": 926,
+        "speed": 822,
+        "intelligence": 822,
+        "willpower": 822
+      },
+      "visual": "story-ai-ashen-leaf-village-85",
+      "avatarImage": "/portraits/pve/defender.webp",
+      "boss": true,
+      "armorRawDR": 0.16375,
+      "maxChakra": 460,
+      "maxStamina": 460,
+      "jutsu": [
+        {
+          "id": "story-7-signature",
+          "name": "Elder’s Root Strike",
+          "type": "Ninjutsu",
+          "element": "Earth",
+          "ap": 60,
+          "range": 3,
+          "effectPower": 68,
+          "chakraCost": 18,
+          "staminaCost": 0,
+          "cooldown": 2,
+          "method": "SINGLE"
+        }
+      ]
+    }
+  },
+  {
+    "village": "Ashen Leaf Village",
+    "progressIndex": 8,
+    "profile": {
+      "id": "story-ai-ashen-leaf-village-100",
+      "name": "Kage Hoshina Enju, First Flame Vessel",
+      "specialty": "Ninjutsu",
+      "level": 100,
+      "hp": 14000,
+      "stats": {
+        "strength": 2500,
+        "speed": 2500,
+        "intelligence": 2500,
+        "willpower": 2500,
+        "bukijutsuOffense": 2500,
+        "bukijutsuDefense": 2500,
+        "taijutsuOffense": 2500,
+        "taijutsuDefense": 2500,
+        "genjutsuOffense": 2500,
+        "genjutsuDefense": 2500,
+        "ninjutsuOffense": 2500,
+        "ninjutsuDefense": 2500
+      },
+      "visual": "story-ai-ashen-leaf-village-100",
+      "boss": true,
+      "masterAi": true,
+      "pveDifficulty": "final-kage",
+      "pveDifficultyLabel": "Final Kage - Apex tactics",
+      "tacticalTell": "Ash Cloud Breaker kindles the next assault. Fire and earth signatures leave their own cooldown openings. Each signature costs 60 AP and has a seven-round cooldown. Track spent techniques, clear the offensive setup or break the guard, then commit during the recovery window.",
+      "avatarImage": "/portraits/cinematic/storywide/kage-hoshina-enju-hollow-canon.webp",
+      "armorRawDR": 0.18,
+      "maxChakra": 10000,
+      "maxStamina": 10000,
+      "jutsuIds": [
+        "starter-nin-fire-2",
+        "starter-nin-fire-aoe",
+        "starter-nin-earth-2",
+        "starter-nin-earth-aoe",
+        "starter-tai-fire-2",
+        "starter-nin-fire-3",
+        "starter-nin-earth-1",
+        "starter-universal-flicker",
+        "starter-nin-fire-4",
+        "starter-buki-earth-3",
+        "starter-tai-earth-1",
+        "starter-buki-earth-2"
+      ]
+    }
+  },
+  {
+    "village": "Frostfang Village",
+    "progressIndex": 0,
+    "profile": {
+      "id": "story-ai-frostfang-village-4",
+      "name": "Snow Warden Pup",
+      "specialty": "Taijutsu",
+      "level": 4,
+      "hp": 520,
+      "stats": {
+        "taijutsuOffense": 258,
+        "taijutsuDefense": 200,
+        "strength": 112,
+        "speed": 108,
+        "intelligence": 108,
+        "willpower": 108
+      },
+      "visual": "story-ai-frostfang-village-4",
+      "avatarImage": "/portraits/story-snow-warden.webp",
+      "boss": true,
+      "armorRawDR": 0.05,
+      "maxChakra": 1000,
+      "maxStamina": 1000,
+      "jutsuIds": [
+        "starter-gen-wind-1",
+        "starter-gen-wind-2"
+      ],
+      "rules": [
+        {
+          "condition": "self_status_absent",
+          "value": 0,
+          "status": "Absorb",
+          "action": "use_specific_jutsu",
+          "jutsuId": "starter-gen-wind-1"
+        },
+        {
+          "condition": "always",
+          "value": 0,
+          "action": "use_highest_power_jutsu"
+        },
+        {
+          "condition": "distance_lower_than",
+          "value": 2,
+          "action": "use_basic_attack"
+        },
+        {
+          "condition": "distance_higher_than",
+          "value": 4,
+          "action": "move_towards_opponent"
+        },
+        {
+          "condition": "always",
+          "value": 0,
+          "action": "end_turn"
+        },
+        {
+          "condition": "always",
+          "value": 0,
+          "action": "use_basic_attack"
+        }
+      ],
+      "jutsu": [
+        {
+          "id": "starter-gen-wind-1",
+          "name": "Snow Warden Guard",
+          "type": "Taijutsu",
+          "element": "Water",
+          "method": "SINGLE",
+          "target": "OPPONENT",
+          "ap": 40,
+          "range": 4,
+          "effectPower": 0,
+          "chakraCost": 125,
+          "staminaCost": 125,
+          "cooldown": 7,
+          "battleDescription": "Gain a shield and Absorb to recover HP when hit.",
+          "tags": [
+            {
+              "name": "Shield",
+              "percent": 0
+            },
+            {
+              "name": "Absorb",
+              "percent": 30
+            }
+          ]
+        },
+        {
+          "id": "starter-gen-wind-2",
+          "name": "Snow Warden Bite",
+          "type": "Taijutsu",
+          "element": "Water",
+          "method": "SINGLE",
+          "target": "OPPONENT",
+          "ap": 60,
+          "range": 4,
+          "effectPower": 36,
+          "chakraCost": 250,
+          "staminaCost": 250,
+          "cooldown": 7,
+          "battleDescription": "Damage the target and restore HP through Siphon.",
+          "tags": [
+            {
+              "name": "Siphon",
+              "percent": 30
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "village": "Frostfang Village",
+    "progressIndex": 1,
+    "profile": {
+      "id": "story-ai-frostfang-village-15",
+      "name": "Oathbound Soldier",
+      "specialty": "Taijutsu",
+      "level": 15,
+      "hp": 523,
+      "stats": {
+        "taijutsuOffense": 572,
+        "taijutsuDefense": 433,
+        "strength": 206,
+        "speed": 190,
+        "intelligence": 190,
+        "willpower": 190
+      },
+      "visual": "story-ai-frostfang-village-15",
+      "avatarImage": "/portraits/pve/defender.webp",
+      "boss": true,
+      "armorRawDR": 0.06625,
+      "maxChakra": 180,
+      "maxStamina": 180,
+      "jutsu": [
+        {
+          "id": "story-1-signature",
+          "name": "Oathbound Ice Strike",
+          "type": "Taijutsu",
+          "element": "Water",
+          "ap": 60,
+          "range": 1,
+          "effectPower": 30,
+          "chakraCost": 0,
+          "staminaCost": 18,
+          "cooldown": 2,
+          "method": "SINGLE"
+        }
+      ]
+    }
+  },
+  {
+    "village": "Frostfang Village",
+    "progressIndex": 2,
+    "profile": {
+      "id": "story-ai-frostfang-village-25",
+      "name": "Frost Seal Guardian",
+      "specialty": "Ninjutsu",
+      "level": 25,
+      "hp": 1030,
+      "stats": {
+        "ninjutsuOffense": 876,
+        "ninjutsuDefense": 658,
+        "strength": 297,
+        "speed": 270,
+        "intelligence": 270,
+        "willpower": 270
+      },
+      "visual": "story-ai-frostfang-village-25",
+      "avatarImage": "/combat-actors/narrative/frost-seal-guardian.webp",
+      "boss": true,
+      "armorRawDR": 0.0825,
+      "maxChakra": 220,
+      "maxStamina": 220,
+      "jutsu": [
+        {
+          "id": "story-2-signature",
+          "name": "Frost Seal Pulse",
+          "type": "Ninjutsu",
+          "element": "Water",
+          "ap": 60,
+          "range": 3,
+          "effectPower": 35,
+          "chakraCost": 18,
+          "staminaCost": 0,
+          "cooldown": 2,
+          "method": "SINGLE"
+        }
+      ]
+    }
+  },
+  {
+    "village": "Frostfang Village",
+    "progressIndex": 3,
+    "profile": {
+      "id": "story-ai-frostfang-village-35",
+      "name": "Oathbound Ice Captain",
+      "specialty": "Taijutsu",
+      "level": 35,
+      "hp": 1831,
+      "stats": {
+        "taijutsuOffense": 1197,
+        "taijutsuDefense": 896,
+        "strength": 393,
+        "speed": 355,
+        "intelligence": 355,
+        "willpower": 355
+      },
+      "visual": "story-ai-frostfang-village-35",
+      "avatarImage": "/portraits/pve/defender.webp",
+      "boss": true,
+      "armorRawDR": 0.09875,
+      "maxChakra": 260,
+      "maxStamina": 260,
+      "jutsu": [
+        {
+          "id": "story-3-signature",
+          "name": "Ice Captain’s Strike",
+          "type": "Taijutsu",
+          "element": "Water",
+          "ap": 60,
+          "range": 1,
+          "effectPower": 41,
+          "chakraCost": 0,
+          "staminaCost": 18,
+          "cooldown": 2,
+          "method": "SINGLE"
+        }
+      ]
+    }
+  },
+  {
+    "village": "Frostfang Village",
+    "progressIndex": 4,
+    "profile": {
+      "id": "story-ai-frostfang-village-50",
+      "name": "Jonin Rank Trial: Glacier Twins",
+      "specialty": "Taijutsu",
+      "level": 50,
+      "hp": 3581,
+      "stats": {
+        "taijutsuOffense": 1687,
+        "taijutsuDefense": 1260,
+        "strength": 540,
+        "speed": 483,
+        "intelligence": 483,
+        "willpower": 483
+      },
+      "visual": "story-ai-frostfang-village-50",
+      "avatarImage": "/combat-actors/narrative/glacier-twins.webp",
+      "boss": true,
+      "armorRawDR": 0.115,
+      "maxChakra": 320,
+      "maxStamina": 320,
+      "jutsu": [
+        {
+          "id": "story-4-signature",
+          "name": "Glacier Twins’ Assault",
+          "type": "Taijutsu",
+          "element": "Water",
+          "ap": 60,
+          "range": 1,
+          "effectPower": 49,
+          "chakraCost": 0,
+          "staminaCost": 18,
+          "cooldown": 2,
+          "method": "SINGLE"
+        }
+      ]
+    }
+  },
+  {
+    "village": "Frostfang Village",
+    "progressIndex": 5,
+    "profile": {
+      "id": "story-ai-frostfang-village-65",
+      "name": "Oathbound Purge Unit",
+      "specialty": "Bukijutsu",
+      "level": 65,
+      "hp": 6079,
+      "stats": {
+        "bukijutsuOffense": 2202,
+        "bukijutsuDefense": 1641,
+        "strength": 693,
+        "speed": 618,
+        "intelligence": 618,
+        "willpower": 618
+      },
+      "visual": "story-ai-frostfang-village-65",
+      "avatarImage": "/portraits/pve/assassin.webp",
+      "boss": true,
+      "armorRawDR": 0.13125,
+      "maxChakra": 380,
+      "maxStamina": 380,
+      "jutsu": [
+        {
+          "id": "story-5-signature",
+          "name": "Oathbound Purge Strike",
+          "type": "Bukijutsu",
+          "element": "Water",
+          "ap": 60,
+          "range": 3,
+          "effectPower": 57,
+          "chakraCost": 0,
+          "staminaCost": 18,
+          "cooldown": 2,
+          "method": "SINGLE"
+        }
+      ]
+    }
+  },
+  {
+    "village": "Frostfang Village",
+    "progressIndex": 6,
+    "profile": {
+      "id": "story-ai-frostfang-village-75",
+      "name": "Frostfang Oathbreaker Hunter",
+      "specialty": "Bukijutsu",
+      "level": 75,
+      "hp": 8297,
+      "stats": {
+        "bukijutsuOffense": 2582,
+        "bukijutsuDefense": 1923,
+        "strength": 807,
+        "speed": 718,
+        "intelligence": 718,
+        "willpower": 718
+      },
+      "visual": "story-ai-frostfang-village-75",
+      "avatarImage": "/portraits/pve/assassin.webp",
+      "boss": true,
+      "armorRawDR": 0.14750000000000002,
+      "maxChakra": 420,
+      "maxStamina": 420,
+      "jutsu": [
+        {
+          "id": "story-6-signature",
+          "name": "Oathbreaker Hunter’s Cut",
+          "type": "Bukijutsu",
+          "element": "Water",
+          "ap": 60,
+          "range": 3,
+          "effectPower": 63,
+          "chakraCost": 0,
+          "staminaCost": 18,
+          "cooldown": 2,
+          "method": "SINGLE"
+        }
+      ]
+    }
+  },
+  {
+    "village": "Frostfang Village",
+    "progressIndex": 7,
+    "profile": {
+      "id": "story-ai-frostfang-village-85",
+      "name": "Oathbound Alpha Guard",
+      "specialty": "Taijutsu",
+      "level": 85,
+      "hp": 10956,
+      "stats": {
+        "taijutsuOffense": 2979,
+        "taijutsuDefense": 2218,
+        "strength": 926,
+        "speed": 822,
+        "intelligence": 822,
+        "willpower": 822
+      },
+      "visual": "story-ai-frostfang-village-85",
+      "avatarImage": "/portraits/pve/defender.webp",
+      "boss": true,
+      "armorRawDR": 0.16375,
+      "maxChakra": 460,
+      "maxStamina": 460,
+      "jutsu": [
+        {
+          "id": "story-7-signature",
+          "name": "Alpha Guard Strike",
+          "type": "Taijutsu",
+          "element": "Water",
+          "ap": 60,
+          "range": 1,
+          "effectPower": 68,
+          "chakraCost": 0,
+          "staminaCost": 18,
+          "cooldown": 2,
+          "method": "SINGLE"
+        }
+      ]
+    }
+  },
+  {
+    "village": "Frostfang Village",
+    "progressIndex": 8,
+    "profile": {
+      "id": "story-ai-frostfang-village-100",
+      "name": "Kage Kael Whitefang, Hollow Oath Tyrant",
+      "specialty": "Taijutsu",
+      "level": 100,
+      "hp": 14000,
+      "stats": {
+        "strength": 2500,
+        "speed": 2500,
+        "intelligence": 2500,
+        "willpower": 2500,
+        "bukijutsuOffense": 2500,
+        "bukijutsuDefense": 2500,
+        "taijutsuOffense": 2500,
+        "taijutsuDefense": 2500,
+        "genjutsuOffense": 2500,
+        "genjutsuDefense": 2500,
+        "ninjutsuOffense": 2500,
+        "ninjutsuDefense": 2500
+      },
+      "visual": "story-ai-frostfang-village-100",
+      "boss": true,
+      "masterAi": true,
+      "pveDifficulty": "final-kage",
+      "pveDifficultyLabel": "Final Kage - Apex tactics",
+      "tacticalTell": "Thunderpulse Overdrive signals a stronger follow-up. Break the water guard or create distance while signatures recover. Each signature costs 60 AP and has a seven-round cooldown. Track spent techniques, clear the offensive setup or break the guard, then commit during the recovery window.",
+      "avatarImage": "/portraits/cinematic/storywide/kage-kael-whitefang-hollow.webp",
+      "armorRawDR": 0.18,
+      "maxChakra": 10000,
+      "maxStamina": 10000,
+      "jutsuIds": [
+        "starter-tai-water-2",
+        "starter-tai-water-aoe",
+        "starter-tai-lightning-2",
+        "starter-tai-wind-2",
+        "starter-buki-wind-2",
+        "starter-tai-lightning-4",
+        "starter-buki-water-1",
+        "starter-universal-flicker",
+        "starter-tai-lightning-3",
+        "starter-buki-water-3",
+        "starter-gen-lightning-3",
+        "starter-buki-water-2"
+      ]
+    }
+  },
+  {
+    "village": "Moonshadow Village",
+    "progressIndex": 0,
+    "profile": {
+      "id": "story-ai-moonshadow-village-4",
+      "name": "Hidden Blade Trainee",
+      "specialty": "Genjutsu",
+      "level": 4,
+      "hp": 520,
+      "stats": {
+        "genjutsuOffense": 258,
+        "genjutsuDefense": 200,
+        "strength": 112,
+        "speed": 108,
+        "intelligence": 108,
+        "willpower": 108
+      },
+      "visual": "story-ai-moonshadow-village-4",
+      "avatarImage": "/portraits/pve/assassin.webp",
+      "boss": true,
+      "armorRawDR": 0.05,
+      "maxChakra": 1000,
+      "maxStamina": 1000,
+      "jutsuIds": [
+        "starter-gen-wind-1",
+        "starter-gen-wind-2"
+      ],
+      "rules": [
+        {
+          "condition": "self_status_absent",
+          "value": 0,
+          "status": "Absorb",
+          "action": "use_specific_jutsu",
+          "jutsuId": "starter-gen-wind-1"
+        },
+        {
+          "condition": "always",
+          "value": 0,
+          "action": "use_highest_power_jutsu"
+        },
+        {
+          "condition": "distance_lower_than",
+          "value": 2,
+          "action": "use_basic_attack"
+        },
+        {
+          "condition": "distance_higher_than",
+          "value": 4,
+          "action": "move_towards_opponent"
+        },
+        {
+          "condition": "always",
+          "value": 0,
+          "action": "end_turn"
+        },
+        {
+          "condition": "always",
+          "value": 0,
+          "action": "use_basic_attack"
+        }
+      ],
+      "jutsu": [
+        {
+          "id": "starter-gen-wind-1",
+          "name": "Hidden Blade Guard",
+          "type": "Genjutsu",
+          "element": "Wind",
+          "method": "SINGLE",
+          "target": "OPPONENT",
+          "ap": 40,
+          "range": 4,
+          "effectPower": 0,
+          "chakraCost": 125,
+          "staminaCost": 125,
+          "cooldown": 7,
+          "battleDescription": "Gain a shield and Absorb to recover HP when hit.",
+          "tags": [
+            {
+              "name": "Shield",
+              "percent": 0
+            },
+            {
+              "name": "Absorb",
+              "percent": 30
+            }
+          ]
+        },
+        {
+          "id": "starter-gen-wind-2",
+          "name": "Hidden Blade Feint",
+          "type": "Genjutsu",
+          "element": "Wind",
+          "method": "SINGLE",
+          "target": "OPPONENT",
+          "ap": 60,
+          "range": 4,
+          "effectPower": 36,
+          "chakraCost": 250,
+          "staminaCost": 250,
+          "cooldown": 7,
+          "battleDescription": "Damage the target and restore HP through Siphon.",
+          "tags": [
+            {
+              "name": "Siphon",
+              "percent": 30
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "village": "Moonshadow Village",
+    "progressIndex": 1,
+    "profile": {
+      "id": "story-ai-moonshadow-village-15",
+      "name": "Veiled Hand Collector",
+      "specialty": "Genjutsu",
+      "level": 15,
+      "hp": 523,
+      "stats": {
+        "genjutsuOffense": 572,
+        "genjutsuDefense": 433,
+        "strength": 206,
+        "speed": 190,
+        "intelligence": 190,
+        "willpower": 190
+      },
+      "visual": "story-ai-moonshadow-village-15",
+      "avatarImage": "/portraits/veiled-hand-collector.webp",
+      "boss": true,
+      "armorRawDR": 0.06625,
+      "maxChakra": 180,
+      "maxStamina": 180,
+      "jutsu": [
+        {
+          "id": "story-1-signature",
+          "name": "Collector’s Shadow Strike",
+          "type": "Genjutsu",
+          "element": "Wind",
+          "ap": 60,
+          "range": 3,
+          "effectPower": 30,
+          "chakraCost": 18,
+          "staminaCost": 0,
+          "cooldown": 2,
+          "method": "SINGLE"
+        }
+      ]
+    }
+  },
+  {
+    "village": "Moonshadow Village",
+    "progressIndex": 2,
+    "profile": {
+      "id": "story-ai-moonshadow-village-25",
+      "name": "Masked Auction Enforcer",
+      "specialty": "Bukijutsu",
+      "level": 25,
+      "hp": 1030,
+      "stats": {
+        "bukijutsuOffense": 876,
+        "bukijutsuDefense": 658,
+        "strength": 297,
+        "speed": 270,
+        "intelligence": 270,
+        "willpower": 270
+      },
+      "visual": "story-ai-moonshadow-village-25",
+      "avatarImage": "/portraits/masked-auction-enforcer.webp",
+      "boss": true,
+      "armorRawDR": 0.0825,
+      "maxChakra": 220,
+      "maxStamina": 220,
+      "jutsu": [
+        {
+          "id": "story-2-signature",
+          "name": "Auction Enforcer’s Cut",
+          "type": "Bukijutsu",
+          "element": "Wind",
+          "ap": 60,
+          "range": 3,
+          "effectPower": 35,
+          "chakraCost": 0,
+          "staminaCost": 18,
+          "cooldown": 2,
+          "method": "SINGLE"
+        }
+      ]
+    }
+  },
+  {
+    "village": "Moonshadow Village",
+    "progressIndex": 3,
+    "profile": {
+      "id": "story-ai-moonshadow-village-35",
+      "name": "Contract-Bound Shadow",
+      "specialty": "Genjutsu",
+      "level": 35,
+      "hp": 1831,
+      "stats": {
+        "genjutsuOffense": 1197,
+        "genjutsuDefense": 896,
+        "strength": 393,
+        "speed": 355,
+        "intelligence": 355,
+        "willpower": 355
+      },
+      "visual": "story-ai-moonshadow-village-35",
+      "avatarImage": "/combat-actors/narrative/contract-bound-shadow.webp",
+      "boss": true,
+      "armorRawDR": 0.09875,
+      "maxChakra": 260,
+      "maxStamina": 260,
+      "jutsu": [
+        {
+          "id": "story-3-signature",
+          "name": "Contract Shadow",
+          "type": "Genjutsu",
+          "element": "Wind",
+          "ap": 60,
+          "range": 3,
+          "effectPower": 41,
+          "chakraCost": 18,
+          "staminaCost": 0,
+          "cooldown": 2,
+          "method": "SINGLE"
+        }
+      ]
+    }
+  },
+  {
+    "village": "Moonshadow Village",
+    "progressIndex": 4,
+    "profile": {
+      "id": "story-ai-moonshadow-village-50",
+      "name": "Jonin Trial: Mirror Assassin",
+      "specialty": "Genjutsu",
+      "level": 50,
+      "hp": 3581,
+      "stats": {
+        "genjutsuOffense": 1687,
+        "genjutsuDefense": 1260,
+        "strength": 540,
+        "speed": 483,
+        "intelligence": 483,
+        "willpower": 483
+      },
+      "visual": "story-ai-moonshadow-village-50",
+      "avatarImage": "/portraits/pve/assassin.webp",
+      "boss": true,
+      "armorRawDR": 0.115,
+      "maxChakra": 320,
+      "maxStamina": 320,
+      "jutsu": [
+        {
+          "id": "story-4-signature",
+          "name": "Mirror Assassin’s Feint",
+          "type": "Genjutsu",
+          "element": "Wind",
+          "ap": 60,
+          "range": 3,
+          "effectPower": 49,
+          "chakraCost": 18,
+          "staminaCost": 0,
+          "cooldown": 2,
+          "method": "SINGLE"
+        }
+      ]
+    }
+  },
+  {
+    "village": "Moonshadow Village",
+    "progressIndex": 5,
+    "profile": {
+      "id": "story-ai-moonshadow-village-65",
+      "name": "Veiled Hand Executioner",
+      "specialty": "Bukijutsu",
+      "level": 65,
+      "hp": 6079,
+      "stats": {
+        "bukijutsuOffense": 2202,
+        "bukijutsuDefense": 1641,
+        "strength": 693,
+        "speed": 618,
+        "intelligence": 618,
+        "willpower": 618
+      },
+      "visual": "story-ai-moonshadow-village-65",
+      "avatarImage": "/portraits/veiled-hand-executioner.webp",
+      "boss": true,
+      "armorRawDR": 0.13125,
+      "maxChakra": 380,
+      "maxStamina": 380,
+      "jutsu": [
+        {
+          "id": "story-5-signature",
+          "name": "Veiled Execution Strike",
+          "type": "Bukijutsu",
+          "element": "Wind",
+          "ap": 60,
+          "range": 3,
+          "effectPower": 57,
+          "chakraCost": 0,
+          "staminaCost": 18,
+          "cooldown": 2,
+          "method": "SINGLE"
+        }
+      ]
+    }
+  },
+  {
+    "village": "Moonshadow Village",
+    "progressIndex": 6,
+    "profile": {
+      "id": "story-ai-moonshadow-village-75",
+      "name": "Shadow Network Hunter",
+      "specialty": "Bukijutsu",
+      "level": 75,
+      "hp": 8297,
+      "stats": {
+        "bukijutsuOffense": 2582,
+        "bukijutsuDefense": 1923,
+        "strength": 807,
+        "speed": 718,
+        "intelligence": 718,
+        "willpower": 718
+      },
+      "visual": "story-ai-moonshadow-village-75",
+      "avatarImage": "/portraits/pve/assassin.webp",
+      "boss": true,
+      "armorRawDR": 0.14750000000000002,
+      "maxChakra": 420,
+      "maxStamina": 420,
+      "jutsu": [
+        {
+          "id": "story-6-signature",
+          "name": "Shadow Hunter’s Cut",
+          "type": "Bukijutsu",
+          "element": "Wind",
+          "ap": 60,
+          "range": 3,
+          "effectPower": 63,
+          "chakraCost": 0,
+          "staminaCost": 18,
+          "cooldown": 2,
+          "method": "SINGLE"
+        }
+      ]
+    }
+  },
+  {
+    "village": "Moonshadow Village",
+    "progressIndex": 7,
+    "profile": {
+      "id": "story-ai-moonshadow-village-85",
+      "name": "Veiled Hand Grandmaster",
+      "specialty": "Genjutsu",
+      "level": 85,
+      "hp": 10956,
+      "stats": {
+        "genjutsuOffense": 2979,
+        "genjutsuDefense": 2218,
+        "strength": 926,
+        "speed": 822,
+        "intelligence": 822,
+        "willpower": 822
+      },
+      "visual": "story-ai-moonshadow-village-85",
+      "avatarImage": "/portraits/veiled-hand-grandmaster.webp",
+      "boss": true,
+      "armorRawDR": 0.16375,
+      "maxChakra": 460,
+      "maxStamina": 460,
+      "jutsu": [
+        {
+          "id": "story-7-signature",
+          "name": "Grandmaster’s Shadow Strike",
+          "type": "Genjutsu",
+          "element": "Wind",
+          "ap": 60,
+          "range": 3,
+          "effectPower": 68,
+          "chakraCost": 18,
+          "staminaCost": 0,
+          "cooldown": 2,
+          "method": "SINGLE"
+        }
+      ]
+    }
+  },
+  {
+    "village": "Moonshadow Village",
+    "progressIndex": 8,
+    "profile": {
+      "id": "story-ai-moonshadow-village-100",
+      "name": "Kage Sable Nocturne, Hollow Moon Sovereign",
+      "specialty": "Genjutsu",
+      "level": 100,
+      "hp": 14000,
+      "stats": {
+        "strength": 2500,
+        "speed": 2500,
+        "intelligence": 2500,
+        "willpower": 2500,
+        "bukijutsuOffense": 2500,
+        "bukijutsuDefense": 2500,
+        "taijutsuOffense": 2500,
+        "taijutsuDefense": 2500,
+        "genjutsuOffense": 2500,
+        "genjutsuDefense": 2500,
+        "ninjutsuOffense": 2500,
+        "ninjutsuDefense": 2500
+      },
+      "visual": "story-ai-moonshadow-village-100",
+      "boss": true,
+      "masterAi": true,
+      "pveDifficulty": "final-kage",
+      "pveDifficultyLabel": "Final Kage - Apex tactics",
+      "tacticalTell": "Drowning Reflection prepares stronger illusions. A spent cyclone and a broken whispering guard create an opening. Each signature costs 60 AP and has a seven-round cooldown. Track spent techniques, clear the offensive setup or break the guard, then commit during the recovery window.",
+      "avatarImage": "/portraits/cinematic/storywide/kage-sable-nocturne-hollow.webp",
+      "armorRawDR": 0.18,
+      "maxChakra": 10000,
+      "maxStamina": 10000,
+      "jutsuIds": [
+        "starter-gen-lightning-2",
+        "starter-gen-lightning-aoe",
+        "starter-gen-wind-2",
+        "starter-gen-wind-aoe",
+        "starter-buki-wind-2",
+        "starter-gen-water-1",
+        "starter-gen-wind-1",
+        "starter-universal-flicker",
+        "starter-gen-water-3",
+        "starter-gen-wind-4",
+        "starter-nin-wind-3",
+        "starter-gen-water-2"
+      ]
+    }
+  }
+]

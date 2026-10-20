@@ -70,7 +70,7 @@ export function PlayerSurfaceBlocker({
                     <section className="card" role="status" aria-live="polite" style={{ maxWidth: 620, padding: "1.4rem" }}>
                         <h1 id="player-surface-blocker-title">ShinobiX is temporarily unavailable</h1>
                         <p>
-                            The game is in maintenance. Player polling and actions are paused; your current screen and resumable operation state remain mounted and preserved.
+                            The game is under maintenance, so actions are paused. Keep this screen open; you can resume when maintenance ends.
                         </p>
                         <button type="button" autoFocus onClick={onOperatorRecovery}>Operator recovery</button>
                         <p style={{ marginBottom: 0 }}>

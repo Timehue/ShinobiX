@@ -54,6 +54,18 @@ test('Tower attribution respects multiple human and enemy casters', () => {
     assert.equal(extractTowerLegacyDeltas(session, 'other').ninjutsuDamage, 90);
 });
 
+test('Tower Legacy credit accepts both retained and readable strike/healing messages', () => {
+    const actors = [
+        { name: 'Ally', ownerSlug: 'ally', side: 'squad', ai: false, character: { specialty: 'Taijutsu' } },
+        { name: 'Boss', side: 'enemy', ai: true, character: {} },
+    ];
+    const old = extractTowerLegacyDeltas({ actors, log: ['Ally strikes Boss for 40.', 'Ally absorbs 7 HP.', "Ally's armor steals 3 HP."] } as unknown as TowerSession, 'ally');
+    const current = extractTowerLegacyDeltas({ actors, log: ['Ally strikes Boss for 40 damage.', 'Ally restores 7 HP through Absorb.', "Ally's armor restores 3 HP through Lifesteal."] } as unknown as TowerSession, 'ally');
+    assert.deepEqual(current, old);
+    assert.equal(current.healingDone, 10);
+    assert.equal(current.taijutsuDamage, 40);
+});
+
 test('expired shield pools never count as damage dealt or damage blocked', () => {
     const combat = { applied: true, healing: [], shielding: [], damage: [
         { source: 'player', target: 'player', toHp: 0, toShield: 50 },

@@ -170,7 +170,7 @@ export function ShinobiCouncilHall({ character, setScreen, playerRoster, launchC
             // NOTHING — no success, no failure, on the most valuable action in
             // the game. The seat is server-owned, so a failed request changed
             // nothing; say so and let them try again.
-            alert("The council could not be reached, so the seat was not claimed. Check your connection and try again — nothing has changed.");
+            alert("Your Kage claim could not be confirmed. Refresh the council to check who holds the seat before trying again.");
         } finally {
             setClaimBusy(false);
         }

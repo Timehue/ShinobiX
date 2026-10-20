@@ -11,7 +11,7 @@ export function StoryRewardSummary({ result }: { result: StoryBossSettleResult }
         ...storyDeliverySummary(result),
     ].filter(Boolean);
     return <p className="story-fight-complete-rewards" role="status">
-        {result.replayed ? 'Previously committed reward' : 'Personal reward committed'}{reward ? `: ${reward}` : '.'}
+        {result.replayed ? 'Reward already received' : 'Reward received'}{reward ? `: ${reward}` : '.'}
         {details.map((line, index) => <span className="story-fight-complete-title" key={index}>{line}</span>)}
     </p>;
 }

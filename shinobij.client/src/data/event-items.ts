@@ -11,7 +11,7 @@ const authoredEventItems: GameItem[] = [
         cost: 0,
         levelReq: 58,
         description: "A recovered seal tied to Kesa Volt's reason, carried back from the Stormveil outskirts.",
-        flavorText: "The account closed. The reason stayed.",
+        flavorText: "Sesk can no longer collect under Kesa's name.",
         // No maxChakra/maxStamina here: pools come from LEVEL alone
         // (maxChakraForLevel), so an item vitals bonus never reached any pool —
         // it only showed in the popup. Dropped 2026-08-16 by owner ruling.

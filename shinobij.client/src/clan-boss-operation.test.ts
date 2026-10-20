@@ -29,7 +29,7 @@ describe("Clan Boss operation client contract", () => {
         assert.match(boss, /partyState\?\.party/);
         assert.match(api, /\/api\/clan-boss\/party/);
         assert.doesNotMatch(boss, /offline.*auto-act|allies:\s*clanmates/is);
-        assert.match(lobby, /No offline player will be replaced or presented as AI/);
+        assert.match(lobby, /Clanmates must join and mark themselves ready/);
     });
 
     it("keeps the public party capability on the explicit server-owned solo path", () => {
@@ -49,7 +49,7 @@ describe("Clan Boss operation client contract", () => {
         assert.match(boss, /useCapabilityMutationAvailability\("clanBoss"\)/);
         assert.match(boss, /if \(!clanBossAvailable \|\| fight\) return;[\s\S]*fetchMyRun/);
         assert.match(boss, /pendingRun \? <button[\s\S]*Rejoin your accepted operation/);
-        assert.match(boss, /if \(fight && !clanBossActionsAvailable\) \{[\s\S]*accepted run remains server-owned[\s\S]*Return to operation status/);
+        assert.match(boss, /if \(fight && !clanBossActionsAvailable\) \{[\s\S]*Your active run is saved[\s\S]*Return to operation status/);
         assert.match(boss, /if \(fight\) \{[\s\S]*<BattleTowerFight/);
         assert.match(boss, /mutationAvailability\("clanBoss"\)[\s\S]*startClanBossAssault/);
         assert.doesNotMatch(boss, /if \(!clanBossAvailable \|\| !clanBossActionsAvailable\) return null/);
@@ -69,9 +69,9 @@ describe("Clan Boss operation client contract", () => {
     });
 
     it("exposes honest population, ready, reconnect, bounded fallback, and tactical pings", () => {
-        assert.match(lobby, /real current population/i);
+        assert.match(lobby, /No public clan parties are waiting/i);
         assert.match(lobby, /Seal loadout & ready/);
-        assert.match(lobby, /bounded two-minute wait/);
+        assert.match(lobby, /start alone after two minutes/);
         assert.match(lobby, /Recover leadership/);
         assert.match(boss, /Rejoin your accepted operation/);
         assert.match(read("./components/ClanBossOperationComms.tsx"), /focus-boss[\s\S]*clear-adds[\s\S]*need-heal[\s\S]*hold[\s\S]*ready/);

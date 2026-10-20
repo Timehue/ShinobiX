@@ -209,6 +209,6 @@ describe("combat action affordance parity", () => {
                 reason,
             );
         }
-        assert.equal(combatRejectionMessage("cannot-act"), "You need more AP or another action slot before acting.");
+        assert.match(combatRejectionMessage("cannot-act"), /AP cost, cooldown, and your remaining actions/);
     });
 });

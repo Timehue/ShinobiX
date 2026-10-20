@@ -151,6 +151,13 @@ describe('Sector War pet table — who sees what', { concurrency: false }, () =>
         assert.equal(attackerView.viewerSide, 'p1');
         const watched = await call({ action: 'watch', playerName: RAIDER, sectorWarId: contest.id });
         assert.equal(watched.statusCode, 200, JSON.stringify(watched.body));
+        const defenderWatch = await call({ action: 'watch', playerName: HOLDOUT, sectorWarId: contest.id });
+        assert.equal(defenderWatch.statusCode, 200);
+        const attackerScript = watched.body!.script as import('../../shared/pet-showdown-contract.js').ShowdownReplayScript;
+        const defenderScript = defenderWatch.body!.script as import('../../shared/pet-showdown-contract.js').ShowdownReplayScript;
+        assert.deepEqual(attackerScript.initialState.player, defenderScript.initialState.enemy);
+        assert.deepEqual(attackerScript.finalState.enemy, defenderScript.finalState.player);
+        assert.notEqual(attackerScript.finalState.outcome, defenderScript.finalState.outcome);
     });
 });
 

@@ -372,7 +372,7 @@ export function projectTowerPvpTerminal(match: StoredTowerPvpMatch): boolean {
         const violet = totalVitality(match, 'violet');
         winner = Math.abs(amber - violet) < 0.000_001 ? 'draw' : amber > violet ? 'amber' : 'violet';
         match.combat.winner = winner === 'draw' ? 'draw' : winner === 'amber' ? 'squad' : 'enemy';
-        match.combat.log.push(`Team Arena adjudication: ${winner === 'draw' ? 'draw' : `${winner} wins`} on remaining vitality.`);
+        match.combat.log.push(`Team Arena adjudication: ${winner === 'draw' ? 'draw' : `${winner} wins`} by the sum of each fighter's remaining HP percentage.`);
     } else {
         winner = match.combat.winner === 'squad' ? 'amber'
             : match.combat.winner === 'enemy' ? 'violet' : 'draw';

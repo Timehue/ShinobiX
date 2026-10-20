@@ -139,7 +139,7 @@ export const SERVER_OWNED_CHARACTER_FIELDS: ReadonlySet<string> = new Set([
 /** Top-level fields a generic player save cannot durably change. */
 export const SERVER_OWNED_TOPLEVEL_FIELDS: ReadonlySet<string> = new Set([
     '_trainingReceipts', 'activeTraining', 'activeJutsuTraining', 'activeWandererQuestSeal',
-    'activeStoryReckoningSeal', 'activeRiftQuestSeal', 'activeQuestbookSeal',
+    'activeStoryReckoningSeal', 'activeRiftQuestSeal', 'activeQuestbookSeal', 'banditTollReceipts',
     'creatorJutsus', 'creatorAis', 'creatorMissions', 'creatorEvents', 'creatorCards',
     'creatorRaids', 'editablePets', 'petEncounterVn', 'ancientChestVn',
     'hollowGateEventConfig', 'pendingBloodlineForges', 'worldGeoV', '_saveVersion', '_saveAt',

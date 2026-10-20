@@ -1,0 +1,153 @@
+{
+  "schema": 1,
+  "id": "standard-17",
+  "name": "Storm Gull",
+  "reviewer": "parallel-reviewer-a",
+  "reviewedAt": "2026-10-20T05:39:18.820Z",
+  "scope": "Separate atlas provenance and visual follow-up; original review is frozen.",
+  "priorReview": {
+    "path": "docs/audits/pet-parallel-review-a-2026-10-20/standard-17.json",
+    "sha256": "e19a17457e87903566dd1eb6e282494af6ddfa6be5d8984d7742dafde43e560f",
+    "atlasSha256": "44107b02214104d921194a02820d1261374a8c5e7af3f823784733c0a149b4da"
+  },
+  "battleSha256": "a058ddb1e4d0cf81416cbcdb77b35158ee65a601c8b5227b8ea9bea76a8b7b8c",
+  "atlas": {
+    "path": "shinobij.client/public/pet-models/warfront-impostors/roster/standard-17.webp",
+    "sha256": "b83236e03bf7c7be6836ec8c2ade2906f34e5aee1fdc452b4de6521ff7ce4999",
+    "bytes": 87528,
+    "manifestEntry": {
+      "sourceUrl": "/pet-models/roster/standard-17.glb",
+      "lodUrl": "/pet-models/warfront-lod/roster/standard-17.glb?v=20260902-battle-lod-v1-51165945d719-a058ddb1e4d0",
+      "lodSha256": "a058ddb1e4d0cf81416cbcdb77b35158ee65a601c8b5227b8ea9bea76a8b7b8c",
+      "atlasUrl": "/pet-models/warfront-impostors/roster/standard-17.webp",
+      "atlasSha256": "b83236e03bf7c7be6836ec8c2ade2906f34e5aee1fdc452b4de6521ff7ce4999",
+      "atlasBytes": 87528,
+      "width": 512,
+      "height": 512,
+      "columns": 4,
+      "rows": 4,
+      "cellWidth": 128,
+      "cellHeight": 128,
+      "frames": [
+        {
+          "clip": "idle",
+          "progress": 0.1
+        },
+        {
+          "clip": "idle",
+          "progress": 0.35
+        },
+        {
+          "clip": "idle",
+          "progress": 0.6
+        },
+        {
+          "clip": "idle",
+          "progress": 0.85
+        },
+        {
+          "clip": "walk",
+          "progress": 0.2
+        },
+        {
+          "clip": "walk",
+          "progress": 0.7
+        },
+        {
+          "clip": "gallop",
+          "progress": 0.2
+        },
+        {
+          "clip": "gallop",
+          "progress": 0.7
+        },
+        {
+          "clip": "attack",
+          "progress": 0.2
+        },
+        {
+          "clip": "attack",
+          "progress": 0.5
+        },
+        {
+          "clip": "attack",
+          "progress": 0.8
+        },
+        {
+          "clip": "idle_hitreact1",
+          "progress": 0.35
+        },
+        {
+          "clip": "death",
+          "progress": 0.25
+        },
+        {
+          "clip": "death",
+          "progress": 0.6
+        },
+        {
+          "clip": "death",
+          "progress": 0.95
+        },
+        {
+          "clip": "cast",
+          "progress": 0.55
+        }
+      ],
+      "frameTimesSeconds": [
+        0.16458,
+        0.57603,
+        0.98748,
+        1.39893,
+        0.16092,
+        0.56322,
+        0.10972,
+        0.38402,
+        0.18286,
+        0.45715,
+        0.73144,
+        0.16639,
+        0.315425,
+        0.75702,
+        1.198615,
+        0.543125
+      ],
+      "clipDurationsSeconds": {
+        "idle": 1.6458,
+        "walk": 0.8046,
+        "gallop": 0.5486,
+        "attack": 0.9143,
+        "idle_hitreact1": 0.4754,
+        "death": 1.2617,
+        "cast": 0.9875
+      },
+      "occupiedPixels": [
+        3344,
+        3335,
+        3313,
+        3350,
+        3255,
+        3318,
+        3252,
+        3225,
+        3446,
+        3153,
+        3330,
+        3271,
+        2899,
+        2934,
+        2927,
+        3283
+      ],
+      "trianglesPerFrame": 10000,
+      "projectedAspect": 0.838447
+    },
+    "snapshot": "docs/screenshots/pet-parallel-review-a-2026-10-20/standard-17/standard-17-regenerated-atlas.webp"
+  },
+  "atlasFramesActuallyInspected": 16,
+  "inspectionMethod": "Personally opened canonical 512x512 WebP and inspected every cell of the 4x4 atlas.",
+  "finding": "All16 cells preserve the hooked beak, head, wing roots, feet and tail through the sampled motions, including the rolled death cells. No visible torn face, detached limb, clipping or missing sprite found.",
+  "localVisualResult": "pass",
+  "liveVerified": false,
+  "productionAssetsModifiedByReviewer": false
+}

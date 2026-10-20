@@ -38,11 +38,13 @@ export function extractTowerLegacyDeltas(session: TowerSession, slug: string, ki
         const header = names.find((name) => line.startsWith(`${name} uses `) || line.startsWith(`${name} casts `) || line.startsWith(`${name} strikes `) || line.startsWith(`${name} attacks`));
         if (header) caster = header;
         if (line.startsWith('--- Round ')) caster = '';
-        let match = /^(.+) strikes (.+) for (\d+)\.$/.exec(line);
+        let match = /^(.+) strikes (.+) for (\d+)(?: damage)?\.$/.exec(line);
         if (match && match[1] === actor.name) { const target = match[2]; if (session.actors.some((a) => a.name === target && a.side === 'enemy')) damage += Number(match[3]); }
         match = /^(\d+) damage to (.+)\.$/.exec(line);
         if (match && caster === actor.name) { const target = match[2]; if (session.actors.some((a) => a.name === target && a.side === 'enemy')) damage += Number(match[1]); }
-        match = /^Heal: (.+) restores (\d+) HP\.$/.exec(line)
+        match = /^(.+)'s armor restores (\d+) HP through (?:Absorb|Lifesteal)\.$/.exec(line)
+            ?? /^(.+) restores (\d+) HP through Absorb\.$/.exec(line)
+            ?? /^Heal: (.+) restores (\d+) HP\.$/.exec(line)
             ?? /^(.+) uses Basic Heal, restoring (\d+) HP\.$/.exec(line)
             ?? /^(?:Siphon|Lifesteal): (.+) heals (\d+) HP\.$/.exec(line)
             ?? /^(.+) absorbs (\d+) HP\.$/.exec(line)

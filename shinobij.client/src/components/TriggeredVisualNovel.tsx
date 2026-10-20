@@ -163,7 +163,7 @@ export function TriggeredVisualNovel({ event: sourceEvent, character, pageIndex,
         // XP is retired, so a scene carrying only an xpReward now pays literally
         // nothing — counting it would show a "Claim Reward" button that hands
         // over an empty reward line.
-        && !event.ryoReward && !event.staminaReward && !event.currencyRewards;
+        && !event.ryoReward && !event.staminaReward && !Object.values(event.currencyRewards ?? {}).some((amount) => amount > 0);
     // Story interludes ("story-interlude-*") and road events ("story-road-*"):
     // VN-only story scenes — no free battle, no XP/ryo (road-event fights come
     // only from choices). The choice itself is the payoff, recorded server-side,
@@ -427,7 +427,7 @@ export function TriggeredVisualNovel({ event: sourceEvent, character, pageIndex,
             : isAncientChestEvent
                 ? "The final field seal releases. The courier chest is ready to open, and whatever survived inside has waited long enough."
                 : isAuraSphereEvent
-                    ? "The elder places the Aura Sphere in your hands. It waits in your inventory until you equip it in your aura slot."
+                    ? "The issue seal releases the Aura Sphere. It waits in your inventory until you equip it in your aura slot."
                     : isSageEvent
                         ? "The Sage falls silent, watching you. The paths he named still hang in the air, and only one of them can ever be yours."
                         : isStoryEpilogue

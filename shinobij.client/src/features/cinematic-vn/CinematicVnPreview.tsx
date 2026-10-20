@@ -17,6 +17,7 @@ import type { StorySceneVariant, StoryVillageKey } from "../../lib/vn-storywide-
 import { overlayVnImages } from '../../lib/vn-shared-artwork';
 import { RETIRED_VN_ART } from '../../lib/vn-retired-artwork';
 import { DungeonEncounter } from '../../screens/Dungeon';
+import { previewAvatarSource } from './preview-avatar-source';
 
 type PreviewCast = {
     left: string;
@@ -65,8 +66,7 @@ function qaAvatar(shape: PlayerAvatarShape): string {
 
 function qaCharacter(shape: PlayerAvatarShape): Character {
     const portrait = new URLSearchParams(window.location.search).get("avatarSource");
-    const localPortrait = portrait && ((portrait.startsWith("/portraits/") && !portrait.includes(".."))
-        || ["/starter-avatar-one.webp", "/starter-avatar-two.webp"].includes(portrait)) ? portrait : "";
+    const localPortrait = previewAvatarSource(portrait);
     return {
         name: "QA Shinobi",
         avatarImage: localPortrait || qaAvatar(shape),

@@ -6,7 +6,7 @@ type TelegraphState = {
     round: number;
     encounter: { kind: string; metadata?: Record<string, string | number | boolean | null> };
     player: { pos: number };
-    enemy: { hp: number; maxHp: number; pos: number; name?: string };
+    enemy: { hp: number; maxHp: number; pos: number; name?: string; character?: { visual?: unknown } };
     hollowGateTelegraph?: HollowGateTelegraph;
     gridWidth?: number;
     gridHeight?: number;
@@ -20,6 +20,7 @@ export function hollowGateSessionDirective(state: TelegraphState, sealed = true)
     if (!['battle', 'elite', 'ambush', 'beast', 'boss'].includes(kind)) return null;
     if (kind === 'boss' && sealed && state.hollowGateTelegraph?.round === state.round) return state.hollowGateTelegraph.directive;
     const directive = hollowGateCombatDirective({
+        enemyVisual: typeof state.enemy.character?.visual === 'string' ? state.enemy.character.visual : undefined,
         floor: state.encounter.metadata?.floor, kind: kind as HollowGateHoundKind, turn: state.round,
         enemyHp: state.enemy.hp, enemyMaxHp: state.enemy.maxHp,
         playerPos: state.player.pos, enemyPos: state.enemy.pos, gridWidth: state.gridWidth, gridHeight: state.gridHeight,

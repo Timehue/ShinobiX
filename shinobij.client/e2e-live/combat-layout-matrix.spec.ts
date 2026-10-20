@@ -1819,10 +1819,11 @@ async function assertBattlefieldActorPresentation(
     })), 'actor art must stay inside a non-interactive combat anchor').toBe(true);
 
     if (expected.minimumEnemySprites > 0) {
-        expect(await enemySprites.locator('.battlefield-actor-sprite').evaluateAll((images) => images.every((image) => {
-            const sprite = image as HTMLImageElement;
-            return sprite.complete && sprite.naturalWidth > 0 && sprite.naturalHeight > 0;
-        })), 'enemy body sprites must load successfully').toBe(true);
+        await expect.poll(() => enemySprites.locator('.battlefield-actor-sprite').evaluateAll((images) =>
+            images.length > 0 && images.every((image) => {
+                const sprite = image as HTMLImageElement;
+                return sprite.complete && sprite.naturalWidth > 0 && sprite.naturalHeight > 0;
+            })), { message: 'enemy body sprites must load successfully' }).toBe(true);
     }
 }
 

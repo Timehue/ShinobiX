@@ -171,7 +171,7 @@ test('no-shows and a server restart beyond the one-hour window cannot stall the 
     context.mock.timers.tick(3600_000); await store.tickTournaments();
     const ended = (await store.readTournament())!; assert.equal(ended.status, 'complete'); assert.equal(ended.champion, null);
 });
-test('pet entrants select owned pets and both owners get the same server replay and winner', async context => {
+test('pet entrants see the sealed fight and verdict from their own seats', async context => {
     const event = await create('pet');
     assert.equal((await request({ action: 'join', eventId: event.id, petIds: ['ren-pet'] }, auth('akira'))).status, 409);
     await join(event, 'akira', { petIds: ['akira-pet'] }); await join(event, 'ren', { petIds: ['ren-pet'] });
@@ -179,7 +179,16 @@ test('pet entrants select owned pets and both owners get the same server replay 
     for (const id of ['akira', 'ren']) assert.equal((await request({ action: 'ready', eventId: event.id, matchId: match.id }, auth(id))).status, 200);
     const a = await request({ action: 'battle', eventId: event.id, matchId: match.id }, auth('akira'));
     const b = await request({ action: 'battle', eventId: event.id, matchId: match.id }, auth('ren'));
-    assert.ok(a.body.script); assert.deepEqual(a.body.script, b.body.script);
+    assert.ok(a.body.script); assert.ok(b.body.script);
+    assert.equal(a.body.script.initialState.player[0].name, "akira's pet");
+    assert.equal(b.body.script.initialState.player[0].name, "ren's pet");
+    assert.deepEqual(a.body.script.initialState.player, b.body.script.initialState.enemy);
+    assert.deepEqual(a.body.script.finalState.enemy, b.body.script.finalState.player);
+    assert.notEqual(a.body.script.finalState.outcome, b.body.script.finalState.outcome);
+    const ended = (await store.readTournament())!;
+    const championName = ended.entries.find(entry => entry.id === ended.champion)!.members[0]!.id;
+    assert.equal(a.body.script.finalState.outcome, championName === 'akira' ? 'win' : 'loss');
+    assert.deepEqual((await request({ action: 'battle', eventId: event.id, matchId: match.id }, auth('akira'))).body.script, a.body.script);
     assert.equal((await store.readTournament())!.status, 'complete');
     assert.equal((await request({ action: 'battle', eventId: event.id, matchId: match.id }, auth('sora'))).status, 403);
 });

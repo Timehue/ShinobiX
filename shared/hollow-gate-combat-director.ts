@@ -18,6 +18,7 @@ export type HollowGateCombatDirective = {
     signature: string;
 };
 export type HollowGateCombatDirectorInput = {
+    enemyVisual?: string;
     floor: unknown;
     kind: HollowGateHoundKind;
     turn: number;
@@ -71,7 +72,7 @@ function alpha(turn: number, phase: 1 | 2 | 3, width: number, height: number): H
     return { floor: 5, phase, phaseName: "Gate-Eater", title: "The Alpha devours the arena one seal at a time", instruction: "Move onto a glowing seal. The safe pattern flips every turn, so finish the fight fast.", tone: "alpha", hazardTiles: tilesWhere(width, height, (x, y) => !safe.has(y * width + x)), safeTiles, hazardDamagePct: 0.09, incomingDamageMultiplier: 1.18, outgoingDamageMultiplier: 1.3, musicIntensity: "climax", signature: "Last Shrine Devourer" };
 }
 
-export function hollowGateCombatDirective(input: HollowGateCombatDirectorInput): HollowGateCombatDirective {
+function houndCombatDirective(input: HollowGateCombatDirectorInput): HollowGateCombatDirective {
     const floor = canonicalHollowGateDepth(input.floor), turn = Math.max(1, Math.floor(Number(input.turn) || 1));
     const width = Math.max(3, Math.floor(input.gridWidth ?? 12)), height = Math.max(3, Math.floor(input.gridHeight ?? 10));
     if (input.kind === "boss") return alpha(turn, hollowGateAlphaPhase(input.enemyHp, input.enemyMaxHp), width, height);
@@ -93,6 +94,35 @@ export function hollowGateCombatDirective(input: HollowGateCombatDirectorInput):
         return { floor, phase: 1, phaseName: hunted ? "Pack Pursuit" : pressuring ? "Broken Hunt" : "Circling Pack", title: hunted ? "Riftmaw has your scent" : pressuring ? "You turn the hunt against Riftmaw" : "Spectral paws circle just beyond sight", instruction: hunted ? "Close the distance. Riftmaw deals 22% more damage to isolated prey." : pressuring ? "Stay close: pressure breaks the phantom pack and boosts your damage." : "Do not let four hexes open between you and the Hound.", tone: "hunt", hazardTiles: EMPTY, safeTiles: EMPTY, hazardDamagePct: 0, incomingDamageMultiplier: hunted ? 1.22 : pressuring ? 0.9 : 1.05, outgoingDamageMultiplier: pressuring ? 1.18 : 1, musicIntensity: hunted ? "climax" : "pressure", signature: "Moonless Execution" };
     }
     return alpha(turn, 1, width, height);
+}
+
+/** Rift bosses and human shrine opponents inherit the floor rules, not the
+ * Hollow Hound's identity. Only copy changes here; all mechanical fields come
+ * from the same director above. Old sessions without a visual keep their copy. */
+export function hollowGateCombatDirective(input: HollowGateCombatDirectorInput): HollowGateCombatDirective {
+    const directive = houndCombatDirective(input);
+    if (!input.enemyVisual || input.enemyVisual === 'hollow-hound') return directive;
+    if (input.kind === 'boss' || directive.floor === 5) {
+        const phase = directive.phase;
+        return { ...directive,
+            phaseName: phase === 1 ? 'Shrine Wards' : phase === 2 ? 'Rift Lanes' : 'Seal Collapse',
+            title: phase === 1 ? 'The shrine wards gather power' : phase === 2 ? 'The shrine opens alternating rift lanes' : 'The shrine floor erupts along the seal lines',
+            instruction: phase === 1 ? 'Ward pulses strike every third round. On those rounds, stand inside the violet ward column before the enemy acts.' : phase === 2 ? 'Move onto an unmarked lane before the enemy acts. The lane pattern reverses on the next pulse.' : 'Move onto a glowing seal. The safe pattern flips every round.',
+            signature: phase === 1 ? 'Shrine Ward Pulse' : phase === 2 ? 'Rift Lane Pulse' : 'Seal Collapse',
+        };
+    }
+    const copy = directive.floor === 1 ? {
+        title: directive.hazardDamagePct ? 'Broken wards are collapsing' : 'Cinders gather along the ward lines',
+        instruction: 'The fractured lanes ignite every third round. Leave the orange lanes before the enemy acts.', signature: 'Fractured Ward',
+    } : directive.floor === 2 ? {
+        title: directive.phaseName === 'Lanternlight' ? 'The memory lanterns expose the enemy' : 'The lanterns go dark',
+        instruction: directive.phaseName === 'Lanternlight' ? 'While the lanterns burn, you deal 25% more damage.' : 'While the lanterns are dark, the enemy deals 14% more damage and you deal 8% less.', signature: 'Lantern Surge',
+    } : directive.floor === 3 ? {
+        title: directive.title, instruction: 'When the black water rises, reach the blue-lit center before the enemy acts.', signature: 'Black Water Surge',
+    } : {
+        title: 'Shrine pressure follows the distance between you', instruction: 'At four or more hexes, the enemy deals 22% more damage. Stay adjacent to deal 18% more damage.', signature: 'Shrine Pressure',
+    };
+    return { ...directive, ...copy };
 }
 
 export function hollowGateHazardDamage(directive: HollowGateCombatDirective, playerPos: number, playerMaxHp: number): number {

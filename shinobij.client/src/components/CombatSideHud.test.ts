@@ -39,10 +39,20 @@ describe("CombatSideHud deferred status display", () => {
         assert.match(source, /statuses=\{displayedStatuses\.active\.filter/);
     });
 
-    it("labels raw general and discipline percentages as potency", () => {
-        assert.match(source, /POTENCY_TAGS/);
-        assert.match(source, /`\$\{rawPct\}% potency`/);
-        assert.match(source, /raw potency, converted into a flat bonus through diminishing returns/);
+    it("distinguishes effect strength from a literal damage or stat percentage", () => {
+        const html = renderToStaticMarkup(createElement(CombatEffectsPanel, {
+            title: "Buffs", statuses: [
+                { name: "Increase Damage Given", percent: 30, rounds: 2 },
+                { name: "Increase Generals", percent: 30, rounds: 2 },
+                { name: "Increase Damage Given", source: "item-attack-pill", percent: 15, rounds: 2 },
+            ],
+        }));
+        assert.match(html, /30% strength/);
+        assert.match(html, /not the final damage change/);
+        assert.match(html, /not a percentage increase to your current stats/);
+        assert.match(html, /Attack Pill/);
+        assert.match(html, /15% more direct-hit damage/);
+        assert.doesNotMatch(html, /45% strength/, "fixed pill bonuses must not be pooled with jutsu strength");
     });
 
     it("shows a Drain tick in full, Lag/Overclock as AP, and a Barrier without its hex index", () => {

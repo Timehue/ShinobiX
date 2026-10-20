@@ -683,7 +683,7 @@ async function announceWeeklyBossSpawn(boss: WeeklyBossState): Promise<void> {
         type: 'weekly_boss',
         importance: 'high',
         title: `⚔️ Weekly Boss: ${boss.bossName ?? 'A great enemy'} has appeared!`,
-        message: `${boss.bossName ?? 'A fearsome boss'} rampages for 72 hours. Seek it out and deal all the damage you can — the top damagers claim a Weekly Boss Core, Dungeon Keys, ryo, and stat points. Enter the hunt via Central Hub → Weekly Boss.`,
+        message: `${boss.bossName ?? 'A fearsome boss'} is available until ${new Date(boss.expiresAt).toISOString()}. Compete by dealing damage. When the event ends, rewards are delivered automatically: ryo and stat points for ranked participants, Weekly Boss Cores for the top 10, and Dungeon Keys for the top 25. Open Central Hub → World Bosses → Weekly. Weekly reward limits apply.`,
         meta: { spawnId, aiId: boss.aiId, weekKey: boss.weekKey, expiresAt: boss.expiresAt },
     }, { receiptId: `weekly-boss-spawn:${spawnId}` });
     if (!delivered) throw new Error(`Weekly Boss ${spawnId} was committed but its herald is still pending.`);

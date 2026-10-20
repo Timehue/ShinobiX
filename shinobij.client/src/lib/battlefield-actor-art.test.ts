@@ -77,11 +77,12 @@ test("authoritative creature and boss catalogs have exhaustive sprite policies",
 
     const catalog = readFileSync(join(repoRoot, "api", "_ai-profile-catalog.ts"), "utf8");
     const ids = [...catalog.matchAll(/^\s+"([^"]+)": \{"id":/gm)].map((match) => match[1]);
-    assert.equal(ids.length, 71, "authoritative AI catalog changed; extend the visual policy intentionally");
+    assert.equal(ids.length, 80, "authoritative AI catalog changed; extend the visual policy intentionally");
+    assert.equal(ids.filter((id) => id.startsWith("road-ai-")).length, 9);
     assert.equal(ids.filter((id) => id.startsWith("hunt-ai-")).length, 10);
     assert.equal(ids.filter((id) => id.startsWith("apex-ai-")).length, 4);
     assert.equal(ids.filter((id) => id.startsWith("rift-boss-")).length, 7);
-    for (const id of ids.filter((candidate) => /^(hunt-ai-|apex-ai-|rift-boss-)/.test(candidate))) {
+    for (const id of ids.filter((candidate) => /^(hunt-ai-|apex-ai-|rift-boss-|road-ai-)/.test(candidate))) {
         assert.match(resolverSource, new RegExp(`"${id}"`), `${id} has no explicit sprite entry`);
     }
 });

@@ -99,14 +99,15 @@ describe('Tower DoT timing and Cleanse', () => {
     it('a Drain ticks its full 300 twice, at round end, through ranked armor', () => {
         const s = begin();
         act(s, { type: 'jutsu', jutsuId: 'drain', targetId: 'violet' });
+        assert.ok(s.log.some(line => line.startsWith('Drain:') && line.includes('at round end')));
         const ticks: number[] = [];
         for (let turn = 0; turn < 6; turn++) {
             const handOff = pass(s);
-            const tick = handOff.find(line => line.includes('violet drained'));
+            const tick = handOff.find(line => line.startsWith('violet loses') && line.endsWith('chakra to Drain.'));
             if (tick) {
                 // Round end: violet has already played the round, and amber opens the next.
                 assert.equal(activeActor(s)!.id, 'amber', 'the tick lands after the victim has acted');
-                ticks.push(Number(tick.match(/drained (\d+)/)![1]));
+                ticks.push(Number(tick.match(/loses (\d+) HP/)![1]));
             }
         }
         assert.deepEqual(ticks, [300, 300]);
@@ -119,7 +120,7 @@ describe('Tower DoT timing and Cleanse', () => {
         act(s, { type: 'cleanse' });
         assert.ok(s.log.at(-1)?.includes('removed Drain'), String(s.log.at(-1)));
         for (let turn = 0; turn < 6; turn++) {
-            assert.equal(pass(s).some(line => line.includes('drained')), false);
+            assert.equal(pass(s).some(line => line.endsWith('chakra to Drain.')), false);
         }
         assert.equal(getActor(s, 'violet')!.hp, 50_000);
     });

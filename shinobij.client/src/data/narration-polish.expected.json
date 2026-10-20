@@ -50,7 +50,7 @@
     "page": 0,
     "field": "choices.2.conclusion",
     "before": "She does not pretend she forgot the two hundred. She wrote something short in her ledger that day, and shows you it now: worth watching. She adds a second line under it. Watched.",
-    "after": "She shows you the entry she made after you collected the two hundred: worth watching. Beneath it, she records your help recovering the forging die.",
+    "after": "She shows you the entry she made after your report to Bellis: worth watching. Beneath it, she records your help recovering the forging die.",
     "event": "story-reckoning-harrow-unbought-return:traits-0"
   },
   {
@@ -104,7 +104,7 @@
     "page": 1,
     "field": "dialogue.2",
     "before": "The shipping manifest labels four sources: Stormveil supplies the reasons people fight. Ashen Leaf supplies futures people were becoming. Frostfang supplies the choice to leave. Moonshadow supplies trust people placed in someone.",
-    "after": "Listen to how they wrote the manifest. I'll read it exactly. 'Stormveil supplies the reasons people fight. Ashen Leaf supplies futures people were becoming. Frostfang supplies the choice to leave. Moonshadow supplies trust people placed in someone.'",
+    "after": "Listen to how they wrote the manifest. I'll read it exactly. 'Stormveil supplies the reasons people fight. Ashen Leaf supplies the futures people could have lived. Frostfang supplies the choice to leave. Moonshadow supplies trust people placed in someone.'",
     "event": "story-interlude-moonshadow-village-80"
   },
   {
