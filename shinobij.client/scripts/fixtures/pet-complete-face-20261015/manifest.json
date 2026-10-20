@@ -94,6 +94,61 @@
       "id": "starter-fire",
       "file": "starter-fire-v1.glb",
       "sha256": "44d056d2461d54b04fbcb59a84553a4bfcbfa020c67dd61c68041f5d1090266f"
+    },
+    {
+      "id": "legendary-5",
+      "file": "legendary-5-v1.glb",
+      "sha256": "9593682072a8168ebd1cecaa132e2ae976df5048315d48006e83f09ce92cd49e"
+    },
+    {
+      "id": "legendary-6",
+      "file": "legendary-6-v1.glb",
+      "sha256": "969f6f0ac6355377d7d6bb3a65799aa98bd2a8591e09c78c8bb3f6badcdd2579"
+    },
+    {
+      "id": "legendary-7",
+      "file": "legendary-7-v1.glb",
+      "sha256": "465f6dab2b52a50b212e5911ee3b34771646205aedae73e971ddc79d516ad7dd"
+    },
+    {
+      "id": "legendary-8",
+      "file": "legendary-8-v1.glb",
+      "sha256": "dc09e049d20c43ec1ac2c0ef06b96daef8a789a68c350f334d6a214df22996a0"
+    },
+    {
+      "id": "legendary-9",
+      "file": "legendary-9-v1.glb",
+      "sha256": "fef124ee09e3c626bc1e1764835ff42c14e6574b4a245b39f68bbdaa1a6fc9e6"
+    },
+    {
+      "id": "legendary-11",
+      "file": "legendary-11-v1.glb",
+      "sha256": "ceb1cbb76b5533bbf52ab2e778cd7efd24dbd13d53ff7c22490df8b1457cc609"
+    },
+    {
+      "id": "legendary-16",
+      "file": "legendary-16-v1.glb",
+      "sha256": "d761f0769ecacdd38a5290f5a9536c74f8aeae358fa0cbeb37a9d115880798f8"
+    },
+    {
+      "id": "legendary-18",
+      "file": "legendary-18-v1.glb",
+      "sha256": "fce42da5173b652f7412f1a83ddf79651a0d8b3dd8bb1b15b8019a01c7aec01b"
+    },
+    {
+      "id": "legendary-19",
+      "file": "legendary-19-v1.glb",
+      "sha256": "ec215d3ea18f5cd7c6e23f5db1e7c78311344883e9493ebfa42961d787ea8dd4"
+    },
+    {
+      "id": "legendary-20",
+      "file": "legendary-20-v1.glb",
+      "sha256": "a29d0755ba702eada7d4f6ca371d5fc054425e1540e688f22a2f66e63170a8d5"
+    },
+    {
+      "id": "legendary-25",
+      "file": "legendary-25-v1.glb",
+      "sha256": "dcd1457d90b2fb37d33145bec544f54980d0966a0f384edf5fce0c80bd57a9bb"
     }
   ]
 }

@@ -936,7 +936,10 @@
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
         }
-      ]
+      ],
+      "referenceArchives": {
+        "pet-models/warfront-impostors/roster/legendary-5.webp": "art-source/pet-portrait-refresh/reference-archive/legendary-5-0db0e4b21872.webp"
+      }
     },
     {
       "id": "legendary-6",
@@ -986,6 +989,9 @@
         "outputSha256": "f5d1fca1cfcbf1a6608f89c55af593f5feede67f50ede4e5d869ab3ab8000eab",
         "notes": "Full-size native output visually checked: Upper-left tan banner is plain, with phoenix feather structure, flames, beak and talons retained.",
         "reviewedAt": "2026-10-15T23:34:52.116Z"
+      },
+      "referenceArchives": {
+        "pet-models/warfront-impostors/roster/legendary-6.webp": "art-source/pet-portrait-refresh/reference-archive/legendary-6-3c745ef2602b.webp"
       }
     },
     {
@@ -1035,7 +1041,10 @@
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
         }
-      ]
+      ],
+      "referenceArchives": {
+        "pet-models/warfront-impostors/roster/legendary-7.webp": "art-source/pet-portrait-refresh/reference-archive/legendary-7-759be5c2ec2a.webp"
+      }
     },
     {
       "id": "legendary-8",
@@ -1084,7 +1093,10 @@
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
         }
-      ]
+      ],
+      "referenceArchives": {
+        "pet-models/warfront-impostors/roster/legendary-8.webp": "art-source/pet-portrait-refresh/reference-archive/legendary-8-2c66a5af690a.webp"
+      }
     },
     {
       "id": "legendary-9",
@@ -1143,7 +1155,10 @@
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
         }
-      ]
+      ],
+      "referenceArchives": {
+        "pet-models/warfront-impostors/roster/legendary-9.webp": "art-source/pet-portrait-refresh/reference-archive/legendary-9-45cb9a3d8cd0.webp"
+      }
     },
     {
       "id": "legendary-10",
@@ -1245,7 +1260,10 @@
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
         }
-      ]
+      ],
+      "referenceArchives": {
+        "pet-models/warfront-impostors/roster/legendary-11.webp": "art-source/pet-portrait-refresh/reference-archive/legendary-11-e879b91be799.webp"
+      }
     },
     {
       "id": "legendary-12",
@@ -1294,7 +1312,10 @@
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
         }
-      ]
+      ],
+      "referenceArchives": {
+        "pet-models/warfront-impostors/roster/legendary-12.webp": "art-source/pet-portrait-refresh/reference-archive/legendary-12-8c6519a1446f.webp"
+      }
     },
     {
       "id": "legendary-13",
@@ -1524,6 +1545,9 @@
         "outputSha256": "4ea4ea6d02cd9bc12924a202618726e4573664c906ce78ee28de910bbcbf19de",
         "notes": "Unmarked forest torii, plain red scarf; no village spiral motif.",
         "reviewedAt": "2026-10-15T23:34:52.148Z"
+      },
+      "referenceArchives": {
+        "pet-models/warfront-impostors/roster/legendary-16.webp": "art-source/pet-portrait-refresh/reference-archive/legendary-16-3c3fd03e6a8e.webp"
       }
     },
     {
@@ -1639,7 +1663,10 @@
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
         }
-      ]
+      ],
+      "referenceArchives": {
+        "pet-models/warfront-impostors/roster/legendary-18.webp": "art-source/pet-portrait-refresh/reference-archive/legendary-18-a958c7ec1b3d.webp"
+      }
     },
     {
       "id": "legendary-19",
@@ -1688,7 +1715,10 @@
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
         }
-      ]
+      ],
+      "referenceArchives": {
+        "pet-models/warfront-impostors/roster/legendary-19.webp": "art-source/pet-portrait-refresh/reference-archive/legendary-19-108df5f7e795.webp"
+      }
     },
     {
       "id": "legendary-20",
@@ -1737,7 +1767,10 @@
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
         }
-      ]
+      ],
+      "referenceArchives": {
+        "pet-models/warfront-impostors/roster/legendary-20.webp": "art-source/pet-portrait-refresh/reference-archive/legendary-20-d8a743d655dd.webp"
+      }
     },
     {
       "id": "legendary-21",
@@ -2034,7 +2067,10 @@
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
         }
-      ]
+      ],
+      "referenceArchives": {
+        "pet-models/warfront-impostors/roster/legendary-25.webp": "art-source/pet-portrait-refresh/reference-archive/legendary-25-dc54b1b2bae4.webp"
+      }
     },
     {
       "id": "legendary-26",
@@ -5892,7 +5928,10 @@
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
         }
-      ]
+      ],
+      "referenceArchives": {
+        "pet-models/warfront-impostors/roster/standard-0.webp": "art-source/pet-portrait-refresh/reference-archive/standard-0-dcb689c6c0a4.webp"
+      }
     },
     {
       "id": "standard-1",
@@ -6163,7 +6202,10 @@
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
         }
-      ]
+      ],
+      "referenceArchives": {
+        "pet-models/warfront-impostors/roster/standard-5.webp": "art-source/pet-portrait-refresh/reference-archive/standard-5-997383313720.webp"
+      }
     },
     {
       "id": "standard-6",

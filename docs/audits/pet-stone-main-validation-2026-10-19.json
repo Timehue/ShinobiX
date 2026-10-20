@@ -1,0 +1,56 @@
+{
+  "id": "standard-5",
+  "recordedAt": "2026-10-19T22:32:43.515Z",
+  "mainBaseline": "6277f0711fa74c1e243c60d4c6b059253170edac",
+  "focusedTests": {
+    "passed": 50,
+    "failed": 0
+  },
+  "structuralCertification": {
+    "passed": 161,
+    "distinctAssets": 161,
+    "failed": 0
+  },
+  "receiptChecks": {
+    "passed": 161,
+    "failed": 0
+  },
+  "clientProductionBuild": "passed",
+  "serverBuild": "passed",
+  "clientLint": {
+    "errors": 0,
+    "existingWarnings": 24
+  },
+  "deliveryInventory": 483,
+  "changedAssetFiles": [
+    "shinobij.client/public/pet-models/roster/standard-5.glb",
+    "shinobij.client/public/pet-models/warfront-impostors/roster/standard-5.webp",
+    "shinobij.client/public/pet-models/warfront-lod/roster/standard-5.glb"
+  ],
+  "other160ManifestEntriesUnchanged": true,
+  "other160ReviewAndAnatomyMetadataUnchanged": true,
+  "pebbleAssetUnchanged": true,
+  "selectedOriginalAppearanceEquivalent": true,
+  "evidence": [
+    "docs/screenshots/pet-stone-main-validation-2026-10-19/focused-tests.log",
+    "docs/screenshots/pet-stone-main-validation-2026-10-19/structure.log",
+    "docs/screenshots/pet-stone-main-validation-2026-10-19/reviews.log",
+    "docs/screenshots/pet-stone-main-validation-2026-10-19/production-build.log",
+    "docs/screenshots/pet-stone-main-validation-2026-10-19/client-lint.log",
+    "docs/screenshots/pet-stone-main-validation-2026-10-19/server-build.log",
+    "docs/screenshots/pet-stone-main-validation-2026-10-19/verify-dist.log",
+    "docs/audits/pet-stone-main-runtime-equivalence-2026-10-19.json"
+  ],
+  "evidenceSha256": {
+    "docs/screenshots/pet-stone-main-validation-2026-10-19/focused-tests.log": "4405a8a506c1305cdda33fde3e9dc1f3e82cebd71ab93d502a7d7caab0dc4115",
+    "docs/screenshots/pet-stone-main-validation-2026-10-19/structure.log": "0e604247901ab55297daa88c4af1696b9ac3b5a8682d10f52505c6eb1a16d1f9",
+    "docs/screenshots/pet-stone-main-validation-2026-10-19/reviews.log": "e502f96d1106b60651428f7a4c13aeade0d6a5c433c39ef0bbb948f06582dadb",
+    "docs/screenshots/pet-stone-main-validation-2026-10-19/production-build.log": "2d27857ab1d2f9f83b02a5c39e57762be541c6a96d3d5077f53248675715ba0f",
+    "docs/screenshots/pet-stone-main-validation-2026-10-19/client-lint.log": "ab1ac887cdfe0f02d9fc779c02271dc98d727dbffb02b9580f942ddfba7fc45d",
+    "docs/screenshots/pet-stone-main-validation-2026-10-19/server-build.log": "8f20ad03db6b8d3edc74fb49d72e37f6e3fec391b4343e594828271743c6564c",
+    "docs/screenshots/pet-stone-main-validation-2026-10-19/verify-dist.log": "fd141cd55a99eaa72a8bf36468514a382dbe24a47ee9ba139aef695e7a891163",
+    "docs/audits/pet-stone-main-runtime-equivalence-2026-10-19.json": "cefd070ff41c2aef59935e02466c743f3c23abf8371a4779bb190a0c9addf429"
+  },
+  "wholeRosterVisuallyComplete": false,
+  "mainLive": "pending"
+}

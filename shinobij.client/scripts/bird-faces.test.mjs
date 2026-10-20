@@ -9,6 +9,13 @@ import { BIRD_FACE_REPAIRS, BIRD_FACE_REPAIR_REVISION, birdSkullShare, birdEnvel
 const BEAK_SURFACES = JSON.parse(await readFile(new URL('./fixtures/bird-beak-vertices.json', import.meta.url), 'utf8')).models;
 const RUNTIME_MODELS = JSON.parse(await readFile(new URL('../public/pet-models/warfront-lod/manifest.json', import.meta.url), 'utf8')).entries;
 const BIND_BASELINES=JSON.parse(await readFile(new URL('./fixtures/pet-bind-20261014/manifest.json',import.meta.url))).fixtures;
+// Later complete-face repairs rebuild accessor tables. Their historical bird
+// metadata indices cannot reconstruct the original mesh inside the new file.
+// Use the independently frozen pre-repair assets, with their original hashes.
+const COMPLETE_FACE_BASELINES = {
+    'legendary-6': '969f6f0ac6355377d7d6bb3a65799aa98bd2a8591e09c78c8bb3f6badcdd2579',
+    'legendary-16': 'd761f0769ecacdd38a5290f5a9536c74f8aeae358fa0cbeb37a9d115880798f8',
+};
 
 // Authored beak edges identified independently from the repair envelope using
 // the source atlas and bind coordinates. These caught lateral jaw holes that
@@ -47,7 +54,12 @@ async function load(id) {
         assert.equal(createHash('sha256').update(bytes).digest('hex'),BIND_BASELINES[id].sha256);
         const length=bytes.readUInt32LE(12);
         before=await loadBird(JSON.parse(bytes.subarray(20,20+length)),bytes.subarray(28+length));
-    }else before=await loadBird(original,binary);
+    } else if (COMPLETE_FACE_BASELINES[id]) {
+        const bytes = await readFile(new URL(`./fixtures/pet-complete-face-20261015/${id}-v1.glb`, import.meta.url));
+        assert.equal(createHash('sha256').update(bytes).digest('hex'), COMPLETE_FACE_BASELINES[id]);
+        const length = bytes.readUInt32LE(12);
+        before = await loadBird(JSON.parse(bytes.subarray(20, 20 + length)), bytes.subarray(28 + length));
+    } else before=await loadBird(original,binary);
     return { before, after: await loadBird(json, binary), bodyRepair };
 }
 
