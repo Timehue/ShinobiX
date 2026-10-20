@@ -476,7 +476,8 @@ async function expectCompanionAvatars(page: Page, selector: string, expected: nu
         await expect(image).toHaveCount(1);
         await expect.poll(() => image.evaluate((node: HTMLImageElement) => node.complete && node.naturalWidth > 0)).toBe(true);
         await expect(image).toHaveAttribute("data-pet-art", "scenic");
-        await expect(image).toHaveCSS("object-fit", "cover");
+        await expect(image).toHaveCSS("object-fit", "contain");
+        await expect(image).toHaveCSS("object-position", "50% 50%");
         await expect(image).toHaveCSS("padding", "0px");
         const bounds = await frame.boundingBox();
         expect(bounds).not.toBeNull();

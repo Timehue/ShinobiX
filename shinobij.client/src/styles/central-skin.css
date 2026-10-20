@@ -557,20 +557,21 @@
     height: 100%;
     min-height: 152px;
     display: block;
-    object-fit: cover;
+    object-fit: contain;
+    object-position: center;
     filter: saturate(0.88) contrast(1.06) brightness(0.82);
-    transform: scale(1.01);
+    transform: scale(1);
     transition: filter 180ms ease, transform 240ms ease;
 }
 
 .central-card:focus-visible .central-card-art img {
     filter: saturate(1.04) contrast(1.06) brightness(0.96);
-    transform: scale(1.045);
+    transform: scale(1);
 }
 @media (hover: hover) {
     .central-card:hover .central-card-art img {
         filter: saturate(1.04) contrast(1.06) brightness(0.96);
-        transform: scale(1.045);
+        transform: scale(1);
     }
 }
 
@@ -925,7 +926,7 @@
     .central-card-art img {
         min-height: 0;
         height: 100%;
-        object-position: center 45%;
+        object-position: center;
     }
 
     .central-card-content {
@@ -2661,8 +2662,8 @@
     display: block;
     width: 100%;
     height: 100%;
-    object-fit: cover;
-    object-position: center 48%;
+    object-fit: contain;
+    object-position: center;
 }
 .ui-modal-card.dlg-aw .aw-forge-artwork::after {
     content: "";

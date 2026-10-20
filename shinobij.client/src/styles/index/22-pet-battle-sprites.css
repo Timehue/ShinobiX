@@ -216,10 +216,10 @@
 .pet-battle-avatar img {
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: contain;
     position: relative;
     z-index: 1;
-    transform: scale(1.04);
+    transform: scale(1);
 }
 
 .pet-arena-log p {

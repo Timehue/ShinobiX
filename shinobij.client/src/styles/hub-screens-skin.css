@@ -773,7 +773,7 @@
 }
 
 .mission-hall .mh-combat-avatar { height: 118px; }
-.mission-hall .mh-combat-avatar img { width: 100%; height: 100%; border-radius: 0; object-fit: cover; object-position: center 26%; }
+.mission-hall .mh-combat-avatar img { width: 100%; height: 100%; border-radius: 0; object-fit: contain; object-position: center; }
 
 .mission-hall .mh-field-section { padding-top: 22px !important; }
 
@@ -878,16 +878,17 @@
     width: 100%;
     height: 164px;
     display: block;
-    object-fit: cover;
+    object-fit: contain;
+    object-position: center;
     filter: saturate(0.84) contrast(1.06) brightness(0.78);
-    transform: scale(1.015);
+    transform: scale(1);
     transition: filter 180ms ease, transform 260ms ease;
 }
 
 @media (hover: hover) {
     .mission-hall .mh-field-card:hover .mh-field-art img {
         filter: saturate(1.02) contrast(1.06) brightness(0.94);
-        transform: scale(1.055);
+        transform: scale(1);
     }
 }
 
@@ -1236,7 +1237,7 @@
     .mission-hall .mh-combat-avatar img {
         width: 100%;
         height: 100%;
-        object-position: center 24%;
+        object-position: center;
     }
     .mission-hall .mh-combat-body {
         grid-column: 3;

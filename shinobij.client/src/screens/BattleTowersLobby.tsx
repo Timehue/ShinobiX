@@ -665,7 +665,7 @@ function SpireLadder({
             {/* Cinematic banner header — bespoke Endless Spire key art */}
             <div className="spire-banner" style={{ backgroundImage: `url(${spireKeyArt})` }}>
                 <div className="spire-banner-overlay">
-                    <span className="spire-title"><img src={spireKeyArt} width={20} height={20} alt="" aria-hidden="true" style={{ objectFit: "cover", borderRadius: 3, verticalAlign: "-5px" }} /> The Endless Spire</span>
+                    <span className="spire-title"><img src={spireKeyArt} width={20} height={20} alt="" aria-hidden="true" style={{ objectFit: "contain", borderRadius: 3, verticalAlign: "-5px" }} /> The Endless Spire</span>
                     <span className="spire-head-stats">
                         <b style={{ color: "#f4c48a" }}>{spireUnlocked}</b><span>/{SPIRE_MAX_TIER} cleared</span>
                         <span className="spire-head-dot">·</span>

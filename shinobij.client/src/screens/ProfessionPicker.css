@@ -251,9 +251,9 @@
 .pp-card-art img {
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: contain;
     display: block;
-    transform: scale(1.01);
+    transform: scale(1);
     transition: transform 620ms cubic-bezier(0.22, 0.61, 0.36, 1),
                 filter var(--motion-slow, 280ms) ease;
     filter: saturate(0.92) brightness(0.86);
@@ -446,7 +446,7 @@
 
 .pp-card:hover .pp-card-art img,
 .pp-card:focus-within .pp-card-art img {
-    transform: scale(1.09);
+    transform: scale(1);
     filter: saturate(1.06) brightness(1);
 }
 
@@ -535,9 +535,9 @@
 .pp-elder-art img {
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: contain;
     display: block;
-    animation: pp-kenburns 40s ease-in-out infinite alternate;
+    animation: none;
 }
 
 .pp-elder-art::after {
@@ -604,10 +604,10 @@
 .pp-confirm-art img {
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: contain;
     display: block;
     filter: saturate(1.02);
-    animation: pp-kenburns 34s ease-in-out infinite alternate;
+    animation: none;
 }
 
 .pp-confirm-art::after {
@@ -766,6 +766,6 @@
     .pp-line { animation: none !important; }
     .pp-card { opacity: 1; transform: none; }
     .pp-card:hover, .pp-card:focus-within { transform: none; }
-    .pp-card:hover .pp-card-art img, .pp-card:focus-within .pp-card-art img { transform: scale(1.01); }
+    .pp-card:hover .pp-card-art img, .pp-card:focus-within .pp-card-art img { transform: scale(1); }
     .pp-card:hover .pp-sheen { animation: none; }
 }

@@ -64,14 +64,14 @@
     position: absolute;
     width: 112px;
     height: 112px;
-    object-fit: cover;
+    object-fit: contain;
     border-radius: 50%;
     border: 3px solid #f4b860;
     box-shadow: 0 12px 32px rgba(0, 0, 0, .52);
 }
 
 .pet-mentor-portraits img:first-child { left: 0; top: 0; z-index: 2; }
-.pet-mentor-portraits img:last-child { right: 0; bottom: 0; border-color: #76c893; transform: scale(.82); }
+.pet-mentor-portraits img:last-child { right: 0; bottom: 0; border-color: #76c893; transform: scale(1); }
 
 .pet-mentor-hero-copy { min-width: 0; }
 .pet-mentor-kicker,
@@ -178,7 +178,7 @@
     background: linear-gradient(90deg, rgba(5, 10, 17, .96) 0%, rgba(5, 10, 17, .77) 36%, transparent 72%);
 }
 
-.pet-mentor-story img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center 48%; }
+.pet-mentor-story img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; object-position: center; }
 .pet-mentor-story figcaption { position: relative; z-index: 1; width: min(53%, 470px); padding: 17px 20px; }
 .pet-mentor-story figcaption > span { color: #f4c77f; font-size: .62rem; font-weight: 900; letter-spacing: .12em; text-transform: uppercase; }
 .pet-mentor-story figcaption > strong { display: block; margin: 3px 0 5px; color: #fff4df; font: 800 1rem/1.2 var(--font-display, Inter), system-ui, sans-serif; }
@@ -264,7 +264,7 @@
     .pet-mentor-story { min-height: 118px; margin-top: 13px; }
     .pet-mentor-story::after,
     .pet-mentor-story.is-finale::after { background: linear-gradient(90deg, rgba(5, 10, 17, .94), rgba(5, 10, 17, .63) 72%, rgba(5, 10, 17, .24)); }
-    .pet-mentor-story img { object-position: 58% center; }
+    .pet-mentor-story img { object-position: center; }
     .pet-mentor-story figcaption { width: 78%; padding: 13px 14px; }
     .pet-mentor-story figcaption > p { display: none; }
     .pet-mentor-actions { flex-wrap: wrap; }
