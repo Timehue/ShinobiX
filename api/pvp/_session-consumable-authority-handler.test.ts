@@ -80,6 +80,9 @@ before(async () => {
 test('a real world session seals the defender battle tile and ignores a forged ground field',async()=>{
     const first='groundattacker',second='grounddefender',sector=15,tile=123,battle='pvp-11111111-1234-4123-8123-123456789019';
     await seedPlayers(first,second);
+    // Rain keeps the keeper at its authored post instead of its daytime sweep,
+    // while presence freshness and session admission still use the real clock.
+    await kv.set(`world:territory:${sector}`,{ownerClan:'witness-fixture',weather:'rain'});
     for(const name of [first,second])online.upsert({name,sector,tile,character:character(name)} as never);
     try {
         const req=createRequest(first,first,second,battle,'127.0.0.89') as {body:Record<string,unknown>};
@@ -87,7 +90,7 @@ test('a real world session seals the defender battle tile and ignores a forged g
         const result=response();await handler(req as never,result.res);assert.equal(result.out.statusCode,200,JSON.stringify(result.out.body));
         const stored=await kv.get<import('./session.js').PvpSession>(`pvp:${battle}`);assert.equal(stored?.rewardAuthority,'world');assert.equal(stored?.duelGround?.sector,sector);assert.equal(stored?.duelGround?.tile,tile);
         assert(stored?.duelGround?.witnesses?.some(w=>w.id==='keeper:15'&&w.name==='Shrine Keeper'&&w.tile===111));assert(!JSON.stringify(stored.duelGround).includes('Forged witness'));
-    } finally {online.remove(first);online.remove(second);}
+    } finally {online.remove(first);online.remove(second);await kv.del(`world:territory:${sector}`);}
 });
 
 test('new real-player casual sessions stamp v1 and expose zero consumable charges', async () => {
