@@ -256,7 +256,7 @@ describe("hollow gate recovery — the flow never starts or spends anything", ()
         assert.deepEqual(calls.screen, ['hollowGateShrine']);
         assert.deepEqual(calls.biome, ['shadow']);
         assert.equal(calls.log.length, 1);
-        assert.match((calls.log[0] as string[])[0], /recover the descent interrupted/);
+        assert.match((calls.log[0] as string[])[0], /resume your interrupted descent.*without spending another key/);
         assert.deepEqual(calls.event, [null], 'the already selected augment is not offered again');
     });
 
