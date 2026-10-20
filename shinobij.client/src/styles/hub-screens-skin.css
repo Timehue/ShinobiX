@@ -888,7 +888,6 @@
 @media (hover: hover) {
     .mission-hall .mh-field-card:hover .mh-field-art img {
         filter: saturate(1.02) contrast(1.06) brightness(0.94);
-        transform: scale(1);
     }
 }
 
