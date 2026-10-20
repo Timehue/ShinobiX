@@ -44,7 +44,7 @@ export default function AiFightResultCard({
                 <div className="story-fight-complete-card">
                     <p className="story-fight-complete-kicker">{draw ? "Stalemate" : spar ? "Spar lost" : "Defeated"}</p>
                     <h2>{opponentName}</h2>
-                    {enemyAvatar && <img src={enemyAvatar} alt="" style={{ width: 72, height: 72, objectFit: 'cover', borderRadius: '50%', margin: '0 auto 8px' }} />}
+                    {enemyAvatar && <img src={enemyAvatar} alt="" style={{ width: 72, height: 72, objectFit: "contain", borderRadius: '50%', margin: '0 auto 8px' }} />}
                     {encounter ? <EncounterDifficultyBadge encounter={encounter} /> : opponentLevel ? <p>Lv {opponentLevel}</p> : null}
                     <p className="story-fight-complete-boss" role={settleState === "failed" ? "alert" : "status"}>
                         {aiFightNonWinMessage(settleState, settleResult?.character, draw, spar)}
@@ -79,7 +79,7 @@ export default function AiFightResultCard({
             <div className="story-fight-complete-card">
                 <p className="story-fight-complete-kicker">Victory</p>
                 <h2>{opponentName} defeated.</h2>
-                {enemyAvatar && <img src={enemyAvatar} alt="" style={{ width: 72, height: 72, objectFit: 'cover', borderRadius: '50%', margin: '0 auto 8px' }} />}
+                {enemyAvatar && <img src={enemyAvatar} alt="" style={{ width: 72, height: 72, objectFit: "contain", borderRadius: '50%', margin: '0 auto 8px' }} />}
                 {encounter ? <EncounterDifficultyBadge encounter={encounter} /> : opponentLevel ? <p>Lv {opponentLevel}</p> : null}
                 {queuedOpponentName && <p role="status">Next encounter: {queuedOpponentName}. Continue when ready.</p>}
                 {settleState !== "settled" || !settleResult

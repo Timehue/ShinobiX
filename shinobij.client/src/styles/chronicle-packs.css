@@ -116,8 +116,8 @@
   display: block;
   width: 100%;
   height: clamp(200px, 24vw, 285px);
-  object-fit: cover;
-  object-position: 50% 43%;
+  object-fit: contain;
+  object-position: center;
   border-bottom: 1px solid color-mix(in srgb, var(--pack-glow) 50%, #1d2935);
 }
 

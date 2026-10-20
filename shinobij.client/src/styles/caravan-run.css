@@ -55,7 +55,7 @@
 .caravan-resource strong { color: #f0e4cc; }
 .caravan-mode .caravan-encounter { background: #19232c; border-color: #c1b39340; }
 .caravan-mode .caravan-scene { background: #1a2932; border-bottom: 2px solid #b36b55; }
-.caravan-scene > img { width: 100%; height: 100%; display: block; object-fit: cover; object-position: 50% 65%; }
+.caravan-scene > img { width: 100%; height: 100%; display: block; object-fit: contain; object-position: center; }
 .caravan-scene[data-region="canyon"] > img { object-position: 50% 61%; }
 .caravan-scene[data-region="ruins"] > img { object-position: 50% 78%; }
 .caravan-scene[data-region="oasis"] > img { object-position: 50% 74%; }

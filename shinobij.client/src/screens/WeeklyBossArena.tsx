@@ -386,7 +386,7 @@ export function WeeklyBossArena({
                             <img
                                 src={bossImage}
                                 alt={bossState.bossName ?? "Weekly Boss"}
-                                style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                                style={{ width: "100%", height: "100%", objectFit: "contain" }}
                                 onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
                             />
                         </div>

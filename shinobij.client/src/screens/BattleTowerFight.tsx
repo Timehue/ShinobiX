@@ -2565,7 +2565,7 @@ function ActorCard({ actor, round, highlight, avatar, fallbackArt, boss, ally, u
     const content = (
         <>
             <div style={{ width: 28, height: 28, borderRadius: "50%", flexShrink: 0, overflow: "hidden", border: `2px solid ${accent}`, display: "flex", alignItems: "center", justifyContent: "center", background: "#0b1220" }}>
-                {avatar ? <img src={avatar} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <img src={fallbackArt} alt={unknown ? UNKNOWN_TOWER_COMBATANT.label : ""} style={{ width: "100%", height: "100%", objectFit: "cover" }} />}
+                {avatar ? <img src={avatar} alt="" style={{ width: "100%", height: "100%", objectFit: "contain" }} /> : <img src={fallbackArt} alt={unknown ? UNKNOWN_TOWER_COMBATANT.label : ""} style={{ width: "100%", height: "100%", objectFit: "contain" }} />}
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.78rem", gap: 4 }}>

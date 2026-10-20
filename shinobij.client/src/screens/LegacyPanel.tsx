@@ -482,7 +482,7 @@ export function LegacyPanel({ character, onVersionedCharacter }: {
                         // The overseer's face + their read of WHICH climb this is
                         // (STAGE_WITNESS keyed on the trial kind, never on rank).
                         <div style={{ display: "flex", gap: 8, alignItems: "center", margin: "0 0 8px" }}>
-                            <img src={`/portraits/${em.slug}.webp`} alt="" style={{ width: 34, height: 34, borderRadius: "50%", flexShrink: 0, objectFit: "cover", border: `1px solid ${accent}66` }} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
+                            <img src={`/portraits/${em.slug}.webp`} alt="" style={{ width: 34, height: 34, borderRadius: "50%", flexShrink: 0, objectFit: "contain", border: `1px solid ${accent}66` }} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
                             <p style={{ margin: 0, fontSize: ".72rem", color: "#cbd5e1", fontStyle: "italic", lineHeight: 1.4 }}>
                                 “{STAGE_WITNESS[kind] ?? "Walk it where the world can see."}” <span style={{ color: "#6b7280", fontStyle: "normal" }}>— {em.name}</span>
                             </p>

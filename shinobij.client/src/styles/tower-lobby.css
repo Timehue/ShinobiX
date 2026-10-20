@@ -710,7 +710,7 @@
     background: #020612;
     box-shadow: inset 0 1px rgba(255, 255, 255, 0.08);
 }
-.tower-story-floor-icon img { width: 100%; height: 100%; object-fit: cover; }
+.tower-story-floor-icon img { width: 100%; height: 100%; object-fit: contain; }
 .tower-story-floor-art-fallback { display: none; }
 .tower-story-floor-copy { display: grid; gap: 3px; min-width: 0; flex: 1 1 auto; }
 .tower-story-floor-name { display: flex; align-items: center; gap: 6px; min-width: 0; }

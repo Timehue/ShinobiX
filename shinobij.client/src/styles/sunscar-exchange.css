@@ -61,7 +61,7 @@
 .sx-hall .sx-border-mythic { border-left: 2px solid #e09caa; }
 .sx-hall .sx-border-legendary { border-left: 2px solid #d7ad68; }
 .sx-asset-art { display: flex; align-items: center; justify-content: center; flex: 0 0 64px; width: 64px; height: 64px; border: 1px solid #81957865; border-radius: 6px; background: radial-gradient(circle at 50% 30%, #314838, #101e1a); overflow: hidden; color: #bfc8a1; }
-.sx-asset-art img { width: 100%; height: 100%; object-fit: cover; }
+.sx-asset-art img { width: 100%; height: 100%; object-fit: contain; }
 .sx-asset-art svg { width: 33px; height: 33px; }
 .sx-listing-name { flex: 1; min-width: 0; }
 .sx-listing-name > strong { display: block; color: #e9e7d7; font: 400 17px/1.4 Georgia, serif; margin: 5px 0; overflow-wrap: anywhere; }
