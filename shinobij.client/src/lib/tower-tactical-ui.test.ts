@@ -110,6 +110,15 @@ test("target forecast accounts for target shield before HP damage", () => {
     assert.equal(result.hpDamage, result.rawDamage - 150);
 });
 
+test('Raid Guard preview reduces direct hits before shields while Pierce retains its bypass', () => {
+    const actor = { hp: 1000, maxHp: 1000, character: { level: 100, stats: { taijutsuOffense: 2000, strength: 1000 } } };
+    const input = { attacker: actor, target: { ...actor, shield: 50 }, effectPower: 10, type: 'Taijutsu', actionId: 'basic-attack' };
+    const plain = estimateTowerActionDamage(input), guarded = estimateTowerActionDamage({ ...input, bossIncomingMultiplier: .25 });
+    assert.equal(guarded.rawDamage, Math.floor(plain.rawDamage * .25));
+    assert.equal(guarded.hpDamage, Math.max(0, guarded.rawDamage - 50));
+    assert.deepEqual(estimateTowerActionDamage({ ...input, pierce: true, bossIncomingMultiplier: .25 }), estimateTowerActionDamage({ ...input, pierce: true }));
+});
+
 test("weapon forecast resolves the swing at the rank's mastery cap, like the server", () => {
     // Weapon strength lives in the EP ladder (api/pvp/_item-catalog.ts), with no
     // per-swing multiplier. A weapon cannot be trained, so the server resolves a

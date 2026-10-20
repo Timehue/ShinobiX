@@ -280,6 +280,7 @@ export function ClanBoss({ character, clanmates, hostLoadout, sharedImages, onRe
             </div>
 
             {flash ? <p className="clan-raid-flash" role="status">{flash}</p> : null}
+            {clan.attemptPolicy === 'each-participant' ? <p className="hint">Each participant spends one of five weekly attempts when the assault is reserved. Leaving or losing an accepted assault does not refund it. Retrying the same start or result spends no additional attempt.</p> : null}
             {pendingRun ? <button type="button" className="operation-rejoin" onClick={() => { setFight(pendingRun); setPendingRun(null); }}>{pendingRun.session.status === "done" ? "Finish assault results" : "Rejoin your accepted operation"}</button> : null}
             {!clanBossActionsAvailable ? <p className="clan-raid-flash" role="status">New assaults and party changes are paused. Status and accepted-operation recovery remain available.</p> : null}
 

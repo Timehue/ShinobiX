@@ -1,3 +1,4 @@
+import { clanBossRules } from '../../shared/clan-boss-rules.js';
 import { createHash } from 'node:crypto';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import type { ClanBossParty, ClanBossPingKind } from '../../shared/clan-boss-operation.js';
@@ -7,7 +8,7 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
 import { kv } from '../_storage.js';
-import { clanBossWeekId, loadClanBossWeek, resolveClanBossDef } from './_storage.js';
+import { clanBossWeekId, loadClanBossWeek, resolveClanBossDef, loadClanBossProgress, clanBossAttemptsLeft } from './_storage.js';
 import { clanBossPartiesEnabled } from '../_release-flags.js';
 import {
     activePartyForPlayer,
@@ -84,12 +85,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const requestId = String(body.requestId ?? '');
         if (!REQUEST_ID.test(requestId)) return res.status(400).json({ error: 'A valid request ID is required.', errorCode: 'invalid-request-id' });
 
+        async function exhaustedMembers(weekId: string, clanName: string, members: string[]) {
+            const progress = await loadClanBossProgress(weekId, clanName);
+            const week = await loadClanBossWeek(weekId);
+            if (!clanBossRules(progress ? progress.rulesVersion : week?.rulesVersion).participantAttempts) return [];
+            return members.filter(slug => clanBossAttemptsLeft(progress, slug) <= 0);
+        }
+        const exhaustedReply = (members: string[]) => ({ error: 'A participating member has used all five weekly attempts.', errorCode: 'attempts-exhausted', members });
+
         if (action === 'create') {
             const now = Date.now();
             const weekId = clanBossWeekId(now);
             const week = await loadClanBossWeek(weekId);
             const boss = resolveClanBossDef(week);
             if (!week || week.endsAt <= now || !boss) return res.status(409).json({ error: 'No Clan Boss operation is active.', errorCode: 'operation-inactive' });
+            const exhausted = await exhaustedMembers(weekId, player.clanName, [player.slug]);
+            if (exhausted.length) return res.status(409).json(exhaustedReply(exhausted));
             const visibility = body.visibility === 'private' ? 'private' : 'public';
             const party = await createParty({ player, weekId, bossId: boss.id, sectorId: boss.sectorId, visibility, now });
             captureServerProductEvent('clan_boss_party_state_changed', { mode: visibility, partySizeBucket: '1', stateCategory: 'created' });
@@ -111,7 +122,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (own && own.id !== partyId) return { ok: false as const, status: 409, code: 'already-in-party', error: 'Leave your current party before joining another.', party: own };
                 const joined = await mutateParty({
                     partyId, actor: player.slug, requestId, expectedVersion, fingerprint,
-                    mutate: (party, now) => {
+                    mutate: async (party, now) => {
+                        const exhausted = await exhaustedMembers(party.weekId, party.clanName, [player.slug]);
+                        if (exhausted.length) return { ok: false, status: 409, code: 'attempts-exhausted', error: exhaustedReply(exhausted).error, party };
                         const invited = party.invitedSlugs.includes(player.slug);
                         if (party.visibility !== 'public' && !invited) return { ok: false, status: 403, code: 'invite-required', error: 'That private party requires an invitation.', party };
                         return addPartyMember(party, player, now);
@@ -141,6 +154,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (action === 'heartbeat') {
                     return genericMutation(party, { members: party.members.map((entry) => entry.slug === player.slug ? { ...entry, lastSeenAt: now } : entry) });
                 }
+                if (party.status === 'starting' && !['heartbeat', 'ping'].includes(action)) return { ok: false, status: 409, code: 'party-starting', error: 'The assault is reserved or starting. Retry its original start request.', party };
+                if (['ready', 'queue'].includes(action)) {
+                    const exhausted = await exhaustedMembers(party.weekId, party.clanName, action === 'queue' ? party.members.map(member => member.slug) : [player.slug]);
+                    if (exhausted.length) return { ok: false, status: 409, code: 'attempts-exhausted', error: exhaustedReply(exhausted).error, party };
+                }
+                if (action === 'transfer' && !['forming','queued'].includes(party.status)) return { ok: false, status: 409, code: 'party-locked', error: 'Leadership is locked during an assault.', party };
                 if (action === 'leave') return removePartyMember(party, player.slug, now);
                 if (action === 'invite') {
                     if (!leader) return { ok: false, status: 403, code: 'leader-required', error: 'Only the party leader can invite members.', party };

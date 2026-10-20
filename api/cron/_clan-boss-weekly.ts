@@ -1,3 +1,4 @@
+import { newClanBossWeekTiming } from '../../shared/clan-boss-rules.js';
 /*
  * Weekly Clan Boss Gauntlet — cron pass (runs on the daily 03:00 UTC scheduler).
  *
@@ -15,7 +16,7 @@ import { withKvLock } from '../_lock.js';
 import { announce } from '../_announce.js';
 import { addClanXpServer, scaledClanXp } from '../clan/_mission-catalog.js';
 import {
-    CB_REWARDS, CB_PARTICIPATION_REWARD, CB_WEEK_MS, CLAN_BOSS_BY_ID,
+    CB_REWARDS, CB_PARTICIPATION_REWARD, CLAN_BOSS_BY_ID,
     clanBossArchiveKey, clanBossDamageDealt, clanBossEngagedXp, clanBossMemberRewards, clanBossPickId,
     clanBossWeekId, clanBossWeekKey, clanSlug,
     rankClanBoss, type ClanBossProgress, type ClanBossWeek,
@@ -65,10 +66,10 @@ export async function runClanBossWeekly(now: number = Date.now()): Promise<{ ena
     return { enabled: true, spawned, settled };
 }
 
-async function ensureCurrentWeek(now: number): Promise<string | null> {
+export async function ensureCurrentWeek(now: number): Promise<string | null> {
     const weekId = clanBossWeekId(now);
     if (await kv.get<ClanBossWeek>(clanBossWeekKey(weekId))) return null;
-    const week: ClanBossWeek = { weekId, bossId: clanBossPickId(weekId), spawnedAt: now, endsAt: now + CB_WEEK_MS };
+    const week: ClanBossWeek = { weekId, bossId: clanBossPickId(weekId), ...newClanBossWeekTiming(now) };
     const created = await kv.set(clanBossWeekKey(weekId), week, { nx: true });
     if (created !== 'OK') return null;  // another instance created it first
     const boss = CLAN_BOSS_BY_ID[week.bossId];
