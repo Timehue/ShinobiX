@@ -22,7 +22,7 @@
 // host component so they share the request singleton — disable the Fast-Refresh
 // "only export components" rule for that deliberate mix.
 /* eslint-disable react-refresh/only-export-components */
-import { useEffect, useId, useLayoutEffect, useRef, useState, type RefObject } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { useBodyScrollLock } from "../lib/useBodyScrollLock";
 import { createAlertRouter } from "../lib/slow-down-notice";
@@ -521,13 +521,13 @@ export function GameConfirmHost() {
         };
     }, []);
 
-    const settle = (ok: boolean) =>
+    const settle = useCallback((ok: boolean) =>
         setQueue((q) => {
             // A cancelled dialog's old click/keydown must not accept its successor.
             if (!current || q[0] !== current) return q;
             current.resolve(ok);
             return q.slice(1);
-        });
+        }), [current]);
 
     useLayoutEffect(() => {
         if (!current) return;
@@ -539,7 +539,7 @@ export function GameConfirmHost() {
         }
         window.addEventListener("keydown", onKey);
         return () => window.removeEventListener("keydown", onKey);
-    }, [current]);
+    }, [current, settle]);
 
     useBodyScrollLock(queue.length > 0);
     useDialogFocusTrap(queue.length > 0, cardRef, restoreFocusRef);

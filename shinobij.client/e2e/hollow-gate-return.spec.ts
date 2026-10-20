@@ -32,7 +32,7 @@ test('cancelled rift preview stays cancelled; a fresh explicit Enter sends exact
     await expect(page.getByTestId('entry-finished')).toHaveText('2'); expect(starts).toBe(1);
 });
 
-test('an interrupted rift button cannot accept an unrelated queued prompt', async ({ page }) => {
+for (const resolution of ['confirm', 'escape']) test(`an interrupted rift button cannot accept an unrelated queued prompt before ${resolution}`, async ({ page }) => {
     await page.goto('/e2e/fixtures/rift-entry-preview.html');
     await page.getByRole('button', { name: 'Preview descent', exact: true }).click();
     await expect(page.getByRole('button', { name: 'Enter', exact: true })).toBeVisible();
@@ -44,8 +44,10 @@ test('an interrupted rift button cannot accept an unrelated queued prompt', asyn
     const other = page.getByRole('alertdialog', { name: 'Other action' });
     await expect(other).toBeVisible();
     await expect(page.getByTestId('other-confirmed')).toHaveText('false');
-    await other.getByRole('button', { name: 'Confirm', exact: true }).click();
-    await expect(page.getByTestId('other-confirmed')).toHaveText('true');
+    if (resolution === 'escape') await page.keyboard.press('Escape');
+    else await other.getByRole('button', { name: 'Confirm', exact: true }).click();
+    await expect(other).toHaveCount(0);
+    await expect(page.getByTestId('other-confirmed')).toHaveText(String(resolution === 'confirm'));
 });
 
 for (const interruption of ['combat', 'account']) test(`an accepted rift start interrupted by ${interruption} preserves only its owning account receipt`, async ({ page }) => {

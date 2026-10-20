@@ -23,15 +23,14 @@ function Fixture() {
     const current = useRef({ screen, account, combat }); current.current = { screen, account, combat };
     const preview = useHollowGateEntryPreview(screen, account, combat);
     const enter = () => {
-        const scope = preview.begin(); if (!scope) return;
-        void enterHollowGateShrineFlow({ character, eventCfg: cfg, signal: scope.signal,
-            isCurrent: () => !scope.signal.aborted && current.current.screen === 'worldMap' && current.current.account === account && !current.current.combat,
-            isAccountCurrent: () => current.current.account === account,
+        void preview.run(signal => enterHollowGateShrineFlow({ character, eventCfg: cfg, signal,
+            isCurrent: () => current.current.account === account,
+            canEnter: () => current.current.screen === 'worldMap' && !current.current.combat,
             currentRunToken: () => undefined, commitCharacter: next => { setCharacter(next); return true; }, setCharacter,
             setScreen, setCurrentBiome: () => undefined, setCurrentWeather: () => undefined,
             setHollowGateRun: () => undefined, setHollowGateLog: () => undefined, setHollowGateEvent: () => undefined,
             setHollowGateHiddenChamber: () => undefined, setHollowGateIntroPage: () => undefined, pushHollowGateLog: () => undefined,
-        }).finally(() => { preview.finish(scope); setFinished(n => n + 1); });
+        })).finally(() => { setFinished(n => n + 1); });
     };
     Object.assign(window, { queueOtherPrompt: () => { void gameConfirm('An unrelated confirmation', { title: 'Other action' }).then(setOtherConfirmed); }, interruptPreview: (kind: string) => {
         if (kind === 'encounter') { preview.onEncounterActiveChange(true); setEncounter(true); }
