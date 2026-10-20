@@ -1,0 +1,12 @@
+{
+  "id": "rare-31",
+  "at": "2026-10-20T07:45:11.795Z",
+  "sourceSha256": "8c102514d48c26ecb6d7d67b5eb224636c444fba97018da5ee6064ecaf1b633d",
+  "battleSha256": "03642ccd9c191d832ecfca0791ebafc3b9ffa1b5cfd7c38fa5b4a062a4a73464",
+  "atlasSha256": "4d4d03ddd7b44b9a13b0d39bc88aeedc9f51b32a6ad9ca90e00d50362823deb8",
+  "privateReview": "docs/audits/pet-frost-seal-private-review-progress-2026-10-20.json",
+  "sourceBattleAtlasExactlyEqualReviewedPrivateBytes": true,
+  "unselectedManifestEntriesUnchanged": true,
+  "status": "canonical-installed-regressions-final-receipt-and-release-pending",
+  "liveVerified": false
+}

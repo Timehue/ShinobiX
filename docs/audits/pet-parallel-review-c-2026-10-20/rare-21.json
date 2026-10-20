@@ -1,0 +1,373 @@
+{
+  "id": "rare-21",
+  "reviewer": "parallel-c",
+  "approval": true,
+  "status": "local-visual-pass-awaiting-root-integration-and-live-verification",
+  "sourceSha256": "833233bcbdb05dd65f1748cbcf1168b54b05078ee4dae47da9e2a10709289441",
+  "battleSha256": "176ae57815e57363e474d6bfa652ea454ac1e0121325d0975829fa530d26d71b",
+  "atlasSha256": "a5107a8d0c402646f009c80fccec50ec7cea022bdf652837feb92363fbd63eed",
+  "seen": [
+    {
+      "path": "docs/screenshots/pet-independent-face-2026-10-15/rare-21-source-front.webp",
+      "sha256": "790c8b922c94782a2c07b12346f34fc2f6ebcc987baa200baa5f9cafb4d56437",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "retained",
+      "reviewedAt": "2026-10-20T03:24:51.657Z",
+      "notes": "No visible separation or collapse in the viewed frames."
+    },
+    {
+      "path": "docs/screenshots/pet-independent-face-2026-10-15/rare-21-source-side.webp",
+      "sha256": "af5a619bce3ec809cefc91e896f3f8a0fa02457b091a8141c8b91e72337938b7",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "retained",
+      "reviewedAt": "2026-10-20T03:24:51.659Z",
+      "notes": "No visible separation or collapse in the viewed frames."
+    },
+    {
+      "path": "docs/screenshots/pet-independent-face-2026-10-15/rare-21-source-head-front.webp",
+      "sha256": "15a8cd7fd66f0268b2656916cdaf9a22f0d814fc4f137d57a6d6bae387aa1c42",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "retained",
+      "reviewedAt": "2026-10-20T03:24:51.660Z",
+      "notes": "No visible separation or collapse in the viewed frames."
+    },
+    {
+      "path": "docs/screenshots/pet-independent-face-2026-10-15/rare-21-source-head-side.webp",
+      "sha256": "88cff8e14f50e89b27b7746bdf9ed53035eeaf7984d6d85276957a116810a199",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "retained",
+      "reviewedAt": "2026-10-20T03:24:51.660Z",
+      "notes": "No visible separation or collapse in the viewed frames."
+    },
+    {
+      "path": "docs/screenshots/pet-independent-face-2026-10-15/rare-21-battle-front.webp",
+      "sha256": "c5ef247afe330f91102982fbad74c3f7e59a2ed7d7b6f81433fc330bea707be9",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "retained",
+      "reviewedAt": "2026-10-20T03:24:51.661Z",
+      "notes": "No visible separation or collapse in the viewed frames."
+    },
+    {
+      "path": "docs/screenshots/pet-independent-face-2026-10-15/rare-21-battle-side.webp",
+      "sha256": "cc052d14a26b2d8ff9a8998c125f3ac7099b8c8e7c32b5cc1310eef40499ad1b",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "retained",
+      "reviewedAt": "2026-10-20T03:24:51.662Z",
+      "notes": "No visible separation or collapse in the viewed frames."
+    },
+    {
+      "path": "docs/screenshots/pet-independent-face-2026-10-15/rare-21-battle-head-front.webp",
+      "sha256": "87d4290ad55bc014fea2aff83901d18714ff5826e53cf39d9d6f9301ddcb3f35",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "retained",
+      "reviewedAt": "2026-10-20T03:24:51.662Z",
+      "notes": "No visible separation or collapse in the viewed frames."
+    },
+    {
+      "path": "docs/screenshots/pet-independent-face-2026-10-15/rare-21-battle-head-side.webp",
+      "sha256": "dbac57f2f2182bd04eb3337f6c7e608d7e229e51cf38da2ddede5a3fc6f608b1",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "retained",
+      "reviewedAt": "2026-10-20T03:24:51.663Z",
+      "notes": "No visible separation or collapse in the viewed frames."
+    },
+    {
+      "path": "docs/screenshots/pet-independent-face-2026-10-15/rare-21-runtime-source-body.webp",
+      "sha256": "ea8c3cbe3381a409e4a2e90c3ca8a44192cebcf114af15ba3304b1b62de43b81",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "retained",
+      "reviewedAt": "2026-10-20T03:25:30.247Z",
+      "notes": "No visible separation or collapse in the viewed frames."
+    },
+    {
+      "path": "docs/screenshots/pet-independent-face-2026-10-15/rare-21-runtime-source-head.webp",
+      "sha256": "fd9e3cf3c9956dd9d5692115df23002eaaf8de299f7547c6446ef2c170e48068",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "retained",
+      "reviewedAt": "2026-10-20T03:25:30.251Z",
+      "notes": "No visible separation or collapse in the viewed frames."
+    },
+    {
+      "path": "docs/screenshots/pet-independent-face-2026-10-15/rare-21-runtime-battle-body.webp",
+      "sha256": "794984e14513ccebe0a95248e3d432e16e4acab906b0bbd11e17dffcaf05c3b7",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "retained",
+      "reviewedAt": "2026-10-20T03:25:30.252Z",
+      "notes": "No visible separation or collapse in the viewed frames."
+    },
+    {
+      "path": "docs/screenshots/pet-independent-face-2026-10-15/rare-21-runtime-battle-head.webp",
+      "sha256": "d26623d311dbe3d14892ccbf96ca938d73c9421693986dbf4c6e53a7d5aa9394",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "retained",
+      "reviewedAt": "2026-10-20T03:25:30.253Z",
+      "notes": "No visible separation or collapse in the viewed frames."
+    },
+    {
+      "path": "docs/screenshots/pet-independent-face-2026-10-15/rare-21-anatomical-landmark-coverage.png",
+      "sha256": "e4b5038bdbbb464be0d2d68a3b0605bb403ecb91e9697fc2c0df50a904a8bcf7",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "retained",
+      "reviewedAt": "2026-10-20T03:26:58.302Z",
+      "notes": "No visible separation or collapse in the viewed frames."
+    },
+    {
+      "path": "shinobij.client/public/pet-models/warfront-impostors/roster/rare-21.webp",
+      "sha256": "a5107a8d0c402646f009c80fccec50ec7cea022bdf652837feb92363fbd63eed",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "atlas",
+      "reviewedAt": "2026-10-20T03:26:58.720Z",
+      "notes": "No visible separation or collapse in the viewed frames."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-21/techniques-block-0-half-0.png",
+      "sha256": "c486e2146a6ba58fb7ee06db11c4d14b8465535ab17d4bbb7ef3413392839085",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "panel",
+      "reviewedAt": "2026-10-20T03:26:58.955Z",
+      "notes": "First visual pass actualbattle nine techniques216frames and24idle: coherent ears, jaw, torso, ankles and tail."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-21/techniques-block-0-half-1.png",
+      "sha256": "2e0cddbef880f4fd668e67ea8fd1ee47436618da40362144f06d2c5e474dd13d",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "panel",
+      "reviewedAt": "2026-10-20T03:26:58.958Z",
+      "notes": "First visual pass actualbattle nine techniques216frames and24idle: coherent ears, jaw, torso, ankles and tail."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-21/techniques-block-1-half-0.png",
+      "sha256": "332e3aeb21b94b5989582860734826fcf05b9599c162ea4b5eca64e7622be343",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "panel",
+      "reviewedAt": "2026-10-20T03:26:58.959Z",
+      "notes": "First visual pass actualbattle nine techniques216frames and24idle: coherent ears, jaw, torso, ankles and tail."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-21/techniques-block-1-half-1.png",
+      "sha256": "6f82ddda0e7f402fa464ca5987eee6d065c837f459895161968c718d5804f33e",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "panel",
+      "reviewedAt": "2026-10-20T03:26:58.960Z",
+      "notes": "First visual pass actualbattle nine techniques216frames and24idle: coherent ears, jaw, torso, ankles and tail."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-21/techniques-block-2-half-0.png",
+      "sha256": "9ba89a361438111b72a132bdf1b3d653d3e6ee5f2506b9d52773adb475b45b11",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "panel",
+      "reviewedAt": "2026-10-20T03:26:58.960Z",
+      "notes": "First visual pass actualbattle nine techniques216frames and24idle: coherent ears, jaw, torso, ankles and tail."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-21/techniques-block-2-half-1.png",
+      "sha256": "0637092df5ffcc63136d12cc65791c8ed36a772f881db81e746718c973479d43",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "panel",
+      "reviewedAt": "2026-10-20T03:26:58.961Z",
+      "notes": "First visual pass actualbattle nine techniques216frames and24idle: coherent ears, jaw, torso, ankles and tail."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-21/idle-block-0.png",
+      "sha256": "f1f40baf831613b5feb4881ae071b6095eb0ab9c81b11966d78779f95bc9aa2d",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "panel",
+      "reviewedAt": "2026-10-20T03:26:58.962Z",
+      "notes": "First visual pass actualbattle nine techniques216frames and24idle: coherent ears, jaw, torso, ankles and tail."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-21/idle-block-1.png",
+      "sha256": "0ba1ebe786fbee9ac11725e0e309d5ee15ab0b6f8aff6ffa6d9662b3373b8207",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "panel",
+      "reviewedAt": "2026-10-20T03:26:58.963Z",
+      "notes": "First visual pass actualbattle nine techniques216frames and24idle: coherent ears, jaw, torso, ankles and tail."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-21/techniques-block-2-half-1.png",
+      "sha256": "0637092df5ffcc63136d12cc65791c8ed36a772f881db81e746718c973479d43",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "panel",
+      "reviewedAt": "2026-10-20T03:28:37.180Z",
+      "notes": "Second visual pass in reverse order: all216 technique frames retain connected jaw, limbs, torso and tail."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-21/techniques-block-2-half-0.png",
+      "sha256": "9ba89a361438111b72a132bdf1b3d653d3e6ee5f2506b9d52773adb475b45b11",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "panel",
+      "reviewedAt": "2026-10-20T03:28:37.188Z",
+      "notes": "Second visual pass in reverse order: all216 technique frames retain connected jaw, limbs, torso and tail."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-21/techniques-block-1-half-1.png",
+      "sha256": "6f82ddda0e7f402fa464ca5987eee6d065c837f459895161968c718d5804f33e",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "panel",
+      "reviewedAt": "2026-10-20T03:28:37.189Z",
+      "notes": "Second visual pass in reverse order: all216 technique frames retain connected jaw, limbs, torso and tail."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-21/techniques-block-1-half-0.png",
+      "sha256": "332e3aeb21b94b5989582860734826fcf05b9599c162ea4b5eca64e7622be343",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "panel",
+      "reviewedAt": "2026-10-20T03:28:37.190Z",
+      "notes": "Second visual pass in reverse order: all216 technique frames retain connected jaw, limbs, torso and tail."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-21/techniques-block-0-half-1.png",
+      "sha256": "2e0cddbef880f4fd668e67ea8fd1ee47436618da40362144f06d2c5e474dd13d",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "panel",
+      "reviewedAt": "2026-10-20T03:28:37.192Z",
+      "notes": "Second visual pass in reverse order: all216 technique frames retain connected jaw, limbs, torso and tail."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-21/techniques-block-0-half-0.png",
+      "sha256": "c486e2146a6ba58fb7ee06db11c4d14b8465535ab17d4bbb7ef3413392839085",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "panel",
+      "reviewedAt": "2026-10-20T03:28:37.193Z",
+      "notes": "Second visual pass in reverse order: all216 technique frames retain connected jaw, limbs, torso and tail."
+    }
+  ],
+  "findings": [],
+  "pending": [
+    "Root integration",
+    "Release and exact live delivery verification"
+  ],
+  "updatedAt": "2026-10-20T03:28:40.006Z",
+  "techniques": {
+    "result": "pass",
+    "actualStage": "battle",
+    "modelSha256": "176ae57815e57363e474d6bfa652ea454ac1e0121325d0975829fa530d26d71b",
+    "rendererSha256": "b2253b71fbcb21a83d82de35ab5783dd57b525cfc94740fb131dd1eb0049a897",
+    "companionComponentSha256": "472645f0ade2c17a8be0a8f9fa5af0fdb9d47f4c835e24e6a374c8219b33e4ab",
+    "moves": [
+      "water-strike",
+      "water-pulse",
+      "water-breaker",
+      "wind-pulse",
+      "expose",
+      "rally",
+      "protect",
+      "purify",
+      "rare-21-signature"
+    ],
+    "frames": 216,
+    "views": [
+      "front",
+      "side"
+    ],
+    "allTwelveNativeStripsActuallyViewed": true,
+    "secondVisualPass": {
+      "result": "pass",
+      "method": "All216frames viewed again in six lossless native panels, reverse block order.",
+      "actuallyViewed": true
+    },
+    "manifest": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-21/technique-capture-manifest.json"
+  },
+  "rawAnimations": {
+    "result": "pass",
+    "sourceAndBattle": true,
+    "clips": 13,
+    "phases": 6,
+    "views": [
+      "front",
+      "side",
+      "head-front",
+      "head-side"
+    ],
+    "independentSecondReviewOfRetainedEvidence": true
+  },
+  "productionTransitions": {
+    "result": "pass",
+    "rows": 16,
+    "sourceAndBattle": true,
+    "views": [
+      "front",
+      "side"
+    ],
+    "bodyAndHead": true,
+    "independentSecondReviewOfRetainedEvidence": true
+  },
+  "companionIdle": {
+    "result": "pass",
+    "frames": 24,
+    "independentSecondReviewOfRetainedEvidence": true
+  },
+  "atlas": {
+    "result": "pass",
+    "frames": 16
+  },
+  "evidenceSha256": {
+    "docs/screenshots/pet-independent-face-2026-10-15/rare-21-source-front.webp": "790c8b922c94782a2c07b12346f34fc2f6ebcc987baa200baa5f9cafb4d56437",
+    "docs/screenshots/pet-independent-face-2026-10-15/rare-21-source-side.webp": "af5a619bce3ec809cefc91e896f3f8a0fa02457b091a8141c8b91e72337938b7",
+    "docs/screenshots/pet-independent-face-2026-10-15/rare-21-source-head-front.webp": "15a8cd7fd66f0268b2656916cdaf9a22f0d814fc4f137d57a6d6bae387aa1c42",
+    "docs/screenshots/pet-independent-face-2026-10-15/rare-21-source-head-side.webp": "88cff8e14f50e89b27b7746bdf9ed53035eeaf7984d6d85276957a116810a199",
+    "docs/screenshots/pet-independent-face-2026-10-15/rare-21-battle-front.webp": "c5ef247afe330f91102982fbad74c3f7e59a2ed7d7b6f81433fc330bea707be9",
+    "docs/screenshots/pet-independent-face-2026-10-15/rare-21-battle-side.webp": "cc052d14a26b2d8ff9a8998c125f3ac7099b8c8e7c32b5cc1310eef40499ad1b",
+    "docs/screenshots/pet-independent-face-2026-10-15/rare-21-battle-head-front.webp": "87d4290ad55bc014fea2aff83901d18714ff5826e53cf39d9d6f9301ddcb3f35",
+    "docs/screenshots/pet-independent-face-2026-10-15/rare-21-battle-head-side.webp": "dbac57f2f2182bd04eb3337f6c7e608d7e229e51cf38da2ddede5a3fc6f608b1",
+    "docs/screenshots/pet-independent-face-2026-10-15/rare-21-runtime-source-body.webp": "ea8c3cbe3381a409e4a2e90c3ca8a44192cebcf114af15ba3304b1b62de43b81",
+    "docs/screenshots/pet-independent-face-2026-10-15/rare-21-runtime-source-head.webp": "fd9e3cf3c9956dd9d5692115df23002eaaf8de299f7547c6446ef2c170e48068",
+    "docs/screenshots/pet-independent-face-2026-10-15/rare-21-runtime-battle-body.webp": "794984e14513ccebe0a95248e3d432e16e4acab906b0bbd11e17dffcaf05c3b7",
+    "docs/screenshots/pet-independent-face-2026-10-15/rare-21-runtime-battle-head.webp": "d26623d311dbe3d14892ccbf96ca938d73c9421693986dbf4c6e53a7d5aa9394",
+    "docs/screenshots/pet-independent-face-2026-10-15/rare-21-anatomical-landmark-coverage.png": "e4b5038bdbbb464be0d2d68a3b0605bb403ecb91e9697fc2c0df50a904a8bcf7",
+    "shinobij.client/public/pet-models/warfront-impostors/roster/rare-21.webp": "a5107a8d0c402646f009c80fccec50ec7cea022bdf652837feb92363fbd63eed",
+    "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-21/techniques-block-0-half-0.png": "c486e2146a6ba58fb7ee06db11c4d14b8465535ab17d4bbb7ef3413392839085",
+    "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-21/techniques-block-0-half-1.png": "2e0cddbef880f4fd668e67ea8fd1ee47436618da40362144f06d2c5e474dd13d",
+    "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-21/techniques-block-1-half-0.png": "332e3aeb21b94b5989582860734826fcf05b9599c162ea4b5eca64e7622be343",
+    "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-21/techniques-block-1-half-1.png": "6f82ddda0e7f402fa464ca5987eee6d065c837f459895161968c718d5804f33e",
+    "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-21/techniques-block-2-half-0.png": "9ba89a361438111b72a132bdf1b3d653d3e6ee5f2506b9d52773adb475b45b11",
+    "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-21/techniques-block-2-half-1.png": "0637092df5ffcc63136d12cc65791c8ed36a772f881db81e746718c973479d43",
+    "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-21/idle-block-0.png": "f1f40baf831613b5feb4881ae071b6095eb0ab9c81b11966d78779f95bc9aa2d",
+    "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-21/idle-block-1.png": "0ba1ebe786fbee9ac11725e0e309d5ee15ab0b6f8aff6ffa6d9662b3373b8207",
+    "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-21/technique-capture-manifest.json": "c4a39869b21167130b9a0a212faae553483a4b37dea525904c506edc5884583a",
+    "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-21/technique-strip-manifest.json": "feae048101d50801948f011663e4b7c7599fba2241673c26f375bcab5b35bf46",
+    "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-21/front-block-0-half-0.png": "c0c10608ccde9906e181bff17a1cbfcb8c15f2ad2e47b08e20b2a248131645a0",
+    "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-21/front-block-0-half-1.png": "a93f917f2bca5b94c91c216f7faaa3b1fcf70d5803ced865131c9c7ab8224245",
+    "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-21/front-block-1-half-0.png": "79f1d6d4983d10672f823d59f88199f15776c4d6abaf3ea2ad133be8c70fe67a",
+    "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-21/front-block-1-half-1.png": "583288b6d3ed527f5483e4f5a145b4a159e566d99acf863f8dfadcce91578e0f",
+    "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-21/front-block-2-half-0.png": "f5ae2ef218e8f071b570b9d6a3c7d3634268a29ad4c1bd09b52013bf6aa1b1b3",
+    "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-21/front-block-2-half-1.png": "070b3c1c097e5b98223d12b11cab7f6c0f742a8b0db99a59055baef855d41252",
+    "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-21/side-block-0-half-0.png": "4b302f220032ae117064f6f46491c4aca36202c21b918c615e46d4b0b6891d2f",
+    "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-21/side-block-0-half-1.png": "48b96f5ea092061631e21f116d35f59f244abb42813c4d68aa507cc1ea174f41",
+    "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-21/side-block-1-half-0.png": "cebdb6cc8b79d82ef573df589e4de2785f52f20db0e5b28c7a99b06c3602c071",
+    "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-21/side-block-1-half-1.png": "d5d5eed8fd9d93f6b7faa86b37a179da743eadccd3fc5c99ad3fa59dfb15123a",
+    "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-21/side-block-2-half-0.png": "b1e8f502f90dc08cf3b03b4e484ea65ca8e6b11229f6d50d2acb2912c586fe21",
+    "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-21/side-block-2-half-1.png": "b8ef7ba9d90cff99f301f93db407385b59e6b4e8eb9b3c36b5353eb05600a2f2",
+    "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-21/panels-manifest.json": "40cc5df9403d3982e0965a4238c4dc3bf90315dafef637caeb2590d9572cb7ce"
+  },
+  "limits": "Local exact-byte sampled visual review; no claim of authenticated live player modal verification. Default companion technique capture selected battle model only.",
+  "name": "Frostbite Cub"
+}
