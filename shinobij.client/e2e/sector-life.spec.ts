@@ -2,6 +2,7 @@ import { test,expect,type Page } from '@playwright/test';
 import { mkdirSync,writeFileSync } from 'node:fs';
 import { installUiAuditRuntime,uiAuditSave } from './helpers/ui-audit-runtime';
 import { quietRoadCooldowns } from '../e2e-live/helpers/quiet-road';
+import {installDateOnlyClock,setDateOnlyClock} from './helpers/date-only-clock';
 import { lifeAnchors,lifeEventView,lifeSceneView,parseLifeState,advanceLifeEvent,LIFE_WINDOW_MS } from '../../shared/sector-life';
 import { travelerRoute,lifeActorsAt,lifeCourierRoute,LIFE_ACTIVE_MS } from '../../shared/sector-life';
 import { COURIER_REST_MS } from '../../shared/sector-life-courier';
@@ -59,7 +60,7 @@ for(const cached of ['empty','working'] as const)test(`angler cache ${cached}: a
     const actor=page.locator('.sector-wanderer-figure').filter({has:page.getByAltText(wanderer.name,{exact:true})});
     await expect(actor).toBeVisible();await expect(page.locator('.sector-fishing-tackle')).toHaveCount(0);
     await actor.click();const dialog=page.getByRole('dialog');await expect(dialog.getByRole('button',{name:'Ask about the water',exact:true})).toBeVisible();
-    await dialog.getByRole('button',{name:'Ask about the water',exact:true}).click();await expect(dialog).toContainText(/Try the|Start at/);
+    await dialog.getByRole('button',{name:'Ask about the water',exact:true}).click();await expect(dialog).toContainText(/Try .+ shoal\./);
     await dialog.screenshot({path:`${evidence}/${info.project.name}-angler-rollover-${cached}-outage.png`});expect(errors).toEqual([]);
 });
 for(const sector of [6,18])for(const mode of ['weather','stale-night','unavailable'] as const)test(`working angler ${sector} ${mode}: the existing service fishes real water and uses the gatehouse`,async({page},info)=>{
@@ -93,7 +94,7 @@ for(const sector of [6,18])for(const mode of ['weather','stale-night','unavailab
     }
     await expect(gear).toHaveAttribute('data-water',String(site.water));await expect(gear).toBeVisible();await expect(figure).toHaveAttribute('data-activity','Fishing by the bank');await page.clock.fastForward(4000);await snap('fishing');
     await figure.click();const dialog=page.getByRole('dialog');await expect(dialog).toContainText("I'm watching the float.");
-    await dialog.getByRole('button',{name:'Ask about the water',exact:true}).click();await expect(dialog).toContainText(/Try the|Start at/);await dialog.getByRole('button',{name:'Close',exact:true}).click();
+    await dialog.getByRole('button',{name:'Ask about the water',exact:true}).click();await expect(dialog).toContainText(/Try .+ shoal\./);await dialog.getByRole('button',{name:'Close',exact:true}).click();
     const cover=async()=>{await page.evaluate(()=>{const node=document.createElement('div');node.className='combat-instance';document.body.append(node);});await page.waitForTimeout(80);};
     const uncover=async()=>{await page.evaluate(()=>document.querySelector('body>.combat-instance')?.remove());await page.waitForTimeout(80);};
     const advanceTo=async(time:number)=>{const now=await page.evaluate(()=>Date.now());if(time>now)await page.clock.fastForward(time-now);};
@@ -113,8 +114,19 @@ for(const sector of [6,18])for(const mode of ['weather','stale-night','unavailab
     expect(errors).toEqual([]);
 });
 for(const mode of ['live','expires','quiet','reduced'] as const)test(`wildlife discovery ${mode}: an existing bird investigates actual ground and remains an animal`,async({page},info)=>{
-    let slot=Math.floor(Date.now()/WILDLIFE_DISCOVERY_WINDOW);while(isWorldNight(slot*WILDLIFE_DISCOVERY_WINDOW)||(slot+42)%4)slot++;
-    const initial=slot*WILDLIFE_DISCOVERY_WINDOW+20_000,target=90;
+    let slot=Math.floor(Date.now()/WILDLIFE_DISCOVERY_WINDOW);
+    const candidates=Array.from({length:144},(_,tile)=>tile).filter(tile=>harvestGroundTile(42,tile)===tile)
+        .sort((a,b)=>Math.abs(a%12-6)+Math.abs(Math.floor(a/12)-7)-Math.abs(b%12-6)-Math.abs(Math.floor(b/12)-7));
+    let selectedTarget:number|undefined;
+    for(let i=0;i<256;i++,slot++){
+        const at=slot*WILDLIFE_DISCOVERY_WINDOW+20_000;
+        if(isWorldNight(at)||(slot+42)%4)continue;
+        const samples=[0,5000,15000].map(delta=>{const time=at+delta;return{time,view:lifeSceneView(42,parseLifeState(null,time),time,'clear')};});
+        selectedTarget=candidates.find(tile=>samples.every(({time,view})=>wildlifeDiscovery(42,time,'clear',view.campTile,[[tile,undefined,at+3_600_000]],view.actors.flatMap(a=>[a.restTile,a.workTile]))));
+        if(selectedTarget!==undefined)break;
+    }
+    expect(selectedTarget,'a real worked-ground tile stays unoccupied during bootstrap').toBeDefined();
+    const initial=slot*WILDLIFE_DISCOVERY_WINDOW+20_000,target=selectedTarget!;
     expect(harvestGroundTile(42,target)).toBe(target);
     await page.clock.install({time:new Date(initial)});if(mode==='reduced')await page.emulateMedia({reducedMotion:'reduce'});
     const save=uiAuditSave();save.currentSector=42;save.currentTile=nearestWalkableTile(42,130);
@@ -367,7 +379,17 @@ test('recorded duel scuffs blend into the actual ground, preserve legacy reports
     await expect.poll(()=>terrain.evaluate(node=>(node as HTMLCanvasElement).toDataURL())).toBe(clean);await terrain.screenshot({path:`${evidence}/${info.project.name}-duel-faded-ground.png`});
 });
 test('shrine upkeep paints each lamp, keeps the previous floor during loading, and brings a visitor on a return visit',async({page},info)=>{
-    const start=shrineRoundTime();await page.clock.install({time:new Date(start)});
+    const start=shrineRoundTime();await installDateOnlyClock(page,start);
+    // Stamp requests from the same browser timeline, including after a reload.
+    await page.addInitScript(()=>{
+        const fetch=window.fetch.bind(window);
+        window.fetch=(input,init)=>{
+            const url=input instanceof Request?input.url:String(input);
+            if(!url.includes('/api/sector/life'))return fetch(input,init);
+            const headers=new Headers(init?.headers??(input instanceof Request?input.headers:undefined));
+            headers.set('x-qa-clock-now',String(Date.now()));return fetch(input,{...init,headers});
+        };
+    });
     const errors:string[]=[];page.on('pageerror',error=>errors.push(error.message));
     const save=uiAuditSave();save.currentSector=15;save.currentTile=123;
     save.character={...save.character,wandererCooldowns:quietRoadCooldowns([15],start)};
@@ -375,7 +397,7 @@ test('shrine upkeep paints each lamp, keeps the previous floor during loading, a
     await page.addInitScript(()=>localStorage.setItem('legacyRumors.seen.v1:auditninja',JSON.stringify([10,20,30,40,45])));
     let state=parseLifeState(null,start),care={tier:0,maintainedAt:0,by:''},actions=0;
     await page.route('**/api/sector/life**',async route=>{
-        const now=await page.evaluate(()=>Date.now());state=parseLifeState(state,now);
+        const now=Number(route.request().headers()['x-qa-clock-now']);expect(Number.isSafeInteger(now)).toBe(true);state=parseLifeState(state,now);
         if(route.request().method()==='POST') {
             const body=route.request().postDataJSON(),next=advanceLifeEvent(15,state,body.window,body.step,'AuditNinja',now);
             state=next.state;if(next.changed)actions++;if(next.changed&&state.step===3)care={tier:0,maintainedAt:now,by:'AuditNinja'};
@@ -387,6 +409,7 @@ test('shrine upkeep paints each lamp, keeps the previous floor during loading, a
     await page.route('**/sector-life/heartwood-left-lamp-v1.webp',async route=>{leftRequested=true;await gate;await route.continue();});
     const initialFloor=page.waitForResponse(response=>response.url().includes('/sector-life/heartwood-dormant-shrine-v1.webp'));
     await enterLifeSector(page,15);await (await initialFloor).finished();await page.waitForTimeout(500);
+    expect(await page.evaluate(()=>Object.values(window.dateOnlyClock.proof()).every(Boolean))).toBe(true);
     const terrain=page.locator('.continuous-world-map>canvas');
     await terrain.screenshot({path:`${evidence}/${info.project.name}-shrine-unlit-floor.png`});
     await doRoadWork(page,lifeEventView(15,state,start));expect(actions).toBe(1);
@@ -405,14 +428,15 @@ test('shrine upkeep paints each lamp, keeps the previous floor during loading, a
     const done=lifeSceneView(15,state,care.maintainedAt,'clear',undefined,undefined,care);
     const pilgrim=done.actors.find(actor=>actor.id==='pilgrim:15:0')!;
     const arrival=pilgrim.motion!.frames.find(([time,tile])=>time>0&&tile===pilgrim.restTile)![0];
-    await page.clock.fastForward(arrival+8000);
+    const visitingAt=pilgrim.motion!.start+arrival+8000;
+    await setDateOnlyClock(page,visitingAt);
     await enterLifeSector(page,15);
     const visitor=page.locator('[data-life-resident="pilgrim:15:0"]');
-    await expect(visitor).toHaveAttribute('data-activity','Visiting the shrine');await visitor.click();
+    await expect(visitor).toHaveAttribute('data-activity','Visiting the shrine',{timeout:60_000});await visitor.click();
     await expect(page.getByRole('dialog')).toContainText("stopped to visit the shrine");
     await page.getByRole('dialog').getByRole('button',{name:/Close/}).click();
     await page.locator('.continuous-world-map').screenshot({path:`${evidence}/${info.project.name}-shrine-visitor-return.png`});
-    await page.clock.setSystemTime(new Date(start+LIFE_WINDOW_MS+60_000));await page.clock.fastForward(21_000);
+    await setDateOnlyClock(page,start+LIFE_WINDOW_MS+60_000);await page.evaluate(()=>document.dispatchEvent(new Event('visibilitychange')));
     await expect(page.locator('.sector-life-point')).toHaveAttribute('title','Check the tea stop approaches');
     const keeper=page.locator('[data-life-resident="keeper:15"]');await keeper.click();
     await expect(page.getByRole('dialog')).toContainText('AuditNinja helped with the last round');

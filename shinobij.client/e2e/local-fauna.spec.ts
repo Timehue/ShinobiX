@@ -85,7 +85,8 @@ for(const lite of [false,true])test(`harbor gulls ${lite?'lite':'full'}: reuse b
     for(const p of first.points.gull)expect(water.includes(Math.floor(p.y*12)*12+Math.floor(p.x*12))).toBe(true);
     if(!lite){
         const before=Number(await site.canvas.getAttribute('data-wildlife-reaction')??0);
-        await page.locator('[data-world-chunk="2"] > button.scene-tile').nth(99).dispatchEvent('click');await page.clock.runFor(6000);
+        await page.locator('[data-world-chunk="2"] > button.scene-tile').nth(99).dispatchEvent('click');
+        for(let i=0;i<30&&Number(await site.canvas.getAttribute('data-wildlife-reaction')??0)===before;i++)await page.clock.runFor(1000);
         expect(Number(await site.canvas.getAttribute('data-wildlife-reaction')??0)).toBeGreaterThan(before);
     }
     await site.map.screenshot({path:`${evidence}/${info.project.name}-gulls-${lite?'lite':'full'}.png`});

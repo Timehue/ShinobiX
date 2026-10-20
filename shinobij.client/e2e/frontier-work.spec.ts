@@ -6,6 +6,9 @@ import {lifeActorsAt,lifeSceneView,parseLifeState,LIFE_WINDOW_MS} from '../../sh
 import {FRONTIER_SITES,FRONTIER_LINES,frontierWorkPlan,FRONTIER_ROUND_MS} from '../../shared/sector-frontier-work';
 import {WORLD_DAY_MS,WORLD_HOUR_MS} from '../../shared/world-clock';
 import {isWalkableTile} from '../../shared/sector-walk-mask';
+import {wandererPresenceGate,wandererDayBucketFromMs} from '../../shared/wanderer-roster';
+import {QUEST_GIVER_PRESENCE} from '../src/lib/wanderers';
+import {storyRoadEvents} from '../src/data/story-road-events';
 
 type Pose={col:number;row:number;activity?:string;visible:boolean;original:boolean};
 declare global{interface Window{frontierOriginal:HTMLElement;frontierRead:()=>Pose}}
@@ -16,7 +19,10 @@ for(const sector of [55,60])for(const mode of ['inspection','weather','task','fa
     let day=Math.floor(Date.now()/WORLD_DAY_MS)*WORLD_DAY_MS;
     // The Hollow inspection retains the naturally visiting Gen; no extra
     // witness or invented crowd is inserted into either sparse region.
-    if(sector===55)for(let i=0;i<10;i++,day+=WORLD_DAY_MS)if(lifeActorsAt(sector,day+10*WORLD_HOUR_MS+plan.gearAt,'clear').some(a=>a.id==='gen'))break;
+    if(sector===55)for(let i=0;i<500;i++,day+=WORLD_DAY_MS){
+        const at=day+10*WORLD_HOUR_MS+plan.gearAt-2000;
+        if(lifeActorsAt(sector,at,'clear').some(a=>a.id==='gen')&&(mode!=='inspection'||wandererPresenceGate(`road#${storyRoadEvents[0].id}#55#${wandererDayBucketFromMs(at)}`,QUEST_GIVER_PRESENCE.road)))break;
+    }
     const start=day+10*WORLD_HOUR_MS,now=start+plan.gearAt-2000,id=`resident:${sector}`;
     const reduced=mode==='fallback'&&info.project.name==='phone';if(reduced)await page.emulateMedia({reducedMotion:'reduce'});
     await page.clock.install({time:new Date(now)});await page.clock.setFixedTime(now);
