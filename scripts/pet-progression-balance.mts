@@ -30,7 +30,7 @@ const seedCount = Math.max(1, Math.min(8, Number(valueAfter('--seeds', '2')) || 
 const seeds = Array.from({ length: seedCount }, (_, i) => 104729 + i * 25634);
 const output = resolve(valueAfter('--output', 'docs/pet-progression-evidence/summary.json'));
 const levels = [1, 4, 5, 9, 10, 19, 20, 29, 30, 49, 50, 74, 75, 100];
-const naturalLevels = quick ? [1, 5, 10, 20, 75, 100] : [1, 5, 10, 20, 30, 50, 75, 100];
+const naturalLevels = quick ? [1, 5, 10, 20, 50, 75, 100] : [1, 5, 10, 20, 30, 50, 75, 100];
 const templates = Object.values(PET_CATALOG) as Template[];
 const templateRoles = new Map(templates.map(template => [template.id, resolvePetAbilityProgression({ templateId: template.id, level: 1 }).role]));
 const roleOf = (template: Template) => templateRoles.get(template.id)!;
@@ -81,7 +81,7 @@ const reallocate = (level: number, attribute: Attribute, points: number): Alloca
 };
 function owned(template: Template, level: number, allocation = balanced(level), extra: Record<string, unknown> = {}): Pet {
     return {
-        ...template, templateId: template.id, level, trait: undefined,
+        ...template, templateId: template.id, level, trait: undefined, growthVersion: 2,
         growthBaseStats: { hp: template.hp, attack: template.attack, defense: template.defense, speed: template.speed },
         growthAllocation: allocation, ...extra,
     } as unknown as Pet;
@@ -397,7 +397,7 @@ for (const template of templates.filter(template => calibrationSpeciesIds.includ
     }
 }
 console.log('[progression evidence] equal-budget specialist outcomes');
-for (const template of naturalTemplates) for (const level of quick ? [20, 100] : [10, 20, 75, 100]) {
+for (const template of naturalTemplates) for (const level of quick ? [10, 50, 100] : [10, 20, 50, 75, 100]) {
     if (level < minimumReachableLevel(template)) continue;
     for (const attribute of attributes) for (const seed of seeds) for (const swapped of [false, true]) {
         const result = fight([owned(template, level, specialist(level, attribute))], [owned(template, level)], seed, '1v1', swapped);

@@ -142,9 +142,9 @@ describe('Colosseum progression and AI side ownership', () => {
         assert.equal(first.trait, undefined);
         assert.equal(second.trait, 'Guardian');
         assert.deepEqual(first.growthAllocation, { vitality: 0, power: 0, guard: 0, agility: 0 });
-        assert.equal(Object.values(second.growthAllocation as Record<string, number>).reduce((sum, n) => sum + n, 0), 69);
-        assert.equal(first.growthPoints, 99);
-        assert.equal(second.growthPoints, 30);
+        assert.equal(Object.values(second.growthAllocation as Record<string, number>).reduce((sum, n) => sum + n, 0), 207);
+        assert.equal(first.growthPoints, 297);
+        assert.equal(second.growthPoints, 90);
     });
 
     it('matches every sparring slot by level and rarity without duplicate species', () => {
@@ -194,7 +194,7 @@ describe('Colosseum progression and AI side ownership', () => {
         for (const level of [1, 25, 50, 100]) for (const tier of ['scrapper', 'warrior', 'champion'] as const) {
             for (const ai of buildColosseumAiTeam([pet('a', level)], 1, tier, 812).pets) {
                 const tpl = PET_CATALOG[String(ai.templateId)];
-                const owned = normalizePetGrowth({ ...tpl, id: ai.id, templateId: tpl.id, level, trait: ai.trait,
+                const owned = normalizePetGrowth({ ...tpl, id: ai.id, templateId: tpl.id, level, trait: ai.trait, growthVersion: 2,
                     loadout: ai.loadout, growthAllocation: (ai as unknown as Record<string, unknown>).growthAllocation },
                     { hp: Number(tpl.hp), attack: Number(tpl.attack), defense: Number(tpl.defense), speed: Number(tpl.speed) });
                 assert.deepEqual(sealShowdownPet(ai), sealShowdownPet(owned as unknown as Pet));

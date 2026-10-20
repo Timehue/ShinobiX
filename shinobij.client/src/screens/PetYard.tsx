@@ -20,7 +20,8 @@ import { derivePetGrowthStats, emptyPetGrowthAllocation, petGrowthAttributeCap, 
 import { nextEvolution, EVOLUTION_STONE_NAMES, petVisualId } from "../data/pet-evolutions";
 import { petEvolveCutsceneEnabled } from "../lib/pet-coliseum-flag";
 import { gameConfirm } from "../components/GameAlert";
-import { formatPetTimer } from "../lib/utils";
+import { formatPetTimer, makeId } from "../lib/utils";
+import { petFoodAllowance, PET_FOOD_DAILY_XP } from "../../../shared/pet-food";
 import { isPetOnExpedition, petCurrentHappiness, petDisplayName, petFreePettingLeft } from "../lib/pet";
 import {
     PET_HAPPINESS_DAILY_DECAY,
@@ -144,6 +145,7 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
     const growthSpent = Object.values(growthDraft).reduce((sum, value) => sum + value, 0);
     const growthUnspent = Math.max(0, growthEarned - growthSpent);
     const growthCap = petGrowthAttributeCap(selectedPet?.level ?? 1);
+    const foodAllowance = petFoodAllowance(selectedPet ?? {}, now);
     const hasGrowthDraft = Object.entries(growthDraft).some(([key, value]) => value !== committedGrowth[key as keyof PetGrowthAllocation]);
     const growthPreview = selectedPet && hasGrowthDraft ? derivePetGrowthStats({ ...selectedPet, growthAllocation: growthDraft }) : null;
     const battleChannels = selectedPet ? petBattleChannels(selectedPet) : null;
@@ -301,7 +303,7 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
         progressBusyRef.current = true;
         setProgressBusy(true);
         try {
-            const res = await fetch('/api/pet/progress', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ playerName: character.name, petId: selectedPet.id, action, ...extra }) });
+            const res = await fetch('/api/pet/progress', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ playerName: character.name, petId: selectedPet.id, action, ...(action === 'feed' || action === 'care-feed' ? { requestId: makeId() } : {}), ...extra }) });
             const data = await res.json().catch(() => ({}));
             if (!res.ok || !data?.character) throw new Error(String(data?.error ?? 'Pet update failed.'));
             // Applied even if a newer save was adopted first and this commit is
@@ -1221,6 +1223,9 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                                 {petMsg && <p className="hint" role="alert" style={{ margin: "0 0 8px", fontSize: "0.72rem", color: "#f87171" }}>{petMsg}</p>}
                                 <section className="pet-feed-panel">
                                     <h4>Feed</h4>
+                                    <p className="hint" role="status">{foodAllowance.remaining.toLocaleString()} / {PET_FOOD_DAILY_XP.toLocaleString()} food XP remaining for this pet today. All food shares this allowance; resets at midnight UTC. Training, expeditions and battles are separate.</p>
+                                    <p className="hint">Petting is happiness care only (+0 XP); its daily attention limit is separate. Ordinary Treats can also provide happiness-only care, even at max level or after the XP allowance is spent. Premium food is reserved for XP feeding.</p>
+                                    <button type="button" disabled={progressBusy || inventoryCount('pet-treat') <= 0 || selectedPetHappiness >= 100} onClick={() => void runPetProgress('care-feed', { itemId: 'pet-treat' }).then(() => gameToast('Used 1 ordinary Treat for +10 happiness. No XP gained.')).catch(error => alert(error instanceof Error ? error.message : 'Care failed.'))}>Care with 1 Treat (+10 happiness, no XP)</button>
                                     {selectedPet.level >= selectedPet.maxLevel && (
                                         <p className="hint" style={{ margin: "0 0 6px", color: "#9ca3af" }}>
                                             {petDisplayName(selectedPet)} is max level — treats no longer give XP.
@@ -1230,7 +1235,7 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                                         {petFeedItems.map((treat) => {
                                             const count = inventoryCount(treat.id);
                                             return (
-                                                <button key={treat.id} onClick={() => feedPet(treat)} disabled={count <= 0 || selectedPet.level >= selectedPet.maxLevel}>
+                                                <button key={treat.id} onClick={() => feedPet(treat)} disabled={progressBusy || count <= 0 || selectedPet.level >= selectedPet.maxLevel || treat.xp > foodAllowance.remaining}>
                                                     <img className="pet-treat-art" src={PET_TREAT_ART[treat.id]} alt="" />
                                                     <span className="pet-treat-copy"><strong>{treat.name}</strong><span>+{treat.xp.toLocaleString()} XP</span></span>
                                                     <span className="pet-treat-stock">{count}<small>owned</small></span>
@@ -1260,19 +1265,19 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                             {yardSection === "growth" && <><div className="pet-yard-section-heading"><span className="pet-yard-kicker">Shape their potential</span><h3>Growth & training</h3><p>Town Hall bonus · +{petXpBonus.toFixed(2)}% pet XP</p></div>                            <section className="pet-evolve-panel" style={{ marginTop: 8, width: "100%", border: "1px solid rgba(56,189,248,.55)", borderRadius: 8, padding: 10, background: "rgba(14,116,144,.10)" }}>
                                 <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "baseline" }}>
                                     <h4 style={{ margin: 0 }}>Growth Build</h4>
-                                    <strong style={{ color: growthUnspent > 0 ? "#67e8f9" : "#94a3b8" }}>{growthUnspent} point{growthUnspent === 1 ? "" : "s"} available</strong>
+                                    <strong style={{ color: growthUnspent > 0 ? "#67e8f9" : "#94a3b8" }}>{growthUnspent} unspent / {growthEarned} earned points</strong>
                                 </div>
-                                <p className="hint" style={{ margin: "4px 0 8px" }}>Each level after 1 grants 1 point plus automatic core growth. Any one attribute may hold at most {growthCap} points at Level {selectedPet.level}.</p>
+                                <p className="hint" style={{ margin: "4px 0 8px" }}>Each level after 1 grants 3 Growth Points and +0.75% base stats automatically. Specialize freely: each attribute gives +1% base stat per point for its first 20 points, +0.5% for its next 30, then +0.25%. Agility gives half those rates. {Object.values(committedGrowth).reduce((sum, value) => sum + value, 0)} points invested; {growthSpent - Object.values(committedGrowth).reduce((sum, value) => sum + value, 0)} staged.</p>
                                 {([
                                     ["vitality", "Vitality", "HP / survival"],
                                     ["power", "Power", "Physical & special offense"],
                                     ["guard", "Guard", "Physical & special defense; small bounded stamina gain"],
                                     ["agility", "Agility", "Speed / initiative; no added damage or extra actions"],
                                 ] as const).map(([key, label, effect]) => (
-                                    <div key={key} style={{ display: "grid", gridTemplateColumns: "1fr auto auto auto", alignItems: "center", gap: 6, marginTop: 5 }}>
-                                        <span><strong>{label}</strong> <span className="hint">· {effect}</span></span>
+                                    <div key={key} style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto auto auto", alignItems: "center", gap: 6, marginTop: 5 }}>
+                                        <span><strong>{label}</strong> <span className="hint">· {effect}</span><small style={{ display: "block" }}>{growthStatPreview(selectedPet, growthPreview, key)}</small></span>
                                         <button type="button" onClick={() => adjustGrowth(key, -1)} disabled={growthBusy || growthDraft[key] <= (committedGrowth[key] ?? 0)} aria-label={`Remove staged ${label} point`}>−</button>
-                                        <output aria-label={`${label} points`}>{growthDraft[key]} / {growthCap}</output>
+                                        <output aria-label={`${label} points`}>{growthDraft[key]}</output>
                                         <button type="button" onClick={() => adjustGrowth(key, 1)} disabled={growthBusy || growthUnspent <= 0 || growthDraft[key] >= growthCap} aria-label={`Add ${label} point`}>+</button>
                                     </div>
                                 ))}
@@ -1280,8 +1285,8 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                                     <button type="button" className="admin-button" onClick={() => void commitGrowth()} disabled={growthBusy || growthSpent === Object.values(committedGrowth).reduce((sum, value) => sum + value, 0)}>{growthBusy ? "Saving…" : "Commit build"}</button>
                                     <button type="button" onClick={() => void resetGrowth()} disabled={growthBusy || Object.values(committedGrowth).every((value) => value <= 0)}>Respec</button>
                                 </div>
-                                <p className="hint" style={{ margin: "6px 0 0" }}>Respecs are free outside active battles and return every committed point.</p>
-                                <p className="hint">Progression update: ownership, level, XP, evolution, equipment and your earned point total are preserved. Review your build freely; resetting redistributes your existing points without adding any.</p>
+                                <p className="hint" style={{ margin: "6px 0 0" }}>Respecs are free and refund every invested point. Finish active battles, collect training and expeditions, and finish Hatchery incubation first.</p>
+                                <p className="hint">Existing invested and unspent points were tripled once. Your pets, levels, XP, evolution, equipment and inventory are preserved. Agility changes speed and initiative in formats that use it; it currently has no combat effect for adventure summons, which act in a fixed phase.</p>
                             </section>
                                 <div className="pet-training-panel">
                                     <h4>Training</h4>
@@ -1323,7 +1328,7 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                                         </div>
                                     ) : (
                                         <>
-                                            <p className="hint">Earn XP while you are away. Each level unlocks a Growth Point.</p>
+                                            <p className="hint">Earn XP while you are away. Each level unlocks three Growth Points.</p>
                                             {!selectedPetCanTrain && <p className="hint" role="status" style={{ color: "#e6c477" }}>{selectedPetIsOverflow ? "This companion is preserved overflow. Move it into your carried roster through the Sanctuary to start training." : "This companion is carried but outside your active five. Set it as Active or as your 2v2 Partner, or rest another companion in the Sanctuary, to start training."}</p>}
                                             <label htmlFor="pet-training-duration">Duration</label>
                                             <select id="pet-training-duration" value={trainingDuration} onChange={(e) => setTrainingDuration(Number(e.target.value))}>
@@ -1672,3 +1677,10 @@ const PET_LOADOUT_SLOTS: Array<{ key: "collar" | "pvp" | "pve" | "consumable"; l
 
 const YARD_SECTION_LABELS = { care: "Care", growth: "Growth & training", loadout: "Equipment", techniques: "Battle & techniques", expeditions: "Expeditions" } as const;
 const PET_TREAT_ART = { "pet-treat": "/items/shop-pet-treats-v1.webp", "elemental-pet-treat": "/items/shop-elemental-pet-treats-v1.webp", "ancient-pet-treat": "/items/shop-ancient-pet-treats-v1.webp", "golden-apple": "/items/shop-golden-apple-v1.webp" } as const;
+
+function growthStatPreview(pet: Pet, preview: Pick<Pet, "hp" | "attack" | "defense" | "speed"> | null, attribute: keyof PetGrowthAllocation): string {
+    const stat = ({ vitality: "hp", power: "attack", guard: "defense", agility: "speed" } as const)[attribute];
+    const next = (preview ?? pet)[stat];
+    const delta = next - pet[stat];
+    return `${stat.toUpperCase()}: ${pet[stat]} → ${next} (${delta >= 0 ? "+" : ""}${delta})`;
+}

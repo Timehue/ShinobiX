@@ -11,7 +11,8 @@ export type AncientChestLoot = {
     fateShards?: number; boneCharms?: number; auraStones?: number; auraDust?: number;
 };
 
-const TREATS = ['pet-treat', 'elemental-pet-treat', 'ancient-pet-treat'] as const;
+// Higher food tiers are Crafter-only; existing player stock is unaffected.
+const TREATS = ['pet-treat'] as const;
 const cardIds = (ranges: Array<[number, number]>) => ranges.flatMap(([from, to]) =>
     Array.from({ length: to - from + 1 }, (_, i) => `tc-${String(from + i).padStart(2, '0')}`));
 // Mirrors the rarity split in shared/tile-cards.ts — every common and every
@@ -110,8 +111,12 @@ export function applyAncientChestLoot(character: Record<string, unknown>, loot: 
         auraStones: Math.max(0, Number(leveled.auraStones) || 0) + (loot.auraStones ?? 0),
         auraDust: Math.max(0, Number(leveled.auraDust) || 0) + (loot.auraDust ?? 0),
         // A gear step drop is always paid, even when a copy is already owned.
-        inventory: loot.itemId && !tempered && (stackable || isStepItemId(loot.itemId) || !inventory.includes(loot.itemId)) ? [...inventory, loot.itemId] : inventory,
-        itemStacks: tempered
+        inventory: loot.itemId && !tempered && !stackable && (isStepItemId(loot.itemId) || !inventory.includes(loot.itemId)) ? [...inventory, loot.itemId] : inventory,
+        itemStacks: stackable
+            ? itemStacks.some(stack => stack.itemId === loot.itemId)
+                ? itemStacks.map(stack => stack.itemId === loot.itemId ? { ...stack, count: stack.count + 1 } : stack)
+                : [...itemStacks, { itemId: loot.itemId!, count: 1 }]
+            : tempered
             ? existingTempered
                 ? itemStacks.map((stack) => stack === existingTempered ? { ...stack, count: Math.min(9999, stack.count + 1) } : stack)
                 : [...itemStacks, { itemId: 'beast-seal-tempered', count: 1 }]

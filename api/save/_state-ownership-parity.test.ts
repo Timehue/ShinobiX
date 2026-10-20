@@ -282,7 +282,7 @@ const FROZEN = {
         'id', 'rarity', 'maxLevel', 'jutsus', 'unlockedForPve', 'trait', 'element',
         'evolutionStage', 'wildSpawnable', 'role', 'subRole', 'updatedAt',
         'level', 'xp', 'hp', 'attack', 'defense', 'speed',
-        'growthVersion', 'growthBaseStats', 'growthAllocation', 'growthPoints', 'happiness',
+        'growthVersion', 'growthBaseStats', 'growthAllocation', 'growthPoints', 'happiness', 'foodXpDay', 'foodXpUsed',
         // Reviewed extension 2026-08-31: the bond-decay stamp + the free-petting
         // budget counter must be server-owned for the same reason `happiness`
         // itself is — a client save could otherwise rewind the daily decay.

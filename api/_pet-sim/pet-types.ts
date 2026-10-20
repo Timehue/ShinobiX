@@ -174,8 +174,10 @@ export type Pet = {
     growthVersion?: number;
     growthBaseStats?: PetGrowthBaseStats;
     growthAllocation?: PetGrowthAllocation;
-    /** Unspent points; server-derived as level - 1 - committed allocation. */
+    /** Unspent points; server-derived as 3 * (level - 1) - committed allocation. */
     growthPoints?: number;
+    foodXpDay?: number;
+    foodXpUsed?: number;
     image?: string;
     // Optional transparent FULL-BODY battle sprite (distinct from `image`, the
     // circular portrait). When present — or when a `petbody:<id>` shared image
