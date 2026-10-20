@@ -1,0 +1,166 @@
+{
+  "pets": {
+    "starter-earth": {
+      "sourceSha256": "c56b6391da217d8aa076c5cde6ea150b0eefa78b33d0ba347390e58001fc3a83",
+      "geometrySha256": "b20417cb38d066a73a01749af3f876bb67796efbeaf5e1f4ed9d429ed129cfe3",
+      "coordinateFrame": "Authored mesh Y-up coordinates, identity frame frozen after front/side/opposite/under-jaw/rear visual inspection",
+      "geometryToVisibleBind": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "headCountVisuallyVerified": 1,
+      "heads": [
+        {
+          "id": "primary",
+          "landmarks": [
+            "crown",
+            "forehead",
+            "leftEye",
+            "rightEye",
+            "muzzle",
+            "leftCheek",
+            "rightCheek",
+            "lowerFace",
+            "backSkull",
+            "chin",
+            "underChin",
+            "leftJaw",
+            "rightJaw"
+          ]
+        }
+      ],
+      "landmarks": {
+        "crown": {
+          "center": [
+            0,
+            0.77,
+            0.16
+          ],
+          "radius": 0.22
+        },
+        "forehead": {
+          "center": [
+            0,
+            0.59,
+            0.49
+          ],
+          "radius": 0.17
+        },
+        "leftEye": {
+          "center": [
+            -0.3,
+            0.42,
+            0.57
+          ],
+          "radius": 0.16
+        },
+        "rightEye": {
+          "center": [
+            0.3,
+            0.42,
+            0.57
+          ],
+          "radius": 0.16
+        },
+        "muzzle": {
+          "center": [
+            0,
+            0.2,
+            0.67
+          ],
+          "radius": 0.17
+        },
+        "leftCheek": {
+          "center": [
+            -0.4,
+            0.2,
+            0.49
+          ],
+          "radius": 0.16
+        },
+        "rightCheek": {
+          "center": [
+            0.4,
+            0.2,
+            0.49
+          ],
+          "radius": 0.16
+        },
+        "lowerFace": {
+          "center": [
+            0,
+            0.035,
+            0.62
+          ],
+          "radius": 0.13
+        },
+        "backSkull": {
+          "center": [
+            0,
+            0.48,
+            -0.23
+          ],
+          "radius": 0.15
+        },
+        "chin": {
+          "center": [
+            0,
+            -0.02,
+            0.48
+          ],
+          "radius": 0.15
+        },
+        "underChin": {
+          "center": [
+            0,
+            -0.07,
+            0.46
+          ],
+          "radius": 0.11
+        },
+        "leftJaw": {
+          "center": [
+            -0.07,
+            -0.06,
+            0.48
+          ],
+          "radius": 0.12
+        },
+        "rightJaw": {
+          "center": [
+            0.07,
+            -0.06,
+            0.48
+          ],
+          "radius": 0.12
+        }
+      },
+      "camera": {
+        "bounds": [
+          -0.75,
+          0.75,
+          -0.2,
+          1,
+          -1.1,
+          1.1
+        ],
+        "cameraPadding": 1
+      },
+      "visualApproval": false
+    }
+  }
+}

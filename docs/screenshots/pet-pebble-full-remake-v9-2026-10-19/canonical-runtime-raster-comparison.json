@@ -1,0 +1,90 @@
+[
+  {
+    "quality": "low",
+    "stage": "source",
+    "name": "starter-earth-source-head.webp",
+    "sha256": "e3c992fa17abf531f99572620499560295a9a99b3d4518eee180f13a0b69890b",
+    "sourceAndBattleFaceProbePassed": true,
+    "exactDecodedPixelsIdentical": false,
+    "changedChannels": 5903788,
+    "maxDelta": 255,
+    "averageDelta": 14.666906286168981
+  },
+  {
+    "quality": "low",
+    "stage": "source",
+    "name": "starter-earth-source-body.webp",
+    "sha256": "e3c992fa17abf531f99572620499560295a9a99b3d4518eee180f13a0b69890b",
+    "sourceAndBattleFaceProbePassed": true,
+    "exactDecodedPixelsIdentical": true,
+    "changedChannels": 0,
+    "maxDelta": 0,
+    "averageDelta": 0
+  },
+  {
+    "quality": "low",
+    "stage": "battle",
+    "name": "starter-earth-battle-head.webp",
+    "sha256": "0d32d4a122c8d5524a71489a420ed730986a95bce855bbe864b7dfb341f20bcc",
+    "sourceAndBattleFaceProbePassed": true,
+    "exactDecodedPixelsIdentical": false,
+    "changedChannels": 5866717,
+    "maxDelta": 254,
+    "averageDelta": 14.742046380690587
+  },
+  {
+    "quality": "low",
+    "stage": "battle",
+    "name": "starter-earth-battle-body.webp",
+    "sha256": "0d32d4a122c8d5524a71489a420ed730986a95bce855bbe864b7dfb341f20bcc",
+    "sourceAndBattleFaceProbePassed": true,
+    "exactDecodedPixelsIdentical": true,
+    "changedChannels": 0,
+    "maxDelta": 0,
+    "averageDelta": 0
+  },
+  {
+    "quality": "medium",
+    "stage": "source",
+    "name": "starter-earth-source-head.webp",
+    "sha256": "e3c992fa17abf531f99572620499560295a9a99b3d4518eee180f13a0b69890b",
+    "sourceAndBattleFaceProbePassed": true,
+    "exactDecodedPixelsIdentical": false,
+    "changedChannels": 5897110,
+    "maxDelta": 255,
+    "averageDelta": 14.668273594232254
+  },
+  {
+    "quality": "medium",
+    "stage": "source",
+    "name": "starter-earth-source-body.webp",
+    "sha256": "e3c992fa17abf531f99572620499560295a9a99b3d4518eee180f13a0b69890b",
+    "sourceAndBattleFaceProbePassed": true,
+    "exactDecodedPixelsIdentical": true,
+    "changedChannels": 0,
+    "maxDelta": 0,
+    "averageDelta": 0
+  },
+  {
+    "quality": "medium",
+    "stage": "battle",
+    "name": "starter-earth-battle-head.webp",
+    "sha256": "0d32d4a122c8d5524a71489a420ed730986a95bce855bbe864b7dfb341f20bcc",
+    "sourceAndBattleFaceProbePassed": true,
+    "exactDecodedPixelsIdentical": false,
+    "changedChannels": 5898113,
+    "maxDelta": 255,
+    "averageDelta": 14.747624240451389
+  },
+  {
+    "quality": "medium",
+    "stage": "battle",
+    "name": "starter-earth-battle-body.webp",
+    "sha256": "0d32d4a122c8d5524a71489a420ed730986a95bce855bbe864b7dfb341f20bcc",
+    "sourceAndBattleFaceProbePassed": true,
+    "exactDecodedPixelsIdentical": true,
+    "changedChannels": 0,
+    "maxDelta": 0,
+    "averageDelta": 0
+  }
+]

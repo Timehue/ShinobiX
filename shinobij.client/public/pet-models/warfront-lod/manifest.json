@@ -3783,17 +3783,17 @@
     },
     {
       "sourceUrl": "/pet-models/starter-earth.glb",
-      "lodUrl": "/pet-models/warfront-lod/starter-earth.glb?v=20260902-battle-lod-v1-c99b0471489b-64524351ebb7",
-      "sourceBytes": 1143828,
-      "lodBytes": 549180,
-      "sourceSha256": "c99b0471489b65a5fe2c4b9b50bf781c48f4820f7eacdb092cf983a15ca51894",
-      "lodSha256": "64524351ebb7534dd603645a6d8015ec745829d9bfa75ced0a8a9340e725f0b3",
-      "sourceTriangles": 18120,
-      "lodTriangles": 12000,
-      "reduction": 0.337748,
-      "lowPolySource": true,
-      "sourceVertices": 12625,
-      "lodVertices": 9218,
+      "lodUrl": "/pet-models/warfront-lod/starter-earth.glb?v=20260902-battle-lod-v1-e3c992fa17ab-0d32d4a122c8",
+      "sourceBytes": 2831320,
+      "lodBytes": 687224,
+      "sourceSha256": "e3c992fa17abf531f99572620499560295a9a99b3d4518eee180f13a0b69890b",
+      "lodSha256": "0d32d4a122c8d5524a71489a420ed730986a95bce855bbe864b7dfb341f20bcc",
+      "sourceTriangles": 39488,
+      "lodTriangles": 9998,
+      "reduction": 0.746809,
+      "lowPolySource": false,
+      "sourceVertices": 27160,
+      "lodVertices": 8376,
       "skins": 1,
       "joints": 21,
       "animations": 13,
@@ -3801,9 +3801,9 @@
       "textures": 1,
       "boundsMaxDelta": 0,
       "silhouettes": {
-        "front": 0.996987,
-        "threeQuarter": 0.997698,
-        "side": 0.997748
+        "front": 0.99111,
+        "threeQuarter": 0.988814,
+        "side": 0.986864
       }
     },
     {

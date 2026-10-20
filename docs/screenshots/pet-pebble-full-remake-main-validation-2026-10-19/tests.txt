@@ -1,0 +1,38 @@
+✔ user rejection overrides matching hashes and completed automated or visual checks (1.4756ms)
+✔ a model replacement cannot inherit its old visual approval (0.9916ms)
+✔ missing, replaced and untracked inspection evidence cannot pass the review gate (135.011ms)
+✔ missing pets, skipped clips and missing views fail closed (0.4045ms)
+✔ foot contact has constant ground speed, clear swing and continuous takeoff/landing (2.023ms)
+✔ leg solve preserves contact under rotated, nonuniform evolved-model transforms (5.7174ms)
+✔ every delivered full model and LOD carries the reviewed contact bank and bounded precision (1702.5099ms)
+✔ production spline interpolation keeps planted feet grounded and cyclic poses seamless (920.3112ms)
+✔ reduced-mesh underarm stretch is reproduced by the failed LOD and prevented across every clip and blend (4708.834ms)
+✔ both meshes retain thirteen complete facial patches including the underside and rear of the jaw (5754.788ms)
+✔ unreleased fixtures retain exact bytes and all thirteen raw clips (86.7111ms)
+✔ head, neck, torso and limbs are one closed skin surface (177.7082ms)
+✔ visually observed thigh spike is reproduced by the rejected binding and prevented in every take and blend (82.5747ms)
+✔ complete facial patches include the lower chin; failed chin binding remains detectable (4487.0128ms)
+✔ new skin has a real UV unwrap rather than a uniform colour sample (7.7578ms)
+✔ Pebble source: release bytes differ from the twice-inspected candidate only in root provenance (33.5525ms)
+✔ Pebble battle: release bytes differ from the twice-inspected candidate only in root provenance (50.9698ms)
+✔ rejected detached scalp never satisfies the replacement provenance gate (9.9362ms)
+✔ only the five inspected shell/cloth components can bypass the generic size heuristic (380.0628ms)
+✔ rejected scalp attempt cannot be readmitted by its old provenance (42.5035ms)
+✔ historical scalp identification is confined to its exact rejected fixture (34.962ms)
+✔ Pebble floor correction reproduces reviewed bytes without changing its sculpt or limb articulation (7216.1371ms)
+✔ Independent full-surface samples detect the pre-correction floor penetration (14512.6447ms)
+✔ Pebble source: attack, cast and recoil clear the floor at independent offset times (14045.7743ms)
+✔ Pebble battle: attack, cast and recoil clear the floor at independent offset times (11630.1463ms)
+✔ Pebble rebuild is reproducible from its own pinned source and retains all thirteen takes (451.9501ms)
+✔ Scalp cleanup preserves the original eyes, muzzle and chin geometry and UVs (328.1581ms)
+✔ Pebble source: ten independently marked face regions remain coherent through all clips and 468 blends (1379.0731ms)
+✔ Pebble battle: ten independently marked face regions remain coherent through all clips and 468 blends (1402.1958ms)
+✔ every live pet and battle LOD keeps its reviewed mesh payload and polished curves (2414.5214ms)
+ℹ tests 30
+ℹ suites 0
+ℹ pass 30
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 52531.5301

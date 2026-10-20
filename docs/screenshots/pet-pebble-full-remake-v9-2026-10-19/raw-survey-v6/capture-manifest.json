@@ -1,0 +1,86 @@
+{
+  "sourceSha256": "c56b6391da217d8aa076c5cde6ea150b0eefa78b33d0ba347390e58001fc3a83",
+  "phases": [
+    0,
+    0.125,
+    0.375,
+    0.625,
+    0.875,
+    1
+  ],
+  "views": [
+    "body-front",
+    "body-side",
+    "head-front",
+    "head-side"
+  ],
+  "files": [
+    {
+      "clip": "idle",
+      "file": ".tmp/pebble-full-remake/raw-survey-v6/idle.png",
+      "actuallyVisuallyInspected": false
+    },
+    {
+      "clip": "idle_2",
+      "file": ".tmp/pebble-full-remake/raw-survey-v6/idle_2.png",
+      "actuallyVisuallyInspected": false
+    },
+    {
+      "clip": "walk",
+      "file": ".tmp/pebble-full-remake/raw-survey-v6/walk.png",
+      "actuallyVisuallyInspected": false
+    },
+    {
+      "clip": "gallop",
+      "file": ".tmp/pebble-full-remake/raw-survey-v6/gallop.png",
+      "actuallyVisuallyInspected": false
+    },
+    {
+      "clip": "gallop_jump",
+      "file": ".tmp/pebble-full-remake/raw-survey-v6/gallop_jump.png",
+      "actuallyVisuallyInspected": false
+    },
+    {
+      "clip": "attack",
+      "file": ".tmp/pebble-full-remake/raw-survey-v6/attack.png",
+      "actuallyVisuallyInspected": false
+    },
+    {
+      "clip": "idle_hitreact1",
+      "file": ".tmp/pebble-full-remake/raw-survey-v6/idle_hitreact1.png",
+      "actuallyVisuallyInspected": false
+    },
+    {
+      "clip": "death",
+      "file": ".tmp/pebble-full-remake/raw-survey-v6/death.png",
+      "actuallyVisuallyInspected": false
+    },
+    {
+      "clip": "entrance",
+      "file": ".tmp/pebble-full-remake/raw-survey-v6/entrance.png",
+      "actuallyVisuallyInspected": false
+    },
+    {
+      "clip": "cast",
+      "file": ".tmp/pebble-full-remake/raw-survey-v6/cast.png",
+      "actuallyVisuallyInspected": false
+    },
+    {
+      "clip": "guard",
+      "file": ".tmp/pebble-full-remake/raw-survey-v6/guard.png",
+      "actuallyVisuallyInspected": false
+    },
+    {
+      "clip": "rest",
+      "file": ".tmp/pebble-full-remake/raw-survey-v6/rest.png",
+      "actuallyVisuallyInspected": false
+    },
+    {
+      "clip": "victory",
+      "file": ".tmp/pebble-full-remake/raw-survey-v6/victory.png",
+      "actuallyVisuallyInspected": false
+    }
+  ],
+  "errors": [],
+  "acceptance": "private draft survey only"
+}
