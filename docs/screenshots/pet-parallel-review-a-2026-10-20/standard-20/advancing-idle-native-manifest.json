@@ -1,0 +1,298 @@
+{
+  "id": "standard-20",
+  "frames": 24,
+  "sourceRecords": [
+    {
+      "sourcePath": "docs/screenshots/pet-independent-face-2026-10-15/standard-20-companion-idle-0.webp",
+      "sourceSha256": "388508a75baccf6e20a895b54a18d6fe1ceff9e5fe3f3da777a5459cf45c6abf",
+      "cell": 0,
+      "crop": {
+        "left": 163,
+        "top": 65,
+        "width": 176,
+        "height": 174
+      },
+      "nativePixelsPreserved": true
+    },
+    {
+      "sourcePath": "docs/screenshots/pet-independent-face-2026-10-15/standard-20-companion-idle-0.webp",
+      "sourceSha256": "388508a75baccf6e20a895b54a18d6fe1ceff9e5fe3f3da777a5459cf45c6abf",
+      "cell": 1,
+      "crop": {
+        "left": 663,
+        "top": 65,
+        "width": 176,
+        "height": 174
+      },
+      "nativePixelsPreserved": true
+    },
+    {
+      "sourcePath": "docs/screenshots/pet-independent-face-2026-10-15/standard-20-companion-idle-0.webp",
+      "sourceSha256": "388508a75baccf6e20a895b54a18d6fe1ceff9e5fe3f3da777a5459cf45c6abf",
+      "cell": 2,
+      "crop": {
+        "left": 163,
+        "top": 345,
+        "width": 176,
+        "height": 174
+      },
+      "nativePixelsPreserved": true
+    },
+    {
+      "sourcePath": "docs/screenshots/pet-independent-face-2026-10-15/standard-20-companion-idle-0.webp",
+      "sourceSha256": "388508a75baccf6e20a895b54a18d6fe1ceff9e5fe3f3da777a5459cf45c6abf",
+      "cell": 3,
+      "crop": {
+        "left": 663,
+        "top": 341,
+        "width": 176,
+        "height": 180
+      },
+      "nativePixelsPreserved": true
+    },
+    {
+      "sourcePath": "docs/screenshots/pet-independent-face-2026-10-15/standard-20-companion-idle-1.webp",
+      "sourceSha256": "a62ce76e18d67bb6182e8b29cac1e73bf44f46e9d6103c8143c62f4066d6e878",
+      "cell": 0,
+      "crop": {
+        "left": 163,
+        "top": 61,
+        "width": 174,
+        "height": 178
+      },
+      "nativePixelsPreserved": true
+    },
+    {
+      "sourcePath": "docs/screenshots/pet-independent-face-2026-10-15/standard-20-companion-idle-1.webp",
+      "sourceSha256": "a62ce76e18d67bb6182e8b29cac1e73bf44f46e9d6103c8143c62f4066d6e878",
+      "cell": 1,
+      "crop": {
+        "left": 663,
+        "top": 63,
+        "width": 175,
+        "height": 176
+      },
+      "nativePixelsPreserved": true
+    },
+    {
+      "sourcePath": "docs/screenshots/pet-independent-face-2026-10-15/standard-20-companion-idle-1.webp",
+      "sourceSha256": "a62ce76e18d67bb6182e8b29cac1e73bf44f46e9d6103c8143c62f4066d6e878",
+      "cell": 2,
+      "crop": {
+        "left": 163,
+        "top": 345,
+        "width": 175,
+        "height": 174
+      },
+      "nativePixelsPreserved": true
+    },
+    {
+      "sourcePath": "docs/screenshots/pet-independent-face-2026-10-15/standard-20-companion-idle-1.webp",
+      "sourceSha256": "a62ce76e18d67bb6182e8b29cac1e73bf44f46e9d6103c8143c62f4066d6e878",
+      "cell": 3,
+      "crop": {
+        "left": 661,
+        "top": 344,
+        "width": 176,
+        "height": 177
+      },
+      "nativePixelsPreserved": true
+    },
+    {
+      "sourcePath": "docs/screenshots/pet-independent-face-2026-10-15/standard-20-companion-idle-2.webp",
+      "sourceSha256": "66f02e5f794e28e4075dbac5125e05cad05dd7a10bbba7c0b689ea056dd113f9",
+      "cell": 0,
+      "crop": {
+        "left": 163,
+        "top": 64,
+        "width": 174,
+        "height": 175
+      },
+      "nativePixelsPreserved": true
+    },
+    {
+      "sourcePath": "docs/screenshots/pet-independent-face-2026-10-15/standard-20-companion-idle-2.webp",
+      "sourceSha256": "66f02e5f794e28e4075dbac5125e05cad05dd7a10bbba7c0b689ea056dd113f9",
+      "cell": 1,
+      "crop": {
+        "left": 663,
+        "top": 65,
+        "width": 175,
+        "height": 174
+      },
+      "nativePixelsPreserved": true
+    },
+    {
+      "sourcePath": "docs/screenshots/pet-independent-face-2026-10-15/standard-20-companion-idle-2.webp",
+      "sourceSha256": "66f02e5f794e28e4075dbac5125e05cad05dd7a10bbba7c0b689ea056dd113f9",
+      "cell": 2,
+      "crop": {
+        "left": 163,
+        "top": 345,
+        "width": 175,
+        "height": 174
+      },
+      "nativePixelsPreserved": true
+    },
+    {
+      "sourcePath": "docs/screenshots/pet-independent-face-2026-10-15/standard-20-companion-idle-2.webp",
+      "sourceSha256": "66f02e5f794e28e4075dbac5125e05cad05dd7a10bbba7c0b689ea056dd113f9",
+      "cell": 3,
+      "crop": {
+        "left": 663,
+        "top": 341,
+        "width": 174,
+        "height": 180
+      },
+      "nativePixelsPreserved": true
+    },
+    {
+      "sourcePath": "docs/screenshots/pet-independent-face-2026-10-15/standard-20-companion-idle-3.webp",
+      "sourceSha256": "c34e8c391b95b10ee4a4884d5254a48597bd03647fd5745a3a43242e98aa05f0",
+      "cell": 0,
+      "crop": {
+        "left": 163,
+        "top": 65,
+        "width": 174,
+        "height": 174
+      },
+      "nativePixelsPreserved": true
+    },
+    {
+      "sourcePath": "docs/screenshots/pet-independent-face-2026-10-15/standard-20-companion-idle-3.webp",
+      "sourceSha256": "c34e8c391b95b10ee4a4884d5254a48597bd03647fd5745a3a43242e98aa05f0",
+      "cell": 1,
+      "crop": {
+        "left": 663,
+        "top": 65,
+        "width": 175,
+        "height": 174
+      },
+      "nativePixelsPreserved": true
+    },
+    {
+      "sourcePath": "docs/screenshots/pet-independent-face-2026-10-15/standard-20-companion-idle-3.webp",
+      "sourceSha256": "c34e8c391b95b10ee4a4884d5254a48597bd03647fd5745a3a43242e98aa05f0",
+      "cell": 2,
+      "crop": {
+        "left": 163,
+        "top": 345,
+        "width": 175,
+        "height": 174
+      },
+      "nativePixelsPreserved": true
+    },
+    {
+      "sourcePath": "docs/screenshots/pet-independent-face-2026-10-15/standard-20-companion-idle-3.webp",
+      "sourceSha256": "c34e8c391b95b10ee4a4884d5254a48597bd03647fd5745a3a43242e98aa05f0",
+      "cell": 3,
+      "crop": {
+        "left": 663,
+        "top": 341,
+        "width": 174,
+        "height": 181
+      },
+      "nativePixelsPreserved": true
+    },
+    {
+      "sourcePath": "docs/screenshots/pet-independent-face-2026-10-15/standard-20-companion-idle-4.webp",
+      "sourceSha256": "c3f882366aa0ce11dfc9c7504d3f113c3707d3ada25acc7a67531899eec0873b",
+      "cell": 0,
+      "crop": {
+        "left": 163,
+        "top": 65,
+        "width": 176,
+        "height": 174
+      },
+      "nativePixelsPreserved": true
+    },
+    {
+      "sourcePath": "docs/screenshots/pet-independent-face-2026-10-15/standard-20-companion-idle-4.webp",
+      "sourceSha256": "c3f882366aa0ce11dfc9c7504d3f113c3707d3ada25acc7a67531899eec0873b",
+      "cell": 1,
+      "crop": {
+        "left": 663,
+        "top": 63,
+        "width": 176,
+        "height": 176
+      },
+      "nativePixelsPreserved": true
+    },
+    {
+      "sourcePath": "docs/screenshots/pet-independent-face-2026-10-15/standard-20-companion-idle-4.webp",
+      "sourceSha256": "c3f882366aa0ce11dfc9c7504d3f113c3707d3ada25acc7a67531899eec0873b",
+      "cell": 2,
+      "crop": {
+        "left": 163,
+        "top": 345,
+        "width": 176,
+        "height": 174
+      },
+      "nativePixelsPreserved": true
+    },
+    {
+      "sourcePath": "docs/screenshots/pet-independent-face-2026-10-15/standard-20-companion-idle-4.webp",
+      "sourceSha256": "c3f882366aa0ce11dfc9c7504d3f113c3707d3ada25acc7a67531899eec0873b",
+      "cell": 3,
+      "crop": {
+        "left": 663,
+        "top": 341,
+        "width": 174,
+        "height": 181
+      },
+      "nativePixelsPreserved": true
+    },
+    {
+      "sourcePath": "docs/screenshots/pet-independent-face-2026-10-15/standard-20-companion-idle-5.webp",
+      "sourceSha256": "c8d01465fc818e23a5fe3a2794b85c1600402e657011d754a50de3f4d6dccd18",
+      "cell": 0,
+      "crop": {
+        "left": 163,
+        "top": 65,
+        "width": 174,
+        "height": 174
+      },
+      "nativePixelsPreserved": true
+    },
+    {
+      "sourcePath": "docs/screenshots/pet-independent-face-2026-10-15/standard-20-companion-idle-5.webp",
+      "sourceSha256": "c8d01465fc818e23a5fe3a2794b85c1600402e657011d754a50de3f4d6dccd18",
+      "cell": 1,
+      "crop": {
+        "left": 663,
+        "top": 65,
+        "width": 175,
+        "height": 174
+      },
+      "nativePixelsPreserved": true
+    },
+    {
+      "sourcePath": "docs/screenshots/pet-independent-face-2026-10-15/standard-20-companion-idle-5.webp",
+      "sourceSha256": "c8d01465fc818e23a5fe3a2794b85c1600402e657011d754a50de3f4d6dccd18",
+      "cell": 2,
+      "crop": {
+        "left": 163,
+        "top": 344,
+        "width": 175,
+        "height": 175
+      },
+      "nativePixelsPreserved": true
+    },
+    {
+      "sourcePath": "docs/screenshots/pet-independent-face-2026-10-15/standard-20-companion-idle-5.webp",
+      "sourceSha256": "c8d01465fc818e23a5fe3a2794b85c1600402e657011d754a50de3f4d6dccd18",
+      "cell": 3,
+      "crop": {
+        "left": 663,
+        "top": 345,
+        "width": 174,
+        "height": 177
+      },
+      "nativePixelsPreserved": true
+    }
+  ],
+  "sha256": "88f8c887c31b27e780c02c8c2eae374de6553c866bbe8e484b5ed14b203dd359",
+  "resizing": false,
+  "uniformBackgroundThreshold": 3,
+  "review": "pending"
+}
