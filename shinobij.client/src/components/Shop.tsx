@@ -10,6 +10,7 @@ import "../styles/index/17-shop-inventory-loadout.css";
 import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { effectiveItemLevelReq, meetsItemLevelReq } from "../../../shared/item-level-gate";
 import { wildBindingSeal } from "../../../shared/wild-binding";
+import { isCraftOnlyPetFood } from "../../../shared/pet-food";
 import { getAllItems } from "../lib/items";
 import { weaponEffectDisplayValue } from "../lib/weapon-effect-display";
 import { countItem, itemCountsById } from "../lib/inventory";
@@ -168,6 +169,7 @@ function ShopBase({
         // Drops, crafting materials, and keys ship with cost: 0 because they're
         // earned in-game, not bought. Exclude them from shop listings.
         return SHOP_SLOTS.includes(item.slot)
+            && !isCraftOnlyPetFood(item.id)
             && item.id !== VILLAGE_TRANSFER_SCROLL_ID
             && item.id !== PROFESSION_CHANGE_APPROVAL_ID
             && filterRarities.includes(item.rarity)

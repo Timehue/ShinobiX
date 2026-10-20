@@ -1373,6 +1373,7 @@ export function CentralHub({
                     ...Object.entries(VILLAGE_SUPPLY_GOODS).map(([itemId, good]) => ({ name: good.name, itemId, per: 1, desc: `1× ${good.name} · donate for ${good.provisions} provisions · village only` })),
                     { name: "Pet Treats", desc: "1× Treats (+100 pet XP)", itemId: "pet-treat", per: 1 },
                     { name: "Elemental Treats", desc: "1× Elemental Treats (+250 pet XP)", itemId: "elemental-pet-treat", per: 1 },
+                    { name: "Ancient Treats", desc: "1× Ancient Treats (+500 pet XP)", itemId: "ancient-pet-treat", per: 1 },
                     { name: "Master Beast Seal", desc: "1× Master Beast Seal · bind wild pets at 65% Resolve or lower · level 30", itemId: "beast-seal-master", per: 1, levelReq: 30 },
                     { name: "Aura Dust", desc: "+50 Aura Dust", itemId: "currency:aura-dust" },
                     { name: "Bone Charm", desc: "+1 Bone Charm", itemId: "currency:bone-charm" },

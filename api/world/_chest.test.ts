@@ -135,7 +135,8 @@ describe('ancient chest settlement', () => {
 
     it('allows repeated stackable treat drops', () => {
         const next = applyAncientChestLoot({ level: 1, xp: 0, inventory: ['pet-treat'], tileCards: [] }, { xp: 50, itemId: 'pet-treat' });
-        assert.deepEqual(next.inventory, ['pet-treat', 'pet-treat']);
+        assert.deepEqual(next.inventory, ['pet-treat']);
+        assert.deepEqual(next.itemStacks, [{ itemId: 'pet-treat', count: 1 }]);
     });
 
     it('drops Tempered Beast Seals into a counted stack without changing the relic band', () => {

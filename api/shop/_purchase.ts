@@ -5,6 +5,7 @@ import { wildBindingSeal } from '../../shared/wild-binding.js';
 import { PROFESSION_CHANGE_APPROVAL_ID, professionChangeUnlockError } from '../../shared/profession-change.js';
 import { VILLAGE_TRANSFER_SCROLL_ID, VILLAGE_TRANSFER_COST, villageTransferUnlockError } from '../../shared/village-transfer.js';
 import { isPurchasableItem } from './_settlement.js';
+import { isPetFood } from '../../shared/pet-food.js';
 
 type Character = Record<string, unknown>;
 
@@ -45,7 +46,7 @@ export function purchaseCatalogItem(character: Character, itemId: unknown, qtyRa
     const combatConsumable = item.slot === 'thrown' || item.slot === 'potion'
         || (item.slot === 'item' && (item.weaponEffect != null || item.apCost != null || item.weaponEp != null || item.restoreChakra != null || item.restoreStamina != null));
     const beastSeal = wildBindingSeal(id);
-    const cap = beastSeal ? 99 : item.slot === 'potion' ? 2 : combatConsumable ? 50 : null;
+    const cap = isPetFood(id) ? 9999 : beastSeal ? 99 : item.slot === 'potion' ? 2 : combatConsumable ? 50 : null;
     let qty = cap == null ? 1 : Math.max(1, Math.min(cap, whole(qtyRaw) || 1));
     if (cap != null) qty = Math.min(qty, Math.max(0, cap - itemCount(character, id)));
     else if (itemCount(character, id) > 0 || (tool && gatheringToolOwned(character, id))) return { ok: false as const, reason: 'already-owned' as const };

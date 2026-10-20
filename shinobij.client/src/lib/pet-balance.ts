@@ -603,8 +603,11 @@ export function normalizePetTemplate(pet: Pet, petPool: Pet[]): Pet {
         description: pet.description ?? baseTemplate.description ?? fallback?.description,
         jutsus,
     } : pet;
+    // An owned pet's immutable growth base is authoritative. Template floors
+    // must not inflate its rounded stats (or undo a respec) on save hydration.
+    const grown = merged.growthBaseStats ? normalizePetGrowth(merged) : merged;
     return capPetStats({
-        ...merged,
+        ...grown,
         rarity: merged.rarity ?? "standard",
         level: Math.max(1, Math.floor(merged.level ?? 1)),
         xp: Math.max(0, Math.floor(merged.xp ?? 0)),
@@ -717,7 +720,7 @@ export const PET_SPECIALIZATION_GROWTH = 0.01;
 export const PET_AGILITY_GROWTH = 0.005;
 /** Compatibility alias for older imports; specialization now grows at 1%. */
 export const PET_LEVEL_GROWTH = PET_SPECIALIZATION_GROWTH;
-export const PET_GROWTH_VERSION = 1;
+export const PET_GROWTH_VERSION = 2;
 
 type GrowthStat = "hp" | "attack" | "defense" | "speed";
 export type GrowthAttribute = "vitality" | "power" | "guard" | "agility";
@@ -725,8 +728,14 @@ const GROWTH_ATTRIBUTES: GrowthAttribute[] = ["vitality", "power", "guard", "agi
 const STAT_ATTRIBUTE: Record<GrowthStat, GrowthAttribute> = { hp: "vitality", attack: "power", defense: "guard", speed: "agility" };
 
 export const emptyPetGrowthAllocation = () => ({ vitality: 0, power: 0, guard: 0, agility: 0 });
-export const petGrowthPointsEarned = (level: number) => Math.max(0, Math.min(100, Math.floor(level || 1)) - 1);
-export const petGrowthAttributeCap = (level: number) => Math.ceil(petGrowthPointsEarned(level) / 2);
+export const petGrowthPointsEarned = (level: number) => Math.max(0, Math.min(100, Math.floor(level || 1)) - 1) * 3;
+export const petGrowthAttributeCap = (level: number) => petGrowthPointsEarned(level);
+
+export function petSpecializationGrowth(points: number, agility = false): number {
+    const n = Math.max(0, Math.floor(points || 0));
+    return (Math.min(n, 20) * 0.01 + Math.min(Math.max(0, n - 20), 30) * 0.005
+        + Math.max(0, n - 50) * 0.0025) * (agility ? 0.5 : 1);
+}
 
 function traitGrowthBonus(trait: PetTrait | undefined, stat: GrowthStat) {
     if (trait === "Fateweaver") return 0.20;
@@ -753,7 +762,7 @@ export function normalizedPetGrowthAllocation(pet: Pet) {
 export function derivePetGrowthStats(pet: Pet): Pick<Pet, GrowthStat> {
     const earned = petGrowthPointsEarned(pet.level);
     const allocation = normalizedPetGrowthAllocation(pet);
-    const core = earned * PET_CORE_GROWTH_PER_LEVEL;
+    const core = (earned / 3) * PET_CORE_GROWTH_PER_LEVEL;
     const base = pet.growthBaseStats ?? {
         hp: Math.max(1, Math.round(pet.hp / (1 + traitGrowthBonus(pet.trait, "hp")))),
         attack: Math.max(1, Math.round(pet.attack / (1 + traitGrowthBonus(pet.trait, "attack")))),
@@ -762,13 +771,17 @@ export function derivePetGrowthStats(pet: Pet): Pick<Pet, GrowthStat> {
     };
     const result = {} as Pick<Pet, GrowthStat>;
     (["hp", "attack", "defense", "speed"] as GrowthStat[]).forEach((stat) => {
-        const coefficient = stat === "speed" ? PET_AGILITY_GROWTH : PET_SPECIALIZATION_GROWTH;
-        result[stat] = Math.max(1, Math.round(base[stat] * (1 + traitGrowthBonus(pet.trait, stat) + core + allocation[STAT_ATTRIBUTE[stat]] * coefficient)));
+        const specialization = petSpecializationGrowth(allocation[STAT_ATTRIBUTE[stat]], stat === "speed");
+        result[stat] = Math.max(1, Math.round(base[stat] * (1 + traitGrowthBonus(pet.trait, stat) + core + specialization)));
     });
     return result;
 }
 
 export function normalizePetGrowth(pet: Pet): Pet {
+    if ((pet.growthVersion ?? 0) < PET_GROWTH_VERSION) {
+        const old = pet.growthAllocation ?? emptyPetGrowthAllocation();
+        pet = { ...pet, growthAllocation: { vitality: old.vitality * 3, power: old.power * 3, guard: old.guard * 3, agility: old.agility * 3 } };
+    }
     const allocation = normalizedPetGrowthAllocation(pet);
     const growthBaseStats = pet.growthBaseStats ?? {
         hp: Math.max(1, Math.round(pet.hp / (1 + traitGrowthBonus(pet.trait, "hp")))),

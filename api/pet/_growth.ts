@@ -1,13 +1,14 @@
 /**
  * Authoritative pet level-growth math.
  *
- * A pet earns one Growth Point per level after level 1. Every level also grants
+ * A pet earns three Growth Points per level after level 1. Every level also grants
  * modest automatic core growth, so an unspent pet never becomes dead weight.
  * Allocations are additive from the pet's immutable species stats (before trait
  * bonuses), which prevents rounding drift and source-dependent stat gains.
  */
 
-export const PET_GROWTH_VERSION = 1;
+export const PET_GROWTH_VERSION = 2;
+export const PET_GROWTH_POINTS_PER_LEVEL = 3;
 export const PET_CORE_GROWTH_PER_LEVEL = 0.0075;
 export const PET_SPECIALIZATION_GROWTH = 0.01;
 export const PET_AGILITY_GROWTH = 0.005;
@@ -42,11 +43,11 @@ function positiveStat(value: unknown, fallback = 1): number {
 }
 
 export function growthPointsEarned(levelRaw: unknown): number {
-    return Math.max(0, Math.min(PET_MAX_LEVEL, whole(levelRaw, 1)) - 1);
+    return Math.max(0, Math.min(PET_MAX_LEVEL, whole(levelRaw, 1)) - 1) * PET_GROWTH_POINTS_PER_LEVEL;
 }
 
 export function growthAttributeCap(levelRaw: unknown): number {
-    return Math.ceil(growthPointsEarned(levelRaw) / 2);
+    return growthPointsEarned(levelRaw);
 }
 
 export function sanitizeGrowthAllocation(value: unknown, levelRaw: unknown): PetGrowthAllocation {
@@ -114,18 +115,26 @@ export function agilityGrowthPerPoint(levelRaw: unknown): number {
     return PET_AGILITY_GROWTH;
 }
 
+/** Tiers are independent per attribute; Agility buys half the stat bonus. */
+export function specializationGrowth(pointsRaw: unknown, agility = false): number {
+    const points = Math.max(0, whole(pointsRaw));
+    const bonus = Math.min(points, 20) * 0.01
+        + Math.min(Math.max(0, points - 20), 30) * 0.005
+        + Math.max(0, points - 50) * 0.0025;
+    return bonus * (agility ? 0.5 : 1);
+}
+
 export function derivePetGrowthStats(pet: Record<string, unknown>): PetGrowthStats {
     const level = Math.max(1, Math.min(PET_MAX_LEVEL, whole(pet.level, 1)));
-    const earned = growthPointsEarned(level);
     const base = petGrowthBaseStats(pet);
     const allocation = sanitizeGrowthAllocation(pet.growthAllocation, level);
-    const core = earned * PET_CORE_GROWTH_PER_LEVEL;
+    const core = (level - 1) * PET_CORE_GROWTH_PER_LEVEL;
     const result = {} as PetGrowthStats;
     (Object.keys(STAT_ATTRIBUTE) as PetGrowthStat[]).forEach((stat) => {
         const attribute = STAT_ATTRIBUTE[stat];
-        const specialization = stat === 'speed' ? agilityGrowthPerPoint(level) : PET_SPECIALIZATION_GROWTH;
+        const specialization = specializationGrowth(allocation[attribute], stat === 'speed');
         result[stat] = Math.max(1, Math.round(base[stat] * (
-            1 + traitGrowthBonus(pet.trait, stat) + core + allocation[attribute] * specialization
+            1 + traitGrowthBonus(pet.trait, stat) + core + specialization
         )));
     });
     return result;
@@ -143,7 +152,14 @@ export function normalizePetGrowth(
         speed: positiveStat(explicitBase?.speed, fallback.speed),
     };
     const level = Math.max(1, Math.min(PET_MAX_LEVEL, whole(pet.level, 1)));
-    const growthAllocation = sanitizeGrowthAllocation(pet.growthAllocation, level);
+    // Version 1 points represented one level each. Convert allocations exactly
+    // once; the unspent balance remains the earned total minus investments.
+    const oldAllocation = pet.growthAllocation && typeof pet.growthAllocation === 'object'
+        ? pet.growthAllocation as Record<string, unknown> : {};
+    const allocation = whole(pet.growthVersion) < PET_GROWTH_VERSION
+        ? Object.fromEntries(Object.keys(EMPTY_PET_GROWTH).map((key) => [key, Math.max(0, whole(oldAllocation[key])) * 3]))
+        : oldAllocation;
+    const growthAllocation = sanitizeGrowthAllocation(allocation, level);
     const earned = growthPointsEarned(level);
     const spent = growthPointsSpent(growthAllocation);
     const normalized = {

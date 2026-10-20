@@ -20,7 +20,7 @@ export function petTrainingUpgradeBonusPct(character: Record<string, unknown>): 
     const inClan = typeof character.clan === 'string' && character.clan.trim() !== '';
     return level(village.petYard) * 0.25 + (inClan ? level(clan.petDen) * 0.3 : 0);
 }
-export const PET_FEED_XP: Record<string, number> = { 'pet-treat': 100, 'elemental-pet-treat': 250, 'ancient-pet-treat': 500, 'golden-apple': 2000 };
+export { PET_FOOD_XP as PET_FEED_XP } from '../../shared/pet-food.js';
 
 const whole = (v: unknown, fallback = 0) => Number.isFinite(Number(v)) ? Math.floor(Number(v)) : fallback;
 
