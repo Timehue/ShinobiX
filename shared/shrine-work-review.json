@@ -1,0 +1,69 @@
+{
+  "version": 1,
+  "sector": 15,
+  "post": 111,
+  "sections": [
+    112,
+    100
+  ],
+  "newActors": 0,
+  "newRafLoops": 0,
+  "tool": {
+    "file": "shinobij.client/public/sector-life/shrine-broom-v2.webp",
+    "sha256": "ed1db035646ea970b778d10a44fec771d2d08e17569fde5a71cf074c06b9160b",
+    "bytes": 1690,
+    "width": 21,
+    "height": 96,
+    "hasAlpha": true,
+    "opaqueRed": 0,
+    "transparentPixels": 1050
+  },
+  "source": {
+    "file": "output/living-world/leaf-work/broom-provider-v2.png",
+    "sha256": "dbe50eed57fc6e53dad38100ef93886fab853437c87e35557da7e47304a441e6"
+  },
+  "mode": "Built-in image_gen generation with terrain as reference, then built-in edge cleanup edit. Deterministic alpha trim/fit normalization only.",
+  "floors": [
+    {
+      "file": "shinobij.client/public/sector-life/heartwood-rest-stop-v1.webp",
+      "sha256": "5c6b769560de3cb9109370fabd27d5b2c24620c8439fe42c52da1b8805b02798"
+    },
+    {
+      "file": "shinobij.client/public/sector-life/heartwood-dormant-shrine-v1.webp",
+      "sha256": "466955b013dc1728641f23b312b83c7b8a42553562739f0e7a7ab8993eeafeaf"
+    },
+    {
+      "file": "shinobij.client/public/sector-life/heartwood-left-lamp-v1.webp",
+      "sha256": "cd66a33e7df0a0fdd9380576a8dfb33e3d5410aef8f4ed1d89448e05a3d102ce"
+    },
+    {
+      "file": "shinobij.client/public/sector-life/heartwood-supported-shrine-v1.webp",
+      "sha256": "69b627a664b3f9efbbb7a73845da3175e31f0674cc4eca214dd03b88003c7264"
+    },
+    {
+      "file": "shinobij.client/public/sector-life/heartwood-radiant-shrine-v1.webp",
+      "sha256": "7ccbc2412131c5724a35f9f2b375657fba9ae0d4ab1941b55f4056f5f92b76b8"
+    }
+  ],
+  "floorChanges": 0,
+  "visualReview": "passed: actual final native desktop/phone work, return, weather/help, cached-night and reduced-motion views inspected; tool remains on the paved approach, names clear the brush and stay near owners, original lamps/tea/buildings unchanged",
+  "reviewEvidence": [
+    "output/living-world/leaf-work/browser/desktop-cached-night.png",
+    "output/living-world/leaf-work/browser/desktop-lower-section.png",
+    "output/living-world/leaf-work/browser/desktop-reduced-motion.png",
+    "output/living-world/leaf-work/browser/desktop-round.png",
+    "output/living-world/leaf-work/browser/desktop-upper-section.png",
+    "output/living-world/leaf-work/browser/desktop-weather-and-help.png",
+    "output/living-world/leaf-work/browser/phone-cached-night.png",
+    "output/living-world/leaf-work/browser/phone-lower-section.png",
+    "output/living-world/leaf-work/browser/phone-reduced-motion.png",
+    "output/living-world/leaf-work/browser/phone-round.png",
+    "output/living-world/leaf-work/browser/phone-upper-section.png",
+    "output/living-world/leaf-work/browser/phone-weather-and-help.png"
+  ],
+  "recipe": "scripts/bake-shrine-work-tool.mjs",
+  "prompts": [
+    "output/living-world/leaf-work/broom-prompt-v1.json",
+    "output/living-world/leaf-work/broom-edge-prompt-v2.json"
+  ]
+}

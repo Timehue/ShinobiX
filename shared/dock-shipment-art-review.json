@@ -1,0 +1,49 @@
+{
+  "sector": 2,
+  "provider": "built-in image_gen",
+  "paintings": [
+    {
+      "kind": "spilled",
+      "file": "shinobij.client/public/sector-life/north-docks-shipment-spilled-v1.webp",
+      "sha256": "d0e3212d559e3c6b4d571912a9ccbaafd5c2a4bba97a3ffc637d732f6be6adc0",
+      "bytes": 196118,
+      "base": "shinobij.client/public/sector-life/north-docks-work-stop-v1.webp",
+      "baseSha256": "cdc146ec5caf6fb231ebd92b45986b0ac3a90b9f8181ffa64153d3a31e2a6055",
+      "areas": [
+        {
+          "left": 640,
+          "top": 340,
+          "width": 150,
+          "height": 85,
+          "feather": 8
+        }
+      ]
+    },
+    {
+      "kind": "delivered",
+      "file": "shinobij.client/public/sector-life/north-docks-shipment-delivered-v1.webp",
+      "sha256": "9df9ab362633e085da8af7ec89b58cb3df11f0291a477d35f02304859fc05e80",
+      "bytes": 196156,
+      "base": "shinobij.client/public/sector-life/north-docks-work-stop-v1.webp",
+      "baseSha256": "cdc146ec5caf6fb231ebd92b45986b0ac3a90b9f8181ffa64153d3a31e2a6055",
+      "areas": [
+        {
+          "left": 300,
+          "top": 682,
+          "width": 25,
+          "height": 24,
+          "feather": 2
+        },
+        {
+          "left": 320,
+          "top": 695,
+          "width": 28,
+          "height": 27,
+          "feather": 2
+        }
+      ]
+    }
+  ],
+  "resourceReview": "All four ordinary nodes and both crystals lie outside the edit areas. Their original rocks and water are preserved before delivery encoding.",
+  "browserReview": "Six complete native desktop/390px-phone journeys passed, plus five final geometry cases for initial/delivered desktop, phone portrait and phone landscape. Agent inspected complete-v2 captures: player/merchant/dockhand at distinct positions; crate lids and bundles visible; building/NPC names and greetings avoid players and resource icons; fishing/mining surfaces retained. Two final crowded Chronicle cases also passed."
+}

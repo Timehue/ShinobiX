@@ -1158,6 +1158,7 @@
     text-overflow: ellipsis;
     white-space: nowrap;
     font-size: 0.55rem;
+    line-height: 1.2;
     font-weight: 700;
     color: #fff;
     background: rgba(20, 16, 28, 0.72);
@@ -1199,12 +1200,13 @@
 .sector-wanderer-bubble::after {
     content: "";
     position: absolute;
-    left: 50%;
+    left: var(--bubble-pointer-left, 50%);
     top: 100%;
     transform: translateX(-50%);
     border: 6px solid transparent;
     border-top-color: #fff;
 }
+.sector-wanderer-bubble[data-bubble-below="true"]::after { top: auto; bottom: 100%; border-top-color: transparent; border-bottom-color: #fff; }
 
 .stormveil-village-screen {
     position: relative;

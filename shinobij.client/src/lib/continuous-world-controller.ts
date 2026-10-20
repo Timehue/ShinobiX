@@ -8,8 +8,10 @@ import { isRealtimePresenceLive } from './use-presence-socket';
 import { worldRoadCrossings } from '../../../shared/world-road-crossings';
 import { createTapIndex } from './world-tap';
 import { createWorldMovePacer } from './world-move-pacing';
+import type {WorldCompanionChannel} from './world-pet-companion';
 
 type Host = { canvas: HTMLCanvasElement; chunk: HTMLDivElement; marker: HTMLDivElement;
+    companion?:WorldCompanionChannel;
     onPosition?: (sector: number, col: number, row: number) => void;
     /** A tap on painted ground of the current sector; true when a landmark there took it. */
     onTapTile?: (tile: number) => boolean;
@@ -165,6 +167,8 @@ export async function mountContinuousWorld(host: Host) {
         host.marker.classList.toggle('is-walking', walker.moving && !blocked);
         host.canvas.dataset.worldX = String(walker.position.x); host.canvas.dataset.worldY = String(walker.position.y);
         host.canvas.dataset.worldSector = String(sector); host.canvas.dataset.decodedMaps = String(renderer.imageCount);
+        host.companion?.current?.({now,seconds:dt,cursor:walker.cursor(world.space.layoutVersion),player:walker.position,
+            sector,nodes:world.nodes,chunk:view.chunk,tilePx:view.tilePx,paused:stale||document.hidden||resyncing||requestedSector!==sector});
         frame = requestAnimationFrame(tick);
     }
     frame = requestAnimationFrame(tick);

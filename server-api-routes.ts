@@ -268,6 +268,7 @@ import sectorQuestbookHandler         from './api/sector/questbook.js';
 import sectorStoryReckoningHandler    from './api/sector/story-reckoning.js';
 import sectorMercRoamHandler          from './api/sector/merc-roam.js';
 import sectorTracesHandler            from './api/sector/traces.js';
+import sectorLifeHandler              from './api/sector/life.js';
 import sectorTrailSignHandler         from './api/sector/trail-sign.js';
 import sectorShrineOfferHandler       from './api/sector/shrine-offer.js';
 import sectorContractHandler          from './api/sector/contract.js';
@@ -753,6 +754,7 @@ export function registerApiRoutes(route: (path: string, handler: AnyHandler) => 
     route('/sector/merc-roam',          sectorMercRoamHandler);
     // Sector traces — footfall + trail signs + shrine offerings (world remembers you)
     route('/sector/traces',             sectorTracesHandler);
+    route('/sector/life',               sectorLifeHandler);
     route('/sector/trail-sign',         sectorTrailSignHandler);
     route('/sector/shrine-offer',       sectorShrineOfferHandler);
     route('/sector/contract',           sectorContractHandler);

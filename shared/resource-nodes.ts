@@ -1,17 +1,18 @@
-import { isPlayableWildSector, SECTOR_PLACES } from './sector-geo';
+import { SECTOR_PLACES } from './sector-geo';
 import { SECTOR_FLOOR_LAYOUTS } from './sector-floor-layouts';
 import { WORLD_LAYOUT_VERSION } from './continuous-world-layout';
 import type { ResourceActivity, ResourceFamily, ResourceGrade } from './resource-gathering';
-import { nearestInMask, pathInMask, tileNeighbors } from './sector-walk-mask';
-import { WORLD_BOSS_CRYSTAL_MAX_NODES } from './world-boss-event';
+import { RESOURCE_ROCK_TILES } from './resource-node-terrain';
+import { RESOURCE_CRYSTAL_SITES } from './resource-crystal-sites';
 
 export type ResourceNode = {
     id: string; name: string; activity: ResourceActivity; sector: number; approach: number; target: number;
     difficulty: 1 | 4 | 7; ceiling: ResourceGrade; family: ResourceFamily; trace?: ResourceFamily;
     layoutVersion: string;
     worldBossCrystal?: true;
+    markerOffset?: readonly [number,number];
 };
-// Explicit water / rock targets and reachable approaches on reviewed floor masks.
+// Durable placement IDs; active sites also require reviewed natural surfaces.
 // A target is decorative terrain; the approach is where the character stands.
 const placements: readonly [number, ResourceActivity, number, number, 1 | 4 | 7, string][] = [
     [2, 'fishing', 99, 98, 1, 'Dockside shoal'], [2, 'fishing', 125, 124, 4, 'Deep harbor shoal'],
@@ -27,13 +28,9 @@ const placements: readonly [number, ResourceActivity, number, number, 1 | 4 | 7,
     [58, 'mining', 25, 26, 1, 'Cinder iron seam'], [58, 'mining', 30, 31, 4, 'Cinder ember seam'],
     [60, 'mining', 28, 27, 4, 'Obsidian seam'], [60, 'mining', 98, 99, 7, 'Obsidian heart'],
     // 2026-10-14 world-wide pass. APPEND ONLY: a node's id is its index here
-    // (resource-N), so reordering would re-point saved gathering state. Every
-    // playable sector now has a node: shoals in each sector with water and no
-    // fishing (sectors 20 and 25 fit only one, so the roomiest water sector takes
-    // the spare), one seam in each sector that had nothing. Difficulty rises with
-    // the sector's level band. Placed against the reviewed floor masks: never on
-    // a structure, gate, road exit or story marker, never touching another marker,
-    // and clear of the world-boss crystal veins and the ground the boss stands on.
+    // (resource-N), so reordering would re-point saved gathering state. The
+    // original pass forced seams into sectors without natural rock. Those
+    // entries are now retired below, while their historical IDs remain intact.
     [1, 'mining', 6, 7, 1, 'Roadside iron seam'],
     [3, 'fishing', 49, 50, 1, 'Millpond shoal'],
     [3, 'fishing', 14, 26, 4, 'Reedbank shoal'],
@@ -102,7 +99,7 @@ const placements: readonly [number, ResourceActivity, number, number, 1 | 4 | 7,
     [7, 'fishing', 72, 84, 4, 'Reedbank shoal'],
     [35, 'fishing', 121, 122, 7, 'Glacier-fed depths'],
 ];
-export const RESOURCE_NODES: readonly ResourceNode[] = placements.map(([sector, activity, approach, target, difficulty, name], index) => {
+const historicalNodes: readonly ResourceNode[] = placements.map(([sector, activity, approach, target, difficulty, name], index) => {
     const place = SECTOR_PLACES.find(p => p.id === sector)!;
     return { id: `resource-${index + 1}`, name, sector, activity, approach, target, difficulty,
         ceiling: (difficulty === 1 ? 1 : difficulty === 4 ? 2 : 3) as ResourceGrade,
@@ -112,83 +109,27 @@ export const RESOURCE_NODES: readonly ResourceNode[] = placements.map(([sector, 
         layoutVersion: WORLD_LAYOUT_VERSION };
 });
 
-/** Multiple event-only, mid-level mining sites per playable sector, positioned
- * against distinct reachable rock tiles in the reviewed floor mask. The
- * ordinary sector buttons remain the movement hit targets; these are only
- * world-floor interactions. Keeping at least two veins in every sector lets
- * the shared event meter reach all ten tiers instead of stalling at 20%. */
-const worldBossCrystalSitesBySector = SECTOR_PLACES
-    .filter(place => isPlayableWildSector(place.id))
-    .map(place => {
-        const floor = SECTOR_FLOOR_LAYOUTS[place.artKey];
-        if (!floor) return [] as ResourceNode[];
-        const mask = floor.mask;
-        const start = nearestInMask(mask, 78);
-        const ordinaryTargets = new Set(RESOURCE_NODES.filter(node => node.sector === place.id).map(node => node.target));
-        const wantedTile = (place.id * 37 + 19) % 144;
-        const candidateByTarget = new Map<number, { target: number; approach: number }>();
-        const candidates = Array.from({ length: 144 }, (_, target) => target)
-            .filter(target => mask[Math.floor(target / 12)]?.[target % 12] === '#' && !ordinaryTargets.has(target))
-            .flatMap(target => tileNeighbors(target)
-                .filter(approach => '.='.includes(mask[Math.floor(approach / 12)]?.[approach % 12] ?? '#')
-                    && pathInMask(mask, start, approach) !== null)
-                .map(approach => ({ target, approach })))
-            .sort((a, b) => Math.abs(a.target - wantedTile) - Math.abs(b.target - wantedTile)
-                || a.target - b.target || a.approach - b.approach);
-        for (const candidate of candidates) {
-            if (!candidateByTarget.has(candidate.target)) candidateByTarget.set(candidate.target, candidate);
-        }
-        const available = [...candidateByTarget.values()];
-        const selected: typeof available = [];
-        while (selected.length < 3) {
-            const remaining = available.filter(candidate => selected.every(site =>
-                candidate.target !== site.target
-                && candidate.approach !== site.approach
-                && candidate.target !== site.approach
-                && candidate.approach !== site.target));
-            if (remaining.length === 0) break;
-            const nearestDistance = (candidate: typeof available[number]) => Math.min(...selected.map(site =>
-                Math.abs(candidate.target % 12 - site.target % 12)
-                + Math.abs(Math.floor(candidate.target / 12) - Math.floor(site.target / 12))), Infinity);
-            remaining.sort((a, b) => nearestDistance(b) - nearestDistance(a)
-                || Math.abs(a.target - wantedTile) - Math.abs(b.target - wantedTile)
-                || a.target - b.target || a.approach - b.approach);
-            selected.push(remaining[0]!);
-        }
-        return selected.map((site, index) => ({
-            // Preserve the original first-site ID so an in-progress event keeps
-            // its already-mined veins claimed across a deployment.
-            id: index === 0 ? `world-boss-crystal-${place.id}` : `world-boss-crystal-${place.id}-${index + 1}`,
-            name: 'Hollow Shard Vein',
-            activity: 'mining' as const,
-            sector: place.id,
-            approach: site.approach,
-            target: site.target,
-            difficulty: 4 as const,
-            ceiling: 2 as const,
-            family: 'gather-stormglass-shard' as const,
-            worldBossCrystal: true as const,
-            layoutVersion: WORLD_LAYOUT_VERSION,
-        }));
-    });
-
-const coreWorldBossCrystalNodes = worldBossCrystalSitesBySector.flatMap(sites => sites.slice(0, 2));
-const extraWorldBossCrystalNodes = worldBossCrystalSitesBySector
-    .filter((_, index) => index % 2 === 0)
-    .flatMap(sites => sites.slice(2, 3));
-export const WORLD_BOSS_CRYSTAL_NODES: readonly ResourceNode[] = [
-    ...coreWorldBossCrystalNodes,
-    ...extraWorldBossCrystalNodes,
-].slice(0, WORLD_BOSS_CRYSTAL_MAX_NODES);
+/** Retired locations remain resolvable for already admitted attempts and old
+ * receipts. Do not splice placements: resource IDs are durable save keys. */
+export const RETIRED_RESOURCE_NODE_IDS:readonly string[]=['resource-19','resource-23','resource-24','resource-76','resource-78','resource-85','resource-88'];
+export const RESOURCE_NODES:readonly ResourceNode[]=historicalNodes.filter(node=>!RETIRED_RESOURCE_NODE_IDS.includes(node.id));
+export const WORLD_BOSS_CRYSTAL_NODES:readonly ResourceNode[]=RESOURCE_CRYSTAL_SITES.map(([sector,slot,approach,target])=>({
+    id:slot===1?`world-boss-crystal-${sector}`:`world-boss-crystal-${sector}-${slot}`,
+    name:'Hollow Shard Vein',activity:'mining',sector,approach,target,difficulty:4,ceiling:2,
+    family:'gather-stormglass-shard',worldBossCrystal:true,layoutVersion:WORLD_LAYOUT_VERSION,
+    // The cliff continues into this snowy cell; center the icon on its exposed
+    // upper-right face instead of the snow at the old tile center.
+    ...(sector===30&&slot===2?{markerOffset:[.75,.25] as const}:{}),
+}));
 
 export function resourceNode(id: unknown): ResourceNode | undefined {
-    return RESOURCE_NODES.find(node => node.id === id) ?? WORLD_BOSS_CRYSTAL_NODES.find(node => node.id === id);
+    return historicalNodes.find(node => node.id === id) ?? WORLD_BOSS_CRYSTAL_NODES.find(node => node.id === id);
 }
-export function resourceNodePosition(node: ResourceNode) { return { left: ((node.target % 12) + .5) / 12 * 100, top: (Math.floor(node.target / 12) + .5) / 12 * 100 }; }
+export function resourceNodePosition(node: ResourceNode) { return { left: ((node.target % 12) + (node.markerOffset?.[0]??.5)) / 12 * 100, top: (Math.floor(node.target / 12) + (node.markerOffset?.[1]??.5)) / 12 * 100 }; }
 export function validResourceNodeTerrain(node: ResourceNode): boolean {
     const place = SECTOR_PLACES.find(p => p.id === node.sector), floor = place && SECTOR_FLOOR_LAYOUTS[place.artKey];
-    if (!floor) return false;
+    if (!floor||RETIRED_RESOURCE_NODE_IDS.includes(node.id)) return false;
     const cell = (tile: number) => floor.mask[Math.floor(tile / 12)]?.[tile % 12];
     return ['.', '='].includes(cell(node.approach)) && (node.activity === 'fishing'
-        ? Boolean(floor.hydrology?.waterTiles.includes(node.target)) : cell(node.target) === '#');
+        ? Boolean(floor.hydrology?.waterTiles.includes(node.target)) : cell(node.target) === '#'&&Boolean(RESOURCE_ROCK_TILES[node.sector]?.includes(node.target)));
 }

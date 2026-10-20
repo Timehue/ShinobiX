@@ -1,0 +1,21 @@
+{
+  "sector": 2,
+  "artKey": 21,
+  "provider": "built-in image_gen",
+  "method": "Full-sector painted edit; exact-base composition outside the authored area. No independent prop sprites.",
+  "source": "output/living-world/painted/sources/north-docks-work-stop-v1-provider.png",
+  "sourceSha256": "59d84bfcb3aca29b5c14cd58c3aff565aa0b2b014589684b1e8c6b274e054f3f",
+  "baseSha256": "ee1a84dc179232dfceaa9a9c612cd1d89f5fba35d9f8af20fda7b526ebf7ad6c",
+  "deliveredSha256": "cdc146ec5caf6fb231ebd92b45986b0ac3a90b9f8181ffa64153d3a31e2a6055",
+  "box": {
+    "left": 265,
+    "top": 665,
+    "width": 105,
+    "height": 100
+  },
+  "changedOutside": 0,
+  "bytes": 197684,
+  "visualReview": "reviewed-in-game: purposeful staff, established NPC figures, matching terrain and ground contact",
+  "prompt": "Paint tiny dockworker crates, rope and a folded net on the grass below-left of the dock building, above the waterline and left of the paving. Match the original overhead camera, lighting, materials and ground contact. Preserve all roads, entrances, buildings and frame. No people or UI.",
+  "reviewEvidence": "output/living-world/browser/desktop-sector-2-aftermath.png"
+}

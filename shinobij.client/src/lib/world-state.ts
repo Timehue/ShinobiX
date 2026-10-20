@@ -1,4 +1,5 @@
 import { leadershipNameKey } from '../../../shared/village-anbu';
+import { setSectorBannerOwners } from './sector-banner-state';
 import { elderSeatsForTerm } from "../../../shared/village-elders";
 import { cacheVillageElders, resetVillageElders } from "./village-elder-focus";
 /*
@@ -604,6 +605,7 @@ export function hydrateSharedWorldState(data: { territories?: Partial<SectorTerr
         }
     });
     sharedSectorTerritoryCache = territories;
+    setSectorBannerOwners(Object.values(territories),true);
 
     const wars: Record<string, VillageWar> = {};
     (data.wars ?? []).forEach(war => {
@@ -1092,6 +1094,7 @@ export function loadSectorTerritory(sector: number): SectorTerritory {
 export function applyAuthoritativeSectorTerritory(territory: SectorTerritory) {
     const normalized = normalizeSectorTerritory(territory.sector, territory);
     sharedSectorTerritoryCache[normalized.sector] = normalized;
+    setSectorBannerOwners([normalized]);
     return normalized;
 }
 
