@@ -25,9 +25,19 @@
   },
   "evidenceSha256": {
     "docs/screenshots/pet-parallel-batch-ci-sharding-2026-10-20/pr470-responsive-cancelled-ci.log": "83d164a7a643df7adca43c5724e3195146e103c5f303078a46497b34f4ed34b2",
-    "docs/screenshots/pet-parallel-batch-ci-sharding-2026-10-20/pr470-responsive-retry-ci.log": "977428691912cbd2490e7c47f48d3bb81b063f9eade8ae73f3a8e9919d662f9a"
+    "docs/screenshots/pet-parallel-batch-ci-sharding-2026-10-20/pr470-responsive-retry-ci.log": "977428691912cbd2490e7c47f48d3bb81b063f9eade8ae73f3a8e9919d662f9a",
+    "docs/screenshots/pet-parallel-batch-ci-sharding-2026-10-20/seven-shard-ci-doc-contract-failure.txt": "0782c2f5ac92f46f402ca2486765e6a07c1975d36dfdf4024d25f4243db67add",
+    "docs/screenshots/pet-parallel-batch-ci-sharding-2026-10-20/workflow-and-doc-contracts.txt": "e62354d81a4d01255149898e71752bf4f2e56d9fee5ad46cf7b09a62753f71d0"
   },
   "productFilesChanged": false,
   "releasePetCount": 38,
-  "liveVerified": false
+  "liveVerified": false,
+  "documentationFollowup": {
+    "caughtBy": "scripts/ci-doc-contract.test.mjs",
+    "runId": 39452387869,
+    "jobId": 118730324718,
+    "corrected": "docs/CI.md now describes exactly seven slices and their emitted check names.",
+    "combinedContractsPassed": 25,
+    "failed": 0
+  }
 }
