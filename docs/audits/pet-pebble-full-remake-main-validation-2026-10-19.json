@@ -296,9 +296,38 @@
       "path": "docs/screenshots/pet-pebble-full-remake-main-validation-2026-10-19/battle/side-block-2-half-1.png",
       "sha256": "ba644d7b88a0054ace71a4c0a3d7e9c7b9ec8cf46700d717be22576e966a2b73",
       "bytes": 354383
+    },
+    {
+      "path": "docs/screenshots/pet-pebble-full-remake-main-validation-2026-10-19/ci-contract-failure-excerpt.txt",
+      "sha256": "150a769c99421468ecf46384e293ba978c9e92f8d94ed0b65d8b9f4f1ff36e43",
+      "bytes": 1460
+    },
+    {
+      "path": "docs/screenshots/pet-pebble-full-remake-main-validation-2026-10-19/ci-followup-34-tests.txt",
+      "sha256": "aec0ade3ed2f0b496638b931971bd3666b7dfd996ea773dadad0f405d556ca97",
+      "bytes": 3474
+    },
+    {
+      "path": "docs/screenshots/pet-pebble-full-remake-main-validation-2026-10-19/ci-contract-targeted-lint.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
     }
   ],
   "liveVerified": false,
   "authenticatedPlayerModalInspected": false,
-  "wholeRosterComplete": false
+  "wholeRosterComplete": false,
+  "ciContractFollowup": {
+    "failedRun": 39355350052,
+    "failedJob": 118408734927,
+    "failure": "Legacy original-take channel count recognized the rejected predecessor metadata but not the complete new sculpt metadata",
+    "correction": "Use the exact fully-reviewed remake payload gate for the same existing 16-channel ceiling",
+    "channelCeilingUnchanged": 16,
+    "newRegression": "All 13 takes and every non-root animation curve match the pinned predecessor rig in both source and battle meshes",
+    "focusedTests": {
+      "passed": 34,
+      "failed": 0
+    },
+    "targetedLintErrors": 0,
+    "geometrySkinRigAndAnimationAssetsChanged": false
+  }
 }

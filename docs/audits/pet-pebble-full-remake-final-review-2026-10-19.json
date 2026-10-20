@@ -1818,7 +1818,7 @@
     "headNativeStripsActuallyReinspected": 16
   },
   "canonicalChecks": {
-    "focusedTestsPassed": 30,
+    "focusedTestsPassed": 34,
     "failed": 0,
     "structuralModelsPassed": 161,
     "lodAndAtlasReproducible": true,
@@ -1848,5 +1848,6 @@
     "fullVisibleSkinLoopClosureChecked": true,
     "otherAssetAndOtherChannelThresholdsUnchanged": true
   },
-  "currentMainValidation": "docs/audits/pet-pebble-full-remake-main-validation-2026-10-19.json"
+  "currentMainValidation": "docs/audits/pet-pebble-full-remake-main-validation-2026-10-19.json",
+  "ciContractFollowup": "docs/audits/pet-pebble-full-remake-main-validation-2026-10-19.json"
 }
