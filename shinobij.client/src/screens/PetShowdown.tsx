@@ -22,6 +22,7 @@ import type { Screen } from "../types/core";
 import type { PetArenaOpponent } from "../data/pet-arena-opponents";
 import { colosseumPetBusyReason, isPetAvailableForColosseum } from "../lib/pet";
 import { activeCarriedPetIds } from "../lib/entitlements";
+import { adoptShowdownEntrySnapshot, showdownEntryRoster } from "../lib/showdown-entry-roster";
 import { petScenicPortraitImage as petCardImage } from "../lib/pet-scenic-portrait";
 import { petPvpGearById } from "../data/pet-config";
 import { clearPetColosseumPetHint, readPetColosseumPetHint } from "../lib/pet-arena-navigation";
@@ -245,11 +246,13 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
             const { state, settlement } = recovered;
             if (!state.finished) {
                 if (crumb.roadChallenge) setRoadChallenge(true);
+                const sealedRoster = showdownEntryRoster(state, character.pets);
                 setSignals(true, true);
-                await warmShowdownModels(state, pets);
+                await warmShowdownModels(state, sealedRoster.pets);
                 if (cancelled) return;
                 setFormat(state.format);
-                setSelected(crumb.petIds);
+                setSelected(sealedRoster.petIds);
+                writeSessionBreadcrumb({ ...crumb, petIds: sealedRoster.petIds });
                 setBattle({ state, key: battleKey.current++ });
                 setRecovery(null);
                 return;
@@ -289,22 +292,28 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
         }
         // Preserve a real session for resume if navigation wins the request,
         // but do not warm/mount its arena or reactivate fullscreen after exit.
-        writeSessionBreadcrumb({ sessionId: result.state.sessionId, petIds: selected, playerName: character.name, bout });
+        const sealedRoster = showdownEntryRoster(result.state, character.pets);
+        writeSessionBreadcrumb({ sessionId: result.state.sessionId, petIds: sealedRoster.petIds, playerName: character.name, bout });
+        // Admission can consume a one-use item. Adopt its committed save before
+        // model loading or another autosave can display the pre-entry loadout.
+        if ('character' in result) adoptShowdownEntrySnapshot(result, onVersionedCharacter);
         if (!mounted.current) return;
+        setSelected(sealedRoster.petIds);
+        setFormat(result.state.format);
         // The opponent is only known now, so its models can only be warmed now.
         // Hold the lobby rather than mount into a fight whose other side has no
         // body yet — the CTA names this beat, so the wait is legible.
         setStarting("fielding");
-        // `selectedPets` is exactly what the battle below receives, so the
-        // warm-up and the renderer resolve identical art.
-        await warmShowdownModels(result.state, selectedPets);
+        // A paid retry can recover an older sealed roster. Warm the pets in
+        // that response rather than the lobby's new selection.
+        await warmShowdownModels(result.state, sealedRoster.pets);
         if (!mounted.current) return;
         setStarting(false);
         setForfeitStatus({ pending: false, error: null });
         setRecoveryNotice(null);
         setBattle({ state: result.state, key: battleKey.current++ });
         setSignals(true, true);
-    }, [starting, selected, size, character.name, format, tier, bout, selectedPets, setSignals]);
+    }, [starting, selected, size, character.name, character.pets, format, tier, bout, setSignals, onVersionedCharacter]);
 
     const launchRoadChallenge = async () => {
         const ref = pendingWanderer?.wanderer;
@@ -507,7 +516,7 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
                     <li><b>Elements</b> — Fire &gt; Wind &gt; Lightning &gt; Earth &gt; Water &gt; Fire.
                         Attacking the element you beat deals <b>×1.5</b>; attacking the one that
                         beats you deals <b>×0.75</b>. Your own-element techniques carry a
-                        <b> same-type bonus</b>; the neutral Swift Strike skips the wheel both
+                        <b> same-type bonus</b>; the neutral Tackle skips the wheel both
                         ways — the safe jab into a bad matchup.</li>
                     <li><b>Physical &amp; Special</b> — contact techniques roll Attack against
                         Defense; elemental casts roll the pet's Special side, which follows its
@@ -516,26 +525,33 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
                     <li><b>Conditions</b> — a pet holds two at a time; a third pushes the oldest
                         off. Fire thaws freeze, frost smothers burn. Shields sit outside the
                         limit.</li>
-                    <li><b>Stamina</b> — techniques spend stamina, which recovers slowly.
-                        Lower-cost moves leave more for later rounds. Heavy techniques cost
-                        more for a stronger single hit. Use Rest or switch pets when you need to recover.</li>
+                    <li><b>Progression</b> - start with Tackle and a restrained species attack.
+                        Role utility unlocks at 5, advanced offense at 10, and the signature at 20.
+                        Species upgrades at 30, 50 and 75 replace earlier variants.
+                        Levels 76–100 continue stat growth.</li>
+                    <li><b>Stamina</b> - your role sets the visible pool, with a small bounded
+                        contribution from Guard investment. Strong attacks and sustain cost more;
+                        Rest recovers stamina and heals no HP. Healing and shielding have reuse
+                        windows, shown on each move.</li>
                     <li><b>Overdraft</b> — you may cast a move you cannot afford: it still fires,
                         but the pet <b>bleeds HP</b> for the shortfall and <b>loses its next
                         action</b>.</li>
                     <li><b>Hold</b> — the heaviest techniques and signatures need a round or two in
                         battle before they come online.</li>
-                    <li><b>Response window</b> — extreme direct hits are softened at every level
-                        so a full-health pet can respond. Ordinary hits below 60% maximum HP keep
-                        their damage. Focus fire and lingering damage can still finish a pet within a round.</li>
+                    <li><b>Response window</b> - extreme direct hits are softened after offense,
+                        defense and battle effects are applied. Guard, shields and switching offer
+                        counterplay. Focus fire and lingering damage can still finish a wounded pet.</li>
                     <li><b>Turn order</b> — switches happen first, then Guard and protection.
                         Other actions use speed × move priority; haymakers and signatures swing late.</li>
-                    <li><b>Signature</b> — your first ultimate gains 50 charge each round on the
-                        field, even if you Guard or heal. It needs a full meter and its hold
-                        counter must reach zero. Dealing and taking
-                        damage also build charge. Casting spends the full bar; later ultimates
-                        charge through combat. Unprepared signature damage approaches 60% maximum
-                        HP; Empower, Mark or a favorable field raises that limit to 75%. Guard and
-                        shields reduce it further. Wounded pets can still be finished.</li>
+                    <li><b>Signature</b> - unlocked at level 20, with meter and battle readiness
+                        required before casting. Dealing and taking damage build charge. Casting
+                        spends the full bar. Mark, Empower or favorable weather visibly prepare a
+                        stronger hit; level 75 mastery rewards that preparation. Guard and shields
+                        reduce the hit further.</li>
+                    <li><b>Sealed rules</b> - your roster, level, equipment and earned moves are
+                        fixed when you enter. Happiness affects adventure summons and training,
+                        while Colosseum stats do not use it. Competitive Tactics has separate
+                        normalized attributes and a full competitive kit.</li>
                     <li><b>25 rounds, then the judges</b> — most fights end well before. From
                         round 14 <b>attrition</b> bleeds both sides and healing fades; a fight
                         still standing after round 25 is judged by pets remaining, total

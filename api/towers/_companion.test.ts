@@ -6,6 +6,7 @@ import type { TowerFloor } from './_floor-catalog.js';
 import {
     COMPANION_ACTOR_ID, companionActor, companionGearDamageMult, companionHealOnSummonPct,
     companionMoveDamage, companionObeys, companionOwnerLifestealPct, companionStrikeDamage,
+    companionIncomingDamage,
     pickCompanionMove, sealCompanionFromSave, type CompanionMove,
 } from './_companion.js';
 
@@ -36,13 +37,34 @@ function mkSession(actors: TowerActor[]) {
 }
 const SEAL = { petId: 'p1', name: 'Kit', hp: 300, damage: 120, happiness: 100, loyal: false, moves: [], pveGearId: '' };
 
+it('seals an immutable summon threat baseline so Vitality and Guard buy survival', () => {
+    const base = { id: 'owned', templateId: 'starter-water', name: 'Ripple Seal', level: 75,
+        hp: 778, attack: 93, defense: 78, speed: 40, happiness: 100,
+        growthBaseStats: { hp: 500, attack: 60, defense: 50, speed: 40 },
+        growthAllocation: { vitality: 0, power: 0, guard: 0, agility: 0 } };
+    const seal = (pet: typeof base) => sealCompanionFromSave({ pets: [pet], activePetId: pet.id })!;
+    const balanced = seal(base);
+    const vitality = seal({ ...base, hp: 963, growthAllocation: { ...base.growthAllocation, vitality: 37 } });
+    const guard = seal({ ...base, defense: 96, growthAllocation: { ...base.growthAllocation, guard: 37 } });
+    assert.equal(vitality.referenceHp, balanced.referenceHp);
+    const hit = companionIncomingDamage(balanced.referenceHp!, balanced.defense!, .3);
+    assert.ok(Math.ceil(vitality.hp / hit) > Math.ceil(balanced.hp / hit), 'Vitality survives an additional repeated hit');
+    const guardedHit = companionIncomingDamage(guard.referenceHp!, guard.defense!, .3);
+    assert.ok(guardedHit < hit, 'Guard reduces every repeated hit');
+    assert.ok(guard.hp - guardedHit * 3 > balanced.hp - hit * 3);
+    const forged = seal({ ...base, referenceHp: 1, rulesetVersion: 'legacy-v1' } as typeof base);
+    assert.equal(forged.referenceHp, balanced.referenceHp, 'save-supplied battle fields never set the threat baseline');
+    assert.equal(forged.rulesetVersion, 'progression-v3');
+    assert.ok(guard.spDefense! >= guard.defense!, 'role-derived special defense is sealed too');
+});
+
 describe('summoned companion (mission pet)', () => {
     it('mirrors the client petCombatDamage formula, floored at 20', () => {
-        // 100*1.25 + 60*0.6 + 40*0.35 + (200+50)*0.025 + 10*2 = 201.25 → 201
+        // Power, the learned attack and level drive the strike.
         assert.equal(companionStrikeDamage({
             attack: 100, defense: 50, speed: 40, hp: 200, level: 10,
             jutsus: [{ kind: 'damage', power: 60 }, { kind: 'heal', power: 999 }],
-        }), 201);
+        }), 181);
         // non-damage jutsu never count toward the "best damage jutsu" term
         assert.equal(companionStrikeDamage({ jutsus: [{ kind: 'heal', power: 999 }] }), 20);
         assert.equal(companionStrikeDamage({}), 20);
@@ -66,6 +88,21 @@ describe('summoned companion (mission pet)', () => {
             'b',
             'level 50 is the authoritative summon boundary',
         );
+    });
+
+    it('keeps Agility and bulk out of strike damage and prepares new signatures', () => {
+        const core = { attack: 80, level: 50, jutsus: [{ name: 'Strike', kind: 'damage', power: 60 }] };
+        assert.equal(companionStrikeDamage({ ...core, hp: 300, defense: 20, speed: 10 }),
+            companionStrikeDamage({ ...core, hp: 3000, defense: 200, speed: 200 }));
+        const moves = [mv('Strike', 'damage', 40), mv('Final Art', 'damage', 80, { signature: true })];
+        assert.equal(pickCompanionMove(moves, {}, 1)?.name, 'Final Art', 'legacy descriptors retain their behavior');
+        for (const ordinaryActions of [0, 1]) assert.equal(pickCompanionMove(moves, {}, 1, false,
+            { ordinaryActions, requiredActions: 2 })?.name, 'Strike');
+        assert.equal(pickCompanionMove(moves, {}, 1, false, { ordinaryActions: 2, requiredActions: 2 })?.name, 'Final Art');
+        const next = companionActor({ ...SEAL, rulesetVersion: 'progression-v3', moves }, 4);
+        assert.equal(next.character.companionSignatureReadyAfter, 2);
+        assert.equal(next.character.companionOrdinaryActions, 0);
+        assert.equal(companionActor(SEAL, 4).character.companionSignatureReadyAfter, undefined);
     });
 
     // The load-bearing invariant: a temporary pet must NEVER hold a lost run open.
@@ -167,8 +204,8 @@ describe('summoned companion (mission pet)', () => {
 
     // Drives the REAL AI loop: queue sorts to [companion-0, sq-1, en-1], so the pet
     // acts and the loop then halts at the live human — the enemy never muddies it.
-    function petVsFoe(moves: CompanionMove[], happiness = 100) {
-        const pet = companionActor({ ...SEAL, happiness, moves }, 1);
+    function petVsFoe(moves: CompanionMove[], happiness = 100, progression = false) {
+        const pet = companionActor({ ...SEAL, happiness, moves, ...(progression ? { rulesetVersion: 'progression-v3' as const } : {}) }, 1);
         const s = mkSession([
             mk('sq-1', 'squad', 0, { hp: 1000, ai: false, ownerSlug: 'rill' }),
             pet,
@@ -177,6 +214,21 @@ describe('summoned companion (mission pet)', () => {
         startRound(s);
         return s;
     }
+
+    it('bounds new companion healing, shields and repeated control', () => {
+        const heal = petVsFoe([mv('Mend', 'heal', 900), mv('Strike', 'damage', 45)], 100, true);
+        getActor(heal, COMPANION_ACTOR_ID)!.hp = 60;
+        runAiUntilHuman(heal, mkFloor(), () => .9);
+        assert.equal(getActor(heal, COMPANION_ACTOR_ID)!.hp, 112);
+        const shield = petVsFoe([mv('Ward One', 'shield', 900), mv('Ward Two', 'shield', 900)], 100, true);
+        getActor(shield, COMPANION_ACTOR_ID)!.hp = 60;
+        runAiUntilHuman(shield, mkFloor(), () => .9);
+        assert.equal(getActor(shield, COMPANION_ACTOR_ID)!.shield, 67);
+        const control = petVsFoe([mv('Bind One', 'stun', 45), mv('Bind Two', 'freeze', 45)], 100, true);
+        runAiUntilHuman(control, mkFloor(), () => .9);
+        assert.equal(getActor(control, 'en-1')!.character.companionControlImmuneUntil, control.round + 3);
+        assert.equal(getActor(control, 'en-1')!.statuses.filter(status => status.name === 'Stun').length, 1);
+    });
 
     it('casts a status move on the foe and damages it', () => {
         const s = petVsFoe([mv('Rot', 'dot', 45)]);

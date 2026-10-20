@@ -12,7 +12,25 @@
         -0.05
       ],
       "status": "repair",
-      "finding": "Muzzle compression and cheek shear in attack, hit reaction and death. All thirteen front/side body and skull clips reviewed; neck and raised tail excluded."
+      "finding": "Fresh independent face-camera review confirms lower muzzle flattening in attack/hit reaction and stretching in death. Candidate only; neck/body and complete final review remain required.",
+      "revision": "20261015-independent-complete-face-v2",
+      "supersedesSourceSha256": "aebe4f02c12d38ffac4f0d2f5594a4458a2d63f3f1227b312aa9919f873ad314",
+      "union": [
+        {
+          "y": [
+            -0.14,
+            -0.06
+          ],
+          "z": [
+            0.35,
+            0.55
+          ],
+          "x": [
+            0.55,
+            0.65
+          ]
+        }
+      ]
     },
     "standard-1": {
       "y": [
@@ -60,19 +78,37 @@
     },
     "standard-5": {
       "y": [
-        0.22,
-        0.42
+        0.355,
+        0.38
       ],
       "z": [
-        -0.3,
-        -0.08
+        0.48,
+        0.56
       ],
       "x": [
         0.35,
         0.55
       ],
       "status": "repair",
-      "finding": "Lower muzzle and brow edges skew on strike and hit-reaction poses. All thirteen front/side body and skull clips inspected; shoulder armor, back shell and sword excluded."
+      "finding": "Eight independently frozen facial regions detect lower beak/chin drift in the original. Complete jaw skin repair and three vertical root-clearance corrections passed two sampled visual passes. Stone Turtle only; Pebble owns a separate model.",
+      "revision": "20261019-pebble-stone-complete-face-v1",
+      "supersedesSourceSha256": "fc639cee5499a0c1d8965c7c886c8af83cf3ee3d750ff1146bb162aaddd7a82d",
+      "repairRegion": {
+        "y": [
+          0.355,
+          0.38
+        ],
+        "z": [
+          0.48,
+          0.56
+        ],
+        "x": [
+          0.35,
+          0.55
+        ]
+      },
+      "weightPrecision": "float32",
+      "continuousInfluencePacking": true
     },
     "standard-6": {
       "y": [
@@ -1606,7 +1642,40 @@
       ],
       "cameraPadding": 1.3,
       "status": "repair",
-      "finding": "All 13 original animations visually inspected in complete front/side head and body sheets. Kirin lower muzzle and cheek shear during raised attack and turned defeat; preserve mane and raised tail."
+      "finding": "All 13 source clips actually inspected in 12 enlarged face/body front/side slices. Subtle snout and cheek shear when the head turns in alternate idle, strike and defeat. Four limbs, mane, tail and antlers remain connected in raw clips; equipped-technique coordination still pending. The corresponding battle face/body slices were also actually inspected; the same facial problem is present and there are no additional detached body surfaces in these raw clips. Equipped-technique review remains open. Separate candidate only. Bind the complete measured face to head with a smooth neck fade; preserve geometry, clips and accessories outside the measured region.",
+      "revision": "20261017-independent-complete-face-v2",
+      "supersedesSourceSha256": "9593682072a8168ebd1cecaa132e2ae976df5048315d48006e83f09ce92cd49e",
+      "repairRegion": {
+        "y": [
+          0,
+          0.09
+        ],
+        "z": [
+          0.68,
+          0.78
+        ],
+        "x": [
+          0.33,
+          0.43
+        ]
+      },
+      "union": [
+        {
+          "y": [
+            0,
+            0.09
+          ],
+          "z": [
+            0.68,
+            0.78
+          ],
+          "x": [
+            0.33,
+            0.43
+          ]
+        }
+      ],
+      "continuousInfluencePacking": true
     },
     "legendary-6": {
       "y": [
@@ -1622,8 +1691,41 @@
         0.55
       ],
       "cameraPadding": 1.3,
-      "status": "reviewed-no-repair",
-      "finding": "All 13 original animations visually inspected in complete front/side head and body sheets. Bird eyes, beak and skull stay coherent across all clips; preserve original weights. Second pass remains pending."
+      "status": "repair",
+      "finding": "All 13 source clips actually inspected in 12 enlarged face/body front/side slices. Beak curvature changes slightly on raised attack/cast; independent exposed-beak probe detects drift that the previous broad mask missed. Wings frequently occlude the side face, but front views retain coverage; claws, feathers and body remain connected. Recheck beak after conservative face repair; actual techniques pending. The corresponding battle face/body slices were also actually inspected; the same facial problem is present and there are no additional detached body surfaces in these raw clips. Equipped-technique review remains open. Separate candidate only. Bind the complete measured face to head with a smooth neck fade; preserve geometry, clips and accessories outside the measured region. First candidate rejected: face probe passed but full-body geometry detected 25 wing seam warnings from the face fade touching forward wing feathers. Narrowed the lateral repair extent to keep the measured beak/face and exclude those original wing vertices.",
+      "revision": "20261017-independent-complete-face-v2",
+      "supersedesSourceSha256": "969f6f0ac6355377d7d6bb3a65799aa98bd2a8591e09c78c8bb3f6badcdd2579",
+      "repairRegion": {
+        "y": [
+          0.15,
+          0.2
+        ],
+        "z": [
+          0.65,
+          0.74
+        ],
+        "x": [
+          0.17,
+          0.22
+        ]
+      },
+      "union": [
+        {
+          "y": [
+            0.15,
+            0.2
+          ],
+          "z": [
+            0.65,
+            0.74
+          ],
+          "x": [
+            0.17,
+            0.22
+          ]
+        }
+      ],
+      "continuousInfluencePacking": true
     },
     "legendary-7": {
       "y": [
@@ -1636,7 +1738,40 @@
       ],
       "cameraPadding": 1.3,
       "status": "repair",
-      "finding": "All 13 original animations visually inspected in complete front/side head and body sheets. Serpent lower jaw and cheek shear during raised strike and turned defeat; preserve long whiskers and horns."
+      "finding": "All 13 source clips actually inspected in 12 enlarged face/body front/side slices. Lower snout/cheek moves relative to upper head, most visible in raised strike and turned defeat. Long whiskers flex as accessories and must remain free. Limbs, body and tail remain connected in raw clips; actual techniques pending. The corresponding battle face/body slices were also actually inspected; the same facial problem is present and there are no additional detached body surfaces in these raw clips. Equipped-technique review remains open. Separate candidate only. Bind the complete measured face to head with a smooth neck fade; preserve geometry, clips and accessories outside the measured region.",
+      "revision": "20261017-independent-complete-face-v2",
+      "supersedesSourceSha256": "465f6dab2b52a50b212e5911ee3b34771646205aedae73e971ddc79d516ad7dd",
+      "repairRegion": {
+        "y": [
+          -0.08,
+          0.03
+        ],
+        "z": [
+          0.62,
+          0.68
+        ],
+        "x": [
+          0.3,
+          0.4
+        ]
+      },
+      "union": [
+        {
+          "y": [
+            -0.08,
+            0.03
+          ],
+          "z": [
+            0.62,
+            0.68
+          ],
+          "x": [
+            0.3,
+            0.4
+          ]
+        }
+      ],
+      "continuousInfluencePacking": true
     },
     "legendary-8": {
       "y": [
@@ -1649,7 +1784,40 @@
       ],
       "cameraPadding": 1.3,
       "status": "repair",
-      "finding": "All 13 original animations visually inspected in complete front/side head and body sheets. Lion lower jaw and cheek shear during raised strike and turned defeat; preserve mane, scarf and tail."
+      "finding": "All 13 source clips actually inspected in 12 enlarged face/body front/side slices. Clear lower-mouth collapse during early recoil (12.5%) and lower jaw/cheek shear in strike and turned defeat. Mane, scarf and tail require preservation. Raw forelegs fold forward during strike/recoil; actual technique and planted-paw coordination specifically remain open. The corresponding battle face/body slices were also actually inspected; the same facial problem is present and there are no additional detached body surfaces in these raw clips. Equipped-technique review remains open. Separate candidate only. Bind the complete measured face to head with a smooth neck fade; preserve geometry, clips and accessories outside the measured region. First candidate rejected visually despite independent face and whole-body geometry passing: chin-to-beard transition showed stripes and stretched fur in turned defeat and victory. Expand the rigid beard region and spread the lower neck fade; no approval until new complete visuals and body checks pass. V3 rejected visually: the broad depth fade touched chest and collar surfaces. V4 retains the lower beard extent but restores the conservative forward-depth and lateral limits; chest must remain behind the repair.",
+      "revision": "20261017-independent-complete-face-v2",
+      "supersedesSourceSha256": "dc09e049d20c43ec1ac2c0ef06b96daef8a789a68c350f334d6a214df22996a0",
+      "repairRegion": {
+        "y": [
+          -0.4,
+          -0.24
+        ],
+        "z": [
+          0.6,
+          0.72
+        ],
+        "x": [
+          0.38,
+          0.48
+        ]
+      },
+      "union": [
+        {
+          "y": [
+            -0.4,
+            -0.24
+          ],
+          "z": [
+            0.6,
+            0.72
+          ],
+          "x": [
+            0.38,
+            0.48
+          ]
+        }
+      ],
+      "continuousInfluencePacking": true
     },
     "legendary-9": {
       "y": [
@@ -1662,7 +1830,40 @@
       ],
       "cameraPadding": 1.3,
       "status": "repair",
-      "finding": "All 13 original animations visually inspected in complete front/side head and body sheets. Bear lower cheek and muzzle compress during tilted defeat; forward fade must preserve the back crystals."
+      "finding": "All 13 source clips actually inspected in 12 enlarged face/body front/side slices. Muzzle flattens and nose disappears into the white snout in tilted defeat, with smaller recoil compression. Scarf, back crystals, arms and legs remain connected in raw poses; techniques pending. The corresponding battle face/body slices were also actually inspected; the same facial problem is present and there are no additional detached body surfaces in these raw clips. Equipped-technique review remains open. Separate candidate only. Bind the complete measured face to head with a smooth neck fade; preserve geometry, clips and accessories outside the measured region.",
+      "revision": "20261017-independent-complete-face-v2",
+      "supersedesSourceSha256": "fef124ee09e3c626bc1e1764835ff42c14e6574b4a245b39f68bbdaa1a6fc9e6",
+      "repairRegion": {
+        "y": [
+          0.1,
+          0.16
+        ],
+        "z": [
+          0.12,
+          0.22
+        ],
+        "x": [
+          0.26,
+          0.36
+        ]
+      },
+      "union": [
+        {
+          "y": [
+            0.1,
+            0.16
+          ],
+          "z": [
+            0.12,
+            0.22
+          ],
+          "x": [
+            0.26,
+            0.36
+          ]
+        }
+      ],
+      "continuousInfluencePacking": true
     },
     "legendary-10": {
       "y": [
@@ -1692,7 +1893,77 @@
       ],
       "cameraPadding": 1.3,
       "status": "repair",
-      "finding": "All 13 original animations visually inspected in complete front/side head and body sheets. Drake lower cheek and muzzle shear during tilted defeat; forward fade must preserve the wings and tail."
+      "finding": "All 24 fresh source/battle complete-face and body slices actually inspected, covering 13 clips at six phases, front and side. Thunder Drake lower cheek, snout and chin shear relative to its brow during secondary idle, recoil, attack and tilted defeat; the jaw becomes pinched in defeat. Horns, wing membranes, tail and four limbs remain connected in these raw clips. Two actual Lightning Strike windup/impact sheets inspected; support toe penetration also needs a separate final technique check. Original and 2.5 exposure copies retained. Separate candidate only. Complete forward face binding with a smooth lower/side fade; preserve geometry, clips, wings and tail.",
+      "revision": "20261017-independent-complete-face-v2",
+      "supersedesSourceSha256": "ceb1cbb76b5533bbf52ab2e778cd7efd24dbd13d53ff7c22490df8b1457cc609",
+      "repairRegion": {
+        "y": [
+          -0.25,
+          -0.05
+        ],
+        "z": [
+          0.45,
+          0.7
+        ],
+        "x": [
+          0.6,
+          0.7
+        ]
+      },
+      "union": [
+        {
+          "y": [
+            -0.25,
+            -0.05
+          ],
+          "z": [
+            0.45,
+            0.7
+          ],
+          "x": [
+            0.6,
+            0.7
+          ]
+        }
+      ],
+      "continuousInfluencePacking": true,
+      "neckTransition": {
+        "iterations": 48,
+        "edges": [
+          [
+            14358,
+            14302
+          ],
+          [
+            20202,
+            19832
+          ],
+          [
+            20196,
+            19830
+          ],
+          [
+            19415,
+            19413
+          ]
+        ],
+        "protectBelowY": -0.4,
+        "featherY": 0.25,
+        "region": {
+          "y": [
+            -0.3,
+            -0.05
+          ],
+          "z": [
+            0.15,
+            0.4
+          ],
+          "x": [
+            0.6,
+            0.7
+          ]
+        }
+      }
     },
     "legendary-12": {
       "y": [
@@ -1810,8 +2081,41 @@
         0.55
       ],
       "cameraPadding": 1.3,
-      "status": "reviewed-no-repair",
-      "finding": "All 13 original animations visually inspected in complete front/side head and body sheets, with refined close-ups and exposure copies where needed. Bird eyes, beak and skull stay coherent across all clips; preserve original weights. Second pass remains pending."
+      "status": "repair",
+      "finding": "Fresh source/battle enlarged complete-face and body inspection confirms lower beak stretching in attack/cast, compressed into scarf during recoil. All nine equipped techniques (216 native frames) inspected front/side; appendages and visible support remain coordinated. Candidate facial binding only; sculpt, rig and all curves preserved. Independent frozen facial patches and full geometry plus second visual pass required. First candidate rejected for seven stretched lower-collar seam edges. Lengthened the collar fade before repeat measurement; no candidate visual approval yet.",
+      "revision": "20261017-garuda-independent-complete-beak-v2",
+      "supersedesSourceSha256": "d761f0769ecacdd38a5290f5a9536c74f8aeae358fa0cbeb37a9d115880798f8",
+      "repairRegion": {
+        "y": [
+          -0.1,
+          0.17
+        ],
+        "z": [
+          0.25,
+          0.32
+        ],
+        "x": [
+          0.3,
+          0.43
+        ]
+      },
+      "union": [
+        {
+          "y": [
+            -0.1,
+            0.17
+          ],
+          "z": [
+            0.25,
+            0.32
+          ],
+          "x": [
+            0.3,
+            0.43
+          ]
+        }
+      ],
+      "continuousInfluencePacking": true
     },
     "legendary-17": {
       "y": [
@@ -1837,7 +2141,32 @@
       ],
       "cameraPadding": 1.3,
       "status": "repair",
-      "finding": "All 13 original animations visually inspected in complete front/side head and body sheets, with refined close-ups and exposure copies where needed. Leviathan lower jaw and cheek shear during strike and defeat; preserve long whiskers and tail."
+      "finding": "Fresh source complete-face/body review confirms lower jaw and cheek shearing in strike, recoil and defeat. All 216 actual equipped-technique frames inspected front/side; limbs and tail remain connected. Extend the head binding through the independent lower-jaw patches with a smooth neck transition. Sculpt, rig, textures and animation curves preserved; candidate only until independent and repeat visual checks pass.",
+      "revision": "20261017-leviathan-independent-complete-jaw-v1",
+      "supersedesSourceSha256": "fce42da5173b652f7412f1a83ddf79651a0d8b3dd8bb1b15b8019a01c7aec01b",
+      "repairRegion": {
+        "y": [
+          -0.03,
+          0.105
+        ],
+        "z": [
+          0.29,
+          0.43
+        ]
+      },
+      "union": [
+        {
+          "y": [
+            -0.03,
+            0.105
+          ],
+          "z": [
+            0.29,
+            0.43
+          ]
+        }
+      ],
+      "continuousInfluencePacking": true
     },
     "legendary-19": {
       "y": [
@@ -1850,7 +2179,56 @@
       ],
       "cameraPadding": 1.3,
       "status": "repair",
-      "finding": "All 13 original animations visually inspected in complete front/side head and body sheets, with refined close-ups and exposure copies where needed. Wyrm lower jaw shears during strike and defeat; preserve crest and back spines."
+      "finding": "Fresh complete-face/body source inspection confirms jaw shear during recoil and defeat and muzzle elongation during attack/cast. All 216 actual equipped-technique frames inspected front/side; arms, legs, back spines and tail remain connected. Correct the lower-face binding, preserving the sculpt and every original curve. Check beard loop and neck transition in the separate candidate before promotion. Candidate v1 rejected for six chest-seam warnings; raise the main blend above the protected chest and isolate the projecting beard with a separate depth-gated fade. No candidate visual approval yet.",
+      "revision": "20261017-frost-wyrm-independent-complete-jaw-v2",
+      "supersedesSourceSha256": "ec215d3ea18f5cd7c6e23f5db1e7c78311344883e9493ebfa42961d787ea8dd4",
+      "repairRegion": {
+        "y": [
+          0.12,
+          0.24
+        ],
+        "z": [
+          0.4,
+          0.54
+        ],
+        "union": [
+          {
+            "y": [
+              -0.05,
+              0.1
+            ],
+            "z": [
+              0.69,
+              0.77
+            ]
+          }
+        ]
+      },
+      "union": [
+        {
+          "y": [
+            0.12,
+            0.24
+          ],
+          "z": [
+            0.4,
+            0.54
+          ],
+          "union": [
+            {
+              "y": [
+                -0.05,
+                0.1
+              ],
+              "z": [
+                0.69,
+                0.77
+              ]
+            }
+          ]
+        }
+      ],
+      "continuousInfluencePacking": true
     },
     "legendary-20": {
       "y": [
@@ -1863,11 +2241,44 @@
       ],
       "cameraPadding": 1.3,
       "status": "repair",
-      "finding": "All 13 original animations visually inspected in complete front/side head and body sheets, with refined close-ups and exposure copies where needed. Kraken central face and lower brow shear during strike and defeat; preserve lateral curled tentacles.",
+      "finding": "Fresh source complete-face/body inspection confirms central facial tentacle roots flattening into the eyes during recoil and lower-face stretching during defeat. All 216 actual equipped-technique frames inspected front/side. Legs and outer tentacles remain connected; preserve their authored motion. Extend the binding through the complete central lower face with a continuous fade into the lower tentacles and side cheek. Sculpt, rig, textures and all original animation curves preserved; candidate only until independent and repeat visual checks pass.",
       "x": [
         0.38,
         0.48
-      ]
+      ],
+      "revision": "20261017-kraken-independent-complete-face-v2",
+      "supersedesSourceSha256": "a29d0755ba702eada7d4f6ca371d5fc054425e1540e688f22a2f66e63170a8d5",
+      "repairRegion": {
+        "y": [
+          -0.12,
+          -0.01
+        ],
+        "z": [
+          0.14,
+          0.24
+        ],
+        "x": [
+          0.32,
+          0.44
+        ]
+      },
+      "union": [
+        {
+          "y": [
+            -0.12,
+            -0.01
+          ],
+          "z": [
+            0.14,
+            0.24
+          ],
+          "x": [
+            0.32,
+            0.44
+          ]
+        }
+      ],
+      "continuousInfluencePacking": true
     },
     "legendary-21": {
       "y": [
@@ -1936,7 +2347,40 @@
       ],
       "cameraPadding": 1.3,
       "status": "repair",
-      "finding": "All 13 original animations visually inspected in complete front and side head and body sheets, brighter copies and separate anatomy closeups. Blue dragon lower muzzle and jaw deform during attack and turned death; preserve folded wings and tail."
+      "finding": "All twelve source raw face/body slices across thirteen clips and all 216 native actual technique frames actually inspected. Lower snout and side chin subtly shear relative to the brow during secondary idle, recoil and tilted defeat. Original wings, arms, legs and tail remain connected in these views. Smooth incremental full-forward-jaw binding; preserve original sculpt, rig, UVs, textures and every authored curve. Separate candidate, no visual approval.",
+      "revision": "20261017-storm-wyvern-independent-complete-jaw-v1",
+      "supersedesSourceSha256": "dcd1457d90b2fb37d33145bec544f54980d0966a0f384edf5fce0c80bd57a9bb",
+      "repairRegion": {
+        "y": [
+          0.12,
+          0.25
+        ],
+        "z": [
+          0.48,
+          0.62
+        ],
+        "x": [
+          0.5,
+          0.65
+        ]
+      },
+      "union": [
+        {
+          "y": [
+            0.12,
+            0.25
+          ],
+          "z": [
+            0.48,
+            0.62
+          ],
+          "x": [
+            0.5,
+            0.65
+          ]
+        }
+      ],
+      "continuousInfluencePacking": true
     },
     "legendary-26": {
       "y": [
@@ -3132,21 +3576,21 @@
       "finding": "Puppy eye mask and muzzle shear during attack, hit reaction and turned death."
     },
     "starter-earth": {
+      "bounds": [
+        -0.75,
+        0.75,
+        -0.2,
+        1,
+        -1.1,
+        1.1
+      ],
+      "cameraPadding": 1,
       "y": [
-        0.22,
-        0.42
+        -2,
+        -2
       ],
-      "z": [
-        -0.3,
-        -0.08
-      ],
-      "x": [
-        0.35,
-        0.55
-      ],
-      "status": "no-repair",
-      "finding": "Existing face binding remains coherent through all 13 original clips; no additional source repair required.",
-      "cameraPadding": 1.3
+      "status": "new-continuous-anatomy",
+      "finding": "Entirely new continuous Pebble sculpt. Complete face gate uses thirteen independent spherical patches, including under-chin and rear jaw, without exclusions."
     },
     "starter-fire-r": {
       "y": [

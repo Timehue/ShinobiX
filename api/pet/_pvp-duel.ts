@@ -65,6 +65,7 @@ const PVP_DUEL_TTL_SECONDS = 45 * 60;
 
 export interface PvpPetDuelSeal {
     challengeId: string;
+    rulesetVersion?: 'progression-v3' | 'legacy-v2';
     /** Canonically ordered by account name, so the seal is identical whichever
      *  participant's accept produced it and the fight cannot depend on who
      *  asked. `a` fights as the engine's player side. */
@@ -102,6 +103,7 @@ export function isPvpPetDuelSeal(value: unknown): value is PvpPetDuelSeal {
     if (typeof seal.b !== 'string' || !seal.b) return false;
     if (seal.format !== '1v1' && seal.format !== '2v2') return false;
     if (!Number.isSafeInteger(seal.seed)) return false;
+    if (seal.rulesetVersion !== undefined && seal.rulesetVersion !== 'progression-v3' && seal.rulesetVersion !== 'legacy-v2') return false;
     const size = seal.format === '2v2' ? 2 : 1;
     return isPetArray(seal.aPets, size) && isPetArray(seal.bPets, size);
 }
@@ -170,6 +172,7 @@ export async function sealPvpPetDuel(args: {
     const challengerIsA = args.challengerName.toLowerCase() <= args.responderName.toLowerCase();
     const seal: PvpPetDuelSeal = {
         challengeId: args.challengeId,
+        rulesetVersion: 'progression-v3',
         a: challengerIsA ? args.challengerName : args.responderName,
         b: challengerIsA ? args.responderName : args.challengerName,
         aPets: challengerIsA ? challengerPets : responderPets,
@@ -206,6 +209,7 @@ export function resolvePvpPetDuel(seal: PvpPetDuelSeal): PvpPetDuelResolution {
         fromPets: seal.aPets,
         toPets: seal.bPets,
         format: seal.format,
+        rulesetVersion: seal.rulesetVersion ?? 'legacy-v2',
     });
     return { winnerName: outcome === 'from' ? seal.a : seal.b, script };
 }

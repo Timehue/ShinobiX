@@ -14,7 +14,7 @@
  * so every actor here is one it will recognise.
  */
 import { useMemo } from "react";
-import { extraSlotWanderersAt, riftSealOf } from "../../../shared/wanderer-extra-slots";
+import { extraSlotWanderersAt, riftSealOf, riftSpawnCombatLevel } from "../../../shared/wanderer-extra-slots";
 import {
     ROAD_NEMESIS_NAME,
     roadNemesisActorId,
@@ -53,6 +53,7 @@ import { activeVillageWarsFor, loadSectorTerritory } from "./world-state";
 export { roadNemesisActorId, roadNemesisTier, roadNemesisTitle };
 
 export function withOrdinaryPvePreview(wanderer: Wanderer, playerLevel: number, sector: number | null | undefined): Wanderer {
+    if (wanderer.archetype === "riftspawn") return { ...wanderer, level: riftSpawnCombatLevel(playerLevel) };
     const encounter = sector != null ? ordinaryWandererEncounter(wanderer, playerLevel, sector) : null;
     return encounter ? { ...wanderer, level: encounter.level, avatarImage: ordinaryPvePortrait(encounter) } : wanderer;
 }

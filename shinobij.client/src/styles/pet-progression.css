@@ -1,0 +1,18 @@
+.pet-ability-progression { min-width: 0; padding: 16px; margin-block: 12px 20px; border: 1px solid #465264; border-radius: 8px; background: #18212c; color: #f5ebd6; font: 400 13px/1.55 var(--font-body, Inter, sans-serif); }
+.pet-progression-heading { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px; }
+.pet-ability-progression h4 { margin: 0; font-size: 15px; color: #f5ebd6; }
+.pet-ability-progression p { color: #c3cbd5; font-size: 12px; line-height: 1.6; }
+.pet-progression-heading > strong { color: #e9bd75; font-size: 12px; }
+.pet-progression-milestones { display: grid; gap: 8px; list-style: none; padding: 0; margin: 14px 0 18px; }
+.pet-progression-milestones > li { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 12px; padding: 10px; border: 1px solid #394557; border-radius: 6px; }
+.pet-progression-milestones > li[data-earned=true] { border-color: #687351; background: #29342b55; }
+.pet-progression-milestones > li[aria-current=step] { border-color: #e9bd75; }
+.pet-progression-level { color: #e9bd75; font-weight: 700; }
+.pet-progression-level small { display: block; color: #c3cbd5; font-weight: 400; font-size: 11px; }
+.pet-progression-ability strong { display: block; font-weight: 600; overflow-wrap: anywhere; }
+.pet-progression-ability small { display: block; margin-top: 3px; color: #c3cbd5; font-size: 11px; }
+.pet-progression-active { padding-inline-start: 20px; margin-block: 8px 16px; color: #d8e6d0; overflow-wrap: anywhere; }
+.pet-ability-progression summary { min-height: 44px; cursor: pointer; padding-block: 12px; color: #e9bd75; }
+.pet-ability-progression :focus-visible { outline: 2px solid #e9bd75; outline-offset: 3px; }
+.pet-growth-stat-explanation { margin-block: 8px; font-size: 12px; color: #c3cbd5; line-height: 1.6; }
+@media (max-width: 440px) { .pet-ability-progression { padding: 12px; } .pet-progression-milestones > li { grid-template-columns: 50px minmax(0, 1fr); gap: 8px; } }

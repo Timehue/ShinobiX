@@ -30,6 +30,22 @@ function memoryStore(seed: Record<string, unknown> = {}) {
 }
 
 describe('generic AI fight authority', () => {
+    it('accepts only an explicit bounded integer practice choice and never legacy opponentLevel', async () => {
+        const params = { store: memoryStore() as never, playerName: 'Scout', character: { level: 100 }, tokenTtlSeconds: 1800 };
+        for (const level of [1, 45, 100]) {
+            const authority = await resolveGenericAiFightAuthority({ ...params,
+                body: { battleKind: 'practice', opponentId: 'builtin-ai-central-champion', opponentLevel: 7, practiceLevel: level } });
+            assert.deepEqual(authority.scaling, { level });
+        }
+        const authored = await resolveGenericAiFightAuthority({ ...params,
+            body: { battleKind: 'practice', opponentId: 'builtin-ai-central-champion', opponentLevel: 100 } });
+        assert.equal(authored.scaling, undefined);
+        for (const practiceLevel of [0, -1, 101, 4.5, NaN, Infinity, '100', null, {}]) {
+            await assert.rejects(resolveGenericAiFightAuthority({ ...params,
+                body: { battleKind: 'practice', opponentId: 'builtin-ai-central-champion', practiceLevel } }), /Practice level must be an integer/);
+        }
+    });
+
     it('preserves the original template role allocation instead of silently replacing it with generic stats', () => {
         for (const archetype of ['bruiser', 'skirmisher', 'assassin', 'elementalist', 'defender'] as const) {
             const descriptor = { ...rollOrdinaryPveEncounter({ sourceId: 'role-allocation', playerLevel: 50, sector: 61, archetype }), level: 50 };
@@ -78,7 +94,7 @@ describe('generic AI fight authority', () => {
             outcome: { kind: 'battle', encounter }, at: Date.now(),
         } });
         const authority = await resolveGenericAiFightAuthority({ store: store as never, playerName: 'Scout',
-            body: { battleKind: 'explore', sector: 61, worldExploreRequestId: id, opponentId: 'forged', opponentLevel: 1, encounter: { level: 1 } },
+            body: { battleKind: 'explore', sector: 61, worldExploreRequestId: id, opponentId: 'forged', opponentLevel: 1, practiceLevel: 1, encounter: { level: 1 } },
             character: { level: 100, activePetId: 'new', pets: [{ id: 'new', trait: 'Lucky' }] }, tokenTtlSeconds: 1800 });
         assert.deepEqual(authority.encounter, encounter);
         assert.equal(authority.profile?.level, encounter.level);

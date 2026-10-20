@@ -1,0 +1,772 @@
+{
+  "id": "starter-earth",
+  "sourceSha256": "c99b0471489b65a5fe2c4b9b50bf781c48f4820f7eacdb092cf983a15ca51894",
+  "secondPassComplete": true,
+  "raw": [
+    {
+      "stage": "source",
+      "part": "head",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-pebble-distinct-contact-v2-final-source-head/starter-earth-head-front-0.png",
+      "sha256": "36a3b722911a7a6c9017ca063b7b0b5a784ba49cbf2423bae12a3c16fe526fc8",
+      "actuallyInspected": true,
+      "result": "pass",
+      "reviewedAt": "2026-10-19T19:23:57.683Z",
+      "notes": "Actually inspected all retained samples: coherent face/scalp and joined body/limbs, without tears or stretched appendages."
+    },
+    {
+      "stage": "source",
+      "part": "head",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-pebble-distinct-contact-v2-final-source-head/starter-earth-head-front-1.png",
+      "sha256": "5a0675ec49a482fefb1b3428aeb152fe482b6452ce257df93ba0064bb31e9a0e",
+      "actuallyInspected": true,
+      "result": "pass",
+      "reviewedAt": "2026-10-19T19:24:28.472Z",
+      "notes": "Actually inspected all retained samples: coherent face/scalp and joined body/limbs, without tears or stretched appendages."
+    },
+    {
+      "stage": "source",
+      "part": "head",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-pebble-distinct-contact-v2-final-source-head/starter-earth-head-front-2.png",
+      "sha256": "251dd0b5ae2a1d1cac6b38385ec3912e0b9f4e25de7aef96bd70f395495687b9",
+      "actuallyInspected": true,
+      "result": "pass",
+      "reviewedAt": "2026-10-19T19:24:58.255Z",
+      "notes": "Actually inspected all retained samples: coherent face/scalp and joined body/limbs, without tears or stretched appendages."
+    },
+    {
+      "stage": "source",
+      "part": "head",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-pebble-distinct-contact-v2-final-source-head/starter-earth-head-other-side-0.png",
+      "sha256": "95f078dfbd48ac3a3464bc1648a8ce9f998aa3dea7a9ac8a9a3b1690c1c13858",
+      "actuallyInspected": true,
+      "result": "pass",
+      "reviewedAt": "2026-10-19T19:25:27.141Z",
+      "notes": "Actually inspected all retained samples: coherent face/scalp and joined body/limbs, without tears or stretched appendages."
+    },
+    {
+      "stage": "source",
+      "part": "head",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-pebble-distinct-contact-v2-final-source-head/starter-earth-head-other-side-1.png",
+      "sha256": "ef04ca46c2fa684bde925842e56cd573737a500613ec81996d42a9e3d6d1bc06",
+      "actuallyInspected": true,
+      "result": "pass",
+      "reviewedAt": "2026-10-19T19:25:58.601Z",
+      "notes": "Actually inspected all retained samples: coherent face/scalp and joined body/limbs, without tears or stretched appendages."
+    },
+    {
+      "stage": "source",
+      "part": "head",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-pebble-distinct-contact-v2-final-source-head/starter-earth-head-other-side-2.png",
+      "sha256": "bdc98e35aae8ac9f706d22eea7ac457f2466fc996161e18f6d4ab731806663ad",
+      "actuallyInspected": true,
+      "result": "pass",
+      "reviewedAt": "2026-10-19T19:26:30.488Z",
+      "notes": "Actually inspected all retained samples: coherent face/scalp and joined body/limbs, without tears or stretched appendages."
+    },
+    {
+      "stage": "source",
+      "part": "head",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-pebble-distinct-contact-v2-final-source-head/starter-earth-head-side-0.png",
+      "sha256": "d2f473d467ab29d453b7f444c8a102bb49280901141f80ef78a8c21ca69e113a",
+      "actuallyInspected": true,
+      "result": "pass",
+      "reviewedAt": "2026-10-19T19:27:04.741Z",
+      "notes": "Actually inspected all retained samples: coherent face/scalp and joined body/limbs, without tears or stretched appendages."
+    },
+    {
+      "stage": "source",
+      "part": "head",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-pebble-distinct-contact-v2-final-source-head/starter-earth-head-side-1.png",
+      "sha256": "f3fd8e9195dcd1acbb795c48c52584333398e795b26634406a89c3352874bb11",
+      "actuallyInspected": true,
+      "result": "pass",
+      "reviewedAt": "2026-10-19T19:27:30.333Z",
+      "notes": "Actually inspected all retained samples: coherent face/scalp and joined body/limbs, without tears or stretched appendages."
+    },
+    {
+      "stage": "source",
+      "part": "head",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-pebble-distinct-contact-v2-final-source-head/starter-earth-head-side-2.png",
+      "sha256": "fe3a40599d8e0c369dbc9be51e0dbbbb9c35391c34c9c589cdb371fb1e3e4381",
+      "actuallyInspected": true,
+      "result": "pass",
+      "reviewedAt": "2026-10-19T19:27:58.544Z",
+      "notes": "Actually inspected all retained samples: coherent face/scalp and joined body/limbs, without tears or stretched appendages."
+    },
+    {
+      "stage": "source",
+      "part": "body",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-pebble-distinct-contact-v2-final-source-body/starter-earth-front-0.png",
+      "sha256": "3e1a1dee106cd4cf528b2c2b0a7bae4faba0f4e62768a87811f35219589f16ec",
+      "actuallyInspected": true,
+      "result": "pass",
+      "reviewedAt": "2026-10-19T19:28:31.445Z",
+      "notes": "Actually inspected all retained samples: coherent face/scalp and joined body/limbs, without tears or stretched appendages."
+    },
+    {
+      "stage": "source",
+      "part": "body",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-pebble-distinct-contact-v2-final-source-body/starter-earth-front-1.png",
+      "sha256": "e433256940cbe217efc0792e1f5e62a0f1b7b87a8b02ce8dfbd747fb208ad23b",
+      "actuallyInspected": true,
+      "result": "pass",
+      "reviewedAt": "2026-10-19T19:29:03.082Z",
+      "notes": "Actually inspected all retained samples: coherent face/scalp and joined body/limbs, without tears or stretched appendages."
+    },
+    {
+      "stage": "source",
+      "part": "body",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-pebble-distinct-contact-v2-final-source-body/starter-earth-front-2.png",
+      "sha256": "b685dc944d28125ecac451f8e9743894d781bb6334ba268e51f0196ffab3c582",
+      "actuallyInspected": true,
+      "result": "pass",
+      "reviewedAt": "2026-10-19T19:29:33.300Z",
+      "notes": "Actually inspected all retained samples: coherent face/scalp and joined body/limbs, without tears or stretched appendages."
+    },
+    {
+      "stage": "source",
+      "part": "body",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-pebble-distinct-contact-v2-final-source-body/starter-earth-side-0.png",
+      "sha256": "7df9fd7f7248562e6955f39c6bb8d9d536fdbac863eed6470dfdf2ed225e5ec1",
+      "actuallyInspected": true,
+      "result": "pass",
+      "reviewedAt": "2026-10-19T19:30:05.005Z",
+      "notes": "Actually inspected all retained samples: coherent face/scalp and joined body/limbs, without tears or stretched appendages."
+    },
+    {
+      "stage": "source",
+      "part": "body",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-pebble-distinct-contact-v2-final-source-body/starter-earth-side-1.png",
+      "sha256": "0b133046b4b2f6bc24f62ec1007ca846c879e1e675f5e45da71590740b76cfbe",
+      "actuallyInspected": true,
+      "result": "pass",
+      "reviewedAt": "2026-10-19T19:30:36.747Z",
+      "notes": "Actually inspected all retained samples: coherent face/scalp and joined body/limbs, without tears or stretched appendages."
+    },
+    {
+      "stage": "source",
+      "part": "body",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-pebble-distinct-contact-v2-final-source-body/starter-earth-side-2.png",
+      "sha256": "b85284e714be5808cbce9672817f945a6453bcccebd0d9154ab5577237740fcd",
+      "actuallyInspected": true,
+      "result": "pass",
+      "reviewedAt": "2026-10-19T19:31:10.759Z",
+      "notes": "Actually inspected all retained samples: coherent face/scalp and joined body/limbs, without tears or stretched appendages."
+    },
+    {
+      "stage": "battle",
+      "part": "head",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-pebble-distinct-contact-v2-final-battle-head/starter-earth-head-front-0.png",
+      "sha256": "5d70082e81f566b0af041bbb1f305843d623c1e388f5ad6fbc450b9a2070394a",
+      "actuallyInspected": true,
+      "result": "pass",
+      "reviewedAt": "2026-10-19T19:31:44.021Z",
+      "notes": "Actually inspected all retained samples: coherent face/scalp and joined body/limbs, without tears or stretched appendages."
+    },
+    {
+      "stage": "battle",
+      "part": "head",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-pebble-distinct-contact-v2-final-battle-head/starter-earth-head-front-1.png",
+      "sha256": "5f690dd06c2866c546f479a07ce47b82f1a196bb9b44098f3e046cb403fce8d7",
+      "actuallyInspected": true,
+      "result": "pass",
+      "reviewedAt": "2026-10-19T19:34:01.409Z",
+      "notes": "Actually inspected all retained samples: coherent face/scalp and joined body/limbs, without tears or stretched appendages."
+    },
+    {
+      "stage": "battle",
+      "part": "head",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-pebble-distinct-contact-v2-final-battle-head/starter-earth-head-front-2.png",
+      "sha256": "57a59070c3dc062a8ea0e775d6c3aaee462211279f65ac82fa08a5bf8d1e76ac",
+      "actuallyInspected": true,
+      "result": "pass",
+      "reviewedAt": "2026-10-19T19:34:06.891Z",
+      "notes": "Actually inspected all retained samples: coherent face/scalp and joined body/limbs, without tears or stretched appendages."
+    },
+    {
+      "stage": "battle",
+      "part": "head",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-pebble-distinct-contact-v2-final-battle-head/starter-earth-head-other-side-0.png",
+      "sha256": "5fc2c9ab7bb422d3e257db3990759cd680a99a373c84af73e4ae2f6464478715",
+      "actuallyInspected": true,
+      "result": "pass",
+      "reviewedAt": "2026-10-19T19:34:14.231Z",
+      "notes": "Actually inspected all retained samples: coherent face/scalp and joined body/limbs, without tears or stretched appendages."
+    },
+    {
+      "stage": "battle",
+      "part": "head",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-pebble-distinct-contact-v2-final-battle-head/starter-earth-head-other-side-1.png",
+      "sha256": "bce9c4034e3c57ae223409abb7682b37d0567ccd830f3b74bbfa359c61ae3760",
+      "actuallyInspected": true,
+      "result": "pass",
+      "reviewedAt": "2026-10-19T19:34:24.271Z",
+      "notes": "Actually inspected all retained samples: coherent face/scalp and joined body/limbs, without tears or stretched appendages."
+    },
+    {
+      "stage": "battle",
+      "part": "head",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-pebble-distinct-contact-v2-final-battle-head/starter-earth-head-other-side-2.png",
+      "sha256": "8240e05dd09b510270f2f85a233a92cfffed42373930f6d810538833f4a76fd3",
+      "actuallyInspected": true,
+      "result": "pass",
+      "reviewedAt": "2026-10-19T19:34:33.988Z",
+      "notes": "Actually inspected all retained samples: coherent face/scalp and joined body/limbs, without tears or stretched appendages."
+    },
+    {
+      "stage": "battle",
+      "part": "head",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-pebble-distinct-contact-v2-final-battle-head/starter-earth-head-side-0.png",
+      "sha256": "eb2af155ffcfea3498d16f98140b7b43d958b906e0fcc3cc59e1ed6336f8c77b",
+      "actuallyInspected": true,
+      "result": "pass",
+      "reviewedAt": "2026-10-19T19:34:43.266Z",
+      "notes": "Actually inspected all retained samples: coherent face/scalp and joined body/limbs, without tears or stretched appendages."
+    },
+    {
+      "stage": "battle",
+      "part": "head",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-pebble-distinct-contact-v2-final-battle-head/starter-earth-head-side-1.png",
+      "sha256": "e26439dbb1fa9d75fcb10b40f7d64c713e98f5d203c996ed034787b851ea85dd",
+      "actuallyInspected": true,
+      "result": "pass",
+      "reviewedAt": "2026-10-19T19:34:51.901Z",
+      "notes": "Actually inspected all retained samples: coherent face/scalp and joined body/limbs, without tears or stretched appendages."
+    },
+    {
+      "stage": "battle",
+      "part": "head",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-pebble-distinct-contact-v2-final-battle-head/starter-earth-head-side-2.png",
+      "sha256": "46787c713dfcfcb915d912c1f466eca2bb66d3f307d24ab7ded26cf93b5c0438",
+      "actuallyInspected": true,
+      "result": "pass",
+      "reviewedAt": "2026-10-19T19:35:01.393Z",
+      "notes": "Actually inspected all retained samples: coherent face/scalp and joined body/limbs, without tears or stretched appendages."
+    },
+    {
+      "stage": "battle",
+      "part": "body",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-pebble-distinct-contact-v2-final-battle-body/starter-earth-front-0.png",
+      "sha256": "290483637a50d8bcba1a04f27d69d45b82d6421d7759264aedc30a6f8c95eb65",
+      "actuallyInspected": true,
+      "result": "pass",
+      "reviewedAt": "2026-10-19T19:35:12.848Z",
+      "notes": "Actually inspected all retained samples: coherent face/scalp and joined body/limbs, without tears or stretched appendages."
+    },
+    {
+      "stage": "battle",
+      "part": "body",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-pebble-distinct-contact-v2-final-battle-body/starter-earth-front-1.png",
+      "sha256": "0c2d232768707b92afee8a80f517776b75830a3ce1dd9c305def4e19bcea51e5",
+      "actuallyInspected": true,
+      "result": "pass",
+      "reviewedAt": "2026-10-19T19:35:22.681Z",
+      "notes": "Actually inspected all retained samples: coherent face/scalp and joined body/limbs, without tears or stretched appendages."
+    },
+    {
+      "stage": "battle",
+      "part": "body",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-pebble-distinct-contact-v2-final-battle-body/starter-earth-front-2.png",
+      "sha256": "4e157fbd0ad19d38c0af0b507a4d8c72836fbc55d62a524fa963595062c61a61",
+      "actuallyInspected": true,
+      "result": "pass",
+      "reviewedAt": "2026-10-19T19:35:35.316Z",
+      "notes": "Actually inspected all retained samples: coherent face/scalp and joined body/limbs, without tears or stretched appendages."
+    },
+    {
+      "stage": "battle",
+      "part": "body",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-pebble-distinct-contact-v2-final-battle-body/starter-earth-side-0.png",
+      "sha256": "0317359ca7fcdf89cf4546c9a3f56038c3360e7ef1e4944c6cbce46a657ea2db",
+      "actuallyInspected": true,
+      "result": "pass",
+      "reviewedAt": "2026-10-19T19:35:45.335Z",
+      "notes": "Actually inspected all retained samples: coherent face/scalp and joined body/limbs, without tears or stretched appendages."
+    },
+    {
+      "stage": "battle",
+      "part": "body",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-pebble-distinct-contact-v2-final-battle-body/starter-earth-side-1.png",
+      "sha256": "d54a2b75aea7dde78e0ed59bc0ba0cab1228b541ea4c5e9e23769a9ec6f7e4cc",
+      "actuallyInspected": true,
+      "result": "pass",
+      "reviewedAt": "2026-10-19T19:35:57.501Z",
+      "notes": "Actually inspected all retained samples: coherent face/scalp and joined body/limbs, without tears or stretched appendages."
+    },
+    {
+      "stage": "battle",
+      "part": "body",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-pebble-distinct-contact-v2-final-battle-body/starter-earth-side-2.png",
+      "sha256": "04ab4af4e8dfe322267d3a4ca0a1beddf7feed770aeecc95224fe1f3ffa4c075",
+      "actuallyInspected": true,
+      "result": "pass",
+      "reviewedAt": "2026-10-19T19:36:10.237Z",
+      "notes": "Actually inspected all retained samples: coherent face/scalp and joined body/limbs, without tears or stretched appendages."
+    }
+  ],
+  "runtime": [
+    {
+      "quality": "low",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-pebble-distinct-contact-v2-final-runtime-low/starter-earth-battle-body-0.png",
+      "sha256": "f485cc1f3130079828dbfa020955a287997c798dc805685af427760a3e4c983d",
+      "actuallyInspected": true,
+      "result": "pass",
+      "reviewedAt": "2026-10-19T19:36:25.571Z",
+      "notes": "Actually inspected all retained samples: coherent face/scalp and joined body/limbs, without tears or stretched appendages."
+    },
+    {
+      "quality": "low",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-pebble-distinct-contact-v2-final-runtime-low/starter-earth-battle-body-1.png",
+      "sha256": "f9e6eaf196e3a56b6f013a16ac7ffada10e4b7f0bfe6a3bb971b48c9fb9fe668",
+      "actuallyInspected": true,
+      "result": "pass",
+      "reviewedAt": "2026-10-19T19:36:37.132Z",
+      "notes": "Actually inspected all retained samples: coherent face/scalp and joined body/limbs, without tears or stretched appendages."
+    },
+    {
+      "quality": "low",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-pebble-distinct-contact-v2-final-runtime-low/starter-earth-battle-body-2.png",
+      "sha256": "293fbed5e5e54f43599198b7079bf616f683982331332f18055a8d6243501a70",
+      "actuallyInspected": true,
+      "result": "pass",
+      "reviewedAt": "2026-10-19T19:36:50.194Z",
+      "notes": "Actually inspected all retained samples: coherent face/scalp and joined body/limbs, without tears or stretched appendages."
+    },
+    {
+      "quality": "low",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-pebble-distinct-contact-v2-final-runtime-low/starter-earth-battle-body-3.png",
+      "sha256": "7b5083b7b5151dd1dd1fc8857a2433dfd644170c59799dad3e6b76e4492a4195",
+      "actuallyInspected": true,
+      "result": "pass",
+      "reviewedAt": "2026-10-19T19:37:00.657Z",
+      "notes": "Actually inspected all retained samples: coherent face/scalp and joined body/limbs, without tears or stretched appendages."
+    },
+    {
+      "quality": "low",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-pebble-distinct-contact-v2-final-runtime-low/starter-earth-battle-head-0.png",
+      "sha256": "28528c91369d2bc57e37a65fdffd15f47ce51ef0adc1af1d19f011855732a8be",
+      "actuallyInspected": true,
+      "result": "pass",
+      "reviewedAt": "2026-10-19T19:37:12.104Z",
+      "notes": "Actually inspected all retained samples: coherent face/scalp and joined body/limbs, without tears or stretched appendages."
+    },
+    {
+      "quality": "low",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-pebble-distinct-contact-v2-final-runtime-low/starter-earth-battle-head-1.png",
+      "sha256": "c181f528071292d6120dba489bc8a08ac667dba4b1a35e09ea236eeac596b157",
+      "actuallyInspected": true,
+      "result": "pass",
+      "reviewedAt": "2026-10-19T19:37:22.416Z",
+      "notes": "Actually inspected all retained samples: coherent face/scalp and joined body/limbs, without tears or stretched appendages."
+    },
+    {
+      "quality": "low",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-pebble-distinct-contact-v2-final-runtime-low/starter-earth-battle-head-2.png",
+      "sha256": "c8bf1f455bba5582e0c4269248947e26ac6f1dbb54768fdcad2088a6122c9cf7",
+      "actuallyInspected": true,
+      "result": "pass",
+      "reviewedAt": "2026-10-19T19:37:30.409Z",
+      "notes": "Actually inspected all retained samples: coherent face/scalp and joined body/limbs, without tears or stretched appendages."
+    },
+    {
+      "quality": "low",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-pebble-distinct-contact-v2-final-runtime-low/starter-earth-battle-head-3.png",
+      "sha256": "cad8d8c923dcf5030e95a1bdb28fcb089f0b78813fc179e9d89703f81d180c91",
+      "actuallyInspected": true,
+      "result": "pass",
+      "reviewedAt": "2026-10-19T19:37:40.274Z",
+      "notes": "Actually inspected all retained samples: coherent face/scalp and joined body/limbs, without tears or stretched appendages."
+    },
+    {
+      "quality": "low",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-pebble-distinct-contact-v2-final-runtime-low/starter-earth-source-body-0.png",
+      "sha256": "587e827f209beeb789e2b4601a44c11c3382ca07f03617988ef3fc8becfb9d51",
+      "actuallyInspected": true,
+      "result": "pass",
+      "reviewedAt": "2026-10-19T19:37:51.967Z",
+      "notes": "Actually inspected all retained samples: coherent face/scalp and joined body/limbs, without tears or stretched appendages."
+    },
+    {
+      "quality": "low",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-pebble-distinct-contact-v2-final-runtime-low/starter-earth-source-body-1.png",
+      "sha256": "1ca0bc69bec3dc2a9324c3eabbf5f71ac7dfae13fe21c79b74656a1aa4e6d48d",
+      "actuallyInspected": true,
+      "result": "pass",
+      "reviewedAt": "2026-10-19T19:38:01.423Z",
+      "notes": "Actually inspected all retained samples: coherent face/scalp and joined body/limbs, without tears or stretched appendages."
+    },
+    {
+      "quality": "low",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-pebble-distinct-contact-v2-final-runtime-low/starter-earth-source-body-2.png",
+      "sha256": "c42d0b53d71eddc438a51cd6e97097123a6602111d0c5897ab018ef3b7d819e4",
+      "actuallyInspected": true,
+      "result": "pass",
+      "reviewedAt": "2026-10-19T19:38:14.036Z",
+      "notes": "Actually inspected all retained samples: coherent face/scalp and joined body/limbs, without tears or stretched appendages."
+    },
+    {
+      "quality": "low",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-pebble-distinct-contact-v2-final-runtime-low/starter-earth-source-body-3.png",
+      "sha256": "86f612ddecd56327c46a461d422b2de7d67447365c406b428a20caa09ab7851f",
+      "actuallyInspected": true,
+      "result": "pass",
+      "reviewedAt": "2026-10-19T19:38:23.009Z",
+      "notes": "Actually inspected all retained samples: coherent face/scalp and joined body/limbs, without tears or stretched appendages."
+    },
+    {
+      "quality": "low",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-pebble-distinct-contact-v2-final-runtime-low/starter-earth-source-head-0.png",
+      "sha256": "868888b57bde0e7c12b32fe3a97786165b72d1b96eaf327e8df81ea3e92c9c14",
+      "actuallyInspected": true,
+      "result": "pass",
+      "reviewedAt": "2026-10-19T19:38:32.060Z",
+      "notes": "Actually inspected all retained samples: coherent face/scalp and joined body/limbs, without tears or stretched appendages."
+    },
+    {
+      "quality": "low",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-pebble-distinct-contact-v2-final-runtime-low/starter-earth-source-head-1.png",
+      "sha256": "7803067a9cb3b863c5fe6529b58e4617a78ffaaa4c029ebf8c05bcd8097303c4",
+      "actuallyInspected": true,
+      "result": "pass",
+      "reviewedAt": "2026-10-19T19:38:45.067Z",
+      "notes": "Actually inspected all retained samples: coherent face/scalp and joined body/limbs, without tears or stretched appendages."
+    },
+    {
+      "quality": "low",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-pebble-distinct-contact-v2-final-runtime-low/starter-earth-source-head-2.png",
+      "sha256": "51e5873a6f905416d2de0fd4693c9933352ec3d60852700cc85e4ae428d73b00",
+      "actuallyInspected": true,
+      "result": "pass",
+      "reviewedAt": "2026-10-19T19:38:55.584Z",
+      "notes": "Actually inspected all retained samples: coherent face/scalp and joined body/limbs, without tears or stretched appendages."
+    },
+    {
+      "quality": "low",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-pebble-distinct-contact-v2-final-runtime-low/starter-earth-source-head-3.png",
+      "sha256": "230e6ee93e72660d5e0d7d0c30ac225a68d2359c77484a88c8f6ae8dc1a307d3",
+      "actuallyInspected": true,
+      "result": "pass",
+      "reviewedAt": "2026-10-19T19:39:07.339Z",
+      "notes": "Actually inspected all retained samples: coherent face/scalp and joined body/limbs, without tears or stretched appendages."
+    },
+    {
+      "quality": "medium",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-pebble-distinct-contact-v2-final-runtime-medium/starter-earth-battle-body-0.png",
+      "sha256": "b5ccae1c9e1ec918cf7c1abf845ac714ebd9d833058adc83dbc19ac0f836ca8e",
+      "actuallyInspected": true,
+      "result": "pass",
+      "reviewedAt": "2026-10-19T19:39:22.804Z",
+      "notes": "Actually inspected all retained samples: coherent face/scalp and joined body/limbs, without tears or stretched appendages."
+    },
+    {
+      "quality": "medium",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-pebble-distinct-contact-v2-final-runtime-medium/starter-earth-battle-body-1.png",
+      "sha256": "6330c1909a95b05474ce1554517b0734c11dc5325aaaa27df076e5131b1c02ff",
+      "actuallyInspected": true,
+      "result": "pass",
+      "reviewedAt": "2026-10-19T19:39:35.999Z",
+      "notes": "Actually inspected all retained samples: coherent face/scalp and joined body/limbs, without tears or stretched appendages."
+    },
+    {
+      "quality": "medium",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-pebble-distinct-contact-v2-final-runtime-medium/starter-earth-battle-body-2.png",
+      "sha256": "a74c7af22f1478f5716ac31f2e6bda26984dc4aa845c0e5ed7fc274647f53739",
+      "actuallyInspected": true,
+      "result": "pass",
+      "reviewedAt": "2026-10-19T19:39:50.608Z",
+      "notes": "Actually inspected all retained samples: coherent face/scalp and joined body/limbs, without tears or stretched appendages."
+    },
+    {
+      "quality": "medium",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-pebble-distinct-contact-v2-final-runtime-medium/starter-earth-battle-body-3.png",
+      "sha256": "06a6b884407eff966bfb95b584391255bda3d206c92d2314a04ea9c5b74f0be1",
+      "actuallyInspected": true,
+      "result": "pass",
+      "reviewedAt": "2026-10-19T19:40:00.274Z",
+      "notes": "Actually inspected all retained samples: coherent face/scalp and joined body/limbs, without tears or stretched appendages."
+    },
+    {
+      "quality": "medium",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-pebble-distinct-contact-v2-final-runtime-medium/starter-earth-battle-head-0.png",
+      "sha256": "b9f28e938831254122a6762692c72369b8ac9b3c3a1e13c0fb67b6f934b40c57",
+      "actuallyInspected": true,
+      "result": "pass",
+      "reviewedAt": "2026-10-19T19:40:15.500Z",
+      "notes": "Actually inspected all retained samples: coherent face/scalp and joined body/limbs, without tears or stretched appendages."
+    },
+    {
+      "quality": "medium",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-pebble-distinct-contact-v2-final-runtime-medium/starter-earth-battle-head-1.png",
+      "sha256": "19a9b1ef636fa2444ad87de3c6d0c31958fa79a52d008633e0421fde74ba42ab",
+      "actuallyInspected": true,
+      "result": "pass",
+      "reviewedAt": "2026-10-19T19:40:32.090Z",
+      "notes": "Actually inspected all retained samples: coherent face/scalp and joined body/limbs, without tears or stretched appendages."
+    },
+    {
+      "quality": "medium",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-pebble-distinct-contact-v2-final-runtime-medium/starter-earth-battle-head-2.png",
+      "sha256": "62dc76e6c10f5aac30438b4f293063161f299e2dc80740c10ea7b0a306ae7323",
+      "actuallyInspected": true,
+      "result": "pass",
+      "reviewedAt": "2026-10-19T19:40:46.206Z",
+      "notes": "Actually inspected all retained samples: coherent face/scalp and joined body/limbs, without tears or stretched appendages."
+    },
+    {
+      "quality": "medium",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-pebble-distinct-contact-v2-final-runtime-medium/starter-earth-battle-head-3.png",
+      "sha256": "329e31da0c30394f66bbeb33a20fe37cbf75db6d61f0679d5778ab0ee523ccec",
+      "actuallyInspected": true,
+      "result": "pass",
+      "reviewedAt": "2026-10-19T19:40:59.241Z",
+      "notes": "Actually inspected all retained samples: coherent face/scalp and joined body/limbs, without tears or stretched appendages."
+    },
+    {
+      "quality": "medium",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-pebble-distinct-contact-v2-final-runtime-medium/starter-earth-source-body-0.png",
+      "sha256": "5fadb1e02b57e83c36718e5391dfe810ee358e397a87b3ceb1b4ac8baa4a26c4",
+      "actuallyInspected": true,
+      "result": "pass",
+      "reviewedAt": "2026-10-19T19:41:18.809Z",
+      "notes": "Actually inspected all retained samples: coherent face/scalp and joined body/limbs, without tears or stretched appendages."
+    },
+    {
+      "quality": "medium",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-pebble-distinct-contact-v2-final-runtime-medium/starter-earth-source-body-1.png",
+      "sha256": "69a1ed56fbafa7519a27bf15f3bb28eb8689fe9091b64183a94ce8e3e8cb500c",
+      "actuallyInspected": true,
+      "result": "pass",
+      "reviewedAt": "2026-10-19T19:41:33.035Z",
+      "notes": "Actually inspected all retained samples: coherent face/scalp and joined body/limbs, without tears or stretched appendages."
+    },
+    {
+      "quality": "medium",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-pebble-distinct-contact-v2-final-runtime-medium/starter-earth-source-body-2.png",
+      "sha256": "85422be4ac501c3a50891093ede84c1f17b8cd45c166f97cee4f66486fc1925b",
+      "actuallyInspected": true,
+      "result": "pass",
+      "reviewedAt": "2026-10-19T19:41:47.918Z",
+      "notes": "Actually inspected all retained samples: coherent face/scalp and joined body/limbs, without tears or stretched appendages."
+    },
+    {
+      "quality": "medium",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-pebble-distinct-contact-v2-final-runtime-medium/starter-earth-source-body-3.png",
+      "sha256": "7c3731c3d8faec4c5dd859be52e937b6dcc3e19762bd399b19538bc160143aa6",
+      "actuallyInspected": true,
+      "result": "pass",
+      "reviewedAt": "2026-10-19T19:42:02.532Z",
+      "notes": "Actually inspected all retained samples: coherent face/scalp and joined body/limbs, without tears or stretched appendages."
+    },
+    {
+      "quality": "medium",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-pebble-distinct-contact-v2-final-runtime-medium/starter-earth-source-head-0.png",
+      "sha256": "147e1d4fd80f672973cd7d58b9cbfd014cf09bcc31ed8ecb4b606a0a04a7bcd6",
+      "actuallyInspected": true,
+      "result": "pass",
+      "reviewedAt": "2026-10-19T19:42:18.114Z",
+      "notes": "Actually inspected all retained samples: coherent face/scalp and joined body/limbs, without tears or stretched appendages."
+    },
+    {
+      "quality": "medium",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-pebble-distinct-contact-v2-final-runtime-medium/starter-earth-source-head-1.png",
+      "sha256": "909e3802d6088605027d6a6ad7f21a65e5e95c0582127454e16472b2a5be1f0c",
+      "actuallyInspected": true,
+      "result": "pass",
+      "reviewedAt": "2026-10-19T19:42:32.501Z",
+      "notes": "Actually inspected all retained samples: coherent face/scalp and joined body/limbs, without tears or stretched appendages."
+    },
+    {
+      "quality": "medium",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-pebble-distinct-contact-v2-final-runtime-medium/starter-earth-source-head-2.png",
+      "sha256": "e57f838c4e0a22bfb8ce0f4cd27ca07923dca723f83e2c674e3ffcbddb140ce1",
+      "actuallyInspected": true,
+      "result": "pass",
+      "reviewedAt": "2026-10-19T19:42:43.442Z",
+      "notes": "Actually inspected all retained samples: coherent face/scalp and joined body/limbs, without tears or stretched appendages."
+    },
+    {
+      "quality": "medium",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-pebble-distinct-contact-v2-final-runtime-medium/starter-earth-source-head-3.png",
+      "sha256": "4ecbd9a41561909f44a3e27caee98660827f02f322b0d08a7ff0e3e6cb1766f1",
+      "actuallyInspected": true,
+      "result": "pass",
+      "reviewedAt": "2026-10-19T19:42:58.659Z",
+      "notes": "Actually inspected all retained samples: coherent face/scalp and joined body/limbs, without tears or stretched appendages."
+    }
+  ],
+  "techniques": [
+    {
+      "path": ".tmp/pet-companion-techniques/independent-pebble-distinct-contact-v2-final-techniques/inspection-strips/front-block-0-half-0.png",
+      "sha256": "4e362efbc53cd4a7e2d5c64e0284fbb11a8cfa4cd218269472a91ce450efb57a",
+      "frames": 18,
+      "actuallyInspected": true,
+      "result": "pass",
+      "reviewedAt": "2026-10-19T19:43:11.257Z",
+      "notes": "Actually inspected all retained samples: coherent face/scalp and joined body/limbs, without tears or stretched appendages."
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-pebble-distinct-contact-v2-final-techniques/inspection-strips/front-block-0-half-1.png",
+      "sha256": "f4d1cfa34896b4486340d3b858498e352a20cadae9240583917529072c785d6a",
+      "frames": 18,
+      "actuallyInspected": true,
+      "result": "pass",
+      "reviewedAt": "2026-10-19T19:43:28.130Z",
+      "notes": "Actually inspected all retained samples: coherent face/scalp and joined body/limbs, without tears or stretched appendages."
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-pebble-distinct-contact-v2-final-techniques/inspection-strips/front-block-1-half-0.png",
+      "sha256": "c22e292eb5234f0c8dfcd6bd3b2a629d450620b84cf1f992a46dc19bbfe8bcef",
+      "frames": 18,
+      "actuallyInspected": true,
+      "result": "pass",
+      "reviewedAt": "2026-10-19T19:43:43.201Z",
+      "notes": "Actually inspected all retained samples: coherent face/scalp and joined body/limbs, without tears or stretched appendages."
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-pebble-distinct-contact-v2-final-techniques/inspection-strips/front-block-1-half-1.png",
+      "sha256": "280a77d7b9306f41a252c29490ce1957c2ba99ccd3f019f5d6dcdf4d14340810",
+      "frames": 18,
+      "actuallyInspected": true,
+      "result": "pass",
+      "reviewedAt": "2026-10-19T19:43:57.463Z",
+      "notes": "Actually inspected all retained samples: coherent face/scalp and joined body/limbs, without tears or stretched appendages."
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-pebble-distinct-contact-v2-final-techniques/inspection-strips/front-block-2-half-0.png",
+      "sha256": "4f47d3d36580136f371cccac96fd71e90e2e6a0910e1c3d1751b0f1747ad1df2",
+      "frames": 18,
+      "actuallyInspected": true,
+      "result": "pass",
+      "reviewedAt": "2026-10-19T19:44:11.731Z",
+      "notes": "Actually inspected all retained samples: coherent face/scalp and joined body/limbs, without tears or stretched appendages."
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-pebble-distinct-contact-v2-final-techniques/inspection-strips/front-block-2-half-1.png",
+      "sha256": "257a34621a497b9c1becb56c32fbaaa64bb570c31a8782ea5e1617be02806784",
+      "frames": 18,
+      "actuallyInspected": true,
+      "result": "pass",
+      "reviewedAt": "2026-10-19T19:44:28.369Z",
+      "notes": "Actually inspected all retained samples: coherent face/scalp and joined body/limbs, without tears or stretched appendages."
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-pebble-distinct-contact-v2-final-techniques/inspection-strips/side-block-0-half-0.png",
+      "sha256": "9c12fc473afdc661470e1203102985126216e11bc43d35f9afabdffe037e97cc",
+      "frames": 18,
+      "actuallyInspected": true,
+      "result": "pass",
+      "reviewedAt": "2026-10-19T19:44:43.287Z",
+      "notes": "Actually inspected all retained samples: coherent face/scalp and joined body/limbs, without tears or stretched appendages."
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-pebble-distinct-contact-v2-final-techniques/inspection-strips/side-block-0-half-1.png",
+      "sha256": "0d9be93291844f8e1ff5a8118ab4b2b3f16aff79fa7d4a35ecbcf7949142ac90",
+      "frames": 18,
+      "actuallyInspected": true,
+      "result": "pass",
+      "reviewedAt": "2026-10-19T19:44:58.027Z",
+      "notes": "Actually inspected all retained samples: coherent face/scalp and joined body/limbs, without tears or stretched appendages."
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-pebble-distinct-contact-v2-final-techniques/inspection-strips/side-block-1-half-0.png",
+      "sha256": "d2bed893092dc7e0d5a0fc0ae3e1f36a09d2a85083f277bb8b9731ca90417462",
+      "frames": 18,
+      "actuallyInspected": true,
+      "result": "pass",
+      "reviewedAt": "2026-10-19T19:45:13.360Z",
+      "notes": "Actually inspected all retained samples: coherent face/scalp and joined body/limbs, without tears or stretched appendages."
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-pebble-distinct-contact-v2-final-techniques/inspection-strips/side-block-1-half-1.png",
+      "sha256": "4d75000f07d365374a876818db0f5a854aca64cd0e10d8a5dc1105755d10785a",
+      "frames": 18,
+      "actuallyInspected": true,
+      "result": "pass",
+      "reviewedAt": "2026-10-19T19:45:29.906Z",
+      "notes": "Actually inspected all retained samples: coherent face/scalp and joined body/limbs, without tears or stretched appendages."
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-pebble-distinct-contact-v2-final-techniques/inspection-strips/side-block-2-half-0.png",
+      "sha256": "7967aba3217d828001144ee6f24f52bd1ef5d1b821670ccd5c3e07ef3aa3b41e",
+      "frames": 18,
+      "actuallyInspected": true,
+      "result": "pass",
+      "reviewedAt": "2026-10-19T19:45:44.294Z",
+      "notes": "Actually inspected all retained samples: coherent face/scalp and joined body/limbs, without tears or stretched appendages."
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-pebble-distinct-contact-v2-final-techniques/inspection-strips/side-block-2-half-1.png",
+      "sha256": "b15df1a5e74278cb28fbb6df43ccb026f00c804d4ce403fe1c6083845741519b",
+      "frames": 18,
+      "actuallyInspected": true,
+      "result": "pass",
+      "reviewedAt": "2026-10-19T19:45:59.939Z",
+      "notes": "Actually inspected all retained samples: coherent face/scalp and joined body/limbs, without tears or stretched appendages."
+    }
+  ],
+  "companion": [
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/pebble-distinct-contact-v2-final-companions/starter-earth/idle-sheet-0.webp",
+      "sha256": "dce7c4d07105e3e523306498f55f615ed08adad854d5e2020e6ad723071e1616",
+      "frames": 4,
+      "actuallyInspected": true,
+      "result": "pass",
+      "reviewedAt": "2026-10-19T19:46:15.365Z",
+      "notes": "Actually inspected all retained samples: coherent face/scalp and joined body/limbs, without tears or stretched appendages."
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/pebble-distinct-contact-v2-final-companions/starter-earth/idle-sheet-1.webp",
+      "sha256": "1a9ea63e62d9208fce2ebc75838a1e9994b18ef62dcfdd1fcd85b270295a2130",
+      "frames": 4,
+      "actuallyInspected": true,
+      "result": "pass",
+      "reviewedAt": "2026-10-19T19:46:31.109Z",
+      "notes": "Actually inspected all retained samples: coherent face/scalp and joined body/limbs, without tears or stretched appendages."
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/pebble-distinct-contact-v2-final-companions/starter-earth/idle-sheet-2.webp",
+      "sha256": "292de58e562756e31da8e591525dbb029641571a12189c1cfade8095be5ff988",
+      "frames": 4,
+      "actuallyInspected": true,
+      "result": "pass",
+      "reviewedAt": "2026-10-19T19:46:48.039Z",
+      "notes": "Actually inspected all retained samples: coherent face/scalp and joined body/limbs, without tears or stretched appendages."
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/pebble-distinct-contact-v2-final-companions/starter-earth/idle-sheet-3.webp",
+      "sha256": "bb5d90663f53cd4fa31b9273851b85c8f170f5bc47a1fa30f1b1508c1436bdd5",
+      "frames": 4,
+      "actuallyInspected": true,
+      "result": "pass",
+      "reviewedAt": "2026-10-19T19:47:05.128Z",
+      "notes": "Actually inspected all retained samples: coherent face/scalp and joined body/limbs, without tears or stretched appendages."
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/pebble-distinct-contact-v2-final-companions/starter-earth/idle-sheet-4.webp",
+      "sha256": "763cf9341252ee93bcec208f2971db3d524b4847cdba9b7e347f68af9f94f218",
+      "frames": 4,
+      "actuallyInspected": true,
+      "result": "pass",
+      "reviewedAt": "2026-10-19T19:47:18.991Z",
+      "notes": "Actually inspected all retained samples: coherent face/scalp and joined body/limbs, without tears or stretched appendages."
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/pebble-distinct-contact-v2-final-companions/starter-earth/idle-sheet-5.webp",
+      "sha256": "793f54d47a0ab81fdcdd915035ce101dbe3d8e9f6ad41a214c9e5234deda46b3",
+      "frames": 4,
+      "actuallyInspected": true,
+      "result": "pass",
+      "reviewedAt": "2026-10-19T19:47:38.967Z",
+      "notes": "Actually inspected all retained samples: coherent face/scalp and joined body/limbs, without tears or stretched appendages."
+    }
+  ],
+  "atlasCellsActuallyInspected": 16,
+  "atlas": {
+    "path": "public/pet-models/warfront-impostors/starter-earth.webp",
+    "sha256": "3932b6d65a58b31ebea53cea6c8ccdfba0e5461e714581563e04fbb38f04d60d",
+    "actuallyInspected": true,
+    "result": "pass",
+    "notes": "All sixteen cells inspected: single green scalp, one back shell, intact body/limb silhouette with no overflow or stretched appendages."
+  },
+  "reviewedAt": "2026-10-19T19:48:53.444Z"
+}

@@ -936,7 +936,10 @@
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
         }
-      ]
+      ],
+      "referenceArchives": {
+        "pet-models/warfront-impostors/roster/legendary-5.webp": "art-source/pet-portrait-refresh/reference-archive/legendary-5-0db0e4b21872.webp"
+      }
     },
     {
       "id": "legendary-6",
@@ -986,6 +989,9 @@
         "outputSha256": "f5d1fca1cfcbf1a6608f89c55af593f5feede67f50ede4e5d869ab3ab8000eab",
         "notes": "Full-size native output visually checked: Upper-left tan banner is plain, with phoenix feather structure, flames, beak and talons retained.",
         "reviewedAt": "2026-10-15T23:34:52.116Z"
+      },
+      "referenceArchives": {
+        "pet-models/warfront-impostors/roster/legendary-6.webp": "art-source/pet-portrait-refresh/reference-archive/legendary-6-3c745ef2602b.webp"
       }
     },
     {
@@ -1035,7 +1041,10 @@
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
         }
-      ]
+      ],
+      "referenceArchives": {
+        "pet-models/warfront-impostors/roster/legendary-7.webp": "art-source/pet-portrait-refresh/reference-archive/legendary-7-759be5c2ec2a.webp"
+      }
     },
     {
       "id": "legendary-8",
@@ -1084,7 +1093,10 @@
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
         }
-      ]
+      ],
+      "referenceArchives": {
+        "pet-models/warfront-impostors/roster/legendary-8.webp": "art-source/pet-portrait-refresh/reference-archive/legendary-8-2c66a5af690a.webp"
+      }
     },
     {
       "id": "legendary-9",
@@ -1143,7 +1155,10 @@
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
         }
-      ]
+      ],
+      "referenceArchives": {
+        "pet-models/warfront-impostors/roster/legendary-9.webp": "art-source/pet-portrait-refresh/reference-archive/legendary-9-45cb9a3d8cd0.webp"
+      }
     },
     {
       "id": "legendary-10",
@@ -1245,7 +1260,10 @@
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
         }
-      ]
+      ],
+      "referenceArchives": {
+        "pet-models/warfront-impostors/roster/legendary-11.webp": "art-source/pet-portrait-refresh/reference-archive/legendary-11-e879b91be799.webp"
+      }
     },
     {
       "id": "legendary-12",
@@ -1294,7 +1312,10 @@
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
         }
-      ]
+      ],
+      "referenceArchives": {
+        "pet-models/warfront-impostors/roster/legendary-12.webp": "art-source/pet-portrait-refresh/reference-archive/legendary-12-8c6519a1446f.webp"
+      }
     },
     {
       "id": "legendary-13",
@@ -1307,7 +1328,7 @@
       ],
       "referenceSha256": [
         "c4e0c2951cfdd4bb5f5c50cef894026daf772814b4f2648c8bc306a64ee1c09f",
-        "0a93288abf0eb20f1486f5e601a38cd2b34890b129d5df74b2e071b0cb38b59c"
+        "adb903cf3c1b800fe4eefe09f13e002d9107651287a2955feac6fc738c826dd0"
       ],
       "scene": "an old mountain shrine approach in warm late afternoon, mossy stone steps, cedar trees and distant tiled gates",
       "prompt": "Use case: identity-preserve. Asset: one finished square companion hero portrait for Shinobi Journey, a polished shinobi RPG. Image 1 is the edit target and main character reference: Armored Polar Bear (legendary-13). Keep this exact companion recognizable and faithful to the game: preserve species, face, colors, markings, silhouette, proportions, costume and equipment. If Image 2 is supplied it is a grid of poses of the ONE production model, provided only to confirm the anatomy and outfit; never reproduce the grid or duplicate the creature. Resolve old illustration details against that production identity. Add no new wearable equipment. Replace the empty or old backdrop with a complete, professionally painted setting: an old mountain shrine approach in warm late afternoon, mossy stone steps, cedar trees and distant tiled gates. The scene fills the entire image edge to edge, with a grounded contact shadow or a physically appropriate perch/water surface. Unified collection style: clean anime ink, refined restrained cel shading with convincing rounded volume, tactile cloth and fur/feathers/scales, softly painted environments, indigo shadows and natural atmospheric depth. Retain the existing stylized character design; do not turn it photorealistic or generic. One complete creature dominates at about 75-80 percent of canvas height; keep all ears, feet, wings, weapons and tails inside safe margins for square and slightly wide card crops. Face and eyes read clearly at 200px. Background has lower detail and contrast than the subject. Use dramatic but controlled hero lighting and atmospheric depth, keeping any elemental effects sparse and behind the silhouette. No additional characters, duplicate heads, extra limbs, new weapons, redesigned armor, text, watermark, logo, UI frame, border, collage or multiple panels. Return one finished portrait. Approved current production identity: Armored Polar Bear is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation. Body profile: heavy. The approved model identity takes priority over obsolete accessories or anatomy in Image 1. Do not invent new physical features.",
@@ -1342,6 +1363,13 @@
           "sha256": "0a93288abf0eb20f1486f5e601a38cd2b34890b129d5df74b2e071b0cb38b59c",
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
+        },
+        {
+          "reference": "pet-models/warfront-impostors/roster/legendary-13.webp",
+          "previousSha256": "0a93288abf0eb20f1486f5e601a38cd2b34890b129d5df74b2e071b0cb38b59c",
+          "sha256": "adb903cf3c1b800fe4eefe09f13e002d9107651287a2955feac6fc738c826dd0",
+          "animationReview": "docs/audits/pet-priority-two-omitted-final-review-2026-10-18.json",
+          "reason": "Track the twice visually reviewed Polar Bear animation atlas from PR #434. Preserve the previous reference hash and all portrait master, delivery, quality-review and symbol-review records; this is an animation-reference update, not a new portrait review."
         }
       ]
     },
@@ -1416,7 +1444,7 @@
       ],
       "referenceSha256": [
         "edf6602b9496143174ff73b18c58d85d554c22cfb65d0a22ccd7d93a9dda42d5",
-        "0eca5048ae2d79c892d5599eec99571d98179d3d811b0bb7a466a35168ebb018"
+        "b5d20515ebbc0268b36da8c88a0a9ed4c47a70df5a7b76a5f12c0d6f3d827313"
       ],
       "scene": "a weathered shinobi village training courtyard at golden hour, stone paving, bamboo fencing, tiled eaves and a softly glowing distant lantern",
       "prompt": "Use case: identity-preserve image revision. Image 1 is the finished square Inferno Chimera portrait to correct; Image 2 is a small grid showing the same ONE approved game model from different angles, solely an anatomy reference. Return ONE creature, never a grid. Redo the creature pose as a clear powerful four-legged feline demon, matching Image 2: exactly one horned orange-brown feline head, two swept dark horns, dark throat mane, muscular orange-brown fur, four distinct naturally attached legs with exactly four visible separated clawed paws on the ground, one thin brown tail attached to the pelvis with a small flame tuft only at its tip. Use a balanced three-quarter side stance with readable hind legs, no oversized foreground hand or hidden fused limb. Reduce the crowded giant detached flame plume: use a restrained short flame mane rising directly from the upper neck/back, consistent with the game model, without obscuring the body silhouette. Preserve the polished anime game illustration, warm stone-paved shinobi courtyard, bamboo fence, sunset village scenery, strong face and restrained dimensional cel shading. Remove the spiral-leaf emblem on the upper-right banner and any single inward spiral village crest elsewhere, leaving plain cloth and stone. No new emblem, text, logo, watermark, extra creature, extra head, duplicate limbs or weapons. Keep all horns, feet and tail tip within square safe margins. Finished professional game-studio portrait with clean anatomy and no forbidden village spiral.",
@@ -1469,6 +1497,13 @@
           "sha256": "0eca5048ae2d79c892d5599eec99571d98179d3d811b0bb7a466a35168ebb018",
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
+        },
+        {
+          "reference": "pet-models/warfront-impostors/roster/legendary-15.webp",
+          "previousSha256": "0eca5048ae2d79c892d5599eec99571d98179d3d811b0bb7a466a35168ebb018",
+          "sha256": "b5d20515ebbc0268b36da8c88a0a9ed4c47a70df5a7b76a5f12c0d6f3d827313",
+          "animationReview": "docs/audits/pet-chimera-all-clips-v2-final-review-2026-10-18.json",
+          "reason": "Update reference to twice visually reviewed animation atlas. Preserve all portrait master, delivery and quality/symbol review records; this is not a new portrait review."
         }
       ]
     },
@@ -1510,6 +1545,9 @@
         "outputSha256": "4ea4ea6d02cd9bc12924a202618726e4573664c906ce78ee28de910bbcbf19de",
         "notes": "Unmarked forest torii, plain red scarf; no village spiral motif.",
         "reviewedAt": "2026-10-15T23:34:52.148Z"
+      },
+      "referenceArchives": {
+        "pet-models/warfront-impostors/roster/legendary-16.webp": "art-source/pet-portrait-refresh/reference-archive/legendary-16-3c3fd03e6a8e.webp"
       }
     },
     {
@@ -1523,7 +1561,7 @@
       ],
       "referenceSha256": [
         "ddf9343ef648ea42a094d1478c793ac6471628b507339007901d27b1f4f1b0f7",
-        "194c607465b6921262a9d5e236ef06e5b174027d0d4fb4cc21192e136f570d7d"
+        "cf7967c15bf63e18bab8e02f84b1a9ad50f56230bacb97fceaaf558754964c0c"
       ],
       "scene": "a quiet terracotta-roofed village lookout at sunset, carved wooden beams, hazy mountain silhouettes and amber clouds",
       "prompt": "Use case: precise-object-removal edit. Image 1 is the finished game companion portrait and the ONLY edit target. Remove the forbidden spiral-with-pointed-leaf village emblem everywhere in this image, including tiny, distant or partial versions. Specifically: Exact spiral-leaf emblem on the left red banner; remove it entirely. Make ALL background banners, flags, lantern faces and carved emblem panels completely plain, unmarked surfaces of the same original material and color. Make any marked metal forehead plate blank metal, retaining its existing shape and rivets. No replacement emblem, no spiral crest, no close variation, no watermark, no writing. This is a small cleanup, not a redesign: preserve the exact existing creature identity, face, body, pose, limb and tail count, anatomy, clothing, equipment, colors, scene geometry, scenery, lighting, composition and generous safe margins. Keep all existing high-quality detail outside removed insignias. Retain the same square finished professional anime game-art style. Return the cleaned single portrait.",
@@ -1568,6 +1606,13 @@
           "sha256": "194c607465b6921262a9d5e236ef06e5b174027d0d4fb4cc21192e136f570d7d",
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
+        },
+        {
+          "reference": "pet-models/warfront-impostors/roster/legendary-17.webp",
+          "previousSha256": "194c607465b6921262a9d5e236ef06e5b174027d0d4fb4cc21192e136f570d7d",
+          "sha256": "cf7967c15bf63e18bab8e02f84b1a9ad50f56230bacb97fceaaf558754964c0c",
+          "animationReview": "docs/audits/pet-behemoth-all-clips-v2-final-review-2026-10-18.json",
+          "reason": "Update reference to twice visually reviewed animation atlas. Preserve all portrait master, delivery and quality/symbol review records; this is not a new portrait review."
         }
       ]
     },
@@ -1618,7 +1663,10 @@
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
         }
-      ]
+      ],
+      "referenceArchives": {
+        "pet-models/warfront-impostors/roster/legendary-18.webp": "art-source/pet-portrait-refresh/reference-archive/legendary-18-a958c7ec1b3d.webp"
+      }
     },
     {
       "id": "legendary-19",
@@ -1667,7 +1715,10 @@
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
         }
-      ]
+      ],
+      "referenceArchives": {
+        "pet-models/warfront-impostors/roster/legendary-19.webp": "art-source/pet-portrait-refresh/reference-archive/legendary-19-108df5f7e795.webp"
+      }
     },
     {
       "id": "legendary-20",
@@ -1716,7 +1767,10 @@
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
         }
-      ]
+      ],
+      "referenceArchives": {
+        "pet-models/warfront-impostors/roster/legendary-20.webp": "art-source/pet-portrait-refresh/reference-archive/legendary-20-d8a743d655dd.webp"
+      }
     },
     {
       "id": "legendary-21",
@@ -1845,7 +1899,7 @@
       ],
       "referenceSha256": [
         "8a124d4d18eddb1a671c05b20a48e76c68997a9d8bc9490bf5cbc2d2fe41f336",
-        "12710e737770e04ef3633bae0b7bab014b5fef2f98554b7c479e7d4ddcaea052"
+        "4838f697279e2e4ef9184bad7d60f2569cdeb9b4bc5d11cbfce7c9802005ce43"
       ],
       "scene": "a cliffside shinobi watchtower, old timber rails, rolling mountain mist and pale moving clouds",
       "prompt": "Use case: precise-object-edit. Image 1 is the finished companion game portrait and only edit target. Remove the single-spiral village insignia and its pointed, leaf-shaped, flame-ring or carved-stone variations everywhere they appear in this image. Specifically: Single spiral insignia on high hanging flag beside watchtower at upper right. Make only the affected emblem-bearing cloth, paper, metal or stone surface plain and unmarked with matching texture, lighting, weathering and folds. Leave unrelated three-comma crests, throwing stars, geometric wheel emblems and natural creature markings unchanged. No replacement sigil, no residual spiral, no logo or writing. Preserve the exact existing creature identity, face, anatomy, limbs, wings, tail count, pose, proportions, gear, colors, scene, lighting, composition and safe margins. Preserve all high-quality detail outside the removed motif. Return the same polished square anime game portrait with these local insignia removals only.",
@@ -1890,6 +1944,13 @@
           "sha256": "12710e737770e04ef3633bae0b7bab014b5fef2f98554b7c479e7d4ddcaea052",
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
+        },
+        {
+          "reference": "pet-models/warfront-impostors/roster/legendary-23.webp",
+          "previousSha256": "12710e737770e04ef3633bae0b7bab014b5fef2f98554b7c479e7d4ddcaea052",
+          "sha256": "4838f697279e2e4ef9184bad7d60f2569cdeb9b4bc5d11cbfce7c9802005ce43",
+          "animationReview": "docs/audits/pet-sphinx-all-clips-v2-final-review-2026-10-18.json",
+          "reason": "Update reference to twice visually reviewed animation atlas. Preserve all portrait master, delivery and quality/symbol review records; this is not a new portrait review."
         }
       ]
     },
@@ -1904,7 +1965,7 @@
       ],
       "referenceSha256": [
         "e9580eb69e768097ae59dd2eaac40f55d2ecf38921c5435d1c4ba1cc331c79a9",
-        "d4b865dc71d92203f2e3d40ae4d66755f9125ade80386638528c7880349918fa"
+        "53a915ce72c693cacd6a2d42756ee2c9be579a061402481de45aa0bdbad98938"
       ],
       "scene": "a shinobi training courtyard after rain at blue hour, wet stone paving, a softly blurred tiled gate, bamboo, a warm lantern and distant storm glow",
       "prompt": "Use case: precise-object-edit. Image 1 is the finished companion game portrait and only edit target. Remove the single-spiral village insignia and its pointed, leaf-shaped, flame-ring or carved-stone variations everywhere they appear in this image. Specifically: Single-spiral crest inside pointed medallion on blue banner at upper left. Make only the affected emblem-bearing cloth, paper, metal or stone surface plain and unmarked with matching texture, lighting, weathering and folds. Leave unrelated three-comma crests, throwing stars, geometric wheel emblems and natural creature markings unchanged. No replacement sigil, no residual spiral, no logo or writing. Preserve the exact existing creature identity, face, anatomy, limbs, wings, tail count, pose, proportions, gear, colors, scene, lighting, composition and safe margins. Preserve all high-quality detail outside the removed motif. Return the same polished square anime game portrait with these local insignia removals only.",
@@ -1949,6 +2010,13 @@
           "sha256": "d4b865dc71d92203f2e3d40ae4d66755f9125ade80386638528c7880349918fa",
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
+        },
+        {
+          "reference": "pet-models/warfront-impostors/roster/legendary-24.webp",
+          "previousSha256": "d4b865dc71d92203f2e3d40ae4d66755f9125ade80386638528c7880349918fa",
+          "sha256": "53a915ce72c693cacd6a2d42756ee2c9be579a061402481de45aa0bdbad98938",
+          "animationReview": "docs/audits/pet-raiju-all-clips-v2-final-review-2026-10-18.json",
+          "reason": "Update reference to twice visually reviewed animation atlas. Preserve all portrait master, delivery and quality/symbol review records; this is not a new portrait review."
         }
       ]
     },
@@ -1999,7 +2067,10 @@
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
         }
-      ]
+      ],
+      "referenceArchives": {
+        "pet-models/warfront-impostors/roster/legendary-25.webp": "art-source/pet-portrait-refresh/reference-archive/legendary-25-dc54b1b2bae4.webp"
+      }
     },
     {
       "id": "legendary-26",
@@ -2012,7 +2083,7 @@
       ],
       "referenceSha256": [
         "269f0d6e652663e3078ee898a6b9fe9a9bbc3a777a616735a3f908be657a1c76",
-        "44a8acdf40af86e6c9edd51d85a83cd66476cb5d25745343c70e095bfe5cdb15"
+        "0e3098c9771f9a65bd390e9166688fb6bca072b852fcff08c4437be94951a11a"
       ],
       "scene": "a moonlit village watch post, rain-dark roof tiles, distant lantern windows and dramatic indigo clouds with subtle gold accents",
       "prompt": "Use case: precise-object-edit. Image 1 is the finished companion game portrait and only edit target. Remove the single-spiral village insignia and its pointed, leaf-shaped, flame-ring or carved-stone variations everywhere they appear in this image. Specifically: Single spiral at center of gold pinwheel crest on upper-left blue flag. Make only the affected emblem-bearing cloth, paper, metal or stone surface plain and unmarked with matching texture, lighting, weathering and folds. Leave unrelated three-comma crests, throwing stars, geometric wheel emblems and natural creature markings unchanged. No replacement sigil, no residual spiral, no logo or writing. Preserve the exact existing creature identity, face, anatomy, limbs, wings, tail count, pose, proportions, gear, colors, scene, lighting, composition and safe margins. Preserve all high-quality detail outside the removed motif. Return the same polished square anime game portrait with these local insignia removals only.",
@@ -2066,6 +2137,13 @@
           "upstreamCommit": "1c765d155",
           "reviewReceipt": "docs/audits/pet-animation-shape-reviews.json",
           "reason": "Integrate independently double-checked animation and anatomy repair atlas. Historical reference hashes remain in this history; scenic portrait master and delivery are unchanged."
+        },
+        {
+          "reference": "pet-models/warfront-impostors/roster/legendary-26.webp",
+          "previousSha256": "44a8acdf40af86e6c9edd51d85a83cd66476cb5d25745343c70e095bfe5cdb15",
+          "sha256": "0e3098c9771f9a65bd390e9166688fb6bca072b852fcff08c4437be94951a11a",
+          "animationReview": "docs/audits/pet-manticore-all-clips-v2-final-review-2026-10-18.json",
+          "reason": "Update reference to twice visually reviewed animation atlas. Preserve all portrait master, delivery and quality/symbol review records; this is not a new portrait review."
         }
       ]
     },
@@ -2261,7 +2339,7 @@
       ],
       "referenceSha256": [
         "0071527baa4b7c2ea5595a6ae7ea61a259b433387d8ee2502271bb7af0b09232",
-        "aad57d1bc7eb997f641fbd2d3663dca2244c55fb727c35a9f650ba401fcf0dde"
+        "73e35b150e202643e92fc3d624584b723b84f963dc24a8aaadab0de15a750c5b"
       ],
       "scene": "a moonlit ancient shrine approach, distant torii gates, gently drifting blank paper charms, pale lunar mist and restrained blue rim light; its existing tails form the composition",
       "prompt": "Use case: precise-object-edit. Asset: finished square Eclipse Kitsune companion portrait for a polished shinobi RPG. Image 1 is the edit target. Full-size audit: five short straight neon-cyan vertical bars are accidentally drawn across the dark tail fan. Remove every cyan line/bar entirely and restore uninterrupted dark fur/shading. Preserve the exact five visible tails, their arrangement, the face, golden eye, four-legged pose and all existing scene lighting.  Preserve the character's established face, colors, markings, proportions, correct outfit and exact number of intended tails and limbs. Preserve the same full scenic shinobi environment, lighting, crisp anime ink and refined rounded cel shading. One creature in one square portrait. No text, watermark, frame, collage, duplicate heads, extra limbs or new weapons.",
@@ -2312,6 +2390,13 @@
           "upstreamCommit": "1c765d155",
           "reviewReceipt": "docs/audits/pet-animation-shape-reviews.json",
           "reason": "Integrate independently double-checked animation and anatomy repair atlas. Historical reference hashes remain in this history; scenic portrait master and delivery are unchanged."
+        },
+        {
+          "reference": "pet-models/warfront-impostors/roster/mythic-0.webp",
+          "previousSha256": "aad57d1bc7eb997f641fbd2d3663dca2244c55fb727c35a9f650ba401fcf0dde",
+          "sha256": "73e35b150e202643e92fc3d624584b723b84f963dc24a8aaadab0de15a750c5b",
+          "animationReview": "docs/audits/pet-eclipse-kitsune-all-clips-v2-final-review-2026-10-18.json",
+          "reason": "Update reference to twice visually reviewed animation atlas. Preserve all portrait master, delivery and quality/symbol review records; this is not a new portrait review."
         }
       ]
     },
@@ -2326,7 +2411,7 @@
       ],
       "referenceSha256": [
         "0158e5759f57bfe7df368f91d96aa457d5fc071297041b00efc87a2dd629d09f",
-        "e56c5a431b16e4598df6691e4d4c560fd76737e84a9e9b2eb799b305a8898812"
+        "6b903ccb6dea931f978768cfcfa92279282b6d14c2082d8a379f1bfaa41df9c5"
       ],
       "scene": "a mountain shrine terrace beneath gathering storm clouds, old stone lanterns, windswept cedar branches and a restrained cool rim light",
       "prompt": "Use case: identity-preserve. Asset: one finished square companion hero portrait for Shinobi Journey, a polished shinobi RPG. Image 1 is the edit target and main character reference: Worldstorm Dragon (mythic-1). Keep this exact companion recognizable and faithful to the game: preserve species, face, colors, markings, silhouette, proportions, costume and equipment. If Image 2 is supplied it is a grid of poses of the ONE production model, provided only to confirm the anatomy and outfit; never reproduce the grid or duplicate the creature. Resolve old illustration details against that production identity. Add no new wearable equipment. Replace the empty or old backdrop with a complete, professionally painted setting: a mountain shrine terrace beneath gathering storm clouds, old stone lanterns, windswept cedar branches and a restrained cool rim light. The scene fills the entire image edge to edge, with a grounded contact shadow or a physically appropriate perch/water surface. Unified collection style: clean anime ink, refined restrained cel shading with convincing rounded volume, tactile cloth and fur/feathers/scales, softly painted environments, indigo shadows and natural atmospheric depth. Retain the existing stylized character design; do not turn it photorealistic or generic. One complete creature dominates at about 75-80 percent of canvas height; keep all ears, feet, wings, weapons and tails inside safe margins for square and slightly wide card crops. Face and eyes read clearly at 200px. Background has lower detail and contrast than the subject. Use dramatic but controlled hero lighting and atmospheric depth, keeping any elemental effects sparse and behind the silhouette. No additional characters, duplicate heads, extra limbs, new weapons, redesigned armor, text, watermark, logo, UI frame, border, collage or multiple panels. Return one finished portrait. Approved current production identity: Worldstorm Dragon is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation. Body profile: quadruped. The approved model identity takes priority over obsolete accessories or anatomy in Image 1. Do not invent new physical features. Current model anatomy lock: one dark teal quadruped dragon with black horns, pale segmented belly, maroon crest/back spines and one long slender tail edged with small maroon spines. Use four correctly attached clawed legs and a balanced grounded stance; do not copy the old illustration's clipped far foreleg. No wings, extra heads, arms or tail plumes. All physical extremities stay inside at least 6% scenic margins; one coherent silhouette with no source cutout glitches, guide marks or malformed equipment. The environment supports the character at lower contrast and detail.",
@@ -2369,6 +2454,13 @@
           "upstreamCommit": "1c765d155",
           "reviewReceipt": "docs/audits/pet-animation-shape-reviews.json",
           "reason": "Integrate independently double-checked animation and anatomy repair atlas. Historical reference hashes remain in this history; scenic portrait master and delivery are unchanged."
+        },
+        {
+          "reference": "pet-models/warfront-impostors/roster/mythic-1.webp",
+          "previousSha256": "e56c5a431b16e4598df6691e4d4c560fd76737e84a9e9b2eb799b305a8898812",
+          "sha256": "6b903ccb6dea931f978768cfcfa92279282b6d14c2082d8a379f1bfaa41df9c5",
+          "animationReview": "docs/audits/pet-worldstorm-dragon-all-clips-v2-final-review-2026-10-18.json",
+          "reason": "Update reference to twice visually reviewed animation atlas. Preserve all portrait master, delivery and quality/symbol review records; this is not a new portrait review."
         }
       ]
     },
@@ -2440,7 +2532,7 @@
       ],
       "referenceSha256": [
         "638898fb37a26987500e3c46f83257f548767e596b7c273f2210ff24c4a88430",
-        "2b9034052b033f49a80647af320a09af9e5e8bc1c37f731e4f1313639209cc28"
+        "29e38dde82adb4dbc7ecd870555d46c93873de026edc9be38811f28aee97a885"
       ],
       "scene": "a weathered shinobi village training courtyard at golden hour, stone paving, bamboo fencing, tiled eaves and a softly glowing distant lantern",
       "prompt": "Use case: precise-object-edit. Image 1 is the finished companion game portrait and only edit target. Remove the single-spiral village insignia and its pointed, leaf-shaped, flame-ring or carved-stone variations everywhere they appear in this image. Specifically: Exact spiral-leaf crest on large upper-left blue banner. Make only the affected emblem-bearing cloth, paper, metal or stone surface plain and unmarked with matching texture, lighting, weathering and folds. Leave unrelated three-comma crests, throwing stars, geometric wheel emblems and natural creature markings unchanged. No replacement sigil, no residual spiral, no logo or writing. Preserve the exact existing creature identity, face, anatomy, limbs, wings, tail count, pose, proportions, gear, colors, scene, lighting, composition and safe margins. Preserve all high-quality detail outside the removed motif. Return the same polished square anime game portrait with these local insignia removals only.",
@@ -2493,6 +2585,13 @@
           "upstreamCommit": "1c765d155",
           "reviewReceipt": "docs/audits/pet-animation-shape-reviews.json",
           "reason": "Integrate independently double-checked animation and anatomy repair atlas. Historical reference hashes remain in this history; scenic portrait master and delivery are unchanged."
+        },
+        {
+          "reference": "pet-models/warfront-impostors/roster/mythic-3.webp",
+          "previousSha256": "2b9034052b033f49a80647af320a09af9e5e8bc1c37f731e4f1313639209cc28",
+          "sha256": "29e38dde82adb4dbc7ecd870555d46c93873de026edc9be38811f28aee97a885",
+          "animationReview": "docs/audits/pet-solar-stag-all-clips-v2-final-review-2026-10-18.json",
+          "reason": "Update reference to twice visually reviewed animation atlas. Preserve all portrait master, delivery and quality/symbol review records; this is not a new portrait review."
         }
       ]
     },
@@ -2975,7 +3074,7 @@
       ],
       "referenceSha256": [
         "0b1796207ae77242b0206ebfb5ce3700c50291761f435ea2f68509b0b2a4a39d",
-        "e14baa2334948e6997a71185e0311341d3aa21eda1d5e7b256b6192bad015222"
+        "59cc80a5954a99b47f473312c71c264523e2d7b6531a20cdb1bf019de5b50bd3"
       ],
       "scene": "a mountain village rooftop training terrace, weathered tiles, distant pagoda eaves, hazy green peaks and a few windblown leaves",
       "prompt": "Use case: precise-object-edit. Image 1 is the finished candidate Skyglass Kirin portrait. Make only a precise framing correction: uniformly scale the ENTIRE creature and every flowing mane/tail ribbon, crown horn, all four hooves and existing armor to 84 percent of current size, recenter, and extend the SAME shinobi shrine environment naturally around it. Leave at least 6 percent complete scenic breathing room from all physical extremities to each square canvas edge. Show every detail fully; do not clip any horn, mane strand, ribbon, tail or hoof. Preserve the EXACT mature graceful equine proportions, face, eyes, expression, pose, colors, scales, fine filigree, armor, chains, tassels and effects. This is an established creature, do not redesign or simplify its detailed anatomy. Four legs and ONE tail remain coherent; no wings or extra appendages. Keep the same polished game-studio illustration quality, unified lighting, surface detail and perspective. One square full-background portrait, no border, text, watermark or new objects.",
@@ -3021,6 +3120,13 @@
           "upstreamCommit": "12921fc57",
           "reviewReceipt": "docs/audits/pet-animation-shape-reviews.json",
           "reason": "Integrate independently double-checked Moonwell and Skyglass animation repair atlases; portrait master and delivery pixels are unchanged."
+        },
+        {
+          "reference": "pet-models/warfront-impostors/roster/mythic-12.webp",
+          "previousSha256": "e14baa2334948e6997a71185e0311341d3aa21eda1d5e7b256b6192bad015222",
+          "sha256": "59cc80a5954a99b47f473312c71c264523e2d7b6531a20cdb1bf019de5b50bd3",
+          "animationReview": "docs/audits/pet-skyglass-kirin-all-clips-v2-final-review-2026-10-18.json",
+          "reason": "Update reference to twice visually reviewed animation atlas. Preserve all portrait master, delivery and quality/symbol review records; this is not a new portrait review."
         }
       ]
     },
@@ -3035,7 +3141,7 @@
       ],
       "referenceSha256": [
         "f8c9a4ac6a142c77f93b4f3164141f610604dd48208a667bfdcf82ecf838dd42",
-        "117f63a49f281517536a068cf76129794626fb74cbce5f05124062431a0a025c"
+        "a87a49ee67a27205ca28482d51372db313bc34f9f5f4ef8e0443356e7fab014a"
       ],
       "scene": "a mountain shrine terrace beneath gathering storm clouds, old stone lanterns, windswept cedar branches and a restrained cool rim light",
       "prompt": "Use case: precise-object-edit. Image 1 is the finished candidate Thunderbloom Kirin portrait. Make only a precise framing correction: uniformly scale the ENTIRE creature and every flowing mane/tail ribbon, crown horn, all four hooves and existing armor to 84 percent of current size, recenter, and extend the SAME shinobi shrine environment naturally around it. Leave at least 6 percent complete scenic breathing room from all physical extremities to each square canvas edge. Show every detail fully; do not clip any horn, mane strand, ribbon, tail or hoof. Preserve the EXACT mature graceful equine proportions, face, eyes, expression, pose, colors, scales, fine filigree, armor, chains, tassels and effects. This is an established creature, do not redesign or simplify its detailed anatomy. Four legs and ONE tail remain coherent; no wings or extra appendages. Keep the same polished game-studio illustration quality, unified lighting, surface detail and perspective. One square full-background portrait, no border, text, watermark or new objects.",
@@ -3081,6 +3187,13 @@
           "upstreamCommit": "269da16fb422e255378a48bd92e0f0e08282bd4d",
           "reviewReceipt": "docs/audits/pet-animation-shape-reviews.json",
           "reason": "Integrate independently double-checked Thunderbloom Kirin animation repair atlases; portrait master and delivery pixels are unchanged."
+        },
+        {
+          "reference": "pet-models/warfront-impostors/roster/mythic-13.webp",
+          "previousSha256": "117f63a49f281517536a068cf76129794626fb74cbce5f05124062431a0a025c",
+          "sha256": "a87a49ee67a27205ca28482d51372db313bc34f9f5f4ef8e0443356e7fab014a",
+          "animationReview": "docs/audits/pet-thunderbloom-kirin-all-clips-v2-final-review-2026-10-18.json",
+          "reason": "Update reference to twice visually reviewed animation atlas. Preserve all portrait master, delivery and quality/symbol review records; this is not a new portrait review."
         }
       ]
     },
@@ -3095,7 +3208,7 @@
       ],
       "referenceSha256": [
         "5251ef9c01bd83f3face0831925911fd6c5e7c4de7ff3c0aff2ed196b1685082",
-        "e4f8a21bc6c303286dce7fad75cf2584bf4caaba1e016d1f9d49b0c301fbc1d9"
+        "1a52775d2b8da8a34af3c988c9e39abc871c2f447fe5d430f5565aefdfaf77bb"
       ],
       "scene": "a mountain fortress training ground, weathered carved stone, sparse grasses, hazy tiled rooftops and warm afternoon light",
       "prompt": "Use case: identity-preserve. Asset: one finished square companion hero portrait for Shinobi Journey, a polished shinobi RPG. Image 1 is the edit target and main character reference: Gravepeak Behemoth (mythic-14). Keep this exact companion recognizable and faithful to the game: preserve species, face, colors, markings, silhouette, proportions, costume and equipment. If Image 2 is supplied it is a grid of poses of the ONE production model, provided only to confirm the anatomy and outfit; never reproduce the grid or duplicate the creature. Resolve old illustration details against that production identity. Add no new wearable equipment. Replace the empty or old backdrop with a complete, professionally painted setting: a mountain fortress training ground, weathered carved stone, sparse grasses, hazy tiled rooftops and warm afternoon light. The scene fills the entire image edge to edge, with a grounded contact shadow or a physically appropriate perch/water surface. Unified collection style: clean anime ink, refined restrained cel shading with convincing rounded volume, tactile cloth and fur/feathers/scales, softly painted environments, indigo shadows and natural atmospheric depth. Retain the existing stylized character design; do not turn it photorealistic or generic. One complete creature dominates at about 75-80 percent of canvas height; keep all ears, feet, wings, weapons and tails inside safe margins for square and slightly wide card crops. Face and eyes read clearly at 200px. Background has lower detail and contrast than the subject. Use dramatic but controlled hero lighting and atmospheric depth, keeping any elemental effects sparse and behind the silhouette. No additional characters, duplicate heads, extra limbs, new weapons, redesigned armor, text, watermark, logo, UI frame, border, collage or multiple panels. Return one finished portrait. Approved current production identity: Gravepeak Behemoth preserves a massive armored earth silhouette, obsidian plates, runic growths, planted limbs, and full rear volume; isolated reconstruction debris was removed before promotion. Body profile: heavy. The approved model identity takes priority over obsolete accessories or anatomy in Image 1. Do not invent new physical features. Preserve this massive adult armored earth beast almost exactly: one horned stone head, coherent broad torso, FOUR planted heavy limbs with attached rock claws, dark obsidian plates, mountain-like back growths, moss and gold runic insets. Match current model's full rear volume; no humanoid extra arms, extra heads or invented tail. Keep fine stone texture and gold engravings; do not simplify into a small smooth cartoon golem. Shinobi identity comes from the full ancient shrine environment, not new clothing. Show all physical horns, crown, fins, hooves, claws and tails completely with at least 6% scenic margin from edges. Fine crisp face, coherent contacts, no neon guide marks or malformed accessories.",
@@ -3138,6 +3251,13 @@
           "upstreamCommit": "221d9aa7f17e4f1535a9084166721671e528751a",
           "reviewReceipt": "docs/audits/pet-animation-shape-reviews.json",
           "reason": "Integrate independently double-checked Gravepeak Behemoth and Celestial Lion animation repair atlases; portrait master and delivery pixels are unchanged."
+        },
+        {
+          "reference": "pet-models/warfront-impostors/roster/mythic-14.webp",
+          "previousSha256": "e4f8a21bc6c303286dce7fad75cf2584bf4caaba1e016d1f9d49b0c301fbc1d9",
+          "sha256": "1a52775d2b8da8a34af3c988c9e39abc871c2f447fe5d430f5565aefdfaf77bb",
+          "animationReview": "docs/audits/pet-gravepeak-behemoth-all-clips-v2-final-review-2026-10-18.json",
+          "reason": "Update reference to twice visually reviewed animation atlas. Preserve all portrait master, delivery and quality/symbol review records; this is not a new portrait review."
         }
       ]
     },
@@ -3152,7 +3272,7 @@
       ],
       "referenceSha256": [
         "3b5ab93f11048ac570d864a8fcb57dea479b21bcf3814e1d985fb8026d075c25",
-        "75774b6ead8b74d94b4072a7f646a6cb885bd3cb45439ed8adccc5438bc58452"
+        "26937c237705667f5d9aed44aa4ff6ee3e9e2b6140e01125319874038e96f04d"
       ],
       "scene": "a mountain village rooftop training terrace, weathered tiles, distant pagoda eaves, hazy green peaks and a few windblown leaves",
       "prompt": "Use case: precise-object-edit. Image 1 is the candidate Celestial Lion portrait to edit. Correct ONLY the framing by pulling the camera back substantially: uniformly reduce the ENTIRE creature including all horns, long ears, wings, tail, feet and clothing/equipment to 82 percent of its current size, recenter in the square frame and naturally extend the SAME full shinobi shrine environment around it. Leave at least 8 percent clear scenic margin between every physical extremity and all canvas edges. Keep the exact original mature/stylized proportions, face, eyes, expression, pose, colors, markings, fur/feathers, gear and lighting unchanged. Preserve all detailed anatomy and ornaments. One coherent creature; no new body parts, armor, clothes or weapons. Do not crop any ear, horn or wing tip. Crisp polished game illustration with unified scene perspective and grounded feet. No text, watermark or frame.",
@@ -3198,6 +3318,13 @@
           "upstreamCommit": "221d9aa7f17e4f1535a9084166721671e528751a",
           "reviewReceipt": "docs/audits/pet-animation-shape-reviews.json",
           "reason": "Integrate independently double-checked Gravepeak Behemoth and Celestial Lion animation repair atlases; portrait master and delivery pixels are unchanged."
+        },
+        {
+          "reference": "pet-models/warfront-impostors/roster/mythic-15.webp",
+          "previousSha256": "75774b6ead8b74d94b4072a7f646a6cb885bd3cb45439ed8adccc5438bc58452",
+          "sha256": "26937c237705667f5d9aed44aa4ff6ee3e9e2b6140e01125319874038e96f04d",
+          "animationReview": "docs/audits/pet-celestial-lion-all-clips-v2-final-review-2026-10-18.json",
+          "reason": "Update reference to twice visually reviewed animation atlas. Preserve all portrait master, delivery and quality/symbol review records; this is not a new portrait review."
         }
       ]
     },
@@ -5801,7 +5928,10 @@
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
         }
-      ]
+      ],
+      "referenceArchives": {
+        "pet-models/warfront-impostors/roster/standard-0.webp": "art-source/pet-portrait-refresh/reference-archive/standard-0-dcb689c6c0a4.webp"
+      }
     },
     {
       "id": "standard-1",
@@ -6072,7 +6202,10 @@
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
         }
-      ]
+      ],
+      "referenceArchives": {
+        "pet-models/warfront-impostors/roster/standard-5.webp": "art-source/pet-portrait-refresh/reference-archive/standard-5-997383313720.webp"
+      }
     },
     {
       "id": "standard-6",

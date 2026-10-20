@@ -204,6 +204,7 @@ export function Arena({
         if (!requestAiFight({
             opponentId: publishedPracticeOpponentForLevel(aiLevel),
             opponentLevel: aiLevel,
+            practiceLevel: aiLevel,
             battleKind: "practice",
             returnScreen: "arena",
         })) {

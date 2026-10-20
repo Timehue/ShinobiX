@@ -9,6 +9,15 @@ import { runInNewContext } from 'node:vm';
 const client = fileURLToPath(new URL('../', import.meta.url));
 const require = createRequire(new URL('../package.json', import.meta.url));
 const ts = require('typescript');
+test('every certified source, battle model and atlas survives production public-asset exclusions', () => {
+    const config = readFileSync(resolve(client, 'vite.config.ts'), 'utf8');
+    const block = config.match(/const PUBLIC_LOCAL_ONLY_ASSETS = new Set\(\[([\s\S]*?)\]\);/);
+    assert.ok(block, 'Read the production asset exclusion set');
+    const excluded = new Function(`return new Set([${block[1]}]);`)();
+    const paths = new Set([...lodCertified.entries.flatMap(e => [e.sourceUrl,e.lodUrl]), ...certified.entries.map(e => e.atlasUrl)].map(p => p.split('?')[0].replace(/^\//,'')));
+    assert.equal(paths.size,483);
+    for (const path of paths) assert.equal(excluded.has(path),false,`${path} is requested by the runtime but excluded from shipping`);
+});
 const revisionSource = readFileSync(resolve(client, 'src/generated/pet-warfront-impostor-url-manifest.ts'), 'utf8');
 const certified = JSON.parse(readFileSync(resolve(client, 'public/pet-models/warfront-impostors/manifest.json'), 'utf8'));
 const expectedRevisions = Object.fromEntries(certified.entries.map(entry => [entry.sourceUrl, entry.atlasSha256.slice(0, 12)]));
@@ -17,7 +26,7 @@ const revisionWriter = readFileSync(resolve(client, 'scripts/generate-warfront-p
 // Execute the generator's actual pure renderer without invoking its asset bake.
 const renderRevisionManifest = new Function('invariant', 'EXPECTED_SOURCE_COUNT', revisionWriter.slice(
     revisionWriter.indexOf('function tsUrlManifest(entries) {'), revisionWriter.indexOf('\nconst lodManifest ='),
-) + '\nreturn tsUrlManifest;')((condition, message) => { if (!condition) throw new Error(message); }, 160);
+) + '\nreturn tsUrlManifest;')((condition, message) => { if (!condition) throw new Error(message); }, 161);
 
 function runtime(source) {
     const module = { exports: {} };
@@ -25,9 +34,11 @@ function runtime(source) {
     return module.exports;
 }
 
-test('all 160 emitted atlas revisions retain certified values and key order', () => {
+test('all 161 emitted atlas revisions retain certified values and key order', () => {
     const actual = runtime(revisionSource).WARFRONT_IMPOSTOR_ATLAS_REVISIONS;
-    assert.equal(certified.entries.length, 160);
+    assert.equal(certified.entries.length, 161);
+    assert.equal(certified.selectedCount,161);
+    assert.equal(certified.complete,true);
     assert.equal(JSON.stringify(actual), JSON.stringify(expectedRevisions));
 });
 
@@ -107,9 +118,9 @@ const lodWriter = readFileSync(resolve(client, 'scripts/generate-warfront-pet-lo
 const renderLodManifest = new Function('invariant', 'REVISION', lodWriter.slice(lodWriter.indexOf('function manifestTs(entries) {'), lodWriter.indexOf('\nconst sources = await existingRuntimeSources();')) + '\nreturn manifestTs;')((condition, message) => { if (!condition)
     throw new Error(message); }, lodCertified.revision);
 
-test('all 160 LOD entries retain certified ordered URLs, suffixes and triangle counts', () => {
+test('all 161 LOD entries retain certified ordered URLs, suffixes and triangle counts', () => {
     const actual = runtime(lodSource);
-    assert.equal(lodCertified.entries.length, 160);
+    assert.equal(lodCertified.entries.length, 161);
     assert.equal(actual.WARFRONT_PET_LOD_REVISION, lodCertified.revision);
     assert.equal(JSON.stringify(actual.WARFRONT_PET_LOD_MANIFEST), JSON.stringify(expectedLod));
 });

@@ -27,6 +27,30 @@ function signals(overrides: Partial<BattleGuardSignals>): BattleGuardSignals {
 }
 
 describe("screen navigation guards", () => {
+    it('a completed spar and its reloaded lobby ignore an unrelated persisted legacy lock while live hosts remain guarded', () => {
+        const previous = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+        const legacy = new Map([['battleLock.activeId.v1', 'old-card-or-pre-cutover-arena']]);
+        Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: { getItem: (key: string) => legacy.get(key) ?? null } });
+        try {
+            for (const screen of ['arena', 'battleArena', 'arenaDistrict'] as const) {
+                const lobby = signals({ screen });
+                assert.equal(isBattleFlowScreen(screen, true, true, () => isUnresolvedBattle(lobby)), true, 'a mounted/starting sealed fight still blocks interruptions');
+                assert.equal(isUnresolvedBattle(lobby), false, 'Continue may return to its free lobby');
+                assert.equal(isUnresolvedBattle({ ...lobby }), false, 'reload reconstructs the same free lobby despite the persisted marker');
+                assert.equal(isUnresolvedBattle({ ...lobby, arenaBattleActive: true }), true);
+                assert.equal(isUnresolvedBattle({ ...lobby, raidBattleKind: 'raidAi' }), true);
+            }
+            assert.equal(isUnresolvedBattle(signals({ screen: 'hollowGateTiles', hollowGateTileGameActive: true })), true, 'the only remaining compatibility marker writer retains its own fight guard');
+            assert.equal(isUnresolvedBattle(signals({ screen: 'pvpBattle', pvpBattleId: 'live' })), true);
+            legacy.set('shinobix:towerRunId', 'pvp:tpvp-0123456789abcdef0123456789abcdef');
+            assert.equal(isUnresolvedBattle(signals({ screen: 'arenaDistrict' })), true, 'accepted Team Arena/tournament recovery remains locked');
+            assert.equal(legacy.get('battleLock.activeId.v1'), 'old-card-or-pre-cutover-arena', 'no broad deletion of another host marker');
+        } finally {
+            if (previous) Object.defineProperty(globalThis, 'localStorage', previous);
+            else Reflect.deleteProperty(globalThis, 'localStorage');
+        }
+    });
+
     it('guards a recovered tournament before its battle component mounts', () => {
         const previous = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
         Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: { getItem: (key: string) => key === 'shinobix:towerRunId' ? 'pvp:tpvp-0123456789abcdef0123456789abcdef' : null } });

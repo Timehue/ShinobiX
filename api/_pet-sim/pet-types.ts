@@ -111,6 +111,10 @@ export type PetLoadout = {
 };
 
 export type PetJutsu = {
+    abilityId?: string;
+    baseAbilityId?: string;
+    upgrade?: 'utility-mastery' | 'offense-mastery' | 'signature-mastery';
+    unlockLevel?: number;
     name: string;
     power: number;
     cooldown: number;
@@ -155,6 +159,8 @@ export type PetJutsu = {
 };
 
 export type Pet = {
+    /** Frozen battle projection only; save admission always resolves eligibility. */
+    battleLoadoutVersion?: 'legacy-v1' | 'progression-v3';
     id: string;
     name: string;
     rarity: PetRarity;

@@ -1,0 +1,255 @@
+{
+  "runId": 39212437186,
+  "runUrl": "https://github.com/Timehue/ShinobiX/actions/runs/39212437186",
+  "testedMergeSha": "8094585e5372af510197604d0c3d85db87951096",
+  "phase": "preliminary CI; current workspace contains subsequent corrections",
+  "shardFailureCounts": {
+    "1": 5,
+    "2": 6,
+    "3": 4
+  },
+  "failures": [
+    {
+      "shard": 1,
+      "jobId": 117928627561,
+      "file": "api/pet/_ranked-engine.test.ts",
+      "name": "bounds legacy/corrupt combat snapshots before simulation",
+      "error": "TypeError: Cannot read properties of undefined (reading 'power')",
+      "details": [
+        "at TestContext.<anonymous> (/home/runner/work/ShinobiX/ShinobiX/api/pet/_ranked-engine.test.ts:83:41)"
+      ],
+      "owner": "replay_compat",
+      "jobUrl": "https://github.com/Timehue/ShinobiX/actions/runs/39212437186/job/117928627561"
+    },
+    {
+      "shard": 1,
+      "jobId": 117928627561,
+      "file": "api/pet/warfront-authority.test.ts",
+      "name": "Warfront settlement follows the commanded formation replay and its authoritative clock floor",
+      "error": "AssertionError [ERR_ASSERTION]: fixture: the slowest commanded formation must outlast the sealed baseline, so a baseline clock would settle early",
+      "details": [
+        "at TestContext.<anonymous> (/home/runner/work/ShinobiX/ShinobiX/api/pet/warfront-authority.test.ts:427:12)",
+        "actual: false,",
+        "expected: true,"
+      ],
+      "owner": "shared_paths",
+      "jobUrl": "https://github.com/Timehue/ShinobiX/actions/runs/39212437186/job/117928627561"
+    },
+    {
+      "shard": 1,
+      "jobId": 117928627561,
+      "file": "api/pet/warfront-authority.test.ts",
+      "name": "a mid-match re-form is settled from the server’s own replay of that plan",
+      "error": "AssertionError [ERR_ASSERTION]: settlement must replay the RE-FORMED plan, not the sealed baseline and not the reported outcome",
+      "details": [
+        "at TestContext.<anonymous> (/home/runner/work/ShinobiX/ShinobiX/api/pet/warfront-authority.test.ts:592:16)",
+        "actual: 'win',",
+        "expected: 'loss',"
+      ],
+      "owner": "shared_paths",
+      "jobUrl": "https://github.com/Timehue/ShinobiX/actions/runs/39212437186/job/117928627561"
+    },
+    {
+      "shard": 1,
+      "jobId": 117928627561,
+      "file": "api/save/_unsettled-writer-ratchet.test.ts",
+      "name": "every save version built outside mutatePlayerSave is classified, and the to-convert counts are exact",
+      "error": "AssertionError [ERR_ASSERTION]: Player-save versions built outside mutatePlayerSave changed. A NEW one discards the idle recovery a player earned: commit through mutatePlayerSave (or mutatePlayerSaveLocked under a lock you already hold) instead. A conversion must lower its TO_CONVERT entry (delete it at zero).",
+      "details": [
+        "pet/_showdown-admission.ts: allowlisted 0, found 1",
+        "+   'pet/_showdown-admission.ts: allowlisted 0, found 1'",
+        "at TestContext.<anonymous> (/home/runner/work/ShinobiX/ShinobiX/api/save/_unsettled-writer-ratchet.test.ts:187:12)",
+        "actual: [ 'pet/_showdown-admission.ts: allowlisted 0, found 1' ],",
+        "expected: [],"
+      ],
+      "owner": "integration_audit",
+      "jobUrl": "https://github.com/Timehue/ShinobiX/actions/runs/39212437186/job/117928627561"
+    },
+    {
+      "shard": 1,
+      "jobId": 117928627561,
+      "file": "shinobij.client/src/lib/showdown-vfx-integration.test.ts",
+      "name": "Guard chip keeps the elemental impact; Protect, absorption and dodge do not",
+      "error": "AssertionError [ERR_ASSERTION]: a real sealed loadout must retain at least one Protect technique",
+      "details": [
+        "at TestContext.<anonymous> (/home/runner/work/ShinobiX/ShinobiX/shinobij.client/src/lib/showdown-vfx-integration.test.ts:84:16)",
+        "actual: undefined,",
+        "expected: true,"
+      ],
+      "owner": "progression_ui",
+      "jobUrl": "https://github.com/Timehue/ShinobiX/actions/runs/39212437186/job/117928627561"
+    },
+    {
+      "shard": 2,
+      "jobId": 117928627696,
+      "file": "api/pet/_pvp-duel.test.ts",
+      "name": "the settlement snapshot is one the settlement will actually accept",
+      "error": "AssertionError [ERR_ASSERTION]: the snapshot round-trips through the settlement parser",
+      "details": [
+        "at TestContext.<anonymous> (/home/runner/work/ShinobiX/ShinobiX/api/pet/_pvp-duel.test.ts:140:12)",
+        "actual: [ { id: 'p0', name: 'p0', rarity: 'standard', level: 30, hp: 800, attack: 120, defense: 90, speed: 60, element: 'Fire', role: 'tracker', unlockedForPve: true, jutsus: [Array], loadout: [Object], battleLoadoutVersion: 'legacy-v1' } ],",
+        "expected: [ { id: 'p0', name: 'p0', rarity: 'standard', level: 30, hp: 800, attack: 120, defense: 90, speed: 60, element: 'Fire', role: 'tracker', unlockedForPve: true, jutsus: [Array], loadout: [Object] } ],"
+      ],
+      "owner": "replay_compat",
+      "jobUrl": "https://github.com/Timehue/ShinobiX/actions/runs/39212437186/job/117928627696"
+    },
+    {
+      "shard": 2,
+      "jobId": 117928627696,
+      "file": "api/save/_state-ownership-ratchet.test.ts",
+      "name": "always-ledger is a subset of strict-ledger except explicit non-numeric vault fields",
+      "error": "AssertionError [ERR_ASSERTION]: petShowdownAdmission always-ledger but not strict — reconcile",
+      "details": [
+        "at TestContext.<anonymous> (/home/runner/work/ShinobiX/ShinobiX/api/save/_state-ownership-ratchet.test.ts:265:20)",
+        "actual: false,",
+        "expected: true,"
+      ],
+      "owner": "integration_audit",
+      "jobUrl": "https://github.com/Timehue/ShinobiX/actions/runs/39212437186/job/117928627696"
+    },
+    {
+      "shard": 2,
+      "jobId": 117928627696,
+      "file": "scripts/celestial-lion-lifecycle.test.mjs",
+      "name": "Celestial Lion can be captured, bred, trained, sent on expedition, and fielded in the Colosseum",
+      "error": "AssertionError [ERR_ASSERTION]: false == true",
+      "details": [
+        "at TestContext.<anonymous> (file:///home/runner/work/ShinobiX/ShinobiX/scripts/celestial-lion-lifecycle.test.mjs:59:12)",
+        "actual: false,",
+        "expected: true,"
+      ],
+      "owner": "shared_paths",
+      "jobUrl": "https://github.com/Timehue/ShinobiX/actions/runs/39212437186/job/117928627696"
+    },
+    {
+      "shard": 2,
+      "jobId": 117928627696,
+      "file": "shinobij.client/src/lib/pet-warfront-growth-position.test.ts",
+      "name": "support potency grows with the caster's trained HP and move power",
+      "error": "AssertionError [ERR_ASSERTION]: support failed to protect its nearby ally",
+      "details": [
+        "at TestContext.<anonymous> (/home/runner/work/ShinobiX/ShinobiX/shinobij.client/src/lib/pet-warfront-growth-position.test.ts:59:22)",
+        "actual: undefined,",
+        "expected: true,"
+      ],
+      "owner": "shared_paths",
+      "jobUrl": "https://github.com/Timehue/ShinobiX/actions/runs/39212437186/job/117928627696"
+    },
+    {
+      "shard": 2,
+      "jobId": 117928627696,
+      "file": "shinobij.client/src/lib/pet-warfront-rite.test.ts",
+      "name": "exact cumulative exit health stays below the survivor floor until the next clash",
+      "error": "AssertionError [ERR_ASSERTION]: carry-floor fixture must reach the deciding clash",
+      "details": [
+        "at TestContext.<anonymous> (/home/runner/work/ShinobiX/ShinobiX/shinobij.client/src/lib/pet-warfront-rite.test.ts:185:12)",
+        "actual: 2,",
+        "expected: 3,"
+      ],
+      "owner": "shared_paths",
+      "jobUrl": "https://github.com/Timehue/ShinobiX/actions/runs/39212437186/job/117928627696"
+    },
+    {
+      "shard": 2,
+      "jobId": 117928627696,
+      "file": "shinobij.client/src/lib/showdown-contact-vfx.test.ts",
+      "name": "live engine verdicts agree with contact paint for Protect, absorption and dodge",
+      "error": "AssertionError [ERR_ASSERTION]: the selected defender's real kit includes Protect",
+      "details": [
+        "at TestContext.<anonymous> (/home/runner/work/ShinobiX/ShinobiX/shinobij.client/src/lib/showdown-contact-vfx.test.ts:63:16)",
+        "actual: false,",
+        "expected: true,"
+      ],
+      "owner": "progression_ui",
+      "jobUrl": "https://github.com/Timehue/ShinobiX/actions/runs/39212437186/job/117928627696"
+    },
+    {
+      "shard": 3,
+      "jobId": 117928627567,
+      "file": "scripts/pet-warfront-counterplay.test.ts",
+      "name": "20 losing-side public-evidence counters clear the opening-contact and winner-flip gates",
+      "error": "AssertionError [ERR_ASSERTION]: fixed cohort drifted; inspect the counter rather than weakening the gate",
+      "details": [
+        "at TestContext.<anonymous> (/home/runner/work/ShinobiX/ShinobiX/scripts/pet-warfront-counterplay.test.ts:84:12)",
+        "actual: 10,",
+        "expected: 7,"
+      ],
+      "owner": "shared_paths",
+      "jobUrl": "https://github.com/Timehue/ShinobiX/actions/runs/39212437186/job/117928627567"
+    },
+    {
+      "shard": 3,
+      "jobId": 117928627567,
+      "file": "scripts/save-ownership-parity.test.ts",
+      "name": "the client mirror lists exactly the non-restorable character fields",
+      "error": "AssertionError [ERR_ASSERTION]: shinobij.client/src/lib/save-ownership.ts is out of sync with the manifest",
+      "details": [
+        "at TestContext.<anonymous> (/home/runner/work/ShinobiX/ShinobiX/scripts/save-ownership-parity.test.ts:54:12)",
+        "actual: [",
+        "expected: ["
+      ],
+      "owner": "integration_audit",
+      "jobUrl": "https://github.com/Timehue/ShinobiX/actions/runs/39212437186/job/117928627567"
+    },
+    {
+      "shard": 3,
+      "jobId": 117928627567,
+      "file": "scripts/showdown-balance.test.ts",
+      "name": "showdown 1v1 balance bands hold across EVERY rarity, chase tiers included",
+      "error": "AssertionError [ERR_ASSERTION]: balance bands violated — retune api/_pet-showdown/engine.ts (see scripts/showdown-balance.mjs):",
+      "details": [
+        "at TestContext.<anonymous> (/home/runner/work/ShinobiX/ShinobiX/scripts/showdown-balance.test.ts:208:12)",
+        "actual: [ '8 species outside 25-75% (budget 7): Tiny Wolf 75.5%, Scorch Skink 75.5%, Ironback Turtle 22.4%, Young Direwolf 75.5%, Granite Wombat 22.4%, Tempest Hawk 24.1%, Glacier Wolf 79.3%, Storm Lion 75.9%' ],",
+        "expected: [],"
+      ],
+      "owner": "root",
+      "jobUrl": "https://github.com/Timehue/ShinobiX/actions/runs/39212437186/job/117928627567"
+    },
+    {
+      "shard": 3,
+      "jobId": 117928627567,
+      "file": "shinobij.client/src/lib/showdown-move-presentation.test.ts",
+      "name": "every actual sealed pet loadout has distinct primary geometry, including signatures",
+      "error": "AssertionError [ERR_ASSERTION]: Cinder Cub: all moves resolve",
+      "details": [
+        "at TestContext.<anonymous> (/home/runner/work/ShinobiX/ShinobiX/shinobij.client/src/lib/showdown-move-presentation.test.ts:16:20)",
+        "actual: 4,",
+        "expected: 5,"
+      ],
+      "owner": "progression_ui",
+      "jobUrl": "https://github.com/Timehue/ShinobiX/actions/runs/39212437186/job/117928627567"
+    }
+  ],
+  "additionalGate": {
+    "jobId": 117931778167,
+    "step": "Tooling handoff drift",
+    "error": "docs/generated/design-tokens.json is stale; run npm run export:tooling-handoffs",
+    "resolution": "Repository generator adds the pet-progression.css token reference; economy outputs unchanged."
+  },
+  "upstreamBrowserFailure": {
+    "clientQualityJobId": 117928627723,
+    "failedStep": "Build-size gate",
+    "releaseArtifactJobId": 117930988213,
+    "releaseArtifactEvidence": "client-quality=failure",
+    "browserLeafJobCount": 12,
+    "leafFailedStep": "Require successful release artifact",
+    "browserAssertionsExecuted": false,
+    "aggregates": [
+      "CI / e2e-combat",
+      "CI / e2e-responsive"
+    ],
+    "exampleBrowserJobId": 117931931415,
+    "exampleBrowserEvidence": "release-artifact=failure"
+  },
+  "pgIntegration": {
+    "jobId": 117928627575,
+    "conclusion": "success",
+    "admissionTest": "  ✔ paid pet admission commits the save and combat together, retaining guards and duplicate-key refusal (290.610999ms)"
+  },
+  "ownedCorrections": {
+    "authority": "Admission pointer is strict-ledger, always-ledger, and combat-stripped; client recovery mirror classifies it non-restorable.",
+    "regeneration": "Admission helper is classified SETTLES_ITSELF; existing ratchet verifies settleIdleRecovery and carriedRegenCursor for every version build.",
+    "tests": "32/32 admission, ownership, and unsettled-writer tests passed locally.",
+    "tooling": "export:tooling-handoffs ran; only design-tokens.json changed."
+  }
+}

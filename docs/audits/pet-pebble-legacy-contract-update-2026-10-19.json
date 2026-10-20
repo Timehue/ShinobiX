@@ -1,0 +1,55 @@
+{
+  "id": "starter-earth",
+  "recordedAt": "2026-10-19T20:58:29.127Z",
+  "cause": "Full CI found three old 320-GLB inventory assertions and legacy polish/body-take assumptions that did not describe the deliberately rebuilt Pebble sculpt.",
+  "changes": [
+    "Assert 322 source/battle GLBs for 161 distinct pets.",
+    "For the new Pebble sculpt, replace obsolete binary-prefix receipts with exact reviewed source/LOD hashes, original-own-mesh provenance and complete visual receipt requirements. All other assets retain existing preservation checks.",
+    "Keep cubic spline validation, complete clip-set checks, identity metadata, compacted payload equivalence and contact-bank precision checks."
+  ],
+  "negativeTests": [
+    "one changed payload byte",
+    "borrowed Stone Turtle runtime identity",
+    "shared geometry provenance"
+  ],
+  "legacyTests": {
+    "passed": 10,
+    "failed": 0
+  },
+  "newProvenanceTest": {
+    "passed": 1,
+    "failed": 0
+  },
+  "uniqueFocusedChecksAcrossRecordedRuns": 52,
+  "focusedLint": "passed",
+  "sourceBattleAtlasBytesUnchanged": true,
+  "previousVisualEvidenceRemainsValid": true,
+  "evidence": [
+    "docs/screenshots/pet-pebble-legacy-contract-update-2026-10-19/legacy-tests.log",
+    "docs/screenshots/pet-pebble-legacy-contract-update-2026-10-19/provenance-negative-tests.log",
+    "docs/screenshots/pet-pebble-legacy-contract-update-2026-10-19/focused-lint.log",
+    "docs/screenshots/pet-pebble-legacy-contract-update-2026-10-19/ci-shard-1-original-failure.log",
+    "docs/screenshots/pet-pebble-legacy-contract-update-2026-10-19/ci-shard-2-original-failure.log",
+    "docs/screenshots/pet-pebble-legacy-contract-update-2026-10-19/ci-shard-3-original-failure.log",
+    "docs/screenshots/pet-pebble-legacy-contract-update-2026-10-19/compact-glb-delivery.test.mjs",
+    "docs/screenshots/pet-pebble-legacy-contract-update-2026-10-19/pet-reviewed-payload.mjs",
+    "docs/screenshots/pet-pebble-legacy-contract-update-2026-10-19/pet-character-motion.test.mjs",
+    "docs/screenshots/pet-pebble-legacy-contract-update-2026-10-19/pet-pebble-tortoise-distinct.test.mjs",
+    "docs/screenshots/pet-pebble-legacy-contract-update-2026-10-19/pet-studio-assets.test.mjs",
+    "docs/screenshots/pet-pebble-legacy-contract-update-2026-10-19/pet-proper-animation-assets.test.ts"
+  ],
+  "evidenceSha256": {
+    "docs/screenshots/pet-pebble-legacy-contract-update-2026-10-19/legacy-tests.log": "0a11eb36b81e05938bf256f78f82c102c289e7af027e3acba5860bbe52b01c74",
+    "docs/screenshots/pet-pebble-legacy-contract-update-2026-10-19/provenance-negative-tests.log": "1eb4dcacd075718d2ccd248a7124ddbfc06a09b467b42c22a8d50ad22793ba6e",
+    "docs/screenshots/pet-pebble-legacy-contract-update-2026-10-19/focused-lint.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "docs/screenshots/pet-pebble-legacy-contract-update-2026-10-19/ci-shard-1-original-failure.log": "d541638630101f54ec2d25e0661bfaa6b82f744d721f77669def4ec8ff096014",
+    "docs/screenshots/pet-pebble-legacy-contract-update-2026-10-19/ci-shard-2-original-failure.log": "3671252b22529ecf76e56600e7c8558b27ce14601ab0df8505e41a73f9a5a2c2",
+    "docs/screenshots/pet-pebble-legacy-contract-update-2026-10-19/ci-shard-3-original-failure.log": "43b9a6ee834cf471bfffdf5731724cec3145154be9bb46be7b11c96a35ab7ff9",
+    "docs/screenshots/pet-pebble-legacy-contract-update-2026-10-19/compact-glb-delivery.test.mjs": "173f84a84701d361d69a6ce98ea40bb6c2375b8f8001869fdc716c5a31bcd6b2",
+    "docs/screenshots/pet-pebble-legacy-contract-update-2026-10-19/pet-reviewed-payload.mjs": "fa199bb61fbc5b9aa9e688b205178cfa5c655b0aeda470bf34fe0497db966f0d",
+    "docs/screenshots/pet-pebble-legacy-contract-update-2026-10-19/pet-character-motion.test.mjs": "3f7d2c0aa08186eba08b129182b17c0a141fcbceb8aa6af83dad87285b388d82",
+    "docs/screenshots/pet-pebble-legacy-contract-update-2026-10-19/pet-pebble-tortoise-distinct.test.mjs": "608f9492a371e42545e4e90d79ea8a862361a10fb7d80227d619801bde57fa2a",
+    "docs/screenshots/pet-pebble-legacy-contract-update-2026-10-19/pet-studio-assets.test.mjs": "17645b75af5ed1c9493426623adcbcbfaecb26da89cc07c33dcbb1e13632b0e7",
+    "docs/screenshots/pet-pebble-legacy-contract-update-2026-10-19/pet-proper-animation-assets.test.ts": "72f4ff9eca6d2e7b196598f2b26af67999636dfdcf1f8cbcadc064e077b9a0a6"
+  }
+}

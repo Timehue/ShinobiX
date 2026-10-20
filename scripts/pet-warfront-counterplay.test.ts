@@ -4,6 +4,8 @@ import type { DuelResult } from "../shinobij.client/src/lib/pet-duel-sim";
 import type { Pet } from "../shinobij.client/src/types/pet";
 import { rawPetPool } from "../shinobij.client/src/data/pet-pool";
 import { balanceBuiltInPetTemplate } from "../shinobij.client/src/lib/pet-balance";
+import { normalizePetGrowth } from '../api/pet/_growth';
+import { petBattleJutsus } from '../shared/pet-battle-loadout';
 import {
     aiRitePlan,
     deterministicRiteCounterMove,
@@ -17,13 +19,20 @@ const POOL = rawPetPool
     .filter((pet) => pet.rarity !== "mythic")
     .map((pet) => balanceBuiltInPetTemplate(pet));
 
-function band(seed: number, prefix: string): Pet[] {
+function band(seed: number, prefix: string, progression: boolean): Pet[] {
     const picked: Pet[] = [];
     for (let index = 0; picked.length < 4 && index < POOL.length * 2; index++) {
         const candidate = POOL[(seed * 31 + index * 17) % POOL.length];
         if (!picked.some((pet) => pet.id === candidate.id)) picked.push(candidate);
     }
-    return picked.map((pet, slot) => ({ ...pet, id: `${prefix}-${pet.id}-${slot}` }));
+    return picked.map((pet, slot) => {
+        const owned = { ...pet, id: `${prefix}-${pet.id}-${slot}` };
+        if (!progression) return { ...owned, battleLoadoutVersion: 'legacy-v1' as const };
+        return normalizePetGrowth({ ...owned, templateId: pet.id, level: 75,
+            growthBaseStats: { hp: pet.hp, attack: pet.attack, defense: pet.defense, speed: pet.speed },
+            growthAllocation: { vitality: 0, power: 0, guard: 0, agility: 0 },
+        } as unknown as Record<string, unknown>) as unknown as Pet;
+    });
 }
 
 const holdPlan = (): RitePlan => ({
@@ -43,12 +52,16 @@ function openingContact(result: DuelResult): string {
     return `${firstHit?.actorId ?? "none"}>${firstHit?.targetId ?? "none"}@${firstHit?.t ?? -1}`;
 }
 
-test("20 losing-side public-evidence counters clear the opening-contact and winner-flip gates", () => {
+function counterCohort(progression: boolean) {
     let openingChanges = 0;
     let winnerFlips = 0;
 
     for (let seed = 1; seed <= 20; seed++) {
-        const blue = band(seed, "blue");
+        const blue = band(seed, "blue", progression);
+        if (progression) for (const pet of blue) {
+            const kit = petBattleJutsus(pet, { forceProgression: true });
+            assert.ok(kit.length > 0 && kit.every(move => !!move.abilityId && (move.unlockLevel ?? 1) <= pet.level));
+        }
         const red = blue.map((pet, slot) => ({ ...pet, id: `red-${pet.id}-${slot}` }));
         const blueHold = holdPlan();
         const redHold: RitePlan = { ...aiRitePlan(red, seed), reforms: [] };
@@ -80,6 +93,15 @@ test("20 losing-side public-evidence counters clear the opening-contact and winn
 
     assert.ok(openingChanges >= 12, `${openingChanges}/20 losing-side counters changed opening contact; gate is 12`);
     assert.ok(winnerFlips >= 5, `${winnerFlips}/20 losing-side counters flipped the next-clash winner; gate is 5`);
-    assert.equal(openingChanges, 17, "fixed cohort drifted; inspect the counter rather than weakening the gate");
-    assert.equal(winnerFlips, 7, "fixed cohort drifted; inspect the counter rather than weakening the gate");
+    return { openingChanges, winnerFlips };
+}
+
+test('20 retained losing-side counters preserve their exact authored-kit cohort', () => {
+    const { openingChanges, winnerFlips } = counterCohort(false);
+    assert.equal(openingChanges, 17, "fixed retained cohort drifted; inspect the counter rather than weakening the gate");
+    assert.equal(winnerFlips, 7, "fixed retained cohort drifted; inspect the counter rather than weakening the gate");
+});
+
+test('20 mature progression counters keep public evidence immutable and clear the same strategic floors', () => {
+    counterCohort(true);
 });

@@ -9,7 +9,7 @@ import type { TowerFloor } from '../towers/_floor-catalog.js';
 import { makeRng } from '../towers/_sim.js';
 import { companionConsumableHealPct } from '../combat-core/companion.js';
 import { huntMissionById } from '../missions/_mission-catalog.js';
-import { HUNT_AI_POLICY } from '../towers/_hunt-ai.js';
+import { HUNT_AI_POLICY, HUNT_REACTIVE_POLICY } from '../towers/_hunt-ai.js';
 import { pveEasyBandHoldsBurst, pveDifficultyBand } from '../_pve-difficulty.js';
 
 export type HuntCombatState = {
@@ -43,6 +43,9 @@ export function attachHuntCombat(session: SoloPveSession, context: WorldAiFightC
     // Simultaneous easy-band packs already chain several enemy turns. Preserve
     // their original chooser instead of compounding the onboarding pressure.
     const tacticalHunt = formation.kind !== 'pack' || pveDifficultyBand(Number(session.enemy.character.level)) !== 'easy';
+    const reactiveHunt = tacticalHunt && formation.kind === 'single' && rank !== 'D'
+        && Number(player.character.level) > 15 && Number(session.enemy.character.level) > 15
+        && pveDifficultyBand(Number(session.enemy.character.level)) === 'easy';
     player.itemCharges = { ...session.itemCharges };
     const enemies = Array.from({ length: formation.count }, (_, index) => {
         const actor = fighterActor(session.enemy, `hunt-enemy-${index}`, null, spawn([33, 57, 81][index]!));
@@ -60,6 +63,8 @@ export function attachHuntCombat(session: SoloPveSession, context: WorldAiFightC
         if (tacticalHunt) actor.character.huntAiPolicy = HUNT_AI_POLICY;
         else delete actor.character.huntAiPolicy;
         actor.character.huntRank = rank;
+        if (reactiveHunt) actor.character.huntReactivePolicy = HUNT_REACTIVE_POLICY;
+        else delete actor.character.huntReactivePolicy;
         return actor;
     });
     const label = formation.kind === 'single' ? 'Lone creature'
@@ -86,6 +91,7 @@ export function attachHuntCombat(session: SoloPveSession, context: WorldAiFightC
     if(tacticalHunt&&pveDifficultyBand(Number(session.enemy.character.level))==='easy')
         battle.log.push('The creature spends the opening round approaching and preparing. Basic attacks begin on round 2.');
     battle.log.push(`${rank}-rank hunt: watch for afflictions and gap-closing techniques. Heavy techniques begin on round ${heavyRound}. Cleanse removes afflictions; Clear strips active defenses.`);
+    if (reactiveHunt) battle.log.push('Wounded retaliation: this lone creature can use heavy techniques from round 2 at 75% HP or below. Use defensive techniques to blunt the response or create distance before wounding it.');
     session.huntCombat = { formation, battle };
     startRound(battle);
     // The encounter already sealed the player's current resources. Tower turn

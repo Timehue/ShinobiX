@@ -1,0 +1,18 @@
+Retaining successful final face/source-geometry probes from initial capture attempt.
+capture-pet-shape-audit --model=starter-earth --label=independent-pebble-distinct-contact-v2-final-source-head completed
+capture-pet-shape-audit --model=starter-earth --label=independent-pebble-distinct-contact-v2-final-source-body completed
+audit-all-pet-animation-poses --model=starter-earth --label=independent-pebble-distinct-contact-v2-final-battle completed
+capture-pet-shape-audit --model=starter-earth --label=independent-pebble-distinct-contact-v2-final-battle-head completed
+capture-pet-shape-audit --model=starter-earth --label=independent-pebble-distinct-contact-v2-final-battle-body completed
+independent-pebble-distinct-contact-v2-final-source-head: 9 enlarged review slices saved
+independent-pebble-distinct-contact-v2-final-source-body: 6 enlarged review slices saved
+independent-pebble-distinct-contact-v2-final-battle-head: 9 enlarged review slices saved
+independent-pebble-distinct-contact-v2-final-battle-body: 6 enlarged review slices saved
+capture-pet-runtime-transitions --model=starter-earth --label=independent-pebble-distinct-contact-v2-final-runtime-low completed
+independent-pebble-distinct-contact-v2-final-runtime-low: 16 enlarged review slices saved
+capture-pet-runtime-transitions --model=starter-earth --label=independent-pebble-distinct-contact-v2-final-runtime-medium completed
+independent-pebble-distinct-contact-v2-final-runtime-medium: 16 enlarged review slices saved
+capture-pet-companion-audit --model=starter-earth --label=pebble-distinct-contact-v2-final-companions completed
+capture-pet-companion-techniques --model=starter-earth --label=independent-pebble-distinct-contact-v2-final-techniques completed
+{"label":"independent-pebble-distinct-contact-v2-final-techniques","crop":{"left":151,"top":41,"width":203,"height":178},"strips":12,"frames":216}
+{"id":"starter-earth","prefix":"independent-pebble-distinct-contact-v2-final","captured":true,"actuallyInspectedSecondPass":false}

@@ -423,7 +423,7 @@ export function hollowGateSeededRandom(serverSeed: string, floor: number): () =>
     };
 }
 
-export function generateHollowGateShrineRun(floor = 1, variant?: HollowGateVariant, serverSeed?: string): HollowGateShrineRun {
+export function generateHollowGateShrineRun(floor = 1, variant?: HollowGateVariant, serverSeed?: string, legacyPacing = false): HollowGateShrineRun {
     // The run's own shape wins: an event variant can shorten the gate (its
     // final floor holds the boss) and shrink the board. No variant = the
     // standard shrine, byte-identical to before variants existed.
@@ -447,7 +447,7 @@ export function generateHollowGateShrineRun(floor = 1, variant?: HollowGateVaria
     // fallbacks only.
     try {
         const rng = serverSeed ? hollowGateSeededRandom(serverSeed, floor) : Math.random;
-        return stamp(generateHollowGateFloor(floor, isFinalFloor, dims, rng));
+        return stamp(generateHollowGateFloor(floor, isFinalFloor, dims, rng, legacyPacing));
     } catch {
         if (serverSeed) throw new Error("The sealed Hollow Gate floor could not be regenerated.");
         try { return stamp(generateHollowGateMazeRun(floor, isFinalFloor, dims)); } catch { return stamp(generateHollowGateShrineRunBSP(floor, isFinalFloor, dims)); }

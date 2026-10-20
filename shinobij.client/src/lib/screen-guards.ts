@@ -240,9 +240,8 @@ export function hasLiveScreenFight(screen: Screen): boolean {
     return screensWithLiveFight.has(screen);
 }
 
-// True when a remaining non-session screen has mirrored an unresolved fight to
-// the compatibility lock. Sealed combat hosts use their own session ids, and
-// boot removes unsupported pre-cutover Arena markers instead of resuming them.
+/** Compatibility marker for supported legacy hosts and passive notification suppression.
+ * It does not establish an active fight in the retired local Arena lobby. */
 export function hasActiveBattleLock(): boolean {
     try {
         return !!localStorage.getItem(BATTLE_LOCK_ID_KEY);
@@ -285,8 +284,11 @@ export function isUnresolvedBattle(s: BattleGuardSignals): boolean {
         case "arenaDistrict":
             // Arena District also hosts sealed tournament fights. Its recovered
             // lease blocks interruptions before the battle panel has mounted.
-            // Other Arena modes retain their rolling-upgrade compatibility signals.
-            return s.arenaBattleActive || hasActiveBattleLock() || (s.screen === 'arenaDistrict' && (hasLiveScreenFight('arenaDistrict') || hasActiveTowerFight()))
+            // The old local Arena reducer is retired. Its unowned compatibility
+            // marker can outlive a completed fight/reload; it cannot lock these
+            // lobbies. Sealed portal hosts supply App's separate presence guard.
+            // The remaining Hollow Gate card marker belongs to its own screen.
+            return s.arenaBattleActive || (s.screen === 'arenaDistrict' && (hasLiveScreenFight('arenaDistrict') || hasActiveTowerFight()))
                 || s.endlessBattleActive || s.pendingArenaStoryBattle;
         case "pvpBattle":
             return !!s.pvpBattleId && !s.pvpBattleResolved;

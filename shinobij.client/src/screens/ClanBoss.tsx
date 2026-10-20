@@ -229,11 +229,11 @@ export function ClanBoss({ character, clanmates, hostLoadout, sharedImages, onRe
                     hostLoadout={hostLoadout}
                     runId={fight.runId}
                     initialSession={fight.session}
+                    variant="clan-boss"
                     stateFn={fetchAcceptedOperationState}
                     actionRetryFn={submitAcceptedOperationAction}
                     onRecordBattle={onRecordBattle}
                     settleFn={settleAcceptedOperation}
-                    variant="clan-boss"
                     onVersionedCharacter={onVersionedCharacter}
                     settleOnAnyDone
                     onExit={() => {

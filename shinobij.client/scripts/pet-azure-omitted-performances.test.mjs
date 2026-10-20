@@ -7,8 +7,10 @@ import {loadPetDeformationProbe} from './lib/pet-deformation-probe.mjs';
 import {retargetFittedPetPerformances,OMITTED_FITTED_PERFORMANCE_CLIPS} from './lib/pet-retarget-fitted-performances.mjs';
 import {freezeVisibleSoleRegions,selectVisibleSoleRegions,measureVisibleLimbPerformances} from './lib/pet-visible-limb-performance.mjs';
 
-// Prepare both stages before child tests can run their cleanup hook.
-await describe('Azure omitted limb performances', async () => {
+// Await both stages inside a suite before child tests and cleanup can run.
+// Registering root tests between top-level awaits lets the source-stage tests
+// finish and delete the temp directory while battle-stage setup still uses it.
+await describe('Azure omitted authored performances', async () => {
 const fixture=name=>new URL('./fixtures/'+name,import.meta.url);
 const original=await loadPetDeformationProbe(fixture('pet-complete-face-20261015/mythic-6-v1.glb'));
 const annotation=JSON.parse(await readFile(fixture('pet-omitted-limb-performances/mythic-6-visible-paws.json')));

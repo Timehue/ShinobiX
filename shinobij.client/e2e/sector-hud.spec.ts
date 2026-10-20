@@ -61,6 +61,23 @@ async function boot(page: Page, count = 8, configure?: () => Promise<void>, sect
     await expect(page.locator('.sector-image-map')).toBeVisible({timeout: 60_000});
 }
 
+// A healthy full heartbeat legitimately restores a current roster. Keep those
+// snapshots out of unavailable-state assertions, as the empty-roster test does.
+// Beats are serialized through response processing, so the first held beat also
+// flushes earlier full snapshots. Keep this override through explicit recovery.
+async function holdHeartbeatRosters(page: Page) {
+    let heldBeats = 0;
+    await page.route('**/api/player/heartbeat', route => {
+        heldBeats++;
+        return route.fulfill({json:{ok:true,sector:22}});
+    });
+    await expect.poll(() => heldBeats).toBeGreaterThan(0);
+    return async () => {
+        const previous = heldBeats;
+        await expect.poll(() => heldBeats).toBeGreaterThan(previous);
+    };
+}
+
 for (const [width,height] of [[360,560],[412,800],[390,664]]) test(`mobile scrolls below map for details at ${width}x${height}`, async ({page}, testInfo) => {
     await page.setViewportSize({width,height});
     await boot(page,100,async()=>{await chatServer(page);});
@@ -296,7 +313,9 @@ test('nearby roster uses explicit actions and the shared current-roster gate', a
     await attack.focus();
     await page.keyboard.press('d');
     await expect(page.locator('.sector-player-tile')).toHaveAttribute('aria-label',original!);
+    const nextRosterlessBeat = await holdHeartbeatRosters(page);
     await page.evaluate(async()=>{const store=await import('/src/lib/presence-store.ts');store.markSectorRosterUnavailable(22);});
+    await nextRosterlessBeat();
     await expect(attack).toBeDisabled();
     await page.evaluate(async()=>{const store=await import('/src/lib/presence-store.ts');store.pushLiveSectorPlayers(store.getLiveSectorPlayers(),22);});
     await expect(attack).toBeEnabled();
@@ -770,7 +789,9 @@ test('unavailable and stale spectator targets stay in the sector without attacki
     const spectate=page.getByRole('button',{name:'Spectate Shinobi002'});
     await spectate.click();
     await expect(page.getByText('This fight is not available to spectate. Try again shortly.')).toBeVisible();
+    const nextRosterlessBeat = await holdHeartbeatRosters(page);
     await page.evaluate(async()=>{const store=await import('/src/lib/presence-store.ts');store.markSectorRosterUnavailable(22);});
+    await nextRosterlessBeat();
     await expect(spectate).toBeDisabled();
     await page.evaluate(async()=>{const store=await import('/src/lib/presence-store.ts');store.pushLiveSectorPlayers(store.getLiveSectorPlayers(),22);});
     await expect(spectate).toBeEnabled();

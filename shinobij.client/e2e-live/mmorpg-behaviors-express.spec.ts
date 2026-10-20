@@ -182,14 +182,14 @@ test('Stand & Fight starts the roaming Weekly Boss fight, and leaving it returns
     await expect(page.locator('.app-shell[data-screen="worldMap"]')).toBeVisible({ timeout: 45_000 });
     const stage = page.locator('.sector-stage-panel');
     const returnToSector = page.getByRole('button', { name: new RegExp(`Return to Sector ${sector}\\b`) });
-    const skip = page.getByRole('button', { name: 'Skip', exact: true });
-    // Step onto the sector board, skipping any resumed story scene. Each pass
+    // The installed scene handler owns Skip: a second Skip click can have its
+    // target dismissed by that handler and wait forever for the vanished button.
+    // Step onto the sector board after any resumed story scene. Each pass
     // waits for the board after its click, so a slow re-render under a loaded
     // machine is not mistaken for a click that did nothing.
     await expect(async () => {
         if (await stage.isVisible()) return;
-        if (await skip.isVisible()) await skip.click();
-        else if (await returnToSector.isVisible()) await returnToSector.click();
+        if (await returnToSector.isVisible()) await returnToSector.click();
         await expect(stage).toBeVisible({ timeout: 4_000 });
     }).toPass({ timeout: 60_000 });
 

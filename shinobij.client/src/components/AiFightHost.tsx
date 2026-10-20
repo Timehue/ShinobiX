@@ -421,6 +421,7 @@ export function AiFightHost({
                 playerName: originatingPlayerName,
                 opponentId: request.opponentId,
                 opponentLevel: request.opponentLevel,
+                practiceLevel: request.practiceLevel,
                 battleKind: request.battleKind,
                 sector: request.sector,
                 ...(request.worldExploreRequestId ? { worldExploreRequestId: request.worldExploreRequestId } : {}),

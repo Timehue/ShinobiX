@@ -4,6 +4,9 @@
  * optimistic session versions plus stable retry tokens.
  */
 
+import type { HollowGateTelegraph } from '../../../shared/hollow-gate-telegraph';
+import type { SoloPveTerminalReason } from '../../../shared/solo-pve-terminal';
+
 export type SoloPveStatus = {
     name: string;
     rounds: number;
@@ -98,12 +101,13 @@ export type AuthoritativeCombatEvent = {
 };
 
 export type SoloPveCombatEvent = {
-    kind: 'action';
+    kind: 'action' | 'system';
+    terminalReason?: SoloPveTerminalReason;
     seq: number;
     round: number;
     actor: 'player' | 'enemy' | 'companion';
     target: 'player' | 'enemy' | 'companion' | 'tile' | null;
-    action: SoloPveActionInput['type'] | 'companionMove' | 'companionWait';
+    action: SoloPveActionInput['type'] | 'companionMove' | 'companionWait' | 'roundEnd';
     actionId?: string;
     actionName?: string;
     tile?: number;
@@ -135,6 +139,9 @@ export type SoloPveRejectionEvent = {
 };
 
 export type SoloPveSession = {
+    terminalReason?: SoloPveTerminalReason;
+    hollowGateTelegraph?: HollowGateTelegraph;
+    hollowGateRoundLimit?: number;
     huntCombat?: { purpose?: 'story-twins' | 'narrative-group'; groupId?: string; requiredEnemyIds?: string[]; formation: Omit<import('../../../shared/hunt-combat').HuntFormation, 'count'> & { count: number }; battle: import('./towers-api').TowerSession };
     runtime: 'solo-pve';
     schemaVersion: 1;
@@ -191,6 +198,7 @@ export type SoloPveSession = {
     outcome: 'win' | 'loss' | 'fled' | 'draw' | null;
     settlementState: 'pending' | 'settled';
     terminalEvidence?: {
+        reason?: SoloPveTerminalReason;
         finishedAt: number;
         finalMoveToken: string;
         finalVersion: number;

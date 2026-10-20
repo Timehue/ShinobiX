@@ -35,7 +35,7 @@ const jsonManifestPath = resolve(outputRoot, "manifest.json");
 const tsUrlManifestPath = resolve(clientRoot, "src/generated/pet-warfront-impostor-url-manifest.ts");
 
 const REVISION = "20260902-warfront-impostor-v1";
-const EXPECTED_SOURCE_COUNT = 160;
+const EXPECTED_SOURCE_COUNT = 161;
 const CELL_SIZE = 128;
 const COLUMNS = 4;
 const ROWS = 4;
@@ -487,7 +487,7 @@ function tsUrlManifest(entries) {
     const extras = [
         'showdown-v2/rare-1.glb', 'showdown-v2/standard-7.glb',
         'showdown-v2/starter-fire-l.glb', 'showdown-v2/starter-lightning-l.glb',
-        'starter-earth-l.glb', 'starter-earth-r.glb', 'starter-fire-r.glb', 'starter-fire.glb',
+        'starter-earth-l.glb', 'starter-earth-r.glb', 'starter-earth.glb', 'starter-fire-r.glb', 'starter-fire.glb',
         'starter-lightning-r.glb', 'starter-lightning.glb', 'starter-water-l.glb', 'starter-water-r.glb',
         'starter-water.glb', 'starter-wind-l.glb', 'starter-wind-r.glb', 'starter-wind.glb',
     ];

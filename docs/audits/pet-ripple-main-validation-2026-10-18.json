@@ -1,0 +1,68 @@
+{
+  "ids": [
+    "starter-water"
+  ],
+  "expected": {
+    "mainBase": "cd1a5ca6fce07435149a91d2b710f3b01a465d7a",
+    "pets": {
+      "starter-water": {
+        "source": "90150dd50ff366a8e6504448c2a857ca8c20214e5cfe8e0fd1973fa921e521eb",
+        "battle": "47cd31858838ca83f67f6c2c77dcceb23f6999ddd55a41a01875ef1673ea07b5",
+        "atlas": "b8a2dae4aca66d42b0ca5196676ad971461db2d2bb5d94d820b0c0ac9b1c3d40"
+      }
+    }
+  },
+  "nonselectedManifestEntriesUnchanged": true,
+  "checks": [
+    "focused-tests",
+    "structure",
+    "reviews"
+  ],
+  "passed": true,
+  "recordedAt": "2026-10-19T13:30:33.873Z",
+  "mainBaseline": "cd1a5ca6fce07435149a91d2b710f3b01a465d7a",
+  "focusedTests": {
+    "passed": 34,
+    "failed": 0
+  },
+  "structuralChecks": {
+    "passed": 161,
+    "failed": 0
+  },
+  "existingReviewReceiptChecks": {
+    "passed": 161,
+    "failed": 0
+  },
+  "clientProductionBuild": "passed",
+  "clientLint": {
+    "errors": 0,
+    "existingWarnings": 23
+  },
+  "nonselectedRecipesLandmarksAndRosterEntriesUnchanged": true,
+  "portraitReferenceUpdates": [],
+  "allPortraitMasterDeliveryAndReviewRecordsUnchanged": true,
+  "evidence": [
+    "docs/screenshots/pet-ripple-main-validation-2026-10-18/lint.log",
+    "docs/screenshots/pet-ripple-main-validation-2026-10-18/focused-tests.log",
+    "docs/screenshots/pet-ripple-main-validation-2026-10-18/structure.log",
+    "docs/screenshots/pet-ripple-main-validation-2026-10-18/reviews.log",
+    "docs/screenshots/pet-ripple-main-validation-2026-10-18/production-build.log",
+    "docs/screenshots/pet-ripple-main-validation-2026-10-18/generated-lod.log",
+    "docs/screenshots/pet-ripple-main-validation-2026-10-18/generated-atlas.log",
+    "docs/audits/pet-ripple-main-runtime-equivalence-2026-10-18.json"
+  ],
+  "evidenceSha256": {
+    "docs/screenshots/pet-ripple-main-validation-2026-10-18/lint.log": "67e543d2bbeebf0651fc14e37cbb82da876c1cbdc1ef3d5b3684879afd789677",
+    "docs/screenshots/pet-ripple-main-validation-2026-10-18/focused-tests.log": "b7ccb90f9933b8b508693c2eb0539e876af86fe2bfdbeaf316b373c66fc2e8a7",
+    "docs/screenshots/pet-ripple-main-validation-2026-10-18/structure.log": "e6f8af821993b8cfdc65f9af498569dfaa446565c64f5cfcf30cac07ce807419",
+    "docs/screenshots/pet-ripple-main-validation-2026-10-18/reviews.log": "838f4662ff9f40a64904d1c4cba0d6ed5fdcf54bf9f32fe07c0a92f229a0186c",
+    "docs/screenshots/pet-ripple-main-validation-2026-10-18/production-build.log": "119b6a057c5d1ec7e01a894b4519f83d8961d9fdf982ff821661aa10df26967d",
+    "docs/screenshots/pet-ripple-main-validation-2026-10-18/generated-lod.log": "f2b3d0e99dbbe107d8a7e3c1f818d1b622d381dfd17bad464b5ec0e3ce7989bc",
+    "docs/screenshots/pet-ripple-main-validation-2026-10-18/generated-atlas.log": "fa8c35966cc883fb6fffd3bb416fec8af58766a721304c2aac27dcdea56c5c28",
+    "docs/audits/pet-ripple-main-runtime-equivalence-2026-10-18.json": "0881972b5fef1fac64354b9f7b944b81e9b035a53ff241345bc93105da249fd8"
+  },
+  "productionRendererFilesIdentical": true,
+  "selectedOriginalAppearanceEquivalent": true,
+  "wholeRosterVisuallyComplete": false,
+  "liveForRipple": false
+}

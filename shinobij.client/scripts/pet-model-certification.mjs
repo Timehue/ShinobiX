@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { reviewedPebbleAccessory } from './lib/pet-pebble-reviewed-accessories.mjs';
 import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { basename, resolve } from "node:path";
 import sharp from "sharp";
@@ -173,6 +174,7 @@ function compressedComponentMetrics(glb, primitive, id, modelLongest) {
         const size = component.max.map((value, axis) => value - component.min[axis]);
         return {
             triangles: component.triangles,
+            vertices: component.vertices,
             ratio: component.triangles / triangleCount,
             size,
             spanRatio: Math.max(...size) / Math.max(0.001, modelLongest),
@@ -352,9 +354,17 @@ function geometryMetrics(glb, id, requireRig, minimumVertices = 8_000, rejectOve
     const componentTriangles = [...triangleComponents.values()].sort((a, b) => b - a);
     const triangleCount = indices.accessor.count / 3;
 
+    const reviewedAnatomicalComponents = [];
     if (rejectOversizedDetachedProxy) {
         const components = compressedComponentMetrics(glb, primitive, id, Math.max(...size));
-        const oversized = components.slice(1).find(component => component.spanRatio > 0.45);
+        const oversized = components.slice(1).find(component => {
+            const accessory=reviewedPebbleAccessory(glb,primitive,id,component,normalizedAccessorReader);
+            if(accessory){
+                reviewedAnatomicalComponents.push({role:accessory,triangles:component.triangles,vertices:component.vertices.size,review:'docs/audits/pet-pebble-full-remake-final-review-2026-10-19.json'});
+                return false;
+            }
+            return component.spanRatio > 0.45;
+        });
         invariant(!oversized, id + ': detached proxy/cage spans ' + ((oversized?.spanRatio ?? 0) * 100).toFixed(1) + '% of the model');
     }
 
@@ -397,7 +407,8 @@ function geometryMetrics(glb, id, requireRig, minimumVertices = 8_000, rejectOve
         connectedComponents: componentTriangles.length,
         dominantComponentRatio: Number(((componentTriangles[0] ?? 0) / triangleCount).toFixed(4)),
         secondComponentRatio: Number(((componentTriangles[1] ?? 0) / triangleCount).toFixed(4)),
-        possibleDuplicateAnatomy: (componentTriangles[1] ?? 0) / triangleCount >= 0.09,
+        reviewedAnatomicalComponents,
+        possibleDuplicateAnatomy: reviewedAnatomicalComponents.length === 0 && (componentTriangles[1] ?? 0) / triangleCount >= 0.09,
         validWeightRatio,
         maxJoint,
         tailWeightedVertexRatio: tailWeightedVertexRatio === null ? null : Number(tailWeightedVertexRatio.toFixed(4)),
@@ -524,7 +535,7 @@ async function main() {
             const entry = await auditGlb(path, {
                 requireRig: true, minimumAtlasBytes: starter ? 4_000 : 40_000,
                 minimumVertices: starter ? 6_000 : 8_000,
-                expectedJointCount: starter ? 21 : undefined,
+                expectedJointCount: starter ? (model.visualId === 'starter-fire' ? 35 : 21) : undefined,
                 rejectOversizedDetachedProxy: starter,
             });
             (starter ? starters : roster).push({ ...entry, id: pet.id, assetId: model.visualId, runtimeUrl: model.url });

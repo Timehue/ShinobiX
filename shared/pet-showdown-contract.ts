@@ -398,6 +398,7 @@ export type ShowdownJudgeReason = "pets" | "hp" | "stamina" | "speed";
  *  mirror by design, so a showdown row is replayed by asking the server for the
  *  log. The row is the request, not the answer. */
 export interface ShowdownReplayDescriptor {
+    rulesetVersion?: 'progression-v3' | 'legacy-v2';
     /** Missing on historical records. The server replays those under legacy rules. */
     damageRules?: 'legacy-v1' | 'response-v2';
     kind: "showdown";
@@ -432,8 +433,8 @@ export interface ShowdownReplayScript {
  *  input: the timing-needle grade that used to ride along here was removed in
  *  round 18, so a command is pure INTENT and the engine alone decides outcome. */
 export type ShowdownCommand =
-    | { kind: "move"; petId: string; moveIndex: number; targetId: string }
-    | { kind: "super"; petId: string; targetId: string }
+    | { kind: "move"; petId: string; moveIndex: number; targetId: string; abilityId?: string }
+    | { kind: "super"; petId: string; targetId: string; abilityId?: string }
     | { kind: "guard"; petId: string }
     | { kind: "rest"; petId: string }
     /** Swap the field pet out for a living bench pet. Switches resolve BEFORE
@@ -442,6 +443,10 @@ export type ShowdownCommand =
 
 /** Public per-pet combat state, mirrored to the client after every round. */
 export interface ShowdownPetView {
+    attack?: number;
+    defense?: number;
+    spAttack?: number;
+    spDefense?: number;
     id: string;
     name: string;
     element: string;
@@ -481,6 +486,11 @@ export interface ShowdownPetView {
      *  charge remains, so the chip disappearing IS the spent indicator. */
     consumableName?: string;
     moves: {
+        abilityId?: string;
+        unlockLevel?: number;
+        upgrade?: string;
+        reuseRounds?: number;
+        availableAtRound?: number;
         name: string;
         power: number;
         kind: string;
@@ -515,6 +525,8 @@ export interface ShowdownPetView {
 }
 
 export interface ShowdownStateView {
+    rulesetVersion?: 'progression-v3' | 'legacy-v2';
+    commandFeedback?: string[];
     damageRules?: 'legacy-v1' | 'response-v2';
     sessionId: string;
     format: ShowdownFormat;

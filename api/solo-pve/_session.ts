@@ -8,6 +8,9 @@ import type { CompanionMove, CompanionSeal } from '../combat-core/companion.js';
 import type { AuthoritativeCombatEvent } from '../combat-core/events.js';
 import { timeStartingShield } from '../combat-core/shields.js';
 import { assertSoloPveLoadoutCompatible } from './_compatibility.js';
+import { HOLLOW_GATE_SHINOBI_ROUND_LIMIT, hollowGateShinobiRoundLimit } from '../../shared/hollow-gate-round-limit.js';
+import { sealHollowGateTelegraph, type HollowGateTelegraph } from '../../shared/hollow-gate-telegraph.js';
+import type { SoloPveTerminalReason } from '../../shared/solo-pve-terminal.js';
 
 export const SOLO_PVE_RUNTIME = 'solo-pve' as const;
 export const SOLO_PVE_SCHEMA_VERSION = 1 as const;
@@ -40,6 +43,7 @@ export type SoloPveSettlementReceipt = {
 };
 
 export type SoloPveTerminalEvidence = {
+    reason?: SoloPveTerminalReason;
     finishedAt: number;
     /** Present only when the fight was terminalized because it LAPSED (F08):
      *  the gameplay expiry it lapsed at. `finishedAt` equals it. */
@@ -103,6 +107,11 @@ export type SoloPveFighterEventState = {
 };
 
 export type SoloPveCompanion = PvpFighter & {
+    signatureReadyAfter?: number;
+    ordinaryActions?: number;
+    defense?: number;
+    spDefense?: number;
+    referenceHp?: number;
     petId: string;
     baseDamage: number;
     happiness: number;
@@ -116,7 +125,7 @@ export type SoloPveCompanion = PvpFighter & {
 export type SoloPveEventSnapshot = {
     player: SoloPveFighterEventState;
     enemy: SoloPveFighterEventState;
-    companion?: SoloPveFighterEventState & { roundsLeft: number; cooldowns: Record<string, number> };
+    companion?: SoloPveFighterEventState & { roundsLeft: number; cooldowns: Record<string, number>; signatureActionsRemaining?: number };
     ap: Record<SoloPveSide, number>;
     cooldowns: Record<SoloPveSide, Record<string, number>>;
     groundEffects: PvpGroundEffect[];
@@ -139,12 +148,13 @@ export type SoloPveVfxEvent = {
  * unambiguous without asking the client to reconstruct server outcomes.
  */
 export type SoloPveCombatEvent = {
-    kind: 'action';
+    terminalReason?: SoloPveTerminalReason;
+    kind: 'action' | 'system';
     seq: number;
     round: number;
     actor: SoloPveActor;
     target: SoloPveActor | 'tile' | null;
-    action: SoloPveAction['type'] | 'companionMove' | 'companionWait';
+    action: SoloPveAction['type'] | 'companionMove' | 'companionWait' | 'roundEnd';
     actionId?: string;
     actionName?: string;
     tile?: number;
@@ -171,6 +181,9 @@ export type SoloPveRejectionEvent = {
 };
 
 export type SoloPveSession = {
+    terminalReason?: SoloPveTerminalReason;
+    hollowGateTelegraph?: HollowGateTelegraph;
+    hollowGateRoundLimit?: number;
     runtime: typeof SOLO_PVE_RUNTIME;
     schemaVersion: typeof SOLO_PVE_SCHEMA_VERSION;
     sessionId: string;
@@ -182,7 +195,7 @@ export type SoloPveSession = {
      * below remain settlement projections; the actor collection owns combat. */
     huntCombat?: import('./_hunt-combat.js').HuntCombatState;
     /** New shrine encounters only; lifetime AI support budget survives reconnects. */
-    shrineAi?: { version: 1; healsUsed: number; healLimit: number; lastSupportRound?: number };
+    shrineAi?: { version: 1; healsUsed: number; healLimit: number; lastSupportRound?: number; supportLimit?: number; supportsUsed?: number };
     round: number;
     activeSide: SoloPveSide;
     ap: Record<SoloPveSide, number>;
@@ -273,7 +286,7 @@ export function createSoloPveSession(params: CreateSoloPveSessionParams): SoloPv
         const value = params.seededVitals?.[field];
         if (typeof value === 'number' && Number.isFinite(value) && value >= 0) seededVitals[field] = Math.floor(value);
     }
-    return {
+    const session: SoloPveSession = {
         runtime: SOLO_PVE_RUNTIME,
         schemaVersion: SOLO_PVE_SCHEMA_VERSION,
         sessionId: params.sessionId,
@@ -325,6 +338,18 @@ export function createSoloPveSession(params: CreateSoloPveSessionParams): SoloPv
         ...(activeTtlSeconds !== SOLO_PVE_SESSION_TTL_SECONDS ? { activeTtlSeconds } : {}),
         ...(Object.keys(seededVitals).length > 0 ? { seededVitals } : {}),
     };
+    if (session.encounter.kind === 'hollow-gate') {
+        session.hollowGateRoundLimit = HOLLOW_GATE_SHINOBI_ROUND_LIMIT;
+        sealHollowGateTelegraph(session);
+    }
+    return session;
+}
+
+/** Wire projection only: never alter a stored predecessor used by compare-set. */
+export function soloPveSessionForResponse(session: SoloPveSession): SoloPveSession {
+    const limit = session.status === 'active' ? hollowGateShinobiRoundLimit(session) : undefined;
+    return limit !== undefined && session.hollowGateRoundLimit !== limit
+        ? { ...session, hollowGateRoundLimit: limit } : session;
 }
 
 /** The sealed active TTL a session was created with (clamped exactly as creation clamps it). */

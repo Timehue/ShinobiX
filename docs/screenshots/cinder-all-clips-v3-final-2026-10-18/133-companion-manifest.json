@@ -1,0 +1,365 @@
+{
+  "schema": 1,
+  "rendererSha256": "b2253b71fbcb21a83d82de35ab5783dd57b525cfc94740fb131dd1eb0049a897",
+  "companionComponentSha256": "193c79e909badc0efab2f09ecb45882406ea66463fc5801966dd395344fcf9a9",
+  "appearance": "original",
+  "collarId": "",
+  "quality": "low",
+  "errors": [],
+  "pets": [
+    {
+      "id": "starter-fire",
+      "name": "Cinder Cub",
+      "mode": "exact-production-companion-component",
+      "sourceSha256": "2d88f6315b33a32a8ed3a032cedee52ddb39230a32d7c82fe269d11550fd574c",
+      "battleSha256": "28c59477df4809a218a8b17c7dd39a1cacb43fc8440c546dc290a16fd40160e4",
+      "requests": [
+        "https://127.0.0.1:5207/pet-models/warfront-lod/starter-fire.glb?v=20260902-battle-lod-v1-2d88f6315b33-28c59477df48",
+        "https://127.0.0.1:5207/pet-models/warfront-lod/starter-fire.glb?v=20260902-battle-lod-v1-2d88f6315b33-28c59477df48"
+      ],
+      "frames": [
+        {
+          "engine": "three.js r185",
+          "previewFrames": "9",
+          "previewTime": "0.37130000001192087",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10560",
+          "previewModel": "/pet-models/warfront-lod/starter-fire.glb?v=20260902-battle-lod-v1-2d88f6315b33-28c59477df48",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "20",
+          "previewTime": "0.8150000000298022",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10560",
+          "previewModel": "/pet-models/warfront-lod/starter-fire.glb?v=20260902-battle-lod-v1-2d88f6315b33-28c59477df48",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "28",
+          "previewTime": "1.1431000000238416",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10560",
+          "previewModel": "/pet-models/warfront-lod/starter-fire.glb?v=20260902-battle-lod-v1-2d88f6315b33-28c59477df48",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "36",
+          "previewTime": "1.4697000000178815",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10560",
+          "previewModel": "/pet-models/warfront-lod/starter-fire.glb?v=20260902-battle-lod-v1-2d88f6315b33-28c59477df48",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "44",
+          "previewTime": "1.804800000011921",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10560",
+          "previewModel": "/pet-models/warfront-lod/starter-fire.glb?v=20260902-battle-lod-v1-2d88f6315b33-28c59477df48",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "53",
+          "previewTime": "2.164200000017882",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10560",
+          "previewModel": "/pet-models/warfront-lod/starter-fire.glb?v=20260902-battle-lod-v1-2d88f6315b33-28c59477df48",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "62",
+          "previewTime": "2.5349000000059614",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10560",
+          "previewModel": "/pet-models/warfront-lod/starter-fire.glb?v=20260902-battle-lod-v1-2d88f6315b33-28c59477df48",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "71",
+          "previewTime": "2.9018000000119217",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10560",
+          "previewModel": "/pet-models/warfront-lod/starter-fire.glb?v=20260902-battle-lod-v1-2d88f6315b33-28c59477df48",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "89",
+          "previewTime": "3.627600000023843",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10560",
+          "previewModel": "/pet-models/warfront-lod/starter-fire.glb?v=20260902-battle-lod-v1-2d88f6315b33-28c59477df48",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "102",
+          "previewTime": "4.161000000029804",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10560",
+          "previewModel": "/pet-models/warfront-lod/starter-fire.glb?v=20260902-battle-lod-v1-2d88f6315b33-28c59477df48",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "114",
+          "previewTime": "4.656500000029806",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10560",
+          "previewModel": "/pet-models/warfront-lod/starter-fire.glb?v=20260902-battle-lod-v1-2d88f6315b33-28c59477df48",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "124",
+          "previewTime": "5.0589000000357665",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10560",
+          "previewModel": "/pet-models/warfront-lod/starter-fire.glb?v=20260902-battle-lod-v1-2d88f6315b33-28c59477df48",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "136",
+          "previewTime": "5.550700000017884",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10560",
+          "previewModel": "/pet-models/warfront-lod/starter-fire.glb?v=20260902-battle-lod-v1-2d88f6315b33-28c59477df48",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "146",
+          "previewTime": "5.957300000011923",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10560",
+          "previewModel": "/pet-models/warfront-lod/starter-fire.glb?v=20260902-battle-lod-v1-2d88f6315b33-28c59477df48",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "154",
+          "previewTime": "6.285700000017883",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10560",
+          "previewModel": "/pet-models/warfront-lod/starter-fire.glb?v=20260902-battle-lod-v1-2d88f6315b33-28c59477df48",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "167",
+          "previewTime": "6.809000000029803",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10560",
+          "previewModel": "/pet-models/warfront-lod/starter-fire.glb?v=20260902-battle-lod-v1-2d88f6315b33-28c59477df48",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "180",
+          "previewTime": "7.353100000053645",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10560",
+          "previewModel": "/pet-models/warfront-lod/starter-fire.glb?v=20260902-battle-lod-v1-2d88f6315b33-28c59477df48",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "189",
+          "previewTime": "7.720200000047685",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10560",
+          "previewModel": "/pet-models/warfront-lod/starter-fire.glb?v=20260902-battle-lod-v1-2d88f6315b33-28c59477df48",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "199",
+          "previewTime": "8.119400000035764",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10560",
+          "previewModel": "/pet-models/warfront-lod/starter-fire.glb?v=20260902-battle-lod-v1-2d88f6315b33-28c59477df48",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "208",
+          "previewTime": "8.495500000059605",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10560",
+          "previewModel": "/pet-models/warfront-lod/starter-fire.glb?v=20260902-battle-lod-v1-2d88f6315b33-28c59477df48",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "217",
+          "previewTime": "8.870600000053644",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10560",
+          "previewModel": "/pet-models/warfront-lod/starter-fire.glb?v=20260902-battle-lod-v1-2d88f6315b33-28c59477df48",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "226",
+          "previewTime": "9.210600000053645",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10560",
+          "previewModel": "/pet-models/warfront-lod/starter-fire.glb?v=20260902-battle-lod-v1-2d88f6315b33-28c59477df48",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "234",
+          "previewTime": "9.540100000023845",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10560",
+          "previewModel": "/pet-models/warfront-lod/starter-fire.glb?v=20260902-battle-lod-v1-2d88f6315b33-28c59477df48",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "243",
+          "previewTime": "9.902300000011925",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10560",
+          "previewModel": "/pet-models/warfront-lod/starter-fire.glb?v=20260902-battle-lod-v1-2d88f6315b33-28c59477df48",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        }
+      ],
+      "sheets": [
+        {
+          "name": "starter-fire/idle-sheet-0.webp",
+          "sha256": "6131dbc2b3453fb75682dd9f2c4ec8a9b6101c415c2d786401b1fe98cba3db43"
+        },
+        {
+          "name": "starter-fire/idle-sheet-1.webp",
+          "sha256": "4d0e755fb56037fb06584e580b3c2710487369c2e706582306d98afacbaf375e"
+        },
+        {
+          "name": "starter-fire/idle-sheet-2.webp",
+          "sha256": "668510558ef099d73d5ff3e0017ea4c7b1e019c0be99e957ff952ad7c2588dbc"
+        },
+        {
+          "name": "starter-fire/idle-sheet-3.webp",
+          "sha256": "8e142482fb29432d89eba0418368a13dfdd3fac3186cef021c489e551f428854"
+        },
+        {
+          "name": "starter-fire/idle-sheet-4.webp",
+          "sha256": "5c306fc2a46bbeef8ed55566e02a9e694f3f62f2615535ec47398f87a3a18c57"
+        },
+        {
+          "name": "starter-fire/idle-sheet-5.webp",
+          "sha256": "d5156f23de2ce3e752fae1bc13813ce130dcbcc1bdab39fe694dac3a12d197dc"
+        }
+      ],
+      "errors": [],
+      "review": "pending"
+    }
+  ],
+  "artisticCertification": false
+}

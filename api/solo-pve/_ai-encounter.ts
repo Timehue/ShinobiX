@@ -250,7 +250,7 @@ export function buildSoloPveAiEncounter(params: {
     const identityIds = identity ? narrativeEnemyJutsuIds(identity, sourceProfile.pveNamedChallenge === true && Array.isArray(sourceProfile.jutsuIds) ? sourceProfile.jutsuIds.length : 7) : [];
     const profile = identity ? { ...sourceProfile, avatarImage: identity.portrait,
         ...(ownIdentity ? { visual: sourceProfile.id } : {}),
-        jutsuIds: identityIds, rules: [],
+        jutsuIds: identityIds, rules: sourceProfile.preserveNarrativeRules === true ? sourceProfile.rules : [],
         ...(sourceProfile.tacticalTell ? { tacticalTell: 'Watch this opponent’s active effects. Clear removes visible defenses; Cleanse removes afflictions. Track each technique’s cooldown before committing your next attack.' } : {}),
         jutsu: resolveAiProfileJutsu(identityIds, params.admin, sourceProfile.pveNamedChallenge === true ? MAX_CHALLENGE_AI_LOADOUT_JUTSU : undefined).map((jutsu, index) => ({ ...jutsu,
             ...(identity.moveNames?.[index] ? { name: identity.moveNames[index] } : {}),

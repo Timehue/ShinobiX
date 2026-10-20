@@ -271,18 +271,19 @@ const HollowGateCell = memo(function HollowGateCell({ i, x, y, tilePx, tile, rif
 
     // ── Icon: atlas image (shrine:icon-<slot>) or themed game art ────
     const showIcon = tile.kind !== 'npc' && !roamerOrigin && !wall && (visible || known) && !(isSurpriseKind && !revealed) && tile.kind !== "empty";
+    const spentTrap = known && revealed && tile.kind === 'trap' && tile.resolved;
     const iconSlotId = showIcon ? iconSlotIdFor(tile.kind) : null;
     const iconImage = iconSlotId ? art.pickRoleIconImage(iconSlotId, i) : undefined;
     const worldProp = showIcon ? HOLLOW_GATE_WORLD_PROP[tile.kind] : undefined;
     const iconArtKind = tile.terrain === "door" ? "gate" : HOLLOW_GATE_TILE_ART[tile.kind] ?? "warning";
 
     const tileLabel = isPlayer
-        ? `${playerName}, current location, row ${y + 1}, column ${x + 1}`
+        ? `${playerName}, current location${spentTrap ? ', spent trap, safe to cross' : ''}, row ${y + 1}, column ${x + 1}`
         : !known
             ? `Unknown tile, row ${y + 1}, column ${x + 1}`
             : wall
                 ? `Wall, row ${y + 1}, column ${x + 1}`
-                : `${isDetourChest ? `Optional echo cache, standard chest contents, about ${detourExtraSteps ?? 0} extra route steps; ` : ""}${isRiftSignal ? `Weekly Rift signal for ${riftLabel}; ` : ""}${showIcon ? tile.kind.replaceAll("_", " ") : "explored floor"}, row ${y + 1}, column ${x + 1}${clickable ? ", press Enter to walk here" : ""}`;
+                : `${isDetourChest ? `Optional echo cache, standard chest contents, about ${detourExtraSteps ?? 0} extra route steps; ` : ""}${isRiftSignal ? `Weekly Rift signal for ${riftLabel}; ` : ""}${spentTrap ? 'Spent trap, safe to cross' : showIcon ? tile.kind.replaceAll("_", " ") : "explored floor"}, row ${y + 1}, column ${x + 1}${clickable ? ", press Enter to walk here" : ""}`;
 
     // Torch sconces: a wall face beside an OPENING in its wall
     // line (where a corridor/door pierces through) always carries
@@ -292,7 +293,7 @@ const HollowGateCell = memo(function HollowGateCell({ i, x, y, tilePx, tile, rif
 
     return (
         <div
-             title={wall ? undefined : visible ? tile.kind : known ? "Explored" : undefined}
+             title={wall || !known ? undefined : spentTrap ? 'Spent trap (safe to cross)' : showIcon ? tile.kind.replaceAll('_', ' ') : 'Explored floor'}
              role="gridcell"
              aria-label={tileLabel}
              aria-rowindex={y + 1}
@@ -309,6 +310,7 @@ const HollowGateCell = memo(function HollowGateCell({ i, x, y, tilePx, tile, rif
              } : undefined}
          >
              {sconce && <span className="hg-flame" aria-hidden="true" />}
+             {spentTrap && <span className="hg-spent-trap" aria-hidden="true">✓</span>}
              {isDetourChest && <span className="hg-detour-mark" aria-hidden="true">✦</span>}
              {isRiftSignal && <span className="hg-rift-mark" aria-hidden="true">◈</span>}
              {known && (tile.kind === 'descend' || tile.kind === 'exit' || tile.kind === 'boss') && <span className="hg-cave-waypoint" aria-hidden="true">{tile.kind === 'descend' ? '↓ Deeper' : tile.kind === 'exit' ? '↑ Exit' : tile.resolved ? 'Cleared' : 'Boss'}</span>}
@@ -371,6 +373,8 @@ export function HollowGateShrineView({
     onCloseHiddenChamber,
 }: HollowGateShrineViewProps) {
     const run = hollowGateRun;
+    const maxHp = Math.max(1, character.maxHp);
+    const hp = Math.min(maxHp, Math.max(0, character.hp));
     const isQuestRift = run.variant?.id.startsWith('rift-') === true;
     const chamberBounds = useMemo(() => undergroundRooms(run.tiles, run.width), [run.tiles, run.width]);
     const breachSites = useMemo(() => isQuestRift ? riftBreachSites(run.tiles, run.width) : [], [isQuestRift, run.tiles, run.width]);
@@ -555,6 +559,12 @@ export function HollowGateShrineView({
                                 </div>
                                 <div className="hg-cave-vitals" style={{ display: "flex", gap: 16, alignItems: "center" }}>
                                     <div className="hg-cave-threat" style={{ minWidth: 200 }}>
+                                        <div className="hg-cave-hp" data-low-hp={hp <= maxHp * .3 || undefined} title="Waiting does not restore HP during this run.">
+                                            <div><strong>HP</strong><span>{formatExact(hp)} / {formatExact(maxHp)}</span></div>
+                                            <div className="hg-cave-hp__track" role="progressbar" aria-label="Shrine HP" aria-valuemin={0} aria-valuemax={maxHp} aria-valuenow={hp}>
+                                                <span style={{ width: `${hp / maxHp * 100}%` }} />
+                                            </div>
+                                        </div>
                                         <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, alignItems: "center" }}>
                                             <span>Threat{run.threat >= 80 && (
                                                 <span style={{
@@ -933,7 +943,7 @@ export function HollowGateShrineView({
                                             <h3 id="hg-event-title" style={{ margin: "0 0 12px", color: "#faf5ff" }}>{hollowGateEvent.title}</h3>
                                             <p style={{ whiteSpace: "pre-wrap", lineHeight: 1.5 }}>{hollowGateEvent.body}</p>
                                             {hollowGateEvent.error && <p role="alert" className="hg-event-error">{hollowGateEvent.error}</p>}
-                                            {hollowGateEvent.pending && <p role="status" className="hg-event-pending">Receiving gift…</p>}
+                                            {hollowGateEvent.pending && <p role="status" className="hg-event-pending">{hollowGateEvent.kind === 'descend' ? 'Opening the staircase.' : 'Receiving gift…'}</p>}
                                             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 16 }}>
                                                 {hollowGateEvent.choices.map((c, i) => (
                                                     <button key={i} autoFocus={i === 0} disabled={hollowGateEvent.pending || exitPending} className={c.tone === "danger" ? "danger-button" : ""} onClick={c.onSelect}>{c.label}</button>

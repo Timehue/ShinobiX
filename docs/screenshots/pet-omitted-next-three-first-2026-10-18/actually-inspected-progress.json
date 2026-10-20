@@ -1,0 +1,155 @@
+{
+  "id": "legendary-17",
+  "raw": [
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-next-three-v1-source-head/legendary-17-head-front-0.png",
+      "sha256": "c2007767150710f0e46c643e02b07495926d61741d7639c5a62f82eaa65d4a7a",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-next-three-v1-source-head/legendary-17-head-front-1.png",
+      "sha256": "855845f4d895e3cbaabc1dbe06cf5dc7211a5a2a69f9bbea80b26bdbcb53a5ca",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-next-three-v1-source-head/legendary-17-head-front-2.png",
+      "sha256": "c4d7c85fd01b798cbfcb6c50f0bd5067e7797167c7cdc3861f2352824c6d9f52",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-next-three-v1-source-head/legendary-17-head-side-0.png",
+      "sha256": "834717cb88bd709a27dd3417d369d3b5a14fc7f7a92a9b8c5e5bfb2db8378a55",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-next-three-v1-source-head/legendary-17-head-side-1.png",
+      "sha256": "ef42c639c6316ddbb19ab00158941e6933d30d1877181a51b4dfc236cd965881",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-next-three-v1-source-head/legendary-17-head-side-2.png",
+      "sha256": "6eff7d4f00b63f90cb921bf6b48219a259327e60f932503c78b6d51162c717bb",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-next-three-v1-source-body/legendary-17-front-0.png",
+      "sha256": "f5bb2341c3f04b509bcbe66da30e327915ae1f333c662eccda3f48ce69521c4c",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-next-three-v1-source-body/legendary-17-front-1.png",
+      "sha256": "5b89ab28943c34dadfbf7c3150523d491942834732d1711487182e6626ba1954",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-next-three-v1-source-body/legendary-17-front-2.png",
+      "sha256": "3c7d5dc9d81a14eafbae2880da47e7f23244190b398d6a1782c3b9d5bbf76da4",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-next-three-v1-source-body/legendary-17-side-0.png",
+      "sha256": "2364d09383d06b13238ed74fd27162a6709a6397be0d921b77370c48c84111bf",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-next-three-v1-source-body/legendary-17-side-1.png",
+      "sha256": "baa1ae1182e560fdbed18a2f33838f52b1c5ce1c886bc41fb80d4091cbbecef1",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-next-three-v1-source-body/legendary-17-side-2.png",
+      "sha256": "d1ce21c831bbb5b987e942494bb7e613550701f27c3d7bf9abf3e8e5c402f746",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-next-three-v1-battle-head/legendary-17-head-front-0.png",
+      "sha256": "a89c0b9f8fb19ff80dca4dd08796376cd0f46c86ae9c80a14a9ec31c74923d5d",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-next-three-v1-battle-head/legendary-17-head-front-1.png",
+      "sha256": "7d01242ffdbfbc5fab5927be5cef7a256b6c586213579b9c3ff44d3dd3af878b",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-next-three-v1-battle-head/legendary-17-head-front-2.png",
+      "sha256": "023443d9a3e2b4887eca6c530dd15eda4067541e789cd957dae8f359aa803e8b",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-next-three-v1-battle-head/legendary-17-head-side-0.png",
+      "sha256": "88229d2d4e7c577947f91e52579896f4ec8b6c8587679d0a0d245c0a5aab40b2",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-next-three-v1-battle-head/legendary-17-head-side-1.png",
+      "sha256": "fb6d9fc518be663e3414a1a4192d857d7a884746f0ae48a86b90892834ec911b",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-next-three-v1-battle-head/legendary-17-head-side-2.png",
+      "sha256": "252eb0ece4c37fb97215087000b60819f915b3a1100331305167b778805e8748",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-next-three-v1-battle-body/legendary-17-front-0.png",
+      "sha256": "ceb9a3570688d12d6ad929fb5cb5ca3ffe950fa6511d07431d7ca94a3ad45217",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-next-three-v1-battle-body/legendary-17-front-1.png",
+      "sha256": "384c1f83460072c36b306e6dab661bd0115eafc396cf59af872645e19b9aaf08",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-next-three-v1-battle-body/legendary-17-front-2.png",
+      "sha256": "d809b017599955c5c6cc9c3c6ff531928c4874b44f663c24888fb745705a5455",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-next-three-v1-battle-body/legendary-17-side-0.png",
+      "sha256": "299012eca593ee2e3afcad1eaa19dc7c61dec6128350aa3dff6b4553deb23bb1",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-next-three-v1-battle-body/legendary-17-side-1.png",
+      "sha256": "dfaa9fff528b92b53a115a376bf363eab2f4a9a4259f0412a95ca4d32b996769",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-next-three-v1-battle-body/legendary-17-side-2.png",
+      "sha256": "30c238dddaaad4c85471280be8b95114a38b1cc786d6987a82774e37c6322e6c",
+      "actuallyInspected": true,
+      "result": "pass"
+    }
+  ],
+  "rawSlicesActuallyInspected": 24,
+  "nativeTechniqueFramesActuallyInspected": 216,
+  "secondPassComplete": false,
+  "notes": "Head closeups crop horn tips in some poses; complete body front/side retain the full sculpt. Muzzle, eyes, jaw, leg attachment and paw arcs stay coherent. All 216 production technique frames actually inspected; face and limb connections remain coherent.",
+  "nativeTechniqueStripsActuallyInspected": 12,
+  "firstPass": "source-and-direct-battle-raw-and-native-techniques-pass"
+}

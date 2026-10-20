@@ -96,6 +96,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             currentTile: 66,
             worldGeoV: 2,
         }, { previousCharacter: defenderSave.character });
+        // A repeated disposable fixture reuses the contest id. Its previous
+        // table would otherwise hide the new players' empty seat behind an old
+        // result. Keep replacement contests and all other duel history intact.
+        await kv.del(`sector-pet:${contest.id}`, `sector-pet-garrison:${contest.id}`);
         await Promise.all([
             // Save position is server-owned after account creation. Put both
             // disposable players on the contested ground here instead of
