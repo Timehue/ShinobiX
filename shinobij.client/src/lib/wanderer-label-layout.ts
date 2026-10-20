@@ -27,15 +27,22 @@ export function placeWandererLabel(rect:Rect,bounds:Rect,occupied:readonly Rect[
     const primary=first??best;
     if(!owner)return primary;
     if(ownerGap(primary)<=Math.max(28,owner.height*1.2))return primary;
-    // Only a detached name needs this bounded fallback. Combine the existing
-    // obstacle-edge nudges with up to three rows; the plain grid misses close
-    // diagonal gaps beside a guard or below a festival crowd's speech bubble.
+    // Only a detached name needs this bounded fallback. Search both obstacle
+    // edges: quantized rows can miss the close gap just below a speech bubble.
+    // Filter by the owner's reach before scoring, so a cheaper distant gap
+    // cannot displace an available close one. Keep the old best effort only
+    // when the crowd leaves no clear nearby position.
     let chosen=primary,bestCost=Infinity;
-    const row=rect.height+gap,diagonal=lateral.flatMap(shift=>[-3,-2,-1,1,2,3].map(y=>({x:shift.x,y:y*row})));
-    for(const candidate of [...candidates,...diagonal]){
+    const reach=Math.max(28,owner.height*1.2);
+    const xs=[...new Set(candidates.map(shift=>shift.x))]
+        .filter(x=>ownerGap({x:clamp(x,0).x,y:owner.y-rect.y})<=reach);
+    const ys=[...new Set([...candidates.map(shift=>shift.y),
+        ...occupied.flatMap(other=>[other.y-gap-rect.height-rect.y,other.y+other.height+gap-rect.y])])]
+        .filter(y=>ownerGap({x:owner.x-rect.x,y:clamp(0,y).y})<=reach);
+    for(const candidate of xs.flatMap(x=>ys.map(y=>({x,y})))){
         const shift=clamp(candidate.x,candidate.y),box={...rect,x:rect.x+shift.x,y:rect.y+shift.y};
-        if(occupied.some(other=>intersects(box,other)))continue;
-        const value=cost(candidate)+ownerGap(shift)*2;
+        if(ownerGap(shift)>reach||occupied.some(other=>intersects(box,other)))continue;
+        const value=cost(shift)+ownerGap(shift)*2;
         if(value<bestCost){bestCost=value;chosen=shift;}
     }
     return chosen;
