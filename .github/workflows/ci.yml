@@ -685,18 +685,18 @@ jobs:
     # Here they run beside the smoke shards instead. The first two measured
     # 11-13 minutes on main. Living-world source fixtures occupy eight further
     # slices so they retain their own Vite servers and the same 29-minute limit.
+    # Dock journeys need another 7-8 minutes per viewport; isolate them on two
+    # further shards after main timed out with the completed assertions passing.
     timeout-minutes: 29
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
         include:
           - shard: 3
             lifeShard: 1/8
-            dockProject: desktop
           - shard: 4
             lifeShard: 2/8
-            dockProject: phone
           - shard: 5
             lifeShard: 3/8
             groundProject: desktop
@@ -711,6 +711,10 @@ jobs:
             lifeShard: 7/8
           - shard: 10
             lifeShard: 8/8
+          - shard: 11
+            dockProject: desktop
+          - shard: 12
+            dockProject: phone
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -825,7 +829,7 @@ jobs:
         working-directory: shinobij.client
         run: npm run test:e2e:dojo-circuit 2>&1 | tee ../.ci-evidence/e2e-responsive-flows-${{ matrix.shard }}/dojo-circuit.log
       - name: Living sectors, weather and native actor routines
-        if: ${{ matrix.shard >= 3 }}
+        if: ${{ matrix.shard >= 3 && matrix.shard <= 10 }}
         working-directory: shinobij.client
         run: node --import tsx node_modules/@playwright/test/cli.js test --config playwright.sector-life.config.ts --fully-parallel --shard=${{ matrix.lifeShard }} --forbid-only 2>&1 | tee ../.ci-evidence/e2e-responsive-flows-${{ matrix.shard }}/sector-life.log
       - name: Painted terrain resource placement
@@ -841,7 +845,7 @@ jobs:
         working-directory: shinobij.client
         run: node --import tsx node_modules/@playwright/test/cli.js test --config playwright.ground-wildlife.config.ts --project=${{ matrix.groundProject }} --forbid-only 2>&1 | tee ../.ci-evidence/e2e-responsive-flows-${{ matrix.shard }}/ground-wildlife.log
       - name: Dock shipment delivery and cached aftermath
-        if: ${{ matrix.shard == 3 || matrix.shard == 4 }}
+        if: ${{ matrix.shard == 11 || matrix.shard == 12 }}
         working-directory: shinobij.client
         run: node --import tsx node_modules/@playwright/test/cli.js test --config playwright.dock-shipment.config.ts --project=${{ matrix.dockProject }} --forbid-only 2>&1 | tee ../.ci-evidence/e2e-responsive-flows-${{ matrix.shard }}/dock-shipment.log
       - name: Owned walking companion and real tracking response
