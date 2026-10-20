@@ -1035,8 +1035,10 @@
     },
     "standard-5": {
       "name": "Stone Turtle",
-      "firstPass": "repaired-and-double-checked",
+      "firstPass": "complete",
       "secondPass": "complete",
+      "status": "double-checked-locally-main-live-pending",
+      "notes": "Stone Turtle lower beak/chin drift was confirmed on the independently frozen original and repaired with continuous face weights. Actual production windup/strike/recover then revealed floor penetration; calibrated only three vertical root curves and disabled duplicate host crouch using baked-support flags. Original sculpt, UVs, bind rig and limb articulation remain intact. Pebble is a separate model.",
       "clips": [
         "idle",
         "idle_2",
@@ -1052,192 +1054,22 @@
         "rest",
         "victory"
       ],
-      "candidateSha256": "fc639cee5499a0c1d8965c7c886c8af83cf3ee3d750ff1146bb162aaddd7a82d",
-      "beforeEvidence": [
-        "shinobij.client/.tmp/pet-shape-review/roster-current/standard-5-front.webp",
-        "shinobij.client/.tmp/pet-shape-review/roster-current/standard-5-side.webp",
-        "shinobij.client/.tmp/pet-shape-review/head-003-005-before/standard-5-head-front.webp",
-        "shinobij.client/.tmp/pet-shape-review/head-003-005-before/standard-5-head-side.webp"
-      ],
-      "candidateEvidence": [
-        "shinobij.client/.tmp/pet-shape-review/body-003-005-candidates-v2/standard-5-front.webp",
-        "shinobij.client/.tmp/pet-shape-review/body-003-005-candidates-v2/standard-5-side.webp",
-        "shinobij.client/.tmp/pet-shape-review/head-003-005-candidates-v2/standard-5-head-front.webp",
-        "shinobij.client/.tmp/pet-shape-review/head-003-005-candidates-v2/standard-5-head-side.webp"
-      ],
-      "numericChecks": [
-        "shinobij.client/.tmp/pet-reviewed-skulls/003-005-candidates.json",
-        "shinobij.client/.tmp/pet-reviewed-skulls/003-008-world-shape.json"
-      ],
-      "notes": "All 13 clips visually inspected from front and side before and after repair, including skull closeups. Face shape and neck join coherent; body, props and death pose inspected. Second full pass pending.",
-      "promotedSha256": "fc639cee5499a0c1d8965c7c886c8af83cf3ee3d750ff1146bb162aaddd7a82d",
-      "conservation": "geometry, topology, atlas, bone nodes and all animation curves unchanged",
-      "secondPassSource": {
-        "sha256": "fc639cee5499a0c1d8965c7c886c8af83cf3ee3d750ff1146bb162aaddd7a82d",
-        "clips": [
-          "idle",
-          "idle_2",
-          "walk",
-          "gallop",
-          "gallop_jump",
-          "attack",
-          "idle_hitreact1",
-          "death",
-          "entrance",
-          "cast",
-          "guard",
-          "rest",
-          "victory"
-        ],
-        "progress": [
-          0,
-          0.125,
-          0.375,
-          0.625,
-          0.875,
-          1
-        ],
-        "headViews": [
-          "head-front",
-          "head-side"
-        ],
-        "bodyViews": [
-          "front",
-          "side"
-        ],
-        "evidence": [
-          "shinobij.client/.tmp/pet-shape-review/standard-source-second-head/standard-5-head-front.webp",
-          "shinobij.client/.tmp/pet-shape-review/standard-source-second-head/standard-5-head-side.webp",
-          "shinobij.client/.tmp/pet-shape-review/standard-source-second-body/standard-5-front.webp",
-          "shinobij.client/.tmp/pet-shape-review/standard-source-second-body/standard-5-side.webp"
-        ],
-        "evidenceSha256": {
-          "shinobij.client/.tmp/pet-shape-review/standard-source-second-head/standard-5-head-front.webp": "c4736c518150b09e1fc530b58831a875a4b232f1b3bbfb5c51a520f59d3e4e94",
-          "shinobij.client/.tmp/pet-shape-review/standard-source-second-head/standard-5-head-side.webp": "62738cca253692697d86c318fa035316f65a628aad46a2907bad78e0363e5053",
-          "shinobij.client/.tmp/pet-shape-review/standard-source-second-body/standard-5-front.webp": "266b3fc345d2ddb97dde54769bc28b9d35de31864420c5211e4a657839aa21ec",
-          "shinobij.client/.tmp/pet-shape-review/standard-source-second-body/standard-5-side.webp": "8dc0d58c83198d44a70b7b5aa476fd27e13a4fc9e9fa4fb786039b2e4aa1d56e"
-        },
-        "finding": "All 13 source clips inspected front/side in full body and complete face closeups at six new phases. Skull and muzzle shape, joins, extremities and attached props coherent.",
-        "reviewedAt": "2026-10-14T23:46:55.814Z",
-        "reviewer": "Codex visual inspection"
-      },
-      "secondPassBattle": {
-        "sha256": "3ad722e9394b82d157458eb9c8a1a62eb3120dfa6bc2710719a2b23038d44c35",
-        "clips": [
-          "idle",
-          "idle_2",
-          "walk",
-          "gallop",
-          "gallop_jump",
-          "attack",
-          "idle_hitreact1",
-          "death",
-          "entrance",
-          "cast",
-          "guard",
-          "rest",
-          "victory"
-        ],
-        "progress": [
-          0,
-          0.125,
-          0.375,
-          0.625,
-          0.875,
-          1
-        ],
-        "headViews": [
-          "head-front",
-          "head-side"
-        ],
-        "bodyViews": [
-          "front",
-          "side"
-        ],
-        "evidence": [
-          "shinobij.client/.tmp/pet-shape-review/standard-lod-second-head/standard-5-head-front.webp",
-          "shinobij.client/.tmp/pet-shape-review/standard-lod-second-head/standard-5-head-side.webp",
-          "shinobij.client/.tmp/pet-shape-review/standard-lod-second-body/standard-5-front.webp",
-          "shinobij.client/.tmp/pet-shape-review/standard-lod-second-body/standard-5-side.webp"
-        ],
-        "evidenceSha256": {
-          "shinobij.client/.tmp/pet-shape-review/standard-lod-second-head/standard-5-head-front.webp": "2b7abeba4b8e1063b048f2133f73588fa18abf0450629e4fce8c8add7a5e8107",
-          "shinobij.client/.tmp/pet-shape-review/standard-lod-second-head/standard-5-head-side.webp": "cd9316c3f7a45b739cdfe1effc1ca60875006a1161497fa70a32de553cef18d6",
-          "shinobij.client/.tmp/pet-shape-review/standard-lod-second-body/standard-5-front.webp": "e2f122ae06365cc825685979d5e9691cacdfca45afafab9ddbf7feae47597b2e",
-          "shinobij.client/.tmp/pet-shape-review/standard-lod-second-body/standard-5-side.webp": "e8274bc649153b70795aa8e3e83b9339a58778f933827f43608d40a04f839dbf"
-        },
-        "finding": "All 13 battle clips inspected front/side in complete head and body captures at six new phases. Face shape, neck and body joins, extremities and props coherent.",
-        "reviewedAt": "2026-10-14T23:46:57.049Z",
-        "reviewer": "Codex visual inspection"
-      },
-      "runtimeVisualPass": {
-        "sourceSha256": "fc639cee5499a0c1d8965c7c886c8af83cf3ee3d750ff1146bb162aaddd7a82d",
-        "battleSha256": "3ad722e9394b82d157458eb9c8a1a62eb3120dfa6bc2710719a2b23038d44c35",
-        "rendererSha256": "5f9f24e92abe45bafcccd21f72a1ba8de81e0f0cd2a44f6f2aa440ee08e0d1cb",
-        "rows": [
-          "idle",
-          "run",
-          "dash",
-          "windup",
-          "strike",
-          "recover",
-          "stagger",
-          "dodge",
-          "guard",
-          "rest",
-          "cast",
-          "entrance",
-          "victory",
-          "dead",
-          "revive",
-          "attack-sequence"
-        ],
-        "phases": [
-          0.025,
-          0.1,
-          0.25,
-          0.5,
-          0.75,
-          1
-        ],
-        "views": [
-          "front",
-          "side"
-        ],
-        "evidence": [
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/standard-5-source-head.webp",
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/standard-5-source-body.webp",
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/standard-5-battle-head.webp",
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/standard-5-battle-body.webp"
-        ],
-        "evidenceSha256": {
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/standard-5-source-head.webp": "153c551d505db6362eb99162acdfee8073906b0bebad50c248ac00dde29296d3",
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/standard-5-source-body.webp": "b9733919ca8726b9d3dfdcf212ea454a9718b8fc4111775278fe7b1a031cc49b",
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/standard-5-battle-head.webp": "86433255174ff47c0d95e914d2d38802f5d937ae5148015027c1f30f1aec0a85",
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/standard-5-battle-body.webp": "f49257f13f9e1320a49065d71e0ec4e5ad717e0666f82194f0a35c90b4533913"
-        },
-        "finding": "All sixteen production rows inspected in source and battle. Tortoise eyes, broad pale muzzle and black head wrap remain coherent through attacks, death and revival. Shell, red scarf, rear sword, hands, feet and short tail retain their shape and attachment.",
-        "reviewer": "Codex visual inspection",
-        "reviewedAt": "2026-10-15T06:08:46.409Z"
-      },
       "finalReceipt": {
-        "sourceSha256": "fc639cee5499a0c1d8965c7c886c8af83cf3ee3d750ff1146bb162aaddd7a82d",
-        "battleSha256": "3ad722e9394b82d157458eb9c8a1a62eb3120dfa6bc2710719a2b23038d44c35",
-        "atlasSha256": "9973833137205a16dce08b0b80de2d4fd8fb3a8256087ceba165193c04d1c26f",
-        "rendererSha256": "5f9f24e92abe45bafcccd21f72a1ba8de81e0f0cd2a44f6f2aa440ee08e0d1cb",
-        "evidence": [
-          "docs/screenshots/pet-shape-2026-10-15/standard-5-source-clips-head-1.webp",
-          "docs/screenshots/pet-shape-2026-10-15/standard-5-source-clips-body-1.webp",
-          "docs/screenshots/pet-shape-2026-10-15/standard-5-battle-clips-head-1.webp",
-          "docs/screenshots/pet-shape-2026-10-15/standard-5-battle-clips-body-1.webp",
-          "docs/screenshots/pet-shape-2026-10-15/standard-5-runtime-source-head.webp",
-          "docs/screenshots/pet-shape-2026-10-15/standard-5-runtime-source-body.webp",
-          "docs/screenshots/pet-shape-2026-10-15/standard-5-runtime-battle-head.webp",
-          "docs/screenshots/pet-shape-2026-10-15/standard-5-runtime-battle-body.webp",
-          "docs/screenshots/pet-shape-2026-10-15/standard-5-numeric-evidence.json"
-        ],
-        "packagedAt": "2026-10-15T06:15:16.804Z"
-      }
+        "sourceSha256": "ebe7f3606ab0d81ad1f3ae2a7b35d2aa9cc3342e03fb892f7fed71bbe37b9916",
+        "battleSha256": "46e6a383b0932501ae62f766cf8325a7297e5b1adf8d493cc9b147e5f6507c53",
+        "atlasSha256": "01518c72b9d921e7946f8665e3e46bf8fb613f7e99176f320f8b90909e7e3ce5",
+        "rendererSha256": "b2253b71fbcb21a83d82de35ab5783dd57b525cfc94740fb131dd1eb0049a897",
+        "report": "docs/audits/pet-stone-turtle-final-review-2026-10-19.json",
+        "packagedAt": "2026-10-19T22:06:30.521Z"
+      },
+      "completeFaceRepairGate": {
+        "closed": false,
+        "status": "complete-face-and-floor-double-checked-locally-main-live-pending",
+        "sourceSha256": "ebe7f3606ab0d81ad1f3ae2a7b35d2aa9cc3342e03fb892f7fed71bbe37b9916",
+        "battleSha256": "46e6a383b0932501ae62f766cf8325a7297e5b1adf8d493cc9b147e5f6507c53",
+        "report": "docs/audits/pet-stone-turtle-final-review-2026-10-19.json"
+      },
+      "limits": "Two sampled visual passes of all thirteen authored clips, front/both-side head views and front/side full body. Second pass also covers all sixteen production runtime rows at low/medium quality, 216 actual equipped-technique frames, 24 advancing companion-idle frames and 16 atlas cells. Eight frozen facial regions checked through all clips and 468 blends in each model version. This is local evidence; main/live verification remains pending and the full 161-pet audit remains open."
     },
     "standard-6": {
       "name": "Desert Lizard",

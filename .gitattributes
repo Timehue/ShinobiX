@@ -148,6 +148,9 @@ docs/screenshots/*pebble*/*.json text eol=lf
 docs/screenshots/*pebble*/*.ts text eol=lf
 
 docs/audits/pet-stone*.json text eol=lf
+docs/screenshots/pet-red-fox-technique-followup-2026-10-20/*.txt text eol=lf
+docs/screenshots/pet-reviewed-legendary-stone-release-2026-10-20/*.txt text eol=lf
+docs/screenshots/pet-reviewed-legendary-stone-release-2026-10-20/*.mjs text eol=lf
 
 docs/screenshots/*stone*/*.mjs text eol=lf
 
@@ -166,3 +169,21 @@ docs/screenshots/pet-pebble-full-remake-v9-2026-10-19/**/*.mjs text eol=lf
 docs/screenshots/pet-pebble-full-remake-v9-2026-10-19/*.txt text eol=lf
 docs/screenshots/pet-pebble-full-remake-main-validation-2026-10-19/*.txt text eol=lf
 docs/screenshots/pet-pebble-full-remake-progress-2026-10-19/*.md text eol=lf
+docs/audits/pet-priority-two-*.json text eol=lf
+docs/screenshots/chimera-all-clips-v2-final-2026-10-18/*.log text eol=lf
+docs/screenshots/eclipse-kitsune-all-clips-v2-final-2026-10-18/*.log text eol=lf
+docs/screenshots/sphinx-all-clips-v2-final-2026-10-18/*.log text eol=lf
+docs/screenshots/raiju-all-clips-v2-final-2026-10-18/*.log text eol=lf
+docs/screenshots/manticore-all-clips-v2-final-2026-10-18/*.log text eol=lf
+docs/screenshots/pet-sphinx-front-leg-ownership-v3-first-2026-10-18/*.log text eol=lf
+docs/screenshots/pet-raiju-omitted-first-2026-10-18/*.log text eol=lf
+docs/screenshots/pet-manticore-omitted-first-2026-10-18/*.log text eol=lf
+docs/screenshots/worldstorm-dragon-all-clips-v2-final-2026-10-18/*.log text eol=lf
+docs/screenshots/solar-stag-all-clips-v2-final-2026-10-18/*.log text eol=lf
+docs/screenshots/skyglass-kirin-all-clips-v2-final-2026-10-18/*.log text eol=lf
+docs/screenshots/thunderbloom-kirin-all-clips-v2-final-2026-10-18/*.log text eol=lf
+docs/screenshots/gravepeak-behemoth-all-clips-v2-final-2026-10-18/*.log text eol=lf
+docs/screenshots/celestial-lion-all-clips-v2-final-2026-10-18/*.log text eol=lf
+docs/screenshots/ripple-seal-complete-face-v10-final-2026-10-18/*.log text eol=lf
+docs/screenshots/gale-chick-complete-face-v1-final-2026-10-19/*.log text eol=lf
+docs/screenshots/pet-gale-chick-repair-first-2026-10-19/*.log text eol=lf

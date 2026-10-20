@@ -81,11 +81,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "AEBE4F02C12D38FFAC4F0D2F5594A4458A2D63F3F1227B312AA9919F873AD314",
+      "sha256": "BAAFA7FFC02CC332369122F64A0205679263C71A3004214864594252A87E29F3",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 614716,
+        "bytes": 611336,
         "triangles": 40000,
         "vertices": 26107,
         "materials": 1,
@@ -125,9 +125,9 @@
         "localizedSeamVertices": 364
       },
       "reviewedSkullRepair": {
-        "revision": "20261014-reviewed-skull-v1",
+        "revision": "20261015-independent-complete-face-v2",
         "id": "standard-0",
-        "sourceSha256": "50acd594b7f4b1ee4d5b92d0fcfedb5e583ebd3e3d9f6d0dc1d39fbf18abe52c",
+        "sourceSha256": "aebe4f02c12d38ffac4f0d2f5594a4458a2d63f3f1227b312aa9919f873ad314",
         "region": {
           "y": [
             0.1,
@@ -138,7 +138,25 @@
             -0.05
           ],
           "status": "repair",
-          "finding": "Muzzle compression and cheek shear in attack, hit reaction and death. All thirteen front/side body and skull clips reviewed; neck and raised tail excluded."
+          "finding": "Fresh independent face-camera review confirms lower muzzle flattening in attack/hit reaction and stretching in death. Candidate only; neck/body and complete final review remain required.",
+          "revision": "20261015-independent-complete-face-v2",
+          "supersedesSourceSha256": "aebe4f02c12d38ffac4f0d2f5594a4458a2d63f3f1227b312aa9919f873ad314",
+          "union": [
+            {
+              "y": [
+                -0.14,
+                -0.06
+              ],
+              "z": [
+                0.35,
+                0.55
+              ],
+              "x": [
+                0.55,
+                0.65
+              ]
+            }
+          ]
         },
         "envelopeMatrix": [
           0.9999999203108954,
@@ -154,12 +172,16 @@
           0.9999998435052354,
           0,
           -5.551115123125783e-17,
-          1.028561262272909e-7,
+          9.974561382408709e-8,
           1.4852421070798982e-7,
           1
         ],
-        "changedVertices": 10224,
-        "rigidVertices": 7797
+        "changedVertices": 11838,
+        "rigidVertices": 9461,
+        "supersededRepair": {
+          "revision": "20261014-reviewed-skull-v1",
+          "sourceSha256": "50acd594b7f4b1ee4d5b92d0fcfedb5e583ebd3e3d9f6d0dc1d39fbf18abe52c"
+        }
       }
     },
     "standard-1": {
@@ -881,7 +903,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "FC639CEE5499A0C1D8965C7C886C8AF83CF3EE3D750FF1146BB162AADDD7A82D",
+      "sha256": "EBE7F3606AB0D81AD1F3AE2A7B35D2AA9CC3342E03FB892F7FED71BBE37B9916",
       "validation": {
         "ok": true,
         "reason": null,
@@ -15030,7 +15052,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "9593682072A8168EBD1CECAA132E2AE976DF5048315D48006E83F09CE92CD49E",
+      "sha256": "0E1570AFD4D45779B5562AD2205947776876909DB93DAA6E2BE9AD0D69308753",
       "visualReview": {
         "passed": true,
         "reason": "Azure Kirin is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -15080,7 +15102,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 588176,
+        "bytes": 588792,
         "triangles": 40000,
         "vertices": 25770,
         "skins": 1,
@@ -15116,9 +15138,9 @@
         "iterations": 48
       },
       "reviewedSkullRepair": {
-        "revision": "20261014-reviewed-skull-v1",
+        "revision": "20261017-independent-complete-face-v2",
         "id": "legendary-5",
-        "sourceSha256": "34229cbc76f365bed4459d84b99fb232353a3faa265b79edfa6329404b77ae5c",
+        "sourceSha256": "9593682072a8168ebd1cecaa132e2ae976df5048315d48006e83f09ce92cd49e",
         "region": {
           "y": [
             0.05,
@@ -15130,28 +15152,65 @@
           ],
           "cameraPadding": 1.3,
           "status": "repair",
-          "finding": "All 13 original animations visually inspected in complete front/side head and body sheets. Kirin lower muzzle and cheek shear during raised attack and turned defeat; preserve mane and raised tail."
+          "finding": "All 13 source clips actually inspected in 12 enlarged face/body front/side slices. Subtle snout and cheek shear when the head turns in alternate idle, strike and defeat. Four limbs, mane, tail and antlers remain connected in raw clips; equipped-technique coordination still pending. The corresponding battle face/body slices were also actually inspected; the same facial problem is present and there are no additional detached body surfaces in these raw clips. Equipped-technique review remains open. Separate candidate only. Bind the complete measured face to head with a smooth neck fade; preserve geometry, clips and accessories outside the measured region.",
+          "revision": "20261017-independent-complete-face-v2",
+          "supersedesSourceSha256": "9593682072a8168ebd1cecaa132e2ae976df5048315d48006e83f09ce92cd49e",
+          "repairRegion": {
+            "y": [
+              0,
+              0.09
+            ],
+            "z": [
+              0.68,
+              0.78
+            ],
+            "x": [
+              0.33,
+              0.43
+            ]
+          },
+          "union": [
+            {
+              "y": [
+                0,
+                0.09
+              ],
+              "z": [
+                0.68,
+                0.78
+              ],
+              "x": [
+                0.33,
+                0.43
+              ]
+            }
+          ],
+          "continuousInfluencePacking": true
         },
         "envelopeMatrix": [
-          0.8504935007835006,
+          0.8504935024313783,
           0,
-          0.3522859427346984,
+          0.3522859434172718,
           0,
           -3.5738892401049327e-9,
-          0.9205675634983397,
-          8.628131709098597e-9,
+          0.9205675652819899,
+          8.628131820120899e-9,
           0,
-          -0.3522859123731877,
-          -1.7612303715441868e-7,
-          0.8504934274843293,
+          -0.352285913055761,
+          -1.7612303754299674e-7,
+          0.850493429132207,
           0,
-          -0.01297522189619646,
-          1.0979264752908335e-7,
-          -0.00857002186907796,
+          -0.012975221921336683,
+          1.0269671923968104e-7,
+          -0.008570019948127838,
           1
         ],
-        "changedVertices": 8841,
-        "rigidVertices": 5869
+        "changedVertices": 3975,
+        "rigidVertices": 1685,
+        "supersededRepair": {
+          "revision": "20261014-reviewed-skull-v1",
+          "sourceSha256": "34229cbc76f365bed4459d84b99fb232353a3faa265b79edfa6329404b77ae5c"
+        }
       }
     },
     "legendary-6": {
@@ -15165,7 +15224,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "969F6F0AC6355377D7D6BB3A65799AA98BD2A8591E09C78C8BB3F6BADCDD2579",
+      "sha256": "4217158F2180C8311F0A2A8C987AC11754113C6B7A4636A91D3402337D924716",
       "visualReview": {
         "passed": true,
         "reason": "Ember Phoenix is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -15215,7 +15274,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 799832,
+        "bytes": 648340,
         "triangles": 40000,
         "vertices": 27397,
         "skins": 1,
@@ -15255,6 +15314,81 @@
         "changedVertices": 23714,
         "iterations": 48,
         "localizedSeamVertices": 20772
+      },
+      "reviewedSkullRepair": {
+        "revision": "20261017-independent-complete-face-v2",
+        "id": "legendary-6",
+        "sourceSha256": "969f6f0ac6355377d7d6bb3a65799aa98bd2a8591e09c78c8bb3f6badcdd2579",
+        "region": {
+          "y": [
+            0.18,
+            0.38
+          ],
+          "z": [
+            -0.3,
+            -0.08
+          ],
+          "x": [
+            0.35,
+            0.55
+          ],
+          "cameraPadding": 1.3,
+          "status": "repair",
+          "finding": "All 13 source clips actually inspected in 12 enlarged face/body front/side slices. Beak curvature changes slightly on raised attack/cast; independent exposed-beak probe detects drift that the previous broad mask missed. Wings frequently occlude the side face, but front views retain coverage; claws, feathers and body remain connected. Recheck beak after conservative face repair; actual techniques pending. The corresponding battle face/body slices were also actually inspected; the same facial problem is present and there are no additional detached body surfaces in these raw clips. Equipped-technique review remains open. Separate candidate only. Bind the complete measured face to head with a smooth neck fade; preserve geometry, clips and accessories outside the measured region. First candidate rejected: face probe passed but full-body geometry detected 25 wing seam warnings from the face fade touching forward wing feathers. Narrowed the lateral repair extent to keep the measured beak/face and exclude those original wing vertices.",
+          "revision": "20261017-independent-complete-face-v2",
+          "supersedesSourceSha256": "969f6f0ac6355377d7d6bb3a65799aa98bd2a8591e09c78c8bb3f6badcdd2579",
+          "repairRegion": {
+            "y": [
+              0.15,
+              0.2
+            ],
+            "z": [
+              0.65,
+              0.74
+            ],
+            "x": [
+              0.17,
+              0.22
+            ]
+          },
+          "union": [
+            {
+              "y": [
+                0.15,
+                0.2
+              ],
+              "z": [
+                0.65,
+                0.74
+              ],
+              "x": [
+                0.17,
+                0.22
+              ]
+            }
+          ],
+          "continuousInfluencePacking": true
+        },
+        "envelopeMatrix": [
+          0.9070634643862522,
+          0,
+          0.3757179888819106,
+          0,
+          -1.6041467279515054e-8,
+          0.9817985709339871,
+          3.8727527851278865e-8,
+          0,
+          -0.37571798135943907,
+          7.516847089217293e-9,
+          0.9070634462253996,
+          0,
+          0.025904991624259802,
+          -2.714500564882094e-7,
+          -0.03725805312224474,
+          1
+        ],
+        "changedVertices": 1407,
+        "rigidVertices": 976
       }
     },
     "legendary-7": {
@@ -15268,7 +15402,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 1.44,
-      "sha256": "465F6DAB2B52A50B212E5911EE3B34771646205AEDAE73E971DDC79D516AD7DD",
+      "sha256": "618FAD8EB756DFE7619B95C460D548FCCEAEB127BF12B3BDDFE75177FF1AC506",
       "visualReview": {
         "passed": true,
         "reason": "Moon Serpent is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation. Accepted after 3 paid reconstruction attempts; rejected candidates remain quarantined for audit."
@@ -15318,7 +15452,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 576732,
+        "bytes": 715732,
         "triangles": 40000,
         "vertices": 25652,
         "skins": 1,
@@ -15354,9 +15488,9 @@
         "iterations": 48
       },
       "reviewedSkullRepair": {
-        "revision": "20261014-reviewed-skull-v1",
+        "revision": "20261017-independent-complete-face-v2",
         "id": "legendary-7",
-        "sourceSha256": "a67645d1fd3a29fd883d74ab18914160f1483e2675348a3bd626b6369b1b76fc",
+        "sourceSha256": "465f6dab2b52a50b212e5911ee3b34771646205aedae73e971ddc79d516ad7dd",
         "region": {
           "y": [
             -0.05,
@@ -15368,28 +15502,92 @@
           ],
           "cameraPadding": 1.3,
           "status": "repair",
-          "finding": "All 13 original animations visually inspected in complete front/side head and body sheets. Serpent lower jaw and cheek shear during raised strike and turned defeat; preserve long whiskers and horns."
+          "finding": "All 13 source clips actually inspected in 12 enlarged face/body front/side slices. Lower snout/cheek moves relative to upper head, most visible in raised strike and turned defeat. Long whiskers flex as accessories and must remain free. Limbs, body and tail remain connected in raw clips; actual techniques pending. The corresponding battle face/body slices were also actually inspected; the same facial problem is present and there are no additional detached body surfaces in these raw clips. Equipped-technique review remains open. Separate candidate only. Bind the complete measured face to head with a smooth neck fade; preserve geometry, clips and accessories outside the measured region.",
+          "revision": "20261017-independent-complete-face-v2",
+          "supersedesSourceSha256": "465f6dab2b52a50b212e5911ee3b34771646205aedae73e971ddc79d516ad7dd",
+          "repairRegion": {
+            "y": [
+              -0.08,
+              0.03
+            ],
+            "z": [
+              0.62,
+              0.68
+            ],
+            "x": [
+              0.3,
+              0.4
+            ]
+          },
+          "union": [
+            {
+              "y": [
+                -0.08,
+                0.03
+              ],
+              "z": [
+                0.62,
+                0.68
+              ],
+              "x": [
+                0.3,
+                0.4
+              ]
+            }
+          ],
+          "continuousInfluencePacking": true
         },
         "envelopeMatrix": [
-          0.9999999718246642,
+          0.9999999731375065,
           0,
           0,
           0,
           0,
-          0.9999999901781617,
-          1.9455680455582325e-8,
+          0.999999991491004,
+          1.9455680511093476e-8,
           0,
           0,
-          -2.005343986422048e-7,
-          0.9999998694590013,
+          -2.005343988642494e-7,
+          0.9999998707718436,
           0,
-          2.862293735361732e-17,
-          1.2183317199543353e-7,
-          1.2487289580143113e-7,
+          0,
+          1.1913921260653382e-7,
+          1.2618573841383096e-7,
           1
         ],
-        "changedVertices": 9749,
-        "rigidVertices": 7357
+        "changedVertices": 7130,
+        "rigidVertices": 5457,
+        "supersededRepair": {
+          "revision": "20261014-reviewed-skull-v1",
+          "sourceSha256": "a67645d1fd3a29fd883d74ab18914160f1483e2675348a3bd626b6369b1b76fc"
+        }
+      },
+      "coordinatedActionRepair": {
+        "revision": "20261017-moon-serpent-supported-actions-v2",
+        "sourceSha256": "30f2fa6e7259eb46eddf7e2a413bf76c0ef5db9d523143fd169065fc6e42d291",
+        "clips": [
+          {
+            "name": "attack",
+            "keys": 49,
+            "changedTracks": 19,
+            "maxContactError": 0,
+            "contacts": 196
+          },
+          {
+            "name": "cast",
+            "keys": 49,
+            "changedTracks": 19,
+            "maxContactError": 0,
+            "contacts": 196
+          },
+          {
+            "name": "idle_hitreact1",
+            "keys": 49,
+            "changedTracks": 19,
+            "maxContactError": 0,
+            "contacts": 196
+          }
+        ]
       }
     },
     "legendary-8": {
@@ -15403,7 +15601,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "DC09E049D20C43EC1AC2C0EF06B96DAEF8A789A68C350F334D6A214DF22996A0",
+      "sha256": "A76A85088F0B27F682581591BACF25F9C8DC79BA1A57B923D1C4CC446D93FDD4",
       "visualReview": {
         "passed": true,
         "reason": "Storm Lion is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -15453,7 +15651,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 671752,
+        "bytes": 786940,
         "triangles": 40000,
         "vertices": 28093,
         "skins": 1,
@@ -15490,9 +15688,9 @@
         "localizedSeamVertices": 341
       },
       "reviewedSkullRepair": {
-        "revision": "20261014-reviewed-skull-v1",
+        "revision": "20261017-independent-complete-face-v2",
         "id": "legendary-8",
-        "sourceSha256": "1aa3ca4a76d803aef87ebef9ab2ecb1c9f190223ec887e82596d41ab04e44d38",
+        "sourceSha256": "dc09e049d20c43ec1ac2c0ef06b96daef8a789a68c350f334d6a214df22996a0",
         "region": {
           "y": [
             -0.03,
@@ -15504,28 +15702,92 @@
           ],
           "cameraPadding": 1.3,
           "status": "repair",
-          "finding": "All 13 original animations visually inspected in complete front/side head and body sheets. Lion lower jaw and cheek shear during raised strike and turned defeat; preserve mane, scarf and tail."
+          "finding": "All 13 source clips actually inspected in 12 enlarged face/body front/side slices. Clear lower-mouth collapse during early recoil (12.5%) and lower jaw/cheek shear in strike and turned defeat. Mane, scarf and tail require preservation. Raw forelegs fold forward during strike/recoil; actual technique and planted-paw coordination specifically remain open. The corresponding battle face/body slices were also actually inspected; the same facial problem is present and there are no additional detached body surfaces in these raw clips. Equipped-technique review remains open. Separate candidate only. Bind the complete measured face to head with a smooth neck fade; preserve geometry, clips and accessories outside the measured region. First candidate rejected visually despite independent face and whole-body geometry passing: chin-to-beard transition showed stripes and stretched fur in turned defeat and victory. Expand the rigid beard region and spread the lower neck fade; no approval until new complete visuals and body checks pass. V3 rejected visually: the broad depth fade touched chest and collar surfaces. V4 retains the lower beard extent but restores the conservative forward-depth and lateral limits; chest must remain behind the repair.",
+          "revision": "20261017-independent-complete-face-v2",
+          "supersedesSourceSha256": "dc09e049d20c43ec1ac2c0ef06b96daef8a789a68c350f334d6a214df22996a0",
+          "repairRegion": {
+            "y": [
+              -0.4,
+              -0.24
+            ],
+            "z": [
+              0.6,
+              0.72
+            ],
+            "x": [
+              0.38,
+              0.48
+            ]
+          },
+          "union": [
+            {
+              "y": [
+                -0.4,
+                -0.24
+              ],
+              "z": [
+                0.6,
+                0.72
+              ],
+              "x": [
+                0.38,
+                0.48
+              ]
+            }
+          ],
+          "continuousInfluencePacking": true
         },
         "envelopeMatrix": [
-          0.9999999826175577,
+          0.9999999914178501,
           0,
           0,
           0,
           0,
-          0.9999999801068769,
-          5.5590184122600306e-9,
+          0.9999999889071691,
+          5.559018467771182e-9,
           0,
           0,
-          -1.8652261135621018e-7,
-          0.9999998594644668,
+          -1.8652261302154471e-7,
+          0.999999868264758,
           0,
-          -7.628857183993032e-9,
-          1.001529856825556e-7,
-          1.1700233648603842e-7,
+          -7.628857251647247e-9,
+          1.0410525974613449e-7,
+          1.2580262986894297e-7,
           1
         ],
-        "changedVertices": 11181,
-        "rigidVertices": 5753
+        "changedVertices": 5428,
+        "rigidVertices": 2770,
+        "supersededRepair": {
+          "revision": "20261014-reviewed-skull-v1",
+          "sourceSha256": "1aa3ca4a76d803aef87ebef9ab2ecb1c9f190223ec887e82596d41ab04e44d38"
+        }
+      },
+      "coordinatedActionRepair": {
+        "revision": "20261017-storm-lion-coordinated-actions-v1",
+        "sourceSha256": "1b4d7067e7670aefa94aed8967b26a209980e346b1b783bd6a321cf9c66183ec",
+        "clips": [
+          {
+            "name": "attack",
+            "keys": 49,
+            "changedTracks": 16,
+            "maxContactError": 1.5309928107521905e-8,
+            "contacts": 164
+          },
+          {
+            "name": "cast",
+            "keys": 49,
+            "changedTracks": 16,
+            "maxContactError": 1.5309928107521905e-8,
+            "contacts": 196
+          },
+          {
+            "name": "idle_hitreact1",
+            "keys": 49,
+            "changedTracks": 16,
+            "maxContactError": 1.5309928107521905e-8,
+            "contacts": 196
+          }
+        ]
       }
     },
     "legendary-9": {
@@ -15539,7 +15801,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "FEF124EE09E3C626BC1E1764835FF42C14E6574B4A245B39F68BBDAA1A6FC9E6",
+      "sha256": "5FD5E2341D7AC185DDF2019A8C5A912A226A845C301E9242A7CF7E1AA582E5C7",
       "visualReview": {
         "passed": true,
         "reason": "Crystal Bear is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -15589,7 +15851,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 570352,
+        "bytes": 570220,
         "triangles": 40000,
         "vertices": 24821,
         "skins": 1,
@@ -15626,9 +15888,9 @@
         "localizedSeamVertices": 48
       },
       "reviewedSkullRepair": {
-        "revision": "20261014-reviewed-skull-v1",
+        "revision": "20261017-independent-complete-face-v2",
         "id": "legendary-9",
-        "sourceSha256": "7bf2b7c3afee4091fd560e5d612879a7bf20511d8745eb7b93db0c19eb5d18a8",
+        "sourceSha256": "fef124ee09e3c626bc1e1764835ff42c14e6574b4a245b39f68bbdaa1a6fc9e6",
         "region": {
           "y": [
             0.18,
@@ -15640,7 +15902,40 @@
           ],
           "cameraPadding": 1.3,
           "status": "repair",
-          "finding": "All 13 original animations visually inspected in complete front/side head and body sheets. Bear lower cheek and muzzle compress during tilted defeat; forward fade must preserve the back crystals."
+          "finding": "All 13 source clips actually inspected in 12 enlarged face/body front/side slices. Muzzle flattens and nose disappears into the white snout in tilted defeat, with smaller recoil compression. Scarf, back crystals, arms and legs remain connected in raw poses; techniques pending. The corresponding battle face/body slices were also actually inspected; the same facial problem is present and there are no additional detached body surfaces in these raw clips. Equipped-technique review remains open. Separate candidate only. Bind the complete measured face to head with a smooth neck fade; preserve geometry, clips and accessories outside the measured region.",
+          "revision": "20261017-independent-complete-face-v2",
+          "supersedesSourceSha256": "fef124ee09e3c626bc1e1764835ff42c14e6574b4a245b39f68bbdaa1a6fc9e6",
+          "repairRegion": {
+            "y": [
+              0.1,
+              0.16
+            ],
+            "z": [
+              0.12,
+              0.22
+            ],
+            "x": [
+              0.26,
+              0.36
+            ]
+          },
+          "union": [
+            {
+              "y": [
+                0.1,
+                0.16
+              ],
+              "z": [
+                0.12,
+                0.22
+              ],
+              "x": [
+                0.26,
+                0.36
+              ]
+            }
+          ],
+          "continuousInfluencePacking": true
         },
         "envelopeMatrix": [
           0.9999999805770396,
@@ -15657,11 +15952,15 @@
           0,
           1.9404910863926594e-9,
           -1.203760036094792e-9,
-          -1.3769733131496764e-9,
+          -9.06440177084189e-9,
           1
         ],
-        "changedVertices": 3110,
-        "rigidVertices": 670
+        "changedVertices": 2259,
+        "rigidVertices": 1101,
+        "supersededRepair": {
+          "revision": "20261014-reviewed-skull-v1",
+          "sourceSha256": "7bf2b7c3afee4091fd560e5d612879a7bf20511d8745eb7b93db0c19eb5d18a8"
+        }
       }
     },
     "legendary-10": {
@@ -15778,7 +16077,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "CEB1CBB76B5533BBF52AB2E778CD7EFD24DBD13D53FF7C22490DF8B1457CC609",
+      "sha256": "E3CCAB815A6D28FCE0AC53BA3FAF7227254F15E7F849B76ADAE5DC22ABDEE148",
       "visualReview": {
         "passed": true,
         "reason": "Thunder Drake is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -15828,7 +16127,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 629476,
+        "bytes": 788184,
         "triangles": 40000,
         "vertices": 25841,
         "skins": 1,
@@ -15864,9 +16163,9 @@
         "iterations": 48
       },
       "reviewedSkullRepair": {
-        "revision": "20261014-reviewed-skull-v1",
+        "revision": "20261017-independent-complete-face-v2",
         "id": "legendary-11",
-        "sourceSha256": "4f085a22ebc5b9775b6b314da731084168827ff5179af9e773530e761bb29ce2",
+        "sourceSha256": "ceb1cbb76b5533bbf52ab2e778cd7efd24dbd13d53ff7c22490df8b1457cc609",
         "region": {
           "y": [
             0.18,
@@ -15878,7 +16177,77 @@
           ],
           "cameraPadding": 1.3,
           "status": "repair",
-          "finding": "All 13 original animations visually inspected in complete front/side head and body sheets. Drake lower cheek and muzzle shear during tilted defeat; forward fade must preserve the wings and tail."
+          "finding": "All 24 fresh source/battle complete-face and body slices actually inspected, covering 13 clips at six phases, front and side. Thunder Drake lower cheek, snout and chin shear relative to its brow during secondary idle, recoil, attack and tilted defeat; the jaw becomes pinched in defeat. Horns, wing membranes, tail and four limbs remain connected in these raw clips. Two actual Lightning Strike windup/impact sheets inspected; support toe penetration also needs a separate final technique check. Original and 2.5 exposure copies retained. Separate candidate only. Complete forward face binding with a smooth lower/side fade; preserve geometry, clips, wings and tail.",
+          "revision": "20261017-independent-complete-face-v2",
+          "supersedesSourceSha256": "ceb1cbb76b5533bbf52ab2e778cd7efd24dbd13d53ff7c22490df8b1457cc609",
+          "repairRegion": {
+            "y": [
+              -0.25,
+              -0.05
+            ],
+            "z": [
+              0.45,
+              0.7
+            ],
+            "x": [
+              0.6,
+              0.7
+            ]
+          },
+          "union": [
+            {
+              "y": [
+                -0.25,
+                -0.05
+              ],
+              "z": [
+                0.45,
+                0.7
+              ],
+              "x": [
+                0.6,
+                0.7
+              ]
+            }
+          ],
+          "continuousInfluencePacking": true,
+          "neckTransition": {
+            "iterations": 48,
+            "edges": [
+              [
+                14358,
+                14302
+              ],
+              [
+                20202,
+                19832
+              ],
+              [
+                20196,
+                19830
+              ],
+              [
+                19415,
+                19413
+              ]
+            ],
+            "protectBelowY": -0.4,
+            "featherY": 0.25,
+            "region": {
+              "y": [
+                -0.3,
+                -0.05
+              ],
+              "z": [
+                0.15,
+                0.4
+              ],
+              "x": [
+                0.6,
+                0.7
+              ]
+            }
+          }
         },
         "envelopeMatrix": [
           0.9999999648656079,
@@ -15894,12 +16263,96 @@
           1.0000000312500061,
           0,
           5.898059818321144e-17,
-          1.810988529138413e-7,
+          1.8138188545568923e-7,
           -1.7970215301921222e-8,
           1
         ],
-        "changedVertices": 8414,
-        "rigidVertices": 5250
+        "changedVertices": 7462,
+        "rigidVertices": 3082,
+        "supersededRepair": {
+          "revision": "20261014-reviewed-skull-v1",
+          "sourceSha256": "4f085a22ebc5b9775b6b314da731084168827ff5179af9e773530e761bb29ce2"
+        }
+      },
+      "supportedNeckRepair": {
+        "sourceSha256": "856716585d1624e3246585d778e273d617dd7447dbd581a2757191904e8c6648",
+        "headExcursionFactor": 0.35,
+        "neckExcursionFactor": 0.5,
+        "clips": [
+          {
+            "name": "idle",
+            "keys": 49,
+            "tracks": 2
+          },
+          {
+            "name": "idle_2",
+            "keys": 49,
+            "tracks": 2
+          },
+          {
+            "name": "attack",
+            "keys": 49,
+            "tracks": 2
+          },
+          {
+            "name": "idle_hitreact1",
+            "keys": 49,
+            "tracks": 2
+          },
+          {
+            "name": "death",
+            "keys": 49,
+            "tracks": 2
+          },
+          {
+            "name": "cast",
+            "keys": 49,
+            "tracks": 2
+          },
+          {
+            "name": "guard",
+            "keys": 49,
+            "tracks": 2
+          },
+          {
+            "name": "rest",
+            "keys": 49,
+            "tracks": 2
+          },
+          {
+            "name": "victory",
+            "keys": 49,
+            "tracks": 2
+          }
+        ],
+        "conservation": "Only existing head/neck rotation curves change. Geometry, nodes, inverse binds, skin, textures and every other animation track stay unchanged."
+      },
+      "coordinatedActionRepair": {
+        "revision": "20261017-thunder-drake-coordinated-actions-v1",
+        "sourceSha256": "f7b0d941130147542e9d0fb45243785557fd73b0af2c22c2b9ed8b00f8c36eb8",
+        "clips": [
+          {
+            "name": "attack",
+            "keys": 49,
+            "changedTracks": 16,
+            "maxContactError": 5.699054698686285e-9,
+            "contacts": 164
+          },
+          {
+            "name": "cast",
+            "keys": 49,
+            "changedTracks": 16,
+            "maxContactError": 5.699054698686285e-9,
+            "contacts": 196
+          },
+          {
+            "name": "idle_hitreact1",
+            "keys": 49,
+            "changedTracks": 16,
+            "maxContactError": 5.699054698686285e-9,
+            "contacts": 196
+          }
+        ]
       }
     },
     "legendary-12": {
@@ -15913,7 +16366,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "0112501785723D9AFC4AE33BACF6AB2D87CE9A65F71194B429FDCE20C63721C1",
+      "sha256": "721352C7763347D534E717DAAB5169690F7B375973699EF5557A786903D9ADD0",
       "visualReview": {
         "passed": true,
         "reason": "Frost Lynx is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -15963,7 +16416,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 565120,
+        "bytes": 616156,
         "triangles": 40000,
         "vertices": 25684,
         "skins": 1,
@@ -16040,6 +16493,33 @@
         ],
         "changedVertices": 7884,
         "rigidVertices": 5224
+      },
+      "coordinatedActionRepair": {
+        "revision": "20261017-frost-lynx-supported-actions-v1",
+        "sourceSha256": "0112501785723d9afc4ae33bacf6ab2d87ce9a65f71194b429fdce20c63721c1",
+        "clips": [
+          {
+            "name": "attack",
+            "keys": 49,
+            "changedTracks": 7,
+            "maxContactError": 3.296862876990118e-9,
+            "contacts": 98
+          },
+          {
+            "name": "cast",
+            "keys": 49,
+            "changedTracks": 7,
+            "maxContactError": 3.296862876990118e-9,
+            "contacts": 98
+          },
+          {
+            "name": "idle_hitreact1",
+            "keys": 49,
+            "changedTracks": 7,
+            "maxContactError": 3.296862876990118e-9,
+            "contacts": 98
+          }
+        ]
       }
     },
     "legendary-13": {
@@ -18719,7 +19199,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "D761F0769ECACDD38A5290F5A9536C74F8AEAE358FA0CBEB37A9D115880798F8",
+      "sha256": "94BF5F1002BE52DB84C0A003C6EA0D65EC05B2FB76799355C99D9B710F79079C",
       "visualReview": {
         "passed": true,
         "reason": "Ash Garuda is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -18769,7 +19249,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 803744,
+        "bytes": 652284,
         "triangles": 40000,
         "vertices": 28133,
         "skins": 1,
@@ -18808,6 +19288,81 @@
         "sourceSha256": "005472bd0f060ea912b2dd1ea7dd23277698d45aca99dfcf6af4bf2dce2202f8",
         "changedVertices": 22160,
         "iterations": 48
+      },
+      "reviewedSkullRepair": {
+        "revision": "20261017-garuda-independent-complete-beak-v2",
+        "id": "legendary-16",
+        "sourceSha256": "d761f0769ecacdd38a5290f5a9536c74f8aeae358fa0cbeb37a9d115880798f8",
+        "region": {
+          "y": [
+            0.18,
+            0.38
+          ],
+          "z": [
+            -0.3,
+            -0.08
+          ],
+          "x": [
+            0.35,
+            0.55
+          ],
+          "cameraPadding": 1.3,
+          "status": "repair",
+          "finding": "Fresh source/battle enlarged complete-face and body inspection confirms lower beak stretching in attack/cast, compressed into scarf during recoil. All nine equipped techniques (216 native frames) inspected front/side; appendages and visible support remain coordinated. Candidate facial binding only; sculpt, rig and all curves preserved. Independent frozen facial patches and full geometry plus second visual pass required. First candidate rejected for seven stretched lower-collar seam edges. Lengthened the collar fade before repeat measurement; no candidate visual approval yet.",
+          "revision": "20261017-garuda-independent-complete-beak-v2",
+          "supersedesSourceSha256": "d761f0769ecacdd38a5290f5a9536c74f8aeae358fa0cbeb37a9d115880798f8",
+          "repairRegion": {
+            "y": [
+              -0.1,
+              0.17
+            ],
+            "z": [
+              0.25,
+              0.32
+            ],
+            "x": [
+              0.3,
+              0.43
+            ]
+          },
+          "union": [
+            {
+              "y": [
+                -0.1,
+                0.17
+              ],
+              "z": [
+                0.25,
+                0.32
+              ],
+              "x": [
+                0.3,
+                0.43
+              ]
+            }
+          ],
+          "continuousInfluencePacking": true
+        },
+        "envelopeMatrix": [
+          1.0000000496165458,
+          0,
+          0,
+          0,
+          0,
+          1.0000001521716615,
+          4.861549057766368e-8,
+          0,
+          0,
+          1.6529086571681617e-8,
+          0.9999999804268846,
+          0,
+          1.375779757869025e-8,
+          -1.5356392418786058e-7,
+          5.638792766049505e-9,
+          1
+        ],
+        "changedVertices": 4661,
+        "rigidVertices": 2117
       }
     },
     "legendary-17": {
@@ -21106,7 +21661,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "FCE42DA5173B652F7412F1A83DDF79651A0D8B3DD8BB1B15B8019A01C7AEC01B",
+      "sha256": "E2004734882733F76EF2AF1BDD0735239241B93AA1BEF14F6CBA50E4867BCF64",
       "visualReview": {
         "passed": true,
         "reason": "Tidelord Leviathan is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -21156,7 +21711,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 640144,
+        "bytes": 634024,
         "triangles": 40000,
         "vertices": 26595,
         "skins": 1,
@@ -21193,9 +21748,9 @@
         "localizedSeamVertices": 36
       },
       "reviewedSkullRepair": {
-        "revision": "20261014-reviewed-skull-v1",
+        "revision": "20261017-leviathan-independent-complete-jaw-v1",
         "id": "legendary-18",
-        "sourceSha256": "cda8701b82acb46c9836508bd7964588545d84779e7a171973347f4e0b411d61",
+        "sourceSha256": "fce42da5173b652f7412f1a83ddf79651a0d8b3dd8bb1b15b8019a01c7aec01b",
         "region": {
           "y": [
             0.18,
@@ -21207,28 +21762,57 @@
           ],
           "cameraPadding": 1.3,
           "status": "repair",
-          "finding": "All 13 original animations visually inspected in complete front/side head and body sheets, with refined close-ups and exposure copies where needed. Leviathan lower jaw and cheek shear during strike and defeat; preserve long whiskers and tail."
+          "finding": "Fresh source complete-face/body review confirms lower jaw and cheek shearing in strike, recoil and defeat. All 216 actual equipped-technique frames inspected front/side; limbs and tail remain connected. Extend the head binding through the independent lower-jaw patches with a smooth neck transition. Sculpt, rig, textures and animation curves preserved; candidate only until independent and repeat visual checks pass.",
+          "revision": "20261017-leviathan-independent-complete-jaw-v1",
+          "supersedesSourceSha256": "fce42da5173b652f7412f1a83ddf79651a0d8b3dd8bb1b15b8019a01c7aec01b",
+          "repairRegion": {
+            "y": [
+              -0.03,
+              0.105
+            ],
+            "z": [
+              0.29,
+              0.43
+            ]
+          },
+          "union": [
+            {
+              "y": [
+                -0.03,
+                0.105
+              ],
+              "z": [
+                0.29,
+                0.43
+              ]
+            }
+          ],
+          "continuousInfluencePacking": true
         },
         "envelopeMatrix": [
-          1.0000003191768256,
+          1.0000003178930044,
           0,
           0,
           0,
           0,
-          1.0000000966068778,
-          -3.567283957117695e-8,
+          1.000000095323057,
+          -3.56728395156658e-8,
           0,
           0,
-          -1.652337372481938e-8,
-          1.0000003328879383,
+          -1.6523373697063803e-8,
+          1.000000331604117,
           0,
-          4.257481223037679e-9,
-          -9.28673156708193e-8,
-          1.4859725408489233e-8,
+          4.257481217399828e-9,
+          -9.415113633171046e-8,
+          6.851804554286467e-9,
           1
         ],
-        "changedVertices": 9956,
-        "rigidVertices": 6146
+        "changedVertices": 6113,
+        "rigidVertices": 3549,
+        "supersededRepair": {
+          "revision": "20261014-reviewed-skull-v1",
+          "sourceSha256": "cda8701b82acb46c9836508bd7964588545d84779e7a171973347f4e0b411d61"
+        }
       }
     },
     "legendary-19": {
@@ -21242,7 +21826,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "EC215D3EA18F5CD7C6E23F5DB1E7C78311344883E9493EBFA42961D787EA8DD4",
+      "sha256": "FCBC8F58FCA4ABA4364223F1C3CE716B63CE8F42F4D4BE43CC9CB3A73CE3C8B7",
       "visualReview": {
         "passed": true,
         "reason": "Frost Wyrm is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -21292,7 +21876,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 769288,
+        "bytes": 772968,
         "triangles": 40000,
         "vertices": 27777,
         "skins": 1,
@@ -21329,9 +21913,9 @@
         "localizedSeamVertices": 189
       },
       "reviewedSkullRepair": {
-        "revision": "20261014-reviewed-skull-v1",
+        "revision": "20261017-frost-wyrm-independent-complete-jaw-v2",
         "id": "legendary-19",
-        "sourceSha256": "cc7a9f9b00403f239de254eb488b89f10b8240e756a78d7a35ecfea60e0861ad",
+        "sourceSha256": "ec215d3ea18f5cd7c6e23f5db1e7c78311344883e9493ebfa42961d787ea8dd4",
         "region": {
           "y": [
             0.18,
@@ -21343,28 +21927,81 @@
           ],
           "cameraPadding": 1.3,
           "status": "repair",
-          "finding": "All 13 original animations visually inspected in complete front/side head and body sheets, with refined close-ups and exposure copies where needed. Wyrm lower jaw shears during strike and defeat; preserve crest and back spines."
+          "finding": "Fresh complete-face/body source inspection confirms jaw shear during recoil and defeat and muzzle elongation during attack/cast. All 216 actual equipped-technique frames inspected front/side; arms, legs, back spines and tail remain connected. Correct the lower-face binding, preserving the sculpt and every original curve. Check beard loop and neck transition in the separate candidate before promotion. Candidate v1 rejected for six chest-seam warnings; raise the main blend above the protected chest and isolate the projecting beard with a separate depth-gated fade. No candidate visual approval yet.",
+          "revision": "20261017-frost-wyrm-independent-complete-jaw-v2",
+          "supersedesSourceSha256": "ec215d3ea18f5cd7c6e23f5db1e7c78311344883e9493ebfa42961d787ea8dd4",
+          "repairRegion": {
+            "y": [
+              0.12,
+              0.24
+            ],
+            "z": [
+              0.4,
+              0.54
+            ],
+            "union": [
+              {
+                "y": [
+                  -0.05,
+                  0.1
+                ],
+                "z": [
+                  0.69,
+                  0.77
+                ]
+              }
+            ]
+          },
+          "union": [
+            {
+              "y": [
+                0.12,
+                0.24
+              ],
+              "z": [
+                0.4,
+                0.54
+              ],
+              "union": [
+                {
+                  "y": [
+                    -0.05,
+                    0.1
+                  ],
+                  "z": [
+                    0.69,
+                    0.77
+                  ]
+                }
+              ]
+            }
+          ],
+          "continuousInfluencePacking": true
         },
         "envelopeMatrix": [
-          1.000000265076088,
+          1.0000002665972516,
           0,
           0,
           0,
           0,
-          1.0000001020927445,
-          -3.0136646456124794e-8,
+          1.0000001036139077,
+          -3.0136646511635945e-8,
           0,
           0,
-          -2.2131168037065052e-8,
-          1.0000003386979281,
+          -2.2131168064820628e-8,
+          1.0000003402190918,
           0,
-          -3.5447088401942967e-7,
-          -1.0013973622546857e-7,
-          -9.341295514886383e-9,
+          -3.54470884558495e-7,
+          -9.861857325210721e-8,
+          -9.813277870862613e-9,
           1
         ],
-        "changedVertices": 9859,
-        "rigidVertices": 6297
+        "changedVertices": 4862,
+        "rigidVertices": 2457,
+        "supersededRepair": {
+          "revision": "20261014-reviewed-skull-v1",
+          "sourceSha256": "cc7a9f9b00403f239de254eb488b89f10b8240e756a78d7a35ecfea60e0861ad"
+        }
       }
     },
     "legendary-20": {
@@ -21378,7 +22015,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "A29D0755BA702EADA7D4F6CA371D5FC054425E1540E688F22A2F66E63170A8D5",
+      "sha256": "9B753E40BE53383FB9A4E8837B9E211791E9C3C2DADB198F1CE477E6B842C23D",
       "visualReview": {
         "passed": true,
         "reason": "Abyss Kraken is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -21428,7 +22065,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 522220,
+        "bytes": 567092,
         "triangles": 40000,
         "vertices": 24787,
         "skins": 1,
@@ -21464,9 +22101,9 @@
         "iterations": 48
       },
       "reviewedSkullRepair": {
-        "revision": "20261014-reviewed-skull-v1",
+        "revision": "20261017-kraken-independent-complete-face-v2",
         "id": "legendary-20",
-        "sourceSha256": "759ed5d6ad2dd3f1ca545bed52fce551a0cb8bdd5461ccaf90db3dd0a2a42559",
+        "sourceSha256": "a29d0755ba702eada7d4f6ca371d5fc054425e1540e688f22a2f66e63170a8d5",
         "region": {
           "y": [
             0.18,
@@ -21478,32 +22115,69 @@
           ],
           "cameraPadding": 1.3,
           "status": "repair",
-          "finding": "All 13 original animations visually inspected in complete front/side head and body sheets, with refined close-ups and exposure copies where needed. Kraken central face and lower brow shear during strike and defeat; preserve lateral curled tentacles.",
+          "finding": "Fresh source complete-face/body inspection confirms central facial tentacle roots flattening into the eyes during recoil and lower-face stretching during defeat. All 216 actual equipped-technique frames inspected front/side. Legs and outer tentacles remain connected; preserve their authored motion. Extend the binding through the complete central lower face with a continuous fade into the lower tentacles and side cheek. Sculpt, rig, textures and all original animation curves preserved; candidate only until independent and repeat visual checks pass.",
           "x": [
             0.38,
             0.48
-          ]
+          ],
+          "revision": "20261017-kraken-independent-complete-face-v2",
+          "supersedesSourceSha256": "a29d0755ba702eada7d4f6ca371d5fc054425e1540e688f22a2f66e63170a8d5",
+          "repairRegion": {
+            "y": [
+              -0.12,
+              -0.01
+            ],
+            "z": [
+              0.14,
+              0.24
+            ],
+            "x": [
+              0.32,
+              0.44
+            ]
+          },
+          "union": [
+            {
+              "y": [
+                -0.12,
+                -0.01
+              ],
+              "z": [
+                0.14,
+                0.24
+              ],
+              "x": [
+                0.32,
+                0.44
+              ]
+            }
+          ],
+          "continuousInfluencePacking": true
         },
         "envelopeMatrix": [
-          1.0000000348466611,
+          1.0000000378711602,
           0,
           0,
           0,
           0,
-          0.9999998399100142,
-          -3.0047468624339047e-8,
+          0.9999998429345128,
+          -3.0047468763116925e-8,
           0,
           0,
-          -2.2106843189373393e-8,
-          1.0000000760013954,
+          -2.210684321712897e-8,
+          1.000000079025895,
           0,
-          1.7412141870487216e-8,
-          1.5619452803372624e-7,
-          5.783148846749686e-7,
+          1.741214192317944e-8,
+          1.5921902724036485e-7,
+          5.783148864235699e-7,
           1
         ],
-        "changedVertices": 4926,
-        "rigidVertices": 2056
+        "changedVertices": 3790,
+        "rigidVertices": 2390,
+        "supersededRepair": {
+          "revision": "20261014-reviewed-skull-v1",
+          "sourceSha256": "759ed5d6ad2dd3f1ca545bed52fce551a0cb8bdd5461ccaf90db3dd0a2a42559"
+        }
       }
     },
     "legendary-21": {
@@ -24023,7 +24697,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "DCD1457D90B2FB37D33145BEC544F54980D0966A0F384EDF5FCE0C80BD57A9BB",
+      "sha256": "1AC2BAF54B8A724E8564B1422A6F28496B50349FCD285D1DA8044551F419F2B6",
       "visualReview": {
         "passed": true,
         "reason": "Storm Wyvern is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -24073,7 +24747,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 598736,
+        "bytes": 603644,
         "triangles": 40000,
         "vertices": 27170,
         "skins": 1,
@@ -24109,9 +24783,9 @@
         "iterations": 48
       },
       "reviewedSkullRepair": {
-        "revision": "20261014-reviewed-skull-v1",
+        "revision": "20261017-storm-wyvern-independent-complete-jaw-v1",
         "id": "legendary-25",
-        "sourceSha256": "1491476f75660d17e5840825bcee0863557ef4df90e16d9607690fad557d9a6f",
+        "sourceSha256": "dcd1457d90b2fb37d33145bec544f54980d0966a0f384edf5fce0c80bd57a9bb",
         "region": {
           "y": [
             0.18,
@@ -24123,28 +24797,65 @@
           ],
           "cameraPadding": 1.3,
           "status": "repair",
-          "finding": "All 13 original animations visually inspected in complete front and side head and body sheets, brighter copies and separate anatomy closeups. Blue dragon lower muzzle and jaw deform during attack and turned death; preserve folded wings and tail."
+          "finding": "All twelve source raw face/body slices across thirteen clips and all 216 native actual technique frames actually inspected. Lower snout and side chin subtly shear relative to the brow during secondary idle, recoil and tilted defeat. Original wings, arms, legs and tail remain connected in these views. Smooth incremental full-forward-jaw binding; preserve original sculpt, rig, UVs, textures and every authored curve. Separate candidate, no visual approval.",
+          "revision": "20261017-storm-wyvern-independent-complete-jaw-v1",
+          "supersedesSourceSha256": "dcd1457d90b2fb37d33145bec544f54980d0966a0f384edf5fce0c80bd57a9bb",
+          "repairRegion": {
+            "y": [
+              0.12,
+              0.25
+            ],
+            "z": [
+              0.48,
+              0.62
+            ],
+            "x": [
+              0.5,
+              0.65
+            ]
+          },
+          "union": [
+            {
+              "y": [
+                0.12,
+                0.25
+              ],
+              "z": [
+                0.48,
+                0.62
+              ],
+              "x": [
+                0.5,
+                0.65
+              ]
+            }
+          ],
+          "continuousInfluencePacking": true
         },
         "envelopeMatrix": [
-          1.0000002088549305,
+          1.0000002061539537,
           0,
           0,
           0,
           0,
-          1.00000004140485,
-          -2.8236370491763196e-8,
+          1.0000000387038737,
+          -2.8236370436252045e-8,
           0,
           0,
-          -2.398668527692216e-8,
-          1.0000002778074204,
+          -2.3986685221411008e-8,
+          1.0000002751064434,
           0,
           -5.637851296924623e-17,
-          -2.489861489207712e-8,
-          -2.4308983950782626e-8,
+          -2.759959111253707e-8,
+          -3.170358334192436e-8,
           1
         ],
-        "changedVertices": 7621,
-        "rigidVertices": 6224
+        "changedVertices": 4369,
+        "rigidVertices": 1775,
+        "supersededRepair": {
+          "revision": "20261014-reviewed-skull-v1",
+          "sourceSha256": "1491476f75660d17e5840825bcee0863557ef4df90e16d9607690fad557d9a6f"
+        }
       }
     },
     "legendary-26": {
