@@ -84,11 +84,16 @@ test('unknown creator companions retain legacy artwork and never borrow another 
     assert.equal(petScenicPortraitImage({ ...pet, image: '' }), '');
 });
 
-test('the production references remain byte-identical, including model-baked 2.5D atlases', () => {
+test('the original production references remain byte-identical, including archived model-baked atlases', () => {
     const production = JSON.parse(readFileSync(new URL('../../art-source/pet-portrait-refresh/production.json', import.meta.url), 'utf8'));
     for (const entry of production.entries) {
+        for (const [reference, archive] of Object.entries(entry.referenceArchives ?? {})) {
+            assert.ok(entry.references.includes(reference), `Unknown archived reference: ${reference}`);
+            assert.match(archive as string, /^art-source\/pet-portrait-refresh\/reference-archive\/[a-z0-9-]+\.webp$/);
+        }
         entry.references.forEach((reference: string, index: number) => {
-            const bytes = readFileSync(new URL(`../../public/${reference}`, import.meta.url));
+            const archive = entry.referenceArchives?.[reference];
+            const bytes = readFileSync(new URL(`../../${archive ?? `public/${reference}`}`, import.meta.url));
             assert.equal(createHash('sha256').update(bytes).digest('hex'), entry.referenceSha256[index], reference);
         });
     }
