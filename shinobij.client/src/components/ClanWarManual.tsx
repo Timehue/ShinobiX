@@ -9,6 +9,18 @@ import { GameArtIcon } from "./GameArtIcon";
  * Pure static markup; the only prop is the dismiss callback.
  */
 
+const nativePresentationStyle0 = {
+            padding: "0.3rem 0.6rem",
+            textAlign: "right",
+            color: "var(--red-400)",
+          } satisfies import('react').CSSProperties;
+const nativePresentationStyle1 = { padding: "0.3rem 0.6rem", background: "var(--slate-900)" } satisfies import('react').CSSProperties;
+const nativePresentationStyle2 = {
+            padding: "0.3rem 0.6rem",
+            background: "var(--slate-900)",
+            textAlign: "right",
+            color: "var(--red-400)",
+          } satisfies import('react').CSSProperties;
 export function ClanWarManual({ onClose,legacy=false }: { onClose: () => void;legacy?:boolean }) {
   if(!legacy)return <section className="summary-box" aria-label="Clan war guide">
     <div className="menu"><h4><GameArtIcon kind="scroll" size={18}/> Clan War Guide</h4><button onClick={onClose}>Close guide</button></div>
@@ -112,61 +124,39 @@ export function ClanWarManual({ onClose,legacy=false }: { onClose: () => void;le
         </div>
         <div style={{ padding: "0.3rem 0.6rem" }}><GameArtIcon kind="attack" size={16} /> 1v1 PvP</div>
         <div
-          style={{
-            padding: "0.3rem 0.6rem",
-            textAlign: "right",
-            color: "var(--red-400)",
-          }}
+          style={nativePresentationStyle0}
         >
           −30 HP
         </div>
         <div
-          style={{ padding: "0.3rem 0.6rem", background: "var(--slate-900)" }}
+          style={nativePresentationStyle1}
         >
           <GameArtIcon kind="attack" size={16} /> <GameArtIcon kind="attack" size={16} /> 2v2 PvP
         </div>
         <div
-          style={{
-            padding: "0.3rem 0.6rem",
-            background: "var(--slate-900)",
-            textAlign: "right",
-            color: "var(--red-400)",
-          }}
+          style={nativePresentationStyle2}
         >
           −60 HP
         </div>
         <div style={{ padding: "0.3rem 0.6rem" }}><GameArtIcon kind="petTamer" size={16} /> Pet 1v1</div>
         <div
-          style={{
-            padding: "0.3rem 0.6rem",
-            textAlign: "right",
-            color: "var(--red-400)",
-          }}
+          style={nativePresentationStyle0}
         >
           −20 HP
         </div>
         <div
-          style={{ padding: "0.3rem 0.6rem", background: "var(--slate-900)" }}
+          style={nativePresentationStyle1}
         >
           <GameArtIcon kind="petTamer" size={16} /> <GameArtIcon kind="petTamer" size={16} /> Pet 2v2
         </div>
         <div
-          style={{
-            padding: "0.3rem 0.6rem",
-            background: "var(--slate-900)",
-            textAlign: "right",
-            color: "var(--red-400)",
-          }}
+          style={nativePresentationStyle2}
         >
           −40 HP
         </div>
         <div style={{ padding: "0.3rem 0.6rem" }}>Chronicle Showdown</div>
         <div
-          style={{
-            padding: "0.3rem 0.6rem",
-            textAlign: "right",
-            color: "var(--red-400)",
-          }}
+          style={nativePresentationStyle0}
         >
           −10 HP
         </div>

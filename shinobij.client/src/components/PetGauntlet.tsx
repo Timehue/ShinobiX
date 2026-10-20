@@ -36,6 +36,12 @@ import gauntletBoard from "../assets/coliseum/gauntlet-board.webp";
 
 // Relic icon art (gpt-image-1, transparent). Auto-resolved by filename
 // (`<relicId>.webp`); unknown / missing files use matching Shinobi art.
+const nativePresentationStyle0 = { display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 } satisfies import('react').CSSProperties;
+const nativePresentationStyle1 = { display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 } satisfies import('react').CSSProperties;
+const nativePresentationStyle2 = { position: "absolute", bottom: 0, left: 2, filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.95))" } satisfies import('react').CSSProperties;
+const nativePresentationStyle3 = { display: "flex", gap: 8, flexWrap: "wrap" } satisfies import('react').CSSProperties;
+const nativePresentationStyle4 = { fontWeight: 400, fontSize: "0.74rem" } satisfies import('react').CSSProperties;
+const nativePresentationStyle5 = { margin: "3px 0 6px", fontSize: "0.7rem", minHeight: 28 } satisfies import('react').CSSProperties;
 const RELIC_ART = import.meta.glob<{ default: string }>("../assets/coliseum/relics/*.webp", { eager: true });
 const relicArt = (id: string): string | null => RELIC_ART[`../assets/coliseum/relics/${id}.webp`]?.default ?? null;
 const RELIC_FALLBACK_ART: Record<string, GameArtIconKind> = {
@@ -427,12 +433,12 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter, onV
                     <p className="hint" style={{ margin: "-2px 0 4px", fontSize: "0.76rem", color: run.log[run.log.length - 1]?.includes("lost") ? "#fca5a5" : "#cbd5e1" }}>{run.log[run.log.length - 1]}</p>
                     {/* Fielded squad + active synergies */}
                     <div>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
+                        <div style={nativePresentationStyle0}>
                             <h4 style={{ margin: 0, color: "#e2e8f0" }}>Your Formation ({fielded.length}/5)</h4>
                             <button type="button" style={btn("#f59e0b", fielded.length === 0)} disabled={fielded.length === 0} onClick={startRound}><GameArtIcon kind="attack" size={18} /> Fight round {run.round}</button>
                         </div>
                         {synergies.length > 0 ? (
-                            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
+                            <div style={nativePresentationStyle1}>
                                 {synergies.map((s) => (
                                     <span key={s.def.key} title={`${s.def.flavor} — ${s.tier.note}`} style={{ display: "inline-flex", gap: 5, alignItems: "center", padding: "3px 9px", borderRadius: 999, background: `${s.def.color}22`, border: `1px solid ${s.def.color}`, color: s.def.color, fontWeight: 700, fontSize: "0.74rem" }}>
                                         <GameArtIcon kind={synergyArtKind(s.def.kind, s.def.match)} size={20} />{s.def.label} ×{s.count} <span style={{ opacity: 0.85 }}>· {s.tier.note}</span>
@@ -470,7 +476,7 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter, onV
                                                         return (
                                                             <div key={`e${gr}-${c}`} style={{ aspectRatio: "1", borderRadius: 6, border: "1px solid rgba(220,90,90,0.26)", background: "rgba(80,25,25,0.22)", position: "relative", display: "grid", placeItems: "center", opacity: 0.72 }}>
                                                                 {eu && eimg ? <img src={eimg} alt="" draggable={false} style={{ maxWidth: "100%", maxHeight: "82%", objectFit: "contain", transform: "scaleX(-1)" }} /> : null}
-                                                                {eu?.pet.element && ELEMENT_ART_KIND[eu.pet.element] && <span title={eu.pet.element} style={{ position: "absolute", bottom: 0, left: 2, filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.95))" }}><GameArtIcon kind={ELEMENT_ART_KIND[eu.pet.element]} size={14} /></span>}
+                                                                {eu?.pet.element && ELEMENT_ART_KIND[eu.pet.element] && <span title={eu.pet.element} style={nativePresentationStyle2}><GameArtIcon kind={ELEMENT_ART_KIND[eu.pet.element]} size={14} /></span>}
                                                             </div>
                                                         );
                                                     }
@@ -484,7 +490,7 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter, onV
                                                             style={{ aspectRatio: "1", borderRadius: 6, border: `1px solid ${sel ? "#e6c477" : "rgba(96,165,250,0.42)"}`, background: pet ? "rgba(15,23,42,0.5)" : "rgba(30,52,82,0.3)", cursor: "pointer", padding: 2, position: "relative", display: "grid", placeItems: "center", boxShadow: sel ? "0 0 10px rgba(230, 196, 119, 0.7)" : "none" }}>
                                                             {pet && img ? <img src={img} alt={pet.name} draggable={false} style={{ maxWidth: "100%", maxHeight: "82%", objectFit: "contain" }} /> : null}
                                                             {pet && petStar(run, pet.id) > 1 && <span title={`Merged ★${petStar(run, pet.id)}`} style={{ position: "absolute", top: 1, left: 3, fontSize: "0.56rem", fontWeight: 900, color: "#fcd34d", textShadow: "0 1px 2px rgba(0,0,0,0.9)" }}>★{petStar(run, pet.id)}</span>}
-                                                            {pet?.element && ELEMENT_ART_KIND[pet.element] && <span title={pet.element} style={{ position: "absolute", bottom: 0, left: 2, filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.95))" }}><GameArtIcon kind={ELEMENT_ART_KIND[pet.element]} size={14} /></span>}
+                                                            {pet?.element && ELEMENT_ART_KIND[pet.element] && <span title={pet.element} style={nativePresentationStyle2}><GameArtIcon kind={ELEMENT_ART_KIND[pet.element]} size={14} /></span>}
                                                             {pet && <span title={ROLE_META[roleOf(pet)].label} style={{ position: "absolute", bottom: 1, right: 3, filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.95))" }}><GameArtIcon kind={ROLE_ART_KIND[roleOf(pet)]} size={14} /></span>}
                                                         </button>
                                                     );
@@ -548,14 +554,14 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter, onV
                         relic bazaar (below) sits behind the shopkeeper overlay. */}
                     {/* Shop */}
                     <div>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
+                        <div style={nativePresentationStyle0}>
                             <h4 style={{ margin: 0, color: "#e2e8f0" }}>Recruit Shop</h4>
                             <button type="button" style={btn("#38bdf8", run.valor < rerollCost)} disabled={run.valor < rerollCost} onClick={() => { record({ k: "reroll" }); setRun(rerollShop(run)); }}>
                                 <GameArtIcon kind="dice" size={18} /> Reroll ({rerollCost === 0 ? "free" : `${rerollCost}✦`})
                             </button>
                         </div>
                         <p className="hint" style={{ margin: "0 0 6px" }}>Recruit a pet you already own to <strong style={{ color: "#fcd34d" }}>merge</strong> it — the copy levels up (★) with a stat boost instead of taking a roster slot.</p>
-                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                        <div style={nativePresentationStyle3}>
                             {run.shop.length === 0
                                 ? <p className="hint">Sold out — reroll for fresh recruits.</p>
                                 : run.shop.map((offer, i) => {
@@ -599,8 +605,8 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter, onV
 
                     {/* Item shop — Valor consumables that buff the whole run */}
                     <div>
-                        <h4 style={{ margin: "0 0 6px", color: "#e2e8f0" }}>Quartermaster <span className="hint" style={{ fontWeight: 400, fontSize: "0.74rem" }}>· run-wide upgrades</span></h4>
-                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                        <h4 style={{ margin: "0 0 6px", color: "#e2e8f0" }}>Quartermaster <span className="hint" style={nativePresentationStyle4}>· run-wide upgrades</span></h4>
+                        <div style={nativePresentationStyle3}>
                             {GAUNTLET_ITEMS.map((def) => {
                                 const owned = run.itemsBought[def.id] ?? 0;
                                 const maxed = owned >= def.max;
@@ -614,7 +620,7 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter, onV
                                             <strong style={{ display: "flex", alignItems: "center", gap: 5, fontSize: "0.84rem", color: "#e2e8f0" }}><GameArtIcon kind={ITEM_ART[def.id] ?? "reward"} size={18} /> {def.name}</strong>
                                             {def.max > 1 && <span style={{ fontSize: "0.64rem", color: "#64748b" }}>{owned}/{def.max}</span>}
                                         </div>
-                                        <p className="hint" style={{ margin: "3px 0 6px", fontSize: "0.7rem", minHeight: 28 }}>{def.blurb}</p>
+                                        <p className="hint" style={nativePresentationStyle5}>{def.blurb}</p>
                                         <button type="button" style={btn("#f59e0b", blocked)} disabled={blocked} onClick={() => { record({ k: "item", id: def.id }); setRun(buyItem(run, def.id)); }}>{label}</button>
                                     </div>
                                 );
@@ -624,9 +630,9 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter, onV
 
                     {/* Relics — permanent run-long boons, bought with Valor (rolled shelf + owned strip) */}
                     <div>
-                        <h4 style={{ margin: "0 0 6px", color: "#e2e8f0" }}>Relics <span className="hint" style={{ fontWeight: 400, fontSize: "0.74rem" }}>· permanent run-long boons · a fresh selection from {GAUNTLET_RELICS.length} relics rotates in each round (reroll for more)</span></h4>
+                        <h4 style={{ margin: "0 0 6px", color: "#e2e8f0" }}>Relics <span className="hint" style={nativePresentationStyle4}>· permanent run-long boons · a fresh selection from {GAUNTLET_RELICS.length} relics rotates in each round (reroll for more)</span></h4>
                         {run.relics.length > 0 && (
-                            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
+                            <div style={nativePresentationStyle1}>
                                 {run.relics.map((id) => { const d = relicDef(id); const art = relicArt(id); return (
                                     <span key={id} title={d.blurb} style={{ display: "inline-flex", gap: 5, alignItems: "center", padding: "3px 9px", borderRadius: 999, background: "rgba(168,85,247,0.16)", border: "1px solid #a855f7", color: "#d8b4fe", fontWeight: 700, fontSize: "0.74rem" }}>
                                         {art ? <img src={art} alt="" style={{ width: 16, height: 16, objectFit: "contain" }} /> : <GameArtIcon kind={relicFallback(id)} size={16} />}{d.name}
@@ -634,7 +640,7 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter, onV
                                 ); })}
                             </div>
                         )}
-                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                        <div style={nativePresentationStyle3}>
                             {run.relicShop.length === 0
                                 ? <p className="hint">No relics on offer — reroll to seek new boons.</p>
                                 : run.relicShop.map((id) => { const d = relicDef(id); const blocked = run.valor < d.cost; const art = relicArt(id); return (
@@ -643,7 +649,7 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter, onV
                                             {art ? <img src={art} alt="" style={{ width: 28, height: 28, objectFit: "contain", filter: "drop-shadow(0 2px 3px rgba(0,0,0,0.5))" }} /> : <GameArtIcon kind={relicFallback(id)} size={28} />}
                                             {d.name}
                                         </strong>
-                                        <p className="hint" style={{ margin: "3px 0 6px", fontSize: "0.7rem", minHeight: 28 }}>{d.blurb}</p>
+                                        <p className="hint" style={nativePresentationStyle5}>{d.blurb}</p>
                                         <button type="button" style={btn("#a855f7", blocked)} disabled={blocked} onClick={() => { record({ k: "relic", id }); setRun(buyRelic(run, id)); }}>Buy · {d.cost}✦</button>
                                     </div>
                                 ); })}
@@ -655,8 +661,8 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter, onV
                         once per day each (so Valor can't mint unlimited currency). */}
                     {premiumUnlocked(run) && (
                         <div>
-                            <h4 style={{ display: "flex", alignItems: "center", gap: 6, margin: "0 0 6px", color: "#fcd34d" }}><GameArtIcon kind="crown" size={22} /> Rare Goods <span className="hint" style={{ fontWeight: 400, fontSize: "0.74rem" }}>· cleared round 9! · banked to your account at run end (once per day each)</span></h4>
-                            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                            <h4 style={{ display: "flex", alignItems: "center", gap: 6, margin: "0 0 6px", color: "#fcd34d" }}><GameArtIcon kind="crown" size={22} /> Rare Goods <span className="hint" style={nativePresentationStyle4}>· cleared round 9! · banked to your account at run end (once per day each)</span></h4>
+                            <div style={nativePresentationStyle3}>
                                 {[
                                     { kind: "fateShard" as const, name: "Fate Shard", cost: GAUNTLET_SHARD_COST, bought: run.boughtFateShard },
                                     { kind: "boneCharm" as const, name: "Bone Charm", cost: GAUNTLET_CHARM_COST, bought: run.boughtBoneCharm },
@@ -665,7 +671,7 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter, onV
                                     return (
                                         <div key={p.kind} style={{ border: "1px solid #b45309", borderRadius: 10, background: "rgba(67,40,8,0.5)", padding: "8px 10px", width: 162 }}>
                                             <strong style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: "0.84rem", color: "#fde68a" }}><GameArtIcon kind={p.kind} size={25} /> {p.name}</strong>
-                                            <p className="hint" style={{ margin: "3px 0 6px", fontSize: "0.7rem", minHeight: 28 }}>Bank 1 {p.name} to your account when the run ends.</p>
+                                            <p className="hint" style={nativePresentationStyle5}>Bank 1 {p.name} to your account when the run ends.</p>
                                             <button type="button" style={btn("#f59e0b", blocked)} disabled={blocked} onClick={() => { record({ k: "premium", kind: p.kind }); setRun(buyPremium(run, p.kind)); }}>{p.bought ? "Queued ✓" : `Buy · ${p.cost}✦`}</button>
                                         </div>
                                     );

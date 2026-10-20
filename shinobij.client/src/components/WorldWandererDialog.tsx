@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { GameArtIcon } from "./GameArtIcon";
 import type { Character } from "../types/character";
 import {
@@ -30,10 +30,22 @@ import { roadFleePriceLine } from "../lib/road-flee-api";
 import { wandererForcesChoice, wandererKindLabel } from "../lib/road-cast";
 import { EncounterDifficultyBadge } from './EncounterDifficultyBadge';
 import type { OrdinaryPveEncounter } from '../../../shared/ordinary-pve-encounter';
+
 import { BANDIT_TOLL_RYO, offersBanditToll } from '../../../shared/road-toll';
-import './WorldWandererDialog.css';
+import { ordinaryWandererActions } from '../lib/ordinary-wanderer-actions';
+
 type ActionResult = void | Promise<unknown>;
 type WandererAction = (wanderer: Wanderer) => ActionResult;
+const mutedTextColor="#9aa3b2";
+const smallTextSize=".74rem";
+const noteMargin="0 0 10px";
+const compactTextSize=".78rem";
+const choiceRow: CSSProperties = { display: "flex", gap: 8, justifyContent: "center" };
+const wrappingChoiceRow: CSSProperties = { ...choiceRow, flexWrap: "wrap" };
+const mutedAction: CSSProperties = { background: "transparent", borderColor: "#6b7280", color: mutedTextColor };
+const questHint: CSSProperties = { fontSize: ".76rem", fontStyle: "italic", color: "var(--slate-300)", margin: noteMargin };
+const shortNote: CSSProperties = { fontSize: ".8rem", margin: noteMargin };
+
 export type WorldWandererDialogState = Readonly<{
     w: Wanderer;
     msg?: string;
@@ -98,140 +110,77 @@ function memoryLine(character: Character, wanderer: Wanderer): string | null {
  * WorldMap owns the portal, backdrop policy, cooldowns, async services,
  * authority checks, combat launches, and character mutations.
  */
-export function WorldWandererDialog({
-    wandererDialog,
-    character,
-    now,
-    emissaryDayBucket,
-    atWar,
-    legacyTrial,
-    closeWandererDialog,
-    dismissWandererDialog,
-    startWandererAttack,
-    fleeWanderer,
-    tradeWithWanderer,
-    askRoadRumor,
-    askAngler,
-    visitWandererMedic,
-    startPatrolFight,
-    followTracker,
-    followTrackerTrail,
-    abandonTrackerTrail,
-    startWandererFavor,
-    claimWandererFavor,
-    claimWandererGift,
-    startWandererPetDuel,
-    startWandererCardDuel,
-    chooseEpicOption,
-    abandonEpic,
-    claimEpic,
-    advanceEpic,
-    fightEpicBoss,
-    claimWandererQuest,
-    abandonWandererQuest,
-    acceptWandererQuest,
-    acceptEpic,
-    handleStoryReckoningAbandon,
-}: WorldWandererDialogProps) {
-    const remembered = memoryLine(character, wandererDialog.w);
+export function WorldWandererDialog(props:WorldWandererDialogProps) {
+    const {
+        wandererDialog,
+        character,
+        now,
+        emissaryDayBucket,
+        atWar,
+        legacyTrial,
+        closeWandererDialog,
+        dismissWandererDialog,
+        startWandererAttack,
+        fleeWanderer,
+        startPatrolFight,
+        chooseEpicOption,
+        abandonEpic,
+        claimEpic,
+        advanceEpic,
+        fightEpicBoss,
+        claimWandererQuest,
+        abandonWandererQuest,
+        acceptWandererQuest,
+        acceptEpic,
+        handleStoryReckoningAbandon,
+    }=props;
+    const {w,busy,msg,nemesis,standingLine,peace}=wandererDialog;
+    const actionButton=(label:string,run:WandererAction,style?:CSSProperties,waitLabel=true)=><button disabled={busy} onClick={()=>run(w)} style={style}>{busy&&waitLabel?'…':label}</button>;
+    const leaveButton=<button onClick={closeWandererDialog}>Leave</button>;
+    const abandonEpicButton=<button onClick={() => abandonEpic(w)} style={mutedAction}>Abandon</button>;
+    const abandonQuestButton=actionButton('Abandon',abandonWandererQuest,mutedAction,false);
+    const claimQuestButton=actionButton('Claim reward',claimWandererQuest);
+    const gained=(metric:keyof Character,baseline:number)=>Math.max(0,((character[metric] as number|undefined)??0)-baseline);
+    const ordinary=ordinaryWandererActions(props);
+    const remembered = memoryLine(character, w);
     const toll = offersBanditToll(wandererDialog);
 
     return (
         <div className="card world-wanderer-dialog" style={{ maxWidth: 360, width: "88%", maxHeight: "88dvh", overflowY: "auto", textAlign: "center", padding: 16 }} onClick={(event) => event.stopPropagation()}>
             <img
-                src={wandererDialog.w.avatarImage || wandererAvatar(wandererDialog.w.avatarKey)}
-                alt={wandererDialog.w.name}
-                style={{ width: 96, height: 96, objectFit: "contain", borderRadius: "50%", border: `2px solid ${wandererDialog.w.tellTint}`, margin: "0 auto 8px" }}
+                src={w.avatarImage || wandererAvatar(w.avatarKey)}
+                alt={w.name}
+                style={{ width: 96, height: 96, objectFit: "contain", borderRadius: "50%", border: `2px solid ${w.tellTint}`, margin: "0 auto 8px" }}
             />
-            <h3 style={{ margin: "0 0 2px" }}>{wandererDialog.w.name}</h3>
+            <h3 style={{ margin: "0 0 2px" }}>{w.name}</h3>
             {wandererDialog.encounter && <EncounterDifficultyBadge encounter={wandererDialog.encounter} showTell />}
-            <p style={{ fontSize: ".75rem", color: "#9aa3b2", margin: "0 0 10px" }}>{wandererDialog.nemesis ? <><GameArtIcon kind="attack" size={15} /> Your rival · Lv {Math.min(100, character.level + (character.wandererNemesis?.tier ?? 1))}</> : wandererDialog.w.verb === "trackerTrail" ? "On the trail" : `${wandererKindLabel(wandererDialog.w)} · Lv ${wandererDialog.w.level}`}</p>
-            <p style={{ fontStyle: "italic", margin: "0 0 14px" }}>{wandererDialog.msg ?? wandererDialog.w.greeting}</p>
-            {!wandererDialog.msg && remembered && <p style={{ fontSize: ".72rem", color: "#a7f3d0", margin: "-8px 0 12px", fontStyle: "italic" }}>{remembered}</p>}
-            {!wandererDialog.msg && wandererDialog.standingLine && <p style={{ fontStyle: "italic", fontSize: ".8rem", color: wandererDialog.peace ? "var(--green-300)" : "var(--slate-300)", margin: "-6px 0 14px" }}>{wandererDialog.standingLine}</p>}
-            {!wandererDialog.msg && wandererForcesChoice(wandererDialog.w) ? (
-                wandererDialog.peace ? (
-                    <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+            <p style={{ fontSize: ".75rem", color: mutedTextColor, margin: noteMargin }}>{nemesis ? <><GameArtIcon kind="attack" size={15} /> Your rival · Lv {Math.min(100, character.level + (character.wandererNemesis?.tier ?? 1))}</> : w.verb === "trackerTrail" ? "On the trail" : `${wandererKindLabel(w)} · Lv ${w.level}`}</p>
+            <p style={{ fontStyle: "italic", margin: "0 0 14px" }}>{msg ?? w.greeting}</p>
+            {!msg && remembered && <p style={{ fontSize: ".72rem", color: "#a7f3d0", margin: "-8px 0 12px", fontStyle: "italic" }}>{remembered}</p>}
+            {!msg && standingLine && <p style={{ fontStyle: "italic", fontSize: ".8rem", color: peace ? "var(--green-300)" : "var(--slate-300)", margin: "-6px 0 14px" }}>{standingLine}</p>}
+            {!msg && wandererForcesChoice(w) ? (
+                peace ? (
+                    <div style={choiceRow}>
                         <button onClick={dismissWandererDialog}>Pass in peace</button>
-                        <button onClick={() => startWandererAttack(wandererDialog.w, false)} style={{ background: "transparent", borderColor: "#6b7280", color: "#9aa3b2" }}>Fight anyway</button>
+                        <button onClick={() => startWandererAttack(w, false)} style={mutedAction}>Fight anyway</button>
                     </div>
                 ) : (
                     <>
-                        {/* Show the bandit toll or other hostile's flee price
-                            before the player chooses. */}
-                        <p style={{ fontSize: ".74rem", color: "#9aa3b2", margin: "-6px 0 12px" }}>{toll ? `Pay ${BANDIT_TOLL_RYO} ryo to pass without fighting. You will not lose HP.` : roadFleePriceLine(character)}</p>
+                        {/* A hostile that has caught you is fought or fled, and the
+                            flee price is shown before the choice, never after. */}
+                        <p style={{ fontSize: smallTextSize, color: mutedTextColor, margin: "-6px 0 12px" }}>{toll ? `Pay ${BANDIT_TOLL_RYO} ryo to pass without fighting. You will not lose HP.` : roadFleePriceLine(character)}</p>
                         {wandererDialog.choiceError && <p role="alert" style={{ fontSize: ".76rem", color: "var(--red-300)", margin: "-6px 0 12px" }}>{wandererDialog.choiceError}</p>}
-                        <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
-                            <button disabled={wandererDialog.busy} onClick={() => wandererDialog.w.verb === "patrol" ? startPatrolFight(wandererDialog.w) : startWandererAttack(wandererDialog.w, !!wandererDialog.nemesis)}>Fight</button>
-                            <button disabled={wandererDialog.busy} onClick={() => fleeWanderer(wandererDialog.w)}>{toll ? `Pay ${BANDIT_TOLL_RYO} ryo` : 'Flee'}</button>
+                        <div style={choiceRow}>
+                            <button disabled={busy} onClick={() => w.verb === "patrol" ? startPatrolFight(w) : startWandererAttack(w, !!nemesis)}>Fight</button>
+                            <button disabled={busy} onClick={() => fleeWanderer(w)}>{toll ? `Pay ${BANDIT_TOLL_RYO} ryo` : 'Flee'}</button>
                         </div>
                     </>
                 )
-            ) : !wandererDialog.msg && wandererDialog.w.verb === "merchant" ? (
-                <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
-                    <button disabled={wandererDialog.busy} onClick={() => tradeWithWanderer(wandererDialog.w)}>{wandererDialog.busy ? "…" : "Buy bone charms"}</button>
-                    <button onClick={() => askRoadRumor(wandererDialog.w)}>Ask about the road</button>
-                    <button onClick={closeWandererDialog}>Leave</button>
+            ) : !msg && ordinary ? (
+                <div style={wrappingChoiceRow}>
+                    {ordinary.map((item,index)=><button key={index} disabled={item.disabled} onClick={item.run} style={item.muted?mutedAction:undefined}>{item.label}</button>)}
                 </div>
-            ) : !wandererDialog.msg && wandererDialog.w.verb === "medic" ? (
-                <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
-                    <button disabled={wandererDialog.busy} onClick={() => visitWandererMedic(wandererDialog.w)}>{wandererDialog.busy ? "…" : "Pay for treatment"}</button>
-                    <button onClick={() => askRoadRumor(wandererDialog.w)}>Ask about the road</button>
-                    <button onClick={closeWandererDialog}>Leave</button>
-                </div>
-            ) : !wandererDialog.msg && wandererDialog.w.verb === "patrol" ? (
-                <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
-                    {wandererDialog.w.patrolStance !== "home" && <button onClick={() => startPatrolFight(wandererDialog.w)}>Fight patrol</button>}{/* your own village's patrol never fights you */}
-                    <button onClick={() => askRoadRumor(wandererDialog.w)}>Ask about the road</button>
-                    <button onClick={closeWandererDialog}>Move along</button>
-                </div>
-            ) : !wandererDialog.msg && (wandererDialog.w.verb === "angler" || wandererDialog.w.verb === "contest") ? (
-                <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>{/* The miner's fight is optional: he never chases you off. */}
-                    {wandererDialog.w.verb === "angler" ? <><button onClick={() => askAngler(wandererDialog.w)}>Ask about the water</button><button onClick={() => askRoadRumor(wandererDialog.w)}>Ask about the road</button><button onClick={closeWandererDialog}>Leave</button></>
-                        : <><button disabled={wandererDialog.busy} onClick={() => startWandererAttack(wandererDialog.w, false)}>Fight miner</button><button onClick={closeWandererDialog}>Leave him to it</button></>}
-                </div>
-            ) : !wandererDialog.msg && wandererDialog.w.verb === "tracker" ? (
-                <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
-                    {/* Follow tracks starts a two-sector trail that ends at a wild
-                        pet you can capture. No pet needed: the capture battle lends
-                        a Guild Fox to players who have none. */}
-                    <button disabled={wandererDialog.busy} onClick={() => followTracker(wandererDialog.w)}>{wandererDialog.busy ? "…" : "Follow tracks"}</button>
-                    <button disabled={wandererDialog.busy} onClick={() => startWandererFavor(wandererDialog.w)}>{wandererDialog.busy ? "…" : "Accept delivery"}</button>
-                    <button onClick={() => askRoadRumor(wandererDialog.w)}>Ask about the road</button>
-                    <button onClick={closeWandererDialog}>Leave</button>
-                </div>
-            ) : !wandererDialog.msg && wandererDialog.w.verb === "trackerTrail" ? (
-                <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
-                    <button disabled={wandererDialog.busy} onClick={() => followTrackerTrail(wandererDialog.w)}>
-                        {wandererDialog.busy ? "…" : character.activeTrackerTrail?.step === 1 ? "Approach the beast" : "Keep following"}
-                    </button>
-                    <button disabled={wandererDialog.busy} onClick={() => abandonTrackerTrail(wandererDialog.w)} style={{ background: "transparent", borderColor: "#6b7280", color: "#9aa3b2" }}>Give up the trail</button>
-                    <button onClick={closeWandererDialog}>Leave</button>
-                </div>
-            ) : !wandererDialog.msg && wandererDialog.w.verb === "courier" ? (
-                <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
-                    <button disabled={wandererDialog.busy} onClick={() => claimWandererFavor(wandererDialog.w)}>{wandererDialog.busy ? "…" : "Hand over package"}</button>
-                    <button onClick={closeWandererDialog}>Leave</button>
-                </div>
-            ) : !wandererDialog.msg && wandererDialog.w.verb === "gift" ? (
-                <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
-                    <button disabled={wandererDialog.busy} onClick={() => claimWandererGift(wandererDialog.w)}>{wandererDialog.busy ? "…" : "Accept gift"}</button>
-                    <button onClick={() => askRoadRumor(wandererDialog.w)}>Ask about the road</button>
-                    <button onClick={closeWandererDialog}>Leave</button>
-                </div>
-            ) : !wandererDialog.msg && wandererDialog.w.verb === "petDuel" ? (
-                <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
-                    {/* No "Ask about the road": a wild beast cannot answer. */}
-                    <button onClick={() => startWandererPetDuel(wandererDialog.w)}>Send out your pet</button>
-                    <button onClick={closeWandererDialog}>Leave</button>
-                </div>
-            ) : !wandererDialog.msg && wandererDialog.w.verb === "gamble" ? (
-                <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
-                    <button onClick={() => startWandererCardDuel(wandererDialog.w)}>Play Chronicle Showdown</button>
-                    <button onClick={() => askRoadRumor(wandererDialog.w)}>Ask about the road</button>
-                    <button onClick={closeWandererDialog}>Leave</button>
-                </div>
-            ) : !wandererDialog.msg && wandererDialog.w.verb === "quest" ? (() => {
+            ) : !msg && w.verb === "quest" ? (() => {
                 const epic = character.activeQuestbook;
                 if (epic) {
                     const entry = questbookEntry(epic.id);
@@ -247,36 +196,36 @@ export function WorldWandererDialog({
                         return (
                             <>
                                 <p style={{ fontSize: ".82rem", margin: "0 0 2px", fontWeight: 700, color: "#c4b5fd" }}><GameArtIcon kind="scroll" size={16} /> {entry.title}</p>
-                                <p style={{ fontSize: ".7rem", color: "#9aa3b2", margin: "0 0 6px" }}>Stage {epic.stage + 1} of {entry.stages.length}</p>
+                                <p style={{ fontSize: ".7rem", color: mutedTextColor, margin: "0 0 6px" }}>Stage {epic.stage + 1} of {entry.stages.length}</p>
                                 <p style={{ fontSize: ".8rem", margin: "0 0 8px" }}>{questbookStageText(stage, epic.choices)}</p>
                                 {stage.timer && epic.deadline ? <EpicBellCountdown deadline={epic.deadline} now={now} /> : null}
                                 {stage.choice ? (
                                     <>
-                                        <p style={{ fontSize: ".76rem", fontStyle: "italic", color: "var(--slate-300)", margin: "0 0 10px" }}>{stage.choice.prompt}</p>
+                                        <p style={questHint}>{stage.choice.prompt}</p>
                                         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                                             {stage.choice.options.map(opt => (
-                                                <button key={opt.key} disabled={wandererDialog.busy} onClick={() => chooseEpicOption(wandererDialog.w, opt.key)} style={{ textAlign: "left", lineHeight: 1.3 }}>
+                                                <button key={opt.key} disabled={busy} onClick={() => chooseEpicOption(w, opt.key)} style={{ textAlign: "left", lineHeight: 1.3 }}>
                                                     <strong>{opt.label}</strong><br /><span style={{ fontSize: ".72rem", opacity: 0.85 }}>{opt.blurb}</span>
                                                 </button>
                                             ))}
-                                            <button onClick={() => abandonEpic(wandererDialog.w)} style={{ background: "transparent", borderColor: "#6b7280", color: "#9aa3b2" }}>Abandon</button>
-                                            <button onClick={closeWandererDialog}>Leave</button>
+                                            {abandonEpicButton}
+                                            {leaveButton}
                                         </div>
                                     </>
                                 ) : (
                                     <>
                                         {scalesRivalry && <p style={{ fontSize: ".75rem", color: "var(--red-300)", margin: "0 0 8px", fontWeight: 600 }}><GameArtIcon kind="attack" size={15} /> He has beaten you {rivalTier}×, and each win has made him stronger{rivalTier >= 4 ? ". He has risen in rank" : ""}.</p>}
-                                        <p style={{ fontSize: ".74rem", color: "#9aa3b2", margin: "0 0 10px" }}>Progress: {Math.min(got, stage.count)} / {stage.count} {metricLabel(stage.metric)}</p>
-                                        <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
+                                        <p style={{ fontSize: smallTextSize, color: mutedTextColor, margin: noteMargin }}>Progress: {Math.min(got, stage.count)} / {stage.count} {metricLabel(stage.metric)}</p>
+                                        <div style={wrappingChoiceRow}>
                                             {done && isFinal ? (
-                                                <button disabled={wandererDialog.busy} onClick={() => claimEpic(wandererDialog.w)}>{wandererDialog.busy ? "…" : "Claim reward"}</button>
+                                                actionButton('Claim reward',claimEpic)
                                             ) : done ? (
-                                                <button disabled={wandererDialog.busy} onClick={() => advanceEpic(false)}>{wandererDialog.busy ? "…" : "Continue"}</button>
+                                                actionButton('Continue',()=>advanceEpic(false))
                                             ) : bossArena ? (
-                                                <button onClick={() => fightEpicBoss(wandererDialog.w)}><GameArtIcon kind="attack" size={17} /> Fight {bossName}</button>
+                                                <button onClick={() => fightEpicBoss(w)}><GameArtIcon kind="attack" size={17} /> Fight {bossName}</button>
                                             ) : null}
-                                            <button onClick={() => abandonEpic(wandererDialog.w)} style={{ background: "transparent", borderColor: "#6b7280", color: "#9aa3b2" }}>Abandon</button>
-                                            <button onClick={closeWandererDialog}>Leave</button>
+                                            {abandonEpicButton}
+                                            {leaveButton}
                                         </div>
                                     </>
                                 )}
@@ -287,54 +236,54 @@ export function WorldWandererDialog({
                 const active = character.activeWandererQuest;
                 if (active) {
                     const metric = emissaryQuestById(active.id)?.metric ?? questMetricForId(active.id);
-                    const got = Math.max(0, ((character[metric] as number | undefined) ?? 0) - active.baseline);
+                    const got = gained(metric,active.baseline);
                     const done = got >= active.target;
                     return done ? (
-                        <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
-                            <button disabled={wandererDialog.busy} onClick={() => claimWandererQuest(wandererDialog.w)}>{wandererDialog.busy ? "…" : "Claim reward"}</button>
-                            <button disabled={wandererDialog.busy} onClick={() => abandonWandererQuest(wandererDialog.w)} style={{ background: "transparent", borderColor: "#6b7280", color: "#9aa3b2" }}>Abandon</button>
-                            <button onClick={closeWandererDialog}>Leave</button>
+                        <div style={choiceRow}>
+                            {claimQuestButton}
+                            {abandonQuestButton}
+                            {leaveButton}
                         </div>
                     ) : (
                         <>
-                            <p style={{ fontSize: ".8rem", margin: "0 0 10px" }}>Progress: {Math.min(got, active.target)} / {active.target} {EMISSARY_METRIC_LABELS[metric]}</p>
-                            <button disabled={wandererDialog.busy} onClick={() => abandonWandererQuest(wandererDialog.w)} style={{ background: "transparent", borderColor: "#6b7280", color: "#9aa3b2", marginRight: 8 }}>Abandon</button>
-                            <button onClick={closeWandererDialog}>Leave</button>
+                            <p style={shortNote}>Progress: {Math.min(got, active.target)} / {active.target} {EMISSARY_METRIC_LABELS[metric]}</p>
+                            {actionButton('Abandon',abandonWandererQuest,{...mutedAction,marginRight:8},false)}
+                            {leaveButton}
                         </>
                     );
                 }
-                const def = questForWanderer(wandererDialog.w, lockedQuestMetrics(character));
-                const offer = epicForWanderer(wandererDialog.w.id, character.level, { atWar, hasRivalry: !!character.wandererNemesis });
+                const def = questForWanderer(w, lockedQuestMetrics(character));
+                const offer = epicForWanderer(w.id, character.level, { atWar, hasRivalry: !!character.wandererNemesis });
                 return (
                     <>
-                        <p style={{ fontSize: ".8rem", margin: "0 0 10px" }}>Task: {def.label}</p>
-                        {offer && <p style={{ fontSize: ".74rem", color: "#c4b5fd", margin: "0 0 10px" }}><GameArtIcon kind="scroll" size={15} /> {wandererDialog.w.name} carries {offer.giver}'s sealed request: “{offer.title}”. It is a long, hard quest in several stages.</p>}
-                        <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
-                            <button disabled={wandererDialog.busy} onClick={() => acceptWandererQuest(wandererDialog.w)}>{wandererDialog.busy ? "…" : "Accept task"}</button>
-                            {offer && <button disabled={wandererDialog.busy} onClick={() => acceptEpic(wandererDialog.w, offer.id)} style={{ background: "linear-gradient(#3b2f6b,#1e1b3a)", borderColor: "#a78bfa" }}>{wandererDialog.busy ? "…" : "Begin epic"}</button>}
-                            <button onClick={closeWandererDialog}>Leave</button>
+                        <p style={shortNote}>Task: {def.label}</p>
+                        {offer && <p style={{ fontSize: smallTextSize, color: "#c4b5fd", margin: noteMargin }}><GameArtIcon kind="scroll" size={15} /> {w.name} carries {offer.giver}'s sealed request: “{offer.title}”. It is a long, hard quest in several stages.</p>}
+                        <div style={wrappingChoiceRow}>
+                            {actionButton('Accept task',acceptWandererQuest)}
+                            {offer && actionButton('Begin epic',w=>acceptEpic(w,offer.id),{background:'linear-gradient(#3b2f6b,#1e1b3a)',borderColor:'#a78bfa'})}
+                            {leaveButton}
                         </div>
                     </>
                 );
-            })() : !wandererDialog.msg && wandererDialog.w.verb === "legacyQuest" ? (() => {
-                const em = EMISSARY_BY_SLUG.get(wandererDialog.w.archetype as EmissarySlug);
-                if (!em) return <button onClick={closeWandererDialog}>Leave</button>;
+            })() : !msg && w.verb === "legacyQuest" ? (() => {
+                const em = EMISSARY_BY_SLUG.get(w.archetype as EmissarySlug);
+                if (!em) return leaveButton;
                 const active = character.activeWandererQuest;
                 const activeDef = active ? emissaryQuestById(active.id) : null;
-                const got = active ? Math.max(0, ((character[(activeDef?.metric ?? questMetricForId(active.id))] as number | undefined) ?? 0) - active.baseline) : 0;
+                const got = active ? gained(activeDef?.metric??questMetricForId(active.id),active.baseline) : 0;
                 return (
                     <>
-                        <p style={{ fontSize: ".76rem", fontStyle: "italic", color: "var(--slate-300)", margin: "0 0 10px" }}>{emissaryLoreLine(em, emissaryDayBucket)}</p>
+                        <p style={questHint}>{emissaryLoreLine(em, emissaryDayBucket)}</p>
                         {active ? (
                             got >= active.target ? (
-                                <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
-                                    <button disabled={wandererDialog.busy} onClick={() => claimWandererQuest(wandererDialog.w)}>{wandererDialog.busy ? "…" : "Claim reward"}</button>
-                                    <button disabled={wandererDialog.busy} onClick={() => abandonWandererQuest(wandererDialog.w)} style={{ background: "transparent", borderColor: "#6b7280", color: "#9aa3b2" }}>Abandon</button>
+                                <div style={choiceRow}>
+                                    {claimQuestButton}
+                                    {abandonQuestButton}
                                 </div>
                             ) : (
                                 <>
-                                    <p style={{ fontSize: ".78rem", margin: "0 0 8px" }}>Your errand: {Math.min(got, active.target)} / {active.target} {EMISSARY_METRIC_LABELS[activeDef?.metric ?? questMetricForId(active.id)]}</p>
-                                    <button disabled={wandererDialog.busy} onClick={() => abandonWandererQuest(wandererDialog.w)} style={{ background: "transparent", borderColor: "#6b7280", color: "#9aa3b2" }}>Abandon errand</button>
+                                    <p style={{ fontSize: compactTextSize, margin: "0 0 8px" }}>Your errand: {Math.min(got, active.target)} / {active.target} {EMISSARY_METRIC_LABELS[activeDef?.metric ?? questMetricForId(active.id)]}</p>
+                                    {actionButton('Abandon errand',abandonWandererQuest,mutedAction,false)}
                                 </>
                             )
                         ) : (
@@ -342,33 +291,33 @@ export function WorldWandererDialog({
                                 {/* Emissary errands share the wanderer-quest metric union, so they
                                     need the same locked-objective filter. */}
                                 {(em.quests.filter(q => !lockedQuestMetrics(character).includes(q.metric)) as typeof em.quests).map(q => (
-                                    <button key={q.id} disabled={wandererDialog.busy} onClick={() => acceptWandererQuest(wandererDialog.w, q)} style={{ textAlign: "left", fontSize: ".78rem" }}>
+                                    <button key={q.id} disabled={busy} onClick={() => acceptWandererQuest(w, q)} style={{ textAlign: "left", fontSize: compactTextSize }}>
                                         {q.label}
                                     </button>
                                 ))}
                                 {em.quests.every(q => lockedQuestMetrics(character).includes(q.metric)) && (
-                                    <p style={{ fontSize: ".78rem", color: "#9aa3b2", margin: 0 }}>Their errands require activities you have not unlocked yet. Check back after unlocking more activities.</p>
+                                    <p style={{ fontSize: compactTextSize, color: mutedTextColor, margin: 0 }}>Their errands require activities you have not unlocked yet. Check back after unlocking more activities.</p>
                                 )}
                             </div>
                         )}
                         {legacyTrial}
                         {!character.legacy && character.level >= 50 && (
-                            <p style={{ fontSize: ".72rem", color: "#9aa3b2", margin: "8px 0 0", fontStyle: "italic" }}>
+                            <p style={{ fontSize: ".72rem", color: mutedTextColor, margin: "8px 0 0", fontStyle: "italic" }}>
                                 “The Sage can offer what I cannot. He will find you. When he does, listen carefully.”
                             </p>
                         )}
                         <div style={{ marginTop: 10 }}>
-                            <button onClick={closeWandererDialog}>Leave</button>
+                            {leaveButton}
                         </div>
                     </>
                 );
-            })() : wandererDialog.msg && isStoryReckoningId(wandererDialog.w.id) && character.activeStoryReckoning?.id === wandererDialog.w.id ? (
-                <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
-                    <button disabled={wandererDialog.busy} onClick={() => handleStoryReckoningAbandon(wandererDialog.w)} style={{ background: "transparent", borderColor: "#6b7280", color: "#9aa3b2" }}>{wandererDialog.busy ? "…" : "Abandon reckoning"}</button>
-                    <button onClick={closeWandererDialog}>Leave</button>
+            })() : msg && isStoryReckoningId(w.id) && character.activeStoryReckoning?.id === w.id ? (
+                <div style={wrappingChoiceRow}>
+                    {actionButton('Abandon reckoning',handleStoryReckoningAbandon,mutedAction)}
+                    {leaveButton}
                 </div>
             ) : (
-                <button onClick={closeWandererDialog}>{wandererDialog.msg ? "Close" : "Leave"}</button>
+                <button onClick={closeWandererDialog}>{msg ? "Close" : "Leave"}</button>
             )}
         </div>
     );

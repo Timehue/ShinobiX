@@ -35,6 +35,10 @@ import '../styles/premium-offers.css';
  * storefront, so repricing a tier in the Tebex dashboard does not leave four
  * images quietly advertising the old amount.
  */
+const nativePresentationStyle0 = {
+                            display: "flex", flexDirection: "column", alignItems: "stretch",
+                            gap: 8, padding: 8, height: "auto", textAlign: "center",
+                        } satisfies import('react').CSSProperties;
 const TIER_ART: Record<string, string> = {
     "shards-35": shards35Art,
     "shards-155": shards155Art,
@@ -183,10 +187,7 @@ export function PremiumOffers({ character, onVersionedCharacter }: {
                         // The tile's words live inside the artwork, which a screen
                         // reader cannot read, so the button carries the whole offer.
                         aria-label={`Buy ${tier.pack.shards} Fate Shards${tier.bonusPercent > 0 ? `, ${tier.bonusPercent}% extra` : ""}${tier.price ? ` for ${formatPrice(tier.price)}` : ""}`}
-                        style={{
-                            display: "flex", flexDirection: "column", alignItems: "stretch",
-                            gap: 8, padding: 8, height: "auto", textAlign: "center",
-                        }}
+                        style={nativePresentationStyle0}
                     >
                         <span style={{ position: "relative", display: "block" }}>
                             <img
@@ -226,7 +227,7 @@ export function PremiumOffers({ character, onVersionedCharacter }: {
                     onClick={() => void buy(SUBSCRIPTION_ID)}
                     disabled={busyId !== null || isSupporter}
                     aria-label={isSupporter ? "Shinobi Supporter is already active" : "Subscribe to Shinobi Supporter"}
-                    style={{ display: "flex", flexDirection: "column", alignItems: "stretch", gap: 8, padding: 8, height: "auto", textAlign: "center" }}
+                    style={nativePresentationStyle0}
                 >
                     <span style={{ position: "relative", display: "block" }}>
                         <img src={supporterArt} alt="" loading="lazy" style={{ width: "100%", height: "auto", display: "block", borderRadius: 6, opacity: isSupporter ? 0.55 : 1 }} />

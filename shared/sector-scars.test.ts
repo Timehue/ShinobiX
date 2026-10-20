@@ -24,6 +24,11 @@ test("names are trimmed and bounded so a long one cannot break the row", () => {
     assert.equal(parsed.fallen, "Rin");
 });
 
+test('old reports stay sector-only and malformed tiles never become a ground location',()=>{
+    for(const tile of [undefined,null,'12',-1,144,NaN,Infinity,4.5])assert.equal(parseScars([{...scar('Kaze'),tile}])[0].tile,undefined);
+    for(const tile of [0,77,143])assert.equal(parseScars([{...scar('Kaze'),tile}])[0].tile,tile);
+});
+
 test("scars expire on their own and never exceed the cap", () => {
     assert.deepEqual(pruneScars([scar("Old", SCAR_TTL_MS + 1)], NOW), []);
     assert.equal(pruneScars([scar("Fresh", SCAR_TTL_MS - 1)], NOW).length, 1);

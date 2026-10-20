@@ -1,7 +1,7 @@
 import { randomInt } from 'node:crypto';
 import { addOwned, countOwned, removeOwned } from '../craft/_forge.js';
 import { gatheringTool, gatheringToolRemaining, useGatheringTool } from '../../shared/gathering-tools.js';
-import { resourceNode, type ResourceNode } from '../../shared/resource-nodes.js';
+import { resourceNode, validResourceNodeTerrain, type ResourceNode } from '../../shared/resource-nodes.js';
 import { readResourceGathering, resourceSkillLevel, resourceSuccessRate, resourceQuality, resourceItemId,
     resourceActionsToday, resourceNodeState, RESOURCE_ATTEMPT_MS, RESOURCE_REFILL_MS, type ResourcePublicAttempt,
     type ResourceReceipt, type ResourceFamily, type ResourceGrade } from '../../shared/resource-gathering.js';
@@ -22,6 +22,7 @@ export function resourcePositionError(player: OnlinePlayer | null, node: Resourc
     return null;
 }
 export function resourceAdmissionError(character: Record<string, unknown>, node: ResourceNode, now: number) {
+    if (!validResourceNodeTerrain(node)) return 'This gathering spot is no longer available.';
     const state = readResourceGathering(character.resourceGathering);
     if (state.active) return 'Finish or cancel your current gathering attempt first.';
     if (character.hospitalized) return 'Leave the hospital before gathering.';

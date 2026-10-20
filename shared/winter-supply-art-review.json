@@ -1,0 +1,228 @@
+{
+  "version": 1,
+  "sector": 31,
+  "artKey": 53,
+  "source": "output/living-world/painted/sources/shrinefall-supply-windbreak-v3-provider.png",
+  "sourceSha256": "2a10f0000ab0eff2fa6ace219c3ba1a5063ed48738630411133be6040a9449b8",
+  "areas": [
+    {
+      "left": 434,
+      "top": 718,
+      "width": 44,
+      "height": 92
+    },
+    {
+      "left": 472,
+      "top": 735,
+      "width": 110,
+      "height": 105
+    }
+  ],
+  "protected": [
+    {
+      "left": 479,
+      "top": 717,
+      "width": 36,
+      "height": 43
+    }
+  ],
+  "resourceReview": "Only resource-56 is in this sector, at the northern natural rime seam (target6, approach18). Every rock/water pixel and all shrine light states are outside the admitted snow areas.",
+  "paintings": [
+    {
+      "sector": 31,
+      "artKey": 53,
+      "key": "shrinefall-supply-stop-v2",
+      "baseFile": "shinobij.client/public/sector-life/shrinefall-warming-stop-v1.webp",
+      "baseSha256": "a7f5e1bb0d55066d1f158b53c865372b6cefb511e1127c808672168a80afbd08",
+      "source": "output/living-world/painted/sources/shrinefall-supply-windbreak-v3-provider.png",
+      "sourceSha256": "2a10f0000ab0eff2fa6ace219c3ba1a5063ed48738630411133be6040a9449b8",
+      "provider": "built-in image_gen",
+      "prompts": "output/living-world/winter-supply-v3-prompt.json",
+      "method": "Full-sector edited source admitted only at the winter screen/sled areas; original brazier, tree, roads, buildings, shrine lamps, ore and all other terrain remain exact before delivery compression.",
+      "areas": [
+        {
+          "left": 434,
+          "top": 718,
+          "width": 44,
+          "height": 92
+        },
+        {
+          "left": 472,
+          "top": 735,
+          "width": 110,
+          "height": 105
+        }
+      ],
+      "protected": [
+        {
+          "left": 479,
+          "top": 717,
+          "width": 36,
+          "height": 43
+        }
+      ],
+      "protectedFeather": 6,
+      "changedOutside": 0,
+      "deliveredSha256": "36ccd5ec1595e5867c79f3cb487c13618346580b288e9cc51a68162100a21954",
+      "bytes": 247250,
+      "width": 1024,
+      "height": 1024,
+      "visualReview": "passed-composition: identical protected supply patch reviewed in all three selected native shrine states; this base composition is not a selected runtime shrine tier",
+      "reviewEvidence": [
+        "output/living-world/painted/winter-supply/shrinefall-supply-stop-v2.png",
+        "output/living-world/winter/browser/desktop-supplied-warming-stop.png",
+        "output/living-world/winter/browser/phone-supplied-warming-stop.png",
+        "output/living-world/winter/browser/desktop-cached-road-exits.png",
+        "output/living-world/winter/browser/phone-cached-road-exits.png"
+      ]
+    },
+    {
+      "sector": 31,
+      "artKey": 53,
+      "key": "frostveil-dormant-shrine-supply-v2",
+      "baseFile": "shinobij.client/public/sector-life/frostveil-dormant-shrine-v1.webp",
+      "baseSha256": "971f2ef680aba8229330fedb96676f239c492bd665cec8cbcc9babb92a04ff63",
+      "source": "output/living-world/painted/sources/shrinefall-supply-windbreak-v3-provider.png",
+      "sourceSha256": "2a10f0000ab0eff2fa6ace219c3ba1a5063ed48738630411133be6040a9449b8",
+      "provider": "built-in image_gen",
+      "prompts": "output/living-world/winter-supply-v3-prompt.json",
+      "method": "Full-sector edited source admitted only at the winter screen/sled areas; original brazier, tree, roads, buildings, shrine lamps, ore and all other terrain remain exact before delivery compression.",
+      "areas": [
+        {
+          "left": 434,
+          "top": 718,
+          "width": 44,
+          "height": 92
+        },
+        {
+          "left": 472,
+          "top": 735,
+          "width": 110,
+          "height": 105
+        }
+      ],
+      "protected": [
+        {
+          "left": 479,
+          "top": 717,
+          "width": 36,
+          "height": 43
+        }
+      ],
+      "protectedFeather": 6,
+      "changedOutside": 0,
+      "deliveredSha256": "c7621358a688233c553398cd776c8cb26bb6fc946a0952258d658804a83720ac",
+      "bytes": 245958,
+      "width": 1024,
+      "height": 1024,
+      "visualReview": "passed-native-desktop-phone: all shrine states, staffed supplies, warming paths, scenery/name clearance and near-owner labels",
+      "reviewEvidence": [
+        "output/living-world/winter/browser/desktop-supplied-warming-stop.png",
+        "output/living-world/winter/browser/phone-supplied-warming-stop.png",
+        "output/living-world/winter/browser/desktop-cached-road-exits.png",
+        "output/living-world/winter/browser/phone-cached-road-exits.png"
+      ]
+    },
+    {
+      "sector": 31,
+      "artKey": 53,
+      "key": "frostveil-supported-shrine-supply-v2",
+      "baseFile": "shinobij.client/public/sector-life/frostveil-supported-shrine-v1.webp",
+      "baseSha256": "b2b7aeedf23131754d8cf38886a5f9c2aee3df676523c77a85b19bdd869313db",
+      "source": "output/living-world/painted/sources/shrinefall-supply-windbreak-v3-provider.png",
+      "sourceSha256": "2a10f0000ab0eff2fa6ace219c3ba1a5063ed48738630411133be6040a9449b8",
+      "provider": "built-in image_gen",
+      "prompts": "output/living-world/winter-supply-v3-prompt.json",
+      "method": "Full-sector edited source admitted only at the winter screen/sled areas; original brazier, tree, roads, buildings, shrine lamps, ore and all other terrain remain exact before delivery compression.",
+      "areas": [
+        {
+          "left": 434,
+          "top": 718,
+          "width": 44,
+          "height": 92
+        },
+        {
+          "left": 472,
+          "top": 735,
+          "width": 110,
+          "height": 105
+        }
+      ],
+      "protected": [
+        {
+          "left": 479,
+          "top": 717,
+          "width": 36,
+          "height": 43
+        }
+      ],
+      "protectedFeather": 6,
+      "changedOutside": 0,
+      "deliveredSha256": "1b8474b566d5d2a0e4f956b881deabf085d29b528c2d6b40a8e6d0464a611f34",
+      "bytes": 246194,
+      "width": 1024,
+      "height": 1024,
+      "visualReview": "passed-native-desktop-phone: all shrine states, staffed supplies, warming paths, scenery/name clearance and near-owner labels",
+      "reviewEvidence": [
+        "output/living-world/winter/browser/desktop-supplied-warming-stop.png",
+        "output/living-world/winter/browser/phone-supplied-warming-stop.png",
+        "output/living-world/winter/browser/desktop-cached-road-exits.png",
+        "output/living-world/winter/browser/phone-cached-road-exits.png"
+      ]
+    },
+    {
+      "sector": 31,
+      "artKey": 53,
+      "key": "frostveil-radiant-shrine-supply-v2",
+      "baseFile": "shinobij.client/public/sector-life/frostveil-radiant-shrine-v1.webp",
+      "baseSha256": "5e4380b67f2d3908277394b1a4fc740c17c8c28fd2c12c124ee4878d65bc2df5",
+      "source": "output/living-world/painted/sources/shrinefall-supply-windbreak-v3-provider.png",
+      "sourceSha256": "2a10f0000ab0eff2fa6ace219c3ba1a5063ed48738630411133be6040a9449b8",
+      "provider": "built-in image_gen",
+      "prompts": "output/living-world/winter-supply-v3-prompt.json",
+      "method": "Full-sector edited source admitted only at the winter screen/sled areas; original brazier, tree, roads, buildings, shrine lamps, ore and all other terrain remain exact before delivery compression.",
+      "areas": [
+        {
+          "left": 434,
+          "top": 718,
+          "width": 44,
+          "height": 92
+        },
+        {
+          "left": 472,
+          "top": 735,
+          "width": 110,
+          "height": 105
+        }
+      ],
+      "protected": [
+        {
+          "left": 479,
+          "top": 717,
+          "width": 36,
+          "height": 43
+        }
+      ],
+      "protectedFeather": 6,
+      "changedOutside": 0,
+      "deliveredSha256": "3846fcd9b664fe9cefaf4de20900816b471e5788750dfa3934d8abec8602117a",
+      "bytes": 247172,
+      "width": 1024,
+      "height": 1024,
+      "visualReview": "passed-native-desktop-phone: all shrine states, staffed supplies, warming paths, scenery/name clearance and near-owner labels",
+      "reviewEvidence": [
+        "output/living-world/winter/browser/desktop-supplied-warming-stop.png",
+        "output/living-world/winter/browser/phone-supplied-warming-stop.png",
+        "output/living-world/winter/browser/desktop-cached-road-exits.png",
+        "output/living-world/winter/browser/phone-cached-road-exits.png"
+      ]
+    }
+  ],
+  "visualReview": "passed: selected three shrine tiers viewed in the actual native desktop/phone game; source-only base separately composed and reviewed",
+  "reviewEvidence": [
+    "output/living-world/winter/browser/desktop-supplied-warming-stop.png",
+    "output/living-world/winter/browser/phone-supplied-warming-stop.png",
+    "output/living-world/winter/browser/desktop-cached-road-exits.png",
+    "output/living-world/winter/browser/phone-cached-road-exits.png"
+  ]
+}

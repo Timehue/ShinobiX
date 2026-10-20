@@ -16,6 +16,7 @@ const worldSource = readFileSync(join(root, 'shinobij.client', 'src', 'screens',
 const arenaSource = readFileSync(join(root, 'shinobij.client', 'src', 'screens', 'PetArena.tsx'), 'utf8');
 const showdownSource = readFileSync(join(root, 'shinobij.client', 'src', 'screens', 'PetShowdown.tsx'), 'utf8');
 const dialogSource = readFileSync(join(root, 'shinobij.client', 'src', 'components', 'WorldWandererDialog.tsx'), 'utf8');
+const ordinarySource = readFileSync(join(root, 'shinobij.client', 'src', 'lib', 'ordinary-wanderer-actions.ts'), 'utf8');
 const appSource = readFileSync(join(root, 'shinobij.client', 'src', 'App.tsx'), 'utf8');
 
 function section(source: string, start: string, end: string): string {
@@ -61,9 +62,11 @@ test('the Colosseum chip names the beast, not a stand-in label', () => {
 });
 
 test('a wild beast does not offer to talk about the road', () => {
-    const beast = section(dialogSource, 'wandererDialog.w.verb === "petDuel" ? (', ') : !wandererDialog.msg && wandererDialog.w.verb === "gamble"');
+    const beast = section(ordinarySource, 'petDuel:[', 'gamble:[');
     assert.match(beast, /startWandererPetDuel/);
-    assert.doesNotMatch(beast, /askRoadRumor/);
+    assert.doesNotMatch(beast, /askRoadRumor|\brumor\b/);
+    assert.match(dialogSource, /const ordinary=ordinaryWandererActions\(props\)/);
+    assert.match(dialogSource, /ordinary\.map\([\s\S]*onClick=\{item\.run\}/);
 });
 
 test('runtime registry names the natural wanderer fight as the Colosseum, with no rewards', () => {

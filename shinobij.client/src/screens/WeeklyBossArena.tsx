@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import type { ReactNode } from "react";
 // Compact local chrome glyphs shared with the rest of the game.
 import { GiOgre, GiTrophy, GiTombstone, GiPadlock, GiCrossedSwords } from "../components/icons/LightweightGameIcons";
+const nativePresentationStyle0 = { background: "rgba(15,23,42,0.55)", border: "1px solid rgba(148,163,184,0.35)", borderRadius: 6, padding: "0.55rem 0.75rem", margin: "0.5rem 0", fontSize: "0.84rem", color: "var(--slate-300)" } satisfies import('react').CSSProperties;
 const WB_ICON = { verticalAlign: "-0.12em", marginRight: "0.3rem" } as const;
 // A thrown request never reached the server; show this, not the browser's wording.
 const WEEKLY_BOSS_UNREACHABLE = "The Weekly Boss could not be reached. Check your connection and try again.";
@@ -377,7 +378,7 @@ export function WeeklyBossArena({
             {loadError && <div role="status" style={{ color: "#e6c477", marginBottom: "0.5rem" }}><GameArtIcon kind="warning" size={16} /> The Weekly Boss status could not be refreshed. It will try again automatically.</div>}
             {error && <div role="alert" style={{ color: "var(--red-400)", marginBottom: "0.5rem" }}><GameArtIcon kind="warning" size={16} /> {error}</div>}
             {guardCycleAvailability !== "available" && (
-                <div role="status" style={{ background: "rgba(15,23,42,0.55)", border: "1px solid rgba(148,163,184,0.35)", borderRadius: 6, padding: "0.55rem 0.75rem", margin: "0.5rem 0", fontSize: "0.84rem", color: "var(--slate-300)" }}>
+                <div role="status" style={nativePresentationStyle0}>
                     <GiPadlock style={WB_ICON} />{guardCycleAvailability === "unknown" ? "Guard-cycle status is being checked. The core Weekly Boss fight remains available." : "The Weekly Boss guard cycle is temporarily disabled. The core fight remains available."}
                 </div>
             )}
@@ -437,12 +438,12 @@ export function WeeklyBossArena({
                 </div>
             </div>
             {contributionDisabled && (
-                <div style={{ background: "rgba(15,23,42,0.55)", border: "1px solid rgba(148,163,184,0.35)", borderRadius: 6, padding: "0.55rem 0.75rem", margin: "0.5rem 0", fontSize: "0.84rem", color: "var(--slate-300)" }}>
+                <div style={nativePresentationStyle0}>
                     <GiPadlock style={WB_ICON} />{contributionDisabledCopy}
                 </div>
             )}
             {!weeklyBossActionsAvailable && (
-                <div role="status" style={{ background: "rgba(15,23,42,0.55)", border: "1px solid rgba(148,163,184,0.35)", borderRadius: 6, padding: "0.55rem 0.75rem", margin: "0.5rem 0", fontSize: "0.84rem", color: "var(--slate-300)" }}>
+                <div role="status" style={nativePresentationStyle0}>
                     <GiPadlock style={WB_ICON} />New fights are paused. Leaderboard and attempt status remain readable.
                 </div>
             )}

@@ -181,12 +181,8 @@ export const WAR_TERRAINS: readonly string[] = [
 // Per-village accent colour — the CANONICAL per-village landmark colours from
 // atlas-skin.css (.atlas-landmark[title*=...]), so the War Map matches the rest
 // of the app (§10.2).
-export const VILLAGE_ACCENT: Record<string, string> = {
-    "Moonshadow Village": "#a78bfa", // purple
-    "Stormveil Village": "#3b82f6",  // blue
-    "Ashen Leaf Village": "#4ade80", // green
-    "Frostfang Village": "#93c5fd",  // light blue
-};
+import { VILLAGE_ACCENT } from './village-colors';
+export { VILLAGE_ACCENT };
 export function villageAccent(village: string): string {
     return VILLAGE_ACCENT[village] ?? "#94a3b8";
 }

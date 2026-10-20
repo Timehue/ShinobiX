@@ -1,0 +1,200 @@
+{
+  "version": 1,
+  "atlas": {
+    "file": "shinobij.client/public/sector-life/wildlife/ground-fauna-v1.webp",
+    "sha256": "78e24cba0213c145dbf66711e5221e624d02f7f2d0fc989ec9421aa98972c2f7",
+    "compressedBytes": 75544,
+    "decodedBytes": 786432,
+    "width": 512,
+    "height": 384,
+    "frames": 8,
+    "rows": [
+      {
+        "id": "blue-frog",
+        "row": 0,
+        "idleExtent": 45
+      },
+      {
+        "id": "stone-turtle",
+        "row": 1,
+        "idleExtent": 62
+      },
+      {
+        "id": "snow-rabbit",
+        "row": 2,
+        "idleExtent": 53
+      },
+      {
+        "id": "pine-owl",
+        "row": 3,
+        "idleExtent": 40
+      },
+      {
+        "id": "meadow-deer",
+        "row": 4,
+        "idleExtent": 60
+      },
+      {
+        "id": "red-fox",
+        "row": 5,
+        "idleExtent": 62
+      }
+    ]
+  },
+  "sites": [
+    {
+      "habitat": {
+        "species": "blue-frog",
+        "pet": "standard-8",
+        "sector": 6,
+        "x": 0.341796875,
+        "y": 0.2509765625,
+        "coverX": 0.3017578125,
+        "coverY": 0.2314453125,
+        "size": 28,
+        "speed": 90,
+        "night": false,
+        "period": 240000,
+        "exposed": 105000
+      },
+      "surfaces": [
+        {
+          "file": "shinobij.client/public/sector-map/s32.webp",
+          "sha256": "07088d98ee722075a32f245585d3c9c63915cbb0be28a61b558e1aefefea62b5"
+        }
+      ]
+    },
+    {
+      "habitat": {
+        "species": "stone-turtle",
+        "pet": "standard-5",
+        "sector": 18,
+        "x": 0.294921875,
+        "y": 0.7109375,
+        "coverX": 0.2451171875,
+        "coverY": 0.6826171875,
+        "size": 46,
+        "speed": 18,
+        "night": false,
+        "period": 240000,
+        "exposed": 105000
+      },
+      "surfaces": [
+        {
+          "file": "shinobij.client/public/sector-map/s19.webp",
+          "sha256": "53ddc52139cc73e0d74930db93236563a6b382b46bef65d5aa0cdc555d9e9954"
+        }
+      ]
+    },
+    {
+      "habitat": {
+        "species": "snow-rabbit",
+        "pet": "standard-1",
+        "sector": 27,
+        "x": 0.546875,
+        "y": 0.796875,
+        "coverX": 0.5810546875,
+        "coverY": 0.7333984375,
+        "size": 35,
+        "speed": 170,
+        "night": false,
+        "period": 240000,
+        "exposed": 105000
+      },
+      "surfaces": [
+        {
+          "file": "shinobij.client/public/sector-map/s46.webp",
+          "sha256": "65ef4f54bf00b7ec10432bf3f54d6976df195c564660dc77955c763e0fd6f153"
+        }
+      ]
+    },
+    {
+      "habitat": {
+        "species": "pine-owl",
+        "pet": "standard-10",
+        "sector": 15,
+        "x": 0.439453125,
+        "y": 0.2373046875,
+        "coverX": 0.466796875,
+        "coverY": 0.271484375,
+        "size": 34,
+        "speed": 120,
+        "night": true,
+        "period": 240000,
+        "exposed": 105000
+      },
+      "surfaces": [
+        {
+          "file": "shinobij.client/public/sector-map/s42.webp",
+          "sha256": "4690023a96dcbde3354e0d23543a977b4131deaf11401d89482a3a276f909060"
+        },
+        {
+          "file": "shinobij.client/public/sector-life/heartwood-dormant-shrine-v1.webp",
+          "sha256": "466955b013dc1728641f23b312b83c7b8a42553562739f0e7a7ab8993eeafeaf"
+        },
+        {
+          "file": "shinobij.client/public/sector-life/heartwood-supported-shrine-v1.webp",
+          "sha256": "69b627a664b3f9efbbb7a73845da3175e31f0674cc4eca214dd03b88003c7264"
+        },
+        {
+          "file": "shinobij.client/public/sector-life/heartwood-radiant-shrine-v1.webp",
+          "sha256": "7ccbc2412131c5724a35f9f2b375657fba9ae0d4ab1941b55f4056f5f92b76b8"
+        }
+      ]
+    },
+    {
+      "habitat": {
+        "species": "meadow-deer",
+        "pet": "standard-16",
+        "sector": 40,
+        "x": 0.70703125,
+        "y": 0.212890625,
+        "coverX": 0.5078125,
+        "coverY": 0.296875,
+        "size": 68,
+        "speed": 130,
+        "night": false,
+        "period": 240000,
+        "exposed": 105000
+      },
+      "surfaces": [
+        {
+          "file": "shinobij.client/public/sector-map/s28.webp",
+          "sha256": "f5a5b36ef70cb0cb3bc916d92f08e8516d1197cbddd3cef4426a04efec92ceae"
+        }
+      ]
+    },
+    {
+      "habitat": {
+        "species": "red-fox",
+        "pet": "standard-0",
+        "sector": 9,
+        "x": 0.6943359375,
+        "y": 0.8583984375,
+        "coverX": 0.650390625,
+        "coverY": 0.8232421875,
+        "size": 51,
+        "speed": 145,
+        "night": false,
+        "period": 360000,
+        "exposed": 45000
+      },
+      "surfaces": [
+        {
+          "file": "shinobij.client/public/sector-map/s38.webp",
+          "sha256": "dd9fd18478093980eb14339f9c44347b248042479d46f1aaa7a942e5852c5f5b"
+        }
+      ]
+    }
+  ],
+  "basis": "Six individually inspected placements and native-player approach/cover scenes on actual desktop and phone maps. Moving animals use a small painted atlas; floor geometry is unchanged. No arbitrary terrain scatter or pet portrait/GLB admission.",
+  "references": [
+    "output/living-world/wildlife/pet-inspired-source-v1.json",
+    "output/living-world/wildlife/pet-inspired-seeds-v1.json",
+    "output/living-world/wildlife/deer-extraction-followup-v1.json",
+    "output/living-world/wildlife/pet-inspired-strips-v1.json",
+    "output/living-world/wildlife/turtle-strip-layout-v2.json",
+    "output/living-world/wildlife/deer-fox-strips-v1.json"
+  ],
+  "browserReview": "Actual public asset: output/living-world/wildlife/native-public-browser-v1.log, 18 passed. Final owl-facing/cover correction: output/living-world/wildlife/owl-flight-direction-browser-v1.log, 2 passed."
+}

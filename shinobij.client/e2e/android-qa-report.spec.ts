@@ -212,7 +212,10 @@ test('renamed login loads the original save and keeps primary navigation connect
     for (const [label, screen] of [['Items', 'inventory'], ['Village', 'village'], ['World Map', 'worldMap']]) {
         await nav.getByRole('button', { name: label, exact: true }).click();
         await expect(page.locator('.app-shell')).toHaveAttribute('data-screen', screen);
-        await expect(nav.getByRole('button', { name: label, exact: true })).toHaveAttribute('aria-current', 'page');
+        // The fullscreen world takes ownership of navigation as soon as its
+        // lazy route mounts. Its control below certifies arrival; this navbar
+        // is intentionally removed at that boundary.
+        if (screen !== 'worldMap') await expect(nav.getByRole('button', { name: label, exact: true })).toHaveAttribute('aria-current', 'page');
     }
     // The loaded world map owns fullscreen chrome. Return via its actual
     // control instead of racing the lazy mount to click a disappearing navbar.

@@ -40,6 +40,18 @@ test("patrols take the voice and stance of the village that holds the road", () 
     assert.equal(wandererForcesChoice(withPatrolStance([patrol], "Mist", "Leaf", [])[0]), false, "a rival at peace can be walked past");
 });
 
+test('the existing Frostfang patrol calls an Ashen Leaf visitor a Leaf Rat without forcing combat at peace',()=>{
+    const [rival,local]=withPatrolStance([patrol,pilgrim],'Frostfang Village','Ashen Leaf Village',[]);
+    assert.equal(rival.name,'Frostfang Village Patrol');
+    assert.equal(rival.greeting,'Leaf Rat. Keep walking.');
+    assert.equal(rival.avatarKey,patrol.avatarKey);
+    assert.equal(rival.movement,patrol.movement);
+    assert.equal(wandererForcesChoice(rival),false);
+    assert.equal(local,pilgrim);
+    const [home]=withPatrolStance([patrol],'Frostfang Village','Frostfang Village',[]);
+    assert(!home.greeting.includes('Leaf Rat'));
+});
+
 test("Kagero appears only for a marked player, where his gate opens, unless he just stepped back", () => {
     const marked = { name: "Roadwalker", level: 30, wandererNemesis: { name: "Kagero", level: 31, tier: 2 } };
     let sector = 1;
