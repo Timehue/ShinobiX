@@ -114,17 +114,20 @@ test('weapon pop-out shows the kept roll, stays open, and restores the Crafter',
 
 /*
  * Owner ruling 2026-10-16: a named blade's tags roll 30-40% alone and 12-22%
- * beside another (Wound 22-30% / 15-20%), and apply EXACTLY as rolled. The odds
- * panel, the reveal and the kept-roll card must all show the rolled number,
- * never a 35% / 25% cap or a halved Increase Generals.
+ * beside another (Wound 22-30% / 15-20%). The reveal and kept-roll card retain
+ * those percentages without the ordinary weapon's 35% / 25% cap. The odds
+ * panel must also explain combat's diminishing returns and flat-effect exceptions.
  */
-test('the weapon odds list the as-rolled tag ranges and no combat cap', async ({ page }) => {
+test('the weapon odds distinguish rolled tag ranges from combat formulas', async ({ page }) => {
     await setup(page);
     await page.locator('.cf-tabs').getByRole('button', { name: 'Weapons', exact: true }).click();
     const odds = page.locator('.nw-odds');
     await expect(odds).toContainText('1 tag (30–40%; Wound 22–30%)');
     await expect(odds).toContainText('2 distinct tags (12–22% ea.; Wound 15–20%)');
-    await expect(odds).toContainText('applies in combat exactly as rolled');
+    await expect(odds).toContainText('Rolled percentages set effect strength; damage and stat bonuses have diminishing returns.');
+    await expect(odds).toContainText('Poison is always 12%.');
+    await expect(odds).toContainText('Heal, Shield, and Drain ignore the rolled percentage');
+    await expect(odds).toContainText('Drain cannot be reduced.');
     await expect(odds).not.toContainText(/cap at 35%|caps at 25%|counts at half|capped in combat/);
 });
 
