@@ -1,0 +1,120 @@
+{
+  "id": "standard-18",
+  "assembled": [
+    {
+      "name": "source-additional-head-other-side-whole.png",
+      "sha256": "126d1fd1b8e7e35d012217380a0f93e1588125d48bca6dc93b9b00eb8208dae3",
+      "sources": [
+        {
+          "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/standard-18/source-additional-head-other-side-0.png",
+          "sha256": "13bf59326418842588e4896dc6c72dbb224b1fbd8aa5074c4d5e2b233b66a288"
+        },
+        {
+          "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/standard-18/source-additional-head-other-side-1.png",
+          "sha256": "677ed10cd40841304d1ad1b1b8a25fb33083d802913eb467b32efdfe8bbfe3f8"
+        },
+        {
+          "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/standard-18/source-additional-head-other-side-2.png",
+          "sha256": "1d004e5c3f6cd2fa4ecc47d8538c29f2331c492768169fd880f89c473f5b1e1e"
+        }
+      ],
+      "resizing": false
+    },
+    {
+      "name": "source-additional-head-under-front-whole.png",
+      "sha256": "30e24cb17b5869b9b0d3918ffa7d60b54e5ede79bee07e5ba060f738902099ba",
+      "sources": [
+        {
+          "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/standard-18/source-additional-head-under-front-0.png",
+          "sha256": "aa3a17b9591bae157eaf7c666a3068e6f536364fa867be51d8b56ccc9ed4360f"
+        },
+        {
+          "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/standard-18/source-additional-head-under-front-1.png",
+          "sha256": "e040df612bbf4edfb3f78e89a8a794c773fa367cdd8c6700185759111f56ff89"
+        },
+        {
+          "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/standard-18/source-additional-head-under-front-2.png",
+          "sha256": "1f4d5565dae80778f802240f9a26de4618aa34764067c4ae403ade38448c3565"
+        }
+      ],
+      "resizing": false
+    },
+    {
+      "name": "source-additional-head-under-side-whole.png",
+      "sha256": "b1780bf2fa4c690a4cd8740a80aab1a9888f7b360c4814065cec40bfd8bf943e",
+      "sources": [
+        {
+          "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/standard-18/source-additional-head-under-side-0.png",
+          "sha256": "ee45971002b16fce0666731f8851a5dea06d0203147b3a717fa167903d1cc241"
+        },
+        {
+          "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/standard-18/source-additional-head-under-side-1.png",
+          "sha256": "bae2faaa23c723ccec5dceb00a79f8ab1282a9cbd9d379ebc511e48bf5965e23"
+        },
+        {
+          "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/standard-18/source-additional-head-under-side-2.png",
+          "sha256": "3e4bde72d783f7bea8d1ccc11fc763389ed8fdb85435472756ee2142f672d0c8"
+        }
+      ],
+      "resizing": false
+    },
+    {
+      "name": "battle-additional-head-other-side-whole.png",
+      "sha256": "8788e052a1319ae06eedec5eaa517ff1ec5c69400df257161d8dc73cc5566668",
+      "sources": [
+        {
+          "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/standard-18/battle-additional-head-other-side-0.png",
+          "sha256": "348aa88a01f1b45499bb1972bfe186602871a19d6719f5c8b2e72bf96deb5864"
+        },
+        {
+          "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/standard-18/battle-additional-head-other-side-1.png",
+          "sha256": "8e7e9bb8e4bcf133fec562bf4aaf1c31f923d542ae912560bd747157af0a0e33"
+        },
+        {
+          "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/standard-18/battle-additional-head-other-side-2.png",
+          "sha256": "5f903797bb094c11c643b068528582fe2e05caa5765694aef7b634d8132e55f4"
+        }
+      ],
+      "resizing": false
+    },
+    {
+      "name": "battle-additional-head-under-front-whole.png",
+      "sha256": "2839ba083efdcaaf90156c230b2f1186a42b15ad06420590cf0bf9477958fa79",
+      "sources": [
+        {
+          "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/standard-18/battle-additional-head-under-front-0.png",
+          "sha256": "d99d53686233e2a553c902a12c720569555c0e60f5bcefa7f4a9496705aa4478"
+        },
+        {
+          "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/standard-18/battle-additional-head-under-front-1.png",
+          "sha256": "0dfdfda14b36d965efce8b7b82e754158f3d09ecc67504060306bbe55103905a"
+        },
+        {
+          "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/standard-18/battle-additional-head-under-front-2.png",
+          "sha256": "59a6a188b29734056d4c46be2f5380cf5df9e0e968406074b12a9f102af0688d"
+        }
+      ],
+      "resizing": false
+    },
+    {
+      "name": "battle-additional-head-under-side-whole.png",
+      "sha256": "2475efe835b14f25e1859aac8ab1f27f84bf7220ecd4ee6cf6a92cd980de4323",
+      "sources": [
+        {
+          "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/standard-18/battle-additional-head-under-side-0.png",
+          "sha256": "1fa295f625d404738b6b0a974dbf6ff68ec0468ba54d948b746d9c6bccc5a88f"
+        },
+        {
+          "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/standard-18/battle-additional-head-under-side-1.png",
+          "sha256": "c056cc104163ba7c9ed2077ba5bee6d4c774b3be1b8faacfa9ca3623bdc553c0"
+        },
+        {
+          "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/standard-18/battle-additional-head-under-side-2.png",
+          "sha256": "eccbd0ed8719e2d2e6e0639242f6d616616413344fb6c62a09676e62e67f85d4"
+        }
+      ],
+      "resizing": false
+    }
+  ],
+  "review": "pending"
+}
