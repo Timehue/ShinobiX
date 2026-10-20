@@ -4325,7 +4325,10 @@
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
         }
-      ]
+      ],
+      "referenceArchives": {
+        "pet-models/warfront-impostors/roster/rare-19.webp": "art-source/pet-portrait-refresh/reference-archive/rare-19-f76511fbd091.webp"
+      }
     },
     {
       "id": "rare-20",
@@ -4384,7 +4387,10 @@
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
         }
-      ]
+      ],
+      "referenceArchives": {
+        "pet-models/warfront-impostors/roster/rare-20.webp": "art-source/pet-portrait-refresh/reference-archive/rare-20-2e484d56a0bf.webp"
+      }
     },
     {
       "id": "rare-21",
@@ -4436,7 +4442,10 @@
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
         }
-      ]
+      ],
+      "referenceArchives": {
+        "pet-models/warfront-impostors/roster/rare-21.webp": "art-source/pet-portrait-refresh/reference-archive/rare-21-cecea21b1676.webp"
+      }
     },
     {
       "id": "rare-22",
@@ -4537,7 +4546,10 @@
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
         }
-      ]
+      ],
+      "referenceArchives": {
+        "pet-models/warfront-impostors/roster/rare-23.webp": "art-source/pet-portrait-refresh/reference-archive/rare-23-6e0bfcede1cf.webp"
+      }
     },
     {
       "id": "rare-24",
@@ -4586,7 +4598,10 @@
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
         }
-      ]
+      ],
+      "referenceArchives": {
+        "pet-models/warfront-impostors/roster/rare-24.webp": "art-source/pet-portrait-refresh/reference-archive/rare-24-0cba30bad3e7.webp"
+      }
     },
     {
       "id": "rare-25",
@@ -4645,7 +4660,10 @@
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
         }
-      ]
+      ],
+      "referenceArchives": {
+        "pet-models/warfront-impostors/roster/rare-25.webp": "art-source/pet-portrait-refresh/reference-archive/rare-25-01a3c3b6c9eb.webp"
+      }
     },
     {
       "id": "rare-26",
@@ -4807,7 +4825,10 @@
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
         }
-      ]
+      ],
+      "referenceArchives": {
+        "pet-models/warfront-impostors/roster/rare-28.webp": "art-source/pet-portrait-refresh/reference-archive/rare-28-8720c563daef.webp"
+      }
     },
     {
       "id": "rare-29",
@@ -4866,7 +4887,10 @@
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
         }
-      ]
+      ],
+      "referenceArchives": {
+        "pet-models/warfront-impostors/roster/rare-29.webp": "art-source/pet-portrait-refresh/reference-archive/rare-29-848307230048.webp"
+      }
     },
     {
       "id": "rare-30",
@@ -4964,7 +4988,10 @@
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
         }
-      ]
+      ],
+      "referenceArchives": {
+        "pet-models/warfront-impostors/roster/rare-31.webp": "art-source/pet-portrait-refresh/reference-archive/rare-31-dbeac6155c33.webp"
+      }
     },
     {
       "id": "rare-32",
@@ -5251,6 +5278,9 @@
         "outputSha256": "cd6eca3a21939cd1b4c2542ade7d6270462b21f900057c30e46030cca7247a27",
         "notes": "Full-size native output visually checked: Upper-right banner is plain worn blue fabric; tern feathers, orange beak, wrap and both complete feet retained.",
         "reviewedAt": "2026-10-15T23:34:52.354Z"
+      },
+      "referenceArchives": {
+        "pet-models/warfront-impostors/roster/rare-37.webp": "art-source/pet-portrait-refresh/reference-archive/rare-37-5dcce085c4e9.webp"
       }
     },
     {
@@ -5292,6 +5322,9 @@
         "outputSha256": "e52d9475d2b93f2ce51b0efe4d58f48dc7a5ccd7df5378a6f5a4f630d109c6f8",
         "notes": "Squall Plover has an unrelated three-comma banner crest, with no single-spiral village symbol.",
         "reviewedAt": "2026-10-15T23:34:52.357Z"
+      },
+      "referenceArchives": {
+        "pet-models/warfront-impostors/roster/rare-38.webp": "art-source/pet-portrait-refresh/reference-archive/rare-38-c08cfae84707.webp"
       }
     },
     {
@@ -6409,7 +6442,10 @@
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
         }
-      ]
+      ],
+      "referenceArchives": {
+        "pet-models/warfront-impostors/roster/standard-9.webp": "art-source/pet-portrait-refresh/reference-archive/standard-9-52b7a2882a44.webp"
+      }
     },
     {
       "id": "standard-10",
@@ -6509,7 +6545,10 @@
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
         }
-      ]
+      ],
+      "referenceArchives": {
+        "pet-models/warfront-impostors/roster/standard-11.webp": "art-source/pet-portrait-refresh/reference-archive/standard-11-fb7ce2da06b2.webp"
+      }
     },
     {
       "id": "standard-12",
@@ -6558,7 +6597,10 @@
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
         }
-      ]
+      ],
+      "referenceArchives": {
+        "pet-models/warfront-impostors/roster/standard-12.webp": "art-source/pet-portrait-refresh/reference-archive/standard-12-2599c069cdd5.webp"
+      }
     },
     {
       "id": "standard-13",
@@ -6717,7 +6759,10 @@
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
         }
-      ]
+      ],
+      "referenceArchives": {
+        "pet-models/warfront-impostors/roster/standard-15.webp": "art-source/pet-portrait-refresh/reference-archive/standard-15-415cc868789b.webp"
+      }
     },
     {
       "id": "standard-16",
@@ -6766,7 +6811,10 @@
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
         }
-      ]
+      ],
+      "referenceArchives": {
+        "pet-models/warfront-impostors/roster/standard-16.webp": "art-source/pet-portrait-refresh/reference-archive/standard-16-d58ec1060481.webp"
+      }
     },
     {
       "id": "standard-17",
@@ -6859,7 +6907,10 @@
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
         }
-      ]
+      ],
+      "referenceArchives": {
+        "pet-models/warfront-impostors/roster/standard-18.webp": "art-source/pet-portrait-refresh/reference-archive/standard-18-0b3d55f1ad10.webp"
+      }
     },
     {
       "id": "standard-19",
@@ -6967,7 +7018,10 @@
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
         }
-      ]
+      ],
+      "referenceArchives": {
+        "pet-models/warfront-impostors/roster/standard-20.webp": "art-source/pet-portrait-refresh/reference-archive/standard-20-8909eb057b73.webp"
+      }
     },
     {
       "id": "standard-21",
@@ -7016,7 +7070,10 @@
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
         }
-      ]
+      ],
+      "referenceArchives": {
+        "pet-models/warfront-impostors/roster/standard-21.webp": "art-source/pet-portrait-refresh/reference-archive/standard-21-f95b7801bba7.webp"
+      }
     },
     {
       "id": "standard-22",
@@ -7905,7 +7962,10 @@
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
         }
-      ]
+      ],
+      "referenceArchives": {
+        "pet-models/warfront-impostors/roster/standard-38.webp": "art-source/pet-portrait-refresh/reference-archive/standard-38-87147c93c397.webp"
+      }
     },
     {
       "id": "standard-39",
@@ -7946,6 +8006,9 @@
         "outputSha256": "64b84d01dfc4c9b3e275896f9c1f1f7e463e0c5e9236e2b415dae81ea519c92d",
         "notes": "Glide Sparrow has an unrelated three-comma left banner and plain red headwrap.",
         "reviewedAt": "2026-10-15T23:34:52.514Z"
+      },
+      "referenceArchives": {
+        "pet-models/warfront-impostors/roster/standard-39.webp": "art-source/pet-portrait-refresh/reference-archive/standard-39-dc4ec4a3ed15.webp"
       }
     },
     {
@@ -7995,7 +8058,10 @@
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
         }
-      ]
+      ],
+      "referenceArchives": {
+        "pet-models/warfront-impostors/roster/standard-40.webp": "art-source/pet-portrait-refresh/reference-archive/standard-40-c0ca67cadefe.webp"
+      }
     },
     {
       "id": "standard-41",
@@ -8044,7 +8110,10 @@
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
         }
-      ]
+      ],
+      "referenceArchives": {
+        "pet-models/warfront-impostors/roster/standard-41.webp": "art-source/pet-portrait-refresh/reference-archive/standard-41-f61b09b176cf.webp"
+      }
     },
     {
       "id": "standard-42",
@@ -8093,7 +8162,10 @@
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
         }
-      ]
+      ],
+      "referenceArchives": {
+        "pet-models/warfront-impostors/roster/standard-42.webp": "art-source/pet-portrait-refresh/reference-archive/standard-42-ebdddea2cb13.webp"
+      }
     },
     {
       "id": "standard-43",
@@ -8146,7 +8218,10 @@
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
         }
-      ]
+      ],
+      "referenceArchives": {
+        "pet-models/warfront-impostors/roster/standard-43.webp": "art-source/pet-portrait-refresh/reference-archive/standard-43-d7701763b275.webp"
+      }
     },
     {
       "id": "standard-44",
@@ -8187,6 +8262,9 @@
         "outputSha256": "bb1397d7dc6bc637b753cd1252dc948220f7ae17c35d90baf6772fbbb775590a",
         "notes": "Zap Quail uses an unrelated three-comma banner crest; natural lightning feather marks retained.",
         "reviewedAt": "2026-10-15T23:34:52.528Z"
+      },
+      "referenceArchives": {
+        "pet-models/warfront-impostors/roster/standard-44.webp": "art-source/pet-portrait-refresh/reference-archive/standard-44-4c261c4c134d.webp"
       }
     },
     {
@@ -8252,7 +8330,10 @@
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
         }
-      ]
+      ],
+      "referenceArchives": {
+        "pet-models/warfront-impostors/roster/standard-45.webp": "art-source/pet-portrait-refresh/reference-archive/standard-45-1381eadb4505.webp"
+      }
     },
     {
       "id": "standard-46",
@@ -8301,7 +8382,10 @@
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
         }
-      ]
+      ],
+      "referenceArchives": {
+        "pet-models/warfront-impostors/roster/standard-46.webp": "art-source/pet-portrait-refresh/reference-archive/standard-46-6bd97bee06de.webp"
+      }
     },
     {
       "id": "standard-47",

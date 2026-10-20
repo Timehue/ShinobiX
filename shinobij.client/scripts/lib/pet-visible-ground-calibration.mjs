@@ -7,18 +7,22 @@ import { align4, encodeStudioGlb, parseStudioGlb, readStudioAccessor } from './p
 import { loadPetDeformationProbe, snapshotPetPose } from './pet-deformation-probe.mjs';
 
 export const VISIBLE_GROUND_INPUTS = Object.freeze({
-    'rare-22': {
-        source: '9d1faf17bae5e82929e4489a25b7f6263c869d226afb8f93615aa542dfe7d1f5',
-        battle: '6f6be91ae45623ad4b25c58a4d683e031795002fcf274692d0ff75a19bbc48ab',
+    "rare-22": {
+        "source": "9d1faf17bae5e82929e4489a25b7f6263c869d226afb8f93615aa542dfe7d1f5",
+        "battle": "6f6be91ae45623ad4b25c58a4d683e031795002fcf274692d0ff75a19bbc48ab"
     },
-    'rare-26': {
-        source: 'eb2db91ac4d04d87342500e2507d5bcfbbe322128bb194e5990d7eada4a0c957',
-        battle: '7956ea6af5fce5213a5a9d9f566dba857a7d9f9a700607c6080e45b7bc7c1a2c',
+    "rare-26": {
+        "source": "eb2db91ac4d04d87342500e2507d5bcfbbe322128bb194e5990d7eada4a0c957",
+        "battle": "7956ea6af5fce5213a5a9d9f566dba857a7d9f9a700607c6080e45b7bc7c1a2c"
     },
-    'rare-29': {
-        source: '8a990bcc34a418574a870129d641c1e3271620a9f7844657ebd356dfb0f254e3',
-        battle: 'fe6d23239e71b69dabd9c5de4fc5f0eab8132aac014cbc25510e5a0ff838f726',
+    "rare-29": {
+        "source": "8a990bcc34a418574a870129d641c1e3271620a9f7844657ebd356dfb0f254e3",
+        "battle": "fe6d23239e71b69dabd9c5de4fc5f0eab8132aac014cbc25510e5a0ff838f726"
     },
+    "rare-31": {
+        "source": "b03612bd77f9302cb11c1e8fe0a2d6d55a261b910dd2dad19d9138519fb452c6",
+        "battle": "5ca3d791525829402ac9a37a04944fc80aeaf218d8b8fcc8255e6c8fdebbec00"
+    }
 });
 
 function evaluateOriginal(times, values, time) {
