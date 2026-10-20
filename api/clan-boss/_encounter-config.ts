@@ -20,7 +20,8 @@ export function configureClanBossEncounter(session: TowerSession, floor: TowerFl
     session.roundCap = Math.max(1, Math.min(MAX_ROUNDS, Math.floor(floor.roundBudget)));
 
     // Guard only—no level-keyed HP/stat band. Boss vitality is the persistent
-    // clan-pool slice, and the shared builder already scaled adds/outgoing damage.
+    // clan-pool slice. New operation starts keep the authored enemy strength;
+    // ordinary Tower party discounts never apply to this cooperative encounter.
     sealPveDifficultyBand(session, { mode: 'CLAN_BOSS', scaleHp: false, scaleStats: false });
     // Enemy jutsu use their authored mastery instead of the generic 30% fallback.
     sealPveAiMastery(session, { mode: 'CLAN_BOSS' });

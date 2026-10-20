@@ -23,6 +23,7 @@ import { recordTowerCombatUsage } from '../_combat-usage.js';
 import { extractTowerLegacyDeltas } from '../_legacy-pve.js';
 import { bumpLegacyStats } from '../_legacy-track.js';
 import { clanBossEnabled } from '../_release-flags.js';
+import { projectTowerSettlementState } from '../towers/_settlement-projection.js';
 
 /*
  * POST /api/clan-boss/assault-settle — bank a FINISHED clan-boss assault into the
@@ -105,6 +106,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (!slug) continue;
             setSafeRecordValue(consumables, slug, await settleConsumedItemsForMember({ session, slug }));
         }
+        if (Object.values(consumables).some(value => !value.consumed && value.reason !== 'none' && value.reason !== 'already-consumed')) {
+            return res.status(503).json({ error: 'Your contribution is saved. Used supplies still need to be recorded. Retry this assault result.', retryable: true });
+        }
+
+        const awardPoints: typeof awardClanPointsToPlayerSave = async (...args) => {
+            const award = await awardClanPointsToPlayerSave(...args);
+            if (!award.found) throw new Error('Clan Boss point delivery is pending. Retry this assault result.');
+            return award;
+        };
 
         let awardedCharacter: Record<string, unknown> | undefined;
         const outcomeBody = outcome.body as Record<string, unknown>;
@@ -132,14 +142,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // These awards use stable event IDs, so retry them even after damage was
         // already settled. That heals a transient player-save failure without
         // double-crediting members whose first write succeeded.
-        await Promise.allSettled(others.map((member) => awardClanPointsToPlayerSave(member, 'clanBossParticipation', 60, {
+        await Promise.all(others.map((member) => awardPoints(member, 'clanBossParticipation', 60, {
             eventId: `clanBoss:${assault.weekId}:${runId}:participation:${member}`,
             runId,
             clan: assault.clanName,
             damage: result.damage,
         })));
         if (party.includes(playerName)) {
-            const participation = await awardClanPointsToPlayerSave(playerName, 'clanBossParticipation', 60, {
+            const participation = await awardPoints(playerName, 'clanBossParticipation', 60, {
                 eventId: `clanBoss:${assault.weekId}:${runId}:participation:${playerName}`,
                 runId,
                 clan: assault.clanName,
@@ -148,13 +158,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (participation.found) awardedCharacter = participation.character;
         }
         if (outcomeBody.justKilled) {
-            await Promise.allSettled(others.map((member) => awardClanPointsToPlayerSave(member, 'clanBossDefeat', 50, {
+            await Promise.all(others.map((member) => awardPoints(member, 'clanBossDefeat', 50, {
                 eventId: `clanBoss:${assault.weekId}:${runId}:defeat:${member}`,
                 runId,
                 clan: assault.clanName,
             })));
             if (party.includes(playerName)) {
-                const defeat = await awardClanPointsToPlayerSave(playerName, 'clanBossDefeat', 50, {
+                const defeat = await awardPoints(playerName, 'clanBossDefeat', 50, {
                     eventId: `clanBoss:${assault.weekId}:${runId}:defeat:${playerName}`,
                     runId,
                     clan: assault.clanName,
@@ -175,7 +185,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const sector = boss
             ? await applyOperationPressure({ weekId: assault.weekId, boss, runId, damage: result.damage, contributions, now })
             : null;
-        if (assault.partyId) await completeParty(assault.partyId, runId, now).catch(() => null);
+        if (assault.partyId) await completeParty(assault.partyId, runId, now);
 
         if (outcomeBody.justKilled && boss) {
             const gate = await kv.set(`clan-boss:announced:${assault.weekId}:${assault.clanName.toLowerCase().replace(/[^a-z0-9]/g, '')}`, '1', { nx: true, ex: 9 * 24 * 60 * 60 }).catch(() => null);
@@ -244,8 +254,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const finalCharacter = finalPlayerRecord?.character as Record<string, unknown> | undefined;
         if (finalCharacter) awardedCharacter = finalCharacter;
 
+        // Banking damage does not prove the receipts above finished. Only now
+        // close recovery under the same monotonic session lock as Tower actions.
+        const completed = await projectTowerSettlementState(runId, true);
+        if (completed?.rewardSettlementState !== 'settled') {
+            return res.status(503).json({ error: 'Your contribution is saved. The assault result could not be finalized yet. Try again.', retryable: true });
+        }
+
         return res.status(outcome.status).json({
             ...(outcome.body as Record<string, unknown>),
+            settled: true,
             consumables,
             contributions,
             professionAwards,

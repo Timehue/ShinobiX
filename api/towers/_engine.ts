@@ -1,4 +1,5 @@
 import { petSignatureMastery } from '../../shared/pet-ability-mastery.js';
+import { clanBossOutcomeLog } from '../../shared/clan-boss-operation.js';
 import { pveSpecialistDamagePercent } from '../../shared/relics.js';
 import { HUNT_AI_POLICY, pickHuntAiAction } from './_hunt-ai.js';
 import { primeTowerSignature, resolveTowerSignature, recordTowerKnockouts, cancelInvalidTowerSignature } from './_combat-tactics.js';
@@ -69,7 +70,7 @@ import { resolveCastFlavor } from '../combat-core/cast-flavor.js';
 import { MAX_COMBAT_VFX_TILES, canonicalJutsuMethod, canonicalJutsuTagNames, semanticJutsuVfx } from '../combat-core/jutsu-vfx.js';
 import type { PvpFighter, PvpGroundEffect, PvpStatus } from '../pvp/session.js';
 import type { EnemyTemplate } from './_enemy-templates.js';
-import { partyScaleFactor, scaleEnemyStat, getFloorBalanceFor, type TowerFloor, type TowerTargetMode } from './_floor-catalog.js';
+import { CLAN_BOSS_FLOORS, partyScaleFactor, scaleEnemyStat, getFloorBalanceFor, type TowerFloor, type TowerTargetMode } from './_floor-catalog.js';
 import {
     type TowerSession,
     type TowerActor,
@@ -2228,6 +2229,12 @@ function squadFightersAlive(session: TowerSession): boolean {
     return session.actors.some(a => a.side === 'squad' && a.hp > 0 && !isCompanionActor(a));
 }
 
+function pushOutcomeLog(session: TowerSession, floor: TowerFloor, line: string): void {
+    const clan = session.towerId === 'clan-boss'
+        || (session.runId.startsWith('cboss-') && CLAN_BOSS_FLOORS.some(entry => entry.id === floor.id));
+    session.log.push(clan ? clanBossOutcomeLog(line, floor.id) : line);
+}
+
 export function checkTowerWinner(session: TowerSession, floor: TowerFloor): void {
     if (cancelInvalidTowerSignature(session)) refreshHazardTelegraph(session);
     recordTowerKnockouts(session);
@@ -2241,7 +2248,7 @@ export function checkTowerWinner(session: TowerSession, floor: TowerFloor): void
     if (!squadFightersAlive(session)) {
         session.status = 'done'; session.winner = 'enemy';
         session.objectiveState.failed = true;
-        session.log.push(session.worldBossEvent ? 'Team wiped — world boss raid ended. Your contribution can still be banked.' : 'Squad wiped — floor failed.');
+        pushOutcomeLog(session, floor, session.worldBossEvent ? 'Team wiped — world boss raid ended. Your contribution can still be banked.' : 'Squad wiped — floor failed.');
         return;
     }
     if (objectiveFailed(session, floor)) {
@@ -2253,7 +2260,7 @@ export function checkTowerWinner(session: TowerSession, floor: TowerFloor): void
     if (squadWinsByObjective(session, floor)) {
         session.status = 'done'; session.winner = 'squad';
         session.objectiveState.completed = true;
-        session.log.push(session.towerId === 'hunt' ? 'Hunt encounter cleared!'
+        pushOutcomeLog(session, floor, session.towerId === 'hunt' ? 'Hunt encounter cleared!'
             : session.towerId === 'sunscar-caravan-ambush' ? 'The road is open.'
                 : session.worldBossEvent ? 'Boss health depleted — confirm the shared world boss result.' : `Floor ${floor.id} cleared!`);
     }
@@ -2988,7 +2995,7 @@ export function endTurn(session: TowerSession, floor: TowerFloor): void {
         session.status = 'done';
         session.winner = 'enemy';
         session.objectiveState.failed = true;
-        session.log.push(session.worldBossEvent ? 'Round limit reached — world boss raid ended. Bank your team contribution.' : 'Round limit reached — floor failed.');
+        pushOutcomeLog(session, floor, session.worldBossEvent ? 'Round limit reached — world boss raid ended. Bank your team contribution.' : 'Round limit reached — floor failed.');
         return;
     }
     session.round += 1;
@@ -3491,7 +3498,7 @@ function forceTimeoutResolve(session: TowerSession, floor: TowerFloor): void {
         session.status = 'done';
         session.winner = 'enemy';
         session.objectiveState.failed = true;
-        session.log.push('Floor resolution stalled — floor failed.');
+        pushOutcomeLog(session, floor, 'Floor resolution stalled — floor failed.');
     }
 }
 
