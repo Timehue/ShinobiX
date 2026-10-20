@@ -3,6 +3,7 @@ import { compactGlbDelivery } from './scripts/compact-glb-delivery.mjs';
 import { sectorRuntimeData } from './scripts/sector-runtime-data.mjs';
 import { packedWorldData } from './scripts/packed-world-data.mjs';
 import { packStaticCatalog } from './scripts/pack-static-catalog.mjs';
+import { progressionCatalogDelivery } from './scripts/progression-catalog-delivery.mjs';
 import { CHRONICLE_LEGACY_SOURCES } from '../shared/legacy-card-sources.ts';
 import { hollowRifts } from './src/data/hollow-rifts.ts';
 import { fileURLToPath, URL } from 'node:url';
@@ -124,8 +125,6 @@ const PUBLIC_LOCAL_ONLY_ASSETS = new Set([
     'assets/warfront/kage-fire-impact-burst-v1.png',
     'assets/warfront/kage-tactics-temple-court-v2-landscape.webp',
     'assets/warfront/kage-tactics-temple-court-v2-portrait.webp',
-    // Pebble now resolves to the reviewed standard-5 roster model.
-    'pet-models/starter-earth.glb',
     // Kept as the authoring input for showdown-v2, which is the live resolver's
     // Raijin model. The top-level copy is never requested by the game.
     'pet-models/starter-lightning-l.glb',
@@ -478,6 +477,7 @@ export default defineConfig({
                 if (file.endsWith('/src/data/hollow-rifts.ts')) return { code: packStaticCatalog(source, 'hollowRifts', hollowRifts), map: null };
             },
         },
+        progressionCatalogDelivery(),
         plugin(),
         runtimePublicAssetsPlugin(),
         ViteImageOptimizer({
@@ -1317,6 +1317,9 @@ export default defineConfig({
         alias: {
             '@': fileURLToPath(new URL('./src', import.meta.url))
         }
+    },
+    worker: {
+        plugins: () => [progressionCatalogDelivery()],
     },
     build: {
         // 2026-09-02 Railway parity drain: production-length public build args

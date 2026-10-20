@@ -2504,6 +2504,10 @@
             "line": 1550
           },
           {
+            "source": "shinobij.client/src/styles/pet-progression.css",
+            "line": 18
+          },
+          {
             "source": "shinobij.client/src/styles/pet-techniques.css",
             "line": 53
           },
@@ -2756,15 +2760,15 @@
           },
           {
             "source": "shinobij.client/src/components/underground-sector.css",
-            "line": 184
+            "line": 190
           },
           {
             "source": "shinobij.client/src/components/underground-sector.css",
-            "line": 211
+            "line": 217
           },
           {
             "source": "shinobij.client/src/components/underground-sector.css",
-            "line": 252
+            "line": 258
           },
           {
             "source": "shinobij.client/src/features/anbuInfiltration/stronghold.css",
@@ -3383,15 +3387,15 @@
           },
           {
             "source": "shinobij.client/src/components/underground-sector.css",
-            "line": 194
+            "line": 200
           },
           {
             "source": "shinobij.client/src/components/underground-sector.css",
-            "line": 211
+            "line": 217
           },
           {
             "source": "shinobij.client/src/components/underground-sector.css",
-            "line": 231
+            "line": 237
           },
           {
             "source": "shinobij.client/src/features/anbuInfiltration/stronghold.css",
@@ -3714,7 +3718,7 @@
           },
           {
             "source": "shinobij.client/src/components/underground-sector.css",
-            "line": 231
+            "line": 237
           },
           {
             "source": "shinobij.client/src/features/character-creator/character-creator.css",
@@ -3982,7 +3986,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/34-hollow-gate-combat-director.css",
-            "line": 158
+            "line": 174
           },
           {
             "source": "shinobij.client/src/styles/pet-arena-lobby.css",
@@ -4421,7 +4425,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/components/underground-sector.css",
-            "line": 175
+            "line": 181
           },
           {
             "source": "shinobij.client/src/features/anbuInfiltration/stronghold.css",

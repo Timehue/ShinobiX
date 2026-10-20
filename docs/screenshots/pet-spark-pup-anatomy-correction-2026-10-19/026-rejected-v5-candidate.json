@@ -1,0 +1,71 @@
+{
+  "id": "starter-lightning",
+  "config": {
+    "status": "repair",
+    "finding": "Original source and battle raw and all 216 techniques inspected. Lower mask and jaw shear during recoil. Private face-weight candidate; original limb curves and the separate confirmed paw-floor issue remain under review.",
+    "revision": "20261019-spark-pup-complete-face-v5",
+    "supersedesSourceSha256": "5b96adb25eca071c6b1df6c020cd19def0a37d4b779c41eade34114f4089406f",
+    "y": [
+      -0.42,
+      -0.26
+    ],
+    "z": [
+      0.1,
+      0.32
+    ],
+    "x": [
+      0.65,
+      0.75
+    ],
+    "neckTransition": {
+      "iterations": 24,
+      "edges": [
+        [
+          4980,
+          5001
+        ],
+        [
+          5001,
+          5000
+        ],
+        [
+          2047,
+          2056
+        ]
+      ],
+      "protectBelowY": -0.6,
+      "featherY": 0.2,
+      "region": {
+        "y": [
+          -0.5,
+          -0.25
+        ],
+        "z": [
+          0.1,
+          0.3
+        ],
+        "x": [
+          0.65,
+          0.75
+        ]
+      }
+    },
+    "skinEdges": [
+      [
+        2861,
+        2870
+      ]
+    ],
+    "weightPrecision": "float32",
+    "continuousInfluencePacking": true
+  },
+  "result": {
+    "id": "starter-lightning",
+    "changed": 6892,
+    "rigid": 5781
+  },
+  "beforeSha256": "5b96adb25eca071c6b1df6c020cd19def0a37d4b779c41eade34114f4089406f",
+  "sha256": "1c35e024d87dcb7b9148e68dff323cd7acfb00169902b101c423976f12e878a8",
+  "sourcePromoted": false,
+  "visualApproval": false
+}

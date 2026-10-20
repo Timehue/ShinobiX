@@ -1,6 +1,7 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import type { PvpFighter } from '../pvp/session.js';
+import { hollowGateSessionDirective, sealHollowGateTelegraph } from '../../shared/hollow-gate-telegraph.js';
 import { endSoloPveTurn } from './_engine.js';
 import { createSoloPveSession, type SoloPveSession } from './_session.js';
 import { GRID_H, GRID_W } from '../combat-core/constants.js';
@@ -137,16 +138,14 @@ function alphaAtEnemyTurnEnd(round: number, alphaHp: number, playerPos: number):
     });
     session.round = round;
     session.activeSide = 'enemy';
+    sealHollowGateTelegraph(session);
     return session;
 }
 
 /** What the arena shows for that same state (MissionArenaFight computes the
  *  directive from the session's round, the Alpha's HP and the player's tile). */
 function displayed(session: SoloPveSession): HollowGateCombatDirective {
-    return hollowGateCombatDirective({
-        floor: 5, kind: 'boss', turn: session.round, enemyHp: session.enemy.hp, enemyMaxHp: session.enemy.maxHp,
-        playerPos: session.player.pos, enemyPos: session.enemy.pos, gridWidth: GRID_W, gridHeight: GRID_H,
-    });
+    return hollowGateSessionDirective(session)!;
 }
 
 function resolve(session: SoloPveSession): number {
@@ -189,27 +188,16 @@ describe('Hollow Gate Alpha phase II in the engine that deals the damage', () =>
         }
     });
 
-    it('a threshold the player crosses mid-turn is shown before, and resolved with, the new phase', () => {
-        // Round 4 in phase I is between howls: nothing to dodge. The player's
-        // hit drops the Alpha to 69% during their own turn; the arena
-        // recomputes from the new HP at once and the engine resolves the SAME
-        // phase II opening at the end of the Alpha's turn.
-        const s = alphaAtEnemyTurnEnd(4, 710, oddTile);
-        assert.equal(displayed(s).phase, 1);
-        assert.deepEqual(displayed(s).hazardTiles, []);
-        s.enemy = { ...s.enemy, hp: 690 };
-        const shown = displayed(s);
-        assert.equal(shown.phase, 2);
-        assert.ok(shown.hazardTiles.includes(oddTile));
-        assert.equal(resolve(s), 80);
-        // Across 35% the Alpha switches to phase III's checkerboard the same way.
-        const deep = alphaAtEnemyTurnEnd(4, 360, oddTile);
-        deep.enemy = { ...deep.enemy, hp: 340 };
-        const deepShown = displayed(deep);
-        assert.equal(deepShown.phase, 3);
-        assert.ok(deepShown.hazardTiles.includes(oddTile), 'column 5, row 2 is off the phase III seal at turn 4');
-        assert.equal(resolve(deep), hollowGateHazardDamage(deepShown, oddTile, 1_000));
-        assert.equal(hollowGateHazardDamage(deepShown, oddTile, 1_000), 90);
+    it('thresholds crossed mid-turn activate only at the next player decision', () => {
+        for (const [before, after, phase] of [[710, 690, 1], [360, 340, 2]] as const) {
+            const s = alphaAtEnemyTurnEnd(4, before, oddTile);
+            const shown = displayed(s);
+            assert.equal(shown.phase, phase);
+            s.enemy.hp = after;
+            assert.deepEqual(displayed(s), shown, 'the advertised rule survives damage');
+            assert.equal(resolve(s), hollowGateHazardDamage(shown, oddTile, 1000));
+            assert.equal(displayed(s).phase, phase + 1, 'next decision activates the phase');
+        }
     });
 
     it('a save/resume reproduces the same directive and the same damage', () => {

@@ -1,0 +1,365 @@
+{
+  "schema": 1,
+  "rendererSha256": "b2253b71fbcb21a83d82de35ab5783dd57b525cfc94740fb131dd1eb0049a897",
+  "companionComponentSha256": "472645f0ade2c17a8be0a8f9fa5af0fdb9d47f4c835e24e6a374c8219b33e4ab",
+  "appearance": "original",
+  "collarId": "",
+  "quality": "low",
+  "errors": [],
+  "pets": [
+    {
+      "id": "starter-earth",
+      "name": "Pebble Tortoise",
+      "mode": "exact-production-companion-component",
+      "sourceSha256": "c56b6391da217d8aa076c5cde6ea150b0eefa78b33d0ba347390e58001fc3a83",
+      "battleSha256": "d0fbe8099f23b4ea619d5ecf866e758b2f017c4ad8266a03e2e0f8f101b520dc",
+      "requests": [
+        "https://localhost:5207/pet-models/warfront-lod/starter-earth.glb?v=20260902-battle-lod-v1-c99b0471489b-64524351ebb7",
+        "https://localhost:5207/pet-models/warfront-lod/starter-earth.glb?v=20260902-battle-lod-v1-c99b0471489b-64524351ebb7"
+      ],
+      "frames": [
+        {
+          "engine": "three.js r185",
+          "previewFrames": "9",
+          "previewTime": "0.4088999999985099",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10030",
+          "previewModel": "/pet-models/warfront-lod/starter-earth.glb?v=20260902-battle-lod-v1-c99b0471489b-64524351ebb7",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "21",
+          "previewTime": "0.8883000000007452",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10030",
+          "previewModel": "/pet-models/warfront-lod/starter-earth.glb?v=20260902-battle-lod-v1-c99b0471489b-64524351ebb7",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "30",
+          "previewTime": "1.2598000000007452",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10030",
+          "previewModel": "/pet-models/warfront-lod/starter-earth.glb?v=20260902-battle-lod-v1-c99b0471489b-64524351ebb7",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "42",
+          "previewTime": "1.772800000000745",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10030",
+          "previewModel": "/pet-models/warfront-lod/starter-earth.glb?v=20260902-battle-lod-v1-c99b0471489b-64524351ebb7",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "52",
+          "previewTime": "2.162",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10030",
+          "previewModel": "/pet-models/warfront-lod/starter-earth.glb?v=20260902-battle-lod-v1-c99b0471489b-64524351ebb7",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "64",
+          "previewTime": "2.644300000000744",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10030",
+          "previewModel": "/pet-models/warfront-lod/starter-earth.glb?v=20260902-battle-lod-v1-c99b0471489b-64524351ebb7",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "73",
+          "previewTime": "3.0150000000037243",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10030",
+          "previewModel": "/pet-models/warfront-lod/starter-earth.glb?v=20260902-battle-lod-v1-c99b0471489b-64524351ebb7",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "84",
+          "previewTime": "3.464400000002234",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10030",
+          "previewModel": "/pet-models/warfront-lod/starter-earth.glb?v=20260902-battle-lod-v1-c99b0471489b-64524351ebb7",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "94",
+          "previewTime": "3.874200000002979",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10030",
+          "previewModel": "/pet-models/warfront-lod/starter-earth.glb?v=20260902-battle-lod-v1-c99b0471489b-64524351ebb7",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "102",
+          "previewTime": "4.198900000005959",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10030",
+          "previewModel": "/pet-models/warfront-lod/starter-earth.glb?v=20260902-battle-lod-v1-c99b0471489b-64524351ebb7",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "112",
+          "previewTime": "4.613800000008194",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10030",
+          "previewModel": "/pet-models/warfront-lod/starter-earth.glb?v=20260902-battle-lod-v1-c99b0471489b-64524351ebb7",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "124",
+          "previewTime": "5.096100000005212",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10030",
+          "previewModel": "/pet-models/warfront-lod/starter-earth.glb?v=20260902-battle-lod-v1-c99b0471489b-64524351ebb7",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "133",
+          "previewTime": "5.465300000004467",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10030",
+          "previewModel": "/pet-models/warfront-lod/starter-earth.glb?v=20260902-battle-lod-v1-c99b0471489b-64524351ebb7",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "144",
+          "previewTime": "5.917100000005212",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10030",
+          "previewModel": "/pet-models/warfront-lod/starter-earth.glb?v=20260902-battle-lod-v1-c99b0471489b-64524351ebb7",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "155",
+          "previewTime": "6.377900000005957",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10030",
+          "previewModel": "/pet-models/warfront-lod/starter-earth.glb?v=20260902-battle-lod-v1-c99b0471489b-64524351ebb7",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "167",
+          "previewTime": "6.855300000004467",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10030",
+          "previewModel": "/pet-models/warfront-lod/starter-earth.glb?v=20260902-battle-lod-v1-c99b0471489b-64524351ebb7",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "179",
+          "previewTime": "7.357500000003723",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10030",
+          "previewModel": "/pet-models/warfront-lod/starter-earth.glb?v=20260902-battle-lod-v1-c99b0471489b-64524351ebb7",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "190",
+          "previewTime": "7.81190000000596",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10030",
+          "previewModel": "/pet-models/warfront-lod/starter-earth.glb?v=20260902-battle-lod-v1-c99b0471489b-64524351ebb7",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "201",
+          "previewTime": "8.247400000005962",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10030",
+          "previewModel": "/pet-models/warfront-lod/starter-earth.glb?v=20260902-battle-lod-v1-c99b0471489b-64524351ebb7",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "211",
+          "previewTime": "8.665400000002238",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10030",
+          "previewModel": "/pet-models/warfront-lod/starter-earth.glb?v=20260902-battle-lod-v1-c99b0471489b-64524351ebb7",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "221",
+          "previewTime": "9.067100000001494",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10030",
+          "previewModel": "/pet-models/warfront-lod/starter-earth.glb?v=20260902-battle-lod-v1-c99b0471489b-64524351ebb7",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "232",
+          "previewTime": "9.509800000000748",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10030",
+          "previewModel": "/pet-models/warfront-lod/starter-earth.glb?v=20260902-battle-lod-v1-c99b0471489b-64524351ebb7",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "240",
+          "previewTime": "9.846699999999258",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10030",
+          "previewModel": "/pet-models/warfront-lod/starter-earth.glb?v=20260902-battle-lod-v1-c99b0471489b-64524351ebb7",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "249",
+          "previewTime": "10.223500000000001",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10030",
+          "previewModel": "/pet-models/warfront-lod/starter-earth.glb?v=20260902-battle-lod-v1-c99b0471489b-64524351ebb7",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        }
+      ],
+      "sheets": [
+        {
+          "name": "starter-earth/idle-sheet-0.webp",
+          "sha256": "67c7a4d0d32366e51096c1b59b23dd4d1459ed3c5793cf86dedceb61a16878f3"
+        },
+        {
+          "name": "starter-earth/idle-sheet-1.webp",
+          "sha256": "52fc9dbf346a0fe1e24e2f7c18db233855a060b136d154ca244f62404755649e"
+        },
+        {
+          "name": "starter-earth/idle-sheet-2.webp",
+          "sha256": "37958aed28ae11f5e9292472f5f18930522bc183d3af7363e12d0dc623c70a8a"
+        },
+        {
+          "name": "starter-earth/idle-sheet-3.webp",
+          "sha256": "881d9ee36ae30c1a538abf8e35d80d9a71e10d1fe3ea3e64fa64092106e02f3c"
+        },
+        {
+          "name": "starter-earth/idle-sheet-4.webp",
+          "sha256": "2164fb568f597df2c38d63af746cc435e66d0ecd5ce8c5122c36f9fcd3355df4"
+        },
+        {
+          "name": "starter-earth/idle-sheet-5.webp",
+          "sha256": "3f9a355b1a82e43a7a33691fb754a161b56dff4e1a7825aaa70fd1d9cd5cc673"
+        }
+      ],
+      "errors": [],
+      "review": "pending"
+    }
+  ],
+  "artisticCertification": false
+}

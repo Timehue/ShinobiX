@@ -10,7 +10,11 @@ export function freezeVisibleSoleRegions(original,annotation) {
     for(const[name,patch]of Object.entries(annotation.patches)){
         assert.ok(patch.indices.length>=8,`${name}: too few original surface points`);
         const box=new T.Box3().setFromPoints(patch.indices.map(i=>point(mesh,i)));
-        assert.ok(box.getSize(new T.Vector3()).length()<.25,`${name}: contaminated sole region`);
+        // Large sculpted feet need an explicit limit frozen with the original
+        // anatomical annotation. Never infer this allowance from fitted weights.
+        const spanLimit=patch.maxOriginalSpan??.25;
+        assert.ok(Number.isFinite(spanLimit)&&spanLimit>0&&spanLimit<=.8,`${name}: invalid original sole span limit`);
+        assert.ok(box.getSize(new T.Vector3()).length()<spanLimit,`${name}: contaminated sole region`);
         assert.ok(box.max.y-box.min.y<.04,`${name}: non-sole geometry in patch`);
         regions[name]={indices:patch.indices.slice(),min:box.min.toArray(),max:box.max.toArray(),center:box.getCenter(new T.Vector3()).toArray(),parent:name.startsWith('front')?'chest':'pelvis'};
     }
@@ -36,11 +40,14 @@ export function selectVisibleSoleRegions(model,regions,{original,stage='source',
     return selected;
 }
 
-export function measureVisibleLimbPerformances(model,regions,{legacy=false,samples=33}={}){
+export function measureVisibleLimbPerformances(model,regions,{legacy=false,samples=33,limbNames}={}){
     const mesh=model.meshes[0],restore=snapshotPetPose(model.scene),mixer=new T.AnimationMixer(model.scene);
     const limb=/^(?:(?:front|hind)_(?:upper|lower|paw)|upper_arm|forearm|hand|thigh|shin|foot)[LR]\./;
     const fitted=/^(?:front|hind)_(?:upper|lower|paw)[LR]\./;
-    const isLimbTrack=track=>legacy?limb.test(track.name.replace(/^legacy_/,'')):fitted.test(track.name);
+    const scope=limbNames?new Set(limbNames):null;
+    if(scope)for(const name of scope)assert.ok(mesh.skeleton.bones.some(b=>b.name===name),`Unknown counterfactual limb: ${name}`);
+    const isLimbTrack=track=>(legacy?limb.test(track.name.replace(/^legacy_/,'')):fitted.test(track.name))
+        &&(!scope||scope.has(track.name.slice(0,track.name.lastIndexOf('.'))));
     const results=[];
     function pose(clip,time){mixer.stopAllAction();restore();const a=mixer.clipAction(clip).reset().setLoop(T.LoopOnce,1);a.clampWhenFinished=true;a.play();a.time=time;mixer.update(0);model.update();}
     for(const clip of model.animations){
@@ -58,7 +65,8 @@ export function measureVisibleLimbPerformances(model,regions,{legacy=false,sampl
             pose(frozen,time);
             for(const[name,r]of Object.entries(regions))for(const[j,index]of r.indices.entries())patches[name].maxLimbContribution=Math.max(patches[name].maxLimbContribution,point(mesh,index).distanceTo(normal[name][j]));
         }
-        results.push({clip:clip.name,samples,frozenLimbChannels:clip.tracks.filter(isLimbTrack).length,patches});
+        results.push({clip:clip.name,samples,frozenLimbChannels:clip.tracks.filter(isLimbTrack).length,
+            ...(scope?{frozenLimbTrackNames:clip.tracks.filter(isLimbTrack).map(t=>t.name)}:{}),patches});
         mixer.uncacheClip(frozen);mixer.uncacheClip(clip);
     }
     mixer.stopAllAction();restore();model.update();return results;

@@ -1,0 +1,8 @@
+import {readFile,writeFile} from 'node:fs/promises';
+const dir='.tmp/pebble-full-remake',d=JSON.parse(await readFile(dir+'/pebble-remade-mesh-private.json')),canonical=[],map=new Map(),points=[],edges=new Map(),adj=new Map();
+for(let i=0;i<d.groups.length;i++){if(d.groups[i]!=='skin')continue;const p=d.positions.slice(i*3,i*3+3),key=p.map(v=>Math.round(v*1e5)).join(',');if(!map.has(key)){map.set(key,points.length);points.push(p);}canonical[i]=map.get(key);}
+for(let i=0;i<d.indices.length;i+=3){const ids=d.indices.slice(i,i+3);if(ids.some(v=>d.groups[v]!=='skin'))continue;const tri=ids.map(v=>canonical[v]);for(let k=0;k<3;k++){const a=tri[k],b=tri[(k+1)%3],key=a<b?a+','+b:b+','+a;edges.set(key,(edges.get(key)??0)+1);if(!adj.has(a))adj.set(a,new Set());adj.get(a).add(b);if(!adj.has(b))adj.set(b,new Set());adj.get(b).add(a);}}
+const visited=new Set(),components=[];for(let i=0;i<points.length;i++)if(!visited.has(i)){const q=[i],vertices=[];while(q.length){const v=q.pop();if(visited.has(v))continue;visited.add(v);vertices.push(v);for(const n of adj.get(v)??[])if(!visited.has(n))q.push(n);}components.push({vertices:vertices.length,min:[0,1,2].map(k=>Math.min(...vertices.map(i=>points[i][k]))),max:[0,1,2].map(k=>Math.max(...vertices.map(i=>points[i][k])))});}
+const result={bodySurface:'Entire new skin: skull, muzzle, chin, neck, torso, arms, palms, fingers, hips, legs, toes',components,boundaryEdges:[...edges.values()].filter(n=>n===1).length,nonManifoldEdges:[...edges.values()].filter(n=>n>2).length,privateCandidateOnly:true,visualApproval:false};
+await writeFile(dir+'/private-skin-topology.json',JSON.stringify(result,null,2));console.log(result);
+if(components.length!==1||result.boundaryEdges||result.nonManifoldEdges)process.exitCode=1;

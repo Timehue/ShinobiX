@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { hollowGateCombatDirective } from './hollow-gate-combat-director';
+import { hollowGateSessionDirective, sealHollowGateTelegraph } from './hollow-gate-telegraph';
 
 test('rift and human enemies get floor announcements without inheriting a Hollow Hound identity', () => {
     for (let floor = 1; floor <= 5; floor++) for (let turn = 1; turn <= 6; turn++) for (const hp of [100, 60, 20]) {
@@ -13,5 +14,23 @@ test('rift and human enemies get floor announcements without inheriting a Hollow
             for (const key of ['phase', 'hazardTiles', 'safeTiles', 'hazardDamagePct', 'incomingDamageMultiplier', 'outgoingDamageMultiplier'] as const)
                 assert.deepEqual(corrected[key], original[key], `${enemyVisual}/${floor}/${turn}/${hp}/${key}`);
         }
+    }
+});
+
+test('the shared saved telegraph keeps named opponents clear without changing the advertised hazards', () => {
+    for (const visual of ['rift-boss-legacy-echo', 'shinobi']) {
+        const state = {
+            round: 3,
+            encounter: { kind: 'hollow-gate', metadata: { floor: 5, combatKind: 'boss' } },
+            player: { pos: 4 },
+            enemy: { name: 'Archive Warden', hp: 60, maxHp: 100, pos: 30, character: { visual } },
+        };
+        const announced = hollowGateSessionDirective(state)!;
+        assert.doesNotMatch([announced.title, announced.instruction, announced.signature].join(' '), /Alpha|Hound|paws|pounce/i);
+        sealHollowGateTelegraph(state);
+        state.enemy.hp = 20;
+        state.player.pos = 9;
+        const sealed = hollowGateSessionDirective(state)!;
+        assert.deepEqual(sealed, announced, 'the label fix must preserve the exact cue already shown for this turn');
     }
 });

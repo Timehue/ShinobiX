@@ -1,4 +1,4 @@
-import type { Character } from '../types/character';
+import type { Character, VersionedCharacterCommit } from '../types/character';
 import type { SoloPveSession } from './solo-pve-api';
 
 export type HollowGateCombatKind = 'battle' | 'elite' | 'ambush' | 'beast' | 'boss';
@@ -22,11 +22,15 @@ export type HollowGateCombatStartResult = {
 };
 
 export type HollowGateCombatSettleResult = {
+    terminalReason?: import('../../../shared/solo-pve-terminal').SoloPveTerminalReason;
+    opponentName?: string;
+    roundLimit?: number;
     ok: boolean;
     won: boolean;
     revived?: boolean;
     escaped?: boolean;
     petDefeat?: boolean;
+    ended?: boolean;
     alreadyReported?: boolean;
     reward?: Record<string, number>;
     elementalShards?: number;
@@ -69,19 +73,25 @@ export async function settleHollowGateCombat(params: {
     return data as HollowGateCombatSettleResult;
 }
 
+export class HollowGateDescentError extends Error {
+    pendingAmbush?: { nodeId: string; kind: 'battle' | 'ambush' | 'boss' | 'card' } | null;
+    constructor(message: string, pendingAmbush?: HollowGateDescentError['pendingAmbush']) { super(message); this.pendingAmbush = pendingAmbush; }
+}
+
 export async function descendHollowGateRun(params: {
     playerName: string;
     token: string;
     fromFloor: number;
-}): Promise<number> {
+}, onVersionedCharacter?: VersionedCharacterCommit): Promise<number> {
     const response = await fetch('/api/hollow-gate/descend', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(params),
     });
-    const data = await response.json().catch(() => ({})) as { ok?: boolean; floor?: number; error?: string };
+    const data = await response.json().catch(() => ({})) as { ok?: boolean; floor?: number; error?: string; character?: Character; _saveVersion?: number; pendingAmbush?: { nodeId: string; kind: 'battle' | 'ambush' | 'boss' | 'card' } | null };
     if (!response.ok || data.ok !== true || !Number.isFinite(data.floor)) {
-        throw new Error(data.error ?? 'The next Hollow Gate floor could not be saved. Try the staircase again.');
+        throw new HollowGateDescentError(data.error ?? 'The next Hollow Gate floor could not be saved. Try the staircase again.', data.pendingAmbush);
     }
+    if (data.character) onVersionedCharacter?.(data.character, data._saveVersion);
     return Math.max(1, Math.floor(Number(data.floor)));
 }

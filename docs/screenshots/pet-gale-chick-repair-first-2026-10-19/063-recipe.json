@@ -1,0 +1,32 @@
+{
+  "id": "starter-wind",
+  "config": {
+    "status": "repair",
+    "finding": "Original source/battle raw and all 216 technique frames inspected: lower face and right-eye drift confirmed by independent landmarks; headband boundary buckles in recoil/death. Private candidate only; preserve wings, feet, tail and every authored curve.",
+    "revision": "20261019-gale-chick-complete-face-v1",
+    "supersedesSourceSha256": "7db0c699890741263cddd7f65e6ccc2fe7cf8d62fe56fc5b210ae40333ef55d9",
+    "y": [
+      -0.15,
+      -0.025
+    ],
+    "z": [
+      0.05,
+      0.2
+    ],
+    "x": [
+      0.73,
+      0.85
+    ],
+    "weightPrecision": "float32",
+    "continuousInfluencePacking": true
+  },
+  "result": {
+    "id": "starter-wind",
+    "changed": 4222,
+    "rigid": 3158
+  },
+  "beforeSha256": "7db0c699890741263cddd7f65e6ccc2fe7cf8d62fe56fc5b210ae40333ef55d9",
+  "sha256": "b59c81236963a6ebb39e801e5c2053d707dbd8fd88f45225f54c7b0bcb92f583",
+  "sourcePromoted": false,
+  "visualApproval": false
+}

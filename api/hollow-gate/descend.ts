@@ -1,4 +1,6 @@
-import { recoverHollowGatePendingOperation } from './_pending-operation.js';
+import { makeHollowGatePendingOperation, recoverHollowGatePendingOperation } from './_pending-operation.js';
+import { hollowGateFloorProjection, repairHollowGateFloorProjection } from './_floor-projection.js';
+import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
 import { cors, safeName } from '../_utils.js';
@@ -42,7 +44,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const currentFloor = run.currentFloor == null
                 ? Math.max(1, Math.min(run.floorDepth, fromFloor))
                 : Math.max(1, Math.floor(Number(run.currentFloor) || 1));
-            if (fromFloor < currentFloor) return { status: 200, body: { ok: true, floor: currentFloor, alreadyAdvanced: true } };
+            if (fromFloor < currentFloor) {
+                const repaired = await repairHollowGateFloorProjection(playerName, token, run);
+                if (!repaired.ok) return { status: repaired.status, body: { error: repaired.error } };
+                return { status: 200, body: { ok: true, floor: currentFloor, alreadyAdvanced: true,
+                    character: repaired.character, _saveVersion: repaired._saveVersion } };
+            }
             if (fromFloor !== currentFloor) return { status: 409, body: { error: 'The staircase does not match the sealed floor.' } };
             if (run.activeEncounter || run.pendingAmbush) return { status: 409, body: {
                 error: 'Finish the sealed Hollow Gate encounter before descending.',
@@ -56,17 +63,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 return { status: 409, body: { error: 'You have not reached the sealed staircase.' } };
             }
             const nextFloor = currentFloor + 1;
-            await kv.set(runKey, {
+            const next: HollowGateRunToken = {
                 ...run,
                 currentFloor: nextFloor,
                 position: undefined,
                 threat: 0,
                 wardSteps: 0,
+                ...(run.hunterBreatherSteps !== undefined ? { hunterBreatherSteps: 0 } : {}),
                 divinerUsed: false,
                 pendingAmbush: null,
                 torch: Math.min(10, Math.max(0, Math.floor(Number(run.torch) || 0)) + 4),
+            };
+            // Save-first proof: an interrupted run-row commit is repaired before
+            // any other run action, including a replay of this staircase.
+            const saved = await mutatePlayerSave(playerName, ({ character }) => {
+                const projected = hollowGateFloorProjection(character, token, { ...run, currentFloor }, nextFloor);
+                if (!projected.ok) return projected;
+                return { ok: true as const, character: { ...character, hollowGateRun: { ...projected.projection,
+                    torch: next.torch, threat: next.threat, wardSteps: next.wardSteps, diviner: false },
+                    hollowGatePendingOperation: makeHollowGatePendingOperation({ token, kind: 'event',
+                        id: `descend:${currentFloor}`, before: run, after: next, response: { ok: true, floor: nextFloor } }),
+                }, value: null };
             });
-            return { status: 200, body: { ok: true, floor: nextFloor } };
+            if (!saved.ok) return { status: saved.status, body: { error: saved.error } };
+            await recoverHollowGatePendingOperation(kv, runKey, run, playerName, token);
+            return { status: 200, body: { ok: true, floor: nextFloor,
+                character: saved.character, _saveVersion: saved._saveVersion } };
         }, { failClosed: true, ttlSec: 10 });
         if (result.status === 200 && result.body.alreadyAdvanced !== true) {
             await recordBetaMetric({

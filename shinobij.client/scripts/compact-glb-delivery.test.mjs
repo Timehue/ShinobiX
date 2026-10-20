@@ -45,7 +45,7 @@ function meaning(bytes) {
     return j;
 }
 
-test('all 320 selected pet GLBs retain exact live geometry, textures, skins and animation payloads', () => {
+test('all 322 selected pet GLBs retain exact live geometry, textures, skins and animation payloads', () => {
     const root = fileURLToPath(new URL('../public/', import.meta.url));
     const manifest = JSON.parse(fs.readFileSync(root + 'pet-models/warfront-lod/manifest.json', 'utf8'));
     let saved = 0, changed = 0;
@@ -59,7 +59,7 @@ test('all 320 selected pet GLBs retain exact live geometry, textures, skins and 
         saved += source.length - result.length;
         changed += Number(!source.equals(result));
     }
-    assert.equal(manifest.entries.length * 2, 320);
+    assert.equal(manifest.entries.length * 2, 322);
     assert.ok(changed > 0);
     assert.ok(saved > 3 * 1024 * 1024, `Only ${saved} obsolete bytes removed`);
 });

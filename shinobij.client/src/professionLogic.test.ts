@@ -70,9 +70,9 @@ describe('petTamerExpeditionMult', () => {
     it('1× for non-Pet Tamer', () => {
         assert.equal(petTamerExpeditionMult('vanguard', 5), 1);
     });
-    it('+10% at unlock, +25% at rank 10', () => {
-        assert.equal(petTamerExpeditionMult('petTamer', 0), 1.10);
-        assert.equal(petTamerExpeditionMult('petTamer', 10), 1.25);
+    it('a fixed +50% at unlock and rank 10', () => {
+        assert.equal(petTamerExpeditionMult('petTamer', 0), 1.5);
+        assert.equal(petTamerExpeditionMult('petTamer', 10), 1.5);
     });
 });
 

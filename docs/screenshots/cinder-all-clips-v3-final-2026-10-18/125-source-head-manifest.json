@@ -1,0 +1,76 @@
+{
+  "schema": 1,
+  "errors": [],
+  "pets": [
+    {
+      "id": "starter-fire",
+      "name": "Cinder Cub",
+      "url": "/pet-models/starter-fire.glb?v=20261018-cinder-cub-all-authored-limb-performances-v3-20261013-studio-v1-20261013-articulation-v1-20261014-contact-performance-v1",
+      "sha256": "2d88f6315b33a32a8ed3a032cedee52ddb39230a32d7c82fe269d11550fd574c",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "progress": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ],
+      "views": [
+        "head-front",
+        "head-side",
+        "head-other-side"
+      ],
+      "materialTreatment": {
+        "mode": "production-diffuse",
+        "materials": 1,
+        "metalnessMax": 0.05,
+        "roughnessRange": [
+          0.58,
+          0.82
+        ]
+      },
+      "diagnosticLighting": {
+        "mode": "diagnostic-lighting",
+        "multiplier": 2.5,
+        "textureAndGeometryUnchanged": true
+      },
+      "region": {
+        "y": [
+          -2,
+          -2
+        ],
+        "bounds": [
+          -0.6481702749476417,
+          0.1536163975327596,
+          -0.20500930507231194,
+          0.2677650961877905,
+          0.6868293509463202,
+          1.0772685730131255
+        ],
+        "cameraPadding": 1.1
+      },
+      "sheets": [
+        "starter-fire-head-front.webp",
+        "starter-fire-head-side.webp",
+        "starter-fire-head-other-side.webp"
+      ],
+      "review": "pending"
+    }
+  ],
+  "artisticCertification": false
+}

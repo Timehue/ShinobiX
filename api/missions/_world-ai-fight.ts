@@ -19,7 +19,7 @@ import { computeAiFightBaseReward } from './_ai-fight-token.js';
 import { MAX_WILD_SECTOR, sectorBiomeOf } from '../../shared/sector-geo.js';
 import { ordinaryWandererEncounter, parseWandererId, WANDERER_MAX_INDEX, WANDERER_NIGHT_INDEX } from '../../shared/wanderer-roster.js';
 import { ROAD_NEMESIS_NAME, roadNemesisPresentAt, roadNemesisTier, roadNemesisTitle } from '../../shared/road-nemesis.js';
-import { riftSealOf, type RiftSealView } from '../../shared/wanderer-extra-slots.js';
+import { riftSealOf, riftSpawnCombatLevel, type RiftSealView } from '../../shared/wanderer-extra-slots.js';
 import { parseRiftQuestSeal } from '../sector/_rift-quest.js';
 import { patrolNameFor, patrolStance } from '../../shared/village-patrol.js';
 import { getSectorOwnerVillage } from '../_sector-war-store.js';
@@ -592,7 +592,7 @@ export async function buildWorldAiFightSpec(params: {
         // The authored rift quest retains its separate player + 1 burst fight;
         // it does not roll ordinary difficulty or change its quest contract.
         if (natural.archetype !== 'riftspawn') throw new Error('world-wanderer-not-attackable');
-        return { profile: runtimeProfile(`world-wanderer-${request.sourceId}`, natural.name, level + 1, 0, 'burst', true), environment,
+        return { profile: runtimeProfile(`world-wanderer-${request.sourceId}`, natural.name, riftSpawnCombatLevel(level), 0, 'burst', true), environment,
             context: { kind: request.kind, sourceId: request.sourceId, sector: request.sector, stage: 0, displayName: natural.name, finalStage: true } };
     }
 

@@ -53,6 +53,9 @@ export interface WarDuelInput {
     toPets: Pet[];
     /** Sector-war home ground element (defender's sector), or null/undefined. */
     terrain?: string | null;
+    /** Absent on historical input-only proofs; those retain the original combat. */
+    rulesetVersion?: 'progression-v3' | 'legacy-v2';
+    damageRules?: 'legacy-v1' | 'response-v2';
     /** War remains fixed at 2v2. A caller that has independently sealed a
      * one-pet encounter may explicitly request the truthful 1v1 field shape. */
     format?: ShowdownFormat;
@@ -107,9 +110,9 @@ export function resolveWarDuel(input: WarDuelInput): WarDuelResolution {
         enemyPets: input.toPets.map(stripConsumable),
         enemyTeamName: input.toName,
         rewardEligible: false,
-        // Existing input-only territorial and retained ranked proofs have no
-        // numeric-version seal. Preserve their recorded outcome authority.
-        damageRules: 'legacy-v1',
+        // Versionless inputs are retained proofs, never newly reinterpreted kits.
+        rulesetVersion: input.rulesetVersion ?? 'legacy-v2',
+        damageRules: input.damageRules ?? (input.rulesetVersion === 'progression-v3' ? 'response-v2' : 'legacy-v1'),
     });
     // Home ground: the sector's climate stands over the arena from round one.
     // `until` outlasts the judge's cap so it holds all fight unless a weather

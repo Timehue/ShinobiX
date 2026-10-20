@@ -4,6 +4,7 @@ import type { HollowGatePetFightRef } from "../components/HollowGatePetFight";
 import type { Character, HollowGateShrineRun, HollowGateTile, VersionedCharacterCommit } from "../types/character";
 import type { Screen } from "../types/core";
 import { hollowGateHoundName } from "../../../shared/hollow-gate-contract";
+import { HOLLOW_GATE_LOSS_HP_PERCENT } from "../../../shared/hollow-gate-loss";
 import { applyAttunementToRun } from "./hollow-gate-attunement";
 import type { HollowGateCombatSettleResult } from "./hollow-gate-combat-api";
 // The procedural floor generator is loaded on demand — see
@@ -100,6 +101,8 @@ export function hollowGateRunAfterUnresolvedFight(
     saved: HollowGateShrineRun | null | undefined,
     patch: Partial<HollowGateShrineRun> = {},
 ): HollowGateShrineRun | null {
+    if (!live || saved === null) return null;
+    if (saved?.runToken && saved.runToken !== live.runToken) return live;
     const current = saved && Array.isArray(saved.tiles) ? saved : live;
     return current ? { ...current, activeCombat: undefined, threat: 0, ...patch } : null;
 }
@@ -154,6 +157,12 @@ export function hollowGateStepOnlyChange(
 /** How long walking must pause before a step's board reaches the character copy. */
 export const HOLLOW_GATE_MIRROR_SETTLE_MS = 600;
 
+/** Loading a sealed board is not a terminal run clear. */
+export function hollowGateMirroredCharacter<T extends { hollowGateRun?: HollowGateShrineRun | null }>(previous: T | null, run: HollowGateShrineRun | null): T | null {
+    if (!previous || !run || previous.hollowGateRun === run) return previous;
+    return { ...previous, hollowGateRun: run };
+}
+
 /**
  * Mirror the live shrine run into character.hollowGateRun, the copy the save
  * payload and a re-entry read. Copying it on every step re-rendered the whole
@@ -170,11 +179,8 @@ export function useHollowGateRunMirror({ screen, run, characterRef, setCharacter
     setCharacter: SetState<Character | null>;
 }): void {
     useEffect(() => {
-        if (screen !== "hollowGateShrine") return;
-        const mirror = () => setCharacter((prev) => {
-            if (!prev || prev.hollowGateRun === run) return prev;
-            return { ...prev, hollowGateRun: run };
-        });
+        if (screen !== "hollowGateShrine" || !run) return;
+        const mirror = () => setCharacter((prev) => hollowGateMirroredCharacter(prev, run));
         if (!hollowGateStepOnlyChange(characterRef.current?.hollowGateRun, run)) { mirror(); return; }
         const timer = window.setTimeout(mirror, HOLLOW_GATE_MIRROR_SETTLE_MS);
         return () => window.clearTimeout(timer);
@@ -450,7 +456,14 @@ export function useHollowGateAppFlow(params: {
     }
 
     function onPetBattleEnd(result: HollowGateCombatSettleResult, gate: HollowGatePetFightRef) {
+        if (runRef.current?.runToken !== gate.token || runRef.current.floor !== gate.floor) return;
         setPetFight(null);
+        if (result.ended || result.character?.hollowGateRun === null || (result.character && result.character.hp <= 0)) {
+            clearRunUi();
+            clearRunState();
+            setScreen(result.character?.hospitalized || (result.character && result.character.hp <= 0) ? "hospital" : "worldMap");
+            return;
+        }
         if (result.won) {
             onBattleWin({
                 isBoss: gate.kind === "boss",
@@ -461,8 +474,8 @@ export function useHollowGateAppFlow(params: {
             return;
         }
         setRun((previous) => hollowGateRunAfterPetDefeat(previous, result.character?.hollowGateRun));
-        const recoil = Math.max(1, Math.floor((result.character?.maxHp ?? character?.maxHp ?? 1) * 0.20));
-        pushLog(`The Hollow Hound wins the pet duel. ${recoil} HP recoils through the seal; the encounter remains unresolved.`);
+        pushLog(result.alreadyReported ? "The pet result was already sealed. No HP or rewards are applied again."
+            : `The Hollow Hound wins the pet duel. The seal takes ${HOLLOW_GATE_LOSS_HP_PERCENT}% of maximum HP, stopping at 1 HP; the encounter remains unresolved.`);
     }
 
     return {

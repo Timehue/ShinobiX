@@ -336,8 +336,9 @@ test("WorldMap charges a flee on the server and never lets Escape or the backdro
     // One hostile at a time, and the one held back is DEFERRED, not dropped: a
     // refused engage returns false so the actor asks again once the choice ends.
     assert.match(engage, /if \(requiresWandererChoice\(wandererChoiceRef\.current\) \|\| bossDialog \|\| worldBossQueueOpen\) return false;/u);
-    assert.match(engage, /if \(wandererForcesChoice\(w\)\) wandererChoiceRef\.current = \{ w \}/u,
-        'the first hostile reserves the choice before React commits, so a second arrival cannot replace it');
+    assertOrdered(engage, ['if (wandererForcesChoice(w)) {', 'onEntryEncounterActiveChange?.(true);',
+        'wandererChoiceRef.current = { w };', 'rememberWanderer(w);'],
+        'the first hostile cancels entry and reserves the choice before React commits, so a second arrival cannot replace it');
     assert.match(sliceBetween(worldMapSource, "function handleBossEngage", "function standBossFight"),
         /if \(!roamingBoss\?\.aiId \|\| requiresWandererChoice\(wandererDialog\) \|\| worldBossQueueOpen\) return false;/u);
     // The world boss queue sheet and its raid open over the live sector board,

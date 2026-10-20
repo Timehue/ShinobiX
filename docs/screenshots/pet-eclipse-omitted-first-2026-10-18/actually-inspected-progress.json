@@ -1,0 +1,155 @@
+{
+  "id": "mythic-0",
+  "raw": [
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-next-three-v1-source-head/mythic-0-head-front-0.png",
+      "sha256": "f93927ee1dd4a072821102b6a486e9eb28211491759dc784af68f7359166cdca",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-next-three-v1-source-head/mythic-0-head-front-1.png",
+      "sha256": "050ecf02a46236fa47d79ca265fa6ab0080b085a7d58c1a5b49fdd523898830b",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-next-three-v1-source-head/mythic-0-head-front-2.png",
+      "sha256": "59243898fcdb0b8c85905caf15ba5d6d76583dd80e937a4f7b1a6c8b430335cb",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-next-three-v1-source-head/mythic-0-head-side-0.png",
+      "sha256": "5aaa9290e2a70b006249437869a812382db8afb4243a794322068d48b01e36cc",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-next-three-v1-source-head/mythic-0-head-side-1.png",
+      "sha256": "d46d5b8fefef639efabd768f4c28603e206777b041b2ba3532b814b40f327fea",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-next-three-v1-source-head/mythic-0-head-side-2.png",
+      "sha256": "43bb96a6a67e68832178ca34cfd291eafb6ff6f007aedbd0cbf28f4d3df28a3d",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-next-three-v1-source-body/mythic-0-front-0.png",
+      "sha256": "6e22ca9bfe7bd5d3d5b104f4deccbab0f22a5f16149fa11ff80f01d9e67ab5ed",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-next-three-v1-source-body/mythic-0-front-1.png",
+      "sha256": "2b2b307ae630ae578335268b3f87b27ba65453fa24d21f5e35c0e056c71d89b6",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-next-three-v1-source-body/mythic-0-front-2.png",
+      "sha256": "5795e6283d13183f167b187c89be8077d34c3432f2ea9b157dd3a9b1ed2ceff3",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-next-three-v1-source-body/mythic-0-side-0.png",
+      "sha256": "3aaf9463be5aba7e52f890f740c89d2ef232a4fefdfa778787f48a861383d790",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-next-three-v1-source-body/mythic-0-side-1.png",
+      "sha256": "b35b02c3adcc90356b8f826a7e6fb9822b79f9f57ce1f975d23b4fc86e270ed9",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-next-three-v1-source-body/mythic-0-side-2.png",
+      "sha256": "64a190dd1f0916e28cba6526ff186e28f20f46feaae4b88884c99c35d1f395b8",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-next-three-v1-battle-head/mythic-0-head-front-0.png",
+      "sha256": "4fd2efc262a10e4b3e07fdcc8433a763390796c6a07651a69b5c5133d4358269",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-next-three-v1-battle-head/mythic-0-head-front-1.png",
+      "sha256": "b0acc0fc99702c5d4ef3cde38ea133854b6c2783771ae5c4784b6faa07a37f5c",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-next-three-v1-battle-head/mythic-0-head-front-2.png",
+      "sha256": "493b0d30e7c7718bf4b89bd3a9c3dee31513397fb5fb70d351fd91aa7a7e4797",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-next-three-v1-battle-head/mythic-0-head-side-0.png",
+      "sha256": "9bdbb9528e18f272e3a8ad8aa86ae2fae17a2daf74ef28dc881ba70910f96b91",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-next-three-v1-battle-head/mythic-0-head-side-1.png",
+      "sha256": "05837a9d1ef2fde86109a9a4c9bbe6b2328968aa523d2642477836ee9d343732",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-next-three-v1-battle-head/mythic-0-head-side-2.png",
+      "sha256": "895de82d93fc19f54bbe23e9da8d00e7e7c8d4c0ceaa6013122bb0908eafda9d",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-next-three-v1-battle-body/mythic-0-front-0.png",
+      "sha256": "7655e3bf2621f7ad050c5e7524f8606a9c750e840a326adf39e11a47c5445091",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-next-three-v1-battle-body/mythic-0-front-1.png",
+      "sha256": "8700f90a9710a428c21d774661cfd779dd5de8cfce271658effa1f1214287962",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-next-three-v1-battle-body/mythic-0-front-2.png",
+      "sha256": "610050f973caab29fb2d7783f343ab941add2669ed85aa6fd50612f688f84c11",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-next-three-v1-battle-body/mythic-0-side-0.png",
+      "sha256": "36c9a4471cfa0a27a08c176cfcc336efc588b8e676b66b26b25d513856a25fa6",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-next-three-v1-battle-body/mythic-0-side-1.png",
+      "sha256": "3e6828e7bd04854d61a05fe5546a81be954b321fb41ad1a5576305f8e7367f62",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-next-three-v1-battle-body/mythic-0-side-2.png",
+      "sha256": "6778766bd6b44ed67e0b19a57f0940ca81a9f3d4e84ea7dbfef5d20f0c09adb7",
+      "actuallyInspected": true,
+      "result": "pass"
+    }
+  ],
+  "rawSlicesActuallyInspected": 24,
+  "nativeTechniqueFramesActuallyInspected": 216,
+  "nativeTechniqueStripsActuallyInspected": 12,
+  "firstPass": "source-and-direct-battle-raw-and-native-techniques-pass",
+  "secondPassComplete": false,
+  "notes": "All 24 source/direct-battle raw slices and all 12 native technique strips (216 frames) actually inspected. Face, ears, tails and limb attachments remain coherent through locomotion, jump, technique strike and recovery. An additional native strike frame and nearest-neighbor face crop confirm the bright areas above the eyes are inner ears. Direct old-LOD retarget is diagnostic only."
+}

@@ -203,7 +203,7 @@ for (const won of [false, true]) for (const commit of [false, true]) {
         assert.equal(after._saveVersion, f.save._saveVersion + 1);
         assert.ok(after.character.hollowGateRun, 'pet defeat never kills the player run');
         assert.equal((await kv.get<HollowGateRunToken>(f.runKey))!.activeEncounter, null);
-        assert.equal(after.character.hp, won ? 500 : 400);
+        assert.equal(after.character.hp, won ? 500 : 335); // A committed 165-HP loss never repeats on retry.
         assert.deepEqual(after.character.hollowGateExternalCredits, f.save.character.hollowGateExternalCredits);
         assert.equal((await call(combat, f.name, request)).status, 200);
         assert.deepEqual(await kv.get(f.saveKey), after);

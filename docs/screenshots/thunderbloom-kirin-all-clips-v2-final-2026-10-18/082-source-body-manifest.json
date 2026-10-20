@@ -1,0 +1,55 @@
+{
+  "schema": 1,
+  "errors": [],
+  "pets": [
+    {
+      "id": "mythic-13",
+      "name": "Thunderbloom Kirin",
+      "url": "/pet-models/roster/mythic-13.glb?v=20261018-thunderbloom-kirin-all-authored-limb-performances-v2-20261013-studio-v1-20261013-articulation-v1-20261014-contact-performance-v1",
+      "sha256": "156d4f2a07834897a42f15a72bffb4a323db781801eef6b9fe2dae2b149e09b8",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "progress": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ],
+      "views": [
+        "front",
+        "side"
+      ],
+      "materialTreatment": {
+        "mode": "production-diffuse",
+        "materials": 1,
+        "metalnessMax": 0.05,
+        "roughnessRange": [
+          0.58,
+          0.82
+        ]
+      },
+      "sheets": [
+        "mythic-13-front.webp",
+        "mythic-13-side.webp"
+      ],
+      "review": "pending",
+      "framing": "complete posed body bounds; camera follows pose without excluding any mesh vertices"
+    }
+  ],
+  "artisticCertification": false
+}

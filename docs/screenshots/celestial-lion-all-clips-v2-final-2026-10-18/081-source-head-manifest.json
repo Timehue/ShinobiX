@@ -1,0 +1,72 @@
+{
+  "schema": 1,
+  "errors": [],
+  "pets": [
+    {
+      "id": "mythic-15",
+      "name": "Celestial Lion",
+      "url": "/pet-models/roster/mythic-15.glb?v=20261018-celestial-lion-all-authored-limb-performances-v2-20261013-studio-v1-20261013-articulation-v1-20261014-contact-performance-v1",
+      "sha256": "a7dc5a71c0f5b25290a349cf0ad1ac4090d2daf5feb6a42a417742741d7d5075",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "progress": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ],
+      "views": [
+        "head-front",
+        "head-side",
+        "head-other-side"
+      ],
+      "materialTreatment": {
+        "mode": "production-diffuse",
+        "materials": 1,
+        "metalnessMax": 0.05,
+        "roughnessRange": [
+          0.58,
+          0.82
+        ]
+      },
+      "region": {
+        "y": [
+          -2,
+          -2
+        ],
+        "bounds": [
+          -0.4288585965023166,
+          0.3987362938135708,
+          0.046661413486032144,
+          0.8251699681598867,
+          0.516864275881703,
+          1.093280166115513
+        ],
+        "cameraPadding": 1.15
+      },
+      "sheets": [
+        "mythic-15-head-front.webp",
+        "mythic-15-head-side.webp",
+        "mythic-15-head-other-side.webp"
+      ],
+      "review": "pending",
+      "anatomySha256": "0a448281b873ea7c191278af235f5b8dbe9725c151e4d14debd659b179441fcb"
+    }
+  ],
+  "artisticCertification": false
+}

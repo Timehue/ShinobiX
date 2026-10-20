@@ -6,6 +6,16 @@ import type { AiFightRequest } from './ai-fight-request';
 const explore = (receipt: string): AiFightRequest => ({ opponentId: 'builtin-ai-frost-sealer', opponentLevel: 40,
     battleKind: 'explore', opponentName: 'Frost Sealer', sector: 31, worldExploreRequestId: receipt });
 
+test('a resumed spar at another level keeps its sealed identity and warns about the different selector', () => {
+    const sealed: AiFightRequest = { opponentId: 'builtin-ai-central-champion', opponentLevel: 70, battleKind: 'practice', opponentName: 'Central Champion' };
+    const requested: AiFightRequest = { ...sealed, opponentLevel: 100, practiceLevel: 100, returnScreen: 'arena', onResolved: () => {} };
+    assert.equal(sameAiFightIdentity(sealed, requested), false);
+    assert.equal(sameAiFightIdentity(requested, sealed), false);
+    assert.match(resumedEncounterNotice(sealed, requested)!, /Resuming your unfinished encounter/);
+    assert.equal(adoptRequestedFightPresentation(sealed, requested), sealed, 'do not borrow a different spar continuation');
+    assert.equal(sameAiFightIdentity({ ...sealed, opponentLevel: 100 }, requested), true);
+});
+
 test('two receipts using one template retain separate identity and completion callbacks', () => {
     assert.equal(sameAiFightIdentity(explore('first'), explore('second')), false);
     assert.match(resumedEncounterNotice(explore('first'), { ...explore('second'), opponentName: 'Tsukika' })!, /unfinished encounter with Frost Sealer.*before starting Tsukika/);

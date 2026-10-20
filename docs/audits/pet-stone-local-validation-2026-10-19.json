@@ -1,0 +1,52 @@
+{
+  "id": "standard-5",
+  "recordedAt": "2026-10-19T22:14:38.341Z",
+  "focusedTests": {
+    "passed": 44,
+    "failed": 0,
+    "repairRegressionTests": 8,
+    "deliveryRuntimeTests": 29,
+    "legacyPayloadTests": 7
+  },
+  "productionBuild": "passed",
+  "clientLint": {
+    "errors": 0,
+    "existingWarnings": 23
+  },
+  "structuralCertification": {
+    "attempted": 161,
+    "passed": 161,
+    "distinctAssets": 161
+  },
+  "rosterReceiptCheck": {
+    "attempted": 161,
+    "current": 151,
+    "failures": [
+      "starter-fire-r: production animation renderer changed after review",
+      "starter-fire-l: production animation renderer changed after review",
+      "starter-water-r: production animation renderer changed after review",
+      "starter-water-l: production animation renderer changed after review",
+      "starter-wind-r: production animation renderer changed after review",
+      "starter-wind-l: production animation renderer changed after review",
+      "starter-lightning-r: production animation renderer changed after review",
+      "starter-lightning-l: production animation renderer changed after review",
+      "starter-earth-r: production animation renderer changed after review",
+      "starter-earth-l: production animation renderer changed after review"
+    ],
+    "stoneTurtle": "passed",
+    "scope": "The ten evolved starters remain open for full visual re-review; no receipt hashes were refreshed to waive these findings."
+  },
+  "review": "docs/audits/pet-stone-turtle-final-review-2026-10-19.json",
+  "evidence": [
+    "docs/screenshots/pet-stone-local-validation-2026-10-19/legacy-contracts-final.log",
+    "docs/screenshots/pet-stone-local-validation-2026-10-19/all-receipts.log",
+    "docs/screenshots/pet-stone-local-validation-2026-10-19/all-structure.log"
+  ],
+  "evidenceSha256": {
+    "docs/screenshots/pet-stone-local-validation-2026-10-19/legacy-contracts-final.log": "b395622aa15676236c0ec7ec3c283da2f26976154ee11fb0c82417f4fed362e7",
+    "docs/screenshots/pet-stone-local-validation-2026-10-19/all-receipts.log": "c7f55fe7b0151bb83d2752dfb1ad54ee9ac62e92cb81397dbea780c2eceb6572",
+    "docs/screenshots/pet-stone-local-validation-2026-10-19/all-structure.log": "2a94b3634a84838d17c013d3bb91d24bbe589f3ca178408b0e23c52d6bfbbd12"
+  },
+  "mainLive": "pending",
+  "wholeRosterComplete": false
+}

@@ -71,6 +71,7 @@ import { playPetSfx, primePetSfx, petHaptic } from "../lib/pet-sfx";
 import { appendCapped, petDuelImpactStrength } from "../lib/pet-duel-presentation";
 import { promptablePets } from "../lib/showdown-turn";
 import { showdownMatchupElement } from "../lib/showdown-hud";
+import { showdownMoveAvailability } from "../lib/showdown-move-availability";
 import { showdownActionTargetId, showdownContactEffectKind } from "../lib/showdown-contact-vfx";
 import { prefersReducedMotion } from "../lib/device-tier";
 import {
@@ -1820,6 +1821,8 @@ function moveInspector(move: ShowdownMoveView, fallbackElement: string, staminaN
             { k: "STA", v: move.signature ? "meter" : String(move.cost) },
             { k: "PACE", v: pace },
             { k: "HOLD", v: move.hold > 0 ? `R${move.hold + 1}` : "ready" },
+            ...(move.unlockLevel != null ? [{ k: "LEVEL", v: String(move.unlockLevel) }] : []),
+            ...(move.reuseRounds ? [{ k: "REUSE", v: `${move.reuseRounds} rounds` }] : []),
         ],
         warn: holding
             ? `Still charging — unleashes from round ${move.hold + 1}.`
@@ -1838,7 +1841,7 @@ function moveInspector(move: ShowdownMoveView, fallbackElement: string, staminaN
  *  Attack/Skill submenu in front of them, which cost a tap every single round
  *  to reach the only decision the round actually asks. */
 function buildMenuRows({
-    commander, mustSwitch, moves, signature, staminaNow, meterNow, benchCount, fieldCount,
+    commander, mustSwitch, moves, signature, staminaNow, meterNow, benchCount, fieldCount, commandRound,
 }: {
     commander: ShowdownPetView | null;
     mustSwitch: boolean;
@@ -1850,6 +1853,7 @@ function buildMenuRows({
     benchCount: number;
     /** Living pets on YOUR side of the field — switch redirection differs in 1v1. */
     fieldCount: number;
+    commandRound: number;
 }): MenuRowSpec[] {
     if (!commander) return [];
     const element = commander.element;
@@ -1901,39 +1905,40 @@ function buildMenuRows({
     // Every technique sits at the root, the basic strike included, each under
     // its own name — "Attack" as an alias hid what the button actually threw.
     // Overdraft is allowed (it just costs HP), so a move you cannot afford
-    // stays selectable — only an unmet HOLD disables its pill.
-    const rows: MenuRowSpec[] = moves.map((entry): MenuRowSpec => ({
-        key: `move-${entry.index}`,
-        icon: kindGlyph(entry.move.kind, entry.move.element),
-        family: KIND_FAMILY[entry.move.kind],
-        // The pill wears the TECHNIQUE's element, so the neutral basic reads
-        // grey next to the pet's own colour — the wheel-dodge is visible
-        // before the inspector says a word.
-        element: entry.move.element ?? element,
-        label: entry.move.name,
-        note: entry.move.hold > commander.readiness ? "…" : `${entry.move.cost}`,
-        tone: "attack",
-        disabled: entry.move.hold > commander.readiness,
-        action: { t: "move", moveIndex: entry.index, super: false },
-        detail: moveInspector(entry.move, element, staminaNow, commander.readiness),
-    }));
+    // stays selectable. Server-sealed level, reuse and readiness gates disable
+    // a technique until it can legally be chosen.
+    const rows: MenuRowSpec[] = moves.map((entry): MenuRowSpec => {
+        const gate = showdownMoveAvailability(entry.move, commander, commandRound);
+        return {
+            key: `move-${entry.index}`,
+            icon: kindGlyph(entry.move.kind, entry.move.element),
+            family: KIND_FAMILY[entry.move.kind],
+            // The pill wears the technique's element, including neutral Tackle.
+            element: entry.move.element ?? element,
+            label: entry.move.name,
+            note: gate.label ?? `${entry.move.cost}`,
+            tone: "attack",
+            disabled: gate.blocked,
+            action: { t: "move", moveIndex: entry.index, super: false },
+            detail: { ...moveInspector(entry.move, element, staminaNow, commander.readiness),
+                ...(gate.reason ? { warn: gate.reason } : {}) },
+        };
+    });
     if (signature) {
-        const sigHolding = signature.hold > commander.readiness;
-        const ready = meterNow >= 100 && !sigHolding;
+        const signatureGate = showdownMoveAvailability(signature, commander, commandRound);
+        const ready = meterNow >= 100 && !signatureGate.blocked;
         rows.push({
             key: "signature",
             icon: "signature",
             element,
             label: signature.name,
-            note: ready ? "READY" : `${Math.round(meterNow)}%`,
+            note: signatureGate.label ?? (ready ? "READY" : `${Math.round(meterNow)}%`),
             tone: "signature",
             disabled: !ready,
             action: { t: "move", moveIndex: -1, super: true },
             detail: {
                 ...moveInspector(signature, element, staminaNow, commander.readiness),
-                warn: sigHolding
-                    ? `Still charging — unleashes from round ${signature.hold + 1}.`
-                    : ready ? undefined : "The signature meter is not full yet.",
+                warn: signatureGate.reason ?? (ready ? undefined : "The signature meter is not full yet."),
             },
         });
     }
@@ -3447,8 +3452,8 @@ function PetShowdownBattleView({ initialState, playerPets, sharedImages, submitT
         }
         const targetId = needsEnemy ? (livingEnemies[0]?.id ?? "") : needsAlly ? commander.id : commander.id;
         pushCommand(superCast
-            ? { kind: "super", petId: commander.id, targetId }
-            : { kind: "move", petId: commander.id, moveIndex, targetId });
+            ? { kind: "super", petId: commander.id, targetId, ...(move.abilityId ? { abilityId: move.abilityId } : {}) }
+            : { kind: "move", petId: commander.id, moveIndex, targetId, ...(move.abilityId ? { abilityId: move.abilityId } : {}) });
     };
 
 
@@ -3465,10 +3470,11 @@ function PetShowdownBattleView({ initialState, playerPets, sharedImages, submitT
         if (!pendingMove) return;
         const wasSuper = pendingMove.super;
         const moveIndex = pendingMove.moveIndex;
+        const move = wasSuper ? commander.moves.find(m => m.signature) : commander.moves[moveIndex];
         setPendingMove(null);
         pushCommand(wasSuper
-            ? { kind: "super", petId: commander.id, targetId }
-            : { kind: "move", petId: commander.id, moveIndex, targetId });
+            ? { kind: "super", petId: commander.id, targetId, ...(move?.abilityId ? { abilityId: move.abilityId } : {}) }
+            : { kind: "move", petId: commander.id, moveIndex, targetId, ...(move?.abilityId ? { abilityId: move.abilityId } : {}) });
     };
 
 
@@ -3570,6 +3576,7 @@ function PetShowdownBattleView({ initialState, playerPets, sharedImages, submitT
         meterNow,
         benchCount: livingBench.length,
         fieldCount: livingPlayer.length,
+        commandRound: stateView.round + 1,
     });
     const runMenuAction = (action: MenuAction) => {
         if (!commander) return;
@@ -3909,6 +3916,7 @@ function PetShowdownBattleView({ initialState, playerPets, sharedImages, submitT
                 </div>}
 
                 <div className="showdown-bottombar" inert={Boolean(panel)}>
+                    {stateView.commandFeedback?.length ? <div className="showdown-stalled" role="status"><div className="showdown-stalled-title">Order updated</div>{stateView.commandFeedback.map((message, index) => <p key={`${index}-${message}`} className="showdown-stalled-body">{message}</p>)}</div> : null}
                     {/* No pet can be given an order this round. Name the reason
                         and show it resolving — the failure this replaces was a
                         silent empty bar. The button is a manual escape hatch in
@@ -3970,6 +3978,7 @@ function PetShowdownBattleView({ initialState, playerPets, sharedImages, submitT
                                     targeting={!!pendingMove && targetingAllies} onPickTarget={pickTarget}
                                     commanderId={commander.id} art={panelArt} benchedIds={playerBenchedIds}
                                     hoveredId={activeHover} />
+                                {commander.attack != null && <details className="pet-native-stat-details"><summary>Sealed combat stats</summary><p>Physical ATK {commander.attack} · DEF {commander.defense}<br />Special ATK {commander.spAttack} · DEF {commander.spDefense}<br />Speed {commander.speed} · Stamina {commander.maxStamina}</p><p>Special channels follow this companion&apos;s role. Current battle effects may change action order.</p></details>}
                             </aside>
                             <div className="pet-native-actions">
                             {/* Targeting takes over the menu column: the choice is
@@ -4024,7 +4033,7 @@ function PetShowdownBattleView({ initialState, playerPets, sharedImages, submitT
                             </div>
                             <footer className="pet-native-review"><b>{draft.length}/{promptable.length} orders chosen</b><span>The final choice sends this round. Earlier orders can be undone.</span>
                                 <details><summary>Battle rules</summary><p>Guard reduces direct-hit damage. Rest restores stamina and uses your action. Switching changes who receives the next attacks.</p>
-                                    {stateView.damageRules === 'response-v2' && <p>Unprepared signatures approach 60% of maximum HP. Empower, Mark or a favorable field raises that limit to 75%. Guard and shields reduce the hit further; wounded pets can still be finished.</p>}
+                                    {stateView.rulesetVersion === 'progression-v3' ? <p>Earned abilities are sealed on entry. Healing and shielding have reuse windows. Mark, Empower or favorable weather prepare stronger signatures; level 75 mastery rewards preparation. Guard, shields and switching offer counterplay.</p> : stateView.damageRules === 'response-v2' && <p>Unprepared signatures approach 60% of maximum HP. Empower, Mark or a favorable field raises that limit to 75%. Guard and shields reduce the hit further; wounded pets can still be finished.</p>}
                                 </details>
                             </footer>
                             </div>

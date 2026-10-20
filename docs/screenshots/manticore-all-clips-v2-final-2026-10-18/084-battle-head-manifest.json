@@ -1,0 +1,72 @@
+{
+  "schema": 1,
+  "errors": [],
+  "pets": [
+    {
+      "id": "legendary-26",
+      "name": "Galvanic Manticore",
+      "url": "/pet-models/warfront-lod/roster/legendary-26.glb",
+      "sha256": "9fa5d6ebaf45b7c6fcc4ac2e2bb1faa7f81def6429bad0d0eae21257d0c7b84f",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "progress": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ],
+      "views": [
+        "head-front",
+        "head-side",
+        "head-other-side"
+      ],
+      "materialTreatment": {
+        "mode": "production-diffuse",
+        "materials": 1,
+        "metalnessMax": 0.05,
+        "roughnessRange": [
+          0.58,
+          0.82
+        ]
+      },
+      "region": {
+        "y": [
+          -2,
+          -2
+        ],
+        "bounds": [
+          -0.4892651625312108,
+          0.2163294530721352,
+          -0.2215243255072856,
+          0.5856083337239721,
+          0.5897200997983395,
+          1.1198019920763533
+        ],
+        "cameraPadding": 1.15
+      },
+      "sheets": [
+        "legendary-26-head-front.webp",
+        "legendary-26-head-side.webp",
+        "legendary-26-head-other-side.webp"
+      ],
+      "review": "pending",
+      "anatomySha256": "f44d7b90c854e8e440bd74f702574bb0b7f0759e11635170c727369323b0fdbc"
+    }
+  ],
+  "artisticCertification": false
+}

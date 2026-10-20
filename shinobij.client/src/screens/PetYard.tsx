@@ -3,6 +3,7 @@ import { PetBattleReadiness } from "../components/PetBattleReadiness";
 import { PetRankedTechniques } from "../components/PetRankedTechniques";
 import { PetYardModelPreview } from "../components/PetYardModelPreview";
 import { petBattleJutsus } from "../../../shared/pet-battle-loadout";
+import { petBattleChannels, petBattleStamina } from "../../../shared/pet-battle-stats";
 import { petCareReactionKind, type PetCareAction, type PetCareCue } from '../lib/pet-yard-interactions';
 import { useState, useEffect, useLayoutEffect, useMemo, useRef, Suspense, useTransition } from "react";
 import { cacheDynamicImport, lazyWithRetry, retryDynamicImport } from "../lib/lazyWithRetry";
@@ -42,6 +43,9 @@ import { Modal } from "../components/ui/Modal";
 import { petVisualVariantClass } from "../lib/pet-visual-variant";
 import { activeClientBreedingParentIds } from "../lib/pet-breeding";
 import { authoritativePetExpeditionGains } from "../lib/pet-expedition-result";
+import { craftMaterialName } from "../../../shared/crafting-recipes";
+import type { PetExpeditionMaterialReward } from "../../../shared/pet-expedition-materials";
+import { PET_EXPEDITION_ROUTES } from "../../../shared/pet-expedition-contract";
 import "../styles/pet-home.css";
 import "../styles/pet-yard-refined.css";
 import { GameIcon } from "../components/icons/GameIcon";
@@ -72,6 +76,7 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
         petName: string; summary: string; expType: PetExpeditionType;
         ryo: number; xp: number; statSummary: string;
         foundFate: number; foundAura: number; foundBone: number; leveledUp: boolean;
+        materialRewards: PetExpeditionMaterialReward[];
         tamerXp: number; outcomeLabel: string; returnOutcome: string;
         happinessCost: number; place: string; provision: PetExpeditionProvision; risk: PetExpeditionRisk;
     } | null>(null);
@@ -141,6 +146,8 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
     const growthCap = petGrowthAttributeCap(selectedPet?.level ?? 1);
     const hasGrowthDraft = Object.entries(growthDraft).some(([key, value]) => value !== committedGrowth[key as keyof PetGrowthAllocation]);
     const growthPreview = selectedPet && hasGrowthDraft ? derivePetGrowthStats({ ...selectedPet, growthAllocation: growthDraft }) : null;
+    const battleChannels = selectedPet ? petBattleChannels(selectedPet) : null;
+    const previewChannels = selectedPet && growthPreview ? petBattleChannels({ ...selectedPet, ...growthPreview }) : null;
     const breedingPetIds = activeClientBreedingParentIds(character);
     const selectedPetBreedingLocked = Boolean(selectedPet && breedingPetIds.has(selectedPet.id));
     // Bond upkeep (shared/pet-happiness.ts). petCurrentHappiness projects the
@@ -491,7 +498,8 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
         if (expeditionLaunchBusyRef.current) return;
         if (!selectedPet) return;
         if (selectedPetIsOverflow) return alert(`${petDisplayName(selectedPet)} is preserved overflow. Move it into the carried roster through the Sanctuary before starting an expedition.`);
-        if (selectedPet.level < PET_EXPEDITION_UNLOCK_LEVEL) return alert(`${petDisplayName(selectedPet)} must reach Level ${PET_EXPEDITION_UNLOCK_LEVEL} before going on expeditions.`);
+        const route = PET_EXPEDITION_ROUTES[expeditionType];
+        if (selectedPet.level < route.requiredLevel) return alert(`${petDisplayName(selectedPet)} must reach Level ${route.requiredLevel} for ${route.label}.`);
         if (selectedPet.training && serverNow() < selectedPet.training.endsAt) return alert(`${selectedPet.name} is training right now.`);
         if (isPetOnExpedition(selectedPet)) return alert(`${selectedPet.name} is already exploring.`);
         if (selectedPet.expedition) return alert(`${petDisplayName(selectedPet)} has an unclaimed expedition. Collect it first!`);
@@ -514,8 +522,8 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
         const requestIsCurrent = () => mountedRef.current && activeAccountRef.current === originAccount;
 
         // Every expedition starts as a server-owned lease with a single-use token.
-        // Pet Tamers receive the full reward lane; a non-Tamer's maxed pet receives
-        // half-rate currency, while a non-maxed pet can still grow. Refuse an
+        // All level-eligible pets earn rewards; profession perks are sealed at
+        // departure. Refuse an
         // ambiguous or capped response so the UI never invents a local lease that
         // the server cannot later settle.
         try {
@@ -544,10 +552,7 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                 return alert(`Daily expedition start cap reached (${Number(data.dailyStarts ?? data.dailyCap ?? 12)}/${Number(data.dailyCap ?? 12)}).${resetCopy}`);
             }
             const token = typeof data?.token === "string" ? data.token : undefined;
-            // No token AND not the daily-cap path: for a Tamer that's an unexpected
-            // response — don't burn a currency-earning expedition. For a non-Tamer
-            // it just means the server doesn't see the pet as maxed yet (e.g. a
-            // not-yet-synced save), so let the trip run tokenless rather than trap it.
+            // Every profession needs the server token and committed character.
             if (!token || !data?.character) {
                 if (expeditionLaunchRef.current === launch) expeditionLaunchRef.current = null;
                 return alert("Couldn't start the expedition. Please try again.");
@@ -602,6 +607,7 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                 foundBone?: number;
                 foundAura?: number;
                 foundFate?: number;
+                materialRewards?: PetExpeditionMaterialReward[];
                 petXpEarned?: number;
                 story?: string;
                 returnOutcome?: string;
@@ -667,6 +673,7 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                 foundBone: Math.max(0, Number(data.foundBone ?? 0)),
                 foundAura: Math.max(0, Number(data.foundAura ?? 0)),
                 foundFate: Math.max(0, Number(data.foundFate ?? 0)),
+                materialRewards: Array.isArray(data.materialRewards) ? data.materialRewards : [],
                 leveledUp: gains.leveledUp,
                 tamerXp: Math.max(0, Number(data.expeditionXp ?? 0)),
                 outcomeLabel: String(data.outcomeLabel ?? "Haul secured"),
@@ -1015,6 +1022,12 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                                 <span className="expedition-reward-value">+{expeditionResult.foundBone}</span>
                             </div>
                         )}
+                        {expeditionResult.materialRewards.map((reward) => (
+                            <div key={reward.itemId} className="expedition-reward-row">
+                                <span className="expedition-reward-label">{craftMaterialName(reward.itemId)}</span>
+                                <span className="expedition-reward-value">+{reward.count}</span>
+                            </div>
+                        ))}
                         {expeditionResult.foundAura > 0 && (
                             <div className="expedition-reward-row expedition-reward-rare">
                                 <span className="expedition-reward-label">Aura Stone</span>
@@ -1172,7 +1185,11 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                                 <span> ATK: {selectedPet.attack}{growthPreview && growthPreview.attack !== selectedPet.attack ? ` → ${growthPreview.attack}` : ""}</span>
                                 <span> DEF: {selectedPet.defense}{growthPreview && growthPreview.defense !== selectedPet.defense ? ` → ${growthPreview.defense}` : ""}</span>
                                 <span> SPD: {selectedPet.speed}{growthPreview && growthPreview.speed !== selectedPet.speed ? ` → ${growthPreview.speed}` : ""}</span>
+                                <span> Special ATK: {battleChannels?.spAttack}{previewChannels && previewChannels.spAttack !== battleChannels?.spAttack ? ` → ${previewChannels.spAttack}` : ""}</span>
+                                <span> Special DEF: {battleChannels?.spDefense}{previewChannels && previewChannels.spDefense !== battleChannels?.spDefense ? ` → ${previewChannels.spDefense}` : ""}</span>
+                                <span> Colosseum STA: {petBattleStamina({ ...selectedPet, growthAllocation: growthDraft })}</span>
                             </div>
+                            <p className="pet-growth-stat-explanation">Special channels derive from Attack and Defense with this companion&apos;s role. Battle gear and effects are applied on entry. Agility affects initiative where the format orders pet actions by speed; adventure companions act in a fixed summon phase. Happiness affects adventure summons and training; sealed Colosseum stats do not use happiness.</p>
                             {selectedPet.description && <p className="pet-description">{selectedPet.description}</p>}
                             <div className="menu">
                                 <button disabled={progressBusy || selectedPetBreedingLocked || selectedPetIsOverflow} aria-describedby={selectedPetBreedingLocked || selectedPetIsOverflow ? "pet-yard-roster-lock" : undefined} onClick={() => void assignRosterRole("active")}>
@@ -1245,12 +1262,12 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                                     <h4 style={{ margin: 0 }}>Growth Build</h4>
                                     <strong style={{ color: growthUnspent > 0 ? "#67e8f9" : "#94a3b8" }}>{growthUnspent} point{growthUnspent === 1 ? "" : "s"} available</strong>
                                 </div>
-                                <p className="hint" style={{ margin: "4px 0 8px" }}>Each level grants 1 point plus automatic core growth. Any one attribute may hold at most {growthCap} points at Level {selectedPet.level}.</p>
+                                <p className="hint" style={{ margin: "4px 0 8px" }}>Each level after 1 grants 1 point plus automatic core growth. Any one attribute may hold at most {growthCap} points at Level {selectedPet.level}.</p>
                                 {([
-                                    ["vitality", "Vitality", "HP"],
-                                    ["power", "Power", "Attack"],
-                                    ["guard", "Guard", "Defense"],
-                                    ["agility", "Agility", "Speed / initiative"],
+                                    ["vitality", "Vitality", "HP / survival"],
+                                    ["power", "Power", "Physical & special offense"],
+                                    ["guard", "Guard", "Physical & special defense; small bounded stamina gain"],
+                                    ["agility", "Agility", "Speed / initiative; no added damage or extra actions"],
                                 ] as const).map(([key, label, effect]) => (
                                     <div key={key} style={{ display: "grid", gridTemplateColumns: "1fr auto auto auto", alignItems: "center", gap: 6, marginTop: 5 }}>
                                         <span><strong>{label}</strong> <span className="hint">· {effect}</span></span>
@@ -1264,6 +1281,7 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                                     <button type="button" onClick={() => void resetGrowth()} disabled={growthBusy || Object.values(committedGrowth).every((value) => value <= 0)}>Respec</button>
                                 </div>
                                 <p className="hint" style={{ margin: "6px 0 0" }}>Respecs are free outside active battles and return every committed point.</p>
+                                <p className="hint">Progression update: ownership, level, XP, evolution, equipment and your earned point total are preserved. Review your build freely; resetting redistributes your existing points without adding any.</p>
                             </section>
                                 <div className="pet-training-panel">
                                     <h4>Training</h4>
@@ -1643,7 +1661,6 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
     );
 }
 
-const PET_EXPEDITION_UNLOCK_LEVEL = 20;
 
 // Equipped gear and support for the selected companion.
 const PET_LOADOUT_SLOTS: Array<{ key: "collar" | "pvp" | "pve" | "consumable"; label: string; icon: "sparkle" | "sword" | "shield" | "flask"; hint: string }> = [

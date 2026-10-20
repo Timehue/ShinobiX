@@ -183,7 +183,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     sessionId: token, playerName, format: '1v1', tier: tutorial ? 'scrapper' : 'warrior',
                     seed: randomInt(1, 0x7fffffff), playerPets: [mine],
                     enemyPets: [wildPet as unknown as Pet], enemyTeamName: String(wildPet.name ?? 'Wild companion'),
-                    rewardEligible: false,
+                    rewardEligible: false, rulesetVersion: 'progression-v3',
                 }) as WildSession;
                 battle.wild = { token, pet: wildPet, resolve: tutorial ? 35 : 100, maxResolve: 100, tutorial,
                     ...(loanerPet ? { loanerPet } : {}) };

@@ -3,6 +3,7 @@ import test from "node:test";
 import { createShowdownSession, resolveShowdownRound, sealShowdownPet } from "../../../api/_pet-showdown/engine";
 import { PET_CATALOG } from "../../../api/pet/_catalog";
 import type { Pet } from "../../../api/_pet-sim/pet-types";
+import { tacticsPreset } from '../../../shared/pet-tactics-roster';
 import { showdownContactEffectKind, showdownContactOutcome, showdownProjectilePath, showdownProjectileSample } from "./showdown-contact-vfx";
 
 test("projectile wakes follow the lob and retain world spacing across lane lengths", () => {
@@ -43,10 +44,10 @@ test("blocked attacks cannot show successful damage or status paint in sibling V
 });
 
 test("live engine verdicts agree with contact paint for Protect, absorption and dodge", () => {
-    const protector = Object.values(PET_CATALOG)
-        .map(template => ({ ...template, id: "defender", role: "defender", level: 30 } as unknown as Pet))
-        .find(template => sealShowdownPet(template).moves.some(move => move.kind === "protect"));
-    assert.ok(protector, "at least one real defender loadout retains Protect");
+    const protector = { ...PET_CATALOG['starter-earth-r'], templateId: 'starter-earth-r', id: 'defender', level: 30,
+        rankedBuild: { ...tacticsPreset('starter-earth-r'), moveIds: ['earth-strike', 'earth-pulse', 'earth-breaker', 'protect'] },
+    } as unknown as Pet;
+    assert.ok(sealShowdownPet(protector, 'progression-v3').moves.some(move => move.kind === 'protect'), 'the defender retains its saved, earned Protect choice');
     for (const defense of ["protect", "shield", "dodge"] as const) {
         const player = { ...PET_CATALOG["standard-0"], id: "attacker", level: 30 } as unknown as Pet;
         const session = createShowdownSession({
@@ -57,7 +58,7 @@ test("live engine verdicts agree with contact paint for Protect, absorption and 
         if (defense === "dodge") {
             defender.consumable = { id: "smoke-test", name: "Smoke", dodge: 1, mitigate: 0, thorns: 0, endure: 0, lifeline: 0, cleanse: 0 };
         } else if (defense === "shield") {
-            defender.statuses.push({ kind: defense, rounds: 3, magnitude: 100000, bornRound: session.round });
+            defender.statuses.push({ kind: defense, rounds: 2, magnitude: Math.floor(defender.maxHp * .225), bornRound: session.round });
         }
         const protectIndex = defender.moves.findIndex((move) => move.kind === "protect");
         assert.ok(protectIndex >= 0, "the selected defender's real kit includes Protect");

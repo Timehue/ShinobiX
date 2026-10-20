@@ -77,5 +77,9 @@ test("the shrine relic bar, befriend, dungeon and rift-card settles finish on a 
     assert.match(dungeon, /submitShowdownTurn\(character\.name, sessionId, commands, expectedRound\)/);
     const app = read("../App.tsx");
     assert.match(app, /const result = await mutateDungeonRunServer\(character\.name, "start", '', event\.id\);\s*commitVersionedCharacter\(result\.character, result\._saveVersion\);[^\n]*\n\s*setActiveDungeonRunToken\(result\.token\);/);
-    assert.match(app, /if \(!settled\.ok \|\| !settled\.character\) throw new Error\([^\n]*\n\s*commitVersionedCharacter\(settled\.character, settled\._saveVersion\);/);
+    assert.match(app, /finishHollowGateCardAmbushFlow\(\{ character, binding: hollowGateCardAmbush,/);
+    assert.match(app, /commitCharacter: commitVersionedCharacter, setRun: setHollowGateRun,/);
+    const cardReturn = read('./hollow-gate-card-return.ts');
+    assert.match(cardReturn, /if \(!settled\.ok \|\| !settled\.character\) throw new Error\(/);
+    assert.match(cardReturn, /params\.commitCharacter\(settled\.character, settled\._saveVersion\);\s*params\.closeMatch\(\);/);
 });

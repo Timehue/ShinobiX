@@ -1,0 +1,2947 @@
+{
+  "summary": {
+    "assets": 2,
+    "failures": 0
+  },
+  "artisticCertification": false,
+  "results": [
+    {
+      "id": "legendary-15",
+      "name": "Inferno Chimera",
+      "stage": "source",
+      "sha256": "fa777c9224e77932162a34ce408665e567ea61030bbd1c334e0d01ffe7f63e7e",
+      "annotationSourceSha256": "09452e6c3efcadfcbde44e4b32d4c685a9677db585f5f5ba799adf7167997109",
+      "landmarks": {
+        "lionUpperFace": {
+          "center": [
+            -0.31441607956883005,
+            0.17793924206290168,
+            0.9252222768985903
+          ],
+          "radius": 0.1,
+          "pickedPixel": [
+            164,
+            229
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head",
+          "cameraAtPick": {
+            "y": [
+              0.1,
+              0.2
+            ],
+            "z": [
+              0.45,
+              0.6
+            ],
+            "cameraPadding": 1.5,
+            "status": "inspection",
+            "finding": "All 13 original uncropped full-body animation sheets inspected front/side. Full face anatomy and dark surfaces require closeups before classification. No approval issued.",
+            "exclude": [
+              [
+                -0.15,
+                2,
+                -2,
+                2,
+                -2,
+                2
+              ]
+            ]
+          }
+        },
+        "lionMuzzle": {
+          "center": [
+            -0.25454518224020045,
+            0.10007990382033108,
+            0.9797110482889168
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            177,
+            252
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head",
+          "cameraAtPick": {
+            "y": [
+              0.1,
+              0.2
+            ],
+            "z": [
+              0.45,
+              0.6
+            ],
+            "cameraPadding": 1.5,
+            "status": "inspection",
+            "finding": "All 13 original uncropped full-body animation sheets inspected front/side. Full face anatomy and dark surfaces require closeups before classification. No approval issued.",
+            "exclude": [
+              [
+                -0.15,
+                2,
+                -2,
+                2,
+                -2,
+                2
+              ]
+            ]
+          }
+        },
+        "lionLowerFace": {
+          "center": [
+            -0.24998769823903477,
+            0.007778443764567655,
+            0.9600634968009754
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            177,
+            274
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head",
+          "cameraAtPick": {
+            "y": [
+              0.1,
+              0.2
+            ],
+            "z": [
+              0.45,
+              0.6
+            ],
+            "cameraPadding": 1.5,
+            "status": "inspection",
+            "finding": "All 13 original uncropped full-body animation sheets inspected front/side. Full face anatomy and dark surfaces require closeups before classification. No approval issued.",
+            "exclude": [
+              [
+                -0.15,
+                2,
+                -2,
+                2,
+                -2,
+                2
+              ]
+            ]
+          }
+        },
+        "lionJawChin": {
+          "center": [
+            -0.16212806970584775,
+            0.046669442375532895,
+            0.9088506171796652
+          ],
+          "radius": 0.1,
+          "pickedPixel": [
+            126,
+            264
+          ],
+          "pickedView": "head-side",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head",
+          "cameraAtPick": {
+            "y": [
+              0.1,
+              0.2
+            ],
+            "z": [
+              0.45,
+              0.6
+            ],
+            "cameraPadding": 1.5,
+            "status": "inspection",
+            "finding": "All 13 original uncropped full-body animation sheets inspected front/side. Full face anatomy and dark surfaces require closeups before classification. No approval issued.",
+            "exclude": [
+              [
+                -0.15,
+                2,
+                -2,
+                2,
+                -2,
+                2
+              ]
+            ]
+          }
+        },
+        "dragonUpperFace": {
+          "center": [
+            0.4442925605761902,
+            0.19201487345803772,
+            0.7257148606825564
+          ],
+          "radius": 0.1,
+          "pickedPixel": [
+            204,
+            193
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head",
+          "cameraAtPick": {
+            "y": [
+              -0.1,
+              0.05
+            ],
+            "z": [
+              0.45,
+              0.6
+            ],
+            "cameraPadding": 1.5,
+            "status": "inspection",
+            "finding": "All 13 original uncropped full-body animation sheets inspected front/side. Full face anatomy and dark surfaces require closeups before classification. No approval issued.",
+            "exclude": [
+              [
+                -2,
+                -0.18,
+                -2,
+                2,
+                -2,
+                2
+              ],
+              [
+                0.6,
+                2,
+                -2,
+                2,
+                -2,
+                2
+              ]
+            ]
+          }
+        },
+        "dragonMuzzle": {
+          "center": [
+            0.4865661991179868,
+            0.03929252037238548,
+            0.7223523897862398
+          ],
+          "radius": 0.11,
+          "pickedPixel": [
+            209,
+            219
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head",
+          "cameraAtPick": {
+            "y": [
+              -0.1,
+              0.05
+            ],
+            "z": [
+              0.45,
+              0.6
+            ],
+            "cameraPadding": 1.5,
+            "status": "inspection",
+            "finding": "All 13 original uncropped full-body animation sheets inspected front/side. Full face anatomy and dark surfaces require closeups before classification. No approval issued.",
+            "exclude": [
+              [
+                -2,
+                -0.18,
+                -2,
+                2,
+                -2,
+                2
+              ],
+              [
+                0.6,
+                2,
+                -2,
+                2,
+                -2,
+                2
+              ]
+            ]
+          }
+        },
+        "dragonLowerFace": {
+          "center": [
+            0.48537514450216135,
+            -0.03528656783693024,
+            0.7466744410077978
+          ],
+          "radius": 0.11,
+          "pickedPixel": [
+            210,
+            231
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head",
+          "cameraAtPick": {
+            "y": [
+              -0.1,
+              0.05
+            ],
+            "z": [
+              0.45,
+              0.6
+            ],
+            "cameraPadding": 1.5,
+            "status": "inspection",
+            "finding": "All 13 original uncropped full-body animation sheets inspected front/side. Full face anatomy and dark surfaces require closeups before classification. No approval issued.",
+            "exclude": [
+              [
+                -2,
+                -0.18,
+                -2,
+                2,
+                -2,
+                2
+              ],
+              [
+                0.6,
+                2,
+                -2,
+                2,
+                -2,
+                2
+              ]
+            ]
+          }
+        },
+        "dragonJawChin": {
+          "center": [
+            0.4920458500772591,
+            -0.1203302312990132,
+            0.7025607559833492
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            169,
+            257
+          ],
+          "pickedView": "head-side",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head",
+          "cameraAtPick": {
+            "y": [
+              -0.1,
+              0.05
+            ],
+            "z": [
+              0.45,
+              0.6
+            ],
+            "cameraPadding": 1.5,
+            "status": "inspection",
+            "finding": "All 13 original uncropped full-body animation sheets inspected front/side. Full face anatomy and dark surfaces require closeups before classification. No approval issued.",
+            "exclude": [
+              [
+                -2,
+                -0.18,
+                -2,
+                2,
+                -2,
+                2
+              ],
+              [
+                0.6,
+                2,
+                -2,
+                2,
+                -2,
+                2
+              ]
+            ]
+          }
+        }
+      },
+      "clips": [
+        {
+          "clip": "idle",
+          "poses": 57,
+          "regions": [
+            {
+              "name": "lionUpperFace",
+              "vertices": 111,
+              "edges": 245,
+              "maxDrift": 2.232642003780784e-15,
+              "worldMinRatio": 0.9999999844561567,
+              "worldMaxRatio": 1.0000004164792657,
+              "maximumPose": 0.24939512624973204
+            },
+            {
+              "name": "lionMuzzle",
+              "vertices": 77,
+              "edges": 153,
+              "maxDrift": 3.0198164614972762e-15,
+              "worldMinRatio": 0.9999999844561567,
+              "worldMaxRatio": 1.0000004159079947,
+              "maximumPose": 0.24939512624973204
+            },
+            {
+              "name": "lionLowerFace",
+              "vertices": 113,
+              "edges": 229,
+              "maxDrift": 2.717864195854547e-15,
+              "worldMinRatio": 0.9999999844687587,
+              "worldMaxRatio": 1.0000004150588644,
+              "maximumPose": 0.24939512624973204
+            },
+            {
+              "name": "lionJawChin",
+              "vertices": 104,
+              "edges": 244,
+              "maxDrift": 2.192836348757814e-15,
+              "worldMinRatio": 0.9999999844356435,
+              "worldMaxRatio": 1.0000004162971718,
+              "maximumPose": 0.24939512624973204
+            },
+            {
+              "name": "dragonUpperFace",
+              "vertices": 86,
+              "edges": 183,
+              "maxDrift": 2.7633305024231565e-15,
+              "worldMinRatio": 0.99999998451067,
+              "worldMaxRatio": 1.0000004158401936,
+              "maximumPose": 0.24939512624973204
+            },
+            {
+              "name": "dragonMuzzle",
+              "vertices": 135,
+              "edges": 279,
+              "maxDrift": 2.142558894062862e-15,
+              "worldMinRatio": 0.9999999844572749,
+              "worldMaxRatio": 1.0000004165276735,
+              "maximumPose": 0.24939512624973204
+            },
+            {
+              "name": "dragonLowerFace",
+              "vertices": 122,
+              "edges": 263,
+              "maxDrift": 2.2869711806282433e-15,
+              "worldMinRatio": 0.9999999845185451,
+              "worldMaxRatio": 1.0000004165276735,
+              "maximumPose": 0.24939512624973204
+            },
+            {
+              "name": "dragonJawChin",
+              "vertices": 79,
+              "edges": 158,
+              "maxDrift": 3.2679276291608006e-15,
+              "worldMinRatio": 0.9999999847758952,
+              "worldMaxRatio": 1.0000004143896053,
+              "maximumPose": 0.24939512624973204
+            }
+          ]
+        },
+        {
+          "clip": "idle_2",
+          "poses": 40,
+          "regions": [
+            {
+              "name": "lionUpperFace",
+              "vertices": 111,
+              "edges": 245,
+              "maxDrift": 2.164823545196785e-15,
+              "worldMinRatio": 0.9999994533498954,
+              "worldMaxRatio": 1.0000000029691636,
+              "maximumPose": 0.25565000623464584
+            },
+            {
+              "name": "lionMuzzle",
+              "vertices": 77,
+              "edges": 153,
+              "maxDrift": 3.0198164614972762e-15,
+              "worldMinRatio": 0.9999994552140552,
+              "worldMaxRatio": 1.0000000027330547,
+              "maximumPose": 0.49232001304626466
+            },
+            {
+              "name": "lionLowerFace",
+              "vertices": 113,
+              "edges": 229,
+              "maxDrift": 2.717864195854547e-15,
+              "worldMinRatio": 0.9999994532980461,
+              "worldMaxRatio": 1.0000000028051146,
+              "maximumPose": 0.49232001304626466
+            },
+            {
+              "name": "lionJawChin",
+              "vertices": 104,
+              "edges": 244,
+              "maxDrift": 2.2397751451554474e-15,
+              "worldMinRatio": 0.9999994532856443,
+              "worldMaxRatio": 1.0000000028441542,
+              "maximumPose": 0.8205333550771078
+            },
+            {
+              "name": "dragonUpperFace",
+              "vertices": 86,
+              "edges": 183,
+              "maxDrift": 2.2890831504250733e-15,
+              "worldMinRatio": 0.9999994534356997,
+              "worldMaxRatio": 1.0000000029557752,
+              "maximumPose": 0.25565000623464584
+            },
+            {
+              "name": "dragonMuzzle",
+              "vertices": 135,
+              "edges": 279,
+              "maxDrift": 1.776032382602956e-15,
+              "worldMinRatio": 0.9999994532358469,
+              "worldMaxRatio": 1.0000000029537912,
+              "maximumPose": 0.8205333550771078
+            },
+            {
+              "name": "dragonLowerFace",
+              "vertices": 122,
+              "edges": 263,
+              "maxDrift": 2.074283582788384e-15,
+              "worldMinRatio": 0.9999994534502046,
+              "worldMaxRatio": 1.0000000025894786,
+              "maximumPose": 0.25565000623464584
+            },
+            {
+              "name": "dragonJawChin",
+              "vertices": 79,
+              "edges": 158,
+              "maxDrift": 2.964011391278964e-15,
+              "worldMinRatio": 0.9999994537748155,
+              "worldMaxRatio": 1.0000000023936166,
+              "maximumPose": 0.25565000623464584
+            }
+          ]
+        },
+        {
+          "clip": "walk",
+          "poses": 53,
+          "regions": [
+            {
+              "name": "lionUpperFace",
+              "vertices": 111,
+              "edges": 245,
+              "maxDrift": 1.846167722477787e-15,
+              "worldMinRatio": 0.9999999998570608,
+              "worldMaxRatio": 1.0000000000287514,
+              "maximumPose": 0.5783909234133634
+            },
+            {
+              "name": "lionMuzzle",
+              "vertices": 77,
+              "edges": 153,
+              "maxDrift": 2.3021948267129542e-15,
+              "worldMinRatio": 0.9999999998570585,
+              "worldMaxRatio": 1.000000000028749,
+              "maximumPose": 0.7100781500339508
+            },
+            {
+              "name": "lionLowerFace",
+              "vertices": 113,
+              "edges": 229,
+              "maxDrift": 2.2473970945488744e-15,
+              "worldMinRatio": 0.9999999998570585,
+              "worldMaxRatio": 1.0000000000287463,
+              "maximumPose": 0.11361250281333923
+            },
+            {
+              "name": "lionJawChin",
+              "vertices": 104,
+              "edges": 244,
+              "maxDrift": 1.8132524967716293e-15,
+              "worldMinRatio": 0.9999999998570585,
+              "worldMaxRatio": 1.0000000000287568,
+              "maximumPose": 0.11361250281333923
+            },
+            {
+              "name": "dragonUpperFace",
+              "vertices": 86,
+              "edges": 183,
+              "maxDrift": 2.2340203019572143e-15,
+              "worldMinRatio": 0.9999999998570611,
+              "worldMaxRatio": 1.0000000000287506,
+              "maximumPose": 0.7100781500339508
+            },
+            {
+              "name": "dragonMuzzle",
+              "vertices": 135,
+              "edges": 279,
+              "maxDrift": 1.5786954512026275e-15,
+              "worldMinRatio": 0.999999999857062,
+              "worldMaxRatio": 1.0000000000287508,
+              "maximumPose": 0.7100781500339508
+            },
+            {
+              "name": "dragonLowerFace",
+              "vertices": 122,
+              "edges": 263,
+              "maxDrift": 1.7435010663772117e-15,
+              "worldMinRatio": 0.9999999998570647,
+              "worldMaxRatio": 1.0000000000287508,
+              "maximumPose": 0.8236906230449677
+            },
+            {
+              "name": "dragonJawChin",
+              "vertices": 79,
+              "edges": 158,
+              "maxDrift": 2.4913454767367197e-15,
+              "worldMinRatio": 0.9999999998570658,
+              "worldMaxRatio": 1.0000000000287461,
+              "maximumPose": 0.8236906230449677
+            }
+          ]
+        },
+        {
+          "clip": "gallop",
+          "poses": 45,
+          "regions": [
+            {
+              "name": "lionUpperFace",
+              "vertices": 111,
+              "edges": 245,
+              "maxDrift": 1.7635492406822445e-15,
+              "worldMinRatio": 0.9999999998570621,
+              "worldMaxRatio": 1.0000000227141876,
+              "maximumPose": 0.3652071271623884
+            },
+            {
+              "name": "lionMuzzle",
+              "vertices": 77,
+              "edges": 153,
+              "maxDrift": 2.3853331696952917e-15,
+              "worldMinRatio": 0.9999999998570579,
+              "worldMaxRatio": 1.000000022714826,
+              "maximumPose": 0.3652071271623884
+            },
+            {
+              "name": "lionLowerFace",
+              "vertices": 113,
+              "edges": 229,
+              "maxDrift": 2.071997742638421e-15,
+              "worldMinRatio": 0.9999999998570579,
+              "worldMaxRatio": 1.000000022714826,
+              "maximumPose": 0.12427186965942383
+            },
+            {
+              "name": "lionJawChin",
+              "vertices": 104,
+              "edges": 244,
+              "maxDrift": 1.8132524967716293e-15,
+              "worldMinRatio": 0.9999999998570579,
+              "worldMaxRatio": 1.000000022714833,
+              "maximumPose": 0.04057856968470982
+            },
+            {
+              "name": "dragonUpperFace",
+              "vertices": 86,
+              "edges": 183,
+              "maxDrift": 1.8183607851802994e-15,
+              "worldMinRatio": 0.9999999998570598,
+              "worldMaxRatio": 1.0000000227148262,
+              "maximumPose": 0.31955623626708984
+            },
+            {
+              "name": "dragonMuzzle",
+              "vertices": 135,
+              "edges": 279,
+              "maxDrift": 1.5786954512026275e-15,
+              "worldMinRatio": 0.9999999998570613,
+              "worldMaxRatio": 1.0000000227148294,
+              "maximumPose": 0.31955623626708984
+            },
+            {
+              "name": "dragonLowerFace",
+              "vertices": 122,
+              "edges": 263,
+              "maxDrift": 1.7435010663772117e-15,
+              "worldMinRatio": 0.9999999998570613,
+              "worldMaxRatio": 1.0000000227148294,
+              "maximumPose": 0.31955623626708984
+            },
+            {
+              "name": "dragonJawChin",
+              "vertices": 79,
+              "edges": 158,
+              "maxDrift": 2.4913454767367197e-15,
+              "worldMinRatio": 0.9999999998570688,
+              "worldMaxRatio": 1.000000022713601,
+              "maximumPose": 0.31955623626708984
+            }
+          ]
+        },
+        {
+          "clip": "gallop_jump",
+          "poses": 23,
+          "regions": [
+            {
+              "name": "lionUpperFace",
+              "vertices": 111,
+              "edges": 245,
+              "maxDrift": 2.26108444983336e-15,
+              "worldMinRatio": 0.9999981966233111,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.16157333056131998
+            },
+            {
+              "name": "lionMuzzle",
+              "vertices": 77,
+              "edges": 153,
+              "maxDrift": 2.8471102638179844e-15,
+              "worldMinRatio": 0.9999981965725296,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.16157333056131998
+            },
+            {
+              "name": "lionLowerFace",
+              "vertices": 113,
+              "edges": 229,
+              "maxDrift": 2.3301509024375925e-15,
+              "worldMinRatio": 0.9999981965725296,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.5017499923706055
+            },
+            {
+              "name": "lionJawChin",
+              "vertices": 104,
+              "edges": 244,
+              "maxDrift": 2.1262270218492083e-15,
+              "worldMinRatio": 0.9999981965725296,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.16157333056131998
+            },
+            {
+              "name": "dragonUpperFace",
+              "vertices": 86,
+              "edges": 183,
+              "maxDrift": 1.960344859038555e-15,
+              "worldMinRatio": 0.9999981965725346,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.16157333056131998
+            },
+            {
+              "name": "dragonMuzzle",
+              "vertices": 135,
+              "edges": 279,
+              "maxDrift": 1.679922565743844e-15,
+              "worldMinRatio": 0.9999981965725341,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.16157333056131998
+            },
+            {
+              "name": "dragonLowerFace",
+              "vertices": 122,
+              "edges": 263,
+              "maxDrift": 1.756274138723101e-15,
+              "worldMinRatio": 0.9999981965725341,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.16157333056131998
+            },
+            {
+              "name": "dragonJawChin",
+              "vertices": 79,
+              "edges": 158,
+              "maxDrift": 2.509597335956447e-15,
+              "worldMinRatio": 0.9999981966697538,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.16157333056131998
+            }
+          ]
+        },
+        {
+          "clip": "attack",
+          "poses": 131,
+          "regions": [
+            {
+              "name": "lionUpperFace",
+              "vertices": 111,
+              "edges": 245,
+              "maxDrift": 2.2230803238529838e-15,
+              "worldMinRatio": 0.9999998719981948,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.6998086908589238
+            },
+            {
+              "name": "lionMuzzle",
+              "vertices": 77,
+              "edges": 153,
+              "maxDrift": 3.3033275175997215e-15,
+              "worldMinRatio": 0.9999998720505465,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.6410624980926514
+            },
+            {
+              "name": "lionLowerFace",
+              "vertices": 113,
+              "edges": 229,
+              "maxDrift": 2.973026904692718e-15,
+              "worldMinRatio": 0.9999998719050044,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.6410624980926514
+            },
+            {
+              "name": "lionJawChin",
+              "vertices": 104,
+              "edges": 244,
+              "maxDrift": 2.407792619268764e-15,
+              "worldMinRatio": 0.9999998719810218,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.5763130395308785
+            },
+            {
+              "name": "dragonUpperFace",
+              "vertices": 86,
+              "edges": 183,
+              "maxDrift": 2.34306025968448e-15,
+              "worldMinRatio": 0.9999998719593478,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.6410624980926514
+            },
+            {
+              "name": "dragonMuzzle",
+              "vertices": 135,
+              "edges": 279,
+              "maxDrift": 1.7546218945906202e-15,
+              "worldMinRatio": 0.9999998719057521,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.6410624980926514
+            },
+            {
+              "name": "dragonLowerFace",
+              "vertices": 122,
+              "edges": 263,
+              "maxDrift": 2.1665185432751314e-15,
+              "worldMinRatio": 0.9999998719311951,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.53514782242153
+            },
+            {
+              "name": "dragonJawChin",
+              "vertices": 79,
+              "edges": 158,
+              "maxDrift": 3.0958089313189726e-15,
+              "worldMinRatio": 0.999999872063741,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.53514782242153
+            }
+          ]
+        },
+        {
+          "clip": "idle_hitreact1",
+          "poses": 115,
+          "regions": [
+            {
+              "name": "lionUpperFace",
+              "vertices": 111,
+              "edges": 245,
+              "maxDrift": 2.26108444983336e-15,
+              "worldMinRatio": 0.9999998719981948,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.18777917325496674
+            },
+            {
+              "name": "lionMuzzle",
+              "vertices": 77,
+              "edges": 153,
+              "maxDrift": 3.121351110916144e-15,
+              "worldMinRatio": 0.9999998720505465,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.4970625042915344
+            },
+            {
+              "name": "lionLowerFace",
+              "vertices": 113,
+              "edges": 229,
+              "maxDrift": 2.752488065529092e-15,
+              "worldMinRatio": 0.9999998719050044,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.3810812532901764
+            },
+            {
+              "name": "lionJawChin",
+              "vertices": 104,
+              "edges": 244,
+              "maxDrift": 2.037389096128619e-15,
+              "worldMinRatio": 0.9999998719810218,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.36706154163067156
+            },
+            {
+              "name": "dragonUpperFace",
+              "vertices": 86,
+              "edges": 183,
+              "maxDrift": 2.047513427557407e-15,
+              "worldMinRatio": 0.9999998719593478,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.18858958780765533
+            },
+            {
+              "name": "dragonMuzzle",
+              "vertices": 135,
+              "edges": 279,
+              "maxDrift": 1.8162062086875266e-15,
+              "worldMinRatio": 0.9999998719057521,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.18858958780765533
+            },
+            {
+              "name": "dragonLowerFace",
+              "vertices": 122,
+              "edges": 263,
+              "maxDrift": 2.1561771069339138e-15,
+              "worldMinRatio": 0.9999998719311951,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.18858958780765533
+            },
+            {
+              "name": "dragonJawChin",
+              "vertices": 79,
+              "edges": 158,
+              "maxDrift": 3.0810317160086383e-15,
+              "worldMinRatio": 0.999999872063741,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.18858958780765533
+            }
+          ]
+        },
+        {
+          "clip": "death",
+          "poses": 45,
+          "regions": [
+            {
+              "name": "lionUpperFace",
+              "vertices": 111,
+              "edges": 245,
+              "maxDrift": 2.5531238089504668e-15,
+              "worldMinRatio": 0.9999986502481897,
+              "worldMaxRatio": 1.0000005559629361,
+              "maximumPose": 0.7519999742507935
+            },
+            {
+              "name": "lionMuzzle",
+              "vertices": 77,
+              "edges": 153,
+              "maxDrift": 2.7067711823736262e-15,
+              "worldMinRatio": 0.9999986556004175,
+              "worldMaxRatio": 1.0000005569707162,
+              "maximumPose": 1.1985000371932983
+            },
+            {
+              "name": "lionLowerFace",
+              "vertices": 113,
+              "edges": 229,
+              "maxDrift": 2.436120398951866e-15,
+              "worldMinRatio": 0.9999986620485478,
+              "worldMaxRatio": 1.0000005569707162,
+              "maximumPose": 1.0738788156798391
+            },
+            {
+              "name": "lionJawChin",
+              "vertices": 104,
+              "edges": 244,
+              "maxDrift": 1.965518869162045e-15,
+              "worldMinRatio": 0.9999986604549129,
+              "worldMaxRatio": 1.0000005519012878,
+              "maximumPose": 1.0738788156798391
+            },
+            {
+              "name": "dragonUpperFace",
+              "vertices": 86,
+              "edges": 183,
+              "maxDrift": 1.9250204367346533e-15,
+              "worldMinRatio": 0.999998650209747,
+              "worldMaxRatio": 1.0000005645720076,
+              "maximumPose": 1.2390909411690452
+            },
+            {
+              "name": "dragonMuzzle",
+              "vertices": 135,
+              "edges": 279,
+              "maxDrift": 1.6017880101416188e-15,
+              "worldMinRatio": 0.9999986505692484,
+              "worldMaxRatio": 1.000000543805155,
+              "maximumPose": 0.20651515686150754
+            },
+            {
+              "name": "dragonLowerFace",
+              "vertices": 122,
+              "edges": 263,
+              "maxDrift": 1.8432088930914035e-15,
+              "worldMinRatio": 0.9999986507728529,
+              "worldMaxRatio": 1.00000049833901,
+              "maximumPose": 1.2803939725413467
+            },
+            {
+              "name": "dragonJawChin",
+              "vertices": 79,
+              "edges": 158,
+              "maxDrift": 2.6338212387939287e-15,
+              "worldMinRatio": 0.9999986601132822,
+              "worldMaxRatio": 1.000000478275353,
+              "maximumPose": 1.2803939725413467
+            }
+          ]
+        },
+        {
+          "clip": "entrance",
+          "poses": 29,
+          "regions": [
+            {
+              "name": "lionUpperFace",
+              "vertices": 111,
+              "edges": 245,
+              "maxDrift": 2.1549609720582857e-15,
+              "worldMinRatio": 0.9999981966233111,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.7290000021457672
+            },
+            {
+              "name": "lionMuzzle",
+              "vertices": 77,
+              "edges": 153,
+              "maxDrift": 2.512639175635074e-15,
+              "worldMinRatio": 0.9999981965725296,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.4562380909919739
+            },
+            {
+              "name": "lionLowerFace",
+              "vertices": 113,
+              "edges": 229,
+              "maxDrift": 2.611239455850818e-15,
+              "worldMinRatio": 0.9999981965725296,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.7290000021457672
+            },
+            {
+              "name": "lionJawChin",
+              "vertices": 104,
+              "edges": 244,
+              "maxDrift": 1.7202023588356378e-15,
+              "worldMinRatio": 0.9999981965725296,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.7290000021457672
+            },
+            {
+              "name": "dragonUpperFace",
+              "vertices": 86,
+              "edges": 183,
+              "maxDrift": 1.8857301717264232e-15,
+              "worldMinRatio": 0.9999981965725346,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.7290000021457672
+            },
+            {
+              "name": "dragonMuzzle",
+              "vertices": 135,
+              "edges": 279,
+              "maxDrift": 1.9523630104665255e-15,
+              "worldMinRatio": 0.9999981965725341,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.7290000021457672
+            },
+            {
+              "name": "dragonLowerFace",
+              "vertices": 122,
+              "edges": 263,
+              "maxDrift": 1.9028750439838955e-15,
+              "worldMinRatio": 0.9999981965725341,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.4562380909919739
+            },
+            {
+              "name": "dragonJawChin",
+              "vertices": 79,
+              "edges": 158,
+              "maxDrift": 2.7190801457180156e-15,
+              "worldMinRatio": 0.9999981966697538,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.4562380909919739
+            }
+          ]
+        },
+        {
+          "clip": "cast",
+          "poses": 133,
+          "regions": [
+            {
+              "name": "lionUpperFace",
+              "vertices": 111,
+              "edges": 245,
+              "maxDrift": 2.4940352540856044e-15,
+              "worldMinRatio": 0.9999999148534731,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.397599995136261
+            },
+            {
+              "name": "lionMuzzle",
+              "vertices": 77,
+              "edges": 153,
+              "maxDrift": 2.9147470155473894e-15,
+              "worldMinRatio": 0.9999999148549534,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.08520833402872086
+            },
+            {
+              "name": "lionLowerFace",
+              "vertices": 113,
+              "edges": 229,
+              "maxDrift": 2.611239455850818e-15,
+              "worldMinRatio": 0.9999999148549534,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.397599995136261
+            },
+            {
+              "name": "lionJawChin",
+              "vertices": 104,
+              "edges": 244,
+              "maxDrift": 2.0994809631741627e-15,
+              "worldMinRatio": 0.9999999148549534,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.5219010710716248
+            },
+            {
+              "name": "dragonUpperFace",
+              "vertices": 86,
+              "edges": 183,
+              "maxDrift": 2.683150457677686e-15,
+              "worldMinRatio": 0.9999999149023969,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.397599995136261
+            },
+            {
+              "name": "dragonMuzzle",
+              "vertices": 135,
+              "edges": 279,
+              "maxDrift": 1.9547081921053282e-15,
+              "worldMinRatio": 0.9999999148770023,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.05325520969927311
+            },
+            {
+              "name": "dragonLowerFace",
+              "vertices": 122,
+              "edges": 263,
+              "maxDrift": 2.1561771069339138e-15,
+              "worldMinRatio": 0.9999999148612005,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.397599995136261
+            },
+            {
+              "name": "dragonJawChin",
+              "vertices": 79,
+              "edges": 158,
+              "maxDrift": 3.0810317160086383e-15,
+              "worldMinRatio": 0.9999999148612005,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.397599995136261
+            }
+          ]
+        },
+        {
+          "clip": "guard",
+          "poses": 33,
+          "regions": [
+            {
+              "name": "lionUpperFace",
+              "vertices": 111,
+              "edges": 245,
+              "maxDrift": 2.064078262663149e-15,
+              "worldMinRatio": 0.9999996331592811,
+              "worldMaxRatio": 1.000000001127447,
+              "maximumPose": 0.8972615462083083
+            },
+            {
+              "name": "lionMuzzle",
+              "vertices": 77,
+              "edges": 153,
+              "maxDrift": 2.319060948359234e-15,
+              "worldMinRatio": 0.9999996325181894,
+              "worldMaxRatio": 1.0000000013144865,
+              "maximumPose": 0.8972615462083083
+            },
+            {
+              "name": "lionLowerFace",
+              "vertices": 113,
+              "edges": 229,
+              "maxDrift": 2.1320680876857684e-15,
+              "worldMinRatio": 0.9999996325323967,
+              "worldMaxRatio": 1.0000000013144865,
+              "maximumPose": 0.8972615462083083
+            },
+            {
+              "name": "lionJawChin",
+              "vertices": 104,
+              "edges": 244,
+              "maxDrift": 1.6839835160132573e-15,
+              "worldMinRatio": 0.9999996321769422,
+              "worldMaxRatio": 1.0000000008929757,
+              "maximumPose": 0.8972615462083083
+            },
+            {
+              "name": "dragonUpperFace",
+              "vertices": 86,
+              "edges": 183,
+              "maxDrift": 1.8456564778479898e-15,
+              "worldMinRatio": 0.9999996333719393,
+              "worldMaxRatio": 1.000000000907042,
+              "maximumPose": 0.8156923147348257
+            },
+            {
+              "name": "dragonMuzzle",
+              "vertices": 135,
+              "edges": 279,
+              "maxDrift": 1.6826475027590135e-15,
+              "worldMinRatio": 0.9999996328701445,
+              "worldMaxRatio": 1.0000000008998484,
+              "maximumPose": 0.8156923147348257
+            },
+            {
+              "name": "dragonLowerFace",
+              "vertices": 122,
+              "edges": 263,
+              "maxDrift": 1.8095541159015458e-15,
+              "worldMinRatio": 0.9999996336850884,
+              "worldMaxRatio": 1.0000000008998484,
+              "maximumPose": 0.8156923147348257
+            },
+            {
+              "name": "dragonJawChin",
+              "vertices": 79,
+              "edges": 158,
+              "maxDrift": 2.5857308311999972e-15,
+              "worldMinRatio": 0.9999996344609015,
+              "worldMaxRatio": 1.000000000657064,
+              "maximumPose": 0.8156923147348257
+            }
+          ]
+        },
+        {
+          "clip": "rest",
+          "poses": 59,
+          "regions": [
+            {
+              "name": "lionUpperFace",
+              "vertices": 111,
+              "edges": 245,
+              "maxDrift": 2.627142725571949e-15,
+              "worldMinRatio": 0.9999997927143461,
+              "worldMaxRatio": 1.0000000004021339,
+              "maximumPose": 0.1638139569482138
+            },
+            {
+              "name": "lionMuzzle",
+              "vertices": 77,
+              "edges": 153,
+              "maxDrift": 3.407852204406757e-15,
+              "worldMinRatio": 0.9999997927664815,
+              "worldMaxRatio": 1.0000000002434262,
+              "maximumPose": 0.12286046771116035
+            },
+            {
+              "name": "lionLowerFace",
+              "vertices": 113,
+              "edges": 229,
+              "maxDrift": 2.9436827177141722e-15,
+              "worldMinRatio": 0.9999997927664815,
+              "worldMaxRatio": 1.0000000004801726,
+              "maximumPose": 0.1638139569482138
+            },
+            {
+              "name": "lionJawChin",
+              "vertices": 104,
+              "edges": 244,
+              "maxDrift": 2.5723273103962103e-15,
+              "worldMinRatio": 0.9999997927113894,
+              "worldMaxRatio": 1.0000000003594676,
+              "maximumPose": 0.6603749990463257
+            },
+            {
+              "name": "dragonUpperFace",
+              "vertices": 86,
+              "edges": 183,
+              "maxDrift": 2.34306025968448e-15,
+              "worldMinRatio": 0.9999997928393448,
+              "worldMaxRatio": 1.0000000003090694,
+              "maximumPose": 0.6603749990463257
+            },
+            {
+              "name": "dragonMuzzle",
+              "vertices": 135,
+              "edges": 279,
+              "maxDrift": 2.0619251498622827e-15,
+              "worldMinRatio": 0.9999997927931497,
+              "worldMaxRatio": 1.0000000003569847,
+              "maximumPose": 0.6603749990463257
+            },
+            {
+              "name": "dragonLowerFace",
+              "vertices": 122,
+              "edges": 263,
+              "maxDrift": 2.474731261936545e-15,
+              "worldMinRatio": 0.9999997927169934,
+              "worldMaxRatio": 1.0000000003569847,
+              "maximumPose": 0.6603749990463257
+            },
+            {
+              "name": "dragonJawChin",
+              "vertices": 79,
+              "edges": 158,
+              "maxDrift": 3.5362241265361293e-15,
+              "worldMinRatio": 0.9999997927169934,
+              "worldMaxRatio": 1.0000000003941685,
+              "maximumPose": 0.6603749990463257
+            }
+          ]
+        },
+        {
+          "clip": "victory",
+          "poses": 51,
+          "regions": [
+            {
+              "name": "lionUpperFace",
+              "vertices": 111,
+              "edges": 245,
+              "maxDrift": 2.8150274382998923e-15,
+              "worldMinRatio": 0.9999997802147124,
+              "worldMaxRatio": 1.000000010249014,
+              "maximumPose": 0.8253846413049942
+            },
+            {
+              "name": "lionMuzzle",
+              "vertices": 77,
+              "edges": 153,
+              "maxDrift": 3.2915087766054336e-15,
+              "worldMinRatio": 0.9999997799555493,
+              "worldMaxRatio": 1.0000000102843125,
+              "maximumPose": 0.8253846413049942
+            },
+            {
+              "name": "lionLowerFace",
+              "vertices": 113,
+              "edges": 229,
+              "maxDrift": 3.1906905291402226e-15,
+              "worldMinRatio": 0.9999997799228965,
+              "worldMaxRatio": 1.0000000104162785,
+              "maximumPose": 0.8253846413049942
+            },
+            {
+              "name": "lionJawChin",
+              "vertices": 104,
+              "edges": 244,
+              "maxDrift": 2.302545101619246e-15,
+              "worldMinRatio": 0.9999997800003797,
+              "worldMaxRatio": 1.000000010324125,
+              "maximumPose": 0.8253846413049942
+            },
+            {
+              "name": "dragonUpperFace",
+              "vertices": 86,
+              "edges": 183,
+              "maxDrift": 2.4421827885869254e-15,
+              "worldMinRatio": 0.9999997800332093,
+              "worldMaxRatio": 1.0000000102657303,
+              "maximumPose": 0.8253846413049942
+            },
+            {
+              "name": "dragonMuzzle",
+              "vertices": 135,
+              "edges": 279,
+              "maxDrift": 1.9617269155570488e-15,
+              "worldMinRatio": 0.9999997801305206,
+              "worldMaxRatio": 1.000000010379099,
+              "maximumPose": 0.6248999834060669
+            },
+            {
+              "name": "dragonLowerFace",
+              "vertices": 122,
+              "edges": 263,
+              "maxDrift": 2.189608202990997e-15,
+              "worldMinRatio": 0.9999997802333389,
+              "worldMaxRatio": 1.0000000088229748,
+              "maximumPose": 0.8253846413049942
+            },
+            {
+              "name": "dragonJawChin",
+              "vertices": 79,
+              "edges": 158,
+              "maxDrift": 3.1722601700043513e-15,
+              "worldMinRatio": 0.9999997805919485,
+              "worldMaxRatio": 1.0000000094173007,
+              "maximumPose": 0.8253846413049942
+            }
+          ]
+        }
+      ],
+      "blends": [
+        {
+          "name": "lionUpperFace",
+          "vertices": 111,
+          "edges": 245,
+          "maxDrift": 2.5531238089504668e-15,
+          "worldMinRatio": 0.9999999561109869,
+          "worldMaxRatio": 1.0000000076655777,
+          "maximumPose": {
+            "from": "gallop_jump",
+            "to": "rest",
+            "blend": 0.5
+          }
+        },
+        {
+          "name": "lionMuzzle",
+          "vertices": 77,
+          "edges": 153,
+          "maxDrift": 3.53140565918875e-15,
+          "worldMinRatio": 0.9999999561097508,
+          "worldMaxRatio": 1.000000007523058,
+          "maximumPose": {
+            "from": "gallop_jump",
+            "to": "rest",
+            "blend": 0.5
+          }
+        },
+        {
+          "name": "lionLowerFace",
+          "vertices": 113,
+          "edges": 229,
+          "maxDrift": 2.973026904692718e-15,
+          "worldMinRatio": 0.9999999561097508,
+          "worldMaxRatio": 1.0000000076441522,
+          "maximumPose": {
+            "from": "attack",
+            "to": "gallop",
+            "blend": 0.5
+          }
+        },
+        {
+          "name": "lionJawChin",
+          "vertices": 104,
+          "edges": 244,
+          "maxDrift": 2.364192007638663e-15,
+          "worldMinRatio": 0.9999999561097508,
+          "worldMaxRatio": 1.0000000077048594,
+          "maximumPose": {
+            "from": "death",
+            "to": "attack",
+            "blend": 0.5
+          }
+        },
+        {
+          "name": "dragonUpperFace",
+          "vertices": 86,
+          "edges": 183,
+          "maxDrift": 2.5373593074944145e-15,
+          "worldMinRatio": 0.999999956109754,
+          "worldMaxRatio": 1.0000000075073279,
+          "maximumPose": {
+            "from": "attack",
+            "to": "idle",
+            "blend": 0.75
+          }
+        },
+        {
+          "name": "dragonMuzzle",
+          "vertices": 135,
+          "edges": 279,
+          "maxDrift": 2.17439658048258e-15,
+          "worldMinRatio": 0.999999956109757,
+          "worldMaxRatio": 1.0000000076075624,
+          "maximumPose": {
+            "from": "attack",
+            "to": "idle",
+            "blend": 0.75
+          }
+        },
+        {
+          "name": "dragonLowerFace",
+          "vertices": 122,
+          "edges": 263,
+          "maxDrift": 2.465682854082607e-15,
+          "worldMinRatio": 0.999999956109757,
+          "worldMaxRatio": 1.0000000069423123,
+          "maximumPose": {
+            "from": "attack",
+            "to": "idle",
+            "blend": 0.75
+          }
+        },
+        {
+          "name": "dragonJawChin",
+          "vertices": 79,
+          "edges": 158,
+          "maxDrift": 3.5232945617579332e-15,
+          "worldMinRatio": 0.9999999561121198,
+          "worldMaxRatio": 1.0000000069289217,
+          "maximumPose": {
+            "from": "attack",
+            "to": "idle",
+            "blend": 0.75
+          }
+        }
+      ],
+      "blendPoses": 468,
+      "failed": false
+    },
+    {
+      "id": "legendary-15",
+      "name": "Inferno Chimera",
+      "stage": "battle",
+      "sha256": "0d62b2a54572b20fbdf76d1a3f4c4381313692ea75bba614edbf5adb459018a0",
+      "annotationSourceSha256": "09452e6c3efcadfcbde44e4b32d4c685a9677db585f5f5ba799adf7167997109",
+      "landmarks": {
+        "lionUpperFace": {
+          "center": [
+            -0.31441607956883005,
+            0.17793924206290168,
+            0.9252222768985903
+          ],
+          "radius": 0.1,
+          "pickedPixel": [
+            164,
+            229
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head",
+          "cameraAtPick": {
+            "y": [
+              0.1,
+              0.2
+            ],
+            "z": [
+              0.45,
+              0.6
+            ],
+            "cameraPadding": 1.5,
+            "status": "inspection",
+            "finding": "All 13 original uncropped full-body animation sheets inspected front/side. Full face anatomy and dark surfaces require closeups before classification. No approval issued.",
+            "exclude": [
+              [
+                -0.15,
+                2,
+                -2,
+                2,
+                -2,
+                2
+              ]
+            ]
+          }
+        },
+        "lionMuzzle": {
+          "center": [
+            -0.25454518224020045,
+            0.10007990382033108,
+            0.9797110482889168
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            177,
+            252
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head",
+          "cameraAtPick": {
+            "y": [
+              0.1,
+              0.2
+            ],
+            "z": [
+              0.45,
+              0.6
+            ],
+            "cameraPadding": 1.5,
+            "status": "inspection",
+            "finding": "All 13 original uncropped full-body animation sheets inspected front/side. Full face anatomy and dark surfaces require closeups before classification. No approval issued.",
+            "exclude": [
+              [
+                -0.15,
+                2,
+                -2,
+                2,
+                -2,
+                2
+              ]
+            ]
+          }
+        },
+        "lionLowerFace": {
+          "center": [
+            -0.24998769823903477,
+            0.007778443764567655,
+            0.9600634968009754
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            177,
+            274
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head",
+          "cameraAtPick": {
+            "y": [
+              0.1,
+              0.2
+            ],
+            "z": [
+              0.45,
+              0.6
+            ],
+            "cameraPadding": 1.5,
+            "status": "inspection",
+            "finding": "All 13 original uncropped full-body animation sheets inspected front/side. Full face anatomy and dark surfaces require closeups before classification. No approval issued.",
+            "exclude": [
+              [
+                -0.15,
+                2,
+                -2,
+                2,
+                -2,
+                2
+              ]
+            ]
+          }
+        },
+        "lionJawChin": {
+          "center": [
+            -0.16212806970584775,
+            0.046669442375532895,
+            0.9088506171796652
+          ],
+          "radius": 0.1,
+          "pickedPixel": [
+            126,
+            264
+          ],
+          "pickedView": "head-side",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head",
+          "cameraAtPick": {
+            "y": [
+              0.1,
+              0.2
+            ],
+            "z": [
+              0.45,
+              0.6
+            ],
+            "cameraPadding": 1.5,
+            "status": "inspection",
+            "finding": "All 13 original uncropped full-body animation sheets inspected front/side. Full face anatomy and dark surfaces require closeups before classification. No approval issued.",
+            "exclude": [
+              [
+                -0.15,
+                2,
+                -2,
+                2,
+                -2,
+                2
+              ]
+            ]
+          }
+        },
+        "dragonUpperFace": {
+          "center": [
+            0.4442925605761902,
+            0.19201487345803772,
+            0.7257148606825564
+          ],
+          "radius": 0.1,
+          "pickedPixel": [
+            204,
+            193
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head",
+          "cameraAtPick": {
+            "y": [
+              -0.1,
+              0.05
+            ],
+            "z": [
+              0.45,
+              0.6
+            ],
+            "cameraPadding": 1.5,
+            "status": "inspection",
+            "finding": "All 13 original uncropped full-body animation sheets inspected front/side. Full face anatomy and dark surfaces require closeups before classification. No approval issued.",
+            "exclude": [
+              [
+                -2,
+                -0.18,
+                -2,
+                2,
+                -2,
+                2
+              ],
+              [
+                0.6,
+                2,
+                -2,
+                2,
+                -2,
+                2
+              ]
+            ]
+          }
+        },
+        "dragonMuzzle": {
+          "center": [
+            0.4865661991179868,
+            0.03929252037238548,
+            0.7223523897862398
+          ],
+          "radius": 0.11,
+          "pickedPixel": [
+            209,
+            219
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head",
+          "cameraAtPick": {
+            "y": [
+              -0.1,
+              0.05
+            ],
+            "z": [
+              0.45,
+              0.6
+            ],
+            "cameraPadding": 1.5,
+            "status": "inspection",
+            "finding": "All 13 original uncropped full-body animation sheets inspected front/side. Full face anatomy and dark surfaces require closeups before classification. No approval issued.",
+            "exclude": [
+              [
+                -2,
+                -0.18,
+                -2,
+                2,
+                -2,
+                2
+              ],
+              [
+                0.6,
+                2,
+                -2,
+                2,
+                -2,
+                2
+              ]
+            ]
+          }
+        },
+        "dragonLowerFace": {
+          "center": [
+            0.48537514450216135,
+            -0.03528656783693024,
+            0.7466744410077978
+          ],
+          "radius": 0.11,
+          "pickedPixel": [
+            210,
+            231
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head",
+          "cameraAtPick": {
+            "y": [
+              -0.1,
+              0.05
+            ],
+            "z": [
+              0.45,
+              0.6
+            ],
+            "cameraPadding": 1.5,
+            "status": "inspection",
+            "finding": "All 13 original uncropped full-body animation sheets inspected front/side. Full face anatomy and dark surfaces require closeups before classification. No approval issued.",
+            "exclude": [
+              [
+                -2,
+                -0.18,
+                -2,
+                2,
+                -2,
+                2
+              ],
+              [
+                0.6,
+                2,
+                -2,
+                2,
+                -2,
+                2
+              ]
+            ]
+          }
+        },
+        "dragonJawChin": {
+          "center": [
+            0.4920458500772591,
+            -0.1203302312990132,
+            0.7025607559833492
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            169,
+            257
+          ],
+          "pickedView": "head-side",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head",
+          "cameraAtPick": {
+            "y": [
+              -0.1,
+              0.05
+            ],
+            "z": [
+              0.45,
+              0.6
+            ],
+            "cameraPadding": 1.5,
+            "status": "inspection",
+            "finding": "All 13 original uncropped full-body animation sheets inspected front/side. Full face anatomy and dark surfaces require closeups before classification. No approval issued.",
+            "exclude": [
+              [
+                -2,
+                -0.18,
+                -2,
+                2,
+                -2,
+                2
+              ],
+              [
+                0.6,
+                2,
+                -2,
+                2,
+                -2,
+                2
+              ]
+            ]
+          }
+        }
+      },
+      "clips": [
+        {
+          "clip": "idle",
+          "poses": 57,
+          "regions": [
+            {
+              "name": "lionUpperFace",
+              "vertices": 37,
+              "edges": 58,
+              "maxDrift": 2.4767899856068306e-15,
+              "worldMinRatio": 0.9999999844734345,
+              "worldMaxRatio": 1.000000415893608,
+              "maximumPose": 0.24939512624973204
+            },
+            {
+              "name": "lionMuzzle",
+              "vertices": 29,
+              "edges": 40,
+              "maxDrift": 3.0676194172614824e-15,
+              "worldMinRatio": 0.9999999844734345,
+              "worldMaxRatio": 1.0000004134412628,
+              "maximumPose": 0.24939512624973204
+            },
+            {
+              "name": "lionLowerFace",
+              "vertices": 44,
+              "edges": 71,
+              "maxDrift": 3.052019242079591e-15,
+              "worldMinRatio": 0.9999999844980972,
+              "worldMaxRatio": 1.0000004147460624,
+              "maximumPose": 0.24939512624973204
+            },
+            {
+              "name": "lionJawChin",
+              "vertices": 30,
+              "edges": 53,
+              "maxDrift": 2.283973216944968e-15,
+              "worldMinRatio": 0.9999999845632827,
+              "worldMaxRatio": 1.0000004162971718,
+              "maximumPose": 0.24939512624973204
+            },
+            {
+              "name": "dragonUpperFace",
+              "vertices": 27,
+              "edges": 44,
+              "maxDrift": 2.496836279245559e-15,
+              "worldMinRatio": 0.9999999845952482,
+              "worldMaxRatio": 1.0000004152224062,
+              "maximumPose": 0.24939512624973204
+            },
+            {
+              "name": "dragonMuzzle",
+              "vertices": 39,
+              "edges": 56,
+              "maxDrift": 2.2963306850624666e-15,
+              "worldMinRatio": 0.9999999844347067,
+              "worldMaxRatio": 1.0000004156396776,
+              "maximumPose": 0.24939512624973204
+            },
+            {
+              "name": "dragonLowerFace",
+              "vertices": 38,
+              "edges": 55,
+              "maxDrift": 2.3216359482755756e-15,
+              "worldMinRatio": 0.9999999844347067,
+              "worldMaxRatio": 1.000000414821763,
+              "maximumPose": 0.24939512624973204
+            },
+            {
+              "name": "dragonJawChin",
+              "vertices": 23,
+              "edges": 28,
+              "maxDrift": 3.635453573772754e-15,
+              "worldMinRatio": 0.9999999853043849,
+              "worldMaxRatio": 1.0000004131658156,
+              "maximumPose": 0.24939512624973204
+            }
+          ]
+        },
+        {
+          "clip": "idle_2",
+          "poses": 40,
+          "regions": [
+            {
+              "name": "lionUpperFace",
+              "vertices": 37,
+              "edges": 58,
+              "maxDrift": 2.3898578307568242e-15,
+              "worldMinRatio": 0.9999994561273775,
+              "worldMaxRatio": 1.0000000028431408,
+              "maximumPose": 0.49232001304626466
+            },
+            {
+              "name": "lionMuzzle",
+              "vertices": 29,
+              "edges": 40,
+              "maxDrift": 2.7053860316889207e-15,
+              "worldMinRatio": 0.9999994552140552,
+              "worldMaxRatio": 1.0000000024924203,
+              "maximumPose": 0.8205333550771078
+            },
+            {
+              "name": "lionLowerFace",
+              "vertices": 44,
+              "edges": 71,
+              "maxDrift": 2.8921326071272374e-15,
+              "worldMinRatio": 0.9999994532980461,
+              "worldMaxRatio": 1.0000000030029397,
+              "maximumPose": 0.8205333550771078
+            },
+            {
+              "name": "lionJawChin",
+              "vertices": 30,
+              "edges": 53,
+              "maxDrift": 2.3428967101453706e-15,
+              "worldMinRatio": 0.9999994532856443,
+              "worldMaxRatio": 1.0000000022404076,
+              "maximumPose": 0.8205333550771078
+            },
+            {
+              "name": "dragonUpperFace",
+              "vertices": 27,
+              "edges": 44,
+              "maxDrift": 1.9587326564957245e-15,
+              "worldMinRatio": 0.9999994552487877,
+              "worldMaxRatio": 1.0000000024224163,
+              "maximumPose": 0.8205333550771078
+            },
+            {
+              "name": "dragonMuzzle",
+              "vertices": 39,
+              "edges": 56,
+              "maxDrift": 1.9694659517720553e-15,
+              "worldMinRatio": 0.9999994533819045,
+              "worldMaxRatio": 1.0000000019078557,
+              "maximumPose": 0.8205333550771078
+            },
+            {
+              "name": "dragonLowerFace",
+              "vertices": 38,
+              "edges": 55,
+              "maxDrift": 1.982474104871812e-15,
+              "worldMinRatio": 0.9999994537748155,
+              "worldMaxRatio": 1.0000000019078557,
+              "maximumPose": 0.25565000623464584
+            },
+            {
+              "name": "dragonJawChin",
+              "vertices": 23,
+              "edges": 28,
+              "maxDrift": 2.7474041478958418e-15,
+              "worldMinRatio": 0.9999994537748155,
+              "worldMaxRatio": 1.0000000010737586,
+              "maximumPose": 0.8205333550771078
+            }
+          ]
+        },
+        {
+          "clip": "walk",
+          "poses": 53,
+          "regions": [
+            {
+              "name": "lionUpperFace",
+              "vertices": 37,
+              "edges": 58,
+              "maxDrift": 2.05686212851657e-15,
+              "worldMinRatio": 0.9999999998582345,
+              "worldMaxRatio": 1.0000000000285159,
+              "maximumPose": 0.5783909234133634
+            },
+            {
+              "name": "lionMuzzle",
+              "vertices": 29,
+              "edges": 40,
+              "maxDrift": 2.045079611507655e-15,
+              "worldMinRatio": 0.9999999998570641,
+              "worldMaxRatio": 1.000000000028749,
+              "maximumPose": 0.19882187992334366
+            },
+            {
+              "name": "lionLowerFace",
+              "vertices": 44,
+              "edges": 71,
+              "maxDrift": 2.3267450190202114e-15,
+              "worldMinRatio": 0.9999999998571044,
+              "worldMaxRatio": 1.0000000000287417,
+              "maximumPose": 0.7100781500339508
+            },
+            {
+              "name": "lionJawChin",
+              "vertices": 30,
+              "edges": 53,
+              "maxDrift": 1.7487046649101104e-15,
+              "worldMinRatio": 0.9999999998570641,
+              "worldMaxRatio": 1.000000000028749,
+              "maximumPose": 0.49576364864002576
+            },
+            {
+              "name": "dragonUpperFace",
+              "vertices": 27,
+              "edges": 44,
+              "maxDrift": 1.4599135210726949e-15,
+              "worldMinRatio": 0.9999999998573242,
+              "worldMaxRatio": 1.0000000000286984,
+              "maximumPose": 0.49576364864002576
+            },
+            {
+              "name": "dragonMuzzle",
+              "vertices": 39,
+              "edges": 56,
+              "maxDrift": 1.7115838368727785e-15,
+              "worldMinRatio": 0.9999999998570721,
+              "worldMaxRatio": 1.0000000000287497,
+              "maximumPose": 0.49576364864002576
+            },
+            {
+              "name": "dragonLowerFace",
+              "vertices": 38,
+              "edges": 55,
+              "maxDrift": 1.5477572988503836e-15,
+              "worldMinRatio": 0.9999999998571556,
+              "worldMaxRatio": 1.0000000000287383,
+              "maximumPose": 0.11361250281333923
+            },
+            {
+              "name": "dragonJawChin",
+              "vertices": 23,
+              "edges": 28,
+              "maxDrift": 2.4340600035936988e-15,
+              "worldMinRatio": 0.9999999998571061,
+              "worldMaxRatio": 1.0000000000287437,
+              "maximumPose": 0.11361250281333923
+            }
+          ]
+        },
+        {
+          "clip": "gallop",
+          "poses": 45,
+          "regions": [
+            {
+              "name": "lionUpperFace",
+              "vertices": 37,
+              "edges": 58,
+              "maxDrift": 1.9648147894521034e-15,
+              "worldMinRatio": 0.9999999998582344,
+              "worldMaxRatio": 1.0000000225290244,
+              "maximumPose": 0.3652071271623884
+            },
+            {
+              "name": "lionMuzzle",
+              "vertices": 29,
+              "edges": 40,
+              "maxDrift": 2.045079611507655e-15,
+              "worldMinRatio": 0.9999999998570638,
+              "worldMaxRatio": 1.0000000227146215,
+              "maximumPose": 0.04057856968470982
+            },
+            {
+              "name": "lionLowerFace",
+              "vertices": 44,
+              "edges": 71,
+              "maxDrift": 2.0346794947197274e-15,
+              "worldMinRatio": 0.9999999998571034,
+              "worldMaxRatio": 1.000000022708408,
+              "maximumPose": 0
+            },
+            {
+              "name": "lionJawChin",
+              "vertices": 30,
+              "edges": 53,
+              "maxDrift": 1.7487046649101104e-15,
+              "worldMinRatio": 0.9999999998570638,
+              "worldMaxRatio": 1.0000000227146215,
+              "maximumPose": 0.39056873321533203
+            },
+            {
+              "name": "dragonUpperFace",
+              "vertices": 27,
+              "edges": 44,
+              "maxDrift": 1.664557519497039e-15,
+              "worldMinRatio": 0.9999999998573244,
+              "worldMaxRatio": 1.0000000226736827,
+              "maximumPose": 0.04057856968470982
+            },
+            {
+              "name": "dragonMuzzle",
+              "vertices": 39,
+              "edges": 56,
+              "maxDrift": 1.5308871233749775e-15,
+              "worldMinRatio": 0.9999999998570721,
+              "worldMaxRatio": 1.0000000227137564,
+              "maximumPose": 0.017753124237060547
+            },
+            {
+              "name": "dragonLowerFace",
+              "vertices": 38,
+              "edges": 55,
+              "maxDrift": 1.7699281852979844e-15,
+              "worldMinRatio": 0.9999999998571543,
+              "worldMaxRatio": 1.000000022700753,
+              "maximumPose": 0.31955623626708984
+            },
+            {
+              "name": "dragonJawChin",
+              "vertices": 23,
+              "edges": 28,
+              "maxDrift": 2.783454103732481e-15,
+              "worldMinRatio": 0.9999999998571065,
+              "worldMaxRatio": 1.0000000227078614,
+              "maximumPose": 0.31955623626708984
+            }
+          ]
+        },
+        {
+          "clip": "gallop_jump",
+          "poses": 23,
+          "regions": [
+            {
+              "name": "lionUpperFace",
+              "vertices": 37,
+              "edges": 58,
+              "maxDrift": 2.5191313430602562e-15,
+              "worldMinRatio": 0.9999982113245086,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.16157333056131998
+            },
+            {
+              "name": "lionMuzzle",
+              "vertices": 29,
+              "edges": 40,
+              "maxDrift": 2.630012259026598e-15,
+              "worldMinRatio": 0.9999981965888581,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.5017499923706055
+            },
+            {
+              "name": "lionLowerFace",
+              "vertices": 44,
+              "edges": 71,
+              "maxDrift": 2.3437909979596657e-15,
+              "worldMinRatio": 0.9999981970822382,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.20196666320165
+            },
+            {
+              "name": "lionJawChin",
+              "vertices": 30,
+              "edges": 53,
+              "maxDrift": 2.1626123654185126e-15,
+              "worldMinRatio": 0.9999981965888581,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.16157333056131998
+            },
+            {
+              "name": "dragonUpperFace",
+              "vertices": 27,
+              "edges": 44,
+              "maxDrift": 1.87529287229167e-15,
+              "worldMinRatio": 0.9999981998393529,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.16157333056131998
+            },
+            {
+              "name": "dragonMuzzle",
+              "vertices": 39,
+              "edges": 56,
+              "maxDrift": 1.7538515308247586e-15,
+              "worldMinRatio": 0.999998196657668,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.16157333056131998
+            },
+            {
+              "name": "dragonLowerFace",
+              "vertices": 38,
+              "edges": 55,
+              "maxDrift": 1.782894865498998e-15,
+              "worldMinRatio": 0.9999981976904245,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.16157333056131998
+            },
+            {
+              "name": "dragonJawChin",
+              "vertices": 23,
+              "edges": 28,
+              "maxDrift": 2.8038459815030596e-15,
+              "worldMinRatio": 0.9999981971258372,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.16157333056131998
+            }
+          ]
+        },
+        {
+          "clip": "attack",
+          "poses": 131,
+          "regions": [
+            {
+              "name": "lionUpperFace",
+              "vertices": 37,
+              "edges": 58,
+              "maxDrift": 2.3898578307568242e-15,
+              "worldMinRatio": 0.9999998725075591,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.53514782242153
+            },
+            {
+              "name": "lionMuzzle",
+              "vertices": 29,
+              "edges": 40,
+              "maxDrift": 2.8360151544987787e-15,
+              "worldMinRatio": 0.9999998720505465,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.6410624980926514
+            },
+            {
+              "name": "lionLowerFace",
+              "vertices": 44,
+              "edges": 71,
+              "maxDrift": 3.3025896847250235e-15,
+              "worldMinRatio": 0.9999998719050044,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.6998086908589238
+            },
+            {
+              "name": "lionJawChin",
+              "vertices": 30,
+              "edges": 53,
+              "maxDrift": 2.1626123654185126e-15,
+              "worldMinRatio": 0.9999998719813146,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.6410624980926514
+            },
+            {
+              "name": "dragonUpperFace",
+              "vertices": 27,
+              "edges": 44,
+              "maxDrift": 2.0670477697482054e-15,
+              "worldMinRatio": 0.9999998720739073,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.5763130395308785
+            },
+            {
+              "name": "dragonMuzzle",
+              "vertices": 39,
+              "edges": 56,
+              "maxDrift": 1.9457235765968242e-15,
+              "worldMinRatio": 0.9999998719875379,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.6998086908589238
+            },
+            {
+              "name": "dragonLowerFace",
+              "vertices": 38,
+              "edges": 55,
+              "maxDrift": 2.1993575499676594e-15,
+              "worldMinRatio": 0.9999998721207672,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.53514782242153
+            },
+            {
+              "name": "dragonJawChin",
+              "vertices": 23,
+              "edges": 28,
+              "maxDrift": 3.458790502848471e-15,
+              "worldMinRatio": 0.9999998721207672,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.53514782242153
+            }
+          ]
+        },
+        {
+          "clip": "idle_hitreact1",
+          "poses": 115,
+          "regions": [
+            {
+              "name": "lionUpperFace",
+              "vertices": 37,
+              "edges": 58,
+              "maxDrift": 2.5191313430602562e-15,
+              "worldMinRatio": 0.9999998725075591,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.18777917325496674
+            },
+            {
+              "name": "lionMuzzle",
+              "vertices": 29,
+              "edges": 40,
+              "maxDrift": 2.599250823506507e-15,
+              "worldMinRatio": 0.9999998720505465,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.4915395826101303
+            },
+            {
+              "name": "lionLowerFace",
+              "vertices": 44,
+              "edges": 71,
+              "maxDrift": 2.821592787441207e-15,
+              "worldMinRatio": 0.9999998719050044,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.18858958780765533
+            },
+            {
+              "name": "lionJawChin",
+              "vertices": 30,
+              "edges": 53,
+              "maxDrift": 2.1206158945396244e-15,
+              "worldMinRatio": 0.9999998719813146,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.18858958780765533
+            },
+            {
+              "name": "dragonUpperFace",
+              "vertices": 27,
+              "edges": 44,
+              "maxDrift": 1.9722345619740172e-15,
+              "worldMinRatio": 0.9999998720739073,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.44863077310415417
+            },
+            {
+              "name": "dragonMuzzle",
+              "vertices": 39,
+              "edges": 56,
+              "maxDrift": 2.0140152423148405e-15,
+              "worldMinRatio": 0.9999998719875379,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.18858958780765533
+            },
+            {
+              "name": "dragonLowerFace",
+              "vertices": 38,
+              "edges": 55,
+              "maxDrift": 2.0362094263465727e-15,
+              "worldMinRatio": 0.9999998721207672,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.18858958780765533
+            },
+            {
+              "name": "dragonJawChin",
+              "vertices": 23,
+              "edges": 28,
+              "maxDrift": 3.0936362737199444e-15,
+              "worldMinRatio": 0.9999998721207672,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.3810812532901764
+            }
+          ]
+        },
+        {
+          "clip": "death",
+          "poses": 45,
+          "regions": [
+            {
+              "name": "lionUpperFace",
+              "vertices": 37,
+              "edges": 58,
+              "maxDrift": 2.8444997754570885e-15,
+              "worldMinRatio": 0.9999986733239495,
+              "worldMaxRatio": 1.0000005430035113,
+              "maximumPose": 0.7519999742507935
+            },
+            {
+              "name": "lionMuzzle",
+              "vertices": 29,
+              "edges": 40,
+              "maxDrift": 2.4396324821260643e-15,
+              "worldMinRatio": 0.9999986740597481,
+              "worldMaxRatio": 1.0000005569707162,
+              "maximumPose": 0.6195454705845226
+            },
+            {
+              "name": "lionLowerFace",
+              "vertices": 44,
+              "edges": 71,
+              "maxDrift": 2.6618853119067344e-15,
+              "worldMinRatio": 0.9999986740597481,
+              "worldMaxRatio": 1.0000005569707162,
+              "maximumPose": 1.0738788156798391
+            },
+            {
+              "name": "lionJawChin",
+              "vertices": 30,
+              "edges": 53,
+              "maxDrift": 2.0560133914553295e-15,
+              "worldMinRatio": 0.9999987114155826,
+              "worldMaxRatio": 1.0000004005640117,
+              "maximumPose": 1.0738788156798391
+            },
+            {
+              "name": "dragonUpperFace",
+              "vertices": 27,
+              "edges": 44,
+              "maxDrift": 1.9313379417316518e-15,
+              "worldMinRatio": 0.9999986550117356,
+              "worldMaxRatio": 1.000000527615634,
+              "maximumPose": 0.20651515686150754
+            },
+            {
+              "name": "dragonMuzzle",
+              "vertices": 39,
+              "edges": 56,
+              "maxDrift": 1.77624404759284e-15,
+              "worldMinRatio": 0.9999986612110675,
+              "worldMaxRatio": 1.0000004250714019,
+              "maximumPose": 0.20651515686150754
+            },
+            {
+              "name": "dragonLowerFace",
+              "vertices": 38,
+              "edges": 55,
+              "maxDrift": 1.6900401945662041e-15,
+              "worldMinRatio": 0.9999986701891388,
+              "worldMaxRatio": 1.0000003439200629,
+              "maximumPose": 0.37172728235071356
+            },
+            {
+              "name": "dragonJawChin",
+              "vertices": 23,
+              "edges": 28,
+              "maxDrift": 2.6578193138645077e-15,
+              "worldMinRatio": 0.9999988248654091,
+              "worldMaxRatio": 1.0000003691326247,
+              "maximumPose": 0.37172728235071356
+            }
+          ]
+        },
+        {
+          "clip": "entrance",
+          "poses": 29,
+          "regions": [
+            {
+              "name": "lionUpperFace",
+              "vertices": 37,
+              "edges": 58,
+              "maxDrift": 2.4008964937969077e-15,
+              "worldMinRatio": 0.9999982113245086,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.7290000021457672
+            },
+            {
+              "name": "lionMuzzle",
+              "vertices": 29,
+              "edges": 40,
+              "maxDrift": 2.406438656752681e-15,
+              "worldMinRatio": 0.9999981965888581,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.7290000021457672
+            },
+            {
+              "name": "lionLowerFace",
+              "vertices": 44,
+              "edges": 71,
+              "maxDrift": 2.9322852396708374e-15,
+              "worldMinRatio": 0.9999981970822382,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.7290000021457672
+            },
+            {
+              "name": "lionJawChin",
+              "vertices": 30,
+              "edges": 53,
+              "maxDrift": 1.799402255185134e-15,
+              "worldMinRatio": 0.9999981965888581,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.7290000021457672
+            },
+            {
+              "name": "dragonUpperFace",
+              "vertices": 27,
+              "edges": 44,
+              "maxDrift": 1.917439547559129e-15,
+              "worldMinRatio": 0.9999981998393529,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.7290000021457672
+            },
+            {
+              "name": "dragonMuzzle",
+              "vertices": 39,
+              "edges": 56,
+              "maxDrift": 1.81385651131684e-15,
+              "worldMinRatio": 0.999998196657668,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.7290000021457672
+            },
+            {
+              "name": "dragonLowerFace",
+              "vertices": 38,
+              "edges": 55,
+              "maxDrift": 1.846362830804135e-15,
+              "worldMinRatio": 0.9999981976904245,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.7290000021457672
+            },
+            {
+              "name": "dragonJawChin",
+              "vertices": 23,
+              "edges": 28,
+              "maxDrift": 2.8038459815030596e-15,
+              "worldMinRatio": 0.9999981971258372,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.7290000021457672
+            }
+          ]
+        },
+        {
+          "clip": "cast",
+          "poses": 133,
+          "regions": [
+            {
+              "name": "lionUpperFace",
+              "vertices": 37,
+              "edges": 58,
+              "maxDrift": 2.778667722794402e-15,
+              "worldMinRatio": 0.9999999153320975,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.397599995136261
+            },
+            {
+              "name": "lionMuzzle",
+              "vertices": 29,
+              "edges": 40,
+              "maxDrift": 2.906050765966429e-15,
+              "worldMinRatio": 0.9999999148929731,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.397599995136261
+            },
+            {
+              "name": "lionLowerFace",
+              "vertices": 44,
+              "edges": 71,
+              "maxDrift": 2.9322852396708374e-15,
+              "worldMinRatio": 0.9999999148641713,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.397599995136261
+            },
+            {
+              "name": "lionJawChin",
+              "vertices": 30,
+              "edges": 53,
+              "maxDrift": 2.0450479085150805e-15,
+              "worldMinRatio": 0.9999999148929731,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.3681000137329102
+            },
+            {
+              "name": "dragonUpperFace",
+              "vertices": 27,
+              "edges": 44,
+              "maxDrift": 2.319838875817124e-15,
+              "worldMinRatio": 0.9999999149337643,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.397599995136261
+            },
+            {
+              "name": "dragonMuzzle",
+              "vertices": 39,
+              "edges": 56,
+              "maxDrift": 2.167601935477765e-15,
+              "worldMinRatio": 0.9999999149185236,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.05325520969927311
+            },
+            {
+              "name": "dragonLowerFace",
+              "vertices": 38,
+              "edges": 55,
+              "maxDrift": 2.1888593632961598e-15,
+              "worldMinRatio": 0.9999999148838568,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.397599995136261
+            },
+            {
+              "name": "dragonJawChin",
+              "vertices": 23,
+              "edges": 28,
+              "maxDrift": 3.037890513639165e-15,
+              "worldMinRatio": 0.9999999148955435,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.04090000152587891
+            }
+          ]
+        },
+        {
+          "clip": "guard",
+          "poses": 33,
+          "regions": [
+            {
+              "name": "lionUpperFace",
+              "vertices": 37,
+              "edges": 58,
+              "maxDrift": 2.132600044993234e-15,
+              "worldMinRatio": 0.9999996332410732,
+              "worldMaxRatio": 1.0000000008539236,
+              "maximumPose": 0.8156923147348257
+            },
+            {
+              "name": "lionMuzzle",
+              "vertices": 29,
+              "edges": 40,
+              "maxDrift": 2.0840370093967226e-15,
+              "worldMinRatio": 0.9999996347066233,
+              "worldMaxRatio": 1.000000000968434,
+              "maximumPose": 0.6627500057220459
+            },
+            {
+              "name": "lionLowerFace",
+              "vertices": 44,
+              "edges": 71,
+              "maxDrift": 2.3437909979596657e-15,
+              "worldMinRatio": 0.999999634026149,
+              "worldMaxRatio": 1.000000000968434,
+              "maximumPose": 0.8972615462083083
+            },
+            {
+              "name": "lionJawChin",
+              "vertices": 30,
+              "edges": 53,
+              "maxDrift": 1.6973208790765012e-15,
+              "worldMinRatio": 0.9999996325205357,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.8156923147348257
+            },
+            {
+              "name": "dragonUpperFace",
+              "vertices": 27,
+              "edges": 44,
+              "maxDrift": 1.9070447798958544e-15,
+              "worldMinRatio": 0.9999996371042703,
+              "worldMaxRatio": 1.0000000006325667,
+              "maximumPose": 0.8156923147348257
+            },
+            {
+              "name": "dragonMuzzle",
+              "vertices": 39,
+              "edges": 56,
+              "maxDrift": 1.7668528320590725e-15,
+              "worldMinRatio": 0.9999996349200385,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.8156923147348257
+            },
+            {
+              "name": "dragonLowerFace",
+              "vertices": 38,
+              "edges": 55,
+              "maxDrift": 1.783702153231333e-15,
+              "worldMinRatio": 0.9999996339462724,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.8156923147348257
+            },
+            {
+              "name": "dragonJawChin",
+              "vertices": 23,
+              "edges": 28,
+              "maxDrift": 2.344651322600722e-15,
+              "worldMinRatio": 0.9999996326675684,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.20392307868370643
+            }
+          ]
+        },
+        {
+          "clip": "rest",
+          "poses": 59,
+          "regions": [
+            {
+              "name": "lionUpperFace",
+              "vertices": 37,
+              "edges": 58,
+              "maxDrift": 2.9269661215744486e-15,
+              "worldMinRatio": 0.9999997943873241,
+              "worldMaxRatio": 1.0000000004021339,
+              "maximumPose": 0.1638139569482138
+            },
+            {
+              "name": "lionMuzzle",
+              "vertices": 29,
+              "edges": 40,
+              "maxDrift": 2.9608867476882562e-15,
+              "worldMinRatio": 0.9999997929590985,
+              "worldMaxRatio": 1.000000000308243,
+              "maximumPose": 0.6603749990463257
+            },
+            {
+              "name": "lionLowerFace",
+              "vertices": 44,
+              "edges": 71,
+              "maxDrift": 3.038948435798587e-15,
+              "worldMinRatio": 0.9999997929335994,
+              "worldMaxRatio": 1.000000000308243,
+              "maximumPose": 0.6603749990463257
+            },
+            {
+              "name": "lionJawChin",
+              "vertices": 30,
+              "edges": 53,
+              "maxDrift": 2.6907599211375745e-15,
+              "worldMinRatio": 0.9999997929549247,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.6603749990463257
+            },
+            {
+              "name": "dragonUpperFace",
+              "vertices": 27,
+              "edges": 44,
+              "maxDrift": 1.985697070217438e-15,
+              "worldMinRatio": 0.9999997936027313,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.12286046771116035
+            },
+            {
+              "name": "dragonMuzzle",
+              "vertices": 39,
+              "edges": 56,
+              "maxDrift": 2.167601935477765e-15,
+              "worldMinRatio": 0.999999792789228,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.6603749990463257
+            },
+            {
+              "name": "dragonLowerFace",
+              "vertices": 38,
+              "edges": 55,
+              "maxDrift": 2.1888593632961598e-15,
+              "worldMinRatio": 0.9999997927169934,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.6603749990463257
+            },
+            {
+              "name": "dragonJawChin",
+              "vertices": 23,
+              "edges": 28,
+              "maxDrift": 3.442280668712113e-15,
+              "worldMinRatio": 0.9999997927169934,
+              "worldMaxRatio": 1,
+              "maximumPose": 0.6603749990463257
+            }
+          ]
+        },
+        {
+          "clip": "victory",
+          "poses": 51,
+          "regions": [
+            {
+              "name": "lionUpperFace",
+              "vertices": 37,
+              "edges": 58,
+              "maxDrift": 2.998366031427308e-15,
+              "worldMinRatio": 0.9999997804944378,
+              "worldMaxRatio": 1.000000010339154,
+              "maximumPose": 0.8253846413049942
+            },
+            {
+              "name": "lionMuzzle",
+              "vertices": 29,
+              "edges": 40,
+              "maxDrift": 3.083962737066794e-15,
+              "worldMinRatio": 0.9999997832870517,
+              "worldMaxRatio": 1.0000000098685147,
+              "maximumPose": 0.8253846413049942
+            },
+            {
+              "name": "lionLowerFace",
+              "vertices": 44,
+              "edges": 71,
+              "maxDrift": 2.647828435024586e-15,
+              "worldMinRatio": 0.9999997799228965,
+              "worldMaxRatio": 1.0000000098685147,
+              "maximumPose": 0.4126923206524971
+            },
+            {
+              "name": "lionJawChin",
+              "vertices": 30,
+              "edges": 53,
+              "maxDrift": 2.3060174371838265e-15,
+              "worldMinRatio": 0.9999997803888723,
+              "worldMaxRatio": 1.0000000070838366,
+              "maximumPose": 0.8253846413049942
+            },
+            {
+              "name": "dragonUpperFace",
+              "vertices": 27,
+              "edges": 44,
+              "maxDrift": 2.038709332635339e-15,
+              "worldMinRatio": 0.9999997808675222,
+              "worldMaxRatio": 1.0000000102657303,
+              "maximumPose": 0.8253846413049942
+            },
+            {
+              "name": "dragonMuzzle",
+              "vertices": 39,
+              "edges": 56,
+              "maxDrift": 2.1229584693369415e-15,
+              "worldMinRatio": 0.9999997803627924,
+              "worldMaxRatio": 1.0000000083482885,
+              "maximumPose": 1.568230818479489
+            },
+            {
+              "name": "dragonLowerFace",
+              "vertices": 38,
+              "edges": 55,
+              "maxDrift": 2.146353193453346e-15,
+              "worldMinRatio": 0.9999997799378432,
+              "worldMaxRatio": 1.0000000066178254,
+              "maximumPose": 1.568230818479489
+            },
+            {
+              "name": "dragonJawChin",
+              "vertices": 23,
+              "edges": 28,
+              "maxDrift": 3.0202589630242834e-15,
+              "worldMinRatio": 0.9999997810698539,
+              "worldMaxRatio": 1.0000000080951088,
+              "maximumPose": 0.8253846413049942
+            }
+          ]
+        }
+      ],
+      "blends": [
+        {
+          "name": "lionUpperFace",
+          "vertices": 37,
+          "edges": 58,
+          "maxDrift": 2.8444997754570885e-15,
+          "worldMinRatio": 0.9999999564687791,
+          "worldMaxRatio": 1.0000000076655777,
+          "maximumPose": {
+            "from": "gallop_jump",
+            "to": "rest",
+            "blend": 0.5
+          }
+        },
+        {
+          "name": "lionMuzzle",
+          "vertices": 29,
+          "edges": 40,
+          "maxDrift": 3.3556183840188718e-15,
+          "worldMinRatio": 0.9999999561101545,
+          "worldMaxRatio": 1.0000000073742814,
+          "maximumPose": {
+            "from": "attack",
+            "to": "gallop",
+            "blend": 0.5
+          }
+        },
+        {
+          "name": "lionLowerFace",
+          "vertices": 44,
+          "edges": 71,
+          "maxDrift": 3.3385536091841237e-15,
+          "worldMinRatio": 0.999999956122161,
+          "worldMaxRatio": 1.000000007486585,
+          "maximumPose": {
+            "from": "attack",
+            "to": "gallop",
+            "blend": 0.5
+          }
+        },
+        {
+          "name": "lionJawChin",
+          "vertices": 30,
+          "edges": 53,
+          "maxDrift": 2.473041853700977e-15,
+          "worldMinRatio": 0.9999999561101545,
+          "worldMaxRatio": 1.000000005282106,
+          "maximumPose": {
+            "from": "death",
+            "to": "attack",
+            "blend": 0.5
+          }
+        },
+        {
+          "name": "dragonUpperFace",
+          "vertices": 27,
+          "edges": 44,
+          "maxDrift": 2.488820732784475e-15,
+          "worldMinRatio": 0.9999999561892643,
+          "worldMaxRatio": 1.0000000075073279,
+          "maximumPose": {
+            "from": "attack",
+            "to": "idle",
+            "blend": 0.75
+          }
+        },
+        {
+          "name": "dragonMuzzle",
+          "vertices": 39,
+          "edges": 56,
+          "maxDrift": 2.3759120795640013e-15,
+          "worldMinRatio": 0.9999999561118315,
+          "worldMaxRatio": 1.000000005823049,
+          "maximumPose": {
+            "from": "attack",
+            "to": "idle",
+            "blend": 0.75
+          }
+        },
+        {
+          "name": "dragonLowerFace",
+          "vertices": 38,
+          "edges": 55,
+          "maxDrift": 2.50305644407481e-15,
+          "worldMinRatio": 0.999999956136965,
+          "worldMaxRatio": 1.0000000042971657,
+          "maximumPose": {
+            "from": "attack",
+            "to": "idle",
+            "blend": 0.75
+          }
+        },
+        {
+          "name": "dragonJawChin",
+          "vertices": 23,
+          "edges": 28,
+          "maxDrift": 3.936398543741523e-15,
+          "worldMinRatio": 0.9999999561232221,
+          "worldMaxRatio": 1.0000000056479204,
+          "maximumPose": {
+            "from": "attack",
+            "to": "idle",
+            "blend": 0.75
+          }
+        }
+      ],
+      "blendPoses": 468,
+      "failed": false
+    }
+  ]
+}

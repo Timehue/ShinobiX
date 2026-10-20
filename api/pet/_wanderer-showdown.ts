@@ -149,7 +149,7 @@ export async function startNaturalWandererShowdown(playerName: string, rawRef: u
             session = createShowdownSession({
                 sessionId, playerName, format, tier: 'warrior', seed,
                 playerPets: chosen, enemyPets: built.pets, enemyTeamName: beastName,
-                rewardEligible: false,
+                rewardEligible: false, rulesetVersion: 'progression-v3',
             });
             pointer = { sessionId, wanderer, createdAt: Date.now(), petIds: chosen.map((pet) => pet.id) };
             await kv.set(sessionKey(playerName, sessionId), session, { ex: SESSION_TTL_SECONDS });

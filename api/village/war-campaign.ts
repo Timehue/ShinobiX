@@ -518,7 +518,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         defenderName = maskedGarrisonDefenderName(enemy, fielded.defender, fielded.appointees);
                     }
                     if (!theirTeam?.length) refuse('The defender cannot field pets right now.');
-                    run.pet = { sessionId: id, seed: randomInt(0x1_0000_0000), fromName: me, toName: defenderName,
+                    run.pet = { rulesetVersion: 'progression-v3', sessionId: id, seed: randomInt(0x1_0000_0000), fromName: me, toName: defenderName,
                         fromPets: team, toPets: theirTeam, terrain: isWarVillage(enemy) ? VILLAGE_BIOME[enemy] : 'central' };
                 }
                 if (mode === 'card') {

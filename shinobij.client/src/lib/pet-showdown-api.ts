@@ -169,15 +169,17 @@ export async function startArenaBout(
     playerName: string,
     format: ShowdownFormat,
     petIds: string[],
-): Promise<{ state: ShowdownStateView; dailyPetWins?: number; dailyCap?: number } | { error: string; capped?: boolean }> {
+): Promise<{ state: ShowdownStateView; dailyPetWins?: number; dailyCap?: number; character?: unknown; saveVersion?: number } | { error: string; capped?: boolean }> {
     const r = await post({ action: "arena", playerName, format, petIds });
     if (!r) return { error: "Network error — could not reach the arena." };
     const data = await r.json().catch(() => null) as
-        { state?: ShowdownStateView; error?: string; capped?: boolean; dailyPetWins?: number; dailyCap?: number } | null;
+        { state?: ShowdownStateView; error?: string; capped?: boolean; dailyPetWins?: number; dailyCap?: number; character?: unknown; _saveVersion?: number } | null;
     if (!r.ok || !data?.state) {
         return { error: data?.error ?? "The arena gate is closed right now.", capped: data?.capped };
     }
-    return { state: data.state, dailyPetWins: data.dailyPetWins, dailyCap: data.dailyCap };
+    return { state: data.state, dailyPetWins: data.dailyPetWins, dailyCap: data.dailyCap,
+        ...(data.character && Number.isSafeInteger(data._saveVersion) ? { character: data.character, saveVersion: data._saveVersion } : {}),
+    };
 }
 
 /**

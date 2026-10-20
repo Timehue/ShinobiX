@@ -74,6 +74,7 @@ export function resolveRankedPetDuel(token: RankedPetMatchToken): RankedPetDuelR
         fromPets,
         toPets,
         format: fromTeam && toTeam ? '2v2' : '1v1',
+        rulesetVersion: token.rulesetVersion ?? 'legacy-v2',
     });
     return { winnerName: outcome === 'from' ? fromName : toName, script };
 }

@@ -1,0 +1,69 @@
+{
+  "ids": [
+    "starter-lightning"
+  ],
+  "expected": {
+    "mainBase": "1c824ab5225937753962a1ed884c6e48546646dd",
+    "pets": {
+      "starter-lightning": {
+        "source": "92362a0dcea663625a6da3cd88a5c229f690ab84c44aee9f787649ed21378329",
+        "battle": "bbb14b6789d665d0c1bc4397e256cf7389eb14590059770ad852fcdf65e5e30e",
+        "atlas": "de7f69de776ce913fc8cdf8998a5db242888e9a132cd78e612d09b0028d2b6a8"
+      }
+    },
+    "copiedEvidence": 254
+  },
+  "nonselectedManifestEntriesUnchanged": true,
+  "checks": [
+    "focused-tests",
+    "structure",
+    "reviews"
+  ],
+  "passed": true,
+  "recordedAt": "2026-10-19T18:07:57.774Z",
+  "mainBaseline": "1c824ab5225937753962a1ed884c6e48546646dd",
+  "focusedTests": {
+    "passed": 37,
+    "failed": 0
+  },
+  "structuralChecks": {
+    "passed": 161,
+    "failed": 0
+  },
+  "existingReviewReceiptChecks": {
+    "passed": 161,
+    "failed": 0
+  },
+  "clientProductionBuild": "passed",
+  "clientLint": {
+    "errors": 0,
+    "existingWarnings": 23
+  },
+  "nonselectedRecipesLandmarksAndRosterEntriesUnchanged": true,
+  "portraitReferenceUpdates": [],
+  "allPortraitMasterDeliveryAndReviewRecordsUnchanged": true,
+  "evidence": [
+    "docs/screenshots/pet-spark-main-validation-2026-10-19/lint.log",
+    "docs/screenshots/pet-spark-main-validation-2026-10-19/focused-tests.log",
+    "docs/screenshots/pet-spark-main-validation-2026-10-19/structure.log",
+    "docs/screenshots/pet-spark-main-validation-2026-10-19/reviews.log",
+    "docs/screenshots/pet-spark-main-validation-2026-10-19/production-build.log",
+    "docs/screenshots/pet-spark-main-validation-2026-10-19/generated-lod.log",
+    "docs/screenshots/pet-spark-main-validation-2026-10-19/generated-atlas.log",
+    "docs/audits/pet-spark-main-runtime-equivalence-2026-10-19.json"
+  ],
+  "evidenceSha256": {
+    "docs/screenshots/pet-spark-main-validation-2026-10-19/lint.log": "67e543d2bbeebf0651fc14e37cbb82da876c1cbdc1ef3d5b3684879afd789677",
+    "docs/screenshots/pet-spark-main-validation-2026-10-19/focused-tests.log": "f2e12f2fe8626ebe1e7acd4a5a3af229634447bd805df448852e7bad3a2cee0d",
+    "docs/screenshots/pet-spark-main-validation-2026-10-19/structure.log": "e6f8af821993b8cfdc65f9af498569dfaa446565c64f5cfcf30cac07ce807419",
+    "docs/screenshots/pet-spark-main-validation-2026-10-19/reviews.log": "e502f96d1106b60651428f7a4c13aeade0d6a5c433c39ef0bbb948f06582dadb",
+    "docs/screenshots/pet-spark-main-validation-2026-10-19/production-build.log": "e2c577a1e316359da87f7f996da4a1fb69f77c5f68dbbfe41f75df4831ccf790",
+    "docs/screenshots/pet-spark-main-validation-2026-10-19/generated-lod.log": "f2b3d0e99dbbe107d8a7e3c1f818d1b622d381dfd17bad464b5ec0e3ce7989bc",
+    "docs/screenshots/pet-spark-main-validation-2026-10-19/generated-atlas.log": "fa8c35966cc883fb6fffd3bb416fec8af58766a721304c2aac27dcdea56c5c28",
+    "docs/audits/pet-spark-main-runtime-equivalence-2026-10-19.json": "69bfae401ff7cb0c67fd87505fdf7cb886b8794551caba621bc5e726d7369aae"
+  },
+  "productionRendererFilesIdentical": true,
+  "selectedOriginalAppearanceEquivalent": true,
+  "wholeRosterVisuallyComplete": false,
+  "liveForSpark": false
+}

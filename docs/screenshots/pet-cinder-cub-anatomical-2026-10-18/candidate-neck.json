@@ -1,0 +1,102 @@
+{
+  "revision": "20261018-cinder-cub-anatomical-neck-v2",
+  "sourceSha256": "99f2ad304a9e24d40f57cb7236ecee229910c6be5dd81380d76c00172ff67d74",
+  "originalBoneFramesAndCurvesPreserved": true,
+  "fitted": [
+    {
+      "name": "neck",
+      "oldNode": 1,
+      "oldJoint": 4,
+      "node": 35,
+      "joint": 33,
+      "worldTarget": [
+        -0.13,
+        -0.25,
+        0.5
+      ],
+      "amplitude": 0.55
+    },
+    {
+      "name": "head",
+      "oldNode": 0,
+      "oldJoint": 5,
+      "node": 36,
+      "joint": 34,
+      "worldTarget": [
+        -0.1,
+        0.12,
+        0.66
+      ],
+      "amplitude": 0.65
+    }
+  ],
+  "reboundInfluenceSlots": 5441,
+  "clips": [
+    {
+      "name": "idle",
+      "keys": 73,
+      "tracks": 2
+    },
+    {
+      "name": "idle_2",
+      "keys": 77,
+      "tracks": 2
+    },
+    {
+      "name": "walk",
+      "keys": 73,
+      "tracks": 2
+    },
+    {
+      "name": "gallop",
+      "keys": 73,
+      "tracks": 2
+    },
+    {
+      "name": "gallop_jump",
+      "keys": 73,
+      "tracks": 2
+    },
+    {
+      "name": "attack",
+      "keys": 79,
+      "tracks": 2
+    },
+    {
+      "name": "idle_hitreact1",
+      "keys": 76,
+      "tracks": 2
+    },
+    {
+      "name": "death",
+      "keys": 78,
+      "tracks": 2
+    },
+    {
+      "name": "entrance",
+      "keys": 73,
+      "tracks": 2
+    },
+    {
+      "name": "cast",
+      "keys": 79,
+      "tracks": 2
+    },
+    {
+      "name": "guard",
+      "keys": 73,
+      "tracks": 2
+    },
+    {
+      "name": "rest",
+      "keys": 73,
+      "tracks": 2
+    },
+    {
+      "name": "victory",
+      "keys": 78,
+      "tracks": 2
+    }
+  ],
+  "sha256": "6f94b3fc988241b616ca1274a1f7685e2714e2f37e450d73f5aa5f2e9008cebe"
+}

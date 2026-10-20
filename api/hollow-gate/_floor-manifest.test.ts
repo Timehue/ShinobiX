@@ -68,7 +68,23 @@ test('floor manifest rejects client-authored reward and combat count inflation',
     const missingBattle = floorTiles(1, false);
     const battle = missingBattle.findIndex((tile) => tile.kind === 'battle');
     missingBattle[battle] = { kind: 'empty', terrain: 'room_floor' };
+    assert.equal(validate(1, false, missingBattle).ok, true, 'new floors intentionally carry one fewer ordinary battle');
+    missingBattle[missingBattle.findIndex((tile) => tile.kind === 'battle')] = { kind: 'empty', terrain: 'room_floor' };
     assert.deepEqual(validate(1, false, missingBattle), { ok: false, reason: 'invalid-battle-count' });
+});
+
+test('old/new pacing counts remain bounded on every floor without changing rewards or elite gates', () => {
+    for (const floor of [1, 2, 3, 4, 5]) {
+        const tiles = floorTiles(floor, floor === 5);
+        assert.equal(validate(floor, floor === 5, tiles).ok, true);
+        tiles[tiles.findIndex(t => t.kind === 'battle')] = { kind: 'empty', terrain: 'room_floor' };
+        assert.equal(validate(floor, floor === 5, tiles).ok, true);
+        const extraElite = structuredClone(tiles);
+        extraElite[100] = { kind: 'elite', terrain: 'room_floor' };
+        assert.deepEqual(validate(floor, floor === 5, extraElite), { ok: false, reason: 'invalid-elite-count' });
+        tiles[tiles.findIndex(t => t.kind === 'elite')] = { kind: 'empty', terrain: 'room_floor' };
+        assert.deepEqual(validate(floor, floor === 5, tiles), { ok: false, reason: 'invalid-elite-count' });
+    }
 });
 
 test('floor sealing selects only an existing chest whose route adds at least four steps', () => {

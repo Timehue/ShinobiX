@@ -36,6 +36,24 @@ const session = {
     enemy: { character: { level: 20 } },
 } as never;
 
+test('only an Arena practice request sends the explicit selected level; resume stays server-owned', { concurrency: false }, async () => {
+    const previous = globalThis.fetch;
+    const requests: Record<string, unknown>[] = [];
+    globalThis.fetch = (async (_url: string, init: RequestInit) => {
+        requests.push(JSON.parse(String(init.body)));
+        return response({ token: 'token', sessionId: 'session', session, opponentId: 'builtin-ai-central-champion', opponentName: 'Central Champion', battleKind: 'practice' });
+    }) as typeof fetch;
+    try {
+        for (const battleKind of ['practice', 'explore', 'raidAi', 'dungeon'] as const) {
+            await startAiFight({ playerName: 'Rill', opponentId: 'builtin-ai-central-champion', opponentLevel: 100, practiceLevel: 100, battleKind });
+        }
+        assert.equal(requests[0].practiceLevel, 100);
+        for (const request of requests.slice(1)) assert.equal('practiceLevel' in request, false);
+        await resumeGenericAiFight('Rill');
+        assert.deepEqual(requests.at(-1), { playerName: 'Rill', resumeAiFight: true, recoveryProbeVersion: 2 });
+    } finally { globalThis.fetch = previous; }
+});
+
 function response(body: unknown, status = 200): Response {
     return {
         ok: status >= 200 && status < 300,

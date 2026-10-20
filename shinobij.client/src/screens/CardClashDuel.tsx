@@ -203,6 +203,14 @@ export function CardClashDuel({
         }
     }
 
+    function leaveShowdown() {
+        if (hollowGateCardMatchId && dungeonTerminalReady) {
+            if (!busy) void resolve();
+            return;
+        }
+        onDungeonLeave();
+    }
+
     const done = duel?.status === "complete" && resolutionReady;
     const won = Boolean(done && duel && duel.winner === duel.viewerSide);
     const draw = done && duel.winner === "draw";
@@ -234,7 +242,7 @@ export function CardClashDuel({
         <header className="chronicle-header">
             {/* Never disabled: this is the only exit, and the server owns the
                 match state — abandoning mid-request is always safe. */}
-            <button onClick={onDungeonLeave}>Leave Showdown</button>
+            <button onClick={leaveShowdown}>Leave Showdown</button>
             <h1>Shinobi Chronicle Showdown<small>{headerSmall}</small></h1>
         </header>
         {busy && !duel ? <section className="chronicle-panel"><h2>Preparing the table</h2><p>The server is validating the 40-card decks.</p></section> : null}
@@ -271,8 +279,8 @@ export function CardClashDuel({
                 <button className="echoes-primary" onClick={resolve}>Continue</button>
             </section>
         ) : done ? (
-            <section className="chronicle-panel" style={{ marginBottom: 12, textAlign: "center" }}><h2>{won ? "Seal Claimed" : hollowGateCardMatchId ? draw ? "Draw — Ambush Fades" : "Keeper Wins" : draw ? "Draw — Seal Holds" : "Seal Holds"}</h2><p>{won ? "You won the Chronicle Showdown." : hollowGateCardMatchId ? "The ambush fades after dealing 20% max HP recoil." : draw ? "A draw is not enough to break the seal." : "The Chronicle Keeper won the showdown."}</p><button onClick={() => void resolve()} disabled={busy}>Continue</button></section>
+            <section className="chronicle-panel" style={{ marginBottom: 12, textAlign: "center" }}><h2>{won ? "Seal Claimed" : hollowGateCardMatchId ? draw ? "Draw — Ambush Fades" : "Keeper Wins" : draw ? "Draw — Seal Holds" : "Seal Holds"}</h2><p>{won ? "You won the Chronicle Showdown." : hollowGateCardMatchId ? "The ambush fades after 33% max HP recoil, stopping at 1 HP." : draw ? "A draw is not enough to break the seal." : "The Chronicle Keeper won the showdown."}</p><button onClick={() => void resolve()} disabled={busy}>Continue</button></section>
         ) : null}
-        {duel ? <ChronicleDuelBoard key={matchId || "duel"} state={duel} onResolutionReadyChange={setResolutionReady} cardsById={cardsById} playerAvatar={character.avatarImage} opponentAvatar={opponentAvatar ?? chronicleDuelistAvatar(foeName)} busy={busy} aiActing={aiActing} error={error} onExit={onDungeonLeave} exitLabel="Leave encounter" onAction={(intent) => void act(intent)} /> : null}
+        {duel ? <ChronicleDuelBoard key={matchId || "duel"} state={duel} onResolutionReadyChange={setResolutionReady} cardsById={cardsById} playerAvatar={character.avatarImage} opponentAvatar={opponentAvatar ?? chronicleDuelistAvatar(foeName)} busy={busy} aiActing={aiActing} error={error} onExit={leaveShowdown} exitLabel="Leave encounter" onAction={(intent) => void act(intent)} /> : null}
     </main>;
 }

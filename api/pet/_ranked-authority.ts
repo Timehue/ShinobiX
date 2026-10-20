@@ -50,6 +50,7 @@ export type PetRankedQueueMatch = {
 };
 
 export type RankedPetMatchToken = {
+    rulesetVersion?: 'progression-v3' | 'legacy-v2';
     authority: typeof PET_RANKED_AUTHORITY;
     pairId: string;
     a: string;
@@ -122,7 +123,8 @@ export function isRankedPetMatchToken(value: unknown): value is RankedPetMatchTo
     const controlValid = token.control === undefined && token.roomId === undefined
         || token.control === PET_ARENA_RANKED_CONTROL && typeof token.roomId === 'string' && /^[0-9a-f]{8}$/.test(token.roomId)
             && validTeam(token.aTeam, token.aPet) && validTeam(token.bTeam, token.bPet);
-    return controlValid && teamsValid && token.authority === PET_RANKED_AUTHORITY
+    const rulesetValid = token.rulesetVersion === undefined || token.rulesetVersion === 'legacy-v2' || token.rulesetVersion === 'progression-v3';
+    return rulesetValid && controlValid && teamsValid && token.authority === PET_RANKED_AUTHORITY
         && typeof token.pairId === 'string'
         && /^[0-9a-f-]{36}$/i.test(token.pairId)
         && !!safeName(token.a ?? '')

@@ -35,7 +35,10 @@ export function sanitizeChallengeProgress(char: Record<string, unknown>, exChar:
     const incomingHollowGateRun = char.hollowGateRun && typeof char.hollowGateRun === 'object'
         ? char.hollowGateRun as Record<string, unknown>
         : null;
-    if (storedHollowGateToken && incomingHollowGateRun?.runToken !== storedHollowGateToken) {
+    if (storedHollowGateToken && (incomingHollowGateRun?.runToken !== storedHollowGateToken
+        || incomingHollowGateRun?.floor !== storedHollowGateRun?.floor)) {
+        // A delayed browser save from the old floor must not relabel its old
+        // tiles as the newly committed floor. Descent owns this transition.
         char.hollowGateRun = { ...storedHollowGateRun };
     } else if (storedHollowGateToken && incomingHollowGateRun) {
         // `completed` is server-owned as well (owner ruling 2026-10-14). No server
@@ -44,7 +47,7 @@ export function sanitizeChallengeProgress(char: Record<string, unknown>, exChar:
         // escapes the vitals-gain cap, so a save that kept the token could heal
         // mid-dive by marking its own run finished.
         for (const field of [
-            'runToken', 'serverSeed', 'augmentOffers', 'chosenAugment',
+            'floor', 'runToken', 'serverSeed', 'augmentOffers', 'chosenAugment',
             'entryCurrencies', 'keys', 'torch', 'threat', 'wardSteps',
             'secondWindArmed', 'completed',
         ]) {

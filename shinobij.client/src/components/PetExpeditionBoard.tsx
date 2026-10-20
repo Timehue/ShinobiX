@@ -10,6 +10,8 @@ import { countItem } from "../lib/inventory";
 import { masteryBonus, masteryHasCapstone } from "../lib/profession-mastery";
 import { petCurrentHappiness, petDisplayName } from "../lib/pet";
 import { formatPetTimer } from "../lib/utils";
+import { craftMaterialName } from "../../../shared/crafting-recipes";
+import { PET_EXPEDITION_MATERIAL_BASE_COUNTS, PET_EXPEDITION_MATERIAL_LABELS } from "../../../shared/pet-expedition-materials";
 import {
     PET_EXPEDITION_CARAVAN_BONUS,
     PET_EXPEDITION_DAILY_CAP,
@@ -19,9 +21,8 @@ import {
     PET_EXPEDITION_RISKS,
     PET_EXPEDITION_ROUTES,
     PET_EXPEDITION_TYPES,
-    petExpeditionBasePetXp,
-    petExpeditionBaseRyo,
-    petExpeditionMaterialChances,
+    petExpeditionRewardPreview,
+    PET_EXPEDITION_TAMER_MULTIPLIER,
 } from "../../../shared/pet-expedition-contract";
 
 type Props = {
@@ -74,39 +75,26 @@ export function PetExpeditionBoard({
     const starts = character.expeditionStartAllowance?.date === today ? Math.max(0, character.expeditionStartAllowance.count) : 0;
     const caravanMaster = masteryHasCapstone(character, "caravan-master");
     const dailyCap = PET_EXPEDITION_DAILY_CAP + (caravanMaster ? PET_EXPEDITION_CARAVAN_BONUS : 0);
-    const firstExpedition = isTamer && claims === 0;
-    const rank = Math.max(0, Math.min(10, Number(character.professionRank ?? 1)));
-    const rankMultiplier = isTamer ? 1 + (10 + rank * 1.5) / 100 : 1;
     const rewardMastery = isTamer ? 1 + masteryBonus(character, "expRewardPct") / 100 : 1;
     const materialMastery = isTamer ? 1 + masteryBonus(character, "expMaterialPct") / 100 : 1;
-    const riskRule = PET_EXPEDITION_RISK_RULES[risk];
-    const provisionRule = PET_EXPEDITION_PROVISION_RULES[provision];
     const boonMultiplier = selectedPet?.trait === "Boonbringer" ? 2 : 1;
-    const rewardScale = isTamer ? 1 : selectedPet && selectedPet.level >= selectedPet.maxLevel ? 0.5 : 0;
 
     function preview(type: PetExpeditionType) {
-        const firstMultiplier = firstExpedition ? 2 : 1;
-        const petXp = !selectedPet || selectedPet.level >= selectedPet.maxLevel
-            ? 0
-            : Math.round(petExpeditionBasePetXp(type)
-                * rankMultiplier * firstMultiplier * boonMultiplier * provisionRule.petXpMultiplier);
-        const ryo = selectedPet
-            ? Math.round(petExpeditionBaseRyo(type, selectedPet.level)
-                * rankMultiplier * firstMultiplier * rewardMastery * rewardScale
-                * boonMultiplier * riskRule.ryoMultiplier)
-            : 0;
-        const dropBonus = isTamer ? (rankMultiplier - 1) + (firstExpedition ? 0.5 : 0) : 0;
-        const chances = petExpeditionMaterialChances(type, {
-            dropBonus,
-            multiplier: materialMastery * riskRule.materialMultiplier * provisionRule.materialMultiplier,
-            rewardScale,
+        const rewards = petExpeditionRewardPreview(type, {
+            profession: character.profession, risk, provision,
+            rewardMastery, materialMastery,
         });
-        return { petXp, ryo, chances };
+        return {
+            petXp: !selectedPet || selectedPet.level >= selectedPet.maxLevel ? 0 : rewards.petXp * boonMultiplier,
+            ryo: selectedPet ? rewards.ryo * boonMultiplier : 0,
+            chances: rewards.chances,
+            materials: PET_EXPEDITION_MATERIAL_BASE_COUNTS[type] * rewards.materialMultiplier,
+        };
     }
 
     const selectedReady = Boolean(selectedPet?.expedition && now >= selectedPet.expedition.endsAt);
     const selectedAway = Boolean(selectedPet?.expedition && !selectedReady);
-    const selectedLocked = Boolean(selectedPet && selectedPet.level < 20);
+    const selectedLocked = Boolean(selectedPet && selectedPet.level < PET_EXPEDITION_ROUTES[expeditionType].requiredLevel);
     const selectedTraining = Boolean(selectedPet?.training);
     // Mirror the server gate in api/missions/expedition-start.ts: it charges
     // against the CURRENT happiness (pending daily decay applied), so reading the
@@ -119,10 +107,9 @@ export function PetExpeditionBoard({
     const log = (character.petExpeditionLog ?? []).slice(-5).reverse();
 
     const badges = [
-        firstExpedition ? "Next collection today · 2× XP & ryo + boosted finds" : null,
         character.petEscortBonusReady ? "Pet Escort · +20% Tamer XP" : null,
         selectedPet?.trait === "Boonbringer" ? "Boonbringer · 2× pet XP & ryo" : null,
-        isTamer ? `Tamer Rank ${rank}` : null,
+        isTamer ? `Pet Tamer · ${PET_EXPEDITION_TAMER_MULTIPLIER}× expedition rewards` : null,
         masteryBonus(character, "expRewardPct") > 0 ? `Trailblazer +${masteryBonus(character, "expRewardPct")}%` : null,
         masteryBonus(character, "expMaterialPct") > 0 ? `Forager +${masteryBonus(character, "expMaterialPct")}%` : null,
         caravanMaster ? `Caravan Master · ${dailyCap}/day` : null,
@@ -158,12 +145,12 @@ export function PetExpeditionBoard({
                             aria-checked={expeditionType === type}
                             className={expeditionType === type ? "is-selected" : ""}
                             key={type}
-                            disabled={Boolean(selectedPet?.expedition) || launchBusy}
+                            disabled={Boolean(selectedPet?.expedition) || launchBusy || !selectedPet || selectedPet.level < route.requiredLevel}
                             onClick={() => onTypeChange(type)}
                         >
-                            <span className="pet-expedition-route__time">{route.durationLabel}</span>
+                            <span className="pet-expedition-route__time">Lv. {route.requiredLevel}+ · {route.durationLabel}</span>
                             <strong>{route.label}</strong>
-                            <small>{route.description}</small>
+                            <small>{route.description} {PET_EXPEDITION_MATERIAL_LABELS[type]} · about {routePreview.materials.toLocaleString(undefined, { maximumFractionDigits: 1 })} materials.</small>
                             <dl>
                                 <div><dt>Pet XP</dt><dd>{routePreview.petXp.toLocaleString()}</dd></div>
                                 <div><dt>Secure ryo</dt><dd>{routePreview.ryo.toLocaleString()}</dd></div>
@@ -216,7 +203,7 @@ export function PetExpeditionBoard({
                 ) : (
                     <div>
                         <strong>{selectedPet ? `Send ${petDisplayName(selectedPet)} on ${PET_EXPEDITION_ROUTES[expeditionType].label}` : "Select a carried companion"}</strong>
-                        <span>{selectedLocked ? "Expeditions unlock at pet level 20." : selectedTraining ? "Collect training before departing." : starts >= dailyCap ? "Daily start cap reached. New routes open at the UTC reset." : lacksBoldHappiness ? "This companion needs at least 5 happiness for a bold route." : lacksProvision ? "That provision is no longer in inventory." : !isTamer && selectedPet && selectedPet.level < selectedPet.maxLevel ? "Non-Tamer growing pets earn pet XP only; no ryo or drops." : !isTamer ? "Non-Tamer max-level pets earn half base ryo and find odds." : "Rewards are locked in when your companion departs."}</span>
+                        <span>{selectedLocked ? `${PET_EXPEDITION_ROUTES[expeditionType].label} requires pet level ${PET_EXPEDITION_ROUTES[expeditionType].requiredLevel}.` : selectedTraining ? "Collect training before departing." : starts >= dailyCap ? "Daily start cap reached. New routes open at the UTC reset." : lacksBoldHappiness ? "This companion needs at least 5 happiness for a bold route." : lacksProvision ? "That provision is no longer in inventory." : isTamer ? "Your 1.5× profession bonus and purchased expedition perks are included. Rewards are locked in at departure." : "All eligible pets earn ryo, materials, and pet XP. Rewards are locked in at departure."}</span>
                     </div>
                 )}
                 {!selectedPet?.expedition && <button type="button" className="pet-home-primary" disabled={startDisabled} aria-busy={launchBusy} onClick={onStart}>{launchBusy ? "Sending…" : "Launch expedition"}</button>}
@@ -229,7 +216,8 @@ export function PetExpeditionBoard({
                     <ol>
                         {log.map((entry) => {
                             const finds = [entry.foundBone ? "Bone Charm" : "", entry.foundAura ? "Aura Stone" : "", entry.foundFate ? "Fate Shard" : ""].filter(Boolean).join(", ");
-                            return <li key={entry.id}><strong>{entry.petName} · {entry.outcomeLabel}</strong><span>{entry.story}</span><small>+{entry.ryo.toLocaleString()} ryo · +{entry.petXp.toLocaleString()} pet XP{finds ? ` · Rare: ${finds}` : ""}</small></li>;
+                            const materials = (entry.materialRewards ?? []).map((reward) => `${reward.count} ${craftMaterialName(reward.itemId)}`).join(", ");
+                            return <li key={entry.id}><strong>{entry.petName} · {entry.outcomeLabel}</strong><span>{entry.story}</span><small>+{entry.ryo.toLocaleString()} ryo · +{entry.petXp.toLocaleString()} pet XP{materials ? ` · Materials: ${materials}` : ""}{finds ? ` · Rare: ${finds}` : ""}</small></li>;
                         })}
                     </ol>
                 )}

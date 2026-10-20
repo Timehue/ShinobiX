@@ -17,6 +17,7 @@ import type { TowerRecords } from "../../../shared/tower-progression";
  */
 
 import type { PendingGatherFind } from '../../../shared/gathering';
+import type { PetExpeditionMaterialReward } from '../../../shared/pet-expedition-materials';
 import type { Profession, JutsuType, VillageUpgrades } from "./core";
 import type { Stats, EquipmentSlots, JutsuMastery } from "./combat";
 import type {
@@ -571,7 +572,7 @@ export type Character = {
     dailyHonorSealsEarned?: number;
     dailyHonorSealsByTarget?: Record<string, number>;
     vanguardDailyResetDate?: string;
-    // Pet Tamer daily First Expedition tracking (UTC).
+    // Daily expedition collection tracking (UTC), including historical first-run bonuses.
     lastExpeditionClaimDate?: string;
     expeditionsClaimedToday?: number;
     expeditionStartAllowance?: { date: string; count: number };
@@ -597,6 +598,7 @@ export type Character = {
         foundBone: number;
         foundAura: number;
         foundFate: number;
+        materialRewards?: PetExpeditionMaterialReward[];
         happinessCost: number;
         firstExpedition: boolean;
         escortBonus: boolean;

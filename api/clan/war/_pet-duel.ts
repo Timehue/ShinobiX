@@ -69,6 +69,7 @@ export interface ClanWarPetSession {
      *  a Showdown re-derivation of a legacy-decided fight would show a battle
      *  whose winner can disagree with the recorded one. */
     engine?: 'showdown';
+    rulesetVersion?: 'progression-v3' | 'legacy-v2';
     /** Set once the outcome has been applied to the war record (idempotence). */
     appliedToChallenge?: boolean;
     createdAt: number;
@@ -88,7 +89,7 @@ export function isReadyToResolve(session: Pick<ClanWarPetSession, 'mode' | 'from
 
 /** The one place the session's stored fields become a war-duel input, so the
  *  resolver and the watch script derive from EXACTLY the same values. */
-function warInputOf(session: Pick<ClanWarPetSession, 'mode' | 'seed' | 'from' | 'to'>): WarDuelInput {
+function warInputOf(session: Pick<ClanWarPetSession, 'mode' | 'seed' | 'from' | 'to' | 'rulesetVersion'>): WarDuelInput {
     return {
         // Deterministic label from the seed — never a clock, never an id the
         // two call sites could disagree on.
@@ -103,6 +104,7 @@ function warInputOf(session: Pick<ClanWarPetSession, 'mode' | 'seed' | 'from' | 
         fromPets: session.from.flatMap((f) => (f.team?.length ? f.team : [f.pet])),
         toPets: session.to.flatMap((f) => (f.team?.length ? f.team : [f.pet])),
         terrain: null,
+        rulesetVersion: session.rulesetVersion ?? 'legacy-v2',
     };
 }
 
@@ -116,7 +118,7 @@ function warInputOf(session: Pick<ClanWarPetSession, 'mode' | 'seed' | 'from' | 
  * type only for sessions recorded by the legacy engine.
  */
 export function resolveClanWarPetDuel(
-    session: Pick<ClanWarPetSession, 'mode' | 'seed' | 'from' | 'to'>,
+    session: Pick<ClanWarPetSession, 'mode' | 'seed' | 'from' | 'to' | 'rulesetVersion'>,
 ): ClanWarPetOutcome {
     return resolveWarDuel(warInputOf(session)).outcome === 'from' ? 'from-wins' : 'to-wins';
 }
@@ -126,7 +128,7 @@ export function resolveClanWarPetDuel(
  *  legacy-decided session would show a fight with a potentially different
  *  winner than the war record. */
 export function clanWarPetDuelScript(
-    session: Pick<ClanWarPetSession, 'mode' | 'seed' | 'from' | 'to'>,
+    session: Pick<ClanWarPetSession, 'mode' | 'seed' | 'from' | 'to' | 'rulesetVersion'>,
 ): ShowdownReplayScript {
     return resolveWarDuel(warInputOf(session)).script;
 }
@@ -198,6 +200,7 @@ export function normalizeClanWarPetSession(raw: Partial<ClanWarPetSession> | nul
         to: fighters(raw.to),
         status: raw.status === 'done' ? 'done' : 'awaiting-pets',
         engine: raw.engine === 'showdown' ? 'showdown' : undefined,
+        rulesetVersion: raw.rulesetVersion === 'progression-v3' ? 'progression-v3' : raw.rulesetVersion === 'legacy-v2' ? 'legacy-v2' : undefined,
         winner: raw.winner,
         appliedToChallenge: !!raw.appliedToChallenge,
         createdAt: Math.floor(Number(raw.createdAt) || 0),

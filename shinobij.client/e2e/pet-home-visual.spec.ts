@@ -1,9 +1,37 @@
 import { expect, test, type Page, type Route, type TestInfo } from "@playwright/test";
 import { PUBLIC_CAPABILITY_IDS } from "../../shared/public-capabilities";
 import { PET_CAP_BASE } from "../src/lib/entitlements";
+import { craftMaterialName } from "../../shared/crafting-recipes";
 import { PET_SCENIC_PORTRAITS } from "../src/lib/pet-portrait-assets.generated";
 import AxeBuilder from "@axe-core/playwright";
 import { gotoSettled, reloadSettled } from "./helpers/network-settle";
+
+// Full-page captures below and retained failure video preserve visual evidence.
+// Packaging the redundant trace screenshot resources can exhaust tracing's
+// separate 45s worker budget after every lifecycle assertion has passed.
+test.use({ trace: { mode: 'retain-on-failure', screenshots: false, snapshots: true, sources: true } });
+
+test("arena visit feed preserves recorded paid wins after navigation", async ({ page }, testInfo) => {
+    test.setTimeout(150_000);
+    test.skip(!['chromium-desktop', 'chromium-mobile'].includes(testInfo.project.name), 'visit-feed scope is checked on desktop and mobile');
+    const fixture = await installPetHomeApi(page);
+    Object.assign(fixture.character, { dailyPetWins: 3, totalPetWins: 3, lastDailyReset: new Date().toISOString().slice(0, 10) });
+    await openHome(page);
+    await page.getByRole('button', { name: 'Pet Arena', exact: true }).click();
+    const feed = page.getByRole('log', { name: 'Pet battle log' });
+    await expect(feed).toContainText('No events this visit');
+    await expect(feed).toContainText('Paid wins recorded today: 3/100');
+    await expect(feed).not.toContainText('Awaiting bell');
+    await expect(page.locator('.pet-arena-readiness')).toContainText(/3\s*\/\s*100/);
+    await feed.screenshot({ path: testInfo.outputPath('arena-visit-feed-three-paid-wins.png') });
+    await page.getByRole('button', { name: 'Pet Yard', exact: true }).click();
+    await expect(page.locator('.pet-yard-screen')).toBeVisible();
+    await page.getByRole('button', { name: 'Pet Arena', exact: true }).click();
+    await expect(feed).toContainText('No events this visit');
+    await expect(feed).toContainText('Paid wins recorded today: 3/100');
+    await expect(page.locator('.pet-arena-readiness')).toContainText(/3\s*\/\s*100/);
+    await feed.screenshot({ path: testInfo.outputPath('arena-visit-feed-remounted.png') });
+});
 
 type PetFixture = Record<string, unknown> & {
     id: string;
@@ -231,6 +259,21 @@ async function installPetHomeApi(page: Page) {
         roleRequests: [] as Array<{ action: string; petId: string; assign?: boolean }>,
     };
 
+    const saveSnapshot = () => ({
+        character: state.character, currentBiome: 'forest', currentSector: 0,
+        acceptedMissionIds: [], missionProgress: {}, triggeredEvents: [], _saveVersion: state.saveVersion,
+    });
+    // Capture the live mocked server state before this document starts its
+    // 12s restore clock. The first save fetch stays in-page, like capabilities
+    // and battle-lock below; later reads still use the stateful route.
+    await page.route(url => url.origin === origin && url.pathname === '/', async route => {
+        if (!route.request().isNavigationRequest()) return route.continue();
+        const response = await route.fetch();
+        const snapshot = JSON.stringify(saveSnapshot()).replaceAll('<', '\\u003c');
+        return route.fulfill({ response, body: (await response.text()).replace('<head>',
+            `<head><script>window.__petHomeBootSave=${snapshot};</script>`) });
+    });
+
     await page.addInitScript((replies) => {
         // WebKit's page.route drops /api/* requests sent just after a fresh
         // document starts. They reject with "<url> due to access control
@@ -255,6 +298,12 @@ async function installPetHomeApi(page: Page) {
             if (url.origin === window.location.origin) {
                 const method = (init?.method ?? (input instanceof Request ? input.method : "GET")).toUpperCase();
                 const path = url.pathname.toLowerCase();
+                const boot = window as typeof window & { __petHomeBootSave?: unknown };
+                if (method === 'GET' && path === '/api/save/pethomevisualqa' && boot.__petHomeBootSave) {
+                    const snapshot = boot.__petHomeBootSave;
+                    delete boot.__petHomeBootSave;
+                    return reply(snapshot);
+                }
                 if (method === "GET" && path === "/api/player/capabilities") return reply(replies.capabilities);
                 if (method === "GET" && path === "/api/images") return reply(url.searchParams.get("ids") === "1" ? replies.imageManifest : {});
                 // The player card reads today's Sunscar crate count on every boot.
@@ -290,15 +339,7 @@ async function installPetHomeApi(page: Page) {
             return json(route, url.searchParams.get("ids") === "1" ? EMPTY_IMAGE_MANIFEST : {});
         }
         if (path === "/api/save/pethomevisualqa") {
-            if (request.method() === "GET") return json(route, {
-                character: state.character,
-                currentBiome: "forest",
-                currentSector: 0,
-                acceptedMissionIds: [],
-                missionProgress: {},
-                triggeredEvents: [],
-                _saveVersion: state.saveVersion,
-            });
+            if (request.method() === "GET") return json(route, saveSnapshot());
             state.saveVersion += 1;
             return json(route, { ok: true, _saveVersion: state.saveVersion });
         }
@@ -388,6 +429,22 @@ async function openHome(page: Page) {
 async function reloadHome(page: Page) {
     await reloadSettled(page);
     await expect(page.getByRole("heading", { name: "Your Companions", exact: true })).toBeVisible();
+}
+
+async function welcomeHatch(page: Page, state: Awaited<ReturnType<typeof installPetHomeApi>>, sessionId: string) {
+    // Finish this session's durable ACK before a hard reload swaps the server fixture.
+    const [response] = await Promise.all([
+        page.waitForResponse(response => {
+            const request = response.request();
+            if (new URL(request.url()).pathname !== '/api/pet/breeding/hatch' || request.method() !== 'POST') return false;
+            const body = request.postDataJSON() as { sessionId?: string; acknowledgeReveal?: boolean };
+            return body.sessionId === sessionId && body.acknowledgeReveal === true;
+        }, { timeout: 10_000 }),
+        page.getByRole('button', { name: 'Welcome home', exact: true }).click(),
+    ]);
+    expect(response.ok()).toBe(true);
+    await expect.poll(() => state.character.petBreedingHatchReceipts.find(receipt => receipt.sessionId === sessionId)?.revealPending).toBe(false);
+    await expect(page.locator('[data-pet-hatch-reveal]')).toHaveCount(0);
 }
 
 async function shot(page: Page, testInfo: TestInfo, name: string) {
@@ -638,7 +695,8 @@ test("Pet Home visual lifecycle certification", async ({ page }, testInfo) => {
     await expect(page.locator(".pet-sanctuary-card", { hasText: "Ashglow Kit" })).toBeVisible();
 
     state.character.pets = structuredClone(basePets);
-    state.character.petBreeding = session("egg", 0);
+    const normalSession = session("egg", 0);
+    state.character.petBreeding = normalSession;
     state.hatchPet = pet("rare-26:550e8400-e29b-41d4-a716-446655440000", "rare-26", "Ashglow Kit", "Fire", "rare", 7, {
         origin: "bred", generation: 3, parentInstanceIds: ["qa-fire-1", "qa-fire-2"], trait: "Lucky",
     });
@@ -647,18 +705,20 @@ test("Pet Home visual lifecycle certification", async ({ page }, testInfo) => {
     await expect(page.locator(".hatch-pet")).toBeVisible();
     await expect.poll(() => page.locator(".hatch-pet").evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(0);
     await shot(page, testInfo, "12-normal-hatch-reveal");
-    await page.getByRole("button", { name: "Welcome home" }).click();
+    await welcomeHatch(page, state, normalSession.sessionId);
 
     state.character.pets = structuredClone(basePets);
-    state.character.petBreeding = session("egg", 0);
+    const chromaticSession = session("egg", 0);
+    state.character.petBreeding = chromaticSession;
     state.hatchPet = pet("legendary-6:550e8400-e29b-41d4-a716-446655440001", "legendary-6", "Aurora Phoenix", "Fire", "legendary", 9, {
         origin: "bred", generation: 3, parentInstanceIds: ["qa-fire-1", "qa-fire-2"], paletteVariantId: "chromatic-v1", trait: "Battleborn",
     });
     await reloadHome(page);
+    await expect(page.getByRole('dialog', { name: 'Aurora Phoenix' })).toBeVisible();
     await expect(page.getByText("Chromatic miracle")).toBeVisible();
     await expect(page.locator(".hatch-pet")).toBeVisible();
     await shot(page, testInfo, "13-chromatic-hatch-reveal");
-    await page.getByRole("button", { name: "Welcome home" }).click();
+    await welcomeHatch(page, state, chromaticSession.sessionId);
 
     state.character.pets = structuredClone(basePets);
     state.character.petBreeding = null;
@@ -1044,7 +1104,10 @@ test("refined companion and Sunscar pages", async ({ page }, testInfo) => {
     await expect(page.getByRole("heading", { name: "Loadout", exact: true })).toBeVisible();
     await fit("yard-equipment", ".pet-yard-refined");
     await activities.getByRole("button", { name: "Battle & techniques", exact: true }).click();
-    await expect(page.getByText("Ember Fang", { exact: true })).toBeVisible();
+    // Progression displays the earned native kit while retaining the owned fixture's stored jutsus.
+    await expect(page.locator('.pet-progression-active').getByText(/^Advanced: Ember Lash/)).toBeVisible();
+    await expect(page.getByText("Ember Fang", { exact: true })).toHaveCount(0);
+    expect(state.character.pets[0]).toMatchObject({ id: "qa-fire-1", templateId: "rare-26", level: 60, jutsus: [{ name: "Ember Fang", kind: "damage", power: 24, cooldown: 3 }] });
     await expect(page.getByRole("button", { name: "Deploy Sumi" })).toBeEnabled();
     await fit("yard-techniques", ".pet-yard-refined");
     await activities.getByRole("button", { name: "Expeditions", exact: true }).click();
@@ -1093,6 +1156,29 @@ test("refined companion and Sunscar pages", async ({ page }, testInfo) => {
     await page.getByRole("button", { name: "Sunscar Festival", exact: false }).click();
     await expect(page.locator(".sunscar-hub-refined")).toBeVisible();
     expect(withoutAbortedFetches(errors)).toEqual([]);
+});
+
+test("expedition route levels and base rewards remain clear on desktop and touch", async ({ page }, testInfo) => {
+    test.setTimeout(180_000);
+    test.skip(!['chromium-desktop', 'chromium-mobile'].includes(testInfo.project.name), 'Admission controls use desktop and touch coverage.');
+    const state = await installPetHomeApi(page);
+    state.character.pets[0].maxLevel = 100;
+    for (const level of [20, 50, 80, 100]) {
+        state.character.pets[0].level = level;
+        if (level === 20) await gotoSettled(page, '/#/pets');
+        else await reloadSettled(page);
+        await page.getByRole('navigation', { name: 'Pet Yard activities' }).getByRole('button', { name: 'Expeditions', exact: true }).click();
+        const routes = page.getByRole('radiogroup', { name: 'Expedition route' });
+        for (const [name, minimum] of [['Scout Routes', 20], ['Forage Wilds', 50], ['Explore Old Ruins', 80]] as const) {
+            const route = routes.getByRole('radio', { name: new RegExp(name) });
+            await expect(route).toContainText(`Lv. ${minimum}+`);
+            if (level >= minimum) await expect(route).toBeEnabled();
+            else await expect(route).toBeDisabled();
+        }
+        await expect(routes.getByRole('radio', { name: /Scout Routes/ }).locator('dl > div').filter({ hasText: 'Secure ryo' })).toContainText('180');
+        await expect(routes.getByRole('radio', { name: /Explore Old Ruins/ }).locator('dl > div').filter({ hasText: 'Secure ryo' })).toContainText('2,160');
+        await expect(page.getByText('All eligible pets earn ryo, materials, and pet XP.', { exact: false })).toBeVisible();
+    }
 });
 
 test("refined integration companion actions and recovery", async ({ page }, testInfo) => {
@@ -1166,13 +1252,19 @@ test("refined integration companion actions and recovery", async ({ page }, test
     const overflow = state.character.pets[5];
     overflow.expedition = { type: 'scout', startedAt: Date.now() - 100_000, endsAt: Date.now() - 1000, token: 'qa-return', risk: 'safe', provision: 'none', choiceVersion: 1, place: 'Cactus Flats' };
     let claims = 0;
+    const mixedHaul = ['hunt-beast-meat', 'hunt-wolf-fang', 'hunt-legendary-material',
+        'gather-river-fish', 'gather-river-fish-fine', 'gather-river-fish-superior',
+        'gather-iron-sand-fine', 'gather-rime-crystal-pristine', 'gather-ember-ore',
+        'gather-field-herb', 'gather-binding-fiber', 'gather-heartwood-bark'].map(itemId => ({ itemId, count: 1 }));
     await page.route('**/api/missions/report-pet-event', async route => {
         const body = route.request().postDataJSON();
         expect(body).toMatchObject({ petId: overflow.id, expeditionToken: 'qa-return', returnChoice: 'secure' });
         if (++claims === 1) return json(route, { error: 'The return desk is unavailable.' }, 503);
         delete overflow.expedition;
         overflow.xp = Number(overflow.xp) + 40;
-        return json(route, { ok: true, character: state.character, _saveVersion: ++state.saveVersion, petXpEarned: 40, story: 'Returned safely from Cactus Flats.' });
+        return json(route, { ok: true, character: state.character, _saveVersion: ++state.saveVersion, petXpEarned: 40,
+            materialRewards: mixedHaul, foundFate: 3,
+            story: 'Returned safely from Cactus Flats.' });
     });
     await reloadSettled(page);
     await page.getByRole('button', { name: /Select Stoneback Tanuki/ }).click();
@@ -1182,6 +1274,10 @@ test("refined integration companion actions and recovery", async ({ page }, test
     await expect(page.getByRole('dialog')).toHaveCount(0);
     await page.getByRole('button', { name: 'Secure haul', exact: true }).click();
     await expect(page.getByRole('dialog')).toContainText('Returned safely from Cactus Flats');
+    for (const material of mixedHaul) {
+        await expect(page.getByRole('dialog').locator('.expedition-reward-row').filter({ has: page.getByText(craftMaterialName(material.itemId), { exact: true }) })).toContainText('+1');
+    }
+    await expect(page.getByRole('dialog').locator('.expedition-reward-row').filter({ hasText: 'Fate Shard' })).toContainText('+3');
     await page.getByRole('dialog').getByRole('button', { name: 'Continue', exact: true }).click();
     await expect(page.getByRole('button', { name: 'Select Stoneback Tanuki', exact: true })).toBeFocused();
     await expect(page.getByRole('button', { name: 'Launch expedition', exact: true })).toBeDisabled();

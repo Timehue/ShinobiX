@@ -30,6 +30,7 @@ export function petShapeReviewFailures(models, receipts) {
     for (const model of models) {
         const receipt = receipts[model.id];
         if (!receipt) { failures.push(`${model.id}: no animation shape review`); continue; }
+        if (receipt.acceptance === 'rejected-by-user') failures.push(`${model.id}: visual result rejected by user; rebuild and fresh review required`);
         if (receipt.sha256 !== model.sha256) failures.push(`${model.id}: asset changed after review`);
         if (model.lodSha256 && receipt.lodSha256 !== model.lodSha256) failures.push(`${model.id}: battle model changed after review`);
         if (model.atlasSha256 && receipt.atlasSha256 !== model.atlasSha256) failures.push(`${model.id}: animated impostor changed after review`);

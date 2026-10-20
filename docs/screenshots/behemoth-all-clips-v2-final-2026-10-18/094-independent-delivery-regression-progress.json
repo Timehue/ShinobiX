@@ -1,0 +1,123 @@
+{
+  "recordedAt": "2026-10-19T00:17:49.561Z",
+  "rows": [
+    {
+      "id": "legendary-17",
+      "sourceSha256": "5d2fed896ae1dff63b633602b3c671caeba43f6b66b92d614936c09833e1b25f",
+      "revision": "20261018-behemoth-all-authored-limb-performances-v2",
+      "firstPassComplete": true,
+      "independentPrivateOwnLegRegression": "passed",
+      "finalDeliveryRegeneration": "generated",
+      "secondPassComplete": false,
+      "live": false,
+      "assets": {
+        "source": {
+          "path": "shinobij.client/public/pet-models/roster/legendary-17.glb",
+          "sha256": "5d2fed896ae1dff63b633602b3c671caeba43f6b66b92d614936c09833e1b25f",
+          "bytes": 1580092
+        },
+        "battle": {
+          "path": "shinobij.client/public/pet-models/warfront-lod/roster/legendary-17.glb",
+          "sha256": "1419d8a5306204f4c525e23e33eccf6e34912747a4e154fa4fdfe34248ce6b33",
+          "bytes": 630360
+        },
+        "atlas": {
+          "path": "shinobij.client/public/pet-models/warfront-impostors/roster/legendary-17.webp",
+          "sha256": "cf7967c15bf63e18bab8e02f84b1a9ad50f56230bacb97fceaaf558754964c0c",
+          "bytes": 146676
+        }
+      },
+      "finalDeliveryRegression": "29 tests across three rigs passed",
+      "secondPassActuallyInspected": false
+    },
+    {
+      "id": "legendary-15",
+      "sourceSha256": "fa777c9224e77932162a34ce408665e567ea61030bbd1c334e0d01ffe7f63e7e",
+      "revision": "20261018-chimera-all-authored-limb-performances-v2",
+      "firstPassComplete": true,
+      "independentPrivateOwnLegRegression": "passed",
+      "finalDeliveryRegeneration": "generated",
+      "secondPassComplete": false,
+      "live": false,
+      "assets": {
+        "source": {
+          "path": "shinobij.client/public/pet-models/roster/legendary-15.glb",
+          "sha256": "fa777c9224e77932162a34ce408665e567ea61030bbd1c334e0d01ffe7f63e7e",
+          "bytes": 1623816
+        },
+        "battle": {
+          "path": "shinobij.client/public/pet-models/warfront-lod/roster/legendary-15.glb",
+          "sha256": "0d62b2a54572b20fbdf76d1a3f4c4381313692ea75bba614edbf5adb459018a0",
+          "bytes": 613584
+        },
+        "atlas": {
+          "path": "shinobij.client/public/pet-models/warfront-impostors/roster/legendary-15.webp",
+          "sha256": "b5d20515ebbc0268b36da8c88a0a9ed4c47a70df5a7b76a5f12c0d6f3d827313",
+          "bytes": 115996
+        }
+      },
+      "finalDeliveryRegression": "29 tests across three rigs passed",
+      "secondPassActuallyInspected": false
+    },
+    {
+      "id": "mythic-0",
+      "sourceSha256": "f1f9966af3bb7941c4eae4aa73a1f0e05aee3a124f93ba59907bc329a31cc156",
+      "revision": "20261018-eclipse-kitsune-all-authored-limb-performances-v2",
+      "firstPassComplete": true,
+      "independentPrivateOwnLegRegression": "passed",
+      "finalDeliveryRegeneration": "generated",
+      "secondPassComplete": false,
+      "live": false,
+      "assets": {
+        "source": {
+          "path": "shinobij.client/public/pet-models/roster/mythic-0.glb",
+          "sha256": "f1f9966af3bb7941c4eae4aa73a1f0e05aee3a124f93ba59907bc329a31cc156",
+          "bytes": 1181936
+        },
+        "battle": {
+          "path": "shinobij.client/public/pet-models/warfront-lod/roster/mythic-0.glb",
+          "sha256": "8f2146f95104be2ce07e36c95d7aa2d48754f409806448f1bf83fdc02917eae1",
+          "bytes": 539888
+        },
+        "atlas": {
+          "path": "shinobij.client/public/pet-models/warfront-impostors/roster/mythic-0.webp",
+          "sha256": "73e35b150e202643e92fc3d624584b723b84f963dc24a8aaadab0de15a750c5b",
+          "bytes": 85938
+        }
+      },
+      "finalDeliveryRegression": "29 tests across three rigs passed",
+      "secondPassActuallyInspected": false
+    }
+  ],
+  "wholeRosterComplete": false,
+  "nonselectedDeliveryManifestEntriesUnchanged": true,
+  "independentAngularKeysPerStage": 216,
+  "maximumWorldAngularErrorRadians": 7.884953353001448e-8,
+  "evidence": [
+    "docs/screenshots/pet-next-three-omitted-shipping-progress-2026-10-18/private-regression.log",
+    "docs/screenshots/pet-next-three-omitted-shipping-progress-2026-10-18/final-regression.log",
+    "docs/screenshots/pet-next-three-omitted-shipping-progress-2026-10-18/generated-lod.log",
+    "docs/screenshots/pet-next-three-omitted-shipping-progress-2026-10-18/generated-atlas.log",
+    "docs/audits/pet-omitted-next-three-first-progress-2026-10-18.json",
+    "docs/audits/pet-chimera-omitted-first-progress-2026-10-18.json",
+    "docs/audits/pet-eclipse-omitted-first-progress-2026-10-18.json"
+  ],
+  "evidenceSha256": {
+    "docs/screenshots/pet-next-three-omitted-shipping-progress-2026-10-18/private-regression.log": "f4ad826e9c0aeaa4b2912c099920570a5aeef15d49f0261cc7a6de40824fc5d6",
+    "docs/screenshots/pet-next-three-omitted-shipping-progress-2026-10-18/final-regression.log": "82538ed349e28729712a9e194bc1f3884c8edbdbb17024e23fd8e339794b66d1",
+    "docs/screenshots/pet-next-three-omitted-shipping-progress-2026-10-18/generated-lod.log": "85e856054b953bb14d652687de2529b45745fa95e7faf3f2b08cc49fd9835693",
+    "docs/screenshots/pet-next-three-omitted-shipping-progress-2026-10-18/generated-atlas.log": "e35a025d27cd3e96d66666799a33a3680fe2077859fb577b5f77447d30b6b332",
+    "docs/audits/pet-omitted-next-three-first-progress-2026-10-18.json": "f1e858c3a8532c2f14399e95d0f330e493ac2253c0e9490a0cc068b85fbe27e1",
+    "docs/audits/pet-chimera-omitted-first-progress-2026-10-18.json": "9b3917d8e2d81911d8ea57c339a7b7ff8923beba14600a8b077236185c5202e9",
+    "docs/audits/pet-eclipse-omitted-first-progress-2026-10-18.json": "2e2f0dc5354bc759f8a9aab7a1368e515fe7921af54aca474a8370d464ef7c69"
+  },
+  "privateTests": {
+    "passed": 6,
+    "failed": 0
+  },
+  "finalTests": {
+    "passed": 29,
+    "failed": 0
+  },
+  "status": "Local candidates only; second visual pass in progress. Existing receipt hashes are not yet renewed."
+}

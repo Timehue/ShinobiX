@@ -1,0 +1,333 @@
+{
+  "id": "starter-earth",
+  "base": "d54faac8a24138e2a8b79cce134c03516b207512",
+  "status": "current-main-validation-passed-awaiting-merge-and-live",
+  "localCandidateReview": "docs/audits/pet-pebble-full-remake-final-review-2026-10-19.json",
+  "build": {
+    "passed": true,
+    "certifiedPetDeliveryFiles": 483,
+    "sizecheck": "PASS"
+  },
+  "focusedTests": {
+    "passed": 30,
+    "failed": 0
+  },
+  "lint": {
+    "errors": 0,
+    "preExistingWarnings": 24
+  },
+  "isolation": {
+    "base": "d54faac8a24138e2a8b79cce134c03516b207512",
+    "assetChanges": [
+      {
+        "path": "shinobij.client/public/pet-models/starter-earth.glb",
+        "sha256": "e3c992fa17abf531f99572620499560295a9a99b3d4518eee180f13a0b69890b"
+      },
+      {
+        "path": "shinobij.client/public/pet-models/warfront-lod/starter-earth.glb",
+        "sha256": "0d32d4a122c8d5524a71489a420ed730986a95bce855bbe864b7dfb341f20bcc"
+      },
+      {
+        "path": "shinobij.client/public/pet-models/warfront-impostors/starter-earth.webp",
+        "sha256": "fe80e863de1972674df6ae6cbff4710766e6b183ee2a401a5b4d1f152142c354"
+      }
+    ],
+    "unrelatedManifestEntriesUnchanged": true,
+    "rendererSha256": "b2253b71fbcb21a83d82de35ab5783dd57b525cfc94740fb131dd1eb0049a897",
+    "companionComponentDifference": "Main differs only in chromatic treatment and preview height for two other legendary pets; actual main technique capture is required",
+    "productionRendererUnchanged": true,
+    "companionPebblePathEquivalent": true,
+    "companionMainSha256": "c500075b2b259a3061a6706bfb7d3bb4e2f545e620d85dbd01f9a99597350419",
+    "companionReviewedSha256": "472645f0ade2c17a8be0a8f9fa5af0fdb9d47f4c835e24e6a374c8219b33e4ab",
+    "companionDifferences": [
+      "chromatic treatment for chromatic appearance only; reviewed Pebble uses original appearance",
+      "previewHeight for legendary-6 and legendary-10; Pebble height unchanged"
+    ]
+  },
+  "delivery": [
+    {
+      "stage": "source",
+      "sourceSha256": "e3c992fa17abf531f99572620499560295a9a99b3d4518eee180f13a0b69890b",
+      "deliverySha256": "4de0927836fe3b83602b07b1cb4369e1a74682aa6a2de84015f1d0701baa073b",
+      "deliveryBytes": 2792820,
+      "allGeometryAttributesIndicesSkinAndRigIdentical": true,
+      "all13ClipsAndDecodedCurvesIdentical": true,
+      "texturePayloadsIdentical": true
+    },
+    {
+      "stage": "battle",
+      "sourceSha256": "0d32d4a122c8d5524a71489a420ed730986a95bce855bbe864b7dfb341f20bcc",
+      "deliverySha256": "0d32d4a122c8d5524a71489a420ed730986a95bce855bbe864b7dfb341f20bcc",
+      "deliveryBytes": 687224,
+      "allGeometryAttributesIndicesSkinAndRigIdentical": true,
+      "all13ClipsAndDecodedCurvesIdentical": true,
+      "texturePayloadsIdentical": true
+    }
+  ],
+  "techniques": [
+    {
+      "stage": "source",
+      "sha256": "e3c992fa17abf531f99572620499560295a9a99b3d4518eee180f13a0b69890b",
+      "companionComponentSha256": "c500075b2b259a3061a6706bfb7d3bb4e2f545e620d85dbd01f9a99597350419",
+      "moves": [
+        "earth-strike",
+        "earth-pulse",
+        "earth-breaker",
+        "lightning-pulse",
+        "open-wound",
+        "intercept",
+        "aegis",
+        "purify",
+        "starter-earth-signature"
+      ],
+      "framesActuallyInspected": 216,
+      "stripsActuallyInspected": 12,
+      "errors": [],
+      "minimumClearance": 0.02169121538150141
+    },
+    {
+      "stage": "battle",
+      "sha256": "0d32d4a122c8d5524a71489a420ed730986a95bce855bbe864b7dfb341f20bcc",
+      "companionComponentSha256": "c500075b2b259a3061a6706bfb7d3bb4e2f545e620d85dbd01f9a99597350419",
+      "moves": [
+        "earth-strike",
+        "earth-pulse",
+        "earth-breaker",
+        "lightning-pulse",
+        "open-wound",
+        "intercept",
+        "aegis",
+        "purify",
+        "starter-earth-signature"
+      ],
+      "framesActuallyInspected": 216,
+      "stripsActuallyInspected": 12,
+      "errors": [],
+      "minimumClearance": 0.017956297504368317
+    }
+  ],
+  "evidence": [
+    {
+      "path": "docs/screenshots/pet-pebble-full-remake-main-validation-2026-10-19/build.txt",
+      "sha256": "eb059690b6e54677a0af20b4b7d24b841708e51bae41dedfc4d77c6f19de9825",
+      "bytes": 183906
+    },
+    {
+      "path": "docs/screenshots/pet-pebble-full-remake-main-validation-2026-10-19/tests.txt",
+      "sha256": "f218ba3bff46bd865d39efa546db1753fa2bda5ec8c9de336f3f1f5345e0364d",
+      "bytes": 3095
+    },
+    {
+      "path": "docs/screenshots/pet-pebble-full-remake-main-validation-2026-10-19/lint.txt",
+      "sha256": "dc4900f5293c47586c9de03801bb4d39d185ba0d35a6890df5d2cfa1e758db9c",
+      "bytes": 6475
+    },
+    {
+      "path": "docs/screenshots/pet-pebble-full-remake-main-validation-2026-10-19/shape-review.txt",
+      "sha256": "dc55325ed8307da4e6d51e699169bac2bc51821242187169b56fee63e914e6aa",
+      "bytes": 2697
+    },
+    {
+      "path": "docs/screenshots/pet-pebble-full-remake-main-validation-2026-10-19/lod-check.txt",
+      "sha256": "f6693259d839c12ea640e91f8111afe815d103d4405b5699e70e7e81e70d502e",
+      "bytes": 287
+    },
+    {
+      "path": "docs/screenshots/pet-pebble-full-remake-main-validation-2026-10-19/atlas-check.txt",
+      "sha256": "372413a524ef8cf03ce7961884ec9f1f37051485023aac01aa8b2384bee4f9eb",
+      "bytes": 181
+    },
+    {
+      "path": "docs/screenshots/pet-pebble-full-remake-main-validation-2026-10-19/isolation.json",
+      "sha256": "8e2c9026ada8899e61e06a95421ce5fd6f612e8198e28854a31a94404cae7a56",
+      "bytes": 1391
+    },
+    {
+      "path": "docs/screenshots/pet-pebble-full-remake-main-validation-2026-10-19/delivery-semantics.json",
+      "sha256": "a6a274219a487b54c530067e54d2c696c222b3b5b7d8ec5145acd5dbc5331637",
+      "bytes": 776
+    },
+    {
+      "path": "docs/screenshots/pet-pebble-full-remake-main-validation-2026-10-19/technique-pixel-comparison.json",
+      "sha256": "996346369933c357f254896c91805e73e4f36a097d298ac2e1f1327c6cdd963e",
+      "bytes": 89568
+    },
+    {
+      "path": "docs/screenshots/pet-pebble-full-remake-main-validation-2026-10-19/capture-main-techniques.mjs",
+      "sha256": "65e2ce1e736811e39a930449b210b3c3faade23e4470802673ad58b14ec97124",
+      "bytes": 10469
+    },
+    {
+      "path": "docs/screenshots/pet-pebble-full-remake-main-validation-2026-10-19/source/capture-manifest.json",
+      "sha256": "b277204959a8f50db764e7b9aecf239b9ee77a736f554b03062cb84ec24b6dbe",
+      "bytes": 323657
+    },
+    {
+      "path": "docs/screenshots/pet-pebble-full-remake-main-validation-2026-10-19/source/strip-manifest.json",
+      "sha256": "0e02ae7ff2e21e0968c602677fd78901d674f6da29aebaddc6cf1fc0ffe031f8",
+      "bytes": 57093
+    },
+    {
+      "path": "docs/screenshots/pet-pebble-full-remake-main-validation-2026-10-19/source/front-block-0-half-0.png",
+      "sha256": "e649bb864f7c4c0c645f132a9651f4e48affd625f7bbfb5cbece371bc3b96c30",
+      "bytes": 309730
+    },
+    {
+      "path": "docs/screenshots/pet-pebble-full-remake-main-validation-2026-10-19/source/front-block-0-half-1.png",
+      "sha256": "e904b325e55fd5cc39da726cce491514568cda7a63751469c10d830dc781979c",
+      "bytes": 289862
+    },
+    {
+      "path": "docs/screenshots/pet-pebble-full-remake-main-validation-2026-10-19/source/front-block-1-half-0.png",
+      "sha256": "4a12363a6aa5bba646efca22a020861fbce72d64cf85b4a159c774cd973a52b1",
+      "bytes": 306774
+    },
+    {
+      "path": "docs/screenshots/pet-pebble-full-remake-main-validation-2026-10-19/source/front-block-1-half-1.png",
+      "sha256": "c45e6fc099cf7e9391cf300d012c00398c89b7bb5ca680b19351fd2c8944530a",
+      "bytes": 292067
+    },
+    {
+      "path": "docs/screenshots/pet-pebble-full-remake-main-validation-2026-10-19/source/front-block-2-half-0.png",
+      "sha256": "e6e96b0490a15d84422001717fcf3257b722d341e6fb6435714feff45d4bca20",
+      "bytes": 304861
+    },
+    {
+      "path": "docs/screenshots/pet-pebble-full-remake-main-validation-2026-10-19/source/front-block-2-half-1.png",
+      "sha256": "f8c5f35dd4b7e4cf9455376b8efad0b3f9ee72c6ee7edd474ebeb42894c36ed4",
+      "bytes": 295476
+    },
+    {
+      "path": "docs/screenshots/pet-pebble-full-remake-main-validation-2026-10-19/source/side-block-0-half-0.png",
+      "sha256": "28ca2e38605c6c5ce57a2d717adcaad1b106ab46ae85b23d5ae9d823736b4a81",
+      "bytes": 311812
+    },
+    {
+      "path": "docs/screenshots/pet-pebble-full-remake-main-validation-2026-10-19/source/side-block-0-half-1.png",
+      "sha256": "28012b02f5175078d3adbce89cfdcd14880afe27f5b796bad5d5db9bf36fd4c3",
+      "bytes": 285507
+    },
+    {
+      "path": "docs/screenshots/pet-pebble-full-remake-main-validation-2026-10-19/source/side-block-1-half-0.png",
+      "sha256": "529e2af8666fd6c923ee419db1d877844178a1a0f3f28b4de185ddd104be3fcc",
+      "bytes": 310652
+    },
+    {
+      "path": "docs/screenshots/pet-pebble-full-remake-main-validation-2026-10-19/source/side-block-1-half-1.png",
+      "sha256": "14ecf526464bf5387a658b5c75cf6076e7d428e848524bc3a07dc1b61e63dcaf",
+      "bytes": 292217
+    },
+    {
+      "path": "docs/screenshots/pet-pebble-full-remake-main-validation-2026-10-19/source/side-block-2-half-0.png",
+      "sha256": "880962972fe1de4fcb2d22253a33fcc77c7a5e39f5af97680f3f7f7e7964db4f",
+      "bytes": 309035
+    },
+    {
+      "path": "docs/screenshots/pet-pebble-full-remake-main-validation-2026-10-19/source/side-block-2-half-1.png",
+      "sha256": "35f1227c892ed8fa0b76cb780a563d0a0d6589379fe83dd060aae07b182c949d",
+      "bytes": 296418
+    },
+    {
+      "path": "docs/screenshots/pet-pebble-full-remake-main-validation-2026-10-19/battle/capture-manifest.json",
+      "sha256": "785fd73d27ca37aa438271da872d3ca0c574973699a3c7cbd9345e1f8ab6cc85",
+      "bytes": 323920
+    },
+    {
+      "path": "docs/screenshots/pet-pebble-full-remake-main-validation-2026-10-19/battle/strip-manifest.json",
+      "sha256": "bd868ed2fd62d494a579a2eebde03a919a050a1fb8c1098a8b3d0df8687ebeb9",
+      "bytes": 57093
+    },
+    {
+      "path": "docs/screenshots/pet-pebble-full-remake-main-validation-2026-10-19/battle/front-block-0-half-0.png",
+      "sha256": "99ac1af861c1d237cce3afd10ebc34e4b8ade37bc23f03c982b2ad817afe20a7",
+      "bytes": 381565
+    },
+    {
+      "path": "docs/screenshots/pet-pebble-full-remake-main-validation-2026-10-19/battle/front-block-0-half-1.png",
+      "sha256": "fddf4e5f9d095890e38f5de221b29c329ee1cb5949333d82cea67fb98e4ceeca",
+      "bytes": 352016
+    },
+    {
+      "path": "docs/screenshots/pet-pebble-full-remake-main-validation-2026-10-19/battle/front-block-1-half-0.png",
+      "sha256": "c2eed69e196228b07f1c5963f823a131c4af4af68325538f724ed00d70d5dba1",
+      "bytes": 377444
+    },
+    {
+      "path": "docs/screenshots/pet-pebble-full-remake-main-validation-2026-10-19/battle/front-block-1-half-1.png",
+      "sha256": "4c41b96359cd268854c5e393a8240b5df1defed622dca10bc2a550cacbe29aa2",
+      "bytes": 354507
+    },
+    {
+      "path": "docs/screenshots/pet-pebble-full-remake-main-validation-2026-10-19/battle/front-block-2-half-0.png",
+      "sha256": "2289fd90fa440709e91d4996f19cc68cf2d5b51fc515bc9a45ab00b7fc82cbcd",
+      "bytes": 373439
+    },
+    {
+      "path": "docs/screenshots/pet-pebble-full-remake-main-validation-2026-10-19/battle/front-block-2-half-1.png",
+      "sha256": "eb65ac529c60e5631de1816515cc86514c163a879cfe536ff81b65ae8ab13732",
+      "bytes": 358347
+    },
+    {
+      "path": "docs/screenshots/pet-pebble-full-remake-main-validation-2026-10-19/battle/side-block-0-half-0.png",
+      "sha256": "aef7f96dfc31d352d0823992f7ce1abb1441fbae5cc5a26af9dbc3c52ac3f582",
+      "bytes": 375748
+    },
+    {
+      "path": "docs/screenshots/pet-pebble-full-remake-main-validation-2026-10-19/battle/side-block-0-half-1.png",
+      "sha256": "0ffac4b8ed7fa3a5695cc338938a1e1721fe9f652e35f59a5649af8bab8a9ac7",
+      "bytes": 343550
+    },
+    {
+      "path": "docs/screenshots/pet-pebble-full-remake-main-validation-2026-10-19/battle/side-block-1-half-0.png",
+      "sha256": "0674376a7de76a44604da30342035a3be4bb619cefab69fb84df373335d3e161",
+      "bytes": 373489
+    },
+    {
+      "path": "docs/screenshots/pet-pebble-full-remake-main-validation-2026-10-19/battle/side-block-1-half-1.png",
+      "sha256": "4a4efa86057d6156d580e46065cef5c8ce3747c52aae2b89383661dc01e370c0",
+      "bytes": 348892
+    },
+    {
+      "path": "docs/screenshots/pet-pebble-full-remake-main-validation-2026-10-19/battle/side-block-2-half-0.png",
+      "sha256": "e35c64ff75322f051967781079bc1ab383eeb083a01ae763d1dcdbffe74a5399",
+      "bytes": 370906
+    },
+    {
+      "path": "docs/screenshots/pet-pebble-full-remake-main-validation-2026-10-19/battle/side-block-2-half-1.png",
+      "sha256": "ba644d7b88a0054ace71a4c0a3d7e9c7b9ec8cf46700d717be22576e966a2b73",
+      "bytes": 354383
+    },
+    {
+      "path": "docs/screenshots/pet-pebble-full-remake-main-validation-2026-10-19/ci-contract-failure-excerpt.txt",
+      "sha256": "150a769c99421468ecf46384e293ba978c9e92f8d94ed0b65d8b9f4f1ff36e43",
+      "bytes": 1460
+    },
+    {
+      "path": "docs/screenshots/pet-pebble-full-remake-main-validation-2026-10-19/ci-followup-34-tests.txt",
+      "sha256": "aec0ade3ed2f0b496638b931971bd3666b7dfd996ea773dadad0f405d556ca97",
+      "bytes": 3474
+    },
+    {
+      "path": "docs/screenshots/pet-pebble-full-remake-main-validation-2026-10-19/ci-contract-targeted-lint.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    }
+  ],
+  "liveVerified": false,
+  "authenticatedPlayerModalInspected": false,
+  "wholeRosterComplete": false,
+  "ciContractFollowup": {
+    "failedRun": 39355350052,
+    "failedJob": 118408734927,
+    "failure": "Legacy original-take channel count recognized the rejected predecessor metadata but not the complete new sculpt metadata",
+    "correction": "Use the exact fully-reviewed remake payload gate for the same existing 16-channel ceiling",
+    "channelCeilingUnchanged": 16,
+    "newRegression": "All 13 takes and every non-root animation curve match the pinned predecessor rig in both source and battle meshes",
+    "focusedTests": {
+      "passed": 34,
+      "failed": 0
+    },
+    "targetedLintErrors": 0,
+    "geometrySkinRigAndAnimationAssetsChanged": false
+  }
+}
