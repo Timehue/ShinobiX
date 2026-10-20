@@ -438,6 +438,23 @@ export function moveEffectText(kind: string, power: number, element?: string): s
     return `${fx.blurb}. Direct damage: ${Math.round(fx.mult * 100)}% of a normal hit.`;
 }
 
+/** Input-only historical proofs include their original tooltip bytes. Keep
+ * that presentation frozen with the legacy ruleset; new entries use the clearer
+ * progression descriptions without rewriting a retained proof or its verdict. */
+function legacyMoveEffectText(kind: string, power: number, element?: string): string {
+    if (!hasOwn(KIND_FX, kind)) return 'Straight damage';
+    if (kind === 'heal') return `Restores ~${Math.round(Math.min(0.3, Math.max(60, power) / 700) * 100)}% max HP`;
+    if (kind === 'protect') return 'Blocks all damage this round. Fails if used in consecutive rounds.';
+    if (kind === 'weather' || kind === 'shield' || kind === 'barrier' || kind === 'absorb') return moveEffectText(kind, power, element);
+    const originalBlurbs: Record<string, string> = {
+        push: 'Smashes the foe out; a random reserve is forced in',
+        pull: 'Hooks the foe’s weakest reserve into the fight',
+        taunt: 'Draws the foes\' attacks to you',
+    };
+    const fx = KIND_FX[kind], blurb = originalBlurbs[kind] ?? fx.blurb;
+    return fx.mult === 0 || fx.mult === 1 ? blurb : `${blurb} · ${Math.round(fx.mult * 100)}% hit`;
+}
+
 /*
  * Species stat-budget normalization. Same-rarity catalog species differ by up
  * to ~65% in raw stat budget (Black Cat 297hp/37atk vs Frost Cub 515hp/65atk,
@@ -2657,7 +2674,7 @@ function petView(pet: ShowdownPet): ShowdownPetView {
         reuseRounds: move.reuseRounds, availableAtRound: move.availableAtRound,
     } : {};
     const effect = (move: ShowdownMove) => {
-        if (!progression) return moveEffectText(move.kind, move.power, move.element ?? pet.element);
+        if (!progression) return legacyMoveEffectText(move.kind, move.power, move.element ?? pet.element);
         const text = move.kind === 'heal' ? 'Restores 17.5% max HP; wound and attrition reduce healing.'
             : ['shield', 'barrier', 'absorb'].includes(move.kind) ? 'Absorbs 22.5% max HP for 2 rounds. Replaces the previous shield.'
             : move.kind === 'lifesteal' ? 'Heals one quarter of damage dealt. Combined hit healing is capped at 10% max HP per action.'
@@ -2711,7 +2728,7 @@ function petView(pet: ShowdownPet): ShowdownPetView {
             cost: 0, signature: true,
             priority: pet.signatureMove.priority, hold: pet.signatureMove.hold,
             effect: progression ? `Spends the full meter. ${effect(pet.signatureMove)}` : pet.signatureMove.kind === 'damage' ? 'Spends the full meter — massive damage'
-                : `Spends the full meter. ${moveEffectText(pet.signatureMove.kind, Math.round(pet.signatureMove.power * SHOWDOWN_SUPER_POWER_MULT), pet.signatureMove.element ?? pet.element)}`,
+                : `Spends the full meter — ${legacyMoveEffectText(pet.signatureMove.kind, pet.signatureMove.power, pet.signatureMove.element ?? pet.element)}`,
             element: pet.signatureMove.element ?? pet.element, cls: pet.signatureMove.cls ?? 'special',
             ...(pet.signatureMove.synergyElement ? { synergyElement: pet.signatureMove.synergyElement } : {}),
         }]),
