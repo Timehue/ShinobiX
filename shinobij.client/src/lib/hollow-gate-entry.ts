@@ -49,6 +49,10 @@ export async function recoverHollowGateRunOnBoot(params: HollowGateRecoveryParam
 
 type HollowGateEntryParams = {
     isCurrent?: () => boolean;
+    /** Account ownership survives a cancelled preview so a paid start can be recovered. */
+    isAccountCurrent?: () => boolean;
+    canEnter?: () => boolean;
+    signal?: AbortSignal;
     currentRunToken: () => string | undefined;
     commitCharacter: VersionedCharacterCommit;
     eventCfg?: HollowGateEventConfig;
@@ -72,6 +76,13 @@ export async function enterHollowGateShrineFlow(params: HollowGateEntryParams) {
         setHollowGateHiddenChamber, setCharacter, setCurrentBiome, setCurrentWeather,
         setScreen, setHollowGateIntroPage, pushHollowGateLog,
     } = params;
+    const interrupted = () => params.isCurrent?.() === false || params.canEnter?.() === false || params.signal?.aborted === true;
+    const preserveStartedRun = (start: Awaited<ReturnType<typeof startHollowGateServerRun>>) => {
+        if (start?.character && (params.isAccountCurrent?.() ?? params.isCurrent?.() ?? true)) {
+            params.commitCharacter(start.character, start._saveVersion);
+        }
+    };
+    if (interrupted()) return;
     if (!requireServerSettlement("hollowGateRun")) return;
     if (!character) return;
     if (character.hp <= 0) {
@@ -110,6 +121,7 @@ export async function enterHollowGateShrineFlow(params: HollowGateEntryParams) {
             variant?.id,
             pending.requestId,
         );
+        if (interrupted()) { preserveStartedRun(recovered); return; }
     }
     if (pending?.requestId && recovered?.reason !== "hollow-gate-start-spent") {
         if (!recovered?.token || recovered.token !== pending.token) {
@@ -118,11 +130,13 @@ export async function enterHollowGateShrineFlow(params: HollowGateEntryParams) {
         }
         const recoveredBase = recovered.character ?? character;
         const run = await buildHollowGateRunFromStart(recovered, variant, recoveredBase).catch(() => null);
+        if (interrupted()) { preserveStartedRun(recovered); return; }
         if (!run) {
             alert(HOLLOW_GATE_FLOOR_LOAD_FAILED);
             return;
         }
         const floorSeal = await sealHollowGateFloor(character.name, recovered.token, run);
+        if (interrupted()) { preserveStartedRun(recovered); return; }
         const sealedRun = { ...run, wanderers: floorSeal.wanderers, floorFeatures: floorSeal.floorFeatures, floorFeaturesVersion: floorSeal.floorFeatures ? 1 as const : undefined, detourTileIndex: floorSeal.detour?.tileIndex, detourExtraSteps: floorSeal.detour?.extraSteps, riftSignalTileIndex: floorSeal.riftSignal?.tileIndex };
         setHollowGateRun(sealedRun);
         setHollowGateLog([
@@ -176,8 +190,8 @@ export async function enterHollowGateShrineFlow(params: HollowGateEntryParams) {
     }
     const floorsLine = eventCfg ? `\nEvent gate: ${hollowGateRunMaxFloor({ variant })} floor${hollowGateRunMaxFloor({ variant }) === 1 ? "" : "s"}, final boss: ${hollowGateBossDisplayName({ variant })}.` : "";
     const keyLine = keyCost > 0 ? `This consumes 1 Hollow Gate Key (${ownedKeys} owned). Keys are one-time use.` : "Entry is free for this event.";
-    const ok = await gameConfirm(`Enter the ${gateName}?\n${floorsLine}\n${keyLine}\nDaily runs: ${runsToday}/${DAILY_HOLLOW_GATE_CAP}.`, { title: gateName, confirmLabel: "Enter" });
-    if (!ok) return;
+    const ok = await gameConfirm(`Enter the ${gateName}?\n${floorsLine}\n${keyLine}\nDaily runs: ${runsToday}/${DAILY_HOLLOW_GATE_CAP}.`, { title: gateName, confirmLabel: "Enter", signal: params.signal });
+    if (!ok || interrupted()) return;
 
     // Server daily-cap HARD-block (audit #7): with the server-auth flag on, ask the
     // server BEFORE spending the Key — a 'daily-cap' reply (e.g. a backdated reset
@@ -186,6 +200,7 @@ export async function enterHollowGateShrineFlow(params: HollowGateEntryParams) {
     // The settle ledger scales with floorDepth — a short event gate
     // declares its own depth so settlement matches the shorter run.
     const serverStart = await startHollowGateServerRun(character.name, hollowGateRunMaxFloor({ variant }), variant?.id);
+    if (interrupted()) { preserveStartedRun(serverStart); return; }
     if (serverStart?.reason === "daily-cap") {
         alert("The daily entry seal has reached its limit. Return at dawn.");
         return;
@@ -201,11 +216,13 @@ export async function enterHollowGateShrineFlow(params: HollowGateEntryParams) {
     const afterKey = serverStart.character;
 
     const run = await buildHollowGateRunFromStart(serverStart, variant, character).catch(() => null);
+    if (interrupted()) { preserveStartedRun(serverStart); return; }
     if (!run) {
         alert(HOLLOW_GATE_FLOOR_LOAD_FAILED);
         return;
     }
     const floorSeal = await sealHollowGateFloor(character.name, serverStart.token, run);
+    if (interrupted()) { preserveStartedRun(serverStart); return; }
     const sealedRun = { ...run, wanderers: floorSeal.wanderers, floorFeatures: floorSeal.floorFeatures, floorFeaturesVersion: floorSeal.floorFeatures ? 1 as const : undefined, detourTileIndex: floorSeal.detour?.tileIndex, detourExtraSteps: floorSeal.detour?.extraSteps, riftSignalTileIndex: floorSeal.riftSignal?.tileIndex };
     setHollowGateRun(sealedRun);
     setHollowGateLog([

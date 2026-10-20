@@ -328,6 +328,7 @@ function WorldMapContent({
     capturePvpCreateScope,
     onLaunchWeeklyBoss,
     onExplorePresentationActiveChange,
+    onEntryEncounterActiveChange,
     onLaunchClanWarBattle,
 }: {
     setCurrentBiome: (biome: Biome) => void;
@@ -335,6 +336,7 @@ function WorldMapContent({
     character: Character;
     updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>;
     combatActive: boolean;
+    onEntryEncounterActiveChange?: (active: boolean) => void;
     isCombatActive: () => boolean;
     creatorEvents: CreatorEvent[];
     creatorRaids: CreatorRaid[];
@@ -1948,6 +1950,10 @@ function WorldMapContent({
     const [wandererDialog, setWandererDialog] = useState<WorldWandererDialogState | null>(null);
     const wandererChoiceRef = useRef<WorldWandererDialogState | null>(null);
     useLayoutEffect(() => { wandererChoiceRef.current = wandererDialog; }, [wandererDialog]);
+    useLayoutEffect(() => {
+        onEntryEncounterActiveChange?.(requiresWandererChoice(wandererDialog) || !!bossDialog || worldBossQueueOpen);
+        return () => onEntryEncounterActiveChange?.(false);
+    }, [wandererDialog, bossDialog, worldBossQueueOpen, onEntryEncounterActiveChange]);
     useEffect(() => {
         if (legacyAvailable) return;
         setSageOffer(null);
@@ -1966,7 +1972,10 @@ function WorldMapContent({
             if (w.verb === "bountyHunter") pendingBountyHunterRef.current = { hunterId: w.id, sector: selectedSector };
             return;
         }
-        if (wandererForcesChoice(w)) wandererChoiceRef.current = { w };
+        if (wandererForcesChoice(w)) {
+            onEntryEncounterActiveChange?.(true);
+            wandererChoiceRef.current = { w };
+        }
         rememberWanderer(w);
         // Fresh scene, fresh verdict: whether the LAST giver's offer was taken must
         // never carry into this one's decline check. (The rift-accept branch closes
@@ -3160,6 +3169,7 @@ function WorldMapContent({
             if (isCombatActive() || (requiresWandererChoice(wandererChoiceRef.current) && wandererChoiceRef.current?.ambush?.requestId !== worldExploreRequestId)) return;
             const preview = exploreAmbushDialogState(sector, worldExploreRequestId, character.level, encounter);
             wandererChoiceRef.current = preview;
+            if (requiresWandererChoice(preview)) onEntryEncounterActiveChange?.(true);
             setWandererDialog((current) => current?.ambush?.requestId === worldExploreRequestId ? current : preview);
         });
         return true;

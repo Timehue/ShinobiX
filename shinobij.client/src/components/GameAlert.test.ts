@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { NOTICE_KEY_GUARD_MS, confirmFocusesCancel, noticeKeyCanDismiss, playerAlertText } from "./GameAlert";
+import { NOTICE_KEY_GUARD_MS, confirmFocusesCancel, gameConfirm, noticeKeyCanDismiss, playerAlertText } from "./GameAlert";
 
 const UNREACHABLE = "The server could not be reached. Check your connection and try again.";
 const SERVER_FAILED = "The server could not finish that. Try again in a moment.";
@@ -42,4 +42,12 @@ test("a destructive confirm opens on Cancel unless the caller chose otherwise", 
     assert.equal(confirmFocusesCancel({ initialFocus: "cancel" }), true);
     assert.equal(confirmFocusesCancel({}), false);
     assert.equal(confirmFocusesCancel(undefined), false);
+});
+
+test('an interrupted confirmation resolves false even before its host mounts', async () => {
+    const scope = new AbortController();
+    const result = gameConfirm('Enter the rift?', { signal: scope.signal });
+    scope.abort();
+    assert.equal(await result, false);
+    assert.equal(await gameConfirm('Stale entry', { signal: scope.signal }), false);
 });
