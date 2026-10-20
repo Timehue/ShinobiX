@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { GameAlertHost, GameConfirmHost, gameConfirm } from '../../src/components/GameAlert';
 import { useHollowGateEntryPreview } from '../../src/lib/use-hollow-gate-entry-preview';
@@ -12,7 +12,7 @@ const initial = { name: 'PreviewRunner', village: 'Moonshadow Village', hp: 1000
 const cfg = { id: 'rift-mirror-shard', label: 'Mirror-Shard Warden', keyCost: 0, requiresUnlock: false,
     maxFloor: 3, bossName: 'Mirror-Shard Warden' } as HollowGateEventConfig;
 
-function Fixture() {
+export function Fixture() {
     const [screen, setScreen] = useState<Screen>('worldMap');
     const [account, setAccount] = useState('PreviewRunner');
     const [combat, setCombat] = useState(false);
@@ -20,7 +20,8 @@ function Fixture() {
     const [finished, setFinished] = useState(0);
     const [otherConfirmed, setOtherConfirmed] = useState(false);
     const [character, setCharacter] = useState(initial);
-    const current = useRef({ screen, account, combat }); current.current = { screen, account, combat };
+    const current = useRef({ screen, account, combat });
+    useLayoutEffect(() => { current.current = { screen, account, combat }; }, [screen, account, combat]);
     const preview = useHollowGateEntryPreview(screen, account, combat);
     const enter = () => {
         void preview.run(signal => enterHollowGateShrineFlow({ character, eventCfg: cfg, signal,
