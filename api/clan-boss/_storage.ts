@@ -1,3 +1,5 @@
+import { clanBossRules, type ClanBossRulesVersion } from '../../shared/clan-boss-rules.js';
+import type { SquadMemberInput } from '../towers/_encounter.js';
 /*
  * Weekly Clan Boss Gauntlet — storage + composite scoring (pure math).
  *
@@ -29,8 +31,8 @@ import type { ClanBossContributionResult } from '../../shared/clan-boss-operatio
 // scaled per-capita so a small clan can still finish. This IS the boss's health;
 // parties bank damage across assaults over the week. Existing progress keeps
 // its sealed poolMax; these defaults apply when a clan's progress is created.
-export const CB_BASE_POOL = 48000;
-export const CB_POOL_PER_MEMBER = 24000;
+export const CB_BASE_POOL = 14000;
+export const CB_POOL_PER_MEMBER = 8000;
 export const CB_MEMBER_CAP = 25;           // pool stops scaling past this roster size
 
 // ── One assault ────────────────────────────────────────────────────────────
@@ -38,7 +40,7 @@ export const CB_MEMBER_CAP = 25;           // pool stops scaling past this roste
 // three-player encounter strength. Strong coordinated parties can clear this
 // slice; clearing it only kills the weekly boss when no persistent pool remains.
 // Wipes and round-outs also bank damage. Accepted runs retain their sealed HP.
-export const CB_ASSAULT_HP_CAP = 72000;
+export const CB_ASSAULT_HP_CAP = 24000;
 export const CB_ASSAULTS_PER_MEMBER = 5;
 export const CB_MAX_PARTY = 4;             // one to four accepted, ready clanmates
 export const CB_ASSAULT_LOG_CAP = 200;
@@ -202,6 +204,7 @@ export const CLAN_BOSS_BY_ID: Record<string, ClanBossDef> =
 
 // Global weekly event state (one per week, shared by all clans).
 export type ClanBossWeek = {
+    rulesVersion?: ClanBossRulesVersion;
     weekId: string;
     bossId: string;
     spawnedAt: number;
@@ -223,6 +226,14 @@ export type ClanBossAssault = {
 };
 
 export type ClanBossStartReceipt = {
+    rulesVersion?: ClanBossRulesVersion;
+    poolAtStart?: number;
+    poolMax?: number;
+    squad?: SquadMemberInput[];
+    inputKey?: string;
+    partyId?: string;
+    requestFingerprint?: string;
+    publishedAt?: number;
     requestId: string;
     host: string;
     runId: string;
@@ -235,6 +246,7 @@ export type ClanBossStartReceipt = {
 
 // Per-clan progress for a given week.
 export type ClanBossProgress = {
+    rulesVersion?: ClanBossRulesVersion;
     clanName: string;
     weekId: string;
     bossId: string;
@@ -252,9 +264,10 @@ export type ClanBossProgress = {
 
 // ── Pure math (unit-tested) ──────────────────────────────────────────────────
 
-export function clanBossPoolMax(memberCount: number): number {
+export function clanBossPoolMax(memberCount: number, version?: ClanBossRulesVersion): number {
     const m = Math.max(1, Math.min(CB_MEMBER_CAP, Math.floor(Number(memberCount) || 1)));
-    return CB_BASE_POOL + CB_POOL_PER_MEMBER * m;
+    const rules = clanBossRules(version);
+    return rules.basePool + rules.perMember * m;
 }
 
 /** Damage the clan has dealt to its pool so far (= poolMax − remaining). */
@@ -365,13 +378,14 @@ export async function loadClanBossProgress(weekId: string, clanName: string): Pr
 export async function saveClanBossProgress(p: ClanBossProgress): Promise<void> {
     // Cap the assault log to keep the blob small.
     if (p.assaults.length > CB_ASSAULT_LOG_CAP) p.assaults = p.assaults.slice(0, CB_ASSAULT_LOG_CAP);
-    await kv.set(clanBossProgressKey(p.weekId, p.clanName), p);
+    if ((await kv.set(clanBossProgressKey(p.weekId, p.clanName), p)) === null) throw new Error('Clan Boss progress write was not committed.');
 }
 
 export function newClanBossProgress(clanName: string, week: ClanBossWeek, memberCount: number): ClanBossProgress {
-    const poolMax = clanBossPoolMax(memberCount);
+    const poolMax = clanBossPoolMax(memberCount, week.rulesVersion);
     return {
         clanName,
+        ...(week.rulesVersion ? { rulesVersion: week.rulesVersion } : {}),
         weekId: week.weekId,
         bossId: week.bossId,
         weekStartedAt: week.spawnedAt,
@@ -394,7 +408,8 @@ export function reserveAttempt(p: ClanBossProgress, host: string, party: string[
     const participants = new Set(p.participants);
     for (const slug of party) if (slug) participants.add(slug);
     const memberAttempts = { ...p.memberAttempts };
-    memberAttempts[host] = (memberAttempts[host] ?? 0) + 1;
+    const charged = clanBossRules(p.rulesVersion).participantAttempts ? new Set([host, ...party].filter(Boolean)) : new Set([host]);
+    for (const slug of charged) memberAttempts[slug] = (memberAttempts[slug] ?? 0) + 1;
     return { ...p, participants: [...participants], memberAttempts, updatedAt: at };
 }
 
@@ -403,12 +418,15 @@ export function reserveAttemptForRequest(
     receipt: ClanBossStartReceipt,
 ):
     | { ok: true; replayed: boolean; progress: ClanBossProgress; receipt: ClanBossStartReceipt }
-    | { ok: false; conflict: true } {
+    | { ok: false; conflict: true; exhausted?: string[] } {
     const existing = (p.startRequests ?? []).find((entry) => entry.host === receipt.host && entry.requestId === receipt.requestId);
     if (existing) {
         if (existing.fingerprint !== receipt.fingerprint) return { ok: false, conflict: true };
         return { ok: true, replayed: true, progress: p, receipt: existing };
     }
+    const charged = clanBossRules(p.rulesVersion).participantAttempts ? [...new Set([receipt.host, ...receipt.party].filter(Boolean))] : [receipt.host];
+    const exhausted = charged.filter(slug => clanBossAttemptsLeft(p, slug) <= 0);
+    if (exhausted.length) return { ok: false, conflict: true, exhausted };
     const reserved = reserveAttempt(p, receipt.host, receipt.party, receipt.at);
     return {
         ok: true,

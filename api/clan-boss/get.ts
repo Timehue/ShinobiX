@@ -82,6 +82,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 damageDealt: clanBossDamageDealt(progress),
                 participants: progress.participants.length,
                 attemptsPerMember: CB_ASSAULTS_PER_MEMBER,
+                rulesVersion: progress.rulesVersion ?? 1,
+                attemptPolicy: progress.rulesVersion === 2 ? 'each-participant' : 'host-only',
                 myAttemptsLeft: clanBossAttemptsLeft(progress, playerName),
                 rank: myRank?.rank ?? null,
                 score: myRank?.score ?? 0,

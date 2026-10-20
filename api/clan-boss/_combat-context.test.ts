@@ -6,8 +6,8 @@ import { CLAN_BOSS_FLOORS, getFloor } from '../towers/_floor-catalog.js';
 import { clanBossOutcomeLog } from '../../shared/clan-boss-operation.js';
 
 const character = { level: 100, maxHp: 10_000, maxChakra: 10_000, maxStamina: 10_000, stats: {}, jutsu: [] };
-function encounter(partySize: number, mode: 'clan-boss' | 'celestial' = 'clan-boss', floor = CLAN_BOSS_FLOORS[3]!, runId = 'cboss-context') {
-    return buildTowerEncounter({ floor, runId, towerId: mode, seed: 7, partySize, now: 1,
+function encounter(partySize: number, mode: 'clan-boss' | 'celestial' = 'clan-boss', floor = CLAN_BOSS_FLOORS[3]!, runId = 'cboss-context', version: 1 | 2 = 2) {
+    return buildTowerEncounter({ floor, runId, towerId: mode, clanBossRulesVersion: mode === 'clan-boss' ? version : undefined, seed: 7, partySize, now: 1,
         squad: Array.from({ length: partySize }, (_, i) => ({ id: `sq-${i}`, name: `Hero${i}`, ownerSlug: `hero${i}`, ai: false, character: structuredClone(character) })) });
 }
 
@@ -18,6 +18,8 @@ describe('Clan Boss strength and terminal context', () => {
             const enemies = encounter(size).actors.filter(actor => actor.side === 'enemy');
             assert.deepEqual(enemies.map(actor => [actor.maxHp, actor.character.towerDmgScale]), reference.map(actor => [actor.maxHp, actor.character.towerDmgScale]));
         }
+        const legacy = encounter(1, 'clan-boss', CLAN_BOSS_FLOORS[3]!, 'cboss-legacy', 1);
+        assert.ok(legacy.actors.filter(actor => actor.side === 'enemy').every(actor => Number(actor.character.towerDmgScale) < 1), 'legacy clan sessions retain their party discount');
         const ordinary = encounter(1, 'celestial');
         assert.ok(ordinary.actors.filter(actor => actor.side === 'enemy').every(actor => Number(actor.character.towerDmgScale) < 1), 'ordinary party discounts are unchanged');
     });

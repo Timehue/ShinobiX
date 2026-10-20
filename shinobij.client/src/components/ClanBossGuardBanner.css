@@ -1,0 +1,15 @@
+.clan-boss-guard {
+    display: grid;
+    gap: 3px;
+    padding: 8px 10px;
+    border: 1px solid #716246;
+    border-radius: 6px;
+    background: #171b25;
+    color: #e6e1d5;
+    font-size: 12px;
+    font-weight: 400;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+}
+.clan-boss-guard summary { cursor: pointer; color: #edcf8c; }
+.clan-boss-guard p { margin: 6px 0 0; }

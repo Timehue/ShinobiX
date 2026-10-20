@@ -1,3 +1,4 @@
+import type { ClanBossGuardState } from '../../shared/clan-boss-guard.js';
 import type { TowerTacticsState } from "../../shared/tower-progression.js";
 /*
  * Battle Towers — live battle SESSION model (Phase 1, P1.A1).
@@ -147,6 +148,7 @@ export type TowerVfxEvent = {
 };
 
 export type TowerSession = {
+    clanBossGuard?: ClanBossGuardState;
     towerTactics?: TowerTacticsState;
     towerId: string;
     runId: string;

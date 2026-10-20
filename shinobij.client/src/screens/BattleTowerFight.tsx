@@ -1,3 +1,5 @@
+import { ClanBossGuardBanner } from '../components/ClanBossGuardBanner';
+import { clanBossGuardMultiplier } from '../../../shared/clan-boss-guard';
 import { TowerResultHeader } from "../components/TowerResultHeader";
 import { clanBossOutcomeLog } from "../../../shared/clan-boss-operation";
 import { sameJsonValue } from "../lib/pvp-session-runtime";
@@ -1740,6 +1742,7 @@ export function BattleTowerFight({
             ap: mode === "weapon" ? armedWeapon?.item.apCost ?? 40 : mode === "jutsu" ? selJutsu?.ap : 40,
             pierce,
             weaponElement: mode === "weapon" ? armedWeapon?.item.weaponElement : undefined,
+            bossIncomingMultiplier: clanBossGuardMultiplier(session.clanBossGuard, session.round, target.id),
         });
         if (estimate.rawDamage > 0) metrics.push(`≈${estimate.rawDamage.toLocaleString()} damage`);
         if (estimate.shieldAbsorbed > 0) metrics.push(`${estimate.shieldAbsorbed.toLocaleString()} into guard`);
@@ -1845,6 +1848,7 @@ export function BattleTowerFight({
 
                 {/* Board */}
                 <main className={`tower-fight-main tower-battle-${battleTabs.tab}`} style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+                    <ClanBossGuardBanner guard={session.clanBossGuard} round={session.round} />
                     <header className="tower-fight-header tower-fight-statusbar" style={{
                             ...(encounterArt ? { ["--tower-encounter-art" as string]: `url("${encounterArt.src}")` } : {}),
                         }} data-has-encounter-art={encounterArt ? "true" : undefined} data-art-kind={encounterArt?.kind}>

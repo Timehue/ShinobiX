@@ -102,12 +102,13 @@ test('ordinary Tower result and return remain unchanged', async ({ page }) => {
 
 // Keep a single routed server state across reloads. The real Clan Hall, its
 // ClanBoss child, API wrappers, polling and fight settlement callback all run.
-async function openFullFlow(page: Page, initial: 'active' | 'pending', rejectFirst = false) {
+async function openFullFlow(page: Page, initial: 'active' | 'pending', rejectFirst = false, guard?: 'guarded' | 'open') {
     const clanCharacter = { ...character, clan: 'Review Clan', clanFounder: true, itemStacks: [], ryo: 0 };
     const floor = CLAN_BOSS_FLOORS[3]!;
     const current = buildTowerEncounter({ floor, squad: [{ id: 'rill', name: 'Rill', ownerSlug: 'rill', ai: false,
-        character: clanCharacter }], runId: 'cboss-clan-hall-flow', seed: 7, partySize: 1, now: Date.now() });
-    const boss = configureClanBossEncounter(current, floor, 22_000);
+        character: clanCharacter }], runId: 'cboss-clan-hall-flow', seed: 7, partySize: 1, towerId: guard ? 'clan-boss' : undefined, clanBossRulesVersion: guard ? 2 : undefined, now: Date.now() });
+    const boss = configureClanBossEncounter(current, floor, guard ? 72000 : 22_000, guard ? { rulesVersion: 2, poolAtStart: 528000, poolMax: 528000 } : undefined);
+    if (guard === 'open') current.clanBossGuard!.openThroughRound = 2;
     const counts = { settlements: 0, bankings: 0, myRun: 0, state: 0, actions: 0 };
     let settled = false;
     const unexpected: string[] = [];
@@ -135,7 +136,7 @@ async function openFullFlow(page: Page, initial: 'active' | 'pending', rejectFir
         if (path === '/api/clan-boss/get') return json({ ok: true, active: true, inClan: true, weekId: 'review-week',
             endsAt: Date.now() + 86_400_000, boss: { id: 'stone-golem', name: 'Ancient Stone Golem', icon: '',
                 flavor: 'A persistent threat to Review Clan.', mechanic: 'golem', sectorId: 40 },
-            myClan: { clanName: clan.name, pool: settled ? boss.hp : 22_000, poolMax: 22_000, killed: settled && boss.hp === 0,
+            myClan: { ...(guard ? { rulesVersion: 2, attemptPolicy: 'each-participant' } : {}), clanName: clan.name, pool: settled ? boss.hp : 22_000, poolMax: 22_000, killed: settled && boss.hp === 0,
                 damageDealt: settled ? 22_000 - boss.hp : 0, participants: 1, attemptsPerMember: 5, myAttemptsLeft: 4, rank: 1, score: 0 },
             standings: [] });
         if (path === '/api/clan-boss/party') return json({ ok: true, serverNow: Date.now(), party: null,
@@ -173,7 +174,6 @@ async function openFullFlow(page: Page, initial: 'active' | 'pending', rejectFir
 async function expectActualHallWithoutRecovery(page: Page, server: Awaited<ReturnType<typeof openFullFlow>>) {
     await expect(page.locator('.clan-boss-operation-fight')).toHaveCount(0);
     await expect(page.locator('.clan-hall-screen .clan-boss-operation')).toBeVisible();
-    await expect(page.getByText('Assault resolved. Contribution, profession, clan, and sector results are sealed below.', { exact: true })).toBeVisible();
     await expect(page.locator('.operation-rejoin')).toHaveCount(0);
     const requests = server.counts.myRun;
     await expect.poll(() => server.counts.myRun).toBeGreaterThan(requests);
@@ -198,12 +198,12 @@ test('actual Clan Hall rejoins an accepted active assault and removes recovery a
     await expect(page.getByRole('dialog')).toHaveCount(0);
     await expect.poll(() => server.counts.state).toBeGreaterThan(0);
     server.finish(false);
-    const result = page.getByRole('dialog', { name: 'Assault limit reached', exact: true });
-    await expect(result).toContainText('Your contribution is saved to the clan boss operation.');
+    const result = page.getByRole('dialog', { name: 'Assault ended', exact: true });
+    await expect(result).toContainText('Contribution saved. Clan boss health remaining: 5,253 HP.');
     await expect(page.locator('.tower-rail-battle-log')).toContainText('Round limit reached \u2014 assault ended.');
     await expect(page.locator('.tower-rail-battle-log')).not.toContainText('floor failed');
     await page.screenshot({ path: info.outputPath('actual-clan-cap-result.png'), fullPage: true });
-    await result.getByRole('button', { name: 'Return to Clan Hall', exact: true }).click();
+    await result.getByRole('button', { name: 'Return to Clan Boss', exact: true }).click();
     await expectActualHallWithoutRecovery(page, server);
     await page.screenshot({ path: info.outputPath('actual-clan-hall-after-reload.png'), fullPage: true });
     expect(server.counts.settlements).toBe(1);
@@ -217,10 +217,10 @@ test('actual Clan Hall recovers pending legacy results, refuses exit until retry
     await expect(page.getByRole('button', { name: 'Rejoin your accepted operation', exact: true })).toHaveCount(0);
     await page.screenshot({ path: info.outputPath('actual-clan-pending-results.png'), fullPage: true });
     await page.getByRole('button', { name: 'Finish assault results', exact: true }).click();
-    const result = page.getByRole('dialog', { name: 'Assault victory', exact: true });
+    const result = page.getByRole('dialog', { name: 'Assault ended', exact: true });
     await expect(result).toContainText('Contribution receipt pending.');
     await expect(result).not.toContainText('Your contribution is saved');
-    await expect(result.getByRole('button', { name: 'Return to Clan Hall', exact: true })).toBeDisabled();
+    await expect(result.getByRole('button', { name: 'Return to Clan Boss', exact: true })).toBeDisabled();
     await expect(page.locator('.tower-rail-battle-log')).toContainText('Clan Boss assault cleared!');
     await expect(page.locator('.tower-rail-battle-log')).not.toContainText('Floor 9004 cleared!');
     expect(server.persistedLog()).toEqual(['Floor 9004 cleared!']);
@@ -229,9 +229,28 @@ test('actual Clan Hall recovers pending legacy results, refuses exit until retry
         path: info.outputPath('actual-clan-legacy-log-projection.png'),
     });
     await result.getByRole('button', { name: 'Try again', exact: true }).click();
-    await expect(result).toContainText('Your contribution is saved to the clan boss operation.');
-    await result.getByRole('button', { name: 'Return to Clan Hall', exact: true }).click();
+    const confirmed = page.getByRole('dialog', { name: 'Clan boss defeated', exact: true });
+    await expect(confirmed).toContainText("Contribution saved. Your clan has defeated this week's boss.");
+    await confirmed.getByRole('button', { name: 'Return to Clan Boss', exact: true }).click();
     await expectActualHallWithoutRecovery(page, server);
     expect(server.counts.settlements).toBe(2);
+    expect(errors).toEqual([]);
+});
+
+for (const guard of ['guarded', 'open'] as const) test('version-two ' + guard + ' guard is readable on the real battle screen', async ({ page }, info) => {
+    const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
+    await openFullFlow(page, 'active', false, guard);
+    await expect(page.getByText('Each participant spends one of five weekly attempts', { exact: false })).toBeVisible();
+    await page.getByRole('button', { name: 'Rejoin your accepted operation', exact: true }).click();
+    const banner = page.getByLabel('Raid Guard', { exact: true });
+    await expect(banner).toBeVisible();
+    await expect(banner).toContainText(guard === 'open' ? 'Guard open through round 2: 25% direct-hit reduction.' : 'Raid Guard: 75% direct-hit reduction.');
+    await expect(banner).toContainText('Pierce and ongoing damage bypass it.');
+    await banner.locator('summary').click();
+    await expect(banner.locator('p')).toBeVisible();
+    await banner.locator('summary').click();
+    await expect(banner).toContainText('528,000 / 528,000');
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
+    await page.screenshot({ path: info.outputPath('clan-guard-' + guard + '.png'), fullPage: true });
     expect(errors).toEqual([]);
 });
