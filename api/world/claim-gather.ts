@@ -6,6 +6,7 @@ import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { safeLogValue } from '../_safe-log.js';
 import { isCommonGatherId } from '../../shared/gathering.js';
 import { applyGatherClaim } from './_gather.js';
+import { rememberHarvestGround } from './_harvest-ground.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
@@ -27,10 +28,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const claimed = applyGatherClaim(character, id, sector, { common: body.common, takeTrace: body.takeTrace });
             if (!claimed.ok) return { ok: false as const, status: 409, error: claimed.error };
             return { ok: true as const, character: claimed.character, write: !claimed.replayed,
-                value: { rewards: claimed.rewards, replayed: claimed.replayed } };
+                value: { rewards: claimed.rewards, replayed: claimed.replayed,ground:claimed.ground } };
         });
         if (!result.ok) return res.status(result.status).json({ error: result.error });
-        return res.status(200).json({ ok: true, ...result.value, character: result.character, _saveVersion: result._saveVersion });
+        await rememberHarvestGround(playerName,id,sector,result.value.ground);
+        return res.status(200).json({ ok: true, rewards:result.value.rewards,replayed:result.value.replayed, character: result.character, _saveVersion: result._saveVersion });
     } catch (error) {
         console.error('[world/claim-gather]', safeLogValue(error));
         return res.status(500).json({ error: 'Your find remains saved. Try collecting it again.' });

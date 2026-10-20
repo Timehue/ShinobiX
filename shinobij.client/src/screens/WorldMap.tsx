@@ -2138,7 +2138,7 @@ function WorldMapContent({
         if (onServerVersion?.(fled._saveVersion) !== false) updateCharacter(prev => prev ? ({ ...prev, hp: fled.totals.hp, ryo: fled.totals.ryo }) : prev);
     }
 
-    const { traces: sectorTraces, setTraces: setSectorTraces, modal: tracesModal, setModal: setTracesModal, open: openSectorTraces } = useSectorTraces(selectedSector, character.name);
+    const { traces: sectorTraces, setTraces: setSectorTraces, modal: tracesModal, setModal: setTracesModal, open: openSectorTraces, lifeProps: lifeTracesProps } = useSectorTraces(selectedSector, character.name,followTracker);
     async function claimWandererGift(w: Wanderer) {
         setWandererDialog({ w, busy: true });
         try {
@@ -4447,7 +4447,7 @@ function WorldMapContent({
                 {savedFindsBanner}
                 {petMentor.guide}
                 <div className="instance-frame sector-instance-frame">
-                    <WorldSectorCanvas
+                    <WorldSectorCanvas {...lifeTracesProps}
                         obstacles={sectorObstacles}
                         suspended={!!vaultRaid}
                         sector={selectedSector}

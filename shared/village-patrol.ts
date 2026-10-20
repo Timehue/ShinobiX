@@ -54,8 +54,23 @@ const PATROL_LINES: Record<PatrolStance, readonly string[]> = {
     ],
 };
 
+/** Fictional village jabs. Address the visitor; the warning belongs to the speaker. */
+export const PATROL_VILLAGE_VOICES: Readonly<Record<string, { jab: string; warning: string }>> = {
+    'Stormveil Village': { jab: 'Storm Stray', warning: 'Keep your hands where I can see them.' },
+    'Ashen Leaf Village': { jab: 'Leaf Rat', warning: 'Mind your boots around our plants.' },
+    'Moonshadow Village': { jab: 'Shade Sneak', warning: 'Keep your voice down on our road.' },
+    'Frostfang Village': { jab: 'Frost Pup', warning: 'Keep walking.' },
+};
+function villageVoice(village: unknown) {
+    const key=clean(village).toLowerCase();
+    return Object.entries(PATROL_VILLAGE_VOICES).find(([name])=>name.toLowerCase()===key)?.[1];
+}
+
 /** A stable greeting for this patrol and stance. */
-export function patrolGreeting(stance: PatrolStance, seed: number): string {
+export function patrolGreeting(stance: PatrolStance, seed: number, ownerVillage?: unknown, playerVillage?: unknown): string {
     const lines = PATROL_LINES[stance];
-    return lines[Math.abs(Math.floor(seed)) % lines.length];
+    const line=lines[Math.abs(Math.floor(seed)) % lines.length];
+    const owner=villageVoice(ownerVillage),visitor=villageVoice(playerVillage);
+    return stance!=='home'&&owner&&visitor&&clean(ownerVillage).toLowerCase()!==clean(playerVillage).toLowerCase()
+        ? `${visitor.jab}. ${stance==='rivalWar'?line:owner.warning}` : line;
 }

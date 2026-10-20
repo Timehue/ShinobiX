@@ -1,0 +1,20 @@
+import type {CSSProperties} from 'react';
+/** Shared immutable presentation values; original styles and action logic stay identical. */
+export const adminNoMargin:Readonly<CSSProperties>={ margin: 0 };
+export const adminCompactRow:Readonly<CSSProperties>={ display: "flex", flexWrap: "wrap", gap: 6 };
+export const adminBlueAction:Readonly<CSSProperties>={ background: "#1e3a5f", borderColor: "#60a5fa" };
+export const adminSmallBottomGap:Readonly<CSSProperties>={ marginBottom: 6 };
+export const adminSectionPadding:Readonly<CSSProperties>={ padding: "8px 0" };
+export const adminErrorText:Readonly<CSSProperties>={ color: "#f87171" };
+export const adminTopGap:Readonly<CSSProperties>={ marginTop: 10 };
+export const adminSuccessNote:Readonly<CSSProperties>={ color: "#a5d6a7", marginTop: "0.4rem" };
+export const adminCoverImage:Readonly<CSSProperties>={ width: "100%", height: "100%", objectFit: "cover" };
+export const adminFlexible:Readonly<CSSProperties>={ flex: 1 };
+export const adminAlignedRow:Readonly<CSSProperties>={ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" };
+export const adminFlexibleField:Readonly<CSSProperties>={ flex: 1, minWidth: 160 };
+export const adminToolbar:Readonly<CSSProperties>={ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 8 };
+export const adminMutedText:Readonly<CSSProperties>={ color: "#94a3b8" };
+export const adminCaption:Readonly<CSSProperties>={ fontSize: "0.8rem", color: "#94a3b8", marginBottom: 4 };
+export const adminDangerBadge:Readonly<CSSProperties>={ fontSize: "0.65rem", padding: "1px 5px", background: "#7f1d1d", borderColor: "#ef4444", color: "#fca5a5" };
+export const adminSectionGap:Readonly<CSSProperties>={ marginTop: 12 };
+export const adminStack:Readonly<CSSProperties>={ display: "grid", gap: 4 };

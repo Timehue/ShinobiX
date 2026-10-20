@@ -683,13 +683,27 @@ jobs:
     # The CSP, Stronghold and dedicated feature suites used to ride after (or
     # before) a smoke slice, which put shards 2 and 5 at 32-34 of their 35
     # minutes on main and cancelled PR #407's shard 2 with every test green.
-    # Here they run beside the smoke shards instead. Each shard measured about
-    # 11-13 minutes of suite time on main, so 29 minutes still fails a hang.
+    # Here they run beside the smoke shards instead. The first two measured
+    # 11-13 minutes on main. Living-world source fixtures occupy four further
+    # slices so they retain their own Vite servers and the same 29-minute limit.
     timeout-minutes: 29
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2]
+        shard: [1, 2, 3, 4, 5, 6]
+        include:
+          - shard: 3
+            lifeShard: 1/4
+            dockProject: desktop
+          - shard: 4
+            lifeShard: 2/4
+            dockProject: phone
+          - shard: 5
+            lifeShard: 3/4
+            groundProject: desktop
+          - shard: 6
+            lifeShard: 4/4
+            groundProject: phone
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -799,6 +813,30 @@ jobs:
         if: ${{ matrix.shard == 2 }}
         working-directory: shinobij.client
         run: npm run test:e2e:dojo-circuit 2>&1 | tee ../.ci-evidence/e2e-responsive-flows-${{ matrix.shard }}/dojo-circuit.log
+      - name: Living sectors, weather and native actor routines
+        if: ${{ matrix.shard >= 3 }}
+        working-directory: shinobij.client
+        run: node --import tsx node_modules/@playwright/test/cli.js test --config playwright.sector-life.config.ts --shard=${{ matrix.lifeShard }} --forbid-only 2>&1 | tee ../.ci-evidence/e2e-responsive-flows-${{ matrix.shard }}/sector-life.log
+      - name: Painted terrain resource placement
+        if: ${{ matrix.shard == 3 }}
+        working-directory: shinobij.client
+        run: node --import tsx node_modules/@playwright/test/cli.js test --config playwright.resource-surface.config.ts --forbid-only 2>&1 | tee ../.ci-evidence/e2e-responsive-flows-${{ matrix.shard }}/resource-surface.log
+      - name: Chronicle stop and daytime handover
+        if: ${{ matrix.shard == 4 }}
+        working-directory: shinobij.client
+        run: node --import tsx node_modules/@playwright/test/cli.js test --config playwright.chronicle-stop.config.ts --forbid-only 2>&1 | tee ../.ci-evidence/e2e-responsive-flows-${{ matrix.shard }}/chronicle-stop.log
+      - name: Pet-inspired ground wildlife and pause behavior
+        if: ${{ matrix.shard >= 5 }}
+        working-directory: shinobij.client
+        run: node --import tsx node_modules/@playwright/test/cli.js test --config playwright.ground-wildlife.config.ts --project=${{ matrix.groundProject }} --forbid-only 2>&1 | tee ../.ci-evidence/e2e-responsive-flows-${{ matrix.shard }}/ground-wildlife.log
+      - name: Dock shipment delivery and cached aftermath
+        if: ${{ matrix.shard == 3 || matrix.shard == 4 }}
+        working-directory: shinobij.client
+        run: node --import tsx node_modules/@playwright/test/cli.js test --config playwright.dock-shipment.config.ts --project=${{ matrix.dockProject }} --forbid-only 2>&1 | tee ../.ci-evidence/e2e-responsive-flows-${{ matrix.shard }}/dock-shipment.log
+      - name: Owned walking companion and real tracking response
+        if: ${{ matrix.shard >= 5 }}
+        working-directory: shinobij.client
+        run: node --import tsx node_modules/@playwright/test/cli.js test --config playwright.companion.config.ts --project=${{ matrix.groundProject }} --forbid-only 2>&1 | tee ../.ci-evidence/e2e-responsive-flows-${{ matrix.shard }}/world-companion.log
       - name: Retain responsive flow evidence
         if: always()
         continue-on-error: true
@@ -810,6 +848,21 @@ jobs:
             .ci-evidence/e2e-responsive-flows-${{ matrix.shard }}/
             shinobij.client/playwright-report/
             shinobij.client/test-results/
+            output/living-world/browser/
+            output/living-world/chronicle-browser/
+            output/living-world/wildlife/browser/
+            output/living-world/shipment/browser/
+            output/living-world/companion/browser/
+            output/living-world/local-fauna/browser/
+            output/living-world/training/browser/
+            output/living-world/winter/browser/
+            output/living-world/leaf-work/browser/
+            output/living-world/shrine-traffic/browser/
+            output/living-world/field-work/browser/
+            output/living-world/festival/browser/
+            output/living-world/road-visits/browser/
+            output/living-world/frontier/browser/
+            output/resource-node-audit/browser/
           if-no-files-found: warn
           retention-days: 14
 

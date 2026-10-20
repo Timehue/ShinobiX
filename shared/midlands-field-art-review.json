@@ -1,0 +1,197 @@
+{
+  "version": 1,
+  "sector": 42,
+  "artKey": 30,
+  "source": "output/living-world/field-work/garden-provider-v1.png",
+  "sourceSha256": "3f37cfad0f45ecb59c81ef80377d99a2e3a1463acd56aa42fd8b848386b1e8fe",
+  "areas": [
+    {
+      "left": 600,
+      "top": 700,
+      "width": 350,
+      "height": 250
+    }
+  ],
+  "workTiles": [
+    127,
+    115
+  ],
+  "resourceReview": "Only resource-68 is in this sector, approach68/target80 at the northern natural rock seam. All rock/water and road pixels lie outside this admitted ground.",
+  "paintings": [
+    {
+      "sector": 42,
+      "artKey": 30,
+      "key": "midlands-herb-tea-stop-v2",
+      "baseFile": "shinobij.client/public/sector-life/midlands-tea-stop-v1.webp",
+      "baseSha256": "02c7cbc20a643c7d1c1f5b67391ec92fb39c9ca23430caecc31c20b507d82619",
+      "source": "output/living-world/field-work/garden-provider-v1.png",
+      "sourceSha256": "3f37cfad0f45ecb59c81ef80377d99a2e3a1463acd56aa42fd8b848386b1e8fe",
+      "provider": "built-in image_gen",
+      "prompts": "output/living-world/field-work/garden-prompt-v1.json",
+      "areas": [
+        {
+          "left": 600,
+          "top": 700,
+          "width": 350,
+          "height": 250
+        }
+      ],
+      "feather": 8,
+      "width": 1024,
+      "height": 1024,
+      "changedOutside": 0,
+      "deliveredSha256": "ec60a38205e54de6dc56fe2fc4d398bd5e2c6cba9c62aa2e31a64bb3e937ff81",
+      "bytes": 274552,
+      "method": "Full-sector garden edit admitted only in the reviewed lower-right grass. Original tea/cards/mats/barrel, all roads, all rocks and the northern ore seam remain exact before delivery compression.",
+      "visualReview": "passed: both protected full floors, all26 final native desktop/phone captures and10 actual Chronicle playing views inspected. Suzu works127/115; handover89/90 keeps both Talk clicks and event marker independent; tool/near-owner captions, wet/cached exits and actual-floor fallback passed."
+    },
+    {
+      "sector": 42,
+      "artKey": 30,
+      "key": "midlands-herb-chronicle-table-v2",
+      "baseFile": "shinobij.client/public/sector-life/midlands-chronicle-table-v1.webp",
+      "baseSha256": "54c751121f321ff3553e16a5fc91e11ae10324f65f0a97a801ae5485947b48cb",
+      "source": "output/living-world/field-work/garden-provider-v1.png",
+      "sourceSha256": "3f37cfad0f45ecb59c81ef80377d99a2e3a1463acd56aa42fd8b848386b1e8fe",
+      "provider": "built-in image_gen",
+      "prompts": "output/living-world/field-work/garden-prompt-v1.json",
+      "areas": [
+        {
+          "left": 600,
+          "top": 700,
+          "width": 350,
+          "height": 250
+        }
+      ],
+      "feather": 8,
+      "width": 1024,
+      "height": 1024,
+      "changedOutside": 0,
+      "deliveredSha256": "814c3dd762c46800923bd8263c2fe9e2e078f663fc9b52125339751e9f4f539c",
+      "bytes": 274346,
+      "method": "Full-sector garden edit admitted only in the reviewed lower-right grass. Original tea/cards/mats/barrel, all roads, all rocks and the northern ore seam remain exact before delivery compression.",
+      "visualReview": "passed: both protected full floors, all26 final native desktop/phone captures and10 actual Chronicle playing views inspected. Suzu works127/115; handover89/90 keeps both Talk clicks and event marker independent; tool/near-owner captions, wet/cached exits and actual-floor fallback passed."
+    }
+  ],
+  "tool": {
+    "file": "shinobij.client/public/sector-life/field-hoe-v1.webp",
+    "source": "output/living-world/field-work/hoe-provider-v1.png",
+    "sourceSha256": "ab48108ef6712af27f7c65869087c8c85e7f179b91ddca51de23e0791d7a0f3e",
+    "sha256": "4c1f32e6320dd93b9e9c18363cec42e6960563e5a97738c775e1bcc4ead6ebd2",
+    "bytes": 1534,
+    "width": 18,
+    "height": 96,
+    "hasAlpha": true,
+    "prompts": "output/living-world/field-work/hoe-prompt-v1.json",
+    "visualReview": "passed: actual attached hoe at both soil edges on desktop and phone; no caption intersection; hidden on legacy/missing garden, work approach/return, weather and cached closure."
+  },
+  "visualReview": "passed: both protected full floors, all26 final native desktop/phone captures and10 actual Chronicle playing views inspected. Suzu works127/115; handover89/90 keeps both Talk clicks and event marker independent; tool/near-owner captions, wet/cached exits and actual-floor fallback passed.",
+  "nativeEvidence": [
+    {
+      "file": "output/living-world/field-work/browser/desktop-cached-exit-initial.png",
+      "sha256": "999b4261f6eefa0ba6297f4fdec277aeefbcb31823a6a266468ad303eb583fa6"
+    },
+    {
+      "file": "output/living-world/field-work/browser/desktop-cached-exit.png",
+      "sha256": "9558c4f1acc2e1cde5099327fd60e637fcecc795b2c4e8a67dec2b7c184c5bea"
+    },
+    {
+      "file": "output/living-world/field-work/browser/desktop-lower-soil-work.png",
+      "sha256": "33655d5784c61ac60f20f794636c76b776513305df5088b1c4467147b6950170"
+    },
+    {
+      "file": "output/living-world/field-work/browser/desktop-missing-garden-initial.png",
+      "sha256": "6ccfcca7f2c1ee2437dd67e9ccd9db627b13c8080537789afa86ebe5974babe7"
+    },
+    {
+      "file": "output/living-world/field-work/browser/desktop-missing-garden.png",
+      "sha256": "cc0960b6567557cd3bde4ee78476716a59ff2f73d7f4477c619eb89fe01da328"
+    },
+    {
+      "file": "output/living-world/field-work/browser/desktop-reduced-motion-initial.png",
+      "sha256": "fbfda677b39ed9ff89b95260e3bebb852ef55c9f01fa824fc67111068f017f20"
+    },
+    {
+      "file": "output/living-world/field-work/browser/desktop-reduced-motion.png",
+      "sha256": "aa4492477de9a6d60093a6084a12bb7c45ed8c273035ead98b21a178374592b2"
+    },
+    {
+      "file": "output/living-world/field-work/browser/desktop-round-initial.png",
+      "sha256": "6b68600208ea025190f18e2ae0a8778f8a9dafb5a278ee30b7e9e4d2c751b644"
+    },
+    {
+      "file": "output/living-world/field-work/browser/desktop-round.png",
+      "sha256": "bdc55429081b5fa74d70b5fa94afe6fa4528bb1c4c1ceff1bf9ccbd31c2f9afc"
+    },
+    {
+      "file": "output/living-world/field-work/browser/desktop-shared-handover.png",
+      "sha256": "8d8d8466be1ad8377d5446d95a1b2fc4bb21a55f980e157148ece9e97e633032"
+    },
+    {
+      "file": "output/living-world/field-work/browser/desktop-upper-soil-work.png",
+      "sha256": "54ab38566b39913cdedbe9a5c3ab9f04d675cb269ac8da9a9cabfd6c24b4bb10"
+    },
+    {
+      "file": "output/living-world/field-work/browser/desktop-weather-initial.png",
+      "sha256": "bb078038ab0b0514be8fa1b1a37f40763ca396f0b704787174e063ebf50e9f2d"
+    },
+    {
+      "file": "output/living-world/field-work/browser/desktop-weather.png",
+      "sha256": "e8eba5e70a336f9430448dcd5dd9387268fa70f6a2b07ae85278fb7a0b7c167c"
+    },
+    {
+      "file": "output/living-world/field-work/browser/phone-cached-exit-initial.png",
+      "sha256": "b2b311e2169ae5691f0754cba4c14d946a98b30344d498808e09145d55af080c"
+    },
+    {
+      "file": "output/living-world/field-work/browser/phone-cached-exit.png",
+      "sha256": "36652282c4dfaeae8a9c48c72ff675f57b44cf0d1769c6a79f67a248adddb148"
+    },
+    {
+      "file": "output/living-world/field-work/browser/phone-lower-soil-work.png",
+      "sha256": "1d7f4df56e34827ba656fb02348849ee03426d38b3c94041f6b0cb64dd0f5f18"
+    },
+    {
+      "file": "output/living-world/field-work/browser/phone-missing-garden-initial.png",
+      "sha256": "dd7cb547dacb05f29c18b24567071d4f77e7dca0ceb6f8e9fdc8c5b2bbae0259"
+    },
+    {
+      "file": "output/living-world/field-work/browser/phone-missing-garden.png",
+      "sha256": "04f1222f9c2160a275acfa519228f718ee381d574cb2e15b8f3a57cc9d0f6d6d"
+    },
+    {
+      "file": "output/living-world/field-work/browser/phone-reduced-motion-initial.png",
+      "sha256": "3c66bb493d5f44fad13096d8db2d813030e5ea0246bc104d766280cc4abea826"
+    },
+    {
+      "file": "output/living-world/field-work/browser/phone-reduced-motion.png",
+      "sha256": "fbeb1b0f5ae1292e32576f42c426a0b229f7bb4af5ddbc189b6d09e30549d9a9"
+    },
+    {
+      "file": "output/living-world/field-work/browser/phone-round-initial.png",
+      "sha256": "c1b7fb5e920bb6a929be68e2ae9fe54ad77dafc793bc49a0c6a2dd57cb382000"
+    },
+    {
+      "file": "output/living-world/field-work/browser/phone-round.png",
+      "sha256": "5d9316b1ce8da388bf3f2af698adc1214f36872a020c502a9c5f6d0e6a34b823"
+    },
+    {
+      "file": "output/living-world/field-work/browser/phone-shared-handover.png",
+      "sha256": "7a1c2ad8847977c39df684f0a1f6eca3ae694762d58c0b6c9811dde2eab58d8a"
+    },
+    {
+      "file": "output/living-world/field-work/browser/phone-upper-soil-work.png",
+      "sha256": "f614d71c8bc9b1a3d38af0d319f8f92d97f04f6845cd6b3b1b2774cd9f14935b"
+    },
+    {
+      "file": "output/living-world/field-work/browser/phone-weather-initial.png",
+      "sha256": "f540d5884adb8b58357bcc8a4a246118f9792a45f5e14df4625e830ef82f2072"
+    },
+    {
+      "file": "output/living-world/field-work/browser/phone-weather.png",
+      "sha256": "199a69ae664015a5165b44c50e7a343534ff5348ee21316dde78b3f04671a9c3"
+    }
+  ],
+  "reviewedNativeLog": "output/living-world/field-work/native-final-v6.log",
+  "reviewedNativeLogSha256": "81b3e39eebc1e70684a85169c3ec6f9cc9284bb5cbcd5470ab57c6ee62974846"
+}

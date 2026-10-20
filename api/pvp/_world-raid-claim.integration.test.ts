@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { after, before, test } from 'node:test';
+import { nearestWalkableTile } from '../../shared/sector-walk-mask.js';
 
 process.env.NODE_ENV = 'test';
 process.env.SHINOBIX_QA_MEMORY_KV = '1';
@@ -242,4 +243,34 @@ test('the real claim barrier repairs both Legacy records without a client win re
         if (previousFlag === undefined) delete process.env.ENABLE_LEGACY;
         else process.env.ENABLE_LEGACY = previousFlag;
     }
+});
+
+async function witnessedGround(now:number){
+    const {withDuelWitnesses}=await import('./_duel-witnesses.js');
+    for(let target=0;target<144;target++){const tile=nearestWalkableTile(SECTOR,target),ground=await withDuelWitnesses({sector:SECTOR,tile},now);if(ground?.witnesses?.length)return ground;}
+    throw Error('No persistent world observer found');
+}
+test('the real reward claim records the sealed duel site once and ignores a forged claim location',async()=>{
+    const now=Date.now(),battle='pvp-duel-ground-first-claim',winner='groundclaimwinner',loser='groundclaimloser',ground=await witnessedGround(now),tile=ground.tile;
+    await seed(now,battle,winner,loser);
+    const row=await kv.get<Record<string,unknown>>(`pvp:${battle}`);await kv.set(`pvp:${battle}`,{...row,duelGround:ground});
+    const req=request(winner,'win',battle) as {body:Record<string,unknown>};req.body={...req.body,duelGround:{sector:15,tile:77},tile:77};
+    const out=response();await handler(req as never,out.res);assert.equal(out.out.statusCode,200,JSON.stringify(out.out.body));
+    let found:Record<string,unknown>[]=[];
+    for(let i=0;i<50;i++){found=(await kv.get<Record<string,unknown>[]>(`world:scars:${SECTOR}`))??[];if(found.some(s=>s.victor===winner))break;await new Promise(resolve=>setTimeout(resolve,10));}
+    const scar=found.find(s=>s.victor===winner);assert(scar);assert.equal(scar.tile,tile);const at=scar.at;
+    assert.deepEqual(scar.witnesses,ground.witnesses);
+    const replay=response();await handler(req as never,replay.res);assert.equal(replay.out.statusCode,200);
+    const after=(await kv.get<Record<string,unknown>[]>(`world:scars:${SECTOR}`))!.filter(s=>s.victor===winner);assert.equal(after.length,1);assert.equal(after[0].at,at);
+});
+
+test('a verified field duel can leave a cosmetic mark without enabling base rewards',async()=>{
+    const now=Date.now(),battle='pvp-duel-ground-without-payout',winner='groundnopayoutwinner',loser='groundnopayoutloser',ground=await witnessedGround(now),tile=ground.tile;
+    await seed(now,battle,winner,loser);const row=await kv.get<Record<string,unknown>>(`pvp:${battle}`);delete row!.rewardSector;
+    await kv.set(`pvp:${battle}`,{...row,baseRewards:false,duelGround:ground});
+    const out=response();await handler(request(winner,'win',battle),out.res);assert.equal(out.out.statusCode,200,JSON.stringify(out.out.body));assert.equal(out.out.body?.base,undefined);
+    let scar:Record<string,unknown>|undefined;
+    for(let i=0;i<50;i++){scar=((await kv.get<Record<string,unknown>[]>(`world:scars:${SECTOR}`))??[]).find(s=>s.victor===winner);if(scar)break;await new Promise(resolve=>setTimeout(resolve,10));}
+    assert.equal(scar?.tile,tile);
+    assert.deepEqual(scar?.witnesses,ground.witnesses);
 });

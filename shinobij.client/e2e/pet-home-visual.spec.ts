@@ -631,7 +631,10 @@ test("Pet Home visual lifecycle certification", async ({ page }, testInfo) => {
     await expect(page.getByRole("dialog", { name: "Ashglow Kit" })).toBeVisible();
     await expect(page.getByText(/resting safely in Sanctuary/)).toBeVisible();
     await shot(page, testInfo, "11-full-roster-hatch-to-sanctuary");
+    const expectedHatchSession1 = state.character.petBreedingHatchReceipts.at(-1)!.sessionId;
     await page.getByRole("button", { name: "Welcome home" }).click();
+    await expect.poll(() => state.character.petBreedingHatchReceipts.find(receipt => receipt.sessionId === expectedHatchSession1)?.revealPending).toBe(false);
+    await expect(page.locator('[data-pet-hatch-reveal]')).toHaveCount(0);
     await expect.poll(() => state.hatchRequests.some(request => request.acknowledgeReveal)).toBe(true);
     expect(pageErrors).toEqual([]);
     await expect(page.locator('[data-pet-hatch-reveal]')).toHaveCount(0);
@@ -648,7 +651,10 @@ test("Pet Home visual lifecycle certification", async ({ page }, testInfo) => {
     await expect(page.locator(".hatch-pet")).toBeVisible();
     await expect.poll(() => page.locator(".hatch-pet").evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(0);
     await shot(page, testInfo, "12-normal-hatch-reveal");
+    const expectedHatchSession2 = state.character.petBreedingHatchReceipts.at(-1)!.sessionId;
     await page.getByRole("button", { name: "Welcome home" }).click();
+    await expect.poll(() => state.character.petBreedingHatchReceipts.find(receipt => receipt.sessionId === expectedHatchSession2)?.revealPending).toBe(false);
+    await expect(page.locator('[data-pet-hatch-reveal]')).toHaveCount(0);
 
     state.character.pets = structuredClone(basePets);
     state.character.petBreeding = session("egg", 0);
@@ -659,7 +665,10 @@ test("Pet Home visual lifecycle certification", async ({ page }, testInfo) => {
     await expect(page.getByText("Chromatic miracle")).toBeVisible();
     await expect(page.locator(".hatch-pet")).toBeVisible();
     await shot(page, testInfo, "13-chromatic-hatch-reveal");
+    const expectedHatchSession3 = state.character.petBreedingHatchReceipts.at(-1)!.sessionId;
     await page.getByRole("button", { name: "Welcome home" }).click();
+    await expect.poll(() => state.character.petBreedingHatchReceipts.find(receipt => receipt.sessionId === expectedHatchSession3)?.revealPending).toBe(false);
+    await expect(page.locator('[data-pet-hatch-reveal]')).toHaveCount(0);
 
     state.character.pets = structuredClone(basePets);
     state.character.petBreeding = null;

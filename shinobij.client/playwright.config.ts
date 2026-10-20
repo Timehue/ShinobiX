@@ -18,6 +18,18 @@ const previewRoot = previewRootFor(port);
 const SOURCE_FIXTURE_SPECS = ['**/village-transfer.spec.ts', '**/profession-change.spec.ts', '**/named-forge.spec.ts', '**/sector-hud.spec.ts', '**/wild-binding.spec.ts', '**/chronicle-packs.spec.ts', '**/tournaments.spec.ts', '**/tournaments-live.spec.ts', '**/pet-gauntlet-board.spec.ts', '**/world-eras.spec.ts', '**/rally-recovery.spec.ts', '**/player-friction-source.spec.ts', '**/dojo-circuit-gamepad.spec.ts'];
 SOURCE_FIXTURE_SPECS.push('**/compact-map-notice.spec.ts', '**/resource-gathering.spec.ts', '**/travel-handoff.spec.ts');
 SOURCE_FIXTURE_SPECS.push('**/dungeon-presentation.spec.ts');
+SOURCE_FIXTURE_SPECS.push('**/sector-life.spec.ts', '**/chronicle-stop.spec.ts', '**/resource-surface.spec.ts', '**/ground-wildlife.spec.ts');
+SOURCE_FIXTURE_SPECS.push('**/dock-shipment.spec.ts');
+SOURCE_FIXTURE_SPECS.push('**/world-companion.spec.ts');
+SOURCE_FIXTURE_SPECS.push('**/local-fauna.spec.ts');
+SOURCE_FIXTURE_SPECS.push('**/regional-training.spec.ts');
+SOURCE_FIXTURE_SPECS.push('**/regional-winter.spec.ts');
+SOURCE_FIXTURE_SPECS.push('**/shrine-work.spec.ts');
+SOURCE_FIXTURE_SPECS.push('**/shrine-traffic.spec.ts');
+SOURCE_FIXTURE_SPECS.push('**/midlands-field.spec.ts');
+SOURCE_FIXTURE_SPECS.push('**/festival-work.spec.ts');
+SOURCE_FIXTURE_SPECS.push('**/road-visits.spec.ts');
+SOURCE_FIXTURE_SPECS.push('**/frontier-work.spec.ts');
 const SCREEN_WALK_SPEC = ['**/non-combat-ui-audit.spec.ts', ...SOURCE_FIXTURE_SPECS];
 
 export default defineConfig({

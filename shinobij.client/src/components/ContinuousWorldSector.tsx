@@ -11,6 +11,9 @@ import { WorldPlayerPosition } from '../lib/world-player-position';
 import { sectorName } from '../../../shared/sector-geo';
 import { isWalkableTile } from '../../../shared/sector-walk-mask';
 import { ResourceWorld } from './ResourceWorld';
+import { SectorLife } from './SectorLife';
+import {WorldPetCompanion} from './WorldPetCompanion';
+import type {WorldCompanionChannel} from '../lib/world-pet-companion';
 
 /** Current normal-world view. Existing HUD/encounter components retain their owners. */
 export function ContinuousWorldSector(props: WorldSectorCanvasProps) {
@@ -19,12 +22,14 @@ export function ContinuousWorldSector(props: WorldSectorCanvasProps) {
     const [status, setStatus] = useState('Connecting to world…'), [retry, setRetry] = useState(0), [ready, setReady] = useState(false);
     const name = props.playerName;
     const position = useRef<{ sector: number; col: number; row: number } | null>(null);
+    const companion=useRef<WorldCompanionChannel['current']>(null);
     // Off the painting, the server's tile is only the nearest painted anchor; don't mark it as underfoot.
     const [onPainting, setOnPainting] = useState(true);
     useLayoutEffect(() => { latest.current = props; });
     useEffect(() => {
         const abort = new AbortController(); let alive = true;
         void mountContinuousWorld({ canvas: canvas.current!, chunk: chunk.current!, marker: marker.current!, signal: abort.signal,
+            companion,
             blocked: () => Boolean(latest.current.suspended || latest.current.worldMovementBlocked?.()
                 || document.querySelector('[aria-modal=true],dialog[open]')),
             onAuthority: (sector, tile) => latest.current.onWorldAuthority?.(sector, tile), onStatus: setStatus,
@@ -60,7 +65,11 @@ export function ContinuousWorldSector(props: WorldSectorCanvasProps) {
                         engine.current?.go(exit?.destinationSector ?? props.sector, exit?.destinationTile ?? tile);
                     }} />)}
                 {props.showLivePeers && <ContinuousWorldPeers sector={props.sector} selfName={props.playerName} sharedImages={props.sharedImages} />}
-                <WorldPlayerPosition.Provider value={position}>{props.overlayLayer}{props.encounterLayer}</WorldPlayerPosition.Provider>
+                <WorldPlayerPosition.Provider value={position}>{props.overlayLayer}{props.encounterLayer}
+                    {!props.suspended && ready && <SectorLife key={`${props.playerName}:${props.sector}`} sector={props.sector} player={props.playerName} tile={props.playerTile} biome={props.biome}
+                        traces={props.lifeTraces} openReports={props.onOpenLifeTraces} onTrack={props.onLifeTrack} walk={(sector, tile) => engine.current?.go(sector, tile)} />}
+                    {ready&&<WorldPetCompanion character={props.gatheringCharacter} sharedImages={props.sharedImages} channelRef={companion} suspended={props.suspended}/>}
+                </WorldPlayerPosition.Provider>
                 {!props.suspended && props.gatheringCharacter && props.onGatheringCommit && <ResourceWorld character={props.gatheringCharacter} sector={props.sector} tile={props.playerTile} commit={props.onGatheringCommit} walk={(sector, tile) => { engine.current?.go(sector, tile); }} worldBossCrystals={props.worldBossCrystals} />}
             </div>
             <div ref={marker} className="sector-avatar-figure continuous-world-self" aria-hidden="true" data-world-self="true">

@@ -44,7 +44,7 @@ same commit as the workflow.
 | `CI / client-quality` | `client_quality` | 35 min | Locked root/client installs; shipped pet rig/animation, Warfront/Rally LOD, and Warfront impostor certification ahead of the build; lint, story-content/TypeScript/production build, build-size and visual-baseline-size gates, client audit (with the same retry rule as the root audit), and checksum-backed client artifact production. |
 | `CI / release-certification` | `release_certification` | 15 min | Downloads and verifies the exact compiled release artifacts, then runs the fresh-account/combat certification against them. |
 | `CI / concurrency-smoke` | `concurrency_smoke` | 15 min | Downloads and verifies the release artifacts, then runs the short real-server concurrent-player smoke. It is not a database capacity test. |
-| `CI / e2e-responsive` | `e2e_responsive` | 5 min | Fail-closed aggregate requiring every responsive smoke slice (`e2e_responsive_matrix`) and both flow jobs with the CSP, Stronghold, and dedicated suites (`e2e_responsive_flows`) to succeed. |
+| `CI / e2e-responsive` | `e2e_responsive` | 5 min | Fail-closed aggregate requiring every responsive smoke slice (`e2e_responsive_matrix`) and all six flow jobs with the CSP, Stronghold, and dedicated suites (`e2e_responsive_flows`) to succeed. |
 | `CI / e2e-combat` | `e2e_combat` | 5 min | Fail-closed stable aggregate requiring all three combat browser shards to succeed. |
 | `CI / e2e-warfront` | `e2e_warfront` | 29 min | Warfront positional-mode browser coverage on seven Chromium viewport projects, including renders of eight real skinned rigs, and adaptive-layout evidence. |
 | `CI / e2e-village-stores` | `e2e_village_stores` | 35 min | Ten live Express player-journey steps in Chromium, each against its own real server started from the release artifact (see below). |
@@ -81,8 +81,8 @@ hung slice fails while there is still time to upload its evidence. On main in
 October 2026 a slice took 12 to 26 minutes and setup about 2.
 
 The CSP check, the Stronghold modes and the dedicated suites run beside the
-slices in two `e2e_responsive_flows` jobs, named `CI / e2e-responsive-flows / 1`
-and `CI / e2e-responsive-flows / 2`, each with a 29-minute ceiling:
+slices in six `e2e_responsive_flows` jobs, named `CI / e2e-responsive-flows / 1`
+through `CI / e2e-responsive-flows / 6`, each with a 29-minute ceiling:
 
 - Flow 1: the built CSP in Chromium and WebKit; all three Stronghold modes,
   in order, because they build into the same disposable fixture directory;
@@ -92,8 +92,48 @@ and `CI / e2e-responsive-flows / 2`, each with a 29-minute ceiling:
 - Flow 2: fishing and the Fracture Chain; Chronicle pack purchase and recovery;
   Pet Gauntlet playback and renderer recovery; named forge purchase and
   recovery; Rally renderer recovery; the Dojo Circuit gamepad flow.
+- Flows 3 through 6: the complete living-sector source suite, split into four
+  Playwright slices. Flow 3 also checks painted mining/fishing placement; flow 4
+  also checks the Chronicle tea-stop routine and daytime handover. The dock
+  shipment runs on desktop in flow 3 and phone in flow 4, including delivery,
+  unattended recovery and cached aftermath during an outage, plus name/greeting
+  separation from players, building titles and resource icons in portrait and
+  landscape layouts. Flows 5 and 6
+  also check pet-inspired ground wildlife on desktop (flow 5) and phone
+  (flow 6), including player approaches, hidden/combat pauses, reduced motion,
+  and missing-art recovery. These flows also check the actual owned walking
+  companion, tracking-clue reactions, selection/away states, portrait fallback
+  and connected road crossings, using the world's existing render frame. All source
+  life shards also verify native paired training and cached crew departures,
+  the existing Heartwood keeper sweeping two actual paved sections with an
+  attached tool, pose-correct speech, weather/help interruption and cached night closure,
+  plus shrine visitors keeping their arrival/visit/departure speech during API
+  outages, hiding only at an actual road exit and starting the next wave at its entry,
+  the existing Midlands workers tending two actual painted herb-row edges and
+  checking the southern/eastern roads, including rain, cached exit, missing-garden
+  recovery and reduced-motion tool/hidden/combat behavior,
+  the original festival cook opening/serving/packing the attached counter and
+  the existing guide/runner showing square steps in the clearing, including
+  missing-floor presentation, rain, real road exits and cached closure,
+  recurring travelers and the injured courier retaining the same figure during
+  cached arrival/rest/departure, speaking about rest only at the actual stop,
+  and hiding at their road exit before a fresh visit creates its new figure,
+  plus existing tea-stop spectators reacting to the actual Chronicle turns and
+  result with independently reachable Talk and work buttons on desktop and phone,
+  the existing Hollow Road keeper and Lavafront scout checking protected painted
+  gear details, keeping task/courier locations and original story quest givers,
+  with cached rounds, weather/night waits, missing-floor dialogue, reduced-motion
+  pause/resume and separated, readable native portraits,
+  gulls over reviewed harbor water, and moths tied to the actually rendered lit
+  Moonwell lamps, including image fallback, immediate sky changes on foreground
+  resume and reduced motion. The supplied winter stop keeps the brazier and all
+  shrine-light states, while its existing warming pair leaves around the sled
+  and windbreak through actual road exits during API outages. All source
+  fixtures use their dedicated Vite configurations, while the main smoke keeps
+  using its immutable production preview. Their screenshots and geometry
+  evidence are retained with the flow artifacts.
 
-Each flow job measured 11 to 15 minutes of suite time on main. A failed step
+The original first two flow jobs measured 11 to 15 minutes of suite time on main. A failed step
 skips every later check in its job, so a red flow job says nothing about the
 suites after the failure. The suite moved from two shards to three when run
 `35326317976` exhausted shard 2's budget at test entry 824 of 875, after its

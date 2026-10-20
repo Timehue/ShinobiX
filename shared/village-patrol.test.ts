@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { patrolGreeting, patrolNameFor, patrolStance } from './village-patrol.js';
+import { PATROL_VILLAGE_VOICES, patrolGreeting, patrolNameFor, patrolStance } from './village-patrol.js';
 
 test('a patrol answers to the village that holds its road', () => {
     assert.equal(patrolStance('', 'Leaf', []), null, 'an unclaimed road keeps the neutral patrol');
@@ -10,6 +10,22 @@ test('a patrol answers to the village that holds its road', () => {
     assert.equal(patrolStance('Mist', 'Leaf', ['Sand']), 'rival', 'a war with someone else is not a war with the holder');
     assert.equal(patrolStance('Mist', 'Leaf', ['Mist']), 'rivalWar');
     assert.equal(patrolStance('Mist', '', ['Mist']), 'rivalWar', 'a villageless player is still an enemy of a warring holder');
+});
+
+test('each village patrol recognizes home colors and addresses the actual rival village',()=>{
+    for(const owner of Object.keys(PATROL_VILLAGE_VOICES))for(const visitor of Object.keys(PATROL_VILLAGE_VOICES)) {
+        const stance=patrolStance(owner,visitor,[])!;
+        const line=patrolGreeting(stance,0,owner,visitor);
+        if(owner===visitor) {
+            assert.match(line,/one of ours/);
+            for(const voice of Object.values(PATROL_VILLAGE_VOICES))assert(!line.includes(voice.jab));
+        } else {
+            assert.equal(line,`${PATROL_VILLAGE_VOICES[visitor].jab}. ${PATROL_VILLAGE_VOICES[owner].warning}`);
+            assert.match(patrolGreeting('rivalWar',0,owner,visitor),/at war/);
+        }
+    }
+    assert.equal(patrolGreeting('rival',0,' frostfang village ','ASHEN LEAF VILLAGE'),'Leaf Rat. Keep walking.');
+    assert(!patrolGreeting('rival',0,'Frostfang Village','').includes('Leaf Rat'));
 });
 
 test('a claimed road names its patrol for the holder, and every stance has a voice', () => {

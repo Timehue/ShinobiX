@@ -75,7 +75,7 @@ export function synthRoadWanderer(event: StoryRoadEvent, sector: number): Wander
         homeTile: home,
         waypoints: [home],
         movement: "stationary",
-        greeting: `${event.npcName} stops mid-stride when they see you — whatever brought them onto this road, it was you.`,
+        greeting: 'Could I speak with you?',
         tellTint: "#e6c477",
         avatarKey: ROAD_ART[event.npcArchetype],
     };
