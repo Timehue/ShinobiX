@@ -1,0 +1,90 @@
+{
+  "id": "rare-31",
+  "ground": -0.4950845527160014,
+  "padding": 0.002,
+  "corrections": [
+    {
+      "clip": "idle",
+      "keys": 437,
+      "maximumLift": 0.009077253074804115
+    },
+    {
+      "clip": "idle_2",
+      "keys": 316,
+      "maximumLift": 0.02135563511760019
+    },
+    {
+      "clip": "walk",
+      "keys": 245,
+      "maximumLift": 0.03734529093612948
+    },
+    {
+      "clip": "gallop",
+      "keys": 145,
+      "maximumLift": 0.02432842740395802
+    },
+    {
+      "clip": "gallop_jump",
+      "keys": 157,
+      "maximumLift": 0.0029445209361187996
+    },
+    {
+      "clip": "attack",
+      "keys": 246,
+      "maximumLift": 0.018345593888456357
+    },
+    {
+      "clip": "idle_hitreact1",
+      "keys": 138,
+      "maximumLift": 0.05868759879032648
+    },
+    {
+      "clip": "death",
+      "keys": 334,
+      "maximumLift": 0.31219372616618957
+    },
+    {
+      "clip": "entrance",
+      "keys": 224,
+      "maximumLift": 0.0029445209361187996
+    },
+    {
+      "clip": "cast",
+      "keys": 265,
+      "maximumLift": 0.02783214349654428
+    },
+    {
+      "clip": "guard",
+      "keys": 269,
+      "maximumLift": 0
+    },
+    {
+      "clip": "rest",
+      "keys": 453,
+      "maximumLift": 0.0029443925631806867
+    },
+    {
+      "clip": "victory",
+      "keys": 412,
+      "maximumLift": 0.018641197606841353
+    }
+  ],
+  "outputs": [
+    {
+      "stage": "source",
+      "path": ".tmp/frost-seal-floor/source-candidate-v1.glb",
+      "sha256": "8c102514d48c26ecb6d7d67b5eb224636c444fba97018da5ee6064ecaf1b633d"
+    },
+    {
+      "stage": "battle",
+      "path": ".tmp/frost-seal-floor/battle-candidate-v1.glb",
+      "sha256": "03642ccd9c191d832ecfca0791ebafc3b9ffa1b5cfd7c38fa5b4a062a4a73464"
+    }
+  ],
+  "pins": {
+    "source": "b03612bd77f9302cb11c1e8fe0a2d6d55a261b910dd2dad19d9138519fb452c6",
+    "battle": "5ca3d791525829402ac9a37a04944fc80aeaf218d8b8fcc8255e6c8fdebbec00"
+  },
+  "publicAssetsChanged": false,
+  "visualApproval": false
+}

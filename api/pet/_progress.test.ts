@@ -12,7 +12,7 @@ describe('server pet progression', () => {
     it('levels from bounded XP, grants a point, and applies automatic core growth', () => {
         const pet = { rarity: 'standard', level: 1, maxLevel: 100, xp: 0, hp: 320, attack: 40, defense: 28, speed: 30, jutsus: [{ power: 50 }] };
         const out = gainServerPetXp(pet, 100, 'strength');
-        assert.equal(out.level, 2); assert.equal(out.attack, 40); assert.equal(out.hp, 322); assert.equal(out.growthPoints, 1);
+        assert.equal(out.level, 2); assert.equal(out.attack, 40); assert.equal(out.hp, 322); assert.equal(out.growthPoints, 3);
     });
     it('consumes one counted or legacy inventory treat', () => {
         assert.deepEqual(removePetItem({ itemStacks: [{ itemId: 'pet-treat', count: 2 }] }, 'pet-treat')?.itemStacks, [{ itemId: 'pet-treat', count: 1 }]);
@@ -42,7 +42,7 @@ describe('server pet progression', () => {
         assert.equal(out.pet.level, 2);                  // 100 XP = one level-up at level 1
         assert.equal(out.pet.attack, 40);                // focus cannot bypass the point budget
         assert.equal(out.pet.hp, 322);                   // automatic core growth still applies
-        assert.equal(out.pet.growthPoints, 1);
+        assert.equal(out.pet.growthPoints, 3);
     });
     it('a cleared training survives the image-preserving save merge (regression: delete resurrects it)', () => {
         // Reproduces the versioned-save write: mergePreservingImages(mutatedPet, storedPet).

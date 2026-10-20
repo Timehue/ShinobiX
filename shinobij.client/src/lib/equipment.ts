@@ -143,6 +143,7 @@ export const POTION_HOLD_CAP = 2;
 export function consumableHoldCap(
     item: Pick<GameItem, "slot" | "weaponEffect" | "apCost" | "weaponEp" | "restoreChakra" | "restoreStamina"> & { id?: string },
 ): number | null {
+    if (item.id && ['pet-treat', 'elemental-pet-treat', 'ancient-pet-treat', 'golden-apple'].includes(item.id)) return 9999;
     if (wildBindingSeal(item.id)) return 99;
     const slot = normalizeEquipmentSlot(item.slot);
     if (slot === "potion") return POTION_HOLD_CAP;

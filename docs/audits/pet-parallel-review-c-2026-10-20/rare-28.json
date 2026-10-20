@@ -1,0 +1,427 @@
+{
+  "id": "rare-28",
+  "reviewer": "parallel-c",
+  "approval": true,
+  "status": "local-visual-pass-awaiting-root-integration-and-live-verification",
+  "sourceSha256": "0afb178a6301a49e0aa650a329dbf2bfbf5681781f152cf2b626ad150e6d4bdf",
+  "battleSha256": "655691887ae60c70db1c7ee690bf480ae3cf180a7ffedc92efdc7421d1e0cf93",
+  "atlasSha256": "51a0bf3e07951c7f9e9b067879c4c29b0604b60075d240f900c70c43c03dec09",
+  "seen": [
+    {
+      "path": "docs/screenshots/pet-independent-face-2026-10-15/rare-28-source-front.webp",
+      "sha256": "5db20bb0bebe74c867993e4543d7ce15747b95a9a5c04cb4a8cc94cd5ddf7bf7",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "retained",
+      "reviewedAt": "2026-10-20T04:32:32.448Z",
+      "notes": "All13 clips six phases source+battle front/side full body and muzzle/chin: eye/muzzle shape stable, tail and all four limbs remain connected through leap and turn; scarf follows neck without visible tear."
+    },
+    {
+      "path": "docs/screenshots/pet-independent-face-2026-10-15/rare-28-source-side.webp",
+      "sha256": "afdca95619f1f1c01ac1ef6598f9f77c68239d0a1aa34b307f9720a46c902c21",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "retained",
+      "reviewedAt": "2026-10-20T04:32:32.451Z",
+      "notes": "All13 clips six phases source+battle front/side full body and muzzle/chin: eye/muzzle shape stable, tail and all four limbs remain connected through leap and turn; scarf follows neck without visible tear."
+    },
+    {
+      "path": "docs/screenshots/pet-independent-face-2026-10-15/rare-28-source-head-front.webp",
+      "sha256": "6006f84a9238454da69676ba7becbfbebd608b19ecd2e847818a54410d183570",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "retained",
+      "reviewedAt": "2026-10-20T04:32:32.452Z",
+      "notes": "All13 clips six phases source+battle front/side full body and muzzle/chin: eye/muzzle shape stable, tail and all four limbs remain connected through leap and turn; scarf follows neck without visible tear."
+    },
+    {
+      "path": "docs/screenshots/pet-independent-face-2026-10-15/rare-28-source-head-side.webp",
+      "sha256": "599afc5c6e3588bc6c8d38a2b46f24fd40a9518c55ab33a4c749181f24179f12",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "retained",
+      "reviewedAt": "2026-10-20T04:32:32.452Z",
+      "notes": "All13 clips six phases source+battle front/side full body and muzzle/chin: eye/muzzle shape stable, tail and all four limbs remain connected through leap and turn; scarf follows neck without visible tear."
+    },
+    {
+      "path": "docs/screenshots/pet-independent-face-2026-10-15/rare-28-battle-front.webp",
+      "sha256": "2c65594a70cb8f9e8abb4120ca5c7fb204ea5568121607fb299d3019aa552123",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "retained",
+      "reviewedAt": "2026-10-20T04:32:32.453Z",
+      "notes": "All13 clips six phases source+battle front/side full body and muzzle/chin: eye/muzzle shape stable, tail and all four limbs remain connected through leap and turn; scarf follows neck without visible tear."
+    },
+    {
+      "path": "docs/screenshots/pet-independent-face-2026-10-15/rare-28-battle-side.webp",
+      "sha256": "edcc6f542862ff2293f2ee02f1b1899b9940d0829d6400ac0f5b671d6f96654f",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "retained",
+      "reviewedAt": "2026-10-20T04:32:32.453Z",
+      "notes": "All13 clips six phases source+battle front/side full body and muzzle/chin: eye/muzzle shape stable, tail and all four limbs remain connected through leap and turn; scarf follows neck without visible tear."
+    },
+    {
+      "path": "docs/screenshots/pet-independent-face-2026-10-15/rare-28-battle-head-front.webp",
+      "sha256": "ad3802621f99a16e1b22d2d52a4b375db9f275a3f17b45a13cfb28753fb77c03",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "retained",
+      "reviewedAt": "2026-10-20T04:32:32.454Z",
+      "notes": "All13 clips six phases source+battle front/side full body and muzzle/chin: eye/muzzle shape stable, tail and all four limbs remain connected through leap and turn; scarf follows neck without visible tear."
+    },
+    {
+      "path": "docs/screenshots/pet-independent-face-2026-10-15/rare-28-battle-head-side.webp",
+      "sha256": "b635aa8456cb062b3a1f9fb9ab8a56b045030da0589dbd75fa877c0c751eff9f",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "retained",
+      "reviewedAt": "2026-10-20T04:32:32.455Z",
+      "notes": "All13 clips six phases source+battle front/side full body and muzzle/chin: eye/muzzle shape stable, tail and all four limbs remain connected through leap and turn; scarf follows neck without visible tear."
+    },
+    {
+      "path": "docs/screenshots/pet-independent-face-2026-10-15/rare-28-runtime-low-source-body.webp",
+      "sha256": "3bc369929432046a0295f9fb41be987d8e55e0d9a6a4b78d476e7afd10085867",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "retained",
+      "reviewedAt": "2026-10-20T04:35:33.799Z",
+      "notes": "All16 production rows front/side six phases low+medium source+battle: muzzle/eyes stable with neck scarf attachment; legs follow torso during run, leap, death and revive. No visible anatomical tear or unnatural detachment."
+    },
+    {
+      "path": "docs/screenshots/pet-independent-face-2026-10-15/rare-28-runtime-low-source-head.webp",
+      "sha256": "698e7b5bfc313a9d58789dcc541b2127bcfb92623dd9cf24e00a0b2733cf9ce9",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "retained",
+      "reviewedAt": "2026-10-20T04:35:33.801Z",
+      "notes": "All16 production rows front/side six phases low+medium source+battle: muzzle/eyes stable with neck scarf attachment; legs follow torso during run, leap, death and revive. No visible anatomical tear or unnatural detachment."
+    },
+    {
+      "path": "docs/screenshots/pet-independent-face-2026-10-15/rare-28-runtime-low-battle-body.webp",
+      "sha256": "a212cceb8c76f050fae60be4a7777de472c6527dfbfdee4094f858568b962b04",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "retained",
+      "reviewedAt": "2026-10-20T04:35:33.802Z",
+      "notes": "All16 production rows front/side six phases low+medium source+battle: muzzle/eyes stable with neck scarf attachment; legs follow torso during run, leap, death and revive. No visible anatomical tear or unnatural detachment."
+    },
+    {
+      "path": "docs/screenshots/pet-independent-face-2026-10-15/rare-28-runtime-low-battle-head.webp",
+      "sha256": "b604a7ac9007b3a651da1f300e977d3a6018cee163af2b8e7f027a725774e8a9",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "retained",
+      "reviewedAt": "2026-10-20T04:35:33.802Z",
+      "notes": "All16 production rows front/side six phases low+medium source+battle: muzzle/eyes stable with neck scarf attachment; legs follow torso during run, leap, death and revive. No visible anatomical tear or unnatural detachment."
+    },
+    {
+      "path": "docs/screenshots/pet-independent-face-2026-10-15/rare-28-runtime-medium-source-body.webp",
+      "sha256": "c13820f296d6bcb7ccddacc544d1776ea3fdb5ea4988ba122d6e106a3a2b6f8a",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "retained",
+      "reviewedAt": "2026-10-20T04:35:33.803Z",
+      "notes": "All16 production rows front/side six phases low+medium source+battle: muzzle/eyes stable with neck scarf attachment; legs follow torso during run, leap, death and revive. No visible anatomical tear or unnatural detachment."
+    },
+    {
+      "path": "docs/screenshots/pet-independent-face-2026-10-15/rare-28-runtime-medium-source-head.webp",
+      "sha256": "3d53524b3536eee1b9cbbed8a87fd8cb5e0c6c8c1e53129e794f1c851dc13c83",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "retained",
+      "reviewedAt": "2026-10-20T04:35:33.804Z",
+      "notes": "All16 production rows front/side six phases low+medium source+battle: muzzle/eyes stable with neck scarf attachment; legs follow torso during run, leap, death and revive. No visible anatomical tear or unnatural detachment."
+    },
+    {
+      "path": "docs/screenshots/pet-independent-face-2026-10-15/rare-28-runtime-medium-battle-body.webp",
+      "sha256": "8e096df120c7b0d2aff5ff1266735bc7bdfa66a0fb6bacbfa6af8fc4774b6f04",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "retained",
+      "reviewedAt": "2026-10-20T04:35:33.804Z",
+      "notes": "All16 production rows front/side six phases low+medium source+battle: muzzle/eyes stable with neck scarf attachment; legs follow torso during run, leap, death and revive. No visible anatomical tear or unnatural detachment."
+    },
+    {
+      "path": "docs/screenshots/pet-independent-face-2026-10-15/rare-28-runtime-medium-battle-head.webp",
+      "sha256": "fd1f1d487de1c4c58c1fbd778a027610ee1d7bef8c467e80dffdc022b37cb1ca",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "retained",
+      "reviewedAt": "2026-10-20T04:35:33.805Z",
+      "notes": "All16 production rows front/side six phases low+medium source+battle: muzzle/eyes stable with neck scarf attachment; legs follow torso during run, leap, death and revive. No visible anatomical tear or unnatural detachment."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-28/techniques-block-0-half-0.png",
+      "sha256": "c67a9d511d85e592902b5be051517d328b3fa63e8a7c2ed46794b55e21d29cea",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "panel",
+      "reviewedAt": "2026-10-20T04:40:31.719Z",
+      "notes": "216 actual battle technique frames first pass: muzzle stable, neck/scarf connected; legs follow body through leap/landing without visible floor penetration. Original three physical side0.60 frames show complete head beyond strip crop. Idle24 continuous."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-28/techniques-block-0-half-1.png",
+      "sha256": "9d931223fa0b66f2682974bde36c8fae6773091b87752c3f88eb48ca7952f5f3",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "panel",
+      "reviewedAt": "2026-10-20T04:40:31.722Z",
+      "notes": "216 actual battle technique frames first pass: muzzle stable, neck/scarf connected; legs follow body through leap/landing without visible floor penetration. Original three physical side0.60 frames show complete head beyond strip crop. Idle24 continuous."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-28/techniques-block-1-half-0.png",
+      "sha256": "8e992cbf54ac46ca27d9544fdb9919f43200a30f8953c692ac339b12d622f7d7",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "panel",
+      "reviewedAt": "2026-10-20T04:40:31.723Z",
+      "notes": "216 actual battle technique frames first pass: muzzle stable, neck/scarf connected; legs follow body through leap/landing without visible floor penetration. Original three physical side0.60 frames show complete head beyond strip crop. Idle24 continuous."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-28/techniques-block-1-half-1.png",
+      "sha256": "4efd1bea45c8c45740c31ba02f7ce68d86aaa2f810ae70f374a0fdb10ddc4909",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "panel",
+      "reviewedAt": "2026-10-20T04:40:31.724Z",
+      "notes": "216 actual battle technique frames first pass: muzzle stable, neck/scarf connected; legs follow body through leap/landing without visible floor penetration. Original three physical side0.60 frames show complete head beyond strip crop. Idle24 continuous."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-28/techniques-block-2-half-0.png",
+      "sha256": "78df2b63ca53d863081b8ff97d799d58f7f53c8f27f603ff849ff6c3ae8c54ff",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "panel",
+      "reviewedAt": "2026-10-20T04:40:31.726Z",
+      "notes": "216 actual battle technique frames first pass: muzzle stable, neck/scarf connected; legs follow body through leap/landing without visible floor penetration. Original three physical side0.60 frames show complete head beyond strip crop. Idle24 continuous."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-28/techniques-block-2-half-1.png",
+      "sha256": "90404d4c1ea88c12449eeb9bbbbe00e705e72bb73be14d1122b40c12c181b958",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "panel",
+      "reviewedAt": "2026-10-20T04:40:31.727Z",
+      "notes": "216 actual battle technique frames first pass: muzzle stable, neck/scarf connected; legs follow body through leap/landing without visible floor penetration. Original three physical side0.60 frames show complete head beyond strip crop. Idle24 continuous."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-28/idle-block-0.png",
+      "sha256": "b8f0a80fc1f26a909ee03d63671d32508e2edeb13dbf519f99782e9a20841f12",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "panel",
+      "reviewedAt": "2026-10-20T04:40:31.728Z",
+      "notes": "216 actual battle technique frames first pass: muzzle stable, neck/scarf connected; legs follow body through leap/landing without visible floor penetration. Original three physical side0.60 frames show complete head beyond strip crop. Idle24 continuous."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-28/idle-block-1.png",
+      "sha256": "0391700017b94ea38bb30cfce7858cf7713bfe7e57639892dd2d6589b8642310",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "panel",
+      "reviewedAt": "2026-10-20T04:40:31.729Z",
+      "notes": "216 actual battle technique frames first pass: muzzle stable, neck/scarf connected; legs follow body through leap/landing without visible floor penetration. Original three physical side0.60 frames show complete head beyond strip crop. Idle24 continuous."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-28/original-physical-side-0.60.png",
+      "sha256": "20e18dd0f6eeb8766c43e527966957c0c7f252ce0bddaf7c7d83ce398121baab",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "panel",
+      "reviewedAt": "2026-10-20T04:40:31.729Z",
+      "notes": "216 actual battle technique frames first pass: muzzle stable, neck/scarf connected; legs follow body through leap/landing without visible floor penetration. Original three physical side0.60 frames show complete head beyond strip crop. Idle24 continuous."
+    },
+    {
+      "path": "shinobij.client/public/pet-models/warfront-impostors/roster/rare-28.webp",
+      "sha256": "51a0bf3e07951c7f9e9b067879c4c29b0604b60075d240f900c70c43c03dec09",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "atlas",
+      "reviewedAt": "2026-10-20T04:40:31.820Z",
+      "notes": "16 atlas cells: coherent full body face scarf tail and legs."
+    },
+    {
+      "path": "docs/screenshots/pet-independent-face-2026-10-15/rare-28-anatomical-landmark-coverage.png",
+      "sha256": "4498336b20b1be3a13b995a07cc683fd7fcf314fef984f8f9402ae1702a2e3b4",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "retained",
+      "reviewedAt": "2026-10-20T04:40:31.914Z",
+      "notes": "Muzzle/chin landmarks covered; scarf obscures lower neck by design."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-28/techniques-block-2-half-1.png",
+      "sha256": "90404d4c1ea88c12449eeb9bbbbe00e705e72bb73be14d1122b40c12c181b958",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "panel",
+      "reviewedAt": "2026-10-20T04:43:17.062Z",
+      "notes": "Independent second visual pass all216 actual battletech frames reverse panel order: muzzle and jaw line stable, attached limbs through windup/strike/recovery; no floor intersection or distortion found."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-28/techniques-block-2-half-0.png",
+      "sha256": "78df2b63ca53d863081b8ff97d799d58f7f53c8f27f603ff849ff6c3ae8c54ff",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "panel",
+      "reviewedAt": "2026-10-20T04:43:17.065Z",
+      "notes": "Independent second visual pass all216 actual battletech frames reverse panel order: muzzle and jaw line stable, attached limbs through windup/strike/recovery; no floor intersection or distortion found."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-28/techniques-block-1-half-1.png",
+      "sha256": "4efd1bea45c8c45740c31ba02f7ce68d86aaa2f810ae70f374a0fdb10ddc4909",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "panel",
+      "reviewedAt": "2026-10-20T04:43:17.066Z",
+      "notes": "Independent second visual pass all216 actual battletech frames reverse panel order: muzzle and jaw line stable, attached limbs through windup/strike/recovery; no floor intersection or distortion found."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-28/techniques-block-1-half-0.png",
+      "sha256": "8e992cbf54ac46ca27d9544fdb9919f43200a30f8953c692ac339b12d622f7d7",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "panel",
+      "reviewedAt": "2026-10-20T04:43:17.067Z",
+      "notes": "Independent second visual pass all216 actual battletech frames reverse panel order: muzzle and jaw line stable, attached limbs through windup/strike/recovery; no floor intersection or distortion found."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-28/techniques-block-0-half-1.png",
+      "sha256": "9d931223fa0b66f2682974bde36c8fae6773091b87752c3f88eb48ca7952f5f3",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "panel",
+      "reviewedAt": "2026-10-20T04:43:17.068Z",
+      "notes": "Independent second visual pass all216 actual battletech frames reverse panel order: muzzle and jaw line stable, attached limbs through windup/strike/recovery; no floor intersection or distortion found."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-28/techniques-block-0-half-0.png",
+      "sha256": "c67a9d511d85e592902b5be051517d328b3fa63e8a7c2ed46794b55e21d29cea",
+      "actuallyViewed": true,
+      "detail": "original",
+      "kind": "panel",
+      "reviewedAt": "2026-10-20T04:43:17.069Z",
+      "notes": "Independent second visual pass all216 actual battletech frames reverse panel order: muzzle and jaw line stable, attached limbs through windup/strike/recovery; no floor intersection or distortion found."
+    }
+  ],
+  "findings": [],
+  "pending": [
+    "Root integration",
+    "Release and exact live delivery verification"
+  ],
+  "updatedAt": "2026-10-20T04:43:17.283Z",
+  "name": "Scoria Mongoose",
+  "techniques": {
+    "result": "pass",
+    "actualStage": "battle",
+    "modelSha256": "655691887ae60c70db1c7ee690bf480ae3cf180a7ffedc92efdc7421d1e0cf93",
+    "rendererSha256": "b2253b71fbcb21a83d82de35ab5783dd57b525cfc94740fb131dd1eb0049a897",
+    "companionComponentSha256": "472645f0ade2c17a8be0a8f9fa5af0fdb9d47f4c835e24e6a374c8219b33e4ab",
+    "moves": [
+      "fire-strike",
+      "fire-pulse",
+      "fire-breaker",
+      "earth-pulse",
+      "open-wound",
+      "intercept",
+      "aegis",
+      "purify",
+      "rare-28-signature"
+    ],
+    "frames": 216,
+    "views": [
+      "front",
+      "side"
+    ],
+    "allTwelveNativeStripsActuallyViewed": true,
+    "secondVisualPass": {
+      "result": "pass",
+      "method": "All216frames viewed again in six lossless native panels, reverse block order.",
+      "actuallyViewed": true
+    },
+    "manifest": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-28/technique-capture-manifest.json"
+  },
+  "rawAnimations": {
+    "result": "pass",
+    "sourceAndBattle": true,
+    "clips": 13,
+    "phases": 6,
+    "views": [
+      "front",
+      "side",
+      "head-front",
+      "head-side"
+    ],
+    "independentSecondReviewOfRetainedEvidence": true
+  },
+  "productionTransitions": {
+    "result": "pass",
+    "rows": 16,
+    "sourceAndBattle": true,
+    "views": [
+      "front",
+      "side"
+    ],
+    "bodyAndHead": true,
+    "independentSecondReviewOfRetainedEvidence": true,
+    "presets": [
+      "low",
+      "medium"
+    ]
+  },
+  "companionIdle": {
+    "result": "pass",
+    "frames": 24,
+    "independentSecondReviewOfRetainedEvidence": true
+  },
+  "atlas": {
+    "result": "pass",
+    "frames": 16
+  },
+  "evidenceSha256": {
+    "docs/screenshots/pet-independent-face-2026-10-15/rare-28-source-front.webp": "5db20bb0bebe74c867993e4543d7ce15747b95a9a5c04cb4a8cc94cd5ddf7bf7",
+    "docs/screenshots/pet-independent-face-2026-10-15/rare-28-source-side.webp": "afdca95619f1f1c01ac1ef6598f9f77c68239d0a1aa34b307f9720a46c902c21",
+    "docs/screenshots/pet-independent-face-2026-10-15/rare-28-source-head-front.webp": "6006f84a9238454da69676ba7becbfbebd608b19ecd2e847818a54410d183570",
+    "docs/screenshots/pet-independent-face-2026-10-15/rare-28-source-head-side.webp": "599afc5c6e3588bc6c8d38a2b46f24fd40a9518c55ab33a4c749181f24179f12",
+    "docs/screenshots/pet-independent-face-2026-10-15/rare-28-battle-front.webp": "2c65594a70cb8f9e8abb4120ca5c7fb204ea5568121607fb299d3019aa552123",
+    "docs/screenshots/pet-independent-face-2026-10-15/rare-28-battle-side.webp": "edcc6f542862ff2293f2ee02f1b1899b9940d0829d6400ac0f5b671d6f96654f",
+    "docs/screenshots/pet-independent-face-2026-10-15/rare-28-battle-head-front.webp": "ad3802621f99a16e1b22d2d52a4b375db9f275a3f17b45a13cfb28753fb77c03",
+    "docs/screenshots/pet-independent-face-2026-10-15/rare-28-battle-head-side.webp": "b635aa8456cb062b3a1f9fb9ab8a56b045030da0589dbd75fa877c0c751eff9f",
+    "docs/screenshots/pet-independent-face-2026-10-15/rare-28-runtime-low-source-body.webp": "3bc369929432046a0295f9fb41be987d8e55e0d9a6a4b78d476e7afd10085867",
+    "docs/screenshots/pet-independent-face-2026-10-15/rare-28-runtime-low-source-head.webp": "698e7b5bfc313a9d58789dcc541b2127bcfb92623dd9cf24e00a0b2733cf9ce9",
+    "docs/screenshots/pet-independent-face-2026-10-15/rare-28-runtime-low-battle-body.webp": "a212cceb8c76f050fae60be4a7777de472c6527dfbfdee4094f858568b962b04",
+    "docs/screenshots/pet-independent-face-2026-10-15/rare-28-runtime-low-battle-head.webp": "b604a7ac9007b3a651da1f300e977d3a6018cee163af2b8e7f027a725774e8a9",
+    "docs/screenshots/pet-independent-face-2026-10-15/rare-28-runtime-medium-source-body.webp": "c13820f296d6bcb7ccddacc544d1776ea3fdb5ea4988ba122d6e106a3a2b6f8a",
+    "docs/screenshots/pet-independent-face-2026-10-15/rare-28-runtime-medium-source-head.webp": "3d53524b3536eee1b9cbbed8a87fd8cb5e0c6c8c1e53129e794f1c851dc13c83",
+    "docs/screenshots/pet-independent-face-2026-10-15/rare-28-runtime-medium-battle-body.webp": "8e096df120c7b0d2aff5ff1266735bc7bdfa66a0fb6bacbfa6af8fc4774b6f04",
+    "docs/screenshots/pet-independent-face-2026-10-15/rare-28-runtime-medium-battle-head.webp": "fd1f1d487de1c4c58c1fbd778a027610ee1d7bef8c467e80dffdc022b37cb1ca",
+    "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-28/techniques-block-0-half-0.png": "c67a9d511d85e592902b5be051517d328b3fa63e8a7c2ed46794b55e21d29cea",
+    "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-28/techniques-block-0-half-1.png": "9d931223fa0b66f2682974bde36c8fae6773091b87752c3f88eb48ca7952f5f3",
+    "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-28/techniques-block-1-half-0.png": "8e992cbf54ac46ca27d9544fdb9919f43200a30f8953c692ac339b12d622f7d7",
+    "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-28/techniques-block-1-half-1.png": "4efd1bea45c8c45740c31ba02f7ce68d86aaa2f810ae70f374a0fdb10ddc4909",
+    "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-28/techniques-block-2-half-0.png": "78df2b63ca53d863081b8ff97d799d58f7f53c8f27f603ff849ff6c3ae8c54ff",
+    "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-28/techniques-block-2-half-1.png": "90404d4c1ea88c12449eeb9bbbbe00e705e72bb73be14d1122b40c12c181b958",
+    "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-28/idle-block-0.png": "b8f0a80fc1f26a909ee03d63671d32508e2edeb13dbf519f99782e9a20841f12",
+    "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-28/idle-block-1.png": "0391700017b94ea38bb30cfce7858cf7713bfe7e57639892dd2d6589b8642310",
+    "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-28/original-physical-side-0.60.png": "20e18dd0f6eeb8766c43e527966957c0c7f252ce0bddaf7c7d83ce398121baab",
+    "shinobij.client/public/pet-models/warfront-impostors/roster/rare-28.webp": "51a0bf3e07951c7f9e9b067879c4c29b0604b60075d240f900c70c43c03dec09",
+    "docs/screenshots/pet-independent-face-2026-10-15/rare-28-anatomical-landmark-coverage.png": "4498336b20b1be3a13b995a07cc683fd7fcf314fef984f8f9402ae1702a2e3b4",
+    "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-28/technique-capture-manifest.json": "6afac41285eaa98d9aabc24bd40794863a3972668cd3ced1e42d99a01e7e15bc",
+    "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-28/technique-strip-manifest.json": "c51fc94725069e38673ef2124aeec1d6c7fcb0687209a6dea4b46f19f06bbb94",
+    "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-28/front-block-0-half-0.png": "ab3a1018194ae0bdbe9a9ce14df6c1984dd8647ca89242423dfb7792688e5357",
+    "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-28/front-block-0-half-1.png": "fd85c3925e16450becdb68e53f8e5e54cc1409463ac350a4cd91fcccc1c6867b",
+    "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-28/front-block-1-half-0.png": "43494b0ad9ef15de3764c1218210846228f244f5d8953e8a5560d81cc2fe8d6a",
+    "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-28/front-block-1-half-1.png": "a17bd3b4e959c6699e1e62a511e827b0991071cec01159a5a265483f2fdf7443",
+    "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-28/front-block-2-half-0.png": "8b9dd3a2d2ccd3ed63fa10e75888b788aab176da846fbc1a8658269e913bc426",
+    "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-28/front-block-2-half-1.png": "94fa7dcde9c81a28801479f5b029c556dc8dfc32fb0090e3a66dcced3e7e8362",
+    "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-28/side-block-0-half-0.png": "984274209f0421edad266d751c835305f4a3ccc6d50ecef0cdeeceb620c2d06b",
+    "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-28/side-block-0-half-1.png": "347b6804c67867fdf08e76e92850f94b9e0cd9ae9de9f2c47bab7ef83e3be00b",
+    "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-28/side-block-1-half-0.png": "7bdb90d1c2db1fbed0b2c9cdefdaec5adfc84098cd4b979f440bbad63573366c",
+    "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-28/side-block-1-half-1.png": "9035041004eb53840aeda55a9ace9842f4fc3b1a88ec244c5131871d51add201",
+    "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-28/side-block-2-half-0.png": "cc1e6e1bc0089ccba94799e7a6c9bc547870a0d7b5eb4cc7782889d076a1301d",
+    "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-28/side-block-2-half-1.png": "6ca36ecc9c65cddb85fc4b686d59ff3332d97ef127618f026fa0bccb12fa8fbd",
+    "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-28/panels-manifest.json": "799d47718bfdd9bf6e55d2e29e481a95e814485dca1f2834eb6e2ebddba465bc"
+  },
+  "limits": "Local exact-byte sampled visual review; no claim of authenticated live player modal verification. Default companion technique capture selected battle model only."
+}
