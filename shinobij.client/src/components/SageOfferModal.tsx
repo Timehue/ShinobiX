@@ -180,7 +180,7 @@ export function SageOfferModal({ offer, playerName, actionsAllowed, canMutate, o
         <Modal open onClose={close} ariaLabel="The Wandering Sage legacy offer" size="md" bare disableBackdropClose={busy}>
             <div className="card" style={{ maxWidth: 460, width: "94%", maxHeight: "88dvh", overflowY: "auto", padding: 16 }} onClick={(e) => e.stopPropagation()}>
                 <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 10 }}>
-                    <img src={wanderingSagePortrait} alt="Wandering Sage" style={{ width: 64, height: 64, objectFit: "cover", borderRadius: "50%", border: "2px solid var(--purple-400)" }} />
+                    <img src={wanderingSagePortrait} alt="Wandering Sage" style={{ width: 64, height: 64, objectFit: "contain", borderRadius: "50%", border: "2px solid var(--purple-400)" }} />
                     <div>
                         <h3 style={{ margin: 0 }}>The Wandering Sage</h3>
                         <p style={{ margin: 0, fontSize: ".75rem", color: "#9aa3b2" }}>“Your path has opened these legacies to you.”</p>

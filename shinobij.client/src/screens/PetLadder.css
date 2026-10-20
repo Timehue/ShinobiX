@@ -14,7 +14,7 @@
     .pl-pet:hover { border-color: rgba(244,196,81,.4); transform: translateY(-2px); }
 }
 .pl-pet.sel { border-color: #f4c451; box-shadow: 0 0 0 1px #f4c451, 0 8px 20px rgba(224,161,6,.22); }
-.pl-pet-img { width: 100%; aspect-ratio: 1 / 1; object-fit: cover; display: block; background: #0c0f18; }
+.pl-pet-img { width: 100%; aspect-ratio: 1 / 1; object-fit: contain; display: block; background: #0c0f18; }
 .pl-pet-body { padding: 7px 9px 9px; }
 .pl-pet-name { font-weight: 700; font-size: 12.5px; line-height: 1.2; }
 .pl-pet-role { font-size: 11px; font-weight: 700; margin-top: 1px; }
@@ -41,7 +41,7 @@
   position: relative; border-radius: 16px; overflow: hidden; margin-bottom: 14px;
   box-shadow: 0 12px 36px rgba(0,0,0,.55), inset 0 0 0 1px rgba(244,196,81,.18);
 }
-.pl-hero img { width: 100%; height: 172px; object-fit: cover; display: block; transform: scale(1.03); }
+.pl-hero img { width: 100%; height: 172px; object-fit: contain; display: block; transform: scale(1); }
 .pl-hero::after {
   content: ""; position: absolute; inset: 0;
   background: linear-gradient(180deg, rgba(8,10,18,.12) 0%, rgba(8,10,18,.5) 52%, rgba(8,10,18,.93) 100%);
@@ -160,9 +160,9 @@
 /* -- Painted mode emblems + glyph alignment (replaced the emoji icons) ------ */
 /* img-qualified so these beat the full-bleed `.pl-hero img` banner rule when
    an emblem sits inside the hero title. */
-img.pl-mode-art { display: inline-block; width: 26px; height: 26px; object-fit: cover; border-radius: 7px; border: 1px solid rgba(240, 202, 121, 0.35); vertical-align: -6px; transform: none; }
+img.pl-mode-art { display: inline-block; width: 26px; height: 26px; object-fit: contain; border-radius: 7px; border: 1px solid rgba(240, 202, 121, 0.35); vertical-align: -6px; transform: none; }
 img.pl-mode-art-tab { width: 20px; height: 20px; vertical-align: -5px; }
-.pl-empty-art { display: block; width: 54px; height: 54px; margin: 0 auto; object-fit: cover; border-radius: 50%; border: 1px solid rgba(240, 202, 121, 0.3); }
+.pl-empty-art { display: block; width: 54px; height: 54px; margin: 0 auto; object-fit: contain; border-radius: 50%; border: 1px solid rgba(240, 202, 121, 0.3); }
 .pl-h svg, .pl-charges-l svg, .pl-notify-row svg, .pl-notify-head svg, .pl-row-rec svg { vertical-align: -2px; }
 .pl-formation-pets {
     display: flex;

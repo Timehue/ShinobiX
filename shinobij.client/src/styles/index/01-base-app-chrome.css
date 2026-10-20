@@ -165,7 +165,7 @@ h3 {
         border-radius: 8px;
         border: 1px solid rgba(216, 161, 58, 0.55);
         background: rgba(7, 13, 28, 0.9);
-        object-fit: cover;
+        object-fit: contain;
         display: grid;
         place-items: center;
         font-weight: 800;
@@ -174,7 +174,7 @@ h3 {
 
 .ai-image-preview img {
     max-height: 220px;
-    object-fit: cover;
+    object-fit: contain;
 }
 
 .ai-image-generator {
@@ -348,7 +348,7 @@ button {
     width: 74px;
     height: 74px;
     border-radius: 10px;
-    object-fit: cover;
+    object-fit: contain;
     border: 1px solid rgba(230, 196, 119, 0.45);
     box-shadow: 0 10px 22px rgba(0, 0, 0, 0.28);
 }
@@ -358,7 +358,7 @@ button {
     width: 72px;
     height: 72px;
     border-radius: 12px;
-    object-fit: cover;
+    object-fit: contain;
     border: 1px solid rgba(230, 196, 119, 0.45);
     box-shadow: 0 12px 24px rgba(0, 0, 0, 0.28);
     flex: 0 0 auto;
@@ -519,7 +519,7 @@ button {
     .technique-thumb img {
         width: 100%;
         height: 100%;
-        object-fit: cover;
+        object-fit: contain;
         display: block;
     }
 

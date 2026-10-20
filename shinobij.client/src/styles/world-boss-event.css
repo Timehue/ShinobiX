@@ -89,7 +89,7 @@
     overflow: hidden;
     border: 1px solid rgba(193, 221, 243, .14);
     border-radius: 18px;
-    background: #101c2e url('/world-boss/hollow-beast-key-art-v1.webp') center 44% / cover no-repeat;
+    background: #101c2e url('/world-boss/hollow-beast-key-art-v1.webp') center / contain no-repeat;
     box-shadow: 0 22px 70px rgba(0, 0, 0, .32);
 }
 .world-boss-hero-fade {
@@ -249,7 +249,7 @@
     .world-boss-event-topbar,.world-boss-hero,.world-boss-event-content { width: min(100% - 24px, 560px); }
     .world-boss-event-topbar { min-height: 58px; grid-template-columns: 1fr auto; }
     .world-boss-topbar-mark { display: none; }
-    .world-boss-hero { min-height: 300px; margin-top: 12px; background-position: 59% center; }
+    .world-boss-hero { min-height: 300px; margin-top: 12px; background-position: center; }
     .world-boss-hero-fade { background: linear-gradient(90deg, rgba(6, 15, 28, .92), rgba(7, 17, 31, .42) 100%), linear-gradient(0deg, rgba(5, 12, 22, .55), transparent 80%); }
     .world-boss-hero-copy { align-self: end; padding: 26px 20px 28px; }
     .world-boss-hero h1 { font-size: clamp(38px, 11vw, 56px); }
