@@ -155,11 +155,15 @@ function runtimePublicAssetsPlugin() {
     };
     const mergeRuntimePath = (sourcePath: string, destinationPath: string) => {
         if (!isRuntimePath(sourcePath)) return;
-        // Read fixed runtime scripts directly: a prior path-based stat would
-        // leave a check/use gap before reading the source for minification.
+        // Read transformed runtime files directly: a prior path-based stat
+        // would leave a check/use gap before reading their source bytes.
         // Minify only the two standalone, first-party browser runtime scripts.
         if (sourcePath === path.join(PUBLIC_ROOT, 'boot-watchdog.js') || sourcePath === path.join(PUBLIC_ROOT, 'sw.js')) {
             fs.writeFileSync(destinationPath, minifyRuntimeSource(fs.readFileSync(sourcePath, 'utf8')));
+            return;
+        }
+        if (sourcePath.startsWith(path.join(PUBLIC_ROOT, 'pet-models') + path.sep) && sourcePath.endsWith('.glb')) {
+            fs.writeFileSync(destinationPath, compactGlbDelivery(fs.readFileSync(sourcePath)));
             return;
         }
         const stat = fs.statSync(sourcePath);
@@ -170,11 +174,7 @@ function runtimePublicAssetsPlugin() {
             }
             return;
         }
-        if (sourcePath.startsWith(path.join(PUBLIC_ROOT, 'pet-models') + path.sep) && sourcePath.endsWith('.glb')) {
-            fs.writeFileSync(destinationPath, compactGlbDelivery(fs.readFileSync(sourcePath)));
-        } else {
-            fs.copyFileSync(sourcePath, destinationPath);
-        }
+        fs.copyFileSync(sourcePath, destinationPath);
     };
     return {
         name: 'runtime-public-assets',
