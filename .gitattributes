@@ -148,6 +148,9 @@ docs/screenshots/*pebble*/*.json text eol=lf
 docs/screenshots/*pebble*/*.ts text eol=lf
 
 docs/audits/pet-stone*.json text eol=lf
+docs/screenshots/pet-red-fox-technique-followup-2026-10-20/*.txt text eol=lf
+docs/screenshots/pet-reviewed-legendary-stone-release-2026-10-20/*.txt text eol=lf
+docs/screenshots/pet-reviewed-legendary-stone-release-2026-10-20/*.mjs text eol=lf
 
 docs/screenshots/*stone*/*.mjs text eol=lf
 
