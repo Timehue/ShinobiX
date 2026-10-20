@@ -45,7 +45,7 @@ for (const template of Object.values(PET_CATALOG) as Template[]) for (const leve
     }
     for (const seed of seeds) for (const swapped of [false, true]) {
         const pet = (growthAllocation: PetGrowthAllocation, id: string): Pet => ({
-            ...template, id, templateId: template.id, level, trait: undefined,
+            ...template, id, templateId: template.id, level, trait: undefined, growthVersion: 2,
             growthBaseStats: { hp: template.hp, attack: template.attack, defense: template.defense, speed: template.speed },
             growthAllocation,
         } as Pet);

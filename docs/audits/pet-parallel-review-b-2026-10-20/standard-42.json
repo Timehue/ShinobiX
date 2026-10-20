@@ -1,0 +1,2307 @@
+{
+  "id": "standard-42",
+  "name": "Arc Vole",
+  "reviewer": "parallel-reviewer-b",
+  "startedAt": "2026-10-20T04:24:11.046Z",
+  "sourceSha256": "e9dbff6f68558e37137de3b614a452cf3c144cf6dcd73951407e2a89b382ab09",
+  "battleSha256": "785b58627bb41949ec037af7d673f4b11d440521caa6293d3e19d53442bf17d3",
+  "atlasSha256": "b339f75cdae8d91a503eff7c542385997856a8f6ede493319ee00ab04e04857e",
+  "rendererSha256": "b2253b71fbcb21a83d82de35ab5783dd57b525cfc94740fb131dd1eb0049a897",
+  "evidenceHashesVerified": true,
+  "priorApprovalInherited": false,
+  "nativePixelsPreserved": true,
+  "images": [
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/standard-42/source-front-0.png",
+      "sha256": "1fef8a2054d93737b4a695bd079fc5f5fe6b8d813d827184c6505c9c50619784",
+      "source": "docs/screenshots/pet-independent-face-2026-10-15/standard-42-source-front.webp",
+      "rows": [
+        0,
+        5
+      ],
+      "viewed": true,
+      "viewedAt": "2026-10-20T04:59:46.656Z",
+      "observation": "All13 raw clips at six phases inspected in source/battle front/side head and body. Gray rat snout, eyes, ears and whiskers preserve shape; scarf rises with shoulder on recoil, limbs remain attached, belly and tail remain cohesive through walk, gallop, jump, attack and death."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/standard-42/source-front-1.png",
+      "sha256": "8d48d4409db24ed002559013020257a9ab2e8e8fae3c970cd046030485100d0b",
+      "source": "docs/screenshots/pet-independent-face-2026-10-15/standard-42-source-front.webp",
+      "rows": [
+        5,
+        10
+      ],
+      "viewed": true,
+      "viewedAt": "2026-10-20T04:59:46.660Z",
+      "observation": "All13 raw clips at six phases inspected in source/battle front/side head and body. Gray rat snout, eyes, ears and whiskers preserve shape; scarf rises with shoulder on recoil, limbs remain attached, belly and tail remain cohesive through walk, gallop, jump, attack and death."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/standard-42/source-front-2.png",
+      "sha256": "22d633acfcd4864ed7e0bdcef1000e936bc6b010e4ad264296990d500558c4a8",
+      "source": "docs/screenshots/pet-independent-face-2026-10-15/standard-42-source-front.webp",
+      "rows": [
+        10,
+        13
+      ],
+      "viewed": true,
+      "viewedAt": "2026-10-20T04:59:46.662Z",
+      "observation": "All13 raw clips at six phases inspected in source/battle front/side head and body. Gray rat snout, eyes, ears and whiskers preserve shape; scarf rises with shoulder on recoil, limbs remain attached, belly and tail remain cohesive through walk, gallop, jump, attack and death."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/standard-42/source-side-0.png",
+      "sha256": "783848fc652d97fa66c27ed59e8866cb163b918bb5753b20fea6a5acd8165c9c",
+      "source": "docs/screenshots/pet-independent-face-2026-10-15/standard-42-source-side.webp",
+      "rows": [
+        0,
+        5
+      ],
+      "viewed": true,
+      "viewedAt": "2026-10-20T04:59:46.664Z",
+      "observation": "All13 raw clips at six phases inspected in source/battle front/side head and body. Gray rat snout, eyes, ears and whiskers preserve shape; scarf rises with shoulder on recoil, limbs remain attached, belly and tail remain cohesive through walk, gallop, jump, attack and death."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/standard-42/source-side-1.png",
+      "sha256": "093a164fc5e5841bb4dbe15b88ad05053c3f3f6cecc3e3e7631a0c2caba3b059",
+      "source": "docs/screenshots/pet-independent-face-2026-10-15/standard-42-source-side.webp",
+      "rows": [
+        5,
+        10
+      ],
+      "viewed": true,
+      "viewedAt": "2026-10-20T04:59:46.667Z",
+      "observation": "All13 raw clips at six phases inspected in source/battle front/side head and body. Gray rat snout, eyes, ears and whiskers preserve shape; scarf rises with shoulder on recoil, limbs remain attached, belly and tail remain cohesive through walk, gallop, jump, attack and death."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/standard-42/source-side-2.png",
+      "sha256": "a0a218a6faa4940fce61cb5a86a975b629d044fafb0874075e7cade5f51ec0b6",
+      "source": "docs/screenshots/pet-independent-face-2026-10-15/standard-42-source-side.webp",
+      "rows": [
+        10,
+        13
+      ],
+      "viewed": true,
+      "viewedAt": "2026-10-20T04:59:46.668Z",
+      "observation": "All13 raw clips at six phases inspected in source/battle front/side head and body. Gray rat snout, eyes, ears and whiskers preserve shape; scarf rises with shoulder on recoil, limbs remain attached, belly and tail remain cohesive through walk, gallop, jump, attack and death."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/standard-42/source-head-front-0.png",
+      "sha256": "821a17e98ebd36e111fced0d9ba1af807f0a0493d46d6e99c95f9573328a1873",
+      "source": "docs/screenshots/pet-independent-face-2026-10-15/standard-42-source-head-front.webp",
+      "rows": [
+        0,
+        5
+      ],
+      "viewed": true,
+      "viewedAt": "2026-10-20T04:59:46.672Z",
+      "observation": "All13 raw clips at six phases inspected in source/battle front/side head and body. Gray rat snout, eyes, ears and whiskers preserve shape; scarf rises with shoulder on recoil, limbs remain attached, belly and tail remain cohesive through walk, gallop, jump, attack and death."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/standard-42/source-head-front-1.png",
+      "sha256": "2c03cf46467f70d23d1a7263ecd8039664cfe25d91269f1b8dd3b4c495d29699",
+      "source": "docs/screenshots/pet-independent-face-2026-10-15/standard-42-source-head-front.webp",
+      "rows": [
+        5,
+        10
+      ],
+      "viewed": true,
+      "viewedAt": "2026-10-20T04:59:46.676Z",
+      "observation": "All13 raw clips at six phases inspected in source/battle front/side head and body. Gray rat snout, eyes, ears and whiskers preserve shape; scarf rises with shoulder on recoil, limbs remain attached, belly and tail remain cohesive through walk, gallop, jump, attack and death."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/standard-42/source-head-front-2.png",
+      "sha256": "a2663bef1482e72fd8510d99e4ec4ed69edf08017ff231a0f3069cd5a31c4391",
+      "source": "docs/screenshots/pet-independent-face-2026-10-15/standard-42-source-head-front.webp",
+      "rows": [
+        10,
+        13
+      ],
+      "viewed": true,
+      "viewedAt": "2026-10-20T04:59:46.679Z",
+      "observation": "All13 raw clips at six phases inspected in source/battle front/side head and body. Gray rat snout, eyes, ears and whiskers preserve shape; scarf rises with shoulder on recoil, limbs remain attached, belly and tail remain cohesive through walk, gallop, jump, attack and death."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/standard-42/source-head-side-0.png",
+      "sha256": "7647026f5b39309d8c1f9151cd36d3e456ab76e469b8edcc0e63410a31bc7361",
+      "source": "docs/screenshots/pet-independent-face-2026-10-15/standard-42-source-head-side.webp",
+      "rows": [
+        0,
+        5
+      ],
+      "viewed": true,
+      "viewedAt": "2026-10-20T04:59:46.683Z",
+      "observation": "All13 raw clips at six phases inspected in source/battle front/side head and body. Gray rat snout, eyes, ears and whiskers preserve shape; scarf rises with shoulder on recoil, limbs remain attached, belly and tail remain cohesive through walk, gallop, jump, attack and death."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/standard-42/source-head-side-1.png",
+      "sha256": "f9bd477202e3b67808e936526c86c42eabae8e6159833c3bae12639fceb9944a",
+      "source": "docs/screenshots/pet-independent-face-2026-10-15/standard-42-source-head-side.webp",
+      "rows": [
+        5,
+        10
+      ],
+      "viewed": true,
+      "viewedAt": "2026-10-20T04:59:46.687Z",
+      "observation": "All13 raw clips at six phases inspected in source/battle front/side head and body. Gray rat snout, eyes, ears and whiskers preserve shape; scarf rises with shoulder on recoil, limbs remain attached, belly and tail remain cohesive through walk, gallop, jump, attack and death."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/standard-42/source-head-side-2.png",
+      "sha256": "ddbbbc7c09bd3d30e670264e1a0843d499e9395c8c8e20df0bf160a81846abb9",
+      "source": "docs/screenshots/pet-independent-face-2026-10-15/standard-42-source-head-side.webp",
+      "rows": [
+        10,
+        13
+      ],
+      "viewed": true,
+      "viewedAt": "2026-10-20T04:59:46.689Z",
+      "observation": "All13 raw clips at six phases inspected in source/battle front/side head and body. Gray rat snout, eyes, ears and whiskers preserve shape; scarf rises with shoulder on recoil, limbs remain attached, belly and tail remain cohesive through walk, gallop, jump, attack and death."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/standard-42/battle-front-0.png",
+      "sha256": "a2fd1dba6f33c7e028c7e2cfedeffb3d5e3113f6b1c1a74814a2b28cfa39ceb2",
+      "source": "docs/screenshots/pet-independent-face-2026-10-15/standard-42-battle-front.webp",
+      "rows": [
+        0,
+        5
+      ],
+      "viewed": true,
+      "viewedAt": "2026-10-20T04:59:46.690Z",
+      "observation": "All13 raw clips at six phases inspected in source/battle front/side head and body. Gray rat snout, eyes, ears and whiskers preserve shape; scarf rises with shoulder on recoil, limbs remain attached, belly and tail remain cohesive through walk, gallop, jump, attack and death."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/standard-42/battle-front-1.png",
+      "sha256": "f9294fcc410fa0a11bf8e5fb33f75d38683b773553bb290116d804b6d80a8db2",
+      "source": "docs/screenshots/pet-independent-face-2026-10-15/standard-42-battle-front.webp",
+      "rows": [
+        5,
+        10
+      ],
+      "viewed": true,
+      "viewedAt": "2026-10-20T04:59:46.691Z",
+      "observation": "All13 raw clips at six phases inspected in source/battle front/side head and body. Gray rat snout, eyes, ears and whiskers preserve shape; scarf rises with shoulder on recoil, limbs remain attached, belly and tail remain cohesive through walk, gallop, jump, attack and death."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/standard-42/battle-front-2.png",
+      "sha256": "22dd111020b42ec4ac831d7302858a299e1da00f424096207e100865f62a841f",
+      "source": "docs/screenshots/pet-independent-face-2026-10-15/standard-42-battle-front.webp",
+      "rows": [
+        10,
+        13
+      ],
+      "viewed": true,
+      "viewedAt": "2026-10-20T04:59:46.692Z",
+      "observation": "All13 raw clips at six phases inspected in source/battle front/side head and body. Gray rat snout, eyes, ears and whiskers preserve shape; scarf rises with shoulder on recoil, limbs remain attached, belly and tail remain cohesive through walk, gallop, jump, attack and death."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/standard-42/battle-side-0.png",
+      "sha256": "24e99a224b565f82d0a1ea35937877171784b3ff4c6ecdaa49d74f9b3ff63b94",
+      "source": "docs/screenshots/pet-independent-face-2026-10-15/standard-42-battle-side.webp",
+      "rows": [
+        0,
+        5
+      ],
+      "viewed": true,
+      "viewedAt": "2026-10-20T04:59:46.693Z",
+      "observation": "All13 raw clips at six phases inspected in source/battle front/side head and body. Gray rat snout, eyes, ears and whiskers preserve shape; scarf rises with shoulder on recoil, limbs remain attached, belly and tail remain cohesive through walk, gallop, jump, attack and death."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/standard-42/battle-side-1.png",
+      "sha256": "ff78e2f55d61ac27658fa67f16a282fe83d95b030f5335f33c4b04af39e03cb9",
+      "source": "docs/screenshots/pet-independent-face-2026-10-15/standard-42-battle-side.webp",
+      "rows": [
+        5,
+        10
+      ],
+      "viewed": true,
+      "viewedAt": "2026-10-20T04:59:46.695Z",
+      "observation": "All13 raw clips at six phases inspected in source/battle front/side head and body. Gray rat snout, eyes, ears and whiskers preserve shape; scarf rises with shoulder on recoil, limbs remain attached, belly and tail remain cohesive through walk, gallop, jump, attack and death."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/standard-42/battle-side-2.png",
+      "sha256": "538d481ec402c36f8d7b54207f4f408333366b5a98cc7344eb47363ec795e8f6",
+      "source": "docs/screenshots/pet-independent-face-2026-10-15/standard-42-battle-side.webp",
+      "rows": [
+        10,
+        13
+      ],
+      "viewed": true,
+      "viewedAt": "2026-10-20T04:59:46.696Z",
+      "observation": "All13 raw clips at six phases inspected in source/battle front/side head and body. Gray rat snout, eyes, ears and whiskers preserve shape; scarf rises with shoulder on recoil, limbs remain attached, belly and tail remain cohesive through walk, gallop, jump, attack and death."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/standard-42/battle-head-front-0.png",
+      "sha256": "4d8db5664fdb1f0930f049837dcc8b3bf3a09737bbbe29b86f768bed40c656ec",
+      "source": "docs/screenshots/pet-independent-face-2026-10-15/standard-42-battle-head-front.webp",
+      "rows": [
+        0,
+        5
+      ],
+      "viewed": true,
+      "viewedAt": "2026-10-20T04:59:46.700Z",
+      "observation": "All13 raw clips at six phases inspected in source/battle front/side head and body. Gray rat snout, eyes, ears and whiskers preserve shape; scarf rises with shoulder on recoil, limbs remain attached, belly and tail remain cohesive through walk, gallop, jump, attack and death."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/standard-42/battle-head-front-1.png",
+      "sha256": "30ff1cfc5561bca6ca31bf875e2d1d9afe6f13eab867f593316609b550c73df5",
+      "source": "docs/screenshots/pet-independent-face-2026-10-15/standard-42-battle-head-front.webp",
+      "rows": [
+        5,
+        10
+      ],
+      "viewed": true,
+      "viewedAt": "2026-10-20T04:59:46.704Z",
+      "observation": "All13 raw clips at six phases inspected in source/battle front/side head and body. Gray rat snout, eyes, ears and whiskers preserve shape; scarf rises with shoulder on recoil, limbs remain attached, belly and tail remain cohesive through walk, gallop, jump, attack and death."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/standard-42/battle-head-front-2.png",
+      "sha256": "186cdc0e7cf69c3183dfa98487ad7a19fa78704734a6dbdda74b14cf2a0b1e8c",
+      "source": "docs/screenshots/pet-independent-face-2026-10-15/standard-42-battle-head-front.webp",
+      "rows": [
+        10,
+        13
+      ],
+      "viewed": true,
+      "viewedAt": "2026-10-20T04:59:46.707Z",
+      "observation": "All13 raw clips at six phases inspected in source/battle front/side head and body. Gray rat snout, eyes, ears and whiskers preserve shape; scarf rises with shoulder on recoil, limbs remain attached, belly and tail remain cohesive through walk, gallop, jump, attack and death."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/standard-42/battle-head-side-0.png",
+      "sha256": "be6c49cdfb08579a0a944b14648cee8f2165be7b837478d4225742efc0e87c8a",
+      "source": "docs/screenshots/pet-independent-face-2026-10-15/standard-42-battle-head-side.webp",
+      "rows": [
+        0,
+        5
+      ],
+      "viewed": true,
+      "viewedAt": "2026-10-20T04:59:46.708Z",
+      "observation": "All13 raw clips at six phases inspected in source/battle front/side head and body. Gray rat snout, eyes, ears and whiskers preserve shape; scarf rises with shoulder on recoil, limbs remain attached, belly and tail remain cohesive through walk, gallop, jump, attack and death."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/standard-42/battle-head-side-1.png",
+      "sha256": "e9cc6a2b9c33fa44a4dfae5526e47646b664fbcf239ac3e2c7a0c3450200086f",
+      "source": "docs/screenshots/pet-independent-face-2026-10-15/standard-42-battle-head-side.webp",
+      "rows": [
+        5,
+        10
+      ],
+      "viewed": true,
+      "viewedAt": "2026-10-20T04:59:46.711Z",
+      "observation": "All13 raw clips at six phases inspected in source/battle front/side head and body. Gray rat snout, eyes, ears and whiskers preserve shape; scarf rises with shoulder on recoil, limbs remain attached, belly and tail remain cohesive through walk, gallop, jump, attack and death."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/standard-42/battle-head-side-2.png",
+      "sha256": "7dd487efd4e9ee253d3fc03929d83979adb16d4d33a4a411ad5934897a0f3686",
+      "source": "docs/screenshots/pet-independent-face-2026-10-15/standard-42-battle-head-side.webp",
+      "rows": [
+        10,
+        13
+      ],
+      "viewed": true,
+      "viewedAt": "2026-10-20T04:59:46.712Z",
+      "observation": "All13 raw clips at six phases inspected in source/battle front/side head and body. Gray rat snout, eyes, ears and whiskers preserve shape; scarf rises with shoulder on recoil, limbs remain attached, belly and tail remain cohesive through walk, gallop, jump, attack and death."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/standard-42/runtime-source-body-0.png",
+      "sha256": "a10884edc6fbde4c3d01bf1f9b637370ac39ee35e7b784c3041ea85070bba2c6",
+      "source": "docs/screenshots/pet-independent-face-2026-10-15/standard-42-runtime-source-body.webp",
+      "rows": [
+        0,
+        4
+      ],
+      "viewed": true,
+      "viewedAt": "2026-10-20T04:59:46.713Z",
+      "observation": "All16 production transition rows inspected front/side head/body on both source and battle. Nose, visible gray lower cheeks/chin and white incisors retain sculpt; whiskers remain on muzzle. Arms, feet, rounded torso and tail move together, including stagger, dodge, death/revive and attack sequence."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/standard-42/runtime-source-body-1.png",
+      "sha256": "2ebc767e9a3749bf3dfa3ee557de50ac126caaa69add859bf13f60ce0a63e69c",
+      "source": "docs/screenshots/pet-independent-face-2026-10-15/standard-42-runtime-source-body.webp",
+      "rows": [
+        4,
+        8
+      ],
+      "viewed": true,
+      "viewedAt": "2026-10-20T04:59:46.714Z",
+      "observation": "All16 production transition rows inspected front/side head/body on both source and battle. Nose, visible gray lower cheeks/chin and white incisors retain sculpt; whiskers remain on muzzle. Arms, feet, rounded torso and tail move together, including stagger, dodge, death/revive and attack sequence."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/standard-42/runtime-source-body-2.png",
+      "sha256": "1452ab8787c325be04a4038a5b95cc52ef936ac727eee0022636728bb7afe3a7",
+      "source": "docs/screenshots/pet-independent-face-2026-10-15/standard-42-runtime-source-body.webp",
+      "rows": [
+        8,
+        12
+      ],
+      "viewed": true,
+      "viewedAt": "2026-10-20T04:59:46.715Z",
+      "observation": "All16 production transition rows inspected front/side head/body on both source and battle. Nose, visible gray lower cheeks/chin and white incisors retain sculpt; whiskers remain on muzzle. Arms, feet, rounded torso and tail move together, including stagger, dodge, death/revive and attack sequence."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/standard-42/runtime-source-body-3.png",
+      "sha256": "1073fdb11412d3cd538980320182655a2899d3c1eab60eff0a81d45f307acfad",
+      "source": "docs/screenshots/pet-independent-face-2026-10-15/standard-42-runtime-source-body.webp",
+      "rows": [
+        12,
+        16
+      ],
+      "viewed": true,
+      "viewedAt": "2026-10-20T04:59:46.716Z",
+      "observation": "All16 production transition rows inspected front/side head/body on both source and battle. Nose, visible gray lower cheeks/chin and white incisors retain sculpt; whiskers remain on muzzle. Arms, feet, rounded torso and tail move together, including stagger, dodge, death/revive and attack sequence."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/standard-42/runtime-source-head-0.png",
+      "sha256": "c279104a6fd44803f9d18d7ac7b0bae837df8ade9a89aefee3a2710b6d75f6f0",
+      "source": "docs/screenshots/pet-independent-face-2026-10-15/standard-42-runtime-source-head.webp",
+      "rows": [
+        0,
+        4
+      ],
+      "viewed": true,
+      "viewedAt": "2026-10-20T04:59:46.719Z",
+      "observation": "All16 production transition rows inspected front/side head/body on both source and battle. Nose, visible gray lower cheeks/chin and white incisors retain sculpt; whiskers remain on muzzle. Arms, feet, rounded torso and tail move together, including stagger, dodge, death/revive and attack sequence."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/standard-42/runtime-source-head-1.png",
+      "sha256": "16bb50d2dfeb39c30618dea8d614f5598bc43db5e5dc66cc7e9d08c9b58af3f5",
+      "source": "docs/screenshots/pet-independent-face-2026-10-15/standard-42-runtime-source-head.webp",
+      "rows": [
+        4,
+        8
+      ],
+      "viewed": true,
+      "viewedAt": "2026-10-20T04:59:46.721Z",
+      "observation": "All16 production transition rows inspected front/side head/body on both source and battle. Nose, visible gray lower cheeks/chin and white incisors retain sculpt; whiskers remain on muzzle. Arms, feet, rounded torso and tail move together, including stagger, dodge, death/revive and attack sequence."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/standard-42/runtime-source-head-2.png",
+      "sha256": "0f07c4c8f31c5a9f262c4d5817226ea2425bb02451a887b13a3368447ae5972d",
+      "source": "docs/screenshots/pet-independent-face-2026-10-15/standard-42-runtime-source-head.webp",
+      "rows": [
+        8,
+        12
+      ],
+      "viewed": true,
+      "viewedAt": "2026-10-20T04:59:46.722Z",
+      "observation": "All16 production transition rows inspected front/side head/body on both source and battle. Nose, visible gray lower cheeks/chin and white incisors retain sculpt; whiskers remain on muzzle. Arms, feet, rounded torso and tail move together, including stagger, dodge, death/revive and attack sequence."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/standard-42/runtime-source-head-3.png",
+      "sha256": "88a3ca2c0d9e98f0101c980d070aaf4b3212b65ec9cd9ad8beb8dd7815fe4b17",
+      "source": "docs/screenshots/pet-independent-face-2026-10-15/standard-42-runtime-source-head.webp",
+      "rows": [
+        12,
+        16
+      ],
+      "viewed": true,
+      "viewedAt": "2026-10-20T04:59:46.724Z",
+      "observation": "All16 production transition rows inspected front/side head/body on both source and battle. Nose, visible gray lower cheeks/chin and white incisors retain sculpt; whiskers remain on muzzle. Arms, feet, rounded torso and tail move together, including stagger, dodge, death/revive and attack sequence."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/standard-42/runtime-battle-body-0.png",
+      "sha256": "8d66d20839e819fcbfcb2c1a2cb36afb76510a5895a3e0ca4e61720fef008e52",
+      "source": "docs/screenshots/pet-independent-face-2026-10-15/standard-42-runtime-battle-body.webp",
+      "rows": [
+        0,
+        4
+      ],
+      "viewed": true,
+      "viewedAt": "2026-10-20T04:59:46.725Z",
+      "observation": "All16 production transition rows inspected front/side head/body on both source and battle. Nose, visible gray lower cheeks/chin and white incisors retain sculpt; whiskers remain on muzzle. Arms, feet, rounded torso and tail move together, including stagger, dodge, death/revive and attack sequence."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/standard-42/runtime-battle-body-1.png",
+      "sha256": "230bd505c7b46b0027e69095449c0bdd19d0e0d2b13c5c0de4138f90576e2902",
+      "source": "docs/screenshots/pet-independent-face-2026-10-15/standard-42-runtime-battle-body.webp",
+      "rows": [
+        4,
+        8
+      ],
+      "viewed": true,
+      "viewedAt": "2026-10-20T04:59:46.726Z",
+      "observation": "All16 production transition rows inspected front/side head/body on both source and battle. Nose, visible gray lower cheeks/chin and white incisors retain sculpt; whiskers remain on muzzle. Arms, feet, rounded torso and tail move together, including stagger, dodge, death/revive and attack sequence."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/standard-42/runtime-battle-body-2.png",
+      "sha256": "999fc8de0771feda7887c1c6732bbcaa390d8cc4a9bc8160130d6ffc45a8ad51",
+      "source": "docs/screenshots/pet-independent-face-2026-10-15/standard-42-runtime-battle-body.webp",
+      "rows": [
+        8,
+        12
+      ],
+      "viewed": true,
+      "viewedAt": "2026-10-20T04:59:46.727Z",
+      "observation": "All16 production transition rows inspected front/side head/body on both source and battle. Nose, visible gray lower cheeks/chin and white incisors retain sculpt; whiskers remain on muzzle. Arms, feet, rounded torso and tail move together, including stagger, dodge, death/revive and attack sequence."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/standard-42/runtime-battle-body-3.png",
+      "sha256": "a8c60d7573d186b81a43770646dd8c469088f6f09d02d74575aef282b8f4a6ce",
+      "source": "docs/screenshots/pet-independent-face-2026-10-15/standard-42-runtime-battle-body.webp",
+      "rows": [
+        12,
+        16
+      ],
+      "viewed": true,
+      "viewedAt": "2026-10-20T04:59:46.728Z",
+      "observation": "All16 production transition rows inspected front/side head/body on both source and battle. Nose, visible gray lower cheeks/chin and white incisors retain sculpt; whiskers remain on muzzle. Arms, feet, rounded torso and tail move together, including stagger, dodge, death/revive and attack sequence."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/standard-42/runtime-battle-head-0.png",
+      "sha256": "fe28eb428e59d12fd4e34c58bb70747b5a1a5c87544e3d67e4562d0e8de100ae",
+      "source": "docs/screenshots/pet-independent-face-2026-10-15/standard-42-runtime-battle-head.webp",
+      "rows": [
+        0,
+        4
+      ],
+      "viewed": true,
+      "viewedAt": "2026-10-20T04:59:46.729Z",
+      "observation": "All16 production transition rows inspected front/side head/body on both source and battle. Nose, visible gray lower cheeks/chin and white incisors retain sculpt; whiskers remain on muzzle. Arms, feet, rounded torso and tail move together, including stagger, dodge, death/revive and attack sequence."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/standard-42/runtime-battle-head-1.png",
+      "sha256": "314b63e08590a0db16141ba9501c7ba2c3e06ce1c468b1a28af0c44751a6e33e",
+      "source": "docs/screenshots/pet-independent-face-2026-10-15/standard-42-runtime-battle-head.webp",
+      "rows": [
+        4,
+        8
+      ],
+      "viewed": true,
+      "viewedAt": "2026-10-20T04:59:46.731Z",
+      "observation": "All16 production transition rows inspected front/side head/body on both source and battle. Nose, visible gray lower cheeks/chin and white incisors retain sculpt; whiskers remain on muzzle. Arms, feet, rounded torso and tail move together, including stagger, dodge, death/revive and attack sequence."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/standard-42/runtime-battle-head-2.png",
+      "sha256": "50618f2f7bcae86e154825b3c7a5492ccc7d6a1a0f6ecb9d0cca1601fc7f0142",
+      "source": "docs/screenshots/pet-independent-face-2026-10-15/standard-42-runtime-battle-head.webp",
+      "rows": [
+        8,
+        12
+      ],
+      "viewed": true,
+      "viewedAt": "2026-10-20T04:59:46.733Z",
+      "observation": "All16 production transition rows inspected front/side head/body on both source and battle. Nose, visible gray lower cheeks/chin and white incisors retain sculpt; whiskers remain on muzzle. Arms, feet, rounded torso and tail move together, including stagger, dodge, death/revive and attack sequence."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/standard-42/runtime-battle-head-3.png",
+      "sha256": "eacbf8f5f1cefe333a1d7345d33a7d785105a4c1441ba9865cf9ab592f998d97",
+      "source": "docs/screenshots/pet-independent-face-2026-10-15/standard-42-runtime-battle-head.webp",
+      "rows": [
+        12,
+        16
+      ],
+      "viewed": true,
+      "viewedAt": "2026-10-20T04:59:46.734Z",
+      "observation": "All16 production transition rows inspected front/side head/body on both source and battle. Nose, visible gray lower cheeks/chin and white incisors retain sculpt; whiskers remain on muzzle. Arms, feet, rounded torso and tail move together, including stagger, dodge, death/revive and attack sequence."
+    },
+    {
+      "path": "docs/screenshots/pet-independent-face-2026-10-15/standard-42-companion-idle-0.webp",
+      "sha256": "a35e5543f38e4924a504116ee9886223c56ca46ddcc1c0693db1115e78f701a5",
+      "viewed": true,
+      "viewedAt": "2026-10-20T04:59:46.735Z",
+      "observation": "All24 advancing companion idle frames inspected in two native combined images. Face, whiskers, torso, arms, feet and tail remain cohesive."
+    },
+    {
+      "path": "docs/screenshots/pet-independent-face-2026-10-15/standard-42-companion-idle-1.webp",
+      "sha256": "d9da21bbb584bf51f10279302e6578d357bf354ae5d81f881283d76c29b7184a",
+      "viewed": true,
+      "viewedAt": "2026-10-20T04:59:46.736Z",
+      "observation": "All24 advancing companion idle frames inspected in two native combined images. Face, whiskers, torso, arms, feet and tail remain cohesive."
+    },
+    {
+      "path": "docs/screenshots/pet-independent-face-2026-10-15/standard-42-companion-idle-2.webp",
+      "sha256": "e9dd0e149a19b4660dfa33a9feca3605ce0f72638ea4b61cbca542fd435d85b0",
+      "viewed": true,
+      "viewedAt": "2026-10-20T04:59:46.737Z",
+      "observation": "All24 advancing companion idle frames inspected in two native combined images. Face, whiskers, torso, arms, feet and tail remain cohesive."
+    },
+    {
+      "path": "docs/screenshots/pet-independent-face-2026-10-15/standard-42-companion-idle-3.webp",
+      "sha256": "0c99caedf40102013f743550a709df64c5f374c8fd2f86247cc093d7d663b2bb",
+      "viewed": true,
+      "viewedAt": "2026-10-20T04:59:46.738Z",
+      "observation": "All24 advancing companion idle frames inspected in two native combined images. Face, whiskers, torso, arms, feet and tail remain cohesive."
+    },
+    {
+      "path": "docs/screenshots/pet-independent-face-2026-10-15/standard-42-companion-idle-4.webp",
+      "sha256": "083dd5c6f161c239791e349f41c42ebd428de22b8962391d03655b09987724ab",
+      "viewed": true,
+      "viewedAt": "2026-10-20T04:59:46.739Z",
+      "observation": "All24 advancing companion idle frames inspected in two native combined images. Face, whiskers, torso, arms, feet and tail remain cohesive."
+    },
+    {
+      "path": "docs/screenshots/pet-independent-face-2026-10-15/standard-42-companion-idle-5.webp",
+      "sha256": "abcba05a27274cf237ae9dcb8d55d67448471755ac341d031b6dc393def1ff93",
+      "viewed": true,
+      "viewedAt": "2026-10-20T04:59:46.739Z",
+      "observation": "All24 advancing companion idle frames inspected in two native combined images. Face, whiskers, torso, arms, feet and tail remain cohesive."
+    },
+    {
+      "path": "shinobij.client/public/pet-models/warfront-impostors/roster/standard-42.webp",
+      "sha256": "b339f75cdae8d91a503eff7c542385997856a8f6ede493319ee00ab04e04857e",
+      "viewed": true,
+      "viewedAt": "2026-10-20T04:59:46.740Z",
+      "observation": "All16 atlas cells actually inspected; no torn or disconnected silhouette observed."
+    }
+  ],
+  "techniques": {
+    "label": "parallel-b-standard-42-techniques",
+    "status": "reviewed-no-visible-disconnection",
+    "stage": "battle",
+    "assetSha256": "785b58627bb41949ec037af7d673f4b11d440521caa6293d3e19d53442bf17d3",
+    "rendererSha256": "b2253b71fbcb21a83d82de35ab5783dd57b525cfc94740fb131dd1eb0049a897",
+    "componentSha256": "472645f0ade2c17a8be0a8f9fa5af0fdb9d47f4c835e24e6a374c8219b33e4ab",
+    "moves": [
+      "lightning-strike",
+      "lightning-pulse",
+      "lightning-breaker",
+      "fire-pulse",
+      "open-wound",
+      "expose",
+      "rally",
+      "protect",
+      "standard-42-signature"
+    ],
+    "framesReviewed": 216,
+    "views": [
+      "front",
+      "side"
+    ],
+    "strips": [
+      {
+        "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/standard-42/techniques/front-block-0-half-0.png",
+        "sha256": "b7989075d9008b6cdfd76056c0b035bffc8a486b4f259f3953819d0548f78e13",
+        "viewed": true,
+        "reviewedAt": "2026-10-20T04:58:46.274Z",
+        "sources": [
+          {
+            "name": "standard-42-lightning-strike-front-0.png",
+            "sha256": "2cd4761d4f4beed2fe7e0a1abf0cc1937c30472de4cda64bd04c14ea4914848f",
+            "move": "lightning-strike",
+            "view": "front",
+            "time": 0.04
+          },
+          {
+            "name": "standard-42-lightning-strike-front-1.png",
+            "sha256": "30e93ca36b8c627b1617b805948322dcc16139480a51a677272e9c9b98ef2bad",
+            "move": "lightning-strike",
+            "view": "front",
+            "time": 0.12
+          },
+          {
+            "name": "standard-42-lightning-strike-front-2.png",
+            "sha256": "70799fa7b0e15c1073d0b63e6df960aab51a13f0ebe9b795ee37fd0f4d3e284e",
+            "move": "lightning-strike",
+            "view": "front",
+            "time": 0.24
+          },
+          {
+            "name": "standard-42-lightning-strike-front-3.png",
+            "sha256": "750dc5de4f87f888e50d14221422eb891c88b602b2fc0995c51d7c06d3807297",
+            "move": "lightning-strike",
+            "view": "front",
+            "time": 0.36
+          },
+          {
+            "name": "standard-42-lightning-strike-front-4.png",
+            "sha256": "eafb7a96e01a4c69e3ce1f12b92281bbc248b4f179b784b94209c8ace5feb270",
+            "move": "lightning-strike",
+            "view": "front",
+            "time": 0.48
+          },
+          {
+            "name": "standard-42-lightning-strike-front-5.png",
+            "sha256": "284bbf9a8162ef77ecd03fd15c0a81c35e467fbb254244e792d71738e097247b",
+            "move": "lightning-strike",
+            "view": "front",
+            "time": 0.6
+          },
+          {
+            "name": "standard-42-lightning-pulse-front-0.png",
+            "sha256": "260409981816c1aed78580fcaf5a61938569a5f6ea04d24f681d95d6f33d6f21",
+            "move": "lightning-pulse",
+            "view": "front",
+            "time": 0.04
+          },
+          {
+            "name": "standard-42-lightning-pulse-front-1.png",
+            "sha256": "1ca6d32db57331fed3d18701651a275992dd2be28df7783d34d25c489b41681c",
+            "move": "lightning-pulse",
+            "view": "front",
+            "time": 0.12
+          },
+          {
+            "name": "standard-42-lightning-pulse-front-2.png",
+            "sha256": "cb8b21b87f55ef254097a8e33765db13d1d40d585bef8d92063e602d643dc140",
+            "move": "lightning-pulse",
+            "view": "front",
+            "time": 0.24
+          },
+          {
+            "name": "standard-42-lightning-pulse-front-3.png",
+            "sha256": "717239b53d3962ca10062cd03fa37f5e52082b0d0e37399f3dbbcfe718411a1a",
+            "move": "lightning-pulse",
+            "view": "front",
+            "time": 0.36
+          },
+          {
+            "name": "standard-42-lightning-pulse-front-4.png",
+            "sha256": "aa7563cc7d888cccf6fcd60544c8d21c39d8aea2db5ef843e54d7e59bd72a957",
+            "move": "lightning-pulse",
+            "view": "front",
+            "time": 0.48
+          },
+          {
+            "name": "standard-42-lightning-pulse-front-5.png",
+            "sha256": "e4fe3f8d90c56b79cf7aff9f968247f6df9eea261da520b7da6e1e610153accb",
+            "move": "lightning-pulse",
+            "view": "front",
+            "time": 0.6
+          },
+          {
+            "name": "standard-42-lightning-breaker-front-0.png",
+            "sha256": "4237c44e6cb47c0e799b5b4e0e333a272b9fc98b7ddea5fa204fb8d0c046f830",
+            "move": "lightning-breaker",
+            "view": "front",
+            "time": 0.04
+          },
+          {
+            "name": "standard-42-lightning-breaker-front-1.png",
+            "sha256": "0a1bd6e2341dc1a105204191f6b56f1e9f5db3b102a9700a935a582f343aa1e9",
+            "move": "lightning-breaker",
+            "view": "front",
+            "time": 0.12
+          },
+          {
+            "name": "standard-42-lightning-breaker-front-2.png",
+            "sha256": "08b8ae1ee2af97b0c5a8f3a47a120cbbf887d5b110564c2079caa31b5a88dc78",
+            "move": "lightning-breaker",
+            "view": "front",
+            "time": 0.24
+          },
+          {
+            "name": "standard-42-lightning-breaker-front-3.png",
+            "sha256": "3ed5bcf042b481ebfa1a517460e986e24c8b13054aa3aa5473c0311139c4c4be",
+            "move": "lightning-breaker",
+            "view": "front",
+            "time": 0.36
+          },
+          {
+            "name": "standard-42-lightning-breaker-front-4.png",
+            "sha256": "60441f15f1545f18c96299543ff31e753639862abd6b1adf5572b36bfd84eb06",
+            "move": "lightning-breaker",
+            "view": "front",
+            "time": 0.48
+          },
+          {
+            "name": "standard-42-lightning-breaker-front-5.png",
+            "sha256": "28439722305006a2f7bcd512cae44ad42df265031f793528bb2a51283b616cf4",
+            "move": "lightning-breaker",
+            "view": "front",
+            "time": 0.6
+          }
+        ]
+      },
+      {
+        "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/standard-42/techniques/front-block-0-half-1.png",
+        "sha256": "a37f25fa900a18b0ecdd0745d7711e24399278a8d02090784ad054aaf6e38f1e",
+        "viewed": true,
+        "reviewedAt": "2026-10-20T04:58:46.277Z",
+        "sources": [
+          {
+            "name": "standard-42-lightning-strike-front-6.png",
+            "sha256": "3448cb178dbcb6d4afd7ff68a4ec3b294c92f01639ae9e4f68c66f15675ac21e",
+            "move": "lightning-strike",
+            "view": "front",
+            "time": 0.76
+          },
+          {
+            "name": "standard-42-lightning-strike-front-7.png",
+            "sha256": "b7060f89cca3593787ae9f53120940d0866887dda651146620b9aa6769b5fe46",
+            "move": "lightning-strike",
+            "view": "front",
+            "time": 0.96
+          },
+          {
+            "name": "standard-42-lightning-strike-front-8.png",
+            "sha256": "f534f29bf02f1ad90106cbe5a5ad6b32cd8ee64c1b3887abbf4c751581983567",
+            "move": "lightning-strike",
+            "view": "front",
+            "time": 1.2
+          },
+          {
+            "name": "standard-42-lightning-strike-front-9.png",
+            "sha256": "36d476b5ce91673ea37775f68039bf49eb9485fb1d5cdbb43c9753ad8a4103e3",
+            "move": "lightning-strike",
+            "view": "front",
+            "time": 1.44
+          },
+          {
+            "name": "standard-42-lightning-strike-front-10.png",
+            "sha256": "6cfc509e9a644cea573b5e593ea7b35ff90769d5f8cd99a8e9c636baea2259ff",
+            "move": "lightning-strike",
+            "view": "front",
+            "time": 1.68
+          },
+          {
+            "name": "standard-42-lightning-strike-front-11.png",
+            "sha256": "3a35b68a32e311c2ea3589f2039bebf1f836087dad9f24a79476843b97426258",
+            "move": "lightning-strike",
+            "view": "front",
+            "time": 1.92
+          },
+          {
+            "name": "standard-42-lightning-pulse-front-6.png",
+            "sha256": "2981591198f093e7d332004833a6949449b1abb34549e70ecdfae329057274cd",
+            "move": "lightning-pulse",
+            "view": "front",
+            "time": 0.76
+          },
+          {
+            "name": "standard-42-lightning-pulse-front-7.png",
+            "sha256": "1437f7b16607e6e77af4c8219d094d2cf29b76bcbf713992d3964bb0551e8804",
+            "move": "lightning-pulse",
+            "view": "front",
+            "time": 0.96
+          },
+          {
+            "name": "standard-42-lightning-pulse-front-8.png",
+            "sha256": "c8f82112620585e539ebf1c7f7f81a5d296e65b6e98b9eeb96893422d8086916",
+            "move": "lightning-pulse",
+            "view": "front",
+            "time": 1.2
+          },
+          {
+            "name": "standard-42-lightning-pulse-front-9.png",
+            "sha256": "1ef4a9e0e9f97061b3455bb9d6c439bfdfd5a2b0e2671039d9e1227e5830ad62",
+            "move": "lightning-pulse",
+            "view": "front",
+            "time": 1.44
+          },
+          {
+            "name": "standard-42-lightning-pulse-front-10.png",
+            "sha256": "8f722201cb94dd80043717137a2debf92341d4c96f489d2d410d36bd4b751199",
+            "move": "lightning-pulse",
+            "view": "front",
+            "time": 1.68
+          },
+          {
+            "name": "standard-42-lightning-pulse-front-11.png",
+            "sha256": "fc3e1702cd0d76cf349d5524fb70ae4b34006c249c7e36eefedda1782b65069c",
+            "move": "lightning-pulse",
+            "view": "front",
+            "time": 1.92
+          },
+          {
+            "name": "standard-42-lightning-breaker-front-6.png",
+            "sha256": "2c739dd894da77248260312d2255fe69b97475426f802cb7c1017a909fe14b67",
+            "move": "lightning-breaker",
+            "view": "front",
+            "time": 0.76
+          },
+          {
+            "name": "standard-42-lightning-breaker-front-7.png",
+            "sha256": "3f1e2c0966e0934245588ea6458c4b58429a79be81bfd96f7b7cefcd5e3d77b2",
+            "move": "lightning-breaker",
+            "view": "front",
+            "time": 0.96
+          },
+          {
+            "name": "standard-42-lightning-breaker-front-8.png",
+            "sha256": "db25e266da660654fc92578430a85e70f639dc461a3f65cfa7d197ac85719ba4",
+            "move": "lightning-breaker",
+            "view": "front",
+            "time": 1.2
+          },
+          {
+            "name": "standard-42-lightning-breaker-front-9.png",
+            "sha256": "7cd63368803525395c5ab53d700ee6b2facb2a02a48123d396afce718b31e305",
+            "move": "lightning-breaker",
+            "view": "front",
+            "time": 1.44
+          },
+          {
+            "name": "standard-42-lightning-breaker-front-10.png",
+            "sha256": "25d5f15d7ef5145390a8df07d713bcd1e0c56d415c89d81855d9e29f1ebf5940",
+            "move": "lightning-breaker",
+            "view": "front",
+            "time": 1.68
+          },
+          {
+            "name": "standard-42-lightning-breaker-front-11.png",
+            "sha256": "3a35b68a32e311c2ea3589f2039bebf1f836087dad9f24a79476843b97426258",
+            "move": "lightning-breaker",
+            "view": "front",
+            "time": 1.92
+          }
+        ]
+      },
+      {
+        "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/standard-42/techniques/front-block-1-half-0.png",
+        "sha256": "1c8313f16e96d7fe18d410b3e3d3634954c0064f32d93dbaea18f2da073ae282",
+        "viewed": true,
+        "reviewedAt": "2026-10-20T04:58:46.280Z",
+        "sources": [
+          {
+            "name": "standard-42-fire-pulse-front-0.png",
+            "sha256": "8e61aeb20b552dd7da40fa8ad13b29d016c6516da214043aa54878f2198dec6d",
+            "move": "fire-pulse",
+            "view": "front",
+            "time": 0.04
+          },
+          {
+            "name": "standard-42-fire-pulse-front-1.png",
+            "sha256": "85a98dc0cd73a90caf1dd9637c873b23dcbf549ef58f1f5324b18602ffc1c0cd",
+            "move": "fire-pulse",
+            "view": "front",
+            "time": 0.12
+          },
+          {
+            "name": "standard-42-fire-pulse-front-2.png",
+            "sha256": "b17f51e9b47b7f2aefb3dff8239dac1d1d4973d3e86ba17b713678f41e4db5a7",
+            "move": "fire-pulse",
+            "view": "front",
+            "time": 0.24
+          },
+          {
+            "name": "standard-42-fire-pulse-front-3.png",
+            "sha256": "5ee927a021dd5661db9dc3e8cf65d82d327d38d6079d0561cf2fd38990d9e86d",
+            "move": "fire-pulse",
+            "view": "front",
+            "time": 0.36
+          },
+          {
+            "name": "standard-42-fire-pulse-front-4.png",
+            "sha256": "01772b5fdd9ce517f32bf518f6729a6f2cd3bc2ed233a1b56df0921ae7614b30",
+            "move": "fire-pulse",
+            "view": "front",
+            "time": 0.48
+          },
+          {
+            "name": "standard-42-fire-pulse-front-5.png",
+            "sha256": "dce1945e8b670034e2ddc7b4b954abd13425583645ab40bad6a7a61dff6c466c",
+            "move": "fire-pulse",
+            "view": "front",
+            "time": 0.6
+          },
+          {
+            "name": "standard-42-open-wound-front-0.png",
+            "sha256": "f8488f7eb1652b79ad0367e2ae81aeb7038485770ac7dc44756c7c929643f0c3",
+            "move": "open-wound",
+            "view": "front",
+            "time": 0.04
+          },
+          {
+            "name": "standard-42-open-wound-front-1.png",
+            "sha256": "60019d4b8f68b7640485cc247a09659338879cfdb94d9ad6403aa493ad932145",
+            "move": "open-wound",
+            "view": "front",
+            "time": 0.12
+          },
+          {
+            "name": "standard-42-open-wound-front-2.png",
+            "sha256": "dc91c563639d9a55a8a62d65089d2f1f9059117d483a5f23a001e769286dee80",
+            "move": "open-wound",
+            "view": "front",
+            "time": 0.24
+          },
+          {
+            "name": "standard-42-open-wound-front-3.png",
+            "sha256": "6a6d16612c8baf5703e1439f9a691d50151f2a578b10e4a35dade3c7ab72faf7",
+            "move": "open-wound",
+            "view": "front",
+            "time": 0.36
+          },
+          {
+            "name": "standard-42-open-wound-front-4.png",
+            "sha256": "61bc7dcb80a1015dac1ac1218698fbede4f4d993ecbd27a0a6ca741f556f03fe",
+            "move": "open-wound",
+            "view": "front",
+            "time": 0.48
+          },
+          {
+            "name": "standard-42-open-wound-front-5.png",
+            "sha256": "90a126628516f2e2e296c39d49ac440d4e2e842c54d79ce6efef3a8f150b8ebc",
+            "move": "open-wound",
+            "view": "front",
+            "time": 0.6
+          },
+          {
+            "name": "standard-42-expose-front-0.png",
+            "sha256": "6a1262fbffb02428a0071f981d0a35b6d5e73e8db67aeae129f05d9c44feb312",
+            "move": "expose",
+            "view": "front",
+            "time": 0.04
+          },
+          {
+            "name": "standard-42-expose-front-1.png",
+            "sha256": "4b47098cc5a71facd6f2913263c1f398bbebde1ab7ae16ffb4363d4c7a0b3e8d",
+            "move": "expose",
+            "view": "front",
+            "time": 0.12
+          },
+          {
+            "name": "standard-42-expose-front-2.png",
+            "sha256": "781d610aac91c1e5cb7bd40cb50b6f99896a4b39f29fb1a9428310d1a2aa4e15",
+            "move": "expose",
+            "view": "front",
+            "time": 0.24
+          },
+          {
+            "name": "standard-42-expose-front-3.png",
+            "sha256": "44a4c4fb21d933b37798dcf96d7f0378c17f2883653f12893a37d5a06a02b83e",
+            "move": "expose",
+            "view": "front",
+            "time": 0.36
+          },
+          {
+            "name": "standard-42-expose-front-4.png",
+            "sha256": "cea9bca4d83bf7bb47d3dec10b18212736a55d5dfeea888647a3c1ce14216230",
+            "move": "expose",
+            "view": "front",
+            "time": 0.48
+          },
+          {
+            "name": "standard-42-expose-front-5.png",
+            "sha256": "46c3f9e2d1e1b2e17d5deedbdd8017d1327ed6e7a9b279668f2ac318b600d46d",
+            "move": "expose",
+            "view": "front",
+            "time": 0.6
+          }
+        ]
+      },
+      {
+        "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/standard-42/techniques/front-block-1-half-1.png",
+        "sha256": "cce2a72f84f38a872f3bf97fe7321074942901d0dc0cce15c7959fa052fec25e",
+        "viewed": true,
+        "reviewedAt": "2026-10-20T04:58:46.282Z",
+        "sources": [
+          {
+            "name": "standard-42-fire-pulse-front-6.png",
+            "sha256": "e84d7e590bf426f2872b0bffd777e0d369a75581d1c50b06abf7f40356a80830",
+            "move": "fire-pulse",
+            "view": "front",
+            "time": 0.76
+          },
+          {
+            "name": "standard-42-fire-pulse-front-7.png",
+            "sha256": "4bf14eb70caa4ec1b567c84d7657a3a23d23467e334a5f75660fba91b520c4f5",
+            "move": "fire-pulse",
+            "view": "front",
+            "time": 0.96
+          },
+          {
+            "name": "standard-42-fire-pulse-front-8.png",
+            "sha256": "c5342755551282ca3e5495b5c9caabbecf8435c512fc6541f9084282958f1be3",
+            "move": "fire-pulse",
+            "view": "front",
+            "time": 1.2
+          },
+          {
+            "name": "standard-42-fire-pulse-front-9.png",
+            "sha256": "f913b6919feb4432c94c7de814a69fb5bf3b3c7da8bbb674a67aab1ae6d5a4ec",
+            "move": "fire-pulse",
+            "view": "front",
+            "time": 1.44
+          },
+          {
+            "name": "standard-42-fire-pulse-front-10.png",
+            "sha256": "8f722201cb94dd80043717137a2debf92341d4c96f489d2d410d36bd4b751199",
+            "move": "fire-pulse",
+            "view": "front",
+            "time": 1.68
+          },
+          {
+            "name": "standard-42-fire-pulse-front-11.png",
+            "sha256": "4526626a7f1d046dcb453e326073655565caaee51ed4c1fe991dd3539959a978",
+            "move": "fire-pulse",
+            "view": "front",
+            "time": 1.92
+          },
+          {
+            "name": "standard-42-open-wound-front-6.png",
+            "sha256": "f22c2c940f1c976fea6d99fd2196e798851bcfca3b799b4307116dd5c039c588",
+            "move": "open-wound",
+            "view": "front",
+            "time": 0.76
+          },
+          {
+            "name": "standard-42-open-wound-front-7.png",
+            "sha256": "ee808383f8790002c0a0e6d9615aba37c1d1d996049eb2b5acca3f908ce7de0e",
+            "move": "open-wound",
+            "view": "front",
+            "time": 0.96
+          },
+          {
+            "name": "standard-42-open-wound-front-8.png",
+            "sha256": "a27b08e4741f305da10610cc6ec133e91cdf342f6e8c8810f1f18feab5d517a7",
+            "move": "open-wound",
+            "view": "front",
+            "time": 1.2
+          },
+          {
+            "name": "standard-42-open-wound-front-9.png",
+            "sha256": "9df80d703781510a4ca6e62d97867301fcab52f6ef0117ac52913fd3d2aa28f6",
+            "move": "open-wound",
+            "view": "front",
+            "time": 1.44
+          },
+          {
+            "name": "standard-42-open-wound-front-10.png",
+            "sha256": "780da00effe18bbd7eb9cd0ed47d4e61ed5039bf9676b19585f8b18335777bc5",
+            "move": "open-wound",
+            "view": "front",
+            "time": 1.68
+          },
+          {
+            "name": "standard-42-open-wound-front-11.png",
+            "sha256": "ff5fa56af81da4e9c02efbfbcc1ebf58b0a59dd08c0ad48a418049f4f758489b",
+            "move": "open-wound",
+            "view": "front",
+            "time": 1.92
+          },
+          {
+            "name": "standard-42-expose-front-6.png",
+            "sha256": "71ed2471be0c9ded4cd560251259c601480af69c2a18d06149726a8f9d0e3612",
+            "move": "expose",
+            "view": "front",
+            "time": 0.76
+          },
+          {
+            "name": "standard-42-expose-front-7.png",
+            "sha256": "c8872341629c2e0732e7b95104c64822e23dcd80f54b89c0c4e51679b566b30b",
+            "move": "expose",
+            "view": "front",
+            "time": 0.96
+          },
+          {
+            "name": "standard-42-expose-front-8.png",
+            "sha256": "1d4cbc8fdf43e559e5515ba07a85b4c5452048957b208efe0586caa8f97f1e41",
+            "move": "expose",
+            "view": "front",
+            "time": 1.2
+          },
+          {
+            "name": "standard-42-expose-front-9.png",
+            "sha256": "15aa0e883eebf36561d6c2c743861025107aa149a50efd330585d1c0ec99602d",
+            "move": "expose",
+            "view": "front",
+            "time": 1.44
+          },
+          {
+            "name": "standard-42-expose-front-10.png",
+            "sha256": "ffcd12b8d859528e7c81f91ccb7e9012079e38c4aae7ade9f4ce681d23495099",
+            "move": "expose",
+            "view": "front",
+            "time": 1.68
+          },
+          {
+            "name": "standard-42-expose-front-11.png",
+            "sha256": "1eea1a2550286e32681cdd3866c3e395c061859850836d19eb9930809bb50d97",
+            "move": "expose",
+            "view": "front",
+            "time": 1.92
+          }
+        ]
+      },
+      {
+        "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/standard-42/techniques/front-block-2-half-0.png",
+        "sha256": "6c2b946260ceb621868f81e5e76350993a666092cf1602fbba0120161a0ff9a9",
+        "viewed": true,
+        "reviewedAt": "2026-10-20T04:58:46.284Z",
+        "sources": [
+          {
+            "name": "standard-42-rally-front-0.png",
+            "sha256": "0450e29f608923866f1c328b8a215f5e051c2d423da9983e583d4c7e5f5f40cb",
+            "move": "rally",
+            "view": "front",
+            "time": 0.04
+          },
+          {
+            "name": "standard-42-rally-front-1.png",
+            "sha256": "ee0809f5bf0caf04906e2b2b8017b59fe776ad89da8b181766a6c8f5d099ebcc",
+            "move": "rally",
+            "view": "front",
+            "time": 0.12
+          },
+          {
+            "name": "standard-42-rally-front-2.png",
+            "sha256": "2b55a8d100dd38a3bc846a96cc9dc1a48ce83754d55037bec8467f57b1a18645",
+            "move": "rally",
+            "view": "front",
+            "time": 0.24
+          },
+          {
+            "name": "standard-42-rally-front-3.png",
+            "sha256": "34a37df0076c0780b3e0eb9ad54b4ef515d9d5f88afc498adaae5ab5c48a7bc1",
+            "move": "rally",
+            "view": "front",
+            "time": 0.36
+          },
+          {
+            "name": "standard-42-rally-front-4.png",
+            "sha256": "0c4a0de83777fbdc518a70fb7af2b1ad465c41e01c1590a6b3d3cf8b764bb56f",
+            "move": "rally",
+            "view": "front",
+            "time": 0.48
+          },
+          {
+            "name": "standard-42-rally-front-5.png",
+            "sha256": "548158acd9c89995502e2fb3583ef93f4b5656db9dce8859e7b3d44ef14d487c",
+            "move": "rally",
+            "view": "front",
+            "time": 0.6
+          },
+          {
+            "name": "standard-42-protect-front-0.png",
+            "sha256": "95c417f9a56cefc2c355b508051a4a66761c0b43c9c44e9da51ecdd4d1bf14b1",
+            "move": "protect",
+            "view": "front",
+            "time": 0.04
+          },
+          {
+            "name": "standard-42-protect-front-1.png",
+            "sha256": "502f08837d0373086f26c91175a7cff60055c5b4edb02274ac69627561bd88da",
+            "move": "protect",
+            "view": "front",
+            "time": 0.12
+          },
+          {
+            "name": "standard-42-protect-front-2.png",
+            "sha256": "4f0c4309c1965d4bb88418e788aac7e619d8776e5ce0ddb89fb04794865644b6",
+            "move": "protect",
+            "view": "front",
+            "time": 0.24
+          },
+          {
+            "name": "standard-42-protect-front-3.png",
+            "sha256": "4b13b42f8d0deb15f57724b3dacf0d697fd583f54d20f34261ca6aba28de5744",
+            "move": "protect",
+            "view": "front",
+            "time": 0.36
+          },
+          {
+            "name": "standard-42-protect-front-4.png",
+            "sha256": "42218a86ca43f47bbb75b71df4745937963371a595900ca70389181720e9e277",
+            "move": "protect",
+            "view": "front",
+            "time": 0.48
+          },
+          {
+            "name": "standard-42-protect-front-5.png",
+            "sha256": "458306598c52a0d51eeb92b7b63e1bfa0f6018c68d21c28ab65dbccf19c264e4",
+            "move": "protect",
+            "view": "front",
+            "time": 0.6
+          },
+          {
+            "name": "standard-42-standard-42-signature-front-0.png",
+            "sha256": "81d75aa38a431c48fd93b3238a0c0ab5d5e8f0503300c97cedb26cddcb91bf5d",
+            "move": "standard-42-signature",
+            "view": "front",
+            "time": 0.04
+          },
+          {
+            "name": "standard-42-standard-42-signature-front-1.png",
+            "sha256": "1e31ba3e054b395dc7e733fafc29f487b21113875139153ee38755e00aabd776",
+            "move": "standard-42-signature",
+            "view": "front",
+            "time": 0.12
+          },
+          {
+            "name": "standard-42-standard-42-signature-front-2.png",
+            "sha256": "798e819d98eca8f6ebcd0b97e92943f5956f7ba30eddc2c1ff3206f53d475351",
+            "move": "standard-42-signature",
+            "view": "front",
+            "time": 0.24
+          },
+          {
+            "name": "standard-42-standard-42-signature-front-3.png",
+            "sha256": "37f433e5a05088f05ec36c393af47722216afc5119e90c1837b423a4b2c39df8",
+            "move": "standard-42-signature",
+            "view": "front",
+            "time": 0.36
+          },
+          {
+            "name": "standard-42-standard-42-signature-front-4.png",
+            "sha256": "79d96d13b6188e12da6a049f24072d25faabd5f8ad914730743be1204244ffd2",
+            "move": "standard-42-signature",
+            "view": "front",
+            "time": 0.48
+          },
+          {
+            "name": "standard-42-standard-42-signature-front-5.png",
+            "sha256": "564503ce4d779ee2767573e5944a530871ee15b7c9a4ed870cd416e486df04fd",
+            "move": "standard-42-signature",
+            "view": "front",
+            "time": 0.6
+          }
+        ]
+      },
+      {
+        "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/standard-42/techniques/front-block-2-half-1.png",
+        "sha256": "64f60ce4b1a24380997541e94e00d1d49d5aceccbbf7f872c8f8948d017413e5",
+        "viewed": true,
+        "reviewedAt": "2026-10-20T04:58:46.287Z",
+        "sources": [
+          {
+            "name": "standard-42-rally-front-6.png",
+            "sha256": "203f5f3ef8371a2dd5834d66e32771b24a624208f318426c1664a9582dfaa790",
+            "move": "rally",
+            "view": "front",
+            "time": 0.76
+          },
+          {
+            "name": "standard-42-rally-front-7.png",
+            "sha256": "3b6a8f1a09b3c63a2bfa19e5ed78d09772c5e515549e5c832ec53820cd518697",
+            "move": "rally",
+            "view": "front",
+            "time": 0.96
+          },
+          {
+            "name": "standard-42-rally-front-8.png",
+            "sha256": "0c778fead1c5cf4574230528d6d8bb079cdd1f6afa16468fb65513ee6a7c0995",
+            "move": "rally",
+            "view": "front",
+            "time": 1.2
+          },
+          {
+            "name": "standard-42-rally-front-9.png",
+            "sha256": "7b2090fc4d73e380315f039da048766df3580d547fac28f0c51b3a9e39258bf9",
+            "move": "rally",
+            "view": "front",
+            "time": 1.44
+          },
+          {
+            "name": "standard-42-rally-front-10.png",
+            "sha256": "315bd01e386da81503b58e76f40f599ab839a301c945d238200a61ded2e6dcc7",
+            "move": "rally",
+            "view": "front",
+            "time": 1.68
+          },
+          {
+            "name": "standard-42-rally-front-11.png",
+            "sha256": "00104c670c1fcb542703cf946be60f9b41701aef5ee1e8f57971ea34c3e4d002",
+            "move": "rally",
+            "view": "front",
+            "time": 1.92
+          },
+          {
+            "name": "standard-42-protect-front-6.png",
+            "sha256": "be356950e5907da26356aa564081ca02dd3af520bbf2258ae79063cfdb8e53b4",
+            "move": "protect",
+            "view": "front",
+            "time": 0.76
+          },
+          {
+            "name": "standard-42-protect-front-7.png",
+            "sha256": "1a3414019059a5592f31cec1be6d98f72cd7a58404fdf804d4ffa2d7d6dfba03",
+            "move": "protect",
+            "view": "front",
+            "time": 0.96
+          },
+          {
+            "name": "standard-42-protect-front-8.png",
+            "sha256": "22b4ada0c8f8d9fc15c10076d7cac25afbbb661e4f3a47dca52910ed8cbe029c",
+            "move": "protect",
+            "view": "front",
+            "time": 1.2
+          },
+          {
+            "name": "standard-42-protect-front-9.png",
+            "sha256": "4a6045af86380615d92c6983fcc0be2744f02ddf19e8ec79fffa3342e1d239d8",
+            "move": "protect",
+            "view": "front",
+            "time": 1.44
+          },
+          {
+            "name": "standard-42-protect-front-10.png",
+            "sha256": "a5729f8d44fcdf356a6c422eb8a6d0cb0834521a708edd361fcb7852b49c39b2",
+            "move": "protect",
+            "view": "front",
+            "time": 1.68
+          },
+          {
+            "name": "standard-42-protect-front-11.png",
+            "sha256": "ee9850bdb9e52f10c12357767573c64ef22f77ea77a508af3ea42b9366642a4a",
+            "move": "protect",
+            "view": "front",
+            "time": 1.92
+          },
+          {
+            "name": "standard-42-standard-42-signature-front-6.png",
+            "sha256": "cf71d1a8d1b8ed8e3dd1835ec37cf9fbfb4bc83ddca49460f0255d4d1cb6834a",
+            "move": "standard-42-signature",
+            "view": "front",
+            "time": 0.76
+          },
+          {
+            "name": "standard-42-standard-42-signature-front-7.png",
+            "sha256": "deb8a491e92c3d54963f0449d3cd895a69cc940ac67240a477b110c5f57ae794",
+            "move": "standard-42-signature",
+            "view": "front",
+            "time": 0.96
+          },
+          {
+            "name": "standard-42-standard-42-signature-front-8.png",
+            "sha256": "d559e01a9dfcf9b815d0f98ba8ae344a45bf8a575c046f07bab716f17525809f",
+            "move": "standard-42-signature",
+            "view": "front",
+            "time": 1.2
+          },
+          {
+            "name": "standard-42-standard-42-signature-front-9.png",
+            "sha256": "f8481be809410a113f3578c8fae5a81d4d39877b5311847190cf8b8c4e542803",
+            "move": "standard-42-signature",
+            "view": "front",
+            "time": 1.44
+          },
+          {
+            "name": "standard-42-standard-42-signature-front-10.png",
+            "sha256": "b8c2a5ec9757b3c4e3eea690263761776b963357ae2caa95954d7020315f99bc",
+            "move": "standard-42-signature",
+            "view": "front",
+            "time": 1.68
+          },
+          {
+            "name": "standard-42-standard-42-signature-front-11.png",
+            "sha256": "d6ed6e54f40b115ac3507b082f7db28f977cba8bce89d51be81891d4a9c16fef",
+            "move": "standard-42-signature",
+            "view": "front",
+            "time": 1.92
+          }
+        ]
+      },
+      {
+        "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/standard-42/techniques/side-block-0-half-0.png",
+        "sha256": "0b7e3fab61c156b9fca3eddc121c9420b670931f4ccba3cfb9672dd1fba90ad6",
+        "viewed": true,
+        "reviewedAt": "2026-10-20T04:58:46.289Z",
+        "sources": [
+          {
+            "name": "standard-42-lightning-strike-side-0.png",
+            "sha256": "0d663af2c7959489fe4c0b4ed1e595bb39032330bd9d4ee31cb44e5dc265c7e4",
+            "move": "lightning-strike",
+            "view": "side",
+            "time": 0.04
+          },
+          {
+            "name": "standard-42-lightning-strike-side-1.png",
+            "sha256": "109c9b366ff5d16f3bdc6a672b4bb7239729e73fb732cba44e8c5fb3fdc8c4ea",
+            "move": "lightning-strike",
+            "view": "side",
+            "time": 0.12
+          },
+          {
+            "name": "standard-42-lightning-strike-side-2.png",
+            "sha256": "2c958aee5a6711f2bfa8a890a44927642da59692d6ab3d0f233fe8efeb234b4b",
+            "move": "lightning-strike",
+            "view": "side",
+            "time": 0.24
+          },
+          {
+            "name": "standard-42-lightning-strike-side-3.png",
+            "sha256": "cb3f6cb9bd0462c1bf93dcf25b1b4f7b1054329c84786b0cd6e2ae738608f71d",
+            "move": "lightning-strike",
+            "view": "side",
+            "time": 0.36
+          },
+          {
+            "name": "standard-42-lightning-strike-side-4.png",
+            "sha256": "b3330c6fe30703a2f2d35a5059cf72c7c305e360f841b8d97ec0e285fba21872",
+            "move": "lightning-strike",
+            "view": "side",
+            "time": 0.48
+          },
+          {
+            "name": "standard-42-lightning-strike-side-5.png",
+            "sha256": "0b8e631a294a8127ec6ad6acc03472f980cc0899821d5c5a15b30283c22553f9",
+            "move": "lightning-strike",
+            "view": "side",
+            "time": 0.6
+          },
+          {
+            "name": "standard-42-lightning-pulse-side-0.png",
+            "sha256": "cf4c22a82bb52d0a6c54a50b0050970c6ebf739eb923951e3c95a4de4e4d62f8",
+            "move": "lightning-pulse",
+            "view": "side",
+            "time": 0.04
+          },
+          {
+            "name": "standard-42-lightning-pulse-side-1.png",
+            "sha256": "ed2bd8e878a04ab581a6c04558ea61934bfca553768603b07fe298beb608dc66",
+            "move": "lightning-pulse",
+            "view": "side",
+            "time": 0.12
+          },
+          {
+            "name": "standard-42-lightning-pulse-side-2.png",
+            "sha256": "28279daa4219d59e0d3481e3f07ef609dfbfa4bbf8c2db0c1be01f8cc2c69afc",
+            "move": "lightning-pulse",
+            "view": "side",
+            "time": 0.24
+          },
+          {
+            "name": "standard-42-lightning-pulse-side-3.png",
+            "sha256": "026a8713ec95c9ce0636d3c702d4439385441b3f74a7bf6d3261d844c38f56ff",
+            "move": "lightning-pulse",
+            "view": "side",
+            "time": 0.36
+          },
+          {
+            "name": "standard-42-lightning-pulse-side-4.png",
+            "sha256": "6e9c065b961a0650e4698defad7f95983f3615f3e99361bcc78c6f270c378f61",
+            "move": "lightning-pulse",
+            "view": "side",
+            "time": 0.48
+          },
+          {
+            "name": "standard-42-lightning-pulse-side-5.png",
+            "sha256": "a0f3505084e9f6ad7a8c407cda649c661388ae5cd13747f16fb902885931d5fd",
+            "move": "lightning-pulse",
+            "view": "side",
+            "time": 0.6
+          },
+          {
+            "name": "standard-42-lightning-breaker-side-0.png",
+            "sha256": "ccbff3ea69fd2e919bb0d0e441e1a2e16792c93141dd4626933ef28e17928812",
+            "move": "lightning-breaker",
+            "view": "side",
+            "time": 0.04
+          },
+          {
+            "name": "standard-42-lightning-breaker-side-1.png",
+            "sha256": "8f1b1208d3abc059e6265e69dfa7205d76334bd4a2387b555d2b87699d725c8d",
+            "move": "lightning-breaker",
+            "view": "side",
+            "time": 0.12
+          },
+          {
+            "name": "standard-42-lightning-breaker-side-2.png",
+            "sha256": "97679a174bbfd51bc1367495477e35ecb5eeb5845760c0009c403921e6f1e82e",
+            "move": "lightning-breaker",
+            "view": "side",
+            "time": 0.24
+          },
+          {
+            "name": "standard-42-lightning-breaker-side-3.png",
+            "sha256": "08f73ed26037a645fcc790d9461e59a04e34feb8fea3f5fcb8f625e61d4cbe55",
+            "move": "lightning-breaker",
+            "view": "side",
+            "time": 0.36
+          },
+          {
+            "name": "standard-42-lightning-breaker-side-4.png",
+            "sha256": "d4e73f10c49e4972c91c4ee831766a970a7b168290ca6f6fb7dfd40f40b765fd",
+            "move": "lightning-breaker",
+            "view": "side",
+            "time": 0.48
+          },
+          {
+            "name": "standard-42-lightning-breaker-side-5.png",
+            "sha256": "7b17cd04820d2a123b5c84a0f12c681de134ddd1fd1846635b51c0a442b71275",
+            "move": "lightning-breaker",
+            "view": "side",
+            "time": 0.6
+          }
+        ]
+      },
+      {
+        "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/standard-42/techniques/side-block-0-half-1.png",
+        "sha256": "2ca9c3fe5927494a1964e5ea80fb328ef0228495d5f195f62066afb4aed283fa",
+        "viewed": true,
+        "reviewedAt": "2026-10-20T04:58:46.291Z",
+        "sources": [
+          {
+            "name": "standard-42-lightning-strike-side-6.png",
+            "sha256": "01602894349b17de49c748cf85c6554359f32fc7b407a9d74420e2676486b304",
+            "move": "lightning-strike",
+            "view": "side",
+            "time": 0.76
+          },
+          {
+            "name": "standard-42-lightning-strike-side-7.png",
+            "sha256": "06f8f26bb366845005e0466322bd89f48c8f142a4c45eb0a534db379e9e6d39b",
+            "move": "lightning-strike",
+            "view": "side",
+            "time": 0.96
+          },
+          {
+            "name": "standard-42-lightning-strike-side-8.png",
+            "sha256": "47108ee497c774213fe579b09846cd3d405cd15bd3263d2dd2e241163046144a",
+            "move": "lightning-strike",
+            "view": "side",
+            "time": 1.2
+          },
+          {
+            "name": "standard-42-lightning-strike-side-9.png",
+            "sha256": "3a12d406602b907dd958e480fd63ec5ac7b8d587144c5e8249523d700d01d9bf",
+            "move": "lightning-strike",
+            "view": "side",
+            "time": 1.44
+          },
+          {
+            "name": "standard-42-lightning-strike-side-10.png",
+            "sha256": "06b8152f898c708ec0436fd546b8c39d97db941c0a8fff6c34dc80700f357f73",
+            "move": "lightning-strike",
+            "view": "side",
+            "time": 1.68
+          },
+          {
+            "name": "standard-42-lightning-strike-side-11.png",
+            "sha256": "6ae82548aae788a6e83034c81f64dc99b4f5c0ef5fd20cd34cbc598dbcb3ede3",
+            "move": "lightning-strike",
+            "view": "side",
+            "time": 1.92
+          },
+          {
+            "name": "standard-42-lightning-pulse-side-6.png",
+            "sha256": "597f61b4935750df5fd7ddb22f57b749c518a975299b2ff5afcc30878fabdb40",
+            "move": "lightning-pulse",
+            "view": "side",
+            "time": 0.76
+          },
+          {
+            "name": "standard-42-lightning-pulse-side-7.png",
+            "sha256": "7f0cf80e9d01aecfd6da4303d90309fabce3ab9ae145306c5bc64a042ec81356",
+            "move": "lightning-pulse",
+            "view": "side",
+            "time": 0.96
+          },
+          {
+            "name": "standard-42-lightning-pulse-side-8.png",
+            "sha256": "1cd322b205eebbcf67b9ae605f25c6d7d6da7ab09b50b8eb1ee5ed380dc33c6c",
+            "move": "lightning-pulse",
+            "view": "side",
+            "time": 1.2
+          },
+          {
+            "name": "standard-42-lightning-pulse-side-9.png",
+            "sha256": "a44088d1b31474d30cabf3f17d8374fba55d5be3f8fdc73d8522091d2d20faa7",
+            "move": "lightning-pulse",
+            "view": "side",
+            "time": 1.44
+          },
+          {
+            "name": "standard-42-lightning-pulse-side-10.png",
+            "sha256": "be41e1b7cd78f773aad19260e92be06f24c99e3021cee2bf148bec5af49aa156",
+            "move": "lightning-pulse",
+            "view": "side",
+            "time": 1.68
+          },
+          {
+            "name": "standard-42-lightning-pulse-side-11.png",
+            "sha256": "8bff77675f909e5110872f48682923061ef8af06dc9ce9f858c327b9431987db",
+            "move": "lightning-pulse",
+            "view": "side",
+            "time": 1.92
+          },
+          {
+            "name": "standard-42-lightning-breaker-side-6.png",
+            "sha256": "fef30ee99aa58fc12e4cd48d0dde3fadc4a5473a82fcf02638a3668aaa56c641",
+            "move": "lightning-breaker",
+            "view": "side",
+            "time": 0.76
+          },
+          {
+            "name": "standard-42-lightning-breaker-side-7.png",
+            "sha256": "2b8d04066c57bbddac142498d791cb2136cd8529e3ebb214e4e3922f52deadd5",
+            "move": "lightning-breaker",
+            "view": "side",
+            "time": 0.96
+          },
+          {
+            "name": "standard-42-lightning-breaker-side-8.png",
+            "sha256": "1694c5afe3642a8697d467d4b15e3fa3e782dd6615ce3b4699eccd74cd9fcf24",
+            "move": "lightning-breaker",
+            "view": "side",
+            "time": 1.2
+          },
+          {
+            "name": "standard-42-lightning-breaker-side-9.png",
+            "sha256": "174a0b7a78b8608bf72a682b96d2a0512e11f75ff65ab6d562a10302119311c6",
+            "move": "lightning-breaker",
+            "view": "side",
+            "time": 1.44
+          },
+          {
+            "name": "standard-42-lightning-breaker-side-10.png",
+            "sha256": "f2a038d7c14dd9aed2cddc1596f78cb827919143b994c2c3ff6333dc5018a9d5",
+            "move": "lightning-breaker",
+            "view": "side",
+            "time": 1.68
+          },
+          {
+            "name": "standard-42-lightning-breaker-side-11.png",
+            "sha256": "969d6f7df0f7a52e42e6a951f7ae2deb93d4d9e4e53879652198231a314272fa",
+            "move": "lightning-breaker",
+            "view": "side",
+            "time": 1.92
+          }
+        ]
+      },
+      {
+        "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/standard-42/techniques/side-block-1-half-0.png",
+        "sha256": "f0ab58efa30d0a94e425aebcbf42f5fcefd0fd1632d6406072533046534903f0",
+        "viewed": true,
+        "reviewedAt": "2026-10-20T04:58:46.293Z",
+        "sources": [
+          {
+            "name": "standard-42-fire-pulse-side-0.png",
+            "sha256": "73c32d755ca18cf197f775c963b69f9ac6f7079a2690fe85eb6ae96479a5bf50",
+            "move": "fire-pulse",
+            "view": "side",
+            "time": 0.04
+          },
+          {
+            "name": "standard-42-fire-pulse-side-1.png",
+            "sha256": "f8d2f397ff4aa36609a8f592d832e785f2668c2401a0e9d77d4ea9fbb310be72",
+            "move": "fire-pulse",
+            "view": "side",
+            "time": 0.12
+          },
+          {
+            "name": "standard-42-fire-pulse-side-2.png",
+            "sha256": "8218dea0e8743c05a7e341572fe0ed5bb2b6578ec8ede4770bfd0bb5b47a9085",
+            "move": "fire-pulse",
+            "view": "side",
+            "time": 0.24
+          },
+          {
+            "name": "standard-42-fire-pulse-side-3.png",
+            "sha256": "f525ed237287de6e96602b46220d0852b53da1fca1d8b1ffbfad72e605cbfbe1",
+            "move": "fire-pulse",
+            "view": "side",
+            "time": 0.36
+          },
+          {
+            "name": "standard-42-fire-pulse-side-4.png",
+            "sha256": "fa3a001146ea8001b3e8e97eb3854456777594fe8a3312d355cf2d30eb7e2baf",
+            "move": "fire-pulse",
+            "view": "side",
+            "time": 0.48
+          },
+          {
+            "name": "standard-42-fire-pulse-side-5.png",
+            "sha256": "718dc9140662ae2e0f06970df8243d191bef52100ee73ab27134098ee6ca7bbc",
+            "move": "fire-pulse",
+            "view": "side",
+            "time": 0.6
+          },
+          {
+            "name": "standard-42-open-wound-side-0.png",
+            "sha256": "94319e7032fdaa669ab06197d2f62082096e4e0714b08b458c46ae836d0026dd",
+            "move": "open-wound",
+            "view": "side",
+            "time": 0.04
+          },
+          {
+            "name": "standard-42-open-wound-side-1.png",
+            "sha256": "1cf9402878660ea217c60d1b0de631745149a5f74565e5e2164ba57ab4bc4c2f",
+            "move": "open-wound",
+            "view": "side",
+            "time": 0.12
+          },
+          {
+            "name": "standard-42-open-wound-side-2.png",
+            "sha256": "45b4c7023a18646d75aa75709afaf02fca6c23f8a032da4f545ce07c38102e86",
+            "move": "open-wound",
+            "view": "side",
+            "time": 0.24
+          },
+          {
+            "name": "standard-42-open-wound-side-3.png",
+            "sha256": "70823987b976d2fab2edfa2b9d9563cd0c348d342a0b1c4299af606bc38b1859",
+            "move": "open-wound",
+            "view": "side",
+            "time": 0.36
+          },
+          {
+            "name": "standard-42-open-wound-side-4.png",
+            "sha256": "6c1e133c23ec71ca7495a8369c50969e2139cc181d40dc8b903679e090de264f",
+            "move": "open-wound",
+            "view": "side",
+            "time": 0.48
+          },
+          {
+            "name": "standard-42-open-wound-side-5.png",
+            "sha256": "acb31ff1a7eaa3c9ea7701ec57819e077eca42cee24542b4ae594724f72b4f98",
+            "move": "open-wound",
+            "view": "side",
+            "time": 0.6
+          },
+          {
+            "name": "standard-42-expose-side-0.png",
+            "sha256": "16156a4b52fc9924c29b28be69b60d97a5752cf3d1ddb6f625973bb5535792fe",
+            "move": "expose",
+            "view": "side",
+            "time": 0.04
+          },
+          {
+            "name": "standard-42-expose-side-1.png",
+            "sha256": "ab603b2078dcf6aa015f86331326fddc620d34a5d52ed7f55c5724249abd0d7a",
+            "move": "expose",
+            "view": "side",
+            "time": 0.12
+          },
+          {
+            "name": "standard-42-expose-side-2.png",
+            "sha256": "872e791a1350bc1f791a0a3c924eaa51786c971986665627dddfe80a4924c5fb",
+            "move": "expose",
+            "view": "side",
+            "time": 0.24
+          },
+          {
+            "name": "standard-42-expose-side-3.png",
+            "sha256": "bda91cf7f19ac90e801cdeab7b39acb5138747911a69e030e8e9c73d83ba9439",
+            "move": "expose",
+            "view": "side",
+            "time": 0.36
+          },
+          {
+            "name": "standard-42-expose-side-4.png",
+            "sha256": "f1df621075f5be970fe33be2c55303b1ea9e364e6d62ec2a8a3b5d7c6b25c260",
+            "move": "expose",
+            "view": "side",
+            "time": 0.48
+          },
+          {
+            "name": "standard-42-expose-side-5.png",
+            "sha256": "898f3f4398fcab10b7a358994d76635952ced73023ce9909955b2eaeef72f175",
+            "move": "expose",
+            "view": "side",
+            "time": 0.6
+          }
+        ]
+      },
+      {
+        "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/standard-42/techniques/side-block-1-half-1.png",
+        "sha256": "d919b38f3bfe2e685a8d5e10f36893bb1a8b67dada1942d20d0833c371b9804c",
+        "viewed": true,
+        "reviewedAt": "2026-10-20T04:58:46.295Z",
+        "sources": [
+          {
+            "name": "standard-42-fire-pulse-side-6.png",
+            "sha256": "5d3c32cdc6b400ea125b495f38133992999c1c0ad8e0d5fdebbfcc1ac96f85b9",
+            "move": "fire-pulse",
+            "view": "side",
+            "time": 0.76
+          },
+          {
+            "name": "standard-42-fire-pulse-side-7.png",
+            "sha256": "cb200f8820e03f2c4a11d732e2d070f6183075be947d476b038d5d0ddd67b9a5",
+            "move": "fire-pulse",
+            "view": "side",
+            "time": 0.96
+          },
+          {
+            "name": "standard-42-fire-pulse-side-8.png",
+            "sha256": "a1bb3a6f325554cac7fccf9dbd9016c2b51516a9ed293d78ef3e3998fe28dad1",
+            "move": "fire-pulse",
+            "view": "side",
+            "time": 1.2
+          },
+          {
+            "name": "standard-42-fire-pulse-side-9.png",
+            "sha256": "452c3d74b1f261c03a4160534ddf6f9d53f7be51c8d7d5ebb0be82c7ca508847",
+            "move": "fire-pulse",
+            "view": "side",
+            "time": 1.44
+          },
+          {
+            "name": "standard-42-fire-pulse-side-10.png",
+            "sha256": "ad285ad1705c1d59129128eb3e0f0c5e61eca3debf22c451fc657b09f07837d7",
+            "move": "fire-pulse",
+            "view": "side",
+            "time": 1.68
+          },
+          {
+            "name": "standard-42-fire-pulse-side-11.png",
+            "sha256": "fc1bba64a13c0ea3eaef4f32a192b77d9b01c9612aa941e3ec536baa4a8a3a11",
+            "move": "fire-pulse",
+            "view": "side",
+            "time": 1.92
+          },
+          {
+            "name": "standard-42-open-wound-side-6.png",
+            "sha256": "ba087109c3f6f6979fadd49cc6ea4de65e4a1bda42adbddc04651b18230efb6e",
+            "move": "open-wound",
+            "view": "side",
+            "time": 0.76
+          },
+          {
+            "name": "standard-42-open-wound-side-7.png",
+            "sha256": "014fd55af519348940b5a968d6176790d08e2bf188135a102c75d512aae4c231",
+            "move": "open-wound",
+            "view": "side",
+            "time": 0.96
+          },
+          {
+            "name": "standard-42-open-wound-side-8.png",
+            "sha256": "eeec171efd468f153fb91715bb27517e6e7b0cb1e5dfb3e195c447ae2c8bf012",
+            "move": "open-wound",
+            "view": "side",
+            "time": 1.2
+          },
+          {
+            "name": "standard-42-open-wound-side-9.png",
+            "sha256": "46dddeced75ecd1a994eb85baaec9098f43c9dd5ab0ec4d9d9d7774f9d024c87",
+            "move": "open-wound",
+            "view": "side",
+            "time": 1.44
+          },
+          {
+            "name": "standard-42-open-wound-side-10.png",
+            "sha256": "2f1f3e87aed0c452b9e129d813d7c663b25bfb444b83c7ee8d5d39471024174c",
+            "move": "open-wound",
+            "view": "side",
+            "time": 1.68
+          },
+          {
+            "name": "standard-42-open-wound-side-11.png",
+            "sha256": "35cf0b8d0556f62f9237d569707803685d13379c8afef04219258939a0e437ab",
+            "move": "open-wound",
+            "view": "side",
+            "time": 1.92
+          },
+          {
+            "name": "standard-42-expose-side-6.png",
+            "sha256": "a36c26e6003c575462a9671d3ffbbc51f4230bfe55d7428b6af17d612ad76b38",
+            "move": "expose",
+            "view": "side",
+            "time": 0.76
+          },
+          {
+            "name": "standard-42-expose-side-7.png",
+            "sha256": "bde366cb41650b7ae6c9191c8dd995a2f51d3b55e3148c4b98a39791d65d355c",
+            "move": "expose",
+            "view": "side",
+            "time": 0.96
+          },
+          {
+            "name": "standard-42-expose-side-8.png",
+            "sha256": "8eb880015b5bdee2c1ddeee8061294c648e584c5f41ec61d85a3e065cf65e124",
+            "move": "expose",
+            "view": "side",
+            "time": 1.2
+          },
+          {
+            "name": "standard-42-expose-side-9.png",
+            "sha256": "e00f6bdc5ddec24629e51e28762dfb03733daa8a6d02f7280de02ea5e5757ab4",
+            "move": "expose",
+            "view": "side",
+            "time": 1.44
+          },
+          {
+            "name": "standard-42-expose-side-10.png",
+            "sha256": "439940991b6e872e77873acf5818649b85033b257d8d09c3787ac701b059bb31",
+            "move": "expose",
+            "view": "side",
+            "time": 1.68
+          },
+          {
+            "name": "standard-42-expose-side-11.png",
+            "sha256": "e04465f1a6236f5220020e13ab0e1c307efd1ef9911f78e3899697497d169122",
+            "move": "expose",
+            "view": "side",
+            "time": 1.92
+          }
+        ]
+      },
+      {
+        "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/standard-42/techniques/side-block-2-half-0.png",
+        "sha256": "585416fd3c33c0d9a19b418b7181294a09e103f3b424b70f0f526b412a00adff",
+        "viewed": true,
+        "reviewedAt": "2026-10-20T04:58:46.297Z",
+        "sources": [
+          {
+            "name": "standard-42-rally-side-0.png",
+            "sha256": "d39098fadba3e3f722e862ab1393138f3471f0bd7a5d6aac799df986fef46786",
+            "move": "rally",
+            "view": "side",
+            "time": 0.04
+          },
+          {
+            "name": "standard-42-rally-side-1.png",
+            "sha256": "abbb7b155356270dd6bf8b41685a5a6083d49ed468d3cbb28309cb545f3b8c8c",
+            "move": "rally",
+            "view": "side",
+            "time": 0.12
+          },
+          {
+            "name": "standard-42-rally-side-2.png",
+            "sha256": "7d850216a4fbafa6c30edcb891246b91827ed30db7d657630413cd1bf8e495b5",
+            "move": "rally",
+            "view": "side",
+            "time": 0.24
+          },
+          {
+            "name": "standard-42-rally-side-3.png",
+            "sha256": "f826f22bfbfb3cf082cc3ad26bb437376a0940c6cd75adb75d8156425b91b3d2",
+            "move": "rally",
+            "view": "side",
+            "time": 0.36
+          },
+          {
+            "name": "standard-42-rally-side-4.png",
+            "sha256": "b35bcde0fdd5409de161bd78a9f9dedfff17c3ab2f80434c5c85c616291f51e2",
+            "move": "rally",
+            "view": "side",
+            "time": 0.48
+          },
+          {
+            "name": "standard-42-rally-side-5.png",
+            "sha256": "ecc0231035e8b3b4022dd66fe22026d1a4a683ebe25da94b2194146fc69b8cb2",
+            "move": "rally",
+            "view": "side",
+            "time": 0.6
+          },
+          {
+            "name": "standard-42-protect-side-0.png",
+            "sha256": "ee6682cfef61c340f9e7478d5688c5a0b4e445b52436466315d3f195cac14885",
+            "move": "protect",
+            "view": "side",
+            "time": 0.04
+          },
+          {
+            "name": "standard-42-protect-side-1.png",
+            "sha256": "fa5685ba67132aa9d0f4f9ca9dc1e744a70bebfc0e10c488b747ea78d722189f",
+            "move": "protect",
+            "view": "side",
+            "time": 0.12
+          },
+          {
+            "name": "standard-42-protect-side-2.png",
+            "sha256": "42bcd3d7f76569f8e443f7f65b5a7144554a0bdbc55ff08bec83050ef4d31609",
+            "move": "protect",
+            "view": "side",
+            "time": 0.24
+          },
+          {
+            "name": "standard-42-protect-side-3.png",
+            "sha256": "1d5617c9a9f48c37af877820e3e12d4ad469b2cb5eac48c94a22754f54b7d1f4",
+            "move": "protect",
+            "view": "side",
+            "time": 0.36
+          },
+          {
+            "name": "standard-42-protect-side-4.png",
+            "sha256": "35f1a7fe34e544c172d3f29c64e45d82712c5133e7710e80073ba46d65277696",
+            "move": "protect",
+            "view": "side",
+            "time": 0.48
+          },
+          {
+            "name": "standard-42-protect-side-5.png",
+            "sha256": "60ce2095937da8f1d99969af3d1fd407dcc021102ecdc7c2a852238b646fef29",
+            "move": "protect",
+            "view": "side",
+            "time": 0.6
+          },
+          {
+            "name": "standard-42-standard-42-signature-side-0.png",
+            "sha256": "e09d69cc0db7683034ce0a45e9e1e5eb92e16a2bb3448a54108b9d8dc346c598",
+            "move": "standard-42-signature",
+            "view": "side",
+            "time": 0.04
+          },
+          {
+            "name": "standard-42-standard-42-signature-side-1.png",
+            "sha256": "1ae81314b544e3efa8a8345233a3102682d12b6baf0e2dfa34bb8e6bef392f4a",
+            "move": "standard-42-signature",
+            "view": "side",
+            "time": 0.12
+          },
+          {
+            "name": "standard-42-standard-42-signature-side-2.png",
+            "sha256": "2978dfcaa8c5f137a2d921cd0ad48c158ae456f5b9eccac1bcd5a948aee25308",
+            "move": "standard-42-signature",
+            "view": "side",
+            "time": 0.24
+          },
+          {
+            "name": "standard-42-standard-42-signature-side-3.png",
+            "sha256": "5c435c7f200437a3f5745a6245bc8124e6839895a0721fab3d57885c49539658",
+            "move": "standard-42-signature",
+            "view": "side",
+            "time": 0.36
+          },
+          {
+            "name": "standard-42-standard-42-signature-side-4.png",
+            "sha256": "2b87d0a9a100000e6e81ae3d333a381abd4ee1a7734e2ab9eb32bfde1ff8bdf3",
+            "move": "standard-42-signature",
+            "view": "side",
+            "time": 0.48
+          },
+          {
+            "name": "standard-42-standard-42-signature-side-5.png",
+            "sha256": "ee716ad408d1c41a2782314ad5970cac8eecf893ebef3d5138e0f8688497d675",
+            "move": "standard-42-signature",
+            "view": "side",
+            "time": 0.6
+          }
+        ]
+      },
+      {
+        "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/standard-42/techniques/side-block-2-half-1.png",
+        "sha256": "4987e34066ccedbfdc0926fe932ed2cefae179227cce2cd6cfaffd81df1bd707",
+        "viewed": true,
+        "reviewedAt": "2026-10-20T04:58:46.298Z",
+        "sources": [
+          {
+            "name": "standard-42-rally-side-6.png",
+            "sha256": "a4791a19828d4acf264d6f42b33e44f6dfae11a1a5fbc67d2fcbe25f7e9318f7",
+            "move": "rally",
+            "view": "side",
+            "time": 0.76
+          },
+          {
+            "name": "standard-42-rally-side-7.png",
+            "sha256": "edd98596458fbbc307c6164a63460df3f117fd25afc328ab6490e269a8d6b1f2",
+            "move": "rally",
+            "view": "side",
+            "time": 0.96
+          },
+          {
+            "name": "standard-42-rally-side-8.png",
+            "sha256": "c58325a9973aad0542601f2444f4ec0116ebe3af0a22f18e88c442846db80801",
+            "move": "rally",
+            "view": "side",
+            "time": 1.2
+          },
+          {
+            "name": "standard-42-rally-side-9.png",
+            "sha256": "d58cdb6b0f223d73aa20022d68129023f7593a550585ba20c8f82a4139a28f3e",
+            "move": "rally",
+            "view": "side",
+            "time": 1.44
+          },
+          {
+            "name": "standard-42-rally-side-10.png",
+            "sha256": "6280d3db64a813025c86a56ca8cf7599e98e621c8910fe16a2e7665fdaabb00c",
+            "move": "rally",
+            "view": "side",
+            "time": 1.68
+          },
+          {
+            "name": "standard-42-rally-side-11.png",
+            "sha256": "e04465f1a6236f5220020e13ab0e1c307efd1ef9911f78e3899697497d169122",
+            "move": "rally",
+            "view": "side",
+            "time": 1.92
+          },
+          {
+            "name": "standard-42-protect-side-6.png",
+            "sha256": "fd7591f91268248ecf2df9be817cff30d8eedafe7418999f9017c6442f225716",
+            "move": "protect",
+            "view": "side",
+            "time": 0.76
+          },
+          {
+            "name": "standard-42-protect-side-7.png",
+            "sha256": "c43201323be30b7edd6cafef7e0e77ed48d07edfd684d4fd1a5b80518828655c",
+            "move": "protect",
+            "view": "side",
+            "time": 0.96
+          },
+          {
+            "name": "standard-42-protect-side-8.png",
+            "sha256": "29dc3292fcba5e5bb2345276958ce44352b56bf0e697e0f5870025efedd3cb06",
+            "move": "protect",
+            "view": "side",
+            "time": 1.2
+          },
+          {
+            "name": "standard-42-protect-side-9.png",
+            "sha256": "93e2714b6489793da776a756f475dcbd47fe8a43039bde1581c65e938e4e33a7",
+            "move": "protect",
+            "view": "side",
+            "time": 1.44
+          },
+          {
+            "name": "standard-42-protect-side-10.png",
+            "sha256": "aa62e281ccc8dd0acc10ae16c8b8c87b6f5e39c1462be799e3dd2e86b58da6e5",
+            "move": "protect",
+            "view": "side",
+            "time": 1.68
+          },
+          {
+            "name": "standard-42-protect-side-11.png",
+            "sha256": "411d20b91d6a146c808c66d017bbc4ec5b0299ac447b02055fb76ca03e3f5038",
+            "move": "protect",
+            "view": "side",
+            "time": 1.92
+          },
+          {
+            "name": "standard-42-standard-42-signature-side-6.png",
+            "sha256": "9c54fce691325fc8925e1d10db5874d5d3e264ffb92549480a4834f9737b7c1a",
+            "move": "standard-42-signature",
+            "view": "side",
+            "time": 0.76
+          },
+          {
+            "name": "standard-42-standard-42-signature-side-7.png",
+            "sha256": "8d308df40f55308c04a62658daf4e5b020c585917cf250f9553b73eae2917ed5",
+            "move": "standard-42-signature",
+            "view": "side",
+            "time": 0.96
+          },
+          {
+            "name": "standard-42-standard-42-signature-side-8.png",
+            "sha256": "c57a0144e5c3fa38dfb66b0248153e3c57bf99a436e8192b4cb05ff011647a26",
+            "move": "standard-42-signature",
+            "view": "side",
+            "time": 1.2
+          },
+          {
+            "name": "standard-42-standard-42-signature-side-9.png",
+            "sha256": "349e7b007702a951bf251008cfb0933b210c75b3a2c940979b04d639978e647d",
+            "move": "standard-42-signature",
+            "view": "side",
+            "time": 1.44
+          },
+          {
+            "name": "standard-42-standard-42-signature-side-10.png",
+            "sha256": "c45ec569fd4d68fb3fe36092f9393ae9ca307fcb2aae056eafa139a185cf05aa",
+            "move": "standard-42-signature",
+            "view": "side",
+            "time": 1.68
+          },
+          {
+            "name": "standard-42-standard-42-signature-side-11.png",
+            "sha256": "1337bf029f9e2e12aa87d4b87ef5064b63d4887ba77740c5b180a56b783c147b",
+            "move": "standard-42-signature",
+            "view": "side",
+            "time": 1.92
+          }
+        ]
+      }
+    ],
+    "observations": "All216 production-color frames actually inspected in six native paired sheets: nine equipped techniques, front/side, twelve times each. Lightning strike/pulse/breaker, fire pulse, open wound, expose, rally, protect and signature keep the head, snout, whiskers, ears, arms, feet and tail connected to the body through motion and recovery.",
+    "pairedNativeEvidence": [
+      {
+        "name": "front-block-0.png",
+        "sha256": "0b5a1092ba7f48a94da3c289f2e30e09726d0ebee4ff28b0c440027f26c233e4",
+        "sourceStrips": [
+          "front-block-0-half-0.png",
+          "front-block-0-half-1.png"
+        ],
+        "nativePixelsPreserved": true,
+        "resizing": false,
+        "width": 1320,
+        "height": 1212,
+        "viewed": true,
+        "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/standard-42/techniques/paired-front-block-0.png",
+        "viewedAt": "2026-10-20T04:59:46.746Z"
+      },
+      {
+        "name": "front-block-1.png",
+        "sha256": "a568d3f94b86436ba6acd61df23b34b434e6fbdf111d576e71e41214b58ead03",
+        "sourceStrips": [
+          "front-block-1-half-0.png",
+          "front-block-1-half-1.png"
+        ],
+        "nativePixelsPreserved": true,
+        "resizing": false,
+        "width": 1320,
+        "height": 1212,
+        "viewed": true,
+        "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/standard-42/techniques/paired-front-block-1.png",
+        "viewedAt": "2026-10-20T04:59:46.748Z"
+      },
+      {
+        "name": "front-block-2.png",
+        "sha256": "8ac87d0dd99ec2b86ffd39975a01a6996b923c74c4eff07d81255e7eaf692976",
+        "sourceStrips": [
+          "front-block-2-half-0.png",
+          "front-block-2-half-1.png"
+        ],
+        "nativePixelsPreserved": true,
+        "resizing": false,
+        "width": 1320,
+        "height": 1212,
+        "viewed": true,
+        "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/standard-42/techniques/paired-front-block-2.png",
+        "viewedAt": "2026-10-20T04:59:46.750Z"
+      },
+      {
+        "name": "side-block-0.png",
+        "sha256": "45e3edc46416ecd683313f53aa4d43e4b85cc09ecf12ddccd5f34fe3aa0a7fd8",
+        "sourceStrips": [
+          "side-block-0-half-0.png",
+          "side-block-0-half-1.png"
+        ],
+        "nativePixelsPreserved": true,
+        "resizing": false,
+        "width": 1320,
+        "height": 1212,
+        "viewed": true,
+        "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/standard-42/techniques/paired-side-block-0.png",
+        "viewedAt": "2026-10-20T04:59:46.751Z"
+      },
+      {
+        "name": "side-block-1.png",
+        "sha256": "04e9b1f737d6920e8a1df16cebf38c01c895fa173f4ffe3893f482d1a673324e",
+        "sourceStrips": [
+          "side-block-1-half-0.png",
+          "side-block-1-half-1.png"
+        ],
+        "nativePixelsPreserved": true,
+        "resizing": false,
+        "width": 1320,
+        "height": 1212,
+        "viewed": true,
+        "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/standard-42/techniques/paired-side-block-1.png",
+        "viewedAt": "2026-10-20T04:59:46.753Z"
+      },
+      {
+        "name": "side-block-2.png",
+        "sha256": "116c75f0557e152537f678c667a51723d91a297eb4645165c9e08d80f2f1c30d",
+        "sourceStrips": [
+          "side-block-2-half-0.png",
+          "side-block-2-half-1.png"
+        ],
+        "nativePixelsPreserved": true,
+        "resizing": false,
+        "width": 1320,
+        "height": 1212,
+        "viewed": true,
+        "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/standard-42/techniques/paired-side-block-2.png",
+        "viewedAt": "2026-10-20T04:59:46.755Z"
+      }
+    ]
+  },
+  "findings": [],
+  "status": "visual-review-complete-pending-parent-integration-and-live-verification",
+  "complete": true,
+  "idleCombinedEvidence": [
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/standard-42/idle-combined-0.png",
+      "sha256": "13ae8b2acdd9d6e9a5a40c56bc054b78d7dc0a8f79edcc7b88e257ddc0b69392",
+      "nativePixelsPreserved": true,
+      "sourceSheets": [
+        "docs/screenshots/pet-independent-face-2026-10-15/standard-42-companion-idle-0.webp",
+        "docs/screenshots/pet-independent-face-2026-10-15/standard-42-companion-idle-1.webp",
+        "docs/screenshots/pet-independent-face-2026-10-15/standard-42-companion-idle-2.webp"
+      ],
+      "viewed": true
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/standard-42/idle-combined-1.png",
+      "sha256": "d5a873e7f6195cf58e39410b3f2dfc72056f305dabfefccf1ffb584514a9ee9c",
+      "nativePixelsPreserved": true,
+      "sourceSheets": [
+        "docs/screenshots/pet-independent-face-2026-10-15/standard-42-companion-idle-3.webp",
+        "docs/screenshots/pet-independent-face-2026-10-15/standard-42-companion-idle-4.webp",
+        "docs/screenshots/pet-independent-face-2026-10-15/standard-42-companion-idle-5.webp"
+      ],
+      "viewed": true
+    }
+  ],
+  "rawVisibleSurfacesReviewed": true,
+  "fullBodyReviewed": true,
+  "completeFaceReviewed": true,
+  "productionTransitionsReviewed": true,
+  "companionIdleFramesReviewed": 24,
+  "atlasFramesReviewed": 16,
+  "independentRawRuntimeRecheck": true,
+  "completedAt": "2026-10-20T04:59:46.755Z",
+  "limits": "Local exact-hash review, no live delivery or authenticated modal claim. Scarf naturally covers some throat surfaces; visible gray lower face/chin and incisors inspected in brighter production lighting, with no collapse or tear observed. One fresh216-frame companion technique capture using battle mesh, not source override or an independent second timing capture. Original component provenance is retained exactly."
+}

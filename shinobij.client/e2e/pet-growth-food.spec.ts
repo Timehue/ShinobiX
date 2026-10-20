@@ -1,0 +1,73 @@
+import { expect, test } from '@playwright/test';
+import { STARTER_PETS } from '../src/data/starter-pets';
+import { normalizePetGrowth } from '../src/lib/pet-balance';
+import { emptyPetGrowthAllocation } from '../src/lib/pet-balance';
+import { expectUiAuditBoot, installUiAuditRuntime, uiAuditSave } from './helpers/ui-audit-runtime';
+
+test('growth specializes beyond five with rounded previews, persisted investment and free refunds', async ({ page }, testInfo) => {
+    const save = uiAuditSave();
+    let pet = normalizePetGrowth({ ...STARTER_PETS[0].pet, trait: 'Lucky', level: 10, xp: 50, growthVersion: 2, growthAllocation: emptyPetGrowthAllocation(), growthBaseStats: { hp: 320, attack: 40, defense: 28, speed: 30 } });
+    save.character = { ...save.character, pets: [pet], activePetId: pet.id };
+    const runtime = await installUiAuditRuntime(page, save);
+    await page.route('**/api/pet/progress', async route => {
+        if (route.request().method() === 'GET') return route.fulfill({ json: { prodigy: { owned: false, available: false } } });
+        const body = route.request().postDataJSON();
+        pet = normalizePetGrowth({ ...pet, growthAllocation: body.action === 'reset-growth' ? emptyPetGrowthAllocation() : body.allocation });
+        save.character = { ...save.character, pets: [pet] };
+        const version = runtime.currentVersion() + 1;
+        runtime.commitServerCharacter(save.character, version);
+        await route.fulfill({ json: { ok: true, pet, character: save.character, _saveVersion: version } });
+    });
+    await expectUiAuditBoot(page, runtime, 'pets');
+    const openGrowth = () => page.getByRole('navigation', { name: 'Pet Yard activities' }).getByRole('button', { name: /Growth & training/ }).click();
+    await openGrowth();
+    await expect(page.getByText('27 unspent / 27 earned points')).toBeVisible();
+    for (let i = 0; i < 27; i++) await page.getByRole('button', { name: 'Add Power point', exact: true }).click();
+    await expect(page.getByText('ATTACK: 43 → 52 (+9)', { exact: true })).toBeVisible();
+    await expect(page.getByText('0 unspent / 27 earned points')).toBeVisible();
+    await page.locator('.pet-evolve-panel').first().screenshot({ path: testInfo.outputPath('growth-specialization-preview.png') });
+    await page.getByRole('button', { name: 'Commit build', exact: true }).click();
+    await expect(page.getByText(/27 points invested; 0 staged/)).toBeVisible();
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await expect(page.locator('.app-shell[data-screen="pets"]')).toBeVisible();
+    await openGrowth();
+    await expect(page.getByLabel('Power points', { exact: true })).toHaveText('27');
+    await page.getByRole('button', { name: 'Respec', exact: true }).click();
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Respec', exact: true }).click();
+    await expect(page.getByText('27 unspent / 27 earned points')).toBeVisible();
+    await expect(page.getByText(/currently has no combat effect for adventure summons/)).toBeVisible();
+    await page.locator('.pet-evolve-panel').first().screenshot({ path: testInfo.outputPath('growth-preview.png') });
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1);
+    expect(overflow).toBe(false);
+});
+
+test('feeding displays the shared allowance, keeps stack counts and leaves no-XP care available', async ({ page }, testInfo) => {
+    await page.addInitScript(() => Object.defineProperty(crypto, 'randomUUID', { value: undefined, configurable: true }));
+    const save = uiAuditSave();
+    const today = Math.floor(Date.now() / 86400000);
+    let pet = normalizePetGrowth({ ...STARTER_PETS[0].pet, level: 50, happiness: 60, foodXpDay: today, foodXpUsed: 1900 });
+    save.character = { ...save.character, pets: [pet], activePetId: pet.id, inventory: [], itemStacks: [{ itemId: 'pet-treat', count: 12 }, { itemId: 'golden-apple', count: 3 }] };
+    const runtime = await installUiAuditRuntime(page, save);
+    await page.route('**/api/pet/progress', async route => {
+        if (route.request().method() === 'GET') return route.fulfill({ json: { prodigy: { owned: false, available: false } } });
+        const body = route.request().postDataJSON();
+        expect(body.action).toBe('feed'); expect(body.itemId).toBe('pet-treat'); expect(body.requestId).toMatch(/^[A-Za-z0-9_-]{16,80}$/);
+        pet = { ...pet, foodXpUsed: 2000, xp: pet.xp + 100 };
+        save.character = { ...save.character, pets: [pet], itemStacks: [{ itemId: 'pet-treat', count: 11 }, { itemId: 'golden-apple', count: 3 }] };
+        const version = runtime.currentVersion() + 1;
+        runtime.commitServerCharacter(save.character, version);
+        await route.fulfill({ json: { ok: true, pet, character: save.character, _saveVersion: version } });
+    });
+    await expectUiAuditBoot(page, runtime, 'pets');
+    const foods = page.locator('.pet-feed-grid');
+    await expect(page.getByText(/100 \/ 2,000 food XP remaining/)).toBeVisible();
+    await expect(foods.getByRole('button', { name: /Golden Apple/ })).toBeDisabled();
+    await foods.getByRole('button', { name: /^Treats / }).click();
+    await expect(page.getByText(/0 \/ 2,000 food XP remaining/)).toBeVisible();
+    await expect(foods.getByRole('button', { name: /^Treats / })).toBeDisabled();
+    await expect(page.getByRole('button', { name: /^Pet \+/ })).toBeEnabled();
+    await expect(page.getByRole('button', { name: 'Care with 1 Treat (+10 happiness, no XP)', exact: true })).toBeEnabled();
+    await expect(page.getByText(/Petting is happiness care only \(\+0 XP\)/)).toBeVisible();
+    await expect(foods.getByRole('button', { name: /Golden Apple/ })).toContainText('3');
+    await page.locator('.pet-feed-panel').screenshot({ path: testInfo.outputPath('food-allowance.png') });
+});

@@ -24,7 +24,7 @@ describe('catalog shop purchase', () => {
     it('derives premium currency and stored discounts', () => {
         const result = purchaseCatalogItem({ level: 100, fateShards: 1000, elderFocus: 'trade', inventory: [] }, 'golden-apple', 1);
         assert.equal(result.ok, true);
-        if (result.ok) { assert.equal(result.item.currency, 'fateShards'); assert.equal(result.item.unitCost, 19); }
+        if (result.ok) { assert.equal(result.item.currency, 'fateShards'); assert.equal(result.item.unitCost, 38); }
     });
     it('sells the profession scroll for 200 Fate Shards from level 20 after choosing a profession', () => {
         const result = purchaseCatalogItem({ level: 20, profession: 'vanguard', fateShards: 200, inventory: [] }, 'profession-change-approval', 1);

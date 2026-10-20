@@ -26,7 +26,7 @@ export const CRAFT_MATERIAL_NAMES: Readonly<Record<string, string>> = {
     'hunt-titan-bone': 'Titan Bone', 'hunt-legendary-material': 'Legendary Material',
     'dungeon-legendary-relic': 'Dungeon Legendary Relic',
     'warforged-relic': 'Warforged Relic', 'veil-of-the-hollow': 'Veil of the Hollow',
-    'ration-pack': 'Ration Pack', 'pet-treat': 'Pet Treat',
+    'ration-pack': 'Ration Pack', 'pet-treat': 'Pet Treat', 'elemental-pet-treat': 'Elemental Treats',
 };
 export const craftMaterialName = (id: string) => CRAFT_MATERIAL_NAMES[id] ?? id;
 const material = (id: string, count: number): CraftIngredient => ({ ids: [id], count, label: craftMaterialName(id) });
@@ -48,6 +48,13 @@ const fang = (count: number) => choice(['hunt-small-fang', 'hunt-wolf-fang', 'hu
 const scale = (count: number) => choice(['hunt-ash-scale', 'hunt-ember-scale'], count, 'Ash / Ember Scale');
 const core = (count: number) => material('hunt-ancient-beast-core', count);
 const iron = (count: number, grade: ResourceGrade = 0) => gradedCraftMaterial('gather-iron-sand', grade, count);
+const petFoodBase = (count: number) => choice(['hunt-beast-meat', ...RESOURCE_GRADES.map((_, grade) => resourceItemId('gather-river-fish', grade as ResourceGrade))], count, 'Beast Meat / River Fish (any grade)');
+const petFoodMinerals = (count: number, minGrade: ResourceGrade = 0) => choice(
+    RESOURCE_GRADES.slice(minGrade).flatMap((_, index) =>
+        (['gather-rime-crystal', 'gather-ember-ore', 'gather-stormglass-shard'] as const)
+            .map(id => resourceItemId(id, (minGrade + index) as ResourceGrade))),
+    count, `${RESOURCE_GRADES[minGrade]} or better Rime Crystal / Ember Ore / Stormglass Shard`,
+);
 
 /** Equipment carries bulk ore costs. Regional traces are rare (2% on a mining
  * success), so everyday medicines accept Common minerals and advanced gear
@@ -55,8 +62,9 @@ const iron = (count: number, grade: ResourceGrade = 0) => gradedCraftMaterial('g
 export const SUPPLY_CRAFT_RECIPES: Readonly<Record<string, SupplyCraftRecipe>> = {
     'village-supply-bundle': { ingredients: exact('village-supply-bundle') },
     'village-supply-crate': { ingredients: exact('village-supply-crate') },
-    'pet-treat': { ingredients: [choice(['hunt-beast-meat', 'gather-river-fish'], 4), herb(2)] },
-    'elemental-pet-treat': { ingredients: [material('pet-treat', 2), choice(['gather-rime-crystal', 'gather-ember-ore', 'gather-stormglass-shard'], 2), herb(1)] },
+    'pet-treat': { ingredients: [petFoodBase(4), herb(2)] },
+    'elemental-pet-treat': { ingredients: [material('pet-treat', 2), petFoodMinerals(4), herb(4)] },
+    'ancient-pet-treat': { ingredients: [material('elemental-pet-treat', 1), petFoodBase(8), herb(8), petFoodMinerals(2, 1)] },
     'beast-seal-master': { ingredients: [gradedCraftMaterial('gather-stormglass-shard', 1, 4), bark(4), thread(4), fiber(8)], levelReq: 30 },
     'currency:aura-dust': { ingredients: [gradedCraftMaterial('gather-stormglass-shard', 0, 2), herb(4), fiber(2)], currency: 'auraDust', amount: 50 },
     'currency:bone-charm': { ingredients: [material('hunt-cracked-horn', 6), material('hunt-small-fang', 4), fiber(4), gradedCraftMaterial('gather-stormglass-shard', 0, 1)], currency: 'boneCharms', amount: 1 },

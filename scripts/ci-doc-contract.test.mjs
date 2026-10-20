@@ -188,7 +188,7 @@ test('Stable CI checks names only the matrix checks ci.yml emits, and counts the
 });
 
 test('Stable CI checks counts the live Express steps e2e_village_stores runs', () => {
-    const job = jobs.get('e2e_village_stores');
+    const job = jobs.get('e2e_village_stores_matrix');
     assert.ok(job, 'ci.yml lost e2e_village_stores; update this test and docs/CI.md together');
     // Steps are 6-space list items. Comment lines are dropped, so a comment that
     // mentions the command cannot count as a step.
