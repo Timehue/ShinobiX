@@ -44,7 +44,7 @@ same commit as the workflow.
 | `CI / client-quality` | `client_quality` | 35 min | Locked root/client installs; shipped pet rig/animation, Warfront/Rally LOD, and Warfront impostor certification ahead of the build; lint, story-content/TypeScript/production build, build-size and visual-baseline-size gates, client audit (with the same retry rule as the root audit), and checksum-backed client artifact production. |
 | `CI / release-certification` | `release_certification` | 15 min | Downloads and verifies the exact compiled release artifacts, then runs the fresh-account/combat certification against them. |
 | `CI / concurrency-smoke` | `concurrency_smoke` | 15 min | Downloads and verifies the release artifacts, then runs the short real-server concurrent-player smoke. It is not a database capacity test. |
-| `CI / e2e-responsive` | `e2e_responsive` | 5 min | Fail-closed aggregate requiring every responsive smoke slice (`e2e_responsive_matrix`) and all six flow jobs with the CSP, Stronghold, and dedicated suites (`e2e_responsive_flows`) to succeed. |
+| `CI / e2e-responsive` | `e2e_responsive` | 5 min | Fail-closed aggregate requiring every responsive smoke slice (`e2e_responsive_matrix`) and all ten flow jobs with the CSP, Stronghold, and dedicated suites (`e2e_responsive_flows`) to succeed. |
 | `CI / e2e-combat` | `e2e_combat` | 5 min | Fail-closed stable aggregate requiring all three combat browser shards to succeed. |
 | `CI / e2e-warfront` | `e2e_warfront` | 29 min | Warfront positional-mode browser coverage on seven Chromium viewport projects, including renders of eight real skinned rigs, and adaptive-layout evidence. |
 | `CI / e2e-village-stores` | `e2e_village_stores` | 35 min | Ten live Express player-journey steps in Chromium, each against its own real server started from the release artifact (see below). |
@@ -81,8 +81,8 @@ hung slice fails while there is still time to upload its evidence. On main in
 October 2026 a slice took 12 to 26 minutes and setup about 2.
 
 The CSP check, the Stronghold modes and the dedicated suites run beside the
-slices in six `e2e_responsive_flows` jobs, named `CI / e2e-responsive-flows / 1`
-through `CI / e2e-responsive-flows / 6`, each with a 29-minute ceiling:
+slices in ten `e2e_responsive_flows` jobs, named `CI / e2e-responsive-flows / 1`
+through `CI / e2e-responsive-flows / 10`, each with a 29-minute ceiling:
 
 - Flow 1: the built CSP in Chromium and WebKit; all three Stronghold modes,
   in order, because they build into the same disposable fixture directory;
@@ -92,8 +92,9 @@ through `CI / e2e-responsive-flows / 6`, each with a 29-minute ceiling:
 - Flow 2: fishing and the Fracture Chain; Chronicle pack purchase and recovery;
   Pet Gauntlet playback and renderer recovery; named forge purchase and
   recovery; Rally renderer recovery; the Dojo Circuit gamepad flow.
-- Flows 3 through 6: the complete living-sector source suite, split into four
-  Playwright slices. Flow 3 also checks painted mining/fishing placement; flow 4
+- Flows 3 through 10: the complete living-sector source suite, split into eight
+  Playwright slices. Test-level sharding keeps the large sector-life spec from
+  occupying a whole job; each slice still runs one worker. Flow 3 also checks painted mining/fishing placement; flow 4
   also checks the Chronicle tea-stop routine and daytime handover. The dock
   shipment runs on desktop in flow 3 and phone in flow 4, including delivery,
   unattended recovery and cached aftermath during an outage, plus name/greeting

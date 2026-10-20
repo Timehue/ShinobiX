@@ -169,8 +169,8 @@ test('built CSP and every Stronghold audit feed the required responsive gate wit
     assert.deepEqual([...strongholdOrder].sort((a, b) => a - b), strongholdOrder);
     assert.match(responsive, /name: Retain responsive browser evidence\n\s+if: always\(\)/);
     assert.match(flows, /name: Retain responsive flow evidence\n\s+if: always\(\)/);
-    assert.match(flows, /shard: \[1, 2, 3, 4, 5, 6\]/, 'every responsive flow shard must be scheduled');
-    for(const shard of ['1/4','2/4','3/4','4/4'])assert(flows.includes(`lifeShard: ${shard}`),'every living-sector slice must be gated');
+    assert.match(flows, /shard: \[1, 2, 3, 4, 5, 6, 7, 8, 9, 10\]/, 'every responsive flow shard must be scheduled');
+    for(let shard=1;shard<=8;shard++)assert(flows.includes(`lifeShard: ${shard}/8`),'every living-sector slice must be gated');
     assert.match(flows, /needs: release_artifact\n\s+if: \$\{\{ always\(\) \}\}/);
     const aggregate = workflow.split('  e2e_responsive:\n')[1]?.split('\n  e2e_combat_matrix:\n')[0];
     assert.match(aggregate, /needs: \[e2e_responsive_matrix, e2e_responsive_flows\]/);
@@ -185,7 +185,7 @@ test('living-world source fixtures have dedicated gates instead of running on th
         assert(playwrightConfig.includes(`**/${name}.spec.ts`),`${name} must be classified as a source fixture`);
         assert(flows.includes(`--config playwright.${name}.config.ts`),`${name} needs its own source server`);
     }
-    assert.match(flows,/--config playwright\.sector-life\.config\.ts --shard=\$\{\{ matrix\.lifeShard \}\} --forbid-only/);
+    assert.match(flows,/--config playwright\.sector-life\.config\.ts --fully-parallel --shard=\$\{\{ matrix\.lifeShard \}\} --forbid-only/);
     assert.match(flows,/groundProject: desktop/);
     assert.match(flows,/groundProject: phone/);
     assert.match(flows,/--config playwright\.ground-wildlife\.config\.ts --project=\$\{\{ matrix\.groundProject \}\} --forbid-only/);
