@@ -124,7 +124,7 @@ for (const mode of ['tower', 'spire', 'clan'] as const) for (const winner of ['s
         await page.reload({ waitUntil: 'domcontentloaded' });
         if (mode === 'clan') {
             await page.getByRole('button', { name: 'Boss', exact: true }).click();
-            await page.getByRole('button', { name: 'Rejoin your accepted operation', exact: true }).click();
+            await page.getByRole('button', { name: 'Finish assault results', exact: true }).click();
         }
         await expect(result).toBeVisible();
         allowSettle = true;
