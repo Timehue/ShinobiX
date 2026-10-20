@@ -1,0 +1,1625 @@
+{
+  "id": "standard-15",
+  "label": "parallel-a-standard-15-techniques",
+  "sourceManifestSha256": "14ddca28c845cfade7cc81a14cfba0d7e6fad72ee4d404f19fd76ec161cb2773",
+  "crop": {
+    "left": 162,
+    "top": 38,
+    "width": 185,
+    "height": 181
+  },
+  "nativePixelsPreserved": true,
+  "resizing": false,
+  "foregroundThreshold": 3,
+  "strips": [
+    {
+      "name": "front-block-0-half-0.png",
+      "sha256": "8828904012f29a82774f2c8cdf51cfaff18480a5ca2408a03387cc6fd49fb63e",
+      "sources": [
+        {
+          "name": "standard-15-fire-strike-front-0.png",
+          "sha256": "bf30c59ed7c225c816ad3912acfa5d4f49714cb71991cb6c6ef5cbf0f779c6e5",
+          "move": "fire-strike",
+          "view": "front",
+          "time": 0.04
+        },
+        {
+          "name": "standard-15-fire-strike-front-1.png",
+          "sha256": "ca5cf652645109c7a39ed648c16cd19d26e23e78ec07f7a134b05e8d030b712e",
+          "move": "fire-strike",
+          "view": "front",
+          "time": 0.12
+        },
+        {
+          "name": "standard-15-fire-strike-front-2.png",
+          "sha256": "cd88ce761e74223f25fd1e8fe9b7de78391a431b8585955b18e2f34fb4336cd2",
+          "move": "fire-strike",
+          "view": "front",
+          "time": 0.24
+        },
+        {
+          "name": "standard-15-fire-strike-front-3.png",
+          "sha256": "5e7374b43fce563a130e64a52e34c2c4a14dcdb409a51637be8b69bb8f68fea3",
+          "move": "fire-strike",
+          "view": "front",
+          "time": 0.36
+        },
+        {
+          "name": "standard-15-fire-strike-front-4.png",
+          "sha256": "334ad35da1274d9d5a0d6bc259627ed02c9c541a9c2f7e3cc4d316c3a32c7475",
+          "move": "fire-strike",
+          "view": "front",
+          "time": 0.48
+        },
+        {
+          "name": "standard-15-fire-strike-front-5.png",
+          "sha256": "8812d48fb05e019550acb091b78932a37de367ff9a0706a859f15c99d8ffb3a9",
+          "move": "fire-strike",
+          "view": "front",
+          "time": 0.6
+        },
+        {
+          "name": "standard-15-fire-pulse-front-0.png",
+          "sha256": "69f0fbadd7f6e1d04020bc1a1dbcdfc145adcd31683b2f175001f6bf35f898c1",
+          "move": "fire-pulse",
+          "view": "front",
+          "time": 0.04
+        },
+        {
+          "name": "standard-15-fire-pulse-front-1.png",
+          "sha256": "93a789df9828d073f29b9eb9c3d19f2a185b7bba530cf070d4783ff2308bb55b",
+          "move": "fire-pulse",
+          "view": "front",
+          "time": 0.12
+        },
+        {
+          "name": "standard-15-fire-pulse-front-2.png",
+          "sha256": "d624121eebe3f54fccb5807f063d393da229a021caf56690249c92e24f3cec5d",
+          "move": "fire-pulse",
+          "view": "front",
+          "time": 0.24
+        },
+        {
+          "name": "standard-15-fire-pulse-front-3.png",
+          "sha256": "33b34486eb45a900e65213141553d7ae4a6e61a51e9298c40207ed9422cfb5a8",
+          "move": "fire-pulse",
+          "view": "front",
+          "time": 0.36
+        },
+        {
+          "name": "standard-15-fire-pulse-front-4.png",
+          "sha256": "7dd56328aab923408a4e4e5b9256988e9fe3c43ecf5a55e15a9f58b4873351a9",
+          "move": "fire-pulse",
+          "view": "front",
+          "time": 0.48
+        },
+        {
+          "name": "standard-15-fire-pulse-front-5.png",
+          "sha256": "c13797e744f4e479cff952db5a95062b96dea0e1d7e88878c4b8142f01e45cea",
+          "move": "fire-pulse",
+          "view": "front",
+          "time": 0.6
+        },
+        {
+          "name": "standard-15-fire-breaker-front-0.png",
+          "sha256": "527a645ec97bbea1e8a18504242331cb0367b1b5ba9bf788e513e5b4fd8601b8",
+          "move": "fire-breaker",
+          "view": "front",
+          "time": 0.04
+        },
+        {
+          "name": "standard-15-fire-breaker-front-1.png",
+          "sha256": "8063fd45d7b6c928163b048a66b94f485b885358901532747ca30d151c69ab84",
+          "move": "fire-breaker",
+          "view": "front",
+          "time": 0.12
+        },
+        {
+          "name": "standard-15-fire-breaker-front-2.png",
+          "sha256": "e4abe30f4b7d856f084b7342e63481b3a2db34e55809b92b3b4c955b3fe9773d",
+          "move": "fire-breaker",
+          "view": "front",
+          "time": 0.24
+        },
+        {
+          "name": "standard-15-fire-breaker-front-3.png",
+          "sha256": "97b91c3dba7a8bcb8884ac2da166d1208e22f2f82ffc170d495021978f1c810e",
+          "move": "fire-breaker",
+          "view": "front",
+          "time": 0.36
+        },
+        {
+          "name": "standard-15-fire-breaker-front-4.png",
+          "sha256": "ac845efd82a95ac12251f8f70576a9aa72e90593f2b9faf7f85ee3cbe9c7e4d5",
+          "move": "fire-breaker",
+          "view": "front",
+          "time": 0.48
+        },
+        {
+          "name": "standard-15-fire-breaker-front-5.png",
+          "sha256": "76a1d82edfad5961de73a9a59442d049212e5ebe527a6be4ebe3e32f51affffc",
+          "move": "fire-breaker",
+          "view": "front",
+          "time": 0.6
+        }
+      ],
+      "width": 1320,
+      "height": 621
+    },
+    {
+      "name": "front-block-0-half-1.png",
+      "sha256": "d31040dc7aa4a1816ec9140aac9c2dd8714def77cbf268c7bb61984bee92bb28",
+      "sources": [
+        {
+          "name": "standard-15-fire-strike-front-6.png",
+          "sha256": "116b2218637790ae3cd5e25e62188e50e8503cf277ef5021268511c604900ea0",
+          "move": "fire-strike",
+          "view": "front",
+          "time": 0.76
+        },
+        {
+          "name": "standard-15-fire-strike-front-7.png",
+          "sha256": "a92490758929857e4e34cdec84d8ddb83b3b8e2b52b6a211769d273f86deadba",
+          "move": "fire-strike",
+          "view": "front",
+          "time": 0.96
+        },
+        {
+          "name": "standard-15-fire-strike-front-8.png",
+          "sha256": "30577dd6e96d258051fd3ef0dfc5326cb9853a274f2136d9c6704ccc6ed8154b",
+          "move": "fire-strike",
+          "view": "front",
+          "time": 1.2
+        },
+        {
+          "name": "standard-15-fire-strike-front-9.png",
+          "sha256": "eb3753f54d81f70c87ca719e62cdfa4d6d46824c8c5670f0c4765d2222e2ef08",
+          "move": "fire-strike",
+          "view": "front",
+          "time": 1.44
+        },
+        {
+          "name": "standard-15-fire-strike-front-10.png",
+          "sha256": "1ca35cee7aa59aa3808802ca226c2885e275d663db5c52d53c66451b363ec1d6",
+          "move": "fire-strike",
+          "view": "front",
+          "time": 1.68
+        },
+        {
+          "name": "standard-15-fire-strike-front-11.png",
+          "sha256": "17880d67af33ef8877f417eac54412ae83fc3c775035422880769a80e544f407",
+          "move": "fire-strike",
+          "view": "front",
+          "time": 1.92
+        },
+        {
+          "name": "standard-15-fire-pulse-front-6.png",
+          "sha256": "6d40850056b3f20eefb56f8acb60828e1d3d4cb18f2189742323000145423f57",
+          "move": "fire-pulse",
+          "view": "front",
+          "time": 0.76
+        },
+        {
+          "name": "standard-15-fire-pulse-front-7.png",
+          "sha256": "c12745036fd00cfdd634bfa59687f4371aeec564dca9573babd17b144599984b",
+          "move": "fire-pulse",
+          "view": "front",
+          "time": 0.96
+        },
+        {
+          "name": "standard-15-fire-pulse-front-8.png",
+          "sha256": "1a7ff10745efd98db2ef73483948ed2fcb5d9a56dd3d4b917873578a48218272",
+          "move": "fire-pulse",
+          "view": "front",
+          "time": 1.2
+        },
+        {
+          "name": "standard-15-fire-pulse-front-9.png",
+          "sha256": "0a73c1824bb84affb4739e1abe4d7a5332ce7d0d5b355a7d2b5b4f00df476b68",
+          "move": "fire-pulse",
+          "view": "front",
+          "time": 1.44
+        },
+        {
+          "name": "standard-15-fire-pulse-front-10.png",
+          "sha256": "26e3f583c6d9553710e84539529aa6d2ba7f23ecce92c24016a6357d227ff538",
+          "move": "fire-pulse",
+          "view": "front",
+          "time": 1.68
+        },
+        {
+          "name": "standard-15-fire-pulse-front-11.png",
+          "sha256": "1cd44fb3b507cc45326a3b2c2f45ce2902e274f232c4a9d9d228857579115854",
+          "move": "fire-pulse",
+          "view": "front",
+          "time": 1.92
+        },
+        {
+          "name": "standard-15-fire-breaker-front-6.png",
+          "sha256": "b3a2fdb48d59d21526460c491e0d528584f5bcb6f0c7345c95a6cba00c3a9cdd",
+          "move": "fire-breaker",
+          "view": "front",
+          "time": 0.76
+        },
+        {
+          "name": "standard-15-fire-breaker-front-7.png",
+          "sha256": "494d870e7ad64cfe3b074774edc4e88a0a3c02211e85e08cfeb7be9946856f1d",
+          "move": "fire-breaker",
+          "view": "front",
+          "time": 0.96
+        },
+        {
+          "name": "standard-15-fire-breaker-front-8.png",
+          "sha256": "716c845a2db55d311855003873c9b2330314842f9eeace4c57003ac56ba9695d",
+          "move": "fire-breaker",
+          "view": "front",
+          "time": 1.2
+        },
+        {
+          "name": "standard-15-fire-breaker-front-9.png",
+          "sha256": "876de42badc23e6bab6bfd6ab4f9d2e8ae710f0813f47e724a2ababfa43e5bab",
+          "move": "fire-breaker",
+          "view": "front",
+          "time": 1.44
+        },
+        {
+          "name": "standard-15-fire-breaker-front-10.png",
+          "sha256": "31b7dbf8a3839088d01aa9d2a63bf27684f546e8815c88109e30216635c06871",
+          "move": "fire-breaker",
+          "view": "front",
+          "time": 1.68
+        },
+        {
+          "name": "standard-15-fire-breaker-front-11.png",
+          "sha256": "afeee7b5fc1dc62136a9cffecc67f151ac0c3affe10a4c146d51fede9afba260",
+          "move": "fire-breaker",
+          "view": "front",
+          "time": 1.92
+        }
+      ],
+      "width": 1320,
+      "height": 621
+    },
+    {
+      "name": "front-block-1-half-0.png",
+      "sha256": "140d2f1334cbb32bb0cb685721b5b99494dd1c5632e6dd7236e1874d0156a37d",
+      "sources": [
+        {
+          "name": "standard-15-earth-pulse-front-0.png",
+          "sha256": "9e4d9b2bf721f366287b3d3866e081417cc63461abd684945c6942def42edfdd",
+          "move": "earth-pulse",
+          "view": "front",
+          "time": 0.04
+        },
+        {
+          "name": "standard-15-earth-pulse-front-1.png",
+          "sha256": "7185d4a39203771438835972d75bb8f4ff882fb129455a32dc093d98eb1f0c46",
+          "move": "earth-pulse",
+          "view": "front",
+          "time": 0.12
+        },
+        {
+          "name": "standard-15-earth-pulse-front-2.png",
+          "sha256": "d4c1e5c58f8e3ac25e5f72e3b66329c307ded8591bec5e3878440ec831d41906",
+          "move": "earth-pulse",
+          "view": "front",
+          "time": 0.24
+        },
+        {
+          "name": "standard-15-earth-pulse-front-3.png",
+          "sha256": "e5f868c1c19e733a030b6716317357c2c9de95ce7f123f13418c2ec54e62810b",
+          "move": "earth-pulse",
+          "view": "front",
+          "time": 0.36
+        },
+        {
+          "name": "standard-15-earth-pulse-front-4.png",
+          "sha256": "ace7f0212700b035a7e1deec3b8562faddb8e8690aad045e7e8e23759f03c951",
+          "move": "earth-pulse",
+          "view": "front",
+          "time": 0.48
+        },
+        {
+          "name": "standard-15-earth-pulse-front-5.png",
+          "sha256": "bd59f2a33781742a3b6d0facac9711e5149c9c194247e55b1a233c0ebfae771f",
+          "move": "earth-pulse",
+          "view": "front",
+          "time": 0.6
+        },
+        {
+          "name": "standard-15-undertow-front-0.png",
+          "sha256": "e004bd70583b8ecc8ba2f030b19baf8f32ca5288e0b46fc90a8651603deba7ab",
+          "move": "undertow",
+          "view": "front",
+          "time": 0.04
+        },
+        {
+          "name": "standard-15-undertow-front-1.png",
+          "sha256": "8e36348d2f558053c2b4452004ed9247476cf7126ac6b3e3daa444598018b379",
+          "move": "undertow",
+          "view": "front",
+          "time": 0.12
+        },
+        {
+          "name": "standard-15-undertow-front-2.png",
+          "sha256": "dd99709a69bc920fcf09fbee5e110e323adce523b1e57e7cfc987cae3a4db15c",
+          "move": "undertow",
+          "view": "front",
+          "time": 0.24
+        },
+        {
+          "name": "standard-15-undertow-front-3.png",
+          "sha256": "4c1e831b63ddfe2535ae444422352280258dc010f5e4c5c02d6ebb90f7062640",
+          "move": "undertow",
+          "view": "front",
+          "time": 0.36
+        },
+        {
+          "name": "standard-15-undertow-front-4.png",
+          "sha256": "0d45e4f881e1e2dbf5cd47bb6ca9b0c20c6d20b7fba60366040e9b14c950cd45",
+          "move": "undertow",
+          "view": "front",
+          "time": 0.48
+        },
+        {
+          "name": "standard-15-undertow-front-5.png",
+          "sha256": "b20bd04363190ebb142d0598357efc1e46faa5305a0e0b39318692978ae429cc",
+          "move": "undertow",
+          "view": "front",
+          "time": 0.6
+        },
+        {
+          "name": "standard-15-mend-front-0.png",
+          "sha256": "210beaa5397dbd9cad408fbc49c6972db67d0e49e7c1f6b4631092d8f471c5cb",
+          "move": "mend",
+          "view": "front",
+          "time": 0.04
+        },
+        {
+          "name": "standard-15-mend-front-1.png",
+          "sha256": "971faca0e138a57ca6d39ec9bb010bfac718ca03143d532c23a426f1e9c53b07",
+          "move": "mend",
+          "view": "front",
+          "time": 0.12
+        },
+        {
+          "name": "standard-15-mend-front-2.png",
+          "sha256": "16c904b9d626cdf6d6f9d1ec839a85d36033702316d3384a53e5af95a8caf842",
+          "move": "mend",
+          "view": "front",
+          "time": 0.24
+        },
+        {
+          "name": "standard-15-mend-front-3.png",
+          "sha256": "68424e2403c51bc94c8bb638fb60ea514eb09fa78389879a1d42a0dc5e45e4d3",
+          "move": "mend",
+          "view": "front",
+          "time": 0.36
+        },
+        {
+          "name": "standard-15-mend-front-4.png",
+          "sha256": "a13bc92a07526af2ea929052dab775e41dcdc525b6fa88744ed999a66c88b33d",
+          "move": "mend",
+          "view": "front",
+          "time": 0.48
+        },
+        {
+          "name": "standard-15-mend-front-5.png",
+          "sha256": "91aca77cca04f1d3a27cc7aeb847266b626592cc2f61cc4cebaab6df2afd37bf",
+          "move": "mend",
+          "view": "front",
+          "time": 0.6
+        }
+      ],
+      "width": 1320,
+      "height": 621
+    },
+    {
+      "name": "front-block-1-half-1.png",
+      "sha256": "7729df77e309ac6fa040a945049670f34e85ae32674ed81a689d5ca3a8f6427a",
+      "sources": [
+        {
+          "name": "standard-15-earth-pulse-front-6.png",
+          "sha256": "3ac78513d520094e5927ad9ff2b537780473a867d225e7d912297714b0f497c1",
+          "move": "earth-pulse",
+          "view": "front",
+          "time": 0.76
+        },
+        {
+          "name": "standard-15-earth-pulse-front-7.png",
+          "sha256": "4c3566ac871336acc7a56866af0c2f8de72def4be7e656db7c23b4d0b28dd2bf",
+          "move": "earth-pulse",
+          "view": "front",
+          "time": 0.96
+        },
+        {
+          "name": "standard-15-earth-pulse-front-8.png",
+          "sha256": "5dd0742d6bcb9925816642ea2c5e88cdd5b4df61368b141077bf220e99fab25b",
+          "move": "earth-pulse",
+          "view": "front",
+          "time": 1.2
+        },
+        {
+          "name": "standard-15-earth-pulse-front-9.png",
+          "sha256": "66196a3a092ade35d14419341b908c8fb3b2daf670372cc931a55ed99dc50767",
+          "move": "earth-pulse",
+          "view": "front",
+          "time": 1.44
+        },
+        {
+          "name": "standard-15-earth-pulse-front-10.png",
+          "sha256": "3c32dd32dbf1e519b4104b6a367eb3810684f0b02ed5188be1f7a60b7af98ee0",
+          "move": "earth-pulse",
+          "view": "front",
+          "time": 1.68
+        },
+        {
+          "name": "standard-15-earth-pulse-front-11.png",
+          "sha256": "4dc34488ab5aefbb81a587feee8e69b42a54e94633f372f8089b35f24f2d8c58",
+          "move": "earth-pulse",
+          "view": "front",
+          "time": 1.92
+        },
+        {
+          "name": "standard-15-undertow-front-6.png",
+          "sha256": "bbb4fd2274a4f52a98dee2ec6b28d30a11659a35d14f9f139e5fd839d860988b",
+          "move": "undertow",
+          "view": "front",
+          "time": 0.76
+        },
+        {
+          "name": "standard-15-undertow-front-7.png",
+          "sha256": "af807abb8c7f939b70ae0047b399bf40434fae2ea37af2aa8bdf3d1218bc1c91",
+          "move": "undertow",
+          "view": "front",
+          "time": 0.96
+        },
+        {
+          "name": "standard-15-undertow-front-8.png",
+          "sha256": "5f430bbf3775a775b39c036701d1ae527d4bc1ee8024348c443182ebc86d864e",
+          "move": "undertow",
+          "view": "front",
+          "time": 1.2
+        },
+        {
+          "name": "standard-15-undertow-front-9.png",
+          "sha256": "66b18c92b170f470b9504ff456b84fb185a685e176dbd8ce287c6f9b38a222a1",
+          "move": "undertow",
+          "view": "front",
+          "time": 1.44
+        },
+        {
+          "name": "standard-15-undertow-front-10.png",
+          "sha256": "26e3f583c6d9553710e84539529aa6d2ba7f23ecce92c24016a6357d227ff538",
+          "move": "undertow",
+          "view": "front",
+          "time": 1.68
+        },
+        {
+          "name": "standard-15-undertow-front-11.png",
+          "sha256": "1cd44fb3b507cc45326a3b2c2f45ce2902e274f232c4a9d9d228857579115854",
+          "move": "undertow",
+          "view": "front",
+          "time": 1.92
+        },
+        {
+          "name": "standard-15-mend-front-6.png",
+          "sha256": "21985c5fc2cdaae1a30b47a2d9487f174f22bce563efaff229ea371a629acfa5",
+          "move": "mend",
+          "view": "front",
+          "time": 0.76
+        },
+        {
+          "name": "standard-15-mend-front-7.png",
+          "sha256": "1e728df5b3c4ebdbca24e9f5ad12161b355b85dc0a8b01fce6d86c9139e36e75",
+          "move": "mend",
+          "view": "front",
+          "time": 0.96
+        },
+        {
+          "name": "standard-15-mend-front-8.png",
+          "sha256": "8cfb7607277b96c1c97b5dae8cdbc03e2a4ea869126b752e6a6ac6dbf8777642",
+          "move": "mend",
+          "view": "front",
+          "time": 1.2
+        },
+        {
+          "name": "standard-15-mend-front-9.png",
+          "sha256": "89e3406b6fef80b95b2fb65a4430c8d5e1e7115be19742f0def6438f65526bf4",
+          "move": "mend",
+          "view": "front",
+          "time": 1.44
+        },
+        {
+          "name": "standard-15-mend-front-10.png",
+          "sha256": "d82393a1ac973e5bd6f9bd34542b2b804618a95804e66fae07c88be9f72a8d1c",
+          "move": "mend",
+          "view": "front",
+          "time": 1.68
+        },
+        {
+          "name": "standard-15-mend-front-11.png",
+          "sha256": "39f075f2ef50c4db1c23d47cb993089ee686352d45efeb9d5f63def348a2674c",
+          "move": "mend",
+          "view": "front",
+          "time": 1.92
+        }
+      ],
+      "width": 1320,
+      "height": 621
+    },
+    {
+      "name": "front-block-2-half-0.png",
+      "sha256": "fb12076784c2472ebac2510819bbeeba8d5ef130c88b25e3c64e554f389a05b8",
+      "sources": [
+        {
+          "name": "standard-15-purify-front-0.png",
+          "sha256": "ec4ab480f3b68a754059d057e916f2c177d136b9c0e2461165377da45eb9e72e",
+          "move": "purify",
+          "view": "front",
+          "time": 0.04
+        },
+        {
+          "name": "standard-15-purify-front-1.png",
+          "sha256": "c21b4c7015cd8c32cce26a71242d69fc7a6b128c50e2693e00e70db5adb84560",
+          "move": "purify",
+          "view": "front",
+          "time": 0.12
+        },
+        {
+          "name": "standard-15-purify-front-2.png",
+          "sha256": "f0f2367971f24888ffd1bf4d77a44f7015c9ccfa5f17b2e2accddbe5a62809e2",
+          "move": "purify",
+          "view": "front",
+          "time": 0.24
+        },
+        {
+          "name": "standard-15-purify-front-3.png",
+          "sha256": "e7e644a3ad5717d9ada46fc18b6c2a2f1cf307dee572c148ca57a054835b7296",
+          "move": "purify",
+          "view": "front",
+          "time": 0.36
+        },
+        {
+          "name": "standard-15-purify-front-4.png",
+          "sha256": "3880d601bcbf4050c55b6232db0eea4c786502bfc59589bc2d90903d85203b0c",
+          "move": "purify",
+          "view": "front",
+          "time": 0.48
+        },
+        {
+          "name": "standard-15-purify-front-5.png",
+          "sha256": "94a6ef4721fcbb77074e70d7f7d425de2998f9df6bea599c29951bdc513f7399",
+          "move": "purify",
+          "view": "front",
+          "time": 0.6
+        },
+        {
+          "name": "standard-15-aegis-front-0.png",
+          "sha256": "8a00e52283927fe758dab274707e1fd657b3e8f9b26726dd3a41e79170bb4501",
+          "move": "aegis",
+          "view": "front",
+          "time": 0.04
+        },
+        {
+          "name": "standard-15-aegis-front-1.png",
+          "sha256": "682f780d2954dbd83e33015e8e6ce6f1371ebf6a352fce567d51296ec14a567d",
+          "move": "aegis",
+          "view": "front",
+          "time": 0.12
+        },
+        {
+          "name": "standard-15-aegis-front-2.png",
+          "sha256": "e84aded0ae2fce4149bb6b0edfda33d78ff6dd3f51dd548467ff22d948e86684",
+          "move": "aegis",
+          "view": "front",
+          "time": 0.24
+        },
+        {
+          "name": "standard-15-aegis-front-3.png",
+          "sha256": "246d9760a7bebdb4217776165ff1ec29e42c95541dc35a61f1669a91b3843d88",
+          "move": "aegis",
+          "view": "front",
+          "time": 0.36
+        },
+        {
+          "name": "standard-15-aegis-front-4.png",
+          "sha256": "4e7bdf644949b71a760e2fd4ab71fc30bb71ba725926a4d1bc3311fc20ca9176",
+          "move": "aegis",
+          "view": "front",
+          "time": 0.48
+        },
+        {
+          "name": "standard-15-aegis-front-5.png",
+          "sha256": "65b7b43b72f411a32b04a2ddfbf6bd11c486804a146e998ff2a6bce3f395050e",
+          "move": "aegis",
+          "view": "front",
+          "time": 0.6
+        },
+        {
+          "name": "standard-15-standard-15-signature-front-0.png",
+          "sha256": "d2ac492020deff54f85d4ba0ff9fbf9d2acb15c2b3bc7937bdacbfe10520c48c",
+          "move": "standard-15-signature",
+          "view": "front",
+          "time": 0.04
+        },
+        {
+          "name": "standard-15-standard-15-signature-front-1.png",
+          "sha256": "b4de45e8f2f95a932a8571f0d0e25383eb53c0c22835b3625c49b411b7f2b4f7",
+          "move": "standard-15-signature",
+          "view": "front",
+          "time": 0.12
+        },
+        {
+          "name": "standard-15-standard-15-signature-front-2.png",
+          "sha256": "8beeee4cf9abfb6076606c131ec3fbd0366e5ca9dfeb385f1668b5c67ac1e0dc",
+          "move": "standard-15-signature",
+          "view": "front",
+          "time": 0.24
+        },
+        {
+          "name": "standard-15-standard-15-signature-front-3.png",
+          "sha256": "e3e2204a2e68832af5a75a238268df4ece4360a7f63061e4829712c5bb6bcd37",
+          "move": "standard-15-signature",
+          "view": "front",
+          "time": 0.36
+        },
+        {
+          "name": "standard-15-standard-15-signature-front-4.png",
+          "sha256": "3ae8a5884341aecd056b155fa783c73e9994edc6581fff3dcbcb0006dd1ff06e",
+          "move": "standard-15-signature",
+          "view": "front",
+          "time": 0.48
+        },
+        {
+          "name": "standard-15-standard-15-signature-front-5.png",
+          "sha256": "4b2f2ee0db226d97d8d5e52411e2b09a9eaf200f3a4f4286bbfebcad23fac761",
+          "move": "standard-15-signature",
+          "view": "front",
+          "time": 0.6
+        }
+      ],
+      "width": 1320,
+      "height": 621
+    },
+    {
+      "name": "front-block-2-half-1.png",
+      "sha256": "68176dc5bfac9e84234603c53891071ba5f20539e896a4d0e19e9189a99f6e66",
+      "sources": [
+        {
+          "name": "standard-15-purify-front-6.png",
+          "sha256": "914e3f6ba9098d05800ad5f5c118581b05b82bd105817064eeaaf68d0e8bf2cf",
+          "move": "purify",
+          "view": "front",
+          "time": 0.76
+        },
+        {
+          "name": "standard-15-purify-front-7.png",
+          "sha256": "abab5b05b04a23f36a1fc02a590a235269692dc6c817a1a144c4c57c8908ad9c",
+          "move": "purify",
+          "view": "front",
+          "time": 0.96
+        },
+        {
+          "name": "standard-15-purify-front-8.png",
+          "sha256": "112aaa70c65a2fa4cd20679dd6a307f63a6e4ae1e4309a2a5c7874b0047a7676",
+          "move": "purify",
+          "view": "front",
+          "time": 1.2
+        },
+        {
+          "name": "standard-15-purify-front-9.png",
+          "sha256": "0a73c1824bb84affb4739e1abe4d7a5332ce7d0d5b355a7d2b5b4f00df476b68",
+          "move": "purify",
+          "view": "front",
+          "time": 1.44
+        },
+        {
+          "name": "standard-15-purify-front-10.png",
+          "sha256": "c05fdd413f013e9bd9e97c8fb4a3f8ce972136c48567c039586d2ee15b52bc4f",
+          "move": "purify",
+          "view": "front",
+          "time": 1.68
+        },
+        {
+          "name": "standard-15-purify-front-11.png",
+          "sha256": "1cd44fb3b507cc45326a3b2c2f45ce2902e274f232c4a9d9d228857579115854",
+          "move": "purify",
+          "view": "front",
+          "time": 1.92
+        },
+        {
+          "name": "standard-15-aegis-front-6.png",
+          "sha256": "66809b09e4bb587ab22712277a946e23f62da3d20b2408de0e7f5a274f2ba3e2",
+          "move": "aegis",
+          "view": "front",
+          "time": 0.76
+        },
+        {
+          "name": "standard-15-aegis-front-7.png",
+          "sha256": "937709a60de3513e5c2edcfd52484408091b73024e2e464fa0bb7776a9e4dad4",
+          "move": "aegis",
+          "view": "front",
+          "time": 0.96
+        },
+        {
+          "name": "standard-15-aegis-front-8.png",
+          "sha256": "d577f35c9d29bb65c9a7f6ee1b8e3e63d57a01bdaba5f3d793076f167be936db",
+          "move": "aegis",
+          "view": "front",
+          "time": 1.2
+        },
+        {
+          "name": "standard-15-aegis-front-9.png",
+          "sha256": "664bad5f32d7e864f4c108dc0fdc5baa969c4ed575b666c00bcf27b3090a6f0b",
+          "move": "aegis",
+          "view": "front",
+          "time": 1.44
+        },
+        {
+          "name": "standard-15-aegis-front-10.png",
+          "sha256": "db11b587cfae05791cae309d6da910d585b9b4db00b78136546fa79608633020",
+          "move": "aegis",
+          "view": "front",
+          "time": 1.68
+        },
+        {
+          "name": "standard-15-aegis-front-11.png",
+          "sha256": "b5812770d5a7a78ec4786118fd3f3a0ccbefdaf469db51192aa908d2a1ad3418",
+          "move": "aegis",
+          "view": "front",
+          "time": 1.92
+        },
+        {
+          "name": "standard-15-standard-15-signature-front-6.png",
+          "sha256": "5ab3245ec959611ee58a4fe6bfabef3c725deeb1fbd0fe37fed613fd2f86d056",
+          "move": "standard-15-signature",
+          "view": "front",
+          "time": 0.76
+        },
+        {
+          "name": "standard-15-standard-15-signature-front-7.png",
+          "sha256": "b53d06e9fa054a9691eec040d39058b8c2b75cf40980b28fc3dafdf21b00e121",
+          "move": "standard-15-signature",
+          "view": "front",
+          "time": 0.96
+        },
+        {
+          "name": "standard-15-standard-15-signature-front-8.png",
+          "sha256": "b7db48044e2492b70942e2227979f6a009ee1eecc13cf3dc3f16346e873eb72e",
+          "move": "standard-15-signature",
+          "view": "front",
+          "time": 1.2
+        },
+        {
+          "name": "standard-15-standard-15-signature-front-9.png",
+          "sha256": "709a0e5e2e99c4bd572146b954958ec9cd1dbe1e4544d368664457c833aa0acb",
+          "move": "standard-15-signature",
+          "view": "front",
+          "time": 1.44
+        },
+        {
+          "name": "standard-15-standard-15-signature-front-10.png",
+          "sha256": "7c5ad28f7efbce79240367697bb4770d0f200c98faeddd227c80b2707c1661a2",
+          "move": "standard-15-signature",
+          "view": "front",
+          "time": 1.68
+        },
+        {
+          "name": "standard-15-standard-15-signature-front-11.png",
+          "sha256": "97cd22506c6c24a85a1fc98463d3d8eae12b6b5e710f58bb6d0ee49a4e296a14",
+          "move": "standard-15-signature",
+          "view": "front",
+          "time": 1.92
+        }
+      ],
+      "width": 1320,
+      "height": 621
+    },
+    {
+      "name": "side-block-0-half-0.png",
+      "sha256": "46df497cd2a39531523c030abad5b3b02e0a895dfa4498faff1a0a8311249f51",
+      "sources": [
+        {
+          "name": "standard-15-fire-strike-side-0.png",
+          "sha256": "24d28b138659118dd3a18457ee532431550b078cbbc6b373348014ed07f9bafb",
+          "move": "fire-strike",
+          "view": "side",
+          "time": 0.04
+        },
+        {
+          "name": "standard-15-fire-strike-side-1.png",
+          "sha256": "c0b5e575125ffe54db00f3d3ab4d8816f126f761bc069f479b41ca6b0444bfe4",
+          "move": "fire-strike",
+          "view": "side",
+          "time": 0.12
+        },
+        {
+          "name": "standard-15-fire-strike-side-2.png",
+          "sha256": "36f9ebc41e7152fec38063596befb64720b045189b9077028bc4fa9f788a14d0",
+          "move": "fire-strike",
+          "view": "side",
+          "time": 0.24
+        },
+        {
+          "name": "standard-15-fire-strike-side-3.png",
+          "sha256": "410baebc74c6c615c604ef32dd9799b18071750a4c8a655a684026f82a4ec218",
+          "move": "fire-strike",
+          "view": "side",
+          "time": 0.36
+        },
+        {
+          "name": "standard-15-fire-strike-side-4.png",
+          "sha256": "d634ae5e951e7f8caa7c1b9af906fbfa3b78dfcb61083a98d8c6119396e4b58c",
+          "move": "fire-strike",
+          "view": "side",
+          "time": 0.48
+        },
+        {
+          "name": "standard-15-fire-strike-side-5.png",
+          "sha256": "e340a2569d3fd5c75382cdbdd124bfcc0aacaab6a6083aa501bdd476c89dc6b1",
+          "move": "fire-strike",
+          "view": "side",
+          "time": 0.6
+        },
+        {
+          "name": "standard-15-fire-pulse-side-0.png",
+          "sha256": "3edeb51f34e22b313e51ee71c00e1d2c66c128e71514416b9b6b10e62678eed5",
+          "move": "fire-pulse",
+          "view": "side",
+          "time": 0.04
+        },
+        {
+          "name": "standard-15-fire-pulse-side-1.png",
+          "sha256": "e50c692e74055d40267eed257ed855337e0b57ba701c08d8ecd686b2c1c778ad",
+          "move": "fire-pulse",
+          "view": "side",
+          "time": 0.12
+        },
+        {
+          "name": "standard-15-fire-pulse-side-2.png",
+          "sha256": "cbb89f6cde3dfb657241d4f2aa5e2d793844c114c2ff6ec5cb715c852a66d427",
+          "move": "fire-pulse",
+          "view": "side",
+          "time": 0.24
+        },
+        {
+          "name": "standard-15-fire-pulse-side-3.png",
+          "sha256": "35c78c4a2c99ef5635d050585fec6e22b8da85bd634c0ecea0980539a986470a",
+          "move": "fire-pulse",
+          "view": "side",
+          "time": 0.36
+        },
+        {
+          "name": "standard-15-fire-pulse-side-4.png",
+          "sha256": "d2b6e6556542b3e4b2290f5249950b3cfceae021dc450d829e4e79ac129bc3d6",
+          "move": "fire-pulse",
+          "view": "side",
+          "time": 0.48
+        },
+        {
+          "name": "standard-15-fire-pulse-side-5.png",
+          "sha256": "be8927ace6e223f7d5bcb82793b44a8f2e367d380147c7236f0670f01ee608cc",
+          "move": "fire-pulse",
+          "view": "side",
+          "time": 0.6
+        },
+        {
+          "name": "standard-15-fire-breaker-side-0.png",
+          "sha256": "fecffed025051ef9e390470d5e166384da97064e5459dcca8680f86f5e8d9146",
+          "move": "fire-breaker",
+          "view": "side",
+          "time": 0.04
+        },
+        {
+          "name": "standard-15-fire-breaker-side-1.png",
+          "sha256": "780cc48b1060a2098c4ec9401b4f862bc5886fbd0e27b8804506a0000fd5dffc",
+          "move": "fire-breaker",
+          "view": "side",
+          "time": 0.12
+        },
+        {
+          "name": "standard-15-fire-breaker-side-2.png",
+          "sha256": "b86ffa63e56c22012d8c6a112a1bd660879f5daceafb78b66acd104010b1d96b",
+          "move": "fire-breaker",
+          "view": "side",
+          "time": 0.24
+        },
+        {
+          "name": "standard-15-fire-breaker-side-3.png",
+          "sha256": "47ea934b8451b69c0625f5fd04b0013e9acd8b47b5154e002318805c0c11bae4",
+          "move": "fire-breaker",
+          "view": "side",
+          "time": 0.36
+        },
+        {
+          "name": "standard-15-fire-breaker-side-4.png",
+          "sha256": "2bc0f5a7dedccefb174533e4ddfb2843e9649442dfd99af733fd13a53ef2061c",
+          "move": "fire-breaker",
+          "view": "side",
+          "time": 0.48
+        },
+        {
+          "name": "standard-15-fire-breaker-side-5.png",
+          "sha256": "c1f494882ba48df92b812385fc2a913d47eb7b2335020a3dacdb84d4c4ee919d",
+          "move": "fire-breaker",
+          "view": "side",
+          "time": 0.6
+        }
+      ],
+      "width": 1320,
+      "height": 621
+    },
+    {
+      "name": "side-block-0-half-1.png",
+      "sha256": "96ca2674ff7d419f5f974ebd09e6a5adb3d41f52aae09970f97f5d0587f6c09d",
+      "sources": [
+        {
+          "name": "standard-15-fire-strike-side-6.png",
+          "sha256": "3005b8d9ae460f7ea8dde34bee1426d42d45b1cd8ef1a6c7564306a8beeb10aa",
+          "move": "fire-strike",
+          "view": "side",
+          "time": 0.76
+        },
+        {
+          "name": "standard-15-fire-strike-side-7.png",
+          "sha256": "f2b2d0a3e336b27957a26484871a8a155188865f51afe89bc7d0a9df1ecef194",
+          "move": "fire-strike",
+          "view": "side",
+          "time": 0.96
+        },
+        {
+          "name": "standard-15-fire-strike-side-8.png",
+          "sha256": "968a2f652fdea763f3b0d20d54742e7aa12952bce304a2ef094b3541139ba05b",
+          "move": "fire-strike",
+          "view": "side",
+          "time": 1.2
+        },
+        {
+          "name": "standard-15-fire-strike-side-9.png",
+          "sha256": "06a25c6134c382a5775688e8c5202ca80627aaa4e4dbea078e02e1de08a90ae6",
+          "move": "fire-strike",
+          "view": "side",
+          "time": 1.44
+        },
+        {
+          "name": "standard-15-fire-strike-side-10.png",
+          "sha256": "b53a019fa030e1ded3b2b9fdf5459fe79ff7e004875f7c68f5c10913b989d02c",
+          "move": "fire-strike",
+          "view": "side",
+          "time": 1.68
+        },
+        {
+          "name": "standard-15-fire-strike-side-11.png",
+          "sha256": "62691a648cac7df546e2df7a350de120f772fcb088bdddaeb7aa0d1d1db63a00",
+          "move": "fire-strike",
+          "view": "side",
+          "time": 1.92
+        },
+        {
+          "name": "standard-15-fire-pulse-side-6.png",
+          "sha256": "a9d88f540b7e43711eb38467ece7fb96158d10eb3339bc67da7af362a6aba428",
+          "move": "fire-pulse",
+          "view": "side",
+          "time": 0.76
+        },
+        {
+          "name": "standard-15-fire-pulse-side-7.png",
+          "sha256": "16cad59dc8611496f07e0880f4e1542201d586ade0d7a041f884043305f405c0",
+          "move": "fire-pulse",
+          "view": "side",
+          "time": 0.96
+        },
+        {
+          "name": "standard-15-fire-pulse-side-8.png",
+          "sha256": "6be971961274d83ca2e6c8a92304e11cad3858e2bf13dd6d04e8902ae2b97850",
+          "move": "fire-pulse",
+          "view": "side",
+          "time": 1.2
+        },
+        {
+          "name": "standard-15-fire-pulse-side-9.png",
+          "sha256": "873445c40c8520d934470280b54a92da30f3fd6890f6f5c9548967fbd6a4332c",
+          "move": "fire-pulse",
+          "view": "side",
+          "time": 1.44
+        },
+        {
+          "name": "standard-15-fire-pulse-side-10.png",
+          "sha256": "8d52e02f89d1d7eedd0453f11a590dc02cacc0007117241de626feff70557f08",
+          "move": "fire-pulse",
+          "view": "side",
+          "time": 1.68
+        },
+        {
+          "name": "standard-15-fire-pulse-side-11.png",
+          "sha256": "77b3133f7ea4c2efab9d8fd1f2784e08e49196cb7b97a88874e0b143e35eee45",
+          "move": "fire-pulse",
+          "view": "side",
+          "time": 1.92
+        },
+        {
+          "name": "standard-15-fire-breaker-side-6.png",
+          "sha256": "3cc6332a9f39ac38dae4865b8728fdc7eacf8a76433b1774037c734c2d567832",
+          "move": "fire-breaker",
+          "view": "side",
+          "time": 0.76
+        },
+        {
+          "name": "standard-15-fire-breaker-side-7.png",
+          "sha256": "4408ea6ba561931f0ece8b78d50c585610845b59dcd956f7014b063b1860de1f",
+          "move": "fire-breaker",
+          "view": "side",
+          "time": 0.96
+        },
+        {
+          "name": "standard-15-fire-breaker-side-8.png",
+          "sha256": "f9b0899737fe60e554b546571801c5431a630ad18de246aef24c5c953e067280",
+          "move": "fire-breaker",
+          "view": "side",
+          "time": 1.2
+        },
+        {
+          "name": "standard-15-fire-breaker-side-9.png",
+          "sha256": "5eb48fe16c385ff9a0668f31d15b98657f04aadb8ea0e2fe653fb62ced39e52d",
+          "move": "fire-breaker",
+          "view": "side",
+          "time": 1.44
+        },
+        {
+          "name": "standard-15-fire-breaker-side-10.png",
+          "sha256": "a955f61eac6434d349faa46328e8239f5535cd410ca36fff3a822797d042a67d",
+          "move": "fire-breaker",
+          "view": "side",
+          "time": 1.68
+        },
+        {
+          "name": "standard-15-fire-breaker-side-11.png",
+          "sha256": "62691a648cac7df546e2df7a350de120f772fcb088bdddaeb7aa0d1d1db63a00",
+          "move": "fire-breaker",
+          "view": "side",
+          "time": 1.92
+        }
+      ],
+      "width": 1320,
+      "height": 621
+    },
+    {
+      "name": "side-block-1-half-0.png",
+      "sha256": "629fc500c1174c985ce7e21a79a44d791259cf30fc2c9b540391683854af667d",
+      "sources": [
+        {
+          "name": "standard-15-earth-pulse-side-0.png",
+          "sha256": "6080a2818f03cb065432ddbfccb5e1c45831c0642e08a5be0fbdd64b7b116dce",
+          "move": "earth-pulse",
+          "view": "side",
+          "time": 0.04
+        },
+        {
+          "name": "standard-15-earth-pulse-side-1.png",
+          "sha256": "afa65ec883dca417f2a7c26ac29c44fb7afc59499cd3017aca7657e5aed17dc7",
+          "move": "earth-pulse",
+          "view": "side",
+          "time": 0.12
+        },
+        {
+          "name": "standard-15-earth-pulse-side-2.png",
+          "sha256": "25b1a5405c72d775a53c5e4c6d9a2a31dddec52bd4a8961c674390d70bd27799",
+          "move": "earth-pulse",
+          "view": "side",
+          "time": 0.24
+        },
+        {
+          "name": "standard-15-earth-pulse-side-3.png",
+          "sha256": "45a1977f27b004466859c96da2a6896b8fccfab89b560d7e8bee5cfbfda342a2",
+          "move": "earth-pulse",
+          "view": "side",
+          "time": 0.36
+        },
+        {
+          "name": "standard-15-earth-pulse-side-4.png",
+          "sha256": "0b104db9da112237ac1b1c841a6b2bc5ac6b8c56c220cd40e7976d533367abbe",
+          "move": "earth-pulse",
+          "view": "side",
+          "time": 0.48
+        },
+        {
+          "name": "standard-15-earth-pulse-side-5.png",
+          "sha256": "3d3ad49428c8f8b1b1abb91a90cd066ef75a8c1058cce54de644294595a454c2",
+          "move": "earth-pulse",
+          "view": "side",
+          "time": 0.6
+        },
+        {
+          "name": "standard-15-undertow-side-0.png",
+          "sha256": "a578cf8d29ac5fb142fd2d5b83e981a6de982e9de299676fc9a21fee56dc6af2",
+          "move": "undertow",
+          "view": "side",
+          "time": 0.04
+        },
+        {
+          "name": "standard-15-undertow-side-1.png",
+          "sha256": "ef0a696312ddad77c5fe5828d88c32a7ef64141094f6e71cfaea076602e5367d",
+          "move": "undertow",
+          "view": "side",
+          "time": 0.12
+        },
+        {
+          "name": "standard-15-undertow-side-2.png",
+          "sha256": "6148a706893a3ac340f0bb6733f3bbc721cd6cf18fb4117343e7f173bf0154fc",
+          "move": "undertow",
+          "view": "side",
+          "time": 0.24
+        },
+        {
+          "name": "standard-15-undertow-side-3.png",
+          "sha256": "3bc1a4553e0c96cee43e1f1e126580ea8fe08071ac8823573ba3a0a96dfd5f80",
+          "move": "undertow",
+          "view": "side",
+          "time": 0.36
+        },
+        {
+          "name": "standard-15-undertow-side-4.png",
+          "sha256": "e3694e8bc4f81e30dbb87aeb6f3080858cd39964ddce716c1039d3d424990b14",
+          "move": "undertow",
+          "view": "side",
+          "time": 0.48
+        },
+        {
+          "name": "standard-15-undertow-side-5.png",
+          "sha256": "cb454636664c1ca613fbbd4da9598a92574901f930f95fc65a916b4884e85087",
+          "move": "undertow",
+          "view": "side",
+          "time": 0.6
+        },
+        {
+          "name": "standard-15-mend-side-0.png",
+          "sha256": "c486dddf993ca44512392561abe08aa99b48128056c4d6135a36a5a1bf330bfe",
+          "move": "mend",
+          "view": "side",
+          "time": 0.04
+        },
+        {
+          "name": "standard-15-mend-side-1.png",
+          "sha256": "4dd907952e82f95c9fb3a2bc2160a7be9cadf1111e8734e3a1f7ebf710378437",
+          "move": "mend",
+          "view": "side",
+          "time": 0.12
+        },
+        {
+          "name": "standard-15-mend-side-2.png",
+          "sha256": "065da5135554f383b2694bf8f0a6399974a9c6e02bf107c925dfb5f2bfd7c0bf",
+          "move": "mend",
+          "view": "side",
+          "time": 0.24
+        },
+        {
+          "name": "standard-15-mend-side-3.png",
+          "sha256": "06b5138ee077d48f4f4c49a541913ea6b249d281179d12d1dd2bfb8f78f4116f",
+          "move": "mend",
+          "view": "side",
+          "time": 0.36
+        },
+        {
+          "name": "standard-15-mend-side-4.png",
+          "sha256": "47eadd82d84859d1df50748f883a4fd3589a3c59cfac4a54ed56c56ec0f4b717",
+          "move": "mend",
+          "view": "side",
+          "time": 0.48
+        },
+        {
+          "name": "standard-15-mend-side-5.png",
+          "sha256": "34c52a7f321516cb1fdc6d5eb33d8af15f10d57c587ce5d5fb425d3b1388dd52",
+          "move": "mend",
+          "view": "side",
+          "time": 0.6
+        }
+      ],
+      "width": 1320,
+      "height": 621
+    },
+    {
+      "name": "side-block-1-half-1.png",
+      "sha256": "5e47794c02d6866404435451a1c30fb5cdea784edff5e6192500948727ed5188",
+      "sources": [
+        {
+          "name": "standard-15-earth-pulse-side-6.png",
+          "sha256": "ac255fddcf4b21be369d512aad57038eaff901934c35885c6b28b8040be9f842",
+          "move": "earth-pulse",
+          "view": "side",
+          "time": 0.76
+        },
+        {
+          "name": "standard-15-earth-pulse-side-7.png",
+          "sha256": "8275e4732d00f69a9c7d9dd0f9be1980f205bfe9095ea6b534d0ced32c7abbc2",
+          "move": "earth-pulse",
+          "view": "side",
+          "time": 0.96
+        },
+        {
+          "name": "standard-15-earth-pulse-side-8.png",
+          "sha256": "ffed9518fef9b8d557e8186728b88eed719df2e257f244a657b36b4074d7360b",
+          "move": "earth-pulse",
+          "view": "side",
+          "time": 1.2
+        },
+        {
+          "name": "standard-15-earth-pulse-side-9.png",
+          "sha256": "4b9b442cc44d0da8a921e8f72d164518c47877072727a6989396c27aa1c244cd",
+          "move": "earth-pulse",
+          "view": "side",
+          "time": 1.44
+        },
+        {
+          "name": "standard-15-earth-pulse-side-10.png",
+          "sha256": "051b40c3143124653d97201d596c0d618125ce23a3c9f008d7c875fb07da2e00",
+          "move": "earth-pulse",
+          "view": "side",
+          "time": 1.68
+        },
+        {
+          "name": "standard-15-earth-pulse-side-11.png",
+          "sha256": "6c2c61afd04587dfc2618665a16ee7c42d6b386e3e84e02e4e7aa38dbece0ebf",
+          "move": "earth-pulse",
+          "view": "side",
+          "time": 1.92
+        },
+        {
+          "name": "standard-15-undertow-side-6.png",
+          "sha256": "580c467d10b2b8be622c20f667e7c88f62a7c988cb9902f86a6fb1eb26654e6b",
+          "move": "undertow",
+          "view": "side",
+          "time": 0.76
+        },
+        {
+          "name": "standard-15-undertow-side-7.png",
+          "sha256": "63a692c53055269af236d4d4debfaff61fad21cf2fae188f7b784ea585a32f2d",
+          "move": "undertow",
+          "view": "side",
+          "time": 0.96
+        },
+        {
+          "name": "standard-15-undertow-side-8.png",
+          "sha256": "e279def78644f5be13f3c1cf920f8bf2226c26ab7ccce72c34f9fda15b105782",
+          "move": "undertow",
+          "view": "side",
+          "time": 1.2
+        },
+        {
+          "name": "standard-15-undertow-side-9.png",
+          "sha256": "e0029eff8ffcdf9fa100da32dfea1f1c70d57fdecfee9c264a58bfb9ae44f802",
+          "move": "undertow",
+          "view": "side",
+          "time": 1.44
+        },
+        {
+          "name": "standard-15-undertow-side-10.png",
+          "sha256": "8eccd4c8e909ddce76c8007281b3f2077caf878d1419ad17c8c51d7bc0040679",
+          "move": "undertow",
+          "view": "side",
+          "time": 1.68
+        },
+        {
+          "name": "standard-15-undertow-side-11.png",
+          "sha256": "77b3133f7ea4c2efab9d8fd1f2784e08e49196cb7b97a88874e0b143e35eee45",
+          "move": "undertow",
+          "view": "side",
+          "time": 1.92
+        },
+        {
+          "name": "standard-15-mend-side-6.png",
+          "sha256": "e7baa9c8ca4463bee55a9ba358bdbd2eae7d24353e67c22b325525bcc64139ac",
+          "move": "mend",
+          "view": "side",
+          "time": 0.76
+        },
+        {
+          "name": "standard-15-mend-side-7.png",
+          "sha256": "ca9c292a4a985d6ccb6e7e4f5106a9cfabb78687d89720c1b677dd8ef426f326",
+          "move": "mend",
+          "view": "side",
+          "time": 0.96
+        },
+        {
+          "name": "standard-15-mend-side-8.png",
+          "sha256": "698e2311fc37553d833095824c509321f729af2725acfb593a9a2afaea1ba3ee",
+          "move": "mend",
+          "view": "side",
+          "time": 1.2
+        },
+        {
+          "name": "standard-15-mend-side-9.png",
+          "sha256": "e4878ce8b9a91ef19fbb5edc1ddb72707b5c89c48ce03f9f6fa6a8a0c8519865",
+          "move": "mend",
+          "view": "side",
+          "time": 1.44
+        },
+        {
+          "name": "standard-15-mend-side-10.png",
+          "sha256": "7211d5588cfa9b7b0f6d9cb0330a99e0427b4cff398d3904c5eef51d92bd2d37",
+          "move": "mend",
+          "view": "side",
+          "time": 1.68
+        },
+        {
+          "name": "standard-15-mend-side-11.png",
+          "sha256": "8e9194187d9e3f47c43cb44adea13b7e17624b30e19f264b0a7fd7f5ccef836e",
+          "move": "mend",
+          "view": "side",
+          "time": 1.92
+        }
+      ],
+      "width": 1320,
+      "height": 621
+    },
+    {
+      "name": "side-block-2-half-0.png",
+      "sha256": "0182e32605332c53c9a051a9b1fb0c22b6b21ad21687fdf4136d37f04416a82a",
+      "sources": [
+        {
+          "name": "standard-15-purify-side-0.png",
+          "sha256": "cb787752d9fc86dae6c467e818924c7989e77c6031be933794f2dcdcc9df1881",
+          "move": "purify",
+          "view": "side",
+          "time": 0.04
+        },
+        {
+          "name": "standard-15-purify-side-1.png",
+          "sha256": "e58ea495331a24622d9225425f948c8b17495add239ca634f944e8cede9015aa",
+          "move": "purify",
+          "view": "side",
+          "time": 0.12
+        },
+        {
+          "name": "standard-15-purify-side-2.png",
+          "sha256": "c720be0a008f33c4a0d789e4426a47fad1e14729934cb6b04ff6795c0cf3a90f",
+          "move": "purify",
+          "view": "side",
+          "time": 0.24
+        },
+        {
+          "name": "standard-15-purify-side-3.png",
+          "sha256": "8cddde4869e34ba27a077af2924266535a2cbd1d2bd258259d70683cf4e02ccf",
+          "move": "purify",
+          "view": "side",
+          "time": 0.36
+        },
+        {
+          "name": "standard-15-purify-side-4.png",
+          "sha256": "c26095ab45e75ed473c22962e7105657a8f86aa4739ffdfd2fd5a12c19ef46ff",
+          "move": "purify",
+          "view": "side",
+          "time": 0.48
+        },
+        {
+          "name": "standard-15-purify-side-5.png",
+          "sha256": "8ca66a8de25099cb3c0ff3d837fdc5b47a4fce88d368dc4905df2b59cf0c735c",
+          "move": "purify",
+          "view": "side",
+          "time": 0.6
+        },
+        {
+          "name": "standard-15-aegis-side-0.png",
+          "sha256": "337a1ae2e0d2b6e05a73373122bc85b3ab0f2cc12bcd02dfdedee3b558916250",
+          "move": "aegis",
+          "view": "side",
+          "time": 0.04
+        },
+        {
+          "name": "standard-15-aegis-side-1.png",
+          "sha256": "42e6f6dff5b586bf7147c53c8c970e3459367283546d5467965bd49b21fee78f",
+          "move": "aegis",
+          "view": "side",
+          "time": 0.12
+        },
+        {
+          "name": "standard-15-aegis-side-2.png",
+          "sha256": "9785344cc3314c5f5c66068295ee9f49a3abf57bd9ea9eb2d85fa53f1c157530",
+          "move": "aegis",
+          "view": "side",
+          "time": 0.24
+        },
+        {
+          "name": "standard-15-aegis-side-3.png",
+          "sha256": "c6797633f3d42944217e7a873419ad9864835a7871a1b9dd4e88ba073e5f63fb",
+          "move": "aegis",
+          "view": "side",
+          "time": 0.36
+        },
+        {
+          "name": "standard-15-aegis-side-4.png",
+          "sha256": "b104b820667637b375ad0fdce5f0377a90c92e23d2eba3ffbe0c4a65a3838956",
+          "move": "aegis",
+          "view": "side",
+          "time": 0.48
+        },
+        {
+          "name": "standard-15-aegis-side-5.png",
+          "sha256": "c8abe05bd72036650ae07d4cab7a87465afa53c9e9d8d4b0cae334139bc80aef",
+          "move": "aegis",
+          "view": "side",
+          "time": 0.6
+        },
+        {
+          "name": "standard-15-standard-15-signature-side-0.png",
+          "sha256": "df4a77fc9db7eac2db786439299da7c60d296d835a87382be28e2373146e08d5",
+          "move": "standard-15-signature",
+          "view": "side",
+          "time": 0.04
+        },
+        {
+          "name": "standard-15-standard-15-signature-side-1.png",
+          "sha256": "e79a289b2b0742dff43a61d2ac4ea366608c7af6ece92112615bd9881263ad0f",
+          "move": "standard-15-signature",
+          "view": "side",
+          "time": 0.12
+        },
+        {
+          "name": "standard-15-standard-15-signature-side-2.png",
+          "sha256": "19d9120886aca0ef9ef7a7e394b1d3ec660eab491f06ceb105d360041e05bac3",
+          "move": "standard-15-signature",
+          "view": "side",
+          "time": 0.24
+        },
+        {
+          "name": "standard-15-standard-15-signature-side-3.png",
+          "sha256": "f699457da6f97ea03b01cf1ed4d6ece59a57d38535679ffdce07e3a01c59c6da",
+          "move": "standard-15-signature",
+          "view": "side",
+          "time": 0.36
+        },
+        {
+          "name": "standard-15-standard-15-signature-side-4.png",
+          "sha256": "449ecad128ac55ab44c96120358c6aa3e722b8d2a0a4b1935fb147d335c95f37",
+          "move": "standard-15-signature",
+          "view": "side",
+          "time": 0.48
+        },
+        {
+          "name": "standard-15-standard-15-signature-side-5.png",
+          "sha256": "bf46edf09fa87be2566574f0f909f7a841e852efc40380b3cc8aafc25fcef7d4",
+          "move": "standard-15-signature",
+          "view": "side",
+          "time": 0.6
+        }
+      ],
+      "width": 1320,
+      "height": 621
+    },
+    {
+      "name": "side-block-2-half-1.png",
+      "sha256": "c3e58fa870395225e35c189404b86d8c2c01058d34443e9dc5a8e783db6ff45d",
+      "sources": [
+        {
+          "name": "standard-15-purify-side-6.png",
+          "sha256": "c43d52cdf527a0b55db88a34ab8d9e30616a4ddd23eeef7d76d53492abb0707a",
+          "move": "purify",
+          "view": "side",
+          "time": 0.76
+        },
+        {
+          "name": "standard-15-purify-side-7.png",
+          "sha256": "3f4057d26121e76acdc153243b16cebab3fefd5890f26e917620f1671d72c437",
+          "move": "purify",
+          "view": "side",
+          "time": 0.96
+        },
+        {
+          "name": "standard-15-purify-side-8.png",
+          "sha256": "12e9b0ef8ac96c03e24a42b325e88c180482aeee2cd1b803cce805d5e21502d6",
+          "move": "purify",
+          "view": "side",
+          "time": 1.2
+        },
+        {
+          "name": "standard-15-purify-side-9.png",
+          "sha256": "4b2b1f127bfd3e3459e2eb9ee59f0b376f4f4ab6b0d4e1fe44ae8466ca143bc2",
+          "move": "purify",
+          "view": "side",
+          "time": 1.44
+        },
+        {
+          "name": "standard-15-purify-side-10.png",
+          "sha256": "1a05120a788a49c1d8501b32d76df972589a2952088c53ecbadb43afc31da97c",
+          "move": "purify",
+          "view": "side",
+          "time": 1.68
+        },
+        {
+          "name": "standard-15-purify-side-11.png",
+          "sha256": "77b3133f7ea4c2efab9d8fd1f2784e08e49196cb7b97a88874e0b143e35eee45",
+          "move": "purify",
+          "view": "side",
+          "time": 1.92
+        },
+        {
+          "name": "standard-15-aegis-side-6.png",
+          "sha256": "473e2c7852a83a73055e541759b81b0ac99201ba76754728e3b7b4d8c762f5bd",
+          "move": "aegis",
+          "view": "side",
+          "time": 0.76
+        },
+        {
+          "name": "standard-15-aegis-side-7.png",
+          "sha256": "cc28679164f8ec2df85c6841efca000ca5cd59fe1582cb325d26791ca9f56e5d",
+          "move": "aegis",
+          "view": "side",
+          "time": 0.96
+        },
+        {
+          "name": "standard-15-aegis-side-8.png",
+          "sha256": "ed2245b96f52bf70c3599a49b19299fe8e3ce8cb1a0a6a02136231bce05c828d",
+          "move": "aegis",
+          "view": "side",
+          "time": 1.2
+        },
+        {
+          "name": "standard-15-aegis-side-9.png",
+          "sha256": "74aa77f6a0b50ffdb27b74c2e9662cc8ce8c875445765f33e744687e7eba3b00",
+          "move": "aegis",
+          "view": "side",
+          "time": 1.44
+        },
+        {
+          "name": "standard-15-aegis-side-10.png",
+          "sha256": "6d3865277f0972fe306dabea22e3e644be870eba6cf429d4c1bf24f63da3d833",
+          "move": "aegis",
+          "view": "side",
+          "time": 1.68
+        },
+        {
+          "name": "standard-15-aegis-side-11.png",
+          "sha256": "5ab0cb27ed9dfece7bceace51c4095799f3746901a2d2c6da7104438f7d07f4a",
+          "move": "aegis",
+          "view": "side",
+          "time": 1.92
+        },
+        {
+          "name": "standard-15-standard-15-signature-side-6.png",
+          "sha256": "e1f442c39e0a422052df594451cf75a365620e2ab25376e6ac2325d6df3fdb25",
+          "move": "standard-15-signature",
+          "view": "side",
+          "time": 0.76
+        },
+        {
+          "name": "standard-15-standard-15-signature-side-7.png",
+          "sha256": "62d5c1996857e5c3bb849f1255f473f54a37a6758b9bbfa1c74b898ff2b8affa",
+          "move": "standard-15-signature",
+          "view": "side",
+          "time": 0.96
+        },
+        {
+          "name": "standard-15-standard-15-signature-side-8.png",
+          "sha256": "9731f6a086eba0a9c0984dad6d1250be7e22555c61147ea61ecc5c7d5ddb430e",
+          "move": "standard-15-signature",
+          "view": "side",
+          "time": 1.2
+        },
+        {
+          "name": "standard-15-standard-15-signature-side-9.png",
+          "sha256": "32031cc42211a03efafcf5b3634e0ef8e374079991adf40ceb32ccd45d719f0b",
+          "move": "standard-15-signature",
+          "view": "side",
+          "time": 1.44
+        },
+        {
+          "name": "standard-15-standard-15-signature-side-10.png",
+          "sha256": "7211d5588cfa9b7b0f6d9cb0330a99e0427b4cff398d3904c5eef51d92bd2d37",
+          "move": "standard-15-signature",
+          "view": "side",
+          "time": 1.68
+        },
+        {
+          "name": "standard-15-standard-15-signature-side-11.png",
+          "sha256": "8f375f87227aa2863b9ac2bcbf497e0a4e3ac7ed8ea393236a3ba164bf2beb12",
+          "move": "standard-15-signature",
+          "view": "side",
+          "time": 1.92
+        }
+      ],
+      "width": 1320,
+      "height": 621
+    }
+  ],
+  "review": "pending"
+}

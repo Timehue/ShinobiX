@@ -1,0 +1,248 @@
+{
+  "id": "standard-22",
+  "stage": "battle",
+  "url": "/pet-models/warfront-lod/roster/standard-22.glb?v=20261014-reviewed-skull-v1-20261013-studio-v1-20261013-articulation-v1-20261014-contact-performance-v1",
+  "assetSha256": "71d8a858f46c2e9358f12e924b7bd02b6c6735d6328750682bb8311260d505f9",
+  "rendererSha256": "b2253b71fbcb21a83d82de35ab5783dd57b525cfc94740fb131dd1eb0049a897",
+  "scriptSha256": "235fcd3f3f34dc1c0805b8d2abacc1c59d4926aeb65fa0be0b46b917e9f978e9",
+  "anatomySha256": "60e3a16e6455a352aef15868dfa1a6d3e58f8d055763c6c1a0b647d9e6a81d1e",
+  "materialTreatment": {
+    "materials": 1,
+    "metalnessMax": 0.05,
+    "roughnessRange": [
+      0.58,
+      0.82
+    ]
+  },
+  "lightingTreatment": {
+    "mode": "diagnostic-lighting",
+    "multiplier": 3,
+    "textureAndGeometryUnchanged": true
+  },
+  "views": [
+    "head-other-side",
+    "head-under-front",
+    "head-under-side"
+  ],
+  "phases": [
+    0,
+    0.125,
+    0.375,
+    0.625,
+    0.875,
+    1
+  ],
+  "clips": [
+    "idle",
+    "idle_2",
+    "walk",
+    "gallop",
+    "gallop_jump",
+    "attack",
+    "idle_hitreact1",
+    "death",
+    "entrance",
+    "cast",
+    "guard",
+    "rest",
+    "victory"
+  ],
+  "frames": 234,
+  "sheets": [
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/standard-22/battle-additional-head-other-side-0.png",
+      "sha256": "253df6e2fe10325afdc2d4bece095ab6b5e166e82438d554ada9ae63c72c5d1e",
+      "view": "head-other-side",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump"
+      ],
+      "phases": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ],
+      "nativePixels": true,
+      "actuallyViewed": false
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/standard-22/battle-additional-head-other-side-1.png",
+      "sha256": "0e1dcf3d0a9f5329fe3ec42afbb7a3187440bd1f323d4850bd48e24a337cfaa9",
+      "view": "head-other-side",
+      "clips": [
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast"
+      ],
+      "phases": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ],
+      "nativePixels": true,
+      "actuallyViewed": false
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/standard-22/battle-additional-head-other-side-2.png",
+      "sha256": "6d9fb415a9b29542efca362e8d0195cd3801323f36df164267caa37db0fbb800",
+      "view": "head-other-side",
+      "clips": [
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "phases": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ],
+      "nativePixels": true,
+      "actuallyViewed": false
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/standard-22/battle-additional-head-under-front-0.png",
+      "sha256": "2243d08be34740b09f3b73618e005fc4465d3ad5dc1550a957abd6b577e324b6",
+      "view": "head-under-front",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump"
+      ],
+      "phases": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ],
+      "nativePixels": true,
+      "actuallyViewed": false
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/standard-22/battle-additional-head-under-front-1.png",
+      "sha256": "9c60db521500562d97eec63d27c0dffec9f6f867ed1eb698a9ea72683c565cf2",
+      "view": "head-under-front",
+      "clips": [
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast"
+      ],
+      "phases": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ],
+      "nativePixels": true,
+      "actuallyViewed": false
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/standard-22/battle-additional-head-under-front-2.png",
+      "sha256": "5c94fca288c0224f2edab9098cd6558cb4e43fc008f93392e05b0a41dfa82931",
+      "view": "head-under-front",
+      "clips": [
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "phases": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ],
+      "nativePixels": true,
+      "actuallyViewed": false
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/standard-22/battle-additional-head-under-side-0.png",
+      "sha256": "845d0a78ecd666f39ef506d7603884c42da46653b5305769679afab1c109a407",
+      "view": "head-under-side",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump"
+      ],
+      "phases": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ],
+      "nativePixels": true,
+      "actuallyViewed": false
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/standard-22/battle-additional-head-under-side-1.png",
+      "sha256": "9d669a71d06bf416ec0ccb1e5f431ea6dae7f41d2c8518c61b67f7502c3779b7",
+      "view": "head-under-side",
+      "clips": [
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast"
+      ],
+      "phases": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ],
+      "nativePixels": true,
+      "actuallyViewed": false
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/standard-22/battle-additional-head-under-side-2.png",
+      "sha256": "5923ef2f36f0af7f7947c7afa0ac24700c2c9619c907394ce6e8fa003ac4285e",
+      "view": "head-under-side",
+      "clips": [
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "phases": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ],
+      "nativePixels": true,
+      "actuallyViewed": false
+    }
+  ],
+  "errors": [],
+  "visualReview": "pending",
+  "approval": false
+}

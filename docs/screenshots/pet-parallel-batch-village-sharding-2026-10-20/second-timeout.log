@@ -1,0 +1,1036 @@
+﻿2026-10-20T17:48:08.5000439Z Current runner version: '2.337.0'
+2026-10-20T17:48:08.5025773Z ##[group]Runner Image Provisioner
+2026-10-20T17:48:08.5026724Z Hosted Compute Agent
+2026-10-20T17:48:08.5027554Z Version: 20261012.601
+2026-10-20T17:48:08.5028177Z Commit: f3dc54e1fb89da6852db922499a0233137369e1d
+2026-10-20T17:48:08.5029061Z Build Date: 2026-10-12T17:48:21Z
+2026-10-20T17:48:08.5029735Z Worker ID: {ee62904c-bd45-44cb-81c9-c32b662bade8}
+2026-10-20T17:48:08.5030480Z Region: westus3
+2026-10-20T17:48:08.5031026Z Cloud: Azure
+2026-10-20T17:48:08.5031532Z ##[endgroup]
+2026-10-20T17:48:08.5033137Z ##[group]Operating System
+2026-10-20T17:48:08.5033795Z Ubuntu
+2026-10-20T17:48:08.5034389Z 24.04.5
+2026-10-20T17:48:08.5034922Z LTS
+2026-10-20T17:48:08.5035428Z ##[endgroup]
+2026-10-20T17:48:08.5036016Z ##[group]Runner Image
+2026-10-20T17:48:08.5036680Z Image: ubuntu-24.04
+2026-10-20T17:48:08.5037508Z Version: 20261012.334.1
+2026-10-20T17:48:08.5038797Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20261012.334/images/ubuntu/Ubuntu2404-Readme.md
+2026-10-20T17:48:08.5040449Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20261012.334
+2026-10-20T17:48:08.5041412Z ##[endgroup]
+2026-10-20T17:48:08.5042524Z ##[group]GITHUB_TOKEN Permissions
+2026-10-20T17:48:08.5044670Z Contents: read
+2026-10-20T17:48:08.5045355Z Metadata: read
+2026-10-20T17:48:08.5045983Z ##[endgroup]
+2026-10-20T17:48:08.5048272Z Secret source: Actions
+2026-10-20T17:48:08.5049344Z Cache mode: write
+2026-10-20T17:48:08.5050385Z Prepare workflow directory
+2026-10-20T17:48:08.5668806Z Prepare all required actions
+2026-10-20T17:48:08.5718294Z Getting action download info
+2026-10-20T17:48:08.9398322Z Download action repository 'actions/checkout@v7' (SHA:3d3c42e5aac5ba805825da76410c181273ba90b1)
+2026-10-20T17:48:09.5410658Z Download action repository 'actions/setup-node@v7' (SHA:949feb2413d6458794dcd2491c4babbbce0c15c1)
+2026-10-20T17:48:10.3838779Z Download action repository 'actions/download-artifact@v8' (SHA:9000827ccba6bdab643e8b6fd33ac0654aef8333)
+2026-10-20T17:48:11.1502756Z Download action repository 'actions/upload-artifact@v7' (SHA:cf430e030ddbb5b0abf93d22962f4752f3646cd9)
+2026-10-20T17:48:12.0516073Z Complete job name: CI / e2e-village-stores
+2026-10-20T17:48:12.1201259Z ##[group]Run actions/checkout@v7
+2026-10-20T17:48:12.1201864Z with:
+2026-10-20T17:48:12.1202089Z   repository: Timehue/ShinobiX
+2026-10-20T17:48:12.1204883Z   token: ***
+2026-10-20T17:48:12.1205094Z   ssh-strict: true
+2026-10-20T17:48:12.1205305Z   ssh-user: git
+2026-10-20T17:48:12.1205521Z   persist-credentials: true
+2026-10-20T17:48:12.1205755Z   clean: true
+2026-10-20T17:48:12.1205966Z   sparse-checkout-cone-mode: true
+2026-10-20T17:48:12.1206228Z   fetch-depth: 1
+2026-10-20T17:48:12.1206433Z   fetch-tags: false
+2026-10-20T17:48:12.1206650Z   show-progress: true
+2026-10-20T17:48:12.1207068Z   lfs: false
+2026-10-20T17:48:12.1207257Z   submodules: false
+2026-10-20T17:48:12.1207467Z   set-safe-directory: true
+2026-10-20T17:48:12.1207717Z   allow-unsafe-pr-checkout: false
+2026-10-20T17:48:12.1208232Z env:
+2026-10-20T17:48:12.1208494Z   VITE_SENTRY_DSN: https://public@example.invalid/1
+2026-10-20T17:48:12.1208826Z   VITE_SENTRY_RELEASE: ci
+2026-10-20T17:48:12.1209165Z   VITE_BUILD_COMMIT: 7b2ad48bed6419f79df52d1a7999b1a72ef60118
+2026-10-20T17:48:12.1209497Z ##[endgroup]
+2026-10-20T17:48:12.2271694Z Syncing repository: Timehue/ShinobiX
+2026-10-20T17:48:12.2273594Z ##[group]Getting Git version info
+2026-10-20T17:48:12.2274240Z Working directory is '/home/runner/work/ShinobiX/ShinobiX'
+2026-10-20T17:48:12.2275109Z [command]/usr/bin/git version
+2026-10-20T17:48:12.2394463Z git version 2.55.0
+2026-10-20T17:48:12.2417225Z ##[endgroup]
+2026-10-20T17:48:12.2441859Z Temporarily overriding HOME='/home/runner/work/_temp/df5032c2-861f-4678-990a-5c1b9b0b74f4' before making global git config changes
+2026-10-20T17:48:12.2443504Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-20T17:48:12.2447553Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/ShinobiX/ShinobiX
+2026-10-20T17:48:12.2502183Z Deleting the contents of '/home/runner/work/ShinobiX/ShinobiX'
+2026-10-20T17:48:12.2505611Z ##[group]Determining repository object format
+2026-10-20T17:48:12.2507325Z ##[endgroup]
+2026-10-20T17:48:12.2508294Z ##[group]Initializing the repository
+2026-10-20T17:48:12.2511620Z [command]/usr/bin/git init /home/runner/work/ShinobiX/ShinobiX
+2026-10-20T17:48:12.2631922Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-10-20T17:48:12.2633079Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-10-20T17:48:12.2633684Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-10-20T17:48:12.2634373Z hint: call:
+2026-10-20T17:48:12.2634835Z hint:
+2026-10-20T17:48:12.2635466Z hint: 	git config --global init.defaultBranch <name>
+2026-10-20T17:48:12.2636132Z hint:
+2026-10-20T17:48:12.2636987Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-10-20T17:48:12.2637934Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-10-20T17:48:12.2638636Z hint:
+2026-10-20T17:48:12.2639078Z hint: 	git branch -m <name>
+2026-10-20T17:48:12.2639479Z hint:
+2026-10-20T17:48:12.2640155Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-10-20T17:48:12.2641168Z Initialized empty Git repository in /home/runner/work/ShinobiX/ShinobiX/.git/
+2026-10-20T17:48:12.2648724Z [command]/usr/bin/git remote add origin https://github.com/Timehue/ShinobiX
+2026-10-20T17:48:12.2714961Z ##[endgroup]
+2026-10-20T17:48:12.2715810Z ##[group]Disabling automatic garbage collection
+2026-10-20T17:48:12.2721097Z [command]/usr/bin/git config --local gc.auto 0
+2026-10-20T17:48:12.2754419Z ##[endgroup]
+2026-10-20T17:48:12.2755023Z ##[group]Setting up auth
+2026-10-20T17:48:12.2755467Z Removing SSH command configuration
+2026-10-20T17:48:12.2763039Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-20T17:48:12.2802945Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-20T17:48:12.3281959Z Removing HTTP extra header
+2026-10-20T17:48:12.3287994Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-20T17:48:12.3326271Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-20T17:48:12.3552717Z Removing includeIf entries pointing to credentials config files
+2026-10-20T17:48:12.3559487Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-20T17:48:12.3595043Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-20T17:48:12.3824360Z [command]/usr/bin/git config --file /home/runner/work/_temp/git-credentials-53e67153-9611-4048-a8fd-2c7cd0cd63b5.config http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-10-20T17:48:12.3866422Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/ShinobiX/ShinobiX/.git.path /home/runner/work/_temp/git-credentials-53e67153-9611-4048-a8fd-2c7cd0cd63b5.config
+2026-10-20T17:48:12.3903671Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/ShinobiX/ShinobiX/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-53e67153-9611-4048-a8fd-2c7cd0cd63b5.config
+2026-10-20T17:48:12.3945075Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-53e67153-9611-4048-a8fd-2c7cd0cd63b5.config
+2026-10-20T17:48:12.3987899Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-53e67153-9611-4048-a8fd-2c7cd0cd63b5.config
+2026-10-20T17:48:12.4022178Z ##[endgroup]
+2026-10-20T17:48:12.4022845Z ##[group]Fetching the repository
+2026-10-20T17:48:12.4029849Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +7b2ad48bed6419f79df52d1a7999b1a72ef60118:refs/remotes/pull/470/merge
+2026-10-20T17:55:56.4226223Z From https://github.com/Timehue/ShinobiX
+2026-10-20T17:55:56.4227854Z  * [new ref]           7b2ad48bed6419f79df52d1a7999b1a72ef60118 -> pull/470/merge
+2026-10-20T17:55:56.4235657Z ##[endgroup]
+2026-10-20T17:55:56.4236328Z ##[group]Determining the checkout info
+2026-10-20T17:55:56.4237589Z ##[endgroup]
+2026-10-20T17:55:56.4238465Z [command]/usr/bin/git sparse-checkout disable
+2026-10-20T17:55:56.4295337Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2026-10-20T17:55:56.4334634Z ##[group]Checking out the ref
+2026-10-20T17:55:56.4339523Z [command]/usr/bin/git checkout --progress --force refs/remotes/pull/470/merge
+2026-10-20T17:55:57.6880334Z Updating files:  14% (3623/25760)
+2026-10-20T17:55:57.9347376Z Updating files:  15% (3864/25760)
+2026-10-20T17:55:58.1522497Z Updating files:  16% (4122/25760)
+2026-10-20T17:55:58.3155082Z Updating files:  17% (4380/25760)
+2026-10-20T17:55:58.4586473Z Updating files:  18% (4637/25760)
+2026-10-20T17:55:58.5388261Z Updating files:  18% (4789/25760)
+2026-10-20T17:55:58.8887624Z Updating files:  19% (4895/25760)
+2026-10-20T17:55:59.1262063Z Updating files:  20% (5152/25760)
+2026-10-20T17:55:59.2697092Z Updating files:  21% (5410/25760)
+2026-10-20T17:55:59.4060238Z Updating files:  22% (5668/25760)
+2026-10-20T17:55:59.4579557Z Updating files:  23% (5925/25760)
+2026-10-20T17:55:59.5458062Z Updating files:  23% (6015/25760)
+2026-10-20T17:55:59.6890442Z Updating files:  24% (6183/25760)
+2026-10-20T17:55:59.8041206Z Updating files:  25% (6440/25760)
+2026-10-20T17:55:59.9283687Z Updating files:  26% (6698/25760)
+2026-10-20T17:56:00.0748296Z Updating files:  27% (6956/25760)
+2026-10-20T17:56:00.2298263Z Updating files:  28% (7213/25760)
+2026-10-20T17:56:00.3553591Z Updating files:  29% (7471/25760)
+2026-10-20T17:56:00.4588341Z Updating files:  30% (7728/25760)
+2026-10-20T17:56:00.5303481Z Updating files:  30% (7903/25760)
+2026-10-20T17:56:00.7254204Z Updating files:  31% (7986/25760)
+2026-10-20T17:56:01.0668678Z Updating files:  32% (8244/25760)
+2026-10-20T17:56:01.2697408Z Updating files:  33% (8501/25760)
+2026-10-20T17:56:01.4593717Z Updating files:  34% (8759/25760)
+2026-10-20T17:56:01.4784740Z Updating files:  34% (8986/25760)
+2026-10-20T17:56:01.7007704Z Updating files:  35% (9016/25760)
+2026-10-20T17:56:01.9974462Z Updating files:  36% (9274/25760)
+2026-10-20T17:56:02.4564191Z Updating files:  37% (9532/25760)
+2026-10-20T17:56:02.4628122Z Updating files:  38% (9789/25760)
+2026-10-20T17:56:03.4693127Z Updating files:  38% (9790/25760)
+2026-10-20T17:56:03.7634696Z Updating files:  38% (9988/25760)
+2026-10-20T17:56:04.4652248Z Updating files:  39% (10047/25760)
+2026-10-20T17:56:05.2920971Z Updating files:  39% (10157/25760)
+2026-10-20T17:56:05.4636508Z Updating files:  40% (10304/25760)
+2026-10-20T17:56:06.4497191Z Updating files:  40% (10335/25760)
+2026-10-20T17:56:06.4592804Z Updating files:  41% (10562/25760)
+2026-10-20T17:56:07.3360671Z Updating files:  41% (10568/25760)
+2026-10-20T17:56:07.4578785Z Updating files:  42% (10820/25760)
+2026-10-20T17:56:07.9685235Z Updating files:  42% (10874/25760)
+2026-10-20T17:56:08.3027309Z Updating files:  43% (11077/25760)
+2026-10-20T17:56:08.4593791Z Updating files:  44% (11335/25760)
+2026-10-20T17:56:08.6067183Z Updating files:  44% (11480/25760)
+2026-10-20T17:56:09.0355211Z Updating files:  45% (11592/25760)
+2026-10-20T17:56:09.4350138Z Updating files:  46% (11850/25760)
+2026-10-20T17:56:09.4581732Z Updating files:  47% (12108/25760)
+2026-10-20T17:56:09.6802197Z Updating files:  47% (12119/25760)
+2026-10-20T17:56:09.9001937Z Updating files:  48% (12365/25760)
+2026-10-20T17:56:10.1111749Z Updating files:  49% (12623/25760)
+2026-10-20T17:56:10.3256399Z Updating files:  50% (12880/25760)
+2026-10-20T17:56:10.4580487Z Updating files:  51% (13138/25760)
+2026-10-20T17:56:10.5494767Z Updating files:  51% (13286/25760)
+2026-10-20T17:56:10.7786475Z Updating files:  52% (13396/25760)
+2026-10-20T17:56:11.0695529Z Updating files:  53% (13653/25760)
+2026-10-20T17:56:11.3819293Z Updating files:  54% (13911/25760)
+2026-10-20T17:56:11.4586705Z Updating files:  55% (14168/25760)
+2026-10-20T17:56:11.7885549Z Updating files:  55% (14251/25760)
+2026-10-20T17:56:12.1340433Z Updating files:  56% (14426/25760)
+2026-10-20T17:56:12.5260072Z Updating files:  57% (14684/25760)
+2026-10-20T17:56:12.5260636Z Updating files:  58% (14941/25760)
+2026-10-20T17:56:12.6718507Z Updating files:  58% (14999/25760)
+2026-10-20T17:56:12.9575216Z Updating files:  59% (15199/25760)
+2026-10-20T17:56:13.2056609Z Updating files:  60% (15456/25760)
+2026-10-20T17:56:13.5358234Z Updating files:  61% (15714/25760)
+2026-10-20T17:56:13.6278385Z Updating files:  62% (15972/25760)
+2026-10-20T17:56:13.6295663Z Updating files:  62% (16014/25760)
+2026-10-20T17:56:13.6296518Z Updating files:  63% (16229/25760)
+2026-10-20T17:56:13.6297224Z Updating files:  64% (16487/25760)
+2026-10-20T17:56:14.4624586Z Updating files:  65% (16744/25760)
+2026-10-20T17:56:15.8355050Z Updating files:  65% (16895/25760)
+2026-10-20T17:56:16.5279000Z Updating files:  65% (16932/25760)
+2026-10-20T17:56:17.7293149Z Updating files:  65% (16934/25760)
+2026-10-20T17:56:18.4952838Z Updating files:  65% (16939/25760)
+2026-10-20T17:56:19.1511166Z Updating files:  65% (16943/25760)
+2026-10-20T17:56:19.4889660Z Updating files:  66% (17002/25760)
+2026-10-20T17:56:19.5652542Z Updating files:  66% (17065/25760)
+2026-10-20T17:56:19.5998193Z Updating files:  67% (17260/25760)
+2026-10-20T17:56:19.6098930Z Updating files:  68% (17517/25760)
+2026-10-20T17:56:19.6638291Z Updating files:  69% (17775/25760)
+2026-10-20T17:56:19.7293007Z Updating files:  70% (18032/25760)
+2026-10-20T17:56:19.7995394Z Updating files:  71% (18290/25760)
+2026-10-20T17:56:19.8665935Z Updating files:  72% (18548/25760)
+2026-10-20T17:56:19.9230842Z Updating files:  73% (18805/25760)
+2026-10-20T17:56:19.9369690Z Updating files:  74% (19063/25760)
+2026-10-20T17:56:19.9538504Z Updating files:  75% (19320/25760)
+2026-10-20T17:56:20.4588966Z Updating files:  76% (19578/25760)
+2026-10-20T17:56:20.5997968Z Updating files:  76% (19772/25760)
+2026-10-20T17:56:20.8539198Z Updating files:  77% (19836/25760)
+2026-10-20T17:56:20.9821229Z Updating files:  78% (20093/25760)
+2026-10-20T17:56:21.0010849Z Updating files:  79% (20351/25760)
+2026-10-20T17:56:21.0553948Z Updating files:  80% (20608/25760)
+2026-10-20T17:56:21.1607312Z Updating files:  81% (20866/25760)
+2026-10-20T17:56:21.2632285Z Updating files:  82% (21124/25760)
+2026-10-20T17:56:21.3011721Z Updating files:  83% (21381/25760)
+2026-10-20T17:56:21.4588620Z Updating files:  84% (21639/25760)
+2026-10-20T17:56:21.6947044Z Updating files:  84% (21743/25760)
+2026-10-20T17:56:21.7207925Z Updating files:  85% (21896/25760)
+2026-10-20T17:56:21.7541246Z Updating files:  86% (22154/25760)
+2026-10-20T17:56:21.9141229Z Updating files:  87% (22412/25760)
+2026-10-20T17:56:21.9368706Z Updating files:  88% (22669/25760)
+2026-10-20T17:56:21.9768243Z Updating files:  89% (22927/25760)
+2026-10-20T17:56:21.9946632Z Updating files:  90% (23184/25760)
+2026-10-20T17:56:22.0146043Z Updating files:  91% (23442/25760)
+2026-10-20T17:56:22.0408428Z Updating files:  92% (23700/25760)
+2026-10-20T17:56:22.0556505Z Updating files:  93% (23957/25760)
+2026-10-20T17:56:22.0722392Z Updating files:  94% (24215/25760)
+2026-10-20T17:56:22.0908387Z Updating files:  95% (24472/25760)
+2026-10-20T17:56:22.1075479Z Updating files:  96% (24730/25760)
+2026-10-20T17:56:22.1227884Z Updating files:  97% (24988/25760)
+2026-10-20T17:56:22.1506745Z Updating files:  98% (25245/25760)
+2026-10-20T17:56:22.1735068Z Updating files:  99% (25503/25760)
+2026-10-20T17:56:22.1735649Z Updating files: 100% (25760/25760)
+2026-10-20T17:56:22.1736223Z Updating files: 100% (25760/25760), done.
+2026-10-20T17:56:22.1972558Z Note: switching to 'refs/remotes/pull/470/merge'.
+2026-10-20T17:56:22.1973306Z 
+2026-10-20T17:56:22.1973667Z You are in 'detached HEAD' state. You can look around, make experimental
+2026-10-20T17:56:22.1974546Z changes and commit them, and you can discard any commits you make in this
+2026-10-20T17:56:22.1975348Z state without impacting any branches by switching back to a branch.
+2026-10-20T17:56:22.1975823Z 
+2026-10-20T17:56:22.1976133Z If you want to create a new branch to retain commits you create, you may
+2026-10-20T17:56:22.1977141Z do so (now or later) by using -c with the switch command. Example:
+2026-10-20T17:56:22.1977599Z 
+2026-10-20T17:56:22.1977775Z   git switch -c <new-branch-name>
+2026-10-20T17:56:22.1978069Z 
+2026-10-20T17:56:22.1978229Z Or undo this operation with:
+2026-10-20T17:56:22.1978497Z 
+2026-10-20T17:56:22.1978634Z   git switch -
+2026-10-20T17:56:22.1978836Z 
+2026-10-20T17:56:22.1979192Z Turn off this advice by setting config variable advice.detachedHead to false
+2026-10-20T17:56:22.1979729Z 
+2026-10-20T17:56:22.1980370Z HEAD is now at 7b2ad48b Merge 2d58324e2b7fbbdbab5d427f63ef40765f321d78 into bc4f55a8b725942e62bfbbbca6fcdf0bcc188ef0
+2026-10-20T17:56:22.3036617Z ##[endgroup]
+2026-10-20T17:56:22.3185828Z [command]/usr/bin/git log -1 --format=%H
+2026-10-20T17:56:22.3219880Z 7b2ad48bed6419f79df52d1a7999b1a72ef60118
+2026-10-20T17:56:22.3779668Z ##[group]Run actions/setup-node@v7
+2026-10-20T17:56:22.3779959Z with:
+2026-10-20T17:56:22.3780165Z   node-version-file: .nvmrc
+2026-10-20T17:56:22.3780401Z   cache: npm
+2026-10-20T17:56:22.3780672Z   cache-dependency-path: shinobij.client/package-lock.json
+2026-10-20T17:56:22.3781006Z   check-latest: false
+2026-10-20T17:56:22.3783778Z   token: ***
+2026-10-20T17:56:22.3783996Z   package-manager-cache: true
+2026-10-20T17:56:22.3784241Z env:
+2026-10-20T17:56:22.3784480Z   VITE_SENTRY_DSN: https://public@example.invalid/1
+2026-10-20T17:56:22.3784804Z   VITE_SENTRY_RELEASE: ci
+2026-10-20T17:56:22.3785096Z   VITE_BUILD_COMMIT: 7b2ad48bed6419f79df52d1a7999b1a72ef60118
+2026-10-20T17:56:22.3785433Z ##[endgroup]
+2026-10-20T17:56:22.5537032Z Node version file is not JSON file
+2026-10-20T17:56:22.5543714Z Node version file is not TOML file
+2026-10-20T17:56:22.5544294Z Resolved .nvmrc as 24.21.0
+2026-10-20T17:56:22.5578295Z Found in cache @ /opt/hostedtoolcache/node/24.21.0/x64
+2026-10-20T17:56:22.6488303Z ##[group]Environment details
+2026-10-20T17:56:23.0222094Z node: v24.21.0
+2026-10-20T17:56:23.0222663Z npm: 11.19.0
+2026-10-20T17:56:23.0223156Z yarn: 1.22.22
+2026-10-20T17:56:23.0224164Z ##[endgroup]
+2026-10-20T17:56:23.0244612Z [command]/opt/hostedtoolcache/node/24.21.0/x64/bin/npm config get cache
+2026-10-20T17:56:23.1343249Z /home/runner/.npm
+2026-10-20T17:56:23.3741517Z Cache hit for: node-cache-Linux-x64-npm-cea1f3dfa0326006799d2399179ec289b54c85805eb8fcc052f3171dd8e44f14
+2026-10-20T17:56:24.6203890Z Received 25165824 of 101919340 (24.7%), 24.0 MBs/sec
+2026-10-20T17:56:25.1491430Z Received 101919340 of 101919340 (100.0%), 63.6 MBs/sec
+2026-10-20T17:56:25.1492784Z Cache Size: ~97 MB (101919340 B)
+2026-10-20T17:56:25.1553292Z [command]/usr/bin/tar -xf /home/runner/work/_temp/a95c8c81-f897-486b-85b9-45dac1e04599/cache.tzst -P -C /home/runner/work/ShinobiX/ShinobiX --use-compress-program unzstd
+2026-10-20T17:56:25.3606165Z Cache restored successfully
+2026-10-20T17:56:25.3660391Z Cache restored from key: node-cache-Linux-x64-npm-cea1f3dfa0326006799d2399179ec289b54c85805eb8fcc052f3171dd8e44f14
+2026-10-20T17:56:25.4428827Z ##[group]Run mkdir -p .ci-evidence/e2e-village-stores
+2026-10-20T17:56:25.4429315Z [36;1mmkdir -p .ci-evidence/e2e-village-stores[0m
+2026-10-20T17:56:25.4430553Z [36;1mprintf 'sha=%s\nrun_id=%s\nrun_attempt=%s\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" > .ci-evidence/e2e-village-stores/provenance.txt[0m
+2026-10-20T17:56:25.4976107Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-10-20T17:56:25.4976638Z env:
+2026-10-20T17:56:25.4977253Z   VITE_SENTRY_DSN: https://public@example.invalid/1
+2026-10-20T17:56:25.4977747Z   VITE_SENTRY_RELEASE: ci
+2026-10-20T17:56:25.4978427Z   VITE_BUILD_COMMIT: 7b2ad48bed6419f79df52d1a7999b1a72ef60118
+2026-10-20T17:56:25.4978920Z ##[endgroup]
+2026-10-20T17:56:25.5158291Z ##[group]Run npm ci --omit=dev 2>&1 | tee .ci-evidence/e2e-village-stores/root-install.log
+2026-10-20T17:56:25.5158936Z [36;1mnpm ci --omit=dev 2>&1 | tee .ci-evidence/e2e-village-stores/root-install.log[0m
+2026-10-20T17:56:25.5215405Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-10-20T17:56:25.5215774Z env:
+2026-10-20T17:56:25.5216049Z   VITE_SENTRY_DSN: https://public@example.invalid/1
+2026-10-20T17:56:25.5216405Z   VITE_SENTRY_RELEASE: ci
+2026-10-20T17:56:25.5216946Z   VITE_BUILD_COMMIT: 7b2ad48bed6419f79df52d1a7999b1a72ef60118
+2026-10-20T17:56:25.5217347Z ##[endgroup]
+2026-10-20T17:56:29.0107242Z 
+2026-10-20T17:56:29.0117679Z added 141 packages, and audited 142 packages in 3s
+2026-10-20T17:56:29.0118151Z 
+2026-10-20T17:56:29.0118449Z 30 packages are looking for funding
+2026-10-20T17:56:29.0118949Z   run `npm fund` for details
+2026-10-20T17:56:29.0120927Z 
+2026-10-20T17:56:29.0121653Z found 0 vulnerabilities
+2026-10-20T17:56:29.0705334Z ##[group]Run npm ci --prefix shinobij.client 2>&1 | tee .ci-evidence/e2e-village-stores/client-install.log
+2026-10-20T17:56:29.0706252Z [36;1mnpm ci --prefix shinobij.client 2>&1 | tee .ci-evidence/e2e-village-stores/client-install.log[0m
+2026-10-20T17:56:29.0774646Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-10-20T17:56:29.0775059Z env:
+2026-10-20T17:56:29.0775366Z   VITE_SENTRY_DSN: https://public@example.invalid/1
+2026-10-20T17:56:29.0775763Z   VITE_SENTRY_RELEASE: ci
+2026-10-20T17:56:29.0776136Z   VITE_BUILD_COMMIT: 7b2ad48bed6419f79df52d1a7999b1a72ef60118
+2026-10-20T17:56:29.0776543Z ##[endgroup]
+2026-10-20T17:56:35.8938974Z 
+2026-10-20T17:56:35.8941912Z added 325 packages, and audited 326 packages in 7s
+2026-10-20T17:56:35.8942401Z 
+2026-10-20T17:56:35.8943435Z 79 packages are looking for funding
+2026-10-20T17:56:35.8944119Z   run `npm fund` for details
+2026-10-20T17:56:35.8955292Z 
+2026-10-20T17:56:35.8955839Z found 0 vulnerabilities
+2026-10-20T17:56:35.8967975Z npm warn install-scripts 1 package has install scripts not yet covered by allowScripts:
+2026-10-20T17:56:35.8969514Z npm warn install-scripts   esbuild@0.28.1 (postinstall: node install.js)
+2026-10-20T17:56:35.8970811Z npm warn install-scripts
+2026-10-20T17:56:35.8972280Z npm warn install-scripts Run `npm install-scripts ls` to review, or `npm install-scripts approve <pkg>` to allow.
+2026-10-20T17:56:35.9629962Z ##[group]Run actions/download-artifact@v8
+2026-10-20T17:56:35.9630277Z with:
+2026-10-20T17:56:35.9630599Z   name: release-dist-7b2ad48bed6419f79df52d1a7999b1a72ef60118-39456640011
+2026-10-20T17:56:35.9631015Z   path: .ci-artifacts/release
+2026-10-20T17:56:35.9631274Z   merge-multiple: false
+2026-10-20T17:56:35.9631507Z   repository: Timehue/ShinobiX
+2026-10-20T17:56:35.9631745Z   run-id: 39456640011
+2026-10-20T17:56:35.9631963Z   skip-decompress: false
+2026-10-20T17:56:35.9632200Z   digest-mismatch: error
+2026-10-20T17:56:35.9632436Z env:
+2026-10-20T17:56:35.9632680Z   VITE_SENTRY_DSN: https://public@example.invalid/1
+2026-10-20T17:56:35.9632999Z   VITE_SENTRY_RELEASE: ci
+2026-10-20T17:56:35.9633295Z   VITE_BUILD_COMMIT: 7b2ad48bed6419f79df52d1a7999b1a72ef60118
+2026-10-20T17:56:35.9633618Z ##[endgroup]
+2026-10-20T17:56:36.1008600Z Downloading single artifact
+2026-10-20T17:56:36.3432355Z Preparing to download the following artifacts:
+2026-10-20T17:56:36.3434977Z - release-dist-7b2ad48bed6419f79df52d1a7999b1a72ef60118-39456640011 (ID: 12282604135, Size: 566711445, Expected Digest: sha256:7adf86cb74a9094a0cb405d1f2c837d63e618544015f2894bd64dc9d5cc57c7c)
+2026-10-20T17:56:36.8181274Z Redirecting to blob download url: https://productionresultssa15.blob.core.windows.net/actions-results/9769fa26-a5b4-80cc-bec2-4c32d3097a70/workflow-job-run-fad217a1-cee2-5bdb-8203-447fabed4e25/artifacts/9ef6c0e726e5da75d8a322e2a74f7fbef1dd59c28dc40f9abd0d6644a7f146aa.zip
+2026-10-20T17:56:36.8184241Z Starting download of artifact to: /home/runner/work/ShinobiX/ShinobiX/.ci-artifacts/release
+2026-10-20T17:56:37.0726953Z (node:2530) [DEP0005] DeprecationWarning: Buffer() is deprecated due to security and usability issues. Please use the Buffer.alloc(), Buffer.allocUnsafe(), or Buffer.from() methods instead.
+2026-10-20T17:56:37.0728877Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-10-20T17:56:47.8185467Z SHA256 digest of downloaded artifact is 7adf86cb74a9094a0cb405d1f2c837d63e618544015f2894bd64dc9d5cc57c7c
+2026-10-20T17:56:47.8189067Z Artifact download completed successfully.
+2026-10-20T17:56:47.8189808Z Total of 1 artifact(s) downloaded
+2026-10-20T17:56:47.8193297Z Download artifact has finished successfully
+2026-10-20T17:56:47.8306338Z ##[group]Run cd .ci-artifacts/release
+2026-10-20T17:56:47.8307283Z [36;1mcd .ci-artifacts/release[0m
+2026-10-20T17:56:47.8307811Z [36;1msha256sum -c release-dist.tgz.sha256[0m
+2026-10-20T17:56:47.8308427Z [36;1mgrep -Fx "sha=$GITHUB_SHA" provenance.txt[0m
+2026-10-20T17:56:47.8309104Z [36;1mgrep -Fx "run_id=$GITHUB_RUN_ID" provenance.txt[0m
+2026-10-20T17:56:47.8309891Z [36;1martifact_attempt="$(sed -n 's/^run_attempt=//p' provenance.txt)"[0m
+2026-10-20T17:56:47.8310647Z [36;1m[[ "$artifact_attempt" =~ ^[1-9][0-9]*$ ]][0m
+2026-10-20T17:56:47.8311205Z [36;1m(( artifact_attempt <= GITHUB_RUN_ATTEMPT ))[0m
+2026-10-20T17:56:47.8311552Z [36;1mcd ../..[0m
+2026-10-20T17:56:47.8311830Z [36;1mtar -xzf .ci-artifacts/release/release-dist.tgz[0m
+2026-10-20T17:56:47.8379207Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-10-20T17:56:47.8379579Z env:
+2026-10-20T17:56:47.8379839Z   VITE_SENTRY_DSN: https://public@example.invalid/1
+2026-10-20T17:56:47.8380207Z   VITE_SENTRY_RELEASE: ci
+2026-10-20T17:56:47.8380523Z   VITE_BUILD_COMMIT: 7b2ad48bed6419f79df52d1a7999b1a72ef60118
+2026-10-20T17:56:47.8380870Z ##[endgroup]
+2026-10-20T17:56:48.2603220Z release-dist.tgz: OK
+2026-10-20T17:56:48.2620849Z sha=7b2ad48bed6419f79df52d1a7999b1a72ef60118
+2026-10-20T17:56:48.2632867Z run_id=39456640011
+2026-10-20T17:56:52.1878432Z Prepare all required actions
+2026-10-20T17:56:52.1879013Z Getting action download info
+2026-10-20T17:56:52.4569958Z Download action repository 'actions/cache@v6' (SHA:55cc8345863c7cc4c66a329aec7e433d2d1c52a9)
+2026-10-20T17:56:52.5789640Z ##[group]Run ./.github/actions/playwright-browsers
+2026-10-20T17:56:52.5789978Z with:
+2026-10-20T17:56:52.5790191Z   browsers: chromium
+2026-10-20T17:56:52.5790488Z   log: .ci-evidence/e2e-village-stores/browser-install.log
+2026-10-20T17:56:52.5790825Z env:
+2026-10-20T17:56:52.5791075Z   VITE_SENTRY_DSN: https://public@example.invalid/1
+2026-10-20T17:56:52.5791414Z   VITE_SENTRY_RELEASE: ci
+2026-10-20T17:56:52.5791731Z   VITE_BUILD_COMMIT: 7b2ad48bed6419f79df52d1a7999b1a72ef60118
+2026-10-20T17:56:52.5792074Z ##[endgroup]
+2026-10-20T17:56:52.5852394Z ##[start-action display=Run # Playwright's version decides which packages --with-deps installs%3B the;id=__self.key]
+2026-10-20T17:56:52.5878463Z ##[group]Run # Playwright's version decides which packages --with-deps installs; the
+2026-10-20T17:56:52.5879103Z [36;1m# Playwright's version decides which packages --with-deps installs; the[0m
+2026-10-20T17:56:52.5879652Z [36;1m# month bounds how far cached .debs can drift behind security updates.[0m
+2026-10-20T17:56:52.5880357Z [36;1mplaywright_version="$(node -p "require('./shinobij.client/node_modules/@playwright/test/package.json').version")"[0m
+2026-10-20T17:56:52.5881064Z [36;1mprefix="playwright-os-debs-v1-${ImageOS:-unknown-image}-${RUNNER_ARCH}"[0m
+2026-10-20T17:56:52.5881532Z [36;1mecho "prefix=${prefix}-" >> "$GITHUB_OUTPUT"[0m
+2026-10-20T17:56:52.5882058Z [36;1mecho "key=${prefix}-pw${playwright_version}-${BROWSERS// /-}-$(date -u +%Y-%m)" >> "$GITHUB_OUTPUT"[0m
+2026-10-20T17:56:52.5944497Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-10-20T17:56:52.5944848Z env:
+2026-10-20T17:56:52.5945111Z   VITE_SENTRY_DSN: https://public@example.invalid/1
+2026-10-20T17:56:52.5945447Z   VITE_SENTRY_RELEASE: ci
+2026-10-20T17:56:52.5945942Z   VITE_BUILD_COMMIT: 7b2ad48bed6419f79df52d1a7999b1a72ef60118
+2026-10-20T17:56:52.5946289Z   BROWSERS: chromium
+2026-10-20T17:56:52.5946516Z ##[endgroup]
+2026-10-20T17:56:52.6379934Z ##[end-action id=__self.key;outcome=success;conclusion=success;duration_ms=52]
+2026-10-20T17:56:52.6385143Z ##[start-action display=Run actions/cache/restore@v6;id=__self.restore]
+2026-10-20T17:56:52.6421030Z ##[group]Run actions/cache/restore@v6
+2026-10-20T17:56:52.6421310Z with:
+2026-10-20T17:56:52.6421523Z   path: ~/.cache/playwright-os-debs
+2026-10-20T17:56:52.6421924Z   key: playwright-os-debs-v1-ubuntu24-X64-pw1.62.1-chromium-2026-10
+2026-10-20T17:56:52.6422386Z   restore-keys: playwright-os-debs-v1-ubuntu24-X64-
+2026-10-20T17:56:52.6422728Z   enableCrossOsArchive: false
+2026-10-20T17:56:52.6422998Z   fail-on-cache-miss: false
+2026-10-20T17:56:52.6423281Z   lookup-only: false
+2026-10-20T17:56:52.6423499Z env:
+2026-10-20T17:56:52.6423755Z   VITE_SENTRY_DSN: https://public@example.invalid/1
+2026-10-20T17:56:52.6424107Z   VITE_SENTRY_RELEASE: ci
+2026-10-20T17:56:52.6424417Z   VITE_BUILD_COMMIT: 7b2ad48bed6419f79df52d1a7999b1a72ef60118
+2026-10-20T17:56:52.6424756Z ##[endgroup]
+2026-10-20T17:56:52.9688108Z Cache hit for: playwright-os-debs-v1-ubuntu24-X64-pw1.62.1-chromium-2026-10
+2026-10-20T17:56:54.1386495Z Received 32089897 of 32089897 (100.0%), 32.1 MBs/sec
+2026-10-20T17:56:54.1389079Z Cache Size: ~31 MB (32089897 B)
+2026-10-20T17:56:54.1430972Z [command]/usr/bin/tar -xf /home/runner/work/_temp/19f5b239-2949-4c98-a1cf-ee598841fe3e/cache.tzst -P -C /home/runner/work/ShinobiX/ShinobiX --use-compress-program unzstd
+2026-10-20T17:56:54.1880347Z Cache restored successfully
+2026-10-20T17:56:54.2078703Z Cache restored from key: playwright-os-debs-v1-ubuntu24-X64-pw1.62.1-chromium-2026-10
+2026-10-20T17:56:54.2159705Z ##[end-action id=__self.restore;outcome=success;conclusion=success;duration_ms=1577]
+2026-10-20T17:56:54.2162373Z ##[start-action display=Seed apt with cached packages;id=__self.__run]
+2026-10-20T17:56:54.2182579Z ##[group]Run if compgen -G "$HOME/.cache/playwright-os-debs/*.deb" > /dev/null; then
+2026-10-20T17:56:54.2183193Z [36;1mif compgen -G "$HOME/.cache/playwright-os-debs/*.deb" > /dev/null; then[0m
+2026-10-20T17:56:54.2183737Z [36;1m  sudo cp "$HOME"/.cache/playwright-os-debs/*.deb /var/cache/apt/archives/[0m
+2026-10-20T17:56:54.2184364Z [36;1m  echo "Seeded $(compgen -G "$HOME/.cache/playwright-os-debs/*.deb" | wc -l) cached OS packages."[0m
+2026-10-20T17:56:54.2184851Z [36;1melse[0m
+2026-10-20T17:56:54.2185178Z [36;1m  echo "No cached OS packages; apt downloads everything this run."[0m
+2026-10-20T17:56:54.2185562Z [36;1mfi[0m
+2026-10-20T17:56:54.2249322Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-10-20T17:56:54.2249876Z env:
+2026-10-20T17:56:54.2250159Z   VITE_SENTRY_DSN: https://public@example.invalid/1
+2026-10-20T17:56:54.2250519Z   VITE_SENTRY_RELEASE: ci
+2026-10-20T17:56:54.2250994Z   VITE_BUILD_COMMIT: 7b2ad48bed6419f79df52d1a7999b1a72ef60118
+2026-10-20T17:56:54.2251386Z ##[endgroup]
+2026-10-20T17:56:54.2627534Z Seeded 14 cached OS packages.
+2026-10-20T17:56:54.2636064Z ##[end-action id=__self.__run;outcome=success;conclusion=success;duration_ms=47]
+2026-10-20T17:56:54.2640284Z ##[start-action display=Install browsers and OS dependencies;id=__self.__run_2]
+2026-10-20T17:56:54.2659036Z ##[group]Run npx --prefix shinobij.client playwright install --with-deps $BROWSERS 2>&1 | tee "$INSTALL_LOG"
+2026-10-20T17:56:54.2659818Z [36;1mnpx --prefix shinobij.client playwright install --with-deps $BROWSERS 2>&1 | tee "$INSTALL_LOG"[0m
+2026-10-20T17:56:54.2722660Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-10-20T17:56:54.2723038Z env:
+2026-10-20T17:56:54.2723496Z   VITE_SENTRY_DSN: https://public@example.invalid/1
+2026-10-20T17:56:54.2723960Z   VITE_SENTRY_RELEASE: ci
+2026-10-20T17:56:54.2724388Z   VITE_BUILD_COMMIT: 7b2ad48bed6419f79df52d1a7999b1a72ef60118
+2026-10-20T17:56:54.2724974Z   BROWSERS: chromium
+2026-10-20T17:56:54.2725636Z   INSTALL_LOG: .ci-evidence/e2e-village-stores/browser-install.log
+2026-10-20T17:56:54.2726215Z ##[endgroup]
+2026-10-20T17:56:55.0215343Z Installing dependencies...
+2026-10-20T17:56:55.0300623Z Switching to root user to install dependencies...
+2026-10-20T17:56:55.1350156Z Get:1 file:/etc/apt/apt-mirrors.txt Mirrorlist [144 B]
+2026-10-20T17:56:55.1632128Z Hit:2 http://azure.archive.ubuntu.com/ubuntu noble InRelease
+2026-10-20T17:56:55.1634551Z Get:6 https://packages.microsoft.com/ubuntu/24.04/prod noble InRelease [3600 B]
+2026-10-20T17:56:55.1642308Z Get:3 http://azure.archive.ubuntu.com/ubuntu noble-updates InRelease [126 kB]
+2026-10-20T17:56:55.1685521Z Get:4 http://azure.archive.ubuntu.com/ubuntu noble-backports InRelease [126 kB]
+2026-10-20T17:56:55.1711409Z Get:5 http://azure.archive.ubuntu.com/ubuntu noble-security InRelease [126 kB]
+2026-10-20T17:56:55.2803460Z Get:7 https://packages.microsoft.com/ubuntu/24.04/prod noble/main arm64 Packages [565 kB]
+2026-10-20T17:56:55.3052681Z Get:8 https://packages.microsoft.com/ubuntu/24.04/prod noble/main armhf Packages [12.4 kB]
+2026-10-20T17:56:55.3120577Z Get:9 https://packages.microsoft.com/ubuntu/24.04/prod noble/main amd64 Packages [626 kB]
+2026-10-20T17:56:55.3455580Z Get:10 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 Packages [1397 kB]
+2026-10-20T17:56:55.3537897Z Get:11 http://azure.archive.ubuntu.com/ubuntu noble-updates/main Translation-en [308 kB]
+2026-10-20T17:56:55.3561425Z Get:12 http://azure.archive.ubuntu.com/ubuntu noble-updates/universe amd64 Packages [1704 kB]
+2026-10-20T17:56:55.3660319Z Get:13 http://azure.archive.ubuntu.com/ubuntu noble-updates/universe Translation-en [342 kB]
+2026-10-20T17:56:55.3679258Z Get:14 http://azure.archive.ubuntu.com/ubuntu noble-updates/restricted amd64 Packages [1805 kB]
+2026-10-20T17:56:55.3752077Z Get:15 http://azure.archive.ubuntu.com/ubuntu noble-updates/restricted Translation-en [411 kB]
+2026-10-20T17:56:55.4532199Z Get:16 http://azure.archive.ubuntu.com/ubuntu noble-security/main amd64 Packages [1145 kB]
+2026-10-20T17:56:55.4594028Z Get:17 http://azure.archive.ubuntu.com/ubuntu noble-security/main Translation-en [231 kB]
+2026-10-20T17:56:55.4610842Z Get:18 http://azure.archive.ubuntu.com/ubuntu noble-security/universe amd64 Packages [1222 kB]
+2026-10-20T17:56:55.4668010Z Get:19 http://azure.archive.ubuntu.com/ubuntu noble-security/universe Translation-en [246 kB]
+2026-10-20T17:56:55.5102368Z Get:20 http://azure.archive.ubuntu.com/ubuntu noble-security/restricted amd64 Packages [1713 kB]
+2026-10-20T17:56:55.5181823Z Get:21 http://azure.archive.ubuntu.com/ubuntu noble-security/restricted Translation-en [392 kB]
+2026-10-20T17:56:59.3697064Z Fetched 12.5 MB in 1s (9885 kB/s)
+2026-10-20T17:57:00.2831697Z Reading package lists...
+2026-10-20T17:57:00.3074153Z Reading package lists...
+2026-10-20T17:57:00.5034107Z Building dependency tree...
+2026-10-20T17:57:00.5041735Z Reading state information...
+2026-10-20T17:57:00.6400557Z libasound2t64 is already the newest version (1.2.11-1ubuntu0.3).
+2026-10-20T17:57:00.6401549Z libasound2t64 set to manually installed.
+2026-10-20T17:57:00.6402653Z libatk-bridge2.0-0t64 is already the newest version (2.52.0-1build1).
+2026-10-20T17:57:00.6403521Z libatk-bridge2.0-0t64 set to manually installed.
+2026-10-20T17:57:00.6404312Z libatk1.0-0t64 is already the newest version (2.52.0-1build1).
+2026-10-20T17:57:00.6405012Z libatk1.0-0t64 set to manually installed.
+2026-10-20T17:57:00.6405785Z libatspi2.0-0t64 is already the newest version (2.52.0-1build1).
+2026-10-20T17:57:00.6406569Z libatspi2.0-0t64 set to manually installed.
+2026-10-20T17:57:00.6407598Z libcairo2 is already the newest version (1.18.0-3build1).
+2026-10-20T17:57:00.6408267Z libcairo2 set to manually installed.
+2026-10-20T17:57:00.6408759Z libcups2t64 is already the newest version (2.4.7-1.2ubuntu7.14).
+2026-10-20T17:57:00.6409204Z libcups2t64 set to manually installed.
+2026-10-20T17:57:00.6409668Z libdbus-1-3 is already the newest version (1.14.10-4ubuntu4.1).
+2026-10-20T17:57:00.6410103Z libdbus-1-3 set to manually installed.
+2026-10-20T17:57:00.6410799Z libdrm2 is already the newest version (2.4.125-1ubuntu0.1~24.04.2).
+2026-10-20T17:57:00.6411229Z libdrm2 set to manually installed.
+2026-10-20T17:57:00.6411653Z libgbm1 is already the newest version (25.2.8-0ubuntu0.24.04.4).
+2026-10-20T17:57:00.6412294Z libgbm1 set to manually installed.
+2026-10-20T17:57:00.6413127Z libglib2.0-0t64 is already the newest version (2.80.0-6ubuntu3.9).
+2026-10-20T17:57:00.6413917Z libglib2.0-0t64 set to manually installed.
+2026-10-20T17:57:00.6414492Z libnspr4 is already the newest version (2:4.35-1.1build1).
+2026-10-20T17:57:00.6414901Z libnspr4 set to manually installed.
+2026-10-20T17:57:00.6415312Z libnss3 is already the newest version (2:3.98-1ubuntu0.2).
+2026-10-20T17:57:00.6415714Z libnss3 set to manually installed.
+2026-10-20T17:57:00.6416154Z libpango-1.0-0 is already the newest version (1.52.1+ds-1build1).
+2026-10-20T17:57:00.6416615Z libpango-1.0-0 set to manually installed.
+2026-10-20T17:57:00.6417700Z libx11-6 is already the newest version (2:1.8.7-1ubuntu0.1).
+2026-10-20T17:57:00.6418492Z libx11-6 set to manually installed.
+2026-10-20T17:57:00.6419236Z libxcb1 is already the newest version (1.15-1ubuntu2).
+2026-10-20T17:57:00.6419945Z libxcb1 set to manually installed.
+2026-10-20T17:57:00.6420761Z libxcomposite1 is already the newest version (1:0.4.5-1build3).
+2026-10-20T17:57:00.6421600Z libxcomposite1 set to manually installed.
+2026-10-20T17:57:00.6422395Z libxdamage1 is already the newest version (1:1.1.6-1build1).
+2026-10-20T17:57:00.6423132Z libxdamage1 set to manually installed.
+2026-10-20T17:57:00.6423873Z libxext6 is already the newest version (2:1.3.4-1build2).
+2026-10-20T17:57:00.6424582Z libxext6 set to manually installed.
+2026-10-20T17:57:00.6425315Z libxfixes3 is already the newest version (1:6.0.0-2build1).
+2026-10-20T17:57:00.6426040Z libxfixes3 set to manually installed.
+2026-10-20T17:57:00.6427003Z libxkbcommon0 is already the newest version (1.6.0-1build1).
+2026-10-20T17:57:00.6427758Z libxkbcommon0 set to manually installed.
+2026-10-20T17:57:00.6428789Z libxrandr2 is already the newest version (2:1.5.2-2build1).
+2026-10-20T17:57:00.6429518Z libxrandr2 set to manually installed.
+2026-10-20T17:57:00.6430431Z fonts-noto-color-emoji is already the newest version (2.047-0ubuntu0.24.04.1).
+2026-10-20T17:57:00.6431480Z libfontconfig1 is already the newest version (2.15.0-1.1ubuntu2).
+2026-10-20T17:57:00.6432265Z libfontconfig1 set to manually installed.
+2026-10-20T17:57:00.6433094Z libfreetype6 is already the newest version (2.13.2+dfsg-1ubuntu0.2).
+2026-10-20T17:57:00.6433875Z libfreetype6 set to manually installed.
+2026-10-20T17:57:00.6434635Z fonts-liberation is already the newest version (1:2.1.5-3).
+2026-10-20T17:57:00.6435384Z fonts-liberation set to manually installed.
+2026-10-20T17:57:00.6436114Z The following additional packages will be installed:
+2026-10-20T17:57:00.6437030Z   xfonts-encodings xfonts-utils xserver-common
+2026-10-20T17:57:00.6437652Z Recommended packages:
+2026-10-20T17:57:00.6438273Z   fonts-ipafont-mincho fonts-tlwg-loma xfonts-base
+2026-10-20T17:57:00.6588464Z The following NEW packages will be installed:
+2026-10-20T17:57:00.6589616Z   fonts-freefont-ttf fonts-ipafont-gothic fonts-tlwg-loma-otf fonts-unifont
+2026-10-20T17:57:00.6597444Z   fonts-wqy-zenhei xfonts-cyrillic xfonts-encodings xfonts-scalable
+2026-10-20T17:57:00.6598510Z   xfonts-utils
+2026-10-20T17:57:00.6610025Z The following packages will be upgraded:
+2026-10-20T17:57:00.6610714Z   xserver-common xvfb
+2026-10-20T17:57:00.6787870Z 2 upgraded, 9 newly installed, 0 to remove and 83 not upgraded.
+2026-10-20T17:57:00.6788886Z Need to get 912 kB/22.0 MB of archives.
+2026-10-20T17:57:00.6790000Z After this operation, 79.5 MB of additional disk space will be used.
+2026-10-20T17:57:00.6791233Z Get:1 file:/etc/apt/apt-mirrors.txt Mirrorlist [144 B]
+2026-10-20T17:57:00.7662558Z Get:2 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 xserver-common all 2:21.1.12-1ubuntu1.9 [35.0 kB]
+2026-10-20T17:57:00.8323207Z Get:3 http://azure.archive.ubuntu.com/ubuntu noble-updates/universe amd64 xvfb amd64 2:21.1.12-1ubuntu1.9 [877 kB]
+2026-10-20T17:57:01.1682095Z Fetched 912 kB in 0s (5020 kB/s)
+2026-10-20T17:57:01.1937488Z Selecting previously unselected package fonts-ipafont-gothic.
+2026-10-20T17:57:01.2322547Z (Reading database ... 
+2026-10-20T17:57:01.2323598Z (Reading database ... 5%
+2026-10-20T17:57:01.2324438Z (Reading database ... 10%
+2026-10-20T17:57:01.2325079Z (Reading database ... 15%
+2026-10-20T17:57:01.2325733Z (Reading database ... 20%
+2026-10-20T17:57:01.2326201Z (Reading database ... 25%
+2026-10-20T17:57:01.2326683Z (Reading database ... 30%
+2026-10-20T17:57:01.2327551Z (Reading database ... 35%
+2026-10-20T17:57:01.2328168Z (Reading database ... 40%
+2026-10-20T17:57:01.2328692Z (Reading database ... 45%
+2026-10-20T17:57:01.2329064Z (Reading database ... 50%
+2026-10-20T17:57:01.2383858Z (Reading database ... 55%
+2026-10-20T17:57:01.3346543Z (Reading database ... 60%
+2026-10-20T17:57:01.5301480Z (Reading database ... 65%
+2026-10-20T17:57:01.7339454Z (Reading database ... 70%
+2026-10-20T17:57:01.9321195Z (Reading database ... 75%
+2026-10-20T17:57:02.0349526Z (Reading database ... 80%
+2026-10-20T17:57:02.1578395Z (Reading database ... 85%
+2026-10-20T17:57:02.2646201Z (Reading database ... 90%
+2026-10-20T17:57:02.3966054Z (Reading database ... 95%
+2026-10-20T17:57:02.3966614Z (Reading database ... 100%
+2026-10-20T17:57:02.3967669Z (Reading database ... 203540 files and directories currently installed.)
+2026-10-20T17:57:02.4011406Z Preparing to unpack .../00-fonts-ipafont-gothic_00303-21ubuntu1_all.deb ...
+2026-10-20T17:57:02.4112833Z Unpacking fonts-ipafont-gothic (00303-21ubuntu1) ...
+2026-10-20T17:57:02.6388259Z Selecting previously unselected package fonts-freefont-ttf.
+2026-10-20T17:57:02.6514457Z Preparing to unpack .../01-fonts-freefont-ttf_20211204+svn4273-2_all.deb ...
+2026-10-20T17:57:02.6522540Z Unpacking fonts-freefont-ttf (20211204+svn4273-2) ...
+2026-10-20T17:57:02.7284463Z Selecting previously unselected package fonts-tlwg-loma-otf.
+2026-10-20T17:57:02.7409993Z Preparing to unpack .../02-fonts-tlwg-loma-otf_1%3a0.7.3-1_all.deb ...
+2026-10-20T17:57:02.7417954Z Unpacking fonts-tlwg-loma-otf (1:0.7.3-1) ...
+2026-10-20T17:57:02.7615069Z Selecting previously unselected package fonts-unifont.
+2026-10-20T17:57:02.7738815Z Preparing to unpack .../03-fonts-unifont_1%3a15.1.01-1build1_all.deb ...
+2026-10-20T17:57:02.7745559Z Unpacking fonts-unifont (1:15.1.01-1build1) ...
+2026-10-20T17:57:02.8825549Z Selecting previously unselected package fonts-wqy-zenhei.
+2026-10-20T17:57:02.8950643Z Preparing to unpack .../04-fonts-wqy-zenhei_0.9.45-8_all.deb ...
+2026-10-20T17:57:02.9052628Z Unpacking fonts-wqy-zenhei (0.9.45-8) ...
+2026-10-20T17:57:03.3673049Z Selecting previously unselected package xfonts-encodings.
+2026-10-20T17:57:03.3798703Z Preparing to unpack .../05-xfonts-encodings_1%3a1.0.5-0ubuntu2_all.deb ...
+2026-10-20T17:57:03.3804856Z Unpacking xfonts-encodings (1:1.0.5-0ubuntu2) ...
+2026-10-20T17:57:03.4082284Z Selecting previously unselected package xfonts-utils.
+2026-10-20T17:57:03.4205287Z Preparing to unpack .../06-xfonts-utils_1%3a7.7+6build3_amd64.deb ...
+2026-10-20T17:57:03.4212191Z Unpacking xfonts-utils (1:7.7+6build3) ...
+2026-10-20T17:57:03.4602003Z Selecting previously unselected package xfonts-cyrillic.
+2026-10-20T17:57:03.4729116Z Preparing to unpack .../07-xfonts-cyrillic_1%3a1.0.5+nmu1_all.deb ...
+2026-10-20T17:57:03.4736430Z Unpacking xfonts-cyrillic (1:1.0.5+nmu1) ...
+2026-10-20T17:57:03.5081491Z Selecting previously unselected package xfonts-scalable.
+2026-10-20T17:57:03.5204726Z Preparing to unpack .../08-xfonts-scalable_1%3a1.0.3-1.3_all.deb ...
+2026-10-20T17:57:03.5212860Z Unpacking xfonts-scalable (1:1.0.3-1.3) ...
+2026-10-20T17:57:03.5558956Z Preparing to unpack .../09-xserver-common_2%3a21.1.12-1ubuntu1.9_all.deb ...
+2026-10-20T17:57:03.5578903Z Unpacking xserver-common (2:21.1.12-1ubuntu1.9) over (2:21.1.12-1ubuntu1.8) ...
+2026-10-20T17:57:03.5944245Z Preparing to unpack .../10-xvfb_2%3a21.1.12-1ubuntu1.9_amd64.deb ...
+2026-10-20T17:57:03.5962616Z Unpacking xvfb (2:21.1.12-1ubuntu1.9) over (2:21.1.12-1ubuntu1.8) ...
+2026-10-20T17:57:03.6476679Z Setting up fonts-wqy-zenhei (0.9.45-8) ...
+2026-10-20T17:57:03.6606422Z Setting up fonts-freefont-ttf (20211204+svn4273-2) ...
+2026-10-20T17:57:03.6626333Z Setting up fonts-tlwg-loma-otf (1:0.7.3-1) ...
+2026-10-20T17:57:03.6645609Z Setting up xfonts-encodings (1:1.0.5-0ubuntu2) ...
+2026-10-20T17:57:03.6662694Z Setting up fonts-ipafont-gothic (00303-21ubuntu1) ...
+2026-10-20T17:57:03.7167521Z update-alternatives: using /usr/share/fonts/opentype/ipafont-gothic/ipag.ttf to provide /usr/share/fonts/truetype/fonts-japanese-gothic.ttf (fonts-japanese-gothic.ttf) in auto mode
+2026-10-20T17:57:03.7189033Z Setting up xserver-common (2:21.1.12-1ubuntu1.9) ...
+2026-10-20T17:57:03.7213031Z Setting up fonts-unifont (1:15.1.01-1build1) ...
+2026-10-20T17:57:03.7235217Z Setting up xvfb (2:21.1.12-1ubuntu1.9) ...
+2026-10-20T17:57:03.7258146Z Setting up xfonts-utils (1:7.7+6build3) ...
+2026-10-20T17:57:03.7303516Z Setting up xfonts-cyrillic (1:1.0.5+nmu1) ...
+2026-10-20T17:57:03.7634272Z Setting up xfonts-scalable (1:1.0.3-1.3) ...
+2026-10-20T17:57:03.7905833Z Processing triggers for man-db (2.12.0-4build2) ...
+2026-10-20T17:57:03.7946207Z Not building database; man-db/auto-update is not 'true'.
+2026-10-20T17:57:03.7962115Z Processing triggers for fontconfig (2.15.0-1.1ubuntu2) ...
+2026-10-20T17:57:04.5748967Z 
+2026-10-20T17:57:04.5749651Z Running kernel seems to be up-to-date.
+2026-10-20T17:57:04.5750074Z 
+2026-10-20T17:57:04.5750364Z No services need to be restarted.
+2026-10-20T17:57:04.5750707Z 
+2026-10-20T17:57:04.5750994Z No containers need to be restarted.
+2026-10-20T17:57:04.5751345Z 
+2026-10-20T17:57:04.5751709Z No user sessions are running outdated binaries.
+2026-10-20T17:57:04.5752116Z 
+2026-10-20T17:57:04.5752666Z No VM guests are running outdated hypervisor (qemu) binaries on this host.
+2026-10-20T17:57:05.4582739Z Downloading Chrome for Testing 151.0.7922.34 (playwright chromium v1234) from https://cdn.playwright.dev/builds/cft/151.0.7922.34/linux64/chrome-linux64.zip
+2026-10-20T17:57:06.5009913Z |                                                                                |   0% of 184.3 MiB
+2026-10-20T17:57:06.7020230Z |■■■■■■■■                                                                        |  10% of 184.3 MiB
+2026-10-20T17:57:06.8265075Z |■■■■■■■■■■■■■■■■                                                                |  20% of 184.3 MiB
+2026-10-20T17:57:06.9428508Z |■■■■■■■■■■■■■■■■■■■■■■■■                                                        |  30% of 184.3 MiB
+2026-10-20T17:57:07.0560032Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                                |  40% of 184.3 MiB
+2026-10-20T17:57:07.2345821Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                        |  50% of 184.3 MiB
+2026-10-20T17:57:07.3352112Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                |  60% of 184.3 MiB
+2026-10-20T17:57:07.4275040Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                        |  70% of 184.3 MiB
+2026-10-20T17:57:07.5525644Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                |  80% of 184.3 MiB
+2026-10-20T17:57:07.6321847Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■        |  90% of 184.3 MiB
+2026-10-20T17:57:07.7358719Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■| 100% of 184.3 MiB
+2026-10-20T17:57:10.8818283Z Chrome for Testing 151.0.7922.34 (playwright chromium v1234) downloaded to /home/runner/.cache/ms-playwright/chromium-1234
+2026-10-20T17:57:10.8822811Z Downloading FFmpeg (playwright ffmpeg v1011) from https://cdn.playwright.dev/dbazure/download/playwright/builds/ffmpeg/1011/ffmpeg-linux.zip
+2026-10-20T17:57:11.8555573Z |                                                                                |   0% of 2.3 MiB
+2026-10-20T17:57:11.8783565Z |■■■■■■■■                                                                        |  10% of 2.3 MiB
+2026-10-20T17:57:11.8882388Z |■■■■■■■■■■■■■■■■                                                                |  20% of 2.3 MiB
+2026-10-20T17:57:11.8963232Z |■■■■■■■■■■■■■■■■■■■■■■■■                                                        |  30% of 2.3 MiB
+2026-10-20T17:57:11.9033253Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                                |  40% of 2.3 MiB
+2026-10-20T17:57:11.9051319Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                        |  50% of 2.3 MiB
+2026-10-20T17:57:11.9122002Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                |  60% of 2.3 MiB
+2026-10-20T17:57:11.9136583Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                        |  70% of 2.3 MiB
+2026-10-20T17:57:11.9153761Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                |  80% of 2.3 MiB
+2026-10-20T17:57:11.9205462Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■        |  90% of 2.3 MiB
+2026-10-20T17:57:11.9215979Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■| 100% of 2.3 MiB
+2026-10-20T17:57:11.9845842Z FFmpeg (playwright ffmpeg v1011) downloaded to /home/runner/.cache/ms-playwright/ffmpeg-1011
+2026-10-20T17:57:11.9849987Z Downloading Chrome Headless Shell 151.0.7922.34 (playwright chromium-headless-shell v1234) from https://cdn.playwright.dev/builds/cft/151.0.7922.34/linux64/chrome-headless-shell-linux64.zip
+2026-10-20T17:57:13.0164522Z |                                                                                |   0% of 114.7 MiB
+2026-10-20T17:57:13.1700662Z |■■■■■■■■                                                                        |  10% of 114.7 MiB
+2026-10-20T17:57:13.2699057Z |■■■■■■■■■■■■■■■■                                                                |  20% of 114.7 MiB
+2026-10-20T17:57:13.3473747Z |■■■■■■■■■■■■■■■■■■■■■■■■                                                        |  30% of 114.7 MiB
+2026-10-20T17:57:13.4030521Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                                |  40% of 114.7 MiB
+2026-10-20T17:57:13.4757614Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                        |  50% of 114.7 MiB
+2026-10-20T17:57:13.5288452Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                |  60% of 114.7 MiB
+2026-10-20T17:57:13.5963832Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                        |  70% of 114.7 MiB
+2026-10-20T17:57:13.6665693Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                |  80% of 114.7 MiB
+2026-10-20T17:57:13.7324909Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■        |  90% of 114.7 MiB
+2026-10-20T17:57:13.7993809Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■| 100% of 114.7 MiB
+2026-10-20T17:57:16.1204794Z Chrome Headless Shell 151.0.7922.34 (playwright chromium-headless-shell v1234) downloaded to /home/runner/.cache/ms-playwright/chromium_headless_shell-1234
+2026-10-20T17:57:16.1522469Z ##[end-action id=__self.__run_2;outcome=success;conclusion=success;duration_ms=21888]
+2026-10-20T17:57:16.1527716Z ##[start-action display=Collect OS packages for the cache;id=__self.__run_3]
+2026-10-20T17:57:16.1539043Z ##[end-action id=__self.__run_3;outcome=skipped;conclusion=skipped;duration_ms=0]
+2026-10-20T17:57:16.1542399Z ##[start-action display=Save OS packages;id=__self.__actions_cache]
+2026-10-20T17:57:16.1549980Z ##[end-action id=__self.__actions_cache;outcome=skipped;conclusion=skipped;duration_ms=0]
+2026-10-20T17:57:16.1586562Z ##[group]Run npm run test:e2e:live --prefix shinobij.client -- village-stores-express.spec.ts first-session-onboarding-express.spec.ts server-route-smoke-express.spec.ts --project=chromium-desktop-live 2>&1 | tee .ci-evidence/e2e-village-stores/playwright.log
+2026-10-20T17:57:16.1588810Z [36;1mnpm run test:e2e:live --prefix shinobij.client -- village-stores-express.spec.ts first-session-onboarding-express.spec.ts server-route-smoke-express.spec.ts --project=chromium-desktop-live 2>&1 | tee .ci-evidence/e2e-village-stores/playwright.log[0m
+2026-10-20T17:57:16.1659586Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-10-20T17:57:16.1659944Z env:
+2026-10-20T17:57:16.1660217Z   VITE_SENTRY_DSN: https://public@example.invalid/1
+2026-10-20T17:57:16.1660557Z   VITE_SENTRY_RELEASE: ci
+2026-10-20T17:57:16.1660879Z   VITE_BUILD_COMMIT: 7b2ad48bed6419f79df52d1a7999b1a72ef60118
+2026-10-20T17:57:16.1661227Z ##[endgroup]
+2026-10-20T17:57:16.2675636Z 
+2026-10-20T17:57:16.2676394Z > shinobij.client@0.0.0 test:e2e:live
+2026-10-20T17:57:16.2678697Z > node --import tsx ./node_modules/@playwright/test/cli.js test -c playwright.live.config.ts village-stores-express.spec.ts first-session-onboarding-express.spec.ts server-route-smoke-express.spec.ts --project=chromium-desktop-live
+2026-10-20T17:57:16.2680135Z 
+2026-10-20T17:57:22.9384621Z GitCommitInfo: timeout of 3000ms exceeded while running "git diff d027fd0170ecfc41038e51bd75db7e81b51a11dc HEAD"
+2026-10-20T17:57:23.7170448Z [WebServer] [startup] ENABLE_LEGACY is not set — the Legacy system (Sage/Trial, Hall of Legends, era titles) is OFF: every /legacy/* route will 404 and the client hides its Legacy surfaces, so players see no trace of the feature. Set ENABLE_LEGACY=1 to enable it, or ignore this if Legacy is intentionally disabled.
+2026-10-20T17:57:23.7172166Z 
+2026-10-20T17:57:24.1717498Z 
+2026-10-20T17:57:24.1718174Z Running 5 tests using 1 worker
+2026-10-20T17:57:24.1718565Z 
+2026-10-20T17:57:24.8423921Z [1/5] [chromium-desktop-live] › e2e-live/first-session-onboarding-express.spec.ts:189:1 › a new player completes the full persisted Academy first session against built Express (starter response delay 0ms)
+2026-10-20T17:59:03.4704202Z [2/5] [chromium-desktop-live] › e2e-live/first-session-onboarding-express.spec.ts:189:1 › a new player completes the full persisted Academy first session against built Express (starter response delay 500ms)
+2026-10-20T18:00:24.0589730Z [3/5] [chromium-desktop-live] › e2e-live/server-route-smoke-express.spec.ts:4:1 › built Express serves the beacon CSP on HTML, assets and API responses
+2026-10-20T18:00:24.1319470Z [4/5] [chromium-desktop-live] › e2e-live/server-route-smoke-express.spec.ts:38:1 › Express preserves API aliases, CORS preflight and JSON failures
+2026-10-20T18:00:24.1711630Z [5/5] [chromium-desktop-live] › e2e-live/village-stores-express.spec.ts:247:1 › a village cook turns hunt spoils into Provisions and Materials the server actually holds
+2026-10-20T18:00:55.6779934Z [WebServer] [game-state villageState] suppressed: storesqamvgznxcld notices: 2 line(s) matching nothing stored dropped (one new line per write)
+2026-10-20T18:00:55.6784418Z 
+2026-10-20T18:00:55.8225797Z [WebServer] [game-state villageState] suppressed: storesqamvgznxcld notices: 3 line(s) matching nothing stored dropped (one new line per write)
+2026-10-20T18:00:55.8230176Z 
+2026-10-20T18:00:58.6480122Z   5 passed (3.7m)
+2026-10-20T18:00:58.6790170Z ##[group]Run npm run test:e2e:live --prefix shinobij.client -- first-defeat-recovery-express.spec.ts landing-style-routing.spec.ts daily-login-recovery-express.spec.ts --project=chromium-desktop-live --workers=1 --retries=0 --forbid-only --reporter=line,json,html --output=test-results/defeat-recovery-ci-desktop 2>&1 | tee .ci-evidence/e2e-village-stores/defeat-recovery-desktop.log
+2026-10-20T18:00:58.6793034Z [36;1mnpm run test:e2e:live --prefix shinobij.client -- first-defeat-recovery-express.spec.ts landing-style-routing.spec.ts daily-login-recovery-express.spec.ts --project=chromium-desktop-live --workers=1 --retries=0 --forbid-only --reporter=line,json,html --output=test-results/defeat-recovery-ci-desktop 2>&1 | tee .ci-evidence/e2e-village-stores/defeat-recovery-desktop.log[0m
+2026-10-20T18:00:58.6858691Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-10-20T18:00:58.6859065Z env:
+2026-10-20T18:00:58.6859396Z   VITE_SENTRY_DSN: https://public@example.invalid/1
+2026-10-20T18:00:58.6859811Z   VITE_SENTRY_RELEASE: ci
+2026-10-20T18:00:58.6860142Z   VITE_BUILD_COMMIT: 7b2ad48bed6419f79df52d1a7999b1a72ef60118
+2026-10-20T18:00:58.6860701Z   PLAYWRIGHT_JSON_OUTPUT_NAME: ../.ci-evidence/e2e-village-stores/defeat-recovery-desktop.json
+2026-10-20T18:00:58.6861387Z   PLAYWRIGHT_HTML_OUTPUT_DIR: ../.ci-evidence/e2e-village-stores/defeat-recovery-desktop-html
+2026-10-20T18:00:58.6861848Z ##[endgroup]
+2026-10-20T18:00:58.7903912Z 
+2026-10-20T18:00:58.7904777Z > shinobij.client@0.0.0 test:e2e:live
+2026-10-20T18:00:58.7907953Z > node --import tsx ./node_modules/@playwright/test/cli.js test -c playwright.live.config.ts first-defeat-recovery-express.spec.ts landing-style-routing.spec.ts daily-login-recovery-express.spec.ts --project=chromium-desktop-live --workers=1 --retries=0 --forbid-only --reporter=line,json,html --output=test-results/defeat-recovery-ci-desktop
+2026-10-20T18:00:58.7910016Z 
+2026-10-20T18:01:05.5554044Z GitCommitInfo: timeout of 3000ms exceeded while running "git diff d027fd0170ecfc41038e51bd75db7e81b51a11dc HEAD"
+2026-10-20T18:01:06.3342948Z [WebServer] [startup] ENABLE_LEGACY is not set — the Legacy system (Sage/Trial, Hall of Legends, era titles) is OFF: every /legacy/* route will 404 and the client hides its Legacy surfaces, so players see no trace of the feature. Set ENABLE_LEGACY=1 to enable it, or ignore this if Legacy is intentionally disabled.
+2026-10-20T18:01:06.3345014Z 
+2026-10-20T18:01:06.9785778Z 
+2026-10-20T18:01:06.9786404Z Running 14 tests using 1 worker
+2026-10-20T18:01:06.9786934Z 
+2026-10-20T18:01:07.6488875Z [1/14] [chromium-desktop-live] › e2e-live/daily-login-recovery-express.spec.ts:9:1 › daily claim survives a lost response, receipt retry, logout and relogin
+2026-10-20T18:01:16.8734762Z [2/14] [chromium-desktop-live] › e2e-live/first-defeat-recovery-express.spec.ts:47:1 › persistent world defeat and recovery: paid
+2026-10-20T18:01:38.2163464Z [3/14] [chromium-desktop-live] › e2e-live/first-defeat-recovery-express.spec.ts:47:1 › persistent world defeat and recovery: free
+2026-10-20T18:02:26.0053608Z [WebServer] [ratelimit] refusals in the last minute (names as claimed): save-burst 2 (defeatdmvgzp20u×1, defeatdmvgzpiho×1)
+2026-10-20T18:02:26.0054401Z 
+2026-10-20T18:02:59.2693420Z [4/14] [chromium-desktop-live] › e2e-live/first-defeat-recovery-express.spec.ts:47:1 › persistent world defeat and recovery: healer
+2026-10-20T18:03:20.0688656Z [5/14] [chromium-desktop-live] › e2e-live/first-defeat-recovery-express.spec.ts:47:1 › persistent world defeat and recovery: external
+2026-10-20T18:03:26.0055470Z [WebServer] [ratelimit] refusals in the last minute (names as claimed): save-burst 1 (defeatdmvgzr91b×1)
+2026-10-20T18:03:26.0055971Z 
+2026-10-20T18:03:44.0675713Z [6/14] [chromium-desktop-live] › e2e-live/first-defeat-recovery-express.spec.ts:47:1 › persistent world defeat and recovery: external-stale
+2026-10-20T18:04:11.0313364Z [7/14] [chromium-desktop-live] › e2e-live/first-defeat-recovery-express.spec.ts:47:1 › persistent world defeat and recovery: paid-lost
+2026-10-20T18:04:26.0062274Z [WebServer] [ratelimit] refusals in the last minute (names as claimed): save-burst 4 (defeatdmvgzs7lm×2, defeatdmvgzrp33×1, defeatdmvgzsset×1)
+2026-10-20T18:04:26.0063408Z 
+2026-10-20T18:04:35.1420222Z [8/14] [chromium-desktop-live] › e2e-live/first-defeat-recovery-express.spec.ts:47:1 › persistent world defeat and recovery: paid-timeout
+2026-10-20T18:05:11.4940736Z [9/14] [chromium-desktop-live] › e2e-live/first-defeat-recovery-express.spec.ts:47:1 › persistent world defeat and recovery: terminal-lost
+2026-10-20T18:05:26.0056452Z [WebServer] [ratelimit] refusals in the last minute (names as claimed): save-burst 4 (defeatdmvgzu326×3, defeatdmvgztb0g×1)
+2026-10-20T18:05:26.0057753Z 
+2026-10-20T18:05:34.9694451Z [10/14] [chromium-desktop-live] › e2e-live/first-defeat-recovery-express.spec.ts:47:1 › persistent world defeat and recovery: terminal-retry
+2026-10-20T18:06:02.2921866Z [11/14] [chromium-desktop-live] › e2e-live/first-defeat-recovery-express.spec.ts:47:1 › persistent world defeat and recovery: poor
+2026-10-20T18:06:26.0057186Z [WebServer] [ratelimit] refusals in the last minute (names as claimed): save-burst 2 (defeatdmvgzul6h×1, defeatdmvgzv69h×1)
+2026-10-20T18:06:26.0058441Z 
+2026-10-20T18:07:23.4284030Z [12/14] [chromium-desktop-live] › e2e-live/landing-style-routing.spec.ts:12:1 › guest landing requests its stylesheet and renders the hero
+2026-10-20T18:07:24.6385080Z [13/14] [chromium-desktop-live] › e2e-live/landing-style-routing.spec.ts:24:1 › fresh mobile landing keeps its complete brand and entry action usable with the storage notice
+2026-10-20T18:07:26.1215385Z [14/14] [chromium-desktop-live] › e2e-live/landing-style-routing.spec.ts:63:1 › restored player skips landing CSS and opens the saved game screen
+2026-10-20T18:07:27.8078792Z   Slow test file: [chromium-desktop-live] › e2e-live/first-defeat-recovery-express.spec.ts (6.1m)
+2026-10-20T18:07:27.8080670Z   Consider running tests from slow files in parallel. See: https://playwright.dev/docs/test-parallel
+2026-10-20T18:07:27.8081917Z   14 passed (6.5m)
+2026-10-20T18:07:27.9342685Z ##[group]Run npm run test:e2e:live --prefix shinobij.client -- first-defeat-recovery-express.spec.ts landing-style-routing.spec.ts daily-login-recovery-express.spec.ts --project=chromium-mobile-live --workers=1 --retries=0 --forbid-only --reporter=line,json,html --output=test-results/defeat-recovery-ci-mobile 2>&1 | tee .ci-evidence/e2e-village-stores/defeat-recovery-mobile.log
+2026-10-20T18:07:27.9345775Z [36;1mnpm run test:e2e:live --prefix shinobij.client -- first-defeat-recovery-express.spec.ts landing-style-routing.spec.ts daily-login-recovery-express.spec.ts --project=chromium-mobile-live --workers=1 --retries=0 --forbid-only --reporter=line,json,html --output=test-results/defeat-recovery-ci-mobile 2>&1 | tee .ci-evidence/e2e-village-stores/defeat-recovery-mobile.log[0m
+2026-10-20T18:07:27.9410543Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-10-20T18:07:27.9410947Z env:
+2026-10-20T18:07:27.9411244Z   VITE_SENTRY_DSN: https://public@example.invalid/1
+2026-10-20T18:07:27.9411866Z   VITE_SENTRY_RELEASE: ci
+2026-10-20T18:07:27.9412223Z   VITE_BUILD_COMMIT: 7b2ad48bed6419f79df52d1a7999b1a72ef60118
+2026-10-20T18:07:27.9412833Z   PLAYWRIGHT_JSON_OUTPUT_NAME: ../.ci-evidence/e2e-village-stores/defeat-recovery-mobile.json
+2026-10-20T18:07:27.9413573Z   PLAYWRIGHT_HTML_OUTPUT_DIR: ../.ci-evidence/e2e-village-stores/defeat-recovery-mobile-html
+2026-10-20T18:07:27.9414098Z ##[endgroup]
+2026-10-20T18:07:28.0482920Z 
+2026-10-20T18:07:28.0483419Z > shinobij.client@0.0.0 test:e2e:live
+2026-10-20T18:07:28.0487058Z > node --import tsx ./node_modules/@playwright/test/cli.js test -c playwright.live.config.ts first-defeat-recovery-express.spec.ts landing-style-routing.spec.ts daily-login-recovery-express.spec.ts --project=chromium-mobile-live --workers=1 --retries=0 --forbid-only --reporter=line,json,html --output=test-results/defeat-recovery-ci-mobile
+2026-10-20T18:07:28.0488849Z 
+2026-10-20T18:07:31.9253828Z GitCommitInfo: timeout of 3000ms exceeded while running "git fetch origin d027fd0170ecfc41038e51bd75db7e81b51a11dc --depth=1 --no-auto-maintenance --no-auto-gc --no-tags --no-recurse-submodules"
+2026-10-20T18:07:34.9537452Z GitCommitInfo: timeout of 3000ms exceeded while running "git diff d027fd0170ecfc41038e51bd75db7e81b51a11dc HEAD"
+2026-10-20T18:07:35.7250308Z [WebServer] [startup] ENABLE_LEGACY is not set — the Legacy system (Sage/Trial, Hall of Legends, era titles) is OFF: every /legacy/* route will 404 and the client hides its Legacy surfaces, so players see no trace of the feature. Set ENABLE_LEGACY=1 to enable it, or ignore this if Legacy is intentionally disabled.
+2026-10-20T18:07:35.7252462Z 
+2026-10-20T18:07:35.9629346Z 
+2026-10-20T18:07:35.9629948Z Running 14 tests using 1 worker
+2026-10-20T18:07:35.9630338Z 
+2026-10-20T18:07:36.6476285Z [1/14] [chromium-mobile-live] › e2e-live/daily-login-recovery-express.spec.ts:9:1 › daily claim survives a lost response, receipt retry, logout and relogin
+2026-10-20T18:07:46.4255753Z [2/14] [chromium-mobile-live] › e2e-live/first-defeat-recovery-express.spec.ts:47:1 › persistent world defeat and recovery: paid
+2026-10-20T18:08:07.4837173Z [3/14] [chromium-mobile-live] › e2e-live/first-defeat-recovery-express.spec.ts:47:1 › persistent world defeat and recovery: free
+2026-10-20T18:08:55.6657900Z [WebServer] [ratelimit] refusals in the last minute (names as claimed): save-burst 2 (defeatmmvgzxelk×1, defeatmmvgzxuul×1)
+2026-10-20T18:08:55.6658693Z 
+2026-10-20T18:09:25.6181268Z [4/14] [chromium-mobile-live] › e2e-live/first-defeat-recovery-express.spec.ts:47:1 › persistent world defeat and recovery: healer
+2026-10-20T18:09:46.6525599Z [5/14] [chromium-mobile-live] › e2e-live/first-defeat-recovery-express.spec.ts:47:1 › persistent world defeat and recovery: external
+2026-10-20T18:09:55.6654646Z [WebServer] [ratelimit] refusals in the last minute (names as claimed): save-burst 1 (defeatmmvgzzj5c×1)
+2026-10-20T18:09:55.6655566Z 
+2026-10-20T18:10:07.6464859Z [6/14] [chromium-mobile-live] › e2e-live/first-defeat-recovery-express.spec.ts:47:1 › persistent world defeat and recovery: external-stale
+2026-10-20T18:10:31.6037688Z [7/14] [chromium-mobile-live] › e2e-live/first-defeat-recovery-express.spec.ts:47:1 › persistent world defeat and recovery: paid-lost
+2026-10-20T18:10:52.8295124Z [8/14] [chromium-mobile-live] › e2e-live/first-defeat-recovery-express.spec.ts:47:1 › persistent world defeat and recovery: paid-timeout
+2026-10-20T18:10:55.6660081Z [WebServer] [ratelimit] refusals in the last minute (names as claimed): save-burst 4 (defeatmmvh00fko×2, defeatmmvgzzzdc×1, defeatmmvh00y1z×1)
+2026-10-20T18:10:55.6688040Z 
+2026-10-20T18:11:25.4727689Z [9/14] [chromium-mobile-live] › e2e-live/first-defeat-recovery-express.spec.ts:47:1 › persistent world defeat and recovery: terminal-lost
+2026-10-20T18:11:46.5327814Z [10/14] [chromium-mobile-live] › e2e-live/first-defeat-recovery-express.spec.ts:47:1 › persistent world defeat and recovery: terminal-retry
+2026-10-20T18:11:55.6653279Z [WebServer] [ratelimit] refusals in the last minute (names as claimed): save-burst 3 (defeatmmvh023mg×2, defeatmmvh01efq×1)
+2026-10-20T18:11:55.6654461Z 
+2026-10-20T18:12:07.6855088Z [11/14] [chromium-mobile-live] › e2e-live/first-defeat-recovery-express.spec.ts:47:1 › persistent world defeat and recovery: poor
+2026-10-20T18:12:55.6664668Z [WebServer] [ratelimit] refusals in the last minute (names as claimed): save-burst 1 (defeatmmvh02jvi×1)
+2026-10-20T18:12:55.6665353Z 
+2026-10-20T18:13:25.6594389Z [12/14] [chromium-mobile-live] › e2e-live/landing-style-routing.spec.ts:12:1 › guest landing requests its stylesheet and renders the hero
+2026-10-20T18:13:26.6007165Z [13/14] [chromium-mobile-live] › e2e-live/landing-style-routing.spec.ts:24:1 › fresh mobile landing keeps its complete brand and entry action usable with the storage notice
+2026-10-20T18:13:28.1227513Z [14/14] [chromium-mobile-live] › e2e-live/landing-style-routing.spec.ts:63:1 › restored player skips landing CSS and opens the saved game screen
+2026-10-20T18:13:29.4350347Z   Slow test file: [chromium-mobile-live] › e2e-live/first-defeat-recovery-express.spec.ts (5.7m)
+2026-10-20T18:13:29.4352038Z   Consider running tests from slow files in parallel. See: https://playwright.dev/docs/test-parallel
+2026-10-20T18:13:29.4353019Z   14 passed (6.0m)
+2026-10-20T18:13:29.5383750Z ##[group]Run npm run test:e2e:live --prefix shinobij.client -- mmorpg-behaviors-express.spec.ts --project=chromium-desktop-live --project=chromium-mobile-live --workers=2 --output=test-results/mmo-behaviors-ci 2>&1 | tee .ci-evidence/e2e-village-stores/mmo-behaviors.log
+2026-10-20T18:13:29.5385850Z [36;1mnpm run test:e2e:live --prefix shinobij.client -- mmorpg-behaviors-express.spec.ts --project=chromium-desktop-live --project=chromium-mobile-live --workers=2 --output=test-results/mmo-behaviors-ci 2>&1 | tee .ci-evidence/e2e-village-stores/mmo-behaviors.log[0m
+2026-10-20T18:13:29.5450187Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-10-20T18:13:29.5450723Z env:
+2026-10-20T18:13:29.5451142Z   VITE_SENTRY_DSN: https://public@example.invalid/1
+2026-10-20T18:13:29.5451686Z   VITE_SENTRY_RELEASE: ci
+2026-10-20T18:13:29.5452209Z   VITE_BUILD_COMMIT: 7b2ad48bed6419f79df52d1a7999b1a72ef60118
+2026-10-20T18:13:29.5452821Z ##[endgroup]
+2026-10-20T18:13:29.6539594Z 
+2026-10-20T18:13:29.6540412Z > shinobij.client@0.0.0 test:e2e:live
+2026-10-20T18:13:29.6542333Z > node --import tsx ./node_modules/@playwright/test/cli.js test -c playwright.live.config.ts mmorpg-behaviors-express.spec.ts --project=chromium-desktop-live --project=chromium-mobile-live --workers=2 --output=test-results/mmo-behaviors-ci
+2026-10-20T18:13:29.6543649Z 
+2026-10-20T18:13:36.3047001Z GitCommitInfo: timeout of 3000ms exceeded while running "git diff d027fd0170ecfc41038e51bd75db7e81b51a11dc HEAD"
+2026-10-20T18:13:37.0726356Z [WebServer] [startup] ENABLE_LEGACY is not set — the Legacy system (Sage/Trial, Hall of Legends, era titles) is OFF: every /legacy/* route will 404 and the client hides its Legacy surfaces, so players see no trace of the feature. Set ENABLE_LEGACY=1 to enable it, or ignore this if Legacy is intentionally disabled.
+2026-10-20T18:13:37.0728834Z 
+2026-10-20T18:13:37.5034645Z 
+2026-10-20T18:13:37.5035387Z Running 6 tests using 2 workers
+2026-10-20T18:13:37.5035794Z 
+2026-10-20T18:13:38.3269871Z [1/6] [chromium-desktop-live] › e2e-live/mmorpg-behaviors-express.spec.ts:93:1 › an online shinobi knocked out in the field is on their village ward, and a Healer can treat them
+2026-10-20T18:13:38.3669372Z [2/6] [chromium-mobile-live] › e2e-live/mmorpg-behaviors-express.spec.ts:93:1 › an online shinobi knocked out in the field is on their village ward, and a Healer can treat them
+2026-10-20T18:13:43.6576608Z [3/6] [chromium-mobile-live] › e2e-live/mmorpg-behaviors-express.spec.ts:148:1 › Stand & Fight starts the roaming Weekly Boss fight, and leaving it returns the hunter to the same sector
+2026-10-20T18:13:45.0180343Z [4/6] [chromium-desktop-live] › e2e-live/mmorpg-behaviors-express.spec.ts:148:1 › Stand & Fight starts the roaming Weekly Boss fight, and leaving it returns the hunter to the same sector
+2026-10-20T18:13:54.5452245Z [5/6] [chromium-mobile-live] › e2e-live/mmorpg-behaviors-express.spec.ts:242:1 › leaving a live Card Hall showdown forfeits it, and the loss is on the record
+2026-10-20T18:13:57.5957774Z [6/6] [chromium-desktop-live] › e2e-live/mmorpg-behaviors-express.spec.ts:242:1 › leaving a live Card Hall showdown forfeits it, and the loss is on the record
+2026-10-20T18:14:04.2685784Z   6 passed (33.8s)
+2026-10-20T18:14:04.3108478Z ##[group]Run npm run test:e2e:live --prefix shinobij.client -- authored-missions-express.spec.ts --project=chromium-desktop-live --project=chromium-mobile-live --output=test-results/authored-missions-ci 2>&1 | tee .ci-evidence/e2e-village-stores/authored-missions.log
+2026-10-20T18:14:04.3110506Z [36;1mnpm run test:e2e:live --prefix shinobij.client -- authored-missions-express.spec.ts --project=chromium-desktop-live --project=chromium-mobile-live --output=test-results/authored-missions-ci 2>&1 | tee .ci-evidence/e2e-village-stores/authored-missions.log[0m
+2026-10-20T18:14:04.3173777Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-10-20T18:14:04.3174150Z env:
+2026-10-20T18:14:04.3174434Z   VITE_SENTRY_DSN: https://public@example.invalid/1
+2026-10-20T18:14:04.3174782Z   VITE_SENTRY_RELEASE: ci
+2026-10-20T18:14:04.3175109Z   VITE_BUILD_COMMIT: 7b2ad48bed6419f79df52d1a7999b1a72ef60118
+2026-10-20T18:14:04.3175458Z ##[endgroup]
+2026-10-20T18:14:04.4255945Z 
+2026-10-20T18:14:04.4256714Z > shinobij.client@0.0.0 test:e2e:live
+2026-10-20T18:14:04.4259197Z > node --import tsx ./node_modules/@playwright/test/cli.js test -c playwright.live.config.ts authored-missions-express.spec.ts --project=chromium-desktop-live --project=chromium-mobile-live --output=test-results/authored-missions-ci
+2026-10-20T18:14:04.4260707Z 
+2026-10-20T18:14:11.0424662Z GitCommitInfo: timeout of 3000ms exceeded while running "git diff d027fd0170ecfc41038e51bd75db7e81b51a11dc HEAD"
+2026-10-20T18:14:11.8090627Z [WebServer] [startup] ENABLE_LEGACY is not set — the Legacy system (Sage/Trial, Hall of Legends, era titles) is OFF: every /legacy/* route will 404 and the client hides its Legacy surfaces, so players see no trace of the feature. Set ENABLE_LEGACY=1 to enable it, or ignore this if Legacy is intentionally disabled.
+2026-10-20T18:14:11.8092803Z 
+2026-10-20T18:14:12.1130851Z 
+2026-10-20T18:14:12.1131537Z Running 8 tests using 1 worker
+2026-10-20T18:14:12.1132053Z 
+2026-10-20T18:14:12.7757603Z [1/8] [chromium-desktop-live] › e2e-live/authored-missions-express.spec.ts:13:58 › C-Rank Patrol renders its sealed authored opponent and real combat feedback
+2026-10-20T18:14:18.5762169Z [2/8] [chromium-desktop-live] › e2e-live/authored-missions-express.spec.ts:13:58 › B-Rank Escort renders its sealed authored opponent and real combat feedback
+2026-10-20T18:14:22.7554197Z [3/8] [chromium-desktop-live] › e2e-live/authored-missions-express.spec.ts:13:58 › A-Rank Hunt renders its sealed authored opponent and real combat feedback
+2026-10-20T18:14:27.4536373Z [4/8] [chromium-desktop-live] › e2e-live/authored-missions-express.spec.ts:13:58 › S-Rank Crisis renders its sealed authored opponent and real combat feedback
+2026-10-20T18:14:32.8449879Z [5/8] [chromium-mobile-live] › e2e-live/authored-missions-express.spec.ts:13:58 › C-Rank Patrol renders its sealed authored opponent and real combat feedback
+2026-10-20T18:14:37.1010002Z [6/8] [chromium-mobile-live] › e2e-live/authored-missions-express.spec.ts:13:58 › B-Rank Escort renders its sealed authored opponent and real combat feedback
+2026-10-20T18:14:41.0336257Z [7/8] [chromium-mobile-live] › e2e-live/authored-missions-express.spec.ts:13:58 › A-Rank Hunt renders its sealed authored opponent and real combat feedback
+2026-10-20T18:14:45.2467200Z [8/8] [chromium-mobile-live] › e2e-live/authored-missions-express.spec.ts:13:58 › S-Rank Crisis renders its sealed authored opponent and real combat feedback
+2026-10-20T18:14:49.6297613Z   8 passed (44.4s)
+2026-10-20T18:14:49.6729123Z ##[group]Run npm run test:e2e:live --prefix shinobij.client -- pvp-lifecycle-express.spec.ts ranked-queue-express.spec.ts kage-challenge-express.spec.ts --project=chromium-desktop-live --project=chromium-mobile-live --output=test-results/pvp-lifecycle-ci 2>&1 | tee .ci-evidence/e2e-village-stores/pvp-lifecycle.log
+2026-10-20T18:14:49.6731808Z [36;1mnpm run test:e2e:live --prefix shinobij.client -- pvp-lifecycle-express.spec.ts ranked-queue-express.spec.ts kage-challenge-express.spec.ts --project=chromium-desktop-live --project=chromium-mobile-live --output=test-results/pvp-lifecycle-ci 2>&1 | tee .ci-evidence/e2e-village-stores/pvp-lifecycle.log[0m
+2026-10-20T18:14:49.6795726Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-10-20T18:14:49.6796125Z env:
+2026-10-20T18:14:49.6796423Z   VITE_SENTRY_DSN: https://public@example.invalid/1
+2026-10-20T18:14:49.6797080Z   VITE_SENTRY_RELEASE: ci
+2026-10-20T18:14:49.6797484Z   VITE_BUILD_COMMIT: 7b2ad48bed6419f79df52d1a7999b1a72ef60118
+2026-10-20T18:14:49.6797889Z   LIVE_E2E_REALTIME: 1
+2026-10-20T18:14:49.6798160Z ##[endgroup]
+2026-10-20T18:14:49.7857428Z 
+2026-10-20T18:14:49.7858139Z > shinobij.client@0.0.0 test:e2e:live
+2026-10-20T18:14:49.7861397Z > node --import tsx ./node_modules/@playwright/test/cli.js test -c playwright.live.config.ts pvp-lifecycle-express.spec.ts ranked-queue-express.spec.ts kage-challenge-express.spec.ts --project=chromium-desktop-live --project=chromium-mobile-live --output=test-results/pvp-lifecycle-ci
+2026-10-20T18:14:49.7863092Z 
+2026-10-20T18:14:56.4328107Z GitCommitInfo: timeout of 3000ms exceeded while running "git diff d027fd0170ecfc41038e51bd75db7e81b51a11dc HEAD"
+2026-10-20T18:14:57.1982126Z [WebServer] [startup] ENABLE_LEGACY is not set — the Legacy system (Sage/Trial, Hall of Legends, era titles) is OFF: every /legacy/* route will 404 and the client hides its Legacy surfaces, so players see no trace of the feature. Set ENABLE_LEGACY=1 to enable it, or ignore this if Legacy is intentionally disabled.
+2026-10-20T18:14:57.1983729Z 
+2026-10-20T18:14:57.8057890Z 
+2026-10-20T18:14:57.8080249Z Running 8 tests using 1 worker
+2026-10-20T18:14:57.8080835Z 
+2026-10-20T18:14:58.4643144Z [1/8] [chromium-desktop-live] › e2e-live/kage-challenge-express.spec.ts:27:1 › Town Hall Kage acceptance hands the response to the challenger and seals a real official duel
+2026-10-20T18:15:02.2679529Z [2/8] [chromium-desktop-live] › e2e-live/pvp-lifecycle-express.spec.ts:99:1 › cancel an unjoined world duel, refresh both players, and travel again
+2026-10-20T18:15:10.0147265Z [3/8] [chromium-desktop-live] › e2e-live/pvp-lifecycle-express.spec.ts:130:1 › two players join, take turns, refresh, finish, and recover lost claim and ACK responses
+2026-10-20T18:15:24.5357910Z [4/8] [chromium-desktop-live] › e2e-live/ranked-queue-express.spec.ts:67:1 › two ranked players enter one live PvP session and can advance its first turn
+2026-10-20T18:15:39.8815273Z [5/8] [chromium-mobile-live] › e2e-live/kage-challenge-express.spec.ts:27:1 › Town Hall Kage acceptance hands the response to the challenger and seals a real official duel
+2026-10-20T18:15:42.4282208Z [6/8] [chromium-mobile-live] › e2e-live/pvp-lifecycle-express.spec.ts:99:1 › cancel an unjoined world duel, refresh both players, and travel again
+2026-10-20T18:15:49.0833170Z [7/8] [chromium-mobile-live] › e2e-live/pvp-lifecycle-express.spec.ts:130:1 › two players join, take turns, refresh, finish, and recover lost claim and ACK responses
+2026-10-20T18:16:06.4161937Z [8/8] [chromium-mobile-live] › e2e-live/ranked-queue-express.spec.ts:67:1 › two ranked players enter one live PvP session and can advance its first turn
+2026-10-20T18:16:19.7563341Z   8 passed (1.5m)
+2026-10-20T18:16:19.8066302Z ##[group]Run npm run test:e2e:live --prefix shinobij.client -- resource-gathering.spec.ts recipes.spec.ts crafting-lifecycle.spec.ts wild-binding-express.spec.ts --project=chromium-desktop-live --project=chromium-mobile-live --workers=1 --retries=0 --forbid-only --output=test-results/fieldwork-crafting-ci 2>&1 | tee .ci-evidence/e2e-village-stores/fieldwork-crafting.log
+2026-10-20T18:16:19.8069705Z [36;1mnpm run test:e2e:live --prefix shinobij.client -- resource-gathering.spec.ts recipes.spec.ts crafting-lifecycle.spec.ts wild-binding-express.spec.ts --project=chromium-desktop-live --project=chromium-mobile-live --workers=1 --retries=0 --forbid-only --output=test-results/fieldwork-crafting-ci 2>&1 | tee .ci-evidence/e2e-village-stores/fieldwork-crafting.log[0m
+2026-10-20T18:16:19.8133345Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-10-20T18:16:19.8133734Z env:
+2026-10-20T18:16:19.8134016Z   VITE_SENTRY_DSN: https://public@example.invalid/1
+2026-10-20T18:16:19.8134499Z   VITE_SENTRY_RELEASE: ci
+2026-10-20T18:16:19.8134845Z   VITE_BUILD_COMMIT: 7b2ad48bed6419f79df52d1a7999b1a72ef60118
+2026-10-20T18:16:19.8135219Z   LIVE_E2E_REALTIME: 1
+2026-10-20T18:16:19.8135453Z ##[endgroup]
+2026-10-20T18:16:19.9189060Z 
+2026-10-20T18:16:19.9191463Z > shinobij.client@0.0.0 test:e2e:live
+2026-10-20T18:16:19.9194500Z > node --import tsx ./node_modules/@playwright/test/cli.js test -c playwright.live.config.ts resource-gathering.spec.ts recipes.spec.ts crafting-lifecycle.spec.ts wild-binding-express.spec.ts --project=chromium-desktop-live --project=chromium-mobile-live --workers=1 --retries=0 --forbid-only --output=test-results/fieldwork-crafting-ci
+2026-10-20T18:16:19.9196501Z 
+2026-10-20T18:16:26.6858229Z GitCommitInfo: timeout of 3000ms exceeded while running "git diff d027fd0170ecfc41038e51bd75db7e81b51a11dc HEAD"
+2026-10-20T18:16:27.4533617Z [WebServer] [startup] ENABLE_LEGACY is not set — the Legacy system (Sage/Trial, Hall of Legends, era titles) is OFF: every /legacy/* route will 404 and the client hides its Legacy surfaces, so players see no trace of the feature. Set ENABLE_LEGACY=1 to enable it, or ignore this if Legacy is intentionally disabled.
+2026-10-20T18:16:27.4536226Z 
+2026-10-20T18:16:28.0734288Z 
+2026-10-20T18:16:28.0735328Z Running 16 tests using 1 worker
+2026-10-20T18:16:28.0735738Z 
+2026-10-20T18:16:28.7609257Z [1/16] [chromium-desktop-live] › e2e-live/crafting-lifecycle.spec.ts:51:1 › currency crafts credit the wallet and describe the actual reward
+2026-10-20T18:16:32.4838941Z [2/16] [chromium-desktop-live] › e2e-live/crafting-lifecycle.spec.ts:68:1 › a craft reply still updates inventory after leaving Central
+2026-10-20T18:16:35.4308247Z [3/16] [chromium-desktop-live] › e2e-live/recipes.spec.ts:11:1 › workshop motion: reduce › workshop ingredient batches, armor lining and edible campaign rations persist
+2026-10-20T18:16:45.8362892Z [4/16] [chromium-desktop-live] › e2e-live/recipes.spec.ts:11:1 › workshop motion: no-preference › workshop ingredient batches, armor lining and edible campaign rations persist
+2026-10-20T18:17:06.9363976Z [5/16] [chromium-desktop-live] › e2e-live/resource-gathering.spec.ts:15:1 › real map approaches, both minigames, Outpost tabs and fish cooking persist together
+2026-10-20T18:17:28.4524481Z [6/16] [chromium-desktop-live] › e2e-live/resource-gathering.spec.ts:128:1 › shop tools equip, survive reload, spend durability, and connect to refining and weapon forging
+2026-10-20T18:17:44.4997282Z [WebServer] [ratelimit] refusals in the last minute (names as claimed): save-burst 4 (fieldkitmvh09vp9×2, recipesmvh08qsq×1, recipesmvh08yug×1)
+2026-10-20T18:17:44.4998301Z 
+2026-10-20T18:17:49.8052388Z [7/16] [chromium-desktop-live] › e2e-live/resource-gathering.spec.ts:308:1 › a tool purchase overtaken by a later save keeps the tool and closes its popup
+2026-10-20T18:18:02.4951565Z [8/16] [chromium-desktop-live] › e2e-live/wild-binding-express.spec.ts:55:1 › real World Map discovery binds a wild companion and survives refresh
+2026-10-20T18:18:19.8740336Z [9/16] [chromium-mobile-live] › e2e-live/crafting-lifecycle.spec.ts:51:1 › currency crafts credit the wallet and describe the actual reward
+2026-10-20T18:18:22.9108630Z [10/16] [chromium-mobile-live] › e2e-live/crafting-lifecycle.spec.ts:68:1 › a craft reply still updates inventory after leaving Central
+2026-10-20T18:18:25.4680930Z [11/16] [chromium-mobile-live] › e2e-live/recipes.spec.ts:11:1 › workshop motion: reduce › workshop ingredient batches, armor lining and edible campaign rations persist
+2026-10-20T18:18:34.9174189Z [12/16] [chromium-mobile-live] › e2e-live/recipes.spec.ts:11:1 › workshop motion: no-preference › workshop ingredient batches, armor lining and edible campaign rations persist
+2026-10-20T18:18:44.5002944Z [WebServer] [ratelimit] refusals in the last minute (names as claimed): save-burst 1 (recipesmvh0b3p4×1)
+2026-10-20T18:18:44.5003443Z 
+2026-10-20T18:18:52.5659608Z [13/16] [chromium-mobile-live] › e2e-live/resource-gathering.spec.ts:15:1 › real map approaches, both minigames, Outpost tabs and fish cooking persist together
+2026-10-20T18:19:12.9786028Z [14/16] [chromium-mobile-live] › e2e-live/resource-gathering.spec.ts:128:1 › shop tools equip, survive reload, spend durability, and connect to refining and weapon forging
+2026-10-20T18:19:35.4380600Z [15/16] [chromium-mobile-live] › e2e-live/resource-gathering.spec.ts:308:1 › a tool purchase overtaken by a later save keeps the tool and closes its popup
+2026-10-20T18:19:44.4998826Z [WebServer] [ratelimit] refusals in the last minute (names as claimed): save-burst 4 (fieldkitmvh0c4cz×4)
+2026-10-20T18:19:44.4999686Z 
+2026-10-20T18:19:47.7802088Z [16/16] [chromium-mobile-live] › e2e-live/wild-binding-express.spec.ts:55:1 › real World Map discovery binds a wild companion and survives refresh
+2026-10-20T18:20:00.9718164Z   16 passed (3.7m)
+2026-10-20T18:20:01.0026441Z ##[group]Run npm run test:e2e:live --prefix shinobij.client -- sunscar-exchange-express.spec.ts sector-war-express.spec.ts --project=chromium-desktop-live --retries=1 --output=test-results/economy-war-journeys-ci 2>&1 | tee .ci-evidence/e2e-village-stores/economy-war-journeys.log
+2026-10-20T18:20:01.0028939Z [36;1mnpm run test:e2e:live --prefix shinobij.client -- sunscar-exchange-express.spec.ts sector-war-express.spec.ts --project=chromium-desktop-live --retries=1 --output=test-results/economy-war-journeys-ci 2>&1 | tee .ci-evidence/e2e-village-stores/economy-war-journeys.log[0m
+2026-10-20T18:20:01.0093450Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-10-20T18:20:01.0093839Z env:
+2026-10-20T18:20:01.0094120Z   VITE_SENTRY_DSN: https://public@example.invalid/1
+2026-10-20T18:20:01.0094482Z   VITE_SENTRY_RELEASE: ci
+2026-10-20T18:20:01.0094811Z   VITE_BUILD_COMMIT: 7b2ad48bed6419f79df52d1a7999b1a72ef60118
+2026-10-20T18:20:01.0095184Z ##[endgroup]
+2026-10-20T18:20:01.1164816Z 
+2026-10-20T18:20:01.1165386Z > shinobij.client@0.0.0 test:e2e:live
+2026-10-20T18:20:01.1167819Z > node --import tsx ./node_modules/@playwright/test/cli.js test -c playwright.live.config.ts sunscar-exchange-express.spec.ts sector-war-express.spec.ts --project=chromium-desktop-live --retries=1 --output=test-results/economy-war-journeys-ci
+2026-10-20T18:20:01.1169432Z 
+2026-10-20T18:20:07.9073749Z GitCommitInfo: timeout of 3000ms exceeded while running "git diff d027fd0170ecfc41038e51bd75db7e81b51a11dc HEAD"
+2026-10-20T18:20:08.6704999Z [WebServer] [startup] ENABLE_LEGACY is not set — the Legacy system (Sage/Trial, Hall of Legends, era titles) is OFF: every /legacy/* route will 404 and the client hides its Legacy surfaces, so players see no trace of the feature. Set ENABLE_LEGACY=1 to enable it, or ignore this if Legacy is intentionally disabled.
+2026-10-20T18:20:08.6707392Z 
+2026-10-20T18:20:09.0739467Z 
+2026-10-20T18:20:09.0740150Z Running 4 tests using 1 worker
+2026-10-20T18:20:09.0740627Z 
+2026-10-20T18:20:09.7398927Z [1/4] [chromium-desktop-live] › e2e-live/sector-war-express.spec.ts:147:1 › a real sector pet war is discoverable, replayed, persistent, and isolated from a superseded duel
+2026-10-20T18:21:06.8188761Z [2/4] [chromium-desktop-live] › e2e-live/sector-war-express.spec.ts:242:1 › attacking an enemy in a Pet war's sector is a pet battle, opened on both players' screens
+2026-10-20T18:22:01.7132066Z [3/4] [chromium-desktop-live] › e2e-live/sector-war-express.spec.ts:328:1 › attacking an enemy in a Card war's sector is a card duel the target is seated in
+2026-10-20T18:22:13.8091452Z [4/4] [chromium-desktop-live] › e2e-live/sunscar-exchange-express.spec.ts:170:1 › real players list, safely retry, spend both currencies, make roster room, and keep every trade after relogin
+2026-10-20T18:22:32.8780900Z   4 passed (2.5m)
+2026-10-20T18:22:32.9224536Z ##[group]Run npm run test:e2e:live --prefix shinobij.client -- connected-sector-presence.spec.ts tavern-chat-push.spec.ts --project=chromium-desktop-live --workers=1 --retries=0 --forbid-only --output=test-results/sector-presence-ci 2>&1 | tee .ci-evidence/e2e-village-stores/sector-presence.log
+2026-10-20T18:22:32.9227445Z [36;1mnpm run test:e2e:live --prefix shinobij.client -- connected-sector-presence.spec.ts tavern-chat-push.spec.ts --project=chromium-desktop-live --workers=1 --retries=0 --forbid-only --output=test-results/sector-presence-ci 2>&1 | tee .ci-evidence/e2e-village-stores/sector-presence.log[0m
+2026-10-20T18:22:32.9292285Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-10-20T18:22:32.9292915Z env:
+2026-10-20T18:22:32.9293362Z   VITE_SENTRY_DSN: https://public@example.invalid/1
+2026-10-20T18:22:32.9293915Z   VITE_SENTRY_RELEASE: ci
+2026-10-20T18:22:32.9294350Z   VITE_BUILD_COMMIT: 7b2ad48bed6419f79df52d1a7999b1a72ef60118
+2026-10-20T18:22:32.9295035Z   LIVE_E2E_REALTIME: 1
+2026-10-20T18:22:32.9295383Z ##[endgroup]
+2026-10-20T18:22:33.0321085Z 
+2026-10-20T18:22:33.0321880Z > shinobij.client@0.0.0 test:e2e:live
+2026-10-20T18:22:33.0324987Z > node --import tsx ./node_modules/@playwright/test/cli.js test -c playwright.live.config.ts connected-sector-presence.spec.ts tavern-chat-push.spec.ts --project=chromium-desktop-live --workers=1 --retries=0 --forbid-only --output=test-results/sector-presence-ci
+2026-10-20T18:22:33.0327307Z 
+2026-10-20T18:22:36.9661967Z GitCommitInfo: timeout of 3000ms exceeded while running "git fetch origin d027fd0170ecfc41038e51bd75db7e81b51a11dc --depth=1 --no-auto-maintenance --no-auto-gc --no-tags --no-recurse-submodules"
+2026-10-20T18:22:39.9964991Z GitCommitInfo: timeout of 3000ms exceeded while running "git diff d027fd0170ecfc41038e51bd75db7e81b51a11dc HEAD"
+2026-10-20T18:22:40.7583807Z [WebServer] [startup] ENABLE_LEGACY is not set — the Legacy system (Sage/Trial, Hall of Legends, era titles) is OFF: every /legacy/* route will 404 and the client hides its Legacy surfaces, so players see no trace of the feature. Set ENABLE_LEGACY=1 to enable it, or ignore this if Legacy is intentionally disabled.
+2026-10-20T18:22:40.7586645Z 
+2026-10-20T18:22:41.1322946Z 
+2026-10-20T18:22:41.1323831Z Running 2 tests using 1 worker
+2026-10-20T18:22:41.1324533Z 
+2026-10-20T18:22:41.8271698Z [1/2] [chromium-desktop-live] › e2e-live/connected-sector-presence.spec.ts:151:1 › two real clients see grounded walking, sector departure and the same road arrival
+2026-10-20T18:23:10.6297368Z [2/2] [chromium-desktop-live] › e2e-live/tavern-chat-push.spec.ts:64:1 › a tavern line reaches another open tavern by socket push, not by poll
+2026-10-20T18:23:15.8558743Z   2 passed (42.1s)
+2026-10-20T18:23:15.9199246Z ##[error]The operation was canceled.
+2026-10-20T18:23:15.9275144Z ##[group]Run actions/upload-artifact@v7
+2026-10-20T18:23:15.9275478Z with:
+2026-10-20T18:23:15.9275704Z   include-hidden-files: true
+2026-10-20T18:23:15.9276200Z   name: evidence-e2e-village-stores-7b2ad48bed6419f79df52d1a7999b1a72ef60118-39456640011-2
+2026-10-20T18:23:15.9277171Z   path: .ci-evidence/e2e-village-stores/
+shinobij.client/playwright-report/
+shinobij.client/test-results/
+
+2026-10-20T18:23:15.9277737Z   if-no-files-found: warn
+2026-10-20T18:23:15.9277990Z   retention-days: 14
+2026-10-20T18:23:15.9278234Z   compression-level: 6
+2026-10-20T18:23:15.9278468Z   overwrite: false
+2026-10-20T18:23:15.9278693Z   archive: true
+2026-10-20T18:23:15.9278900Z env:
+2026-10-20T18:23:15.9279169Z   VITE_SENTRY_DSN: https://public@example.invalid/1
+2026-10-20T18:23:15.9279520Z   VITE_SENTRY_RELEASE: ci
+2026-10-20T18:23:15.9279844Z   VITE_BUILD_COMMIT: 7b2ad48bed6419f79df52d1a7999b1a72ef60118
+2026-10-20T18:23:15.9280192Z ##[endgroup]
+2026-10-20T18:23:16.2018843Z Multiple search paths detected. Calculating the least common ancestor of all paths
+2026-10-20T18:23:16.2020209Z The least common ancestor is /home/runner/work/ShinobiX/ShinobiX. This will be the root directory of the artifact
+2026-10-20T18:23:16.2020929Z With the provided path, there will be 493 files uploaded
+2026-10-20T18:23:16.2024710Z Artifact name is valid!
+2026-10-20T18:23:16.2025391Z Root directory input is valid!
+2026-10-20T18:23:16.5629759Z Uploading artifact: evidence-e2e-village-stores-7b2ad48bed6419f79df52d1a7999b1a72ef60118-39456640011-2.zip
+2026-10-20T18:23:16.5667630Z Beginning upload of artifact content to blob storage
+2026-10-20T18:23:17.6371317Z Uploaded bytes 8388608
+2026-10-20T18:23:17.8298024Z Uploaded bytes 16777216
+2026-10-20T18:23:18.0077137Z Uploaded bytes 25165824
+2026-10-20T18:23:18.2189183Z Uploaded bytes 33554432
+2026-10-20T18:23:18.4058448Z Uploaded bytes 41943040
+2026-10-20T18:23:18.5967856Z Uploaded bytes 50331648
+2026-10-20T18:23:18.8788372Z Uploaded bytes 58720256
+2026-10-20T18:23:19.1214412Z Uploaded bytes 67108864
+2026-10-20T18:23:19.3615698Z Uploaded bytes 75497472
+2026-10-20T18:23:19.6802595Z Uploaded bytes 83886080
+2026-10-20T18:23:19.9246834Z Uploaded bytes 92274688
+2026-10-20T18:23:20.2707801Z Uploaded bytes 100663296
+2026-10-20T18:23:20.6309508Z Uploaded bytes 109051904
+2026-10-20T18:23:20.7733505Z Uploaded bytes 117440512
+2026-10-20T18:23:21.1418359Z Uploaded bytes 125829120
+2026-10-20T18:23:21.4099277Z Uploaded bytes 134217728
+2026-10-20T18:23:21.6172430Z Uploaded bytes 142606336
+2026-10-20T18:23:21.9095132Z Uploaded bytes 150994944
+2026-10-20T18:23:22.2926481Z Uploaded bytes 159383552
+2026-10-20T18:23:22.5325602Z Uploaded bytes 167772160
+2026-10-20T18:23:22.7428579Z Uploaded bytes 173618788
+2026-10-20T18:23:22.7989811Z Finished uploading artifact content to blob storage!
+2026-10-20T18:23:22.7993997Z SHA256 digest of uploaded artifact is b579cdd5ba9e28acfffaaed838b5c014f18f2509ee9dcdbd6afdc164a99ce1fe
+2026-10-20T18:23:22.7996107Z Finalizing artifact upload
+2026-10-20T18:23:23.1770782Z Artifact evidence-e2e-village-stores-7b2ad48bed6419f79df52d1a7999b1a72ef60118-39456640011-2 successfully finalized. Artifact ID 12289490196
+2026-10-20T18:23:23.1773063Z Artifact evidence-e2e-village-stores-7b2ad48bed6419f79df52d1a7999b1a72ef60118-39456640011-2 has been successfully uploaded! Final size is 173618788 bytes. Artifact ID is 12289490196
+2026-10-20T18:23:23.1775723Z Artifact download URL: https://github.com/Timehue/ShinobiX/actions/runs/39456640011/artifacts/12289490196
+2026-10-20T18:23:23.1991775Z Post job cleanup.
+2026-10-20T18:23:23.2876060Z [command]/usr/bin/git version
+2026-10-20T18:23:23.2931861Z git version 2.55.0
+2026-10-20T18:23:23.2973889Z Temporarily overriding HOME='/home/runner/work/_temp/4edca264-0eef-4445-97e7-74e7aa158642' before making global git config changes
+2026-10-20T18:23:23.2975517Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-20T18:23:23.2979508Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/ShinobiX/ShinobiX
+2026-10-20T18:23:23.3012651Z Removing SSH command configuration
+2026-10-20T18:23:23.3020107Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-20T18:23:23.3055223Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-20T18:23:23.3340868Z Removing HTTP extra header
+2026-10-20T18:23:23.3346704Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-20T18:23:23.3394753Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-20T18:23:23.3690900Z Removing includeIf entries pointing to credentials config files
+2026-10-20T18:23:23.3699487Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-20T18:23:23.3735329Z includeif.gitdir:/home/runner/work/ShinobiX/ShinobiX/.git.path
+2026-10-20T18:23:23.3736554Z includeif.gitdir:/home/runner/work/ShinobiX/ShinobiX/.git/worktrees/*.path
+2026-10-20T18:23:23.3738077Z includeif.gitdir:/github/workspace/.git.path
+2026-10-20T18:23:23.3739239Z includeif.gitdir:/github/workspace/.git/worktrees/*.path
+2026-10-20T18:23:23.3744970Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/ShinobiX/ShinobiX/.git.path
+2026-10-20T18:23:23.3772350Z /home/runner/work/_temp/git-credentials-53e67153-9611-4048-a8fd-2c7cd0cd63b5.config
+2026-10-20T18:23:23.3785470Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/ShinobiX/ShinobiX/.git.path \/home\/runner\/work\/_temp\/git\-credentials\-53e67153\-9611\-4048\-a8fd\-2c7cd0cd63b5\.config
+2026-10-20T18:23:23.3834171Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/ShinobiX/ShinobiX/.git/worktrees/*.path
+2026-10-20T18:23:23.3864684Z /home/runner/work/_temp/git-credentials-53e67153-9611-4048-a8fd-2c7cd0cd63b5.config
+2026-10-20T18:23:23.3873343Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/ShinobiX/ShinobiX/.git/worktrees/*.path \/home\/runner\/work\/_temp\/git\-credentials\-53e67153\-9611\-4048\-a8fd\-2c7cd0cd63b5\.config
+2026-10-20T18:23:23.3922641Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git.path
+2026-10-20T18:23:23.3952608Z /github/runner_temp/git-credentials-53e67153-9611-4048-a8fd-2c7cd0cd63b5.config
+2026-10-20T18:23:23.3960355Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git.path \/github\/runner_temp\/git\-credentials\-53e67153\-9611\-4048\-a8fd\-2c7cd0cd63b5\.config
+2026-10-20T18:23:23.4001649Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git/worktrees/*.path
+2026-10-20T18:23:23.4030083Z /github/runner_temp/git-credentials-53e67153-9611-4048-a8fd-2c7cd0cd63b5.config
+2026-10-20T18:23:23.4038558Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git/worktrees/*.path \/github\/runner_temp\/git\-credentials\-53e67153\-9611\-4048\-a8fd\-2c7cd0cd63b5\.config
+2026-10-20T18:23:23.4104092Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-20T18:23:23.4362100Z Removing credentials config '/home/runner/work/_temp/git-credentials-53e67153-9611-4048-a8fd-2c7cd0cd63b5.config'
+2026-10-20T18:23:23.4522219Z Cleaning up orphan processes

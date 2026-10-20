@@ -1,0 +1,204 @@
+{
+  "id": "rare-24",
+  "panels": [
+    {
+      "name": "techniques-block-0-half-0.png",
+      "sha256": "f72e3daa9a437ac8f063eeb984572fe29da00e2698c0344517fe67c06c602aa0",
+      "sources": [
+        {
+          "path": "C:\\Users\\Tyler R\\.codex\\worktrees\\40c2\\NinjaK\\shinobij.client\\.tmp\\pet-companion-techniques\\parallel-c-rare-24-techniques\\inspection-strips\\front-block-0-half-0.png",
+          "sha256": "c437ded3805df070d257fc7cb299b7b936494834a7fc7168869e7ab289aaa452",
+          "width": 1458,
+          "height": 642,
+          "top": 0
+        },
+        {
+          "path": "C:\\Users\\Tyler R\\.codex\\worktrees\\40c2\\NinjaK\\shinobij.client\\.tmp\\pet-companion-techniques\\parallel-c-rare-24-techniques\\inspection-strips\\side-block-0-half-0.png",
+          "sha256": "a44599b19a36356cfc6ee1a524bb21ae922c62178ca11e74e5b85b9eedf9e689",
+          "width": 1458,
+          "height": 642,
+          "top": 642
+        }
+      ],
+      "nativePixelsPreserved": true,
+      "resizing": false,
+      "review": "pending"
+    },
+    {
+      "name": "techniques-block-0-half-1.png",
+      "sha256": "34707b9e2a50d3cb068c4cefa239837a34c720d05a659c75a48b84db773f4fb4",
+      "sources": [
+        {
+          "path": "C:\\Users\\Tyler R\\.codex\\worktrees\\40c2\\NinjaK\\shinobij.client\\.tmp\\pet-companion-techniques\\parallel-c-rare-24-techniques\\inspection-strips\\front-block-0-half-1.png",
+          "sha256": "f3c9dbdd5ee98416b137f4b4a096fcf0aae8f5819d47c8d307c2b2f51b945b67",
+          "width": 1458,
+          "height": 642,
+          "top": 0
+        },
+        {
+          "path": "C:\\Users\\Tyler R\\.codex\\worktrees\\40c2\\NinjaK\\shinobij.client\\.tmp\\pet-companion-techniques\\parallel-c-rare-24-techniques\\inspection-strips\\side-block-0-half-1.png",
+          "sha256": "d8f4ffd462293f1ed7f170131e0fafc138ea0402b51e9f6d212da983683bdc3a",
+          "width": 1458,
+          "height": 642,
+          "top": 642
+        }
+      ],
+      "nativePixelsPreserved": true,
+      "resizing": false,
+      "review": "pending"
+    },
+    {
+      "name": "techniques-block-1-half-0.png",
+      "sha256": "14318b1f9bcd80a21a87651fb32f25463942ea8025a6b0448d0da822f6b024c1",
+      "sources": [
+        {
+          "path": "C:\\Users\\Tyler R\\.codex\\worktrees\\40c2\\NinjaK\\shinobij.client\\.tmp\\pet-companion-techniques\\parallel-c-rare-24-techniques\\inspection-strips\\front-block-1-half-0.png",
+          "sha256": "c2175cdf4736e63f595667213761c9a52b4952f0fe23fa4f6cd41a3db8a23c92",
+          "width": 1458,
+          "height": 642,
+          "top": 0
+        },
+        {
+          "path": "C:\\Users\\Tyler R\\.codex\\worktrees\\40c2\\NinjaK\\shinobij.client\\.tmp\\pet-companion-techniques\\parallel-c-rare-24-techniques\\inspection-strips\\side-block-1-half-0.png",
+          "sha256": "81ce925c99ef6de0a0acf6d86eea850f6856d857ebd4e69b70bf2ee12c0efd1a",
+          "width": 1458,
+          "height": 642,
+          "top": 642
+        }
+      ],
+      "nativePixelsPreserved": true,
+      "resizing": false,
+      "review": "pending"
+    },
+    {
+      "name": "techniques-block-1-half-1.png",
+      "sha256": "57e7dd8c77f2e504bc72c5a11391179fd00a03a2a3d796cf70a93ed2bd2ce921",
+      "sources": [
+        {
+          "path": "C:\\Users\\Tyler R\\.codex\\worktrees\\40c2\\NinjaK\\shinobij.client\\.tmp\\pet-companion-techniques\\parallel-c-rare-24-techniques\\inspection-strips\\front-block-1-half-1.png",
+          "sha256": "cb4fa3ee4cda5ebf8aee1095430e4a33d64fdd110f07d4c1fbcece128f1393e1",
+          "width": 1458,
+          "height": 642,
+          "top": 0
+        },
+        {
+          "path": "C:\\Users\\Tyler R\\.codex\\worktrees\\40c2\\NinjaK\\shinobij.client\\.tmp\\pet-companion-techniques\\parallel-c-rare-24-techniques\\inspection-strips\\side-block-1-half-1.png",
+          "sha256": "b0cb44a93903fb3bbb101c68b92f6d7b9b57767e19b51b344bc3ef4e56f7d60b",
+          "width": 1458,
+          "height": 642,
+          "top": 642
+        }
+      ],
+      "nativePixelsPreserved": true,
+      "resizing": false,
+      "review": "pending"
+    },
+    {
+      "name": "techniques-block-2-half-0.png",
+      "sha256": "8204a5cf6ce284dfe1a9ead2ff732ad2205eb1c985a0c6c8a2855cf60cb764e8",
+      "sources": [
+        {
+          "path": "C:\\Users\\Tyler R\\.codex\\worktrees\\40c2\\NinjaK\\shinobij.client\\.tmp\\pet-companion-techniques\\parallel-c-rare-24-techniques\\inspection-strips\\front-block-2-half-0.png",
+          "sha256": "cadd1d8b20e12c0cfc6d4ae7396d0853ab75483be05cb243763e0cb94501cf32",
+          "width": 1458,
+          "height": 642,
+          "top": 0
+        },
+        {
+          "path": "C:\\Users\\Tyler R\\.codex\\worktrees\\40c2\\NinjaK\\shinobij.client\\.tmp\\pet-companion-techniques\\parallel-c-rare-24-techniques\\inspection-strips\\side-block-2-half-0.png",
+          "sha256": "df07162709779f56789eb128b125dc430009cd0ce2c5cd9a432094ddffcc7519",
+          "width": 1458,
+          "height": 642,
+          "top": 642
+        }
+      ],
+      "nativePixelsPreserved": true,
+      "resizing": false,
+      "review": "pending"
+    },
+    {
+      "name": "techniques-block-2-half-1.png",
+      "sha256": "971ee5cdb93fdff8fd53c769e1a155e06a292cf2f18039d206d1bf5c3acae2ef",
+      "sources": [
+        {
+          "path": "C:\\Users\\Tyler R\\.codex\\worktrees\\40c2\\NinjaK\\shinobij.client\\.tmp\\pet-companion-techniques\\parallel-c-rare-24-techniques\\inspection-strips\\front-block-2-half-1.png",
+          "sha256": "0dd1e62b72bb17c2ca89e474a9acd9f7bb8f79872918df512774cb9cd2618a3c",
+          "width": 1458,
+          "height": 642,
+          "top": 0
+        },
+        {
+          "path": "C:\\Users\\Tyler R\\.codex\\worktrees\\40c2\\NinjaK\\shinobij.client\\.tmp\\pet-companion-techniques\\parallel-c-rare-24-techniques\\inspection-strips\\side-block-2-half-1.png",
+          "sha256": "975b1403c12d953876e5ff53e201e6c449b019c9c87b4c9c57493801e0a4a89d",
+          "width": 1458,
+          "height": 642,
+          "top": 642
+        }
+      ],
+      "nativePixelsPreserved": true,
+      "resizing": false,
+      "review": "pending"
+    },
+    {
+      "name": "idle-block-0.png",
+      "sha256": "56bc2fbab5da97373593a3ebac23d9f98195f2397dedb0e6bba98a78d7910b80",
+      "sources": [
+        {
+          "path": "C:\\Users\\Tyler R\\.codex\\worktrees\\40c2\\NinjaK\\docs\\screenshots\\pet-independent-face-2026-10-15\\rare-24-companion-idle-0.webp",
+          "sha256": "e6ade0dc0d7a95f98fe586b2d68d6d0d9574e065827ecc8e955d20cc54ab94f4",
+          "width": 1000,
+          "height": 560,
+          "top": 0
+        },
+        {
+          "path": "C:\\Users\\Tyler R\\.codex\\worktrees\\40c2\\NinjaK\\docs\\screenshots\\pet-independent-face-2026-10-15\\rare-24-companion-idle-1.webp",
+          "sha256": "04644b7bfe30cb9ceabbbe22dea3ca1900e1ab642a477c16d1c4879233bc0d3f",
+          "width": 1000,
+          "height": 560,
+          "top": 560
+        },
+        {
+          "path": "C:\\Users\\Tyler R\\.codex\\worktrees\\40c2\\NinjaK\\docs\\screenshots\\pet-independent-face-2026-10-15\\rare-24-companion-idle-2.webp",
+          "sha256": "0cdee168fe7f96d68d50b7931af0b81cfcec8326c5934f821ea5e5808cb8eeeb",
+          "width": 1000,
+          "height": 560,
+          "top": 1120
+        }
+      ],
+      "nativePixelsPreserved": true,
+      "resizing": false,
+      "review": "pending"
+    },
+    {
+      "name": "idle-block-1.png",
+      "sha256": "1d8a8c66841d6bd10f3a2b5c0c1aa2071f10ae5edd7a79e437aa5c6011c9e2ce",
+      "sources": [
+        {
+          "path": "C:\\Users\\Tyler R\\.codex\\worktrees\\40c2\\NinjaK\\docs\\screenshots\\pet-independent-face-2026-10-15\\rare-24-companion-idle-3.webp",
+          "sha256": "b8bacdd60c929e3d9e33e5835f8b00c32551cf15994ab3101d8f598bb3b8c4d2",
+          "width": 1000,
+          "height": 560,
+          "top": 0
+        },
+        {
+          "path": "C:\\Users\\Tyler R\\.codex\\worktrees\\40c2\\NinjaK\\docs\\screenshots\\pet-independent-face-2026-10-15\\rare-24-companion-idle-4.webp",
+          "sha256": "73dcecc2127f586930f8d61465cf575ef8e7ba6afc0c80d94b6754e55417e011",
+          "width": 1000,
+          "height": 560,
+          "top": 560
+        },
+        {
+          "path": "C:\\Users\\Tyler R\\.codex\\worktrees\\40c2\\NinjaK\\docs\\screenshots\\pet-independent-face-2026-10-15\\rare-24-companion-idle-5.webp",
+          "sha256": "6c4c802ad3f54372b7e263ed0352a96ef65425ce1138179bb26a80b92e91f7d5",
+          "width": 1000,
+          "height": 560,
+          "top": 1120
+        }
+      ],
+      "nativePixelsPreserved": true,
+      "resizing": false,
+      "review": "pending"
+    }
+  ],
+  "approval": false
+}
