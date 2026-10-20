@@ -42,6 +42,7 @@ test('growth specializes beyond five with rounded previews, persisted investment
 });
 
 test('feeding displays the shared allowance, keeps stack counts and leaves no-XP care available', async ({ page }, testInfo) => {
+    await page.addInitScript(() => Object.defineProperty(crypto, 'randomUUID', { value: undefined, configurable: true }));
     const save = uiAuditSave();
     const today = Math.floor(Date.now() / 86400000);
     let pet = normalizePetGrowth({ ...STARTER_PETS[0].pet, level: 50, happiness: 60, foodXpDay: today, foodXpUsed: 1900 });
@@ -50,7 +51,7 @@ test('feeding displays the shared allowance, keeps stack counts and leaves no-XP
     await page.route('**/api/pet/progress', async route => {
         if (route.request().method() === 'GET') return route.fulfill({ json: { prodigy: { owned: false, available: false } } });
         const body = route.request().postDataJSON();
-        expect(body.action).toBe('feed'); expect(body.itemId).toBe('pet-treat'); expect(body.requestId).toBeTruthy();
+        expect(body.action).toBe('feed'); expect(body.itemId).toBe('pet-treat'); expect(body.requestId).toMatch(/^[A-Za-z0-9_-]{16,80}$/);
         pet = { ...pet, foodXpUsed: 2000, xp: pet.xp + 100 };
         save.character = { ...save.character, pets: [pet], itemStacks: [{ itemId: 'pet-treat', count: 11 }, { itemId: 'golden-apple', count: 3 }] };
         const version = runtime.currentVersion() + 1;

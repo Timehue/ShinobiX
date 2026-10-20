@@ -303,7 +303,10 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
         progressBusyRef.current = true;
         setProgressBusy(true);
         try {
-            const res = await fetch('/api/pet/progress', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ playerName: character.name, petId: selectedPet.id, action, ...(action === 'feed' || action === 'care-feed' ? { requestId: makeId() } : {}), ...extra }) });
+            // makeId's non-UUID fallback contains a decimal point. Keep food
+            // receipts valid on that path too, including its shortest output.
+            const foodRequestId = `pet-${makeId().replace(/[^A-Za-z0-9_-]/g, '')}`;
+            const res = await fetch('/api/pet/progress', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ playerName: character.name, petId: selectedPet.id, action, ...(action === 'feed' || action === 'care-feed' ? { requestId: foodRequestId } : {}), ...extra }) });
             const data = await res.json().catch(() => ({}));
             if (!res.ok || !data?.character) throw new Error(String(data?.error ?? 'Pet update failed.'));
             // Applied even if a newer save was adopted first and this commit is
