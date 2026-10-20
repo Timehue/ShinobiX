@@ -6,6 +6,11 @@ import { PET_SCENIC_PORTRAITS } from "../src/lib/pet-portrait-assets.generated";
 import AxeBuilder from "@axe-core/playwright";
 import { gotoSettled, reloadSettled } from "./helpers/network-settle";
 
+// Full-page captures below and retained failure video preserve visual evidence.
+// Re-encoding their redundant trace filmstrip can exhaust trace packaging's
+// separate 45s worker budget after every lifecycle assertion has passed.
+test.use({ trace: { mode: 'retain-on-failure', screenshots: false, snapshots: true, sources: true } });
+
 test("arena visit feed preserves recorded paid wins after navigation", async ({ page }, testInfo) => {
     test.setTimeout(150_000);
     test.skip(!['chromium-desktop', 'chromium-mobile'].includes(testInfo.project.name), 'visit-feed scope is checked on desktop and mobile');
@@ -254,6 +259,21 @@ async function installPetHomeApi(page: Page) {
         roleRequests: [] as Array<{ action: string; petId: string; assign?: boolean }>,
     };
 
+    const saveSnapshot = () => ({
+        character: state.character, currentBiome: 'forest', currentSector: 0,
+        acceptedMissionIds: [], missionProgress: {}, triggeredEvents: [], _saveVersion: state.saveVersion,
+    });
+    // Capture the live mocked server state before this document starts its
+    // 12s restore clock. The first save fetch stays in-page, like capabilities
+    // and battle-lock below; later reads still use the stateful route.
+    await page.route(url => url.origin === origin && url.pathname === '/', async route => {
+        if (!route.request().isNavigationRequest()) return route.continue();
+        const response = await route.fetch();
+        const snapshot = JSON.stringify(saveSnapshot()).replaceAll('<', '\\u003c');
+        return route.fulfill({ response, body: (await response.text()).replace('<head>',
+            `<head><script>window.__petHomeBootSave=${snapshot};</script>`) });
+    });
+
     await page.addInitScript((replies) => {
         // WebKit's page.route drops /api/* requests sent just after a fresh
         // document starts. They reject with "<url> due to access control
@@ -278,6 +298,12 @@ async function installPetHomeApi(page: Page) {
             if (url.origin === window.location.origin) {
                 const method = (init?.method ?? (input instanceof Request ? input.method : "GET")).toUpperCase();
                 const path = url.pathname.toLowerCase();
+                const boot = window as typeof window & { __petHomeBootSave?: unknown };
+                if (method === 'GET' && path === '/api/save/pethomevisualqa' && boot.__petHomeBootSave) {
+                    const snapshot = boot.__petHomeBootSave;
+                    delete boot.__petHomeBootSave;
+                    return reply(snapshot);
+                }
                 if (method === "GET" && path === "/api/player/capabilities") return reply(replies.capabilities);
                 if (method === "GET" && path === "/api/images") return reply(url.searchParams.get("ids") === "1" ? replies.imageManifest : {});
                 // The player card reads today's Sunscar crate count on every boot.
@@ -313,15 +339,7 @@ async function installPetHomeApi(page: Page) {
             return json(route, url.searchParams.get("ids") === "1" ? EMPTY_IMAGE_MANIFEST : {});
         }
         if (path === "/api/save/pethomevisualqa") {
-            if (request.method() === "GET") return json(route, {
-                character: state.character,
-                currentBiome: "forest",
-                currentSector: 0,
-                acceptedMissionIds: [],
-                missionProgress: {},
-                triggeredEvents: [],
-                _saveVersion: state.saveVersion,
-            });
+            if (request.method() === "GET") return json(route, saveSnapshot());
             state.saveVersion += 1;
             return json(route, { ok: true, _saveVersion: state.saveVersion });
         }
