@@ -94,8 +94,7 @@ through `CI / e2e-responsive-flows / 12`, each with a 29-minute ceiling:
   recovery; Rally renderer recovery; the Dojo Circuit gamepad flow.
 - Flows 3 through 10: the complete living-sector source suite, split into eight
   Playwright slices. Test-level sharding keeps the large sector-life spec from
-  occupying a whole job; each slice still runs one worker. Flow 3 also checks painted mining/fishing placement; flow 4
-  also checks the Chronicle tea-stop routine and daytime handover. Flows 5 and 6
+  occupying a whole job; each slice still runs one worker. Flows 5 and 6
   also check pet-inspired ground wildlife on desktop (flow 5) and phone
   (flow 6), including player approaches, hidden/combat pauses, reduced motion,
   and missing-art recovery. These flows also check the actual owned walking
@@ -132,8 +131,11 @@ through `CI / e2e-responsive-flows / 12`, each with a 29-minute ceiling:
 - Flows 11 and 12: dock shipments on desktop and phone respectively, including
   delivery, unattended recovery and cached aftermath during an outage, plus
   name/greeting separation from players, building titles and resource icons in
-  portrait and landscape layouts. Separate jobs leave setup and cleanup room
-  under the same ceiling; they keep every existing case and assertion.
+  portrait and landscape layouts. Flow 11 also runs the complete Chronicle
+  tea-stop and daytime handover suite; flow 12 runs painted mining/fishing
+  placement. Both companion suites retain their desktop and phone projects.
+  These groups leave setup and cleanup room under the same ceiling while
+  keeping every existing case and assertion.
 
 The original first two flow jobs measured 11 to 15 minutes of suite time on main. A failed step
 skips every later check in its job, so a red flow job says nothing about the
