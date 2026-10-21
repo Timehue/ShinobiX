@@ -186,13 +186,18 @@ test('dedicated world suites run once without sharing living-sector job budgets'
     assert.deepEqual(entries.filter((entry) => entry.body.includes('lifeShard:'))
         .map((entry) => [entry.shard, entry.body.match(/lifeShard: (\d+\/8)/)?.[1]]),
         Array.from({ length: 8 }, (_, index) => [index + 3, `${index + 1}/8`]));
+    assert.deepEqual(entries.filter((entry) => entry.body.includes('groundProject:'))
+        .map((entry) => [entry.shard, entry.body.match(/groundProject: (\w+)/)?.[1]]),
+        [[5, 'desktop'], [7, 'phone']]);
     assert.deepEqual(entries.filter((entry) => entry.body.includes('dockProject:'))
         .map((entry) => [entry.shard, entry.body.match(/dockProject: (\w+)/)?.[1]]),
         [[11, 'desktop'], [12, 'phone']]);
     const steps = flows.split('      - name: ');
     const life = steps.find((step) => step.startsWith('Living sectors, weather and native actor routines\n'));
+    const wildlife = steps.find((step) => step.startsWith('Pet-inspired ground wildlife and pause behavior\n'));
     const dock = steps.find((step) => step.startsWith('Dock shipment delivery and cached aftermath\n'));
     assert.ok(life?.includes('if: ${{ matrix.shard >= 3 && matrix.shard <= 10 }}'));
+    assert.ok(wildlife?.includes('if: ${{ matrix.shard == 5 || matrix.shard == 7 }}'));
     assert.ok(dock?.includes('if: ${{ matrix.shard == 11 || matrix.shard == 12 }}'));
     assert.doesNotMatch(dock, /continue-on-error|--grep|--max-failures/);
     for (const [name, shard] of [['Painted terrain resource placement', 12], ['Chronicle stop and daytime handover', 11]]) {
@@ -219,7 +224,6 @@ test('living-world source fixtures have dedicated gates instead of running on th
     assert.match(flows,/dockProject: phone/);
     assert.match(flows,/--config playwright\.dock-shipment\.config\.ts --project=\$\{\{ matrix\.dockProject \}\} --forbid-only/);
     assert(flows.includes('output/living-world/shipment/browser/'));
-    assert(playwrightConfig.includes('**/world-companion.spec.ts'));
     assert(playwrightConfig.includes('**/local-fauna.spec.ts'));
     const localFaunaConfig=readFileSync(new URL('../shinobij.client/playwright.sector-life.config.ts',import.meta.url),'utf8');
     assert(localFaunaConfig.includes('local-fauna.spec.ts'),'local lamp/shore fauna must run in the life shards');
@@ -248,8 +252,6 @@ test('living-world source fixtures have dedicated gates instead of running on th
     assert(flows.includes('output/living-world/festival/browser/'));
     assert(flows.includes('output/living-world/road-visits/browser/'));
     assert(flows.includes('output/living-world/frontier/browser/'));
-    assert.match(flows,/--config playwright\.companion\.config\.ts --project=\$\{\{ matrix\.groundProject \}\} --forbid-only/);
-    assert(flows.includes('output/living-world/companion/browser/'));
 });
 
 test('artifact consumers verify immutable provenance and failure evidence stays reachable', () => {

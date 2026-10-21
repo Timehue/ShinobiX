@@ -20,7 +20,6 @@ SOURCE_FIXTURE_SPECS.push('**/compact-map-notice.spec.ts', '**/resource-gatherin
 SOURCE_FIXTURE_SPECS.push('**/dungeon-presentation.spec.ts', '**/hollow-gate-return.spec.ts', '**/clan-boss-result.spec.ts', '**/arena-practice.spec.ts');
 SOURCE_FIXTURE_SPECS.push('**/sector-life.spec.ts', '**/chronicle-stop.spec.ts', '**/resource-surface.spec.ts', '**/ground-wildlife.spec.ts');
 SOURCE_FIXTURE_SPECS.push('**/dock-shipment.spec.ts');
-SOURCE_FIXTURE_SPECS.push('**/world-companion.spec.ts');
 SOURCE_FIXTURE_SPECS.push('**/local-fauna.spec.ts');
 SOURCE_FIXTURE_SPECS.push('**/regional-training.spec.ts');
 SOURCE_FIXTURE_SPECS.push('**/regional-winter.spec.ts');
