@@ -1,0 +1,11 @@
+{
+  "reviewer": "review_a_luna",
+  "id": "rare-6",
+  "status": "VISUAL_PASS",
+  "sourceSha256": "99576c778214596fd055148b3ce0cb26ef2f5f112f521b3fe0a5c60d3232bb2b",
+  "battleSha256": "c7f0310195a184e5287ffb035efa6f8105f8705260e9d49273b37cf2679cdca8",
+  "atlasSha256": "b406b5a966e3555572e32e300ff4fde6e4feadfaa1f200d06a8a15f467524acc",
+  "originalReportPath": ".tmp/viper-tail-rebuild/review-a-all-v14.json",
+  "originalReportSha256": "322646975c474f83acc3aba590e25977f21df3968238717b47d25b196a97d89a",
+  "attestation": "I personally inspected every visual scope stated in the original report: all 26 source/battle raw animation sheets, all 8 medium and low runtime sheets, all 36 technique sheets, and all 16 atlas cells. I found no visible distortion or disconnection. This attestation adds reviewer identity only; it does not alter the original report or extend its visual-only scope."
+}

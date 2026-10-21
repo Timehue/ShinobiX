@@ -25,9 +25,9 @@
     "minSilhouetteIoU": 0.975
   },
   "totals": {
-    "sourceBytes": 127944760,
-    "lodBytes": 77800024,
-    "sourceTriangles": 5994132,
+    "sourceBytes": 130621932,
+    "lodBytes": 77465204,
+    "sourceTriangles": 5988858,
     "lodTriangles": 1634733
   },
   "entries": [
@@ -2308,17 +2308,17 @@
     },
     {
       "sourceUrl": "/pet-models/roster/rare-6.glb",
-      "lodUrl": "/pet-models/warfront-lod/roster/rare-6.glb?v=20260902-battle-lod-v1-4d3136a78c73-8a713fca3ad3",
-      "sourceBytes": 2304004,
-      "lodBytes": 1545036,
-      "sourceSha256": "4d3136a78c73e66269ada4b2f02bcade5b279aa6dd7ea03a56d5c712e9ec398c",
-      "lodSha256": "8a713fca3ad3b93464e9885fdfb4316931bdd8900df4b1f2bf4dd60d8af5ceab",
-      "sourceTriangles": 40000,
+      "lodUrl": "/pet-models/warfront-lod/roster/rare-6.glb?v=20260902-battle-lod-v1-99576c778214-c7f0310195a1",
+      "sourceBytes": 4981176,
+      "lodBytes": 1210216,
+      "sourceSha256": "99576c778214596fd055148b3ce0cb26ef2f5f112f521b3fe0a5c60d3232bb2b",
+      "lodSha256": "c7f0310195a184e5287ffb035efa6f8105f8705260e9d49273b37cf2679cdca8",
+      "sourceTriangles": 34726,
       "lodTriangles": 10000,
-      "reduction": 0.75,
+      "reduction": 0.712031,
       "lowPolySource": false,
-      "sourceVertices": 24910,
-      "lodVertices": 8064,
+      "sourceVertices": 21582,
+      "lodVertices": 7819,
       "skins": 1,
       "joints": 21,
       "animations": 13,
@@ -2326,9 +2326,9 @@
       "textures": 1,
       "boundsMaxDelta": 0,
       "silhouettes": {
-        "front": 0.994696,
-        "threeQuarter": 0.99678,
-        "side": 0.994661
+        "front": 0.997052,
+        "threeQuarter": 0.99727,
+        "side": 0.994188
       }
     },
     {
