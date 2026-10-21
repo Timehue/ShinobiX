@@ -680,7 +680,10 @@
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
         }
-      ]
+      ],
+      "referenceArchives": {
+        "pet-models/warfront-impostors/roster/legendary-0.webp": "art-source/pet-portrait-refresh/reference-archive/legendary-0-model-atlas.webp"
+      }
     },
     {
       "id": "legendary-1",
@@ -3384,7 +3387,10 @@
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
         }
-      ]
+      ],
+      "referenceArchives": {
+        "pet-models/warfront-impostors/roster/rare-0.webp": "art-source/pet-portrait-refresh/reference-archive/rare-0-model-atlas.webp"
+      }
     },
     {
       "id": "rare-1",
@@ -3635,7 +3641,10 @@
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
         }
-      ]
+      ],
+      "referenceArchives": {
+        "pet-models/warfront-impostors/roster/rare-5.webp": "art-source/pet-portrait-refresh/reference-archive/rare-5-model-atlas.webp"
+      }
     },
     {
       "id": "rare-6",
@@ -3795,7 +3804,10 @@
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
         }
-      ]
+      ],
+      "referenceArchives": {
+        "pet-models/warfront-impostors/roster/rare-8.webp": "art-source/pet-portrait-refresh/reference-archive/rare-8-model-atlas.webp"
+      }
     },
     {
       "id": "rare-9",
@@ -3844,7 +3856,10 @@
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
         }
-      ]
+      ],
+      "referenceArchives": {
+        "pet-models/warfront-impostors/roster/rare-9.webp": "art-source/pet-portrait-refresh/reference-archive/rare-9-model-atlas.webp"
+      }
     },
     {
       "id": "rare-10",
@@ -4775,6 +4790,9 @@
         "outputSha256": "c91c48ef12033fa858ce9372fafd6d1ef27eec8d25118fa5618de0bbfea814d3",
         "notes": "Pyre Kestrel has flower-petal crests on red banners, not the single-spiral village motif; natural flame feathers preserved.",
         "reviewedAt": "2026-10-15T23:34:52.327Z"
+      },
+      "referenceArchives": {
+        "pet-models/warfront-impostors/roster/rare-27.webp": "art-source/pet-portrait-refresh/reference-archive/rare-27-model-atlas.webp"
       }
     },
     {
@@ -5049,7 +5067,10 @@
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
         }
-      ]
+      ],
+      "referenceArchives": {
+        "pet-models/warfront-impostors/roster/rare-32.webp": "art-source/pet-portrait-refresh/reference-archive/rare-32-model-atlas.webp"
+      }
     },
     {
       "id": "rare-33",
@@ -5151,7 +5172,10 @@
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
         }
-      ]
+      ],
+      "referenceArchives": {
+        "pet-models/warfront-impostors/roster/rare-34.webp": "art-source/pet-portrait-refresh/reference-archive/rare-34-model-atlas.webp"
+      }
     },
     {
       "id": "rare-35",
@@ -5539,7 +5563,10 @@
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
         }
-      ]
+      ],
+      "referenceArchives": {
+        "pet-models/warfront-impostors/roster/rare-42.webp": "art-source/pet-portrait-refresh/reference-archive/rare-42-model-atlas.webp"
+      }
     },
     {
       "id": "rare-43",
@@ -5698,7 +5725,10 @@
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
         }
-      ]
+      ],
+      "referenceArchives": {
+        "pet-models/warfront-impostors/roster/rare-45.webp": "art-source/pet-portrait-refresh/reference-archive/rare-45-model-atlas.webp"
+      }
     },
     {
       "id": "rare-46",
@@ -5809,7 +5839,10 @@
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
         }
-      ]
+      ],
+      "referenceArchives": {
+        "pet-models/warfront-impostors/roster/rare-47.webp": "art-source/pet-portrait-refresh/reference-archive/rare-47-model-atlas.webp"
+      }
     },
     {
       "id": "rare-48",
@@ -5858,7 +5891,10 @@
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
         }
-      ]
+      ],
+      "referenceArchives": {
+        "pet-models/warfront-impostors/roster/rare-48.webp": "art-source/pet-portrait-refresh/reference-archive/rare-48-model-atlas.webp"
+      }
     },
     {
       "id": "rare-49",
@@ -5917,7 +5953,10 @@
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
         }
-      ]
+      ],
+      "referenceArchives": {
+        "pet-models/warfront-impostors/roster/rare-49.webp": "art-source/pet-portrait-refresh/reference-archive/rare-49-model-atlas.webp"
+      }
     },
     {
       "id": "standard-0",
@@ -8462,7 +8501,10 @@
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
         }
-      ]
+      ],
+      "referenceArchives": {
+        "pet-models/warfront-impostors/roster/standard-47.webp": "art-source/pet-portrait-refresh/reference-archive/standard-47-model-atlas.webp"
+      }
     },
     {
       "id": "standard-48",
@@ -8511,7 +8553,10 @@
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
         }
-      ]
+      ],
+      "referenceArchives": {
+        "pet-models/warfront-impostors/roster/standard-48.webp": "art-source/pet-portrait-refresh/reference-archive/standard-48-model-atlas.webp"
+      }
     },
     {
       "id": "standard-49",
