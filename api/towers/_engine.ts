@@ -1,4 +1,6 @@
+import { clanBossGuardMultiplier, syncClanBossGuard, clanBossGuardSnapshot, noteClanBossGuardAction, openClanBossGuard, isHuman, clanBossPhasePercent } from '../clan-boss/_combat-guard.js';
 import { petSignatureMastery } from '../../shared/pet-ability-mastery.js';
+import { clanBossOutcomeLog } from '../../shared/clan-boss-operation.js';
 import { pveSpecialistDamagePercent } from '../../shared/relics.js';
 import { HUNT_AI_POLICY, pickHuntAiAction } from './_hunt-ai.js';
 import { primeTowerSignature, resolveTowerSignature, recordTowerKnockouts, cancelInvalidTowerSignature } from './_combat-tactics.js';
@@ -69,7 +71,7 @@ import { resolveCastFlavor } from '../combat-core/cast-flavor.js';
 import { MAX_COMBAT_VFX_TILES, canonicalJutsuMethod, canonicalJutsuTagNames, semanticJutsuVfx } from '../combat-core/jutsu-vfx.js';
 import type { PvpFighter, PvpGroundEffect, PvpStatus } from '../pvp/session.js';
 import type { EnemyTemplate } from './_enemy-templates.js';
-import { partyScaleFactor, scaleEnemyStat, getFloorBalanceFor, type TowerFloor, type TowerTargetMode } from './_floor-catalog.js';
+import { CLAN_BOSS_FLOORS, partyScaleFactor, scaleEnemyStat, getFloorBalanceFor, type TowerFloor, type TowerTargetMode } from './_floor-catalog.js';
 import {
     type TowerSession,
     type TowerActor,
@@ -1127,7 +1129,7 @@ function placeTowerBarrier(session: TowerSession, caster: TowerActor, target: To
  *  self-cast buff/heal) through the PvP resolver, with the tower env multiplier folded in. */
 function runJutsu(session: TowerSession, actor: TowerActor, target: TowerActor, jutsu: JutsuLike, wMult: number): void {
     const selfCast = actor.id === target.id;
-    const eventIncomingMult = worldBossIncomingDamageMultiplier(session, actor, target);
+    const eventIncomingMult = incomingBossDamageMultiplier(session, actor, target);
     wMult *= eventIncomingMult;
     // Defense in depth for every Tower-only cast path. applyAction rejects an explicit
     // locked-boss intent before spending anything; splash/companions also filter it.
@@ -1299,6 +1301,11 @@ type TowerAoeHitOutput = Readonly<{
  * Tower policy is explicitly atomic: defender reactions may defeat the caster,
  * but every target in the committed cast still resolves in canonical order.
  */
+function incomingBossDamageMultiplier(session: TowerSession, actor: TowerActor, target: TowerActor): number {
+    const clan = session.towerId === 'clan-boss' && actor.side === 'squad' && target.side === 'enemy' ? clanBossGuardMultiplier(session.clanBossGuard, session.round, target.id) : 1;
+    return clan * worldBossIncomingDamageMultiplier(session, actor, target);
+}
+
 function worldBossIncomingDamageMultiplier(session: TowerSession, actor: TowerActor, target: TowerActor): number {
     if (!session.worldBossEvent || actor.side !== 'squad' || target.side !== 'enemy'
         || target.id !== session.phaseState.bossId) return 1;
@@ -1361,7 +1368,7 @@ function runAoeJutsu(
     // Reference receipt preserves the exact existing primary-hit log ordering.
     const primaryReference = resolveAoeFighters(
         session, actorToFighter(actor), actorToFighter(primary), jutsu,
-        wMult * worldBossIncomingDamageMultiplier(session, actor, primary), primaryCap,
+        wMult * incomingBossDamageMultiplier(session, actor, primary), primaryCap,
     );
     const initialHp = actor.hp;
     const protectedCasterHp = objectiveBossDamageLocked(session, actor) ? actor.hp : undefined;
@@ -1397,7 +1404,7 @@ function runAoeJutsu(
                 split.perHit,
                 // Protection belongs to each victim, not the selected AOE center.
                 wMult / formationDefendMult(session, primary) * formationDefendMult(session, victim)
-                    * worldBossIncomingDamageMultiplier(session, actor, victim),
+                    * incomingBossDamageMultiplier(session, actor, victim),
                 cap,
             );
             return {
@@ -2066,6 +2073,8 @@ function expireCompanions(session: TowerSession): void {
 }
 
 export function startRound(session: TowerSession): void {
+    syncClanBossGuard(session);
+    if (session.clanBossGuard) tickBossPhases(session);
     const marker = `--- Round ${session.round} ---`;
     if (!session.log.includes(marker)) {
         // The initial marker belongs before the hunt label; later markers
@@ -2231,6 +2240,12 @@ function squadFightersAlive(session: TowerSession): boolean {
     return session.actors.some(a => a.side === 'squad' && a.hp > 0 && !isCompanionActor(a));
 }
 
+function pushOutcomeLog(session: TowerSession, floor: TowerFloor, line: string): void {
+    const clan = session.towerId === 'clan-boss'
+        || (session.runId.startsWith('cboss-') && CLAN_BOSS_FLOORS.some(entry => entry.id === floor.id));
+    session.log.push(clan ? clanBossOutcomeLog(line, floor.id) : line);
+}
+
 export function checkTowerWinner(session: TowerSession, floor: TowerFloor): void {
     if (cancelInvalidTowerSignature(session)) refreshHazardTelegraph(session);
     recordTowerKnockouts(session);
@@ -2244,7 +2259,7 @@ export function checkTowerWinner(session: TowerSession, floor: TowerFloor): void
     if (!squadFightersAlive(session)) {
         session.status = 'done'; session.winner = 'enemy';
         session.objectiveState.failed = true;
-        session.log.push(session.towerId === 'narrative-group' ? 'You were defeated. The encounter ended without a win.' : session.towerId === 'story-twin-trial' ? 'You were defeated. The trial is still open.' : session.worldBossEvent ? 'Team wiped — world boss raid ended. Your contribution can still be banked.' : 'Squad wiped — floor failed.');
+        pushOutcomeLog(session, floor, session.towerId === 'narrative-group' ? 'You were defeated. The encounter ended without a win.' : session.towerId === 'story-twin-trial' ? 'You were defeated. The trial is still open.' : session.worldBossEvent ? 'Team wiped — world boss raid ended. Your contribution can still be banked.' : 'Squad wiped — floor failed.');
         return;
     }
     if (objectiveFailed(session, floor)) {
@@ -2256,7 +2271,7 @@ export function checkTowerWinner(session: TowerSession, floor: TowerFloor): void
     if (squadWinsByObjective(session, floor)) {
         session.status = 'done'; session.winner = 'squad';
         session.objectiveState.completed = true;
-        session.log.push(session.towerId === 'narrative-group' ? 'Every opponent is defeated. Encounter won!'
+        pushOutcomeLog(session, floor, session.towerId === 'narrative-group' ? 'Every opponent is defeated. Encounter won!'
             : session.towerId === 'story-twin-trial' ? 'Both twins are defeated. Trial won!'
             : session.towerId === 'hunt' ? 'Hunt encounter cleared!'
             : session.towerId === 'sunscar-caravan-ambush' ? 'The road is open.'
@@ -2270,7 +2285,7 @@ function tickBossPhases(session: TowerSession): void {
     if (!id) return;
     const boss = getActor(session, id);
     if (!boss || boss.maxHp <= 0) return;
-    const pct = (boss.hp / boss.maxHp) * 100;
+    const pct = clanBossPhasePercent(session, boss);
     while (session.phaseState.pendingPhases.length && pct <= session.phaseState.pendingPhases[0]!) {
         const t = session.phaseState.pendingPhases.shift()!;
         session.phaseState.triggeredPhases.push(t);
@@ -2396,10 +2411,12 @@ function towerActionVfx(session: TowerSession, actor: TowerActor, action: TowerA
  * early returns) so the combat path itself is byte-for-byte what it was.
  */
 export function applyAction(session: TowerSession, floor: TowerFloor, action: TowerAction, rng: () => number): ActionResult {
+    const guardBefore = clanBossGuardSnapshot(session);
     const hpBefore = new Map(session.actors.map(a => [a.id, a.hp]));
     const vfxSeqBefore = session.vfxSeq;
     const result = applyResolvedAction(session, floor, action, rng);
     if (!result.applied) return result;
+    noteClanBossGuardAction(session, action, guardBefore);
     reconcileTowerGroundStatuses(session);
     if (cancelInvalidTowerSignature(session)) refreshHazardTelegraph(session);
     recordTowerKnockouts(session);
@@ -2581,6 +2598,7 @@ function applyResolvedAction(session: TowerSession, floor: TowerFloor, action: T
             const cleared = removeActiveCombatStatusesByKind(cTarget.statuses, 'positive', session.round);
             const removed = cleared.removed.map(status => status.name);
             cTarget.statuses = cleared.statuses;
+            if (isHuman(actor) && cTarget.id === session.clanBossGuard?.bossId) openClanBossGuard(session, 'Clear');
             const hadShield = cTarget.shield > 0;
             cTarget.shield = 0;
             session.log.push(`Clear: removed ${removed.length ? removed.join(', ') : 'no positive effects'} from ${cTarget.name}${hadShield ? ' and broke their shield' : ''}.`);
@@ -2972,7 +2990,12 @@ export function endTurn(session: TowerSession, floor: TowerFloor): void {
     applyRoundStatusTicks(session); // bleed Wound/Poison/Drain + expire statuses (PvP DoT math)
     collectRoundPlates();
     applyRoundHazards(session); // chip anyone standing on a hazard tile at round end
-    applyBossStrikeAndRing(session); // detonate the telegraphed boss strike + closing-ring chip
+    const avoidedBefore = session.towerTactics?.avoidedStrikes ?? 0;
+    const baitsBefore = session.towerTactics?.chargeBaits ?? 0;
+    applyBossStrikeAndRing(session);
+    if ((session.towerTactics?.chargeBaits ?? 0) > baitsBefore) openClanBossGuard(session, 'pillar bait', session.round + 1);
+    else if ((session.towerTactics?.avoidedStrikes ?? 0) > avoidedBefore) openClanBossGuard(session, 'avoided signature', session.round + 1);
+    // detonate the telegraphed boss strike + closing-ring chip
     collectRoundPlates();
     const geyserTiles = applyRoundDynamicHazards(session); // erupt any geyser vents scheduled for this round
     if (geyserTiles.length) roundPlates.push({ key: 'magma', anchor: 'area', tiles: geyserTiles });
@@ -2996,7 +3019,7 @@ export function endTurn(session: TowerSession, floor: TowerFloor): void {
         session.status = 'done';
         session.winner = 'enemy';
         session.objectiveState.failed = true;
-        session.log.push(session.towerId === 'narrative-group' ? 'Round limit reached. The encounter ended without a win.' : session.towerId === 'story-twin-trial' ? 'Round limit reached. The trial ended without a win.' : session.worldBossEvent ? 'Round limit reached — world boss raid ended. Bank your team contribution.' : 'Round limit reached — floor failed.');
+        pushOutcomeLog(session, floor, session.towerId === 'narrative-group' ? 'Round limit reached. The encounter ended without a win.' : session.towerId === 'story-twin-trial' ? 'Round limit reached. The trial ended without a win.' : session.worldBossEvent ? 'Round limit reached — world boss raid ended. Bank your team contribution.' : 'Round limit reached — floor failed.');
         return;
     }
     session.round += 1;
@@ -3499,7 +3522,7 @@ function forceTimeoutResolve(session: TowerSession, floor: TowerFloor): void {
         session.status = 'done';
         session.winner = 'enemy';
         session.objectiveState.failed = true;
-        session.log.push('The floor could not be completed. This attempt ends in defeat.');
+        pushOutcomeLog(session, floor, session.towerId === 'clan-boss' || session.runId.startsWith('cboss-') ? 'Floor resolution stalled \u2014 floor failed.' : 'The floor could not be completed. This attempt ends in defeat.');
     }
 }
 
@@ -3576,7 +3599,7 @@ function companionDealDamage(session: TowerSession, actor: TowerActor, target: T
     const cap = Math.max(1, Math.floor(target.maxHp * COMPANION_MAX_DAMAGE_FRAC));
     const defended = activeCombatStatuses(target.statuses, session.round)
         .some(status => status.source === 'item-defense-pill');
-    const dealt = Math.floor(Math.max(0, Math.min(Math.floor(raw), cap)) * (defended ? 0.85 : 1));
+    const dealt = Math.floor(Math.max(0, Math.min(Math.floor(raw), cap)) * (defended ? 0.85 : 1) * (session.towerId === 'clan-boss' ? clanBossGuardMultiplier(session.clanBossGuard, session.round, target.id) : 1));
     target.hp = Math.max(0, target.hp - dealt);
     // Loyal Hunter-style gear bleeds part of the pet's damage back to its owner.
     const lifestealPct = companionOwnerLifestealPct(gearId);

@@ -1,4 +1,7 @@
+import { ClanBossGuardBanner } from '../components/ClanBossGuardBanner';
+import { clanBossGuardMultiplier } from '../../../shared/clan-boss-guard';
 import { TowerResultHeader } from "../components/TowerResultHeader";
+import { clanBossOutcomeLog } from "../../../shared/clan-boss-operation";
 import { sameJsonValue } from "../lib/pvp-session-runtime";
 import { TowerPersonalBestReceipt } from "../components/TowerPersonalBestReceipt";
 import { TOWER_DISRUPT_AP, TOWER_SIGNATURES, TOWER_HONORS, towerSignaturePattern } from "../../../shared/tower-progression";
@@ -550,7 +553,7 @@ export function BattleTowerFight({
     const [session, setSession] = useState<TowerSession>(initialSession);
     const clanBossResult = clanBossAssaultResult(session, variant);
     const isClanBoss = clanBossResult !== null;
-    const displayLog = session.log;
+    const displayLog = isClanBoss ? session.log.map(line => clanBossOutcomeLog(line, session.floor)) : session.log;
     const battleTabs = useBattleTabs(session.log.length);
     const combatFloor = session.sealedCatalogFloor ?? session.encounterFloor;
     const [mode, setMode] = useState<Mode>("idle");
@@ -1152,12 +1155,12 @@ export function BattleTowerFight({
         onRecordBattle(makeBattleEntry({
             id: `tower-${runId}`,
             ts: Date.now(),
-            mode: isStoryTrial ? 'Story encounter' : isCaravanAmbush ? "Caravan ambush" : isWorldBoss ? "World Boss Raid" : isHunt ? "World Encounter" : "Tower",
+            mode: isClanBoss ? 'Clan Boss Assault' : isStoryTrial ? 'Story encounter' : isCaravanAmbush ? "Caravan ambush" : isWorldBoss ? "World Boss Raid" : isHunt ? "World Encounter" : "Tower",
             opponent: boss?.name ?? enemyNames[0] ?? "Tower enemies",
             outcome,
             rounds: session.round ?? 1,
             self: me,
-            actions: buildActionsFromTowerLog(session.log ?? [], allyNames, enemyNames),
+            actions: buildActionsFromTowerLog(displayLog, allyNames, enemyNames),
         }));
         // Fire once when the floor resolves; the recordedRef guard makes extra
         // session updates no-ops, so we intentionally don't list every field.
@@ -1739,6 +1742,7 @@ export function BattleTowerFight({
             ap: mode === "weapon" ? armedWeapon?.item.apCost ?? 40 : mode === "jutsu" ? selJutsu?.ap : 40,
             pierce,
             weaponElement: mode === "weapon" ? armedWeapon?.item.weaponElement : undefined,
+            bossIncomingMultiplier: clanBossGuardMultiplier(session.clanBossGuard, session.round, target.id),
         });
         if (estimate.rawDamage > 0) metrics.push(`≈${estimate.rawDamage.toLocaleString()} damage`);
         if (estimate.shieldAbsorbed > 0) metrics.push(`${estimate.shieldAbsorbed.toLocaleString()} into guard`);
@@ -1844,6 +1848,7 @@ export function BattleTowerFight({
 
                 {/* Board */}
                 <main className={`tower-fight-main tower-battle-${battleTabs.tab}`} style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+                    <ClanBossGuardBanner guard={session.clanBossGuard} round={session.round} />
                     <header className="tower-fight-header tower-fight-statusbar" style={{
                             ...(encounterArt ? { ["--tower-encounter-art" as string]: `url("${encounterArt.src}")` } : {}),
                         }} data-has-encounter-art={encounterArt ? "true" : undefined} data-art-kind={encounterArt?.kind}>

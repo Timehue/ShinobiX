@@ -325,11 +325,11 @@ test("capPetStats no longer ceilings HP/ATK/DEF/SPD but still caps jutsu power",
     for (const j of huge.jutsus) assert.ok(j.power <= cap, `jutsu ${j.name}: ${j.power} > ${cap}`);
 });
 
-test("gainPetXp grants one Growth Point per level regardless of XP source", () => {
+test("gainPetXp grants three Growth Points per level regardless of XP source", () => {
     const pet = stdPet();
     const out = gainPetXp(pet, xpForLevels(5), "strength");
     assert.equal(out.level, 6);
-    assert.equal(out.growthPoints, 5);
+    assert.equal(out.growthPoints, 15);
     assert.deepEqual(out.growthAllocation, { vitality: 0, power: 0, guard: 0, agility: 0 });
     assert.equal(out.hp, Math.round(pet.hp * (1 + PET_CORE_GROWTH_PER_LEVEL * 5)));
     assert.equal(out.attack, Math.round(pet.attack * (1 + PET_CORE_GROWTH_PER_LEVEL * 5)));
@@ -343,7 +343,7 @@ test("treat, bond, and focused XP use identical automatic growth", () => {
     const treat = gainPetXp(pet, amount);
     assert.deepEqual([focused.hp, focused.attack, focused.defense, focused.speed], [bond.hp, bond.attack, bond.defense, bond.speed]);
     assert.deepEqual([focused.hp, focused.attack, focused.defense, focused.speed], [treat.hp, treat.attack, treat.defense, treat.speed]);
-    assert.equal(treat.growthPoints, 4);
+    assert.equal(treat.growthPoints, 12);
 });
 
 test("a max-level pet gains no stats from further training XP (the level-100 ceiling)", () => {

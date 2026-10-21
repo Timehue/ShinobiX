@@ -12,7 +12,7 @@ const currentTeamEngine: TeamEngine = { applyAction, startRound, endTurn, pickAi
 /** Public-state bounded policy: dodge marked tiles, clear guards, maintain a
  * damage setup, use sustain when injured, focus adds, then legal best immediate
  * damage. Resolver previews decide legality and current outcomes only. */
-function squadAction(session: TowerSession, floor: TowerFloor, actor: TowerActor, cautious: boolean, engine: TeamEngine): TowerAction {
+function squadAction(session: TowerSession, floor: TowerFloor, actor: TowerActor, cautious: boolean, engine: TeamEngine, preferred: string[] = [], guardCounterplay = false): TowerAction {
     const enemies = session.actors.filter(a => a.side === 'enemy' && a.hp > 0).sort((a, b) => a.hp - b.hp || a.id.localeCompare(b.id));
     const target = enemies[0];
     if (!target) return { actorId: actor.id, type: 'wait' };
@@ -37,9 +37,17 @@ function squadAction(session: TowerSession, floor: TowerFloor, actor: TowerActor
         && hexDistance(actor.pos, feature.tiles[0]!, session.map.width) <= 1);
     if (pylon) { const action: TowerAction = { actorId: actor.id, type: 'disrupt', tile: pylon.tiles[0]! }; if (legal(action)) return action; }
     const priorities: TowerAction[] = [];
+    for (const id of preferred) {
+        const jutsu = (actor.character.jutsu as Array<{ id: string; tags?: Array<{ name: string }> }>).find(j => j.id === id);
+        if (!jutsu) continue;
+        const tags = jutsu.tags ?? [];
+        if (tags.some(t => ['Reflect', 'Drain'].includes(t.name) && (positive(actor, t.name, session.round) || positive(target, t.name, session.round)))) continue;
+        priorities.push({ actorId: actor.id, type: 'jutsu', jutsuId: id, targetId: target.id });
+    }
     if (cautious && actor.statuses.some(s => s.kind === 'negative' && ['Poison', 'Wound', 'Drain', 'Recoil', 'Increase Damage Taken', 'Decrease Damage Given'].includes(s.name))) priorities.push({ actorId: actor.id, type: 'cleanse' });
     if (cautious && actor.hp < actor.maxHp * .35) priorities.push({ actorId: actor.id, type: 'heal' });
-    if (cautious && (target.shield > 400 || positive(target, 'Reflect', session.round) || positive(target, 'Decrease Damage Taken', session.round) || positive(target, 'Absorb', session.round) || positive(target, 'Lifesteal', session.round) || positive(target, 'Increase Damage Given', session.round))) priorities.push({ actorId: actor.id, type: 'clear', targetId: target.id });
+    const clearGuard = guardCounterplay && target.id === session.clanBossGuard?.bossId && session.round > session.clanBossGuard.openThroughRound && !positive(target, 'Clear Prevent', session.round);
+    if (cautious && (clearGuard || target.shield > 400 || positive(target, 'Reflect', session.round) || positive(target, 'Decrease Damage Taken', session.round) || positive(target, 'Absorb', session.round) || positive(target, 'Lifesteal', session.round) || positive(target, 'Increase Damage Given', session.round))) priorities.push({ actorId: actor.id, type: 'clear', targetId: target.id });
     if (!positive(actor, 'Increase Damage Given', session.round)) priorities.push({ actorId: actor.id, type: 'jutsu', jutsuId: 'starter-gen-earth-1', targetId: target.id });
     if (cautious && actor.hp < actor.maxHp * .8 && !positive(actor, 'Lifesteal', session.round)) priorities.push({ actorId: actor.id, type: 'jutsu', jutsuId: 'starter-nin-earth-3', targetId: target.id });
     if (cautious && actor.shield < 200 && !positive(target, 'Increase Damage Taken', session.round)) priorities.push({ actorId: actor.id, type: 'jutsu', jutsuId: 'starter-nin-earth-1', targetId: target.id });
@@ -62,7 +70,7 @@ function squadAction(session: TowerSession, floor: TowerFloor, actor: TowerActor
     return { actorId: actor.id, type: 'wait' };
 }
 
-export function runAuditedBossTeam(session: TowerSession, floor: TowerFloor, cautious = true, engine: TeamEngine = currentTeamEngine) {
+export function runAuditedBossTeam(session: TowerSession, floor: TowerFloor, cautious = true, engine: TeamEngine = currentTeamEngine, preferredByOwner: Record<string, string[]> = {}, guardCounterplay = false) {
     const rng = makeRng(session.seed);
     const totals = Object.fromEntries(session.actors.filter(a => a.side === 'squad').map(a => [a.id, { maxHp: a.maxHp, initialHp: a.hp, minimumHp: a.hp, hpLossObservedLowerBound: 0, hpRecoveryObservedLowerBound: 0, shieldLossDuringEnemyActions: 0, shieldGainObserved: 0, shieldExpiredOrLostAtTurnBoundary: 0 }]));
     const track = (fn: () => unknown, enemyAction = false, boundary = false) => {
@@ -81,7 +89,7 @@ export function runAuditedBossTeam(session: TowerSession, floor: TowerFloor, cau
     while (session.status === 'active' && guard++ < 4000) {
         const actor = activeActor(session);
         if (!actor || actor.hp <= 0) { track(() => engine.endTurn(session, floor), false, true); continue; }
-        const action = actor.side === 'squad' ? squadAction(session, floor, actor, cautious, engine) : engine.pickAiAction(session, actor, rng);
+        const action = actor.side === 'squad' ? squadAction(session, floor, actor, cautious, engine, preferredByOwner[actor.ownerSlug ?? ''] ?? [], guardCounterplay) : engine.pickAiAction(session, actor, rng);
         if (action.type === 'wait') { track(() => engine.endTurn(session, floor), false, true); continue; }
         let applied = false;
         const beforeContribution = snapshotWorldBossContribution(session);

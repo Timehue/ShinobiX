@@ -234,8 +234,15 @@ export async function claimClanBossBattleMarkers(input: {
             battle: await kv.get<unknown>(battleLockKey(member)),
             marker: await kv.get<unknown>(clanBossBattleMarkerKey(member)),
         })));
+        for (const row of rows) {
+            if (isClanBossBattleMarker(row.marker) && row.marker.runId !== input.runId
+                && !(await isLiveClanBossMarker(kv, row.marker, now()))) {
+                await kv.del(clanBossBattleMarkerKey(row.member));
+                row.marker = null;
+            }
+        }
         const busy = rows.filter(row => row.battle !== null
-            || (isClanBossBattleMarker(row.marker) && row.marker.requestId !== input.requestId))
+            || (isClanBossBattleMarker(row.marker) && row.marker.runId !== input.runId))
             .map(row => row.member);
         if (busy.length) return { ok: false, code: 'member-busy', members: busy };
 

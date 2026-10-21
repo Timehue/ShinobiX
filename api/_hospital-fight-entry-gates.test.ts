@@ -169,13 +169,14 @@ describe('fight entry points refuse a hospitalized player before anything is cre
 // The check is per FILE: one isIncapacitated call anywhere passes the whole
 // file. An endpoint with more than one entry branch therefore needs a handler
 // test per branch in the block above (ai-fight-start has two).
-const FIGHT_CREATION = /\bbuildTowerEncounter\(|\bclaimTowerBattleLeases\(|\bwriteSoloPveSession\((?!withSoloPveSettlementReceipt)/;
+const FIGHT_CREATION = /\bpublishClanBossStart\(|\bbuildTowerEncounter\(|\bclaimTowerBattleLeases\(|\bwriteSoloPveSession\((?!withSoloPveSettlementReceipt)/;
 
 /** Files that create fights WITHOUT calling isIncapacitated, and why that is right. */
 const EXEMPT: Record<string, string> = {
     // Definitions — the entry points that call them are checked.
     'api/solo-pve/_store.ts': 'defines writeSoloPveSession',
     'api/towers/_encounter.ts': 'defines buildTowerEncounter',
+    'api/clan-boss/_start-publication.ts': 'publishes an already reserved Clan Boss attempt; assault-start.ts gates new members under the progress lock, while paid recovery must remain usable in hospital',
     'api/towers/_battle-lease.ts': 'defines claimTowerBattleLeases',
     // Matchmade PvP that fights on a FRESH pool, like ranked. Admission is gated
     // where a player asks to join; the match itself is formed from those joins.

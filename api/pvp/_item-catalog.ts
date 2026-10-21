@@ -41,7 +41,7 @@ export type CatalogItem = {
 };
 
 export const ITEM_CATALOG: Record<string, CatalogItem> = {
-    "ancient-pet-treat": {"id":"ancient-pet-treat","name":"Ancient Treats","slot":"item","rarity":"epic","cost":520,"stackable":true,"bonuses":{}},
+    "ancient-pet-treat": {"id":"ancient-pet-treat","name":"Ancient Treats","slot":"item","rarity":"epic","cost":0,"stackable":true,"bonuses":{}},
     "ash-wrapped-tanto": {"id":"ash-wrapped-tanto","name":"Ash-Wrapped Tanto","slot":"hand","rarity":"common","cost":220,"levelReq":1,"weaponRange":4,"weaponCooldown":5,"weaponEp":14,"weaponEffect":"Decrease Damage Given","weaponEffectValue":10,"bonuses":{"genjutsuOffense":54}},
     "ash-wrapped-tanto-s1": {"id":"ash-wrapped-tanto-s1","name":"Cinder Cord Tanto","slot":"hand","rarity":"common","cost":0,"levelReq":1,"weaponRange":4,"weaponCooldown":5,"weaponEp":14.5,"weaponEffect":"Decrease Damage Given","weaponEffectValue":10,"bonuses":{"genjutsuOffense":54}},
     "ash-wrapped-tanto-s2": {"id":"ash-wrapped-tanto-s2","name":"Ember Fang Tanto","slot":"hand","rarity":"common","cost":0,"levelReq":1,"weaponRange":4,"weaponCooldown":5,"weaponEp":15,"weaponEffect":"Decrease Damage Given","weaponEffectValue":10,"bonuses":{"genjutsuOffense":54}},
@@ -136,7 +136,7 @@ export const ITEM_CATALOG: Record<string, CatalogItem> = {
     "eclipse-fang-dagger": {"id":"eclipse-fang-dagger","name":"Eclipse Fang Dagger","slot":"hand","rarity":"mythic","cost":100,"levelReq":55,"weaponRange":4,"weaponCooldown":5,"weaponEp":25,"weaponEffect":"Lifesteal","weaponEffectValue":35,"bonuses":{"genjutsuOffense":157}},
     "elderbranch-katana": {"id":"elderbranch-katana","name":"Elderbranch Katana","slot":"hand","rarity":"legendary","cost":100,"levelReq":40,"weaponRange":4,"weaponCooldown":5,"weaponEp":22,"weaponEffect":"Absorb","weaponEffectValue":30,"bonuses":{"ninjutsuOffense":134}},
     "elemental-core": {"id":"elemental-core","name":"Elemental Core","slot":"item","rarity":"legendary","cost":0,"stackable":true,"bonuses":{}},
-    "elemental-pet-treat": {"id":"elemental-pet-treat","name":"Elemental Treats","slot":"item","rarity":"rare","cost":260,"stackable":true,"bonuses":{}},
+    "elemental-pet-treat": {"id":"elemental-pet-treat","name":"Elemental Treats","slot":"item","rarity":"rare","cost":0,"stackable":true,"bonuses":{}},
     "elemental-shard": {"id":"elemental-shard","name":"Elemental Shard","slot":"item","rarity":"epic","cost":0,"stackable":true,"bonuses":{}},
     "embercoil-scythe": {"id":"embercoil-scythe","name":"Embercoil Scythe","slot":"hand","rarity":"legendary","cost":100,"levelReq":40,"weaponRange":4,"weaponCooldown":5,"weaponEp":22,"weaponEffect":"Lifesteal","weaponEffectValue":30,"bonuses":{"taijutsuOffense":128}},
     "event-forged-die": {"id":"event-forged-die","name":"The Forged Escrow-Die","slot":"item","rarity":"epic","cost":0,"levelReq":65,"bonuses":{}},
@@ -182,7 +182,7 @@ export const ITEM_CATALOG: Record<string, CatalogItem> = {
     "gather-stormglass-shard-pristine": {"id":"gather-stormglass-shard-pristine","name":"Pristine Stormglass Shard","slot":"item","rarity":"common","cost":0,"stackable":true,"bonuses":{}},
     "gather-stormglass-shard-superior": {"id":"gather-stormglass-shard-superior","name":"Superior Stormglass Shard","slot":"item","rarity":"common","cost":0,"stackable":true,"bonuses":{}},
     "glacier-king-cleaver": {"id":"glacier-king-cleaver","name":"Glacier King Cleaver","slot":"hand","rarity":"mythic","cost":100,"levelReq":55,"weaponRange":4,"weaponCooldown":5,"weaponEp":25,"weaponEffect":"Shield","weaponEffectValue":400,"bonuses":{"taijutsuOffense":163}},
-    "golden-apple": {"id":"golden-apple","name":"Golden Apple","slot":"item","rarity":"legendary","cost":20,"stackable":true,"bonuses":{}},
+    "golden-apple": {"id":"golden-apple","name":"Golden Apple","slot":"item","rarity":"legendary","cost":40,"stackable":true,"bonuses":{}},
     "hollow-beast-cache": {"id":"hollow-beast-cache","name":"Hollow Beast Cache","slot":"item","rarity":"legendary","cost":0,"stackable":true,"bonuses":{}},
     "hollow-gate-key": {"id":"hollow-gate-key","name":"Hollow Gate Key","slot":"item","rarity":"rare","cost":0,"stackable":true,"bonuses":{}},
     "hunt-ancient-beast-core": {"id":"hunt-ancient-beast-core","name":"Ancient Beast Core","slot":"item","rarity":"epic","cost":0,"bonuses":{}},
@@ -251,7 +251,7 @@ export const ITEM_CATALOG: Record<string, CatalogItem> = {
     "padded-leggings-s1": {"id":"padded-leggings-s1","name":"Redcross Leggings","slot":"legs","rarity":"uncommon","cost":0,"levelReq":15,"armorQuality":"Reinforced","armorReduction":0.035,"bonuses":{"ninjutsuOffense":14,"taijutsuOffense":14,"bukijutsuOffense":14,"genjutsuOffense":14,"ninjutsuDefense":14,"taijutsuDefense":14,"bukijutsuDefense":14,"genjutsuDefense":14}},
     "padded-leggings-s2": {"id":"padded-leggings-s2","name":"Crimson Quilt Leggings","slot":"legs","rarity":"uncommon","cost":0,"levelReq":15,"armorQuality":"Reinforced","armorReduction":0.04,"bonuses":{"ninjutsuOffense":14,"taijutsuOffense":14,"bukijutsuOffense":14,"genjutsuOffense":14,"ninjutsuDefense":14,"taijutsuDefense":14,"bukijutsuDefense":14,"genjutsuDefense":14}},
     "padded-leggings-s3": {"id":"padded-leggings-s3","name":"Redtassel Shin Guards","slot":"legs","rarity":"uncommon","cost":0,"levelReq":15,"armorQuality":"Reinforced","armorReduction":0.045,"bonuses":{"ninjutsuOffense":14,"taijutsuOffense":14,"bukijutsuOffense":14,"genjutsuOffense":14,"ninjutsuDefense":14,"taijutsuDefense":14,"bukijutsuDefense":14,"genjutsuDefense":14}},
-    "pet-treat": {"id":"pet-treat","name":"Treats","slot":"item","rarity":"common","cost":80,"stackable":true,"bonuses":{}},
+    "pet-treat": {"id":"pet-treat","name":"Treats","slot":"item","rarity":"common","cost":400,"stackable":true,"bonuses":{}},
     "potion-rejuvenation": {"id":"potion-rejuvenation","name":"Rejuvenation Potion","slot":"potion","rarity":"rare","cost":1800,"stackable":true,"apCost":20,"restoreChakra":1000,"restoreStamina":1000,"bonuses":{}},
     "profession-change-approval": {"id":"profession-change-approval","name":"Profession Change Scroll","slot":"item","rarity":"legendary","cost":200,"levelReq":20,"serviceItem":true,"bonuses":{}},
     "pve-apex-predator-fang": {"id":"pve-apex-predator-fang","name":"Apex Predator Fang","slot":"item","rarity":"epic","cost":9600,"stackable":true,"bonuses":{}},

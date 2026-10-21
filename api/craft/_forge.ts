@@ -5,6 +5,7 @@ import { effectiveItemLevelReq } from '../../shared/item-level-gate.js';
 import { isStepItemId } from '../../shared/gear-steps.js';
 import { withGearTierUnlock } from '../_gear-drops.js';
 import { SUPPLY_CRAFT_RECIPES, gearCraftIngredients, planCraftIngredients, planSelectedCraftIngredients, type CraftIngredient } from '../../shared/crafting-recipes.js';
+import { isPetFood } from '../../shared/pet-food.js';
 
 // Legacy material-point valuations remain the Village Stores donation contract.
 // The Crafter now consumes the exact ingredients in shared/crafting-recipes.ts.
@@ -49,6 +50,12 @@ export function addOwned(character: Record<string, unknown>, itemId: string, amo
         return { ...character, inventory: [...inventory, ...Array.from({ length: amount }, () => itemId)] };
     }
     const stacks = Array.isArray(character.itemStacks) ? character.itemStacks as Array<Record<string, unknown>> : [];
+    if (isPetFood(itemId)) return {
+        ...character,
+        itemStacks: [...stacks.filter(s => String(s?.itemId ?? '') !== itemId), {
+            itemId, count: stacks.filter(s => String(s?.itemId ?? '') === itemId).reduce((sum, s) => sum + count(s.count), 0) + amount,
+        }],
+    };
     const found = stacks.some((s) => String(s?.itemId ?? '') === itemId);
     return {
         ...character,
@@ -83,7 +90,7 @@ export function applyForge(character: Record<string, unknown>, kind: CraftKind, 
         const ryo = (VILLAGE_SUPPLY_GOODS[recipeId]?.ryo ?? 0) * quantity;
         if (count(character.ryo) < ryo) return null;
         const output = ITEM_CATALOG[recipeId];
-        const cap = output?.slot === 'thrown' ? 50 : output?.slot === 'potion' ? 2
+        const cap = isPetFood(recipeId) ? 9999 : output?.slot === 'thrown' ? 50 : output?.slot === 'potion' ? 2
             : output?.slot === 'item' && (output.weaponEffect != null || output.apCost != null || output.restoreChakra != null || output.restoreStamina != null) ? 50 : null;
         if (cap != null && countOwned(character, recipeId) + (recipe.count ?? 1) * quantity > cap) return null;
         const exact = consumeRecipeIngredients(character, recipe.ingredients, quantity, materials); if (!exact) return null;

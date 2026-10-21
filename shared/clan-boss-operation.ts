@@ -2,6 +2,13 @@ export const CLAN_BOSS_PARTY_MAX = 4;
 export const CLAN_BOSS_PARTY_STALE_MS = 45_000;
 export const CLAN_BOSS_SOLO_FALLBACK_MS = 120_000;
 
+/** Also projects legacy stored Tower wording without rewriting combat history. */
+export function clanBossOutcomeLog(line: string, floor: number): string {
+    if (line === `Floor ${floor} cleared!`) return 'Clan Boss assault cleared!';
+    return /^(Squad wiped|Round limit reached|Floor resolution stalled) \u2014 floor failed\.$/.test(line)
+        ? line.replace('Floor', 'Assault').replace('floor failed.', 'assault ended.') : line;
+}
+
 export type ClanBossPartyStatus =
     | 'forming'
     | 'queued'
