@@ -44,7 +44,7 @@ same commit as the workflow.
 | `CI / client-quality` | `client_quality` | 35 min | Locked root/client installs; shipped pet rig/animation, Warfront/Rally LOD, and Warfront impostor certification ahead of the build; lint, story-content/TypeScript/production build, build-size and visual-baseline-size gates, client audit (with the same retry rule as the root audit), and checksum-backed client artifact production. |
 | `CI / release-certification` | `release_certification` | 15 min | Downloads and verifies the exact compiled release artifacts, then runs the fresh-account/combat certification against them. |
 | `CI / concurrency-smoke` | `concurrency_smoke` | 15 min | Downloads and verifies the release artifacts, then runs the short real-server concurrent-player smoke. It is not a database capacity test. |
-| `CI / e2e-responsive` | `e2e_responsive` | 5 min | Fail-closed aggregate requiring every responsive smoke slice (`e2e_responsive_matrix`) and all ten flow jobs with the CSP, Stronghold, and dedicated suites (`e2e_responsive_flows`) to succeed. |
+| `CI / e2e-responsive` | `e2e_responsive` | 5 min | Fail-closed aggregate requiring every responsive smoke slice (`e2e_responsive_matrix`) and all twelve flow jobs with the CSP, Stronghold, and dedicated suites (`e2e_responsive_flows`) to succeed. |
 | `CI / e2e-combat` | `e2e_combat` | 5 min | Fail-closed stable aggregate requiring all three combat browser shards to succeed. |
 | `CI / e2e-warfront` | `e2e_warfront` | 29 min | Warfront positional-mode browser coverage on seven Chromium viewport projects, including renders of eight real skinned rigs, and adaptive-layout evidence. |
 | `CI / e2e-village-stores` | `e2e_village_stores` | 5 min | Requires all three gameplay shards; ten live Express player-journey steps retain separate real servers and all existing cases. |
@@ -81,8 +81,8 @@ hung slice fails while there is still time to upload its evidence. On main in
 October 2026 a slice took 12 to 26 minutes and setup about 2.
 
 The CSP check, the Stronghold modes and the dedicated suites run beside the
-slices in ten `e2e_responsive_flows` jobs, named `CI / e2e-responsive-flows / 1`
-through `CI / e2e-responsive-flows / 10`, each with a 29-minute ceiling:
+slices in twelve `e2e_responsive_flows` jobs, named `CI / e2e-responsive-flows / 1`
+through `CI / e2e-responsive-flows / 12`, each with a 29-minute ceiling:
 
 - Flow 1: the built CSP in Chromium and WebKit; all three Stronghold modes,
   in order, because they build into the same disposable fixture directory;
