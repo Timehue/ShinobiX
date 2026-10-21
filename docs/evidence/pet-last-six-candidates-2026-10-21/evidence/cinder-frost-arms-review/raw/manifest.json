@@ -1,0 +1,672 @@
+{
+  "schema": 1,
+  "recordedAt": "2026-10-21T05:40:50.361Z",
+  "reviewer": "review-c-luna",
+  "renderer": "Bundled actual src/pet-shape-audit.ts with project Three.js/GLTFLoader/MeshoptDecoder; local file page; GLBs injected from memory after byte hash verification",
+  "rendererBundleSha256": "aebcf4fb161c4d49b42fe861941a03a4b63017f021334da449c27cedc29ee3ba",
+  "status": "CAPTURED-PENDING-PERSONAL-VISUAL-INSPECTION",
+  "ids": [
+    "standard-15",
+    "rare-21"
+  ],
+  "clipsPerModel": 13,
+  "phases": [
+    0,
+    0.125,
+    0.375,
+    0.625,
+    0.875,
+    1
+  ],
+  "views": [
+    "front",
+    "side",
+    "head-front",
+    "head-side",
+    "head-other-side"
+  ],
+  "uniqueClipNamesObserved": [
+    "idle",
+    "idle_2",
+    "walk",
+    "gallop",
+    "gallop_jump",
+    "attack",
+    "idle_hitreact1",
+    "death",
+    "entrance",
+    "cast",
+    "guard",
+    "rest",
+    "victory"
+  ],
+  "modelStages": {
+    "standard-15/source": "ab43d66d55404a9dcbee9abf6693522d84c987d85f2177002de42ce6f9c8a03a",
+    "standard-15/battle": "87759aab99789ad5c56aa0a576bc9b3c3725cf361929f86e7b689003ef976bda",
+    "rare-21/source": "7f6f76da7133b7c5076e65fd2c5d5dc494493a031650b086a6dafebc488ba10a",
+    "rare-21/battle": "48b13930068378a33bec5d52ed3ae8585a2b17007b68c8e62ef74a8fe18cd215"
+  },
+  "evidence": [
+    {
+      "id": "standard-15",
+      "stage": "source",
+      "view": "front",
+      "path": ".tmp/pet-arms-second-review-2026-10-21/raw/standard-15-source-front.png",
+      "sha256": "c098e383781040b06e3367660832cf09afced3ae6dc474cdf5717c518a25710f",
+      "modelSha256": "ab43d66d55404a9dcbee9abf6693522d84c987d85f2177002de42ce6f9c8a03a",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "phases": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ]
+    },
+    {
+      "id": "standard-15",
+      "stage": "source",
+      "view": "side",
+      "path": ".tmp/pet-arms-second-review-2026-10-21/raw/standard-15-source-side.png",
+      "sha256": "979d95a8f326c710d1045a5634c9473bbb068790c372f5c4e8cf293af0fb8c6b",
+      "modelSha256": "ab43d66d55404a9dcbee9abf6693522d84c987d85f2177002de42ce6f9c8a03a",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "phases": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ]
+    },
+    {
+      "id": "standard-15",
+      "stage": "source",
+      "view": "head-front",
+      "path": ".tmp/pet-arms-second-review-2026-10-21/raw/standard-15-source-head-front.png",
+      "sha256": "12d6d353926a7bd2c855cad02950b4d68c520e7d65f577b847adfb9cdecb434c",
+      "modelSha256": "ab43d66d55404a9dcbee9abf6693522d84c987d85f2177002de42ce6f9c8a03a",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "phases": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ]
+    },
+    {
+      "id": "standard-15",
+      "stage": "source",
+      "view": "head-side",
+      "path": ".tmp/pet-arms-second-review-2026-10-21/raw/standard-15-source-head-side.png",
+      "sha256": "e3bb4966b91d8b5931f1862149b9f6ec14dab9cee71a0a85021d500395b96026",
+      "modelSha256": "ab43d66d55404a9dcbee9abf6693522d84c987d85f2177002de42ce6f9c8a03a",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "phases": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ]
+    },
+    {
+      "id": "standard-15",
+      "stage": "source",
+      "view": "head-other-side",
+      "path": ".tmp/pet-arms-second-review-2026-10-21/raw/standard-15-source-head-other-side.png",
+      "sha256": "0a327a11a33a18c13c225eb7e4a0c3fa68655dc9f6ab74ae9d3855428de65578",
+      "modelSha256": "ab43d66d55404a9dcbee9abf6693522d84c987d85f2177002de42ce6f9c8a03a",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "phases": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ]
+    },
+    {
+      "id": "standard-15",
+      "stage": "battle",
+      "view": "front",
+      "path": ".tmp/pet-arms-second-review-2026-10-21/raw/standard-15-battle-front.png",
+      "sha256": "e2a546b4b1156f9bfb8fe65538547e3bd93cb9af53105b8fc93f25e72b80328c",
+      "modelSha256": "87759aab99789ad5c56aa0a576bc9b3c3725cf361929f86e7b689003ef976bda",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "phases": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ]
+    },
+    {
+      "id": "standard-15",
+      "stage": "battle",
+      "view": "side",
+      "path": ".tmp/pet-arms-second-review-2026-10-21/raw/standard-15-battle-side.png",
+      "sha256": "bcfd95e89dd012e4b8fcf492ce2ce0deee804d642684296306e9636a95d2c4f9",
+      "modelSha256": "87759aab99789ad5c56aa0a576bc9b3c3725cf361929f86e7b689003ef976bda",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "phases": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ]
+    },
+    {
+      "id": "standard-15",
+      "stage": "battle",
+      "view": "head-front",
+      "path": ".tmp/pet-arms-second-review-2026-10-21/raw/standard-15-battle-head-front.png",
+      "sha256": "d470349129605ac62e96ecb7e315d79ad4d96452fe0ab7391727ada3ca86fb9a",
+      "modelSha256": "87759aab99789ad5c56aa0a576bc9b3c3725cf361929f86e7b689003ef976bda",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "phases": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ]
+    },
+    {
+      "id": "standard-15",
+      "stage": "battle",
+      "view": "head-side",
+      "path": ".tmp/pet-arms-second-review-2026-10-21/raw/standard-15-battle-head-side.png",
+      "sha256": "a2c68d693228c9b2f0658e2b794fe1103205ded5a2714e67e8c1670e404b7f02",
+      "modelSha256": "87759aab99789ad5c56aa0a576bc9b3c3725cf361929f86e7b689003ef976bda",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "phases": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ]
+    },
+    {
+      "id": "standard-15",
+      "stage": "battle",
+      "view": "head-other-side",
+      "path": ".tmp/pet-arms-second-review-2026-10-21/raw/standard-15-battle-head-other-side.png",
+      "sha256": "a45f03240fe2a840a44bfa19e5ba887880a4bc34c02221891dc5a18452f059e2",
+      "modelSha256": "87759aab99789ad5c56aa0a576bc9b3c3725cf361929f86e7b689003ef976bda",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "phases": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ]
+    },
+    {
+      "id": "rare-21",
+      "stage": "source",
+      "view": "front",
+      "path": ".tmp/pet-arms-second-review-2026-10-21/raw/rare-21-source-front.png",
+      "sha256": "6cfa5c488c9a2c3115fa7fe2f8a80f86ab37f20d29b1f6b0dedb33e3970d355a",
+      "modelSha256": "7f6f76da7133b7c5076e65fd2c5d5dc494493a031650b086a6dafebc488ba10a",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "phases": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ]
+    },
+    {
+      "id": "rare-21",
+      "stage": "source",
+      "view": "side",
+      "path": ".tmp/pet-arms-second-review-2026-10-21/raw/rare-21-source-side.png",
+      "sha256": "c76c21ecd016cf863b3207a5877526813d73250f7656d5002ddcef3d75112304",
+      "modelSha256": "7f6f76da7133b7c5076e65fd2c5d5dc494493a031650b086a6dafebc488ba10a",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "phases": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ]
+    },
+    {
+      "id": "rare-21",
+      "stage": "source",
+      "view": "head-front",
+      "path": ".tmp/pet-arms-second-review-2026-10-21/raw/rare-21-source-head-front.png",
+      "sha256": "2a465ca8d13a595b651d2fe669fccd4fef6b998360f1fd8bb9b8d0e5bae8bdbd",
+      "modelSha256": "7f6f76da7133b7c5076e65fd2c5d5dc494493a031650b086a6dafebc488ba10a",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "phases": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ]
+    },
+    {
+      "id": "rare-21",
+      "stage": "source",
+      "view": "head-side",
+      "path": ".tmp/pet-arms-second-review-2026-10-21/raw/rare-21-source-head-side.png",
+      "sha256": "155b5ee48277a2f5c70b7d81519c41e1f336da6cbadaf9700ebba0b860d2c5a3",
+      "modelSha256": "7f6f76da7133b7c5076e65fd2c5d5dc494493a031650b086a6dafebc488ba10a",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "phases": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ]
+    },
+    {
+      "id": "rare-21",
+      "stage": "source",
+      "view": "head-other-side",
+      "path": ".tmp/pet-arms-second-review-2026-10-21/raw/rare-21-source-head-other-side.png",
+      "sha256": "4f853bcc2aaa8bbec8002c78f0bfd8e2e52d3b9af073ac45b1264478ab86d99e",
+      "modelSha256": "7f6f76da7133b7c5076e65fd2c5d5dc494493a031650b086a6dafebc488ba10a",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "phases": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ]
+    },
+    {
+      "id": "rare-21",
+      "stage": "battle",
+      "view": "front",
+      "path": ".tmp/pet-arms-second-review-2026-10-21/raw/rare-21-battle-front.png",
+      "sha256": "498ecbbecb1427f5070f9166fb84b77e3a5daebd86ca51dcf257ae5c284a664b",
+      "modelSha256": "48b13930068378a33bec5d52ed3ae8585a2b17007b68c8e62ef74a8fe18cd215",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "phases": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ]
+    },
+    {
+      "id": "rare-21",
+      "stage": "battle",
+      "view": "side",
+      "path": ".tmp/pet-arms-second-review-2026-10-21/raw/rare-21-battle-side.png",
+      "sha256": "9256ebbd758d486c5cf74e256c06fc6f22401cdb33a8e794f78144dcfd1b3f2c",
+      "modelSha256": "48b13930068378a33bec5d52ed3ae8585a2b17007b68c8e62ef74a8fe18cd215",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "phases": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ]
+    },
+    {
+      "id": "rare-21",
+      "stage": "battle",
+      "view": "head-front",
+      "path": ".tmp/pet-arms-second-review-2026-10-21/raw/rare-21-battle-head-front.png",
+      "sha256": "b5fac19f38d5670c5f96e07458547814da5b1b7d3fcd8db86dc155133d9c27d6",
+      "modelSha256": "48b13930068378a33bec5d52ed3ae8585a2b17007b68c8e62ef74a8fe18cd215",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "phases": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ]
+    },
+    {
+      "id": "rare-21",
+      "stage": "battle",
+      "view": "head-side",
+      "path": ".tmp/pet-arms-second-review-2026-10-21/raw/rare-21-battle-head-side.png",
+      "sha256": "d656c86b72d4668c31452b42c82b864ec5ea9ff489840464c28c4df4c9adba9a",
+      "modelSha256": "48b13930068378a33bec5d52ed3ae8585a2b17007b68c8e62ef74a8fe18cd215",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "phases": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ]
+    },
+    {
+      "id": "rare-21",
+      "stage": "battle",
+      "view": "head-other-side",
+      "path": ".tmp/pet-arms-second-review-2026-10-21/raw/rare-21-battle-head-other-side.png",
+      "sha256": "fa0aeabe433a919a54cc7f925d57c2557ccab5009ef09795b67a3cbc4410835e",
+      "modelSha256": "48b13930068378a33bec5d52ed3ae8585a2b17007b68c8e62ef74a8fe18cd215",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "phases": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ]
+    }
+  ],
+  "errors": []
+}

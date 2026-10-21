@@ -1,0 +1,121 @@
+{
+  "records": [
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-aardvark-private-v1-runtime-medium/native-source-head.png",
+      "sha256": "710378bc503e84203df014f3c88dc76c77a5681efbac94766b57c492bf7c4920",
+      "width": 1440,
+      "height": 2160,
+      "inputs": [
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-aardvark-private-v1-runtime-medium/rare-47-source-head-0.png",
+          "sha256": "18dcda993b8a8c1bdf93ed5d25e4efd00fce8c2fb7e90bbe0a603aceefabbcd3",
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-aardvark-private-v1-runtime-medium/rare-47-source-head-1.png",
+          "sha256": "2324d8092a459e05b50b8cfafbcf910b70f61571b701f55cd189859949221cd1",
+          "top": 540
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-aardvark-private-v1-runtime-medium/rare-47-source-head-2.png",
+          "sha256": "d512a83d295220772cba79f07a1393a4bd561c1c3b51869d9a5a19b29e048aa7",
+          "top": 1080
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-aardvark-private-v1-runtime-medium/rare-47-source-head-3.png",
+          "sha256": "b0c6495b3599f901fbb67d7fca76dc0df45611a14b093d3ced789aad4757ee5d",
+          "top": 1620
+        }
+      ],
+      "resizing": false
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-aardvark-private-v1-runtime-medium/native-source-body.png",
+      "sha256": "7a1f94f643d9413851ae3a5a3139ca92e3b625c2b82fe4682ab16073a3cdffd7",
+      "width": 1440,
+      "height": 2160,
+      "inputs": [
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-aardvark-private-v1-runtime-medium/rare-47-source-body-0.png",
+          "sha256": "1cba870957aae37e808e0397160fe7421af48602d3dc540f09ea9d12e7d08d7f",
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-aardvark-private-v1-runtime-medium/rare-47-source-body-1.png",
+          "sha256": "91a247032963bdbd784fb6547e0548e745484be04483a9a1a94418a756901e9e",
+          "top": 540
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-aardvark-private-v1-runtime-medium/rare-47-source-body-2.png",
+          "sha256": "4b97abfc0cafc7747a081f307441d439277bea59e014fe2579d35c4a3f1aaffc",
+          "top": 1080
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-aardvark-private-v1-runtime-medium/rare-47-source-body-3.png",
+          "sha256": "782a3c7b2cfd6872a213fd6e599dd49b5bd233265b5f8a8b1bad9af96d8d8886",
+          "top": 1620
+        }
+      ],
+      "resizing": false
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-aardvark-private-v1-runtime-medium/native-battle-head.png",
+      "sha256": "500ac90e1cb86ca690c56bac28812db4a27cc909a1c26156a1ec0fb3d1295f6c",
+      "width": 1440,
+      "height": 2160,
+      "inputs": [
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-aardvark-private-v1-runtime-medium/rare-47-battle-head-0.png",
+          "sha256": "abec10a6b3a4d0add7d46e1a0046dcaa53ec2480890dd52db75a00bd926e09f2",
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-aardvark-private-v1-runtime-medium/rare-47-battle-head-1.png",
+          "sha256": "833d00753add45ccaa82faee16ff3597dcd612bacbc0d6829e16436c77806a8a",
+          "top": 540
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-aardvark-private-v1-runtime-medium/rare-47-battle-head-2.png",
+          "sha256": "934b31e9f3acedd0117c7178a90beba1d802a0765da147e903aa9bcb04eb6d38",
+          "top": 1080
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-aardvark-private-v1-runtime-medium/rare-47-battle-head-3.png",
+          "sha256": "6e516c01b5523e18378fe2d576a2defbeb9c4c4d19dfaa252222be54dfcbc34c",
+          "top": 1620
+        }
+      ],
+      "resizing": false
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-aardvark-private-v1-runtime-medium/native-battle-body.png",
+      "sha256": "8bf5f6fafdfdb33a52a44077c9113043ec697e1724de329e64a74a026ebf2936",
+      "width": 1440,
+      "height": 2160,
+      "inputs": [
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-aardvark-private-v1-runtime-medium/rare-47-battle-body-0.png",
+          "sha256": "7abb825b3f6a86f84fb7f0a67e27b6ca58fe4fffa8581352c9e4ce41483664d4",
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-aardvark-private-v1-runtime-medium/rare-47-battle-body-1.png",
+          "sha256": "e5b1f6f212232909d2570217f9116903f5522eb9b2668bb94d491ba1178ad8db",
+          "top": 540
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-aardvark-private-v1-runtime-medium/rare-47-battle-body-2.png",
+          "sha256": "54cb7030f5330e8823313fc8efef40642d9d91b689029840116c3d8e60a7fa51",
+          "top": 1080
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-aardvark-private-v1-runtime-medium/rare-47-battle-body-3.png",
+          "sha256": "5a75c3182365a1e67086d391d8d6ac33eea81f5dd339c6f1029fac39f5b463a7",
+          "top": 1620
+        }
+      ],
+      "resizing": false
+    }
+  ],
+  "review": "pending"
+}

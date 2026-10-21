@@ -1,0 +1,10 @@
+✔ four-leg rig preserves the snake sculpture, texture and every authored performance (3.4868ms)
+✔ the foot behind the front leg no longer shares the rear-leg controls (69.1509ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 682.6698

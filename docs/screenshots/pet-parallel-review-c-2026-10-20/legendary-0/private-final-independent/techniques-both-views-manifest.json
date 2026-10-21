@@ -1,0 +1,143 @@
+{
+  "label": "parallel-c-glacier-wolf-v1-private-v1-techniques",
+  "panels": [
+    {
+      "path": ".tmp/pet-companion-techniques/parallel-c-glacier-wolf-v1-private-v1-techniques/inspection-strips/both-block-0-half-0.png",
+      "sha256": "fd367feb13c2f768fd4d59c1235eea26bbe157d595e9c2db0c46f5debb6a5c6e",
+      "sources": [
+        {
+          "path": ".tmp/pet-companion-techniques/parallel-c-glacier-wolf-v1-private-v1-techniques/inspection-strips/front-block-0-half-0.png",
+          "sha256": "c49baff72cb7794da187ad418ffef7d66f2363420b6fb94f08f341a5da9da266",
+          "width": 1434,
+          "height": 678,
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-companion-techniques/parallel-c-glacier-wolf-v1-private-v1-techniques/inspection-strips/side-block-0-half-0.png",
+          "sha256": "2f6cc1c2995be909177bb0b936949d46e3208b228e2ebbfcbf822691d355d762",
+          "width": 1434,
+          "height": 678,
+          "top": 678
+        }
+      ],
+      "nativePixelsPreserved": true,
+      "resizing": false,
+      "review": "pending"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/parallel-c-glacier-wolf-v1-private-v1-techniques/inspection-strips/both-block-0-half-1.png",
+      "sha256": "6adbf9d32d8c7758740045dced4723498054f34a65c01ba2019e70962bc67f63",
+      "sources": [
+        {
+          "path": ".tmp/pet-companion-techniques/parallel-c-glacier-wolf-v1-private-v1-techniques/inspection-strips/front-block-0-half-1.png",
+          "sha256": "c59e322de98920fc478db620466f56e6d31a694ff2471e44a66dc16bf0e36693",
+          "width": 1434,
+          "height": 678,
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-companion-techniques/parallel-c-glacier-wolf-v1-private-v1-techniques/inspection-strips/side-block-0-half-1.png",
+          "sha256": "ec245ea8ec29822b6fe4d21e97a54a33beb01d32c101d461156d3be3b7303e1d",
+          "width": 1434,
+          "height": 678,
+          "top": 678
+        }
+      ],
+      "nativePixelsPreserved": true,
+      "resizing": false,
+      "review": "pending"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/parallel-c-glacier-wolf-v1-private-v1-techniques/inspection-strips/both-block-1-half-0.png",
+      "sha256": "805594542ed5b32ac8795184fb2e3800f59ba4da99d54eec798932cbe2a1fa80",
+      "sources": [
+        {
+          "path": ".tmp/pet-companion-techniques/parallel-c-glacier-wolf-v1-private-v1-techniques/inspection-strips/front-block-1-half-0.png",
+          "sha256": "2c9299ccf774c05556b90420963f31759034a0f8d58d6ee76cc46f33b1ec73dc",
+          "width": 1434,
+          "height": 678,
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-companion-techniques/parallel-c-glacier-wolf-v1-private-v1-techniques/inspection-strips/side-block-1-half-0.png",
+          "sha256": "68f1188e48ad77bb1ee6a9cd756789bcdaf2662edbba83efa82f3711c61fb931",
+          "width": 1434,
+          "height": 678,
+          "top": 678
+        }
+      ],
+      "nativePixelsPreserved": true,
+      "resizing": false,
+      "review": "pending"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/parallel-c-glacier-wolf-v1-private-v1-techniques/inspection-strips/both-block-1-half-1.png",
+      "sha256": "c52d998ab9f29bdd31cdd90bcdb26f278682f4a46a0b60232120ea6d3c6a6ac3",
+      "sources": [
+        {
+          "path": ".tmp/pet-companion-techniques/parallel-c-glacier-wolf-v1-private-v1-techniques/inspection-strips/front-block-1-half-1.png",
+          "sha256": "cd989aff3f028b1fa733b873cfedbe2173715365fdb78402aa2029153ce5e9b1",
+          "width": 1434,
+          "height": 678,
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-companion-techniques/parallel-c-glacier-wolf-v1-private-v1-techniques/inspection-strips/side-block-1-half-1.png",
+          "sha256": "4f1da9933c37c971ac96b68e08539438ecb9fbcb57e89569129241bfb3ad9222",
+          "width": 1434,
+          "height": 678,
+          "top": 678
+        }
+      ],
+      "nativePixelsPreserved": true,
+      "resizing": false,
+      "review": "pending"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/parallel-c-glacier-wolf-v1-private-v1-techniques/inspection-strips/both-block-2-half-0.png",
+      "sha256": "e5df6ac9ff7326a7f30f4edef1109ea14f4f136f662e3914ae3178388a67a53f",
+      "sources": [
+        {
+          "path": ".tmp/pet-companion-techniques/parallel-c-glacier-wolf-v1-private-v1-techniques/inspection-strips/front-block-2-half-0.png",
+          "sha256": "33116d5a7408f92688826244fc74320f4e2add3047f385281c845ed50088755d",
+          "width": 1434,
+          "height": 678,
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-companion-techniques/parallel-c-glacier-wolf-v1-private-v1-techniques/inspection-strips/side-block-2-half-0.png",
+          "sha256": "059de9cd19b7d1da66d98cd6e735b6aafbd6c3b8b73242ca0848693662870fe4",
+          "width": 1434,
+          "height": 678,
+          "top": 678
+        }
+      ],
+      "nativePixelsPreserved": true,
+      "resizing": false,
+      "review": "pending"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/parallel-c-glacier-wolf-v1-private-v1-techniques/inspection-strips/both-block-2-half-1.png",
+      "sha256": "451f877a5a5c721827498d846cdbb526a76fb8329065b3b9ca2843504f9fd168",
+      "sources": [
+        {
+          "path": ".tmp/pet-companion-techniques/parallel-c-glacier-wolf-v1-private-v1-techniques/inspection-strips/front-block-2-half-1.png",
+          "sha256": "760d7d92ecf627e50ff94ea03f631404db27a9ab28fb593ed2d97173d0facb94",
+          "width": 1434,
+          "height": 678,
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-companion-techniques/parallel-c-glacier-wolf-v1-private-v1-techniques/inspection-strips/side-block-2-half-1.png",
+          "sha256": "5a1d6018624660d8bf232874111650e866851cb6892322df4acf797fb235de44",
+          "width": 1434,
+          "height": 678,
+          "top": 678
+        }
+      ],
+      "nativePixelsPreserved": true,
+      "resizing": false,
+      "review": "pending"
+    }
+  ]
+}

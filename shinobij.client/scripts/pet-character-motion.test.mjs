@@ -8,6 +8,7 @@ import { runtimePetModels } from './lib/pet-runtime-audit.mjs';
 import {assertPayloadPreservedOrReviewed} from './lib/pet-reviewed-payload.mjs';
 import { parseStudioGlb } from './lib/pet-studio-glb.mjs';
 import { pebbleVisibleSupportProbe } from './lib/pet-pebble-visible-support.mjs';
+import { snowRabbitVisibleSupportProbe } from './lib/pet-snow-rabbit-visible-support.mjs';
 import { CHARACTER_MOTION_REVISION, createCharacterRig, solveFoot, footTrajectory, readCharacterTake, sampleChannel } from './lib/pet-character-motion.mjs';
 const publicRoot = resolve(import.meta.dirname, '../public/pet-models');
 const assetRoot = process.env.PET_CHARACTER_ASSET_ROOT ? resolve(process.env.PET_CHARACTER_ASSET_ROOT) : publicRoot;
@@ -74,7 +75,9 @@ test('production spline interpolation keeps planted feet grounded and cyclic pos
     for(const row of runtimePetModels)if(row.pet.id.startsWith('starter-'))ids.add(row.pet.id);
     for (const row of runtimePetModels.filter(row => ids.has(row.pet.id))) {
         const { json, bin } = parseStudioGlb(await readFile(assetPath(row.path))), rig = createCharacterRig(json);
-        const visibleSupport=json.extras.pebbleFullRemake?await pebbleVisibleSupportProbe(assetPath(row.path)):null;
+        const rabbitVisibleSupport=row.pet.id==='standard-1'&&json.extras.visibleGroundCalibration;
+        const visibleSupport=json.extras.pebbleFullRemake?await pebbleVisibleSupportProbe(assetPath(row.path))
+            :rabbitVisibleSupport?await snowRabbitVisibleSupportProbe(assetPath(row.path)):null;
         // The authored aquatic/amphibious bank intentionally has no planted gait.
         if(['aquatic','serpentine','amphibious'].includes(json.extras.characterMotion.family))continue;
         const chain = rig.chains[0]; assert.ok(chain, row.pet.id);
@@ -93,7 +96,11 @@ test('production spline interpolation keeps planted feet grounded and cyclic pos
             for (const p of clip.name === 'walk' || clip.name === 'gallop' ? [.1, .2, .3] : [.07, .19, .43, .68, .91]) {
                 if(visibleSupport){
                     const result=visibleSupport(clip.name,p);
-                    assert.ok(result.clearance>=0&&result.clearance<.003,`${row.pet.id}/${clip.name}@${p}: visible sole clearance ${result.clearance}`);
+                    // The Rabbit's static percentile plane passes through the
+                    // fur at some gallop samples. Bound the actual sole's
+                    // signed distance to 3mm, stricter than its old 1.2%-of-leg
+                    // pivot-distance gate; retain Pebble's nonnegative gate.
+                    assert.ok((rabbitVisibleSupport?Math.abs(result.clearance)<.003:result.clearance>=0&&result.clearance<.003),`${row.pet.id}/${clip.name}@${p}: visible sole clearance ${result.clearance}`);
                     continue;
                 }
                 rig.reset();

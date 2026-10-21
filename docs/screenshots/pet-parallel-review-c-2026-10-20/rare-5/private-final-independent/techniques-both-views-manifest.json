@@ -1,0 +1,143 @@
+{
+  "label": "parallel-c-ironback-private-v1-techniques",
+  "panels": [
+    {
+      "path": ".tmp/pet-companion-techniques/parallel-c-ironback-private-v1-techniques/inspection-strips/both-block-0-half-0.png",
+      "sha256": "49abbe7efbb9a4d6d91cb17d66358872005ed1ca7c66bdc37b20a01ab922c3f1",
+      "sources": [
+        {
+          "path": ".tmp/pet-companion-techniques/parallel-c-ironback-private-v1-techniques/inspection-strips/front-block-0-half-0.png",
+          "sha256": "654addcac5fd8e6c4422b7891b2b3508a1ee89ff7fcac5808ef228dc1adf326f",
+          "width": 1320,
+          "height": 615,
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-companion-techniques/parallel-c-ironback-private-v1-techniques/inspection-strips/side-block-0-half-0.png",
+          "sha256": "bd130cae41816dfc42e49399a406c52e0d0a2c45f46db1099faa73acbf1fdffa",
+          "width": 1320,
+          "height": 615,
+          "top": 615
+        }
+      ],
+      "nativePixelsPreserved": true,
+      "resizing": false,
+      "review": "pending"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/parallel-c-ironback-private-v1-techniques/inspection-strips/both-block-0-half-1.png",
+      "sha256": "117d7edc7d557a9047dd6ff906dea56ad60bf43f64abd0693543975229fc5828",
+      "sources": [
+        {
+          "path": ".tmp/pet-companion-techniques/parallel-c-ironback-private-v1-techniques/inspection-strips/front-block-0-half-1.png",
+          "sha256": "b4ab31a0da2e32dd55200c2d768a6ca88cb7c320edb0c4b38dde6c844ba019f9",
+          "width": 1320,
+          "height": 615,
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-companion-techniques/parallel-c-ironback-private-v1-techniques/inspection-strips/side-block-0-half-1.png",
+          "sha256": "87feb50b2cb8cf53c83ce0cfd0212c4068c6abea77e84bb8b258464cfcdec2e2",
+          "width": 1320,
+          "height": 615,
+          "top": 615
+        }
+      ],
+      "nativePixelsPreserved": true,
+      "resizing": false,
+      "review": "pending"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/parallel-c-ironback-private-v1-techniques/inspection-strips/both-block-1-half-0.png",
+      "sha256": "1e77ca9bc93b09357629a5356979364f92e99bd4d5047fb6322af77f25d17a1c",
+      "sources": [
+        {
+          "path": ".tmp/pet-companion-techniques/parallel-c-ironback-private-v1-techniques/inspection-strips/front-block-1-half-0.png",
+          "sha256": "5a6fc7e584b7438ae1b69e47449c5c053b12d0af75556f0c85f1f22ad5536c30",
+          "width": 1320,
+          "height": 615,
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-companion-techniques/parallel-c-ironback-private-v1-techniques/inspection-strips/side-block-1-half-0.png",
+          "sha256": "6db0faf5b62bc56baf5c8753a464972b66482a9743552b29afed3e42920a9778",
+          "width": 1320,
+          "height": 615,
+          "top": 615
+        }
+      ],
+      "nativePixelsPreserved": true,
+      "resizing": false,
+      "review": "pending"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/parallel-c-ironback-private-v1-techniques/inspection-strips/both-block-1-half-1.png",
+      "sha256": "da00514eeca9f195974547aa802a8f89decafdcbc7891c28fd8c4429290bb8c1",
+      "sources": [
+        {
+          "path": ".tmp/pet-companion-techniques/parallel-c-ironback-private-v1-techniques/inspection-strips/front-block-1-half-1.png",
+          "sha256": "e976a708d0a55a72bf0e1d74d0550193b1041a2025610bf685c67f531d66ad1a",
+          "width": 1320,
+          "height": 615,
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-companion-techniques/parallel-c-ironback-private-v1-techniques/inspection-strips/side-block-1-half-1.png",
+          "sha256": "6c7a7cc39053b05077e94807bbe6d28c52f403a3dc51fd18b17f7ce0e676937e",
+          "width": 1320,
+          "height": 615,
+          "top": 615
+        }
+      ],
+      "nativePixelsPreserved": true,
+      "resizing": false,
+      "review": "pending"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/parallel-c-ironback-private-v1-techniques/inspection-strips/both-block-2-half-0.png",
+      "sha256": "41dca7eb0a1e398b5c71c179e877cc628c0b5f4ab367ee5ba54204b0c08833b0",
+      "sources": [
+        {
+          "path": ".tmp/pet-companion-techniques/parallel-c-ironback-private-v1-techniques/inspection-strips/front-block-2-half-0.png",
+          "sha256": "f04eb038aa5eb6c8f0431d110b4eceed5c6dd1f36f8fb114fceb302cc4df5e9f",
+          "width": 1320,
+          "height": 615,
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-companion-techniques/parallel-c-ironback-private-v1-techniques/inspection-strips/side-block-2-half-0.png",
+          "sha256": "31f532ce2d20ea27eb134d8b02fa283de77639a0b71dfb08ea6b87e73f276442",
+          "width": 1320,
+          "height": 615,
+          "top": 615
+        }
+      ],
+      "nativePixelsPreserved": true,
+      "resizing": false,
+      "review": "pending"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/parallel-c-ironback-private-v1-techniques/inspection-strips/both-block-2-half-1.png",
+      "sha256": "87572f7cbee23f49c7b3bbb0e334a8570868ecc9a7e7b50081c1a4c1a4399c33",
+      "sources": [
+        {
+          "path": ".tmp/pet-companion-techniques/parallel-c-ironback-private-v1-techniques/inspection-strips/front-block-2-half-1.png",
+          "sha256": "a974aeb605b9e2cb94aa62bf974e093772392932e5f6a8f1eee2dcad09d3c517",
+          "width": 1320,
+          "height": 615,
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-companion-techniques/parallel-c-ironback-private-v1-techniques/inspection-strips/side-block-2-half-1.png",
+          "sha256": "7d71ce0b702bbcf5fa5e51d99b5c4e5d2c9da9610ec510041b0cf8ad5658853d",
+          "width": 1320,
+          "height": 615,
+          "top": 615
+        }
+      ],
+      "nativePixelsPreserved": true,
+      "resizing": false,
+      "review": "pending"
+    }
+  ]
+}

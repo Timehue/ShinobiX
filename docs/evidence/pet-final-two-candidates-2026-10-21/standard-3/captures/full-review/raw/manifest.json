@@ -1,0 +1,359 @@
+{
+  "schema": 1,
+  "recordedAt": "2026-10-21T06:45:47.18Z",
+  "reviewer": "review-c-luna",
+  "renderer": "Bundled actual src/pet-shape-audit.ts with project Three.js/GLTFLoader/MeshoptDecoder; local file page; GLBs injected from memory after byte hash verification",
+  "rendererBundleSha256": "aebcf4fb161c4d49b42fe861941a03a4b63017f021334da449c27cedc29ee3ba",
+  "status": "CAPTURED-PENDING-PERSONAL-VISUAL-INSPECTION",
+  "ids": [
+    "standard-3"
+  ],
+  "clipsPerModel": 13,
+  "phases": [
+    0,
+    0.125,
+    0.375,
+    0.625,
+    0.875,
+    1
+  ],
+  "views": [
+    "front",
+    "side",
+    "head-front",
+    "head-side",
+    "head-other-side"
+  ],
+  "uniqueClipNamesObserved": [
+    "idle",
+    "idle_2",
+    "walk",
+    "gallop",
+    "gallop_jump",
+    "attack",
+    "idle_hitreact1",
+    "death",
+    "entrance",
+    "cast",
+    "guard",
+    "rest",
+    "victory"
+  ],
+  "modelStages": {
+    "standard-3/source": "56167f114c6650325944de89162f2f899466a77bdefdf118c84588a7f57788b6",
+    "standard-3/battle": "a32cd2176c8f32556cb55434e4d4cb7a55222bd27c6f00b8c1b7b37fd1dc3683"
+  },
+  "evidence": [
+    {
+      "id": "standard-3",
+      "stage": "source",
+      "view": "front",
+      "path": "shinobij.client/.tmp/sol-forest-cloth-neck-v4/full-review/raw/standard-3-source-front.png",
+      "sha256": "00371b05aa6ee108533780c6e2433cf81a593a55596715f5d5ed42880bede9e2",
+      "modelSha256": "56167f114c6650325944de89162f2f899466a77bdefdf118c84588a7f57788b6",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "phases": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ]
+    },
+    {
+      "id": "standard-3",
+      "stage": "source",
+      "view": "side",
+      "path": "shinobij.client/.tmp/sol-forest-cloth-neck-v4/full-review/raw/standard-3-source-side.png",
+      "sha256": "8bc25b92cc9364f218e64bf8bbd54dc5b1f924b6b398a50339155482a16fd479",
+      "modelSha256": "56167f114c6650325944de89162f2f899466a77bdefdf118c84588a7f57788b6",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "phases": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ]
+    },
+    {
+      "id": "standard-3",
+      "stage": "source",
+      "view": "head-front",
+      "path": "shinobij.client/.tmp/sol-forest-cloth-neck-v4/full-review/raw/standard-3-source-head-front.png",
+      "sha256": "6e18740abb97fea46653f89f0a291ceed41ae5928d7d0b788218b2e0c7b4b18b",
+      "modelSha256": "56167f114c6650325944de89162f2f899466a77bdefdf118c84588a7f57788b6",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "phases": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ]
+    },
+    {
+      "id": "standard-3",
+      "stage": "source",
+      "view": "head-side",
+      "path": "shinobij.client/.tmp/sol-forest-cloth-neck-v4/full-review/raw/standard-3-source-head-side.png",
+      "sha256": "450f660947d89b728e7c46654b9bd70c18499bb4a75e389efa41b0e3c6a9b1c5",
+      "modelSha256": "56167f114c6650325944de89162f2f899466a77bdefdf118c84588a7f57788b6",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "phases": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ]
+    },
+    {
+      "id": "standard-3",
+      "stage": "source",
+      "view": "head-other-side",
+      "path": "shinobij.client/.tmp/sol-forest-cloth-neck-v4/full-review/raw/standard-3-source-head-other-side.png",
+      "sha256": "9cbe94800f6c37d3dd119badb065647233978dc25d22a4056fe5dfc3893343a0",
+      "modelSha256": "56167f114c6650325944de89162f2f899466a77bdefdf118c84588a7f57788b6",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "phases": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ]
+    },
+    {
+      "id": "standard-3",
+      "stage": "battle",
+      "view": "front",
+      "path": "shinobij.client/.tmp/sol-forest-cloth-neck-v4/full-review/raw/standard-3-battle-front.png",
+      "sha256": "bacf7b94d0751dfed17f26f4b7152ac94702a7e8ba06117de030c49e2dc16561",
+      "modelSha256": "a32cd2176c8f32556cb55434e4d4cb7a55222bd27c6f00b8c1b7b37fd1dc3683",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "phases": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ]
+    },
+    {
+      "id": "standard-3",
+      "stage": "battle",
+      "view": "side",
+      "path": "shinobij.client/.tmp/sol-forest-cloth-neck-v4/full-review/raw/standard-3-battle-side.png",
+      "sha256": "5c33055657a46f09290318eb0ff5c8475053baa0cb6f6ef2896e9096c597abf2",
+      "modelSha256": "a32cd2176c8f32556cb55434e4d4cb7a55222bd27c6f00b8c1b7b37fd1dc3683",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "phases": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ]
+    },
+    {
+      "id": "standard-3",
+      "stage": "battle",
+      "view": "head-front",
+      "path": "shinobij.client/.tmp/sol-forest-cloth-neck-v4/full-review/raw/standard-3-battle-head-front.png",
+      "sha256": "7d299fc6f668e732d94dce3fc97cb2a89a0900deb4c619f84ec3bf74e5a9467d",
+      "modelSha256": "a32cd2176c8f32556cb55434e4d4cb7a55222bd27c6f00b8c1b7b37fd1dc3683",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "phases": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ]
+    },
+    {
+      "id": "standard-3",
+      "stage": "battle",
+      "view": "head-side",
+      "path": "shinobij.client/.tmp/sol-forest-cloth-neck-v4/full-review/raw/standard-3-battle-head-side.png",
+      "sha256": "c35854065dc069f9cd3f1046fc84170d15f4505a2fb59279e86848581dbab837",
+      "modelSha256": "a32cd2176c8f32556cb55434e4d4cb7a55222bd27c6f00b8c1b7b37fd1dc3683",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "phases": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ]
+    },
+    {
+      "id": "standard-3",
+      "stage": "battle",
+      "view": "head-other-side",
+      "path": "shinobij.client/.tmp/sol-forest-cloth-neck-v4/full-review/raw/standard-3-battle-head-other-side.png",
+      "sha256": "446e81d88a74dd975d871e1da567982e8a4fc42b89fb58d2223123549208024a",
+      "modelSha256": "a32cd2176c8f32556cb55434e4d4cb7a55222bd27c6f00b8c1b7b37fd1dc3683",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "phases": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ]
+    }
+  ],
+  "errors": []
+}

@@ -11,6 +11,7 @@
  *   node scripts/generate-warfront-pet-impostors.mjs --manifest-only [--check]
  */
 import { createHash } from "node:crypto";
+import { petImpostorVertexColor } from "./lib/pet-impostor-vertex-color.mjs";
 import { mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
 import { dirname, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -186,7 +187,8 @@ function collectMeshDescriptors(scene, materialTextures, associations) {
         const materialIndex = associations.get(object.material)?.materials;
         invariant(Number.isInteger(materialIndex) && materialTextures[materialIndex],
             `${object.name}: cannot resolve its glTF primitive material`);
-        descriptors.push({ object, position, indices: indices.array, uvs, texture: materialTextures[materialIndex] });
+        const colors = object.geometry.getAttribute("color");
+        descriptors.push({ object, position, indices: indices.array, uvs, colors, texture: materialTextures[materialIndex] });
     });
     invariant(descriptors.length > 0, "GLB has no rasterizable meshes");
     return descriptors;
@@ -258,7 +260,7 @@ function wrap01(value) {
     return value - Math.floor(value);
 }
 
-function textureSample(texture, u, v, shade, output, offset) {
+function textureSample(texture, u, v, shade, output, offset, tint) {
     const x = wrap01(u) * (texture.width - 1);
     const y = wrap01(v) * (texture.height - 1);
     const x0 = Math.floor(x);
@@ -273,7 +275,7 @@ function textureSample(texture, u, v, shade, output, offset) {
         const bottom = sample(x0, y1, channel) * (1 - tx) + sample(x1, y1, channel) * tx;
         const value = top * (1 - ty) + bottom * ty;
         output[offset + channel] = Math.max(0, Math.min(255, Math.round(
-            value * texture.factor[channel] * (channel === 3 ? 1 : shade),
+            petImpostorVertexColor(value, tint?.[channel] ?? 1, channel === 3) * texture.factor[channel] * (channel === 3 ? 1 : shade),
         )));
     }
 }
@@ -374,7 +376,9 @@ function rasterizeFrame(descriptors, sampled, frame) {
                 if (z <= depth[pixel]) continue;
                 const u = wa * descriptor.uvs[ia * 2] + wb * descriptor.uvs[ib * 2] + wc * descriptor.uvs[ic * 2];
                 const v = wa * descriptor.uvs[ia * 2 + 1] + wb * descriptor.uvs[ib * 2 + 1] + wc * descriptor.uvs[ic * 2 + 1];
-                textureSample(descriptor.texture, u, v, shade, cell, pixel * 4);
+                const tint = descriptor.colors ? Array.from({ length: descriptor.colors.itemSize }, (_, channel) =>
+                    wa * descriptor.colors.getComponent(ia, channel) + wb * descriptor.colors.getComponent(ib, channel) + wc * descriptor.colors.getComponent(ic, channel)) : undefined;
+                textureSample(descriptor.texture, u, v, shade, cell, pixel * 4, tint);
                 if (cell[pixel * 4 + 3] > 0) depth[pixel] = z;
             }
         }

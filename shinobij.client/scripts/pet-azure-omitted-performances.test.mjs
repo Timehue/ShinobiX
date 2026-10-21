@@ -1,9 +1,10 @@
+import {repairAzureRyujinDeathPose} from './lib/pet-azure-death-pose.mjs';
 import test, { describe } from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile,writeFile,mkdtemp,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
-import {loadPetDeformationProbe} from './lib/pet-deformation-probe.mjs';
+import {loadPetDeformationProbe,loadPetDeformationProbeBytes} from './lib/pet-deformation-probe.mjs';
 import {retargetFittedPetPerformances,OMITTED_FITTED_PERFORMANCE_CLIPS} from './lib/pet-retarget-fitted-performances.mjs';
 import {freezeVisibleSoleRegions,selectVisibleSoleRegions,measureVisibleLimbPerformances} from './lib/pet-visible-limb-performance.mjs';
 
@@ -23,7 +24,9 @@ for(const [stage,pin] of [['source','8c2c2bfc468365ec3cac2083756048ee0641393f7de
     const bytes=await readFile(path),candidate=await retargetFittedPetPerformances(bytes,{expectedSha256:pin});
     const out=join(temp,stage+'.glb');await writeFile(out,candidate.bytes);
     const before=await loadPetDeformationProbe(path),after=await loadPetDeformationProbe(out);
-    repairedCases.set(stage,after);
+    const deliveredBefore=await readFile(fixture(`pet-terminal-action-20261021/mythic-6-${stage}.glb`)),priorDelivered=await loadPetDeformationProbeBytes(deliveredBefore);
+    for(const clip of after.animations){const prior=priorDelivered.animations.find(c=>c.name===clip.name);assert.equal(prior.tracks.length,clip.tracks.length);for(const track of clip.tracks){const actual=prior.tracks.find(t=>t.name===track.name);assert.deepEqual(actual.times,track.times);assert.deepEqual(actual.values,track.values);}}
+    repairedCases.set(stage,await loadPetDeformationProbeBytes((await repairAzureRyujinDeathPose(deliveredBefore)).bytes));
     const base=stage==='source'?original:await loadPetDeformationProbe(fixture('pet-omitted-limb-performances/mythic-6-original-lod.glb'));
     const selection=selectVisibleSoleRegions(after,regions,{original,stage});
     const baseline=measureVisibleLimbPerformances(base,selectVisibleSoleRegions(base,regions,{original,stage}),{legacy:true});
@@ -75,8 +78,8 @@ for(const stage of ['source','battle'])test(`Azure shipping ${stage}: regenerate
         if(['gallop_jump','entrance','victory'].includes(clip.clip))assert.ok(prior>.005&&value>prior*.2&&value<prior*4,`${clip.clip}/${paw}: final shipping paw motion lost or amplified`);
         if(['death','idle_2'].includes(clip.clip))assert.equal(value,0);
     }
-    const repaired=repairedCases.get('source');
+    const repaired=repairedCases.get(stage);
     for(const clip of repaired.animations){const actual=model.animations.find(c=>c.name===clip.name);assert.equal(actual.tracks.length,clip.tracks.length);for(const track of clip.tracks){const t=actual.tracks.find(t=>t.name===track.name);assert.ok(t);assert.deepEqual(t.times,track.times);assert.deepEqual(t.values,track.values);assert.equal(t.getInterpolation(),track.getInterpolation());}}
-    if(stage==='source')assert.equal(model.sha256,'29fe007d1943642b97042072c25a4d7a0fcd5b2be1f28ad0e7dd71971bb17692');
+    assert.equal(model.sha256,repaired.sha256);
 });
 });

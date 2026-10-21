@@ -1,0 +1,76 @@
+{
+  "schema": 1,
+  "errors": [],
+  "pets": [
+    {
+      "id": "rare-34",
+      "name": "Glacier Marten",
+      "url": "/.tmp/glacier-marten-floor/source-candidate-v1.glb",
+      "sha256": "6a5ed5ed8c973a90e4a3eff13be12ff2328b45856a5da2ec1f3d6664874e78be",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "progress": [
+        0.08,
+        0.28,
+        0.48,
+        0.68,
+        0.88,
+        1
+      ],
+      "views": [
+        "head-front",
+        "head-side",
+        "head-other-side",
+        "head-under-front",
+        "head-under-side"
+      ],
+      "materialTreatment": {
+        "mode": "production-diffuse",
+        "materials": 1,
+        "metalnessMax": 0.05,
+        "roughnessRange": [
+          0.58,
+          0.82
+        ]
+      },
+      "region": {
+        "y": [
+          -2,
+          -2
+        ],
+        "bounds": [
+          -0.2674910209907158,
+          0.3808539880193059,
+          0.050511431626962006,
+          0.4994840780946865,
+          0.6573265786028875,
+          1.1184684652933181
+        ],
+        "cameraPadding": 1.15
+      },
+      "sheets": [
+        "rare-34-head-front.webp",
+        "rare-34-head-side.webp",
+        "rare-34-head-other-side.webp",
+        "rare-34-head-under-front.webp",
+        "rare-34-head-under-side.webp"
+      ],
+      "review": "pending",
+      "anatomySha256": "10320ab55f75be9ed8571aca683be6aff6d979b6827faa56f3919ae3c086fedb"
+    }
+  ],
+  "artisticCertification": false
+}

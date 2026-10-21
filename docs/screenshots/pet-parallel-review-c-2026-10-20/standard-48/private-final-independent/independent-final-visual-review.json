@@ -1,0 +1,378 @@
+{
+  "id": "standard-48",
+  "name": "Gravel Pangolin",
+  "reviewer": "parallel-c",
+  "reviewedAt": "2026-10-20T15:51:17.766Z",
+  "candidate": "private-v1",
+  "sourceCandidateSha256": "22f5353ed724746372ccdcd095fa2652fc2136609995bbad701a5d361e86249e",
+  "battleCandidateSha256": "f8d8881129271a1ff9d241739e7d00a30e1df0ee81cfabe8e444f5e9f1cc63aa",
+  "atlasSha256": "0bb5f17ee7e9ca4cb9180cb777ce879f538d50f326465f738abcd658070edea5",
+  "rendererSha256": "b2253b71fbcb21a83d82de35ab5783dd57b525cfc94740fb131dd1eb0049a897",
+  "companionComponentSha256": "17ac6c4c1c4ef4eb242bebf5f0a34d9de3519bb5d6415aa906b1970afcc440f8",
+  "raw": {
+    "clipsPerStage": 13,
+    "progress": [
+      0.08,
+      0.28,
+      0.48,
+      0.68,
+      0.88,
+      1
+    ],
+    "headViews": 5,
+    "bodyViews": 2,
+    "poseViewsActuallyViewed": 1092
+  },
+  "runtime": {
+    "rowsPerStagePerBudget": 16,
+    "budgets": [
+      "low",
+      "medium"
+    ],
+    "views": [
+      "front",
+      "side"
+    ],
+    "regions": [
+      "body",
+      "head"
+    ],
+    "phaseSamples": 6,
+    "poseViewsActuallyViewed": 1536,
+    "display": "Eight native lossless composites assembled from four slices each, personally viewed at original detail."
+  },
+  "actualBattleTechniqueFramesActuallyViewed": 216,
+  "extraNativeContactFramingFramesActuallyViewed": 7,
+  "advancingIdleFramesActuallyViewed": 24,
+  "atlasCellsActuallyViewed": 16,
+  "result": "Independent visual pass for exact private candidates. All 13 fresh raw clips in both stages retain coherent pale snout, eyes and complete blue-covered jaw/chin/neck. Layered scales, shoulder and hip attachments, hands, feet and long plated tail follow the torso consistently. Underside face surfaces remain continuous; death occlusion by the arm is resolved by the other face views. All 16 low/medium production transition rows per stage retain anatomy through attack, recovery, death/revive and locomotion. All nine actual battle techniques retain body/face continuity. Original physical foot and tail floor failures at .24/.36 are no longer visible: toes and tail remain attached and above the platform, without fragments below the surface. Native breaker front/side .24/.36 and strike/breaker/open-wound side .60 retain complete feet, snout and head framing. Advancing idle 24 and atlas 16 coherent.",
+  "scopeLimit": "Original rejection remains frozen. Private candidate evidence only; no canonical or live replay asserted. Numerical clearance belongs to the parent verification and is not inferred from pixels.",
+  "wholePetApproval": false,
+  "evidence": [
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-48/private-final-independent/source-standard-48-head-front.webp",
+      "sha256": "56522c5087cd065b6c558aed5f2b8c25295e89c127c6289630f6b10e05a2e1bb",
+      "kind": "fresh-raw-head",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-48/private-final-independent/source-standard-48-head-side.webp",
+      "sha256": "b3139d56c2aad06cc7c78fca6aac10f50917cc6b1ed725e85fad4857394f0057",
+      "kind": "fresh-raw-head",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-48/private-final-independent/source-standard-48-head-other-side.webp",
+      "sha256": "ad162d98e95b6c23cd968c71473ba5eb546397e7f7643e3b3d7260f7f8ed2298",
+      "kind": "fresh-raw-head",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-48/private-final-independent/source-standard-48-head-under-front.webp",
+      "sha256": "18390f2640a066a49acab6b4a602dd9672a28b3b517c8028560811a8e68088ee",
+      "kind": "fresh-raw-head",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-48/private-final-independent/source-standard-48-head-under-side.webp",
+      "sha256": "44e4bcf28e40b7ff317b1dd307db5311debfcad2079df4022f1c7591c130f284",
+      "kind": "fresh-raw-head",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-48/private-final-independent/source-head-manifest.json",
+      "sha256": "32c0edfb7cc1710cb6ced2629b8468d2e6c4e15a25d7529b1cea5f13c9270d38",
+      "kind": "capture-manifest",
+      "actuallyViewed": false
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-48/private-final-independent/source-standard-48-front.webp",
+      "sha256": "4ceac91d8c9873e8e52e86c30af80d2e8b65ef7231fc32cbff85f3ba2e3ac4a9",
+      "kind": "fresh-raw-body",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-48/private-final-independent/source-standard-48-side.webp",
+      "sha256": "a00feb00d39ea7b3ddb1d983b597a8d2f63a2a4601a949eb1b708743189eee9b",
+      "kind": "fresh-raw-body",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-48/private-final-independent/source-body-manifest.json",
+      "sha256": "49d1379b608bc730d2890dc51276502f465c773ebcbcb243400681c02a22b7b1",
+      "kind": "capture-manifest",
+      "actuallyViewed": false
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-48/private-final-independent/battle-standard-48-head-front.webp",
+      "sha256": "79138eb9148566d79c71926c636cb4e244eaef5d28341cd2fb6218f7f475ed0a",
+      "kind": "fresh-raw-head",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-48/private-final-independent/battle-standard-48-head-side.webp",
+      "sha256": "a64eefa8d9f9bc0ec3a7de33efd2dcc540deba778580330fbcfd367f60a5bf23",
+      "kind": "fresh-raw-head",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-48/private-final-independent/battle-standard-48-head-other-side.webp",
+      "sha256": "e08653ed8a82a3811969169d91f7097b89266948d4d3d88609a11a58c79a7153",
+      "kind": "fresh-raw-head",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-48/private-final-independent/battle-standard-48-head-under-front.webp",
+      "sha256": "bcf1c687916aa257e427552782cbc85b2acc647379b086e46351b037f54d48d5",
+      "kind": "fresh-raw-head",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-48/private-final-independent/battle-standard-48-head-under-side.webp",
+      "sha256": "31f132abe28dd8e86a7c52aeeac0c7e3431508c3d8fe47c1db0bd92158fa8682",
+      "kind": "fresh-raw-head",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-48/private-final-independent/battle-head-manifest.json",
+      "sha256": "30dd7da421d6166dc8ef6036663671a0fb14025c630b8aa8a8b252607aaf9651",
+      "kind": "capture-manifest",
+      "actuallyViewed": false
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-48/private-final-independent/battle-standard-48-front.webp",
+      "sha256": "efa0146e9b47e9905748af4aa076a21292615be164d0710243898ecbe1272286",
+      "kind": "fresh-raw-body",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-48/private-final-independent/battle-standard-48-side.webp",
+      "sha256": "4f99188fb191d05a78f1ca9958d64725936d945c6ee277cf2a549d76006c2964",
+      "kind": "fresh-raw-body",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-48/private-final-independent/battle-body-manifest.json",
+      "sha256": "842c18e2dfb48800b9ae318d5c2c031fdad9573fa63f22716371a3fc159fdb14",
+      "kind": "capture-manifest",
+      "actuallyViewed": false
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-48/private-final-independent/runtime-low-source-body.png",
+      "sha256": "5c11fa887dc8b48929334d215833c6849104a5028e521c080524ba6a9e4f4c38",
+      "kind": "runtime-low",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-48/private-final-independent/runtime-low-source-head.png",
+      "sha256": "8f9c70f52d1a37eac739ecd0ea1ff5d0d9fdd601eecf394059c4c8260df16df9",
+      "kind": "runtime-low",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-48/private-final-independent/runtime-low-battle-body.png",
+      "sha256": "8d8541e7dfe6614a1ed32488ba9eaf356e0ee5ad95ba714784563d9af292bbed",
+      "kind": "runtime-low",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-48/private-final-independent/runtime-low-battle-head.png",
+      "sha256": "ac5921de0a967af2be4adabc6c317eb55a68ad1a1f6c3c6b17f57a82fd09d70e",
+      "kind": "runtime-low",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-48/private-final-independent/runtime-low-manifest.json",
+      "sha256": "63cff4520f8e1075f7835c0e4dde2db27083b47bd8a5872590eb70fc27468653",
+      "kind": "capture-manifest",
+      "actuallyViewed": false
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-48/private-final-independent/runtime-low-native-composite-manifest.json",
+      "sha256": "03fe69efdbcfcd2f36f74415e668cb4a29f7d2da71bfd547d133ddd4652e2bca",
+      "kind": "composition-manifest",
+      "actuallyViewed": false
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-48/private-final-independent/runtime-medium-source-body.png",
+      "sha256": "eaa608017c083bde653a69c0f2d004e605b09e629703b1a31afc092185934ee5",
+      "kind": "runtime-medium",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-48/private-final-independent/runtime-medium-source-head.png",
+      "sha256": "3ee4aacdc2f9759a1cede8764bcd4002efdc9c8145dcfe0749bcc849413b45de",
+      "kind": "runtime-medium",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-48/private-final-independent/runtime-medium-battle-body.png",
+      "sha256": "b32e654aeb99818bfa79a642a5601bbfc8e73ba150af25eb8e81787000eafe7e",
+      "kind": "runtime-medium",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-48/private-final-independent/runtime-medium-battle-head.png",
+      "sha256": "aa2df57c60a272ade7d92020d9bbb80068d7d2ee84f949383059273def9e6ba9",
+      "kind": "runtime-medium",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-48/private-final-independent/runtime-medium-manifest.json",
+      "sha256": "b5d20cff5e3404f32ca7fb1ab0007ce15a56c3fcdabc10dcd75639253c119ea5",
+      "kind": "capture-manifest",
+      "actuallyViewed": false
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-48/private-final-independent/runtime-medium-native-composite-manifest.json",
+      "sha256": "3df939e11fd0b8946ae50c99da806c2bd7399e5819aa2f29f528e35fadcbf6b7",
+      "kind": "composition-manifest",
+      "actuallyViewed": false
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-48/private-final-independent/technique-both-block-0-half-0.png",
+      "sha256": "2a2f0e4e05acfe0987149dd9d2672f1776be153cda5d0afdc6dbaa5a3da9de4c",
+      "kind": "actual-battle-techniques",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-48/private-final-independent/technique-both-block-0-half-1.png",
+      "sha256": "93a2f24a519c7306025b50cdba827b31caf8f1201497b453562f973ed2aadac2",
+      "kind": "actual-battle-techniques",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-48/private-final-independent/technique-both-block-1-half-0.png",
+      "sha256": "3e3b13770dc27a7d3934ead430d64e8d14f41f5bbf938940ffd344990a53ed91",
+      "kind": "actual-battle-techniques",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-48/private-final-independent/technique-both-block-1-half-1.png",
+      "sha256": "2e52b5d5874b406cbcd0f433f146b6b5d7f5022c3d16c89647b69e8d947ec956",
+      "kind": "actual-battle-techniques",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-48/private-final-independent/technique-both-block-2-half-0.png",
+      "sha256": "28f5c6f29e0a6c310ea537bcb29f8e87bc04e88f232c01829f4d66796af09200",
+      "kind": "actual-battle-techniques",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-48/private-final-independent/technique-both-block-2-half-1.png",
+      "sha256": "c9fc344a15fb8807ab25c7307caa17584632de293aa856587c674b9885ae0d44",
+      "kind": "actual-battle-techniques",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-48/private-final-independent/standard-48-earth-breaker-front-2.png",
+      "sha256": "3c801415e94ba1b9af46164732e3947c16d24efba9f7e51a8a6224299a85d909",
+      "kind": "native-contact-framing",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-48/private-final-independent/standard-48-earth-breaker-front-3.png",
+      "sha256": "b0665442bb1a38af86a7fd1fb49ca678e7589291e4b0ce1fefde4711c97ae8f7",
+      "kind": "native-contact-framing",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-48/private-final-independent/standard-48-earth-breaker-side-2.png",
+      "sha256": "c196b000797c7141771d7650e27373d126784cfb49941e2c2c1f9e5399c91c54",
+      "kind": "native-contact-framing",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-48/private-final-independent/standard-48-earth-breaker-side-3.png",
+      "sha256": "78fc48c7fc16727a6f741ed14e8a14aca54bb7bdaa3a08e0faab2c32163fae63",
+      "kind": "native-contact-framing",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-48/private-final-independent/standard-48-earth-strike-side-5.png",
+      "sha256": "141718c9f6f3f6f61ea2db6cfd940e549d9d4cab9e6d57df01c591b3d9c8216a",
+      "kind": "native-contact-framing",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-48/private-final-independent/standard-48-earth-breaker-side-5.png",
+      "sha256": "aedd9f2af551bf66b3e3df6814d07a7156721a315f443527f63a3ecdac2daf54",
+      "kind": "native-contact-framing",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-48/private-final-independent/standard-48-open-wound-side-5.png",
+      "sha256": "43174553a2a088a976c921db15add0a9683128c96ab8c8cfd19e941b7deb7676",
+      "kind": "native-contact-framing",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-48/private-final-independent/techniques-manifest.json",
+      "sha256": "082bc2e35834d9a2a2bfc4107554d83d9dde08dee0d1595ad607b553745e30a1",
+      "kind": "capture-manifest",
+      "actuallyViewed": false
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-48/private-final-independent/techniques-both-views-manifest.json",
+      "sha256": "866e28ea95c71cc9f7dd8bef6b726a51261643ea8cbf1a4c27d76446203f01e4",
+      "kind": "composition-manifest",
+      "actuallyViewed": false
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-48/private-final-independent/advancing-idle-native.png",
+      "sha256": "251656e7af11b897fbcd7e4746ab253128604981e0181daf2c4717c5378a4d04",
+      "kind": "advancing-idle",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-48/private-final-independent/advancing-idle-native-manifest.json",
+      "sha256": "4a3c8e8fce8bc6439ca64f05bfef22b396cebc5cdc6d243c4322e6afe855d777",
+      "kind": "capture-manifest",
+      "actuallyViewed": false
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-48/private-final-independent/atlas.webp",
+      "sha256": "0bb5f17ee7e9ca4cb9180cb777ce879f538d50f326465f738abcd658070edea5",
+      "kind": "atlas",
+      "actuallyViewed": true,
+      "detail": "original"
+    }
+  ]
+}

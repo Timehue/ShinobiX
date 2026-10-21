@@ -1,0 +1,70 @@
+{
+  "schema": 1,
+  "reviewer": "review-b-luna",
+  "reviewedAt": "2026-10-21",
+  "pet": {
+    "id": "mythic-1",
+    "name": "Worldstorm Dragon",
+    "disposition": "PASS-PRIVATE-CANDIDATE",
+    "scope": "Exact private v2 candidate hashes only; not canonical/live approval.",
+    "source": {
+      "path": "shinobij.client/.tmp/sol-worldstorm-head-motion-v2/source.glb",
+      "sha256": "ad04ff49992b7c02633938346d50cf83f448f638a376a486bb5ce747f88ee3b9"
+    },
+    "battle": {
+      "path": "shinobij.client/.tmp/sol-worldstorm-head-motion-v2/battle.glb",
+      "sha256": "965db23b916189e3f57214ab89be6e08b609fe48dbf00345707728b64af517c2"
+    }
+  },
+  "findings": [
+    "Across all reviewed raw clips and runtime transitions, the head/skull silhouette remains coherent; the prior apparent flattening from extreme upward head/neck pitch is no longer visible in the v2 captures.",
+    "Source and battle variants show consistent head articulation. No visible face/skull deformation was found in raw phases, runtime transitions, idle, or equipped technique poses.",
+    "No assets or tracker files were edited by this reviewer."
+  ],
+  "scope": {
+    "rawSourceAndBattle": {
+      "clips": ["idle", "idle_2", "walk", "gallop", "gallop_jump", "attack", "idle_hitreact1", "death", "entrance", "cast", "guard", "rest", "victory"],
+      "samplesPerClip": [0, 0.125, 0.375, 0.625, 0.875, 1],
+      "viewsPerStage": ["front", "side", "head-front", "head-side", "head-other-side"],
+      "sheetCount": 10,
+      "captureErrors": 0,
+      "manifest": "raw/manifest.json"
+    },
+    "productionRuntime": {
+      "qualityStages": ["low", "medium"],
+      "transitionsPerQuality": 16,
+      "phasesPerTransition": [0.025, 0.1, 0.25, 0.5, 0.75, 1],
+      "views": ["front", "side"],
+      "parts": ["head", "body"],
+      "modelStages": ["source", "battle"],
+      "captureErrors": 0,
+      "lowManifest": "runtime/low/manifest.json",
+      "mediumManifest": "runtime/medium/manifest.json"
+    },
+    "companionPreview": {
+      "renderer": "Production PetYardModelStage component bundle; fetch intercepted and exact private battle bytes injected",
+      "battleModelSha256": "965db23b916189e3f57214ab89be6e08b609fe48dbf00345707728b64af517c2",
+      "idleFrames": 24,
+      "equippedTechniques": ["lightning-strike", "lightning-pulse", "lightning-breaker", "fire-pulse", "open-wound", "expose", "rally", "protect", "mythic-1-signature"],
+      "techniqueViews": ["front", "side"],
+      "phasesPerTechniqueView": 12,
+      "captureErrors": 0,
+      "manifest": "companion/manifest.json",
+      "reviewMontages": ["companion/mythic-1-techniques-front-all9-review.png", "companion/mythic-1-techniques-side-all9-review.png"]
+    }
+  },
+  "evidenceManifestSha256": {
+    "raw/manifest.json": "6843b1f5d25402d0a4ce2a6bf8d2f87eb37a37ef75db627914f60820733b7c50",
+    "runtime/low/manifest.json": "d6c5ba4ef437f69eb458b85d8dce817cdfbc8eaeff4c42561a12ee6a953ef786",
+    "runtime/medium/manifest.json": "300c6443762e06d834813b4c7dcc965067ad2c29f3435a4e32670a729c307c57",
+    "companion/manifest.json": "c0ca1620fae45f7d1b6f779ae2c39e5f30bbbabc9bd918127d8eea942acb9505"
+  },
+  "reviewMontageSha256": {
+    "companion/mythic-1-techniques-front-all9-review.png": "9fd19b91026505395f5fe16b55b7c4e1149347d84d8a39543bdf160f4a279fdf",
+    "companion/mythic-1-techniques-side-all9-review.png": "0055e73a2315442f5dda8fc43c196979381e4fe23c9cb8a87deb86543c41335b"
+  },
+  "limitations": [
+    "This review is limited to the exact private candidate bytes listed above. It does not establish that these files were promoted to the canonical roster or deployed live.",
+    "Technique sheets validate model pose/shape in the production companion stage; they do not assess combat balance or effects rendering."
+  ]
+}

@@ -1,0 +1,121 @@
+{
+  "records": [
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/pangolin-private-v1-runtime-medium/native-source-head.png",
+      "sha256": "3ee4aacdc2f9759a1cede8764bcd4002efdc9c8145dcfe0749bcc849413b45de",
+      "width": 1440,
+      "height": 2160,
+      "inputs": [
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/pangolin-private-v1-runtime-medium/standard-48-source-head-0.png",
+          "sha256": "41bc48f2560b9cfa31f0f052933c91ffe67c1134c269b531fdcabfa5fe037c77",
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/pangolin-private-v1-runtime-medium/standard-48-source-head-1.png",
+          "sha256": "f3bc4f6bb74511ac671b9608aa71b04ae10b00d5dc75f35872d81cf799338087",
+          "top": 540
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/pangolin-private-v1-runtime-medium/standard-48-source-head-2.png",
+          "sha256": "563886f305e8d477f4bba63a3c9e362b7d9cecfb59d093547b245643e2819e55",
+          "top": 1080
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/pangolin-private-v1-runtime-medium/standard-48-source-head-3.png",
+          "sha256": "d9201f99ad18cc8c40504ab31edcffaefe045da8582d5a6759f5db3bd05f3667",
+          "top": 1620
+        }
+      ],
+      "resizing": false
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/pangolin-private-v1-runtime-medium/native-source-body.png",
+      "sha256": "eaa608017c083bde653a69c0f2d004e605b09e629703b1a31afc092185934ee5",
+      "width": 1440,
+      "height": 2160,
+      "inputs": [
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/pangolin-private-v1-runtime-medium/standard-48-source-body-0.png",
+          "sha256": "cf6939ffff0e92327595317e6452a74138c2ae2f42bc497b0fda5d8c1f1bd677",
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/pangolin-private-v1-runtime-medium/standard-48-source-body-1.png",
+          "sha256": "b60ec6d0c5fe1044fd0e247db6b545bedd00dc8b4905c336608eb4487b3a6cbc",
+          "top": 540
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/pangolin-private-v1-runtime-medium/standard-48-source-body-2.png",
+          "sha256": "fb7382df5ed50afba8af495d602f70400fae4bb50f4cd6b9504eb130cf00e498",
+          "top": 1080
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/pangolin-private-v1-runtime-medium/standard-48-source-body-3.png",
+          "sha256": "2b10498b6f4f7f4f71c382e3535c642088a3b2c409f8ab1d2fb54f2fe3e68221",
+          "top": 1620
+        }
+      ],
+      "resizing": false
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/pangolin-private-v1-runtime-medium/native-battle-head.png",
+      "sha256": "aa2df57c60a272ade7d92020d9bbb80068d7d2ee84f949383059273def9e6ba9",
+      "width": 1440,
+      "height": 2160,
+      "inputs": [
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/pangolin-private-v1-runtime-medium/standard-48-battle-head-0.png",
+          "sha256": "0717a71287dbbe1c974450eace1ec6010e3459c66e2dbd4326158eeca691b7b3",
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/pangolin-private-v1-runtime-medium/standard-48-battle-head-1.png",
+          "sha256": "3f7c2a072e1eb2709739a154e7e71b5d023afa34022fb9a923275eb08b57e3f5",
+          "top": 540
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/pangolin-private-v1-runtime-medium/standard-48-battle-head-2.png",
+          "sha256": "9a09b48d46619573c7db34a72d8d0c504ed4f56d720ff7e5577f4cb3b7e49bb8",
+          "top": 1080
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/pangolin-private-v1-runtime-medium/standard-48-battle-head-3.png",
+          "sha256": "978feb2831e6faf34724befb7f60a7afb44e5dc462d269f0b2035aa7d75b4dcb",
+          "top": 1620
+        }
+      ],
+      "resizing": false
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/pangolin-private-v1-runtime-medium/native-battle-body.png",
+      "sha256": "b32e654aeb99818bfa79a642a5601bbfc8e73ba150af25eb8e81787000eafe7e",
+      "width": 1440,
+      "height": 2160,
+      "inputs": [
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/pangolin-private-v1-runtime-medium/standard-48-battle-body-0.png",
+          "sha256": "96f6314b437c2435753ce89192172ea7d498bcde4f5a60ad4f5e81ab2a161496",
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/pangolin-private-v1-runtime-medium/standard-48-battle-body-1.png",
+          "sha256": "b59bae8caacc598abda4fbb09e7c3248429207fa21db1f933332dabeff1dc865",
+          "top": 540
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/pangolin-private-v1-runtime-medium/standard-48-battle-body-2.png",
+          "sha256": "5b30d074e889287d4d6c3fb777666e429c27f3845474c9947a5f636d45377f9b",
+          "top": 1080
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/pangolin-private-v1-runtime-medium/standard-48-battle-body-3.png",
+          "sha256": "ed5faa07d6dec47231158faf4fedbbf5c62c95ad911a76fe6514f528921668aa",
+          "top": 1620
+        }
+      ],
+      "resizing": false
+    }
+  ],
+  "review": "pending"
+}

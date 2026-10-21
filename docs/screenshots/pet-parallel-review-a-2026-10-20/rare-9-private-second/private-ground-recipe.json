@@ -1,0 +1,84 @@
+{
+  "id": "rare-9",
+  "ground": -0.47438018613335287,
+  "padding": 0.002,
+  "corrections": [
+    {
+      "clip": "idle",
+      "keys": 465,
+      "maximumLift": 0.005865517976733403
+    },
+    {
+      "clip": "idle_2",
+      "keys": 336,
+      "maximumLift": 0.021649438744984928
+    },
+    {
+      "clip": "walk",
+      "keys": 257,
+      "maximumLift": 0.019589943131265997
+    },
+    {
+      "clip": "gallop",
+      "keys": 169,
+      "maximumLift": 0.017480087165009095
+    },
+    {
+      "clip": "gallop_jump",
+      "keys": 167,
+      "maximumLift": 0.0036278321367206323
+    },
+    {
+      "clip": "attack",
+      "keys": 262,
+      "maximumLift": 0.024105901059333412
+    },
+    {
+      "clip": "idle_hitreact1",
+      "keys": 147,
+      "maximumLift": 0.0385111466632263
+    },
+    {
+      "clip": "death",
+      "keys": 349,
+      "maximumLift": 0.35653677734824063
+    },
+    {
+      "clip": "entrance",
+      "keys": 238,
+      "maximumLift": 0.0036278321367206323
+    },
+    {
+      "clip": "cast",
+      "keys": 282,
+      "maximumLift": 0.022621015913100118
+    },
+    {
+      "clip": "guard",
+      "keys": 289,
+      "maximumLift": 0.006153530692999065
+    },
+    {
+      "clip": "rest",
+      "keys": 481,
+      "maximumLift": 0.006481833954147864
+    },
+    {
+      "clip": "victory",
+      "keys": 438,
+      "maximumLift": 0.006933907694449848
+    }
+  ],
+  "outputs": [
+    {
+      "stage": "source",
+      "path": ".tmp/bristle-boar-anatomical-floor-v2/source-candidate-v1.glb",
+      "sha256": "954d6063adc9fd3d930e50bcb61c79f6915b2dbe7e88d930a461f3adc6ae1742"
+    },
+    {
+      "stage": "battle",
+      "path": ".tmp/bristle-boar-anatomical-floor-v2/battle-candidate-v1.glb",
+      "sha256": "4a8fca3afbf41f1a4f6683014ca125c23e5b84355eb2e26ce293d30d82b72c3c"
+    }
+  ]
+}

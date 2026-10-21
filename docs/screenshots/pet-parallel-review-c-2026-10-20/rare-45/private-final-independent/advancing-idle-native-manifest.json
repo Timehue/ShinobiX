@@ -1,0 +1,250 @@
+{
+  "id": "rare-45",
+  "frames": [
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/wombat-private-v1-idle/rare-45/idle-0.png",
+      "sha256": "d5474a7b82d038a2e45d4e29f12c55a0a1add1188c91b8b54c1a86022d047496",
+      "crop": {
+        "left": 163,
+        "top": 44,
+        "width": 174,
+        "height": 174
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/wombat-private-v1-idle/rare-45/idle-1.png",
+      "sha256": "db9aefa7ff273bf301f09a69c71abbb2bd0f99166bdb99e986ef0de5a57a7ea3",
+      "crop": {
+        "left": 163,
+        "top": 45,
+        "width": 174,
+        "height": 173
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/wombat-private-v1-idle/rare-45/idle-2.png",
+      "sha256": "1125ba82139ec8aaed5a6b4b0bb4d7a4ea084a9be9c7bb4ce6c895cb75166b92",
+      "crop": {
+        "left": 163,
+        "top": 46,
+        "width": 174,
+        "height": 172
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/wombat-private-v1-idle/rare-45/idle-3.png",
+      "sha256": "3563f048b92e0e7fdc16659a237d26768c83b292907823177070d142deb2a247",
+      "crop": {
+        "left": 163,
+        "top": 47,
+        "width": 174,
+        "height": 171
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/wombat-private-v1-idle/rare-45/idle-4.png",
+      "sha256": "7df22652f8b694b830807580b3b5fe6b9521d8de08696090ebf262820553d111",
+      "crop": {
+        "left": 163,
+        "top": 46,
+        "width": 174,
+        "height": 172
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/wombat-private-v1-idle/rare-45/idle-5.png",
+      "sha256": "8cd221d3a6027430160b197cd8d1e3e1bf2b539b07bcba0fbe785747584f7e2d",
+      "crop": {
+        "left": 163,
+        "top": 45,
+        "width": 174,
+        "height": 173
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/wombat-private-v1-idle/rare-45/idle-6.png",
+      "sha256": "6e9876bebfcfe9ce17bd00e8bcb26eac18f108f0952f057bfbefe9b347c92c82",
+      "crop": {
+        "left": 163,
+        "top": 45,
+        "width": 174,
+        "height": 173
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/wombat-private-v1-idle/rare-45/idle-7.png",
+      "sha256": "0f98340a894a1b3c0aa69dbb1b680976674ad897f00bd4208af72463b3b435db",
+      "crop": {
+        "left": 163,
+        "top": 46,
+        "width": 174,
+        "height": 172
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/wombat-private-v1-idle/rare-45/idle-8.png",
+      "sha256": "be6840c43a8b21246e779fc45091aefccc9a2dcd49f044f27d387691f4f9f705",
+      "crop": {
+        "left": 163,
+        "top": 46,
+        "width": 174,
+        "height": 172
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/wombat-private-v1-idle/rare-45/idle-9.png",
+      "sha256": "ea8aa5e4372a67d4d8e2f016fb9837e7458f0ec46eaa67048b2f4cc86c23a9ef",
+      "crop": {
+        "left": 163,
+        "top": 45,
+        "width": 174,
+        "height": 173
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/wombat-private-v1-idle/rare-45/idle-10.png",
+      "sha256": "1d0d6321227f23b90b9f01c07a976c3ecd07dad39b07d2c51a65f026c49f20bd",
+      "crop": {
+        "left": 163,
+        "top": 44,
+        "width": 174,
+        "height": 174
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/wombat-private-v1-idle/rare-45/idle-11.png",
+      "sha256": "039dd0746a73da3cacdf7d3d2ab3bf4480ff9446c155d945ccc82cbee595a46a",
+      "crop": {
+        "left": 163,
+        "top": 45,
+        "width": 174,
+        "height": 173
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/wombat-private-v1-idle/rare-45/idle-12.png",
+      "sha256": "d17bf4113bce2d4e17e38d9e2d6bcbc58cb22195700ad9fdc98f0690598c910d",
+      "crop": {
+        "left": 163,
+        "top": 46,
+        "width": 174,
+        "height": 172
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/wombat-private-v1-idle/rare-45/idle-13.png",
+      "sha256": "3235ac9ea0dfecdf3443e23002720356e98e6631d9d63ac3975a7cb855e19b9f",
+      "crop": {
+        "left": 163,
+        "top": 46,
+        "width": 174,
+        "height": 172
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/wombat-private-v1-idle/rare-45/idle-14.png",
+      "sha256": "36c50d055bf43f403c290f648cbf966f5d6d9bcdc428fe08e41d8dbc0cf8817a",
+      "crop": {
+        "left": 163,
+        "top": 46,
+        "width": 174,
+        "height": 172
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/wombat-private-v1-idle/rare-45/idle-15.png",
+      "sha256": "ae2d42851a51234db184cdd2d6a3f1179b53d1852f5172a472c1b4a6ce90b86b",
+      "crop": {
+        "left": 163,
+        "top": 45,
+        "width": 174,
+        "height": 173
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/wombat-private-v1-idle/rare-45/idle-16.png",
+      "sha256": "c23bead65ead9c0ea51756cfb35a8f6865c723fb4cb00c959c9804519c1ff4d1",
+      "crop": {
+        "left": 163,
+        "top": 45,
+        "width": 174,
+        "height": 173
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/wombat-private-v1-idle/rare-45/idle-17.png",
+      "sha256": "57f79e1df45a4f02f867b510a3d4c0ef7f5d37d78a2e6a0333b8244d4d949a97",
+      "crop": {
+        "left": 163,
+        "top": 46,
+        "width": 174,
+        "height": 172
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/wombat-private-v1-idle/rare-45/idle-18.png",
+      "sha256": "91e5f16e57b7d6169106d55d3b35a2638ee181b99bf71302c059d9b110eccffb",
+      "crop": {
+        "left": 163,
+        "top": 47,
+        "width": 174,
+        "height": 171
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/wombat-private-v1-idle/rare-45/idle-19.png",
+      "sha256": "1b155b4464c8c34f09b57c894284745aa9b45ad876b68ab95833c131666c2233",
+      "crop": {
+        "left": 163,
+        "top": 46,
+        "width": 174,
+        "height": 172
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/wombat-private-v1-idle/rare-45/idle-20.png",
+      "sha256": "75cd8799d014d6f1ec15099787cee468eeb9b95334372e745bd9dd81b884e3a8",
+      "crop": {
+        "left": 163,
+        "top": 44,
+        "width": 174,
+        "height": 174
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/wombat-private-v1-idle/rare-45/idle-21.png",
+      "sha256": "47aeecd6de3d51e9b3bc720b3dd5a67345d7c0adf3ee20fc6770a0425c1e3eaa",
+      "crop": {
+        "left": 163,
+        "top": 45,
+        "width": 174,
+        "height": 173
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/wombat-private-v1-idle/rare-45/idle-22.png",
+      "sha256": "754ed1f9e7a9dbeaec2d3ba22953abd79ece6819aff20a549dfcd1a90ec0cc35",
+      "crop": {
+        "left": 163,
+        "top": 46,
+        "width": 174,
+        "height": 172
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/wombat-private-v1-idle/rare-45/idle-23.png",
+      "sha256": "c6ecd5c2cc624f40c25883accca64980c8726c38dc05a393ab092a186f23bbe5",
+      "crop": {
+        "left": 163,
+        "top": 46,
+        "width": 174,
+        "height": 172
+      }
+    }
+  ],
+  "frameCount": 24,
+  "sha256": "2e614bd951686fbfe1ce33e24e3cf5cb7782492447d7aa26e7fc7aadce1a6c0d",
+  "nativePixelsPreserved": true,
+  "resizing": false,
+  "review": "pending"
+}

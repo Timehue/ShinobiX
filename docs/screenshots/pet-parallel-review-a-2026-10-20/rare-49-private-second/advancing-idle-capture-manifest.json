@@ -1,0 +1,365 @@
+{
+  "schema": 1,
+  "rendererSha256": "b2253b71fbcb21a83d82de35ab5783dd57b525cfc94740fb131dd1eb0049a897",
+  "companionComponentSha256": "17ac6c4c1c4ef4eb242bebf5f0a34d9de3519bb5d6415aa906b1970afcc440f8",
+  "appearance": "original",
+  "collarId": "",
+  "quality": "low",
+  "errors": [],
+  "pets": [
+    {
+      "id": "rare-49",
+      "name": "Bramble Capybara",
+      "mode": "exact-production-companion-component",
+      "sourceSha256": "7c03b5408685bd54e5b362a7cd75862b52c00a33d0cf18d38bdcc42667de670e",
+      "battleSha256": "f932d72bde29bd9cbcb62fe29fcf4529b0c8a640bd44324658cc181c93f8eeb2",
+      "requests": [
+        "https://localhost:5207/pet-models/warfront-lod/roster/rare-49.glb?v=20260902-battle-lod-v1-57c9d42e098b-fb00223abecf",
+        "https://localhost:5207/pet-models/warfront-lod/roster/rare-49.glb?v=20260902-battle-lod-v1-57c9d42e098b-fb00223abecf"
+      ],
+      "frames": [
+        {
+          "engine": "three.js r185",
+          "previewFrames": "9",
+          "previewTime": "0.3562999999970197",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10032",
+          "previewModel": "/pet-models/warfront-lod/roster/rare-49.glb?v=20260902-battle-lod-v1-57c9d42e098b-fb00223abecf",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "18",
+          "previewTime": "0.7115999999940396",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10032",
+          "previewModel": "/pet-models/warfront-lod/roster/rare-49.glb?v=20260902-battle-lod-v1-57c9d42e098b-fb00223abecf",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "26",
+          "previewTime": "1.0437999999970196",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10032",
+          "previewModel": "/pet-models/warfront-lod/roster/rare-49.glb?v=20260902-battle-lod-v1-57c9d42e098b-fb00223abecf",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "35",
+          "previewTime": "1.4023999999910592",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10032",
+          "previewModel": "/pet-models/warfront-lod/roster/rare-49.glb?v=20260902-battle-lod-v1-57c9d42e098b-fb00223abecf",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "43",
+          "previewTime": "1.736199999988079",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10032",
+          "previewModel": "/pet-models/warfront-lod/roster/rare-49.glb?v=20260902-battle-lod-v1-57c9d42e098b-fb00223abecf",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "52",
+          "previewTime": "2.0906999999880793",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10032",
+          "previewModel": "/pet-models/warfront-lod/roster/rare-49.glb?v=20260902-battle-lod-v1-57c9d42e098b-fb00223abecf",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "60",
+          "previewTime": "2.437900000005961",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10032",
+          "previewModel": "/pet-models/warfront-lod/roster/rare-49.glb?v=20260902-battle-lod-v1-57c9d42e098b-fb00223abecf",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "67",
+          "previewTime": "2.7680000000000007",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10032",
+          "previewModel": "/pet-models/warfront-lod/roster/rare-49.glb?v=20260902-battle-lod-v1-57c9d42e098b-fb00223abecf",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "75",
+          "previewTime": "3.1003000000119214",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10032",
+          "previewModel": "/pet-models/warfront-lod/roster/rare-49.glb?v=20260902-battle-lod-v1-57c9d42e098b-fb00223abecf",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "84",
+          "previewTime": "3.48089999999106",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10032",
+          "previewModel": "/pet-models/warfront-lod/roster/rare-49.glb?v=20260902-battle-lod-v1-57c9d42e098b-fb00223abecf",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "92",
+          "previewTime": "3.8320000000000003",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10032",
+          "previewModel": "/pet-models/warfront-lod/roster/rare-49.glb?v=20260902-battle-lod-v1-57c9d42e098b-fb00223abecf",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "101",
+          "previewTime": "4.19689999999106",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10032",
+          "previewModel": "/pet-models/warfront-lod/roster/rare-49.glb?v=20260902-battle-lod-v1-57c9d42e098b-fb00223abecf",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "110",
+          "previewTime": "4.565599999994039",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10032",
+          "previewModel": "/pet-models/warfront-lod/roster/rare-49.glb?v=20260902-battle-lod-v1-57c9d42e098b-fb00223abecf",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "118",
+          "previewTime": "4.90209999999404",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10032",
+          "previewModel": "/pet-models/warfront-lod/roster/rare-49.glb?v=20260902-battle-lod-v1-57c9d42e098b-fb00223abecf",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "127",
+          "previewTime": "5.25870000000298",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10032",
+          "previewModel": "/pet-models/warfront-lod/roster/rare-49.glb?v=20260902-battle-lod-v1-57c9d42e098b-fb00223abecf",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "135",
+          "previewTime": "5.59059999999404",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10032",
+          "previewModel": "/pet-models/warfront-lod/roster/rare-49.glb?v=20260902-battle-lod-v1-57c9d42e098b-fb00223abecf",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "143",
+          "previewTime": "5.922799999997021",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10032",
+          "previewModel": "/pet-models/warfront-lod/roster/rare-49.glb?v=20260902-battle-lod-v1-57c9d42e098b-fb00223abecf",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "152",
+          "previewTime": "6.288499999985098",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10032",
+          "previewModel": "/pet-models/warfront-lod/roster/rare-49.glb?v=20260902-battle-lod-v1-57c9d42e098b-fb00223abecf",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "161",
+          "previewTime": "6.642299999997018",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10032",
+          "previewModel": "/pet-models/warfront-lod/roster/rare-49.glb?v=20260902-battle-lod-v1-57c9d42e098b-fb00223abecf",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "169",
+          "previewTime": "6.9725999999940385",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10032",
+          "previewModel": "/pet-models/warfront-lod/roster/rare-49.glb?v=20260902-battle-lod-v1-57c9d42e098b-fb00223abecf",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "177",
+          "previewTime": "7.297999999985098",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10032",
+          "previewModel": "/pet-models/warfront-lod/roster/rare-49.glb?v=20260902-battle-lod-v1-57c9d42e098b-fb00223abecf",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "186",
+          "previewTime": "7.6657999999970174",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10032",
+          "previewModel": "/pet-models/warfront-lod/roster/rare-49.glb?v=20260902-battle-lod-v1-57c9d42e098b-fb00223abecf",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "194",
+          "previewTime": "7.994599999994036",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10032",
+          "previewModel": "/pet-models/warfront-lod/roster/rare-49.glb?v=20260902-battle-lod-v1-57c9d42e098b-fb00223abecf",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "202",
+          "previewTime": "8.320499999999997",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10032",
+          "previewModel": "/pet-models/warfront-lod/roster/rare-49.glb?v=20260902-battle-lod-v1-57c9d42e098b-fb00223abecf",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        }
+      ],
+      "sheets": [
+        {
+          "name": "rare-49/idle-sheet-0.webp",
+          "sha256": "5244466c8db81c073b18da20709fe8c1216ff4163e8e9a055acb93eb51665f7e"
+        },
+        {
+          "name": "rare-49/idle-sheet-1.webp",
+          "sha256": "4bbf48c4064c6f4bbf0c033e018bad031c0d58f3e6eb4d3746ecc1dc9345ec10"
+        },
+        {
+          "name": "rare-49/idle-sheet-2.webp",
+          "sha256": "103eeb0358ad2eb2f25c88aef39172f92c91c9870f2b5ba209949260fc955c5f"
+        },
+        {
+          "name": "rare-49/idle-sheet-3.webp",
+          "sha256": "7e5e9ee18919d8f6aa3debf17d3c3e90a101113a0de4ab85bda3a842b13d3ce6"
+        },
+        {
+          "name": "rare-49/idle-sheet-4.webp",
+          "sha256": "f12ae4bd850b7a92f48dde31970e8b7a3a03d6370ccb2aedcb12fa45d00b7a00"
+        },
+        {
+          "name": "rare-49/idle-sheet-5.webp",
+          "sha256": "35b4ddb2d6c12ca7131c7a9c82f0f50b05402b1ffd3ec301b0bad5fefe5dd285"
+        }
+      ],
+      "errors": [],
+      "review": "pending"
+    }
+  ],
+  "artisticCertification": false
+}

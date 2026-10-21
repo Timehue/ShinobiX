@@ -1,0 +1,3862 @@
+{
+  "id": "mythic-6",
+  "asset": "C:\\Users\\Tyler R\\.codex\\worktrees\\40c2\\NinjaK\\shinobij.client\\.tmp\\sol-azure-death-v3\\battle.glb",
+  "sha256": "adef4034b636c5c97041a3f0d35e541efd128fdd6b45af0d2de998ec7aa1f18d",
+  "rendererBundleSha256": "aebcf4fb161c4d49b42fe861941a03a4b63017f021334da449c27cedc29ee3ba",
+  "phases": [
+    0,
+    0.2,
+    0.4,
+    0.6,
+    0.8,
+    1
+  ],
+  "clips": [
+    "idle",
+    "idle_2",
+    "walk",
+    "gallop",
+    "gallop_jump",
+    "attack",
+    "idle_hitreact1",
+    "death",
+    "entrance",
+    "cast",
+    "guard",
+    "rest",
+    "victory"
+  ],
+  "views": [
+    "front",
+    "side",
+    "body-front",
+    "body-side",
+    "head-front",
+    "head-side"
+  ],
+  "images": [
+    {
+      "name": "mythic-6-idle-0-front.png",
+      "sha256": "ded527b54ee6e23c3cf720eaf72273eca8dbb77ddd0084ad44020aa99234956c",
+      "clip": "idle",
+      "phase": 0,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-idle-0.2-front.png",
+      "sha256": "c1dbc6a936c5845f0b3c6cc7850e95bef0b3f84b952175e45579af96ef91f5d9",
+      "clip": "idle",
+      "phase": 0.2,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-idle-0.4-front.png",
+      "sha256": "7590f32f09a2ca25fd49d163be7479f19f06694fdbd6fef3899cd20b78f9067b",
+      "clip": "idle",
+      "phase": 0.4,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-idle-0.6-front.png",
+      "sha256": "9fddc385702bb2941ed5ada17dc1fe3bd8208a6803ed1049cba302d6db4226d4",
+      "clip": "idle",
+      "phase": 0.6,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-idle-0.8-front.png",
+      "sha256": "dbd444aace4081648a36c371a1b359083fe18a8327bcc0db2953d598f28b3bb4",
+      "clip": "idle",
+      "phase": 0.8,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-idle-1-front.png",
+      "sha256": "3686a78fc7b2f8736b16ccae0e7d5cda67a1f8c03ca9b60aee2c751d3345656c",
+      "clip": "idle",
+      "phase": 1,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-idle-front-sheet.png",
+      "sha256": "511d2266ecd5251850caffd1dbf44d30785d8311c940850efa736cda89ffb268",
+      "clip": "idle",
+      "view": "front",
+      "sheet": true
+    },
+    {
+      "name": "mythic-6-idle-0-side.png",
+      "sha256": "604882354b8518afc97a5f4a6b53adef9b765f33d6de49b0d08c87c23ce3fc28",
+      "clip": "idle",
+      "phase": 0,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-idle-0.2-side.png",
+      "sha256": "e4c64cb2e26b1f1f1224300c33f7a0752051e23eb7b61fef481b4501266eeff1",
+      "clip": "idle",
+      "phase": 0.2,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-idle-0.4-side.png",
+      "sha256": "04f763d92d25b9c569c60c2e88a3ebe4a3d209d78e0df8607fcf41795f8d21c0",
+      "clip": "idle",
+      "phase": 0.4,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-idle-0.6-side.png",
+      "sha256": "887fcdc7cbbc6fa1eb6bdaeee3236896941be06aa87e35e54a7171340acc1a59",
+      "clip": "idle",
+      "phase": 0.6,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-idle-0.8-side.png",
+      "sha256": "5608c5b0a4f2a3b547e27ef3d251038185af5ec5b91eb0867a7428d2665f760f",
+      "clip": "idle",
+      "phase": 0.8,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-idle-1-side.png",
+      "sha256": "1f5896f65b9efae351987df39189a2cc03c4eddb3592a81c5c0edb5fde673dbf",
+      "clip": "idle",
+      "phase": 1,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-idle-side-sheet.png",
+      "sha256": "85681c5c43e76fba95c7e9a7d9014ed6e65ff09ee90157ee0b24d79f3abad81b",
+      "clip": "idle",
+      "view": "side",
+      "sheet": true
+    },
+    {
+      "name": "mythic-6-idle-0-body-front.png",
+      "sha256": "1c4d4f0c37b99b8b1796b8624c395fa3cda181bd1db19537901b453bf06407d9",
+      "clip": "idle",
+      "phase": 0,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-idle-0.2-body-front.png",
+      "sha256": "8a1714755bd6c36c80bbe97120ba3f208742d8d1e60476395d93f34b8de30207",
+      "clip": "idle",
+      "phase": 0.2,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-idle-0.4-body-front.png",
+      "sha256": "fa4ca30a7a55c9ce861ec4234ba0a1fde6c8d63bd61d6e200db886836620bc2a",
+      "clip": "idle",
+      "phase": 0.4,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-idle-0.6-body-front.png",
+      "sha256": "fe8155dd6573fc645e4dcd5fc2c10dc3caded79bbdd08405dbc34da02c5a8417",
+      "clip": "idle",
+      "phase": 0.6,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-idle-0.8-body-front.png",
+      "sha256": "5119cbf3cdf4214a3dd64752017df20d1bbb4d76ad9d3b6da4715156d2d23e49",
+      "clip": "idle",
+      "phase": 0.8,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-idle-1-body-front.png",
+      "sha256": "2d765305dabdf0c63a62bf600ad277127e1d698880bb0f9a8f1cc8f50fef712e",
+      "clip": "idle",
+      "phase": 1,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-idle-body-front-sheet.png",
+      "sha256": "cce9f7900b8e036889ce393c9b4d5342049b84d05bd59e1a6bc18d24586c5c6f",
+      "clip": "idle",
+      "view": "body-front",
+      "sheet": true
+    },
+    {
+      "name": "mythic-6-idle-0-body-side.png",
+      "sha256": "09c7dd354bfa429cab12006db5bd47fa5f60c37d23989978958fb91e0c5c9482",
+      "clip": "idle",
+      "phase": 0,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-idle-0.2-body-side.png",
+      "sha256": "0ed1af2796f98f76ec448dc2e7ad154526a77f4e38130e02af6ff1e991333fe2",
+      "clip": "idle",
+      "phase": 0.2,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-idle-0.4-body-side.png",
+      "sha256": "043bb3bfbf951ce9138d94febee1578e16238040e8e6b918d99283ae1da23d73",
+      "clip": "idle",
+      "phase": 0.4,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-idle-0.6-body-side.png",
+      "sha256": "163a4c03096191810711f111cf101a7a92fce44f383c92f994293eda217d22fc",
+      "clip": "idle",
+      "phase": 0.6,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-idle-0.8-body-side.png",
+      "sha256": "bb3fa70f6c39581bd7830999fafa42a2b8b9aa39ec92a47ab3f681e8a73e2ca7",
+      "clip": "idle",
+      "phase": 0.8,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-idle-1-body-side.png",
+      "sha256": "b10289f3a7c0b59f1e92305231a63a99bb3ed39ae63bdc4f7431618f09bd1e15",
+      "clip": "idle",
+      "phase": 1,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-idle-body-side-sheet.png",
+      "sha256": "9d32ea5eded6f0039fceb206c805c824f9499292ea579059f22b62a241e8e0f5",
+      "clip": "idle",
+      "view": "body-side",
+      "sheet": true
+    },
+    {
+      "name": "mythic-6-idle-0-head-front.png",
+      "sha256": "c4f4983374d54681d0d7b99cb9f25ffb3071aa71f1fed83092cbddba9dcad4f2",
+      "clip": "idle",
+      "phase": 0,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-idle-0.2-head-front.png",
+      "sha256": "98596dae5bffca03b70a34d61a9fe3217d5b03c6c9079b5ea65d6b2ac5cd4b8c",
+      "clip": "idle",
+      "phase": 0.2,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-idle-0.4-head-front.png",
+      "sha256": "c5fceaec9b46799729ded96d6724adbaf1baab16487c36a1c15550360f90f318",
+      "clip": "idle",
+      "phase": 0.4,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-idle-0.6-head-front.png",
+      "sha256": "2e4fd4f2aad682ea9a6123037d115d2b24319fa9ed4dfdfbc0b43547712ead4c",
+      "clip": "idle",
+      "phase": 0.6,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-idle-0.8-head-front.png",
+      "sha256": "de372861f96c8b02601d3918d6cdced432cca685da35488da1e904a7a89443f5",
+      "clip": "idle",
+      "phase": 0.8,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-idle-1-head-front.png",
+      "sha256": "2c23422774a8b113c22b40d564ffa693d68e56bff06940390ad2346d443f1865",
+      "clip": "idle",
+      "phase": 1,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-idle-head-front-sheet.png",
+      "sha256": "ab3abb8226bee309f5d23d61e4725b31c0d86dfc940ab7dfe2196ac181326339",
+      "clip": "idle",
+      "view": "head-front",
+      "sheet": true
+    },
+    {
+      "name": "mythic-6-idle-0-head-side.png",
+      "sha256": "b9dd09d4902ec7a6a2939a4af9dded8f6c0377b9966e2833e54cbc4883c9eec0",
+      "clip": "idle",
+      "phase": 0,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-idle-0.2-head-side.png",
+      "sha256": "fa5d18774f68678a65bd0881861767b33f88bf568c214cdfa0dd066a5d2ab254",
+      "clip": "idle",
+      "phase": 0.2,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-idle-0.4-head-side.png",
+      "sha256": "4ca90d37ca2213a9b0443ac7e55a0e57053a3b98d67ca4ec3a10fd9ea614176a",
+      "clip": "idle",
+      "phase": 0.4,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-idle-0.6-head-side.png",
+      "sha256": "da6ef0759f1ce1f54d10639438cddacc792f1b33a969ffb70a4f63299d699a86",
+      "clip": "idle",
+      "phase": 0.6,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-idle-0.8-head-side.png",
+      "sha256": "014cd9d4c660dd799e391941d70281fa0fb3993419409097412df912465dc238",
+      "clip": "idle",
+      "phase": 0.8,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-idle-1-head-side.png",
+      "sha256": "dcfbc3363d80962983bcb1b6663b1542fd68c55dc64006650b8725974cd05d18",
+      "clip": "idle",
+      "phase": 1,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-idle-head-side-sheet.png",
+      "sha256": "5e230453b7dcfc254bbb4c2a0935f8488377ae079022dcbfbd72f56585bc854e",
+      "clip": "idle",
+      "view": "head-side",
+      "sheet": true
+    },
+    {
+      "name": "mythic-6-idle_2-0-front.png",
+      "sha256": "e4a3ddbf277de3e51d0bd399c64a84ed9d16b2a16d584327e37aaf9d76cc29f1",
+      "clip": "idle_2",
+      "phase": 0,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-idle_2-0.2-front.png",
+      "sha256": "add5643139aaa84ec61a53e13a28d949c15bed3e1d0db6da0cffc9c8565246f4",
+      "clip": "idle_2",
+      "phase": 0.2,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-idle_2-0.4-front.png",
+      "sha256": "fabf8194b848da3373cc8111a078a2b9bdafc752af197b30b2a991f2ba4b5a38",
+      "clip": "idle_2",
+      "phase": 0.4,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-idle_2-0.6-front.png",
+      "sha256": "00c529ae27c10a2212ffa0d2aa3e77703b5d120952edf8e413bb1fab42c91e98",
+      "clip": "idle_2",
+      "phase": 0.6,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-idle_2-0.8-front.png",
+      "sha256": "701e4d3625d1ef7fb717e4045e8e30edd31fde0cfe8ae32576f56d4aec3c5929",
+      "clip": "idle_2",
+      "phase": 0.8,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-idle_2-1-front.png",
+      "sha256": "67d6c483fbc90038b7cd26f0537c44b89594f09d59738062fc187ec65e8f02a8",
+      "clip": "idle_2",
+      "phase": 1,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-idle_2-front-sheet.png",
+      "sha256": "b93543a3f8b8a60a86751b428962062ae6ce1c9e6f9d2eff80a28bd05af6ce91",
+      "clip": "idle_2",
+      "view": "front",
+      "sheet": true
+    },
+    {
+      "name": "mythic-6-idle_2-0-side.png",
+      "sha256": "d8ab0db978ae424e9627553fa2cf9c59217bd8012f033c9451777b654452ebb5",
+      "clip": "idle_2",
+      "phase": 0,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-idle_2-0.2-side.png",
+      "sha256": "2c78ed4654fce9e2b6720bd9ed5b7d1671190efcd99550c06ea5b85d90ba3928",
+      "clip": "idle_2",
+      "phase": 0.2,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-idle_2-0.4-side.png",
+      "sha256": "3f4bb23e99a08055cca40b2ecf61afe667f87e90ffa130c3d3643e7bc6d9849c",
+      "clip": "idle_2",
+      "phase": 0.4,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-idle_2-0.6-side.png",
+      "sha256": "c93dfcaa32f623e594be3cdf4e718e870dceb61eb84ee73cd6f14e9c46d0c929",
+      "clip": "idle_2",
+      "phase": 0.6,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-idle_2-0.8-side.png",
+      "sha256": "43fb2843c488e2b6c01d39a514661b38c8b95f0e0a75229db3127bb054caed10",
+      "clip": "idle_2",
+      "phase": 0.8,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-idle_2-1-side.png",
+      "sha256": "02c1846bc1023a6517757181d4526842cafaca337f668e6b25b017293c570481",
+      "clip": "idle_2",
+      "phase": 1,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-idle_2-side-sheet.png",
+      "sha256": "5d53a103482609844406953dd403656e722e8c01d164c014f06085e250bbf9a2",
+      "clip": "idle_2",
+      "view": "side",
+      "sheet": true
+    },
+    {
+      "name": "mythic-6-idle_2-0-body-front.png",
+      "sha256": "cc92f1f94bd9081bfa5e24ea51f21f66ab521fdf5cc4951ab917bdea18738a02",
+      "clip": "idle_2",
+      "phase": 0,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-idle_2-0.2-body-front.png",
+      "sha256": "1d9ed2f7f31770bd2c5263b0b2d64aff91a8e7fc053625696df6747f0353a625",
+      "clip": "idle_2",
+      "phase": 0.2,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-idle_2-0.4-body-front.png",
+      "sha256": "68f0b036e775285b1769abebaf83559a7e230126de5a9c1b1582a7e342ca10dc",
+      "clip": "idle_2",
+      "phase": 0.4,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-idle_2-0.6-body-front.png",
+      "sha256": "e7a2eb8af8ffdb817e4151c295b9d6bb06da9ddcb2df9c48c4143024c008f9ed",
+      "clip": "idle_2",
+      "phase": 0.6,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-idle_2-0.8-body-front.png",
+      "sha256": "51b7a2a2b83c4078066e1dc1634d2b521e1a9abe7c9bc67eadf410525ec4d8c4",
+      "clip": "idle_2",
+      "phase": 0.8,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-idle_2-1-body-front.png",
+      "sha256": "38f43c2511a3eb801df9e9b7d323de4ff1a4fde2ef309286c8c5d83a87157738",
+      "clip": "idle_2",
+      "phase": 1,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-idle_2-body-front-sheet.png",
+      "sha256": "8fd06988ce20964422cc7c8902db838fcdf915911aa69a1304b913a937c7478e",
+      "clip": "idle_2",
+      "view": "body-front",
+      "sheet": true
+    },
+    {
+      "name": "mythic-6-idle_2-0-body-side.png",
+      "sha256": "47648ca8abed3b433c532e4d4e669b49ca45d7bac5fdc1e8d0daeb79f4a38b66",
+      "clip": "idle_2",
+      "phase": 0,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-idle_2-0.2-body-side.png",
+      "sha256": "d84b413c3b55c243223469cb5e4944bd23c0ecef25e4ac192538a460adb32174",
+      "clip": "idle_2",
+      "phase": 0.2,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-idle_2-0.4-body-side.png",
+      "sha256": "e88ebac50134b84efcfc799fa53cbc7c6fed8a85093f0e766bb6f8475c55c898",
+      "clip": "idle_2",
+      "phase": 0.4,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-idle_2-0.6-body-side.png",
+      "sha256": "40df4d20ac035d81e755e2bf5b03f2c3b2acb9dbb9ed3a35392456280846357c",
+      "clip": "idle_2",
+      "phase": 0.6,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-idle_2-0.8-body-side.png",
+      "sha256": "dc0f5466583f690480bf947731e1013411555f5a720cec629646553183a2e978",
+      "clip": "idle_2",
+      "phase": 0.8,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-idle_2-1-body-side.png",
+      "sha256": "f5eabfd0add268e3e863799a9e6ea9acf6cc083d984ef42da4e9fe975b14b120",
+      "clip": "idle_2",
+      "phase": 1,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-idle_2-body-side-sheet.png",
+      "sha256": "c25155e2cd83e659d7249bb20743ebdb114801a57a8be54b267564d5a64c2a34",
+      "clip": "idle_2",
+      "view": "body-side",
+      "sheet": true
+    },
+    {
+      "name": "mythic-6-idle_2-0-head-front.png",
+      "sha256": "04028cc98dabd53bd9e6f9fa61ea66e370da0ffa0653a9aa07a5ea6cadbad2d2",
+      "clip": "idle_2",
+      "phase": 0,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-idle_2-0.2-head-front.png",
+      "sha256": "bf68fbaf12ddd28bdd83339decc0380e527785ae532ee7679b158fff1cad1513",
+      "clip": "idle_2",
+      "phase": 0.2,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-idle_2-0.4-head-front.png",
+      "sha256": "723010615e6415a330e17b7045fe56a2c1ff91fe89235f5fa99910345bd817ac",
+      "clip": "idle_2",
+      "phase": 0.4,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-idle_2-0.6-head-front.png",
+      "sha256": "c5b17e4c215ace2610ef687c334c6811700dbac257d1d099806f8d550bf76e29",
+      "clip": "idle_2",
+      "phase": 0.6,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-idle_2-0.8-head-front.png",
+      "sha256": "adf86b6757c00f31950153e335909fe680821df8bb6d9c7f26434530f26b3d7a",
+      "clip": "idle_2",
+      "phase": 0.8,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-idle_2-1-head-front.png",
+      "sha256": "32e6d656602aa6e5f6988e9612ed64b4d6d7d1d564884d1e4ecd8a589c61544a",
+      "clip": "idle_2",
+      "phase": 1,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-idle_2-head-front-sheet.png",
+      "sha256": "0c42969c0b333c8d3c15380216ba976a33ab8abff48de87e19244d414a5c6e5b",
+      "clip": "idle_2",
+      "view": "head-front",
+      "sheet": true
+    },
+    {
+      "name": "mythic-6-idle_2-0-head-side.png",
+      "sha256": "70e8e1aa92d52ca19b9ea4768e5e372554c28a8b3997f1e370b10b6eb3995062",
+      "clip": "idle_2",
+      "phase": 0,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-idle_2-0.2-head-side.png",
+      "sha256": "e390f266bcbc6217870c6920c2d2bed4fcbc8cab70b70daeca80f69db783739f",
+      "clip": "idle_2",
+      "phase": 0.2,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-idle_2-0.4-head-side.png",
+      "sha256": "08974dc2f314a867083f14e408689710c535bd326afa5cab52d1b431a14eb4b9",
+      "clip": "idle_2",
+      "phase": 0.4,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-idle_2-0.6-head-side.png",
+      "sha256": "72508e7130f610356021113e02e0738d04733a6eb9f3531451f785386f39c9f8",
+      "clip": "idle_2",
+      "phase": 0.6,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-idle_2-0.8-head-side.png",
+      "sha256": "4e21011bd7fdeaa29b9c6b0c5188e015c607d4f23370d3b45ab0124d3ca1f5b2",
+      "clip": "idle_2",
+      "phase": 0.8,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-idle_2-1-head-side.png",
+      "sha256": "f2bf42b15cd33d2b4e6ac527c40d9b7f65c928c308911baf2d842a51afa5baa5",
+      "clip": "idle_2",
+      "phase": 1,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-idle_2-head-side-sheet.png",
+      "sha256": "ee90906fdc74ddea96f69a03b4547af68a962f438fa18605d0458156c9e1cf5f",
+      "clip": "idle_2",
+      "view": "head-side",
+      "sheet": true
+    },
+    {
+      "name": "mythic-6-walk-0-front.png",
+      "sha256": "0b2cea3b9d391f268bcd1c725f8b0412a6e810551106420b28fa50d1023b9e8f",
+      "clip": "walk",
+      "phase": 0,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-walk-0.2-front.png",
+      "sha256": "b230f778d28611b9ef092b56eed82477a63367d3e0267e0fb4e5963741b7f102",
+      "clip": "walk",
+      "phase": 0.2,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-walk-0.4-front.png",
+      "sha256": "134f7291e1ab647616428d354c930e50f87800e8d79972eb74793f84d9d4f87b",
+      "clip": "walk",
+      "phase": 0.4,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-walk-0.6-front.png",
+      "sha256": "a4ce78a615b4bb9cf141c0110d18d58ccc8f1942f5c12da9cf87d7005f12be07",
+      "clip": "walk",
+      "phase": 0.6,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-walk-0.8-front.png",
+      "sha256": "dc226687f3bf05e819f43c5253598c43424669fc49dd902ccb07434f3e33790a",
+      "clip": "walk",
+      "phase": 0.8,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-walk-1-front.png",
+      "sha256": "0b2cea3b9d391f268bcd1c725f8b0412a6e810551106420b28fa50d1023b9e8f",
+      "clip": "walk",
+      "phase": 1,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-walk-front-sheet.png",
+      "sha256": "8cb14fc58556211dce3864ee53116efb54c7b10b26c3336164ea82629c04f443",
+      "clip": "walk",
+      "view": "front",
+      "sheet": true
+    },
+    {
+      "name": "mythic-6-walk-0-side.png",
+      "sha256": "2f1dac17d046a4c29fdf196b194caaa7f9fd60f740957f380cd59a13bb5dc490",
+      "clip": "walk",
+      "phase": 0,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-walk-0.2-side.png",
+      "sha256": "66ac687efc4468dfa374b8bcd8f603f64cef581dc3bfdd28ffc1fcc94dc24fb9",
+      "clip": "walk",
+      "phase": 0.2,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-walk-0.4-side.png",
+      "sha256": "8c171019b1ccd2071a7a5ac920ab80424089e72438fb8ca777aa3665f703ae5f",
+      "clip": "walk",
+      "phase": 0.4,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-walk-0.6-side.png",
+      "sha256": "586e73ddc9ef9d8d6c50c0c7668bcfa9ee31ae2300906f696405ad78cbe0fb8d",
+      "clip": "walk",
+      "phase": 0.6,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-walk-0.8-side.png",
+      "sha256": "90a43b43f5bda5ae00dade141a7dd2478092512456aa772ec6d5e2cc6645ef9e",
+      "clip": "walk",
+      "phase": 0.8,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-walk-1-side.png",
+      "sha256": "bbd0879b932214a5f7896bb5717b1aa1c5bfc589bf7b0af4f6563cc670941f53",
+      "clip": "walk",
+      "phase": 1,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-walk-side-sheet.png",
+      "sha256": "62d4924a349afb491a3f3be2ed3a7993957c96d67871f14e6befabc99ac696ef",
+      "clip": "walk",
+      "view": "side",
+      "sheet": true
+    },
+    {
+      "name": "mythic-6-walk-0-body-front.png",
+      "sha256": "9f39651ddae98615a71d4e07a6eb6c49de931fd6cb32ab5c505a3abcb42d9568",
+      "clip": "walk",
+      "phase": 0,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-walk-0.2-body-front.png",
+      "sha256": "703eb929c9577ee0f5b47e7504f61289e17fccd8391825158258df8c104c2e75",
+      "clip": "walk",
+      "phase": 0.2,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-walk-0.4-body-front.png",
+      "sha256": "35e4d971b1ef639557a0d1cce623f6bdb10bdd6dd56a5a89c66919162717e485",
+      "clip": "walk",
+      "phase": 0.4,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-walk-0.6-body-front.png",
+      "sha256": "4cbf2f7731d04ebe8bf0306c811f6be8bbc6307936e2a1d9de9940f22a67a4f6",
+      "clip": "walk",
+      "phase": 0.6,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-walk-0.8-body-front.png",
+      "sha256": "4fb193b3c7db7100a115f502280bef777327310a5d3eb9025e3c521410eb87a0",
+      "clip": "walk",
+      "phase": 0.8,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-walk-1-body-front.png",
+      "sha256": "b34490b678343b1d9d26578e1f156200593bf7d0b1e77a3d5ecc973e2bd729b7",
+      "clip": "walk",
+      "phase": 1,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-walk-body-front-sheet.png",
+      "sha256": "8e93cecb01ae97ecbe43debe47ed4e4649f82832eced3e3af7e42d671146561d",
+      "clip": "walk",
+      "view": "body-front",
+      "sheet": true
+    },
+    {
+      "name": "mythic-6-walk-0-body-side.png",
+      "sha256": "07ba394487c24e99e14e48c23af3347a2927c23c7a8b1ed22600a55b8a5214fd",
+      "clip": "walk",
+      "phase": 0,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-walk-0.2-body-side.png",
+      "sha256": "e6c19fa53cb9a179b0630b50ea740aab7de909cceb5036fe36c133a9cdd6ec17",
+      "clip": "walk",
+      "phase": 0.2,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-walk-0.4-body-side.png",
+      "sha256": "7d085d3544582fd8cfe517aaf7415c0f9c3cd1cd8ae16ec17a5d2f33ac05cbce",
+      "clip": "walk",
+      "phase": 0.4,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-walk-0.6-body-side.png",
+      "sha256": "60cf31816c4e9c5e027dc8fc6c2128aa4c2d8910f0885cfcb291af5aa6f265ba",
+      "clip": "walk",
+      "phase": 0.6,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-walk-0.8-body-side.png",
+      "sha256": "b79c1f98d7ebf5c176d83b99c447104acf8c01226988c4c3c2a46ec040985f50",
+      "clip": "walk",
+      "phase": 0.8,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-walk-1-body-side.png",
+      "sha256": "db3e43db53641537e3627ad4ec942e61a7a3ef998338d21b5138969e38a29ca2",
+      "clip": "walk",
+      "phase": 1,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-walk-body-side-sheet.png",
+      "sha256": "1d1839e0b16cccb0aabd79ee18e3ec82f4bb7bddc41c3e7e0e0e56355f22d4ea",
+      "clip": "walk",
+      "view": "body-side",
+      "sheet": true
+    },
+    {
+      "name": "mythic-6-walk-0-head-front.png",
+      "sha256": "284bab9c32dc18902f15c4cf54836a9e4334c6520ad815c2dfc662963ba1a5c6",
+      "clip": "walk",
+      "phase": 0,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-walk-0.2-head-front.png",
+      "sha256": "35759d48cba727b819d2a9004547175505a1c4410489ea429954521296c28b3a",
+      "clip": "walk",
+      "phase": 0.2,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-walk-0.4-head-front.png",
+      "sha256": "f987451026159665f6493f280aacfdfafde196ea3725fdcb6a6723adbc2d4c2f",
+      "clip": "walk",
+      "phase": 0.4,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-walk-0.6-head-front.png",
+      "sha256": "7d9b877dac6edb9534973c3618a6e0ae35bb9395b1b4951416aadc80e0e8a956",
+      "clip": "walk",
+      "phase": 0.6,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-walk-0.8-head-front.png",
+      "sha256": "db521c6282a8b699a6e087732819d8a5960db7caefc4d8f0833fc288fcc4a7dd",
+      "clip": "walk",
+      "phase": 0.8,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-walk-1-head-front.png",
+      "sha256": "4d7b0793d5e00320060abf3ee2742f672cb2e5d71e062193bdac24ec65078306",
+      "clip": "walk",
+      "phase": 1,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-walk-head-front-sheet.png",
+      "sha256": "c62fea8822356a0427ad228c7c905fb4607a01cc8440ce8eb85ca9cfd4f41e8a",
+      "clip": "walk",
+      "view": "head-front",
+      "sheet": true
+    },
+    {
+      "name": "mythic-6-walk-0-head-side.png",
+      "sha256": "5b4aa86885e704f8cfea995303994589dca2c630e58c287ac6e8134742758f3d",
+      "clip": "walk",
+      "phase": 0,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-walk-0.2-head-side.png",
+      "sha256": "d81259a75dc53478f408f1a03d08d573a2a21065e465703f2fc38a495ef328b3",
+      "clip": "walk",
+      "phase": 0.2,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-walk-0.4-head-side.png",
+      "sha256": "77ecc3f2cf60803075636093523b7371e7de36a3d91d88bab0654f69564b7a9e",
+      "clip": "walk",
+      "phase": 0.4,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-walk-0.6-head-side.png",
+      "sha256": "1078a2579f2e254e75ac352d494a2c1e7fe6b5ab1863cc4e1a2ddb3d4a8e4b92",
+      "clip": "walk",
+      "phase": 0.6,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-walk-0.8-head-side.png",
+      "sha256": "27fe6a6cf39e95115f5411f1a8fd01f38ee9d448b16035834f6e8f8a0d760c79",
+      "clip": "walk",
+      "phase": 0.8,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-walk-1-head-side.png",
+      "sha256": "f9b6ae2ff511cf6c3a46ef76242f9a77d216685ec8dfc50882aa3c763f7c7053",
+      "clip": "walk",
+      "phase": 1,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-walk-head-side-sheet.png",
+      "sha256": "a786782fa4225316016720f6509adbb1fbdb23ca18b5cd268064384788b695ee",
+      "clip": "walk",
+      "view": "head-side",
+      "sheet": true
+    },
+    {
+      "name": "mythic-6-gallop-0-front.png",
+      "sha256": "bcd64e290df91ff45eab44abf4b402e11a5b3123249ad25ecfe9e6fb62886d0f",
+      "clip": "gallop",
+      "phase": 0,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-gallop-0.2-front.png",
+      "sha256": "44062e74046a4d8484319d0f8599b9e379abb7b71adbd36057d8237f3cf57779",
+      "clip": "gallop",
+      "phase": 0.2,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-gallop-0.4-front.png",
+      "sha256": "e8c604b251e816684523ef3426f90351252c07c87311d226a28189181ffd612f",
+      "clip": "gallop",
+      "phase": 0.4,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-gallop-0.6-front.png",
+      "sha256": "b63f2026092f15e4952fabe806a02133b59c2a5e568efb0ee1ea1b3b4b4e90f8",
+      "clip": "gallop",
+      "phase": 0.6,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-gallop-0.8-front.png",
+      "sha256": "8cae9bab9cad8dd5c14ca22ee8d6a5b204901f4bb5c700d55bc8d72a4d679a32",
+      "clip": "gallop",
+      "phase": 0.8,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-gallop-1-front.png",
+      "sha256": "bcd64e290df91ff45eab44abf4b402e11a5b3123249ad25ecfe9e6fb62886d0f",
+      "clip": "gallop",
+      "phase": 1,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-gallop-front-sheet.png",
+      "sha256": "3322e6134f52d16b4a3296d28cdd5e056d9faebc735c1efbc9bbd60b01320288",
+      "clip": "gallop",
+      "view": "front",
+      "sheet": true
+    },
+    {
+      "name": "mythic-6-gallop-0-side.png",
+      "sha256": "106c9e42bea8c044393959517098dba2d6eeca925dce52285ec10c1190ff9b67",
+      "clip": "gallop",
+      "phase": 0,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-gallop-0.2-side.png",
+      "sha256": "3ad18e6e60605d416e0127463c6d622979d62fe07a6e398a20c3a0e78afcc239",
+      "clip": "gallop",
+      "phase": 0.2,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-gallop-0.4-side.png",
+      "sha256": "5566c23714b98b904d563b5aa5cf0c492af69c89c8bddd1cad793025454da73d",
+      "clip": "gallop",
+      "phase": 0.4,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-gallop-0.6-side.png",
+      "sha256": "784808b3411bfbd5d7f5093a27f8b3da8aeb6e4d7411d7fbafc7a3e1da25db76",
+      "clip": "gallop",
+      "phase": 0.6,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-gallop-0.8-side.png",
+      "sha256": "43b9abdc4221f594de31e559eec5289a5ba0c81a1061df7df11ccc02a4649951",
+      "clip": "gallop",
+      "phase": 0.8,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-gallop-1-side.png",
+      "sha256": "5d36cb3ec026f82b1a72a33360dbc7ccc90ffdaa36f3c2471e3eb74e9e4c42da",
+      "clip": "gallop",
+      "phase": 1,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-gallop-side-sheet.png",
+      "sha256": "b56ff167f02bcd799a64f1a1e788a858e4f0296f7add81310ef01b494c66034c",
+      "clip": "gallop",
+      "view": "side",
+      "sheet": true
+    },
+    {
+      "name": "mythic-6-gallop-0-body-front.png",
+      "sha256": "1e722aaf018c2ebe526c47ebaf5e003746937b923a286793c8fa1966b9afa7ff",
+      "clip": "gallop",
+      "phase": 0,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-gallop-0.2-body-front.png",
+      "sha256": "aca7047878a4e4444cf4e8c964686373e9a49fc7de3f533258f78be083caaec3",
+      "clip": "gallop",
+      "phase": 0.2,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-gallop-0.4-body-front.png",
+      "sha256": "6d673df159f37fb80db069eaadd90e0142f3de7aee977a8b6b9c3ab2e21f971c",
+      "clip": "gallop",
+      "phase": 0.4,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-gallop-0.6-body-front.png",
+      "sha256": "797abe570b3bb4f3966eb56daea4fc7dceccc2863052053c23b6ee98aa8fe260",
+      "clip": "gallop",
+      "phase": 0.6,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-gallop-0.8-body-front.png",
+      "sha256": "3a2dc8659a5f3058d0638fd8f34c9fc22f3048eb202fda494569719b62e3fafe",
+      "clip": "gallop",
+      "phase": 0.8,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-gallop-1-body-front.png",
+      "sha256": "ab3c3bd9e82069e9f25cf9dfcf0ede682b036fb84463d82599d1b25d078d12f3",
+      "clip": "gallop",
+      "phase": 1,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-gallop-body-front-sheet.png",
+      "sha256": "c2de3ad57b4165c5765d4fef8832f73f8be4f5b9bdd6a8063989737d3c33793d",
+      "clip": "gallop",
+      "view": "body-front",
+      "sheet": true
+    },
+    {
+      "name": "mythic-6-gallop-0-body-side.png",
+      "sha256": "40b26e4ff48a6b4948255ad51291b5ea5bbbe8a2cfa906d7b57c68c4cf8d9a21",
+      "clip": "gallop",
+      "phase": 0,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-gallop-0.2-body-side.png",
+      "sha256": "bcd43a5228af712c05cdbc53a3a7673dd3964b7d931477a8d354169623c4ceac",
+      "clip": "gallop",
+      "phase": 0.2,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-gallop-0.4-body-side.png",
+      "sha256": "3ee1ce62cfd4c9a538811a75b7e7b68fd1ebe3bc1944c837274a07b0cb93e427",
+      "clip": "gallop",
+      "phase": 0.4,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-gallop-0.6-body-side.png",
+      "sha256": "86fbe62522150e2b43f04501a823b8aaf1f255ed181ec7c1fc7b72f18b4030fd",
+      "clip": "gallop",
+      "phase": 0.6,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-gallop-0.8-body-side.png",
+      "sha256": "9739949f99d1d46d0173a3ad67a0a58eb2cf1fbab46cc0bcc56e5876a7e0f3b5",
+      "clip": "gallop",
+      "phase": 0.8,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-gallop-1-body-side.png",
+      "sha256": "90f768cf9d9228aa1dbaa90fd39e408fe01a370604e8ce4acc80f223e000c243",
+      "clip": "gallop",
+      "phase": 1,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-gallop-body-side-sheet.png",
+      "sha256": "cf6bdf22f04876c7cc0a3a3ed35eb2d000a6ab03c1931bc63f0825a8f1c2730e",
+      "clip": "gallop",
+      "view": "body-side",
+      "sheet": true
+    },
+    {
+      "name": "mythic-6-gallop-0-head-front.png",
+      "sha256": "da14674180f470302c4218bbfcb93870e8c42fe04b1b380303a194f46c0a6c8d",
+      "clip": "gallop",
+      "phase": 0,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-gallop-0.2-head-front.png",
+      "sha256": "da23f49ad13395d9595964fa573d91efa98c38ae071c7541fe7ff388e67245fa",
+      "clip": "gallop",
+      "phase": 0.2,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-gallop-0.4-head-front.png",
+      "sha256": "375e95d3b5c29e8b3bc95b2a39e223e8b778efd6a14380fa13d81cd9d4a9156d",
+      "clip": "gallop",
+      "phase": 0.4,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-gallop-0.6-head-front.png",
+      "sha256": "a02bb43fbac55f7a45170caf4bb86bd88e164d5b9cd513913b0569d1a950b890",
+      "clip": "gallop",
+      "phase": 0.6,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-gallop-0.8-head-front.png",
+      "sha256": "f2360e4a33d7206202b70d77487ad5a1a7d968af9b9a9c45d0d18d953499162d",
+      "clip": "gallop",
+      "phase": 0.8,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-gallop-1-head-front.png",
+      "sha256": "8d12437cfca03bcf6808f942feb71279d57ab6c8e23b8f7b707ef846d675ea03",
+      "clip": "gallop",
+      "phase": 1,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-gallop-head-front-sheet.png",
+      "sha256": "fc6aaa3404bb5c3b165910ea7c7975066883940efc1135acefde89ec73ab6c6f",
+      "clip": "gallop",
+      "view": "head-front",
+      "sheet": true
+    },
+    {
+      "name": "mythic-6-gallop-0-head-side.png",
+      "sha256": "35eea06b6661d9e345f01a36639d68758145e1ddd483512f231ef9d18a4f6945",
+      "clip": "gallop",
+      "phase": 0,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-gallop-0.2-head-side.png",
+      "sha256": "1fcc582155e423a535dc1dcaa29b57ab39b2fed16c8a18beb9de05097d9c0abf",
+      "clip": "gallop",
+      "phase": 0.2,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-gallop-0.4-head-side.png",
+      "sha256": "4fb506fdfe6586ddf1f8d4c96ce6eb3fc1b2e375ca942be969958e5d691ce0d3",
+      "clip": "gallop",
+      "phase": 0.4,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-gallop-0.6-head-side.png",
+      "sha256": "6efd322629cd753e112ca4741a06886ff283c295cfbe052c5f7e2bb2b25c54bd",
+      "clip": "gallop",
+      "phase": 0.6,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-gallop-0.8-head-side.png",
+      "sha256": "994f58180a4bed7e7c2c7d51f7f3d686965fd20dc3120487428f536ed70ad231",
+      "clip": "gallop",
+      "phase": 0.8,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-gallop-1-head-side.png",
+      "sha256": "1870f54715cd818be105fee6730fa04a88eabee3f98719ab68a08ad51f8b9fa6",
+      "clip": "gallop",
+      "phase": 1,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-gallop-head-side-sheet.png",
+      "sha256": "2b37be43f0ff784368da27d0e1c85a2de90f17bf4c6bc04cf6682b5c2fcad5a9",
+      "clip": "gallop",
+      "view": "head-side",
+      "sheet": true
+    },
+    {
+      "name": "mythic-6-gallop_jump-0-front.png",
+      "sha256": "3c73cb5673f0113913441ce9fc19939ffe07b94e5e2c1513cc7a02085ac579f2",
+      "clip": "gallop_jump",
+      "phase": 0,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-gallop_jump-0.2-front.png",
+      "sha256": "00b21aafdfa1bbe48cf1c05eaddc83d338b63a1688743c29db8364ab0c8a0e87",
+      "clip": "gallop_jump",
+      "phase": 0.2,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-gallop_jump-0.4-front.png",
+      "sha256": "f3f17d8499f6266c1b6905e5977c273b06b65818ef7b8c52d03a567e36b9f532",
+      "clip": "gallop_jump",
+      "phase": 0.4,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-gallop_jump-0.6-front.png",
+      "sha256": "bad6ed9c76741c84ed614d233a13b752eba485b7365ac4fe1387879ad98805dc",
+      "clip": "gallop_jump",
+      "phase": 0.6,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-gallop_jump-0.8-front.png",
+      "sha256": "d117a30120c0d3f2041d9dd95c2cb732dc10776c420e05c568962b50fd4463f8",
+      "clip": "gallop_jump",
+      "phase": 0.8,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-gallop_jump-1-front.png",
+      "sha256": "3c73cb5673f0113913441ce9fc19939ffe07b94e5e2c1513cc7a02085ac579f2",
+      "clip": "gallop_jump",
+      "phase": 1,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-gallop_jump-front-sheet.png",
+      "sha256": "dbd3e1c5edcf80747351989deb0324e7edfad8950619e85f5804f26c79976780",
+      "clip": "gallop_jump",
+      "view": "front",
+      "sheet": true
+    },
+    {
+      "name": "mythic-6-gallop_jump-0-side.png",
+      "sha256": "1a7d7b68288d019c986915e87bad6f43c0e35e272bffd34638bd59fd22eb3fc7",
+      "clip": "gallop_jump",
+      "phase": 0,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-gallop_jump-0.2-side.png",
+      "sha256": "fc37bbef95750c2f4fb200fba307a1761a6be76ac243e3f9c055c52e74cc8713",
+      "clip": "gallop_jump",
+      "phase": 0.2,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-gallop_jump-0.4-side.png",
+      "sha256": "95b000ca6152e2915cc165f8934c47c0c5fe66556842588d89a252de39a123e1",
+      "clip": "gallop_jump",
+      "phase": 0.4,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-gallop_jump-0.6-side.png",
+      "sha256": "c18cb439b09c787026231bec02919f36ad16cd830eae34671fa4d982122986b0",
+      "clip": "gallop_jump",
+      "phase": 0.6,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-gallop_jump-0.8-side.png",
+      "sha256": "c6eb61bea679a71df87f5476ad024a1bf3c593e9295e2dc4ccd5c1ba52bbd966",
+      "clip": "gallop_jump",
+      "phase": 0.8,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-gallop_jump-1-side.png",
+      "sha256": "1a7d7b68288d019c986915e87bad6f43c0e35e272bffd34638bd59fd22eb3fc7",
+      "clip": "gallop_jump",
+      "phase": 1,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-gallop_jump-side-sheet.png",
+      "sha256": "a7cf8bdea8493c325b79ac35d7448081dc93d5883ae8620829cd89d2397d3f9e",
+      "clip": "gallop_jump",
+      "view": "side",
+      "sheet": true
+    },
+    {
+      "name": "mythic-6-gallop_jump-0-body-front.png",
+      "sha256": "e1a53b93fa0b6615bd1127a4ca7bd4356bc5e9e7ca8dd3227753c3eaf20f0cc4",
+      "clip": "gallop_jump",
+      "phase": 0,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-gallop_jump-0.2-body-front.png",
+      "sha256": "64be8fb5902392500ecc483a2e948c19660d413dfc4f9e4cab78dd91c201c859",
+      "clip": "gallop_jump",
+      "phase": 0.2,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-gallop_jump-0.4-body-front.png",
+      "sha256": "036730315e2fcfac1961a8a0cbb56a4879597ae2e6f5c0b908db3586934fd616",
+      "clip": "gallop_jump",
+      "phase": 0.4,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-gallop_jump-0.6-body-front.png",
+      "sha256": "280414ed6e521f22699a922ce42d29bf8188c40a9c894e345e500dc14e8d1b4a",
+      "clip": "gallop_jump",
+      "phase": 0.6,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-gallop_jump-0.8-body-front.png",
+      "sha256": "1ba10890095ad20365bd3acc0d57426ee8fd8e2060dd3c5a63863ff145d6e2dd",
+      "clip": "gallop_jump",
+      "phase": 0.8,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-gallop_jump-1-body-front.png",
+      "sha256": "2ebaff75ae765fbb027ff7592fa74101f9153acd66a450ac6b4d697d9dc784c5",
+      "clip": "gallop_jump",
+      "phase": 1,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-gallop_jump-body-front-sheet.png",
+      "sha256": "0e03db5b7afcc986968dd9599c33300182074364dec4388d6eef24ff86b2b3a5",
+      "clip": "gallop_jump",
+      "view": "body-front",
+      "sheet": true
+    },
+    {
+      "name": "mythic-6-gallop_jump-0-body-side.png",
+      "sha256": "0d7e619b1f3ca379b285e689c4b8e2801d164aaf6e7c6f06d25162d16a2201a8",
+      "clip": "gallop_jump",
+      "phase": 0,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-gallop_jump-0.2-body-side.png",
+      "sha256": "c5336a39aa618ce63ae34ca39e735646ca7b31e41bf7002276135ccd8f53a491",
+      "clip": "gallop_jump",
+      "phase": 0.2,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-gallop_jump-0.4-body-side.png",
+      "sha256": "a5cf84716888693841f36e4d27b7c177d32acbc662597753ba16ba7d7375cc83",
+      "clip": "gallop_jump",
+      "phase": 0.4,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-gallop_jump-0.6-body-side.png",
+      "sha256": "2169ee0d57cd6d2af965b5e97510b904954847fb5962b3d98ce92b0db62af994",
+      "clip": "gallop_jump",
+      "phase": 0.6,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-gallop_jump-0.8-body-side.png",
+      "sha256": "4540f771e675702743a02cd2da0dad8092fe2442328e791ec5f100026cb06bde",
+      "clip": "gallop_jump",
+      "phase": 0.8,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-gallop_jump-1-body-side.png",
+      "sha256": "7b50a9f7d036ae5b63fc5fff43ab027bf678005274be0e1e07dcdb5b25e44bcb",
+      "clip": "gallop_jump",
+      "phase": 1,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-gallop_jump-body-side-sheet.png",
+      "sha256": "5ebb54f82d1b45f99694f3599aec6b51a6e4c732eb25a971c9b0012dfb61099b",
+      "clip": "gallop_jump",
+      "view": "body-side",
+      "sheet": true
+    },
+    {
+      "name": "mythic-6-gallop_jump-0-head-front.png",
+      "sha256": "2f6350757e3885204dcaf8019cc1082ba6c1f06513dea21cc481d2578bc1f49b",
+      "clip": "gallop_jump",
+      "phase": 0,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-gallop_jump-0.2-head-front.png",
+      "sha256": "bad0ccdf3ced0053cc3c5a080597a96e6eea9c5b97d2a43ac7f0dfff4436396a",
+      "clip": "gallop_jump",
+      "phase": 0.2,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-gallop_jump-0.4-head-front.png",
+      "sha256": "b0816af16e1f79b96a7a7f1eb16d6fd799b18a36aaba5feb16dd2fdedc394589",
+      "clip": "gallop_jump",
+      "phase": 0.4,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-gallop_jump-0.6-head-front.png",
+      "sha256": "08bdab4014f4f59d74e71288d1c1e2352d963722232450e67cb0f0e0c079b650",
+      "clip": "gallop_jump",
+      "phase": 0.6,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-gallop_jump-0.8-head-front.png",
+      "sha256": "7358a65d0fe0ba45366655daed5ac62e4c9451a1204ee74db8b470037138a6e7",
+      "clip": "gallop_jump",
+      "phase": 0.8,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-gallop_jump-1-head-front.png",
+      "sha256": "5f1e1cd19917d23516c32e8d50d780cdbf7254cc9f5f6edb55ca0fdc43b63a0c",
+      "clip": "gallop_jump",
+      "phase": 1,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-gallop_jump-head-front-sheet.png",
+      "sha256": "c9b5711c7b03c3e9887cb996f25ba3540e74a22245f27f9ae3bbb69de78b1f93",
+      "clip": "gallop_jump",
+      "view": "head-front",
+      "sheet": true
+    },
+    {
+      "name": "mythic-6-gallop_jump-0-head-side.png",
+      "sha256": "0ba1cfbee6789da22c323847bf81fb2793454d22df179ddebae431461071469e",
+      "clip": "gallop_jump",
+      "phase": 0,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-gallop_jump-0.2-head-side.png",
+      "sha256": "acf0b98effe03544c9830ee44d9c5fd5126dbd3c20cb0049f30f25de12794568",
+      "clip": "gallop_jump",
+      "phase": 0.2,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-gallop_jump-0.4-head-side.png",
+      "sha256": "c425cde3da0308b9e25910f7cbdd5630d610a8da2fadf3a8633147e5c47f529a",
+      "clip": "gallop_jump",
+      "phase": 0.4,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-gallop_jump-0.6-head-side.png",
+      "sha256": "eac3d0a80d236f0ba8ae77fa96b689ced65cc79340d47de49d1a072f9ae037e5",
+      "clip": "gallop_jump",
+      "phase": 0.6,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-gallop_jump-0.8-head-side.png",
+      "sha256": "0ce04b8d1615cf54fc0611a51f8e5affc6608b062aa21c0e41fb0e1dcf16f8f0",
+      "clip": "gallop_jump",
+      "phase": 0.8,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-gallop_jump-1-head-side.png",
+      "sha256": "0ba1cfbee6789da22c323847bf81fb2793454d22df179ddebae431461071469e",
+      "clip": "gallop_jump",
+      "phase": 1,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-gallop_jump-head-side-sheet.png",
+      "sha256": "b25300dabb3cb63b084c1be123af7782ef50e068071a7d24d6f62d7c903b98b2",
+      "clip": "gallop_jump",
+      "view": "head-side",
+      "sheet": true
+    },
+    {
+      "name": "mythic-6-attack-0-front.png",
+      "sha256": "6ab187dbd22d59e4e3fc41c06d6124823c3dd7526e3d4cb8f5e8b0a2cdb9f03f",
+      "clip": "attack",
+      "phase": 0,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-attack-0.2-front.png",
+      "sha256": "5c2f4bdb952a2b71455c3dbad48cb5a454df5828359f1dc59caaba8c6e03bd13",
+      "clip": "attack",
+      "phase": 0.2,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-attack-0.4-front.png",
+      "sha256": "e831dc311492c1736d73547777d6a496f335ce0cc386a40b595c1ebdae7d4fc4",
+      "clip": "attack",
+      "phase": 0.4,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-attack-0.6-front.png",
+      "sha256": "7e723ec2ad55770020b55ebff342ee0ae18216500b96b891f034f058ac2b49e2",
+      "clip": "attack",
+      "phase": 0.6,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-attack-0.8-front.png",
+      "sha256": "2e77e1f285c59e0107b474c01672e506e36085f96b5605611f343e8ad7147f59",
+      "clip": "attack",
+      "phase": 0.8,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-attack-1-front.png",
+      "sha256": "7a42009e2d8b315387b03106349d057c8b6e62e7fc114d688f1f952c70f308de",
+      "clip": "attack",
+      "phase": 1,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-attack-front-sheet.png",
+      "sha256": "4d70db8ddb360b49c713ad2f8734b030698a06c10e45389136a8190f074a0ed9",
+      "clip": "attack",
+      "view": "front",
+      "sheet": true
+    },
+    {
+      "name": "mythic-6-attack-0-side.png",
+      "sha256": "275379b5c9a9187d318e2937af96c00abb0a1b3dc17baf875ca2c2c76e1f88d0",
+      "clip": "attack",
+      "phase": 0,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-attack-0.2-side.png",
+      "sha256": "fc77123ca3714eb1768b1c37830e219efc62e15a09a22a2c0bf5b51d4ed58259",
+      "clip": "attack",
+      "phase": 0.2,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-attack-0.4-side.png",
+      "sha256": "7ca2aa3170a433fb9c89c0f0e07a11a99e47362c8bf03f1dc4a700409e2fcc05",
+      "clip": "attack",
+      "phase": 0.4,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-attack-0.6-side.png",
+      "sha256": "a59bb32b3cba957a697b2c226655b3988465c26cd6ec8e424b4b11f7675c0477",
+      "clip": "attack",
+      "phase": 0.6,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-attack-0.8-side.png",
+      "sha256": "8aa9c69246abd57133a8d98c3a96830ffe79159a174d123d1cda774ea4d8212e",
+      "clip": "attack",
+      "phase": 0.8,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-attack-1-side.png",
+      "sha256": "100a41f6f9068c2358dd9fc42346c015d8eed2d4ac6ea91e172fc4210cd249b8",
+      "clip": "attack",
+      "phase": 1,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-attack-side-sheet.png",
+      "sha256": "a53019f76449af9b2726e2be7cbca813ffab9a241f0d97d70e545efa3ede07e5",
+      "clip": "attack",
+      "view": "side",
+      "sheet": true
+    },
+    {
+      "name": "mythic-6-attack-0-body-front.png",
+      "sha256": "110ed70fa6429f5884d3e0ace2df4be2ac89885e38b50c504d2ae2edbff8feda",
+      "clip": "attack",
+      "phase": 0,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-attack-0.2-body-front.png",
+      "sha256": "d27c3751d892f62cf748c380ef9a48f85dac70e4258bd51511ae510a1793074d",
+      "clip": "attack",
+      "phase": 0.2,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-attack-0.4-body-front.png",
+      "sha256": "74678dd980b87e51486c0cefe51bdc531449baa770cebeb80ccf3eee6395011e",
+      "clip": "attack",
+      "phase": 0.4,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-attack-0.6-body-front.png",
+      "sha256": "6cd31945e566e999c48e4c269a1df0ccf4565c4d7af91c1d192047046cdd6c5c",
+      "clip": "attack",
+      "phase": 0.6,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-attack-0.8-body-front.png",
+      "sha256": "1c2f1a03801c959639641036f6c6eaa31d97914df9173290950d26ffd5e2c62d",
+      "clip": "attack",
+      "phase": 0.8,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-attack-1-body-front.png",
+      "sha256": "891b0c588d9c803c6db2bad5f147a9b040d5d5de4ddd0ec491ee9309776a1696",
+      "clip": "attack",
+      "phase": 1,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-attack-body-front-sheet.png",
+      "sha256": "62cc4ee8b89fa2c24f8e4f15e039d0d47df578b544a12386a45563f002bcd9d4",
+      "clip": "attack",
+      "view": "body-front",
+      "sheet": true
+    },
+    {
+      "name": "mythic-6-attack-0-body-side.png",
+      "sha256": "e117f76c933f9059a6dda3e1d851ecfd0fe5fc558fdfc0c88d3a8138b5e8f400",
+      "clip": "attack",
+      "phase": 0,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-attack-0.2-body-side.png",
+      "sha256": "02881e52cd94496366ee77ed466444f69c27aeaeee52170cbbbdce7575a5d62f",
+      "clip": "attack",
+      "phase": 0.2,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-attack-0.4-body-side.png",
+      "sha256": "a37394739f8ce901a04a3d4726cafba2b400bef407d8f44f74984d278c3e8cf3",
+      "clip": "attack",
+      "phase": 0.4,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-attack-0.6-body-side.png",
+      "sha256": "d2569faabb527a9c6b0dab9ea5f4b39d1d8c3dc16b58597f4240c5ab41910a9f",
+      "clip": "attack",
+      "phase": 0.6,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-attack-0.8-body-side.png",
+      "sha256": "fd9d5052e841f22fb0e52baef4f784a7f7c78d7a35909a9ad3d96a6d2973330b",
+      "clip": "attack",
+      "phase": 0.8,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-attack-1-body-side.png",
+      "sha256": "4040d9b6048daecebbf1a37525e333a695187a790e77dba10bbf1c7d77bd17b2",
+      "clip": "attack",
+      "phase": 1,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-attack-body-side-sheet.png",
+      "sha256": "a6b0340e2f9d6cd7ea9d5b670b1b9014fe729bc2d482114ac5e1d2ec4dba5ab1",
+      "clip": "attack",
+      "view": "body-side",
+      "sheet": true
+    },
+    {
+      "name": "mythic-6-attack-0-head-front.png",
+      "sha256": "e756fde5c4340f04123f2af10ff17687be3731d727d758e41c9c4f47f9b7a0b7",
+      "clip": "attack",
+      "phase": 0,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-attack-0.2-head-front.png",
+      "sha256": "738fe18de412a0d87dd4b770c57fc8afc99b87d545e8c06f59c03fcc0ec47af2",
+      "clip": "attack",
+      "phase": 0.2,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-attack-0.4-head-front.png",
+      "sha256": "d53517cee499fd6d51d99327ae2540dde8680dd70f0ecc04ae672e4c4188b06f",
+      "clip": "attack",
+      "phase": 0.4,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-attack-0.6-head-front.png",
+      "sha256": "38a516b0b060b600aba5e02942efa41ff1c54fcb90578520c9c1f391d6312793",
+      "clip": "attack",
+      "phase": 0.6,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-attack-0.8-head-front.png",
+      "sha256": "aeac8e54de6783ef09d8e460e125911305e80cc42b2d427fa03c54caa56831ce",
+      "clip": "attack",
+      "phase": 0.8,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-attack-1-head-front.png",
+      "sha256": "3f09e0f5ca119d17ddc50ff87fbf9b3d55d734de8288a43a78b5041f2e521678",
+      "clip": "attack",
+      "phase": 1,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-attack-head-front-sheet.png",
+      "sha256": "0026e0a0a0c92f12ed31808ce627a5fe050c687c3d4800ff3cce1314284dfb93",
+      "clip": "attack",
+      "view": "head-front",
+      "sheet": true
+    },
+    {
+      "name": "mythic-6-attack-0-head-side.png",
+      "sha256": "d71aac0b478045336a2ba934deb9341409d33a30cd8d6c586868f6bed53c15c5",
+      "clip": "attack",
+      "phase": 0,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-attack-0.2-head-side.png",
+      "sha256": "61bec7df0eaab8b14e0c91c42b871937a163bb849d23600347fb4d3ac845d461",
+      "clip": "attack",
+      "phase": 0.2,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-attack-0.4-head-side.png",
+      "sha256": "78e9bf739205fd3f8615846e9f721900126204525a38bfdb04a5844415656fbc",
+      "clip": "attack",
+      "phase": 0.4,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-attack-0.6-head-side.png",
+      "sha256": "1c90146af6cd18a95e59f4f71ada36b6cca05fb5252b294a95fc04199d935f66",
+      "clip": "attack",
+      "phase": 0.6,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-attack-0.8-head-side.png",
+      "sha256": "4c999273ff063ff8d2d22a80d8d26be29e40025370b11a7def6daa04417cd033",
+      "clip": "attack",
+      "phase": 0.8,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-attack-1-head-side.png",
+      "sha256": "0c1b5e7192c814292690a5379bae4293f1563ab7c009cf72a2019e9d2178b7c0",
+      "clip": "attack",
+      "phase": 1,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-attack-head-side-sheet.png",
+      "sha256": "3bdac05b441ebb3b13056bab907706f39ac2f433d2f46fbccdbb418308d20ff8",
+      "clip": "attack",
+      "view": "head-side",
+      "sheet": true
+    },
+    {
+      "name": "mythic-6-idle_hitreact1-0-front.png",
+      "sha256": "6ab187dbd22d59e4e3fc41c06d6124823c3dd7526e3d4cb8f5e8b0a2cdb9f03f",
+      "clip": "idle_hitreact1",
+      "phase": 0,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-idle_hitreact1-0.2-front.png",
+      "sha256": "07edcfa04644729d2a760ce24fab1b397389d2dcb91725c6e0918629ce3ee805",
+      "clip": "idle_hitreact1",
+      "phase": 0.2,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-idle_hitreact1-0.4-front.png",
+      "sha256": "6f60da01ce78ae432e782cc490b4cfa1b1e21b151e971f55c620cdfadd0deb75",
+      "clip": "idle_hitreact1",
+      "phase": 0.4,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-idle_hitreact1-0.6-front.png",
+      "sha256": "595b6a8ca3f7ecd86a52b40dc07f561c88cc3b967636ef5d6e032ca595dfaa6e",
+      "clip": "idle_hitreact1",
+      "phase": 0.6,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-idle_hitreact1-0.8-front.png",
+      "sha256": "4db8135de9396726e89b464ce9c2257e3891bd2a85243cd28fc6252e262cdbaa",
+      "clip": "idle_hitreact1",
+      "phase": 0.8,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-idle_hitreact1-1-front.png",
+      "sha256": "7a42009e2d8b315387b03106349d057c8b6e62e7fc114d688f1f952c70f308de",
+      "clip": "idle_hitreact1",
+      "phase": 1,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-idle_hitreact1-front-sheet.png",
+      "sha256": "3706dc3d7cbf3cc6e5675f68fa69fae2593ac231a1e2d4fe87893b6f579b1ee0",
+      "clip": "idle_hitreact1",
+      "view": "front",
+      "sheet": true
+    },
+    {
+      "name": "mythic-6-idle_hitreact1-0-side.png",
+      "sha256": "275379b5c9a9187d318e2937af96c00abb0a1b3dc17baf875ca2c2c76e1f88d0",
+      "clip": "idle_hitreact1",
+      "phase": 0,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-idle_hitreact1-0.2-side.png",
+      "sha256": "b90ddfafe0f5ef9fde5febbb8f1021b5c17c31679571e7e29a435fb261504343",
+      "clip": "idle_hitreact1",
+      "phase": 0.2,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-idle_hitreact1-0.4-side.png",
+      "sha256": "027e2874eaa7331cc5bc142d4b854050502e18e6a92f74ca3f655404dc2b5f8c",
+      "clip": "idle_hitreact1",
+      "phase": 0.4,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-idle_hitreact1-0.6-side.png",
+      "sha256": "de66bb03af2d99502106e228a160d030f05d6d4c895ca5af5e0b3ec84bcf9cdc",
+      "clip": "idle_hitreact1",
+      "phase": 0.6,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-idle_hitreact1-0.8-side.png",
+      "sha256": "7d69d314725469b10590084b9dce25a8561e20ab12e1cd1be641cebe9208f464",
+      "clip": "idle_hitreact1",
+      "phase": 0.8,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-idle_hitreact1-1-side.png",
+      "sha256": "100a41f6f9068c2358dd9fc42346c015d8eed2d4ac6ea91e172fc4210cd249b8",
+      "clip": "idle_hitreact1",
+      "phase": 1,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-idle_hitreact1-side-sheet.png",
+      "sha256": "55e577d3d30460555785f3dce4a200dd6e5738b7e7635ce70cd52d13a7f393fa",
+      "clip": "idle_hitreact1",
+      "view": "side",
+      "sheet": true
+    },
+    {
+      "name": "mythic-6-idle_hitreact1-0-body-front.png",
+      "sha256": "110ed70fa6429f5884d3e0ace2df4be2ac89885e38b50c504d2ae2edbff8feda",
+      "clip": "idle_hitreact1",
+      "phase": 0,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-idle_hitreact1-0.2-body-front.png",
+      "sha256": "f321d23c6bbe12672bc2b870ab36f8d939f15c6538a41b71404f8005060af150",
+      "clip": "idle_hitreact1",
+      "phase": 0.2,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-idle_hitreact1-0.4-body-front.png",
+      "sha256": "41eacbfba8ab414cbeeb420959581e6c9bd7efc1d0f4b1d99e34497dc69b4b79",
+      "clip": "idle_hitreact1",
+      "phase": 0.4,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-idle_hitreact1-0.6-body-front.png",
+      "sha256": "c6613df9a4a728221fe24cdba79703eb0f8d6d27219a50b18f5db8893b368093",
+      "clip": "idle_hitreact1",
+      "phase": 0.6,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-idle_hitreact1-0.8-body-front.png",
+      "sha256": "b357e2d5f5644071a9588d96a057b87e128e6fa90bef625b5bf81594764a637f",
+      "clip": "idle_hitreact1",
+      "phase": 0.8,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-idle_hitreact1-1-body-front.png",
+      "sha256": "891b0c588d9c803c6db2bad5f147a9b040d5d5de4ddd0ec491ee9309776a1696",
+      "clip": "idle_hitreact1",
+      "phase": 1,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-idle_hitreact1-body-front-sheet.png",
+      "sha256": "97f0bd40a1a715f7f63abee6cbc4e3448e65e9f20230308f61246b7639c76220",
+      "clip": "idle_hitreact1",
+      "view": "body-front",
+      "sheet": true
+    },
+    {
+      "name": "mythic-6-idle_hitreact1-0-body-side.png",
+      "sha256": "e117f76c933f9059a6dda3e1d851ecfd0fe5fc558fdfc0c88d3a8138b5e8f400",
+      "clip": "idle_hitreact1",
+      "phase": 0,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-idle_hitreact1-0.2-body-side.png",
+      "sha256": "13436ec80d8987057e20adb76cc979b1cc647ec74255ffc56c6cad1187eefe44",
+      "clip": "idle_hitreact1",
+      "phase": 0.2,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-idle_hitreact1-0.4-body-side.png",
+      "sha256": "09d851daf7a54c777f8935317f93f45fd6ba94a876ced3666f50e97a93bd84b1",
+      "clip": "idle_hitreact1",
+      "phase": 0.4,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-idle_hitreact1-0.6-body-side.png",
+      "sha256": "67323259cf90b4bee07ed02a970b1410261dfccd89311d086b72a9b74fe117b4",
+      "clip": "idle_hitreact1",
+      "phase": 0.6,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-idle_hitreact1-0.8-body-side.png",
+      "sha256": "49bed533f5ccea24a3bac68b078ff54c8c3b90b13f8a5df53fbc2f0279b4ce02",
+      "clip": "idle_hitreact1",
+      "phase": 0.8,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-idle_hitreact1-1-body-side.png",
+      "sha256": "4040d9b6048daecebbf1a37525e333a695187a790e77dba10bbf1c7d77bd17b2",
+      "clip": "idle_hitreact1",
+      "phase": 1,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-idle_hitreact1-body-side-sheet.png",
+      "sha256": "4e8b50d35444872eab21f8dda3663771a3862891db6d5405c00a3cd6ddc4a21b",
+      "clip": "idle_hitreact1",
+      "view": "body-side",
+      "sheet": true
+    },
+    {
+      "name": "mythic-6-idle_hitreact1-0-head-front.png",
+      "sha256": "e756fde5c4340f04123f2af10ff17687be3731d727d758e41c9c4f47f9b7a0b7",
+      "clip": "idle_hitreact1",
+      "phase": 0,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-idle_hitreact1-0.2-head-front.png",
+      "sha256": "ab3245a82160bd8d74a3e1824a82e472092a5ba79cbbf28cc92b0bc03d2ece53",
+      "clip": "idle_hitreact1",
+      "phase": 0.2,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-idle_hitreact1-0.4-head-front.png",
+      "sha256": "ec44d19647e5469dc4282cb42d281d390cc725677477b10f704a65401bee322d",
+      "clip": "idle_hitreact1",
+      "phase": 0.4,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-idle_hitreact1-0.6-head-front.png",
+      "sha256": "a70676fd48bbf09d2ad532f5891431421a984576bfd14494bf437953f941aabe",
+      "clip": "idle_hitreact1",
+      "phase": 0.6,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-idle_hitreact1-0.8-head-front.png",
+      "sha256": "f32ddfaae2a7000c6b4936535fbda4b36f388fb22bd797613ea30640efd474dc",
+      "clip": "idle_hitreact1",
+      "phase": 0.8,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-idle_hitreact1-1-head-front.png",
+      "sha256": "3f09e0f5ca119d17ddc50ff87fbf9b3d55d734de8288a43a78b5041f2e521678",
+      "clip": "idle_hitreact1",
+      "phase": 1,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-idle_hitreact1-head-front-sheet.png",
+      "sha256": "e30d03ce4c564e17a573089d0bbd0df1f3971d5d9a628f98a0d8e1516dee0bcb",
+      "clip": "idle_hitreact1",
+      "view": "head-front",
+      "sheet": true
+    },
+    {
+      "name": "mythic-6-idle_hitreact1-0-head-side.png",
+      "sha256": "d71aac0b478045336a2ba934deb9341409d33a30cd8d6c586868f6bed53c15c5",
+      "clip": "idle_hitreact1",
+      "phase": 0,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-idle_hitreact1-0.2-head-side.png",
+      "sha256": "cf174e7faa2ebd7b1c28e2961c522b1ff8d59299d13a42ce131b14d4debafec2",
+      "clip": "idle_hitreact1",
+      "phase": 0.2,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-idle_hitreact1-0.4-head-side.png",
+      "sha256": "2379b98ad9ed4b026a75e862680bdd53604b14c1efc18d8b3d5307163e104f52",
+      "clip": "idle_hitreact1",
+      "phase": 0.4,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-idle_hitreact1-0.6-head-side.png",
+      "sha256": "4a9dfb8d2de19adf9900da2feb5a024dd9d9bfe7270934382e220ba9047aa858",
+      "clip": "idle_hitreact1",
+      "phase": 0.6,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-idle_hitreact1-0.8-head-side.png",
+      "sha256": "b7b26fcb15032df8aa7bdb8831ff9e7513519e9ade30546017adf1b58972b3fd",
+      "clip": "idle_hitreact1",
+      "phase": 0.8,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-idle_hitreact1-1-head-side.png",
+      "sha256": "0c1b5e7192c814292690a5379bae4293f1563ab7c009cf72a2019e9d2178b7c0",
+      "clip": "idle_hitreact1",
+      "phase": 1,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-idle_hitreact1-head-side-sheet.png",
+      "sha256": "52183b3b00221a0f246b87f6c5a1d5dd121dfcf0b6ca4cde209386e9cfc80f7e",
+      "clip": "idle_hitreact1",
+      "view": "head-side",
+      "sheet": true
+    },
+    {
+      "name": "mythic-6-death-0-front.png",
+      "sha256": "003b852886f07f173fa62bb2054e27d0356c9b0bee456f18945d090aa9685f57",
+      "clip": "death",
+      "phase": 0,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-death-0.2-front.png",
+      "sha256": "859cdd227155cc62bb4f529c20693810866488c1c9264d5cd3c8252335250c86",
+      "clip": "death",
+      "phase": 0.2,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-death-0.4-front.png",
+      "sha256": "281c0ffebfb122687fb469f0376f82e509db5ce59d5621d89598329890538095",
+      "clip": "death",
+      "phase": 0.4,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-death-0.6-front.png",
+      "sha256": "f5c80777b0236af6b1d399b0d263bf1790d57bc729c62cd8d712303f6ea3d9df",
+      "clip": "death",
+      "phase": 0.6,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-death-0.8-front.png",
+      "sha256": "33bd563c1a09eb1cb050b78f5959940d1ef006fb64ba9d038fdab2bd7e0c2bc2",
+      "clip": "death",
+      "phase": 0.8,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-death-1-front.png",
+      "sha256": "1f28686fd024aba4994d99d2330fa6b9a45daebd5a9c3366a4c981fd1923e14d",
+      "clip": "death",
+      "phase": 1,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-death-front-sheet.png",
+      "sha256": "52ee321973327329c1e6a08674cb58dfcda7a35ca920be7ff126045ccd8a22b7",
+      "clip": "death",
+      "view": "front",
+      "sheet": true
+    },
+    {
+      "name": "mythic-6-death-0-side.png",
+      "sha256": "9a9b8d656553fe55e7c5bc208923e917c9c77fe6051be61c4ff78f648ae5a2d6",
+      "clip": "death",
+      "phase": 0,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-death-0.2-side.png",
+      "sha256": "b330d0ba129d07e768a57d7b0514eabf0e28b40d107dd7ac2baf2a17e941320f",
+      "clip": "death",
+      "phase": 0.2,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-death-0.4-side.png",
+      "sha256": "c124a8c7e2e12ebd15b621957fcba66c0bcd5bf4c7cbbd3dbc26dfed80aa44e6",
+      "clip": "death",
+      "phase": 0.4,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-death-0.6-side.png",
+      "sha256": "25682996aecfe7649adf348bb5df3960f0686349ec88e7076d4b602b14129f59",
+      "clip": "death",
+      "phase": 0.6,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-death-0.8-side.png",
+      "sha256": "ea9a161db17089bcf22fd74cd5b3aa922c5969519d540e6d02657bef0c4d317d",
+      "clip": "death",
+      "phase": 0.8,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-death-1-side.png",
+      "sha256": "e3ce7b684f525fa0a5032e1e54be2564ef45d003d263edf227c2a25103361f11",
+      "clip": "death",
+      "phase": 1,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-death-side-sheet.png",
+      "sha256": "d6378f9222e9ad458c87ea2fc15f6a3aab6736e02cb7ea972650093deea24d9b",
+      "clip": "death",
+      "view": "side",
+      "sheet": true
+    },
+    {
+      "name": "mythic-6-death-0-body-front.png",
+      "sha256": "86da8e7e8f4065b55819b7bfbb678874d0f161ff3c08a7441c8213c1b1cf5e21",
+      "clip": "death",
+      "phase": 0,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-death-0.2-body-front.png",
+      "sha256": "09ebdad3db0a2e3c1dc6ecaf4ba0352b201547508f09416faacdd541bf0252e7",
+      "clip": "death",
+      "phase": 0.2,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-death-0.4-body-front.png",
+      "sha256": "993816ad9567635b798e75e681050cb7d4a9936521cdaf1f1bc17c65f2ea2755",
+      "clip": "death",
+      "phase": 0.4,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-death-0.6-body-front.png",
+      "sha256": "f823e3b64b2c70652cd499949c88a189e0e4b31ea58b76b8f0c605fc49aea577",
+      "clip": "death",
+      "phase": 0.6,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-death-0.8-body-front.png",
+      "sha256": "aa5d772d1f851d6ef3ec2c6be22daae04eba744c3eaa5c3c4a5fe23c080ab44e",
+      "clip": "death",
+      "phase": 0.8,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-death-1-body-front.png",
+      "sha256": "ef565bed7c40f9f4622cfaf87395fa5d3bdb9e109e96ed4c8a9f73b41dd3ce5c",
+      "clip": "death",
+      "phase": 1,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-death-body-front-sheet.png",
+      "sha256": "0587cd4028f616b27ad02c9fd5ed4b0a45212e8b0554e43ca43f78ef6404eab2",
+      "clip": "death",
+      "view": "body-front",
+      "sheet": true
+    },
+    {
+      "name": "mythic-6-death-0-body-side.png",
+      "sha256": "e18631e643bf143a55cd4067e073cd18024821367f0a99048763a3a67db52379",
+      "clip": "death",
+      "phase": 0,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-death-0.2-body-side.png",
+      "sha256": "9364e5f97cda4f90a6083e51a79309dc0ddbdbe0da6f1981eae4d26df1a4616f",
+      "clip": "death",
+      "phase": 0.2,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-death-0.4-body-side.png",
+      "sha256": "c34cb20ea177d5b84dafabd48640a521299e54b80c170ce6a36740501e44df03",
+      "clip": "death",
+      "phase": 0.4,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-death-0.6-body-side.png",
+      "sha256": "cd4f5a0a2c7a63ef7dbbde098811e711b4ff202bafea95b5baec9f0985547192",
+      "clip": "death",
+      "phase": 0.6,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-death-0.8-body-side.png",
+      "sha256": "33017d74f86e97aa96146dcdfa38511ab5b40a98f3bf76c485697244b16309a9",
+      "clip": "death",
+      "phase": 0.8,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-death-1-body-side.png",
+      "sha256": "8e2f8b3c4a9a64332592627c7dd7be629acdb98522d08bbb67fe0731fa83f59a",
+      "clip": "death",
+      "phase": 1,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-death-body-side-sheet.png",
+      "sha256": "ae341c244cd551cd2e07a802a6d7fbcfc9448bd6d9d7f921396172eaaa701fe9",
+      "clip": "death",
+      "view": "body-side",
+      "sheet": true
+    },
+    {
+      "name": "mythic-6-death-0-head-front.png",
+      "sha256": "588b0cf88b924431ab282d602cc56ad8584bb0e71a30ae2b90259cdcfe97a555",
+      "clip": "death",
+      "phase": 0,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-death-0.2-head-front.png",
+      "sha256": "cbc2c213971ac02e9c0f5fe76530c0071d32f19448b278b179bc778717f7fd07",
+      "clip": "death",
+      "phase": 0.2,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-death-0.4-head-front.png",
+      "sha256": "b45aca0a16c113116c75b99150d9923fa5687a3ffecea869e31674e157d4f1b8",
+      "clip": "death",
+      "phase": 0.4,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-death-0.6-head-front.png",
+      "sha256": "ce290f5ebc7a3e659125576f510852727538246fd89a220486a6d44050df195f",
+      "clip": "death",
+      "phase": 0.6,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-death-0.8-head-front.png",
+      "sha256": "e85685889165ba46e8442fc4d30194195f5d76f837559674a8525103430622cb",
+      "clip": "death",
+      "phase": 0.8,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-death-1-head-front.png",
+      "sha256": "675563cb1e8a5f0162e1f499e4ff066d637b1c814bc73531468d2949b9cc16bc",
+      "clip": "death",
+      "phase": 1,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-death-head-front-sheet.png",
+      "sha256": "174874fbfc270a021c7637454ec9bfed270e42a461c1523089792d16e53b7511",
+      "clip": "death",
+      "view": "head-front",
+      "sheet": true
+    },
+    {
+      "name": "mythic-6-death-0-head-side.png",
+      "sha256": "637f4fe56ff890f7f6555f66a52b22b9c7cecfe662699f0054b4756f204eb799",
+      "clip": "death",
+      "phase": 0,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-death-0.2-head-side.png",
+      "sha256": "16e83d7ad85ac70bc9c59a1ae3817a30bed1529687bcc653b04fcdcc13d705ee",
+      "clip": "death",
+      "phase": 0.2,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-death-0.4-head-side.png",
+      "sha256": "69227643cc66a4599984bc4a56727780bae67d399f374ce8314387ba1a6286f1",
+      "clip": "death",
+      "phase": 0.4,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-death-0.6-head-side.png",
+      "sha256": "085913f602052b29f80da92a2f00aafbf36b5b9fc55bdbb9dd1551a7de0bd11b",
+      "clip": "death",
+      "phase": 0.6,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-death-0.8-head-side.png",
+      "sha256": "9828d4c6779bb6ce13dfa86157c2b7912eb5ae1a61d76a286d50caffaa900afd",
+      "clip": "death",
+      "phase": 0.8,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-death-1-head-side.png",
+      "sha256": "3984cdef4f11a7274aedf257890f4f1fab6491ed7e3644a7a5aa2441056ec6ff",
+      "clip": "death",
+      "phase": 1,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-death-head-side-sheet.png",
+      "sha256": "89ed653a12da3193a9604a4775bb11a40c52e2bde3a534f082f7ae797c61b360",
+      "clip": "death",
+      "view": "head-side",
+      "sheet": true
+    },
+    {
+      "name": "mythic-6-entrance-0-front.png",
+      "sha256": "5eba233e0f8922bcb529aa2a717b3bd43758256b7f4d8b3d3ec00da7acf60d56",
+      "clip": "entrance",
+      "phase": 0,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-entrance-0.2-front.png",
+      "sha256": "7c068e452d971a2b112608364a9cb40c6ed418bff371b2057f150d563d75a363",
+      "clip": "entrance",
+      "phase": 0.2,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-entrance-0.4-front.png",
+      "sha256": "4a996f2327730d1a4dc52e7f396b2dfd117781298a05bd13c0ddc359eacc2893",
+      "clip": "entrance",
+      "phase": 0.4,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-entrance-0.6-front.png",
+      "sha256": "109d97db3b0e749e23fe1689316dff8ea81ab8904661a3c2b291fdfae400a7e5",
+      "clip": "entrance",
+      "phase": 0.6,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-entrance-0.8-front.png",
+      "sha256": "e1dfbb691c71eaa6c6ad924a39e9d8a7fee50014cb9a9a862fdf32dbf1d370b4",
+      "clip": "entrance",
+      "phase": 0.8,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-entrance-1-front.png",
+      "sha256": "3c73cb5673f0113913441ce9fc19939ffe07b94e5e2c1513cc7a02085ac579f2",
+      "clip": "entrance",
+      "phase": 1,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-entrance-front-sheet.png",
+      "sha256": "a6ea2858ad6ccde37f80e0649d64b54ba26f9c6d77850450633b9efa1b2c608f",
+      "clip": "entrance",
+      "view": "front",
+      "sheet": true
+    },
+    {
+      "name": "mythic-6-entrance-0-side.png",
+      "sha256": "b260c2cfc6f9f516899c85a7c2c5845a848af25c568e1b005fe56404fa3e8eb9",
+      "clip": "entrance",
+      "phase": 0,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-entrance-0.2-side.png",
+      "sha256": "920981b19d81b789976816c10a7252b9f480300c54209ebfce99a76b83a1bcb2",
+      "clip": "entrance",
+      "phase": 0.2,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-entrance-0.4-side.png",
+      "sha256": "b17c613b4b548ac103c5c4dbd6676a8719dde5394adb9f6a800aef618ea1a7a3",
+      "clip": "entrance",
+      "phase": 0.4,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-entrance-0.6-side.png",
+      "sha256": "a7a70a95e437103f28fccb297c6c6675b3b2ca3751728bb70e653146be86a778",
+      "clip": "entrance",
+      "phase": 0.6,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-entrance-0.8-side.png",
+      "sha256": "3aa772da94d511c5ebec3debaa409f5861641cbfa875b352540b0542f741bebb",
+      "clip": "entrance",
+      "phase": 0.8,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-entrance-1-side.png",
+      "sha256": "1a7d7b68288d019c986915e87bad6f43c0e35e272bffd34638bd59fd22eb3fc7",
+      "clip": "entrance",
+      "phase": 1,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-entrance-side-sheet.png",
+      "sha256": "41be55ae088f2e9e74f1d2f29a59c9d12b8bdb83be43c1be8f7c0c4ce2afb995",
+      "clip": "entrance",
+      "view": "side",
+      "sheet": true
+    },
+    {
+      "name": "mythic-6-entrance-0-body-front.png",
+      "sha256": "04aab82d99e3803997e1e8c7e9e85e2c16317b088c5320cfe0da1056debae4e1",
+      "clip": "entrance",
+      "phase": 0,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-entrance-0.2-body-front.png",
+      "sha256": "b88d1ce8c59c822bc809d81c3886a978bfa60ca41ab811a24f8275f5c804616c",
+      "clip": "entrance",
+      "phase": 0.2,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-entrance-0.4-body-front.png",
+      "sha256": "e12624ba209293d048408b41bced85e77e1828363bcee52d93aae80ff9d0d30d",
+      "clip": "entrance",
+      "phase": 0.4,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-entrance-0.6-body-front.png",
+      "sha256": "9f9336b5866094aebd22d6c3878178d9296635920f467efa8635d272186a6adf",
+      "clip": "entrance",
+      "phase": 0.6,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-entrance-0.8-body-front.png",
+      "sha256": "56b55b040e7a4e97dc4c4ac756d513949aa4571d23d1259e4e8ebf2234f000bc",
+      "clip": "entrance",
+      "phase": 0.8,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-entrance-1-body-front.png",
+      "sha256": "2ebaff75ae765fbb027ff7592fa74101f9153acd66a450ac6b4d697d9dc784c5",
+      "clip": "entrance",
+      "phase": 1,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-entrance-body-front-sheet.png",
+      "sha256": "50c836006a3c7027b48df53e2a3757c27e7a6f1ea82fec3b37e20bb4d7a2eb93",
+      "clip": "entrance",
+      "view": "body-front",
+      "sheet": true
+    },
+    {
+      "name": "mythic-6-entrance-0-body-side.png",
+      "sha256": "62facb7481a77237f8cf47642382f0c4b19f4b5e46c1f3cc907612f4b6a6c32b",
+      "clip": "entrance",
+      "phase": 0,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-entrance-0.2-body-side.png",
+      "sha256": "c45419612d92070ab7f8c35adeb6dd0471a816f4bd3d6e6305a91080a7e0fd27",
+      "clip": "entrance",
+      "phase": 0.2,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-entrance-0.4-body-side.png",
+      "sha256": "834259d292869c011e9cde8f7d1b10a0d011187a273b4ee42a5758407b160103",
+      "clip": "entrance",
+      "phase": 0.4,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-entrance-0.6-body-side.png",
+      "sha256": "66c38794741d552f8c64ecff9522e5a7720cce9b7978e1d93f777af34a1927f5",
+      "clip": "entrance",
+      "phase": 0.6,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-entrance-0.8-body-side.png",
+      "sha256": "1f224108448375148fea682da01a83bc187d3f4ff6f7afa25aca519d2e56e0e4",
+      "clip": "entrance",
+      "phase": 0.8,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-entrance-1-body-side.png",
+      "sha256": "7b50a9f7d036ae5b63fc5fff43ab027bf678005274be0e1e07dcdb5b25e44bcb",
+      "clip": "entrance",
+      "phase": 1,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-entrance-body-side-sheet.png",
+      "sha256": "7c9c4d14e750890a8bf880d34b81e7348496083a8bffba9a71367d04c00fcc22",
+      "clip": "entrance",
+      "view": "body-side",
+      "sheet": true
+    },
+    {
+      "name": "mythic-6-entrance-0-head-front.png",
+      "sha256": "5542d2000ffec598498b520ffd462d56755b6ee456e99e825ef3366dfa0780e4",
+      "clip": "entrance",
+      "phase": 0,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-entrance-0.2-head-front.png",
+      "sha256": "1386232bc0244a568ba412fc56ca594ec6a038fb3794d48efa450869d6acb744",
+      "clip": "entrance",
+      "phase": 0.2,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-entrance-0.4-head-front.png",
+      "sha256": "f257905500d44cde2e7d27d021e4393a5f76a5339c879dfce71a02ec95a477a3",
+      "clip": "entrance",
+      "phase": 0.4,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-entrance-0.6-head-front.png",
+      "sha256": "8b16dd3a506179630853d45aa722d0636a439ad93f26f6bad7ddb6d7861ed287",
+      "clip": "entrance",
+      "phase": 0.6,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-entrance-0.8-head-front.png",
+      "sha256": "6a9e265aa9044f3d31f8825a2de0904f4557673f611d99a44a52b784f2e3e2ca",
+      "clip": "entrance",
+      "phase": 0.8,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-entrance-1-head-front.png",
+      "sha256": "5f1e1cd19917d23516c32e8d50d780cdbf7254cc9f5f6edb55ca0fdc43b63a0c",
+      "clip": "entrance",
+      "phase": 1,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-entrance-head-front-sheet.png",
+      "sha256": "18288d131c29dd940f274abd395cc6c6fe5519766e4c9628e31d9adc2605f38e",
+      "clip": "entrance",
+      "view": "head-front",
+      "sheet": true
+    },
+    {
+      "name": "mythic-6-entrance-0-head-side.png",
+      "sha256": "1c923f2f3af4e54876215b76d6e6b30800f1a5b6e8a50483b55e7a4e609c4e54",
+      "clip": "entrance",
+      "phase": 0,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-entrance-0.2-head-side.png",
+      "sha256": "5478132cc0d6db8e7c6bbdd446fa1721299d73505b15776bbd7a4695a170ae0c",
+      "clip": "entrance",
+      "phase": 0.2,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-entrance-0.4-head-side.png",
+      "sha256": "dfe420997e5931829dff4f0e27a1010d885ab5908f2351c9f1d1084de245493e",
+      "clip": "entrance",
+      "phase": 0.4,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-entrance-0.6-head-side.png",
+      "sha256": "d57ef01a1d132e044b93050ecc65347cba685321901d95047d2744ad19cf9dac",
+      "clip": "entrance",
+      "phase": 0.6,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-entrance-0.8-head-side.png",
+      "sha256": "af93add17d1b213856c8fb1576de80a6ebc78f34da29f94dd377027c9f764c8d",
+      "clip": "entrance",
+      "phase": 0.8,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-entrance-1-head-side.png",
+      "sha256": "0ba1cfbee6789da22c323847bf81fb2793454d22df179ddebae431461071469e",
+      "clip": "entrance",
+      "phase": 1,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-entrance-head-side-sheet.png",
+      "sha256": "c7ac1118c8f35c7ecd9362c4f297216447c2b5241f1f06327df725c3218fdeff",
+      "clip": "entrance",
+      "view": "head-side",
+      "sheet": true
+    },
+    {
+      "name": "mythic-6-cast-0-front.png",
+      "sha256": "c591bdde44bed0c425bd4d418925ddbfdce2397968d922e6de8c0613c885331f",
+      "clip": "cast",
+      "phase": 0,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-cast-0.2-front.png",
+      "sha256": "99fcd67d0d830900cb5ebe63c163a770724df59336a23e29ca33fa78bc62d782",
+      "clip": "cast",
+      "phase": 0.2,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-cast-0.4-front.png",
+      "sha256": "cb97ed2a6dc43cb726dbb26206173d0ce321e1004c1444d879263afc1a9ce5ac",
+      "clip": "cast",
+      "phase": 0.4,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-cast-0.6-front.png",
+      "sha256": "a411d18d44132a51082f2def686015bae68fce8e1dc19ac26a5b2a780f60aa7a",
+      "clip": "cast",
+      "phase": 0.6,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-cast-0.8-front.png",
+      "sha256": "a1c4193f74c315dee2e1f3e17a0fd602a3b7e04cdbb393bf9ef8c2e96e05b8a0",
+      "clip": "cast",
+      "phase": 0.8,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-cast-1-front.png",
+      "sha256": "3a82cc982693f959876409be32767bffb879d1ef9088c3a45e495a0b0a9b6b74",
+      "clip": "cast",
+      "phase": 1,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-cast-front-sheet.png",
+      "sha256": "feced59d3d1463e1eb6175b005faded2606db6e1f584d7fe01292e5ada84a649",
+      "clip": "cast",
+      "view": "front",
+      "sheet": true
+    },
+    {
+      "name": "mythic-6-cast-0-side.png",
+      "sha256": "cb7bc92bc78f3be5237637adc7c757935b067a4b38a31e8bf275365d70343e03",
+      "clip": "cast",
+      "phase": 0,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-cast-0.2-side.png",
+      "sha256": "1332927cd2741642b0325674fd1909d87e2c79099d366db8554db361c652e56b",
+      "clip": "cast",
+      "phase": 0.2,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-cast-0.4-side.png",
+      "sha256": "013ab9be542fed76ca58ac39daa4ec6fe80205a2e96341b890d72ab26dc34df5",
+      "clip": "cast",
+      "phase": 0.4,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-cast-0.6-side.png",
+      "sha256": "54cd409cc912c27a46e3beb6ba8bae42defd5eebba5b380caba54f40d3868640",
+      "clip": "cast",
+      "phase": 0.6,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-cast-0.8-side.png",
+      "sha256": "734ac532b79f673515d5ab2ed191fe453d24095e6e4de7e5caaf3cad643ac902",
+      "clip": "cast",
+      "phase": 0.8,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-cast-1-side.png",
+      "sha256": "1c1d0c784c07039689d6c6c68df1787168851b4bdd1bcd5ca0e4642bed2aab22",
+      "clip": "cast",
+      "phase": 1,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-cast-side-sheet.png",
+      "sha256": "52bf8c8195fe762563ed3a3ba9cb2136172a59e90f7c8b3f9f799765893d47ec",
+      "clip": "cast",
+      "view": "side",
+      "sheet": true
+    },
+    {
+      "name": "mythic-6-cast-0-body-front.png",
+      "sha256": "af39d6c7f61b8b3faba32917abaf4f4cf7cfb1a57be98be75bce32e316b00aad",
+      "clip": "cast",
+      "phase": 0,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-cast-0.2-body-front.png",
+      "sha256": "3d21a1008ccddc4725ea9a6382ebf7a3c0d1529bbe94dba0da07f6e1b2df3395",
+      "clip": "cast",
+      "phase": 0.2,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-cast-0.4-body-front.png",
+      "sha256": "3c773d499094743250f0e83b0b1427542dcf3ae79f331bca67fa4057384f9ee0",
+      "clip": "cast",
+      "phase": 0.4,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-cast-0.6-body-front.png",
+      "sha256": "3f073481e82185986649919e229a9d519732f6fcf6f904befd6efb44be0036d4",
+      "clip": "cast",
+      "phase": 0.6,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-cast-0.8-body-front.png",
+      "sha256": "5f4ac91cbef48284c28da5e6eac9fddd2e2635b62436a74b6ec191b8e356b983",
+      "clip": "cast",
+      "phase": 0.8,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-cast-1-body-front.png",
+      "sha256": "92a4c7e1fce2540d7c3fe175d49b156d90c62e2dddee7456d66698a66653e4b9",
+      "clip": "cast",
+      "phase": 1,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-cast-body-front-sheet.png",
+      "sha256": "8060d87aabecae3cab2d81a4224555a07287e87fa545f5aed9cf906fe269cb11",
+      "clip": "cast",
+      "view": "body-front",
+      "sheet": true
+    },
+    {
+      "name": "mythic-6-cast-0-body-side.png",
+      "sha256": "d3060b9c5f4abdaef1f6464d5f547f251163105e4405e8bba417f017143330d0",
+      "clip": "cast",
+      "phase": 0,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-cast-0.2-body-side.png",
+      "sha256": "00ac9c5465b06c0adf89049c7e14a2f6fc27ec6a7bee11fa713dc3d5b01919bb",
+      "clip": "cast",
+      "phase": 0.2,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-cast-0.4-body-side.png",
+      "sha256": "57b66c07869033a561ffca37bb2d1baa12e175a8d6afdfb722bdcaeb7088c373",
+      "clip": "cast",
+      "phase": 0.4,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-cast-0.6-body-side.png",
+      "sha256": "0a4aee73326fccee33c87a23aef2da05127b3d3e00b8efdfe48c421c5227c653",
+      "clip": "cast",
+      "phase": 0.6,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-cast-0.8-body-side.png",
+      "sha256": "1e7c0543826290800831f58a347b0149da72aa99deaacf6461351fc548244666",
+      "clip": "cast",
+      "phase": 0.8,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-cast-1-body-side.png",
+      "sha256": "4b14da29c4f9eab9ac9b16476c38f93479a79c7fab2e65ac1719c4f2f9d1e9a8",
+      "clip": "cast",
+      "phase": 1,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-cast-body-side-sheet.png",
+      "sha256": "dc264e488ab7d133e583b29b130fd67f6556e9e42d605fd9be25231b9d7e1ae4",
+      "clip": "cast",
+      "view": "body-side",
+      "sheet": true
+    },
+    {
+      "name": "mythic-6-cast-0-head-front.png",
+      "sha256": "60d1f79431170d850bf343c343385bac2cf4c2ac1484e5ab53440fb3ec31ffc1",
+      "clip": "cast",
+      "phase": 0,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-cast-0.2-head-front.png",
+      "sha256": "229b2022698514f0c00e9dc81339cae5eee7a8812f404aa538ccaedb45e33cd6",
+      "clip": "cast",
+      "phase": 0.2,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-cast-0.4-head-front.png",
+      "sha256": "663a9e9be3e587560bf0e24c697660dbba3fe83e5b54fbd5a1244a23ddde2e0e",
+      "clip": "cast",
+      "phase": 0.4,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-cast-0.6-head-front.png",
+      "sha256": "7e3fae74791c73bfe96a802d469ad59b5c307f69ca566e232d6b08bf5f2c8cc1",
+      "clip": "cast",
+      "phase": 0.6,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-cast-0.8-head-front.png",
+      "sha256": "4426a0b0bc3d2bd0c2e75006c8f57eb850df86841f7b5e8ca4a80250b053a5c4",
+      "clip": "cast",
+      "phase": 0.8,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-cast-1-head-front.png",
+      "sha256": "e0b521cbdf01adce87952744fdc0a93d5cbbce95eaf8778f75699bd00c1c850f",
+      "clip": "cast",
+      "phase": 1,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-cast-head-front-sheet.png",
+      "sha256": "d0a7f08cda9d2293d0d21f8ba258c115abbc5df71b424d99af372e3d249a1ab7",
+      "clip": "cast",
+      "view": "head-front",
+      "sheet": true
+    },
+    {
+      "name": "mythic-6-cast-0-head-side.png",
+      "sha256": "b6c24b89430f534928e41d4acca2f308f49b61d9750bfd3b48648010a320d893",
+      "clip": "cast",
+      "phase": 0,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-cast-0.2-head-side.png",
+      "sha256": "efa481c6b23517efbdcdb06874dff2a05e60ff35b4d437242b3e67843791d556",
+      "clip": "cast",
+      "phase": 0.2,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-cast-0.4-head-side.png",
+      "sha256": "a0c2d280a6c806807b3421f84d35cd7623b8fd3c7fb933981723b9e1462400dd",
+      "clip": "cast",
+      "phase": 0.4,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-cast-0.6-head-side.png",
+      "sha256": "dfcc2dfdbaf018e3dccb18cb572ea212b7687b13602c2d9abc1281e30e5a0226",
+      "clip": "cast",
+      "phase": 0.6,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-cast-0.8-head-side.png",
+      "sha256": "ab82f51af092b4a2d358df6aeaddacd6d4fced2e044990e3f1c6fe4131dd0dd6",
+      "clip": "cast",
+      "phase": 0.8,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-cast-1-head-side.png",
+      "sha256": "63e66848ab1822324f4f913545eedb5090f9704881a4bb374306637428a5caac",
+      "clip": "cast",
+      "phase": 1,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-cast-head-side-sheet.png",
+      "sha256": "db508553c76065b209d8bbfb6681784689220aac63690980eb430ebc053054f5",
+      "clip": "cast",
+      "view": "head-side",
+      "sheet": true
+    },
+    {
+      "name": "mythic-6-guard-0-front.png",
+      "sha256": "7533174f440a735a6735c57f4018a830463c0f72cdc4f3132d0c8cff30d52424",
+      "clip": "guard",
+      "phase": 0,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-guard-0.2-front.png",
+      "sha256": "752f41c15a8454791bb3a99fcc2d125dad74c26d67ea7ae150069d69da44caf7",
+      "clip": "guard",
+      "phase": 0.2,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-guard-0.4-front.png",
+      "sha256": "6b9c37238d660cbd4b33661f8de8567bc2ed995d48e825c9b13828f895a45fa9",
+      "clip": "guard",
+      "phase": 0.4,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-guard-0.6-front.png",
+      "sha256": "262890bafdddde58f02a6eaac0a810d5c6f9735c5e2aa2d40ecd8792bfcc193f",
+      "clip": "guard",
+      "phase": 0.6,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-guard-0.8-front.png",
+      "sha256": "f47d723396cd9d1c78fa04efe551a7a209a3d9d7c2f649cf8dcc87aedfad7306",
+      "clip": "guard",
+      "phase": 0.8,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-guard-1-front.png",
+      "sha256": "3ba78f2da8b995bc93b94751463aea023e1452408658c1006bbb6e1a3d8cb98e",
+      "clip": "guard",
+      "phase": 1,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-guard-front-sheet.png",
+      "sha256": "5c2ee8dc87f1381daaa6f591720ab29561320c72bb94809017a7638827d28016",
+      "clip": "guard",
+      "view": "front",
+      "sheet": true
+    },
+    {
+      "name": "mythic-6-guard-0-side.png",
+      "sha256": "86972146a31e4e07285a1df8383e03807a56f1a73e4fe21303d53ae4285d12d9",
+      "clip": "guard",
+      "phase": 0,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-guard-0.2-side.png",
+      "sha256": "839891a0c1c7553c10d42b59caaf7b5a825a7879ab082845df6d16921e9b9957",
+      "clip": "guard",
+      "phase": 0.2,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-guard-0.4-side.png",
+      "sha256": "3ea6abde00a2ff16bd5f8e2b4972892259932ecf4c89bebd563a14ff17885ef6",
+      "clip": "guard",
+      "phase": 0.4,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-guard-0.6-side.png",
+      "sha256": "c5b69484e050a79fc42ebe87ee1e91c831e2e4c73a56f19611ec02397c2b0bea",
+      "clip": "guard",
+      "phase": 0.6,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-guard-0.8-side.png",
+      "sha256": "0f869d2b157845d4fdaef0837cdb311b413ebd33fa4b24851013d18f3b13c46d",
+      "clip": "guard",
+      "phase": 0.8,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-guard-1-side.png",
+      "sha256": "fd375ad4f23215268f6162c4b9687cab2282dabb91f3115c065dc33740d87749",
+      "clip": "guard",
+      "phase": 1,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-guard-side-sheet.png",
+      "sha256": "d2baf6ed9b6df7f409b46d76a0b0f9c45d9e52588d1d7950fd0b5f441b229427",
+      "clip": "guard",
+      "view": "side",
+      "sheet": true
+    },
+    {
+      "name": "mythic-6-guard-0-body-front.png",
+      "sha256": "f71cf25ec26165fb7f66e6091dee5e90a6caf4cec7d30b615fd505254194ad38",
+      "clip": "guard",
+      "phase": 0,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-guard-0.2-body-front.png",
+      "sha256": "5ed0b24ddfd99020190f59dd9d4c5673eaf8ff9a7b6d329f31ba7d23bee5c9a4",
+      "clip": "guard",
+      "phase": 0.2,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-guard-0.4-body-front.png",
+      "sha256": "c98995b4fc6391deca0eb90e90a0ba5546e3590c3a3f9192bfebf44ad31c4da1",
+      "clip": "guard",
+      "phase": 0.4,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-guard-0.6-body-front.png",
+      "sha256": "786af78c770165ab4e50ff57703247077c8ad22418be9ab98ae9406c1edc4618",
+      "clip": "guard",
+      "phase": 0.6,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-guard-0.8-body-front.png",
+      "sha256": "8711e66472bb5328ae2473cf5d17741b3737aa7b321242679d27d686dde06929",
+      "clip": "guard",
+      "phase": 0.8,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-guard-1-body-front.png",
+      "sha256": "10372df05a9d1473b155956ab4317cc3eaf632b1d94650a94d08ace1293fe3cb",
+      "clip": "guard",
+      "phase": 1,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-guard-body-front-sheet.png",
+      "sha256": "c1be967844b1c901df9eef083b10a3aaec870ae9a36c9692fc5e85c704635f49",
+      "clip": "guard",
+      "view": "body-front",
+      "sheet": true
+    },
+    {
+      "name": "mythic-6-guard-0-body-side.png",
+      "sha256": "c0dc1049b14fbe78cb19ec4e297f020c999c8ce72bd94fd8e51f66dc624e66cb",
+      "clip": "guard",
+      "phase": 0,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-guard-0.2-body-side.png",
+      "sha256": "50de90306a71e37ceaba175b2124a0367b4fdb97359aa63bd7bf95ba6bc00812",
+      "clip": "guard",
+      "phase": 0.2,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-guard-0.4-body-side.png",
+      "sha256": "1ad9288441712aabaf3e202c6aaa345e271060b484625e5f431dd94ba730643b",
+      "clip": "guard",
+      "phase": 0.4,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-guard-0.6-body-side.png",
+      "sha256": "2f32790f2f6a1618e3643d2f4fcd6dd6848c4391176fee1c47b0a1a7c8d89836",
+      "clip": "guard",
+      "phase": 0.6,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-guard-0.8-body-side.png",
+      "sha256": "94e279851e3f329e525234eaad113dddd1f81ec3324149e86e110cddd0250fed",
+      "clip": "guard",
+      "phase": 0.8,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-guard-1-body-side.png",
+      "sha256": "9b5a9b88293b26412cbcbf0a4a263579da3b320aeaf0214e53032f5b3dd863aa",
+      "clip": "guard",
+      "phase": 1,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-guard-body-side-sheet.png",
+      "sha256": "6cf6544ff9d89e52bdd1746ccae40cf689177cc738e9470b3077b5e774f4bc0a",
+      "clip": "guard",
+      "view": "body-side",
+      "sheet": true
+    },
+    {
+      "name": "mythic-6-guard-0-head-front.png",
+      "sha256": "050b99760f39457d56725ba4dcc40f3124231e6f82bca539f55125a44af84c8e",
+      "clip": "guard",
+      "phase": 0,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-guard-0.2-head-front.png",
+      "sha256": "7d59562d0936fb5ceaeb205a984c86ac99b43fff9b46d9f60ce720833e08b64f",
+      "clip": "guard",
+      "phase": 0.2,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-guard-0.4-head-front.png",
+      "sha256": "852e476a9f2d4e0c42eaa4c84450c576e39507f4c27d02388690a22c5381fb5f",
+      "clip": "guard",
+      "phase": 0.4,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-guard-0.6-head-front.png",
+      "sha256": "35f939aa96688786264c904a6802af3aa274484620aa56c90bee1cd7ceb2117c",
+      "clip": "guard",
+      "phase": 0.6,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-guard-0.8-head-front.png",
+      "sha256": "915b2e3bbe0d414813f2eb040b23afdee030efe4e76493125bbbc183f04f6475",
+      "clip": "guard",
+      "phase": 0.8,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-guard-1-head-front.png",
+      "sha256": "b9f521bfde84ffd8e90878d6de0d10f438c0ac2c03d4e7caa6ef3117c88f3f8b",
+      "clip": "guard",
+      "phase": 1,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-guard-head-front-sheet.png",
+      "sha256": "757f738b9f12838ebdd6039a755d489e46bb691d7e51aa18544d092ef0156f3d",
+      "clip": "guard",
+      "view": "head-front",
+      "sheet": true
+    },
+    {
+      "name": "mythic-6-guard-0-head-side.png",
+      "sha256": "0df54276e7684ad79895cf1a7dfce3f04a4a52a04cb2a9de8ad16277c5b3b4fe",
+      "clip": "guard",
+      "phase": 0,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-guard-0.2-head-side.png",
+      "sha256": "35215cdcd8b898148292cbacce14a034e4656d0925bbcd864e9a6fd69c3a0990",
+      "clip": "guard",
+      "phase": 0.2,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-guard-0.4-head-side.png",
+      "sha256": "f4f45f83241a995520bb94fa0bed1a0890a80e2e25cc8a7abfea27350866a008",
+      "clip": "guard",
+      "phase": 0.4,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-guard-0.6-head-side.png",
+      "sha256": "6857c41d0446c5ca8b9df12240dd1ae4d3debd424d9b42e3a6a20da8e7f9e6e3",
+      "clip": "guard",
+      "phase": 0.6,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-guard-0.8-head-side.png",
+      "sha256": "4131940931b5fc07c2ef4b0aa0f1d216a4b592cc82204c719a75411e021a6aa2",
+      "clip": "guard",
+      "phase": 0.8,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-guard-1-head-side.png",
+      "sha256": "43ae92bdb23b250969f697136685c9f481748a5b2049f021fb8018d431093a27",
+      "clip": "guard",
+      "phase": 1,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-guard-head-side-sheet.png",
+      "sha256": "fa623f83b453a550d2ab68b18b0fa3bad7062d448941c1a6361f231c3cddab71",
+      "clip": "guard",
+      "view": "head-side",
+      "sheet": true
+    },
+    {
+      "name": "mythic-6-rest-0-front.png",
+      "sha256": "ec74c3065f5dd6ceab108939e2d3c1fb51cb1630c097f3f110d972f2edfd6647",
+      "clip": "rest",
+      "phase": 0,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-rest-0.2-front.png",
+      "sha256": "49199a66f5baffb7c850fa8fda50ca333fa1675fe5b0ac64c8b3087bc4fa498f",
+      "clip": "rest",
+      "phase": 0.2,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-rest-0.4-front.png",
+      "sha256": "7b3c1233a6074212ca0763bf936a62e76f29c102f68ff6662c5b268a37b093c8",
+      "clip": "rest",
+      "phase": 0.4,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-rest-0.6-front.png",
+      "sha256": "7607086ad0eb068dbe98151ef947ea73e62f8ebb834b004c09829339fefb4219",
+      "clip": "rest",
+      "phase": 0.6,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-rest-0.8-front.png",
+      "sha256": "df4f6e25e2454556ec8bd44043006c108f7b2bec21ad521e85aaa93d9bae9195",
+      "clip": "rest",
+      "phase": 0.8,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-rest-1-front.png",
+      "sha256": "e6ded1fcf8c424d95f932d541c52caa9a9b4d3567bc83c7a0d80f1f8b9a1a999",
+      "clip": "rest",
+      "phase": 1,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-rest-front-sheet.png",
+      "sha256": "b2e78e7821f54537f86bb7b022235a5d04cabc0319b3949886d915557aeb552f",
+      "clip": "rest",
+      "view": "front",
+      "sheet": true
+    },
+    {
+      "name": "mythic-6-rest-0-side.png",
+      "sha256": "b53e3042858c86b4a8d9b3027c96195cdac34d57d7a5b913bfaae088cf8b69c9",
+      "clip": "rest",
+      "phase": 0,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-rest-0.2-side.png",
+      "sha256": "073a3ec0730ac08856a1dda970c6523108b242bc18f1bddac1a874b77ac6106e",
+      "clip": "rest",
+      "phase": 0.2,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-rest-0.4-side.png",
+      "sha256": "6a75c13cb6589cc1bf1ebc649639b0beb2dd51e3c2ebb503654b2422003f9778",
+      "clip": "rest",
+      "phase": 0.4,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-rest-0.6-side.png",
+      "sha256": "1a5333a413527bb69616e333a08538b9ebee9b5ecfc53a4a404497bf60ff8810",
+      "clip": "rest",
+      "phase": 0.6,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-rest-0.8-side.png",
+      "sha256": "645eb85e51ff674af81e1638e7dd2cf6670d4d1121ec1791c5651e3097523c92",
+      "clip": "rest",
+      "phase": 0.8,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-rest-1-side.png",
+      "sha256": "b53e3042858c86b4a8d9b3027c96195cdac34d57d7a5b913bfaae088cf8b69c9",
+      "clip": "rest",
+      "phase": 1,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-rest-side-sheet.png",
+      "sha256": "e969cf6f0c5197bcd586acecd3831105ddd96f8fbf43aa259a2b7fe3a7d349f6",
+      "clip": "rest",
+      "view": "side",
+      "sheet": true
+    },
+    {
+      "name": "mythic-6-rest-0-body-front.png",
+      "sha256": "36b433843b3bc9bff69e32274df684f43d3f6972d60b50feb854528816ac88dc",
+      "clip": "rest",
+      "phase": 0,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-rest-0.2-body-front.png",
+      "sha256": "24e5c96c32f0f5251dcb40a21dee7564fd50914a3638ad2ab5270e9e7aaac88e",
+      "clip": "rest",
+      "phase": 0.2,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-rest-0.4-body-front.png",
+      "sha256": "6330123a0eabd0a78705bb78a3ba47daa50c6cacb1929a8a089d7417af6b1e4c",
+      "clip": "rest",
+      "phase": 0.4,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-rest-0.6-body-front.png",
+      "sha256": "841bb059cd60ddd65af314e185e31dfaaecfb45d5e8abe6b540587ed400a019a",
+      "clip": "rest",
+      "phase": 0.6,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-rest-0.8-body-front.png",
+      "sha256": "301c69acc51a79b03b90fc1a5b5a7c51d87cc87db941ca820a7f6d83cc2d9bb4",
+      "clip": "rest",
+      "phase": 0.8,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-rest-1-body-front.png",
+      "sha256": "cb96accecb48a1b9fb69ac60581671458abc7d09183989ee956ae5b847b5d61c",
+      "clip": "rest",
+      "phase": 1,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-rest-body-front-sheet.png",
+      "sha256": "9395f579133baf80277c87b9a61dd5c1947953ba650f8dcaa2f556db37243109",
+      "clip": "rest",
+      "view": "body-front",
+      "sheet": true
+    },
+    {
+      "name": "mythic-6-rest-0-body-side.png",
+      "sha256": "a2daab386122897a6ea87ba3a0558d351f69c625447fa7c464b510d96067a904",
+      "clip": "rest",
+      "phase": 0,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-rest-0.2-body-side.png",
+      "sha256": "021d093af0e5793f8eb44c2cdea20bf8cf639e242b56a9029a520dd064f79830",
+      "clip": "rest",
+      "phase": 0.2,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-rest-0.4-body-side.png",
+      "sha256": "dae947276f234dcfcb280e96ea1878bdc939e91365010ffa49994d2913f2f879",
+      "clip": "rest",
+      "phase": 0.4,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-rest-0.6-body-side.png",
+      "sha256": "4574463804394643a131110ebd6427d6b7726d908f18acccc22305449833aa45",
+      "clip": "rest",
+      "phase": 0.6,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-rest-0.8-body-side.png",
+      "sha256": "53371cd5da2ac654c19a98df159506aa699c4d48f335098e12a74abb52f0edc7",
+      "clip": "rest",
+      "phase": 0.8,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-rest-1-body-side.png",
+      "sha256": "a115d8333d7c3af62c94b39340b3a2e5f22064e947b1af56329f1f220c78c3c6",
+      "clip": "rest",
+      "phase": 1,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-rest-body-side-sheet.png",
+      "sha256": "ee18e75af9ac39477fd3bd137313e452fc699e6a426b6b99bbb6a96e97786034",
+      "clip": "rest",
+      "view": "body-side",
+      "sheet": true
+    },
+    {
+      "name": "mythic-6-rest-0-head-front.png",
+      "sha256": "984512d21c40c5e38395aa91af9e1aae5cd0c14cf7f2eb235abd13a3560b47b3",
+      "clip": "rest",
+      "phase": 0,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-rest-0.2-head-front.png",
+      "sha256": "5add41685e2525c1ac93bc6994bad34727964f0bec3222fd7bb9bb09a27bc1a0",
+      "clip": "rest",
+      "phase": 0.2,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-rest-0.4-head-front.png",
+      "sha256": "998bb1b1569a6ae792d9839ece5edd6e43fc329dda844b67a49e96a9ea1f9b0f",
+      "clip": "rest",
+      "phase": 0.4,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-rest-0.6-head-front.png",
+      "sha256": "3e0d08d867c11015065a9cc3b69a3665122f1eda6a803f3064441fb160677bf2",
+      "clip": "rest",
+      "phase": 0.6,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-rest-0.8-head-front.png",
+      "sha256": "7f456662ef55a462d53abf45f85f8dd861f1adeeecfcc2d511be97b3a5afeab8",
+      "clip": "rest",
+      "phase": 0.8,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-rest-1-head-front.png",
+      "sha256": "5bd80d7f64141e7cb3bc222bf4d817b0eb4caf9513da13d7d76c94434b643b38",
+      "clip": "rest",
+      "phase": 1,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-rest-head-front-sheet.png",
+      "sha256": "fe2918e9956d4b416b9123360eb4a0c01347a11169cb7b7d27a4c94ff93e3021",
+      "clip": "rest",
+      "view": "head-front",
+      "sheet": true
+    },
+    {
+      "name": "mythic-6-rest-0-head-side.png",
+      "sha256": "5c6d9aa9dab179caaad3dfb612735e23b59f1b3ca021bfdd1598c2f5c4d4389c",
+      "clip": "rest",
+      "phase": 0,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-rest-0.2-head-side.png",
+      "sha256": "0c7f3174d4776d88d2a51589f8f12a921e4f0935eb165cf47c2e32b01ec4001b",
+      "clip": "rest",
+      "phase": 0.2,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-rest-0.4-head-side.png",
+      "sha256": "2f5b12bbdf1b2c69b95cb2e53e09287d3bc52c8c94f7364f32d032454c0d1848",
+      "clip": "rest",
+      "phase": 0.4,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-rest-0.6-head-side.png",
+      "sha256": "1df62ba96d6b54ff7d8a38eb984e534125f0daf1a3bc0c6412db08e01b03b509",
+      "clip": "rest",
+      "phase": 0.6,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-rest-0.8-head-side.png",
+      "sha256": "d0a61293414c9026c603608a2cf38e59efeab68c05d3cbcb4774e609a8b79c4d",
+      "clip": "rest",
+      "phase": 0.8,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-rest-1-head-side.png",
+      "sha256": "a6f13852e3d3c50c64130f1c09f361831b56bb0f2efab44adf2500fa876a1fe1",
+      "clip": "rest",
+      "phase": 1,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-rest-head-side-sheet.png",
+      "sha256": "2b21253363bcd42c7a15fc9132ccbf1922f94a6af3c09733251d0b82860c1fa5",
+      "clip": "rest",
+      "view": "head-side",
+      "sheet": true
+    },
+    {
+      "name": "mythic-6-victory-0-front.png",
+      "sha256": "808d8f9a2278510d4fb943b351900bbd00573cacd6a04e08e8d557920f29a922",
+      "clip": "victory",
+      "phase": 0,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-victory-0.2-front.png",
+      "sha256": "376a0d1060511c6e53eb05f1050f72e6e7570e7b3bffd169677f074aa1c2ca27",
+      "clip": "victory",
+      "phase": 0.2,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-victory-0.4-front.png",
+      "sha256": "535e0ac427e4be4b701265e07bdc4fdf62c51e91c7bf69ea36f943846d3340dc",
+      "clip": "victory",
+      "phase": 0.4,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-victory-0.6-front.png",
+      "sha256": "c99690672c22ef5718fbb11f15f19d73ee899e0f6a666f782a993eda34757131",
+      "clip": "victory",
+      "phase": 0.6,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-victory-0.8-front.png",
+      "sha256": "4c978459d6d0ba581f894f5f7ab4c6d04b641e5a2ee9495e76a6be17c4a6efb3",
+      "clip": "victory",
+      "phase": 0.8,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-victory-1-front.png",
+      "sha256": "c42e2c921cdc0b54f5572d26773ff9a54bfb003ddd1363145095158b44613318",
+      "clip": "victory",
+      "phase": 1,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-victory-front-sheet.png",
+      "sha256": "9f0427070826cb08a5b2cacc61052c2593efa424e502b9f38c1ec4bf2c3c421c",
+      "clip": "victory",
+      "view": "front",
+      "sheet": true
+    },
+    {
+      "name": "mythic-6-victory-0-side.png",
+      "sha256": "cce9df5c457ede6be5652aa2716e156d3a5d164969b42d7591b89018f1c7a980",
+      "clip": "victory",
+      "phase": 0,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-victory-0.2-side.png",
+      "sha256": "f5d99e7e4440baa9d99a06cad867487fd2f9f4820c711bd440090d6e4293515e",
+      "clip": "victory",
+      "phase": 0.2,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-victory-0.4-side.png",
+      "sha256": "cf101298e31115db25a8c61fb24505a3193788e775979bba945a6872159a416a",
+      "clip": "victory",
+      "phase": 0.4,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-victory-0.6-side.png",
+      "sha256": "40a33b255efa30a6b929082002752810debfee04b90daae8c91cac4201e94b1f",
+      "clip": "victory",
+      "phase": 0.6,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-victory-0.8-side.png",
+      "sha256": "b64e00325d46a44dfc578918fa6ea532dcdfa1b9970943237843a67ddcdd510e",
+      "clip": "victory",
+      "phase": 0.8,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-victory-1-side.png",
+      "sha256": "8bd3881d2f74be5e5c14723560ca2f6f6210b434d0171e5b13a3890947749193",
+      "clip": "victory",
+      "phase": 1,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-victory-side-sheet.png",
+      "sha256": "485076142b1d25be1c4735c0586605e1e4c1d19d35c6e328eccc5f475c8e95ee",
+      "clip": "victory",
+      "view": "side",
+      "sheet": true
+    },
+    {
+      "name": "mythic-6-victory-0-body-front.png",
+      "sha256": "86bc6f6efab9a090261ca9d8151fbef4e713980b03a7da60c0076ae5ab98edd8",
+      "clip": "victory",
+      "phase": 0,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-victory-0.2-body-front.png",
+      "sha256": "67c8b27a5c3ff0cd68e1b4a0b661a9eca971081c6e9f8569c073d4f062a22791",
+      "clip": "victory",
+      "phase": 0.2,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-victory-0.4-body-front.png",
+      "sha256": "b97d5c7ffb14e2a4d1eb79f0591431f458673e62732965ee4e3f9e7ff57c122b",
+      "clip": "victory",
+      "phase": 0.4,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-victory-0.6-body-front.png",
+      "sha256": "7b3d1736e9b55896a3d8cfdbcc22d30423a089627c3ef5be628ce592dee63fad",
+      "clip": "victory",
+      "phase": 0.6,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-victory-0.8-body-front.png",
+      "sha256": "0fb7b25b187cb4279a2e85fbfce983697a4442fdc1e25f888165e17bbd5efcb8",
+      "clip": "victory",
+      "phase": 0.8,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-victory-1-body-front.png",
+      "sha256": "cf7a56490a474c67cef2ff80e849e0b369090c8e39d04776cdac0f1fa9197682",
+      "clip": "victory",
+      "phase": 1,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-victory-body-front-sheet.png",
+      "sha256": "278a61f8525efd680a97ea4d0fecdf158f4f12de286fe37bf283236b6e4bc520",
+      "clip": "victory",
+      "view": "body-front",
+      "sheet": true
+    },
+    {
+      "name": "mythic-6-victory-0-body-side.png",
+      "sha256": "2e910e1b24cba81936823b925eccc9ad0eba693cc171ea10a9625e29df7efc9e",
+      "clip": "victory",
+      "phase": 0,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-victory-0.2-body-side.png",
+      "sha256": "07294d856115cc508b8dbd28b13f8c070e839a38d7302185e8f34ee074db494a",
+      "clip": "victory",
+      "phase": 0.2,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-victory-0.4-body-side.png",
+      "sha256": "505393a891e7879818a9c8a9342a6137d23ac6fe2357498b76f4b6e6eb2b8908",
+      "clip": "victory",
+      "phase": 0.4,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-victory-0.6-body-side.png",
+      "sha256": "0450669c23321b4bc16796fe5e9a95132a842eb29fc028c4c693c2b46abbefc1",
+      "clip": "victory",
+      "phase": 0.6,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-victory-0.8-body-side.png",
+      "sha256": "f5ecb6282a8552aa6c1466c820995c46b5cffb4be7580a2bc9bd394d414cf4b6",
+      "clip": "victory",
+      "phase": 0.8,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-victory-1-body-side.png",
+      "sha256": "ed4c51748a9f86cfb1d58e948b67b7a6cb7c0d9fe1fe73f5f183d9dbf32e3667",
+      "clip": "victory",
+      "phase": 1,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-victory-body-side-sheet.png",
+      "sha256": "d9dda0c694f32c1b885ccebbd0144dd23d651bf8c3409c2c36a0d68c8f4038d1",
+      "clip": "victory",
+      "view": "body-side",
+      "sheet": true
+    },
+    {
+      "name": "mythic-6-victory-0-head-front.png",
+      "sha256": "57ad7644c1235a84c2aa6660cb5062eba3f98fac791a4b3d346d86f536ff5719",
+      "clip": "victory",
+      "phase": 0,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-victory-0.2-head-front.png",
+      "sha256": "f193a770f490756ea023cd3defb5792915ccd3c0e7e81e7ce022bc4de26a58fd",
+      "clip": "victory",
+      "phase": 0.2,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-victory-0.4-head-front.png",
+      "sha256": "0d24cbd9e75d606e52c0d38e26d528a7ae5657debcc5e8ee59d9620f4d6b264f",
+      "clip": "victory",
+      "phase": 0.4,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-victory-0.6-head-front.png",
+      "sha256": "4676adc495b507914321283e1001dc9f09590c0e9bb3d83e77e0315f7e530b4e",
+      "clip": "victory",
+      "phase": 0.6,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-victory-0.8-head-front.png",
+      "sha256": "194958629d02d9e93bfa0f0b8640dd27dadaf390a4f6b3249744223d626b8fbe",
+      "clip": "victory",
+      "phase": 0.8,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-victory-1-head-front.png",
+      "sha256": "6cf3f2f94104cc885e81b8f90ce15d4ead24a1b08ca0b70f241c84933152ba5f",
+      "clip": "victory",
+      "phase": 1,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-victory-head-front-sheet.png",
+      "sha256": "0266fc3e195ce328e53283e0d5af9e69c8b378ec482990a1f0e5342c21b44390",
+      "clip": "victory",
+      "view": "head-front",
+      "sheet": true
+    },
+    {
+      "name": "mythic-6-victory-0-head-side.png",
+      "sha256": "5809fc028822ad3e7c46bd7257f9a93b6e2896bcd15e7b8f34afa47684bdf690",
+      "clip": "victory",
+      "phase": 0,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-victory-0.2-head-side.png",
+      "sha256": "3e5b9c05fe5501b34f3ddaa3d06dcc7d57f023d2792067e43b238d26ef7c4939",
+      "clip": "victory",
+      "phase": 0.2,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-victory-0.4-head-side.png",
+      "sha256": "40c58d3abba9831b2cdb39aad9688bbabb38f45d046d939c12506538ed58ad60",
+      "clip": "victory",
+      "phase": 0.4,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-victory-0.6-head-side.png",
+      "sha256": "9b82e60eb6bfeee2fac45d7106e3537b4d55ab0067f963a72439fb83e873336b",
+      "clip": "victory",
+      "phase": 0.6,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-victory-0.8-head-side.png",
+      "sha256": "e5717709c3fa43b8fdc1916e8e851fa9d330813f5001de27ca9827acef59f588",
+      "clip": "victory",
+      "phase": 0.8,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-victory-1-head-side.png",
+      "sha256": "83e2a6ad53236e07777625799a90e53997fd196bfa69bae1ae6e2cb92271a42c",
+      "clip": "victory",
+      "phase": 1,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-victory-head-side-sheet.png",
+      "sha256": "b2055abbcf483cbe68f85a9805b7de515fbc88c2d80b766498345598ea620289",
+      "clip": "victory",
+      "view": "head-side",
+      "sheet": true
+    }
+  ],
+  "errors": []
+}

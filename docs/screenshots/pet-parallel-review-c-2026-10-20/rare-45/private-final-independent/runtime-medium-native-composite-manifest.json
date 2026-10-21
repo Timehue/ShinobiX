@@ -1,0 +1,121 @@
+{
+  "records": [
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/wombat-private-v1-runtime-medium/native-source-head.png",
+      "sha256": "9f52e8f836bdbc36128d10a9a3b185c1da2c229bdc4105caca9737a1dfa89c41",
+      "width": 1440,
+      "height": 2160,
+      "inputs": [
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/wombat-private-v1-runtime-medium/rare-45-source-head-0.png",
+          "sha256": "2b8660d6aa23af3ec3571c6c05d5d71a7e87d432f95030b3b7e82a5c7d90ae95",
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/wombat-private-v1-runtime-medium/rare-45-source-head-1.png",
+          "sha256": "9432a5175876af122b7af6ce9b77c71f838904991da2a6bdda1d27ed8a126554",
+          "top": 540
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/wombat-private-v1-runtime-medium/rare-45-source-head-2.png",
+          "sha256": "d10f2773050c786205165b6750a78af95aa8ed0756301331556c3fc2c0e1fa95",
+          "top": 1080
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/wombat-private-v1-runtime-medium/rare-45-source-head-3.png",
+          "sha256": "38825bdef06355128be275c734fd63fc9d85756fefb5d0e99bb309c65212f747",
+          "top": 1620
+        }
+      ],
+      "resizing": false
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/wombat-private-v1-runtime-medium/native-source-body.png",
+      "sha256": "13cd3bc5e5711b97d404383081fe66707251fd69e1289a914902edfdf5992a1f",
+      "width": 1440,
+      "height": 2160,
+      "inputs": [
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/wombat-private-v1-runtime-medium/rare-45-source-body-0.png",
+          "sha256": "7103e1a2571fc8983b1ce5e4bfc56f28021e1e3d1d0bfd148d81cc6fef648fed",
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/wombat-private-v1-runtime-medium/rare-45-source-body-1.png",
+          "sha256": "115e3f5f0d8c1ecdf54b43e59a6e7fd01b2f4a9a01d67e86c16b8b745204e27b",
+          "top": 540
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/wombat-private-v1-runtime-medium/rare-45-source-body-2.png",
+          "sha256": "7fbfb896d5abc4f28a5249f600c870015e27d68a1ab1e609da6104b7ffeed93a",
+          "top": 1080
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/wombat-private-v1-runtime-medium/rare-45-source-body-3.png",
+          "sha256": "151178ddb259d487216da1a7b225e283141b158015f0071a073a81bb157edd33",
+          "top": 1620
+        }
+      ],
+      "resizing": false
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/wombat-private-v1-runtime-medium/native-battle-head.png",
+      "sha256": "0cc8b831e2a331f0e8f8da91eaf3094ffda959a576576677f814d0f79ac652ad",
+      "width": 1440,
+      "height": 2160,
+      "inputs": [
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/wombat-private-v1-runtime-medium/rare-45-battle-head-0.png",
+          "sha256": "c61dd022a68861d89dd133ccbe5c055fc12903acc5ce9a6d7ed0939d5bbc2aaf",
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/wombat-private-v1-runtime-medium/rare-45-battle-head-1.png",
+          "sha256": "2512e1b1bec36a52903f2ca765e3df41574e85e2abbcd7563acd90ee9ecae4b5",
+          "top": 540
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/wombat-private-v1-runtime-medium/rare-45-battle-head-2.png",
+          "sha256": "f72289fc8b9dbfc904575400f0afb12c6c1cdd29b49691800b7733855302051c",
+          "top": 1080
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/wombat-private-v1-runtime-medium/rare-45-battle-head-3.png",
+          "sha256": "2ac58a71e2f7ac724b6db12c9aeb2874cb3c04672c721e76eb38eeec84b8398b",
+          "top": 1620
+        }
+      ],
+      "resizing": false
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/wombat-private-v1-runtime-medium/native-battle-body.png",
+      "sha256": "a9d622d68894ad0ae4309cd87b25fb44c89bacb4c302d0ebcb70ab50f65834e1",
+      "width": 1440,
+      "height": 2160,
+      "inputs": [
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/wombat-private-v1-runtime-medium/rare-45-battle-body-0.png",
+          "sha256": "744eb814a8171173933242873eb67e486a7641fd72df70cca0cb37bdaf0b1050",
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/wombat-private-v1-runtime-medium/rare-45-battle-body-1.png",
+          "sha256": "fdd145c0c773d237994b3081ecb8025e632fed8d39b545fb9aaebf2a123cae54",
+          "top": 540
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/wombat-private-v1-runtime-medium/rare-45-battle-body-2.png",
+          "sha256": "ef8e079d6cef90508ee22a87cc10fecda4387bdcea56d80fb92ca37e98a89153",
+          "top": 1080
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/wombat-private-v1-runtime-medium/rare-45-battle-body-3.png",
+          "sha256": "ee2c158d20c9f6b453ef47fc8cd66e91e0a557bc42e1830d3fa331c47bb26d67",
+          "top": 1620
+        }
+      ],
+      "resizing": false
+    }
+  ],
+  "review": "pending"
+}

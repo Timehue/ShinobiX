@@ -846,7 +846,7 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
     silhouette?: PetModelSilhouette;
 }) {
     const recallScene = usePetRecallController();
-    const gltf = useGLTF(config.url) as { scene: THREE.Group; animations: THREE.AnimationClip[]; userData?: { characterMotion?: PetCharacterMotionBank } };
+    const gltf = useGLTF(config.url) as { scene: THREE.Group; animations: THREE.AnimationClip[]; userData?: { characterMotion?: PetCharacterMotionBank; deathPoseRepair?: { revision?: string } } };
     const persistentAtlas = (ROSTER_VISUAL_ID.test(config.visualId) || RIGGED_STARTER_VISUAL_ID.test(config.visualId)) ? readPetGlbAtlas(config.url) : null;
     const fallbackQuality = useMemo(() => petVisualQuality(), []);
     const quality = qualityOverride ?? fallbackQuality;
@@ -862,6 +862,7 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
     const body = useRef<THREE.Group>(null);
     const aura = useRef<THREE.PointLight>(null);
     const lastMotion = useRef<PetModelFrame["motion"]>("idle");
+    const authoredDeathRecoveryUntil = useRef(-Infinity);
     const technique = useRef<{ name?: string; casting: boolean; style: PetTechniqueStyle }>({ casting: false, style: 'neutral' });
     const motionStart = useRef(0);
     const lastVictorious = useRef(false);
@@ -938,6 +939,7 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
         // A clip is allowed to leave middle wings or distal legs unkeyed.
         rigMotion.restore();
         if (timelineReset) {
+            authoredDeathRecoveryUntil.current = -Infinity;
             rigMotion.reset();
             motionStart.current = timeline;
             animation.activeClip = null;
@@ -952,6 +954,7 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
         }
         const motionChanged = f.motion !== lastMotion.current;
         if (motionChanged) {
+            if (lastMotion.current === 'dead') authoredDeathRecoveryUntil.current = timeline + .35;
             lastMotion.current = f.motion;
             motionStart.current = timeline;
         }
@@ -1271,6 +1274,9 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
         const techniquePose = petTechniquePose(technique.current.style, f.motion,
             f.attackPhaseProgress ?? motionAge / (f.motion === 'windup' ? .38 : f.motion === 'strike' ? .26 : .51));
         const deathPose = petDeathChoreography(motionAge, config.targetHeight, config.profile);
+        // This take authors the complete, floor-calibrated fall on its root.
+        // Applying the generic host collapse again rolls the creature twice.
+        const authoredTerminalDeath = dead && gltf.userData?.deathPoseRepair?.revision === '20261021-azure-terminal-collapse-v3';
 
         // Four-legged pets cannot convincingly strafe while their planted-foot
         // cycle points at the opponent. Face along travel during ordinary running,
@@ -1322,7 +1328,7 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
         // package used to lift the whole actor every loop, which read as constant
         // hopping and made the contact shadow slide despite a stationary sim.
         const actionLift = idle || bakedSupport ? 0 : heroPose.lift;
-        const rootHeight = bob + dodgeHeight + avianDiveArc + victoryArc + actionLift + utilityLift + entryLift + (dead ? deathPose.lift - deathPose.sink : 0);
+        const rootHeight = authoredTerminalDeath ? 0 : bob + dodgeHeight + avianDiveArc + victoryArc + actionLift + utilityLift + entryLift + (dead ? deathPose.lift - deathPose.sink : 0);
         r.position.y = THREE.MathUtils.lerp(r.position.y, dead ? rootHeight : Math.max(0, rootHeight), petAnimationBlend(presentationDelta, avianDive || dodge || dead ? 18 : 12));
         // The generated roster takes provide leg/head motion but their attack clip
         // has almost no centre-of-mass commitment. Layer one smooth, restrained
@@ -1371,14 +1377,14 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
         // Skeletal poses own the silhouette. Host steering adds only restrained
         // weight transfer; stacking full torso rotations made every species rock.
         const bodyAccent = authoredCombatRig ? 0.3 : 1;
-        b.rotation.x = THREE.MathUtils.lerp(b.rotation.x, bakedSupport ? 0 : authoredPitch * bodyAccent + techniquePose.pitch, petAnimationBlend(presentationDelta, dead ? 4 : 15));
-        b.rotation.y = THREE.MathUtils.lerp(b.rotation.y, bakedSupport ? 0 : (heroPose.yaw + personalityYaw + entryYaw + victoryYaw) * bodyAccent + techniquePose.yaw, petAnimationBlend(presentationDelta, 13));
+        b.rotation.x = THREE.MathUtils.lerp(b.rotation.x, bakedSupport || authoredTerminalDeath ? 0 : authoredPitch * bodyAccent + techniquePose.pitch, petAnimationBlend(presentationDelta, dead ? 4 : 15));
+        b.rotation.y = THREE.MathUtils.lerp(b.rotation.y, bakedSupport || authoredTerminalDeath ? 0 : (heroPose.yaw + personalityYaw + entryYaw + victoryYaw) * bodyAccent + techniquePose.yaw, petAnimationBlend(presentationDelta, 13));
         // Generic quadruped banks fold the limbs but leave the shoulder mass
         // upright. Roll the complete body onto its flank for a readable KO;
         // bespoke showcase deaths already contain their own complete collapse.
         const flankCollapse = dead && (prepared.quadrupedRig || config.profile === 'serpentine') && !INDIVIDUAL_PET_ANIMATION_MODEL_IDS.has(config.visualId)
             ? deathPose.fall * 1.05 : 0;
-        b.rotation.z = THREE.MathUtils.lerp(b.rotation.z, bakedSupport ? 0 : authoredRoll * bodyAccent + techniquePose.roll + flankCollapse, petAnimationBlend(presentationDelta, 11));
+        b.rotation.z = THREE.MathUtils.lerp(b.rotation.z, bakedSupport || authoredTerminalDeath ? 0 : authoredRoll * bodyAccent + techniquePose.roll + flankCollapse, petAnimationBlend(presentationDelta, 11));
         const sx = authoredCombatRig
             ? dead ? 1 + 0.06 * deathPose.fall + 0.045 * deathPose.impact : f.victorious ? 1.025 + victoryLift * 0.012 : strike ? 1 - 0.04 * attackPulse : stagger ? 1.035 : running ? (groundedAuthoredQuadruped ? 1 : 1 + authoredRunWave * 0.012) : 1 + breath * 0.12
             : f.victorious ? (aquaticSeal ? 1.055 : 1.035) : dead ? 1 + 0.08 * deathPose.fall + 0.055 * deathPose.impact : stagger ? 1.07 : strike ? (aquaticSeal ? 0.965 : 0.94) : aquaticSeal && running ? 1 + breath * 0.45 + sealCompression * 0.025 : 1 + breath;
@@ -1426,15 +1432,20 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
             + contactPunch * (config.profile === "heavy" ? 0.12 : 0.17) * signatureStrike
             - recoilWeight * (config.profile === "heavy" ? 0.12 : 0.18) * signatureRecoil;
         const weightBlend = petAnimationBlend(presentationDelta, f.motion === "dash" || strike || stagger ? 16 : 10);
-        b.position.x = THREE.MathUtils.lerp(b.position.x, bakedSupport ? 0 : weightX, weightBlend);
-        b.position.y = THREE.MathUtils.lerp(b.position.y, bakedSupport ? 0 : weightY, weightBlend);
-        b.position.z = THREE.MathUtils.lerp(b.position.z, bakedSupport ? 0 : driveZ, weightBlend);
-        if (dead && authoredCombatRig && deathPose.fall > 0.3) {
+        b.position.x = THREE.MathUtils.lerp(b.position.x, bakedSupport || authoredTerminalDeath ? 0 : weightX, weightBlend);
+        b.position.y = THREE.MathUtils.lerp(b.position.y, bakedSupport || authoredTerminalDeath ? 0 : weightY, weightBlend);
+        b.position.z = THREE.MathUtils.lerp(b.position.z, bakedSupport || authoredTerminalDeath ? 0 : driveZ, weightBlend);
+        const authoredCollapseContact = gltf.userData?.deathPoseRepair?.revision === '20261021-azure-terminal-collapse-v3'
+            && (dead || timeline < authoredDeathRecoveryUntil.current);
+        if (authoredCollapseContact || (dead && authoredCombatRig && deathPose.fall > 0.3)) {
             // The death take already folds its legs and lowers the pelvis.
             // Imported root motion plus the host fall used to bury the torso.
             // Measure the posed surface once per KO frame and land it on the
             // actor's floor; do not deform or crop the creature to hide sinking.
-            const groundY = petModelGroundY(prepared.surface);
+            // Whole-rig crossfades can lower a paw between two individually
+            // grounded poses. Check every vertex for this authored collapse
+            // and its short revive blend; ordinary deaths retain the cheap probe.
+            const groundY = petModelGroundY(prepared.surface, authoredCollapseContact);
             if (groundY !== null) {
                 const parent = r.parent;
                 const floorY = parent ? parent.getWorldPosition(new THREE.Vector3()).y : 0;
