@@ -1,0 +1,90 @@
+{
+  "id": "standard-48",
+  "ground": -0.49396485187982075,
+  "padding": 0.002,
+  "corrections": [
+    {
+      "clip": "idle",
+      "keys": 399,
+      "maximumLift": 0.011234219680193447
+    },
+    {
+      "clip": "idle_2",
+      "keys": 312,
+      "maximumLift": 0.0726919905742035
+    },
+    {
+      "clip": "walk",
+      "keys": 221,
+      "maximumLift": 0.03019045574848178
+    },
+    {
+      "clip": "gallop",
+      "keys": 165,
+      "maximumLift": 0.04956429780519345
+    },
+    {
+      "clip": "gallop_jump",
+      "keys": 153,
+      "maximumLift": 0.018664154823145984
+    },
+    {
+      "clip": "attack",
+      "keys": 240,
+      "maximumLift": 0.1269452016390199
+    },
+    {
+      "clip": "idle_hitreact1",
+      "keys": 135,
+      "maximumLift": 0.038568432937029384
+    },
+    {
+      "clip": "death",
+      "keys": 327,
+      "maximumLift": 0.42157375463173263
+    },
+    {
+      "clip": "entrance",
+      "keys": 218,
+      "maximumLift": 0.10192341584213771
+    },
+    {
+      "clip": "cast",
+      "keys": 259,
+      "maximumLift": 0.04200674479334765
+    },
+    {
+      "clip": "guard",
+      "keys": 265,
+      "maximumLift": 0.012790139327410244
+    },
+    {
+      "clip": "rest",
+      "keys": 441,
+      "maximumLift": 0.021893943229390533
+    },
+    {
+      "clip": "victory",
+      "keys": 402,
+      "maximumLift": 0.034150977418453965
+    }
+  ],
+  "outputs": [
+    {
+      "stage": "source",
+      "path": ".tmp/gravel-pangolin-floor/source-candidate-v1.glb",
+      "sha256": "22f5353ed724746372ccdcd095fa2652fc2136609995bbad701a5d361e86249e"
+    },
+    {
+      "stage": "battle",
+      "path": ".tmp/gravel-pangolin-floor/battle-candidate-v1.glb",
+      "sha256": "f8d8881129271a1ff9d241739e7d00a30e1df0ee81cfabe8e444f5e9f1cc63aa"
+    }
+  ],
+  "pins": {
+    "source": "d7dc478a68260493046fc2db98da25dc1861fcda79faca34e1af76b87912a909",
+    "battle": "38cc43abb338013ad19523d03e49baf99163c524b35d4b084f3b8a241072ac64"
+  },
+  "publicAssetsChanged": false,
+  "visualApproval": false
+}

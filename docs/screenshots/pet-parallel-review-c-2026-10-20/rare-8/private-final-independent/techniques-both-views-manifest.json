@@ -1,0 +1,143 @@
+{
+  "label": "parallel-c-azure-private-v1-techniques",
+  "panels": [
+    {
+      "path": ".tmp/pet-companion-techniques/parallel-c-azure-private-v1-techniques/inspection-strips/both-block-0-half-0.png",
+      "sha256": "49b2690a99f18275f263dffe861afe1b51d90e2a48955298675fa089c53a0319",
+      "sources": [
+        {
+          "path": ".tmp/pet-companion-techniques/parallel-c-azure-private-v1-techniques/inspection-strips/front-block-0-half-0.png",
+          "sha256": "f0f2ae3bc656fb341d29e3b5a507b87f9c1ddc55cc7114703744c4ffe18041ce",
+          "width": 1320,
+          "height": 648,
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-companion-techniques/parallel-c-azure-private-v1-techniques/inspection-strips/side-block-0-half-0.png",
+          "sha256": "d22e57d1c77499571deaf155d4f7dff26d618342839ccd43ad533d9e033e4407",
+          "width": 1320,
+          "height": 648,
+          "top": 648
+        }
+      ],
+      "nativePixelsPreserved": true,
+      "resizing": false,
+      "review": "pending"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/parallel-c-azure-private-v1-techniques/inspection-strips/both-block-0-half-1.png",
+      "sha256": "e33c71bcc833958d91e83b15c3f33a45c391cd1712b399481d11dc6a19c77413",
+      "sources": [
+        {
+          "path": ".tmp/pet-companion-techniques/parallel-c-azure-private-v1-techniques/inspection-strips/front-block-0-half-1.png",
+          "sha256": "ae618e2a086829c8e5aa1f17bddc1ad696a2dd7d5be84e03758b609cec3720d2",
+          "width": 1320,
+          "height": 648,
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-companion-techniques/parallel-c-azure-private-v1-techniques/inspection-strips/side-block-0-half-1.png",
+          "sha256": "807d6633843b6a50d16cfb26607592a5470eb09533e4fa4f5af0330301c7e828",
+          "width": 1320,
+          "height": 648,
+          "top": 648
+        }
+      ],
+      "nativePixelsPreserved": true,
+      "resizing": false,
+      "review": "pending"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/parallel-c-azure-private-v1-techniques/inspection-strips/both-block-1-half-0.png",
+      "sha256": "83b3259a91c142e1f623ca2c11e733bb11582cee64d3febdb8210394c5bd5ee4",
+      "sources": [
+        {
+          "path": ".tmp/pet-companion-techniques/parallel-c-azure-private-v1-techniques/inspection-strips/front-block-1-half-0.png",
+          "sha256": "aca7c61eaf2a7e8c6e5104a078d5e2a4b1b4d3a0aa932ac5bf063d6a0cf39994",
+          "width": 1320,
+          "height": 648,
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-companion-techniques/parallel-c-azure-private-v1-techniques/inspection-strips/side-block-1-half-0.png",
+          "sha256": "3b3c4e216ceddd4579bc1c40ecc18d8f0ac613ea00c99d8ddaf1a09bc44719fa",
+          "width": 1320,
+          "height": 648,
+          "top": 648
+        }
+      ],
+      "nativePixelsPreserved": true,
+      "resizing": false,
+      "review": "pending"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/parallel-c-azure-private-v1-techniques/inspection-strips/both-block-1-half-1.png",
+      "sha256": "e187935f1d659a2dd62db2900c6cb0aa56d781507849dd31f4c618a9b2069675",
+      "sources": [
+        {
+          "path": ".tmp/pet-companion-techniques/parallel-c-azure-private-v1-techniques/inspection-strips/front-block-1-half-1.png",
+          "sha256": "41cd9d0b4d19bcff5f148e199d5a4d20fddeddfcc74fbaea3542fb4dd65e9357",
+          "width": 1320,
+          "height": 648,
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-companion-techniques/parallel-c-azure-private-v1-techniques/inspection-strips/side-block-1-half-1.png",
+          "sha256": "03b3d1aa2bfeaec033086a2297a02b8ec8af02ff0603a26c4625f9cb9172d689",
+          "width": 1320,
+          "height": 648,
+          "top": 648
+        }
+      ],
+      "nativePixelsPreserved": true,
+      "resizing": false,
+      "review": "pending"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/parallel-c-azure-private-v1-techniques/inspection-strips/both-block-2-half-0.png",
+      "sha256": "d55ee0c200ea5ebc81dfaaa70113a6c7ee5880f097cf1ecccfb602d2a5efee51",
+      "sources": [
+        {
+          "path": ".tmp/pet-companion-techniques/parallel-c-azure-private-v1-techniques/inspection-strips/front-block-2-half-0.png",
+          "sha256": "b0293ee18812c9e3667b032ec53b89d63f749f53c8e6b06390200256b1e19144",
+          "width": 1320,
+          "height": 648,
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-companion-techniques/parallel-c-azure-private-v1-techniques/inspection-strips/side-block-2-half-0.png",
+          "sha256": "b9599a56e5b7cdb2374f603070ceeb478d45b920cd79e2a1aa236251328526c6",
+          "width": 1320,
+          "height": 648,
+          "top": 648
+        }
+      ],
+      "nativePixelsPreserved": true,
+      "resizing": false,
+      "review": "pending"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/parallel-c-azure-private-v1-techniques/inspection-strips/both-block-2-half-1.png",
+      "sha256": "6648c99bd177563a52c44990589bd7646c81722422293feec0ae7f50c244fe2b",
+      "sources": [
+        {
+          "path": ".tmp/pet-companion-techniques/parallel-c-azure-private-v1-techniques/inspection-strips/front-block-2-half-1.png",
+          "sha256": "c1a8f80971e35748c6d4700a47c2d3ac8ba71a1e47d48ef2ceba2cc760f22cb1",
+          "width": 1320,
+          "height": 648,
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-companion-techniques/parallel-c-azure-private-v1-techniques/inspection-strips/side-block-2-half-1.png",
+          "sha256": "a1de118c3cda5866638f54869b63e44ee9a4375c5476d31235c821fe9775e15f",
+          "width": 1320,
+          "height": 648,
+          "top": 648
+        }
+      ],
+      "nativePixelsPreserved": true,
+      "resizing": false,
+      "review": "pending"
+    }
+  ]
+}

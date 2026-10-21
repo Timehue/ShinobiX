@@ -1,0 +1,121 @@
+{
+  "records": [
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/jerboa-private-v1-runtime-low/native-source-head.png",
+      "sha256": "bd4f293249fb3c53e41f79fcb8921ab1aa7d5380955967cf0d593741a0a0f944",
+      "width": 1440,
+      "height": 2160,
+      "inputs": [
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/jerboa-private-v1-runtime-low/rare-42-source-head-0.png",
+          "sha256": "e5585a4901c4132f8053d1776704d052e6d16fb7ab8f8186fcddce2a272aef92",
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/jerboa-private-v1-runtime-low/rare-42-source-head-1.png",
+          "sha256": "5b1992d9383927da999ac4b642eebcd20db22493250835f2aa0d7dc172a22546",
+          "top": 540
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/jerboa-private-v1-runtime-low/rare-42-source-head-2.png",
+          "sha256": "397a0fffaa4a380d9c48d2563a2d9ab2f62d83fc3c7fd7aa8ce71472c0365a8f",
+          "top": 1080
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/jerboa-private-v1-runtime-low/rare-42-source-head-3.png",
+          "sha256": "af529174a7588c1e2009231ba2ef6e3942a95c3be48b9466be349b8ea456a3b6",
+          "top": 1620
+        }
+      ],
+      "resizing": false
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/jerboa-private-v1-runtime-low/native-source-body.png",
+      "sha256": "8e3fa17f4a38d4e20668439940c249f3ac3f7328f0c58250433f83335d512509",
+      "width": 1440,
+      "height": 2160,
+      "inputs": [
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/jerboa-private-v1-runtime-low/rare-42-source-body-0.png",
+          "sha256": "e1ab05c5512506f288993b7f639111444fe460cb83ab39bc1b412324243d1939",
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/jerboa-private-v1-runtime-low/rare-42-source-body-1.png",
+          "sha256": "65a239d270bb1c139a98b89613ef5a678060d992b204c846c8cf1b3ba15e726c",
+          "top": 540
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/jerboa-private-v1-runtime-low/rare-42-source-body-2.png",
+          "sha256": "4bacc45cd6ee70970df0e6e8785e90cf00cd489404289baaada23dd3ee036e0e",
+          "top": 1080
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/jerboa-private-v1-runtime-low/rare-42-source-body-3.png",
+          "sha256": "0991b2502f070de35c80032f00f10d0245c1b2ccc58effe0731a5e73c505cdd2",
+          "top": 1620
+        }
+      ],
+      "resizing": false
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/jerboa-private-v1-runtime-low/native-battle-head.png",
+      "sha256": "c5d38a8e897ea141bf6824ddefed5dbb11a38ab051a169b017b778a0bfd8706c",
+      "width": 1440,
+      "height": 2160,
+      "inputs": [
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/jerboa-private-v1-runtime-low/rare-42-battle-head-0.png",
+          "sha256": "562b1bd014a8dc396a24b45a5419301c27392c2bfcbbadfc44b52b7df0f05764",
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/jerboa-private-v1-runtime-low/rare-42-battle-head-1.png",
+          "sha256": "72a820226a3d2c4c80005b274fca8d4228216c6637083f07d5f11aa7c176d623",
+          "top": 540
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/jerboa-private-v1-runtime-low/rare-42-battle-head-2.png",
+          "sha256": "5c2f4132d917bbaf0de65acb1e43450f77e863808e7ca7a2f48c7c3f3163663e",
+          "top": 1080
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/jerboa-private-v1-runtime-low/rare-42-battle-head-3.png",
+          "sha256": "0eb63be132e66660ecef885549c9c2a1f7edce6a770337e8caa34da5339da36a",
+          "top": 1620
+        }
+      ],
+      "resizing": false
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/jerboa-private-v1-runtime-low/native-battle-body.png",
+      "sha256": "b61d321582673c3ddfaa9be90f329967b89c3283f0a9c557a3976348c70e9d54",
+      "width": 1440,
+      "height": 2160,
+      "inputs": [
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/jerboa-private-v1-runtime-low/rare-42-battle-body-0.png",
+          "sha256": "a5520e9da9e567cbc7c0167fcc684be9158e831f789a0ddbed863c19048f5ae2",
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/jerboa-private-v1-runtime-low/rare-42-battle-body-1.png",
+          "sha256": "5ac60d985ccd29b1a2908836224d627df97ed456de0aba40052db778d124a894",
+          "top": 540
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/jerboa-private-v1-runtime-low/rare-42-battle-body-2.png",
+          "sha256": "64738509a3e2fbb7196510ec7395faef3feb84adfa7a15b23df45c11ecc029c4",
+          "top": 1080
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/jerboa-private-v1-runtime-low/rare-42-battle-body-3.png",
+          "sha256": "fb6fb749e9cc1fe1d2c5fe6b77e823c1a8668b44e5a3c33bfc51b10fa97e0916",
+          "top": 1620
+        }
+      ],
+      "resizing": false
+    }
+  ],
+  "review": "pending"
+}

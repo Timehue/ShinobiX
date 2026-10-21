@@ -1,0 +1,121 @@
+{
+  "records": [
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/fox-private-v1-runtime-medium/native-source-head.png",
+      "sha256": "684d08df46e800108174a98b5a22958ad00e26922dce25ec890dc74473b9957c",
+      "width": 1440,
+      "height": 2160,
+      "inputs": [
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/fox-private-v1-runtime-medium/rare-0-source-head-0.png",
+          "sha256": "9c1402bf288875e9386dd600a58625faa6a3ca5548e6bec20c3717a884bc7eb6",
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/fox-private-v1-runtime-medium/rare-0-source-head-1.png",
+          "sha256": "17dd9adb4fa9fdcdada4b96b22e79ee615799dcf4e53671d0aeb388072a44950",
+          "top": 540
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/fox-private-v1-runtime-medium/rare-0-source-head-2.png",
+          "sha256": "903dc6a18159558827aa304aa57434c14e301dcc3c80bea8664abb6fcdd9dbee",
+          "top": 1080
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/fox-private-v1-runtime-medium/rare-0-source-head-3.png",
+          "sha256": "14a9578daf8c6fb6b72fd2544c0d33225a0be7f12c27b01a669644a4bb10f7ca",
+          "top": 1620
+        }
+      ],
+      "resizing": false
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/fox-private-v1-runtime-medium/native-source-body.png",
+      "sha256": "58559eb2e63c5932d7f52ecc699c01e6dd2d8d5347e509b651af1436aa921291",
+      "width": 1440,
+      "height": 2160,
+      "inputs": [
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/fox-private-v1-runtime-medium/rare-0-source-body-0.png",
+          "sha256": "ff18867aeb37fc458ddd31aa647fb1b738ea31e4fc03fc851af6bc8868cc084f",
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/fox-private-v1-runtime-medium/rare-0-source-body-1.png",
+          "sha256": "91d75a132ddf05d3c5beb800afc7a5ac2c5a0f6fa1e56ba6191f11e4c74c7127",
+          "top": 540
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/fox-private-v1-runtime-medium/rare-0-source-body-2.png",
+          "sha256": "82b8e2d1407b921304da5611aac7352d8bedc14163615e3540f05d48a71ce40c",
+          "top": 1080
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/fox-private-v1-runtime-medium/rare-0-source-body-3.png",
+          "sha256": "080b9429cfb6c4a4be61ad5344b0470518cd50c35ff8d65705f27884b5546895",
+          "top": 1620
+        }
+      ],
+      "resizing": false
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/fox-private-v1-runtime-medium/native-battle-head.png",
+      "sha256": "2725e50db5a9a0ffca69e3e1b66af9054a7d431a5aeeb28bdbc3c99008bd1d42",
+      "width": 1440,
+      "height": 2160,
+      "inputs": [
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/fox-private-v1-runtime-medium/rare-0-battle-head-0.png",
+          "sha256": "4237eefc406d4346e26874167bf43d3bb4ce3189dd335fe7f99269279e161673",
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/fox-private-v1-runtime-medium/rare-0-battle-head-1.png",
+          "sha256": "3afb776dc6a893de02169dc4fd0f0661db33ed701e10253bb24565078e7d9756",
+          "top": 540
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/fox-private-v1-runtime-medium/rare-0-battle-head-2.png",
+          "sha256": "eba7ca3b58f5a9b209895a405e350d3ca36d57b07d63356be2d65e36480f9147",
+          "top": 1080
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/fox-private-v1-runtime-medium/rare-0-battle-head-3.png",
+          "sha256": "e2ff5d10da8cda6759f404b0369118cda987f3689924730b551a8c847e23373b",
+          "top": 1620
+        }
+      ],
+      "resizing": false
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/fox-private-v1-runtime-medium/native-battle-body.png",
+      "sha256": "5d58f3ec48a088bc8b0d681ec7a6d59291dce13a291983c7d2744cd18669e255",
+      "width": 1440,
+      "height": 2160,
+      "inputs": [
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/fox-private-v1-runtime-medium/rare-0-battle-body-0.png",
+          "sha256": "e3ce904327afaf689f244b4072b887a10ce24bbf526ce102b9de504f34804720",
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/fox-private-v1-runtime-medium/rare-0-battle-body-1.png",
+          "sha256": "69b9c1f1511e1d3dd9c9d644cd98cab88470f568c644bb12bbe5697ec5edf712",
+          "top": 540
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/fox-private-v1-runtime-medium/rare-0-battle-body-2.png",
+          "sha256": "52eec78c775ac297570300ed8984fb034216215b890e3a6d5fb42b9ce3206590",
+          "top": 1080
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/fox-private-v1-runtime-medium/rare-0-battle-body-3.png",
+          "sha256": "c7ba9f7faa68d80f474e643f8bac5b8d50ba81e337a8e9b8368129d86f675d0b",
+          "top": 1620
+        }
+      ],
+      "resizing": false
+    }
+  ],
+  "review": "pending"
+}

@@ -1,0 +1,607 @@
+{
+  "id": "rare-9",
+  "name": "Bristle Boar",
+  "reviewedAt": "2026-10-20T21:06:00.015Z",
+  "status": "double-checked-locally-awaiting-main-live",
+  "localVisualApproval": true,
+  "sourceSha256": "954d6063adc9fd3d930e50bcb61c79f6915b2dbe7e88d930a461f3adc6ae1742",
+  "battleSha256": "4a8fca3afbf41f1a4f6683014ca125c23e5b84355eb2e26ce293d30d82b72c3c",
+  "atlasSha256": "3f7fc0c9a37b03165c1d989fa576c0a17356c73f84475ed6b1e037287a0aca66",
+  "rendererSha256": "b2253b71fbcb21a83d82de35ab5783dd57b525cfc94740fb131dd1eb0049a897",
+  "companionComponentSha256": "dd0e422cec9458b37fb370c4ebc0af7717d129f93540420ea3a14c371f400dcd",
+  "repair": "Anatomical hind-leg rest frames and skin ownership release the hooves from the curled-tail palette, then vertical root clearance preserves all13 original animation channels, sculpt and texture. Full face-to-hind-leg-to-ground authoring replay reproduces both shipping assets.",
+  "reviewers": [
+    "/root/review_c",
+    "/root/review_a"
+  ],
+  "rootPersonallyInspectedFullScope": false,
+  "coveragePerReviewer": {
+    "rawClipsPerStage": 13,
+    "faceViews": 5,
+    "bodyViews": 2,
+    "rawPoseViews": 1092,
+    "productionQualities": [
+      "low",
+      "medium"
+    ],
+    "transitionRows": 16,
+    "runtimePoseViews": 1536,
+    "actualTechniqueFrames": 216,
+    "advancingIdleFrames": 24,
+    "atlasCells": 16
+  },
+  "canonicalProof": {
+    "exactSourceBattleAtlasMatchReviewedCandidates": true,
+    "canonicalFaceVerification": {
+      "fullFaceAndGroundReplayTestsPassed": 4
+    },
+    "assetContractsPassed": 3,
+    "independentDenseFloorRegressionPassed": true,
+    "anatomicalOwnershipRegressionTestsPassed": 3
+  },
+  "evidence": [
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-9/private-final-independent/independent-final-visual-review.json",
+      "sha256": "0e871651d0b951224d142758f0b7ffadd6495872e58057f6b8137c42f748b9c0"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-9/private-final-independent/source-rare-9-head-front.webp",
+      "sha256": "af74952989382a10c0919c87be0c8abe45fedd9474d440e597ab63224c1b57ac"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-9/private-final-independent/source-rare-9-head-side.webp",
+      "sha256": "65068b31efddc952186b55059f387d045bacd88ff247784fd46f181a20142db3"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-9/private-final-independent/source-rare-9-head-other-side.webp",
+      "sha256": "8bef2bf1c5c35d91e4fcc871d2a9831e5918f39244330121e82cd07b2752b4bd"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-9/private-final-independent/source-rare-9-head-under-front.webp",
+      "sha256": "085e011c0dacb3dd7e0f45904e86f89de0b430af9079d5d7db6e9df64937278d"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-9/private-final-independent/source-rare-9-head-under-side.webp",
+      "sha256": "4288d23c9879580195ae7fe5521f5917a001b480a00a57db820d7b35a7d6eb52"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-9/private-final-independent/source-head-manifest.json",
+      "sha256": "bb196743090977685d7c75412d0ea53814d0443a64a56700ce2089c65a85e46b"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-9/private-final-independent/source-rare-9-front.webp",
+      "sha256": "a1a9d697953ae982943ac6511f05e21d4ed0ef77044a2f818786beffcbb62866"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-9/private-final-independent/source-rare-9-side.webp",
+      "sha256": "bbdef5d4cb76c5c09585be0d8050e4fb042b7d1e759bcdb38d55c3705dc1680e"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-9/private-final-independent/source-body-manifest.json",
+      "sha256": "892f3801e8787ad092f97f1ea36ed61faa262f11be7b83b4ec55517cd629f37d"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-9/private-final-independent/battle-rare-9-head-front.webp",
+      "sha256": "b64ad0588234fbecee5750978eebd39eca2259fc5a4cc86d2303115f6da2e515"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-9/private-final-independent/battle-rare-9-head-side.webp",
+      "sha256": "7fa5279f27b962d27c9074c67a69489a37be715853d95a888c7239afe769f4a6"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-9/private-final-independent/battle-rare-9-head-other-side.webp",
+      "sha256": "9f78bc1c3594d59265f2c4590f529d994ba657cf2f2560195c2083be4c7f6ca6"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-9/private-final-independent/battle-rare-9-head-under-front.webp",
+      "sha256": "3b2efde59e9a99b77846704207ba7867b9088a739ddb22e2418ce5db987d35c4"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-9/private-final-independent/battle-rare-9-head-under-side.webp",
+      "sha256": "c22c19d2599501f522130217cfb2a680800c43abcd6e8b4df785b0664f605c1b"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-9/private-final-independent/battle-head-manifest.json",
+      "sha256": "a6dc9ca96dce572693fa43472d0e8bf0ec241303550cbbcc5443003f2023fdb7"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-9/private-final-independent/battle-rare-9-front.webp",
+      "sha256": "971e8e8ef5c9230577da94a80cc2b94063f2fb9decfbdf39d7cd951e4cd73e07"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-9/private-final-independent/battle-rare-9-side.webp",
+      "sha256": "1ba2cf5c3bc3142de09bac8347b67b1806219c3eadaa83a4580c03455ab0f90d"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-9/private-final-independent/battle-body-manifest.json",
+      "sha256": "96ae5929a2a839497968960bf9539fb28c4dc477c47dd81c8d90cbc66b795f73"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-9/private-final-independent/runtime-low-source-body.png",
+      "sha256": "2998ad2fbfd39000bf7d43f0e942b02bfbeac0cc772bcfadacbadefedc5628a9"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-9/private-final-independent/runtime-low-source-head.png",
+      "sha256": "c514c6f9904bbcc39f3ad47db441ffa10fbb23dc4387795c042eabff43283c18"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-9/private-final-independent/runtime-low-battle-body.png",
+      "sha256": "d21b8b5c9822a9cd75efa19d9ab6188c066920d377db95a71b3f38a944edd931"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-9/private-final-independent/runtime-low-battle-head.png",
+      "sha256": "f05e2d80c496a46cef181218a63fc5f6ff020316f4b8ca6480679a91f42955b5"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-9/private-final-independent/runtime-low-manifest.json",
+      "sha256": "95e9f41dadd1a24a0c84fc9347a1c6ee34d842dde92635408e08342770f64497"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-9/private-final-independent/runtime-low-native-composite-manifest.json",
+      "sha256": "565eabfec09f42af67e6febd3e38b8725e2c832cf72910c25b2f3c0ee3ca308f"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-9/private-final-independent/runtime-medium-source-body.png",
+      "sha256": "5c827ebb8e30e9a76a8d1a61618a783ff27cf3090f402b5b9dc26f754f6f5198"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-9/private-final-independent/runtime-medium-source-head.png",
+      "sha256": "90c6dfff9709b95ffa9c0d66329955b8e9fa7d15606dd0e259cc57f9a1740a7c"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-9/private-final-independent/runtime-medium-battle-body.png",
+      "sha256": "8d334adf767983ea49744646bd45f020634baf280660450039302d5dcdb4460c"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-9/private-final-independent/runtime-medium-battle-head.png",
+      "sha256": "a6f33501b2bb2505aa2fc22334f387a56e00854bfa94e195db1024e2c09241a0"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-9/private-final-independent/runtime-medium-manifest.json",
+      "sha256": "4ac8554fa4b89c51d5a9366d0ddd3521c9b3057eaaafc251ce0c3a6e820cf13a"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-9/private-final-independent/runtime-medium-native-composite-manifest.json",
+      "sha256": "f48fdb1d73685d4c49f63e4c8b67e492491c0f707d35d2bf6a796bb05b083aad"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-9/private-final-independent/technique-both-block-0-half-0.png",
+      "sha256": "08704279854a535aed9ad78f7e430a022f8a1a6994d4c4d5c899d87c5ee2888f"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-9/private-final-independent/technique-both-block-0-half-1.png",
+      "sha256": "b222ea7a60c99cfa59fd818bdeec8856c0108c95272d530fc87bd5737aa3e79f"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-9/private-final-independent/technique-both-block-1-half-0.png",
+      "sha256": "44e850bf3f585fe081b5d46371ea15f35ffefd75ddd71fafa4c957ea1a45c105"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-9/private-final-independent/technique-both-block-1-half-1.png",
+      "sha256": "aa332b2dbaf75c1a77c2a54dfa136de47bc41d50db91b420ef8d53edaa077790"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-9/private-final-independent/technique-both-block-2-half-0.png",
+      "sha256": "b1c25783e32a4e85bfe16d75c8dc2b0436f8e3cd7d74df601f7b5c014e6fe0ac"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-9/private-final-independent/technique-both-block-2-half-1.png",
+      "sha256": "7367226901452b2108704db25391057165603f0e5c96b29225130bb61f04ca03"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-9/private-final-independent/rare-9-earth-strike-side-4.png",
+      "sha256": "76f42a7240eeb09089e1c019ee8c7fe47fa45d2c28a9d20adc4c4d51e85ac94e"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-9/private-final-independent/rare-9-earth-strike-side-5.png",
+      "sha256": "b59f597ddafb4df28b5e23fe6645676f15fc78717c7e99c1e5c370824bda1835"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-9/private-final-independent/rare-9-earth-breaker-side-4.png",
+      "sha256": "4fd78b4f3166c092e9d30e77694a3e9a30134bc9f1d801f7c3e7a4503bde15ac"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-9/private-final-independent/rare-9-earth-breaker-side-5.png",
+      "sha256": "8c6a0ca8cdeccde4545aa2cde723e2ead685d3a3f8d1db21fd1560e7b9d2a0a4"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-9/private-final-independent/rare-9-rare-9-signature-side-4.png",
+      "sha256": "436f53751a9ae30a6fdcb10f50323382ec1c9a9e030af83e06e23d2f64199cd1"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-9/private-final-independent/rare-9-rare-9-signature-side-5.png",
+      "sha256": "e285f19b44caddec6f434df63a4a69a637bf4a2544ebf57efce96b7eba9b646a"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-9/private-final-independent/techniques-manifest.json",
+      "sha256": "61729183d2b1cb09e01ce1efe0a59201a86c4bc4aacdf95ea9575f90130b3dd3"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-9/private-final-independent/techniques-both-views-manifest.json",
+      "sha256": "93a00132c05aca1f3be78c457e1df263a2e6a8e0ebffab7a5fbf3484e7481f10"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-9/private-final-independent/advancing-idle-native.png",
+      "sha256": "b17ea1ecb5d88cb6346b7433f3a27858b19cf9c55ef3041bfc8bee2b990e3503"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-9/private-final-independent/advancing-idle-native-manifest.json",
+      "sha256": "a499364f7402958f8f95b7b83f60af4233c70aa8054c3bcedf96d674c4ecf681"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-9/private-final-independent/atlas.webp",
+      "sha256": "3f7fc0c9a37b03165c1d989fa576c0a17356c73f84475ed6b1e037287a0aca66"
+    },
+    {
+      "path": "docs/audits/pet-parallel-review-a-2026-10-20/rare-9-private-second.json",
+      "sha256": "1b9f6c9c0b161e271afbd660e1f1c83727db826069e36663b839cee082564e80"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/rare-9-private-second/private-ground-recipe.json",
+      "sha256": "d6db27881d5bd9c68b3333cec287959cae102fab9c26436fdf1b0f06e6f68630"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/rare-9-private-second/source-head-manifest.json",
+      "sha256": "40704452e4d6dc8b5166fd415d924c558a188b91d084fdc6a1f3d023824addf1"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/rare-9-private-second/source-rare-9-head-front.webp",
+      "sha256": "a301cc5cc6df7967ca442bb0e0f736fc405702a10d495d21401f7465ad780ab8"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/rare-9-private-second/source-rare-9-head-side.webp",
+      "sha256": "e9f06736c8ea89aa800c435aee8f9b9aba349047351014c1d8a20600ebc5278e"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/rare-9-private-second/source-rare-9-head-other-side.webp",
+      "sha256": "15cb720647b89c4c87023761ca596d989f9a49d3ceebdc554acbb7bea0a60242"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/rare-9-private-second/source-rare-9-head-under-front.webp",
+      "sha256": "8fe4be6788fd66adcdef4ffcca9abae7e5d8d23f9bb59661c6069456338d75b0"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/rare-9-private-second/source-rare-9-head-under-side.webp",
+      "sha256": "81014f99b25694643167cc21959182ac20fb06dfbfd5ae9bd841154e924f4759"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/rare-9-private-second/source-body-manifest.json",
+      "sha256": "9476328ddf4d730d42a286e717235484b9630361f2015a4e936a39afe588d459"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/rare-9-private-second/source-rare-9-front.webp",
+      "sha256": "2124c1525baa6d95ae9c5bd989c56c60b1cf8a0bd38fb1d4cf7a1bcef9791fac"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/rare-9-private-second/source-rare-9-side.webp",
+      "sha256": "e574791e644c16db749953e992d938af1812a56970a83418cb9ed9f92c4f9d22"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/rare-9-private-second/battle-head-manifest.json",
+      "sha256": "1ceaa4f7b065a55357a3cbf64e793247d4d0cc4ce6ad64a3b563ccaff0376b41"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/rare-9-private-second/battle-rare-9-head-front.webp",
+      "sha256": "3bb836ffc57401b70a33bfc3e9366243e8cd492a25a2bcc304368f1220493ff8"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/rare-9-private-second/battle-rare-9-head-side.webp",
+      "sha256": "4d92d8960de64ce59c8ba114b5a618502fd2eeeb34363207ba3659c7877a93a2"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/rare-9-private-second/battle-rare-9-head-other-side.webp",
+      "sha256": "13584ad93c9162e7d502290c67945eeac49ee66169fae7065fef51b833add380"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/rare-9-private-second/battle-rare-9-head-under-front.webp",
+      "sha256": "04538c8312681aec4d638b70dd83db276967f9cbed8c4f458dbba8361e875394"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/rare-9-private-second/battle-rare-9-head-under-side.webp",
+      "sha256": "d5ea55d174e25df3493370394e67f8dfdc00da04c8352ad105a9bc2d8bdc15a8"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/rare-9-private-second/battle-body-manifest.json",
+      "sha256": "e2e4ec8584b4c83810a7453f230729584f1e6128cc059920ad9b3a157b2887d6"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/rare-9-private-second/battle-rare-9-front.webp",
+      "sha256": "dcae827e5cab9e227cada57a8efdfaa3d025e432cffb7ba419a385023ebcbe56"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/rare-9-private-second/battle-rare-9-side.webp",
+      "sha256": "ab1e87d52c814de611f74de2ff6e4ed120524216b651962dfb32f972898d379d"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/rare-9-private-second/runtime-low-manifest.json",
+      "sha256": "f27e84052e058e1f43bed57238b7a776f13450fa8bf4489906d8bf4cee9cec62"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/rare-9-private-second/runtime-low-rare-9-source-head.webp",
+      "sha256": "8bf6f669b1d949b5c25355d54dfbe1a58b3c4f472572e88b880316155101eda0"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/rare-9-private-second/runtime-low-rare-9-source-body.webp",
+      "sha256": "0e229c1c6782909428e765063b49fcc09c05cc981c2d55596265341956cd0b4f"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/rare-9-private-second/runtime-low-rare-9-battle-head.webp",
+      "sha256": "e68cafe69d3fff12a02bb2ab4e28b362e0bd1272fdfd77a4dc254520db74da7d"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/rare-9-private-second/runtime-low-rare-9-battle-body.webp",
+      "sha256": "20cf3130700ffd3a008ad5f89f88f00a6256b6558c6a2ddda20c238e10e9cb46"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/rare-9-private-second/runtime-medium-manifest.json",
+      "sha256": "179a324ac148c2ce692b7e0482859be8d00cd1b763c8adf08148fc4acc92fe05"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/rare-9-private-second/runtime-medium-rare-9-source-head.webp",
+      "sha256": "09bae055dc6a498343dba502817abfe39a3b17155323f2af63cd64732149081a"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/rare-9-private-second/runtime-medium-rare-9-source-body.webp",
+      "sha256": "fdb281c537e66daf20d43ca8b27a32f27e5672730babaf7f14fc45e7696f4114"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/rare-9-private-second/runtime-medium-rare-9-battle-head.webp",
+      "sha256": "0c60d00e0f82332f81fd0fe74180c2a038e2aecd2f67360129e0e4ace381382c"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/rare-9-private-second/runtime-medium-rare-9-battle-body.webp",
+      "sha256": "1fdea863f55daa28ca6ae566c1f7dbfc88201b25b9f563d560fd2f01880dc817"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/rare-9-private-second/techniques-manifest.json",
+      "sha256": "952d69b3b06320aa85fb218d30760dc01c010198a93c811197cdcf637b23bbf6"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/rare-9-private-second/technique-strips-manifest.json",
+      "sha256": "b79cc37b38c0254e10b7e27b1cee5ce3716bcd0d22d2bea3a065af211ec24c83"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/rare-9-private-second/technique-front-block-0-half-0.png",
+      "sha256": "3b092ed50128a8467f4427446410408e8a9ce428b04154653708b1b74ee13182"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/rare-9-private-second/technique-front-block-0-half-1.png",
+      "sha256": "03893c2bcfaae485cc29e3054988ed2b492f17959e3fcbf219eefd99bcd8a0b4"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/rare-9-private-second/technique-front-block-1-half-0.png",
+      "sha256": "8b8006bc05cd72ef81cf61f25779cf64b12ad889c8baf7ec417a0b627d972ec1"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/rare-9-private-second/technique-front-block-1-half-1.png",
+      "sha256": "a52f25b248baa5b6404a757f119d36144d4f9c0b329724aeea15786de64fe253"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/rare-9-private-second/technique-front-block-2-half-0.png",
+      "sha256": "1a8ff53ddc363697f4aa7779d55bdd8f42e8c248c430a1ca0935111288b6115f"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/rare-9-private-second/technique-front-block-2-half-1.png",
+      "sha256": "844e11cc269c6bcebabe22b518742f523602e84c987eae21f7b106b41109b432"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/rare-9-private-second/technique-side-block-0-half-0.png",
+      "sha256": "2f99fedbdf3f572cba142835ff5586f88b2113be87c4506a8daf2a73f7af844d"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/rare-9-private-second/technique-side-block-0-half-1.png",
+      "sha256": "ed276260111086ef6079f4a824f55010adfc8e408bb270717bd7865cc18c3f0b"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/rare-9-private-second/technique-side-block-1-half-0.png",
+      "sha256": "1dc31085fa6feecde22d17b8d2610c20c608a423ac7ae8f1e0d4b9ab0f1671c7"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/rare-9-private-second/technique-side-block-1-half-1.png",
+      "sha256": "e2bff4c81e2621a99764a77e545a33881b960539ed64add8a39a5341bc3fe5f8"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/rare-9-private-second/technique-side-block-2-half-0.png",
+      "sha256": "51e34aea5c46f6d418229441805a645c42d84268e6c99b37c168169a3eebd0bf"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/rare-9-private-second/technique-side-block-2-half-1.png",
+      "sha256": "5ab3bee951f0d2e44661bc6bc5488afeb90b30cef36653dfa1329ff76e605185"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/rare-9-private-second/native-rare-9-earth-strike-front-1.png",
+      "sha256": "2050f2c601fb8d9884ef9d5b98513d401ae1d76544652815b7ec0af2629250dd"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/rare-9-private-second/native-rare-9-earth-strike-front-2.png",
+      "sha256": "8fcc6515ea43456532fb7e1fe2b95206f15d7ad0902588beb6eda5f603d815fe"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/rare-9-private-second/native-rare-9-earth-strike-front-3.png",
+      "sha256": "d33d7e0fbb3018d23c2f67d367ee096cbe737f66b591d957f9e7ca0f63bde373"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/rare-9-private-second/native-rare-9-earth-strike-side-1.png",
+      "sha256": "6515b7ae6d848dac6659bbb6b30fd4f21adad04fa0e95e3a314dc38e7673a219"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/rare-9-private-second/native-rare-9-earth-strike-side-2.png",
+      "sha256": "6d7206dde2454d14cc02c713d03b005f9e3b194865be594dc13d503326dedf00"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/rare-9-private-second/native-rare-9-earth-strike-side-3.png",
+      "sha256": "cea08232d6642cc3d85f119f446d5fef7784d801eb78c3b3bf871b7c695a886e"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/rare-9-private-second/native-rare-9-earth-strike-side-5.png",
+      "sha256": "4b8fa8ec5fb74a808cfd025c9163609e321adb325951d010015c23f5381adf62"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/rare-9-private-second/native-rare-9-earth-breaker-side-5.png",
+      "sha256": "d4b250d37a41c6993da0a43a69dda1e2d5a008729cc57c774c2579255c286458"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/rare-9-private-second/native-rare-9-rare-9-signature-side-5.png",
+      "sha256": "81f8776caae9a24550e1792f3cd0705e852a898d3e638a751222d603b06d9730"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/rare-9-private-second/advancing-idle-capture-manifest.json",
+      "sha256": "13b117015f302362b6bc6a838fa7112d094be46affcc3ed30061eeb735a47b6f"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/rare-9-private-second/advancing-idle-native.png",
+      "sha256": "37c4130c165ee6098a5beb724a85fb02eb7acbb8b9cacc19234fefac1ca4e5e2"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/rare-9-private-second/idle-panel-manifest.json",
+      "sha256": "3923f3c967ccca3909f8cfea3c6573e2652664f9a205c54f085f1dc6345496c4"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/rare-9-private-second/atlas.webp",
+      "sha256": "3f7fc0c9a37b03165c1d989fa576c0a17356c73f84475ed6b1e037287a0aca66"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/rare-9-private-second/atlas-manifest.json",
+      "sha256": "8a9220598f8b6899acc96fc9258ae307528ecca33d2d33ccc75c3c76147b134e"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/rare-9-private-second/peak48-manifest.json",
+      "sha256": "25dadfa0f01979708dfc3b053e903449edcc7f271b12da8dc4b08b29ebb5de9a"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/rare-9-private-second/peak48-rare-9-earth-strike-side-0.png",
+      "sha256": "561b31dc57f5bebff404a2a61b082bdf373ff4da2c06545245a63cda0c748668"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/rare-9-private-second/peak48-rare-9-earth-breaker-side-0.png",
+      "sha256": "a35aee0d859142223b97001906753c72834309ce238f4c8b48863fa1af09ca1a"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/rare-9-private-second/peak48-rare-9-rare-9-signature-side-0.png",
+      "sha256": "39b0c164fd3b34c13ae637f70e02ba3038ea2342b24b7d7b298c6b275e20f02c"
+    },
+    {
+      "path": "docs/audits/pet-bristle-boar-canonical-promotion-2026-10-20.json",
+      "sha256": "470c1109ccd3572fec326b2ac935d28d6558025f2dc291c0c6029a609f5e36d0"
+    },
+    {
+      "path": "docs/audits/pet-shoulder-boar-ownership-diagnosis-2026-10-20.json",
+      "sha256": "312e9dc7cd53ea7e81b124ead2915a4c330954e9e617912682d3fbf1ec7a641e"
+    },
+    {
+      "path": "docs/screenshots/pet-shoulder-boar-diagnosis-2026-10-20/standard-1-__bind__-0-side.png",
+      "sha256": "a829ad5ad98f1e0514da0b9afcc64d700313c4b4468d8829c67508948c769408"
+    },
+    {
+      "path": "docs/screenshots/pet-shoulder-boar-diagnosis-2026-10-20/standard-1-attack-0.48-side.png",
+      "sha256": "5f62cf45da41016956d6afe4b297d85e81e357655991fef9219a0e1c8c4ca7de"
+    },
+    {
+      "path": "docs/screenshots/pet-shoulder-boar-diagnosis-2026-10-20/standard-2-__bind__-0-side.png",
+      "sha256": "2a1fd8b19a9b2ac3b134931841591f5a106935b05e8c77b80abb9242cedb1249"
+    },
+    {
+      "path": "docs/screenshots/pet-shoulder-boar-diagnosis-2026-10-20/standard-2-attack-0.48-side.png",
+      "sha256": "7a4eead14f9be42b3913da7172f69c29353b1703542c5d96ccdec9148b96eec4"
+    },
+    {
+      "path": "docs/screenshots/pet-shoulder-boar-diagnosis-2026-10-20/cat-original-native-side-060.png",
+      "sha256": "80508bd3b6d4a8d4ace28f7b90f869665fad8384a500291cb07425965f647738"
+    },
+    {
+      "path": "docs/screenshots/pet-shoulder-boar-diagnosis-2026-10-20/boar-v2-native-side-3.png",
+      "sha256": "339c484f5fd1978b1f6c9fb1b6e8cb07ed2c90bf1110782915a5ffe2d61c2c29"
+    },
+    {
+      "path": "docs/screenshots/pet-shoulder-boar-diagnosis-2026-10-20/boar-v2-native-side-5.png",
+      "sha256": "dc69d960b2881f19c30e76cc69f46c8c273541ca1ce6831dbfe342d9a75627c5"
+    },
+    {
+      "path": "docs/screenshots/pet-shoulder-boar-diagnosis-2026-10-20/rabbit-private-shoulder-native-side-060.png",
+      "sha256": "9995667b51c29275d395cdb398e821448b5f6702ee4bde1d97849074d8840bcc"
+    },
+    {
+      "path": "docs/screenshots/pet-shoulder-boar-diagnosis-2026-10-20/starter-original-current-weights.json",
+      "sha256": "e0ec1bdd73238f09fa0bc27b03fc04729a51ec0ec00042ea1abdfb904ae0a428"
+    },
+    {
+      "path": "docs/screenshots/pet-shoulder-boar-diagnosis-2026-10-20/boar-v1-recipe.json",
+      "sha256": "b30966a1fa3840296173a9d65657ee4efe3896153dae9bf6ebcc1ac06c9e69a6"
+    },
+    {
+      "path": "docs/screenshots/pet-shoulder-boar-diagnosis-2026-10-20/boar-v1-REJECTED-fullgeometry.json",
+      "sha256": "7bb5f30a7914e1b6b1e6bef18dbcaf622fc1b9e1f494069db029e4f2b06bda2b"
+    },
+    {
+      "path": "docs/screenshots/pet-shoulder-boar-diagnosis-2026-10-20/boar-v2-ownership-regressions.txt",
+      "sha256": "699b713135ec974194aa0b3db9ed8cf5ca8520f1f3f50c283d61bdf6700cb074"
+    },
+    {
+      "path": "docs/screenshots/pet-shoulder-boar-diagnosis-2026-10-20/boar-v2-floor-regression.txt",
+      "sha256": "7ceb3543ae194b533297204ec18cf550386037d0c096ad4684c4b06af2712386"
+    },
+    {
+      "path": "docs/screenshots/pet-shoulder-boar-diagnosis-2026-10-20/boar-v2-floor-recipe.json",
+      "sha256": "d6db27881d5bd9c68b3333cec287959cae102fab9c26436fdf1b0f06e6f68630"
+    },
+    {
+      "path": "docs/screenshots/pet-shoulder-boar-diagnosis-2026-10-20/boar-v2-source-fullgeometry.json",
+      "sha256": "5c2b85882bf31e77d6af23f72ed60582c9a2cb19a268850e2cd17e94e5fece05"
+    },
+    {
+      "path": "docs/screenshots/pet-shoulder-boar-diagnosis-2026-10-20/boar-v2-battle-fullgeometry.json",
+      "sha256": "bdaeb49041f7fc308d079a6ff43bf99e6cdcbe65f4d5b80a55f971dce350f02c"
+    },
+    {
+      "path": "docs/screenshots/pet-shoulder-boar-diagnosis-2026-10-20/boar-v2-independent-face.txt",
+      "sha256": "730e295cb65c6043de04b4ef7a99fd049e1f8d9f2700fc8c1fe4251a05e7fd59"
+    },
+    {
+      "path": "docs/screenshots/pet-shoulder-boar-diagnosis-2026-10-20/rabbit-private-ownership-recipe.json",
+      "sha256": "5bfd1c2af823f4741805ced1e3395d972af09343d2e63e624b242095127b0c5c"
+    },
+    {
+      "path": "docs/screenshots/pet-shoulder-boar-diagnosis-2026-10-20/rabbit-private-prototype.mjs",
+      "sha256": "41535dde0aa5fed49a51d897e1a4ac2b9848552efe74719d9a663c2bb9579407"
+    },
+    {
+      "path": "docs/screenshots/pet-shoulder-boar-diagnosis-2026-10-20/rabbit-private-face-probes.txt",
+      "sha256": "2545a337c9fac31f3b73b4cdb0f9455881f4bae5afefdaac8b8bb24c1584c821"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-1/canonical-shoulder-hold/independent-partial-shoulder-hold.json",
+      "sha256": "c2e5dfe0d6e21595a1f1b44a49211115c4b77198946e90399738dd1868ab5c83"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-2/canonical-full-shoulder-hold/independent-final-visual-review.json",
+      "sha256": "66a0cffc0f307ce7f6b54a5f123ffd6bc92ad9936ed83fbb30c9286081cdc288"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-3/canonical-full-scarf-hold/independent-final-visual-review.json",
+      "sha256": "2b071a8212c1a7cbd81cdddca509ec91d62bbe89941a4922e34b15a7eb104873"
+    },
+    {
+      "path": "docs/screenshots/pet-bristle-boar-final-review-2026-10-20/boar-canonical-contracts.txt",
+      "sha256": "e2cb05edbd777d9037df1190e4405327d11e53bd02caff103de04c1c271803f3"
+    },
+    {
+      "path": "docs/screenshots/pet-bristle-boar-final-review-2026-10-20/boar-canonical-face-ground-replay.txt",
+      "sha256": "ed83376cba7210d7c7d478d3373e4d58fc987f1f7754f691317bb5ddf742eeee"
+    },
+    {
+      "path": "docs/screenshots/pet-bristle-boar-final-review-2026-10-20/boar-anatomical-floor-v2-reference-regression.txt",
+      "sha256": "7ceb3543ae194b533297204ec18cf550386037d0c096ad4684c4b06af2712386"
+    },
+    {
+      "path": "docs/screenshots/pet-bristle-boar-final-review-2026-10-20/previous-shape-review-receipt.json",
+      "sha256": "4a6e0cbaed9f7111abe9175d5408945b25d6c21cd134a8f67cd1f3875f5a0fe5"
+    }
+  ],
+  "pending": [
+    "selected release full CI",
+    "merge to main",
+    "deployment and exact live-byte and served-cache verification"
+  ],
+  "liveVerified": false,
+  "wholeRosterComplete": false
+}

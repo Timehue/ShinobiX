@@ -1,0 +1,2 @@
+{"id":"rare-9","stage":"source","failed":false,"peakDrift":4.499588902087113e-15,"blendPoses":468}
+{"id":"rare-9","stage":"battle","failed":false,"peakDrift":4.834413045778366e-15,"blendPoses":468}

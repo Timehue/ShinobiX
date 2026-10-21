@@ -1,0 +1,246 @@
+{
+  "frames": [
+    {
+      "path": "C:\\Users\\Tyler R\\.codex\\worktrees\\40c2\\NinjaK\\shinobij.client\\.tmp\\pet-independent-face-recheck\\companion\\standard39-rigid-private-camera-v1-idle\\idle-0.png",
+      "sha256": "dd47dc0f4976cf7b2a3105e238e8fe8b86d1641c96c96b09e954e822b488340b",
+      "crop": {
+        "left": 163,
+        "top": 76,
+        "width": 174,
+        "height": 142
+      }
+    },
+    {
+      "path": "C:\\Users\\Tyler R\\.codex\\worktrees\\40c2\\NinjaK\\shinobij.client\\.tmp\\pet-independent-face-recheck\\companion\\standard39-rigid-private-camera-v1-idle\\idle-1.png",
+      "sha256": "d22bfee3cf5693259dffdfa2af3f3aeddc13cb6bcc9789bb83ee398af47180af",
+      "crop": {
+        "left": 163,
+        "top": 75,
+        "width": 174,
+        "height": 143
+      }
+    },
+    {
+      "path": "C:\\Users\\Tyler R\\.codex\\worktrees\\40c2\\NinjaK\\shinobij.client\\.tmp\\pet-independent-face-recheck\\companion\\standard39-rigid-private-camera-v1-idle\\idle-2.png",
+      "sha256": "b3dd927740b5850204841b9937b08538584fb3df5f6bbb1937ee60760038e3f9",
+      "crop": {
+        "left": 163,
+        "top": 76,
+        "width": 174,
+        "height": 142
+      }
+    },
+    {
+      "path": "C:\\Users\\Tyler R\\.codex\\worktrees\\40c2\\NinjaK\\shinobij.client\\.tmp\\pet-independent-face-recheck\\companion\\standard39-rigid-private-camera-v1-idle\\idle-3.png",
+      "sha256": "2c3da5fa5a5dc6cc8b17f65be66fd5c78a0b720fa8d7ae2bd71c0dc56d6a4da8",
+      "crop": {
+        "left": 163,
+        "top": 76,
+        "width": 174,
+        "height": 142
+      }
+    },
+    {
+      "path": "C:\\Users\\Tyler R\\.codex\\worktrees\\40c2\\NinjaK\\shinobij.client\\.tmp\\pet-independent-face-recheck\\companion\\standard39-rigid-private-camera-v1-idle\\idle-4.png",
+      "sha256": "4a8df0a9fd8365a05eb590a4c74e3a0a806d6eb25612bf9a6235e55a476aefb8",
+      "crop": {
+        "left": 163,
+        "top": 76,
+        "width": 174,
+        "height": 142
+      }
+    },
+    {
+      "path": "C:\\Users\\Tyler R\\.codex\\worktrees\\40c2\\NinjaK\\shinobij.client\\.tmp\\pet-independent-face-recheck\\companion\\standard39-rigid-private-camera-v1-idle\\idle-5.png",
+      "sha256": "2aedb5eeaf7ec07b1ce5adde187722990e2d04c85bbeb4527bb6390e0714e2cd",
+      "crop": {
+        "left": 163,
+        "top": 75,
+        "width": 174,
+        "height": 143
+      }
+    },
+    {
+      "path": "C:\\Users\\Tyler R\\.codex\\worktrees\\40c2\\NinjaK\\shinobij.client\\.tmp\\pet-independent-face-recheck\\companion\\standard39-rigid-private-camera-v1-idle\\idle-6.png",
+      "sha256": "9bffc9ead0d60db042b8ceb024486cb2b719ef010d273a1019582258136286f6",
+      "crop": {
+        "left": 163,
+        "top": 76,
+        "width": 174,
+        "height": 142
+      }
+    },
+    {
+      "path": "C:\\Users\\Tyler R\\.codex\\worktrees\\40c2\\NinjaK\\shinobij.client\\.tmp\\pet-independent-face-recheck\\companion\\standard39-rigid-private-camera-v1-idle\\idle-7.png",
+      "sha256": "920163582ea7ebbfb63d023f43cb1c651fc316ccb102775f0e37a95c1907450c",
+      "crop": {
+        "left": 163,
+        "top": 76,
+        "width": 174,
+        "height": 142
+      }
+    },
+    {
+      "path": "C:\\Users\\Tyler R\\.codex\\worktrees\\40c2\\NinjaK\\shinobij.client\\.tmp\\pet-independent-face-recheck\\companion\\standard39-rigid-private-camera-v1-idle\\idle-8.png",
+      "sha256": "55e5cabc640e355472c142b739b0a4beb934cab3ac9b67ec0ea6b2b3f84811a2",
+      "crop": {
+        "left": 163,
+        "top": 76,
+        "width": 174,
+        "height": 142
+      }
+    },
+    {
+      "path": "C:\\Users\\Tyler R\\.codex\\worktrees\\40c2\\NinjaK\\shinobij.client\\.tmp\\pet-independent-face-recheck\\companion\\standard39-rigid-private-camera-v1-idle\\idle-9.png",
+      "sha256": "b6996048796eb88b16ea5c7598428be64a6a859968687acebb1ea9015e0e4993",
+      "crop": {
+        "left": 163,
+        "top": 76,
+        "width": 174,
+        "height": 142
+      }
+    },
+    {
+      "path": "C:\\Users\\Tyler R\\.codex\\worktrees\\40c2\\NinjaK\\shinobij.client\\.tmp\\pet-independent-face-recheck\\companion\\standard39-rigid-private-camera-v1-idle\\idle-10.png",
+      "sha256": "71de03e19552008f4939307adccde1dc066e739e9cf2371ebd38cdbff4ebdb69",
+      "crop": {
+        "left": 163,
+        "top": 75,
+        "width": 174,
+        "height": 143
+      }
+    },
+    {
+      "path": "C:\\Users\\Tyler R\\.codex\\worktrees\\40c2\\NinjaK\\shinobij.client\\.tmp\\pet-independent-face-recheck\\companion\\standard39-rigid-private-camera-v1-idle\\idle-11.png",
+      "sha256": "b56743e66f65898db0c20625eba377910b0be77d799d7d9f7bbb2a07b3822a6f",
+      "crop": {
+        "left": 163,
+        "top": 76,
+        "width": 174,
+        "height": 142
+      }
+    },
+    {
+      "path": "C:\\Users\\Tyler R\\.codex\\worktrees\\40c2\\NinjaK\\shinobij.client\\.tmp\\pet-independent-face-recheck\\companion\\standard39-rigid-private-camera-v1-idle\\idle-12.png",
+      "sha256": "8814be2c48a94ce7efbf1526e886d4153318ddf55177e32b80d14342ee6c7531",
+      "crop": {
+        "left": 163,
+        "top": 76,
+        "width": 174,
+        "height": 142
+      }
+    },
+    {
+      "path": "C:\\Users\\Tyler R\\.codex\\worktrees\\40c2\\NinjaK\\shinobij.client\\.tmp\\pet-independent-face-recheck\\companion\\standard39-rigid-private-camera-v1-idle\\idle-13.png",
+      "sha256": "65df6438a98e9592c305c37f7ace70909b5095ae1a74e90a5db7b82f646ab846",
+      "crop": {
+        "left": 163,
+        "top": 76,
+        "width": 174,
+        "height": 142
+      }
+    },
+    {
+      "path": "C:\\Users\\Tyler R\\.codex\\worktrees\\40c2\\NinjaK\\shinobij.client\\.tmp\\pet-independent-face-recheck\\companion\\standard39-rigid-private-camera-v1-idle\\idle-14.png",
+      "sha256": "de5b9a31fa1adafb36028d09d4e57927a961dabe9d9cfbb195d432f06a569973",
+      "crop": {
+        "left": 163,
+        "top": 75,
+        "width": 174,
+        "height": 143
+      }
+    },
+    {
+      "path": "C:\\Users\\Tyler R\\.codex\\worktrees\\40c2\\NinjaK\\shinobij.client\\.tmp\\pet-independent-face-recheck\\companion\\standard39-rigid-private-camera-v1-idle\\idle-15.png",
+      "sha256": "3f93f5db5bff9a2db9239ba33307be744c0a1c9f3498b8f7c5b90aa6a828730e",
+      "crop": {
+        "left": 163,
+        "top": 76,
+        "width": 174,
+        "height": 142
+      }
+    },
+    {
+      "path": "C:\\Users\\Tyler R\\.codex\\worktrees\\40c2\\NinjaK\\shinobij.client\\.tmp\\pet-independent-face-recheck\\companion\\standard39-rigid-private-camera-v1-idle\\idle-16.png",
+      "sha256": "d028b6e3faf3f5eec20ed81860429bd93f27e7dd500d2380076aec0279d6625d",
+      "crop": {
+        "left": 163,
+        "top": 75,
+        "width": 174,
+        "height": 143
+      }
+    },
+    {
+      "path": "C:\\Users\\Tyler R\\.codex\\worktrees\\40c2\\NinjaK\\shinobij.client\\.tmp\\pet-independent-face-recheck\\companion\\standard39-rigid-private-camera-v1-idle\\idle-17.png",
+      "sha256": "6f68088dbe3f2af65479353c5fdf6a8fb24739dc7ef522a13e74e880c49a67d2",
+      "crop": {
+        "left": 163,
+        "top": 76,
+        "width": 174,
+        "height": 142
+      }
+    },
+    {
+      "path": "C:\\Users\\Tyler R\\.codex\\worktrees\\40c2\\NinjaK\\shinobij.client\\.tmp\\pet-independent-face-recheck\\companion\\standard39-rigid-private-camera-v1-idle\\idle-18.png",
+      "sha256": "588cd52d701a66f523594dea9d0e3b5d18de172ca84bdf896f29479e896fce97",
+      "crop": {
+        "left": 163,
+        "top": 76,
+        "width": 174,
+        "height": 142
+      }
+    },
+    {
+      "path": "C:\\Users\\Tyler R\\.codex\\worktrees\\40c2\\NinjaK\\shinobij.client\\.tmp\\pet-independent-face-recheck\\companion\\standard39-rigid-private-camera-v1-idle\\idle-19.png",
+      "sha256": "764181c3488ecec40a61df2c35bacfe082ef7e2175ba7b050ec7d2c0642c5775",
+      "crop": {
+        "left": 163,
+        "top": 75,
+        "width": 174,
+        "height": 143
+      }
+    },
+    {
+      "path": "C:\\Users\\Tyler R\\.codex\\worktrees\\40c2\\NinjaK\\shinobij.client\\.tmp\\pet-independent-face-recheck\\companion\\standard39-rigid-private-camera-v1-idle\\idle-20.png",
+      "sha256": "5426e73ba728f749a6b573edc4437c71998c1bfbba0471e278201e9e4f35b123",
+      "crop": {
+        "left": 163,
+        "top": 76,
+        "width": 174,
+        "height": 142
+      }
+    },
+    {
+      "path": "C:\\Users\\Tyler R\\.codex\\worktrees\\40c2\\NinjaK\\shinobij.client\\.tmp\\pet-independent-face-recheck\\companion\\standard39-rigid-private-camera-v1-idle\\idle-21.png",
+      "sha256": "6022383932cbf0899c58cce305b26dbf6fbfec818fa6d9762aaab2cc316fc029",
+      "crop": {
+        "left": 163,
+        "top": 76,
+        "width": 174,
+        "height": 142
+      }
+    },
+    {
+      "path": "C:\\Users\\Tyler R\\.codex\\worktrees\\40c2\\NinjaK\\shinobij.client\\.tmp\\pet-independent-face-recheck\\companion\\standard39-rigid-private-camera-v1-idle\\idle-22.png",
+      "sha256": "9942ffead7f01a24abd0bcc960fa082be2bc0089e22a9b3645c6f27366d9b93d",
+      "crop": {
+        "left": 163,
+        "top": 76,
+        "width": 174,
+        "height": 142
+      }
+    },
+    {
+      "path": "C:\\Users\\Tyler R\\.codex\\worktrees\\40c2\\NinjaK\\shinobij.client\\.tmp\\pet-independent-face-recheck\\companion\\standard39-rigid-private-camera-v1-idle\\idle-23.png",
+      "sha256": "e8a4df1904c861a179dd2ab02dda4820c1e1db16cd0c03aab7da1b7d61aedda2",
+      "crop": {
+        "left": 163,
+        "top": 75,
+        "width": 174,
+        "height": 143
+      }
+    }
+  ],
+  "nativePixelsPreserved": true,
+  "resizing": false
+}

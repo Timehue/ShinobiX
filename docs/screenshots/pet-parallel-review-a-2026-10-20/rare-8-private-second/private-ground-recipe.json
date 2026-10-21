@@ -1,0 +1,84 @@
+{
+  "id": "rare-8",
+  "ground": -0.49398451052655623,
+  "padding": 0.002,
+  "corrections": [
+    {
+      "clip": "idle",
+      "keys": 417,
+      "maximumLift": 0.004109713265925685
+    },
+    {
+      "clip": "idle_2",
+      "keys": 332,
+      "maximumLift": 0.027623581005916775
+    },
+    {
+      "clip": "walk",
+      "keys": 233,
+      "maximumLift": 0.03141477026442652
+    },
+    {
+      "clip": "gallop",
+      "keys": 175,
+      "maximumLift": 0.03439403807752117
+    },
+    {
+      "clip": "gallop_jump",
+      "keys": 163,
+      "maximumLift": 0.0041094779006251025
+    },
+    {
+      "clip": "attack",
+      "keys": 255,
+      "maximumLift": 0.07650535789289148
+    },
+    {
+      "clip": "idle_hitreact1",
+      "keys": 143,
+      "maximumLift": 0.03973163504080346
+    },
+    {
+      "clip": "death",
+      "keys": 327,
+      "maximumLift": 0.3940279809055647
+    },
+    {
+      "clip": "entrance",
+      "keys": 232,
+      "maximumLift": 0.04201026580342937
+    },
+    {
+      "clip": "cast",
+      "keys": 275,
+      "maximumLift": 0.020461767584273316
+    },
+    {
+      "clip": "guard",
+      "keys": 281,
+      "maximumLift": 0.020554807902846473
+    },
+    {
+      "clip": "rest",
+      "keys": 469,
+      "maximumLift": 0.004109596038763985
+    },
+    {
+      "clip": "victory",
+      "keys": 427,
+      "maximumLift": 0.010694632275146776
+    }
+  ],
+  "outputs": [
+    {
+      "stage": "source",
+      "path": "C:\\Users\\Tyler R\\.codex\\worktrees\\40c2\\NinjaK\\shinobij.client\\.tmp\\azure-toad-floor\\source-candidate-v1.glb",
+      "sha256": "ee1ba3aefbc3bfc724b171f5491ae637f2c6dfc3bef3b54f62f5d7fbcd1f121c"
+    },
+    {
+      "stage": "battle",
+      "path": "C:\\Users\\Tyler R\\.codex\\worktrees\\40c2\\NinjaK\\shinobij.client\\.tmp\\azure-toad-floor\\battle-candidate-v1.glb",
+      "sha256": "e71fca2829594421ecd0976548ea9386215253683a7195b2ef3a01ea8e6c2c9b"
+    }
+  ]
+}

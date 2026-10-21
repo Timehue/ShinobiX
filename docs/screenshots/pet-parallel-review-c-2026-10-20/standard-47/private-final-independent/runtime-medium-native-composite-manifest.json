@@ -1,0 +1,121 @@
+{
+  "records": [
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/armadillo-private-v1-runtime-medium/native-source-head.png",
+      "sha256": "6f7936fd7bf2452e85b6203335be8b43a59e92dc40e0cd0ee05970e8412ed286",
+      "width": 1440,
+      "height": 2160,
+      "inputs": [
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/armadillo-private-v1-runtime-medium/standard-47-source-head-0.png",
+          "sha256": "ce7204987d409db1f49d19a5fe392a5c6a00be28d558b8dd8e506dde71b4d8ea",
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/armadillo-private-v1-runtime-medium/standard-47-source-head-1.png",
+          "sha256": "75cf0a5edc4190d89ee1f42c77ff767eabb156bb8b416ec6622a790d96f441dc",
+          "top": 540
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/armadillo-private-v1-runtime-medium/standard-47-source-head-2.png",
+          "sha256": "2cf878519bb4ccb5dab49489e0329700868738204dcc456386906fa46ba11c08",
+          "top": 1080
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/armadillo-private-v1-runtime-medium/standard-47-source-head-3.png",
+          "sha256": "b6d18aa2b88e1c925f88ff4ef7b9387002fc3825cec324b3f3efaf998a5fe791",
+          "top": 1620
+        }
+      ],
+      "resizing": false
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/armadillo-private-v1-runtime-medium/native-source-body.png",
+      "sha256": "9e35f5718c94cbfc21a4b82fb1a3f158b9365ac7970e62974f21f2d39bee1a4c",
+      "width": 1440,
+      "height": 2160,
+      "inputs": [
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/armadillo-private-v1-runtime-medium/standard-47-source-body-0.png",
+          "sha256": "94ae79cea6e0df2e006d7d0e943e174bcc3b9786dc7967b7be733d955bdec252",
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/armadillo-private-v1-runtime-medium/standard-47-source-body-1.png",
+          "sha256": "0ae3c9e228ad7f76c6fda538718a02831c3b44e161452c9566b0970a0065a8c3",
+          "top": 540
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/armadillo-private-v1-runtime-medium/standard-47-source-body-2.png",
+          "sha256": "302be0831807b1c200b4f2c159b9c7277ae7e3dfc2f99c8572ecbdd2cd3a5866",
+          "top": 1080
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/armadillo-private-v1-runtime-medium/standard-47-source-body-3.png",
+          "sha256": "01bf2582f4f22dc7f77a341f5ebd6d0dbe7d2b090e79c1eb965126f491ad5e6e",
+          "top": 1620
+        }
+      ],
+      "resizing": false
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/armadillo-private-v1-runtime-medium/native-battle-head.png",
+      "sha256": "148224138f146ac117ad6e2b09023a592a03b053ef8b33a2a06ca0ec39d653d1",
+      "width": 1440,
+      "height": 2160,
+      "inputs": [
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/armadillo-private-v1-runtime-medium/standard-47-battle-head-0.png",
+          "sha256": "719d51fab4263175fda1429f6adccc3e12c5e4ea134507aa72cf1d35de799b23",
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/armadillo-private-v1-runtime-medium/standard-47-battle-head-1.png",
+          "sha256": "44b7394f647e267fccb7ff550cf8c0077d691c984dc3813222b6a471aeda06fc",
+          "top": 540
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/armadillo-private-v1-runtime-medium/standard-47-battle-head-2.png",
+          "sha256": "b47336c36a0bc8ead61e11324886213d764201946f007054772d233887da1a76",
+          "top": 1080
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/armadillo-private-v1-runtime-medium/standard-47-battle-head-3.png",
+          "sha256": "9ce579ec0ad5c67caa5d748fafa2a1023c76a650fde3fcbef069c6defc569a83",
+          "top": 1620
+        }
+      ],
+      "resizing": false
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/armadillo-private-v1-runtime-medium/native-battle-body.png",
+      "sha256": "4ade6e6abf03606d800506f7d510e0e1995fb72d7ae69c3d4ab59dcb3bd116a4",
+      "width": 1440,
+      "height": 2160,
+      "inputs": [
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/armadillo-private-v1-runtime-medium/standard-47-battle-body-0.png",
+          "sha256": "77bfdef78603dfec8c4ac36846e3bff190e6cb3783c256b99c3a620cdcd03675",
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/armadillo-private-v1-runtime-medium/standard-47-battle-body-1.png",
+          "sha256": "778724715d2f24da21f967bb1c028ec109fe891238610bfde9bd90b5d69429f7",
+          "top": 540
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/armadillo-private-v1-runtime-medium/standard-47-battle-body-2.png",
+          "sha256": "1326f2b5aacf6e6151be8681ad7ca75f97d53ff97ec37845f479ce182f857fe9",
+          "top": 1080
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/armadillo-private-v1-runtime-medium/standard-47-battle-body-3.png",
+          "sha256": "278e1b691fad9897e96a20779b73dc8203e163579edcc5bb6d391dd75bf7f5af",
+          "top": 1620
+        }
+      ],
+      "resizing": false
+    }
+  ],
+  "review": "pending"
+}
