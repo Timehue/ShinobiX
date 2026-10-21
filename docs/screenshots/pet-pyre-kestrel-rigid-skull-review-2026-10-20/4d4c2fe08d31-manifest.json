@@ -1,0 +1,55 @@
+{
+  "schema": 1,
+  "errors": [],
+  "pets": [
+    {
+      "id": "rare-27",
+      "name": "Pyre Kestrel",
+      "url": "/.tmp/kestrel-rigid-skull/source-candidate-v1.glb",
+      "sha256": "c5ddc0770236d507b70c93ba56ad587c87da9345322b6deb25a98d84be2268ea",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "progress": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ],
+      "views": [
+        "front",
+        "side"
+      ],
+      "materialTreatment": {
+        "mode": "production-diffuse",
+        "materials": 1,
+        "metalnessMax": 0.05,
+        "roughnessRange": [
+          0.58,
+          0.82
+        ]
+      },
+      "sheets": [
+        "rare-27-front.webp",
+        "rare-27-side.webp"
+      ],
+      "review": "pending",
+      "framing": "complete posed body bounds; camera follows pose without excluding any mesh vertices"
+    }
+  ],
+  "artisticCertification": false
+}

@@ -264,7 +264,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "5CD4F15ECF24BDC4A35412147B46452168B73D2B513C07D1CE00F5D74289C269",
+      "sha256": "9B6AA18CDDBEEEDE40E785E339BE1C4C30B0B8C3AB84CCA211D95947A93F7FCE",
       "validation": {
         "ok": true,
         "reason": null,
@@ -338,6 +338,11 @@
         ],
         "changedVertices": 9986,
         "rigidVertices": 7455
+      },
+      "reviewedSolRepair": {
+        "sourceSha256": "9b6aa18cddbeeede40e785e339be1c4c30b0b8c3ab84cca211d95947a93f7fce",
+        "battleSha256": "ef764629d13c6385ac9fad182e24ceff5cb8110049580d3dc4486b7cc990b827",
+        "review": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-1-neck-v2-second/luna-independent-visual-review.json"
       }
     },
     "standard-2": {
@@ -420,11 +425,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "0994B3EDFCA50F31CC282CD87334FD7B9E97FA20512D4D3CDEB556763272AC34",
+      "sha256": "109CC8C38508D744CE5BF2DBF181E70D11F6B2A545B799DD4AC23F0F1F51131D",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 532440,
+        "bytes": 1147764,
         "triangles": 40000,
         "vertices": 25624,
         "materials": 1,
@@ -581,11 +586,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "47285AE8963979CA0FA612DE4B1AF177983234F04959109A0AC708F2B5347A75",
+      "sha256": "56167F114C6650325944DE89162F2F899466A77BDEFDF118C84588A7F57788B6",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 561524,
+        "bytes": 1186872,
         "triangles": 40000,
         "vertices": 26336,
         "materials": 1,
@@ -2497,11 +2502,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "23316BF5BDCE50B822921969BD3E7C92BBB1E59AD3A0CB5AD68E68EE8ED5F3F5",
+      "sha256": "AB43D66D55404A9DCBEE9ABF6693522D84C987D85F2177002DE42CE6F9C8A03A",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 630252,
+        "bytes": 1271908,
         "triangles": 40000,
         "vertices": 26640,
         "materials": 1,
@@ -6582,11 +6587,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "B5044E448829A7A70FB74B616DE6E2C05DD7D25667C8C31CE86FAF2C116100A0",
+      "sha256": "BF17A7361F888BF943B1682E97D977150AB1F355AAEB68BBAE35E1A14E9E04EF",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 696316,
+        "bytes": 522168,
         "triangles": 40000,
         "vertices": 26394,
         "materials": 1,
@@ -6629,6 +6634,91 @@
         "changedVertices": 20696,
         "iterations": 48,
         "localizedSeamVertices": 26995
+      },
+      "reviewedSkullRepair": {
+        "revision": "20261020-original-rigid-head-v3",
+        "id": "standard-39",
+        "sourceSha256": "b5044e448829a7a70fb74b616de6e2c05dd7d25667c8c31ce86faf2c116100a0",
+        "region": {
+          "y": [
+            0.14,
+            0.34
+          ],
+          "z": [
+            -0.3,
+            -0.08
+          ],
+          "x": [
+            0.35,
+            0.55
+          ],
+          "status": "repair",
+          "finding": "Source lower cheek/chin and scarf/chest distortion confirmed across all 24 enlarged source/battle first-pass slices. Face-only and local rigid/smoothed scarf candidates were rejected. The separately reviewed baseline battle binding resolves the scarf breakthrough; project that pinned binding onto all original detailed source vertices. Preserve sculpt, normals, UVs, topology, textures, rig and animation curves. All twelve enlarged reference-binding candidate slices actually inspected: original heads and brightness-2.5 complete-body copies, all thirteen clips/six phases/two views. Eyes, complete beak/white cheeks, red headband/tails, black scarf, white chest, wings, legs/claws and full tail remain coherent. The final broader skull probe detected a tiny rim interpolation at vertex 10828; retain all previously reviewed rigid skull-core vertices after reference transfer.",
+          "revision": "20261020-original-rigid-head-v3",
+          "supersedesSourceSha256": "b5044e448829a7a70fb74b616de6e2c05dd7d25667c8c31ce86faf2c116100a0",
+          "repairRegion": {
+            "y": [
+              0.13,
+              0.2
+            ],
+            "z": [
+              0.64,
+              0.73
+            ],
+            "x": [
+              0.35,
+              0.45
+            ]
+          },
+          "union": [
+            {
+              "y": [
+                0.13,
+                0.2
+              ],
+              "z": [
+                0.64,
+                0.73
+              ],
+              "x": [
+                0.35,
+                0.45
+              ]
+            }
+          ],
+          "supersedesAssetRevision": "20261015-independent-complete-face-v2",
+          "bindingReference": {
+            "method": "closest-triangle-barycentric-all-vertices",
+            "path": "scripts/fixtures/pet-complete-face-20261015/standard-39-battle-v1.glb",
+            "sha256": "a251d3cca1fc9608cc15f9c4469e3816e73a7b9ddab0a9f95b02db6da27bb94a"
+          },
+          "preserveRigidHeadBinding": true
+        },
+        "envelopeMatrix": [
+          0.9999996375039748,
+          0,
+          0,
+          0,
+          0,
+          0.9999997465169408,
+          4.565910546872054e-8,
+          0,
+          0,
+          1.9511571913710668e-8,
+          0.9999995747033543,
+          0,
+          -2.681151604080022e-7,
+          6.498420968004126e-9,
+          3.713181470632598e-8,
+          1
+        ],
+        "changedVertices": 1575,
+        "rigidVertices": 897,
+        "bindingTransfer": {
+          "referenceSha256": "a251d3cca1fc9608cc15f9c4469e3816e73a7b9ddab0a9f95b02db6da27bb94a",
+          "vertices": 26396,
+          "maximumProjectionDistance": 0.02797225566852378
+        }
       }
     },
     "standard-40": {
@@ -8129,11 +8219,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "957FE89C1E72A5F9D34CD656EBAEAADA10028E82F426EEACF657EF3FC5359094",
+      "sha256": "BA6EE7361153EF576C5EF04C9EE8DEBC2F169B2EB61E879B146DCEEA06E1C925",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 586996,
+        "bytes": 584912,
         "triangles": 40000,
         "vertices": 23430,
         "materials": 1,
@@ -8172,9 +8262,9 @@
         "iterations": 48
       },
       "reviewedSkullRepair": {
-        "revision": "20261014-reviewed-skull-v1",
+        "revision": "20261015-independent-complete-face-v2",
         "id": "standard-47",
-        "sourceSha256": "e651dc7c461202cb83e28f903b9d7571d1d308c3a4fe74b4ff7ad69ce14eb5ae",
+        "sourceSha256": "957fe89c1e72a5f9d34cd656ebaeaada10028e82f426eeacf657ef3fc5359094",
         "region": {
           "y": [
             -0.1,
@@ -8185,28 +8275,73 @@
             0.5
           ],
           "status": "repair",
-          "finding": "All 13 original body/head animations visually inspected. Muzzle, lower face, skull or beak deformation confirmed by the dense anatomical probe; repair and final verification pending."
+          "finding": "All 24 enlarged baseline source and battle head/body slices actually inspected. Scaled snout, mouth and side jaw squash and stretch through alternate idle, recoil, attack, cast and defeat; terminal defeat pulls the face into a long thin wedge through the hood. Ears, eyes, wrapped hood, armor shell, all four legs and wraps, claws and segmented tail otherwise stay coherent. Requires complete face binding repair while retaining hood and body articulation.",
+          "revision": "20261015-independent-complete-face-v2",
+          "supersedesSourceSha256": "957fe89c1e72a5f9d34cd656ebaeaada10028e82f426eeacf657ef3fc5359094",
+          "repairRegion": {
+            "y": [
+              -0.25,
+              -0.17
+            ],
+            "z": [
+              0.62,
+              0.7
+            ],
+            "x": [
+              0.26,
+              0.36
+            ]
+          },
+          "union": [
+            {
+              "y": [
+                -0.25,
+                -0.17
+              ],
+              "z": [
+                0.62,
+                0.7
+              ],
+              "x": [
+                0.26,
+                0.36
+              ]
+            }
+          ]
         },
         "envelopeMatrix": [
-          0.9999999325760579,
+          0.9999999328679571,
           0,
           0,
           0,
           0,
-          0.9999999764662983,
+          0.9999999767581975,
           -3.742846588217219e-9,
           0,
           0,
-          -1.772857869397626e-7,
-          0.999999855780528,
+          -1.7728578699527375e-7,
+          0.999999856072427,
           0,
           0,
-          6.60816119046892e-8,
-          1.2379413560914543e-7,
+          6.608161196020035e-8,
+          1.2408603478064606e-7,
           1
         ],
-        "changedVertices": 7021,
-        "rigidVertices": 3772
+        "changedVertices": 4785,
+        "rigidVertices": 2971,
+        "supersededRepair": {
+          "revision": "20261014-reviewed-skull-v1",
+          "sourceSha256": "e651dc7c461202cb83e28f903b9d7571d1d308c3a4fe74b4ff7ad69ce14eb5ae"
+        }
+      },
+      "visibleGroundCalibration": {
+        "revision": "20261020-visible-ground-v1",
+        "sourceSha256": "ba6ee7361153ef576c5ef04c9ee8debc2f169b2eb61e879b146dceea06e1c925",
+        "battleSha256": "641051e2d67140673cc63a00d9752f8c93cc0927bed9e134ba000c38e5fcf51e",
+        "reviews": [
+          "docs/audits/pet-dune-armadillo-private-first-review-2026-10-20.json",
+          "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-47/private-final-independent/independent-final-visual-review.json"
+        ]
       }
     },
     "standard-48": {
@@ -8289,7 +8424,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "D7DC478A68260493046FC2DB98DA25DC1861FCDA79FACA34E1AF76B87912A909",
+      "sha256": "22F5353ED724746372CCDCD095FA2652FC2136609995BBAD701A5D361E86249E",
       "validation": {
         "ok": true,
         "reason": null,
@@ -8368,6 +8503,15 @@
         ],
         "changedVertices": 9742,
         "rigidVertices": 6237
+      },
+      "visibleGroundCalibration": {
+        "revision": "20261020-visible-ground-v1",
+        "sourceSha256": "22f5353ed724746372ccdcd095fa2652fc2136609995bbad701a5d361e86249e",
+        "battleSha256": "f8d8881129271a1ff9d241739e7d00a30e1df0ee81cfabe8e444f5e9f1cc63aa",
+        "reviews": [
+          "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-48/private-final-independent/independent-final-visual-review.json",
+          "docs/audits/pet-parallel-review-a-2026-10-20/standard-48-private-second.json"
+        ]
       }
     },
     "standard-49": {
@@ -8450,7 +8594,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "2BD30C89AB58360DC537CDCB6BF58EF53097B73F5811D96A7A254FF99A2A00A4",
+      "sha256": "B0460AEA919ABB8BF18C368A57685C5BA599DDAF942D753A4EFFB2650EB496E7",
       "validation": {
         "ok": true,
         "reason": null,
@@ -8529,6 +8673,11 @@
         ],
         "changedVertices": 12386,
         "rigidVertices": 7788
+      },
+      "reviewedSolRepair": {
+        "review": "docs/audits/pet-loam-marmot-private-tail-repair-visual-review-2026-10-20.json",
+        "sourceSha256": "b0460aea919abb8bf18c368a57685c5ba599ddaf942d753a4effb2650eb496e7",
+        "battleSha256": "1f5117dff1ff08fe4bc8814563a6c87867a923bee81a88bbfec574f72c8dad77"
       }
     },
     "rare-0": {
@@ -8611,11 +8760,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "464539FFBE7AEED8CD1DB5335BE0A46C3F82C53672D10ED56D3E01CBC95B317C",
+      "sha256": "6DF0ACE2467866AA31640936C2CB9A309E0DA5AFD31FF443485EE242A9FB8991",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 601160,
+        "bytes": 601060,
         "triangles": 40000,
         "vertices": 26267,
         "materials": 1,
@@ -8655,9 +8804,9 @@
         "localizedSeamVertices": 255
       },
       "reviewedSkullRepair": {
-        "revision": "20261014-reviewed-skull-v1",
+        "revision": "20261015-independent-complete-face-v2",
         "id": "rare-0",
-        "sourceSha256": "a40cd8569e92e59d5a5951ea8a66b29b50c197afa59c93c046b34c7ef0c9901b",
+        "sourceSha256": "464539ffbe7aeed8cd1db5335be0a46c3f82c53672d10ed56d3e01cbc95b317c",
         "region": {
           "y": [
             0.1,
@@ -8668,32 +8817,77 @@
             -0.05
           ],
           "status": "repair",
-          "finding": "All 13 original full-body and complete head clips inspected front/side. Lower white muzzle/cheek shear during strike and defeat. Lateral mask avoids the curled tail. Dense anatomical probe corroborates distortion. Candidate review and complete second pass pending.",
+          "finding": "All 24 enlarged source and battle face/body front/side slices actually inspected, 13 clips at six phases. Lower white muzzle, mouth edge and side jaw visibly flatten and elongate with neck/torso motion in alternate idle, gallop jump, attack, recoil, cast, victory and defeat. Eyes, ears, headband and ties, scarf, all four booted legs and complete curled tail otherwise coherent. Brightness 2.5 analysis copies inspected with originals retained. Repair must preserve scarf, legs and curled tail articulation.",
           "x": [
             0.35,
             0.55
+          ],
+          "revision": "20261015-independent-complete-face-v2",
+          "supersedesSourceSha256": "464539ffbe7aeed8cd1db5335be0a46c3f82c53672d10ed56d3e01cbc95b317c",
+          "repairRegion": {
+            "y": [
+              -0.08,
+              0
+            ],
+            "z": [
+              0.45,
+              0.52
+            ],
+            "x": [
+              0.36,
+              0.45
+            ]
+          },
+          "union": [
+            {
+              "y": [
+                -0.08,
+                0
+              ],
+              "z": [
+                0.45,
+                0.52
+              ],
+              "x": [
+                0.36,
+                0.45
+              ]
+            }
           ]
         },
         "envelopeMatrix": [
-          0.9999999320864501,
+          0.9999999322413431,
           0,
           0,
           0,
           0,
-          0.9999999759766904,
+          0.9999999761315835,
           -3.763444944571148e-9,
           0,
           0,
           -1.773269835969593e-7,
-          0.9999998552497233,
+          0.9999998554046163,
           0,
           -5.551115123125783e-17,
-          1.1234140301352724e-7,
-          1.400395404083099e-7,
+          1.1267259314440281e-7,
+          1.401944333956351e-7,
           1
         ],
-        "changedVertices": 10682,
-        "rigidVertices": 5307
+        "changedVertices": 7073,
+        "rigidVertices": 4867,
+        "supersededRepair": {
+          "revision": "20261014-reviewed-skull-v1",
+          "sourceSha256": "a40cd8569e92e59d5a5951ea8a66b29b50c197afa59c93c046b34c7ef0c9901b"
+        }
+      },
+      "visibleGroundCalibration": {
+        "revision": "20261020-visible-ground-v1",
+        "sourceSha256": "6df0ace2467866aa31640936c2cb9a309e0da5afd31ff443485ee242a9fb8991",
+        "battleSha256": "41064054c79377cbeb35d618427ee22f1b4f59b836710c76e0a44aa03e85aa61",
+        "reviews": [
+          "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-0/private-final-independent/independent-final-visual-review.json",
+          "docs/audits/pet-parallel-review-a-2026-10-20/rare-0-private-second.json"
+        ]
       }
     },
     "rare-1": {
@@ -9031,11 +9225,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "C911FD0C4C18E190B4EBB60D9D76F47B4E8ADCBB3A7CDAE5AE85711CF08069D6",
+      "sha256": "BB79C492E29C5DCF4EC9C3FF97FE04AB6DA60A55F4727D07A0139D20D28F75C8",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 722264,
+        "bytes": 942072,
         "triangles": 40000,
         "vertices": 27058,
         "materials": 1,
@@ -9252,7 +9446,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "745BB17DDB81FE1B0973591CF0F8CA6257C2FBC17A7BD577B45AE3CE0AE1B696",
+      "sha256": "822922EBB6A96378205D2ECC96FFD4B5D08356DD76DD19BEC0EDA7B4AE19D718",
       "visualReview": {
         "passed": true,
         "reason": "Ironback Turtle is a complete upright green anime turtle with rigid charcoal iron shell, cream plastron, red scarf, dark guards, paired limbs and short tail."
@@ -9302,7 +9496,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 578828,
+        "bytes": 579292,
         "triangles": 40000,
         "vertices": 24637,
         "skins": 1,
@@ -9339,9 +9533,9 @@
         "localizedSeamVertices": 12384
       },
       "reviewedSkullRepair": {
-        "revision": "20261014-reviewed-skull-v1",
+        "revision": "20261015-independent-complete-face-v2",
         "id": "rare-5",
-        "sourceSha256": "ea9528eaf469fdc2c5a3e13d7dd7033a246ccf2f93abdef50a3b6898937c23a0",
+        "sourceSha256": "745bb17ddb81fe1b0973591cf0f8ca6257c2fbc17a7bd577b45ae3ce0ae1b696",
         "region": {
           "y": [
             0.24,
@@ -9352,32 +9546,77 @@
             -0.05
           ],
           "status": "repair",
-          "finding": "All 13 original full-body and complete head clips inspected front/side. Lower green muzzle and cheek deform on strike/defeat; lateral mask excludes shoulders/shell. Dense anatomical probe corroborates distortion. Candidate review and complete second pass pending.",
+          "finding": "All 24 enlarged source/battle face/body slices actually inspected. Snout, mouth and chin remain visually coherent with a small measured jaw residual to repair; eyes, headband ties, scarf, chest plates, shell, arms, claws, legs and tail remain coherent through all 13 animations. Side terminal death naturally occludes the face behind the near arm.",
           "x": [
             0.32,
             0.5
+          ],
+          "revision": "20261015-independent-complete-face-v2",
+          "supersedesSourceSha256": "745bb17ddb81fe1b0973591cf0f8ca6257c2fbc17a7bd577b45ae3ce0ae1b696",
+          "repairRegion": {
+            "y": [
+              0.34,
+              0.4
+            ],
+            "z": [
+              0.42,
+              0.5
+            ],
+            "x": [
+              0.34,
+              0.43
+            ]
+          },
+          "union": [
+            {
+              "y": [
+                0.34,
+                0.4
+              ],
+              "z": [
+                0.42,
+                0.5
+              ],
+              "x": [
+                0.34,
+                0.43
+              ]
+            }
           ]
         },
         "envelopeMatrix": [
-          1.0000001082587266,
+          1.0000001096086915,
           0,
           0,
           0,
           0,
-          0.9999998791767859,
-          -3.0044287335773134e-8,
+          0.9999998805267506,
+          -3.004428736352871e-8,
           0,
           0,
-          -2.210597610519116e-8,
-          1.000000115249841,
+          -2.2105976132946736e-8,
+          1.000000116599806,
           0,
-          1.8265033993776492e-7,
-          1.2260830051236127e-7,
-          2.121230525953255e-8,
+          1.82650340184963e-7,
+          1.2395826559652434e-7,
+          2.1405512570793483e-8,
           1
         ],
-        "changedVertices": 7346,
-        "rigidVertices": 3032
+        "changedVertices": 887,
+        "rigidVertices": 445,
+        "supersededRepair": {
+          "revision": "20261014-reviewed-skull-v1",
+          "sourceSha256": "ea9528eaf469fdc2c5a3e13d7dd7033a246ccf2f93abdef50a3b6898937c23a0"
+        }
+      },
+      "visibleGroundCalibration": {
+        "revision": "20261020-visible-ground-v1",
+        "sourceSha256": "822922ebb6a96378205d2ecc96ffd4b5d08356dd76dd19bec0eda7b4ae19d718",
+        "battleSha256": "75ecf3ff80acc7bfbd45d75cd75187ebd13edb9a8d15772be61ed8b39c452057",
+        "reviews": [
+          "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-5/private-final-independent/independent-final-visual-review.json",
+          "docs/audits/pet-parallel-review-a-2026-10-20/rare-5-private-second.json"
+        ]
       }
     },
     "rare-6": {
@@ -9391,7 +9630,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "26F9C61A1A373CC31DFCFEBA9AA8AB2FC4DB806E604E57960412B59FBF881101",
+      "sha256": "4D3136A78C73E66269ADA4B2F02BCADE5B279AA6DD7EA03A56D5C712E9EC398C",
       "visualReview": {
         "passed": true,
         "reason": "Dune Viper preserves its unusual golden serpent-drake identity with full S-neck, cream belly, dark headwrap, one continuous coil and four small clawed limbs."
@@ -9441,7 +9680,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 548984,
+        "bytes": 2304004,
         "triangles": 40000,
         "vertices": 24882,
         "skins": 1,
@@ -9630,7 +9869,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "2927DA560CC05F3A29B7820DACA9635B4BEE9B0E01B8408D31AF81003D08A846",
+      "sha256": "EE1BA3AEFBC3BFC724B171F5491AE637F2C6DFC3BEF3B54F62F5D7FBCD1F121C",
       "visualReview": {
         "passed": true,
         "reason": "Azure Toad reconstructs the fragmented sprite as one complete cyan anime amphibian with gold eyes, navy vest, silver forehead plate, webbed hands and two connected frog legs."
@@ -9680,7 +9919,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 581808,
+        "bytes": 579988,
         "triangles": 40000,
         "vertices": 24782,
         "skins": 1,
@@ -9716,9 +9955,9 @@
         "iterations": 48
       },
       "reviewedSkullRepair": {
-        "revision": "20261014-reviewed-skull-v1",
+        "revision": "20261015-independent-complete-face-v2",
         "id": "rare-8",
-        "sourceSha256": "b72499743089f5ae785b4d3c9fd00dc94b423d01f56de2bcb14f621546984b08",
+        "sourceSha256": "2927da560cc05f3a29b7820daca9635b4bee9b0e01b8408d31af81003d08a846",
         "region": {
           "y": [
             0.18,
@@ -9729,7 +9968,39 @@
             -0.08
           ],
           "status": "repair",
-          "finding": "All 13 original full-body and complete head clips inspected front/side. Lower mouth and eye surround squash during recoil/strike. Dense anatomical probe corroborates distortion. Candidate review and complete second pass pending."
+          "finding": "All 24 enlarged source/battle face/body slices actually inspected. Pale lower lip/chin bunches, lengthens and crosses the blue snout during locomotion, hit reaction and death; repair required. Eyes, headband plate and ties, black wrap and belt, arms/hands/fingers, legs and broad toes retain coherent silhouettes across all 13 animations. Near arm naturally occludes the side face during terminal defeat.",
+          "revision": "20261015-independent-complete-face-v2",
+          "supersedesSourceSha256": "2927da560cc05f3a29b7820daca9635b4bee9b0e01b8408d31af81003d08a846",
+          "repairRegion": {
+            "y": [
+              0.15,
+              0.23
+            ],
+            "z": [
+              0.13,
+              0.22
+            ],
+            "x": [
+              0.61,
+              0.69
+            ]
+          },
+          "union": [
+            {
+              "y": [
+                0.15,
+                0.23
+              ],
+              "z": [
+                0.13,
+                0.22
+              ],
+              "x": [
+                0.61,
+                0.69
+              ]
+            }
+          ]
         },
         "envelopeMatrix": [
           1.0000003313421038,
@@ -9746,11 +10017,24 @@
           0,
           0.0000021068634895871075,
           -2.1547840350910619e-7,
-          -1.504920109363095e-8,
+          -1.3518381490607023e-8,
           1
         ],
-        "changedVertices": 6816,
-        "rigidVertices": 3198
+        "changedVertices": 3721,
+        "rigidVertices": 3042,
+        "supersededRepair": {
+          "revision": "20261014-reviewed-skull-v1",
+          "sourceSha256": "b72499743089f5ae785b4d3c9fd00dc94b423d01f56de2bcb14f621546984b08"
+        }
+      },
+      "visibleGroundCalibration": {
+        "revision": "20261020-visible-ground-v1",
+        "sourceSha256": "ee1ba3aefbc3bfc724b171f5491ae637f2c6dfc3bef3b54f62f5d7fbcd1f121c",
+        "battleSha256": "e71fca2829594421ecd0976548ea9386215253683a7195b2ef3a01ea8e6c2c9b",
+        "reviews": [
+          "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-8/private-final-independent/independent-final-visual-review.json",
+          "docs/audits/pet-parallel-review-a-2026-10-20/rare-8-private-second.json"
+        ]
       }
     },
     "rare-9": {
@@ -9764,7 +10048,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "A475D2CF650678010DE38E834D093D70E407EAEAE3E0114DEF3F233E907A7DBA",
+      "sha256": "954D6063ADC9FD3D930E50BCB61C79F6915B2DBE7E88D930A461F3ADC6AE1742",
       "visualReview": {
         "passed": true,
         "reason": "Bristle Boar is a muscular four-legged russet anime boar with spiky gold mane, paired ivory tusks, pink snout, teal harness, dark hooves and one thin tufted tail."
@@ -9814,7 +10098,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 678712,
+        "bytes": 673188,
         "triangles": 40000,
         "vertices": 27553,
         "skins": 1,
@@ -9851,9 +10135,9 @@
         "localizedSeamVertices": 83
       },
       "reviewedSkullRepair": {
-        "revision": "20261014-reviewed-skull-v1",
+        "revision": "20261015-independent-complete-face-v2",
         "id": "rare-9",
-        "sourceSha256": "93703a7365193ecd0096f94da2eb37b55bd718fa7a760d527b365e65b1f5f209",
+        "sourceSha256": "a475d2cf650678010de38e834d093d70e407eaeae3e0114def3f233e907a7dba",
         "region": {
           "y": [
             0,
@@ -9864,7 +10148,7 @@
             0.3
           ],
           "status": "repair",
-          "finding": "All 13 original full-body and complete head clips inspected front/side. Snout and tusk/cheek shape distort during strike/defeat; expanded capture includes full snout and mane. Dense anatomical probe corroborates distortion. Candidate review and complete second pass pending.",
+          "finding": "All 24 enlarged source/battle face/body slices actually inspected. Snout and nostrils compress and shift relative to cheeks/tusks during strike, hit reaction and defeat; lower jaw needs complete-face repair. Eyes, ears, headband ties, full spiked mane, scarf/harness, four legs/hooves and curled tail inspected through all 13 animations.",
           "x": [
             0.35,
             0.55
@@ -9879,9 +10163,58 @@
                 -0.4,
                 -0.1
               ]
+            },
+            {
+              "y": [
+                -0.55,
+                -0.28
+              ],
+              "z": [
+                0.4,
+                0.5
+              ],
+              "x": [
+                0.4,
+                0.5
+              ]
             }
           ],
-          "cameraPadding": 1.2
+          "cameraPadding": 1.2,
+          "revision": "20261015-independent-complete-face-v2",
+          "supersedesSourceSha256": "a475d2cf650678010de38e834d093d70e407eaeae3e0114def3f233e907a7dba",
+          "repairRegion": {
+            "y": [
+              -0.55,
+              -0.28
+            ],
+            "z": [
+              0.4,
+              0.5
+            ],
+            "x": [
+              0.4,
+              0.5
+            ]
+          },
+          "supportBindings": [
+            {
+              "anchorBone": "neck",
+              "region": {
+                "y": [
+                  -0.7,
+                  -0.4
+                ],
+                "z": [
+                  0.15,
+                  0.4
+                ],
+                "x": [
+                  0.4,
+                  0.6
+                ]
+              }
+            }
+          ]
         },
         "envelopeMatrix": [
           0.999999971330286,
@@ -9897,12 +10230,25 @@
           0.9999998340580099,
           0,
           -9.294938739697056e-9,
-          7.596242568297384e-8,
+          8.775511112224521e-8,
           1.0705752651052336e-7,
           1
         ],
-        "changedVertices": 10460,
-        "rigidVertices": 5769
+        "changedVertices": 12138,
+        "rigidVertices": 4820,
+        "supersededRepair": {
+          "revision": "20261014-reviewed-skull-v1",
+          "sourceSha256": "93703a7365193ecd0096f94da2eb37b55bd718fa7a760d527b365e65b1f5f209"
+        }
+      },
+      "visibleGroundCalibration": {
+        "revision": "20261020-visible-ground-v1",
+        "sourceSha256": "954d6063adc9fd3d930e50bcb61c79f6915b2dbe7e88d930a461f3adc6ae1742",
+        "battleSha256": "4a8fca3afbf41f1a4f6683014ca125c23e5b84355eb2e26ce293d30d82b72c3c",
+        "reviews": [
+          "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-9/private-final-independent/independent-final-visual-review.json",
+          "docs/audits/pet-parallel-review-a-2026-10-20/rare-9-private-second.json"
+        ]
       }
     },
     "rare-10": {
@@ -11393,7 +11739,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "833233BCBDB05DD65F1748CBCF1168B54B05078EE4DAE47DA9E2A10709289441",
+      "sha256": "7F6F76DA7133B7C5076E65FD2C5D5DC494493A031650B086A6DAFEBC488BA10A",
       "visualReview": {
         "passed": true,
         "reason": "Frostbite Cub is a complete silver-white anime cub with huge icy eyes, navy ninja wraps, paired upright limbs and one coherent fluffy tail."
@@ -11443,7 +11789,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 588536,
+        "bytes": 1194904,
         "triangles": 40000,
         "vertices": 25175,
         "skins": 1,
@@ -12433,7 +12779,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "65E88536B4BE529B118CBA3E76B0718197366A346B3C5A9A96F0A5AA6219D249",
+      "sha256": "C5DDC0770236D507B70C93BA56AD587C87DA9345322B6DEB25A98D84BE2268EA",
       "visualReview": {
         "passed": true,
         "reason": "Pyre Kestrel reconstructs the tiny source as one rust-red anime raptor with spotted orange breast, cream face, two layered wings, two taloned legs and no floating flame halo."
@@ -12483,7 +12829,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 780132,
+        "bytes": 606252,
         "triangles": 40000,
         "vertices": 28029,
         "skins": 1,
@@ -12523,6 +12869,60 @@
         "changedVertices": 22876,
         "iterations": 144,
         "localizedSeamVertices": 37652
+      },
+      "reviewedSkullRepair": {
+        "revision": "20261015-independent-complete-face-v2",
+        "id": "rare-27",
+        "sourceSha256": "65e88536b4be529b118cba3e76b0718197366a346b3c5a9a96f0a5aa6219d249",
+        "region": {
+          "y": [
+            0.18,
+            0.38
+          ],
+          "z": [
+            -0.3,
+            -0.08
+          ],
+          "x": [
+            0.35,
+            0.55
+          ],
+          "status": "repair",
+          "finding": "All 24 baseline views and five targeted 960px source chest captures actually inspected. Chest strips elongate and pinch in jump/hit/entrance/attack. Targeted source chest edges stretch 9.8076x in jump, 10.2544x in hit, 10.9381x in attack due to abrupt head/wing/spine/chest palette changes. The separately visually inspected battle binding is smoother (corresponding regional peak 3.3048x) and retains the same rig. Project its pinned binding onto the detailed sculpt as a separate candidate; require full geometry, independent face tests and complete visual recheck before acceptance.",
+          "revision": "20261015-independent-complete-face-v2",
+          "supersedesSourceSha256": "65e88536b4be529b118cba3e76b0718197366a346b3c5a9a96f0a5aa6219d249",
+          "bindingReference": {
+            "method": "closest-triangle-barycentric-all-vertices",
+            "path": "scripts/fixtures/pet-complete-face-20261015/rare-27-battle-v1.glb",
+            "sha256": "7b92620381644efea6d62191a3cc08fd0c559a7e57c0a652ffcfc360f230ae0e"
+          },
+          "preserveRigidHeadBinding": true
+        },
+        "envelopeMatrix": [
+          0.9999999372224314,
+          0,
+          0,
+          0,
+          0,
+          1.000000090389739,
+          4.2759195628683244e-8,
+          0,
+          0,
+          7.95346227766558e-9,
+          0.9999999143870074,
+          0,
+          3.3764786769481525e-9,
+          -9.444086634946558e-8,
+          1.1174699332539006e-8,
+          1
+        ],
+        "changedVertices": 5928,
+        "rigidVertices": 4117,
+        "bindingTransfer": {
+          "referenceSha256": "7b92620381644efea6d62191a3cc08fd0c559a7e57c0a652ffcfc360f230ae0e",
+          "vertices": 28038,
+          "maximumProjectionDistance": 0.010513818137246092
+        }
       }
     },
     "rare-28": {
@@ -13357,7 +13757,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 1.44,
-      "sha256": "70236AE5633A9475C405892B24FBCFAC93D17CEBBFC901ED060872692A9D2D76",
+      "sha256": "C3646E4509D29640744C284D5ECDD8986B30E838A5454546EE3ED8CD2EA8EF00",
       "visualReview": {
         "passed": true,
         "reason": "Coral Serval v2 is a clean golden spotted anime serval with four complete legs, ringed tail, navy scarf and one compact rigid coral ridge attached to the upper back. Multi-view v1 was rejected for a large projection slab; its side-view fallback was rejected for an elongated head and floating fragment."
@@ -13407,7 +13807,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 569688,
+        "bytes": 569800,
         "triangles": 40000,
         "vertices": 23723,
         "skins": 1,
@@ -13444,9 +13844,9 @@
         "localizedSeamVertices": 85
       },
       "reviewedSkullRepair": {
-        "revision": "20261014-reviewed-skull-v1",
+        "revision": "20261015-independent-complete-face-v2",
         "id": "rare-32",
-        "sourceSha256": "e9a863cb9398ddd3ba25e364e752dc7d182c56fd332cdf53b1f4409cdc99f08b",
+        "sourceSha256": "70236ae5633a9475c405892b24fbcfac93d17cebbfc901ed060872692a9d2d76",
         "region": {
           "y": [
             0.14,
@@ -13457,29 +13857,74 @@
             0.55
           ],
           "status": "repair",
-          "finding": "All 13 original animations visually inspected in complete front and side body and head sheets. Serval cheeks and lower muzzle shear during strike and defeat. Candidate inspection caught pulled back crystals in defeat. Bind-coordinate raycasts locate the crystals behind z=.37; repair now fades in only beyond z=.42 to preserve all back crystals and their original weights.",
-          "cameraPadding": 1.2
+          "finding": "Actually inspected all 24 enlarged source/battle face and complete-body front/side sheets across all 13 clips and six phases. Coral Serval eyes and ears remain steady, but lower black mouth, pale chin and side jaw subtly change shape against the scarf in head tilts, particularly idle_2, jump, hit, death and victory. Independent muzzle and lower-face probes contain non-head weights and fail on both assets, so the concern is not solely scarf motion; side-jaw patch still needs a cloth-boundary review. Long legs, paws, torso, short tail and blue coral-like back ornaments remain coherent. Preserve scarf motion and review a face candidate before second pass.",
+          "cameraPadding": 1.2,
+          "revision": "20261015-independent-complete-face-v2",
+          "supersedesSourceSha256": "70236ae5633a9475c405892b24fbcfac93d17cebbfc901ed060872692a9d2d76",
+          "repairRegion": {
+            "y": [
+              0.18,
+              0.22
+            ],
+            "z": [
+              0.62,
+              0.68
+            ],
+            "x": [
+              0.32,
+              0.42
+            ]
+          },
+          "union": [
+            {
+              "y": [
+                0.18,
+                0.22
+              ],
+              "z": [
+                0.62,
+                0.68
+              ],
+              "x": [
+                0.32,
+                0.42
+              ]
+            }
+          ]
         },
         "envelopeMatrix": [
-          0.9999998985767623,
+          0.999999900249548,
           0,
           0,
           0,
           0,
-          0.9999999424670013,
-          -3.7191401625058518e-9,
+          0.9999999441397871,
+          -3.7191402735281542e-9,
           0,
           0,
-          -1.7723836842620244e-7,
-          0.9999998218286474,
+          -1.772383687037582e-7,
+          0.9999998235014329,
           0,
-          2.7755575615628914e-17,
-          3.001796783363986e-8,
-          1.758883891866958e-7,
+          2.862293735361732e-17,
+          2.8259212025982805e-8,
+          1.7756117520750792e-7,
           1
         ],
-        "changedVertices": 5500,
-        "rigidVertices": 3708
+        "changedVertices": 4302,
+        "rigidVertices": 3478,
+        "supersededRepair": {
+          "revision": "20261014-reviewed-skull-v1",
+          "sourceSha256": "e9a863cb9398ddd3ba25e364e752dc7d182c56fd332cdf53b1f4409cdc99f08b"
+        }
+      },
+      "visibleGroundCalibration": {
+        "revision": "20261020-visible-ground-v1",
+        "sourceSha256": "c3646e4509d29640744c284d5ecdd8986b30e838a5454546ee3ed8cd2ea8ef00",
+        "battleSha256": "c3822f0c668e7e494d3fde438012cf8d099e68befd560f86742d78faed4d0956",
+        "reviews": [
+          "docs/audits/pet-coral-serval-private-first-review-2026-10-20.json",
+          "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-32/private-final-independent/independent-final-visual-review.json"
+        ]
       }
     },
     "rare-33": {
@@ -13632,7 +14077,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "ADAAE71E55B5E555D031E113D1CF868EAD5D2DD19C3FC460FB8A9AF5D487AEFC",
+      "sha256": "6A5ED5ED8C973A90E4A3EFF13BE12FF2328B45856A5DA2EC1F3D6664874E78BE",
       "visualReview": {
         "passed": true,
         "reason": "Glacier Marten reconstructs the source as a complete silver-white low quadruped with vivid green eyes, layered navy wraps, four paws and one oversized fluffy tail."
@@ -13682,7 +14127,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 574312,
+        "bytes": 571896,
         "triangles": 40000,
         "vertices": 25775,
         "skins": 1,
@@ -13719,9 +14164,9 @@
         "localizedSeamVertices": 19449
       },
       "reviewedSkullRepair": {
-        "revision": "20261014-reviewed-skull-v1",
+        "revision": "20261015-independent-complete-face-v2",
         "id": "rare-34",
-        "sourceSha256": "2412da8755786948d2e55ab216c95cd827b752ca775afe719cfca7c2bfb49ee6",
+        "sourceSha256": "adaae71e55b5e555d031e113d1cf868ead5d2dd19c3fc460fb8a9af5d487aefc",
         "region": {
           "y": [
             0.1,
@@ -13736,29 +14181,74 @@
             0.48
           ],
           "status": "repair",
-          "finding": "All 13 original animations visually inspected in complete front and side body and head sheets. White marten lower jaw and cheek flatten during the turned defeat pose; lateral fade excludes raised tail.",
-          "cameraPadding": 1.3
+          "finding": "Actually inspected all 24 enlarged source/battle face and complete-body front/side sheets across all 13 clips and six phases. Glacier Marten eyes/headband remain largely steady while mouth/chin and whisker roots subtly shear relative to the nose during idle_2, jump, hit, death and victory tilts; scarf partly occludes lower chin. Both assets fail independent muzzle/lower-face/jaw probes, and some upper-face vertices also carry non-head weights. Four legs, wraps, paws, torso and large curled tail stay coherent; scarf and headband ties retain their separate motion. Review face/cloth/whisker boundary before candidate repair and second pass.",
+          "cameraPadding": 1.3,
+          "revision": "20261015-independent-complete-face-v2",
+          "supersedesSourceSha256": "adaae71e55b5e555d031e113d1cf868ead5d2dd19c3fc460fb8a9af5d487aefc",
+          "repairRegion": {
+            "y": [
+              0.02,
+              0.06
+            ],
+            "z": [
+              0.65,
+              0.7
+            ],
+            "x": [
+              0.5,
+              0.6
+            ]
+          },
+          "union": [
+            {
+              "y": [
+                0.02,
+                0.06
+              ],
+              "z": [
+                0.65,
+                0.7
+              ],
+              "x": [
+                0.5,
+                0.6
+              ]
+            }
+          ]
         },
         "envelopeMatrix": [
-          1.0000000094907981,
+          1.0000000108193552,
           0,
           0,
           0,
           0,
-          0.9999999837673512,
-          1.0190907284712836e-8,
+          0.9999999850959082,
+          1.0190907340223987e-8,
           0,
           0,
-          -1.9118649441374203e-7,
-          0.9999998631036117,
+          -1.9118649469129778e-7,
+          0.9999998644321685,
           0,
-          -2.949029909160572e-17,
-          2.695579965905637e-7,
-          1.3040398672004017e-7,
+          -2.7755575615628914e-17,
+          2.6955799697914173e-7,
+          1.3173254398424206e-7,
           1
         ],
-        "changedVertices": 7649,
-        "rigidVertices": 2969
+        "changedVertices": 5737,
+        "rigidVertices": 5195,
+        "supersededRepair": {
+          "revision": "20261014-reviewed-skull-v1",
+          "sourceSha256": "2412da8755786948d2e55ab216c95cd827b752ca775afe719cfca7c2bfb49ee6"
+        }
+      },
+      "visibleGroundCalibration": {
+        "revision": "20261020-visible-ground-v1",
+        "sourceSha256": "6a5ed5ed8c973a90e4a3eff13be12ff2328b45856a5da2ec1f3d6664874e78be",
+        "battleSha256": "5d0a2a9f03ec59785b766b401634a36298141b1b22cda52cc979e4548809e968",
+        "reviews": [
+          "docs/audits/pet-glacier-marten-private-first-review-2026-10-20.json",
+          "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-34/private-final-independent/independent-final-visual-review.json"
+        ]
       }
     },
     "rare-35": {
@@ -14170,7 +14660,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "104FFE0AC4360305CBA20AF349D411BB0600EC1E4902FEAA7593845D06D3BCFC",
+      "sha256": "57FBB0F30059CA7DB6496A582455755B68DED1FB45C3F0FA13DE81BCE748CEB6",
       "visualReview": {
         "passed": true,
         "reason": "Squall Plover is a complete round rust-brown anime shorebird with cream face, navy head wrap and scarf, two layered wings, two tiny taloned legs and one short tail."
@@ -14220,7 +14710,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 785248,
+        "bytes": 539600,
         "triangles": 40000,
         "vertices": 25266,
         "skins": 1,
@@ -14260,6 +14750,63 @@
         "changedVertices": 19007,
         "iterations": 144,
         "localizedSeamVertices": 324
+      },
+      "reviewedSkullRepair": {
+        "revision": "20261020-original-rigid-head-v3",
+        "id": "rare-38",
+        "sourceSha256": "104ffe0ac4360305cba20af349d411bb0600ec1e4902feaa7593845d06d3bcfc",
+        "region": {
+          "y": [
+            -0.35,
+            0.12
+          ],
+          "z": [
+            0.2,
+            0.5
+          ],
+          "cameraPadding": 1.2,
+          "x": [
+            0.42,
+            0.75
+          ],
+          "status": "repair",
+          "finding": "Actually inspected all 24 enlarged baseline source/battle front/side whole-face and body sheets across 13 clips and six phases. The detailed source white chin visibly elongates below the bill during attack/cast lift, folds during recoil, and is drawn toward the moving blue scarf. The battle version looks steadier but also fails the independent face probe. Brown wings, rear tail, headband ties, legs and talons remain connected. Repair and repeated review required; no approval or completion claimed. Candidate targets measured cheek and lower-face drift, with a smooth transition into the mobile neck. Source geometry, textures, rig and curves must remain exact; independent probe, full-body geometry and actual candidate visual inspection required before promotion. First candidate rejected: seven attack, recoil and death poses show new neck transition edge warnings, including edge 2214/2215 and 2351/2350. Candidate v2 widens the vertical fade below the chin and retains continuous influence packing; all face/body checks and actual visual inspection are required. Candidate v2 rejected: five remaining neck-side fade warnings at edges 18165/18166 and 1406/1393. Candidate v3 widens the depth and lateral transition instead of accepting those warnings; original geometry and motion remain preserved. Candidate v3 rejected: one remaining death crease at edge 4916/4917 below the neck. Candidate v4 extends the smooth vertical transition below that measured crease; original geometry and motion remain preserved. Candidate v4 rejected: wider vertical blend introduces six lower-body seam warnings. Candidate v5 projects the already visually inspected and zero-warning original battle binding onto the exact detailed surface, then keeps the independently selected face core rigid. This requires exact reference replay plus preservation of geometry, textures, bone nodes and animation curves, and complete candidate visual review.",
+          "revision": "20261020-original-rigid-head-v3",
+          "supersedesSourceSha256": "104ffe0ac4360305cba20af349d411bb0600ec1e4902feaa7593845d06d3bcfc",
+          "union": [],
+          "continuousInfluencePacking": true,
+          "bindingReference": {
+            "method": "closest-triangle-barycentric-all-vertices",
+            "path": "scripts/fixtures/pet-complete-face-20261015/rare-38-battle-v1.glb",
+            "sha256": "9ab9ed6242bbb91d51e44e1914657c78dd9a546c47d7c7b687f24c2430764ec2"
+          },
+          "preserveRigidHeadBinding": true
+        },
+        "envelopeMatrix": [
+          0.9999999439620892,
+          0,
+          0,
+          0,
+          0,
+          1.0000000830246636,
+          5.4537486970929194e-8,
+          0,
+          0,
+          1.0606351491526667e-8,
+          0.9999999112818343,
+          0,
+          5.029559039214371e-9,
+          -3.822362498739906e-8,
+          7.132761987993508e-8,
+          1
+        ],
+        "changedVertices": 8844,
+        "rigidVertices": 3093,
+        "bindingTransfer": {
+          "referenceSha256": "9ab9ed6242bbb91d51e44e1914657c78dd9a546c47d7c7b687f24c2430764ec2",
+          "vertices": 25287,
+          "maximumProjectionDistance": 0.01532762640762713
+        }
       }
     },
     "rare-39": {
@@ -14652,7 +15199,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "547CA68D5E3732E17BF8C4741E5FBF97AF41D3BC85901C31D93BF88D697FA50C",
+      "sha256": "778B0163155152D9E2730491CBDDF0F0CA54D021BDC2BE2A8EF49A289029E4CD",
       "visualReview": {
         "passed": true,
         "reason": "Thunder Jerboa is a complete golden anime jerboa with two huge ears, paired forepaws and hind legs, navy wraps and one long tail ending in a small attached solid bulb."
@@ -14702,7 +15249,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 588300,
+        "bytes": 583652,
         "triangles": 40000,
         "vertices": 24686,
         "skins": 1,
@@ -14739,9 +15286,9 @@
         "localizedSeamVertices": 284
       },
       "reviewedSkullRepair": {
-        "revision": "20261014-reviewed-skull-v1",
+        "revision": "20261015-independent-complete-face-v2",
         "id": "rare-42",
-        "sourceSha256": "1d8e47c7499e6999356ede83537caa0fa02e3af060f41d5c2fc8c7f93add0c31",
+        "sourceSha256": "547ca68d5e3732e17bf8c4741e5fbf97af41d3bc85901c31d93bf88d697fa50c",
         "region": {
           "y": [
             0.18,
@@ -14753,28 +15300,74 @@
           ],
           "cameraPadding": 1.3,
           "status": "repair",
-          "finding": "All 13 original animations visually inspected in complete front/side head and body sheets. Jerboa lower muzzle changes shape during the strike and tilted defeat poses; include the complete long ears. Initial candidate introduced stretch at a raised hand edge below the chin. Raised the fade start to exclude those vertices while preserving complete jaw and ear coverage; refined verification pending."
+          "finding": "Actually inspected all 24 enlarged source/battle front/side head/body slices, 13 clips at six phases. Confirmed severe muzzle and chin stretching: the cream cheeks flatten and widen on downward nods and form an elongated black lower-face wedge when looking up during gallop, jump, attack, hit reaction and entrance. Source and battle independent face drift exceeds four. Long ears, forepaws, hind legs and curled tufted tail remain attached. Complete face repair required. Candidate targets measured cheek and lower-face drift, with a smooth transition into the mobile neck. Source geometry, textures, rig and curves must remain exact; independent probe, full-body geometry and actual candidate visual inspection required before promotion. Candidate v1 rejected: fade included raised forepaw and lower body vertices. V2 excludes vertices below -0.24 while fully locking the measured face above -0.22. V2 rejected for sharp lower-face transition. V3 spreads the measured fade over the neck and upper torso; geometry and visual body checks remain required. V3 rejected for two remaining forepaw transition warnings. V4 widens the depth fade while preserving full face anchoring.",
+          "revision": "20261015-independent-complete-face-v2",
+          "supersedesSourceSha256": "547ca68d5e3732e17bf8c4741e5fbf97af41d3bc85901c31d93bf88d697fa50c",
+          "repairRegion": {
+            "y": [
+              -0.6,
+              -0.22
+            ],
+            "z": [
+              0.25,
+              0.6
+            ],
+            "x": [
+              0.4,
+              0.55
+            ]
+          },
+          "union": [
+            {
+              "y": [
+                -0.6,
+                -0.22
+              ],
+              "z": [
+                0.25,
+                0.6
+              ],
+              "x": [
+                0.4,
+                0.55
+              ]
+            }
+          ],
+          "continuousInfluencePacking": true
         },
         "envelopeMatrix": [
-          0.9238795626495828,
+          0.9238795600035675,
           0,
-          0.3826834448487807,
+          0.3826834437527653,
           0,
-          9.378513049496107e-9,
-          0.9999998590874863,
-          -2.264173340482678e-8,
+          9.378513021740531e-9,
+          0.9999998562234605,
+          -2.2641733377071205e-8,
           0,
-          -0.3826834689103128,
-          -2.7717413531025414e-8,
-          0.92387962073926,
+          -0.3826834678142973,
+          -2.7717413475514263e-8,
+          0.9238796180932446,
           0,
-          0.007828764008097736,
-          1.5864634173023973e-7,
-          0.04174326464045051,
+          0.007828765308785832,
+          1.5578231504775886e-7,
+          0.0417432645208967,
           1
         ],
-        "changedVertices": 6379,
-        "rigidVertices": 4054
+        "changedVertices": 11531,
+        "rigidVertices": 3508,
+        "supersededRepair": {
+          "revision": "20261014-reviewed-skull-v1",
+          "sourceSha256": "1d8e47c7499e6999356ede83537caa0fa02e3af060f41d5c2fc8c7f93add0c31"
+        }
+      },
+      "visibleGroundCalibration": {
+        "revision": "20261020-visible-ground-v1",
+        "sourceSha256": "778b0163155152d9e2730491cbddf0f0ca54d021bdc2be2a8ef49a289029e4cd",
+        "battleSha256": "f0e63f7b1fe304a88d569304327a8e8203b98b37856907b05e4a5c29516dba1e",
+        "reviews": [
+          "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-42/private-final-independent/independent-final-visual-review.json",
+          "docs/audits/pet-parallel-review-a-2026-10-20/rare-42-private-second.json"
+        ]
       }
     },
     "rare-43": {
@@ -15031,7 +15624,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "429302036D2DC27E57FCBCC37A94B56B6357057810F647A7D1CC4D86770FEE9F",
+      "sha256": "05740C3EC598BD047C0B5BF558F04D67F1BA0835A4F54D1CDB1F8A6E411ACA55",
       "visualReview": {
         "passed": true,
         "reason": "Granite Wombat is a complete stocky gray anime wombat with metal head plate, purple scarf, paired upright limbs, heavy claws and one tiny attached tail, without source weapons."
@@ -15081,7 +15674,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 567300,
+        "bytes": 565104,
         "triangles": 40000,
         "vertices": 25579,
         "skins": 1,
@@ -15118,9 +15711,9 @@
         "localizedSeamVertices": 24
       },
       "reviewedSkullRepair": {
-        "revision": "20261014-reviewed-skull-v1",
+        "revision": "20261015-independent-complete-face-v2",
         "id": "rare-45",
-        "sourceSha256": "d94b3b505bcf7307e9fa6e77995782f5beb2a80f9fd28196ca486e5a623ab45f",
+        "sourceSha256": "429302036d2dc27e57fcbcc37a94b56b6357057810f647a7d1cc4d86770fee9f",
         "region": {
           "y": [
             0.18,
@@ -15132,28 +15725,74 @@
           ],
           "cameraPadding": 1.2,
           "status": "repair",
-          "finding": "All 13 original animations visually inspected in complete front/side head and body sheets. Wombat lower cheeks and muzzle shear during the strike and turned defeat."
+          "finding": "All 24 source/battle front/side head/body slices actually inspected across 13 clips at six phases. Black nose compresses to a thin wedge during downward alternate idle; lower cheek droops toward scarf in walk, gallop and attack, with jagged mouth and narrowed snout in death. Gloves, belt, legs, feet and tail remain connected. Separate candidate targets measured non-head face influences with a smooth neck fade. Independent anatomy, full-body geometry, conservation and actual visual inspection required before promotion. Candidate v1 rejected: new death transition edge 10020/10016 affects forearm vertices below the face. V2 raises the lower fade boundary to preserve that forearm while retaining measured lower-face coverage. Candidate v2 rejected for eight transition warnings around both arms and chest. V3 widens the smooth vertical and depth transition; face coverage and original geometry remain unchanged and full-body checks remain required.",
+          "revision": "20261015-independent-complete-face-v2",
+          "supersedesSourceSha256": "429302036d2dc27e57fcbcc37a94b56b6357057810f647a7d1cc4d86770fee9f",
+          "repairRegion": {
+            "y": [
+              -0.5,
+              0.1
+            ],
+            "z": [
+              0.12,
+              0.42
+            ],
+            "x": [
+              0.46,
+              0.65
+            ]
+          },
+          "union": [
+            {
+              "y": [
+                -0.5,
+                0.1
+              ],
+              "z": [
+                0.12,
+                0.42
+              ],
+              "x": [
+                0.46,
+                0.65
+              ]
+            }
+          ],
+          "continuousInfluencePacking": true
         },
         "envelopeMatrix": [
-          0.999999981094598,
+          0.9999999795267366,
           0,
           0,
           0,
           0,
-          0.9999998039674414,
-          -2.6330728319923224e-8,
+          0.9999998023995803,
+          -2.633072829216765e-8,
           0,
           0,
-          -2.583557742741327e-8,
-          1.0000000401131166,
+          -2.5835577344146543e-8,
+          1.0000000385452552,
           0,
-          6.245003271324392e-8,
-          2.028582901103526e-7,
-          -5.084723614379172e-10,
+          6.245003261523205e-8,
+          2.012904281034622e-7,
+          -1.9622579575107046e-8,
           1
         ],
-        "changedVertices": 7671,
-        "rigidVertices": 3538
+        "changedVertices": 9286,
+        "rigidVertices": 1960,
+        "supersededRepair": {
+          "revision": "20261014-reviewed-skull-v1",
+          "sourceSha256": "d94b3b505bcf7307e9fa6e77995782f5beb2a80f9fd28196ca486e5a623ab45f"
+        }
+      },
+      "visibleGroundCalibration": {
+        "revision": "20261020-visible-ground-v1",
+        "sourceSha256": "05740c3ec598bd047c0b5bf558f04d67f1ba0835a4f54d1cdb1f8a6e411aca55",
+        "battleSha256": "f39dd953b817863d73d0e5543dfbd363bd57c95beec039840e5005e8d3a0274c",
+        "reviews": [
+          "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-45/private-final-independent/independent-final-visual-review.json",
+          "docs/audits/pet-parallel-review-a-2026-10-20/rare-45-private-second.json"
+        ]
       }
     },
     "rare-46": {
@@ -15303,7 +15942,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "EB076995598CD12C6950065BD5CF9609CFCAB8B4C5996DEAAD4B8FF879E4E2CC",
+      "sha256": "467821BCF5CE59A69AEEA8F0624F3BA589EB53E0E5D61B5F862581DB1489E5B3",
       "visualReview": {
         "passed": true,
         "reason": "Quartz Aardvark is a complete low pale-lavender quadruped with crystalline pattern, huge ears, long pink-tipped snout, red eyes, four clawed legs and one short curved tail."
@@ -15353,7 +15992,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 556176,
+        "bytes": 554144,
         "triangles": 40000,
         "vertices": 25167,
         "skins": 1,
@@ -15390,9 +16029,9 @@
         "localizedSeamVertices": 111
       },
       "reviewedSkullRepair": {
-        "revision": "20261014-reviewed-skull-v1",
+        "revision": "20261015-independent-complete-face-v2",
         "id": "rare-47",
-        "sourceSha256": "09b25fed9e1f2cec4ab5bd20031a766599927f5df1ede57237bf4825909df03d",
+        "sourceSha256": "eb076995598cd12c6950065bd5cf9609cfcab8b4c5996deaad4b8ff879e4e2cc",
         "region": {
           "y": [
             -0.1,
@@ -15404,7 +16043,40 @@
           ],
           "cameraPadding": 1.3,
           "status": "repair",
-          "finding": "All 13 original animations visually inspected in complete front/side head and body sheets. Aardvark lower elongated snout and cheek shear during turned defeat; forward mask preserves back and shoulder skinning."
+          "finding": "All 24 source/battle front/side whole-face and body slices actually inspected across 13 clips at six phases. Long white snout and pink nose flatten into a thin strip during walk, gallop, jump, attack, hit and entrance; recoil pulls the eye and cheek along the narrowing snout. Both qualities fail. Ears, forelegs, hind legs, harness and curled tail stay connected. Separate candidate targets measured non-head face influences with a smooth neck fade. Independent anatomy, full-body geometry, conservation and actual visual inspection required before promotion.",
+          "revision": "20261015-independent-complete-face-v2",
+          "supersedesSourceSha256": "eb076995598cd12c6950065bd5cf9609cfcab8b4c5996deaad4b8ff879e4e2cc",
+          "repairRegion": {
+            "y": [
+              -0.5,
+              -0.29
+            ],
+            "z": [
+              0.35,
+              0.6
+            ],
+            "x": [
+              0.43,
+              0.57
+            ]
+          },
+          "union": [
+            {
+              "y": [
+                -0.5,
+                -0.29
+              ],
+              "z": [
+                0.35,
+                0.6
+              ],
+              "x": [
+                0.43,
+                0.57
+              ]
+            }
+          ],
+          "continuousInfluencePacking": true
         },
         "envelopeMatrix": [
           0.9999999288194068,
@@ -15420,12 +16092,25 @@
           0.9999998590003496,
           0,
           -1.1653040039860674e-8,
-          8.309592580690861e-8,
+          8.073543328324106e-8,
           1.1253417175893787e-7,
           1
         ],
-        "changedVertices": 9135,
-        "rigidVertices": 5461
+        "changedVertices": 9297,
+        "rigidVertices": 2281,
+        "supersededRepair": {
+          "revision": "20261014-reviewed-skull-v1",
+          "sourceSha256": "09b25fed9e1f2cec4ab5bd20031a766599927f5df1ede57237bf4825909df03d"
+        }
+      },
+      "visibleGroundCalibration": {
+        "revision": "20261020-visible-ground-v1",
+        "sourceSha256": "467821bcf5ce59a69aeea8f0624f3ba589eb53e0e5d61b5f862581db1489e5b3",
+        "battleSha256": "c7d7399460fffa0cca64e96e3bece906811de8a4a6f2dfc897d2df68830a613a",
+        "reviews": [
+          "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-47/private-final-independent/independent-final-visual-review.json",
+          "docs/audits/pet-parallel-review-a-2026-10-20/rare-47-private-second.json"
+        ]
       }
     },
     "rare-48": {
@@ -15439,7 +16124,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "C920F2C072AE49F94FEBADBC9A5DB2E5B22D5F7F80F809AA4F3CF5067C5C9BEC",
+      "sha256": "2BEAE9892D3EA25B5EC79D07B7B01F446A0CC0026EE1663867800B2622458A24",
       "visualReview": {
         "passed": true,
         "reason": "Terra Porcupine is one complete upright brown anime porcupine with navy tunic, red scarf, paired limbs and a dense symmetrical fan of attached tapered quills kept stable by conservative weighting."
@@ -15489,7 +16174,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 933516,
+        "bytes": 933780,
         "triangles": 40000,
         "vertices": 39119,
         "skins": 1,
@@ -15525,9 +16210,9 @@
         "iterations": 48
       },
       "reviewedSkullRepair": {
-        "revision": "20261014-reviewed-skull-v1",
+        "revision": "20261015-independent-complete-face-v2",
         "id": "rare-48",
-        "sourceSha256": "c6fce5f883884813f6a8f3beeaa40d37f8939e17ca76886668c5c963b3e3ae1d",
+        "sourceSha256": "c920f2c072ae49f94febadbc9a5db2e5b22d5f7f80f809aa4f3cf5067c5c9bec",
         "region": {
           "y": [
             0.18,
@@ -15539,28 +16224,74 @@
           ],
           "cameraPadding": 1.2,
           "status": "repair",
-          "finding": "All 13 original animations visually inspected in complete front/side head and body sheets. Porcupine lower cheek and muzzle compress during tilted defeat; forward fade preserves rear quills."
+          "finding": "All 24 source/battle front/side whole-face and body slices actually inspected across 13 clips at six phases. Porcupine chin and lower cheek narrow during hit and death, and the black mouth boundary stretches above the scarf as the head lifts during attack. Distortion is subtler than the Tapir and Aardvark; independent anatomy still fails both qualities. Quills, ears, sleeves, fists, belt, legs and feet remain attached. Separate candidate targets measured non-head face influences with a smooth neck fade. Independent anatomy, full-body geometry, conservation and actual visual inspection required before promotion.",
+          "revision": "20261015-independent-complete-face-v2",
+          "supersedesSourceSha256": "c920f2c072ae49f94febadbc9a5db2e5b22d5f7f80f809aa4f3cf5067c5c9bec",
+          "repairRegion": {
+            "y": [
+              -0.15,
+              0.08
+            ],
+            "z": [
+              0.15,
+              0.36
+            ],
+            "x": [
+              0.38,
+              0.52
+            ]
+          },
+          "union": [
+            {
+              "y": [
+                -0.15,
+                0.08
+              ],
+              "z": [
+                0.15,
+                0.36
+              ],
+              "x": [
+                0.38,
+                0.52
+              ]
+            }
+          ],
+          "continuousInfluencePacking": true
         },
         "envelopeMatrix": [
-          0.9238798606300462,
+          0.9238798604756326,
           0,
-          0.38268356827632993,
+          0.3826835682123697,
           0,
-          1.2216867344150284e-8,
-          1.0000001429461272,
+          1.221686733721139e-8,
+          1.000000142778991,
           -2.9494126863038872e-8,
           0,
-          -0.3826835774461867,
-          -2.0247256427019522e-8,
-          0.923879882768039,
+          -0.3826835773822265,
+          -2.0247256399263946e-8,
+          0.9238798826136253,
           0,
-          0.03057466353181737,
-          -1.378283487896148e-7,
-          -0.043933619726410925,
+          0.030574663526707242,
+          -1.379954847058329e-7,
+          -0.04393362034697229,
           1
         ],
-        "changedVertices": 6680,
-        "rigidVertices": 3228
+        "changedVertices": 5255,
+        "rigidVertices": 1189,
+        "supersededRepair": {
+          "revision": "20261014-reviewed-skull-v1",
+          "sourceSha256": "c6fce5f883884813f6a8f3beeaa40d37f8939e17ca76886668c5c963b3e3ae1d"
+        }
+      },
+      "visibleGroundCalibration": {
+        "revision": "20261020-visible-ground-v1",
+        "sourceSha256": "2beae9892d3ea25b5ec79d07b7b01f446a0cc0026ee1663867800b2622458a24",
+        "battleSha256": "aaccda813f039ec82c8a09fbdcdd42641a63b1f6aa9ee3f462dc2780f842ece6",
+        "reviews": [
+          "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-48/private-final-independent/independent-final-visual-review.json",
+          "docs/audits/pet-parallel-review-a-2026-10-20/rare-48-private-second.json"
+        ]
       }
     },
     "rare-49": {
@@ -15574,7 +16305,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "928F7AF30F297754E882AB175918D1391F94DDA943EF7549F764636B9CF05252",
+      "sha256": "7C03B5408685BD54E5B362A7CD75862B52C00A33D0CF18D38BDCC42667DE670E",
       "visualReview": {
         "passed": true,
         "reason": "Bramble Capybara is one complete round golden anime capybara with navy martial-arts wrap, paired limbs, tiny tail and a symmetrical short bramble crown attached directly to the head."
@@ -15624,7 +16355,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 565072,
+        "bytes": 567604,
         "triangles": 40000,
         "vertices": 25288,
         "skins": 1,
@@ -15661,21 +16392,137 @@
         "localizedSeamVertices": 278
       },
       "reviewedSkullRepair": {
-        "revision": "20261014-reviewed-skull-v1",
+        "revision": "20261015-independent-complete-face-v2",
         "id": "rare-49",
-        "sourceSha256": "2413f839dca1e87fdab0c05e2dd21d68d91e1fb0d8b6bb5fe1d64d5409f8bf86",
+        "sourceSha256": "928f7af30f297754e882ab175918d1391f94dda943ef7549f764636b9cf05252",
         "region": {
           "y": [
-            0.18,
-            0.38
+            -0.4,
+            -0.13
           ],
           "z": [
-            -0.3,
-            -0.08
+            0.72,
+            0.85
           ],
           "cameraPadding": 1.2,
           "status": "repair",
-          "finding": "All 13 original animations visually inspected in complete front/side head and body sheets. Capybara cheeks and lower mouth shear during the strike and tilted defeat."
+          "finding": "All 24 source/battle front/side whole-face and body slices actually inspected across 13 clips at six phases. Capybara face visibly squashes, elongates and changes eye shape in alternate idle, gallop, attack, hit reaction, death and victory. Hit reaction folds the forehead toward the nose and stretches the lower face. Both qualities fail. Antlers, ears, gloves, tunic, legs and feet remain attached. Separate candidate targets measured non-head face influences with a smooth neck fade. Independent anatomy, full-body geometry, conservation and actual visual inspection required before promotion. Candidate v1 rejected by actual visual inspection despite clean numerical checks: raised forearm/collar breaks into jagged panels near the cheek during hit reaction. V2 raises the lower face fade boundary to preserve more of the moving forearm and tunic, while retaining the measured face core. Full repeated review required. Candidate v2 rejected for three body warnings; measured forearm vertices at envelope y -0.18 to -0.21 were still inside the fade. V3 excludes those forearm vertices by starting the fade at -0.17, retaining the face core above -0.13. Full geometry and actual visual review remain required. Candidate v3 rejected for 33 narrow transition warnings. V4 separates the forward chin depth fade from the higher cheek fade, using measured chin depth above 0.859 and side-jaw height above -0.084. The measured forearm y -0.18 to -0.21 and z 0.64 to 0.70 stays outside both regions; no topology or motion changes. Candidate v4 rejected for ten transition warnings. V5 projects the original battle binding onto the unchanged detailed surface, retaining the independently measured rigid face core. Original battle whole-body coverage was visually inspected. Requires exact reference replay, unchanged sculpt/rig/curves/textures, independent face and whole-body validation, and actual candidate inspection before promotion. Candidate v5 rejected for 115 reference-transition warnings. V6 returns to measured separated face regions and diffuses the measured transition neighborhoods over connected UV seams, keeping rigid face vertices locked and feathering back to the untouched lower body below -0.60. Independent face, body and visual gates remain unchanged. Final broad-region gate rejected v9 because an abandoned v5 reference-transfer envelope remained registered over moving forearm vertex 20339 (visible-bind 0.0933, -0.1276, 0.7254). Restore the actual separated v6 repair regions plus the original upper-skull region for this gate. Frozen independent facial patches and full-body checks are unchanged. The repaired skin, sculpt and authored/reviewed motion must match v9 exactly; only the recipe metadata changes. Final review remains pending.",
+          "revision": "20261015-independent-complete-face-v2",
+          "supersedesSourceSha256": "928f7af30f297754e882ab175918d1391f94dda943ef7549f764636b9cf05252",
+          "union": [
+            {
+              "y": [
+                0.18,
+                0.38
+              ],
+              "z": [
+                -0.3,
+                -0.08
+              ]
+            },
+            {
+              "y": [
+                -0.4,
+                -0.13
+              ],
+              "z": [
+                0.72,
+                0.85
+              ],
+              "x": [
+                0.34,
+                0.48
+              ],
+              "union": [
+                {
+                  "y": [
+                    -0.17,
+                    -0.09
+                  ],
+                  "z": [
+                    0.35,
+                    0.58
+                  ],
+                  "x": [
+                    0.34,
+                    0.48
+                  ]
+                }
+              ]
+            }
+          ],
+          "continuousInfluencePacking": true,
+          "x": [
+            0.34,
+            0.48
+          ],
+          "repairRegion": {
+            "y": [
+              -0.4,
+              -0.13
+            ],
+            "z": [
+              0.72,
+              0.85
+            ],
+            "x": [
+              0.34,
+              0.48
+            ],
+            "union": [
+              {
+                "y": [
+                  -0.17,
+                  -0.09
+                ],
+                "z": [
+                  0.35,
+                  0.58
+                ],
+                "x": [
+                  0.34,
+                  0.48
+                ]
+              }
+            ]
+          },
+          "neckTransition": {
+            "iterations": 64,
+            "edges": [
+              [
+                20316,
+                20340
+              ],
+              [
+                20318,
+                20319
+              ],
+              [
+                20342,
+                20341
+              ],
+              [
+                23338,
+                23337
+              ],
+              [
+                20320,
+                20319
+              ]
+            ],
+            "protectBelowY": -0.6,
+            "featherY": 0.2
+          },
+          "animationClearance": {
+            "clip": "idle_hitreact1",
+            "bones": [
+              "head",
+              "upper_arm.L",
+              "upper_arm.R"
+            ],
+            "rotationExcursion": 0.25,
+            "reason": "The independently repaired rounded face intersects the authored raised sleeves during recoil. A focused ten-phase front/side visual experiment confirmed that reducing the head and upper-arm rotation excursions preserves a visible recoil while clearing the muzzle and cheeks. Key times, all other rotations, translations and scales remain authored."
+          }
         },
         "envelopeMatrix": [
           0.6443157142749217,
@@ -15691,12 +16538,25 @@
           0.6443157456543471,
           0,
           -0.045039628262765335,
-          1.5545609705069907e-7,
+          1.5686616278154375e-7,
           0.02742077763562613,
           1
         ],
-        "changedVertices": 10152,
-        "rigidVertices": 7659
+        "changedVertices": 5500,
+        "rigidVertices": 1491,
+        "supersededRepair": {
+          "revision": "20261014-reviewed-skull-v1",
+          "sourceSha256": "2413f839dca1e87fdab0c05e2dd21d68d91e1fb0d8b6bb5fe1d64d5409f8bf86"
+        }
+      },
+      "visibleGroundCalibration": {
+        "revision": "20261020-visible-ground-v1",
+        "sourceSha256": "7c03b5408685bd54e5b362a7cd75862b52c00a33d0cf18d38bdcc42667de670e",
+        "battleSha256": "f932d72bde29bd9cbcb62fe29fcf4529b0c8a640bd44324658cc181c93f8eeb2",
+        "reviews": [
+          "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-49/private-final-independent/independent-final-visual-review.json",
+          "docs/audits/pet-parallel-review-a-2026-10-20/rare-49-private-second.json"
+        ]
       }
     },
     "legendary-0": {
@@ -15710,7 +16570,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 1.44,
-      "sha256": "88D349A6F57DB90CD7DE3BA25018D3A318E54C6201ABBA8F01DADEC38C0BB400",
+      "sha256": "A640A2ECE20460E01753B856AECCBC954DA3324D4B79A48C2877805C5DD8A164",
       "visualReview": {
         "passed": true,
         "reason": "Glacier Wolf v4 is a complete pale ice-blue anime wolf with navy blindfold and scarf, four coherent legs and one curled tail. Tall-crystal v2 produced giant white slabs and low-ridge v3 still produced a cyan projection bar, so accepted v4 moves crystal identity to runtime VFX and keeps the mesh clean."
@@ -15760,7 +16620,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 634952,
+        "bytes": 635876,
         "triangles": 40000,
         "vertices": 26981,
         "skins": 1,
@@ -15797,9 +16657,9 @@
         "localizedSeamVertices": 29
       },
       "reviewedSkullRepair": {
-        "revision": "20261014-reviewed-skull-v1",
+        "revision": "20261015-independent-complete-face-v2",
         "id": "legendary-0",
-        "sourceSha256": "da14266f04e277fa12bb143a480f69f39b0e3a000aae0c33ba2100cbfa0d8eba",
+        "sourceSha256": "88d349a6f57db90cd7de3ba25018d3a318e54c6201abba8f01dadec38c0bb400",
         "region": {
           "y": [
             0.03,
@@ -15811,28 +16671,75 @@
           ],
           "cameraPadding": 1.3,
           "status": "repair",
-          "finding": "All 13 original animations visually inspected in complete front/side head and body sheets. Wolf lower cheek and jaw shear during strike and turned defeat."
+          "finding": "All 24 enlarged front/side head/body source/battle slices actually inspected across thirteen clips and six phases. White muzzle and blindfold mostly remain coherent visually, but the independently marked lower mouth rim has 21 non-head vertices, 5.53 mm relative movement and up to 4.2 percent edge stretch in head turns, attack, defeat and victory. Original unbrightened front head sheets and anatomy overlay inspected; patch belongs to the mouth above the separate scarf. Four legs, paws, torso, ears, scarf and curled tail remain connected. Separate candidate changes measured face influences with a smooth neck fade; requires independent anatomy, body conservation and actual visual review.",
+          "revision": "20261015-independent-complete-face-v2",
+          "supersedesSourceSha256": "88d349a6f57db90cd7de3ba25018d3a318e54c6201abba8f01dadec38c0bb400",
+          "repairRegion": {
+            "y": [
+              0.16,
+              0.19
+            ],
+            "z": [
+              0.84,
+              0.88
+            ],
+            "x": [
+              0.31,
+              0.4
+            ]
+          },
+          "union": [
+            {
+              "y": [
+                0.16,
+                0.19
+              ],
+              "z": [
+                0.84,
+                0.88
+              ],
+              "x": [
+                0.31,
+                0.4
+              ]
+            }
+          ],
+          "continuousInfluencePacking": true
         },
         "envelopeMatrix": [
-          0.631872272966372,
+          0.6318722744758748,
           0,
-          0.6318722729663722,
+          0.6318722744758749,
           0,
-          -5.494511234882538e-10,
-          0.8936023565866136,
-          5.494510679771025e-10,
+          -5.494511512438294e-10,
+          0.8936023587213728,
+          5.494510957326781e-10,
           0,
-          -0.6318722097284923,
-          -1.6262990576443315e-7,
-          0.6318722097284922,
+          -0.631872211237995,
+          -1.6262990620852236e-7,
+          0.6318722112379949,
           0,
-          -0.10074824577044322,
-          8.795773803749185e-8,
-          0.014501456442015781,
+          -0.10074824601112431,
+          9.06786958299044e-8,
+          0.014501458865595118,
           1
         ],
-        "changedVertices": 9207,
-        "rigidVertices": 5851
+        "changedVertices": 807,
+        "rigidVertices": 448,
+        "supersededRepair": {
+          "revision": "20261014-reviewed-skull-v1",
+          "sourceSha256": "da14266f04e277fa12bb143a480f69f39b0e3a000aae0c33ba2100cbfa0d8eba"
+        }
+      },
+      "visibleGroundCalibration": {
+        "revision": "20261020-visible-ground-v1",
+        "sourceSha256": "a640a2ece20460e01753b856aeccbc954da3324d4b79a48c2877805c5dd8a164",
+        "battleSha256": "d5677ee35f52ab2462325e2f25e4cbce4e43d17e1433f1d7769c0cfedb790a43",
+        "reviews": [
+          "docs/screenshots/pet-parallel-review-c-2026-10-20/legendary-0/private-final-independent/independent-final-visual-review.json",
+          "docs/audits/pet-parallel-review-a-2026-10-20/legendary-0-private-second.json",
+          "docs/audits/pet-parallel-review-a-2026-10-20/legendary-0-forelimb-followup.json"
+        ]
       }
     },
     "legendary-1": {
@@ -28991,7 +29898,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.96,
-      "sha256": "FA0F43712BC768A60BE9BAC2DE985D8D66B7EA6AED7E15BA8D856F7FFFE7EF19",
+      "sha256": "AD04FF49992B7C02633938346D50CF83F448F638A376A486BB5CE747F88EE3B9",
       "visualReview": {
         "passed": true,
         "reason": "Worldstorm Dragon is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation. Accepted after 2 paid reconstruction attempts; rejected candidates remain quarantined for audit."
@@ -30094,6 +31001,11 @@
             "poseWithoutOriginalLimbTrack": "Retain fitted bind pose under the existing animated torso; no invented leg movement."
           }
         ]
+      },
+      "reviewedSolRepair": {
+        "review": "docs/audits/pet-worldstorm-v2-review-2026-10-21/review.json",
+        "sourceSha256": "ad04ff49992b7c02633938346d50cf83f448f638a376a486bb5ce747f88ee3b9",
+        "battleSha256": "965db23b916189e3f57214ab89be6e08b609fe48dbf00345707728b64af517c2"
       }
     },
     "mythic-2": {
@@ -32678,7 +33590,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "29FE007D1943642B97042072C25A4D7A0FCD5B2BE1F28AD0E7DD71971BB17692",
+      "sha256": "CCBD1932C455BAB07859FCA73B5C9B75C6197087BEB35FBFBF602477ED0BA723",
       "visualReview": {
         "passed": true,
         "reason": "Azure Ryujin is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -33510,6 +34422,11 @@
             "poseWithoutOriginalLimbTrack": "Retain fitted bind pose under the existing animated torso; no invented leg movement."
           }
         ]
+      },
+      "reviewedSolRepair": {
+        "review": "docs/audits/pet-parallel-review-c-2026-10-20/mythic-6-private-v3/review.json",
+        "sourceSha256": "ccbd1932c455bab07859fca73b5c9b75c6197087beb35fbfbf602477ed0ba723",
+        "battleSha256": "adef4034b636c5c97041a3f0d35e541efd128fdd6b45af0d2de998ec7aa1f18d"
       }
     },
     "mythic-7": {

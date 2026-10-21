@@ -1,0 +1,4810 @@
+{
+  "schema": 1,
+  "verifiedAt": "2026-10-21T04:10:00.258Z",
+  "scope": "Read-only exact delivery verification for PR470 original 38 IDs: source GLB, production battle LOD GLB, atlas WebP, and served-browser revision tokens.",
+  "health": {
+    "ok": true,
+    "commit": "c1576ed5ec7ac5cc895571c3268920839c039168",
+    "commitShort": "c1576ed5",
+    "commitSource": "environment",
+    "startedAt": "2026-10-21T03:42:09.2Z"
+  },
+  "githubMain": {
+    "commit": "c1576ed5ec7ac5cc895571c3268920839c039168",
+    "branchShaCheckedAgainstGitHub": true
+  },
+  "pr470": {
+    "number": 470,
+    "mergeCommit": "7a7a0286e38d05377d89d3fdb1f5a9422ca6d199",
+    "ancestorOfCurrentMain": true,
+    "expectedSourceBattleAtlasPinsMatchCurrentMain": true,
+    "mainTreeAssetBytePinsVerified": {
+      "checked": 114,
+      "matches": 114
+    },
+    "githubCompare": {
+      "status": "ahead",
+      "aheadBy": 27,
+      "behindBy": 0
+    }
+  },
+  "workflows": [
+    {
+      "name": "CI",
+      "runId": 39532716746,
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "name": "Production Image",
+      "runId": 39532716778,
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "name": "CodeQL",
+      "runId": 39532716991,
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "name": "Post-deploy health",
+      "runId": 39540030174,
+      "status": "completed",
+      "conclusion": "success"
+    }
+  ],
+  "checkedCount": 114,
+  "matchingCount": 114,
+  "failures": [],
+  "pets": [
+    {
+      "id": "rare-19",
+      "expectedPinsMatchCurrentMain": true,
+      "assets": [
+        {
+          "id": "rare-19",
+          "kind": "atlas",
+          "path": "/pet-models/warfront-impostors/roster/rare-19.webp",
+          "expectedSha256": "723f5756016049066d7141df36827c4e409d07b590d620263d008c586d92e4f6",
+          "servedSha256": "723f5756016049066d7141df36827c4e409d07b590d620263d008c586d92e4f6",
+          "bytes": 74260,
+          "matches": true,
+          "mainTreeSha256": "723f5756016049066d7141df36827c4e409d07b590d620263d008c586d92e4f6",
+          "buildOutputSha256": "723f5756016049066d7141df36827c4e409d07b590d620263d008c586d92e4f6",
+          "transformedByVite": false
+        },
+        {
+          "id": "rare-19",
+          "kind": "battle",
+          "path": "/pet-models/warfront-lod/roster/rare-19.glb",
+          "expectedSha256": "7001edf2f5aac196de1563908d90b83d29b5ed7c5e5a391fcbc7b0be3700c9f2",
+          "servedSha256": "7001edf2f5aac196de1563908d90b83d29b5ed7c5e5a391fcbc7b0be3700c9f2",
+          "bytes": 413780,
+          "matches": true,
+          "mainTreeSha256": "7001edf2f5aac196de1563908d90b83d29b5ed7c5e5a391fcbc7b0be3700c9f2",
+          "buildOutputSha256": "7001edf2f5aac196de1563908d90b83d29b5ed7c5e5a391fcbc7b0be3700c9f2",
+          "transformedByVite": false
+        },
+        {
+          "id": "rare-19",
+          "kind": "source",
+          "path": "/pet-models/roster/rare-19.glb",
+          "expectedSha256": "0948caf8d68e53627d4e49299f25858fd57965e96cecf9c96cb8f05f77c6e0ca",
+          "servedSha256": "0948caf8d68e53627d4e49299f25858fd57965e96cecf9c96cb8f05f77c6e0ca",
+          "bytes": 657552,
+          "matches": true,
+          "mainTreeSha256": "0948caf8d68e53627d4e49299f25858fd57965e96cecf9c96cb8f05f77c6e0ca",
+          "buildOutputSha256": "0948caf8d68e53627d4e49299f25858fd57965e96cecf9c96cb8f05f77c6e0ca",
+          "transformedByVite": false
+        }
+      ],
+      "browserRevisionTokens": [
+        {
+          "kind": "cacheBase",
+          "token": "20261015-independent-complete-face-v2",
+          "servedIn": {
+            "path": "/assets/c-DCmqrntL.js",
+            "sha256": "e51648400ff292f6ac35645cdf1800f70577128bfb477fbbd6af35fff1d1db8a",
+            "bytes": 16596
+          }
+        },
+        {
+          "kind": "lodToken",
+          "token": "-0948caf8d68e-7001edf2f5aa",
+          "servedIn": {
+            "path": "/assets/c-DM8qJak-.js",
+            "sha256": "025f89aab26ce8f1ff5b509086392f797740a43db812c1beccec09c2882d0ed8",
+            "bytes": 10594
+          }
+        },
+        {
+          "kind": "atlasToken",
+          "token": "723f57560160",
+          "servedIn": {
+            "path": "/assets/c-DGcdBaN4.js",
+            "sha256": "e2088e9e7afd4ca7ab056c5efce40444c9c50f415f1894a1cd7ff810aa5e9e43",
+            "bytes": 109369
+          }
+        }
+      ]
+    },
+    {
+      "id": "rare-20",
+      "expectedPinsMatchCurrentMain": true,
+      "assets": [
+        {
+          "id": "rare-20",
+          "kind": "atlas",
+          "path": "/pet-models/warfront-impostors/roster/rare-20.webp",
+          "expectedSha256": "99266c276ff3a4a8038e3bd1249c891a3da5bc8cc6ba9c7a7ef97f6231d1b5bd",
+          "servedSha256": "99266c276ff3a4a8038e3bd1249c891a3da5bc8cc6ba9c7a7ef97f6231d1b5bd",
+          "bytes": 83316,
+          "matches": true,
+          "mainTreeSha256": "99266c276ff3a4a8038e3bd1249c891a3da5bc8cc6ba9c7a7ef97f6231d1b5bd",
+          "buildOutputSha256": "99266c276ff3a4a8038e3bd1249c891a3da5bc8cc6ba9c7a7ef97f6231d1b5bd",
+          "transformedByVite": false
+        },
+        {
+          "id": "rare-20",
+          "kind": "battle",
+          "path": "/pet-models/warfront-lod/roster/rare-20.glb",
+          "expectedSha256": "bc9ce5676edf1c7a1a9978ea2b28928bbba14ada4bdc7843a3e4790e0ba21208",
+          "servedSha256": "bc9ce5676edf1c7a1a9978ea2b28928bbba14ada4bdc7843a3e4790e0ba21208",
+          "bytes": 372504,
+          "matches": true,
+          "mainTreeSha256": "bc9ce5676edf1c7a1a9978ea2b28928bbba14ada4bdc7843a3e4790e0ba21208",
+          "buildOutputSha256": "bc9ce5676edf1c7a1a9978ea2b28928bbba14ada4bdc7843a3e4790e0ba21208",
+          "transformedByVite": false
+        },
+        {
+          "id": "rare-20",
+          "kind": "source",
+          "path": "/pet-models/roster/rare-20.glb",
+          "expectedSha256": "47e9e68528d22bef0ddcc2b7d4b519c22c1536928f65f7091c6a50f21f48f9d3",
+          "servedSha256": "47e9e68528d22bef0ddcc2b7d4b519c22c1536928f65f7091c6a50f21f48f9d3",
+          "bytes": 586944,
+          "matches": true,
+          "mainTreeSha256": "47e9e68528d22bef0ddcc2b7d4b519c22c1536928f65f7091c6a50f21f48f9d3",
+          "buildOutputSha256": "47e9e68528d22bef0ddcc2b7d4b519c22c1536928f65f7091c6a50f21f48f9d3",
+          "transformedByVite": false
+        }
+      ],
+      "browserRevisionTokens": [
+        {
+          "kind": "cacheBase",
+          "token": "20261015-independent-complete-face-v2",
+          "servedIn": {
+            "path": "/assets/c-DCmqrntL.js",
+            "sha256": "e51648400ff292f6ac35645cdf1800f70577128bfb477fbbd6af35fff1d1db8a",
+            "bytes": 16596
+          }
+        },
+        {
+          "kind": "lodToken",
+          "token": "-47e9e68528d2-bc9ce5676edf",
+          "servedIn": {
+            "path": "/assets/c-DM8qJak-.js",
+            "sha256": "025f89aab26ce8f1ff5b509086392f797740a43db812c1beccec09c2882d0ed8",
+            "bytes": 10594
+          }
+        },
+        {
+          "kind": "atlasToken",
+          "token": "99266c276ff3",
+          "servedIn": {
+            "path": "/assets/c-DGcdBaN4.js",
+            "sha256": "e2088e9e7afd4ca7ab056c5efce40444c9c50f415f1894a1cd7ff810aa5e9e43",
+            "bytes": 109369
+          }
+        }
+      ]
+    },
+    {
+      "id": "rare-21",
+      "expectedPinsMatchCurrentMain": true,
+      "assets": [
+        {
+          "id": "rare-21",
+          "kind": "atlas",
+          "path": "/pet-models/warfront-impostors/roster/rare-21.webp",
+          "expectedSha256": "a5107a8d0c402646f009c80fccec50ec7cea022bdf652837feb92363fbd63eed",
+          "servedSha256": "a5107a8d0c402646f009c80fccec50ec7cea022bdf652837feb92363fbd63eed",
+          "bytes": 77404,
+          "matches": true,
+          "mainTreeSha256": "a5107a8d0c402646f009c80fccec50ec7cea022bdf652837feb92363fbd63eed",
+          "buildOutputSha256": "a5107a8d0c402646f009c80fccec50ec7cea022bdf652837feb92363fbd63eed",
+          "transformedByVite": false
+        },
+        {
+          "id": "rare-21",
+          "kind": "source",
+          "path": "/pet-models/roster/rare-21.glb",
+          "expectedSha256": "833233bcbdb05dd65f1748cbcf1168b54b05078ee4dae47da9e2a10709289441",
+          "servedSha256": "833233bcbdb05dd65f1748cbcf1168b54b05078ee4dae47da9e2a10709289441",
+          "bytes": 588536,
+          "matches": true,
+          "mainTreeSha256": "833233bcbdb05dd65f1748cbcf1168b54b05078ee4dae47da9e2a10709289441",
+          "buildOutputSha256": "833233bcbdb05dd65f1748cbcf1168b54b05078ee4dae47da9e2a10709289441",
+          "transformedByVite": false
+        },
+        {
+          "id": "rare-21",
+          "kind": "battle",
+          "path": "/pet-models/warfront-lod/roster/rare-21.glb",
+          "expectedSha256": "176ae57815e57363e474d6bfa652ea454ac1e0121325d0975829fa530d26d71b",
+          "servedSha256": "176ae57815e57363e474d6bfa652ea454ac1e0121325d0975829fa530d26d71b",
+          "bytes": 368116,
+          "matches": true,
+          "mainTreeSha256": "176ae57815e57363e474d6bfa652ea454ac1e0121325d0975829fa530d26d71b",
+          "buildOutputSha256": "176ae57815e57363e474d6bfa652ea454ac1e0121325d0975829fa530d26d71b",
+          "transformedByVite": false
+        }
+      ],
+      "browserRevisionTokens": [
+        {
+          "kind": "cacheBase",
+          "token": "20261015-independent-complete-face-v2",
+          "servedIn": {
+            "path": "/assets/c-DCmqrntL.js",
+            "sha256": "e51648400ff292f6ac35645cdf1800f70577128bfb477fbbd6af35fff1d1db8a",
+            "bytes": 16596
+          }
+        },
+        {
+          "kind": "lodToken",
+          "token": "-833233bcbdb0-176ae57815e5",
+          "servedIn": {
+            "path": "/assets/c-DM8qJak-.js",
+            "sha256": "025f89aab26ce8f1ff5b509086392f797740a43db812c1beccec09c2882d0ed8",
+            "bytes": 10594
+          }
+        },
+        {
+          "kind": "atlasToken",
+          "token": "a5107a8d0c40",
+          "servedIn": {
+            "path": "/assets/c-DGcdBaN4.js",
+            "sha256": "e2088e9e7afd4ca7ab056c5efce40444c9c50f415f1894a1cd7ff810aa5e9e43",
+            "bytes": 109369
+          }
+        }
+      ]
+    },
+    {
+      "id": "rare-23",
+      "expectedPinsMatchCurrentMain": true,
+      "assets": [
+        {
+          "id": "rare-23",
+          "kind": "atlas",
+          "path": "/pet-models/warfront-impostors/roster/rare-23.webp",
+          "expectedSha256": "25894d07dcc8b23b9f01a9611564991b103155a7ceeb5bf6fd0d5cfdfe41f9ba",
+          "servedSha256": "25894d07dcc8b23b9f01a9611564991b103155a7ceeb5bf6fd0d5cfdfe41f9ba",
+          "bytes": 76350,
+          "matches": true,
+          "mainTreeSha256": "25894d07dcc8b23b9f01a9611564991b103155a7ceeb5bf6fd0d5cfdfe41f9ba",
+          "buildOutputSha256": "25894d07dcc8b23b9f01a9611564991b103155a7ceeb5bf6fd0d5cfdfe41f9ba",
+          "transformedByVite": false
+        },
+        {
+          "id": "rare-23",
+          "kind": "source",
+          "path": "/pet-models/roster/rare-23.glb",
+          "expectedSha256": "fafbc902f2eb7f596b8d18c6ea2062e46e591df9b71893e4b681977c56283806",
+          "servedSha256": "fafbc902f2eb7f596b8d18c6ea2062e46e591df9b71893e4b681977c56283806",
+          "bytes": 525448,
+          "matches": true,
+          "mainTreeSha256": "fafbc902f2eb7f596b8d18c6ea2062e46e591df9b71893e4b681977c56283806",
+          "buildOutputSha256": "fafbc902f2eb7f596b8d18c6ea2062e46e591df9b71893e4b681977c56283806",
+          "transformedByVite": false
+        },
+        {
+          "id": "rare-23",
+          "kind": "battle",
+          "path": "/pet-models/warfront-lod/roster/rare-23.glb",
+          "expectedSha256": "cf2def4e7626c790ee8655e851e5a671df2b838d4c9d097caf2f55fb6f02a5fb",
+          "servedSha256": "cf2def4e7626c790ee8655e851e5a671df2b838d4c9d097caf2f55fb6f02a5fb",
+          "bytes": 324940,
+          "matches": true,
+          "mainTreeSha256": "cf2def4e7626c790ee8655e851e5a671df2b838d4c9d097caf2f55fb6f02a5fb",
+          "buildOutputSha256": "cf2def4e7626c790ee8655e851e5a671df2b838d4c9d097caf2f55fb6f02a5fb",
+          "transformedByVite": false
+        }
+      ],
+      "browserRevisionTokens": [
+        {
+          "kind": "cacheBase",
+          "token": "20261015-independent-complete-face-v2",
+          "servedIn": {
+            "path": "/assets/c-DCmqrntL.js",
+            "sha256": "e51648400ff292f6ac35645cdf1800f70577128bfb477fbbd6af35fff1d1db8a",
+            "bytes": 16596
+          }
+        },
+        {
+          "kind": "lodToken",
+          "token": "-fafbc902f2eb-cf2def4e7626",
+          "servedIn": {
+            "path": "/assets/c-DM8qJak-.js",
+            "sha256": "025f89aab26ce8f1ff5b509086392f797740a43db812c1beccec09c2882d0ed8",
+            "bytes": 10594
+          }
+        },
+        {
+          "kind": "atlasToken",
+          "token": "25894d07dcc8",
+          "servedIn": {
+            "path": "/assets/c-DGcdBaN4.js",
+            "sha256": "e2088e9e7afd4ca7ab056c5efce40444c9c50f415f1894a1cd7ff810aa5e9e43",
+            "bytes": 109369
+          }
+        }
+      ]
+    },
+    {
+      "id": "rare-24",
+      "expectedPinsMatchCurrentMain": true,
+      "assets": [
+        {
+          "id": "rare-24",
+          "kind": "atlas",
+          "path": "/pet-models/warfront-impostors/roster/rare-24.webp",
+          "expectedSha256": "5c9f6cd6bda56d3791fe566fc209fda7b314963448fc6ab00db3caee03fad72f",
+          "servedSha256": "5c9f6cd6bda56d3791fe566fc209fda7b314963448fc6ab00db3caee03fad72f",
+          "bytes": 69920,
+          "matches": true,
+          "mainTreeSha256": "5c9f6cd6bda56d3791fe566fc209fda7b314963448fc6ab00db3caee03fad72f",
+          "buildOutputSha256": "5c9f6cd6bda56d3791fe566fc209fda7b314963448fc6ab00db3caee03fad72f",
+          "transformedByVite": false
+        },
+        {
+          "id": "rare-24",
+          "kind": "battle",
+          "path": "/pet-models/warfront-lod/roster/rare-24.glb",
+          "expectedSha256": "bac54a67844a429ee77012f9433fe7afcfd2a354916049c330cc3b5c1c9297c6",
+          "servedSha256": "bac54a67844a429ee77012f9433fe7afcfd2a354916049c330cc3b5c1c9297c6",
+          "bytes": 313568,
+          "matches": true,
+          "mainTreeSha256": "bac54a67844a429ee77012f9433fe7afcfd2a354916049c330cc3b5c1c9297c6",
+          "buildOutputSha256": "bac54a67844a429ee77012f9433fe7afcfd2a354916049c330cc3b5c1c9297c6",
+          "transformedByVite": false
+        },
+        {
+          "id": "rare-24",
+          "kind": "source",
+          "path": "/pet-models/roster/rare-24.glb",
+          "expectedSha256": "9564ba7609b5740e1905ae915a745aa3a30e92ea41a7b9e804a0282711be2f6a",
+          "servedSha256": "9564ba7609b5740e1905ae915a745aa3a30e92ea41a7b9e804a0282711be2f6a",
+          "bytes": 509724,
+          "matches": true,
+          "mainTreeSha256": "9564ba7609b5740e1905ae915a745aa3a30e92ea41a7b9e804a0282711be2f6a",
+          "buildOutputSha256": "9564ba7609b5740e1905ae915a745aa3a30e92ea41a7b9e804a0282711be2f6a",
+          "transformedByVite": false
+        }
+      ],
+      "browserRevisionTokens": [
+        {
+          "kind": "cacheBase",
+          "token": "20261015-independent-complete-face-v2",
+          "servedIn": {
+            "path": "/assets/c-DCmqrntL.js",
+            "sha256": "e51648400ff292f6ac35645cdf1800f70577128bfb477fbbd6af35fff1d1db8a",
+            "bytes": 16596
+          }
+        },
+        {
+          "kind": "lodToken",
+          "token": "-9564ba7609b5-bac54a67844a",
+          "servedIn": {
+            "path": "/assets/c-DM8qJak-.js",
+            "sha256": "025f89aab26ce8f1ff5b509086392f797740a43db812c1beccec09c2882d0ed8",
+            "bytes": 10594
+          }
+        },
+        {
+          "kind": "atlasToken",
+          "token": "5c9f6cd6bda5",
+          "servedIn": {
+            "path": "/assets/c-DGcdBaN4.js",
+            "sha256": "e2088e9e7afd4ca7ab056c5efce40444c9c50f415f1894a1cd7ff810aa5e9e43",
+            "bytes": 109369
+          }
+        }
+      ]
+    },
+    {
+      "id": "rare-25",
+      "expectedPinsMatchCurrentMain": true,
+      "assets": [
+        {
+          "id": "rare-25",
+          "kind": "atlas",
+          "path": "/pet-models/warfront-impostors/roster/rare-25.webp",
+          "expectedSha256": "188b330d805203275ed898dff37cf99453fdd867890cdd6e42927bb59476f56e",
+          "servedSha256": "188b330d805203275ed898dff37cf99453fdd867890cdd6e42927bb59476f56e",
+          "bytes": 95166,
+          "matches": true,
+          "mainTreeSha256": "188b330d805203275ed898dff37cf99453fdd867890cdd6e42927bb59476f56e",
+          "buildOutputSha256": "188b330d805203275ed898dff37cf99453fdd867890cdd6e42927bb59476f56e",
+          "transformedByVite": false
+        },
+        {
+          "id": "rare-25",
+          "kind": "battle",
+          "path": "/pet-models/warfront-lod/roster/rare-25.glb",
+          "expectedSha256": "4466da2f05292840250ca2bf0bfec50a68b9fafd3811784acc7634b09feb0456",
+          "servedSha256": "4466da2f05292840250ca2bf0bfec50a68b9fafd3811784acc7634b09feb0456",
+          "bytes": 361108,
+          "matches": true,
+          "mainTreeSha256": "4466da2f05292840250ca2bf0bfec50a68b9fafd3811784acc7634b09feb0456",
+          "buildOutputSha256": "4466da2f05292840250ca2bf0bfec50a68b9fafd3811784acc7634b09feb0456",
+          "transformedByVite": false
+        },
+        {
+          "id": "rare-25",
+          "kind": "source",
+          "path": "/pet-models/roster/rare-25.glb",
+          "expectedSha256": "69db0d99c4259c8343dafa9b3b93d01f671904a541c258dabba9e41ce5962ffd",
+          "servedSha256": "69db0d99c4259c8343dafa9b3b93d01f671904a541c258dabba9e41ce5962ffd",
+          "bytes": 574568,
+          "matches": true,
+          "mainTreeSha256": "69db0d99c4259c8343dafa9b3b93d01f671904a541c258dabba9e41ce5962ffd",
+          "buildOutputSha256": "69db0d99c4259c8343dafa9b3b93d01f671904a541c258dabba9e41ce5962ffd",
+          "transformedByVite": false
+        }
+      ],
+      "browserRevisionTokens": [
+        {
+          "kind": "cacheBase",
+          "token": "20261015-independent-complete-face-v2",
+          "servedIn": {
+            "path": "/assets/c-DCmqrntL.js",
+            "sha256": "e51648400ff292f6ac35645cdf1800f70577128bfb477fbbd6af35fff1d1db8a",
+            "bytes": 16596
+          }
+        },
+        {
+          "kind": "lodToken",
+          "token": "-69db0d99c425-4466da2f0529",
+          "servedIn": {
+            "path": "/assets/c-DM8qJak-.js",
+            "sha256": "025f89aab26ce8f1ff5b509086392f797740a43db812c1beccec09c2882d0ed8",
+            "bytes": 10594
+          }
+        },
+        {
+          "kind": "atlasToken",
+          "token": "188b330d8052",
+          "servedIn": {
+            "path": "/assets/c-DGcdBaN4.js",
+            "sha256": "e2088e9e7afd4ca7ab056c5efce40444c9c50f415f1894a1cd7ff810aa5e9e43",
+            "bytes": 109369
+          }
+        }
+      ]
+    },
+    {
+      "id": "rare-28",
+      "expectedPinsMatchCurrentMain": true,
+      "assets": [
+        {
+          "id": "rare-28",
+          "kind": "atlas",
+          "path": "/pet-models/warfront-impostors/roster/rare-28.webp",
+          "expectedSha256": "51a0bf3e07951c7f9e9b067879c4c29b0604b60075d240f900c70c43c03dec09",
+          "servedSha256": "51a0bf3e07951c7f9e9b067879c4c29b0604b60075d240f900c70c43c03dec09",
+          "bytes": 99240,
+          "matches": true,
+          "mainTreeSha256": "51a0bf3e07951c7f9e9b067879c4c29b0604b60075d240f900c70c43c03dec09",
+          "buildOutputSha256": "51a0bf3e07951c7f9e9b067879c4c29b0604b60075d240f900c70c43c03dec09",
+          "transformedByVite": false
+        },
+        {
+          "id": "rare-28",
+          "kind": "battle",
+          "path": "/pet-models/warfront-lod/roster/rare-28.glb",
+          "expectedSha256": "655691887ae60c70db1c7ee690bf480ae3cf180a7ffedc92efdc7421d1e0cf93",
+          "servedSha256": "655691887ae60c70db1c7ee690bf480ae3cf180a7ffedc92efdc7421d1e0cf93",
+          "bytes": 340080,
+          "matches": true,
+          "mainTreeSha256": "655691887ae60c70db1c7ee690bf480ae3cf180a7ffedc92efdc7421d1e0cf93",
+          "buildOutputSha256": "655691887ae60c70db1c7ee690bf480ae3cf180a7ffedc92efdc7421d1e0cf93",
+          "transformedByVite": false
+        },
+        {
+          "id": "rare-28",
+          "kind": "source",
+          "path": "/pet-models/roster/rare-28.glb",
+          "expectedSha256": "0afb178a6301a49e0aa650a329dbf2bfbf5681781f152cf2b626ad150e6d4bdf",
+          "servedSha256": "0afb178a6301a49e0aa650a329dbf2bfbf5681781f152cf2b626ad150e6d4bdf",
+          "bytes": 548632,
+          "matches": true,
+          "mainTreeSha256": "0afb178a6301a49e0aa650a329dbf2bfbf5681781f152cf2b626ad150e6d4bdf",
+          "buildOutputSha256": "0afb178a6301a49e0aa650a329dbf2bfbf5681781f152cf2b626ad150e6d4bdf",
+          "transformedByVite": false
+        }
+      ],
+      "browserRevisionTokens": [
+        {
+          "kind": "cacheBase",
+          "token": "20261015-independent-complete-face-v2",
+          "servedIn": {
+            "path": "/assets/c-DCmqrntL.js",
+            "sha256": "e51648400ff292f6ac35645cdf1800f70577128bfb477fbbd6af35fff1d1db8a",
+            "bytes": 16596
+          }
+        },
+        {
+          "kind": "lodToken",
+          "token": "-0afb178a6301-655691887ae6",
+          "servedIn": {
+            "path": "/assets/c-DM8qJak-.js",
+            "sha256": "025f89aab26ce8f1ff5b509086392f797740a43db812c1beccec09c2882d0ed8",
+            "bytes": 10594
+          }
+        },
+        {
+          "kind": "atlasToken",
+          "token": "51a0bf3e0795",
+          "servedIn": {
+            "path": "/assets/c-DGcdBaN4.js",
+            "sha256": "e2088e9e7afd4ca7ab056c5efce40444c9c50f415f1894a1cd7ff810aa5e9e43",
+            "bytes": 109369
+          }
+        }
+      ]
+    },
+    {
+      "id": "rare-29",
+      "expectedPinsMatchCurrentMain": true,
+      "assets": [
+        {
+          "id": "rare-29",
+          "kind": "atlas",
+          "path": "/pet-models/warfront-impostors/roster/rare-29.webp",
+          "expectedSha256": "495267ad7457e9046aaf1df5e0f244abb6670fcd0c64246917086a3c92c81e14",
+          "servedSha256": "495267ad7457e9046aaf1df5e0f244abb6670fcd0c64246917086a3c92c81e14",
+          "bytes": 72446,
+          "matches": true,
+          "mainTreeSha256": "495267ad7457e9046aaf1df5e0f244abb6670fcd0c64246917086a3c92c81e14",
+          "buildOutputSha256": "495267ad7457e9046aaf1df5e0f244abb6670fcd0c64246917086a3c92c81e14",
+          "transformedByVite": false
+        },
+        {
+          "id": "rare-29",
+          "kind": "source",
+          "path": "/pet-models/roster/rare-29.glb",
+          "expectedSha256": "2b54c6728cb11057b0f92bacd91f990bfa4d44a6c2c6e933fac08e11f31c1bd9",
+          "servedSha256": "1dd38287c1ea793130bb1188641ebb86e33d085dd30c3904e27b790df83ddc18",
+          "bytes": 672108,
+          "matches": true,
+          "mainTreeSha256": "2b54c6728cb11057b0f92bacd91f990bfa4d44a6c2c6e933fac08e11f31c1bd9",
+          "buildOutputSha256": "1dd38287c1ea793130bb1188641ebb86e33d085dd30c3904e27b790df83ddc18",
+          "transformedByVite": true
+        },
+        {
+          "id": "rare-29",
+          "kind": "battle",
+          "path": "/pet-models/warfront-lod/roster/rare-29.glb",
+          "expectedSha256": "4922b143c199ae44aa2627eda51635b28f05ec46b267100a09dcfcfe5ba798f3",
+          "servedSha256": "867238f87e0fcc4aae7e0a90ad382dca39fbddf213522970e80eb3f12c2f31e3",
+          "bytes": 474800,
+          "matches": true,
+          "mainTreeSha256": "4922b143c199ae44aa2627eda51635b28f05ec46b267100a09dcfcfe5ba798f3",
+          "buildOutputSha256": "867238f87e0fcc4aae7e0a90ad382dca39fbddf213522970e80eb3f12c2f31e3",
+          "transformedByVite": true
+        }
+      ],
+      "browserRevisionTokens": [
+        {
+          "kind": "cacheBase",
+          "token": "20261020-visible-ground-v1",
+          "servedIn": {
+            "path": "/assets/c-DCmqrntL.js",
+            "sha256": "e51648400ff292f6ac35645cdf1800f70577128bfb477fbbd6af35fff1d1db8a",
+            "bytes": 16596
+          }
+        },
+        {
+          "kind": "lodToken",
+          "token": "-2b54c6728cb1-4922b143c199",
+          "servedIn": {
+            "path": "/assets/c-DM8qJak-.js",
+            "sha256": "025f89aab26ce8f1ff5b509086392f797740a43db812c1beccec09c2882d0ed8",
+            "bytes": 10594
+          }
+        },
+        {
+          "kind": "atlasToken",
+          "token": "495267ad7457",
+          "servedIn": {
+            "path": "/assets/c-DGcdBaN4.js",
+            "sha256": "e2088e9e7afd4ca7ab056c5efce40444c9c50f415f1894a1cd7ff810aa5e9e43",
+            "bytes": 109369
+          }
+        }
+      ]
+    },
+    {
+      "id": "rare-30",
+      "expectedPinsMatchCurrentMain": true,
+      "assets": [
+        {
+          "id": "rare-30",
+          "kind": "atlas",
+          "path": "/pet-models/warfront-impostors/roster/rare-30.webp",
+          "expectedSha256": "3aa89c6dcc26b575b304bea98b88d5fa9153f6b7d7e2c35cc7d69e48ee7f099b",
+          "servedSha256": "3aa89c6dcc26b575b304bea98b88d5fa9153f6b7d7e2c35cc7d69e48ee7f099b",
+          "bytes": 77590,
+          "matches": true,
+          "mainTreeSha256": "3aa89c6dcc26b575b304bea98b88d5fa9153f6b7d7e2c35cc7d69e48ee7f099b",
+          "buildOutputSha256": "3aa89c6dcc26b575b304bea98b88d5fa9153f6b7d7e2c35cc7d69e48ee7f099b",
+          "transformedByVite": false
+        },
+        {
+          "id": "rare-30",
+          "kind": "battle",
+          "path": "/pet-models/warfront-lod/roster/rare-30.glb",
+          "expectedSha256": "b5e68a561cf9b0ed404aa81a0dcc7366c5b3e2ae68266fc4350c02001d7bd772",
+          "servedSha256": "b5e68a561cf9b0ed404aa81a0dcc7366c5b3e2ae68266fc4350c02001d7bd772",
+          "bytes": 396464,
+          "matches": true,
+          "mainTreeSha256": "b5e68a561cf9b0ed404aa81a0dcc7366c5b3e2ae68266fc4350c02001d7bd772",
+          "buildOutputSha256": "b5e68a561cf9b0ed404aa81a0dcc7366c5b3e2ae68266fc4350c02001d7bd772",
+          "transformedByVite": false
+        },
+        {
+          "id": "rare-30",
+          "kind": "source",
+          "path": "/pet-models/roster/rare-30.glb",
+          "expectedSha256": "4c2532ba15ea925613d3bcbbcb1197c23e62fd14f0390dd628cfcf65a09ccc46",
+          "servedSha256": "4c2532ba15ea925613d3bcbbcb1197c23e62fd14f0390dd628cfcf65a09ccc46",
+          "bytes": 631816,
+          "matches": true,
+          "mainTreeSha256": "4c2532ba15ea925613d3bcbbcb1197c23e62fd14f0390dd628cfcf65a09ccc46",
+          "buildOutputSha256": "4c2532ba15ea925613d3bcbbcb1197c23e62fd14f0390dd628cfcf65a09ccc46",
+          "transformedByVite": false
+        }
+      ],
+      "browserRevisionTokens": [
+        {
+          "kind": "cacheBase",
+          "token": "20261014-reviewed-skull-v1",
+          "servedIn": {
+            "path": "/assets/c-DCmqrntL.js",
+            "sha256": "e51648400ff292f6ac35645cdf1800f70577128bfb477fbbd6af35fff1d1db8a",
+            "bytes": 16596
+          }
+        },
+        {
+          "kind": "lodToken",
+          "token": "-4c2532ba15ea-b5e68a561cf9",
+          "servedIn": {
+            "path": "/assets/c-DM8qJak-.js",
+            "sha256": "025f89aab26ce8f1ff5b509086392f797740a43db812c1beccec09c2882d0ed8",
+            "bytes": 10594
+          }
+        },
+        {
+          "kind": "atlasToken",
+          "token": "3aa89c6dcc26",
+          "servedIn": {
+            "path": "/assets/c-DGcdBaN4.js",
+            "sha256": "e2088e9e7afd4ca7ab056c5efce40444c9c50f415f1894a1cd7ff810aa5e9e43",
+            "bytes": 109369
+          }
+        }
+      ]
+    },
+    {
+      "id": "rare-31",
+      "expectedPinsMatchCurrentMain": true,
+      "assets": [
+        {
+          "id": "rare-31",
+          "kind": "atlas",
+          "path": "/pet-models/warfront-impostors/roster/rare-31.webp",
+          "expectedSha256": "4d4d03ddd7b44b9a13b0d39bc88aeedc9f51b32a6ad9ca90e00d50362823deb8",
+          "servedSha256": "4d4d03ddd7b44b9a13b0d39bc88aeedc9f51b32a6ad9ca90e00d50362823deb8",
+          "bytes": 112398,
+          "matches": true,
+          "mainTreeSha256": "4d4d03ddd7b44b9a13b0d39bc88aeedc9f51b32a6ad9ca90e00d50362823deb8",
+          "buildOutputSha256": "4d4d03ddd7b44b9a13b0d39bc88aeedc9f51b32a6ad9ca90e00d50362823deb8",
+          "transformedByVite": false
+        },
+        {
+          "id": "rare-31",
+          "kind": "battle",
+          "path": "/pet-models/warfront-lod/roster/rare-31.glb",
+          "expectedSha256": "03642ccd9c191d832ecfca0791ebafc3b9ffa1b5cfd7c38fa5b4a062a4a73464",
+          "servedSha256": "f61933bad34cd4fd3ed5564c8598586e0bf95a9b4b008989cf3c7dff8a6334d3",
+          "bytes": 476768,
+          "matches": true,
+          "mainTreeSha256": "03642ccd9c191d832ecfca0791ebafc3b9ffa1b5cfd7c38fa5b4a062a4a73464",
+          "buildOutputSha256": "f61933bad34cd4fd3ed5564c8598586e0bf95a9b4b008989cf3c7dff8a6334d3",
+          "transformedByVite": true
+        },
+        {
+          "id": "rare-31",
+          "kind": "source",
+          "path": "/pet-models/roster/rare-31.glb",
+          "expectedSha256": "8c102514d48c26ecb6d7d67b5eb224636c444fba97018da5ee6064ecaf1b633d",
+          "servedSha256": "1e6e6734ef4dbdbfac6790497c69f9d07ab5d465cc99d70bdfaac7c0c3a10168",
+          "bytes": 692160,
+          "matches": true,
+          "mainTreeSha256": "8c102514d48c26ecb6d7d67b5eb224636c444fba97018da5ee6064ecaf1b633d",
+          "buildOutputSha256": "1e6e6734ef4dbdbfac6790497c69f9d07ab5d465cc99d70bdfaac7c0c3a10168",
+          "transformedByVite": true
+        }
+      ],
+      "browserRevisionTokens": [
+        {
+          "kind": "cacheBase",
+          "token": "20261020-visible-ground-v1",
+          "servedIn": {
+            "path": "/assets/c-DCmqrntL.js",
+            "sha256": "e51648400ff292f6ac35645cdf1800f70577128bfb477fbbd6af35fff1d1db8a",
+            "bytes": 16596
+          }
+        },
+        {
+          "kind": "lodToken",
+          "token": "-8c102514d48c-03642ccd9c19",
+          "servedIn": {
+            "path": "/assets/c-DM8qJak-.js",
+            "sha256": "025f89aab26ce8f1ff5b509086392f797740a43db812c1beccec09c2882d0ed8",
+            "bytes": 10594
+          }
+        },
+        {
+          "kind": "atlasToken",
+          "token": "4d4d03ddd7b4",
+          "servedIn": {
+            "path": "/assets/c-DGcdBaN4.js",
+            "sha256": "e2088e9e7afd4ca7ab056c5efce40444c9c50f415f1894a1cd7ff810aa5e9e43",
+            "bytes": 109369
+          }
+        }
+      ]
+    },
+    {
+      "id": "rare-33",
+      "expectedPinsMatchCurrentMain": true,
+      "assets": [
+        {
+          "id": "rare-33",
+          "kind": "atlas",
+          "path": "/pet-models/warfront-impostors/roster/rare-33.webp",
+          "expectedSha256": "9f4c21ceebf9dc9bf3050adec4f3ecd8856749f6f0801d22dcf6ca54e9032a18",
+          "servedSha256": "9f4c21ceebf9dc9bf3050adec4f3ecd8856749f6f0801d22dcf6ca54e9032a18",
+          "bytes": 76034,
+          "matches": true,
+          "mainTreeSha256": "9f4c21ceebf9dc9bf3050adec4f3ecd8856749f6f0801d22dcf6ca54e9032a18",
+          "buildOutputSha256": "9f4c21ceebf9dc9bf3050adec4f3ecd8856749f6f0801d22dcf6ca54e9032a18",
+          "transformedByVite": false
+        },
+        {
+          "id": "rare-33",
+          "kind": "source",
+          "path": "/pet-models/roster/rare-33.glb",
+          "expectedSha256": "4f804e92cc7bf9c8dd7f8f800146d39513451a4c91038d44242027a62ea6f178",
+          "servedSha256": "4f804e92cc7bf9c8dd7f8f800146d39513451a4c91038d44242027a62ea6f178",
+          "bytes": 590936,
+          "matches": true,
+          "mainTreeSha256": "4f804e92cc7bf9c8dd7f8f800146d39513451a4c91038d44242027a62ea6f178",
+          "buildOutputSha256": "4f804e92cc7bf9c8dd7f8f800146d39513451a4c91038d44242027a62ea6f178",
+          "transformedByVite": false
+        },
+        {
+          "id": "rare-33",
+          "kind": "battle",
+          "path": "/pet-models/warfront-lod/roster/rare-33.glb",
+          "expectedSha256": "6a3f45bf0ad563f912637e3694bcaad430f09779a279adbcfc8a92e5f0d73402",
+          "servedSha256": "6a3f45bf0ad563f912637e3694bcaad430f09779a279adbcfc8a92e5f0d73402",
+          "bytes": 368564,
+          "matches": true,
+          "mainTreeSha256": "6a3f45bf0ad563f912637e3694bcaad430f09779a279adbcfc8a92e5f0d73402",
+          "buildOutputSha256": "6a3f45bf0ad563f912637e3694bcaad430f09779a279adbcfc8a92e5f0d73402",
+          "transformedByVite": false
+        }
+      ],
+      "browserRevisionTokens": [
+        {
+          "kind": "cacheBase",
+          "token": "20261014-reviewed-skull-v1",
+          "servedIn": {
+            "path": "/assets/c-DCmqrntL.js",
+            "sha256": "e51648400ff292f6ac35645cdf1800f70577128bfb477fbbd6af35fff1d1db8a",
+            "bytes": 16596
+          }
+        },
+        {
+          "kind": "lodToken",
+          "token": "-4f804e92cc7b-6a3f45bf0ad5",
+          "servedIn": {
+            "path": "/assets/c-DM8qJak-.js",
+            "sha256": "025f89aab26ce8f1ff5b509086392f797740a43db812c1beccec09c2882d0ed8",
+            "bytes": 10594
+          }
+        },
+        {
+          "kind": "atlasToken",
+          "token": "9f4c21ceebf9",
+          "servedIn": {
+            "path": "/assets/c-DGcdBaN4.js",
+            "sha256": "e2088e9e7afd4ca7ab056c5efce40444c9c50f415f1894a1cd7ff810aa5e9e43",
+            "bytes": 109369
+          }
+        }
+      ]
+    },
+    {
+      "id": "rare-35",
+      "expectedPinsMatchCurrentMain": true,
+      "assets": [
+        {
+          "id": "rare-35",
+          "kind": "atlas",
+          "path": "/pet-models/warfront-impostors/roster/rare-35.webp",
+          "expectedSha256": "ef3e000e33f6f1edd65a77da03a649f79660702af2f97380a22f714aeac0c06a",
+          "servedSha256": "ef3e000e33f6f1edd65a77da03a649f79660702af2f97380a22f714aeac0c06a",
+          "bytes": 75328,
+          "matches": true,
+          "mainTreeSha256": "ef3e000e33f6f1edd65a77da03a649f79660702af2f97380a22f714aeac0c06a",
+          "buildOutputSha256": "ef3e000e33f6f1edd65a77da03a649f79660702af2f97380a22f714aeac0c06a",
+          "transformedByVite": false
+        },
+        {
+          "id": "rare-35",
+          "kind": "source",
+          "path": "/pet-models/roster/rare-35.glb",
+          "expectedSha256": "cdfb9381c35e7a235621c6c4dd61b850aba94b72a6e640f868f81cab3bd75e40",
+          "servedSha256": "840084b9bbc5be00ad8ee71728a04282fa44f5888475311d7a8e324c1d5f1f94",
+          "bytes": 652676,
+          "matches": true,
+          "mainTreeSha256": "cdfb9381c35e7a235621c6c4dd61b850aba94b72a6e640f868f81cab3bd75e40",
+          "buildOutputSha256": "840084b9bbc5be00ad8ee71728a04282fa44f5888475311d7a8e324c1d5f1f94",
+          "transformedByVite": true
+        },
+        {
+          "id": "rare-35",
+          "kind": "battle",
+          "path": "/pet-models/warfront-lod/roster/rare-35.glb",
+          "expectedSha256": "602928701ffbb1b2817d17bcea311205ce18945baf1c8bd8b7158489c88879c8",
+          "servedSha256": "ef2a738dfdca12030b0fc15315e98bb6b1f2dbeba7168e3a744fd5beb64741fc",
+          "bytes": 377572,
+          "matches": true,
+          "mainTreeSha256": "602928701ffbb1b2817d17bcea311205ce18945baf1c8bd8b7158489c88879c8",
+          "buildOutputSha256": "ef2a738dfdca12030b0fc15315e98bb6b1f2dbeba7168e3a744fd5beb64741fc",
+          "transformedByVite": true
+        }
+      ],
+      "browserRevisionTokens": [
+        {
+          "kind": "cacheBase",
+          "token": "20261012-connected-weight-v2",
+          "servedIn": {
+            "path": "/assets/c-DCmqrntL.js",
+            "sha256": "e51648400ff292f6ac35645cdf1800f70577128bfb477fbbd6af35fff1d1db8a",
+            "bytes": 16596
+          }
+        },
+        {
+          "kind": "lodToken",
+          "token": "-cdfb9381c35e-602928701ffb",
+          "servedIn": {
+            "path": "/assets/c-DM8qJak-.js",
+            "sha256": "025f89aab26ce8f1ff5b509086392f797740a43db812c1beccec09c2882d0ed8",
+            "bytes": 10594
+          }
+        },
+        {
+          "kind": "atlasToken",
+          "token": "ef3e000e33f6",
+          "servedIn": {
+            "path": "/assets/c-DGcdBaN4.js",
+            "sha256": "e2088e9e7afd4ca7ab056c5efce40444c9c50f415f1894a1cd7ff810aa5e9e43",
+            "bytes": 109369
+          }
+        }
+      ]
+    },
+    {
+      "id": "rare-36",
+      "expectedPinsMatchCurrentMain": true,
+      "assets": [
+        {
+          "id": "rare-36",
+          "kind": "atlas",
+          "path": "/pet-models/warfront-impostors/roster/rare-36.webp",
+          "expectedSha256": "46d53194efc92fc848bad47a4fa2d7af236f5f6cdda9f822c10706d2cd6db2e5",
+          "servedSha256": "46d53194efc92fc848bad47a4fa2d7af236f5f6cdda9f822c10706d2cd6db2e5",
+          "bytes": 58466,
+          "matches": true,
+          "mainTreeSha256": "46d53194efc92fc848bad47a4fa2d7af236f5f6cdda9f822c10706d2cd6db2e5",
+          "buildOutputSha256": "46d53194efc92fc848bad47a4fa2d7af236f5f6cdda9f822c10706d2cd6db2e5",
+          "transformedByVite": false
+        },
+        {
+          "id": "rare-36",
+          "kind": "battle",
+          "path": "/pet-models/warfront-lod/roster/rare-36.glb",
+          "expectedSha256": "d20db7d82144cdb79e075defc94e9ff65954a178706733ceddadd0e1a70fb680",
+          "servedSha256": "c4dda3bcf0c0e1dc74985331a03a153609c8b1c33a00ee7163912dfb3cc85ead",
+          "bytes": 362680,
+          "matches": true,
+          "mainTreeSha256": "d20db7d82144cdb79e075defc94e9ff65954a178706733ceddadd0e1a70fb680",
+          "buildOutputSha256": "c4dda3bcf0c0e1dc74985331a03a153609c8b1c33a00ee7163912dfb3cc85ead",
+          "transformedByVite": true
+        },
+        {
+          "id": "rare-36",
+          "kind": "source",
+          "path": "/pet-models/roster/rare-36.glb",
+          "expectedSha256": "921d037ff87bc5047c6f2f0388583b5e8b96131876981fec4ccf92528321b936",
+          "servedSha256": "05dd8894f721603473ea3e48f735735fe4ae41aa832ff21e60ba70bf880d189a",
+          "bytes": 616940,
+          "matches": true,
+          "mainTreeSha256": "921d037ff87bc5047c6f2f0388583b5e8b96131876981fec4ccf92528321b936",
+          "buildOutputSha256": "05dd8894f721603473ea3e48f735735fe4ae41aa832ff21e60ba70bf880d189a",
+          "transformedByVite": true
+        }
+      ],
+      "browserRevisionTokens": [
+        {
+          "kind": "cacheBase",
+          "token": "20261012-connected-weight-v2",
+          "servedIn": {
+            "path": "/assets/c-DCmqrntL.js",
+            "sha256": "e51648400ff292f6ac35645cdf1800f70577128bfb477fbbd6af35fff1d1db8a",
+            "bytes": 16596
+          }
+        },
+        {
+          "kind": "lodToken",
+          "token": "-921d037ff87b-d20db7d82144",
+          "servedIn": {
+            "path": "/assets/c-DM8qJak-.js",
+            "sha256": "025f89aab26ce8f1ff5b509086392f797740a43db812c1beccec09c2882d0ed8",
+            "bytes": 10594
+          }
+        },
+        {
+          "kind": "atlasToken",
+          "token": "46d53194efc9",
+          "servedIn": {
+            "path": "/assets/c-DGcdBaN4.js",
+            "sha256": "e2088e9e7afd4ca7ab056c5efce40444c9c50f415f1894a1cd7ff810aa5e9e43",
+            "bytes": 109369
+          }
+        }
+      ]
+    },
+    {
+      "id": "rare-37",
+      "expectedPinsMatchCurrentMain": true,
+      "assets": [
+        {
+          "id": "rare-37",
+          "kind": "source",
+          "path": "/pet-models/roster/rare-37.glb",
+          "expectedSha256": "e30e21fa7bcec9db410a677c136916b0a77f4da43b923fa2c4155d5279a3cb1c",
+          "servedSha256": "e30e21fa7bcec9db410a677c136916b0a77f4da43b923fa2c4155d5279a3cb1c",
+          "bytes": 646748,
+          "matches": true,
+          "mainTreeSha256": "e30e21fa7bcec9db410a677c136916b0a77f4da43b923fa2c4155d5279a3cb1c",
+          "buildOutputSha256": "e30e21fa7bcec9db410a677c136916b0a77f4da43b923fa2c4155d5279a3cb1c",
+          "transformedByVite": false
+        },
+        {
+          "id": "rare-37",
+          "kind": "atlas",
+          "path": "/pet-models/warfront-impostors/roster/rare-37.webp",
+          "expectedSha256": "9e3a4c56cdb320845954d3531856d6bcf3a2d20b50a91d1cbd97a05b6f0c05c8",
+          "servedSha256": "9e3a4c56cdb320845954d3531856d6bcf3a2d20b50a91d1cbd97a05b6f0c05c8",
+          "bytes": 59312,
+          "matches": true,
+          "mainTreeSha256": "9e3a4c56cdb320845954d3531856d6bcf3a2d20b50a91d1cbd97a05b6f0c05c8",
+          "buildOutputSha256": "9e3a4c56cdb320845954d3531856d6bcf3a2d20b50a91d1cbd97a05b6f0c05c8",
+          "transformedByVite": false
+        },
+        {
+          "id": "rare-37",
+          "kind": "battle",
+          "path": "/pet-models/warfront-lod/roster/rare-37.glb",
+          "expectedSha256": "c9441eaf9ace26cf27183fd577336f47560c65fe0c316ddb6d614a00eb89358b",
+          "servedSha256": "c9441eaf9ace26cf27183fd577336f47560c65fe0c316ddb6d614a00eb89358b",
+          "bytes": 411216,
+          "matches": true,
+          "mainTreeSha256": "c9441eaf9ace26cf27183fd577336f47560c65fe0c316ddb6d614a00eb89358b",
+          "buildOutputSha256": "c9441eaf9ace26cf27183fd577336f47560c65fe0c316ddb6d614a00eb89358b",
+          "transformedByVite": false
+        }
+      ],
+      "browserRevisionTokens": [
+        {
+          "kind": "cacheBase",
+          "token": "20261015-independent-complete-face-v2",
+          "servedIn": {
+            "path": "/assets/c-DCmqrntL.js",
+            "sha256": "e51648400ff292f6ac35645cdf1800f70577128bfb477fbbd6af35fff1d1db8a",
+            "bytes": 16596
+          }
+        },
+        {
+          "kind": "lodToken",
+          "token": "-e30e21fa7bce-c9441eaf9ace",
+          "servedIn": {
+            "path": "/assets/c-DM8qJak-.js",
+            "sha256": "025f89aab26ce8f1ff5b509086392f797740a43db812c1beccec09c2882d0ed8",
+            "bytes": 10594
+          }
+        },
+        {
+          "kind": "atlasToken",
+          "token": "9e3a4c56cdb3",
+          "servedIn": {
+            "path": "/assets/c-DGcdBaN4.js",
+            "sha256": "e2088e9e7afd4ca7ab056c5efce40444c9c50f415f1894a1cd7ff810aa5e9e43",
+            "bytes": 109369
+          }
+        }
+      ]
+    },
+    {
+      "id": "rare-39",
+      "expectedPinsMatchCurrentMain": true,
+      "assets": [
+        {
+          "id": "rare-39",
+          "kind": "atlas",
+          "path": "/pet-models/warfront-impostors/roster/rare-39.webp",
+          "expectedSha256": "de579ddcb6f9bd3e56556d88f1f849d895c6bd1926edc8d813957b7b91cba7c7",
+          "servedSha256": "de579ddcb6f9bd3e56556d88f1f849d895c6bd1926edc8d813957b7b91cba7c7",
+          "bytes": 66550,
+          "matches": true,
+          "mainTreeSha256": "de579ddcb6f9bd3e56556d88f1f849d895c6bd1926edc8d813957b7b91cba7c7",
+          "buildOutputSha256": "de579ddcb6f9bd3e56556d88f1f849d895c6bd1926edc8d813957b7b91cba7c7",
+          "transformedByVite": false
+        },
+        {
+          "id": "rare-39",
+          "kind": "source",
+          "path": "/pet-models/roster/rare-39.glb",
+          "expectedSha256": "a53c36e27ca6b8b5bcbad74bdd2ac73b96411a96fc3b040ca8717fb999f724f3",
+          "servedSha256": "dd45114ea5affa2de7c867b275778fe2d1c4271b77a00d2ba8b17a8d604be992",
+          "bytes": 566292,
+          "matches": true,
+          "mainTreeSha256": "a53c36e27ca6b8b5bcbad74bdd2ac73b96411a96fc3b040ca8717fb999f724f3",
+          "buildOutputSha256": "dd45114ea5affa2de7c867b275778fe2d1c4271b77a00d2ba8b17a8d604be992",
+          "transformedByVite": true
+        },
+        {
+          "id": "rare-39",
+          "kind": "battle",
+          "path": "/pet-models/warfront-lod/roster/rare-39.glb",
+          "expectedSha256": "dd248a67710035a0692fc40fa2440f03d63ff21468014c7c7b85cc26947c416d",
+          "servedSha256": "9a8bed6351f7170b284fffb3df0c1d64a987d334c930d5a1f0a398f35eb0fe18",
+          "bytes": 329428,
+          "matches": true,
+          "mainTreeSha256": "dd248a67710035a0692fc40fa2440f03d63ff21468014c7c7b85cc26947c416d",
+          "buildOutputSha256": "9a8bed6351f7170b284fffb3df0c1d64a987d334c930d5a1f0a398f35eb0fe18",
+          "transformedByVite": true
+        }
+      ],
+      "browserRevisionTokens": [
+        {
+          "kind": "cacheBase",
+          "token": "20261012-connected-weight-v2",
+          "servedIn": {
+            "path": "/assets/c-DCmqrntL.js",
+            "sha256": "e51648400ff292f6ac35645cdf1800f70577128bfb477fbbd6af35fff1d1db8a",
+            "bytes": 16596
+          }
+        },
+        {
+          "kind": "lodToken",
+          "token": "-a53c36e27ca6-dd248a677100",
+          "servedIn": {
+            "path": "/assets/c-DM8qJak-.js",
+            "sha256": "025f89aab26ce8f1ff5b509086392f797740a43db812c1beccec09c2882d0ed8",
+            "bytes": 10594
+          }
+        },
+        {
+          "kind": "atlasToken",
+          "token": "de579ddcb6f9",
+          "servedIn": {
+            "path": "/assets/c-DGcdBaN4.js",
+            "sha256": "e2088e9e7afd4ca7ab056c5efce40444c9c50f415f1894a1cd7ff810aa5e9e43",
+            "bytes": 109369
+          }
+        }
+      ]
+    },
+    {
+      "id": "standard-10",
+      "expectedPinsMatchCurrentMain": true,
+      "assets": [
+        {
+          "id": "standard-10",
+          "kind": "atlas",
+          "path": "/pet-models/warfront-impostors/roster/standard-10.webp",
+          "expectedSha256": "742a12eea80d373df08cb981280d8054d8f1ff1947b753cda5ab84277dc8555c",
+          "servedSha256": "742a12eea80d373df08cb981280d8054d8f1ff1947b753cda5ab84277dc8555c",
+          "bytes": 80002,
+          "matches": true,
+          "mainTreeSha256": "742a12eea80d373df08cb981280d8054d8f1ff1947b753cda5ab84277dc8555c",
+          "buildOutputSha256": "742a12eea80d373df08cb981280d8054d8f1ff1947b753cda5ab84277dc8555c",
+          "transformedByVite": false
+        },
+        {
+          "id": "standard-10",
+          "kind": "battle",
+          "path": "/pet-models/warfront-lod/roster/standard-10.glb",
+          "expectedSha256": "a7a911684ef8783d9c746d5c44fc4429ad5a4f7dfaec31c39928dc5b5009ac60",
+          "servedSha256": "497a314a97c8e613bcd15431bdc51e7e9b9a09c5cfa710af9f14fce59d1c2b4f",
+          "bytes": 331644,
+          "matches": true,
+          "mainTreeSha256": "a7a911684ef8783d9c746d5c44fc4429ad5a4f7dfaec31c39928dc5b5009ac60",
+          "buildOutputSha256": "497a314a97c8e613bcd15431bdc51e7e9b9a09c5cfa710af9f14fce59d1c2b4f",
+          "transformedByVite": true
+        },
+        {
+          "id": "standard-10",
+          "kind": "source",
+          "path": "/pet-models/roster/standard-10.glb",
+          "expectedSha256": "83dd07c44b4a85fc8f29a5a42351cb8c347673d29f135bb38c3a94a0f9428495",
+          "servedSha256": "e0ca399d578f8e49da3372e92ad109969730fb2acb8709efb41996eb522d3f66",
+          "bytes": 578608,
+          "matches": true,
+          "mainTreeSha256": "83dd07c44b4a85fc8f29a5a42351cb8c347673d29f135bb38c3a94a0f9428495",
+          "buildOutputSha256": "e0ca399d578f8e49da3372e92ad109969730fb2acb8709efb41996eb522d3f66",
+          "transformedByVite": true
+        }
+      ],
+      "browserRevisionTokens": [
+        {
+          "kind": "cacheBase",
+          "token": "20261012-connected-weight-v2",
+          "servedIn": {
+            "path": "/assets/c-DCmqrntL.js",
+            "sha256": "e51648400ff292f6ac35645cdf1800f70577128bfb477fbbd6af35fff1d1db8a",
+            "bytes": 16596
+          }
+        },
+        {
+          "kind": "lodToken",
+          "token": "-83dd07c44b4a-a7a911684ef8",
+          "servedIn": {
+            "path": "/assets/c-DM8qJak-.js",
+            "sha256": "025f89aab26ce8f1ff5b509086392f797740a43db812c1beccec09c2882d0ed8",
+            "bytes": 10594
+          }
+        },
+        {
+          "kind": "atlasToken",
+          "token": "742a12eea80d",
+          "servedIn": {
+            "path": "/assets/c-DGcdBaN4.js",
+            "sha256": "e2088e9e7afd4ca7ab056c5efce40444c9c50f415f1894a1cd7ff810aa5e9e43",
+            "bytes": 109369
+          }
+        }
+      ]
+    },
+    {
+      "id": "standard-11",
+      "expectedPinsMatchCurrentMain": true,
+      "assets": [
+        {
+          "id": "standard-11",
+          "kind": "source",
+          "path": "/pet-models/roster/standard-11.glb",
+          "expectedSha256": "ccd77addbd652e15834c5ba2bccaab4c9f7b3d20b9e8079e1d47a76c35d335e8",
+          "servedSha256": "ccd77addbd652e15834c5ba2bccaab4c9f7b3d20b9e8079e1d47a76c35d335e8",
+          "bytes": 594348,
+          "matches": true,
+          "mainTreeSha256": "ccd77addbd652e15834c5ba2bccaab4c9f7b3d20b9e8079e1d47a76c35d335e8",
+          "buildOutputSha256": "ccd77addbd652e15834c5ba2bccaab4c9f7b3d20b9e8079e1d47a76c35d335e8",
+          "transformedByVite": false
+        },
+        {
+          "id": "standard-11",
+          "kind": "atlas",
+          "path": "/pet-models/warfront-impostors/roster/standard-11.webp",
+          "expectedSha256": "2319810be3069d1b70c069dfb8aaa194f59288a339d8bc92f9dda5220a347c7f",
+          "servedSha256": "2319810be3069d1b70c069dfb8aaa194f59288a339d8bc92f9dda5220a347c7f",
+          "bytes": 93338,
+          "matches": true,
+          "mainTreeSha256": "2319810be3069d1b70c069dfb8aaa194f59288a339d8bc92f9dda5220a347c7f",
+          "buildOutputSha256": "2319810be3069d1b70c069dfb8aaa194f59288a339d8bc92f9dda5220a347c7f",
+          "transformedByVite": false
+        },
+        {
+          "id": "standard-11",
+          "kind": "battle",
+          "path": "/pet-models/warfront-lod/roster/standard-11.glb",
+          "expectedSha256": "96b614df632b209c9702fec150cd6e940fb0dbc0197c05dcc8f81f9291faa11d",
+          "servedSha256": "96b614df632b209c9702fec150cd6e940fb0dbc0197c05dcc8f81f9291faa11d",
+          "bytes": 366740,
+          "matches": true,
+          "mainTreeSha256": "96b614df632b209c9702fec150cd6e940fb0dbc0197c05dcc8f81f9291faa11d",
+          "buildOutputSha256": "96b614df632b209c9702fec150cd6e940fb0dbc0197c05dcc8f81f9291faa11d",
+          "transformedByVite": false
+        }
+      ],
+      "browserRevisionTokens": [
+        {
+          "kind": "cacheBase",
+          "token": "20261015-independent-complete-face-v2",
+          "servedIn": {
+            "path": "/assets/c-DCmqrntL.js",
+            "sha256": "e51648400ff292f6ac35645cdf1800f70577128bfb477fbbd6af35fff1d1db8a",
+            "bytes": 16596
+          }
+        },
+        {
+          "kind": "lodToken",
+          "token": "-ccd77addbd65-96b614df632b",
+          "servedIn": {
+            "path": "/assets/c-DM8qJak-.js",
+            "sha256": "025f89aab26ce8f1ff5b509086392f797740a43db812c1beccec09c2882d0ed8",
+            "bytes": 10594
+          }
+        },
+        {
+          "kind": "atlasToken",
+          "token": "2319810be306",
+          "servedIn": {
+            "path": "/assets/c-DGcdBaN4.js",
+            "sha256": "e2088e9e7afd4ca7ab056c5efce40444c9c50f415f1894a1cd7ff810aa5e9e43",
+            "bytes": 109369
+          }
+        }
+      ]
+    },
+    {
+      "id": "standard-12",
+      "expectedPinsMatchCurrentMain": true,
+      "assets": [
+        {
+          "id": "standard-12",
+          "kind": "atlas",
+          "path": "/pet-models/warfront-impostors/roster/standard-12.webp",
+          "expectedSha256": "83cec85724f0fb149cd30db5b7a56c8b9380c6bd74e04ac40c6a054bc16e3e34",
+          "servedSha256": "83cec85724f0fb149cd30db5b7a56c8b9380c6bd74e04ac40c6a054bc16e3e34",
+          "bytes": 101870,
+          "matches": true,
+          "mainTreeSha256": "83cec85724f0fb149cd30db5b7a56c8b9380c6bd74e04ac40c6a054bc16e3e34",
+          "buildOutputSha256": "83cec85724f0fb149cd30db5b7a56c8b9380c6bd74e04ac40c6a054bc16e3e34",
+          "transformedByVite": false
+        },
+        {
+          "id": "standard-12",
+          "kind": "battle",
+          "path": "/pet-models/warfront-lod/roster/standard-12.glb",
+          "expectedSha256": "02c4fedee7e121bd70289a018cfa6cd8a1474f7c18593354c54f8355973c7a20",
+          "servedSha256": "02c4fedee7e121bd70289a018cfa6cd8a1474f7c18593354c54f8355973c7a20",
+          "bytes": 376264,
+          "matches": true,
+          "mainTreeSha256": "02c4fedee7e121bd70289a018cfa6cd8a1474f7c18593354c54f8355973c7a20",
+          "buildOutputSha256": "02c4fedee7e121bd70289a018cfa6cd8a1474f7c18593354c54f8355973c7a20",
+          "transformedByVite": false
+        },
+        {
+          "id": "standard-12",
+          "kind": "source",
+          "path": "/pet-models/roster/standard-12.glb",
+          "expectedSha256": "14b4d83ea9a72b96fb5a9420fbf937c121e743ecdf5a079e1e41f81795004739",
+          "servedSha256": "14b4d83ea9a72b96fb5a9420fbf937c121e743ecdf5a079e1e41f81795004739",
+          "bytes": 591932,
+          "matches": true,
+          "mainTreeSha256": "14b4d83ea9a72b96fb5a9420fbf937c121e743ecdf5a079e1e41f81795004739",
+          "buildOutputSha256": "14b4d83ea9a72b96fb5a9420fbf937c121e743ecdf5a079e1e41f81795004739",
+          "transformedByVite": false
+        }
+      ],
+      "browserRevisionTokens": [
+        {
+          "kind": "cacheBase",
+          "token": "20261015-independent-complete-face-v2",
+          "servedIn": {
+            "path": "/assets/c-DCmqrntL.js",
+            "sha256": "e51648400ff292f6ac35645cdf1800f70577128bfb477fbbd6af35fff1d1db8a",
+            "bytes": 16596
+          }
+        },
+        {
+          "kind": "lodToken",
+          "token": "-14b4d83ea9a7-02c4fedee7e1",
+          "servedIn": {
+            "path": "/assets/c-DM8qJak-.js",
+            "sha256": "025f89aab26ce8f1ff5b509086392f797740a43db812c1beccec09c2882d0ed8",
+            "bytes": 10594
+          }
+        },
+        {
+          "kind": "atlasToken",
+          "token": "83cec85724f0",
+          "servedIn": {
+            "path": "/assets/c-DGcdBaN4.js",
+            "sha256": "e2088e9e7afd4ca7ab056c5efce40444c9c50f415f1894a1cd7ff810aa5e9e43",
+            "bytes": 109369
+          }
+        }
+      ]
+    },
+    {
+      "id": "standard-13",
+      "expectedPinsMatchCurrentMain": true,
+      "assets": [
+        {
+          "id": "standard-13",
+          "kind": "atlas",
+          "path": "/pet-models/warfront-impostors/roster/standard-13.webp",
+          "expectedSha256": "e1348e0b8f4f082ac52b41a51750f019fcce7bb4232df24fe90f63e75c0b6ea9",
+          "servedSha256": "e1348e0b8f4f082ac52b41a51750f019fcce7bb4232df24fe90f63e75c0b6ea9",
+          "bytes": 109230,
+          "matches": true,
+          "mainTreeSha256": "e1348e0b8f4f082ac52b41a51750f019fcce7bb4232df24fe90f63e75c0b6ea9",
+          "buildOutputSha256": "e1348e0b8f4f082ac52b41a51750f019fcce7bb4232df24fe90f63e75c0b6ea9",
+          "transformedByVite": false
+        },
+        {
+          "id": "standard-13",
+          "kind": "source",
+          "path": "/pet-models/roster/standard-13.glb",
+          "expectedSha256": "6c8d1da368a388f25b25a2f87b93e275853300a44bc5d443d7249aa2991c5578",
+          "servedSha256": "6c8d1da368a388f25b25a2f87b93e275853300a44bc5d443d7249aa2991c5578",
+          "bytes": 691692,
+          "matches": true,
+          "mainTreeSha256": "6c8d1da368a388f25b25a2f87b93e275853300a44bc5d443d7249aa2991c5578",
+          "buildOutputSha256": "6c8d1da368a388f25b25a2f87b93e275853300a44bc5d443d7249aa2991c5578",
+          "transformedByVite": false
+        },
+        {
+          "id": "standard-13",
+          "kind": "battle",
+          "path": "/pet-models/warfront-lod/roster/standard-13.glb",
+          "expectedSha256": "0606080968fd71990c95e032e195bcaeba5dcb93820d5cdab4ed85ee8c3697bc",
+          "servedSha256": "0606080968fd71990c95e032e195bcaeba5dcb93820d5cdab4ed85ee8c3697bc",
+          "bytes": 445672,
+          "matches": true,
+          "mainTreeSha256": "0606080968fd71990c95e032e195bcaeba5dcb93820d5cdab4ed85ee8c3697bc",
+          "buildOutputSha256": "0606080968fd71990c95e032e195bcaeba5dcb93820d5cdab4ed85ee8c3697bc",
+          "transformedByVite": false
+        }
+      ],
+      "browserRevisionTokens": [
+        {
+          "kind": "cacheBase",
+          "token": "20261014-reviewed-skull-v1",
+          "servedIn": {
+            "path": "/assets/c-DCmqrntL.js",
+            "sha256": "e51648400ff292f6ac35645cdf1800f70577128bfb477fbbd6af35fff1d1db8a",
+            "bytes": 16596
+          }
+        },
+        {
+          "kind": "lodToken",
+          "token": "-6c8d1da368a3-0606080968fd",
+          "servedIn": {
+            "path": "/assets/c-DM8qJak-.js",
+            "sha256": "025f89aab26ce8f1ff5b509086392f797740a43db812c1beccec09c2882d0ed8",
+            "bytes": 10594
+          }
+        },
+        {
+          "kind": "atlasToken",
+          "token": "e1348e0b8f4f",
+          "servedIn": {
+            "path": "/assets/c-DGcdBaN4.js",
+            "sha256": "e2088e9e7afd4ca7ab056c5efce40444c9c50f415f1894a1cd7ff810aa5e9e43",
+            "bytes": 109369
+          }
+        }
+      ]
+    },
+    {
+      "id": "standard-14",
+      "expectedPinsMatchCurrentMain": true,
+      "assets": [
+        {
+          "id": "standard-14",
+          "kind": "atlas",
+          "path": "/pet-models/warfront-impostors/roster/standard-14.webp",
+          "expectedSha256": "f08b3aac59dc1d324a248f8cb55b17e37ede47316d523f72544c2e2242e7a78c",
+          "servedSha256": "f08b3aac59dc1d324a248f8cb55b17e37ede47316d523f72544c2e2242e7a78c",
+          "bytes": 50474,
+          "matches": true,
+          "mainTreeSha256": "f08b3aac59dc1d324a248f8cb55b17e37ede47316d523f72544c2e2242e7a78c",
+          "buildOutputSha256": "f08b3aac59dc1d324a248f8cb55b17e37ede47316d523f72544c2e2242e7a78c",
+          "transformedByVite": false
+        },
+        {
+          "id": "standard-14",
+          "kind": "battle",
+          "path": "/pet-models/warfront-lod/roster/standard-14.glb",
+          "expectedSha256": "9882af0e37a914d38d2b80c2e414fd7eb349447a0fe90d70f61531364fa7a2ec",
+          "servedSha256": "9882af0e37a914d38d2b80c2e414fd7eb349447a0fe90d70f61531364fa7a2ec",
+          "bytes": 365632,
+          "matches": true,
+          "mainTreeSha256": "9882af0e37a914d38d2b80c2e414fd7eb349447a0fe90d70f61531364fa7a2ec",
+          "buildOutputSha256": "9882af0e37a914d38d2b80c2e414fd7eb349447a0fe90d70f61531364fa7a2ec",
+          "transformedByVite": false
+        },
+        {
+          "id": "standard-14",
+          "kind": "source",
+          "path": "/pet-models/roster/standard-14.glb",
+          "expectedSha256": "5f3b7677d80b6ef3dd0b1736b4209a9f9d489622380658b2622924deeb73f850",
+          "servedSha256": "5f3b7677d80b6ef3dd0b1736b4209a9f9d489622380658b2622924deeb73f850",
+          "bytes": 581672,
+          "matches": true,
+          "mainTreeSha256": "5f3b7677d80b6ef3dd0b1736b4209a9f9d489622380658b2622924deeb73f850",
+          "buildOutputSha256": "5f3b7677d80b6ef3dd0b1736b4209a9f9d489622380658b2622924deeb73f850",
+          "transformedByVite": false
+        }
+      ],
+      "browserRevisionTokens": [
+        {
+          "kind": "cacheBase",
+          "token": "20261014-reviewed-skull-v1",
+          "servedIn": {
+            "path": "/assets/c-DCmqrntL.js",
+            "sha256": "e51648400ff292f6ac35645cdf1800f70577128bfb477fbbd6af35fff1d1db8a",
+            "bytes": 16596
+          }
+        },
+        {
+          "kind": "lodToken",
+          "token": "-5f3b7677d80b-9882af0e37a9",
+          "servedIn": {
+            "path": "/assets/c-DM8qJak-.js",
+            "sha256": "025f89aab26ce8f1ff5b509086392f797740a43db812c1beccec09c2882d0ed8",
+            "bytes": 10594
+          }
+        },
+        {
+          "kind": "atlasToken",
+          "token": "f08b3aac59dc",
+          "servedIn": {
+            "path": "/assets/c-DGcdBaN4.js",
+            "sha256": "e2088e9e7afd4ca7ab056c5efce40444c9c50f415f1894a1cd7ff810aa5e9e43",
+            "bytes": 109369
+          }
+        }
+      ]
+    },
+    {
+      "id": "standard-15",
+      "expectedPinsMatchCurrentMain": true,
+      "assets": [
+        {
+          "id": "standard-15",
+          "kind": "atlas",
+          "path": "/pet-models/warfront-impostors/roster/standard-15.webp",
+          "expectedSha256": "825e830b828ccf9f30d28d7418269a3e7c76e3a56ff02c452d1e03793c07f52d",
+          "servedSha256": "825e830b828ccf9f30d28d7418269a3e7c76e3a56ff02c452d1e03793c07f52d",
+          "bytes": 78182,
+          "matches": true,
+          "mainTreeSha256": "825e830b828ccf9f30d28d7418269a3e7c76e3a56ff02c452d1e03793c07f52d",
+          "buildOutputSha256": "825e830b828ccf9f30d28d7418269a3e7c76e3a56ff02c452d1e03793c07f52d",
+          "transformedByVite": false
+        },
+        {
+          "id": "standard-15",
+          "kind": "battle",
+          "path": "/pet-models/warfront-lod/roster/standard-15.glb",
+          "expectedSha256": "5cdf1370e3859127668e6979d97871808aaefd87d784f0d00f6206f20616f521",
+          "servedSha256": "5cdf1370e3859127668e6979d97871808aaefd87d784f0d00f6206f20616f521",
+          "bytes": 393388,
+          "matches": true,
+          "mainTreeSha256": "5cdf1370e3859127668e6979d97871808aaefd87d784f0d00f6206f20616f521",
+          "buildOutputSha256": "5cdf1370e3859127668e6979d97871808aaefd87d784f0d00f6206f20616f521",
+          "transformedByVite": false
+        },
+        {
+          "id": "standard-15",
+          "kind": "source",
+          "path": "/pet-models/roster/standard-15.glb",
+          "expectedSha256": "23316bf5bdce50b822921969bd3e7c92bbb1e59ad3a0cb5ad68e68ee8ed5f3f5",
+          "servedSha256": "23316bf5bdce50b822921969bd3e7c92bbb1e59ad3a0cb5ad68e68ee8ed5f3f5",
+          "bytes": 630252,
+          "matches": true,
+          "mainTreeSha256": "23316bf5bdce50b822921969bd3e7c92bbb1e59ad3a0cb5ad68e68ee8ed5f3f5",
+          "buildOutputSha256": "23316bf5bdce50b822921969bd3e7c92bbb1e59ad3a0cb5ad68e68ee8ed5f3f5",
+          "transformedByVite": false
+        }
+      ],
+      "browserRevisionTokens": [
+        {
+          "kind": "cacheBase",
+          "token": "20261015-independent-complete-face-v2",
+          "servedIn": {
+            "path": "/assets/c-DCmqrntL.js",
+            "sha256": "e51648400ff292f6ac35645cdf1800f70577128bfb477fbbd6af35fff1d1db8a",
+            "bytes": 16596
+          }
+        },
+        {
+          "kind": "lodToken",
+          "token": "-23316bf5bdce-5cdf1370e385",
+          "servedIn": {
+            "path": "/assets/c-DM8qJak-.js",
+            "sha256": "025f89aab26ce8f1ff5b509086392f797740a43db812c1beccec09c2882d0ed8",
+            "bytes": 10594
+          }
+        },
+        {
+          "kind": "atlasToken",
+          "token": "825e830b828c",
+          "servedIn": {
+            "path": "/assets/c-DGcdBaN4.js",
+            "sha256": "e2088e9e7afd4ca7ab056c5efce40444c9c50f415f1894a1cd7ff810aa5e9e43",
+            "bytes": 109369
+          }
+        }
+      ]
+    },
+    {
+      "id": "standard-16",
+      "expectedPinsMatchCurrentMain": true,
+      "assets": [
+        {
+          "id": "standard-16",
+          "kind": "source",
+          "path": "/pet-models/roster/standard-16.glb",
+          "expectedSha256": "034d198afba03bee6b8b6cecbaa88c5f9da39fb190c38c95443123bc12695549",
+          "servedSha256": "034d198afba03bee6b8b6cecbaa88c5f9da39fb190c38c95443123bc12695549",
+          "bytes": 561596,
+          "matches": true,
+          "mainTreeSha256": "034d198afba03bee6b8b6cecbaa88c5f9da39fb190c38c95443123bc12695549",
+          "buildOutputSha256": "034d198afba03bee6b8b6cecbaa88c5f9da39fb190c38c95443123bc12695549",
+          "transformedByVite": false
+        },
+        {
+          "id": "standard-16",
+          "kind": "atlas",
+          "path": "/pet-models/warfront-impostors/roster/standard-16.webp",
+          "expectedSha256": "ddae0dbb731157a1d3964d02fbd246605c029615caf40ebf23c3ffb2402602cd",
+          "servedSha256": "ddae0dbb731157a1d3964d02fbd246605c029615caf40ebf23c3ffb2402602cd",
+          "bytes": 88452,
+          "matches": true,
+          "mainTreeSha256": "ddae0dbb731157a1d3964d02fbd246605c029615caf40ebf23c3ffb2402602cd",
+          "buildOutputSha256": "ddae0dbb731157a1d3964d02fbd246605c029615caf40ebf23c3ffb2402602cd",
+          "transformedByVite": false
+        },
+        {
+          "id": "standard-16",
+          "kind": "battle",
+          "path": "/pet-models/warfront-lod/roster/standard-16.glb",
+          "expectedSha256": "5c40a53fdc70f2bc40f1456a2d03c88155a02ff0c3ef6671b267760704155069",
+          "servedSha256": "5c40a53fdc70f2bc40f1456a2d03c88155a02ff0c3ef6671b267760704155069",
+          "bytes": 352068,
+          "matches": true,
+          "mainTreeSha256": "5c40a53fdc70f2bc40f1456a2d03c88155a02ff0c3ef6671b267760704155069",
+          "buildOutputSha256": "5c40a53fdc70f2bc40f1456a2d03c88155a02ff0c3ef6671b267760704155069",
+          "transformedByVite": false
+        }
+      ],
+      "browserRevisionTokens": [
+        {
+          "kind": "cacheBase",
+          "token": "20261015-independent-complete-face-v2",
+          "servedIn": {
+            "path": "/assets/c-DCmqrntL.js",
+            "sha256": "e51648400ff292f6ac35645cdf1800f70577128bfb477fbbd6af35fff1d1db8a",
+            "bytes": 16596
+          }
+        },
+        {
+          "kind": "lodToken",
+          "token": "-034d198afba0-5c40a53fdc70",
+          "servedIn": {
+            "path": "/assets/c-DM8qJak-.js",
+            "sha256": "025f89aab26ce8f1ff5b509086392f797740a43db812c1beccec09c2882d0ed8",
+            "bytes": 10594
+          }
+        },
+        {
+          "kind": "atlasToken",
+          "token": "ddae0dbb7311",
+          "servedIn": {
+            "path": "/assets/c-DGcdBaN4.js",
+            "sha256": "e2088e9e7afd4ca7ab056c5efce40444c9c50f415f1894a1cd7ff810aa5e9e43",
+            "bytes": 109369
+          }
+        }
+      ]
+    },
+    {
+      "id": "standard-18",
+      "expectedPinsMatchCurrentMain": true,
+      "assets": [
+        {
+          "id": "standard-18",
+          "kind": "atlas",
+          "path": "/pet-models/warfront-impostors/roster/standard-18.webp",
+          "expectedSha256": "3ef3ad47578926737aae53a26ecaf41a11ca485b79b590538c46b6545be4ee9a",
+          "servedSha256": "3ef3ad47578926737aae53a26ecaf41a11ca485b79b590538c46b6545be4ee9a",
+          "bytes": 48638,
+          "matches": true,
+          "mainTreeSha256": "3ef3ad47578926737aae53a26ecaf41a11ca485b79b590538c46b6545be4ee9a",
+          "buildOutputSha256": "3ef3ad47578926737aae53a26ecaf41a11ca485b79b590538c46b6545be4ee9a",
+          "transformedByVite": false
+        },
+        {
+          "id": "standard-18",
+          "kind": "battle",
+          "path": "/pet-models/warfront-lod/roster/standard-18.glb",
+          "expectedSha256": "e47c8f01ebec876b0a4308c43451b3d0a23f2082ea2e977558d322ceaa212415",
+          "servedSha256": "e47c8f01ebec876b0a4308c43451b3d0a23f2082ea2e977558d322ceaa212415",
+          "bytes": 336968,
+          "matches": true,
+          "mainTreeSha256": "e47c8f01ebec876b0a4308c43451b3d0a23f2082ea2e977558d322ceaa212415",
+          "buildOutputSha256": "e47c8f01ebec876b0a4308c43451b3d0a23f2082ea2e977558d322ceaa212415",
+          "transformedByVite": false
+        },
+        {
+          "id": "standard-18",
+          "kind": "source",
+          "path": "/pet-models/roster/standard-18.glb",
+          "expectedSha256": "236b6b4a0c05d7c62a06ec6317dee7a2ea8522cd0b534ba2a2e083c8f3573084",
+          "servedSha256": "236b6b4a0c05d7c62a06ec6317dee7a2ea8522cd0b534ba2a2e083c8f3573084",
+          "bytes": 547704,
+          "matches": true,
+          "mainTreeSha256": "236b6b4a0c05d7c62a06ec6317dee7a2ea8522cd0b534ba2a2e083c8f3573084",
+          "buildOutputSha256": "236b6b4a0c05d7c62a06ec6317dee7a2ea8522cd0b534ba2a2e083c8f3573084",
+          "transformedByVite": false
+        }
+      ],
+      "browserRevisionTokens": [
+        {
+          "kind": "cacheBase",
+          "token": "20261015-independent-complete-face-v2",
+          "servedIn": {
+            "path": "/assets/c-DCmqrntL.js",
+            "sha256": "e51648400ff292f6ac35645cdf1800f70577128bfb477fbbd6af35fff1d1db8a",
+            "bytes": 16596
+          }
+        },
+        {
+          "kind": "lodToken",
+          "token": "-236b6b4a0c05-e47c8f01ebec",
+          "servedIn": {
+            "path": "/assets/c-DM8qJak-.js",
+            "sha256": "025f89aab26ce8f1ff5b509086392f797740a43db812c1beccec09c2882d0ed8",
+            "bytes": 10594
+          }
+        },
+        {
+          "kind": "atlasToken",
+          "token": "3ef3ad475789",
+          "servedIn": {
+            "path": "/assets/c-DGcdBaN4.js",
+            "sha256": "e2088e9e7afd4ca7ab056c5efce40444c9c50f415f1894a1cd7ff810aa5e9e43",
+            "bytes": 109369
+          }
+        }
+      ]
+    },
+    {
+      "id": "standard-19",
+      "expectedPinsMatchCurrentMain": true,
+      "assets": [
+        {
+          "id": "standard-19",
+          "kind": "source",
+          "path": "/pet-models/roster/standard-19.glb",
+          "expectedSha256": "9d42f13e2936d827f73a630a13531b617701c0247acb486fba62f7809519ea0f",
+          "servedSha256": "9d42f13e2936d827f73a630a13531b617701c0247acb486fba62f7809519ea0f",
+          "bytes": 601704,
+          "matches": true,
+          "mainTreeSha256": "9d42f13e2936d827f73a630a13531b617701c0247acb486fba62f7809519ea0f",
+          "buildOutputSha256": "9d42f13e2936d827f73a630a13531b617701c0247acb486fba62f7809519ea0f",
+          "transformedByVite": false
+        },
+        {
+          "id": "standard-19",
+          "kind": "atlas",
+          "path": "/pet-models/warfront-impostors/roster/standard-19.webp",
+          "expectedSha256": "564a8c326fe0756c8e2c6ec7a4ba37d23e71ee70d19710dc4d68787d24f444ec",
+          "servedSha256": "564a8c326fe0756c8e2c6ec7a4ba37d23e71ee70d19710dc4d68787d24f444ec",
+          "bytes": 104466,
+          "matches": true,
+          "mainTreeSha256": "564a8c326fe0756c8e2c6ec7a4ba37d23e71ee70d19710dc4d68787d24f444ec",
+          "buildOutputSha256": "564a8c326fe0756c8e2c6ec7a4ba37d23e71ee70d19710dc4d68787d24f444ec",
+          "transformedByVite": false
+        },
+        {
+          "id": "standard-19",
+          "kind": "battle",
+          "path": "/pet-models/warfront-lod/roster/standard-19.glb",
+          "expectedSha256": "3f289df7c6bcb0530fd34ab28ec5ea2c61518ce4ac60c8b802a006cc74b08edf",
+          "servedSha256": "3f289df7c6bcb0530fd34ab28ec5ea2c61518ce4ac60c8b802a006cc74b08edf",
+          "bytes": 372432,
+          "matches": true,
+          "mainTreeSha256": "3f289df7c6bcb0530fd34ab28ec5ea2c61518ce4ac60c8b802a006cc74b08edf",
+          "buildOutputSha256": "3f289df7c6bcb0530fd34ab28ec5ea2c61518ce4ac60c8b802a006cc74b08edf",
+          "transformedByVite": false
+        }
+      ],
+      "browserRevisionTokens": [
+        {
+          "kind": "cacheBase",
+          "token": "20261014-reviewed-skull-v1",
+          "servedIn": {
+            "path": "/assets/c-DCmqrntL.js",
+            "sha256": "e51648400ff292f6ac35645cdf1800f70577128bfb477fbbd6af35fff1d1db8a",
+            "bytes": 16596
+          }
+        },
+        {
+          "kind": "lodToken",
+          "token": "-9d42f13e2936-3f289df7c6bc",
+          "servedIn": {
+            "path": "/assets/c-DM8qJak-.js",
+            "sha256": "025f89aab26ce8f1ff5b509086392f797740a43db812c1beccec09c2882d0ed8",
+            "bytes": 10594
+          }
+        },
+        {
+          "kind": "atlasToken",
+          "token": "564a8c326fe0",
+          "servedIn": {
+            "path": "/assets/c-DGcdBaN4.js",
+            "sha256": "e2088e9e7afd4ca7ab056c5efce40444c9c50f415f1894a1cd7ff810aa5e9e43",
+            "bytes": 109369
+          }
+        }
+      ]
+    },
+    {
+      "id": "standard-20",
+      "expectedPinsMatchCurrentMain": true,
+      "assets": [
+        {
+          "id": "standard-20",
+          "kind": "atlas",
+          "path": "/pet-models/warfront-impostors/roster/standard-20.webp",
+          "expectedSha256": "75f44169499b6e941e56185df21e82139f6f98caa15538c112490b2fd89d04db",
+          "servedSha256": "75f44169499b6e941e56185df21e82139f6f98caa15538c112490b2fd89d04db",
+          "bytes": 64550,
+          "matches": true,
+          "mainTreeSha256": "75f44169499b6e941e56185df21e82139f6f98caa15538c112490b2fd89d04db",
+          "buildOutputSha256": "75f44169499b6e941e56185df21e82139f6f98caa15538c112490b2fd89d04db",
+          "transformedByVite": false
+        },
+        {
+          "id": "standard-20",
+          "kind": "source",
+          "path": "/pet-models/roster/standard-20.glb",
+          "expectedSha256": "e75828a50e15fd599ec5198d2cb8ca5acf46c6f0a3c42efcafaece5b22675537",
+          "servedSha256": "e75828a50e15fd599ec5198d2cb8ca5acf46c6f0a3c42efcafaece5b22675537",
+          "bytes": 571332,
+          "matches": true,
+          "mainTreeSha256": "e75828a50e15fd599ec5198d2cb8ca5acf46c6f0a3c42efcafaece5b22675537",
+          "buildOutputSha256": "e75828a50e15fd599ec5198d2cb8ca5acf46c6f0a3c42efcafaece5b22675537",
+          "transformedByVite": false
+        },
+        {
+          "id": "standard-20",
+          "kind": "battle",
+          "path": "/pet-models/warfront-lod/roster/standard-20.glb",
+          "expectedSha256": "ecb5b331a049ffc9f5740bd20ae11301ec6fed05fd844305a1eb84ab23f707ea",
+          "servedSha256": "ecb5b331a049ffc9f5740bd20ae11301ec6fed05fd844305a1eb84ab23f707ea",
+          "bytes": 359928,
+          "matches": true,
+          "mainTreeSha256": "ecb5b331a049ffc9f5740bd20ae11301ec6fed05fd844305a1eb84ab23f707ea",
+          "buildOutputSha256": "ecb5b331a049ffc9f5740bd20ae11301ec6fed05fd844305a1eb84ab23f707ea",
+          "transformedByVite": false
+        }
+      ],
+      "browserRevisionTokens": [
+        {
+          "kind": "cacheBase",
+          "token": "20261015-independent-complete-face-v2",
+          "servedIn": {
+            "path": "/assets/c-DCmqrntL.js",
+            "sha256": "e51648400ff292f6ac35645cdf1800f70577128bfb477fbbd6af35fff1d1db8a",
+            "bytes": 16596
+          }
+        },
+        {
+          "kind": "lodToken",
+          "token": "-e75828a50e15-ecb5b331a049",
+          "servedIn": {
+            "path": "/assets/c-DM8qJak-.js",
+            "sha256": "025f89aab26ce8f1ff5b509086392f797740a43db812c1beccec09c2882d0ed8",
+            "bytes": 10594
+          }
+        },
+        {
+          "kind": "atlasToken",
+          "token": "75f44169499b",
+          "servedIn": {
+            "path": "/assets/c-DGcdBaN4.js",
+            "sha256": "e2088e9e7afd4ca7ab056c5efce40444c9c50f415f1894a1cd7ff810aa5e9e43",
+            "bytes": 109369
+          }
+        }
+      ]
+    },
+    {
+      "id": "standard-21",
+      "expectedPinsMatchCurrentMain": true,
+      "assets": [
+        {
+          "id": "standard-21",
+          "kind": "source",
+          "path": "/pet-models/roster/standard-21.glb",
+          "expectedSha256": "562ea00a6ef177be8fce3cf447cfba0c360219916ee1ff944f7283563406bbd6",
+          "servedSha256": "562ea00a6ef177be8fce3cf447cfba0c360219916ee1ff944f7283563406bbd6",
+          "bytes": 745704,
+          "matches": true,
+          "mainTreeSha256": "562ea00a6ef177be8fce3cf447cfba0c360219916ee1ff944f7283563406bbd6",
+          "buildOutputSha256": "562ea00a6ef177be8fce3cf447cfba0c360219916ee1ff944f7283563406bbd6",
+          "transformedByVite": false
+        },
+        {
+          "id": "standard-21",
+          "kind": "battle",
+          "path": "/pet-models/warfront-lod/roster/standard-21.glb",
+          "expectedSha256": "bba798426a7d658350257b0ad1b682f7f57dc90ef57e36785f0542ec05d50b74",
+          "servedSha256": "bba798426a7d658350257b0ad1b682f7f57dc90ef57e36785f0542ec05d50b74",
+          "bytes": 464312,
+          "matches": true,
+          "mainTreeSha256": "bba798426a7d658350257b0ad1b682f7f57dc90ef57e36785f0542ec05d50b74",
+          "buildOutputSha256": "bba798426a7d658350257b0ad1b682f7f57dc90ef57e36785f0542ec05d50b74",
+          "transformedByVite": false
+        },
+        {
+          "id": "standard-21",
+          "kind": "atlas",
+          "path": "/pet-models/warfront-impostors/roster/standard-21.webp",
+          "expectedSha256": "b12f79fffda4923ffff2a7f387b90602328709e5f624e997baff135f52ea3a89",
+          "servedSha256": "b12f79fffda4923ffff2a7f387b90602328709e5f624e997baff135f52ea3a89",
+          "bytes": 129224,
+          "matches": true,
+          "mainTreeSha256": "b12f79fffda4923ffff2a7f387b90602328709e5f624e997baff135f52ea3a89",
+          "buildOutputSha256": "b12f79fffda4923ffff2a7f387b90602328709e5f624e997baff135f52ea3a89",
+          "transformedByVite": false
+        }
+      ],
+      "browserRevisionTokens": [
+        {
+          "kind": "cacheBase",
+          "token": "20261015-independent-complete-face-v2",
+          "servedIn": {
+            "path": "/assets/c-DCmqrntL.js",
+            "sha256": "e51648400ff292f6ac35645cdf1800f70577128bfb477fbbd6af35fff1d1db8a",
+            "bytes": 16596
+          }
+        },
+        {
+          "kind": "lodToken",
+          "token": "-562ea00a6ef1-bba798426a7d",
+          "servedIn": {
+            "path": "/assets/c-DM8qJak-.js",
+            "sha256": "025f89aab26ce8f1ff5b509086392f797740a43db812c1beccec09c2882d0ed8",
+            "bytes": 10594
+          }
+        },
+        {
+          "kind": "atlasToken",
+          "token": "b12f79fffda4",
+          "servedIn": {
+            "path": "/assets/c-DGcdBaN4.js",
+            "sha256": "e2088e9e7afd4ca7ab056c5efce40444c9c50f415f1894a1cd7ff810aa5e9e43",
+            "bytes": 109369
+          }
+        }
+      ]
+    },
+    {
+      "id": "standard-22",
+      "expectedPinsMatchCurrentMain": true,
+      "assets": [
+        {
+          "id": "standard-22",
+          "kind": "atlas",
+          "path": "/pet-models/warfront-impostors/roster/standard-22.webp",
+          "expectedSha256": "f75e0fad7e18bcef5a12cef7a88baaefe48cdf2875d836df6d72a14836eafe01",
+          "servedSha256": "f75e0fad7e18bcef5a12cef7a88baaefe48cdf2875d836df6d72a14836eafe01",
+          "bytes": 126388,
+          "matches": true,
+          "mainTreeSha256": "f75e0fad7e18bcef5a12cef7a88baaefe48cdf2875d836df6d72a14836eafe01",
+          "buildOutputSha256": "f75e0fad7e18bcef5a12cef7a88baaefe48cdf2875d836df6d72a14836eafe01",
+          "transformedByVite": false
+        },
+        {
+          "id": "standard-22",
+          "kind": "battle",
+          "path": "/pet-models/warfront-lod/roster/standard-22.glb",
+          "expectedSha256": "71d8a858f46c2e9358f12e924b7bd02b6c6735d6328750682bb8311260d505f9",
+          "servedSha256": "71d8a858f46c2e9358f12e924b7bd02b6c6735d6328750682bb8311260d505f9",
+          "bytes": 380680,
+          "matches": true,
+          "mainTreeSha256": "71d8a858f46c2e9358f12e924b7bd02b6c6735d6328750682bb8311260d505f9",
+          "buildOutputSha256": "71d8a858f46c2e9358f12e924b7bd02b6c6735d6328750682bb8311260d505f9",
+          "transformedByVite": false
+        },
+        {
+          "id": "standard-22",
+          "kind": "source",
+          "path": "/pet-models/roster/standard-22.glb",
+          "expectedSha256": "b16f46c23ed57a70cda94a4b392532182a01902588d3981691ca2c5c9a8cafd7",
+          "servedSha256": "b16f46c23ed57a70cda94a4b392532182a01902588d3981691ca2c5c9a8cafd7",
+          "bytes": 609372,
+          "matches": true,
+          "mainTreeSha256": "b16f46c23ed57a70cda94a4b392532182a01902588d3981691ca2c5c9a8cafd7",
+          "buildOutputSha256": "b16f46c23ed57a70cda94a4b392532182a01902588d3981691ca2c5c9a8cafd7",
+          "transformedByVite": false
+        }
+      ],
+      "browserRevisionTokens": [
+        {
+          "kind": "cacheBase",
+          "token": "20261014-reviewed-skull-v1",
+          "servedIn": {
+            "path": "/assets/c-DCmqrntL.js",
+            "sha256": "e51648400ff292f6ac35645cdf1800f70577128bfb477fbbd6af35fff1d1db8a",
+            "bytes": 16596
+          }
+        },
+        {
+          "kind": "lodToken",
+          "token": "-b16f46c23ed5-71d8a858f46c",
+          "servedIn": {
+            "path": "/assets/c-DM8qJak-.js",
+            "sha256": "025f89aab26ce8f1ff5b509086392f797740a43db812c1beccec09c2882d0ed8",
+            "bytes": 10594
+          }
+        },
+        {
+          "kind": "atlasToken",
+          "token": "f75e0fad7e18",
+          "servedIn": {
+            "path": "/assets/c-DGcdBaN4.js",
+            "sha256": "e2088e9e7afd4ca7ab056c5efce40444c9c50f415f1894a1cd7ff810aa5e9e43",
+            "bytes": 109369
+          }
+        }
+      ]
+    },
+    {
+      "id": "standard-38",
+      "expectedPinsMatchCurrentMain": true,
+      "assets": [
+        {
+          "id": "standard-38",
+          "kind": "source",
+          "path": "/pet-models/roster/standard-38.glb",
+          "expectedSha256": "4734095c9c9e07d5c327d553cfbc6fb6b61c56d3c84bd1dcb7c1316728d7d7ff",
+          "servedSha256": "4734095c9c9e07d5c327d553cfbc6fb6b61c56d3c84bd1dcb7c1316728d7d7ff",
+          "bytes": 561704,
+          "matches": true,
+          "mainTreeSha256": "4734095c9c9e07d5c327d553cfbc6fb6b61c56d3c84bd1dcb7c1316728d7d7ff",
+          "buildOutputSha256": "4734095c9c9e07d5c327d553cfbc6fb6b61c56d3c84bd1dcb7c1316728d7d7ff",
+          "transformedByVite": false
+        },
+        {
+          "id": "standard-38",
+          "kind": "atlas",
+          "path": "/pet-models/warfront-impostors/roster/standard-38.webp",
+          "expectedSha256": "3c2891c495c5384126354d8451b2b0aab1e3cc131639e1f6a7b9455a99ac8250",
+          "servedSha256": "3c2891c495c5384126354d8451b2b0aab1e3cc131639e1f6a7b9455a99ac8250",
+          "bytes": 55102,
+          "matches": true,
+          "mainTreeSha256": "3c2891c495c5384126354d8451b2b0aab1e3cc131639e1f6a7b9455a99ac8250",
+          "buildOutputSha256": "3c2891c495c5384126354d8451b2b0aab1e3cc131639e1f6a7b9455a99ac8250",
+          "transformedByVite": false
+        },
+        {
+          "id": "standard-38",
+          "kind": "battle",
+          "path": "/pet-models/warfront-lod/roster/standard-38.glb",
+          "expectedSha256": "15d539ead2eec23af524b865039c6d15c6103c73f30897a0ea20537918dcb17e",
+          "servedSha256": "15d539ead2eec23af524b865039c6d15c6103c73f30897a0ea20537918dcb17e",
+          "bytes": 353992,
+          "matches": true,
+          "mainTreeSha256": "15d539ead2eec23af524b865039c6d15c6103c73f30897a0ea20537918dcb17e",
+          "buildOutputSha256": "15d539ead2eec23af524b865039c6d15c6103c73f30897a0ea20537918dcb17e",
+          "transformedByVite": false
+        }
+      ],
+      "browserRevisionTokens": [
+        {
+          "kind": "cacheBase",
+          "token": "20261015-independent-complete-face-v2",
+          "servedIn": {
+            "path": "/assets/c-DCmqrntL.js",
+            "sha256": "e51648400ff292f6ac35645cdf1800f70577128bfb477fbbd6af35fff1d1db8a",
+            "bytes": 16596
+          }
+        },
+        {
+          "kind": "lodToken",
+          "token": "-4734095c9c9e-15d539ead2ee",
+          "servedIn": {
+            "path": "/assets/c-DM8qJak-.js",
+            "sha256": "025f89aab26ce8f1ff5b509086392f797740a43db812c1beccec09c2882d0ed8",
+            "bytes": 10594
+          }
+        },
+        {
+          "kind": "atlasToken",
+          "token": "3c2891c495c5",
+          "servedIn": {
+            "path": "/assets/c-DGcdBaN4.js",
+            "sha256": "e2088e9e7afd4ca7ab056c5efce40444c9c50f415f1894a1cd7ff810aa5e9e43",
+            "bytes": 109369
+          }
+        }
+      ]
+    },
+    {
+      "id": "standard-40",
+      "expectedPinsMatchCurrentMain": true,
+      "assets": [
+        {
+          "id": "standard-40",
+          "kind": "atlas",
+          "path": "/pet-models/warfront-impostors/roster/standard-40.webp",
+          "expectedSha256": "0d7c58b7997fbd696434feeb46aa5f85c8a2746591464e58b1ecc2c70f1e6679",
+          "servedSha256": "0d7c58b7997fbd696434feeb46aa5f85c8a2746591464e58b1ecc2c70f1e6679",
+          "bytes": 71774,
+          "matches": true,
+          "mainTreeSha256": "0d7c58b7997fbd696434feeb46aa5f85c8a2746591464e58b1ecc2c70f1e6679",
+          "buildOutputSha256": "0d7c58b7997fbd696434feeb46aa5f85c8a2746591464e58b1ecc2c70f1e6679",
+          "transformedByVite": false
+        },
+        {
+          "id": "standard-40",
+          "kind": "source",
+          "path": "/pet-models/roster/standard-40.glb",
+          "expectedSha256": "0f282a23ebd75b4a14932dd078a6707951cf9e1f4237de18da12c2f2c1648f1e",
+          "servedSha256": "0f282a23ebd75b4a14932dd078a6707951cf9e1f4237de18da12c2f2c1648f1e",
+          "bytes": 601276,
+          "matches": true,
+          "mainTreeSha256": "0f282a23ebd75b4a14932dd078a6707951cf9e1f4237de18da12c2f2c1648f1e",
+          "buildOutputSha256": "0f282a23ebd75b4a14932dd078a6707951cf9e1f4237de18da12c2f2c1648f1e",
+          "transformedByVite": false
+        },
+        {
+          "id": "standard-40",
+          "kind": "battle",
+          "path": "/pet-models/warfront-lod/roster/standard-40.glb",
+          "expectedSha256": "798dd53583535e92f131359b49e1bfb742acbbd488a1931f56e8b7e5eda9ea20",
+          "servedSha256": "798dd53583535e92f131359b49e1bfb742acbbd488a1931f56e8b7e5eda9ea20",
+          "bytes": 378464,
+          "matches": true,
+          "mainTreeSha256": "798dd53583535e92f131359b49e1bfb742acbbd488a1931f56e8b7e5eda9ea20",
+          "buildOutputSha256": "798dd53583535e92f131359b49e1bfb742acbbd488a1931f56e8b7e5eda9ea20",
+          "transformedByVite": false
+        }
+      ],
+      "browserRevisionTokens": [
+        {
+          "kind": "cacheBase",
+          "token": "20261015-independent-complete-face-v2",
+          "servedIn": {
+            "path": "/assets/c-DCmqrntL.js",
+            "sha256": "e51648400ff292f6ac35645cdf1800f70577128bfb477fbbd6af35fff1d1db8a",
+            "bytes": 16596
+          }
+        },
+        {
+          "kind": "lodToken",
+          "token": "-0f282a23ebd7-798dd5358353",
+          "servedIn": {
+            "path": "/assets/c-DM8qJak-.js",
+            "sha256": "025f89aab26ce8f1ff5b509086392f797740a43db812c1beccec09c2882d0ed8",
+            "bytes": 10594
+          }
+        },
+        {
+          "kind": "atlasToken",
+          "token": "0d7c58b7997f",
+          "servedIn": {
+            "path": "/assets/c-DGcdBaN4.js",
+            "sha256": "e2088e9e7afd4ca7ab056c5efce40444c9c50f415f1894a1cd7ff810aa5e9e43",
+            "bytes": 109369
+          }
+        }
+      ]
+    },
+    {
+      "id": "standard-41",
+      "expectedPinsMatchCurrentMain": true,
+      "assets": [
+        {
+          "id": "standard-41",
+          "kind": "atlas",
+          "path": "/pet-models/warfront-impostors/roster/standard-41.webp",
+          "expectedSha256": "8affb8c019625a0040e884e259529002e84870a827ce70c416b728a6a955fe92",
+          "servedSha256": "8affb8c019625a0040e884e259529002e84870a827ce70c416b728a6a955fe92",
+          "bytes": 55868,
+          "matches": true,
+          "mainTreeSha256": "8affb8c019625a0040e884e259529002e84870a827ce70c416b728a6a955fe92",
+          "buildOutputSha256": "8affb8c019625a0040e884e259529002e84870a827ce70c416b728a6a955fe92",
+          "transformedByVite": false
+        },
+        {
+          "id": "standard-41",
+          "kind": "source",
+          "path": "/pet-models/roster/standard-41.glb",
+          "expectedSha256": "84d61cd8c9dc415b57edc25bf1060797cab1e5fcfd37e13c8516f15811bfdd1c",
+          "servedSha256": "84d61cd8c9dc415b57edc25bf1060797cab1e5fcfd37e13c8516f15811bfdd1c",
+          "bytes": 576888,
+          "matches": true,
+          "mainTreeSha256": "84d61cd8c9dc415b57edc25bf1060797cab1e5fcfd37e13c8516f15811bfdd1c",
+          "buildOutputSha256": "84d61cd8c9dc415b57edc25bf1060797cab1e5fcfd37e13c8516f15811bfdd1c",
+          "transformedByVite": false
+        },
+        {
+          "id": "standard-41",
+          "kind": "battle",
+          "path": "/pet-models/warfront-lod/roster/standard-41.glb",
+          "expectedSha256": "ac0b0cccbd634a08c47d71c8dcb1b5155c13b5f1b65b32fd0aaf129ae33c5824",
+          "servedSha256": "ac0b0cccbd634a08c47d71c8dcb1b5155c13b5f1b65b32fd0aaf129ae33c5824",
+          "bytes": 366928,
+          "matches": true,
+          "mainTreeSha256": "ac0b0cccbd634a08c47d71c8dcb1b5155c13b5f1b65b32fd0aaf129ae33c5824",
+          "buildOutputSha256": "ac0b0cccbd634a08c47d71c8dcb1b5155c13b5f1b65b32fd0aaf129ae33c5824",
+          "transformedByVite": false
+        }
+      ],
+      "browserRevisionTokens": [
+        {
+          "kind": "cacheBase",
+          "token": "20261015-independent-complete-face-v2",
+          "servedIn": {
+            "path": "/assets/c-DCmqrntL.js",
+            "sha256": "e51648400ff292f6ac35645cdf1800f70577128bfb477fbbd6af35fff1d1db8a",
+            "bytes": 16596
+          }
+        },
+        {
+          "kind": "lodToken",
+          "token": "-84d61cd8c9dc-ac0b0cccbd63",
+          "servedIn": {
+            "path": "/assets/c-DM8qJak-.js",
+            "sha256": "025f89aab26ce8f1ff5b509086392f797740a43db812c1beccec09c2882d0ed8",
+            "bytes": 10594
+          }
+        },
+        {
+          "kind": "atlasToken",
+          "token": "8affb8c01962",
+          "servedIn": {
+            "path": "/assets/c-DGcdBaN4.js",
+            "sha256": "e2088e9e7afd4ca7ab056c5efce40444c9c50f415f1894a1cd7ff810aa5e9e43",
+            "bytes": 109369
+          }
+        }
+      ]
+    },
+    {
+      "id": "standard-42",
+      "expectedPinsMatchCurrentMain": true,
+      "assets": [
+        {
+          "id": "standard-42",
+          "kind": "atlas",
+          "path": "/pet-models/warfront-impostors/roster/standard-42.webp",
+          "expectedSha256": "b339f75cdae8d91a503eff7c542385997856a8f6ede493319ee00ab04e04857e",
+          "servedSha256": "b339f75cdae8d91a503eff7c542385997856a8f6ede493319ee00ab04e04857e",
+          "bytes": 76260,
+          "matches": true,
+          "mainTreeSha256": "b339f75cdae8d91a503eff7c542385997856a8f6ede493319ee00ab04e04857e",
+          "buildOutputSha256": "b339f75cdae8d91a503eff7c542385997856a8f6ede493319ee00ab04e04857e",
+          "transformedByVite": false
+        },
+        {
+          "id": "standard-42",
+          "kind": "battle",
+          "path": "/pet-models/warfront-lod/roster/standard-42.glb",
+          "expectedSha256": "785b58627bb41949ec037af7d673f4b11d440521caa6293d3e19d53442bf17d3",
+          "servedSha256": "785b58627bb41949ec037af7d673f4b11d440521caa6293d3e19d53442bf17d3",
+          "bytes": 358648,
+          "matches": true,
+          "mainTreeSha256": "785b58627bb41949ec037af7d673f4b11d440521caa6293d3e19d53442bf17d3",
+          "buildOutputSha256": "785b58627bb41949ec037af7d673f4b11d440521caa6293d3e19d53442bf17d3",
+          "transformedByVite": false
+        },
+        {
+          "id": "standard-42",
+          "kind": "source",
+          "path": "/pet-models/roster/standard-42.glb",
+          "expectedSha256": "e9dbff6f68558e37137de3b614a452cf3c144cf6dcd73951407e2a89b382ab09",
+          "servedSha256": "e9dbff6f68558e37137de3b614a452cf3c144cf6dcd73951407e2a89b382ab09",
+          "bytes": 567144,
+          "matches": true,
+          "mainTreeSha256": "e9dbff6f68558e37137de3b614a452cf3c144cf6dcd73951407e2a89b382ab09",
+          "buildOutputSha256": "e9dbff6f68558e37137de3b614a452cf3c144cf6dcd73951407e2a89b382ab09",
+          "transformedByVite": false
+        }
+      ],
+      "browserRevisionTokens": [
+        {
+          "kind": "cacheBase",
+          "token": "20261015-independent-complete-face-v2",
+          "servedIn": {
+            "path": "/assets/c-DCmqrntL.js",
+            "sha256": "e51648400ff292f6ac35645cdf1800f70577128bfb477fbbd6af35fff1d1db8a",
+            "bytes": 16596
+          }
+        },
+        {
+          "kind": "lodToken",
+          "token": "-e9dbff6f6855-785b58627bb4",
+          "servedIn": {
+            "path": "/assets/c-DM8qJak-.js",
+            "sha256": "025f89aab26ce8f1ff5b509086392f797740a43db812c1beccec09c2882d0ed8",
+            "bytes": 10594
+          }
+        },
+        {
+          "kind": "atlasToken",
+          "token": "b339f75cdae8",
+          "servedIn": {
+            "path": "/assets/c-DGcdBaN4.js",
+            "sha256": "e2088e9e7afd4ca7ab056c5efce40444c9c50f415f1894a1cd7ff810aa5e9e43",
+            "bytes": 109369
+          }
+        }
+      ]
+    },
+    {
+      "id": "standard-43",
+      "expectedPinsMatchCurrentMain": true,
+      "assets": [
+        {
+          "id": "standard-43",
+          "kind": "atlas",
+          "path": "/pet-models/warfront-impostors/roster/standard-43.webp",
+          "expectedSha256": "b935c9ab970ecf774cf4c9b6fe2c23a4122cbaceea4a8e077a730dce4af092f7",
+          "servedSha256": "b935c9ab970ecf774cf4c9b6fe2c23a4122cbaceea4a8e077a730dce4af092f7",
+          "bytes": 70490,
+          "matches": true,
+          "mainTreeSha256": "b935c9ab970ecf774cf4c9b6fe2c23a4122cbaceea4a8e077a730dce4af092f7",
+          "buildOutputSha256": "b935c9ab970ecf774cf4c9b6fe2c23a4122cbaceea4a8e077a730dce4af092f7",
+          "transformedByVite": false
+        },
+        {
+          "id": "standard-43",
+          "kind": "source",
+          "path": "/pet-models/roster/standard-43.glb",
+          "expectedSha256": "90eff515d44a535f5654480e03891ace66f61773f76cff74cce02f549e386d7c",
+          "servedSha256": "90eff515d44a535f5654480e03891ace66f61773f76cff74cce02f549e386d7c",
+          "bytes": 621392,
+          "matches": true,
+          "mainTreeSha256": "90eff515d44a535f5654480e03891ace66f61773f76cff74cce02f549e386d7c",
+          "buildOutputSha256": "90eff515d44a535f5654480e03891ace66f61773f76cff74cce02f549e386d7c",
+          "transformedByVite": false
+        },
+        {
+          "id": "standard-43",
+          "kind": "battle",
+          "path": "/pet-models/warfront-lod/roster/standard-43.glb",
+          "expectedSha256": "0bbc9092608077b2ba080116bcd52122425d84ad91d3ca86ee02d014acb53f8d",
+          "servedSha256": "0bbc9092608077b2ba080116bcd52122425d84ad91d3ca86ee02d014acb53f8d",
+          "bytes": 392696,
+          "matches": true,
+          "mainTreeSha256": "0bbc9092608077b2ba080116bcd52122425d84ad91d3ca86ee02d014acb53f8d",
+          "buildOutputSha256": "0bbc9092608077b2ba080116bcd52122425d84ad91d3ca86ee02d014acb53f8d",
+          "transformedByVite": false
+        }
+      ],
+      "browserRevisionTokens": [
+        {
+          "kind": "cacheBase",
+          "token": "20261015-independent-complete-face-v2",
+          "servedIn": {
+            "path": "/assets/c-DCmqrntL.js",
+            "sha256": "e51648400ff292f6ac35645cdf1800f70577128bfb477fbbd6af35fff1d1db8a",
+            "bytes": 16596
+          }
+        },
+        {
+          "kind": "lodToken",
+          "token": "-90eff515d44a-0bbc90926080",
+          "servedIn": {
+            "path": "/assets/c-DM8qJak-.js",
+            "sha256": "025f89aab26ce8f1ff5b509086392f797740a43db812c1beccec09c2882d0ed8",
+            "bytes": 10594
+          }
+        },
+        {
+          "kind": "atlasToken",
+          "token": "b935c9ab970e",
+          "servedIn": {
+            "path": "/assets/c-DGcdBaN4.js",
+            "sha256": "e2088e9e7afd4ca7ab056c5efce40444c9c50f415f1894a1cd7ff810aa5e9e43",
+            "bytes": 109369
+          }
+        }
+      ]
+    },
+    {
+      "id": "standard-44",
+      "expectedPinsMatchCurrentMain": true,
+      "assets": [
+        {
+          "id": "standard-44",
+          "kind": "atlas",
+          "path": "/pet-models/warfront-impostors/roster/standard-44.webp",
+          "expectedSha256": "4725d4ef6189747b0a19c845ee4c6f84f605f427c448bebb78966f0ea291fe80",
+          "servedSha256": "4725d4ef6189747b0a19c845ee4c6f84f605f427c448bebb78966f0ea291fe80",
+          "bytes": 75876,
+          "matches": true,
+          "mainTreeSha256": "4725d4ef6189747b0a19c845ee4c6f84f605f427c448bebb78966f0ea291fe80",
+          "buildOutputSha256": "4725d4ef6189747b0a19c845ee4c6f84f605f427c448bebb78966f0ea291fe80",
+          "transformedByVite": false
+        },
+        {
+          "id": "standard-44",
+          "kind": "battle",
+          "path": "/pet-models/warfront-lod/roster/standard-44.glb",
+          "expectedSha256": "4fe79be769dbd22400cd888557b3438a259770dda22aee444ed389b899221e66",
+          "servedSha256": "4fe79be769dbd22400cd888557b3438a259770dda22aee444ed389b899221e66",
+          "bytes": 349780,
+          "matches": true,
+          "mainTreeSha256": "4fe79be769dbd22400cd888557b3438a259770dda22aee444ed389b899221e66",
+          "buildOutputSha256": "4fe79be769dbd22400cd888557b3438a259770dda22aee444ed389b899221e66",
+          "transformedByVite": false
+        },
+        {
+          "id": "standard-44",
+          "kind": "source",
+          "path": "/pet-models/roster/standard-44.glb",
+          "expectedSha256": "5ca40b90282e0284454c14bba5796f0306c6fa974d6f8ce14e602d7f4d912781",
+          "servedSha256": "5ca40b90282e0284454c14bba5796f0306c6fa974d6f8ce14e602d7f4d912781",
+          "bytes": 550924,
+          "matches": true,
+          "mainTreeSha256": "5ca40b90282e0284454c14bba5796f0306c6fa974d6f8ce14e602d7f4d912781",
+          "buildOutputSha256": "5ca40b90282e0284454c14bba5796f0306c6fa974d6f8ce14e602d7f4d912781",
+          "transformedByVite": false
+        }
+      ],
+      "browserRevisionTokens": [
+        {
+          "kind": "cacheBase",
+          "token": "20261015-independent-complete-face-v2",
+          "servedIn": {
+            "path": "/assets/c-DCmqrntL.js",
+            "sha256": "e51648400ff292f6ac35645cdf1800f70577128bfb477fbbd6af35fff1d1db8a",
+            "bytes": 16596
+          }
+        },
+        {
+          "kind": "lodToken",
+          "token": "-5ca40b90282e-4fe79be769db",
+          "servedIn": {
+            "path": "/assets/c-DM8qJak-.js",
+            "sha256": "025f89aab26ce8f1ff5b509086392f797740a43db812c1beccec09c2882d0ed8",
+            "bytes": 10594
+          }
+        },
+        {
+          "kind": "atlasToken",
+          "token": "4725d4ef6189",
+          "servedIn": {
+            "path": "/assets/c-DGcdBaN4.js",
+            "sha256": "e2088e9e7afd4ca7ab056c5efce40444c9c50f415f1894a1cd7ff810aa5e9e43",
+            "bytes": 109369
+          }
+        }
+      ]
+    },
+    {
+      "id": "standard-45",
+      "expectedPinsMatchCurrentMain": true,
+      "assets": [
+        {
+          "id": "standard-45",
+          "kind": "atlas",
+          "path": "/pet-models/warfront-impostors/roster/standard-45.webp",
+          "expectedSha256": "8d827853db983dc0ae25b17a27d0d0ce196829055b0354a76956af3ff02ee18b",
+          "servedSha256": "8d827853db983dc0ae25b17a27d0d0ce196829055b0354a76956af3ff02ee18b",
+          "bytes": 97032,
+          "matches": true,
+          "mainTreeSha256": "8d827853db983dc0ae25b17a27d0d0ce196829055b0354a76956af3ff02ee18b",
+          "buildOutputSha256": "8d827853db983dc0ae25b17a27d0d0ce196829055b0354a76956af3ff02ee18b",
+          "transformedByVite": false
+        },
+        {
+          "id": "standard-45",
+          "kind": "battle",
+          "path": "/pet-models/warfront-lod/roster/standard-45.glb",
+          "expectedSha256": "6874aeb91572044562a6c61eb85012189f41ed3d9ba5f29d00724cf26060266d",
+          "servedSha256": "6874aeb91572044562a6c61eb85012189f41ed3d9ba5f29d00724cf26060266d",
+          "bytes": 345700,
+          "matches": true,
+          "mainTreeSha256": "6874aeb91572044562a6c61eb85012189f41ed3d9ba5f29d00724cf26060266d",
+          "buildOutputSha256": "6874aeb91572044562a6c61eb85012189f41ed3d9ba5f29d00724cf26060266d",
+          "transformedByVite": false
+        },
+        {
+          "id": "standard-45",
+          "kind": "source",
+          "path": "/pet-models/roster/standard-45.glb",
+          "expectedSha256": "c15bbee64fcc61e983682f5598f09166bdf0156f68bfea2245f5be0f5d0606d1",
+          "servedSha256": "c15bbee64fcc61e983682f5598f09166bdf0156f68bfea2245f5be0f5d0606d1",
+          "bytes": 553004,
+          "matches": true,
+          "mainTreeSha256": "c15bbee64fcc61e983682f5598f09166bdf0156f68bfea2245f5be0f5d0606d1",
+          "buildOutputSha256": "c15bbee64fcc61e983682f5598f09166bdf0156f68bfea2245f5be0f5d0606d1",
+          "transformedByVite": false
+        }
+      ],
+      "browserRevisionTokens": [
+        {
+          "kind": "cacheBase",
+          "token": "20261015-independent-complete-face-v2",
+          "servedIn": {
+            "path": "/assets/c-DCmqrntL.js",
+            "sha256": "e51648400ff292f6ac35645cdf1800f70577128bfb477fbbd6af35fff1d1db8a",
+            "bytes": 16596
+          }
+        },
+        {
+          "kind": "lodToken",
+          "token": "-c15bbee64fcc-6874aeb91572",
+          "servedIn": {
+            "path": "/assets/c-DM8qJak-.js",
+            "sha256": "025f89aab26ce8f1ff5b509086392f797740a43db812c1beccec09c2882d0ed8",
+            "bytes": 10594
+          }
+        },
+        {
+          "kind": "atlasToken",
+          "token": "8d827853db98",
+          "servedIn": {
+            "path": "/assets/c-DGcdBaN4.js",
+            "sha256": "e2088e9e7afd4ca7ab056c5efce40444c9c50f415f1894a1cd7ff810aa5e9e43",
+            "bytes": 109369
+          }
+        }
+      ]
+    },
+    {
+      "id": "standard-46",
+      "expectedPinsMatchCurrentMain": true,
+      "assets": [
+        {
+          "id": "standard-46",
+          "kind": "source",
+          "path": "/pet-models/roster/standard-46.glb",
+          "expectedSha256": "1632e696f813337726a590624db235b74c5515ae52d4cfce03fb4d2d278c006e",
+          "servedSha256": "1632e696f813337726a590624db235b74c5515ae52d4cfce03fb4d2d278c006e",
+          "bytes": 672796,
+          "matches": true,
+          "mainTreeSha256": "1632e696f813337726a590624db235b74c5515ae52d4cfce03fb4d2d278c006e",
+          "buildOutputSha256": "1632e696f813337726a590624db235b74c5515ae52d4cfce03fb4d2d278c006e",
+          "transformedByVite": false
+        },
+        {
+          "id": "standard-46",
+          "kind": "atlas",
+          "path": "/pet-models/warfront-impostors/roster/standard-46.webp",
+          "expectedSha256": "ab87763b8729efc773d0b453c2d5d2b7d99b4b27700e42bbd3b3cef0fd431198",
+          "servedSha256": "ab87763b8729efc773d0b453c2d5d2b7d99b4b27700e42bbd3b3cef0fd431198",
+          "bytes": 91658,
+          "matches": true,
+          "mainTreeSha256": "ab87763b8729efc773d0b453c2d5d2b7d99b4b27700e42bbd3b3cef0fd431198",
+          "buildOutputSha256": "ab87763b8729efc773d0b453c2d5d2b7d99b4b27700e42bbd3b3cef0fd431198",
+          "transformedByVite": false
+        },
+        {
+          "id": "standard-46",
+          "kind": "battle",
+          "path": "/pet-models/warfront-lod/roster/standard-46.glb",
+          "expectedSha256": "3fafd3cc440d1e35a9dd577740b84dab6014356829510a2ae51779fcf1d38b72",
+          "servedSha256": "3fafd3cc440d1e35a9dd577740b84dab6014356829510a2ae51779fcf1d38b72",
+          "bytes": 417612,
+          "matches": true,
+          "mainTreeSha256": "3fafd3cc440d1e35a9dd577740b84dab6014356829510a2ae51779fcf1d38b72",
+          "buildOutputSha256": "3fafd3cc440d1e35a9dd577740b84dab6014356829510a2ae51779fcf1d38b72",
+          "transformedByVite": false
+        }
+      ],
+      "browserRevisionTokens": [
+        {
+          "kind": "cacheBase",
+          "token": "20261015-independent-complete-face-v2",
+          "servedIn": {
+            "path": "/assets/c-DCmqrntL.js",
+            "sha256": "e51648400ff292f6ac35645cdf1800f70577128bfb477fbbd6af35fff1d1db8a",
+            "bytes": 16596
+          }
+        },
+        {
+          "kind": "lodToken",
+          "token": "-1632e696f813-3fafd3cc440d",
+          "servedIn": {
+            "path": "/assets/c-DM8qJak-.js",
+            "sha256": "025f89aab26ce8f1ff5b509086392f797740a43db812c1beccec09c2882d0ed8",
+            "bytes": 10594
+          }
+        },
+        {
+          "kind": "atlasToken",
+          "token": "ab87763b8729",
+          "servedIn": {
+            "path": "/assets/c-DGcdBaN4.js",
+            "sha256": "e2088e9e7afd4ca7ab056c5efce40444c9c50f415f1894a1cd7ff810aa5e9e43",
+            "bytes": 109369
+          }
+        }
+      ]
+    },
+    {
+      "id": "standard-7",
+      "expectedPinsMatchCurrentMain": true,
+      "assets": [
+        {
+          "id": "standard-7",
+          "kind": "atlas",
+          "path": "/pet-models/warfront-impostors/showdown-v2/standard-7.webp",
+          "expectedSha256": "d7eb1e6265c8cca1187da72cdea25b3381e3ca0464cb3df43c53e86a8ac62396",
+          "servedSha256": "d7eb1e6265c8cca1187da72cdea25b3381e3ca0464cb3df43c53e86a8ac62396",
+          "bytes": 74218,
+          "matches": true,
+          "mainTreeSha256": "d7eb1e6265c8cca1187da72cdea25b3381e3ca0464cb3df43c53e86a8ac62396",
+          "buildOutputSha256": "d7eb1e6265c8cca1187da72cdea25b3381e3ca0464cb3df43c53e86a8ac62396",
+          "transformedByVite": false
+        },
+        {
+          "id": "standard-7",
+          "kind": "source",
+          "path": "/pet-models/showdown-v2/standard-7.glb",
+          "expectedSha256": "d788580657ffefc1f9bf3b4efb672bf80cc7f11f3d5a6f32bddfe72196e022c1",
+          "servedSha256": "e9d6e35073c679a002caba96e463590dcad5ac700d7d31fd20132c09358db5ce",
+          "bytes": 630336,
+          "matches": true,
+          "mainTreeSha256": "d788580657ffefc1f9bf3b4efb672bf80cc7f11f3d5a6f32bddfe72196e022c1",
+          "buildOutputSha256": "e9d6e35073c679a002caba96e463590dcad5ac700d7d31fd20132c09358db5ce",
+          "transformedByVite": true
+        },
+        {
+          "id": "standard-7",
+          "kind": "battle",
+          "path": "/pet-models/warfront-lod/showdown-v2/standard-7.glb",
+          "expectedSha256": "b137ad29bb8111b94fef877ed54c332b3cd30c304b3fe78e28f577590b8be252",
+          "servedSha256": "c9c606fbdb3c06cfd02ce717780e0d59fcf0acabaffe377d4de0a1c02c376d82",
+          "bytes": 366452,
+          "matches": true,
+          "mainTreeSha256": "b137ad29bb8111b94fef877ed54c332b3cd30c304b3fe78e28f577590b8be252",
+          "buildOutputSha256": "c9c606fbdb3c06cfd02ce717780e0d59fcf0acabaffe377d4de0a1c02c376d82",
+          "transformedByVite": true
+        }
+      ],
+      "browserRevisionTokens": [
+        {
+          "kind": "cacheBase",
+          "token": "20261012-connected-weight-v2",
+          "servedIn": {
+            "path": "/assets/c-DCmqrntL.js",
+            "sha256": "e51648400ff292f6ac35645cdf1800f70577128bfb477fbbd6af35fff1d1db8a",
+            "bytes": 16596
+          }
+        },
+        {
+          "kind": "lodToken",
+          "token": "-d788580657ff-b137ad29bb81",
+          "servedIn": {
+            "path": "/assets/c-DM8qJak-.js",
+            "sha256": "025f89aab26ce8f1ff5b509086392f797740a43db812c1beccec09c2882d0ed8",
+            "bytes": 10594
+          }
+        },
+        {
+          "kind": "atlasToken",
+          "token": "d7eb1e6265c8",
+          "servedIn": {
+            "path": "/assets/c-DGcdBaN4.js",
+            "sha256": "e2088e9e7afd4ca7ab056c5efce40444c9c50f415f1894a1cd7ff810aa5e9e43",
+            "bytes": 109369
+          }
+        }
+      ]
+    },
+    {
+      "id": "standard-8",
+      "expectedPinsMatchCurrentMain": true,
+      "assets": [
+        {
+          "id": "standard-8",
+          "kind": "atlas",
+          "path": "/pet-models/warfront-impostors/roster/standard-8.webp",
+          "expectedSha256": "f8689425ff42418b78bc75a62939a78c7d395d34f6efe633a694714525234214",
+          "servedSha256": "f8689425ff42418b78bc75a62939a78c7d395d34f6efe633a694714525234214",
+          "bytes": 70326,
+          "matches": true,
+          "mainTreeSha256": "f8689425ff42418b78bc75a62939a78c7d395d34f6efe633a694714525234214",
+          "buildOutputSha256": "f8689425ff42418b78bc75a62939a78c7d395d34f6efe633a694714525234214",
+          "transformedByVite": false
+        },
+        {
+          "id": "standard-8",
+          "kind": "battle",
+          "path": "/pet-models/warfront-lod/roster/standard-8.glb",
+          "expectedSha256": "b11ccb6834a343279d9b5f93bdf95d148147993a627e96847685067ad3c4a13b",
+          "servedSha256": "b11ccb6834a343279d9b5f93bdf95d148147993a627e96847685067ad3c4a13b",
+          "bytes": 360404,
+          "matches": true,
+          "mainTreeSha256": "b11ccb6834a343279d9b5f93bdf95d148147993a627e96847685067ad3c4a13b",
+          "buildOutputSha256": "b11ccb6834a343279d9b5f93bdf95d148147993a627e96847685067ad3c4a13b",
+          "transformedByVite": false
+        },
+        {
+          "id": "standard-8",
+          "kind": "source",
+          "path": "/pet-models/roster/standard-8.glb",
+          "expectedSha256": "e8a46bcd978ff5dde961f5ae2be0faade27fa003dfcd02a46bae45fb6264b8da",
+          "servedSha256": "e8a46bcd978ff5dde961f5ae2be0faade27fa003dfcd02a46bae45fb6264b8da",
+          "bytes": 587588,
+          "matches": true,
+          "mainTreeSha256": "e8a46bcd978ff5dde961f5ae2be0faade27fa003dfcd02a46bae45fb6264b8da",
+          "buildOutputSha256": "e8a46bcd978ff5dde961f5ae2be0faade27fa003dfcd02a46bae45fb6264b8da",
+          "transformedByVite": false
+        }
+      ],
+      "browserRevisionTokens": [
+        {
+          "kind": "cacheBase",
+          "token": "20261014-reviewed-skull-v1",
+          "servedIn": {
+            "path": "/assets/c-DCmqrntL.js",
+            "sha256": "e51648400ff292f6ac35645cdf1800f70577128bfb477fbbd6af35fff1d1db8a",
+            "bytes": 16596
+          }
+        },
+        {
+          "kind": "lodToken",
+          "token": "-e8a46bcd978f-b11ccb6834a3",
+          "servedIn": {
+            "path": "/assets/c-DM8qJak-.js",
+            "sha256": "025f89aab26ce8f1ff5b509086392f797740a43db812c1beccec09c2882d0ed8",
+            "bytes": 10594
+          }
+        },
+        {
+          "kind": "atlasToken",
+          "token": "f8689425ff42",
+          "servedIn": {
+            "path": "/assets/c-DGcdBaN4.js",
+            "sha256": "e2088e9e7afd4ca7ab056c5efce40444c9c50f415f1894a1cd7ff810aa5e9e43",
+            "bytes": 109369
+          }
+        }
+      ]
+    },
+    {
+      "id": "standard-9",
+      "expectedPinsMatchCurrentMain": true,
+      "assets": [
+        {
+          "id": "standard-9",
+          "kind": "atlas",
+          "path": "/pet-models/warfront-impostors/roster/standard-9.webp",
+          "expectedSha256": "c498fb145846dd9bde2f66a550b2edfd158b17912975da0d77764ffb58e37f73",
+          "servedSha256": "c498fb145846dd9bde2f66a550b2edfd158b17912975da0d77764ffb58e37f73",
+          "bytes": 89620,
+          "matches": true,
+          "mainTreeSha256": "c498fb145846dd9bde2f66a550b2edfd158b17912975da0d77764ffb58e37f73",
+          "buildOutputSha256": "c498fb145846dd9bde2f66a550b2edfd158b17912975da0d77764ffb58e37f73",
+          "transformedByVite": false
+        },
+        {
+          "id": "standard-9",
+          "kind": "source",
+          "path": "/pet-models/roster/standard-9.glb",
+          "expectedSha256": "6a7661e9bc64e93caac543b8c186e496a6bb78ca364d1d9e8ce1e85862fe8653",
+          "servedSha256": "6a7661e9bc64e93caac543b8c186e496a6bb78ca364d1d9e8ce1e85862fe8653",
+          "bytes": 653840,
+          "matches": true,
+          "mainTreeSha256": "6a7661e9bc64e93caac543b8c186e496a6bb78ca364d1d9e8ce1e85862fe8653",
+          "buildOutputSha256": "6a7661e9bc64e93caac543b8c186e496a6bb78ca364d1d9e8ce1e85862fe8653",
+          "transformedByVite": false
+        },
+        {
+          "id": "standard-9",
+          "kind": "battle",
+          "path": "/pet-models/warfront-lod/roster/standard-9.glb",
+          "expectedSha256": "b3465e4bdaf25e0d8bccc085eaaea90ce06d70824ef3565126a5e763ea51a633",
+          "servedSha256": "b3465e4bdaf25e0d8bccc085eaaea90ce06d70824ef3565126a5e763ea51a633",
+          "bytes": 404732,
+          "matches": true,
+          "mainTreeSha256": "b3465e4bdaf25e0d8bccc085eaaea90ce06d70824ef3565126a5e763ea51a633",
+          "buildOutputSha256": "b3465e4bdaf25e0d8bccc085eaaea90ce06d70824ef3565126a5e763ea51a633",
+          "transformedByVite": false
+        }
+      ],
+      "browserRevisionTokens": [
+        {
+          "kind": "cacheBase",
+          "token": "20261015-independent-complete-face-v2",
+          "servedIn": {
+            "path": "/assets/c-DCmqrntL.js",
+            "sha256": "e51648400ff292f6ac35645cdf1800f70577128bfb477fbbd6af35fff1d1db8a",
+            "bytes": 16596
+          }
+        },
+        {
+          "kind": "lodToken",
+          "token": "-6a7661e9bc64-b3465e4bdaf2",
+          "servedIn": {
+            "path": "/assets/c-DM8qJak-.js",
+            "sha256": "025f89aab26ce8f1ff5b509086392f797740a43db812c1beccec09c2882d0ed8",
+            "bytes": 10594
+          }
+        },
+        {
+          "kind": "atlasToken",
+          "token": "c498fb145846",
+          "servedIn": {
+            "path": "/assets/c-DGcdBaN4.js",
+            "sha256": "e2088e9e7afd4ca7ab056c5efce40444c9c50f415f1894a1cd7ff810aa5e9e43",
+            "bytes": 109369
+          }
+        }
+      ]
+    }
+  ],
+  "servedClientScripts": [
+    {
+      "path": "/assets/c-hePW80VL.js",
+      "sha256": "580ad8c58061a4dde99bde0a56905e382f0568516ee2f5b84dbfb52085709021",
+      "bytes": 716
+    },
+    {
+      "path": "/assets/index-BZQnxY7C.js",
+      "sha256": "62ca7c1be82359da902f11a6908a8c5ccf2227a77696b2875a815d1793c56867",
+      "bytes": 535464
+    },
+    {
+      "path": "/assets/c-W_xu2FSk.js",
+      "sha256": "fcaa084f5bb18e575702fa1fe5828cd07315af5d5a475466172d9dc6edd76290",
+      "bytes": 37755
+    },
+    {
+      "path": "/boot-watchdog.js",
+      "sha256": "e580af41d51b8ae632de9ef40e618f03741f68d388cc94c1189f9a33f9dba695",
+      "bytes": 3067
+    },
+    {
+      "path": "/assets/c-CBXsahap.js",
+      "sha256": "4b1806e7e2ebe0b8acc951f148c2edf07b83b4d4675efb4233dd3dd0b9f3b81b",
+      "bytes": 2664
+    },
+    {
+      "path": "/assets/c-DF6Ke2J7.js",
+      "sha256": "2ab09b4e8fadcfb64dd4ea6935125a798b3042d19cafd66721b2d85b5848e81b",
+      "bytes": 772
+    },
+    {
+      "path": "/assets/react-vendor-DoaOaTqM.js",
+      "sha256": "e6e3a5e7ebd361dc032d7ec7034e274cbf60f7c5184f48079b5b50f4e7704160",
+      "bytes": 182250
+    },
+    {
+      "path": "/assets/c-Drw6srnJ.js",
+      "sha256": "1a32bc92cd6eaf95e97d937b93b59acc48df8507412e97f66e64a95d93ca9844",
+      "bytes": 214565
+    },
+    {
+      "path": "/assets/c-Ste8wcES.js",
+      "sha256": "c4083a1a92fb579f025f0be08dcfd4ac76f047be9f98b637ba5988bc9c0d0314",
+      "bytes": 1788
+    },
+    {
+      "path": "/assets/c-WwpI5OLZ.js",
+      "sha256": "7a493e5a1e9c54543b0e7061cea62ef00ecf5e0e30e936e634e9cdfa9e9c10d7",
+      "bytes": 3733
+    },
+    {
+      "path": "/assets/c-BY5ySMwS.js",
+      "sha256": "0a0385af7b4f8aad8c772fc8665eda8db1b654b961fc6bc3e915f41dfc04fef8",
+      "bytes": 434
+    },
+    {
+      "path": "/assets/c-BS7jil8a.js",
+      "sha256": "8481f3af3956eb6c066eaceac5653b95a5d723c9aa7aed3124ddc7d5ae9eecb7",
+      "bytes": 517
+    },
+    {
+      "path": "/assets/c-C1JCz7Ai.js",
+      "sha256": "eccb26a5b74e90f17d9a8aabca68f2699f0d0b4dd202d8fffa39c56e4acb76e6",
+      "bytes": 2256
+    },
+    {
+      "path": "/assets/c-BpAsvXXZ.js",
+      "sha256": "49990a6c813c9034870ae995ea0d4c6e067547aff42cf4dd0b0f8813545a9bd8",
+      "bytes": 1273
+    },
+    {
+      "path": "/assets/c-B6qMIi5P.js",
+      "sha256": "b702dad2895d372321e0d186009904bd3f82ad1a5ffe2dd5f42c66fafcd4af11",
+      "bytes": 6036
+    },
+    {
+      "path": "/assets/c-zUnXlNSq.js",
+      "sha256": "ec8d31040d68e5a8322d55451262a266ba75f2bdbac1d4bc0ef90d7cef05f386",
+      "bytes": 152
+    },
+    {
+      "path": "/assets/c-DuEn5Lj4.js",
+      "sha256": "74a76dc6f2bb3fb53bcd8bf2e3a97b275700ce9af6a32574ea742ac229cd9a7a",
+      "bytes": 1092
+    },
+    {
+      "path": "/assets/c-B7xNSrfe.js",
+      "sha256": "77e40c5c42ce1ad716a5421124c232aabd4d2a74ed0e18c430be75c7882780c8",
+      "bytes": 752
+    },
+    {
+      "path": "/assets/c-BGokGQSu.js",
+      "sha256": "b35e0b3a40a19b8e5c12730006def3a3a9aafb0216c8544adb3bd3037f8845fa",
+      "bytes": 1614
+    },
+    {
+      "path": "/assets/sentry-vendor-D9onDTwz.js",
+      "sha256": "c3ff2e2b04c4b97e7f94f8c41e3e51aacb42927bea02e1b45dcd4298c046bf7f",
+      "bytes": 84742
+    },
+    {
+      "path": "/assets/c-D0dfIpZ2.js",
+      "sha256": "d45f904ad6e089b501eab8d5203ace75a91138eec76ed68309bb4c8eb0b5411c",
+      "bytes": 6361
+    },
+    {
+      "path": "/assets/c-Br9pCBQ4.js",
+      "sha256": "6d9b70eb3d6515ff6b46b491d3c6bed0d7cda4521d428a4bcb3c14d4519c1233",
+      "bytes": 7550
+    },
+    {
+      "path": "/assets/c-1-sb2dY2.js",
+      "sha256": "50551574cc97632cb7925e7220af559150d7ddd477fd79756afb35f55508e8be",
+      "bytes": 2325
+    },
+    {
+      "path": "/assets/c-BMu2P2B5.js",
+      "sha256": "30c7bc2a353b751083bae6a5f4b462a11a638b880d1d974d9eda4800d42a9014",
+      "bytes": 3073
+    },
+    {
+      "path": "/assets/c-BPexPdPH.js",
+      "sha256": "93eb534817b92312316d08a2fd1ef73739a42b98072f91e24cdd3f25e46d67a0",
+      "bytes": 37885
+    },
+    {
+      "path": "/assets/c-DV8nkJYg.js",
+      "sha256": "3afa2530ea76e63d01b135e6d8871f105f6097261b32eb3133b218c4a465b8b1",
+      "bytes": 417
+    },
+    {
+      "path": "/assets/c-DfJcrBR3.js",
+      "sha256": "8fec24ed2a338c145ce9506992f6349f604c9ab1592440656a9aa8013b17b228",
+      "bytes": 7628
+    },
+    {
+      "path": "/assets/c-B3HulO_H.js",
+      "sha256": "c926cb8b99e805d9c9f33306791edcfb041d1dc67be614a3f4bd0a7004677e6e",
+      "bytes": 477
+    },
+    {
+      "path": "/assets/c-KsAe2Y_l.js",
+      "sha256": "b9e1756bbe22dac6a476d5ed9f87a3fef0cb0af4303a44e41b84c81e25243a36",
+      "bytes": 3332
+    },
+    {
+      "path": "/assets/c-D4zH706d.js",
+      "sha256": "afef905cb6cacd8b95dc330ae77b78b284ff9d83e7df640994cf627bc9714bbd",
+      "bytes": 12221
+    },
+    {
+      "path": "/assets/c-CsVqzoyN.js",
+      "sha256": "47f5c79ebae664f90eda152ad4960bcaa98695d533fe4956fd2b97780d5a5226",
+      "bytes": 1887
+    },
+    {
+      "path": "/assets/c-DPRW5BaN.js",
+      "sha256": "085db9808c51ef2b7b1a0d85a1ee4d154ef109deccaa85c1f1e14847d041ae1e",
+      "bytes": 24
+    },
+    {
+      "path": "/assets/c-ChhCbsIZ.js",
+      "sha256": "db59a592b1ad9d489215128160555ef6863acba44f6346a043d8bd195df72e62",
+      "bytes": 109
+    },
+    {
+      "path": "/assets/c-CzJ5iRiO.js",
+      "sha256": "4ff36c73c846be96f79b8890322d15367b8c1d3ff9198d9f0214630347c38536",
+      "bytes": 1943
+    },
+    {
+      "path": "/assets/c-CFxK1q1O.js",
+      "sha256": "c20dfc27dc26129ab1eb2b52de4f9bc835c74cf6659b354a9870ab006354f443",
+      "bytes": 4271
+    },
+    {
+      "path": "/assets/c-CLXsO4DH.js",
+      "sha256": "5892b8816be20ea4a5c6317705e5aeaaf2cae8c36a3f8d507f68cc2472854926",
+      "bytes": 9505
+    },
+    {
+      "path": "/assets/c-DghAdgYd.js",
+      "sha256": "69317e16b0de2ba209e5e4f065199843394b13cb174d10546cdb1bdfc8f53b6c",
+      "bytes": 10997
+    },
+    {
+      "path": "/assets/c-BFWBMM1L.js",
+      "sha256": "c02b43275436a4ef15cb26fc9d88080eece0cdd31199dd7a51b7a1a23ad131ba",
+      "bytes": 631
+    },
+    {
+      "path": "/assets/c-Bmk72m6c.js",
+      "sha256": "b51cd3b56a5dbd75916d207cfa7faa0247e619f3922e7137d6de3fcb25b15797",
+      "bytes": 2387
+    },
+    {
+      "path": "/assets/c-1l_wsRsA.js",
+      "sha256": "2c24942f2aabd8a0be0641a51f499d55cb130d15a2359b2e9fe92fec57524707",
+      "bytes": 6882
+    },
+    {
+      "path": "/assets/c-z7uKrAhw.js",
+      "sha256": "ab49218920336806e9da8ace309a005e2419a7d9643885813f3d689d3892b294",
+      "bytes": 2241
+    },
+    {
+      "path": "/assets/c-g9HHeQoq.js",
+      "sha256": "2c82411efab186fd2309e7f27d6c47c63e47f547ef77e13d2de4935f16a66314",
+      "bytes": 900
+    },
+    {
+      "path": "/assets/c-BgHD1KJ2.js",
+      "sha256": "17995433d0723f66f5eff1f7517e910bc79fa1e24473d4ae628a7a036f2159bd",
+      "bytes": 315
+    },
+    {
+      "path": "/assets/c-tAp2p5h5.js",
+      "sha256": "d1cbb90c9ab7b4b16d790f0e29644bed57143ca18f0ec7e95cdd66e3f996b312",
+      "bytes": 1820
+    },
+    {
+      "path": "/assets/c-CqcuT3-w.js",
+      "sha256": "9575e451f8c6d58b61b4282360c1327d5f0369c19827f915d0824b956be26ef7",
+      "bytes": 2491
+    },
+    {
+      "path": "/assets/c-BQHclO7N.js",
+      "sha256": "dc6a552887ca8cd141e0d2183fe178512ff965da4d7daa93470ea255f4a307a3",
+      "bytes": 2366
+    },
+    {
+      "path": "/assets/c-BqgbtOv3.js",
+      "sha256": "d3fefb9065816da82ab8c32283840ccac61ecfbc878c0dd964568d62d50980d9",
+      "bytes": 515
+    },
+    {
+      "path": "/assets/c-6b6eQFYy.js",
+      "sha256": "1de1854052ac87c074708829432ae30811ac186615a19049da50f988e7f1170f",
+      "bytes": 20225
+    },
+    {
+      "path": "/assets/c-B4ddEPm8.js",
+      "sha256": "89f23fee38e1c08a94febd576939c49eb9fd1f1743d5f889beeb4ebcd3698184",
+      "bytes": 63190
+    },
+    {
+      "path": "/assets/c-CASsxLr2.js",
+      "sha256": "5f98427dca739f11c33d73cb3952c64943e4d86c2d187ad853ae4d8497eae72c",
+      "bytes": 15313
+    },
+    {
+      "path": "/assets/c-C-zOAq7M.js",
+      "sha256": "1d458483ed0063626892c35bbb75509930ccde8fdadce523f42a08c8b7ee5ae7",
+      "bytes": 423
+    },
+    {
+      "path": "/assets/c-CmeS_Z_A.js",
+      "sha256": "5b970c9af061ccaabf14a53f1e2c1c54df4665fc8e61ede5d4b8c74c34cd251c",
+      "bytes": 2198
+    },
+    {
+      "path": "/assets/c-Ceo7O_fI.js",
+      "sha256": "3b94a3867f6f77afe76ceb8a8948f8541cca4a5ea8bcd11e093a34efd0826432",
+      "bytes": 1126
+    },
+    {
+      "path": "/assets/c-DcKgQ-bN.js",
+      "sha256": "25f1125644e0cb7f48bd0ef196eba4e87cbc8c655dba98b6201fd3e2a0e69951",
+      "bytes": 176
+    },
+    {
+      "path": "/assets/c-CmlmBRDL.js",
+      "sha256": "06f9cfc605802a21594f94fcecd8eae81d8c11bda307a5d303994fb7d5025cd2",
+      "bytes": 2815
+    },
+    {
+      "path": "/assets/c-DGtrLIL8.js",
+      "sha256": "1f688090da5645000b2a9b3672cf3d7dda845efd56915bb2c16dbf5d2d93f158",
+      "bytes": 46021
+    },
+    {
+      "path": "/assets/c-CI00FoWJ.js",
+      "sha256": "5ecc296571e7f1d985ccf14fc7e05603ce16f0a69df9c15ee9f33e0251a0e1c4",
+      "bytes": 1963
+    },
+    {
+      "path": "/assets/c-aWNU88_C.js",
+      "sha256": "fbe71fc5932fa791e245cb091eeb80d52c1d13342cd853992093f4a7431c8d73",
+      "bytes": 2778
+    },
+    {
+      "path": "/assets/c-zEDQ5hv-.js",
+      "sha256": "8fb05833cee591f4b6f4de848a1209617d024a8e9ebb3a86905dbbfac4792294",
+      "bytes": 230
+    },
+    {
+      "path": "/assets/c-purTf5Yc.js",
+      "sha256": "e63a2478c740ef01c5905784aafcb832c55e001d761a8bdf5d28f19570658b46",
+      "bytes": 5149
+    },
+    {
+      "path": "/assets/c-wRllEp7n.js",
+      "sha256": "39e8d0822b384d2e37e44cab69476c6f141c648124384884e54b03c584e0aad9",
+      "bytes": 1210
+    },
+    {
+      "path": "/assets/c-DyhB4teI.js",
+      "sha256": "cc09c7d1a42a25409b2a13d592e58f3415a3422dd9d56683459ef70a7ef4ebd7",
+      "bytes": 3847
+    },
+    {
+      "path": "/assets/c-CTy0inZS.js",
+      "sha256": "1fe869059e743309c9b6d6fd1f5ff9cd901449d5825be3afe7d481c4c443418e",
+      "bytes": 1198
+    },
+    {
+      "path": "/assets/c-DO6czeP9.js",
+      "sha256": "15a5380eda2892f2c9409d6976be1012bbfad8963f4b0d857cbddec119bb8373",
+      "bytes": 12416
+    },
+    {
+      "path": "/assets/c-CUeyF1wK.js",
+      "sha256": "9ae2089d9752c30a62e8c22e52993120847f05a69ac19b95e9d34327860bde1d",
+      "bytes": 1137
+    },
+    {
+      "path": "/assets/c-M1-zGLSW.js",
+      "sha256": "1448c13ec3fa1903b7997d5f61b57309b16bd09505729830ee68b8882f0bf251",
+      "bytes": 132
+    },
+    {
+      "path": "/assets/c-NBSQ2AMU.js",
+      "sha256": "4b8467fad7c158e67a20c054da35c8222c5fd022d36c1e5de125ecfd64d90054",
+      "bytes": 30082
+    },
+    {
+      "path": "/assets/c-Cp-t5qW0.js",
+      "sha256": "ee37a5720a5407457777ebbbd4bfcf14d5e139aff52ecf069d66f7bfdb63b8c4",
+      "bytes": 110438
+    },
+    {
+      "path": "/assets/c-zNVrHaCc.js",
+      "sha256": "76eb7ddbdf7ebad0d8a748024eca641e0c97704a10cabd2df2cf5670cbe508af",
+      "bytes": 20027
+    },
+    {
+      "path": "/assets/c-CfHvzLUx.js",
+      "sha256": "70a0460a689b400e71d679f8529f00b6e9da58cb2b291ffd20a4a85a070ea4b7",
+      "bytes": 1014
+    },
+    {
+      "path": "/assets/c-aOqnksfD.js",
+      "sha256": "b843d27b5c8ba6b85ba95476db824eb6f18bfeb7de101514285bbaea00140738",
+      "bytes": 6987
+    },
+    {
+      "path": "/assets/c-DdUDrsas.js",
+      "sha256": "8be33bc594a6284532f6121ea804b5db35b57ebe0e5b3fe5bec4a5af73fa840e",
+      "bytes": 761
+    },
+    {
+      "path": "/assets/c-C8M6ucqc.js",
+      "sha256": "da7784a07321b62021e5e3291747421b253ea78aa93e2468eabf4b507f9a5562",
+      "bytes": 7143
+    },
+    {
+      "path": "/assets/c-CmB_jkVm.js",
+      "sha256": "c41bb5970a1f007e93823e5e24d93e46ec42dee717c0a86a7cbd0c71d5b12ce9",
+      "bytes": 417
+    },
+    {
+      "path": "/assets/c-Dp0PnENJ.js",
+      "sha256": "353ea736415a68c721c030dc723a40df317497f4088a99fdafb14c8d0f0eee78",
+      "bytes": 6649
+    },
+    {
+      "path": "/assets/c-DqfM0fLh.js",
+      "sha256": "92eb6dd592e5162ae85fa1dd93afb269b6fbc953164da164e3c07f15b90bf224",
+      "bytes": 4104
+    },
+    {
+      "path": "/assets/c-DIAbpVwa.js",
+      "sha256": "f51eb7e8670ba73c3b017273378e2e9c6637ee5b9495d878960d46fefccaedea",
+      "bytes": 2938
+    },
+    {
+      "path": "/assets/c-Bh0_IOoB.js",
+      "sha256": "b6f4c06846fd228e931ec595fffebd9c5dadf589a544d331dc346f42a2ddb6fd",
+      "bytes": 88598
+    },
+    {
+      "path": "/assets/c-DhvBGydW.js",
+      "sha256": "d200c2d79136f065cbc3eba66d6fec54c43ff7b4527b6e71cf3b69edf46a4913",
+      "bytes": 3465
+    },
+    {
+      "path": "/assets/c-C3NBC7t7.js",
+      "sha256": "69c7a75bad6e90cf1bb84d67938fdcda88b858e7d609440fbb25b2b547b1dd2c",
+      "bytes": 1733
+    },
+    {
+      "path": "/assets/c-wsPJ3NST.js",
+      "sha256": "b9aa8756fcb25e0b41c9e391035a93e7aeebc711f6d26d18b1cc9965c37b2036",
+      "bytes": 142
+    },
+    {
+      "path": "/assets/c-CSoYyp5U.js",
+      "sha256": "29c05b959de02f135154956d69bb533b89192ebcf864640a9ce7321606f88604",
+      "bytes": 3164
+    },
+    {
+      "path": "/assets/c-DHPV8Yrx.js",
+      "sha256": "c7508dd4f343b2647b811e4e27c4e75f1bcd14e62caabfbe5e16a2ed864953fc",
+      "bytes": 85
+    },
+    {
+      "path": "/assets/c-BHOWebGi.js",
+      "sha256": "87bca523f92a5a16d04d352b7d44878d1f87b302494eaabc4d39c0dae3ef53ba",
+      "bytes": 1678
+    },
+    {
+      "path": "/assets/c-CgRNbfqR.js",
+      "sha256": "07565b2b58e0d60368aa5f44bce436b25681c7fdd90e3bf62bf6b049ae8f296d",
+      "bytes": 1745
+    },
+    {
+      "path": "/assets/c-BzhUzqcw.js",
+      "sha256": "96d4b62743484aba379e52ed13c3b7280e7c005f25bd652e1f8965d54817d0c3",
+      "bytes": 1309
+    },
+    {
+      "path": "/assets/c-D1WvD0F2.js",
+      "sha256": "c413cc70f335beb077f717396fdc34f6d6ec512e9636a5b2348da8e5f3518690",
+      "bytes": 580
+    },
+    {
+      "path": "/assets/c-D9HeRp22.js",
+      "sha256": "54b58e0cf2437536abc5c65dace0ffa778dbb037570c6cfc004a4fdb4ad7a9d1",
+      "bytes": 18473
+    },
+    {
+      "path": "/assets/c-DsfvDF6s.js",
+      "sha256": "3eebd6d9639427f279abf0f6f8ed6984b61df535ef4241d825706a1772ec9ca3",
+      "bytes": 15740
+    },
+    {
+      "path": "/assets/c-bseure1R.js",
+      "sha256": "6703d47e80a58fd76d09fb877f681b5b281ad9291bbc6e4d033f780669d927f5",
+      "bytes": 1532
+    },
+    {
+      "path": "/assets/c-G_ZMPQvC.js",
+      "sha256": "2816a8ea2a55aecb4c29d2e3b8fb75640de0e8862d292bc3c0c9029f5f7b568e",
+      "bytes": 15416
+    },
+    {
+      "path": "/assets/c-CwkUO5Zw.js",
+      "sha256": "91f59aac2d3e1eb4e29bf3507d86d96d74299123a8a32dcac0b6004d578a935a",
+      "bytes": 27276
+    },
+    {
+      "path": "/assets/c-Dxem_ccX.js",
+      "sha256": "eb882ea724c73daaee6dae208d8200038ce510ea9f907598df2fbd6cabb86eb4",
+      "bytes": 895
+    },
+    {
+      "path": "/assets/c-DAzMg5LP.js",
+      "sha256": "c2b61f0055d26bb6b5daf78f869da17aeeb9c149a722d12821fb2eab04b38c3f",
+      "bytes": 3053
+    },
+    {
+      "path": "/assets/c-C0ok9z6M.js",
+      "sha256": "b7aee4adeaf64bf1359465bef15a3b89c049117a1a9eefa3177aea29ebc421f1",
+      "bytes": 35384
+    },
+    {
+      "path": "/assets/c-CySYw9u4.js",
+      "sha256": "9a96eddc32e455ccf9b76662ad0024ba8f06ec61eced3c529cff976c4268abaa",
+      "bytes": 213
+    },
+    {
+      "path": "/assets/c-H55vZ8FF.js",
+      "sha256": "0f02c303f877dfe92a4371c939c3507fc9b3a8cbd87fa35fbc734c3c0defd700",
+      "bytes": 4402
+    },
+    {
+      "path": "/assets/c-BOSZuyyS.js",
+      "sha256": "a8d5bf6c861eb759a4e07916d1c37ad260136c8cd596364d1c3075f68162d0f9",
+      "bytes": 1542
+    },
+    {
+      "path": "/assets/c-DiKUdoY0.js",
+      "sha256": "5055a99e612e382fcd1c075928f8c9abcd272a6d3c8220ce6dcbc46c0552b2dc",
+      "bytes": 504
+    },
+    {
+      "path": "/assets/c-mRIcTsnl.js",
+      "sha256": "4178711447d2473e6e136f8919dccc7ebbbc5219aa279a688e8fb352d8c20db1",
+      "bytes": 263
+    },
+    {
+      "path": "/assets/c-D7V5x3Wp.js",
+      "sha256": "dd3d44fc1bb3b31812ab5c38d0d7ddc603e1a032530179785bfc60e73bf43464",
+      "bytes": 618
+    },
+    {
+      "path": "/assets/c-ciWMuV46.js",
+      "sha256": "5dd96811953eac6ab5ea35f8e126732d9124f44f053c29d252e8dc333a3b9de9",
+      "bytes": 10767
+    },
+    {
+      "path": "/assets/c-9Zh8uTG4.js",
+      "sha256": "7ab58ef71f75e014154a33fdf2155ab2fa55f1c081297cdc8f6496f1db8a846a",
+      "bytes": 4881
+    },
+    {
+      "path": "/assets/c-BvKIM91P.js",
+      "sha256": "45b52ea539fc1016591d9a5779badb513c3f9730daec4bdd75ddd30c19956d9c",
+      "bytes": 1644
+    },
+    {
+      "path": "/assets/c-D08i7Ew5.js",
+      "sha256": "11b5f5366a1e744fc5f61b019bcdc0da1c98dc8a39a930b817e35b05cc42922c",
+      "bytes": 5723
+    },
+    {
+      "path": "/assets/c-DNKCgW5j.js",
+      "sha256": "1be4b8089c0366210bc1d4b18a0fdcf82ac2149157a905c42f37d51e59d9b9fb",
+      "bytes": 967
+    },
+    {
+      "path": "/assets/c-Cc69JFSy.js",
+      "sha256": "4314412bf75a2ffc92ffba6d0e6a961a2e57f86e663a6712e6822d0349cdad93",
+      "bytes": 67828
+    },
+    {
+      "path": "/assets/c-C5t2Nc8b.js",
+      "sha256": "ec93558c7fd61f6ddeefacf886323dd4ebfc6cf8dbb298ddb05904a306951b0f",
+      "bytes": 127
+    },
+    {
+      "path": "/assets/c--CnnDJUs.js",
+      "sha256": "c11a2825baa930e6880419cd15f48aed57f1baa5eedf2196302c06d4c5eb5ae4",
+      "bytes": 10163
+    },
+    {
+      "path": "/assets/c-1CCoXUIz.js",
+      "sha256": "026da3bc35c7b87f4638afe2c15947d4ecdec1848d0160eaba9885db2f29e4bb",
+      "bytes": 427
+    },
+    {
+      "path": "/assets/c-C8SkwFEK.js",
+      "sha256": "c50cdab5f32a6d20aa413e0de3d18ca0072fb8e65f5dc63799a0088e75d0e0a4",
+      "bytes": 4920
+    },
+    {
+      "path": "/assets/c-D6QgSYSR.js",
+      "sha256": "ec1ff13a052c9828f30c155db8b3ea5be5b3796968e506ed0a71ec6511dbbeec",
+      "bytes": 289
+    },
+    {
+      "path": "/assets/c-DMcIsbxT.js",
+      "sha256": "ebedd74eb02f2a611720205c525b2055c651e679e9da19f5670500e691cc4f9b",
+      "bytes": 8676
+    },
+    {
+      "path": "/assets/c-CtoVrvyH.js",
+      "sha256": "93b67b0c8cd967cb54f07820e31668817632f708c164d5223a0293339be2d718",
+      "bytes": 5111
+    },
+    {
+      "path": "/assets/c-DeyGX-zj.js",
+      "sha256": "f784a95d4c1894b47e1dc14d791666af6edec06e6b286c1c82938708d7531aa0",
+      "bytes": 4027
+    },
+    {
+      "path": "/assets/c-DnuCM8yd.js",
+      "sha256": "07ccd2e2d69e266694b429252cfb98083b610bf8f097f91bb674aba031d24fbb",
+      "bytes": 3588
+    },
+    {
+      "path": "/assets/c-BAd2P8kv.js",
+      "sha256": "73a52b6f7bafed3f4b5bad8184479ffcfa24e17e607d285eeed7ade262c4288e",
+      "bytes": 1142
+    },
+    {
+      "path": "/assets/c-Bmq5af66.js",
+      "sha256": "d891cc9c7945bb9d963b0271a9e6257997ae2985d4abcd1aabffa72af52c9b72",
+      "bytes": 1611
+    },
+    {
+      "path": "/assets/c-BId8ukZc.js",
+      "sha256": "c2f54b5227b3d54f3f5e8644f2d93ca719e91048231363ccfa420ccbe867f94d",
+      "bytes": 13425
+    },
+    {
+      "path": "/assets/c-GaETq7g2.js",
+      "sha256": "8dab91dd255a1bf10c1510d7944757355f49537f4e75ef10da55759b10314563",
+      "bytes": 941
+    },
+    {
+      "path": "/assets/c-hpsAYobx.js",
+      "sha256": "5bd20a106f28c19104389c55c63e2f85953abea16b3ed8dcabf407835bf2e3fd",
+      "bytes": 2345
+    },
+    {
+      "path": "/assets/c-Dm1_n_Jj.js",
+      "sha256": "d515138de3daf08e4ad1889b24f94a1603419382d546b771cf27406b3cbc59f2",
+      "bytes": 13588
+    },
+    {
+      "path": "/assets/c-DxY361C7.js",
+      "sha256": "1b063e85aa70bb72ac72853e6ae93e3e1241a85237fc0272772292236e97a60b",
+      "bytes": 21766
+    },
+    {
+      "path": "/assets/c-BbUixO0R.js",
+      "sha256": "683f85144503bca4308cebf3ba5952a7f480eb3ef152e451f1e592822b75e578",
+      "bytes": 637
+    },
+    {
+      "path": "/assets/c-BIoMz7X3.js",
+      "sha256": "d267b6c251870ff9a163dad50b2ff3b6b8bccdeb126fd255d31ec54e95f7fd9c",
+      "bytes": 3129
+    },
+    {
+      "path": "/assets/c-1owMkh7F.js",
+      "sha256": "32746b37cf673bfaa31a86480e9bdbdcd80398e457401375e6f7802d029026c4",
+      "bytes": 325
+    },
+    {
+      "path": "/assets/c-BVieG2Tz.js",
+      "sha256": "18142215f6015c98c296a166fe7bc985486ceb3eeafc12a34e2bd9df204a2559",
+      "bytes": 262
+    },
+    {
+      "path": "/assets/c-VpXZJZac.js",
+      "sha256": "f8755ece9e36eecfa0292c84e03df7646a765c3181ba84288e8dff2d655e3240",
+      "bytes": 291
+    },
+    {
+      "path": "/assets/c-CqWm6ICX.js",
+      "sha256": "b275efcabcb13091277dd1ae31fbd078a861ea08c882ebc5aa911120b1875fac",
+      "bytes": 6368
+    },
+    {
+      "path": "/assets/c-CYfAyNe5.js",
+      "sha256": "e51f0586c3371be158d2b1ceeabe9590316ca211232d25293e86a7e17b3a07df",
+      "bytes": 2395
+    },
+    {
+      "path": "/assets/c-CHIPwb9c.js",
+      "sha256": "c0d3556cbd9c037e609361f863d81a20b069f1d7b2a48eeff3b852bc44ce2773",
+      "bytes": 286
+    },
+    {
+      "path": "/assets/c-C-AEg_If.js",
+      "sha256": "9a200b8d70381b17c4e3e4c4ce5d083298a7d85050872ab6e42ffa0337df1a47",
+      "bytes": 1975
+    },
+    {
+      "path": "/assets/c-DIWT99Z3.js",
+      "sha256": "a7cfca763023e501f04447dea8263adfebb0f9312edef833ba45b29378b1e344",
+      "bytes": 8397
+    },
+    {
+      "path": "/assets/c-xxcJxdGV.js",
+      "sha256": "60ec185887fa520f307f7f3ea7f4614c73c0c897ff193b7b9bc68f451f76486c",
+      "bytes": 419
+    },
+    {
+      "path": "/assets/c-aEnyn5yw.js",
+      "sha256": "a1f93ecc82eb658d28cd9fdc9180cf06539038e00dc43e559494c6ad161341dd",
+      "bytes": 139134
+    },
+    {
+      "path": "/assets/c-BwY9Vjqs.js",
+      "sha256": "120a75447a4e3f08bf54777024178af5611234c1a3f927bd40bddec9692d7314",
+      "bytes": 1763
+    },
+    {
+      "path": "/assets/c-DjAtlBHW.js",
+      "sha256": "3bacd0cf4ade83e9ca98a973dc7e2e138ce26fb57024982f7f4cbb4573f9037e",
+      "bytes": 3279
+    },
+    {
+      "path": "/assets/c-B8JnESGJ.js",
+      "sha256": "75fe5d3cce6aa1c29fca17f8b1a799595e948e9d3e3bbf6c16e4410b65587728",
+      "bytes": 1163
+    },
+    {
+      "path": "/assets/c-CCZv0UK8.js",
+      "sha256": "4b6120807226a0dbaf6cc8443732710d9e0b4ec82b7da519146f6e0cb0135407",
+      "bytes": 1619
+    },
+    {
+      "path": "/assets/c-rQzdHrJb.js",
+      "sha256": "82ba43cbe40dc295626cbf2c1b60e38fcf5b3ffb51c62976b4c649511d7f33b8",
+      "bytes": 639
+    },
+    {
+      "path": "/assets/c-pGHkwtFt.js",
+      "sha256": "b5730423d70da86f1ba5c0e664917ac8f608b3913af947201faa4f6dd77945cc",
+      "bytes": 781
+    },
+    {
+      "path": "/assets/c-B_x4C5nZ.js",
+      "sha256": "3b996a9870ed296883b22a47de7ac2c4082eb2e2e487a04246b25714abf28bd5",
+      "bytes": 1667
+    },
+    {
+      "path": "/assets/c-Cm9Pmogg.js",
+      "sha256": "395338022dd0a1155d4f0f1c43aeb4c15341616b65f17fdd9f30078ee00c8236",
+      "bytes": 4029
+    },
+    {
+      "path": "/assets/c-BhMK5mXW.js",
+      "sha256": "6b58a681254c103d2cfe1bd724ee51027377ac098083ce220f268128acdce793",
+      "bytes": 13067
+    },
+    {
+      "path": "/assets/c-XLZUWYcN.js",
+      "sha256": "4e479262fc9844015466cb580debda1de67e624e1130987015059f150658733c",
+      "bytes": 7756
+    },
+    {
+      "path": "/assets/c-ChhYgWKy.js",
+      "sha256": "3c6fca4ece0b8c96130f26972804cd05f16b42a09725a7b388954b91fc96a946",
+      "bytes": 10253
+    },
+    {
+      "path": "/assets/c-BmRHsooi.js",
+      "sha256": "4910673ad3f5df897484c63b3d05f3c6e7ab7f95f9f5191636515c4b0c24ecbc",
+      "bytes": 3224
+    },
+    {
+      "path": "/assets/c-dTZ7qe-e.js",
+      "sha256": "d6ffb59aa21c3555f17c4de3a4d4ba23c9b485510375a8dee54f4efa3237c7e4",
+      "bytes": 1042
+    },
+    {
+      "path": "/assets/c-BpXrMdYO.js",
+      "sha256": "6778e94c9baa345bc026fd77970f164b4f4ee985e6fd6dd1faa941bb32461d19",
+      "bytes": 8147
+    },
+    {
+      "path": "/assets/c-Cg72mKaE.js",
+      "sha256": "e2b365adca7172c4441af00b98cf5853951d6d9c75bdb866809e4f496efddee2",
+      "bytes": 7275
+    },
+    {
+      "path": "/assets/c-DR-31K5S.js",
+      "sha256": "dd2a456822d38fad012a7a7b8c2d87a371e6f3a34262a8d285b610e7d13017d4",
+      "bytes": 119
+    },
+    {
+      "path": "/assets/c-BAwDI3ff.js",
+      "sha256": "a3a08eea1276e41a7d4aee415e48c18224d71bff49d44b15760277f13d10e278",
+      "bytes": 38996
+    },
+    {
+      "path": "/assets/c-BZC9IQk-.js",
+      "sha256": "f8fdad358c0368c1e3f8c8db4b474b12d97a7c70b34c27fb658cc60f72942450",
+      "bytes": 113068
+    },
+    {
+      "path": "/assets/c-pYmLkFYs.js",
+      "sha256": "9690ba38d782e771ef5458ce29d5de454b46b94dc7b65c9493de8a5cdf398292",
+      "bytes": 3310
+    },
+    {
+      "path": "/assets/c-C5lz5x2Q.js",
+      "sha256": "98b58dbf6b86040bd5c875185542bc1646df4964a46556e3a7eb1ee87406a0a6",
+      "bytes": 54301
+    },
+    {
+      "path": "/assets/c-Crv0WZYO.js",
+      "sha256": "51613e4e5b4f9faa596929073d5d8949baad6718b0c58142e8c9fb66fc9b98b2",
+      "bytes": 1445
+    },
+    {
+      "path": "/assets/c-CVzt4iFG.js",
+      "sha256": "2875f567b843d52f0719101a41056ac85f09b08fff9733422411a6529694f0e9",
+      "bytes": 1911
+    },
+    {
+      "path": "/assets/c-BzPbZn0X.js",
+      "sha256": "5faf14aebaa2fef08c8195aa40b1ef47aa3de4a7310f91ec09b384e3d5eabd4d",
+      "bytes": 93981
+    },
+    {
+      "path": "/assets/c-C18dVmlY.js",
+      "sha256": "7f31185dc243edaf4b3a1ee552ce31946ec501f4b662629b200de3917f997f27",
+      "bytes": 7966
+    },
+    {
+      "path": "/assets/c-DptGsYmv.js",
+      "sha256": "58eee20a775e8b34a504b61b0abaceb6ee86efa6bfd9d0341c85f802eabf6431",
+      "bytes": 11775
+    },
+    {
+      "path": "/assets/c-BesZEGqH.js",
+      "sha256": "ce101711eb6d5921f3561972341730df3ca027af6fddddd3cc5a49920c571764",
+      "bytes": 10758
+    },
+    {
+      "path": "/assets/c-BfeuGZJp.js",
+      "sha256": "7e20f641cb027f7b6adc84a3e12145dc576d7ca4e4006eeafc90208f98ea16c8",
+      "bytes": 324
+    },
+    {
+      "path": "/assets/c-BVBQNDb5.js",
+      "sha256": "5ce89f2238d7973027c08fa69b72795b527307a7d958e43b59f06056731c5674",
+      "bytes": 2962
+    },
+    {
+      "path": "/assets/c-B8tE-VzO.js",
+      "sha256": "88b8158e01992ae6724355753b33d5d8fe739057b930217148f9f085f88fd517",
+      "bytes": 1346
+    },
+    {
+      "path": "/assets/c-CtPFl0W8.js",
+      "sha256": "5f7a7eea10cddeb71c05d97d6ca1a4b6ab62ab1fb6fa96ace10d2238cd25e727",
+      "bytes": 6398
+    },
+    {
+      "path": "/assets/c-DV8er6uR.js",
+      "sha256": "bc64aec90a9bb9e1a7ae249438bcf59110851d45e8236332e8fb59a773aae66a",
+      "bytes": 4011
+    },
+    {
+      "path": "/assets/c-CiKRr7kO.js",
+      "sha256": "1ae707430dae4f0d8672b17014a6c3cab26321f54fcfc5d9e28db2b686361b14",
+      "bytes": 62746
+    },
+    {
+      "path": "/assets/c-BSWffIbl.js",
+      "sha256": "4b616a6e1ef00e0d6d12608eab0c4b0f0f06611c175328b6d2679a76ce73320b",
+      "bytes": 333
+    },
+    {
+      "path": "/assets/c-CNvw2IQs.js",
+      "sha256": "58d9f1b134d027b091d2b5a5cf115ce451ac2d8b399d01a7189b892b952fa4b5",
+      "bytes": 247
+    },
+    {
+      "path": "/assets/c-stXSMvtb.js",
+      "sha256": "8037a565089e6ae20dea6de3575704fdbfd1013694a7d25bf9a63724f09a9f1d",
+      "bytes": 1419
+    },
+    {
+      "path": "/assets/c-Dt7yWn0J.js",
+      "sha256": "9f59b9be16dc06b575e72d5f54b51fb72bcf29f35a7d1115e89b74ad85d4c771",
+      "bytes": 4997
+    },
+    {
+      "path": "/assets/c-yB9Oz79t.js",
+      "sha256": "d7572ec699846a4fe67889cc92e36bc5ab63a8fa581619f19dcfa117b9317949",
+      "bytes": 988
+    },
+    {
+      "path": "/assets/c-BfPeAKCl.js",
+      "sha256": "c9b704cc63078de990d950de6663710bb6b2a7246dc9e1697ff36212d87be49f",
+      "bytes": 846
+    },
+    {
+      "path": "/assets/c-D4AG6gGV.js",
+      "sha256": "0cfb83d87b237bd190a28f9265f58e3eea2d75c18bc910b90f45026dcce329a4",
+      "bytes": 11948
+    },
+    {
+      "path": "/assets/c-DEEW3DbS.js",
+      "sha256": "d397d75ba84859e1a46a7e67b5589c179791637d8997604dafb916e7192beb26",
+      "bytes": 932
+    },
+    {
+      "path": "/assets/c-JAs_67qC.js",
+      "sha256": "6358b831642517c5a939bf3de120cd37234a3f719a24f7ea3699010a690c84ad",
+      "bytes": 2371
+    },
+    {
+      "path": "/assets/c-B4H4MFIo.js",
+      "sha256": "f98e6fb0084956f08f22d4898aad52af4539ef36efff07bbe13388dae4cf0606",
+      "bytes": 383
+    },
+    {
+      "path": "/assets/c-DDqzR6it.js",
+      "sha256": "d8043bc1aa4397550e82b3449c649233793afb9c67abd543e96ae0e9cc3fdc8a",
+      "bytes": 1923
+    },
+    {
+      "path": "/assets/c-Dr9fEc41.js",
+      "sha256": "424636eff363823295270274bbe0f138b61347d18628b515dcfbd7e857e8a6a7",
+      "bytes": 16645
+    },
+    {
+      "path": "/assets/c-qzUro3BT.js",
+      "sha256": "c9dd624172b15b893e88bc40bce876ce43cd06b280e9c82d4d6003bddddb26ae",
+      "bytes": 209088
+    },
+    {
+      "path": "/assets/c-VXpZvqKW.js",
+      "sha256": "36c2abe269cf061528ed05108f38bfd66f338862e208daf0bdbb3b9d1395d6f4",
+      "bytes": 13776
+    },
+    {
+      "path": "/assets/c-C9xPpZGx.js",
+      "sha256": "3b7ed9d0b64f999f2a65b0df2ffd3d34f029cdddf7fbfb60f48a47b71464226a",
+      "bytes": 5954
+    },
+    {
+      "path": "/assets/c-CNhedaQ5.js",
+      "sha256": "d85f3e8b76991674a1a4da622226d04fca636fede876d958f5ddd31786253af9",
+      "bytes": 1751
+    },
+    {
+      "path": "/assets/three-vendor-pIfpyH5D.js",
+      "sha256": "a5a410a610084faaece10b2e8ca4a42228df90d3f0d43cdf6669a751c0684ec7",
+      "bytes": 1055785
+    },
+    {
+      "path": "/assets/c-CThskta6.js",
+      "sha256": "4ea081310cafc3326881fa754707fb51973b065b2d26a70cf9cf36ecf85c0e4a",
+      "bytes": 1475
+    },
+    {
+      "path": "/assets/c-DCmqrntL.js",
+      "sha256": "e51648400ff292f6ac35645cdf1800f70577128bfb477fbbd6af35fff1d1db8a",
+      "bytes": 16596
+    },
+    {
+      "path": "/assets/c-WiTRlLw9.js",
+      "sha256": "6d4f7b692954be5c598225f5e8d8af19b452d31b69a05555f8908d20d1d3c194",
+      "bytes": 1503
+    },
+    {
+      "path": "/assets/c-DXNx0d-4.js",
+      "sha256": "9f9d136a1d964e4caaa29329a7c89911283a13325e3be3d330260c8b47ecefff",
+      "bytes": 54102
+    },
+    {
+      "path": "/assets/c-BBJ8Z7DU.js",
+      "sha256": "e3be03c072b91605cab0e218e62a4b237b45e3cb8ec0e5c41bb3afcbd8c7857e",
+      "bytes": 2174
+    },
+    {
+      "path": "/assets/c-gYD8Ey1u.js",
+      "sha256": "374e255a647974832c670046fb59ed144a0f92cb7d673a420d4423cb464c4db7",
+      "bytes": 3573
+    },
+    {
+      "path": "/assets/c-hjuM5Y_H.js",
+      "sha256": "88923c75d8b1cfc700d92ad2a6964d4b4f71a9212936aa3fca2751f63a753580",
+      "bytes": 11985
+    },
+    {
+      "path": "/assets/c-I0jRTasd.js",
+      "sha256": "54063d8943eb1345a434b7a1abc854c59fbaa0a49ba95c98bd460cf039e220dc",
+      "bytes": 1247
+    },
+    {
+      "path": "/assets/c-C00B-623.js",
+      "sha256": "d1a5b917f0dbbad873329121323340d4f98537f0892b6f5c71e809f7d7e518ac",
+      "bytes": 415
+    },
+    {
+      "path": "/assets/c-CL6sSs3v.js",
+      "sha256": "2779964b6ea92fb477c75cc794c17e0ce6e4eab760f265fbe6961f7fd0835d18",
+      "bytes": 2336
+    },
+    {
+      "path": "/assets/c-BZ9rH3Qp.js",
+      "sha256": "aad26ea5a2dd229dbbb7fdaaf4b5dc152a5739d8a8114148dcb01c7b8f71d415",
+      "bytes": 17652
+    },
+    {
+      "path": "/assets/c-KBnllO36.js",
+      "sha256": "37fc73cc9350fe6bf9983c3aa4250fe7e6599b67bb2ac5fa47ab73754dd43b3e",
+      "bytes": 10218
+    },
+    {
+      "path": "/assets/c-B7MOWNgf.js",
+      "sha256": "cb035880e1358e2202d24f488c42e0c7322f5cc40adcd1e56d32dcbdc5571864",
+      "bytes": 899
+    },
+    {
+      "path": "/assets/c-BM2bGdH2.js",
+      "sha256": "7e40fa7f35815a3dd7dacda1189e60fa5dcfcc0c36ff1aa367945a9ccef35fb9",
+      "bytes": 320
+    },
+    {
+      "path": "/assets/c-C3TEKKSG.js",
+      "sha256": "a8b6c644b54434477b00366a8a9075160f7a4fd0fb1c598c993de3d107d245ad",
+      "bytes": 194952
+    },
+    {
+      "path": "/assets/c-PMTQMVFU.js",
+      "sha256": "9c638a308d16bd140ac22cec95f15ed14e7071c136781a5a7efdff01c96ac9ea",
+      "bytes": 56430
+    },
+    {
+      "path": "/assets/c-D-1io_67.js",
+      "sha256": "dd2f4c470c32a40fbe6ad5c2414b15e748ed23bc9738ba08789a719ab98e9878",
+      "bytes": 4882
+    },
+    {
+      "path": "/assets/c-7M72pL3S.js",
+      "sha256": "848a46f60b987d13c9f8b358784aa1d5d1bd79d118108f46d75449bfc8af17d0",
+      "bytes": 187
+    },
+    {
+      "path": "/assets/c-bKGMPb6m.js",
+      "sha256": "68139f51332e9f928ee527196bc4915994ab32093b35296f91b2e49ffc30e44c",
+      "bytes": 2142
+    },
+    {
+      "path": "/assets/c-B4v-5sfC.js",
+      "sha256": "8f11c870f501cfb2b2db7d7593fc376db224354dff8f3d84d48aef8ebaf00141",
+      "bytes": 1096
+    },
+    {
+      "path": "/assets/c-DQPvuGBH.js",
+      "sha256": "e072d4ccf47ee93a831183b4794f3d35707d6ed55077b396b89e864b51d7b92c",
+      "bytes": 1216
+    },
+    {
+      "path": "/assets/c-CjMBE_CI.js",
+      "sha256": "8eb3fa769b09378830d1e886bb99f1a047905ecc891ceac04173ccbb2af07b75",
+      "bytes": 557
+    },
+    {
+      "path": "/assets/c-Cns6ugh0.js",
+      "sha256": "25e3699dd55c7aa5e8ab088db195bd0d9b8c50bd3e2a1926aca8e48766471c76",
+      "bytes": 434517
+    },
+    {
+      "path": "/assets/c-R4Hj-1Gt.js",
+      "sha256": "513699f71989847811e7a6b2a08facdf4129327fe26926153f4169316cdd39c6",
+      "bytes": 511
+    },
+    {
+      "path": "/assets/c-B3-Q46BQ.js",
+      "sha256": "0eaccf3660b0a71058132241484e170e4587dfd0fa8a0cf63e06c5e448baf750",
+      "bytes": 969
+    },
+    {
+      "path": "/assets/c-Cbm0niZ7.js",
+      "sha256": "a9986a28bb2e008cbda6ec2d34ad7b0ead9be079a5fed6714f8f49ee124a3f22",
+      "bytes": 23873
+    },
+    {
+      "path": "/assets/c-m9_wRaZW.js",
+      "sha256": "17184dde63246a965b82f164113d009acd690ffe0555050abc01d093851b72be",
+      "bytes": 1380
+    },
+    {
+      "path": "/assets/c-CpEh4EUn.js",
+      "sha256": "4379543c47ac034381bde368aefdcc8fb1059945a639d027f99b56191dda7b3a",
+      "bytes": 1605
+    },
+    {
+      "path": "/assets/c-DS1-s28l.js",
+      "sha256": "3c54d5c6b8947de96ac2619e5896a69334c5c4e29659c3d3e634bbb6bb2c67a7",
+      "bytes": 8534
+    },
+    {
+      "path": "/assets/c-BwmHXFVl.js",
+      "sha256": "f055e23447f3c5aa866ec2fe5e9deb86b67319a1282ee822f558419e7aa3a552",
+      "bytes": 5737
+    },
+    {
+      "path": "/assets/c-exkJ0NlZ.js",
+      "sha256": "081d4a0adba93e8e90800e5145f4838c462858a03e2a08e2bc3e98d280f0a6ce",
+      "bytes": 2624
+    },
+    {
+      "path": "/assets/c-CB7daEju.js",
+      "sha256": "c2cbb1315a1c2a9ea33e2964283c24051ed28b9c62a7ddaa824503c487df3edf",
+      "bytes": 3965
+    },
+    {
+      "path": "/assets/c-Cu5e96y9.js",
+      "sha256": "a21a6c245093eb610ecc4a02f7bf185eb121399375ca994a815ddeae4c4c2228",
+      "bytes": 3566
+    },
+    {
+      "path": "/assets/c-Dw44Kk7C.js",
+      "sha256": "e8f7771b3efb1342b7331c38bccb96e06c3c0d7788cbdad44f460d86a59674d0",
+      "bytes": 29575
+    },
+    {
+      "path": "/assets/c-DdSG1dXw.js",
+      "sha256": "7ec0e26dd2cd72188e20eda6c9b6ee7ed2f087d9d1b2c88be4581674f7fc4a49",
+      "bytes": 3547
+    },
+    {
+      "path": "/assets/c-CfDPUgm7.js",
+      "sha256": "c03426a07a5ae871ddccd367b2a640ebd4502b1fea024e2169c6abbc1d6b1b76",
+      "bytes": 26758
+    },
+    {
+      "path": "/assets/c-Cth3VM5c.js",
+      "sha256": "9f9bf8152af30d5dba7cd7ae8f6c913d72224dddd25c116bba91577c03482894",
+      "bytes": 836
+    },
+    {
+      "path": "/assets/c-XW0QNThk.js",
+      "sha256": "bb344395cad52938c22164a1303d4bc85043c0715d2b87a116c685f5e8b57af5",
+      "bytes": 5309
+    },
+    {
+      "path": "/assets/c-C7mAduOV.js",
+      "sha256": "3d1bd7c76349a3b69920f1b64d915641177a8fdcd3ffb70202fd3396feb08097",
+      "bytes": 8996
+    },
+    {
+      "path": "/assets/c-D2juRah0.js",
+      "sha256": "3e070dd225b84293a7c9eca2389c7c1b908da51405590aff2d5bd8f3bc6beeb4",
+      "bytes": 464
+    },
+    {
+      "path": "/assets/c-ByD-hFj_.js",
+      "sha256": "2d92c202c6386323588be96224b33196eaedee1979dbd26bd66b72c72a27cd6c",
+      "bytes": 400
+    },
+    {
+      "path": "/assets/c-CDihQ3RL.js",
+      "sha256": "90dbad5b3f68fc711b2d562c47295753bfcb1c4182e98472d8f52670c11c069e",
+      "bytes": 11432
+    },
+    {
+      "path": "/assets/c-DL-0DuUt.js",
+      "sha256": "427ebd10227a508144941429e3934ebe845c839db8666567ac16eb0c991b6c6f",
+      "bytes": 1473
+    },
+    {
+      "path": "/assets/c-BRZk9zWR.js",
+      "sha256": "ab0eca315e2433f512faff051c825428c34ffc277d7f0548b90c58c6de728d2a",
+      "bytes": 4001
+    },
+    {
+      "path": "/assets/c-y_UwPE6o.js",
+      "sha256": "0421eaba4359f2845819fdbbf939ecc67cb4d2c472d9abe0032a4107f6864341",
+      "bytes": 11204
+    },
+    {
+      "path": "/assets/c-C_LorYXS.js",
+      "sha256": "85622db545a9507228a1a5e09803f58c9ab1576c4dc773bc02d8ae026552ae0a",
+      "bytes": 234
+    },
+    {
+      "path": "/assets/c-jBjW5A3C.js",
+      "sha256": "ea686c9b05830221073f7e5bd9deeac4dde5b2353c45a1a4df0fe4ad9c3a24cd",
+      "bytes": 7514
+    },
+    {
+      "path": "/assets/c-sN-sG7vf.js",
+      "sha256": "cdd2e5c973534a48883596d23bccea3e8c29bc28fa1a0319346fc7071ff809bc",
+      "bytes": 8428
+    },
+    {
+      "path": "/assets/c-BwMTXJR3.js",
+      "sha256": "e45db8aa7214787f52ed9dfc1fc365cedafce65cb8330bff30923ceb0a4aee40",
+      "bytes": 10893
+    },
+    {
+      "path": "/assets/c-nJ489xVY.js",
+      "sha256": "e13ac25f550c44e93a5287912c5d3108d561c72f70164cac85d8fb2fb70049d4",
+      "bytes": 2073
+    },
+    {
+      "path": "/assets/c-CG4mS7YG.js",
+      "sha256": "7c24533c9044056762c3898329062d85433b9d1791a4200a4627ab86e3e0b5ac",
+      "bytes": 398
+    },
+    {
+      "path": "/assets/c-BIH3IImi.js",
+      "sha256": "c75f631d6f5fca7ea956900653ddd969d9b0cfbea731b48d6722ca3fff013444",
+      "bytes": 623
+    },
+    {
+      "path": "/assets/c-Dis3xWIo.js",
+      "sha256": "f973c5c8c70917d6cad9907e105389f328afc034e4b699370b03506385196592",
+      "bytes": 337
+    },
+    {
+      "path": "/assets/c-HoGwq5Qv.js",
+      "sha256": "62b3df901e32435ce2e4506195f78c10ecdf2f3834c420b07b438f15e58f9a82",
+      "bytes": 535
+    },
+    {
+      "path": "/assets/c-BlWQ1I0G.js",
+      "sha256": "ead30045d32df4ad3ce8b3b4872c35a582e871347467134fa0c65f3843e2d81b",
+      "bytes": 35387
+    },
+    {
+      "path": "/assets/c-1tKHYlZT.js",
+      "sha256": "dd746617945d261b6427b6e1dc3b1660082fadea642acb6f48e49d7d90762a41",
+      "bytes": 383
+    },
+    {
+      "path": "/assets/c-CR2kbjrB.js",
+      "sha256": "11cd8ee35726a37212e588719241cfc50d8364e3dfd2163a91abc0978b338739",
+      "bytes": 4555
+    },
+    {
+      "path": "/assets/c-C4HnG0IA.js",
+      "sha256": "8d631bf2f6680cafff0b710d64d12d8f8beb2f1d8e7622e335df7993f84ac509",
+      "bytes": 5941
+    },
+    {
+      "path": "/assets/c-DJV1DVFx.js",
+      "sha256": "083820d0e0cd935bc25a8b997d007dfe430ad924f9c6adb120c2226bc7622e8e",
+      "bytes": 64779
+    },
+    {
+      "path": "/assets/c-CkAZwime.js",
+      "sha256": "dcac632834b4478c73f7b1554c083af1b919ad65aab9efd1abb8edce6fd01357",
+      "bytes": 283
+    },
+    {
+      "path": "/assets/c-B_X6wZjA.js",
+      "sha256": "47cdca53fca4b41044f0b907d65800c8f7fad2dc530c024fe8aa0697f1fdd5fa",
+      "bytes": 4410
+    },
+    {
+      "path": "/assets/c-Lkp3hm6K.js",
+      "sha256": "c143c3250d564798eb457ffdba9f30401246bc0f27432ed8076a1cb2ec38c344",
+      "bytes": 3640
+    },
+    {
+      "path": "/assets/c-D3y4FxA_.js",
+      "sha256": "13838f7c432e1ddb293cdb62a4a026fbe825807061d1343e17613d8c46d09bbb",
+      "bytes": 488
+    },
+    {
+      "path": "/assets/c-C2XYAYQW.js",
+      "sha256": "1031b36c6ce4f82b65510433f6d61d0cf4701a9b0c86df81f22a7f80d23dfea0",
+      "bytes": 5334
+    },
+    {
+      "path": "/assets/c-DvXSlCFL.js",
+      "sha256": "4364db588e8a20f566349e151195e873890ef30a47f1cf03f53d5e938795751f",
+      "bytes": 4830
+    },
+    {
+      "path": "/assets/c-BZcFuQcr.js",
+      "sha256": "6a76efdf40826df2f4531f0090771a138077031658c6b4bbbe0c64abe8ff0bb4",
+      "bytes": 923
+    },
+    {
+      "path": "/assets/c-D5XuQsl3.js",
+      "sha256": "aca7e1e0eb4dac191a7f2c850d9085616bf92e058b2af3bd79af70d4cd153e0d",
+      "bytes": 454
+    },
+    {
+      "path": "/assets/c-YDlg_E98.js",
+      "sha256": "5faa8077fb08ca872dadf3ca65fce4fd0af52d908adb1a58467b77157bed055c",
+      "bytes": 39822
+    },
+    {
+      "path": "/assets/c-B8Bz_6qP.js",
+      "sha256": "eaafb1b6c3f603ea0c9ab623964edd3b5aea6cebfa221ff09d36802a4ed991d2",
+      "bytes": 5281
+    },
+    {
+      "path": "/assets/c-juTiHnzR.js",
+      "sha256": "f2b438e71023900e48e2b6066777d5fc856e9a213f582d33dc43a8777b6bef6b",
+      "bytes": 182
+    },
+    {
+      "path": "/assets/c-Dpwgv0nw.js",
+      "sha256": "3b46e6f5ab948a621a72822d315082a8ccf19b94b68f69c5e1ff564ac4e81c6e",
+      "bytes": 1653
+    },
+    {
+      "path": "/assets/c-CsWI1DFn.js",
+      "sha256": "45aa1b1caad0de16a51065e5d71adb38b8d4ebda0bd728b382eee5f6ca53220a",
+      "bytes": 86918
+    },
+    {
+      "path": "/assets/c-CEA7XDD8.js",
+      "sha256": "574878256cded55ace4ab0448ce05e0e79fa2df68245a76370bd94169a56003a",
+      "bytes": 4414
+    },
+    {
+      "path": "/assets/c-CK0il4wh.js",
+      "sha256": "0c584e5219e94d3202e4284e4dbef0183bc0adf0c76b14120eb370a5c3badc59",
+      "bytes": 27294
+    },
+    {
+      "path": "/assets/c-B8oSXyAg.js",
+      "sha256": "0d0f07beb5ceb7581c5605095256858dc1998114a2a07fca897ec7aa51644028",
+      "bytes": 1410
+    },
+    {
+      "path": "/assets/c-BLnGKPF0.js",
+      "sha256": "8f47c9a5f45d234d10abd8d7e8acd596240a6fd3421c37668c806d37882744b9",
+      "bytes": 664
+    },
+    {
+      "path": "/assets/c-BJeHAKKg.js",
+      "sha256": "d7c162907a4aabd97b25ece1e7d1606a7502fd7d406d95af0d69534ba8632c29",
+      "bytes": 6067
+    },
+    {
+      "path": "/assets/c-B8Bam0kQ.js",
+      "sha256": "bbea35d490e2ab79170b804fcd41c1f44f3bdaa407f7425efad65390e96e5d6e",
+      "bytes": 2949
+    },
+    {
+      "path": "/assets/c-B9Ds9UHX.js",
+      "sha256": "aaadafc618f6318539922337049c529dfe46a39447a0a3d08486592f662bae18",
+      "bytes": 14777
+    },
+    {
+      "path": "/assets/c-y_Qj19ww.js",
+      "sha256": "3edc2d3fe06cc18b6c34aeebc4a795d954810e5c399a44f98b3604c0cb061365",
+      "bytes": 329
+    },
+    {
+      "path": "/assets/c-DW2CnRf4.js",
+      "sha256": "9a319b95b870cae23d925d09f366974f909849bb403a43f5c91b96d212b49c58",
+      "bytes": 2131
+    },
+    {
+      "path": "/assets/c-D4GrSuqQ.js",
+      "sha256": "c994a1eefb1c2b1f5b3b41dad2f049ce92c136c77c2e3cd356642581b84a396b",
+      "bytes": 83466
+    },
+    {
+      "path": "/assets/c-CavcQFzZ.js",
+      "sha256": "385538fe6f1a046c3a2e7d8305682b55cb4e0646a46762e4b4a56a3a65869053",
+      "bytes": 473
+    },
+    {
+      "path": "/assets/c-Bu0yLAx2.js",
+      "sha256": "67568f8327702c072e25f65171d07fb12fa1f526fdd8782e6e481ff40c69f3b7",
+      "bytes": 40145
+    },
+    {
+      "path": "/assets/c-BTKyGElR.js",
+      "sha256": "e78ba4ca5d6012c625d1db140fd9dada3c3a263e71da2cad96ff90e943c50104",
+      "bytes": 6201
+    },
+    {
+      "path": "/assets/c-pVyFJ8QX.js",
+      "sha256": "ca4d133e86ee9034b34ea537db130573061d1dbdb648cbf87746ac3d5a07d173",
+      "bytes": 2835
+    },
+    {
+      "path": "/assets/c-aV8FCkX7.js",
+      "sha256": "faa295816cb20a3448c21763636f60a26670e0fb1b48bf4639289258fa992efe",
+      "bytes": 27809
+    },
+    {
+      "path": "/assets/c-waXTLJg5.js",
+      "sha256": "c433c043118f9831f767b41ee7fdf73752a825bc931a33a6af67195b155d75cb",
+      "bytes": 33688
+    },
+    {
+      "path": "/assets/c-CBnpsX_u.js",
+      "sha256": "6d50d133e2a9360cee1163c634f18ebe012a5cb343537febe55c713c800dbee3",
+      "bytes": 24951
+    },
+    {
+      "path": "/assets/c-pwATkHbN.js",
+      "sha256": "c2c1ed985680cc997c9d3a1803f5930328660e2dd04038952893bdffecdf5bd0",
+      "bytes": 2887
+    },
+    {
+      "path": "/assets/c-B1DOUpzW.js",
+      "sha256": "860cac7c81b6f1997cf39c4bf5e1d8322fa858638d559217328bc80db0738677",
+      "bytes": 28230
+    },
+    {
+      "path": "/assets/c-AkNnzjt5.js",
+      "sha256": "6134fd01346055fee9ad83d86ceba01756aa6c3e343443340370f60274549136",
+      "bytes": 17295
+    },
+    {
+      "path": "/assets/c-B6Dk-gNY.js",
+      "sha256": "d46034894d099c66cef970fc4d8bae775db960101dbc856db424f0b251a40703",
+      "bytes": 537
+    },
+    {
+      "path": "/assets/c-CJYC1Ito.js",
+      "sha256": "7cd8918b354396e6cb345b1bc4b18ce43805a04965a45f90549f3a6e15e8a350",
+      "bytes": 315704
+    },
+    {
+      "path": "/assets/c-DaeLV0B2.js",
+      "sha256": "0e3bd5210c89fdec0aa65837cafec0c36ea40e818de245a66e0ddff8ba66493e",
+      "bytes": 13455
+    },
+    {
+      "path": "/assets/c-D0jPBJVx.js",
+      "sha256": "f8767dbda7137979b154ba33673cd44fbf3cbb4f2b6fc67e17f431ebcf31872c",
+      "bytes": 22348
+    },
+    {
+      "path": "/assets/c-xtVx9ne5.js",
+      "sha256": "b661dff7c20a9d221774b04811c36f7c33e86b25248896db55c00f05351812af",
+      "bytes": 3014
+    },
+    {
+      "path": "/assets/c-CYqQ9MpV.js",
+      "sha256": "e6e29f4417e135cafcac846e9d316d840406b27662b2639c247cd69a09d618e4",
+      "bytes": 365
+    },
+    {
+      "path": "/assets/c-4gq1vLhy.js",
+      "sha256": "1a4dc3ab87852cc2d7714e7212deee5d7f5da0fb22e36e13f4ad690ba016a1ec",
+      "bytes": 37501
+    },
+    {
+      "path": "/assets/c-Cg23HKz9.js",
+      "sha256": "796d751dc6e5aac3e241126db9ebc67842747bbd44da25aa5f1f4d96cb12d426",
+      "bytes": 15193
+    },
+    {
+      "path": "/assets/c-CjI-j0KD.js",
+      "sha256": "e099d38f3e386b8690db206a1fc42b5953d5436338609c44c76a92d3494b5098",
+      "bytes": 5370
+    },
+    {
+      "path": "/assets/c-CkbCuRZu.js",
+      "sha256": "7cf4af1ba510383140d21a9ca39966bb2bf17278970abb28c89a80c9890f2936",
+      "bytes": 2552
+    },
+    {
+      "path": "/assets/c-Dl0cJZoG.js",
+      "sha256": "9227904ceec65ecb69e03d02694720903f9118a17b1ce036aa55da9aa5e6a5d6",
+      "bytes": 934
+    },
+    {
+      "path": "/assets/c-B0v4MgKv.js",
+      "sha256": "cfe9f282c0e938e45cfe0121e2ecebef8c626d0c446315d94a9368c522e5f355",
+      "bytes": 2185
+    },
+    {
+      "path": "/assets/c-D65ihQCf.js",
+      "sha256": "57589b10600ff6c73c67fa34c2b7f8082e55ea93d3aeb27af7696ae32ee4b2e5",
+      "bytes": 1279
+    },
+    {
+      "path": "/assets/c-hMxTegEE.js",
+      "sha256": "2d88d1c3e98c9a04d992126d65df56e26e346b28a936716dbfab94e4f523b850",
+      "bytes": 1691
+    },
+    {
+      "path": "/assets/c-ekTVPiw0.js",
+      "sha256": "ffb20e203b70fa2a51fd478ee562e04c6023b2e2566fab2b0168a4191a01aa81",
+      "bytes": 3502
+    },
+    {
+      "path": "/assets/c-DqKV1K_q.js",
+      "sha256": "084f79c2fc999cf627b7181b3b5be66da671ed0bf7125ab0583004ebe6b7868e",
+      "bytes": 1752
+    },
+    {
+      "path": "/assets/c-DtmwnEBV.js",
+      "sha256": "e70dd6f3bde7da2966037c239f602eb6f269846183ab68fdd4a4d3812bc2d9e8",
+      "bytes": 11538
+    },
+    {
+      "path": "/assets/c-DwAqjHT2.js",
+      "sha256": "c5b6ce2b0f83e1010b5e168f2578b08836c68fd3e04c14971c78f9e92165f262",
+      "bytes": 5492
+    },
+    {
+      "path": "/assets/c-CbWhz3ij.js",
+      "sha256": "2bea71af6df68aeb88a13a5f04ffe0193524edea18220441fb43a5c30afbca6b",
+      "bytes": 7842
+    },
+    {
+      "path": "/assets/c-DSvKu7zA.js",
+      "sha256": "824da431afcd9b0db35f97f6f2e6b76a258cb8995bf3e94dca4c2fbb82f62449",
+      "bytes": 19073
+    },
+    {
+      "path": "/assets/c-CGlgtYC-.js",
+      "sha256": "77eddbdfeebe60e2afa03c42586d2f0766be525ab5a3f1aa6a9dc2aa990b5f3c",
+      "bytes": 4238
+    },
+    {
+      "path": "/assets/c-ngF5itia.js",
+      "sha256": "d6104588b290a0eeb6669bd5c373dbaf756f0f5c6eca9fe37ffac45867ba7ba9",
+      "bytes": 234
+    },
+    {
+      "path": "/assets/c-CYlk50bX.js",
+      "sha256": "2aca5f6b39e58c48ff40ed7dd221d0b26e53a7ffff1fbba10e1041b31086bf11",
+      "bytes": 2787
+    },
+    {
+      "path": "/assets/c-DLq8jmTE.js",
+      "sha256": "bd0d3b736ba9dc4be52cdc1e80f5a1256d394e6f97daa792302db03d40691726",
+      "bytes": 2683
+    },
+    {
+      "path": "/assets/c-QwTdiAqJ.js",
+      "sha256": "194ff206f6d6314c12b3241c63338764b24405a045f6e45384481667c3278e53",
+      "bytes": 19594
+    },
+    {
+      "path": "/assets/c-Dqvv1DDz.js",
+      "sha256": "6eb5bf1a50b48aa1985728b0645d0361d01535db9b5081730fd179a7d8f62264",
+      "bytes": 6448
+    },
+    {
+      "path": "/assets/c-osLmT3k5.js",
+      "sha256": "24053a2b589cd156830a18e7db62f702c01d9fd775625a84a855307084480416",
+      "bytes": 20617
+    },
+    {
+      "path": "/assets/c-DWESVj4X.js",
+      "sha256": "44f430681fecbc90250b655b4c11f1d800abd38347c59f50fbdfe38a82c248a9",
+      "bytes": 1724
+    },
+    {
+      "path": "/assets/c-0_s6RcnT.js",
+      "sha256": "153bb92b15b6ca21177406b607c2564f892dc9c6f335bb96d583eb2626c1e2ef",
+      "bytes": 1536
+    },
+    {
+      "path": "/assets/c-BCoIpn97.js",
+      "sha256": "df58714d48f9eabd2891228f21826a64506c1d584c633b61835aa10ad24797b8",
+      "bytes": 2978
+    },
+    {
+      "path": "/assets/c-DCRrh-kj.js",
+      "sha256": "e135141138c6ea439e34aa0b797fc10230bf5798f4f4747dfa0bf2cb888d7715",
+      "bytes": 1391
+    },
+    {
+      "path": "/assets/c-DaVS623l.js",
+      "sha256": "3973f38e88e03c15d10b3a3da7ea6a9e88377410f17e6c6bc3b2cb7ad3171548",
+      "bytes": 3996
+    },
+    {
+      "path": "/assets/c-CQ-DVrRh.js",
+      "sha256": "5be1a525a9f707899cdc723304dbe802fdc23106d5f7897a10bc3879efda03a6",
+      "bytes": 2710
+    },
+    {
+      "path": "/assets/c-DH3pJr6u.js",
+      "sha256": "7b9b131fe997eb5f8f7126c4b2ab401200fb6372df85dc172b98e9200b6edc50",
+      "bytes": 1290
+    },
+    {
+      "path": "/assets/c-CNlMm7qy.js",
+      "sha256": "388b7a4efa6675c7faa9f0006340ee296432136109de1d7069c730667d65b4f3",
+      "bytes": 5790
+    },
+    {
+      "path": "/assets/c-CXzt9cKj.js",
+      "sha256": "13c97e52aa7a450408651785f0099d68fa9fbd2d224ed8507ffa93f62916d554",
+      "bytes": 2294
+    },
+    {
+      "path": "/assets/c-D-uRrBix.js",
+      "sha256": "ef8c3903c9194176a0341ccb30d6d7160c41d8bf6d72553801cc650396e0fe03",
+      "bytes": 24084
+    },
+    {
+      "path": "/assets/c-BGDNe60i.js",
+      "sha256": "42cffa96cdeb29fffb066b126a4a78039154bdb7deaeb71761908bf07f789b80",
+      "bytes": 39008
+    },
+    {
+      "path": "/assets/c-BkRqA9kL.js",
+      "sha256": "caa1041abfd0d359749349fb06e7873e06e0397d0aa59a4f54f914befa35ef0e",
+      "bytes": 59591
+    },
+    {
+      "path": "/assets/c-B9E26F1T.js",
+      "sha256": "ec104df75e4a411087846ffb54b00af95342ba793ef2a943d455777d764ed037",
+      "bytes": 43063
+    },
+    {
+      "path": "/assets/c-CViCPSPO.js",
+      "sha256": "24ed342228e199e85e07bf68ebb8f311141ae02c803c8074a3def0d2ab451a83",
+      "bytes": 615
+    },
+    {
+      "path": "/assets/c-BHJseHdy.js",
+      "sha256": "f6ebe3ded531f2efb7bf6466140f3db11d8a3ad0c02745a1d07db9dc5bf6889d",
+      "bytes": 2809
+    },
+    {
+      "path": "/assets/c-D9zBSCns.js",
+      "sha256": "fa8f764697e4e7c956a499fe6508948a466e3685d9f581e6259d4a0845d4f10c",
+      "bytes": 1698
+    },
+    {
+      "path": "/assets/c-DIa7QuyO.js",
+      "sha256": "a2231f1f3a5ded1bc91a15348e9400e2238891e12926c58c0e3619bac5d775fa",
+      "bytes": 26931
+    },
+    {
+      "path": "/assets/c-BypSYcsu.js",
+      "sha256": "58f90ab24986b592978d7bdc02104971cd0d837dffcd59b45ee3a335fb49da3d",
+      "bytes": 34401
+    },
+    {
+      "path": "/assets/c-BtTTecCt.js",
+      "sha256": "3450f5cfdf3132762b2aebecdb9a0c10137828e08ab5ab754df06234aefe020d",
+      "bytes": 11315
+    },
+    {
+      "path": "/assets/c-CXspUw_c.js",
+      "sha256": "4e8f0bd4837378375966ddf26d3efd1310e2336af47be7cc2fff3d9cb0a59fdc",
+      "bytes": 7617
+    },
+    {
+      "path": "/assets/c-BGgxuu81.js",
+      "sha256": "723be140359bd6b6ab5304f2fae621901dc887d37530e23cc3ec9021eff82c75",
+      "bytes": 31241
+    },
+    {
+      "path": "/assets/c-CXkL5YCK.js",
+      "sha256": "8b7a17f561b2b5f16dcb33efecc9f8ef932c1d528919efe81244ee4f6dcda3e4",
+      "bytes": 36797
+    },
+    {
+      "path": "/assets/c-Dtu7H_Ku.js",
+      "sha256": "a363bbcb20b9d3e6471ba4f57afe739ee83f996e5473c7233deb6f91f7651c2e",
+      "bytes": 63953
+    },
+    {
+      "path": "/assets/c-nYYZR4_B.js",
+      "sha256": "bb4a7c03f494a5d7614dd022ca6090161253b8105277efca4bc77676b2d4ed13",
+      "bytes": 39851
+    },
+    {
+      "path": "/assets/c-yRbF-e-Q.js",
+      "sha256": "343baa5f90db0152d8db39d64f9f5d22efa2272ea64d97ca579c91f408e5494d",
+      "bytes": 23508
+    },
+    {
+      "path": "/assets/c-69s-XGFj.js",
+      "sha256": "db30653867227fc5d526ff1aff5274a4559bf936637576e6e34ed896f37ef96e",
+      "bytes": 148
+    },
+    {
+      "path": "/assets/c-BCL_SH9d.js",
+      "sha256": "8256b97c4d4fd7be30a930ebb72712f17fd005920ac9bfc36078bcaca74da892",
+      "bytes": 736
+    },
+    {
+      "path": "/assets/c-DXdJkz4_.js",
+      "sha256": "ca420fd8ac8d90273cf603967b8198502e72f280284ef3e59d420bb6a267fabd",
+      "bytes": 5777
+    },
+    {
+      "path": "/assets/c-C1aPcUEz.js",
+      "sha256": "ecc31c558b04bcc9449b7bf01c4ab0795d3bc53973fde2f2034b4869fdc254c7",
+      "bytes": 2182
+    },
+    {
+      "path": "/assets/c-C9qdP2Kw.js",
+      "sha256": "85e6e57abde87c8dbad36c6e67d83d6ae291ad39a6002643bb8d41fbea40886c",
+      "bytes": 43
+    },
+    {
+      "path": "/assets/c-D2S9zHMz.js",
+      "sha256": "e3c515391d2fa5d47abcc735748c282e0973d1b6b1274c08ac23d27171fcec50",
+      "bytes": 14842
+    },
+    {
+      "path": "/assets/c-DeVb35z5.js",
+      "sha256": "49682eb1c1dcab29bc00d16343c4fb35001bfd0ddc0e09ce38b4551dce95e461",
+      "bytes": 10083
+    },
+    {
+      "path": "/assets/c-C_8md9Zy.js",
+      "sha256": "e4bbbcfde529ec7c45db3755db4e68e0b3a3f7a62f8e9686d6eb05b55cbc0bc5",
+      "bytes": 2479
+    },
+    {
+      "path": "/assets/c-RTcVl9WG.js",
+      "sha256": "11aec63752b2acf690361418445d006cd38e8c61331c8eb696171cd560e36111",
+      "bytes": 27836
+    },
+    {
+      "path": "/assets/c-CbbbVcPn.js",
+      "sha256": "ad48e8a7f68db738ec1ddab14ac1555cd340a4c720fbeec490c5fb53efeb569b",
+      "bytes": 3215
+    },
+    {
+      "path": "/assets/c-DzlNQMDQ.js",
+      "sha256": "cc42c9433ebd46e3a90e58f7d9e4d90df967fc7b79e48507573519229f5afebe",
+      "bytes": 330
+    },
+    {
+      "path": "/assets/c-C9-qBW34.js",
+      "sha256": "8fac829a80a044531b9f3944085a8eea4ef35f01a9ac3d73b5ffe19dcb66c1d1",
+      "bytes": 1223
+    },
+    {
+      "path": "/assets/c-Bkc7N1SB.js",
+      "sha256": "3aa0cf245efbffb0b5d624a49570fc3ef91fb50197e8310c4a4f0ffb3b036c5e",
+      "bytes": 2521
+    },
+    {
+      "path": "/assets/c-BCUAqQMa.js",
+      "sha256": "1c60ffce3ef31a001a4e1f382e9838d1b86249b4588f48de5db59c006eea7ec4",
+      "bytes": 1130
+    },
+    {
+      "path": "/assets/c-Cx5_H9yE.js",
+      "sha256": "fb9ae738cfcfba9a578430199ad99a18f4f88c1108098511270b9c187d6a3c14",
+      "bytes": 6577
+    },
+    {
+      "path": "/assets/c-BfnmgfbW.js",
+      "sha256": "4b30ef97f05f802ed182057bb06644f35badb92f5a5e8d4172b3250c63948698",
+      "bytes": 9383
+    },
+    {
+      "path": "/assets/c-CpmNG0Hx.js",
+      "sha256": "b3a2f5c5c9277476f156f9be67e954f1a54d02fa172f99b1ad0fcf23ef51817b",
+      "bytes": 2508
+    },
+    {
+      "path": "/assets/c-DxiRmr1N.js",
+      "sha256": "c51a499d50d04624ca3b90d19ff2e50b96ce31257fbb1140ad6a4a55a9577284",
+      "bytes": 7078
+    },
+    {
+      "path": "/assets/c-BLUqo_YC.js",
+      "sha256": "824aeb39a84e1c1c23512063beaedb6f132b772fa0ecd081e9d02c762572aa19",
+      "bytes": 794
+    },
+    {
+      "path": "/assets/c-Bvhpl_W9.js",
+      "sha256": "a6646000f25189c0c5b442ae6dc08905fa3e10c0401c659f4eda14031808f11a",
+      "bytes": 1777
+    },
+    {
+      "path": "/assets/c-DLF0PApP.js",
+      "sha256": "c2c2c7454f7822a6f69610d6f8c0b45c1931ef6272e192d03aeac06beb152a62",
+      "bytes": 2266
+    },
+    {
+      "path": "/assets/c-YxIk0Kb2.js",
+      "sha256": "f5e13a1f24c653b81b094dfd4cccf1c6fc6e91c9188f2c8c3f2132baf467a33e",
+      "bytes": 2123
+    },
+    {
+      "path": "/assets/c-CNfMNpMG.js",
+      "sha256": "9e7f5186ed7e43fbe17350dc5dedb9024acbe9b65a2158bd83188b13e9229f8b",
+      "bytes": 1865
+    },
+    {
+      "path": "/sw.js",
+      "sha256": "ebbf53b031e67f0a0204dfe1913208671e8ab1a6121a2772c0f3d62eae04a375",
+      "bytes": 3493
+    },
+    {
+      "path": "/assets/c-CUIowf0P.js",
+      "sha256": "16806b987dbc851e089fb3fd39895e4f78933381eafe4d798248a9aaf1a84352",
+      "bytes": 360
+    },
+    {
+      "path": "/assets/c-BPVK0oyI.js",
+      "sha256": "0b5ec399f87cc1cce16cea0b895f4dfd62e0dfe32b1d600d6e939f13b74b44d5",
+      "bytes": 447
+    },
+    {
+      "path": "/assets/c-N5GXq0h9.js",
+      "sha256": "ce4881c63df83d2478b7339f5e699deef0845f4424eb350027b27a619452bd76",
+      "bytes": 8737
+    },
+    {
+      "path": "/assets/c-C56EyCmC.js",
+      "sha256": "3f438ddf35d225a65ae44f44440bcd4be586ff275927c14e93f27965e6c20b12",
+      "bytes": 544
+    },
+    {
+      "path": "/assets/c-B96IPWOA.js",
+      "sha256": "1ca771ad83ee5232b1f2e0b0b3c041560e690b52497e6d6446efccb1c14f0d39",
+      "bytes": 382
+    },
+    {
+      "path": "/assets/c-C2LSyaO_.js",
+      "sha256": "f4ffe1d2c6f34d17b8da9e9af86b31d0ea36f8f3bb2e5dbf33a6db07c466e996",
+      "bytes": 1436
+    },
+    {
+      "path": "/assets/c-Dii9XWmu.js",
+      "sha256": "3da80acc94f4c6f124b176a559fd5b20ca3ba9b4db25237b14fe295d50f7c798",
+      "bytes": 2908
+    },
+    {
+      "path": "/assets/c-ZjK1KbeX.js",
+      "sha256": "a4a9919c6eee071f81ccd44c4fe9f2f91f6ba9c56d4277b66452681faeea3793",
+      "bytes": 1228
+    },
+    {
+      "path": "/assets/c-DGcdBaN4.js",
+      "sha256": "e2088e9e7afd4ca7ab056c5efce40444c9c50f415f1894a1cd7ff810aa5e9e43",
+      "bytes": 109369
+    },
+    {
+      "path": "/assets/c-DdMIUde4.js",
+      "sha256": "a00b5dcc23cb9c30e4e89e7951c3ff5ef1ebccee965f15a5ea73c5fd45379414",
+      "bytes": 26450
+    },
+    {
+      "path": "/assets/c-C8MU40G1.js",
+      "sha256": "87ee0283121962f74904f0ff485ef9d493f5d08b1bac33097585c035d379054e",
+      "bytes": 27338
+    },
+    {
+      "path": "/assets/c-OkFxd8GT.js",
+      "sha256": "e995cbc262e715a113aaeb7523f764bb0469d8aaadd658d117602a4ab3f70b18",
+      "bytes": 84080
+    },
+    {
+      "path": "/assets/c-DM8qJak-.js",
+      "sha256": "025f89aab26ce8f1ff5b509086392f797740a43db812c1beccec09c2882d0ed8",
+      "bytes": 10594
+    },
+    {
+      "path": "/assets/c-DJrF_I7E.js",
+      "sha256": "e79c3ba89189d13ac7d6507bf703461b1db427e8c4bfa70635c11264d445361e",
+      "bytes": 593
+    },
+    {
+      "path": "/assets/c-DN1i5mfo.js",
+      "sha256": "41ed6416da96f0b9808a6b9e32a55ec613e5dcd76d3c23cfbae03ec29e774c4b",
+      "bytes": 9393
+    },
+    {
+      "path": "/assets/draco_decoder.js",
+      "fetchError": "/assets/draco_decoder.js: HTTP 404"
+    }
+  ],
+  "limitation": "Confirms expected built bytes for original 38 PR470 source, battle, and atlas assets only. Does not certify later local-only repairs or claim a full 161-pet visual review.",
+  "interpretation": "All 114 live asset responses match the expected production build output from current GitHub main. The 14 raw-file hash differences are the documented deterministic lossless Vite compaction transform, not stale assets or local-only repairs. Current main health, manifest source revision tokens, and served JavaScript revision tokens agree.",
+  "rawPinnedExactMatchCount": 100,
+  "preBuildTransformRawHashDifferences": [
+    {
+      "id": "rare-29",
+      "kind": "source",
+      "path": "/pet-models/roster/rare-29.glb",
+      "mainTreeSha256": "2b54c6728cb11057b0f92bacd91f990bfa4d44a6c2c6e933fac08e11f31c1bd9",
+      "rawExpectedSha256": "2b54c6728cb11057b0f92bacd91f990bfa4d44a6c2c6e933fac08e11f31c1bd9",
+      "liveSha256": "1dd38287c1ea793130bb1188641ebb86e33d085dd30c3904e27b790df83ddc18",
+      "buildOutputSha256": "1dd38287c1ea793130bb1188641ebb86e33d085dd30c3904e27b790df83ddc18",
+      "buildOutputMatchesLive": true,
+      "bytesBefore": 675396,
+      "bytesAfter": 672108
+    },
+    {
+      "id": "rare-29",
+      "kind": "battle",
+      "path": "/pet-models/warfront-lod/roster/rare-29.glb",
+      "mainTreeSha256": "4922b143c199ae44aa2627eda51635b28f05ec46b267100a09dcfcfe5ba798f3",
+      "rawExpectedSha256": "4922b143c199ae44aa2627eda51635b28f05ec46b267100a09dcfcfe5ba798f3",
+      "liveSha256": "867238f87e0fcc4aae7e0a90ad382dca39fbddf213522970e80eb3f12c2f31e3",
+      "buildOutputSha256": "867238f87e0fcc4aae7e0a90ad382dca39fbddf213522970e80eb3f12c2f31e3",
+      "buildOutputMatchesLive": true,
+      "bytesBefore": 478952,
+      "bytesAfter": 474800
+    },
+    {
+      "id": "rare-31",
+      "kind": "battle",
+      "path": "/pet-models/warfront-lod/roster/rare-31.glb",
+      "mainTreeSha256": "03642ccd9c191d832ecfca0791ebafc3b9ffa1b5cfd7c38fa5b4a062a4a73464",
+      "rawExpectedSha256": "03642ccd9c191d832ecfca0791ebafc3b9ffa1b5cfd7c38fa5b4a062a4a73464",
+      "liveSha256": "f61933bad34cd4fd3ed5564c8598586e0bf95a9b4b008989cf3c7dff8a6334d3",
+      "buildOutputSha256": "f61933bad34cd4fd3ed5564c8598586e0bf95a9b4b008989cf3c7dff8a6334d3",
+      "buildOutputMatchesLive": true,
+      "bytesBefore": 480972,
+      "bytesAfter": 476768
+    },
+    {
+      "id": "rare-31",
+      "kind": "source",
+      "path": "/pet-models/roster/rare-31.glb",
+      "mainTreeSha256": "8c102514d48c26ecb6d7d67b5eb224636c444fba97018da5ee6064ecaf1b633d",
+      "rawExpectedSha256": "8c102514d48c26ecb6d7d67b5eb224636c444fba97018da5ee6064ecaf1b633d",
+      "liveSha256": "1e6e6734ef4dbdbfac6790497c69f9d07ab5d465cc99d70bdfaac7c0c3a10168",
+      "buildOutputSha256": "1e6e6734ef4dbdbfac6790497c69f9d07ab5d465cc99d70bdfaac7c0c3a10168",
+      "buildOutputMatchesLive": true,
+      "bytesBefore": 695500,
+      "bytesAfter": 692160
+    },
+    {
+      "id": "rare-35",
+      "kind": "source",
+      "path": "/pet-models/roster/rare-35.glb",
+      "mainTreeSha256": "cdfb9381c35e7a235621c6c4dd61b850aba94b72a6e640f868f81cab3bd75e40",
+      "rawExpectedSha256": "cdfb9381c35e7a235621c6c4dd61b850aba94b72a6e640f868f81cab3bd75e40",
+      "liveSha256": "840084b9bbc5be00ad8ee71728a04282fa44f5888475311d7a8e324c1d5f1f94",
+      "buildOutputSha256": "840084b9bbc5be00ad8ee71728a04282fa44f5888475311d7a8e324c1d5f1f94",
+      "buildOutputMatchesLive": true,
+      "bytesBefore": 1153028,
+      "bytesAfter": 652676
+    },
+    {
+      "id": "rare-35",
+      "kind": "battle",
+      "path": "/pet-models/warfront-lod/roster/rare-35.glb",
+      "mainTreeSha256": "602928701ffbb1b2817d17bcea311205ce18945baf1c8bd8b7158489c88879c8",
+      "rawExpectedSha256": "602928701ffbb1b2817d17bcea311205ce18945baf1c8bd8b7158489c88879c8",
+      "liveSha256": "ef2a738dfdca12030b0fc15315e98bb6b1f2dbeba7168e3a744fd5beb64741fc",
+      "buildOutputSha256": "ef2a738dfdca12030b0fc15315e98bb6b1f2dbeba7168e3a744fd5beb64741fc",
+      "buildOutputMatchesLive": true,
+      "bytesBefore": 660472,
+      "bytesAfter": 377572
+    },
+    {
+      "id": "rare-36",
+      "kind": "battle",
+      "path": "/pet-models/warfront-lod/roster/rare-36.glb",
+      "mainTreeSha256": "d20db7d82144cdb79e075defc94e9ff65954a178706733ceddadd0e1a70fb680",
+      "rawExpectedSha256": "d20db7d82144cdb79e075defc94e9ff65954a178706733ceddadd0e1a70fb680",
+      "liveSha256": "c4dda3bcf0c0e1dc74985331a03a153609c8b1c33a00ee7163912dfb3cc85ead",
+      "buildOutputSha256": "c4dda3bcf0c0e1dc74985331a03a153609c8b1c33a00ee7163912dfb3cc85ead",
+      "buildOutputMatchesLive": true,
+      "bytesBefore": 620108,
+      "bytesAfter": 362680
+    },
+    {
+      "id": "rare-36",
+      "kind": "source",
+      "path": "/pet-models/roster/rare-36.glb",
+      "mainTreeSha256": "921d037ff87bc5047c6f2f0388583b5e8b96131876981fec4ccf92528321b936",
+      "rawExpectedSha256": "921d037ff87bc5047c6f2f0388583b5e8b96131876981fec4ccf92528321b936",
+      "liveSha256": "05dd8894f721603473ea3e48f735735fe4ae41aa832ff21e60ba70bf880d189a",
+      "buildOutputSha256": "05dd8894f721603473ea3e48f735735fe4ae41aa832ff21e60ba70bf880d189a",
+      "buildOutputMatchesLive": true,
+      "bytesBefore": 769044,
+      "bytesAfter": 616940
+    },
+    {
+      "id": "rare-39",
+      "kind": "source",
+      "path": "/pet-models/roster/rare-39.glb",
+      "mainTreeSha256": "a53c36e27ca6b8b5bcbad74bdd2ac73b96411a96fc3b040ca8717fb999f724f3",
+      "rawExpectedSha256": "a53c36e27ca6b8b5bcbad74bdd2ac73b96411a96fc3b040ca8717fb999f724f3",
+      "liveSha256": "dd45114ea5affa2de7c867b275778fe2d1c4271b77a00d2ba8b17a8d604be992",
+      "buildOutputSha256": "dd45114ea5affa2de7c867b275778fe2d1c4271b77a00d2ba8b17a8d604be992",
+      "buildOutputMatchesLive": true,
+      "bytesBefore": 718212,
+      "bytesAfter": 566292
+    },
+    {
+      "id": "rare-39",
+      "kind": "battle",
+      "path": "/pet-models/warfront-lod/roster/rare-39.glb",
+      "mainTreeSha256": "dd248a67710035a0692fc40fa2440f03d63ff21468014c7c7b85cc26947c416d",
+      "rawExpectedSha256": "dd248a67710035a0692fc40fa2440f03d63ff21468014c7c7b85cc26947c416d",
+      "liveSha256": "9a8bed6351f7170b284fffb3df0c1d64a987d334c930d5a1f0a398f35eb0fe18",
+      "buildOutputSha256": "9a8bed6351f7170b284fffb3df0c1d64a987d334c930d5a1f0a398f35eb0fe18",
+      "buildOutputMatchesLive": true,
+      "bytesBefore": 554340,
+      "bytesAfter": 329428
+    },
+    {
+      "id": "standard-10",
+      "kind": "battle",
+      "path": "/pet-models/warfront-lod/roster/standard-10.glb",
+      "mainTreeSha256": "a7a911684ef8783d9c746d5c44fc4429ad5a4f7dfaec31c39928dc5b5009ac60",
+      "rawExpectedSha256": "a7a911684ef8783d9c746d5c44fc4429ad5a4f7dfaec31c39928dc5b5009ac60",
+      "liveSha256": "497a314a97c8e613bcd15431bdc51e7e9b9a09c5cfa710af9f14fce59d1c2b4f",
+      "buildOutputSha256": "497a314a97c8e613bcd15431bdc51e7e9b9a09c5cfa710af9f14fce59d1c2b4f",
+      "buildOutputMatchesLive": true,
+      "bytesBefore": 555736,
+      "bytesAfter": 331644
+    },
+    {
+      "id": "standard-10",
+      "kind": "source",
+      "path": "/pet-models/roster/standard-10.glb",
+      "mainTreeSha256": "83dd07c44b4a85fc8f29a5a42351cb8c347673d29f135bb38c3a94a0f9428495",
+      "rawExpectedSha256": "83dd07c44b4a85fc8f29a5a42351cb8c347673d29f135bb38c3a94a0f9428495",
+      "liveSha256": "e0ca399d578f8e49da3372e92ad109969730fb2acb8709efb41996eb522d3f66",
+      "buildOutputSha256": "e0ca399d578f8e49da3372e92ad109969730fb2acb8709efb41996eb522d3f66",
+      "buildOutputMatchesLive": true,
+      "bytesBefore": 732808,
+      "bytesAfter": 578608
+    },
+    {
+      "id": "standard-7",
+      "kind": "source",
+      "path": "/pet-models/showdown-v2/standard-7.glb",
+      "mainTreeSha256": "d788580657ffefc1f9bf3b4efb672bf80cc7f11f3d5a6f32bddfe72196e022c1",
+      "rawExpectedSha256": "d788580657ffefc1f9bf3b4efb672bf80cc7f11f3d5a6f32bddfe72196e022c1",
+      "liveSha256": "e9d6e35073c679a002caba96e463590dcad5ac700d7d31fd20132c09358db5ce",
+      "buildOutputSha256": "e9d6e35073c679a002caba96e463590dcad5ac700d7d31fd20132c09358db5ce",
+      "buildOutputMatchesLive": true,
+      "bytesBefore": 890644,
+      "bytesAfter": 630336
+    },
+    {
+      "id": "standard-7",
+      "kind": "battle",
+      "path": "/pet-models/warfront-lod/showdown-v2/standard-7.glb",
+      "mainTreeSha256": "b137ad29bb8111b94fef877ed54c332b3cd30c304b3fe78e28f577590b8be252",
+      "rawExpectedSha256": "b137ad29bb8111b94fef877ed54c332b3cd30c304b3fe78e28f577590b8be252",
+      "liveSha256": "c9c606fbdb3c06cfd02ce717780e0d59fcf0acabaffe377d4de0a1c02c376d82",
+      "buildOutputSha256": "c9c606fbdb3c06cfd02ce717780e0d59fcf0acabaffe377d4de0a1c02c376d82",
+      "buildOutputMatchesLive": true,
+      "bytesBefore": 595224,
+      "bytesAfter": 366452
+    }
+  ],
+  "deterministicBuildTransform": {
+    "implementedIn": "origin/main shinobij.client/vite.config.ts runtimePublicAssetsPlugin",
+    "function": "compactGlbDelivery",
+    "appliesTo": "Every public pet-model .glb during Vite output copy; atlas WebP copied verbatim",
+    "verifiedOnCurrentMainSource": true,
+    "glbAssetsChangedByTransform": 14,
+    "changedGlbLiveHashesReproduced": 14,
+    "allObservedLiveAssetHashesMatchCurrentMainBuildOutput": true,
+    "semanticEffect": "Drops unreachable accessor and bufferView records left by animation authoring; copies retained binary data verbatim and does not decode or recompress it."
+  },
+  "deterministicTransformConfirmation": {
+    "method": "14 originally raw-hash-different GLBs recomputed from GitHub origin/main source bytes using the exact current-main Vite compactGlbDelivery implementation; all 14 transformed outputs equal the recorded live hashes. The same 14 live paths were independently refetched three times with distinct query keys.",
+    "repeatFetches": 42,
+    "allReturnedHttp200": true,
+    "allThreeHashesStablePerAsset": true,
+    "cloudflareCacheStatus": "DYNAMIC",
+    "ids": [
+      "rare-29",
+      "rare-31",
+      "rare-35",
+      "rare-36",
+      "rare-39",
+      "standard-10",
+      "standard-7"
+    ],
+    "allExpectedTransformedHashesMatchLive": true
+  },
+  "productionAssetPathTrace": {
+    "source": "GitHub main shinobij.client/public/pet-models",
+    "build": "Vite runtimePublicAssetsPlugin in shinobij.client/vite.config.ts performs the filtered public-to-dist copy. It applies compactGlbDelivery to every .glb under public/pet-models and copies other runtime files verbatim; copyPublicDir is disabled.",
+    "container": "Dockerfile runs npm run build, partitions the resulting shinobij.client/dist/pet-models tree into an image layer, and restores the same tree in the final image.",
+    "serving": "Express serves staticDir (default shinobij.client/dist) through express.static; no request-time model mutation was found.",
+    "transformDefinition": "shinobij.client/scripts/compact-glb-delivery.mjs removes unreachable accessor and bufferView records, copies retained binary payload verbatim, and skips unsupported extensions.",
+    "finding": "The 14 raw-vs-live hash differences were independently regenerated from GitHub main bytes through the exact compactor; every compacted SHA-256 equals the recorded live SHA-256. They are intentional deterministic build output, not stale or unexpected assets."
+  },
+  "recommendedCorrection": "No production correction is indicated. For future verification, compare deployed GLBs against compactGlbDelivery(current-main source bytes), as the existing shinobij.client/.tmp/verify-live-pet-release.mjs harness already does, while also keeping raw source pins as provenance."
+}

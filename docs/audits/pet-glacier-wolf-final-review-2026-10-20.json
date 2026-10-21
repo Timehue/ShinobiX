@@ -1,0 +1,570 @@
+{
+  "id": "legendary-0",
+  "name": "Glacier Wolf",
+  "reviewedAt": "2026-10-20T22:17:55.001Z",
+  "status": "double-checked-locally-awaiting-main-live",
+  "localVisualApproval": true,
+  "sourceSha256": "a640a2ece20460e01753b856aeccbc954da3324d4b79a48c2877805c5dd8a164",
+  "battleSha256": "d5677ee35f52ab2462325e2f25e4cbce4e43d17e1433f1d7769c0cfedb790a43",
+  "atlasSha256": "db29f68e2fe30a03a95cf5ea2092323165e371d7ed74ed918abd2282a98ae7e8",
+  "rendererSha256": "b2253b71fbcb21a83d82de35ab5783dd57b525cfc94740fb131dd1eb0049a897",
+  "companionComponentSha256": "dd0e422cec9458b37fb370c4ebc0af7717d129f93540420ea3a14c371f400dcd",
+  "repair": "Offline vertical root clearance preserves geometry, skin, rig, horizontal trajectories and every non-root curve.",
+  "reviewers": [
+    "/root/review_c",
+    "/root/review_a"
+  ],
+  "rootPersonallyInspectedFullScope": false,
+  "coveragePerReviewer": {
+    "rawClipsPerStage": 13,
+    "faceViews": 5,
+    "bodyViews": 2,
+    "rawPoseViews": 1092,
+    "productionQualities": [
+      "low",
+      "medium"
+    ],
+    "transitionRows": 16,
+    "runtimePoseViews": 1536,
+    "actualTechniqueFrames": 216,
+    "advancingIdleFrames": 24,
+    "atlasCells": 16
+  },
+  "canonicalProof": {
+    "exactSourceBattleAtlasMatchReviewedCandidates": true,
+    "canonicalFaceVerification": {
+      "fullFaceAndGroundReplayTestsPassed": 4
+    },
+    "assetContractsPassed": 3,
+    "independentDenseFloorRegressionPassed": true
+  },
+  "evidence": [
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/legendary-0/private-final-independent/independent-final-visual-review.json",
+      "sha256": "617b2810c09c6b70ea8dfafc28a036b17a4ef686527fa9eee4dd50fc55d7f9a6"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/legendary-0/private-final-independent/source-legendary-0-head-front.webp",
+      "sha256": "7c203b161242f18459fd2629581cf5235f70c3dbb9a020c8a179f1588edbabe0"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/legendary-0/private-final-independent/source-legendary-0-head-side.webp",
+      "sha256": "bbac6daf64539736eec291d99e062cb068dad69563a412cddb7920203ff636ff"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/legendary-0/private-final-independent/source-legendary-0-head-other-side.webp",
+      "sha256": "d256fa787ade570f378484a49a3e462c47d10fd086964931553a3e2e25fb6908"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/legendary-0/private-final-independent/source-legendary-0-head-under-front.webp",
+      "sha256": "68f780053285b7e0abdf0212cecf495f3401af52aa33ca2f4cc2b4a4c366aa99"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/legendary-0/private-final-independent/source-legendary-0-head-under-side.webp",
+      "sha256": "ba4a3155453cf701ec3ed2bff1237d8d272f8c92c22d29f893cc2046040391dd"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/legendary-0/private-final-independent/source-head-manifest.json",
+      "sha256": "f779955ce3bb61937f10e55a35956b92fd71432076ca75d866fbb4886cf72cbd"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/legendary-0/private-final-independent/source-legendary-0-front.webp",
+      "sha256": "0bec9f8ef8e8656f8ff4b9ae76be849fa6f8eb8eb19aaaec9f86ffa2f54be920"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/legendary-0/private-final-independent/source-legendary-0-side.webp",
+      "sha256": "6271a2275f706114b12db5fbc5a0beaaabbe23ec6cac2ab60cc7eb6a5ce280d1"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/legendary-0/private-final-independent/source-body-manifest.json",
+      "sha256": "c98e622f04eddf871eec705355d04580fdddb6b66db235e9978b8e4ae171d383"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/legendary-0/private-final-independent/battle-legendary-0-head-front.webp",
+      "sha256": "3440804c08daf12f3c9bb87deb49921dcc7e4139e4b07a08afd48769202da221"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/legendary-0/private-final-independent/battle-legendary-0-head-side.webp",
+      "sha256": "33d38ff7136eff7567e34eaebac061fd409ef38e6729f7050690a651b85ea305"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/legendary-0/private-final-independent/battle-legendary-0-head-other-side.webp",
+      "sha256": "e6c1c05cebbc7258d6fa43f97b4c7e2ad4bfd8acb3644281c8a08cea2e4e6f84"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/legendary-0/private-final-independent/battle-legendary-0-head-under-front.webp",
+      "sha256": "51956e376168f89e12566b1cf1b721a0abaf91696984a480425bc2a84cad5cfe"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/legendary-0/private-final-independent/battle-legendary-0-head-under-side.webp",
+      "sha256": "62404f49e351d9c0a4a50c7a32126fb59ae9dc2ce4e1a09aab81a53df62a56a5"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/legendary-0/private-final-independent/battle-head-manifest.json",
+      "sha256": "9b7cc56d922e2c8e81bf073c58d4d4ba97f493d29f07453637eda78508181587"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/legendary-0/private-final-independent/battle-legendary-0-front.webp",
+      "sha256": "bd5b6a1b2a24fd3ad16fd408e579220db51e75c7568e4fa3a62c61927c9b4581"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/legendary-0/private-final-independent/battle-legendary-0-side.webp",
+      "sha256": "76c763ec0690bf1b747838e839117b786efa30ac2e848888286c13fd09e47f2b"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/legendary-0/private-final-independent/battle-body-manifest.json",
+      "sha256": "ae7300d62f0e8bbb48127ffd8f2693cf98262ca730572f2068ea6bec62947fca"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/legendary-0/private-final-independent/runtime-low-source-body.png",
+      "sha256": "fcce48f0f6ed41f9192c28e86f7663c7e7ffd2ab97fe234c940108622b31dbca"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/legendary-0/private-final-independent/runtime-low-source-head.png",
+      "sha256": "27001c2ed1e55bb19cd0aa022fc37e2dc0b9ee56fddb30e5a8efffef822eb04c"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/legendary-0/private-final-independent/runtime-low-battle-body.png",
+      "sha256": "f6abcc6dcd8b4fda22d3e1f0e910c34c5a9c41ae13bab0e65134413a35d4be79"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/legendary-0/private-final-independent/runtime-low-battle-head.png",
+      "sha256": "4f0387112c0fa39d118fad6b1e372cf5d03485f683f57301f6067a74ba3e92a7"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/legendary-0/private-final-independent/runtime-low-manifest.json",
+      "sha256": "e9a0826d0978a6fc464507ed3906a11e82c532d96638d1de7284849269fadf79"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/legendary-0/private-final-independent/runtime-low-native-composite-manifest.json",
+      "sha256": "75946904ea5dcf0101d11ece63e00c73dd6e7f9016a4df0c7b961ce97a41e7a1"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/legendary-0/private-final-independent/runtime-medium-source-body.png",
+      "sha256": "64c97a5cbd744114ccc951712d2825a94ba9072e0ac10041048dbc0719dec0a5"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/legendary-0/private-final-independent/runtime-medium-source-head.png",
+      "sha256": "6ab097a2882611c6464e974077e0659b2dfcc1c8c0746785666b2c0a791fabfe"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/legendary-0/private-final-independent/runtime-medium-battle-body.png",
+      "sha256": "29506d84895f9fbbc4e6e70501e4e43b55d3b27b19a3edab28c6eddb965eeea3"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/legendary-0/private-final-independent/runtime-medium-battle-head.png",
+      "sha256": "c0e9611671885acc0d807fdfaf8575d26462454522968d5356b600a43d11543b"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/legendary-0/private-final-independent/runtime-medium-manifest.json",
+      "sha256": "739fcd80cbe2705bd6fc833bcbbf02a979b1b7ee123cdef4985dd0bac7a2bb4f"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/legendary-0/private-final-independent/runtime-medium-native-composite-manifest.json",
+      "sha256": "df5780016668f1523b689ca172ef444d33a54efa07f63c419864dd2d2bdc4fb8"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/legendary-0/private-final-independent/technique-both-block-0-half-0.png",
+      "sha256": "fd367feb13c2f768fd4d59c1235eea26bbe157d595e9c2db0c46f5debb6a5c6e"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/legendary-0/private-final-independent/technique-both-block-0-half-1.png",
+      "sha256": "6adbf9d32d8c7758740045dced4723498054f34a65c01ba2019e70962bc67f63"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/legendary-0/private-final-independent/technique-both-block-1-half-0.png",
+      "sha256": "805594542ed5b32ac8795184fb2e3800f59ba4da99d54eec798932cbe2a1fa80"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/legendary-0/private-final-independent/technique-both-block-1-half-1.png",
+      "sha256": "c52d998ab9f29bdd31cdd90bcdb26f278682f4a46a0b60232120ea6d3c6a6ac3"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/legendary-0/private-final-independent/technique-both-block-2-half-0.png",
+      "sha256": "e5df6ac9ff7326a7f30f4edef1109ea14f4f136f662e3914ae3178388a67a53f"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/legendary-0/private-final-independent/technique-both-block-2-half-1.png",
+      "sha256": "451f877a5a5c721827498d846cdbb526a76fb8329065b3b9ca2843504f9fd168"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/legendary-0/private-final-independent/legendary-0-water-breaker-side-2.png",
+      "sha256": "54c7e428b63928c92c71bddce2777b8962404aa40b570df0881d1f5d1d1c248d"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/legendary-0/private-final-independent/legendary-0-water-breaker-side-3.png",
+      "sha256": "1b65118c0d1f1518d82588106438aba5fdee8e975093b4430a08b2c5c951c363"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/legendary-0/private-final-independent/legendary-0-water-breaker-front-2.png",
+      "sha256": "f99eea6e282efc687316afa9fc12e1425c3a12f6e92ebbaeaa16ee2b61a17d74"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/legendary-0/private-final-independent/legendary-0-water-breaker-front-3.png",
+      "sha256": "bf546c2e9e196035196635d9e9b719861a6964d4e0626a31b45e953a61cbd553"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/legendary-0/private-final-independent/legendary-0-water-strike-side-5.png",
+      "sha256": "524db1aadb768160a51676c275d19c3805a4de99bdab9cd9f56333d6dfbb9fa4"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/legendary-0/private-final-independent/pet-review-cameras.json",
+      "sha256": "5833f505ebe03d697c2062eb25e5d5df0b6e9afd37b59b58821b94558904e9f2"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/legendary-0/private-final-independent/review-candidate-pins.json",
+      "sha256": "9d423b3483fffbbaccafc6e2ad621b7868318fda3ecf05728beef208c832536a"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/legendary-0/private-final-independent/private-ground-recipe.json",
+      "sha256": "29625319a8bfc2e87e63f338ea0f74d96e986c64c4ed9015d82ee866a71379c6"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/legendary-0/private-final-independent/techniques-manifest.json",
+      "sha256": "4e24659a79cff19287dba00cd59d1c85333a92a69e1674ce5927dbacaa14672c"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/legendary-0/private-final-independent/techniques-both-views-manifest.json",
+      "sha256": "7ddb3aebb335bb29915ca97d9734991a7e935004bb366eda368ddfb39190158e"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/legendary-0/private-final-independent/advancing-idle-native.png",
+      "sha256": "0d7a534413e88b8b2ce1ac70856fc4b632e7d8cb008a320f59d72f2c2fe8ff53"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/legendary-0/private-final-independent/advancing-idle-native-manifest.json",
+      "sha256": "72e89a3f91283a6153e701e246b32b68053d5234ed92acf8de23a54cf1d28ece"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/legendary-0/private-final-independent/atlas.webp",
+      "sha256": "db29f68e2fe30a03a95cf5ea2092323165e371d7ed74ed918abd2282a98ae7e8"
+    },
+    {
+      "path": "docs/audits/pet-parallel-review-a-2026-10-20/legendary-0-private-second.json",
+      "sha256": "03d0fc5c4347dfaf357592717ea3ec97f47cad4ef5c938fd7240154646cba3e5"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/private-ground-recipe.json",
+      "sha256": "29625319a8bfc2e87e63f338ea0f74d96e986c64c4ed9015d82ee866a71379c6"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/source-head-manifest.json",
+      "sha256": "75699ed888ed0750a5ccedcd7367180868a4999083390653849d5b826430e308"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/source-legendary-0-head-front.webp",
+      "sha256": "35008782ed1623bfbdbb465e681fabc0075cac058771a181c500e6c182061877"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/source-legendary-0-head-side.webp",
+      "sha256": "739369abd0612455d3e3680b043b942d66436f5af23f0aad66a2425b47d38372"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/source-legendary-0-head-other-side.webp",
+      "sha256": "e62601ae667e8667dc6b92f97f3d16ff2e334d3fe2705e18d9d33a3107a9c521"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/source-legendary-0-head-under-front.webp",
+      "sha256": "4e0dc77b89cf1e4ce34678932fe7fbc841022595ebf6c093634f34706a15d5d4"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/source-legendary-0-head-under-side.webp",
+      "sha256": "570a47c6a6db6ba5a01f444d4644dffa054e3c260d13b5b1c3cc007f55069c4f"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/source-body-manifest.json",
+      "sha256": "7cf1b71c374d116811fe5bb4a17ce61aba34e250b43149060d866d088d6cbc69"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/source-legendary-0-front.webp",
+      "sha256": "b8e7007d01c78d6e3dbbd9acfdfdeb2a49f5cfd2965311f317d5cf11b64e8051"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/source-legendary-0-side.webp",
+      "sha256": "d5aa85201dc0cef05459955c80e4b31c6bfe4381c68ea711e4b96d2b22f27fef"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/battle-head-manifest.json",
+      "sha256": "3f1a3f60115729f7904af2f996e130eb4b93a6da3b8f138d6d3debafde10d57c"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/battle-legendary-0-head-front.webp",
+      "sha256": "a03423d021221493b515fb85f1d6172508a3f38ae1aca07e398413dfbb48d07f"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/battle-legendary-0-head-side.webp",
+      "sha256": "0cd468a28f415e8d59a79901c929b980e6a2997fdc08ca8a5c4c82ece50ffab3"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/battle-legendary-0-head-other-side.webp",
+      "sha256": "637a2a63033bcab034d13d0d5632f2decb391b1b0d1ef5bc03bd6dc839459a0b"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/battle-legendary-0-head-under-front.webp",
+      "sha256": "f0fba7a32370d68e1420c335371f84646ae4cbe4bfad689268e416d2edd6a069"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/battle-legendary-0-head-under-side.webp",
+      "sha256": "81d74c5ff6afcb6db2b435d3638a149fa53a0c7898fe6a150c6727f36bcc2c85"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/battle-body-manifest.json",
+      "sha256": "0b1dee5cb6d9b983ca25814157a7ada6f25aa730a6ef39ce91efa96d3f11e8f9"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/battle-legendary-0-front.webp",
+      "sha256": "51b614985937c79e7a6c744682ed3fb268cefeb10971113d9cafa7eb778b20b5"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/battle-legendary-0-side.webp",
+      "sha256": "e68fc57a45ea8a6b3923c351ee7c6999794cfce99e08ebb0b7f0640f2d1f0093"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/runtime-low-manifest.json",
+      "sha256": "f87fbf59df5250ab9a8a6a75645e50f40144e231534767eb391036fb82d19bfa"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/runtime-low-legendary-0-source-head.webp",
+      "sha256": "1fe27879f489abbef5216ee12f2ece354311cd5fac8e46304f77e453bc04dae6"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/runtime-low-legendary-0-source-body.webp",
+      "sha256": "31dcd8e18e2d8644b5793970610d7d702fe3531de6239557c4b2b6f40527c4fc"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/runtime-low-legendary-0-battle-head.webp",
+      "sha256": "67a1a793def4f2485b85662bc580a325bed9800667355df53042b8f46f55feed"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/runtime-low-legendary-0-battle-body.webp",
+      "sha256": "04933c27079df4b4e50ced3e33a946f96d8e2c5dd157266ecb807104957b5484"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/runtime-medium-manifest.json",
+      "sha256": "ba09355916a82491e0a10b4f97dd26a976c3c42aa5227cd1e72fd5f0e487ec12"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/runtime-medium-legendary-0-source-head.webp",
+      "sha256": "ab90d59102f03626dc4521007c5327131640808b1dc509999b2f2f56cee89d40"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/runtime-medium-legendary-0-source-body.webp",
+      "sha256": "5ac87926c75e35e986f0cc5d1d5420af4674a156b50638c5caf7512a652fd10a"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/runtime-medium-legendary-0-battle-head.webp",
+      "sha256": "dd51f7a240269fb02cd2b4dbde980b9ea3000b4a08f4e1d7071ebe46ca8cd071"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/runtime-medium-legendary-0-battle-body.webp",
+      "sha256": "cefeab20ed616e2a8de2687db6eb42f64424b477aea01e0dd317fca3605dd09e"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/techniques-manifest.json",
+      "sha256": "a1ac291008ee68f35e81a1cd8186cd85f9bac27c695897b28a6418209dac50bc"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/technique-strips-manifest.json",
+      "sha256": "57c5d92524a9fe423893658bad96e8041c348d0a0fc4ddd829f8effec2c7608b"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/technique-front-block-0-half-0.png",
+      "sha256": "5d0f04f7b43383f6e6563eb089996cfa623518986c8afadaa6df8aecab080ec2"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/technique-front-block-0-half-1.png",
+      "sha256": "7fe3aeee175e26e45cd40db9b105f0b930b2847bfef213d88e53c5cc6631dbe9"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/technique-front-block-1-half-0.png",
+      "sha256": "22beeb92f9dc32bfd0dcdea5c82ceee7cdd0f2ae68a37f3953125a90f431cc8a"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/technique-front-block-1-half-1.png",
+      "sha256": "6cf96b0a3db670fbfea10a090f352014a5ca73ee573909431230cf17bb69a6ae"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/technique-front-block-2-half-0.png",
+      "sha256": "e8faf80d333f904d7e1f54aa7b960ece575f348ab55dfd9e3ace0d5d99560e09"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/technique-front-block-2-half-1.png",
+      "sha256": "12aa35202c2ce7b6e54ab65a80f5ee835e5fa368578ebb1b435199a109bbf626"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/technique-side-block-0-half-0.png",
+      "sha256": "70838fe6c0ce503a3b6a4b1a2eb127b27f6d0e3a9a17a44bc92fa06dfbb72025"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/technique-side-block-0-half-1.png",
+      "sha256": "ea9a9d1a82dd408b403af862cd7c5018308ce8efae3ee531773850955789611c"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/technique-side-block-1-half-0.png",
+      "sha256": "edd362fadd6a90bc80a8b82e408a17df8b30068e69906fba9f86c0b28b113456"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/technique-side-block-1-half-1.png",
+      "sha256": "9e97b63e65d0d2c5ab4b2f88f3160155b7b5d28a00394d2f698274a069359b30"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/technique-side-block-2-half-0.png",
+      "sha256": "eb31e57e82d8a98c5de35db63a89a5ce1647ac8cf38df0e5f8b7c3b932cdba1d"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/technique-side-block-2-half-1.png",
+      "sha256": "2ebbcdb1570670e27d186dd9dc06656df9f96b11c13607fe46a7c919f4390bd2"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/native-legendary-0-water-strike-front-1.png",
+      "sha256": "9ac29154e5a40558073fbe7b7811ede3fddecd1de659bcceff13399a1766c3b6"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/native-legendary-0-water-strike-front-2.png",
+      "sha256": "9c054879a83a3168e2634f2c161cba87dce7b71a20db9c6e606c21e221d6da94"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/native-legendary-0-water-strike-front-3.png",
+      "sha256": "ea65a31750a10b3647040344074e93fa60e785504212ccd230d21334cb24793e"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/native-legendary-0-water-strike-side-1.png",
+      "sha256": "2d039d6f00f3f4a05ba9ebc1c14ff389120f935b2029927128519aeb3da04eb3"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/native-legendary-0-water-strike-side-2.png",
+      "sha256": "c33bb0524db18cc64f368a389878d26265f0a40db0e4d814caff5a3c8434cc99"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/native-legendary-0-water-strike-side-3.png",
+      "sha256": "de44f7425e43477d7af9b680fe77b23a6e9eeeb6e8fbe13d3520b148cb8fb11c"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/native-legendary-0-water-strike-side-5.png",
+      "sha256": "e692f3f7c438988da01e81194b666e21d1526e65d9eda21cf8c589b3af0e3c1a"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/native-legendary-0-water-breaker-side-5.png",
+      "sha256": "30e0aa48407235c354b7a9a40f2f65600847b9bc8e99ae0d662fcb012695a97f"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/native-legendary-0-legendary-0-signature-side-5.png",
+      "sha256": "8a312c59a225ddce98dd83908f14d0a8b502647b6465e6ab212e9698719e434c"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/advancing-idle-capture-manifest.json",
+      "sha256": "ac25131ee0109b1e04e9307db439b7fd79da4e9977b31c17175d41d4e66d11d7"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/advancing-idle-native.png",
+      "sha256": "cd1b8c0c8d30dae07fa1c40f031efd5f001e0a1b5cc77fbf1819910cc7dc84a8"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/idle-panel-manifest.json",
+      "sha256": "d36b206c497557863d2b0084932726962aa4aefebc4ae2d24338185d65bc5868"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/atlas.webp",
+      "sha256": "db29f68e2fe30a03a95cf5ea2092323165e371d7ed74ed918abd2282a98ae7e8"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/atlas-manifest.json",
+      "sha256": "73fb8ac53de9b1aefccc1f4d31b5cda0b37d01af3ccf8ebd5c9faa54be218202"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/diagnostic-native3x-legendary-0-water-strike-side-0.png",
+      "sha256": "54157d0bc2356dcd6a86951a23572076c689ddee53f5002045a1a50aaee73e29"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/diagnostic-native3x-legendary-0-water-strike-side-1.png",
+      "sha256": "5b9c056e959657c5304ee385ce0a823497cfe47bd88a716cccbb399e369cd127"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/diagnostic-native3x-legendary-0-water-strike-side-2.png",
+      "sha256": "4ab3c6d30f137078e408fe5c900f422064afab5d8124ddf374e8e2df92ab136d"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/diagnostic-native3x-legendary-0-water-strike-side-1-normals.png",
+      "sha256": "8fead95cbbf7dd4d3287e361c6b8441e14a4827159ec2881ec3e7beda267520a"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/diagnostic-native3x-manifest.json",
+      "sha256": "7f09fb22c0b6dfda1e1df30524ab0b1780fdcff984962832b35ec19ab7adffe3"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/diagnostic-native3x-normal-attachments.json",
+      "sha256": "10df222abebaefb6e36286787421897b77766f860697e89e5597ebe95515ecc5"
+    },
+    {
+      "path": "docs/audits/pet-parallel-review-a-2026-10-20/legendary-0-forelimb-followup.json",
+      "sha256": "14d1b017ace0412f43acc20f5064502c03f38969b9e832907626ddac56b1a585"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-forelimb-followup/legendary-0-water-strike-quarter-0.png",
+      "sha256": "e56396dbcdfd188413b1c941661b99d13ec462c09f7a299d929fe4cb0ee070eb"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-forelimb-followup/legendary-0-water-strike-quarter-1.png",
+      "sha256": "22157785dbcb38ebfbda61d07b457eba367aa21163f2c5fb2da0b0c267da67e1"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-forelimb-followup/legendary-0-water-strike-quarter-2.png",
+      "sha256": "8b29a4567a5295f79d81c9f65a02234bb685e17c0a04839201f0781ee0dd0537"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-forelimb-followup/legendary-0-water-strike-opposite-0.png",
+      "sha256": "42c6c171a19ad0a0a24c9d5542d950c95db84594fae091888ed09ad96576c8ac"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-forelimb-followup/legendary-0-water-strike-opposite-1.png",
+      "sha256": "7266d5d7844bbfd4162c6b2784276e8956f1087e61ec743866d97ebd810d9a0a"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-forelimb-followup/legendary-0-water-strike-opposite-2.png",
+      "sha256": "7ab1b2448a30c6ed26e6fc243a9b86bf0cf2b814e38722465a4329d12f70d225"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-forelimb-followup/legendary-0-water-strike-quarter-1-normals.png",
+      "sha256": "a88d70ba348cbedd1ccc22461ccea9b769cccf8cd6c1c276205e607d458c28ef"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-forelimb-followup/legendary-0-water-strike-opposite-1-normals.png",
+      "sha256": "9792193ff8cdb7c212306db9873ea7827002caec56d09015f91a45c7ac0e1e8c"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-forelimb-followup/manifest.json",
+      "sha256": "046a3c29e542158843e5e4618a79ce8f9a6945d27caa2bf2f9295a67be4e593b"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-forelimb-followup/normal-attachments.json",
+      "sha256": "01422e080d92e83c43a906b1241bcaa1714508428594090424bc037b8d2dbc7d"
+    },
+    {
+      "path": "docs/audits/pet-glacier-wolf-canonical-promotion-2026-10-20.json",
+      "sha256": "215852d9b8454c8089fae3e56b272fd434c5fd2cd6065dd0c769afa96a35f0cd"
+    },
+    {
+      "path": "docs/screenshots/pet-glacier-wolf-final-review-2026-10-20/glacier-wolf-canonical-contracts.txt",
+      "sha256": "38f705dfeaacd7a2726896c3c16a311694643d85f3c09474086a26c904d2bc8d"
+    },
+    {
+      "path": "docs/screenshots/pet-glacier-wolf-final-review-2026-10-20/glacier-wolf-canonical-face-ground-replay.txt",
+      "sha256": "48041208d0c34cc3597df817bc5433f530f7df2340cc4f0523e58b1af6b9abf9"
+    },
+    {
+      "path": "docs/screenshots/pet-glacier-wolf-final-review-2026-10-20/glacier-wolf-ground-regression.txt",
+      "sha256": "a73d5cd994ae9773c4add6f81be1a31374ebba92a4109f49f01358daea41e7b8"
+    },
+    {
+      "path": "docs/screenshots/pet-glacier-wolf-final-review-2026-10-20/previous-shape-review-receipt.json",
+      "sha256": "33a051236475ab3f64feb607e5bff399c6bdf77bf028d1d8f6579078a91b5c08"
+    }
+  ],
+  "pending": [
+    "selected release full CI",
+    "merge to main",
+    "deployment and exact live-byte and served-cache verification"
+  ],
+  "liveVerified": false,
+  "wholeRosterComplete": false
+}

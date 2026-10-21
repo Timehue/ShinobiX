@@ -1,0 +1,8 @@
+{
+  "file": "shinobij.client/src/lib/pet-model-ground-contact.ts",
+  "beforeSha256": "50e1aaf35ffa423648f60b6d25e1d1f9c07e7c79f84d1bfdd0d4c65f604912b8",
+  "afterSha256": "456d034e1187c227b1e70c2c895e7015da8d4796026a72f7f75d67a14d52cd3e",
+  "compiledJavaScriptSha256": "17b68b18e1a64fe20d3d29337e1c5bf25d3f8c0d1afb228ef41f13d69085546c",
+  "compiledJavaScriptIdentical": true,
+  "reason": "The caller intentionally uses the existing numeric dead flag (1) as a truthy exact-sampling selector. Declare that existing accepted value in the type; emitted JavaScript and every sampling branch remain identical."
+}

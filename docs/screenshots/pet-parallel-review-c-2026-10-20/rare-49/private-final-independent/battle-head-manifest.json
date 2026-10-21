@@ -1,0 +1,76 @@
+{
+  "schema": 1,
+  "errors": [],
+  "pets": [
+    {
+      "id": "rare-49",
+      "name": "Bramble Capybara",
+      "url": "/.tmp/rare-49-floor/battle-candidate-v1.glb",
+      "sha256": "f932d72bde29bd9cbcb62fe29fcf4529b0c8a640bd44324658cc181c93f8eeb2",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "progress": [
+        0.08,
+        0.28,
+        0.48,
+        0.68,
+        0.88,
+        1
+      ],
+      "views": [
+        "head-front",
+        "head-side",
+        "head-other-side",
+        "head-under-front",
+        "head-under-side"
+      ],
+      "materialTreatment": {
+        "mode": "production-diffuse",
+        "materials": 1,
+        "metalnessMax": 0.05,
+        "roughnessRange": [
+          0.58,
+          0.82
+        ]
+      },
+      "region": {
+        "y": [
+          -2,
+          -2
+        ],
+        "bounds": [
+          -0.3715735350439867,
+          0.3854094230740176,
+          -0.10455662983642969,
+          0.3975244908555089,
+          0.5731164579105053,
+          1.0975398798648612
+        ],
+        "cameraPadding": 1.15
+      },
+      "sheets": [
+        "rare-49-head-front.webp",
+        "rare-49-head-side.webp",
+        "rare-49-head-other-side.webp",
+        "rare-49-head-under-front.webp",
+        "rare-49-head-under-side.webp"
+      ],
+      "review": "pending",
+      "anatomySha256": "b323660ee8f25a69f671f097198573187a8f0eb9729e5bb34e868410032598be"
+    }
+  ],
+  "artisticCertification": false
+}

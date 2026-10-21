@@ -1,0 +1,546 @@
+{
+  "id": "rare-32",
+  "name": "Coral Serval",
+  "reviewedAt": "2026-10-20T15:02:15.521Z",
+  "status": "double-checked-locally-awaiting-main-live",
+  "localVisualApproval": true,
+  "sourceSha256": "c3646e4509d29640744c284d5ecdd8986b30e838a5454546ee3ed8cd2ea8ef00",
+  "battleSha256": "c3822f0c668e7e494d3fde438012cf8d099e68befd560f86742d78faed4d0956",
+  "atlasSha256": "c33e9004fb0c80b97b3b04d942dc371b884edb87cd9520f102ad67e4d9f85742",
+  "rendererSha256": "b2253b71fbcb21a83d82de35ab5783dd57b525cfc94740fb131dd1eb0049a897",
+  "repair": "Offline vertical root clearance preserves geometry, skin, rig, horizontal trajectories and every non-root curve.",
+  "reviewers": [
+    "/root",
+    "/root/review_c"
+  ],
+  "coverage": {
+    "rawClipsPerStage": 13,
+    "faceViews": 5,
+    "bodyViews": 2,
+    "rawPoseViewsPerPass": 1092,
+    "productionQualities": [
+      "low",
+      "medium"
+    ],
+    "transitionRows": 16,
+    "runtimePoseViewsPerPass": 1536,
+    "actualTechniqueFramesPerPass": 216,
+    "advancingIdleFramesPerPass": 24,
+    "atlasCellsPerPass": 16,
+    "rootImagesActuallyViewed": 61
+  },
+  "canonicalProof": {
+    "exactSourceBattleAtlasMatchReviewedCandidates": true,
+    "fullFaceAndGroundReplayTestsPassed": 4,
+    "assetContractsPassed": 3
+  },
+  "evidence": [
+    {
+      "path": "docs/screenshots/pet-coral-serval-private-review-2026-10-20/2209de273397-manifest.json",
+      "sha256": "2209de27339770f781a1d743725037fb80209544d9ffffebf4a6b39a9a70df25"
+    },
+    {
+      "path": "docs/screenshots/pet-coral-serval-private-review-2026-10-20/a0cf85001f18-rare-32-head-front-0.png",
+      "sha256": "a0cf85001f18de2d0e6d8d805334ada33150249415872936c5d5c5c36adb7f19"
+    },
+    {
+      "path": "docs/screenshots/pet-coral-serval-private-review-2026-10-20/b16103d98c8b-rare-32-head-front-1.png",
+      "sha256": "b16103d98c8bc70e9ae0285afcf57119f6778c96db0475c376f5e23e743065ec"
+    },
+    {
+      "path": "docs/screenshots/pet-coral-serval-private-review-2026-10-20/eb3c43dbe270-rare-32-head-front-2.png",
+      "sha256": "eb3c43dbe27041b39124ec3b426f0ace551c4f7046252557c67eb3e6b1f1f373"
+    },
+    {
+      "path": "docs/screenshots/pet-coral-serval-private-review-2026-10-20/9e5c96c12d2a-rare-32-head-other-side-0.png",
+      "sha256": "9e5c96c12d2a68c621a57fbea62e7215c9fb9a9036076f6f4cacd54542d179ad"
+    },
+    {
+      "path": "docs/screenshots/pet-coral-serval-private-review-2026-10-20/06fb04474143-rare-32-head-other-side-1.png",
+      "sha256": "06fb04474143de4f2243cb7306baaebed99343ae4af79822e4c5e7f7aaab9415"
+    },
+    {
+      "path": "docs/screenshots/pet-coral-serval-private-review-2026-10-20/85989b98493e-rare-32-head-other-side-2.png",
+      "sha256": "85989b98493ed4b512a7a0cbf97330e00de3c6e59d6d19dea1a35328062488a0"
+    },
+    {
+      "path": "docs/screenshots/pet-coral-serval-private-review-2026-10-20/f54b80178eb6-rare-32-head-side-0.png",
+      "sha256": "f54b80178eb6d4d4716832069b9150cbdc1faf0a1edea784ad9c36c60992649d"
+    },
+    {
+      "path": "docs/screenshots/pet-coral-serval-private-review-2026-10-20/9d2e6c3ed46f-rare-32-head-side-1.png",
+      "sha256": "9d2e6c3ed46fe7c17e1f4b3be52b118b2d44904eb150d1d1be703a4f59482c36"
+    },
+    {
+      "path": "docs/screenshots/pet-coral-serval-private-review-2026-10-20/12ecc4a32597-rare-32-head-side-2.png",
+      "sha256": "12ecc4a32597783cfefaa525e71f8513fec86138a418ff0c20489917a05461ef"
+    },
+    {
+      "path": "docs/screenshots/pet-coral-serval-private-review-2026-10-20/54088d5c9a6a-rare-32-head-under-front-0.png",
+      "sha256": "54088d5c9a6a42d7661350600c2859581501ee03e524ff85be997fb0dd930606"
+    },
+    {
+      "path": "docs/screenshots/pet-coral-serval-private-review-2026-10-20/d15107e9c924-rare-32-head-under-front-1.png",
+      "sha256": "d15107e9c924665ffd019b078ce50ac273e85cf00797bc095570c9206e1b6026"
+    },
+    {
+      "path": "docs/screenshots/pet-coral-serval-private-review-2026-10-20/383d9f39d68e-rare-32-head-under-front-2.png",
+      "sha256": "383d9f39d68e0d3cfce8dfaba60b1aaa0e16beb58d5fa706553d1fe89db1f3ae"
+    },
+    {
+      "path": "docs/screenshots/pet-coral-serval-private-review-2026-10-20/b1cedb55fe5a-rare-32-head-under-side-0.png",
+      "sha256": "b1cedb55fe5a6689cc3ddafd8bdb45845895631ec0a8c928e3cb8571eba0185e"
+    },
+    {
+      "path": "docs/screenshots/pet-coral-serval-private-review-2026-10-20/acabb9ee176e-rare-32-head-under-side-1.png",
+      "sha256": "acabb9ee176ef6ce2aade9be6f41553ce2dfa9ce734ce23f460f3a39e738663e"
+    },
+    {
+      "path": "docs/screenshots/pet-coral-serval-private-review-2026-10-20/80c8af95dfdf-rare-32-head-under-side-2.png",
+      "sha256": "80c8af95dfdf69bb058aaf07298bdc985757ca794ef12e7b67b0dae0f6431108"
+    },
+    {
+      "path": "docs/screenshots/pet-coral-serval-private-review-2026-10-20/4a53be07f9d3-manifest.json",
+      "sha256": "4a53be07f9d33ed24e5fade1ac05c91f2420d4cd3c712f73f99de85223a39e23"
+    },
+    {
+      "path": "docs/screenshots/pet-coral-serval-private-review-2026-10-20/f11efc89f1cd-rare-32-front-0.png",
+      "sha256": "f11efc89f1cd45b0b3bc33cf288cf8e1f1c62174b8d5fbb658c26dfd769d7d60"
+    },
+    {
+      "path": "docs/screenshots/pet-coral-serval-private-review-2026-10-20/8e3facdc744c-rare-32-front-1.png",
+      "sha256": "8e3facdc744c32fe760fb115a8b4ea22bcbd6ac59a374dd21b4d03c5ac9db3d2"
+    },
+    {
+      "path": "docs/screenshots/pet-coral-serval-private-review-2026-10-20/3923d133580d-rare-32-front-2.png",
+      "sha256": "3923d133580d116ed2954980846e7de0762b397808377fc44f1c76978f562b3c"
+    },
+    {
+      "path": "docs/screenshots/pet-coral-serval-private-review-2026-10-20/75e0f625220d-rare-32-side-0.png",
+      "sha256": "75e0f625220d5748274d3f35d3f8410fc263c42ef15417c70bdf41109f923ca1"
+    },
+    {
+      "path": "docs/screenshots/pet-coral-serval-private-review-2026-10-20/9fdfb0cd94dd-rare-32-side-1.png",
+      "sha256": "9fdfb0cd94dd28f4e0b4f0391fdc81c3743a430b5ef5955a38f1887bb32e29d0"
+    },
+    {
+      "path": "docs/screenshots/pet-coral-serval-private-review-2026-10-20/6119f6a9aa2a-rare-32-side-2.png",
+      "sha256": "6119f6a9aa2ac842bb3b6845d50a273614cb0ce4ca5e7f3a2d61b89fd0598a24"
+    },
+    {
+      "path": "docs/screenshots/pet-coral-serval-private-review-2026-10-20/b873712f4eff-manifest.json",
+      "sha256": "b873712f4effa60c8fd7b1894fa70dfb943ab114cb24fbe65081cedae897a3ee"
+    },
+    {
+      "path": "docs/screenshots/pet-coral-serval-private-review-2026-10-20/c4d85918622f-rare-32-head-front-0.png",
+      "sha256": "c4d85918622f5ca50e96a3178cb952fdc9ff23677770eaf21b633c49d5759102"
+    },
+    {
+      "path": "docs/screenshots/pet-coral-serval-private-review-2026-10-20/9f4a4bedef1b-rare-32-head-front-1.png",
+      "sha256": "9f4a4bedef1b5718f98a55d3e732091c602bb9ebb13b82c83e6f5974b763e5c0"
+    },
+    {
+      "path": "docs/screenshots/pet-coral-serval-private-review-2026-10-20/a60e8aa412ba-rare-32-head-front-2.png",
+      "sha256": "a60e8aa412baf5802932e221823f42217b6b663d3df921c903b1d003eb465ace"
+    },
+    {
+      "path": "docs/screenshots/pet-coral-serval-private-review-2026-10-20/39c560d7864f-rare-32-head-other-side-0.png",
+      "sha256": "39c560d7864f289b6feca17e12b6e4e5b83911f0910fae4cf8f95a0f304bc03f"
+    },
+    {
+      "path": "docs/screenshots/pet-coral-serval-private-review-2026-10-20/9dff155e030e-rare-32-head-other-side-1.png",
+      "sha256": "9dff155e030e1cb6bd489ad46041d6de3614931577b3d5920109e563ccd99867"
+    },
+    {
+      "path": "docs/screenshots/pet-coral-serval-private-review-2026-10-20/fef3f18c5248-rare-32-head-other-side-2.png",
+      "sha256": "fef3f18c524803818550d24735ec7ec0087c42745d18521fb7fca524178fcdfa"
+    },
+    {
+      "path": "docs/screenshots/pet-coral-serval-private-review-2026-10-20/cda0edd1e317-rare-32-head-side-0.png",
+      "sha256": "cda0edd1e3173be79037ea6e6c0efa32f9335dbc2b5cdf1f3398c6ab590baf9a"
+    },
+    {
+      "path": "docs/screenshots/pet-coral-serval-private-review-2026-10-20/2c982b039bdf-rare-32-head-side-1.png",
+      "sha256": "2c982b039bdf68fc374bc8548e5945604e91fd967c4ba2c583327e37b3e195ff"
+    },
+    {
+      "path": "docs/screenshots/pet-coral-serval-private-review-2026-10-20/fb0e8657f4e4-rare-32-head-side-2.png",
+      "sha256": "fb0e8657f4e42db922ab5743d1646a6b99c1a056271b313db26fbcf897044c3b"
+    },
+    {
+      "path": "docs/screenshots/pet-coral-serval-private-review-2026-10-20/294f7c688a65-rare-32-head-under-front-0.png",
+      "sha256": "294f7c688a65e5512707752ca4016937e48e32351d3d4779177e90d92385ad9c"
+    },
+    {
+      "path": "docs/screenshots/pet-coral-serval-private-review-2026-10-20/eab183dba259-rare-32-head-under-front-1.png",
+      "sha256": "eab183dba25991f9322f57efba1e6bc94348f0612abbeb2950e52846396843c7"
+    },
+    {
+      "path": "docs/screenshots/pet-coral-serval-private-review-2026-10-20/bb3ef15e5dcd-rare-32-head-under-front-2.png",
+      "sha256": "bb3ef15e5dcd27f5069230beae2cb13a6c0635c7fbf8fdf2537545483e736847"
+    },
+    {
+      "path": "docs/screenshots/pet-coral-serval-private-review-2026-10-20/799f3d6cae3a-rare-32-head-under-side-0.png",
+      "sha256": "799f3d6cae3a4f77590dcba034f3f6fa047adc6ed09c0158d4570df877bc1059"
+    },
+    {
+      "path": "docs/screenshots/pet-coral-serval-private-review-2026-10-20/857b25ca995f-rare-32-head-under-side-1.png",
+      "sha256": "857b25ca995f38a14e11e18f4d4c81dc16430dc4c2217dab9d563b5546802828"
+    },
+    {
+      "path": "docs/screenshots/pet-coral-serval-private-review-2026-10-20/c1d7a2458a43-rare-32-head-under-side-2.png",
+      "sha256": "c1d7a2458a43bc72bd455380f5b2fa620515c6ab80854ee1b9cf80edbd798ab1"
+    },
+    {
+      "path": "docs/screenshots/pet-coral-serval-private-review-2026-10-20/45dc55809ff3-manifest.json",
+      "sha256": "45dc55809ff38c4e2d70533e0fd639b03ede6a72e4beba20d63e80498e99a027"
+    },
+    {
+      "path": "docs/screenshots/pet-coral-serval-private-review-2026-10-20/c9b079f7b587-rare-32-front-0.png",
+      "sha256": "c9b079f7b587fdb287e8f78fbc3b7f1bce8ada9c02b15ab879f18778b637d50c"
+    },
+    {
+      "path": "docs/screenshots/pet-coral-serval-private-review-2026-10-20/7bfe97c16c98-rare-32-front-1.png",
+      "sha256": "7bfe97c16c98822b8db07d863e6cab01a5b4a9a66c2c5b36f48d8489b82643f6"
+    },
+    {
+      "path": "docs/screenshots/pet-coral-serval-private-review-2026-10-20/5b72609d8c8f-rare-32-front-2.png",
+      "sha256": "5b72609d8c8ffb8455fdf5423305e68e10de86a8a513fa91d9e24ba96c352163"
+    },
+    {
+      "path": "docs/screenshots/pet-coral-serval-private-review-2026-10-20/02b5b6493713-rare-32-side-0.png",
+      "sha256": "02b5b649371397ddd320ad675e8a8b0b369f74290757b3c712bafcceae0999b5"
+    },
+    {
+      "path": "docs/screenshots/pet-coral-serval-private-review-2026-10-20/c1544aa3a987-rare-32-side-1.png",
+      "sha256": "c1544aa3a987ab32e4da295748739877eb19d251016eb6f0a15ee50c7bddb0aa"
+    },
+    {
+      "path": "docs/screenshots/pet-coral-serval-private-review-2026-10-20/fec6fc33c067-rare-32-side-2.png",
+      "sha256": "fec6fc33c067f4a94b28e96b947cd2620213c0e521a4c65432795fcc4cc4fca0"
+    },
+    {
+      "path": "docs/screenshots/pet-coral-serval-private-review-2026-10-20/0fd9f8fe6935-native-source-head.png",
+      "sha256": "0fd9f8fe69356694ee39ece20d5311152a1aff3623ff0f594dbeae44d57a4148"
+    },
+    {
+      "path": "docs/screenshots/pet-coral-serval-private-review-2026-10-20/a5369127565f-native-source-body.png",
+      "sha256": "a5369127565f48e6a655c835cc6cd2364f996e407301c4a70251f9d049d6dc63"
+    },
+    {
+      "path": "docs/screenshots/pet-coral-serval-private-review-2026-10-20/a2d344dc7eb9-native-battle-head.png",
+      "sha256": "a2d344dc7eb9f0c1ceb9e1e7c056a6e1ddc0014527877ceedf2328d41a1f9c12"
+    },
+    {
+      "path": "docs/screenshots/pet-coral-serval-private-review-2026-10-20/b5b9380aa576-native-battle-body.png",
+      "sha256": "b5b9380aa576530aedfdce5e962a9f432ef2941bd01c54719718dcd5c8fedfba"
+    },
+    {
+      "path": "docs/screenshots/pet-coral-serval-private-review-2026-10-20/864c460a9c41-native-source-head.png",
+      "sha256": "864c460a9c41450ac8eb18e883add0f4019b3b378581f91ded9aeb2fa9d03995"
+    },
+    {
+      "path": "docs/screenshots/pet-coral-serval-private-review-2026-10-20/6d9e9a516976-native-source-body.png",
+      "sha256": "6d9e9a5169767c63fe38eaa4a7d470126f495259cb7c7e1882d579e63e311797"
+    },
+    {
+      "path": "docs/screenshots/pet-coral-serval-private-review-2026-10-20/9511a2f010d7-native-battle-head.png",
+      "sha256": "9511a2f010d71ace2c51b15a717c54d10e0b58ba3d97265e2306750ce16f30ff"
+    },
+    {
+      "path": "docs/screenshots/pet-coral-serval-private-review-2026-10-20/47e32756e107-native-battle-body.png",
+      "sha256": "47e32756e107700407b16c70e5eea5eee1a25c03edddd92dcd487cf077be9a35"
+    },
+    {
+      "path": "docs/screenshots/pet-coral-serval-private-review-2026-10-20/bdc43b89db34-manifest.json",
+      "sha256": "bdc43b89db3443d2fe57c0b277419aa076bb6a4e3e0c5fa2ff4d55475692d5bb"
+    },
+    {
+      "path": "docs/screenshots/pet-coral-serval-private-review-2026-10-20/685a5c7fdee6-both-block-0-half-0.png",
+      "sha256": "685a5c7fdee697369ebabb76c0d027ecb8bee1e3d62f90b30ebdfc8a9ba524cd"
+    },
+    {
+      "path": "docs/screenshots/pet-coral-serval-private-review-2026-10-20/bbc7665c47da-both-block-0-half-1.png",
+      "sha256": "bbc7665c47da6f49754ee9b390816adabdb7c005f58703263ba0a9140959095b"
+    },
+    {
+      "path": "docs/screenshots/pet-coral-serval-private-review-2026-10-20/c9879d3347ed-both-block-1-half-0.png",
+      "sha256": "c9879d3347ed1b0b931a8d50349aa031ee97dfb50ee35f62e448df5d551ce342"
+    },
+    {
+      "path": "docs/screenshots/pet-coral-serval-private-review-2026-10-20/9dc1a4d62739-both-block-1-half-1.png",
+      "sha256": "9dc1a4d6273980fd95d015eddb69ada19a3c1333d60e5fda49d18d5fead0d076"
+    },
+    {
+      "path": "docs/screenshots/pet-coral-serval-private-review-2026-10-20/0b2d66e683c7-both-block-2-half-0.png",
+      "sha256": "0b2d66e683c7c3acf023a6abedf086d56a7adb8037d29ed1983a85aa1eeb142a"
+    },
+    {
+      "path": "docs/screenshots/pet-coral-serval-private-review-2026-10-20/624920984195-both-block-2-half-1.png",
+      "sha256": "624920984195244333531578e3b26f51d82beb3cd7d768b981ddbf85e918acbe"
+    },
+    {
+      "path": "docs/screenshots/pet-coral-serval-private-review-2026-10-20/f1603951fad7-rare-32-water-breaker-side-3.png",
+      "sha256": "f1603951fad71ddb024248df30c1721a41de6acdc97d5b3aeb094cb07e3efb4a"
+    },
+    {
+      "path": "docs/screenshots/pet-coral-serval-private-review-2026-10-20/752d363e180d-rare-32-water-strike-front-4.png",
+      "sha256": "752d363e180d9d9b6e7f5857248e8c3fcafdc9b00798de60ccdb2a435e57e641"
+    },
+    {
+      "path": "docs/screenshots/pet-coral-serval-private-review-2026-10-20/e0ba760d894e-rare-32-water-strike-side-5.png",
+      "sha256": "e0ba760d894e8f9aff22591f864c7e47a8d323e0ad2f4bfe87ad81696f2de17e"
+    },
+    {
+      "path": "docs/screenshots/pet-coral-serval-private-review-2026-10-20/9305218f4753-advancing-idle-native.png",
+      "sha256": "9305218f4753640c97e3c5edd1d49f193d0e0f31e8421259dae461873b3d1e81"
+    },
+    {
+      "path": "docs/screenshots/pet-coral-serval-private-review-2026-10-20/c33e9004fb0c-rare-32.webp",
+      "sha256": "c33e9004fb0c80b97b3b04d942dc371b884edb87cd9520f102ad67e4d9f85742"
+    },
+    {
+      "path": "docs/screenshots/pet-coral-serval-private-review-2026-10-20/5e8888ba366e-private-ground-recipe.json",
+      "sha256": "5e8888ba366e4cbe7c30bdec1474a300816c93288da39113f4735e748d1a4033"
+    },
+    {
+      "path": "docs/screenshots/pet-coral-serval-private-review-2026-10-20/d664a576e58d-independent-private-ground-verification.json",
+      "sha256": "d664a576e58d12a598985d5e901f01190abfd3fe96b5e11a94c330f1a16962fe"
+    },
+    {
+      "path": "docs/screenshots/pet-coral-serval-private-review-2026-10-20/cf02b534bf57-independent-face-probe.log",
+      "sha256": "cf02b534bf572b14e8e4545645d5ecf37448d14c8f1db79e0fe335e686143039"
+    },
+    {
+      "path": "docs/screenshots/pet-coral-serval-private-review-2026-10-20/29f06f3720e5-source-geometry.log",
+      "sha256": "29f06f3720e5fe2302c0a4d417967d8bd0d2d1904bbd8573113fc4caca0c930c"
+    },
+    {
+      "path": "docs/screenshots/pet-coral-serval-private-review-2026-10-20/b5dd57425056-battle-geometry.log",
+      "sha256": "b5dd57425056a3e61b5e2be0ea025c06d74ea71819eedb909761b3a7dcc4437f"
+    },
+    {
+      "path": "docs/screenshots/pet-coral-serval-private-review-2026-10-20/6871f75f29fc-manifest.json",
+      "sha256": "6871f75f29fca6c644fa3a97ba013d483432e2e50731f004e609fa3584628215"
+    },
+    {
+      "path": "docs/screenshots/pet-coral-serval-private-review-2026-10-20/df0e448bccf3-manifest.json",
+      "sha256": "df0e448bccf3033fdca5839a29ac9b6d77f35d5276929876fe58c64d5bc126dc"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-32/private-final-independent/source-rare-32-head-front.webp",
+      "sha256": "fcbdbf1bf8a136855ff96686927996056184761d499ba58f0773ef089076920c"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-32/private-final-independent/source-rare-32-head-side.webp",
+      "sha256": "beec4d5a556004c8ffbb15ebe72a427fab3ee349c251210a224486b81dd9315f"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-32/private-final-independent/source-rare-32-head-other-side.webp",
+      "sha256": "69659163653084a30ab113b136aff26519c9f0021ebc53c8ca2cb43b19f950f1"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-32/private-final-independent/source-rare-32-head-under-front.webp",
+      "sha256": "9b642971b8c6c191fc2d0aec1ae78c45fdb385c51b332b70f1fad8d771d9ec0a"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-32/private-final-independent/source-rare-32-head-under-side.webp",
+      "sha256": "36f6afdd1fe9a2a15dbd103c8c8c4e86097138cbeba9efe1bb5b164f54d6ea22"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-32/private-final-independent/source-head-manifest.json",
+      "sha256": "f8d14f2ba484a88909146b8a96eef7c8396fbb1916b124510db3bcc40f8b81d1"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-32/private-final-independent/source-rare-32-front.webp",
+      "sha256": "5950bfeb729eed18773f097d3d01f5c2c8d6b244b09df09e35a280bab03ebab3"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-32/private-final-independent/source-rare-32-side.webp",
+      "sha256": "25d4431c893ad0d3e3f112e62844b179694cef796b6c2962dff977f121a43ffe"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-32/private-final-independent/source-body-manifest.json",
+      "sha256": "33e128fc226a9fa1a7edcca9d05e1158af3f67a971869b1365101cc8ef411edf"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-32/private-final-independent/battle-rare-32-head-front.webp",
+      "sha256": "da72ad56dd3dbb384467ac63738e1c34fd65c8e6494d5534c6cae128c941b7b3"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-32/private-final-independent/battle-rare-32-head-side.webp",
+      "sha256": "0f054385389c39634a5d1e89d3dd87e38d374196dcb6692fa51876ea7aace700"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-32/private-final-independent/battle-rare-32-head-other-side.webp",
+      "sha256": "33b04f25b3fbf0794b272b2a99b964cc3102427cd95edabdfbebfc0071d854a3"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-32/private-final-independent/battle-rare-32-head-under-front.webp",
+      "sha256": "56bfdc88772863b469844aae131d0f8435cd64edeb90122d9689603c934af928"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-32/private-final-independent/battle-rare-32-head-under-side.webp",
+      "sha256": "e129234cd7cbb0242d2284923fbaf331c3ce7c072363cb72c4ae00bb29883b28"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-32/private-final-independent/battle-head-manifest.json",
+      "sha256": "0b6b503ba1d80cc52e893e3329b3202f6405224b2753e6ee278f960d421abbef"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-32/private-final-independent/battle-rare-32-front.webp",
+      "sha256": "7bc3cfc939b578155e7f0b43824bad32b026d7a210148a7115924b274010a91d"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-32/private-final-independent/battle-rare-32-side.webp",
+      "sha256": "9018e076e2eb6810d7082ba72f8814a647131cf7cf367b6d5db0a9cf0336848a"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-32/private-final-independent/battle-body-manifest.json",
+      "sha256": "19383014b32726e824b870dc03579d04f5535cdb235845bbdf5d7024142d7120"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-32/private-final-independent/runtime-low-source-body.png",
+      "sha256": "a5369127565f48e6a655c835cc6cd2364f996e407301c4a70251f9d049d6dc63"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-32/private-final-independent/runtime-low-source-head.png",
+      "sha256": "0fd9f8fe69356694ee39ece20d5311152a1aff3623ff0f594dbeae44d57a4148"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-32/private-final-independent/runtime-low-battle-body.png",
+      "sha256": "b5b9380aa576530aedfdce5e962a9f432ef2941bd01c54719718dcd5c8fedfba"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-32/private-final-independent/runtime-low-battle-head.png",
+      "sha256": "a2d344dc7eb9f0c1ceb9e1e7c056a6e1ddc0014527877ceedf2328d41a1f9c12"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-32/private-final-independent/runtime-low-manifest.json",
+      "sha256": "6871f75f29fca6c644fa3a97ba013d483432e2e50731f004e609fa3584628215"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-32/private-final-independent/runtime-low-native-composite-manifest.json",
+      "sha256": "27d7f8965f3a43979d7341924468624279425e0059012d313fd250fdbe8caa48"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-32/private-final-independent/runtime-medium-source-body.png",
+      "sha256": "6d9e9a5169767c63fe38eaa4a7d470126f495259cb7c7e1882d579e63e311797"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-32/private-final-independent/runtime-medium-source-head.png",
+      "sha256": "864c460a9c41450ac8eb18e883add0f4019b3b378581f91ded9aeb2fa9d03995"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-32/private-final-independent/runtime-medium-battle-body.png",
+      "sha256": "47e32756e107700407b16c70e5eea5eee1a25c03edddd92dcd487cf077be9a35"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-32/private-final-independent/runtime-medium-battle-head.png",
+      "sha256": "9511a2f010d71ace2c51b15a717c54d10e0b58ba3d97265e2306750ce16f30ff"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-32/private-final-independent/runtime-medium-manifest.json",
+      "sha256": "df0e448bccf3033fdca5839a29ac9b6d77f35d5276929876fe58c64d5bc126dc"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-32/private-final-independent/runtime-medium-native-composite-manifest.json",
+      "sha256": "8ffea022f9aa42306b1ea1310738b6622bb4974e6c233ebbee002c06d16ad9d2"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-32/private-final-independent/technique-both-block-0-half-0.png",
+      "sha256": "685a5c7fdee697369ebabb76c0d027ecb8bee1e3d62f90b30ebdfc8a9ba524cd"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-32/private-final-independent/technique-both-block-0-half-1.png",
+      "sha256": "bbc7665c47da6f49754ee9b390816adabdb7c005f58703263ba0a9140959095b"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-32/private-final-independent/technique-both-block-1-half-0.png",
+      "sha256": "c9879d3347ed1b0b931a8d50349aa031ee97dfb50ee35f62e448df5d551ce342"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-32/private-final-independent/technique-both-block-1-half-1.png",
+      "sha256": "9dc1a4d6273980fd95d015eddb69ada19a3c1333d60e5fda49d18d5fead0d076"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-32/private-final-independent/technique-both-block-2-half-0.png",
+      "sha256": "0b2d66e683c7c3acf023a6abedf086d56a7adb8037d29ed1983a85aa1eeb142a"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-32/private-final-independent/technique-both-block-2-half-1.png",
+      "sha256": "624920984195244333531578e3b26f51d82beb3cd7d768b981ddbf85e918acbe"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-32/private-final-independent/rare-32-water-breaker-side-2.png",
+      "sha256": "72c92d459bc5413fd6340904b2e36a28d0abfa1e6a933c07bc855a7e35131bca"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-32/private-final-independent/rare-32-water-breaker-side-3.png",
+      "sha256": "f1603951fad71ddb024248df30c1721a41de6acdc97d5b3aeb094cb07e3efb4a"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-32/private-final-independent/rare-32-water-breaker-side-5.png",
+      "sha256": "8fad7e8879a18d37974709504aff9fd6ac60ab8a70ed77946a2cd060cbab92cb"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-32/private-final-independent/rare-32-water-strike-side-5.png",
+      "sha256": "e0ba760d894e8f9aff22591f864c7e47a8d323e0ad2f4bfe87ad81696f2de17e"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-32/private-final-independent/rare-32-open-wound-side-5.png",
+      "sha256": "9b4fd07695ec6f9ad0b463dd5f9b3a0283b3e5743e30c3bcac4b1b0903a26e1e"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-32/private-final-independent/techniques-manifest.json",
+      "sha256": "bdc43b89db3443d2fe57c0b277419aa076bb6a4e3e0c5fa2ff4d55475692d5bb"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-32/private-final-independent/techniques-both-views-manifest.json",
+      "sha256": "2d92b6e39acbf34bdfe9000bc9d0ec871de5bb1502dc3f6d4b53fce62d20f139"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-32/private-final-independent/advancing-idle-native.png",
+      "sha256": "9305218f4753640c97e3c5edd1d49f193d0e0f31e8421259dae461873b3d1e81"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-32/private-final-independent/advancing-idle-native-manifest.json",
+      "sha256": "9b4927e6f774057a2532f27f5704aa5d38e94fc8e6fc0212cdf7dc98334cd969"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-32/private-final-independent/atlas.webp",
+      "sha256": "c33e9004fb0c80b97b3b04d942dc371b884edb87cd9520f102ad67e4d9f85742"
+    },
+    {
+      "path": "docs/audits/pet-coral-serval-private-first-review-2026-10-20.json",
+      "sha256": "0271eaf14217b138d28f93e400dcde75f93f3339b57a26c0ec78c097deddee21"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-32/private-final-independent/independent-final-visual-review.json",
+      "sha256": "db3e7b3f72ca54efdbfeb9af05f9a32e3a36ad02e2f6f8ce3c56f7131bb016da"
+    },
+    {
+      "path": "docs/audits/pet-coral-serval-canonical-promotion-2026-10-20.json",
+      "sha256": "fbd0e1de7d513fa89ed7a7119bd6196d22f4178bae313478dffad1dad0b34e0f"
+    },
+    {
+      "path": "docs/screenshots/pet-coral-serval-final-review-2026-10-20/coral-canonical-face-ground-replay.txt",
+      "sha256": "43c2d877018864994729abbe639579a7ec183c274f2a6b28b8c219ffa3d3b326"
+    },
+    {
+      "path": "docs/screenshots/pet-coral-serval-final-review-2026-10-20/coral-canonical-contracts.txt",
+      "sha256": "8d7c8b8b58d59173cb402d45cd5a1903437c39ddfbabf831933a97321e59bb25"
+    },
+    {
+      "path": "docs/screenshots/pet-coral-serval-final-review-2026-10-20/previous-shape-review-receipt.json",
+      "sha256": "6773d36a9310ca5924bc2791afb06e6a3b6c351bc3c25c78782ad0d051ae7c36"
+    }
+  ],
+  "pending": [
+    "selected release full CI",
+    "merge to main",
+    "deployment and exact live-byte and served-cache verification"
+  ],
+  "liveVerified": false,
+  "wholeRosterComplete": false
+}

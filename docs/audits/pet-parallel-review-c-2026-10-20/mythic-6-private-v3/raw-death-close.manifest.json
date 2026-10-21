@@ -1,0 +1,650 @@
+{
+  "id": "mythic-6",
+  "asset": "C:\\Users\\Tyler R\\.codex\\worktrees\\40c2\\NinjaK\\shinobij.client\\.tmp\\sol-azure-death-v3\\source.glb",
+  "sha256": "ccbd1932c455bab07859fca73b5c9b75c6197087beb35fbfbf602477ed0ba723",
+  "rendererBundleSha256": "aebcf4fb161c4d49b42fe861941a03a4b63017f021334da449c27cedc29ee3ba",
+  "phases": [
+    0,
+    0.1,
+    0.25,
+    0.35,
+    0.45,
+    0.55,
+    0.65,
+    0.75,
+    0.9,
+    1
+  ],
+  "clips": [
+    "death"
+  ],
+  "views": [
+    "front",
+    "side",
+    "body-front",
+    "body-side",
+    "head-front",
+    "head-side",
+    "head-under-front",
+    "head-under-side"
+  ],
+  "images": [
+    {
+      "name": "mythic-6-death-0-front.png",
+      "sha256": "81bfdb1c7030fd60333aa28db9d6b33237eb924235900601fe418270ed0baef6",
+      "clip": "death",
+      "phase": 0,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-death-0.1-front.png",
+      "sha256": "1a7c995f93d3dfd0f5cf6aff9a2c76e99f93ba67a5727ca737d66a0d19aa347e",
+      "clip": "death",
+      "phase": 0.1,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-death-0.25-front.png",
+      "sha256": "34a1505141bc019fb034e8c79d2fc64d679ab461d2896f809d77625c17a7ab98",
+      "clip": "death",
+      "phase": 0.25,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-death-0.35-front.png",
+      "sha256": "3dc75734952a125e6a741cc304b28116971c7fecff5a7be21d45a60ff7567206",
+      "clip": "death",
+      "phase": 0.35,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-death-0.45-front.png",
+      "sha256": "3144b1c2e73b4c7e584789f0c245f22812d689ca6c09627adf8b78d4ded31c30",
+      "clip": "death",
+      "phase": 0.45,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-death-0.55-front.png",
+      "sha256": "4bfdb83c8d3797974dc7687aede7715dce8150f2acb10db16b2c71d3060de055",
+      "clip": "death",
+      "phase": 0.55,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-death-0.65-front.png",
+      "sha256": "5abd59819085a2a0dea2b84cb9a472f2239cce4bddbbd50f137a35cd39fafc23",
+      "clip": "death",
+      "phase": 0.65,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-death-0.75-front.png",
+      "sha256": "023edd19fd86396bfbab8d57f7a68a7339c0e3036267608732efe9aa83b1e460",
+      "clip": "death",
+      "phase": 0.75,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-death-0.9-front.png",
+      "sha256": "a868ff8d9186b7231b3a0f737df4362c5bfe3a1000a6729a889a02dbb10c6a95",
+      "clip": "death",
+      "phase": 0.9,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-death-1-front.png",
+      "sha256": "9998ff8ac3f1e501175c1ebc4d4a068163f04a9c97f5af0b0009324d1bda49e0",
+      "clip": "death",
+      "phase": 1,
+      "view": "front"
+    },
+    {
+      "name": "mythic-6-death-front-sheet.png",
+      "sha256": "188f072f0f8b04d3f15af58da692d79a2a717a565ae2fa339569fae2de387a18",
+      "clip": "death",
+      "view": "front",
+      "sheet": true
+    },
+    {
+      "name": "mythic-6-death-0-side.png",
+      "sha256": "08cb1d7af8e40230d003b8a62d5c125e653a2e9c0c164d7f5162e49285b442bc",
+      "clip": "death",
+      "phase": 0,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-death-0.1-side.png",
+      "sha256": "7174bcbabbf166a9882e488ff774b0a9606d28195e16bd6bebe6b7d4aad95b72",
+      "clip": "death",
+      "phase": 0.1,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-death-0.25-side.png",
+      "sha256": "6a2618a46d526b0d4322a9c970844dab5e8ab802e49e7f7e1c45342b1bda9d5f",
+      "clip": "death",
+      "phase": 0.25,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-death-0.35-side.png",
+      "sha256": "57873694b609bb28ef3c11397b60ad6a74597b30dbceabfba1a67c8e1ecda4f8",
+      "clip": "death",
+      "phase": 0.35,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-death-0.45-side.png",
+      "sha256": "e175a19b37fc05d7a96eb46b5fd1c5588f79d07603ad449744c54bdddb185ddf",
+      "clip": "death",
+      "phase": 0.45,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-death-0.55-side.png",
+      "sha256": "921e85727866456d29bedce81f1e3160d88cec463e3df316baa5e3f8f20ce1f7",
+      "clip": "death",
+      "phase": 0.55,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-death-0.65-side.png",
+      "sha256": "79f544718c1ff3001cf55483168bd153e4eae7cbeb992559f49e5113979cf954",
+      "clip": "death",
+      "phase": 0.65,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-death-0.75-side.png",
+      "sha256": "273e991c3c76f7f182634f9fab3e4ba118793e136d3c26cb36329c0eae1d2e0b",
+      "clip": "death",
+      "phase": 0.75,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-death-0.9-side.png",
+      "sha256": "1b089618ec726e1844eeb71061b897b973a31cc4c8050e209ad5e33c4d494fa3",
+      "clip": "death",
+      "phase": 0.9,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-death-1-side.png",
+      "sha256": "553a0420b22b25defc15cc825eb4bb9723a26b3078da31438dd914b698d73ef9",
+      "clip": "death",
+      "phase": 1,
+      "view": "side"
+    },
+    {
+      "name": "mythic-6-death-side-sheet.png",
+      "sha256": "818e1f42ab474508bb16d3f0bcd8b89cc3a15f18b5663663af57ba8ff08c52cf",
+      "clip": "death",
+      "view": "side",
+      "sheet": true
+    },
+    {
+      "name": "mythic-6-death-0-body-front.png",
+      "sha256": "66419b77fb4b5ce1686843fa3dca0129723159d75729f098ad16d6d7e17342a1",
+      "clip": "death",
+      "phase": 0,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-death-0.1-body-front.png",
+      "sha256": "2f6b355878f556c292e8bf502907aa445de474c6e3f2c5f36a83b72367fc1935",
+      "clip": "death",
+      "phase": 0.1,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-death-0.25-body-front.png",
+      "sha256": "9c650ccb59b85648662c21b99827cd01953581faf4c1e1ca4586a7e0c312f70e",
+      "clip": "death",
+      "phase": 0.25,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-death-0.35-body-front.png",
+      "sha256": "7cb50cfcbc5dbb03247b50506f83c2746a672ae9da306330ab5c98649ac898ec",
+      "clip": "death",
+      "phase": 0.35,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-death-0.45-body-front.png",
+      "sha256": "9bb217d5eca59776571be9b6c4ea490c40b2fdc48e1fe9d437803b11670b2a1e",
+      "clip": "death",
+      "phase": 0.45,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-death-0.55-body-front.png",
+      "sha256": "3412b474a13de47a957397f139d43b27a51c18a82222b4660f0d7f055b39b4ec",
+      "clip": "death",
+      "phase": 0.55,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-death-0.65-body-front.png",
+      "sha256": "cff1b506fa525a60c9689bd250505177af4589ea019b0408f43255676358adb2",
+      "clip": "death",
+      "phase": 0.65,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-death-0.75-body-front.png",
+      "sha256": "374f1367b8e2c76646d54037a538121b7328fafdf0c2f4e41b3c8871b50bc25d",
+      "clip": "death",
+      "phase": 0.75,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-death-0.9-body-front.png",
+      "sha256": "14c7379865cf7c3e20b65855a60bd4eff23e6a367f427979255103e2a453202e",
+      "clip": "death",
+      "phase": 0.9,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-death-1-body-front.png",
+      "sha256": "acab27764af0c8fa7420b0247ce1c2a874475346150aaf452a3c51f5f51bccaf",
+      "clip": "death",
+      "phase": 1,
+      "view": "body-front"
+    },
+    {
+      "name": "mythic-6-death-body-front-sheet.png",
+      "sha256": "c199879f348a24955cf57853e8c2c4029dd21962e396c26a7e48a239710771dd",
+      "clip": "death",
+      "view": "body-front",
+      "sheet": true
+    },
+    {
+      "name": "mythic-6-death-0-body-side.png",
+      "sha256": "879f3424bb6169bd3ed35767bf407c5927a51581c9aa76858dfe63f38c3241e7",
+      "clip": "death",
+      "phase": 0,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-death-0.1-body-side.png",
+      "sha256": "bded17d3cc93dde8337123c55c17c8d96ce6fb8c2eca582b2078ff7b729e29d4",
+      "clip": "death",
+      "phase": 0.1,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-death-0.25-body-side.png",
+      "sha256": "f49c3d6fc2d048fb497e3a18755bbe31648c88bf746d8a10e7c68689ab5d87c8",
+      "clip": "death",
+      "phase": 0.25,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-death-0.35-body-side.png",
+      "sha256": "a3fb4d6792c8ad8efe86a082d78164b885e3c95e22a2dc5942e23f401e36fd95",
+      "clip": "death",
+      "phase": 0.35,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-death-0.45-body-side.png",
+      "sha256": "4904dd206ed9bd47eecaa0721b00aed570267434dbdf5559cb5e27d7851e515e",
+      "clip": "death",
+      "phase": 0.45,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-death-0.55-body-side.png",
+      "sha256": "f73971a2a90fefa1539e209a9ca9dae3bfaeba0fb3b032096b0746bc18b902cf",
+      "clip": "death",
+      "phase": 0.55,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-death-0.65-body-side.png",
+      "sha256": "405fbd2fbe1117eecb13ab81ee290e60812862a3c6c0df82071104b816bc7ffa",
+      "clip": "death",
+      "phase": 0.65,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-death-0.75-body-side.png",
+      "sha256": "eda3e6bebb62e55db01c477e4c19bdbec9e1ed792ba24c582a7abb3d21073676",
+      "clip": "death",
+      "phase": 0.75,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-death-0.9-body-side.png",
+      "sha256": "a11f2ca68f298c88804c5125d5bc273e3ec2a4260161bc6d3fded7611f1df436",
+      "clip": "death",
+      "phase": 0.9,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-death-1-body-side.png",
+      "sha256": "4b68ec6f5b02cde831a52fc09b92ac5bed05de64c12a14ce7f19463caa7410de",
+      "clip": "death",
+      "phase": 1,
+      "view": "body-side"
+    },
+    {
+      "name": "mythic-6-death-body-side-sheet.png",
+      "sha256": "0726af293a98dc9233d2a5befd5a8ac6c889eb1c47f8435d844919d8c3ba89d5",
+      "clip": "death",
+      "view": "body-side",
+      "sheet": true
+    },
+    {
+      "name": "mythic-6-death-0-head-front.png",
+      "sha256": "e27d2929a85d02f43376a32e43a79e0501dca9d35f9c649fc3d8f6c9ca4011a2",
+      "clip": "death",
+      "phase": 0,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-death-0.1-head-front.png",
+      "sha256": "5f7dd6092000ae53528d4b91e0ed6de3881bbf4b237f1a59fc3a7e84acc29f02",
+      "clip": "death",
+      "phase": 0.1,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-death-0.25-head-front.png",
+      "sha256": "6489e64169fa842c23ad136e58f72c2a1307a50deb3f168c0074d48e9f0237d0",
+      "clip": "death",
+      "phase": 0.25,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-death-0.35-head-front.png",
+      "sha256": "a0ccc73f1927b86f0e600c35e60ec50cc56402f5031e80aaa6d41b824845d75c",
+      "clip": "death",
+      "phase": 0.35,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-death-0.45-head-front.png",
+      "sha256": "c08ea745112ce2ecc7ed2c85bb7a9d2dafb936c65833ef6c7a22be27e3aa238b",
+      "clip": "death",
+      "phase": 0.45,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-death-0.55-head-front.png",
+      "sha256": "081150308efb588c74e798ba4e94fd0c833bcc3690b939198a09e21ff990bba2",
+      "clip": "death",
+      "phase": 0.55,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-death-0.65-head-front.png",
+      "sha256": "8f246988fe6eb4a9c11e09b7a6561ee392b58bb3ab2f034d7add9f90eca393ab",
+      "clip": "death",
+      "phase": 0.65,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-death-0.75-head-front.png",
+      "sha256": "841851abca444389de6274c1c5ac052ab61a2adf2117e20c324502b3cb813d90",
+      "clip": "death",
+      "phase": 0.75,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-death-0.9-head-front.png",
+      "sha256": "266c9096ad5112635d669b1b8481b59c0d22bc7def4b7739e312c717c384db12",
+      "clip": "death",
+      "phase": 0.9,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-death-1-head-front.png",
+      "sha256": "cf1354e146c8e50959dc24bbb964281dd65c67c7d6c82a0fe4582487923cef30",
+      "clip": "death",
+      "phase": 1,
+      "view": "head-front"
+    },
+    {
+      "name": "mythic-6-death-head-front-sheet.png",
+      "sha256": "69e16912c01c96b40304e19a1f361327122da409e79e381c8f83db55c3827f0e",
+      "clip": "death",
+      "view": "head-front",
+      "sheet": true
+    },
+    {
+      "name": "mythic-6-death-0-head-side.png",
+      "sha256": "c158a3e7b91beb12605bbb90fefb1756141bf594dcafbffb5c15519e5f5db13e",
+      "clip": "death",
+      "phase": 0,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-death-0.1-head-side.png",
+      "sha256": "14dfe4094b58cd2e591a932fe65ba463d158f8baae10a4db0950d2eec1438860",
+      "clip": "death",
+      "phase": 0.1,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-death-0.25-head-side.png",
+      "sha256": "c9c0ab9630180fe5d9c0093889671e06f0417d50ffcd4c9f02324e2b1d65e192",
+      "clip": "death",
+      "phase": 0.25,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-death-0.35-head-side.png",
+      "sha256": "b2e757b92a667e64b882f85c516fc384c698412731618ac284f75e9a76361238",
+      "clip": "death",
+      "phase": 0.35,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-death-0.45-head-side.png",
+      "sha256": "aeab403f9e67db8ad2580086d5f1cd8cac7241eed59ba8c57de7ccc2a3f31aff",
+      "clip": "death",
+      "phase": 0.45,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-death-0.55-head-side.png",
+      "sha256": "1eba46a7e14ee21ddd3f3c1e4e99e819c2eea6289ba8b2e61721748b9084110d",
+      "clip": "death",
+      "phase": 0.55,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-death-0.65-head-side.png",
+      "sha256": "7a8ef32df4826bb7117631ea8cfdb2666db787e3698ccc6b76ba3563fc4c48d6",
+      "clip": "death",
+      "phase": 0.65,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-death-0.75-head-side.png",
+      "sha256": "87279c24ffa78bfdc8c3416f49e6320e35c1856cec04bfdbcdccec6d5286c2f2",
+      "clip": "death",
+      "phase": 0.75,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-death-0.9-head-side.png",
+      "sha256": "5fefc42845d092c29062ef1965520da53793c1f04f7fbd4f5413e326035dc3d5",
+      "clip": "death",
+      "phase": 0.9,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-death-1-head-side.png",
+      "sha256": "6f2f8a2d6bf382894b8d41f1b4ffe737fb6f1e32c6ce9c58d07b4096ff96fc70",
+      "clip": "death",
+      "phase": 1,
+      "view": "head-side"
+    },
+    {
+      "name": "mythic-6-death-head-side-sheet.png",
+      "sha256": "0313ee57be5cad7101eeb709eff18ec4301ac130e7aba1014f1c784c8b06af6e",
+      "clip": "death",
+      "view": "head-side",
+      "sheet": true
+    },
+    {
+      "name": "mythic-6-death-0-head-under-front.png",
+      "sha256": "5aa75e9ceffa28c73f57593fe3790ae5d4f15ece3d9cb4d3ee4843b66e8aeea2",
+      "clip": "death",
+      "phase": 0,
+      "view": "head-under-front"
+    },
+    {
+      "name": "mythic-6-death-0.1-head-under-front.png",
+      "sha256": "3fde89da3809fe3409d25a2892e37bbf0160556aaa4854c05c9ec1ae514ec4a6",
+      "clip": "death",
+      "phase": 0.1,
+      "view": "head-under-front"
+    },
+    {
+      "name": "mythic-6-death-0.25-head-under-front.png",
+      "sha256": "d7da52f8771639530177ac527811827036069afcf8158d93314f3a3d1fc3ba1b",
+      "clip": "death",
+      "phase": 0.25,
+      "view": "head-under-front"
+    },
+    {
+      "name": "mythic-6-death-0.35-head-under-front.png",
+      "sha256": "0108e3a39e24858a584eb0a6562fad9c9ce5fd4f5dba7257cdf0273e0597057e",
+      "clip": "death",
+      "phase": 0.35,
+      "view": "head-under-front"
+    },
+    {
+      "name": "mythic-6-death-0.45-head-under-front.png",
+      "sha256": "93e5b75865c655c8baff78a2694a2279e91ade3b4939f07ee0ca8b2545e2984c",
+      "clip": "death",
+      "phase": 0.45,
+      "view": "head-under-front"
+    },
+    {
+      "name": "mythic-6-death-0.55-head-under-front.png",
+      "sha256": "504d929e815bd89051e4f1a37fe7953fd86a657f5c14bd266209d65b0681bf78",
+      "clip": "death",
+      "phase": 0.55,
+      "view": "head-under-front"
+    },
+    {
+      "name": "mythic-6-death-0.65-head-under-front.png",
+      "sha256": "2de0642819f8d2483c2a5cef616723eb4c8afd6405cf70766e4c31194a892464",
+      "clip": "death",
+      "phase": 0.65,
+      "view": "head-under-front"
+    },
+    {
+      "name": "mythic-6-death-0.75-head-under-front.png",
+      "sha256": "9e4d2e7e5679aae4f184a1c3a959b57eced17747ecdbbfe7e32ed9ec7e0b09ee",
+      "clip": "death",
+      "phase": 0.75,
+      "view": "head-under-front"
+    },
+    {
+      "name": "mythic-6-death-0.9-head-under-front.png",
+      "sha256": "c73ae1f66180b0a2506e5ee1b3251757b0c4874758bb045bc67622e3111d9ffd",
+      "clip": "death",
+      "phase": 0.9,
+      "view": "head-under-front"
+    },
+    {
+      "name": "mythic-6-death-1-head-under-front.png",
+      "sha256": "b4421289d047eb15d2e65c355c1512069481fbf452c987697cb17270e7ec2236",
+      "clip": "death",
+      "phase": 1,
+      "view": "head-under-front"
+    },
+    {
+      "name": "mythic-6-death-head-under-front-sheet.png",
+      "sha256": "78df2419f2854bec3f0d5ce011f72ed6c40a924a86f2ea3c0cbde82e6863d37c",
+      "clip": "death",
+      "view": "head-under-front",
+      "sheet": true
+    },
+    {
+      "name": "mythic-6-death-0-head-under-side.png",
+      "sha256": "76e114aa4e58df5921119bafad54b09aaec9dc94e3c488c52020272e714b40ec",
+      "clip": "death",
+      "phase": 0,
+      "view": "head-under-side"
+    },
+    {
+      "name": "mythic-6-death-0.1-head-under-side.png",
+      "sha256": "6f66813d463254d0dde8bbea8fe75cd86f686b89160cfe5e412f71df0ddefeb2",
+      "clip": "death",
+      "phase": 0.1,
+      "view": "head-under-side"
+    },
+    {
+      "name": "mythic-6-death-0.25-head-under-side.png",
+      "sha256": "28da074a57a59c6eb7adf30e180859fd2deb769f13ab7ca19af845fe1a876c6d",
+      "clip": "death",
+      "phase": 0.25,
+      "view": "head-under-side"
+    },
+    {
+      "name": "mythic-6-death-0.35-head-under-side.png",
+      "sha256": "a5b69abe2d3443b2f9e8ddedc29825142d9c34d93ec96407ef9bd2e73e1ba25c",
+      "clip": "death",
+      "phase": 0.35,
+      "view": "head-under-side"
+    },
+    {
+      "name": "mythic-6-death-0.45-head-under-side.png",
+      "sha256": "a37deddcb3f31d93931e4d994832d7245460eb78ab1ee8318eea73841e77ac18",
+      "clip": "death",
+      "phase": 0.45,
+      "view": "head-under-side"
+    },
+    {
+      "name": "mythic-6-death-0.55-head-under-side.png",
+      "sha256": "fec3afcbbe50454ff33bac117fd57cb8fbd081ac78cd6ccd4d078428e7c9b8a4",
+      "clip": "death",
+      "phase": 0.55,
+      "view": "head-under-side"
+    },
+    {
+      "name": "mythic-6-death-0.65-head-under-side.png",
+      "sha256": "c1b3a61ffa857abdb9649c3a73207805cd09b6a0ef7faaf20d3c42b6a3b75b0f",
+      "clip": "death",
+      "phase": 0.65,
+      "view": "head-under-side"
+    },
+    {
+      "name": "mythic-6-death-0.75-head-under-side.png",
+      "sha256": "f331ea7ad5d2db65138a7e3bcbd9915aee3ffeb67f4a7573aa03663e08def7a7",
+      "clip": "death",
+      "phase": 0.75,
+      "view": "head-under-side"
+    },
+    {
+      "name": "mythic-6-death-0.9-head-under-side.png",
+      "sha256": "862f5d1ad0f879ad3e8c89147fe3aa4337145b7041fac5251f74407d2d87a5c9",
+      "clip": "death",
+      "phase": 0.9,
+      "view": "head-under-side"
+    },
+    {
+      "name": "mythic-6-death-1-head-under-side.png",
+      "sha256": "9e14f7dac3c52fc50eb85327ee23cd7a0f527726982a07e36c42703cf9ff01e9",
+      "clip": "death",
+      "phase": 1,
+      "view": "head-under-side"
+    },
+    {
+      "name": "mythic-6-death-head-under-side-sheet.png",
+      "sha256": "0977df2e85abad3581903aa418e541b7abd836b1dd120044b547d78ef70f4c06",
+      "clip": "death",
+      "view": "head-under-side",
+      "sheet": true
+    }
+  ],
+  "errors": []
+}

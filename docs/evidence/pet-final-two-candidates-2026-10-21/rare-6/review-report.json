@@ -1,0 +1,778 @@
+{
+  "schema": 1,
+  "recordedAt": "2026-10-21T06:53:10.7435211Z",
+  "reviewer": "review-a-luna",
+  "petId": "rare-6",
+  "petName": "Dune Viper",
+  "status": "PASS",
+  "candidate": "private grounded-v6",
+  "assetPins": {
+    "source": {
+      "path": ".tmp\\sol-viper-four-leg-rig-v1\\grounded-v6\\source.glb",
+      "sha256": "4d3136a78c73e66269ada4b2f02bcade5b279aa6dd7ea03a56d5c712e9ec398c"
+    },
+    "battle": {
+      "path": ".tmp\\sol-viper-four-leg-rig-v1\\grounded-v6\\battle.glb",
+      "sha256": "8a713fca3ad3b93464e9885fdfb4316931bdd8900df4b1f2bf4dd60d8af5ceab"
+    }
+  },
+  "visualCoverage": {
+    "sourceAndBattleRaw": {
+      "personallyViewed": true,
+      "clipsPerStage": 13,
+      "phases": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ],
+      "views": [
+        "front",
+        "side",
+        "head-front",
+        "head-side",
+        "head-other-side"
+      ],
+      "sheets": 10,
+      "images": [
+        {
+          "path": ".tmp/sol-viper-four-leg-rig-v1/review/raw/rare-6-source-front.png",
+          "expected": "e87506ed1b83692775bb0770b91688ff360293a450bbf78c286d1e20d8db0cf6",
+          "actual": "e87506ed1b83692775bb0770b91688ff360293a450bbf78c286d1e20d8db0cf6",
+          "match": true
+        },
+        {
+          "path": ".tmp/sol-viper-four-leg-rig-v1/review/raw/rare-6-source-side.png",
+          "expected": "7132a5a09bd3412025aebe523f2c7b5c93dbcf129dbdbde7a03077c5732a18a8",
+          "actual": "7132a5a09bd3412025aebe523f2c7b5c93dbcf129dbdbde7a03077c5732a18a8",
+          "match": true
+        },
+        {
+          "path": ".tmp/sol-viper-four-leg-rig-v1/review/raw/rare-6-source-head-front.png",
+          "expected": "0f23d0f9c99fbcbc2f23f7dc837f393f7ee95013dc68602cf8161a56df0f338e",
+          "actual": "0f23d0f9c99fbcbc2f23f7dc837f393f7ee95013dc68602cf8161a56df0f338e",
+          "match": true
+        },
+        {
+          "path": ".tmp/sol-viper-four-leg-rig-v1/review/raw/rare-6-source-head-side.png",
+          "expected": "f88f659c78ee3c353cc2ee8098f351abbea12aa2890f4f3063988a433848b2d3",
+          "actual": "f88f659c78ee3c353cc2ee8098f351abbea12aa2890f4f3063988a433848b2d3",
+          "match": true
+        },
+        {
+          "path": ".tmp/sol-viper-four-leg-rig-v1/review/raw/rare-6-source-head-other-side.png",
+          "expected": "a7ad273aa3aa3006e37130763ead236c29d5c87c5afab8e7bc2c8a6a2c886bfb",
+          "actual": "a7ad273aa3aa3006e37130763ead236c29d5c87c5afab8e7bc2c8a6a2c886bfb",
+          "match": true
+        },
+        {
+          "path": ".tmp/sol-viper-four-leg-rig-v1/review/raw/rare-6-battle-front.png",
+          "expected": "12537c79cb2f8cebdd11d70ada9f4bd752b808523e769e5a42ad24f0a761503f",
+          "actual": "12537c79cb2f8cebdd11d70ada9f4bd752b808523e769e5a42ad24f0a761503f",
+          "match": true
+        },
+        {
+          "path": ".tmp/sol-viper-four-leg-rig-v1/review/raw/rare-6-battle-side.png",
+          "expected": "d082e25e78f3ed09cb76914356d0d208ef619ce36b01a18a120801441a741424",
+          "actual": "d082e25e78f3ed09cb76914356d0d208ef619ce36b01a18a120801441a741424",
+          "match": true
+        },
+        {
+          "path": ".tmp/sol-viper-four-leg-rig-v1/review/raw/rare-6-battle-head-front.png",
+          "expected": "a941c2f10e07d0bf38d5a41bd9b478ac77e59d9a80f87f98908af67ce63a0b0d",
+          "actual": "a941c2f10e07d0bf38d5a41bd9b478ac77e59d9a80f87f98908af67ce63a0b0d",
+          "match": true
+        },
+        {
+          "path": ".tmp/sol-viper-four-leg-rig-v1/review/raw/rare-6-battle-head-side.png",
+          "expected": "91e9d21c70a86ea06ee0b3dfb648f9e75c70e8a8b18804ab198de0eba960658e",
+          "actual": "91e9d21c70a86ea06ee0b3dfb648f9e75c70e8a8b18804ab198de0eba960658e",
+          "match": true
+        },
+        {
+          "path": ".tmp/sol-viper-four-leg-rig-v1/review/raw/rare-6-battle-head-other-side.png",
+          "expected": "ceef616348ce4843185aafc3c82818926ab3e3dde4c3ba2a6e15d7b5a2b92751",
+          "actual": "ceef616348ce4843185aafc3c82818926ab3e3dde4c3ba2a6e15d7b5a2b92751",
+          "match": true
+        }
+      ]
+    },
+    "runtime": {
+      "personallyViewed": true,
+      "transitions": 16,
+      "phases": 6,
+      "views": [
+        "front",
+        "side"
+      ],
+      "parts": [
+        "head",
+        "body"
+      ],
+      "qualities": [
+        "low",
+        "medium"
+      ],
+      "stages": [
+        "source",
+        "battle"
+      ],
+      "sheets": 8,
+      "images": [
+        {
+          "path": ".tmp\\sol-viper-four-leg-rig-v1\\review\\runtime-low\\rare-6-source-head.webp",
+          "quality": "low",
+          "stage": "source",
+          "expected": "e33215e8f9d39d2886b79fcc43ec04370071d011b74122b2c55965be949fdc5e",
+          "actual": "e33215e8f9d39d2886b79fcc43ec04370071d011b74122b2c55965be949fdc5e",
+          "match": true,
+          "modelSha256": "4d3136a78c73e66269ada4b2f02bcade5b279aa6dd7ea03a56d5c712e9ec398c"
+        },
+        {
+          "path": ".tmp\\sol-viper-four-leg-rig-v1\\review\\runtime-low\\rare-6-source-body.webp",
+          "quality": "low",
+          "stage": "source",
+          "expected": "8ea3ab524655d3c2d24aee38b34911921f1e5caf53e349fc8636e081e3208aa6",
+          "actual": "8ea3ab524655d3c2d24aee38b34911921f1e5caf53e349fc8636e081e3208aa6",
+          "match": true,
+          "modelSha256": "4d3136a78c73e66269ada4b2f02bcade5b279aa6dd7ea03a56d5c712e9ec398c"
+        },
+        {
+          "path": ".tmp\\sol-viper-four-leg-rig-v1\\review\\runtime-low\\rare-6-battle-head.webp",
+          "quality": "low",
+          "stage": "battle",
+          "expected": "728a9660602fc3797764401608ed8ad54f3824170aacbdaa7bf7360407389c6b",
+          "actual": "728a9660602fc3797764401608ed8ad54f3824170aacbdaa7bf7360407389c6b",
+          "match": true,
+          "modelSha256": "8a713fca3ad3b93464e9885fdfb4316931bdd8900df4b1f2bf4dd60d8af5ceab"
+        },
+        {
+          "path": ".tmp\\sol-viper-four-leg-rig-v1\\review\\runtime-low\\rare-6-battle-body.webp",
+          "quality": "low",
+          "stage": "battle",
+          "expected": "fb5cd057456acd30385aeec21babe38edf4c1e84fe4c5ce7fb5969f84c915907",
+          "actual": "fb5cd057456acd30385aeec21babe38edf4c1e84fe4c5ce7fb5969f84c915907",
+          "match": true,
+          "modelSha256": "8a713fca3ad3b93464e9885fdfb4316931bdd8900df4b1f2bf4dd60d8af5ceab"
+        },
+        {
+          "path": ".tmp\\sol-viper-four-leg-rig-v1\\review\\runtime-medium\\rare-6-source-head.webp",
+          "quality": "medium",
+          "stage": "source",
+          "expected": "eb5a9f52d2df5d08c8e0467551dbd6b863a6726867df4bddeca8d17fdd3955ab",
+          "actual": "eb5a9f52d2df5d08c8e0467551dbd6b863a6726867df4bddeca8d17fdd3955ab",
+          "match": true,
+          "modelSha256": "4d3136a78c73e66269ada4b2f02bcade5b279aa6dd7ea03a56d5c712e9ec398c"
+        },
+        {
+          "path": ".tmp\\sol-viper-four-leg-rig-v1\\review\\runtime-medium\\rare-6-source-body.webp",
+          "quality": "medium",
+          "stage": "source",
+          "expected": "ecf4b50d572590e9746656321b9300e869736366661a738ed52285ced0527518",
+          "actual": "ecf4b50d572590e9746656321b9300e869736366661a738ed52285ced0527518",
+          "match": true,
+          "modelSha256": "4d3136a78c73e66269ada4b2f02bcade5b279aa6dd7ea03a56d5c712e9ec398c"
+        },
+        {
+          "path": ".tmp\\sol-viper-four-leg-rig-v1\\review\\runtime-medium\\rare-6-battle-head.webp",
+          "quality": "medium",
+          "stage": "battle",
+          "expected": "77ee8ea8fa48b45e8373b51547dce0001b6c6c70908362780c64fb93a7acb9c4",
+          "actual": "77ee8ea8fa48b45e8373b51547dce0001b6c6c70908362780c64fb93a7acb9c4",
+          "match": true,
+          "modelSha256": "8a713fca3ad3b93464e9885fdfb4316931bdd8900df4b1f2bf4dd60d8af5ceab"
+        },
+        {
+          "path": ".tmp\\sol-viper-four-leg-rig-v1\\review\\runtime-medium\\rare-6-battle-body.webp",
+          "quality": "medium",
+          "stage": "battle",
+          "expected": "c5aff6d00d0a987576ed4faef047e46f3d33d5b9143a51df38d2913398e76637",
+          "actual": "c5aff6d00d0a987576ed4faef047e46f3d33d5b9143a51df38d2913398e76637",
+          "match": true,
+          "modelSha256": "8a713fca3ad3b93464e9885fdfb4316931bdd8900df4b1f2bf4dd60d8af5ceab"
+        }
+      ]
+    },
+    "companionIdle": {
+      "personallyViewed": true,
+      "stage": "battle",
+      "frames": 24,
+      "sheetPath": ".tmp\\sol-viper-four-leg-rig-v1\\review\\companion\\rare-6-idle-24-sheet.webp",
+      "sheetSha256": "c89dcd36d18c73f8eb83f71f5e2f372fb1bda5e5be50be269b97fbaf246fcfd9",
+      "frameHashes": [
+        {
+          "path": ".tmp\\sol-viper-four-leg-rig-v1\\review\\companion\\rare-6-idle-00.png",
+          "expected": "5364cdb99aa882dec98d8cadef8e427fb3da5343ed81ecbe0829cb1c06e52cc1",
+          "actual": "5364cdb99aa882dec98d8cadef8e427fb3da5343ed81ecbe0829cb1c06e52cc1",
+          "match": true
+        },
+        {
+          "path": ".tmp\\sol-viper-four-leg-rig-v1\\review\\companion\\rare-6-idle-01.png",
+          "expected": "eeaed82d7d8c25fab61edcb0963d4d99038bf6fe477bc236c5177e8de1691a45",
+          "actual": "eeaed82d7d8c25fab61edcb0963d4d99038bf6fe477bc236c5177e8de1691a45",
+          "match": true
+        },
+        {
+          "path": ".tmp\\sol-viper-four-leg-rig-v1\\review\\companion\\rare-6-idle-02.png",
+          "expected": "1d8604107ac562676ab2ee4eacac1cae3b9813c74ae0aeaf54a6aaacd3326e42",
+          "actual": "1d8604107ac562676ab2ee4eacac1cae3b9813c74ae0aeaf54a6aaacd3326e42",
+          "match": true
+        },
+        {
+          "path": ".tmp\\sol-viper-four-leg-rig-v1\\review\\companion\\rare-6-idle-03.png",
+          "expected": "8adb5a1fe92d52d973f905743a67f5632801a9a74803c352ced220484fe60d7a",
+          "actual": "8adb5a1fe92d52d973f905743a67f5632801a9a74803c352ced220484fe60d7a",
+          "match": true
+        },
+        {
+          "path": ".tmp\\sol-viper-four-leg-rig-v1\\review\\companion\\rare-6-idle-04.png",
+          "expected": "5519a7598e7a328b36298896e8ec36cfb5e7d983fe3c234b98ab1b4e70c5d72e",
+          "actual": "5519a7598e7a328b36298896e8ec36cfb5e7d983fe3c234b98ab1b4e70c5d72e",
+          "match": true
+        },
+        {
+          "path": ".tmp\\sol-viper-four-leg-rig-v1\\review\\companion\\rare-6-idle-05.png",
+          "expected": "5519a7598e7a328b36298896e8ec36cfb5e7d983fe3c234b98ab1b4e70c5d72e",
+          "actual": "5519a7598e7a328b36298896e8ec36cfb5e7d983fe3c234b98ab1b4e70c5d72e",
+          "match": true
+        },
+        {
+          "path": ".tmp\\sol-viper-four-leg-rig-v1\\review\\companion\\rare-6-idle-06.png",
+          "expected": "ce52bca254dff70b75f5695fabb9e03c8bed3bff28b8193cab3fbcc5e53b6292",
+          "actual": "ce52bca254dff70b75f5695fabb9e03c8bed3bff28b8193cab3fbcc5e53b6292",
+          "match": true
+        },
+        {
+          "path": ".tmp\\sol-viper-four-leg-rig-v1\\review\\companion\\rare-6-idle-07.png",
+          "expected": "e60bc4799e729060b98052820a2a00a5f45158d4766d0087afff1b551404507a",
+          "actual": "e60bc4799e729060b98052820a2a00a5f45158d4766d0087afff1b551404507a",
+          "match": true
+        },
+        {
+          "path": ".tmp\\sol-viper-four-leg-rig-v1\\review\\companion\\rare-6-idle-08.png",
+          "expected": "f569ff6c70506f6d1338e90dac226621c26f33dc2e2e8948ab70fa6e87ea78ec",
+          "actual": "f569ff6c70506f6d1338e90dac226621c26f33dc2e2e8948ab70fa6e87ea78ec",
+          "match": true
+        },
+        {
+          "path": ".tmp\\sol-viper-four-leg-rig-v1\\review\\companion\\rare-6-idle-09.png",
+          "expected": "f569ff6c70506f6d1338e90dac226621c26f33dc2e2e8948ab70fa6e87ea78ec",
+          "actual": "f569ff6c70506f6d1338e90dac226621c26f33dc2e2e8948ab70fa6e87ea78ec",
+          "match": true
+        },
+        {
+          "path": ".tmp\\sol-viper-four-leg-rig-v1\\review\\companion\\rare-6-idle-10.png",
+          "expected": "dad7804d8d52bc24addfb359db9cc4f17bb48c912fc4773e3122aafa70cbc2b7",
+          "actual": "dad7804d8d52bc24addfb359db9cc4f17bb48c912fc4773e3122aafa70cbc2b7",
+          "match": true
+        },
+        {
+          "path": ".tmp\\sol-viper-four-leg-rig-v1\\review\\companion\\rare-6-idle-11.png",
+          "expected": "008f60ed04473954c6d33178c0d02287d0fe9de9fc5ad630fee3e885201d47cb",
+          "actual": "008f60ed04473954c6d33178c0d02287d0fe9de9fc5ad630fee3e885201d47cb",
+          "match": true
+        },
+        {
+          "path": ".tmp\\sol-viper-four-leg-rig-v1\\review\\companion\\rare-6-idle-12.png",
+          "expected": "a320bbe05df715fb7424889bda6abde8b5ed90fc3a12b36d4d2e3ea543caf3aa",
+          "actual": "a320bbe05df715fb7424889bda6abde8b5ed90fc3a12b36d4d2e3ea543caf3aa",
+          "match": true
+        },
+        {
+          "path": ".tmp\\sol-viper-four-leg-rig-v1\\review\\companion\\rare-6-idle-13.png",
+          "expected": "366b2aa1bd84ebb3c21b0530c5d7e1ad5a86d9f204008ababfcbc66a5c37b146",
+          "actual": "366b2aa1bd84ebb3c21b0530c5d7e1ad5a86d9f204008ababfcbc66a5c37b146",
+          "match": true
+        },
+        {
+          "path": ".tmp\\sol-viper-four-leg-rig-v1\\review\\companion\\rare-6-idle-14.png",
+          "expected": "05e209f4ef2568485945774d5b5078c814ab8beff7b7d88d3db41b4b09d99975",
+          "actual": "05e209f4ef2568485945774d5b5078c814ab8beff7b7d88d3db41b4b09d99975",
+          "match": true
+        },
+        {
+          "path": ".tmp\\sol-viper-four-leg-rig-v1\\review\\companion\\rare-6-idle-15.png",
+          "expected": "05e209f4ef2568485945774d5b5078c814ab8beff7b7d88d3db41b4b09d99975",
+          "actual": "05e209f4ef2568485945774d5b5078c814ab8beff7b7d88d3db41b4b09d99975",
+          "match": true
+        },
+        {
+          "path": ".tmp\\sol-viper-four-leg-rig-v1\\review\\companion\\rare-6-idle-16.png",
+          "expected": "9af97cee4213cc2f13d749a301d4b32caea7bd67601edeec0faae4495c4f649e",
+          "actual": "9af97cee4213cc2f13d749a301d4b32caea7bd67601edeec0faae4495c4f649e",
+          "match": true
+        },
+        {
+          "path": ".tmp\\sol-viper-four-leg-rig-v1\\review\\companion\\rare-6-idle-17.png",
+          "expected": "46c0469232399a552c0695f0f86c4e7765b8f4e9744329306a47b302139248f8",
+          "actual": "46c0469232399a552c0695f0f86c4e7765b8f4e9744329306a47b302139248f8",
+          "match": true
+        },
+        {
+          "path": ".tmp\\sol-viper-four-leg-rig-v1\\review\\companion\\rare-6-idle-18.png",
+          "expected": "679846ada224ed552009d874417819273a287a2c0cf9040f9636f9b3b66b79dd",
+          "actual": "679846ada224ed552009d874417819273a287a2c0cf9040f9636f9b3b66b79dd",
+          "match": true
+        },
+        {
+          "path": ".tmp\\sol-viper-four-leg-rig-v1\\review\\companion\\rare-6-idle-19.png",
+          "expected": "e154b3ed9d57a6aaf82a684ebf0d794d1c0f03e38670c7b9c286bd0d762cd5ae",
+          "actual": "e154b3ed9d57a6aaf82a684ebf0d794d1c0f03e38670c7b9c286bd0d762cd5ae",
+          "match": true
+        },
+        {
+          "path": ".tmp\\sol-viper-four-leg-rig-v1\\review\\companion\\rare-6-idle-20.png",
+          "expected": "7c39581e5bcd46fb6b73fb718920338581e10dca53839f826817a64a248729ca",
+          "actual": "7c39581e5bcd46fb6b73fb718920338581e10dca53839f826817a64a248729ca",
+          "match": true
+        },
+        {
+          "path": ".tmp\\sol-viper-four-leg-rig-v1\\review\\companion\\rare-6-idle-21.png",
+          "expected": "7c39581e5bcd46fb6b73fb718920338581e10dca53839f826817a64a248729ca",
+          "actual": "7c39581e5bcd46fb6b73fb718920338581e10dca53839f826817a64a248729ca",
+          "match": true
+        },
+        {
+          "path": ".tmp\\sol-viper-four-leg-rig-v1\\review\\companion\\rare-6-idle-22.png",
+          "expected": "e49a09518a2a926c860dd6580a96c22c20c1e6c23a36e4646c82a080cb59ad39",
+          "actual": "e49a09518a2a926c860dd6580a96c22c20c1e6c23a36e4646c82a080cb59ad39",
+          "match": true
+        },
+        {
+          "path": ".tmp\\sol-viper-four-leg-rig-v1\\review\\companion\\rare-6-idle-23.png",
+          "expected": "da39fc95b7de59d0ab33622c53a3fb792eaf4da8fb6a776449253809a413f85f",
+          "actual": "da39fc95b7de59d0ab33622c53a3fb792eaf4da8fb6a776449253809a413f85f",
+          "match": true
+        }
+      ]
+    },
+    "techniques": {
+      "personallyViewed": true,
+      "stage": "battle",
+      "moves": [
+        "fire-strike",
+        "fire-pulse",
+        "fire-breaker",
+        "earth-pulse",
+        "open-wound",
+        "expose",
+        "rally",
+        "protect",
+        "rare-6-signature"
+      ],
+      "phaseCount": 12,
+      "phases": [
+        0.04,
+        0.12,
+        0.24,
+        0.36,
+        0.48,
+        0.6,
+        0.76,
+        0.96,
+        1.2,
+        1.44,
+        1.68,
+        1.92
+      ],
+      "views": [
+        "front",
+        "side"
+      ],
+      "sheetCount": 36,
+      "sheets": [
+        {
+          "path": ".tmp\\sol-viper-four-leg-rig-v1\\review\\companion\\rare-6-fire-strike-front-sheet-0.webp",
+          "move": "fire-strike",
+          "view": "front",
+          "group": 0,
+          "expected": "39508e5b5de9bcd01b5c328c4bedcd941899241660bf92543f87328587b0484b",
+          "actual": "39508e5b5de9bcd01b5c328c4bedcd941899241660bf92543f87328587b0484b",
+          "match": true
+        },
+        {
+          "path": ".tmp\\sol-viper-four-leg-rig-v1\\review\\companion\\rare-6-fire-strike-front-sheet-1.webp",
+          "move": "fire-strike",
+          "view": "front",
+          "group": 1,
+          "expected": "e27452a6d57307f85c2f44f2ed7e4b1ea2038eb0e969408360d9b803191ecff9",
+          "actual": "e27452a6d57307f85c2f44f2ed7e4b1ea2038eb0e969408360d9b803191ecff9",
+          "match": true
+        },
+        {
+          "path": ".tmp\\sol-viper-four-leg-rig-v1\\review\\companion\\rare-6-fire-strike-side-sheet-0.webp",
+          "move": "fire-strike",
+          "view": "side",
+          "group": 0,
+          "expected": "af0bc02015189978f741524d7dec2467ec788cdf51c4ede5d51e8fc2997a88f1",
+          "actual": "af0bc02015189978f741524d7dec2467ec788cdf51c4ede5d51e8fc2997a88f1",
+          "match": true
+        },
+        {
+          "path": ".tmp\\sol-viper-four-leg-rig-v1\\review\\companion\\rare-6-fire-strike-side-sheet-1.webp",
+          "move": "fire-strike",
+          "view": "side",
+          "group": 1,
+          "expected": "f41201b8dac3cc0b31fd57a97a11c023bea4625f0459cdeb7df305fab2755485",
+          "actual": "f41201b8dac3cc0b31fd57a97a11c023bea4625f0459cdeb7df305fab2755485",
+          "match": true
+        },
+        {
+          "path": ".tmp\\sol-viper-four-leg-rig-v1\\review\\companion\\rare-6-fire-pulse-front-sheet-0.webp",
+          "move": "fire-pulse",
+          "view": "front",
+          "group": 0,
+          "expected": "56bc0da06c326760a3c23c5ee8772583d49f0d1711326d3f7629c5b244a0b1cf",
+          "actual": "56bc0da06c326760a3c23c5ee8772583d49f0d1711326d3f7629c5b244a0b1cf",
+          "match": true
+        },
+        {
+          "path": ".tmp\\sol-viper-four-leg-rig-v1\\review\\companion\\rare-6-fire-pulse-front-sheet-1.webp",
+          "move": "fire-pulse",
+          "view": "front",
+          "group": 1,
+          "expected": "820f118cd495fe4880309e0675656eb126c79106552e66ae6663c9ce810de26a",
+          "actual": "820f118cd495fe4880309e0675656eb126c79106552e66ae6663c9ce810de26a",
+          "match": true
+        },
+        {
+          "path": ".tmp\\sol-viper-four-leg-rig-v1\\review\\companion\\rare-6-fire-pulse-side-sheet-0.webp",
+          "move": "fire-pulse",
+          "view": "side",
+          "group": 0,
+          "expected": "ff4674a6b2cffeaa60b0a020ddbfeed3445fec1cfde624537114d678e7324922",
+          "actual": "ff4674a6b2cffeaa60b0a020ddbfeed3445fec1cfde624537114d678e7324922",
+          "match": true
+        },
+        {
+          "path": ".tmp\\sol-viper-four-leg-rig-v1\\review\\companion\\rare-6-fire-pulse-side-sheet-1.webp",
+          "move": "fire-pulse",
+          "view": "side",
+          "group": 1,
+          "expected": "e354e2f0e36b56d436f15e822a3c98d65d6953c65f74bf5210f7cdf7574f89c6",
+          "actual": "e354e2f0e36b56d436f15e822a3c98d65d6953c65f74bf5210f7cdf7574f89c6",
+          "match": true
+        },
+        {
+          "path": ".tmp\\sol-viper-four-leg-rig-v1\\review\\companion\\rare-6-fire-breaker-front-sheet-0.webp",
+          "move": "fire-breaker",
+          "view": "front",
+          "group": 0,
+          "expected": "c9518d7d46601f399dc6feb859fc53b007b21a4fcb81feb799c2a414aa91d710",
+          "actual": "c9518d7d46601f399dc6feb859fc53b007b21a4fcb81feb799c2a414aa91d710",
+          "match": true
+        },
+        {
+          "path": ".tmp\\sol-viper-four-leg-rig-v1\\review\\companion\\rare-6-fire-breaker-front-sheet-1.webp",
+          "move": "fire-breaker",
+          "view": "front",
+          "group": 1,
+          "expected": "068d04c1fecade2e4bf1f666e104f3ce03bfc13321ed1b134aa83c7c7e718a8c",
+          "actual": "068d04c1fecade2e4bf1f666e104f3ce03bfc13321ed1b134aa83c7c7e718a8c",
+          "match": true
+        },
+        {
+          "path": ".tmp\\sol-viper-four-leg-rig-v1\\review\\companion\\rare-6-fire-breaker-side-sheet-0.webp",
+          "move": "fire-breaker",
+          "view": "side",
+          "group": 0,
+          "expected": "30d38ff2d36044faeac6289ad194d86f9d57c0d3357d6137d6f3dbf8ab79301e",
+          "actual": "30d38ff2d36044faeac6289ad194d86f9d57c0d3357d6137d6f3dbf8ab79301e",
+          "match": true
+        },
+        {
+          "path": ".tmp\\sol-viper-four-leg-rig-v1\\review\\companion\\rare-6-fire-breaker-side-sheet-1.webp",
+          "move": "fire-breaker",
+          "view": "side",
+          "group": 1,
+          "expected": "ffb7c49dbc510badc69451e48338d3bd3a13a2a45c4333f4346e8816c7ae6fe4",
+          "actual": "ffb7c49dbc510badc69451e48338d3bd3a13a2a45c4333f4346e8816c7ae6fe4",
+          "match": true
+        },
+        {
+          "path": ".tmp\\sol-viper-four-leg-rig-v1\\review\\companion\\rare-6-earth-pulse-front-sheet-0.webp",
+          "move": "earth-pulse",
+          "view": "front",
+          "group": 0,
+          "expected": "c115d15c08e6814c8a9a405f4b9ef5b7d34deba72d480f5b5c9a6843fea3edc1",
+          "actual": "c115d15c08e6814c8a9a405f4b9ef5b7d34deba72d480f5b5c9a6843fea3edc1",
+          "match": true
+        },
+        {
+          "path": ".tmp\\sol-viper-four-leg-rig-v1\\review\\companion\\rare-6-earth-pulse-front-sheet-1.webp",
+          "move": "earth-pulse",
+          "view": "front",
+          "group": 1,
+          "expected": "e799d0b684dd5c72de61c3fc213772a9353939ff6ab8651ea50864f49b85f923",
+          "actual": "e799d0b684dd5c72de61c3fc213772a9353939ff6ab8651ea50864f49b85f923",
+          "match": true
+        },
+        {
+          "path": ".tmp\\sol-viper-four-leg-rig-v1\\review\\companion\\rare-6-earth-pulse-side-sheet-0.webp",
+          "move": "earth-pulse",
+          "view": "side",
+          "group": 0,
+          "expected": "682084369b3e74817df3f0eb91f9a487cf4039713703b5b3700b055d187f82e6",
+          "actual": "682084369b3e74817df3f0eb91f9a487cf4039713703b5b3700b055d187f82e6",
+          "match": true
+        },
+        {
+          "path": ".tmp\\sol-viper-four-leg-rig-v1\\review\\companion\\rare-6-earth-pulse-side-sheet-1.webp",
+          "move": "earth-pulse",
+          "view": "side",
+          "group": 1,
+          "expected": "27cdd76a83b53f1e6ead4fb33d7988efe20b8f68e99ce33201a479ee30051b6a",
+          "actual": "27cdd76a83b53f1e6ead4fb33d7988efe20b8f68e99ce33201a479ee30051b6a",
+          "match": true
+        },
+        {
+          "path": ".tmp\\sol-viper-four-leg-rig-v1\\review\\companion\\rare-6-open-wound-front-sheet-0.webp",
+          "move": "open-wound",
+          "view": "front",
+          "group": 0,
+          "expected": "a94d565b39a5281a01e87f1282d89108562b4be70251cdbb312ec87afba7812b",
+          "actual": "a94d565b39a5281a01e87f1282d89108562b4be70251cdbb312ec87afba7812b",
+          "match": true
+        },
+        {
+          "path": ".tmp\\sol-viper-four-leg-rig-v1\\review\\companion\\rare-6-open-wound-front-sheet-1.webp",
+          "move": "open-wound",
+          "view": "front",
+          "group": 1,
+          "expected": "aeb964af3fc4ffefbd087da6e0663e40ed63a95003f63d3419c1931948f0bf3e",
+          "actual": "aeb964af3fc4ffefbd087da6e0663e40ed63a95003f63d3419c1931948f0bf3e",
+          "match": true
+        },
+        {
+          "path": ".tmp\\sol-viper-four-leg-rig-v1\\review\\companion\\rare-6-open-wound-side-sheet-0.webp",
+          "move": "open-wound",
+          "view": "side",
+          "group": 0,
+          "expected": "80900b9aa85e8f2bac8d7834c8b3f23205f790fbabc0c50d6dce0bd36447ec9e",
+          "actual": "80900b9aa85e8f2bac8d7834c8b3f23205f790fbabc0c50d6dce0bd36447ec9e",
+          "match": true
+        },
+        {
+          "path": ".tmp\\sol-viper-four-leg-rig-v1\\review\\companion\\rare-6-open-wound-side-sheet-1.webp",
+          "move": "open-wound",
+          "view": "side",
+          "group": 1,
+          "expected": "7d64b62d8d8cecc7aede57a5005f250f31c342ebcc8ef2c67f61b8dd4b897749",
+          "actual": "7d64b62d8d8cecc7aede57a5005f250f31c342ebcc8ef2c67f61b8dd4b897749",
+          "match": true
+        },
+        {
+          "path": ".tmp\\sol-viper-four-leg-rig-v1\\review\\companion\\rare-6-expose-front-sheet-0.webp",
+          "move": "expose",
+          "view": "front",
+          "group": 0,
+          "expected": "7a6189bbd81b8848f2d502dcdbf562bd381c8dc0a251413a3b502e0619510b22",
+          "actual": "7a6189bbd81b8848f2d502dcdbf562bd381c8dc0a251413a3b502e0619510b22",
+          "match": true
+        },
+        {
+          "path": ".tmp\\sol-viper-four-leg-rig-v1\\review\\companion\\rare-6-expose-front-sheet-1.webp",
+          "move": "expose",
+          "view": "front",
+          "group": 1,
+          "expected": "f0defac05fae4d133a9e2e76de98f8137038f58132101c27be883fcae263bc6c",
+          "actual": "f0defac05fae4d133a9e2e76de98f8137038f58132101c27be883fcae263bc6c",
+          "match": true
+        },
+        {
+          "path": ".tmp\\sol-viper-four-leg-rig-v1\\review\\companion\\rare-6-expose-side-sheet-0.webp",
+          "move": "expose",
+          "view": "side",
+          "group": 0,
+          "expected": "42dd01a1a0a8d0b67f4fbc64b3cfb3ada96080eca19cf650b1228acb0be43276",
+          "actual": "42dd01a1a0a8d0b67f4fbc64b3cfb3ada96080eca19cf650b1228acb0be43276",
+          "match": true
+        },
+        {
+          "path": ".tmp\\sol-viper-four-leg-rig-v1\\review\\companion\\rare-6-expose-side-sheet-1.webp",
+          "move": "expose",
+          "view": "side",
+          "group": 1,
+          "expected": "628b9870a4e3bc5523c05e61bd696e615898fbc0dd1856de3b75be260e308aa0",
+          "actual": "628b9870a4e3bc5523c05e61bd696e615898fbc0dd1856de3b75be260e308aa0",
+          "match": true
+        },
+        {
+          "path": ".tmp\\sol-viper-four-leg-rig-v1\\review\\companion\\rare-6-rally-front-sheet-0.webp",
+          "move": "rally",
+          "view": "front",
+          "group": 0,
+          "expected": "17bf9139daa8e446af392bc2e5d16259f1a8a520e88cb6ee303e806a60be1e96",
+          "actual": "17bf9139daa8e446af392bc2e5d16259f1a8a520e88cb6ee303e806a60be1e96",
+          "match": true
+        },
+        {
+          "path": ".tmp\\sol-viper-four-leg-rig-v1\\review\\companion\\rare-6-rally-front-sheet-1.webp",
+          "move": "rally",
+          "view": "front",
+          "group": 1,
+          "expected": "e2d677f20c749b42d5bb56275ef1953abe2e003c1e937f84c7dc130899bc7dfb",
+          "actual": "e2d677f20c749b42d5bb56275ef1953abe2e003c1e937f84c7dc130899bc7dfb",
+          "match": true
+        },
+        {
+          "path": ".tmp\\sol-viper-four-leg-rig-v1\\review\\companion\\rare-6-rally-side-sheet-0.webp",
+          "move": "rally",
+          "view": "side",
+          "group": 0,
+          "expected": "7c2f95f8decbd32e3c67fcf3e5a92236b971f7ce5f58cd98900590b4c9e64530",
+          "actual": "7c2f95f8decbd32e3c67fcf3e5a92236b971f7ce5f58cd98900590b4c9e64530",
+          "match": true
+        },
+        {
+          "path": ".tmp\\sol-viper-four-leg-rig-v1\\review\\companion\\rare-6-rally-side-sheet-1.webp",
+          "move": "rally",
+          "view": "side",
+          "group": 1,
+          "expected": "13e501843ff08fb11200cd9491411ae56327a9655a0f8e88f4e1bca6b7bef262",
+          "actual": "13e501843ff08fb11200cd9491411ae56327a9655a0f8e88f4e1bca6b7bef262",
+          "match": true
+        },
+        {
+          "path": ".tmp\\sol-viper-four-leg-rig-v1\\review\\companion\\rare-6-protect-front-sheet-0.webp",
+          "move": "protect",
+          "view": "front",
+          "group": 0,
+          "expected": "1351780db1a57da50b13d20efb572fc5ea93067130f09d6062a0a744e50a0eee",
+          "actual": "1351780db1a57da50b13d20efb572fc5ea93067130f09d6062a0a744e50a0eee",
+          "match": true
+        },
+        {
+          "path": ".tmp\\sol-viper-four-leg-rig-v1\\review\\companion\\rare-6-protect-front-sheet-1.webp",
+          "move": "protect",
+          "view": "front",
+          "group": 1,
+          "expected": "c368722849326c7cae43fd7cdc0b63b74926e36fe3b46a424025b19a08580121",
+          "actual": "c368722849326c7cae43fd7cdc0b63b74926e36fe3b46a424025b19a08580121",
+          "match": true
+        },
+        {
+          "path": ".tmp\\sol-viper-four-leg-rig-v1\\review\\companion\\rare-6-protect-side-sheet-0.webp",
+          "move": "protect",
+          "view": "side",
+          "group": 0,
+          "expected": "b86245956ffa163ae063e058a37d64ce3887507ffbb59eb5c07cf477cbc3beb1",
+          "actual": "b86245956ffa163ae063e058a37d64ce3887507ffbb59eb5c07cf477cbc3beb1",
+          "match": true
+        },
+        {
+          "path": ".tmp\\sol-viper-four-leg-rig-v1\\review\\companion\\rare-6-protect-side-sheet-1.webp",
+          "move": "protect",
+          "view": "side",
+          "group": 1,
+          "expected": "979d0e77e51741c53904f8cd68dda80ce594ded170b6e8d9a71721b92296ab09",
+          "actual": "979d0e77e51741c53904f8cd68dda80ce594ded170b6e8d9a71721b92296ab09",
+          "match": true
+        },
+        {
+          "path": ".tmp\\sol-viper-four-leg-rig-v1\\review\\companion\\rare-6-rare-6-signature-front-sheet-0.webp",
+          "move": "rare-6-signature",
+          "view": "front",
+          "group": 0,
+          "expected": "1666dc18f76472a7609dc34559f53a6994f1a8298d1a43df735ec74afab0a81b",
+          "actual": "1666dc18f76472a7609dc34559f53a6994f1a8298d1a43df735ec74afab0a81b",
+          "match": true
+        },
+        {
+          "path": ".tmp\\sol-viper-four-leg-rig-v1\\review\\companion\\rare-6-rare-6-signature-front-sheet-1.webp",
+          "move": "rare-6-signature",
+          "view": "front",
+          "group": 1,
+          "expected": "221594d0908c4fe5def89633c44444ca0caf3f58f71894508b3fc64d583cbd26",
+          "actual": "221594d0908c4fe5def89633c44444ca0caf3f58f71894508b3fc64d583cbd26",
+          "match": true
+        },
+        {
+          "path": ".tmp\\sol-viper-four-leg-rig-v1\\review\\companion\\rare-6-rare-6-signature-side-sheet-0.webp",
+          "move": "rare-6-signature",
+          "view": "side",
+          "group": 0,
+          "expected": "79497b55adbcdd365947f3a5e04c9f66801179b6227273e9ddda7a1149bac71f",
+          "actual": "79497b55adbcdd365947f3a5e04c9f66801179b6227273e9ddda7a1149bac71f",
+          "match": true
+        },
+        {
+          "path": ".tmp\\sol-viper-four-leg-rig-v1\\review\\companion\\rare-6-rare-6-signature-side-sheet-1.webp",
+          "move": "rare-6-signature",
+          "view": "side",
+          "group": 1,
+          "expected": "0532ba393c2e0f15200fe1d777a9f817c0b46bb376af2d384a2511288a038445",
+          "actual": "0532ba393c2e0f15200fe1d777a9f817c0b46bb376af2d384a2511288a038445",
+          "match": true
+        }
+      ],
+      "overviewFrontSha256": "90c536613043d75014abc73d650b03d190856b57a367791eb30a613b5c59f464",
+      "overviewSideSha256": "09bca2e4998054a2dd4f34cb288ad7cad299a5b48553bef2d67d8a23211feda7",
+      "frameCount": 216
+    },
+    "atlas": {
+      "personallyViewed": true,
+      "path": ".tmp\\sol-viper-four-leg-rig-v1\\atlas-v6-delivery\\public\\pet-models\\warfront-impostors\\roster\\rare-6.webp",
+      "sha256": "d5d5c916f1ca3c8e272c5bb060ac56d4a24ff0a2f50b68568800f50f5758c729",
+      "manifestLodSha256": "8a713fca3ad3b93464e9885fdfb4316931bdd8900df4b1f2bf4dd60d8af5ceab",
+      "width": 512,
+      "height": 512,
+      "cells": 16,
+      "grid": "4x4"
+    }
+  },
+  "structuralChecks": {
+    "sourceFloor": {
+      "pass": true,
+      "minClearance": 0.0018775744100467118,
+      "threshold": 0.0018,
+      "poses": 57589,
+      "verticesPerPose": 24910,
+      "gatePath": ".tmp/sol-viper-four-leg-rig-v1/grounded-v6/source-floor-gate.json",
+      "gateSha256": "e44d7106df744e462986a28d6ab29011d90abddf29aad5e6cab0eac9c40428e7"
+    },
+    "battleFloor": {
+      "pass": true,
+      "minClearance": 0.002296854196746023,
+      "threshold": 0.0018,
+      "poses": 57589,
+      "verticesPerPose": 8064,
+      "gatePath": ".tmp/sol-viper-four-leg-rig-v1/grounded-v6/battle-floor-gate.json",
+      "gateSha256": "f74124b53cc05a18859b19367cf969aa399f05a8b9f039a28fab7d36fd18603c"
+    },
+    "v6BattleFullGeometry": {
+      "path": ".tmp/pet-animation-audit/rare-6-private-v6-battle-motion-audit.json",
+      "sha256": "5ac6b878540ac30949626e12c5a634970250d94cfbf7be4284e49f1fafe644dc",
+      "poses": 57589,
+      "coverage": "all vertices, triangle edges above numerical degeneracy tolerance, and connected UV seam copies",
+      "warnings": 0,
+      "failures": []
+    },
+    "v6SourceAndBattleSampledAudits": "57,589 key+midpoint poses each, zero warnings; sampled geometry only; see rare-6-private-v6-source-sampled-motion-audit.json and rare-6-private-v6-battle-sampled-motion-audit.json",
+    "frozenFaceSource": {
+      "path": ".tmp/sol-viper-four-leg-rig-v1/face-audit/rare-6-grounded-v6-source.json",
+      "sha256": "df482401a9e19174cb11c04f77d17764157dc7d9f3d0e30172d3977767c34084",
+      "failed": null,
+      "clips": 0
+    },
+    "frozenFaceBattle": {
+      "path": ".tmp/sol-viper-four-leg-rig-v1/face-audit/rare-6-grounded-v6-battle.json",
+      "sha256": "0b7127f3eb614085ac28a440232a7020716121d3339a3ed783aa4411acf579a4",
+      "failed": null,
+      "clips": 0
+    }
+  },
+  "visualFindings": "The four-foot leg ownership and body connection remain coherent through idle, locomotion, jump/gallop, attacks, hit reactions, and production transitions. No residual disjoint limb, extra foot, tearing, or silhouette distortion was observed. Death poses compress/curl the body as authored. The atlas shows consistent identity across 16 poses.",
+  "limitations": [
+    "The v6 full geometry audit is complete on battle. For the 57,589-key/midpoint ground-calibrated pair, all-vertex clearance gates pass; per-pose distortion audit was sampled on both source and battle. The underlying four-leg repair was separately all-vertex/full-geometry audited over 203 poses on the exact ungrounded repaired pair. The v6 grounding change only modifies root Y translation curves."
+  ],
+  "integrity": {
+    "manifestReferencedImageHashesMatch": true,
+    "assetPinsMatch": true,
+    "techniqueFramesExpected216": true,
+    "atlasManifestPinMatches": true,
+    "allChecks": true
+  }
+}

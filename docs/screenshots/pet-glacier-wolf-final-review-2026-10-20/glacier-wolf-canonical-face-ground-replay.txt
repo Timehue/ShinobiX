@@ -1,0 +1,12 @@
+✔ legendary-0: independent anatomy detects the released face binding defect (395.0156ms)
+✔ legendary-0 source: repaired anatomy passes every clip and blend (3640.5575ms)
+✔ legendary-0 warfront-lod/: repaired anatomy passes every clip and blend (1966.8891ms)
+✔ legendary-0: pinned repair conserves sculpt and rig, validates authored or explicitly reviewed curves, and reproduces shipping bytes (20197.6123ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 26861.5121

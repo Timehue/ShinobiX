@@ -12,6 +12,9 @@ const SHARED_RIG_REPAIR_REVISION_4 = '20261015-reviewed-contact-v1';
 
 const SHARED_RIG_REPAIR_REVISION_5 = '20261015-independent-complete-face-v2';
 
+const FINISHED_PET_REPAIR_REVISION = '20261021-pet-17-v1';
+const FINAL_SIX_PET_REPAIR_REVISION = '20261021-pet-final-six-v1';
+
 /** Individual rig repairs invalidate only the model whose mesh/binding changed. */
 const REPAIRED_RIG_REVISIONS: Readonly<Record<string, string>> = {
     'starter-earth': '20261019-pebble-full-sculpt-v9',
@@ -25,7 +28,6 @@ const REPAIRED_RIG_REVISIONS: Readonly<Record<string, string>> = {
     'rare-7': SHARED_RIG_REPAIR_REVISION_1,
     'rare-10': SHARED_RIG_REPAIR_REVISION_1,
     'rare-18': SHARED_RIG_REPAIR_REVISION_1,
-    'rare-27': SHARED_RIG_REPAIR_REVISION_1,
     'legendary-6': SHARED_RIG_REPAIR_REVISION_0,
     'legendary-14': SHARED_RIG_REPAIR_REVISION_2,
     'legendary-16': '20261017-garuda-independent-complete-beak-v2',
@@ -41,7 +43,7 @@ const REPAIRED_RIG_REVISIONS: Readonly<Record<string, string>> = {
     ...PET_SKIN_REPAIR_REVISIONS,
     'mythic-4': '20261018-oni-all-authored-limb-performances-v2',
     'standard-0': '20261015-independent-complete-face-v2',
-    'standard-1': SHARED_RIG_REPAIR_REVISION_2,
+    'standard-1': '20261021-reviewed-9b6aa18cddbe',
     'standard-2': SHARED_RIG_REPAIR_REVISION_2,
     'standard-3': SHARED_RIG_REPAIR_REVISION_2,
     'standard-4': SHARED_RIG_REPAIR_REVISION_2,
@@ -59,17 +61,11 @@ const REPAIRED_RIG_REVISIONS: Readonly<Record<string, string>> = {
     'standard-32': SHARED_RIG_REPAIR_REVISION_2,
     'standard-33': SHARED_RIG_REPAIR_REVISION_2,
     'standard-34': SHARED_RIG_REPAIR_REVISION_2,
-    'standard-47': SHARED_RIG_REPAIR_REVISION_2,
-    'standard-48': SHARED_RIG_REPAIR_REVISION_2,
-    'standard-49': SHARED_RIG_REPAIR_REVISION_2,
-    'rare-0': SHARED_RIG_REPAIR_REVISION_2,
+    'standard-49': '20261021-reviewed-b0460aea919a',
     'rare-1': SHARED_RIG_REPAIR_REVISION_2,
     'rare-2': SHARED_RIG_REPAIR_REVISION_2,
     'rare-4': SHARED_RIG_REPAIR_REVISION_2,
-    'rare-5': SHARED_RIG_REPAIR_REVISION_2,
     'rare-6': SHARED_RIG_REPAIR_REVISION_2,
-    'rare-8': SHARED_RIG_REPAIR_REVISION_2,
-    'rare-9': SHARED_RIG_REPAIR_REVISION_2,
     'rare-11': SHARED_RIG_REPAIR_REVISION_2,
     'rare-12': SHARED_RIG_REPAIR_REVISION_2,
     'rare-13': SHARED_RIG_REPAIR_REVISION_2,
@@ -78,18 +74,10 @@ const REPAIRED_RIG_REVISIONS: Readonly<Record<string, string>> = {
     'rare-16': SHARED_RIG_REPAIR_REVISION_2,
     'rare-22': '20261020-visible-ground-v1',
     'rare-26': '20261020-visible-ground-v1',
-    'rare-32': SHARED_RIG_REPAIR_REVISION_2,
-    'rare-34': SHARED_RIG_REPAIR_REVISION_2,
     'rare-40': SHARED_RIG_REPAIR_REVISION_2,
     'rare-41': SHARED_RIG_REPAIR_REVISION_2,
-    'rare-42': SHARED_RIG_REPAIR_REVISION_2,
     'rare-43': SHARED_RIG_REPAIR_REVISION_2,
-    'rare-45': SHARED_RIG_REPAIR_REVISION_2,
     'rare-46': SHARED_RIG_REPAIR_REVISION_2,
-    'rare-47': SHARED_RIG_REPAIR_REVISION_2,
-    'rare-48': SHARED_RIG_REPAIR_REVISION_2,
-    'rare-49': SHARED_RIG_REPAIR_REVISION_2,
-    'legendary-0': SHARED_RIG_REPAIR_REVISION_2,
     'legendary-2': SHARED_RIG_REPAIR_REVISION_2,
     'legendary-3': SHARED_RIG_REPAIR_REVISION_2,
     'legendary-4': SHARED_RIG_REPAIR_REVISION_2,
@@ -113,10 +101,10 @@ const REPAIRED_RIG_REVISIONS: Readonly<Record<string, string>> = {
     'legendary-28': '20261017-granite-gargoyle-independent-complete-mask-v1',
     'legendary-29': '20261017-verdant-treant-independent-complete-face-v1',
     'mythic-0': '20261018-eclipse-kitsune-all-authored-limb-performances-v2',
-    'mythic-1': '20261018-worldstorm-dragon-all-authored-limb-performances-v2',
+    'mythic-1': '20261021-reviewed-ad04ff49992b',
     'mythic-2': '20261017-frost-titan-independent-complete-face-v1',
     'mythic-3': '20261018-solar-stag-all-authored-limb-performances-v2',
-    'mythic-6': '20261018-azure-all-authored-limb-performances-v2',
+    'mythic-6': '20261021-reviewed-ccbd1932c455',
     'mythic-7': '20261018-turtle-duck-independent-complete-face-v1',
     'mythic-8': '20261018-stormgod-raijin-independent-complete-chin-v1',
     'mythic-9': '20261018-worldroot-colossus-independent-complete-beard-v1',
@@ -134,7 +122,7 @@ const REPAIRED_RIG_REVISIONS: Readonly<Record<string, string>> = {
     'starter-water-r': SHARED_RIG_REPAIR_REVISION_3,
     'starter-water-l': SHARED_RIG_REPAIR_REVISION_3,
     'starter-lightning-r': SHARED_RIG_REPAIR_REVISION_3,
-    'starter-earth-r': SHARED_RIG_REPAIR_REVISION_4,
+    'starter-earth-r': '20261021-reviewed-a6cdc167bb19',
     'starter-earth-l': SHARED_RIG_REPAIR_REVISION_4,
     'rare-19': SHARED_RIG_REPAIR_REVISION_5,
     'rare-20': SHARED_RIG_REPAIR_REVISION_5,
@@ -174,8 +162,13 @@ const REPAIRED_RIG_REVISIONS: Readonly<Record<string, string>> = {
     'standard-7': "20261012-connected-weight-v2",
     'standard-8': "20261014-reviewed-skull-v1",
     'standard-9': SHARED_RIG_REPAIR_REVISION_5,
-    'standard-39': '20261012-connected-weight-v2',
-    'rare-38': '20261012-connected-weight-v2',
+    ...Object.fromEntries([
+        'standard-2', 'standard-3', 'standard-15', 'rare-3', 'rare-6', 'rare-21',
+    ].map(id => [id, FINAL_SIX_PET_REPAIR_REVISION])),
+    ...Object.fromEntries([
+        'legendary-0', 'standard-39', 'standard-47', 'standard-48',
+        ...[0, 5, 8, 9, 27, 32, 34, 38, 42, 45, 47, 48, 49].map(index => `rare-${index}`),
+    ].map(id => [id, FINISHED_PET_REPAIR_REVISION])),
 };
 
 /** Invalidate every polished closeup, showcase and roster asset together. */

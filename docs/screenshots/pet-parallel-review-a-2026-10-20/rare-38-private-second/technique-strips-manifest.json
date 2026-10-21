@@ -1,0 +1,1625 @@
+{
+  "id": "rare-38",
+  "label": "parallel-a-private-second-rare-38-techniques",
+  "sourceManifestSha256": "8721583f96e9caa162263b6975b1b926b4e3bce21f21ec55bb3ab2755793afe5",
+  "crop": {
+    "left": 162,
+    "top": 34,
+    "width": 202,
+    "height": 185
+  },
+  "nativePixelsPreserved": true,
+  "resizing": false,
+  "foregroundThreshold": 3,
+  "strips": [
+    {
+      "name": "front-block-0-half-0.png",
+      "sha256": "3cb80ee34a4ef46fad5958c0141da6014c188b17f060d7b64a6cef87d389c684",
+      "sources": [
+        {
+          "name": "rare-38-wind-strike-front-0.png",
+          "sha256": "cc981447687bafa9231315ab55a75f71307f44308ea014b23f6db7e11d14744a",
+          "move": "wind-strike",
+          "view": "front",
+          "time": 0.06
+        },
+        {
+          "name": "rare-38-wind-strike-front-1.png",
+          "sha256": "0507bb5d34a4cd5bfe7c9a4da55aae76e91152c5b6e6fd972d22c7c6441a28af",
+          "move": "wind-strike",
+          "view": "front",
+          "time": 0.16
+        },
+        {
+          "name": "rare-38-wind-strike-front-2.png",
+          "sha256": "a4eb19f17373df07adeca0ab0a81fdf49b9ebf399a7ceaed1df070c890883d52",
+          "move": "wind-strike",
+          "view": "front",
+          "time": 0.24
+        },
+        {
+          "name": "rare-38-wind-strike-front-3.png",
+          "sha256": "428091f118d817710a6201c23cd188aa396d0b8445052ea0f30757fdf8165a43",
+          "move": "wind-strike",
+          "view": "front",
+          "time": 0.36
+        },
+        {
+          "name": "rare-38-wind-strike-front-4.png",
+          "sha256": "9ad34697317148e905f3eec26aad5e163cdb2519cf5a6334e75b70934b07c7ff",
+          "move": "wind-strike",
+          "view": "front",
+          "time": 0.5
+        },
+        {
+          "name": "rare-38-wind-strike-front-5.png",
+          "sha256": "5f7da4b88079f0efc6435afa3bea86cbe4472849fccf29c1b764145e6129b00c",
+          "move": "wind-strike",
+          "view": "front",
+          "time": 0.6
+        },
+        {
+          "name": "rare-38-wind-pulse-front-0.png",
+          "sha256": "f13c491daab1cefbf7dfc9e45118794f29d18916029ba32d6bcc60130ff6ae6e",
+          "move": "wind-pulse",
+          "view": "front",
+          "time": 0.06
+        },
+        {
+          "name": "rare-38-wind-pulse-front-1.png",
+          "sha256": "7d800a42b74f228ac309b58fcd7ad4239d812dfa83937280d9df5f3c7cf93aff",
+          "move": "wind-pulse",
+          "view": "front",
+          "time": 0.16
+        },
+        {
+          "name": "rare-38-wind-pulse-front-2.png",
+          "sha256": "1ad384a21695b4c2849735211cf52751092449ccffa8695c79f3c841b4e10794",
+          "move": "wind-pulse",
+          "view": "front",
+          "time": 0.24
+        },
+        {
+          "name": "rare-38-wind-pulse-front-3.png",
+          "sha256": "f4eb8f2acbca0c02e138541f4ad7bea24dc91c71038cd07c1e0916843a2d6580",
+          "move": "wind-pulse",
+          "view": "front",
+          "time": 0.36
+        },
+        {
+          "name": "rare-38-wind-pulse-front-4.png",
+          "sha256": "bc33a4f3545905a580c8b797372177f011916d4f52ed7427f8462ff2352ebc40",
+          "move": "wind-pulse",
+          "view": "front",
+          "time": 0.5
+        },
+        {
+          "name": "rare-38-wind-pulse-front-5.png",
+          "sha256": "43615975662b60df7eb1fad4fe6e79dcd82b7285f645fc35332d8eb5b1cc326d",
+          "move": "wind-pulse",
+          "view": "front",
+          "time": 0.6
+        },
+        {
+          "name": "rare-38-wind-breaker-front-0.png",
+          "sha256": "ccb5c4410136907862598813344df31a3f75f3e95094123dfc09ad77cca295bb",
+          "move": "wind-breaker",
+          "view": "front",
+          "time": 0.06
+        },
+        {
+          "name": "rare-38-wind-breaker-front-1.png",
+          "sha256": "e05a1921736c624b9729be6e02998f7bb4924ad415978fbb1527ad6a046169f2",
+          "move": "wind-breaker",
+          "view": "front",
+          "time": 0.16
+        },
+        {
+          "name": "rare-38-wind-breaker-front-2.png",
+          "sha256": "96a1876db636f787ae21627d97a557a0aa7bc86ea57b3241ca05c50c784491bc",
+          "move": "wind-breaker",
+          "view": "front",
+          "time": 0.24
+        },
+        {
+          "name": "rare-38-wind-breaker-front-3.png",
+          "sha256": "0c45a0fa5853ba4ed0914d32d2029eec415d35cbed7099da32fe9d35a086d20b",
+          "move": "wind-breaker",
+          "view": "front",
+          "time": 0.36
+        },
+        {
+          "name": "rare-38-wind-breaker-front-4.png",
+          "sha256": "7a42c7e25e57fe96c4a7dd5ddbc1d310913c1481bfc781535a112d31f629414a",
+          "move": "wind-breaker",
+          "view": "front",
+          "time": 0.5
+        },
+        {
+          "name": "rare-38-wind-breaker-front-5.png",
+          "sha256": "6d1473e8cd484fd0138cc8574f6b97b68392f4d37c9eecf7ce177c8d17c891b1",
+          "move": "wind-breaker",
+          "view": "front",
+          "time": 0.6
+        }
+      ],
+      "width": 1320,
+      "height": 633
+    },
+    {
+      "name": "front-block-0-half-1.png",
+      "sha256": "d1b05ba874ce8a44161d34bb0dfc6b37578a6da9588fe671f666cc08353bafeb",
+      "sources": [
+        {
+          "name": "rare-38-wind-strike-front-6.png",
+          "sha256": "35e2e4da063d1dcc264758926e6e08b0983e1421c085517086da1b18ebd6995d",
+          "move": "wind-strike",
+          "view": "front",
+          "time": 0.8
+        },
+        {
+          "name": "rare-38-wind-strike-front-7.png",
+          "sha256": "f99870962d4da0fbcba69e822181cbba958dcc6cd7c2dcb87b6216c2f4a9935e",
+          "move": "wind-strike",
+          "view": "front",
+          "time": 1.02
+        },
+        {
+          "name": "rare-38-wind-strike-front-8.png",
+          "sha256": "332546c911f330346379640bd660335ea3686816e3051ef0299286d7ae993d6d",
+          "move": "wind-strike",
+          "view": "front",
+          "time": 1.24
+        },
+        {
+          "name": "rare-38-wind-strike-front-9.png",
+          "sha256": "fd770afabf7c5bb20013a1c0ca90ea0ea40794db2c24b96e13823ba41e4b74e7",
+          "move": "wind-strike",
+          "view": "front",
+          "time": 1.48
+        },
+        {
+          "name": "rare-38-wind-strike-front-10.png",
+          "sha256": "51ebaa44d4d5ccec758b271000749a7d9ac1082091db09bbf6a485fd6d75fc2b",
+          "move": "wind-strike",
+          "view": "front",
+          "time": 1.74
+        },
+        {
+          "name": "rare-38-wind-strike-front-11.png",
+          "sha256": "1993cb7b40be6d36f751e0accf4d88bdcf73a8a9ef3008c58157f039bf2eb274",
+          "move": "wind-strike",
+          "view": "front",
+          "time": 2.02
+        },
+        {
+          "name": "rare-38-wind-pulse-front-6.png",
+          "sha256": "266459ccecd68919bbdf0649d25e72cf726e044796c3be2e758b89cb40d63f25",
+          "move": "wind-pulse",
+          "view": "front",
+          "time": 0.8
+        },
+        {
+          "name": "rare-38-wind-pulse-front-7.png",
+          "sha256": "26493871674d58682d11b2ff4e324765273b09fb402f4a0391d90e30e2d2937a",
+          "move": "wind-pulse",
+          "view": "front",
+          "time": 1.02
+        },
+        {
+          "name": "rare-38-wind-pulse-front-8.png",
+          "sha256": "7c124ecc3155245c9512fd3d9b731cf036745f182c94a78026908c8bcbb3feed",
+          "move": "wind-pulse",
+          "view": "front",
+          "time": 1.24
+        },
+        {
+          "name": "rare-38-wind-pulse-front-9.png",
+          "sha256": "25dce297d3d60e4ae364aa62647612e7996c1bbe5ef8e433fcdf6d2cd09b63d4",
+          "move": "wind-pulse",
+          "view": "front",
+          "time": 1.48
+        },
+        {
+          "name": "rare-38-wind-pulse-front-10.png",
+          "sha256": "91f293d4383c8cbb8f55e47aae5dcff3a3b4147854b6e8733fc1e6cd35b381ca",
+          "move": "wind-pulse",
+          "view": "front",
+          "time": 1.74
+        },
+        {
+          "name": "rare-38-wind-pulse-front-11.png",
+          "sha256": "f6fa74c09e6994a129278e102476c52db805a8a08ab25abd8bb3d520b292b050",
+          "move": "wind-pulse",
+          "view": "front",
+          "time": 2.02
+        },
+        {
+          "name": "rare-38-wind-breaker-front-6.png",
+          "sha256": "e4deeca51abbed3532c78c87bfbc1c38bd0665819cabdcbef3e605de161cccfe",
+          "move": "wind-breaker",
+          "view": "front",
+          "time": 0.8
+        },
+        {
+          "name": "rare-38-wind-breaker-front-7.png",
+          "sha256": "79d0101990e8a8697874fe0ef6984d4327da3a18e85b440a7d9482c9526e997b",
+          "move": "wind-breaker",
+          "view": "front",
+          "time": 1.02
+        },
+        {
+          "name": "rare-38-wind-breaker-front-8.png",
+          "sha256": "393a77ec39a31f16f28f11e80efd8eac0005ceb59c0ee727b50496260e5592d9",
+          "move": "wind-breaker",
+          "view": "front",
+          "time": 1.24
+        },
+        {
+          "name": "rare-38-wind-breaker-front-9.png",
+          "sha256": "11c001ab43b654a2e0b9dc43f13cb79e2b1e4d6519de41570baaa3ab2d99a2b7",
+          "move": "wind-breaker",
+          "view": "front",
+          "time": 1.48
+        },
+        {
+          "name": "rare-38-wind-breaker-front-10.png",
+          "sha256": "73e85b21224de918c69b2d1084dff9bfacbf6c005e65b00cda8fc2e633ec1bf8",
+          "move": "wind-breaker",
+          "view": "front",
+          "time": 1.74
+        },
+        {
+          "name": "rare-38-wind-breaker-front-11.png",
+          "sha256": "266822e51f1f4fef09e82522687d3f4b3240df859bdbc72fcd0bc5fe1aa50236",
+          "move": "wind-breaker",
+          "view": "front",
+          "time": 2.02
+        }
+      ],
+      "width": 1320,
+      "height": 633
+    },
+    {
+      "name": "front-block-1-half-0.png",
+      "sha256": "c43a89b4bae2b70626227888692093cf61128ed39c121311641d66a9701c910f",
+      "sources": [
+        {
+          "name": "rare-38-water-pulse-front-0.png",
+          "sha256": "656a1241871dc891b67473e2f262f1843237d5b2a5624ca2cbf183300020a689",
+          "move": "water-pulse",
+          "view": "front",
+          "time": 0.06
+        },
+        {
+          "name": "rare-38-water-pulse-front-1.png",
+          "sha256": "0497c3e1de44230580af2ed24de4b37d663ba6252b5b02aad9164c73aa2f5410",
+          "move": "water-pulse",
+          "view": "front",
+          "time": 0.16
+        },
+        {
+          "name": "rare-38-water-pulse-front-2.png",
+          "sha256": "048a63d2f2eb29ee158091651cb203f77e1afd3fe82d81aeb60bb640c69f5453",
+          "move": "water-pulse",
+          "view": "front",
+          "time": 0.24
+        },
+        {
+          "name": "rare-38-water-pulse-front-3.png",
+          "sha256": "7a98c7006aa74cba60b64babdb1186a287743df99b80f77f47205a85ac3d7a09",
+          "move": "water-pulse",
+          "view": "front",
+          "time": 0.36
+        },
+        {
+          "name": "rare-38-water-pulse-front-4.png",
+          "sha256": "a97a8f54649721b073517547da5bb0fb07a63fe8baa97c61d01c0bfcc08a3e0a",
+          "move": "water-pulse",
+          "view": "front",
+          "time": 0.5
+        },
+        {
+          "name": "rare-38-water-pulse-front-5.png",
+          "sha256": "609de927854cafcd0cc2080f2d89fbd40946338b9037fbd905c9826a19200b81",
+          "move": "water-pulse",
+          "view": "front",
+          "time": 0.6
+        },
+        {
+          "name": "rare-38-open-wound-front-0.png",
+          "sha256": "a2501c7eaa632fb493fa5ddb63314c97d4359dd0c9cfa44ae512ab5db4d384af",
+          "move": "open-wound",
+          "view": "front",
+          "time": 0.06
+        },
+        {
+          "name": "rare-38-open-wound-front-1.png",
+          "sha256": "19f804485a3bd09fef98c4f22a0b53b40e9569933a6675c9db657dcb17910f49",
+          "move": "open-wound",
+          "view": "front",
+          "time": 0.16
+        },
+        {
+          "name": "rare-38-open-wound-front-2.png",
+          "sha256": "93dcdec6be8397ce0b4c69cab0b56e5713465a082779abe7f0e125960874d414",
+          "move": "open-wound",
+          "view": "front",
+          "time": 0.24
+        },
+        {
+          "name": "rare-38-open-wound-front-3.png",
+          "sha256": "6774578635a1633d30654ecd62ff6b9f103d8927d6bcd50899944bdb8a11a2be",
+          "move": "open-wound",
+          "view": "front",
+          "time": 0.36
+        },
+        {
+          "name": "rare-38-open-wound-front-4.png",
+          "sha256": "6b3ab3b45442a409332b0c0a0d6fc0aa48c340124b143e70a177de93437dd228",
+          "move": "open-wound",
+          "view": "front",
+          "time": 0.5
+        },
+        {
+          "name": "rare-38-open-wound-front-5.png",
+          "sha256": "9de4de7d6a97d7ebadcce263e0e2c2a9240481f4453d29ee5aac46b9be816f34",
+          "move": "open-wound",
+          "view": "front",
+          "time": 0.6
+        },
+        {
+          "name": "rare-38-expose-front-0.png",
+          "sha256": "e2a1cf8a11a74ed248300842dcd4a527e3874c539c0d22c151a4dd6f0f875076",
+          "move": "expose",
+          "view": "front",
+          "time": 0.06
+        },
+        {
+          "name": "rare-38-expose-front-1.png",
+          "sha256": "8b1ef6462da23a641ee4e11d59a41caeb7f8096477ba885542f56b250ac4e73e",
+          "move": "expose",
+          "view": "front",
+          "time": 0.16
+        },
+        {
+          "name": "rare-38-expose-front-2.png",
+          "sha256": "7a546fa2d7ba072183d2882cf526899dff819b7aa6a5cea6d7915d83a932ff6f",
+          "move": "expose",
+          "view": "front",
+          "time": 0.24
+        },
+        {
+          "name": "rare-38-expose-front-3.png",
+          "sha256": "3e038ad07a1385538d4b8756d702bc12f9e2ad28d0cf199a95ff13dcafdc27b2",
+          "move": "expose",
+          "view": "front",
+          "time": 0.36
+        },
+        {
+          "name": "rare-38-expose-front-4.png",
+          "sha256": "8f9ab346ecc4ee59fb8aa6ec5e15e168019f7a0a713d8fabf0abc6efa13c0d52",
+          "move": "expose",
+          "view": "front",
+          "time": 0.5
+        },
+        {
+          "name": "rare-38-expose-front-5.png",
+          "sha256": "5c510fc53f8e70490dbd4305bf91774b001bce21fa65fcd8a9da2fa7aaf696ba",
+          "move": "expose",
+          "view": "front",
+          "time": 0.6
+        }
+      ],
+      "width": 1320,
+      "height": 633
+    },
+    {
+      "name": "front-block-1-half-1.png",
+      "sha256": "654438c6f9129b0df46424aa58c2c5bf4a53b419bf6e694cc7c644b129470653",
+      "sources": [
+        {
+          "name": "rare-38-water-pulse-front-6.png",
+          "sha256": "18312109b7776e350f2bd96a04ea9796307ba595543f53b5db0432ab548d032e",
+          "move": "water-pulse",
+          "view": "front",
+          "time": 0.8
+        },
+        {
+          "name": "rare-38-water-pulse-front-7.png",
+          "sha256": "0078733f33fbeb50d9addb86ca39a13f58e3cb02cc419c8325e32ed46b0dbbc2",
+          "move": "water-pulse",
+          "view": "front",
+          "time": 1.02
+        },
+        {
+          "name": "rare-38-water-pulse-front-8.png",
+          "sha256": "8168894f7c733a2fe2497ce63232285ebdd3ec6977749f0f3c1605404136293b",
+          "move": "water-pulse",
+          "view": "front",
+          "time": 1.24
+        },
+        {
+          "name": "rare-38-water-pulse-front-9.png",
+          "sha256": "ead92284e4e73f4d0024d0a67ee0d1ed0298fb4a7492d0cdef93b5266745fb4a",
+          "move": "water-pulse",
+          "view": "front",
+          "time": 1.48
+        },
+        {
+          "name": "rare-38-water-pulse-front-10.png",
+          "sha256": "f0a9a059820e61cb50af462db2c24be30c36b602d83b715914ba92e006706ab2",
+          "move": "water-pulse",
+          "view": "front",
+          "time": 1.74
+        },
+        {
+          "name": "rare-38-water-pulse-front-11.png",
+          "sha256": "e19cf3d51a7bc347793632e411a193fde62fe8bbca442a1b703cc2fe318f2ebb",
+          "move": "water-pulse",
+          "view": "front",
+          "time": 2.02
+        },
+        {
+          "name": "rare-38-open-wound-front-6.png",
+          "sha256": "be1fea03decd90811157fd4ce9f6c695c678f52a0b0b9ca4a646075aff04e35e",
+          "move": "open-wound",
+          "view": "front",
+          "time": 0.8
+        },
+        {
+          "name": "rare-38-open-wound-front-7.png",
+          "sha256": "a137991d2c32e12b3b8c96c9c40c5f80a185b562e892b0ecbf80628224a173ff",
+          "move": "open-wound",
+          "view": "front",
+          "time": 1.02
+        },
+        {
+          "name": "rare-38-open-wound-front-8.png",
+          "sha256": "d72f2320a3f9744af505dc95f9c2df781d69a37f91ff4a7a11cd4e564f8f1065",
+          "move": "open-wound",
+          "view": "front",
+          "time": 1.24
+        },
+        {
+          "name": "rare-38-open-wound-front-9.png",
+          "sha256": "d038af89eff6563d514c84aa2211a085a8fc01f92a75df4f90c96193c98dd4c7",
+          "move": "open-wound",
+          "view": "front",
+          "time": 1.48
+        },
+        {
+          "name": "rare-38-open-wound-front-10.png",
+          "sha256": "1b29f1fcc3772e4e9ef58a361d0c84eb6a08c0f08878950320617bb31f479770",
+          "move": "open-wound",
+          "view": "front",
+          "time": 1.74
+        },
+        {
+          "name": "rare-38-open-wound-front-11.png",
+          "sha256": "e9251b66b96b3056d2fc763c2fa8f8f979034616ae0157e2d8544db4ef5f7014",
+          "move": "open-wound",
+          "view": "front",
+          "time": 2.02
+        },
+        {
+          "name": "rare-38-expose-front-6.png",
+          "sha256": "1f3ea0e49cffad56dec1a836c25acb3191312f732c5419ec0c4020dd521cc7b6",
+          "move": "expose",
+          "view": "front",
+          "time": 0.8
+        },
+        {
+          "name": "rare-38-expose-front-7.png",
+          "sha256": "fda54f784e6b2171d3a1d6b93c1bc90dbfb0552d014bd32340b21d2f3285cf41",
+          "move": "expose",
+          "view": "front",
+          "time": 1.02
+        },
+        {
+          "name": "rare-38-expose-front-8.png",
+          "sha256": "314cb2af9521a2429874b095231df53dbfb8616dee185eb48a3c1e49a29d48f7",
+          "move": "expose",
+          "view": "front",
+          "time": 1.24
+        },
+        {
+          "name": "rare-38-expose-front-9.png",
+          "sha256": "08caf01c3515498ec5bbc4096deb7c6d3eb5e21c350a645e86e4871234422883",
+          "move": "expose",
+          "view": "front",
+          "time": 1.48
+        },
+        {
+          "name": "rare-38-expose-front-10.png",
+          "sha256": "65bb7b7e4b632cc3fde9859e0ce4e1c77c5b170073dd5cda0fe6eb402559a76d",
+          "move": "expose",
+          "view": "front",
+          "time": 1.74
+        },
+        {
+          "name": "rare-38-expose-front-11.png",
+          "sha256": "bfc18fc8d2957e42163878e8c28b5c969726bdb57d4cd9b23dc922e88b01255a",
+          "move": "expose",
+          "view": "front",
+          "time": 2.02
+        }
+      ],
+      "width": 1320,
+      "height": 633
+    },
+    {
+      "name": "front-block-2-half-0.png",
+      "sha256": "b7214b1ff4d04936ef631d161c6656cf6bc53a9b2c32d01cabbeb9471310a825",
+      "sources": [
+        {
+          "name": "rare-38-rally-front-0.png",
+          "sha256": "824005ecf526fdf8dda1fbbc300000162338492fcc9a09163d9d9f582e2b7db5",
+          "move": "rally",
+          "view": "front",
+          "time": 0.06
+        },
+        {
+          "name": "rare-38-rally-front-1.png",
+          "sha256": "84bafdbb9b07a5ffbe2553b4474accfaf85c3fe2df0218a72e4dae7e29126959",
+          "move": "rally",
+          "view": "front",
+          "time": 0.16
+        },
+        {
+          "name": "rare-38-rally-front-2.png",
+          "sha256": "f7615d180300ca109b341e84791f7614f65440cb094ccd493fe4c507103cb526",
+          "move": "rally",
+          "view": "front",
+          "time": 0.24
+        },
+        {
+          "name": "rare-38-rally-front-3.png",
+          "sha256": "09ad910414a187a73ebce61afeeb63992794e1527a4ee4abd5e1c473d209edea",
+          "move": "rally",
+          "view": "front",
+          "time": 0.36
+        },
+        {
+          "name": "rare-38-rally-front-4.png",
+          "sha256": "8468b4f456ffb054330f06e26293567b8fcdc4d383e59f1e8714f3b75a5b53a9",
+          "move": "rally",
+          "view": "front",
+          "time": 0.5
+        },
+        {
+          "name": "rare-38-rally-front-5.png",
+          "sha256": "2bb54585e5eddf081e1446a9df3dfc5294784efa389e1bf8d87bffc5f444205c",
+          "move": "rally",
+          "view": "front",
+          "time": 0.6
+        },
+        {
+          "name": "rare-38-protect-front-0.png",
+          "sha256": "abe307e3eaec32ebedf818c6ad4e13fcab8f01e34d0c73ec6d9cee87ea788e66",
+          "move": "protect",
+          "view": "front",
+          "time": 0.06
+        },
+        {
+          "name": "rare-38-protect-front-1.png",
+          "sha256": "18aad091e70642f09b83ec8684dd25eef2dc830c6463e28d3becc409049fa0b1",
+          "move": "protect",
+          "view": "front",
+          "time": 0.16
+        },
+        {
+          "name": "rare-38-protect-front-2.png",
+          "sha256": "5492fab4615e7410f8c984570dae9498b1ca44637ffd813161abfcdc125555df",
+          "move": "protect",
+          "view": "front",
+          "time": 0.24
+        },
+        {
+          "name": "rare-38-protect-front-3.png",
+          "sha256": "8a1e8c453c4bda7cfe63af3b672a9f2997aa223caf168444ae625f799c7ec133",
+          "move": "protect",
+          "view": "front",
+          "time": 0.36
+        },
+        {
+          "name": "rare-38-protect-front-4.png",
+          "sha256": "456933a9bf8c845d546cc475c82d96e25cd223f7e84760e659cd175ef642b2b9",
+          "move": "protect",
+          "view": "front",
+          "time": 0.5
+        },
+        {
+          "name": "rare-38-protect-front-5.png",
+          "sha256": "481a54556b4301f10d917b494f1aabeafd26d8d2c7aafe80acbbf25618de8459",
+          "move": "protect",
+          "view": "front",
+          "time": 0.6
+        },
+        {
+          "name": "rare-38-rare-38-signature-front-0.png",
+          "sha256": "96b1fb8c6d095be843dab2c15405f18c0ed686e5d2ff21a73a018681401daaee",
+          "move": "rare-38-signature",
+          "view": "front",
+          "time": 0.06
+        },
+        {
+          "name": "rare-38-rare-38-signature-front-1.png",
+          "sha256": "0507bb5d34a4cd5bfe7c9a4da55aae76e91152c5b6e6fd972d22c7c6441a28af",
+          "move": "rare-38-signature",
+          "view": "front",
+          "time": 0.16
+        },
+        {
+          "name": "rare-38-rare-38-signature-front-2.png",
+          "sha256": "0c3e57c5f27db969e9ed88192631c4a320fdb78057f457a84c87832ae3c9c683",
+          "move": "rare-38-signature",
+          "view": "front",
+          "time": 0.24
+        },
+        {
+          "name": "rare-38-rare-38-signature-front-3.png",
+          "sha256": "8790cd0efe08b491c018af844e86efab9d87af58b60a7ca8e67305ab233f1d0e",
+          "move": "rare-38-signature",
+          "view": "front",
+          "time": 0.36
+        },
+        {
+          "name": "rare-38-rare-38-signature-front-4.png",
+          "sha256": "69731d75e6ffe122aad9f720cfd09047a5d2cb44bc1748fe5a7f11bd485b10a7",
+          "move": "rare-38-signature",
+          "view": "front",
+          "time": 0.5
+        },
+        {
+          "name": "rare-38-rare-38-signature-front-5.png",
+          "sha256": "4e2f3ce3e4ccb8e254d096e6f2e182430ca027a34120ded55ae9184348147ded",
+          "move": "rare-38-signature",
+          "view": "front",
+          "time": 0.6
+        }
+      ],
+      "width": 1320,
+      "height": 633
+    },
+    {
+      "name": "front-block-2-half-1.png",
+      "sha256": "55c4c50a8e9bf5b162a79e213cca7958ffef0b1cd2bdebcda35e83cdae30dffc",
+      "sources": [
+        {
+          "name": "rare-38-rally-front-6.png",
+          "sha256": "1ac4a3131cf4398b734bd14046b8d5c04cbf60b8d9ed2100966d173038f9cccc",
+          "move": "rally",
+          "view": "front",
+          "time": 0.8
+        },
+        {
+          "name": "rare-38-rally-front-7.png",
+          "sha256": "670fbd049a7e5083dd09a9fdcb52ccd22c85caf9e0fe5b5c1ee727e97b0694e4",
+          "move": "rally",
+          "view": "front",
+          "time": 1.02
+        },
+        {
+          "name": "rare-38-rally-front-8.png",
+          "sha256": "4726ec15eab8b70b9de3a5ea835f8ed2011d45ab171177bad2c85bc2ef60e8ed",
+          "move": "rally",
+          "view": "front",
+          "time": 1.24
+        },
+        {
+          "name": "rare-38-rally-front-9.png",
+          "sha256": "af17dae1959c36bd4c72058422747797254d9843a516276d00aebdfa5d001546",
+          "move": "rally",
+          "view": "front",
+          "time": 1.48
+        },
+        {
+          "name": "rare-38-rally-front-10.png",
+          "sha256": "1fbefdee3c9228e532caecd577970d76ae9c719f9c6c5bc2d59cfa18259a7f6e",
+          "move": "rally",
+          "view": "front",
+          "time": 1.74
+        },
+        {
+          "name": "rare-38-rally-front-11.png",
+          "sha256": "bfc18fc8d2957e42163878e8c28b5c969726bdb57d4cd9b23dc922e88b01255a",
+          "move": "rally",
+          "view": "front",
+          "time": 2.02
+        },
+        {
+          "name": "rare-38-protect-front-6.png",
+          "sha256": "b87f90f351f23d7bf9f831c7acbc7c90efd431c423ecbefc7eef80ac56f13700",
+          "move": "protect",
+          "view": "front",
+          "time": 0.8
+        },
+        {
+          "name": "rare-38-protect-front-7.png",
+          "sha256": "404fcec083b8764109b1d7173640110de06b64d2cf05d70f203abd4ee0f220dc",
+          "move": "protect",
+          "view": "front",
+          "time": 1.02
+        },
+        {
+          "name": "rare-38-protect-front-8.png",
+          "sha256": "a9af4d0f4336acd7d930dd2c0bdba440c57391cf4c0d5252965bbcf9d3dca79d",
+          "move": "protect",
+          "view": "front",
+          "time": 1.24
+        },
+        {
+          "name": "rare-38-protect-front-9.png",
+          "sha256": "cfe83666ffc1db09a8048bba44cde2007a01c6e40ebdae8268962e855cb9b74e",
+          "move": "protect",
+          "view": "front",
+          "time": 1.48
+        },
+        {
+          "name": "rare-38-protect-front-10.png",
+          "sha256": "49b156fc43bba0e96f1baf59f932ab46156c10b768727049411241ee91e0e74c",
+          "move": "protect",
+          "view": "front",
+          "time": 1.74
+        },
+        {
+          "name": "rare-38-protect-front-11.png",
+          "sha256": "dc6142333a4ccf753fa03d7cdaf97aec42adb3a6b9bca4130befa0ba5b6415be",
+          "move": "protect",
+          "view": "front",
+          "time": 2.02
+        },
+        {
+          "name": "rare-38-rare-38-signature-front-6.png",
+          "sha256": "c4992a47d5f78fcb40728415ce13e56252394340c5a4c956d3887b7b3488a3c2",
+          "move": "rare-38-signature",
+          "view": "front",
+          "time": 0.8
+        },
+        {
+          "name": "rare-38-rare-38-signature-front-7.png",
+          "sha256": "f1d17598c27ab5153c701c300a9b736496b1be5df163a4f5ab34af68cbfec29f",
+          "move": "rare-38-signature",
+          "view": "front",
+          "time": 1.02
+        },
+        {
+          "name": "rare-38-rare-38-signature-front-8.png",
+          "sha256": "b8f5d160d8bd5aef1b1dca489c2b8f5ba4c452524e84380012f52af9bec3295e",
+          "move": "rare-38-signature",
+          "view": "front",
+          "time": 1.24
+        },
+        {
+          "name": "rare-38-rare-38-signature-front-9.png",
+          "sha256": "174d0d608a506178134fe26a480cf1d42b40d15119cdb96ee01c0841f9302f01",
+          "move": "rare-38-signature",
+          "view": "front",
+          "time": 1.48
+        },
+        {
+          "name": "rare-38-rare-38-signature-front-10.png",
+          "sha256": "ea78fa1816c0cb988643626b3ae19ff1c6c6836266cd15f0629e509286e6de83",
+          "move": "rare-38-signature",
+          "view": "front",
+          "time": 1.74
+        },
+        {
+          "name": "rare-38-rare-38-signature-front-11.png",
+          "sha256": "1993cb7b40be6d36f751e0accf4d88bdcf73a8a9ef3008c58157f039bf2eb274",
+          "move": "rare-38-signature",
+          "view": "front",
+          "time": 2.02
+        }
+      ],
+      "width": 1320,
+      "height": 633
+    },
+    {
+      "name": "side-block-0-half-0.png",
+      "sha256": "a651093d3d20cce64f28d95b54aa43064c2018e6621521fc443365c166fb7b35",
+      "sources": [
+        {
+          "name": "rare-38-wind-strike-side-0.png",
+          "sha256": "6612d215ba43c778a0de1c42497e6a56ea6ad940cec05558156306a2028b3ae5",
+          "move": "wind-strike",
+          "view": "side",
+          "time": 0.06
+        },
+        {
+          "name": "rare-38-wind-strike-side-1.png",
+          "sha256": "44223051df3fdf0f605ef50a7b29e9dc7a858f097321bbea2e155de2f84d8719",
+          "move": "wind-strike",
+          "view": "side",
+          "time": 0.16
+        },
+        {
+          "name": "rare-38-wind-strike-side-2.png",
+          "sha256": "cb28bbd92c6fc4e2f000e647588137361d03537c3d9bd39c4ce7d543177abf2b",
+          "move": "wind-strike",
+          "view": "side",
+          "time": 0.24
+        },
+        {
+          "name": "rare-38-wind-strike-side-3.png",
+          "sha256": "abf3aef931879ee701982101899b0f5200b25c8d6f9d39d51f65d89f4f4e484d",
+          "move": "wind-strike",
+          "view": "side",
+          "time": 0.36
+        },
+        {
+          "name": "rare-38-wind-strike-side-4.png",
+          "sha256": "34a76172edc77614776cf759a51c594a912244159081cfcfbe069a64333f1aaa",
+          "move": "wind-strike",
+          "view": "side",
+          "time": 0.5
+        },
+        {
+          "name": "rare-38-wind-strike-side-5.png",
+          "sha256": "54f26a7de10c89f44ec81b16c38f4df74f5912827b04812c960ceee36f11f48c",
+          "move": "wind-strike",
+          "view": "side",
+          "time": 0.6
+        },
+        {
+          "name": "rare-38-wind-pulse-side-0.png",
+          "sha256": "4d721ded9e4dbe821d47bae1ecfa058025a560430e68ab34c6ba0aab00a85277",
+          "move": "wind-pulse",
+          "view": "side",
+          "time": 0.06
+        },
+        {
+          "name": "rare-38-wind-pulse-side-1.png",
+          "sha256": "18ee634099f67fbd940004b0a975d73bd8250943634f1486eb911764b9cd5bc8",
+          "move": "wind-pulse",
+          "view": "side",
+          "time": 0.16
+        },
+        {
+          "name": "rare-38-wind-pulse-side-2.png",
+          "sha256": "af3465d5575ca5072e4a76bbe058e2b9623722c498ea3bb9804a08b8064fd9f7",
+          "move": "wind-pulse",
+          "view": "side",
+          "time": 0.24
+        },
+        {
+          "name": "rare-38-wind-pulse-side-3.png",
+          "sha256": "61912031a46368798548c22132bdcdbb544e3bb77c0d56d51cf06862c02f925a",
+          "move": "wind-pulse",
+          "view": "side",
+          "time": 0.36
+        },
+        {
+          "name": "rare-38-wind-pulse-side-4.png",
+          "sha256": "893067389e1430efce72ad2171d428db0f7f86628c5ce8df40f12ba59f821b35",
+          "move": "wind-pulse",
+          "view": "side",
+          "time": 0.5
+        },
+        {
+          "name": "rare-38-wind-pulse-side-5.png",
+          "sha256": "41d44c2d41dd63050f4d2c7b2dfe4def0d2bfd667b0dcab9415e5fb62fd0321d",
+          "move": "wind-pulse",
+          "view": "side",
+          "time": 0.6
+        },
+        {
+          "name": "rare-38-wind-breaker-side-0.png",
+          "sha256": "664d0299f6039e213a6ffc618f08439d253a5b13ad8dee9de58d626609e86f62",
+          "move": "wind-breaker",
+          "view": "side",
+          "time": 0.06
+        },
+        {
+          "name": "rare-38-wind-breaker-side-1.png",
+          "sha256": "3e2bf4503f326517b3a822451aacd4b0b5e88c5b3b9b0f51433e97c2c9eeeaad",
+          "move": "wind-breaker",
+          "view": "side",
+          "time": 0.16
+        },
+        {
+          "name": "rare-38-wind-breaker-side-2.png",
+          "sha256": "fc890054812b4569f6987e4108196fcf3b2b1b42915d977965a5e77853846e32",
+          "move": "wind-breaker",
+          "view": "side",
+          "time": 0.24
+        },
+        {
+          "name": "rare-38-wind-breaker-side-3.png",
+          "sha256": "717724727f2d17a94e9be5d1b7cb5471eeb5413de3defe94be66786c5c25da19",
+          "move": "wind-breaker",
+          "view": "side",
+          "time": 0.36
+        },
+        {
+          "name": "rare-38-wind-breaker-side-4.png",
+          "sha256": "e83280ac25d098a6ca02adbdc4f38e8e5ba68d4ead0b4a71572e212c966886d7",
+          "move": "wind-breaker",
+          "view": "side",
+          "time": 0.5
+        },
+        {
+          "name": "rare-38-wind-breaker-side-5.png",
+          "sha256": "0d2a10d2d309114fbba7c034edf95dc3c8fd107eaca4705d24a323f627b4d107",
+          "move": "wind-breaker",
+          "view": "side",
+          "time": 0.6
+        }
+      ],
+      "width": 1320,
+      "height": 633
+    },
+    {
+      "name": "side-block-0-half-1.png",
+      "sha256": "9e1e21d4f12a43c36cbb42443f1f08ce2c881d61b2852fef843a863e2d284d3d",
+      "sources": [
+        {
+          "name": "rare-38-wind-strike-side-6.png",
+          "sha256": "f4a1847944948cbd30c8e75bed18e0f0c48e03e8b878a0f2152c763098df385b",
+          "move": "wind-strike",
+          "view": "side",
+          "time": 0.8
+        },
+        {
+          "name": "rare-38-wind-strike-side-7.png",
+          "sha256": "78fe028357a9e8a01d6e8e8b0834feb6eb8f1be80e292ee2aeb047a8781d71e2",
+          "move": "wind-strike",
+          "view": "side",
+          "time": 1.02
+        },
+        {
+          "name": "rare-38-wind-strike-side-8.png",
+          "sha256": "975c93050e8f8adf27cf70952d18f1c1239517c7e8600a1745e2e773ff10bc6f",
+          "move": "wind-strike",
+          "view": "side",
+          "time": 1.24
+        },
+        {
+          "name": "rare-38-wind-strike-side-9.png",
+          "sha256": "94c2d5c908b513d0f75b3800106771849c320bf6f580f3c7da8dc7f39e2abb1d",
+          "move": "wind-strike",
+          "view": "side",
+          "time": 1.48
+        },
+        {
+          "name": "rare-38-wind-strike-side-10.png",
+          "sha256": "6bd7a5695c17a309359424d3b50b8dbd6603d7f73b216a779eddc881b9195027",
+          "move": "wind-strike",
+          "view": "side",
+          "time": 1.74
+        },
+        {
+          "name": "rare-38-wind-strike-side-11.png",
+          "sha256": "65d29c95bbb41b0ef641006fde10872d216b0ea6886e9d86469cea6fa3dff7cf",
+          "move": "wind-strike",
+          "view": "side",
+          "time": 2.02
+        },
+        {
+          "name": "rare-38-wind-pulse-side-6.png",
+          "sha256": "51fd8aa5e8e3b01d80f4bc381271709c80e3529c6d20905179892f070c83dda4",
+          "move": "wind-pulse",
+          "view": "side",
+          "time": 0.8
+        },
+        {
+          "name": "rare-38-wind-pulse-side-7.png",
+          "sha256": "b6a34c3e42e8e0510e2ac7089d09ecbabd307a9e092753ccc288add48b140261",
+          "move": "wind-pulse",
+          "view": "side",
+          "time": 1.02
+        },
+        {
+          "name": "rare-38-wind-pulse-side-8.png",
+          "sha256": "39fd39e697c39b16d41463dd2c5f1b517583832e62cdfb1308c3e52a180a3136",
+          "move": "wind-pulse",
+          "view": "side",
+          "time": 1.24
+        },
+        {
+          "name": "rare-38-wind-pulse-side-9.png",
+          "sha256": "b969533c8ea7f91ce219cfa54f24d9be65b8c28b1435c7fbf92994eb89a7121e",
+          "move": "wind-pulse",
+          "view": "side",
+          "time": 1.48
+        },
+        {
+          "name": "rare-38-wind-pulse-side-10.png",
+          "sha256": "213acb64b91b6fcd60f78c501beb1d58c64113d5e52cf1b9cb2c6bf6d9db2e7f",
+          "move": "wind-pulse",
+          "view": "side",
+          "time": 1.74
+        },
+        {
+          "name": "rare-38-wind-pulse-side-11.png",
+          "sha256": "346992264082269b2bf0c83422e09b434938e3d44cf32e6b412cbe0b15548c51",
+          "move": "wind-pulse",
+          "view": "side",
+          "time": 2.02
+        },
+        {
+          "name": "rare-38-wind-breaker-side-6.png",
+          "sha256": "b163f29b40ced3152338c968831498cee2eb967992a428c650685cfd4d96fd8f",
+          "move": "wind-breaker",
+          "view": "side",
+          "time": 0.8
+        },
+        {
+          "name": "rare-38-wind-breaker-side-7.png",
+          "sha256": "a8208ed273a161a0d4009840a1a892db8bfcae2a2af6e455a7049141ad8a5488",
+          "move": "wind-breaker",
+          "view": "side",
+          "time": 1.02
+        },
+        {
+          "name": "rare-38-wind-breaker-side-8.png",
+          "sha256": "7437a7384dbb5f2ff66019e8fb95af90ea1e62a2cfc4e3560a6dbd73ba631b21",
+          "move": "wind-breaker",
+          "view": "side",
+          "time": 1.24
+        },
+        {
+          "name": "rare-38-wind-breaker-side-9.png",
+          "sha256": "227abf8e356ff3cab145a43a6de16be9e5be7b4187cba6917b4a89133a217213",
+          "move": "wind-breaker",
+          "view": "side",
+          "time": 1.48
+        },
+        {
+          "name": "rare-38-wind-breaker-side-10.png",
+          "sha256": "f74c72c4b245a9467a75c7558ad8b71a143ef58c3a1893e8d32dacd1299510af",
+          "move": "wind-breaker",
+          "view": "side",
+          "time": 1.74
+        },
+        {
+          "name": "rare-38-wind-breaker-side-11.png",
+          "sha256": "65d29c95bbb41b0ef641006fde10872d216b0ea6886e9d86469cea6fa3dff7cf",
+          "move": "wind-breaker",
+          "view": "side",
+          "time": 2.02
+        }
+      ],
+      "width": 1320,
+      "height": 633
+    },
+    {
+      "name": "side-block-1-half-0.png",
+      "sha256": "fe77438424b19c0eb4764c7ad8595753cd75c55c1571c46c06e4d5eea72e7b57",
+      "sources": [
+        {
+          "name": "rare-38-water-pulse-side-0.png",
+          "sha256": "fcf2e36f1f5946fd6934a33965c26ddf462e63c6c6394d21f42b6da7af585221",
+          "move": "water-pulse",
+          "view": "side",
+          "time": 0.06
+        },
+        {
+          "name": "rare-38-water-pulse-side-1.png",
+          "sha256": "ad8d26926bfe4bc8e9c3a3b08865ef6c07df41eae09f1ddd9f81c881eb3fdf1d",
+          "move": "water-pulse",
+          "view": "side",
+          "time": 0.16
+        },
+        {
+          "name": "rare-38-water-pulse-side-2.png",
+          "sha256": "9cc2825db07d1d13cee2f9a6da060401f5aeaf4acd1e9403d1035dfef35653ae",
+          "move": "water-pulse",
+          "view": "side",
+          "time": 0.24
+        },
+        {
+          "name": "rare-38-water-pulse-side-3.png",
+          "sha256": "2940493150222806ed65ed3fc293a73377635296152941818be5a0fcbcb014ec",
+          "move": "water-pulse",
+          "view": "side",
+          "time": 0.36
+        },
+        {
+          "name": "rare-38-water-pulse-side-4.png",
+          "sha256": "f7e7a9cf94e4e9e2b06751e86fdb9295839777d70908fd1f693b3b6fd9a0d79a",
+          "move": "water-pulse",
+          "view": "side",
+          "time": 0.5
+        },
+        {
+          "name": "rare-38-water-pulse-side-5.png",
+          "sha256": "a7274d686c641d595a97e6759d284213ba4ad92c38cb42021f156a3d05e4427c",
+          "move": "water-pulse",
+          "view": "side",
+          "time": 0.6
+        },
+        {
+          "name": "rare-38-open-wound-side-0.png",
+          "sha256": "af179f6b7714211b55155498008c4f33c81df3eaaf371bdf1f9e1f93c275435a",
+          "move": "open-wound",
+          "view": "side",
+          "time": 0.06
+        },
+        {
+          "name": "rare-38-open-wound-side-1.png",
+          "sha256": "6581ebcf293f8a2080866a10ff5149486df46e632e3d774f6d324c0aed933993",
+          "move": "open-wound",
+          "view": "side",
+          "time": 0.16
+        },
+        {
+          "name": "rare-38-open-wound-side-2.png",
+          "sha256": "a5dedb86dfde90098690d2c7ee41dc833b88290826e9d44bd99e8e3069ac33ad",
+          "move": "open-wound",
+          "view": "side",
+          "time": 0.24
+        },
+        {
+          "name": "rare-38-open-wound-side-3.png",
+          "sha256": "683fa4d2738f3cecdb274770e5a00caf699975ad0c466ca240c0cb8bb51454b2",
+          "move": "open-wound",
+          "view": "side",
+          "time": 0.36
+        },
+        {
+          "name": "rare-38-open-wound-side-4.png",
+          "sha256": "96f136cf6d4c7669a6d68d449f2bd649a527ebc37550bd50fcd2aa9146ea2fe9",
+          "move": "open-wound",
+          "view": "side",
+          "time": 0.5
+        },
+        {
+          "name": "rare-38-open-wound-side-5.png",
+          "sha256": "d8bde8281b1b5d4e43c24b29ae1b8766a9432071875b65107db3d7214177405e",
+          "move": "open-wound",
+          "view": "side",
+          "time": 0.6
+        },
+        {
+          "name": "rare-38-expose-side-0.png",
+          "sha256": "28b033ae046e4011e122d3092322fccb39e23bc514d90608883d45b49bcc438d",
+          "move": "expose",
+          "view": "side",
+          "time": 0.06
+        },
+        {
+          "name": "rare-38-expose-side-1.png",
+          "sha256": "9b900426afd353a0a33cd3e271bdfba7309639088c8d5ca412320f0e83b5f4c9",
+          "move": "expose",
+          "view": "side",
+          "time": 0.16
+        },
+        {
+          "name": "rare-38-expose-side-2.png",
+          "sha256": "dbc40f5d84e3e9620e48eb0c20d9a90ec0929197a2e815c445d11709e1a7f4c6",
+          "move": "expose",
+          "view": "side",
+          "time": 0.24
+        },
+        {
+          "name": "rare-38-expose-side-3.png",
+          "sha256": "4cf2deb46a77f7d820edc624dab465f4983bf30070d3513663624c1b24b92e11",
+          "move": "expose",
+          "view": "side",
+          "time": 0.36
+        },
+        {
+          "name": "rare-38-expose-side-4.png",
+          "sha256": "f8ed7dcecb0608e97ecfeaf6b5ee4ce7d7a22df7b943d0282cb839d1b2bf1edf",
+          "move": "expose",
+          "view": "side",
+          "time": 0.5
+        },
+        {
+          "name": "rare-38-expose-side-5.png",
+          "sha256": "f7af0deccfe863e1741b6ff96426247dce2b940ae08c6eab4c0cf36bdddb46b7",
+          "move": "expose",
+          "view": "side",
+          "time": 0.6
+        }
+      ],
+      "width": 1320,
+      "height": 633
+    },
+    {
+      "name": "side-block-1-half-1.png",
+      "sha256": "7d3a914d2f5c2bd9a761342ded674c9ee1a9c85a7a3bc3008105a5af13ad633f",
+      "sources": [
+        {
+          "name": "rare-38-water-pulse-side-6.png",
+          "sha256": "96c7555ca1b6ee868fea220932a4f8fa020ffc23f3b2d8215368b6d15040d473",
+          "move": "water-pulse",
+          "view": "side",
+          "time": 0.8
+        },
+        {
+          "name": "rare-38-water-pulse-side-7.png",
+          "sha256": "f730666b8085affe5b74023ea7ae4a60a85a63c00b23f6843a5f37dd0083a379",
+          "move": "water-pulse",
+          "view": "side",
+          "time": 1.02
+        },
+        {
+          "name": "rare-38-water-pulse-side-8.png",
+          "sha256": "be3cbdbdbb458c568918755f98144df1a23b6c4e92dff372c77b5eeb15614c5d",
+          "move": "water-pulse",
+          "view": "side",
+          "time": 1.24
+        },
+        {
+          "name": "rare-38-water-pulse-side-9.png",
+          "sha256": "a683dbaed4c18e3673f4c9b75d2607661faefd85f19d34ab6d7596411478083f",
+          "move": "water-pulse",
+          "view": "side",
+          "time": 1.48
+        },
+        {
+          "name": "rare-38-water-pulse-side-10.png",
+          "sha256": "1d422106ed81995bb0577d7d1ae0569f8ace7c9fb8b4bf0e8a17e78dd3ed5825",
+          "move": "water-pulse",
+          "view": "side",
+          "time": 1.74
+        },
+        {
+          "name": "rare-38-water-pulse-side-11.png",
+          "sha256": "346992264082269b2bf0c83422e09b434938e3d44cf32e6b412cbe0b15548c51",
+          "move": "water-pulse",
+          "view": "side",
+          "time": 2.02
+        },
+        {
+          "name": "rare-38-open-wound-side-6.png",
+          "sha256": "72420ea856da593a2937a386196b4ef488709fad2247f81dbb707b832d688535",
+          "move": "open-wound",
+          "view": "side",
+          "time": 0.8
+        },
+        {
+          "name": "rare-38-open-wound-side-7.png",
+          "sha256": "e6dd9bf4e60cfd20eed3d77d368693ffd400e73654fa1dc94eea1bdc4376ab28",
+          "move": "open-wound",
+          "view": "side",
+          "time": 1.02
+        },
+        {
+          "name": "rare-38-open-wound-side-8.png",
+          "sha256": "dc889e9b7662cde9981e9cebe95fa482211e7327bd0ee5bf12ff7b337649644c",
+          "move": "open-wound",
+          "view": "side",
+          "time": 1.24
+        },
+        {
+          "name": "rare-38-open-wound-side-9.png",
+          "sha256": "34bdf14345acfc7e63250f8225450879504b3ed2d53643c58c84c1bb5c960605",
+          "move": "open-wound",
+          "view": "side",
+          "time": 1.48
+        },
+        {
+          "name": "rare-38-open-wound-side-10.png",
+          "sha256": "a07a58922502f0bd9492d5365720fba0fa17bb3d420ca6a1d629ca64c518faa5",
+          "move": "open-wound",
+          "view": "side",
+          "time": 1.74
+        },
+        {
+          "name": "rare-38-open-wound-side-11.png",
+          "sha256": "144e5df1dd41ada31cd715bc68a102d6a23b3cac8ccf4f92c4e385f32e4ba827",
+          "move": "open-wound",
+          "view": "side",
+          "time": 2.02
+        },
+        {
+          "name": "rare-38-expose-side-6.png",
+          "sha256": "b5f7755a840c93ffc68899d423e9cf71141551fd06bce20be4d7da5c980261a7",
+          "move": "expose",
+          "view": "side",
+          "time": 0.8
+        },
+        {
+          "name": "rare-38-expose-side-7.png",
+          "sha256": "18c58d3c7b9278808579f0c7b9fa1effc7cf3ed0a52e6e8902b6f818b1e937fd",
+          "move": "expose",
+          "view": "side",
+          "time": 1.02
+        },
+        {
+          "name": "rare-38-expose-side-8.png",
+          "sha256": "04ca974e3a850a30dbedc8f402af99f4140cab237fd6ee83ba9a85cf12ab4689",
+          "move": "expose",
+          "view": "side",
+          "time": 1.24
+        },
+        {
+          "name": "rare-38-expose-side-9.png",
+          "sha256": "b969533c8ea7f91ce219cfa54f24d9be65b8c28b1435c7fbf92994eb89a7121e",
+          "move": "expose",
+          "view": "side",
+          "time": 1.48
+        },
+        {
+          "name": "rare-38-expose-side-10.png",
+          "sha256": "213acb64b91b6fcd60f78c501beb1d58c64113d5e52cf1b9cb2c6bf6d9db2e7f",
+          "move": "expose",
+          "view": "side",
+          "time": 1.74
+        },
+        {
+          "name": "rare-38-expose-side-11.png",
+          "sha256": "346992264082269b2bf0c83422e09b434938e3d44cf32e6b412cbe0b15548c51",
+          "move": "expose",
+          "view": "side",
+          "time": 2.02
+        }
+      ],
+      "width": 1320,
+      "height": 633
+    },
+    {
+      "name": "side-block-2-half-0.png",
+      "sha256": "7ffcf8bb957031efdb0aaf87e3f4752dff948f882d7f9c8f15b1f04c0cce538b",
+      "sources": [
+        {
+          "name": "rare-38-rally-side-0.png",
+          "sha256": "d407032bda183f20b4fdda176e17c5f3a9a76d64426435ada70899f37d4aafcd",
+          "move": "rally",
+          "view": "side",
+          "time": 0.06
+        },
+        {
+          "name": "rare-38-rally-side-1.png",
+          "sha256": "8b5493726e5ae08aaf9770c60701aea69062a70b040d375d3845660ac1f885b8",
+          "move": "rally",
+          "view": "side",
+          "time": 0.16
+        },
+        {
+          "name": "rare-38-rally-side-2.png",
+          "sha256": "a89543556dbff0fe3e00c4be2703724da6bf52b78dffbe0b6313299f65eff4c3",
+          "move": "rally",
+          "view": "side",
+          "time": 0.24
+        },
+        {
+          "name": "rare-38-rally-side-3.png",
+          "sha256": "bbf38cf008ad130fdd09f7b04e6b74a7ce3817974f507214c4f3919f5f892414",
+          "move": "rally",
+          "view": "side",
+          "time": 0.36
+        },
+        {
+          "name": "rare-38-rally-side-4.png",
+          "sha256": "741942916ba64b6b492c2f5638f2f495c5a781a90d84feb528f00818cd13e85b",
+          "move": "rally",
+          "view": "side",
+          "time": 0.5
+        },
+        {
+          "name": "rare-38-rally-side-5.png",
+          "sha256": "264b0b815f26ccb75cb1fb002b3196deff59517f5aa12b92c70056b21203e7de",
+          "move": "rally",
+          "view": "side",
+          "time": 0.6
+        },
+        {
+          "name": "rare-38-protect-side-0.png",
+          "sha256": "a0dae83ef4157bc0b6bd84789a43acf8f1ad70d58f10bd7c176f1e6aa01afd86",
+          "move": "protect",
+          "view": "side",
+          "time": 0.06
+        },
+        {
+          "name": "rare-38-protect-side-1.png",
+          "sha256": "e0ebcf0942df256946cb069ac526c4328a10c32ab905ef09d61ac02cf6377222",
+          "move": "protect",
+          "view": "side",
+          "time": 0.16
+        },
+        {
+          "name": "rare-38-protect-side-2.png",
+          "sha256": "d31ca05d5ecb40ca2bbef7196f8cd7f4a82da1a88daabefc5dfb6a5cab638c1f",
+          "move": "protect",
+          "view": "side",
+          "time": 0.24
+        },
+        {
+          "name": "rare-38-protect-side-3.png",
+          "sha256": "6d27476875350890e3f187ad3a9cfeadf79b418fba36832daa7cd070192b2404",
+          "move": "protect",
+          "view": "side",
+          "time": 0.36
+        },
+        {
+          "name": "rare-38-protect-side-4.png",
+          "sha256": "c04885af8b656a1274f26416c63c15829d04b9ad2abeedb1b9548f34676d151c",
+          "move": "protect",
+          "view": "side",
+          "time": 0.5
+        },
+        {
+          "name": "rare-38-protect-side-5.png",
+          "sha256": "5c36fe37f06167a509ce0dd1282f29f8d0da1c45c81e34ff8b7b25afc51f247b",
+          "move": "protect",
+          "view": "side",
+          "time": 0.6
+        },
+        {
+          "name": "rare-38-rare-38-signature-side-0.png",
+          "sha256": "61e981bf655228def2987035aadc86f7a970147629191c2082cc90cf0dc03a01",
+          "move": "rare-38-signature",
+          "view": "side",
+          "time": 0.06
+        },
+        {
+          "name": "rare-38-rare-38-signature-side-1.png",
+          "sha256": "55fa891d15fa294027a87199787e42cee752ffce351a124c5622c1aac05fda19",
+          "move": "rare-38-signature",
+          "view": "side",
+          "time": 0.16
+        },
+        {
+          "name": "rare-38-rare-38-signature-side-2.png",
+          "sha256": "e8093cd8302f3d23b4b148d79d8d0a3f0b993fa1ad086d2c46691a11df4797ef",
+          "move": "rare-38-signature",
+          "view": "side",
+          "time": 0.24
+        },
+        {
+          "name": "rare-38-rare-38-signature-side-3.png",
+          "sha256": "957cf243d838b8456a07af1e90ba18d0939f94b772937f10134ac29a401f5fc2",
+          "move": "rare-38-signature",
+          "view": "side",
+          "time": 0.36
+        },
+        {
+          "name": "rare-38-rare-38-signature-side-4.png",
+          "sha256": "19b8cba43232193960a42a81d3d7315f397afb6e72c1c070afebfedb6fc52d65",
+          "move": "rare-38-signature",
+          "view": "side",
+          "time": 0.5
+        },
+        {
+          "name": "rare-38-rare-38-signature-side-5.png",
+          "sha256": "d8a809e850962614a6c9f5f84d39b512196951f597e6b5767d935c380802874b",
+          "move": "rare-38-signature",
+          "view": "side",
+          "time": 0.6
+        }
+      ],
+      "width": 1320,
+      "height": 633
+    },
+    {
+      "name": "side-block-2-half-1.png",
+      "sha256": "20ab957907281fc60fe3e3a7c5752ea468f4098fa68fb929425060106c03b570",
+      "sources": [
+        {
+          "name": "rare-38-rally-side-6.png",
+          "sha256": "a8c2aec4c157a1e33f3547b60d72f319a9719276d14542f9e303a6aca1c7b1b1",
+          "move": "rally",
+          "view": "side",
+          "time": 0.8
+        },
+        {
+          "name": "rare-38-rally-side-7.png",
+          "sha256": "6398a46b275bafe7fafd45555a4cc3c13673c81e28f86b81348e79398316df6d",
+          "move": "rally",
+          "view": "side",
+          "time": 1.02
+        },
+        {
+          "name": "rare-38-rally-side-8.png",
+          "sha256": "5bcbf9924fc38fb668b11bc9b1ded0c93a315ea95b027a8bda12144c7dca13a0",
+          "move": "rally",
+          "view": "side",
+          "time": 1.24
+        },
+        {
+          "name": "rare-38-rally-side-9.png",
+          "sha256": "94707734e6c066eb627bac57230baa1b5c0976ce58711db1ea61ef70c8dbe596",
+          "move": "rally",
+          "view": "side",
+          "time": 1.48
+        },
+        {
+          "name": "rare-38-rally-side-10.png",
+          "sha256": "80faee3f16cd56a75dc5c743c8ac256b72e19533775192d00d1f8a2362b638a5",
+          "move": "rally",
+          "view": "side",
+          "time": 1.74
+        },
+        {
+          "name": "rare-38-rally-side-11.png",
+          "sha256": "d0436644f3654cb5b9281f7ce65aea56e0b45aea9cb4c09b1d8f5ad4dcbb75e4",
+          "move": "rally",
+          "view": "side",
+          "time": 2.02
+        },
+        {
+          "name": "rare-38-protect-side-6.png",
+          "sha256": "35fc9ca4878ecbbd8655d819ebceca2465631945f13e6fd630fbabe209eaf4f6",
+          "move": "protect",
+          "view": "side",
+          "time": 0.8
+        },
+        {
+          "name": "rare-38-protect-side-7.png",
+          "sha256": "4fee68fc5e6a802dbe2f33a8537b611e6b0a0f51ae9e44d77f4f58d634f9716d",
+          "move": "protect",
+          "view": "side",
+          "time": 1.02
+        },
+        {
+          "name": "rare-38-protect-side-8.png",
+          "sha256": "7a9693c9a9662dbcb5e9e64bbc4a4b9f2833a9c6343b082db0cd14ec18230ea8",
+          "move": "protect",
+          "view": "side",
+          "time": 1.24
+        },
+        {
+          "name": "rare-38-protect-side-9.png",
+          "sha256": "353c0b24b92451624430d873abaf00b4334a8409724b2eccc2e7d7a88d79042b",
+          "move": "protect",
+          "view": "side",
+          "time": 1.48
+        },
+        {
+          "name": "rare-38-protect-side-10.png",
+          "sha256": "7b5c418f74034b559373b3ef325860516d75033bfebd1541b8b8df12822b05d2",
+          "move": "protect",
+          "view": "side",
+          "time": 1.74
+        },
+        {
+          "name": "rare-38-protect-side-11.png",
+          "sha256": "ad9026cee6ae0178df3a40c1d4676902b92e3bcea046ea2c5dac06db1b62309e",
+          "move": "protect",
+          "view": "side",
+          "time": 2.02
+        },
+        {
+          "name": "rare-38-rare-38-signature-side-6.png",
+          "sha256": "405f4f437ea2f490015deb245b90074255ba42254ca923bfb86964262f44b9d6",
+          "move": "rare-38-signature",
+          "view": "side",
+          "time": 0.8
+        },
+        {
+          "name": "rare-38-rare-38-signature-side-7.png",
+          "sha256": "039072c8f2a2e1b98b7de0113e40cd54ee2d2a1acb6b35edc407501c72f9dc4e",
+          "move": "rare-38-signature",
+          "view": "side",
+          "time": 1.02
+        },
+        {
+          "name": "rare-38-rare-38-signature-side-8.png",
+          "sha256": "4c7c357a6ad35f38249f4e6f2ffec478b657c480fd525e576a8285dd148576c3",
+          "move": "rare-38-signature",
+          "view": "side",
+          "time": 1.24
+        },
+        {
+          "name": "rare-38-rare-38-signature-side-9.png",
+          "sha256": "2e8d3c51af79d7ac69831931a7a969e66673db74c67624179a9ef7275ad07ed7",
+          "move": "rare-38-signature",
+          "view": "side",
+          "time": 1.48
+        },
+        {
+          "name": "rare-38-rare-38-signature-side-10.png",
+          "sha256": "b94d3dc0b5d028cacc005760aef3f8979907957e86e4df5c9424871b360dd2c2",
+          "move": "rare-38-signature",
+          "view": "side",
+          "time": 1.74
+        },
+        {
+          "name": "rare-38-rare-38-signature-side-11.png",
+          "sha256": "65d29c95bbb41b0ef641006fde10872d216b0ea6886e9d86469cea6fa3dff7cf",
+          "move": "rare-38-signature",
+          "view": "side",
+          "time": 2.02
+        }
+      ],
+      "width": 1320,
+      "height": 633
+    }
+  ],
+  "review": "pending"
+}

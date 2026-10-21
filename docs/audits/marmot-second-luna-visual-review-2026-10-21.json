@@ -1,0 +1,517 @@
+{
+  "schema": 1,
+  "id": "standard-49",
+  "name": "Loam Marmot",
+  "reviewer": "Luna second-pass visual reviewer",
+  "recordedAt": "2026-10-21T05:18:59.144Z",
+  "status": "PASS-PRIVATE-CANDIDATE-INDEPENDENT-SECOND-VISUAL-REVIEW",
+  "assets": {
+    "source": {
+      "sha256": "b0460aea919abb8bf18c368a57685c5ba599ddaf942d753a4effb2650eb496e7"
+    },
+    "battle": {
+      "sha256": "1f5117dff1ff08fe4bc8814563a6c87867a923bee81a88bbfec574f72c8dad77"
+    },
+    "impostorAtlas": {
+      "path": "shinobij.client/public/pet-models/warfront-impostors/roster/standard-49.webp",
+      "sha256": "83c0097190c38d5c2a3951a2917e718dd0c982fd54e82f67e64399dca27cc8c7",
+      "bytes": 106666,
+      "grid": "4x4, all 16 cells personally inspected at native size",
+      "finding": "No white holes; head, body, limbs and single tail remain within cells. Lying poses retain one attached tail without isolated fragments."
+    },
+    "embeddedMaterialImages": {
+      "source": [
+        {
+          "mimeType": "image/webp",
+          "bytes": 141370,
+          "sha256": "0b72701317517e6275b76aedc22baee28e8185dbe534af2cca2838151ccf2336"
+        }
+      ],
+      "battle": [
+        {
+          "mimeType": "image/webp",
+          "bytes": 103368,
+          "sha256": "85b30dee9810d9509c51d77526187cef58883a4e5a817bca5cfcf2b0dd864489"
+        }
+      ],
+      "note": "The embedded GLB material textures are separate from the production impostor atlas. I visually inspected both embedded images and the 16-cell production impostor atlas."
+    }
+  },
+  "scope": {
+    "raw": {
+      "clipsPerStage": 13,
+      "stages": [
+        "source",
+        "battle"
+      ],
+      "phases": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ],
+      "views": [
+        "front",
+        "side",
+        "other-side",
+        "back",
+        "head-front",
+        "head-side",
+        "head-other-side"
+      ],
+      "sheetsInspected": 14
+    },
+    "runtime": {
+      "qualities": [
+        "low",
+        "medium"
+      ],
+      "stages": [
+        "source",
+        "battle"
+      ],
+      "parts": [
+        "head",
+        "body"
+      ],
+      "rows": [
+        "idle",
+        "run",
+        "dash",
+        "windup",
+        "strike",
+        "recover",
+        "stagger",
+        "dodge",
+        "guard",
+        "rest",
+        "cast",
+        "entrance",
+        "victory",
+        "dead",
+        "revive",
+        "attack-sequence"
+      ],
+      "sheetsInspected": 8
+    },
+    "companionIdleFrames": 24,
+    "equippedTechniques": [
+      "earth-strike",
+      "earth-pulse",
+      "earth-breaker",
+      "lightning-pulse",
+      "expose",
+      "rally",
+      "protect",
+      "purify",
+      "standard-49-signature"
+    ],
+    "techniqueViews": [
+      "front",
+      "side"
+    ],
+    "techniquePhases": [
+      0.04,
+      0.12,
+      0.24,
+      0.36,
+      0.48,
+      0.6,
+      0.76,
+      0.96,
+      1.2,
+      1.44,
+      1.68,
+      1.92
+    ],
+    "techniqueSheetsInspected": 36,
+    "techniquePhaseViewFrames": 216,
+    "impostorAtlasCellsInspected": 16
+  },
+  "visualFindings": [
+    "Across the 13 raw animation clips in both source and battle models, side, reverse-side, rear and head-focused views retain coherent body/head joins. The rear silhouette shows one continuous tail.",
+    "Across low and medium runtime representations, both source and battle, all 16 production transition rows preserve the same single-tail silhouette; no isolated mesh, seam, white cap, or animation-specific reappearance was visible.",
+    "All 24 companion idle frames and all 216 frames from nine equipped techniques were inspected in front and side views. The tail remains a single attached shape; no visible deformation or split geometry was found.",
+    "All 16 current production impostor atlas cells were visually inspected. There are no white holes; horizontal strike/recovery poses keep one attached tail and show no detached tail fragment.",
+    "Both embedded source and battle material images were visually inspected. Source embedded image bytes match the original model as recorded by the exact-hash asset manifest."
+  ],
+  "limitations": [
+    "This is a visual review of the private candidate pair only; it does not approve production promotion or alter canonical review receipts.",
+    "Existing capture sheets include deliberate close framing in head-focused views; body sheets and full raw side/rear views were used to verify lower silhouette and tail continuity."
+  ],
+  "evidenceInventory": {
+    "durablePathMap": "docs/audits/pet-terminal-sol-evidence-path-map-2026-10-21.json",
+    "durablePathMapSha256": "6410536712a5da11c175d1e8133612125d49341456c4e6803d9ec88b3e8fe4a3",
+    "firstReview": "docs/audits/pet-loam-marmot-private-tail-repair-visual-review-2026-10-20.json",
+    "firstReviewSha256": "d5978f7d1251825124b61542bce73d7217a04eb7ba8549256eac118052031106",
+    "files": [
+      {
+        "path": "docs/evidence/pet-terminal-sol-2026-10-21/standard-49/companion/earth-breaker-front-sheet-0.webp",
+        "sha256": "0415bd49c66c47c44c5498f7fb3551d919e1347a2f2b3c45bac4084cd1d1df5a",
+        "bytes": 41342,
+        "visuallyInspected": true
+      },
+      {
+        "path": "docs/evidence/pet-terminal-sol-2026-10-21/standard-49/companion/earth-breaker-front-sheet-1.webp",
+        "sha256": "0cdc93e44fd69459eaaf2e5e21cf846c41c3a5eff0918a953bed916c473f973e",
+        "bytes": 40910,
+        "visuallyInspected": true
+      },
+      {
+        "path": "docs/evidence/pet-terminal-sol-2026-10-21/standard-49/companion/earth-breaker-side-sheet-0.webp",
+        "sha256": "28cb961ee8409f17be9e708c12a75ed375414785713ccee6a7ae96d16e0e8518",
+        "bytes": 33696,
+        "visuallyInspected": true
+      },
+      {
+        "path": "docs/evidence/pet-terminal-sol-2026-10-21/standard-49/companion/earth-breaker-side-sheet-1.webp",
+        "sha256": "8a44cc091c0ed6b43126f4bdae88408260f3ab1cd2d3b35ce507cfb4ec276a57",
+        "bytes": 32634,
+        "visuallyInspected": true
+      },
+      {
+        "path": "docs/evidence/pet-terminal-sol-2026-10-21/standard-49/companion/earth-pulse-front-sheet-0.webp",
+        "sha256": "fd57c0570b29fedda7af2df3949ba74b9522a8cba56a97677be1543229ea353b",
+        "bytes": 40360,
+        "visuallyInspected": true
+      },
+      {
+        "path": "docs/evidence/pet-terminal-sol-2026-10-21/standard-49/companion/earth-pulse-front-sheet-1.webp",
+        "sha256": "343bf66d0c9a8be9a85e00620bd224e61472ae6e105ee058748f1f9b9a128ff4",
+        "bytes": 40476,
+        "visuallyInspected": true
+      },
+      {
+        "path": "docs/evidence/pet-terminal-sol-2026-10-21/standard-49/companion/earth-pulse-side-sheet-0.webp",
+        "sha256": "4fe5d1ef32739cd47b69f62f3ad953171fac99de3fcc031c3d0d93e78cc46e79",
+        "bytes": 32790,
+        "visuallyInspected": true
+      },
+      {
+        "path": "docs/evidence/pet-terminal-sol-2026-10-21/standard-49/companion/earth-pulse-side-sheet-1.webp",
+        "sha256": "23520ea9b8deb47cb9e184f4cfe261ce63474ab7d4d5f4a455cde91fd1118bd0",
+        "bytes": 32840,
+        "visuallyInspected": true
+      },
+      {
+        "path": "docs/evidence/pet-terminal-sol-2026-10-21/standard-49/companion/earth-strike-front-sheet-0.webp",
+        "sha256": "de969b2d534928c467edaf466ba82e44f97b0874ea29a441ef93a49eebe3fe3e",
+        "bytes": 41282,
+        "visuallyInspected": true
+      },
+      {
+        "path": "docs/evidence/pet-terminal-sol-2026-10-21/standard-49/companion/earth-strike-front-sheet-1.webp",
+        "sha256": "d5e0d88c6f17140bde045c3d94d0f30792bab39ee27ca411774b5d498342d4d0",
+        "bytes": 40524,
+        "visuallyInspected": true
+      },
+      {
+        "path": "docs/evidence/pet-terminal-sol-2026-10-21/standard-49/companion/earth-strike-side-sheet-0.webp",
+        "sha256": "59e9cadbf8ee0f81ee1a9aa748bfd80cc73a7060a2bb20cca85765da5abe2c6e",
+        "bytes": 33310,
+        "visuallyInspected": true
+      },
+      {
+        "path": "docs/evidence/pet-terminal-sol-2026-10-21/standard-49/companion/earth-strike-side-sheet-1.webp",
+        "sha256": "9f04595433e41d9e5ab32579fdc8abae919ffcab6965074bdddf41d1bc11ed7f",
+        "bytes": 32584,
+        "visuallyInspected": true
+      },
+      {
+        "path": "docs/evidence/pet-terminal-sol-2026-10-21/standard-49/companion/expose-front-sheet-0.webp",
+        "sha256": "8a7df4f12e079669ad695ebf8ad11ac840d2a66614fe4ca2777815f0d8326760",
+        "bytes": 40250,
+        "visuallyInspected": true
+      },
+      {
+        "path": "docs/evidence/pet-terminal-sol-2026-10-21/standard-49/companion/expose-front-sheet-1.webp",
+        "sha256": "9ef2ccf8560652004f28263a1fe90d17b8796d37fe5fcc806f03af116c5da8d1",
+        "bytes": 40242,
+        "visuallyInspected": true
+      },
+      {
+        "path": "docs/evidence/pet-terminal-sol-2026-10-21/standard-49/companion/expose-side-sheet-0.webp",
+        "sha256": "51a1587662658396e16f95de4b90a21f41387d1b138af8b449bb33df44d7f142",
+        "bytes": 32616,
+        "visuallyInspected": true
+      },
+      {
+        "path": "docs/evidence/pet-terminal-sol-2026-10-21/standard-49/companion/expose-side-sheet-1.webp",
+        "sha256": "d9183a113f9e12c21bba70416067c0fffa88fcc34a5d4dc8b4dce980de1e8cc6",
+        "bytes": 32906,
+        "visuallyInspected": true
+      },
+      {
+        "path": "docs/evidence/pet-terminal-sol-2026-10-21/standard-49/companion/idle-24-sheet.webp",
+        "sha256": "60add5ed193f29d76674cd6ce5aba0d6f008226bfd04a67e844168122fe9b09f",
+        "bytes": 93780,
+        "visuallyInspected": true
+      },
+      {
+        "path": "docs/evidence/pet-terminal-sol-2026-10-21/standard-49/companion/lightning-pulse-front-sheet-0.webp",
+        "sha256": "bf1e1f4cf4f56e0d88764a0dc6ab311dedca5dc1819883b2c8e19b8cd40dbb96",
+        "bytes": 40664,
+        "visuallyInspected": true
+      },
+      {
+        "path": "docs/evidence/pet-terminal-sol-2026-10-21/standard-49/companion/lightning-pulse-front-sheet-1.webp",
+        "sha256": "1b0f702d9b77f1dcfb893a90a716b321df2651372f639d95e304a20733057ac8",
+        "bytes": 40778,
+        "visuallyInspected": true
+      },
+      {
+        "path": "docs/evidence/pet-terminal-sol-2026-10-21/standard-49/companion/lightning-pulse-side-sheet-0.webp",
+        "sha256": "7791f19fbf00075c89614e12b45b1896fb1254bf8e1cfbbd5eb479004bdb9f2a",
+        "bytes": 33040,
+        "visuallyInspected": true
+      },
+      {
+        "path": "docs/evidence/pet-terminal-sol-2026-10-21/standard-49/companion/lightning-pulse-side-sheet-1.webp",
+        "sha256": "dfb239445b72f9b14aa2539ec95c5d56fa70531a40fc46379e970c58c8afc95f",
+        "bytes": 32926,
+        "visuallyInspected": true
+      },
+      {
+        "path": "docs/evidence/pet-terminal-sol-2026-10-21/standard-49/companion/protect-front-sheet-0.webp",
+        "sha256": "20cda83a05b6f8a614e9828e03fa525f3fbcc16aab859752f4a715c4e78a07f5",
+        "bytes": 41098,
+        "visuallyInspected": true
+      },
+      {
+        "path": "docs/evidence/pet-terminal-sol-2026-10-21/standard-49/companion/protect-front-sheet-1.webp",
+        "sha256": "879f5f096613a1622915245c5bd38eea83531b34a19523f220a76f3fa86310e8",
+        "bytes": 40852,
+        "visuallyInspected": true
+      },
+      {
+        "path": "docs/evidence/pet-terminal-sol-2026-10-21/standard-49/companion/protect-side-sheet-0.webp",
+        "sha256": "c9e413e7117a2a195c622a34eeb099bf8d2b1c8e69f8ff853b48f440fc78002e",
+        "bytes": 32884,
+        "visuallyInspected": true
+      },
+      {
+        "path": "docs/evidence/pet-terminal-sol-2026-10-21/standard-49/companion/protect-side-sheet-1.webp",
+        "sha256": "5ef2b7a2492b32396429ae81fbaacc837aacab786d10755dff1908563653b47b",
+        "bytes": 32750,
+        "visuallyInspected": true
+      },
+      {
+        "path": "docs/evidence/pet-terminal-sol-2026-10-21/standard-49/companion/purify-front-sheet-0.webp",
+        "sha256": "bfc1ee550b6f450745b2efe23127af2d763a04da4834c27774fa3fbf890bc17e",
+        "bytes": 40284,
+        "visuallyInspected": true
+      },
+      {
+        "path": "docs/evidence/pet-terminal-sol-2026-10-21/standard-49/companion/purify-front-sheet-1.webp",
+        "sha256": "93395a8f80a5f3275224cd8f65cf4a757d521e457824e043d16a52b348d549a4",
+        "bytes": 40132,
+        "visuallyInspected": true
+      },
+      {
+        "path": "docs/evidence/pet-terminal-sol-2026-10-21/standard-49/companion/purify-side-sheet-0.webp",
+        "sha256": "838c34f94f0a7349e1644d5c89bb1861fdffd25d6f55921d82c17be6b8609c86",
+        "bytes": 32464,
+        "visuallyInspected": true
+      },
+      {
+        "path": "docs/evidence/pet-terminal-sol-2026-10-21/standard-49/companion/purify-side-sheet-1.webp",
+        "sha256": "52f4de6230db2d17629fe879a5a76d3098e2f5fe216194f297160770cbde8779",
+        "bytes": 32298,
+        "visuallyInspected": true
+      },
+      {
+        "path": "docs/evidence/pet-terminal-sol-2026-10-21/standard-49/companion/rally-front-sheet-0.webp",
+        "sha256": "e7a97effe9ab171c578d32b2f3c96a317ae9bcc53a8748d03e3f930d6fd26c85",
+        "bytes": 40086,
+        "visuallyInspected": true
+      },
+      {
+        "path": "docs/evidence/pet-terminal-sol-2026-10-21/standard-49/companion/rally-front-sheet-1.webp",
+        "sha256": "3620da3f8d0e29a6aba03c61a8d50d9bd7343bb843f3b1a6bb54f8687393e2f1",
+        "bytes": 40252,
+        "visuallyInspected": true
+      },
+      {
+        "path": "docs/evidence/pet-terminal-sol-2026-10-21/standard-49/companion/rally-side-sheet-0.webp",
+        "sha256": "29db9cba47529c994d1fe59dee9fe4f489496e7bf625383ea98803e5e67935d4",
+        "bytes": 32322,
+        "visuallyInspected": true
+      },
+      {
+        "path": "docs/evidence/pet-terminal-sol-2026-10-21/standard-49/companion/rally-side-sheet-1.webp",
+        "sha256": "1396685f8281db97419d3b25b411a74ed1b221d8f26b8febf571a15f644aba21",
+        "bytes": 32328,
+        "visuallyInspected": true
+      },
+      {
+        "path": "docs/evidence/pet-terminal-sol-2026-10-21/standard-49/companion/standard-49-signature-front-sheet-0.webp",
+        "sha256": "e59fd116e1ebd93ab16f0858458af0bc7fcfdc3e62009fca57114fc1c65aed03",
+        "bytes": 41658,
+        "visuallyInspected": true
+      },
+      {
+        "path": "docs/evidence/pet-terminal-sol-2026-10-21/standard-49/companion/standard-49-signature-front-sheet-1.webp",
+        "sha256": "8539e0ce792d476b9c3059a187be78faf45142942ec8a702476f112191865def",
+        "bytes": 41550,
+        "visuallyInspected": true
+      },
+      {
+        "path": "docs/evidence/pet-terminal-sol-2026-10-21/standard-49/companion/standard-49-signature-side-sheet-0.webp",
+        "sha256": "67539b8592f2bf0faab31f6188fd5463323dbbf072710a011c846c0677c9828c",
+        "bytes": 34036,
+        "visuallyInspected": true
+      },
+      {
+        "path": "docs/evidence/pet-terminal-sol-2026-10-21/standard-49/companion/standard-49-signature-side-sheet-1.webp",
+        "sha256": "06ee81e79eff8b52c6f9c519abf6dd4202085aa7a278fd6ac80f72cf972d615c",
+        "bytes": 33312,
+        "visuallyInspected": true
+      },
+      {
+        "path": "docs/evidence/pet-terminal-sol-2026-10-21/standard-49/raw/battle-back.png",
+        "sha256": "6628da192e5f361b6cc42ac6b9382d4f471f7fe3e7c0d4e6b96bd989484c3d82",
+        "bytes": 2262163,
+        "visuallyInspected": true
+      },
+      {
+        "path": "docs/evidence/pet-terminal-sol-2026-10-21/standard-49/raw/battle-front.png",
+        "sha256": "3d366a552f5fcf2cccbcd7d8961ca979c908a595c417c63688f00f480f770405",
+        "bytes": 2607703,
+        "visuallyInspected": true
+      },
+      {
+        "path": "docs/evidence/pet-terminal-sol-2026-10-21/standard-49/raw/battle-head-front.png",
+        "sha256": "c123225d816bb39e45a9ee21b9ad3612376d25002ca1a6f045a034a9e15b53f3",
+        "bytes": 4457669,
+        "visuallyInspected": true
+      },
+      {
+        "path": "docs/evidence/pet-terminal-sol-2026-10-21/standard-49/raw/battle-head-other-side.png",
+        "sha256": "8dcc618333fa7ab930994d99e62f148c406acb4031d20d938dcf31072ee81c61",
+        "bytes": 3480270,
+        "visuallyInspected": true
+      },
+      {
+        "path": "docs/evidence/pet-terminal-sol-2026-10-21/standard-49/raw/battle-head-side.png",
+        "sha256": "4a40d6d57671bdff9e55083a55093f9d0aeb0a088dbeeefc81865e0c80e6e929",
+        "bytes": 3447985,
+        "visuallyInspected": true
+      },
+      {
+        "path": "docs/evidence/pet-terminal-sol-2026-10-21/standard-49/raw/battle-other-side.png",
+        "sha256": "ea8968adacaf13966649cfee410e95b0d75a07c4f998a5cb91c9f2688ea524b4",
+        "bytes": 2077880,
+        "visuallyInspected": true
+      },
+      {
+        "path": "docs/evidence/pet-terminal-sol-2026-10-21/standard-49/raw/battle-side.png",
+        "sha256": "0893276f10d678e4a1898f3d25685066f07079c5f9018dae3537251dcd9f31fb",
+        "bytes": 2117207,
+        "visuallyInspected": true
+      },
+      {
+        "path": "docs/evidence/pet-terminal-sol-2026-10-21/standard-49/raw/source-back.png",
+        "sha256": "7e29d39b5ba229ef939036e696d7532d220b6d94f9152af40cf9e40f0da1ebc3",
+        "bytes": 2254315,
+        "visuallyInspected": true
+      },
+      {
+        "path": "docs/evidence/pet-terminal-sol-2026-10-21/standard-49/raw/source-front.png",
+        "sha256": "9c23d37734c8c6bbe1f618a14f39d0f67b7ca103346c7853220ed186f0e5c113",
+        "bytes": 2620665,
+        "visuallyInspected": true
+      },
+      {
+        "path": "docs/evidence/pet-terminal-sol-2026-10-21/standard-49/raw/source-head-front.png",
+        "sha256": "479ec4c920c00b711b52bd2b10c6b5768a3b1ab8643a4697e1eb502c2a3f9b62",
+        "bytes": 4456146,
+        "visuallyInspected": true
+      },
+      {
+        "path": "docs/evidence/pet-terminal-sol-2026-10-21/standard-49/raw/source-head-other-side.png",
+        "sha256": "29d996a1cf14e1d7152ce7cf4eb1917fd04bcb9bce354aee4667745745907f08",
+        "bytes": 3487883,
+        "visuallyInspected": true
+      },
+      {
+        "path": "docs/evidence/pet-terminal-sol-2026-10-21/standard-49/raw/source-head-side.png",
+        "sha256": "16edc0c472192da2623f474c7a484dc21a9c5b97a814b2e780befa1acfd22a25",
+        "bytes": 3467019,
+        "visuallyInspected": true
+      },
+      {
+        "path": "docs/evidence/pet-terminal-sol-2026-10-21/standard-49/raw/source-other-side.png",
+        "sha256": "0375c816dcf2915068d681227a6b57568e5dbdc5c68b9dcda2f7413628efbc62",
+        "bytes": 2079152,
+        "visuallyInspected": true
+      },
+      {
+        "path": "docs/evidence/pet-terminal-sol-2026-10-21/standard-49/raw/source-side.png",
+        "sha256": "9fb61e6d4ef6a4b2c31945ac51614c88e29378ccc600071ecc6fc04a2544a72e",
+        "bytes": 2122005,
+        "visuallyInspected": true
+      },
+      {
+        "path": "docs/evidence/pet-terminal-sol-2026-10-21/standard-49/runtime/low-battle-body.webp",
+        "sha256": "6f4e11d7c4fe782d2f3b3a046c328068fb5c98f568172922f24def9d9b35a001",
+        "bytes": 962072,
+        "visuallyInspected": true
+      },
+      {
+        "path": "docs/evidence/pet-terminal-sol-2026-10-21/standard-49/runtime/low-battle-head.webp",
+        "sha256": "d07352fa4b2129970cd24e4e33c0aa988fffcda2807085344d7ef58d03d18e5b",
+        "bytes": 1155278,
+        "visuallyInspected": true
+      },
+      {
+        "path": "docs/evidence/pet-terminal-sol-2026-10-21/standard-49/runtime/low-source-body.webp",
+        "sha256": "f4064dab373c7d4f1a6bd2fa041d4e2902458a093b0011178e7c93dc45031866",
+        "bytes": 965734,
+        "visuallyInspected": true
+      },
+      {
+        "path": "docs/evidence/pet-terminal-sol-2026-10-21/standard-49/runtime/low-source-head.webp",
+        "sha256": "4531bcfb9231b351b5a03690501cd30b8e7a740c8550c4574e77812f3c1209a1",
+        "bytes": 1160920,
+        "visuallyInspected": true
+      },
+      {
+        "path": "docs/evidence/pet-terminal-sol-2026-10-21/standard-49/runtime/medium-battle-body.webp",
+        "sha256": "6b59fee74af6973e839df83d7aad0ae071d276452dff84c154aa05a64d48124f",
+        "bytes": 965678,
+        "visuallyInspected": true
+      },
+      {
+        "path": "docs/evidence/pet-terminal-sol-2026-10-21/standard-49/runtime/medium-battle-head.webp",
+        "sha256": "4a763f5a9ba26c7a17b411c5e0e57d239950f02f4eff3fe0e24bc9715a643b63",
+        "bytes": 1159268,
+        "visuallyInspected": true
+      },
+      {
+        "path": "docs/evidence/pet-terminal-sol-2026-10-21/standard-49/runtime/medium-source-body.webp",
+        "sha256": "8c0cfb337da3932afc81f44586d49ac744989ccba1200f996f914d04b0e505e2",
+        "bytes": 969396,
+        "visuallyInspected": true
+      },
+      {
+        "path": "docs/evidence/pet-terminal-sol-2026-10-21/standard-49/runtime/medium-source-head.webp",
+        "sha256": "9a90845eca4c7d2a3b76e13fe7e0ada58874bbb11bbbc03c502a68911d348efb",
+        "bytes": 1163876,
+        "visuallyInspected": true
+      }
+    ],
+    "counts": {
+      "raw": 14,
+      "runtime": 8,
+      "companion": 37,
+      "total": 59
+    },
+    "assetHashManifest": {
+      "path": "docs/evidence/pet-terminal-sol-2026-10-21/standard-49/glb-hashes.json",
+      "sha256": "b55ea2d818924036c768e1d09687f524f981b33be2dc7fdc8c2aa83cf0547959"
+    }
+  },
+  "reviewDisposition": "Second visual pass agrees with the private v6 candidate disposition. No new visual hold found; single-tail continuity and atlas-cell integrity are visually confirmed."
+}

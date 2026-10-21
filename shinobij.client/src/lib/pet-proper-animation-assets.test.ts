@@ -152,6 +152,17 @@ test("all 161 production pets have complete proper skeletal animation banks", ()
                 const name = json.nodes[channel.target.node].name;
                 const contactBank = json.extras.characterMotion?.revision === PET_CHARACTER_MOTION_ASSET_REVISION;
                 if (contactBank && name === 'root' && channel.target.path === 'translation') continue;
+                if (contactBank && pet.id === 'mythic-6' && animation.name === 'death'
+                    && name === 'root' && channel.target.path === 'rotation') {
+                    const collapse = json.extras.deathPoseRepair;
+                    assert.equal(collapse?.revision, '20261021-azure-terminal-collapse-v3');
+                    assert.equal(collapse.clip, 'death');
+                    assert.equal(collapse.keys, 121);
+                    assert.equal(collapse.terminalRollDegrees, 84.6);
+                    assert.equal(collapse.geometrySkinOtherTracksRetained, true);
+                    assert.deepEqual(collapse.changedTracks, ['root.rotation', 'root.translation']);
+                    continue;
+                }
                 assert.equal(channel.target.path, 'rotation', 'articulation only adds joint rotations or a verified support root');
                 const coordinated = json.extras?.coordinatedActionRepair;
                 const reviewedTorso = limbRepair || (reviewedTorsoActions[pet.id]

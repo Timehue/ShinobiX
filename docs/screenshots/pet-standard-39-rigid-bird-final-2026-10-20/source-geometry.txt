@@ -1,0 +1,21 @@
+{
+  "geometryCoverage": "all vertices, triangle edges above numerical degeneracy tolerance, and connected UV seam copies",
+  "attemptedModels": 1,
+  "auditedModels": 1,
+  "distinctRuntimeAssets": 1,
+  "failedModels": 0,
+  "deformationWarnings": 0,
+  "petsWithDeformationWarnings": 0,
+  "auditedPoses": 203,
+  "showcaseAuthored": 0,
+  "identityAuthored": 1,
+  "identityDirected": 1,
+  "uniquePerformanceFingerprints": 1,
+  "rigs": [
+    "avian"
+  ],
+  "families": [
+    "avian"
+  ]
+}
+Report: C:\Users\Tyler R\.codex\worktrees\40c2\NinjaK\shinobij.client\.tmp\pet-animation-audit\standard-39-standard-39-private-rigid-skull-source-motion-audit.json

@@ -1,0 +1,250 @@
+{
+  "id": "rare-47",
+  "frames": [
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/parallel-c-aardvark-private-v1-idle/rare-47/idle-0.png",
+      "sha256": "94764fc71c77806bdff936dcce084413174e2903b87232cb8d58fb6da326a3ef",
+      "crop": {
+        "left": 163,
+        "top": 29,
+        "width": 174,
+        "height": 189
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/parallel-c-aardvark-private-v1-idle/rare-47/idle-1.png",
+      "sha256": "31251f8d768f53d566c5a9dab4201f6f20db43e7c3d5ce0e39d469c017268339",
+      "crop": {
+        "left": 163,
+        "top": 35,
+        "width": 174,
+        "height": 183
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/parallel-c-aardvark-private-v1-idle/rare-47/idle-2.png",
+      "sha256": "1b2e7c74929b2c9b19aa529d14918f541746cb61fb3d5808511a744a1da531dc",
+      "crop": {
+        "left": 163,
+        "top": 35,
+        "width": 174,
+        "height": 183
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/parallel-c-aardvark-private-v1-idle/rare-47/idle-3.png",
+      "sha256": "10691e4a722b6033da59c90529bd3f1476060a0e237eb0a17d27fea497561493",
+      "crop": {
+        "left": 163,
+        "top": 37,
+        "width": 174,
+        "height": 181
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/parallel-c-aardvark-private-v1-idle/rare-47/idle-4.png",
+      "sha256": "4b25f771d9578f5d25317b9bdf847a19c41c30b0bb4f62ee6a74060aa0aded1d",
+      "crop": {
+        "left": 163,
+        "top": 30,
+        "width": 174,
+        "height": 188
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/parallel-c-aardvark-private-v1-idle/rare-47/idle-5.png",
+      "sha256": "d86eb1c2a3e7ecc0be23fc80f81872f0e2b2b20f7080be72680fb783ae395769",
+      "crop": {
+        "left": 163,
+        "top": 31,
+        "width": 174,
+        "height": 187
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/parallel-c-aardvark-private-v1-idle/rare-47/idle-6.png",
+      "sha256": "e6a40cfe7a158adcf0cce806ea3b0ff9b0d361881d82203ed1117873b945994b",
+      "crop": {
+        "left": 163,
+        "top": 36,
+        "width": 174,
+        "height": 182
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/parallel-c-aardvark-private-v1-idle/rare-47/idle-7.png",
+      "sha256": "cbdb7d6fdf7b524bcd0557db7665e68d8e63840351457048129a3535497e423b",
+      "crop": {
+        "left": 163,
+        "top": 35,
+        "width": 174,
+        "height": 183
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/parallel-c-aardvark-private-v1-idle/rare-47/idle-8.png",
+      "sha256": "3e3375f648b761dcf98cf8232b4beb64dcaad7824950549e377e1f1acbab6dc2",
+      "crop": {
+        "left": 163,
+        "top": 37,
+        "width": 174,
+        "height": 181
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/parallel-c-aardvark-private-v1-idle/rare-47/idle-9.png",
+      "sha256": "695048e0331953721087f5519665753ccc4ef74e6801d1f9af84f6f898690c94",
+      "crop": {
+        "left": 163,
+        "top": 30,
+        "width": 174,
+        "height": 188
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/parallel-c-aardvark-private-v1-idle/rare-47/idle-10.png",
+      "sha256": "10832d642343a92ce09ba0d78f61d14f5fc5c35a65dc00c8a760178250a5b9b3",
+      "crop": {
+        "left": 163,
+        "top": 31,
+        "width": 174,
+        "height": 187
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/parallel-c-aardvark-private-v1-idle/rare-47/idle-11.png",
+      "sha256": "658288aea0a3bca2255adc008dd3d5e9aa00d61c5a17b400bc7fbe55ec16195c",
+      "crop": {
+        "left": 163,
+        "top": 37,
+        "width": 174,
+        "height": 181
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/parallel-c-aardvark-private-v1-idle/rare-47/idle-12.png",
+      "sha256": "38a151af4926361da2ec9d2543084d321af3219c36b93e66cd2e625c1ca97614",
+      "crop": {
+        "left": 163,
+        "top": 36,
+        "width": 174,
+        "height": 182
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/parallel-c-aardvark-private-v1-idle/rare-47/idle-13.png",
+      "sha256": "1cd13fd755e0bb204eec889536e896b3f62518e3b9d749d4ff1288d447fd94d8",
+      "crop": {
+        "left": 163,
+        "top": 38,
+        "width": 174,
+        "height": 180
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/parallel-c-aardvark-private-v1-idle/rare-47/idle-14.png",
+      "sha256": "f444e821802c18c955e5abd72547db2c88b8b65b767ba1716827a4a598f80f56",
+      "crop": {
+        "left": 163,
+        "top": 28,
+        "width": 174,
+        "height": 190
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/parallel-c-aardvark-private-v1-idle/rare-47/idle-15.png",
+      "sha256": "654d347132f4a2972bebc78b554f48d6f55d59d5135fdead1a28bd78f5925e76",
+      "crop": {
+        "left": 163,
+        "top": 32,
+        "width": 174,
+        "height": 186
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/parallel-c-aardvark-private-v1-idle/rare-47/idle-16.png",
+      "sha256": "e1d18c69f0f53cf2c8df5ec455d46db49081a04e7852e39a3a4650bcceb71acb",
+      "crop": {
+        "left": 163,
+        "top": 37,
+        "width": 174,
+        "height": 181
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/parallel-c-aardvark-private-v1-idle/rare-47/idle-17.png",
+      "sha256": "963396ae9a18c4c1d5214548f0382d7e51aa75f3bb804dda6ee4668908c2e17e",
+      "crop": {
+        "left": 163,
+        "top": 36,
+        "width": 174,
+        "height": 182
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/parallel-c-aardvark-private-v1-idle/rare-47/idle-18.png",
+      "sha256": "41bd7a18e38f6064ea384bba6ea10c45af2bfdf4cb5b07cb9a3c507b1dfd4f76",
+      "crop": {
+        "left": 163,
+        "top": 38,
+        "width": 174,
+        "height": 180
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/parallel-c-aardvark-private-v1-idle/rare-47/idle-19.png",
+      "sha256": "d7c0818dfcec72d680cdb8b99e5493a5a4e5aad8e035335ece017998610ef163",
+      "crop": {
+        "left": 163,
+        "top": 29,
+        "width": 174,
+        "height": 189
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/parallel-c-aardvark-private-v1-idle/rare-47/idle-20.png",
+      "sha256": "19d4c27c89c93fe361067fa1984c171295a1e390a654e97bad9a8f190adeb710",
+      "crop": {
+        "left": 163,
+        "top": 32,
+        "width": 174,
+        "height": 186
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/parallel-c-aardvark-private-v1-idle/rare-47/idle-21.png",
+      "sha256": "256411ea018d5cc55268d16b30422de149e0fd65fc6d11b2cced6464fcc1af1e",
+      "crop": {
+        "left": 163,
+        "top": 37,
+        "width": 174,
+        "height": 181
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/parallel-c-aardvark-private-v1-idle/rare-47/idle-22.png",
+      "sha256": "5b5ca60c93b764bd19af7a55100506eee10b7ccffc44690759879d467d01998c",
+      "crop": {
+        "left": 163,
+        "top": 35,
+        "width": 174,
+        "height": 183
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/parallel-c-aardvark-private-v1-idle/rare-47/idle-23.png",
+      "sha256": "ba7baef867bf2346b4b4875bb217f68be2162543d8123a38a0647d855f975ad1",
+      "crop": {
+        "left": 163,
+        "top": 38,
+        "width": 174,
+        "height": 180
+      }
+    }
+  ],
+  "frameCount": 24,
+  "sha256": "06d08976f0371c8543dbd9891be35bce5d6327d8910cac11510d4d5b8b6d00d9",
+  "nativePixelsPreserved": true,
+  "resizing": false,
+  "review": "pending"
+}

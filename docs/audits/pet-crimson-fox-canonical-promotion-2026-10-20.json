@@ -1,0 +1,22 @@
+{
+  "id": "rare-0",
+  "name": "Crimson Fox",
+  "at": "2026-10-20T18:05:54.790Z",
+  "sourceSha256": "6df0ace2467866aa31640936c2cb9a309e0da5afd31ff443485ee242a9fb8991",
+  "battleSha256": "41064054c79377cbeb35d618427ee22f1b4f59b836710c76e0a44aa03e85aa61",
+  "atlasSha256": "b7a1c2d300033d801bcf57779e605e3d4b854e03cb2a459db7139539e6f43489",
+  "rendererSha256": "b2253b71fbcb21a83d82de35ab5783dd57b525cfc94740fb131dd1eb0049a897",
+  "companionComponentSha256": "17ac6c4c1c4ef4eb242bebf5f0a34d9de3519bb5d6415aa906b1970afcc440f8",
+  "reviews": [
+    "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-0/private-final-independent/independent-final-visual-review.json",
+    "docs/audits/pet-parallel-review-a-2026-10-20/rare-0-private-second.json"
+  ],
+  "reviewers": [
+    "/root/review_c",
+    "/root/review_a"
+  ],
+  "sourceBattleAtlasExactlyEqualReviewedPrivateBytes": true,
+  "unselectedManifestEntriesUnchanged": true,
+  "canonicalRegressionsPending": true,
+  "liveVerified": false
+}

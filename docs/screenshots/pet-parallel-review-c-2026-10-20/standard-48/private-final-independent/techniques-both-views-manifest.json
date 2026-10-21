@@ -1,0 +1,143 @@
+{
+  "label": "pangolin-private-v1-techniques",
+  "panels": [
+    {
+      "path": ".tmp/pet-companion-techniques/pangolin-private-v1-techniques/inspection-strips/both-block-0-half-0.png",
+      "sha256": "2a2f0e4e05acfe0987149dd9d2672f1776be153cda5d0afdc6dbaa5a3da9de4c",
+      "sources": [
+        {
+          "path": ".tmp/pet-companion-techniques/pangolin-private-v1-techniques/inspection-strips/front-block-0-half-0.png",
+          "sha256": "f38e84b4ee3ec0f09466f8f44c708bb8125919966e03eea288c2b59effc7ce4d",
+          "width": 1320,
+          "height": 609,
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-companion-techniques/pangolin-private-v1-techniques/inspection-strips/side-block-0-half-0.png",
+          "sha256": "7eba8ad9d67b5be4b107e0141a75d310fc83a0578a85dfdf0d9fbcb4ef33459d",
+          "width": 1320,
+          "height": 609,
+          "top": 609
+        }
+      ],
+      "nativePixelsPreserved": true,
+      "resizing": false,
+      "review": "pending"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/pangolin-private-v1-techniques/inspection-strips/both-block-0-half-1.png",
+      "sha256": "93a2f24a519c7306025b50cdba827b31caf8f1201497b453562f973ed2aadac2",
+      "sources": [
+        {
+          "path": ".tmp/pet-companion-techniques/pangolin-private-v1-techniques/inspection-strips/front-block-0-half-1.png",
+          "sha256": "397a2e6f3a68e09997d85c0d03cafc77f75f694c666fef751e4a5c9edd7a5070",
+          "width": 1320,
+          "height": 609,
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-companion-techniques/pangolin-private-v1-techniques/inspection-strips/side-block-0-half-1.png",
+          "sha256": "ddf0746829466a6b8a48522ab54295bb82d1e0d62a48f3f7f57414218418342e",
+          "width": 1320,
+          "height": 609,
+          "top": 609
+        }
+      ],
+      "nativePixelsPreserved": true,
+      "resizing": false,
+      "review": "pending"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/pangolin-private-v1-techniques/inspection-strips/both-block-1-half-0.png",
+      "sha256": "3e3b13770dc27a7d3934ead430d64e8d14f41f5bbf938940ffd344990a53ed91",
+      "sources": [
+        {
+          "path": ".tmp/pet-companion-techniques/pangolin-private-v1-techniques/inspection-strips/front-block-1-half-0.png",
+          "sha256": "8a8dc65bf7eb737d7cc301f5edf975f5e1009cf1f1f0465294bfa7a06da321f6",
+          "width": 1320,
+          "height": 609,
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-companion-techniques/pangolin-private-v1-techniques/inspection-strips/side-block-1-half-0.png",
+          "sha256": "caf95c02cd83102fde282653f029bb16d24219675e3e97366a3a85fe420afa5b",
+          "width": 1320,
+          "height": 609,
+          "top": 609
+        }
+      ],
+      "nativePixelsPreserved": true,
+      "resizing": false,
+      "review": "pending"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/pangolin-private-v1-techniques/inspection-strips/both-block-1-half-1.png",
+      "sha256": "2e52b5d5874b406cbcd0f433f146b6b5d7f5022c3d16c89647b69e8d947ec956",
+      "sources": [
+        {
+          "path": ".tmp/pet-companion-techniques/pangolin-private-v1-techniques/inspection-strips/front-block-1-half-1.png",
+          "sha256": "9af6cc50e246537ff11c431006056726ca10c6b4270289218bb68b12147b31c2",
+          "width": 1320,
+          "height": 609,
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-companion-techniques/pangolin-private-v1-techniques/inspection-strips/side-block-1-half-1.png",
+          "sha256": "538ba3cb40e440a97dc0a54fcd22f6fb6fc51c52cbc6994dab18363e19f3e85e",
+          "width": 1320,
+          "height": 609,
+          "top": 609
+        }
+      ],
+      "nativePixelsPreserved": true,
+      "resizing": false,
+      "review": "pending"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/pangolin-private-v1-techniques/inspection-strips/both-block-2-half-0.png",
+      "sha256": "28f5c6f29e0a6c310ea537bcb29f8e87bc04e88f232c01829f4d66796af09200",
+      "sources": [
+        {
+          "path": ".tmp/pet-companion-techniques/pangolin-private-v1-techniques/inspection-strips/front-block-2-half-0.png",
+          "sha256": "28bdcd9eb058826ffe27c99cacff18e7c9fc82a05de3a4c2b55e5eb0e12686ba",
+          "width": 1320,
+          "height": 609,
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-companion-techniques/pangolin-private-v1-techniques/inspection-strips/side-block-2-half-0.png",
+          "sha256": "7690f9df786b92df6b56e89aacfd2f3c894d252226cc7fef2c9a96b45f2e1863",
+          "width": 1320,
+          "height": 609,
+          "top": 609
+        }
+      ],
+      "nativePixelsPreserved": true,
+      "resizing": false,
+      "review": "pending"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/pangolin-private-v1-techniques/inspection-strips/both-block-2-half-1.png",
+      "sha256": "c9fc344a15fb8807ab25c7307caa17584632de293aa856587c674b9885ae0d44",
+      "sources": [
+        {
+          "path": ".tmp/pet-companion-techniques/pangolin-private-v1-techniques/inspection-strips/front-block-2-half-1.png",
+          "sha256": "6194be1c3b5f351db8f781d107ad362c0c6e3a00e71e6d19ff97e925511684d6",
+          "width": 1320,
+          "height": 609,
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-companion-techniques/pangolin-private-v1-techniques/inspection-strips/side-block-2-half-1.png",
+          "sha256": "752c60fb54f80d18f6d7d6e0957b790fd30137f3f602867539d20e330b5cd946",
+          "width": 1320,
+          "height": 609,
+          "top": 609
+        }
+      ],
+      "nativePixelsPreserved": true,
+      "resizing": false,
+      "review": "pending"
+    }
+  ]
+}

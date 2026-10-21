@@ -1,0 +1,18 @@
+✔ standard-2: fitted arms retain the sculpt, materials, thirteen performances and all other bone frames (517.8769ms)
+✔ standard-15: fitted arms retain the sculpt, materials, thirteen performances and all other bone frames (401.4616ms)
+✔ rare-21: fitted arms retain the sculpt, materials, thirteen performances and all other bone frames (341.258ms)
+✔ four-leg rig preserves the snake sculpture, texture and every authored performance (8.7635ms)
+✔ the foot behind the front leg no longer shares the rear-leg controls (166.5822ms)
+✔ the fitted four-legged Viper retains its performances while clearing the floor between authoring samples (81321.9161ms)
+{ maximumBindDrift: 2.5119829225563197e-8 }
+✔ Forest Hawk collar repair retains the sculpt, colors and all thirteen performances (650.8133ms)
+✔ Sky Falcon tab repair changes only the diagnosed skin palettes and preserves all actual wing bindings (80.9193ms)
+✔ both complete head tabs remain rigid through all 13 clips while the frozen source reproduces the wing-driven stretch (1335.4374ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 83067.9725

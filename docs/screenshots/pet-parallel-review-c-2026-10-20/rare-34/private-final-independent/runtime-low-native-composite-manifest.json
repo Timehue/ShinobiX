@@ -1,0 +1,121 @@
+{
+  "records": [
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/marten-private-v1-runtime-low/native-source-head.png",
+      "sha256": "bde53b2f875b37911f8347973fe999e74d8965daed64f0bd9b791133ed01b06e",
+      "width": 1440,
+      "height": 2160,
+      "inputs": [
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/marten-private-v1-runtime-low/rare-34-source-head-0.png",
+          "sha256": "32dec4c5b41bf37cc14b42068d2e6178a0a3219b74a02dc1d5972a6a923ebb8e",
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/marten-private-v1-runtime-low/rare-34-source-head-1.png",
+          "sha256": "795f31137ab135bc673c68c00fbe97296a73280a64fcb7b23ff48d124e9144e1",
+          "top": 540
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/marten-private-v1-runtime-low/rare-34-source-head-2.png",
+          "sha256": "9d9bfb39852ba0a2b5bbdcb37071511a509878eac85652c9a2036c5fbd854907",
+          "top": 1080
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/marten-private-v1-runtime-low/rare-34-source-head-3.png",
+          "sha256": "4fc67ba39ffda4e042628d99f31f6f3c72361a52e498d0852202afa1f8c56426",
+          "top": 1620
+        }
+      ],
+      "resizing": false
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/marten-private-v1-runtime-low/native-source-body.png",
+      "sha256": "fadeb80c52d9c39935711118519b345227868a12aad71f16773f2fdb10ad773c",
+      "width": 1440,
+      "height": 2160,
+      "inputs": [
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/marten-private-v1-runtime-low/rare-34-source-body-0.png",
+          "sha256": "2ab313374353384aef6848299d2f303404b6c4765099726fb762efa7c541ebc4",
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/marten-private-v1-runtime-low/rare-34-source-body-1.png",
+          "sha256": "21083916f3c2e84edf1e26b5084e6df3405f34ba4c6202368b3562000316398d",
+          "top": 540
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/marten-private-v1-runtime-low/rare-34-source-body-2.png",
+          "sha256": "58498b04354a37cb8acef48d56a3713513ca4a70b0b45a459f7785b65c41c9be",
+          "top": 1080
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/marten-private-v1-runtime-low/rare-34-source-body-3.png",
+          "sha256": "fa63696a26e600cd89cc49457175621f5c9dd0a88807ca115eefbef4eca44dfd",
+          "top": 1620
+        }
+      ],
+      "resizing": false
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/marten-private-v1-runtime-low/native-battle-head.png",
+      "sha256": "f11a2caa692f920553e6363d754313b49a57fafded656328b8143379dd5f8000",
+      "width": 1440,
+      "height": 2160,
+      "inputs": [
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/marten-private-v1-runtime-low/rare-34-battle-head-0.png",
+          "sha256": "ee22a54bbb455e8ddd294e520b96801e341c1835689d3f08b42ee5abeb553f00",
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/marten-private-v1-runtime-low/rare-34-battle-head-1.png",
+          "sha256": "105729644833b6c36afc1995b9c6925fedef4d368df7e5bcb38adf9bd7a93496",
+          "top": 540
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/marten-private-v1-runtime-low/rare-34-battle-head-2.png",
+          "sha256": "00c81a7fe9a140b1d18f36ac428fd4f9f5c0802ac101c890c8fb17f45397cea5",
+          "top": 1080
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/marten-private-v1-runtime-low/rare-34-battle-head-3.png",
+          "sha256": "625bbb336e92f3789eef1c58cda28bb796e59cc2a9e6c35ea1623922ce5bb3c8",
+          "top": 1620
+        }
+      ],
+      "resizing": false
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/marten-private-v1-runtime-low/native-battle-body.png",
+      "sha256": "4ae33547b28e4a1c1381526fa9cc8c39450dd087b259c568af607218884df900",
+      "width": 1440,
+      "height": 2160,
+      "inputs": [
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/marten-private-v1-runtime-low/rare-34-battle-body-0.png",
+          "sha256": "1d8bb976544f1cc24dc837512c9ea69333eba2511f52e4ff7848c6b4a2486433",
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/marten-private-v1-runtime-low/rare-34-battle-body-1.png",
+          "sha256": "a9c6b544ed45c0017baf8b4cabde9b5ee0005bf0a607842293dac1cfdb5aa67f",
+          "top": 540
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/marten-private-v1-runtime-low/rare-34-battle-body-2.png",
+          "sha256": "b4197e289f104c9925114da3138e8c6d7d6f835315592be40289bc6bcd8b827e",
+          "top": 1080
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/marten-private-v1-runtime-low/rare-34-battle-body-3.png",
+          "sha256": "aecb0c018fed21c505bdc60ba0991227557c20f5fb8af3bbefddfda23aad75a5",
+          "top": 1620
+        }
+      ],
+      "resizing": false
+    }
+  ],
+  "review": "pending"
+}

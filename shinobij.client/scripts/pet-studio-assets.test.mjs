@@ -29,7 +29,30 @@ test('every live pet and battle LOD keeps its reviewed mesh payload and polished
             assert.equal(new Set(clip.channels.map(channel => `${channel.target.node}:${channel.target.path}`)).size, clip.channels.length, path);
         }
         }
-        for (const clip of json.animations) for (const sampler of clip.samplers) {
+        for (const clip of json.animations) for (const [samplerIndex, sampler] of clip.samplers.entries()) {
+            if (sampler.interpolation === 'LINEAR') {
+                // These reviewed 121-key quaternion takes use slerp, avoiding
+                // cubic quaternion overshoot. Keep the cubic contract on every
+                // other curve and reject any additional linear target.
+                const channels = clip.channels.filter(channel => channel.sampler === samplerIndex);
+                assert.equal(channels.length, 1, `${path}/${clip.name}: shared linear sampler`);
+                const target = channels[0].target, bone = json.nodes[target.node].name;
+                const head = json.extras.headMotionPresentationRepair, death = json.extras.deathPoseRepair;
+                const reviewedHead = path.endsWith('mythic-1.glb') && head?.revision === '20261021-worldstorm-head-motion-v1'
+                    && ['attack', 'cast', 'idle_hitreact1'].includes(clip.name)
+                    && ['head', 'neck'].includes(bone) && target.path === 'rotation'
+                    && head.changes.some(change => change.clip === clip.name && change.bone === bone
+                        && change.keys === 121 && change.authoredMotionFraction === .35);
+                const reviewedDeath = path.endsWith('mythic-6.glb') && death?.revision === '20261021-azure-terminal-collapse-v3'
+                    && clip.name === 'death' && bone === 'root'
+                    && ['rotation', 'translation'].includes(target.path)
+                    && death.keys === 121 && death.geometrySkinOtherTracksRetained === true
+                    && death.changedTracks.includes(`root.${target.path}`);
+                assert.ok(reviewedHead || reviewedDeath, `${path}/${clip.name}: unreviewed linear curve ${bone}.${target.path}`);
+                assert.equal(json.accessors[sampler.input].count, 121);
+                assert.equal(json.accessors[sampler.output].count, 121);
+                continue;
+            }
             assert.equal(sampler.interpolation, 'CUBICSPLINE', `${path}/${clip.name}`);
             assert.equal(json.accessors[sampler.output].count, json.accessors[sampler.input].count * 3);
         }

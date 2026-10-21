@@ -1,0 +1,76 @@
+{
+  "schema": 1,
+  "errors": [],
+  "pets": [
+    {
+      "id": "standard-47",
+      "name": "Dune Armadillo",
+      "url": "/.tmp/dune-armadillo-floor/battle-candidate-v1.glb",
+      "sha256": "641051e2d67140673cc63a00d9752f8c93cc0927bed9e134ba000c38e5fcf51e",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "progress": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ],
+      "views": [
+        "head-front",
+        "head-side",
+        "head-other-side",
+        "head-under-front",
+        "head-under-side"
+      ],
+      "materialTreatment": {
+        "mode": "production-diffuse",
+        "materials": 1,
+        "metalnessMax": 0.05,
+        "roughnessRange": [
+          0.58,
+          0.82
+        ]
+      },
+      "region": {
+        "y": [
+          -2,
+          -2
+        ],
+        "bounds": [
+          -0.24514131638881226,
+          0.3975978361719961,
+          -0.20036795020793796,
+          0.260683182724469,
+          0.6116349008953783,
+          1.119915770750259
+        ],
+        "cameraPadding": 1.15
+      },
+      "sheets": [
+        "standard-47-head-front.webp",
+        "standard-47-head-side.webp",
+        "standard-47-head-other-side.webp",
+        "standard-47-head-under-front.webp",
+        "standard-47-head-under-side.webp"
+      ],
+      "review": "pending",
+      "anatomySha256": "67ac90168a0cd4bc7c280814a724fcf2c1db0de9f61b5245e4f6c93a3280d8e5"
+    }
+  ],
+  "artisticCertification": false
+}

@@ -1,0 +1,250 @@
+{
+  "id": "standard-39",
+  "frames": [
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/parallel-c-bird39-private-v1-idle/standard-39/idle-0.png",
+      "sha256": "355c8e2e274132e3fda11082db39de7d6c7e1104bf47faa529992f0fe5842eb0",
+      "crop": {
+        "left": 163,
+        "top": 53,
+        "width": 174,
+        "height": 165
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/parallel-c-bird39-private-v1-idle/standard-39/idle-1.png",
+      "sha256": "dc115cc32cea47ae88324e56c40e97c4052689d94ea0984425cebd049ac9d7c3",
+      "crop": {
+        "left": 163,
+        "top": 52,
+        "width": 174,
+        "height": 166
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/parallel-c-bird39-private-v1-idle/standard-39/idle-2.png",
+      "sha256": "40ce5078aa45727bb7823883d267f64a252b42fe9c4c668b98b2259add1a7826",
+      "crop": {
+        "left": 163,
+        "top": 52,
+        "width": 174,
+        "height": 166
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/parallel-c-bird39-private-v1-idle/standard-39/idle-3.png",
+      "sha256": "3c47240900f8f9dfe9ac79eae94d7f307fc36b487c3573ced178f9fba6b73b4c",
+      "crop": {
+        "left": 163,
+        "top": 53,
+        "width": 174,
+        "height": 165
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/parallel-c-bird39-private-v1-idle/standard-39/idle-4.png",
+      "sha256": "3fcf18c6d99da4a38fe2fa8a9206486198b679c04493218ba7722d2a76822b5b",
+      "crop": {
+        "left": 163,
+        "top": 53,
+        "width": 174,
+        "height": 165
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/parallel-c-bird39-private-v1-idle/standard-39/idle-5.png",
+      "sha256": "9fd9a690ac99487878c03b0785e7f471e0c99e04a80caaa822e78804c92085ab",
+      "crop": {
+        "left": 163,
+        "top": 53,
+        "width": 174,
+        "height": 165
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/parallel-c-bird39-private-v1-idle/standard-39/idle-6.png",
+      "sha256": "d457b8df957c6f2a30b77834644aa00dc2026f313172fc22e91be54251dc1c44",
+      "crop": {
+        "left": 163,
+        "top": 52,
+        "width": 174,
+        "height": 166
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/parallel-c-bird39-private-v1-idle/standard-39/idle-7.png",
+      "sha256": "9adf4d0df655398e4794e01d8b2dba3ed2de42d7f8a843a747c03c2415655eea",
+      "crop": {
+        "left": 163,
+        "top": 52,
+        "width": 174,
+        "height": 166
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/parallel-c-bird39-private-v1-idle/standard-39/idle-8.png",
+      "sha256": "9590da6b0832d22e6e47f1e54d290bf633faadad81c23c5d571ef273e939b1ae",
+      "crop": {
+        "left": 163,
+        "top": 53,
+        "width": 174,
+        "height": 165
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/parallel-c-bird39-private-v1-idle/standard-39/idle-9.png",
+      "sha256": "3d6c0ed28937942a6231f3eb230beb22951740691c511d7b08e204162eecf1fa",
+      "crop": {
+        "left": 163,
+        "top": 53,
+        "width": 174,
+        "height": 165
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/parallel-c-bird39-private-v1-idle/standard-39/idle-10.png",
+      "sha256": "728b302e2109102cda3c40fd94023c5d2b18bceaf683a42b4ed2c6bcbd0c2f6c",
+      "crop": {
+        "left": 163,
+        "top": 52,
+        "width": 174,
+        "height": 166
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/parallel-c-bird39-private-v1-idle/standard-39/idle-11.png",
+      "sha256": "7d37fcad8445aa497369fcaf0cf84183ae29833494c8fd018d587992285cfa9b",
+      "crop": {
+        "left": 163,
+        "top": 52,
+        "width": 174,
+        "height": 166
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/parallel-c-bird39-private-v1-idle/standard-39/idle-12.png",
+      "sha256": "46656547f704b95a61a407c29b1dc81c3734e12b32c152eb227f82f488ee6000",
+      "crop": {
+        "left": 163,
+        "top": 52,
+        "width": 174,
+        "height": 166
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/parallel-c-bird39-private-v1-idle/standard-39/idle-13.png",
+      "sha256": "540a9fa57e24216a6272d02f32eea5a6df21bfff86b214ad6402f8df859bbd99",
+      "crop": {
+        "left": 163,
+        "top": 53,
+        "width": 174,
+        "height": 165
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/parallel-c-bird39-private-v1-idle/standard-39/idle-14.png",
+      "sha256": "2bce78db7ef04b11a3089ee051169ed2d0f947c7e2fff6840b11a4e532489f98",
+      "crop": {
+        "left": 163,
+        "top": 53,
+        "width": 174,
+        "height": 165
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/parallel-c-bird39-private-v1-idle/standard-39/idle-15.png",
+      "sha256": "06ab3a1bef11ad16cbae66db323692200e03b6ccd1e3ee492036d4c3d6e38692",
+      "crop": {
+        "left": 163,
+        "top": 52,
+        "width": 174,
+        "height": 166
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/parallel-c-bird39-private-v1-idle/standard-39/idle-16.png",
+      "sha256": "285a3aba2b15db0bd6558d27938836ef167bc99b7f95ee43b4183c3d4aed13a3",
+      "crop": {
+        "left": 163,
+        "top": 52,
+        "width": 174,
+        "height": 166
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/parallel-c-bird39-private-v1-idle/standard-39/idle-17.png",
+      "sha256": "46a3e4088d1ac10fd0626ae4228eb8a311344468d9da399e8a46a1e0b2335b2c",
+      "crop": {
+        "left": 163,
+        "top": 53,
+        "width": 174,
+        "height": 165
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/parallel-c-bird39-private-v1-idle/standard-39/idle-18.png",
+      "sha256": "c692032d09ed2e1b8e4316a3f5961a2855178b7b99175a297315cf2d9df8cad5",
+      "crop": {
+        "left": 163,
+        "top": 53,
+        "width": 174,
+        "height": 165
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/parallel-c-bird39-private-v1-idle/standard-39/idle-19.png",
+      "sha256": "58a94357e06eb8df7a728b50050b4d0fa3f0c817919038165ee60bfca2e91e3d",
+      "crop": {
+        "left": 163,
+        "top": 53,
+        "width": 174,
+        "height": 165
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/parallel-c-bird39-private-v1-idle/standard-39/idle-20.png",
+      "sha256": "df41e42528a34dcce0940ac7bb3a89304b6eb97988048a61bca356d0a3b60234",
+      "crop": {
+        "left": 163,
+        "top": 52,
+        "width": 174,
+        "height": 166
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/parallel-c-bird39-private-v1-idle/standard-39/idle-21.png",
+      "sha256": "4f67f4a8d86b78ee8243d87b828a2f2ebbff24fb9b12004738df7dc003cc8a1b",
+      "crop": {
+        "left": 163,
+        "top": 52,
+        "width": 174,
+        "height": 166
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/parallel-c-bird39-private-v1-idle/standard-39/idle-22.png",
+      "sha256": "3fb4722a51547300c1001e7ec48dbc46830ae0d88329d955c8a0a79806e36c4c",
+      "crop": {
+        "left": 163,
+        "top": 53,
+        "width": 174,
+        "height": 165
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/parallel-c-bird39-private-v1-idle/standard-39/idle-23.png",
+      "sha256": "fc9f9a46fcf26fb0f476051c873ba6fde5058ea133355edcd7efc4d0cdfa77bd",
+      "crop": {
+        "left": 163,
+        "top": 53,
+        "width": 174,
+        "height": 165
+      }
+    }
+  ],
+  "frameCount": 24,
+  "sha256": "2f858d8aa858aac7b8b13bef73649b2de259ef975aecc10defe43586419d0bdb",
+  "nativePixelsPreserved": true,
+  "resizing": false,
+  "review": "pending"
+}

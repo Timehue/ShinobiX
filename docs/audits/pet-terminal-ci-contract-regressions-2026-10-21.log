@@ -1,0 +1,16 @@
+✔ foot contact has constant ground speed, clear swing and continuous takeoff/landing (0.8381ms)
+✔ leg solve preserves contact under rotated, nonuniform evolved-model transforms (2.172ms)
+✔ every delivered full model and LOD carries the reviewed contact bank and bounded precision (676.7762ms)
+✔ production spline interpolation keeps planted feet grounded and cyclic poses seamless (481.7821ms)
+✔ every live pet and battle LOD keeps its reviewed mesh payload and polished curves (914.2872ms)
+✔ all 161 production pets have complete proper skeletal animation banks (199.5997ms)
+✔ all 161 catalog identities resolve to a versioned runtime GLB with the full clip contract (178.7313ms)
+✔ Celestial Lion has the full pet animation bank and animated wings in every clip (1.9898ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2497.3141

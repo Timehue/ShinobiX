@@ -17,6 +17,12 @@ const selection=JSON.parse(await readFile(new URL('../../docs/audits/pet-paralle
 const annotations=JSON.parse(await readFile(new URL('./pet-independent-face-landmarks.json',import.meta.url))).pets;
 const repairs=JSON.parse(await readFile(new URL('./pet-complete-face-repairs.json',import.meta.url))).pets;
 const manifest=JSON.parse(await readFile(new URL('../public/pet-models/warfront-impostors/manifest.json',import.meta.url))).entries;
+// These two earlier-reviewed pets received subsequent, independently reviewed arm
+// repairs. Sweep their approved replacements while keeping the historical
+// selection pins below for reproducibility of the original skull repairs.
+const finalReview=JSON.parse(await readFile(new URL('../../docs/audits/pet-final-six-integrated-validation-2026-10-21/summary.json',import.meta.url)));
+const finalAtlases=JSON.parse(await readFile(new URL('../../docs/audits/pet-final-six-integrated-validation-2026-10-21/atlas-manifest.json',import.meta.url))).entries;
+const supersededIds=new Set(['rare-21','standard-15']);
 const sha=b=>createHash('sha256').update(b).digest('hex');
 const publicFile=path=>new URL('../public'+path.split('?')[0],import.meta.url);
 function sweep(model,annotation){
@@ -32,14 +38,17 @@ function sweep(model,annotation){
 }
 for(const row of selection.selected){
  const asset=manifest.find(e=>e.sourceUrl.endsWith('/'+row.id+'.glb'));assert.ok(asset,row.id);
- for(const[stage,path,expected]of [['source',asset.sourceUrl,row.sha256],['battle',asset.lodUrl,row.lodSha256]])test(`${row.id} ${stage}: frozen independent anatomy passes all 13 clips and 468 transitions`,async()=>{
+ const replacement=supersededIds.has(row.id)?finalReview.pets.find(p=>p.id===row.id):null;
+ const replacementAtlas=replacement?finalAtlases.find(e=>e.sourceUrl.endsWith('/'+row.id+'.glb')):null;
+ if(supersededIds.has(row.id)){assert.ok(replacement,row.id);assert.ok(replacementAtlas,row.id);}
+ for(const[stage,path,expected]of [['source',asset.sourceUrl,replacement?.sourceSha256??row.sha256],['battle',asset.lodUrl,replacement?.battleSha256??row.lodSha256]])test(`${row.id} ${stage}: frozen independent anatomy passes all 13 clips and 468 transitions`,async()=>{
   const model=await loadPetDeformationProbe(publicFile(path));assert.equal(model.sha256,expected);assert.equal(model.animations.length,13);
   if(stage==='source')assert.equal(petFaceGeometryFingerprint(model),annotations[row.id].geometrySha256);
   assert.equal(sweep(model,annotations[row.id]).failed,false,row.id+' '+stage);
  });
- test(`${row.id}: reviewed atlas fingerprint remains exact`,async()=>assert.equal(sha(await readFile(publicFile(asset.atlasUrl))),row.atlasSha256));
+ test(`${row.id}: reviewed atlas fingerprint remains exact`,async()=>assert.equal(sha(await readFile(publicFile(asset.atlasUrl))),replacementAtlas?.atlasSha256??row.atlasSha256));
  if(!selection.changedSourceIds.includes(row.id))continue;
- test(`${row.id}: immutable original and reviewed repair reproduce the shipped bytes`,async()=>{
+ test(`${row.id}: immutable original reproduces the historical reviewed skull-repair baseline`,async()=>{
   const directory=await mkdtemp(join(tmpdir(),'pet-reviewed-batch-'));
   try{
    const input=new URL(`./fixtures/pet-complete-face-20261015/${row.id}-v1.glb`,import.meta.url),destination=join(directory,'face.glb');
