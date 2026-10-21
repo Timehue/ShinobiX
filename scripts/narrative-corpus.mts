@@ -105,7 +105,6 @@ export const supplementalSources = [
     'shared/sector-midlands-work.ts',
     'shared/sector-festival-work.ts',
     'shared/sector-road-visit.ts', 'shared/sector-chronicle-spectators.ts', 'shared/sector-frontier-work.ts',
-    'shinobij.client/src/lib/world-pet-companion.ts',
     'shared/sector-chronicle-stop.ts', 'api/sector/_life-chronicle.ts', 'shared/sector-dock-shipment.ts',
     'shared/sector-life-content.ts', 'shared/sector-life-courier.ts', 'shared/sector-life-tracking.ts','shared/sector-life-witness.ts', 'shared/sector-angler-work.ts', 'api/sector/life.ts', 'shinobij.client/src/components/SectorLife.tsx',
     'shinobij.client/src/components/SectorWanderer.tsx',
