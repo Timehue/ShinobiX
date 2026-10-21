@@ -1,0 +1,97 @@
+{
+  "id": "rare-27",
+  "promotedAt": "2026-10-20T13:44:54.483Z",
+  "sourceSha256": "c5ddc0770236d507b70c93ba56ad587c87da9345322b6deb25a98d84be2268ea",
+  "battleSha256": "87f3b8263bbd8ce81cf89e94e6afc4e8f81aa2aab852e16ebf918457af675ee4",
+  "atlasSha256": "aabceed1f1e815835c9bd2dbcf8e7e042b049535d279bd11b5585b478587ad31",
+  "cacheRevision": "20261020-pyre-kestrel-rigid-skull-v3",
+  "privateReview": {
+    "path": "docs/audits/pet-pyre-kestrel-private-rigid-skull-review-2026-10-20.json",
+    "sha256": "131865b67a93a4ed0e4dccfce86a3b3c377b054bcc4fa7d5e4eeb3f9609d8ed3"
+  },
+  "previousRejectedReceipt": {
+    "path": "docs/screenshots/pet-pyre-kestrel-rigid-skull-review-2026-10-20/previous-rejected-receipt.json",
+    "sha256": "0937cc9e85b399795adf9cf5b80d4f5f911c7561eb6c4e97e5f9c8994a9370f0"
+  },
+  "rootImagesPersonallyInspected": 61,
+  "independentReview": {
+    "path": "docs/audits/pet-parallel-review-b-2026-10-20/rare-27-skull-v1.json",
+    "sha256": "e6572346ed896844d29ecc8e2fbe5d95502d008482f7bcb2ef5db5a5882cf19e",
+    "reviewer": "parallel-reviewer-b",
+    "coverage": {
+      "freshRaw": {
+        "clipsPerStage": 13,
+        "stages": [
+          "source",
+          "battle"
+        ],
+        "phases": [
+          0.08,
+          0.28,
+          0.48,
+          0.68,
+          0.88,
+          1
+        ],
+        "faceViews": [
+          "front",
+          "side",
+          "other-side",
+          "under-front",
+          "under-side"
+        ],
+        "bodyViews": [
+          "front",
+          "side"
+        ]
+      },
+      "runtime": {
+        "rowsPerStageAndQuality": 16,
+        "stages": [
+          "source",
+          "battle"
+        ],
+        "qualities": [
+          "low",
+          "medium"
+        ],
+        "scopes": [
+          "head",
+          "body"
+        ],
+        "phases": [
+          0.025,
+          0.1,
+          0.25,
+          0.5,
+          0.75,
+          1
+        ]
+      },
+      "companionIdleFrames": 24,
+      "companionTechniqueFrames": 216,
+      "companionTechniqueStage": "battle",
+      "moves": [
+        "fire-strike",
+        "fire-pulse",
+        "fire-breaker",
+        "earth-pulse",
+        "undertow",
+        "mend",
+        "purify",
+        "aegis",
+        "rare-27-signature"
+      ],
+      "atlasCells": 16
+    }
+  },
+  "sculptRetained": true,
+  "allOriginalRigidHeadVerticesPreserved": 5004,
+  "independentBirdSkullVertices": 4952,
+  "rejectedResidualVertices": 42,
+  "candidateResidualVertices": 0,
+  "postPromotionRegressionsPending": true,
+  "canonicalPromotion": true,
+  "liveVerified": false,
+  "wholeRosterComplete": false
+}

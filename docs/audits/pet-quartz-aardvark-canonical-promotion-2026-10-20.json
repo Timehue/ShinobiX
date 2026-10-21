@@ -1,0 +1,22 @@
+{
+  "id": "rare-47",
+  "name": "Quartz Aardvark",
+  "at": "2026-10-20T19:26:22.427Z",
+  "sourceSha256": "467821bcf5ce59a69aeea8f0624f3ba589eb53e0e5d61b5f862581db1489e5b3",
+  "battleSha256": "c7d7399460fffa0cca64e96e3bece906811de8a4a6f2dfc897d2df68830a613a",
+  "atlasSha256": "d9211f3436b78974c6dab48891f0a57258e8fc07a313082182e0c9b26d9a81ba",
+  "rendererSha256": "b2253b71fbcb21a83d82de35ab5783dd57b525cfc94740fb131dd1eb0049a897",
+  "companionComponentSha256": "17ac6c4c1c4ef4eb242bebf5f0a34d9de3519bb5d6415aa906b1970afcc440f8",
+  "reviews": [
+    "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-47/private-final-independent/independent-final-visual-review.json",
+    "docs/audits/pet-parallel-review-a-2026-10-20/rare-47-private-second.json"
+  ],
+  "reviewers": [
+    "/root/review_c",
+    "/root/review_a"
+  ],
+  "sourceBattleAtlasExactlyEqualReviewedPrivateBytes": true,
+  "unselectedManifestEntriesUnchanged": true,
+  "canonicalRegressionsPending": true,
+  "liveVerified": false
+}

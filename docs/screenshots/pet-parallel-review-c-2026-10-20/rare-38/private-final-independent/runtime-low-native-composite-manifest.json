@@ -1,0 +1,121 @@
+{
+  "records": [
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-bird38-private-v1-runtime-low/native-source-head.png",
+      "sha256": "fe92812e245d69efde858814de2a63f76053b29f93d1a2e13c0d884cfd1d17b0",
+      "width": 1440,
+      "height": 2160,
+      "inputs": [
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-bird38-private-v1-runtime-low/rare-38-source-head-0.png",
+          "sha256": "cf16c19acc15f12dfdf99bb6a51a4ddc58b723626b1cc3beadeea42bfb648d3e",
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-bird38-private-v1-runtime-low/rare-38-source-head-1.png",
+          "sha256": "7c24b0e57efbed5628a20e4607c060a9345d81340ca0276ad8ac8b6f3afe60a4",
+          "top": 540
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-bird38-private-v1-runtime-low/rare-38-source-head-2.png",
+          "sha256": "f491ed07b4d02fb3a5a10f5d087e7e0d715e4dc318020d970859f368d1566079",
+          "top": 1080
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-bird38-private-v1-runtime-low/rare-38-source-head-3.png",
+          "sha256": "40809ef03adf169e535fb372999fe9644a84c07fe0a935d78f4e3e976ea63afe",
+          "top": 1620
+        }
+      ],
+      "resizing": false
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-bird38-private-v1-runtime-low/native-source-body.png",
+      "sha256": "25fc013666d6482a811e1357bfaa4ff4d456c8481d6d2896191636cf1880ff03",
+      "width": 1440,
+      "height": 2160,
+      "inputs": [
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-bird38-private-v1-runtime-low/rare-38-source-body-0.png",
+          "sha256": "16ad87948b80498ba01ba973fe37f328360576fba96fafdebf98c58acf04769c",
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-bird38-private-v1-runtime-low/rare-38-source-body-1.png",
+          "sha256": "cb3ceef0f4e265bb068cc02f954873afb38b2363b629bfa81ed7479d25b5ae6c",
+          "top": 540
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-bird38-private-v1-runtime-low/rare-38-source-body-2.png",
+          "sha256": "b074d4f291e5023e959bbad5178027ec62d19d347ae313d2c6c5dafd5b1a1eb6",
+          "top": 1080
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-bird38-private-v1-runtime-low/rare-38-source-body-3.png",
+          "sha256": "e7b035039cf4adcd7bf38935658fef49427d54a6987a2eda4cd5a83614a79f02",
+          "top": 1620
+        }
+      ],
+      "resizing": false
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-bird38-private-v1-runtime-low/native-battle-head.png",
+      "sha256": "27ea3d62097cddfea54a3b0b9e2d7cd13559fbfca082554c1cd9dffa4c5c74d5",
+      "width": 1440,
+      "height": 2160,
+      "inputs": [
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-bird38-private-v1-runtime-low/rare-38-battle-head-0.png",
+          "sha256": "ab774bb00a62cc4cafeec6cfc326c160f323b6d24a97b65d02b39c8fffef0db6",
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-bird38-private-v1-runtime-low/rare-38-battle-head-1.png",
+          "sha256": "08ce557b56efc8dce13f30f45824bdfd2fd6379356d5a06cdfec4d7b8406efee",
+          "top": 540
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-bird38-private-v1-runtime-low/rare-38-battle-head-2.png",
+          "sha256": "bdfe71a0dd7b08611f703e3d499d9323465b681b5afa7003a124fed1aee807cc",
+          "top": 1080
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-bird38-private-v1-runtime-low/rare-38-battle-head-3.png",
+          "sha256": "1c969df828661043dc8ab694bd0befb99b871f59d984eb3eb5c3e5fdfb6cb410",
+          "top": 1620
+        }
+      ],
+      "resizing": false
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-bird38-private-v1-runtime-low/native-battle-body.png",
+      "sha256": "d9cfdfcc3f0bea728a0894eedb5098b368b0f72333332b25c494e165cbf65931",
+      "width": 1440,
+      "height": 2160,
+      "inputs": [
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-bird38-private-v1-runtime-low/rare-38-battle-body-0.png",
+          "sha256": "94fac38aed64d7c911257e9b1d6d0a2ce368ede763f5cf78c8a5af0141036860",
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-bird38-private-v1-runtime-low/rare-38-battle-body-1.png",
+          "sha256": "65d6cf9894885b4b6c156f96f854edc683bda15239d9fbae0da769824518f375",
+          "top": 540
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-bird38-private-v1-runtime-low/rare-38-battle-body-2.png",
+          "sha256": "289b3fbe4adc176e8eb058edf83ea36f88e7f7b7ec925e0e4bf502e8a37c1f04",
+          "top": 1080
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-bird38-private-v1-runtime-low/rare-38-battle-body-3.png",
+          "sha256": "c68e5dce3020f38c1d6e0baf4c9c8a874e4a38c37db39ce3cb642d9e425cd7c2",
+          "top": 1620
+        }
+      ],
+      "resizing": false
+    }
+  ],
+  "review": "pending"
+}

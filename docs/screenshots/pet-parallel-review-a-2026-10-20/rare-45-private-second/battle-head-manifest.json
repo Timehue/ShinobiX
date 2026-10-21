@@ -1,0 +1,76 @@
+{
+  "schema": 1,
+  "errors": [],
+  "pets": [
+    {
+      "id": "rare-45",
+      "name": "Granite Wombat",
+      "url": "/.tmp/granite-wombat-floor/battle-candidate-v1.glb",
+      "sha256": "f39dd953b817863d73d0e5543dfbd363bd57c95beec039840e5005e8d3a0274c",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "progress": [
+        0.04,
+        0.2,
+        0.4,
+        0.6,
+        0.8,
+        0.98
+      ],
+      "views": [
+        "head-front",
+        "head-side",
+        "head-other-side",
+        "head-under-front",
+        "head-under-side"
+      ],
+      "materialTreatment": {
+        "mode": "production-diffuse",
+        "materials": 1,
+        "metalnessMax": 0.05,
+        "roughnessRange": [
+          0.58,
+          0.82
+        ]
+      },
+      "region": {
+        "y": [
+          -2,
+          -2
+        ],
+        "bounds": [
+          -0.18879366493452626,
+          0.43235135786015516,
+          0.3038122551319046,
+          0.8217319629216402,
+          0.30778213913119057,
+          0.8508938630294015
+        ],
+        "cameraPadding": 1.15
+      },
+      "sheets": [
+        "rare-45-head-front.webp",
+        "rare-45-head-side.webp",
+        "rare-45-head-other-side.webp",
+        "rare-45-head-under-front.webp",
+        "rare-45-head-under-side.webp"
+      ],
+      "review": "pending",
+      "anatomySha256": "6208fe1ab7f20d4b704a5e143b29a24d1f231828c36d3d85dc33c114d4a367cb"
+    }
+  ],
+  "artisticCertification": false
+}

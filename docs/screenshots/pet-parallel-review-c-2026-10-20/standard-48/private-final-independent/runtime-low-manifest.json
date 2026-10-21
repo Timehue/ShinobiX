@@ -1,0 +1,293 @@
+{
+  "schema": 1,
+  "rendererSha256": "b2253b71fbcb21a83d82de35ab5783dd57b525cfc94740fb131dd1eb0049a897",
+  "captureHarnessSha256": "3f140042e2f74c6888db7c35486d349a9548c0e5ca7d300fc71f4a904b61b0e0",
+  "viewport": {
+    "width": 390,
+    "height": 844
+  },
+  "rows": [
+    {
+      "name": "idle",
+      "duration": 1.2,
+      "frame": {
+        "motion": "idle"
+      }
+    },
+    {
+      "name": "run",
+      "duration": 0.8,
+      "frame": {
+        "motion": "run",
+        "moving": true,
+        "speed": 3
+      }
+    },
+    {
+      "name": "dash",
+      "duration": 0.6,
+      "frame": {
+        "motion": "dash",
+        "moving": true,
+        "speed": 5
+      }
+    },
+    {
+      "name": "windup",
+      "duration": 0.38,
+      "frame": {
+        "motion": "windup"
+      }
+    },
+    {
+      "name": "strike",
+      "duration": 0.26,
+      "frame": {
+        "motion": "strike",
+        "contactPose": true
+      }
+    },
+    {
+      "name": "recover",
+      "duration": 0.51,
+      "frame": {
+        "motion": "recover"
+      }
+    },
+    {
+      "name": "stagger",
+      "duration": 0.65,
+      "frame": {
+        "motion": "stagger",
+        "hit": 0.6,
+        "contactPose": true
+      }
+    },
+    {
+      "name": "dodge",
+      "duration": 0.65,
+      "frame": {
+        "motion": "dodge"
+      }
+    },
+    {
+      "name": "guard",
+      "duration": 0.8,
+      "frame": {
+        "motion": "guard"
+      }
+    },
+    {
+      "name": "rest",
+      "duration": 1.2,
+      "frame": {
+        "motion": "rest"
+      }
+    },
+    {
+      "name": "cast",
+      "duration": 0.9,
+      "frame": {
+        "motion": "idle",
+        "casting": true
+      }
+    },
+    {
+      "name": "entrance",
+      "duration": 1.1,
+      "frame": {
+        "motion": "idle"
+      }
+    },
+    {
+      "name": "victory",
+      "duration": 1.2,
+      "frame": {
+        "motion": "idle",
+        "victorious": true
+      }
+    },
+    {
+      "name": "dead",
+      "duration": 1.6,
+      "frame": {
+        "motion": "dead"
+      }
+    },
+    {
+      "name": "revive",
+      "duration": 0.8,
+      "frame": {
+        "motion": "idle"
+      }
+    },
+    {
+      "name": "attack-sequence",
+      "duration": 1.7,
+      "frame": {
+        "motion": "windup"
+      }
+    }
+  ],
+  "phases": [
+    0.025,
+    0.1,
+    0.25,
+    0.5,
+    0.75,
+    1
+  ],
+  "views": [
+    "front",
+    "side"
+  ],
+  "errors": [],
+  "pets": [
+    {
+      "id": "standard-48",
+      "name": "Gravel Pangolin",
+      "captures": [
+        {
+          "stage": "source",
+          "sha256": "22f5353ed724746372ccdcd095fa2652fc2136609995bbad701a5d361e86249e",
+          "meshes": 1,
+          "headVertices": [
+            6237
+          ],
+          "quality": "low",
+          "diagnosticNormalSurfaces": 0,
+          "diagnostic": {
+            "landmarkCamera": false,
+            "normals": false
+          },
+          "sheets": [
+            {
+              "name": "standard-48-source-head.webp",
+              "sha256": "247805962756e95a1d62dc81dd440285545f7aaf342b4c3d64bacc08e27d59e9"
+            },
+            {
+              "name": "standard-48-source-body.webp",
+              "sha256": "959133e7cd758ce62f60fb3403aa2500ca752a94c7939128fc85ace86ccc1364"
+            }
+          ],
+          "pairedNormalPoseVerified": false,
+          "cameraSha256": "0e7cbe57cb48a8d66e2533d251e430746ef86dd6b68d7fbf82648a38230ba516",
+          "anatomySha256": "e69aa642f9015ae72d56b0368474de27c096b67c8b53516804233188256fa394",
+          "anatomyReport": {
+            "poses": 459,
+            "regions": [
+              {
+                "name": "upperFace",
+                "vertices": 88,
+                "edges": 209,
+                "maxDrift": 5.2512785635786784e-15,
+                "worldMinRatio": 0.9999999178563861,
+                "worldMaxRatio": 1.0000001040334445,
+                "maximumTime": 8.224999999999987
+              },
+              {
+                "name": "muzzle",
+                "vertices": 89,
+                "edges": 191,
+                "maxDrift": 7.654497581759772e-15,
+                "worldMinRatio": 0.9999998636251495,
+                "worldMaxRatio": 1.000000108528188,
+                "maximumTime": 8.044166666666655
+              },
+              {
+                "name": "lowerFace",
+                "vertices": 91,
+                "edges": 192,
+                "maxDrift": 7.25873885218314e-15,
+                "worldMinRatio": 0.9999998636251495,
+                "worldMaxRatio": 1.000000110354252,
+                "maximumTime": 3.7499999999999973
+              },
+              {
+                "name": "jawChin",
+                "vertices": 97,
+                "edges": 219,
+                "maxDrift": 5.026225795085105e-15,
+                "worldMinRatio": 0.9999998751332388,
+                "worldMaxRatio": 1.0000001101856444,
+                "maximumTime": 1.833333333333335
+              }
+            ],
+            "failed": false
+          }
+        },
+        {
+          "stage": "battle",
+          "sha256": "f8d8881129271a1ff9d241739e7d00a30e1df0ee81cfabe8e444f5e9f1cc63aa",
+          "meshes": 1,
+          "headVertices": [
+            1905
+          ],
+          "quality": "low",
+          "diagnosticNormalSurfaces": 0,
+          "diagnostic": {
+            "landmarkCamera": false,
+            "normals": false
+          },
+          "sheets": [
+            {
+              "name": "standard-48-battle-head.webp",
+              "sha256": "e08e66dbbb2606dfd995878353361aeda80305c14265f650a0eb0542d0973194"
+            },
+            {
+              "name": "standard-48-battle-body.webp",
+              "sha256": "26789ad5605567df9a72aa3137e6091270f3a68bd49c002956001954b23ba99c"
+            }
+          ],
+          "pairedNormalPoseVerified": false,
+          "cameraSha256": "0e7cbe57cb48a8d66e2533d251e430746ef86dd6b68d7fbf82648a38230ba516",
+          "anatomySha256": "e69aa642f9015ae72d56b0368474de27c096b67c8b53516804233188256fa394",
+          "anatomyReport": {
+            "poses": 459,
+            "regions": [
+              {
+                "name": "upperFace",
+                "vertices": 23,
+                "edges": 40,
+                "maxDrift": 5.4345130072458376e-15,
+                "worldMinRatio": 0.9999999470537125,
+                "worldMaxRatio": 1.0000000718736928,
+                "maximumTime": 8.093333333333321
+              },
+              {
+                "name": "muzzle",
+                "vertices": 33,
+                "edges": 56,
+                "maxDrift": 8.045988683520979e-15,
+                "worldMinRatio": 0.9999998653329814,
+                "worldMaxRatio": 1.0000000998494245,
+                "maximumTime": 8.093333333333321
+              },
+              {
+                "name": "lowerFace",
+                "vertices": 33,
+                "edges": 57,
+                "maxDrift": 8.645596761699751e-15,
+                "worldMinRatio": 0.9999998653329814,
+                "worldMaxRatio": 1.0000000998494245,
+                "maximumTime": 8.093333333333321
+              },
+              {
+                "name": "jawChin",
+                "vertices": 21,
+                "edges": 32,
+                "maxDrift": 5.478690826465813e-15,
+                "worldMinRatio": 0.9999998992240476,
+                "worldMaxRatio": 1.0000001102103466,
+                "maximumTime": 3.400833333333332
+              }
+            ],
+            "failed": false
+          }
+        }
+      ],
+      "review": "pending"
+    }
+  ],
+  "artisticCertification": false
+}

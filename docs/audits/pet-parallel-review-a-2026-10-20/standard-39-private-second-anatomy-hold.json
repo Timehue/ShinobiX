@@ -1,0 +1,274 @@
+{
+  "id": "standard-39",
+  "reviewer": "parallel-reviewer-a",
+  "reviewedAt": "2026-10-20T18:43:03.399Z",
+  "status": "hold-preview-head-clipping",
+  "anatomyResult": "pass-enumerated-raw-runtime-atlas-scope",
+  "sourceSha256": "bf17a7361f888bf943b1682e97d977150ab1f355aaeb68bbae35e1a14e9e04ef",
+  "battleSha256": "153048d8e3a0ab60139632906cdb86e482e469f778526f7b7afadf331ea6e84a",
+  "atlasSha256": "85ab0d38a1cd1a8e020291057cd00c432df9fba8497cc332223b8aa495e3d57b",
+  "rendererSha256": "b2253b71fbcb21a83d82de35ab5783dd57b525cfc94740fb131dd1eb0049a897",
+  "companionComponentSha256": "17ac6c4c1c4ef4eb242bebf5f0a34d9de3519bb5d6415aa906b1970afcc440f8",
+  "raw": {
+    "clipsPerStage": 13,
+    "stages": [
+      "source",
+      "battle"
+    ],
+    "phases": [
+      0.04,
+      0.2,
+      0.4,
+      0.6,
+      0.8,
+      0.98
+    ],
+    "headViews": 5,
+    "bodyViews": 2,
+    "poseViewsPersonallyInspected": 1092
+  },
+  "runtime": {
+    "rows": 16,
+    "stages": [
+      "source",
+      "battle"
+    ],
+    "qualities": [
+      "low",
+      "medium"
+    ],
+    "phases": [
+      0.04,
+      0.16,
+      0.36,
+      0.6,
+      0.84,
+      1
+    ],
+    "poseViewsPersonallyInspected": 1536
+  },
+  "atlasCellsPersonallyInspected": 16,
+  "densePreview": {
+    "move": "wind-strike",
+    "view": "front",
+    "times": [
+      0.4,
+      0.41,
+      0.42,
+      0.43,
+      0.44,
+      0.45,
+      0.46,
+      0.47,
+      0.48,
+      0.49,
+      0.5,
+      0.51,
+      0.52,
+      0.53,
+      0.54,
+      0.55,
+      0.56,
+      0.57,
+      0.58,
+      0.59,
+      0.6
+    ],
+    "framesPersonallyInspected": 21,
+    "extraOriginalNativePersonallyInspected": "standard-39-wind-strike-front-1.png"
+  },
+  "finding": "All14 raw and8 runtime sheets retain rounded white cheeks and complete lower chin beneath the black beak, with continuous scarf, white chest, wing roots, clawed legs and feathered tail through all13 clips and16 production transition rows. Front/opposite/underside views resolve death and attack lean occlusion. All16 atlas cells retain coherent anatomy. Dense native actual Wind Strike captures expose red headband/head pixels cut by canvas y0 around .41/.42, whereas .48 has a narrow margin. Private species camera correction and complete independent216 technique/idle24/dense peak review remain required.",
+  "evidence": [
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/standard-39-private-second/source-standard-39-head-front.webp",
+      "sha256": "b3345e9049fd0a986f2dd3d82420a7efa4db37efaad369954f2b9fdb306adf7c",
+      "originalPath": "shinobij.client/.tmp/pet-shape-review/parallel-a-private-second-standard-39-source-head/standard-39-head-front.webp",
+      "kind": "raw-head",
+      "personallyVisuallyInspected": true
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/standard-39-private-second/source-standard-39-head-side.webp",
+      "sha256": "54913116b04835010f2b37bbee534bf1e976b8a4185e0a2e3f5837f0adc3d10d",
+      "originalPath": "shinobij.client/.tmp/pet-shape-review/parallel-a-private-second-standard-39-source-head/standard-39-head-side.webp",
+      "kind": "raw-head",
+      "personallyVisuallyInspected": true
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/standard-39-private-second/source-standard-39-head-other-side.webp",
+      "sha256": "53aff7b16ebe8ea8470b1949267511a25679cf632f3eac860ec017dab377289b",
+      "originalPath": "shinobij.client/.tmp/pet-shape-review/parallel-a-private-second-standard-39-source-head/standard-39-head-other-side.webp",
+      "kind": "raw-head",
+      "personallyVisuallyInspected": true
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/standard-39-private-second/source-standard-39-head-under-front.webp",
+      "sha256": "43a39244b8e2c96248b9e69daae71a713577cf0a70b37b500792093a30272ce8",
+      "originalPath": "shinobij.client/.tmp/pet-shape-review/parallel-a-private-second-standard-39-source-head/standard-39-head-under-front.webp",
+      "kind": "raw-head",
+      "personallyVisuallyInspected": true
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/standard-39-private-second/source-standard-39-head-under-side.webp",
+      "sha256": "44f9679aa13d191572538a2cb042b7d1b91db628a72416a72d84ddb59c7080f6",
+      "originalPath": "shinobij.client/.tmp/pet-shape-review/parallel-a-private-second-standard-39-source-head/standard-39-head-under-side.webp",
+      "kind": "raw-head",
+      "personallyVisuallyInspected": true
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/standard-39-private-second/source-standard-39-front.webp",
+      "sha256": "0f2a274076fbc6319ec734966ca3087635db193c16d18b9330107008f7277cdd",
+      "originalPath": "shinobij.client/.tmp/pet-shape-review/parallel-a-private-second-standard-39-source-body/standard-39-front.webp",
+      "kind": "raw-body",
+      "personallyVisuallyInspected": true
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/standard-39-private-second/source-standard-39-side.webp",
+      "sha256": "b30b52205859f4cf26c4e0213e7b9b27972940d417e729949d5ff13e8cc5425a",
+      "originalPath": "shinobij.client/.tmp/pet-shape-review/parallel-a-private-second-standard-39-source-body/standard-39-side.webp",
+      "kind": "raw-body",
+      "personallyVisuallyInspected": true
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/standard-39-private-second/battle-standard-39-head-front.webp",
+      "sha256": "7d09e9fc23c6622361704c608dd53a65198261f4937028d6159553b23b0dad5f",
+      "originalPath": "shinobij.client/.tmp/pet-shape-review/parallel-a-private-second-standard-39-battle-head/standard-39-head-front.webp",
+      "kind": "raw-head",
+      "personallyVisuallyInspected": true
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/standard-39-private-second/battle-standard-39-head-side.webp",
+      "sha256": "04d083984c478ce2eab793c6b38c7d3729ad9e9a5c5f3c259f917082ffcefad6",
+      "originalPath": "shinobij.client/.tmp/pet-shape-review/parallel-a-private-second-standard-39-battle-head/standard-39-head-side.webp",
+      "kind": "raw-head",
+      "personallyVisuallyInspected": true
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/standard-39-private-second/battle-standard-39-head-other-side.webp",
+      "sha256": "0e1d5cb2b40c8fb527474f6f3622a4eeaeaf6f39eb3fdc962785d1255ce4c1f2",
+      "originalPath": "shinobij.client/.tmp/pet-shape-review/parallel-a-private-second-standard-39-battle-head/standard-39-head-other-side.webp",
+      "kind": "raw-head",
+      "personallyVisuallyInspected": true
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/standard-39-private-second/battle-standard-39-head-under-front.webp",
+      "sha256": "0ea118ceee8cb0424da80d1935ab46e484da80f7457b7b7c0d76e8fa77650795",
+      "originalPath": "shinobij.client/.tmp/pet-shape-review/parallel-a-private-second-standard-39-battle-head/standard-39-head-under-front.webp",
+      "kind": "raw-head",
+      "personallyVisuallyInspected": true
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/standard-39-private-second/battle-standard-39-head-under-side.webp",
+      "sha256": "6d3462a89420d4030979627a4acab2b31a16a3508820d872bb138e79f3020cc3",
+      "originalPath": "shinobij.client/.tmp/pet-shape-review/parallel-a-private-second-standard-39-battle-head/standard-39-head-under-side.webp",
+      "kind": "raw-head",
+      "personallyVisuallyInspected": true
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/standard-39-private-second/battle-standard-39-front.webp",
+      "sha256": "8bf610bf3806bbfdd1cc22e12df138f7c9bf981e731ea25570d512b4f91e267d",
+      "originalPath": "shinobij.client/.tmp/pet-shape-review/parallel-a-private-second-standard-39-battle-body/standard-39-front.webp",
+      "kind": "raw-body",
+      "personallyVisuallyInspected": true
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/standard-39-private-second/battle-standard-39-side.webp",
+      "sha256": "f3cb6ac41173fa2bbf27134cbba35703667dffe8f2ff0db6c2564feb19e480cc",
+      "originalPath": "shinobij.client/.tmp/pet-shape-review/parallel-a-private-second-standard-39-battle-body/standard-39-side.webp",
+      "kind": "raw-body",
+      "personallyVisuallyInspected": true
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/standard-39-private-second/runtime-low-standard-39-source-head.webp",
+      "sha256": "62437e5b83dfba262dc9646d23acbb3e803b3eb596c3a5ce405ae8fb172780ba",
+      "originalPath": "shinobij.client/.tmp/pet-shape-review/parallel-a-private-second-standard-39-runtime-low/standard-39-source-head.webp",
+      "kind": "runtime-low",
+      "personallyVisuallyInspected": true
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/standard-39-private-second/runtime-low-standard-39-source-body.webp",
+      "sha256": "dcb64af240b9b3f7c79508ce7819f80f87631ddbc8b4d273d40c7f2469122822",
+      "originalPath": "shinobij.client/.tmp/pet-shape-review/parallel-a-private-second-standard-39-runtime-low/standard-39-source-body.webp",
+      "kind": "runtime-low",
+      "personallyVisuallyInspected": true
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/standard-39-private-second/runtime-low-standard-39-battle-head.webp",
+      "sha256": "549a77d9e50e00dc1290d8982f12eca978141fc588298672fd97ff49f7ff2bef",
+      "originalPath": "shinobij.client/.tmp/pet-shape-review/parallel-a-private-second-standard-39-runtime-low/standard-39-battle-head.webp",
+      "kind": "runtime-low",
+      "personallyVisuallyInspected": true
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/standard-39-private-second/runtime-low-standard-39-battle-body.webp",
+      "sha256": "78e02959bd73267d61982a253c0e40e3b123200b406947c5868ba9eba64ac57b",
+      "originalPath": "shinobij.client/.tmp/pet-shape-review/parallel-a-private-second-standard-39-runtime-low/standard-39-battle-body.webp",
+      "kind": "runtime-low",
+      "personallyVisuallyInspected": true
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/standard-39-private-second/runtime-medium-standard-39-source-head.webp",
+      "sha256": "c812e9e5e2af33cb170c6a51da8db0b694693f642e333beb0bd6906a736c3b8b",
+      "originalPath": "shinobij.client/.tmp/pet-shape-review/parallel-a-private-second-standard-39-runtime-medium/standard-39-source-head.webp",
+      "kind": "runtime-medium",
+      "personallyVisuallyInspected": true
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/standard-39-private-second/runtime-medium-standard-39-source-body.webp",
+      "sha256": "423e84f59b5cec5991a0f2fb45cc642aa0aa533b46b41979af2c3e867a083ce8",
+      "originalPath": "shinobij.client/.tmp/pet-shape-review/parallel-a-private-second-standard-39-runtime-medium/standard-39-source-body.webp",
+      "kind": "runtime-medium",
+      "personallyVisuallyInspected": true
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/standard-39-private-second/runtime-medium-standard-39-battle-head.webp",
+      "sha256": "42e02f06de97c7528e04676ce9afb6589e159e5d9975f56223d72eee4fc97ee7",
+      "originalPath": "shinobij.client/.tmp/pet-shape-review/parallel-a-private-second-standard-39-runtime-medium/standard-39-battle-head.webp",
+      "kind": "runtime-medium",
+      "personallyVisuallyInspected": true
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/standard-39-private-second/runtime-medium-standard-39-battle-body.webp",
+      "sha256": "74e17d8abe1a1c4f5766456a90ef90de41c9091c1dcf44aa701e9c30f9ece9ea",
+      "originalPath": "shinobij.client/.tmp/pet-shape-review/parallel-a-private-second-standard-39-runtime-medium/standard-39-battle-body.webp",
+      "kind": "runtime-medium",
+      "personallyVisuallyInspected": true
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/standard-39-private-second/atlas.webp",
+      "sha256": "85ab0d38a1cd1a8e020291057cd00c432df9fba8497cc332223b8aa495e3d57b",
+      "originalPath": "shinobij.client/.tmp/standard-39-rigid-skull/delivery/public/pet-models/warfront-impostors/roster/standard-39.webp",
+      "kind": "atlas16",
+      "personallyVisuallyInspected": true
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/standard-39-private-second/dense-wind-strike-front-0.png",
+      "sha256": "bb2129ee23a4d8486ceae462faf626f0eaf78b3d98a0c6eb753d2f64552fe6fc",
+      "kind": "dense-native-preview",
+      "personallyVisuallyInspected": true
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/standard-39-private-second/dense-wind-strike-front-1.png",
+      "sha256": "99d52b035636c37f1b69563821db3b27628706139a870e88149bc2934a2cad8e",
+      "kind": "dense-native-preview",
+      "personallyVisuallyInspected": true
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/standard-39-private-second/dense-wind-strike-front-2.png",
+      "sha256": "c00d1f66c9caa1ae4c0a8918a5e0896973d28917628974c7bfc5c6e9bb19fe89",
+      "kind": "dense-native-preview",
+      "personallyVisuallyInspected": true
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/standard-39-private-second/dense-manifest.json",
+      "sha256": "c117a7b8b5e5ab6cc34e3b182a142802deabec7b3816c8b3dcb9c3e1843a4b57",
+      "kind": "capture-manifest",
+      "personallyVisuallyInspected": false
+    }
+  ],
+  "unreviewedCapturedScope": [
+    "Default-camera216 technique frames and24 idle frames were captured but are not claimed personally inspected by this scope-only hold report. Corrected-camera follow-up is required."
+  ],
+  "liveVerified": false,
+  "productionAssetsModified": false,
+  "canonicalPromotionApproved": false
+}

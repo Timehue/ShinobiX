@@ -1,0 +1,143 @@
+{
+  "label": "parallel-c-aardvark-private-v1-techniques",
+  "panels": [
+    {
+      "path": ".tmp/pet-companion-techniques/parallel-c-aardvark-private-v1-techniques/inspection-strips/both-block-0-half-0.png",
+      "sha256": "0f31dd4901543269f0cddba2130648381c2ca412749753ba44f99de4c6095c57",
+      "sources": [
+        {
+          "path": ".tmp/pet-companion-techniques/parallel-c-aardvark-private-v1-techniques/inspection-strips/front-block-0-half-0.png",
+          "sha256": "f6ec1ac6f704fed6e6bf47ef0f329bfef028300d885d5574555cfd097006011a",
+          "width": 1650,
+          "height": 660,
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-companion-techniques/parallel-c-aardvark-private-v1-techniques/inspection-strips/side-block-0-half-0.png",
+          "sha256": "77b622e3949078a905f787a51340f59c645b5bd5cfefce1f09f6bd5538c163e2",
+          "width": 1650,
+          "height": 660,
+          "top": 660
+        }
+      ],
+      "nativePixelsPreserved": true,
+      "resizing": false,
+      "review": "pending"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/parallel-c-aardvark-private-v1-techniques/inspection-strips/both-block-0-half-1.png",
+      "sha256": "ae070ef43bb879cc0957d621ee1ff5824b21716f4d52ff0f140a912cd06d7685",
+      "sources": [
+        {
+          "path": ".tmp/pet-companion-techniques/parallel-c-aardvark-private-v1-techniques/inspection-strips/front-block-0-half-1.png",
+          "sha256": "c3dd1c4aefac4e11f7a6093bf6a9a7bf3aa94caa55842ebcb27890d25f3531a1",
+          "width": 1650,
+          "height": 660,
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-companion-techniques/parallel-c-aardvark-private-v1-techniques/inspection-strips/side-block-0-half-1.png",
+          "sha256": "4c18fae89dc6fe685649318ccddc9df563870a24a3c9efe06764b96663184161",
+          "width": 1650,
+          "height": 660,
+          "top": 660
+        }
+      ],
+      "nativePixelsPreserved": true,
+      "resizing": false,
+      "review": "pending"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/parallel-c-aardvark-private-v1-techniques/inspection-strips/both-block-1-half-0.png",
+      "sha256": "f7e3491a2ac1dd39fbbe891d5a80ba6d8c14d1405839c3def8008bb050719d41",
+      "sources": [
+        {
+          "path": ".tmp/pet-companion-techniques/parallel-c-aardvark-private-v1-techniques/inspection-strips/front-block-1-half-0.png",
+          "sha256": "0ca989b32627563c19153f19b46c5da3f8d9cc72d75d7c22bb5f2340e53bdb37",
+          "width": 1650,
+          "height": 660,
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-companion-techniques/parallel-c-aardvark-private-v1-techniques/inspection-strips/side-block-1-half-0.png",
+          "sha256": "2c8e225a7f7839bdcba4295b5d41da8565d07d2603d0b4367ca7552aece81d08",
+          "width": 1650,
+          "height": 660,
+          "top": 660
+        }
+      ],
+      "nativePixelsPreserved": true,
+      "resizing": false,
+      "review": "pending"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/parallel-c-aardvark-private-v1-techniques/inspection-strips/both-block-1-half-1.png",
+      "sha256": "cc8d4280ccf666290b1c8e3c202d6f917e82678ecbe7ae06b097190e07f0c502",
+      "sources": [
+        {
+          "path": ".tmp/pet-companion-techniques/parallel-c-aardvark-private-v1-techniques/inspection-strips/front-block-1-half-1.png",
+          "sha256": "693a81f56a37f27ae496a9742063b545c651a8b532b8fe64435c05faf6f9b6dd",
+          "width": 1650,
+          "height": 660,
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-companion-techniques/parallel-c-aardvark-private-v1-techniques/inspection-strips/side-block-1-half-1.png",
+          "sha256": "3472efad9088882d1da5834a6536ad6135cc9616a61292c13ac1b5ee85af9806",
+          "width": 1650,
+          "height": 660,
+          "top": 660
+        }
+      ],
+      "nativePixelsPreserved": true,
+      "resizing": false,
+      "review": "pending"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/parallel-c-aardvark-private-v1-techniques/inspection-strips/both-block-2-half-0.png",
+      "sha256": "f67c376aaeb1bcc08c3a16ab252984e354adfdb8620d51d2adfd70a8787a169d",
+      "sources": [
+        {
+          "path": ".tmp/pet-companion-techniques/parallel-c-aardvark-private-v1-techniques/inspection-strips/front-block-2-half-0.png",
+          "sha256": "f5a9c504360ff2272704506dbe9913ff29353a87076171ecb2514a757dc5a958",
+          "width": 1650,
+          "height": 660,
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-companion-techniques/parallel-c-aardvark-private-v1-techniques/inspection-strips/side-block-2-half-0.png",
+          "sha256": "3d79622b8304d3077ea766c8515960a4c76347cff45505ec8730a58c10ad3b16",
+          "width": 1650,
+          "height": 660,
+          "top": 660
+        }
+      ],
+      "nativePixelsPreserved": true,
+      "resizing": false,
+      "review": "pending"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/parallel-c-aardvark-private-v1-techniques/inspection-strips/both-block-2-half-1.png",
+      "sha256": "345ab2f8b570505b4b4ff7123ba80b81ca4b3c7db18f094042d6e1031e71ad71",
+      "sources": [
+        {
+          "path": ".tmp/pet-companion-techniques/parallel-c-aardvark-private-v1-techniques/inspection-strips/front-block-2-half-1.png",
+          "sha256": "62daaedb3b0e373b085884d90b84e2191f716874c4ead3428feccbad301ded77",
+          "width": 1650,
+          "height": 660,
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-companion-techniques/parallel-c-aardvark-private-v1-techniques/inspection-strips/side-block-2-half-1.png",
+          "sha256": "5dc12bdf50615e82b8349c8ec1dd2c1eca6b1dcc0bf0942b2a6f44c827634442",
+          "width": 1650,
+          "height": 660,
+          "top": 660
+        }
+      ],
+      "nativePixelsPreserved": true,
+      "resizing": false,
+      "review": "pending"
+    }
+  ]
+}

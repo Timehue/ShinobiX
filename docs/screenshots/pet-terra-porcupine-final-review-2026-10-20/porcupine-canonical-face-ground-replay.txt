@@ -1,0 +1,12 @@
+✔ rare-48: independent anatomy detects the released face binding defect (331.7217ms)
+✔ rare-48 source: repaired anatomy passes every clip and blend (1593.3556ms)
+✔ rare-48 warfront-lod/: repaired anatomy passes every clip and blend (592.3321ms)
+✔ rare-48: pinned repair conserves sculpt and rig, validates authored or explicitly reviewed curves, and reproduces shipping bytes (15596.6816ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 18799.4702

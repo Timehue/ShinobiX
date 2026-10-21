@@ -1,0 +1,22 @@
+{
+  "id": "rare-42",
+  "name": "Thunder Jerboa",
+  "at": "2026-10-20T17:52:44.471Z",
+  "sourceSha256": "778b0163155152d9e2730491cbddf0f0ca54d021bdc2be2a8ef49a289029e4cd",
+  "battleSha256": "f0e63f7b1fe304a88d569304327a8e8203b98b37856907b05e4a5c29516dba1e",
+  "atlasSha256": "8109a547ba847a74372506f302dbb0f9a2126f01bd989a9844e1c80249ea9d56",
+  "rendererSha256": "b2253b71fbcb21a83d82de35ab5783dd57b525cfc94740fb131dd1eb0049a897",
+  "companionComponentSha256": "17ac6c4c1c4ef4eb242bebf5f0a34d9de3519bb5d6415aa906b1970afcc440f8",
+  "reviews": [
+    "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-42/private-final-independent/independent-final-visual-review.json",
+    "docs/audits/pet-parallel-review-a-2026-10-20/rare-42-private-second.json"
+  ],
+  "reviewers": [
+    "/root/review_c",
+    "/root/review_a"
+  ],
+  "sourceBattleAtlasExactlyEqualReviewedPrivateBytes": true,
+  "unselectedManifestEntriesUnchanged": true,
+  "canonicalRegressionsPending": true,
+  "liveVerified": false
+}

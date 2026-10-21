@@ -1,0 +1,22 @@
+{
+  "id": "rare-9",
+  "name": "Bristle Boar",
+  "at": "2026-10-20T21:04:38.357Z",
+  "sourceSha256": "954d6063adc9fd3d930e50bcb61c79f6915b2dbe7e88d930a461f3adc6ae1742",
+  "battleSha256": "4a8fca3afbf41f1a4f6683014ca125c23e5b84355eb2e26ce293d30d82b72c3c",
+  "atlasSha256": "3f7fc0c9a37b03165c1d989fa576c0a17356c73f84475ed6b1e037287a0aca66",
+  "rendererSha256": "b2253b71fbcb21a83d82de35ab5783dd57b525cfc94740fb131dd1eb0049a897",
+  "companionComponentSha256": "dd0e422cec9458b37fb370c4ebc0af7717d129f93540420ea3a14c371f400dcd",
+  "reviews": [
+    "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-9/private-final-independent/independent-final-visual-review.json",
+    "docs/audits/pet-parallel-review-a-2026-10-20/rare-9-private-second.json"
+  ],
+  "reviewers": [
+    "/root/review_c",
+    "/root/review_a"
+  ],
+  "sourceBattleAtlasExactlyEqualReviewedPrivateBytes": true,
+  "unselectedManifestEntriesUnchanged": true,
+  "canonicalRegressionsPending": true,
+  "liveVerified": false
+}

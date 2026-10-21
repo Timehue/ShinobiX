@@ -1,0 +1,122 @@
+{
+  "id": "rare-38",
+  "reviewer": "parallel-c",
+  "reviewedAt": "2026-10-20T18:23:36.675Z",
+  "scope": "Separate corrected private companion camera follow-up only",
+  "previewHeight": 1.8,
+  "sourceCandidateSha256": "57fbb0f30059ca7db6496a582455755b68ded1fb45c3f0fa13de81bce748ceb6",
+  "battleCandidateSha256": "fc679bf26a4450dbde7cc3bc26236355fc11fa3b09bba94758e1177dc5ed9677",
+  "rendererSha256": "b2253b71fbcb21a83d82de35ab5783dd57b525cfc94740fb131dd1eb0049a897",
+  "privateCompanionComponentSha256": "5cc1e27edc39a9eca5d7d3c08121fecca92ecc53f7be0343fe40e61b92f59247",
+  "canonicalCompanionComponentSha256": "17ac6c4c1c4ef4eb242bebf5f0a34d9de3519bb5d6415aa906b1970afcc440f8",
+  "privateServedModuleSha256": "730397f951a780c0f315fe0355629516abdc1c36a40ef4fcc398465879b2c67b",
+  "previousAnatomyAndCameraHold": {
+    "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-38/private-final-independent/independent-final-visual-review.json",
+    "sha256": "1ae98a3684f421aec1452e9bd206ab9ae1d4aebb9fc7ad065e4275006244df13",
+    "unchanged": true
+  },
+  "actualTechniqueFramesPersonallyViewed": 216,
+  "extraNativeFramesPersonallyViewed": 3,
+  "advancingIdleFramesPersonallyViewed": 24,
+  "result": "PASS for corrected private camera scope. All nine actual techniques, both front and side at twelve times, retain the complete head, headband, face, wings, body, legs and feet within the viewport. The previously clipped front Wind Strike, Wind Breaker and Open Wound .48 native frames now show background above the full headband; head, complete lower face above blue scarf, round body and talons remain intact. All24 advancing idle frames are fully framed and coherent.",
+  "privateCameraScopePass": true,
+  "wholePetApproval": false,
+  "scopeLimit": "Original frozen full anatomy review and camera rejection are retained unchanged. This result addresses only the new height1.8 camera context; no new raw/runtime/atlas review, canonical promotion or live replay is asserted.",
+  "evidence": [
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-38/private-camera-followup/both-block-0-half-0.png",
+      "sha256": "1abd5bcc28f435f950271baec42fb62b35bdac87a5e65a6215db69f323fde8d6",
+      "kind": "actual-technique-camera",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-38/private-camera-followup/both-block-0-half-1.png",
+      "sha256": "78025e3e319dc845b0b56870da3c28331c2c7074fc94781e58c72a9e98fbad58",
+      "kind": "actual-technique-camera",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-38/private-camera-followup/both-block-1-half-0.png",
+      "sha256": "005092fdcfd7b64e5d016f8e522782764f38f9bdd4071036cd5c92c435e38ac5",
+      "kind": "actual-technique-camera",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-38/private-camera-followup/both-block-1-half-1.png",
+      "sha256": "e22e2477c61f0549c50996be12be4a007051eaf78972cba0aafbee9015c77ae9",
+      "kind": "actual-technique-camera",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-38/private-camera-followup/both-block-2-half-0.png",
+      "sha256": "d63f7ddaef2d090dc0b02ff512222bd42233ac3e8a55283c1c6afc98a0a3fc4d",
+      "kind": "actual-technique-camera",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-38/private-camera-followup/both-block-2-half-1.png",
+      "sha256": "d7814348e860a5626cfa4604925bc47e7a5ec8be8163c8d08011ccb4758c981f",
+      "kind": "actual-technique-camera",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-38/private-camera-followup/rare-38-wind-strike-front-4.png",
+      "sha256": "019af2cc92b577d8838f3a6eb7ab4b33deea3d533d95c2d5efe4e918306c157d",
+      "kind": "original-clipping-native-pose",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-38/private-camera-followup/rare-38-wind-breaker-front-4.png",
+      "sha256": "636a38d67e155409862cd6f0ec86128dc006a1eaceffce6dc9f4634676f4eced",
+      "kind": "original-clipping-native-pose",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-38/private-camera-followup/rare-38-open-wound-front-4.png",
+      "sha256": "62f66c7829e920e0a842ec54f45f074ed1092bdf37429e58e19ac6a29d60b4ff",
+      "kind": "original-clipping-native-pose",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-38/private-camera-followup/idle-sheet-0.png",
+      "sha256": "c1d7124c6f9500b81628e9d996000b12e6187930833f703d6471fab01687eb8a",
+      "kind": "advancing-idle",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-38/private-camera-followup/idle-sheet-1.png",
+      "sha256": "00dcb933e2b32805b40169ccda7385b7c14767d682963f87843b1768e7fc2daf",
+      "kind": "advancing-idle",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-38/private-camera-followup/techniques-manifest.json",
+      "sha256": "9828a5729d5656825ba67046b35a7078bf650c6d6cab4a99ef4526630f13b24a",
+      "kind": "capture-manifest",
+      "actuallyViewed": false
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-38/private-camera-followup/technique-composition-manifest.json",
+      "sha256": "b22b6af832028c08ce07ab1643da9a1d61d4766237d4ed73be7ea9f580a33480",
+      "kind": "composition-manifest",
+      "actuallyViewed": false
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-38/private-camera-followup/idle-manifest.json",
+      "sha256": "304585213d1e8dc4786a132effd5e9ced7feb63175550c9530f58d40e772e475",
+      "kind": "capture-manifest",
+      "actuallyViewed": false
+    }
+  ]
+}

@@ -1,0 +1,76 @@
+{
+  "schema": 1,
+  "errors": [],
+  "pets": [
+    {
+      "id": "standard-48",
+      "name": "Gravel Pangolin",
+      "url": "/.tmp/gravel-pangolin-floor/source-candidate-v1.glb",
+      "sha256": "22f5353ed724746372ccdcd095fa2652fc2136609995bbad701a5d361e86249e",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "progress": [
+        0.08,
+        0.28,
+        0.48,
+        0.68,
+        0.88,
+        1
+      ],
+      "views": [
+        "head-front",
+        "head-side",
+        "head-other-side",
+        "head-under-front",
+        "head-under-side"
+      ],
+      "materialTreatment": {
+        "mode": "production-diffuse",
+        "materials": 1,
+        "metalnessMax": 0.05,
+        "roughnessRange": [
+          0.58,
+          0.82
+        ]
+      },
+      "region": {
+        "y": [
+          -2,
+          -2
+        ],
+        "bounds": [
+          -0.24978245607971844,
+          0.37920330103577715,
+          0.35765479077438134,
+          0.7351201817894106,
+          0.36298795976276754,
+          0.9868427917285328
+        ],
+        "cameraPadding": 1.15
+      },
+      "sheets": [
+        "standard-48-head-front.webp",
+        "standard-48-head-side.webp",
+        "standard-48-head-other-side.webp",
+        "standard-48-head-under-front.webp",
+        "standard-48-head-under-side.webp"
+      ],
+      "review": "pending",
+      "anatomySha256": "e69aa642f9015ae72d56b0368474de27c096b67c8b53516804233188256fa394"
+    }
+  ],
+  "artisticCertification": false
+}

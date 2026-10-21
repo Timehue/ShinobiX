@@ -1,0 +1,2474 @@
+{
+  "id": "rare-27",
+  "name": "Pyre Kestrel",
+  "scope": "private-rigid-skull-candidate-v1-independent-review",
+  "reviewer": "parallel-reviewer-b",
+  "sourceSha256": "c5ddc0770236d507b70c93ba56ad587c87da9345322b6deb25a98d84be2268ea",
+  "battleSha256": "87f3b8263bbd8ce81cf89e94e6afc4e8f81aa2aab852e16ebf918457af675ee4",
+  "rendererSha256": "b2253b71fbcb21a83d82de35ab5783dd57b525cfc94740fb131dd1eb0049a897",
+  "companionComponentSha256": "17ac6c4c1c4ef4eb242bebf5f0a34d9de3519bb5d6415aa906b1970afcc440f8",
+  "previewHeight": 1.8,
+  "startedAt": "2026-10-20T08:15:46.932Z",
+  "inputs": [
+    {
+      "path": "shinobij.client/.tmp/pet-shape-review/parallel-b-kestrel-skull-v1-source-head/manifest.json",
+      "sha256": "30b7a19cae6f6839b3f93713c0eb172357695643e555f7382001602e631089ca",
+      "kind": "raw-manifest"
+    },
+    {
+      "path": "shinobij.client/.tmp/pet-shape-review/parallel-b-kestrel-skull-v1-source-head/rare-27-head-front.webp",
+      "sha256": "74426d9b1d34af5f2ad0516b55c7610d91e67fe3e989556288a27744b88975bc",
+      "kind": "raw",
+      "stage": "source",
+      "view": "head-front",
+      "assetSha256": "c5ddc0770236d507b70c93ba56ad587c87da9345322b6deb25a98d84be2268ea",
+      "phases": [
+        0.08,
+        0.28,
+        0.48,
+        0.68,
+        0.88,
+        1
+      ]
+    },
+    {
+      "path": "shinobij.client/.tmp/pet-shape-review/parallel-b-kestrel-skull-v1-source-head/rare-27-head-side.webp",
+      "sha256": "4237ca7ed2d345ef25a2936ea8cd90ee0dd0e15a7bc99968d5ab1215a27e2e04",
+      "kind": "raw",
+      "stage": "source",
+      "view": "head-side",
+      "assetSha256": "c5ddc0770236d507b70c93ba56ad587c87da9345322b6deb25a98d84be2268ea",
+      "phases": [
+        0.08,
+        0.28,
+        0.48,
+        0.68,
+        0.88,
+        1
+      ]
+    },
+    {
+      "path": "shinobij.client/.tmp/pet-shape-review/parallel-b-kestrel-skull-v1-source-head/rare-27-head-other-side.webp",
+      "sha256": "f6e2213663e83dbdbe95ef58a8fba8d29b126e6c7bf0ab8689aff2830e84b357",
+      "kind": "raw",
+      "stage": "source",
+      "view": "head-other-side",
+      "assetSha256": "c5ddc0770236d507b70c93ba56ad587c87da9345322b6deb25a98d84be2268ea",
+      "phases": [
+        0.08,
+        0.28,
+        0.48,
+        0.68,
+        0.88,
+        1
+      ]
+    },
+    {
+      "path": "shinobij.client/.tmp/pet-shape-review/parallel-b-kestrel-skull-v1-source-head/rare-27-head-under-front.webp",
+      "sha256": "10ed35ee0169774e90e47c3fc391ac178084d62a09ecf23a084038d572b58def",
+      "kind": "raw",
+      "stage": "source",
+      "view": "head-under-front",
+      "assetSha256": "c5ddc0770236d507b70c93ba56ad587c87da9345322b6deb25a98d84be2268ea",
+      "phases": [
+        0.08,
+        0.28,
+        0.48,
+        0.68,
+        0.88,
+        1
+      ]
+    },
+    {
+      "path": "shinobij.client/.tmp/pet-shape-review/parallel-b-kestrel-skull-v1-source-head/rare-27-head-under-side.webp",
+      "sha256": "aa5a114369671288b0cdc0d168a55335106f72722312f93aa1bf6ee6597e5732",
+      "kind": "raw",
+      "stage": "source",
+      "view": "head-under-side",
+      "assetSha256": "c5ddc0770236d507b70c93ba56ad587c87da9345322b6deb25a98d84be2268ea",
+      "phases": [
+        0.08,
+        0.28,
+        0.48,
+        0.68,
+        0.88,
+        1
+      ]
+    },
+    {
+      "path": "shinobij.client/.tmp/pet-shape-review/parallel-b-kestrel-skull-v1-source-body/manifest.json",
+      "sha256": "6334f472fc0bba4fb3c7ae348a38e158fd7a64682086d969f6492629bdc5a623",
+      "kind": "raw-manifest"
+    },
+    {
+      "path": "shinobij.client/.tmp/pet-shape-review/parallel-b-kestrel-skull-v1-source-body/rare-27-front.webp",
+      "sha256": "b1248af18d307abb7953b8f8ffba30e77ee8431346fb6f02984591ac2e41793e",
+      "kind": "raw",
+      "stage": "source",
+      "view": "front",
+      "assetSha256": "c5ddc0770236d507b70c93ba56ad587c87da9345322b6deb25a98d84be2268ea",
+      "phases": [
+        0.08,
+        0.28,
+        0.48,
+        0.68,
+        0.88,
+        1
+      ]
+    },
+    {
+      "path": "shinobij.client/.tmp/pet-shape-review/parallel-b-kestrel-skull-v1-source-body/rare-27-side.webp",
+      "sha256": "ead624f9cc4606f301a0207d55b6695651d9460e2bb50463111017bef9abc7f5",
+      "kind": "raw",
+      "stage": "source",
+      "view": "side",
+      "assetSha256": "c5ddc0770236d507b70c93ba56ad587c87da9345322b6deb25a98d84be2268ea",
+      "phases": [
+        0.08,
+        0.28,
+        0.48,
+        0.68,
+        0.88,
+        1
+      ]
+    },
+    {
+      "path": "shinobij.client/.tmp/pet-shape-review/parallel-b-kestrel-skull-v1-battle-head/manifest.json",
+      "sha256": "7c25afbd7c05dc99e6d0d05d30d8616b634a1bdaad4a42ca27d8015e88c3309b",
+      "kind": "raw-manifest"
+    },
+    {
+      "path": "shinobij.client/.tmp/pet-shape-review/parallel-b-kestrel-skull-v1-battle-head/rare-27-head-front.webp",
+      "sha256": "cd04a24b3a8bb1c158c3cd3b65d4939d871ea35706cd623a6a38597a2c026b18",
+      "kind": "raw",
+      "stage": "battle",
+      "view": "head-front",
+      "assetSha256": "87f3b8263bbd8ce81cf89e94e6afc4e8f81aa2aab852e16ebf918457af675ee4",
+      "phases": [
+        0.08,
+        0.28,
+        0.48,
+        0.68,
+        0.88,
+        1
+      ]
+    },
+    {
+      "path": "shinobij.client/.tmp/pet-shape-review/parallel-b-kestrel-skull-v1-battle-head/rare-27-head-side.webp",
+      "sha256": "7489568a2a1d04da5112cd0460d14851ce2d67b7098ee5afeb9ef18122cba7fd",
+      "kind": "raw",
+      "stage": "battle",
+      "view": "head-side",
+      "assetSha256": "87f3b8263bbd8ce81cf89e94e6afc4e8f81aa2aab852e16ebf918457af675ee4",
+      "phases": [
+        0.08,
+        0.28,
+        0.48,
+        0.68,
+        0.88,
+        1
+      ]
+    },
+    {
+      "path": "shinobij.client/.tmp/pet-shape-review/parallel-b-kestrel-skull-v1-battle-head/rare-27-head-other-side.webp",
+      "sha256": "2c14ffd9231c3094521d20700befbf8349c5343b23e720968e80f5de0b20a1fa",
+      "kind": "raw",
+      "stage": "battle",
+      "view": "head-other-side",
+      "assetSha256": "87f3b8263bbd8ce81cf89e94e6afc4e8f81aa2aab852e16ebf918457af675ee4",
+      "phases": [
+        0.08,
+        0.28,
+        0.48,
+        0.68,
+        0.88,
+        1
+      ]
+    },
+    {
+      "path": "shinobij.client/.tmp/pet-shape-review/parallel-b-kestrel-skull-v1-battle-head/rare-27-head-under-front.webp",
+      "sha256": "b3b5fad13fa21bda0c5211f59518ae3ea13de63c071603a25db6bbcb945d1e47",
+      "kind": "raw",
+      "stage": "battle",
+      "view": "head-under-front",
+      "assetSha256": "87f3b8263bbd8ce81cf89e94e6afc4e8f81aa2aab852e16ebf918457af675ee4",
+      "phases": [
+        0.08,
+        0.28,
+        0.48,
+        0.68,
+        0.88,
+        1
+      ]
+    },
+    {
+      "path": "shinobij.client/.tmp/pet-shape-review/parallel-b-kestrel-skull-v1-battle-head/rare-27-head-under-side.webp",
+      "sha256": "c7e16c0337e74d05577a5cc8bad3e5ff0f48a3bc021a97eb9daea0ca4595e4ed",
+      "kind": "raw",
+      "stage": "battle",
+      "view": "head-under-side",
+      "assetSha256": "87f3b8263bbd8ce81cf89e94e6afc4e8f81aa2aab852e16ebf918457af675ee4",
+      "phases": [
+        0.08,
+        0.28,
+        0.48,
+        0.68,
+        0.88,
+        1
+      ]
+    },
+    {
+      "path": "shinobij.client/.tmp/pet-shape-review/parallel-b-kestrel-skull-v1-battle-body/manifest.json",
+      "sha256": "ddf7385054d622596ac2af3d230f1b6ba3c03298ab3b4624db6985c85632b6e0",
+      "kind": "raw-manifest"
+    },
+    {
+      "path": "shinobij.client/.tmp/pet-shape-review/parallel-b-kestrel-skull-v1-battle-body/rare-27-front.webp",
+      "sha256": "a89f58eab3fbb185c3e7009212ed7581cd87bad87f28b9f2dc6ed2e59fe17c60",
+      "kind": "raw",
+      "stage": "battle",
+      "view": "front",
+      "assetSha256": "87f3b8263bbd8ce81cf89e94e6afc4e8f81aa2aab852e16ebf918457af675ee4",
+      "phases": [
+        0.08,
+        0.28,
+        0.48,
+        0.68,
+        0.88,
+        1
+      ]
+    },
+    {
+      "path": "shinobij.client/.tmp/pet-shape-review/parallel-b-kestrel-skull-v1-battle-body/rare-27-side.webp",
+      "sha256": "9638c2744e65eaa484c4899bcb7050bbdbddde5618f50448ddf3d6c2b02820b6",
+      "kind": "raw",
+      "stage": "battle",
+      "view": "side",
+      "assetSha256": "87f3b8263bbd8ce81cf89e94e6afc4e8f81aa2aab852e16ebf918457af675ee4",
+      "phases": [
+        0.08,
+        0.28,
+        0.48,
+        0.68,
+        0.88,
+        1
+      ]
+    },
+    {
+      "path": "shinobij.client/.tmp/pet-shape-review/kestrel-skull-private-v1-runtime-low/manifest.json",
+      "sha256": "e2437136a2fe8ef2c7b370ef5cf362a550ca7743df0a64f605795a76149a9650",
+      "kind": "runtime-manifest"
+    },
+    {
+      "path": "shinobij.client/.tmp/pet-shape-review/kestrel-skull-private-v1-runtime-low/rare-27-source-head.webp",
+      "sha256": "1f43353ff370cdf2d997d1f5bf4305e8434b021ded65d1c22472409c6a59c52c",
+      "kind": "runtime",
+      "stage": "source",
+      "quality": "low",
+      "view": "head",
+      "assetSha256": "c5ddc0770236d507b70c93ba56ad587c87da9345322b6deb25a98d84be2268ea",
+      "phases": [
+        0.025,
+        0.1,
+        0.25,
+        0.5,
+        0.75,
+        1
+      ]
+    },
+    {
+      "path": "shinobij.client/.tmp/pet-shape-review/kestrel-skull-private-v1-runtime-low/rare-27-source-body.webp",
+      "sha256": "a6879fdedd38262509431e0d09c747f01625dcda8b3e088cd7fcc1b551560772",
+      "kind": "runtime",
+      "stage": "source",
+      "quality": "low",
+      "view": "body",
+      "assetSha256": "c5ddc0770236d507b70c93ba56ad587c87da9345322b6deb25a98d84be2268ea",
+      "phases": [
+        0.025,
+        0.1,
+        0.25,
+        0.5,
+        0.75,
+        1
+      ]
+    },
+    {
+      "path": "shinobij.client/.tmp/pet-shape-review/kestrel-skull-private-v1-runtime-low/rare-27-battle-head.webp",
+      "sha256": "d7920da8c8377b3723968dd6fdfd6dcbbe2a4e0fa1123f393fbd2f78164a3851",
+      "kind": "runtime",
+      "stage": "battle",
+      "quality": "low",
+      "view": "head",
+      "assetSha256": "87f3b8263bbd8ce81cf89e94e6afc4e8f81aa2aab852e16ebf918457af675ee4",
+      "phases": [
+        0.025,
+        0.1,
+        0.25,
+        0.5,
+        0.75,
+        1
+      ]
+    },
+    {
+      "path": "shinobij.client/.tmp/pet-shape-review/kestrel-skull-private-v1-runtime-low/rare-27-battle-body.webp",
+      "sha256": "5d3c02c3eee6296dab746e1e03ad5f4f0730edc7cdf5ea3c846e7d790d05fcd9",
+      "kind": "runtime",
+      "stage": "battle",
+      "quality": "low",
+      "view": "body",
+      "assetSha256": "87f3b8263bbd8ce81cf89e94e6afc4e8f81aa2aab852e16ebf918457af675ee4",
+      "phases": [
+        0.025,
+        0.1,
+        0.25,
+        0.5,
+        0.75,
+        1
+      ]
+    },
+    {
+      "path": "shinobij.client/.tmp/pet-shape-review/kestrel-skull-private-v1-runtime-medium/manifest.json",
+      "sha256": "ab46e0a00d59cadef495356af331fc26a23acff51d6f63758203b3960e090cad",
+      "kind": "runtime-manifest"
+    },
+    {
+      "path": "shinobij.client/.tmp/pet-shape-review/kestrel-skull-private-v1-runtime-medium/rare-27-source-head.webp",
+      "sha256": "bfc200106bff1ad119a0fb70383d79126f49f2fc6862c19e602d6f39d3753c74",
+      "kind": "runtime",
+      "stage": "source",
+      "quality": "medium",
+      "view": "head",
+      "assetSha256": "c5ddc0770236d507b70c93ba56ad587c87da9345322b6deb25a98d84be2268ea",
+      "phases": [
+        0.025,
+        0.1,
+        0.25,
+        0.5,
+        0.75,
+        1
+      ]
+    },
+    {
+      "path": "shinobij.client/.tmp/pet-shape-review/kestrel-skull-private-v1-runtime-medium/rare-27-source-body.webp",
+      "sha256": "d799e682f6e2343da747b05e13a73ad314fc283df7b01be4b17cc6f22e6c3480",
+      "kind": "runtime",
+      "stage": "source",
+      "quality": "medium",
+      "view": "body",
+      "assetSha256": "c5ddc0770236d507b70c93ba56ad587c87da9345322b6deb25a98d84be2268ea",
+      "phases": [
+        0.025,
+        0.1,
+        0.25,
+        0.5,
+        0.75,
+        1
+      ]
+    },
+    {
+      "path": "shinobij.client/.tmp/pet-shape-review/kestrel-skull-private-v1-runtime-medium/rare-27-battle-head.webp",
+      "sha256": "865a1ea51a9d337116e94ea317f0c2d662cd534b212a799dfa2f2abfa5c49f31",
+      "kind": "runtime",
+      "stage": "battle",
+      "quality": "medium",
+      "view": "head",
+      "assetSha256": "87f3b8263bbd8ce81cf89e94e6afc4e8f81aa2aab852e16ebf918457af675ee4",
+      "phases": [
+        0.025,
+        0.1,
+        0.25,
+        0.5,
+        0.75,
+        1
+      ]
+    },
+    {
+      "path": "shinobij.client/.tmp/pet-shape-review/kestrel-skull-private-v1-runtime-medium/rare-27-battle-body.webp",
+      "sha256": "b37a42bf53b4c12a252d960d2619596f60eac1022940001f75ded597d5f356d4",
+      "kind": "runtime",
+      "stage": "battle",
+      "quality": "medium",
+      "view": "body",
+      "assetSha256": "87f3b8263bbd8ce81cf89e94e6afc4e8f81aa2aab852e16ebf918457af675ee4",
+      "phases": [
+        0.025,
+        0.1,
+        0.25,
+        0.5,
+        0.75,
+        1
+      ]
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/technique-capture-manifest.json",
+      "sha256": "3b287bf57b9cfd761d0c5fbd1af5fa8ee75c2f072b8146876c580c388d64909d",
+      "kind": "retained-manifest"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/technique-native-strips-manifest.json",
+      "sha256": "1eb9e171f3d9483affce4f020d5c0091b5f663c484d42e5b17459e170b030e82",
+      "kind": "retained-manifest"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/technique-paired-input-manifest.json",
+      "sha256": "3972d10e1e170980a76352660bb3562397cfd46c5fac93b8383dd02ef1f35a70",
+      "kind": "retained-manifest"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/idle-capture-manifest.json",
+      "sha256": "72fc61c82efa51f446014e53c0945043b5eba416f6a2d09599bda5c07fd2a5a0",
+      "kind": "retained-manifest"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/idle-native-input-manifest.json",
+      "sha256": "141eb856fc16c94a3c2232427b2245d46dc68a6fbda42e3fde900506f5e46764",
+      "kind": "retained-manifest"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/atlas-entry-manifest.json",
+      "sha256": "fa3eaedef3d4d455dc1b888658c3d98a52cf1b536ab51c65a0f25f2bf8344ffd",
+      "kind": "retained-atlas-entry"
+    }
+  ],
+  "images": [
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/raw-source-head-front-0.png",
+      "sha256": "585217878bc8fc70969a8ca89a0c3601114064402d21ded1f51d83061978f6e3",
+      "source": "shinobij.client/.tmp/pet-shape-review/parallel-b-kestrel-skull-v1-source-head/rare-27-head-front.webp",
+      "rows": [
+        0,
+        5
+      ],
+      "nativePixelsPreserved": true,
+      "viewed": true,
+      "kind": "raw",
+      "stage": "source",
+      "view": "head-front",
+      "assetSha256": "c5ddc0770236d507b70c93ba56ad587c87da9345322b6deb25a98d84be2268ea",
+      "phases": [
+        0.08,
+        0.28,
+        0.48,
+        0.68,
+        0.88,
+        1
+      ],
+      "viewedAt": "2026-10-20T08:25:00.210Z",
+      "observation": "Fresh independent six-phase source raw inspection across13clips. Beak, eye sockets, cream cheeks and feathered chin remain coherent in front, both sides and two underside views, including attack/cast lean and final death. No collapsing or detached skull surfaces observed."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/raw-source-head-front-1.png",
+      "sha256": "8bf45d2bb80694a11c7b73df18a2a4927caaff54a3eeb50d86f647510c23fb60",
+      "source": "shinobij.client/.tmp/pet-shape-review/parallel-b-kestrel-skull-v1-source-head/rare-27-head-front.webp",
+      "rows": [
+        5,
+        10
+      ],
+      "nativePixelsPreserved": true,
+      "viewed": true,
+      "kind": "raw",
+      "stage": "source",
+      "view": "head-front",
+      "assetSha256": "c5ddc0770236d507b70c93ba56ad587c87da9345322b6deb25a98d84be2268ea",
+      "phases": [
+        0.08,
+        0.28,
+        0.48,
+        0.68,
+        0.88,
+        1
+      ],
+      "viewedAt": "2026-10-20T08:25:00.214Z",
+      "observation": "Fresh independent six-phase source raw inspection across13clips. Beak, eye sockets, cream cheeks and feathered chin remain coherent in front, both sides and two underside views, including attack/cast lean and final death. No collapsing or detached skull surfaces observed."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/raw-source-head-front-2.png",
+      "sha256": "19cf186c518ef6ee11e6ced7e13b3bc4d0a03e2eb5af98fdedc77abae2fef6f3",
+      "source": "shinobij.client/.tmp/pet-shape-review/parallel-b-kestrel-skull-v1-source-head/rare-27-head-front.webp",
+      "rows": [
+        10,
+        13
+      ],
+      "nativePixelsPreserved": true,
+      "viewed": true,
+      "kind": "raw",
+      "stage": "source",
+      "view": "head-front",
+      "assetSha256": "c5ddc0770236d507b70c93ba56ad587c87da9345322b6deb25a98d84be2268ea",
+      "phases": [
+        0.08,
+        0.28,
+        0.48,
+        0.68,
+        0.88,
+        1
+      ],
+      "viewedAt": "2026-10-20T08:25:00.215Z",
+      "observation": "Fresh independent six-phase source raw inspection across13clips. Beak, eye sockets, cream cheeks and feathered chin remain coherent in front, both sides and two underside views, including attack/cast lean and final death. No collapsing or detached skull surfaces observed."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/raw-source-head-side-0.png",
+      "sha256": "7298daf91b58ffc9941489bcdf8438f2a6681c0a57cee39c901a8764373d1188",
+      "source": "shinobij.client/.tmp/pet-shape-review/parallel-b-kestrel-skull-v1-source-head/rare-27-head-side.webp",
+      "rows": [
+        0,
+        5
+      ],
+      "nativePixelsPreserved": true,
+      "viewed": true,
+      "kind": "raw",
+      "stage": "source",
+      "view": "head-side",
+      "assetSha256": "c5ddc0770236d507b70c93ba56ad587c87da9345322b6deb25a98d84be2268ea",
+      "phases": [
+        0.08,
+        0.28,
+        0.48,
+        0.68,
+        0.88,
+        1
+      ],
+      "viewedAt": "2026-10-20T08:25:00.218Z",
+      "observation": "Fresh independent six-phase source raw inspection across13clips. Beak, eye sockets, cream cheeks and feathered chin remain coherent in front, both sides and two underside views, including attack/cast lean and final death. No collapsing or detached skull surfaces observed."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/raw-source-head-side-1.png",
+      "sha256": "7275dda1472155d5da13188f610b1d7ed01e34428619cb82a674eb3b56d3a0bd",
+      "source": "shinobij.client/.tmp/pet-shape-review/parallel-b-kestrel-skull-v1-source-head/rare-27-head-side.webp",
+      "rows": [
+        5,
+        10
+      ],
+      "nativePixelsPreserved": true,
+      "viewed": true,
+      "kind": "raw",
+      "stage": "source",
+      "view": "head-side",
+      "assetSha256": "c5ddc0770236d507b70c93ba56ad587c87da9345322b6deb25a98d84be2268ea",
+      "phases": [
+        0.08,
+        0.28,
+        0.48,
+        0.68,
+        0.88,
+        1
+      ],
+      "viewedAt": "2026-10-20T08:25:00.220Z",
+      "observation": "Fresh independent six-phase source raw inspection across13clips. Beak, eye sockets, cream cheeks and feathered chin remain coherent in front, both sides and two underside views, including attack/cast lean and final death. No collapsing or detached skull surfaces observed."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/raw-source-head-side-2.png",
+      "sha256": "3d22b69b08fc5ae2069b2702885e238d987d550af4ae2fc9c19c0fc39c6e68ea",
+      "source": "shinobij.client/.tmp/pet-shape-review/parallel-b-kestrel-skull-v1-source-head/rare-27-head-side.webp",
+      "rows": [
+        10,
+        13
+      ],
+      "nativePixelsPreserved": true,
+      "viewed": true,
+      "kind": "raw",
+      "stage": "source",
+      "view": "head-side",
+      "assetSha256": "c5ddc0770236d507b70c93ba56ad587c87da9345322b6deb25a98d84be2268ea",
+      "phases": [
+        0.08,
+        0.28,
+        0.48,
+        0.68,
+        0.88,
+        1
+      ],
+      "viewedAt": "2026-10-20T08:25:00.221Z",
+      "observation": "Fresh independent six-phase source raw inspection across13clips. Beak, eye sockets, cream cheeks and feathered chin remain coherent in front, both sides and two underside views, including attack/cast lean and final death. No collapsing or detached skull surfaces observed."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/raw-source-head-other-side-0.png",
+      "sha256": "9c143f05609f6f5c19599c3fa281fa2fa1ef4b73f0c49b6d9419a3b85d10d693",
+      "source": "shinobij.client/.tmp/pet-shape-review/parallel-b-kestrel-skull-v1-source-head/rare-27-head-other-side.webp",
+      "rows": [
+        0,
+        5
+      ],
+      "nativePixelsPreserved": true,
+      "viewed": true,
+      "kind": "raw",
+      "stage": "source",
+      "view": "head-other-side",
+      "assetSha256": "c5ddc0770236d507b70c93ba56ad587c87da9345322b6deb25a98d84be2268ea",
+      "phases": [
+        0.08,
+        0.28,
+        0.48,
+        0.68,
+        0.88,
+        1
+      ],
+      "viewedAt": "2026-10-20T08:25:00.223Z",
+      "observation": "Fresh independent six-phase source raw inspection across13clips. Beak, eye sockets, cream cheeks and feathered chin remain coherent in front, both sides and two underside views, including attack/cast lean and final death. No collapsing or detached skull surfaces observed."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/raw-source-head-other-side-1.png",
+      "sha256": "645685534752220ff3b345468cda2c5954380d3d8eb69bff26ae3bdf668ba8da",
+      "source": "shinobij.client/.tmp/pet-shape-review/parallel-b-kestrel-skull-v1-source-head/rare-27-head-other-side.webp",
+      "rows": [
+        5,
+        10
+      ],
+      "nativePixelsPreserved": true,
+      "viewed": true,
+      "kind": "raw",
+      "stage": "source",
+      "view": "head-other-side",
+      "assetSha256": "c5ddc0770236d507b70c93ba56ad587c87da9345322b6deb25a98d84be2268ea",
+      "phases": [
+        0.08,
+        0.28,
+        0.48,
+        0.68,
+        0.88,
+        1
+      ],
+      "viewedAt": "2026-10-20T08:25:00.225Z",
+      "observation": "Fresh independent six-phase source raw inspection across13clips. Beak, eye sockets, cream cheeks and feathered chin remain coherent in front, both sides and two underside views, including attack/cast lean and final death. No collapsing or detached skull surfaces observed."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/raw-source-head-other-side-2.png",
+      "sha256": "5557e96e78e3660dbb88952eb4de9dafbc1dd320b9150a11633e91bbb980474b",
+      "source": "shinobij.client/.tmp/pet-shape-review/parallel-b-kestrel-skull-v1-source-head/rare-27-head-other-side.webp",
+      "rows": [
+        10,
+        13
+      ],
+      "nativePixelsPreserved": true,
+      "viewed": true,
+      "kind": "raw",
+      "stage": "source",
+      "view": "head-other-side",
+      "assetSha256": "c5ddc0770236d507b70c93ba56ad587c87da9345322b6deb25a98d84be2268ea",
+      "phases": [
+        0.08,
+        0.28,
+        0.48,
+        0.68,
+        0.88,
+        1
+      ],
+      "viewedAt": "2026-10-20T08:25:00.226Z",
+      "observation": "Fresh independent six-phase source raw inspection across13clips. Beak, eye sockets, cream cheeks and feathered chin remain coherent in front, both sides and two underside views, including attack/cast lean and final death. No collapsing or detached skull surfaces observed."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/raw-source-head-under-front-0.png",
+      "sha256": "61be33901b82a4f2f32c8bd476128b3d63615d0ff40ee0d745c5f3a91a56771e",
+      "source": "shinobij.client/.tmp/pet-shape-review/parallel-b-kestrel-skull-v1-source-head/rare-27-head-under-front.webp",
+      "rows": [
+        0,
+        5
+      ],
+      "nativePixelsPreserved": true,
+      "viewed": true,
+      "kind": "raw",
+      "stage": "source",
+      "view": "head-under-front",
+      "assetSha256": "c5ddc0770236d507b70c93ba56ad587c87da9345322b6deb25a98d84be2268ea",
+      "phases": [
+        0.08,
+        0.28,
+        0.48,
+        0.68,
+        0.88,
+        1
+      ],
+      "viewedAt": "2026-10-20T08:25:00.229Z",
+      "observation": "Fresh independent six-phase source raw inspection across13clips. Beak, eye sockets, cream cheeks and feathered chin remain coherent in front, both sides and two underside views, including attack/cast lean and final death. No collapsing or detached skull surfaces observed."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/raw-source-head-under-front-1.png",
+      "sha256": "dc5e2dbba0b6e7e9f70a00423fa94d075403cb5e20b5b25d3b300cec092a0dff",
+      "source": "shinobij.client/.tmp/pet-shape-review/parallel-b-kestrel-skull-v1-source-head/rare-27-head-under-front.webp",
+      "rows": [
+        5,
+        10
+      ],
+      "nativePixelsPreserved": true,
+      "viewed": true,
+      "kind": "raw",
+      "stage": "source",
+      "view": "head-under-front",
+      "assetSha256": "c5ddc0770236d507b70c93ba56ad587c87da9345322b6deb25a98d84be2268ea",
+      "phases": [
+        0.08,
+        0.28,
+        0.48,
+        0.68,
+        0.88,
+        1
+      ],
+      "viewedAt": "2026-10-20T08:25:00.231Z",
+      "observation": "Fresh independent six-phase source raw inspection across13clips. Beak, eye sockets, cream cheeks and feathered chin remain coherent in front, both sides and two underside views, including attack/cast lean and final death. No collapsing or detached skull surfaces observed."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/raw-source-head-under-front-2.png",
+      "sha256": "51c4e2648c9b40b4ec4994ed5675d7e3e67eb537ec145c446f3fcc29b487093f",
+      "source": "shinobij.client/.tmp/pet-shape-review/parallel-b-kestrel-skull-v1-source-head/rare-27-head-under-front.webp",
+      "rows": [
+        10,
+        13
+      ],
+      "nativePixelsPreserved": true,
+      "viewed": true,
+      "kind": "raw",
+      "stage": "source",
+      "view": "head-under-front",
+      "assetSha256": "c5ddc0770236d507b70c93ba56ad587c87da9345322b6deb25a98d84be2268ea",
+      "phases": [
+        0.08,
+        0.28,
+        0.48,
+        0.68,
+        0.88,
+        1
+      ],
+      "viewedAt": "2026-10-20T08:25:00.233Z",
+      "observation": "Fresh independent six-phase source raw inspection across13clips. Beak, eye sockets, cream cheeks and feathered chin remain coherent in front, both sides and two underside views, including attack/cast lean and final death. No collapsing or detached skull surfaces observed."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/raw-source-head-under-side-0.png",
+      "sha256": "beb761e4b3f041cb1cdb5a26cd184b64ca862827850be33314e6fd5aed03a6a6",
+      "source": "shinobij.client/.tmp/pet-shape-review/parallel-b-kestrel-skull-v1-source-head/rare-27-head-under-side.webp",
+      "rows": [
+        0,
+        5
+      ],
+      "nativePixelsPreserved": true,
+      "viewed": true,
+      "kind": "raw",
+      "stage": "source",
+      "view": "head-under-side",
+      "assetSha256": "c5ddc0770236d507b70c93ba56ad587c87da9345322b6deb25a98d84be2268ea",
+      "phases": [
+        0.08,
+        0.28,
+        0.48,
+        0.68,
+        0.88,
+        1
+      ],
+      "viewedAt": "2026-10-20T08:25:00.235Z",
+      "observation": "Fresh independent six-phase source raw inspection across13clips. Beak, eye sockets, cream cheeks and feathered chin remain coherent in front, both sides and two underside views, including attack/cast lean and final death. No collapsing or detached skull surfaces observed."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/raw-source-head-under-side-1.png",
+      "sha256": "d8493a32d3833ff586cd2787f57e7a6ba53af294302cb7ad5fafd7a11e69d068",
+      "source": "shinobij.client/.tmp/pet-shape-review/parallel-b-kestrel-skull-v1-source-head/rare-27-head-under-side.webp",
+      "rows": [
+        5,
+        10
+      ],
+      "nativePixelsPreserved": true,
+      "viewed": true,
+      "kind": "raw",
+      "stage": "source",
+      "view": "head-under-side",
+      "assetSha256": "c5ddc0770236d507b70c93ba56ad587c87da9345322b6deb25a98d84be2268ea",
+      "phases": [
+        0.08,
+        0.28,
+        0.48,
+        0.68,
+        0.88,
+        1
+      ],
+      "viewedAt": "2026-10-20T08:25:00.237Z",
+      "observation": "Fresh independent six-phase source raw inspection across13clips. Beak, eye sockets, cream cheeks and feathered chin remain coherent in front, both sides and two underside views, including attack/cast lean and final death. No collapsing or detached skull surfaces observed."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/raw-source-head-under-side-2.png",
+      "sha256": "c9fcfb9b268f477b1e76f094c6f4825bfe6d9fd4a6b413f879e72b672ebed1d7",
+      "source": "shinobij.client/.tmp/pet-shape-review/parallel-b-kestrel-skull-v1-source-head/rare-27-head-under-side.webp",
+      "rows": [
+        10,
+        13
+      ],
+      "nativePixelsPreserved": true,
+      "viewed": true,
+      "kind": "raw",
+      "stage": "source",
+      "view": "head-under-side",
+      "assetSha256": "c5ddc0770236d507b70c93ba56ad587c87da9345322b6deb25a98d84be2268ea",
+      "phases": [
+        0.08,
+        0.28,
+        0.48,
+        0.68,
+        0.88,
+        1
+      ],
+      "viewedAt": "2026-10-20T08:25:00.239Z",
+      "observation": "Fresh independent six-phase source raw inspection across13clips. Beak, eye sockets, cream cheeks and feathered chin remain coherent in front, both sides and two underside views, including attack/cast lean and final death. No collapsing or detached skull surfaces observed."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/raw-source-front-0.png",
+      "sha256": "74785ff43846e7fc869b8380f1746aae43904f18b61eeef0f55e9753810eca14",
+      "source": "shinobij.client/.tmp/pet-shape-review/parallel-b-kestrel-skull-v1-source-body/rare-27-front.webp",
+      "rows": [
+        0,
+        5
+      ],
+      "nativePixelsPreserved": true,
+      "viewed": true,
+      "kind": "raw",
+      "stage": "source",
+      "view": "front",
+      "assetSha256": "c5ddc0770236d507b70c93ba56ad587c87da9345322b6deb25a98d84be2268ea",
+      "phases": [
+        0.08,
+        0.28,
+        0.48,
+        0.68,
+        0.88,
+        1
+      ],
+      "viewedAt": "2026-10-20T08:29:22.777Z",
+      "observation": "All13 source raw clips at six independent phases inspected front/side full body. Wings, chest, tail, legs and talons remain connected and proportionate during locomotion, jump, attack, recoil, death, entrance, cast, guard, rest and victory."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/raw-source-front-1.png",
+      "sha256": "7c149d8e97068dfd53273e4bb73fdfc6ddae9bfc8388256b73f4de3642c80cf3",
+      "source": "shinobij.client/.tmp/pet-shape-review/parallel-b-kestrel-skull-v1-source-body/rare-27-front.webp",
+      "rows": [
+        5,
+        10
+      ],
+      "nativePixelsPreserved": true,
+      "viewed": true,
+      "kind": "raw",
+      "stage": "source",
+      "view": "front",
+      "assetSha256": "c5ddc0770236d507b70c93ba56ad587c87da9345322b6deb25a98d84be2268ea",
+      "phases": [
+        0.08,
+        0.28,
+        0.48,
+        0.68,
+        0.88,
+        1
+      ],
+      "viewedAt": "2026-10-20T08:29:22.780Z",
+      "observation": "All13 source raw clips at six independent phases inspected front/side full body. Wings, chest, tail, legs and talons remain connected and proportionate during locomotion, jump, attack, recoil, death, entrance, cast, guard, rest and victory."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/raw-source-front-2.png",
+      "sha256": "7f466cad49e80401b000b3089b60d38c8e0b75e9e4e10937bbb1a469c605d9d7",
+      "source": "shinobij.client/.tmp/pet-shape-review/parallel-b-kestrel-skull-v1-source-body/rare-27-front.webp",
+      "rows": [
+        10,
+        13
+      ],
+      "nativePixelsPreserved": true,
+      "viewed": true,
+      "kind": "raw",
+      "stage": "source",
+      "view": "front",
+      "assetSha256": "c5ddc0770236d507b70c93ba56ad587c87da9345322b6deb25a98d84be2268ea",
+      "phases": [
+        0.08,
+        0.28,
+        0.48,
+        0.68,
+        0.88,
+        1
+      ],
+      "viewedAt": "2026-10-20T08:29:22.781Z",
+      "observation": "All13 source raw clips at six independent phases inspected front/side full body. Wings, chest, tail, legs and talons remain connected and proportionate during locomotion, jump, attack, recoil, death, entrance, cast, guard, rest and victory."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/raw-source-side-0.png",
+      "sha256": "e93ee3282c4056511c020d079b0c8e90841a1ecadc4100e3b396aafbdcb931f2",
+      "source": "shinobij.client/.tmp/pet-shape-review/parallel-b-kestrel-skull-v1-source-body/rare-27-side.webp",
+      "rows": [
+        0,
+        5
+      ],
+      "nativePixelsPreserved": true,
+      "viewed": true,
+      "kind": "raw",
+      "stage": "source",
+      "view": "side",
+      "assetSha256": "c5ddc0770236d507b70c93ba56ad587c87da9345322b6deb25a98d84be2268ea",
+      "phases": [
+        0.08,
+        0.28,
+        0.48,
+        0.68,
+        0.88,
+        1
+      ],
+      "viewedAt": "2026-10-20T08:29:22.782Z",
+      "observation": "All13 source raw clips at six independent phases inspected front/side full body. Wings, chest, tail, legs and talons remain connected and proportionate during locomotion, jump, attack, recoil, death, entrance, cast, guard, rest and victory."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/raw-source-side-1.png",
+      "sha256": "f074747758634389f1f428391a34b947cacbd4e2eca980958cebdc8cb97e9d07",
+      "source": "shinobij.client/.tmp/pet-shape-review/parallel-b-kestrel-skull-v1-source-body/rare-27-side.webp",
+      "rows": [
+        5,
+        10
+      ],
+      "nativePixelsPreserved": true,
+      "viewed": true,
+      "kind": "raw",
+      "stage": "source",
+      "view": "side",
+      "assetSha256": "c5ddc0770236d507b70c93ba56ad587c87da9345322b6deb25a98d84be2268ea",
+      "phases": [
+        0.08,
+        0.28,
+        0.48,
+        0.68,
+        0.88,
+        1
+      ],
+      "viewedAt": "2026-10-20T08:29:22.783Z",
+      "observation": "All13 source raw clips at six independent phases inspected front/side full body. Wings, chest, tail, legs and talons remain connected and proportionate during locomotion, jump, attack, recoil, death, entrance, cast, guard, rest and victory."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/raw-source-side-2.png",
+      "sha256": "3d2e644a462c45ade42f6345fc5fce8320ab61f2d3c78dd0da33c00e980608da",
+      "source": "shinobij.client/.tmp/pet-shape-review/parallel-b-kestrel-skull-v1-source-body/rare-27-side.webp",
+      "rows": [
+        10,
+        13
+      ],
+      "nativePixelsPreserved": true,
+      "viewed": true,
+      "kind": "raw",
+      "stage": "source",
+      "view": "side",
+      "assetSha256": "c5ddc0770236d507b70c93ba56ad587c87da9345322b6deb25a98d84be2268ea",
+      "phases": [
+        0.08,
+        0.28,
+        0.48,
+        0.68,
+        0.88,
+        1
+      ],
+      "viewedAt": "2026-10-20T08:29:22.784Z",
+      "observation": "All13 source raw clips at six independent phases inspected front/side full body. Wings, chest, tail, legs and talons remain connected and proportionate during locomotion, jump, attack, recoil, death, entrance, cast, guard, rest and victory."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/raw-battle-head-front-0.png",
+      "sha256": "d6a09424ec999b07fcf2155fa34b722e4c7056416390cbbe305da6290a437c10",
+      "source": "shinobij.client/.tmp/pet-shape-review/parallel-b-kestrel-skull-v1-battle-head/rare-27-head-front.webp",
+      "rows": [
+        0,
+        5
+      ],
+      "nativePixelsPreserved": true,
+      "viewed": true,
+      "kind": "raw",
+      "stage": "battle",
+      "view": "head-front",
+      "assetSha256": "87f3b8263bbd8ce81cf89e94e6afc4e8f81aa2aab852e16ebf918457af675ee4",
+      "phases": [
+        0.08,
+        0.28,
+        0.48,
+        0.68,
+        0.88,
+        1
+      ],
+      "viewedAt": "2026-10-20T08:45:18.244Z",
+      "observation": "All13 battle raw clips at six independent phases inspected in five face directions including both underside views. Beak, eyes, cream cheek and chin keep cohesive shape through attack/cast and death without visible stretching or detached patches."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/raw-battle-head-front-1.png",
+      "sha256": "da7278bfd6f211fa33d7f79266583a6f8f8498a0d72cb143bd32a6954afec189",
+      "source": "shinobij.client/.tmp/pet-shape-review/parallel-b-kestrel-skull-v1-battle-head/rare-27-head-front.webp",
+      "rows": [
+        5,
+        10
+      ],
+      "nativePixelsPreserved": true,
+      "viewed": true,
+      "kind": "raw",
+      "stage": "battle",
+      "view": "head-front",
+      "assetSha256": "87f3b8263bbd8ce81cf89e94e6afc4e8f81aa2aab852e16ebf918457af675ee4",
+      "phases": [
+        0.08,
+        0.28,
+        0.48,
+        0.68,
+        0.88,
+        1
+      ],
+      "viewedAt": "2026-10-20T08:45:18.248Z",
+      "observation": "All13 battle raw clips at six independent phases inspected in five face directions including both underside views. Beak, eyes, cream cheek and chin keep cohesive shape through attack/cast and death without visible stretching or detached patches."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/raw-battle-head-front-2.png",
+      "sha256": "58173b29707c9145448cd3cb770890e5cce079cdddf656a1185508cc41c30684",
+      "source": "shinobij.client/.tmp/pet-shape-review/parallel-b-kestrel-skull-v1-battle-head/rare-27-head-front.webp",
+      "rows": [
+        10,
+        13
+      ],
+      "nativePixelsPreserved": true,
+      "viewed": true,
+      "kind": "raw",
+      "stage": "battle",
+      "view": "head-front",
+      "assetSha256": "87f3b8263bbd8ce81cf89e94e6afc4e8f81aa2aab852e16ebf918457af675ee4",
+      "phases": [
+        0.08,
+        0.28,
+        0.48,
+        0.68,
+        0.88,
+        1
+      ],
+      "viewedAt": "2026-10-20T08:45:18.250Z",
+      "observation": "All13 battle raw clips at six independent phases inspected in five face directions including both underside views. Beak, eyes, cream cheek and chin keep cohesive shape through attack/cast and death without visible stretching or detached patches."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/raw-battle-head-side-0.png",
+      "sha256": "b8631c81fb143a00032178d8d7c3faecd0386787b46b78f935545fe8e6b68afb",
+      "source": "shinobij.client/.tmp/pet-shape-review/parallel-b-kestrel-skull-v1-battle-head/rare-27-head-side.webp",
+      "rows": [
+        0,
+        5
+      ],
+      "nativePixelsPreserved": true,
+      "viewed": true,
+      "kind": "raw",
+      "stage": "battle",
+      "view": "head-side",
+      "assetSha256": "87f3b8263bbd8ce81cf89e94e6afc4e8f81aa2aab852e16ebf918457af675ee4",
+      "phases": [
+        0.08,
+        0.28,
+        0.48,
+        0.68,
+        0.88,
+        1
+      ],
+      "viewedAt": "2026-10-20T08:45:18.252Z",
+      "observation": "All13 battle raw clips at six independent phases inspected in five face directions including both underside views. Beak, eyes, cream cheek and chin keep cohesive shape through attack/cast and death without visible stretching or detached patches."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/raw-battle-head-side-1.png",
+      "sha256": "4bd6ac8cef02e6c8ef8bb9783874590139fc7aa50da4af2f8958698c8d332b2d",
+      "source": "shinobij.client/.tmp/pet-shape-review/parallel-b-kestrel-skull-v1-battle-head/rare-27-head-side.webp",
+      "rows": [
+        5,
+        10
+      ],
+      "nativePixelsPreserved": true,
+      "viewed": true,
+      "kind": "raw",
+      "stage": "battle",
+      "view": "head-side",
+      "assetSha256": "87f3b8263bbd8ce81cf89e94e6afc4e8f81aa2aab852e16ebf918457af675ee4",
+      "phases": [
+        0.08,
+        0.28,
+        0.48,
+        0.68,
+        0.88,
+        1
+      ],
+      "viewedAt": "2026-10-20T08:45:18.254Z",
+      "observation": "All13 battle raw clips at six independent phases inspected in five face directions including both underside views. Beak, eyes, cream cheek and chin keep cohesive shape through attack/cast and death without visible stretching or detached patches."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/raw-battle-head-side-2.png",
+      "sha256": "367ebb2848ec9af7ab328f6834436f1162fb030a65a6e8dd5f15a6f8f9a37a93",
+      "source": "shinobij.client/.tmp/pet-shape-review/parallel-b-kestrel-skull-v1-battle-head/rare-27-head-side.webp",
+      "rows": [
+        10,
+        13
+      ],
+      "nativePixelsPreserved": true,
+      "viewed": true,
+      "kind": "raw",
+      "stage": "battle",
+      "view": "head-side",
+      "assetSha256": "87f3b8263bbd8ce81cf89e94e6afc4e8f81aa2aab852e16ebf918457af675ee4",
+      "phases": [
+        0.08,
+        0.28,
+        0.48,
+        0.68,
+        0.88,
+        1
+      ],
+      "viewedAt": "2026-10-20T08:45:18.256Z",
+      "observation": "All13 battle raw clips at six independent phases inspected in five face directions including both underside views. Beak, eyes, cream cheek and chin keep cohesive shape through attack/cast and death without visible stretching or detached patches."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/raw-battle-head-other-side-0.png",
+      "sha256": "82d4a277b071387f71ec96adad57f93d79a331c1c276d74693c15ec0e6954afd",
+      "source": "shinobij.client/.tmp/pet-shape-review/parallel-b-kestrel-skull-v1-battle-head/rare-27-head-other-side.webp",
+      "rows": [
+        0,
+        5
+      ],
+      "nativePixelsPreserved": true,
+      "viewed": true,
+      "kind": "raw",
+      "stage": "battle",
+      "view": "head-other-side",
+      "assetSha256": "87f3b8263bbd8ce81cf89e94e6afc4e8f81aa2aab852e16ebf918457af675ee4",
+      "phases": [
+        0.08,
+        0.28,
+        0.48,
+        0.68,
+        0.88,
+        1
+      ],
+      "viewedAt": "2026-10-20T08:45:18.258Z",
+      "observation": "All13 battle raw clips at six independent phases inspected in five face directions including both underside views. Beak, eyes, cream cheek and chin keep cohesive shape through attack/cast and death without visible stretching or detached patches."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/raw-battle-head-other-side-1.png",
+      "sha256": "b230a451c67e1ada0db04224a1e324d27d12e86af8f8a154e05fac341df80c7d",
+      "source": "shinobij.client/.tmp/pet-shape-review/parallel-b-kestrel-skull-v1-battle-head/rare-27-head-other-side.webp",
+      "rows": [
+        5,
+        10
+      ],
+      "nativePixelsPreserved": true,
+      "viewed": true,
+      "kind": "raw",
+      "stage": "battle",
+      "view": "head-other-side",
+      "assetSha256": "87f3b8263bbd8ce81cf89e94e6afc4e8f81aa2aab852e16ebf918457af675ee4",
+      "phases": [
+        0.08,
+        0.28,
+        0.48,
+        0.68,
+        0.88,
+        1
+      ],
+      "viewedAt": "2026-10-20T08:45:18.260Z",
+      "observation": "All13 battle raw clips at six independent phases inspected in five face directions including both underside views. Beak, eyes, cream cheek and chin keep cohesive shape through attack/cast and death without visible stretching or detached patches."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/raw-battle-head-other-side-2.png",
+      "sha256": "8332ba6194e726bc1a6c6dd91e8bb55a193c12d964db058298b08becc73dad67",
+      "source": "shinobij.client/.tmp/pet-shape-review/parallel-b-kestrel-skull-v1-battle-head/rare-27-head-other-side.webp",
+      "rows": [
+        10,
+        13
+      ],
+      "nativePixelsPreserved": true,
+      "viewed": true,
+      "kind": "raw",
+      "stage": "battle",
+      "view": "head-other-side",
+      "assetSha256": "87f3b8263bbd8ce81cf89e94e6afc4e8f81aa2aab852e16ebf918457af675ee4",
+      "phases": [
+        0.08,
+        0.28,
+        0.48,
+        0.68,
+        0.88,
+        1
+      ],
+      "viewedAt": "2026-10-20T08:45:18.261Z",
+      "observation": "All13 battle raw clips at six independent phases inspected in five face directions including both underside views. Beak, eyes, cream cheek and chin keep cohesive shape through attack/cast and death without visible stretching or detached patches."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/raw-battle-head-under-front-0.png",
+      "sha256": "d3cd571d52398fc00dcc5df4f4df81702e3de094d2e3a35fc9f7e6d37ab99fe0",
+      "source": "shinobij.client/.tmp/pet-shape-review/parallel-b-kestrel-skull-v1-battle-head/rare-27-head-under-front.webp",
+      "rows": [
+        0,
+        5
+      ],
+      "nativePixelsPreserved": true,
+      "viewed": true,
+      "kind": "raw",
+      "stage": "battle",
+      "view": "head-under-front",
+      "assetSha256": "87f3b8263bbd8ce81cf89e94e6afc4e8f81aa2aab852e16ebf918457af675ee4",
+      "phases": [
+        0.08,
+        0.28,
+        0.48,
+        0.68,
+        0.88,
+        1
+      ],
+      "viewedAt": "2026-10-20T08:45:18.264Z",
+      "observation": "All13 battle raw clips at six independent phases inspected in five face directions including both underside views. Beak, eyes, cream cheek and chin keep cohesive shape through attack/cast and death without visible stretching or detached patches."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/raw-battle-head-under-front-1.png",
+      "sha256": "779e6bd397c569ee8adfcc789638c0b87b1d9a9e91e26807f75f5d5d915452b0",
+      "source": "shinobij.client/.tmp/pet-shape-review/parallel-b-kestrel-skull-v1-battle-head/rare-27-head-under-front.webp",
+      "rows": [
+        5,
+        10
+      ],
+      "nativePixelsPreserved": true,
+      "viewed": true,
+      "kind": "raw",
+      "stage": "battle",
+      "view": "head-under-front",
+      "assetSha256": "87f3b8263bbd8ce81cf89e94e6afc4e8f81aa2aab852e16ebf918457af675ee4",
+      "phases": [
+        0.08,
+        0.28,
+        0.48,
+        0.68,
+        0.88,
+        1
+      ],
+      "viewedAt": "2026-10-20T08:45:18.266Z",
+      "observation": "All13 battle raw clips at six independent phases inspected in five face directions including both underside views. Beak, eyes, cream cheek and chin keep cohesive shape through attack/cast and death without visible stretching or detached patches."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/raw-battle-head-under-front-2.png",
+      "sha256": "8fc4b6a70b578e490c490c32fab033b7f6fe86488ba9e7bb9fbb9c6a0b163da2",
+      "source": "shinobij.client/.tmp/pet-shape-review/parallel-b-kestrel-skull-v1-battle-head/rare-27-head-under-front.webp",
+      "rows": [
+        10,
+        13
+      ],
+      "nativePixelsPreserved": true,
+      "viewed": true,
+      "kind": "raw",
+      "stage": "battle",
+      "view": "head-under-front",
+      "assetSha256": "87f3b8263bbd8ce81cf89e94e6afc4e8f81aa2aab852e16ebf918457af675ee4",
+      "phases": [
+        0.08,
+        0.28,
+        0.48,
+        0.68,
+        0.88,
+        1
+      ],
+      "viewedAt": "2026-10-20T08:45:18.268Z",
+      "observation": "All13 battle raw clips at six independent phases inspected in five face directions including both underside views. Beak, eyes, cream cheek and chin keep cohesive shape through attack/cast and death without visible stretching or detached patches."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/raw-battle-head-under-side-0.png",
+      "sha256": "eadfd2c074db91dac617e2a65d37e11f6f91f4a9434e32bd9707f81afd97273f",
+      "source": "shinobij.client/.tmp/pet-shape-review/parallel-b-kestrel-skull-v1-battle-head/rare-27-head-under-side.webp",
+      "rows": [
+        0,
+        5
+      ],
+      "nativePixelsPreserved": true,
+      "viewed": true,
+      "kind": "raw",
+      "stage": "battle",
+      "view": "head-under-side",
+      "assetSha256": "87f3b8263bbd8ce81cf89e94e6afc4e8f81aa2aab852e16ebf918457af675ee4",
+      "phases": [
+        0.08,
+        0.28,
+        0.48,
+        0.68,
+        0.88,
+        1
+      ],
+      "viewedAt": "2026-10-20T08:45:18.270Z",
+      "observation": "All13 battle raw clips at six independent phases inspected in five face directions including both underside views. Beak, eyes, cream cheek and chin keep cohesive shape through attack/cast and death without visible stretching or detached patches."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/raw-battle-head-under-side-1.png",
+      "sha256": "8af8e3aac072dc7b0180c6e5b2c22da8cd47ed29fdeb80e1d271d73d87e26d91",
+      "source": "shinobij.client/.tmp/pet-shape-review/parallel-b-kestrel-skull-v1-battle-head/rare-27-head-under-side.webp",
+      "rows": [
+        5,
+        10
+      ],
+      "nativePixelsPreserved": true,
+      "viewed": true,
+      "kind": "raw",
+      "stage": "battle",
+      "view": "head-under-side",
+      "assetSha256": "87f3b8263bbd8ce81cf89e94e6afc4e8f81aa2aab852e16ebf918457af675ee4",
+      "phases": [
+        0.08,
+        0.28,
+        0.48,
+        0.68,
+        0.88,
+        1
+      ],
+      "viewedAt": "2026-10-20T08:45:18.272Z",
+      "observation": "All13 battle raw clips at six independent phases inspected in five face directions including both underside views. Beak, eyes, cream cheek and chin keep cohesive shape through attack/cast and death without visible stretching or detached patches."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/raw-battle-head-under-side-2.png",
+      "sha256": "3d2ac6d0e63f3f72195ccb31f010e77342cfb29aeb50460234d5baaa2c3d8475",
+      "source": "shinobij.client/.tmp/pet-shape-review/parallel-b-kestrel-skull-v1-battle-head/rare-27-head-under-side.webp",
+      "rows": [
+        10,
+        13
+      ],
+      "nativePixelsPreserved": true,
+      "viewed": true,
+      "kind": "raw",
+      "stage": "battle",
+      "view": "head-under-side",
+      "assetSha256": "87f3b8263bbd8ce81cf89e94e6afc4e8f81aa2aab852e16ebf918457af675ee4",
+      "phases": [
+        0.08,
+        0.28,
+        0.48,
+        0.68,
+        0.88,
+        1
+      ],
+      "viewedAt": "2026-10-20T08:45:18.274Z",
+      "observation": "All13 battle raw clips at six independent phases inspected in five face directions including both underside views. Beak, eyes, cream cheek and chin keep cohesive shape through attack/cast and death without visible stretching or detached patches."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/raw-battle-front-0.png",
+      "sha256": "30b047e6cc489b839467a8df55c0eb5d598304d643d78137069becf3157830cf",
+      "source": "shinobij.client/.tmp/pet-shape-review/parallel-b-kestrel-skull-v1-battle-body/rare-27-front.webp",
+      "rows": [
+        0,
+        5
+      ],
+      "nativePixelsPreserved": true,
+      "viewed": true,
+      "kind": "raw",
+      "stage": "battle",
+      "view": "front",
+      "assetSha256": "87f3b8263bbd8ce81cf89e94e6afc4e8f81aa2aab852e16ebf918457af675ee4",
+      "phases": [
+        0.08,
+        0.28,
+        0.48,
+        0.68,
+        0.88,
+        1
+      ],
+      "viewedAt": "2026-10-20T08:45:18.275Z",
+      "observation": "All13 battle raw clips at six independent phases inspected front/side full body. Chest, wings, tail, legs and talons retain connected proportionate silhouettes during locomotion, leap, attack, recoil, death, entrance, cast, guard, rest and victory."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/raw-battle-front-1.png",
+      "sha256": "177fbe7f85e37a84199f1f9e5d03520b932161d60ed0e1c3b5a37bc6483c90a0",
+      "source": "shinobij.client/.tmp/pet-shape-review/parallel-b-kestrel-skull-v1-battle-body/rare-27-front.webp",
+      "rows": [
+        5,
+        10
+      ],
+      "nativePixelsPreserved": true,
+      "viewed": true,
+      "kind": "raw",
+      "stage": "battle",
+      "view": "front",
+      "assetSha256": "87f3b8263bbd8ce81cf89e94e6afc4e8f81aa2aab852e16ebf918457af675ee4",
+      "phases": [
+        0.08,
+        0.28,
+        0.48,
+        0.68,
+        0.88,
+        1
+      ],
+      "viewedAt": "2026-10-20T08:45:18.277Z",
+      "observation": "All13 battle raw clips at six independent phases inspected front/side full body. Chest, wings, tail, legs and talons retain connected proportionate silhouettes during locomotion, leap, attack, recoil, death, entrance, cast, guard, rest and victory."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/raw-battle-front-2.png",
+      "sha256": "70423ff457854d7cef156e886b1126983814259bce1b7e6ebea375e33212e2da",
+      "source": "shinobij.client/.tmp/pet-shape-review/parallel-b-kestrel-skull-v1-battle-body/rare-27-front.webp",
+      "rows": [
+        10,
+        13
+      ],
+      "nativePixelsPreserved": true,
+      "viewed": true,
+      "kind": "raw",
+      "stage": "battle",
+      "view": "front",
+      "assetSha256": "87f3b8263bbd8ce81cf89e94e6afc4e8f81aa2aab852e16ebf918457af675ee4",
+      "phases": [
+        0.08,
+        0.28,
+        0.48,
+        0.68,
+        0.88,
+        1
+      ],
+      "viewedAt": "2026-10-20T08:45:18.278Z",
+      "observation": "All13 battle raw clips at six independent phases inspected front/side full body. Chest, wings, tail, legs and talons retain connected proportionate silhouettes during locomotion, leap, attack, recoil, death, entrance, cast, guard, rest and victory."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/raw-battle-side-0.png",
+      "sha256": "d9107746a6cbaed37eab5dc836880e2b24a9284666eff07dbcb4be401e8b4fbb",
+      "source": "shinobij.client/.tmp/pet-shape-review/parallel-b-kestrel-skull-v1-battle-body/rare-27-side.webp",
+      "rows": [
+        0,
+        5
+      ],
+      "nativePixelsPreserved": true,
+      "viewed": true,
+      "kind": "raw",
+      "stage": "battle",
+      "view": "side",
+      "assetSha256": "87f3b8263bbd8ce81cf89e94e6afc4e8f81aa2aab852e16ebf918457af675ee4",
+      "phases": [
+        0.08,
+        0.28,
+        0.48,
+        0.68,
+        0.88,
+        1
+      ],
+      "viewedAt": "2026-10-20T08:45:18.279Z",
+      "observation": "All13 battle raw clips at six independent phases inspected front/side full body. Chest, wings, tail, legs and talons retain connected proportionate silhouettes during locomotion, leap, attack, recoil, death, entrance, cast, guard, rest and victory."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/raw-battle-side-1.png",
+      "sha256": "348bc4f067ad4f7f32f1052405674e3f7f68d94cd2b631f0f439cc43cdc5eb65",
+      "source": "shinobij.client/.tmp/pet-shape-review/parallel-b-kestrel-skull-v1-battle-body/rare-27-side.webp",
+      "rows": [
+        5,
+        10
+      ],
+      "nativePixelsPreserved": true,
+      "viewed": true,
+      "kind": "raw",
+      "stage": "battle",
+      "view": "side",
+      "assetSha256": "87f3b8263bbd8ce81cf89e94e6afc4e8f81aa2aab852e16ebf918457af675ee4",
+      "phases": [
+        0.08,
+        0.28,
+        0.48,
+        0.68,
+        0.88,
+        1
+      ],
+      "viewedAt": "2026-10-20T08:45:18.281Z",
+      "observation": "All13 battle raw clips at six independent phases inspected front/side full body. Chest, wings, tail, legs and talons retain connected proportionate silhouettes during locomotion, leap, attack, recoil, death, entrance, cast, guard, rest and victory."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/raw-battle-side-2.png",
+      "sha256": "b80734c9e0cf0cc2848f231bc61b7cdfbfc33b5ef62d893fd52948a57715d681",
+      "source": "shinobij.client/.tmp/pet-shape-review/parallel-b-kestrel-skull-v1-battle-body/rare-27-side.webp",
+      "rows": [
+        10,
+        13
+      ],
+      "nativePixelsPreserved": true,
+      "viewed": true,
+      "kind": "raw",
+      "stage": "battle",
+      "view": "side",
+      "assetSha256": "87f3b8263bbd8ce81cf89e94e6afc4e8f81aa2aab852e16ebf918457af675ee4",
+      "phases": [
+        0.08,
+        0.28,
+        0.48,
+        0.68,
+        0.88,
+        1
+      ],
+      "viewedAt": "2026-10-20T08:45:18.282Z",
+      "observation": "All13 battle raw clips at six independent phases inspected front/side full body. Chest, wings, tail, legs and talons retain connected proportionate silhouettes during locomotion, leap, attack, recoil, death, entrance, cast, guard, rest and victory."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/runtime-low-source-head-0.png",
+      "sha256": "b07c761bc379aeb8e5b07b2c6fa9b516c74aba1fa043aca322343c63d6cc1d21",
+      "source": "shinobij.client/.tmp/pet-shape-review/kestrel-skull-private-v1-runtime-low/rare-27-source-head.webp",
+      "rows": [
+        0,
+        4
+      ],
+      "nativePixelsPreserved": true,
+      "viewed": true,
+      "kind": "runtime",
+      "stage": "source",
+      "quality": "low",
+      "view": "head",
+      "assetSha256": "c5ddc0770236d507b70c93ba56ad587c87da9345322b6deb25a98d84be2268ea",
+      "phases": [
+        0.025,
+        0.1,
+        0.25,
+        0.5,
+        0.75,
+        1
+      ],
+      "viewedAt": "2026-10-20T08:59:47.088Z",
+      "observation": "Independent low/medium runtime review: beak, eyes, cream cheeks, feathered chin and band stay coherent through all16rows, including lean, death and revive. No skull collapse or detachment observed."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/runtime-low-source-head-1.png",
+      "sha256": "2b7d5af7ea73e573478421725e41913c8e03e8444482370a8b819d0c2cde9a22",
+      "source": "shinobij.client/.tmp/pet-shape-review/kestrel-skull-private-v1-runtime-low/rare-27-source-head.webp",
+      "rows": [
+        4,
+        8
+      ],
+      "nativePixelsPreserved": true,
+      "viewed": true,
+      "kind": "runtime",
+      "stage": "source",
+      "quality": "low",
+      "view": "head",
+      "assetSha256": "c5ddc0770236d507b70c93ba56ad587c87da9345322b6deb25a98d84be2268ea",
+      "phases": [
+        0.025,
+        0.1,
+        0.25,
+        0.5,
+        0.75,
+        1
+      ],
+      "viewedAt": "2026-10-20T08:59:47.090Z",
+      "observation": "Independent low/medium runtime review: beak, eyes, cream cheeks, feathered chin and band stay coherent through all16rows, including lean, death and revive. No skull collapse or detachment observed."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/runtime-low-source-head-2.png",
+      "sha256": "b604cbd7851e33c15e6a52805500c715e2c98aaef72e35587f8d2b8af7327a55",
+      "source": "shinobij.client/.tmp/pet-shape-review/kestrel-skull-private-v1-runtime-low/rare-27-source-head.webp",
+      "rows": [
+        8,
+        12
+      ],
+      "nativePixelsPreserved": true,
+      "viewed": true,
+      "kind": "runtime",
+      "stage": "source",
+      "quality": "low",
+      "view": "head",
+      "assetSha256": "c5ddc0770236d507b70c93ba56ad587c87da9345322b6deb25a98d84be2268ea",
+      "phases": [
+        0.025,
+        0.1,
+        0.25,
+        0.5,
+        0.75,
+        1
+      ],
+      "viewedAt": "2026-10-20T08:59:47.092Z",
+      "observation": "Independent low/medium runtime review: beak, eyes, cream cheeks, feathered chin and band stay coherent through all16rows, including lean, death and revive. No skull collapse or detachment observed."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/runtime-low-source-head-3.png",
+      "sha256": "65bc0f2597f610c49cf6d7ecfb8c0c442b53676b6b0b3529c7c55b32a9622da0",
+      "source": "shinobij.client/.tmp/pet-shape-review/kestrel-skull-private-v1-runtime-low/rare-27-source-head.webp",
+      "rows": [
+        12,
+        16
+      ],
+      "nativePixelsPreserved": true,
+      "viewed": true,
+      "kind": "runtime",
+      "stage": "source",
+      "quality": "low",
+      "view": "head",
+      "assetSha256": "c5ddc0770236d507b70c93ba56ad587c87da9345322b6deb25a98d84be2268ea",
+      "phases": [
+        0.025,
+        0.1,
+        0.25,
+        0.5,
+        0.75,
+        1
+      ],
+      "viewedAt": "2026-10-20T08:59:47.093Z",
+      "observation": "Independent low/medium runtime review: beak, eyes, cream cheeks, feathered chin and band stay coherent through all16rows, including lean, death and revive. No skull collapse or detachment observed."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/runtime-low-source-body-0.png",
+      "sha256": "638fbc3cfd8a8501f0f8bdf34644a3f5a53e491c2af62a9bc8140e780b550887",
+      "source": "shinobij.client/.tmp/pet-shape-review/kestrel-skull-private-v1-runtime-low/rare-27-source-body.webp",
+      "rows": [
+        0,
+        4
+      ],
+      "nativePixelsPreserved": true,
+      "viewed": true,
+      "kind": "runtime",
+      "stage": "source",
+      "quality": "low",
+      "view": "body",
+      "assetSha256": "c5ddc0770236d507b70c93ba56ad587c87da9345322b6deb25a98d84be2268ea",
+      "phases": [
+        0.025,
+        0.1,
+        0.25,
+        0.5,
+        0.75,
+        1
+      ],
+      "viewedAt": "2026-10-20T08:59:47.094Z",
+      "observation": "Independent low/medium runtime review: head follows torso lean and turn; wings, tail, legs and feet remain attached through all16rows. No disjointed or collapsing body parts observed."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/runtime-low-source-body-1.png",
+      "sha256": "08aa746ea308f0fbcb680e528bc271331c0f56a6115686c851a267f02d8d0c9b",
+      "source": "shinobij.client/.tmp/pet-shape-review/kestrel-skull-private-v1-runtime-low/rare-27-source-body.webp",
+      "rows": [
+        4,
+        8
+      ],
+      "nativePixelsPreserved": true,
+      "viewed": true,
+      "kind": "runtime",
+      "stage": "source",
+      "quality": "low",
+      "view": "body",
+      "assetSha256": "c5ddc0770236d507b70c93ba56ad587c87da9345322b6deb25a98d84be2268ea",
+      "phases": [
+        0.025,
+        0.1,
+        0.25,
+        0.5,
+        0.75,
+        1
+      ],
+      "viewedAt": "2026-10-20T08:59:47.095Z",
+      "observation": "Independent low/medium runtime review: head follows torso lean and turn; wings, tail, legs and feet remain attached through all16rows. No disjointed or collapsing body parts observed."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/runtime-low-source-body-2.png",
+      "sha256": "2cd0da37b0f660206246bb46bf8467eb6ddfb858fe48d804e82be087564f956e",
+      "source": "shinobij.client/.tmp/pet-shape-review/kestrel-skull-private-v1-runtime-low/rare-27-source-body.webp",
+      "rows": [
+        8,
+        12
+      ],
+      "nativePixelsPreserved": true,
+      "viewed": true,
+      "kind": "runtime",
+      "stage": "source",
+      "quality": "low",
+      "view": "body",
+      "assetSha256": "c5ddc0770236d507b70c93ba56ad587c87da9345322b6deb25a98d84be2268ea",
+      "phases": [
+        0.025,
+        0.1,
+        0.25,
+        0.5,
+        0.75,
+        1
+      ],
+      "viewedAt": "2026-10-20T08:59:47.096Z",
+      "observation": "Independent low/medium runtime review: head follows torso lean and turn; wings, tail, legs and feet remain attached through all16rows. No disjointed or collapsing body parts observed."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/runtime-low-source-body-3.png",
+      "sha256": "8e8fbc0707772c2d542dec80be34eb3b5cbc6d50f9878a8dcbacb961b341348f",
+      "source": "shinobij.client/.tmp/pet-shape-review/kestrel-skull-private-v1-runtime-low/rare-27-source-body.webp",
+      "rows": [
+        12,
+        16
+      ],
+      "nativePixelsPreserved": true,
+      "viewed": true,
+      "kind": "runtime",
+      "stage": "source",
+      "quality": "low",
+      "view": "body",
+      "assetSha256": "c5ddc0770236d507b70c93ba56ad587c87da9345322b6deb25a98d84be2268ea",
+      "phases": [
+        0.025,
+        0.1,
+        0.25,
+        0.5,
+        0.75,
+        1
+      ],
+      "viewedAt": "2026-10-20T08:59:47.097Z",
+      "observation": "Independent low/medium runtime review: head follows torso lean and turn; wings, tail, legs and feet remain attached through all16rows. No disjointed or collapsing body parts observed."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/runtime-low-battle-head-0.png",
+      "sha256": "daf0d0f895ac30b22c534c6214cbe9ec7cecddb14c75c5a2e1ececd9dd3e9437",
+      "source": "shinobij.client/.tmp/pet-shape-review/kestrel-skull-private-v1-runtime-low/rare-27-battle-head.webp",
+      "rows": [
+        0,
+        4
+      ],
+      "nativePixelsPreserved": true,
+      "viewed": true,
+      "kind": "runtime",
+      "stage": "battle",
+      "quality": "low",
+      "view": "head",
+      "assetSha256": "87f3b8263bbd8ce81cf89e94e6afc4e8f81aa2aab852e16ebf918457af675ee4",
+      "phases": [
+        0.025,
+        0.1,
+        0.25,
+        0.5,
+        0.75,
+        1
+      ],
+      "viewedAt": "2026-10-20T08:59:47.098Z",
+      "observation": "Independent low/medium runtime review: beak, eyes, cream cheeks, feathered chin and band stay coherent through all16rows, including lean, death and revive. No skull collapse or detachment observed."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/runtime-low-battle-head-1.png",
+      "sha256": "12eae92024dcff2a5cccbe005cbf8c9a497cde2767ce33d593c482c0edb4221f",
+      "source": "shinobij.client/.tmp/pet-shape-review/kestrel-skull-private-v1-runtime-low/rare-27-battle-head.webp",
+      "rows": [
+        4,
+        8
+      ],
+      "nativePixelsPreserved": true,
+      "viewed": true,
+      "kind": "runtime",
+      "stage": "battle",
+      "quality": "low",
+      "view": "head",
+      "assetSha256": "87f3b8263bbd8ce81cf89e94e6afc4e8f81aa2aab852e16ebf918457af675ee4",
+      "phases": [
+        0.025,
+        0.1,
+        0.25,
+        0.5,
+        0.75,
+        1
+      ],
+      "viewedAt": "2026-10-20T08:59:47.100Z",
+      "observation": "Independent low/medium runtime review: beak, eyes, cream cheeks, feathered chin and band stay coherent through all16rows, including lean, death and revive. No skull collapse or detachment observed."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/runtime-low-battle-head-2.png",
+      "sha256": "24b0eb14764b52570a3b554ef0b3dc6b9ac3a30bb2455e2a5312f3d81789d392",
+      "source": "shinobij.client/.tmp/pet-shape-review/kestrel-skull-private-v1-runtime-low/rare-27-battle-head.webp",
+      "rows": [
+        8,
+        12
+      ],
+      "nativePixelsPreserved": true,
+      "viewed": true,
+      "kind": "runtime",
+      "stage": "battle",
+      "quality": "low",
+      "view": "head",
+      "assetSha256": "87f3b8263bbd8ce81cf89e94e6afc4e8f81aa2aab852e16ebf918457af675ee4",
+      "phases": [
+        0.025,
+        0.1,
+        0.25,
+        0.5,
+        0.75,
+        1
+      ],
+      "viewedAt": "2026-10-20T08:59:47.101Z",
+      "observation": "Independent low/medium runtime review: beak, eyes, cream cheeks, feathered chin and band stay coherent through all16rows, including lean, death and revive. No skull collapse or detachment observed."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/runtime-low-battle-head-3.png",
+      "sha256": "874031ef84fb1a3fc9eedf061d2fbc5cb458b757597eadb1b028a214bc4b90c5",
+      "source": "shinobij.client/.tmp/pet-shape-review/kestrel-skull-private-v1-runtime-low/rare-27-battle-head.webp",
+      "rows": [
+        12,
+        16
+      ],
+      "nativePixelsPreserved": true,
+      "viewed": true,
+      "kind": "runtime",
+      "stage": "battle",
+      "quality": "low",
+      "view": "head",
+      "assetSha256": "87f3b8263bbd8ce81cf89e94e6afc4e8f81aa2aab852e16ebf918457af675ee4",
+      "phases": [
+        0.025,
+        0.1,
+        0.25,
+        0.5,
+        0.75,
+        1
+      ],
+      "viewedAt": "2026-10-20T08:59:47.102Z",
+      "observation": "Independent low/medium runtime review: beak, eyes, cream cheeks, feathered chin and band stay coherent through all16rows, including lean, death and revive. No skull collapse or detachment observed."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/runtime-low-battle-body-0.png",
+      "sha256": "3263ee9d4b66b0327ea101577764cab82993a9e3529fd594567d1ec39d590efa",
+      "source": "shinobij.client/.tmp/pet-shape-review/kestrel-skull-private-v1-runtime-low/rare-27-battle-body.webp",
+      "rows": [
+        0,
+        4
+      ],
+      "nativePixelsPreserved": true,
+      "viewed": true,
+      "kind": "runtime",
+      "stage": "battle",
+      "quality": "low",
+      "view": "body",
+      "assetSha256": "87f3b8263bbd8ce81cf89e94e6afc4e8f81aa2aab852e16ebf918457af675ee4",
+      "phases": [
+        0.025,
+        0.1,
+        0.25,
+        0.5,
+        0.75,
+        1
+      ],
+      "viewedAt": "2026-10-20T08:59:47.103Z",
+      "observation": "Independent low/medium runtime review: head follows torso lean and turn; wings, tail, legs and feet remain attached through all16rows. No disjointed or collapsing body parts observed."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/runtime-low-battle-body-1.png",
+      "sha256": "27716313adb53bd816e27a9119912f02b4733c1a9be9131b60414e9d8b4118a5",
+      "source": "shinobij.client/.tmp/pet-shape-review/kestrel-skull-private-v1-runtime-low/rare-27-battle-body.webp",
+      "rows": [
+        4,
+        8
+      ],
+      "nativePixelsPreserved": true,
+      "viewed": true,
+      "kind": "runtime",
+      "stage": "battle",
+      "quality": "low",
+      "view": "body",
+      "assetSha256": "87f3b8263bbd8ce81cf89e94e6afc4e8f81aa2aab852e16ebf918457af675ee4",
+      "phases": [
+        0.025,
+        0.1,
+        0.25,
+        0.5,
+        0.75,
+        1
+      ],
+      "viewedAt": "2026-10-20T08:59:47.104Z",
+      "observation": "Independent low/medium runtime review: head follows torso lean and turn; wings, tail, legs and feet remain attached through all16rows. No disjointed or collapsing body parts observed."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/runtime-low-battle-body-2.png",
+      "sha256": "d0ad77275cb91339975cf740e42185f8cfb14fc03027d2502564aff3cbc7f776",
+      "source": "shinobij.client/.tmp/pet-shape-review/kestrel-skull-private-v1-runtime-low/rare-27-battle-body.webp",
+      "rows": [
+        8,
+        12
+      ],
+      "nativePixelsPreserved": true,
+      "viewed": true,
+      "kind": "runtime",
+      "stage": "battle",
+      "quality": "low",
+      "view": "body",
+      "assetSha256": "87f3b8263bbd8ce81cf89e94e6afc4e8f81aa2aab852e16ebf918457af675ee4",
+      "phases": [
+        0.025,
+        0.1,
+        0.25,
+        0.5,
+        0.75,
+        1
+      ],
+      "viewedAt": "2026-10-20T08:59:47.105Z",
+      "observation": "Independent low/medium runtime review: head follows torso lean and turn; wings, tail, legs and feet remain attached through all16rows. No disjointed or collapsing body parts observed."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/runtime-low-battle-body-3.png",
+      "sha256": "2c1033ded326ea984e0cda27d53ddc617470c8bb758f2998ad573af0a69b3889",
+      "source": "shinobij.client/.tmp/pet-shape-review/kestrel-skull-private-v1-runtime-low/rare-27-battle-body.webp",
+      "rows": [
+        12,
+        16
+      ],
+      "nativePixelsPreserved": true,
+      "viewed": true,
+      "kind": "runtime",
+      "stage": "battle",
+      "quality": "low",
+      "view": "body",
+      "assetSha256": "87f3b8263bbd8ce81cf89e94e6afc4e8f81aa2aab852e16ebf918457af675ee4",
+      "phases": [
+        0.025,
+        0.1,
+        0.25,
+        0.5,
+        0.75,
+        1
+      ],
+      "viewedAt": "2026-10-20T08:59:47.106Z",
+      "observation": "Independent low/medium runtime review: head follows torso lean and turn; wings, tail, legs and feet remain attached through all16rows. No disjointed or collapsing body parts observed."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/runtime-medium-source-head-0.png",
+      "sha256": "0e4e61b756c6459a0f901da1b24561e29eddee77a3373c4e440c9967ab399152",
+      "source": "shinobij.client/.tmp/pet-shape-review/kestrel-skull-private-v1-runtime-medium/rare-27-source-head.webp",
+      "rows": [
+        0,
+        4
+      ],
+      "nativePixelsPreserved": true,
+      "viewed": true,
+      "kind": "runtime",
+      "stage": "source",
+      "quality": "medium",
+      "view": "head",
+      "assetSha256": "c5ddc0770236d507b70c93ba56ad587c87da9345322b6deb25a98d84be2268ea",
+      "phases": [
+        0.025,
+        0.1,
+        0.25,
+        0.5,
+        0.75,
+        1
+      ],
+      "viewedAt": "2026-10-20T08:59:47.107Z",
+      "observation": "Independent low/medium runtime review: beak, eyes, cream cheeks, feathered chin and band stay coherent through all16rows, including lean, death and revive. No skull collapse or detachment observed."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/runtime-medium-source-head-1.png",
+      "sha256": "859e2c3ea06e35c198e7f73272fb1b2658a84387cf9aebc62a3c675cad3a8874",
+      "source": "shinobij.client/.tmp/pet-shape-review/kestrel-skull-private-v1-runtime-medium/rare-27-source-head.webp",
+      "rows": [
+        4,
+        8
+      ],
+      "nativePixelsPreserved": true,
+      "viewed": true,
+      "kind": "runtime",
+      "stage": "source",
+      "quality": "medium",
+      "view": "head",
+      "assetSha256": "c5ddc0770236d507b70c93ba56ad587c87da9345322b6deb25a98d84be2268ea",
+      "phases": [
+        0.025,
+        0.1,
+        0.25,
+        0.5,
+        0.75,
+        1
+      ],
+      "viewedAt": "2026-10-20T08:59:47.109Z",
+      "observation": "Independent low/medium runtime review: beak, eyes, cream cheeks, feathered chin and band stay coherent through all16rows, including lean, death and revive. No skull collapse or detachment observed."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/runtime-medium-source-head-2.png",
+      "sha256": "d6c99cb4125e588de202f85cbec007c7609e8fba10d038a5ddd0f73a9981bd20",
+      "source": "shinobij.client/.tmp/pet-shape-review/kestrel-skull-private-v1-runtime-medium/rare-27-source-head.webp",
+      "rows": [
+        8,
+        12
+      ],
+      "nativePixelsPreserved": true,
+      "viewed": true,
+      "kind": "runtime",
+      "stage": "source",
+      "quality": "medium",
+      "view": "head",
+      "assetSha256": "c5ddc0770236d507b70c93ba56ad587c87da9345322b6deb25a98d84be2268ea",
+      "phases": [
+        0.025,
+        0.1,
+        0.25,
+        0.5,
+        0.75,
+        1
+      ],
+      "viewedAt": "2026-10-20T08:59:47.110Z",
+      "observation": "Independent low/medium runtime review: beak, eyes, cream cheeks, feathered chin and band stay coherent through all16rows, including lean, death and revive. No skull collapse or detachment observed."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/runtime-medium-source-head-3.png",
+      "sha256": "ec0ad93436c54a67e194e1bee82d202204581f0ba76ffdc75fa4b884bd04cbbc",
+      "source": "shinobij.client/.tmp/pet-shape-review/kestrel-skull-private-v1-runtime-medium/rare-27-source-head.webp",
+      "rows": [
+        12,
+        16
+      ],
+      "nativePixelsPreserved": true,
+      "viewed": true,
+      "kind": "runtime",
+      "stage": "source",
+      "quality": "medium",
+      "view": "head",
+      "assetSha256": "c5ddc0770236d507b70c93ba56ad587c87da9345322b6deb25a98d84be2268ea",
+      "phases": [
+        0.025,
+        0.1,
+        0.25,
+        0.5,
+        0.75,
+        1
+      ],
+      "viewedAt": "2026-10-20T08:59:47.111Z",
+      "observation": "Independent low/medium runtime review: beak, eyes, cream cheeks, feathered chin and band stay coherent through all16rows, including lean, death and revive. No skull collapse or detachment observed."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/runtime-medium-source-body-0.png",
+      "sha256": "46a05e8c730ef24ef39a500d6029a36e61f3764d9d0ac59eaac14f78675ff224",
+      "source": "shinobij.client/.tmp/pet-shape-review/kestrel-skull-private-v1-runtime-medium/rare-27-source-body.webp",
+      "rows": [
+        0,
+        4
+      ],
+      "nativePixelsPreserved": true,
+      "viewed": true,
+      "kind": "runtime",
+      "stage": "source",
+      "quality": "medium",
+      "view": "body",
+      "assetSha256": "c5ddc0770236d507b70c93ba56ad587c87da9345322b6deb25a98d84be2268ea",
+      "phases": [
+        0.025,
+        0.1,
+        0.25,
+        0.5,
+        0.75,
+        1
+      ],
+      "viewedAt": "2026-10-20T08:59:47.112Z",
+      "observation": "Independent low/medium runtime review: head follows torso lean and turn; wings, tail, legs and feet remain attached through all16rows. No disjointed or collapsing body parts observed."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/runtime-medium-source-body-1.png",
+      "sha256": "01815b8d04041033bbd7f3eb2b956d33374a35dc498f24f05cdba157d926f89f",
+      "source": "shinobij.client/.tmp/pet-shape-review/kestrel-skull-private-v1-runtime-medium/rare-27-source-body.webp",
+      "rows": [
+        4,
+        8
+      ],
+      "nativePixelsPreserved": true,
+      "viewed": true,
+      "kind": "runtime",
+      "stage": "source",
+      "quality": "medium",
+      "view": "body",
+      "assetSha256": "c5ddc0770236d507b70c93ba56ad587c87da9345322b6deb25a98d84be2268ea",
+      "phases": [
+        0.025,
+        0.1,
+        0.25,
+        0.5,
+        0.75,
+        1
+      ],
+      "viewedAt": "2026-10-20T08:59:47.113Z",
+      "observation": "Independent low/medium runtime review: head follows torso lean and turn; wings, tail, legs and feet remain attached through all16rows. No disjointed or collapsing body parts observed."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/runtime-medium-source-body-2.png",
+      "sha256": "e36e583f8c1b62fb074203bc008c06ce141da3556a2e66b5e1f4fa77e3fe9d22",
+      "source": "shinobij.client/.tmp/pet-shape-review/kestrel-skull-private-v1-runtime-medium/rare-27-source-body.webp",
+      "rows": [
+        8,
+        12
+      ],
+      "nativePixelsPreserved": true,
+      "viewed": true,
+      "kind": "runtime",
+      "stage": "source",
+      "quality": "medium",
+      "view": "body",
+      "assetSha256": "c5ddc0770236d507b70c93ba56ad587c87da9345322b6deb25a98d84be2268ea",
+      "phases": [
+        0.025,
+        0.1,
+        0.25,
+        0.5,
+        0.75,
+        1
+      ],
+      "viewedAt": "2026-10-20T08:59:47.114Z",
+      "observation": "Independent low/medium runtime review: head follows torso lean and turn; wings, tail, legs and feet remain attached through all16rows. No disjointed or collapsing body parts observed."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/runtime-medium-source-body-3.png",
+      "sha256": "f8b8d30d7aef05a34e7e1b7314b787a7c005a7a52c3e2031f11a615e70909706",
+      "source": "shinobij.client/.tmp/pet-shape-review/kestrel-skull-private-v1-runtime-medium/rare-27-source-body.webp",
+      "rows": [
+        12,
+        16
+      ],
+      "nativePixelsPreserved": true,
+      "viewed": true,
+      "kind": "runtime",
+      "stage": "source",
+      "quality": "medium",
+      "view": "body",
+      "assetSha256": "c5ddc0770236d507b70c93ba56ad587c87da9345322b6deb25a98d84be2268ea",
+      "phases": [
+        0.025,
+        0.1,
+        0.25,
+        0.5,
+        0.75,
+        1
+      ],
+      "viewedAt": "2026-10-20T08:59:47.115Z",
+      "observation": "Independent low/medium runtime review: head follows torso lean and turn; wings, tail, legs and feet remain attached through all16rows. No disjointed or collapsing body parts observed."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/runtime-medium-battle-head-0.png",
+      "sha256": "3f136972052864a8f65b7e4a515a7a7bfaad91d0439b764ea2a3d66bfe0eefae",
+      "source": "shinobij.client/.tmp/pet-shape-review/kestrel-skull-private-v1-runtime-medium/rare-27-battle-head.webp",
+      "rows": [
+        0,
+        4
+      ],
+      "nativePixelsPreserved": true,
+      "viewed": true,
+      "kind": "runtime",
+      "stage": "battle",
+      "quality": "medium",
+      "view": "head",
+      "assetSha256": "87f3b8263bbd8ce81cf89e94e6afc4e8f81aa2aab852e16ebf918457af675ee4",
+      "phases": [
+        0.025,
+        0.1,
+        0.25,
+        0.5,
+        0.75,
+        1
+      ],
+      "viewedAt": "2026-10-20T08:59:47.116Z",
+      "observation": "Independent low/medium runtime review: beak, eyes, cream cheeks, feathered chin and band stay coherent through all16rows, including lean, death and revive. No skull collapse or detachment observed."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/runtime-medium-battle-head-1.png",
+      "sha256": "8d24c9b48704a52f4732e498a9a61346f46ee4593271e413b3f5a8d58dbd7d77",
+      "source": "shinobij.client/.tmp/pet-shape-review/kestrel-skull-private-v1-runtime-medium/rare-27-battle-head.webp",
+      "rows": [
+        4,
+        8
+      ],
+      "nativePixelsPreserved": true,
+      "viewed": true,
+      "kind": "runtime",
+      "stage": "battle",
+      "quality": "medium",
+      "view": "head",
+      "assetSha256": "87f3b8263bbd8ce81cf89e94e6afc4e8f81aa2aab852e16ebf918457af675ee4",
+      "phases": [
+        0.025,
+        0.1,
+        0.25,
+        0.5,
+        0.75,
+        1
+      ],
+      "viewedAt": "2026-10-20T08:59:47.118Z",
+      "observation": "Independent low/medium runtime review: beak, eyes, cream cheeks, feathered chin and band stay coherent through all16rows, including lean, death and revive. No skull collapse or detachment observed."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/runtime-medium-battle-head-2.png",
+      "sha256": "a488b53a8ea13ec619046f7a75d25a5253fbf2a0942f86ecb7ac771a5266376b",
+      "source": "shinobij.client/.tmp/pet-shape-review/kestrel-skull-private-v1-runtime-medium/rare-27-battle-head.webp",
+      "rows": [
+        8,
+        12
+      ],
+      "nativePixelsPreserved": true,
+      "viewed": true,
+      "kind": "runtime",
+      "stage": "battle",
+      "quality": "medium",
+      "view": "head",
+      "assetSha256": "87f3b8263bbd8ce81cf89e94e6afc4e8f81aa2aab852e16ebf918457af675ee4",
+      "phases": [
+        0.025,
+        0.1,
+        0.25,
+        0.5,
+        0.75,
+        1
+      ],
+      "viewedAt": "2026-10-20T08:59:47.119Z",
+      "observation": "Independent low/medium runtime review: beak, eyes, cream cheeks, feathered chin and band stay coherent through all16rows, including lean, death and revive. No skull collapse or detachment observed."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/runtime-medium-battle-head-3.png",
+      "sha256": "8a5ebd81fda88dcac682aa5f9ac48c6dafd19fd99051bf96c4a6b1cff6973ecb",
+      "source": "shinobij.client/.tmp/pet-shape-review/kestrel-skull-private-v1-runtime-medium/rare-27-battle-head.webp",
+      "rows": [
+        12,
+        16
+      ],
+      "nativePixelsPreserved": true,
+      "viewed": true,
+      "kind": "runtime",
+      "stage": "battle",
+      "quality": "medium",
+      "view": "head",
+      "assetSha256": "87f3b8263bbd8ce81cf89e94e6afc4e8f81aa2aab852e16ebf918457af675ee4",
+      "phases": [
+        0.025,
+        0.1,
+        0.25,
+        0.5,
+        0.75,
+        1
+      ],
+      "viewedAt": "2026-10-20T08:59:47.120Z",
+      "observation": "Independent low/medium runtime review: beak, eyes, cream cheeks, feathered chin and band stay coherent through all16rows, including lean, death and revive. No skull collapse or detachment observed."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/runtime-medium-battle-body-0.png",
+      "sha256": "600109baf9dbaa5a38f80540122cfd5d7bf3a571f591b9b727ee809b4970a924",
+      "source": "shinobij.client/.tmp/pet-shape-review/kestrel-skull-private-v1-runtime-medium/rare-27-battle-body.webp",
+      "rows": [
+        0,
+        4
+      ],
+      "nativePixelsPreserved": true,
+      "viewed": true,
+      "kind": "runtime",
+      "stage": "battle",
+      "quality": "medium",
+      "view": "body",
+      "assetSha256": "87f3b8263bbd8ce81cf89e94e6afc4e8f81aa2aab852e16ebf918457af675ee4",
+      "phases": [
+        0.025,
+        0.1,
+        0.25,
+        0.5,
+        0.75,
+        1
+      ],
+      "viewedAt": "2026-10-20T08:59:47.121Z",
+      "observation": "Independent low/medium runtime review: head follows torso lean and turn; wings, tail, legs and feet remain attached through all16rows. No disjointed or collapsing body parts observed."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/runtime-medium-battle-body-1.png",
+      "sha256": "7e1af21b42990064dd159d1819ea90577f5112ff72e16a72e434242554737ef4",
+      "source": "shinobij.client/.tmp/pet-shape-review/kestrel-skull-private-v1-runtime-medium/rare-27-battle-body.webp",
+      "rows": [
+        4,
+        8
+      ],
+      "nativePixelsPreserved": true,
+      "viewed": true,
+      "kind": "runtime",
+      "stage": "battle",
+      "quality": "medium",
+      "view": "body",
+      "assetSha256": "87f3b8263bbd8ce81cf89e94e6afc4e8f81aa2aab852e16ebf918457af675ee4",
+      "phases": [
+        0.025,
+        0.1,
+        0.25,
+        0.5,
+        0.75,
+        1
+      ],
+      "viewedAt": "2026-10-20T08:59:47.122Z",
+      "observation": "Independent low/medium runtime review: head follows torso lean and turn; wings, tail, legs and feet remain attached through all16rows. No disjointed or collapsing body parts observed."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/runtime-medium-battle-body-2.png",
+      "sha256": "0ae79fb8e505e47162486ef287ecf619b0d425c6577465ce4e85cdf47d1a5a28",
+      "source": "shinobij.client/.tmp/pet-shape-review/kestrel-skull-private-v1-runtime-medium/rare-27-battle-body.webp",
+      "rows": [
+        8,
+        12
+      ],
+      "nativePixelsPreserved": true,
+      "viewed": true,
+      "kind": "runtime",
+      "stage": "battle",
+      "quality": "medium",
+      "view": "body",
+      "assetSha256": "87f3b8263bbd8ce81cf89e94e6afc4e8f81aa2aab852e16ebf918457af675ee4",
+      "phases": [
+        0.025,
+        0.1,
+        0.25,
+        0.5,
+        0.75,
+        1
+      ],
+      "viewedAt": "2026-10-20T08:59:47.123Z",
+      "observation": "Independent low/medium runtime review: head follows torso lean and turn; wings, tail, legs and feet remain attached through all16rows. No disjointed or collapsing body parts observed."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/runtime-medium-battle-body-3.png",
+      "sha256": "2b78c7a22a307448786b447458727fbe9af156f171ac60f26260e720358fabfc",
+      "source": "shinobij.client/.tmp/pet-shape-review/kestrel-skull-private-v1-runtime-medium/rare-27-battle-body.webp",
+      "rows": [
+        12,
+        16
+      ],
+      "nativePixelsPreserved": true,
+      "viewed": true,
+      "kind": "runtime",
+      "stage": "battle",
+      "quality": "medium",
+      "view": "body",
+      "assetSha256": "87f3b8263bbd8ce81cf89e94e6afc4e8f81aa2aab852e16ebf918457af675ee4",
+      "phases": [
+        0.025,
+        0.1,
+        0.25,
+        0.5,
+        0.75,
+        1
+      ],
+      "viewedAt": "2026-10-20T08:59:47.124Z",
+      "observation": "Independent low/medium runtime review: head follows torso lean and turn; wings, tail, legs and feet remain attached through all16rows. No disjointed or collapsing body parts observed."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/technique-front-block-0.png",
+      "sha256": "5f1ba29f32b759de46876c55bd88352a10011e43e35629cf662ead4d8f64269b",
+      "kind": "companion-techniques",
+      "viewed": true,
+      "viewedAt": "2026-10-20T09:02:48.473Z",
+      "observation": "Independently inspected all36 sampled frames in this native paired strip. Beak, eye, cheeks, feathered chin, torso, wings, tail and legs stay coherent; full silhouette fits height1.8 and feet remain above the disc.",
+      "stage": "battle",
+      "assetSha256": "87f3b8263bbd8ce81cf89e94e6afc4e8f81aa2aab852e16ebf918457af675ee4",
+      "nativePixelsPreserved": true
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/technique-front-block-1.png",
+      "sha256": "b3f9082c9bca38d9168597b1fd681e65dd0340b637029dd1107db08e9791edda",
+      "kind": "companion-techniques",
+      "viewed": true,
+      "viewedAt": "2026-10-20T09:02:48.478Z",
+      "observation": "Independently inspected all36 sampled frames in this native paired strip. Beak, eye, cheeks, feathered chin, torso, wings, tail and legs stay coherent; full silhouette fits height1.8 and feet remain above the disc.",
+      "stage": "battle",
+      "assetSha256": "87f3b8263bbd8ce81cf89e94e6afc4e8f81aa2aab852e16ebf918457af675ee4",
+      "nativePixelsPreserved": true
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/technique-front-block-2.png",
+      "sha256": "563949eaac6732833dd4c584495d4d26b6c35259f8442fc54070a9402e8c1c4d",
+      "kind": "companion-techniques",
+      "viewed": true,
+      "viewedAt": "2026-10-20T09:02:48.481Z",
+      "observation": "Independently inspected all36 sampled frames in this native paired strip. Beak, eye, cheeks, feathered chin, torso, wings, tail and legs stay coherent; full silhouette fits height1.8 and feet remain above the disc.",
+      "stage": "battle",
+      "assetSha256": "87f3b8263bbd8ce81cf89e94e6afc4e8f81aa2aab852e16ebf918457af675ee4",
+      "nativePixelsPreserved": true
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/technique-side-block-0.png",
+      "sha256": "cb34924d09cb936ec77e3b3794ad9025aec28bb94b13f47af9b34a874e14a84e",
+      "kind": "companion-techniques",
+      "viewed": true,
+      "viewedAt": "2026-10-20T09:02:48.484Z",
+      "observation": "Independently inspected all36 sampled frames in this native paired strip. Beak, eye, cheeks, feathered chin, torso, wings, tail and legs stay coherent; full silhouette fits height1.8 and feet remain above the disc.",
+      "stage": "battle",
+      "assetSha256": "87f3b8263bbd8ce81cf89e94e6afc4e8f81aa2aab852e16ebf918457af675ee4",
+      "nativePixelsPreserved": true
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/technique-side-block-1.png",
+      "sha256": "c15c61c9f15c0e908d8eea4416fedc253c1604ed2de4510c23afd26d62f0678d",
+      "kind": "companion-techniques",
+      "viewed": true,
+      "viewedAt": "2026-10-20T09:02:48.487Z",
+      "observation": "Independently inspected all36 sampled frames in this native paired strip. Beak, eye, cheeks, feathered chin, torso, wings, tail and legs stay coherent; full silhouette fits height1.8 and feet remain above the disc.",
+      "stage": "battle",
+      "assetSha256": "87f3b8263bbd8ce81cf89e94e6afc4e8f81aa2aab852e16ebf918457af675ee4",
+      "nativePixelsPreserved": true
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/technique-side-block-2.png",
+      "sha256": "915190d2aeb64b5f74b7c843efd17147e4d3e9cd607a4cb47f41c4dd27836585",
+      "kind": "companion-techniques",
+      "viewed": true,
+      "viewedAt": "2026-10-20T09:02:48.491Z",
+      "observation": "Independently inspected all36 sampled frames in this native paired strip. Beak, eye, cheeks, feathered chin, torso, wings, tail and legs stay coherent; full silhouette fits height1.8 and feet remain above the disc.",
+      "stage": "battle",
+      "assetSha256": "87f3b8263bbd8ce81cf89e94e6afc4e8f81aa2aab852e16ebf918457af675ee4",
+      "nativePixelsPreserved": true
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/idle-native-24.png",
+      "sha256": "1bba4587a32b408d311fd39074a33af3ae0a789f7b5dd5ce80e638387fe27d19",
+      "kind": "companion-idle",
+      "viewed": true,
+      "viewedAt": "2026-10-20T09:02:48.516Z",
+      "observation": "All24 advancing idle frames independently inspected. Face, feathered chin, band, wings, tail and legs remain coherent; whole silhouette visible, feet above preview disc."
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-b-2026-10-20/rare-27-skull-v1/atlas-private.webp",
+      "sha256": "aabceed1f1e815835c9bd2dbcf8e7e042b049535d279bd11b5585b478587ad31",
+      "kind": "atlas",
+      "viewed": true,
+      "viewedAt": "2026-10-20T09:02:48.524Z",
+      "observation": "All16 private atlas cells independently inspected. Head, beak, cheeks and chin remain coherent; wings, tail and feet remain attached through attack, hit and death cells."
+    }
+  ],
+  "complete": true,
+  "accepted": true,
+  "findings": [],
+  "limits": "Private candidate scope only. Historical rejection and camera-only scope immutable. Raw WebP capture uses existing harness quality85; native PNG slices preserve decoded evidence pixels without resizing. No canonical or live delivery approval.",
+  "atlasSha256": "aabceed1f1e815835c9bd2dbcf8e7e042b049535d279bd11b5585b478587ad31",
+  "coverage": {
+    "freshRaw": {
+      "clipsPerStage": 13,
+      "stages": [
+        "source",
+        "battle"
+      ],
+      "phases": [
+        0.08,
+        0.28,
+        0.48,
+        0.68,
+        0.88,
+        1
+      ],
+      "faceViews": [
+        "front",
+        "side",
+        "other-side",
+        "under-front",
+        "under-side"
+      ],
+      "bodyViews": [
+        "front",
+        "side"
+      ]
+    },
+    "runtime": {
+      "rowsPerStageAndQuality": 16,
+      "stages": [
+        "source",
+        "battle"
+      ],
+      "qualities": [
+        "low",
+        "medium"
+      ],
+      "scopes": [
+        "head",
+        "body"
+      ],
+      "phases": [
+        0.025,
+        0.1,
+        0.25,
+        0.5,
+        0.75,
+        1
+      ]
+    },
+    "companionIdleFrames": 24,
+    "companionTechniqueFrames": 216,
+    "companionTechniqueStage": "battle",
+    "moves": [
+      "fire-strike",
+      "fire-pulse",
+      "fire-breaker",
+      "earth-pulse",
+      "undertow",
+      "mend",
+      "purify",
+      "aegis",
+      "rare-27-signature"
+    ],
+    "atlasCells": 16
+  },
+  "status": "independent-private-candidate-visual-review-complete-pending-parent-integration",
+  "completedAt": "2026-10-20T09:02:48.526Z",
+  "observation": "No visible skull distortion, face collapse, disjointed limbs, preview framing loss or preview floor occlusion observed in this exact candidate sampled scope. Beak, eyes, cream cheeks and feathered chin stay coherent with head motion, and head follows torso lean and turn."
+}

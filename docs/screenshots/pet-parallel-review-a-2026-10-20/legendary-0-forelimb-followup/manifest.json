@@ -1,0 +1,143 @@
+{
+  "id": "legendary-0",
+  "label": "parallel-a-glacier-forelimb-quarter-native3x",
+  "rendererSha256": "b2253b71fbcb21a83d82de35ab5783dd57b525cfc94740fb131dd1eb0049a897",
+  "companionComponentSha256": "dd0e422cec9458b37fb370c4ebc0af7717d129f93540420ea3a14c371f400dcd",
+  "captureHarnessSha256": "6e5d6faa4e547907d08813a9a4df86925ab1ddd86f6fcd0183577778e5c9cd8c",
+  "models": [
+    {
+      "url": "/pet-models/warfront-lod/roster/legendary-0.glb?v=20260902-battle-lod-v1-b58e7aa7271d-e31d47b97728",
+      "sha256": "d5677ee35f52ab2462325e2f25e4cbce4e43d17e1433f1d7769c0cfedb790a43"
+    }
+  ],
+  "moves": [
+    "water-strike"
+  ],
+  "views": [
+    "quarter",
+    "opposite"
+  ],
+  "requests": [
+    "https://localhost:5207/pet-models/warfront-lod/roster/legendary-0.glb?v=20260902-battle-lod-v1-b58e7aa7271d-e31d47b97728",
+    "https://localhost:5207/pet-models/warfront-lod/roster/legendary-0.glb?v=20260902-battle-lod-v1-b58e7aa7271d-e31d47b97728"
+  ],
+  "errors": [],
+  "frames": [
+    {
+      "move": "water-strike",
+      "view": "quarter",
+      "i": 0,
+      "time": 0.06,
+      "engine": "three.js r185",
+      "previewFrames": "7",
+      "previewTime": "0.20700000000000002",
+      "previewMotion": "windup",
+      "previewCalls": "2",
+      "previewTriangles": "10032",
+      "previewModel": "/pet-models/warfront-lod/roster/legendary-0.glb?v=20260902-battle-lod-v1-b58e7aa7271d-e31d47b97728",
+      "previewCare": "",
+      "previewCareSerial": "0",
+      "previewAppearance": "original",
+      "previewCollar": "",
+      "name": "legendary-0-water-strike-quarter-0.png",
+      "sha256": "e56396dbcdfd188413b1c941661b99d13ec462c09f7a299d929fe4cb0ee070eb"
+    },
+    {
+      "move": "water-strike",
+      "view": "quarter",
+      "i": 1,
+      "time": 0.36,
+      "engine": "three.js r185",
+      "previewFrames": "14",
+      "previewTime": "0.495",
+      "previewMotion": "windup",
+      "previewCalls": "2",
+      "previewTriangles": "10032",
+      "previewModel": "/pet-models/warfront-lod/roster/legendary-0.glb?v=20260902-battle-lod-v1-b58e7aa7271d-e31d47b97728",
+      "previewCare": "",
+      "previewCareSerial": "0",
+      "previewAppearance": "original",
+      "previewCollar": "",
+      "name": "legendary-0-water-strike-quarter-1.png",
+      "sha256": "22157785dbcb38ebfbda61d07b457eba367aa21163f2c5fb2da0b0c267da67e1"
+    },
+    {
+      "move": "water-strike",
+      "view": "quarter",
+      "i": 2,
+      "time": 0.6,
+      "engine": "three.js r185",
+      "previewFrames": "20",
+      "previewTime": "0.7510000000000002",
+      "previewMotion": "strike",
+      "previewCalls": "2",
+      "previewTriangles": "10032",
+      "previewModel": "/pet-models/warfront-lod/roster/legendary-0.glb?v=20260902-battle-lod-v1-b58e7aa7271d-e31d47b97728",
+      "previewCare": "",
+      "previewCareSerial": "0",
+      "previewAppearance": "original",
+      "previewCollar": "",
+      "name": "legendary-0-water-strike-quarter-2.png",
+      "sha256": "8b29a4567a5295f79d81c9f65a02234bb685e17c0a04839201f0781ee0dd0537"
+    },
+    {
+      "move": "water-strike",
+      "view": "opposite",
+      "i": 0,
+      "time": 0.06,
+      "engine": "three.js r185",
+      "previewFrames": "25",
+      "previewTime": "0.9110000000000004",
+      "previewMotion": "windup",
+      "previewCalls": "2",
+      "previewTriangles": "10032",
+      "previewModel": "/pet-models/warfront-lod/roster/legendary-0.glb?v=20260902-battle-lod-v1-b58e7aa7271d-e31d47b97728",
+      "previewCare": "",
+      "previewCareSerial": "0",
+      "previewAppearance": "original",
+      "previewCollar": "",
+      "name": "legendary-0-water-strike-opposite-0.png",
+      "sha256": "42c6c171a19ad0a0a24c9d5542d950c95db84594fae091888ed09ad96576c8ac"
+    },
+    {
+      "move": "water-strike",
+      "view": "opposite",
+      "i": 1,
+      "time": 0.36,
+      "engine": "three.js r185",
+      "previewFrames": "32",
+      "previewTime": "1.2150000000000005",
+      "previewMotion": "windup",
+      "previewCalls": "2",
+      "previewTriangles": "10032",
+      "previewModel": "/pet-models/warfront-lod/roster/legendary-0.glb?v=20260902-battle-lod-v1-b58e7aa7271d-e31d47b97728",
+      "previewCare": "",
+      "previewCareSerial": "0",
+      "previewAppearance": "original",
+      "previewCollar": "",
+      "name": "legendary-0-water-strike-opposite-1.png",
+      "sha256": "7266d5d7844bbfd4162c6b2784276e8956f1087e61ec743866d97ebd810d9a0a"
+    },
+    {
+      "move": "water-strike",
+      "view": "opposite",
+      "i": 2,
+      "time": 0.6,
+      "engine": "three.js r185",
+      "previewFrames": "38",
+      "previewTime": "1.4550000000000007",
+      "previewMotion": "strike",
+      "previewCalls": "2",
+      "previewTriangles": "10032",
+      "previewModel": "/pet-models/warfront-lod/roster/legendary-0.glb?v=20260902-battle-lod-v1-b58e7aa7271d-e31d47b97728",
+      "previewCare": "",
+      "previewCareSerial": "0",
+      "previewAppearance": "original",
+      "previewCollar": "",
+      "name": "legendary-0-water-strike-opposite-2.png",
+      "sha256": "7ab1b2448a30c6ed26e6fc243a9b86bf0cf2b814e38722465a4329d12f70d225"
+    }
+  ],
+  "sheets": [],
+  "review": "pending"
+}
