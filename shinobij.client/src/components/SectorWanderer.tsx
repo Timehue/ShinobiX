@@ -22,6 +22,7 @@ import { wandererAvatar } from "../lib/wanderer-art";
 import { loiterPositionAt } from "../lib/wanderer-loiter";
 import { serverNow } from "../lib/server-clock";
 import { createSectorNavigator } from "../lib/sector-path-waypoint";
+import { advanceAuthoredGroundMotion } from "../lib/authored-ground-motion";
 import { safeSectorTile, sectorObstaclesOn } from "../lib/sector-obstacles";
 import { isWalkableTile } from "../../../shared/sector-walk-mask";
 import { SECTOR_MARKER_ANCHOR, SECTOR_RING_AI, sectorMarkerBox } from "../lib/sector-marker";
@@ -236,6 +237,7 @@ export function SectorWanderer({
         const clearance=()=>routineRef.current?.clearance;
         let navigate = createSectorNavigator(worldPlayer !== null,clearance);
         const maxDt = reduced ? REDUCED_STEP_MS / 1000 : SMOOTH_MAX_DT;
+        let routineDebtMs = 0;
         const schedule = () => {
             if ((routineRef.current||nativeWork) && (document.hidden || isCoveredByCombat())) return;
             if (reduced) stepTimerRef.current = window.setTimeout(() => tick(performance.now()), REDUCED_STEP_MS);
@@ -247,7 +249,8 @@ export function SectorWanderer({
         const tick = (ts: number) => {
             const wanderer = wandererRef.current;
             if (!lastTsRef.current) lastTsRef.current = ts;
-            const dt = Math.min(maxDt, (ts - lastTsRef.current) / 1000);
+            const elapsedMs = Math.max(0, ts - lastTsRef.current);
+            const dt = Math.min(maxDt, elapsedMs / 1000);
             lastTsRef.current = ts;
 
             const p = posRef.current;
@@ -264,14 +267,19 @@ export function SectorWanderer({
             if(nativeWork&&nativeReady.current&&!life){if(figRef.current)figRef.current.style.visibility='hidden';setWalking(false);schedule();return;}
             if (life) {
                 if (document.hidden) { setWalking(false); schedule(); return; }
-                const now = serverNow(), pose = lifeActorPosition(sector, life, reduced ? Math.floor(now / REDUCED_STEP_MS) * REDUCED_STEP_MS : now);
+                const now = serverNow();
                 // Weather and event changes choose a new destination, never a new
                 // position. The established navigator walks there through real ground.
-                const next = navigate(sector,p,pose), dx = next.col-p.col, dy = next.row-p.row;
-                const distance = Math.hypot(dx,dy), step = Math.min(distance, .6*dt);
-                if (Math.abs(dx) > .005) facingRef.current = dx < 0 ? -1 : 1;
-                if (distance > .001) posRef.current = { col:p.col+dx/distance*step,row:p.row+dy/distance*step };
-                applyFacing(); setWalking(distance > .02 && !reduced); paint();
+                const motion = advanceAuthoredGroundMotion({
+                    position: p, elapsedMs: elapsedMs + routineDebtMs, now,
+                    maxStepMs: maxDt * 1000, speed: .6,
+                    targetAt: at => lifeActorPosition(sector, life, reduced ? Math.floor(at / REDUCED_STEP_MS) * REDUCED_STEP_MS : at),
+                    navigate: (position, target) => navigate(sector, position, target),
+                });
+                routineDebtMs = motion.unconsumedMs;
+                posRef.current = motion.position;
+                if (Math.abs(motion.facingDelta) > .005) facingRef.current = motion.facingDelta < 0 ? -1 : 1;
+                applyFacing(); setWalking(motion.remainingDistance > .02 && !reduced); paint();
                 if(indoors(life,posRef.current,now)){if(figRef.current)figRef.current.style.visibility='hidden';schedule();return;}
                 const near = Math.hypot(pcol - posRef.current.col, prow - posRef.current.row) <= 1.8;
                 if (!near) greetedRef.current = false;
@@ -373,6 +381,7 @@ export function SectorWanderer({
         const syncRoutine = () => {
             if (!routineRef.current&&!nativeWork) return;
             cancelAnimationFrame(rafRef.current); window.clearTimeout(stepTimerRef.current); lastTsRef.current = 0;
+            routineDebtMs = 0;
             const nextPaused=document.hidden||isCoveredByCombat();
             if(paused&&!nextPaused&&routineRef.current){
                 const now=serverNow(),pose=lifeActorPosition(sector,routineRef.current,reduced?Math.floor(now/REDUCED_STEP_MS)*REDUCED_STEP_MS:now);
