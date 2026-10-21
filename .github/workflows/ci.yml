@@ -702,9 +702,9 @@ jobs:
             groundProject: desktop
           - shard: 6
             lifeShard: 4/8
-            groundProject: phone
           - shard: 7
             lifeShard: 5/8
+            groundProject: phone
           - shard: 8
             lifeShard: 6/8
           - shard: 9
@@ -841,7 +841,7 @@ jobs:
         working-directory: shinobij.client
         run: node --import tsx node_modules/@playwright/test/cli.js test --config playwright.chronicle-stop.config.ts --forbid-only 2>&1 | tee ../.ci-evidence/e2e-responsive-flows-${{ matrix.shard }}/chronicle-stop.log
       - name: Pet-inspired ground wildlife and pause behavior
-        if: ${{ matrix.shard == 5 || matrix.shard == 6 }}
+        if: ${{ matrix.shard == 5 || matrix.shard == 7 }}
         working-directory: shinobij.client
         run: node --import tsx node_modules/@playwright/test/cli.js test --config playwright.ground-wildlife.config.ts --project=${{ matrix.groundProject }} --forbid-only 2>&1 | tee ../.ci-evidence/e2e-responsive-flows-${{ matrix.shard }}/ground-wildlife.log
       - name: Dock shipment delivery and cached aftermath

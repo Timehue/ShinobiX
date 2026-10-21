@@ -186,13 +186,18 @@ test('dedicated world suites run once without sharing living-sector job budgets'
     assert.deepEqual(entries.filter((entry) => entry.body.includes('lifeShard:'))
         .map((entry) => [entry.shard, entry.body.match(/lifeShard: (\d+\/8)/)?.[1]]),
         Array.from({ length: 8 }, (_, index) => [index + 3, `${index + 1}/8`]));
+    assert.deepEqual(entries.filter((entry) => entry.body.includes('groundProject:'))
+        .map((entry) => [entry.shard, entry.body.match(/groundProject: (\w+)/)?.[1]]),
+        [[5, 'desktop'], [7, 'phone']]);
     assert.deepEqual(entries.filter((entry) => entry.body.includes('dockProject:'))
         .map((entry) => [entry.shard, entry.body.match(/dockProject: (\w+)/)?.[1]]),
         [[11, 'desktop'], [12, 'phone']]);
     const steps = flows.split('      - name: ');
     const life = steps.find((step) => step.startsWith('Living sectors, weather and native actor routines\n'));
+    const wildlife = steps.find((step) => step.startsWith('Pet-inspired ground wildlife and pause behavior\n'));
     const dock = steps.find((step) => step.startsWith('Dock shipment delivery and cached aftermath\n'));
     assert.ok(life?.includes('if: ${{ matrix.shard >= 3 && matrix.shard <= 10 }}'));
+    assert.ok(wildlife?.includes('if: ${{ matrix.shard == 5 || matrix.shard == 7 }}'));
     assert.ok(dock?.includes('if: ${{ matrix.shard == 11 || matrix.shard == 12 }}'));
     assert.doesNotMatch(dock, /continue-on-error|--grep|--max-failures/);
     for (const [name, shard] of [['Painted terrain resource placement', 12], ['Chronicle stop and daytime handover', 11]]) {
