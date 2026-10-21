@@ -1,4 +1,5 @@
 import { INVENTORY_CAP, INVENTORY_FULL_ERROR } from '../_inventory-capacity.js';
+import { isPetFood, isCraftOnlyPetFood } from '../../shared/pet-food.js';
 import { gatheringTool, gatheringToolOwned, initializeGatheringTool } from '../../shared/gathering-tools.js';
 import {
     appendSettlementReceipt,
@@ -99,6 +100,7 @@ function itemCount(items: StoredItems, itemId: string): number {
 }
 
 function holdCap(item: SettlementItem): number | null {
+    if (isPetFood(item.id)) return MAX_STACK;
     if (wildBindingSeal(item.id)) return 99;
     const slot = item.slot === 'weapon' ? 'hand' : item.slot === 'armor' ? 'body' : item.slot === 'accessory' ? 'aura' : item.slot;
     if (slot === 'potion') return 2;
@@ -114,6 +116,7 @@ function itemCurrency(item: SettlementItem): ShopCurrency | null {
 }
 
 export function isPurchasableItem(item: SettlementItem): boolean {
+    if (isCraftOnlyPetFood(item.id)) return false;
     if (!SHOP_SLOTS.has(item.slot) || item.cost <= 0) return false;
     const craftOnlyWeapon = item.slot === 'hand' && item.weaponEp != null && ['rare', 'epic', 'legendary'].includes(item.rarity);
     const normalizedSlot = item.slot === 'armor' ? 'body' : item.slot;

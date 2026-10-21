@@ -246,11 +246,11 @@ describe('step B wiring — every armed entry point still calls the seal', () =>
 
         // Clan Boss applies the guard inside its operation-specific encounter
         // configurator, so the handler-level ordering guard follows that call.
-        const clanBoss = readFileSync(join(root, 'api/clan-boss/assault-start.ts'), 'utf8');
-        const configure = clanBoss.indexOf('configureClanBossEncounter(session');
-        const clanBossStart = clanBoss.indexOf('startRound(session)');
-        assert.ok(configure > 0 && clanBossStart > 0, 'api/clan-boss/assault-start.ts: fixture check — config and start present');
-        assert.ok(configure < clanBossStart, 'api/clan-boss/assault-start.ts: the encounter config must precede startRound');
+        const clanBoss = readFileSync(join(root, 'api/clan-boss/_start-publication.ts'), 'utf8');
+        const configure = clanBoss.indexOf('configureClanBossEncounter(current');
+        const clanBossStart = clanBoss.indexOf('startRound(current)');
+        assert.ok(configure > 0 && clanBossStart > 0, 'api/clan-boss/_start-publication.ts: fixture check — config and start present');
+        assert.ok(configure < clanBossStart, 'api/clan-boss/_start-publication.ts: the encounter config must precede startRound');
     });
 
     it('the weekly boss and Anbu Vault stay deliberately unarmed', () => {

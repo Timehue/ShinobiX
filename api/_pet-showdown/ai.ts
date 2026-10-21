@@ -17,7 +17,7 @@
 import { PET_CATALOG } from '../pet/_catalog.js';
 import { petPvpGear, petTraits } from '../_pet-sim/pet-config.js';
 import type { Pet } from '../_pet-sim/pet-types.js';
-import { growthPointsSpent, normalizePetGrowth, sanitizeGrowthAllocation } from '../pet/_growth.js';
+import { growthPointsEarned, growthPointsSpent, normalizePetGrowth, sanitizeGrowthAllocation, PET_GROWTH_VERSION } from '../pet/_growth.js';
 import {
     SHOWDOWN_ELEMENT_BEATS,
     SHOWDOWN_GUARD_COST,
@@ -302,16 +302,17 @@ export function buildColosseumAiTeam(
         ...team,
         pets: team.pets.map((pet, index) => {
             const tpl = PET_CATALOG[String(pet.templateId)];
-            const earned = Math.max(0, Number(pet.level) - 1);
+            const earned = growthPointsEarned(pet.level);
             const reference = matched[index] as unknown as Record<string, unknown> | undefined;
             // Scrappers leave half their points unspent. Warriors/champions
             // spend a legal balanced budget; traits and gear supply the tier edge.
             const spent = sparring && reference
-                ? growthPointsSpent(sanitizeGrowthAllocation(reference.growthAllocation, pet.level))
+                ? growthPointsSpent(sanitizeGrowthAllocation(normalizePetGrowth(reference).growthAllocation, pet.level))
                 : tier === 'scrapper' ? Math.floor(earned / 2) : earned;
             const each = Math.floor(spent / 4);
             return normalizePetGrowth({
                 ...pet,
+                growthVersion: PET_GROWTH_VERSION,
                 // Match trait investment too. Giving every sparring opponent a
                 // free combat trait made an untraited squad lose ~4/5 team bouts.
                 ...(sparring && reference ? { trait: reference.trait } : {}),
