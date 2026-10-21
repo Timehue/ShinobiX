@@ -31,7 +31,7 @@ test("a 720ms-late callback catches authored training motion up before the share
 
     const states = actors.map(actor => ({ col: actor.restTile % 12, row: Math.floor(actor.restTile / 12) }));
     const navigators = actors.map(() => createSectorNavigator());
-    let lastCallbackAt = [start, start];
+    const lastCallbackAt = [start, start];
     const advance = (index: number, now: number) => {
         const elapsedMs = now - lastCallbackAt[index]!;
         const result = advanceAuthoredGroundMotion({
