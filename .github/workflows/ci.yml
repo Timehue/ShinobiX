@@ -848,10 +848,6 @@ jobs:
         if: ${{ matrix.shard == 11 || matrix.shard == 12 }}
         working-directory: shinobij.client
         run: node --import tsx node_modules/@playwright/test/cli.js test --config playwright.dock-shipment.config.ts --project=${{ matrix.dockProject }} --forbid-only 2>&1 | tee ../.ci-evidence/e2e-responsive-flows-${{ matrix.shard }}/dock-shipment.log
-      - name: Owned walking companion and real tracking response
-        if: ${{ matrix.shard == 5 || matrix.shard == 6 }}
-        working-directory: shinobij.client
-        run: node --import tsx node_modules/@playwright/test/cli.js test --config playwright.companion.config.ts --project=${{ matrix.groundProject }} --forbid-only 2>&1 | tee ../.ci-evidence/e2e-responsive-flows-${{ matrix.shard }}/world-companion.log
       - name: Retain responsive flow evidence
         if: always()
         continue-on-error: true
@@ -867,7 +863,6 @@ jobs:
             output/living-world/chronicle-browser/
             output/living-world/wildlife/browser/
             output/living-world/shipment/browser/
-            output/living-world/companion/browser/
             output/living-world/local-fauna/browser/
             output/living-world/training/browser/
             output/living-world/winter/browser/

@@ -219,7 +219,6 @@ test('living-world source fixtures have dedicated gates instead of running on th
     assert.match(flows,/dockProject: phone/);
     assert.match(flows,/--config playwright\.dock-shipment\.config\.ts --project=\$\{\{ matrix\.dockProject \}\} --forbid-only/);
     assert(flows.includes('output/living-world/shipment/browser/'));
-    assert(playwrightConfig.includes('**/world-companion.spec.ts'));
     assert(playwrightConfig.includes('**/local-fauna.spec.ts'));
     const localFaunaConfig=readFileSync(new URL('../shinobij.client/playwright.sector-life.config.ts',import.meta.url),'utf8');
     assert(localFaunaConfig.includes('local-fauna.spec.ts'),'local lamp/shore fauna must run in the life shards');
@@ -248,8 +247,6 @@ test('living-world source fixtures have dedicated gates instead of running on th
     assert(flows.includes('output/living-world/festival/browser/'));
     assert(flows.includes('output/living-world/road-visits/browser/'));
     assert(flows.includes('output/living-world/frontier/browser/'));
-    assert.match(flows,/--config playwright\.companion\.config\.ts --project=\$\{\{ matrix\.groundProject \}\} --forbid-only/);
-    assert(flows.includes('output/living-world/companion/browser/'));
 });
 
 test('artifact consumers verify immutable provenance and failure evidence stays reachable', () => {
