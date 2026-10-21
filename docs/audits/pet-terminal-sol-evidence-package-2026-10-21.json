@@ -103,8 +103,8 @@
     "durableInputs": "Mythic-6 report/index, seven capture manifests, 21 personally viewed contact sheets, exact source/battle pair, and recipe are mapped under docs evidence. Existing baseline receipts and prior compatibility audit remain in repo unchanged."
   },
   "evidencePackage": {
-    "pathMap": "docs/audits/pet-terminal-sol-evidence-path-map-2026-10-21.v4.json",
-    "pathMapEntryCount": 587,
+    "pathMap": "docs/audits/pet-terminal-sol-evidence-path-map-2026-10-21.v6.json",
+    "pathMapEntryCount": 602,
     "coverage": {
       "mythic1": "review plus 4 manifests; 10 raw clip sheets; 8 runtime sheets; 37 companion contact sheets",
       "mythic6": "review/evidence index; 7 capture manifests; 21 personally viewed source/battle/runtime sheets",
@@ -114,9 +114,9 @@
     },
     "excluded": "Per-frame technique PNG collections and unrelated capture intermediates omitted. Original reports and manifests remain byte-identical.",
     "pathMapPreviousVersion": {
-      "path": "docs/audits/pet-terminal-sol-evidence-path-map-2026-10-21.v1.json",
-      "sha256": "6410536712a5da11c175d1e8133612125d49341456c4e6803d9ec88b3e8fe4a3",
-      "reason": "Preserved because Marmot second-review evidence inventory binds to the original 576-entry map hash."
+      "path": "docs/audits/pet-terminal-sol-evidence-path-map-2026-10-21.v5.json",
+      "sha256": "75f6bca062d6a67510e67bee7898f4af57f794f39cb2dc4a89cec9a31f90d0c4",
+      "reason": "Superseded by v6 to restore original historical atlas bytes, remove an invalid Pebble Tortoise archive key, and verify merged archive references."
     },
     "previousPathMaps": [
       {
@@ -133,8 +133,165 @@
         "path": "docs/audits/pet-terminal-sol-evidence-path-map-2026-10-21.v3.json",
         "sha256": "b35746f76d687f3845ea48879fe57f24b0a99c669dd0f85e7ecd0accc79f4259",
         "reason": "Superseded by v4 to include terminal ground-selector TypeScript-only compatibility proof."
+      },
+      {
+        "path": "docs/audits/pet-terminal-sol-evidence-path-map-2026-10-21.v4.json",
+        "sha256": "aaa4f316774b24ad5daa932d4fd3ddf3acd51d3c59203c43417d6931c1a6cfe0",
+        "reason": "Superseded by v5 after integrating 15 valid archived atlas references from the merged production manifest."
+      },
+      {
+        "path": "docs/audits/pet-terminal-sol-evidence-path-map-2026-10-21.v5.json",
+        "sha256": "75f6bca062d6a67510e67bee7898f4af57f794f39cb2dc4a89cec9a31f90d0c4",
+        "reason": "Superseded by v6 after correcting original archived atlas bytes and the Pebble Tortoise reference key."
       }
-    ]
+    ],
+    "productionReferenceArchiveCorrection": {
+      "productionManifest": "shinobij.client/art-source/pet-portrait-refresh/production.json",
+      "productionManifestSha256": "6f250484bad733a3aa6d239ec03fea8ee5a21cb718bac044ef4c2d9d9cbc47c2",
+      "invalidArchiveKeyRemoved": {
+        "petId": "starter-earth",
+        "referenceKey": "pet-models/warfront-impostors/starter-earth-r.webp",
+        "reason": "The Pebble Tortoise entry does not reference this key; its reference SHA and archived file remain preserved."
+      },
+      "restoredOriginalAtlasBytes": [
+        {
+          "id": "mythic-1",
+          "key": "pet-models/warfront-impostors/roster/mythic-1.webp",
+          "archive": "shinobij.client/art-source/pet-portrait-refresh/reference-archive/mythic-1-model-atlas.webp",
+          "sha256": "6b903ccb6dea931f978768cfcfa92279282b6d14c2082d8a379f1bfaa41df9c5",
+          "bytes": 73740
+        },
+        {
+          "id": "mythic-6",
+          "key": "pet-models/warfront-impostors/roster/mythic-6.webp",
+          "archive": "shinobij.client/art-source/pet-portrait-refresh/reference-archive/mythic-6-model-atlas.webp",
+          "sha256": "1ab9e5912c74a035d6ac04b96e39fcb33836691c2ca8aff1cb0dd2da5e11fb62",
+          "bytes": 124966
+        },
+        {
+          "id": "standard-1",
+          "key": "pet-models/warfront-impostors/roster/standard-1.webp",
+          "archive": "shinobij.client/art-source/pet-portrait-refresh/reference-archive/standard-1-model-atlas.webp",
+          "sha256": "31edeae4e337fadef326482481984e1192ad137e2425c01e8b96de917bdc3e2f",
+          "bytes": 75314
+        },
+        {
+          "id": "standard-49",
+          "key": "pet-models/warfront-impostors/roster/standard-49.webp",
+          "archive": "shinobij.client/art-source/pet-portrait-refresh/reference-archive/standard-49-model-atlas.webp",
+          "sha256": "b3b66cb26fc13b370a67045c878bf0393ae970d40e674236b20d3785b1e77cda",
+          "bytes": 91422
+        }
+      ],
+      "newArchiveReferenceCount": 15,
+      "newArchiveReferences": [
+        {
+          "id": "legendary-0",
+          "reference": "pet-models/warfront-impostors/roster/legendary-0.webp",
+          "path": "shinobij.client/art-source/pet-portrait-refresh/reference-archive/legendary-0-model-atlas.webp",
+          "sha256": "70dd5a3cb971d326c886f28cb46362467507e29a14b2a7e57b22582421a9c6a0",
+          "bytes": 97732
+        },
+        {
+          "id": "rare-0",
+          "reference": "pet-models/warfront-impostors/roster/rare-0.webp",
+          "path": "shinobij.client/art-source/pet-portrait-refresh/reference-archive/rare-0-model-atlas.webp",
+          "sha256": "73d50d2d2aff80b61ff782a0a11afd635543e1031de398c094348f17ca41c68e",
+          "bytes": 91198
+        },
+        {
+          "id": "rare-5",
+          "reference": "pet-models/warfront-impostors/roster/rare-5.webp",
+          "path": "shinobij.client/art-source/pet-portrait-refresh/reference-archive/rare-5-model-atlas.webp",
+          "sha256": "09a12aaea03861471d9d27a160b97eea141a59872abe2e58a2543c0dcc1660ba",
+          "bytes": 86314
+        },
+        {
+          "id": "rare-8",
+          "reference": "pet-models/warfront-impostors/roster/rare-8.webp",
+          "path": "shinobij.client/art-source/pet-portrait-refresh/reference-archive/rare-8-model-atlas.webp",
+          "sha256": "7c4918fd503314b6942c5fe1c6afcd4ee02f12dfc86b09156be8239c94033458",
+          "bytes": 70676
+        },
+        {
+          "id": "rare-9",
+          "reference": "pet-models/warfront-impostors/roster/rare-9.webp",
+          "path": "shinobij.client/art-source/pet-portrait-refresh/reference-archive/rare-9-model-atlas.webp",
+          "sha256": "835c19f66eba509269db4fee0e4008328b6ab20c4df015956072faaf069a8b94",
+          "bytes": 122900
+        },
+        {
+          "id": "rare-27",
+          "reference": "pet-models/warfront-impostors/roster/rare-27.webp",
+          "path": "shinobij.client/art-source/pet-portrait-refresh/reference-archive/rare-27-model-atlas.webp",
+          "sha256": "b0ebd712e4d484cdd2ed2a2e856bed8a1e3366bdbe6c21c112f40be5f7a9443c",
+          "bytes": 95136
+        },
+        {
+          "id": "rare-32",
+          "reference": "pet-models/warfront-impostors/roster/rare-32.webp",
+          "path": "shinobij.client/art-source/pet-portrait-refresh/reference-archive/rare-32-model-atlas.webp",
+          "sha256": "e4e02e22b7591a5051babbbc6741067453d70bba7daf439d42cd096d9048126f",
+          "bytes": 91624
+        },
+        {
+          "id": "rare-34",
+          "reference": "pet-models/warfront-impostors/roster/rare-34.webp",
+          "path": "shinobij.client/art-source/pet-portrait-refresh/reference-archive/rare-34-model-atlas.webp",
+          "sha256": "bba668be0ff1b0a6cccf3f095e74ef4b60194f2b1eeef9dde32c1904a4838275",
+          "bytes": 96442
+        },
+        {
+          "id": "rare-42",
+          "reference": "pet-models/warfront-impostors/roster/rare-42.webp",
+          "path": "shinobij.client/art-source/pet-portrait-refresh/reference-archive/rare-42-model-atlas.webp",
+          "sha256": "17b0e17f53f59992e17ca019f3c843922b4c6335dcc5e133d4e89ee7dd2f68e4",
+          "bytes": 92098
+        },
+        {
+          "id": "rare-45",
+          "reference": "pet-models/warfront-impostors/roster/rare-45.webp",
+          "path": "shinobij.client/art-source/pet-portrait-refresh/reference-archive/rare-45-model-atlas.webp",
+          "sha256": "066706db3024786839bb78c3352009b3401648640a2d4bb9109a797be6a6d0d3",
+          "bytes": 89850
+        },
+        {
+          "id": "rare-47",
+          "reference": "pet-models/warfront-impostors/roster/rare-47.webp",
+          "path": "shinobij.client/art-source/pet-portrait-refresh/reference-archive/rare-47-model-atlas.webp",
+          "sha256": "bb932c53596a3a07e751c54139fa4a078e20f4db61cbe0bff59ea04ce38374e6",
+          "bytes": 97704
+        },
+        {
+          "id": "rare-48",
+          "reference": "pet-models/warfront-impostors/roster/rare-48.webp",
+          "path": "shinobij.client/art-source/pet-portrait-refresh/reference-archive/rare-48-model-atlas.webp",
+          "sha256": "89ca30e9b33ddc87c900f33e8e32d2ff9c7ace2fc91e0ea5128381c00f040c9f",
+          "bytes": 144102
+        },
+        {
+          "id": "rare-49",
+          "reference": "pet-models/warfront-impostors/roster/rare-49.webp",
+          "path": "shinobij.client/art-source/pet-portrait-refresh/reference-archive/rare-49-model-atlas.webp",
+          "sha256": "6f53441d373a9f04d4523eb99f25af23bb6fd2831d0f62a1b175a1ffe3a9db25",
+          "bytes": 81596
+        },
+        {
+          "id": "standard-47",
+          "reference": "pet-models/warfront-impostors/roster/standard-47.webp",
+          "path": "shinobij.client/art-source/pet-portrait-refresh/reference-archive/standard-47-model-atlas.webp",
+          "sha256": "9d08734a28c786a49231137997f538b721a8a2754ccb19dcf9cc7a2edd334214",
+          "bytes": 104708
+        },
+        {
+          "id": "standard-48",
+          "reference": "pet-models/warfront-impostors/roster/standard-48.webp",
+          "path": "shinobij.client/art-source/pet-portrait-refresh/reference-archive/standard-48-model-atlas.webp",
+          "sha256": "b7cb597d9100372bc0893f57a4099b7fb16af657b272ae79aeabd3ebce8365c6",
+          "bytes": 105050
+        }
+      ]
+    }
   },
   "disposition": "pending root canonical-receipt writing, regression assertions, CI and release gate",
   "rendererTypeCompatibilityProof": {
