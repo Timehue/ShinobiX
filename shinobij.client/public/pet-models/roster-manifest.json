@@ -264,7 +264,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "5CD4F15ECF24BDC4A35412147B46452168B73D2B513C07D1CE00F5D74289C269",
+      "sha256": "9B6AA18CDDBEEEDE40E785E339BE1C4C30B0B8C3AB84CCA211D95947A93F7FCE",
       "validation": {
         "ok": true,
         "reason": null,
@@ -338,6 +338,11 @@
         ],
         "changedVertices": 9986,
         "rigidVertices": 7455
+      },
+      "reviewedSolRepair": {
+        "sourceSha256": "9b6aa18cddbeeede40e785e339be1c4c30b0b8c3ab84cca211d95947a93f7fce",
+        "battleSha256": "ef764629d13c6385ac9fad182e24ceff5cb8110049580d3dc4486b7cc990b827",
+        "review": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-1-neck-v2-second/luna-independent-visual-review.json"
       }
     },
     "standard-2": {
@@ -8589,7 +8594,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "2BD30C89AB58360DC537CDCB6BF58EF53097B73F5811D96A7A254FF99A2A00A4",
+      "sha256": "B0460AEA919ABB8BF18C368A57685C5BA599DDAF942D753A4EFFB2650EB496E7",
       "validation": {
         "ok": true,
         "reason": null,
@@ -8668,6 +8673,11 @@
         ],
         "changedVertices": 12386,
         "rigidVertices": 7788
+      },
+      "reviewedSolRepair": {
+        "review": "docs/audits/pet-loam-marmot-private-tail-repair-visual-review-2026-10-20.json",
+        "sourceSha256": "b0460aea919abb8bf18c368a57685c5ba599ddaf942d753a4effb2650eb496e7",
+        "battleSha256": "1f5117dff1ff08fe4bc8814563a6c87867a923bee81a88bbfec574f72c8dad77"
       }
     },
     "rare-0": {
@@ -29888,7 +29898,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.96,
-      "sha256": "FA0F43712BC768A60BE9BAC2DE985D8D66B7EA6AED7E15BA8D856F7FFFE7EF19",
+      "sha256": "AD04FF49992B7C02633938346D50CF83F448F638A376A486BB5CE747F88EE3B9",
       "visualReview": {
         "passed": true,
         "reason": "Worldstorm Dragon is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation. Accepted after 2 paid reconstruction attempts; rejected candidates remain quarantined for audit."
@@ -30991,6 +31001,11 @@
             "poseWithoutOriginalLimbTrack": "Retain fitted bind pose under the existing animated torso; no invented leg movement."
           }
         ]
+      },
+      "reviewedSolRepair": {
+        "review": "docs/audits/pet-worldstorm-v2-review-2026-10-21/review.json",
+        "sourceSha256": "ad04ff49992b7c02633938346d50cf83f448f638a376a486bb5ce747f88ee3b9",
+        "battleSha256": "965db23b916189e3f57214ab89be6e08b609fe48dbf00345707728b64af517c2"
       }
     },
     "mythic-2": {
@@ -33575,7 +33590,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "29FE007D1943642B97042072C25A4D7A0FCD5B2BE1F28AD0E7DD71971BB17692",
+      "sha256": "CCBD1932C455BAB07859FCA73B5C9B75C6197087BEB35FBFBF602477ED0BA723",
       "visualReview": {
         "passed": true,
         "reason": "Azure Ryujin is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -34407,6 +34422,11 @@
             "poseWithoutOriginalLimbTrack": "Retain fitted bind pose under the existing animated torso; no invented leg movement."
           }
         ]
+      },
+      "reviewedSolRepair": {
+        "review": "docs/audits/pet-parallel-review-c-2026-10-20/mythic-6-private-v3/review.json",
+        "sourceSha256": "ccbd1932c455bab07859fca73b5c9b75c6197087beb35fbfbf602477ed0ba723",
+        "battleSha256": "adef4034b636c5c97041a3f0d35e541efd128fdd6b45af0d2de998ec7aa1f18d"
       }
     },
     "mythic-7": {

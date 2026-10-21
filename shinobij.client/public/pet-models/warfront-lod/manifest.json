@@ -25,9 +25,9 @@
     "minSilhouetteIoU": 0.975
   },
   "totals": {
-    "sourceBytes": 120622720,
-    "lodBytes": 76047308,
-    "sourceTriangles": 5996106,
+    "sourceBytes": 123481236,
+    "lodBytes": 76402596,
+    "sourceTriangles": 5994132,
     "lodTriangles": 1634733
   },
   "entries": [
@@ -808,11 +808,11 @@
     },
     {
       "sourceUrl": "/pet-models/roster/mythic-1.glb",
-      "lodUrl": "/pet-models/warfront-lod/roster/mythic-1.glb?v=20260902-battle-lod-v1-fa0f43712bc7-c5c0710e6a08",
-      "sourceBytes": 1187116,
-      "lodBytes": 531900,
-      "sourceSha256": "fa0f43712bc768a60be9bac2de985d8d66b7ea6aed7e15ba8d856f7fffe7ef19",
-      "lodSha256": "c5c0710e6a08a71adf0552aaceaf1ac6da67461db5dcf581bfc0d40ab335b702",
+      "lodUrl": "/pet-models/warfront-lod/roster/mythic-1.glb?v=20260902-battle-lod-v1-ad04ff49992b-965db23b9161",
+      "sourceBytes": 1203608,
+      "lodBytes": 548268,
+      "sourceSha256": "ad04ff49992b7c02633938346d50cf83f448f638a376a486bb5ce747f88ee3b9",
+      "lodSha256": "965db23b916189e3f57214ab89be6e08b609fe48dbf00345707728b64af517c2",
       "sourceTriangles": 40000,
       "lodTriangles": 10000,
       "reduction": 0.75,
@@ -1083,11 +1083,11 @@
     },
     {
       "sourceUrl": "/pet-models/roster/mythic-6.glb",
-      "lodUrl": "/pet-models/warfront-lod/roster/mythic-6.glb?v=20260902-battle-lod-v1-29fe007d1943-f05d82acdcdb",
-      "sourceBytes": 1405460,
-      "lodBytes": 680568,
-      "sourceSha256": "29fe007d1943642b97042072c25a4d7a0fcd5b2be1f28ad0e7dd71971bb17692",
-      "lodSha256": "f05d82acdcdb171167788a6709b05f4e161888107792a3f3cf5edc0a8c709fa8",
+      "lodUrl": "/pet-models/warfront-lod/roster/mythic-6.glb?v=20260902-battle-lod-v1-ccbd1932c455-adef4034b636",
+      "sourceBytes": 1410112,
+      "lodBytes": 685196,
+      "sourceSha256": "ccbd1932c455bab07859fca73b5c9b75c6197087beb35fbfbf602477ed0ba723",
+      "lodSha256": "adef4034b636c5c97041a3f0d35e541efd128fdd6b45af0d2de998ec7aa1f18d",
       "sourceTriangles": 40000,
       "lodTriangles": 10000,
       "reduction": 0.75,
@@ -2433,17 +2433,17 @@
     },
     {
       "sourceUrl": "/pet-models/roster/standard-1.glb",
-      "lodUrl": "/pet-models/warfront-lod/roster/standard-1.glb?v=20260902-battle-lod-v1-5cd4f15ecf24-586802127273",
-      "sourceBytes": 606708,
-      "lodBytes": 388292,
-      "sourceSha256": "5cd4f15ecf24bdc4a35412147b46452168b73d2b513c07d1ce00f5d74289c269",
-      "lodSha256": "5868021272730f76f28bd843dca19400611bd5d68a952f4837dde9a34dfbff64",
+      "lodUrl": "/pet-models/warfront-lod/roster/standard-1.glb?v=20260902-battle-lod-v1-9b6aa18cddbe-ef764629d13c",
+      "sourceBytes": 3065336,
+      "lodBytes": 513532,
+      "sourceSha256": "9b6aa18cddbeeede40e785e339be1c4c30b0b8c3ab84cca211d95947a93f7fce",
+      "lodSha256": "ef764629d13c6385ac9fad182e24ceff5cb8110049580d3dc4486b7cc990b827",
       "sourceTriangles": 40000,
       "lodTriangles": 10000,
       "reduction": 0.75,
       "lowPolySource": false,
       "sourceVertices": 25355,
-      "lodVertices": 8229,
+      "lodVertices": 8222,
       "skins": 1,
       "joints": 21,
       "animations": 13,
@@ -2451,9 +2451,9 @@
       "textures": 1,
       "boundsMaxDelta": 0,
       "silhouettes": {
-        "front": 0.993806,
-        "threeQuarter": 0.992003,
-        "side": 0.994266
+        "front": 0.993066,
+        "threeQuarter": 0.990963,
+        "side": 0.993747
       }
     },
     {
@@ -3508,17 +3508,17 @@
     },
     {
       "sourceUrl": "/pet-models/roster/standard-49.glb",
-      "lodUrl": "/pet-models/warfront-lod/roster/standard-49.glb?v=20260902-battle-lod-v1-2bd30c89ab58-85ef2f91a3fe",
-      "sourceBytes": 601676,
-      "lodBytes": 375788,
-      "sourceSha256": "2bd30c89ab58360dc537cdcb6bf58ef53097b73f5811d96a7a254ff99a2a00a4",
-      "lodSha256": "85ef2f91a3fe5f7c9825dba549cc6c99fd7b1e65c0ccea470170b4e4d4611a17",
-      "sourceTriangles": 40000,
+      "lodUrl": "/pet-models/warfront-lod/roster/standard-49.glb?v=20260902-battle-lod-v1-b0460aea919a-1f5117dff1ff",
+      "sourceBytes": 948940,
+      "lodBytes": 523748,
+      "sourceSha256": "b0460aea919abb8bf18c368a57685c5ba599ddaf942d753a4effb2650eb496e7",
+      "lodSha256": "1f5117dff1ff08fe4bc8814563a6c87867a923bee81a88bbfec574f72c8dad77",
+      "sourceTriangles": 38026,
       "lodTriangles": 10000,
-      "reduction": 0.75,
+      "reduction": 0.737022,
       "lowPolySource": false,
-      "sourceVertices": 26939,
-      "lodVertices": 8785,
+      "sourceVertices": 25807,
+      "lodVertices": 8776,
       "skins": 1,
       "joints": 21,
       "animations": 13,
@@ -3526,9 +3526,9 @@
       "textures": 1,
       "boundsMaxDelta": 0,
       "silhouettes": {
-        "front": 0.994887,
-        "threeQuarter": 0.994922,
-        "side": 0.996218
+        "front": 0.994985,
+        "threeQuarter": 0.995235,
+        "side": 0.995827
       }
     },
     {
@@ -3758,17 +3758,17 @@
     },
     {
       "sourceUrl": "/pet-models/starter-earth-r.glb",
-      "lodUrl": "/pet-models/warfront-lod/starter-earth-r.glb?v=20260902-battle-lod-v1-0a5245954cdf-bc881dd5538d",
-      "sourceBytes": 678788,
-      "lodBytes": 488840,
-      "sourceSha256": "0a5245954cdf15e302165ed00cf8fee0a64f3fe735eb4dc6470c717eedb4b6cf",
-      "lodSha256": "bc881dd5538d59419f83e33e679d6bc8be606939082ce767628990c74fce162b",
+      "lodUrl": "/pet-models/warfront-lod/starter-earth-r.glb?v=20260902-battle-lod-v1-a6cdc167bb19-ac0e545549a8",
+      "sourceBytes": 710268,
+      "lodBytes": 549932,
+      "sourceSha256": "a6cdc167bb19c0ba27adcbfd1e98a6a950c029f7afb535b47d840d71127c2822",
+      "lodSha256": "ac0e545549a802c13dc8b8de1e026d4c8d5cf1787c0b44a3aedd925aec7fd7e1",
       "sourceTriangles": 18489,
       "lodTriangles": 12000,
       "reduction": 0.350965,
       "lowPolySource": true,
       "sourceVertices": 12122,
-      "lodVertices": 8579,
+      "lodVertices": 8571,
       "skins": 1,
       "joints": 21,
       "animations": 13,
@@ -3776,7 +3776,7 @@
       "textures": 1,
       "boundsMaxDelta": 0,
       "silhouettes": {
-        "front": 0.999145,
+        "front": 0.998119,
         "threeQuarter": 0.997662,
         "side": 0.997911
       }

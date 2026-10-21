@@ -1,0 +1,45 @@
+{
+  "id": "starter-earth-r",
+  "beforeSha256": "0a5245954cdf15e302165ed00cf8fee0a64f3fe735eb4dc6470c717eedb4b6cf",
+  "config": {
+    "status": "repair",
+    "finding": "Original frozen face probes and exact green-cheek/chin witness renders show mixed chest, neck and arm weights on the visible rigid jaw. The actual collar and chest remain outside the rigid core.",
+    "revision": "20261020-granite-complete-jaw-v1",
+    "supersedesSourceSha256": "0a5245954cdf15e302165ed00cf8fee0a64f3fe735eb4dc6470c717eedb4b6cf",
+    "y": [
+      0.11,
+      0.16
+    ],
+    "z": [
+      0.69,
+      0.72
+    ],
+    "x": [
+      0.34,
+      0.45
+    ],
+    "repairRegion": {
+      "y": [
+        0.11,
+        0.16
+      ],
+      "z": [
+        0.69,
+        0.72
+      ],
+      "x": [
+        0.34,
+        0.45
+      ]
+    },
+    "weightPrecision": "float32",
+    "continuousInfluencePacking": true
+  },
+  "publicPromotion": false,
+  "candidateSha256": "a6cdc167bb19c0ba27adcbfd1e98a6a950c029f7afb535b47d840d71127c2822",
+  "result": {
+    "id": "starter-earth-r",
+    "changed": 1444,
+    "rigid": 1261
+  }
+}

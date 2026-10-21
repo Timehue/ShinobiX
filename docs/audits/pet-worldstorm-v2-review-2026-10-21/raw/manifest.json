@@ -1,0 +1,360 @@
+{
+  "schema": 1,
+  "recordedAt": "2026-10-21T03:48:07.974Z",
+  "reviewer": "review-c-luna",
+  "renderer": "Bundled actual src/pet-shape-audit.ts with project Three.js/GLTFLoader/MeshoptDecoder; local file page; GLBs injected from memory after byte hash verification",
+  "rendererBundleSha256": "aebcf4fb161c4d49b42fe861941a03a4b63017f021334da449c27cedc29ee3ba",
+  "status": "CAPTURED-AND-PERSONALLY-VISUALLY-INSPECTED",
+  "ids": [
+    "mythic-1"
+  ],
+  "clipsPerModel": 13,
+  "phases": [
+    0,
+    0.125,
+    0.375,
+    0.625,
+    0.875,
+    1
+  ],
+  "views": [
+    "front",
+    "side",
+    "head-front",
+    "head-side",
+    "head-other-side"
+  ],
+  "uniqueClipNamesObserved": [
+    "idle",
+    "idle_2",
+    "walk",
+    "gallop",
+    "gallop_jump",
+    "attack",
+    "idle_hitreact1",
+    "death",
+    "entrance",
+    "cast",
+    "guard",
+    "rest",
+    "victory"
+  ],
+  "modelStages": {
+    "mythic-1/source": "ad04ff49992b7c02633938346d50cf83f448f638a376a486bb5ce747f88ee3b9",
+    "mythic-1/battle": "965db23b916189e3f57214ab89be6e08b609fe48dbf00345707728b64af517c2"
+  },
+  "evidence": [
+    {
+      "id": "mythic-1",
+      "stage": "source",
+      "view": "front",
+      "path": "docs/audits/pet-parallel-review-c-2026-10-20/offline-captures/raw/mythic-1-source-front.png",
+      "sha256": "8903db4bcef014be0a9c5c83a29ac4e592f44adbb1c7a198ded1cd6f6997b258",
+      "modelSha256": "ad04ff49992b7c02633938346d50cf83f448f638a376a486bb5ce747f88ee3b9",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "phases": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ]
+    },
+    {
+      "id": "mythic-1",
+      "stage": "source",
+      "view": "side",
+      "path": "docs/audits/pet-parallel-review-c-2026-10-20/offline-captures/raw/mythic-1-source-side.png",
+      "sha256": "fbabd0825358393106f04b12bf821dc919d73cfd720e5be00d07fe1a12eba069",
+      "modelSha256": "ad04ff49992b7c02633938346d50cf83f448f638a376a486bb5ce747f88ee3b9",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "phases": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ]
+    },
+    {
+      "id": "mythic-1",
+      "stage": "source",
+      "view": "head-front",
+      "path": "docs/audits/pet-parallel-review-c-2026-10-20/offline-captures/raw/mythic-1-source-head-front.png",
+      "sha256": "df26dfa6f01e79f77ca5667346f54abaeefec29f0b87bf94991120ffbf079e5b",
+      "modelSha256": "ad04ff49992b7c02633938346d50cf83f448f638a376a486bb5ce747f88ee3b9",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "phases": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ]
+    },
+    {
+      "id": "mythic-1",
+      "stage": "source",
+      "view": "head-side",
+      "path": "docs/audits/pet-parallel-review-c-2026-10-20/offline-captures/raw/mythic-1-source-head-side.png",
+      "sha256": "8b127a2c7ca6077cb850408de7d2f1d7fec7938a58fe7b99a4daed8e0ae1e368",
+      "modelSha256": "ad04ff49992b7c02633938346d50cf83f448f638a376a486bb5ce747f88ee3b9",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "phases": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ]
+    },
+    {
+      "id": "mythic-1",
+      "stage": "source",
+      "view": "head-other-side",
+      "path": "docs/audits/pet-parallel-review-c-2026-10-20/offline-captures/raw/mythic-1-source-head-other-side.png",
+      "sha256": "f29c64022403efbe631507dddbd05fa61c49105a93b389127bd8e0503e4c61bb",
+      "modelSha256": "ad04ff49992b7c02633938346d50cf83f448f638a376a486bb5ce747f88ee3b9",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "phases": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ]
+    },
+    {
+      "id": "mythic-1",
+      "stage": "battle",
+      "view": "front",
+      "path": "docs/audits/pet-parallel-review-c-2026-10-20/offline-captures/raw/mythic-1-battle-front.png",
+      "sha256": "386cbe75af1208f4f8e97b6b6558596a3923c65afecb3a2538218106ea27b985",
+      "modelSha256": "965db23b916189e3f57214ab89be6e08b609fe48dbf00345707728b64af517c2",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "phases": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ]
+    },
+    {
+      "id": "mythic-1",
+      "stage": "battle",
+      "view": "side",
+      "path": "docs/audits/pet-parallel-review-c-2026-10-20/offline-captures/raw/mythic-1-battle-side.png",
+      "sha256": "e530b4593f867cc2634ff93ff133b3ea2d1db09f6a9a2ddc0a1bf03dcfec7c55",
+      "modelSha256": "965db23b916189e3f57214ab89be6e08b609fe48dbf00345707728b64af517c2",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "phases": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ]
+    },
+    {
+      "id": "mythic-1",
+      "stage": "battle",
+      "view": "head-front",
+      "path": "docs/audits/pet-parallel-review-c-2026-10-20/offline-captures/raw/mythic-1-battle-head-front.png",
+      "sha256": "fb8ab871d1aaa8e93eaef84374175c0b6534b3a12e6e69da2b79888e9b00fb81",
+      "modelSha256": "965db23b916189e3f57214ab89be6e08b609fe48dbf00345707728b64af517c2",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "phases": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ]
+    },
+    {
+      "id": "mythic-1",
+      "stage": "battle",
+      "view": "head-side",
+      "path": "docs/audits/pet-parallel-review-c-2026-10-20/offline-captures/raw/mythic-1-battle-head-side.png",
+      "sha256": "6a57042f0ffd6f0ee4ea75d73a08b95d7cb011e82e5342ffb4feeb04eb6cbcf3",
+      "modelSha256": "965db23b916189e3f57214ab89be6e08b609fe48dbf00345707728b64af517c2",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "phases": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ]
+    },
+    {
+      "id": "mythic-1",
+      "stage": "battle",
+      "view": "head-other-side",
+      "path": "docs/audits/pet-parallel-review-c-2026-10-20/offline-captures/raw/mythic-1-battle-head-other-side.png",
+      "sha256": "12a8a4c89f2f9751d84b81739219f5ba4ef5afcd3a2eec6dfbd8fa838dc7a044",
+      "modelSha256": "965db23b916189e3f57214ab89be6e08b609fe48dbf00345707728b64af517c2",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "phases": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ]
+    }
+  ],
+  "errors": [],
+  "visualReview": "review-b-luna inspected every source/battle raw sheet; no visible skull/face deformation."
+}
