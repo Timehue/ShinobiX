@@ -1,3 +1,0 @@
-.world-pet-companion { position: absolute; left: 0; top: 0; z-index: 10; pointer-events: none; }
-.world-pet-companion .sector-wanderer-label { top: auto; bottom: 104%; }
-@media (prefers-reduced-motion: reduce) { .world-pet-companion .sector-avatar-sprite { animation: none; } }
