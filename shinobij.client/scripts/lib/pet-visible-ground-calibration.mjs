@@ -71,8 +71,11 @@ function appendAccessor(model, data, type, width) {
 /** Bake vertical clearance against actual source AND battle surfaces. The
  * sculpt, skin, rig, horizontal trajectory and other joint curves are retained.
  * This is an authoring operation; artistic approval is recorded separately. */
-export async function calibratePetVisibleGround({ id, sourcePath, battlePath, sourceOutput, battleOutput, cacheSkinTransforms = true, inputPins }) {
+export async function calibratePetVisibleGround({ id, sourcePath, battlePath, sourceOutput, battleOutput, cacheSkinTransforms = true, inputPins, sampleHz = 240, keySubdivisions = 1, padding = .002 }) {
     assert.ok(VISIBLE_GROUND_INPUTS[id], 'No independently diagnosed ground calibration for ' + id);
+    assert.ok(Number.isInteger(sampleHz) && sampleHz > 0 && sampleHz <= 1920, 'Invalid floor sample rate');
+    assert.ok([1, 2, 4].includes(keySubdivisions), 'Invalid floor sample subdivisions');
+    assert.ok(Number.isFinite(padding) && padding >= 0 && padding <= .01, 'Invalid floor clearance padding');
     // A reviewed sculpt revision needs new exact input pins while retaining the
     // original negative control and the same visible-surface clearance gates.
     const pins = inputPins ?? VISIBLE_GROUND_INPUTS[id];
@@ -88,7 +91,7 @@ export async function calibratePetVisibleGround({ id, sourcePath, battlePath, so
                 mixer: new THREE.AnimationMixer(model.scene), ground: stablePetModelPresentationBounds(model.scene).groundY,
                 rootId: model.json.nodes.findIndex(node => node.name === 'root') });
         }
-        const ground = Math.max(...models.map(model => model.ground)), padding = .002, point = new THREE.Vector3(), corrections = [];
+        const ground = Math.max(...models.map(model => model.ground)), point = new THREE.Vector3(), corrections = [];
         for (const take of models[0].model.animations) {
             const originals = [];
             for (const model of models) {
@@ -102,9 +105,11 @@ export async function calibratePetVisibleGround({ id, sourcePath, battlePath, so
             }
             assert.deepEqual(originals[0].input, originals[1].input);
             assert.deepEqual(originals[0].output, originals[1].output);
-            const steps = Math.ceil(take.duration * 240);
-            const times = Float32Array.from([...new Set([...originals[0].input,
-                ...Array.from({ length: steps + 1 }, (_, index) => Math.fround(take.duration * index / steps))])].sort((a,b) => a-b));
+            const steps = Math.ceil(take.duration * sampleHz);
+            const baseTimes = [...new Set([...originals[0].input,
+                ...Array.from({ length: steps + 1 }, (_, index) => Math.fround(take.duration * index / steps))])].sort((a,b) => a-b);
+            const times = Float32Array.from(keySubdivisions === 1 ? baseTimes : [...new Set([...baseTimes,
+                ...baseTimes.slice(1).flatMap((time, index) => Array.from({length:keySubdivisions-1}, (_,part) => Math.fround(baseTimes[index] + (time - baseTimes[index]) * (part+1) / keySubdivisions)))])].sort((a,b) => a-b));
             const lifts = [];
             for (const time of times) {
                 let minimum = Infinity;
@@ -146,7 +151,8 @@ export async function calibratePetVisibleGround({ id, sourcePath, battlePath, so
         for (const model of models) {
             model.json.buffers[0].byteLength = model.bin.length;
             model.json.extras.visibleGroundCalibration = { revision: '20261020-visible-ground-v1', id,
-                inputSha256: pins[model.stage], ground, padding, sampleHz: 240,
+                inputSha256: pins[model.stage], ground, padding, sampleHz,
+                ...(keySubdivisions === 1 ? {} : {sampleStrategy:`${sampleHz}Hz plus ${keySubdivisions === 4 ? 'quarter-step samples' : 'adjacent-sample midpoints'}`}),
                 scope: 'Union of exact source and battle visible surface minima; vertical root correction only.', corrections };
             model.json.extras.properAnimationSourceBoundary = { binLength: model.bin.length,
                 accessorCount: model.json.accessors.length, bufferViewCount: model.json.bufferViews.length };

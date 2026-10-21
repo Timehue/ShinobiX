@@ -321,3 +321,70 @@ docs/audits/granite-private-v1-luna-second-review-2026-10-21.json -text whitespa
 
 # Keep the historical portrait-reference evidence reproducible across checkout platforms.
 shinobij.client/art-source/pet-portrait-refresh/production.json -text whitespace=cr-at-eol
+
+# Immutable evidence for the final six independently reviewed pet repairs.
+"docs/evidence/pet-last-six-candidates-2026-10-21/reports/black-cat-independent-review.json" -text whitespace=cr-at-eol,-blank-at-eof
+"docs/evidence/pet-last-six-candidates-2026-10-21/reports/black-cat-second-independent-review.json" -text whitespace=cr-at-eol,-blank-at-eof
+"docs/evidence/pet-last-six-candidates-2026-10-21/package-index.json" -text whitespace=cr-at-eol,-blank-at-eof
+"docs/evidence/pet-last-six-candidates-2026-10-21/integrity-manifest.json" -text whitespace=cr-at-eol,-blank-at-eof
+"docs/evidence/pet-last-six-candidates-2026-10-21/evidence-file-hash-map.json" -text whitespace=cr-at-eol,-blank-at-eof
+"docs/evidence/pet-last-six-candidates-2026-10-21/source-path-hash-map.json" -text whitespace=cr-at-eol,-blank-at-eof
+"docs/evidence/pet-atlas-regeneration-2026-10-21/manifest.json" -text whitespace=cr-at-eol,-blank-at-eof
+"docs/evidence/pet-atlas-regeneration-2026-10-21/visual-review-addendum.json" -text whitespace=cr-at-eol,-blank-at-eof
+"shinobij.client/public/pet-models/warfront-impostors/manifest.json" -text whitespace=cr-at-eol,-blank-at-eof
+"shinobij.client/public/pet-models/warfront-lod/manifest.json" -text whitespace=cr-at-eol,-blank-at-eof
+"docs/audits/pet-final-six-prior-shape-receipts-2026-10-21.json" -text whitespace=cr-at-eol,-blank-at-eof
+"docs/audits/pet-final-six-untouched-receipt-object-hashes-2026-10-21.json" -text whitespace=cr-at-eol,-blank-at-eof
+"docs/audits/pet-final-six-integrated-validation-2026-10-21/summary.json" -text whitespace=cr-at-eol,-blank-at-eof
+"docs/audits/pet-final-six-integrated-validation-2026-10-21/build.log" -text whitespace=cr-at-eol,-blank-at-eof
+"docs/audits/pet-final-six-integrated-validation-2026-10-21/size.log" -text whitespace=cr-at-eol,-blank-at-eof
+"docs/audits/pet-final-six-integrated-validation-2026-10-21/repair-tests.log" -text whitespace=cr-at-eol,-blank-at-eof
+"docs/audits/pet-final-six-integrated-validation-2026-10-21/facial-checks.log" -text whitespace=cr-at-eol,-blank-at-eof
+"docs/audits/pet-final-six-integrated-validation-2026-10-21/lint.log" -text whitespace=cr-at-eol,-blank-at-eof
+"docs/audits/pet-final-six-integrated-validation-2026-10-21/portrait-reference-tests.log" -text whitespace=cr-at-eol,-blank-at-eof
+"docs/audits/pet-final-six-integrated-validation-2026-10-21/model-certification.log" -text whitespace=cr-at-eol,-blank-at-eof
+"docs/audits/pet-final-six-integrated-validation-2026-10-21/battle-certification.log" -text whitespace=cr-at-eol,-blank-at-eof
+"docs/audits/pet-final-six-integrated-validation-2026-10-21/facial-probe.json" -text whitespace=cr-at-eol,-blank-at-eof
+"docs/audits/pet-final-six-integrated-validation-2026-10-21/battle-manifest.json" -text whitespace=cr-at-eol,-blank-at-eof
+"docs/audits/pet-final-six-integrated-validation-2026-10-21/atlas-manifest.json" -text whitespace=cr-at-eol,-blank-at-eof
+"docs/evidence/pet-final-two-candidates-2026-10-21/standard-3/reports/first-independent-review.json" -text whitespace=cr-at-eol,-blank-at-eof
+"docs/evidence/pet-final-two-candidates-2026-10-21/standard-3/reports/second-independent-review.json" -text whitespace=cr-at-eol,-blank-at-eof
+"docs/evidence/pet-final-two-candidates-2026-10-21/standard-3/review-resolution.json" -text whitespace=cr-at-eol,-blank-at-eof
+"docs/evidence/pet-final-two-candidates-2026-10-21/standard-3/reports/targeted-visual-adjudication.json" -text whitespace=cr-at-eol,-blank-at-eof
+"docs/evidence/pet-final-two-candidates-2026-10-21/standard-3/reports/atlas-delivery-followup.json" -text whitespace=cr-at-eol,-blank-at-eof
+"docs/evidence/pet-final-two-candidates-2026-10-21/standard-3/source-to-durable-sha-size-map.json" -text whitespace=cr-at-eol,-blank-at-eof
+"docs/evidence/pet-final-two-candidates-2026-10-21/standard-3/captures/full-review/raw/manifest.json" -text whitespace=cr-at-eol,-blank-at-eof
+"docs/evidence/pet-final-two-candidates-2026-10-21/standard-3/captures/full-review/runtime/low/manifest.json" -text whitespace=cr-at-eol,-blank-at-eof
+"docs/evidence/pet-final-two-candidates-2026-10-21/standard-3/captures/full-review/runtime/medium/manifest.json" -text whitespace=cr-at-eol,-blank-at-eof
+"docs/evidence/pet-final-two-candidates-2026-10-21/standard-3/captures/full-review/companion/manifest.json" -text whitespace=cr-at-eol,-blank-at-eof
+"docs/evidence/pet-last-six-candidates-2026-10-21/reports/cinder-rat-independent-review.json" -text whitespace=cr-at-eol,-blank-at-eof
+"docs/evidence/pet-last-six-candidates-2026-10-21/reports/cinder-rat-second-independent-review.json" -text whitespace=cr-at-eol,-blank-at-eof
+"docs/evidence/pet-last-six-candidates-2026-10-21/reports/sky-falcon-v4-first-independent-review.json" -text whitespace=cr-at-eol,-blank-at-eof
+"docs/evidence/pet-last-six-candidates-2026-10-21/reports/sky-falcon-v4-second-independent-review.json" -text whitespace=cr-at-eol,-blank-at-eof
+"docs/evidence/pet-last-six-candidates-2026-10-21/reports/sky-falcon-current-evidence-status.json" -text whitespace=cr-at-eol,-blank-at-eof
+"docs/evidence/pet-final-two-candidates-2026-10-21/rare-6/review-report.json" -text whitespace=cr-at-eol,-blank-at-eof
+"docs/evidence/pet-final-two-candidates-2026-10-21/sharedreports/Viper2ndsafe/viper-second-independent-review.json" -text whitespace=cr-at-eol,-blank-at-eof
+"docs/evidence/pet-final-two-candidates-2026-10-21/rare-6/integrity-manifest.json" -text whitespace=cr-at-eol,-blank-at-eof
+"docs/evidence/pet-final-two-candidates-2026-10-21/rare-6/path-map.json" -text whitespace=cr-at-eol,-blank-at-eof
+"docs/evidence/pet-final-two-candidates-2026-10-21/rare-6/user-protrusion-followup.json" -text whitespace=cr-at-eol,-blank-at-eof
+"docs/evidence/pet-final-two-candidates-2026-10-21/rare-6/raw/manifest.json" -text whitespace=cr-at-eol,-blank-at-eof
+"docs/evidence/pet-final-two-candidates-2026-10-21/rare-6/runtime-low/manifest.json" -text whitespace=cr-at-eol,-blank-at-eof
+"docs/evidence/pet-final-two-candidates-2026-10-21/rare-6/runtime-medium/manifest.json" -text whitespace=cr-at-eol,-blank-at-eof
+"docs/evidence/pet-final-two-candidates-2026-10-21/rare-6/companion/manifest.json" -text whitespace=cr-at-eol,-blank-at-eof
+"docs/evidence/pet-final-two-candidates-2026-10-21/rare-6/atlas/regenerated-exact-lod/visual-review-addendum.json" -text whitespace=cr-at-eol,-blank-at-eof
+"docs/evidence/pet-final-two-candidates-2026-10-21/sharedreports/Viper2ndsafe/source-to-durable-sha-size-map.json" -text whitespace=cr-at-eol,-blank-at-eof
+"docs/evidence/pet-final-two-candidates-2026-10-21/sharedreports/Viper2ndsafe/six-atlas-second-independent-review.json" -text whitespace=cr-at-eol,-blank-at-eof
+"docs/evidence/pet-last-six-candidates-2026-10-21/reports/frostbite-cub-independent-review.json" -text whitespace=cr-at-eol,-blank-at-eof
+"docs/evidence/pet-last-six-candidates-2026-10-21/reports/frostbite-cub-second-independent-review.json" -text whitespace=cr-at-eol,-blank-at-eof
+
+# Preserve all payloads addressed by the immutable review package maps.
+docs/evidence/pet-last-six-candidates-2026-10-21/** -text whitespace=cr-at-eol,-blank-at-eof
+docs/evidence/pet-final-two-candidates-2026-10-21/** -text whitespace=cr-at-eol,-blank-at-eof
+docs/evidence/pet-atlas-regeneration-2026-10-21/** -text whitespace=cr-at-eol,-blank-at-eof
+docs/audits/pet-final-six-integrated-validation-2026-10-21/** -text whitespace=cr-at-eol,-blank-at-eof
+
+# Generated capture bundles and logs retain their reviewed bytes, including tool whitespace.
+docs/evidence/pet-last-six-candidates-2026-10-21/** -text -whitespace
+docs/evidence/pet-final-two-candidates-2026-10-21/** -text -whitespace
+docs/evidence/pet-atlas-regeneration-2026-10-21/** -text -whitespace
+docs/audits/pet-final-six-integrated-validation-2026-10-21/** -text -whitespace
