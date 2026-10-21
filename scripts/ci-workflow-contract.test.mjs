@@ -169,13 +169,38 @@ test('built CSP and every Stronghold audit feed the required responsive gate wit
     assert.deepEqual([...strongholdOrder].sort((a, b) => a - b), strongholdOrder);
     assert.match(responsive, /name: Retain responsive browser evidence\n\s+if: always\(\)/);
     assert.match(flows, /name: Retain responsive flow evidence\n\s+if: always\(\)/);
-    assert.match(flows, /shard: \[1, 2, 3, 4, 5, 6, 7, 8, 9, 10\]/, 'every responsive flow shard must be scheduled');
+    assert.match(flows, /shard: \[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12\]/, 'every responsive flow shard must be scheduled');
     for(let shard=1;shard<=8;shard++)assert(flows.includes(`lifeShard: ${shard}/8`),'every living-sector slice must be gated');
     assert.match(flows, /needs: release_artifact\n\s+if: \$\{\{ always\(\) \}\}/);
     const aggregate = workflow.split('  e2e_responsive:\n')[1]?.split('\n  e2e_combat_matrix:\n')[0];
     assert.match(aggregate, /needs: \[e2e_responsive_matrix, e2e_responsive_flows\]/);
     assert.ok(aggregate.includes('test "$RESPONSIVE_MATRIX" = success'));
     assert.ok(aggregate.includes('test "$RESPONSIVE_FLOWS" = success'), 'the required aggregate must fail when a flow shard fails');
+});
+
+test('dedicated world suites run once without sharing living-sector job budgets', () => {
+    const flows = responsiveFlows();
+    const matrix = flows.split('    steps:')[0];
+    const entries = [...matrix.matchAll(/^          - shard: (\d+)\n((?:            [^\n]+\n)*)/gm)]
+        .map((match) => ({ shard: Number(match[1]), body: match[2] }));
+    assert.deepEqual(entries.filter((entry) => entry.body.includes('lifeShard:'))
+        .map((entry) => [entry.shard, entry.body.match(/lifeShard: (\d+\/8)/)?.[1]]),
+        Array.from({ length: 8 }, (_, index) => [index + 3, `${index + 1}/8`]));
+    assert.deepEqual(entries.filter((entry) => entry.body.includes('dockProject:'))
+        .map((entry) => [entry.shard, entry.body.match(/dockProject: (\w+)/)?.[1]]),
+        [[11, 'desktop'], [12, 'phone']]);
+    const steps = flows.split('      - name: ');
+    const life = steps.find((step) => step.startsWith('Living sectors, weather and native actor routines\n'));
+    const dock = steps.find((step) => step.startsWith('Dock shipment delivery and cached aftermath\n'));
+    assert.ok(life?.includes('if: ${{ matrix.shard >= 3 && matrix.shard <= 10 }}'));
+    assert.ok(dock?.includes('if: ${{ matrix.shard == 11 || matrix.shard == 12 }}'));
+    assert.doesNotMatch(dock, /continue-on-error|--grep|--max-failures/);
+    for (const [name, shard] of [['Painted terrain resource placement', 12], ['Chronicle stop and daytime handover', 11]]) {
+        const step = steps.find((value) => value.startsWith(`${name}\n`));
+        assert.ok(step?.includes(`if: \${{ matrix.shard == ${shard} }}`));
+        assert.doesNotMatch(step, /continue-on-error|--project|--grep|--shard|--max-failures/);
+    }
+    assert.match(flows, /^    timeout-minutes: 29$/m);
 });
 
 test('living-world source fixtures have dedicated gates instead of running on the immutable preview',()=>{
