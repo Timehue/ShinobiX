@@ -1,5 +1,5 @@
 {
-  "status": "assembled-pending-canonical-review-receipts-and-regressions",
+  "status": "local-validation-complete-pending-ci-and-live",
   "pets": [
     {
       "id": "mythic-1",
@@ -42,5 +42,36 @@
       "review": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-1-neck-v2-second/luna-independent-visual-review.json"
     }
   ],
-  "liveVerified": false
+  "liveVerified": false,
+  "localValidation": {
+    "build": {
+      "status": "PASS",
+      "bytes": 9578564,
+      "budgetBytes": 9585000
+    },
+    "targetedPetTests": {
+      "status": "PASS",
+      "passed": 49
+    },
+    "lint": {
+      "errors": 0,
+      "existingWarnings": 24
+    },
+    "rendererCompatibilityWrapper": {
+      "status": "PASS",
+      "checked": 156
+    },
+    "shapeReview": {
+      "status": "PASS",
+      "reviewedModels": 161,
+      "failures": 0
+    },
+    "scenicPortraitTests": {
+      "status": "PASS",
+      "passed": 6,
+      "failed": 0
+    },
+    "ci": "pending",
+    "liveDeployment": "not verified"
+  }
 }

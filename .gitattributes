@@ -269,3 +269,55 @@ docs/audits/pet-terminal-ground-selector-type-compatibility-2026-10-21.json -tex
 docs/audits/azure-v3-luna-second-review-2026-10-21.json -text whitespace=cr-at-eol
 docs/audits/marmot-second-luna-visual-review-2026-10-21.json -text whitespace=cr-at-eol
 docs/audits/granite-private-v1-luna-second-review-2026-10-21.json -text whitespace=cr-at-eol
+
+# Preserve exact bytes of newly pinned pet review evidence and its selector helper.
+docs/audits/pet-worldstorm-v2-review-2026-10-21/review.json -text whitespace=cr-at-eol
+docs/audits/pet-worldstorm-v2-review-2026-10-21/companion/manifest.json -text whitespace=cr-at-eol
+docs/audits/pet-worldstorm-v2-review-2026-10-21/raw/manifest.json -text whitespace=cr-at-eol
+docs/audits/pet-parallel-review-c-2026-10-20/mythic-6-private-v3/review.json -text whitespace=cr-at-eol
+docs/audits/pet-parallel-review-c-2026-10-20/mythic-6-private-v3/evidence-index.json -text whitespace=cr-at-eol
+docs/audits/pet-granite-private-v1-review-2026-10-20/final-review.json -text whitespace=cr-at-eol
+docs/audits/pet-granite-private-v1-review-2026-10-20/evidence-hashes.json -text whitespace=cr-at-eol
+shinobij.client/src/lib/pet-model-ground-contact.ts -text whitespace=cr-at-eol
+
+# Exact newly reviewed evidence bytes, stable on Windows and Linux.
+docs/audits/pet-azure-terminal-renderer-compatibility-2026-10-21.json -text whitespace=cr-at-eol
+docs/audits/pet-granite-private-v1-review-2026-10-20/companion/manifest.json -text whitespace=cr-at-eol
+docs/audits/pet-granite-private-v1-review-2026-10-20/evidence-hashes.json -text whitespace=cr-at-eol
+docs/audits/pet-granite-private-v1-review-2026-10-20/final-review.json -text whitespace=cr-at-eol
+docs/audits/pet-loam-marmot-private-tail-repair-visual-review-2026-10-20.json -text whitespace=cr-at-eol
+docs/audits/pet-parallel-review-c-2026-10-20/mythic-6-private-v3/evidence-index.json -text whitespace=cr-at-eol
+docs/audits/pet-parallel-review-c-2026-10-20/mythic-6-private-v3/raw-battle-all13.manifest.json -text whitespace=cr-at-eol
+docs/audits/pet-parallel-review-c-2026-10-20/mythic-6-private-v3/raw-death-close.manifest.json -text whitespace=cr-at-eol
+docs/audits/pet-parallel-review-c-2026-10-20/mythic-6-private-v3/raw-source-all13.manifest.json -text whitespace=cr-at-eol
+docs/audits/pet-parallel-review-c-2026-10-20/mythic-6-private-v3/review.json -text whitespace=cr-at-eol
+docs/audits/pet-parallel-review-c-2026-10-20/mythic-6-private-v3/runtime-private-low.manifest.json -text whitespace=cr-at-eol
+docs/audits/pet-parallel-review-c-2026-10-20/mythic-6-private-v3/runtime-private-medium.manifest.json -text whitespace=cr-at-eol
+docs/audits/pet-parallel-review-c-2026-10-20/mythic-6-private-v3/runtime-public-low-control.manifest.json -text whitespace=cr-at-eol
+docs/audits/pet-parallel-review-c-2026-10-20/mythic-6-private-v3/runtime-public-medium-control.manifest.json -text whitespace=cr-at-eol
+docs/audits/pet-worldstorm-v2-review-2026-10-21/companion/manifest.json -text whitespace=cr-at-eol
+docs/audits/pet-worldstorm-v2-review-2026-10-21/raw/manifest.json -text whitespace=cr-at-eol
+docs/audits/pet-worldstorm-v2-review-2026-10-21/review.json -text whitespace=cr-at-eol
+docs/evidence/pet-terminal-sol-2026-10-21/standard-49/glb-hashes.json -text whitespace=cr-at-eol
+docs/evidence/pet-terminal-sol-2026-10-21/starter-earth-r/granite-private-v1-runtime-low/manifest.json -text whitespace=cr-at-eol
+docs/evidence/pet-terminal-sol-2026-10-21/starter-earth-r/granite-private-v1-runtime-medium/manifest.json -text whitespace=cr-at-eol
+docs/evidence/pet-terminal-sol-2026-10-21/mythic-6-private-pair/recipe.json -text whitespace=cr-at-eol
+shinobij.client/scripts/verify-azure-terminal-renderer-compatibility.mjs -text whitespace=cr-at-eol
+docs/audits/pet-worldstorm-v2-review-2026-10-21/runtime/low/manifest.json -text whitespace=cr-at-eol
+docs/audits/pet-worldstorm-v2-review-2026-10-21/runtime/medium/manifest.json -text whitespace=cr-at-eol
+docs/audits/pet-terminal-release-renderer-compatibility-2026-10-21.json -text whitespace=cr-at-eol
+docs/audits/pet-terminal-sol-evidence-package-2026-10-21.json -text whitespace=cr-at-eol
+docs/audits/pet-terminal-sol-evidence-path-map-2026-10-21.json -text whitespace=cr-at-eol
+docs/audits/pet-worldstorm-v2-review-2026-10-21/second-independent-review.json -text whitespace=cr-at-eol
+docs/audits/pet-terminal-sol-evidence-path-map-2026-10-21.v2.json -text whitespace=cr-at-eol
+docs/audits/pet-terminal-sol-evidence-path-map-2026-10-21.v3.json -text whitespace=cr-at-eol
+docs/audits/pet-terminal-ground-selector-type-compatibility-2026-10-21.json -text whitespace=cr-at-eol
+docs/audits/pet-terminal-sol-evidence-path-map-2026-10-21.v4.json -text whitespace=cr-at-eol
+docs/audits/pet-terminal-sol-evidence-path-map-2026-10-21.v5.json -text whitespace=cr-at-eol
+docs/audits/pet-terminal-sol-evidence-path-map-2026-10-21.v6.json -text whitespace=cr-at-eol
+docs/audits/azure-v3-luna-second-review-2026-10-21.json -text whitespace=cr-at-eol
+docs/audits/marmot-second-luna-visual-review-2026-10-21.json -text whitespace=cr-at-eol
+docs/audits/granite-private-v1-luna-second-review-2026-10-21.json -text whitespace=cr-at-eol
+
+# Keep the historical portrait-reference evidence reproducible across checkout platforms.
+shinobij.client/art-source/pet-portrait-refresh/production.json -text whitespace=cr-at-eol

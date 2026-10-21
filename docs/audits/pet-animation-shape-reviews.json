@@ -234,12 +234,15 @@
         "docs/evidence/pet-terminal-sol-2026-10-21/standard-1-rabbit-v2/source-candidate-v1.glb",
         "docs/audits/pet-terminal-sol-evidence-path-map-2026-10-21.v2.json",
         "docs/audits/pet-terminal-sol-evidence-path-map-2026-10-21.v3.json",
-        "docs/audits/pet-terminal-ground-selector-type-compatibility-2026-10-21.json"
+        "docs/audits/pet-terminal-ground-selector-type-compatibility-2026-10-21.json",
+        "docs/audits/pet-terminal-sol-evidence-path-map-2026-10-21.v4.json",
+        "docs/audits/pet-terminal-sol-evidence-path-map-2026-10-21.v5.json",
+        "docs/audits/pet-terminal-sol-evidence-path-map-2026-10-21.v6.json"
       ],
       "evidenceSha256": {
         "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-1-neck-v2-second/luna-independent-visual-review.json": "d3d6c19360e4db3c555f536b0b4d3b83297059e9a4c155f35022374c92758adf",
         "docs/audits/pet-terminal-release-renderer-compatibility-2026-10-21.json": "50a76dace15cf04ecd9b1025e941291754e73fbf00767316131a69b6903ba0ec",
-        "docs/audits/pet-terminal-sol-evidence-package-2026-10-21.json": "54d33d34cd39965633a52d5f74fd7eabe816f4282b029b0283706730a4e216e2",
+        "docs/audits/pet-terminal-sol-evidence-package-2026-10-21.json": "daa4987260dc3dac6c42a68009d0a30967cdba9708c0ac17b8f5bf764aa97c35",
         "docs/audits/pet-terminal-sol-evidence-path-map-2026-10-21.json": "6410536712a5da11c175d1e8133612125d49341456c4e6803d9ec88b3e8fe4a3",
         "docs/screenshots/pet-parallel-review-a-2026-10-20/standard-1-neck-v2-second/advancing-idle-capture-manifest.json": "2c635bf8e29dbf13cfc6770e4af815ad4e60f11354676a3cb41dd1e14b930918",
         "docs/screenshots/pet-parallel-review-a-2026-10-20/standard-1-neck-v2-second/advancing-idle-native.png": "01b8e273fa02d2426273695b59b3aeee55dfc420e6f7e7fbaa1a2a356cc09afd",
@@ -305,7 +308,10 @@
         "docs/evidence/pet-terminal-sol-2026-10-21/standard-1-rabbit-v2/source-candidate-v1.glb": "9b6aa18cddbeeede40e785e339be1c4c30b0b8c3ab84cca211d95947a93f7fce",
         "docs/audits/pet-terminal-sol-evidence-path-map-2026-10-21.v2.json": "0a30de3240651b5ab78bfb62ff3c5256475213dba6d8ce522aa7e8b843237b9e",
         "docs/audits/pet-terminal-sol-evidence-path-map-2026-10-21.v3.json": "b35746f76d687f3845ea48879fe57f24b0a99c669dd0f85e7ecd0accc79f4259",
-        "docs/audits/pet-terminal-ground-selector-type-compatibility-2026-10-21.json": "ba2fce31c9ac2dd8650de66d42c74d97f5ee954a3a14758f896098f775b23632"
+        "docs/audits/pet-terminal-ground-selector-type-compatibility-2026-10-21.json": "ba2fce31c9ac2dd8650de66d42c74d97f5ee954a3a14758f896098f775b23632",
+        "docs/audits/pet-terminal-sol-evidence-path-map-2026-10-21.v4.json": "aaa4f316774b24ad5daa932d4fd3ddf3acd51d3c59203c43417d6931c1a6cfe0",
+        "docs/audits/pet-terminal-sol-evidence-path-map-2026-10-21.v5.json": "75f6bca062d6a67510e67bee7898f4af57f794f39cb2dc4a89cec9a31f90d0c4",
+        "docs/audits/pet-terminal-sol-evidence-path-map-2026-10-21.v6.json": "c326f14745fbb2d2e16fd7120466fd826b8a88a50e7c322462558e5875ba6b14"
       },
       "supersedes": "docs/audits/pet-terminal-prior-shape-receipts-2026-10-21.json",
       "findings": {
@@ -8545,12 +8551,15 @@
         "docs/audits/marmot-second-luna-visual-review-2026-10-21.json",
         "docs/audits/pet-terminal-sol-evidence-path-map-2026-10-21.v2.json",
         "docs/audits/pet-terminal-sol-evidence-path-map-2026-10-21.v3.json",
-        "docs/audits/pet-terminal-ground-selector-type-compatibility-2026-10-21.json"
+        "docs/audits/pet-terminal-ground-selector-type-compatibility-2026-10-21.json",
+        "docs/audits/pet-terminal-sol-evidence-path-map-2026-10-21.v4.json",
+        "docs/audits/pet-terminal-sol-evidence-path-map-2026-10-21.v5.json",
+        "docs/audits/pet-terminal-sol-evidence-path-map-2026-10-21.v6.json"
       ],
       "evidenceSha256": {
         "docs/audits/pet-loam-marmot-private-tail-repair-visual-review-2026-10-20.json": "d5978f7d1251825124b61542bce73d7217a04eb7ba8549256eac118052031106",
         "docs/audits/pet-terminal-release-renderer-compatibility-2026-10-21.json": "50a76dace15cf04ecd9b1025e941291754e73fbf00767316131a69b6903ba0ec",
-        "docs/audits/pet-terminal-sol-evidence-package-2026-10-21.json": "54d33d34cd39965633a52d5f74fd7eabe816f4282b029b0283706730a4e216e2",
+        "docs/audits/pet-terminal-sol-evidence-package-2026-10-21.json": "daa4987260dc3dac6c42a68009d0a30967cdba9708c0ac17b8f5bf764aa97c35",
         "docs/audits/pet-terminal-sol-evidence-path-map-2026-10-21.json": "6410536712a5da11c175d1e8133612125d49341456c4e6803d9ec88b3e8fe4a3",
         "shinobij.client/public/pet-models/warfront-lod/roster/standard-49.glb": "1f5117dff1ff08fe4bc8814563a6c87867a923bee81a88bbfec574f72c8dad77",
         "shinobij.client/public/pet-models/roster/standard-49.glb": "b0460aea919abb8bf18c368a57685c5ba599ddaf942d753a4effb2650eb496e7",
@@ -8618,7 +8627,10 @@
         "docs/audits/marmot-second-luna-visual-review-2026-10-21.json": "d14845d52e5ab79288621958dd8c3572c38dbbeb092473bcd74ebf3b1a3b96ea",
         "docs/audits/pet-terminal-sol-evidence-path-map-2026-10-21.v2.json": "0a30de3240651b5ab78bfb62ff3c5256475213dba6d8ce522aa7e8b843237b9e",
         "docs/audits/pet-terminal-sol-evidence-path-map-2026-10-21.v3.json": "b35746f76d687f3845ea48879fe57f24b0a99c669dd0f85e7ecd0accc79f4259",
-        "docs/audits/pet-terminal-ground-selector-type-compatibility-2026-10-21.json": "ba2fce31c9ac2dd8650de66d42c74d97f5ee954a3a14758f896098f775b23632"
+        "docs/audits/pet-terminal-ground-selector-type-compatibility-2026-10-21.json": "ba2fce31c9ac2dd8650de66d42c74d97f5ee954a3a14758f896098f775b23632",
+        "docs/audits/pet-terminal-sol-evidence-path-map-2026-10-21.v4.json": "aaa4f316774b24ad5daa932d4fd3ddf3acd51d3c59203c43417d6931c1a6cfe0",
+        "docs/audits/pet-terminal-sol-evidence-path-map-2026-10-21.v5.json": "75f6bca062d6a67510e67bee7898f4af57f794f39cb2dc4a89cec9a31f90d0c4",
+        "docs/audits/pet-terminal-sol-evidence-path-map-2026-10-21.v6.json": "c326f14745fbb2d2e16fd7120466fd826b8a88a50e7c322462558e5875ba6b14"
       },
       "supersedes": "docs/audits/pet-terminal-prior-shape-receipts-2026-10-21.json",
       "findings": {
@@ -25900,12 +25912,15 @@
         "docs/audits/pet-worldstorm-v2-review-2026-10-21/second-independent-review.json",
         "docs/audits/pet-terminal-sol-evidence-path-map-2026-10-21.v2.json",
         "docs/audits/pet-terminal-sol-evidence-path-map-2026-10-21.v3.json",
-        "docs/audits/pet-terminal-ground-selector-type-compatibility-2026-10-21.json"
+        "docs/audits/pet-terminal-ground-selector-type-compatibility-2026-10-21.json",
+        "docs/audits/pet-terminal-sol-evidence-path-map-2026-10-21.v4.json",
+        "docs/audits/pet-terminal-sol-evidence-path-map-2026-10-21.v5.json",
+        "docs/audits/pet-terminal-sol-evidence-path-map-2026-10-21.v6.json"
       ],
       "evidenceSha256": {
         "docs/audits/pet-worldstorm-v2-review-2026-10-21/review.json": "91b86cf552018f42166b87a264c711513d17b9243709af2aae43adc056a33a8f",
         "docs/audits/pet-terminal-release-renderer-compatibility-2026-10-21.json": "50a76dace15cf04ecd9b1025e941291754e73fbf00767316131a69b6903ba0ec",
-        "docs/audits/pet-terminal-sol-evidence-package-2026-10-21.json": "54d33d34cd39965633a52d5f74fd7eabe816f4282b029b0283706730a4e216e2",
+        "docs/audits/pet-terminal-sol-evidence-package-2026-10-21.json": "daa4987260dc3dac6c42a68009d0a30967cdba9708c0ac17b8f5bf764aa97c35",
         "docs/audits/pet-terminal-sol-evidence-path-map-2026-10-21.json": "6410536712a5da11c175d1e8133612125d49341456c4e6803d9ec88b3e8fe4a3",
         "docs/audits/pet-worldstorm-v2-review-2026-10-21/companion/manifest.json": "c0ca1620fae45f7d1b6f779ae2c39e5f30bbbabc9bd918127d8eea942acb9505",
         "docs/audits/pet-worldstorm-v2-review-2026-10-21/companion/mythic-1-expose-front-sheet-0.webp": "a993d1733a5bf2ed9d668eb7f38722b6105404c15bf69b561f23b7fe2a6726ce",
@@ -25962,7 +25977,10 @@
         "docs/audits/pet-worldstorm-v2-review-2026-10-21/second-independent-review.json": "1f90a571c6be4c4ddde1fa5ea098cdb6533048843a9c3562e13704a041772f0b",
         "docs/audits/pet-terminal-sol-evidence-path-map-2026-10-21.v2.json": "0a30de3240651b5ab78bfb62ff3c5256475213dba6d8ce522aa7e8b843237b9e",
         "docs/audits/pet-terminal-sol-evidence-path-map-2026-10-21.v3.json": "b35746f76d687f3845ea48879fe57f24b0a99c669dd0f85e7ecd0accc79f4259",
-        "docs/audits/pet-terminal-ground-selector-type-compatibility-2026-10-21.json": "ba2fce31c9ac2dd8650de66d42c74d97f5ee954a3a14758f896098f775b23632"
+        "docs/audits/pet-terminal-ground-selector-type-compatibility-2026-10-21.json": "ba2fce31c9ac2dd8650de66d42c74d97f5ee954a3a14758f896098f775b23632",
+        "docs/audits/pet-terminal-sol-evidence-path-map-2026-10-21.v4.json": "aaa4f316774b24ad5daa932d4fd3ddf3acd51d3c59203c43417d6931c1a6cfe0",
+        "docs/audits/pet-terminal-sol-evidence-path-map-2026-10-21.v5.json": "75f6bca062d6a67510e67bee7898f4af57f794f39cb2dc4a89cec9a31f90d0c4",
+        "docs/audits/pet-terminal-sol-evidence-path-map-2026-10-21.v6.json": "c326f14745fbb2d2e16fd7120466fd826b8a88a50e7c322462558e5875ba6b14"
       },
       "supersedes": "docs/audits/pet-terminal-prior-shape-receipts-2026-10-21.json",
       "findings": {
@@ -26850,12 +26868,15 @@
         "docs/audits/azure-v3-luna-second-review-2026-10-21.json",
         "docs/audits/pet-terminal-sol-evidence-path-map-2026-10-21.v2.json",
         "docs/audits/pet-terminal-sol-evidence-path-map-2026-10-21.v3.json",
-        "docs/audits/pet-terminal-ground-selector-type-compatibility-2026-10-21.json"
+        "docs/audits/pet-terminal-ground-selector-type-compatibility-2026-10-21.json",
+        "docs/audits/pet-terminal-sol-evidence-path-map-2026-10-21.v4.json",
+        "docs/audits/pet-terminal-sol-evidence-path-map-2026-10-21.v5.json",
+        "docs/audits/pet-terminal-sol-evidence-path-map-2026-10-21.v6.json"
       ],
       "evidenceSha256": {
         "docs/audits/pet-parallel-review-c-2026-10-20/mythic-6-private-v3/review.json": "25b0a9f0f236be99ae6e981796ff2e2604100e5ea8fbe65bd690eccba0a53c93",
         "docs/audits/pet-terminal-release-renderer-compatibility-2026-10-21.json": "50a76dace15cf04ecd9b1025e941291754e73fbf00767316131a69b6903ba0ec",
-        "docs/audits/pet-terminal-sol-evidence-package-2026-10-21.json": "54d33d34cd39965633a52d5f74fd7eabe816f4282b029b0283706730a4e216e2",
+        "docs/audits/pet-terminal-sol-evidence-package-2026-10-21.json": "daa4987260dc3dac6c42a68009d0a30967cdba9708c0ac17b8f5bf764aa97c35",
         "docs/audits/pet-terminal-sol-evidence-path-map-2026-10-21.json": "6410536712a5da11c175d1e8133612125d49341456c4e6803d9ec88b3e8fe4a3",
         "docs/audits/pet-azure-terminal-renderer-compatibility-2026-10-21.json": "fa6d83cc4fa15be9b5458b83a773657304db575dbb73128d25b6aae7c509f24d",
         "docs/audits/pet-parallel-review-c-2026-10-20/mythic-6-private-v3/evidence-index.json": "0cab612802260b05c164f897d6bce43719ddd6fed60c7cfe3b415b1e3b9f9edc",
@@ -26897,7 +26918,10 @@
         "docs/audits/azure-v3-luna-second-review-2026-10-21.json": "cf186bf325ebb06c0143bd3c04f7c8a63c681813efbb046a4d4016290c2c22d0",
         "docs/audits/pet-terminal-sol-evidence-path-map-2026-10-21.v2.json": "0a30de3240651b5ab78bfb62ff3c5256475213dba6d8ce522aa7e8b843237b9e",
         "docs/audits/pet-terminal-sol-evidence-path-map-2026-10-21.v3.json": "b35746f76d687f3845ea48879fe57f24b0a99c669dd0f85e7ecd0accc79f4259",
-        "docs/audits/pet-terminal-ground-selector-type-compatibility-2026-10-21.json": "ba2fce31c9ac2dd8650de66d42c74d97f5ee954a3a14758f896098f775b23632"
+        "docs/audits/pet-terminal-ground-selector-type-compatibility-2026-10-21.json": "ba2fce31c9ac2dd8650de66d42c74d97f5ee954a3a14758f896098f775b23632",
+        "docs/audits/pet-terminal-sol-evidence-path-map-2026-10-21.v4.json": "aaa4f316774b24ad5daa932d4fd3ddf3acd51d3c59203c43417d6931c1a6cfe0",
+        "docs/audits/pet-terminal-sol-evidence-path-map-2026-10-21.v5.json": "75f6bca062d6a67510e67bee7898f4af57f794f39cb2dc4a89cec9a31f90d0c4",
+        "docs/audits/pet-terminal-sol-evidence-path-map-2026-10-21.v6.json": "c326f14745fbb2d2e16fd7120466fd826b8a88a50e7c322462558e5875ba6b14"
       },
       "supersedes": "docs/audits/pet-terminal-prior-shape-receipts-2026-10-21.json",
       "findings": {
@@ -32799,12 +32823,15 @@
         "docs/audits/granite-private-v1-luna-second-review-2026-10-21.json",
         "docs/audits/pet-terminal-sol-evidence-path-map-2026-10-21.v2.json",
         "docs/audits/pet-terminal-sol-evidence-path-map-2026-10-21.v3.json",
-        "docs/audits/pet-terminal-ground-selector-type-compatibility-2026-10-21.json"
+        "docs/audits/pet-terminal-ground-selector-type-compatibility-2026-10-21.json",
+        "docs/audits/pet-terminal-sol-evidence-path-map-2026-10-21.v4.json",
+        "docs/audits/pet-terminal-sol-evidence-path-map-2026-10-21.v5.json",
+        "docs/audits/pet-terminal-sol-evidence-path-map-2026-10-21.v6.json"
       ],
       "evidenceSha256": {
         "docs/audits/pet-granite-private-v1-review-2026-10-20/final-review.json": "3feea321df136527bf9191eedf55b994ca4ede541202086631800e4c0a1e25e8",
         "docs/audits/pet-terminal-release-renderer-compatibility-2026-10-21.json": "50a76dace15cf04ecd9b1025e941291754e73fbf00767316131a69b6903ba0ec",
-        "docs/audits/pet-terminal-sol-evidence-package-2026-10-21.json": "54d33d34cd39965633a52d5f74fd7eabe816f4282b029b0283706730a4e216e2",
+        "docs/audits/pet-terminal-sol-evidence-package-2026-10-21.json": "daa4987260dc3dac6c42a68009d0a30967cdba9708c0ac17b8f5bf764aa97c35",
         "docs/audits/pet-terminal-sol-evidence-path-map-2026-10-21.json": "6410536712a5da11c175d1e8133612125d49341456c4e6803d9ec88b3e8fe4a3",
         "docs/audits/pet-granite-private-v1-review-2026-10-20/companion/manifest.json": "4fd84924203f5a34b9b8c3251391d37e9ddb866d68c9ca22d4de5fad575d867a",
         "docs/audits/pet-granite-private-v1-review-2026-10-20/companion/starter-earth-r-aegis-front-sheet-0.webp": "920e64e253675109ee2c340a4beb2fe11fd7a5d6641b6b6d86950454cba67eb2",
@@ -32914,7 +32941,10 @@
         "docs/audits/granite-private-v1-luna-second-review-2026-10-21.json": "b67eaf23b0ec02a5269839085de507b4e0e09e401202c4e65f83e9514a863c33",
         "docs/audits/pet-terminal-sol-evidence-path-map-2026-10-21.v2.json": "0a30de3240651b5ab78bfb62ff3c5256475213dba6d8ce522aa7e8b843237b9e",
         "docs/audits/pet-terminal-sol-evidence-path-map-2026-10-21.v3.json": "b35746f76d687f3845ea48879fe57f24b0a99c669dd0f85e7ecd0accc79f4259",
-        "docs/audits/pet-terminal-ground-selector-type-compatibility-2026-10-21.json": "ba2fce31c9ac2dd8650de66d42c74d97f5ee954a3a14758f896098f775b23632"
+        "docs/audits/pet-terminal-ground-selector-type-compatibility-2026-10-21.json": "ba2fce31c9ac2dd8650de66d42c74d97f5ee954a3a14758f896098f775b23632",
+        "docs/audits/pet-terminal-sol-evidence-path-map-2026-10-21.v4.json": "aaa4f316774b24ad5daa932d4fd3ddf3acd51d3c59203c43417d6931c1a6cfe0",
+        "docs/audits/pet-terminal-sol-evidence-path-map-2026-10-21.v5.json": "75f6bca062d6a67510e67bee7898f4af57f794f39cb2dc4a89cec9a31f90d0c4",
+        "docs/audits/pet-terminal-sol-evidence-path-map-2026-10-21.v6.json": "c326f14745fbb2d2e16fd7120466fd826b8a88a50e7c322462558e5875ba6b14"
       },
       "supersedes": "docs/audits/pet-terminal-prior-shape-receipts-2026-10-21.json",
       "findings": {
