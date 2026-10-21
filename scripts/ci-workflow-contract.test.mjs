@@ -178,6 +178,31 @@ test('built CSP and every Stronghold audit feed the required responsive gate wit
     assert.ok(aggregate.includes('test "$RESPONSIVE_FLOWS" = success'), 'the required aggregate must fail when a flow shard fails');
 });
 
+test('dedicated world suites run once without sharing living-sector job budgets', () => {
+    const flows = responsiveFlows();
+    const matrix = flows.split('    steps:')[0];
+    const entries = [...matrix.matchAll(/^          - shard: (\d+)\n((?:            [^\n]+\n)*)/gm)]
+        .map((match) => ({ shard: Number(match[1]), body: match[2] }));
+    assert.deepEqual(entries.filter((entry) => entry.body.includes('lifeShard:'))
+        .map((entry) => [entry.shard, entry.body.match(/lifeShard: (\d+\/8)/)?.[1]]),
+        Array.from({ length: 8 }, (_, index) => [index + 3, `${index + 1}/8`]));
+    assert.deepEqual(entries.filter((entry) => entry.body.includes('dockProject:'))
+        .map((entry) => [entry.shard, entry.body.match(/dockProject: (\w+)/)?.[1]]),
+        [[11, 'desktop'], [12, 'phone']]);
+    const steps = flows.split('      - name: ');
+    const life = steps.find((step) => step.startsWith('Living sectors, weather and native actor routines\n'));
+    const dock = steps.find((step) => step.startsWith('Dock shipment delivery and cached aftermath\n'));
+    assert.ok(life?.includes('if: ${{ matrix.shard >= 3 && matrix.shard <= 10 }}'));
+    assert.ok(dock?.includes('if: ${{ matrix.shard == 11 || matrix.shard == 12 }}'));
+    assert.doesNotMatch(dock, /continue-on-error|--grep|--max-failures/);
+    for (const [name, shard] of [['Painted terrain resource placement', 12], ['Chronicle stop and daytime handover', 11]]) {
+        const step = steps.find((value) => value.startsWith(`${name}\n`));
+        assert.ok(step?.includes(`if: \${{ matrix.shard == ${shard} }}`));
+        assert.doesNotMatch(step, /continue-on-error|--project|--grep|--shard|--max-failures/);
+    }
+    assert.match(flows, /^    timeout-minutes: 29$/m);
+});
+
 test('living-world source fixtures have dedicated gates instead of running on the immutable preview',()=>{
     const flows=responsiveFlows();
     const playwrightConfig=readFileSync(new URL('../shinobij.client/playwright.config.ts',import.meta.url),'utf8');
@@ -190,12 +215,6 @@ test('living-world source fixtures have dedicated gates instead of running on th
     assert.match(flows,/groundProject: phone/);
     assert.match(flows,/--config playwright\.ground-wildlife\.config\.ts --project=\$\{\{ matrix\.groundProject \}\} --forbid-only/);
     assert(flows.includes('output/living-world/wildlife/browser/'));
-    assert.match(flows,/shard: 11\n\s+dockProject: desktop/);
-    assert.match(flows,/shard: 12\n\s+dockProject: phone/);
-    const dockStep = flows.split('- name: Dock shipment delivery and cached aftermath')[1]?.split('- name:')[0];
-    assert(dockStep.includes('if: ${{ matrix.shard == 11 || matrix.shard == 12 }}'));
-    const lifeStep = flows.split('- name: Living sectors, weather and native actor routines')[1]?.split('- name:')[0];
-    assert(lifeStep.includes('if: ${{ matrix.shard >= 3 && matrix.shard <= 10 }}'));
     assert.match(flows,/dockProject: desktop/);
     assert.match(flows,/dockProject: phone/);
     assert.match(flows,/--config playwright\.dock-shipment\.config\.ts --project=\$\{\{ matrix\.dockProject \}\} --forbid-only/);
