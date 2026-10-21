@@ -32,7 +32,7 @@ declare const _revisionRows: readonly [
     readonly ["roster/legendary-8.glb","9b4a73d288aa"],
     readonly ["roster/legendary-9.glb","bb5701164661"],
     readonly ["roster/mythic-0.glb","73e35b150e20"],
-    readonly ["roster/mythic-1.glb","6b903ccb6dea"],
+    readonly ["roster/mythic-1.glb","67e034cca32a"],
     readonly ["roster/mythic-10.glb","0fb7ab9f3c23"],
     readonly ["roster/mythic-11.glb","f7553dd87763"],
     readonly ["roster/mythic-12.glb","59cc80a5954a"],
@@ -43,7 +43,7 @@ declare const _revisionRows: readonly [
     readonly ["roster/mythic-3.glb","29e38dde82ad"],
     readonly ["roster/mythic-4.glb","c193c76a0a6f"],
     readonly ["roster/mythic-5.glb","41b3c21ade17"],
-    readonly ["roster/mythic-6.glb","1ab9e5912c74"],
+    readonly ["roster/mythic-6.glb","713096c79b4a"],
     readonly ["roster/mythic-7.glb","dd2b4232e522"],
     readonly ["roster/mythic-8.glb","67fec3b399d1"],
     readonly ["roster/mythic-9.glb","ac615a46ce26"],
@@ -97,7 +97,7 @@ declare const _revisionRows: readonly [
     readonly ["roster/rare-8.glb","8a7846d170b8"],
     readonly ["roster/rare-9.glb","3f7fc0c9a37b"],
     readonly ["roster/standard-0.glb","cb5120b4e9ef"],
-    readonly ["roster/standard-1.glb","31edeae4e337"],
+    readonly ["roster/standard-1.glb","4952814ec668"],
     readonly ["roster/standard-10.glb","742a12eea80d"],
     readonly ["roster/standard-11.glb","2319810be306"],
     readonly ["roster/standard-12.glb","83cec85724f0"],
@@ -140,7 +140,7 @@ declare const _revisionRows: readonly [
     readonly ["roster/standard-46.glb","ab87763b8729"],
     readonly ["roster/standard-47.glb","92d1ec2a0222"],
     readonly ["roster/standard-48.glb","0bb5f17ee7e9"],
-    readonly ["roster/standard-49.glb","b3b66cb26fc1"],
+    readonly ["roster/standard-49.glb","83c0097190c3"],
     readonly ["roster/standard-5.glb","01518c72b9d9"],
     readonly ["roster/standard-6.glb","fab51497dd32"],
     readonly ["roster/standard-8.glb","f8689425ff42"],
@@ -150,7 +150,7 @@ declare const _revisionRows: readonly [
     readonly ["showdown-v2/starter-fire-l.glb","04d827f13802"],
     readonly ["showdown-v2/starter-lightning-l.glb","1309fcd0ef35"],
     readonly ["starter-earth-l.glb","1a84bcbcdbb3"],
-    readonly ["starter-earth-r.glb","20d8613dc19e"],
+    readonly ["starter-earth-r.glb","71c419025cd2"],
     readonly ["starter-earth.glb","fe80e863de19"],
     readonly ["starter-fire-r.glb","4992f624862a"],
     readonly ["starter-fire.glb","8d8d591169d5"],
@@ -165,7 +165,7 @@ declare const _revisionRows: readonly [
 ];
 const sources = ([["legendary",30],["mythic",16],["rare",50],["standard",50]] as const).flatMap(([rarity, count]) => Array.from({ length: count }, (_, index) => `roster/${rarity}-${index}.glb`).sort().filter(source => source !== "roster/rare-1.glb" && source !== "roster/standard-7.glb"));
 const extras = ["showdown-v2/rare-1.glb","showdown-v2/standard-7.glb","showdown-v2/starter-fire-l.glb","showdown-v2/starter-lightning-l.glb","starter-earth-l.glb","starter-earth-r.glb","starter-earth.glb","starter-fire-r.glb","starter-fire.glb","starter-lightning-r.glb","starter-lightning.glb","starter-water-l.glb","starter-water-r.glb","starter-water.glb","starter-wind-l.glb","starter-wind-r.glb","starter-wind.glb"];
-const revisions = "db29f68e2fe38c34b46a2be59e958e48254974c46ba7619bc7374432c3f8adb903cf3c1bf2a62898da12b5d20515ebbc8ec159e76fbccf7967c15bf67478104cfa4027620f72e7e3a86e52e7aaa874382613faba3248336ada755d0277f2a8d54838f697279e53a915ce72c6a440fb23c0ea0e3098c9771f9bde91b7dbdde7f9268d998b889ac89c7e9c9055d8f5a4b7df91ab9f639717562f0683d8142941118efb74750c4f695a9b4a73d288aabb570116466173e35b150e206b903ccb6dea0fb7ab9f3c23f7553dd8776359cc80a5954aa87a49ee67a21a52775d2b8d26937c2377058ede8187ae6b29e38dde82adc193c76a0a6f41b3c21ade171ab9e5912c74dd2b4232e52267fec3b399d1ac615a46ce26b7a1c2d3000335059f70eb62b1cf7fc57a567d94967d3c4be230f5bc9bc0ebf727432b43abf7514312015820985a798f982fb4540efa8b286101308c723f57560160c1f6d3ffe75699266c276ff3a5107a8d0c403f85620c1b3525894d07dcc85c9f6cd6bda5188b330d8052090b66c88d97aabceed1f1e851a0bf3e0795495267ad7457274f49508f443aa89c6dcc264d4d03ddd7b4c33e9004fb0c9f4c21ceebf9f86f341c8154ef3e000e33f646d53194efc99e3a4c56cdb351d07ed4157ade579ddcb6f9af5a31af6add65a842af1a2764e7f83151108109a547ba84f4f4c08937bfe8ffcba6c8d2e7bf3af5e7383cea3e699046d9211f3436b790e7351167d8458f43ea83dc6f638f6a0164c5c5920a4b4e5ea5ae9171988a7846d170b83f7fc0c9a37bcb5120b4e9ef31edeae4e337742a12eea80d2319810be30683cec85724f0e1348e0b8f4ff08b3aac59dc825e830b828cddae0dbb7311b83236e03bf73ef3ad475789564a8c326fe08af4ffc23f4c75f44169499bb12f79fffda4f75e0fad7e18ee783c8f1edf2bae751331d8471aa38270a0e81c4e7ac6d50cf38e543b6238289a66a00376d1017203ff74ad8b3f68ead8f4e57091cae22f4d835729e458a520e5cb43953237a9ef83c918c15a263bee42a4eddd6b43d8ee08efc1778079e7353c2891c495c585ab0d38a1cd4674f5bfacaf0d7c58b7997f8affb8c01962b339f75cdae8b935c9ab970e4725d4ef61898d827853db98ab87763b872992d1ec2a02220bb5f17ee7e9b3b66cb26fc101518c72b9d9fab51497dd32f8689425ff42c498fb14584648b5faabf249d7eb1e6265c804d827f138021309fcd0ef351a84bcbcdbb320d8613dc19efe80e863de194992f624862a8d8d591169d5445a60b32c3ede7f69de776c420a841e8d65adda24740df2b8a2dae4aca667acd41e4db73c178d131687237a58b359e3".match(/.{12}/g)!;
+const revisions = "db29f68e2fe38c34b46a2be59e958e48254974c46ba7619bc7374432c3f8adb903cf3c1bf2a62898da12b5d20515ebbc8ec159e76fbccf7967c15bf67478104cfa4027620f72e7e3a86e52e7aaa874382613faba3248336ada755d0277f2a8d54838f697279e53a915ce72c6a440fb23c0ea0e3098c9771f9bde91b7dbdde7f9268d998b889ac89c7e9c9055d8f5a4b7df91ab9f639717562f0683d8142941118efb74750c4f695a9b4a73d288aabb570116466173e35b150e2067e034cca32a0fb7ab9f3c23f7553dd8776359cc80a5954aa87a49ee67a21a52775d2b8d26937c2377058ede8187ae6b29e38dde82adc193c76a0a6f41b3c21ade17713096c79b4add2b4232e52267fec3b399d1ac615a46ce26b7a1c2d3000335059f70eb62b1cf7fc57a567d94967d3c4be230f5bc9bc0ebf727432b43abf7514312015820985a798f982fb4540efa8b286101308c723f57560160c1f6d3ffe75699266c276ff3a5107a8d0c403f85620c1b3525894d07dcc85c9f6cd6bda5188b330d8052090b66c88d97aabceed1f1e851a0bf3e0795495267ad7457274f49508f443aa89c6dcc264d4d03ddd7b4c33e9004fb0c9f4c21ceebf9f86f341c8154ef3e000e33f646d53194efc99e3a4c56cdb351d07ed4157ade579ddcb6f9af5a31af6add65a842af1a2764e7f83151108109a547ba84f4f4c08937bfe8ffcba6c8d2e7bf3af5e7383cea3e699046d9211f3436b790e7351167d8458f43ea83dc6f638f6a0164c5c5920a4b4e5ea5ae9171988a7846d170b83f7fc0c9a37bcb5120b4e9ef4952814ec668742a12eea80d2319810be30683cec85724f0e1348e0b8f4ff08b3aac59dc825e830b828cddae0dbb7311b83236e03bf73ef3ad475789564a8c326fe08af4ffc23f4c75f44169499bb12f79fffda4f75e0fad7e18ee783c8f1edf2bae751331d8471aa38270a0e81c4e7ac6d50cf38e543b6238289a66a00376d1017203ff74ad8b3f68ead8f4e57091cae22f4d835729e458a520e5cb43953237a9ef83c918c15a263bee42a4eddd6b43d8ee08efc1778079e7353c2891c495c585ab0d38a1cd4674f5bfacaf0d7c58b7997f8affb8c01962b339f75cdae8b935c9ab970e4725d4ef61898d827853db98ab87763b872992d1ec2a02220bb5f17ee7e983c0097190c301518c72b9d9fab51497dd32f8689425ff42c498fb14584648b5faabf249d7eb1e6265c804d827f138021309fcd0ef351a84bcbcdbb371c419025cd2fe80e863de194992f624862a8d8d591169d5445a60b32c3ede7f69de776c420a841e8d65adda24740df2b8a2dae4aca667acd41e4db73c178d131687237a58b359e3".match(/.{12}/g)!;
 export const WARFRONT_IMPOSTOR_ATLAS_REVISIONS = Object.fromEntries([...sources, ...extras].map((source, index) => [
     `/pet-models/${source}`, revisions[index],
 ])) as { readonly [Row in typeof _revisionRows[number] as `/pet-models/${Row[0]}`]: Row[1] };

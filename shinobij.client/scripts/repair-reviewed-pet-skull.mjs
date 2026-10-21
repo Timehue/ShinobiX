@@ -91,10 +91,13 @@ export async function repairReviewedPetSkull(id,source,destination,config) {
         const transfer=await transferReviewedPetBinding(model,config.bindingReference);
         joints.set(transfer.joints);weights.set(transfer.weights);
         // The detailed surface can retain a tiny reference interpolation at a
-        // cheek rim. Keep every previously reviewed rigid skull vertex rigid.
+        // cheek rim. Keep the reviewed skull rigid, and optionally retain
+        // original rigid head ownership throughout the transferred surface.
         for(let v=0;v<position.count;v++){
             point.fromBufferAttribute(position,v).applyMatrix4(envelope);
-            if(petSkullRegionShare(point,config)!==1)continue;
+            let originalHeadShare=0;
+            for(let s=0;s<4;s++)if(skinIndex.getComponent(v,s)===head)originalHeadShare+=skinWeight.getComponent(v,s);
+            if(petSkullRegionShare(point,config)!==1&&!(config.preserveRigidHeadBinding&&originalHeadShare>.999999))continue;
             for(let s=0;s<4;s++){joints[v*4+s]=s===0?head:0;weights[v*4+s]=s===0?255:0;}
         }
         bindingTransfer={referenceSha256:config.bindingReference.sha256,vertices:transfer.vertices,maximumProjectionDistance:transfer.maximumProjectionDistance};

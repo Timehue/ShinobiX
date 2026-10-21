@@ -1,0 +1,432 @@
+{
+  "schema": 1,
+  "id": "standard-49",
+  "name": "Loam Marmot",
+  "reviewer": "independent Luna review",
+  "recordedAt": "2026-10-21T04:21:25.381Z",
+  "status": "PASS-PRIVATE-CANDIDATE-VISUAL-REVIEW",
+  "scope": {
+    "rawClipsPerStage": 13,
+    "rawPhases": [
+      0,
+      0.125,
+      0.375,
+      0.625,
+      0.875,
+      1
+    ],
+    "rawViews": [
+      "front",
+      "side",
+      "other-side",
+      "back",
+      "head-front",
+      "head-side",
+      "head-other-side"
+    ],
+    "rawStages": [
+      "source",
+      "battle"
+    ],
+    "runtimeRows": [
+      "idle",
+      "run",
+      "dash",
+      "windup",
+      "strike",
+      "recover",
+      "stagger",
+      "dodge",
+      "guard",
+      "rest",
+      "cast",
+      "entrance",
+      "victory",
+      "dead",
+      "revive",
+      "attack-sequence"
+    ],
+    "runtimePhases": [
+      0.025,
+      0.1,
+      0.25,
+      0.5,
+      0.75,
+      1
+    ],
+    "runtimeQualities": [
+      "low",
+      "medium"
+    ],
+    "runtimeStages": [
+      "source",
+      "battle"
+    ],
+    "companionIdleFrames": 24,
+    "equippedTechniques": [
+      "earth-strike",
+      "earth-pulse",
+      "earth-breaker",
+      "lightning-pulse",
+      "expose",
+      "rally",
+      "protect",
+      "purify",
+      "standard-49-signature"
+    ],
+    "techniquePhases": [
+      0.04,
+      0.12,
+      0.24,
+      0.36,
+      0.48,
+      0.6,
+      0.76,
+      0.96,
+      1.2,
+      1.44,
+      1.68,
+      1.92
+    ],
+    "techniqueViews": [
+      "front",
+      "side"
+    ]
+  },
+  "assets": {
+    "source": {
+      "sha256": "b0460aea919abb8bf18c368a57685c5ba599ddaf942d753a4effb2650eb496e7",
+      "path": "shinobij.client/.tmp/marmot-single-tail-v6/grounded/source.glb"
+    },
+    "battle": {
+      "sha256": "1f5117dff1ff08fe4bc8814563a6c87867a923bee81a88bbfec574f72c8dad77",
+      "path": "shinobij.client/.tmp/marmot-single-tail-v6/grounded/battle.glb"
+    },
+    "sourceTexturesMatchOriginal": true,
+    "atlas": "No separate atlas asset; this GLB uses an embedded WebP material image."
+  },
+  "coverage": {
+    "rawImageSheets": 14,
+    "runtimeImageSheets": 8,
+    "companionImageSheets": 37,
+    "techniquePhaseViewFrames": 216
+  },
+  "evidenceManifests": [
+    {
+      "path": "shinobij.client/.tmp/marmot-single-tail-v6/review/raw/manifest.json",
+      "sha256": "7022125e71308ec097c78b989d30ed903ccffa4bd40b594c600c8c1486b78f0c"
+    },
+    {
+      "path": "shinobij.client/.tmp/marmot-single-tail-v6/review/runtime/manifest.json",
+      "sha256": "411b8c53c6e59bf24a615b0fbf5a87f18a7af8a76eddd91a383d095e23e5087c"
+    },
+    {
+      "path": "shinobij.client/.tmp/marmot-single-tail-v6/review/companion/manifest.json",
+      "sha256": "ac5bdec9e53efa33af86b58cc10e58d1232401cb196879921e0f29694c4ef3ef"
+    },
+    {
+      "path": "shinobij.client/.tmp/marmot-single-tail-v6/review/glb-hashes.json",
+      "sha256": "b55ea2d818924036c768e1d09687f524f981b33be2dc7fdc8c2aa83cf0547959"
+    }
+  ],
+  "evidence": [
+    {
+      "path": "shinobij.client/.tmp/marmot-single-tail-v6/review/raw/source-front.png",
+      "sha256": "9c23d37734c8c6bbe1f618a14f39d0f67b7ca103346c7853220ed186f0e5c113",
+      "stage": "source",
+      "view": "front"
+    },
+    {
+      "path": "shinobij.client/.tmp/marmot-single-tail-v6/review/raw/source-side.png",
+      "sha256": "9fb61e6d4ef6a4b2c31945ac51614c88e29378ccc600071ecc6fc04a2544a72e",
+      "stage": "source",
+      "view": "side"
+    },
+    {
+      "path": "shinobij.client/.tmp/marmot-single-tail-v6/review/raw/source-other-side.png",
+      "sha256": "0375c816dcf2915068d681227a6b57568e5dbdc5c68b9dcda2f7413628efbc62",
+      "stage": "source",
+      "view": "other-side"
+    },
+    {
+      "path": "shinobij.client/.tmp/marmot-single-tail-v6/review/raw/source-back.png",
+      "sha256": "7e29d39b5ba229ef939036e696d7532d220b6d94f9152af40cf9e40f0da1ebc3",
+      "stage": "source",
+      "view": "back"
+    },
+    {
+      "path": "shinobij.client/.tmp/marmot-single-tail-v6/review/raw/source-head-front.png",
+      "sha256": "479ec4c920c00b711b52bd2b10c6b5768a3b1ab8643a4697e1eb502c2a3f9b62",
+      "stage": "source",
+      "view": "head-front"
+    },
+    {
+      "path": "shinobij.client/.tmp/marmot-single-tail-v6/review/raw/source-head-side.png",
+      "sha256": "16edc0c472192da2623f474c7a484dc21a9c5b97a814b2e780befa1acfd22a25",
+      "stage": "source",
+      "view": "head-side"
+    },
+    {
+      "path": "shinobij.client/.tmp/marmot-single-tail-v6/review/raw/source-head-other-side.png",
+      "sha256": "29d996a1cf14e1d7152ce7cf4eb1917fd04bcb9bce354aee4667745745907f08",
+      "stage": "source",
+      "view": "head-other-side"
+    },
+    {
+      "path": "shinobij.client/.tmp/marmot-single-tail-v6/review/raw/battle-front.png",
+      "sha256": "3d366a552f5fcf2cccbcd7d8961ca979c908a595c417c63688f00f480f770405",
+      "stage": "battle",
+      "view": "front"
+    },
+    {
+      "path": "shinobij.client/.tmp/marmot-single-tail-v6/review/raw/battle-side.png",
+      "sha256": "0893276f10d678e4a1898f3d25685066f07079c5f9018dae3537251dcd9f31fb",
+      "stage": "battle",
+      "view": "side"
+    },
+    {
+      "path": "shinobij.client/.tmp/marmot-single-tail-v6/review/raw/battle-other-side.png",
+      "sha256": "ea8968adacaf13966649cfee410e95b0d75a07c4f998a5cb91c9f2688ea524b4",
+      "stage": "battle",
+      "view": "other-side"
+    },
+    {
+      "path": "shinobij.client/.tmp/marmot-single-tail-v6/review/raw/battle-back.png",
+      "sha256": "6628da192e5f361b6cc42ac6b9382d4f471f7fe3e7c0d4e6b96bd989484c3d82",
+      "stage": "battle",
+      "view": "back"
+    },
+    {
+      "path": "shinobij.client/.tmp/marmot-single-tail-v6/review/raw/battle-head-front.png",
+      "sha256": "c123225d816bb39e45a9ee21b9ad3612376d25002ca1a6f045a034a9e15b53f3",
+      "stage": "battle",
+      "view": "head-front"
+    },
+    {
+      "path": "shinobij.client/.tmp/marmot-single-tail-v6/review/raw/battle-head-side.png",
+      "sha256": "4a40d6d57671bdff9e55083a55093f9d0aeb0a088dbeeefc81865e0c80e6e929",
+      "stage": "battle",
+      "view": "head-side"
+    },
+    {
+      "path": "shinobij.client/.tmp/marmot-single-tail-v6/review/raw/battle-head-other-side.png",
+      "sha256": "8dcc618333fa7ab930994d99e62f148c406acb4031d20d938dcf31072ee81c61",
+      "stage": "battle",
+      "view": "head-other-side"
+    },
+    {
+      "path": "shinobij.client/.tmp/marmot-single-tail-v6/review/runtime/low-source-head.webp",
+      "sha256": "4531bcfb9231b351b5a03690501cd30b8e7a740c8550c4574e77812f3c1209a1",
+      "quality": "low",
+      "stage": "source",
+      "part": "head"
+    },
+    {
+      "path": "shinobij.client/.tmp/marmot-single-tail-v6/review/runtime/low-source-body.webp",
+      "sha256": "f4064dab373c7d4f1a6bd2fa041d4e2902458a093b0011178e7c93dc45031866",
+      "quality": "low",
+      "stage": "source",
+      "part": "body"
+    },
+    {
+      "path": "shinobij.client/.tmp/marmot-single-tail-v6/review/runtime/low-battle-head.webp",
+      "sha256": "d07352fa4b2129970cd24e4e33c0aa988fffcda2807085344d7ef58d03d18e5b",
+      "quality": "low",
+      "stage": "battle",
+      "part": "head"
+    },
+    {
+      "path": "shinobij.client/.tmp/marmot-single-tail-v6/review/runtime/low-battle-body.webp",
+      "sha256": "6f4e11d7c4fe782d2f3b3a046c328068fb5c98f568172922f24def9d9b35a001",
+      "quality": "low",
+      "stage": "battle",
+      "part": "body"
+    },
+    {
+      "path": "shinobij.client/.tmp/marmot-single-tail-v6/review/runtime/medium-source-head.webp",
+      "sha256": "9a90845eca4c7d2a3b76e13fe7e0ada58874bbb11bbbc03c502a68911d348efb",
+      "quality": "medium",
+      "stage": "source",
+      "part": "head"
+    },
+    {
+      "path": "shinobij.client/.tmp/marmot-single-tail-v6/review/runtime/medium-source-body.webp",
+      "sha256": "8c0cfb337da3932afc81f44586d49ac744989ccba1200f996f914d04b0e505e2",
+      "quality": "medium",
+      "stage": "source",
+      "part": "body"
+    },
+    {
+      "path": "shinobij.client/.tmp/marmot-single-tail-v6/review/runtime/medium-battle-head.webp",
+      "sha256": "4a763f5a9ba26c7a17b411c5e0e57d239950f02f4eff3fe0e24bc9715a643b63",
+      "quality": "medium",
+      "stage": "battle",
+      "part": "head"
+    },
+    {
+      "path": "shinobij.client/.tmp/marmot-single-tail-v6/review/runtime/medium-battle-body.webp",
+      "sha256": "6b59fee74af6973e839df83d7aad0ae071d276452dff84c154aa05a64d48124f",
+      "quality": "medium",
+      "stage": "battle",
+      "part": "body"
+    },
+    {
+      "path": "shinobij.client/.tmp/marmot-single-tail-v6/review/companion/idle-24-sheet.webp",
+      "sha256": "60add5ed193f29d76674cd6ce5aba0d6f008226bfd04a67e844168122fe9b09f"
+    },
+    {
+      "path": "shinobij.client/.tmp/marmot-single-tail-v6/review/companion/earth-strike-front-sheet-0.webp",
+      "sha256": "de969b2d534928c467edaf466ba82e44f97b0874ea29a441ef93a49eebe3fe3e"
+    },
+    {
+      "path": "shinobij.client/.tmp/marmot-single-tail-v6/review/companion/earth-strike-front-sheet-1.webp",
+      "sha256": "d5e0d88c6f17140bde045c3d94d0f30792bab39ee27ca411774b5d498342d4d0"
+    },
+    {
+      "path": "shinobij.client/.tmp/marmot-single-tail-v6/review/companion/earth-strike-side-sheet-0.webp",
+      "sha256": "59e9cadbf8ee0f81ee1a9aa748bfd80cc73a7060a2bb20cca85765da5abe2c6e"
+    },
+    {
+      "path": "shinobij.client/.tmp/marmot-single-tail-v6/review/companion/earth-strike-side-sheet-1.webp",
+      "sha256": "9f04595433e41d9e5ab32579fdc8abae919ffcab6965074bdddf41d1bc11ed7f"
+    },
+    {
+      "path": "shinobij.client/.tmp/marmot-single-tail-v6/review/companion/earth-pulse-front-sheet-0.webp",
+      "sha256": "fd57c0570b29fedda7af2df3949ba74b9522a8cba56a97677be1543229ea353b"
+    },
+    {
+      "path": "shinobij.client/.tmp/marmot-single-tail-v6/review/companion/earth-pulse-front-sheet-1.webp",
+      "sha256": "343bf66d0c9a8be9a85e00620bd224e61472ae6e105ee058748f1f9b9a128ff4"
+    },
+    {
+      "path": "shinobij.client/.tmp/marmot-single-tail-v6/review/companion/earth-pulse-side-sheet-0.webp",
+      "sha256": "4fe5d1ef32739cd47b69f62f3ad953171fac99de3fcc031c3d0d93e78cc46e79"
+    },
+    {
+      "path": "shinobij.client/.tmp/marmot-single-tail-v6/review/companion/earth-pulse-side-sheet-1.webp",
+      "sha256": "23520ea9b8deb47cb9e184f4cfe261ce63474ab7d4d5f4a455cde91fd1118bd0"
+    },
+    {
+      "path": "shinobij.client/.tmp/marmot-single-tail-v6/review/companion/earth-breaker-front-sheet-0.webp",
+      "sha256": "0415bd49c66c47c44c5498f7fb3551d919e1347a2f2b3c45bac4084cd1d1df5a"
+    },
+    {
+      "path": "shinobij.client/.tmp/marmot-single-tail-v6/review/companion/earth-breaker-front-sheet-1.webp",
+      "sha256": "0cdc93e44fd69459eaaf2e5e21cf846c41c3a5eff0918a953bed916c473f973e"
+    },
+    {
+      "path": "shinobij.client/.tmp/marmot-single-tail-v6/review/companion/earth-breaker-side-sheet-0.webp",
+      "sha256": "28cb961ee8409f17be9e708c12a75ed375414785713ccee6a7ae96d16e0e8518"
+    },
+    {
+      "path": "shinobij.client/.tmp/marmot-single-tail-v6/review/companion/earth-breaker-side-sheet-1.webp",
+      "sha256": "8a44cc091c0ed6b43126f4bdae88408260f3ab1cd2d3b35ce507cfb4ec276a57"
+    },
+    {
+      "path": "shinobij.client/.tmp/marmot-single-tail-v6/review/companion/lightning-pulse-front-sheet-0.webp",
+      "sha256": "bf1e1f4cf4f56e0d88764a0dc6ab311dedca5dc1819883b2c8e19b8cd40dbb96"
+    },
+    {
+      "path": "shinobij.client/.tmp/marmot-single-tail-v6/review/companion/lightning-pulse-front-sheet-1.webp",
+      "sha256": "1b0f702d9b77f1dcfb893a90a716b321df2651372f639d95e304a20733057ac8"
+    },
+    {
+      "path": "shinobij.client/.tmp/marmot-single-tail-v6/review/companion/lightning-pulse-side-sheet-0.webp",
+      "sha256": "7791f19fbf00075c89614e12b45b1896fb1254bf8e1cfbbd5eb479004bdb9f2a"
+    },
+    {
+      "path": "shinobij.client/.tmp/marmot-single-tail-v6/review/companion/lightning-pulse-side-sheet-1.webp",
+      "sha256": "dfb239445b72f9b14aa2539ec95c5d56fa70531a40fc46379e970c58c8afc95f"
+    },
+    {
+      "path": "shinobij.client/.tmp/marmot-single-tail-v6/review/companion/expose-front-sheet-0.webp",
+      "sha256": "8a7df4f12e079669ad695ebf8ad11ac840d2a66614fe4ca2777815f0d8326760"
+    },
+    {
+      "path": "shinobij.client/.tmp/marmot-single-tail-v6/review/companion/expose-front-sheet-1.webp",
+      "sha256": "9ef2ccf8560652004f28263a1fe90d17b8796d37fe5fcc806f03af116c5da8d1"
+    },
+    {
+      "path": "shinobij.client/.tmp/marmot-single-tail-v6/review/companion/expose-side-sheet-0.webp",
+      "sha256": "51a1587662658396e16f95de4b90a21f41387d1b138af8b449bb33df44d7f142"
+    },
+    {
+      "path": "shinobij.client/.tmp/marmot-single-tail-v6/review/companion/expose-side-sheet-1.webp",
+      "sha256": "d9183a113f9e12c21bba70416067c0fffa88fcc34a5d4dc8b4dce980de1e8cc6"
+    },
+    {
+      "path": "shinobij.client/.tmp/marmot-single-tail-v6/review/companion/rally-front-sheet-0.webp",
+      "sha256": "e7a97effe9ab171c578d32b2f3c96a317ae9bcc53a8748d03e3f930d6fd26c85"
+    },
+    {
+      "path": "shinobij.client/.tmp/marmot-single-tail-v6/review/companion/rally-front-sheet-1.webp",
+      "sha256": "3620da3f8d0e29a6aba03c61a8d50d9bd7343bb843f3b1a6bb54f8687393e2f1"
+    },
+    {
+      "path": "shinobij.client/.tmp/marmot-single-tail-v6/review/companion/rally-side-sheet-0.webp",
+      "sha256": "29db9cba47529c994d1fe59dee9fe4f489496e7bf625383ea98803e5e67935d4"
+    },
+    {
+      "path": "shinobij.client/.tmp/marmot-single-tail-v6/review/companion/rally-side-sheet-1.webp",
+      "sha256": "1396685f8281db97419d3b25b411a74ed1b221d8f26b8febf571a15f644aba21"
+    },
+    {
+      "path": "shinobij.client/.tmp/marmot-single-tail-v6/review/companion/protect-front-sheet-0.webp",
+      "sha256": "20cda83a05b6f8a614e9828e03fa525f3fbcc16aab859752f4a715c4e78a07f5"
+    },
+    {
+      "path": "shinobij.client/.tmp/marmot-single-tail-v6/review/companion/protect-front-sheet-1.webp",
+      "sha256": "879f5f096613a1622915245c5bd38eea83531b34a19523f220a76f3fa86310e8"
+    },
+    {
+      "path": "shinobij.client/.tmp/marmot-single-tail-v6/review/companion/protect-side-sheet-0.webp",
+      "sha256": "c9e413e7117a2a195c622a34eeb099bf8d2b1c8e69f8ff853b48f440fc78002e"
+    },
+    {
+      "path": "shinobij.client/.tmp/marmot-single-tail-v6/review/companion/protect-side-sheet-1.webp",
+      "sha256": "5ef2b7a2492b32396429ae81fbaacc837aacab786d10755dff1908563653b47b"
+    },
+    {
+      "path": "shinobij.client/.tmp/marmot-single-tail-v6/review/companion/purify-front-sheet-0.webp",
+      "sha256": "bfc1ee550b6f450745b2efe23127af2d763a04da4834c27774fa3fbf890bc17e"
+    },
+    {
+      "path": "shinobij.client/.tmp/marmot-single-tail-v6/review/companion/purify-front-sheet-1.webp",
+      "sha256": "93395a8f80a5f3275224cd8f65cf4a757d521e457824e043d16a52b348d549a4"
+    },
+    {
+      "path": "shinobij.client/.tmp/marmot-single-tail-v6/review/companion/purify-side-sheet-0.webp",
+      "sha256": "838c34f94f0a7349e1644d5c89bb1861fdffd25d6f55921d82c17be6b8609c86"
+    },
+    {
+      "path": "shinobij.client/.tmp/marmot-single-tail-v6/review/companion/purify-side-sheet-1.webp",
+      "sha256": "52f4de6230db2d17629fe879a5a76d3098e2f5fe216194f297160770cbde8779"
+    },
+    {
+      "path": "shinobij.client/.tmp/marmot-single-tail-v6/review/companion/standard-49-signature-front-sheet-0.webp",
+      "sha256": "e59fd116e1ebd93ab16f0858458af0bc7fcfdc3e62009fca57114fc1c65aed03"
+    },
+    {
+      "path": "shinobij.client/.tmp/marmot-single-tail-v6/review/companion/standard-49-signature-front-sheet-1.webp",
+      "sha256": "8539e0ce792d476b9c3059a187be78faf45142942ec8a702476f112191865def"
+    },
+    {
+      "path": "shinobij.client/.tmp/marmot-single-tail-v6/review/companion/standard-49-signature-side-sheet-0.webp",
+      "sha256": "67539b8592f2bf0faab31f6188fd5463323dbbf072710a011c846c0677c9828c"
+    },
+    {
+      "path": "shinobij.client/.tmp/marmot-single-tail-v6/review/companion/standard-49-signature-side-sheet-1.webp",
+      "sha256": "06ee81e79eff8b52c6f9c519abf6dd4202085aa7a278fd6ac80f72cf972d615c"
+    }
+  ],
+  "visualFindings": [
+    "The historical second sideward rump/tail mesh is absent in source and battle views. The side profile shows one continuous tail; direct back and opposite-side views show no second tail, stub, exposed cap, or seam.",
+    "Across raw animated clips, source and battle LOD transitions, companion idle, and all nine equipped technique motions, the repaired rump silhouette stays attached to the body without a visible split, detached geometry, or animation-specific reappearance.",
+    "No unrelated visible deformation found in the inspected pose and runtime sheets."
+  ],
+  "limitations": [
+    "Visual review is tied only to these private source and battle GLB hashes. No production asset, manifest, or tracker was changed.",
+    "Standalone atlas review is not applicable because the model embeds its material image; source embedded image bytes exactly match the original source GLB."
+  ],
+  "independentVisualInspection": "Personally inspected every listed raw source/battle sheet, all eight low/medium runtime head/body sheets (both source and battle), the full 24-frame idle sheet, and each of the 36 technique phase sheets."
+}

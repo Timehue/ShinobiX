@@ -44,6 +44,9 @@
         "outputSha256": "d15db3206cee91e816519fa599539a99bd0f120fa6b2fdb3976c8bc847d46993",
         "notes": "Plain wrap and unmarked monastery scenery; no single-spiral village crest.",
         "reviewedAt": "2026-10-15T23:34:52.054Z"
+      },
+      "referenceArchives": {
+        "pet-models/warfront-impostors/starter-earth-r.webp": "art-source/pet-portrait-refresh/reference-archive/starter-earth-r-model-atlas.webp"
       }
     },
     {
@@ -2462,7 +2465,10 @@
           "animationReview": "docs/audits/pet-worldstorm-dragon-all-clips-v2-final-review-2026-10-18.json",
           "reason": "Update reference to twice visually reviewed animation atlas. Preserve all portrait master, delivery and quality/symbol review records; this is not a new portrait review."
         }
-      ]
+      ],
+      "referenceArchives": {
+        "pet-models/warfront-impostors/roster/mythic-1.webp": "art-source/pet-portrait-refresh/reference-archive/mythic-1-model-atlas.webp"
+      }
     },
     {
       "id": "mythic-2",
@@ -2767,7 +2773,10 @@
           "reviewReceipt": "docs/audits/pet-animation-shape-reviews.json",
           "reason": "Integrate the independently double-checked mythic animation repair atlas. Historical reference hashes remain recorded; scenic portrait master and delivery bytes are unchanged."
         }
-      ]
+      ],
+      "referenceArchives": {
+        "pet-models/warfront-impostors/roster/mythic-6.webp": "art-source/pet-portrait-refresh/reference-archive/mythic-6-model-atlas.webp"
+      }
     },
     {
       "id": "mythic-7",
@@ -6023,7 +6032,10 @@
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
         }
-      ]
+      ],
+      "referenceArchives": {
+        "pet-models/warfront-impostors/roster/standard-1.webp": "art-source/pet-portrait-refresh/reference-archive/standard-1-model-atlas.webp"
+      }
     },
     {
       "id": "standard-2",
@@ -8548,7 +8560,10 @@
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
         }
-      ]
+      ],
+      "referenceArchives": {
+        "pet-models/warfront-impostors/roster/standard-49.webp": "art-source/pet-portrait-refresh/reference-archive/standard-49-model-atlas.webp"
+      }
     }
   ],
   "symbolPolicy": {

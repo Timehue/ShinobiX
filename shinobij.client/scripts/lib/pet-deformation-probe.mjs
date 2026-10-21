@@ -7,7 +7,11 @@ import { encodeGlb } from '../repair-bird-faces.mjs';
 
 /** CPU copy of the actual shipping skin. Only image decoding is removed. */
 export async function loadPetDeformationProbe(path) {
-    const bytes = await readFile(path), length = bytes.readUInt32LE(12);
+    return loadPetDeformationProbeBytes(await readFile(path));
+}
+
+export async function loadPetDeformationProbeBytes(bytes) {
+    const length = bytes.readUInt32LE(12);
     const json = JSON.parse(bytes.subarray(20, 20 + length));
     const scratch = structuredClone(json);
     scratch.materials = []; scratch.images = []; scratch.textures = [];

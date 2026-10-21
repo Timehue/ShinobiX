@@ -11260,6 +11260,522 @@
         }
       ],
       "coverageReviewedAt": "2026-10-16T03:07:17.517Z"
+    },
+    "starter-earth-r": {
+      "sourceSha256": "0a5245954cdf15e302165ed00cf8fee0a64f3fe735eb4dc6470c717eedb4b6cf",
+      "geometrySha256": "5a2161d742131851c54e821d4d295c8b0a478e969535c372d85020528269fdcb",
+      "geometryToVisibleBind": [
+        1.0000016197637382,
+        0,
+        0,
+        0,
+        0,
+        1.0000013821728588,
+        -7.084408354396388e-8,
+        0,
+        0,
+        -2.6345174569675223e-8,
+        1.0000017472121527,
+        0,
+        -0.056534965398915595,
+        3.3981064734289745e-7,
+        -0.0000017256586180985911,
+        1
+      ],
+      "heads": [
+        {
+          "id": "primary",
+          "landmarks": [
+            "crown",
+            "headband",
+            "upperFace",
+            "leftEye",
+            "rightEye",
+            "muzzle",
+            "lowerFace",
+            "leftCheek",
+            "rightCheek",
+            "chin",
+            "underChin",
+            "leftJaw",
+            "rightJaw"
+          ]
+        }
+      ],
+      "headCountVisuallyVerified": 1,
+      "landmarks": {
+        "crown": {
+          "center": [
+            -0.0012467645594972246,
+            0.7031913634724167,
+            0.8960670808948663
+          ],
+          "radius": 0.13,
+          "pickedPixel": [
+            150,
+            124
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "headband": {
+          "center": [
+            0.0022298571970141134,
+            0.5268968855915862,
+            0.9979589256844987
+          ],
+          "radius": 0.12,
+          "pickedPixel": [
+            148,
+            160
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "upperFace": {
+          "center": [
+            0.008967732987862482,
+            0.3606239888965719,
+            0.9930753163471
+          ],
+          "radius": 0.11,
+          "pickedPixel": [
+            149,
+            194
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "leftEye": {
+          "center": [
+            -0.19829733909360625,
+            0.419995727070151,
+            0.9445832582055909
+          ],
+          "radius": 0.1,
+          "pickedPixel": [
+            109,
+            180
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "rightEye": {
+          "center": [
+            0.15205510423734497,
+            0.42314888389010086,
+            0.9446867727235932
+          ],
+          "radius": 0.1,
+          "pickedPixel": [
+            179,
+            181
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "muzzle": {
+          "center": [
+            -0.018921151129148422,
+            0.3018598932287233,
+            0.9996043377087944
+          ],
+          "radius": 0.1,
+          "pickedPixel": [
+            143,
+            206
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "lowerFace": {
+          "center": [
+            0.01450416158374232,
+            0.24106341041124735,
+            0.9826677452673013
+          ],
+          "radius": 0.09,
+          "pickedPixel": [
+            150,
+            218
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "leftCheek": {
+          "center": [
+            -0.25896129102498955,
+            0.27814569984931486,
+            0.9152449792252184
+          ],
+          "radius": 0.1,
+          "pickedPixel": [
+            98,
+            207
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "rightCheek": {
+          "center": [
+            0.21304639112220528,
+            0.292194637191133,
+            0.9231530567410067
+          ],
+          "radius": 0.1,
+          "pickedPixel": [
+            191,
+            207
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "chin": {
+          "center": [
+            -0.013373347949382558,
+            0.1609247159304915,
+            0.8450756247380994
+          ],
+          "radius": 0.11,
+          "pickedPixel": [
+            147,
+            161
+          ],
+          "pickedView": "head-under-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "underChin": {
+          "center": [
+            -0.015068299820775078,
+            0.1611462776133261,
+            0.8269339559135154
+          ],
+          "radius": 0.115,
+          "pickedPixel": [
+            147,
+            164
+          ],
+          "pickedView": "head-under-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "leftJaw": {
+          "center": [
+            -0.22608125163628434,
+            0.2146517846857795,
+            0.7965358024463423
+          ],
+          "radius": 0.11,
+          "pickedPixel": [
+            105,
+            165
+          ],
+          "pickedView": "head-under-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "rightJaw": {
+          "center": [
+            0.20286881759344944,
+            0.21064560394582132,
+            0.8295610237802977
+          ],
+          "radius": 0.11,
+          "pickedPixel": [
+            191,
+            155
+          ],
+          "pickedView": "head-under-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        }
+      },
+      "camera": {
+        "y": [
+          -2,
+          -2
+        ],
+        "bounds": [
+          -0.55,
+          0.55,
+          0.08,
+          1.05,
+          0.22,
+          1.1
+        ],
+        "cameraPadding": 0.95
+      },
+      "coverageEvidence": "docs/screenshots/pet-granite-tortoise-progress-2026-10-19/face-reference.png",
+      "status": "private-face-repair-numeric-pass-full-visual-review-pending",
+      "visualApproval": false,
+      "coverageReview": {
+        "reviewedAt": "2026-10-20T02:17:00.260Z",
+        "regions": 13,
+        "minSourceVertices": 29,
+        "views": [
+          "front",
+          "side",
+          "opposite-side",
+          "under-front",
+          "under-side"
+        ],
+        "all13CoverageDiagramsActuallyInspected": true,
+        "independentOfRepairMasks": true,
+        "exclusionMasks": false
+      },
+      "coverageCorrection": {
+        "at": "2026-10-20T02:24:47.598Z",
+        "originalPreserved": "docs/screenshots/pet-granite-tortoise-progress-2026-10-19/original-spherical-annotation.json",
+        "reason": "Exact original-geometry witness rendering identifies collar/neck vertices 7759, 7762 and 8249 inside two spherical samples. New raycast centers retain visible chin and jaw surface coverage, without binding the chest to the skull. All other eleven samples and every numeric threshold are unchanged. No repair candidate existed during this correction.",
+        "witnessVertexIds": [
+          7759,
+          7762,
+          8249
+        ],
+        "independentDiagramsActuallySeen": [
+          "docs/screenshots/pet-granite-tortoise-progress-2026-10-19/corrected-underChin-coverage.png",
+          "docs/screenshots/pet-granite-tortoise-progress-2026-10-19/corrected-rightJaw-coverage.png"
+        ],
+        "vertices": {
+          "underChin": 24,
+          "rightJaw": 41
+        },
+        "originalFailuresPreserved": true,
+        "bodyAndNeckReviewStillRequired": true
+      }
+    },
+    "standard-49": {
+      "camera": {
+        "y": [
+          -2,
+          -2
+        ],
+        "bounds": [
+          -0.19355615992133524,
+          0.44014685013188815,
+          0.174419713277118,
+          0.6677417881280407,
+          0.27214623482057987,
+          0.8715734416428834
+        ],
+        "cameraPadding": 1.15
+      },
+      "status": "landmark-coverage-reviewed",
+      "sourceSha256": "2bd30c89ab58360dc537cdcb6bf58ef53097b73f5811d96a7a254ff99a2a00a4",
+      "coverageEvidence": ".tmp/pet-independent-face-recheck/standard-49-landmark-coverage.png",
+      "landmarks": {
+        "upperFace": {
+          "center": [
+            0.20014685013188818,
+            0.4877417881280408,
+            0.5521462348205799
+          ],
+          "radius": 0.1,
+          "pickedPixel": [
+            161,
+            184
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "muzzle": {
+          "center": [
+            0.04644384007866474,
+            0.3665293932526902,
+            0.7515734416428834
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            141,
+            200
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "lowerFace": {
+          "center": [
+            0.05143394114398125,
+            0.264419713277118,
+            0.6900996519008937
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            145,
+            210
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "jawChin": {
+          "center": [
+            0.20932302572954514,
+            0.31073894613082215,
+            0.5530890143687368
+          ],
+          "radius": 0.1,
+          "pickedPixel": [
+            150,
+            190
+          ],
+          "pickedView": "head-side",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        }
+      },
+      "geometrySha256": "07c55178139149d696a3af6ebe64a882d51fc3a88404bdcf0c918bf405f17a93",
+      "geometryToVisibleBind": [
+        1.0000002647368165,
+        0,
+        0,
+        0,
+        0,
+        1.0000000767431931,
+        -3.1982883369474635e-8,
+        0,
+        0,
+        -2.0260009975237026e-8,
+        1.0000003132355642,
+        0,
+        -7.067142923644631e-7,
+        -6.762380816427438e-8,
+        -1.2332885990229414e-8,
+        1
+      ],
+      "headCountVisuallyVerified": 1,
+      "heads": [
+        {
+          "id": "primary",
+          "landmarks": [
+            "upperFace",
+            "muzzle",
+            "lowerFace",
+            "jawChin"
+          ]
+        }
+      ],
+      "reviewedGeometryRevision": {
+        "reason": "Duplicate tail surgery changes whole-mesh topology fingerprint; the original facial coordinate frame, all landmarks, and thresholds remain frozen. Complete upper-body attributes match original by spatial multiset; all13clips and468blends pass the unchanged probes.",
+        "priorGeometrySha256": "bab05bdbb018d92ade06601161379907a22511a500741349c96059ca3fe9d0c8",
+        "reviewedSourceSha256": "b0460aea919abb8bf18c368a57685c5ba599ddaf942d753a4effb2650eb496e7",
+        "regression": "scripts/pet-marmot-single-tail.test.mjs",
+        "visualReview": "docs/audits/pet-loam-marmot-private-tail-repair-visual-review-2026-10-20.json"
+      }
+    },
+    "standard-1": {
+      "camera": {
+        "y": [
+          -2,
+          -2
+        ],
+        "bounds": [
+          -0.36,
+          0.36,
+          -0.03,
+          0.36,
+          0.1,
+          0.5
+        ],
+        "cameraPadding": 1.15
+      },
+      "status": "landmark-coverage-reviewed",
+      "sourceSha256": "5cd4f15ecf24bdc4a35412147b46452168b73d2b513c07d1ce00f5d74289c269",
+      "coverageEvidence": ".tmp/pet-independent-face-recheck/standard-1-landmark-coverage.png",
+      "landmarks": {
+        "muzzle": {
+          "center": [
+            0.016825443073725726,
+            0.08220664981917108,
+            0.4255231975666413
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            165,
+            185
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "lowerFace": {
+          "center": [
+            0.024153114693575325,
+            0.03246460995776405,
+            0.3929474786034943
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            167,
+            199
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "upperFace": {
+          "center": [
+            -0.12815887088112798,
+            0.1833965720116175,
+            0.3105370318305657
+          ],
+          "radius": 0.1,
+          "pickedPixel": [
+            121,
+            155
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        }
+      },
+      "geometrySha256": "11a174e1e1941bbeff1acb79541caaa0e12e13f6005d32c4c431abcf07082d40",
+      "geometryToVisibleBind": [
+        1.0000001952173843,
+        0,
+        0,
+        0,
+        0,
+        1.0000000295089395,
+        -2.8226104342721214e-8,
+        0,
+        0,
+        -2.3983263042204328e-8,
+        1.0000002658495455,
+        0,
+        8.154802880106816e-7,
+        -2.6914967088398356e-8,
+        9.71733250809681e-9,
+        1
+      ],
+      "headCountVisuallyVerified": 1,
+      "heads": [
+        {
+          "id": "primary",
+          "landmarks": [
+            "upperFace",
+            "muzzle",
+            "lowerFace"
+          ]
+        }
+      ],
+      "reviewedGeometryRevision": {
+        "priorGeometrySha256": "d7e1cddf5151bbc70ee4226578ba08f0fdd16087466343483494cfdd446eafb7",
+        "reason": "Anatomical arm/head/neck rest frames and inverse binds fitted while conserving the visible bind sculpt, UVs, textures, original facial picks, all thirteen authored curves and all thresholds.",
+        "reviewedSourceSha256": "9b6aa18cddbeeede40e785e339be1c4c30b0b8c3ab84cca211d95947a93f7fce",
+        "regression": "scripts/pet-snow-rabbit-neck-pivots.test.mjs"
+      }
     }
   }
 }

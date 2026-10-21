@@ -1,10 +1,11 @@
+import {repairWorldstormDragonHeadMotion} from './lib/pet-worldstorm-head-motion.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile,writeFile,mkdtemp,rm} from 'node:fs/promises';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
 import {Quaternion,PropertyBinding} from 'three';
-import {loadPetDeformationProbe} from './lib/pet-deformation-probe.mjs';
+import {loadPetDeformationProbe,loadPetDeformationProbeBytes} from './lib/pet-deformation-probe.mjs';
 import {readStudioAccessor} from './lib/pet-studio-glb.mjs';
 import {retargetFittedPetPerformances,OMITTED_FITTED_PERFORMANCE_CLIPS} from './lib/pet-retarget-fitted-performances.mjs';
 import {freezeVisibleSoleRegions,selectVisibleSoleRegions,measureVisibleLimbPerformances} from './lib/pet-visible-limb-performance.mjs';
@@ -32,8 +33,10 @@ for(const row of cases)for(const stage of ['source','battle'])test(`${row.id} ${
   const before=await loadPetDeformationProbe(path),after=await loadPetDeformationProbe(out),original=await loadPetDeformationProbe(fixture(row.original)),annotation=JSON.parse(await readFile(fixture(`pet-omitted-limb-performances/${row.id}-visible-paws.json`))),regions=freezeVisibleSoleRegions(original,annotation),selection=selectVisibleSoleRegions(after,regions,{original,stage});
   assert.deepEqual(after.json.nodes,before.json.nodes);
   const shipping=await loadPetDeformationProbe(new URL(privateCandidateRoot ? `../${privateCandidateRoot}/${stage==='battle'?'direct-battle/':''}roster/${row.id}.glb` : `../public/pet-models/${stage==='battle'?'warfront-lod/':''}roster/${row.id}.glb`, import.meta.url)),shippingSelection=selectVisibleSoleRegions(shipping,regions,{original,stage});
-  if(stage==='source')assert.equal(shipping.sha256,row.sourceGolden);
-  for(const clip of after.animations){const actual=shipping.animations.find(c=>c.name===clip.name);assert.equal(actual.tracks.length,clip.tracks.length);for(const t of clip.tracks){const u=actual.tracks.find(u=>u.name===t.name);assert.ok(u);assert.deepEqual(u.times,t.times);assert.deepEqual(u.values,t.values);assert.equal(u.getInterpolation(),t.getInterpolation());}}
+  const deliveredBefore=await readFile(fixture(`pet-terminal-action-20261021/mythic-1-${stage}.glb`)),priorDelivered=await loadPetDeformationProbeBytes(deliveredBefore);
+  for(const clip of after.animations){const prior=priorDelivered.animations.find(c=>c.name===clip.name);assert.equal(prior.tracks.length,clip.tracks.length);for(const track of clip.tracks){const actual=prior.tracks.find(t=>t.name===track.name);assert.deepEqual(actual.times,track.times);assert.deepEqual(actual.values,track.values);}}
+  const finalExpected=await loadPetDeformationProbeBytes((await repairWorldstormDragonHeadMotion(deliveredBefore)).bytes);assert.equal(shipping.sha256,finalExpected.sha256);
+  for(const clip of finalExpected.animations){const actual=shipping.animations.find(c=>c.name===clip.name);assert.equal(actual.tracks.length,clip.tracks.length);for(const t of clip.tracks){const u=actual.tracks.find(u=>u.name===t.name);assert.ok(u);assert.deepEqual(u.times,t.times);assert.deepEqual(u.values,t.values);assert.equal(u.getInterpolation(),t.getInterpolation());}}
   for(const name of Object.keys(before.meshes[0].geometry.attributes))assert.deepEqual(after.meshes[0].geometry.attributes[name].array,before.meshes[0].geometry.attributes[name].array);
   before.meshes[0].skeleton.boneInverses.forEach((m,i)=>assert.deepEqual(after.meshes[0].skeleton.boneInverses[i].toArray(),m.toArray()));
   for(const clip of before.animations){const other=after.animations.find(c=>c.name===clip.name);assert.equal(other.duration,clip.duration);for(const track of clip.tracks){const actual=other.tracks.find(t=>t.name===track.name);assert.ok(actual);assert.deepEqual(actual.times,track.times);assert.deepEqual(actual.values,track.values);assert.equal(actual.getInterpolation(),track.getInterpolation());}if(!OMITTED_FITTED_PERFORMANCE_CLIPS.includes(clip.name))assert.equal(other.tracks.length,clip.tracks.length);}
