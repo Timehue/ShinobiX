@@ -1,0 +1,109 @@
+{
+  "schema": 1,
+  "id": "rare-3",
+  "name": "Sky Falcon",
+  "reviewer": "Luna independent first visual review",
+  "recordedAt": "2026-10-21",
+  "candidate": {
+    "sourcePath": ".tmp/sol-sky-falcon-tabs-v4/source.glb",
+    "sourceSha256": "bb79c492e29c5dcf4ec9c3ff97fe04ab6da60a55f4727d07a0139d20d28f75c8",
+    "battlePath": "shinobij.client/public/pet-models/warfront-lod/roster/rare-3.glb",
+    "battleSha256": "97dc8d666e5930e3726c682672bcaecab2524c386869b56cabeca59b7f6f2cb5",
+    "atlasPath": "docs/evidence/pet-last-six-candidates-2026-10-21/atlases/rare-3.webp",
+    "atlasSha256": "274f49508f44766e6ffc5da0d9c6e9c826a94d1cbfea5043de10fee5533a7a61",
+    "idleLoadedBattleSha256": "97dc8d666e5930e3726c682672bcaecab2524c386869b56cabeca59b7f6f2cb5",
+    "idleManifestSourceContextSha256": "c911fd0c4c18e190b4ebb60d9d76f47b4e8adcbb3a7cdae5ae85711cf08069d6"
+  },
+  "evidence": {
+    "rawSource": {
+      "manifestPath": "docs/evidence/pet-last-six-candidates-2026-10-21/evidence/sky-falcon-v4-review/raw-source/manifest.json",
+      "manifestSha256": "fd6de293b54e95f539d39541413d4ed6fe6fe87d3f186ab17940464a6c31ce05",
+      "reviewed": true,
+      "clips": 13,
+      "phasesPerClip": 8,
+      "views": [
+        "front",
+        "side",
+        "head-front",
+        "head-side",
+        "head-other-side",
+        "head-under-front",
+        "head-under-side"
+      ]
+    },
+    "rawBattle": {
+      "manifestPath": "docs/evidence/pet-last-six-candidates-2026-10-21/evidence/sky-falcon-v4-review/raw-battle/manifest.json",
+      "manifestSha256": "bd18b594738110774374c9dbadf563ffc6c6588ea7d76e12a6ce9a4228666d01",
+      "reviewed": true,
+      "clips": 13,
+      "phasesPerClip": 8,
+      "views": [
+        "front",
+        "side",
+        "head-front",
+        "head-side",
+        "head-other-side",
+        "head-under-front",
+        "head-under-side"
+      ]
+    },
+    "runtimeMedium": {
+      "manifestPath": ".tmp/sol-sky-falcon-tabs-v4-review/runtime/manifest.json",
+      "manifestSha256": "8fccf0a03629a2edbc267af342a9743688922e2bbe3e9c7efa2d9ff9a1aac3cc",
+      "reviewed": true,
+      "quality": "medium",
+      "transitionRows": 16,
+      "phasesPerRow": 6,
+      "parts": [
+        "head",
+        "body"
+      ],
+      "views": [
+        "front",
+        "side"
+      ],
+      "sourceAndBattle": true
+    },
+    "runtimeLow": {
+      "manifestPath": ".tmp/sol-sky-falcon-tabs-v4-review/runtime-low/manifest.json",
+      "manifestSha256": "6f1333490a881eafbde818b2b8d3492ea6a87e2796593857e21927c7d5c9106c",
+      "captured": true,
+      "visuallyReviewedByThisReviewer": true,
+      "note": "Captured after the initial medium-only review, then personally inspected as a closure step before PASS was recorded.",
+      "reviewedAt": "2026-10-21T06:53:15.1358083Z",
+      "visualFinding": "All 16 production transition rows across six phases, front/side, head/body, source/battle: head silhouette and eye mask stay attached; no visible skull flattening, shear, or neck separation. Body and legs stay connected through attack, dead, revive, and attack-sequence transitions. Apparent profile-tab movement tracks rigid head pitch."
+    },
+    "idle": {
+      "manifestPath": "docs/evidence/pet-last-six-candidates-2026-10-21/evidence/sky-falcon-v4-review/idle-battle/manifest.json",
+      "manifestSha256": "dd1f8ac50fe546fc1baec78078c1c078c2730a463fdb2982da85ca5323455f79",
+      "loadedModelSha256": "97dc8d666e5930e3726c682672bcaecab2524c386869b56cabeca59b7f6f2cb5",
+      "frames": 24,
+      "reviewed": true
+    },
+    "techniques": {
+      "manifestPath": ".tmp/sol-sky-falcon-tabs-v4-review/techniques/manifest.json",
+      "manifestSha256": "f30df9c91440da86e619eb530ea34a40036f527ceedc4abee91df2fd419e1b1d",
+      "modelSha256": "97dc8d666e5930e3726c682672bcaecab2524c386869b56cabeca59b7f6f2cb5",
+      "moves": 9,
+      "framesPerMove": 12,
+      "views": [
+        "front",
+        "side"
+      ],
+      "reviewed": true
+    },
+    "atlas": {
+      "path": "docs/evidence/pet-last-six-candidates-2026-10-21/atlases/rare-3.webp",
+      "sha256": "274f49508f44766e6ffc5da0d9c6e9c826a94d1cbfea5043de10fee5533a7a61",
+      "cells": 16,
+      "reviewed": true
+    }
+  },
+  "visual": {
+    "finding": "No visible skull flattening, neck stretch, or separation in the personally inspected raw, low/medium runtime, idle, technique, and atlas scopes. The white rear cheek/headband-adjacent tab remains attached in profile; its apparent projection follows head rotation, with no visible pinch or stretch in reviewed frames.",
+    "visualScopeComplete": true,
+    "missingScope": null
+  },
+  "result": "PASS",
+  "scope": "First independent visual review of exact private v4 source and current battle LOD. The first inspection covered medium runtime; the low runtime sheet set was inspected later as an explicit closure step and matched the exact pinned source/battle pair."
+}

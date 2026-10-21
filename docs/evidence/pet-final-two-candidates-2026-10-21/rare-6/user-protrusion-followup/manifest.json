@@ -1,0 +1,72 @@
+{
+  "id": "rare-6",
+  "asset": "C:\\Users\\Tyler R\\.codex\\worktrees\\40c2\\NinjaK\\shinobij.client\\.tmp\\sol-viper-four-leg-rig-v1\\grounded-v6\\source.glb",
+  "sha256": "4d3136a78c73e66269ada4b2f02bcade5b279aa6dd7ea03a56d5c712e9ec398c",
+  "rendererBundleSha256": "aebcf4fb161c4d49b42fe861941a03a4b63017f021334da449c27cedc29ee3ba",
+  "phases": [
+    0,
+    0.12,
+    0.28,
+    0.48,
+    0.76,
+    1
+  ],
+  "clips": [
+    "gallop_jump"
+  ],
+  "views": [
+    "body-side"
+  ],
+  "images": [
+    {
+      "name": "rare-6-gallop_jump-0-body-side.png",
+      "sha256": "bf4fdaad1322032e7d67bd00a35e42b1513b1ce5ac1f103213bea374d69dfbfa",
+      "clip": "gallop_jump",
+      "phase": 0,
+      "view": "body-side"
+    },
+    {
+      "name": "rare-6-gallop_jump-0.12-body-side.png",
+      "sha256": "b53497550fa93135762f1bc6571197164b6eaf23c27667526c465b3f49b2d3b6",
+      "clip": "gallop_jump",
+      "phase": 0.12,
+      "view": "body-side"
+    },
+    {
+      "name": "rare-6-gallop_jump-0.28-body-side.png",
+      "sha256": "8c22046bb245a3edc0dd368ce0cd618b2ac355d24cce9517569dab9383fd0dfb",
+      "clip": "gallop_jump",
+      "phase": 0.28,
+      "view": "body-side"
+    },
+    {
+      "name": "rare-6-gallop_jump-0.48-body-side.png",
+      "sha256": "8fe49f0b9b32acaeb4ca8e8551d135c68504343b1ce81820c0a415271b11f46d",
+      "clip": "gallop_jump",
+      "phase": 0.48,
+      "view": "body-side"
+    },
+    {
+      "name": "rare-6-gallop_jump-0.76-body-side.png",
+      "sha256": "34cb5176685b089acad463e4ab827049164cb4ac8782fb123765dd3401a4d236",
+      "clip": "gallop_jump",
+      "phase": 0.76,
+      "view": "body-side"
+    },
+    {
+      "name": "rare-6-gallop_jump-1-body-side.png",
+      "sha256": "1419b666852e826d00e65bf8b4c6c552b3b225c623de34d265a86695f7a89beb",
+      "clip": "gallop_jump",
+      "phase": 1,
+      "view": "body-side"
+    },
+    {
+      "name": "rare-6-gallop_jump-body-side-sheet.png",
+      "sha256": "cf1442f74558cb4c26ad6ed1d168fcb47e77d6b0711e7bdaf22bce36f163428e",
+      "clip": "gallop_jump",
+      "view": "body-side",
+      "sheet": true
+    }
+  ],
+  "errors": []
+}

@@ -13,6 +13,7 @@ const SHARED_RIG_REPAIR_REVISION_4 = '20261015-reviewed-contact-v1';
 const SHARED_RIG_REPAIR_REVISION_5 = '20261015-independent-complete-face-v2';
 
 const FINISHED_PET_REPAIR_REVISION = '20261021-pet-17-v1';
+const FINAL_SIX_PET_REPAIR_REVISION = '20261021-pet-final-six-v1';
 
 /** Individual rig repairs invalidate only the model whose mesh/binding changed. */
 const REPAIRED_RIG_REVISIONS: Readonly<Record<string, string>> = {
@@ -161,6 +162,9 @@ const REPAIRED_RIG_REVISIONS: Readonly<Record<string, string>> = {
     'standard-7': "20261012-connected-weight-v2",
     'standard-8': "20261014-reviewed-skull-v1",
     'standard-9': SHARED_RIG_REPAIR_REVISION_5,
+    ...Object.fromEntries([
+        'standard-2', 'standard-3', 'standard-15', 'rare-3', 'rare-6', 'rare-21',
+    ].map(id => [id, FINAL_SIX_PET_REPAIR_REVISION])),
     ...Object.fromEntries([
         'legendary-0', 'standard-39', 'standard-47', 'standard-48',
         ...[0, 5, 8, 9, 27, 32, 34, 38, 42, 45, 47, 48, 49].map(index => `rare-${index}`),

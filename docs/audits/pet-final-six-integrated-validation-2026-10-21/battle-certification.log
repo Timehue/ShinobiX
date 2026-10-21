@@ -1,0 +1,11 @@
+{
+  "mode": "check",
+  "revision": "20260902-battle-lod-v1",
+  "assets": 6,
+  "totals": {
+    "sourceBytes": 127944760,
+    "lodBytes": 77800024,
+    "sourceTriangles": 5994132,
+    "lodTriangles": 1634733
+  }
+}

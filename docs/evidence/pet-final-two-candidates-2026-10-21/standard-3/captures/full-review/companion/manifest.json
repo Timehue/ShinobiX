@@ -1,0 +1,744 @@
+{
+  "schema": 1,
+  "recordedAt": "2026-10-21T06:48:05.345Z",
+  "componentBundleSha256": "ce8a249b686bc94929c4b1cfb6957120b62af7385a8014d7ad343ba2db9612db",
+  "componentSourceSha256": "58173d245b0db737a1753eacb1cc47df347614f8a2e94eb20ac7272bb3712c89",
+  "rendererSourceSha256": "00dfcc369924555ee93b1feb92c814433ba97317fa9a684c4936c0c3f8e92f56",
+  "scope": {
+    "idleFrames": 24,
+    "techniquePhases": [
+      0.04,
+      0.12,
+      0.24,
+      0.36,
+      0.48,
+      0.6,
+      0.76,
+      0.96,
+      1.2,
+      1.44,
+      1.68,
+      1.92
+    ],
+    "views": [
+      "front",
+      "side"
+    ]
+  },
+  "pets": [
+    {
+      "id": "standard-3",
+      "modelSha256": "a32cd2176c8f32556cb55434e4d4cb7a55222bd27c6f00b8c1b7b37fd1dc3683",
+      "modelPath": "shinobij.client/.tmp/sol-forest-cloth-neck-v4/delivery/public/pet-models/warfront-lod/roster/standard-3.glb",
+      "previewModel": "/pet-models/warfront-lod/roster/standard-3.glb?v=20260902-battle-lod-v1-3f95067b5334-9e787a24295c",
+      "modelBinding": "production PetYardModelStage fetch intercepted and exact private candidate bytes injected",
+      "offlineFetchCount": 2,
+      "moves": [
+        "wind-strike",
+        "wind-pulse",
+        "wind-breaker",
+        "water-pulse",
+        "undertow",
+        "mend",
+        "purify",
+        "aegis",
+        "standard-3-signature"
+      ],
+      "idle": {
+        "frames": 24,
+        "sheet": "standard-3-idle-24-sheet.webp",
+        "sheetSha256": "160ffffbbd3d50891f2de181310d191dc87c60a8d1181cc8ef80ba6cbd703578",
+        "frameEvidence": [
+          {
+            "i": 0,
+            "time": 0.03333333333333333,
+            "name": "standard-3-idle-00.png",
+            "sha256": "e1794c623620f40328e4c0fb08bce8299cbce49db263e89ba964c7e94f3a56b1"
+          },
+          {
+            "i": 1,
+            "time": 0.06666666666666667,
+            "name": "standard-3-idle-01.png",
+            "sha256": "f0ddbfc70e6133f26077d277f46d109f246d527109999f11f8faaba9c7ac62e6"
+          },
+          {
+            "i": 2,
+            "time": 0.1,
+            "name": "standard-3-idle-02.png",
+            "sha256": "051ae0a3b898f440438fc600a1197ae5f550e077e8ba86367b6880be37074216"
+          },
+          {
+            "i": 3,
+            "time": 0.13333333333333333,
+            "name": "standard-3-idle-03.png",
+            "sha256": "5b55ee19c22b6f711925557ec56b532b461bc25bd0fbdb4a71d969dcd224b729"
+          },
+          {
+            "i": 4,
+            "time": 0.16666666666666666,
+            "name": "standard-3-idle-04.png",
+            "sha256": "5b55ee19c22b6f711925557ec56b532b461bc25bd0fbdb4a71d969dcd224b729"
+          },
+          {
+            "i": 5,
+            "time": 0.2,
+            "name": "standard-3-idle-05.png",
+            "sha256": "ddd4ff82ae9f83a3d2e1e7707f190d3ffe7a8fabb2f8be555f9c21a4b4078e24"
+          },
+          {
+            "i": 6,
+            "time": 0.23333333333333334,
+            "name": "standard-3-idle-06.png",
+            "sha256": "803c17d54bf3aad5fe9925da610259acaeebcd6c9d0b6bcfef8c987ddd4fe044"
+          },
+          {
+            "i": 7,
+            "time": 0.26666666666666666,
+            "name": "standard-3-idle-07.png",
+            "sha256": "1cb4a130058c6a3ec30ba88ac77a5ba857d386571f7a561076049042f324fc99"
+          },
+          {
+            "i": 8,
+            "time": 0.3,
+            "name": "standard-3-idle-08.png",
+            "sha256": "252edb412e0115e1c0fb461ca202a7ac0696b20d9a58d482565449defea148ce"
+          },
+          {
+            "i": 9,
+            "time": 0.3333333333333333,
+            "name": "standard-3-idle-09.png",
+            "sha256": "b2c077b47cb20e8caf09a4f37433f62d2ba9957c49643e43d0950480abbcd941"
+          },
+          {
+            "i": 10,
+            "time": 0.36666666666666664,
+            "name": "standard-3-idle-10.png",
+            "sha256": "b2c077b47cb20e8caf09a4f37433f62d2ba9957c49643e43d0950480abbcd941"
+          },
+          {
+            "i": 11,
+            "time": 0.4,
+            "name": "standard-3-idle-11.png",
+            "sha256": "1661f7ceb6d98a57765df80eb14c3dc8642d9a5b505dfb06637d08931e51406e"
+          },
+          {
+            "i": 12,
+            "time": 0.43333333333333335,
+            "name": "standard-3-idle-12.png",
+            "sha256": "cc1c92899efdbed2296acc48cfbf748c4f11ca1d04875fd942650a50a515e8b8"
+          },
+          {
+            "i": 13,
+            "time": 0.4666666666666667,
+            "name": "standard-3-idle-13.png",
+            "sha256": "0552dc6831718ffc783aca2cff133a4212fa087afae34e39f8ecaf21e6e15581"
+          },
+          {
+            "i": 14,
+            "time": 0.5,
+            "name": "standard-3-idle-14.png",
+            "sha256": "0552dc6831718ffc783aca2cff133a4212fa087afae34e39f8ecaf21e6e15581"
+          },
+          {
+            "i": 15,
+            "time": 0.5333333333333333,
+            "name": "standard-3-idle-15.png",
+            "sha256": "20589d89e58bcfd1b2992d1f18bb59c42fdc43bead2f830b04d74b24ba1ed88f"
+          },
+          {
+            "i": 16,
+            "time": 0.5666666666666667,
+            "name": "standard-3-idle-16.png",
+            "sha256": "683d291258125cee9c29b61d02f10990eebaf0642ea9815f53c69d528ad8080a"
+          },
+          {
+            "i": 17,
+            "time": 0.6,
+            "name": "standard-3-idle-17.png",
+            "sha256": "832d775bf9f0b710d035e51fd0941b3a3b2c299646a96a147518066f85ac5856"
+          },
+          {
+            "i": 18,
+            "time": 0.6333333333333333,
+            "name": "standard-3-idle-18.png",
+            "sha256": "e79a4397af37ad85f36c0f4ad5a7b73758a2403e349ed0bbec44ba20b9076559"
+          },
+          {
+            "i": 19,
+            "time": 0.6666666666666666,
+            "name": "standard-3-idle-19.png",
+            "sha256": "f0260e3734affb34036d6ca9039a291f917958f9beaa666fab89659259124185"
+          },
+          {
+            "i": 20,
+            "time": 0.7,
+            "name": "standard-3-idle-20.png",
+            "sha256": "f0260e3734affb34036d6ca9039a291f917958f9beaa666fab89659259124185"
+          },
+          {
+            "i": 21,
+            "time": 0.7333333333333333,
+            "name": "standard-3-idle-21.png",
+            "sha256": "262259cdce4b46c5a06d74132c256598484e1b6593935ee3082a4e7313f158ab"
+          },
+          {
+            "i": 22,
+            "time": 0.7666666666666667,
+            "name": "standard-3-idle-22.png",
+            "sha256": "443b42dfdd6c96f74fa5c56011e1913e55774e940f79997de7996c7df7e71ac2"
+          },
+          {
+            "i": 23,
+            "time": 0.8,
+            "name": "standard-3-idle-23.png",
+            "sha256": "8f1bbb9f56010cb60499809c7ec47f850917d4d62842ac4046a8cccf6a1614f7"
+          }
+        ]
+      },
+      "techniques": [
+        {
+          "move": "wind-strike",
+          "view": "front",
+          "group": 0,
+          "frames": [
+            "standard-3-wind-strike-front-0.png",
+            "standard-3-wind-strike-front-1.png",
+            "standard-3-wind-strike-front-2.png",
+            "standard-3-wind-strike-front-3.png",
+            "standard-3-wind-strike-front-4.png",
+            "standard-3-wind-strike-front-5.png"
+          ],
+          "name": "standard-3-wind-strike-front-sheet-0.webp",
+          "sha256": "9cc6bdac7a5933841f6c0a8d336629becf80611e0ff98b31ff778d686f0dfa41"
+        },
+        {
+          "move": "wind-strike",
+          "view": "front",
+          "group": 1,
+          "frames": [
+            "standard-3-wind-strike-front-6.png",
+            "standard-3-wind-strike-front-7.png",
+            "standard-3-wind-strike-front-8.png",
+            "standard-3-wind-strike-front-9.png",
+            "standard-3-wind-strike-front-10.png",
+            "standard-3-wind-strike-front-11.png"
+          ],
+          "name": "standard-3-wind-strike-front-sheet-1.webp",
+          "sha256": "b53427648e3585d6cef9cc82cf359fe3475b4f2acf93950c678eb66229a74157"
+        },
+        {
+          "move": "wind-strike",
+          "view": "side",
+          "group": 0,
+          "frames": [
+            "standard-3-wind-strike-side-0.png",
+            "standard-3-wind-strike-side-1.png",
+            "standard-3-wind-strike-side-2.png",
+            "standard-3-wind-strike-side-3.png",
+            "standard-3-wind-strike-side-4.png",
+            "standard-3-wind-strike-side-5.png"
+          ],
+          "name": "standard-3-wind-strike-side-sheet-0.webp",
+          "sha256": "47592fea88e25b84dbcf2e5188783a301241d549555ee6a030f9649b4cb191be"
+        },
+        {
+          "move": "wind-strike",
+          "view": "side",
+          "group": 1,
+          "frames": [
+            "standard-3-wind-strike-side-6.png",
+            "standard-3-wind-strike-side-7.png",
+            "standard-3-wind-strike-side-8.png",
+            "standard-3-wind-strike-side-9.png",
+            "standard-3-wind-strike-side-10.png",
+            "standard-3-wind-strike-side-11.png"
+          ],
+          "name": "standard-3-wind-strike-side-sheet-1.webp",
+          "sha256": "56c79dea639709acc0452f342dd87a810dd3b54e74797c0be61fed206652dba0"
+        },
+        {
+          "move": "wind-pulse",
+          "view": "front",
+          "group": 0,
+          "frames": [
+            "standard-3-wind-pulse-front-0.png",
+            "standard-3-wind-pulse-front-1.png",
+            "standard-3-wind-pulse-front-2.png",
+            "standard-3-wind-pulse-front-3.png",
+            "standard-3-wind-pulse-front-4.png",
+            "standard-3-wind-pulse-front-5.png"
+          ],
+          "name": "standard-3-wind-pulse-front-sheet-0.webp",
+          "sha256": "83ea43c43669ad40a8b77ecd9b1e236e3af84beda6baf7fe7a9aa71cea670a4e"
+        },
+        {
+          "move": "wind-pulse",
+          "view": "front",
+          "group": 1,
+          "frames": [
+            "standard-3-wind-pulse-front-6.png",
+            "standard-3-wind-pulse-front-7.png",
+            "standard-3-wind-pulse-front-8.png",
+            "standard-3-wind-pulse-front-9.png",
+            "standard-3-wind-pulse-front-10.png",
+            "standard-3-wind-pulse-front-11.png"
+          ],
+          "name": "standard-3-wind-pulse-front-sheet-1.webp",
+          "sha256": "9265e021f4fc0c00ad41520783c80418c511f4fb4d5143004809cb04d078919d"
+        },
+        {
+          "move": "wind-pulse",
+          "view": "side",
+          "group": 0,
+          "frames": [
+            "standard-3-wind-pulse-side-0.png",
+            "standard-3-wind-pulse-side-1.png",
+            "standard-3-wind-pulse-side-2.png",
+            "standard-3-wind-pulse-side-3.png",
+            "standard-3-wind-pulse-side-4.png",
+            "standard-3-wind-pulse-side-5.png"
+          ],
+          "name": "standard-3-wind-pulse-side-sheet-0.webp",
+          "sha256": "059ce7778916e22f91103de881ec722342d1d098f4f8affa67de187c2d24f29b"
+        },
+        {
+          "move": "wind-pulse",
+          "view": "side",
+          "group": 1,
+          "frames": [
+            "standard-3-wind-pulse-side-6.png",
+            "standard-3-wind-pulse-side-7.png",
+            "standard-3-wind-pulse-side-8.png",
+            "standard-3-wind-pulse-side-9.png",
+            "standard-3-wind-pulse-side-10.png",
+            "standard-3-wind-pulse-side-11.png"
+          ],
+          "name": "standard-3-wind-pulse-side-sheet-1.webp",
+          "sha256": "44ee117267a352687ad49ded4327c40c200b082d7436f7985cefdd923d3de463"
+        },
+        {
+          "move": "wind-breaker",
+          "view": "front",
+          "group": 0,
+          "frames": [
+            "standard-3-wind-breaker-front-0.png",
+            "standard-3-wind-breaker-front-1.png",
+            "standard-3-wind-breaker-front-2.png",
+            "standard-3-wind-breaker-front-3.png",
+            "standard-3-wind-breaker-front-4.png",
+            "standard-3-wind-breaker-front-5.png"
+          ],
+          "name": "standard-3-wind-breaker-front-sheet-0.webp",
+          "sha256": "d813f93d12187d0f0bc79bcb6a4a5372a6e7c9b70ba33028bd632ee1a9f83cc6"
+        },
+        {
+          "move": "wind-breaker",
+          "view": "front",
+          "group": 1,
+          "frames": [
+            "standard-3-wind-breaker-front-6.png",
+            "standard-3-wind-breaker-front-7.png",
+            "standard-3-wind-breaker-front-8.png",
+            "standard-3-wind-breaker-front-9.png",
+            "standard-3-wind-breaker-front-10.png",
+            "standard-3-wind-breaker-front-11.png"
+          ],
+          "name": "standard-3-wind-breaker-front-sheet-1.webp",
+          "sha256": "174fcb5a09d29ed56d050b00d438e343d36a573887ab8f368c0e46ebd4ac86b3"
+        },
+        {
+          "move": "wind-breaker",
+          "view": "side",
+          "group": 0,
+          "frames": [
+            "standard-3-wind-breaker-side-0.png",
+            "standard-3-wind-breaker-side-1.png",
+            "standard-3-wind-breaker-side-2.png",
+            "standard-3-wind-breaker-side-3.png",
+            "standard-3-wind-breaker-side-4.png",
+            "standard-3-wind-breaker-side-5.png"
+          ],
+          "name": "standard-3-wind-breaker-side-sheet-0.webp",
+          "sha256": "3c673150131584f993d8350066725de16cdb43435ec01a5ab2508cd2610d2568"
+        },
+        {
+          "move": "wind-breaker",
+          "view": "side",
+          "group": 1,
+          "frames": [
+            "standard-3-wind-breaker-side-6.png",
+            "standard-3-wind-breaker-side-7.png",
+            "standard-3-wind-breaker-side-8.png",
+            "standard-3-wind-breaker-side-9.png",
+            "standard-3-wind-breaker-side-10.png",
+            "standard-3-wind-breaker-side-11.png"
+          ],
+          "name": "standard-3-wind-breaker-side-sheet-1.webp",
+          "sha256": "830956fb0329ef44bdec7aa6d8b87898087e1adc327d9e3636cd0daba11eabd5"
+        },
+        {
+          "move": "water-pulse",
+          "view": "front",
+          "group": 0,
+          "frames": [
+            "standard-3-water-pulse-front-0.png",
+            "standard-3-water-pulse-front-1.png",
+            "standard-3-water-pulse-front-2.png",
+            "standard-3-water-pulse-front-3.png",
+            "standard-3-water-pulse-front-4.png",
+            "standard-3-water-pulse-front-5.png"
+          ],
+          "name": "standard-3-water-pulse-front-sheet-0.webp",
+          "sha256": "efac55fcef8bb7d04240e025044cd97aa0b323521abcd8a20b19a8eb7a175f44"
+        },
+        {
+          "move": "water-pulse",
+          "view": "front",
+          "group": 1,
+          "frames": [
+            "standard-3-water-pulse-front-6.png",
+            "standard-3-water-pulse-front-7.png",
+            "standard-3-water-pulse-front-8.png",
+            "standard-3-water-pulse-front-9.png",
+            "standard-3-water-pulse-front-10.png",
+            "standard-3-water-pulse-front-11.png"
+          ],
+          "name": "standard-3-water-pulse-front-sheet-1.webp",
+          "sha256": "572679b9da72ac1467243e56a610f6c987c711fb0aefed268951b33699a6e6f1"
+        },
+        {
+          "move": "water-pulse",
+          "view": "side",
+          "group": 0,
+          "frames": [
+            "standard-3-water-pulse-side-0.png",
+            "standard-3-water-pulse-side-1.png",
+            "standard-3-water-pulse-side-2.png",
+            "standard-3-water-pulse-side-3.png",
+            "standard-3-water-pulse-side-4.png",
+            "standard-3-water-pulse-side-5.png"
+          ],
+          "name": "standard-3-water-pulse-side-sheet-0.webp",
+          "sha256": "8f0f6e4559c46c129ffa5b45f44781953e373876c18376f07b89045b8691ecc6"
+        },
+        {
+          "move": "water-pulse",
+          "view": "side",
+          "group": 1,
+          "frames": [
+            "standard-3-water-pulse-side-6.png",
+            "standard-3-water-pulse-side-7.png",
+            "standard-3-water-pulse-side-8.png",
+            "standard-3-water-pulse-side-9.png",
+            "standard-3-water-pulse-side-10.png",
+            "standard-3-water-pulse-side-11.png"
+          ],
+          "name": "standard-3-water-pulse-side-sheet-1.webp",
+          "sha256": "fcea79acb1dbe7e166712bd173deedb80fa06d67b1bc27846c9ab1080e0fd619"
+        },
+        {
+          "move": "undertow",
+          "view": "front",
+          "group": 0,
+          "frames": [
+            "standard-3-undertow-front-0.png",
+            "standard-3-undertow-front-1.png",
+            "standard-3-undertow-front-2.png",
+            "standard-3-undertow-front-3.png",
+            "standard-3-undertow-front-4.png",
+            "standard-3-undertow-front-5.png"
+          ],
+          "name": "standard-3-undertow-front-sheet-0.webp",
+          "sha256": "712c41534aef68dbd1f4742ac5ebff5077fce1f5751c958fe709eabd0a008ca6"
+        },
+        {
+          "move": "undertow",
+          "view": "front",
+          "group": 1,
+          "frames": [
+            "standard-3-undertow-front-6.png",
+            "standard-3-undertow-front-7.png",
+            "standard-3-undertow-front-8.png",
+            "standard-3-undertow-front-9.png",
+            "standard-3-undertow-front-10.png",
+            "standard-3-undertow-front-11.png"
+          ],
+          "name": "standard-3-undertow-front-sheet-1.webp",
+          "sha256": "29e0f287a1cefc8305b8c15b5b73e6726ab809826beedf96d8934da2df2d8c0d"
+        },
+        {
+          "move": "undertow",
+          "view": "side",
+          "group": 0,
+          "frames": [
+            "standard-3-undertow-side-0.png",
+            "standard-3-undertow-side-1.png",
+            "standard-3-undertow-side-2.png",
+            "standard-3-undertow-side-3.png",
+            "standard-3-undertow-side-4.png",
+            "standard-3-undertow-side-5.png"
+          ],
+          "name": "standard-3-undertow-side-sheet-0.webp",
+          "sha256": "1d88db9137429856baafaf3ebebefee4b6934041b762ab3ab44fab0dc845736e"
+        },
+        {
+          "move": "undertow",
+          "view": "side",
+          "group": 1,
+          "frames": [
+            "standard-3-undertow-side-6.png",
+            "standard-3-undertow-side-7.png",
+            "standard-3-undertow-side-8.png",
+            "standard-3-undertow-side-9.png",
+            "standard-3-undertow-side-10.png",
+            "standard-3-undertow-side-11.png"
+          ],
+          "name": "standard-3-undertow-side-sheet-1.webp",
+          "sha256": "488d7c91d1fe9a1b145010ef61179962f0721164865a5f98226f4e56c3298792"
+        },
+        {
+          "move": "mend",
+          "view": "front",
+          "group": 0,
+          "frames": [
+            "standard-3-mend-front-0.png",
+            "standard-3-mend-front-1.png",
+            "standard-3-mend-front-2.png",
+            "standard-3-mend-front-3.png",
+            "standard-3-mend-front-4.png",
+            "standard-3-mend-front-5.png"
+          ],
+          "name": "standard-3-mend-front-sheet-0.webp",
+          "sha256": "5b379cf60219429d748dc6aa85c01072171e14e88d96506e8a4183815c09f31e"
+        },
+        {
+          "move": "mend",
+          "view": "front",
+          "group": 1,
+          "frames": [
+            "standard-3-mend-front-6.png",
+            "standard-3-mend-front-7.png",
+            "standard-3-mend-front-8.png",
+            "standard-3-mend-front-9.png",
+            "standard-3-mend-front-10.png",
+            "standard-3-mend-front-11.png"
+          ],
+          "name": "standard-3-mend-front-sheet-1.webp",
+          "sha256": "9159e6a6c147b77ccaaf4008a924159945a3c74a2ac80c83b72b3b82ee3aa2de"
+        },
+        {
+          "move": "mend",
+          "view": "side",
+          "group": 0,
+          "frames": [
+            "standard-3-mend-side-0.png",
+            "standard-3-mend-side-1.png",
+            "standard-3-mend-side-2.png",
+            "standard-3-mend-side-3.png",
+            "standard-3-mend-side-4.png",
+            "standard-3-mend-side-5.png"
+          ],
+          "name": "standard-3-mend-side-sheet-0.webp",
+          "sha256": "e9069f64441f559ea3b3fcf94da1575aee890c56d4b2513892f0f7f90006402b"
+        },
+        {
+          "move": "mend",
+          "view": "side",
+          "group": 1,
+          "frames": [
+            "standard-3-mend-side-6.png",
+            "standard-3-mend-side-7.png",
+            "standard-3-mend-side-8.png",
+            "standard-3-mend-side-9.png",
+            "standard-3-mend-side-10.png",
+            "standard-3-mend-side-11.png"
+          ],
+          "name": "standard-3-mend-side-sheet-1.webp",
+          "sha256": "54c58031b6d437260bd992a5f4fffbd9d2cfa0e145d63c7b0d035255741f0c65"
+        },
+        {
+          "move": "purify",
+          "view": "front",
+          "group": 0,
+          "frames": [
+            "standard-3-purify-front-0.png",
+            "standard-3-purify-front-1.png",
+            "standard-3-purify-front-2.png",
+            "standard-3-purify-front-3.png",
+            "standard-3-purify-front-4.png",
+            "standard-3-purify-front-5.png"
+          ],
+          "name": "standard-3-purify-front-sheet-0.webp",
+          "sha256": "a450a060672089cebe41a3ce15c367f2520ec8be018277bbd61d4077bf9f5b41"
+        },
+        {
+          "move": "purify",
+          "view": "front",
+          "group": 1,
+          "frames": [
+            "standard-3-purify-front-6.png",
+            "standard-3-purify-front-7.png",
+            "standard-3-purify-front-8.png",
+            "standard-3-purify-front-9.png",
+            "standard-3-purify-front-10.png",
+            "standard-3-purify-front-11.png"
+          ],
+          "name": "standard-3-purify-front-sheet-1.webp",
+          "sha256": "9857fc16e19b87119995b77040fac161496499a60987613ffc4700309526267e"
+        },
+        {
+          "move": "purify",
+          "view": "side",
+          "group": 0,
+          "frames": [
+            "standard-3-purify-side-0.png",
+            "standard-3-purify-side-1.png",
+            "standard-3-purify-side-2.png",
+            "standard-3-purify-side-3.png",
+            "standard-3-purify-side-4.png",
+            "standard-3-purify-side-5.png"
+          ],
+          "name": "standard-3-purify-side-sheet-0.webp",
+          "sha256": "bbd7ff4841a6e27be1662b2eed5a86a669bede7f8df1d1af8ab0a958e4c3a06c"
+        },
+        {
+          "move": "purify",
+          "view": "side",
+          "group": 1,
+          "frames": [
+            "standard-3-purify-side-6.png",
+            "standard-3-purify-side-7.png",
+            "standard-3-purify-side-8.png",
+            "standard-3-purify-side-9.png",
+            "standard-3-purify-side-10.png",
+            "standard-3-purify-side-11.png"
+          ],
+          "name": "standard-3-purify-side-sheet-1.webp",
+          "sha256": "2bdeb7da88166d316e3acd534207e5cee2651d255c17a79adf50b2fefddd8d67"
+        },
+        {
+          "move": "aegis",
+          "view": "front",
+          "group": 0,
+          "frames": [
+            "standard-3-aegis-front-0.png",
+            "standard-3-aegis-front-1.png",
+            "standard-3-aegis-front-2.png",
+            "standard-3-aegis-front-3.png",
+            "standard-3-aegis-front-4.png",
+            "standard-3-aegis-front-5.png"
+          ],
+          "name": "standard-3-aegis-front-sheet-0.webp",
+          "sha256": "32ef85e118521662c9e472782854e46550f58c3588c124d2151205a8911d6cfe"
+        },
+        {
+          "move": "aegis",
+          "view": "front",
+          "group": 1,
+          "frames": [
+            "standard-3-aegis-front-6.png",
+            "standard-3-aegis-front-7.png",
+            "standard-3-aegis-front-8.png",
+            "standard-3-aegis-front-9.png",
+            "standard-3-aegis-front-10.png",
+            "standard-3-aegis-front-11.png"
+          ],
+          "name": "standard-3-aegis-front-sheet-1.webp",
+          "sha256": "5eb224f74ee7fa57743607dc343f4d97d7798e7810f822f2becfc9e1e01a63c8"
+        },
+        {
+          "move": "aegis",
+          "view": "side",
+          "group": 0,
+          "frames": [
+            "standard-3-aegis-side-0.png",
+            "standard-3-aegis-side-1.png",
+            "standard-3-aegis-side-2.png",
+            "standard-3-aegis-side-3.png",
+            "standard-3-aegis-side-4.png",
+            "standard-3-aegis-side-5.png"
+          ],
+          "name": "standard-3-aegis-side-sheet-0.webp",
+          "sha256": "5342ee77d42d1d7be7d1b9a9985fb272eafc5c42a71f66fee5198f8e793829ce"
+        },
+        {
+          "move": "aegis",
+          "view": "side",
+          "group": 1,
+          "frames": [
+            "standard-3-aegis-side-6.png",
+            "standard-3-aegis-side-7.png",
+            "standard-3-aegis-side-8.png",
+            "standard-3-aegis-side-9.png",
+            "standard-3-aegis-side-10.png",
+            "standard-3-aegis-side-11.png"
+          ],
+          "name": "standard-3-aegis-side-sheet-1.webp",
+          "sha256": "27cb4c18b350add9e2bb7c09b7ff15d5c14a0b6a8ac8731db4f82b4c1d3be390"
+        },
+        {
+          "move": "standard-3-signature",
+          "view": "front",
+          "group": 0,
+          "frames": [
+            "standard-3-standard-3-signature-front-0.png",
+            "standard-3-standard-3-signature-front-1.png",
+            "standard-3-standard-3-signature-front-2.png",
+            "standard-3-standard-3-signature-front-3.png",
+            "standard-3-standard-3-signature-front-4.png",
+            "standard-3-standard-3-signature-front-5.png"
+          ],
+          "name": "standard-3-standard-3-signature-front-sheet-0.webp",
+          "sha256": "5bc35d13bc73bbe0672976f4db40cd455c2fc7ee9bec5af2c2d6202f442926d5"
+        },
+        {
+          "move": "standard-3-signature",
+          "view": "front",
+          "group": 1,
+          "frames": [
+            "standard-3-standard-3-signature-front-6.png",
+            "standard-3-standard-3-signature-front-7.png",
+            "standard-3-standard-3-signature-front-8.png",
+            "standard-3-standard-3-signature-front-9.png",
+            "standard-3-standard-3-signature-front-10.png",
+            "standard-3-standard-3-signature-front-11.png"
+          ],
+          "name": "standard-3-standard-3-signature-front-sheet-1.webp",
+          "sha256": "b7071bd33dfada45b0a0b0396796c35d03ed71ec47defa078b536e0b3355a249"
+        },
+        {
+          "move": "standard-3-signature",
+          "view": "side",
+          "group": 0,
+          "frames": [
+            "standard-3-standard-3-signature-side-0.png",
+            "standard-3-standard-3-signature-side-1.png",
+            "standard-3-standard-3-signature-side-2.png",
+            "standard-3-standard-3-signature-side-3.png",
+            "standard-3-standard-3-signature-side-4.png",
+            "standard-3-standard-3-signature-side-5.png"
+          ],
+          "name": "standard-3-standard-3-signature-side-sheet-0.webp",
+          "sha256": "f293bbec27c5f6cd7e953487687cd1d3ae145264fd1baf40d342b6753e229e97"
+        },
+        {
+          "move": "standard-3-signature",
+          "view": "side",
+          "group": 1,
+          "frames": [
+            "standard-3-standard-3-signature-side-6.png",
+            "standard-3-standard-3-signature-side-7.png",
+            "standard-3-standard-3-signature-side-8.png",
+            "standard-3-standard-3-signature-side-9.png",
+            "standard-3-standard-3-signature-side-10.png",
+            "standard-3-standard-3-signature-side-11.png"
+          ],
+          "name": "standard-3-standard-3-signature-side-sheet-1.webp",
+          "sha256": "2b7039cbedce505ff8b4b154c6391b563b8abb8125bc5e06756274ceed374888"
+        }
+      ],
+      "review": "pending"
+    }
+  ],
+  "errors": []
+}
