@@ -1,0 +1,13 @@
+{
+  "run": "39564483064",
+  "head": "4d28b347060e3bf0f5a44da32582ebc1ecd234b0",
+  "failure": "Shard 3: six historical source/battle/atlas pin assertions for rare-21 and standard-15 predated their final arm repairs. Shard 2: the production roster registry still named earlier binaries for the final six.",
+  "resolution": "Use the immutable final-six integrated review summary and atlas snapshot for those two current-asset checks. Keep the original selection unchanged and continue reproducing both historical skull repairs against their original pins.",
+  "retainedChecks": ["13 clips per asset", "468 independent facial cross-blends per asset", "original anatomical landmarks and thresholds", "exact reviewed source, battle and animated-atlas fingerprints", "historical immutable repair reproduction"],
+  "rosterRegistry": "Refresh only the six independently approved source SHA-256 values and byte counts, checked against the immutable final-six review summary. All other registry metadata and all model bytes remain unchanged.",
+  "validation": {"targetedTests": 8, "targetedPassed": 8, "completeBatchTests": 140, "completeBatchPassed": 140, "completeRosterAssetTests": 1, "completeRosterAssetPassed": 1, "failed": 0},
+  "postgres": "The healthy service job exhausted its 10-minute budget during repository checkout before any test ran. Extend the total job ceiling to 30 minutes; retain the complete real-Postgres suite.",
+  "codeql": "Alerts 613, 614 and 615 were independently confirmed false positives in archived Three.js scene UUID generation and triaged with supporting comments. No production code, analysis configuration or evidence bytes changed.",
+  "modelChanges": false,
+  "liveVerified": false
+}

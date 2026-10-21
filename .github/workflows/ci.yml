@@ -250,7 +250,9 @@ jobs:
     # deadlock freedom. This job runs the same adapter against a real Postgres:
     # a throwaway service container, so it needs no credentials. The ceiling
     # covers the service start, the install and the suite.
-    timeout-minutes: 10
+    # Immutable visual evidence enlarged checkout; keep enough time for checkout
+    # and the complete real-Postgres suite rather than cancelling before tests.
+    timeout-minutes: 30
     services:
       postgres:
         image: postgres:16

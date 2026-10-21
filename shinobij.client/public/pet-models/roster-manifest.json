@@ -425,11 +425,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "0994B3EDFCA50F31CC282CD87334FD7B9E97FA20512D4D3CDEB556763272AC34",
+      "sha256": "109CC8C38508D744CE5BF2DBF181E70D11F6B2A545B799DD4AC23F0F1F51131D",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 532440,
+        "bytes": 1147764,
         "triangles": 40000,
         "vertices": 25624,
         "materials": 1,
@@ -586,11 +586,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "47285AE8963979CA0FA612DE4B1AF177983234F04959109A0AC708F2B5347A75",
+      "sha256": "56167F114C6650325944DE89162F2F899466A77BDEFDF118C84588A7F57788B6",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 561524,
+        "bytes": 1186872,
         "triangles": 40000,
         "vertices": 26336,
         "materials": 1,
@@ -2502,11 +2502,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "23316BF5BDCE50B822921969BD3E7C92BBB1E59AD3A0CB5AD68E68EE8ED5F3F5",
+      "sha256": "AB43D66D55404A9DCBEE9ABF6693522D84C987D85F2177002DE42CE6F9C8A03A",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 630252,
+        "bytes": 1271908,
         "triangles": 40000,
         "vertices": 26640,
         "materials": 1,
@@ -9225,11 +9225,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "C911FD0C4C18E190B4EBB60D9D76F47B4E8ADCBB3A7CDAE5AE85711CF08069D6",
+      "sha256": "BB79C492E29C5DCF4EC9C3FF97FE04AB6DA60A55F4727D07A0139D20D28F75C8",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 722264,
+        "bytes": 942072,
         "triangles": 40000,
         "vertices": 27058,
         "materials": 1,
@@ -9630,7 +9630,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "26F9C61A1A373CC31DFCFEBA9AA8AB2FC4DB806E604E57960412B59FBF881101",
+      "sha256": "4D3136A78C73E66269ADA4B2F02BCADE5B279AA6DD7EA03A56D5C712E9EC398C",
       "visualReview": {
         "passed": true,
         "reason": "Dune Viper preserves its unusual golden serpent-drake identity with full S-neck, cream belly, dark headwrap, one continuous coil and four small clawed limbs."
@@ -9680,7 +9680,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 548984,
+        "bytes": 2304004,
         "triangles": 40000,
         "vertices": 24882,
         "skins": 1,
@@ -11739,7 +11739,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "833233BCBDB05DD65F1748CBCF1168B54B05078EE4DAE47DA9E2A10709289441",
+      "sha256": "7F6F76DA7133B7C5076E65FD2C5D5DC494493A031650B086A6DAFEBC488BA10A",
       "visualReview": {
         "passed": true,
         "reason": "Frostbite Cub is a complete silver-white anime cub with huge icy eyes, navy ninja wraps, paired upright limbs and one coherent fluffy tail."
@@ -11789,7 +11789,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 588536,
+        "bytes": 1194904,
         "triangles": 40000,
         "vertices": 25175,
         "skins": 1,
