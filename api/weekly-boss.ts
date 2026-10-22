@@ -3,7 +3,7 @@ import { grantItemIds } from '../shared/stacked-materials.js';
 import type { VercelRequest, VercelResponse } from './_vercel.js';
 import { kv } from './_storage.js';
 import { GEAR_DROP_CHANCE_BP, gearRoll, pickGearDrop } from './_gear-drops.js';
-import { cors } from './_utils.js';
+import { cors, isSafeRecordKey } from './_utils.js';
 import { authedPlayerOrAdmin, isFullAdmin } from './_auth.js';
 import { LockContendedError, withKvLock } from './_lock.js';
 import { battleLockedFor, isIncapacitated, settleVitalsRegen } from './_elapsed-state.js';
@@ -331,6 +331,11 @@ export function reserveWeeklyBossAttemptReceipt(
     playerName: string,
     enforceLimit = true,
 ): { boss: WeeklyBossState; replayed: boolean } | null {
+    // Both become property names on the shared boss row: refuse any key that
+    // would reach Object.prototype instead of an own entry.
+    if (runId === '__proto__' || runId === 'constructor' || runId === 'prototype') return null;
+    if (playerName === '__proto__' || playerName === 'constructor' || playerName === 'prototype') return null;
+    if (!isSafeRecordKey(runId) || !isSafeRecordKey(playerName)) return null;
     const prior = boss.attemptRunReceipts?.[runId];
     if (prior === playerName) return { boss, replayed: true };
     if (prior) return null;
