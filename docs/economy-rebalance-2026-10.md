@@ -116,8 +116,8 @@ start, with full pay from L70. The framework's 1.2 ignored the augment every run
 take, which already pays at least 1.2x. Threat ambushes pay 485 x scale, at most 16 per
 run. Fate Shard, Bone Charm, Aura Stone and Hollow Shard faucets are trimmed.
 Consumables cost 10 / 15 / 25 / 25 / 40 / 60 Hollow Shards, and keys cost 15 FS or
-120 Hollow Shards. The village unlock check exists behind a switch, off by default,
-until the owner sets its price.
+120 Hollow Shards. The village Kage unlock stays as the client gates it today: the owner
+chose (2026-10-22) not to add a server-side lock or switch.
 
 **Endless Tower.** The pay factor is capped at wave 20, the level term at L70, and the
 whole reward x0.55. Fate Shard milestones pay only on a lifetime-first wave; Bone Charms
@@ -262,13 +262,11 @@ falls back to the default. Railway restarts the service when a variable changes.
 | `PVP_MIN_ROUNDS` / `PVP_MIN_FIGHT_MS` / `PVP_SHORT_FIGHT_MULT` | 3 / 60,000 / 0.5 | 0-25 / 0-600,000 / 0-1 | `api/pvp/_valid-fight.ts` |
 | `PVP_LOSER_MIN_AGE_MS` | 72 h | 0-72 h; L20+ always passes | `api/pvp/_valid-fight.ts` |
 | `PVP_MASTERY_40_49` | on | switch | `api/pvp/_valid-fight.ts` |
-| `PVP_RANKED_PURSE` | off | switch (data-gated) | `api/pvp/_valid-fight.ts` |
 | `WAR_PURSE_SCALE` | 1 | 0-1 | `api/war/_war-pay-scale.ts` |
 | `WAR_PURSE_WIN_K` / `WAR_PURSE_LOSE_K` | 0.3 / 0.18 | 0-0.6 / 0-0.36 | `api/war/_reward.ts` |
 | `WAR_MIN_DURATION_HOURS` | 72 | 0-120 | `api/war/_early-end.ts` |
 | `WAR_RYO_PER_WR` | 250 | 0-2,000 | `api/_war-economy.ts` |
 | `GATE_RYO_K` | 1.04 | 1.0-1.4, or 99 = flat | `api/hollow-gate/_gate-scale.ts` |
-| `HOLLOW_GATE_UNLOCK_ENFORCED` | off | switch | `api/hollow-gate/start.ts` |
 | `ENDLESS_REWARD_MULT` / `_FACTOR_CAP_WAVE` / `_LEVEL_CAP` | 0.55 / 20 / 70 | kill 1 / 200 / 1,000 | `api/endless/_run.ts` |
 | `ENDLESS_FS_LIFETIME_FIRST` / `ENDLESS_BC_FIRST_RUN_OF_DAY` | on / on | switches | `api/endless/_run.ts` |
 | `WB_REWARD_REF_HP` / `WB_PLAYER_CAP` / `WB_MVP_CAP` | 100,000 / 60,000 / 90,000 | 1,000-1,000,000 | `api/weekly-boss.ts` |
@@ -303,12 +301,11 @@ product stays at 0.93 or above for 7 days.
 
 ## 10. Open owner questions and follow-ups
 
-- The Hollow Gate unlock price when it is enforced (recommended: 3,000 treasury seals per
-  30 days, Rifts exempt).
 - Whether war purses should be priced at the level a player fought at. Today they use
   the level at claim time, because battle receipts carry no level.
 - Whether Elders may spend treasury ryo on mercenaries. Today only the Kage can.
 - A PvP detection report for the owner (pair concentration, fight length, flee and AFK
   share) needs an admin route and is not built.
 - `claimedWarCrateIds` has no pruning, and purse markers now add to it.
-- Ranked joins the PvP purse later, once the valid-fight share holds for two weeks.
+- Ranked pays the PvP purse from launch (owner 2026-10-22, no switch). If the
+  valid-fight share or pair-concentration telemetry shows farming, tune it in code.
