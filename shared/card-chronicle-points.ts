@@ -27,7 +27,9 @@ export type CardChroniclePointsReason =
     /** This pair already used its credited duels for the UTC day. */
     | 'repeat'
     /** The losing account is not yet established (under 72 hours old and below level 20). */
-    | 'too-young';
+    | 'too-young'
+    /** The winner was more than 20 levels above the loser (the PvP purse's rule). */
+    | 'level-gap';
 
 /** The thresholds a duel must meet to pay, as the server applied them. */
 export type CardChroniclePointsRules = {
