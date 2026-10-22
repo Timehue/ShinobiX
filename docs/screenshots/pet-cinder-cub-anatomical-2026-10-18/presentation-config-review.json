@@ -1,0 +1,20 @@
+{
+  "id": "starter-fire",
+  "previousModuleSha256": "d78bd6b773bb12d06761c12edf4e4a6a1ea8dc560a854983e6477f3fa4b4d1a4",
+  "moduleSha256": "0f533dfa1944a0d1c666e00d14231c82e2d33b8ce6eb3b21cc78250320ffff9f",
+  "config": {
+    "visualId": "starter-fire",
+    "url": "/pet-models/starter-fire.glb?v=20261018-cinder-cub-anatomical-actions-v2-20261013-studio-v1-20261013-articulation-v1-20261014-contact-performance-v1",
+    "profile": "quadruped",
+    "targetHeight": 2.05,
+    "fit": "height",
+    "yawOffset": 0,
+    "outlineScale": 1
+  },
+  "selectedConfigSha256": "37e2d50521274d97e5418be6f10626322f63cfce111e04fe6ba7dc5aba7ad83b",
+  "changedIdentityOnly": "starter-fire",
+  "change": "Disable scaled inverted hull on the concave flame; authored sculpt, textures and dark surface contours retained.",
+  "lowCaptureRetainedBecauseQualityOutlineFalse": true,
+  "mediumFreshLabel": "independent-starter-fire-anatomical-v2-final-runtime-medium-ink-fixed",
+  "mediumFreshSlicesActuallyInspected": 16
+}

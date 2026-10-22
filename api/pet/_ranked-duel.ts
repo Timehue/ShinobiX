@@ -34,7 +34,8 @@
  */
 
 import { resolveWarDuel } from '../_pet-showdown/war-duel.js';
-import type { ShowdownEvent, ShowdownReplayScript, ShowdownStateView } from '../../shared/pet-showdown-contract.js';
+import type { ShowdownReplayScript } from '../../shared/pet-showdown-contract.js';
+import { replayFromOpposingSide } from '../_pet-showdown/_viewer-replay.js';
 import type { Pet } from '../_pet-sim/pet-types.js';
 import type { RankedPetMatchToken } from './_ranked-authority.js';
 
@@ -73,6 +74,7 @@ export function resolveRankedPetDuel(token: RankedPetMatchToken): RankedPetDuelR
         fromPets,
         toPets,
         format: fromTeam && toTeam ? '2v2' : '1v1',
+        rulesetVersion: token.rulesetVersion ?? 'legacy-v2',
     });
     return { winnerName: outcome === 'from' ? fromName : toName, script };
 }
@@ -81,23 +83,5 @@ export function resolveRankedPetDuel(token: RankedPetMatchToken): RankedPetDuelR
 export function rankedPetReplayForViewer(token: RankedPetMatchToken, script: ShowdownReplayScript, viewer: string): ShowdownReplayScript {
     const canonicalPlayer = token.a <= token.b ? token.a : token.b;
     if (viewer === canonicalPlayer || (viewer !== token.a && viewer !== token.b)) return script;
-    const side = (value: 'player' | 'enemy') => value === 'player' ? 'enemy' as const : 'player' as const;
-    const state = (view: ShowdownStateView): ShowdownStateView => ({
-        ...view,
-        player: view.enemy,
-        enemy: view.player,
-        enemyTeamName: canonicalPlayer,
-        outcome: view.outcome === null ? null : view.outcome === 'win' ? 'loss' : 'win',
-    });
-    const event = (entry: ShowdownEvent): ShowdownEvent => {
-        switch (entry.t) {
-            case 'action': case 'skip': case 'confused': return { ...entry, actorSide: side(entry.actorSide) };
-            case 'consumable': case 'switch': return { ...entry, side: side(entry.side) };
-            case 'dot': return { ...entry, targetSide: side(entry.targetSide) };
-            case 'end': return { ...entry, outcome: entry.outcome === 'win' ? 'loss' : 'win' };
-            case 'roundStart': case 'roundEnd': return entry;
-            default: { const exhaustive: never = entry; return exhaustive; }
-        }
-    };
-    return { initialState: state(script.initialState), finalState: state(script.finalState), events: script.events.map(event) };
+    return replayFromOpposingSide(script, canonicalPlayer);
 }

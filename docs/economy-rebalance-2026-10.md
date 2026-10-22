@@ -134,9 +134,17 @@ crafted charm sells for at most 0.7x its inputs. The shop route now enforces the
 rarity level ladder as the client. Pet supplies buy in stacks up to 50. The B-rank
 bloodline forge costs 200 Bone Charms.
 
-**Pets and professions.** Tamer expeditions pay ryo x0.4 and Tamer XP x0.5. Healer heal
-XP is x2. Elemental and Ancient Treats cost 200 and 400. Wild-pet rare odds go from 0.3%
-to 1.2%, which fixes an inverted tier.
+**Pets and professions.** Tamer expedition XP is x0.5. Healer heal XP is x2. Wild-pet
+rare odds go from 0.3% to 1.2%, which fixes an inverted tier.
+
+Two pet values in this pass were replaced by newer owner-merged designs on `main`:
+- Expedition ryo. Reward version 2 (#446) seals a fixed payout at launch (240 / 360 /
+  540 ryo per hour by route, x1.5 for Pet Tamers). The rebalance's x0.4 ryo multiplier
+  (`TAMER_RYO_MULT`) now applies only to expeditions launched before version 2.
+- Pet food. Pet growth v2 (`docs/pet-growth-food-redesign.md`) makes Elemental and
+  Ancient Treats Crafter-only, prices Treats at 400 ryo and Golden Apples at 40 Fate
+  Shards, and caps food XP at 2,000 per pet per day. The rebalance's 200 / 400 shop
+  prices for the two premium treats are gone.
 
 **Chronicle.** The Elite pack costs 6 FS and the single Legendary pack 20 FS. Duplicates
 beyond a playset convert to Chronicle Points or Fate Shards. The first Echoes win of the
@@ -227,7 +235,7 @@ falls back to the default. Railway restarts the service when a variable changes.
 | `WB_REWARD_REF_HP` / `WB_PLAYER_CAP` / `WB_MVP_CAP` | 100,000 / 60,000 / 90,000 | 1,000-1,000,000 | `api/weekly-boss.ts` |
 | `SPIRE_PURSE_SCALE` / `SIDE_MODE_PURSE_SCALE` | 1 / 1 | 0-2 | `api/_activity-purse.ts` |
 | `BANK_INTEREST_PRINCIPAL_CAP` | 1,000,000 | 100,000-10,000,000 | `api/_bank-interest.ts` |
-| `TAMER_RYO_MULT` / `TAMER_XP_MULT` | 0.4 / 0.5 | 0-1 | `api/missions/report-pet-event.ts` |
+| `TAMER_RYO_MULT` / `TAMER_XP_MULT` | 0.4 (pre-v2 expeditions only) / 0.5 | 0-1 | `api/missions/report-pet-event.ts` |
 | `HEALER_HEAL_XP_MULT` | 2 | 1-2 | `api/player/_healer-heal-xp.ts` |
 
 The black-market pull stays a 75,000 constant on both sides, so the quoted and charged

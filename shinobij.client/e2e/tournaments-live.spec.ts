@@ -86,8 +86,26 @@ for (const mode of ['standard', 'ranked', '2v2', 'pet'] as TournamentMode[]) {
                 await expect(players[1].getByRole('button', { name: 'Watch Colosseum match' })).toBeVisible();
                 const replayA = await api(players[0], '/api/tournaments/event', { action: 'battle', eventId: event.id, matchId: event.matches[0].id });
                 const replayB = await api(players[1], '/api/tournaments/event', { action: 'battle', eventId: event.id, matchId: event.matches[0].id });
-                expect(replayA.script).toEqual(replayB.script);
+                expect(replayA.script.initialState.player).toEqual(replayB.script.initialState.enemy);
+                expect(replayA.script.finalState.enemy).toEqual(replayB.script.finalState.player);
+                expect(replayA.script.finalState.outcome).not.toBe(replayB.script.finalState.outcome);
                 expect(replayA.script.events.length).toBeGreaterThan(0);
+                // Keep the terminal UI check bounded; the real server above
+                // supplies both rosters, all actions and the scored verdict.
+                for (const [index, replay] of [replayA, replayB].entries()) {
+                    await players[index].route('**/api/tournaments/event', route => {
+                        if (route.request().method() === 'POST' && route.request().postDataJSON().action === 'battle') {
+                            return route.fulfill({ json: { ...replay, script: { ...replay.script, events: replay.script.events.filter((entry: { t: string }) => entry.t === 'end') } } });
+                        }
+                        return route.continue();
+                    });
+                    await players[index].getByRole('button', { name: 'Watch Colosseum match' }).click();
+                    await expect(players[index].getByRole('dialog', { name: replay.script.finalState.outcome === 'win' ? 'Victory' : 'Defeat', exact: true })).toBeVisible({ timeout: 45_000 });
+                    await players[index].screenshot({ path: info.outputPath(`pet-tournament-${names[index]}-verdict.png`) });
+                    await players[index].getByRole('button', { name: 'Back to tournament', exact: true }).click();
+                    await expect(players[index].getByRole('button', { name: 'Watch Colosseum match' })).toBeVisible();
+                    await expect(players[index].getByText('Champion ·', { exact: false })).toBeVisible();
+                }
             } else {
                 await players[0].getByRole('button', { name: 'Enter tournament match' }).click();
                 await expect(players[0].getByRole('heading', { name: new RegExp(`${mode === '2v2' ? '2v2' : '1v1'} Tournament`) })).toBeVisible();
@@ -136,5 +154,63 @@ for (const mode of ['standard', 'ranked', '2v2', 'pet'] as TournamentMode[]) {
             }
             expect(errors).toEqual([]);
         } finally { await Promise.all(contexts.map(c => c.close())); }
+    });
+}
+
+for (const won of [true, false]) {
+    test(`ranked 2v2 result ${won ? 'win' : 'loss'} returns to a usable queue when the first refresh fails`, async ({ page, request }, info) => {
+        expect((await request.post('/qa-tournament/reset')).ok()).toBeTruthy();
+        const names = ['akira', 'ren', 'sora', 'yuki'];
+        const headers: Record<string, Record<string, string>> = {};
+        for (const name of names) {
+            const player = await (await request.get(`/qa-tournament/player/${name}`)).json();
+            headers[name] = { 'x-player-name': name, 'x-player-token': player.token };
+        }
+        const post = async (name: string, path: string, data: Record<string, unknown>) => {
+            const response = await request.post(path, { headers: headers[name], data: { playerName: name, ...data } });
+            expect(response.ok(), await response.text()).toBeTruthy();
+            return response.json();
+        };
+        const ranked = (name: string, data: Record<string, unknown>) => post(name, '/api/pvp/ranked-2v2', data);
+        await ranked('akira', { action: 'invite', target: 'ren' });
+        await ranked('ren', { action: 'accept' });
+        await ranked('sora', { action: 'invite', target: 'yuki' });
+        await ranked('yuki', { action: 'accept' });
+        await ranked('akira', { action: 'queue' });
+        let { match } = await ranked('sora', { action: 'queue' });
+        expect(match).toBeTruthy();
+        for (const name of names.filter(name => name !== 'akira')) {
+            ({ match } = await ranked(name, { action: 'ready', matchId: match.matchId,
+                ready: true, expectedVersion: match.version, requestId: crypto.randomUUID() }));
+        }
+        await page.goto('/tournament-qa.html?live&player=akira', { waitUntil: 'domcontentloaded' });
+        await page.getByRole('button', { name: 'Ranked', exact: true }).click();
+        await expect(page.getByTestId('ranked-2v2-ready')).toBeVisible();
+        await page.getByRole('button', { name: 'Ready up', exact: true }).click();
+        await expect(page.getByRole('heading', { name: '2v2 Ranked 2v2', exact: true })).toBeVisible();
+        for (const name of won ? ['sora', 'yuki'] : ['akira', 'ren']) {
+            const response = await request.get(`/api/towers/pvp-state?playerName=${name}&matchId=${match.matchId}`, { headers: headers[name] });
+            const current = (await response.json()).match;
+            await post(name, '/api/towers/pvp-action', { matchId: match.matchId, type: 'forfeit',
+                expectedVersion: current.version, moveToken: crypto.randomUUID() });
+        }
+        const leave = page.getByRole('button', { name: 'Return to Ranked 2v2', exact: true });
+        await expect(leave).toBeEnabled({ timeout: 30_000 });
+        await page.screenshot({ path: info.outputPath(`ranked-${won ? 'win' : 'loss'}-result.png`) });
+        let failedRefreshes = 0;
+        await page.route('**/api/pvp/ranked-2v2', async route => {
+            if (route.request().postDataJSON()?.action === 'status' && failedRefreshes++ === 0) {
+                await route.fulfill({ status: 503, json: { error: 'Temporary status outage' } });
+            } else await route.continue();
+        });
+        await leave.click();
+        const queue = page.getByTestId('ranked-2v2-panel');
+        await expect(queue.getByRole('button', { name: 'Find ranked match' })).toBeEnabled();
+        await expect(page.getByRole('heading', { name: '2v2 Ranked 2v2', exact: true })).toHaveCount(0);
+        await expect.poll(() => page.evaluate(() => localStorage.getItem('shinobix:towerRunId'))).toBeNull();
+        await queue.getByRole('button', { name: 'Find ranked match' }).click();
+        await expect(queue).toContainText('Searching for a pair');
+        expect(failedRefreshes).toBeGreaterThan(0);
+        await page.screenshot({ path: info.outputPath(`ranked-${won ? 'win' : 'loss'}-requeue.png`) });
     });
 }

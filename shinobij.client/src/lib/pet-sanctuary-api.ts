@@ -5,7 +5,7 @@ type ApiErrorBody = { error?: string; message?: string };
 
 async function parse<T>(response: Response): Promise<T> {
     const body = await response.json().catch(() => ({})) as T & ApiErrorBody;
-    if (!response.ok) throw new Error(body.message || body.error || `Sanctuary request failed (${response.status}).`);
+    if (!response.ok) throw new Error(body.message || body.error || `Your Sanctuary change could not be confirmed. Refresh your roster before trying again.`);
     return body;
 }
 

@@ -11,21 +11,14 @@
  * Server event routes own all rewards, traps, and run-state consequences.
  */
 import { hollowGateFlavorFor } from "../data/hollow-gate-flavor";
-import { applyAttunementToRun } from "./hollow-gate-attunement";
-// The procedural generator (./hollow-gate-dungeon + its ASCII layouts, BSP and
-// maze modules) is loaded on demand — the only call site here already awaits a
-// network round-trip first, so it costs no extra wait and keeps ~16 KB of
-// generator off the startup graph. Visibility is a separate, always-loaded
-// module (./hollow-gate-visibility).
-import { loadHollowGateGenerator } from "./hollow-gate-generator-loader";
 import { befriendHollowGatePetServer } from "./hollow-gate-locked-door-api";
 import { hollowGateFloorProfile } from "./hollow-gate-presentation";
 import { hollowGateAugmentEffects } from "./hollow-gate-server";
 import { hollowGateRunMaxFloor } from "./hollow-gate-variant";
 import { requireServerSettlement } from "./server-settlement-gate";
-import { descendHollowGateRun } from "./hollow-gate-combat-api";
+import { openHollowGateDescent } from './hollow-gate-descent';
 import { activeCarriedPets, maxPets } from "./entitlements";
-import { hollowGateRewardLines, resolveHollowGateServerEvent, sealHollowGateFloor } from "./hollow-gate-event-api";
+import { hollowGateRewardLines, resolveHollowGateServerEvent } from "./hollow-gate-event-api";
 import { hollowGateWandererFriendly, hollowGateWandererOrigin } from '../../../shared/hollow-gate-wanderers';
 import { openHollowGateTraveler, openHollowGateKeeper } from './hollow-gate-wanderer-event';
 import type {
@@ -78,6 +71,7 @@ export interface HollowGateTileCtx {
     startHollowGateBattle: (opts: { isBoss?: boolean; isAmbush?: boolean; isBeast?: boolean; isElite?: boolean; nodeId?: string }) => void | Promise<void>;
     leaveHollowGateShrine: (opts?: { death?: boolean }) => void;
     isCurrentRun?: () => boolean;
+    onPendingAmbush?: (pending: { nodeId: string; kind: 'battle' | 'ambush' | 'boss' | 'card' }) => void;
 }
 
 export function resolveHollowGateTile(
@@ -193,10 +187,10 @@ export function resolveHollowGateTile(
                     pushHollowGateLog(`${flavor} The trap's killing blow lands, and then Second Wind restores half your HP.`);
                     setHollowGateEvent({ title: "Second Wind", body: "The stored Hollow Shards burst into violet flame and restore half your HP.", kind: "trap", choices: [{ label: "Press on", tone: "primary", onSelect: () => setHollowGateEvent(null) }] });
                 } else if (result.ended) {
-                    pushHollowGateLog(`${flavor} The seals tear ${damage} HP from you. You collapse and the server closes the run.`);
+                    pushHollowGateLog(`${flavor} The seals tear ${damage} HP from you. You collapse, ending the run.`);
                     setHollowGateEvent({
                         title: "You Have Fallen",
-                        body: `${flavor}\n\nThe trap drains your final breath. Your verified run ledger is reconciled and you are admitted to the village hospital.\n\nRUN SUMMARY\n${buildHollowGateRunSummary()}`,
+                        body: `${flavor}\n\nThe trap defeats you, ending your run. You are taken to the village hospital.\n\nRUN SUMMARY\n${buildHollowGateRunSummary()}`,
                         kind: "trap",
                         choices: [{ label: "Leave shrine", tone: "danger", onSelect: () => { setHollowGateEvent(null); leaveHollowGateShrine({ death: true }); } }],
                     });
@@ -283,99 +277,9 @@ export function resolveHollowGateTile(
             return;
         }
         case "descend": {
-            // Staircase to the next floor. Carries torch + keys forward and
-            // gives a small torch refill. Resolved on use.
             pushHollowGateLog(flavor);
-            if (hollowGateRun.floor >= hollowGateRunMaxFloor(hollowGateRun)) {
-                // Defensive — shouldn't happen since the final floor never
-                // spawns a descend tile, but if it somehow does, treat as exit.
-                setHollowGateEvent({
-                    title: "Bottomless Staircase",
-                    body: "The staircase coils into the dark, leading nowhere.\n\nThis is the deepest floor.",
-                    kind: "descend",
-                    choices: [{ label: "Continue", onSelect: () => setHollowGateEvent(null), tone: "primary" }],
-                });
-                markResolved();
-                return;
-            }
-            setHollowGateEvent({
-                title: "Descend the Staircase",
-                body: `${flavor}\n\nDescend to Floor ${hollowGateRun.floor + 1}? You carry your keys and torch forward, with a small Reiki refill.`,
-                kind: "descend",
-                choices: [
-                    {
-                        label: "Descend deeper",
-                        tone: "primary",
-                        onSelect: async () => {
-                            if (!hollowGateRun.runToken) {
-                                pushHollowGateLog("The staircase has no secure run seal. Use Emergency Forfeit and begin a fresh dive.");
-                                return;
-                            }
-                            // The generator chunk is fetched BEFORE the server call,
-                            // deliberately. descendHollowGateRun COMMITS the floor
-                            // advance server-side and is not idempotent: once it has
-                            // returned, a client-side failure leaves the client on
-                            // floor N with the server on N+1, and re-clicking re-sends
-                            // the now-stale fromFloor, which is rejected forever. Doing
-                            // the load first means a dropped chunk fails while both
-                            // sides still agree — and since the generator is pure and
-                            // side-effect-free, this also overlaps the round-trip
-                            // rather than adding to it.
-                            const generator = await loadHollowGateGenerator().catch(() => null);
-                            if (!generator) {
-                                // A timed-out load can succeed on a retry; one that FAILED
-                                // stays failed for this page (./lazyWithRetry), so name
-                                // the reload that actually recovers it.
-                                pushHollowGateLog("The shrine could not draw the floor below this one because the connection dropped while it loaded. Nothing was spent. Try the staircase again. If it fails again, reload the page; your run resumes on this floor.");
-                                return;
-                            }
-                            try {
-                                await descendHollowGateRun({
-                                    playerName: character.name,
-                                    token: hollowGateRun.runToken,
-                                    fromFloor: hollowGateRun.floor,
-                                });
-                            } catch (error) {
-                                pushHollowGateLog(error instanceof Error ? error.message : "The staircase refuses to open.");
-                                return;
-                            }
-                            // The run's variant rides along so an event gate keeps its
-                            // shape (floors / board / boss) on every floor below.
-                            const next = applyAttunementToRun(generator.generateHollowGateShrineRun(hollowGateRun.floor + 1, hollowGateRun.variant, hollowGateRun.serverSeed), character, false);
-                            const sealed = await sealHollowGateFloor(character.name, hollowGateRun.runToken, next);
-                            if (!sealed.ok) {
-                                pushHollowGateLog(sealed.error || "The next floor could not be sealed. Retry the staircase.");
-                                return;
-                            }
-                            setHollowGateRun({
-                                ...next,
-                                keys: hollowGateRun.keys,
-                                torch: Math.min(10, hollowGateRun.torch + 4),
-                                entryCurrencies: hollowGateRun.entryCurrencies,
-                                runToken: hollowGateRun.runToken,
-                                serverSeed: hollowGateRun.serverSeed,
-                                riftDistortionId: hollowGateRun.riftDistortionId,
-                                augmentOffers: hollowGateRun.augmentOffers,
-                                chosenAugment: hollowGateRun.chosenAugment,
-                                secondWindArmed: hollowGateRun.secondWindArmed,
-                                detourTileIndex: sealed.detour?.tileIndex,
-                                wanderers: sealed.wanderers,
-                                floorFeatures: sealed.floorFeatures,
-                                floorFeaturesVersion: sealed.floorFeatures ? 1 : undefined,
-                                detourExtraSteps: sealed.detour?.extraSteps,
-                                riftSignalTileIndex: sealed.riftSignal?.tileIndex,
-                                earnedXp: hollowGateRun.earnedXp,
-                                earnedFragments: hollowGateRun.earnedFragments,
-                                earnedVeils: hollowGateRun.earnedVeils,
-                            });
-                            pushHollowGateLog(`You descend to Floor ${next.floor}. Torch flares: +4.`);
-                            setHollowGateEvent(null);
-                        },
-                    },
-                    { label: "Hold position", onSelect: () => setHollowGateEvent(null) },
-                ],
-            });
-            // Don't markResolved — player can stay on the floor and come back to the staircase.
+            if (hollowGateRun.floor >= hollowGateRunMaxFloor(hollowGateRun)) markResolved();
+            openHollowGateDescent(ctx, flavor);
             return;
         }
         case "npc": {
@@ -431,7 +335,7 @@ export function resolveHollowGateTile(
                     });
                     const result = eventResult.lockedResult;
                     if (!eventResult.ok || !result) {
-                        pushHollowGateLog("The sealed door did not answer. Your Shrine Key was not spent; try again.");
+                        pushHollowGateLog("The door result could not be confirmed. Check your remaining Shrine Keys before trying again.");
                         return;
                     }
                     adoptServerEvent(eventResult);
@@ -444,7 +348,7 @@ export function resolveHollowGateTile(
                     if (result.outcome === "trap") {
                         const damage = Math.max(0, Math.floor(eventResult.damage ?? 0));
                         pushHollowGateLog(`Trap behind the door! You take ${damage} HP damage.`);
-                        setHollowGateEvent({ title: eventResult.ended ? "Cursed Trap Door" : eventResult.revived ? "Second Wind" : "Trap Door", body: eventResult.ended ? "The binding seal drains the last of your chakra. Your verified run ledger is reconciled and the run ends." : eventResult.revived ? "The cursed seal lands a killing blow, but Second Wind restores half your HP." : `Behind the chains, a cursed seal lashes out.\n\nYou take ${damage} HP damage.`, kind: "trap", choices: [{ label: eventResult.ended ? "Leave shrine" : "Press on", tone: "danger", onSelect: () => { setHollowGateEvent(null); if (eventResult.ended) leaveHollowGateShrine({ death: true }); } }] });
+                        setHollowGateEvent({ title: eventResult.ended ? "Cursed Trap Door" : eventResult.revived ? "Second Wind" : "Trap Door", body: eventResult.ended ? "The trap drains the last of your HP, ending your run. You are taken to the village hospital." : eventResult.revived ? "The cursed seal lands a killing blow, but Second Wind restores half your HP." : `Behind the chains, a cursed seal lashes out.\n\nYou take ${damage} HP damage.`, kind: "trap", choices: [{ label: eventResult.ended ? "Leave shrine" : "Press on", tone: "danger", onSelect: () => { setHollowGateEvent(null); if (eventResult.ended) leaveHollowGateShrine({ death: true }); } }] });
                         return;
                     }
                     const encounter = result.pet;
@@ -462,7 +366,7 @@ export function resolveHollowGateTile(
                         choices: [{ label: `Befriend ${encounter.name}`, tone: "primary", onSelect: () => {
                             if (!requireServerSettlement("hollowGatePetBefriend")) return;
                             void befriendHollowGatePetServer(character.name, petToken).then((befriended) => {
-                                if (!befriended.character) return alert(befriended.error || "The pet could not be befriended.");
+                                if (!befriended.character) return alert(befriended.error || "The pet recruitment could not be confirmed. Check your roster before trying again.");
                                 // Befriended even if refused as stale (the coordinator
                                 // then reads the stored save back); close the encounter.
                                 onVersionedCharacter(befriended.character, befriended.saveVersion);

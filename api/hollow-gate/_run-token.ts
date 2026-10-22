@@ -152,6 +152,7 @@ export interface HollowGateRunToken {
      *  (_gate-scale.ts). Absent on runs minted before it existed (scale 1). */
     entryLevel?: number;
     variantId?: string;
+    variantLabel?: string;
     /** Weekly map-information rule selected by the server for Rifts. */
     riftDistortionId?: string;
     /** Present only for a server-authorized wandering rift run. Completion uses
@@ -182,6 +183,8 @@ export interface HollowGateRunToken {
     recentStepIds?: string[];
     recentConsumableIds?: string[];
     wardSteps?: number;
+    /** Accepted steps of relief from roaming hunter contact after a mob victory. */
+    hunterBreatherSteps?: number;
     divinerUsed?: boolean;
     pendingAmbush?: HollowGatePendingEncounter | null;
     wanderers?: Record<string, HollowGateWanderer[]>;

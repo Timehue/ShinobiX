@@ -1,0 +1,19 @@
+✔ every certified source, battle model and atlas survives production public-asset exclusions (1.9586ms)
+✔ all 161 emitted atlas revisions retain certified values and key order (43.0821ms)
+✔ packed atlas revisions keep ordinary object descriptors and independent mutation behavior (15.029ms)
+✔ revision generator roundtrips the certified complete inventory and refuses unsupported keys or reassociated hashes (6.2452ms)
+✔ impostor metadata-only check exits before any asset bake, file mutation or directory traversal (17.572ms)
+✔ all 161 LOD entries retain certified ordered URLs, suffixes and triangle counts (8.1037ms)
+✔ LOD metadata retains plain writable objects and independent nested entries (11.2367ms)
+✔ LOD generator roundtrips all certified entries without changing URLs or metadata (5.9797ms)
+✔ LOD metadata-only check exits without processing any model (3.1195ms)
+✔ LOD metadata-only generation exits without processing any model (2.6389ms)
+✔ both compact exports preserve every expanded readonly literal type (438.5073ms)
+ℹ tests 11
+ℹ suites 0
+ℹ pass 11
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 999.0456

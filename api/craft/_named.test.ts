@@ -111,7 +111,7 @@ describe('named forge authority', () => {
     it('forged BODY armour is unchanged — it keeps its quality and its DR claim', () => {
         const item = buildNamedItem(armorRoll('body'), '', '') as { armorQuality?: string; description?: string };
         assert.equal(item.armorQuality, 'Legendary');
-        assert.match(String(item.description), /7% damage reduction/);
+        assert.match(String(item.description), /7% armor protection.*diminishing returns/);
     });
 });
 

@@ -9,6 +9,19 @@ import { BIRD_FACE_REPAIRS, BIRD_FACE_REPAIR_REVISION, birdSkullShare, birdEnvel
 const BEAK_SURFACES = JSON.parse(await readFile(new URL('./fixtures/bird-beak-vertices.json', import.meta.url), 'utf8')).models;
 const RUNTIME_MODELS = JSON.parse(await readFile(new URL('../public/pet-models/warfront-lod/manifest.json', import.meta.url), 'utf8')).entries;
 const BIND_BASELINES=JSON.parse(await readFile(new URL('./fixtures/pet-bind-20261014/manifest.json',import.meta.url))).fixtures;
+// Later complete-face repairs rebuild accessor tables. Their historical bird
+// metadata indices cannot reconstruct the original mesh inside the new file.
+// Use the independently frozen pre-repair assets, with their original hashes.
+const COMPLETE_FACE_BASELINES = {
+    'standard-39': 'b5044e448829a7a70fb74b616de6e2c05dd7d25667c8c31ce86faf2c116100a0',
+    'rare-38': '104ffe0ac4360305cba20af349d411bb0600ec1e4902feaa7593845d06d3bcfc',
+    'rare-37': '3296d661f55bd9886845922cdb53ff25bfc898f7e2e1ca6431e65f98c8b5addb',
+    'standard-44': 'dbf202c3c55ebbc1b63f94f73263b44d1f3febbee938038ae22d19302c5fa32d',
+    'standard-17': '33aab8bafe18f533fb36c0209590e831a2ff2951cab3b823757fcc3eb75bf06c',
+    'rare-27': '65e88536b4be529b118cba3e76b0718197366a346b3c5a9a96f0a5aa6219d249',
+    'legendary-6': '969f6f0ac6355377d7d6bb3a65799aa98bd2a8591e09c78c8bb3f6badcdd2579',
+    'legendary-16': 'd761f0769ecacdd38a5290f5a9536c74f8aeae358fa0cbeb37a9d115880798f8',
+};
 
 // Authored beak edges identified independently from the repair envelope using
 // the source atlas and bind coordinates. These caught lateral jaw holes that
@@ -47,7 +60,12 @@ async function load(id) {
         assert.equal(createHash('sha256').update(bytes).digest('hex'),BIND_BASELINES[id].sha256);
         const length=bytes.readUInt32LE(12);
         before=await loadBird(JSON.parse(bytes.subarray(20,20+length)),bytes.subarray(28+length));
-    }else before=await loadBird(original,binary);
+    } else if (COMPLETE_FACE_BASELINES[id]) {
+        const bytes = await readFile(new URL(`./fixtures/pet-complete-face-20261015/${id}-v1.glb`, import.meta.url));
+        assert.equal(createHash('sha256').update(bytes).digest('hex'), COMPLETE_FACE_BASELINES[id]);
+        const length = bytes.readUInt32LE(12);
+        before = await loadBird(JSON.parse(bytes.subarray(20, 20 + length)), bytes.subarray(28 + length));
+    } else before=await loadBird(original,binary);
     return { before, after: await loadBird(json, binary), bodyRepair };
 }
 

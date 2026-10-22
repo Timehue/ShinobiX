@@ -24,6 +24,8 @@ export type AiFightRequest = {
     opponentId: string;
     /** The level the fight is fought at — sealed onto the reward token. */
     opponentLevel: number;
+    /** Explicit consensual Arena spar choice; other hosts retain authored levels. */
+    practiceLevel?: number;
     battleKind: AiFightBattleKind;
     /** Display-only: the dossier name on the server-combat screen. */
     opponentName?: string;

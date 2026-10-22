@@ -2,12 +2,11 @@ import { createHash, randomInt, randomUUID } from 'node:crypto';
 import { BRED_ULTRA_TRAIT_DENOMINATOR, ULTRA_PET_TRAITS } from '../../shared/shrines.js';
 import { petStartingHappiness } from '../../shared/pet-happiness.js';
 import { PET_CATALOG } from './_catalog.js';
-import { normalizePetGrowth } from './_growth.js';
+import { normalizePetGrowth, PET_GROWTH_VERSION } from './_growth.js';
 
 export const PET_BREEDING_MIGRATION_VERSION = 1;
-// V2 seals the apex/ordinary trait when the 24-hour session starts. V1 eggs
-// remain hatchable through the compatibility fallback in breeding-hatch.ts.
-export const PET_BREEDING_RULES_VERSION = 2;
+// V3 resolves the egg chance at pairing, then incubates in Sanctuary during play.
+export const PET_BREEDING_RULES_VERSION = 3;
 export const PET_BREEDING_USES_MIN = 5;
 export const PET_BREEDING_USES_MAX = 10;
 export { BRED_ULTRA_TRAIT_DENOMINATOR };
@@ -219,6 +218,12 @@ export function migrateOwnedPet(
     const changed = stableFields.some((field) => next[field] !== original[field])
         || JSON.stringify(parentInstanceIds) !== JSON.stringify(original.parentInstanceIds)
         || JSON.stringify(parentTemplateIds) !== JSON.stringify(original.parentTemplateIds);
+    // Owner reads and every save mutation already persist this migration under
+    // the save lock. Keep the independent growth stamp on each pet so transfers
+    // and evolved instances cannot multiply an allocation twice.
+    const hasGrowthStats = whole(original.level) >= 1
+        && ['hp', 'attack', 'defense', 'speed'].every(stat => Number.isFinite(Number(original[stat])) && Number(original[stat]) > 0);
+    if (hasGrowthStats && whole(original.growthVersion) < PET_GROWTH_VERSION) return { pet: normalizePetGrowth(next), changed: true };
     return { pet: changed ? next : original, changed };
 }
 

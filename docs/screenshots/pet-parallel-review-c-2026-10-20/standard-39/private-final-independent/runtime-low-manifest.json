@@ -1,0 +1,275 @@
+{
+  "schema": 1,
+  "rendererSha256": "b2253b71fbcb21a83d82de35ab5783dd57b525cfc94740fb131dd1eb0049a897",
+  "captureHarnessSha256": "3f140042e2f74c6888db7c35486d349a9548c0e5ca7d300fc71f4a904b61b0e0",
+  "viewport": {
+    "width": 390,
+    "height": 844
+  },
+  "rows": [
+    {
+      "name": "idle",
+      "duration": 1.2,
+      "frame": {
+        "motion": "idle"
+      }
+    },
+    {
+      "name": "run",
+      "duration": 0.8,
+      "frame": {
+        "motion": "run",
+        "moving": true,
+        "speed": 3
+      }
+    },
+    {
+      "name": "dash",
+      "duration": 0.6,
+      "frame": {
+        "motion": "dash",
+        "moving": true,
+        "speed": 5
+      }
+    },
+    {
+      "name": "windup",
+      "duration": 0.38,
+      "frame": {
+        "motion": "windup"
+      }
+    },
+    {
+      "name": "strike",
+      "duration": 0.26,
+      "frame": {
+        "motion": "strike",
+        "contactPose": true
+      }
+    },
+    {
+      "name": "recover",
+      "duration": 0.51,
+      "frame": {
+        "motion": "recover"
+      }
+    },
+    {
+      "name": "stagger",
+      "duration": 0.65,
+      "frame": {
+        "motion": "stagger",
+        "hit": 0.6,
+        "contactPose": true
+      }
+    },
+    {
+      "name": "dodge",
+      "duration": 0.65,
+      "frame": {
+        "motion": "dodge"
+      }
+    },
+    {
+      "name": "guard",
+      "duration": 0.8,
+      "frame": {
+        "motion": "guard"
+      }
+    },
+    {
+      "name": "rest",
+      "duration": 1.2,
+      "frame": {
+        "motion": "rest"
+      }
+    },
+    {
+      "name": "cast",
+      "duration": 0.9,
+      "frame": {
+        "motion": "idle",
+        "casting": true
+      }
+    },
+    {
+      "name": "entrance",
+      "duration": 1.1,
+      "frame": {
+        "motion": "idle"
+      }
+    },
+    {
+      "name": "victory",
+      "duration": 1.2,
+      "frame": {
+        "motion": "idle",
+        "victorious": true
+      }
+    },
+    {
+      "name": "dead",
+      "duration": 1.6,
+      "frame": {
+        "motion": "dead"
+      }
+    },
+    {
+      "name": "revive",
+      "duration": 0.8,
+      "frame": {
+        "motion": "idle"
+      }
+    },
+    {
+      "name": "attack-sequence",
+      "duration": 1.7,
+      "frame": {
+        "motion": "windup"
+      }
+    }
+  ],
+  "phases": [
+    0.025,
+    0.1,
+    0.25,
+    0.5,
+    0.75,
+    1
+  ],
+  "views": [
+    "front",
+    "side"
+  ],
+  "errors": [],
+  "pets": [
+    {
+      "id": "standard-39",
+      "name": "Glide Sparrow",
+      "captures": [
+        {
+          "stage": "source",
+          "sha256": "bf17a7361f888bf943b1682e97d977150ab1f355aaeb68bbae35e1a14e9e04ef",
+          "meshes": 1,
+          "headVertices": [
+            1532
+          ],
+          "quality": "low",
+          "diagnosticNormalSurfaces": 0,
+          "diagnostic": {
+            "landmarkCamera": false,
+            "normals": false
+          },
+          "sheets": [
+            {
+              "name": "standard-39-source-head.webp",
+              "sha256": "26c8e5db157e0a9f678062f6bd0e1bc1fcbaa7c7455473b1cfd5c4fc86817f4a"
+            },
+            {
+              "name": "standard-39-source-body.webp",
+              "sha256": "5c275ee37ed578ec81911659a6283266bb8c4b28c2eafac25aec5871e0ded34a"
+            }
+          ],
+          "pairedNormalPoseVerified": false,
+          "cameraSha256": "9e9f6ab6ab61661800f2ab262e4c57f17aad52803a03892bf67dcce00d758e15",
+          "anatomySha256": "04d1de941387a64d9b958567c19b3bc90f523362ed143b93a330729a9779b8f1",
+          "anatomyReport": {
+            "poses": 459,
+            "regions": [
+              {
+                "name": "upperFace",
+                "vertices": 150,
+                "edges": 342,
+                "maxDrift": 6.043612172448402e-15,
+                "worldMinRatio": 0.9999982213520044,
+                "worldMaxRatio": 1.0000002782323467,
+                "maximumTime": 2.450000000000001
+              },
+              {
+                "name": "muzzle",
+                "vertices": 131,
+                "edges": 307,
+                "maxDrift": 7.285342496210904e-15,
+                "worldMinRatio": 0.9999982100061591,
+                "worldMaxRatio": 1.0000002885517867,
+                "maximumTime": 4.4983333333333295
+              },
+              {
+                "name": "lowerFace",
+                "vertices": 100,
+                "edges": 223,
+                "maxDrift": 7.641082728867611e-15,
+                "worldMinRatio": 0.9999982134136288,
+                "worldMaxRatio": 1.000000298697846,
+                "maximumTime": 2.366666666666668
+              }
+            ],
+            "failed": false
+          }
+        },
+        {
+          "stage": "battle",
+          "sha256": "153048d8e3a0ab60139632906cdb86e482e469f778526f7b7afadf331ea6e84a",
+          "meshes": 1,
+          "headVertices": [
+            454
+          ],
+          "quality": "low",
+          "diagnosticNormalSurfaces": 0,
+          "diagnostic": {
+            "landmarkCamera": false,
+            "normals": false
+          },
+          "sheets": [
+            {
+              "name": "standard-39-battle-head.webp",
+              "sha256": "d22e168d7f1e6ccd61c01339ce1f1dcb46e13cee779047a23b23b4957922af6c"
+            },
+            {
+              "name": "standard-39-battle-body.webp",
+              "sha256": "7741ff629afffb8cb027ce8a2b8b768bec9dcdd3c1f8e4de2a56ed20998c82ee"
+            }
+          ],
+          "pairedNormalPoseVerified": false,
+          "cameraSha256": "9e9f6ab6ab61661800f2ab262e4c57f17aad52803a03892bf67dcce00d758e15",
+          "anatomySha256": "04d1de941387a64d9b958567c19b3bc90f523362ed143b93a330729a9779b8f1",
+          "anatomyReport": {
+            "poses": 459,
+            "regions": [
+              {
+                "name": "upperFace",
+                "vertices": 43,
+                "edges": 73,
+                "maxDrift": 5.999601542648612e-15,
+                "worldMinRatio": 0.9999982334087545,
+                "worldMaxRatio": 1.0000002739276164,
+                "maximumTime": 2.450000000000001
+              },
+              {
+                "name": "muzzle",
+                "vertices": 36,
+                "edges": 62,
+                "maxDrift": 7.714620299496165e-15,
+                "worldMinRatio": 0.9999982203325606,
+                "worldMaxRatio": 1.0000001536230938,
+                "maximumTime": 8.159999999999988
+              },
+              {
+                "name": "lowerFace",
+                "vertices": 31,
+                "edges": 51,
+                "maxDrift": 7.535321884909813e-15,
+                "worldMinRatio": 0.999998212863482,
+                "worldMaxRatio": 1.0000002794646723,
+                "maximumTime": 3.006
+              }
+            ],
+            "failed": false
+          }
+        }
+      ],
+      "review": "pending"
+    }
+  ],
+  "artisticCertification": false
+}

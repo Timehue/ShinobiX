@@ -45,7 +45,7 @@ export async function reportPveFightOutcome(runId: string, playerName: string): 
                 body: JSON.stringify({ runId, playerName }),
             });
             const data = await response.json().catch(() => null) as (PveFightOutcomeResult & { error?: string }) | null;
-            if (!response.ok || !data?.ok) throw new Error(data?.error || `Fight outcome confirmation failed (${response.status}).`);
+            if (!response.ok || !data?.ok) throw new Error(data?.error || `Your battle result could not be confirmed. Retry to check it.`);
             return data;
         } catch (error) {
             lastError = error instanceof Error ? error : new Error(String(error));

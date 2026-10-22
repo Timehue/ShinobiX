@@ -7,6 +7,7 @@ import { VILLAGE_TRANSFER_SCROLL_ID, VILLAGE_TRANSFER_COST, villageTransferUnloc
 import { discountedShopCost, isPurchasableItem, shopDiscountPercent } from './_settlement.js';
 import { meetsItemLevelReq } from '../../shared/item-level-gate.js';
 import { petSupplyHoldCap } from '../_pet-sim/pet-config.js';
+import { isPetFood } from '../../shared/pet-food.js';
 
 type Character = Record<string, unknown>;
 
@@ -40,9 +41,10 @@ export function purchaseCatalogItem(character: Character, itemId: unknown, qtyRa
     const combatConsumable = item.slot === 'thrown' || item.slot === 'potion'
         || (item.slot === 'item' && (item.weaponEffect != null || item.apCost != null || item.weaponEp != null || item.restoreChakra != null || item.restoreStamina != null));
     const beastSeal = wildBindingSeal(id);
-    // Pet supplies (treats, PvE gear, battle consumables, evolution stones) buy in
-    // bulk too; with no cap they sold one at a time from an empty stack.
-    const cap = beastSeal ? 99 : item.slot === 'potion' ? 2 : combatConsumable ? 50 : petSupplyHoldCap(id);
+    // Pet food keeps its 9,999 counted stack (pet growth v2). Other pet supplies
+    // (PvE gear, battle consumables, evolution stones) buy in bulk too; with no
+    // cap they sold one at a time from an empty stack.
+    const cap = isPetFood(id) ? 9999 : beastSeal ? 99 : item.slot === 'potion' ? 2 : combatConsumable ? 50 : petSupplyHoldCap(id);
     let qty = cap == null ? 1 : Math.max(1, Math.min(cap, whole(qtyRaw) || 1));
     if (cap != null) qty = Math.min(qty, Math.max(0, cap - itemCount(character, id)));
     else if (itemCount(character, id) > 0 || (tool && gatheringToolOwned(character, id))) return { ok: false as const, reason: 'already-owned' as const };

@@ -24,6 +24,7 @@ export type PlayerSaveMutation<T> =
         character: PlayerCharacter;
         value: T;
         recordPatch?: PlayerSaveRecord;
+        atomicProof?: { key: string; value: unknown; ex: number };
         write?: boolean;
         /**
          * Overrides the call's `options.hollowGateCurrencySource` for this one
@@ -85,6 +86,7 @@ export type PlayerSaveMutationResult<T> =
 
 /** Write options shared by the versioned writers. */
 export type VersionedWriteOptions = {
+    atomicProof?: { key: string; value: unknown; ex: number };
     /** The regeneration cursor to carry (see bumpSaveVersion); omitted = fence to now. */
     regenAt?: number;
     /** Run rewards are already recorded in the run ledger; sanctify absorbs the external baseline. */
@@ -99,7 +101,8 @@ export function versionedPlayerRecord(
     recordPatch: PlayerSaveRecord = {},
     opts: VersionedWriteOptions = {},
 ): { record: PlayerSaveRecord; _saveVersion: number } {
-    const { hollowGateProvenanceRecorded, ...bumpOpts } = opts;
+    const { hollowGateProvenanceRecorded, atomicProof: _atomicProof, ...bumpOpts } = opts;
+    void _atomicProof;
     const previous = (currentRecord.character ?? {}) as PlayerCharacter;
     const character = creditElderWinDeltas(previous, nextCharacter);
     const record: PlayerSaveRecord = bumpSaveVersion<PlayerSaveRecord>({ ...currentRecord, ...recordPatch, character }, {
@@ -134,7 +137,7 @@ export async function writeVersionedPlayerSaveWithStore(
             saveKey,
             expected: currentRecord,
             intended,
-        });
+        }, { atomicProof: opts.atomicProof });
         if (committed !== true) throw new Error('player-save-version-conflict');
     } catch (error) {
         if (error instanceof Error && error.message === 'player-save-version-conflict') throw error;
@@ -243,7 +246,7 @@ type MissingSave = { ok: false; status: 404; error: string; code: PlayerSaveMiss
 
 /** The write a decision asks for, shared by the one- and two-save writers. */
 type SaveWrite = Pick<Extract<PlayerSaveMutation<unknown>, { ok: true }>,
-    'character' | 'recordPatch' | 'hollowGateCurrencySource' | 'hollowGateProvenanceRecorded'>;
+    'character' | 'recordPatch' | 'hollowGateCurrencySource' | 'hollowGateProvenanceRecorded' | 'atomicProof'>;
 
 type CommittedSave = { record: PlayerSaveRecord; character: PlayerCharacter; _saveVersion: number };
 
@@ -389,6 +392,7 @@ async function commitSaveWrite(loaded: LoadedSave, write: SaveWrite, options: Pl
     const hollowGateCurrencySource = write.hollowGateCurrencySource ?? options.hollowGateCurrencySource;
     const out = await writeVersionedPlayerSave(loaded.saveKey, loaded.record, write.character, write.recordPatch, {
         regenAt,
+        ...(write.atomicProof ? { atomicProof: write.atomicProof } : {}),
         ...(hollowGateCurrencySource ? { hollowGateCurrencySource } : {}),
         ...(write.hollowGateProvenanceRecorded ? { hollowGateProvenanceRecorded: true } : {}),
     });

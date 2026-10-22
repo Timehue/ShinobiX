@@ -1,0 +1,22 @@
+{
+  "id": "rare-49",
+  "name": "Bramble Capybara",
+  "at": "2026-10-20T19:50:48.571Z",
+  "sourceSha256": "7c03b5408685bd54e5b362a7cd75862b52c00a33d0cf18d38bdcc42667de670e",
+  "battleSha256": "f932d72bde29bd9cbcb62fe29fcf4529b0c8a640bd44324658cc181c93f8eeb2",
+  "atlasSha256": "458f43ea83dc1aae179610a5bf70e3a1c5e2241740451c35978b22208098ddd3",
+  "rendererSha256": "b2253b71fbcb21a83d82de35ab5783dd57b525cfc94740fb131dd1eb0049a897",
+  "companionComponentSha256": "17ac6c4c1c4ef4eb242bebf5f0a34d9de3519bb5d6415aa906b1970afcc440f8",
+  "reviews": [
+    "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-49/private-final-independent/independent-final-visual-review.json",
+    "docs/audits/pet-parallel-review-a-2026-10-20/rare-49-private-second.json"
+  ],
+  "reviewers": [
+    "/root/review_c",
+    "/root/review_a"
+  ],
+  "sourceBattleAtlasExactlyEqualReviewedPrivateBytes": true,
+  "unselectedManifestEntriesUnchanged": true,
+  "canonicalRegressionsPending": true,
+  "liveVerified": false
+}

@@ -1,0 +1,55 @@
+{
+  "schema": 1,
+  "errors": [],
+  "pets": [
+    {
+      "id": "legendary-17",
+      "name": "Magma Behemoth",
+      "url": "/pet-models/roster/legendary-17.glb?v=20261018-behemoth-all-authored-limb-performances-v2-20261013-studio-v1-20261013-articulation-v1-20261014-contact-performance-v1",
+      "sha256": "5d2fed896ae1dff63b633602b3c671caeba43f6b66b92d614936c09833e1b25f",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "progress": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ],
+      "views": [
+        "front",
+        "side"
+      ],
+      "materialTreatment": {
+        "mode": "production-diffuse",
+        "materials": 1,
+        "metalnessMax": 0.05,
+        "roughnessRange": [
+          0.58,
+          0.82
+        ]
+      },
+      "sheets": [
+        "legendary-17-front.webp",
+        "legendary-17-side.webp"
+      ],
+      "review": "pending",
+      "framing": "complete posed body bounds; camera follows pose without excluding any mesh vertices"
+    }
+  ],
+  "artisticCertification": false
+}

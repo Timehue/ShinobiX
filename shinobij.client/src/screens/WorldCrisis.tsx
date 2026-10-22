@@ -157,7 +157,7 @@ export function WorldCrisis({ character, creatorItems, savedBloodlines, setScree
                     <button type="button" className="world-crisis__defend" onClick={defend} disabled={!active || launching || loading}>
                         {launching ? "Sealing encounter…" : resolved ? "The villages hold" : locked ? "Awaiting the first omen" : local && !local.attackersActive ? "Outskirts secured" : "Intercept the recall warden"}
                     </button>
-                    <small className="world-crisis__authority">Difficulty and contribution are sealed by the server. No ranked season is required.</small>
+                    <small className="world-crisis__authority">This event sets its own difficulty and records your contribution. You can take part even when ranked play is closed.</small>
                 </aside>
             </div>
 

@@ -85,7 +85,7 @@ function SectorWarPetBattleView({ character, setScreen }: SectorWarPetBattleProp
                 title: engageId ? "Pet Battle — Sector War" : "Pet Duel — Sector War",
                 intro: "Send a pet to fight for this sector. The duel resolves server-side and replays here.",
                 missingText: "No pet duel selected.",
-                backLabel: "← Back",
+                backLabel: backScreen === 'worldMap' ? 'Back to World Map' : 'Back to War Map',
                 onBack: back,
                 ready: !!sectorWarId,
                 submitLabel: "Send into battle",

@@ -44,10 +44,10 @@ if(process.argv.includes('--resume')){
 const browser=await chromium.launch({headless:true});let page;
 try{
  for(const [index,row] of runtimePetModels.filter(r=>(!ids||ids.includes(r.pet.id))&&!pets.some(p=>p.id===r.pet.id)).entries()){
-  if(!page||index%6===0){await page?.close();page=await browser.newPage({viewport:{width:1280,height:800}});
+  if(!page||index%6===0){await page?.close();page=await browser.newPage({viewport:arg('quality','medium')==='low'?{width:390,height:844}:{width:1280,height:800},ignoreHTTPSErrors:process.argv.includes('--ignore-https-errors')});
    page.on('pageerror',error=>errors.push(`${row.pet.id}: ${error.message}`));
-   await page.goto(`${arg('base-url','http://127.0.0.1:5207')}/petruntimeaudit.html?quality=${arg('quality','medium')}`);
-   await page.waitForFunction(()=>!!window.petRuntimeAudit);}
+   await page.goto(`${arg('base-url','http://127.0.0.1:5207')}/petruntimeaudit.html?quality=${arg('quality','medium')}`,{waitUntil:'domcontentloaded',timeout:120000});
+   await page.waitForFunction(()=>!!window.petRuntimeAudit,{},{timeout:120000});}
   const captures=[];
   for(const stage of ['source','battle']){
    const path=stage==='source'?row.path:resolve(client,'public/pet-models/warfront-lod',relative(resolve(client,'public/pet-models'),row.path));

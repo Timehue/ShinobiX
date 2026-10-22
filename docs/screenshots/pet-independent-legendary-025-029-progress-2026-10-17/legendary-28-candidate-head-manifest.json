@@ -1,0 +1,61 @@
+{
+  "schema": 1,
+  "errors": [],
+  "pets": [
+    {
+      "id": "legendary-28",
+      "name": "Granite Gargoyle",
+      "url": "/.tmp/granite-gargoyle-independent-mask-v1/roster/legendary-28.glb",
+      "sha256": "75db1c34eff1efb6a80f3521924327736b63f6481d7ecc09a9c3919db767ece2",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "progress": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ],
+      "views": [
+        "head-front",
+        "head-side"
+      ],
+      "region": {
+        "y": [
+          -2,
+          -2
+        ],
+        "bounds": [
+          -0.24464203775244497,
+          0.3149035533994714,
+          0.37244059109052385,
+          0.826860813972689,
+          0.13613924421042323,
+          0.6149080052977203
+        ],
+        "cameraPadding": 1.15
+      },
+      "sheets": [
+        "legendary-28-head-front.webp",
+        "legendary-28-head-side.webp"
+      ],
+      "review": "pending",
+      "anatomySha256": "b36c16ddaeb6dfb12a2965e003e75387be6604d748d92e3c3cef936ebc2bb024"
+    }
+  ],
+  "artisticCertification": false
+}

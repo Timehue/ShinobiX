@@ -1,0 +1,153 @@
+{
+  "id": "legendary-29",
+  "sourceSha256": "ce15611e2781054c1978438f3fd63b76b2cefe54e1ec43d37b38ebae847e1c20",
+  "battleSha256": "c4ffde50f5c90ca1f2f3a04ea4b314251581ce26d367efd12b19c13f539dadf6",
+  "validation": {
+    "productionBuild": "passed",
+    "regressionTests": 8,
+    "sourceFullGeometryPoses": 203,
+    "battleFullGeometryPoses": 203,
+    "sourceAndBattleDeformationWarnings": 0,
+    "frozenFaceClipPosesPerAsset": 642,
+    "frozenFaceBlendPosesPerAsset": 468
+  },
+  "tests": {
+    "exitCode": 0,
+    "count": 8,
+    "evidence": [
+      {
+        "path": "docs/screenshots/pet-independent-legendary-025-029-progress-2026-10-17/legendary-29-regression-tests.log",
+        "sha256": "88cf3cf26f97ebcda726dc167debf1dd7d1fc42f9bf628c363c3e3d4ebe3731f"
+      },
+      {
+        "path": "docs/screenshots/pet-independent-legendary-025-029-progress-2026-10-17/legendary-29-animation-bank-tests.log",
+        "sha256": "2a83839235afa91bf3dbe13d97e736e222e1ac19d3b7b92a2eb201396812ea67"
+      }
+    ]
+  },
+  "productionBuild": {
+    "exitCode": 0,
+    "evidence": {
+      "path": "docs/screenshots/pet-independent-legendary-025-029-progress-2026-10-17/legendary-29-production-build.log",
+      "sha256": "e61d0b3c028467d88e2e4cb376a6d150c2fd6b3c3df2b44de214e72076e6de82"
+    }
+  },
+  "sourceVisualFirstPass": {
+    "result": "pass",
+    "reviewedAt": "2026-10-18T01:21:26.598Z",
+    "candidateRawSlicesActuallyInspected": 12,
+    "allTwelveEnlargedSlicesActuallyInspected": true,
+    "faceLabel": "independent-legendary-029-complete-face-v4-head",
+    "bodyLabel": "independent-legendary-029-complete-face-v4-body",
+    "actualTechniqueLabel": "independent-legendary-029-complete-face-v4-techniques",
+    "nativeTechniqueFramesActuallyInspected": 216,
+    "techniqueInspectionStripsActuallyInspected": 12
+  },
+  "secondVisualPass": {
+    "result": "pass",
+    "rawFinalSlices": 24,
+    "runtimeFinalSlices": 32
+  },
+  "conservation": {
+    "geometry": true,
+    "topology": true,
+    "textures": true,
+    "boneNodes": true,
+    "animationCurves": true,
+    "protectedVertices": 15319
+  },
+  "rejectedCandidates": [
+    {
+      "version": 1,
+      "path": "shinobij.client/.tmp/verdant-treant-independent-face-v1/roster/legendary-29.glb",
+      "rawHeadSlicesActuallyInspected": 6,
+      "rawBodySlicesActuallyInspected": 0,
+      "nativeTechniqueFramesActuallyInspected": 0,
+      "finding": "Face and geometry metrics pass, but side victory closeup shows shoulder foliage pulled upward by head. Reject and narrow lateral repair envelope before shipping."
+    },
+    {
+      "version": 2,
+      "path": "shinobij.client/.tmp/verdant-treant-independent-face-v2/roster/legendary-29.glb",
+      "rawHeadSlicesActuallyInspected": 2,
+      "rawBodySlicesActuallyInspected": 0,
+      "nativeTechniqueFramesActuallyInspected": 0,
+      "finding": "Narrower face passes independent probes, but side shoulder foliage still responds to head. Do not promote."
+    },
+    {
+      "version": 3,
+      "path": "shinobij.client/.tmp/verdant-treant-independent-face-v3/roster/legendary-29.glb",
+      "rawHeadSlicesActuallyInspected": 0,
+      "rawBodySlicesActuallyInspected": 0,
+      "nativeTechniqueFramesActuallyInspected": 0,
+      "finding": "Central branch region passes lower face but misses upper leafy brow: independent original upperFace drift 0.002223887. Reject before visual capture. V4 adds a separate upper brow region above the shoulders."
+    }
+  ],
+  "rejectedCandidateHistoryEvidence": [
+    {
+      "path": "docs/screenshots/pet-independent-legendary-025-029-progress-2026-10-17/legendary-29-rejected-v1-recipe.json",
+      "sha256": "29a47e7eee9340f76e30bfb9081deb79ca3afce010a0f7ecac3df1705d858448"
+    },
+    {
+      "path": "docs/screenshots/pet-independent-legendary-025-029-progress-2026-10-17/legendary-29-rejected-v1-geometry.json",
+      "sha256": "7b86dcf938204d7799aa5da475ff94004a1cbf410abf3bb08c0392619929104b"
+    },
+    {
+      "path": "docs/screenshots/pet-independent-legendary-025-029-progress-2026-10-17/legendary-29-rejected-v2-recipe.json",
+      "sha256": "a71e498ec0d157122813c4a151b488690311d0675b5f1c26bc3a885a2fbbdeec"
+    },
+    {
+      "path": "docs/screenshots/pet-independent-legendary-025-029-progress-2026-10-17/legendary-29-rejected-v2-geometry.json",
+      "sha256": "bf530e7e4a80a85caf8e6e378dc66f5c6ac4d4bafa4b3d314a1ec4876951ed18"
+    },
+    {
+      "path": "docs/screenshots/pet-independent-legendary-025-029-progress-2026-10-17/legendary-29-rejected-v3-recipe.json",
+      "sha256": "677fcb52a8cd678f526e2fba460b57b14668fe3555de36dc05f301658af1ad23"
+    },
+    {
+      "path": "docs/screenshots/pet-independent-legendary-025-029-progress-2026-10-17/legendary-29-rejected-v1-head-front-0.png",
+      "sha256": "19721ac01875cddf1f4de6b20400ca6f869105d4c3428955468b98ac0864a9f3"
+    },
+    {
+      "path": "docs/screenshots/pet-independent-legendary-025-029-progress-2026-10-17/legendary-29-rejected-v1-head-front-1.png",
+      "sha256": "77b11890716b0973a1fc1cde80fc2f46619abdddab0ce3d100239c2bec033391"
+    },
+    {
+      "path": "docs/screenshots/pet-independent-legendary-025-029-progress-2026-10-17/legendary-29-rejected-v1-head-front-2.png",
+      "sha256": "579d52fd4063b9fab766ff189322ab489c5b84d95e8dbbcbea026792a03aabfb"
+    },
+    {
+      "path": "docs/screenshots/pet-independent-legendary-025-029-progress-2026-10-17/legendary-29-rejected-v1-head-side-0.png",
+      "sha256": "dd458446608e4d61388abd4be918332d29ed74a29d368557ab21a397288068ce"
+    },
+    {
+      "path": "docs/screenshots/pet-independent-legendary-025-029-progress-2026-10-17/legendary-29-rejected-v1-head-side-1.png",
+      "sha256": "8697caffbfdd366d5c72d015a84cd4e93a077aa0cea642ce4d613343dae68310"
+    },
+    {
+      "path": "docs/screenshots/pet-independent-legendary-025-029-progress-2026-10-17/legendary-29-rejected-v1-head-side-2.png",
+      "sha256": "69c82e2f26f989109031430e1a677220b62a13f22e3f8808b352c9a99817149f"
+    },
+    {
+      "path": "docs/screenshots/pet-independent-legendary-025-029-progress-2026-10-17/legendary-29-rejected-v2-head-side-1.png",
+      "sha256": "817dfb589b05c19934a78094f4276edf7ab259ae9386b9398e8f289a54f5f464"
+    },
+    {
+      "path": "docs/screenshots/pet-independent-legendary-025-029-progress-2026-10-17/legendary-29-rejected-v2-head-side-2.png",
+      "sha256": "f9cbbb29e3a95e7eb44185716fe0eafaf9c5b84470532cc38d0f547a73af3dad"
+    },
+    {
+      "path": "docs/screenshots/pet-independent-legendary-025-029-progress-2026-10-17/legendary-29-regression-tests.log",
+      "sha256": "88cf3cf26f97ebcda726dc167debf1dd7d1fc42f9bf628c363c3e3d4ebe3731f"
+    },
+    {
+      "path": "docs/screenshots/pet-independent-legendary-025-029-progress-2026-10-17/legendary-29-animation-bank-tests.log",
+      "sha256": "2a83839235afa91bf3dbe13d97e736e222e1ac19d3b7b92a2eb201396812ea67"
+    },
+    {
+      "path": "docs/screenshots/pet-independent-legendary-025-029-progress-2026-10-17/legendary-29-production-build.log",
+      "sha256": "e61d0b3c028467d88e2e4cb376a6d150c2fd6b3c3df2b44de214e72076e6de82"
+    }
+  ],
+  "wholeRosterComplete": false,
+  "liveReleaseComplete": false
+}

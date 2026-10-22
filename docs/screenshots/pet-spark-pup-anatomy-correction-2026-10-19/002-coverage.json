@@ -1,0 +1,89 @@
+{
+  "id": "starter-lightning",
+  "sourceSha256": "5b96adb25eca071c6b1df6c020cd19def0a37d4b779c41eade34114f4089406f",
+  "report": [
+    {
+      "view": "head-front",
+      "groups": {
+        "upperFace": {
+          "vertices": 115
+        },
+        "muzzle": {
+          "vertices": 54
+        },
+        "lowerFace": {
+          "vertices": 57
+        },
+        "jawChin": {
+          "vertices": 37
+        },
+        "earLeft": {
+          "vertices": 153
+        },
+        "earRight": {
+          "vertices": 109
+        },
+        "headband": {
+          "vertices": 152
+        },
+        "leftEye": {
+          "vertices": 99
+        },
+        "rightEye": {
+          "vertices": 81
+        },
+        "lowerMaskRim": {
+          "vertices": 41
+        },
+        "maskLeftRim": {
+          "vertices": 61
+        },
+        "maskRightRim": {
+          "vertices": 49
+        }
+      }
+    },
+    {
+      "view": "head-side",
+      "groups": {
+        "upperFace": {
+          "vertices": 115
+        },
+        "muzzle": {
+          "vertices": 54
+        },
+        "lowerFace": {
+          "vertices": 57
+        },
+        "jawChin": {
+          "vertices": 37
+        },
+        "earLeft": {
+          "vertices": 153
+        },
+        "earRight": {
+          "vertices": 109
+        },
+        "headband": {
+          "vertices": 152
+        },
+        "leftEye": {
+          "vertices": 99
+        },
+        "rightEye": {
+          "vertices": 81
+        },
+        "lowerMaskRim": {
+          "vertices": 41
+        },
+        "maskLeftRim": {
+          "vertices": 61
+        },
+        "maskRightRim": {
+          "vertices": 49
+        }
+      }
+    }
+  ],
+  "actualVisualApproval": false
+}

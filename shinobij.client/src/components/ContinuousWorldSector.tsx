@@ -11,6 +11,7 @@ import { WorldPlayerPosition } from '../lib/world-player-position';
 import { sectorName } from '../../../shared/sector-geo';
 import { isWalkableTile } from '../../../shared/sector-walk-mask';
 import { ResourceWorld } from './ResourceWorld';
+import { SectorLife } from './SectorLife';
 
 /** Current normal-world view. Existing HUD/encounter components retain their owners. */
 export function ContinuousWorldSector(props: WorldSectorCanvasProps) {
@@ -60,7 +61,10 @@ export function ContinuousWorldSector(props: WorldSectorCanvasProps) {
                         engine.current?.go(exit?.destinationSector ?? props.sector, exit?.destinationTile ?? tile);
                     }} />)}
                 {props.showLivePeers && <ContinuousWorldPeers sector={props.sector} selfName={props.playerName} sharedImages={props.sharedImages} />}
-                <WorldPlayerPosition.Provider value={position}>{props.overlayLayer}{props.encounterLayer}</WorldPlayerPosition.Provider>
+                <WorldPlayerPosition.Provider value={position}>{props.overlayLayer}{props.encounterLayer}
+                    {!props.suspended && ready && <SectorLife key={`${props.playerName}:${props.sector}`} sector={props.sector} player={props.playerName} tile={props.playerTile} biome={props.biome}
+                        traces={props.lifeTraces} openReports={props.onOpenLifeTraces} onTrack={props.onLifeTrack} walk={(sector, tile) => engine.current?.go(sector, tile)} />}
+                </WorldPlayerPosition.Provider>
                 {!props.suspended && props.gatheringCharacter && props.onGatheringCommit && <ResourceWorld character={props.gatheringCharacter} sector={props.sector} tile={props.playerTile} commit={props.onGatheringCommit} walk={(sector, tile) => { engine.current?.go(sector, tile); }} worldBossCrystals={props.worldBossCrystals} />}
             </div>
             <div ref={marker} className="sector-avatar-figure continuous-world-self" aria-hidden="true" data-world-self="true">

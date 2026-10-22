@@ -1,0 +1,250 @@
+{
+  "id": "rare-0",
+  "frames": [
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/fox-private-v1-idle/rare-0/idle-0.png",
+      "sha256": "3de8fbaadb2d794225df721f996c073eb53f0617815580c06d36f52a5e75d247",
+      "crop": {
+        "left": 163,
+        "top": 37,
+        "width": 174,
+        "height": 181
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/fox-private-v1-idle/rare-0/idle-1.png",
+      "sha256": "96e75e2217f7b34982c2f4c4f93c4c40f8aac020421d547435ef0bc577e6d584",
+      "crop": {
+        "left": 163,
+        "top": 39,
+        "width": 174,
+        "height": 179
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/fox-private-v1-idle/rare-0/idle-2.png",
+      "sha256": "97df372722af52f27fc6bb3f4797739db790b0410bc3c05b4528628b90029a80",
+      "crop": {
+        "left": 163,
+        "top": 35,
+        "width": 174,
+        "height": 183
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/fox-private-v1-idle/rare-0/idle-3.png",
+      "sha256": "cbf7ae17b0366e8880b80f4bc172a344d185f8f4e55fc7b11070bb401c341535",
+      "crop": {
+        "left": 163,
+        "top": 38,
+        "width": 174,
+        "height": 180
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/fox-private-v1-idle/rare-0/idle-4.png",
+      "sha256": "0d83e5d6bb4489be548f2de83d7f628580265ddf448b1ca64b1386fce151b7fa",
+      "crop": {
+        "left": 163,
+        "top": 37,
+        "width": 174,
+        "height": 181
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/fox-private-v1-idle/rare-0/idle-5.png",
+      "sha256": "d3edc4cba29ccb5de05d9c274103b81f906bda0014ca02600b3931d99d61751d",
+      "crop": {
+        "left": 163,
+        "top": 39,
+        "width": 174,
+        "height": 179
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/fox-private-v1-idle/rare-0/idle-6.png",
+      "sha256": "9511d47cada235e90591d690a8c6704f71fdd82aa793127ef2da929de3385414",
+      "crop": {
+        "left": 163,
+        "top": 38,
+        "width": 174,
+        "height": 180
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/fox-private-v1-idle/rare-0/idle-7.png",
+      "sha256": "e2af827ebe75b02098251d77f4c07fc6ce8f3fe13231de1303abed89757c3769",
+      "crop": {
+        "left": 163,
+        "top": 35,
+        "width": 174,
+        "height": 183
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/fox-private-v1-idle/rare-0/idle-8.png",
+      "sha256": "35885a36a718b01f4fa494ef3c9a5d0f4b8b8f78d2dc4a21a195113c51fbe7f4",
+      "crop": {
+        "left": 163,
+        "top": 39,
+        "width": 174,
+        "height": 179
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/fox-private-v1-idle/rare-0/idle-9.png",
+      "sha256": "19abfe29353b3086016e1d7766a1bea63232f786b86705a2a5a827a84a92a35a",
+      "crop": {
+        "left": 163,
+        "top": 37,
+        "width": 174,
+        "height": 181
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/fox-private-v1-idle/rare-0/idle-10.png",
+      "sha256": "b948b938b45ee62b67ae1377c5b323f15114ac2e77e270494e9f84c8ba93c2f5",
+      "crop": {
+        "left": 163,
+        "top": 39,
+        "width": 174,
+        "height": 179
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/fox-private-v1-idle/rare-0/idle-11.png",
+      "sha256": "b51f6f6ff6173cb355b821b26df7101bc9c59090a36217ce4500bc5e5b74e4f9",
+      "crop": {
+        "left": 163,
+        "top": 37,
+        "width": 174,
+        "height": 181
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/fox-private-v1-idle/rare-0/idle-12.png",
+      "sha256": "6b59f65646dc20ffc747eb0aabea76865af1c3c13d359480c5abe456b3e9694e",
+      "crop": {
+        "left": 163,
+        "top": 36,
+        "width": 174,
+        "height": 182
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/fox-private-v1-idle/rare-0/idle-13.png",
+      "sha256": "4e8fc830248f6f5412c0193ac2511a910422b475bb1d1b04ec29dec971d60f12",
+      "crop": {
+        "left": 163,
+        "top": 39,
+        "width": 174,
+        "height": 179
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/fox-private-v1-idle/rare-0/idle-14.png",
+      "sha256": "ebe9102c6bce4b6c7ee11267b4041b09c88624942c61ad554ba05ab76d4eced9",
+      "crop": {
+        "left": 163,
+        "top": 37,
+        "width": 174,
+        "height": 181
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/fox-private-v1-idle/rare-0/idle-15.png",
+      "sha256": "b7810bb5091477fe79cb148aa0418fca20e081dbe9690629a7e278330dd5bcb7",
+      "crop": {
+        "left": 163,
+        "top": 40,
+        "width": 174,
+        "height": 178
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/fox-private-v1-idle/rare-0/idle-16.png",
+      "sha256": "5d81625d1f7ab6d4cfe87179e95b997f094600a7912a656b378d2a9bb3b95ee4",
+      "crop": {
+        "left": 163,
+        "top": 35,
+        "width": 174,
+        "height": 183
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/fox-private-v1-idle/rare-0/idle-17.png",
+      "sha256": "8b62e509e9c8fd4a355b090b3f14219c1bc3334bc501b54e9937402eff4cb12c",
+      "crop": {
+        "left": 163,
+        "top": 37,
+        "width": 174,
+        "height": 181
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/fox-private-v1-idle/rare-0/idle-18.png",
+      "sha256": "2b52e22824d75cb2a7960afaedd8b3c31c93123ca9132db1ed3147fa7ad3186d",
+      "crop": {
+        "left": 163,
+        "top": 39,
+        "width": 174,
+        "height": 179
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/fox-private-v1-idle/rare-0/idle-19.png",
+      "sha256": "186128ba67b2ba378675e2bd0b7380a7d325066a76268c50f21a78609a3764b2",
+      "crop": {
+        "left": 163,
+        "top": 38,
+        "width": 174,
+        "height": 180
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/fox-private-v1-idle/rare-0/idle-20.png",
+      "sha256": "06219eaa37f976772cd430b0f349883675ed093eab101ae847184082f2ee438c",
+      "crop": {
+        "left": 163,
+        "top": 39,
+        "width": 174,
+        "height": 179
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/fox-private-v1-idle/rare-0/idle-21.png",
+      "sha256": "1f765a497147ab8a8d5d3038df6b01f5a80d099ae555fb3c27e5f9e162d9b3e9",
+      "crop": {
+        "left": 163,
+        "top": 35,
+        "width": 174,
+        "height": 183
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/fox-private-v1-idle/rare-0/idle-22.png",
+      "sha256": "06d91c42be66071e8e1099eb074c93fd5fc5e812f30c7c90e1ffa5b623881d6e",
+      "crop": {
+        "left": 163,
+        "top": 38,
+        "width": 174,
+        "height": 180
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/fox-private-v1-idle/rare-0/idle-23.png",
+      "sha256": "9f1d2cfb68853afe207278d119b4f73eb41017e97a9cd1f7be986928a8bd99de",
+      "crop": {
+        "left": 163,
+        "top": 38,
+        "width": 174,
+        "height": 180
+      }
+    }
+  ],
+  "frameCount": 24,
+  "sha256": "c08450b1ff7d6e0850e6dd1acba2596adb9a6deeb724961872c12ef8d76ceb14",
+  "nativePixelsPreserved": true,
+  "resizing": false,
+  "review": "pending"
+}

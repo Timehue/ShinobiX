@@ -6,7 +6,7 @@ import { PetBreedingBarn } from "../components/PetBreedingBarn";
 import { PetCollectionGallery } from "../components/PetCollectionGallery";
 import { clearPetHomeTabHint, peekPetHomeTabHint, PetHomeTabs, type PetHomeContentTab } from "../components/PetHomeTabs";
 import { PetSanctuary } from "../components/PetSanctuary";
-import type { Character, VersionedCharacterCommit } from "../types/character";
+import type { BeginCharacterSync, Character, VersionedCharacterCommit } from "../types/character";
 import type { Screen } from "../types/core";
 import "../styles/pet-home.css";
 
@@ -31,10 +31,11 @@ const HOME_SECTION_HERO: Record<PetHomeContentTab, { kicker: string; title: stri
     },
 };
 
-export function Home({ character, updateCharacter, onVersionedCharacter, onServerVersion, setScreen, onBack, backLabel = "Village", sharedImages }: {
+export function Home({ character, updateCharacter, onVersionedCharacter, beginCharacterSync, onServerVersion, setScreen, onBack, backLabel = "Village", sharedImages }: {
     character: Character;
     updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>;
     onVersionedCharacter?: VersionedCharacterCommit;
+    beginCharacterSync?: BeginCharacterSync;
     onServerVersion: (version: number) => void;
     setScreen: (screen: Screen) => void;
     onBack: () => void;
@@ -59,7 +60,7 @@ export function Home({ character, updateCharacter, onVersionedCharacter, onServe
             <aside className="pet-home-hero-ledger" aria-label="Companion Home status">
                 <div><span>Owned</span><strong>{character.pets.length}</strong><small>companions</small></div>
                 <div><span>Field lead</span><strong>{activePet?.nickname || activePet?.name || "Unassigned"}</strong><small>{activePet ? `Level ${activePet.level}` : "Choose in Pet Yard"}</small></div>
-                <div><span>Breeding</span><strong>{character.petBreeding ? character.petBreeding.state === "egg" ? "Egg ready" : "In progress" : "Available"}</strong><small>Bloodline program</small></div>
+                <div><span>Breeding</span><strong>{character.petBreeding ? character.petBreeding.state === "egg" ? (character.petBreeding.incubationRemainingMs === 0 ? "Ready to hatch" : "Incubating") : "In progress" : "Available"}</strong><small>Bloodline program</small></div>
             </aside>
         </header>
         <PetHomeTabs active={tab} onHomeTab={setTab} setScreen={setScreen} />
@@ -67,6 +68,6 @@ export function Home({ character, updateCharacter, onVersionedCharacter, onServe
             ? <PetCollectionGallery character={character} sharedImages={sharedImages} />
             : tab === "sanctuary"
                 ? <PetSanctuary character={character} updateCharacter={updateCharacter} onVersionedCharacter={onVersionedCharacter} onServerVersion={onServerVersion} sharedImages={sharedImages} />
-                : <PetBreedingBarn character={character} updateCharacter={updateCharacter} onVersionedCharacter={onVersionedCharacter} onServerVersion={onServerVersion} sharedImages={sharedImages} />}
+                : <PetBreedingBarn character={character} updateCharacter={updateCharacter} onVersionedCharacter={onVersionedCharacter} beginCharacterSync={beginCharacterSync} onServerVersion={onServerVersion} sharedImages={sharedImages} onOpenSanctuary={() => setTab('sanctuary')} />}
     </main>;
 }

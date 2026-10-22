@@ -24,16 +24,19 @@ on:
       - 'api/player/activity-spine.ts'
       - 'api/towers/**'
       - 'shared/activity-spine.ts'
-      - 'shared/clan-boss-operation.ts'
+      - 'shared/clan-boss-*.ts'
       - 'shared/product-analytics.ts'
       - 'shinobij.client/src/clan-boss-operation.test.ts'
       - 'shinobij.client/src/components/ActivitySpine.tsx'
       - 'shinobij.client/src/components/ClanBoss*.tsx'
+      - 'shinobij.client/src/components/ClanBoss*.css'
       - 'shinobij.client/src/lib/clan-boss-api.ts'
       - 'shinobij.client/src/screens/AdminDiagnosticsPanel.tsx'
       - 'shinobij.client/src/screens/ClanBoss.tsx'
       - 'shinobij.client/src/styles/index/36-clan-boss-operation.css'
       - 'scripts/clan-boss-balance-sim*'
+      - 'scripts/clan-boss-campaign-sim*'
+      - 'scripts/_clan-boss-*'
       - 'scripts/clan-boss-operation-certification.ts'
       - 'scripts/player-facing-utf8.test.mjs'
       - 'docs/CLAN_BOSS_OPERATION_STAGING_CERTIFICATION.md'
@@ -57,16 +60,19 @@ on:
       - 'api/player/activity-spine.ts'
       - 'api/towers/**'
       - 'shared/activity-spine.ts'
-      - 'shared/clan-boss-operation.ts'
+      - 'shared/clan-boss-*.ts'
       - 'shared/product-analytics.ts'
       - 'shinobij.client/src/clan-boss-operation.test.ts'
       - 'shinobij.client/src/components/ActivitySpine.tsx'
       - 'shinobij.client/src/components/ClanBoss*.tsx'
+      - 'shinobij.client/src/components/ClanBoss*.css'
       - 'shinobij.client/src/lib/clan-boss-api.ts'
       - 'shinobij.client/src/screens/AdminDiagnosticsPanel.tsx'
       - 'shinobij.client/src/screens/ClanBoss.tsx'
       - 'shinobij.client/src/styles/index/36-clan-boss-operation.css'
       - 'scripts/clan-boss-balance-sim*'
+      - 'scripts/clan-boss-campaign-sim*'
+      - 'scripts/_clan-boss-*'
       - 'scripts/clan-boss-operation-certification.ts'
       - 'scripts/player-facing-utf8.test.mjs'
       - 'docs/CLAN_BOSS_OPERATION_STAGING_CERTIFICATION.md'
@@ -96,6 +102,9 @@ jobs:
 
       - name: Certify Clan Boss operation
         run: npm run certify:clan-boss-operation
+
+      - name: Certify participant-attempt rules
+        run: npm run certify:clan-boss-operation -- --v2
 
       - name: Audit Clan Boss balance
         run: npm run audit:clan-boss-balance

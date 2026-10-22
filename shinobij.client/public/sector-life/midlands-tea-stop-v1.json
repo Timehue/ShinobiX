@@ -1,0 +1,21 @@
+{
+  "sector": 42,
+  "artKey": 30,
+  "provider": "built-in image_gen",
+  "method": "Full-sector painted edit; exact-base composition outside the authored area. No independent prop sprites.",
+  "source": "output/living-world/painted/sources/midlands-tea-stop-v1-provider.png",
+  "sourceSha256": "1f43dc0a48bbc6ed6f35b74d69d829174e7a0c9a48336cf00b122bb3049257a2",
+  "baseSha256": "5d6e272844cfa5a3640447f2cd4fcdbc45cd6f963dbaca795a2d7ef72ba0592e",
+  "deliveredSha256": "02c7cbc20a643c7d1c1f5b67391ec92fb39c9ca23430caecc31c20b507d82619",
+  "box": {
+    "left": 180,
+    "top": 680,
+    "width": 238,
+    "height": 185
+  },
+  "changedOutside": 0,
+  "bytes": 252354,
+  "visualReview": "reviewed-in-game: purposeful staff, established NPC figures, matching terrain and ground contact",
+  "prompt": "Paint a modest tea table, kettle, cups, rolled sitting mats and basket in the grass left of the lower road and below the rock ledge. Match the original overhead camera, lighting, materials and ground contact. Preserve all roads, entrances, buildings and frame. No people or UI.",
+  "reviewEvidence": "output/living-world/browser/desktop-midlands-staffed-no-errand.png"
+}

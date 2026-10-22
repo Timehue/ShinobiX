@@ -1,0 +1,154 @@
+{
+  "entries": [
+    {
+      "id": "legendary-26",
+      "file": "legendary-26-v1.glb",
+      "sha256": "2dc16276c736394b705bb529178ecc4dc3020074893b7a5314a012a4c25dc415"
+    },
+    {
+      "id": "legendary-27",
+      "file": "legendary-27-v1.glb",
+      "sha256": "e179c1daa7d69c1910587e4a4dce3b94a9b2e5fe8bfa7abfb08eb4a1a3a61698"
+    },
+    {
+      "id": "legendary-28",
+      "file": "legendary-28-v1.glb",
+      "sha256": "ae4a303edabf6a73e68aa1338813cc9f68dcc2bcf1b85a3ae7397e3c32dea28e"
+    },
+    {
+      "id": "legendary-29",
+      "file": "legendary-29-v1.glb",
+      "sha256": "992ccbc3c211640a56b0ab9635acc27b6065abcd5e1acdfc7427b31f124534b5"
+    },
+    {
+      "id": "mythic-0",
+      "file": "mythic-0-v1.glb",
+      "sha256": "dc3e3e762dace863f535d7264b242ba89de0e00d34018b83092f39ea6c94812e"
+    },
+    {
+      "id": "mythic-1",
+      "file": "mythic-1-v1.glb",
+      "sha256": "00e0557419b07305043ce2c7849564512d5cb312614f902d52701594188e261a"
+    },
+    {
+      "id": "mythic-2",
+      "file": "mythic-2-v1.glb",
+      "sha256": "2e86223de4dba678f43c3568b108fbb7919f9aa2537c03bcbcaa6394f657f952"
+    },
+    {
+      "id": "mythic-3",
+      "file": "mythic-3-v1.glb",
+      "sha256": "58b8211ad20865eccae12bfd87ba358ab9ff6345e57048abad625ca573e2c365"
+    },
+    {
+      "id": "mythic-6",
+      "file": "mythic-6-v1.glb",
+      "sha256": "b7919b82a0ce7a1260c9e0cab2eb27615acfe4aa4deac9e59f21912f4b6fe253"
+    },
+    {
+      "id": "mythic-7",
+      "file": "mythic-7-v1.glb",
+      "sha256": "4fffae57743f0cef6df2e5d9268dc16afcd11c18c59224b4655c456817d27c06"
+    },
+    {
+      "id": "mythic-8",
+      "file": "mythic-8-v1.glb",
+      "sha256": "102c9cb332811bce864416b561da5ce8455c3671220cf65be022eca26d64db4c"
+    },
+    {
+      "id": "mythic-9",
+      "file": "mythic-9-v1.glb",
+      "sha256": "378464c376e5968a77685ca7a6e596183a71a6187d0e35dd3fa72340a60f0244"
+    },
+    {
+      "id": "mythic-10",
+      "file": "mythic-10-v1.glb",
+      "sha256": "7be7cc15a40a0233a9d0edaeda067d0f0866e233e8221ab412a6025868f7a58e"
+    },
+    {
+      "id": "mythic-11",
+      "file": "mythic-11-v1.glb",
+      "sha256": "89ed50c443b36848e3c67d29784ccd1f5cdf557547b700c251e330195ac98458"
+    },
+    {
+      "id": "mythic-12",
+      "file": "mythic-12-v1.glb",
+      "sha256": "e6b7c87ebd610f7d97856b5b7dfe1e49c1da33da09781e5a89582d2d093fbba2"
+    },
+    {
+      "id": "mythic-13",
+      "file": "mythic-13-v1.glb",
+      "sha256": "1b474681fb09b7ab68b28010e2e34ae2d6af67bc34f68262d01167e6576f2495"
+    },
+    {
+      "id": "mythic-14",
+      "file": "mythic-14-v1.glb",
+      "sha256": "36d6381bc07860c51447188078f1574f5a5c13ea5873b452fd60cc90ea942156"
+    },
+    {
+      "id": "mythic-15",
+      "file": "mythic-15-v1.glb",
+      "sha256": "092ed61d1b34b513442a9daa81087ed5c012a961d98aade016bff3adb6e4e831"
+    },
+    {
+      "id": "starter-fire",
+      "file": "starter-fire-v1.glb",
+      "sha256": "44d056d2461d54b04fbcb59a84553a4bfcbfa020c67dd61c68041f5d1090266f"
+    },
+    {
+      "id": "legendary-5",
+      "file": "legendary-5-v1.glb",
+      "sha256": "9593682072a8168ebd1cecaa132e2ae976df5048315d48006e83f09ce92cd49e"
+    },
+    {
+      "id": "legendary-6",
+      "file": "legendary-6-v1.glb",
+      "sha256": "969f6f0ac6355377d7d6bb3a65799aa98bd2a8591e09c78c8bb3f6badcdd2579"
+    },
+    {
+      "id": "legendary-7",
+      "file": "legendary-7-v1.glb",
+      "sha256": "465f6dab2b52a50b212e5911ee3b34771646205aedae73e971ddc79d516ad7dd"
+    },
+    {
+      "id": "legendary-8",
+      "file": "legendary-8-v1.glb",
+      "sha256": "dc09e049d20c43ec1ac2c0ef06b96daef8a789a68c350f334d6a214df22996a0"
+    },
+    {
+      "id": "legendary-9",
+      "file": "legendary-9-v1.glb",
+      "sha256": "fef124ee09e3c626bc1e1764835ff42c14e6574b4a245b39f68bbdaa1a6fc9e6"
+    },
+    {
+      "id": "legendary-11",
+      "file": "legendary-11-v1.glb",
+      "sha256": "ceb1cbb76b5533bbf52ab2e778cd7efd24dbd13d53ff7c22490df8b1457cc609"
+    },
+    {
+      "id": "legendary-16",
+      "file": "legendary-16-v1.glb",
+      "sha256": "d761f0769ecacdd38a5290f5a9536c74f8aeae358fa0cbeb37a9d115880798f8"
+    },
+    {
+      "id": "legendary-18",
+      "file": "legendary-18-v1.glb",
+      "sha256": "fce42da5173b652f7412f1a83ddf79651a0d8b3dd8bb1b15b8019a01c7aec01b"
+    },
+    {
+      "id": "legendary-19",
+      "file": "legendary-19-v1.glb",
+      "sha256": "ec215d3ea18f5cd7c6e23f5db1e7c78311344883e9493ebfa42961d787ea8dd4"
+    },
+    {
+      "id": "legendary-20",
+      "file": "legendary-20-v1.glb",
+      "sha256": "a29d0755ba702eada7d4f6ca371d5fc054425e1540e688f22a2f66e63170a8d5"
+    },
+    {
+      "id": "legendary-25",
+      "file": "legendary-25-v1.glb",
+      "sha256": "dcd1457d90b2fb37d33145bec544f54980d0966a0f384edf5fce0c80bd57a9bb"
+    }
+  ]
+}

@@ -19,9 +19,11 @@
 import { kv } from './_storage.js';
 import { withKvLock } from './_lock.js';
 import { isWildSector } from '../shared/sector-geo.js';
+import { isWalkableTile } from '../shared/sector-walk-mask.js';
 import {
-    parseScars, pruneScars, withScar, SCAR_TTL_MS, type SectorScar,
+    parseScars, pruneScars, withScar, SCAR_TTL_MS, type SectorScar,type DuelWitness,
 } from '../shared/sector-scars.js';
+import { parseDuelWitnesses } from '../shared/sector-life-witness.js';
 
 export const SCARS_KEY_PREFIX = 'world:scars:';
 /** A day past the scar lifetime, so an untouched row disappears on its own. */
@@ -30,13 +32,20 @@ export const SCARS_TTL_SECONDS = Math.floor((SCAR_TTL_MS * 2) / 1000);
 export function sectorScarsKey(sector: number): string {
     return `${SCARS_KEY_PREFIX}${Math.floor(sector)}`;
 }
+function rememberedScars(raw:unknown,sector:number,now:number):SectorScar[] {
+    return parseScars(raw).map(scar=>{
+        const source=Array.isArray(raw)?raw.find(r=>r&&Math.floor(Number(r.at))===scar.at&&String(r.victor??'').trim().slice(0,40)===scar.victor&&String(r.fallen??'').trim().slice(0,40)===scar.fallen&&r.tile===scar.tile):undefined;
+        const witnesses=parseDuelWitnesses(source?.witnesses,sector,scar.tile,scar.at,now);
+        return witnesses.length?{...scar,witnesses}:scar;
+    });
+}
 
 /** Today's scars on a sector, newest first. Never throws. */
 export async function readSectorScars(sector: number, now: number = Date.now()): Promise<SectorScar[]> {
     const id = Math.floor(Number(sector));
     if (!isWildSector(id)) return [];
     try {
-        return pruneScars(parseScars(await kv.get(sectorScarsKey(id))), now);
+        return pruneScars(rememberedScars(await kv.get(sectorScarsKey(id)),id,now), now);
     } catch {
         return [];
     }
@@ -53,6 +62,8 @@ export async function recordSectorDuelScar(
     victor: string,
     fallen: string,
     now: number = Date.now(),
+    tile?: number,
+    witnesses?:readonly DuelWitness[],
 ): Promise<void> {
     const id = Math.floor(Number(sector));
     const who = String(victor ?? '').trim();
@@ -60,9 +71,11 @@ export async function recordSectorDuelScar(
     const key = sectorScarsKey(id);
     try {
         await withKvLock(key, async () => {
+            const present=parseDuelWitnesses(witnesses,id,tile,now,now);
             const next = withScar(
-                parseScars(await kv.get(key)),
-                { kind: 'duel', victor: who, fallen: String(fallen ?? '').trim(), at: now },
+                rememberedScars(await kv.get(key),id,now),
+                { kind: 'duel', victor: who, fallen: String(fallen ?? '').trim(), at: now,
+                    ...(Number.isInteger(tile)&&isWalkableTile(id,tile!)?{tile}:{} ),...(present.length?{witnesses:present}:{}) },
                 now,
             );
             await kv.set(key, next, { ex: SCARS_TTL_SECONDS });

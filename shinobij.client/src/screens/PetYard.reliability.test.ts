@@ -93,9 +93,9 @@ test("Expedition Board exposes caps, real non-Tamer rules, universal risk, and e
   assert.match(board, /Started today/);
   assert.match(board, /Collected today/);
   assert.match(board, /UTC reset/);
-  assert.match(board, /Non-Tamer growing pets earn pet XP only; no ryo or drops\./);
-  assert.match(board, /Non-Tamer max-level pets earn half base ryo and find odds\./);
-  assert.match(board, /Next collection today · 2× XP & ryo \+ boosted finds/);
+  assert.match(board, /All eligible pets earn ryo, materials, and pet XP\./);
+  assert.match(board, /Your 1\.5× profession bonus and purchased expedition perks are included\./);
+  assert.match(board, /selectedPet\.level < route\.requiredLevel/);
   assert.match(contract, /label: 'Bold route'/);
   assert.match(board, /Investigate has a 60% enhanced haul and a 40% setback\./);
   assert.doesNotMatch(board, /element|subRole|role affinity/i);

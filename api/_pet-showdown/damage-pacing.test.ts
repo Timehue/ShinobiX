@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { paceShowdownTechniqueDamage } from './damage-pacing.js';
+import { paceProgressionTechniqueDamage, paceShowdownTechniqueDamage } from './damage-pacing.js';
 
 test('burst leaves a response at every level while ordinary hits retain their damage', () => {
     for (const level of [1, 5, 10, 20, 25, 50, 100]) {
@@ -44,5 +44,23 @@ test('early-access ultimates keep moderate damage and soften extreme hits at eve
         }
         assert.ok(paceShowdownTechniqueDamage(800, 400, level, level, true) > 200, 'wounded targets can still be finished');
         assert.ok(paceShowdownTechniqueDamage(800, 400, level, level, true, true) > paceShowdownTechniqueDamage(800, 400, level, level, true), 'setup rewards the invested turn');
+    }
+});
+
+test('progression ordinary extremes leave a response without erasing reference hits or stat differences', () => {
+    for (const level of [1, 10, 20, 75, 100]) {
+        for (const damage of [48, 72, 100, 140, 180]) {
+            assert.equal(paceProgressionTechniqueDamage(damage, 400, level, level), damage);
+        }
+        let previous = 180;
+        for (let damage = 181; damage <= 10000; damage++) {
+            const current = paceProgressionTechniqueDamage(damage, 400, level, level);
+            assert.ok(current > previous && current < 260);
+            previous = current;
+        }
+        assert.ok(Math.abs(paceProgressionTechniqueDamage(180.001, 400, level, level) - 180.001) < 0.0001);
+        assert.ok(paceProgressionTechniqueDamage(400, 400, level, level) > 200, 'a wounded target can still be finished');
+        assert.equal(paceProgressionTechniqueDamage(240, 400, level, level, true), 240, 'unprepared signature reference is unchanged');
+        assert.equal(paceProgressionTechniqueDamage(300, 400, level, level, true, true), 300, 'prepared signature reference is unchanged');
     }
 });

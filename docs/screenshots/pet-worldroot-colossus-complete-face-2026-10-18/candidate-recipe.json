@@ -1,0 +1,67 @@
+{
+  "config": {
+    "y": [
+      0.05,
+      0.2
+    ],
+    "z": [
+      -0.05,
+      0.1
+    ],
+    "cameraPadding": 1.4,
+    "status": "repair",
+    "finding": "Original twelve raw source head/body slices and all 216 actual equipped technique frames inspected. Lower wooden face, long beard and side jaw shear during head turns, recoil and collapse. Extend the head binding over the complete beard, retaining the original canopy repair, shoulders, branches, hands, feet and all authored animation curves. Candidate visual review pending.",
+    "x": [
+      0.25,
+      0.38
+    ],
+    "union": [
+      {
+        "y": [
+          0.45,
+          0.6
+        ],
+        "z": [
+          -0.3,
+          -0.08
+        ]
+      },
+      {
+        "y": [
+          -0.25,
+          -0.11
+        ],
+        "z": [
+          0.04,
+          0.1
+        ],
+        "x": [
+          0.27,
+          0.37
+        ]
+      }
+    ],
+    "revision": "20261018-worldroot-colossus-independent-complete-beard-v1",
+    "supersedesSourceSha256": "378464c376e5968a77685ca7a6e596183a71a6187d0e35dd3fa72340a60f0244",
+    "repairRegion": {
+      "y": [
+        -0.25,
+        -0.11
+      ],
+      "z": [
+        0.04,
+        0.1
+      ],
+      "x": [
+        0.27,
+        0.37
+      ]
+    },
+    "continuousInfluencePacking": true
+  },
+  "result": {
+    "id": "mythic-9",
+    "changed": 7256,
+    "rigid": 4350
+  }
+}

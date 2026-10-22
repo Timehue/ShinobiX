@@ -243,7 +243,7 @@
 .pack-foil__art {
   position: absolute;
   inset: 0;
-  background: var(--pack-art, none) center 36% / cover no-repeat;
+  background: var(--pack-art, none) center / contain no-repeat;
   opacity: 0.94;
 }
 .pack-foil__art::after {

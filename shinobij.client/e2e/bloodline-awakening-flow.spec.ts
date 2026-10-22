@@ -113,9 +113,16 @@ test("resume uses the paid entitlement without charging again", async ({ page })
     await page.locator(".aw-forge-card.rank-a button").click();
     const ritual = page.getByRole("dialog", { name: "A Rank Rekindled" });
     await expect(ritual).toBeVisible();
-    await ritual.getByRole("button", { name: "Skip to builder" }).click();
+    // This case verifies entitlement recovery, including normal completion.
+    // Clicking Skip can race the real 3.5s ceremony and wait for a button that
+    // has already left. Skip/Escape behavior is covered by bloodline-ritual.
     await expect(page.locator('.app-shell[data-screen="bloodlineMaker"]')).toBeVisible();
+    await expect(ritual).toHaveCount(0);
     await expect(page.getByLabel("Awakening summary")).toContainText("Fire");
+    await page.getByRole("button", { name: "Central", exact: false }).filter({ has: page.locator("span") }).first().click();
+    await expect(page.locator('.app-shell[data-screen="centralHub"]')).toBeVisible();
+    await page.locator(".central-card").filter({ hasText: "Awakening Stone" }).click();
+    await expect(page.locator(".aw-forge-card.rank-a .aw-forge-material")).toContainText("17 held in inventory");
     expect(requests).toBe(1);
 });
 

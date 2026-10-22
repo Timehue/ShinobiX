@@ -227,6 +227,6 @@ test('real shop purchases use the occupied trade seat and stop discounting after
     await council(['', '', '']);
     const regular = await request('villager', { requestId: 'elder-shop-00002', itemId: 'golden-apple', qty: 1 }, 'POST', shop);
     assert.equal(regular.status, 200, JSON.stringify(regular.body));
-    assert.equal(regular.body.character.fateShards, 980);
+    assert.equal(regular.body.character.fateShards, 960);
     assert.equal(regular.body.character.elderFocus, undefined);
 });

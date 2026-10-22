@@ -142,11 +142,13 @@ function buildStep<T extends GearLike>(base: T, kind: GearKind, tier: number, st
         // kept as is, with only the damage changed.
         const block = /\[[^\]]*\]/.exec(base.description)?.[0];
         const stats = block ? block.replace(/Damage \d+(?:\.\d+)? EP/, `Damage ${value} EP`) : `Damage ${value} EP.`;
-        out.description = `A prized find that outclasses the ${base.name}. ${stats}`;
+        const effectDescription = base.description?.slice(base.description.indexOf(".") + 1)
+            .replace(/\[[^\]]*\]/, "").trim();
+        out.description = `An improved ${base.name}. ${effectDescription ? `${effectDescription} ` : ""}${stats}`;
     } else {
         (out as GearLike & { armorReduction?: number }).armorReduction = value / 100;
         const basePercent = ARMOR_PERCENT_BY_QUALITY[String(base.armorQuality)];
-        out.description = `A prized find that outclasses the ${base.name}: ${value}% damage reduction, up from ${basePercent}%.`;
+        out.description = `Improved armor with ${value}% protection, compared with ${basePercent}% on the ${base.name}. Protection combines with your other armor and defensive effects with diminishing returns; it is not a flat ${value}% reduction in final damage.`;
     }
     return out;
 }

@@ -47,8 +47,10 @@ function cheapestInputValue(id: string): number {
 const GATHER_ONLY = [
     'thrown-shuriken', 'thrown-senbon', 'item-smoke-bomb', 'potion-rejuvenation',
     'consum-smoke-pellet', 'consum-cleansing-incense', 'consum-lifeline-elixir',
-    'pve-loyal-companion-bell', 'pve-avengers-pendant', 'pet-treat', 'elemental-pet-treat',
+    'pve-loyal-companion-bell', 'pve-avengers-pendant', 'pet-treat',
 ];
+/** Crafter-only pet food (main's pet growth v2): no catalog price, so never an NPC sale. */
+const CRAFT_ONLY_FOOD = ['elemental-pet-treat', 'ancient-pet-treat'];
 
 describe('crafted goods sell for at most 7/10 of their inputs', () => {
     it('uses the 7/10 ratio', () => {
@@ -67,7 +69,15 @@ describe('crafted goods sell for at most 7/10 of their inputs', () => {
             assert.ok(unit <= half(id), `${id}: ${unit} > half cost ${half(id)}`);
             assert.ok(unit >= 0 && Number.isSafeInteger(unit), `${id}: ${unit}`);
         }
-        assert.ok(checked >= 25, `only ${checked} crafted outputs checked`);
+        // 24 since Elemental Treats lost their shop price (main's pet growth v2).
+        assert.ok(checked >= 24, `only ${checked} crafted outputs checked`);
+    });
+
+    it('Crafter-only pet food has no price and sells for nothing', () => {
+        for (const id of CRAFT_ONLY_FOOD) {
+            assert.equal(costOf(id), 0, id);
+            assert.equal(standardSaleUnitValue(id, costOf(id)), 0, id);
+        }
     });
 
     it('a craft made only of gathered materials sells for nothing', () => {

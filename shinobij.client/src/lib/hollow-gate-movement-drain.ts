@@ -49,6 +49,13 @@ export async function drainHollowGateMovement(ctx: Context) {
             wardSteps: step.wardSteps ?? previous.wardSteps, ...(step.wanderers ? { wanderers: step.wanderers } : {}) }));
         if (step.torchSputtered) ctx.log('The Torch of Reiki sputters out. Threat builds faster in the dark.');
         const interaction = hollowGateStepInteraction(ctx.currentRun()!, step, fx);
+        if (interaction?.tile.kind === 'descend' && step.ambush) {
+            stop();
+            patch(previous => ({ ...previous, playerX: step.position?.x ?? fx.step!.toX, playerY: step.position?.y ?? fx.step!.toY }));
+            ctx.log('An ambush blocks the staircase. Finish the encounter, then return to the stairs.');
+            ctx.openPending({ ...step.ambush, token: ctx.run.runToken, floor: ctx.run.floor });
+            return;
+        }
         if (interaction) await ctx.resolveTile(interaction.tile, interaction.nx, interaction.ny, step.wanderers);
         if (!current()) return; // A staircase or extraction can replace this floor.
         const stopsAtInteraction = interaction && interaction.tile.kind !== 'empty' && interaction.tile.kind !== 'shard_vein';

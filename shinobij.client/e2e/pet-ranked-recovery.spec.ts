@@ -130,7 +130,7 @@ for (const mode of ['active', 'completed', 'without-webgl2'] as const) {
             await panel.getByRole('button', { name: 'Retry ranked match' }).click();
         }
         const verdict = script.finalState.outcome === 'win' ? 'Victory' : 'Defeat';
-        const actionLine = firstAction?.t === 'action' ? `used ${firstAction.moveName}.` : null;
+        const actionLine = firstAction?.t === 'action' ? `uses ${firstAction.moveName}.` : null;
         const announcements = () => page.evaluate(() => (window as unknown as { __showdownAnnouncements: Announcement[] }).__showdownAnnouncements);
         if (withoutWebGL2) {
             if (!actionLine) throw new Error('The real ranked fixture must contain an action.');
@@ -146,10 +146,11 @@ for (const mode of ['active', 'completed', 'without-webgl2'] as const) {
             const spoken = lines.findIndex(line => line.includes(actionLine));
             if (firstAction?.t !== 'action') throw new Error('The real ranked fixture must contain an action.');
             for (const target of firstAction.targets) {
-                const effect = target.damage > 0 ? `takes ${target.damage}`
-                    : target.heal > 0 ? `recovers ${target.heal}`
-                        : target.applied ? `is ${target.applied}` : 'takes nothing';
+                const effect = target.damage > 0 ? `takes ${target.damage} damage`
+                    : target.heal > 0 ? `restores ${target.heal} HP`
+                        : target.applied === 'buff' ? 'gains attack power' : 'takes no damage';
                 expect(lines[spoken]).toContain(effect);
+                expect(lines[spoken]).not.toContain('is buff');
             }
             expect(spoken).toBeLessThan(lines.findIndex(line => line.startsWith(`${verdict}.`)));
             // Warming follows the same probe as mounting: a stage that cannot

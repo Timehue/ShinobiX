@@ -33,18 +33,6 @@ export function EndlessTowerFight({
 }) {
     const [transitioning, setTransitioning] = useState(false);
 
-    async function finishLoss() {
-        if (transitioning) return;
-        setTransitioning(true);
-        try {
-            const result = await settle(fight.runId, character.name);
-            onClose();
-            if (result.character?.hospitalized) onHospital();
-        } finally {
-            setTransitioning(false);
-        }
-    }
-
     return (
         <MissionArenaFight
             key={fight.runId}
@@ -58,7 +46,7 @@ export function EndlessTowerFight({
             creatorJutsus={creatorJutsus}
             creatorItems={creatorItems}
             settleFn={settle}
-            outcomeFn={settle}
+            settleOnAnyDone
             onExit={onClose}
             renderResult={({ won, settleState, settleResult, retry }) => {
                 const result = settleResult as EndlessMutationResult | null;
@@ -66,11 +54,19 @@ export function EndlessTowerFight({
                     return (
                         <div className="story-fight-complete" role="dialog" aria-label="Endless Tower run ended">
                             <div className="story-fight-complete-card">
-                                <p className="story-fight-complete-kicker">Tower Collapsed</p>
+                                <p className="story-fight-complete-kicker">Run ended</p>
                                 <h2>Wave {fight.wave}</h2>
-                                <p className="story-fight-complete-boss">Your unbanked haul is lost. Recover before beginning another run.</p>
-                                <button disabled={transitioning} onClick={() => { void finishLoss(); }}>
-                                    {transitioning ? "Leaving…" : "Leave Tower"}
+                                <p className="story-fight-complete-boss">{settleState === "failed"
+                                    ? "Your result could not be confirmed. Press Retry to check the run and your recovery status."
+                                    : settleState !== "settled" || !result
+                                        ? "Confirming your result and recovery status…"
+                                        : "This run ended without cashing out. Its unclaimed ryo was lost. You keep milestone rewards already received."}</p>
+                                {settleState === "failed" && <button onClick={retry}>Retry</button>}
+                                <button disabled={settleState !== "settled" || !result} onClick={() => {
+                                    onClose();
+                                    if (result?.character?.hospitalized) onHospital();
+                                }}>
+                                    {result?.character?.hospitalized ? "Go to Hospital" : "Leave Tower"}
                                 </button>
                             </div>
                         </div>
@@ -82,12 +78,12 @@ export function EndlessTowerFight({
                             <p className="story-fight-complete-kicker">Wave Clear</p>
                             <h2>Wave {fight.wave}</h2>
                             {settleState === "failed"
-                                ? <button onClick={retry}>Try again</button>
+                                ? <><p>Your wave reward could not be confirmed. Press Retry to check it.</p><button onClick={retry}>Retry</button></>
                                 : settleState !== "settled" || !result
                                     ? <p>Verifying the wave…</p>
                                     : (
                                         <>
-                                            <p className="story-fight-complete-rewards">+{result.reward?.ryo ?? 0} banked ryo</p>
+                                            <p className="story-fight-complete-rewards">+{result.reward?.ryo ?? 0} ryo added to this run&apos;s unclaimed total. Choose Bank &amp; leave to keep it; losing a later wave forfeits unclaimed ryo.</p>
                                             <div className="menu">
                                                 <button disabled={transitioning} onClick={() => { setTransitioning(true); void onNext().finally(() => setTransitioning(false)); }}>
                                                     {transitioning ? "Opening…" : "Next wave"}

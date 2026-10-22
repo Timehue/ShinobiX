@@ -1,0 +1,355 @@
+{
+  "id": "mythic-1",
+  "name": "Worldstorm Dragon",
+  "sourceSha256": "acfacba16ea3ba0e7787f8e2e4e2b29001cfa3324cd37a016cfd0a94a01a6290",
+  "battleSha256": "71f5584edd2d937e398161a52b50e53f1abe1bb131d61a656559c5338a1fb1c5",
+  "validation": {
+    "productionBuild": "passed",
+    "regressionTests": 14,
+    "sourceFullGeometryPoses": 485,
+    "battleFullGeometryPoses": 485,
+    "sourceAndBattleDeformationWarnings": 0,
+    "frozenFaceBlendPosesPerAsset": 468,
+    "frozenFaceClipPosesPerAsset": 862
+  },
+  "tests": {
+    "count": 25,
+    "scope": "11 Worldstorm Dragon regressions, 11 Eclipse Kitsune regressions, 3 complete-roster animation-bank checks",
+    "exitCode": 0,
+    "evidence": {
+      "path": "docs/screenshots/pet-independent-mythic-000-005-progress-2026-10-17/mythic-1-final-regression-and-animation-bank-tests.log",
+      "sha256": "8a5e92b6250a957167553387006f263e563ce106174a8e0d5cef7ff7f00448d9"
+    }
+  },
+  "productionBuild": {
+    "exitCode": 0,
+    "evidence": {
+      "path": "docs/screenshots/pet-independent-mythic-000-005-progress-2026-10-17/mythic-1-production-build.log",
+      "sha256": "028488398576a16ec25607bb1b7d14676422af4b46be3e7202b6755c17fbd0ac"
+    }
+  },
+  "originalBaselineReview": {
+    "result": "repair-required",
+    "label": "independent-mythic-000-005-baseline-source",
+    "rawSourceHeadSlicesActuallyInspected": 6,
+    "rawSourceBodySlicesActuallyInspected": 6,
+    "actualTechniqueLabel": "independent-mythic-001-techniques-v1",
+    "nativeTechniqueFramesActuallyInspected": 216,
+    "techniqueInspectionStripsActuallyInspected": 12,
+    "originalSheetsActuallyInspected": 0,
+    "finding": "Muzzle, lower jaw and crest shift under secondary idle, head turns, recoil, victory and defeat. All nine actual techniques inspected front and side; front legs thrust out while torso shifts and support soles slide or sink. Independent original sole maximum drift attack 0.38791, cast 0.29340, recoil 0.20097, floor penetration as much as 0.09215. Head/neck sole contribution is zero, confirming a negative influence screen misses contact failures. Tail and dorsal spikes remain connected; preserve their sculpt and authored motion. Separate face and fitted-limb candidate numerical checks pass but candidate images not yet inspected."
+  },
+  "sourceVisualFirstPass": {
+    "result": "pass",
+    "reviewedAt": "2026-10-18T02:41:23.770Z",
+    "candidateRawSlicesActuallyInspected": 12,
+    "faceLabel": "independent-mythic-001-anatomical-v2-head",
+    "bodyLabel": "independent-mythic-001-anatomical-v2-body",
+    "allTwelveEnlargedSlicesActuallyInspected": true,
+    "actualTechniqueLabel": "independent-mythic-001-anatomical-v2-techniques",
+    "nativeTechniqueFramesActuallyInspected": 216,
+    "techniqueInspectionStripsActuallyInspected": 12
+  },
+  "secondVisualPass": {
+    "result": "pass",
+    "rawFinalSlices": 24,
+    "runtimeFinalSlices": 32
+  },
+  "conservation": {
+    "geometry": true,
+    "topology": true,
+    "textures": true,
+    "originalBoneFramesAndInverses": true,
+    "appendedAnatomicalChains": 4,
+    "frozenFaceLandmarks": true,
+    "unrelatedOriginalAnimationCurves": true,
+    "restDrift": 5.060350352038725e-8
+  },
+  "rejectedCandidates": [
+    {
+      "label": "worldstorm-dragon-anatomical-v1",
+      "sha256": "c7cabdb15375ecc6e0ec45ba8cf0e4cebffa8555f89d22f0c60507532e2319a4",
+      "result": "rejected-full-rigid-skull-check",
+      "rawSlicesActuallyInspected": 12,
+      "nativeTechniqueFramesActuallyInspected": 216,
+      "reason": "Leg cleanup changed fully rigid lower-cheek vertices; five frozen original landmarks passed but the whole rigid skull detected 0.000544 drift. V2 preserves all fully rigid head palettes before limb cleanup.",
+      "evidence": [
+        "docs/screenshots/pet-independent-mythic-000-005-progress-2026-10-17/mythic-1-anatomical-candidate-conservation.json",
+        "docs/screenshots/pet-independent-mythic-000-005-progress-2026-10-17/mythic-1-visible-paw-coverage.png",
+        "docs/screenshots/pet-independent-mythic-000-005-progress-2026-10-17/mythic-1-visible-paw-support-before-after.json",
+        "docs/screenshots/pet-independent-mythic-000-005-progress-2026-10-17/mythic-1-anatomical-candidate-source-motion-audit.json",
+        "docs/screenshots/pet-independent-mythic-000-005-progress-2026-10-17/mythic-1-anatomical-candidate-recipe.json",
+        "docs/screenshots/pet-independent-mythic-000-005-progress-2026-10-17/mythic-1-candidate-head-manifest.json",
+        "docs/screenshots/pet-independent-mythic-000-005-progress-2026-10-17/mythic-1-candidate-head-mythic-1-head-front.webp",
+        "docs/screenshots/pet-independent-mythic-000-005-progress-2026-10-17/mythic-1-candidate-head-mythic-1-head-side.webp",
+        "docs/screenshots/pet-independent-mythic-000-005-progress-2026-10-17/mythic-1-candidate-body-manifest.json",
+        "docs/screenshots/pet-independent-mythic-000-005-progress-2026-10-17/mythic-1-candidate-body-mythic-1-front.webp",
+        "docs/screenshots/pet-independent-mythic-000-005-progress-2026-10-17/mythic-1-candidate-body-mythic-1-side.webp",
+        "docs/screenshots/pet-independent-mythic-000-005-progress-2026-10-17/mythic-1-candidate-technique-manifest.json",
+        "docs/screenshots/pet-independent-mythic-000-005-progress-2026-10-17/mythic-1-candidate-native-manifest.json",
+        "docs/screenshots/pet-independent-mythic-000-005-progress-2026-10-17/mythic-1-candidate-native-front-block-0-half-0.png",
+        "docs/screenshots/pet-independent-mythic-000-005-progress-2026-10-17/mythic-1-candidate-native-front-block-0-half-1.png",
+        "docs/screenshots/pet-independent-mythic-000-005-progress-2026-10-17/mythic-1-candidate-native-front-block-1-half-0.png",
+        "docs/screenshots/pet-independent-mythic-000-005-progress-2026-10-17/mythic-1-candidate-native-front-block-1-half-1.png",
+        "docs/screenshots/pet-independent-mythic-000-005-progress-2026-10-17/mythic-1-candidate-native-front-block-2-half-0.png",
+        "docs/screenshots/pet-independent-mythic-000-005-progress-2026-10-17/mythic-1-candidate-native-front-block-2-half-1.png",
+        "docs/screenshots/pet-independent-mythic-000-005-progress-2026-10-17/mythic-1-candidate-native-side-block-0-half-0.png",
+        "docs/screenshots/pet-independent-mythic-000-005-progress-2026-10-17/mythic-1-candidate-native-side-block-0-half-1.png",
+        "docs/screenshots/pet-independent-mythic-000-005-progress-2026-10-17/mythic-1-candidate-native-side-block-1-half-0.png",
+        "docs/screenshots/pet-independent-mythic-000-005-progress-2026-10-17/mythic-1-candidate-native-side-block-1-half-1.png",
+        "docs/screenshots/pet-independent-mythic-000-005-progress-2026-10-17/mythic-1-candidate-native-side-block-2-half-0.png",
+        "docs/screenshots/pet-independent-mythic-000-005-progress-2026-10-17/mythic-1-candidate-native-side-block-2-half-1.png",
+        "docs/screenshots/pet-independent-mythic-000-005-progress-2026-10-17/mythic-1-original-visible-paw-support.json"
+      ],
+      "evidenceSha256": {
+        "docs/screenshots/pet-independent-mythic-000-005-progress-2026-10-17/mythic-1-anatomical-candidate-conservation.json": "5b1286308e5de34eefcaddf05b3bf2df87a15ea5b3a388819f2173afc328793c",
+        "docs/screenshots/pet-independent-mythic-000-005-progress-2026-10-17/mythic-1-visible-paw-coverage.png": "3104109dd89fe1a7102bf7e440861ce6870d9fd07d402aab58a98bad0579af4c",
+        "docs/screenshots/pet-independent-mythic-000-005-progress-2026-10-17/mythic-1-visible-paw-support-before-after.json": "ce33b8404722d1f446cd24a519dd9ef973704d761f84e0a9b1cf1fa5c5722da0",
+        "docs/screenshots/pet-independent-mythic-000-005-progress-2026-10-17/mythic-1-anatomical-candidate-source-motion-audit.json": "84ac482880dd869e2f2d271f946554ed67390b8484ad40d5bdfedb7276de9bb5",
+        "docs/screenshots/pet-independent-mythic-000-005-progress-2026-10-17/mythic-1-anatomical-candidate-recipe.json": "46b0c1f1ce1b37f6849b900e70f2bc452c4f18c122fb90063ead22c0a92bfa39",
+        "docs/screenshots/pet-independent-mythic-000-005-progress-2026-10-17/mythic-1-candidate-head-manifest.json": "6eb38459f7813610b187902cdd75b3557a40e79f316d3f2a4a385328d17c6f21",
+        "docs/screenshots/pet-independent-mythic-000-005-progress-2026-10-17/mythic-1-candidate-head-mythic-1-head-front.webp": "1e7c77f5049a49dfbbab47240df810296dc857f5383f0953ea30cadfdd8bc227",
+        "docs/screenshots/pet-independent-mythic-000-005-progress-2026-10-17/mythic-1-candidate-head-mythic-1-head-side.webp": "6c7cda8a4048b1a06226e97a1c64d43926fd37f9d59bd2dd4dce950527ab5307",
+        "docs/screenshots/pet-independent-mythic-000-005-progress-2026-10-17/mythic-1-candidate-body-manifest.json": "23d79b3e4c0ba8ce690748adc8bab06e66b50acb9c6e4e239970b2d9c1a902c6",
+        "docs/screenshots/pet-independent-mythic-000-005-progress-2026-10-17/mythic-1-candidate-body-mythic-1-front.webp": "3507d60c0ff52114ba61cd87a18362598b69cf9457e9454fcb868cf4126b6602",
+        "docs/screenshots/pet-independent-mythic-000-005-progress-2026-10-17/mythic-1-candidate-body-mythic-1-side.webp": "eb9120c40d782224d1e2ba15278c8e6ac72cb4bc1a176149c0a25d0b6491c36a",
+        "docs/screenshots/pet-independent-mythic-000-005-progress-2026-10-17/mythic-1-candidate-technique-manifest.json": "8c9281f76715d1864ed31f6d3b451d7a3f8480e6959d0a6d15ca318a87e6e3ff",
+        "docs/screenshots/pet-independent-mythic-000-005-progress-2026-10-17/mythic-1-candidate-native-manifest.json": "cd1717d7c892bab9da70772ab9e8a255f8c9c3b2daa56c087845ee0c8e877d95",
+        "docs/screenshots/pet-independent-mythic-000-005-progress-2026-10-17/mythic-1-candidate-native-front-block-0-half-0.png": "6e12b8ba7dd828e73736b58f23f1acaa9191b21ceea7e7742967fb6abf20c882",
+        "docs/screenshots/pet-independent-mythic-000-005-progress-2026-10-17/mythic-1-candidate-native-front-block-0-half-1.png": "41a4a07ff9853a0d51d6ec1afb3e91e288e670f39d4c298555ee7fdce3ae4ba0",
+        "docs/screenshots/pet-independent-mythic-000-005-progress-2026-10-17/mythic-1-candidate-native-front-block-1-half-0.png": "72a8993ae72ac44370801da0ba11778a7bd92bd1a11fac4e50ca3e6180b84f5a",
+        "docs/screenshots/pet-independent-mythic-000-005-progress-2026-10-17/mythic-1-candidate-native-front-block-1-half-1.png": "6012b715c983965e315148f3ecfe8d9c7850a1d6360e54dfb0cc26a344ef31d5",
+        "docs/screenshots/pet-independent-mythic-000-005-progress-2026-10-17/mythic-1-candidate-native-front-block-2-half-0.png": "dc5706d373ba68f78f8ee3ce9148461e4748430438d5e854a4480ad1319b63e0",
+        "docs/screenshots/pet-independent-mythic-000-005-progress-2026-10-17/mythic-1-candidate-native-front-block-2-half-1.png": "08e2539a9fbae310e83c5de9eb8d643c9c313418b10b89bb86f00e77607a0e0f",
+        "docs/screenshots/pet-independent-mythic-000-005-progress-2026-10-17/mythic-1-candidate-native-side-block-0-half-0.png": "2482ce78a86788c57f23c45380a299bac828b6457b66ca6d2434e551f7099baf",
+        "docs/screenshots/pet-independent-mythic-000-005-progress-2026-10-17/mythic-1-candidate-native-side-block-0-half-1.png": "e4f7aade8352a8e25a9ce6204be35697703b7bcd5bb4c751b3b65bcec50fa646",
+        "docs/screenshots/pet-independent-mythic-000-005-progress-2026-10-17/mythic-1-candidate-native-side-block-1-half-0.png": "cfe0f6ada5dc6e259a1f51451eb721cc44b48d80b0664db1ac7fc327353ac40a",
+        "docs/screenshots/pet-independent-mythic-000-005-progress-2026-10-17/mythic-1-candidate-native-side-block-1-half-1.png": "3949af61d88c9fd4d08f0dd03d3b0fb0d30d62fa2a92eb5a03007541bf28d801",
+        "docs/screenshots/pet-independent-mythic-000-005-progress-2026-10-17/mythic-1-candidate-native-side-block-2-half-0.png": "7957b211af10eed374736ddb13521fc8735bf89adcafebf15427191c1c341bf8",
+        "docs/screenshots/pet-independent-mythic-000-005-progress-2026-10-17/mythic-1-candidate-native-side-block-2-half-1.png": "2f2a474357b598db03def74cea4c5ed657b9e04f0bfa0d16d3784e14fd291fb6",
+        "docs/screenshots/pet-independent-mythic-000-005-progress-2026-10-17/mythic-1-original-visible-paw-support.json": "37cc4b5da080606b3b1925c4369eb082e102ffb2457f3452ee13acb72d17bc10"
+      }
+    }
+  ],
+  "originalSolePatchCounts": [
+    559,
+    539,
+    456,
+    435
+  ],
+  "sourceVisibleSupport": {
+    "id": "mythic-1",
+    "sha256": "acfacba16ea3ba0e7787f8e2e4e2b29001cfa3324cd37a016cfd0a94a01a6290",
+    "geometrySourceSha256": "00e0557419b07305043ce2c7849564512d5cb312614f902d52701594188e261a",
+    "posesPerClip": 481,
+    "results": [
+      {
+        "name": "attack",
+        "paws": {
+          "frontL": {
+            "maxDrift": 0.048457551909833134,
+            "minFloorDelta": -0.000029423587033672316,
+            "maxFloorDelta": 0.03503731293059614,
+            "maxNeckHeadContribution": 0
+          },
+          "frontR": {
+            "maxDrift": 0.048444150043842504,
+            "minFloorDelta": -0.00002941981845899777,
+            "maxFloorDelta": 0.035024777198905566,
+            "maxNeckHeadContribution": 0
+          },
+          "hindL": {
+            "maxDrift": 0.0002103501031277783,
+            "minFloorDelta": -0.00009558926907232701,
+            "maxFloorDelta": 0.00016947632323982553,
+            "maxNeckHeadContribution": 0
+          },
+          "hindR": {
+            "maxDrift": 0.00020557201714390037,
+            "minFloorDelta": -0.00009576638619412936,
+            "maxFloorDelta": 0.00016264717180880517,
+            "maxNeckHeadContribution": 0
+          }
+        }
+      },
+      {
+        "name": "cast",
+        "paws": {
+          "frontL": {
+            "maxDrift": 0.0001866598470968572,
+            "minFloorDelta": -0.00008026084827444935,
+            "maxFloorDelta": 0.00007001040474863274,
+            "maxNeckHeadContribution": 0
+          },
+          "frontR": {
+            "maxDrift": 0.00018671944413090806,
+            "minFloorDelta": -0.00007964036004787234,
+            "maxFloorDelta": 0.00006217368664368506,
+            "maxNeckHeadContribution": 0
+          },
+          "hindL": {
+            "maxDrift": 0.000028644167492842026,
+            "minFloorDelta": -0.0000027988952914226317,
+            "maxFloorDelta": 0.000028348850265036418,
+            "maxNeckHeadContribution": 0
+          },
+          "hindR": {
+            "maxDrift": 0.000019638812732364122,
+            "minFloorDelta": -0.0000017994830466827594,
+            "maxFloorDelta": 0.000019500455725018906,
+            "maxNeckHeadContribution": 0
+          }
+        }
+      },
+      {
+        "name": "idle_hitreact1",
+        "paws": {
+          "frontL": {
+            "maxDrift": 0.00001860840075891986,
+            "minFloorDelta": -0.000001160056945559429,
+            "maxFloorDelta": 0.00001859284784305748,
+            "maxNeckHeadContribution": 0
+          },
+          "frontR": {
+            "maxDrift": 0.000014406752089958796,
+            "minFloorDelta": -0.000005593490096100773,
+            "maxFloorDelta": 0.00001291005790526878,
+            "maxNeckHeadContribution": 0
+          },
+          "hindL": {
+            "maxDrift": 0.000025149484146307086,
+            "minFloorDelta": -0.0000037093437160184983,
+            "maxFloorDelta": 0.00002494023490590136,
+            "maxNeckHeadContribution": 0
+          },
+          "hindR": {
+            "maxDrift": 0.000017258610571871182,
+            "minFloorDelta": -0.0000030022721702049893,
+            "maxFloorDelta": 0.000017171986802622108,
+            "maxNeckHeadContribution": 0
+          }
+        }
+      }
+    ]
+  },
+  "battleVisibleSupport": {
+    "originalWorldBoxes": true,
+    "posesPerAction": 481,
+    "supportDriftLimit": 0.0004,
+    "floorLimit": -0.0004,
+    "allHeadNeckWeightsZero": true,
+    "verifiedBy": "shinobij.client/scripts/pet-worldstorm-dragon-anatomical-limbs.test.mjs"
+  },
+  "extraEvidence": [
+    {
+      "path": "docs/screenshots/pet-independent-mythic-000-005-progress-2026-10-17/mythic-1-final-regression-and-animation-bank-tests.log",
+      "sha256": "8a5e92b6250a957167553387006f263e563ce106174a8e0d5cef7ff7f00448d9"
+    },
+    {
+      "path": "docs/screenshots/pet-independent-mythic-000-005-progress-2026-10-17/mythic-1-production-build.log",
+      "sha256": "028488398576a16ec25607bb1b7d14676422af4b46be3e7202b6755c17fbd0ac"
+    },
+    {
+      "path": "docs/screenshots/pet-independent-mythic-000-005-progress-2026-10-17/mythic-1-original-visible-soles.json",
+      "sha256": "37cc4b5da080606b3b1925c4369eb082e102ffb2457f3452ee13acb72d17bc10"
+    },
+    {
+      "path": "docs/screenshots/pet-independent-mythic-000-005-progress-2026-10-17/mythic-1-accepted-v2-visible-support.json",
+      "sha256": "3095fda3ad1acd547258f00a806d04b2046ece8b398ffbfd45e37d647ed2ee4d"
+    },
+    {
+      "path": "docs/screenshots/pet-independent-mythic-000-005-progress-2026-10-17/mythic-1-rejected-v1-rigid-skull-drift.json",
+      "sha256": "962ccb9765cf880a269df64d0570efb18f858c50cb0ee18e00718a2cd8b51c0a"
+    },
+    {
+      "path": "docs/screenshots/pet-independent-mythic-000-005-progress-2026-10-17/mythic-1-accepted-v2-rigid-skull.json",
+      "sha256": "f8bf0d89b45ec649edb1609e61fde02820e40604c32123e29bfa21173899871c"
+    },
+    {
+      "path": "docs/screenshots/pet-independent-mythic-000-005-progress-2026-10-17/mythic-1-three-stage-recipe.json",
+      "sha256": "dd86972bb0d43539d1ffa7ce71375b87b7455498484f8ea3bc287d62afd58514"
+    },
+    {
+      "path": "docs/screenshots/pet-independent-mythic-000-005-progress-2026-10-17/mythic-1-original-head-manifest.json",
+      "sha256": "3f2da3e1d4a5c1c36ed95569784c6948c25b5e7c91db40c800e2d9f76cbaa7e6"
+    },
+    {
+      "path": "docs/screenshots/pet-independent-mythic-000-005-progress-2026-10-17/mythic-1-original-head-mythic-1-head-front.webp",
+      "sha256": "61c75b4ae0d1ef1e91af2a463e1555cccfc3618736948ac14caaccfb01aba125"
+    },
+    {
+      "path": "docs/screenshots/pet-independent-mythic-000-005-progress-2026-10-17/mythic-1-original-head-mythic-1-head-side.webp",
+      "sha256": "9a189d6a68125f4d0e744b4843dda5caf7561c74a92844b444c69f25adc4e92f"
+    },
+    {
+      "path": "docs/screenshots/pet-independent-mythic-000-005-progress-2026-10-17/mythic-1-original-body-manifest.json",
+      "sha256": "46a54fa2c4b3b15fbf74e67e37498fa41f69a00e19c6b752abe080d8b123ce6b"
+    },
+    {
+      "path": "docs/screenshots/pet-independent-mythic-000-005-progress-2026-10-17/mythic-1-original-body-mythic-1-front.webp",
+      "sha256": "16921629fb88df99483f28e1cc6c570c77dcda0a368bc4c40a54614649cd04d8"
+    },
+    {
+      "path": "docs/screenshots/pet-independent-mythic-000-005-progress-2026-10-17/mythic-1-original-body-mythic-1-side.webp",
+      "sha256": "0143415674b28026461675f874a40d6db0223adb96348ad91ca55c2c4e3c9910"
+    },
+    {
+      "path": "docs/screenshots/pet-independent-mythic-000-005-progress-2026-10-17/mythic-1-original-technique-manifest.json",
+      "sha256": "1943f87eaae40cc529b87edb822321c4a4d4e1dac491a9c558bde4323a2b56f5"
+    },
+    {
+      "path": "docs/screenshots/pet-independent-mythic-000-005-progress-2026-10-17/mythic-1-original-native-manifest.json",
+      "sha256": "2e1e217ab6fc8358559d3af5ec03963f583cdbefd8650c95858d1d819113b00c"
+    },
+    {
+      "path": "docs/screenshots/pet-independent-mythic-000-005-progress-2026-10-17/mythic-1-original-native-front-block-0-half-0.png",
+      "sha256": "a998200cfcb5106dbf769e17810a70773aa7ab71e2a2c724cbcc4ea50098d970"
+    },
+    {
+      "path": "docs/screenshots/pet-independent-mythic-000-005-progress-2026-10-17/mythic-1-original-native-front-block-0-half-1.png",
+      "sha256": "f1d1e7a164f5f93aee487d735cbff48b3229b7aaeced0f0508084cf9b1aee988"
+    },
+    {
+      "path": "docs/screenshots/pet-independent-mythic-000-005-progress-2026-10-17/mythic-1-original-native-front-block-1-half-0.png",
+      "sha256": "eb9d674349702f415f8611fdfec2faea6f1a0a71f8654d60741873886156add8"
+    },
+    {
+      "path": "docs/screenshots/pet-independent-mythic-000-005-progress-2026-10-17/mythic-1-original-native-front-block-1-half-1.png",
+      "sha256": "208b20de7dd01d876ce69cafe6868cd9e5f6fe3a5d6b29692bb65d8ac18e323a"
+    },
+    {
+      "path": "docs/screenshots/pet-independent-mythic-000-005-progress-2026-10-17/mythic-1-original-native-front-block-2-half-0.png",
+      "sha256": "e92e5e0c6c3030aa85de0eaa1322b7d827247e096d20bda76430596564db060b"
+    },
+    {
+      "path": "docs/screenshots/pet-independent-mythic-000-005-progress-2026-10-17/mythic-1-original-native-front-block-2-half-1.png",
+      "sha256": "f3fbd71c3a9c1eca79a8fc374ed5d187ce5b13580e9db90b6cf46e609f653e31"
+    },
+    {
+      "path": "docs/screenshots/pet-independent-mythic-000-005-progress-2026-10-17/mythic-1-original-native-side-block-0-half-0.png",
+      "sha256": "3beb8904664c60942b62370aab0de82cdba7eb7629fc38ad83b98438e91d37cb"
+    },
+    {
+      "path": "docs/screenshots/pet-independent-mythic-000-005-progress-2026-10-17/mythic-1-original-native-side-block-0-half-1.png",
+      "sha256": "b58dae99d863947dab27780ca195deb4fb79994da3c406915a04ca2d48137935"
+    },
+    {
+      "path": "docs/screenshots/pet-independent-mythic-000-005-progress-2026-10-17/mythic-1-original-native-side-block-1-half-0.png",
+      "sha256": "dc5cc6f1910648e411b47da13d3c1cc2792668ebf885036279202733d86dfcd6"
+    },
+    {
+      "path": "docs/screenshots/pet-independent-mythic-000-005-progress-2026-10-17/mythic-1-original-native-side-block-1-half-1.png",
+      "sha256": "bf8478e9d1e77deb8512979dee3fb0603aa02d0554d6e20993f544a0b2197853"
+    },
+    {
+      "path": "docs/screenshots/pet-independent-mythic-000-005-progress-2026-10-17/mythic-1-original-native-side-block-2-half-0.png",
+      "sha256": "4648c1b6fbc87d2f8506847e045f8502959c7ba433219c84a6f642408d00549e"
+    },
+    {
+      "path": "docs/screenshots/pet-independent-mythic-000-005-progress-2026-10-17/mythic-1-original-native-side-block-2-half-1.png",
+      "sha256": "d20adf5f9f77137ab9216be3848bdd8410b7418030cf168f52b1f1b9d22a3814"
+    }
+  ],
+  "wholeRosterComplete": false,
+  "liveReleaseComplete": false
+}

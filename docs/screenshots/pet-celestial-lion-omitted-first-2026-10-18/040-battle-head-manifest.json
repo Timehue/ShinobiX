@@ -1,0 +1,322 @@
+{
+  "schema": 1,
+  "errors": [],
+  "pets": [
+    {
+      "id": "mythic-3",
+      "name": "Solar Stag",
+      "url": "/.tmp/omitted-roster-retarget-v1/direct-battle/roster/mythic-3.glb",
+      "sha256": "5530b2c01e1d1a8a60348130b6f9f8aa3a2bc18ac0a43ba4822b717ac2f3ae9f",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "progress": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ],
+      "views": [
+        "head-front",
+        "head-side"
+      ],
+      "materialTreatment": {
+        "mode": "production-diffuse",
+        "materials": 1,
+        "metalnessMax": 0.05,
+        "roughnessRange": [
+          0.58,
+          0.82
+        ]
+      },
+      "region": {
+        "y": [
+          -2,
+          -2
+        ],
+        "bounds": [
+          -0.3997756629444502,
+          0.29123521249841006,
+          0.17980804261684633,
+          1.0555134868325045,
+          0.3221440239430411,
+          1.0159658164437562
+        ],
+        "cameraPadding": 1.15
+      },
+      "sheets": [
+        "mythic-3-head-front.webp",
+        "mythic-3-head-side.webp"
+      ],
+      "review": "pending",
+      "anatomySha256": "62201a5ae9614b64cdeb5193831c1e5772adbd433d74021cea70137ce3929517"
+    },
+    {
+      "id": "mythic-12",
+      "name": "Skyglass Kirin",
+      "url": "/.tmp/omitted-roster-retarget-v1/direct-battle/roster/mythic-12.glb",
+      "sha256": "ccf81b094774aeb711c576933595fa249fe4e18847512fbc846f95cbf01257c7",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "progress": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ],
+      "views": [
+        "head-front",
+        "head-side"
+      ],
+      "materialTreatment": {
+        "mode": "production-diffuse",
+        "materials": 1,
+        "metalnessMax": 0.05,
+        "roughnessRange": [
+          0.58,
+          0.82
+        ]
+      },
+      "region": {
+        "y": [
+          -2,
+          -2
+        ],
+        "bounds": [
+          -0.29598489434033914,
+          0.4177077662080352,
+          0.38577023755972994,
+          1.1003441979820248,
+          0.31836513509236497,
+          1.046184780995528
+        ],
+        "cameraPadding": 1.15
+      },
+      "sheets": [
+        "mythic-12-head-front.webp",
+        "mythic-12-head-side.webp"
+      ],
+      "review": "pending",
+      "anatomySha256": "b9a29a23ac15117e43b755576f1f38c08d139534e9a065f59699ee656e1ba31e"
+    },
+    {
+      "id": "mythic-13",
+      "name": "Thunderbloom Kirin",
+      "url": "/.tmp/omitted-roster-retarget-v1/direct-battle/roster/mythic-13.glb",
+      "sha256": "d9f00e0861eecadeded66cc46b67cea6c221cb5e1a29a58cecacb4f8374809c9",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "progress": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ],
+      "views": [
+        "head-front",
+        "head-side"
+      ],
+      "materialTreatment": {
+        "mode": "production-diffuse",
+        "materials": 1,
+        "metalnessMax": 0.05,
+        "roughnessRange": [
+          0.58,
+          0.82
+        ]
+      },
+      "region": {
+        "y": [
+          -2,
+          -2
+        ],
+        "bounds": [
+          -0.38259649275237345,
+          0.2721610702914655,
+          0.18398006853057622,
+          0.9991123855881978,
+          0.2854132043142714,
+          1.0082265528557017
+        ],
+        "cameraPadding": 1.15
+      },
+      "sheets": [
+        "mythic-13-head-front.webp",
+        "mythic-13-head-side.webp"
+      ],
+      "review": "pending",
+      "anatomySha256": "7f0aa0220dbf106a9f2a5eabc2d50ec0d80ed5fae2d2e1393bbd9c582fcfba1c"
+    },
+    {
+      "id": "mythic-14",
+      "name": "Gravepeak Behemoth",
+      "url": "/.tmp/omitted-roster-retarget-v1/direct-battle/roster/mythic-14.glb",
+      "sha256": "1915d9d15a307f8dc3f9bb30cd0ea3bd18de4ce254976e21d354e36de0139bc1",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "progress": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ],
+      "views": [
+        "head-front",
+        "head-side"
+      ],
+      "materialTreatment": {
+        "mode": "production-diffuse",
+        "materials": 1,
+        "metalnessMax": 0.05,
+        "roughnessRange": [
+          0.58,
+          0.82
+        ]
+      },
+      "region": {
+        "y": [
+          -2,
+          -2
+        ],
+        "bounds": [
+          -0.5498561817615784,
+          0.5356351562786661,
+          -0.3504372903622077,
+          0.6291523392127111,
+          0.3593404114642448,
+          1.1010479334660235
+        ],
+        "cameraPadding": 1.15
+      },
+      "sheets": [
+        "mythic-14-head-front.webp",
+        "mythic-14-head-side.webp"
+      ],
+      "review": "pending",
+      "anatomySha256": "55664d64116d1aceab41559bb98d644db767bba4c5a4308b00c80068da3bd9da"
+    },
+    {
+      "id": "mythic-15",
+      "name": "Celestial Lion",
+      "url": "/.tmp/omitted-roster-retarget-v1/direct-battle/roster/mythic-15.glb",
+      "sha256": "b71e54a6ebb995b1322385114ef81fb1acf5ab66042b19ccd15cec62bd259afc",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "progress": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ],
+      "views": [
+        "head-front",
+        "head-side"
+      ],
+      "materialTreatment": {
+        "mode": "production-diffuse",
+        "materials": 1,
+        "metalnessMax": 0.05,
+        "roughnessRange": [
+          0.58,
+          0.82
+        ]
+      },
+      "region": {
+        "y": [
+          -2,
+          -2
+        ],
+        "bounds": [
+          -0.4288585965023166,
+          0.3987362938135708,
+          0.046661413486032144,
+          0.8251699681598867,
+          0.516864275881703,
+          1.093280166115513
+        ],
+        "cameraPadding": 1.15
+      },
+      "sheets": [
+        "mythic-15-head-front.webp",
+        "mythic-15-head-side.webp"
+      ],
+      "review": "pending",
+      "anatomySha256": "0a448281b873ea7c191278af235f5b8dbe9725c151e4d14debd659b179441fcb"
+    }
+  ],
+  "artisticCertification": false
+}

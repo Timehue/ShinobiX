@@ -17,6 +17,7 @@ import type { TowerRecords } from "../../../shared/tower-progression";
  */
 
 import type { PendingGatherFind } from '../../../shared/gathering';
+import type { PetExpeditionMaterialReward } from '../../../shared/pet-expedition-materials';
 import type { Profession, JutsuType, VillageUpgrades } from "./core";
 import type { Stats, EquipmentSlots, JutsuMastery } from "./combat";
 import type {
@@ -401,6 +402,9 @@ export type Character = {
     sunscarExchangeReceipts?: string[];
     sunscarRally?: import('../../../shared/sunscar/rally-championship').RallyProgress;
     sunscarCaravan?: import('../../../shared/sunscar/caravan-types').CaravanProgress;
+    /** Server-issued certificates, each redeemable for one free Broker sealed crate. */
+    brokerCertificates?: number;
+    brokerCrateLedger?: import('../../../shared/sunscar/broker-certificates').BrokerCrateLedger;
     equipment: EquipmentSlots;
     jutsuMastery: JutsuMastery[];
     pets: Pet[];
@@ -414,7 +418,7 @@ export type Character = {
     petBreeding?: PetBreedingSession | null;
     petBreedingMigrationVersion?: number;
     petBreedingReceipts?: string[];
-    petBreedingHatchReceipts?: Array<{ sessionId: string; petId: string; destination?: "roster" | "sanctuary" }>;
+    petBreedingHatchReceipts?: Array<{ sessionId: string; petId: string; destination?: "roster" | "sanctuary"; revealPending?: boolean; revealedAt?: number }>;
     petBreedingProgressReceipts?: string[];
     tileCards: string[];
     savedTileDeck?: string[];
@@ -569,7 +573,7 @@ export type Character = {
     dailyHonorSealsEarned?: number;
     dailyHonorSealsByTarget?: Record<string, number>;
     vanguardDailyResetDate?: string;
-    // Pet Tamer daily First Expedition tracking (UTC).
+    // Daily expedition collection tracking (UTC), including historical first-run bonuses.
     lastExpeditionClaimDate?: string;
     expeditionsClaimedToday?: number;
     expeditionStartAllowance?: { date: string; count: number };
@@ -595,6 +599,7 @@ export type Character = {
         foundBone: number;
         foundAura: number;
         foundFate: number;
+        materialRewards?: PetExpeditionMaterialReward[];
         happinessCost: number;
         firstExpedition: boolean;
         escortBonus: boolean;
@@ -967,3 +972,5 @@ export type ServerPlayerSummary = {
 
 /** Atomically accepts a server-issued character together with its save version. */
 export type VersionedCharacterCommit = (character: Character, version: unknown) => boolean;
+/** Capture account authority before background work; preserve pending local edits on adoption. */
+export type BeginCharacterSync = (accountName: string) => Promise<{ isCurrent: () => boolean; commit: VersionedCharacterCommit }>;

@@ -202,7 +202,7 @@ async function loadWorldCrisis80State(): Promise<WorldCrisis80State> {
 
 function awakeningMessage(state: WorldCrisis80State): string {
     const player = state.awakenedBy ?? 'An unnamed shinobi';
-    return `${player} reached level 80 and triggered the public alarm. Village record keepers opened four regional reports already filed by Kite Harrow and found the same quartered claim in each. People serving Hollow Gate's old claims answered by sending Collection Cells and pursuit packs toward every village ledger. Every shinobi and companion handler is called to the outskirts.`;
+    return `${player} reached level 80 and triggered the public alarm. Village record keepers opened four regional reports already filed by Kite Harrow. Each bears the same quartered claim from Hollow Gate. Its agents have sent Collection Cells and pursuit packs to seize the village records. Travel to your village outskirts: fight a three-person Collection Cell as a shinobi, or send three companions against a pursuit pack.`;
 }
 
 async function ensureWorldCrisis80Outbox(state: WorldCrisis80State): Promise<void> {

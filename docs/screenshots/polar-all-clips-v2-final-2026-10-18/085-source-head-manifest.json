@@ -1,0 +1,72 @@
+{
+  "schema": 1,
+  "errors": [],
+  "pets": [
+    {
+      "id": "legendary-13",
+      "name": "Armored Polar Bear",
+      "url": "/pet-models/roster/legendary-13.glb?v=20261018-polar-bear-all-authored-limb-performances-v2-20261013-studio-v1-20261013-articulation-v1-20261014-contact-performance-v1",
+      "sha256": "ace7249f33d8223b8d87fb1b0abedf60e6be96ffca1fd33495826e701a54939d",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "progress": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ],
+      "views": [
+        "head-front",
+        "head-side",
+        "head-other-side"
+      ],
+      "materialTreatment": {
+        "mode": "production-diffuse",
+        "materials": 1,
+        "metalnessMax": 0.05,
+        "roughnessRange": [
+          0.58,
+          0.82
+        ]
+      },
+      "region": {
+        "y": [
+          -2,
+          -2
+        ],
+        "bounds": [
+          -0.1529642422249296,
+          0.5274871043441836,
+          -0.078487854083237,
+          0.33722833229500415,
+          0.5994027617401327,
+          1.1199619307468613
+        ],
+        "cameraPadding": 1.15
+      },
+      "sheets": [
+        "legendary-13-head-front.webp",
+        "legendary-13-head-side.webp",
+        "legendary-13-head-other-side.webp"
+      ],
+      "review": "pending",
+      "anatomySha256": "c7b58591cd27c0e3ba842797b1e714f962d3d97ea3a76ee321fc2136c416e0c0"
+    }
+  ],
+  "artisticCertification": false
+}

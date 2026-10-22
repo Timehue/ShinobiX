@@ -1,0 +1,39 @@
+{
+  "id": "rare-21",
+  "name": "Frostbite Cub",
+  "reviewedAt": "2026-10-21",
+  "reviewer": "review_c_luna",
+  "status": "private-candidate-visual-pass",
+  "canonicalReleaseStatus": "not-promoted; parent release gates remain pending",
+  "sourceSha256": "7f6f76da7133b7c5076e65fd2c5d5dc494493a031650b086a6dafebc488ba10a",
+  "battleSha256": "48b13930068378a33bec5d52ed3ae8585a2b17007b68c8e62ef74a8fe18cd215",
+  "finding": "Independent second visual pass: the repaired arm-to-torso silhouette remains connected and proportionate throughout the personally inspected source and battle animations. Shoulder and upper arm stay seated to the torso; no visible wedge, detachment, or new animation distortion was found. Water Strike at 0.60 seconds was specifically checked from front and side. Face, ears, headband, scarf, legs, and tail also retain coherent silhouettes in the reviewed scope.",
+  "coverage": {
+    "rawClips": 13,
+    "rawPhasesPerClip": [0, 0.125, 0.375, 0.625, 0.875, 1],
+    "rawViews": ["front", "side", "head-front", "head-side", "head-other-side"],
+    "rawStages": ["source", "battle"],
+    "runtimeQualities": ["low", "medium"],
+    "runtimeTransitions": 16,
+    "runtimePhases": [0.025, 0.1, 0.25, 0.5, 0.75, 1],
+    "runtimeViews": ["front", "side"],
+    "runtimeParts": ["head", "body"],
+    "runtimeStages": ["source", "battle"],
+    "companionIdleFrames": 24,
+    "equippedTechniques": 9,
+    "techniquePhases": [0.04, 0.12, 0.24, 0.36, 0.48, 0.6, 0.76, 0.96, 1.2, 1.44, 1.68, 1.92],
+    "techniqueViews": ["front", "side"],
+    "atlas": "Personally inspected both the source/battle texture-atlas captures and the production 4x4 warfront-impostor atlas. The character remains coherent across all 16 production cells; no visibly malformed, detached, or deformed arm silhouette at atlas scale. Atlas inspection is supplemental to the animated geometry review."
+  },
+  "evidence": [
+    {"path": "shinobij.client/.tmp/pet-arms-second-review-2026-10-21/raw/manifest.json", "sha256": "f1c942e675d432c8e4a0535b0e6406e1c1d6fb620a1ce59884d02919798a7693"},
+    {"path": "shinobij.client/.tmp/pet-arms-second-review-2026-10-21/runtime-low/manifest.json", "sha256": "2e567ea51ee4bb1334a14714c94951a2fd2fb0aed6e3a3fa078f2f7b488e6de8"},
+    {"path": "shinobij.client/.tmp/pet-arms-second-review-2026-10-21/runtime-medium/manifest.json", "sha256": "5eb67d50db3772aa588434257f27d85b87a8a498a6af85f8a4216436c1dfe256"},
+    {"path": "shinobij.client/.tmp/pet-arms-second-review-2026-10-21/companion/manifest.json", "sha256": "655222eac8f15b517e2bca6da3c90786043b4907ae88b32be4fcdbe72a012850"},
+    {"path": ".tmp/pet-arms-second-review-2026-10-21/atlas/rare-21-source.png", "sha256": "24323a8a13d13b74e8837229965f82815d7b86e11d7f662b2a1edecaa3758edb"},
+    {"path": ".tmp/pet-arms-second-review-2026-10-21/atlas/rare-21-battle.png", "sha256": "714c17687073a7e24dfecb65facea3d3711a3742dfb912de49b8fe9e2fef8554"},
+    {"path": "shinobij.client/public/pet-models/warfront-impostors/roster/rare-21.webp", "sha256": "a5107a8d0c402646f009c80fccec50ec7cea022bdf652837feb92363fbd63eed", "scope": "Production 4x4 warfront-impostor atlas; all 16 cells personally viewed"}
+  ],
+  "evidenceIntegrity": {"captureManifestHashesVerified": 4, "atlasImageHashesVerified": 3},
+  "limitations": ["This is an independent visual pass of the private candidate pair, not evidence of canonical promotion or live release."]
+}

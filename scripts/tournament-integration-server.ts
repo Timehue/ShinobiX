@@ -39,7 +39,7 @@ async function main() {
     app.post('/qa-tournament/reset', async (_req, res) => {
         const event = await tournamentStore.readTournament();
         if (event) await tournamentStore.tournamentLock(() => tournamentStore.cancelTournament(event));
-        for (const pattern of ['game:tournaments:*', 'tower-pvp:*', 'battle-lock:*']) {
+        for (const pattern of ['game:tournaments:*', 'tower-pvp:*', 'battle-lock:*', 'ranked-2v2:*']) {
             const keys = await kv.keys(pattern); if (keys.length) await kv.del(...keys);
         }
         offset += 60_001; // independent rate-limit windows between scenarios

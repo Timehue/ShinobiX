@@ -1,3 +1,4 @@
+import { newClanBossWeekTiming } from '../../shared/clan-boss-rules.js';
 /*
  * Weekly Clan Boss Gauntlet — cron pass (runs on the daily 03:00 UTC scheduler).
  *
@@ -15,7 +16,7 @@ import { withKvLock } from '../_lock.js';
 import { announce } from '../_announce.js';
 import { addClanXpServer, scaledClanXp } from '../clan/_mission-catalog.js';
 import {
-    CB_REWARDS, CB_PARTICIPATION_REWARD, CB_WEEK_MS, CLAN_BOSS_BY_ID,
+    CB_REWARDS, CB_PARTICIPATION_REWARD, CLAN_BOSS_BY_ID,
     clanBossArchiveKey, clanBossDamageDealt, clanBossEngagedXp, clanBossMemberRewards, clanBossPickId,
     clanBossWeekId, clanBossWeekKey, clanSlug,
     rankClanBoss, type ClanBossProgress, type ClanBossWeek,
@@ -66,17 +67,17 @@ export async function runClanBossWeekly(now: number = Date.now()): Promise<{ ena
     return { enabled: true, spawned, settled };
 }
 
-async function ensureCurrentWeek(now: number): Promise<string | null> {
+export async function ensureCurrentWeek(now: number): Promise<string | null> {
     const weekId = clanBossWeekId(now);
     if (await kv.get<ClanBossWeek>(clanBossWeekKey(weekId))) return null;
-    const week: ClanBossWeek = { weekId, bossId: clanBossPickId(weekId), spawnedAt: now, endsAt: now + CB_WEEK_MS };
+    const week: ClanBossWeek = { weekId, bossId: clanBossPickId(weekId), ...newClanBossWeekTiming(now) };
     const created = await kv.set(clanBossWeekKey(weekId), week, { nx: true });
     if (created !== 'OK') return null;  // another instance created it first
     const boss = CLAN_BOSS_BY_ID[week.bossId];
     await announce({
         type: 'clan-boss-spawn', importance: 'high',
         title: `${boss?.icon ?? '👹'} Weekly Clan Boss: ${boss?.name ?? 'A great foe'}`,
-        message: 'A boss has risen against every clan. Rally a party of 3, bring it down, and compete — the top 3 clans earn treasury rewards when the week ends.',
+        message: 'A boss has risen against every clan. Bring a party of up to four and compete for your clan — the top three clans earn treasury rewards when the week ends.',
     });
     return weekId;
 }
@@ -146,7 +147,7 @@ async function settleWeek(week: ClanBossWeek, now: number): Promise<boolean> {
             await announce({
                 type: 'clan-boss-results', importance: 'high',
                 title: `🏆 Clan Boss Week Over — ${winner.clanName} takes #1!`,
-                message: 'The clan boss week has ended and the top clans have been rewarded. A fresh boss appears now.',
+                message: 'The clan boss week has ended. Rewards have been delivered to eligible clan treasuries and participating members. Check the Clan Boss screen for the next campaign.',
             }, { receiptId: `clan-boss-results:${week.weekId}` }); // a resumed run announces once
         }
 

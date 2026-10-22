@@ -87,7 +87,7 @@ test("major chapter beats receive authored camera, motion, cue, and expression d
         levelReq: 100,
         vnPages: [
             { title: "Prelude", scene: "The tower road", speaker: "Narrator", dialogue: ["Line"] },
-            { title: "Her Daughter Says the Why", scene: "Mira enters", speaker: "Mira Volt", dialogue: ["Line"] },
+            { title: "Mira Reads Her Mother's Grievance", scene: "Mira enters", speaker: "Mira Volt", dialogue: ["Line"] },
             { title: "After", scene: "The storm floor", speaker: "Narrator", dialogue: ["Line"] },
         ],
     });

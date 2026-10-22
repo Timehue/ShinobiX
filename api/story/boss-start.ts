@@ -13,6 +13,7 @@ import { isIncapacitated } from '../_elapsed-state.js';
 import { settleHeldFights } from '../pve/_held-fights.js';
 import { sectorPlace } from '../../shared/sector-geo.js';
 import { storyKageForVillage, STORY_KAGE_DIFFICULTY_LABEL, STORY_KAGE_RECOVERY } from '../../shared/story-kage.js';
+import { attachStoryTwinCombat } from './_twin-combat.js';
 import {
     createStoryCombatBinding,
     storyBossEligibility,
@@ -102,6 +103,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             },
             environment: { biome: fieldBiome ?? STORY_VILLAGE_BIOMES[eligibility.village] ?? 'central' },
         });
+        attachStoryTwinCombat(session);
         await writeSoloPveSession(session);
         await kv.set(storyCombatBindingKey(runId), binding, { ex: STORY_COMBAT_SESSION_TTL_SECONDS });
         return res.status(200).json({ ok: true, runId, session });

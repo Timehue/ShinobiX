@@ -136,9 +136,9 @@ export function DungeonEncounter({
         return (
             <div className="card cinematic-card">
                 <p className="act-label">HIDDEN DUNGEON</p>
-                <h2>All seals verified</h2>
-                <p>“Three clean signals. No rescue rope used. Take what the vault owes you; I have the next challenger to keep breathing.”</p>
-                <p>The Warden, Chronicle, and Rare Beast proofs are bound to this run. Claim the reserved reward now; if the request is interrupted, this screen remains recoverable.</p>
+                <h2>All three trials complete</h2>
+                <p>“You cleared all three trials. Your reward is ready. I need to prepare for the next challenger.”</p>
+                <p>You defeated the Warden, won the Chronicle Showdown, and beat the Rare Beast. Claim your dungeon reward below. If the claim is interrupted, reopen this dungeon to check it.</p>
                 <div className="menu vn-decision-controls">
                     <button className="danger-button" onClick={onLeave}>Abandon dungeon</button>
                     <button className="admin-button" onClick={onClaimReward}>Claim dungeon reward</button>

@@ -1,0 +1,46 @@
+{
+  "schema": 1,
+  "errors": [],
+  "pets": [
+    {
+      "id": "mythic-15",
+      "name": "Celestial Lion",
+      "url": "/.tmp/celestial-lion-anatomical-v3/roster/mythic-15.glb",
+      "sha256": "fe10ef667ac577512b50d6d54ea8c92ee035fe11ca267273859e0a3922018e7a",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "progress": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ],
+      "views": [
+        "front",
+        "side"
+      ],
+      "sheets": [
+        "mythic-15-front.webp",
+        "mythic-15-side.webp"
+      ],
+      "review": "pending",
+      "framing": "complete posed body bounds; camera follows pose without excluding any mesh vertices"
+    }
+  ],
+  "artisticCertification": false
+}

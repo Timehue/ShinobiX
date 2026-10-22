@@ -1,0 +1,110 @@
+{
+  "validatedAt": "2026-10-20T13:17:21.883Z",
+  "base": "d027fd0170ecfc41038e51bd75db7e81b51a11dc",
+  "selectedIds": [
+    "rare-19",
+    "rare-20",
+    "rare-21",
+    "rare-23",
+    "rare-24",
+    "rare-25",
+    "rare-28",
+    "rare-29",
+    "rare-30",
+    "rare-31",
+    "rare-33",
+    "rare-35",
+    "rare-36",
+    "rare-37",
+    "rare-39",
+    "standard-10",
+    "standard-11",
+    "standard-12",
+    "standard-13",
+    "standard-14",
+    "standard-15",
+    "standard-16",
+    "standard-18",
+    "standard-19",
+    "standard-20",
+    "standard-21",
+    "standard-22",
+    "standard-38",
+    "standard-40",
+    "standard-41",
+    "standard-42",
+    "standard-43",
+    "standard-44",
+    "standard-45",
+    "standard-46",
+    "standard-7",
+    "standard-8",
+    "standard-9"
+  ],
+  "changedSourceModels": 26,
+  "heldIds": [
+    "standard-39",
+    "rare-38"
+  ],
+  "heldReason": "Unchanged independent bird-skull ownership assertions rejected residual wing influence after original baselines were pinned. Held assets, receipts and runtime/cache values restored to main; repair candidates require fresh visual review.",
+  "validation": {
+    "fullProductionBuild": true,
+    "exactCertifiedDeliveryFiles": 483,
+    "productBytes": 9544762,
+    "combinedRegressionTestsPassed": 192,
+    "sourceBattleFaceCases": 76,
+    "crossClipBlendsPerFaceCase": 468,
+    "atlasFingerprints": 38,
+    "fullAuthoringReplays": 26,
+    "newDenseFrostGroundReplayPassed": true,
+    "upstreamDenseGroundCasesUnchanged": [
+      "rare-22",
+      "rare-26",
+      "rare-29"
+    ],
+    "all161ReceiptFailures": 0,
+    "lintErrors": 0,
+    "unselectedPetsPreserved": 123,
+    "budgetsChanged": false,
+    "thresholdsChanged": false
+  },
+  "checks": [
+    {
+      "path": "docs/screenshots/pet-parallel-batch-validation-2026-10-20/full-production-build.txt",
+      "sha256": "0e25c984c7d7f85a12d9ef2fc1df76cb2941e09bce40cbc157dac2036190549d",
+      "originalDiagnosticSha256": "75e8ad31a8a7fa1b8d6185c1ea00d45ddc2a71f799d3ef7c13dde7f2c433b358"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-batch-validation-2026-10-20/final-regressions.txt",
+      "sha256": "e7ad7946ac74465266f733f68ef4dc570fdd90957eb57009f06ac5bdb0fd8e04",
+      "originalDiagnosticSha256": "45ab09ad6800dd5c68ccbaf4496328aa3b235ad8cf4fd2f204d930b995b09502"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-batch-validation-2026-10-20/new-frost-dense-ground-replay.txt",
+      "sha256": "25971b2938f6f3ccfd6b8943c3591e4cb812a17540309dd105df6f3ddf6150bf",
+      "originalDiagnosticSha256": "f19617f107e4f43872284ddcfda053e5bf2ebb5b4acf9cf1b2f81a0affe81f85"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-batch-validation-2026-10-20/all161-receipts.txt",
+      "sha256": "838f4662ff9f40a64904d1c4cba0d6ed5fdcf54bf9f32fe07c0a92f229a0186c",
+      "originalDiagnosticSha256": "15fbf2d43885388dcafe5a49fe931177a2451b488334aa5c83089bfb1c7c9278"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-batch-validation-2026-10-20/lint.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "originalDiagnosticSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-batch-validation-2026-10-20/rejected-stale-accessor-baseline-check.txt",
+      "sha256": "a2cf54af1dcfbe0d27b7db7fa9fdd99d521c989f0fe00758c5b0400ac3efb16c",
+      "originalDiagnosticSha256": "8520dddaaf0bfaca5c003bfc9d6bfc739baf63e7a852b64e9d39214e64dccd0f"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-batch-validation-2026-10-20/rejected-two-bird-skull-candidates.txt",
+      "sha256": "03ee401037efc28cd01181649e436a50ab3dbc08cdb2dcfada6b39cb4ec3686e",
+      "originalDiagnosticSha256": "4d8ae970a8abf90294ef56884320317cddd05ea6299c9cd995476fdb471ea9f2"
+    }
+  ],
+  "wholeRosterComplete": false,
+  "liveVerified": false
+}

@@ -23,9 +23,10 @@ test('a gear step armor piece shows its exact reduction and equips', async ({ pa
 
     await page.getByRole('button', { name: 'Inspect Mistwrap Cowl', exact: true }).click();
     const dialog = page.getByRole('dialog', { name: 'Mistwrap Cowl item details', exact: true });
-    // Standard armor is 1 percent, and step 2 adds a full point.
+    // Step 2 adds one protection point; stacking still has diminishing returns.
     await expect(dialog).toContainText('Damage Reduction: 2%');
-    await expect(dialog).toContainText('A prized find that outclasses the Cloth Hood: 2% damage reduction, up from 1%.');
+    await expect(dialog).toContainText('Improved armor with 2% protection, compared with 1% on the Cloth Hood.');
+    await expect(dialog).toContainText('it is not a flat 2% reduction in final damage');
     await expect(dialog).toContainText('Sell Value: 150 ryo');
     await dialog.getByRole('button', { name: /^Equip to Head/ }).click();
 

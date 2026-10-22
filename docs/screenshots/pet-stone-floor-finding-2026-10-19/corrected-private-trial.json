@@ -1,0 +1,1999 @@
+{
+  "id": "standard-5",
+  "label": "stone-turtle-v2-private-contact-trial",
+  "rendererSha256": "b2253b71fbcb21a83d82de35ab5783dd57b525cfc94740fb131dd1eb0049a897",
+  "companionComponentSha256": "472645f0ade2c17a8be0a8f9fa5af0fdb9d47f4c835e24e6a374c8219b33e4ab",
+  "captureHarnessSha256": "65e2ce1e736811e39a930449b210b3c3faade23e4470802673ad58b14ec97124",
+  "models": [
+    {
+      "url": "/pet-models/warfront-lod/roster/standard-5.glb?v=20260902-battle-lod-v1-531df3f1176b-915424e85289",
+      "sha256": "ebe7f3606ab0d81ad1f3ae2a7b35d2aa9cc3342e03fb892f7fed71bbe37b9916"
+    }
+  ],
+  "moves": [
+    "earth-strike",
+    "earth-pulse",
+    "standard-5-signature"
+  ],
+  "views": [
+    "front"
+  ],
+  "requests": [
+    "https://localhost:5207/pet-models/warfront-lod/roster/standard-5.glb?v=20260902-battle-lod-v1-531df3f1176b-915424e85289",
+    "https://localhost:5207/pet-models/warfront-lod/roster/standard-5.glb?v=20260902-battle-lod-v1-531df3f1176b-915424e85289"
+  ],
+  "errors": [],
+  "frames": [
+    {
+      "move": "earth-strike",
+      "view": "front",
+      "i": 0,
+      "time": 0.04,
+      "engine": "three.js r185",
+      "previewFrames": "6",
+      "previewTime": "0.202",
+      "previewMotion": "windup",
+      "previewCalls": "2",
+      "previewTriangles": "40032",
+      "previewModel": "/pet-models/warfront-lod/roster/standard-5.glb?v=20260902-battle-lod-v1-531df3f1176b-915424e85289",
+      "previewCare": "",
+      "previewCareSerial": "0",
+      "previewAppearance": "original",
+      "previewCollar": "",
+      "name": "standard-5-earth-strike-front-0.png",
+      "sha256": "af8cfa95141f9590a88f7b27f390cd4a9f1c075010c17dcfcd48bd1e00ca0a85",
+      "contact": {
+        "planeY": -0.02,
+        "lowest": {
+          "vertex": 4979,
+          "world": [
+            -0.6536862393441232,
+            -0.014871674877113161,
+            0.12272517679376349
+          ],
+          "bind": [
+            -0.5783257545701468,
+            -0.9993896298104801,
+            0.1284218878749962
+          ],
+          "bones": [
+            {
+              "name": "footR",
+              "weight": 0.6941176652908325
+            },
+            {
+              "name": "shinR",
+              "weight": 0.27843138575553894
+            },
+            {
+              "name": "thighR",
+              "weight": 0.027450980618596077
+            },
+            {
+              "name": "root",
+              "weight": 0
+            }
+          ]
+        },
+        "clearance": 0.005128325122886839
+      }
+    },
+    {
+      "move": "earth-strike",
+      "view": "front",
+      "i": 1,
+      "time": 0.12,
+      "engine": "three.js r185",
+      "previewFrames": "7",
+      "previewTime": "0.25",
+      "previewMotion": "windup",
+      "previewCalls": "2",
+      "previewTriangles": "40032",
+      "previewModel": "/pet-models/warfront-lod/roster/standard-5.glb?v=20260902-battle-lod-v1-531df3f1176b-915424e85289",
+      "previewCare": "",
+      "previewCareSerial": "0",
+      "previewAppearance": "original",
+      "previewCollar": "",
+      "name": "standard-5-earth-strike-front-1.png",
+      "sha256": "a5c73fd7cadd02850a701a61a12e02ad3b4ee6df5eba160dbcf5ff4abf6625a3",
+      "contact": {
+        "planeY": -0.02,
+        "lowest": {
+          "vertex": 18513,
+          "world": [
+            0.5672125045905562,
+            -0.0003190663276981809,
+            0.5177072453052912
+          ],
+          "bind": [
+            0.47233497116000855,
+            -0.999633777886288,
+            0.5063020722067935
+          ],
+          "bones": [
+            {
+              "name": "footL",
+              "weight": 0.7529411911964417
+            },
+            {
+              "name": "shinL",
+              "weight": 0.239215686917305
+            },
+            {
+              "name": "thighL",
+              "weight": 0.007843137718737125
+            },
+            {
+              "name": "root",
+              "weight": 0
+            }
+          ]
+        },
+        "clearance": 0.01968093367230182
+      }
+    },
+    {
+      "move": "earth-strike",
+      "view": "front",
+      "i": 2,
+      "time": 0.24,
+      "engine": "three.js r185",
+      "previewFrames": "11",
+      "previewTime": "0.4099999999999999",
+      "previewMotion": "windup",
+      "previewCalls": "2",
+      "previewTriangles": "40032",
+      "previewModel": "/pet-models/warfront-lod/roster/standard-5.glb?v=20260902-battle-lod-v1-531df3f1176b-915424e85289",
+      "previewCare": "",
+      "previewCareSerial": "0",
+      "previewAppearance": "original",
+      "previewCollar": "",
+      "name": "standard-5-earth-strike-front-2.png",
+      "sha256": "3e518818be8803eb24ff76b3dc45d0c1f58c459e1a111f1d56034cb1d7cce7a3",
+      "contact": {
+        "planeY": -0.02,
+        "lowest": {
+          "vertex": 17587,
+          "world": [
+            0.4413367704602338,
+            0.0012593841138994755,
+            0.2899589873350203
+          ],
+          "bind": [
+            0.337321085238197,
+            -0.9985351115451522,
+            0.5155796990874966
+          ],
+          "bones": [
+            {
+              "name": "footL",
+              "weight": 0.7529411911964417
+            },
+            {
+              "name": "shinL",
+              "weight": 0.239215686917305
+            },
+            {
+              "name": "thighL",
+              "weight": 0.007843137718737125
+            },
+            {
+              "name": "root",
+              "weight": 0
+            }
+          ]
+        },
+        "clearance": 0.021259384113899476
+      }
+    },
+    {
+      "move": "earth-strike",
+      "view": "front",
+      "i": 3,
+      "time": 0.36,
+      "engine": "three.js r185",
+      "previewFrames": "13",
+      "previewTime": "0.5059999999999999",
+      "previewMotion": "windup",
+      "previewCalls": "2",
+      "previewTriangles": "40032",
+      "previewModel": "/pet-models/warfront-lod/roster/standard-5.glb?v=20260902-battle-lod-v1-531df3f1176b-915424e85289",
+      "previewCare": "",
+      "previewCareSerial": "0",
+      "previewAppearance": "original",
+      "previewCollar": "",
+      "name": "standard-5-earth-strike-front-3.png",
+      "sha256": "b52132b5b64e12df5d0fd92ef6e7da4b4979c1a29d29d5cc28d107044b9f944a",
+      "contact": {
+        "planeY": -0.02,
+        "lowest": {
+          "vertex": 17587,
+          "world": [
+            0.45764244086133743,
+            0.001259438206592689,
+            0.1689104375430674
+          ],
+          "bind": [
+            0.337321085238197,
+            -0.9985351115451522,
+            0.5155796990874966
+          ],
+          "bones": [
+            {
+              "name": "footL",
+              "weight": 0.7529411911964417
+            },
+            {
+              "name": "shinL",
+              "weight": 0.239215686917305
+            },
+            {
+              "name": "thighL",
+              "weight": 0.007843137718737125
+            },
+            {
+              "name": "root",
+              "weight": 0
+            }
+          ]
+        },
+        "clearance": 0.02125943820659269
+      }
+    },
+    {
+      "move": "earth-strike",
+      "view": "front",
+      "i": 4,
+      "time": 0.48,
+      "engine": "three.js r185",
+      "previewFrames": "16",
+      "previewTime": "0.618",
+      "previewMotion": "strike",
+      "previewCalls": "2",
+      "previewTriangles": "40032",
+      "previewModel": "/pet-models/warfront-lod/roster/standard-5.glb?v=20260902-battle-lod-v1-531df3f1176b-915424e85289",
+      "previewCare": "",
+      "previewCareSerial": "0",
+      "previewAppearance": "original",
+      "previewCollar": "",
+      "name": "standard-5-earth-strike-front-4.png",
+      "sha256": "2695ee54732847cefea5cb8128f57fb690c3cc937c44f2e47b34270ec663da4b",
+      "contact": {
+        "planeY": -0.02,
+        "lowest": {
+          "vertex": 5057,
+          "world": [
+            -0.45194229889104753,
+            0.04174522277907933,
+            0.9423049296280969
+          ],
+          "bind": [
+            -0.4009216589861751,
+            -1,
+            0.5042268135624256
+          ],
+          "bones": [
+            {
+              "name": "footR",
+              "weight": 0.7450980544090271
+            },
+            {
+              "name": "shinR",
+              "weight": 0.24313725531101227
+            },
+            {
+              "name": "thighR",
+              "weight": 0.0117647061124444
+            },
+            {
+              "name": "root",
+              "weight": 0
+            }
+          ]
+        },
+        "clearance": 0.06174522277907933
+      }
+    },
+    {
+      "move": "earth-strike",
+      "view": "front",
+      "i": 5,
+      "time": 0.6,
+      "engine": "three.js r185",
+      "previewFrames": "19",
+      "previewTime": "0.7460000000000001",
+      "previewMotion": "strike",
+      "previewCalls": "2",
+      "previewTriangles": "40032",
+      "previewModel": "/pet-models/warfront-lod/roster/standard-5.glb?v=20260902-battle-lod-v1-531df3f1176b-915424e85289",
+      "previewCare": "",
+      "previewCareSerial": "0",
+      "previewAppearance": "original",
+      "previewCollar": "",
+      "name": "standard-5-earth-strike-front-5.png",
+      "sha256": "447f5e376b1efbe03f24f2e5f7abcb734d07a0d1c39d7f0c8e30ef555c9aa9b2",
+      "contact": {
+        "planeY": -0.02,
+        "lowest": {
+          "vertex": 18490,
+          "world": [
+            0.42031117727601197,
+            0.017258603900250913,
+            0.6933900939475888
+          ],
+          "bind": [
+            0.3435468611713004,
+            -0.999755851924192,
+            0.49491866817224645
+          ],
+          "bones": [
+            {
+              "name": "footL",
+              "weight": 0.7529411911964417
+            },
+            {
+              "name": "shinL",
+              "weight": 0.239215686917305
+            },
+            {
+              "name": "thighL",
+              "weight": 0.007843137718737125
+            },
+            {
+              "name": "root",
+              "weight": 0
+            }
+          ]
+        },
+        "clearance": 0.03725860390025092
+      }
+    },
+    {
+      "move": "earth-strike",
+      "view": "front",
+      "i": 6,
+      "time": 0.76,
+      "engine": "three.js r185",
+      "previewFrames": "23",
+      "previewTime": "0.9220000000000003",
+      "previewMotion": "recover",
+      "previewCalls": "2",
+      "previewTriangles": "40032",
+      "previewModel": "/pet-models/warfront-lod/roster/standard-5.glb?v=20260902-battle-lod-v1-531df3f1176b-915424e85289",
+      "previewCare": "",
+      "previewCareSerial": "0",
+      "previewAppearance": "original",
+      "previewCollar": "",
+      "name": "standard-5-earth-strike-front-6.png",
+      "sha256": "781dde7d97195df6b57679ccb370c69baaeddf8b27d4e44ddcaeb3e69ec158b5",
+      "contact": {
+        "planeY": -0.02,
+        "lowest": {
+          "vertex": 18490,
+          "world": [
+            0.41600931611950775,
+            0.0012592805211550928,
+            0.6197561734192293
+          ],
+          "bind": [
+            0.3435468611713004,
+            -0.999755851924192,
+            0.49491866817224645
+          ],
+          "bones": [
+            {
+              "name": "footL",
+              "weight": 0.7529411911964417
+            },
+            {
+              "name": "shinL",
+              "weight": 0.239215686917305
+            },
+            {
+              "name": "thighL",
+              "weight": 0.007843137718737125
+            },
+            {
+              "name": "root",
+              "weight": 0
+            }
+          ]
+        },
+        "clearance": 0.021259280521155093
+      }
+    },
+    {
+      "move": "earth-strike",
+      "view": "front",
+      "i": 7,
+      "time": 0.96,
+      "engine": "three.js r185",
+      "previewFrames": "28",
+      "previewTime": "1.1300000000000003",
+      "previewMotion": "recover",
+      "previewCalls": "2",
+      "previewTriangles": "40032",
+      "previewModel": "/pet-models/warfront-lod/roster/standard-5.glb?v=20260902-battle-lod-v1-531df3f1176b-915424e85289",
+      "previewCare": "",
+      "previewCareSerial": "0",
+      "previewAppearance": "original",
+      "previewCollar": "",
+      "name": "standard-5-earth-strike-front-7.png",
+      "sha256": "b2a7a43483b3afff4614f1574b6b32dcb0a156c536f1cbd26b0f9ce866b7ecad",
+      "contact": {
+        "planeY": -0.02,
+        "lowest": {
+          "vertex": 5057,
+          "world": [
+            -0.4519421014114954,
+            0.0012573514809870456,
+            0.6003169972172498
+          ],
+          "bind": [
+            -0.4009216589861751,
+            -1,
+            0.5042268135624256
+          ],
+          "bones": [
+            {
+              "name": "footR",
+              "weight": 0.7450980544090271
+            },
+            {
+              "name": "shinR",
+              "weight": 0.24313725531101227
+            },
+            {
+              "name": "thighR",
+              "weight": 0.0117647061124444
+            },
+            {
+              "name": "root",
+              "weight": 0
+            }
+          ]
+        },
+        "clearance": 0.021257351480987046
+      }
+    },
+    {
+      "move": "earth-strike",
+      "view": "front",
+      "i": 8,
+      "time": 1.2,
+      "engine": "three.js r185",
+      "previewFrames": "34",
+      "previewTime": "1.3700000000000006",
+      "previewMotion": "recover",
+      "previewCalls": "2",
+      "previewTriangles": "40032",
+      "previewModel": "/pet-models/warfront-lod/roster/standard-5.glb?v=20260902-battle-lod-v1-531df3f1176b-915424e85289",
+      "previewCare": "",
+      "previewCareSerial": "0",
+      "previewAppearance": "original",
+      "previewCollar": "",
+      "name": "standard-5-earth-strike-front-8.png",
+      "sha256": "4f2a778cda93f918cb1b53efda5ed9b423505a7046567d2ba26ea362cca533c8",
+      "contact": {
+        "planeY": -0.02,
+        "lowest": {
+          "vertex": 5057,
+          "world": [
+            -0.4519418163875725,
+            0.0012592849885473267,
+            0.5699788019079317
+          ],
+          "bind": [
+            -0.4009216589861751,
+            -1,
+            0.5042268135624256
+          ],
+          "bones": [
+            {
+              "name": "footR",
+              "weight": 0.7450980544090271
+            },
+            {
+              "name": "shinR",
+              "weight": 0.24313725531101227
+            },
+            {
+              "name": "thighR",
+              "weight": 0.0117647061124444
+            },
+            {
+              "name": "root",
+              "weight": 0
+            }
+          ]
+        },
+        "clearance": 0.021259284988547327
+      }
+    },
+    {
+      "move": "earth-strike",
+      "view": "front",
+      "i": 9,
+      "time": 1.44,
+      "engine": "three.js r185",
+      "previewFrames": "39",
+      "previewTime": "1.5780000000000007",
+      "previewMotion": "recover",
+      "previewCalls": "2",
+      "previewTriangles": "40032",
+      "previewModel": "/pet-models/warfront-lod/roster/standard-5.glb?v=20260902-battle-lod-v1-531df3f1176b-915424e85289",
+      "previewCare": "",
+      "previewCareSerial": "0",
+      "previewAppearance": "original",
+      "previewCollar": "",
+      "name": "standard-5-earth-strike-front-9.png",
+      "sha256": "5a73b7e85c8207e2509d10ca9d9ace818e915e483ff32eb2d7545986a6b94509",
+      "contact": {
+        "planeY": -0.02,
+        "lowest": {
+          "vertex": 5057,
+          "world": [
+            -0.45194156510710914,
+            0.001258575101479975,
+            0.5573244564230476
+          ],
+          "bind": [
+            -0.4009216589861751,
+            -1,
+            0.5042268135624256
+          ],
+          "bones": [
+            {
+              "name": "footR",
+              "weight": 0.7450980544090271
+            },
+            {
+              "name": "shinR",
+              "weight": 0.24313725531101227
+            },
+            {
+              "name": "thighR",
+              "weight": 0.0117647061124444
+            },
+            {
+              "name": "root",
+              "weight": 0
+            }
+          ]
+        },
+        "clearance": 0.021258575101479976
+      }
+    },
+    {
+      "move": "earth-strike",
+      "view": "front",
+      "i": 10,
+      "time": 1.68,
+      "engine": "three.js r185",
+      "previewFrames": "45",
+      "previewTime": "1.834000000000001",
+      "previewMotion": "idle",
+      "previewCalls": "2",
+      "previewTriangles": "40032",
+      "previewModel": "/pet-models/warfront-lod/roster/standard-5.glb?v=20260902-battle-lod-v1-531df3f1176b-915424e85289",
+      "previewCare": "",
+      "previewCareSerial": "0",
+      "previewAppearance": "original",
+      "previewCollar": "",
+      "name": "standard-5-earth-strike-front-10.png",
+      "sha256": "59ef4cb13e34a48978141e947f99fc4f0d64887da7b4e3e81a7520cfcd60ff57",
+      "contact": {
+        "planeY": -0.02,
+        "lowest": {
+          "vertex": 4979,
+          "world": [
+            -0.6518877959958064,
+            -0.017720132755248752,
+            0.12385167190256713
+          ],
+          "bind": [
+            -0.5783257545701468,
+            -0.9993896298104801,
+            0.1284218878749962
+          ],
+          "bones": [
+            {
+              "name": "footR",
+              "weight": 0.6941176652908325
+            },
+            {
+              "name": "shinR",
+              "weight": 0.27843138575553894
+            },
+            {
+              "name": "thighR",
+              "weight": 0.027450980618596077
+            },
+            {
+              "name": "root",
+              "weight": 0
+            }
+          ]
+        },
+        "clearance": 0.0022798672447512484
+      }
+    },
+    {
+      "move": "earth-strike",
+      "view": "front",
+      "i": 11,
+      "time": 1.92,
+      "engine": "three.js r185",
+      "previewFrames": "51",
+      "previewTime": "2.090000000000001",
+      "previewMotion": "idle",
+      "previewCalls": "2",
+      "previewTriangles": "40032",
+      "previewModel": "/pet-models/warfront-lod/roster/standard-5.glb?v=20260902-battle-lod-v1-531df3f1176b-915424e85289",
+      "previewCare": "",
+      "previewCareSerial": "0",
+      "previewAppearance": "original",
+      "previewCollar": "",
+      "name": "standard-5-earth-strike-front-11.png",
+      "sha256": "c18abee8e5e40e05ebf6758f14ea19dc8807be7f219a17c0bbf3bb6bcaab9503",
+      "contact": {
+        "planeY": -0.02,
+        "lowest": {
+          "vertex": 4979,
+          "world": [
+            -0.6522548816967327,
+            -0.01699924252916407,
+            0.1236646664588732
+          ],
+          "bind": [
+            -0.5783257545701468,
+            -0.9993896298104801,
+            0.1284218878749962
+          ],
+          "bones": [
+            {
+              "name": "footR",
+              "weight": 0.6941176652908325
+            },
+            {
+              "name": "shinR",
+              "weight": 0.27843138575553894
+            },
+            {
+              "name": "thighR",
+              "weight": 0.027450980618596077
+            },
+            {
+              "name": "root",
+              "weight": 0
+            }
+          ]
+        },
+        "clearance": 0.003000757470835929
+      }
+    },
+    {
+      "move": "earth-pulse",
+      "view": "front",
+      "i": 0,
+      "time": 0.04,
+      "engine": "three.js r185",
+      "previewFrames": "55",
+      "previewTime": "2.2020000000000013",
+      "previewMotion": "windup",
+      "previewCalls": "2",
+      "previewTriangles": "40032",
+      "previewModel": "/pet-models/warfront-lod/roster/standard-5.glb?v=20260902-battle-lod-v1-531df3f1176b-915424e85289",
+      "previewCare": "",
+      "previewCareSerial": "0",
+      "previewAppearance": "original",
+      "previewCollar": "",
+      "name": "standard-5-earth-pulse-front-0.png",
+      "sha256": "e67a97835d0c97beed73a0dd510319e738fc5c0e727fdb38b64fcb32832efa61",
+      "contact": {
+        "planeY": -0.02,
+        "lowest": {
+          "vertex": 4979,
+          "world": [
+            -0.6539267524351654,
+            -0.014366953442633612,
+            0.12292877183764836
+          ],
+          "bind": [
+            -0.5783257545701468,
+            -0.9993896298104801,
+            0.1284218878749962
+          ],
+          "bones": [
+            {
+              "name": "footR",
+              "weight": 0.6941176652908325
+            },
+            {
+              "name": "shinR",
+              "weight": 0.27843138575553894
+            },
+            {
+              "name": "thighR",
+              "weight": 0.027450980618596077
+            },
+            {
+              "name": "root",
+              "weight": 0
+            }
+          ]
+        },
+        "clearance": 0.005633046557366388
+      }
+    },
+    {
+      "move": "earth-pulse",
+      "view": "front",
+      "i": 1,
+      "time": 0.12,
+      "engine": "three.js r185",
+      "previewFrames": "57",
+      "previewTime": "2.2980000000000014",
+      "previewMotion": "windup",
+      "previewCalls": "2",
+      "previewTriangles": "40032",
+      "previewModel": "/pet-models/warfront-lod/roster/standard-5.glb?v=20260902-battle-lod-v1-531df3f1176b-915424e85289",
+      "previewCare": "",
+      "previewCareSerial": "0",
+      "previewAppearance": "original",
+      "previewCollar": "",
+      "name": "standard-5-earth-pulse-front-1.png",
+      "sha256": "3db5a51907f3fae18a48fc2883f284fdf964298952016b741b3c34121de1d2d3",
+      "contact": {
+        "planeY": -0.02,
+        "lowest": {
+          "vertex": 18490,
+          "world": [
+            0.4199455752797707,
+            0.0012593643264851018,
+            0.508951501141778
+          ],
+          "bind": [
+            0.3435468611713004,
+            -0.999755851924192,
+            0.49491866817224645
+          ],
+          "bones": [
+            {
+              "name": "footL",
+              "weight": 0.7529411911964417
+            },
+            {
+              "name": "shinL",
+              "weight": 0.239215686917305
+            },
+            {
+              "name": "thighL",
+              "weight": 0.007843137718737125
+            },
+            {
+              "name": "root",
+              "weight": 0
+            }
+          ]
+        },
+        "clearance": 0.021259364326485102
+      }
+    },
+    {
+      "move": "earth-pulse",
+      "view": "front",
+      "i": 2,
+      "time": 0.24,
+      "engine": "three.js r185",
+      "previewFrames": "60",
+      "previewTime": "2.4100000000000015",
+      "previewMotion": "windup",
+      "previewCalls": "2",
+      "previewTriangles": "40032",
+      "previewModel": "/pet-models/warfront-lod/roster/standard-5.glb?v=20260902-battle-lod-v1-531df3f1176b-915424e85289",
+      "previewCare": "",
+      "previewCareSerial": "0",
+      "previewAppearance": "original",
+      "previewCollar": "",
+      "name": "standard-5-earth-pulse-front-2.png",
+      "sha256": "13a9d3a72237f63ed4103c38139e19e61439ed7e43c6171bb9352f1179b6da5d",
+      "contact": {
+        "planeY": -0.02,
+        "lowest": {
+          "vertex": 17587,
+          "world": [
+            0.42549772368839855,
+            0.0012593363620891918,
+            0.46969587981074706
+          ],
+          "bind": [
+            0.337321085238197,
+            -0.9985351115451522,
+            0.5155796990874966
+          ],
+          "bones": [
+            {
+              "name": "footL",
+              "weight": 0.7529411911964417
+            },
+            {
+              "name": "shinL",
+              "weight": 0.239215686917305
+            },
+            {
+              "name": "thighL",
+              "weight": 0.007843137718737125
+            },
+            {
+              "name": "root",
+              "weight": 0
+            }
+          ]
+        },
+        "clearance": 0.021259336362089192
+      }
+    },
+    {
+      "move": "earth-pulse",
+      "view": "front",
+      "i": 3,
+      "time": 0.36,
+      "engine": "three.js r185",
+      "previewFrames": "63",
+      "previewTime": "2.5380000000000016",
+      "previewMotion": "windup",
+      "previewCalls": "2",
+      "previewTriangles": "40032",
+      "previewModel": "/pet-models/warfront-lod/roster/standard-5.glb?v=20260902-battle-lod-v1-531df3f1176b-915424e85289",
+      "previewCare": "",
+      "previewCareSerial": "0",
+      "previewAppearance": "original",
+      "previewCollar": "",
+      "name": "standard-5-earth-pulse-front-3.png",
+      "sha256": "12f2e9eac1784668e7832190c062bbc15db57792fa9cd0dbe0e30b589144c6f9",
+      "contact": {
+        "planeY": -0.02,
+        "lowest": {
+          "vertex": 17587,
+          "world": [
+            0.4286108239905095,
+            0.001259319341557541,
+            0.4628609222659063
+          ],
+          "bind": [
+            0.337321085238197,
+            -0.9985351115451522,
+            0.5155796990874966
+          ],
+          "bones": [
+            {
+              "name": "footL",
+              "weight": 0.7529411911964417
+            },
+            {
+              "name": "shinL",
+              "weight": 0.239215686917305
+            },
+            {
+              "name": "thighL",
+              "weight": 0.007843137718737125
+            },
+            {
+              "name": "root",
+              "weight": 0
+            }
+          ]
+        },
+        "clearance": 0.02125931934155754
+      }
+    },
+    {
+      "move": "earth-pulse",
+      "view": "front",
+      "i": 4,
+      "time": 0.48,
+      "engine": "three.js r185",
+      "previewFrames": "66",
+      "previewTime": "2.6660000000000017",
+      "previewMotion": "strike",
+      "previewCalls": "2",
+      "previewTriangles": "40032",
+      "previewModel": "/pet-models/warfront-lod/roster/standard-5.glb?v=20260902-battle-lod-v1-531df3f1176b-915424e85289",
+      "previewCare": "",
+      "previewCareSerial": "0",
+      "previewAppearance": "original",
+      "previewCollar": "",
+      "name": "standard-5-earth-pulse-front-4.png",
+      "sha256": "f1f0e221580615639200f22f4ec25c7503a2d679482b14882a504eb205945ef7",
+      "contact": {
+        "planeY": -0.02,
+        "lowest": {
+          "vertex": 5057,
+          "world": [
+            -0.45194176113372736,
+            0.025142284249241476,
+            0.6300960275439598
+          ],
+          "bind": [
+            -0.4009216589861751,
+            -1,
+            0.5042268135624256
+          ],
+          "bones": [
+            {
+              "name": "footR",
+              "weight": 0.7450980544090271
+            },
+            {
+              "name": "shinR",
+              "weight": 0.24313725531101227
+            },
+            {
+              "name": "thighR",
+              "weight": 0.0117647061124444
+            },
+            {
+              "name": "root",
+              "weight": 0
+            }
+          ]
+        },
+        "clearance": 0.04514228424924148
+      }
+    },
+    {
+      "move": "earth-pulse",
+      "view": "front",
+      "i": 5,
+      "time": 0.6,
+      "engine": "three.js r185",
+      "previewFrames": "69",
+      "previewTime": "2.794000000000002",
+      "previewMotion": "strike",
+      "previewCalls": "2",
+      "previewTriangles": "40032",
+      "previewModel": "/pet-models/warfront-lod/roster/standard-5.glb?v=20260902-battle-lod-v1-531df3f1176b-915424e85289",
+      "previewCare": "",
+      "previewCareSerial": "0",
+      "previewAppearance": "original",
+      "previewCollar": "",
+      "name": "standard-5-earth-pulse-front-5.png",
+      "sha256": "324dd206696d5071e91bb6c9875352f6d6d126fb2460df07ee1f06609b48470a",
+      "contact": {
+        "planeY": -0.02,
+        "lowest": {
+          "vertex": 5057,
+          "world": [
+            -0.45194155647689066,
+            0.018762191588600707,
+            0.6114336676267582
+          ],
+          "bind": [
+            -0.4009216589861751,
+            -1,
+            0.5042268135624256
+          ],
+          "bones": [
+            {
+              "name": "footR",
+              "weight": 0.7450980544090271
+            },
+            {
+              "name": "shinR",
+              "weight": 0.24313725531101227
+            },
+            {
+              "name": "thighR",
+              "weight": 0.0117647061124444
+            },
+            {
+              "name": "root",
+              "weight": 0
+            }
+          ]
+        },
+        "clearance": 0.03876219158860071
+      }
+    },
+    {
+      "move": "earth-pulse",
+      "view": "front",
+      "i": 6,
+      "time": 0.76,
+      "engine": "three.js r185",
+      "previewFrames": "73",
+      "previewTime": "2.954000000000002",
+      "previewMotion": "recover",
+      "previewCalls": "2",
+      "previewTriangles": "40032",
+      "previewModel": "/pet-models/warfront-lod/roster/standard-5.glb?v=20260902-battle-lod-v1-531df3f1176b-915424e85289",
+      "previewCare": "",
+      "previewCareSerial": "0",
+      "previewAppearance": "original",
+      "previewCollar": "",
+      "name": "standard-5-earth-pulse-front-6.png",
+      "sha256": "95be2058065588dc97b2491687d030fc4436986b32a746c18bf7b960c1d2fa8b",
+      "contact": {
+        "planeY": -0.02,
+        "lowest": {
+          "vertex": 5057,
+          "world": [
+            -0.45194201974295506,
+            0.00742396190852701,
+            0.5835236879478336
+          ],
+          "bind": [
+            -0.4009216589861751,
+            -1,
+            0.5042268135624256
+          ],
+          "bones": [
+            {
+              "name": "footR",
+              "weight": 0.7450980544090271
+            },
+            {
+              "name": "shinR",
+              "weight": 0.24313725531101227
+            },
+            {
+              "name": "thighR",
+              "weight": 0.0117647061124444
+            },
+            {
+              "name": "root",
+              "weight": 0
+            }
+          ]
+        },
+        "clearance": 0.02742396190852701
+      }
+    },
+    {
+      "move": "earth-pulse",
+      "view": "front",
+      "i": 7,
+      "time": 0.96,
+      "engine": "three.js r185",
+      "previewFrames": "77",
+      "previewTime": "3.130000000000002",
+      "previewMotion": "recover",
+      "previewCalls": "2",
+      "previewTriangles": "40032",
+      "previewModel": "/pet-models/warfront-lod/roster/standard-5.glb?v=20260902-battle-lod-v1-531df3f1176b-915424e85289",
+      "previewCare": "",
+      "previewCareSerial": "0",
+      "previewAppearance": "original",
+      "previewCollar": "",
+      "name": "standard-5-earth-pulse-front-7.png",
+      "sha256": "ad510bbbe997e4e96e5fde8f78ad8e1d9ca6785f3b5b18a9cf6c50d265510cf6",
+      "contact": {
+        "planeY": -0.02,
+        "lowest": {
+          "vertex": 18490,
+          "world": [
+            0.4136449266435476,
+            0.001259304255028626,
+            0.5550737971615743
+          ],
+          "bind": [
+            0.3435468611713004,
+            -0.999755851924192,
+            0.49491866817224645
+          ],
+          "bones": [
+            {
+              "name": "footL",
+              "weight": 0.7529411911964417
+            },
+            {
+              "name": "shinL",
+              "weight": 0.239215686917305
+            },
+            {
+              "name": "thighL",
+              "weight": 0.007843137718737125
+            },
+            {
+              "name": "root",
+              "weight": 0
+            }
+          ]
+        },
+        "clearance": 0.021259304255028626
+      }
+    },
+    {
+      "move": "earth-pulse",
+      "view": "front",
+      "i": 8,
+      "time": 1.2,
+      "engine": "three.js r185",
+      "previewFrames": "83",
+      "previewTime": "3.3700000000000023",
+      "previewMotion": "recover",
+      "previewCalls": "2",
+      "previewTriangles": "40032",
+      "previewModel": "/pet-models/warfront-lod/roster/standard-5.glb?v=20260902-battle-lod-v1-531df3f1176b-915424e85289",
+      "previewCare": "",
+      "previewCareSerial": "0",
+      "previewAppearance": "original",
+      "previewCollar": "",
+      "name": "standard-5-earth-pulse-front-8.png",
+      "sha256": "9ed35d11b17f5d90c9ad7fcee3eff0db65057631adb80914e902987afc48a534",
+      "contact": {
+        "planeY": -0.02,
+        "lowest": {
+          "vertex": 18606,
+          "world": [
+            0.6994920313037144,
+            0.0012593221560583956,
+            0.4570230887753724
+          ],
+          "bind": [
+            0.5896786400952178,
+            -1,
+            0.4163029877620777
+          ],
+          "bones": [
+            {
+              "name": "footL",
+              "weight": 0.7529411911964417
+            },
+            {
+              "name": "shinL",
+              "weight": 0.239215686917305
+            },
+            {
+              "name": "thighL",
+              "weight": 0.007843137718737125
+            },
+            {
+              "name": "root",
+              "weight": 0
+            }
+          ]
+        },
+        "clearance": 0.021259322156058396
+      }
+    },
+    {
+      "move": "earth-pulse",
+      "view": "front",
+      "i": 9,
+      "time": 1.44,
+      "engine": "three.js r185",
+      "previewFrames": "89",
+      "previewTime": "3.6260000000000026",
+      "previewMotion": "idle",
+      "previewCalls": "2",
+      "previewTriangles": "40032",
+      "previewModel": "/pet-models/warfront-lod/roster/standard-5.glb?v=20260902-battle-lod-v1-531df3f1176b-915424e85289",
+      "previewCare": "",
+      "previewCareSerial": "0",
+      "previewAppearance": "original",
+      "previewCollar": "",
+      "name": "standard-5-earth-pulse-front-9.png",
+      "sha256": "14bc13a0291287bc3073da24f6f9609ae5b7e768d98282e14d54ff5965db8d5e",
+      "contact": {
+        "planeY": -0.02,
+        "lowest": {
+          "vertex": 5049,
+          "world": [
+            -0.6431970055647034,
+            -0.0020162289441605363,
+            0.11228039651996946
+          ],
+          "bind": [
+            -0.5659962767418439,
+            -0.999755851924192,
+            0.12097537156285287
+          ],
+          "bones": [
+            {
+              "name": "footR",
+              "weight": 0.7058823704719543
+            },
+            {
+              "name": "shinR",
+              "weight": 0.2705882489681244
+            },
+            {
+              "name": "thighR",
+              "weight": 0.0235294122248888
+            },
+            {
+              "name": "root",
+              "weight": 0
+            }
+          ]
+        },
+        "clearance": 0.017983771055839464
+      }
+    },
+    {
+      "move": "earth-pulse",
+      "view": "front",
+      "i": 10,
+      "time": 1.68,
+      "engine": "three.js r185",
+      "previewFrames": "94",
+      "previewTime": "3.8340000000000027",
+      "previewMotion": "idle",
+      "previewCalls": "2",
+      "previewTriangles": "40032",
+      "previewModel": "/pet-models/warfront-lod/roster/standard-5.glb?v=20260902-battle-lod-v1-531df3f1176b-915424e85289",
+      "previewCare": "",
+      "previewCareSerial": "0",
+      "previewAppearance": "original",
+      "previewCollar": "",
+      "name": "standard-5-earth-pulse-front-10.png",
+      "sha256": "59ef4cb13e34a48978141e947f99fc4f0d64887da7b4e3e81a7520cfcd60ff57",
+      "contact": {
+        "planeY": -0.02,
+        "lowest": {
+          "vertex": 4979,
+          "world": [
+            -0.6518877959958064,
+            -0.017720132755248752,
+            0.12385167190256713
+          ],
+          "bind": [
+            -0.5783257545701468,
+            -0.9993896298104801,
+            0.1284218878749962
+          ],
+          "bones": [
+            {
+              "name": "footR",
+              "weight": 0.6941176652908325
+            },
+            {
+              "name": "shinR",
+              "weight": 0.27843138575553894
+            },
+            {
+              "name": "thighR",
+              "weight": 0.027450980618596077
+            },
+            {
+              "name": "root",
+              "weight": 0
+            }
+          ]
+        },
+        "clearance": 0.0022798672447512484
+      }
+    },
+    {
+      "move": "earth-pulse",
+      "view": "front",
+      "i": 11,
+      "time": 1.92,
+      "engine": "three.js r185",
+      "previewFrames": "100",
+      "previewTime": "4.0900000000000025",
+      "previewMotion": "idle",
+      "previewCalls": "2",
+      "previewTriangles": "40032",
+      "previewModel": "/pet-models/warfront-lod/roster/standard-5.glb?v=20260902-battle-lod-v1-531df3f1176b-915424e85289",
+      "previewCare": "",
+      "previewCareSerial": "0",
+      "previewAppearance": "original",
+      "previewCollar": "",
+      "name": "standard-5-earth-pulse-front-11.png",
+      "sha256": "c18abee8e5e40e05ebf6758f14ea19dc8807be7f219a17c0bbf3bb6bcaab9503",
+      "contact": {
+        "planeY": -0.02,
+        "lowest": {
+          "vertex": 4979,
+          "world": [
+            -0.6522548816967327,
+            -0.016999242529164293,
+            0.12366466645887322
+          ],
+          "bind": [
+            -0.5783257545701468,
+            -0.9993896298104801,
+            0.1284218878749962
+          ],
+          "bones": [
+            {
+              "name": "footR",
+              "weight": 0.6941176652908325
+            },
+            {
+              "name": "shinR",
+              "weight": 0.27843138575553894
+            },
+            {
+              "name": "thighR",
+              "weight": 0.027450980618596077
+            },
+            {
+              "name": "root",
+              "weight": 0
+            }
+          ]
+        },
+        "clearance": 0.003000757470835707
+      }
+    },
+    {
+      "move": "standard-5-signature",
+      "view": "front",
+      "i": 0,
+      "time": 0.04,
+      "engine": "three.js r185",
+      "previewFrames": "105",
+      "previewTime": "4.250000000000003",
+      "previewMotion": "windup",
+      "previewCalls": "2",
+      "previewTriangles": "40032",
+      "previewModel": "/pet-models/warfront-lod/roster/standard-5.glb?v=20260902-battle-lod-v1-531df3f1176b-915424e85289",
+      "previewCare": "",
+      "previewCareSerial": "0",
+      "previewAppearance": "original",
+      "previewCollar": "",
+      "name": "standard-5-standard-5-signature-front-0.png",
+      "sha256": "bc3605504b1d1d1f268ec79428a023c1412db4852cfe7057ec89fdf5b67b3234",
+      "contact": {
+        "planeY": -0.02,
+        "lowest": {
+          "vertex": 18606,
+          "world": [
+            0.6962603746704051,
+            -0.009317709553546383,
+            0.4506489066622924
+          ],
+          "bind": [
+            0.5896786400952178,
+            -1,
+            0.4163029877620777
+          ],
+          "bones": [
+            {
+              "name": "footL",
+              "weight": 0.7529411911964417
+            },
+            {
+              "name": "shinL",
+              "weight": 0.239215686917305
+            },
+            {
+              "name": "thighL",
+              "weight": 0.007843137718737125
+            },
+            {
+              "name": "root",
+              "weight": 0
+            }
+          ]
+        },
+        "clearance": 0.010682290446453618
+      }
+    },
+    {
+      "move": "standard-5-signature",
+      "view": "front",
+      "i": 1,
+      "time": 0.12,
+      "engine": "three.js r185",
+      "previewFrames": "107",
+      "previewTime": "4.330000000000003",
+      "previewMotion": "windup",
+      "previewCalls": "2",
+      "previewTriangles": "40032",
+      "previewModel": "/pet-models/warfront-lod/roster/standard-5.glb?v=20260902-battle-lod-v1-531df3f1176b-915424e85289",
+      "previewCare": "",
+      "previewCareSerial": "0",
+      "previewAppearance": "original",
+      "previewCollar": "",
+      "name": "standard-5-standard-5-signature-front-1.png",
+      "sha256": "6168ec7cf293a51b4fe6c9f5a7678a3fc80a90596097f452d0b7458ba67e3a92",
+      "contact": {
+        "planeY": -0.02,
+        "lowest": {
+          "vertex": 17587,
+          "world": [
+            0.4197832902993611,
+            0.0012594887797257037,
+            0.45446766073630124
+          ],
+          "bind": [
+            0.337321085238197,
+            -0.9985351115451522,
+            0.5155796990874966
+          ],
+          "bones": [
+            {
+              "name": "footL",
+              "weight": 0.7529411911964417
+            },
+            {
+              "name": "shinL",
+              "weight": 0.239215686917305
+            },
+            {
+              "name": "thighL",
+              "weight": 0.007843137718737125
+            },
+            {
+              "name": "root",
+              "weight": 0
+            }
+          ]
+        },
+        "clearance": 0.021259488779725704
+      }
+    },
+    {
+      "move": "standard-5-signature",
+      "view": "front",
+      "i": 2,
+      "time": 0.24,
+      "engine": "three.js r185",
+      "previewFrames": "109",
+      "previewTime": "4.410000000000003",
+      "previewMotion": "windup",
+      "previewCalls": "2",
+      "previewTriangles": "40032",
+      "previewModel": "/pet-models/warfront-lod/roster/standard-5.glb?v=20260902-battle-lod-v1-531df3f1176b-915424e85289",
+      "previewCare": "",
+      "previewCareSerial": "0",
+      "previewAppearance": "original",
+      "previewCollar": "",
+      "name": "standard-5-standard-5-signature-front-2.png",
+      "sha256": "9206f556520ac3b52c1a681ccc83cf9ca0a5babc05fbc9d3099744bc4bab862d",
+      "contact": {
+        "planeY": -0.02,
+        "lowest": {
+          "vertex": 17587,
+          "world": [
+            0.4341008906180183,
+            0.0012592804843303274,
+            0.3429682603874628
+          ],
+          "bind": [
+            0.337321085238197,
+            -0.9985351115451522,
+            0.5155796990874966
+          ],
+          "bones": [
+            {
+              "name": "footL",
+              "weight": 0.7529411911964417
+            },
+            {
+              "name": "shinL",
+              "weight": 0.239215686917305
+            },
+            {
+              "name": "thighL",
+              "weight": 0.007843137718737125
+            },
+            {
+              "name": "root",
+              "weight": 0
+            }
+          ]
+        },
+        "clearance": 0.021259280484330328
+      }
+    },
+    {
+      "move": "standard-5-signature",
+      "view": "front",
+      "i": 3,
+      "time": 0.36,
+      "engine": "three.js r185",
+      "previewFrames": "112",
+      "previewTime": "4.538000000000003",
+      "previewMotion": "windup",
+      "previewCalls": "2",
+      "previewTriangles": "40032",
+      "previewModel": "/pet-models/warfront-lod/roster/standard-5.glb?v=20260902-battle-lod-v1-531df3f1176b-915424e85289",
+      "previewCare": "",
+      "previewCareSerial": "0",
+      "previewAppearance": "original",
+      "previewCollar": "",
+      "name": "standard-5-standard-5-signature-front-3.png",
+      "sha256": "b52132b5b64e12df5d0fd92ef6e7da4b4979c1a29d29d5cc28d107044b9f944a",
+      "contact": {
+        "planeY": -0.02,
+        "lowest": {
+          "vertex": 17587,
+          "world": [
+            0.45764244086133743,
+            0.001259438206592911,
+            0.16891043754306728
+          ],
+          "bind": [
+            0.337321085238197,
+            -0.9985351115451522,
+            0.5155796990874966
+          ],
+          "bones": [
+            {
+              "name": "footL",
+              "weight": 0.7529411911964417
+            },
+            {
+              "name": "shinL",
+              "weight": 0.239215686917305
+            },
+            {
+              "name": "thighL",
+              "weight": 0.007843137718737125
+            },
+            {
+              "name": "root",
+              "weight": 0
+            }
+          ]
+        },
+        "clearance": 0.02125943820659291
+      }
+    },
+    {
+      "move": "standard-5-signature",
+      "view": "front",
+      "i": 4,
+      "time": 0.48,
+      "engine": "three.js r185",
+      "previewFrames": "115",
+      "previewTime": "4.666000000000003",
+      "previewMotion": "strike",
+      "previewCalls": "2",
+      "previewTriangles": "40032",
+      "previewModel": "/pet-models/warfront-lod/roster/standard-5.glb?v=20260902-battle-lod-v1-531df3f1176b-915424e85289",
+      "previewCare": "",
+      "previewCareSerial": "0",
+      "previewAppearance": "original",
+      "previewCollar": "",
+      "name": "standard-5-standard-5-signature-front-4.png",
+      "sha256": "e16fc92bae471d01853f63e545a18f5c79653ff413e02f8d9f2f62cfe27cdb40",
+      "contact": {
+        "planeY": -0.02,
+        "lowest": {
+          "vertex": 5057,
+          "world": [
+            -0.4519421659723988,
+            0.041185761565354584,
+            0.917261997001469
+          ],
+          "bind": [
+            -0.4009216589861751,
+            -1,
+            0.5042268135624256
+          ],
+          "bones": [
+            {
+              "name": "footR",
+              "weight": 0.7450980544090271
+            },
+            {
+              "name": "shinR",
+              "weight": 0.24313725531101227
+            },
+            {
+              "name": "thighR",
+              "weight": 0.0117647061124444
+            },
+            {
+              "name": "root",
+              "weight": 0
+            }
+          ]
+        },
+        "clearance": 0.06118576156535459
+      }
+    },
+    {
+      "move": "standard-5-signature",
+      "view": "front",
+      "i": 5,
+      "time": 0.6,
+      "engine": "three.js r185",
+      "previewFrames": "118",
+      "previewTime": "4.794000000000003",
+      "previewMotion": "strike",
+      "previewCalls": "2",
+      "previewTriangles": "40032",
+      "previewModel": "/pet-models/warfront-lod/roster/standard-5.glb?v=20260902-battle-lod-v1-531df3f1176b-915424e85289",
+      "previewCare": "",
+      "previewCareSerial": "0",
+      "previewAppearance": "original",
+      "previewCollar": "",
+      "name": "standard-5-standard-5-signature-front-5.png",
+      "sha256": "a55a2e141a1867bfeb76ef28ebf6dfd0767cc051062e401b0f8a8887de85a183",
+      "contact": {
+        "planeY": -0.02,
+        "lowest": {
+          "vertex": 18490,
+          "world": [
+            0.4202365925133839,
+            0.016064443186685207,
+            0.6795513720795083
+          ],
+          "bind": [
+            0.3435468611713004,
+            -0.999755851924192,
+            0.49491866817224645
+          ],
+          "bones": [
+            {
+              "name": "footL",
+              "weight": 0.7529411911964417
+            },
+            {
+              "name": "shinL",
+              "weight": 0.239215686917305
+            },
+            {
+              "name": "thighL",
+              "weight": 0.007843137718737125
+            },
+            {
+              "name": "root",
+              "weight": 0
+            }
+          ]
+        },
+        "clearance": 0.03606444318668521
+      }
+    },
+    {
+      "move": "standard-5-signature",
+      "view": "front",
+      "i": 6,
+      "time": 0.76,
+      "engine": "three.js r185",
+      "previewFrames": "122",
+      "previewTime": "4.954000000000003",
+      "previewMotion": "recover",
+      "previewCalls": "2",
+      "previewTriangles": "40032",
+      "previewModel": "/pet-models/warfront-lod/roster/standard-5.glb?v=20260902-battle-lod-v1-531df3f1176b-915424e85289",
+      "previewCare": "",
+      "previewCareSerial": "0",
+      "previewAppearance": "original",
+      "previewCollar": "",
+      "name": "standard-5-standard-5-signature-front-6.png",
+      "sha256": "781dde7d97195df6b57679ccb370c69baaeddf8b27d4e44ddcaeb3e69ec158b5",
+      "contact": {
+        "planeY": -0.02,
+        "lowest": {
+          "vertex": 18490,
+          "world": [
+            0.41600931611950775,
+            0.0012592805211550928,
+            0.6197561734192293
+          ],
+          "bind": [
+            0.3435468611713004,
+            -0.999755851924192,
+            0.49491866817224645
+          ],
+          "bones": [
+            {
+              "name": "footL",
+              "weight": 0.7529411911964417
+            },
+            {
+              "name": "shinL",
+              "weight": 0.239215686917305
+            },
+            {
+              "name": "thighL",
+              "weight": 0.007843137718737125
+            },
+            {
+              "name": "root",
+              "weight": 0
+            }
+          ]
+        },
+        "clearance": 0.021259280521155093
+      }
+    },
+    {
+      "move": "standard-5-signature",
+      "view": "front",
+      "i": 7,
+      "time": 0.96,
+      "engine": "three.js r185",
+      "previewFrames": "127",
+      "previewTime": "5.1620000000000035",
+      "previewMotion": "recover",
+      "previewCalls": "2",
+      "previewTriangles": "40032",
+      "previewModel": "/pet-models/warfront-lod/roster/standard-5.glb?v=20260902-battle-lod-v1-531df3f1176b-915424e85289",
+      "previewCare": "",
+      "previewCareSerial": "0",
+      "previewAppearance": "original",
+      "previewCollar": "",
+      "name": "standard-5-standard-5-signature-front-7.png",
+      "sha256": "b2a7a43483b3afff4614f1574b6b32dcb0a156c536f1cbd26b0f9ce866b7ecad",
+      "contact": {
+        "planeY": -0.02,
+        "lowest": {
+          "vertex": 5057,
+          "world": [
+            -0.4519421014114954,
+            0.0012573514809868236,
+            0.6003169972172501
+          ],
+          "bind": [
+            -0.4009216589861751,
+            -1,
+            0.5042268135624256
+          ],
+          "bones": [
+            {
+              "name": "footR",
+              "weight": 0.7450980544090271
+            },
+            {
+              "name": "shinR",
+              "weight": 0.24313725531101227
+            },
+            {
+              "name": "thighR",
+              "weight": 0.0117647061124444
+            },
+            {
+              "name": "root",
+              "weight": 0
+            }
+          ]
+        },
+        "clearance": 0.021257351480986824
+      }
+    },
+    {
+      "move": "standard-5-signature",
+      "view": "front",
+      "i": 8,
+      "time": 1.2,
+      "engine": "three.js r185",
+      "previewFrames": "132",
+      "previewTime": "5.370000000000004",
+      "previewMotion": "recover",
+      "previewCalls": "2",
+      "previewTriangles": "40032",
+      "previewModel": "/pet-models/warfront-lod/roster/standard-5.glb?v=20260902-battle-lod-v1-531df3f1176b-915424e85289",
+      "previewCare": "",
+      "previewCareSerial": "0",
+      "previewAppearance": "original",
+      "previewCollar": "",
+      "name": "standard-5-standard-5-signature-front-8.png",
+      "sha256": "0538b9d970780119b2b0672212d251b23963a7b1320fe44598993903114d7bec",
+      "contact": {
+        "planeY": -0.02,
+        "lowest": {
+          "vertex": 5057,
+          "world": [
+            -0.45194187028303634,
+            0.0012593190800305187,
+            0.5733528664724218
+          ],
+          "bind": [
+            -0.4009216589861751,
+            -1,
+            0.5042268135624256
+          ],
+          "bones": [
+            {
+              "name": "footR",
+              "weight": 0.7450980544090271
+            },
+            {
+              "name": "shinR",
+              "weight": 0.24313725531101227
+            },
+            {
+              "name": "thighR",
+              "weight": 0.0117647061124444
+            },
+            {
+              "name": "root",
+              "weight": 0
+            }
+          ]
+        },
+        "clearance": 0.02125931908003052
+      }
+    },
+    {
+      "move": "standard-5-signature",
+      "view": "front",
+      "i": 9,
+      "time": 1.44,
+      "engine": "three.js r185",
+      "previewFrames": "138",
+      "previewTime": "5.626000000000004",
+      "previewMotion": "idle",
+      "previewCalls": "2",
+      "previewTriangles": "40032",
+      "previewModel": "/pet-models/warfront-lod/roster/standard-5.glb?v=20260902-battle-lod-v1-531df3f1176b-915424e85289",
+      "previewCare": "",
+      "previewCareSerial": "0",
+      "previewAppearance": "original",
+      "previewCollar": "",
+      "name": "standard-5-standard-5-signature-front-9.png",
+      "sha256": "a8037568ae30cbf872b786aac79709b4ab0856590e9d197566c5488ebe9687fa",
+      "contact": {
+        "planeY": -0.02,
+        "lowest": {
+          "vertex": 5049,
+          "world": [
+            -0.6431970556025193,
+            -0.0020177709094182372,
+            0.11293274508464912
+          ],
+          "bind": [
+            -0.5659962767418439,
+            -0.999755851924192,
+            0.12097537156285287
+          ],
+          "bones": [
+            {
+              "name": "footR",
+              "weight": 0.7058823704719543
+            },
+            {
+              "name": "shinR",
+              "weight": 0.2705882489681244
+            },
+            {
+              "name": "thighR",
+              "weight": 0.0235294122248888
+            },
+            {
+              "name": "root",
+              "weight": 0
+            }
+          ]
+        },
+        "clearance": 0.017982229090581763
+      }
+    },
+    {
+      "move": "standard-5-signature",
+      "view": "front",
+      "i": 10,
+      "time": 1.68,
+      "engine": "three.js r185",
+      "previewFrames": "144",
+      "previewTime": "5.882000000000004",
+      "previewMotion": "idle",
+      "previewCalls": "2",
+      "previewTriangles": "40032",
+      "previewModel": "/pet-models/warfront-lod/roster/standard-5.glb?v=20260902-battle-lod-v1-531df3f1176b-915424e85289",
+      "previewCare": "",
+      "previewCareSerial": "0",
+      "previewAppearance": "original",
+      "previewCollar": "",
+      "name": "standard-5-standard-5-signature-front-10.png",
+      "sha256": "275659259bc8bfeecfc852ac7a0f17440b1bd348678dfd5e70d9fe59710034c9",
+      "contact": {
+        "planeY": -0.02,
+        "lowest": {
+          "vertex": 4979,
+          "world": [
+            -0.6519716046217618,
+            -0.017558749153309794,
+            0.12380890084313764
+          ],
+          "bind": [
+            -0.5783257545701468,
+            -0.9993896298104801,
+            0.1284218878749962
+          ],
+          "bones": [
+            {
+              "name": "footR",
+              "weight": 0.6941176652908325
+            },
+            {
+              "name": "shinR",
+              "weight": 0.27843138575553894
+            },
+            {
+              "name": "thighR",
+              "weight": 0.027450980618596077
+            },
+            {
+              "name": "root",
+              "weight": 0
+            }
+          ]
+        },
+        "clearance": 0.0024412508466902065
+      }
+    },
+    {
+      "move": "standard-5-signature",
+      "view": "front",
+      "i": 11,
+      "time": 1.92,
+      "engine": "three.js r185",
+      "previewFrames": "150",
+      "previewTime": "6.122000000000004",
+      "previewMotion": "idle",
+      "previewCalls": "2",
+      "previewTriangles": "40032",
+      "previewModel": "/pet-models/warfront-lod/roster/standard-5.glb?v=20260902-battle-lod-v1-531df3f1176b-915424e85289",
+      "previewCare": "",
+      "previewCareSerial": "0",
+      "previewAppearance": "original",
+      "previewCollar": "",
+      "name": "standard-5-standard-5-signature-front-11.png",
+      "sha256": "ceb8790a965590b7090dc64b0c85fff6515972f23185d9345c9fd405c6d83efa",
+      "contact": {
+        "planeY": -0.02,
+        "lowest": {
+          "vertex": 4979,
+          "world": [
+            -0.6522383086000205,
+            -0.017032766221976248,
+            0.12367314180089733
+          ],
+          "bind": [
+            -0.5783257545701468,
+            -0.9993896298104801,
+            0.1284218878749962
+          ],
+          "bones": [
+            {
+              "name": "footR",
+              "weight": 0.6941176652908325
+            },
+            {
+              "name": "shinR",
+              "weight": 0.27843138575553894
+            },
+            {
+              "name": "thighR",
+              "weight": 0.027450980618596077
+            },
+            {
+              "name": "root",
+              "weight": 0
+            }
+          ]
+        },
+        "clearance": 0.0029672337780237527
+      }
+    }
+  ],
+  "sheets": [
+    {
+      "name": "standard-5-earth-strike-front-sheet-0.webp",
+      "sha256": "6e5ff2b2148bf76f1ef92a3b4b10861d42dc0f56440b025355cea1abe119f6cd"
+    },
+    {
+      "name": "standard-5-earth-strike-front-sheet-1.webp",
+      "sha256": "6acd2ad359f9957e93b734295e99520b02dd755e2ce01f5fad6e0b59bd048edd"
+    },
+    {
+      "name": "standard-5-earth-pulse-front-sheet-0.webp",
+      "sha256": "34055d7ecb818edb75e12bcfe3829fa037d67b9eeed4d71835c1aaf66f2a8ae1"
+    },
+    {
+      "name": "standard-5-earth-pulse-front-sheet-1.webp",
+      "sha256": "9905d92a4791b8dcebc95c8f3eb5b659f3ed5b3fc6ade9259d9a5d7dc791b5c9"
+    },
+    {
+      "name": "standard-5-standard-5-signature-front-sheet-0.webp",
+      "sha256": "a7c1fbbc0a9100e46dbb6167864c20755761641090f8ca71df6d7812a5329062"
+    },
+    {
+      "name": "standard-5-standard-5-signature-front-sheet-1.webp",
+      "sha256": "3950bb1be6499277874c3919a7019a52e51aff9d2039feb72ec3090b108eb78f"
+    }
+  ],
+  "review": "pending"
+}

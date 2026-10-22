@@ -27,8 +27,8 @@ export const storyFieldScenes: Record<string, StoryFieldSceneJourney> = {
                     scene: "The ridge gate, rain ticking against Mira's weather slate",
                     speaker: "Mira Volt",
                     dialogue: [
-                        "The resale marks split here. High line reaches the signal cairn before the rain gets serious. The cable span is broken, and I brought one dry coil to cross it. If we use that coil, the west mast waits until tomorrow.",
-                        "The picker road stays below the lightning shelf. Safer, except its storm rail pulled loose last week. I brought the second coil for that. Fixing it costs daylight, and we'll have to ask the flower crews what they carried in public.",
+                        "The trails split here. High line reaches the signal cairn before the rain gets serious. The cable span is broken, and I brought one dry coil to cross it. If we use that coil, the west mast waits until tomorrow.",
+                        "The picker road stays below the lightning shelf. Safer, except its storm rail pulled loose last week. I brought the second coil for that. Fixing it costs daylight, and we'll have to ask the flower pickers about my mother in front of the others.",
                         "The high line is faster but exposed. The lower road needs a repair, then we'll have to ask the pickers for help. I'd rather do neither, but the rain won't wait.",
                     ],
                     choices: [
@@ -46,7 +46,7 @@ export const storyFieldScenes: Record<string, StoryFieldSceneJourney> = {
                     scene: "The broken cable span, wind pushing rain sideways through the cut",
                     speaker: "Mira Volt",
                     dialogue: [
-                        "Anchor's sound. Old cable isn't. I can splice my coil to the far eye.",
+                        "The anchor is sound, but the old cable is damaged. I can attach my spare coil to the far anchor.",
                         "I'll check the knot under load before either of us leaves the ledge.",
                         "I'll control the brake. You cross to the far shelf. If I tell you to stop, keep still until I have the line steady.",
                     ],
@@ -345,7 +345,7 @@ export const storyFieldScenes: Record<string, StoryFieldSceneJourney> = {
             },
             "ff-sunlit-drift": {
                 name: "Sunlit Drift",
-                greeting: "Morning throws thin shadows from waxed pages buried edge-up along the mapped lee.",
+                greeting: "In the sheltered stretch marked on your map, the morning sun reveals waxed pages sticking out of the snow.",
                 objective: "Recover the true roll pages in daylight.",
                 pages: [{
                     title: "The Road Comes With You",
@@ -413,7 +413,7 @@ export const storyFieldScenes: Record<string, StoryFieldSceneJourney> = {
                     ],
                     choices: [
                         choice("ms-shield-booth-clerk", "Keep the clerk unnamed. Use Nyx's decoy parcel and follow their private signal."),
-                        choice("ms-post-open-call", "Post the notice at the ferry. Let the clerk walk away, and ask the canal to witness every return."),
+                        choice("ms-post-open-call", "Post the notice at the ferry. Let the clerk withdraw, and ask people along the canal to witness each return."),
                     ],
                 }],
             },
@@ -460,7 +460,7 @@ export const storyFieldScenes: Record<string, StoryFieldSceneJourney> = {
                     dialogue: [
                         "The clerk's shutter closed before our paste dried. Good. They said what they would do and did it.",
                         "First holder says a buyer paid to move three pages through the old toll booth. Second says they found hers under a ferry bench and kept it because buyers were asking. Both will sign in public.",
-                        "The clerk's account walked away. What we have instead are several people willing to say where one page rested. Keep the returns separate; strangers do not need matching stories to tell the truth.",
+                        "The clerk withdrew their help. What we have instead are several people willing to say where one page rested. Keep the returns separate; strangers do not need matching stories to tell the truth.",
                     ],
                     choices: [choice("ms-night-ferry-landing-continue", "Record each holder separately, then follow their routes to the old toll booth.")],
                 }],
@@ -489,7 +489,7 @@ export const storyFieldScenes: Record<string, StoryFieldSceneJourney> = {
                 speaker: "Nyx",
                 requireTrait: "sf-ms-source-shielded",
                 dialogue: [
-                    "The booth clerk can still send corrections through several hands. Sensible person. Their name remains absent, and their account still answers when challenged.",
+                    "The booth clerk can still send corrections through several hands. Sensible person. Their name remains absent, and we can still check the facts they gave us.",
                     "It would be easier to argue our case with a named witness. But keeping the clerk safe means they can keep helping us. You were right about that.",
                     "Watch the front while I check this seal. The back stool stays empty unless they choose it.",
                 ],

@@ -16,7 +16,11 @@
  * from, deliberately unnamed because this repository is public.
  */
 
-import { paceShowdownTechniqueDamage, paceLegacyShowdownTechniqueDamage } from './damage-pacing.js';
+import { paceShowdownTechniqueDamage, paceLegacyShowdownTechniqueDamage, paceProgressionTechniqueDamage } from './damage-pacing.js';
+import { petBattleTechniques } from '../../shared/pet-battle-loadout.js';
+import { resolvePetAbilityProgression, petAbilitySpeciesId, type ProgressionPetAbility, type AuthoredPetAbility } from '../../shared/pet-ability-progression.js';
+import { petBattleChannels, petBattleStamina } from '../../shared/pet-battle-stats.js';
+import { petSignatureMastery, petSignatureMasteryDescription } from '../../shared/pet-ability-mastery.js';
 import {
     SHOWDOWN_COST_BASIC,
     SHOWDOWN_COST_CONTROL_FLOOR,
@@ -96,6 +100,7 @@ import { normalizePetGrowth } from '../pet/_growth.js';
 // ─── Internal state ──────────────────────────────────────────────────────────
 
 export interface ShowdownStatus {
+    expiresAfterRound?: number;
     kind: string;
     rounds: number;
     /** Multiplier magnitude for buffs/debuffs, absorb pool for shields. */
@@ -106,6 +111,11 @@ export interface ShowdownStatus {
 }
 
 export interface ShowdownMove {
+    abilityId?: string;
+    unlockLevel?: number;
+    upgrade?: string;
+    reuseRounds?: number;
+    availableAtRound?: number;
     name: string;
     power: number;
     kind: string;
@@ -159,6 +169,7 @@ export interface ShowdownConsumable {
 }
 
 export interface ShowdownPet {
+    rulesetVersion?: 'progression-v3' | 'legacy-v2';
     id: string;
     name: string;
     element: string;
@@ -207,6 +218,9 @@ export interface ShowdownPet {
 }
 
 export interface ShowdownSession {
+    rulesetVersion?: 'progression-v3' | 'legacy-v2';
+    participationIds?: string[];
+    commandFeedback?: string[];
     /** Absent on pre-cutover sessions; their numeric authority stays legacy. */
     damageRules?: 'legacy-v1' | 'response-v2';
     sessionId: string;
@@ -329,7 +343,7 @@ const KNOWN_KINDS = new Set([
     'shield', 'absorb', 'burn', 'freeze', 'confuse', 'stun', 'crush', 'wound', 'mark',
     'slow', 'haste', 'taunt', 'push', 'pull', 'pivot',
     // The variety pass: the arena-state setter and the hard block.
-    'weather', 'protect',
+    'weather', 'protect', 'cleanse',
 ]);
 
 /*
@@ -352,8 +366,8 @@ export const KIND_FX: Record<string, KindFx> = {
     // SWAP is the payload — see SHOWDOWN_ROTATION_NO_BENCH_STAMINA. push trades
     // control for damage (random reserve), pull trades damage for control
     // (attacker picks the wounded one).
-    push:      { mult: 0.62, rounds: 0, blurb: 'Smashes the foe out; a random reserve is forced in' },
-    pull:      { mult: 0.45, rounds: 0, blurb: 'Hooks the foe’s weakest reserve into the fight' },
+    push:      { mult: 0.62, rounds: 0, blurb: 'Forces the target out and brings in a random reserve. With no reserve, the target loses stamina instead' },
+    pull:      { mult: 0.45, rounds: 0, blurb: 'Brings in the enemy reserve with the lowest HP percentage. With no reserve, the target loses stamina instead' },
     // The third rotation: push and pull move the FOE, pivot moves YOU. Hits and
     // withdraws behind a fresh reserve — the frail attacker's way to trade and
     // leave before the answer lands (switch-on-attack moves).
@@ -377,14 +391,16 @@ export const KIND_FX: Record<string, KindFx> = {
     shield:    { mult: 0,    rounds: 2, blurb: 'Absorbs incoming damage' },
     barrier:   { mult: 0,    rounds: 2, store: 'shield', blurb: 'Absorbs incoming damage' },
     absorb:    { mult: 0,    rounds: 2, store: 'shield', blurb: 'Absorbs incoming damage' },
-    taunt:     { mult: 0,    rounds: 1, blurb: 'Draws the foes\' attacks to you' },
+    taunt:     { mult: 0,    rounds: 1, blurb: 'Draws enemy attacks to you in team battles. In 1v1, strengthens your defense instead' },
     heal:      { mult: 0,    rounds: 0, blurb: 'Restores HP' },
+    cleanse:   { mult: 0,    rounds: 0, blurb: 'Removes harmful conditions from an ally' },
     // Arena-state setter: no damage, no condition — it rewrites the board.
     weather:   { mult: 0,    rounds: 0, blurb: 'Turns the arena to your element' },
     // The hard block. Its 'protect' condition is consumed by the first hit it
     // eats; leaning on it two rounds running simply fails.
-    protect:   { mult: 0,    rounds: 1, blurb: 'Blocks all damage this round' },
+    protect:   { mult: 0,    rounds: 1, blurb: 'Blocks direct hits for the rest of this round' },
 };
+
 
 /**
  * The status kind a move actually STORES. Several kinds are written under a
@@ -404,7 +420,7 @@ export function storedStatusKind(kind: string, format?: ShowdownFormat, foeCount
 export function moveEffectText(kind: string, power: number, element?: string): string {
     if (!hasOwn(KIND_FX, kind)) return 'Straight damage';
     const fx = KIND_FX[kind];
-    if (kind === 'heal') return `Restores ~${Math.round(Math.min(0.3, Math.max(60, power) / 700) * 100)}% max HP`;
+    if (kind === 'heal') return 'Restores up to 30% of your or an ally\'s max HP. The amount depends on move power, role bonuses, and the late-battle healing penalty.';
     if (kind === 'weather') {
         const counter = element ? elementCounteredBy(element) : undefined;
         const boost = Math.round((SHOWDOWN_WEATHER_BOOST - 1) * 100);
@@ -416,10 +432,27 @@ export function moveEffectText(kind: string, power: number, element?: string): s
     if (kind === 'shield' || kind === 'barrier' || kind === 'absorb') {
         return `Absorbs ${Math.max(40, Math.round(power * 1.05))} damage for up to 2 rounds.`;
     }
-    if (kind === 'protect') return 'Blocks all damage this round. Fails if used in consecutive rounds.';
+    if (kind === 'protect') return 'Blocks direct hits for the rest of this round. Ongoing damage still applies. Fails if used in consecutive rounds.';
     if (fx.mult === 0) return fx.blurb;
     if (fx.mult === 1) return fx.blurb;
-    return `${fx.blurb} · ${Math.round(fx.mult * 100)}% hit`;
+    return `${fx.blurb}. Direct damage: ${Math.round(fx.mult * 100)}% of a normal hit.`;
+}
+
+/** Input-only historical proofs include their original tooltip bytes. Keep
+ * that presentation frozen with the legacy ruleset; new entries use the clearer
+ * progression descriptions without rewriting a retained proof or its verdict. */
+function legacyMoveEffectText(kind: string, power: number, element?: string): string {
+    if (!hasOwn(KIND_FX, kind)) return 'Straight damage';
+    if (kind === 'heal') return `Restores ~${Math.round(Math.min(0.3, Math.max(60, power) / 700) * 100)}% max HP`;
+    if (kind === 'protect') return 'Blocks all damage this round. Fails if used in consecutive rounds.';
+    if (kind === 'weather' || kind === 'shield' || kind === 'barrier' || kind === 'absorb') return moveEffectText(kind, power, element);
+    const originalBlurbs: Record<string, string> = {
+        push: 'Smashes the foe out; a random reserve is forced in',
+        pull: 'Hooks the foe’s weakest reserve into the fight',
+        taunt: 'Draws the foes\' attacks to you',
+    };
+    const fx = KIND_FX[kind], blurb = originalBlurbs[kind] ?? fx.blurb;
+    return fx.mult === 0 || fx.mult === 1 ? blurb : `${blurb} · ${Math.round(fx.mult * 100)}% hit`;
 }
 
 /*
@@ -566,7 +599,11 @@ const SHOWDOWN_SPECIES_TUNING: Readonly<Record<string, number>> = Object.freeze(
     'rare-21': 0.94,     // Frostbite Cub: 83.7%
 });
 
-export function speciesNormalizationMult(templateId: string | undefined, petId: string, rarity: string): number {
+// These old residuals compensated for complete legacy kits. Their earned kits
+// reverse that pressure, so new entries use the regular species budget.
+const PROGRESSION_RETIRED_SPECIES_TUNING = new Set(['standard-28', 'rare-45', 'legendary-0', 'legendary-28']);
+
+export function speciesNormalizationMult(templateId: string | undefined, petId: string, rarity: string, rulesetVersion?: ShowdownSession['rulesetVersion']): number {
     const canonical = String(templateId || petId).replace(/-\d{10,}$/, '').split(':')[0];
     const tpl = PET_CATALOG[canonical];
     const median = medianBudgetFor(rarity);
@@ -580,7 +617,9 @@ export function speciesNormalizationMult(templateId: string | undefined, petId: 
     const reference = globalMedian
         ? median * (1 - CROSS_TIER_BLEND) + globalMedian * CROSS_TIER_BLEND
         : median;
-    return Math.pow(reference / budget, BUDGET_DAMPING) * (SHOWDOWN_SPECIES_TUNING[canonical] ?? 1);
+    const residual = rulesetVersion === 'progression-v3' && PROGRESSION_RETIRED_SPECIES_TUNING.has(canonical)
+        ? 1 : SHOWDOWN_SPECIES_TUNING[canonical] ?? 1;
+    return Math.pow(reference / budget, BUDGET_DAMPING) * residual;
 }
 
 /** reference-style per-move pacing: quick jabs resolve early, haymakers swing
@@ -965,7 +1004,8 @@ const SHOWDOWN_KIT_OVERRIDES: Record<string, Array<{ name: string; power: number
 };
 
 /** Seal one save/catalog pet into showdown combat form, ceilings applied. */
-export function sealShowdownPet(rawInput: Pet): ShowdownPet {
+export function sealShowdownPet(rawInput: Pet, rulesetVersion: ShowdownSession['rulesetVersion'] = 'legacy-v2'): ShowdownPet {
+    const selectedTechniques = petBattleTechniques(rawInput, { ruleset: 'competitive-tactics' });
     // Equipped PvP gear stat mods apply to the LIVE stats before sealing —
     // an earned bonus the species normalization must not wash out (it
     // normalizes against the template, so the gear percentage survives).
@@ -986,8 +1026,9 @@ export function sealShowdownPet(rawInput: Pet): ShowdownPet {
     // move elements are what make STAB and synergy real), and the pet record
     // below reuses the same value.
     const element = ELEMENT_OK.has(String(raw.element)) ? String(raw.element) : 'None';
-    const norm = speciesNormalizationMult(raw.templateId, String(raw.id), rarity);
-    const overrideKeyEarly = String(raw.templateId || raw.id).replace(/-\d{10,}$/, '').split(':')[0];
+    const formId = rulesetVersion === 'progression-v3' ? petAbilitySpeciesId(raw) ?? raw.templateId : raw.templateId;
+    const norm = speciesNormalizationMult(formId, String(raw.id), rarity, rulesetVersion);
+    const overrideKeyEarly = String(formId || raw.id).replace(/-\d{10,}$/, '').split(':')[0];
     // hasOwnProperty, NOT a bare index: a pet id of 'constructor' or
     // '__proto__' otherwise resolves to an inherited Object.prototype member,
     // which reached `.filter` as a function and 500'd the start endpoint.
@@ -996,12 +1037,12 @@ export function sealShowdownPet(rawInput: Pet): ShowdownPet {
         : undefined;
     // Overridden kits are authored at correct tier power — normalizing them
     // against the species' OLD broken catalog kit would double-correct.
-    const kitNorm = kitOverride ? 1 : kitPowerNormalizationMult(raw.templateId, String(raw.id), rarity);
+    const kitNorm = selectedTechniques || kitOverride ? 1 : kitPowerNormalizationMult(raw.templateId, String(raw.id), rarity);
     const scaled = (value: unknown, fallback: number) => Math.max(1, Math.round((Number(value) || fallback) * norm));
     const maxHp = clampInt(scaled(raw.hp, 320), 1, petStatCeil(rarity, 'hp'), 320);
     const powerCeil = petJutsuPowerCeil(rarity);
 
-    const sealMove = (j: { name?: unknown; power?: unknown; kind?: unknown; signature?: unknown }, forcedClass?: ShowdownMoveClass): ShowdownMove => {
+    const sealMove = (j: { name?: unknown; power?: unknown; kind?: unknown; signature?: unknown; element?: unknown; cls?: ShowdownMoveClass }, forcedClass?: ShowdownMoveClass): ShowdownMove => {
         const kindRaw = KNOWN_KINDS.has(String(j.kind)) ? String(j.kind) : 'damage';
         const authored = Number(j.power) || 0;
         // A control/utility technique authored at power 0 prices at the 10-EN
@@ -1013,11 +1054,11 @@ export function sealShowdownPet(rawInput: Pet): ShowdownPet {
         const powerIn = authored <= 0 && kindRaw !== 'damage' ? SHOWDOWN_UTILITY_POWER_FLOOR : authored;
         const power = clampInt(Math.round(powerIn * kitNorm), 0, powerCeil, 0);
         const kind = kindRaw;
-        const cls = forcedClass ?? moveClass(kind);
+        const cls = forcedClass ?? j.cls ?? moveClass(kind);
         // Kit techniques are the pet's own element (catalog jutsus carry
         // none of their own) — which is what makes STAB and the synergy
         // partner real properties rather than universal constants.
-        const moveElement = element;
+        const moveElement = ELEMENT_OK.has(String(j.element)) ? String(j.element) : element;
         return {
             name: String(j.name).slice(0, 48),
             power,
@@ -1085,7 +1126,9 @@ export function sealShowdownPet(rawInput: Pet): ShowdownPet {
     ];
 
     const synth = synthesizedSignature({ element: raw.element, name: raw.name }, rarity);
-    const signatureMove: ShowdownMove = sigRaw
+    const signatureMove: ShowdownMove = selectedTechniques
+        ? { ...sealMove(selectedTechniques[4]), signature: true, priority: SHOWDOWN_PRIORITY_SUPER, hold: SHOWDOWN_HOLD_SUPER }
+        : sigRaw
         ? {
             ...sealMove(sigRaw),
             // Signature power is TIER-DERIVED, full stop; the authored move
@@ -1121,12 +1164,14 @@ export function sealShowdownPet(rawInput: Pet): ShowdownPet {
         Math.max(80, Math.min(125, 55 + maxHp / 16 + defense / 6)) * SHOWDOWN_STAMINA_POOL_SCALE,
     );
     const promotedMoves = affordable(promoteHeavy([basicStrike(), ...kit], rarity), maxStamina);
-    const moves = [
+    const moves = selectedTechniques ? affordable(selectedTechniques.slice(0, 4).map(move => sealMove({
+        ...move, ...(move.kind === 'redirect' ? { kind: 'taunt' } : {}),
+    })), maxStamina) : [
         ...promotedMoves.slice(0, 2),
         ...promotedMoves.slice(2).sort((a, b) => (a.hold - b.hold) || (a.cost - b.cost) || (a.power - b.power)),
     ];
 
-    return {
+    const sealed: ShowdownPet = {
         id: String(raw.id),
         name: String(raw.nickname || raw.name || 'Companion').slice(0, 32),
         ...(typeof raw.templateId === 'string' && raw.templateId ? { templateId: raw.templateId } : {}),
@@ -1178,6 +1223,52 @@ export function sealShowdownPet(rawInput: Pet): ShowdownPet {
         moves,
         signatureMove: { ...signatureMove, cost: 0 },
     };
+    return rulesetVersion === 'progression-v3' ? sealProgressionKit(sealed, grown, named) : sealed;
+}
+
+/** New entries use authored identities before any legacy kit sorting. */
+function sealProgressionKit(pet: ShowdownPet, raw: Pet, authored: Array<{ name?: unknown; power?: unknown; kind?: unknown; signature?: unknown }>): ShowdownPet {
+    const saved = petBattleTechniques(raw, { forceProgression: true });
+    const progression = resolvePetAbilityProgression<AuthoredPetAbility>({ ...raw, abilities: authored });
+    pet.rulesetVersion = 'progression-v3';
+    if (progression.speciesId) pet.templateId = progression.speciesId;
+    pet.role = progression.role;
+    Object.assign(pet, petBattleChannels(pet));
+    pet.stamina = pet.maxStamina = petBattleStamina({ role: pet.role, level: pet.level, growthAllocation: (raw as unknown as { growthAllocation?: { guard?: number } }).growthAllocation });
+    const rarityScale = ({ standard: 1, rare: 1.05, legendary: 1.1, mythic: 1.1 } as Record<string, number>)[pet.rarity] ?? 1;
+    const seal = (ability: ProgressionPetAbility): ShowdownMove => {
+        const tier = ability.tier;
+        const kind = ability.kind === 'redirect' ? 'taunt' : KNOWN_KINDS.has(ability.kind) ? ability.kind : 'damage';
+        const damaging = (KIND_FX[kind]?.mult ?? 1) > 0;
+        // A restrained art delivers a clean hit; the full rider is learned later.
+        const resolvedKind = tier === 'basic' && damaging ? 'damage' : kind;
+        const basePower = tier === 'basic' ? 34 : tier === 'advanced' ? 47 : tier === 'signature' ? 64 : 28;
+        const authoredPower = Number(ability.power);
+        const authoredLean = Math.max(.9, Math.min(1.1, (authoredPower || 100) / 110));
+        const mastery = ability.upgrade === 'offense-mastery' ? 1.08 : 1;
+        const power = Math.round(basePower * rarityScale * authoredLean * mastery);
+        const support = !damaging || tier === 'utility' || CONTROL_KINDS.has(kind);
+        const cost = tier === 'signature' ? 0 : tier === 'basic' ? 18 : tier === 'advanced' ? 32 + (ability.upgrade ? 4 : 0)
+            : (kind === 'heal' || CONTROL_KINDS.has(kind) || kind === 'protect' ? 36 : 28) - (ability.upgrade ? 4 : 0);
+        const projection = ability as AuthoredPetAbility & { element?: string; cls?: ShowdownMoveClass };
+        const moveElement = saved && ELEMENT_OK.has(String(projection.element)) ? String(projection.element) : pet.element;
+        const cls = saved && ['physical', 'special', 'status'].includes(String(projection.cls)) ? projection.cls! : moveClass(resolvedKind);
+        return {
+            name: ability.name, abilityId: ability.abilityId, unlockLevel: ability.unlockLevel,
+            ...(ability.upgrade ? { upgrade: ability.upgrade } : {}),
+            power, kind: resolvedKind, cost: Math.min(pet.maxStamina, cost), signature: tier === 'signature',
+            priority: tier === 'signature' ? SHOWDOWN_PRIORITY_SUPER : tier === 'advanced' ? SHOWDOWN_PRIORITY_HEAVY : movePriority(power, resolvedKind),
+            hold: tier === 'signature' ? SHOWDOWN_HOLD_SUPER : 0,
+            reuseRounds: support ? 3 : 0, availableAtRound: 0,
+            element: moveElement, cls,
+            ...(synergyPartnerOf(moveElement, cls) ? { synergyElement: synergyPartnerOf(moveElement, cls) } : {}),
+        };
+    };
+    pet.moves = [{ ...basicStrike(), abilityId: 'universal:tackle', unlockLevel: 1, power: Math.round(22 * rarityScale) },
+        ...(saved ?? progression.abilities).filter(ability => !ability.signature).map(ability => seal(ability as ProgressionPetAbility))];
+    const signature = progression.allAbilities.filter(ability => ability.signature && ability.unlockLevel <= Math.max(20, pet.level)).at(-1);
+    pet.signatureMove = signature ? seal(signature) : { ...pet.signatureMove, abilityId: 'unavailable:signature', unlockLevel: 20 };
+    return pet;
 }
 
 /** Clamp every technique's cost so a full pool can pay for it. */
@@ -1205,11 +1296,13 @@ export function createShowdownSession(input: {
      *  caller today is an AI entry and omits it. */
     pvp?: boolean;
     damageRules?: ShowdownSession['damageRules'];
+    rulesetVersion?: ShowdownSession['rulesetVersion'];
 }): ShowdownSession {
+    const rulesetVersion = input.rulesetVersion ?? (input.damageRules === 'legacy-v1' ? 'legacy-v2' : 'progression-v3');
     const size = SHOWDOWN_FORMAT_SIZE[input.format];
     const sealTeam = (pets: Pet[], commitConsumables: boolean): ShowdownPet[] =>
         pets.slice(0, SHOWDOWN_MAX_TEAM_ANY).map((raw, i) => {
-            const sealed = { ...sealShowdownPet(raw), benched: i >= size };
+            const sealed = { ...sealShowdownPet(raw, rulesetVersion), benched: i >= size };
             // Gear proc: Aegis-style start shields raise before round one.
             if (sealed.gear?.shieldStartPctOfHp) {
                 sealed.statuses = [{
@@ -1228,6 +1321,8 @@ export function createShowdownSession(input: {
     return {
         sessionId: input.sessionId,
         damageRules: input.damageRules ?? 'response-v2',
+        rulesetVersion,
+        ...(rulesetVersion === 'progression-v3' ? { participationIds: [] } : {}),
         playerName: input.playerName,
         format: input.format,
         tier: input.tier,
@@ -1255,7 +1350,7 @@ export function createShowdownSession(input: {
  *
  * The engine is pure and never writes a save; the endpoint that owns the save
  * lock calls this and does the delete. The paid Coliseum entry does so at
- * kickoff (api/pet/showdown.ts burnSealedShowdownConsumables); an unpaid
+ * admission (api/pet/_showdown-admission.ts spendShowdownConsumables); an unpaid
  * session seals rewardEligible=false and this returns EMPTY.
  */
 export function showdownConsumableSpends(session: ShowdownSession): Array<{ petId: string; consumableId: string }> {
@@ -1271,7 +1366,8 @@ function statusMult(pet: ShowdownPet, kinds: Record<string, number>): number {
     let mult = 1;
     for (const s of pet.statuses) {
         const m = kinds[s.kind];
-        if (m !== undefined) mult *= m;
+        if (m !== undefined) mult *= pet.rulesetVersion === 'progression-v3' && ['buff', 'haste', 'tauntGuard'].includes(s.kind)
+            && Number.isFinite(s.magnitude) ? Math.max(1, Math.min(1.3, s.magnitude)) : m;
     }
     return mult;
 }
@@ -1314,6 +1410,7 @@ const effDefense = (p: ShowdownPet) => p.defense * statusMult(p, { crush: 0.8, t
 const effSpAttack = (p: ShowdownPet) => (p.spAttack || p.attack) * statusMult(p, { buff: 1.25, debuff: 0.8, burn: 0.9 });
 const effSpDefense = (p: ShowdownPet) => (p.spDefense || p.defense) * statusMult(p, { crush: 0.8, tauntGuard: 1.2 });
 const effSpeed = (p: ShowdownPet) => p.speed * statusMult(p, { haste: 1.25, slow: 0.75, movelock: 0.7 }) * tableMult(TRAIT_FX.speed, traitOf(p));
+export const showdownPetSpeed = (pet: ShowdownPet): number => effSpeed(pet);
 
 function elementMult(attacker: string, defender: string): number {
     if (SHOWDOWN_ELEMENT_BEATS[attacker] === defender) return SHOWDOWN_ELEMENT_ADVANTAGE;
@@ -1485,6 +1582,8 @@ export function addStatus(
     magnitude: number,
     reactions?: ShowdownEvent[],
 ): void {
+    const progression = session.rulesetVersion === 'progression-v3';
+    if (progression && CONTROL_KINDS.has(kind) && pet.statuses.some(s => s.kind === 'steadfast' || CONTROL_KINDS.has(s.kind))) return;
     // CLEANSE charge: the first poison or control effect that would land is
     // burned off along with everything already stuck to the pet, and never
     // applies at all.
@@ -1504,18 +1603,20 @@ export function addStatus(
     }
     const existing = pet.statuses.find((s) => s.kind === kind);
     if (existing) {
-        existing.rounds = Math.max(existing.rounds, rounds);
-        existing.magnitude = Math.max(existing.magnitude, magnitude);
+        existing.rounds = progression && kind === 'shield' ? rounds : Math.max(existing.rounds, rounds);
+        existing.magnitude = progression && kind === 'shield' ? magnitude : Math.max(existing.magnitude, magnitude);
         existing.bornRound = session.round;
+        if (progression && kind === 'shield') existing.expiresAfterRound = session.round + 1;
         return;
     }
-    pet.statuses.push({ kind, rounds, magnitude, bornRound: session.round });
+    pet.statuses.push({ kind, rounds, magnitude, bornRound: session.round, ...(progression && kind === 'shield' ? { expiresAfterRound: session.round + 1 } : {}) });
+    if (progression && CONTROL_KINDS.has(kind)) pet.statuses.push({ kind: 'steadfast', rounds: 3, magnitude: 1, bornRound: session.round });
     // The reference two-condition rule: a third CONDITION evicts the oldest. The
     // absorb pools (shield/barrier/absorb) and the taunt bookkeeping are board
     // state, not conditions, and never count against or fall to the cap —
     // The reference model itself puts barriers outside the status system.
     const isCondition = (s: { kind: string }) =>
-        s.kind !== 'shield' && s.kind !== 'barrier' && s.kind !== 'absorb' && s.kind !== 'tauntGuard';
+        s.kind !== 'shield' && s.kind !== 'barrier' && s.kind !== 'absorb' && s.kind !== 'tauntGuard' && !(progression && s.kind === 'steadfast');
     const conditions = pet.statuses.filter(isCondition);
     if (conditions.length > SHOWDOWN_MAX_STATUSES) {
         const oldest = conditions.reduce((a, b) => (b.bornRound < a.bornRound ? b : a));
@@ -1551,6 +1652,7 @@ function applyDamage(
     grantMeter = true,
     reactions?: ShowdownEvent[],
 ): { dealt: number; ko: boolean } {
+    if (amount > 0 && !target.benched) markParticipation(session, target);
     const soaked = soakThroughShields(target, Number.isFinite(amount) ? amount : 0);
     let dealt = Number.isFinite(soaked) ? Math.max(0, Math.round(soaked)) : 0;
     const charges = target.consumable;
@@ -1584,6 +1686,12 @@ function applyDamage(
         pushConsumableEvent(session, target, 'lifeline', reactions, { heal: healed });
     }
     return { dealt, ko: target.ko };
+}
+
+function markParticipation(session: ShowdownSession, pet: ShowdownPet): void {
+    if (session.rulesetVersion !== 'progression-v3' || !session.player.includes(pet)) return;
+    session.participationIds ??= [];
+    if (!session.participationIds.includes(pet.id)) session.participationIds.push(pet.id);
 }
 
 function applyHeal(target: ShowdownPet, amount: number, round = 0): number {
@@ -1699,7 +1807,9 @@ function rawDamage(session: ShowdownSession, attacker: ShowdownPet, defender: Sh
     const special = move?.cls === 'special';
     const atk = special ? effSpAttack(attacker) : effAttack(attacker);
     const def = special ? effSpDefense(defender) : effDefense(defender);
-    const base = DAMAGE_SCALE * (power / 100) * REF_DEF * (atk / Math.max(1, def));
+    const progression = session.rulesetVersion === 'progression-v3';
+    const levelScale = progression ? 1 + (attacker.level - 1) * .01 : 1;
+    const base = (progression ? 3.2 : DAMAGE_SCALE) * (power / 100) * REF_DEF * (atk / Math.max(1, def)) * levelScale;
     // ±8% in 16 discrete steps — the genre-proven roll (the classic monster battler's 85-100 band):
     // wide enough that lethal isn't fully solvable, narrow enough to plan around.
     // Lucky shifts the whole window up.
@@ -1754,9 +1864,10 @@ function rawDamage(session: ShowdownSession, attacker: ShowdownPet, defender: Sh
     // so a healthy opponent gets a response and guarding still halves the
     // same hit. The random draw sequence stays intact; the sealed rules choose
     // whether ordinary high-level damage receives the response curve.
-    const unguarded = base * mult;
     const prepared = !!mark || attacker.statuses.some(status => status.kind === 'buff') || weatherMult > 1;
-    const pace = session.damageRules === 'response-v2' ? paceShowdownTechniqueDamage : paceLegacyShowdownTechniqueDamage;
+    if (progression && superCast && prepared && attacker.signatureMove.upgrade === 'signature-mastery') mult *= 1.15;
+    const unguarded = base * mult;
+    const pace = progression ? paceProgressionTechniqueDamage : session.damageRules === 'response-v2' ? paceShowdownTechniqueDamage : paceLegacyShowdownTechniqueDamage;
     const paced = move ? pace(unguarded, defender.maxHp, attacker.level, defender.level, superCast, prepared) : unguarded;
     // Guardian pets block harder than the standard guard.
     let guard = 1;
@@ -1769,6 +1880,29 @@ function rawDamage(session: ShowdownSession, attacker: ShowdownPet, defender: Sh
     const out = Math.round(paced * guard);
     // Final NaN backstop: a non-finite result would make hp <= 0 unreachable.
     return Number.isFinite(out) ? Math.max(power > 0 ? 1 : 0, out) : 0;
+}
+
+/** Read-only damage forecast for decisions. Cloned state protects RNG, marks,
+ * shields and charges from being consumed while considering a move. */
+export function estimateShowdownMoveDamage(session: ShowdownSession, attacker: ShowdownPet, defender: ShowdownPet, move: ShowdownMove, superCast = false): number {
+    if (SELF_KINDS.has(move.kind) || ['heal', 'weather', 'protect', 'cleanse'].includes(move.kind)) return 0;
+    const actor = structuredClone(attacker), target = structuredClone(defender);
+    if (session.rulesetVersion === 'progression-v3') {
+        // Decisions run before round advancement. Match the next opening's
+        // exact status lease and Protect cleanup, retaining every pool or
+        // modifier that is still valid during the upcoming action round.
+        const retained = (status: ShowdownStatus) => status.kind !== 'protect'
+            && (status.expiresAfterRound === undefined || session.round + 1 <= status.expiresAfterRound);
+        actor.statuses = actor.statuses.filter(retained);
+        target.statuses = target.statuses.filter(retained);
+    }
+    if (target.statuses.some(status => status.kind === 'protect') || (target.consumable?.dodge ?? 0) > 0) return 0;
+    const forecast = { ...session, rng: 0 };
+    const factor = KIND_FX[move.kind]?.mult ?? 1;
+    const power = Math.round(move.power * factor * (superCast && session.rulesetVersion !== 'progression-v3' ? SHOWDOWN_SUPER_POWER_MULT : 1));
+    const raw = rawDamage(forecast, actor, target, power, 1, undefined, move, superCast);
+    const shield = target.statuses.filter(s => s.kind === 'shield').reduce((sum, s) => sum + s.magnitude, 0);
+    return Math.max(0, Math.round(raw * (1 - (target.consumable?.mitigate ?? 0) / 100)) - shield);
 }
 
 /** Retarget through taunt: 2v2+ taunters drag single-target hostiles onto themselves. */
@@ -1788,7 +1922,7 @@ function resolveAllyTarget(session: ShowdownSession, actorSide: Side, requestedI
 /** Kinds whose status lands on the ACTOR, not the target. Exported so the AI
  *  checks the same pet the engine writes to. */
 export const SELF_KINDS = new Set(['buff', 'haste', 'move', 'shield', 'barrier', 'absorb', 'taunt']);
-const ALLY_KINDS = new Set(['heal']);
+const ALLY_KINDS = new Set(['heal', 'cleanse']);
 
 /** How the action is STAGED — a charge into contact, or a cast from where the
  *  pet stands. Follows the MOVE, not the pet (owner note: "don't have every
@@ -1824,10 +1958,21 @@ function executeMove(
 ): void {
     const { move, superCast } = action;
     const kind = move.kind;
-    const power = superCast ? Math.round(move.power * SHOWDOWN_SUPER_POWER_MULT) : move.power;
+    const progression = session.rulesetVersion === 'progression-v3';
+    const power = superCast ? Math.round(move.power * (progression ? 1 : SHOWDOWN_SUPER_POWER_MULT)) : move.power;
+    const signatureHitScale = KIND_FX[kind]?.mult ?? 1;
+    const mastery = petSignatureMastery(move, progression && superCast);
+    if (progression && move.reuseRounds) move.availableAtRound = session.round + move.reuseRounds;
     // Reactive-item beats produced anywhere in this resolution, drained after
     // the action event so the script reads blow-then-save.
     const reactions: ShowdownEvent[] = [];
+    const teamBudget = progression && superCast ? 1 / (1 + Math.max(0, livingOf(session, actorSide === 'player' ? 'enemy' : 'player').length - 1) * .35) : 1;
+    let drainRemaining = actor.maxHp * .1;
+    const healFromHit = (amount: number) => {
+        const healed = applyHeal(actor, progression ? Math.min(drainRemaining, amount) : amount, session.round);
+        drainRemaining = Math.max(0, drainRemaining - healed);
+        return healed;
+    };
 
     // Costs and cooldowns — overexertion is allowed and priced the reference way:
     // the move fires, the pet pays HP for the deficit, and it is winded next
@@ -1906,7 +2051,8 @@ function executeMove(
             .some((ally) => ally !== actor && ally.element === move.synergyElement);
         const synergyMult = synergy ? tableMult(TRAIT_FX.synergyMult, traitOf(actor), SHOWDOWN_SYNERGY_MULT) : 1;
         const procs: string[] = [];
-        let dmg = rawDamage(session, actor, target, Math.round(power * powerScale), synergyMult, procs, move, superCast);
+        let dmg = rawDamage(session, actor, target, Math.round(power * (progression && superCast ? signatureHitScale : powerScale)), synergyMult, procs, move, superCast);
+        if (progression && superCast) dmg = Math.round(dmg * (splash ? .35 : 1) * teamBudget);
         // MITIGATE charge: one softened blow. Applied to the finished roll (so
         // it discounts guard, element and every proc alike) and spent whether
         // or not the hit would have hurt.
@@ -1920,17 +2066,18 @@ function executeMove(
         // Hollowborn drinks a slice of every hit it lands.
         const drain = tableMult(TRAIT_FX.lifedrainPct, traitOf(actor), 0);
         if (dealt > 0 && drain > 0) {
-            applyHeal(actor, dealt * drain, session.round);
+            healFromHit(dealt * drain);
             procs.push(traitOf(actor));
         }
         // Gear procs on plain strikes: on-hit poison and gear lifesteal.
         const gear = actor.gear;
         if (dealt > 0 && !target.ko && gear?.dotOnHitPctOfAtk && kind === 'damage') {
-            addStatus(session, target, 'wound', gear.dotRounds ?? 2, Math.max(1, Math.round(effAttack(actor) * gear.dotOnHitPctOfAtk / 100)), reactions);
+            const tick = Math.max(1, Math.round(effAttack(actor) * gear.dotOnHitPctOfAtk / 100));
+            addStatus(session, target, 'wound', gear.dotRounds ?? 2, progression ? Math.min(Math.round(target.maxHp * .05), tick) : tick, reactions);
             procs.push(gear.name);
         }
         if (dealt > 0 && gear?.lifestealPctOfDamage && kind === 'damage') {
-            applyHeal(actor, dealt * gear.lifestealPctOfDamage / 100, session.round);
+            healFromHit(dealt * gear.lifestealPctOfDamage / 100);
             procs.push(gear.name);
         }
         // THORNS charge: a slice of the blow comes straight back at whoever
@@ -1966,7 +2113,7 @@ function executeMove(
         // next few rounds, overwriting whatever stood before (VGC's rule — the
         // most recent setter wins). No damage, no condition; the whole value is
         // the standing multiplier it leaves behind.
-        session.weather = { element: actor.element, until: session.round + SHOWDOWN_WEATHER_ROUNDS - 1 };
+        session.weather = { element: actor.element, until: session.round + SHOWDOWN_WEATHER_ROUNDS - 1 + mastery.weatherExtraRounds };
         targets.push({ id: actor.id, damage: 0, heal: 0, effectiveness: 'neutral', guarded: false, ko: false, applied: 'weather' });
     } else if (kind === 'protect') {
         // The hard block. Leaning on it fails: a pet that protected LAST round
@@ -1978,17 +2125,24 @@ function executeMove(
         } else {
             targets.push({ id: actor.id, damage: 0, heal: 0, effectiveness: 'neutral', guarded: false, ko: false, applied: 'failed' });
         }
+    } else if (kind === 'cleanse') {
+        const ally = resolveAllyTarget(session, actorSide, action.targetId ?? actor.id, actor);
+        targetId = ally.id;
+        const harmful = new Set([...CLEANSABLE_STATUS, 'mark', 'slow', 'debuff', 'root', 'taunt']);
+        ally.statuses = ally.statuses.filter(status => !harmful.has(status.kind));
+        if (mastery.cleanseResistRounds) addStatus(session, ally, 'steadfast', mastery.cleanseResistRounds, 1);
+        targets.push({ id: ally.id, damage: 0, heal: 0, effectiveness: 'neutral', guarded: false, ko: false, applied: 'cleanse' });
     } else if (SELF_KINDS.has(kind)) {
         // Self moves: apply the status to the actor. The stored kind comes
         // from storedStatusKind so the engine and the AI cannot disagree.
         const foes = livingOf(session, actorSide === 'player' ? 'enemy' : 'player');
         const stored = storedStatusKind(kind, session.format, foes.length);
         switch (stored) {
-            case 'buff': addStatus(session, actor, 'buff', move.power > 150 ? 3 : 2, 1.25); break;
-            case 'haste': addStatus(session, actor, 'haste', 2, 1.25); break;
-            case 'shield': addStatus(session, actor, 'shield', 2, Math.max(40, Math.round(power * 1.05))); break;
-            case 'taunt': addStatus(session, actor, 'taunt', 1, 1); break;
-            case 'tauntGuard': addStatus(session, actor, 'tauntGuard', 1, 1.2); break;
+            case 'buff': addStatus(session, actor, 'buff', move.power > 150 ? 3 : 2, mastery.buffMult); break;
+            case 'haste': addStatus(session, actor, 'haste', 2, mastery.buffMult); break;
+            case 'shield': addStatus(session, actor, 'shield', 2, progression ? Math.round(actor.maxHp * mastery.shieldPct) : Math.max(40, Math.round(power * 1.05))); break;
+            case 'taunt': addStatus(session, actor, 'taunt', mastery.tauntRounds, 1); break;
+            case 'tauntGuard': addStatus(session, actor, 'tauntGuard', mastery.tauntRounds, mastery.tauntGuardMult); break;
         }
         targets.push({ id: actor.id, damage: 0, heal: 0, effectiveness: 'neutral', guarded: false, ko: false, applied: stored });
     } else if (kind === 'heal') {
@@ -2001,7 +2155,7 @@ function executeMove(
         // 0.7pt while pushing judged matches 5.3% -> 8.0%, so sustain is not
         // what holds that role back — its 43 attack is (see ROLE_DAMAGE_MULT).
         const sageBonus = actor.role === 'sage' ? SAGE_HEAL_MULT : 1;
-        const healed = applyHeal(ally, ally.maxHp * Math.min(0.3, (Math.max(60, power) / 700) * sageBonus), session.round);
+        const healed = applyHeal(ally, ally.maxHp * (progression ? mastery.healPct : Math.min(0.3, (Math.max(60, power) / 700) * sageBonus)), session.round);
         targets.push({ id: ally.id, damage: 0, heal: healed, effectiveness: 'neutral', guarded: false, ko: false, applied: 'heal' });
     } else {
         const target = resolveTarget(session, actorSide, action.targetId);
@@ -2025,7 +2179,7 @@ function executeMove(
                     const before = targets.length;
                     applyOffensiveHit(target, 1, 'lifesteal');
                     const dealt = targets[before]?.damage ?? 0;
-                    const healed = applyHeal(actor, dealt * 0.5, session.round);
+                    const healed = healFromHit(dealt * (progression ? .25 : .5));
                     if (healed > 0) targets.push({ id: actor.id, damage: 0, heal: healed, effectiveness: 'neutral', guarded: false, ko: false });
                     break;
                 }
@@ -2037,7 +2191,7 @@ function executeMove(
                     // old 0.75/0.20 premium still under-paid for the delay (dot
                     // carriers at ~30% win rate, burn ~43%).
                     if (applyOffensiveHit(target, 0.82, kind) && !target.ko) {
-                        addStatus(session, target, storedStatusKind(kind), 2, Math.round(power * 0.24), reactions);
+                        addStatus(session, target, storedStatusKind(kind), 2, progression ? Math.min(Math.round(target.maxHp * .05), Math.max(1, Math.round(effAttack(actor) * .22))) : Math.round(power * 0.24), reactions);
                     }
                     break;
                 }
@@ -2158,7 +2312,7 @@ function executeMove(
                     break;
             }
             for (const foe of splashTargets) {
-                if (!foe.ko) applyOffensiveHit(foe, SHOWDOWN_SUPER_SPLASH_SCALE, undefined, true);
+                if (!foe.ko) applyOffensiveHit(foe, progression ? .35 : SHOWDOWN_SUPER_SPLASH_SCALE, undefined, true);
             }
         }
     }
@@ -2214,6 +2368,7 @@ export function resolveShowdownRound(
 ): ShowdownEvent[] {
     const events: ShowdownEvent[] = [];
     if (session.finished) return events;
+    if (session.rulesetVersion === 'progression-v3') session.commandFeedback = [];
     session.round += 1;
     events.push({ t: 'roundStart', round: session.round });
 
@@ -2225,6 +2380,7 @@ export function resolveShowdownRound(
     // Stamped before commands resolve and cleared the round after, so the
     // window is exactly one round wide.
     for (const pet of [...session.player, ...session.enemy]) {
+        if (session.rulesetVersion === 'progression-v3') pet.statuses = pet.statuses.filter(s => s.expiresAfterRound === undefined || session.round <= s.expiresAfterRound);
         const hadProtect = pet.statuses.some((s) => s.kind === 'protect');
         // Last round's block is cleared HERE, not left to the status tick: a
         // protect that outlived its round would keep blocking through the very
@@ -2257,6 +2413,7 @@ export function resolveShowdownRound(
             const inbound = team.find((p) => p.id === command.benchPetId && !p.ko && p.benched);
             if (!out || !inbound) continue;
             out.benched = true;
+            markParticipation(session, out);
             out.guarding = false;
             // Field-presence effects end when the body leaves the arena.
             out.statuses = out.statuses.filter((s) => s.kind !== 'taunt' && s.kind !== 'tauntGuard');
@@ -2289,7 +2446,11 @@ export function resolveShowdownRound(
     ]
         .filter(({ pet }) => !switchedIn.has(pet.id))
         .map((entry) => {
-            const command = sanitizeCommand(session, entry.pet, commandFor(entry.pet, entry.side));
+            const requested = commandFor(entry.pet, entry.side);
+            const command = sanitizeCommand(session, entry.pet, requested);
+            if (session.rulesetVersion === 'progression-v3' && entry.side === 'player' && command !== requested) {
+                session.commandFeedback?.push(`${entry.pet.name}: that technique is unavailable. Guard was used instead.`);
+            }
             return {
                 ...entry,
                 command,
@@ -2303,6 +2464,7 @@ export function resolveShowdownRound(
     for (const { pet, side, command } of order) {
         if (session.finished) break;
         if (pet.ko || pet.benched) continue;
+        markParticipation(session, pet);
 
         // Skips: overexertion wind, stun, freeze coin.
         if (pet.winded) {
@@ -2387,8 +2549,8 @@ export function resolveShowdownRound(
                 // still cost the target its next-round action.
                 pet.statuses = pet.statuses
                     .map((s) => (s.bornRound < session.round ? { ...s, rounds: s.rounds - 1 } : s))
-                    .filter((s) => s.rounds > 0);
-                pet.stamina = Math.min(pet.maxStamina, pet.stamina + Math.round(pet.maxStamina * SHOWDOWN_STAMINA_REGEN_PCT) + SHOWDOWN_STAMINA_REGEN_FLAT);
+                    .filter((s) => s.rounds > 0 && (s.expiresAfterRound === undefined || session.round < s.expiresAfterRound));
+                pet.stamina = Math.min(pet.maxStamina, pet.stamina + (session.rulesetVersion === 'progression-v3' ? 4 : Math.round(pet.maxStamina * SHOWDOWN_STAMINA_REGEN_PCT) + SHOWDOWN_STAMINA_REGEN_FLAT));
                 // A living field pet earns its first finisher by round three,
                 // even when healing, guarding or missing. Benches cannot bank
                 // this charge, and spending it never re-enables the bonus.
@@ -2397,7 +2559,7 @@ export function resolveShowdownRound(
             // Bench pets rest: stamina recovers, statuses stay frozen (no
             // ticks, no decay — you can't wait out a burn from the bench).
             for (const pet of livingTeam(session, side).filter((p) => p.benched)) {
-                pet.stamina = Math.min(pet.maxStamina, pet.stamina + Math.round(pet.maxStamina * SHOWDOWN_STAMINA_REGEN_PCT) + SHOWDOWN_STAMINA_REGEN_FLAT);
+                pet.stamina = Math.min(pet.maxStamina, pet.stamina + (session.rulesetVersion === 'progression-v3' ? 8 : Math.round(pet.maxStamina * SHOWDOWN_STAMINA_REGEN_PCT) + SHOWDOWN_STAMINA_REGEN_FLAT));
             }
             // Hold timers tick for EVERYONE, field or bench (the reference rule).
             for (const pet of livingTeam(session, side)) pet.readiness += 1;
@@ -2492,17 +2654,33 @@ export function sanitizeCommand(session: ShowdownSession, pet: ShowdownPet, comm
     // holding a switch command had its swap rejected — it guards instead.
     if (command.kind === 'switch') return { kind: 'guard', petId: pet.id };
     if (command.kind === 'super') {
+        if (session.rulesetVersion === 'progression-v3' && (pet.signatureMove.abilityId === 'unavailable:signature' || pet.level < (pet.signatureMove.unlockLevel ?? 20) || session.round < (pet.signatureMove.availableAtRound ?? 0) || command.abilityId && command.abilityId !== pet.signatureMove.abilityId)) return { kind: 'guard', petId: pet.id };
         if (pet.meter >= SHOWDOWN_METER_MAX && pet.readiness >= pet.signatureMove.hold) return command;
         return { kind: 'guard', petId: pet.id };
     }
     const move = pet.moves[command.moveIndex];
     if (!move || pet.readiness < move.hold) return { kind: 'guard', petId: pet.id };
+    if (session.rulesetVersion === 'progression-v3' && (pet.level < (move.unlockLevel ?? 1) || session.round < (move.availableAtRound ?? 0) || command.abilityId && command.abilityId !== move.abilityId)) return { kind: 'guard', petId: pet.id };
     return command;
 }
 
 // ─── Public view ─────────────────────────────────────────────────────────────
 
 function petView(pet: ShowdownPet): ShowdownPetView {
+    const progression = pet.rulesetVersion === 'progression-v3';
+    const metadata = (move: ShowdownMove) => progression ? {
+        abilityId: move.abilityId, unlockLevel: move.unlockLevel, upgrade: move.upgrade,
+        reuseRounds: move.reuseRounds, availableAtRound: move.availableAtRound,
+    } : {};
+    const effect = (move: ShowdownMove) => {
+        if (!progression) return legacyMoveEffectText(move.kind, move.power, move.element ?? pet.element);
+        const text = move.kind === 'heal' ? 'Restores 17.5% max HP; wound and attrition reduce healing.'
+            : ['shield', 'barrier', 'absorb'].includes(move.kind) ? 'Absorbs 22.5% max HP for 2 rounds. Replaces the previous shield.'
+            : move.kind === 'lifesteal' ? 'Heals one quarter of damage dealt. Combined hit healing is capped at 10% max HP per action.'
+            : moveEffectText(move.kind, move.power, move.element ?? pet.element);
+        const mastery = move.upgrade === 'signature-mastery' ? ((KIND_FX[move.kind]?.mult ?? 1) > 0 ? ' Prepared signature damage +15%.' : ' ' + petSignatureMasteryDescription(move.kind)) : move.upgrade === 'offense-mastery' ? ' Power +8%; costs 4 more stamina.' : move.upgrade === 'utility-mastery' ? ' Costs 4 less stamina.' : '';
+        return text + (move.reuseRounds ? ` Reuse every ${move.reuseRounds} rounds.` : '') + mastery;
+    };
     return {
         id: pet.id,
         name: pet.name,
@@ -2511,6 +2689,7 @@ function petView(pet: ShowdownPet): ShowdownPetView {
         rarity: pet.rarity,
         ...(pet.templateId ? { templateId: pet.templateId } : {}),
         level: pet.level,
+        ...(progression ? { attack: pet.attack, defense: pet.defense, spAttack: pet.spAttack, spDefense: pet.spDefense } : {}),
         hp: Math.round(pet.hp),
         maxHp: pet.maxHp,
         stamina: Math.round(pet.stamina),
@@ -2523,7 +2702,7 @@ function petView(pet: ShowdownPet): ShowdownPetView {
         skipsNextAction: pet.winded || hasStatus(pet, 'stun'),
         // Mirrors the switch-phase predicate exactly, so the client cannot
         // offer a switch the engine will silently refuse.
-        canSwitchOut: !pet.winded,
+        canSwitchOut: !pet.winded && (!progression || !hasStatus(pet, 'movelock')),
         statuses: pet.statuses
             .filter((s) => s.kind !== 'tauntGuard')
             .map((s) => ({ kind: s.kind, rounds: s.rounds, magnitude: Math.round(s.magnitude) })),
@@ -2537,15 +2716,18 @@ function petView(pet: ShowdownPet): ShowdownPetView {
             || pet.consumable.lifeline > 0 || pet.consumable.cleanse > 0)
             ? { consumableName: pet.consumable.name } : {}),
         moves: pet.moves.map((m) => ({
+            ...metadata(m),
             name: m.name, power: m.power, kind: m.kind, cost: m.cost, signature: false,
-            priority: m.priority, hold: m.hold, effect: moveEffectText(m.kind, m.power, m.element ?? pet.element),
+            priority: m.priority, hold: m.hold, effect: effect(m),
             element: m.element ?? pet.element, cls: m.cls ?? moveClass(m.kind),
             ...(m.synergyElement ? { synergyElement: m.synergyElement } : {}),
         })).concat([{
+            ...metadata(pet.signatureMove),
             name: pet.signatureMove.name, power: pet.signatureMove.power, kind: pet.signatureMove.kind,
             cost: 0, signature: true,
             priority: pet.signatureMove.priority, hold: pet.signatureMove.hold,
-            effect: 'Spends the full meter — massive damage',
+            effect: progression ? `Spends the full meter. ${effect(pet.signatureMove)}` : pet.signatureMove.kind === 'damage' ? 'Spends the full meter — massive damage'
+                : `Spends the full meter — ${legacyMoveEffectText(pet.signatureMove.kind, pet.signatureMove.power, pet.signatureMove.element ?? pet.element)}`,
             element: pet.signatureMove.element ?? pet.element, cls: pet.signatureMove.cls ?? 'special',
             ...(pet.signatureMove.synergyElement ? { synergyElement: pet.signatureMove.synergyElement } : {}),
         }]),
@@ -2554,6 +2736,7 @@ function petView(pet: ShowdownPet): ShowdownPetView {
 
 export function showdownStateView(session: ShowdownSession): ShowdownStateView {
     return {
+        ...(session.rulesetVersion === 'progression-v3' ? { rulesetVersion: session.rulesetVersion, commandFeedback: session.commandFeedback ?? [] } : {}),
         damageRules: session.damageRules ?? 'legacy-v1',
         sessionId: session.sessionId,
         format: session.format,

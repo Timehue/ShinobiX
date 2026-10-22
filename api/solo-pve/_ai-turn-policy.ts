@@ -23,6 +23,24 @@ import type { CombatStatus } from '../combat-core/types.js';
  * Village-war ANBU copies explicitly seal the same planner for tactical play.
  */
 export const STANDARD_PVE_AI_POLICY = 'standard-pve-v1' as const;
+/** Sealed only by server-authored challenge builders, never player copies. */
+export const CATALOG_CHALLENGE_WEAPON_POLICY = 'catalog-challenge-v1' as const;
+/** Explicit score-attack opt-in; never makes another weekly-guard host standard PvE. */
+export const WEEKLY_BOSS_AI_POLICY = 'weekly-boss-v1' as const;
+export const SHRINE_AI_POLICY = 'shrine-v1' as const;
+export type SoloPveAiPolicy = typeof STANDARD_PVE_AI_POLICY | typeof WEEKLY_BOSS_AI_POLICY | typeof SHRINE_AI_POLICY;
+
+export function shrinePlannerApplies(input: { policy: unknown; kind: string; env?: NodeJS.ProcessEnv }): boolean {
+    return input.policy === SHRINE_AI_POLICY && input.kind === 'hollow-gate' && !standardPveAiPlannerDisabled(input.env);
+}
+
+export function weeklyBossPlannerApplies(input: {
+    policy: unknown; kind: string; weeklyBoss: boolean; missionTactics: boolean; env?: NodeJS.ProcessEnv;
+}): boolean {
+    return !standardPveAiPlannerDisabled(input.env)
+        && input.policy === WEEKLY_BOSS_AI_POLICY
+        && input.kind === 'weekly-boss' && input.weeklyBoss && !input.missionTactics;
+}
 
 /** Hosts allowed to opt into the explicitly sealed tactical planner. */
 export const STANDARD_PVE_AI_KINDS: ReadonlySet<string> = new Set([
@@ -107,6 +125,7 @@ export function enemyTurnPolicyForEncounter(input: {
 export function enemyActionKey(action: SoloPveAction): string {
     switch (action.type) {
         case 'jutsu': return `jutsu:${action.jutsuId}:${action.tile ?? ''}`;
+        case 'weapon': return `weapon:${action.itemId}`;
         case 'move': return `move:${String(action.tile).padStart(4, '0')}`;
         default: return action.type;
     }

@@ -14,7 +14,7 @@
  * so every actor here is one it will recognise.
  */
 import { useMemo } from "react";
-import { extraSlotWanderersAt, riftSealOf } from "../../../shared/wanderer-extra-slots";
+import { extraSlotWanderersAt, riftSealOf, riftSpawnCombatLevel } from "../../../shared/wanderer-extra-slots";
 import {
     ROAD_NEMESIS_NAME,
     roadNemesisActorId,
@@ -53,6 +53,7 @@ import { activeVillageWarsFor, loadSectorTerritory } from "./world-state";
 export { roadNemesisActorId, roadNemesisTier, roadNemesisTitle };
 
 export function withOrdinaryPvePreview(wanderer: Wanderer, playerLevel: number, sector: number | null | undefined): Wanderer {
+    if (wanderer.archetype === "riftspawn") return { ...wanderer, level: riftSpawnCombatLevel(playerLevel) };
     const encounter = sector != null ? ordinaryWandererEncounter(wanderer, playerLevel, sector) : null;
     return encounter ? { ...wanderer, level: encounter.level, avatarImage: ordinaryPvePortrait(encounter) } : wanderer;
 }
@@ -135,7 +136,7 @@ export function withPatrolStance(
     return wanderers.map((w) => w.verb !== "patrol" ? w : {
         ...w,
         name: patrolNameFor(ownerVillage, stance, w.name),
-        greeting: patrolGreeting(stance, wandererHash32(w.id)),
+        greeting: patrolGreeting(stance, wandererHash32(w.id), ownerVillage, playerVillage),
         factionVillage: ownerVillage,
         patrolStance: stance,
         // At war, the holder's patrol hunts you down like a bandit.
@@ -144,10 +145,10 @@ export function withPatrolStance(
 }
 
 const BAIT_LORE = [
-    "Fish the shade when the sun is high. They hide from it, same as you would.",
-    "Rain stirs the bottom. After a storm, cast deeper than you think you should.",
-    "Don't fight the line. Let it run, then take it back a little at a time.",
-    "At dusk they come up to feed. That's when the patient ones eat well.",
+    "Equip a fishing pole in Inventory before you cast.",
+    "Practicing raises your Fishing skill and helps you catch better fish.",
+    "A worn-out pole won't help you. Check its durability before fishing.",
+    "Each shoal allows three attempts before it needs time to refill.",
 ];
 
 /** What the angler tells you about the water in `sector`. */
@@ -159,8 +160,8 @@ export function anglerTip(sector: number, resourceGathering: unknown, dayBucket:
     const lore = BAIT_LORE[Math.abs(dayBucket + sector) % BAIT_LORE.length];
     if (!best) return `"${lore}"`;
     const fit = best.difficulty <= level
-        ? `Try the ${best.name}. At your skill, that water will give you the most.`
-        : `Start at the ${best.name}. The deeper water here will fight you until your hands learn it.`;
+        ? `Try ${best.name}. Your Fishing skill is high enough to fish there.`
+        : `You need Fishing skill ${best.difficulty} to fish at ${best.name}. Practice at an easier shoal first.`;
     return `"${fit} ${lore}"`;
 }
 

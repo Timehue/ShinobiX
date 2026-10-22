@@ -147,7 +147,7 @@ export function buildNamedItem(roll: NamedRoll, nameRaw: string, flavorRaw: stri
     const special = `${roll.special.kind} ${roll.special.value}${roll.special.bonusKey === 'shield' ? '' : '%'}`;
     const description = flavorRaw || (isGauntlet
         ? `A master-forged pair of gauntlets. ${special}.`
-        : `A master-forged ${slotLabel.toLowerCase()} piece. ${reduction}% damage reduction. ${special}.`);
+        : `A master-forged ${slotLabel.toLowerCase()} piece. ${reduction}% armor protection, combined with other armor and defensive effects with diminishing returns. ${special}.`);
     // Forged gear sits ABOVE mythic on the ladder — it is the last equipment a
     // character earns, so it is gated at 90 (owner ruling 2026-08-17). The
     // `rarity` string stays 'legendary' because the rarity vocabulary is shared

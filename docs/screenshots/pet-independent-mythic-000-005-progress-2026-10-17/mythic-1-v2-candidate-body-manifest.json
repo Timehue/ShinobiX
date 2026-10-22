@@ -1,0 +1,46 @@
+{
+  "schema": 1,
+  "errors": [],
+  "pets": [
+    {
+      "id": "mythic-1",
+      "name": "Worldstorm Dragon",
+      "url": "/.tmp/worldstorm-dragon-anatomical-v2/roster/mythic-1.glb",
+      "sha256": "acfacba16ea3ba0e7787f8e2e4e2b29001cfa3324cd37a016cfd0a94a01a6290",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "progress": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ],
+      "views": [
+        "front",
+        "side"
+      ],
+      "sheets": [
+        "mythic-1-front.webp",
+        "mythic-1-side.webp"
+      ],
+      "review": "pending",
+      "framing": "complete posed body bounds; camera follows pose without excluding any mesh vertices"
+    }
+  ],
+  "artisticCertification": false
+}

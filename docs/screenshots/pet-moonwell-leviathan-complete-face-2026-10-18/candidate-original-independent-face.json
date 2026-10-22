@@ -1,0 +1,98 @@
+{
+  "results": [
+    {
+      "id": "mythic-11",
+      "sha256": "89ed50c443b36848e3c67d29784ccd1f5cdf557547b700c251e330195ac98458",
+      "failed": true,
+      "blendPoses": 468,
+      "clipPoses": 644,
+      "face": {
+        "poses": 1112,
+        "regions": [
+          {
+            "name": "upperFace",
+            "vertices": 148,
+            "edges": 247,
+            "maxDrift": 0.09309605710323729,
+            "worldMinRatio": 0.5111419417057802,
+            "worldMaxRatio": 1.6192214626976347,
+            "maximumTime": 1.80840003490448
+          },
+          {
+            "name": "muzzle",
+            "vertices": 188,
+            "edges": 299,
+            "maxDrift": 0.9860191958739367,
+            "worldMinRatio": 0.33596365837867304,
+            "worldMaxRatio": 2.5491225022864894,
+            "maximumTime": 1.80840003490448
+          },
+          {
+            "name": "lowerFace",
+            "vertices": 201,
+            "edges": 335,
+            "maxDrift": 1.5626197057985984,
+            "worldMinRatio": 0.19902223799670943,
+            "worldMaxRatio": 8.772768180686308,
+            "maximumTime": 1.80840003490448
+          },
+          {
+            "name": "jawChin",
+            "vertices": 118,
+            "edges": 184,
+            "maxDrift": 0.8490665251019643,
+            "worldMinRatio": 0.11401394520658163,
+            "worldMaxRatio": 2.4036398709394367,
+            "maximumTime": 1.80840003490448
+          },
+          {
+            "name": "crescentLeft",
+            "vertices": 45,
+            "edges": 70,
+            "maxDrift": 3.184043733091114e-15,
+            "worldMinRatio": 0.9999993696723333,
+            "worldMaxRatio": 1.0000004242433143,
+            "maximumTime": 1.3288295887134693
+          },
+          {
+            "name": "crescentRight",
+            "vertices": 71,
+            "edges": 68,
+            "maxDrift": 0.19595591398724402,
+            "worldMinRatio": 0.26986037332188817,
+            "worldMaxRatio": 1.7818361097587325,
+            "maximumTime": 0.6751000285148621
+          },
+          {
+            "name": "filamentUpper",
+            "vertices": 46,
+            "edges": 76,
+            "maxDrift": 3.762070548210955,
+            "worldMinRatio": 0.6828836186727213,
+            "worldMaxRatio": 1.199946395191722,
+            "maximumTime": 1.479600028558211
+          },
+          {
+            "name": "filamentMiddle",
+            "vertices": 58,
+            "edges": 98,
+            "maxDrift": 3.5387400995500826,
+            "worldMinRatio": 0.6774662834713698,
+            "worldMaxRatio": 1.0707313769015936,
+            "maximumTime": 1.4385000277649274
+          },
+          {
+            "name": "filamentLower",
+            "vertices": 61,
+            "edges": 107,
+            "maxDrift": 4.368199709493487,
+            "worldMinRatio": 0.6455768767277292,
+            "worldMaxRatio": 1.1094440993464167,
+            "maximumTime": 1.4385000277649274
+          }
+        ],
+        "failed": true
+      }
+    }
+  ]
+}

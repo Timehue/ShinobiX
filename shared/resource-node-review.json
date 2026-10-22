@@ -1,0 +1,1812 @@
+{
+  "reviewed": "2026-10-19",
+  "nodes": [
+    {
+      "id": "resource-25",
+      "sector": 1,
+      "approach": 6,
+      "target": 7,
+      "difficulty": 1,
+      "ceiling": 1,
+      "family": "gather-iron-sand"
+    },
+    {
+      "id": "world-boss-crystal-1",
+      "sector": 1,
+      "approach": 58,
+      "target": 59,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-stormglass-shard"
+    },
+    {
+      "id": "world-boss-crystal-1-2",
+      "sector": 1,
+      "approach": 120,
+      "target": 132,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-stormglass-shard"
+    },
+    {
+      "id": "resource-1",
+      "sector": 2,
+      "approach": 99,
+      "target": 98,
+      "difficulty": 1,
+      "ceiling": 1,
+      "family": "gather-river-fish"
+    },
+    {
+      "id": "resource-2",
+      "sector": 2,
+      "approach": 125,
+      "target": 124,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-river-fish"
+    },
+    {
+      "id": "resource-13",
+      "sector": 2,
+      "approach": 74,
+      "target": 73,
+      "difficulty": 1,
+      "ceiling": 1,
+      "family": "gather-iron-sand"
+    },
+    {
+      "id": "resource-14",
+      "sector": 2,
+      "approach": 130,
+      "target": 142,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-iron-sand",
+      "trace": "gather-stormglass-shard"
+    },
+    {
+      "id": "world-boss-crystal-2",
+      "sector": 2,
+      "approach": 83,
+      "target": 95,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-stormglass-shard"
+    },
+    {
+      "id": "world-boss-crystal-2-2",
+      "sector": 2,
+      "approach": 1,
+      "target": 0,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-stormglass-shard"
+    },
+    {
+      "id": "resource-26",
+      "sector": 3,
+      "approach": 49,
+      "target": 50,
+      "difficulty": 1,
+      "ceiling": 1,
+      "family": "gather-river-fish"
+    },
+    {
+      "id": "resource-27",
+      "sector": 3,
+      "approach": 14,
+      "target": 26,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-river-fish"
+    },
+    {
+      "id": "world-boss-crystal-3",
+      "sector": 3,
+      "approach": 119,
+      "target": 131,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-stormglass-shard"
+    },
+    {
+      "id": "world-boss-crystal-3-2",
+      "sector": 3,
+      "approach": 13,
+      "target": 12,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-stormglass-shard"
+    },
+    {
+      "id": "resource-28",
+      "sector": 4,
+      "approach": 62,
+      "target": 50,
+      "difficulty": 1,
+      "ceiling": 1,
+      "family": "gather-river-fish"
+    },
+    {
+      "id": "resource-29",
+      "sector": 4,
+      "approach": 14,
+      "target": 26,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-river-fish"
+    },
+    {
+      "id": "world-boss-crystal-4",
+      "sector": 4,
+      "approach": 25,
+      "target": 24,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-stormglass-shard"
+    },
+    {
+      "id": "world-boss-crystal-4-2",
+      "sector": 4,
+      "approach": 131,
+      "target": 143,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-stormglass-shard"
+    },
+    {
+      "id": "resource-30",
+      "sector": 5,
+      "approach": 86,
+      "target": 98,
+      "difficulty": 1,
+      "ceiling": 1,
+      "family": "gather-river-fish"
+    },
+    {
+      "id": "resource-31",
+      "sector": 5,
+      "approach": 121,
+      "target": 122,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-river-fish"
+    },
+    {
+      "id": "world-boss-crystal-5",
+      "sector": 5,
+      "approach": 37,
+      "target": 36,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-stormglass-shard"
+    },
+    {
+      "id": "world-boss-crystal-5-2",
+      "sector": 5,
+      "approach": 131,
+      "target": 143,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-stormglass-shard"
+    },
+    {
+      "id": "resource-3",
+      "sector": 6,
+      "approach": 39,
+      "target": 27,
+      "difficulty": 1,
+      "ceiling": 1,
+      "family": "gather-river-fish"
+    },
+    {
+      "id": "resource-4",
+      "sector": 6,
+      "approach": 38,
+      "target": 37,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-river-fish"
+    },
+    {
+      "id": "world-boss-crystal-6",
+      "sector": 6,
+      "approach": 83,
+      "target": 95,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-stormglass-shard"
+    },
+    {
+      "id": "world-boss-crystal-6-2",
+      "sector": 6,
+      "approach": 36,
+      "target": 24,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-stormglass-shard"
+    },
+    {
+      "id": "resource-32",
+      "sector": 7,
+      "approach": 86,
+      "target": 98,
+      "difficulty": 1,
+      "ceiling": 1,
+      "family": "gather-river-fish"
+    },
+    {
+      "id": "resource-33",
+      "sector": 7,
+      "approach": 137,
+      "target": 136,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-river-fish"
+    },
+    {
+      "id": "resource-90",
+      "sector": 7,
+      "approach": 72,
+      "target": 84,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-river-fish"
+    },
+    {
+      "id": "world-boss-crystal-7",
+      "sector": 7,
+      "approach": 130,
+      "target": 131,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-stormglass-shard"
+    },
+    {
+      "id": "world-boss-crystal-7-2",
+      "sector": 7,
+      "approach": 1,
+      "target": 0,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-stormglass-shard"
+    },
+    {
+      "id": "resource-5",
+      "sector": 8,
+      "approach": 39,
+      "target": 38,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-river-fish"
+    },
+    {
+      "id": "resource-6",
+      "sector": 8,
+      "approach": 123,
+      "target": 122,
+      "difficulty": 7,
+      "ceiling": 3,
+      "family": "gather-river-fish"
+    },
+    {
+      "id": "world-boss-crystal-8",
+      "sector": 8,
+      "approach": 22,
+      "target": 23,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-stormglass-shard"
+    },
+    {
+      "id": "world-boss-crystal-8-2",
+      "sector": 8,
+      "approach": 121,
+      "target": 120,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-stormglass-shard"
+    },
+    {
+      "id": "resource-34",
+      "sector": 9,
+      "approach": 125,
+      "target": 137,
+      "difficulty": 1,
+      "ceiling": 1,
+      "family": "gather-iron-sand"
+    },
+    {
+      "id": "world-boss-crystal-9",
+      "sector": 9,
+      "approach": 72,
+      "target": 84,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-stormglass-shard"
+    },
+    {
+      "id": "world-boss-crystal-9-2",
+      "sector": 9,
+      "approach": 10,
+      "target": 11,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-stormglass-shard"
+    },
+    {
+      "id": "resource-35",
+      "sector": 10,
+      "approach": 6,
+      "target": 18,
+      "difficulty": 1,
+      "ceiling": 1,
+      "family": "gather-iron-sand"
+    },
+    {
+      "id": "world-boss-crystal-10",
+      "sector": 10,
+      "approach": 98,
+      "target": 97,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-stormglass-shard"
+    },
+    {
+      "id": "world-boss-crystal-10-2",
+      "sector": 10,
+      "approach": 10,
+      "target": 11,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-stormglass-shard"
+    },
+    {
+      "id": "resource-36",
+      "sector": 11,
+      "approach": 18,
+      "target": 6,
+      "difficulty": 1,
+      "ceiling": 1,
+      "family": "gather-iron-sand"
+    },
+    {
+      "id": "world-boss-crystal-11",
+      "sector": 11,
+      "approach": 131,
+      "target": 143,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-stormglass-shard"
+    },
+    {
+      "id": "world-boss-crystal-11-2",
+      "sector": 11,
+      "approach": 13,
+      "target": 12,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-stormglass-shard"
+    },
+    {
+      "id": "resource-37",
+      "sector": 12,
+      "approach": 86,
+      "target": 98,
+      "difficulty": 1,
+      "ceiling": 1,
+      "family": "gather-iron-sand"
+    },
+    {
+      "id": "world-boss-crystal-12",
+      "sector": 12,
+      "approach": 16,
+      "target": 28,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-stormglass-shard"
+    },
+    {
+      "id": "world-boss-crystal-12-2",
+      "sector": 12,
+      "approach": 131,
+      "target": 143,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-stormglass-shard"
+    },
+    {
+      "id": "resource-38",
+      "sector": 13,
+      "approach": 18,
+      "target": 6,
+      "difficulty": 1,
+      "ceiling": 1,
+      "family": "gather-iron-sand"
+    },
+    {
+      "id": "world-boss-crystal-13",
+      "sector": 13,
+      "approach": 70,
+      "target": 71,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-stormglass-shard"
+    },
+    {
+      "id": "world-boss-crystal-13-2",
+      "sector": 13,
+      "approach": 120,
+      "target": 132,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-stormglass-shard"
+    },
+    {
+      "id": "resource-39",
+      "sector": 14,
+      "approach": 63,
+      "target": 75,
+      "difficulty": 1,
+      "ceiling": 1,
+      "family": "gather-iron-sand"
+    },
+    {
+      "id": "world-boss-crystal-14",
+      "sector": 14,
+      "approach": 106,
+      "target": 107,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-stormglass-shard"
+    },
+    {
+      "id": "world-boss-crystal-14-2",
+      "sector": 14,
+      "approach": 1,
+      "target": 0,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-stormglass-shard"
+    },
+    {
+      "id": "resource-40",
+      "sector": 15,
+      "approach": 124,
+      "target": 136,
+      "difficulty": 1,
+      "ceiling": 1,
+      "family": "gather-iron-sand"
+    },
+    {
+      "id": "world-boss-crystal-15",
+      "sector": 15,
+      "approach": 130,
+      "target": 142,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-stormglass-shard"
+    },
+    {
+      "id": "world-boss-crystal-15-2",
+      "sector": 15,
+      "approach": 1,
+      "target": 0,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-stormglass-shard"
+    },
+    {
+      "id": "resource-41",
+      "sector": 16,
+      "approach": 76,
+      "target": 88,
+      "difficulty": 1,
+      "ceiling": 1,
+      "family": "gather-iron-sand"
+    },
+    {
+      "id": "world-boss-crystal-16",
+      "sector": 16,
+      "approach": 37,
+      "target": 36,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-stormglass-shard"
+    },
+    {
+      "id": "world-boss-crystal-16-2",
+      "sector": 16,
+      "approach": 131,
+      "target": 143,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-stormglass-shard"
+    },
+    {
+      "id": "resource-42",
+      "sector": 17,
+      "approach": 4,
+      "target": 3,
+      "difficulty": 1,
+      "ceiling": 1,
+      "family": "gather-iron-sand"
+    },
+    {
+      "id": "world-boss-crystal-17",
+      "sector": 17,
+      "approach": 72,
+      "target": 84,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-stormglass-shard"
+    },
+    {
+      "id": "world-boss-crystal-17-2",
+      "sector": 17,
+      "approach": 22,
+      "target": 23,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-stormglass-shard"
+    },
+    {
+      "id": "resource-7",
+      "sector": 18,
+      "approach": 27,
+      "target": 26,
+      "difficulty": 1,
+      "ceiling": 1,
+      "family": "gather-river-fish"
+    },
+    {
+      "id": "resource-8",
+      "sector": 18,
+      "approach": 99,
+      "target": 98,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-river-fish"
+    },
+    {
+      "id": "world-boss-crystal-18",
+      "sector": 18,
+      "approach": 83,
+      "target": 95,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-stormglass-shard"
+    },
+    {
+      "id": "world-boss-crystal-18-2",
+      "sector": 18,
+      "approach": 13,
+      "target": 12,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-stormglass-shard"
+    },
+    {
+      "id": "resource-43",
+      "sector": 19,
+      "approach": 53,
+      "target": 54,
+      "difficulty": 1,
+      "ceiling": 1,
+      "family": "gather-river-fish"
+    },
+    {
+      "id": "resource-44",
+      "sector": 19,
+      "approach": 17,
+      "target": 18,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-river-fish"
+    },
+    {
+      "id": "world-boss-crystal-19",
+      "sector": 19,
+      "approach": 14,
+      "target": 2,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-stormglass-shard"
+    },
+    {
+      "id": "world-boss-crystal-19-2",
+      "sector": 19,
+      "approach": 142,
+      "target": 143,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-stormglass-shard"
+    },
+    {
+      "id": "resource-45",
+      "sector": 20,
+      "approach": 65,
+      "target": 53,
+      "difficulty": 1,
+      "ceiling": 1,
+      "family": "gather-river-fish"
+    },
+    {
+      "id": "world-boss-crystal-20",
+      "sector": 20,
+      "approach": 27,
+      "target": 39,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-stormglass-shard"
+    },
+    {
+      "id": "world-boss-crystal-20-2",
+      "sector": 20,
+      "approach": 130,
+      "target": 131,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-stormglass-shard"
+    },
+    {
+      "id": "resource-46",
+      "sector": 21,
+      "approach": 92,
+      "target": 104,
+      "difficulty": 1,
+      "ceiling": 1,
+      "family": "gather-river-fish"
+    },
+    {
+      "id": "resource-47",
+      "sector": 21,
+      "approach": 106,
+      "target": 118,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-river-fish"
+    },
+    {
+      "id": "world-boss-crystal-21",
+      "sector": 21,
+      "approach": 70,
+      "target": 71,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-stormglass-shard"
+    },
+    {
+      "id": "world-boss-crystal-21-2",
+      "sector": 21,
+      "approach": 121,
+      "target": 120,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-stormglass-shard"
+    },
+    {
+      "id": "resource-9",
+      "sector": 22,
+      "approach": 30,
+      "target": 29,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-river-fish"
+    },
+    {
+      "id": "resource-10",
+      "sector": 22,
+      "approach": 42,
+      "target": 41,
+      "difficulty": 7,
+      "ceiling": 3,
+      "family": "gather-river-fish"
+    },
+    {
+      "id": "world-boss-crystal-22",
+      "sector": 22,
+      "approach": 109,
+      "target": 108,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-stormglass-shard"
+    },
+    {
+      "id": "world-boss-crystal-22-2",
+      "sector": 22,
+      "approach": 10,
+      "target": 11,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-stormglass-shard"
+    },
+    {
+      "id": "resource-48",
+      "sector": 23,
+      "approach": 54,
+      "target": 55,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-river-fish"
+    },
+    {
+      "id": "resource-49",
+      "sector": 23,
+      "approach": 30,
+      "target": 31,
+      "difficulty": 7,
+      "ceiling": 3,
+      "family": "gather-river-fish"
+    },
+    {
+      "id": "world-boss-crystal-23",
+      "sector": 23,
+      "approach": 6,
+      "target": 7,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-stormglass-shard"
+    },
+    {
+      "id": "world-boss-crystal-23-2",
+      "sector": 23,
+      "approach": 121,
+      "target": 120,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-stormglass-shard"
+    },
+    {
+      "id": "resource-50",
+      "sector": 24,
+      "approach": 45,
+      "target": 57,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-river-fish"
+    },
+    {
+      "id": "resource-51",
+      "sector": 24,
+      "approach": 19,
+      "target": 31,
+      "difficulty": 7,
+      "ceiling": 3,
+      "family": "gather-river-fish"
+    },
+    {
+      "id": "world-boss-crystal-24",
+      "sector": 24,
+      "approach": 42,
+      "target": 41,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-stormglass-shard"
+    },
+    {
+      "id": "world-boss-crystal-24-2",
+      "sector": 24,
+      "approach": 131,
+      "target": 143,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-stormglass-shard"
+    },
+    {
+      "id": "resource-52",
+      "sector": 25,
+      "approach": 56,
+      "target": 68,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-river-fish"
+    },
+    {
+      "id": "world-boss-crystal-25",
+      "sector": 25,
+      "approach": 71,
+      "target": 83,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-stormglass-shard"
+    },
+    {
+      "id": "world-boss-crystal-25-2",
+      "sector": 25,
+      "approach": 120,
+      "target": 132,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-stormglass-shard"
+    },
+    {
+      "id": "resource-53",
+      "sector": 26,
+      "approach": 126,
+      "target": 138,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-iron-sand",
+      "trace": "gather-rime-crystal"
+    },
+    {
+      "id": "world-boss-crystal-26",
+      "sector": 26,
+      "approach": 118,
+      "target": 119,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-stormglass-shard"
+    },
+    {
+      "id": "world-boss-crystal-26-2",
+      "sector": 26,
+      "approach": 1,
+      "target": 0,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-stormglass-shard"
+    },
+    {
+      "id": "resource-15",
+      "sector": 27,
+      "approach": 34,
+      "target": 35,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-iron-sand",
+      "trace": "gather-rime-crystal"
+    },
+    {
+      "id": "resource-16",
+      "sector": 27,
+      "approach": 130,
+      "target": 142,
+      "difficulty": 7,
+      "ceiling": 3,
+      "family": "gather-iron-sand",
+      "trace": "gather-rime-crystal"
+    },
+    {
+      "id": "world-boss-crystal-27",
+      "sector": 27,
+      "approach": 10,
+      "target": 11,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-stormglass-shard"
+    },
+    {
+      "id": "world-boss-crystal-27-2",
+      "sector": 27,
+      "approach": 108,
+      "target": 120,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-stormglass-shard"
+    },
+    {
+      "id": "resource-54",
+      "sector": 28,
+      "approach": 66,
+      "target": 54,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-iron-sand",
+      "trace": "gather-rime-crystal"
+    },
+    {
+      "id": "world-boss-crystal-28",
+      "sector": 28,
+      "approach": 49,
+      "target": 48,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-stormglass-shard"
+    },
+    {
+      "id": "world-boss-crystal-28-2",
+      "sector": 28,
+      "approach": 130,
+      "target": 131,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-stormglass-shard"
+    },
+    {
+      "id": "resource-17",
+      "sector": 29,
+      "approach": 13,
+      "target": 1,
+      "difficulty": 1,
+      "ceiling": 1,
+      "family": "gather-iron-sand"
+    },
+    {
+      "id": "resource-18",
+      "sector": 29,
+      "approach": 121,
+      "target": 120,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-iron-sand",
+      "trace": "gather-rime-crystal"
+    },
+    {
+      "id": "world-boss-crystal-29",
+      "sector": 29,
+      "approach": 72,
+      "target": 84,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-stormglass-shard"
+    },
+    {
+      "id": "world-boss-crystal-29-2",
+      "sector": 29,
+      "approach": 10,
+      "target": 11,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-stormglass-shard"
+    },
+    {
+      "id": "resource-55",
+      "sector": 30,
+      "approach": 65,
+      "target": 77,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-iron-sand",
+      "trace": "gather-rime-crystal"
+    },
+    {
+      "id": "world-boss-crystal-30",
+      "sector": 30,
+      "approach": 121,
+      "target": 120,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-stormglass-shard"
+    },
+    {
+      "id": "world-boss-crystal-30-2",
+      "sector": 30,
+      "approach": 22,
+      "target": 23,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-stormglass-shard"
+    },
+    {
+      "id": "resource-56",
+      "sector": 31,
+      "approach": 18,
+      "target": 6,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-iron-sand",
+      "trace": "gather-rime-crystal"
+    },
+    {
+      "id": "resource-57",
+      "sector": 32,
+      "approach": 54,
+      "target": 53,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-iron-sand",
+      "trace": "gather-rime-crystal"
+    },
+    {
+      "id": "resource-58",
+      "sector": 33,
+      "approach": 83,
+      "target": 95,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-iron-sand",
+      "trace": "gather-ember-ore"
+    },
+    {
+      "id": "resource-59",
+      "sector": 34,
+      "approach": 43,
+      "target": 31,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-river-fish"
+    },
+    {
+      "id": "resource-60",
+      "sector": 34,
+      "approach": 21,
+      "target": 33,
+      "difficulty": 7,
+      "ceiling": 3,
+      "family": "gather-river-fish"
+    },
+    {
+      "id": "resource-61",
+      "sector": 35,
+      "approach": 62,
+      "target": 74,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-river-fish"
+    },
+    {
+      "id": "resource-62",
+      "sector": 35,
+      "approach": 3,
+      "target": 2,
+      "difficulty": 7,
+      "ceiling": 3,
+      "family": "gather-river-fish"
+    },
+    {
+      "id": "resource-91",
+      "sector": 35,
+      "approach": 121,
+      "target": 122,
+      "difficulty": 7,
+      "ceiling": 3,
+      "family": "gather-river-fish"
+    },
+    {
+      "id": "resource-63",
+      "sector": 36,
+      "approach": 69,
+      "target": 81,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-iron-sand",
+      "trace": "gather-stormglass-shard"
+    },
+    {
+      "id": "resource-64",
+      "sector": 37,
+      "approach": 82,
+      "target": 83,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-iron-sand",
+      "trace": "gather-stormglass-shard"
+    },
+    {
+      "id": "resource-11",
+      "sector": 38,
+      "approach": 39,
+      "target": 38,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-river-fish"
+    },
+    {
+      "id": "resource-12",
+      "sector": 38,
+      "approach": 123,
+      "target": 122,
+      "difficulty": 7,
+      "ceiling": 3,
+      "family": "gather-river-fish"
+    },
+    {
+      "id": "resource-19",
+      "sector": 38,
+      "approach": 30,
+      "target": 31,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-iron-sand",
+      "trace": "gather-stormglass-shard"
+    },
+    {
+      "id": "resource-20",
+      "sector": 38,
+      "approach": 58,
+      "target": 59,
+      "difficulty": 7,
+      "ceiling": 3,
+      "family": "gather-iron-sand",
+      "trace": "gather-stormglass-shard"
+    },
+    {
+      "id": "resource-65",
+      "sector": 39,
+      "approach": 126,
+      "target": 138,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-iron-sand",
+      "trace": "gather-stormglass-shard"
+    },
+    {
+      "id": "resource-66",
+      "sector": 40,
+      "approach": 78,
+      "target": 90,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-iron-sand",
+      "trace": "gather-stormglass-shard"
+    },
+    {
+      "id": "resource-67",
+      "sector": 41,
+      "approach": 126,
+      "target": 138,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-iron-sand",
+      "trace": "gather-stormglass-shard"
+    },
+    {
+      "id": "resource-68",
+      "sector": 42,
+      "approach": 68,
+      "target": 80,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-iron-sand",
+      "trace": "gather-stormglass-shard"
+    },
+    {
+      "id": "resource-69",
+      "sector": 43,
+      "approach": 83,
+      "target": 95,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-iron-sand",
+      "trace": "gather-stormglass-shard"
+    },
+    {
+      "id": "resource-70",
+      "sector": 44,
+      "approach": 41,
+      "target": 53,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-iron-sand",
+      "trace": "gather-stormglass-shard"
+    },
+    {
+      "id": "resource-71",
+      "sector": 45,
+      "approach": 82,
+      "target": 83,
+      "difficulty": 7,
+      "ceiling": 3,
+      "family": "gather-iron-sand",
+      "trace": "gather-stormglass-shard"
+    },
+    {
+      "id": "resource-72",
+      "sector": 46,
+      "approach": 68,
+      "target": 80,
+      "difficulty": 7,
+      "ceiling": 3,
+      "family": "gather-iron-sand",
+      "trace": "gather-stormglass-shard"
+    },
+    {
+      "id": "resource-73",
+      "sector": 47,
+      "approach": 126,
+      "target": 138,
+      "difficulty": 7,
+      "ceiling": 3,
+      "family": "gather-iron-sand",
+      "trace": "gather-stormglass-shard"
+    },
+    {
+      "id": "resource-74",
+      "sector": 48,
+      "approach": 42,
+      "target": 43,
+      "difficulty": 7,
+      "ceiling": 3,
+      "family": "gather-iron-sand",
+      "trace": "gather-stormglass-shard"
+    },
+    {
+      "id": "resource-75",
+      "sector": 49,
+      "approach": 5,
+      "target": 6,
+      "difficulty": 7,
+      "ceiling": 3,
+      "family": "gather-iron-sand",
+      "trace": "gather-stormglass-shard"
+    },
+    {
+      "id": "resource-76",
+      "sector": 50,
+      "approach": 68,
+      "target": 80,
+      "difficulty": 7,
+      "ceiling": 3,
+      "family": "gather-iron-sand",
+      "trace": "gather-stormglass-shard"
+    },
+    {
+      "id": "resource-77",
+      "sector": 51,
+      "approach": 18,
+      "target": 6,
+      "difficulty": 7,
+      "ceiling": 3,
+      "family": "gather-iron-sand",
+      "trace": "gather-stormglass-shard"
+    },
+    {
+      "id": "resource-78",
+      "sector": 52,
+      "approach": 73,
+      "target": 74,
+      "difficulty": 7,
+      "ceiling": 3,
+      "family": "gather-iron-sand",
+      "trace": "gather-stormglass-shard"
+    },
+    {
+      "id": "resource-79",
+      "sector": 53,
+      "approach": 126,
+      "target": 138,
+      "difficulty": 7,
+      "ceiling": 3,
+      "family": "gather-iron-sand",
+      "trace": "gather-stormglass-shard"
+    },
+    {
+      "id": "resource-80",
+      "sector": 55,
+      "approach": 18,
+      "target": 6,
+      "difficulty": 7,
+      "ceiling": 3,
+      "family": "gather-iron-sand"
+    },
+    {
+      "id": "resource-81",
+      "sector": 56,
+      "approach": 87,
+      "target": 75,
+      "difficulty": 7,
+      "ceiling": 3,
+      "family": "gather-iron-sand"
+    },
+    {
+      "id": "resource-82",
+      "sector": 57,
+      "approach": 82,
+      "target": 83,
+      "difficulty": 7,
+      "ceiling": 3,
+      "family": "gather-iron-sand"
+    },
+    {
+      "id": "resource-21",
+      "sector": 58,
+      "approach": 25,
+      "target": 26,
+      "difficulty": 1,
+      "ceiling": 1,
+      "family": "gather-iron-sand"
+    },
+    {
+      "id": "resource-22",
+      "sector": 58,
+      "approach": 30,
+      "target": 31,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-iron-sand",
+      "trace": "gather-ember-ore"
+    },
+    {
+      "id": "resource-83",
+      "sector": 59,
+      "approach": 126,
+      "target": 138,
+      "difficulty": 7,
+      "ceiling": 3,
+      "family": "gather-iron-sand",
+      "trace": "gather-ember-ore"
+    },
+    {
+      "id": "resource-23",
+      "sector": 60,
+      "approach": 28,
+      "target": 27,
+      "difficulty": 4,
+      "ceiling": 2,
+      "family": "gather-iron-sand",
+      "trace": "gather-ember-ore"
+    },
+    {
+      "id": "resource-24",
+      "sector": 60,
+      "approach": 98,
+      "target": 99,
+      "difficulty": 7,
+      "ceiling": 3,
+      "family": "gather-iron-sand",
+      "trace": "gather-ember-ore"
+    },
+    {
+      "id": "resource-84",
+      "sector": 61,
+      "approach": 73,
+      "target": 72,
+      "difficulty": 7,
+      "ceiling": 3,
+      "family": "gather-iron-sand",
+      "trace": "gather-stormglass-shard"
+    },
+    {
+      "id": "resource-85",
+      "sector": 62,
+      "approach": 89,
+      "target": 90,
+      "difficulty": 7,
+      "ceiling": 3,
+      "family": "gather-iron-sand",
+      "trace": "gather-stormglass-shard"
+    },
+    {
+      "id": "resource-86",
+      "sector": 63,
+      "approach": 82,
+      "target": 83,
+      "difficulty": 7,
+      "ceiling": 3,
+      "family": "gather-iron-sand",
+      "trace": "gather-stormglass-shard"
+    },
+    {
+      "id": "resource-87",
+      "sector": 64,
+      "approach": 103,
+      "target": 102,
+      "difficulty": 7,
+      "ceiling": 3,
+      "family": "gather-iron-sand"
+    },
+    {
+      "id": "resource-88",
+      "sector": 65,
+      "approach": 82,
+      "target": 83,
+      "difficulty": 7,
+      "ceiling": 3,
+      "family": "gather-iron-sand",
+      "trace": "gather-rime-crystal"
+    },
+    {
+      "id": "resource-89",
+      "sector": 66,
+      "approach": 80,
+      "target": 92,
+      "difficulty": 7,
+      "ceiling": 3,
+      "family": "gather-iron-sand",
+      "trace": "gather-ember-ore"
+    }
+  ],
+  "paintings": [
+    {
+      "file": "shinobij.client/public/sector-life/ancients-dormant-shrine-v1.webp",
+      "sha256": "562726c624b21fef0ab09d734fa1fb96d3da929a0e1261a78c56b3b5b80dc3f1"
+    },
+    {
+      "file": "shinobij.client/public/sector-life/ancients-radiant-shrine-v1.webp",
+      "sha256": "d05e9a3b45dd13163b042e1b8b3ce00d440b8c16224884549022e05d8e206f00"
+    },
+    {
+      "file": "shinobij.client/public/sector-life/ancients-supported-shrine-v1.webp",
+      "sha256": "21d71af208f9daa16f171e96fa69dc5a552825fe5af20e409b7c3701400c9f51"
+    },
+    {
+      "file": "shinobij.client/public/sector-life/frostveil-dormant-shrine-v1.webp",
+      "sha256": "971f2ef680aba8229330fedb96676f239c492bd665cec8cbcc9babb92a04ff63"
+    },
+    {
+      "file": "shinobij.client/public/sector-life/frostveil-radiant-shrine-v1.webp",
+      "sha256": "5e4380b67f2d3908277394b1a4fc740c17c8c28fd2c12c124ee4878d65bc2df5"
+    },
+    {
+      "file": "shinobij.client/public/sector-life/frostveil-supported-shrine-v1.webp",
+      "sha256": "b2b7aeedf23131754d8cf38886a5f9c2aee3df676523c77a85b19bdd869313db"
+    },
+    {
+      "file": "shinobij.client/public/sector-life/heartwood-dormant-shrine-v1.webp",
+      "sha256": "466955b013dc1728641f23b312b83c7b8a42553562739f0e7a7ab8993eeafeaf"
+    },
+    {
+      "file": "shinobij.client/public/sector-life/heartwood-left-lamp-v1.webp",
+      "sha256": "cd66a33e7df0a0fdd9380576a8dfb33e3d5410aef8f4ed1d89448e05a3d102ce"
+    },
+    {
+      "file": "shinobij.client/public/sector-life/heartwood-radiant-shrine-v1.webp",
+      "sha256": "7ccbc2412131c5724a35f9f2b375657fba9ae0d4ab1941b55f4056f5f92b76b8"
+    },
+    {
+      "file": "shinobij.client/public/sector-life/heartwood-rest-stop-v1.webp",
+      "sha256": "5c6b769560de3cb9109370fabd27d5b2c24620c8439fe42c52da1b8805b02798"
+    },
+    {
+      "file": "shinobij.client/public/sector-life/heartwood-supported-shrine-v1.webp",
+      "sha256": "69b627a664b3f9efbbb7a73845da3175e31f0674cc4eca214dd03b88003c7264"
+    },
+    {
+      "file": "shinobij.client/public/sector-life/hollowgate-dormant-shrine-v1.webp",
+      "sha256": "150d1faffd02c992d305a1992e8e753f5d0129cf2128249a3efab55cf749966f"
+    },
+    {
+      "file": "shinobij.client/public/sector-life/hollowgate-radiant-shrine-v1.webp",
+      "sha256": "d69e09a53b75cbde2947ee6f52c52a1de2181f926cc148e665b5432602a8c026"
+    },
+    {
+      "file": "shinobij.client/public/sector-life/hollowgate-supported-shrine-v1.webp",
+      "sha256": "2de07576fde259f434fd9415f19c6a219839844868fd887016b74f50df4146a6"
+    },
+    {
+      "file": "shinobij.client/public/sector-life/midlands-tea-stop-v1.webp",
+      "sha256": "02c7cbc20a643c7d1c1f5b67391ec92fb39c9ca23430caecc31c20b507d82619"
+    },
+    {
+      "file": "shinobij.client/public/sector-life/moonwell-dormant-shrine-v1.webp",
+      "sha256": "496909e96b75e64821d6348c4754151c6ca88bbbc2c02b1c4b13552ebeb15999"
+    },
+    {
+      "file": "shinobij.client/public/sector-life/moonwell-radiant-shrine-v1.webp",
+      "sha256": "f3760b040215a1c36cc87448d0ae649e747e8ac73f234d90ba8ff05469ba0b8c"
+    },
+    {
+      "file": "shinobij.client/public/sector-life/moonwell-supported-shrine-v1.webp",
+      "sha256": "0305e5880eafcd15f45424facfa065b118ee34600752b6a0d16f9d3fc684840c"
+    },
+    {
+      "file": "shinobij.client/public/sector-life/north-docks-work-stop-v1.webp",
+      "sha256": "cdc146ec5caf6fb231ebd92b45986b0ac3a90b9f8181ffa64153d3a31e2a6055"
+    },
+    {
+      "file": "shinobij.client/public/sector-life/shrinefall-warming-stop-v1.webp",
+      "sha256": "a7f5e1bb0d55066d1f158b53c865372b6cefb511e1127c808672168a80afbd08"
+    },
+    {
+      "file": "shinobij.client/public/sector-life/tide-dormant-shrine-v1.webp",
+      "sha256": "9e03de55a7403ff2fed70b21aebc35571124d754b6e147ec6aaf00e6d20d7ba4"
+    },
+    {
+      "file": "shinobij.client/public/sector-life/tide-radiant-shrine-v1.webp",
+      "sha256": "c7aee11ff687ae5bd6359fd184c92861d5a030610f24e7c888b883be3e32b9d2"
+    },
+    {
+      "file": "shinobij.client/public/sector-life/tide-supported-shrine-v1.webp",
+      "sha256": "70f4c84010fcb83899b6b4174936dac289689f123048ee3a5b2c21c791665bfb"
+    },
+    {
+      "file": "shinobij.client/public/sector-map/s1.webp",
+      "sha256": "a3d0632aaf8ef10fa62bbe73c5c66c25569758330882b1f4c05f95e41e32f882"
+    },
+    {
+      "file": "shinobij.client/public/sector-map/s10.webp",
+      "sha256": "6706e1b023774c664023481d0ef5c15cf73b13e5e0ab4dd8c68b930d368839f2"
+    },
+    {
+      "file": "shinobij.client/public/sector-map/s11.webp",
+      "sha256": "5a89b26a74311813f11e8f70d4281470971646e589ba981ded4667dbabe1c69b"
+    },
+    {
+      "file": "shinobij.client/public/sector-map/s12.webp",
+      "sha256": "8eb6cbe2aab12834c6e954ab7c416b5255ae9d3215928a2b68e1fd49e7e76296"
+    },
+    {
+      "file": "shinobij.client/public/sector-map/s13.webp",
+      "sha256": "e346a17ac75b4a7bb186f5c5512cc673cc2889c9e969825c3baa3f18f7a164c4"
+    },
+    {
+      "file": "shinobij.client/public/sector-map/s14.webp",
+      "sha256": "2fabf298946f2a661c793ee37b366fb9e8b58bdd6cb5a9f82fc15708b5d2cfb8"
+    },
+    {
+      "file": "shinobij.client/public/sector-map/s15.webp",
+      "sha256": "45417b977c65982a4bc058a36a8d941ab13d70e1150a23f50404421a94e609f5"
+    },
+    {
+      "file": "shinobij.client/public/sector-map/s16.webp",
+      "sha256": "c3e90a8224692e36bcb4e98548a3bec10688b57b37cb8f1499c941e531db3feb"
+    },
+    {
+      "file": "shinobij.client/public/sector-map/s17.webp",
+      "sha256": "fcae1d02f7e242a09510eff697de5532bec7de4ff8c226b55131ae00ec92ff62"
+    },
+    {
+      "file": "shinobij.client/public/sector-map/s18.webp",
+      "sha256": "876cb4b6da1e20a779c914ba889114a6d480047c6e243f71801f3cdb3d2fa9ae"
+    },
+    {
+      "file": "shinobij.client/public/sector-map/s19.webp",
+      "sha256": "53ddc52139cc73e0d74930db93236563a6b382b46bef65d5aa0cdc555d9e9954"
+    },
+    {
+      "file": "shinobij.client/public/sector-map/s2.webp",
+      "sha256": "d0ab225b593ee77da6dc22a04ebcfeec9c9a56522c746ceec11f0c47b40797e9"
+    },
+    {
+      "file": "shinobij.client/public/sector-map/s20.webp",
+      "sha256": "657c4ca266607d87f7b4f3cc9bc31dcd8b2eac612823f085c2a9a973f72039fe"
+    },
+    {
+      "file": "shinobij.client/public/sector-map/s21.webp",
+      "sha256": "ee1a84dc179232dfceaa9a9c612cd1d89f5fba35d9f8af20fda7b526ebf7ad6c"
+    },
+    {
+      "file": "shinobij.client/public/sector-map/s22.webp",
+      "sha256": "8e0c4b7464b5b1b1cdb6ea1438dd68a9fee31737ef4508353a8fab4a83295dab"
+    },
+    {
+      "file": "shinobij.client/public/sector-map/s23.webp",
+      "sha256": "0060b86c4b57cd14a132ee5f059dd9cf1e5c14f3aebd5787943ca5e3a5e420cf"
+    },
+    {
+      "file": "shinobij.client/public/sector-map/s24.webp",
+      "sha256": "5219e0125259655ccd40a7ebae200a3abaad5fec5ea3ca8d80dcfd8dfcd04976"
+    },
+    {
+      "file": "shinobij.client/public/sector-map/s25.webp",
+      "sha256": "75181a856c1e80630f2894fb75178de50b42465f05b96397976ecc7f02cb1210"
+    },
+    {
+      "file": "shinobij.client/public/sector-map/s26.webp",
+      "sha256": "2af7b6447c3ea724147b7f02f7f8a8e33a9691a212a53729517a5dcca599e5e1"
+    },
+    {
+      "file": "shinobij.client/public/sector-map/s27.webp",
+      "sha256": "35e6a77c62cf142bb994ca8bec19fabbb2107d772761175f582ce69dbac3135f"
+    },
+    {
+      "file": "shinobij.client/public/sector-map/s28.webp",
+      "sha256": "f5a5b36ef70cb0cb3bc916d92f08e8516d1197cbddd3cef4426a04efec92ceae"
+    },
+    {
+      "file": "shinobij.client/public/sector-map/s29.webp",
+      "sha256": "76dbb6be0744d2fe4803ae7fa65587379fc98c3b5fd86b875089e49ca40bd1f7"
+    },
+    {
+      "file": "shinobij.client/public/sector-map/s3.webp",
+      "sha256": "22a2ff3983c14ee898cf06fb0a5fcf88f11da03af43757d7db8d8df8b01fbe8c"
+    },
+    {
+      "file": "shinobij.client/public/sector-map/s30.webp",
+      "sha256": "5d6e272844cfa5a3640447f2cd4fcdbc45cd6f963dbaca795a2d7ef72ba0592e"
+    },
+    {
+      "file": "shinobij.client/public/sector-map/s31.webp",
+      "sha256": "59c118e45c365751da2b50157da8042f00336ee1affc32719728368edf30b863"
+    },
+    {
+      "file": "shinobij.client/public/sector-map/s32.webp",
+      "sha256": "07088d98ee722075a32f245585d3c9c63915cbb0be28a61b558e1aefefea62b5"
+    },
+    {
+      "file": "shinobij.client/public/sector-map/s33.webp",
+      "sha256": "128f5c8a6f6a5f9872465749c5cd3a3c0fc716cd88dae98433eda94ca6ead608"
+    },
+    {
+      "file": "shinobij.client/public/sector-map/s34.webp",
+      "sha256": "8ec543caa2385420c3be5aaf0f120aae56407db48498f200b9d530a780c3d380"
+    },
+    {
+      "file": "shinobij.client/public/sector-map/s36.webp",
+      "sha256": "06232d0971f7618db696411733cbdb5c0d0b6f91f7a7568ec72447fba3a23a16"
+    },
+    {
+      "file": "shinobij.client/public/sector-map/s37.webp",
+      "sha256": "cf6ad8dbb6f40c969a6466dce430d227d00e448dd5f546e29b759bc898de1ae1"
+    },
+    {
+      "file": "shinobij.client/public/sector-map/s38.webp",
+      "sha256": "dd9fd18478093980eb14339f9c44347b248042479d46f1aaa7a942e5852c5f5b"
+    },
+    {
+      "file": "shinobij.client/public/sector-map/s39.webp",
+      "sha256": "c4b57d51b59caaf837480b2fddee8897a6a8b7fd9acb092e3d52dda3d7943f2a"
+    },
+    {
+      "file": "shinobij.client/public/sector-map/s4.webp",
+      "sha256": "5d1c20ea78355c0e26f5041e4897be6b92ddf63a67878bba7a66b3c6c11ba73b"
+    },
+    {
+      "file": "shinobij.client/public/sector-map/s40.webp",
+      "sha256": "06cb838d8464a61046c849d23fec2fcc4bf74448cc7f417a0241ad509653f604"
+    },
+    {
+      "file": "shinobij.client/public/sector-map/s41.webp",
+      "sha256": "963c049736bf124b5ceca391b595434aaa96aa0abba3d810491d2690ac9b65d0"
+    },
+    {
+      "file": "shinobij.client/public/sector-map/s42.webp",
+      "sha256": "4690023a96dcbde3354e0d23543a977b4131deaf11401d89482a3a276f909060"
+    },
+    {
+      "file": "shinobij.client/public/sector-map/s43.webp",
+      "sha256": "7c080be2ea82f2b0e47cd6d70449d1609c6ad1857c8d0a577e2299cb1443111e"
+    },
+    {
+      "file": "shinobij.client/public/sector-map/s44.webp",
+      "sha256": "7e6de4b1373b7a433e753a551066650153bd62409f11d77b135baf38f2f35014"
+    },
+    {
+      "file": "shinobij.client/public/sector-map/s45.webp",
+      "sha256": "df9ed41094f6915cbfc2414cf27c9fbaf989ca707ca7d32ac941a5c6d84f50c2"
+    },
+    {
+      "file": "shinobij.client/public/sector-map/s46.webp",
+      "sha256": "65ef4f54bf00b7ec10432bf3f54d6976df195c564660dc77955c763e0fd6f153"
+    },
+    {
+      "file": "shinobij.client/public/sector-map/s47.webp",
+      "sha256": "d65ed87c2aee0878459a72f6e2da54606d0466e3ebcb9cb485a356e9212e8fa0"
+    },
+    {
+      "file": "shinobij.client/public/sector-map/s48.webp",
+      "sha256": "84fdfc2d1ee23ea901554284d6dd5ffe82fdd91e8ff6bc214f0156b0acd01aca"
+    },
+    {
+      "file": "shinobij.client/public/sector-map/s49.webp",
+      "sha256": "d138b75b98e865a5287426c46e3581c6594bec578969ad0f5fa2355baf552a6b"
+    },
+    {
+      "file": "shinobij.client/public/sector-map/s5.webp",
+      "sha256": "271d9e9c3dcf75b0d6ac12e9e4a20000ed155422d14baf3715bce03b9d42ca39"
+    },
+    {
+      "file": "shinobij.client/public/sector-map/s50.webp",
+      "sha256": "64d3026b78672cb2769367b6855c5bd473940ce1588e84d4992524ca1c2f00eb"
+    },
+    {
+      "file": "shinobij.client/public/sector-map/s51.webp",
+      "sha256": "2f21b1c1b7952921edce96a0009fb836ee5b8d2714944f7471cca1c10fab89c7"
+    },
+    {
+      "file": "shinobij.client/public/sector-map/s52.webp",
+      "sha256": "d5986abb091be6b109e1a4c891f3baf355ea4cd43e711eaa4c45ebd24132d936"
+    },
+    {
+      "file": "shinobij.client/public/sector-map/s53.webp",
+      "sha256": "3c0ba17584e8bfe5ed0e0d26f3436ba20b9027ac5d0db1a43035480b38ebe903"
+    },
+    {
+      "file": "shinobij.client/public/sector-map/s54.webp",
+      "sha256": "5685f5495d4af8a10f7854e7f3375f9afd399873cc1360d9680d02bae29893f4"
+    },
+    {
+      "file": "shinobij.client/public/sector-map/s55.webp",
+      "sha256": "3e4dd13f0de6ccb52179441464573f452aeb6e00a23c67b829d88041dbb6aea7"
+    },
+    {
+      "file": "shinobij.client/public/sector-map/s56.webp",
+      "sha256": "26ec10abfc85829a10c9b8b777b465c786ce882255adbb6cf9a22c217dec3daf"
+    },
+    {
+      "file": "shinobij.client/public/sector-map/s57.webp",
+      "sha256": "6aab3dc91350f2829937ac5eafa2fcf78354dd537ba32253ce1057f3156b39cd"
+    },
+    {
+      "file": "shinobij.client/public/sector-map/s58.webp",
+      "sha256": "5746a32c6395030a9ade8609473f1e96bd6e6726cdd8a8489a5931e7e986a1df"
+    },
+    {
+      "file": "shinobij.client/public/sector-map/s59.webp",
+      "sha256": "0eede01469f8b225d1bd4f622c16beca31a9599e1a5bb5bca7d451394eed5603"
+    },
+    {
+      "file": "shinobij.client/public/sector-map/s6.webp",
+      "sha256": "7ce293a8a79b3c3d67391cd6255e72af88f8c60cb07ee639f375e27b33dc375a"
+    },
+    {
+      "file": "shinobij.client/public/sector-map/s60.webp",
+      "sha256": "bca31e5cdaa0a26ddce979258aa2134482def629e4606ff43f8d37217a27faf3"
+    },
+    {
+      "file": "shinobij.client/public/sector-map/s61.webp",
+      "sha256": "d491ffbabe39624abc9cc4c37a866597ba13154eb37e5d010f25c07180ccf19a"
+    },
+    {
+      "file": "shinobij.client/public/sector-map/s62.webp",
+      "sha256": "94c0bc2bbb9eca2005cd53c846512910b0e9dbaf7ff5c4da08588b9ada94d36b"
+    },
+    {
+      "file": "shinobij.client/public/sector-map/s63.webp",
+      "sha256": "188db965485a5d7c3604967511b00e678196a08303c5238f1c987f66deb3e3ed"
+    },
+    {
+      "file": "shinobij.client/public/sector-map/s64.webp",
+      "sha256": "c482f114438b608f9528a8a19559b8192e2542133d2bc490b16faf49910c2108"
+    },
+    {
+      "file": "shinobij.client/public/sector-map/s65.webp",
+      "sha256": "fd050bdd72cbda18f2e9ea76a56c42f2bc92cf1048d1d015c15b7dcb379c47d9"
+    },
+    {
+      "file": "shinobij.client/public/sector-map/s66.webp",
+      "sha256": "fbc25352e9aa36f6d80a1bfe2da1f064da064c81dfe276604d1591f14826fda1"
+    },
+    {
+      "file": "shinobij.client/public/sector-map/s7.webp",
+      "sha256": "762ea10841fce051b59480e4a4fcb92f90739b4ab0b604d2e5909a2df0765116"
+    },
+    {
+      "file": "shinobij.client/public/sector-map/s8.webp",
+      "sha256": "c67c91a53ad933922d666b1ccbbc3bd082088c5eaaf7e187f644de24232c46be"
+    },
+    {
+      "file": "shinobij.client/public/sector-map/s9.webp",
+      "sha256": "207ab4bcefda58025770bb7cabd4ede3afec16237e3f64757bb38eaa258a9463"
+    },
+    {
+      "file": "shinobij.client/public/sector-life/midlands-chronicle-table-v1.webp",
+      "sha256": "54c751121f321ff3553e16a5fc91e11ae10324f65f0a97a801ae5485947b48cb"
+    },
+    {
+      "file": "shinobij.client/public/sector-life/north-docks-shipment-spilled-v1.webp",
+      "sha256": "d0e3212d559e3c6b4d571912a9ccbaafd5c2a4bba97a3ffc637d732f6be6adc0"
+    },
+    {
+      "file": "shinobij.client/public/sector-life/north-docks-shipment-delivered-v1.webp",
+      "sha256": "9df9ab362633e085da8af7ec89b58cb3df11f0291a477d35f02304859fc05e80"
+    },
+    {
+      "file": "shinobij.client/public/sector-life/shrinefall-supply-stop-v2.webp",
+      "sha256": "36ccd5ec1595e5867c79f3cb487c13618346580b288e9cc51a68162100a21954"
+    },
+    {
+      "file": "shinobij.client/public/sector-life/frostveil-dormant-shrine-supply-v2.webp",
+      "sha256": "c7621358a688233c553398cd776c8cb26bb6fc946a0952258d658804a83720ac"
+    },
+    {
+      "file": "shinobij.client/public/sector-life/frostveil-supported-shrine-supply-v2.webp",
+      "sha256": "1b8474b566d5d2a0e4f956b881deabf085d29b528c2d6b40a8e6d0464a611f34"
+    },
+    {
+      "file": "shinobij.client/public/sector-life/frostveil-radiant-shrine-supply-v2.webp",
+      "sha256": "3846fcd9b664fe9cefaf4de20900816b471e5788750dfa3934d8abec8602117a"
+    },
+    {
+      "file": "shinobij.client/public/sector-life/midlands-herb-tea-stop-v2.webp",
+      "sha256": "ec60a38205e54de6dc56fe2fc4d398bd5e2c6cba9c62aa2e31a64bb3e937ff81"
+    },
+    {
+      "file": "shinobij.client/public/sector-life/midlands-herb-chronicle-table-v2.webp",
+      "sha256": "814c3dd762c46800923bd8263c2fe9e2e078f663fc9b52125339751e9f4f539c"
+    },
+    {
+      "sector": 52,
+      "artKey": 14,
+      "file": "shinobij.client/public/sector-life/festival-tea-counter-open-v1.webp",
+      "sha256": "bf0eb467a9e04cf791e0177e224501d6fd278154d23bfee6d032f7e3a7db519f"
+    },
+    {
+      "sector": 52,
+      "artKey": 14,
+      "file": "shinobij.client/public/sector-life/festival-tea-counter-packed-v1.webp",
+      "sha256": "33dbba044e8b433824e771268fd3b2b744872df3cdb86bd074aadba15010474c"
+    },
+    {
+      "file": "shinobij.client/public/sector-life/hollow-road-gear-v1.webp",
+      "sha256": "53f2c72206889ed38dd83ef49e6b8c814ad1f55a8c0b0ce2c735b6c8f63a7ca2"
+    },
+    {
+      "file": "shinobij.client/public/sector-life/lavafront-road-gear-v1.webp",
+      "sha256": "ec1a77321a553e51922216c6e0cd499a323b5a49fad22a0a1a9fe0ff3031301e"
+    }
+  ]
+}

@@ -22,6 +22,7 @@ import { ALL_EXTENSIONS } from "@gltf-transform/extensions";
 import { compactPrimitive, reorder } from "@gltf-transform/functions";
 import { MeshoptDecoder, MeshoptEncoder, MeshoptSimplifier } from "meshoptimizer";
 import sharp from "sharp";
+import { petLodSkinPalette, petLodSkinMetricLayout } from "./lib/pet-lod-skin-palette.mjs";
 
 const clientRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const publicRoot = resolve(clientRoot, "public");
@@ -60,14 +61,25 @@ const LOW_POLY_SOURCE_LIMIT = 25_000;
 // reduced meshes. Preserve the authored topology around those skin seams;
 // their sources pass the same inspection. Bounds use source mesh coordinates.
 const REVIEWED_DEFORMATION_LOCKS = {
+    // Retain Pebble's independently frozen scalp and headband patches.
+    'starter-earth.glb': [
+        [-.22,.22,.55,.99,-.06,.38],
+        [-.115,.115,-.18,.05,.37,.565],
+        [-.60,.60,-.12,.32,.34,.82],
+        [-.75,-.40,-.43,-.37,0,.335], [.40,.75,-.43,-.37,0,.335],
+        [-.49,-.15,-.866,-.818,-.085,.245], [.15,.49,-.866,-.818,-.085,.245],
+        [-.49,-.30,-.41,-.19,-.14,.18], [.30,.49,-.41,-.19,-.14,.18],
+    ],
     'roster/standard-4.glb': [[0.18, 0.29, -0.12, 0.025, 0.54, 0.68]],
     'roster/rare-15.glb': [[0.31, 0.41, -0.29, -0.17, 0.44, 0.55]],
     'roster/rare-23.glb': [[0.59, 0.71, -0.32, -0.19, 0.20, 0.31]],
     'roster/rare-34.glb': [[-0.20, -0.10, -0.80, -0.70, 0.72, 0.79]],
     'roster/legendary-11.glb': [[-0.12, -0.02, -0.86, -0.75, 0.80, 0.90]],
+    // Preserve Turtle Duck's independently frozen side jaw through reduction.
+    'roster/mythic-7.glb': [[0.1100639667958617,0.2041546067690054,0.23030689413129063,0.35592315439313943,0.4100303964354381,0.5483423566393018]],
     'roster/mythic-15.glb': [[-0.21, -0.12, -0.03, 0.08, 0.23, 0.30]],
 };
-const EXPECTED_RUNTIME_SOURCE_COUNT = 160;
+const EXPECTED_RUNTIME_SOURCE_COUNT = 161;
 const CRITICAL_BUILT_IN_FILES = new Set([
     "pet-models/roster/mythic-0.glb",
     "pet-models/roster/mythic-2.glb",
@@ -125,10 +137,8 @@ async function existingRuntimeSources() {
         .map((entry) => resolve(modelRoot, "roster", entry.name));
     const starters = (await readdir(modelRoot, { withFileTypes: true }))
         .filter((entry) => entry.isFile() && /^starter-.+\.glb$/u.test(entry.name))
-        // Base Earth is backed by roster/standard-5. The two legendary hounds
-        // resolve to showdown-v2, so their retired top-level files are not used.
+        // The two legendary hounds resolve to showdown-v2; Pebble owns its starter asset.
         .filter((entry) => !new Set([
-            "starter-earth.glb",
             "starter-fire-l.glb",
             "starter-lightning-l.glb",
         ]).has(entry.name))
@@ -203,7 +213,7 @@ function accessorFloatArray(accessor) {
 function skinAwareSimplifyDocument(document, ratio, featureSamples = 32, silhouetteBands = 0, deformationLocks = []) {
     const root = document.getRoot();
     const jointCount = Math.max(...root.listSkins().map((skin) => skin.listJoints().length));
-    invariant(jointCount > 0 && jointCount <= 29, `unsupported Warfront joint count ${jointCount}`);
+    invariant(jointCount > 0 && jointCount <= 256, `unsupported Warfront joint count ${jointCount}`);
     const errors = [];
     for (const mesh of root.listMeshes()) for (const primitive of mesh.listPrimitives()) {
         const positions = primitive.getAttribute("POSITION");
@@ -216,31 +226,26 @@ function skinAwareSimplifyDocument(document, ratio, featureSamples = 32, silhoue
         const positionArray = accessorFloatArray(positions);
         const normalArray = accessorFloatArray(normals);
         const uvArray = accessorFloatArray(uvs);
-        // Meshoptimizer accepts at most 32 weighted channels. The roster's
-        // 21-joint bank includes normals+UVs; the two 29-joint showcase hounds
-        // use normals+dense skin and retain UV seams through indexed topology.
-        const includeUvs = jointCount <= 27;
-        const skinOffset = includeUvs ? 5 : 3;
-        const attributeStride = skinOffset + jointCount;
+        // Meshoptimizer accepts at most 32 weighted channels. Preserve existing
+        // layouts. For 30–32 active joints, reserve every skin identity and omit
+        // optional normal/UV error channels. Delivery keeps all original attributes.
+        const skinPalette = petLodSkinPalette(jointCount, accessorFloatArray(joints), accessorFloatArray(weights));
+        const skinChannels = new Map(skinPalette.map((joint, channel) => [joint, channel]));
+        const {includeNormals, includeUvs, skinOffset, attributeStride, attributeWeights} = petLodSkinMetricLayout(skinPalette);
         const attributes = new Float32Array(positions.getCount() * attributeStride);
         const joint = [0, 0, 0, 0];
         const weight = [0, 0, 0, 0];
         for (let vertex = 0; vertex < positions.getCount(); vertex++) {
             const offset = vertex * attributeStride;
-            attributes.set(normalArray.subarray(vertex * 3, vertex * 3 + 3), offset);
+            if (includeNormals) attributes.set(normalArray.subarray(vertex * 3, vertex * 3 + 3), offset);
             if (includeUvs) attributes.set(uvArray.subarray(vertex * 2, vertex * 2 + 2), offset + 3);
             joints.getElement(vertex, joint);
             weights.getElement(vertex, weight);
             for (let influence = 0; influence < 4; influence++) {
                 invariant(joint[influence] < jointCount, `${mesh.getName()}: joint ${joint[influence]} >= ${jointCount}`);
-                attributes[offset + skinOffset + joint[influence]] += weight[influence];
+                if (weight[influence] > 0) attributes[offset + skinOffset + skinChannels.get(joint[influence])] += weight[influence];
             }
         }
-        const attributeWeights = [
-            0.5, 0.5, 0.5,
-            ...(includeUvs ? [0.25, 0.25] : []),
-            ...new Array(jointCount).fill(1),
-        ];
         const sourceIndices = indices.getArray();
         const usedVertices = [...new Set(sourceIndices)];
         const targetCount = Math.floor(sourceIndices.length * ratio / 3) * 3;

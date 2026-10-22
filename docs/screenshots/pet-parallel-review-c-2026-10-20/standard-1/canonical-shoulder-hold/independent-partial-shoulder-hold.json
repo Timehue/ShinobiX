@@ -1,0 +1,139 @@
+{
+  "id": "standard-1",
+  "name": "Snow Rabbit",
+  "reviewer": "parallel-c",
+  "reviewedAt": "2026-10-20T19:27:47.922Z",
+  "status": "PARTIAL-HOLD-unresolved-shoulder-shape",
+  "sourceSha256": "6576db9e525d89f513c1cffc86ee3cc1e8262a6fc0fb2401de6f891bc2303d23",
+  "battleSha256": "a9e4e832528aef1c004b64cb38690035b369f7ff6be125500b8b043c7d5e6cc1",
+  "rendererSha256": "b2253b71fbcb21a83d82de35ab5783dd57b525cfc94740fb131dd1eb0049a897",
+  "companionComponentSha256": "17ac6c4c1c4ef4eb242bebf5f0a34d9de3519bb5d6415aa906b1970afcc440f8",
+  "actuallyViewed": {
+    "sourceRawPoseViews": 546,
+    "sourceHeadAngles": 5,
+    "sourceBodyAngles": 2,
+    "clips": 13,
+    "phases": [
+      0.08,
+      0.28,
+      0.48,
+      0.68,
+      0.88,
+      1
+    ],
+    "battleRawPoseViews": 0,
+    "runtimePoseViews": 0,
+    "actualTechniqueNativeFrames": 5,
+    "advancingIdleFrames": 0,
+    "atlasCells": 0
+  },
+  "finding": "Complete source face and chin remain coherent, but the white upper-arm surface forms a broad angular wedge tapering up toward the cheek/scarf during attack .28, gallop_jump .28/.48 and hitreact .08 while the forearm and hand remain down near the waist. The actual battle companion Water Strike front and side .60 also shows a white upper-arm corner rising behind the jaw/scarf; full native .36 side and .48 front/side are retained as comparisons. This may be shoulder skinning or an overlapping silhouette; no topology cause or acceptable-motion conclusion is asserted. Hold full approval pending same-pose normals or isolated geometry diagnosis.",
+  "productionConcernObserved": true,
+  "fullScopeComplete": false,
+  "wholePetApproval": false,
+  "scopeLimit": "Only the listed source raw sheets and five actual native companion frames were personally viewed. Captured battle raw/runtime/216/idle/atlas are not marked viewed. No canonical edits or live approval.",
+  "evidence": [
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-1/canonical-shoulder-hold/standard-1-head-front.webp",
+      "sha256": "837bd9e4c5c1d3005eb2da841663896b647ecc0e9d83b686f8c1b2f46c7c97d5",
+      "kind": "fresh-source-raw",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-1/canonical-shoulder-hold/standard-1-head-side.webp",
+      "sha256": "bc58bb5245974438c082c66a980a523fab66ad45d1bc934b319bc8311fa19668",
+      "kind": "fresh-source-raw",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-1/canonical-shoulder-hold/standard-1-head-other-side.webp",
+      "sha256": "f9176196bc7c7a4d3ee841b705e699929f4038ddcbee8627f36b453bb4f8caa6",
+      "kind": "fresh-source-raw",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-1/canonical-shoulder-hold/standard-1-head-under-front.webp",
+      "sha256": "efe15e85cc81b806ae16250ccf96f76c00c985ab2d4e8b6fa6c4f7ce8fb91bbb",
+      "kind": "fresh-source-raw",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-1/canonical-shoulder-hold/standard-1-head-under-side.webp",
+      "sha256": "9ff69f8a8f976af8660d7de43e77d6e14a9c06f53335053537ec1ed3d8d2000b",
+      "kind": "fresh-source-raw",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-1/canonical-shoulder-hold/head-manifest.json",
+      "sha256": "0fb8d98738d7bb849f8a41414400cddd11bb5b6a70bd0c40d1f4d810bb8ec925",
+      "kind": "capture-manifest",
+      "actuallyViewed": false
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-1/canonical-shoulder-hold/standard-1-front.webp",
+      "sha256": "3d5c3bcbd5da50010058e07b8cf7092855ce79ab7431a927d2fecf94ff565a64",
+      "kind": "fresh-source-raw",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-1/canonical-shoulder-hold/standard-1-side.webp",
+      "sha256": "a8cf6bdefdaa1c3736792ac0e0dc7cd66c06bf16c374b5e80181cb57383c6d3e",
+      "kind": "fresh-source-raw",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-1/canonical-shoulder-hold/body-manifest.json",
+      "sha256": "2b4e57addf8f2fcee93141293f885408c51528796665af9c0bd447b02c5a46d7",
+      "kind": "capture-manifest",
+      "actuallyViewed": false
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-1/canonical-shoulder-hold/standard-1-water-strike-side-3.png",
+      "sha256": "b3e85af24f9ffff88e550e5f56eecfb66cd54736bbb7997dbfa08b1a0ca47d9f",
+      "kind": "native-production-probe",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-1/canonical-shoulder-hold/standard-1-water-strike-side-4.png",
+      "sha256": "224788558fdf1cc6e33ca65c32d7b199411eb1d429e915720ae4818066a87a7b",
+      "kind": "native-production-probe",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-1/canonical-shoulder-hold/standard-1-water-strike-side-5.png",
+      "sha256": "b278ab905b40546c66645cad3db1d4ae5bc29e30be96f6bd17617b00d097bd83",
+      "kind": "native-production-probe",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-1/canonical-shoulder-hold/standard-1-water-strike-front-4.png",
+      "sha256": "d2531dc3b3a524fb6296701392cd53dff798e7f57ffd30c2a9998c6eee1c27b1",
+      "kind": "native-production-probe",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-1/canonical-shoulder-hold/standard-1-water-strike-front-5.png",
+      "sha256": "97259a8f7119f7fee981b458cab2e9751a6c8950fcba183dca7426b401718bc8",
+      "kind": "native-production-probe",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-1/canonical-shoulder-hold/techniques-manifest.json",
+      "sha256": "20b3b2b78433bd9ffc85c4df5f664c0585b57eae2392e8e4bd9d9ea05c5938ea",
+      "kind": "capture-manifest",
+      "actuallyViewed": false
+    }
+  ]
+}

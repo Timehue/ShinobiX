@@ -11,11 +11,14 @@ process.env.ENABLE_LEGACY = '0';
  * PET-7 (2026-10 economy rebalance): the paid Coliseum bout spends the one-use
  * battle item it seals, as the PvE summon path does. It used to show as spent
  * in the fight and come back on the next load. Unpaid bouts keep the item.
+ * Main's atomic Showdown admission (api/pet/_showdown-admission.ts) now does
+ * the spend in the same commit that seals the session; these cases pin the
+ * rebalance's rules against it.
  */
 
 type Json = Record<string, any>;
 let handler: typeof import('./showdown.js').default;
-let burnSealedShowdownConsumables: typeof import('./showdown.js').burnSealedShowdownConsumables;
+let spendShowdownConsumables: typeof import('./_showdown-admission.js').spendShowdownConsumables;
 let createShowdownSession: typeof import('../_pet-showdown/engine.js').createShowdownSession;
 let kv: typeof import('../_storage.js').kv;
 let issuePlayerToken: typeof import('../_auth.js').issuePlayerToken;
@@ -31,7 +34,7 @@ before(async () => {
     ({ PET_CATALOG } = await import('./_catalog.js'));
     const showdown = require('./showdown.js') as typeof import('./showdown.js');
     handler = showdown.default;
-    burnSealedShowdownConsumables = showdown.burnSealedShowdownConsumables;
+    ({ spendShowdownConsumables } = await import('./_showdown-admission.js'));
 });
 
 after(() => {
@@ -81,11 +84,12 @@ test('a paid arena bout burns the sealed battle item and hands back the committe
     assert.equal(started.body._saveVersion, 2);
 });
 
-test('a paid bout with no battle item writes nothing', async () => {
+test('a paid bout with no battle item burns no other pet\'s item', async () => {
     const started = await post({ action: 'arena', format: '1v1', petIds: ['pet-b'] });
     assert.equal(started.status, 200, JSON.stringify(started.body));
-    assert.equal(started.body.character, undefined);
-    assert.equal((await kv.get<Json>(`save:${player}`))!._saveVersion, 1);
+    const pets = await savedPets();
+    assert.equal(pets[0].loadout?.consumable, ITEM);
+    assert.equal(pets[2].loadout?.consumable, ITEM);
 });
 
 test('practice keeps the item', async () => {
@@ -104,11 +108,7 @@ test('an item unequipped after the seal refuses the burn instead of burning noth
     });
     const save = (await kv.get<Json>(`save:${player}`))!;
     save.character.pets[0] = companion('pet-a');
-    await kv.set(`save:${player}`, save);
-    const refused = await burnSealedShowdownConsumables(player, sealed);
-    assert.equal(refused.ok, false);
-    if (!refused.ok) assert.equal(refused.status, 409);
-    assert.deepEqual(await kv.get(`save:${player}`), save, 'a refused burn writes nothing');
+    assert.throws(() => spendShowdownConsumables(save.character, sealed), /showdown-consumable-build-changed/);
 });
 
 test('an unpaid session (Hollow Gate, wanderer, practice) commits and burns nothing', async () => {
@@ -117,7 +117,6 @@ test('an unpaid session (Hollow Gate, wanderer, practice) commits and burns noth
         playerPets: [companion('pet-a', ITEM)] as never, enemyPets: [companion('foe')] as never, enemyTeamName: 'Foes',
         rewardEligible: false,
     });
-    const before = await kv.get(`save:${player}`);
-    assert.deepEqual(await burnSealedShowdownConsumables(player, unpaid), { ok: true, commit: null });
-    assert.deepEqual(await kv.get(`save:${player}`), before);
+    const character = (await kv.get<Json>(`save:${player}`))!.character;
+    assert.equal(spendShowdownConsumables(character, unpaid), character, 'nothing is struck');
 });

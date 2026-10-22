@@ -14,6 +14,7 @@ import { advanceHollowGateWanderers, hollowGateWandererDistance, hollowGateWande
 import { hollowGateWanderersForRun } from './_wanderers.js';
 import { hollowGatePhysicalBoard, hollowGateFloorFeatures } from './_floor-features.js';
 import { undergroundFeatureBlocks } from '../../shared/underground-floor-collision.js';
+import { HOLLOW_GATE_HUNTER_BREATHER_STEPS } from '../../shared/hollow-gate-pacing.js';
 
 const coord = (value: unknown): number => Math.floor(Number(value));
 const bounded = (x: number, y: number): boolean => Number.isInteger(x) && Number.isInteger(y) && x >= 0 && x < 31 && y >= 0 && y < 21;
@@ -148,8 +149,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const { torchBefore, torch, wardSteps, threat, stepVersion } = derived;
             const wanderers = roster ? advanceHollowGateWanderers(hollowGatePhysicalBoard(run, manifest), roster, to, stepVersion, run.withdrawnEncounterIds) : undefined;
             const targetKind = manifest.nodes[String(targetIndex)];
+            const breather = Math.max(0, Math.min(HOLLOW_GATE_HUNTER_BREATHER_STEPS, Math.floor(Number(run.hunterBreatherSteps) || 0)));
+            const nearMedic = wanderers?.some(npc => npc.role === 'medic' && !npc.spent
+                && hollowGateWandererDistance(npc.tile, targetIndex, manifest.width) <= 1) === true;
             // Authored tile interactions have priority over hunter contact.
-            const hunter = !targetKind || hollowGateWandererOrigin(roster, targetIndex)
+            const hunter = breather === 0 && !nearMedic && (!targetKind || hollowGateWandererOrigin(roster, targetIndex))
                 ? wanderers?.find(npc => !npc.spent && !hollowGateWandererFriendly(npc)
                     && hollowGateWandererDistance(npc.tile, targetIndex, manifest.width) <= 1
                     && (!(run.withdrawnEncounterIds ?? []).includes(`${floor}:battle:${npc.nodeId}`) || npc.tile === targetIndex)) : undefined;
@@ -163,6 +167,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 stepVersion,
                 recentStepIds: [...recent, requestId].slice(-64),
                 pendingAmbush,
+                ...(run.hunterBreatherSteps !== undefined ? { hunterBreatherSteps: Math.max(0, breather - 1) } : {}),
                 ...(wanderers ? { wanderers: { ...run.wanderers, [String(floor)]: wanderers } } : {}),
                 visitedTiles: hollowGateMarkVisited(run.visitedTiles, manifest, to),
             };

@@ -1,0 +1,250 @@
+{
+  "id": "rare-22",
+  "frames": [
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/salamander-private-v1-idle/rare-22/idle-0.png",
+      "sha256": "d31e3f0dc2b40086365c33c92ecd30faa0821a368c05f762c56cbaa8373df557",
+      "crop": {
+        "left": 163,
+        "top": 51,
+        "width": 174,
+        "height": 167
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/salamander-private-v1-idle/rare-22/idle-1.png",
+      "sha256": "c83f0f40a1fe0dcbb5c60bcb0039e771313462eee57f23e0f26b7d4105b2a875",
+      "crop": {
+        "left": 163,
+        "top": 44,
+        "width": 174,
+        "height": 174
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/salamander-private-v1-idle/rare-22/idle-2.png",
+      "sha256": "b085ae08cf8224a364b62c8e6f296db6d82cfd4fa99f166b4f9a60cf39892f0d",
+      "crop": {
+        "left": 163,
+        "top": 33,
+        "width": 174,
+        "height": 185
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/salamander-private-v1-idle/rare-22/idle-3.png",
+      "sha256": "70862f481da280295981fc3ecbc9d7cf369edc3157a9778194e093473efad2fd",
+      "crop": {
+        "left": 163,
+        "top": 38,
+        "width": 174,
+        "height": 180
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/salamander-private-v1-idle/rare-22/idle-4.png",
+      "sha256": "7aca61382af5396bd0b05d39132c7c75954bfb95c86e5908ba9f573d28042fa6",
+      "crop": {
+        "left": 163,
+        "top": 46,
+        "width": 174,
+        "height": 172
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/salamander-private-v1-idle/rare-22/idle-5.png",
+      "sha256": "27bd87300230446bb1676ee7ba12c3ed708687e8fe59610adbf533282f37e438",
+      "crop": {
+        "left": 163,
+        "top": 52,
+        "width": 174,
+        "height": 166
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/salamander-private-v1-idle/rare-22/idle-6.png",
+      "sha256": "4bc6a182177fc6a1a089f06a25210ae00265a8f116fcc4c741f43798207c009e",
+      "crop": {
+        "left": 163,
+        "top": 48,
+        "width": 174,
+        "height": 170
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/salamander-private-v1-idle/rare-22/idle-7.png",
+      "sha256": "0bcdf88c66d63d97509ea3c6fbd60b8073705a9da7f4159003def51e644c03d6",
+      "crop": {
+        "left": 163,
+        "top": 38,
+        "width": 174,
+        "height": 180
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/salamander-private-v1-idle/rare-22/idle-8.png",
+      "sha256": "18f535d6d35b654f409004d4eb6744f8d3c792277e5be21d8de49bf7f54789ff",
+      "crop": {
+        "left": 163,
+        "top": 35,
+        "width": 174,
+        "height": 183
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/salamander-private-v1-idle/rare-22/idle-9.png",
+      "sha256": "b648a90eb7df983da83e1df758cc2392876579077a86e26b0f2b2d2b3ddee44a",
+      "crop": {
+        "left": 163,
+        "top": 42,
+        "width": 174,
+        "height": 176
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/salamander-private-v1-idle/rare-22/idle-10.png",
+      "sha256": "835068ed600ea1a02e57a760be1468d3ed4013a89c5c0c85d80928980c3f2faf",
+      "crop": {
+        "left": 163,
+        "top": 51,
+        "width": 174,
+        "height": 167
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/salamander-private-v1-idle/rare-22/idle-11.png",
+      "sha256": "556d032a992e1ac67fcabd2c0f76e9ad075f380ad31d522d9ce3db4ac77f5c65",
+      "crop": {
+        "left": 163,
+        "top": 50,
+        "width": 174,
+        "height": 168
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/salamander-private-v1-idle/rare-22/idle-12.png",
+      "sha256": "7828741801ed943e31a7cd0a1a7a905ac12e83e7459f71effb77552971ac711c",
+      "crop": {
+        "left": 163,
+        "top": 43,
+        "width": 174,
+        "height": 175
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/salamander-private-v1-idle/rare-22/idle-13.png",
+      "sha256": "2ace3e7f859a482f0a4d516c196be358441fef146fce76ee08bdc936b56773a5",
+      "crop": {
+        "left": 163,
+        "top": 33,
+        "width": 174,
+        "height": 185
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/salamander-private-v1-idle/rare-22/idle-14.png",
+      "sha256": "36b131819abd1e8ca04c807be9abceaece025032982944d586b25ed9add7df08",
+      "crop": {
+        "left": 163,
+        "top": 39,
+        "width": 174,
+        "height": 179
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/salamander-private-v1-idle/rare-22/idle-15.png",
+      "sha256": "8761f0622fd41d3e728c7acb5f91284e9290fac93c45cb7a7518f1f9a9d7aef4",
+      "crop": {
+        "left": 163,
+        "top": 46,
+        "width": 174,
+        "height": 172
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/salamander-private-v1-idle/rare-22/idle-16.png",
+      "sha256": "e36f29a1de5b8554548135d84445a7a3fd3dd43140090a459983a7272a0e4cfc",
+      "crop": {
+        "left": 163,
+        "top": 52,
+        "width": 174,
+        "height": 166
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/salamander-private-v1-idle/rare-22/idle-17.png",
+      "sha256": "1cc10e92ef29b87d50f6a488c1310e356f0c3d9ce697b9c2f1759332d09a0070",
+      "crop": {
+        "left": 163,
+        "top": 49,
+        "width": 174,
+        "height": 169
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/salamander-private-v1-idle/rare-22/idle-18.png",
+      "sha256": "a5f6f507ae0927d0457f96b48dda089f021603db83528ac98068a4804e940ede",
+      "crop": {
+        "left": 163,
+        "top": 40,
+        "width": 174,
+        "height": 178
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/salamander-private-v1-idle/rare-22/idle-19.png",
+      "sha256": "aa54badc540c3fae7e71741211d23e151cfb186cceec0657c8f9d844ec898aef",
+      "crop": {
+        "left": 163,
+        "top": 36,
+        "width": 174,
+        "height": 182
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/salamander-private-v1-idle/rare-22/idle-20.png",
+      "sha256": "6b8dbceda4e3d2b71ffa1fdc2edd61f5c6f1e1bfb51399ad7977d6a4f145274b",
+      "crop": {
+        "left": 163,
+        "top": 35,
+        "width": 174,
+        "height": 183
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/salamander-private-v1-idle/rare-22/idle-21.png",
+      "sha256": "d6265b4b5d799eb4405e10ad67fbad5e848f8e05a8392692a9b82e60612038dc",
+      "crop": {
+        "left": 163,
+        "top": 41,
+        "width": 174,
+        "height": 177
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/salamander-private-v1-idle/rare-22/idle-22.png",
+      "sha256": "4b0414847a01a31bc1196d5c3a5dbe23691d77381a68609f780e4bd780e0994d",
+      "crop": {
+        "left": 163,
+        "top": 51,
+        "width": 174,
+        "height": 167
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/salamander-private-v1-idle/rare-22/idle-23.png",
+      "sha256": "d8ed9ebf08b6f0da7f94977d1be6146bff8a04a7bfd554183c8266a4e649089d",
+      "crop": {
+        "left": 163,
+        "top": 51,
+        "width": 174,
+        "height": 167
+      }
+    }
+  ],
+  "frameCount": 24,
+  "sha256": "1d727e17dfef8c4f78c67901db0c348e3b3a4dee1a5db1440782b5e934158032",
+  "nativePixelsPreserved": true,
+  "resizing": false,
+  "review": "pending"
+}

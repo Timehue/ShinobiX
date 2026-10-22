@@ -1,0 +1,90 @@
+{
+  "schema": "granite-tortoise-private-candidate-independent-review-v1",
+  "reviewedAt": "2026-10-20",
+  "petId": "starter-earth-r",
+  "name": "Granite Tortoise",
+  "candidate": {
+    "sourcePath": "docs/asset-sources/granite-tortoise-private-repair-2026-10-20/candidate-source-v1-unreleased.glb",
+    "sourceSha256": "a6cdc167bb19c0ba27adcbfd1e98a6a950c029f7afb535b47d840d71127c2822",
+    "battlePath": "shinobij.client/.tmp/granite-tortoise/delivery/public/pet-models/warfront-lod/starter-earth-r.glb",
+    "battleSha256": "ac0e545549a802c13dc8b8de1e026d4c8d5cf1787c0b44a3aedd925aec7fd7e1",
+    "mappingVerified": true,
+    "note": "These are the private repaired source and its private generated battle LOD. The unchanged public source is a different hash and was not recaptured or substituted."
+  },
+  "verdict": {
+    "privateCandidateVisualReview": "PASS",
+    "releaseApproval": false,
+    "scope": "Independent private-candidate visual second pass only; this report does not promote or approve the private candidate for release.",
+    "confirmedDistortions": [],
+    "findings": [
+      "The repaired lower face/chin remains visually continuous with the head from under-front and under-side views across all 13 raw clips and six sampled phases, in both source and battle evidence.",
+      "No visible jaw tear, chin split, collar freeze, head-to-body separation, disconnected limb, or shell distortion was found in the personally inspected runtime or companion samples.",
+      "Death/revive and attack/tumble transitions show intended pose changes; the limbs, shell, head, and torso remain connected."
+    ],
+    "limitations": [
+      "The private candidate remains unreleased. Existing release-level adjudication and promotion gates remain separate and are not changed by this review.",
+      "The companion manifest itself remains marked review=pending; this report records the visual review result independently."
+    ]
+  },
+  "visualScope": {
+    "rawSourceBattle": {
+      "clips": 13,
+      "phasesPerClip": 6,
+      "views": ["front", "side", "opposite-side", "under-front", "under-side", "body-front", "body-side"],
+      "artifacts": [
+        "docs/screenshots/pet-granite-tortoise-progress-2026-10-19/granite-private-v1-source-head/",
+        "docs/screenshots/pet-granite-tortoise-progress-2026-10-19/granite-private-v1-source-body/",
+        "docs/screenshots/pet-granite-tortoise-progress-2026-10-19/granite-private-v1-battle-head/",
+        "docs/screenshots/pet-granite-tortoise-progress-2026-10-19/granite-private-v1-battle-body/"
+      ],
+      "personallyViewedThisPass": ["all source/battle under-front and under-side sheets; all 13 clips at six phases"],
+      "fileHashValidation": "42 private raw sheets match the existing progress report evidence hashes."
+    },
+    "runtime": {
+      "qualities": ["low", "medium"],
+      "stages": ["source", "battle"],
+      "views": ["head-front", "body-front", "head-side", "body-side"],
+      "transitionRows": 16,
+      "phasesPerTransition": 6,
+      "manifests": [
+        "shinobij.client/.tmp/pet-shape-review/granite-private-v1-runtime-low/manifest.json",
+        "shinobij.client/.tmp/pet-shape-review/granite-private-v1-runtime-medium/manifest.json"
+      ],
+      "personallyViewedThisPass": true,
+      "errors": []
+    },
+    "companion": {
+      "manifest": "docs/audits/pet-granite-private-v1-review-2026-10-20/companion/manifest.json",
+      "idleFrames": 24,
+      "techniques": ["earth-strike", "earth-pulse", "earth-breaker", "lightning-pulse", "open-wound", "intercept", "protect", "aegis", "starter-earth-r-signature"],
+      "techniqueViews": ["front", "side"],
+      "phasesPerTechniquePerView": 12,
+      "techniqueFrames": 216,
+      "personallyViewedThisPass": true,
+      "errors": []
+    },
+    "surfaceAtlas": "No separate atlas asset is listed for this private model; the embedded material/texture is visible in the inspected source, battle, runtime, idle, and technique evidence."
+  },
+  "numericEvidence": {
+    "faceProbePath": "docs/screenshots/pet-granite-tortoise-progress-2026-10-19/private-source-face-probe.json",
+    "faceProbeSha256": "87cc8b8cc3cce91ffd100936e925c85a995bcdc91c59ad19c18999b167a9d186",
+    "faceProbe": {"regions": 13, "blendPoses": 468, "failures": 0, "facePeakDrift": 2.816886405707238e-15},
+    "fullGeometryProbePath": "docs/screenshots/pet-granite-tortoise-progress-2026-10-19/private-source-full-geometry-probe.json",
+    "fullGeometryProbeSha256": "c1ead522b5b721dc00a2d88be18aec263cde08faf699dd0bf2e882130670d7d9",
+    "fullGeometryProbe": {"poses": 995, "sampledVertices": 12122, "sampledEdges": 33603, "deformationWarnings": 0, "failures": 0}
+  },
+  "evidenceIntegrity": {
+    "inventoryPath": "docs/audits/pet-granite-private-v1-review-2026-10-20/evidence-hashes.json",
+    "inventoryFileCount": 336,
+    "allHashesValidated": true,
+    "runtimeLowManifestSha256": "38bdb8bf129c76c88545964c88431fe993da44f0d5d46a6539ce0696a51767e2",
+    "runtimeMediumManifestSha256": "288e6c57b323b976c59b6ad8c1de46558730f966c2ff02f1938f38720d333373",
+    "companionManifestSha256": "4fd84924203f5a34b9b8c3251391d37e9ddb866d68c9ca22d4de5fad575d867a"
+  },
+  "captureCommands": {
+    "companion": "From repo root: .\\node_modules\\.bin\\tsx.cmd .\\shinobij.client\\.tmp\\offline-companion-granite-private-v1.mjs",
+    "runtime": "Reused exact-hash private low/medium capture manifests listed above; no public asset recapture performed."
+  },
+  "productionChanges": {"modelsModified": false, "publicAssetsModified": false, "promoted": false, "trackerUpdated": false}
+}
+

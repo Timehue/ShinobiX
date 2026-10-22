@@ -1,0 +1,818 @@
+{
+  "id": "rare-22",
+  "name": "Shrine Salamander",
+  "updatedAt": "2026-10-20T04:51:36.880Z",
+  "status": "private-first-pass-complete-independent-final-review-pending",
+  "productionApproval": false,
+  "publicAssetsChanged": false,
+  "reviewer": "root",
+  "seen": [
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/techniques/front-block-0-half-0.png",
+      "sha256": "93f82300a7627ab668d9a865fc71643895f3cfa581d927251a8045e076471ab5",
+      "kind": "techniques",
+      "actuallyViewed": true
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/techniques/front-block-0-half-1.png",
+      "sha256": "ad1f24729f4265635936ec2cfdf7cd9c0e4c2c62c70ad59ff81cb214705f6b71",
+      "kind": "techniques",
+      "actuallyViewed": true
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/techniques/front-block-1-half-0.png",
+      "sha256": "53003ceba0f709f8c296703e2e40a7edc7f647559a21bdcf8442a68665ce6be5",
+      "kind": "techniques",
+      "actuallyViewed": true
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/techniques/front-block-1-half-1.png",
+      "sha256": "680930b4d97695df31f99179c5fe90a6810a6e6cbd93feeb44dfc30c137bc836",
+      "kind": "techniques",
+      "actuallyViewed": true
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/techniques/front-block-2-half-0.png",
+      "sha256": "44835a856c3635b98ab90cbd91067f897642db6b8153d39f0c543617fe3a7c71",
+      "kind": "techniques",
+      "actuallyViewed": true
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/techniques/front-block-2-half-1.png",
+      "sha256": "e32378fd65143054e921168e806a9e62b383225de6ce6e44d205449fd6f9bd80",
+      "kind": "techniques",
+      "actuallyViewed": true
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/techniques/side-block-0-half-0.png",
+      "sha256": "1d214b741cfc09905f3c1ebb4a2a4ffb6c3c6bb3515c76d06d5a2bc724386c6c",
+      "kind": "techniques",
+      "actuallyViewed": true
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/techniques/side-block-0-half-1.png",
+      "sha256": "1f9eff486fabb038b36c85a084cae9e9ac43b0591cb5c57af4172266947b9266",
+      "kind": "techniques",
+      "actuallyViewed": true
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/techniques/side-block-1-half-0.png",
+      "sha256": "da576b9fde33c3b64c56283365290d89f4d708c02e2921661e6019b0942574a0",
+      "kind": "techniques",
+      "actuallyViewed": true
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/techniques/side-block-1-half-1.png",
+      "sha256": "1de315e1cdfa05cb11505ec0346e7eaec4cbcfbce81898aa03ab99d6f6fefc0f",
+      "kind": "techniques",
+      "actuallyViewed": true
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/techniques/side-block-2-half-0.png",
+      "sha256": "83c0a2c8673b9b8fadf8f61d4897df608f558802a44963e8b506a7323980a3c1",
+      "kind": "techniques",
+      "actuallyViewed": true
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/techniques/side-block-2-half-1.png",
+      "sha256": "781c60d52e5e9e6fc779b22c35b4e916ed198efbb68948cbd1b98f982795aa19",
+      "kind": "techniques",
+      "actuallyViewed": true
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/runtime-medium/rare-22-source-body-0.png",
+      "sha256": "6e9fd9eb3e9a41002c46eebad9c7b73dbf7184f0589bbaea5e3a822cd04b30b6",
+      "kind": "runtime-medium",
+      "actuallyViewed": true
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/runtime-medium/rare-22-source-body-1.png",
+      "sha256": "86880422ba413490ead884764f1f647b910d729d88da7dc5ce3f515726612b7e",
+      "kind": "runtime-medium",
+      "actuallyViewed": true
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/runtime-medium/rare-22-source-body-2.png",
+      "sha256": "60c045584c5dbf173ed8a66996104d70fd9c0b47a61e744b0270dc2cf729d4fb",
+      "kind": "runtime-medium",
+      "actuallyViewed": true
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/runtime-medium/rare-22-source-body-3.png",
+      "sha256": "236a2a48b7f6406ab7e72309045afa2a9ce410e41e8f61f30077f7b6aa150a87",
+      "kind": "runtime-medium",
+      "actuallyViewed": true
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/runtime-medium/rare-22-source-head-0.png",
+      "sha256": "0679718cf74506bd3dc25a3a0d6931dd15114ee25a6cf304d30775dd2818ad29",
+      "kind": "runtime-medium",
+      "actuallyViewed": true
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/runtime-medium/rare-22-source-head-1.png",
+      "sha256": "a81b507fa41d4fc556c4471d0bbb59b7f405a91bfa4ba596fe16f77b0cbec11d",
+      "kind": "runtime-medium",
+      "actuallyViewed": true
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/runtime-medium/rare-22-source-head-2.png",
+      "sha256": "435de83eac4860072c9a58854b2e804fa7b83c48bf719a1ff69ed18db15057a7",
+      "kind": "runtime-medium",
+      "actuallyViewed": true
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/runtime-medium/rare-22-source-head-3.png",
+      "sha256": "d72132123bbac775ae189d502520d49b9de89b602ef62a3902a96e96fe338591",
+      "kind": "runtime-medium",
+      "actuallyViewed": true
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/runtime-medium/rare-22-battle-body-0.png",
+      "sha256": "2ba61619d3b7473eff573f2d009026d09fce139047b271c4a61207a7f31766ec",
+      "kind": "runtime-medium",
+      "actuallyViewed": true
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/runtime-medium/rare-22-battle-body-1.png",
+      "sha256": "a6572f4132c47de2f145ebbe2e55b449c8b46a733399cccf668f08dd8ce73266",
+      "kind": "runtime-medium",
+      "actuallyViewed": true
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/runtime-medium/rare-22-battle-body-2.png",
+      "sha256": "4ae6b46a5030b6f643eb6377c7b15f4830642e52a1106a2c26d9773d080f5502",
+      "kind": "runtime-medium",
+      "actuallyViewed": true
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/runtime-medium/rare-22-battle-body-3.png",
+      "sha256": "3ac43274ec1b3be541829f137fabb40f5b94691b369fe1eaca7b3c3a47f4322d",
+      "kind": "runtime-medium",
+      "actuallyViewed": true
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/runtime-medium/rare-22-battle-head-0.png",
+      "sha256": "6105161b0e352855db8c0b553143093f841883a8f8c55454f67b09ef87176c89",
+      "kind": "runtime-medium",
+      "actuallyViewed": true
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/runtime-medium/rare-22-battle-head-1.png",
+      "sha256": "317e52b2886fd4e700002f8899ee8810d0295a7073e95c8d3b68631ba5b62864",
+      "kind": "runtime-medium",
+      "actuallyViewed": true
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/runtime-medium/rare-22-battle-head-2.png",
+      "sha256": "f5bc7d8917caa1bbffeba38e5ff2db6e3815c5652061fa63a25b9933ab6f3fd9",
+      "kind": "runtime-medium",
+      "actuallyViewed": true
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/runtime-medium/rare-22-battle-head-3.png",
+      "sha256": "4d1def085f8a8fd16ed50fe49b697040e4b5642c1dda3964b61a789a6170e4ab",
+      "kind": "runtime-medium",
+      "actuallyViewed": true
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/raw-source-head/rare-22-head-front-0.png",
+      "sha256": "7315150d9cb12184c129f88415e04bb93b84e90005ad344e1bab51b0a2ed7086",
+      "kind": "raw-source-head",
+      "actuallyViewed": true
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/raw-source-head/rare-22-head-front-1.png",
+      "sha256": "cde7ee63a831adb4783353e7a436f160f81a4e2faf4101d703e2f216cd22ead0",
+      "kind": "raw-source-head",
+      "actuallyViewed": true
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/raw-source-head/rare-22-head-front-2.png",
+      "sha256": "440ab74eb53175d60b69c8e397a635fa40a4591b0b5dd15ce4f348c053b31275",
+      "kind": "raw-source-head",
+      "actuallyViewed": true
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/raw-source-head/rare-22-head-side-0.png",
+      "sha256": "15c5715cc567055ec08bd86ca5441cf67eb4a812b1fe5b52a9a1925e5db47a43",
+      "kind": "raw-source-head",
+      "actuallyViewed": true
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/raw-source-head/rare-22-head-side-1.png",
+      "sha256": "39775bc6ff9459598c14465a934b0e31ff87165337cf56ae2375c0786fc5ee83",
+      "kind": "raw-source-head",
+      "actuallyViewed": true
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/raw-source-head/rare-22-head-side-2.png",
+      "sha256": "2003da5a93f4b6cc4d414c52f6a031a4912111103470f3232661118ec5e2e5c3",
+      "kind": "raw-source-head",
+      "actuallyViewed": true
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/raw-source-head/rare-22-head-other-side-0.png",
+      "sha256": "4a3728de2aa687d34f7a9e9f4daa3d559f7ed9791af85d0826c5ac0088623ae8",
+      "kind": "raw-source-head",
+      "actuallyViewed": true
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/raw-source-head/rare-22-head-other-side-1.png",
+      "sha256": "61a027dfd21963ab776ca1cc82f5b00ab36dab2cef8ab449ec0d268ff392e941",
+      "kind": "raw-source-head",
+      "actuallyViewed": true
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/raw-source-head/rare-22-head-other-side-2.png",
+      "sha256": "39ce7f7954b08a4c213434ff4ea0ddf660a6600c626630e094b71a3676439a5b",
+      "kind": "raw-source-head",
+      "actuallyViewed": true
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/raw-source-head/rare-22-head-under-front-0.png",
+      "sha256": "52292c7a545a80d55d220698d11657d616b6501e9a8d7bba5cd537359c87b6ce",
+      "kind": "raw-source-head",
+      "actuallyViewed": true
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/raw-source-head/rare-22-head-under-front-1.png",
+      "sha256": "5e2676a3b329c47d16e6ee0e9fbbcc09bb62492dfb7a5ffaa61c18beb45cb07c",
+      "kind": "raw-source-head",
+      "actuallyViewed": true
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/raw-source-head/rare-22-head-under-front-2.png",
+      "sha256": "ddd6a948a9e8699bf2300f57c3ad84262b98ab1713d1e673dd757cfd227eaffb",
+      "kind": "raw-source-head",
+      "actuallyViewed": true
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/raw-source-head/rare-22-head-under-side-0.png",
+      "sha256": "6a8986283bcea220d60b0a8d6fdab28e901303aa7b99082823e00ffc53ad8bee",
+      "kind": "raw-source-head",
+      "actuallyViewed": true
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/raw-source-head/rare-22-head-under-side-1.png",
+      "sha256": "d0ac95e482099c13f01fc7e381e3dc02dc7f59cc09ea7dff696d6c94ad2ec74d",
+      "kind": "raw-source-head",
+      "actuallyViewed": true
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/raw-source-head/rare-22-head-under-side-2.png",
+      "sha256": "ee3de499d5a90a05880c48d5b68dc30d1588b2bb2246b1d0c08d31bea70428ae",
+      "kind": "raw-source-head",
+      "actuallyViewed": true
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/raw-source-body/rare-22-front-0.png",
+      "sha256": "200ec12cdcc8521a2fb58464a74eeaba9ccc778b9f0e87e513a10c1139668a49",
+      "kind": "raw-source-body",
+      "actuallyViewed": true
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/raw-source-body/rare-22-front-1.png",
+      "sha256": "8110584a1da15f2240cbabf25519733aae2c22b971c17dbdd9da269a348ea734",
+      "kind": "raw-source-body",
+      "actuallyViewed": true
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/raw-source-body/rare-22-front-2.png",
+      "sha256": "0368710ecaf8fd52f44fd038b7bc39d05392fd20c37e120e525ef6a0516ad64e",
+      "kind": "raw-source-body",
+      "actuallyViewed": true
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/raw-source-body/rare-22-side-0.png",
+      "sha256": "e85f60be6839dbb8a00b53d9c68cdf57584c63c0078500df0c878d52dec0c677",
+      "kind": "raw-source-body",
+      "actuallyViewed": true
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/raw-source-body/rare-22-side-1.png",
+      "sha256": "33f0c36bce78123153bfc53f44a1940ed2134698d8911d1d9599e3cf41e7dd98",
+      "kind": "raw-source-body",
+      "actuallyViewed": true
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/raw-source-body/rare-22-side-2.png",
+      "sha256": "a0cd2e76e2c4669efe599cc046ab489cac072318b2056186292560eb2792230c",
+      "kind": "raw-source-body",
+      "actuallyViewed": true
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/raw-battle-head/rare-22-head-front-0.png",
+      "sha256": "add1b162a3d67ccb3db33389d1ab2a543d2d932665ae9fcb1860404ad5591c70",
+      "kind": "raw-battle-head",
+      "actuallyViewed": true
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/raw-battle-head/rare-22-head-front-1.png",
+      "sha256": "c034675046f0e890dddd56d1611ffa0af5c0254c4e964c640896585dea825917",
+      "kind": "raw-battle-head",
+      "actuallyViewed": true
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/raw-battle-head/rare-22-head-front-2.png",
+      "sha256": "b5c490a78e807073ecd5d7c672245f62bdbb646121242ae2acac7e86fc7240dd",
+      "kind": "raw-battle-head",
+      "actuallyViewed": true
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/raw-battle-head/rare-22-head-side-0.png",
+      "sha256": "634604d1ecb28a9ba3157cb3332baefba47d1cd75eebcea0b62641ae90c83a57",
+      "kind": "raw-battle-head",
+      "actuallyViewed": true
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/raw-battle-head/rare-22-head-side-1.png",
+      "sha256": "0c682409c7674ba64be5bcf311c5c357833c7e095f2d89fba90f45c561e8980c",
+      "kind": "raw-battle-head",
+      "actuallyViewed": true
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/raw-battle-head/rare-22-head-side-2.png",
+      "sha256": "2f0bc25a82ca7a5a441f99e8e5f0b46bf3f09825ab9801d5004916bdad3de5da",
+      "kind": "raw-battle-head",
+      "actuallyViewed": true
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/raw-battle-head/rare-22-head-other-side-0.png",
+      "sha256": "eea40902b911f78a03ec656b51ce06cb489666c2ac701b42595e7519b52ddfe5",
+      "kind": "raw-battle-head",
+      "actuallyViewed": true
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/raw-battle-head/rare-22-head-other-side-1.png",
+      "sha256": "2a9d02173a3d60557cce2d347bab660cf177b9752ee8271143a91f1e026ca893",
+      "kind": "raw-battle-head",
+      "actuallyViewed": true
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/raw-battle-head/rare-22-head-other-side-2.png",
+      "sha256": "a07ed0f328e88ff8abbeb4fc55f8520a68d878de171850356bf32f89ea77c6c4",
+      "kind": "raw-battle-head",
+      "actuallyViewed": true
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/raw-battle-head/rare-22-head-under-front-0.png",
+      "sha256": "46870af8f5cabc83ac2abac4866dc5215ee5ebb5db04f2df50adc4dad8aa6696",
+      "kind": "raw-battle-head",
+      "actuallyViewed": true
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/raw-battle-head/rare-22-head-under-front-1.png",
+      "sha256": "7b50b6a7c6bb321cbed6e9d2c985ddfe9ff853b8311a28cbe395386306d01684",
+      "kind": "raw-battle-head",
+      "actuallyViewed": true
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/raw-battle-head/rare-22-head-under-front-2.png",
+      "sha256": "7e704ede27c89186159ca24b9e5e9ee5bef1eb58f523819ce3dd5e4766d69e3b",
+      "kind": "raw-battle-head",
+      "actuallyViewed": true
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/raw-battle-head/rare-22-head-under-side-0.png",
+      "sha256": "2beefa8ecac5cb54922709b36ca83ba1d61d450a55ec6277c335e054e093643d",
+      "kind": "raw-battle-head",
+      "actuallyViewed": true
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/raw-battle-head/rare-22-head-under-side-1.png",
+      "sha256": "a520d0ef24c1043208efbb31c7df4eb42e88c9e634b5fa9174ecbabc1d5db6bb",
+      "kind": "raw-battle-head",
+      "actuallyViewed": true
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/raw-battle-head/rare-22-head-under-side-2.png",
+      "sha256": "1555060eef272d82b617bab40527fddc38831a333092c6704e3913be8201e304",
+      "kind": "raw-battle-head",
+      "actuallyViewed": true
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/raw-battle-body/rare-22-front-0.png",
+      "sha256": "f7f13d497a72ca93d28ffbdc65176141d77c8d30cca36ba803a8ba94b771931d",
+      "kind": "raw-battle-body",
+      "actuallyViewed": true
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/raw-battle-body/rare-22-front-1.png",
+      "sha256": "d59a1a16b3d767b03ba5540bd0c3ada44e8c2bf7438a2e6130e56b87bafa6011",
+      "kind": "raw-battle-body",
+      "actuallyViewed": true
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/raw-battle-body/rare-22-front-2.png",
+      "sha256": "0889e68cde35c3532a509f788861d6ba93aad73a8caf9e1473007d9822fa1753",
+      "kind": "raw-battle-body",
+      "actuallyViewed": true
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/raw-battle-body/rare-22-side-0.png",
+      "sha256": "02324483504660bf791aac4fd9f6a94b81d6137a439734c9a29ba26fa0da5751",
+      "kind": "raw-battle-body",
+      "actuallyViewed": true
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/raw-battle-body/rare-22-side-1.png",
+      "sha256": "737c62bfc72325bcbc0245e58d64caf79d4363c765f9188dec2b1ba91b52a4ff",
+      "kind": "raw-battle-body",
+      "actuallyViewed": true
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/raw-battle-body/rare-22-side-2.png",
+      "sha256": "c5c23ec6ef81ebcfc4ed846161eb32a1ed5d6a99842b1a99d18a5535c5ed6c7e",
+      "kind": "raw-battle-body",
+      "actuallyViewed": true
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/runtime-low/native-source-body.png",
+      "sha256": "1b651f8a3cd07fee11733359edf75dc9d4261a9ad3920751636d56e8101d2d8c",
+      "kind": "runtime-low",
+      "actuallyViewed": true,
+      "displayedAt": {
+        "width": 1280,
+        "height": 1920
+      },
+      "storedAt": {
+        "width": 1440,
+        "height": 2160
+      }
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/runtime-low/native-source-head.png",
+      "sha256": "60af64badf487f6eb1846432d1934f3a557c035bda917e3b56df0a4faa664046",
+      "kind": "runtime-low",
+      "actuallyViewed": true,
+      "displayedAt": {
+        "width": 1280,
+        "height": 1920
+      },
+      "storedAt": {
+        "width": 1440,
+        "height": 2160
+      }
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/runtime-low/native-battle-body.png",
+      "sha256": "5af3672f9896dca0c335586b324d8100284da4f09655ee3e7e3a72d0474b146a",
+      "kind": "runtime-low",
+      "actuallyViewed": true,
+      "displayedAt": {
+        "width": 1280,
+        "height": 1920
+      },
+      "storedAt": {
+        "width": 1440,
+        "height": 2160
+      }
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/runtime-low/native-battle-head.png",
+      "sha256": "b4e1b98e0e49983f0db14e080ab5fac7f064d162fa547779e10fb41d7ac28d36",
+      "kind": "runtime-low",
+      "actuallyViewed": true,
+      "displayedAt": {
+        "width": 1280,
+        "height": 1920
+      },
+      "storedAt": {
+        "width": 1440,
+        "height": 2160
+      }
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/idle/advancing-idle-native.png",
+      "sha256": "1d727e17dfef8c4f78c67901db0c348e3b3a4dee1a5db1440782b5e934158032",
+      "kind": "idle",
+      "actuallyViewed": true
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/atlas/rare-22.webp",
+      "sha256": "3f85620c1b35570598fc35992ccfa32c4fe85ff3f898838ec0517c2d25f1971d",
+      "kind": "atlas",
+      "actuallyViewed": true
+    }
+  ],
+  "scope": {
+    "actualProductionBattleTechniques": {
+      "moves": 9,
+      "frames": 216,
+      "views": [
+        "front",
+        "side"
+      ],
+      "allTwelveStripsPersonallyViewed": true,
+      "result": "No detached fingers, floor-clipped tips, disconnected legs or face distortion; strike, recovery and idle contacts coherent."
+    },
+    "runtimeMedium": {
+      "stages": [
+        "source",
+        "battle"
+      ],
+      "rowsPerStage": 16,
+      "phases": [
+        0.025,
+        0.1,
+        0.25,
+        0.5,
+        0.75,
+        1
+      ],
+      "views": [
+        "front",
+        "side"
+      ],
+      "allSixteenSheetsPersonallyViewed": true,
+      "result": "Face, chin and muzzle continuous; attached limbs, tail and cloth across all transitions, including death and revive."
+    },
+    "raw": {
+      "stages": [
+        "source",
+        "battle"
+      ],
+      "clipsPerStage": 13,
+      "phases": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ],
+      "bodyViews": [
+        "front",
+        "side"
+      ],
+      "faceViews": [
+        "front",
+        "side",
+        "opposite",
+        "under-front",
+        "under-side"
+      ],
+      "sheetsActuallyViewed": 42,
+      "poseViews": 1092,
+      "result": "No visible face, jaw, limb, tail or cloth disconnection across all clips.",
+      "limits": "At late death the turned face is naturally obscured by the body or hand in some opposite/underside views; complementary front/side views show its shape. Some opposite-side attack poses extend beyond that closeup; complementary views checked."
+    },
+    "runtimeLow": {
+      "stages": [
+        "source",
+        "battle"
+      ],
+      "rowsPerStage": 16,
+      "phases": [
+        0.025,
+        0.1,
+        0.25,
+        0.5,
+        0.75,
+        1
+      ],
+      "allFourCompositesPersonallyViewed": true,
+      "allSixteenInputsRetained": true,
+      "result": "Continuous muzzle, cheeks and chin; connected body/limbs/tail through all rows and recovery.",
+      "displayNote": "Four lossless composites retain original pixels; tool displayed each at1280x1920."
+    },
+    "advancingIdle": {
+      "frames": 24,
+      "personallyViewed": true,
+      "result": "Coherent face, torso, limbs and fingers through advancing idle."
+    },
+    "atlas": {
+      "frames": 16,
+      "personallyViewed": true,
+      "result": "Continuous face, limbs and tail, no torn silhouette."
+    }
+  },
+  "support": [
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/private-candidates/private-ground-recipe.json",
+      "sha256": "b0b5e19f44b93414407ab17310612187ea85c760a4d8de1e2c75ba5d73530c0f",
+      "kind": "private-candidates",
+      "actuallyViewed": false
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/private-candidates/independent-private-ground-verification.json",
+      "sha256": "045069d0ca48575cb2aaf26895a5404c34908195176f2d8066d14d0259b602e2",
+      "kind": "private-candidates",
+      "actuallyViewed": false
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/private-candidates/source-candidate-v1.glb",
+      "sha256": "8d9ba61b7433416f2cbfe62593ff6bfa3b378afec3051a5ae79ef921ca7d88ba",
+      "kind": "private-candidates",
+      "actuallyViewed": false
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/private-candidates/battle-candidate-v1.glb",
+      "sha256": "02a6796d1dd38c72894e16b940be50bacd8e212a4c9f9ffb4348b2749074dbe5",
+      "kind": "private-candidates",
+      "actuallyViewed": false
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/reproduction/calibrate-salamander-floor.mjs",
+      "sha256": "6e7797a12f4b5576f05f972c43d37694e411ef7c726a1743d6cd26caf2ae16a8",
+      "kind": "reproduction",
+      "actuallyViewed": false
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/reproduction/verify-salamander-private-ground.mjs",
+      "sha256": "a71883aabaa2f91d10a1587b9280916450d7ad2d409f2f40afde7d48f78443b7",
+      "kind": "reproduction",
+      "actuallyViewed": false
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/runtime-low-inputs/rare-22-source-body-0.png",
+      "sha256": "1c53f427e0a92dc1e1d69844c5f20dc297f5c317bf3d5ff2d2ad5cfaa5fc2eb3",
+      "kind": "runtime-low-inputs",
+      "actuallyViewed": false,
+      "inspectedVia": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/runtime-low/native-source-body.png"
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/runtime-low-inputs/rare-22-source-body-1.png",
+      "sha256": "4b7a3af79ca4140c23d98885dc803aa179bc221e2894c2f1d18b92207c4c54fd",
+      "kind": "runtime-low-inputs",
+      "actuallyViewed": false,
+      "inspectedVia": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/runtime-low/native-source-body.png"
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/runtime-low-inputs/rare-22-source-body-2.png",
+      "sha256": "e1c3493d6af7ef0c77bef941283e5e49e93b15ae90c77d9e9244cc69b7b16adf",
+      "kind": "runtime-low-inputs",
+      "actuallyViewed": false,
+      "inspectedVia": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/runtime-low/native-source-body.png"
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/runtime-low-inputs/rare-22-source-body-3.png",
+      "sha256": "1f9cfa0fdda429ebd11d999ff7aaf94d3a4018bb98c4e1b1c1168baae5894efc",
+      "kind": "runtime-low-inputs",
+      "actuallyViewed": false,
+      "inspectedVia": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/runtime-low/native-source-body.png"
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/runtime-low-inputs/rare-22-source-head-0.png",
+      "sha256": "03d8ad66b5118c990311b7066e5d60647492513ddeb039cfee42b6244f9fe8f1",
+      "kind": "runtime-low-inputs",
+      "actuallyViewed": false,
+      "inspectedVia": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/runtime-low/native-source-head.png"
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/runtime-low-inputs/rare-22-source-head-1.png",
+      "sha256": "80795bbe98971956e2ef53ed9fd8ce2e9915c5b25b7352203b7b576f33517290",
+      "kind": "runtime-low-inputs",
+      "actuallyViewed": false,
+      "inspectedVia": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/runtime-low/native-source-head.png"
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/runtime-low-inputs/rare-22-source-head-2.png",
+      "sha256": "33fb88154f437b3db3744fe76c1938864ee155baa01da7a0c663200ff77057a8",
+      "kind": "runtime-low-inputs",
+      "actuallyViewed": false,
+      "inspectedVia": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/runtime-low/native-source-head.png"
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/runtime-low-inputs/rare-22-source-head-3.png",
+      "sha256": "c1c1c486764967f6136c574772febd732f28810fc9e2a7f30051d4ce94fdba67",
+      "kind": "runtime-low-inputs",
+      "actuallyViewed": false,
+      "inspectedVia": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/runtime-low/native-source-head.png"
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/runtime-low-inputs/rare-22-battle-body-0.png",
+      "sha256": "64c157759f83756ce89f4cb3c8e7007d3716221bf2ae6a64b133dae5773b6c5f",
+      "kind": "runtime-low-inputs",
+      "actuallyViewed": false,
+      "inspectedVia": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/runtime-low/native-battle-body.png"
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/runtime-low-inputs/rare-22-battle-body-1.png",
+      "sha256": "8cc82ae8d84b9c863e50d445a821332de5fd05416212499164ac94880b13a1c1",
+      "kind": "runtime-low-inputs",
+      "actuallyViewed": false,
+      "inspectedVia": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/runtime-low/native-battle-body.png"
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/runtime-low-inputs/rare-22-battle-body-2.png",
+      "sha256": "29717752fae5895760a9014d3aa00344d7de5a1c7ff62d06d966ab736b2ee017",
+      "kind": "runtime-low-inputs",
+      "actuallyViewed": false,
+      "inspectedVia": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/runtime-low/native-battle-body.png"
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/runtime-low-inputs/rare-22-battle-body-3.png",
+      "sha256": "d9a3d90a7acf03dc2d42bb9421390b6780ee6c4d2e96905942a5d63fb8036fdc",
+      "kind": "runtime-low-inputs",
+      "actuallyViewed": false,
+      "inspectedVia": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/runtime-low/native-battle-body.png"
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/runtime-low-inputs/rare-22-battle-head-0.png",
+      "sha256": "a429d9c423de08f72856a40a8a61c30859e21e1ef9310f589aaf5e785e74dc43",
+      "kind": "runtime-low-inputs",
+      "actuallyViewed": false,
+      "inspectedVia": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/runtime-low/native-battle-head.png"
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/runtime-low-inputs/rare-22-battle-head-1.png",
+      "sha256": "4ca97a8dc4234b2a7c4c88031d7f69376452490cc01eb518d6eb8c5f66836796",
+      "kind": "runtime-low-inputs",
+      "actuallyViewed": false,
+      "inspectedVia": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/runtime-low/native-battle-head.png"
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/runtime-low-inputs/rare-22-battle-head-2.png",
+      "sha256": "ccb22b01f83f67ef6da6c82c204a343e6d0972f1aa21d2c26e4ce0b609005eb8",
+      "kind": "runtime-low-inputs",
+      "actuallyViewed": false,
+      "inspectedVia": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/runtime-low/native-battle-head.png"
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/runtime-low-inputs/rare-22-battle-head-3.png",
+      "sha256": "874411437cf89639e19e400fe53ac5b7fafd2ee260f44081ac9b31fdc0b0c95e",
+      "kind": "runtime-low-inputs",
+      "actuallyViewed": false,
+      "inspectedVia": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/runtime-low/native-battle-head.png"
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/idle/advancing-idle-native-manifest.json",
+      "sha256": "a1db382d9d1097bce38d03d1082d59ba849cfca49a0ef1fdb8ee3281093b416a",
+      "kind": "idle",
+      "actuallyViewed": false
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/salamander-private-v1-runtime-low/manifest.json",
+      "sha256": "72d3fc16532ed8e60a15c62b6f0d6afed6825385073f69d1c49e1e3178bd4134",
+      "kind": "salamander-private-v1-runtime-low",
+      "actuallyViewed": false
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/salamander-private-v1-runtime-medium/manifest.json",
+      "sha256": "5e16084238b5e6b1b507d82f6f122f0431ee2816b5b9d0cc5ced4dc2fd35d8cb",
+      "kind": "salamander-private-v1-runtime-medium",
+      "actuallyViewed": false
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/salamander-private-v1-source-head/manifest.json",
+      "sha256": "99640a24f59dd2af85dbb868512997a718a9938382f46bfcbb69c76a03859083",
+      "kind": "salamander-private-v1-source-head",
+      "actuallyViewed": false
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/salamander-private-v1-source-body/manifest.json",
+      "sha256": "a93eede2c5b5572716717e8dee9f4474a36196a30201c367643faefd9dcc91ad",
+      "kind": "salamander-private-v1-source-body",
+      "actuallyViewed": false
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/salamander-private-v1-battle-head/manifest.json",
+      "sha256": "163fd5bd9c4cc13e46bca4c0381bc8fa4c34a098d3b5d310466cca667acf2dbc",
+      "kind": "salamander-private-v1-battle-head",
+      "actuallyViewed": false
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/salamander-private-v1-battle-body/manifest.json",
+      "sha256": "8d2f162931ca091805d4759fa078c3dfc2e44c9b177daee33e5cce75112a14e3",
+      "kind": "salamander-private-v1-battle-body",
+      "actuallyViewed": false
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/idle/manifest.json",
+      "sha256": "cc95983e008fa80e3a8c3ab1911fc6639cae7208338c9854d45ba399b100dc3b",
+      "kind": "idle",
+      "actuallyViewed": false
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/techniques/manifest.json",
+      "sha256": "f421823a8a21d255cc3511c2364b87247addfd67288da84ae07c69eba7855570",
+      "kind": "techniques",
+      "actuallyViewed": false
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/numeric/salamander-private-v1.json",
+      "sha256": "a6bd791948787a6124f769ed916a5868050100921cd4a7eed408449797331ab7",
+      "kind": "numeric",
+      "actuallyViewed": false
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/numeric/rare-22-salamander-private-v1-source-motion-audit.json",
+      "sha256": "9be1128f300c52a9cae90c7e35629f647337c7758eff32452319bea51b909c4d",
+      "kind": "numeric",
+      "actuallyViewed": false
+    },
+    {
+      "path": "docs/screenshots/pet-shrine-salamander-private-review-2026-10-20/numeric/rare-22-salamander-private-v1-battle-motion-audit.json",
+      "sha256": "ec500bb1bc8cb7982ae07d5d4689921203c6a51d5d15b61e84e3fc5e4817229b",
+      "kind": "numeric",
+      "actuallyViewed": false
+    }
+  ],
+  "pending": [
+    "independent fresh-timing final review",
+    "canonical reproducible authoring and regression",
+    "promotion, main CI and live byte verification"
+  ]
+}

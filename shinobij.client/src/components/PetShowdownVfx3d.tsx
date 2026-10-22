@@ -782,8 +782,8 @@ function AccentRing({ spawn, family }: { spawn: KindAccentSpawn; family: MoveAcc
     const shaftRefs = useRef<Array<THREE.Group | null>>([]);
     const shaftMats = useRef<Array<THREE.MeshBasicMaterial | null>>([]);
     const variant = moveAccentVariant(spawn.moveName);
-    const up = family === 17 || family === 18 || family === 24 || family === 25;
-    const RINGS = family === 25 ? 4 : 3;
+    const up = family === 17 || family === 18 || family === 24 || family === 25 || family === 29;
+    const RINGS = family === 29 ? 2 : family === 25 ? 4 : 3;
     // Power builds a stout cage, haste uses fewer needle-thin streaks, and
     // weather throws a wide radial crown. Healing deliberately stays soft.
     const SHAFTS = family === 17 ? 6 : family === 18 ? 4 : family === 25 ? 8 : 0;
@@ -811,7 +811,7 @@ function AccentRing({ spawn, family }: { spawn: KindAccentSpawn; family: MoveAcc
                 : up ? 0.25 + k * (family === 18 ? 1.55 : 2.1)
                     : 2.35 - k * (family === 15 ? 1.5 : 2.1);
             m.position.set(spawn.x, y, spawn.z);
-            const s = family === 25 ? 1.1 + k * 3.3
+            const s = family === 29 ? 0.7 + k * 1.5 : family === 25 ? 1.1 + k * 3.3
                 : family === 18 ? 0.78 + k * 1.15
                     : up ? 1.5 - k * 0.5
                         : family === 15 ? 1.65 - k * 0.62 : 0.9 + k * 0.7;
@@ -838,7 +838,7 @@ function AccentRing({ spawn, family }: { spawn: KindAccentSpawn; family: MoveAcc
         });
     });
     const tint = spawn.moveName === "Cloudborne Mending" ? celestialLionTechniqueTint(spawn.moveName)!
-        : family === 24 ? "#6ee7a0"
+        : family === 29 ? "#dbfff7" : family === 24 ? "#6ee7a0"
         : family === 17 ? "#ffe08a"
             : family === 18 ? "#7dd3fc"
                 : family === 25 ? ELEMENT_GLOW[spawn.element] ?? "#dbeafe"
@@ -1163,7 +1163,7 @@ export function KindAccentFx({ spawn }: { spawn: KindAccentSpawn }) {
     }
     if (family === 20 || family === 21 || family === 26) return <AccentDefense spawn={spawn} family={family} />;
     if (family === 9 || family === 6) return <AccentSlash spawn={spawn} family={family} />;
-    if (family === 17 || family === 18 || family === 24 || family === 25 || family === 13 || family === 15) {
+    if (family === 17 || family === 18 || family === 24 || family === 25 || family === 13 || family === 15 || family === 29) {
         return <AccentRing spawn={spawn} family={family} />;
     }
     return <AccentGeneric spawn={spawn} family={family} />;

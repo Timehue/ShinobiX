@@ -60,7 +60,7 @@ export function EndlessTowerLobby({
     return (
         <div className="card" style={{ maxWidth: 720, margin: "1rem auto", padding: 0, overflow: "hidden" }}>
             <div style={{ position: "relative" }}>
-                <img src={endlessTowerHero} alt="" style={{ display: "block", width: "100%", height: 220, objectFit: "cover", objectPosition: "center 22%" }} />
+                <img src={endlessTowerHero} alt="" style={{ display: "block", width: "100%", height: 220, objectFit: "contain", objectPosition: "center" }} />
                 <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(8,11,15,0) 30%, rgba(8,11,15,.94))" }} />
                 <div style={{ position: "absolute", left: 22, right: 22, bottom: 12 }}>
                     <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: ".14em", textTransform: "uppercase", color: "var(--sj-spirit-bright)" }}>Celestial Tower · Solo Ascent</div>
@@ -71,7 +71,7 @@ export function EndlessTowerLobby({
             <p style={{ color: "var(--text-dim)", marginTop: 0 }}>
                 Each wave is harder than the last. Every 5th floor is a milestone (×2 rewards); every 10th is a boss floor (×3).
                 Ryo per floor stops rising after floor {ENDLESS_FACTOR_CAP_WAVE}, but milestone floors still pay double or triple.
-                Banked rewards are lost if you die — retreat to bank what you've earned.
+                Defeat loses the run's unclaimed ryo. Retreat between waves to keep it; milestone currencies stay yours.
             </p>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.8rem", margin: "1rem 0" }}>
                 <div className="card" style={{ padding: "0.8rem" }}>

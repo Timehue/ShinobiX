@@ -230,9 +230,15 @@ export function Profile({
     const legacyLive = legacyAvailable;
     const TITLE_COST = 10;
     const academyLoadoutStep = normalizeOnboardingStep(character.onboardingStep) === "jutsuLoadout";
-    const initialTab = useActivitySection<'overview' | 'stats' | 'legacy'>("profile.initialTab", ['stats', 'legacy'], 'overview');
+    const initialTab = useActivitySection<'overview' | 'stats' | 'legacy' | 'achievements'>("profile.initialTab", ['stats', 'legacy', 'achievements'], 'overview');
+    const achievementsPanelRef = useRef<HTMLElement | null>(null);
+    useEffect(() => {
+        if (initialTab !== 'achievements' || !window.matchMedia('(min-width: 801px)').matches) return;
+        const frame = requestAnimationFrame(() => achievementsPanelRef.current?.scrollIntoView({ block: 'start' }));
+        return () => cancelAnimationFrame(frame);
+    }, [initialTab]);
     const [mobileTab, setMobileTab] = useFirstContractLoadoutTab<'overview' | 'stats' | 'jutsu' | 'achievements' | 'battlelogs' | 'legacy'>(character, 'profile', academyLoadoutStep ? 'jutsu' : initialTab, 'jutsu');
-    useActivitySectionRequests<'stats' | 'legacy'>("profile.initialTab", ['stats', 'legacy'], setMobileTab);
+    useActivitySectionRequests<'stats' | 'legacy' | 'achievements'>("profile.initialTab", ['stats', 'legacy', 'achievements'], setMobileTab);
     const visibleMobileTab = !legacyAvailable && mobileTab === 'legacy' ? 'overview' : mobileTab;
     const [selectedAchievement, setSelectedAchievement] = useState<Achievement | null>(null);
     const [achievementCategory, setAchievementCategory] = useState<AchievementCategory | "All">("All");
@@ -1043,7 +1049,7 @@ export function Profile({
                 achievements grid is not mounted at all. */}
             <div className={visibleMobileTab !== 'achievements' ? 'profile-tab-hidden' : ''}>
             {achievementsTabOpen && (
-            <section className="achievements-panel">
+            <section className="achievements-panel" ref={achievementsPanelRef} style={{ scrollMarginTop: 80 }}>
                 <div className="achievements-heading">
                     <h3>Achievements</h3>
                     <div className="achievements-heading-actions">
@@ -1185,7 +1191,7 @@ export function Profile({
                         <p className="achievement-detail-desc">{selectedAchievement.desc}</p>
                         {(() => {
                             const r = achievementReward(selectedAchievement);
-                            return <p className="achievement-detail-desc"><strong>Reward:</strong> {r.ryo.toLocaleString()} ryo{r.fateShards ? ` · ${r.fateShards} Fate Shard${r.fateShards > 1 ? "s" : ""}` : ""}</p>;
+                            return <p className="achievement-detail-desc">{r.ryo === 0 && r.fateShards === 0 ? "Recognition of your career milestone." : <><strong>Reward:</strong> {r.ryo.toLocaleString()} ryo{r.fateShards ? ` · ${r.fateShards} Fate Shard${r.fateShards > 1 ? "s" : ""}` : ""}</>}</p>;
                         })()}
                         {(() => {
                             if (!isAchievementUnlocked(character, selectedAchievement)) {

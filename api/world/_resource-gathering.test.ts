@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { RESOURCE_NODES, WORLD_BOSS_CRYSTAL_NODES, validResourceNodeTerrain, resourceNode } from '../../shared/resource-nodes.js';
+import { RESOURCE_NODES, RETIRED_RESOURCE_NODE_IDS, WORLD_BOSS_CRYSTAL_NODES, validResourceNodeTerrain, resourceNode } from '../../shared/resource-nodes.js';
 import { WORLD_BOSS_CRYSTAL_MAX_NODES, WORLD_BOSS_HOLLOW_SHARDS_PER_TIER, WORLD_BOSS_MAX_WEAKENING_TIERS } from '../../shared/world-boss-event.js';
 import { resourceActionsToday, readResourceGathering } from '../../shared/resource-gathering.js';
 import { isPlayableWildSector } from '../../shared/sector-geo.js';
@@ -14,9 +14,9 @@ const now = Date.parse('2026-10-07T12:00:00Z');
 const node = resourceNode('resource-17')!;
 const player: OnlinePlayer = { name: 'miner', displayName: 'Miner', sector: node.sector, tile: node.approach, lastSeenAt: now, connectedAt: now, pendingAttacker: null, character: null, movementSeq: 4 };
 const base = () => ({ name: 'miner', level: 100, ryo: 999999, fateShards: 500, inventory: [] as string[], itemStacks: [] as { itemId: string; count: number }[], equipment: { pickaxe: 'tool-golden-pickaxe' } });
-test('all 91 nodes have valid water/rock targets and walkable adjacent approaches', () => {
-    assert.equal(RESOURCE_NODES.length, 91);
-    assert.equal(new Set(RESOURCE_NODES.map(n => n.id)).size, 91);
+test('all 84 active nodes have reviewed water/rock targets and walkable adjacent approaches', () => {
+    assert.equal(RESOURCE_NODES.length, 84);
+    assert.equal(new Set(RESOURCE_NODES.map(n => n.id)).size, 84);
     assert.equal(RESOURCE_NODES.filter(n => n.activity === 'fishing').length, 36, 'fishing tripled from 12');
     for (const n of RESOURCE_NODES) {
         assert.ok(validResourceNodeTerrain(n), n.id);
@@ -24,7 +24,7 @@ test('all 91 nodes have valid water/rock targets and walkable adjacent approache
         assert.equal(distance, 1, n.id);
     }
 });
-test('every playable sector has a node, and the original 24 keep their ids', () => {
+test('sectors without suitable terrain need no node, and historical IDs keep their meaning', () => {
     // The node id is its index in the placement list, and saved gathering state
     // is keyed by it, so the 2026-10-14 world-wide pass only APPENDED.
     assert.deepEqual([1, 13, 17, 24].map(i => { const n = resourceNode(`resource-${i}`)!; return [n.sector, n.activity, n.name]; }), [
@@ -32,13 +32,37 @@ test('every playable sector has a node, and the original 24 keep their ids', () 
     ]);
     for (let sector = 1; sector <= 66; sector++) {
         if (!isPlayableWildSector(sector)) continue;
-        assert.ok(RESOURCE_NODES.some(n => n.sector === sector), `sector ${sector} has no node`);
+        assert.equal(RESOURCE_NODES.some(n => n.sector === sector), ![50, 52, 60, 62, 65].includes(sector), `sector ${sector}`);
     }
     // Nothing shares a tile with another node or a world-boss crystal vein.
     const all = [...RESOURCE_NODES, ...WORLD_BOSS_CRYSTAL_NODES];
     const tiles = all.flatMap(n => [`${n.sector}:${n.target}`, `${n.sector}:${n.approach}`]);
-    const ordinaryNew = RESOURCE_NODES.slice(24).flatMap(n => [`${n.sector}:${n.target}`, `${n.sector}:${n.approach}`]);
+    const ordinaryNew = RESOURCE_NODES.filter(n => Number(n.id.slice(9)) > 24).flatMap(n => [`${n.sector}:${n.target}`, `${n.sector}:${n.approach}`]);
     for (const tile of ordinaryNew) assert.equal(tiles.filter(t => t === tile).length, 1, tile);
+});
+
+test('retired sites reject new admission while previously sealed attempts settle and replay once', () => {
+    assert.equal(RETIRED_RESOURCE_NODE_IDS.length, 7);
+    for (const id of RETIRED_RESOURCE_NODE_IDS) {
+        const retired = resourceNode(id)!;
+        assert.ok(retired, `${id} remains available to historical saves`);
+        assert.equal(RESOURCE_NODES.some(n => n.id === id), false);
+        const character = base(), presence = { ...player, sector: retired.sector, tile: retired.approach };
+        assert.match(resourceAdmissionError(character, retired, now)!, /no longer available/);
+        // Simulate a seal admitted before the terrain correction deployed.
+        const seal = { ...mintResourceSeal(character, retired, `historical-${id}`, 'relaxed', presence, now), successDraw: 0, traceDraw: 1 };
+        const admitted = admitResourceAttempt(character, seal, now)!;
+        const result = resolveResourceAttempt(admitted, seal.id, {}, presence, now + 5000, seal);
+        assert.ok(result.ok); if (!result.ok) return;
+        assert.equal(result.receipt.outcome, 'success');
+        assert.equal(result.receipt.xp, 10);
+        assert.equal(countOwned(result.character, 'gather-iron-sand'), 1);
+        assert.equal(resourceActionsToday(result.character, now), 1);
+        const replay = resolveResourceAttempt(result.character, seal.id, {}, presence, now + 6000);
+        assert.ok(replay.ok); if (!replay.ok) return;
+        assert.equal(replay.replayed, true);
+        assert.deepEqual(replay.character, result.character);
+    }
 });
 test('world-boss Hollow Shard veins can fill every weakening tier', () => {
     assert.equal(WORLD_BOSS_CRYSTAL_NODES.length, WORLD_BOSS_CRYSTAL_MAX_NODES);

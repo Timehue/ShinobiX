@@ -987,7 +987,7 @@ export function JutsuTrainingHall({
             </div>
             <p className="jutsu-session-message">
                 {activeRemaining > 0
-                    ? "Your lesson is sealed on the server. You can leave this page safely."
+                    ? "Your lesson is saved. You can leave this screen and return when it finishes."
                     : queued
                         ? "Complete — the queued lesson is being promoted."
                         : activeJutsuTraining.autoClaim
@@ -1126,7 +1126,7 @@ export function JutsuTrainingHall({
                                                         ? "Unlock level 1 · free"
                                                         : `Pay ${selectedCost.toLocaleString()} ryo & train`}
                             </button>
-                            <p className="jutsu-plan-footnote">Payments and mastery claims are settled against your server save.</p>
+                            <p className="jutsu-plan-footnote">Lesson purchases and collected mastery are saved to your character.</p>
                         </>
                     ) : <p className="jutsu-plan-empty">Choose a technique from the library below to preview its next lesson.</p>}
                 </section>

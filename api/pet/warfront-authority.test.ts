@@ -34,6 +34,7 @@ function warfrontPet(index: number) {
 function winningWitnessPet(index: number) {
     return {
         ...warfrontPet(index),
+        battleLoadoutVersion: 'legacy-v1', // A save-supplied marker cannot choose the rules for a fresh seal.
         // This one test needs a deterministic win to exercise the Living
         // Witness reward path. A ranged one-shot avoids turning its authority
         // contract into a matchup or pathfinding test.
@@ -246,6 +247,11 @@ test('Warfront start mints its own resumable seed and a battle-result-compatible
     assert.equal(seal?.opponentBuyPolicy, 'balanced');
     const sealedBlue = seal?.bluePets as Array<Record<string, unknown>>;
     const sealedRed = seal?.redPets as Array<Record<string, unknown>>;
+    assert.ok([...sealedBlue, ...sealedRed].every((pet) => pet.battleLoadoutVersion === 'progression-v3'),
+        'fresh authority must seal progression kits for both sides before replay and clock validation');
+    assert.ok([...sealedBlue, ...sealedRed].every((pet) => (pet.jutsus as Array<Record<string, unknown>>)
+        .every(move => typeof move.abilityId === 'string' && Number(move.unlockLevel ?? 1) <= Number(pet.level))),
+    'both frozen kits must carry stable eligible identities despite a save-supplied legacy marker');
     assert.ok(sealedBlue.every((pet) => !('image' in pet) && !('bodyImage' in pet)), 'stored proof must remain bounded');
     assert.deepEqual(sealedRed, responseRed, 'the rendered rival squad must be the exact stored authority snapshot');
     const rewardRyo = Number(seal?.rewardRyo);
@@ -378,15 +384,18 @@ test('Warfront start mints its own resumable seed and a battle-result-compatible
 });
 
 test('Warfront settlement follows the commanded formation replay and its authoritative clock floor', async () => {
+    // Retained authored-kit authority fixture: its historical timing contrast
+    // exercises the legacy receipt path; fresh progression authority is above.
     const roles = ['defender', 'tracker', 'assassin', 'sage'] as const;
     const bluePets = roles.map((role, index) => {
         const { image: _image, bodyImage: _bodyImage, ...pet } = warfrontPet(index + 1);
-        return { ...pet, role } as Pet & { role: typeof role };
+        return { ...pet, role, battleLoadoutVersion: 'legacy-v1' } as Pet & { role: typeof role };
     });
     const redPets = roles.map((role, index) => {
         const { image: _image, bodyImage: _bodyImage, ...pet } = warfrontPet(index + 1);
         return {
             ...pet,
+            battleLoadoutVersion: 'legacy-v1',
             // Warfront AI cycles three templates into four slots. The sealed
             // rival band can repeat a template id and must still replay commands.
             id: `settlement-rival-${index === 3 ? 1 : index + 1}`,
@@ -505,12 +514,12 @@ test('a mid-match re-form is settled from the server\u2019s own replay of that p
     const roles = ['defender', 'tracker', 'assassin', 'sage'] as const;
     const bluePets = roles.map((role, index) => {
         const { image: _image, bodyImage: _bodyImage, ...pet } = warfrontPet(index + 1);
-        return { ...pet, role } as Pet & { role: typeof role };
+        return { ...pet, role, battleLoadoutVersion: 'legacy-v1' } as Pet & { role: typeof role };
     });
     const redPets = roles.map((role, index) => {
         const { image: _image, bodyImage: _bodyImage, ...pet } = warfrontPet(index + 1);
         return {
-            ...pet, id: `reform-rival-${index + 1}`, name: `Reform Rival ${index + 1}`,
+            ...pet, battleLoadoutVersion: 'legacy-v1', id: `reform-rival-${index + 1}`, name: `Reform Rival ${index + 1}`,
             nickname: `Reform Rival ${index + 1}`, role,
         } as Pet & { role: typeof role };
     });

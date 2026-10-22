@@ -19,7 +19,8 @@ export type AncientChestLoot = {
     duplicateSaleRyo?: number;
 };
 
-const TREATS = ['pet-treat', 'elemental-pet-treat', 'ancient-pet-treat'] as const;
+// Higher food tiers are Crafter-only; existing player stock is unaffected.
+const TREATS = ['pet-treat'] as const;
 const cardIds = (ranges: Array<[number, number]>) => ranges.flatMap(([from, to]) =>
     Array.from({ length: to - from + 1 }, (_, i) => `tc-${String(from + i).padStart(2, '0')}`));
 // Mirrors the rarity split in shared/tile-cards.ts — every common and every
@@ -157,8 +158,9 @@ export function applyAncientChestLoot(character: Record<string, unknown>, loot: 
         : [];
     const tileCards = Array.isArray(leveled.tileCards) ? (leveled.tileCards as string[]) : [];
     const stackable = loot.itemId === 'pet-treat' || loot.itemId === 'elemental-pet-treat' || loot.itemId === 'ancient-pet-treat';
-    // The Tempered Seal and stacking chest gear land in a counted itemStacks entry.
-    const counted = loot.itemId === 'beast-seal-tempered' || (!!loot.itemId && isStackedChestGear(loot.itemId));
+    // Pet food (counted stacks since pet growth v2), the Tempered Seal and stacking
+    // chest gear land in a counted itemStacks entry.
+    const counted = stackable || loot.itemId === 'beast-seal-tempered' || (!!loot.itemId && isStackedChestGear(loot.itemId));
     const existingStack = itemStacks.find((stack) => stack.itemId === loot.itemId);
     return {
         ...leveled,
@@ -170,7 +172,7 @@ export function applyAncientChestLoot(character: Record<string, unknown>, loot: 
         // Only when paid, so a save that never earned a Chronicle Point gains no key.
         ...(loot.chroniclePoints ? { chroniclePoints: Math.max(0, Number(leveled.chroniclePoints) || 0) + loot.chroniclePoints } : {}),
         // A gear step drop is always paid, even when a copy is already owned.
-        inventory: loot.itemId && !counted && (stackable || isStepItemId(loot.itemId) || !inventory.includes(loot.itemId)) ? [...inventory, loot.itemId] : inventory,
+        inventory: loot.itemId && !counted && (isStepItemId(loot.itemId) || !inventory.includes(loot.itemId)) ? [...inventory, loot.itemId] : inventory,
         itemStacks: counted
             ? existingStack
                 ? itemStacks.map((stack) => stack === existingStack ? { ...stack, count: Math.min(9999, stack.count + 1) } : stack)

@@ -1,0 +1,84 @@
+{
+  "id": "legendary-0",
+  "ground": -0.49433210157287766,
+  "padding": 0.002,
+  "corrections": [
+    {
+      "clip": "idle",
+      "keys": 417,
+      "maximumLift": 0.014137891921756851
+    },
+    {
+      "clip": "idle_2",
+      "keys": 306,
+      "maximumLift": 0.026643965551109927
+    },
+    {
+      "clip": "walk",
+      "keys": 237,
+      "maximumLift": 0.029550339933159586
+    },
+    {
+      "clip": "gallop",
+      "keys": 155,
+      "maximumLift": 0.0483042227533923
+    },
+    {
+      "clip": "gallop_jump",
+      "keys": 152,
+      "maximumLift": 0.0036666866565271405
+    },
+    {
+      "clip": "attack",
+      "keys": 238,
+      "maximumLift": 0.06095203404155258
+    },
+    {
+      "clip": "idle_hitreact1",
+      "keys": 134,
+      "maximumLift": 0.06420876780885332
+    },
+    {
+      "clip": "death",
+      "keys": 334,
+      "maximumLift": 0.40457395288966536
+    },
+    {
+      "clip": "entrance",
+      "keys": 217,
+      "maximumLift": 0.0036666866565271405
+    },
+    {
+      "clip": "cast",
+      "keys": 257,
+      "maximumLift": 0.041776285806027214
+    },
+    {
+      "clip": "guard",
+      "keys": 263,
+      "maximumLift": 0.02059818674909686
+    },
+    {
+      "clip": "rest",
+      "keys": 437,
+      "maximumLift": 0.014290245069251695
+    },
+    {
+      "clip": "victory",
+      "keys": 399,
+      "maximumLift": 0.003666143415738121
+    }
+  ],
+  "outputs": [
+    {
+      "stage": "source",
+      "path": ".tmp/glacier-wolf-floor/source-candidate-v1.glb",
+      "sha256": "a640a2ece20460e01753b856aeccbc954da3324d4b79a48c2877805c5dd8a164"
+    },
+    {
+      "stage": "battle",
+      "path": ".tmp/glacier-wolf-floor/battle-candidate-v1.glb",
+      "sha256": "d5677ee35f52ab2462325e2f25e4cbce4e43d17e1433f1d7769c0cfedb790a43"
+    }
+  ]
+}

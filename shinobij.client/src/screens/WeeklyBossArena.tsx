@@ -3,12 +3,14 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import type { ReactNode } from "react";
 // Compact local chrome glyphs shared with the rest of the game.
 import { GiOgre, GiTrophy, GiTombstone, GiPadlock, GiCrossedSwords } from "../components/icons/LightweightGameIcons";
+const nativePresentationStyle0 = { background: "rgba(15,23,42,0.55)", border: "1px solid rgba(148,163,184,0.35)", borderRadius: 6, padding: "0.55rem 0.75rem", margin: "0.5rem 0", fontSize: "0.84rem", color: "var(--slate-300)" } satisfies import('react').CSSProperties;
 const WB_ICON = { verticalAlign: "-0.12em", marginRight: "0.3rem" } as const;
 // A thrown request never reached the server; show this, not the browser's wording.
 const WEEKLY_BOSS_UNREACHABLE = "The Weekly Boss could not be reached. Check your connection and try again.";
 import { visiblePoll } from "../lib/poll";
 import { isWeeklyBossRoamEnabled, weeklyBossRoamState } from "../lib/weekly-boss-roam";
 import { weeklyBossScoreView } from "../lib/weekly-boss-hp";
+import { weeklyBossRewardConfirmed } from "../lib/weekly-boss-reward-presentation";
 import type { Character, PlayerRecord, VersionedCharacterCommit } from "../types/character";
 import type { CreatorAi } from "../types/creator-ai";
 import type { Screen } from "../types/core";
@@ -333,6 +335,7 @@ export function WeeklyBossArena({
         : mySummary.ryoCappedAt !== undefined
             ? ` (${mySummary.isMvp ? "MVP, " : ""}capped at ${mySummary.ryoCappedAt.toLocaleString()})`
             : mySummary.isMvp ? " (MVP ×2 ryo)" : "";
+    const myRewardConfirmed = weeklyBossRewardConfirmed(bossState, character.name);
     // Server caps the player at 3 arena attempts per boss spawn. Show the
     // counter prominently so the player knows when they're about to burn
     // their last try.
@@ -383,7 +386,7 @@ export function WeeklyBossArena({
             {loadError && <div role="status" style={{ color: "#e6c477", marginBottom: "0.5rem" }}><GameArtIcon kind="warning" size={16} /> The Weekly Boss status could not be refreshed. It will try again automatically.</div>}
             {error && <div role="alert" style={{ color: "var(--red-400)", marginBottom: "0.5rem" }}><GameArtIcon kind="warning" size={16} /> {error}</div>}
             {guardCycleAvailability !== "available" && (
-                <div role="status" style={{ background: "rgba(15,23,42,0.55)", border: "1px solid rgba(148,163,184,0.35)", borderRadius: 6, padding: "0.55rem 0.75rem", margin: "0.5rem 0", fontSize: "0.84rem", color: "var(--slate-300)" }}>
+                <div role="status" style={nativePresentationStyle0}>
                     <GiPadlock style={WB_ICON} />{guardCycleAvailability === "unknown" ? "Guard-cycle status is being checked. The core Weekly Boss fight remains available." : "The Weekly Boss guard cycle is temporarily disabled. The core fight remains available."}
                 </div>
             )}
@@ -394,7 +397,7 @@ export function WeeklyBossArena({
                             <img
                                 src={bossImage}
                                 alt={bossState.bossName ?? "Weekly Boss"}
-                                style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                                style={{ width: "100%", height: "100%", objectFit: "contain" }}
                                 onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
                             />
                         </div>
@@ -448,12 +451,12 @@ export function WeeklyBossArena({
                 </div>
             </div>
             {contributionDisabled && (
-                <div style={{ background: "rgba(15,23,42,0.55)", border: "1px solid rgba(148,163,184,0.35)", borderRadius: 6, padding: "0.55rem 0.75rem", margin: "0.5rem 0", fontSize: "0.84rem", color: "var(--slate-300)" }}>
+                <div style={nativePresentationStyle0}>
                     <GiPadlock style={WB_ICON} />{contributionDisabledCopy}
                 </div>
             )}
             {!weeklyBossActionsAvailable && (
-                <div role="status" style={{ background: "rgba(15,23,42,0.55)", border: "1px solid rgba(148,163,184,0.35)", borderRadius: 6, padding: "0.55rem 0.75rem", margin: "0.5rem 0", fontSize: "0.84rem", color: "var(--slate-300)" }}>
+                <div role="status" style={nativePresentationStyle0}>
                     <GiPadlock style={WB_ICON} />New fights are paused. Leaderboard and attempt status remain readable.
                 </div>
             )}
@@ -559,18 +562,18 @@ export function WeeklyBossArena({
             </div>
             {expired && mySummary && (
                 <div style={{ background: "rgba(15,118,110,0.18)", border: "1px solid rgba(74,222,128,0.4)", borderRadius: 6, padding: "0.6rem 0.8rem", margin: "0.8rem 0 0.4rem", fontSize: "0.85rem" }}>
-                    <strong style={{ color: "var(--green-400)" }}>✓ Rewards distributed.</strong> You earned:
+                    <strong style={{ color: "var(--green-400)" }}>{myRewardConfirmed ? "✓ Weekly reward delivery confirmed." : "Reward delivery pending."}</strong> {myRewardConfirmed ? "Weekly reward allocation:" : "Scheduled reward:"}
                     <ul style={{ margin: "4px 0 0 18px" }}>
                         <li>+{mySummary.ryo.toLocaleString()} ryo · +10 stat points{mySummaryRyoNote}</li>
                         {mySummary.gotCore && <li>+1 Weekly Boss Core (top 10)</li>}
                         {mySummary.gotKey && <li>+1 Dungeon Key (top 25)</li>}
-                        {mySummary.gotGear && <li>+1 upgrade gear piece (a lucky 5% drop, check your bag)</li>}
+                        {myRewardConfirmed && <li>Check Inventory for any additional item drops. Weekly Boss rewards are paid once per week.</li>}
                     </ul>
                 </div>
             )}
             {expired && !mySummary && myDamage > 0 && (
                 <p style={{ color: "var(--text-dim)", marginTop: "0.8rem", fontSize: "0.85rem" }}>
-                    Rewards distributed — your save has been credited (refresh to see updated totals).
+                    {myRewardConfirmed ? "Your weekly reward delivery is confirmed. Refresh to see your updated totals." : "Your reward delivery is not confirmed yet. This page will keep checking."}
                 </p>
             )}
         </div>
@@ -608,6 +611,7 @@ type WeeklyBossState = {
     startedAt: number;
     expiresAt?: number;
     rewardsDistributed?: boolean;
+    creditedPlayers?: string[];
     distributedAt?: number;
     distributionSummary?: WeeklyBossRewardEntry[];
     /** The server's live per-contributor ryo caps (absent from an older server). */

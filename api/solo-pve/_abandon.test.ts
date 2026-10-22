@@ -63,6 +63,9 @@ describe('abandonSoloPveSession — the authorized terminal transition', () => {
         assert.equal(next.status, 'done');
         assert.equal(next.winner, 'enemy');
         assert.equal(next.outcome, 'loss');
+        assert.equal(next.terminalReason, 'abandoned');
+        assert.equal(next.terminalEvidence?.reason, 'abandoned');
+        assert.equal(next.events.at(-1)?.terminalReason, 'abandoned');
         assert.equal(next.version, session.version + 1);
         assert.equal(next.player.hp, 70, 'the engine charges its designed 10% max-HP abandon cost');
         assert.ok(next.terminalEvidence, 'terminal evidence is sealed with the transition');
@@ -111,7 +114,7 @@ describe('abandonSoloPveSession — the authorized terminal transition', () => {
         const resolved: SoloPveSession = { ...session, status: 'done', winner: 'enemy', outcome: 'loss', itemsUsed: { 'healing-pill': 1 } };
         const next = finalizeAbandonedSession(session, resolved, 'abandon-token-x', NOW + 1);
         assert.deepEqual(Object.keys(next.terminalEvidence ?? {}).sort(), [
-            'finalEventSeq', 'finalMoveToken', 'finalVersion', 'finishedAt', 'itemsUsed', 'outcome', 'settlementState', 'winner',
+            'finalEventSeq', 'finalMoveToken', 'finalVersion', 'finishedAt', 'itemsUsed', 'outcome', 'reason', 'settlementState', 'winner',
         ]);
         assert.deepEqual(next.terminalEvidence?.itemsUsed, { 'healing-pill': 1 });
         assert.equal(next.expiresAt > NOW + 1, true);

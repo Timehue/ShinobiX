@@ -7,6 +7,8 @@ import { kv } from '../_storage.js';
 import { storedValueEquals } from '../_stored-value.js';
 import { withKvLock } from '../_lock.js';
 import { isWildSector, sectorBiomeOf } from '../../shared/sector-geo.js';
+import { sealDuelGround,type DuelGround } from './_duel-ground.js';
+import { withDuelWitnesses } from './_duel-witnesses.js';
 import { resolveSectorWeather, sectorWeatherElements } from '../../shared/sector-weather.js';
 import { PVP_PREFIGHT_COUNTDOWN_MS } from '../../shared/pvp-turn.js';
 import { shieldExpiryForGrant } from '../combat-core/shields.js';
@@ -377,6 +379,7 @@ export type PvpSession = {
     jutsuUsed?: { p1: string[]; p2: string[] };
     baseRewards?: boolean;
     rewardSector?: number;
+    duelGround?: DuelGround;
     // Response-only (see PvpRejection) — present on a /api/pvp/move reply when the
     // submitted action was rejected. NEVER written to KV; stripped implicitly
     // because rejects don't persist the session.
@@ -1397,6 +1400,9 @@ export function hydrateCharacterFromSave(rawSaveCharacter: Record<string, unknow
     const merged: Record<string, unknown> = { ...saveCharacter };
     // Only the server's Ranked Format path may add this combat-only authority.
     delete merged.rankedFormatCombat;
+    // NPC challenge authority is stamped after server encounter construction.
+    // A save field must never grant it to a human or a village-war player copy.
+    delete merged.pveWeaponPolicy;
     // This is a session-only stamp, added after field-war authority is checked.
     merged.elderWarDefensePct = 0;
     // For derived fields the client computes, fall back to the client value
@@ -3055,6 +3061,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 realFighters,
                 ...rankedStamp,
                 ...baseRewardStamp,
+                duelGround:await withDuelWitnesses(sealDuelGround(rewardAuthority==='world'&&worldAttackVerified,claimedRewardSector,p1Presence,p2Presence,sessionCreatedAt),Date.now()),
                 ...(playerRankedV2 ? {
                     // Do not restore either legacy payout bit. A d76a claim
                     // worker sees a verified but non-paying session; upgraded

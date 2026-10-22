@@ -106,6 +106,7 @@ test('road challenge enters one interactive, unpaid Colosseum session and resume
     assert.equal(state.enemyTeamName, wandererBeastName(challenger.name, String(species.name)));
     const session = await kv.get<Record<string, any>>(`pet:showdown:${playerName}:${state.sessionId}`);
     assert.equal(session?.rewardEligible, false);
+    assert.equal(session?.rulesetVersion, 'progression-v3');
     assert.equal(session?.finished, false);
     assert.equal(first.body._saveVersion, 2);
     assert.ok(Number(first.body.character.wandererCooldowns[wanderer.id]) > Date.now());

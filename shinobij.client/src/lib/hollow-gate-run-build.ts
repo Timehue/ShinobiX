@@ -32,7 +32,8 @@ export async function buildHollowGateRunFromStart(
 ): Promise<HollowGateShrineRun> {
     const { generateHollowGateShrineRun } = await loadHollowGateGenerator();
     const sealedVariant: HollowGateVariant | undefined = start.variantId ? {
-        ...(requestedVariant ?? { id: start.variantId }),
+        ...(requestedVariant?.id === start.variantId ? requestedVariant : { id: start.variantId }),
+        ...(start.variantLabel ? { label: start.variantLabel } : {}),
         id: start.variantId,
         maxFloor: start.floorDepth,
         width: start.floorWidth,

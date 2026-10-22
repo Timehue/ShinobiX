@@ -1,0 +1,190 @@
+{
+  "results": [
+    {
+      "stage": "source",
+      "beforeSha256": "5d804a8d8d2e73532b96378ebc610a751515df5c76ec4bd9a5c614ff8daefa6d",
+      "candidateSha256": "6a5ed5ed8c973a90e4a3eff13be12ff2328b45856a5da2ec1f3d6664874e78be",
+      "poses": 1688,
+      "independentSampling": "120Hz midpoint grid plus endpoints, offset from240Hz authoring grid",
+      "minimumClearance": 0.0017305409520786408,
+      "maxHorizontalError": 1.4901161193847656e-8,
+      "originalBinaryPayloadPreserved": true,
+      "meshMaterialTextureSkinRigPreserved": true,
+      "allNonRootCurvesExactlyPreserved": true,
+      "clips": [
+        {
+          "clip": "idle",
+          "poses": 201,
+          "minY": -0.46866068544770556,
+          "clearance": 0.001994708970990522
+        },
+        {
+          "clip": "idle_2",
+          "poses": 146,
+          "minY": -0.46892485346661744,
+          "clearance": 0.0017305409520786408
+        },
+        {
+          "clip": "walk",
+          "poses": 108,
+          "minY": -0.4686554092294129,
+          "clearance": 0.001999985189283182
+        },
+        {
+          "clip": "gallop",
+          "poses": 69,
+          "minY": -0.4688026089424737,
+          "clearance": 0.0018527854762223628
+        },
+        {
+          "clip": "gallop_jump",
+          "poses": 73,
+          "minY": -0.46865643893007963,
+          "clearance": 0.0019989554886164496
+        },
+        {
+          "clip": "attack",
+          "poses": 113,
+          "minY": -0.46870205476868254,
+          "clearance": 0.0019533396500135414
+        },
+        {
+          "clip": "idle_hitreact1",
+          "poses": 64,
+          "minY": -0.4686554088769674,
+          "clearance": 0.0019999855417286994
+        },
+        {
+          "clip": "death",
+          "poses": 166,
+          "minY": -0.4686554100540183,
+          "clearance": 0.001999984364677798
+        },
+        {
+          "clip": "entrance",
+          "poses": 104,
+          "minY": -0.46869069440759403,
+          "clearance": 0.0019647000111020496
+        },
+        {
+          "clip": "cast",
+          "poses": 121,
+          "minY": -0.4686554086604011,
+          "clearance": 0.0019999857582949643
+        },
+        {
+          "clip": "guard",
+          "poses": 126,
+          "minY": -0.4686554085822819,
+          "clearance": 0.0019999858364141976
+        },
+        {
+          "clip": "rest",
+          "poses": 207,
+          "minY": -0.46865540917416615,
+          "clearance": 0.0019999852445299338
+        },
+        {
+          "clip": "victory",
+          "poses": 190,
+          "minY": -0.46866541530904116,
+          "clearance": 0.001989979109654927
+        }
+      ]
+    },
+    {
+      "stage": "battle",
+      "beforeSha256": "1f958ce2fb2b894acba1cd4c45e91be8939bad6aded5d271b9fb61c8e680fcdc",
+      "candidateSha256": "5d0a2a9f03ec59785b766b401634a36298141b1b22cda52cc979e4548809e968",
+      "poses": 1688,
+      "independentSampling": "120Hz midpoint grid plus endpoints, offset from240Hz authoring grid",
+      "minimumClearance": 0.0017305409520786408,
+      "maxHorizontalError": 1.4901161193847656e-8,
+      "originalBinaryPayloadPreserved": true,
+      "meshMaterialTextureSkinRigPreserved": true,
+      "allNonRootCurvesExactlyPreserved": true,
+      "clips": [
+        {
+          "clip": "idle",
+          "poses": 201,
+          "minY": -0.46865544969868517,
+          "clearance": 0.0019999447200109155
+        },
+        {
+          "clip": "idle_2",
+          "poses": 146,
+          "minY": -0.46892485346661744,
+          "clearance": 0.0017305409520786408
+        },
+        {
+          "clip": "walk",
+          "poses": 108,
+          "minY": -0.4686554091478674,
+          "clearance": 0.0019999852708286747
+        },
+        {
+          "clip": "gallop",
+          "poses": 69,
+          "minY": -0.46867374484998453,
+          "clearance": 0.001981649568711552
+        },
+        {
+          "clip": "gallop_jump",
+          "poses": 73,
+          "minY": -0.4686562069688554,
+          "clearance": 0.001999187449840678
+        },
+        {
+          "clip": "attack",
+          "poses": 113,
+          "minY": -0.4686743936862644,
+          "clearance": 0.0019810007324316814
+        },
+        {
+          "clip": "idle_hitreact1",
+          "poses": 64,
+          "minY": -0.4686554088769674,
+          "clearance": 0.0019999855417286994
+        },
+        {
+          "clip": "death",
+          "poses": 166,
+          "minY": -0.4686554088114927,
+          "clearance": 0.0019999856072033806
+        },
+        {
+          "clip": "entrance",
+          "poses": 104,
+          "minY": -0.46869069440759403,
+          "clearance": 0.0019647000111020496
+        },
+        {
+          "clip": "cast",
+          "poses": 121,
+          "minY": -0.46865540783623594,
+          "clearance": 0.001999986582460145
+        },
+        {
+          "clip": "guard",
+          "poses": 126,
+          "minY": -0.4678055379102082,
+          "clearance": 0.0028498565084879024
+        },
+        {
+          "clip": "rest",
+          "poses": 207,
+          "minY": -0.46865540917416615,
+          "clearance": 0.0019999852445299338
+        },
+        {
+          "clip": "victory",
+          "poses": 190,
+          "minY": -0.46866541530904116,
+          "clearance": 0.001989979109654927
+        }
+      ]
+    }
+  ],
+  "artisticCertification": false,
+  "publicAssetsChanged": false
+}

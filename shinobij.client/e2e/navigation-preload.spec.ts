@@ -1,10 +1,11 @@
 import { expect, test } from '@playwright/test';
 import { readFileSync } from 'node:fs';
+import { previewRootFor, smokeE2ePort } from '../e2e-ports';
 import { expectUiAuditBoot, installUiAuditRuntime } from './helpers/ui-audit-runtime';
 
 for (const activation of ['keyboard', 'pointer'] as const) {
     test(`Village browsing preserves deferred routes and ${activation} entry remains usable`, async ({ page, isMobile }) => {
-        const manifest = JSON.parse(readFileSync(new URL('../dist/.vite/manifest.json', import.meta.url), 'utf8'));
+        const manifest = JSON.parse(readFileSync(new URL(`../${previewRootFor(smokeE2ePort())}/.vite/manifest.json`, import.meta.url), 'utf8'));
         const optionalPaths = ['Bank', 'TownHall', 'StoryBoss'].map(screen => `/${manifest[`src/screens/${screen}.tsx`].file}`);
         const requests = new Set<string>();
         const errors: string[] = [];

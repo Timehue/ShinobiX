@@ -1,0 +1,202 @@
+{
+  "schema": 1,
+  "errors": [],
+  "pets": [
+    {
+      "id": "starter-fire",
+      "name": "Cinder Cub",
+      "url": "/pet-models/warfront-lod/starter-fire.glb",
+      "sha256": "f05f407204d4e523b0a639be7d7651c9ac8a06ada9c3c1c3933a991d5e5ee9d1",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "progress": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ],
+      "views": [
+        "front",
+        "side"
+      ],
+      "sheets": [
+        "starter-fire-front.webp",
+        "starter-fire-side.webp"
+      ],
+      "review": "pending",
+      "framing": "complete posed body bounds; camera follows pose without excluding any mesh vertices"
+    },
+    {
+      "id": "starter-water",
+      "name": "Ripple Seal",
+      "url": "/pet-models/warfront-lod/starter-water.glb",
+      "sha256": "d1c6d69bf8d800a84b2f3e12c821a1c1fe432d7a36051cfdbb33319e8cba61c8",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "progress": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ],
+      "views": [
+        "front",
+        "side"
+      ],
+      "sheets": [
+        "starter-water-front.webp",
+        "starter-water-side.webp"
+      ],
+      "review": "pending",
+      "framing": "complete posed body bounds; camera follows pose without excluding any mesh vertices"
+    },
+    {
+      "id": "starter-wind",
+      "name": "Gale Chick",
+      "url": "/pet-models/warfront-lod/starter-wind.glb",
+      "sha256": "601e725c6fbb01ef2395dfcca5088c82ff044eb04118f8e06cc9330b43151a90",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "progress": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ],
+      "views": [
+        "front",
+        "side"
+      ],
+      "sheets": [
+        "starter-wind-front.webp",
+        "starter-wind-side.webp"
+      ],
+      "review": "pending",
+      "framing": "complete posed body bounds; camera follows pose without excluding any mesh vertices"
+    },
+    {
+      "id": "starter-lightning",
+      "name": "Spark Pup",
+      "url": "/pet-models/warfront-lod/starter-lightning.glb",
+      "sha256": "6125a968fa0163c556163c6756e7434577f5c16c8c91fbd454b927fc08b527b4",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "progress": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ],
+      "views": [
+        "front",
+        "side"
+      ],
+      "sheets": [
+        "starter-lightning-front.webp",
+        "starter-lightning-side.webp"
+      ],
+      "review": "pending",
+      "framing": "complete posed body bounds; camera follows pose without excluding any mesh vertices"
+    },
+    {
+      "id": "starter-earth",
+      "name": "Pebble Tortoise",
+      "url": "/pet-models/warfront-lod/roster/standard-5.glb",
+      "sha256": "3ad722e9394b82d157458eb9c8a1a62eb3120dfa6bc2710719a2b23038d44c35",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "progress": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ],
+      "views": [
+        "front",
+        "side"
+      ],
+      "sheets": [
+        "starter-earth-front.webp",
+        "starter-earth-side.webp"
+      ],
+      "review": "pending",
+      "framing": "complete posed body bounds; camera follows pose without excluding any mesh vertices"
+    }
+  ],
+  "artisticCertification": false
+}

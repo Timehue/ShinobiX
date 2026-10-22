@@ -47,7 +47,7 @@ export function launchTriggeredEventBattle({
             village: event.village || character?.village,
         });
         if (started) setActiveEvent(null);
-        else window.alert("The sealed story arena is unavailable. Your chapter remains open.");
+        else window.alert("The story battle could not open. Your chapter remains available.");
         return;
     }
     const opponent = creatorEventPracticeOpponent(event.aiProfileId, battle?.aiProfileId, character?.level ?? event.levelReq);
@@ -56,7 +56,7 @@ export function launchTriggeredEventBattle({
         opponentLevel: Math.max(1, character?.level ?? event.levelReq),
         battleKind: "practice",
         returnScreen,
-    })) return void window.alert("The sealed practice arena is unavailable. Your event remains open.");
+    })) return void window.alert("The practice battle could not open. Your event remains available.");
     setActiveEvent(null);
     setBiome(event.biome);
     setWeather(weatherForBiome(event.biome));

@@ -56,7 +56,7 @@ describe("player-facing jutsu tag contract", () => {
     it("describes the corrected heal, multi-hit, mirror, and prevention semantics", () => {
         assert.match(info("Heal").rule, /keeps its hit/i);
         assert.match(info("Lifesteal").summary, /every damaging attack/i);
-        assert.match(info("Ignition").summary, /every hit/i);
+        assert.match(info("Ignition").summary, /strengthens later hits/i);
         assert.match(info("Mirror").rule, /stay on the user/i);
         assert.match(info("Buff Prevent").rule, /direct Heal, Shield/i);
         // Push and Pull move 4 tiles whatever the jutsu's range (owner ruling 2026-10-05).
@@ -102,21 +102,21 @@ describe("player-facing jutsu tag contract", () => {
 
     it("labels stat-tag percentages as potency and shows their flat lone-stack result", () => {
         const generals = info("Increase Generals");
-        assert.match(generals.summary, /30% potency/i);
-        assert.match(generals.summary, /\+937 to each/i);
+        assert.match(generals.summary, /strength, speed, intelligence, and willpower/i);
+        assert.match(generals.summary, /adds 937 to each/i);
         assert.match(generals.rule, /not a literal 30% multiplier/i);
         assert.equal(generals.value, "30% potency · +937 each");
 
         const discipline = info("Increase Discipline");
-        assert.match(discipline.summary, /30% potency/i);
-        assert.match(discipline.summary, /\+1874 as a lone stack/i);
+        assert.match(discipline.summary, /Ninjutsu offense/i);
+        assert.match(discipline.summary, /adds 1874 offense/i);
         assert.match(discipline.rule, /flat offense bonus/i);
         assert.equal(discipline.value, "30% potency · +1874 Ninjutsu");
     });
 
-    it("warns that a refreshed ground Poison can outlast its zone", () => {
+    it("explains that zone-sourced Poison ends when the fighter leaves or the zone expires", () => {
         const poison = info("Poison", { target: "EMPTY_GROUND", method: "INSTANT_EFFECT" });
-        assert.match(poison.rule, /remain after the zone expires/i);
+        assert.match(poison.rule, /removed when the target leaves or the zone expires/i);
     });
 
     it("distinguishes a circle impact from persistent ground-zone methods", () => {
@@ -139,32 +139,32 @@ describe("poison card matches what combat applies", () => {
     };
 
     it("a direct cast shows the mastery-ramped potency", () => {
-        assert.match(poisonAt(0, {}), /Poisons the target at 8% for 2 rounds/);
-        assert.match(poisonAt(50, {}), /Poisons the target at 12% for 2 rounds/);
+        assert.match(poisonAt(0, {}), /base HP damage equal to 96% of the amount spent/);
+        assert.match(poisonAt(50, {}), /base HP damage equal to 144% of the amount spent/);
     });
 
     it("a recurring ground zone shows its full-strength potency at any mastery", () => {
         for (const method of ["INSTANT_EFFECT", "AOE_SPIRAL"] as const) {
             const zone = { target: "EMPTY_GROUND" as const, method, effectPower: 0 };
-            assert.match(poisonAt(0, zone), /Poisons the target at 12% for 2 rounds/, `${method} at mastery 0`);
-            assert.match(poisonAt(50, zone), /Poisons the target at 12% for 2 rounds/, `${method} at mastery 50`);
+            assert.match(poisonAt(0, zone), /base HP damage equal to 144% of the amount spent/, `${method} at mastery 0`);
+            assert.match(poisonAt(50, zone), /base HP damage equal to 144% of the amount spent/, `${method} at mastery 50`);
         }
     });
 
     it("states the real HP share of spend (potency × 12)", () => {
-        assert.match(poisonAt(50, {}), /costs them HP equal to 144% of the chakra\/stamina it spends/);
+        assert.match(poisonAt(50, {}), /base HP damage equal to 144% of the amount spent/);
+        assert.match(poisonAt(50, {}), /free casts cause none/);
     });
 });
 
 describe("jutsuDetailDescription — details-panel prose never shows a battle token", () => {
     const FLAVOR_TOKEN = /%user|%target/;
 
-    it("fills the starter bloodline kits, which carry battle flavor and no description", () => {
+    it("shows the authored mechanical description for starter bloodline kits", () => {
         const kit = starterSavedBloodlines.find((bloodline) => bloodline.name === "Ashen Eyes");
         const bloodGaze = kit?.jutsus.find((entry) => entry.id === "ashen-eyes-blood-gaze");
         assert.ok(bloodGaze, "expected the Ashen Eyes starter kit to carry Blood Gaze Rupture");
-        assert.equal(bloodGaze.description, "", "the kit has no card description, so the battle line is the fallback");
-        assert.equal(jutsuDetailDescription(bloodGaze), "Ashen Eyes rupture the target's chakra veins.");
+        assert.equal(jutsuDetailDescription(bloodGaze), "Damages the target and applies Wound. The bleed starts next round and lasts 2 rounds.");
     });
 
     it("leaves no token and no blank line on any built-in technique the Training Hall can show", () => {

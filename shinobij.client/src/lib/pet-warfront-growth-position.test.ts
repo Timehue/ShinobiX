@@ -45,10 +45,11 @@ test("attack growth raises landed damage and defense keeps improving above 542",
         "both defenses used to collapse onto identical capped mitigation");
 });
 
-test("support potency grows with the caster's trained HP and move power", () => {
+test("retained support potency grows with the caster's trained HP and move power", () => {
     const run = (hp: number, power: number) => runPetSquadDuelCinematic([
         pet("guard", { role: "defender", subRole: "tank", attack: 1 }),
-        pet("sage", { hp, role: "sage", subRole: "support", attack: 1,
+        // This fixture pins the prior caster-HP/raw-power support contract.
+        pet("sage", { hp, role: "sage", subRole: "support", attack: 1, battleLoadoutVersion: 'legacy-v1',
             jutsus: [{ name: "Ward", kind: "shield", power, cooldown: 2, currentCooldown: 0 }] }),
     ], [pet("enemy", { hp: 100_000, attack: 120 })], 20, false, false, true, [5, 4], [5]);
     const shield = (result: ReturnType<typeof run>) => {
@@ -59,6 +60,25 @@ test("support potency grows with the caster's trained HP and move power", () => 
     const baseline = shield(run(1000, 100));
     assert.equal(shield(run(2000, 100)), baseline * 2);
     assert.equal(shield(run(1000, 150)), baseline * 1.5);
+});
+
+test("progression formation shields require their earned level and use a bounded recipient HP budget", () => {
+    const run = (level: number, hp: number, power: number) => runPetSquadDuelCinematic([
+        pet("guard", { role: "defender", subRole: "tank", attack: 1 }),
+        pet("sage", { level, hp, role: "sage", subRole: "support", attack: 1,
+            jutsus: [{ name: "Ward", kind: "shield", power, cooldown: 2, currentCooldown: 0 }] }),
+    ], [pet("enemy", { hp: 100_000, attack: 120 })], 20, false, false, true, [5, 4], [5]);
+    assert.equal(run(1, 1000, 100).events.some(event => event.type === 'shield' && event.actorId === 'player-1'), false);
+    const shield = (result: ReturnType<typeof run>) => {
+        const event = result.events.find(event => event.type === 'shield' && event.actorId === 'player-1');
+        assert.ok(event?.dmg, 'earned utility must actually protect a nearby ally');
+        const recipient = result.snapshots[0].actors.find(actor => actor.id === event.targetId)!;
+        assert.equal(event.dmg, Math.round(recipient.maxHp * .225));
+        return event.dmg;
+    };
+    const baseline = shield(run(5, 1000, 100));
+    assert.equal(shield(run(5, 2000, 100)), baseline, 'caster Vitality cannot inflate another pet’s shield');
+    assert.equal(shield(run(5, 1000, 150)), baseline, 'authored power cannot bypass the support budget');
 });
 
 test("trained stats, deployment, and re-form replay identically in the receipt authority", () => {

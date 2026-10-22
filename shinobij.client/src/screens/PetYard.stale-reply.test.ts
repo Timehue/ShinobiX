@@ -12,6 +12,7 @@ import { readFileSync } from "node:fs";
 const read = (file: string) => readFileSync(new URL(file, import.meta.url), "utf8");
 const petYard = read("./PetYard.tsx");
 const barn = read("../components/PetBreedingBarn.tsx");
+const incubator = read('../components/PetEggIncubator.tsx');
 
 function handler(source: string, name: string): string {
     const start = source.indexOf(`async function ${name}(`);
@@ -23,10 +24,10 @@ function handler(source: string, name: string): string {
 const REFUSAL_STOPS = /!\s*(?:onVersionedCharacter|commitServerCharacter)\([^()]*\)\)+\s*(?:return\b|throw\b)/;
 
 test("a settled companion action finishes when its reply is refused as stale", () => {
-    for (const [source, names] of [[petYard, ["runPetProgress", "startExpedition", "collectExpedition"]], [barn, ["confirmStart", "hatch"]]] as const) {
+    for (const [source, names] of [[petYard, ["runPetProgress", "startExpedition", "collectExpedition"]], [barn, ["confirmStart"]], [incubator, ['acknowledge']]] as const) {
         for (const name of names) {
             const body = handler(source, name);
-            assert.match(body, /(?:onVersionedCharacter|commitServerCharacter)\(/, `${name} must still adopt the reply`);
+            assert.match(body, /(?:onVersionedCharacter|commitServerCharacter)\(|\(authority\?\.commit \?\? (?:latest\.current\.onVersionedCharacter|commitServerCharacter)\)\(/, `${name} must still adopt the reply`);
             assert.doesNotMatch(body, REFUSAL_STOPS, `${name} must not stop when its settled reply is refused as stale`);
         }
     }
@@ -37,5 +38,6 @@ test("a settled companion action finishes when its reply is refused as stale", (
     assert.match(progressBody, /onVersionedCharacter\(data\.character as Character, data\._saveVersion\);/);
     assert.match(progressBody, /return data as/);
     assert.ok(progressBody.indexOf('onVersionedCharacter(data.character as Character, data._saveVersion)') < progressBody.indexOf('return data as'), 'the settled reply is adopted before returning, with care presentation allowed between them');
-    assert.match(handler(barn, "hatch"), /commitServerCharacter\(result\.character, result\._saveVersion\);\s*setSessionOverride\(null\); setHatchedDestination\(/);
+    assert.match(incubator, /\(authority\?\.commit \?\? latest\.current\.onVersionedCharacter\)\(result\.character, result\._saveVersion\);[\s\S]*setReadyPet\(\{ pet: result\.pet/);
+    assert.match(handler(incubator, 'acknowledge'), /setAcknowledged[\s\S]*setReadyPet\(null\)/);
 });

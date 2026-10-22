@@ -1,0 +1,151 @@
+{
+  "id": "standard-3",
+  "name": "Forest Hawk",
+  "reviewer": "review-c-luna",
+  "reviewKind": "first independent full visual QA of the private v4 candidate",
+  "status": "PASS",
+  "scope": "Private candidate review only. No production asset, receipt, or tracker was changed.",
+  "candidate": {
+    "source": {
+      "path": "shinobij.client/.tmp/sol-forest-cloth-neck-v4/delivery/public/pet-models/roster/standard-3.glb",
+      "sha256": "56167f114c6650325944de89162f2f899466a77bdefdf118c84588a7f57788b6"
+    },
+    "battle": {
+      "path": "shinobij.client/.tmp/sol-forest-cloth-neck-v4/delivery/public/pet-models/warfront-lod/roster/standard-3.glb",
+      "sha256": "a32cd2176c8f32556cb55434e4d4cb7a55222bd27c6f00b8c1b7b37fd1dc3683"
+    },
+    "lodManifest": {
+      "path": "shinobij.client/.tmp/sol-forest-cloth-neck-v4/delivery/public/pet-models/warfront-lod/manifest.json",
+      "entryPins": {
+        "sourceSha256": "56167f114c6650325944de89162f2f899466a77bdefdf118c84588a7f57788b6",
+        "lodSha256": "a32cd2176c8f32556cb55434e4d4cb7a55222bd27c6f00b8c1b7b37fd1dc3683",
+        "animations": 13,
+        "textures": 1,
+        "joints": 21
+      }
+    }
+  },
+  "independentVisualVerdict": {
+    "finding": "No confirmed neck/scarf, face, body, or limb distortion in the reviewed candidate. The bib stays attached below the beak through the attack and other preview techniques; the neck and torso remain connected in front, side, and opposing-side views. Head pitch and body lean are smooth and return to the standing pose without a sudden shape split.",
+    "specificTarget": "At attack 0.48, the bib is broad in the front view but continuous under the beak and around the neck in side view. It does not balloon away from the head or drag the wing/head region. This is a readable pose change, not a detached or sheared scarf.",
+    "continuityNotes": [
+      "Raw death and revive clips show the full bird settling and returning as a connected body; the scarf remains attached during the lying pose and transition back upright.",
+      "Runtime dead/revive and attack-sequence transitions show no second collapse or neck/body separation in either low or medium quality.",
+      "All nine equipped techniques retain the same connected neck, face, and torso through the full 12-sample sequences from front and side."
+    ]
+  },
+  "personallyViewedCoverage": {
+    "rawSourceAndBattle": {
+      "scope": "All 13 authored clips; phases 0, 0.125, 0.375, 0.625, 0.875, 1; front, side, head-front, head-side, head-other-side.",
+      "captureManifest": {
+        "path": "shinobij.client/.tmp/sol-forest-cloth-neck-v4/full-review/raw/manifest.json",
+        "sha256": "3aed5ce45e60a49db3aa41e0f4dcc9f23ad78ce8e1948fb1f94d168ad61ae08d"
+      },
+      "evidenceSheets": 10,
+      "errors": 0,
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ]
+    },
+    "runtimeLow": {
+      "scope": "16 production runtime transitions; six phases; front and side head/body views; source and battle candidate bytes.",
+      "captureManifest": {
+        "path": "shinobij.client/.tmp/sol-forest-cloth-neck-v4/full-review/runtime/low/manifest.json",
+        "sha256": "a4903e6a13ecba6637ded63aa9d6e2e74e4aa6222042fe3386bb1a5a5f036076"
+      },
+      "rendererBundleSha256": "12425a72a8f032645e6149725fef5e057d469761c0e535f122dca2b8cf9debb7",
+      "rendererSourceSha256": "00dfcc369924555ee93b1feb92c814433ba97317fa9a684c4936c0c3f8e92f56",
+      "modelHashes": [
+        "56167f114c6650325944de89162f2f899466a77bdefdf118c84588a7f57788b6",
+        "a32cd2176c8f32556cb55434e4d4cb7a55222bd27c6f00b8c1b7b37fd1dc3683"
+      ],
+      "errors": 0
+    },
+    "runtimeMedium": {
+      "scope": "16 production runtime transitions; six phases; front and side head/body views; source and battle candidate bytes.",
+      "captureManifest": {
+        "path": "shinobij.client/.tmp/sol-forest-cloth-neck-v4/full-review/runtime/medium/manifest.json",
+        "sha256": "48ce9f924302c5484597db881168157a7b210a61ca6f81039c6fadd0a035fe5a"
+      },
+      "rendererBundleSha256": "12425a72a8f032645e6149725fef5e057d469761c0e535f122dca2b8cf9debb7",
+      "rendererSourceSha256": "00dfcc369924555ee93b1feb92c814433ba97317fa9a684c4936c0c3f8e92f56",
+      "modelHashes": [
+        "56167f114c6650325944de89162f2f899466a77bdefdf118c84588a7f57788b6",
+        "a32cd2176c8f32556cb55434e4d4cb7a55222bd27c6f00b8c1b7b37fd1dc3683"
+      ],
+      "errors": 0
+    },
+    "companionIdleAndTechniques": {
+      "scope": "24 consecutive idle frames at 30 fps plus all nine equipped techniques, each sampled at 12 timestamps from 0.04 to 1.92 seconds in front and side views (216 technique frames).",
+      "captureManifest": {
+        "path": "shinobij.client/.tmp/sol-forest-cloth-neck-v4/full-review/companion/manifest.json",
+        "sha256": "15471cce22c4cd9d26a204a247f4a324a5134db334fce1dce7b7db1b504040d2"
+      },
+      "rendererSourceSha256": "00dfcc369924555ee93b1feb92c814433ba97317fa9a684c4936c0c3f8e92f56",
+      "companionComponentSha256": "58173d245b0db737a1753eacb1cc47df347614f8a2e94eb20ac7272bb3712c89",
+      "modelSha256": "a32cd2176c8f32556cb55434e4d4cb7a55222bd27c6f00b8c1b7b37fd1dc3683",
+      "modelBinding": "Production PetYardModelStage with exact private battle bytes intercepted and injected; offline fetch count 2.",
+      "idleFrames": 24,
+      "moves": [
+        "wind-strike",
+        "wind-pulse",
+        "wind-breaker",
+        "water-pulse",
+        "undertow",
+        "mend",
+        "purify",
+        "aegis",
+        "standard-3-signature"
+      ],
+      "techniqueFrames": 216,
+      "techniqueSheets": 36,
+      "errors": 0
+    },
+    "productionImpostorAtlas": {
+      "path": "shinobij.client/public/pet-models/warfront-impostors/roster/standard-3.webp",
+      "sha256": "926e491bdf63cbb20fc3a2207ed2a57fcd1cf464410920771ce11d9529e14c6d",
+      "manifestPath": "shinobij.client/public/pet-models/warfront-impostors/manifest.json",
+      "manifestSha256": "73fb8ac53de9b1aeffcc1f4d31b5cda0b37d01af3ccf8ebd5c9faa54be218202",
+      "scope": "All 16 4x4 impostor cells visually inspected. Atlas manifest references the older 9e787a... battle LOD; the parent independently measured max candidate-to-atlas bind drift at 2.5119829e-8 and confirmed the original sculpt and texture are unchanged, so this atlas is reusable for this candidate.",
+      "cellCount": 16
+    }
+  },
+  "corroboratingNumericEvidence": [
+    {
+      "path": "shinobij.client/.tmp/pet-animation-audit/standard-3-sol-forest-cloth-neck-v4-motion-audit.json",
+      "sha256": "2daa59c630a4339e07af7ddb5098c06e56fcf285d40818f6947c6e6456cd0831",
+      "result": "Exact source asset pin; 203 poses; 0 geometry failures; 0 deformation warnings."
+    },
+    {
+      "path": "shinobij.client/.tmp/pet-independent-face-recheck/probes/sol-forest-cloth-neck-v4.json",
+      "sha256": "ff4094feed9bd7953fee3714c3f89ec01e527d03b69db38648153b244dbc4c2",
+      "result": "Source pin matches candidate; numeric probe reports 0 failures. It does not claim artistic certification."
+    },
+    {
+      "path": "shinobij.client/.tmp/sol-forest-cloth-neck-v4/ground-comparison.json",
+      "sha256": "b0d3025f9f7229460e82f54af941272d39bedb590d39b65004c2f1d69c96087d",
+      "result": "Parent's independent dense floor comparison: 1,768 poses per stage; maximum new penetration 1.224e-8."
+    },
+    {
+      "path": "shinobij.client/scripts/lib/pet-forest-hawk-neck-cloth.mjs",
+      "sha256": "6dffb8104dd91b3e696848c018ea6384ec2c2139ed12aff1628f918e90fa935a",
+      "result": "Maintained v4 recipe; parent reports all 13 authored curves and texture/topology conservation tests pass."
+    }
+  ],
+  "limits": [
+    "The PASS applies to this private exact pair and the inspected/current atlas only. It does not mean the candidate is live or promoted.",
+    "Numeric audits support visual review but do not replace it; this verdict is based on direct inspection of every listed capture sheet and atlas cell."
+  ]
+}

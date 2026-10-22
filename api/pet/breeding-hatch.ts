@@ -10,11 +10,10 @@ import { carriedRegenCursor, settleIdleRecovery, writeVersionedPlayerSave } from
 import { breedingResultKey, type SealedPetBreedingResult } from './_breeding.js';
 import { petBreedingRequirementsComplete, settlePetBreedingSession, type PetBreedingSession } from './_breeding-requirements.js';
 import { canonicalPetTemplate, createOwnedPet, migrateCharacterOwnedPets, rollBredOwnedPetTrait } from './_owned-pet.js';
-import { petAcquisitionDestination } from './_placement.js';
 import { getPetFromSanctuary, storePetInSanctuary } from './_sanctuary.js';
 
 type HatchDestination = 'roster' | 'sanctuary';
-type HatchReceipt = { sessionId: string; petId: string; destination?: HatchDestination };
+type HatchReceipt = { sessionId: string; petId: string; destination?: HatchDestination; revealPending?: boolean; revealedAt?: number };
 type HatchResult =
     | { ok: true; character: Record<string, unknown>; pet: Record<string, unknown>; destination: HatchDestination; version: number; replayed: boolean; sealedKey?: string }
     | { ok: false; status: number; error: string };
@@ -49,18 +48,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const prior = hatchReceipts.find((receipt) => receipt.sessionId === sessionId);
             if (prior) {
                 const pet = (Array.isArray(character.pets) ? character.pets as Array<Record<string, unknown>> : []).find((entry) => String(entry.id ?? '') === prior.petId);
-                if (pet) return { ok: true, character, pet, destination: 'roster', version: Number(record._saveVersion ?? 0), replayed: true };
-                const sanctuaryPet = await getPetFromSanctuary(playerName, prior.petId);
-                if (sanctuaryPet) return { ok: true, character, pet: sanctuaryPet.pet, destination: 'sanctuary', version: Number(record._saveVersion ?? 0), replayed: true };
+                const sanctuaryPet = pet ? null : await getPetFromSanctuary(playerName, prior.petId);
+                const child = pet ?? sanctuaryPet?.pet;
+                if (child) {
+                    if (body.acknowledgeReveal === true && prior.revealPending) {
+                        const acknowledged = { ...character, petBreedingHatchReceipts: hatchReceipts.map(receipt => receipt === prior
+                            ? { ...receipt, revealPending: false, revealedAt: now } : receipt) };
+                        const written = await writeVersionedPlayerSave(`save:${playerName}`, record, acknowledged, {}, {
+                            regenAt: carriedRegenCursor(recovery.character, acknowledged, recovery.regen),
+                        });
+                        return { ok: true, character: acknowledged, pet: child, destination: pet ? 'roster' : 'sanctuary', version: written._saveVersion, replayed: true };
+                    }
+                    return { ok: true, character, pet: child, destination: pet ? 'roster' : 'sanctuary', version: Number(record._saveVersion ?? 0), replayed: true };
+                }
             }
             const session = character.petBreeding as PetBreedingSession | null | undefined;
             if (!session || session.sessionId !== sessionId) return { ok: false, status: 404, error: 'breeding-session-not-found' };
             if (session.state !== 'egg') return { ok: false, status: 409, error: 'egg-not-ready' };
             if (!petBreedingRequirementsComplete(session)) return { ok: false, status: 409, error: 'hatch-requirements-incomplete' };
+            if (await kv.get(`battle-lock:${playerName}`)) return { ok: false, status: 409, error: 'hatch-deferred-active-battle' };
             const pets = Array.isArray(character.pets) ? character.pets as Array<Record<string, unknown>> : [];
             const sealedKey = breedingResultKey(playerName, sessionId);
             const sealed = await kv.get<SealedPetBreedingResult>(sealedKey);
             if (!sealed || sealed.sessionId !== sessionId || sealed.playerName !== playerName) return { ok: false, status: 409, error: 'sealed-breeding-result-missing' };
+            if (sealed.eggProduced === false) return { ok: false, status: 409, error: 'pairing-produced-no-egg' };
             const generation = Math.max(sealed.parentGenerations[0], sealed.parentGenerations[1]) + 1;
             const childTemplate = canonicalPetTemplate(sealed.resultTemplateId);
             if (!childTemplate) return { ok: false, status: 409, error: 'sealed-breeding-template-missing' };
@@ -79,19 +90,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 trait,
                 ...(sealed.chromatic ? { paletteVariantId: sealed.paletteVariantId } : {}),
             });
-            const destination: HatchDestination = petAcquisitionDestination(character);
-            const child = destination === 'sanctuary'
-                ? (await storePetInSanctuary(playerName, createdChild, 'bred', now)).item.pet
-                : createdChild;
+            const destination: HatchDestination = 'sanctuary';
+            const child = (await storePetInSanctuary(playerName, createdChild, 'bred', now)).item.pet;
             const receipts = Array.isArray(character.petBreedingReceipts)
                 ? (character.petBreedingReceipts as unknown[]).filter((entry): entry is string => typeof entry === 'string').slice(-63)
                 : [];
             const nextCharacter = {
                 ...character,
-                pets: destination === 'roster' ? [...pets, child] : pets,
+                pets,
                 petBreeding: null,
                 petBreedingReceipts: [...receipts, `hatch:${sessionId}`],
-                petBreedingHatchReceipts: [...hatchReceipts, { sessionId, petId: String(child.id), destination }],
+                petBreedingHatchReceipts: [...hatchReceipts, { sessionId, petId: String(child.id), destination, revealPending: true }],
                 petBreedingProgressReceipts: undefined,
             };
             const written = await writeVersionedPlayerSave(`save:${playerName}`, record, nextCharacter, {}, {

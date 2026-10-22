@@ -68,7 +68,8 @@ test('ordinary durability adapter preserves legal combat budgets and leaves publ
     const unclassified = seal(previous);
     assert.equal(unclassified.maxHp, 14700, 'unclassified authored hosts keep the prior HP curve');
     assert.equal(unclassified.character.armorRawDR, .56, 'unclassified authored hosts keep their armor');
-    const finalKage = seal(storyBossEnemyTemplate({ village: 'Stormveil Village', progressIndex: 8 }));
-    assert.equal(finalKage.maxHp, 14000, 'story finale bypasses the ordinary adapter');
+    const finalProfile = storyBossEnemyTemplate({ village: 'Stormveil Village', progressIndex: 8 });
+    const finalKage = seal(finalProfile);
+    assert.equal(finalKage.maxHp, finalProfile.hp, 'story finale bypasses the ordinary adapter');
     assert.equal(finalKage.character.armorRawDR, .18);
 });

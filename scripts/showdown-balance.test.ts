@@ -195,13 +195,14 @@ for (const format of ['1v1', '2v2', '3v3'] as const) test(`showdown ${format} ba
     // raise it to make a regression pass.
     const COMFORT_BUDGET = 7;
     let outsideComfort = 0;
+    const comfortOutliers: string[] = [];
     for (const [name, st] of speciesStats) {
         const p = pct(st);
         if (p < HARD_LO || p > HARD_HI) failures.push(`species ${name} at ${p.toFixed(1)}% (outside ${HARD_LO}-${HARD_HI})`);
-        if (p < COMFORT_LO || p > COMFORT_HI) outsideComfort += 1;
+        if (p < COMFORT_LO || p > COMFORT_HI) { outsideComfort += 1; comfortOutliers.push(`${name} ${p.toFixed(1)}%`); }
     }
     if (outsideComfort > COMFORT_BUDGET) {
-        failures.push(`${outsideComfort} species outside ${COMFORT_LO}-${COMFORT_HI}% (budget ${COMFORT_BUDGET})`);
+        failures.push(`${outsideComfort} species outside ${COMFORT_LO}-${COMFORT_HI}% (budget ${COMFORT_BUDGET}): ${comfortOutliers.join(', ')}`);
     }
 
     assert.deepEqual(failures, [], `balance bands violated — retune api/_pet-showdown/engine.ts (see scripts/showdown-balance.mjs):\n${failures.join('\n')}`);

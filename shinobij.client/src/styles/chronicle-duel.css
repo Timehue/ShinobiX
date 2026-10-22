@@ -515,10 +515,10 @@ button.chronicle-card {
   inset: 0;
   width: 100%;
   height: 100%;
-  object-fit: cover;
-  /* Full-bleed art fills the card; the overlay panels above are translucent so
-     the illustration (head included) reads through them. */
-  object-position: 50% 50%;
+  object-fit: contain;
+  object-position: center;
+  /* Preserve the complete illustration when its aspect ratio differs from the
+     card frame. Translucent overlays keep the artwork readable underneath. */
   background: #060b10;
 }
 .chronicle-card__art-frame.emblem-art {
@@ -896,7 +896,7 @@ button.chronicle-card {
   width: 100%;
   height: 100%;
   inset: 0;
-  object-fit: cover;
+  object-fit: contain;
 }
 .chronicle-combatant__identity {
   display: grid;
@@ -5346,8 +5346,8 @@ button.chronicle-card {
 .chronicle-splash__face {
   width: clamp(96px, 14vmin, 150px);
   height: clamp(96px, 14vmin, 150px);
-  object-fit: cover;
-  object-position: center top;
+  object-fit: contain;
+  object-position: center;
   clip-path: polygon(12% 0, 100% 0, 88% 100%, 0 100%);
   filter:
     drop-shadow(0 10px 24px rgba(0, 0, 0, 0.85))

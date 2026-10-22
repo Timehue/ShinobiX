@@ -1,4 +1,8 @@
+import { clanBossGuardMultiplier, syncClanBossGuard, clanBossGuardSnapshot, noteClanBossGuardAction, openClanBossGuard, isHuman, clanBossPhasePercent } from '../clan-boss/_combat-guard.js';
+import { petSignatureMastery } from '../../shared/pet-ability-mastery.js';
+import { clanBossOutcomeLog } from '../../shared/clan-boss-operation.js';
 import { pveSpecialistDamagePercent } from '../../shared/relics.js';
+import { HUNT_AI_POLICY, pickHuntAiAction } from './_hunt-ai.js';
 import { primeTowerSignature, resolveTowerSignature, recordTowerKnockouts, cancelInvalidTowerSignature } from './_combat-tactics.js';
 import { TOWER_DISRUPT_AP, towerSignaturePattern } from '../../shared/tower-progression.js';
 /*
@@ -67,7 +71,7 @@ import { resolveCastFlavor } from '../combat-core/cast-flavor.js';
 import { MAX_COMBAT_VFX_TILES, canonicalJutsuMethod, canonicalJutsuTagNames, semanticJutsuVfx } from '../combat-core/jutsu-vfx.js';
 import type { PvpFighter, PvpGroundEffect, PvpStatus } from '../pvp/session.js';
 import type { EnemyTemplate } from './_enemy-templates.js';
-import { partyScaleFactor, scaleEnemyStat, getFloorBalanceFor, type TowerFloor, type TowerTargetMode } from './_floor-catalog.js';
+import { CLAN_BOSS_FLOORS, partyScaleFactor, scaleEnemyStat, getFloorBalanceFor, type TowerFloor, type TowerTargetMode } from './_floor-catalog.js';
 import {
     type TowerSession,
     type TowerActor,
@@ -158,9 +162,9 @@ type PvpItemLike = {
 function towerStatusMatches(name: string, canonicalName: string): boolean {
     return canonicalTagName(name) === canonicalName;
 }
-function addTowerStatus(actor: TowerActor, status: PvpStatus): void {
+function addTowerStatus(actor: TowerActor, status: PvpStatus, preserveDuration = false): void {
     const name = canonicalTagName(status.name);
-    const adjusted: PvpStatus = { ...status, name, rounds: status.source === 'item-smoke-bomb' ? status.rounds : statusDurationFor(name, status.rounds) };
+    const adjusted: PvpStatus = { ...status, name, rounds: preserveDuration || status.source === 'item-smoke-bomb' ? status.rounds : statusDurationFor(name, status.rounds) };
     if (STACKABLE_STATUS.has(name)) {
         actor.statuses = [...actor.statuses, adjusted];
         return;
@@ -489,7 +493,7 @@ function applyRoundHazards(session: TowerSession): void {
             if (a.hp <= 0 || !f.tiles.includes(a.pos) || objectiveBossDamageLocked(session, a)) continue;
             const dmg = Math.max(1, Math.floor((a.maxHp * f.percent) / 100));
             a.hp = Math.max(0, a.hp - dmg);
-            session.log.push(`${a.name} takes ${dmg} from ${f.label ?? 'the hazard'} (${a.hp}/${a.maxHp}).`);
+            session.log.push(`${a.name} takes ${dmg} damage from ${f.label ?? 'the hazard'} (${a.hp}/${a.maxHp} HP remaining).`);
         }
     }
     // Endless Spire ascension hazards: a SQUAD-side tax that pressures positioning (never
@@ -504,7 +508,7 @@ function applyRoundHazards(session: TowerSession): void {
             if (a.hp <= 0 || a.side !== 'squad' || !tiles.has(a.pos)) continue;
             const dmg = Math.max(1, Math.floor((a.maxHp * pct) / 100));
             a.hp = Math.max(0, a.hp - dmg);
-            session.log.push(`${a.name} takes ${dmg} from ${m.label ?? 'the hazard'} (${a.hp}/${a.maxHp}).`);
+            session.log.push(`${a.name} takes ${dmg} damage from ${m.label ?? 'the hazard'} (${a.hp}/${a.maxHp} HP remaining).`);
         }
     }
     // Wave 3 'Sudden Death' (objective): in the last SUDDEN_DEATH_WINDOW rounds before the cap,
@@ -763,7 +767,7 @@ function applyExtraPhaseShockwave(session: TowerSession, boss: TowerActor): void
         if (a.hp <= 0 || a.side !== 'squad') continue;
         const dmg = Math.max(1, Math.floor((a.maxHp * EXTRA_PHASE_BLAST_PCT) / 100));
         a.hp = Math.max(0, a.hp - dmg);
-        session.log.push(`${a.name} is caught in the blast for ${dmg} (${a.hp}/${a.maxHp}).`);
+        session.log.push(`${a.name} is caught in the blast for ${dmg} damage (${a.hp}/${a.maxHp} HP remaining).`);
     }
 }
 
@@ -876,7 +880,7 @@ function applyRoundDynamicHazards(session: TowerSession): number[] {
             if (a.hp <= 0 || !tiles.has(a.pos) || objectiveBossDamageLocked(session, a)) continue;
             const dmg = Math.max(1, Math.floor((a.maxHp * pct) / 100));
             a.hp = Math.max(0, a.hp - dmg);
-            session.log.push(`${a.name} is scalded by an erupting geyser for ${dmg} (${a.hp}/${a.maxHp}).`);
+            session.log.push(`${a.name} is scalded by an erupting geyser for ${dmg} damage (${a.hp}/${a.maxHp} HP remaining).`);
         }
     }
     return [...eruptingTiles].sort((a, b) => a - b);
@@ -915,7 +919,7 @@ function applyBossStrikeAndRing(session: TowerSession): void {
             if (a.hp <= 0 || a.side !== 'squad' || !zone.has(a.pos)) continue;
             const dmg = Math.max(1, Math.floor((a.maxHp * strike.pct / 100) * strikeDamageScale));
             a.hp = Math.max(0, a.hp - dmg);
-            session.log.push(`${a.name} is caught in ${strike.label} for ${dmg} (${a.hp}/${a.maxHp}).`);
+            session.log.push(`${a.name} is caught in ${strike.label} for ${dmg} damage (${a.hp}/${a.maxHp} HP remaining).`);
             // Seismic slam: hurl the caught shinobi away from the blast centre (can toss them into a
             // hazard/geyser — the combo). Only when the boss is alive to have thrown it.
             if (isSlam && a.hp > 0 && typeof strike.center === 'number') pushAwayFrom(session, a, strike.center, 2);
@@ -934,7 +938,7 @@ function applyBossStrikeAndRing(session: TowerSession): void {
                 if (a.hp <= 0 || a.side !== 'squad' || !lethal.has(a.pos)) continue;
                 const dmg = Math.max(1, Math.floor((a.maxHp * Math.max(1, Number(ring.pct ?? SUDDEN_DEATH_PCT))) / 100));
                 a.hp = Math.max(0, a.hp - dmg);
-                session.log.push(`${a.name} is caught in the closing ring for ${dmg} (${a.hp}/${a.maxHp}).`);
+                session.log.push(`${a.name} is caught in the closing ring for ${dmg} damage (${a.hp}/${a.maxHp} HP remaining).`);
             }
         }
     }
@@ -1086,7 +1090,10 @@ function towerResolverLines(lines: readonly string[], jutsu: JutsuLike): string[
     const gridLine = (line: string) => (jutsuHasTag(jutsu, 'Barrier') && line.startsWith('Barrier:'))
         || (jutsuHasTag(jutsu, 'Push') && line.startsWith('Push:'))
         || (jutsuHasTag(jutsu, 'Pull') && line.startsWith('Pull:'));
-    return lines.filter(line => !gridLine(line));
+    // Tower damage-over-time ticks after the whole round; Solo/PvP ticks at
+    // the holder's turn end. Keep the shared resolver's message mode-correct.
+    return lines.filter(line => !gridLine(line))
+        .map(line => line.replaceAll('at turn end', 'at round end'));
 }
 function placeTowerBarrier(session: TowerSession, caster: TowerActor, target: TowerActor, jutsu: JutsuLike): void {
     if (!jutsuHasTag(jutsu, 'Barrier')) return;
@@ -1115,14 +1122,14 @@ function placeTowerBarrier(session: TowerSession, caster: TowerActor, target: To
         amount: tile,
         kind: 'positive',
     });
-    session.log.push(`Barrier: ${caster.name} blocks Tower hex ${tile} for 2 turns.`);
+    session.log.push(`Barrier: ${caster.name} blocks Tower tile ${tile} for 2 rounds, starting now.`);
 }
 
 /** Resolve one jutsu/weapon/attack from `actor` onto `target` (target===actor for a
  *  self-cast buff/heal) through the PvP resolver, with the tower env multiplier folded in. */
 function runJutsu(session: TowerSession, actor: TowerActor, target: TowerActor, jutsu: JutsuLike, wMult: number): void {
     const selfCast = actor.id === target.id;
-    const eventIncomingMult = worldBossIncomingDamageMultiplier(session, actor, target);
+    const eventIncomingMult = incomingBossDamageMultiplier(session, actor, target);
     wMult *= eventIncomingMult;
     // Defense in depth for every Tower-only cast path. applyAction rejects an explicit
     // locked-boss intent before spending anything; splash/companions also filter it.
@@ -1142,7 +1149,7 @@ function runJutsu(session: TowerSession, actor: TowerActor, target: TowerActor, 
             .some(status => status.source === 'item-defense-pill');
         const dealt = smoked ? 0 : Math.floor(Math.min(flat, cap) * (defended ? 0.85 : 1) * eventIncomingMult);
         target.hp = Math.max(0, target.hp - dealt);
-        session.log.push(`${actor.name} strikes ${target.name} for ${dealt}.`);
+        session.log.push(`${actor.name} strikes ${target.name} for ${dealt} damage.`);
         return;
     }
     const sf = actorToFighter(actor);
@@ -1294,6 +1301,11 @@ type TowerAoeHitOutput = Readonly<{
  * Tower policy is explicitly atomic: defender reactions may defeat the caster,
  * but every target in the committed cast still resolves in canonical order.
  */
+function incomingBossDamageMultiplier(session: TowerSession, actor: TowerActor, target: TowerActor): number {
+    const clan = session.towerId === 'clan-boss' && actor.side === 'squad' && target.side === 'enemy' ? clanBossGuardMultiplier(session.clanBossGuard, session.round, target.id) : 1;
+    return clan * worldBossIncomingDamageMultiplier(session, actor, target);
+}
+
 function worldBossIncomingDamageMultiplier(session: TowerSession, actor: TowerActor, target: TowerActor): number {
     if (!session.worldBossEvent || actor.side !== 'squad' || target.side !== 'enemy'
         || target.id !== session.phaseState.bossId) return 1;
@@ -1356,7 +1368,7 @@ function runAoeJutsu(
     // Reference receipt preserves the exact existing primary-hit log ordering.
     const primaryReference = resolveAoeFighters(
         session, actorToFighter(actor), actorToFighter(primary), jutsu,
-        wMult * worldBossIncomingDamageMultiplier(session, actor, primary), primaryCap,
+        wMult * incomingBossDamageMultiplier(session, actor, primary), primaryCap,
     );
     const initialHp = actor.hp;
     const protectedCasterHp = objectiveBossDamageLocked(session, actor) ? actor.hp : undefined;
@@ -1392,7 +1404,7 @@ function runAoeJutsu(
                 split.perHit,
                 // Protection belongs to each victim, not the selected AOE center.
                 wMult / formationDefendMult(session, primary) * formationDefendMult(session, victim)
-                    * worldBossIncomingDamageMultiplier(session, actor, victim),
+                    * incomingBossDamageMultiplier(session, actor, victim),
                 cap,
             );
             return {
@@ -1431,7 +1443,7 @@ function runAoeJutsu(
     // receipts are additive because their reactions now mutate the caster correctly.
     session.log.push(...towerResolverLines(primaryReference.lines, jutsu));
     const secondary = reduced.resolvedHits.filter(hit => hit.targetId !== primary.id);
-    for (const hit of secondary) session.log.push(...(hit.output?.lines ?? []));
+    for (const hit of secondary) session.log.push(...towerResolverLines(hit.output?.lines ?? [], jutsu));
     placeTowerBarrier(session, actor, primary, jutsu);
     return secondary.map(hit => actorById.get(hit.targetId)!.name);
 }
@@ -2002,7 +2014,7 @@ function spendPoison(session: TowerSession, actor: TowerActor, ck: number, st: n
     const dmg = poisonSpendDamage(actorToFighter(actor), (ck || 0) + (st || 0), round);
     if (dmg <= 0) return;
     actor.hp = Math.max(0, actor.hp - dmg);
-    session.log.push(`${actor.name} takes ${dmg} Poison damage from exertion.`);
+    session.log.push(`${actor.name} loses ${dmg} HP to Poison for spending resources on jutsu.`);
 }
 /** Tick down an actor's jutsu cooldowns at the START of their turn. Delegates to
  *  the shared combat-core tickCombatCooldowns (also used by PvP move.ts) instead
@@ -2061,6 +2073,8 @@ function expireCompanions(session: TowerSession): void {
 }
 
 export function startRound(session: TowerSession): void {
+    syncClanBossGuard(session);
+    if (session.clanBossGuard) tickBossPhases(session);
     const marker = `--- Round ${session.round} ---`;
     if (!session.log.includes(marker)) {
         // The initial marker belongs before the hunt label; later markers
@@ -2226,6 +2240,12 @@ function squadFightersAlive(session: TowerSession): boolean {
     return session.actors.some(a => a.side === 'squad' && a.hp > 0 && !isCompanionActor(a));
 }
 
+function pushOutcomeLog(session: TowerSession, floor: TowerFloor, line: string): void {
+    const clan = session.towerId === 'clan-boss'
+        || (session.runId.startsWith('cboss-') && CLAN_BOSS_FLOORS.some(entry => entry.id === floor.id));
+    session.log.push(clan ? clanBossOutcomeLog(line, floor.id) : line);
+}
+
 export function checkTowerWinner(session: TowerSession, floor: TowerFloor): void {
     if (cancelInvalidTowerSignature(session)) refreshHazardTelegraph(session);
     recordTowerKnockouts(session);
@@ -2239,7 +2259,7 @@ export function checkTowerWinner(session: TowerSession, floor: TowerFloor): void
     if (!squadFightersAlive(session)) {
         session.status = 'done'; session.winner = 'enemy';
         session.objectiveState.failed = true;
-        session.log.push(session.worldBossEvent ? 'Team wiped — world boss raid ended. Your contribution can still be banked.' : 'Squad wiped — floor failed.');
+        pushOutcomeLog(session, floor, session.towerId === 'narrative-group' ? 'You were defeated. The encounter ended without a win.' : session.towerId === 'story-twin-trial' ? 'You were defeated. The trial is still open.' : session.worldBossEvent ? 'Team wiped — world boss raid ended. Your contribution can still be banked.' : 'Squad wiped — floor failed.');
         return;
     }
     if (objectiveFailed(session, floor)) {
@@ -2251,7 +2271,9 @@ export function checkTowerWinner(session: TowerSession, floor: TowerFloor): void
     if (squadWinsByObjective(session, floor)) {
         session.status = 'done'; session.winner = 'squad';
         session.objectiveState.completed = true;
-        session.log.push(session.towerId === 'hunt' ? 'Hunt encounter cleared!'
+        pushOutcomeLog(session, floor, session.towerId === 'narrative-group' ? 'Every opponent is defeated. Encounter won!'
+            : session.towerId === 'story-twin-trial' ? 'Both twins are defeated. Trial won!'
+            : session.towerId === 'hunt' ? 'Hunt encounter cleared!'
             : session.towerId === 'sunscar-caravan-ambush' ? 'The road is open.'
                 : session.worldBossEvent ? 'Boss health depleted — confirm the shared world boss result.' : `Floor ${floor.id} cleared!`);
     }
@@ -2263,7 +2285,7 @@ function tickBossPhases(session: TowerSession): void {
     if (!id) return;
     const boss = getActor(session, id);
     if (!boss || boss.maxHp <= 0) return;
-    const pct = (boss.hp / boss.maxHp) * 100;
+    const pct = clanBossPhasePercent(session, boss);
     while (session.phaseState.pendingPhases.length && pct <= session.phaseState.pendingPhases[0]!) {
         const t = session.phaseState.pendingPhases.shift()!;
         session.phaseState.triggeredPhases.push(t);
@@ -2389,10 +2411,12 @@ function towerActionVfx(session: TowerSession, actor: TowerActor, action: TowerA
  * early returns) so the combat path itself is byte-for-byte what it was.
  */
 export function applyAction(session: TowerSession, floor: TowerFloor, action: TowerAction, rng: () => number): ActionResult {
+    const guardBefore = clanBossGuardSnapshot(session);
     const hpBefore = new Map(session.actors.map(a => [a.id, a.hp]));
     const vfxSeqBefore = session.vfxSeq;
     const result = applyResolvedAction(session, floor, action, rng);
     if (!result.applied) return result;
+    noteClanBossGuardAction(session, action, guardBefore);
     reconcileTowerGroundStatuses(session);
     if (cancelInvalidTowerSignature(session)) refreshHazardTelegraph(session);
     recordTowerKnockouts(session);
@@ -2473,8 +2497,9 @@ function applyResolvedAction(session: TowerSession, floor: TowerFloor, action: T
         const healPct = companionHealOnSummonPct(seal.pveGearId) + companionConsumableHealPct(seal.consumableId);
         if (healPct > 0 && actor.hp > 0) {
             const heal = Math.max(1, Math.floor(actor.maxHp * (healPct / 100)));
+            const restored = Math.min(heal, Math.max(0, actor.maxHp - actor.hp));
             actor.hp = Math.min(actor.maxHp, actor.hp + heal);
-            session.log.push(`${seal.name}'s bond restores ${heal} HP to ${actor.name}.`);
+            session.log.push(`${seal.name}'s bond restores ${restored} HP to ${actor.name}.`);
         }
         return { applied: true };
     }
@@ -2575,6 +2600,7 @@ function applyResolvedAction(session: TowerSession, floor: TowerFloor, action: T
             const cleared = removeActiveCombatStatusesByKind(cTarget.statuses, 'positive', session.round);
             const removed = cleared.removed.map(status => status.name);
             cTarget.statuses = cleared.statuses;
+            if (isHuman(actor) && cTarget.id === session.clanBossGuard?.bossId) openClanBossGuard(session, 'Clear');
             const hadShield = cTarget.shield > 0;
             cTarget.shield = 0;
             session.log.push(`Clear: removed ${removed.length ? removed.join(', ') : 'no positive effects'} from ${cTarget.name}${hadShield ? ' and broke their shield' : ''}.`);
@@ -2817,9 +2843,11 @@ function applyResolvedAction(session: TowerSession, floor: TowerFloor, action: T
             : null;
         if ((restoreCk > 0 || restoreSt > 0) && !itemTags) {
             // Pure restore potion — refill directly (skip the synth so it never heals HP via a default Heal tag).
+            const restoredChakra = Math.min(restoreCk, Math.max(0, actor.maxChakra - actor.chakra));
+            const restoredStamina = Math.min(restoreSt, Math.max(0, actor.maxStamina - actor.stamina));
             actor.chakra = Math.min(actor.maxChakra, actor.chakra + restoreCk);
             actor.stamina = Math.min(actor.maxStamina, actor.stamina + restoreSt);
-            session.log.push(`${actor.name} uses ${item.name ?? 'a potion'} — restores ${restoreCk} chakra, ${restoreSt} stamina.`);
+            session.log.push(`${actor.name} uses ${item.name ?? 'a potion'} — restores ${restoredChakra} chakra and ${restoredStamina} stamina.`);
         } else if (item.id === 'item-attack-pill' || item.id === 'item-defense-pill' || item.id === 'item-smoke-bomb') {
             const smoke = item.id === 'item-smoke-bomb';
             // Like every other tag, the effect starts next round (matching
@@ -2844,10 +2872,10 @@ function applyResolvedAction(session: TowerSession, floor: TowerFloor, action: T
                 }
             }
             session.log.push(`${actor.name} uses ${item.name ?? 'an item'} — ${smoke
-                ? 'next round, both sides deal 0 ordinary damage; Pierce bypasses the smoke.'
+                ? 'next round, both sides deal 0 direct-hit damage, except Pierce. Ongoing damage still applies.'
                 : item.id === 'item-attack-pill'
                     ? 'deals 15% more damage for 2 rounds, starting next round.'
-                    : 'takes 15% less damage for 2 rounds, starting next round.'}`);
+                    : 'takes 15% less direct-hit damage for 2 rounds, starting next round. Pierce and ongoing damage bypass this protection.'}`);
         } else if (canonicalTagName(String(item.weaponEffect ?? '')) === 'Decrease Damage Given') {
             // Smoke Bomb-style combat items are field debuffs: the enemy side is always
             // weakened, and weaponEffectTarget="both" also weakens the user.
@@ -2964,7 +2992,12 @@ export function endTurn(session: TowerSession, floor: TowerFloor): void {
     applyRoundStatusTicks(session); // bleed Wound/Poison/Drain + expire statuses (PvP DoT math)
     collectRoundPlates();
     applyRoundHazards(session); // chip anyone standing on a hazard tile at round end
-    applyBossStrikeAndRing(session); // detonate the telegraphed boss strike + closing-ring chip
+    const avoidedBefore = session.towerTactics?.avoidedStrikes ?? 0;
+    const baitsBefore = session.towerTactics?.chargeBaits ?? 0;
+    applyBossStrikeAndRing(session);
+    if ((session.towerTactics?.chargeBaits ?? 0) > baitsBefore) openClanBossGuard(session, 'pillar bait', session.round + 1);
+    else if ((session.towerTactics?.avoidedStrikes ?? 0) > avoidedBefore) openClanBossGuard(session, 'avoided signature', session.round + 1);
+    // detonate the telegraphed boss strike + closing-ring chip
     collectRoundPlates();
     const geyserTiles = applyRoundDynamicHazards(session); // erupt any geyser vents scheduled for this round
     if (geyserTiles.length) roundPlates.push({ key: 'magma', anchor: 'area', tiles: geyserTiles });
@@ -2988,7 +3021,7 @@ export function endTurn(session: TowerSession, floor: TowerFloor): void {
         session.status = 'done';
         session.winner = 'enemy';
         session.objectiveState.failed = true;
-        session.log.push(session.worldBossEvent ? 'Round limit reached — world boss raid ended. Bank your team contribution.' : 'Round limit reached — floor failed.');
+        pushOutcomeLog(session, floor, session.towerId === 'narrative-group' ? 'Round limit reached. The encounter ended without a win.' : session.towerId === 'story-twin-trial' ? 'Round limit reached. The trial ended without a win.' : session.worldBossEvent ? 'Round limit reached — world boss raid ended. Bank your team contribution.' : 'Round limit reached — floor failed.');
         return;
     }
     session.round += 1;
@@ -3352,6 +3385,13 @@ function towerEscapeStep(session: TowerSession, actor: TowerActor): number | und
 }
 
 export function pickAiAction(session: TowerSession, actor: TowerActor, rng: () => number): TowerAction {
+    if (session.towerId === 'hunt' && actor.side === 'enemy' && actor.character.huntAiPolicy === HUNT_AI_POLICY) {
+        return pickHuntAiAction(session, actor, {
+            apply: (copy, action) => applyAction(copy, copy.encounterFloor!, action, () => .5),
+            step: (copy, self, target) => nextStepToward(copy, self.pos, target.pos, self.id),
+            ready: (copy, self, id) => { const jutsu = findJutsu(self, id); return !!jutsu && aiJutsuReady(copy, self, jutsu); },
+        });
+    }
     if (session.towerTactics?.telegraph?.kind === 'charge' && actor.id === session.phaseState.bossId) return { actorId: actor.id, type: 'wait' };
     const escape = towerEscapeStep(session, actor);
     if (escape !== undefined) return { actorId: actor.id, type: 'move', tile: escape };
@@ -3409,6 +3449,19 @@ export function pickAiAction(session: TowerSession, actor: TowerActor, rng: () =
     if (selfUtility?.id) return { actorId: actor.id, type: 'jutsu', jutsuId: selfUtility.id };
     const ground = bestGroundJutsu(session, actor, target);
     if (ground?.id) return { actorId: actor.id, type: 'jutsu', jutsuId: ground.id, tile: target.pos };
+    // Hired war NPCs are sealed by _merc-fighters, never by a player save.
+    // Their catalog weapon is a real cooldown action, allowing a 40+60 turn.
+    // Human participants and their headless snapshots keep their existing policy.
+    if (actor.ai && actor.ownerSlug == null && actor.character.warMercenaryProfile
+        && (actor.character.warMercenaryProfile as { classification?: string }).classification === 'special-npc') {
+        const item = equippedItem(actor);
+        if (item && normalizeSlot(item.slot) === 'hand'
+            && canAct(session, Math.max(0, Number(item.apCost ?? BASIC_ATTACK_AP)), actor)
+            && (actor.cooldowns[`weapon:${item.id ?? item.name ?? 'weapon'}`] ?? 0) <= 0
+            && dist <= Math.max(1, Number(item.weaponRange ?? 1))) {
+            return { actorId: actor.id, type: 'weapon', itemId: item.id, targetId: target.id };
+        }
+    }
     const aoe = bestTargetedAoe(session, actor, target);
     if (aoe?.jutsu.id) {
         return { actorId: actor.id, type: 'jutsu', jutsuId: aoe.jutsu.id, targetId: aoe.target.id };
@@ -3471,7 +3524,7 @@ function forceTimeoutResolve(session: TowerSession, floor: TowerFloor): void {
         session.status = 'done';
         session.winner = 'enemy';
         session.objectiveState.failed = true;
-        session.log.push('Floor resolution stalled — floor failed.');
+        pushOutcomeLog(session, floor, session.towerId === 'clan-boss' || session.runId.startsWith('cboss-') ? 'Floor resolution stalled \u2014 floor failed.' : 'The floor could not be completed. This attempt ends in defeat.');
     }
 }
 
@@ -3548,14 +3601,15 @@ function companionDealDamage(session: TowerSession, actor: TowerActor, target: T
     const cap = Math.max(1, Math.floor(target.maxHp * COMPANION_MAX_DAMAGE_FRAC));
     const defended = activeCombatStatuses(target.statuses, session.round)
         .some(status => status.source === 'item-defense-pill');
-    const dealt = Math.floor(Math.max(0, Math.min(Math.floor(raw), cap)) * (defended ? 0.85 : 1));
+    const dealt = Math.floor(Math.max(0, Math.min(Math.floor(raw), cap)) * (defended ? 0.85 : 1) * (session.towerId === 'clan-boss' ? clanBossGuardMultiplier(session.clanBossGuard, session.round, target.id) : 1));
     target.hp = Math.max(0, target.hp - dealt);
     // Loyal Hunter-style gear bleeds part of the pet's damage back to its owner.
     const lifestealPct = companionOwnerLifestealPct(gearId);
     if (dealt > 0 && lifestealPct > 0 && owner && owner.hp > 0) {
         const heal = Math.max(1, Math.floor(dealt * (lifestealPct / 100)));
+        const restored = Math.min(heal, Math.max(0, owner.maxHp - owner.hp));
         owner.hp = Math.min(owner.maxHp, owner.hp + heal);
-        session.log.push(`${owner.name} draws ${heal} HP from ${actor.name}'s strike.`);
+        session.log.push(`${owner.name} restores ${restored} HP through ${actor.name}'s Lifesteal.`);
     }
     return dealt;
 }
@@ -3614,7 +3668,11 @@ function runCompanionTurn(session: TowerSession, floor: TowerFloor, actor: Tower
         }
         const moves = (Array.isArray(c.companionMoves) ? c.companionMoves : []) as CompanionMove[];
         const hpFrac = actor.maxHp > 0 ? actor.hp / actor.maxHp : 1;
-        const move = pickCompanionMove(moves, (actor.cooldowns ?? {}) as Record<string, number>, hpFrac);
+        const move = pickCompanionMove(moves, (actor.cooldowns ?? {}) as Record<string, number>, hpFrac,
+            actor.statuses.some(status => status.kind === 'negative'),
+            c.companionSignatureReadyAfter === undefined ? undefined : {
+                ordinaryActions: Number(c.companionOrdinaryActions ?? 0), requiredActions: Number(c.companionSignatureReadyAfter),
+            });
         const selfCast = !!move && companionMoveDamage(1, move) === 0;
         // Out of reach for anything offensive → spend a step closing the distance.
         if (!selfCast && hexDistance(actor.pos, target.pos, session.map.width) > COMPANION_RANGE) {
@@ -3629,6 +3687,7 @@ function runCompanionTurn(session: TowerSession, floor: TowerFloor, actor: Tower
         const castCost = towerAdjustedApCost(session, actor, BASIC_ATTACK_AP);
         if (ap < castCost) break;
         companionCast(session, floor, actor, target, move);
+        if (!move?.signature && c.companionSignatureReadyAfter !== undefined) c.companionOrdinaryActions = Number(c.companionOrdinaryActions ?? 0) + 1;
         ap -= castCost; acted++;
     }
     session.activeAp = ap;
@@ -3638,6 +3697,8 @@ function runCompanionTurn(session: TowerSession, floor: TowerFloor, actor: Tower
 function companionCast(
     session: TowerSession, floor: TowerFloor, actor: TowerActor, target: TowerActor, move: CompanionMove | null,
 ): void {
+    const progression = actor.character.companionSignatureReadyAfter !== undefined;
+    const mastery = petSignatureMastery(move, progression && move?.signature === true);
     if (rejectObjectiveLockedBoss(session, actor, target)) return;
     if (move) actor.cooldowns = { ...(actor.cooldowns ?? {}), [move.name]: Math.max(1, move.cooldown) };
     const rounds = move?.rounds ?? 2;
@@ -3646,32 +3707,40 @@ function companionCast(
 
     // Pure-support kinds never damage; everything else lands its scaled hit first.
     switch (kind) {
+        case 'cleanse': {
+            actor.statuses = actor.statuses.filter(status => status.kind !== 'negative');
+            if (mastery.mastered) addTowerStatus(actor, { name: 'Stun Prevent', rounds: mastery.cleanseResistRounds, kind: 'positive' } as never, true);
+            session.log.push(`${actor.name}${label} and clears harmful conditions.`);
+            return;
+        }
         case 'heal': {
-            const heal = Math.max(1, Math.floor(actor.maxHp * 0.25 + (move?.power ?? 0) * 0.5));
+            const heal = progression ? Math.max(1, Math.floor(actor.maxHp * mastery.healPct))
+                : Math.max(1, Math.floor(actor.maxHp * 0.25 + (move?.power ?? 0) * 0.5));
+            const restored = Math.min(heal, Math.max(0, actor.maxHp - actor.hp));
             actor.hp = Math.min(actor.maxHp, actor.hp + heal);
-            session.log.push(`${actor.name}${label} and recovers ${heal} HP.`);
+            session.log.push(`${actor.name}${label} and restores ${restored} HP.`);
             return;
         }
         case 'shield': case 'barrier': {
-            const amt = Math.max(1, Math.floor(actor.maxHp * 0.2));
-            actor.shield = Math.max(0, Number(actor.shield ?? 0)) + amt;
+            const amt = Math.max(1, Math.floor(actor.maxHp * (progression ? mastery.shieldPct : .2)));
+            actor.shield = progression ? Math.max(actor.shield, amt) : Math.max(0, Number(actor.shield ?? 0)) + amt;
             actor.shieldExpiresAtRound = shieldExpiryForGrant(session.round);
             session.log.push(`${actor.name}${label} and raises a ${amt} HP shield.`);
             return;
         }
         case 'buff': case 'haste': {
-            addTowerStatus(actor, { name: 'Increase Damage Given', rounds, percent: 25, kind: 'positive' } as never);
-            session.log.push(`${actor.name}${label} and steels itself (+25% damage).`);
+            addTowerStatus(actor, { name: 'Increase Damage Given', rounds, percent: mastery.mastered ? 30 : 25, kind: 'positive' } as never);
+            session.log.push(`${actor.name}${label} and deals ${mastery.mastered ? 30 : 25}% more damage for ${rounds} rounds.`);
             return;
         }
         case 'absorb': {
-            addTowerStatus(actor, { name: 'Absorb', rounds, percent: 30, kind: 'positive' } as never);
-            session.log.push(`${actor.name}${label} and hardens.`);
+            addTowerStatus(actor, { name: 'Absorb', rounds, percent: mastery.mastered ? 35 : 30, kind: 'positive' } as never);
+            session.log.push(`${actor.name}${label} and gains Absorb for ${rounds} rounds, restoring HP after taking damage.`);
             return;
         }
         case 'taunt': {
-            addTowerStatus(actor, { name: 'Decrease Damage Taken', rounds, percent: 25, kind: 'positive' } as never);
-            session.log.push(`${actor.name}${label} and braces (−25% damage taken).`);
+            addTowerStatus(actor, { name: 'Decrease Damage Taken', rounds: mastery.mastered ? rounds + 1 : rounds, percent: mastery.mastered ? 30 : 25, kind: 'positive' } as never, mastery.mastered);
+            session.log.push(`${actor.name}${label} and takes ${mastery.mastered ? 30 : 25}% less damage for ${mastery.mastered ? rounds + 1 : rounds} rounds.`);
             return;
         }
         case 'move': {
@@ -3684,14 +3753,18 @@ function companionCast(
     }
 
     const dealt = companionDealDamage(session, actor, target, move);
-    session.log.push(`${actor.name}${label} → ${target.name} for ${dealt}.`);
+    session.log.push(`${actor.name}${label}, dealing ${dealt} damage to ${target.name}.`);
     switch (kind) {
         case 'stun': case 'freeze': case 'movelock':
+            if (progression && Number(target.character.companionControlImmuneUntil ?? 0) > session.round) {
+                session.log.push(target.name + ' resists repeated companion control.'); break;
+            }
+            if (progression) target.character.companionControlImmuneUntil = session.round + 3;
             addTowerStatus(target, { name: 'Stun', rounds: 1, kind: 'negative' } as never); break;
         case 'wound':
             addTowerStatus(target, { name: 'Wound', rounds, amount: Math.max(1, Math.floor(dealt * 0.4)), kind: 'negative' } as never); break;
         case 'dot': case 'burn':
-            addTowerStatus(target, { name: 'Poison', rounds, percent: 8, kind: 'negative' } as never);
+            addTowerStatus(target, { name: 'Poison', rounds: progression ? Math.min(2, rounds) : rounds, percent: progression ? 4 : 8, kind: 'negative' } as never);
             if (kind === 'burn') addTowerStatus(target, { name: 'Decrease Damage Given', rounds, percent: 15, kind: 'negative' } as never);
             break;
         case 'crush':
@@ -3703,7 +3776,7 @@ function companionCast(
             // tower's equivalent is the shared incoming-damage amp.
             addTowerStatus(target, { name: 'Increase Damage Taken', rounds, percent: 20, kind: 'negative' } as never); break;
         case 'lifesteal':
-            if (dealt > 0) actor.hp = Math.min(actor.maxHp, actor.hp + Math.max(1, Math.floor(dealt * 0.5)));
+            if (dealt > 0) actor.hp = Math.min(actor.maxHp, actor.hp + Math.max(1, Math.floor(dealt * (progression ? .25 : .5))));
             break;
         case 'push':
             pushAwayFrom(session, target, actor.pos, 1); break;

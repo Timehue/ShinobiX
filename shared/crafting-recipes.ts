@@ -31,7 +31,7 @@ export const CRAFT_MATERIAL_NAMES: Readonly<Record<string, string>> = {
     'dungeon-legendary-relic': 'Dungeon Legendary Relic',
     'warforged-relic': 'Warforged Relic', 'veil-of-the-hollow': 'Veil of the Hollow',
     'weekly-boss-core': 'Weekly Boss Core',
-    'ration-pack': 'Ration Pack', 'pet-treat': 'Pet Treat',
+    'ration-pack': 'Ration Pack', 'pet-treat': 'Pet Treat', 'elemental-pet-treat': 'Elemental Treats',
 };
 export const craftMaterialName = (id: string) => CRAFT_MATERIAL_NAMES[id] ?? id;
 const material = (id: string, count: number): CraftIngredient => ({ ids: [id], count, label: craftMaterialName(id) });
@@ -66,8 +66,14 @@ const threadOrPelt = (count: number) => choice(['gather-shadow-thread', 'hunt-sh
 // recipe's original trophy leads; Legendary Material is always last.
 const trophy = (count: number, first: 'hunt-ancient-beast-core' | 'hunt-titan-bone' = 'hunt-ancient-beast-core') =>
     choice([first, first === 'hunt-titan-bone' ? 'hunt-ancient-beast-core' : 'hunt-titan-bone', 'hunt-legendary-material'], count);
-// Every grade of River Fish feeds the uncapped Treats recipe, not only Common.
-const meatOrFish = (count: number) => choice(['hunt-beast-meat', ...RESOURCE_GRADES.map((_, grade) => resourceItemId('gather-river-fish', grade as ResourceGrade))], count, 'Beast Meat / River Fish (any grade)');
+// Every grade of River Fish feeds the pet food recipes, not only Common.
+const petFoodBase = (count: number) => choice(['hunt-beast-meat', ...RESOURCE_GRADES.map((_, grade) => resourceItemId('gather-river-fish', grade as ResourceGrade))], count, 'Beast Meat / River Fish (any grade)');
+const petFoodMinerals = (count: number, minGrade: ResourceGrade = 0) => choice(
+    RESOURCE_GRADES.slice(minGrade).flatMap((_, index) =>
+        (['gather-rime-crystal', 'gather-ember-ore', 'gather-stormglass-shard'] as const)
+            .map(id => resourceItemId(id, (minGrade + index) as ResourceGrade))),
+    count, `${RESOURCE_GRADES[minGrade]} or better Rime Crystal / Ember Ore / Stormglass Shard`,
+);
 
 /** Equipment carries bulk ore costs. Regional traces are rare (2% on a mining
  * success), so everyday medicines accept Common minerals and advanced gear
@@ -75,8 +81,9 @@ const meatOrFish = (count: number) => choice(['hunt-beast-meat', ...RESOURCE_GRA
 export const SUPPLY_CRAFT_RECIPES: Readonly<Record<string, SupplyCraftRecipe>> = {
     'village-supply-bundle': { ingredients: exact('village-supply-bundle') },
     'village-supply-crate': { ingredients: exact('village-supply-crate') },
-    'pet-treat': { ingredients: [meatOrFish(4), herb(2)] },
-    'elemental-pet-treat': { ingredients: [material('pet-treat', 2), choice(['gather-rime-crystal', 'gather-ember-ore', 'gather-stormglass-shard'], 2), herb(1)] },
+    'pet-treat': { ingredients: [petFoodBase(4), herb(2)] },
+    'elemental-pet-treat': { ingredients: [material('pet-treat', 2), petFoodMinerals(4), herb(4)] },
+    'ancient-pet-treat': { ingredients: [material('elemental-pet-treat', 1), petFoodBase(8), herb(8), petFoodMinerals(2, 1)] },
     'beast-seal-master': { ingredients: [gradedCraftMaterial('gather-stormglass-shard', 1, 4), bark(4), threadOrPelt(4), fiber(8)], levelReq: 30 },
     'currency:aura-dust': { ingredients: [gradedCraftMaterial('gather-stormglass-shard', 0, 2), herb(4), fiber(2)], currency: 'auraDust', amount: 50 },
     'currency:bone-charm': { ingredients: [material('hunt-cracked-horn', 6), material('hunt-small-fang', 4), fiber(4), gradedCraftMaterial('gather-stormglass-shard', 0, 1)], currency: 'boneCharms', amount: 1 },

@@ -1,0 +1,10 @@
+✔ rare-0 replays its pinned visible-floor repair and preserves anatomy and performances (81104.5235ms)
+✔ rare-45 replays its pinned visible-floor repair and preserves anatomy and performances (78479.5888ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 160371.4248

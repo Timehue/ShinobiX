@@ -1,0 +1,12 @@
+{"id":"standard-2","stage":"source","failed":false,"peakDrift":2.7167963952249695e-15,"blendPoses":468}
+{"id":"standard-2","stage":"battle","failed":false,"peakDrift":2.790603609871323e-15,"blendPoses":468}
+{"id":"standard-3","stage":"source","failed":false,"peakDrift":5.111631563038944e-15,"blendPoses":468}
+{"id":"standard-3","stage":"battle","failed":false,"peakDrift":5.572934112923843e-15,"blendPoses":468}
+{"id":"standard-15","stage":"source","failed":false,"peakDrift":3.3180216264709727e-15,"blendPoses":468}
+{"id":"standard-15","stage":"battle","failed":false,"peakDrift":3.4699177408418568e-15,"blendPoses":468}
+{"id":"rare-3","stage":"source","failed":false,"peakDrift":4.153580548411066e-15,"blendPoses":468}
+{"id":"rare-3","stage":"battle","failed":false,"peakDrift":3.648382401944892e-15,"blendPoses":468}
+{"id":"rare-6","stage":"source","failed":false,"peakDrift":3.2209566624250065e-15,"blendPoses":468}
+{"id":"rare-6","stage":"battle","failed":false,"peakDrift":3.1955007370201006e-15,"blendPoses":468}
+{"id":"rare-21","stage":"source","failed":false,"peakDrift":2.678528530836776e-15,"blendPoses":468}
+{"id":"rare-21","stage":"battle","failed":false,"peakDrift":2.985483367301772e-15,"blendPoses":468}

@@ -4,7 +4,7 @@ import { enforceRateLimitKv } from '../_ratelimit.js';
 import { cors, safeName } from '../_utils.js';
 import { readSoloPveSession } from './_store.js';
 import { reconcileTerminalSoloPveOutcome } from '../pve/_fight-outcome-settlement.js';
-import { isSoloPveSessionLapsed } from './_session.js';
+import { isSoloPveSessionLapsed, soloPveSessionForResponse } from './_session.js';
 import { reconcileLapsedBattle } from '../_battle-lapse.js';
 import { settleTerminalGarrisonFight } from './_garrison-terminal-hook.js';
 
@@ -48,7 +48,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
         // A terminal row past its own retention is readable evidence, not a live fight.
         if (session.expiresAt <= Date.now()) return res.status(410).json({ error: 'Solo-PvE session expired.', session });
-        return res.status(200).json({ ok: true, session });
+        return res.status(200).json({ ok: true, session: soloPveSessionForResponse(session) });
     } catch (error) {
         console.error('[solo-pve/state]', error);
         return res.status(500).json({ error: 'Internal server error.' });

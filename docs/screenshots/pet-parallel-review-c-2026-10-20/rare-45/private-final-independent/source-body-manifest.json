@@ -1,0 +1,55 @@
+{
+  "schema": 1,
+  "errors": [],
+  "pets": [
+    {
+      "id": "rare-45",
+      "name": "Granite Wombat",
+      "url": "/.tmp/granite-wombat-floor/source-candidate-v1.glb",
+      "sha256": "05740c3ec598bd047c0b5bf558f04d67f1ba0835a4f54d1cdb1f8a6e411aca55",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "progress": [
+        0.08,
+        0.28,
+        0.48,
+        0.68,
+        0.88,
+        1
+      ],
+      "views": [
+        "front",
+        "side"
+      ],
+      "materialTreatment": {
+        "mode": "production-diffuse",
+        "materials": 1,
+        "metalnessMax": 0.05,
+        "roughnessRange": [
+          0.58,
+          0.82
+        ]
+      },
+      "sheets": [
+        "rare-45-front.webp",
+        "rare-45-side.webp"
+      ],
+      "review": "pending",
+      "framing": "complete posed body bounds; camera follows pose without excluding any mesh vertices"
+    }
+  ],
+  "artisticCertification": false
+}

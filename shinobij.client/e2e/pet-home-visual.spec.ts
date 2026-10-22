@@ -1,9 +1,37 @@
 import { expect, test, type Page, type Route, type TestInfo } from "@playwright/test";
 import { PUBLIC_CAPABILITY_IDS } from "../../shared/public-capabilities";
 import { PET_CAP_BASE } from "../src/lib/entitlements";
+import { craftMaterialName } from "../../shared/crafting-recipes";
 import { PET_SCENIC_PORTRAITS } from "../src/lib/pet-portrait-assets.generated";
 import AxeBuilder from "@axe-core/playwright";
 import { gotoSettled, reloadSettled } from "./helpers/network-settle";
+
+// Full-page captures below and retained failure video preserve visual evidence.
+// Packaging the redundant trace screenshot resources can exhaust tracing's
+// separate 45s worker budget after every lifecycle assertion has passed.
+test.use({ trace: { mode: 'retain-on-failure', screenshots: false, snapshots: true, sources: true } });
+
+test("arena visit feed preserves recorded paid wins after navigation", async ({ page }, testInfo) => {
+    test.setTimeout(150_000);
+    test.skip(!['chromium-desktop', 'chromium-mobile'].includes(testInfo.project.name), 'visit-feed scope is checked on desktop and mobile');
+    const fixture = await installPetHomeApi(page);
+    Object.assign(fixture.character, { dailyPetWins: 3, totalPetWins: 3, lastDailyReset: new Date().toISOString().slice(0, 10) });
+    await openHome(page);
+    await page.getByRole('button', { name: 'Pet Arena', exact: true }).click();
+    const feed = page.getByRole('log', { name: 'Pet battle log' });
+    await expect(feed).toContainText('No events this visit');
+    await expect(feed).toContainText('Paid wins recorded today: 3/100');
+    await expect(feed).not.toContainText('Awaiting bell');
+    await expect(page.locator('.pet-arena-readiness')).toContainText(/3\s*\/\s*100/);
+    await feed.screenshot({ path: testInfo.outputPath('arena-visit-feed-three-paid-wins.png') });
+    await page.getByRole('button', { name: 'Pet Yard', exact: true }).click();
+    await expect(page.locator('.pet-yard-screen')).toBeVisible();
+    await page.getByRole('button', { name: 'Pet Arena', exact: true }).click();
+    await expect(feed).toContainText('No events this visit');
+    await expect(feed).toContainText('Paid wins recorded today: 3/100');
+    await expect(page.locator('.pet-arena-readiness')).toContainText(/3\s*\/\s*100/);
+    await feed.screenshot({ path: testInfo.outputPath('arena-visit-feed-remounted.png') });
+});
 
 type PetFixture = Record<string, unknown> & {
     id: string;
@@ -12,16 +40,6 @@ type PetFixture = Record<string, unknown> & {
     rarity: string;
     breedingUsesMax: number;
     breedingUsesRemaining: number;
-};
-
-type RequirementFixture = {
-    id: string;
-    category: "care" | "adventure" | "elementalBond";
-    kind: string;
-    label: string;
-    progress: number;
-    target: number;
-    element?: string;
 };
 
 type SessionFixture = {
@@ -33,7 +51,9 @@ type SessionFixture = {
     startedAt: number;
     readyAt: number;
     eggCreatedAt?: number;
-    requirements?: RequirementFixture[];
+    location?: 'sanctuary';
+    incubationRemainingMs?: number;
+    incubationUpdatedAt?: number;
     rulesVersion: number;
 };
 
@@ -93,18 +113,10 @@ const fullRosterPets = [
     pet("qa-earth-1", "rare-21", "Stoneback Tanuki", "Earth", "rare", 5, { image: "/pet-poses/rare-21-idle.webp" }),
 ];
 
-function requirements(progress: [number, number, number]): RequirementFixture[] {
-    return [
-        { id: "care", category: "care", kind: "feed", label: "Share nourishing pet feed", progress: progress[0], target: 3 },
-        { id: "adventure", category: "adventure", kind: "expedition", label: "Complete an expedition together", progress: progress[1], target: 1 },
-        { id: "elemental", category: "elementalBond", kind: "fire-jutsu", label: "Channel Fire techniques", progress: progress[2], target: 5, element: "Fire" },
-    ];
-}
-
-function session(state: "breeding" | "egg", requirementProgress?: [number, number, number]): SessionFixture {
+function session(state: "breeding" | "egg", remainingMs = 43_200_000): SessionFixture {
     const now = Date.now();
     return {
-        sessionId: `qa-${state}`,
+        sessionId: `breed-${crypto.randomUUID().replaceAll('-', '')}`,
         state,
         parentIds: ["qa-fire-1", "qa-fire-2"],
         parentNames: ["Sumi", "Ember Phoenix"],
@@ -112,8 +124,8 @@ function session(state: "breeding" | "egg", requirementProgress?: [number, numbe
         startedAt: now - 3_600_000,
         readyAt: state === "breeding" ? now + 82_455_000 : now - 1_000,
         eggCreatedAt: state === "egg" ? now - 1_000 : undefined,
-        requirements: requirementProgress ? requirements(requirementProgress) : undefined,
-        rulesVersion: 1,
+        ...(state === 'egg' ? { location: 'sanctuary' as const, incubationRemainingMs: remainingMs, incubationUpdatedAt: now } : {}),
+        rulesVersion: 3,
     };
 }
 
@@ -174,6 +186,7 @@ function baseCharacter() {
             source: "admin",
         },
         petBreeding: null as SessionFixture | null,
+        petBreedingHatchReceipts: [] as Array<{ sessionId: string; petId: string; destination: 'sanctuary'; revealPending: boolean }>,
         activePetId: undefined as string | undefined,
         activePetId2v2: undefined as string | undefined,
     };
@@ -223,9 +236,21 @@ const SHELL_BOOT_PATHS = [
 ];
 
 async function installPetHomeApi(page: Page) {
+    const fixtureBaseURL = test.info().project.use.baseURL;
+    if (!fixtureBaseURL) throw new Error('Pet Home UI fixture requires a same-origin preview URL');
+    const origin = new URL(fixtureBaseURL).origin;
+    // The static preview has no realtime service. Send an Engine.IO close packet
+    // so presence uses its HTTP fallback instead of parsing the SPA's HTML as a
+    // handshake. A 503 would itself pollute the strict console-error checks.
+    await page.route(url => url.origin === origin && url.pathname === '/socket.io/', route => route.fulfill({
+        status: 200,
+        contentType: 'text/plain',
+        body: '1',
+    }));
     const state = {
         character: baseCharacter(),
         hatchPet: null as PetFixture | null,
+        hatchRequests: [] as Array<{ sessionId: string; acknowledgeReveal?: boolean }>,
         sanctuaryItems: [
             { schemaVersion: 1, pet: pet("qa-sanctuary-1", "mythic-10", "Ash Crown Phoenix", "Fire", "mythic", 7, { origin: "bred", trait: "Fateweaver", image: "/pet-portraits/breeding-mythics/mythic-10.webp" }), page: 1, storedAt: Date.now() - 86_400_000, source: "bred" },
             { schemaVersion: 1, pet: pet("qa-sanctuary-2", "rare-1", "Tideback Otter", "Water", "rare", 6, { origin: "wild", paletteVariantId: "chromatic-v1", image: "/pet-poses/rare-1-idle.webp" }), page: 1, storedAt: Date.now() - 172_800_000, source: "wild" },
@@ -233,6 +258,21 @@ async function installPetHomeApi(page: Page) {
         saveVersion: 7,
         roleRequests: [] as Array<{ action: string; petId: string; assign?: boolean }>,
     };
+
+    const saveSnapshot = () => ({
+        character: state.character, currentBiome: 'forest', currentSector: 0,
+        acceptedMissionIds: [], missionProgress: {}, triggeredEvents: [], _saveVersion: state.saveVersion,
+    });
+    // Capture the live mocked server state before this document starts its
+    // 12s restore clock. The first save fetch stays in-page, like capabilities
+    // and battle-lock below; later reads still use the stateful route.
+    await page.route(url => url.origin === origin && url.pathname === '/', async route => {
+        if (!route.request().isNavigationRequest()) return route.continue();
+        const response = await route.fetch();
+        const snapshot = JSON.stringify(saveSnapshot()).replaceAll('<', '\\u003c');
+        return route.fulfill({ response, body: (await response.text()).replace('<head>',
+            `<head><script>window.__petHomeBootSave=${snapshot};</script>`) });
+    });
 
     await page.addInitScript((replies) => {
         // WebKit's page.route drops /api/* requests sent just after a fresh
@@ -258,6 +298,12 @@ async function installPetHomeApi(page: Page) {
             if (url.origin === window.location.origin) {
                 const method = (init?.method ?? (input instanceof Request ? input.method : "GET")).toUpperCase();
                 const path = url.pathname.toLowerCase();
+                const boot = window as typeof window & { __petHomeBootSave?: unknown };
+                if (method === 'GET' && path === '/api/save/pethomevisualqa' && boot.__petHomeBootSave) {
+                    const snapshot = boot.__petHomeBootSave;
+                    delete boot.__petHomeBootSave;
+                    return reply(snapshot);
+                }
                 if (method === "GET" && path === "/api/player/capabilities") return reply(replies.capabilities);
                 if (method === "GET" && path === "/api/images") return reply(url.searchParams.get("ids") === "1" ? replies.imageManifest : {});
                 // The player card reads today's Sunscar crate count on every boot.
@@ -293,35 +339,38 @@ async function installPetHomeApi(page: Page) {
             return json(route, url.searchParams.get("ids") === "1" ? EMPTY_IMAGE_MANIFEST : {});
         }
         if (path === "/api/save/pethomevisualqa") {
-            if (request.method() === "GET") return json(route, {
-                character: state.character,
-                currentBiome: "forest",
-                currentSector: 0,
-                acceptedMissionIds: [],
-                missionProgress: {},
-                triggeredEvents: [],
-                _saveVersion: state.saveVersion,
-            });
+            if (request.method() === "GET") return json(route, saveSnapshot());
             state.saveVersion += 1;
             return json(route, { ok: true, _saveVersion: state.saveVersion });
         }
         if (path === "/api/pet/breeding/status") return json(route, {
             ok: true,
             session: state.character.petBreeding,
+            character: state.character,
             serverTime: Date.now(),
             _saveVersion: state.saveVersion,
         });
         if (path === "/api/pet/breeding/start") {
-            state.character.petBreeding = session("breeding");
-            return json(route, { ok: true, character: state.character, session: state.character.petBreeding, serverTime: Date.now(), _saveVersion: ++state.saveVersion, replayed: false });
+            state.character.petBreeding = session("egg");
+            return json(route, { ok: true, eggProduced: true, character: state.character, session: state.character.petBreeding, serverTime: Date.now(), _saveVersion: ++state.saveVersion, replayed: false });
         }
         if (path === "/api/pet/breeding/hatch") {
+            const body = request.postDataJSON() as { sessionId: string; acknowledgeReveal?: boolean };
+            state.hatchRequests.push(body);
+            const prior = state.character.petBreedingHatchReceipts.find(receipt => receipt.sessionId === body.sessionId);
+            if (prior) {
+                if (body.acknowledgeReveal) prior.revealPending = false;
+                const child = state.sanctuaryItems.find(item => item.pet.id === prior.petId)!.pet;
+                return json(route, { ok: true, character: state.character, pet: child, destination: 'sanctuary', _saveVersion: ++state.saveVersion, replayed: true });
+            }
             const child = structuredClone(state.hatchPet ?? pet("qa-child", "rare-26", "Ashglow Kit", "Fire", "rare", 7, {
                 image: "/pet-poses/rare-26-idle.webp", origin: "bred", generation: 3, parentInstanceIds: ["qa-fire-1", "qa-fire-2"], trait: "Lucky",
             }));
-            const destination = state.character.pets.length >= SUPPORTER_PET_CAP ? "sanctuary" : "roster";
-            if (destination === "sanctuary") state.sanctuaryItems.unshift({ schemaVersion: 1, pet: child, page: 1, storedAt: Date.now(), source: "bred" });
-            state.character = { ...state.character, petBreeding: null, pets: destination === "roster" ? [...state.character.pets, child] : state.character.pets };
+            const destination = 'sanctuary';
+            child.breedingSessionId = body.sessionId;
+            state.sanctuaryItems.unshift({ schemaVersion: 1, pet: child, page: 1, storedAt: Date.now(), source: "bred" });
+            state.character = { ...state.character, petBreeding: null, petBreedingHatchReceipts: [...state.character.petBreedingHatchReceipts,
+                { sessionId: body.sessionId, petId: child.id, destination, revealPending: true }] };
             return json(route, { ok: true, character: state.character, pet: child, destination, _saveVersion: ++state.saveVersion, replayed: false });
         }
         if (path === "/api/pet/sanctuary/list") return json(route, { ok: true, items: state.sanctuaryItems, total: state.sanctuaryItems.length, nextCursor: null, carriedCount: state.character.pets.length, carriedCapacity: SUPPORTER_PET_CAP });
@@ -382,6 +431,22 @@ async function reloadHome(page: Page) {
     await expect(page.getByRole("heading", { name: "Your Companions", exact: true })).toBeVisible();
 }
 
+async function welcomeHatch(page: Page, state: Awaited<ReturnType<typeof installPetHomeApi>>, sessionId: string) {
+    // Finish this session's durable ACK before a hard reload swaps the server fixture.
+    const [response] = await Promise.all([
+        page.waitForResponse(response => {
+            const request = response.request();
+            if (new URL(request.url()).pathname !== '/api/pet/breeding/hatch' || request.method() !== 'POST') return false;
+            const body = request.postDataJSON() as { sessionId?: string; acknowledgeReveal?: boolean };
+            return body.sessionId === sessionId && body.acknowledgeReveal === true;
+        }, { timeout: 10_000 }),
+        page.getByRole('button', { name: 'Welcome home', exact: true }).click(),
+    ]);
+    expect(response.ok()).toBe(true);
+    await expect.poll(() => state.character.petBreedingHatchReceipts.find(receipt => receipt.sessionId === sessionId)?.revealPending).toBe(false);
+    await expect(page.locator('[data-pet-hatch-reveal]')).toHaveCount(0);
+}
+
 async function shot(page: Page, testInfo: TestInfo, name: string) {
     await expect.poll(async () => page.locator("img").evaluateAll((images) => (images as HTMLImageElement[])
         .filter((image) => !image.complete || image.naturalWidth === 0)
@@ -411,7 +476,8 @@ async function expectCompanionAvatars(page: Page, selector: string, expected: nu
         await expect(image).toHaveCount(1);
         await expect.poll(() => image.evaluate((node: HTMLImageElement) => node.complete && node.naturalWidth > 0)).toBe(true);
         await expect(image).toHaveAttribute("data-pet-art", "scenic");
-        await expect(image).toHaveCSS("object-fit", "cover");
+        await expect(image).toHaveCSS("object-fit", "contain");
+        await expect(image).toHaveCSS("object-position", "50% 50%");
         await expect(image).toHaveCSS("padding", "0px");
         const bounds = await frame.boundingBox();
         expect(bounds).not.toBeNull();
@@ -501,6 +567,20 @@ test("pet avatars load and fit in every Companion Home card", async ({ page }, t
     await shot(page, testInfo, 'portrait-exchange');
 });
 
+test("ready Sanctuary hatch can be welcomed once without reopening", async ({ page }) => {
+    test.setTimeout(60_000);
+    const state = await installPetHomeApi(page);
+    state.character.petBreeding = session('egg', 0);
+    await gotoSettled(page, '/#/home');
+    await expect(page.getByRole('dialog', { name: 'Ashglow Kit' })).toBeVisible();
+    await page.getByRole('button', { name: 'Welcome home', exact: true }).click();
+    await expect.poll(() => state.hatchRequests.some(request => request.acknowledgeReveal)).toBe(true);
+    await expect(page.locator('[data-pet-hatch-reveal]')).toHaveCount(0);
+    await page.getByRole('button', { name: 'Sanctuary', exact: true }).click();
+    await expect(page.locator('.pet-sanctuary-card', { hasText: 'Ashglow Kit' })).toBeVisible();
+    expect(state.character.petBreedingHatchReceipts.at(-1)?.revealPending).toBe(false);
+});
+
 test("Pet Home visual lifecycle certification", async ({ page }, testInfo) => {
     test.setTimeout(180_000);
     test.skip(testInfo.project.name !== "chromium-desktop", "one deterministic Chromium visual certification is sufficient");
@@ -561,11 +641,11 @@ test("Pet Home visual lifecycle certification", async ({ page }, testInfo) => {
     await parent2.selectOption("qa-fire-2");
     await expect(page.getByText("45%", { exact: true }).first()).toBeVisible();
     await shot(page, testInfo, "05-valid-parent-selection");
-    await page.getByRole("button", { name: "Begin 24-hour breeding" }).click();
+    await page.getByRole("button", { name: "Pair companions" }).click();
     const confirmation = page.getByRole("dialog", { name: /Commit Sumi and Ember Phoenix/ });
     await expect(confirmation).toBeVisible();
-    await expect(confirmation).toContainText("One breeding use will be permanently consumed from each parent.");
-    await expect(confirmation).toContainText("Breeding takes 24 real hours and cannot be canceled or rerolled.");
+    await expect(confirmation).toContainText("Each parent spends one breeding use, including on a failed attempt.");
+    await expect(confirmation).toContainText("Successful eggs go to Sanctuary and hatch after 12 hours of gameplay");
     const cancelConfirmation = confirmation.getByRole("button", { name: "Cancel" });
     const commitConfirmation = confirmation.getByRole("button", { name: "Commit parents" });
     await expect(cancelConfirmation).toBeFocused();
@@ -583,72 +663,63 @@ test("Pet Home visual lifecycle certification", async ({ page }, testInfo) => {
     await expect(page.locator(".breeding-countdown")).toContainText(/\d{2}:\d{2}:\d{2}/);
     await shot(page, testInfo, "07-in-progress-timer");
 
-    state.character.petBreeding = session("egg", [0, 0, 0]);
+    state.character.petBreeding = session("egg");
     await reloadHome(page);
-    await page.getByRole("button", { name: "Shinobi Hatchery" }).click();
-    await expect(page.getByText("Fire egg")).toBeVisible();
-    const incompleteHatch = page.getByRole("button", { name: "Complete all three bonds" });
-    await expect(incompleteHatch).toBeDisabled();
-    await incompleteHatch.scrollIntoViewIfNeeded();
-    await shot(page, testInfo, "08-egg-ready");
+    await page.getByRole("button", { name: "Sanctuary", exact: true }).click();
+    await expect(page.getByText("Fire egg", { exact: true })).toBeVisible();
+    await expect(page.getByLabel("Gameplay time remaining")).toContainText(/\d{2}:\d{2}:\d{2}/);
+    await shot(page, testInfo, "08-sanctuary-egg");
 
-    state.character.petBreeding = session("egg", [2, 1, 3]);
+    state.character.petBreeding = session("egg", 21_600_000);
     await reloadHome(page);
-    await page.getByRole("button", { name: "Shinobi Hatchery" }).click();
-    await expect(page.getByText("2/3")).toBeVisible();
-    await expect(page.getByText("1/1")).toBeVisible();
-    await expect(page.getByText("3/5")).toBeVisible();
-    await page.getByRole("button", { name: "Complete all three bonds" }).scrollIntoViewIfNeeded();
-    await shot(page, testInfo, "09-requirement-progress");
+    await page.getByRole("button", { name: "Sanctuary", exact: true }).click();
+    await expect(page.getByLabel("Gameplay time remaining")).toContainText(/0[56]:/);
+    await shot(page, testInfo, "09-incubation-progress");
 
-    state.character.petBreeding = session("egg", [3, 1, 5]);
+    state.character.petBreeding = session("egg", 60_000);
     await reloadHome(page);
-    await page.getByRole("button", { name: "Shinobi Hatchery" }).click();
-    const hatchable = page.getByRole("button", { name: "Hatch companion" });
-    await expect(hatchable).toBeEnabled();
-    await hatchable.scrollIntoViewIfNeeded();
-    await shot(page, testInfo, "10-hatchable-egg");
+    await page.getByRole("button", { name: "Sanctuary", exact: true }).click();
+    await expect(page.getByText(/The hatch reveal begins automatically/)).toBeVisible();
+    await shot(page, testInfo, "10-incubation-nearly-complete");
 
     state.character.pets = [...structuredClone(basePets), ...structuredClone(fullRosterPets)];
-    state.character.petBreeding = session("egg", [3, 1, 5]);
+    state.character.petBreeding = session("egg", 0);
     await reloadHome(page);
-    await page.getByRole("button", { name: "Shinobi Hatchery" }).click();
-    const fullRoster = page.getByRole("button", { name: "Hatch to Sanctuary" });
-    await expect(fullRoster).toBeEnabled();
-    await expect(page.getByText(/will hatch safely into the Sanctuary/)).toBeVisible();
-    await fullRoster.scrollIntoViewIfNeeded();
-    await shot(page, testInfo, "11-full-roster-routes-hatch-to-sanctuary");
-    await fullRoster.click();
     await expect(page.getByRole("dialog", { name: "Ashglow Kit" })).toBeVisible();
-    await expect(page.getByText(/resting safely in the Sanctuary/)).toBeVisible();
-    await page.getByRole("button", { name: "Rest well" }).click();
+    await expect(page.getByText(/resting safely in Sanctuary/)).toBeVisible();
+    await shot(page, testInfo, "11-full-roster-hatch-to-sanctuary");
+    await page.getByRole("button", { name: "Welcome home" }).click();
+    await expect.poll(() => state.hatchRequests.some(request => request.acknowledgeReveal)).toBe(true);
+    expect(pageErrors).toEqual([]);
+    await expect(page.locator('[data-pet-hatch-reveal]')).toHaveCount(0);
     await page.getByRole("button", { name: "Sanctuary", exact: true }).click();
     await expect(page.locator(".pet-sanctuary-card", { hasText: "Ashglow Kit" })).toBeVisible();
 
     state.character.pets = structuredClone(basePets);
-    state.character.petBreeding = session("egg", [3, 1, 5]);
+    const normalSession = session("egg", 0);
+    state.character.petBreeding = normalSession;
     state.hatchPet = pet("rare-26:550e8400-e29b-41d4-a716-446655440000", "rare-26", "Ashglow Kit", "Fire", "rare", 7, {
         origin: "bred", generation: 3, parentInstanceIds: ["qa-fire-1", "qa-fire-2"], trait: "Lucky",
     });
     await reloadHome(page);
-    await page.getByRole("button", { name: "Shinobi Hatchery" }).click();
-    await page.getByRole("button", { name: "Hatch companion" }).click();
     await expect(page.getByRole("dialog", { name: "Ashglow Kit" })).toBeVisible();
     await expect(page.locator(".hatch-pet")).toBeVisible();
     await expect.poll(() => page.locator(".hatch-pet").evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(0);
     await shot(page, testInfo, "12-normal-hatch-reveal");
+    await welcomeHatch(page, state, normalSession.sessionId);
 
     state.character.pets = structuredClone(basePets);
-    state.character.petBreeding = session("egg", [3, 1, 5]);
+    const chromaticSession = session("egg", 0);
+    state.character.petBreeding = chromaticSession;
     state.hatchPet = pet("legendary-6:550e8400-e29b-41d4-a716-446655440001", "legendary-6", "Aurora Phoenix", "Fire", "legendary", 9, {
         origin: "bred", generation: 3, parentInstanceIds: ["qa-fire-1", "qa-fire-2"], paletteVariantId: "chromatic-v1", trait: "Battleborn",
     });
     await reloadHome(page);
-    await page.getByRole("button", { name: "Shinobi Hatchery" }).click();
-    await page.getByRole("button", { name: "Hatch companion" }).click();
+    await expect(page.getByRole('dialog', { name: 'Aurora Phoenix' })).toBeVisible();
     await expect(page.getByText("Chromatic miracle")).toBeVisible();
     await expect(page.locator(".hatch-pet")).toBeVisible();
     await shot(page, testInfo, "13-chromatic-hatch-reveal");
+    await welcomeHatch(page, state, chromaticSession.sessionId);
 
     state.character.pets = structuredClone(basePets);
     state.character.petBreeding = null;
@@ -732,7 +803,7 @@ test("Pet Home visual lifecycle certification", async ({ page }, testInfo) => {
     await shot(page, testInfo, "15-mobile-home-collection");
     await page.getByRole("button", { name: "Shinobi Hatchery" }).click();
     await expect(page.getByRole("heading", { name: "Shinobi Hatchery" })).toBeVisible();
-    await page.getByRole("button", { name: "Begin 24-hour breeding" }).scrollIntoViewIfNeeded();
+    await page.getByRole("button", { name: "Pair companions" }).scrollIntoViewIfNeeded();
     await shot(page, testInfo, "16-mobile-breeding-barn");
 
     expect((await page.locator("img").evaluateAll((images) => (images as HTMLImageElement[]).filter((image) => !image.complete || image.naturalWidth === 0).map((image) => image.getAttribute("src"))))).toEqual([]);
@@ -1034,7 +1105,10 @@ test("refined companion and Sunscar pages", async ({ page }, testInfo) => {
     await expect(page.getByRole("heading", { name: "Loadout", exact: true })).toBeVisible();
     await fit("yard-equipment", ".pet-yard-refined");
     await activities.getByRole("button", { name: "Battle & techniques", exact: true }).click();
-    await expect(page.getByText("Ember Fang", { exact: true })).toBeVisible();
+    // Progression displays the earned native kit while retaining the owned fixture's stored jutsus.
+    await expect(page.locator('.pet-progression-active').getByText(/^Advanced: Ember Lash/)).toBeVisible();
+    await expect(page.getByText("Ember Fang", { exact: true })).toHaveCount(0);
+    expect(state.character.pets[0]).toMatchObject({ id: "qa-fire-1", templateId: "rare-26", level: 60, jutsus: [{ name: "Ember Fang", kind: "damage", power: 24, cooldown: 3 }] });
     await expect(page.getByRole("button", { name: "Deploy Sumi" })).toBeEnabled();
     await fit("yard-techniques", ".pet-yard-refined");
     await activities.getByRole("button", { name: "Expeditions", exact: true }).click();
@@ -1083,6 +1157,29 @@ test("refined companion and Sunscar pages", async ({ page }, testInfo) => {
     await page.getByRole("button", { name: "Sunscar Festival", exact: false }).click();
     await expect(page.locator(".sunscar-hub-refined")).toBeVisible();
     expect(withoutAbortedFetches(errors)).toEqual([]);
+});
+
+test("expedition route levels and base rewards remain clear on desktop and touch", async ({ page }, testInfo) => {
+    test.setTimeout(180_000);
+    test.skip(!['chromium-desktop', 'chromium-mobile'].includes(testInfo.project.name), 'Admission controls use desktop and touch coverage.');
+    const state = await installPetHomeApi(page);
+    state.character.pets[0].maxLevel = 100;
+    for (const level of [20, 50, 80, 100]) {
+        state.character.pets[0].level = level;
+        if (level === 20) await gotoSettled(page, '/#/pets');
+        else await reloadSettled(page);
+        await page.getByRole('navigation', { name: 'Pet Yard activities' }).getByRole('button', { name: 'Expeditions', exact: true }).click();
+        const routes = page.getByRole('radiogroup', { name: 'Expedition route' });
+        for (const [name, minimum] of [['Scout Routes', 20], ['Forage Wilds', 50], ['Explore Old Ruins', 80]] as const) {
+            const route = routes.getByRole('radio', { name: new RegExp(name) });
+            await expect(route).toContainText(`Lv. ${minimum}+`);
+            if (level >= minimum) await expect(route).toBeEnabled();
+            else await expect(route).toBeDisabled();
+        }
+        await expect(routes.getByRole('radio', { name: /Scout Routes/ }).locator('dl > div').filter({ hasText: 'Secure ryo' })).toContainText('180');
+        await expect(routes.getByRole('radio', { name: /Explore Old Ruins/ }).locator('dl > div').filter({ hasText: 'Secure ryo' })).toContainText('2,160');
+        await expect(page.getByText('All eligible pets earn ryo, materials, and pet XP.', { exact: false })).toBeVisible();
+    }
 });
 
 test("refined integration companion actions and recovery", async ({ page }, testInfo) => {
@@ -1156,13 +1253,19 @@ test("refined integration companion actions and recovery", async ({ page }, test
     const overflow = state.character.pets[5];
     overflow.expedition = { type: 'scout', startedAt: Date.now() - 100_000, endsAt: Date.now() - 1000, token: 'qa-return', risk: 'safe', provision: 'none', choiceVersion: 1, place: 'Cactus Flats' };
     let claims = 0;
+    const mixedHaul = ['hunt-beast-meat', 'hunt-wolf-fang', 'hunt-legendary-material',
+        'gather-river-fish', 'gather-river-fish-fine', 'gather-river-fish-superior',
+        'gather-iron-sand-fine', 'gather-rime-crystal-pristine', 'gather-ember-ore',
+        'gather-field-herb', 'gather-binding-fiber', 'gather-heartwood-bark'].map(itemId => ({ itemId, count: 1 }));
     await page.route('**/api/missions/report-pet-event', async route => {
         const body = route.request().postDataJSON();
         expect(body).toMatchObject({ petId: overflow.id, expeditionToken: 'qa-return', returnChoice: 'secure' });
         if (++claims === 1) return json(route, { error: 'The return desk is unavailable.' }, 503);
         delete overflow.expedition;
         overflow.xp = Number(overflow.xp) + 40;
-        return json(route, { ok: true, character: state.character, _saveVersion: ++state.saveVersion, petXpEarned: 40, story: 'Returned safely from Cactus Flats.' });
+        return json(route, { ok: true, character: state.character, _saveVersion: ++state.saveVersion, petXpEarned: 40,
+            materialRewards: mixedHaul, foundFate: 3,
+            story: 'Returned safely from Cactus Flats.' });
     });
     await reloadSettled(page);
     await page.getByRole('button', { name: /Select Stoneback Tanuki/ }).click();
@@ -1172,6 +1275,10 @@ test("refined integration companion actions and recovery", async ({ page }, test
     await expect(page.getByRole('dialog')).toHaveCount(0);
     await page.getByRole('button', { name: 'Secure haul', exact: true }).click();
     await expect(page.getByRole('dialog')).toContainText('Returned safely from Cactus Flats');
+    for (const material of mixedHaul) {
+        await expect(page.getByRole('dialog').locator('.expedition-reward-row').filter({ has: page.getByText(craftMaterialName(material.itemId), { exact: true }) })).toContainText('+1');
+    }
+    await expect(page.getByRole('dialog').locator('.expedition-reward-row').filter({ hasText: 'Fate Shard' })).toContainText('+3');
     await page.getByRole('dialog').getByRole('button', { name: 'Continue', exact: true }).click();
     await expect(page.getByRole('button', { name: 'Select Stoneback Tanuki', exact: true })).toBeFocused();
     await expect(page.getByRole('button', { name: 'Launch expedition', exact: true })).toBeDisabled();

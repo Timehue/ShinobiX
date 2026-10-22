@@ -115,7 +115,14 @@ const PENDING_CURRENCY_WRITERS: readonly string[] = [
 const PENDING_BUDGET = 41;
 
 /** Census false positives, each with the reason it moves no economy currency. */
-const NOT_CURRENCY_WRITERS: Readonly<Record<string, string>> = {};
+const NOT_CURRENCY_WRITERS: Readonly<Record<string, string>> = {
+    // Main's Hollow Gate recovery repairs (merged 2026-10-22). The currency
+    // pattern the census sees is hollowGateCombatReward in ./_combat-session,
+    // a pure reward table; the save commits only rewrite the run projection.
+    'api/hollow-gate/combat-start.ts': 'its save commit only repairs the floor projection (./_floor-projection); no currency field changes',
+    'api/hollow-gate/resume.ts': 'its save commit only retires an ended run (zero-HP evidence); no currency field changes',
+    'api/hollow-gate/card-start.ts': 'paid-card recovery credits the run reward ledger, not the save; the run settlement pays it',
+};
 
 describe('economy telemetry census (I-19)', () => {
     it('every currency-writing route records its deltas or is pending', () => {

@@ -1,0 +1,325 @@
+{
+  "assembledAt": "2026-10-21T04:16:43.711Z",
+  "baseCommit": "c1576ed5ec7ac5cc895571c3268920839c039168",
+  "pets": [
+    {
+      "id": "rare-27",
+      "name": null,
+      "sourceSha256": "c5ddc0770236d507b70c93ba56ad587c87da9345322b6deb25a98d84be2268ea",
+      "battleSha256": "87f3b8263bbd8ce81cf89e94e6afc4e8f81aa2aab852e16ebf918457af675ee4",
+      "promotion": "docs/audits/pet-pyre-kestrel-rigid-skull-canonical-promotion-2026-10-20.json",
+      "sourceMatchesPromotion": true,
+      "battleMatchesPromotion": true,
+      "review": null,
+      "canonicalRegressionsPending": false,
+      "reviewComplete": true,
+      "repairComplete": true,
+      "releaseComplete": false,
+      "liveVerified": false
+    },
+    {
+      "id": "rare-0",
+      "name": "Crimson Fox",
+      "sourceSha256": "6df0ace2467866aa31640936c2cb9a309e0da5afd31ff443485ee242a9fb8991",
+      "battleSha256": "41064054c79377cbeb35d618427ee22f1b4f59b836710c76e0a44aa03e85aa61",
+      "promotion": "docs/audits/pet-crimson-fox-canonical-promotion-2026-10-20.json",
+      "sourceMatchesPromotion": true,
+      "battleMatchesPromotion": true,
+      "review": [
+        "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-0/private-final-independent/independent-final-visual-review.json",
+        "docs/audits/pet-parallel-review-a-2026-10-20/rare-0-private-second.json"
+      ],
+      "canonicalRegressionsPending": false,
+      "reviewComplete": true,
+      "repairComplete": true,
+      "releaseComplete": false,
+      "liveVerified": false
+    },
+    {
+      "id": "rare-34",
+      "name": null,
+      "sourceSha256": "6a5ed5ed8c973a90e4a3eff13be12ff2328b45856a5da2ec1f3d6664874e78be",
+      "battleSha256": "5d0a2a9f03ec59785b766b401634a36298141b1b22cda52cc979e4548809e968",
+      "promotion": "docs/audits/pet-glacier-marten-canonical-promotion-2026-10-20.json",
+      "sourceMatchesPromotion": true,
+      "battleMatchesPromotion": true,
+      "review": [
+        "docs/audits/pet-glacier-marten-private-first-review-2026-10-20.json",
+        "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-34/private-final-independent/independent-final-visual-review.json"
+      ],
+      "canonicalRegressionsPending": false,
+      "reviewComplete": true,
+      "repairComplete": true,
+      "releaseComplete": false,
+      "liveVerified": false
+    },
+    {
+      "id": "legendary-0",
+      "name": "Glacier Wolf",
+      "sourceSha256": "a640a2ece20460e01753b856aeccbc954da3324d4b79a48c2877805c5dd8a164",
+      "battleSha256": "d5677ee35f52ab2462325e2f25e4cbce4e43d17e1433f1d7769c0cfedb790a43",
+      "promotion": "docs/audits/pet-glacier-wolf-canonical-promotion-2026-10-20.json",
+      "sourceMatchesPromotion": true,
+      "battleMatchesPromotion": true,
+      "review": [
+        "docs/screenshots/pet-parallel-review-c-2026-10-20/legendary-0/private-final-independent/independent-final-visual-review.json",
+        "docs/audits/pet-parallel-review-a-2026-10-20/legendary-0-private-second.json",
+        "docs/audits/pet-parallel-review-a-2026-10-20/legendary-0-forelimb-followup.json"
+      ],
+      "canonicalRegressionsPending": false,
+      "reviewComplete": true,
+      "repairComplete": true,
+      "releaseComplete": false,
+      "liveVerified": false
+    },
+    {
+      "id": "rare-32",
+      "name": null,
+      "sourceSha256": "c3646e4509d29640744c284d5ecdd8986b30e838a5454546ee3ed8cd2ea8ef00",
+      "battleSha256": "c3822f0c668e7e494d3fde438012cf8d099e68befd560f86742d78faed4d0956",
+      "promotion": "docs/audits/pet-coral-serval-canonical-promotion-2026-10-20.json",
+      "sourceMatchesPromotion": true,
+      "battleMatchesPromotion": true,
+      "review": [
+        "docs/audits/pet-coral-serval-private-first-review-2026-10-20.json",
+        "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-32/private-final-independent/independent-final-visual-review.json"
+      ],
+      "canonicalRegressionsPending": false,
+      "reviewComplete": true,
+      "repairComplete": true,
+      "releaseComplete": false,
+      "liveVerified": false
+    },
+    {
+      "id": "rare-45",
+      "name": "Granite Wombat",
+      "sourceSha256": "05740c3ec598bd047c0b5bf558f04d67f1ba0835a4f54d1cdb1f8a6e411aca55",
+      "battleSha256": "f39dd953b817863d73d0e5543dfbd363bd57c95beec039840e5005e8d3a0274c",
+      "promotion": "docs/audits/pet-granite-wombat-canonical-promotion-2026-10-20.json",
+      "sourceMatchesPromotion": true,
+      "battleMatchesPromotion": true,
+      "review": [
+        "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-45/private-final-independent/independent-final-visual-review.json",
+        "docs/audits/pet-parallel-review-a-2026-10-20/rare-45-private-second.json"
+      ],
+      "canonicalRegressionsPending": false,
+      "reviewComplete": true,
+      "repairComplete": true,
+      "releaseComplete": false,
+      "liveVerified": false
+    },
+    {
+      "id": "rare-42",
+      "name": "Thunder Jerboa",
+      "sourceSha256": "778b0163155152d9e2730491cbddf0f0ca54d021bdc2be2a8ef49a289029e4cd",
+      "battleSha256": "f0e63f7b1fe304a88d569304327a8e8203b98b37856907b05e4a5c29516dba1e",
+      "promotion": "docs/audits/pet-thunder-jerboa-canonical-promotion-2026-10-20.json",
+      "sourceMatchesPromotion": true,
+      "battleMatchesPromotion": true,
+      "review": [
+        "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-42/private-final-independent/independent-final-visual-review.json",
+        "docs/audits/pet-parallel-review-a-2026-10-20/rare-42-private-second.json"
+      ],
+      "canonicalRegressionsPending": false,
+      "reviewComplete": true,
+      "repairComplete": true,
+      "releaseComplete": false,
+      "liveVerified": false
+    },
+    {
+      "id": "rare-38",
+      "name": null,
+      "sourceSha256": "57fbb0f30059ca7db6496a582455755b68ded1fb45c3f0fa13de81bce748ceb6",
+      "battleSha256": "fc679bf26a4450dbde7cc3bc26236355fc11fa3b09bba94758e1177dc5ed9677",
+      "promotion": "docs/audits/pet-rare-38-rigid-bird-canonical-promotion-2026-10-20.json",
+      "sourceMatchesPromotion": true,
+      "battleMatchesPromotion": true,
+      "review": [
+        "docs/audits/pet-parallel-review-a-2026-10-20/rare-38-private-second.json",
+        "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-38/private-final-independent/independent-final-visual-review.json",
+        "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-38/private-camera-followup/independent-camera-review.json"
+      ],
+      "canonicalRegressionsPending": false,
+      "reviewComplete": true,
+      "repairComplete": true,
+      "releaseComplete": false,
+      "liveVerified": false
+    },
+    {
+      "id": "rare-47",
+      "name": "Quartz Aardvark",
+      "sourceSha256": "467821bcf5ce59a69aeea8f0624f3ba589eb53e0e5d61b5f862581db1489e5b3",
+      "battleSha256": "c7d7399460fffa0cca64e96e3bece906811de8a4a6f2dfc897d2df68830a613a",
+      "promotion": "docs/audits/pet-quartz-aardvark-canonical-promotion-2026-10-20.json",
+      "sourceMatchesPromotion": true,
+      "battleMatchesPromotion": true,
+      "review": [
+        "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-47/private-final-independent/independent-final-visual-review.json",
+        "docs/audits/pet-parallel-review-a-2026-10-20/rare-47-private-second.json"
+      ],
+      "canonicalRegressionsPending": false,
+      "reviewComplete": true,
+      "repairComplete": true,
+      "releaseComplete": false,
+      "liveVerified": false
+    },
+    {
+      "id": "rare-8",
+      "name": "Azure Toad",
+      "sourceSha256": "ee1ba3aefbc3bfc724b171f5491ae637f2c6dfc3bef3b54f62f5d7fbcd1f121c",
+      "battleSha256": "e71fca2829594421ecd0976548ea9386215253683a7195b2ef3a01ea8e6c2c9b",
+      "promotion": "docs/audits/pet-azure-toad-canonical-promotion-2026-10-20.json",
+      "sourceMatchesPromotion": true,
+      "battleMatchesPromotion": true,
+      "review": [
+        "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-8/private-final-independent/independent-final-visual-review.json",
+        "docs/audits/pet-parallel-review-a-2026-10-20/rare-8-private-second.json"
+      ],
+      "canonicalRegressionsPending": false,
+      "reviewComplete": true,
+      "repairComplete": true,
+      "releaseComplete": false,
+      "liveVerified": false
+    },
+    {
+      "id": "rare-5",
+      "name": "Ironback Turtle",
+      "sourceSha256": "822922ebb6a96378205d2ecc96ffd4b5d08356dd76dd19bec0eda7b4ae19d718",
+      "battleSha256": "75ecf3ff80acc7bfbd45d75cd75187ebd13edb9a8d15772be61ed8b39c452057",
+      "promotion": "docs/audits/pet-ironback-turtle-canonical-promotion-2026-10-20.json",
+      "sourceMatchesPromotion": true,
+      "battleMatchesPromotion": true,
+      "review": [
+        "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-5/private-final-independent/independent-final-visual-review.json",
+        "docs/audits/pet-parallel-review-a-2026-10-20/rare-5-private-second.json"
+      ],
+      "canonicalRegressionsPending": false,
+      "reviewComplete": true,
+      "repairComplete": true,
+      "releaseComplete": false,
+      "liveVerified": false
+    },
+    {
+      "id": "standard-39",
+      "name": null,
+      "sourceSha256": "bf17a7361f888bf943b1682e97d977150ab1f355aaeb68bbae35e1a14e9e04ef",
+      "battleSha256": "153048d8e3a0ab60139632906cdb86e482e469f778526f7b7afadf331ea6e84a",
+      "promotion": "docs/audits/pet-standard-39-rigid-bird-canonical-promotion-2026-10-20.json",
+      "sourceMatchesPromotion": true,
+      "battleMatchesPromotion": true,
+      "review": [
+        "docs/audits/pet-parallel-review-a-2026-10-20/standard-39-private-second.json",
+        "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-39/private-final-independent/independent-final-visual-review.json",
+        "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-39/private-camera-followup/independent-camera-review.json"
+      ],
+      "canonicalRegressionsPending": false,
+      "reviewComplete": true,
+      "repairComplete": true,
+      "releaseComplete": false,
+      "liveVerified": false
+    },
+    {
+      "id": "rare-49",
+      "name": "Bramble Capybara",
+      "sourceSha256": "7c03b5408685bd54e5b362a7cd75862b52c00a33d0cf18d38bdcc42667de670e",
+      "battleSha256": "f932d72bde29bd9cbcb62fe29fcf4529b0c8a640bd44324658cc181c93f8eeb2",
+      "promotion": "docs/audits/pet-bramble-capybara-canonical-promotion-2026-10-20.json",
+      "sourceMatchesPromotion": true,
+      "battleMatchesPromotion": true,
+      "review": [
+        "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-49/private-final-independent/independent-final-visual-review.json",
+        "docs/audits/pet-parallel-review-a-2026-10-20/rare-49-private-second.json"
+      ],
+      "canonicalRegressionsPending": false,
+      "reviewComplete": true,
+      "repairComplete": true,
+      "releaseComplete": false,
+      "liveVerified": false
+    },
+    {
+      "id": "standard-48",
+      "name": "Gravel Pangolin",
+      "sourceSha256": "22f5353ed724746372ccdcd095fa2652fc2136609995bbad701a5d361e86249e",
+      "battleSha256": "f8d8881129271a1ff9d241739e7d00a30e1df0ee81cfabe8e444f5e9f1cc63aa",
+      "promotion": "docs/audits/pet-gravel-pangolin-canonical-promotion-2026-10-20.json",
+      "sourceMatchesPromotion": true,
+      "battleMatchesPromotion": true,
+      "review": [
+        "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-48/private-final-independent/independent-final-visual-review.json",
+        "docs/audits/pet-parallel-review-a-2026-10-20/standard-48-private-second.json"
+      ],
+      "canonicalRegressionsPending": false,
+      "reviewComplete": true,
+      "repairComplete": true,
+      "releaseComplete": false,
+      "liveVerified": false
+    },
+    {
+      "id": "rare-48",
+      "name": "Terra Porcupine",
+      "sourceSha256": "2beae9892d3ea25b5ec79d07b7b01f446a0cc0026ee1663867800b2622458a24",
+      "battleSha256": "aaccda813f039ec82c8a09fbdcdd42641a63b1f6aa9ee3f462dc2780f842ece6",
+      "promotion": "docs/audits/pet-terra-porcupine-canonical-promotion-2026-10-20.json",
+      "sourceMatchesPromotion": true,
+      "battleMatchesPromotion": true,
+      "review": [
+        "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-48/private-final-independent/independent-final-visual-review.json",
+        "docs/audits/pet-parallel-review-a-2026-10-20/rare-48-private-second.json"
+      ],
+      "canonicalRegressionsPending": false,
+      "reviewComplete": true,
+      "repairComplete": true,
+      "releaseComplete": false,
+      "liveVerified": false
+    },
+    {
+      "id": "standard-47",
+      "name": null,
+      "sourceSha256": "ba6ee7361153ef576c5ef04c9ee8debc2f169b2eb61e879b146dceea06e1c925",
+      "battleSha256": "641051e2d67140673cc63a00d9752f8c93cc0927bed9e134ba000c38e5fcf51e",
+      "promotion": "docs/audits/pet-dune-armadillo-canonical-promotion-2026-10-20.json",
+      "sourceMatchesPromotion": true,
+      "battleMatchesPromotion": true,
+      "review": [
+        "docs/audits/pet-dune-armadillo-private-first-review-2026-10-20.json",
+        "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-47/private-final-independent/independent-final-visual-review.json"
+      ],
+      "canonicalRegressionsPending": false,
+      "reviewComplete": true,
+      "repairComplete": true,
+      "releaseComplete": false,
+      "liveVerified": false
+    },
+    {
+      "id": "rare-9",
+      "name": "Bristle Boar",
+      "sourceSha256": "954d6063adc9fd3d930e50bcb61c79f6915b2dbe7e88d930a461f3adc6ae1742",
+      "battleSha256": "4a8fca3afbf41f1a4f6683014ca125c23e5b84355eb2e26ce293d30d82b72c3c",
+      "promotion": "docs/audits/pet-bristle-boar-canonical-promotion-2026-10-20.json",
+      "sourceMatchesPromotion": true,
+      "battleMatchesPromotion": true,
+      "review": [
+        "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-9/private-final-independent/independent-final-visual-review.json",
+        "docs/audits/pet-parallel-review-a-2026-10-20/rare-9-private-second.json"
+      ],
+      "canonicalRegressionsPending": false,
+      "reviewComplete": true,
+      "repairComplete": true,
+      "releaseComplete": false,
+      "liveVerified": false
+    }
+  ],
+  "unselectedEntriesPreserved": true,
+  "status": "locally-validated-pending-CI-and-live",
+  "verifiedEarlier38Release": "docs/audits/pet-pr470-live-38-verification-2026-10-21.json",
+  "canonicalChecks": {
+    "fullRosterReviewReceipts": "161 passed",
+    "independentFaces": "34 exact source/battle assets; all thirteen clips and468 blends per asset;0failures",
+    "lod": "17 selected passed",
+    "impostors": "17 deterministic atlases passed",
+    "productionBuild": "Final production build passed after source revision-token and companion camera metadata updates (2026-10-21).",
+    "sourceContractTests": "28 passed after pinned roster manifest synchronization",
+    "floorReplay": "14 selected floor repairs reproduce pinned outputs, preserve anatomy/curves, and pass independent visible-vertex sampling;14tests0failures. Other3birdrepairs covered by their exact-pair visual and face/LOD/atlas checks."
+  },
+  "companionCamera": "Matched reviewed1.8 camera height for rare-27,rare-38,standard-39; full separately reviewed rare-3/rare-7 headroom correction also included. No GLB rescaling."
+}

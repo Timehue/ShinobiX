@@ -1,0 +1,12 @@
+✔ standard-47: released lower face distortion is detected by independent anatomy (591.5942ms)
+✔ standard-47 roster: repaired anatomy passes every clip and blend (4239.049ms)
+✔ standard-47 warfront-lod/roster: repaired anatomy passes every clip and blend (1715.8691ms)
+✔ standard-47: pinned repair conserves sculpt, rig and curves and reproduces shipping bytes (90406.736ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 97806.7197

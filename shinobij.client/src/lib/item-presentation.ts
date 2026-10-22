@@ -27,7 +27,7 @@ export function presentItem(item: GameItem, petFoodXp?: number): ItemPresentatio
     if (resource) {
         // Every fish grade also makes Treats; only graded (Fine+) minerals refine.
         return { category: resource.activity === 'fishing' ? 'Cooking Ingredient' : 'Crafting Material',
-            use: resource.activity === 'fishing' ? 'Cook at the Cafeteria or make Treats in the Crafter'
+            use: resource.activity === 'fishing' ? 'Cook at the Noodle Den or make Treats in the Crafter'
                 : resource.grade > 0 ? 'Spend in the Crafter or refine at the Shinobi Outpost' : 'Spend in the Crafter',
             showPlayerSlot: false, effectLabel: 'Ingredient Use' };
     }

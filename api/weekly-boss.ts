@@ -14,10 +14,11 @@ import { bumpEraContribution } from './_era.js';
 import { announce } from './_announce.js';
 import { createHash, randomUUID } from 'node:crypto';
 import { weeklyBossGuardEnabled } from './_release-flags.js';
-import { weeklyBossEnemyTemplate } from './_authoritative-pve.js';
+import { weeklyBossChallengeProfile } from './_weekly-boss-profile.js';
 import { loadAdminCombatContent } from './_admin-content.js';
 import { loadAdminAiObjects } from './_admin-ai-catalog.js';
 import { buildSoloPveAiEncounter } from './solo-pve/_ai-encounter.js';
+import { WEEKLY_BOSS_AI_POLICY } from './solo-pve/_ai-turn-policy.js';
 import type { SoloPveSession } from './solo-pve/_session.js';
 import { readSoloPveSession, soloPveSessionKey, writeSoloPveSession } from './solo-pve/_store.js';
 import { applySoloPveUsageCosts, withSoloPveSettlementReceipt } from './solo-pve/_settlement.js';
@@ -763,7 +764,7 @@ async function announceWeeklyBossSpawn(boss: WeeklyBossState): Promise<void> {
         type: 'weekly_boss',
         importance: 'high',
         title: `⚔️ Weekly Boss: ${boss.bossName ?? 'A great enemy'} has appeared!`,
-        message: `${boss.bossName ?? 'A fearsome boss'} rampages for 72 hours. Seek it out and deal all the damage you can — the top damagers claim a Weekly Boss Core, Dungeon Keys, ryo, and stat points. Enter the hunt via Central Hub → Weekly Boss.`,
+        message: `${boss.bossName ?? 'A fearsome boss'} is available until ${new Date(boss.expiresAt).toISOString()}. Compete by dealing damage. When the event ends, rewards are delivered automatically: ryo and stat points for ranked participants, Weekly Boss Cores for the top 10, and Dungeon Keys for the top 25. Open Central Hub → World Bosses → Weekly. Weekly reward limits apply.`,
         meta: { spawnId, aiId: boss.aiId, weekKey: boss.weekKey, expiresAt: boss.expiresAt },
     }, { receiptId: `weekly-boss-spawn:${spawnId}` });
     if (!delivered) throw new Error(`Weekly Boss ${spawnId} was committed but its herald is still pending.`);
@@ -1097,13 +1098,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         const profile = (await loadAdminAiObjects()).get(boss!.aiId) ?? null;
                         runId = `weekly-${randomUUID().replace(/-/g, '')}`;
                         const now = Date.now();
-                        const enemyTemplate = weeklyBossEnemyTemplate(profile, { id: boss!.aiId, name: boss!.bossName });
+                        const enemyTemplate = weeklyBossChallengeProfile(profile, { id: boss!.aiId, name: boss!.bossName });
                         session = buildSoloPveAiEncounter({
                             sessionId: runId,
                             playerName: actorName,
                             save: actorSave,
                             now,
-                            profile: { id: boss!.aiId, ...enemyTemplate },
+                            profile: enemyTemplate,
                             admin: await loadAdminCombatContent(),
                             hostLoadout: body.hostLoadout && typeof body.hostLoadout === 'object' ? body.hostLoadout : undefined,
                             difficultyMode: false,
@@ -1116,6 +1117,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             },
                             environment: { biome: 'central' },
                             weeklyBossRoundBudget: 20,
+                            aiTurnPolicy: WEEKLY_BOSS_AI_POLICY,
                             activeTtlSeconds: WEEKLY_BOSS_RUN_TTL_SECONDS,
                         });
                         // Health is simulation metadata only; damage is tracked independently.

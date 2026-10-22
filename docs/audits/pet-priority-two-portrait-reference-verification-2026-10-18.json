@@ -1,0 +1,20 @@
+{
+  "pullRequest": 434,
+  "recordedAt": "2026-10-18T23:58:38.671Z",
+  "issue": "CI server-contracts shard 3 retained the previous Polar animation atlas hash in portrait provenance.",
+  "fix": "Advance only the Polar model-atlas reference hash, retaining its previous hash in referenceHistory; portrait master, delivery and all portrait review records are unchanged.",
+  "changedProductionManifest": "shinobij.client/art-source/pet-portrait-refresh/production.json",
+  "reviewedAtlasSha256": "adb903cf3c1b800fe4eefe09f13e002d9107651287a2955feac6fc738c826dd0",
+  "tests": {
+    "passed": 6,
+    "failed": 0
+  },
+  "evidence": [
+    "docs/screenshots/pet-priority-two-main-validation-2026-10-18/portrait-reference-tests.log"
+  ],
+  "evidenceSha256": {
+    "docs/screenshots/pet-priority-two-main-validation-2026-10-18/portrait-reference-tests.log": "b11147c054b3bf4eb4f19727c7f45f57561a110594eaadfaae5f764ce2026c17"
+  },
+  "previousFullReleaseTests": "docs/audits/pet-priority-two-main-validation-2026-10-18.json",
+  "wholeRosterVisuallyComplete": false
+}

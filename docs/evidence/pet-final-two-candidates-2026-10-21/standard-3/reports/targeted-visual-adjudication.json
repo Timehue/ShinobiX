@@ -1,0 +1,77 @@
+{
+  "id": "standard-3",
+  "name": "Forest Hawk",
+  "candidate": "sol-forest-cloth-neck-v4",
+  "status": "targeted-visual-pass",
+  "scope": "Independent visual adjudication of the attack neck/scarf concern only. This is not the full animation, runtime, atlas, or release review.",
+  "verdict": "At attack phase 0.48, the bib/scarf looks broad in the front projection but remains attached beneath the beak and neck. The side view shows a continuous collar profile without a balloon gap, head pull, or wing pull. The shape settles smoothly by phases 0.76 and 1.0. Compared with the earlier held scarf candidate, which pulled across/obscured the beak, v4 keeps the neck covering attached while preserving a readable beak. No confirmed distortion is visible in the reviewed target motion.",
+  "limitations": [
+    "Only targeted head close-ups for attack, idle_hitreact1, and cast were reviewed; no full-body or exhaustive animation review is claimed here.",
+    "The candidate battle LOD and atlas were still being generated when this adjudication was frozen; no battle/atlas verdict is included.",
+    "The face landmark probe is numeric corroboration only and explicitly has artisticCertification=false."
+  ],
+  "pins": {
+    "sourceGlb": {
+      "path": "shinobij.client/.tmp/sol-forest-cloth-neck-v4/source.glb",
+      "sha256": "56167f114c6650325944de89162f2f899466a77bdefdf118c84588a7f57788b6"
+    },
+    "rendererBundleSha256": "aebcf4fb161c4d49b42fe861941a03a4b63017f021334da449c27cedc29ee3ba",
+    "captureManifest": {
+      "path": "shinobij.client/.tmp/sol-forest-cloth-neck-v4/closeups/manifest.json",
+      "sha256": "510c172ea135c34e144dcf98e9b5a6d0afcb825efa2eaccd6d980093609ccfb2"
+    }
+  },
+  "visuallyInspectedEvidence": [
+    {
+      "path": "shinobij.client/.tmp/sol-forest-cloth-neck-v4/closeups/standard-3-attack-head-front-sheet.png",
+      "sha256": "d6556feaefdd4758f43cfb69ef40efeaef12406a4ac23d2fe7b1bfd912ee011a"
+    },
+    {
+      "path": "shinobij.client/.tmp/sol-forest-cloth-neck-v4/closeups/standard-3-attack-head-side-sheet.png",
+      "sha256": "fc8f68b16f5669699a0b2714a56363ab7dbe0ddf2eb6f5166ae7cdf8f798bb18"
+    },
+    {
+      "path": "shinobij.client/.tmp/sol-forest-cloth-neck-v4/closeups/standard-3-attack-0.48-head-front.png",
+      "sha256": "55046eb42d120b8deb46bf7bb3493ffe6487dca7cc099509e31a383cd62c7175"
+    },
+    {
+      "path": "shinobij.client/.tmp/sol-forest-cloth-neck-v4/closeups/standard-3-attack-0.48-head-side.png",
+      "sha256": "eb22ac95b197074208baaf613b7c3f7c0e7c431f3dbee643e096ddf51c809aa9"
+    },
+    {
+      "path": "shinobij.client/.tmp/sol-forest-scarf-v1/closeups/standard-3-attack-0.48-head-front.png",
+      "sha256": "5d7860e046cb43c2a11f1d39bd64c8937ea1d3886780c5f08642b3dce57006b0",
+      "role": "earlier-held-candidate-comparison"
+    },
+    {
+      "path": "shinobij.client/.tmp/sol-forest-scarf-v1/closeups/standard-3-attack-0.48-head-side.png",
+      "sha256": "a30a56e944949f5b200423f8d07494058932b5fdbfb14bd52ac4b25d105df27d",
+      "role": "earlier-held-candidate-comparison"
+    },
+    {
+      "path": "shinobij.client/.tmp/sol-forest-neck-frames-v1/closeups/standard-3-attack-0.48-head-front.png",
+      "sha256": "ea59714e263514f4cebbd61014ff4273c179d3522cc130f3e2762f39991b944b",
+      "role": "frame-only-candidate-comparison"
+    },
+    {
+      "path": "shinobij.client/.tmp/sol-forest-neck-frames-v1/closeups/standard-3-attack-0.48-head-side.png",
+      "sha256": "fb8bc006bfa523b2b4c463047d5c3cc98851ecf075096a6abf873e1aeda055de",
+      "role": "frame-only-candidate-comparison"
+    }
+  ],
+  "corroboratingChecks": [
+    {
+      "path": "shinobij.client/.tmp/pet-independent-face-recheck/probes/sol-forest-cloth-neck-v4.json",
+      "sha256": "ff4094feed9bd7953fee3714c3f89ec01e527d03b69db38648153b244dbc4c2",
+      "result": "1 asset, 0 numeric failures; probe explicitly does not provide artistic certification"
+    },
+    {
+      "path": "shinobij.client/.tmp/pet-animation-audit/standard-3-sol-forest-cloth-neck-v4-motion-audit.json",
+      "sha256": "2daa59c630a4339e07af7ddb5098c06e56fcf285d40818f6947c6e6456cd0831",
+      "result": "Exact source pin; all-geometry audit reports 203 poses, 0 failures, 0 deformation warnings"
+    },
+    {
+      "result": "Parent-reported frozen-face regression covered 13 clips and 468 blends with PASS; this is numeric corroboration, not a substitute for visual review."
+    }
+  ]
+}

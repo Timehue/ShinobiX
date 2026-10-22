@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { before, test } from 'node:test';
-import { resourceNode } from '../../shared/resource-nodes.js';
+import { resourceNode, RETIRED_RESOURCE_NODE_IDS } from '../../shared/resource-nodes.js';
 import { readResourceGathering, resourceActionsToday } from '../../shared/resource-gathering.js';
 import { countOwned } from '../craft/_forge.js';
 import { sectorPoolKey, cleanSectorPoolRow } from './_sector-pool.js';
@@ -32,6 +32,26 @@ async function seed(name: string, patch: Json = {}) {
     await kv.set(`save:${name}`, { _saveVersion: 1, _saveAt: Date.now(), currentSector: node.sector, character });
     online.upsert({ name, sector: node.sector, tile: node.approach, character: { level: 100 } });
 }
+test('all retired building and ruin sites reject new starts without spending resources', async () => {
+    for (const [i, id] of RETIRED_RESOURCE_NODE_IDS.entries()) {
+        const name = `retiredsite${i}`, node = resourceNode(id)!;
+        await seed(name, { equipment: { pickaxe: 'tool-basic-pickaxe' }, gatheringToolUses: { 'tool-basic-pickaxe': 0 } });
+        const key = `save:${name}`, saved = (await kv.get<Json>(key))!;
+        await kv.set(key, { ...saved, currentSector: node.sector });
+        online.upsert({ name, sector: node.sector, tile: node.approach, character: { level: 100 } });
+        online.startTravel(name, node.sector, Date.now(), 29, node.approach);
+        const poolKey = sectorPoolKey(node.sector, Date.now());
+        const beforeSave = await kv.get(key), beforePool = await kv.get(poolKey);
+        const requestId = `retired-node-start-${i}`;
+        const result = await post(name, { action: 'start', nodeId: id, mode: 'relaxed', requestId });
+        assert.equal(result.status, 409, id);
+        assert.match(String(result.body.error), /no longer available/, id);
+        assert.deepEqual(await kv.get(key), beforeSave, `${id}: no action, charge, inventory or currency spent`);
+        assert.deepEqual(await kv.get(poolKey), beforePool, `${id}: no shared pool slot spent`);
+        const journalKey = `economy-tx:resource-gathering:${createHash('sha256').update(`${name}:${requestId}`).digest('hex')}`;
+        assert.equal(await kv.get(journalKey), null, `${id}: no admission journal reserved`);
+    }
+});
 for (const activity of ['mining', 'fishing'] as const) {
     for (const interruption of ['heartbeat', 'battle', 'expiry'] as const) {
         test(`${activity} status recovery reports ${interruption} and preserves admission accounting on replay`, async (t) => {
@@ -121,11 +141,15 @@ test('server-owned outcome ignores forged amounts and replay never credits twice
     const sealedJournal = (await kv.get<{ meta: Json }>(journalKey))!;
     await kv.set(journalKey, { ...sealedJournal, meta: { ...sealedJournal.meta,
         seal: { ...(sealedJournal.meta.seal as Json), startedAt, successDraw: 0, qualityDraw: .999 } } });
-    const forged = { action: 'resolve', requestId: id, success: true, grade: 3, amount: 999, itemId: 'tool-golden-pickaxe' };
+    const forged = { action: 'resolve', requestId: id,nodeId:'resource-0', success: true, grade: 3, amount: 999, itemId: 'tool-golden-pickaxe' };
     const result = await post(name, forged); assert.equal(result.status, 200);
+    const {readHarvestGround,harvestGroundKey}=await import('./_harvest-ground.js');
+    const ground=await readHarvestGround(resourceNode('resource-17')!.sector);assert(ground.length>0,'the real mined seam leaves worked ground');
+    const groundRow=await kv.get(harvestGroundKey(resourceNode('resource-17')!.sector));
     assert.equal(countOwned(result.body.character as Json, 'gather-iron-sand'), 1);
     assert.equal(countOwned(result.body.character as Json, 'gather-iron-sand-pristine'), 0);
     const replay = await post(name, forged); assert.equal(replay.status, 200); assert.equal(replay.body.replayed, true);
+    assert.deepEqual(await kv.get(harvestGroundKey(resourceNode('resource-17')!.sector)),groundRow,'replay cannot refresh the mined ground');
     assert.equal(countOwned(replay.body.character as Json, 'gather-iron-sand'), 1);
     const persisted = (await kv.get<Json>(`save:${name}`))!.character as Json;
     assert.equal(readResourceGathering(persisted.resourceGathering).active, undefined, 'settlement must clear the stored attempt');

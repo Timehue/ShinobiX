@@ -12,6 +12,16 @@ import {
 const appSource = readFileSync(new URL("../App.tsx", import.meta.url), "utf8");
 const arenaSource = readFileSync(new URL("../screens/PetArena.tsx", import.meta.url), "utf8");
 
+test("Pet Arena keeps its lobby Back action separate from a battle-result dismissal", () => {
+    assert.match(arenaSource, /className="pet-arena-return"[\s\S]{0,150}onClick=\{leavePetArena\}/);
+    assert.match(arenaSource, /const leavePetArena = \(\) => \{\s*if \(canLeaveCurrentPetBattle\(\)\) setScreen\(returnScreen\)/);
+    const resultExit = arenaSource.slice(arenaSource.indexOf('const leaveCurrentPetBattle ='), arenaSource.indexOf('const leavePetArena ='));
+    assert.match(resultExit, /setBattleReady\(false\)/);
+    assert.match(resultExit, /if \(forcedReturnScreen\) setScreen\(forcedReturnScreen\)/);
+    assert.doesNotMatch(resultExit, /setScreen\(returnScreen\)/);
+    assert.match(arenaSource, /onExit=\{leaveCurrentPetBattle\}/);
+});
+
 test("Pet Arena settlement scope expires on unmount or an in-place account swap", () => {
     const origin = { playerName: "Kaito", generation: 4 };
 
@@ -307,7 +317,9 @@ test("a Warfront challenge lets each participant command their own roster agains
         "the responder must replay the server-accepted roster, seed, and plans in their own orientation");
     assert.doesNotMatch(arenaSource, /startArenaMatch\(myTeam, blue,/,
         "mutable local pets must not replace the accepted server snapshots");
-    assert.match(arenaSource, /if \(!response\.ok\)[\s\S]*Nothing was started/);
+    assert.match(arenaSource, /if \(!response\.ok\)[\s\S]*The Warfront challenge acceptance could not be confirmed[\s\S]*Reopen the invitation to check for an active battle/);
+    assert.doesNotMatch(arenaSource, /Network error accepting the Warfront challenge\. Nothing was started/,
+        "a lost acceptance response must not promise the server started no battle");
     assert.match(arenaSource, /startArenaMatch\(pendingArenaMatch\.blue,[\s\S]*pendingArenaMatch\.plans\)/);
     assert.match(challenge, /plans: \{ blue: bluePlan, red: redPlan \}/);
     assert.match(arenaSource, /<PetWarfrontRite[\s\S]*red=\{arenaMatch\.red\}/,

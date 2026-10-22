@@ -165,7 +165,7 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster, onServe
 
     async function topUp() {
         if (busyRef.current) return;
-        if (!isHealer) return alert("Only Healers can heal at the hospital. Non-Healers must wait the 60-second admission timer or pay the discharge fee.");
+        if (!isHealer) return alert("Only Healers can use this treatment. To leave the hospital, wait 60 seconds or pay the discharge fee.");
         if (character.ryo < topUpCost) return alert("Not enough ryo.");
         busyRef.current = true;
         setBusy(true);
@@ -190,7 +190,7 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster, onServe
                 stamina: Number(data.stamina ?? prev.maxStamina),
             }) : prev);
         } catch {
-            alert('Network error - heal failed.');
+            alert('Your healing could not be confirmed. Refresh your HP and ryo before trying again.');
         } finally {
             busyRef.current = false;
             setBusy(false);
@@ -250,7 +250,7 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster, onServe
                                 <GameIcon name="clock" size={24} />
                                 <div>
                                     <span>Complimentary release</span>
-                                    <strong>{freeCheckoutReady ? "Ready now" : remaining == null ? "Awaiting the server’s admission timer…" : `${remaining}s remaining`}</strong>
+                                    <strong>{freeCheckoutReady ? "Ready now" : remaining == null ? "Checking when you can leave…" : `${remaining}s remaining`}</strong>
                                     <small>No charge · full HP · return to village</small>
                                 </div>
                                 {freeCheckoutReady ? (
@@ -264,7 +264,7 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster, onServe
                                         {busy ? "Checking out…" : "Check out free"}
                                     </button>
                                 ) : (
-                                    <div className="hospital-countdown" aria-label={remaining == null ? "Awaiting the server’s admission timer" : `${remaining} seconds until free checkout`}>
+                                    <div className="hospital-countdown" aria-label={remaining == null ? "Checking when you can leave" : `${remaining} seconds until free checkout`}>
                                         <span style={{ width: `${remaining == null ? 0 : Math.max(0, Math.min(100, (1 - remaining / 60) * 100))}%` }} />
                                     </div>
                                 )}
@@ -274,7 +274,7 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster, onServe
 
                     {character.ryo < dischargeCost && !freeCheckoutReady && (
                         <p className="facility-inline-warning">
-                            Your wallet is short {(dischargeCost - character.ryo).toLocaleString()} ryo. Free checkout unlocks {remaining == null ? "once the server’s admission timer arrives" : `in ${remaining}s`}.
+                            Your wallet is short {(dischargeCost - character.ryo).toLocaleString()} ryo. Free checkout unlocks {remaining == null ? "once your remaining wait time is confirmed" : `in ${remaining}s`}.
                         </p>
                     )}
                 </section>

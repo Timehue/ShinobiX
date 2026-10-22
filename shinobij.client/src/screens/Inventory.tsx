@@ -799,7 +799,7 @@ export function Inventory({
                 onClose={() => setCacheReveal(null)}
                 rewardKey={cacheReveal.key}
                 intro="The cache seal gives way. Something glows inside…"
-                deliveryCopy="These rewards have already been added to your inventory."
+                deliveryCopy="These rewards have already been added to your character."
                 revealLabel="Reveal the contents"
                 autoRevealAfterMs={720}
             />}

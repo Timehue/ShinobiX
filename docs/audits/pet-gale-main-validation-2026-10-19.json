@@ -1,0 +1,68 @@
+{
+  "ids": [
+    "starter-wind"
+  ],
+  "expected": {
+    "mainBase": "635626fb10ccd394d883731154ba4535fcd9937a",
+    "pets": {
+      "starter-wind": {
+        "source": "b59c81236963a6ebb39e801e5c2053d707dbd8fd88f45225f54c7b0bcb92f583",
+        "battle": "92215482a22b72e392797efc8d0241d0766bed4bf89b7370664ca13f0c8632f7",
+        "atlas": "237a58b359e30eb1deb7f73bc9d2f3ecc19a2c1975c8cb007f378410c34f3703"
+      }
+    }
+  },
+  "nonselectedManifestEntriesUnchanged": true,
+  "checks": [
+    "focused-tests",
+    "structure",
+    "reviews"
+  ],
+  "passed": true,
+  "recordedAt": "2026-10-19T14:59:33.222Z",
+  "mainBaseline": "635626fb10ccd394d883731154ba4535fcd9937a",
+  "focusedTests": {
+    "passed": 34,
+    "failed": 0
+  },
+  "structuralChecks": {
+    "passed": 161,
+    "failed": 0
+  },
+  "existingReviewReceiptChecks": {
+    "passed": 161,
+    "failed": 0
+  },
+  "clientProductionBuild": "passed",
+  "clientLint": {
+    "errors": 0,
+    "existingWarnings": 23
+  },
+  "nonselectedRecipesLandmarksAndRosterEntriesUnchanged": true,
+  "portraitReferenceUpdates": [],
+  "allPortraitMasterDeliveryAndReviewRecordsUnchanged": true,
+  "evidence": [
+    "docs/screenshots/pet-gale-main-validation-2026-10-19/lint.log",
+    "docs/screenshots/pet-gale-main-validation-2026-10-19/focused-tests.log",
+    "docs/screenshots/pet-gale-main-validation-2026-10-19/structure.log",
+    "docs/screenshots/pet-gale-main-validation-2026-10-19/reviews.log",
+    "docs/screenshots/pet-gale-main-validation-2026-10-19/production-build.log",
+    "docs/screenshots/pet-gale-main-validation-2026-10-19/generated-lod.log",
+    "docs/screenshots/pet-gale-main-validation-2026-10-19/generated-atlas.log",
+    "docs/audits/pet-gale-main-runtime-equivalence-2026-10-19.json"
+  ],
+  "evidenceSha256": {
+    "docs/screenshots/pet-gale-main-validation-2026-10-19/lint.log": "d102620f93d8e970de849d0b2dee541b4c178eeab41d0f23ddd199ed936fc360",
+    "docs/screenshots/pet-gale-main-validation-2026-10-19/focused-tests.log": "9fe946ec42ac47910b2dfbf46e53e4c37a607bff3753323cc660e6507c4527a5",
+    "docs/screenshots/pet-gale-main-validation-2026-10-19/structure.log": "9e84d5074bb3e344206067ba000295f240e3c932ae8c38f8221a0d4037337188",
+    "docs/screenshots/pet-gale-main-validation-2026-10-19/reviews.log": "838f4662ff9f40a64904d1c4cba0d6ed5fdcf54bf9f32fe07c0a92f229a0186c",
+    "docs/screenshots/pet-gale-main-validation-2026-10-19/production-build.log": "d4165cc83d38b2259a26e8fb66c1ba2b889ed7e1c05754d439e6410057616eb3",
+    "docs/screenshots/pet-gale-main-validation-2026-10-19/generated-lod.log": "6914db1c425687792b857fe5f3d08083285ffd5b0d8d1e4ae41aa87c8506a1a6",
+    "docs/screenshots/pet-gale-main-validation-2026-10-19/generated-atlas.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "docs/audits/pet-gale-main-runtime-equivalence-2026-10-19.json": "f72a2fcfe7a17b317f6ff1277516e8d65b72cf8e7ab2ea38579f2cf63f8c6162"
+  },
+  "productionRendererFilesIdentical": true,
+  "selectedOriginalAppearanceEquivalent": true,
+  "wholeRosterVisuallyComplete": false,
+  "liveForGale": false
+}

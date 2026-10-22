@@ -1,0 +1,34 @@
+✔ ci.yml reads as jobs this test can check (3.2569ms)
+✔ every Stable CI checks row matches its job's check name and timeout (0.3616ms)
+✔ Stable CI checks describes every ci.yml job with its real timeout (0.8554ms)
+✔ Stable CI checks names only the matrix checks ci.yml emits, and counts their shards right (3.2941ms)
+✔ Stable CI checks counts the live Express steps e2e_village_stores runs (1.1961ms)
+✔ split CI exposes stable required check names with bounded jobs (2.1046ms)
+✔ split CI preserves every release gate and builds each artifact once (0.3928ms)
+✔ client release artifact requires the complete pet asset chain (0.4194ms)
+✔ responsive browser discovery installs runtime and direct QA build dependencies (2.2537ms)
+✔ Pet Gauntlet renderer regression runs as a dedicated source fixture in CI (2.4965ms)
+✔ built CSP and every Stronghold audit feed the required responsive gate with retained evidence (2.4794ms)
+✔ artifact consumers verify immutable provenance and failure evidence stays reachable (0.45ms)
+✔ the storage adapter meets a real Postgres, fails closed, and gates the compatibility aggregate (3.9562ms)
+✔ live Express CI includes persistence and route integration regressions (3.8208ms)
+✔ live Express CI keeps the Exchange and sector-war player journeys isolated and evidenced (0.4943ms)
+✔ required live Express CI runs the two-client sector presence journey on a realtime server of its own (0.5221ms)
+✔ current Warfront coverage keeps low-cost interactions and real renderer audits (1.9143ms)
+✔ required live Express CI runs defeat recovery on desktop and mobile without replacing earlier evidence (0.3809ms)
+✔ required live Express CI runs the hospital ward and roaming Weekly Boss journeys on a server of their own (0.3204ms)
+✔ required live Express CI binds a real wild companion on desktop and mobile (0.4687ms)
+✔ required live Express CI runs the Hollow Gate pet duel on desktop and mobile (0.5718ms)
+✔ the Node pin is an exact version, not a floating major (0.3085ms)
+✔ every workflow takes its Node version from .nvmrc (18.2423ms)
+✔ named forge and Chronicle packs run every dedicated project in required CI (0.7029ms)
+✔ responsive matrix schedules each slice exactly once with matching evidence and denominator (0.6793ms)
+✔ live Express sharding preserves ten exclusive invocations and a fail-closed stable aggregate (0.7408ms)
+ℹ tests 26
+ℹ suites 0
+ℹ pass 26
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 297.4089

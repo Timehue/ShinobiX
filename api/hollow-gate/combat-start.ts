@@ -1,4 +1,5 @@
 import { hollowGateSavedTokenMismatch, loadHollowGateRunForAction, readHollowGatePendingProof } from './_pending-operation.js';
+import { repairHollowGateFloorProjection } from './_floor-projection.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { isIncapacitated } from '../_elapsed-state.js';
 import { kv } from '../_storage.js';
@@ -19,6 +20,8 @@ import {
     isHollowGateCombatKind,
     normalizeHollowGateNodeId,
 } from './_combat-session.js';
+import { loadAiFightProfile } from '../missions/_ai-fight-encounter.js';
+import { soloPveSessionForResponse } from '../solo-pve/_session.js';
 import { buildHollowGateSoloPveEncounter } from './_encounter.js';
 import { recordBetaMetric } from '../_beta-metrics.js';
 import { findTowerBattleStartConflict, towerBattleActiveErrorBody } from '../_tower-battle-guard.js';
@@ -100,7 +103,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             resumed: true,
                             runId: active.runId,
                             combatMode,
-                            ...(activeSession ? { session: activeSession } : {}),
+                            ...(activeSession ? { session: soloPveSessionForResponse(activeSession) } : {}),
                         },
                     };
                 }
@@ -134,7 +137,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (!held.ok) return { status: held.status, body: { error: held.error, reason: held.reason } };
             }
 
-            const save = await augmentSaveWithForgedDefs(await kv.get<Record<string, unknown>>(`save:${playerName}`));
+            const projected = await repairHollowGateFloorProjection(playerName, token, { ...run, currentFloor });
+            if (!projected.ok) return { status: projected.status, body: { error: projected.error } };
+            const save = await augmentSaveWithForgedDefs(projected.record);
             const char = save?.character as Record<string, unknown> | undefined;
             if (!save || !char) return { status: 404, body: { error: 'Player save not found.' } };
             if (isIncapacitated(char)) {
@@ -186,7 +191,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (wanderer) binding.enemyProfileId = `hollow-hunter-${wanderer.role}-f${floor}`;
             try {
                 const session = combatMode === 'solo-pve'
-                    ? buildHollowGateSoloPveEncounter({ binding, run, save, now: binding.createdAt, admin: await loadAdminCombatContent() })
+                    ? buildHollowGateSoloPveEncounter({ binding, run, save, now: binding.createdAt, admin: await loadAdminCombatContent(),
+                        namedBossProfile: kind === 'boss' && run.bossProfileId ? await loadAiFightProfile(run.bossProfileId) : null })
                     : null;
                 if (session) await writeSoloPveSession(session);
                 await kv.set(hollowGateCombatBindingKey(binding.runId), binding, { ex: HOLLOW_GATE_COMBAT_TTL_SECONDS });

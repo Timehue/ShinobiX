@@ -74,10 +74,10 @@ const VANGUARD_POOL: MissionTemplate[] = [
     { templateId: 'vanguard-headhunter', profession: 'vanguard', kind: 'vanguard-pvp-unique', name: 'Headhunter', description: 'Defeat 4 different players.', target: 4, xpReward: 125, eligibility: vanguard(5) },
     { templateId: 'vanguard-warpath', profession: 'vanguard', kind: 'vanguard-pvp-wins', name: 'Warpath', description: 'Win 7 PvP battles.', target: 7, xpReward: 150, eligibility: vanguard(6) },
     { templateId: 'vanguard-annihilator', profession: 'vanguard', kind: 'vanguard-pvp-unique', name: 'Annihilator', description: 'Defeat 5 different players.', target: 5, xpReward: 150, eligibility: vanguard(7) },
-    { templateId: 'vanguard-raid-strike', profession: 'vanguard', kind: 'vanguard-raids', name: 'Raid Strike', description: 'Successfully raid 1 village.', target: 1, xpReward: 60, eligibility: vanguard() },
-    { templateId: 'vanguard-raid-pressure', profession: 'vanguard', kind: 'vanguard-raids', name: 'Pressure Raid', description: 'Successfully raid 3 villages.', target: 3, xpReward: 100, eligibility: vanguard(2) },
-    { templateId: 'vanguard-raid-onslaught', profession: 'vanguard', kind: 'vanguard-raids', name: 'Onslaught', description: 'Successfully raid 5 villages.', target: 5, xpReward: 150, eligibility: vanguard(4) },
-    { templateId: 'vanguard-raid-scourge', profession: 'vanguard', kind: 'vanguard-raids', name: 'Scourge', description: 'Successfully raid 7 villages.', target: 7, xpReward: 200, eligibility: vanguard(6) },
+    { templateId: 'vanguard-raid-strike', profession: 'vanguard', kind: 'vanguard-raids', name: 'Raid Strike', description: 'Win 1 village raid. Repeat raids against the same village count.', target: 1, xpReward: 60, eligibility: vanguard() },
+    { templateId: 'vanguard-raid-pressure', profession: 'vanguard', kind: 'vanguard-raids', name: 'Pressure Raid', description: 'Win 3 village raids. Repeat raids against the same village count.', target: 3, xpReward: 100, eligibility: vanguard(2) },
+    { templateId: 'vanguard-raid-onslaught', profession: 'vanguard', kind: 'vanguard-raids', name: 'Onslaught', description: 'Win 5 village raids. Repeat raids against the same village count.', target: 5, xpReward: 150, eligibility: vanguard(4) },
+    { templateId: 'vanguard-raid-scourge', profession: 'vanguard', kind: 'vanguard-raids', name: 'Scourge', description: 'Win 7 village raids. Repeat raids against the same village count.', target: 7, xpReward: 200, eligibility: vanguard(6) },
 ];
 
 const PET_TAMER_POOL: MissionTemplate[] = [

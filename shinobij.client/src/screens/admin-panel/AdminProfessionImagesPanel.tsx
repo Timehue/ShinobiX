@@ -44,7 +44,7 @@ export function AdminProfessionImagesPanel({ sharedImages }: { sharedImages: Rec
                         <div key={slot.key} className="summary-box" style={{ display: "grid", gridTemplateColumns: "120px 1fr auto", gap: 12, alignItems: "center" }}>
                             <div style={{ width: 120, height: 120, background: "rgba(0,0,0,0.45)", border: "1px dashed rgba(168,85,247,0.4)", borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
                                 {currentImage
-                                    ? <img src={currentImage} alt={slot.label} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                                    ? <img src={currentImage} alt={slot.label} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
                                     : <span style={{ color: "#a78bfa", fontSize: 11, textAlign: "center", padding: 6 }}>No image yet</span>}
                             </div>
                             <div>

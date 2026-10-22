@@ -17,7 +17,18 @@ const previewRoot = previewRootFor(port);
 // They are source fixtures, so the immutable production-preview server cannot serve them.
 const SOURCE_FIXTURE_SPECS = ['**/village-transfer.spec.ts', '**/profession-change.spec.ts', '**/named-forge.spec.ts', '**/sector-hud.spec.ts', '**/wild-binding.spec.ts', '**/chronicle-packs.spec.ts', '**/tournaments.spec.ts', '**/tournaments-live.spec.ts', '**/pet-gauntlet-board.spec.ts', '**/world-eras.spec.ts', '**/rally-recovery.spec.ts', '**/player-friction-source.spec.ts', '**/dojo-circuit-gamepad.spec.ts'];
 SOURCE_FIXTURE_SPECS.push('**/compact-map-notice.spec.ts', '**/resource-gathering.spec.ts', '**/travel-handoff.spec.ts');
-SOURCE_FIXTURE_SPECS.push('**/dungeon-presentation.spec.ts');
+SOURCE_FIXTURE_SPECS.push('**/dungeon-presentation.spec.ts', '**/hollow-gate-return.spec.ts', '**/clan-boss-result.spec.ts', '**/arena-practice.spec.ts');
+SOURCE_FIXTURE_SPECS.push('**/sector-life.spec.ts', '**/chronicle-stop.spec.ts', '**/resource-surface.spec.ts', '**/ground-wildlife.spec.ts');
+SOURCE_FIXTURE_SPECS.push('**/dock-shipment.spec.ts');
+SOURCE_FIXTURE_SPECS.push('**/local-fauna.spec.ts');
+SOURCE_FIXTURE_SPECS.push('**/regional-training.spec.ts');
+SOURCE_FIXTURE_SPECS.push('**/regional-winter.spec.ts');
+SOURCE_FIXTURE_SPECS.push('**/shrine-work.spec.ts');
+SOURCE_FIXTURE_SPECS.push('**/shrine-traffic.spec.ts');
+SOURCE_FIXTURE_SPECS.push('**/midlands-field.spec.ts');
+SOURCE_FIXTURE_SPECS.push('**/festival-work.spec.ts');
+SOURCE_FIXTURE_SPECS.push('**/road-visits.spec.ts');
+SOURCE_FIXTURE_SPECS.push('**/frontier-work.spec.ts');
 const SCREEN_WALK_SPEC = ['**/non-combat-ui-audit.spec.ts', ...SOURCE_FIXTURE_SPECS];
 
 export default defineConfig({
@@ -28,7 +39,11 @@ export default defineConfig({
     fullyParallel: true,
     forbidOnly: Boolean(process.env.CI),
     retries: process.env.CI ? 1 : 0,
-    workers: process.env.CI ? 2 : undefined,
+    // Full RPG clients compete for decoding, layout and browser startup on this
+    // host. Match CI's concurrency locally instead of scaling to every CPU;
+    // higher parallelism caused unrelated navigation and artwork timeouts.
+    // Playwright's --workers flag remains available for deliberate load checks.
+    workers: 2,
     reporter: process.env.CI ? [['line'], ['html', { open: 'never' }]] : 'line',
     use: {
         baseURL,

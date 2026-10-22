@@ -105,8 +105,10 @@ describe('paid threat ambushes per run (2026-10 rebalance #12)', () => {
 
     it('combat-settle returns the purse note on fresh and replayed settlements', () => {
         const settle = readFileSync(join('api', 'hollow-gate', 'combat-settle.ts'), 'utf8');
-        assert.match(settle, /hollowGateAmbushPurse\(binding!\.kind, won, rewardOptions\.paidAmbushes\)/);
-        assert.match(settle, /existingReceipt\.ambushPurse \? \{ ambushPurse: existingReceipt\.ambushPurse \}/);
+        // An ended pet projection pays nothing, so it reports no purse either.
+        assert.match(settle, /hollowGateAmbushPurse\(binding!\.kind, won && !endedProjection, rewardOptions\.paidAmbushes\)/);
+        // Both replay paths answer through combatReplayBody (merged from main).
+        assert.match(settle, /function combatReplayBody[\s\S]*?receipt\.ambushPurse \? \{ ambushPurse: receipt\.ambushPurse \}/);
         assert.match(settle, /banked\.receipt\.ambushPurse \? \{ ambushPurse: banked\.receipt\.ambushPurse \}/);
     });
 });

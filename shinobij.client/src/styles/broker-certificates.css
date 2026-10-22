@@ -1,0 +1,12 @@
+.broker-certificate-reward { display: flex; align-items: center; gap: 14px; margin: 16px 0; padding: 12px 16px; border: 1px solid #d6b77b55; border-radius: 8px; background: #d6b77b0d; text-align: left; }
+.broker-certificate-reward > img { width: 88px; height: 88px; object-fit: contain; flex: 0 0 auto; }
+.broker-certificate-reward strong { color: #f0d39b; font-size: 15px; }
+.sunscar-mode .broker-certificate-reward p { margin: 6px 0 0; font-size: 12px; line-height: 1.6; color: #c9c5b9; }
+.broker-purchase-actions { display: grid; gap: 10px; min-width: 0; }
+.broker-payment-option { display: flex; align-items: center; gap: 10px; color: #e6d5b2; font-size: 12px; }
+.broker-payment-option img { width: 46px; height: 46px; object-fit: contain; }
+.broker-payment-option label { display: grid; gap: 5px; flex: 1; min-width: 0; }
+.broker-payment-option select { width: 100%; min-width: 0; min-height: 44px; padding: 8px; border: 1px solid #d6b77b66; border-radius: 4px; background: #10191f; color: #f0e2c9; font: inherit; }
+.sunscar-mode.sunscar-hub-refined .broker-purchase-actions > button { width: 100%; min-height: 44px; margin: 0; padding: 11px 16px; border: 1px solid #f0d5a0; border-radius: 4px; background: linear-gradient(110deg,#e5c891,#c09b57); color: #1b2119; font: 700 13px/1.4 var(--font-body,sans-serif); text-align: left; }
+.broker-payment-note { display: block; margin-top: 5px; }
+@media(max-width:400px) { .broker-certificate-reward { gap: 10px; padding: 10px; } .broker-certificate-reward > img { width: 64px; height: 64px; } }

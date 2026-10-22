@@ -342,28 +342,25 @@ export interface WandererQuestDef {
     brief?: string;
 }
 export const WANDERER_QUEST_CATALOG: WandererQuestDef[] = [
-    { id: "wq-cull",       label: "Win 3 battles against any foe",        metric: "totalAiKills",       target: 3 },
-    { id: "wq-purge",      label: "Win 6 battles against any foe",        metric: "totalAiKills",       target: 6 },
-    { id: "wq-warpath",    label: "Defeat 10 road threats for the contract", metric: "totalAiKills",       target: 10 },
-    { id: "wq-beasts",     label: "Win 2 pet duels in the colosseum",      metric: "totalPetWins",       target: 2 },
-    { id: "wq-menagerie",  label: "Win 4 pet duels in the colosseum",      metric: "totalPetWins",       target: 4 },
+    { id: "wq-cull",       label: "Win 3 AI battles",        metric: "totalAiKills",       target: 3 },
+    { id: "wq-purge",      label: "Win 6 AI battles",        metric: "totalAiKills",       target: 6 },
+    { id: "wq-warpath",    label: "Win 10 AI battles", metric: "totalAiKills",       target: 10 },
+    { id: "wq-beasts",     label: "Win 2 pet battles",      metric: "totalPetWins",       target: 2 },
+    { id: "wq-menagerie",  label: "Win 4 pet battles",      metric: "totalPetWins",       target: 4 },
     { id: "wq-cards",      label: "Win 2 Shinobi Chronicle Showdowns",   metric: "cardClashWins",      target: 2 },
     { id: "wq-highroller", label: "Win 4 Shinobi Chronicle Showdowns",   metric: "cardClashWins",      target: 4 },
-    { id: "wq-scout",      label: "Scout 10 tiles across the sectors",    metric: "totalTilesExplored", target: 10 },
-    { id: "wq-trailblaze", label: "Scout 25 tiles across the sectors",    metric: "totalTilesExplored", target: 25 },
+    { id: "wq-scout",      label: "Use Explore 10 times on the World Map",    metric: "totalTilesExplored", target: 10 },
+    { id: "wq-trailblaze", label: "Use Explore 25 times on the World Map",    metric: "totalTilesExplored", target: 25 },
     // The relic survey. Unlike every other errand this one tracks a SET (the
     // distinct countries walked since accepting), which is why its metric is a
     // length rather than a lifetime total — and why the label can promise
     // "each" without lying about what the counter measures.
     {
         id: "wq-relic-survey",
-        label: "Walk one tile in each of the five countries",
+        label: "Use Explore in each of the five regions",
         metric: "relicSurveyCount",
         target: 5,
-        brief: "Relics are not forged and not sold. Each country keeps its own, "
-            + "and only an ancient chest out in the wild ever gives one up. Walk all "
-            + "five and I will show you which land holds which. Their strength "
-            + "answers in the field, never in a duel.",
+        brief: "Use Explore at least once in the forest, snowfields, volcanic region, shadow country, and central region after accepting this quest. Ancient Chests can hold region-specific relics. Other relics come from story rewards, towers, bosses, and war crates. Equipped relic bonuses work against PvE enemies, not players.",
     },
 ];
 

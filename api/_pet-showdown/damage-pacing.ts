@@ -23,3 +23,14 @@ export function paceLegacyShowdownTechniqueDamage(damage: number, maxHp: number,
     const paced = threshold + room * excess / (room + excess);
     return damage + (paced - damage) * strength;
 }
+
+/** Extreme-hit safety for new progression entries. Ordinary reference hits
+ * remain linear through 45% HP, then approach 65% without flattening stat
+ * differences. Fragile mirrors and elemental counters still leave a response. */
+export function paceProgressionTechniqueDamage(damage: number, maxHp: number, _attackerLevel: number, _defenderLevel: number, ultimate = false, prepared = false): number {
+    const threshold = maxHp * (ultimate ? prepared ? .75 : .6 : .45);
+    if (damage <= threshold || maxHp <= 0) return damage;
+    const room = maxHp * .2;
+    const excess = damage - threshold;
+    return threshold + room * excess / (room + excess);
+}

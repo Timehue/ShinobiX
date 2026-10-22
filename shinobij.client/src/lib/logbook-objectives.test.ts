@@ -426,7 +426,7 @@ test("the loadout requirement counts resolvable jutsu, not raw equipped ids", ()
     const loadoutProgress = (ctx?: { equippedJutsuCount?: number }) =>
         buildLogbookObjectives(c, ctx)
             .find((o) => o.kind === "academy")
-            ?.requirements.find((r) => r.label === "Equip your jutsu loadout")?.progress;
+            ?.requirements.find((r) => r.label === "Equip 4 jutsu")?.progress;
 
     // Default: unchanged behaviour for callers that cannot resolve the catalog.
     assert.equal(loadoutProgress(), 4, "raw length remains the default");

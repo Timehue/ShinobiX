@@ -1,0 +1,48 @@
+{
+  "sector": 31,
+  "artKey": 53,
+  "key": "shrinefall-supply-stop-v2",
+  "baseFile": "shinobij.client/public/sector-life/shrinefall-warming-stop-v1.webp",
+  "baseSha256": "a7f5e1bb0d55066d1f158b53c865372b6cefb511e1127c808672168a80afbd08",
+  "source": "output/living-world/painted/sources/shrinefall-supply-windbreak-v3-provider.png",
+  "sourceSha256": "2a10f0000ab0eff2fa6ace219c3ba1a5063ed48738630411133be6040a9449b8",
+  "provider": "built-in image_gen",
+  "prompts": "output/living-world/winter-supply-v3-prompt.json",
+  "method": "Full-sector edited source admitted only at the winter screen/sled areas; original brazier, tree, roads, buildings, shrine lamps, ore and all other terrain remain exact before delivery compression.",
+  "areas": [
+    {
+      "left": 434,
+      "top": 718,
+      "width": 44,
+      "height": 92
+    },
+    {
+      "left": 472,
+      "top": 735,
+      "width": 110,
+      "height": 105
+    }
+  ],
+  "protected": [
+    {
+      "left": 479,
+      "top": 717,
+      "width": 36,
+      "height": 43
+    }
+  ],
+  "protectedFeather": 6,
+  "changedOutside": 0,
+  "deliveredSha256": "36ccd5ec1595e5867c79f3cb487c13618346580b288e9cc51a68162100a21954",
+  "bytes": 247250,
+  "width": 1024,
+  "height": 1024,
+  "visualReview": "passed-composition: identical protected supply patch reviewed in all three selected native shrine states; this base composition is not a selected runtime shrine tier",
+  "reviewEvidence": [
+    "output/living-world/painted/winter-supply/shrinefall-supply-stop-v2.png",
+    "output/living-world/winter/browser/desktop-supplied-warming-stop.png",
+    "output/living-world/winter/browser/phone-supplied-warming-stop.png",
+    "output/living-world/winter/browser/desktop-cached-road-exits.png",
+    "output/living-world/winter/browser/phone-cached-road-exits.png"
+  ]
+}

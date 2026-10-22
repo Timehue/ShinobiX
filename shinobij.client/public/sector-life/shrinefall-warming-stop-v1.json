@@ -1,0 +1,21 @@
+{
+  "sector": 31,
+  "artKey": 53,
+  "provider": "built-in image_gen",
+  "method": "Full-sector painted edit; exact-base composition outside the authored area. No independent prop sprites.",
+  "source": "output/living-world/painted/sources/shrinefall-warming-stop-v1-provider.png",
+  "sourceSha256": "cdaa56b79d006c9f39dcc1f75c1679df27c797d38e6ca41bd812a779a46467fe",
+  "baseSha256": "3c0ba17584e8bfe5ed0e0d26f3436ba20b9027ac5d0db1a43035480b38ebe903",
+  "deliveredSha256": "a7f5e1bb0d55066d1f158b53c865372b6cefb511e1127c808672168a80afbd08",
+  "box": {
+    "left": 460,
+    "top": 700,
+    "width": 125,
+    "height": 140
+  },
+  "changedOutside": 0,
+  "bytes": 237724,
+  "visualReview": "reviewed-in-game: purposeful staff, established NPC figures, matching terrain and ground contact",
+  "prompt": "Paint a tiny coal brazier, rolled grey wool blankets and a parcel in the open snow between the lower shrine approaches. Match the original overhead camera, lighting, materials and ground contact. Preserve all roads, entrances, buildings and frame. No people or UI.",
+  "reviewEvidence": "output/living-world/browser/desktop-winter-courier-leaving.png"
+}

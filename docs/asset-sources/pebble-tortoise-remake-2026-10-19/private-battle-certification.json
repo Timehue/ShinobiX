@@ -1,0 +1,60 @@
+{
+  "revision": "20260902-battle-lod-v1",
+  "generatedBy": "scripts/generate-warfront-pet-lods.mjs",
+  "policy": {
+    "targetLodTriangles": 10000,
+    "maxLodTriangles": 15000,
+    "raijinMaxLodTriangles": 18000,
+    "raijinMinTriangleReduction": 0.54,
+    "dawnmaneMaxLodTriangles": 25000,
+    "dawnmaneMinTriangleReduction": 0.4,
+    "breedingMythicTextureSize": 1024,
+    "breedingMythicTextureIds": [
+      "mythic-10",
+      "mythic-11",
+      "mythic-12",
+      "mythic-13",
+      "mythic-14",
+      "mythic-15"
+    ],
+    "maxError": 0.05,
+    "minTriangleReduction": 0.6,
+    "lowPolySourceLimit": 25000,
+    "maxBoundsDelta": 0.02,
+    "silhouetteSize": 96,
+    "minSilhouetteIoU": 0.975
+  },
+  "totals": {
+    "sourceBytes": 2830916,
+    "lodBytes": 706000,
+    "sourceTriangles": 39488,
+    "lodTriangles": 9998
+  },
+  "entries": [
+    {
+      "sourceUrl": "/pet-models/starter-earth.glb",
+      "lodUrl": "/pet-models/warfront-lod/starter-earth.glb?v=20260902-battle-lod-v1-c56b6391da21-6e06cb1f5d8a",
+      "sourceBytes": 2830916,
+      "lodBytes": 706000,
+      "sourceSha256": "c56b6391da217d8aa076c5cde6ea150b0eefa78b33d0ba347390e58001fc3a83",
+      "lodSha256": "6e06cb1f5d8af22302d52cf7febf2e69a608db1e5031e2f7659684d2fb47b6be",
+      "sourceTriangles": 39488,
+      "lodTriangles": 9998,
+      "reduction": 0.746809,
+      "lowPolySource": false,
+      "sourceVertices": 27160,
+      "lodVertices": 8762,
+      "skins": 1,
+      "joints": 21,
+      "animations": 13,
+      "materials": 1,
+      "textures": 1,
+      "boundsMaxDelta": 0,
+      "silhouettes": {
+        "front": 0.995102,
+        "threeQuarter": 0.994796,
+        "side": 0.993536
+      }
+    }
+  ]
+}

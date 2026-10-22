@@ -46,7 +46,7 @@ export const CHRONICLE_STORY_SOURCES = [
     {
         "village": "Stormveil Village",
         "levelReq": 75,
-        "bossName": "Mira Volt, False Betrayer",
+        "bossName": "Mira Volt, Estate Bout Rigger",
         "aiProfileId": "story-ai-stormveil-village-75"
     },
     {

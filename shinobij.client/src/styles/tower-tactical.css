@@ -45,7 +45,8 @@
 .tower-combatant-portrait {
     width: 112px;
     height: 112px;
-    object-fit: cover;
+    object-fit: contain;
+    object-position: center;
     border: 2px solid var(--tower-rail-ally);
     border-radius: 10px;
     background: #081322;
@@ -1074,7 +1075,7 @@
 .tower-fighter-details .combat-jutsu-detail-header { align-items: center; }
 .tower-fighter-details .combat-jutsu-detail-header > div { min-width: 0; flex: 1; }
 .tower-fighter-details #tower-fighter-details-title { white-space: normal; overflow-wrap: anywhere; }
-.tower-fighter-portrait { width: 56px; height: 56px; flex: 0 0 56px; object-fit: cover; border-radius: 8px; }
+.tower-fighter-portrait { width: 56px; height: 56px; flex: 0 0 56px; object-fit: contain; object-position: center; border-radius: 8px; }
 .tower-fighter-state { color: #d6b779; }
 .tower-fighter-vitals { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 16px 0; }
 .tower-fighter-vitals dt { color: #9babbd; font-size: .75rem; }
@@ -1313,30 +1314,24 @@
 }
 .tower-completion-header {
     position: relative;
-    isolation: isolate;
-    display: flex;
-    align-items: flex-end;
-    min-height: 182px;
-    padding: 26px 24px 22px;
+    display: grid;
     box-sizing: border-box;
     border-bottom: 1px solid #d9c18a38;
-    background: #101b2a;
+    background: radial-gradient(ellipse at top, #1b2b3c, #0a111b 80%);
 }
+/* Portraits and panoramic chapter art share this holder. Give the complete
+   artwork its own centered area so neither the crop nor the title hides faces. */
 .tower-completion-art {
-    position: absolute;
-    inset: 0;
-    z-index: -2;
+    display: block;
     width: 100%;
-    height: 100%;
-    object-fit: cover;
-    object-position: center 40%;
+    height: clamp(160px, 30vw, 240px);
+    object-fit: contain;
+    object-position: center;
 }
-.tower-completion-header::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    z-index: -1;
-    background: linear-gradient(90deg, #07101bec, #07101b3b), linear-gradient(0deg, #0a111bfa, #0a111b00 95%);
+.tower-completion-heading {
+    min-width: 0;
+    padding: 18px 24px 22px;
+    background: #0a111b;
 }
 .tower-completion-kicker {
     margin: 0 0 12px;
@@ -1387,7 +1382,7 @@
 }
 .screen-battleTowerFight .tower-completion-card button:focus-visible { outline: 2px solid #dcc48e; outline-offset: 3px; }
 @media (max-width: 480px) {
-    .tower-completion-header { min-height: 155px; padding: 22px 18px 18px; }
+    .tower-completion-heading { padding: 16px 18px 18px; }
     .tower-completion-body { padding: 12px 18px 18px; }
     .tower-completion-card .tower-result-debrief { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 12px; }
     .tower-completion-actions { margin-top: 16px; }
@@ -2123,6 +2118,8 @@ html body > #combat.combat-instance.screen-battleTowerFight .tower-fight-header 
 }
 html body > #combat.combat-instance.screen-battleTowerFight .tower-header-cancel { grid-column: 5; grid-row: 1 / 3; width: 32px; }
 html body > #combat.combat-instance.screen-battleTowerFight .tower-fight-leave { grid-column: 6; grid-row: 1 / 3; }
+/* Keep the trial label readable inside the existing 44px phone tap target. */
+html body > #combat.combat-instance.screen-battleTowerFight .tower-fight-header > .tower-fight-leave[aria-label^="Forfeit "] { padding-inline: 2px !important; }
 html body > #combat.combat-instance.screen-battleTowerFight .tower-header-action-error { grid-column: 1 / 5; grid-row: 3; font-size: .62rem; }
 
 @media (max-width: 979px) {

@@ -1,0 +1,65 @@
+[
+  {
+    "name": "battle-standard-7-head-other-side-diagnostic-native-0.png",
+    "sha256": "c6bd3a42f66b292835c922dafcfbb5285f7222ea5444f2aa39badfc289432ed5",
+    "source": "standard-7-head-other-side.webp",
+    "y": 0,
+    "actuallyViewed": true
+  },
+  {
+    "name": "battle-standard-7-head-other-side-diagnostic-native-1.png",
+    "sha256": "28e44eb0c709b7e525e474f81051d00b17841bf4840a229fd3a4fc773009ac44",
+    "source": "standard-7-head-other-side.webp",
+    "y": 1720,
+    "actuallyViewed": true
+  },
+  {
+    "name": "battle-standard-7-head-other-side-diagnostic-native-2.png",
+    "sha256": "045944a9e6ae7b743570ca9c2b94e0408a5a145770961a25a0b68629b746b870",
+    "source": "standard-7-head-other-side.webp",
+    "y": 3440,
+    "actuallyViewed": true
+  },
+  {
+    "name": "battle-standard-7-head-under-front-diagnostic-native-0.png",
+    "sha256": "ed054f6e06da64def09b05d818e506c7168bdf57ab21a30692567838d1265336",
+    "source": "standard-7-head-under-front.webp",
+    "y": 0,
+    "actuallyViewed": true
+  },
+  {
+    "name": "battle-standard-7-head-under-front-diagnostic-native-1.png",
+    "sha256": "6d14042a4a97305cb6d0d7bfd13cf5b8a5cab200b0c46046e35cffa345d786e8",
+    "source": "standard-7-head-under-front.webp",
+    "y": 1720,
+    "actuallyViewed": true
+  },
+  {
+    "name": "battle-standard-7-head-under-front-diagnostic-native-2.png",
+    "sha256": "f56e62caf0b7ad10eb97f4520eb917ace70abc8b9caf397f21f4bf013224013f",
+    "source": "standard-7-head-under-front.webp",
+    "y": 3440,
+    "actuallyViewed": true
+  },
+  {
+    "name": "battle-standard-7-head-under-side-diagnostic-native-0.png",
+    "sha256": "324cba3f9e4b39f91e9937a1f45ef315fadc2c578a1a8f2dfa9eeada8be591c3",
+    "source": "standard-7-head-under-side.webp",
+    "y": 0,
+    "actuallyViewed": true
+  },
+  {
+    "name": "battle-standard-7-head-under-side-diagnostic-native-1.png",
+    "sha256": "1ea07fb58b460100fb3b8ec714b6b7630df3f12672021f9415b73a24e1646d04",
+    "source": "standard-7-head-under-side.webp",
+    "y": 1720,
+    "actuallyViewed": true
+  },
+  {
+    "name": "battle-standard-7-head-under-side-diagnostic-native-2.png",
+    "sha256": "4eb2881ec24062d2e21b742f180aeab474f08fde7730515503d09fce5554b940",
+    "source": "standard-7-head-under-side.webp",
+    "y": 3440,
+    "actuallyViewed": true
+  }
+]

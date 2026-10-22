@@ -431,7 +431,7 @@
     width: 56px;
     height: 56px;
     border-radius: 8px;
-    object-fit: cover;
+    object-fit: contain;
     border: 1px solid color-mix(in srgb, var(--band) 45%, rgba(150, 135, 105, 0.4));
     background: #0d0c09;
 }
@@ -550,7 +550,7 @@
     height: 156px;
     max-width: 100%;
     border-radius: 10px;
-    object-fit: cover;
+    object-fit: contain;
     border: 2px solid color-mix(in srgb, var(--band, var(--echoes-low)) 55%, rgba(150, 135, 105, 0.45));
     background: #0d0c09;
     box-shadow: 0 6px 22px rgba(0, 0, 0, 0.55);

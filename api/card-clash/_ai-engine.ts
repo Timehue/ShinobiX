@@ -830,17 +830,20 @@ function chooseBattleAction(
     return { action: "enter-main-2" };
   }
 
-  const attacker = attackers[0];
-  const knownFavorable = targets.find(({ monster }) => {
-    const margin = knownBattleMargin(state, attacker.monster, monster);
-    return margin === null || margin >= 0;
-  });
-  if (!knownFavorable) return { action: "enter-main-2" };
-  return {
-    action: "attack",
-    attackerZoneIndex: attacker.index,
-    targetZoneIndex: knownFavorable.index,
-  };
+  // Preserve the simple zone order and hidden-card uncertainty, but a weak
+  // first body must not stop stronger, unused attackers from taking a turn.
+  for (const attacker of attackers) {
+    const knownFavorable = targets.find(({ monster }) => {
+      const margin = knownBattleMargin(state, attacker.monster, monster);
+      return margin === null || margin >= 0;
+    });
+    if (knownFavorable) return {
+      action: "attack",
+      attackerZoneIndex: attacker.index,
+      targetZoneIndex: knownFavorable.index,
+    };
+  }
+  return { action: "enter-main-2" };
 }
 
 /** Continue server AI decisions until the human must act or answer a response. */

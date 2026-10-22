@@ -119,7 +119,7 @@ export function CardHall(props: CardHallProps) {
           height: 108,
           margin: "0 auto 14px",
           display: "block",
-          objectFit: "cover",
+          objectFit: "contain",
           borderRadius: "50%",
           border: "1px solid var(--sj-border-strong)",
           boxShadow: "0 10px 26px rgba(0,0,0,.4)",
@@ -1111,9 +1111,9 @@ function Rules() {
         with 8,000 Health, a 40-card Deck and a five-card opening hand.
       </p>
       <p>
-        <strong>Turn:</strong> Draw, Standby, Main 1, Battle, Main 2, End. You
-        advance Draw, Standby, End, and the turn handoff explicitly, so every
-        phase remains readable. The first player skips its turn-one draw and
+        <strong>Turn:</strong> Draw, Standby, Main 1, Battle, Main 2, End.
+        Draw, Standby, and End resolve automatically. You choose plays during
+        Main and attacks during Battle. The first player skips its turn-one draw and
         cannot Battle that turn; skipping Battle also skips Main 2. You get one
         Normal Summon or Set.
       </p>

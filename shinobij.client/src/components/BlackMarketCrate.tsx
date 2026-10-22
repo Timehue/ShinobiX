@@ -49,7 +49,7 @@ export function BlackMarketCrate({ reward, onClose, returnFocusRef }: { reward: 
         rewardKey={reward ? JSON.stringify(reward) : undefined}
         returnFocusRef={returnFocusRef}
         intro="The Broker slides a locked box across the table…"
-        deliveryCopy="Rewards have been added to your purse."
+        deliveryCopy="Rewards have been added to your character."
         revealLabel="Open the crate"
         collectLabel="Return to the festival"
         emptyCopy="…nothing but sand."

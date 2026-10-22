@@ -56,7 +56,7 @@
 .pet-yard-screen.pet-yard-refined .pet-detail-avatar { width: 100% !important; height: 200px !important; max-width: 270px !important; border: 0 !important; border-radius: 6px !important; background: radial-gradient(ellipse at 50% 75%,#c4a25a12,transparent 70%) !important; box-shadow: none !important; }
 .pet-yard-screen.pet-yard-refined .pet-detail-avatar img { width: 100% !important; height: 100% !important; object-fit: contain !important; filter: drop-shadow(0 12px 15px #0008); }
 .pet-yard-screen.pet-yard-refined .pet-detail-avatar:has(img[data-pet-art="scenic"]) { height: auto !important; aspect-ratio: 1; }
-.pet-yard-screen.pet-yard-refined .pet-detail-avatar img[data-pet-art="scenic"] { object-fit: cover !important; border-radius: 6px !important; filter: none; }
+.pet-yard-screen.pet-yard-refined .pet-detail-avatar img[data-pet-art="scenic"] { object-fit: contain !important; border-radius: 6px !important; filter: none; }
 .pet-yard-refined .pet-heart-anchor { width: 100% !important; display: grid !important; place-items: center; }
 .pet-yard-screen.pet-yard-refined h3 { margin: 8px 0 !important; color: #eee3cc !important; font: 400 26px/1.25 var(--font-display,Georgia,serif) !important; text-transform: none !important; letter-spacing: -.015em !important; }
 .pet-yard-screen.pet-yard-refined h4 { font: 500 17px/1.35 var(--font-display,Georgia,serif) !important; color: #e6d9be !important; margin: 0 0 12px !important; text-transform: none !important; letter-spacing: 0 !important; }

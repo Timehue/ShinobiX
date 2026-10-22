@@ -1,0 +1,137 @@
+{
+  "schema": 1,
+  "recordedAt": "2026-10-21T03:49:02.281Z",
+  "rendererBundleSha256": "16c09e31489b8db342fb94fd026923474dd6b8c7a2da96c3f14759d7a3c66b0d",
+  "rendererSourceSha256": {
+    "component": "36cd0f232f7deb25347d5a54c7934f3d36a8b21f9bb4b45cdb885a13bf800496",
+    "audit": "f2776e2fc3afbba5ea90e100314b24ca11f1414ca8e672c365b4a8ef3167c324"
+  },
+  "scope": {
+    "rows": [
+      {
+        "name": "idle",
+        "duration": 1.2
+      },
+      {
+        "name": "run",
+        "duration": 0.8
+      },
+      {
+        "name": "dash",
+        "duration": 0.6
+      },
+      {
+        "name": "windup",
+        "duration": 0.38
+      },
+      {
+        "name": "strike",
+        "duration": 0.26
+      },
+      {
+        "name": "recover",
+        "duration": 0.51
+      },
+      {
+        "name": "stagger",
+        "duration": 0.65
+      },
+      {
+        "name": "dodge",
+        "duration": 0.65
+      },
+      {
+        "name": "guard",
+        "duration": 0.8
+      },
+      {
+        "name": "rest",
+        "duration": 1.2
+      },
+      {
+        "name": "cast",
+        "duration": 0.9
+      },
+      {
+        "name": "entrance",
+        "duration": 1.1
+      },
+      {
+        "name": "victory",
+        "duration": 1.2
+      },
+      {
+        "name": "dead",
+        "duration": 1.6
+      },
+      {
+        "name": "revive",
+        "duration": 0.8
+      },
+      {
+        "name": "attack-sequence",
+        "duration": 1.7
+      }
+    ],
+    "phases": [
+      0.025,
+      0.1,
+      0.25,
+      0.5,
+      0.75,
+      1
+    ],
+    "views": [
+      "front",
+      "side"
+    ],
+    "parts": [
+      "head",
+      "body"
+    ],
+    "stages": [
+      "source",
+      "battle"
+    ]
+  },
+  "pets": [
+    {
+      "id": "mythic-1",
+      "stages": [
+        {
+          "stage": "source",
+          "modelSha256": "ad04ff49992b7c02633938346d50cf83f448f638a376a486bb5ce747f88ee3b9",
+          "loadedMeshes": 1,
+          "quality": "medium",
+          "sheets": [
+            {
+              "name": "mythic-1-source-head.webp",
+              "sha256": "8868124028f50fa8d963cab78215fb647f6abe099b2fd44da48db1715a26ebe8"
+            },
+            {
+              "name": "mythic-1-source-body.webp",
+              "sha256": "951fffd73b4d0f42969d11c2dd90ef459910a5c2724b29d50334ee1ddf23515b"
+            }
+          ]
+        },
+        {
+          "stage": "battle",
+          "modelSha256": "965db23b916189e3f57214ab89be6e08b609fe48dbf00345707728b64af517c2",
+          "loadedMeshes": 1,
+          "quality": "medium",
+          "sheets": [
+            {
+              "name": "mythic-1-battle-head.webp",
+              "sha256": "95c1014990b852e3f82abcc72b2630b177c2480d9c8da4b62f41932ddc45d67c"
+            },
+            {
+              "name": "mythic-1-battle-body.webp",
+              "sha256": "1791c18a72d0f4a9f2fa3f8c65ef89f2e5455e697898b748dd336430d665f9fc"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": []
+}

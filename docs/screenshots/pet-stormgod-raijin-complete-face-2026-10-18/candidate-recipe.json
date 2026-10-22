@@ -1,0 +1,53 @@
+{
+  "config": {
+    "y": [
+      0.18,
+      0.38
+    ],
+    "z": [
+      -0.3,
+      -0.08
+    ],
+    "cameraPadding": 1.3,
+    "status": "repair",
+    "finding": "All twelve original raw source head/body slices and 216 actual equipped technique frames inspected. A small lower chin rim still drifts in recoil, head turns and defeat; upper face and side jaw are already rigid. Bind the complete chin while preserving the scarf, shoulders, hands, legs, tail and every authored animation curve. Candidate visual review pending.",
+    "revision": "20261018-stormgod-raijin-independent-complete-chin-v1",
+    "supersedesSourceSha256": "102c9cb332811bce864416b561da5ce8455c3671220cf65be022eca26d64db4c",
+    "repairRegion": {
+      "y": [
+        0.26,
+        0.33
+      ],
+      "z": [
+        0.2,
+        0.28
+      ],
+      "x": [
+        0.28,
+        0.38
+      ]
+    },
+    "union": [
+      {
+        "y": [
+          0.26,
+          0.33
+        ],
+        "z": [
+          0.2,
+          0.28
+        ],
+        "x": [
+          0.28,
+          0.38
+        ]
+      }
+    ],
+    "continuousInfluencePacking": true
+  },
+  "result": {
+    "id": "mythic-8",
+    "changed": 3601,
+    "rigid": 1950
+  }
+}

@@ -1,0 +1,1625 @@
+{
+  "id": "mythic-13",
+  "label": "independent-mythic-013-techniques-v1",
+  "sourceManifestSha256": "b49606873c28a431291e004b30295dd1dd3ec9ea92fb0eefe125d71598bab634",
+  "crop": {
+    "left": 158,
+    "top": 11,
+    "width": 197,
+    "height": 214
+  },
+  "nativePixelsPreserved": true,
+  "resizing": false,
+  "foregroundThreshold": 3,
+  "strips": [
+    {
+      "name": "front-block-0-half-0.png",
+      "sha256": "375ba9930e0f3c2f6ef3eb3efcf67d01ad96c5b78b09fddde9573dc369b2f9b3",
+      "sources": [
+        {
+          "name": "mythic-13-lightning-strike-front-0.png",
+          "sha256": "fc82ce40112686f9ebcbd9649991aa9be46dcef6497da624a2438f283d17aeac",
+          "move": "lightning-strike",
+          "view": "front",
+          "time": 0.04
+        },
+        {
+          "name": "mythic-13-lightning-strike-front-1.png",
+          "sha256": "bd16ed3726f70c013d410176a4ec1e5b95f37b8e668fb68d4f0d6c533ae000b7",
+          "move": "lightning-strike",
+          "view": "front",
+          "time": 0.12
+        },
+        {
+          "name": "mythic-13-lightning-strike-front-2.png",
+          "sha256": "533033ee9d33ae5811d9fe41bd8ad53bcd579ab8243ed275785ea91f48113490",
+          "move": "lightning-strike",
+          "view": "front",
+          "time": 0.24
+        },
+        {
+          "name": "mythic-13-lightning-strike-front-3.png",
+          "sha256": "1a0a4182b776c9fb4872c10fa469a5224904e7381203b51040007ef112e68ab8",
+          "move": "lightning-strike",
+          "view": "front",
+          "time": 0.36
+        },
+        {
+          "name": "mythic-13-lightning-strike-front-4.png",
+          "sha256": "8f640c0bd4312d955fee90b0200d30df11d06bd17d7519b61cbe56165d9c5527",
+          "move": "lightning-strike",
+          "view": "front",
+          "time": 0.48
+        },
+        {
+          "name": "mythic-13-lightning-strike-front-5.png",
+          "sha256": "bfe1f02aafe4fdf39423140cdeb98e55051d5b51ef5cdfc78a61ca8b0329d369",
+          "move": "lightning-strike",
+          "view": "front",
+          "time": 0.6
+        },
+        {
+          "name": "mythic-13-lightning-pulse-front-0.png",
+          "sha256": "a1a4de66036d6fc5aafe4f7653e4d982970d98784f2aa00dce452f1c3bafb2db",
+          "move": "lightning-pulse",
+          "view": "front",
+          "time": 0.04
+        },
+        {
+          "name": "mythic-13-lightning-pulse-front-1.png",
+          "sha256": "b34455dcbf736b9e4020099208fcfe00dadde6bbf9003d9d0377984bf9f15c2b",
+          "move": "lightning-pulse",
+          "view": "front",
+          "time": 0.12
+        },
+        {
+          "name": "mythic-13-lightning-pulse-front-2.png",
+          "sha256": "31174d99f3ef9fd6ab215ca4b8c7c61781f66e42c17bda93cdf06a012f7772eb",
+          "move": "lightning-pulse",
+          "view": "front",
+          "time": 0.24
+        },
+        {
+          "name": "mythic-13-lightning-pulse-front-3.png",
+          "sha256": "dfbacd2778057f3bc5314232fd8421e552a909458ec402d79f37903e61a88025",
+          "move": "lightning-pulse",
+          "view": "front",
+          "time": 0.36
+        },
+        {
+          "name": "mythic-13-lightning-pulse-front-4.png",
+          "sha256": "d5a12f861463200f87cf6f42bc54ca23c6b93b67ddb72da86559977248c44055",
+          "move": "lightning-pulse",
+          "view": "front",
+          "time": 0.48
+        },
+        {
+          "name": "mythic-13-lightning-pulse-front-5.png",
+          "sha256": "64a8dfa72181721e9810da0c0bf0b07fbf09cfd4adf767ae07128037e8f93123",
+          "move": "lightning-pulse",
+          "view": "front",
+          "time": 0.6
+        },
+        {
+          "name": "mythic-13-lightning-breaker-front-0.png",
+          "sha256": "7d044dae3f3db8a2ad2b651f8a542814f62057f19b000c3566b7ca69b3ba6654",
+          "move": "lightning-breaker",
+          "view": "front",
+          "time": 0.04
+        },
+        {
+          "name": "mythic-13-lightning-breaker-front-1.png",
+          "sha256": "4ea64ee3899f73544010a085cf275267449e0d277a4413dc4fd7f273af01d476",
+          "move": "lightning-breaker",
+          "view": "front",
+          "time": 0.12
+        },
+        {
+          "name": "mythic-13-lightning-breaker-front-2.png",
+          "sha256": "edfd51636e860527cd9c57169b3c70bc570255fb6f7444df3574d3b96f2164fc",
+          "move": "lightning-breaker",
+          "view": "front",
+          "time": 0.24
+        },
+        {
+          "name": "mythic-13-lightning-breaker-front-3.png",
+          "sha256": "ac0c84e49d82a070d6220786c4575a1f8bccb500df63417bf2bd7448de804e4e",
+          "move": "lightning-breaker",
+          "view": "front",
+          "time": 0.36
+        },
+        {
+          "name": "mythic-13-lightning-breaker-front-4.png",
+          "sha256": "a3c06560cba91b53a04f77332c51b19e1e658f6dd5b156fb8e45f2e986062f6b",
+          "move": "lightning-breaker",
+          "view": "front",
+          "time": 0.48
+        },
+        {
+          "name": "mythic-13-lightning-breaker-front-5.png",
+          "sha256": "a766c92f41daf3e1dc36096f5cb4bd8006a8ba2c4f7a9724c898b8a9fc692427",
+          "move": "lightning-breaker",
+          "view": "front",
+          "time": 0.6
+        }
+      ],
+      "width": 1320,
+      "height": 720
+    },
+    {
+      "name": "front-block-0-half-1.png",
+      "sha256": "734810d763986fd51c97ae1e2e41afd811eb329f021043b4ebcd2ef9077f0ea1",
+      "sources": [
+        {
+          "name": "mythic-13-lightning-strike-front-6.png",
+          "sha256": "4da91fd123a67c329474249a29a5de8b1e9262d944b904f3e3792d9ccceea479",
+          "move": "lightning-strike",
+          "view": "front",
+          "time": 0.76
+        },
+        {
+          "name": "mythic-13-lightning-strike-front-7.png",
+          "sha256": "cf4fdd301ec9b358457c01c72bec4b7cfa3903cb788fdf4334bc47c4bc1b4bfd",
+          "move": "lightning-strike",
+          "view": "front",
+          "time": 0.96
+        },
+        {
+          "name": "mythic-13-lightning-strike-front-8.png",
+          "sha256": "7401c01693061b6036c584e22031ef6f904681fd1d7f05b8dcf4dcd1f6b11416",
+          "move": "lightning-strike",
+          "view": "front",
+          "time": 1.2
+        },
+        {
+          "name": "mythic-13-lightning-strike-front-9.png",
+          "sha256": "c042d6fad8b887764bef1c8da65bf56ca94c8a0462e40d84d525f60b7d0a0617",
+          "move": "lightning-strike",
+          "view": "front",
+          "time": 1.44
+        },
+        {
+          "name": "mythic-13-lightning-strike-front-10.png",
+          "sha256": "8f55d38bbf1921380e2941c19c8bd27cf55ed867ffc9d29522f9526d35fa1115",
+          "move": "lightning-strike",
+          "view": "front",
+          "time": 1.68
+        },
+        {
+          "name": "mythic-13-lightning-strike-front-11.png",
+          "sha256": "3ef7a57774d14ca85fe0a5dddd40f5e0468d8369e6b1246a30bab463cbe8fbbb",
+          "move": "lightning-strike",
+          "view": "front",
+          "time": 1.92
+        },
+        {
+          "name": "mythic-13-lightning-pulse-front-6.png",
+          "sha256": "44b0f30e249d9419f8bc1fdb29901ec478ecda6eb029e15a1f6e2fb664fa39c3",
+          "move": "lightning-pulse",
+          "view": "front",
+          "time": 0.76
+        },
+        {
+          "name": "mythic-13-lightning-pulse-front-7.png",
+          "sha256": "06e37c93cb22a17a441c83e28dad4ee69ecbb4578595ca3f32fa08d71b3a5c6a",
+          "move": "lightning-pulse",
+          "view": "front",
+          "time": 0.96
+        },
+        {
+          "name": "mythic-13-lightning-pulse-front-8.png",
+          "sha256": "b5dd062a40600b1f424f793d184d20d3b8d7bc4ad5954a7a01b209b994742f5c",
+          "move": "lightning-pulse",
+          "view": "front",
+          "time": 1.2
+        },
+        {
+          "name": "mythic-13-lightning-pulse-front-9.png",
+          "sha256": "41a66b969b15273d341942aca4b6cbaf0f3ba6235b111b8c14ddff08cd89e1e3",
+          "move": "lightning-pulse",
+          "view": "front",
+          "time": 1.44
+        },
+        {
+          "name": "mythic-13-lightning-pulse-front-10.png",
+          "sha256": "70fefdb27f76dde7aad295a64ef08824935d25dcb494e1644bc699c4f5e9fe5b",
+          "move": "lightning-pulse",
+          "view": "front",
+          "time": 1.68
+        },
+        {
+          "name": "mythic-13-lightning-pulse-front-11.png",
+          "sha256": "f2897a276ff287dd2b5b9f38a1d6c020c4b19d3f510d35d0c727e46136eb6644",
+          "move": "lightning-pulse",
+          "view": "front",
+          "time": 1.92
+        },
+        {
+          "name": "mythic-13-lightning-breaker-front-6.png",
+          "sha256": "5d4f216fbd5a1c1d5fe99564c41d0395335afea99a5a162b1fa0a4b6566f58f3",
+          "move": "lightning-breaker",
+          "view": "front",
+          "time": 0.76
+        },
+        {
+          "name": "mythic-13-lightning-breaker-front-7.png",
+          "sha256": "aada383bcaf9e6d511e7a1578d4f6f3ac438a40c4f24935cd9f50fcb85367c29",
+          "move": "lightning-breaker",
+          "view": "front",
+          "time": 0.96
+        },
+        {
+          "name": "mythic-13-lightning-breaker-front-8.png",
+          "sha256": "6cbf485a241dcc089b3c293ec1c2033c05f26b769ebb163ac1cce4bb262fcd9e",
+          "move": "lightning-breaker",
+          "view": "front",
+          "time": 1.2
+        },
+        {
+          "name": "mythic-13-lightning-breaker-front-9.png",
+          "sha256": "f26bde7566e54f97203194c9ca4df1e44828c764a5f63f87500bf4b73e5bdf28",
+          "move": "lightning-breaker",
+          "view": "front",
+          "time": 1.44
+        },
+        {
+          "name": "mythic-13-lightning-breaker-front-10.png",
+          "sha256": "462e050ac764c7d0eadcdb1751c39182220cf4b1276ebddaa240374b8802ac6e",
+          "move": "lightning-breaker",
+          "view": "front",
+          "time": 1.68
+        },
+        {
+          "name": "mythic-13-lightning-breaker-front-11.png",
+          "sha256": "43c42ab8a06ead98b23154e8309e6bb102c2820faed10a6ed3b2a6e471916362",
+          "move": "lightning-breaker",
+          "view": "front",
+          "time": 1.92
+        }
+      ],
+      "width": 1320,
+      "height": 720
+    },
+    {
+      "name": "front-block-1-half-0.png",
+      "sha256": "4d563b017eb40304475b84f9848d5816c53f334d209b90c4fe339b44661b7cf0",
+      "sources": [
+        {
+          "name": "mythic-13-fire-pulse-front-0.png",
+          "sha256": "25269cab279cf8739fd54a7bb25e88c52490bc55acf01e2061cd31200af5064e",
+          "move": "fire-pulse",
+          "view": "front",
+          "time": 0.04
+        },
+        {
+          "name": "mythic-13-fire-pulse-front-1.png",
+          "sha256": "34ad440795dae8ea2614548dde8b8b8216a34c1155bd86488b479ba411132173",
+          "move": "fire-pulse",
+          "view": "front",
+          "time": 0.12
+        },
+        {
+          "name": "mythic-13-fire-pulse-front-2.png",
+          "sha256": "597e35884d5175388a03093c17e59ee9248e6de3525b2343ebf8ab34d77f40b6",
+          "move": "fire-pulse",
+          "view": "front",
+          "time": 0.24
+        },
+        {
+          "name": "mythic-13-fire-pulse-front-3.png",
+          "sha256": "8c6a24057f75698bd454ecdce5cc7b2a65a5ec5f5f46b81470669884ad6921e0",
+          "move": "fire-pulse",
+          "view": "front",
+          "time": 0.36
+        },
+        {
+          "name": "mythic-13-fire-pulse-front-4.png",
+          "sha256": "c747daa7e38c1a633d9ea87a1b86445623b653731eb01c40b7eb278bd9489202",
+          "move": "fire-pulse",
+          "view": "front",
+          "time": 0.48
+        },
+        {
+          "name": "mythic-13-fire-pulse-front-5.png",
+          "sha256": "86555e0c58ce1e643dd752a560c76db20fc03b23f80c5b768b8a1435cd4afc87",
+          "move": "fire-pulse",
+          "view": "front",
+          "time": 0.6
+        },
+        {
+          "name": "mythic-13-expose-front-0.png",
+          "sha256": "89ec389628079f46078b49b2937cc1d1b7cc5301f47638f8345ba62b4f5179d2",
+          "move": "expose",
+          "view": "front",
+          "time": 0.04
+        },
+        {
+          "name": "mythic-13-expose-front-1.png",
+          "sha256": "a0261207f5be51f4896fd7d6da835d55f4aa6140aab71c6180f5c6643c68ed90",
+          "move": "expose",
+          "view": "front",
+          "time": 0.12
+        },
+        {
+          "name": "mythic-13-expose-front-2.png",
+          "sha256": "0c7dfc2b65cac231f795924dd518c1ff00b9945fbf56284137c16f4443272769",
+          "move": "expose",
+          "view": "front",
+          "time": 0.24
+        },
+        {
+          "name": "mythic-13-expose-front-3.png",
+          "sha256": "f541e3c4882ff05efbdb7fba2d0be5eb325ce2e794e2bf299278da476972b9c8",
+          "move": "expose",
+          "view": "front",
+          "time": 0.36
+        },
+        {
+          "name": "mythic-13-expose-front-4.png",
+          "sha256": "4882d0c212161a7fd32faeb3ae35da6f289245e12a4bfe230e8706146fcdaccd",
+          "move": "expose",
+          "view": "front",
+          "time": 0.48
+        },
+        {
+          "name": "mythic-13-expose-front-5.png",
+          "sha256": "33a0a32560580dee1c87c7cbb11426cd5aa8f0d08db67600e30f901f46727e84",
+          "move": "expose",
+          "view": "front",
+          "time": 0.6
+        },
+        {
+          "name": "mythic-13-rally-front-0.png",
+          "sha256": "640a03b5544fe4a303bf354504139909fe362fb6820fc7afb2eb87af46a31b83",
+          "move": "rally",
+          "view": "front",
+          "time": 0.04
+        },
+        {
+          "name": "mythic-13-rally-front-1.png",
+          "sha256": "461a1d262e0543f64587f0014bb73db6b3d3cc80f51d86233517b42d6f62d1c3",
+          "move": "rally",
+          "view": "front",
+          "time": 0.12
+        },
+        {
+          "name": "mythic-13-rally-front-2.png",
+          "sha256": "2d71e885e76b967b358d752d75f78f64441ae990c56cc67e6de4675d5963594b",
+          "move": "rally",
+          "view": "front",
+          "time": 0.24
+        },
+        {
+          "name": "mythic-13-rally-front-3.png",
+          "sha256": "3005f5f852471b2d3e0276f80082061ec86b31bb271131f44ec7df1d3a50f860",
+          "move": "rally",
+          "view": "front",
+          "time": 0.36
+        },
+        {
+          "name": "mythic-13-rally-front-4.png",
+          "sha256": "1722617f24f3d60a2336fe933324d2a16d043744c1537812a5b6b68dc75e61b9",
+          "move": "rally",
+          "view": "front",
+          "time": 0.48
+        },
+        {
+          "name": "mythic-13-rally-front-5.png",
+          "sha256": "a7a12b93489f0f1be7a98006bf357f0101e66b0b9fdfdeb001ef3233c5f47fcd",
+          "move": "rally",
+          "view": "front",
+          "time": 0.6
+        }
+      ],
+      "width": 1320,
+      "height": 720
+    },
+    {
+      "name": "front-block-1-half-1.png",
+      "sha256": "05cfebdb737978bc184231acb4e4cd87d42d819744900c2a66fe9a604d3586d1",
+      "sources": [
+        {
+          "name": "mythic-13-fire-pulse-front-6.png",
+          "sha256": "19d32f6a465a332a34635f67ff5bc6f888a9c792c1bcb42f0f55ab100f2bc855",
+          "move": "fire-pulse",
+          "view": "front",
+          "time": 0.76
+        },
+        {
+          "name": "mythic-13-fire-pulse-front-7.png",
+          "sha256": "5b3a2afd85da3e8f58acb90f0bead66ddb42fad75d1a25b403a7908b6547c4d1",
+          "move": "fire-pulse",
+          "view": "front",
+          "time": 0.96
+        },
+        {
+          "name": "mythic-13-fire-pulse-front-8.png",
+          "sha256": "b82d7800f60c58619c65a539b16674ecb717852c64dd8accc4c47c96c25e5bb7",
+          "move": "fire-pulse",
+          "view": "front",
+          "time": 1.2
+        },
+        {
+          "name": "mythic-13-fire-pulse-front-9.png",
+          "sha256": "5d36ada7633e14101b71a24391de03db30208e5d651e5ea827f2d30b441089bf",
+          "move": "fire-pulse",
+          "view": "front",
+          "time": 1.44
+        },
+        {
+          "name": "mythic-13-fire-pulse-front-10.png",
+          "sha256": "e8db3d8effe4e73bf4482b45b29419568c8ab4eff778e7dc556ba3b8bcea5610",
+          "move": "fire-pulse",
+          "view": "front",
+          "time": 1.68
+        },
+        {
+          "name": "mythic-13-fire-pulse-front-11.png",
+          "sha256": "75e23bb5d6ef5a11e69ff3bf8c924692c9c7908e5feefdaa3a76b03985d35d33",
+          "move": "fire-pulse",
+          "view": "front",
+          "time": 1.92
+        },
+        {
+          "name": "mythic-13-expose-front-6.png",
+          "sha256": "fe11a13aad90c30c30068fe29d968d37e186ca434742c55a29a30ae2c146a19c",
+          "move": "expose",
+          "view": "front",
+          "time": 0.76
+        },
+        {
+          "name": "mythic-13-expose-front-7.png",
+          "sha256": "c0d142201bf7605a44c88a250f7e17e2e245ccf8af0b491c3f1bd16a4fbeec0a",
+          "move": "expose",
+          "view": "front",
+          "time": 0.96
+        },
+        {
+          "name": "mythic-13-expose-front-8.png",
+          "sha256": "7b29dc00c66d095b9fe0ae6631edec0c8b4642a478ce00a602c7f535b24a0b94",
+          "move": "expose",
+          "view": "front",
+          "time": 1.2
+        },
+        {
+          "name": "mythic-13-expose-front-9.png",
+          "sha256": "6f7dec770b8df3fbd0d1cae97742d5eaa6a45136163007269c3a7c31837e06f9",
+          "move": "expose",
+          "view": "front",
+          "time": 1.44
+        },
+        {
+          "name": "mythic-13-expose-front-10.png",
+          "sha256": "853f8e24000e9e40a695ef35a31bc2779d39e984478bf792983299b68047203c",
+          "move": "expose",
+          "view": "front",
+          "time": 1.68
+        },
+        {
+          "name": "mythic-13-expose-front-11.png",
+          "sha256": "b3ad33024986e6182784e4eaaed9f81da5a42c264adf8934b348ba0d40178a52",
+          "move": "expose",
+          "view": "front",
+          "time": 1.92
+        },
+        {
+          "name": "mythic-13-rally-front-6.png",
+          "sha256": "d34d3c1530d5253525af2bbcca88938355ea436168902c64ece6dca95b9dbb88",
+          "move": "rally",
+          "view": "front",
+          "time": 0.76
+        },
+        {
+          "name": "mythic-13-rally-front-7.png",
+          "sha256": "7f4fca7bbf5db774cf9b96dffe59e10ac0116953c523c5788a1529536b54ecad",
+          "move": "rally",
+          "view": "front",
+          "time": 0.96
+        },
+        {
+          "name": "mythic-13-rally-front-8.png",
+          "sha256": "b94d0922eaf36ee604a06234dd5a36fbc3eb4beee1253be6ba54c8a456d242da",
+          "move": "rally",
+          "view": "front",
+          "time": 1.2
+        },
+        {
+          "name": "mythic-13-rally-front-9.png",
+          "sha256": "c55e0df30520bf4f7a2bc76a8e0b30783688731e14dcaa622e3900d8ddd55a20",
+          "move": "rally",
+          "view": "front",
+          "time": 1.44
+        },
+        {
+          "name": "mythic-13-rally-front-10.png",
+          "sha256": "21590c914d47740f2b50cd2b198863e149539a061df0c6eafdfbb7f37c567530",
+          "move": "rally",
+          "view": "front",
+          "time": 1.68
+        },
+        {
+          "name": "mythic-13-rally-front-11.png",
+          "sha256": "6e136e35593bd1a7266a082d3325112ef0aee7623443ba24a2eaeb4cbe03b675",
+          "move": "rally",
+          "view": "front",
+          "time": 1.92
+        }
+      ],
+      "width": 1320,
+      "height": 720
+    },
+    {
+      "name": "front-block-2-half-0.png",
+      "sha256": "b79a5bf3118811ab23efae3f357fc842aace463fb1a74ca62d93dabebe29462c",
+      "sources": [
+        {
+          "name": "mythic-13-protect-front-0.png",
+          "sha256": "485d80c576dced379bbffa82b4119e46ae6cb2af95c13dae7ae26ba3d7306f03",
+          "move": "protect",
+          "view": "front",
+          "time": 0.04
+        },
+        {
+          "name": "mythic-13-protect-front-1.png",
+          "sha256": "3a4aa40d04039396d88cf183d77e413ccfc8ff8049f22dc9baf5667eb5a0cacd",
+          "move": "protect",
+          "view": "front",
+          "time": 0.12
+        },
+        {
+          "name": "mythic-13-protect-front-2.png",
+          "sha256": "72e13ba2b1c086e4718262d94150a8e6a3716a0eb0ce5bef7fffbc6c2d8706a2",
+          "move": "protect",
+          "view": "front",
+          "time": 0.24
+        },
+        {
+          "name": "mythic-13-protect-front-3.png",
+          "sha256": "92cef92c4165503770b82b7aea33d887a3e2c890e83b3623004a0d6819f97d31",
+          "move": "protect",
+          "view": "front",
+          "time": 0.36
+        },
+        {
+          "name": "mythic-13-protect-front-4.png",
+          "sha256": "7051fab8fe423a478d9d60f38c46c70aa8efbf772f43bc0e373161d0a6329b2f",
+          "move": "protect",
+          "view": "front",
+          "time": 0.48
+        },
+        {
+          "name": "mythic-13-protect-front-5.png",
+          "sha256": "6adc080a0b1c933ed85414b3a7a0736682539b4226bce3e835596983dd90a53c",
+          "move": "protect",
+          "view": "front",
+          "time": 0.6
+        },
+        {
+          "name": "mythic-13-purify-front-0.png",
+          "sha256": "d31e2016b2040200be44ad3ee1de861ec08749e97c8f09589175c1869f3e1fe3",
+          "move": "purify",
+          "view": "front",
+          "time": 0.04
+        },
+        {
+          "name": "mythic-13-purify-front-1.png",
+          "sha256": "038f02528eed21b0d797327754b61d881db8fcb808b518affe48c76b3a8ba994",
+          "move": "purify",
+          "view": "front",
+          "time": 0.12
+        },
+        {
+          "name": "mythic-13-purify-front-2.png",
+          "sha256": "e32f3ec7a6601c9cc70470773b74ccfbc0adc1a807484a32e5785ca77be2591b",
+          "move": "purify",
+          "view": "front",
+          "time": 0.24
+        },
+        {
+          "name": "mythic-13-purify-front-3.png",
+          "sha256": "6b0f7eda3996f5613824da0d336c2f66378c78ae3127cbaed027c9274310d73c",
+          "move": "purify",
+          "view": "front",
+          "time": 0.36
+        },
+        {
+          "name": "mythic-13-purify-front-4.png",
+          "sha256": "4b43a613b89e7b7a17158b6cfde04b79a408a8398c6bff928071ba965acdfcd5",
+          "move": "purify",
+          "view": "front",
+          "time": 0.48
+        },
+        {
+          "name": "mythic-13-purify-front-5.png",
+          "sha256": "363e2fd304c16a89658d1f3e903843da5bc73c9d296717931a950d4e806d10d7",
+          "move": "purify",
+          "view": "front",
+          "time": 0.6
+        },
+        {
+          "name": "mythic-13-mythic-13-signature-front-0.png",
+          "sha256": "ec2c5f441c50fad87c23c5d39faba10a0302bf5f984ce4f0ef35bf4f47aea8cc",
+          "move": "mythic-13-signature",
+          "view": "front",
+          "time": 0.04
+        },
+        {
+          "name": "mythic-13-mythic-13-signature-front-1.png",
+          "sha256": "639bc05589dffe386a7eadb03f8866cae893c0d833e4dda69c30ae6e9cc4cee6",
+          "move": "mythic-13-signature",
+          "view": "front",
+          "time": 0.12
+        },
+        {
+          "name": "mythic-13-mythic-13-signature-front-2.png",
+          "sha256": "f547b07a499f97195c7bebef01eebb738f66964020656669b9d96810a404742b",
+          "move": "mythic-13-signature",
+          "view": "front",
+          "time": 0.24
+        },
+        {
+          "name": "mythic-13-mythic-13-signature-front-3.png",
+          "sha256": "e6e9800f3a454b00e1a2d2636078a65935e0780cae983fd87893c538effd8358",
+          "move": "mythic-13-signature",
+          "view": "front",
+          "time": 0.36
+        },
+        {
+          "name": "mythic-13-mythic-13-signature-front-4.png",
+          "sha256": "6c6aab0e624a9f634307772f7987f090ddc32af4e505c5c3651887cc0e37f251",
+          "move": "mythic-13-signature",
+          "view": "front",
+          "time": 0.48
+        },
+        {
+          "name": "mythic-13-mythic-13-signature-front-5.png",
+          "sha256": "985e9d96eef51361c7066abb5f9aaad9b3359c9cc3e6cbeb682110ae8d5fdc90",
+          "move": "mythic-13-signature",
+          "view": "front",
+          "time": 0.6
+        }
+      ],
+      "width": 1320,
+      "height": 720
+    },
+    {
+      "name": "front-block-2-half-1.png",
+      "sha256": "10738b1c902c7c72bbe06116719f0628a96f794d426619de95a23ded8c99c651",
+      "sources": [
+        {
+          "name": "mythic-13-protect-front-6.png",
+          "sha256": "336c737b520f76f3bee3ce3d1aa2a1d751f8f83920b3ed1aab2603ec7ba26450",
+          "move": "protect",
+          "view": "front",
+          "time": 0.76
+        },
+        {
+          "name": "mythic-13-protect-front-7.png",
+          "sha256": "9d9261a69072dfb0d2fb9a438db70873ff95b174d3d5bcfec006386bb981aaf7",
+          "move": "protect",
+          "view": "front",
+          "time": 0.96
+        },
+        {
+          "name": "mythic-13-protect-front-8.png",
+          "sha256": "7c802857a23761e634b9a7946a5f8cb251d8c0c75dd5a8027ce8a40ef8a83e9a",
+          "move": "protect",
+          "view": "front",
+          "time": 1.2
+        },
+        {
+          "name": "mythic-13-protect-front-9.png",
+          "sha256": "7be951bfadf81f79d3c7ec84b86a5eb2c5b0d77fac82a47484860ae76819b443",
+          "move": "protect",
+          "view": "front",
+          "time": 1.44
+        },
+        {
+          "name": "mythic-13-protect-front-10.png",
+          "sha256": "88f7076f062525c48cd3860dd1d8d29d9ee5b16a098e3a27dd120329b0ad7401",
+          "move": "protect",
+          "view": "front",
+          "time": 1.68
+        },
+        {
+          "name": "mythic-13-protect-front-11.png",
+          "sha256": "63067ce1c87a75ecebe45aae27a10c3ef947945a76dd89e7c461210f24a1e78d",
+          "move": "protect",
+          "view": "front",
+          "time": 1.92
+        },
+        {
+          "name": "mythic-13-purify-front-6.png",
+          "sha256": "93938501feb9ce997e87d2b05f487aeb6c8970d6b26f2cc11fa7c45dcc830076",
+          "move": "purify",
+          "view": "front",
+          "time": 0.76
+        },
+        {
+          "name": "mythic-13-purify-front-7.png",
+          "sha256": "34b2b8198fb07943607cb9e019169ae9e4c00a937830a0571298b47e76ccb920",
+          "move": "purify",
+          "view": "front",
+          "time": 0.96
+        },
+        {
+          "name": "mythic-13-purify-front-8.png",
+          "sha256": "606dd2e00f6c6cc04cd32f0f199aa01e32fa5bd5da64eb46278be0db9976a8bc",
+          "move": "purify",
+          "view": "front",
+          "time": 1.2
+        },
+        {
+          "name": "mythic-13-purify-front-9.png",
+          "sha256": "d3b9115b5b185b5c7b3034c48f7fe778cec7090845fa0b252fa61525cb02f154",
+          "move": "purify",
+          "view": "front",
+          "time": 1.44
+        },
+        {
+          "name": "mythic-13-purify-front-10.png",
+          "sha256": "c502fe5f93894332083486aa567f01258af1ca11a900ef729d0a16a0dcc46354",
+          "move": "purify",
+          "view": "front",
+          "time": 1.68
+        },
+        {
+          "name": "mythic-13-purify-front-11.png",
+          "sha256": "3ab4fc158d3eaa30bb5b306d3811ffc3bdca8b31bac93f75f6c072e22e09f6f0",
+          "move": "purify",
+          "view": "front",
+          "time": 1.92
+        },
+        {
+          "name": "mythic-13-mythic-13-signature-front-6.png",
+          "sha256": "1da3e3283fd65dec9c5ea3360d60b1f311536e9a0bf621040ea76e8a84f2387c",
+          "move": "mythic-13-signature",
+          "view": "front",
+          "time": 0.76
+        },
+        {
+          "name": "mythic-13-mythic-13-signature-front-7.png",
+          "sha256": "a8c2ce2b69c317839ba6a00dd7ea6b60bc5fde1f1dc7084636af93ede1cce9b7",
+          "move": "mythic-13-signature",
+          "view": "front",
+          "time": 0.96
+        },
+        {
+          "name": "mythic-13-mythic-13-signature-front-8.png",
+          "sha256": "beecfaa584c2688b603fef809abd9011f337eea582d9ba1e3ddb9657cef35149",
+          "move": "mythic-13-signature",
+          "view": "front",
+          "time": 1.2
+        },
+        {
+          "name": "mythic-13-mythic-13-signature-front-9.png",
+          "sha256": "b04668f0abefce556cc8ff08d7665096f979b7e2eb47235913c1ce0cce353a80",
+          "move": "mythic-13-signature",
+          "view": "front",
+          "time": 1.44
+        },
+        {
+          "name": "mythic-13-mythic-13-signature-front-10.png",
+          "sha256": "b17f89f5dbd16a9c6c5df92881eefbfc1fa1d2c4b34402bfe395703aeda1d573",
+          "move": "mythic-13-signature",
+          "view": "front",
+          "time": 1.68
+        },
+        {
+          "name": "mythic-13-mythic-13-signature-front-11.png",
+          "sha256": "e90ca89878252cdd516b575096eda8ea8d0a16406088cd05825bde8e6888bd59",
+          "move": "mythic-13-signature",
+          "view": "front",
+          "time": 1.92
+        }
+      ],
+      "width": 1320,
+      "height": 720
+    },
+    {
+      "name": "side-block-0-half-0.png",
+      "sha256": "a60d942f6711ff4fd7b7f4b7ac864414afe73630f111e7aae1e2ca964db65e14",
+      "sources": [
+        {
+          "name": "mythic-13-lightning-strike-side-0.png",
+          "sha256": "14d0ddd450a836e1b73842962206d9ce565ed774a9c2a5ce9991eb11fcc25e1e",
+          "move": "lightning-strike",
+          "view": "side",
+          "time": 0.04
+        },
+        {
+          "name": "mythic-13-lightning-strike-side-1.png",
+          "sha256": "3bcaedab228e3f66b4a9a148d977a403e8095c019b0c55b5138c198b49f97962",
+          "move": "lightning-strike",
+          "view": "side",
+          "time": 0.12
+        },
+        {
+          "name": "mythic-13-lightning-strike-side-2.png",
+          "sha256": "cfd81a4cdc93b342434ae5fb210079c565b6b878ba5e8ba04b99a3019c0ea576",
+          "move": "lightning-strike",
+          "view": "side",
+          "time": 0.24
+        },
+        {
+          "name": "mythic-13-lightning-strike-side-3.png",
+          "sha256": "039823fe79b5915ea4fa34b4f5d8078196bd1c270e6474d7bc2e78a1793aa687",
+          "move": "lightning-strike",
+          "view": "side",
+          "time": 0.36
+        },
+        {
+          "name": "mythic-13-lightning-strike-side-4.png",
+          "sha256": "78ffb90e7856a37614d69e1c4d108abc2552d5c9edfca3eedbd06fdc080c1d8e",
+          "move": "lightning-strike",
+          "view": "side",
+          "time": 0.48
+        },
+        {
+          "name": "mythic-13-lightning-strike-side-5.png",
+          "sha256": "8cad24be55feb2c0312e685b5e2fb320bdcd2dddc8a5a81f40066135f955e26c",
+          "move": "lightning-strike",
+          "view": "side",
+          "time": 0.6
+        },
+        {
+          "name": "mythic-13-lightning-pulse-side-0.png",
+          "sha256": "cdf472898a1e2cb7f87bbbc1200ab04d10890ccf7535225ee9dc48ac4919c52f",
+          "move": "lightning-pulse",
+          "view": "side",
+          "time": 0.04
+        },
+        {
+          "name": "mythic-13-lightning-pulse-side-1.png",
+          "sha256": "edcca401bd31954ec18086bbe6db7fce0d2310818bea0cef05641f7509360ccb",
+          "move": "lightning-pulse",
+          "view": "side",
+          "time": 0.12
+        },
+        {
+          "name": "mythic-13-lightning-pulse-side-2.png",
+          "sha256": "a5fe2f8151991e4365f06c89960f3c5f0723b906f8da739743f74fff009dbe72",
+          "move": "lightning-pulse",
+          "view": "side",
+          "time": 0.24
+        },
+        {
+          "name": "mythic-13-lightning-pulse-side-3.png",
+          "sha256": "0b30942e4d0142391ff873bbe05aca1999a29df9b5429d263aa79c96db6c3490",
+          "move": "lightning-pulse",
+          "view": "side",
+          "time": 0.36
+        },
+        {
+          "name": "mythic-13-lightning-pulse-side-4.png",
+          "sha256": "776c9ee5653544f8ff8f1858c90625846d90af4c87b9b7af52dda92d8851c339",
+          "move": "lightning-pulse",
+          "view": "side",
+          "time": 0.48
+        },
+        {
+          "name": "mythic-13-lightning-pulse-side-5.png",
+          "sha256": "044530bdcb1c3a0130f34e85e4f5f21b9e6d16325e436e6a5b6bc8632362209d",
+          "move": "lightning-pulse",
+          "view": "side",
+          "time": 0.6
+        },
+        {
+          "name": "mythic-13-lightning-breaker-side-0.png",
+          "sha256": "338424ee76c592f8f825938a6ac8dd35ee8890da550afb4b31f15b1d4963d521",
+          "move": "lightning-breaker",
+          "view": "side",
+          "time": 0.04
+        },
+        {
+          "name": "mythic-13-lightning-breaker-side-1.png",
+          "sha256": "6a6d64adfa41aa5b4386c0229ffa4f5cfe71f4e5c4b7d8aa93a8998a8233ccb0",
+          "move": "lightning-breaker",
+          "view": "side",
+          "time": 0.12
+        },
+        {
+          "name": "mythic-13-lightning-breaker-side-2.png",
+          "sha256": "5ed6540ee5db03a6c4a08d1b2a6f2f603a17d10326e6da480d605ed7598867e6",
+          "move": "lightning-breaker",
+          "view": "side",
+          "time": 0.24
+        },
+        {
+          "name": "mythic-13-lightning-breaker-side-3.png",
+          "sha256": "5b967ccdf7b0336ef4ff3fb1496e7e7057ab4e0a87be3def6e1417b1abff11d6",
+          "move": "lightning-breaker",
+          "view": "side",
+          "time": 0.36
+        },
+        {
+          "name": "mythic-13-lightning-breaker-side-4.png",
+          "sha256": "e6f92d4aa65740168344c38f76261abca385012fc018340be42864ad02611722",
+          "move": "lightning-breaker",
+          "view": "side",
+          "time": 0.48
+        },
+        {
+          "name": "mythic-13-lightning-breaker-side-5.png",
+          "sha256": "2df18b090293c4c918244807a0fe20a3b0d2635653a7a8f2773783ec5d02bf69",
+          "move": "lightning-breaker",
+          "view": "side",
+          "time": 0.6
+        }
+      ],
+      "width": 1320,
+      "height": 720
+    },
+    {
+      "name": "side-block-0-half-1.png",
+      "sha256": "fcd41a12773f95d1987045359645fb83bd3a229b9d25ad4f134d697391f88c94",
+      "sources": [
+        {
+          "name": "mythic-13-lightning-strike-side-6.png",
+          "sha256": "5f167072576f0c9978d0a736dc17e1248537bc700e41afcec5c9f92c93ed91fa",
+          "move": "lightning-strike",
+          "view": "side",
+          "time": 0.76
+        },
+        {
+          "name": "mythic-13-lightning-strike-side-7.png",
+          "sha256": "a557d15be6e5bb786445956c47bc6ba7c7b1d0edca5530b5c9f59c61ad91182a",
+          "move": "lightning-strike",
+          "view": "side",
+          "time": 0.96
+        },
+        {
+          "name": "mythic-13-lightning-strike-side-8.png",
+          "sha256": "eb6983214ad90c35a02f4f4d72721932fcdd3c0261a0d6ab9eac889e8f724903",
+          "move": "lightning-strike",
+          "view": "side",
+          "time": 1.2
+        },
+        {
+          "name": "mythic-13-lightning-strike-side-9.png",
+          "sha256": "6bd7795a83de816b304e012bb24f4da24815ccfe04b8322366400dafc3173500",
+          "move": "lightning-strike",
+          "view": "side",
+          "time": 1.44
+        },
+        {
+          "name": "mythic-13-lightning-strike-side-10.png",
+          "sha256": "e928444a53c08b2319bda2954d5bc67a0973cc94f053207dd04db173c9fef014",
+          "move": "lightning-strike",
+          "view": "side",
+          "time": 1.68
+        },
+        {
+          "name": "mythic-13-lightning-strike-side-11.png",
+          "sha256": "1012b19737bfc840d74b88b9e6737ed6d820a46a145988a88783ccf7f144a90e",
+          "move": "lightning-strike",
+          "view": "side",
+          "time": 1.92
+        },
+        {
+          "name": "mythic-13-lightning-pulse-side-6.png",
+          "sha256": "9465fc7f13824837f5c137a1fd4cfaeef151a13f9546f2fd2c1bd9f2fd618090",
+          "move": "lightning-pulse",
+          "view": "side",
+          "time": 0.76
+        },
+        {
+          "name": "mythic-13-lightning-pulse-side-7.png",
+          "sha256": "f07b65ce1dd947b939c34395744bd3b0cb8ebaed173318b7e7c0c25f8a515ab7",
+          "move": "lightning-pulse",
+          "view": "side",
+          "time": 0.96
+        },
+        {
+          "name": "mythic-13-lightning-pulse-side-8.png",
+          "sha256": "c284ab1478021f047e158858cc6d8d26b46f09fef82257608a4aa3bd8edf95d9",
+          "move": "lightning-pulse",
+          "view": "side",
+          "time": 1.2
+        },
+        {
+          "name": "mythic-13-lightning-pulse-side-9.png",
+          "sha256": "d8d038b2d5de9c9d3aa50a07e641ddba5663e1cf6748c3456f390221af1d6263",
+          "move": "lightning-pulse",
+          "view": "side",
+          "time": 1.44
+        },
+        {
+          "name": "mythic-13-lightning-pulse-side-10.png",
+          "sha256": "98ec38e473525e791896cafa1fb1a3dd9a45bcf0a26ce132dff1432bb7a9581f",
+          "move": "lightning-pulse",
+          "view": "side",
+          "time": 1.68
+        },
+        {
+          "name": "mythic-13-lightning-pulse-side-11.png",
+          "sha256": "95a64d0766c804482e44cf03bdbf3f81c6ccfed51b145a7b3f991022f7759003",
+          "move": "lightning-pulse",
+          "view": "side",
+          "time": 1.92
+        },
+        {
+          "name": "mythic-13-lightning-breaker-side-6.png",
+          "sha256": "b775acbfe078d40b2752057ebe879b98f1e67ba07abb170335e05492a9b987d4",
+          "move": "lightning-breaker",
+          "view": "side",
+          "time": 0.76
+        },
+        {
+          "name": "mythic-13-lightning-breaker-side-7.png",
+          "sha256": "5ca07dc3277878f2c2701e104b40bc90c2cf190b092f61e33fee3ee796e1a1c1",
+          "move": "lightning-breaker",
+          "view": "side",
+          "time": 0.96
+        },
+        {
+          "name": "mythic-13-lightning-breaker-side-8.png",
+          "sha256": "ee0839737b102ffecfeb22874b022b123da933c4dd3fcec9fb9a63f4f28c4643",
+          "move": "lightning-breaker",
+          "view": "side",
+          "time": 1.2
+        },
+        {
+          "name": "mythic-13-lightning-breaker-side-9.png",
+          "sha256": "6b6d29f56861916482801cdac99fbc5a8dde3004373a851f709b236227418357",
+          "move": "lightning-breaker",
+          "view": "side",
+          "time": 1.44
+        },
+        {
+          "name": "mythic-13-lightning-breaker-side-10.png",
+          "sha256": "4aee234bf4eabc87ac15485f7bea5fa176ce92d7383159b74d040209f9ae2563",
+          "move": "lightning-breaker",
+          "view": "side",
+          "time": 1.68
+        },
+        {
+          "name": "mythic-13-lightning-breaker-side-11.png",
+          "sha256": "91eb5f915b2da88bb7d7921d8f51ffb27b52a7bb5307eb5cf43cb54a0b7b6d9a",
+          "move": "lightning-breaker",
+          "view": "side",
+          "time": 1.92
+        }
+      ],
+      "width": 1320,
+      "height": 720
+    },
+    {
+      "name": "side-block-1-half-0.png",
+      "sha256": "5c4fe53e90dcc6d89cb82726abf2b478920d87e8f31c0fc8293b8484a08857d2",
+      "sources": [
+        {
+          "name": "mythic-13-fire-pulse-side-0.png",
+          "sha256": "821c45f8e649e35f3bec712fa0ea69c3de025a4f764ba6e962ea3a830895d291",
+          "move": "fire-pulse",
+          "view": "side",
+          "time": 0.04
+        },
+        {
+          "name": "mythic-13-fire-pulse-side-1.png",
+          "sha256": "d9a7bf0eb011ffd845e3d64ce9da6716bc6bb6d2b26dfbe8bbb0974b0b07e721",
+          "move": "fire-pulse",
+          "view": "side",
+          "time": 0.12
+        },
+        {
+          "name": "mythic-13-fire-pulse-side-2.png",
+          "sha256": "31792b159857a90ae47cfe65e59889542bb61529a459fde7fdf11ba5fcd84fb4",
+          "move": "fire-pulse",
+          "view": "side",
+          "time": 0.24
+        },
+        {
+          "name": "mythic-13-fire-pulse-side-3.png",
+          "sha256": "b03479f3652e5861afa4c6c9dc4df0f5ed4a4dac56c3ee88769bd6a2b4ca629c",
+          "move": "fire-pulse",
+          "view": "side",
+          "time": 0.36
+        },
+        {
+          "name": "mythic-13-fire-pulse-side-4.png",
+          "sha256": "9a42e0902d7ae8ee096187a0a7c17cc81814abc1d794289876bf0c4b501d4142",
+          "move": "fire-pulse",
+          "view": "side",
+          "time": 0.48
+        },
+        {
+          "name": "mythic-13-fire-pulse-side-5.png",
+          "sha256": "b6c2855c2714edf2e3cd5272dfc19a315fd531e7c18ed132859f19161845a03e",
+          "move": "fire-pulse",
+          "view": "side",
+          "time": 0.6
+        },
+        {
+          "name": "mythic-13-expose-side-0.png",
+          "sha256": "0b10c6340f3c8dfd7fe87a7858f98f1408c21c94fa445100ac6608033f68731c",
+          "move": "expose",
+          "view": "side",
+          "time": 0.04
+        },
+        {
+          "name": "mythic-13-expose-side-1.png",
+          "sha256": "4fc1b3d8d057601e96329254eff43f273ebe579c3736ceb6f9084b7beea6d02d",
+          "move": "expose",
+          "view": "side",
+          "time": 0.12
+        },
+        {
+          "name": "mythic-13-expose-side-2.png",
+          "sha256": "b1e191d53b2abf0982f9616ff1855ef7acaa801715887330efb16fe070f93437",
+          "move": "expose",
+          "view": "side",
+          "time": 0.24
+        },
+        {
+          "name": "mythic-13-expose-side-3.png",
+          "sha256": "6954d5506a2c0a0c258897b7c7f065ce01387f2610449873d6ec345ad9571464",
+          "move": "expose",
+          "view": "side",
+          "time": 0.36
+        },
+        {
+          "name": "mythic-13-expose-side-4.png",
+          "sha256": "72e748020aacd5edf008357e998b4f04500a0d988f61a812ef5c9e6d9b1158e6",
+          "move": "expose",
+          "view": "side",
+          "time": 0.48
+        },
+        {
+          "name": "mythic-13-expose-side-5.png",
+          "sha256": "1a955e14faef16b6c00c8ee512a090feba7bfb828952988b42c0fbef89ce6135",
+          "move": "expose",
+          "view": "side",
+          "time": 0.6
+        },
+        {
+          "name": "mythic-13-rally-side-0.png",
+          "sha256": "f43cc12d1d7b94c45b2872454bc7e7cf53d9b5d193b4e8b109858998c5ba735b",
+          "move": "rally",
+          "view": "side",
+          "time": 0.04
+        },
+        {
+          "name": "mythic-13-rally-side-1.png",
+          "sha256": "ea0eb97a404d6da45c2d46959a111b11e1beb60637423d45043fc3843d6f13e5",
+          "move": "rally",
+          "view": "side",
+          "time": 0.12
+        },
+        {
+          "name": "mythic-13-rally-side-2.png",
+          "sha256": "dc7766f3408331b328c78b0d651f7b82645ab376a6b3fdbc9dab3eff075706e3",
+          "move": "rally",
+          "view": "side",
+          "time": 0.24
+        },
+        {
+          "name": "mythic-13-rally-side-3.png",
+          "sha256": "f50a32720a60520974d9a5dae93716ba104e288b25628f6f76e793deae60d2b1",
+          "move": "rally",
+          "view": "side",
+          "time": 0.36
+        },
+        {
+          "name": "mythic-13-rally-side-4.png",
+          "sha256": "f28513094d0cc8632264edd1a087516cf6eb6684a4e07979924d1493d8f002f4",
+          "move": "rally",
+          "view": "side",
+          "time": 0.48
+        },
+        {
+          "name": "mythic-13-rally-side-5.png",
+          "sha256": "a3a0e051e63452c8b998023f2738878065844fe5ea7fce085a8ae1e06706f093",
+          "move": "rally",
+          "view": "side",
+          "time": 0.6
+        }
+      ],
+      "width": 1320,
+      "height": 720
+    },
+    {
+      "name": "side-block-1-half-1.png",
+      "sha256": "5f24dec46d6c928f4f156cbeeb8af04878a366f9f48ce63e75036139092d38d0",
+      "sources": [
+        {
+          "name": "mythic-13-fire-pulse-side-6.png",
+          "sha256": "ea3e0063e9f925d8c8724105b56666effd3ab8198fc15b647a35791ec659c2a9",
+          "move": "fire-pulse",
+          "view": "side",
+          "time": 0.76
+        },
+        {
+          "name": "mythic-13-fire-pulse-side-7.png",
+          "sha256": "7e3b2b6dfc5e6acbc81e31714eb1b2ff3274e1b56286c8ebf29f6996538bd82a",
+          "move": "fire-pulse",
+          "view": "side",
+          "time": 0.96
+        },
+        {
+          "name": "mythic-13-fire-pulse-side-8.png",
+          "sha256": "a5346c89e2609eae4a455f15c8f4e57470fd7c46c73b0443c05678a80ba5628e",
+          "move": "fire-pulse",
+          "view": "side",
+          "time": 1.2
+        },
+        {
+          "name": "mythic-13-fire-pulse-side-9.png",
+          "sha256": "ea7097b8476b86ffda8a8e958ae3480fdfa97f337bb3cfb4e45dd2e3defc9349",
+          "move": "fire-pulse",
+          "view": "side",
+          "time": 1.44
+        },
+        {
+          "name": "mythic-13-fire-pulse-side-10.png",
+          "sha256": "a29109c746a6d0aad67a1c207002e71f3db168537fe458e639e36e46edc99d25",
+          "move": "fire-pulse",
+          "view": "side",
+          "time": 1.68
+        },
+        {
+          "name": "mythic-13-fire-pulse-side-11.png",
+          "sha256": "c7736a7ecf80a88232287b064d30f508b3fc5fff648e3b32fc386a394f7b2548",
+          "move": "fire-pulse",
+          "view": "side",
+          "time": 1.92
+        },
+        {
+          "name": "mythic-13-expose-side-6.png",
+          "sha256": "bfae7b14c4c5a56d13e62edd727fa50d6c9a578256944fd434bd1d63fc9aa9a9",
+          "move": "expose",
+          "view": "side",
+          "time": 0.76
+        },
+        {
+          "name": "mythic-13-expose-side-7.png",
+          "sha256": "160a45125b1afbd09ef809c41e2b93e00a4e4be3c6f30b00a0c80a5cbac2b102",
+          "move": "expose",
+          "view": "side",
+          "time": 0.96
+        },
+        {
+          "name": "mythic-13-expose-side-8.png",
+          "sha256": "4ba7246fd9906d3e77c1dbf12eae883e4d2de843cc6028cb4e8c2dbbe840adb2",
+          "move": "expose",
+          "view": "side",
+          "time": 1.2
+        },
+        {
+          "name": "mythic-13-expose-side-9.png",
+          "sha256": "77c92c4256c6875b099201105e1d0ffaf682a38594a6c3d14b1dc349eaaef3ca",
+          "move": "expose",
+          "view": "side",
+          "time": 1.44
+        },
+        {
+          "name": "mythic-13-expose-side-10.png",
+          "sha256": "0859322ed1a5843746bf9343c88aff742d4ce6b40972a5d8da38ce73a66014a2",
+          "move": "expose",
+          "view": "side",
+          "time": 1.68
+        },
+        {
+          "name": "mythic-13-expose-side-11.png",
+          "sha256": "672693b28da83a20ae83205edc1a2bf667c9582f0ed016eb46eb73467fb1a117",
+          "move": "expose",
+          "view": "side",
+          "time": 1.92
+        },
+        {
+          "name": "mythic-13-rally-side-6.png",
+          "sha256": "a0b017ffe8f558bba07b4cf4ba521617fa9d8992409783b1104d85e01f766e3f",
+          "move": "rally",
+          "view": "side",
+          "time": 0.76
+        },
+        {
+          "name": "mythic-13-rally-side-7.png",
+          "sha256": "85b7cb7cd1eddcf01be81e945a6bbbb1a0ce75d5e4a3394aa6fd351974e9d072",
+          "move": "rally",
+          "view": "side",
+          "time": 0.96
+        },
+        {
+          "name": "mythic-13-rally-side-8.png",
+          "sha256": "ebbe87ecbf755d94879b4ec8bc3b695796eca203cedfe107ec8a85f85a1b92fa",
+          "move": "rally",
+          "view": "side",
+          "time": 1.2
+        },
+        {
+          "name": "mythic-13-rally-side-9.png",
+          "sha256": "51918e594594b93da8dd6c01f66b55a2fff3e3cfe50864c292b21dba4ed8f8db",
+          "move": "rally",
+          "view": "side",
+          "time": 1.44
+        },
+        {
+          "name": "mythic-13-rally-side-10.png",
+          "sha256": "82a17ebfd4a95e6e700e96b466ece88780c1bacd1a4bb8e5b0cd77f63b5b1c5d",
+          "move": "rally",
+          "view": "side",
+          "time": 1.68
+        },
+        {
+          "name": "mythic-13-rally-side-11.png",
+          "sha256": "b50a897918283eb43c0b0af99b0edac2d69faaaae92957b7652a92d2d3b8d801",
+          "move": "rally",
+          "view": "side",
+          "time": 1.92
+        }
+      ],
+      "width": 1320,
+      "height": 720
+    },
+    {
+      "name": "side-block-2-half-0.png",
+      "sha256": "16bf5a58a641471fc8e9f3682a0c6ae47be1a7f33a9e91fa1c28d4911a7619fc",
+      "sources": [
+        {
+          "name": "mythic-13-protect-side-0.png",
+          "sha256": "c06848928bfb45b923a0ec2da128dc77632ee34c0a2b1d0361ef7fcc47d802b4",
+          "move": "protect",
+          "view": "side",
+          "time": 0.04
+        },
+        {
+          "name": "mythic-13-protect-side-1.png",
+          "sha256": "afaf266dd0c95a91cb1860cc8ef49245d5e560c4f123b6c0aa0a2b3ac4504b38",
+          "move": "protect",
+          "view": "side",
+          "time": 0.12
+        },
+        {
+          "name": "mythic-13-protect-side-2.png",
+          "sha256": "8bbb0a70222a04565dc06ca5c64a8c10de5d63c6f1bc4bbe43ea82a6662b1b6b",
+          "move": "protect",
+          "view": "side",
+          "time": 0.24
+        },
+        {
+          "name": "mythic-13-protect-side-3.png",
+          "sha256": "9d685a5104b20a324d85d87fe52b7cce9bb3f538f698aa62f5f7896f7c03d3f5",
+          "move": "protect",
+          "view": "side",
+          "time": 0.36
+        },
+        {
+          "name": "mythic-13-protect-side-4.png",
+          "sha256": "4fe913439498597fffa61cf04c00506e12c6bd8d24f40632815a9e384fc11f2b",
+          "move": "protect",
+          "view": "side",
+          "time": 0.48
+        },
+        {
+          "name": "mythic-13-protect-side-5.png",
+          "sha256": "d0e837e298569339191e489368963a4565befd10fa92e8241b0d5b6c54c475ba",
+          "move": "protect",
+          "view": "side",
+          "time": 0.6
+        },
+        {
+          "name": "mythic-13-purify-side-0.png",
+          "sha256": "18c6bfa48325690607746844a2c9ca4d9fdd36920138353bc439dfefdded5299",
+          "move": "purify",
+          "view": "side",
+          "time": 0.04
+        },
+        {
+          "name": "mythic-13-purify-side-1.png",
+          "sha256": "6ca6f1a0ebc2fd0d20f8e727fd05e1910e2cd366351c5148f4d4cb4efa1042aa",
+          "move": "purify",
+          "view": "side",
+          "time": 0.12
+        },
+        {
+          "name": "mythic-13-purify-side-2.png",
+          "sha256": "6b36ff3efe568c44dfcea3330364b7b1fbd1ef298afb2419e2bf003cef79fa81",
+          "move": "purify",
+          "view": "side",
+          "time": 0.24
+        },
+        {
+          "name": "mythic-13-purify-side-3.png",
+          "sha256": "2287fda471aacbf9f6a004c3855cce01911f0bd5aabd76093644958876241cbd",
+          "move": "purify",
+          "view": "side",
+          "time": 0.36
+        },
+        {
+          "name": "mythic-13-purify-side-4.png",
+          "sha256": "6e8e9b606be61ceca668584cd4e1f3b3e18d5abc17aa81820e80942e10330843",
+          "move": "purify",
+          "view": "side",
+          "time": 0.48
+        },
+        {
+          "name": "mythic-13-purify-side-5.png",
+          "sha256": "a19e379df40c7e892738019c6fd8caccf33bbf1e8d6f1e4122003bd1a1e1ad4d",
+          "move": "purify",
+          "view": "side",
+          "time": 0.6
+        },
+        {
+          "name": "mythic-13-mythic-13-signature-side-0.png",
+          "sha256": "add6eb54a1f271699cfcd67687491f207608b3a413f6ae370f92647d7b4e60c8",
+          "move": "mythic-13-signature",
+          "view": "side",
+          "time": 0.04
+        },
+        {
+          "name": "mythic-13-mythic-13-signature-side-1.png",
+          "sha256": "b4c6367909e8a4280ea999a264cec44ac6ad1e197a6bea6d07a3078d721d562e",
+          "move": "mythic-13-signature",
+          "view": "side",
+          "time": 0.12
+        },
+        {
+          "name": "mythic-13-mythic-13-signature-side-2.png",
+          "sha256": "dc0c8b0f62b690cd7fa39497b5fbeb907c224a9dc79af0809624b4bd5dd9a140",
+          "move": "mythic-13-signature",
+          "view": "side",
+          "time": 0.24
+        },
+        {
+          "name": "mythic-13-mythic-13-signature-side-3.png",
+          "sha256": "7a8b2febaaea24ec45bf335bc9d1767672b5d1aab2dc265b1371f1e08f4c4d1a",
+          "move": "mythic-13-signature",
+          "view": "side",
+          "time": 0.36
+        },
+        {
+          "name": "mythic-13-mythic-13-signature-side-4.png",
+          "sha256": "daa28215133210f971ac48fefc7e2b2205d6c57271b0d455284f0fd7dbacdefe",
+          "move": "mythic-13-signature",
+          "view": "side",
+          "time": 0.48
+        },
+        {
+          "name": "mythic-13-mythic-13-signature-side-5.png",
+          "sha256": "034375cd48a7761b2691a0d07358f812c404813c5a0101c48555fe3ee4c7bc26",
+          "move": "mythic-13-signature",
+          "view": "side",
+          "time": 0.6
+        }
+      ],
+      "width": 1320,
+      "height": 720
+    },
+    {
+      "name": "side-block-2-half-1.png",
+      "sha256": "3ae884f5231bbcc1f389f11467eeab332deb2a8c27b4514462d504e66a61813b",
+      "sources": [
+        {
+          "name": "mythic-13-protect-side-6.png",
+          "sha256": "09c057a95b03e094541dd5fbf5d857765dfcad817b74f1f2e8d759c357d9dd55",
+          "move": "protect",
+          "view": "side",
+          "time": 0.76
+        },
+        {
+          "name": "mythic-13-protect-side-7.png",
+          "sha256": "37c704f46487efb40b1e80ab026b00d46cfbce27ca8db283211cd882b99777b0",
+          "move": "protect",
+          "view": "side",
+          "time": 0.96
+        },
+        {
+          "name": "mythic-13-protect-side-8.png",
+          "sha256": "132847603ded6bd69623575c40e6a4f0ee90dfb6f71d5156faf394f71b1e0b41",
+          "move": "protect",
+          "view": "side",
+          "time": 1.2
+        },
+        {
+          "name": "mythic-13-protect-side-9.png",
+          "sha256": "f546a6ec1975ef0e600880b125084e2d39c31888ac186e5ab40d88b2c58be0dd",
+          "move": "protect",
+          "view": "side",
+          "time": 1.44
+        },
+        {
+          "name": "mythic-13-protect-side-10.png",
+          "sha256": "9dfe7f8b18ad15de2dc70070c205fd9917453fcccd8f2aa05b1e6a4297876204",
+          "move": "protect",
+          "view": "side",
+          "time": 1.68
+        },
+        {
+          "name": "mythic-13-protect-side-11.png",
+          "sha256": "1a1b1bc4860a1353c0a6fe5aa642a63155ad4204ad356d7874250bd552969896",
+          "move": "protect",
+          "view": "side",
+          "time": 1.92
+        },
+        {
+          "name": "mythic-13-purify-side-6.png",
+          "sha256": "998efe31951cb68f7b694bae7491e2bf8e252713739afbc30ea5b50a1108d7a4",
+          "move": "purify",
+          "view": "side",
+          "time": 0.76
+        },
+        {
+          "name": "mythic-13-purify-side-7.png",
+          "sha256": "64d955604876755654c97959626462da0432c7b931a5fea804035e1ad9bba7cc",
+          "move": "purify",
+          "view": "side",
+          "time": 0.96
+        },
+        {
+          "name": "mythic-13-purify-side-8.png",
+          "sha256": "ec6a9618447794cf5141291524349324ad4bc73d2c2904e11bcf75a2ba10fe3f",
+          "move": "purify",
+          "view": "side",
+          "time": 1.2
+        },
+        {
+          "name": "mythic-13-purify-side-9.png",
+          "sha256": "f415a31eb72cd649626d669aaa803a1c5922d0628badd9889882d3605964dd52",
+          "move": "purify",
+          "view": "side",
+          "time": 1.44
+        },
+        {
+          "name": "mythic-13-purify-side-10.png",
+          "sha256": "0346e93d88b94c6d26f51a83da40189eb6ea3aeacb0d853307bd7327bde5c885",
+          "move": "purify",
+          "view": "side",
+          "time": 1.68
+        },
+        {
+          "name": "mythic-13-purify-side-11.png",
+          "sha256": "cdebc4370c333bc167f533a5000b500bf2519cc8360c906e399ba9a1f8d2b979",
+          "move": "purify",
+          "view": "side",
+          "time": 1.92
+        },
+        {
+          "name": "mythic-13-mythic-13-signature-side-6.png",
+          "sha256": "23e9ca3837a0178238ac1c75361e48b08e1448183e1d477e5ed04ce4885fce40",
+          "move": "mythic-13-signature",
+          "view": "side",
+          "time": 0.76
+        },
+        {
+          "name": "mythic-13-mythic-13-signature-side-7.png",
+          "sha256": "e5ddc64854c762ee217c7734c5a0077563a7a4c20b593266d45ca7d547918ccc",
+          "move": "mythic-13-signature",
+          "view": "side",
+          "time": 0.96
+        },
+        {
+          "name": "mythic-13-mythic-13-signature-side-8.png",
+          "sha256": "37a77e387ad31a2ab1fcfd42f4023402d7045829c69a0b1e93be094c4f62d8cd",
+          "move": "mythic-13-signature",
+          "view": "side",
+          "time": 1.2
+        },
+        {
+          "name": "mythic-13-mythic-13-signature-side-9.png",
+          "sha256": "e2709697d166c69fe0edaa8065709fbb67c765b1f98b9561a2ce5c593507c780",
+          "move": "mythic-13-signature",
+          "view": "side",
+          "time": 1.44
+        },
+        {
+          "name": "mythic-13-mythic-13-signature-side-10.png",
+          "sha256": "9f373a668109a3bf0f0690cd0b941d63e11724b936784f379db16dbb5f8c1a4a",
+          "move": "mythic-13-signature",
+          "view": "side",
+          "time": 1.68
+        },
+        {
+          "name": "mythic-13-mythic-13-signature-side-11.png",
+          "sha256": "80b975efc38a0ccf921a11dc2b3a925ab4961310a17cbf6cca91b390c390e75a",
+          "move": "mythic-13-signature",
+          "view": "side",
+          "time": 1.92
+        }
+      ],
+      "width": 1320,
+      "height": 720
+    }
+  ],
+  "review": "pending"
+}

@@ -1,0 +1,76 @@
+{
+  "schema": 1,
+  "errors": [],
+  "pets": [
+    {
+      "id": "rare-31",
+      "name": "Frost Seal",
+      "url": "/.tmp/frost-seal-floor/battle-candidate-v1.glb",
+      "sha256": "03642ccd9c191d832ecfca0791ebafc3b9ffa1b5cfd7c38fa5b4a062a4a73464",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "progress": [
+        0.08,
+        0.28,
+        0.48,
+        0.68,
+        0.88,
+        1
+      ],
+      "views": [
+        "head-front",
+        "head-side",
+        "head-other-side",
+        "head-under-front",
+        "head-under-side"
+      ],
+      "materialTreatment": {
+        "mode": "production-diffuse",
+        "materials": 1,
+        "metalnessMax": 0.05,
+        "roughnessRange": [
+          0.58,
+          0.82
+        ]
+      },
+      "region": {
+        "y": [
+          -2,
+          -2
+        ],
+        "bounds": [
+          -0.38785314008303406,
+          0.25148586466722334,
+          -0.05622123958826376,
+          0.4132643483222627,
+          0.5981138841336975,
+          1.1194347998390932
+        ],
+        "cameraPadding": 1.15
+      },
+      "sheets": [
+        "rare-31-head-front.webp",
+        "rare-31-head-side.webp",
+        "rare-31-head-other-side.webp",
+        "rare-31-head-under-front.webp",
+        "rare-31-head-under-side.webp"
+      ],
+      "review": "pending",
+      "anatomySha256": "787b7d1e93c347009b779c15f42ee59daa21b02a0b207106d5244f8b3128a078"
+    }
+  ],
+  "artisticCertification": false
+}

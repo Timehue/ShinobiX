@@ -9,14 +9,22 @@ import { carriedRegenCursor, settleIdleRecovery, writeVersionedPlayerSave } from
 import { publicPetBreedingSession } from './_breeding.js';
 import { settlePetBreedingSession, type PetBreedingSession } from './_breeding-requirements.js';
 import { migrateCharacterOwnedPets } from './_owned-pet.js';
+import { tickPetIncubation } from '../../shared/pet-incubation.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
-    if (req.method !== 'GET') return res.status(405).end();
+    if (req.method !== 'GET' && req.method !== 'POST') return res.status(405).end();
     res.setHeader('Cache-Control', 'no-store');
     try {
-        const playerName = safeName(String(req.query.playerName ?? req.query.name ?? ''));
+        const body = req.method === 'POST' ? (typeof req.body === 'string' ? JSON.parse(req.body) : req.body ?? {}) : {};
+        const playerName = safeName(String(body.playerName ?? req.query.playerName ?? req.query.name ?? ''));
+        const activity = body.activity;
+        if (req.method === 'POST' && (!activity || typeof activity.active !== 'boolean'
+            || typeof activity.id !== 'string' || !/^[A-Za-z0-9_-]{16,96}$/.test(activity.id)
+            || !Number.isFinite(activity.elapsedMs) || activity.elapsedMs < 0)) {
+            return res.status(400).json({ error: 'invalid-incubation-activity' });
+        }
         if (!playerName) return res.status(400).json({ error: 'Invalid player.' });
         const identity = await authedPlayerOrAdmin(req, playerName);
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
@@ -33,6 +41,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const recovery = await settleIdleRecovery(kv, playerName, record);
             const migrated = migrateCharacterOwnedPets(playerName, recovery.character);
             const settled = settlePetBreedingSession(migrated.character, serverTime);
+            const session = settled.character.petBreeding as PetBreedingSession | null | undefined;
+            if (req.method === 'POST' && session?.state === 'egg' && session.incubationRemainingMs !== undefined
+                && session.incubationRemainingMs > 0) {
+                const updated = tickPetIncubation(session, serverTime, activity);
+                settled.character = { ...settled.character, petBreeding: updated };
+                settled.changed = true;
+            }
             const changed = migrated.changed || settled.changed;
             if (!changed) {
                 return { status: 200 as const, character: settled.character, version: Number(record._saveVersion ?? 0), changed };
@@ -49,7 +64,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             session,
             serverTime,
             _saveVersion: result.version,
-            ...(result.changed ? { character: result.character } : {}),
+            character: result.character,
         });
     } catch (error) {
         console.error('[pet/breeding/status]', safeLogValue(error));

@@ -1,0 +1,12 @@
+✔ rare-31: independent anatomy detects the released face binding defect (494.3228ms)
+✔ rare-31 source: repaired anatomy passes every clip and blend (2275.9835ms)
+✔ rare-31 warfront-lod/: repaired anatomy passes every clip and blend (861.0959ms)
+✔ rare-31: pinned repair conserves sculpt and rig, validates authored or explicitly reviewed curves, and reproduces shipping bytes (51860.1478ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 55982.1053

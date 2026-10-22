@@ -107,7 +107,7 @@ export function gearStepSummary(item: GameItem): string | null {
     if (item.weaponEp != null) {
         return `Damage ${item.weaponEp} EP${base?.weaponEp != null ? `, up from ${base.weaponEp} on the ${base.name}` : ""}`;
     }
-    return `${percentText(item)}% damage reduction${base ? `, up from ${percentText(base)}% on the ${base.name}` : ""}`;
+    return `${percentText(item)}% armor protection${base ? `, up from ${percentText(base)}% on the ${base.name}` : ""}`;
 }
 
 /** The same line, looked up by item id. Null when the id is not a gear step item. */

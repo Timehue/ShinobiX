@@ -1,5 +1,6 @@
 import type { AdminCombatContent } from '../_admin-content.js';
-import { progressiveOrdinaryAiJutsuIds, resolveAiProfileJutsu } from '../_ai-opponent-loadout.js';
+import { MAX_CHALLENGE_AI_LOADOUT_JUTSU, progressiveOrdinaryAiJutsuIds, resolveAiProfileJutsu } from '../_ai-opponent-loadout.js';
+import { pveChallengeWeapon } from '../_pve-challenge-weapon.js';
 import { relevelAiProfile, type RelevelableProfile } from '../_ai-level-curves.js';
 import { COMBAT_RESOURCES_V2, v2JutsuCosts } from '../_combat-resources.js';
 import {
@@ -15,7 +16,9 @@ import { validateServerAiRules } from '../combat-core/ai-authoring.js';
 import type { PvpFighter } from '../pvp/session.js';
 import { hydrateCharacterFromSave, sealItemCharges } from '../pvp/session.js';
 import { createSoloPveSession, type SoloPveEncounter, type SoloPveEnvironment, type SoloPveSession } from './_session.js';
-import { standardPveAiPlannerDisabled, type STANDARD_PVE_AI_POLICY } from './_ai-turn-policy.js';
+import { CATALOG_CHALLENGE_WEAPON_POLICY, standardPveAiPlannerDisabled, type SoloPveAiPolicy } from './_ai-turn-policy.js';
+import { narrativeEnemyIdentity, narrativeEnemyJutsuIds } from '../../shared/narrative-enemy-identity.js';
+import { attachNarrativeGroupCombat } from './_group-combat.js';
 
 export type SoloPveAiProfile = Record<string, unknown> & { id: string };
 
@@ -104,7 +107,7 @@ function fighterFromHydratedCharacter(character: Record<string, unknown>, pos: n
     };
 }
 
-function buildEnemy(profile: SoloPveAiProfile, admin: AdminCombatContent | null, banded: boolean, aiTurnPolicy?: typeof STANDARD_PVE_AI_POLICY): PvpFighter {
+function buildEnemy(profile: SoloPveAiProfile, admin: AdminCombatContent | null, banded: boolean, aiTurnPolicy?: SoloPveAiPolicy): PvpFighter {
     const level = integer(profile.level, 1, 100, 20);
     const rawStats = profile.stats && typeof profile.stats === 'object' ? profile.stats as Record<string, unknown> : {};
     const numericStats: Record<string, number> = {};
@@ -126,7 +129,9 @@ function buildEnemy(profile: SoloPveAiProfile, admin: AdminCombatContent | null,
         ? profile.jutsu.filter((entry): entry is Record<string, unknown> => !!entry && typeof entry === 'object' && typeof (entry as Record<string, unknown>).id === 'string')
         : [];
     const progressiveIds = embeddedJutsu.length === 0 ? progressiveOrdinaryAiJutsuIds(String(profile.pveTemplateId ?? profile.id), level, profile.pveDifficulty) : null;
-    const authoredJutsu = embeddedJutsu.length > 0 ? embeddedJutsu : resolveAiProfileJutsu(progressiveIds ?? profile.jutsuIds, admin);
+    const classifiedChallenge = !!progressiveIds || profile.pveNamedChallenge === true || profile.pveDifficulty === 'final-kage';
+    const authoredJutsu = embeddedJutsu.length > 0 ? embeddedJutsu : resolveAiProfileJutsu(progressiveIds ?? profile.jutsuIds, admin,
+        classifiedChallenge ? MAX_CHALLENGE_AI_LOADOUT_JUTSU : undefined);
     // Progressive ordinary templates use the sealed legal-action planner; their
     // old template rule program referenced the replaced kit. Every other host
     // still validates authored references before adding a rule-free fallback.
@@ -140,12 +145,14 @@ function buildEnemy(profile: SoloPveAiProfile, admin: AdminCombatContent | null,
         : [fallbackEnemyJutsu(profile.id, level, specialty)];
     const mastery = pveAiMasteryForEncounter(level, profile.pveDifficulty);
     const progressiveMastery = ['weaker', 'standard', 'dangerous', 'elite', 'final-kage'].includes(String(profile.pveDifficulty));
+    const weapon = pveChallengeWeapon(level, profile.pveDifficulty, classifiedChallenge && !!aiTurnPolicy, profile.pveTemplateId ?? profile.id);
     const character: Record<string, unknown> = {
         name: typeof profile.name === 'string' ? profile.name.slice(0, 80) : 'Opponent',
         level,
         ...(typeof profile.pveDifficulty === 'string' ? { pveDifficulty: profile.pveDifficulty } : {}),
         specialty,
         stats,
+        ...(weapon ? { equipment: { hand: weapon.id }, pvpItems: [weapon], pveWeaponPolicy: CATALOG_CHALLENGE_WEAPON_POLICY } : {}),
         armorRawDR: Math.max(0, Math.min(1.5, finite(profile.armorRawDR, 0))),
         jutsu: jutsu.map((entry) => {
             const description = profile.missionTactics === true && profile.missionJutsuDescriptions && typeof profile.missionJutsuDescriptions === 'object'
@@ -222,14 +229,14 @@ export function buildSoloPveAiEncounter(params: {
      * Only missions, story bosses, the academy spar and generic / world AI
      * fights pass it; DISABLE_PVE_AI_PLANNER=1 seals nothing.
      */
-    aiTurnPolicy?: typeof STANDARD_PVE_AI_POLICY;
+    aiTurnPolicy?: SoloPveAiPolicy;
 }): SoloPveSession {
     const saveCharacter = params.save.character && typeof params.save.character === 'object'
         ? params.save.character as Record<string, unknown>
         : null;
     if (!saveCharacter) throw new Error('Cannot build solo PvE without an authoritative player save.');
 
-    const profile = params.scaling && Number.isFinite(params.scaling.level)
+    const sourceProfile = params.scaling && Number.isFinite(params.scaling.level)
         ? relevelAiProfile(
             params.profile as unknown as RelevelableProfile,
             params.scaling.level,
@@ -238,6 +245,18 @@ export function buildSoloPveAiEncounter(params: {
             resolveAiProfileJutsu(params.profile.jutsuIds, params.admin),
         ) as unknown as SoloPveAiProfile
         : params.profile;
+    const ownIdentity = narrativeEnemyIdentity(sourceProfile.id);
+    const identity = ownIdentity ?? narrativeEnemyIdentity(typeof sourceProfile.narrativeIdentityId === 'string' ? sourceProfile.narrativeIdentityId : undefined);
+    const identityIds = identity ? narrativeEnemyJutsuIds(identity, sourceProfile.pveNamedChallenge === true && Array.isArray(sourceProfile.jutsuIds) ? sourceProfile.jutsuIds.length : 7) : [];
+    const profile = identity ? { ...sourceProfile, avatarImage: identity.portrait,
+        ...(ownIdentity ? { visual: sourceProfile.id } : {}),
+        jutsuIds: identityIds, rules: sourceProfile.preserveNarrativeRules === true ? sourceProfile.rules : [],
+        ...(sourceProfile.tacticalTell ? { tacticalTell: 'Watch this opponent’s active effects. Clear removes visible defenses; Cleanse removes afflictions. Track each technique’s cooldown before committing your next attack.' } : {}),
+        jutsu: resolveAiProfileJutsu(identityIds, params.admin, sourceProfile.pveNamedChallenge === true ? MAX_CHALLENGE_AI_LOADOUT_JUTSU : undefined).map((jutsu, index) => ({ ...jutsu,
+            ...(identity.moveNames?.[index] ? { name: identity.moveNames[index] } : {}),
+            ...(identity.moveDescriptions?.[index] ? { battleDescription: identity.moveDescriptions[index] } : {}),
+        })),
+    } : sourceProfile;
     const banded = params.difficultyMode === false
         ? false
         : pveDifficultyGuardEnabled(params.difficultyMode ?? 'AI_FIGHT', params.env ?? process.env);
@@ -275,7 +294,7 @@ export function buildSoloPveAiEncounter(params: {
             ? Math.max(0, Math.min(player[field], Math.floor(stored)))
             : player[field];
     };
-    return createSoloPveSession({
+    const session = createSoloPveSession({
         sessionId: params.sessionId,
         ownerSlug: params.playerName,
         encounter: Object.keys(flags).length > 0
@@ -294,4 +313,6 @@ export function buildSoloPveAiEncounter(params: {
         ...(Number(params.weeklyBossRoundBudget) > 0 ? { weeklyBossRoundBudget: params.weeklyBossRoundBudget } : {}),
         ...(Number(params.activeTtlSeconds) > 0 ? { activeTtlSeconds: params.activeTtlSeconds } : {}),
     });
+    attachNarrativeGroupCombat(session, params.profile.id, params.profile.narrativeGroupId);
+    return session;
 }

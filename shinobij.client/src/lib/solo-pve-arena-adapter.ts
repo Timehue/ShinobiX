@@ -1,3 +1,4 @@
+import { hollowGateShinobiRoundLimit } from '../../../shared/hollow-gate-round-limit';
 import {
     fetchSoloPveState,
     submitSoloPveAction,
@@ -141,7 +142,7 @@ export function soloPveBeatStream(session: SoloPveSession): ServerArenaBeat[] {
         // "−1075", not the "−435" that happened to be left. Only that one case
         // is taken from the feed: it is replaced wholesale per action, so an
         // older action's numbers could still be sitting on the session.
-        if (event.seq === session.eventSeq) {
+        if (event.kind !== 'system' && event.seq === session.eventSeq) {
             for (const hit of hits) {
                 if (hit.kind !== "damage" || !downed.includes(hit.target)) continue;
                 const true_ = (session.fx ?? [])
@@ -167,8 +168,12 @@ export function soloPveBeatStream(session: SoloPveSession): ServerArenaBeat[] {
 
 export function soloPveSessionForArena(session: SoloPveSession): ServerArenaSession {
     const companion = companionActor(session);
+    const roundLimit = hollowGateShinobiRoundLimit(session);
     return {
         sessionId: session.sessionId,
+        hollowGateTelegraph: session.hollowGateTelegraph,
+        hollowGateRoundLimit: roundLimit,
+        terminalReason: session.terminalReason,
         runtimeVersion: session.version,
         map: { width: 12, height: 10, biome: session.environment.biome, blockedTiles: session.environment.blockedTiles },
         actors: [fighterActor("player", session), ...(companion ? [companion] : []), fighterActor("enemy", session)],
@@ -181,7 +186,7 @@ export function soloPveSessionForArena(session: SoloPveSession): ServerArenaSess
         winner: session.winner === "player" ? "squad" : session.winner,
         log: session.log,
         // The diagnostic runtime is loaded with the combat screen, not boot.
-        debugSource: { sessionId: session.sessionId, eventSeq: session.eventSeq, events: session.events, status: session.status, outcome: session.outcome,
+        debugSource: { sessionId: session.sessionId, eventSeq: session.eventSeq, events: session.events, status: session.status, outcome: session.outcome, terminalReason: session.terminalReason, hollowGateRoundLimit: roundLimit,
             player: { name: session.player.name }, enemy: { name: session.enemy.name, character: { level: session.enemy.character.level } } },
         groundEffects: session.groundEffects.map((effect) => ({ ...effect, owner: effect.owner })),
         weather: {

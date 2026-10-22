@@ -1,0 +1,1625 @@
+{
+  "id": "legendary-15",
+  "label": "independent-chimera-all-clips-v2-final-techniques",
+  "sourceManifestSha256": "a743027e05cff36e3ab2312adf74839254d7cc3787aa497be30294cb8acaf5ed",
+  "crop": {
+    "left": 159,
+    "top": 40,
+    "width": 197,
+    "height": 179
+  },
+  "nativePixelsPreserved": true,
+  "resizing": false,
+  "foregroundThreshold": 3,
+  "strips": [
+    {
+      "name": "front-block-0-half-0.png",
+      "sha256": "c8453fc5076f0cfc0b7b0769081b5bcb9c423e5fa5fe69f408e3de2fa3302f85",
+      "sources": [
+        {
+          "name": "legendary-15-fire-strike-front-0.png",
+          "sha256": "4cbfe92bd8d0f94c224b2cc42f86fc13db5cc095661dfa0ae880fab576ba7793",
+          "move": "fire-strike",
+          "view": "front",
+          "time": 0.04
+        },
+        {
+          "name": "legendary-15-fire-strike-front-1.png",
+          "sha256": "72b956a145dc7c22d20338facf4380124e301144042f68589f886e16bf1f9df3",
+          "move": "fire-strike",
+          "view": "front",
+          "time": 0.12
+        },
+        {
+          "name": "legendary-15-fire-strike-front-2.png",
+          "sha256": "9623919888d4ca9dee2c7205d6d3e1ebd59b4b5d954a50598b553208067095f7",
+          "move": "fire-strike",
+          "view": "front",
+          "time": 0.24
+        },
+        {
+          "name": "legendary-15-fire-strike-front-3.png",
+          "sha256": "db4cb96e79a1516d7a716a2891702009302a890e357bcf890b0695638a8c5305",
+          "move": "fire-strike",
+          "view": "front",
+          "time": 0.36
+        },
+        {
+          "name": "legendary-15-fire-strike-front-4.png",
+          "sha256": "a824ba292d54e54a8e2d0d04993f97e2de1796ae7630cfb6b04b8f3dd3e2cf80",
+          "move": "fire-strike",
+          "view": "front",
+          "time": 0.48
+        },
+        {
+          "name": "legendary-15-fire-strike-front-5.png",
+          "sha256": "9c868261d1036bd2a5def29e52388dc442b8b5df3cf7a699d50838701960ea9e",
+          "move": "fire-strike",
+          "view": "front",
+          "time": 0.6
+        },
+        {
+          "name": "legendary-15-fire-pulse-front-0.png",
+          "sha256": "31c05e87f85f95005b909d6ab9b6c4a7a2fb8b9ea3b88e731651de2d53c7e2bf",
+          "move": "fire-pulse",
+          "view": "front",
+          "time": 0.04
+        },
+        {
+          "name": "legendary-15-fire-pulse-front-1.png",
+          "sha256": "18f511e1cd754e7494cec1c2f4d5f300f873e35a0db0dde577a70c98dbbf9eef",
+          "move": "fire-pulse",
+          "view": "front",
+          "time": 0.12
+        },
+        {
+          "name": "legendary-15-fire-pulse-front-2.png",
+          "sha256": "6d5704a300bb3559390ed85bbcea7f592768cea2e9faefa43493e10c56ba93b3",
+          "move": "fire-pulse",
+          "view": "front",
+          "time": 0.24
+        },
+        {
+          "name": "legendary-15-fire-pulse-front-3.png",
+          "sha256": "cc2e958c56a29024f6d8e52098f4d6251f34432dab370ba46f1441ac6d767858",
+          "move": "fire-pulse",
+          "view": "front",
+          "time": 0.36
+        },
+        {
+          "name": "legendary-15-fire-pulse-front-4.png",
+          "sha256": "15c44c099e5b98356404726ef331093bec640e5801efe3b4f29f38afc41071d5",
+          "move": "fire-pulse",
+          "view": "front",
+          "time": 0.48
+        },
+        {
+          "name": "legendary-15-fire-pulse-front-5.png",
+          "sha256": "0295ae38ec3af87f33a4b7adc2293e28830bee8535d7ec4de39ac23158053749",
+          "move": "fire-pulse",
+          "view": "front",
+          "time": 0.6
+        },
+        {
+          "name": "legendary-15-fire-breaker-front-0.png",
+          "sha256": "b86429c77fb0161d86c45a72896f8f408adecd11c4ee8f61cee7b6946a7585db",
+          "move": "fire-breaker",
+          "view": "front",
+          "time": 0.04
+        },
+        {
+          "name": "legendary-15-fire-breaker-front-1.png",
+          "sha256": "e273d5eddf08e7c88d7890b022849462e8a0894771003df7109184bd08e6ad79",
+          "move": "fire-breaker",
+          "view": "front",
+          "time": 0.12
+        },
+        {
+          "name": "legendary-15-fire-breaker-front-2.png",
+          "sha256": "9623919888d4ca9dee2c7205d6d3e1ebd59b4b5d954a50598b553208067095f7",
+          "move": "fire-breaker",
+          "view": "front",
+          "time": 0.24
+        },
+        {
+          "name": "legendary-15-fire-breaker-front-3.png",
+          "sha256": "56a5f82674f7939764fb4e036954ea73aee9b6ef4a204799c6d92471935fed6f",
+          "move": "fire-breaker",
+          "view": "front",
+          "time": 0.36
+        },
+        {
+          "name": "legendary-15-fire-breaker-front-4.png",
+          "sha256": "a824ba292d54e54a8e2d0d04993f97e2de1796ae7630cfb6b04b8f3dd3e2cf80",
+          "move": "fire-breaker",
+          "view": "front",
+          "time": 0.48
+        },
+        {
+          "name": "legendary-15-fire-breaker-front-5.png",
+          "sha256": "9c868261d1036bd2a5def29e52388dc442b8b5df3cf7a699d50838701960ea9e",
+          "move": "fire-breaker",
+          "view": "front",
+          "time": 0.6
+        }
+      ],
+      "width": 1320,
+      "height": 615
+    },
+    {
+      "name": "front-block-0-half-1.png",
+      "sha256": "9bb685230e5453c4b3e4a96d27d73391b86f47f32df3aa25030aa5f06de14f88",
+      "sources": [
+        {
+          "name": "legendary-15-fire-strike-front-6.png",
+          "sha256": "0221ae433addec26a0eb42a911b2cdc5dc2bc94eec17ffd2645b81835069113c",
+          "move": "fire-strike",
+          "view": "front",
+          "time": 0.76
+        },
+        {
+          "name": "legendary-15-fire-strike-front-7.png",
+          "sha256": "1818f53ebbd157064b8eeeae16a8e212d9d5b5b3e2f53e9ba96a343609b20607",
+          "move": "fire-strike",
+          "view": "front",
+          "time": 0.96
+        },
+        {
+          "name": "legendary-15-fire-strike-front-8.png",
+          "sha256": "453fbbbd5cd098cc430179ed83cb6a0ab3428f375b9675ac03f395a692abbb56",
+          "move": "fire-strike",
+          "view": "front",
+          "time": 1.2
+        },
+        {
+          "name": "legendary-15-fire-strike-front-9.png",
+          "sha256": "d6d0c48e96d36e30e31696234d2c111b3410ffedabd70f1d6f166b5cc6117515",
+          "move": "fire-strike",
+          "view": "front",
+          "time": 1.44
+        },
+        {
+          "name": "legendary-15-fire-strike-front-10.png",
+          "sha256": "7321cfef098b7aac8021c80805fe98b8e67d52d651eee74f9f503ae9f8246e0a",
+          "move": "fire-strike",
+          "view": "front",
+          "time": 1.68
+        },
+        {
+          "name": "legendary-15-fire-strike-front-11.png",
+          "sha256": "9afe0470a9c136771910f040b27986cea3151bd7339f15a259d0af04917e9c9f",
+          "move": "fire-strike",
+          "view": "front",
+          "time": 1.92
+        },
+        {
+          "name": "legendary-15-fire-pulse-front-6.png",
+          "sha256": "84381a8d052680e2275796af908e0ced98624478d89b7e122c0ed8c893771088",
+          "move": "fire-pulse",
+          "view": "front",
+          "time": 0.76
+        },
+        {
+          "name": "legendary-15-fire-pulse-front-7.png",
+          "sha256": "6ba86f2fed1592e910dac5e96435243bc1e6930861c592ae140d07db7bb66d18",
+          "move": "fire-pulse",
+          "view": "front",
+          "time": 0.96
+        },
+        {
+          "name": "legendary-15-fire-pulse-front-8.png",
+          "sha256": "694c8421a99c227cc3ba01416fd3d75c2464edae31867d56e2cecec7abaedab4",
+          "move": "fire-pulse",
+          "view": "front",
+          "time": 1.2
+        },
+        {
+          "name": "legendary-15-fire-pulse-front-9.png",
+          "sha256": "19ddebf8b962a689990ef6afa0873b48173604e60ad7fe5d703f02edc5e8a864",
+          "move": "fire-pulse",
+          "view": "front",
+          "time": 1.44
+        },
+        {
+          "name": "legendary-15-fire-pulse-front-10.png",
+          "sha256": "03716aa97085ad56fb8aeb7cc3a7fe8df4f865a474db4c4c5e40faa0e450a17d",
+          "move": "fire-pulse",
+          "view": "front",
+          "time": 1.68
+        },
+        {
+          "name": "legendary-15-fire-pulse-front-11.png",
+          "sha256": "7251d5133e97b5a43db196350077aba7289ce167d61d86bf8704f3dc1548de92",
+          "move": "fire-pulse",
+          "view": "front",
+          "time": 1.92
+        },
+        {
+          "name": "legendary-15-fire-breaker-front-6.png",
+          "sha256": "36bcfa988c03ee1387ab413ba20c74066b049a46d99bbdaaff3a7d921a433eac",
+          "move": "fire-breaker",
+          "view": "front",
+          "time": 0.76
+        },
+        {
+          "name": "legendary-15-fire-breaker-front-7.png",
+          "sha256": "42b62a8f6991ac8a5f3f68253fc538f1889b69be0ef9237d0e2331c5e5981551",
+          "move": "fire-breaker",
+          "view": "front",
+          "time": 0.96
+        },
+        {
+          "name": "legendary-15-fire-breaker-front-8.png",
+          "sha256": "453fbbbd5cd098cc430179ed83cb6a0ab3428f375b9675ac03f395a692abbb56",
+          "move": "fire-breaker",
+          "view": "front",
+          "time": 1.2
+        },
+        {
+          "name": "legendary-15-fire-breaker-front-9.png",
+          "sha256": "d6d0c48e96d36e30e31696234d2c111b3410ffedabd70f1d6f166b5cc6117515",
+          "move": "fire-breaker",
+          "view": "front",
+          "time": 1.44
+        },
+        {
+          "name": "legendary-15-fire-breaker-front-10.png",
+          "sha256": "7321cfef098b7aac8021c80805fe98b8e67d52d651eee74f9f503ae9f8246e0a",
+          "move": "fire-breaker",
+          "view": "front",
+          "time": 1.68
+        },
+        {
+          "name": "legendary-15-fire-breaker-front-11.png",
+          "sha256": "ab9449120172242ab3c36b2f04a014586cb6fe7e4576fbae54adcc4775538ad3",
+          "move": "fire-breaker",
+          "view": "front",
+          "time": 1.92
+        }
+      ],
+      "width": 1320,
+      "height": 615
+    },
+    {
+      "name": "front-block-1-half-0.png",
+      "sha256": "ceaccc9d60b695e5fcdb403838e4c76ee9c7ef4ec4051b7ad7bdeef6a9b43f21",
+      "sources": [
+        {
+          "name": "legendary-15-earth-pulse-front-0.png",
+          "sha256": "d5bccb758d7ffdd908934b8ac5c78e736fe331ea894a63082ec98a751e585d0a",
+          "move": "earth-pulse",
+          "view": "front",
+          "time": 0.04
+        },
+        {
+          "name": "legendary-15-earth-pulse-front-1.png",
+          "sha256": "000a9134cffe54eb806e82ae2c59afb43626dec9053f388ee4f2a7ce53ac74c8",
+          "move": "earth-pulse",
+          "view": "front",
+          "time": 0.12
+        },
+        {
+          "name": "legendary-15-earth-pulse-front-2.png",
+          "sha256": "c8a4ba2a7b1fb2325a5528ba70704c7e42fbe4f68b676b6cb0681baa6876c1d3",
+          "move": "earth-pulse",
+          "view": "front",
+          "time": 0.24
+        },
+        {
+          "name": "legendary-15-earth-pulse-front-3.png",
+          "sha256": "bb89ec1f47a5f2fa8d48e1c315baf2b59c85a1ccb96f9eb81a04ec523da3f7b2",
+          "move": "earth-pulse",
+          "view": "front",
+          "time": 0.36
+        },
+        {
+          "name": "legendary-15-earth-pulse-front-4.png",
+          "sha256": "465dd84607240573ba19e645d2ba4e37b6d6f9eb4356bb418d485e58e7d47f2d",
+          "move": "earth-pulse",
+          "view": "front",
+          "time": 0.48
+        },
+        {
+          "name": "legendary-15-earth-pulse-front-5.png",
+          "sha256": "ea72ef0c6a7d805b0a1739baeb3db99ee2341099dd86fd70d0bebe8d7c321b84",
+          "move": "earth-pulse",
+          "view": "front",
+          "time": 0.6
+        },
+        {
+          "name": "legendary-15-undertow-front-0.png",
+          "sha256": "65663ee4cfbb36b32f9990d7534f5774c13989ac40a3940ab6193cfecb0a5b00",
+          "move": "undertow",
+          "view": "front",
+          "time": 0.04
+        },
+        {
+          "name": "legendary-15-undertow-front-1.png",
+          "sha256": "0db91b749c7dd3418d0ec6031925aef6b6df53db7001d152833159b42a86e1a8",
+          "move": "undertow",
+          "view": "front",
+          "time": 0.12
+        },
+        {
+          "name": "legendary-15-undertow-front-2.png",
+          "sha256": "35e945e7af7e2f830a36a41efbf4f9a508b655e3bf40bdb7359595a197872a93",
+          "move": "undertow",
+          "view": "front",
+          "time": 0.24
+        },
+        {
+          "name": "legendary-15-undertow-front-3.png",
+          "sha256": "704a1e62032aa4ddb4e2175ebf281d8b27e7d77958d77d745c50a723fba2e22f",
+          "move": "undertow",
+          "view": "front",
+          "time": 0.36
+        },
+        {
+          "name": "legendary-15-undertow-front-4.png",
+          "sha256": "5325b91706757a4093f0284048aee0182dab258823b4aff31c9ed9305d268321",
+          "move": "undertow",
+          "view": "front",
+          "time": 0.48
+        },
+        {
+          "name": "legendary-15-undertow-front-5.png",
+          "sha256": "966d6f30816a38c5a0c635301969ae98d4478c8ffa0737a724550ea604ff82eb",
+          "move": "undertow",
+          "view": "front",
+          "time": 0.6
+        },
+        {
+          "name": "legendary-15-mend-front-0.png",
+          "sha256": "cf218291dc003fb7da81013c9ea92c4c59af6f7632e6ec4e2e837fc599717991",
+          "move": "mend",
+          "view": "front",
+          "time": 0.04
+        },
+        {
+          "name": "legendary-15-mend-front-1.png",
+          "sha256": "ca5752294b033b914a33f7df2e398a1e08ecf91106e4f8d7fac7021043445b3f",
+          "move": "mend",
+          "view": "front",
+          "time": 0.12
+        },
+        {
+          "name": "legendary-15-mend-front-2.png",
+          "sha256": "109d6a8e17ca1caf7fcfdbdb24c80c26614ec8020350f2746f20a1f9ec1e7475",
+          "move": "mend",
+          "view": "front",
+          "time": 0.24
+        },
+        {
+          "name": "legendary-15-mend-front-3.png",
+          "sha256": "7b5943d6cba980e97758a4108bb30bf9ce43e076358fd9b808d0071e8100b494",
+          "move": "mend",
+          "view": "front",
+          "time": 0.36
+        },
+        {
+          "name": "legendary-15-mend-front-4.png",
+          "sha256": "de2868b214adbbd4d49b9e778c0e3ab906d125d89d634ca6328d3636c0207691",
+          "move": "mend",
+          "view": "front",
+          "time": 0.48
+        },
+        {
+          "name": "legendary-15-mend-front-5.png",
+          "sha256": "d518c31cdb8f359e3682f5460d9872d6b6c308d6f044b299ab4d7615247caddf",
+          "move": "mend",
+          "view": "front",
+          "time": 0.6
+        }
+      ],
+      "width": 1320,
+      "height": 615
+    },
+    {
+      "name": "front-block-1-half-1.png",
+      "sha256": "1e97d6d28482adbc99b30fc9ba9add63fd95160be7bedb44e84cbb688756928f",
+      "sources": [
+        {
+          "name": "legendary-15-earth-pulse-front-6.png",
+          "sha256": "7bbc051c08f51b3873a904ce90ee184cde28be09620d28da24ffb6e2b7c66584",
+          "move": "earth-pulse",
+          "view": "front",
+          "time": 0.76
+        },
+        {
+          "name": "legendary-15-earth-pulse-front-7.png",
+          "sha256": "2ba257b290ea8c31dac3b7b41e529dea887c2392eb7edf3408f9e5f2766c2647",
+          "move": "earth-pulse",
+          "view": "front",
+          "time": 0.96
+        },
+        {
+          "name": "legendary-15-earth-pulse-front-8.png",
+          "sha256": "1fc364559645ed06edb7b2ef46f15b1c6910ad387d53107aacfe971c2495a609",
+          "move": "earth-pulse",
+          "view": "front",
+          "time": 1.2
+        },
+        {
+          "name": "legendary-15-earth-pulse-front-9.png",
+          "sha256": "19ddebf8b962a689990ef6afa0873b48173604e60ad7fe5d703f02edc5e8a864",
+          "move": "earth-pulse",
+          "view": "front",
+          "time": 1.44
+        },
+        {
+          "name": "legendary-15-earth-pulse-front-10.png",
+          "sha256": "725a2b554203786bef045bd1c6138cfa32095ebc841728672808051dd244c6f2",
+          "move": "earth-pulse",
+          "view": "front",
+          "time": 1.68
+        },
+        {
+          "name": "legendary-15-earth-pulse-front-11.png",
+          "sha256": "7251d5133e97b5a43db196350077aba7289ce167d61d86bf8704f3dc1548de92",
+          "move": "earth-pulse",
+          "view": "front",
+          "time": 1.92
+        },
+        {
+          "name": "legendary-15-undertow-front-6.png",
+          "sha256": "b724e25d55a78b531ca0c27081e0ab227f0b247d5a6ba4bdb4a7efd03c86c16b",
+          "move": "undertow",
+          "view": "front",
+          "time": 0.76
+        },
+        {
+          "name": "legendary-15-undertow-front-7.png",
+          "sha256": "360ea30ff023db0e0bd8ca9ab93fee3a95e71691292d6bcc80959f26882ec8c1",
+          "move": "undertow",
+          "view": "front",
+          "time": 0.96
+        },
+        {
+          "name": "legendary-15-undertow-front-8.png",
+          "sha256": "ff63c164b2e706e4e862f4f0c0a13357c23848eb9aa097d4144eca75b020ec83",
+          "move": "undertow",
+          "view": "front",
+          "time": 1.2
+        },
+        {
+          "name": "legendary-15-undertow-front-9.png",
+          "sha256": "19ddebf8b962a689990ef6afa0873b48173604e60ad7fe5d703f02edc5e8a864",
+          "move": "undertow",
+          "view": "front",
+          "time": 1.44
+        },
+        {
+          "name": "legendary-15-undertow-front-10.png",
+          "sha256": "03716aa97085ad56fb8aeb7cc3a7fe8df4f865a474db4c4c5e40faa0e450a17d",
+          "move": "undertow",
+          "view": "front",
+          "time": 1.68
+        },
+        {
+          "name": "legendary-15-undertow-front-11.png",
+          "sha256": "7251d5133e97b5a43db196350077aba7289ce167d61d86bf8704f3dc1548de92",
+          "move": "undertow",
+          "view": "front",
+          "time": 1.92
+        },
+        {
+          "name": "legendary-15-mend-front-6.png",
+          "sha256": "dc783722ad8153b690c62caaa0f5b490e325203b228451cabbe8691e5967af8a",
+          "move": "mend",
+          "view": "front",
+          "time": 0.76
+        },
+        {
+          "name": "legendary-15-mend-front-7.png",
+          "sha256": "0f8dac3200b890fa2a9da5487d57aac80129e4c93f7f50c7e0ed2d30c1c250e7",
+          "move": "mend",
+          "view": "front",
+          "time": 0.96
+        },
+        {
+          "name": "legendary-15-mend-front-8.png",
+          "sha256": "459d918a8d2d08314f0493930cef92c34294af22e0ee1c829501b08677ecbcf0",
+          "move": "mend",
+          "view": "front",
+          "time": 1.2
+        },
+        {
+          "name": "legendary-15-mend-front-9.png",
+          "sha256": "5b9e6aa1e9a54a99bb1699bec1c31819e4d6d7ddd6343850cbd3f16ecabcaaf3",
+          "move": "mend",
+          "view": "front",
+          "time": 1.44
+        },
+        {
+          "name": "legendary-15-mend-front-10.png",
+          "sha256": "03716aa97085ad56fb8aeb7cc3a7fe8df4f865a474db4c4c5e40faa0e450a17d",
+          "move": "mend",
+          "view": "front",
+          "time": 1.68
+        },
+        {
+          "name": "legendary-15-mend-front-11.png",
+          "sha256": "f10d7a37f87ad5037b39d64741b98271d5fa3e5c8125418532b0ad5db4f97718",
+          "move": "mend",
+          "view": "front",
+          "time": 1.92
+        }
+      ],
+      "width": 1320,
+      "height": 615
+    },
+    {
+      "name": "front-block-2-half-0.png",
+      "sha256": "171c71b9a1a66b0039b915462ba9e9b63beac10f037aa2c3dff03938e9cb8c7c",
+      "sources": [
+        {
+          "name": "legendary-15-purify-front-0.png",
+          "sha256": "4b4a31b50ee72d485db39f184520d79d27f3aceacb477660a1ce01112b63640a",
+          "move": "purify",
+          "view": "front",
+          "time": 0.04
+        },
+        {
+          "name": "legendary-15-purify-front-1.png",
+          "sha256": "174d266358a05199be54aa0c7b777249b9cc28ab4aa14bd74afbf705616e1026",
+          "move": "purify",
+          "view": "front",
+          "time": 0.12
+        },
+        {
+          "name": "legendary-15-purify-front-2.png",
+          "sha256": "bbb110f61e8b4accae70e005763f9928448a81e70ec24752a06cc0fc9e4716e6",
+          "move": "purify",
+          "view": "front",
+          "time": 0.24
+        },
+        {
+          "name": "legendary-15-purify-front-3.png",
+          "sha256": "9c1def52184495a644eca75c6e8a4ffd96fd1531011f8b754a6894c976756ea1",
+          "move": "purify",
+          "view": "front",
+          "time": 0.36
+        },
+        {
+          "name": "legendary-15-purify-front-4.png",
+          "sha256": "71ff58b41759cdd853ce6293d11362df17416dbd2776d6e926d5edff0492548b",
+          "move": "purify",
+          "view": "front",
+          "time": 0.48
+        },
+        {
+          "name": "legendary-15-purify-front-5.png",
+          "sha256": "63da10030a09fb3fd23227f6b7153222ad5e471ccb177c9769cbc5446811e96b",
+          "move": "purify",
+          "view": "front",
+          "time": 0.6
+        },
+        {
+          "name": "legendary-15-aegis-front-0.png",
+          "sha256": "c386a44163c8bd373d5464585afea5c6522b3bf4d9324718b0d201ffb9d8e26d",
+          "move": "aegis",
+          "view": "front",
+          "time": 0.04
+        },
+        {
+          "name": "legendary-15-aegis-front-1.png",
+          "sha256": "8397f125292cb958bdae901b9846a606731f5263e023f073f423fa8a0a8f863b",
+          "move": "aegis",
+          "view": "front",
+          "time": 0.12
+        },
+        {
+          "name": "legendary-15-aegis-front-2.png",
+          "sha256": "638cf31727001dd97965501f077f965697cdab8d573d94f8dc8831a30661c3da",
+          "move": "aegis",
+          "view": "front",
+          "time": 0.24
+        },
+        {
+          "name": "legendary-15-aegis-front-3.png",
+          "sha256": "93b6637f3a79076cc900f940d3079eb3b5c11adfb0adabd1a44a96b67619ad2e",
+          "move": "aegis",
+          "view": "front",
+          "time": 0.36
+        },
+        {
+          "name": "legendary-15-aegis-front-4.png",
+          "sha256": "a0617fbdc8a83d6037dc844c52276c8e151d55fea2f5893cceb27d3275bcf547",
+          "move": "aegis",
+          "view": "front",
+          "time": 0.48
+        },
+        {
+          "name": "legendary-15-aegis-front-5.png",
+          "sha256": "eb08b61cb196e81d40497363f6623f99aee574552e80e48647a9f3471d54b2e3",
+          "move": "aegis",
+          "view": "front",
+          "time": 0.6
+        },
+        {
+          "name": "legendary-15-legendary-15-signature-front-0.png",
+          "sha256": "378a4a1ae7a521bb1e9edec14ff62e1496e6cf2173620bb975da2ce539fa5fef",
+          "move": "legendary-15-signature",
+          "view": "front",
+          "time": 0.04
+        },
+        {
+          "name": "legendary-15-legendary-15-signature-front-1.png",
+          "sha256": "28dc7deff4dddb4974d0db541f25d8b133f906c439cd6387b7327157a169c623",
+          "move": "legendary-15-signature",
+          "view": "front",
+          "time": 0.12
+        },
+        {
+          "name": "legendary-15-legendary-15-signature-front-2.png",
+          "sha256": "e9054b4c26470d83c07fdd388b4025647a147b994eb3c8a7d238f30ef2ff695e",
+          "move": "legendary-15-signature",
+          "view": "front",
+          "time": 0.24
+        },
+        {
+          "name": "legendary-15-legendary-15-signature-front-3.png",
+          "sha256": "fe6895ffc85b946299f6f93efe0633a34daffc7caaaa76f4099c9f0017d68d44",
+          "move": "legendary-15-signature",
+          "view": "front",
+          "time": 0.36
+        },
+        {
+          "name": "legendary-15-legendary-15-signature-front-4.png",
+          "sha256": "c51ebbbb30352e892ba99e369aaa0a46a8f007f3712402e971cecc3149b6ab14",
+          "move": "legendary-15-signature",
+          "view": "front",
+          "time": 0.48
+        },
+        {
+          "name": "legendary-15-legendary-15-signature-front-5.png",
+          "sha256": "918554eb7e6b49178f205a97687ac5687d9ca8c565210433cbd09a6f3b51cc46",
+          "move": "legendary-15-signature",
+          "view": "front",
+          "time": 0.6
+        }
+      ],
+      "width": 1320,
+      "height": 615
+    },
+    {
+      "name": "front-block-2-half-1.png",
+      "sha256": "955115634147669fe4a0b57a378daab1f8b8ccaa9b4ae8dbfb1a86e85acc60dd",
+      "sources": [
+        {
+          "name": "legendary-15-purify-front-6.png",
+          "sha256": "35a7f68de937dd8090b64b03814a5e17333dbfe8c94c4a21e8e64f4fa2624fd7",
+          "move": "purify",
+          "view": "front",
+          "time": 0.76
+        },
+        {
+          "name": "legendary-15-purify-front-7.png",
+          "sha256": "857d4252cd5d8937b1bf2f575aba257ae4702d8cb9404cd494546625e21abbbe",
+          "move": "purify",
+          "view": "front",
+          "time": 0.96
+        },
+        {
+          "name": "legendary-15-purify-front-8.png",
+          "sha256": "1a4511eda9d20938f9c29b804281ec01ee58403f99e5cd5a12d0bdcbde9f7ebb",
+          "move": "purify",
+          "view": "front",
+          "time": 1.2
+        },
+        {
+          "name": "legendary-15-purify-front-9.png",
+          "sha256": "19ddebf8b962a689990ef6afa0873b48173604e60ad7fe5d703f02edc5e8a864",
+          "move": "purify",
+          "view": "front",
+          "time": 1.44
+        },
+        {
+          "name": "legendary-15-purify-front-10.png",
+          "sha256": "03716aa97085ad56fb8aeb7cc3a7fe8df4f865a474db4c4c5e40faa0e450a17d",
+          "move": "purify",
+          "view": "front",
+          "time": 1.68
+        },
+        {
+          "name": "legendary-15-purify-front-11.png",
+          "sha256": "7251d5133e97b5a43db196350077aba7289ce167d61d86bf8704f3dc1548de92",
+          "move": "purify",
+          "view": "front",
+          "time": 1.92
+        },
+        {
+          "name": "legendary-15-aegis-front-6.png",
+          "sha256": "d58de70ee3fd1951531da93c6a0e3a77ca469e474d792ba4b151232106f40837",
+          "move": "aegis",
+          "view": "front",
+          "time": 0.76
+        },
+        {
+          "name": "legendary-15-aegis-front-7.png",
+          "sha256": "2b9e1a87155e8d7e3baed006666bf9ae0909748af2edd2d05e45a0f586bbf12c",
+          "move": "aegis",
+          "view": "front",
+          "time": 0.96
+        },
+        {
+          "name": "legendary-15-aegis-front-8.png",
+          "sha256": "8a436c1db6d44f3c914ff71b8203454d0146a60d99dbb08aae18cc7ae89b69d5",
+          "move": "aegis",
+          "view": "front",
+          "time": 1.2
+        },
+        {
+          "name": "legendary-15-aegis-front-9.png",
+          "sha256": "ddbc17b89982c53a09aa4478c7df22e98922075470aa32d415ecc63a1acbc17a",
+          "move": "aegis",
+          "view": "front",
+          "time": 1.44
+        },
+        {
+          "name": "legendary-15-aegis-front-10.png",
+          "sha256": "03716aa97085ad56fb8aeb7cc3a7fe8df4f865a474db4c4c5e40faa0e450a17d",
+          "move": "aegis",
+          "view": "front",
+          "time": 1.68
+        },
+        {
+          "name": "legendary-15-aegis-front-11.png",
+          "sha256": "9afe0470a9c136771910f040b27986cea3151bd7339f15a259d0af04917e9c9f",
+          "move": "aegis",
+          "view": "front",
+          "time": 1.92
+        },
+        {
+          "name": "legendary-15-legendary-15-signature-front-6.png",
+          "sha256": "2ea69e653136a926b05f7066b9682ac6087805cda2b0319ff149daaaea2b5640",
+          "move": "legendary-15-signature",
+          "view": "front",
+          "time": 0.76
+        },
+        {
+          "name": "legendary-15-legendary-15-signature-front-7.png",
+          "sha256": "bf1862b7fb90c1f90b41053dcd4f98e20cafe361749ab788e3d662cafe83efbb",
+          "move": "legendary-15-signature",
+          "view": "front",
+          "time": 0.96
+        },
+        {
+          "name": "legendary-15-legendary-15-signature-front-8.png",
+          "sha256": "184d9d65abed763e04ffcc3d4df72a8a509dcd1cab6d441364e5ea1fc56b6ef9",
+          "move": "legendary-15-signature",
+          "view": "front",
+          "time": 1.2
+        },
+        {
+          "name": "legendary-15-legendary-15-signature-front-9.png",
+          "sha256": "334d1554891e2841946940435bd9fd99ce61b092c68dbc0688e9720ac0ca39c9",
+          "move": "legendary-15-signature",
+          "view": "front",
+          "time": 1.44
+        },
+        {
+          "name": "legendary-15-legendary-15-signature-front-10.png",
+          "sha256": "725a2b554203786bef045bd1c6138cfa32095ebc841728672808051dd244c6f2",
+          "move": "legendary-15-signature",
+          "view": "front",
+          "time": 1.68
+        },
+        {
+          "name": "legendary-15-legendary-15-signature-front-11.png",
+          "sha256": "7251d5133e97b5a43db196350077aba7289ce167d61d86bf8704f3dc1548de92",
+          "move": "legendary-15-signature",
+          "view": "front",
+          "time": 1.92
+        }
+      ],
+      "width": 1320,
+      "height": 615
+    },
+    {
+      "name": "side-block-0-half-0.png",
+      "sha256": "b2ab20ef2ba26abfa8ea692cc303eb259e7a89268e2e226e67cdab47f08997bb",
+      "sources": [
+        {
+          "name": "legendary-15-fire-strike-side-0.png",
+          "sha256": "c5a8a654b37f71d2503c2928b6a5d512e53ab4706b2e25849d6d60a4d8646f32",
+          "move": "fire-strike",
+          "view": "side",
+          "time": 0.04
+        },
+        {
+          "name": "legendary-15-fire-strike-side-1.png",
+          "sha256": "e0a39ef5aff0a5d8d8155454ff33c5a5bbcfc0a5fa59021b6cfb467e9be1ef2f",
+          "move": "fire-strike",
+          "view": "side",
+          "time": 0.12
+        },
+        {
+          "name": "legendary-15-fire-strike-side-2.png",
+          "sha256": "bae6ba085c05e865bd2ba11cb6e2781e26c46c5869c86b6fed058d9e934789d0",
+          "move": "fire-strike",
+          "view": "side",
+          "time": 0.24
+        },
+        {
+          "name": "legendary-15-fire-strike-side-3.png",
+          "sha256": "d85ff6d9a6a072d60e48d0c286c6e9dc39dd103f3b9e26ac440f2b0da0cd42bf",
+          "move": "fire-strike",
+          "view": "side",
+          "time": 0.36
+        },
+        {
+          "name": "legendary-15-fire-strike-side-4.png",
+          "sha256": "f404114c1e8710dd9ea6f58b9ba0d649f3bb20dc0bccf4616dd0e9921cc1eaac",
+          "move": "fire-strike",
+          "view": "side",
+          "time": 0.48
+        },
+        {
+          "name": "legendary-15-fire-strike-side-5.png",
+          "sha256": "01789d96dda4e5148fa2e96f79bd6198ba4ac036bc68273d728daa71c8b18246",
+          "move": "fire-strike",
+          "view": "side",
+          "time": 0.6
+        },
+        {
+          "name": "legendary-15-fire-pulse-side-0.png",
+          "sha256": "60aad55b89246d150a0101995ab7c177aeaf7b74e6f2ab75bf00057b2d726558",
+          "move": "fire-pulse",
+          "view": "side",
+          "time": 0.04
+        },
+        {
+          "name": "legendary-15-fire-pulse-side-1.png",
+          "sha256": "d91ef5f00395038f25d40c11601bf04158c669d5ed02eb8d97f74a93767be880",
+          "move": "fire-pulse",
+          "view": "side",
+          "time": 0.12
+        },
+        {
+          "name": "legendary-15-fire-pulse-side-2.png",
+          "sha256": "df40bd5b31fdbac7412636e04cab797bb72340a664298b19ae4948a63758c441",
+          "move": "fire-pulse",
+          "view": "side",
+          "time": 0.24
+        },
+        {
+          "name": "legendary-15-fire-pulse-side-3.png",
+          "sha256": "a291b1bdf5d5066b404939568b46c7252358edbf046867bc3a40c0918bafa19b",
+          "move": "fire-pulse",
+          "view": "side",
+          "time": 0.36
+        },
+        {
+          "name": "legendary-15-fire-pulse-side-4.png",
+          "sha256": "f1d565f4cf3429d753c350fce82733792c54f14e7779acae8494d35d75ac979c",
+          "move": "fire-pulse",
+          "view": "side",
+          "time": 0.48
+        },
+        {
+          "name": "legendary-15-fire-pulse-side-5.png",
+          "sha256": "987827dd72c1d8cea35d177809108ae566fba797bcfce3324c4bb2adfd0cb9dc",
+          "move": "fire-pulse",
+          "view": "side",
+          "time": 0.6
+        },
+        {
+          "name": "legendary-15-fire-breaker-side-0.png",
+          "sha256": "c5a8a654b37f71d2503c2928b6a5d512e53ab4706b2e25849d6d60a4d8646f32",
+          "move": "fire-breaker",
+          "view": "side",
+          "time": 0.04
+        },
+        {
+          "name": "legendary-15-fire-breaker-side-1.png",
+          "sha256": "09a9a5c9a2db089b98ca471823f0215916107829f3548a12e6b0568dadb73f33",
+          "move": "fire-breaker",
+          "view": "side",
+          "time": 0.12
+        },
+        {
+          "name": "legendary-15-fire-breaker-side-2.png",
+          "sha256": "bae6ba085c05e865bd2ba11cb6e2781e26c46c5869c86b6fed058d9e934789d0",
+          "move": "fire-breaker",
+          "view": "side",
+          "time": 0.24
+        },
+        {
+          "name": "legendary-15-fire-breaker-side-3.png",
+          "sha256": "d85ff6d9a6a072d60e48d0c286c6e9dc39dd103f3b9e26ac440f2b0da0cd42bf",
+          "move": "fire-breaker",
+          "view": "side",
+          "time": 0.36
+        },
+        {
+          "name": "legendary-15-fire-breaker-side-4.png",
+          "sha256": "f404114c1e8710dd9ea6f58b9ba0d649f3bb20dc0bccf4616dd0e9921cc1eaac",
+          "move": "fire-breaker",
+          "view": "side",
+          "time": 0.48
+        },
+        {
+          "name": "legendary-15-fire-breaker-side-5.png",
+          "sha256": "01789d96dda4e5148fa2e96f79bd6198ba4ac036bc68273d728daa71c8b18246",
+          "move": "fire-breaker",
+          "view": "side",
+          "time": 0.6
+        }
+      ],
+      "width": 1320,
+      "height": 615
+    },
+    {
+      "name": "side-block-0-half-1.png",
+      "sha256": "2aba70f7019368c69491f2b7b82793ff7093d965cd86027230169a7e0c57e588",
+      "sources": [
+        {
+          "name": "legendary-15-fire-strike-side-6.png",
+          "sha256": "b510f658b51ce90bbaa784e41e47e80aa7a281b2b1dc0b45b2cac0541b847155",
+          "move": "fire-strike",
+          "view": "side",
+          "time": 0.76
+        },
+        {
+          "name": "legendary-15-fire-strike-side-7.png",
+          "sha256": "9c8b3d60655a5f018fe7979720eed700443ce1933e23672b863d5e2ee482d624",
+          "move": "fire-strike",
+          "view": "side",
+          "time": 0.96
+        },
+        {
+          "name": "legendary-15-fire-strike-side-8.png",
+          "sha256": "cace78d86c048977f6a68fa6a28d501619cc0eb7841d1b1980e3fbe3a25b874f",
+          "move": "fire-strike",
+          "view": "side",
+          "time": 1.2
+        },
+        {
+          "name": "legendary-15-fire-strike-side-9.png",
+          "sha256": "f09f0799bd5ff1fa4d17340ad26ea240c410eb08b72761b28aa9bd5780cd6843",
+          "move": "fire-strike",
+          "view": "side",
+          "time": 1.44
+        },
+        {
+          "name": "legendary-15-fire-strike-side-10.png",
+          "sha256": "103ef029e7f5a3571241c81568f774914a2419b0a2fad3756db8854311eae827",
+          "move": "fire-strike",
+          "view": "side",
+          "time": 1.68
+        },
+        {
+          "name": "legendary-15-fire-strike-side-11.png",
+          "sha256": "9661ed89869a2b3db786324ad7cdd91e6dbf3a917987f6ead4b298b16138288a",
+          "move": "fire-strike",
+          "view": "side",
+          "time": 1.92
+        },
+        {
+          "name": "legendary-15-fire-pulse-side-6.png",
+          "sha256": "ac2983eb97255c1b29e94755b6e6d27ba6d3ef1acc5a06f9043ca17ced9c5259",
+          "move": "fire-pulse",
+          "view": "side",
+          "time": 0.76
+        },
+        {
+          "name": "legendary-15-fire-pulse-side-7.png",
+          "sha256": "b7590e9536dafe46537870a3982c5deee2b1ff6a034a03024ca9dbdb61448cb2",
+          "move": "fire-pulse",
+          "view": "side",
+          "time": 0.96
+        },
+        {
+          "name": "legendary-15-fire-pulse-side-8.png",
+          "sha256": "634a81b3a80749c963f8e39b58a3ea9dfc9411d20cb1310deb92b13db4003a31",
+          "move": "fire-pulse",
+          "view": "side",
+          "time": 1.2
+        },
+        {
+          "name": "legendary-15-fire-pulse-side-9.png",
+          "sha256": "de7d8281bfa7255b12110bfa194e2ab9242a23f73161962d31a00fe18813d56e",
+          "move": "fire-pulse",
+          "view": "side",
+          "time": 1.44
+        },
+        {
+          "name": "legendary-15-fire-pulse-side-10.png",
+          "sha256": "5a54bf4fa93a6539b89627d1d7f6eea2fa5a13f078052101b3001da611e49b95",
+          "move": "fire-pulse",
+          "view": "side",
+          "time": 1.68
+        },
+        {
+          "name": "legendary-15-fire-pulse-side-11.png",
+          "sha256": "9661ed89869a2b3db786324ad7cdd91e6dbf3a917987f6ead4b298b16138288a",
+          "move": "fire-pulse",
+          "view": "side",
+          "time": 1.92
+        },
+        {
+          "name": "legendary-15-fire-breaker-side-6.png",
+          "sha256": "fb9550c5a5558d2be1be15409929b2012b7167aa44a50a1d81543d2af6cb9b83",
+          "move": "fire-breaker",
+          "view": "side",
+          "time": 0.76
+        },
+        {
+          "name": "legendary-15-fire-breaker-side-7.png",
+          "sha256": "0de369f0fd534ead3d1278d20fe65bb35fbbe3691eb406d62c4f154eec4003e2",
+          "move": "fire-breaker",
+          "view": "side",
+          "time": 0.96
+        },
+        {
+          "name": "legendary-15-fire-breaker-side-8.png",
+          "sha256": "cace78d86c048977f6a68fa6a28d501619cc0eb7841d1b1980e3fbe3a25b874f",
+          "move": "fire-breaker",
+          "view": "side",
+          "time": 1.2
+        },
+        {
+          "name": "legendary-15-fire-breaker-side-9.png",
+          "sha256": "f09f0799bd5ff1fa4d17340ad26ea240c410eb08b72761b28aa9bd5780cd6843",
+          "move": "fire-breaker",
+          "view": "side",
+          "time": 1.44
+        },
+        {
+          "name": "legendary-15-fire-breaker-side-10.png",
+          "sha256": "1183a1269c88f36caa9b27455ed8dfac089c0d844e50f51a60e80532e2b364a8",
+          "move": "fire-breaker",
+          "view": "side",
+          "time": 1.68
+        },
+        {
+          "name": "legendary-15-fire-breaker-side-11.png",
+          "sha256": "d22e3e08e7b0b65c284681e5ed6060bcac8c205e7e81fe797939d0f68b146599",
+          "move": "fire-breaker",
+          "view": "side",
+          "time": 1.92
+        }
+      ],
+      "width": 1320,
+      "height": 615
+    },
+    {
+      "name": "side-block-1-half-0.png",
+      "sha256": "2260fd6d6e5e7bdf39a78e0da7bbd4db5b629f5b33b9a1a0c1795e656b0fb63a",
+      "sources": [
+        {
+          "name": "legendary-15-earth-pulse-side-0.png",
+          "sha256": "e80f61bb8f1ae19380eab4069a27696bb79b0f8e91d0a3ff76fcf04408d14bce",
+          "move": "earth-pulse",
+          "view": "side",
+          "time": 0.04
+        },
+        {
+          "name": "legendary-15-earth-pulse-side-1.png",
+          "sha256": "8fb81154d146a85575c9d720fddbc463150e766964a42c067c65061375fe642d",
+          "move": "earth-pulse",
+          "view": "side",
+          "time": 0.12
+        },
+        {
+          "name": "legendary-15-earth-pulse-side-2.png",
+          "sha256": "be93a23eb64af9ef43c93eb003c88521712a50af86cc4ac06e97dd56500e5bdb",
+          "move": "earth-pulse",
+          "view": "side",
+          "time": 0.24
+        },
+        {
+          "name": "legendary-15-earth-pulse-side-3.png",
+          "sha256": "3b54727f7a9ca48948967fcf900c45bf208466c71a87301f1ce385b41cdf2899",
+          "move": "earth-pulse",
+          "view": "side",
+          "time": 0.36
+        },
+        {
+          "name": "legendary-15-earth-pulse-side-4.png",
+          "sha256": "f7b32cf01be2b8278ebd3f2e1cef71912ad50f4d4c9ead604602f07f3f59ed1e",
+          "move": "earth-pulse",
+          "view": "side",
+          "time": 0.48
+        },
+        {
+          "name": "legendary-15-earth-pulse-side-5.png",
+          "sha256": "04dc10b598019722cba4b981e1ab9f8ad9b416e512a5c25882d18652fd274b2f",
+          "move": "earth-pulse",
+          "view": "side",
+          "time": 0.6
+        },
+        {
+          "name": "legendary-15-undertow-side-0.png",
+          "sha256": "b6b7d8bb5268550684fc2e055190f926cf7982e9ed64c7059ef6b243b11ecc10",
+          "move": "undertow",
+          "view": "side",
+          "time": 0.04
+        },
+        {
+          "name": "legendary-15-undertow-side-1.png",
+          "sha256": "abe90ab5b4f337f093a6306002fd7e89246b913272bdd6f0918211ce8812be76",
+          "move": "undertow",
+          "view": "side",
+          "time": 0.12
+        },
+        {
+          "name": "legendary-15-undertow-side-2.png",
+          "sha256": "d8098d821db36e04083458a1ceaa9d68b5e863136a0daf05b64eb8f6cb04f6a0",
+          "move": "undertow",
+          "view": "side",
+          "time": 0.24
+        },
+        {
+          "name": "legendary-15-undertow-side-3.png",
+          "sha256": "fa5643c3bc03fd452791f5f7db5824618db579e026962390a85c571b31ac3efb",
+          "move": "undertow",
+          "view": "side",
+          "time": 0.36
+        },
+        {
+          "name": "legendary-15-undertow-side-4.png",
+          "sha256": "8d930160f37402e620ffe9a5ac3d36f6193214ec1eb42fcefe7dfe6def007d3c",
+          "move": "undertow",
+          "view": "side",
+          "time": 0.48
+        },
+        {
+          "name": "legendary-15-undertow-side-5.png",
+          "sha256": "242eb42a84facb69eac5935bff560a364ff1de7c46dc98cff566b0fb522b11a8",
+          "move": "undertow",
+          "view": "side",
+          "time": 0.6
+        },
+        {
+          "name": "legendary-15-mend-side-0.png",
+          "sha256": "a934a1e243211c126d20c81075ae23b1ef15162bf687349de642ca4e166a21c9",
+          "move": "mend",
+          "view": "side",
+          "time": 0.04
+        },
+        {
+          "name": "legendary-15-mend-side-1.png",
+          "sha256": "2d221daf959acf6f85c653de835fbf2788c75992cdcf54af73f475ab552ed141",
+          "move": "mend",
+          "view": "side",
+          "time": 0.12
+        },
+        {
+          "name": "legendary-15-mend-side-2.png",
+          "sha256": "697f01e24b88d714e8f696fd12f3c6fa0958cab4f2cf6b5ca09c4731b32b45fb",
+          "move": "mend",
+          "view": "side",
+          "time": 0.24
+        },
+        {
+          "name": "legendary-15-mend-side-3.png",
+          "sha256": "98078e74edaac79737fc7c5701e90d62072499aac0f05c7bafa954dc03397eff",
+          "move": "mend",
+          "view": "side",
+          "time": 0.36
+        },
+        {
+          "name": "legendary-15-mend-side-4.png",
+          "sha256": "259466bdb906459c60f5a736688763f07906fa6e2c2891a73c98aed7ee0ecdc7",
+          "move": "mend",
+          "view": "side",
+          "time": 0.48
+        },
+        {
+          "name": "legendary-15-mend-side-5.png",
+          "sha256": "76b1629640c1b6f1fcca001933a90dae72013849e102badda5bdd3a3eef911d2",
+          "move": "mend",
+          "view": "side",
+          "time": 0.6
+        }
+      ],
+      "width": 1320,
+      "height": 615
+    },
+    {
+      "name": "side-block-1-half-1.png",
+      "sha256": "0f05ab9238c4b1c713c6fdd661028fb29e0174dfc80af4272b168c35b3f337f1",
+      "sources": [
+        {
+          "name": "legendary-15-earth-pulse-side-6.png",
+          "sha256": "b404909f6b854c236ae24b5cc4dcba77139692024b0ebde1d998188e3ddc7fa5",
+          "move": "earth-pulse",
+          "view": "side",
+          "time": 0.76
+        },
+        {
+          "name": "legendary-15-earth-pulse-side-7.png",
+          "sha256": "1f7beefe1767d596bc834daf932592c2ffd6000c0638aa77d5e4245d997dc958",
+          "move": "earth-pulse",
+          "view": "side",
+          "time": 0.96
+        },
+        {
+          "name": "legendary-15-earth-pulse-side-8.png",
+          "sha256": "1f73aad00e3bb851d61164674e81ee8c19ab212eaa5b6ad0eb1f01481ec07792",
+          "move": "earth-pulse",
+          "view": "side",
+          "time": 1.2
+        },
+        {
+          "name": "legendary-15-earth-pulse-side-9.png",
+          "sha256": "09a9a4f88e922da5c8c69a0bf7a8dc47f8685ba54e375c203ff9083de586e867",
+          "move": "earth-pulse",
+          "view": "side",
+          "time": 1.44
+        },
+        {
+          "name": "legendary-15-earth-pulse-side-10.png",
+          "sha256": "1183a1269c88f36caa9b27455ed8dfac089c0d844e50f51a60e80532e2b364a8",
+          "move": "earth-pulse",
+          "view": "side",
+          "time": 1.68
+        },
+        {
+          "name": "legendary-15-earth-pulse-side-11.png",
+          "sha256": "9661ed89869a2b3db786324ad7cdd91e6dbf3a917987f6ead4b298b16138288a",
+          "move": "earth-pulse",
+          "view": "side",
+          "time": 1.92
+        },
+        {
+          "name": "legendary-15-undertow-side-6.png",
+          "sha256": "fdcbb3ff3e66f2c3ff29397c9f6c5b52d78d939a23325474c5f8f07527ded7ac",
+          "move": "undertow",
+          "view": "side",
+          "time": 0.76
+        },
+        {
+          "name": "legendary-15-undertow-side-7.png",
+          "sha256": "c949ca8a176f61c45dbb8badd46cea67c72ffe45790b78c7592ffeabb78cc012",
+          "move": "undertow",
+          "view": "side",
+          "time": 0.96
+        },
+        {
+          "name": "legendary-15-undertow-side-8.png",
+          "sha256": "92342b6fc2f3710ad1908884723070cc73f78e5d8dabf07c6f8f7bf6d754b66d",
+          "move": "undertow",
+          "view": "side",
+          "time": 1.2
+        },
+        {
+          "name": "legendary-15-undertow-side-9.png",
+          "sha256": "de7d8281bfa7255b12110bfa194e2ab9242a23f73161962d31a00fe18813d56e",
+          "move": "undertow",
+          "view": "side",
+          "time": 1.44
+        },
+        {
+          "name": "legendary-15-undertow-side-10.png",
+          "sha256": "5a54bf4fa93a6539b89627d1d7f6eea2fa5a13f078052101b3001da611e49b95",
+          "move": "undertow",
+          "view": "side",
+          "time": 1.68
+        },
+        {
+          "name": "legendary-15-undertow-side-11.png",
+          "sha256": "9661ed89869a2b3db786324ad7cdd91e6dbf3a917987f6ead4b298b16138288a",
+          "move": "undertow",
+          "view": "side",
+          "time": 1.92
+        },
+        {
+          "name": "legendary-15-mend-side-6.png",
+          "sha256": "0c9b9fa505739ba8db2ef1be764a63c455ea1851df7e809a39d4fae56775d019",
+          "move": "mend",
+          "view": "side",
+          "time": 0.76
+        },
+        {
+          "name": "legendary-15-mend-side-7.png",
+          "sha256": "cdd1871c09a94aadddee0a3dae805cbbd467d0c5d76ae0da7238ee99bdede891",
+          "move": "mend",
+          "view": "side",
+          "time": 0.96
+        },
+        {
+          "name": "legendary-15-mend-side-8.png",
+          "sha256": "5401734f19491344f840ec3598248c0b14901eb9e49857b1175560ecef19f00e",
+          "move": "mend",
+          "view": "side",
+          "time": 1.2
+        },
+        {
+          "name": "legendary-15-mend-side-9.png",
+          "sha256": "12bbf19c82a856cb9bba3339002f5be4eae86edaaba72ce8affc3e4b5db7690d",
+          "move": "mend",
+          "view": "side",
+          "time": 1.44
+        },
+        {
+          "name": "legendary-15-mend-side-10.png",
+          "sha256": "1183a1269c88f36caa9b27455ed8dfac089c0d844e50f51a60e80532e2b364a8",
+          "move": "mend",
+          "view": "side",
+          "time": 1.68
+        },
+        {
+          "name": "legendary-15-mend-side-11.png",
+          "sha256": "9661ed89869a2b3db786324ad7cdd91e6dbf3a917987f6ead4b298b16138288a",
+          "move": "mend",
+          "view": "side",
+          "time": 1.92
+        }
+      ],
+      "width": 1320,
+      "height": 615
+    },
+    {
+      "name": "side-block-2-half-0.png",
+      "sha256": "315ac8205f2433cc12e065cd7e4faf339ca896f1604d7d112e2a170ec7d80056",
+      "sources": [
+        {
+          "name": "legendary-15-purify-side-0.png",
+          "sha256": "2d4fda82527c07db60a147e5f824b39987ac280f44c530ee69761928a122e4b1",
+          "move": "purify",
+          "view": "side",
+          "time": 0.04
+        },
+        {
+          "name": "legendary-15-purify-side-1.png",
+          "sha256": "af8052976877ee0ca05c831eee496ff03c5faa86d2a884640df995fc788b9721",
+          "move": "purify",
+          "view": "side",
+          "time": 0.12
+        },
+        {
+          "name": "legendary-15-purify-side-2.png",
+          "sha256": "5f4a62152aec55c823de057ecb06d01311545cbb405e3ae9a8167b8fe43cf975",
+          "move": "purify",
+          "view": "side",
+          "time": 0.24
+        },
+        {
+          "name": "legendary-15-purify-side-3.png",
+          "sha256": "295a2e3f7aa7672504159afeef029f01a99e3ff7f449f54c05ff401b7f7df333",
+          "move": "purify",
+          "view": "side",
+          "time": 0.36
+        },
+        {
+          "name": "legendary-15-purify-side-4.png",
+          "sha256": "46468b3c70b12aa288068aa764026e1c847568502fcf0c9ffdc3ee4e9ec8e060",
+          "move": "purify",
+          "view": "side",
+          "time": 0.48
+        },
+        {
+          "name": "legendary-15-purify-side-5.png",
+          "sha256": "4eb0c3ad8cf3afd2bcc2d92d0954988d4331562c3dd4cd59b030ffe4d009378c",
+          "move": "purify",
+          "view": "side",
+          "time": 0.6
+        },
+        {
+          "name": "legendary-15-aegis-side-0.png",
+          "sha256": "69935f48e28d38561d169804bafac451c1a3f406cb23441fdc6130bdc3baaf95",
+          "move": "aegis",
+          "view": "side",
+          "time": 0.04
+        },
+        {
+          "name": "legendary-15-aegis-side-1.png",
+          "sha256": "a7c7bc9346b227ea29f955fc155181d24934c1265a86e6101cdaf99564e7c7bd",
+          "move": "aegis",
+          "view": "side",
+          "time": 0.12
+        },
+        {
+          "name": "legendary-15-aegis-side-2.png",
+          "sha256": "c4fc48c7ff6ddad9bac2ad1e54bb0e0bf4be6f030b40e55e15cff1fe80cfd72e",
+          "move": "aegis",
+          "view": "side",
+          "time": 0.24
+        },
+        {
+          "name": "legendary-15-aegis-side-3.png",
+          "sha256": "506a93bcc32cfd8e0ae43edf1e8e020fd55045aec5fda9b37dcb0e35b0998c20",
+          "move": "aegis",
+          "view": "side",
+          "time": 0.36
+        },
+        {
+          "name": "legendary-15-aegis-side-4.png",
+          "sha256": "49da0184f88fa09fc974bf5d12904e19df30ae3bca756d9e0002961960885552",
+          "move": "aegis",
+          "view": "side",
+          "time": 0.48
+        },
+        {
+          "name": "legendary-15-aegis-side-5.png",
+          "sha256": "f0bf8aa19b49744543e2bbf7ab3377d878330b2caeb8294c1eea057959b825b1",
+          "move": "aegis",
+          "view": "side",
+          "time": 0.6
+        },
+        {
+          "name": "legendary-15-legendary-15-signature-side-0.png",
+          "sha256": "657ebe6d847c350e59c9c29b2dfe873da6050cbd5d2a9e7756b8d1a3af9352ff",
+          "move": "legendary-15-signature",
+          "view": "side",
+          "time": 0.04
+        },
+        {
+          "name": "legendary-15-legendary-15-signature-side-1.png",
+          "sha256": "ec8187cb7d45031894542ea9ec31b91c4fb82b9997d765a56027f25095f3403e",
+          "move": "legendary-15-signature",
+          "view": "side",
+          "time": 0.12
+        },
+        {
+          "name": "legendary-15-legendary-15-signature-side-2.png",
+          "sha256": "19af4f695869e9fa491fd5f733fe0e89639c5bd89627d35c289ecff91d86acdd",
+          "move": "legendary-15-signature",
+          "view": "side",
+          "time": 0.24
+        },
+        {
+          "name": "legendary-15-legendary-15-signature-side-3.png",
+          "sha256": "68963697d7426f3b613fb0776093f9003aec7946f47f0113d5e9be7fe8540fc4",
+          "move": "legendary-15-signature",
+          "view": "side",
+          "time": 0.36
+        },
+        {
+          "name": "legendary-15-legendary-15-signature-side-4.png",
+          "sha256": "dddfd57b0dbc9202260c100d1b5a644abda181e6b8336d3d05ddd4add3a534fe",
+          "move": "legendary-15-signature",
+          "view": "side",
+          "time": 0.48
+        },
+        {
+          "name": "legendary-15-legendary-15-signature-side-5.png",
+          "sha256": "1172f04f37f0bb794e11f3bed52202a25f6adfe6427530929e855a316050d07a",
+          "move": "legendary-15-signature",
+          "view": "side",
+          "time": 0.6
+        }
+      ],
+      "width": 1320,
+      "height": 615
+    },
+    {
+      "name": "side-block-2-half-1.png",
+      "sha256": "8345ea56aa4268f3cc0a95f8d26a922edd1780839cc095706c30f84ffaae9a63",
+      "sources": [
+        {
+          "name": "legendary-15-purify-side-6.png",
+          "sha256": "391aeaf52fb71aa4f28647c96cb46ad75520aed6e8701399694a3d1be4a9699f",
+          "move": "purify",
+          "view": "side",
+          "time": 0.76
+        },
+        {
+          "name": "legendary-15-purify-side-7.png",
+          "sha256": "f524a2ab1c400722734ddf625db1a3ce31576162cd9df0a537591c920d5a85cd",
+          "move": "purify",
+          "view": "side",
+          "time": 0.96
+        },
+        {
+          "name": "legendary-15-purify-side-8.png",
+          "sha256": "333dc5362fb76e6aef24d54d63f2bb9a9f3e2d9ed05b63817b5a5532a0657034",
+          "move": "purify",
+          "view": "side",
+          "time": 1.2
+        },
+        {
+          "name": "legendary-15-purify-side-9.png",
+          "sha256": "de7d8281bfa7255b12110bfa194e2ab9242a23f73161962d31a00fe18813d56e",
+          "move": "purify",
+          "view": "side",
+          "time": 1.44
+        },
+        {
+          "name": "legendary-15-purify-side-10.png",
+          "sha256": "5a54bf4fa93a6539b89627d1d7f6eea2fa5a13f078052101b3001da611e49b95",
+          "move": "purify",
+          "view": "side",
+          "time": 1.68
+        },
+        {
+          "name": "legendary-15-purify-side-11.png",
+          "sha256": "9661ed89869a2b3db786324ad7cdd91e6dbf3a917987f6ead4b298b16138288a",
+          "move": "purify",
+          "view": "side",
+          "time": 1.92
+        },
+        {
+          "name": "legendary-15-aegis-side-6.png",
+          "sha256": "c8383c165c18b9149d6bfaed1d49fff3d82b6b4f141bc1819db71a967b15b6dc",
+          "move": "aegis",
+          "view": "side",
+          "time": 0.76
+        },
+        {
+          "name": "legendary-15-aegis-side-7.png",
+          "sha256": "c9b3b7f5f0ec2bde3acb71e0d171eedc7bc9c8dbf1239e9be0bffe6891b39b05",
+          "move": "aegis",
+          "view": "side",
+          "time": 0.96
+        },
+        {
+          "name": "legendary-15-aegis-side-8.png",
+          "sha256": "12c585038e6f186db1e296e3398e34a1e2a778d9f025fcf0a174040aad077d9a",
+          "move": "aegis",
+          "view": "side",
+          "time": 1.2
+        },
+        {
+          "name": "legendary-15-aegis-side-9.png",
+          "sha256": "15cbda3ca64d8c442cb77a2730e47f1712eec9fa6b7cba848ffa0efcc536ac35",
+          "move": "aegis",
+          "view": "side",
+          "time": 1.44
+        },
+        {
+          "name": "legendary-15-aegis-side-10.png",
+          "sha256": "1183a1269c88f36caa9b27455ed8dfac089c0d844e50f51a60e80532e2b364a8",
+          "move": "aegis",
+          "view": "side",
+          "time": 1.68
+        },
+        {
+          "name": "legendary-15-aegis-side-11.png",
+          "sha256": "d22e3e08e7b0b65c284681e5ed6060bcac8c205e7e81fe797939d0f68b146599",
+          "move": "aegis",
+          "view": "side",
+          "time": 1.92
+        },
+        {
+          "name": "legendary-15-legendary-15-signature-side-6.png",
+          "sha256": "2e1222ac28b9bb31b7ad83e2bb8cfe67bacca8662722342dd04fee6fa9bce9ad",
+          "move": "legendary-15-signature",
+          "view": "side",
+          "time": 0.76
+        },
+        {
+          "name": "legendary-15-legendary-15-signature-side-7.png",
+          "sha256": "f9f15d8fbdd7cc04d260acf003ffe27d2c3329d7063958fbf8cc3efe6d6fa57c",
+          "move": "legendary-15-signature",
+          "view": "side",
+          "time": 0.96
+        },
+        {
+          "name": "legendary-15-legendary-15-signature-side-8.png",
+          "sha256": "c31082bb98b1f580328249bc129fa6319e7bdae004f3eb2af834722bd74c2ac8",
+          "move": "legendary-15-signature",
+          "view": "side",
+          "time": 1.2
+        },
+        {
+          "name": "legendary-15-legendary-15-signature-side-9.png",
+          "sha256": "12cf3b39bb9f01b8bc93345c22580f81d04eb9f0e3323741cc3ab952275a12b1",
+          "move": "legendary-15-signature",
+          "view": "side",
+          "time": 1.44
+        },
+        {
+          "name": "legendary-15-legendary-15-signature-side-10.png",
+          "sha256": "1183a1269c88f36caa9b27455ed8dfac089c0d844e50f51a60e80532e2b364a8",
+          "move": "legendary-15-signature",
+          "view": "side",
+          "time": 1.68
+        },
+        {
+          "name": "legendary-15-legendary-15-signature-side-11.png",
+          "sha256": "9661ed89869a2b3db786324ad7cdd91e6dbf3a917987f6ead4b298b16138288a",
+          "move": "legendary-15-signature",
+          "view": "side",
+          "time": 1.92
+        }
+      ],
+      "width": 1320,
+      "height": 615
+    }
+  ],
+  "review": "pending"
+}

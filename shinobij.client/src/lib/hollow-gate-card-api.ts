@@ -2,8 +2,8 @@ import type { Character } from "../types/character";
 
 /** `loanerDeck`: the player had no legal deck of their own (the Card Hall opens
  * at 17), so the server lent its starter deck for this one match. */
-type CardStartResult = { ok: boolean; matchId?: string; loanerDeck?: boolean; error?: string };
-type CardSettleResult = { ok: boolean; won?: boolean; reward?: { ryo: number; auraDust: number }; character?: Character; _saveVersion?: number; error?: string };
+type CardStartResult = { ok: boolean; matchId?: string; resolved?: boolean; ended?: boolean; character?: Character; _saveVersion?: number; loanerDeck?: boolean; error?: string };
+type CardSettleResult = { ok: boolean; won?: boolean; ended?: boolean; alreadyReported?: boolean; reward?: { ryo: number; auraDust: number }; character?: Character; _saveVersion?: number; error?: string };
 
 /** The run-log line for a card ambush that has just opened. */
 export function hollowGateCardAmbushLogLine(started: Pick<CardStartResult, "loanerDeck">): string {
@@ -32,7 +32,7 @@ export async function settleHollowGateCardAmbush(playerName: string, token: stri
             body: JSON.stringify({ playerName, token, matchId }),
         });
         const data = await response.json().catch(() => ({})) as CardSettleResult;
-        return response.ok && data.ok ? data : { ...data, ok: false, error: data.error ?? "The rift card result could not be sealed." };
+        return response.ok && data.ok ? data : { ...data, ok: false, error: data.error ?? "Your rift card result could not be saved. Press Continue again to retry." };
     } catch {
         return { ok: false, error: "The rift card service is unreachable." };
     }

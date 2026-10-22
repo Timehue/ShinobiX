@@ -1,0 +1,55 @@
+{
+  "schema": 1,
+  "errors": [],
+  "pets": [
+    {
+      "id": "rare-38",
+      "name": "Squall Plover",
+      "url": "/.tmp/rare-38-rigid-skull/source-candidate-v1.glb",
+      "sha256": "57fbb0f30059ca7db6496a582455755b68ded1fb45c3f0fa13de81bce748ceb6",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "progress": [
+        0.04,
+        0.2,
+        0.4,
+        0.6,
+        0.8,
+        0.98
+      ],
+      "views": [
+        "front",
+        "side"
+      ],
+      "materialTreatment": {
+        "mode": "production-diffuse",
+        "materials": 1,
+        "metalnessMax": 0.05,
+        "roughnessRange": [
+          0.58,
+          0.82
+        ]
+      },
+      "sheets": [
+        "rare-38-front.webp",
+        "rare-38-side.webp"
+      ],
+      "review": "pending",
+      "framing": "complete posed body bounds; camera follows pose without excluding any mesh vertices"
+    }
+  ],
+  "artisticCertification": false
+}

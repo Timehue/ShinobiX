@@ -93,29 +93,29 @@ test("drill: round one explains range, and the hex bubble fires once in the comp
     const seen = new Set<string>();
     const first = line({ lesson: "eRankDrill" }, seen);
     assert.equal(first?.surface, "band");
-    assert.match(first?.text ?? "", /Flicker in for 20/);
+    assert.match(first?.text ?? "", /Flicker costs 20 AP/);
     assert.match(line({ lesson: "eRankDrill", hasFlicker: false })?.text ?? "", /Step in/);
-    assert.match(line({ lesson: "eRankDrill", distance: 4, hasKunai: false })?.text ?? "", /A jutsu is 60 AP/);
-    assert.match(line({ lesson: "eRankDrill", distance: 4 })?.text ?? "", /kunai 40/);
+    assert.match(line({ lesson: "eRankDrill", distance: 4, hasKunai: false })?.text ?? "", /Check each jutsu's AP cost/);
+    assert.match(line({ lesson: "eRankDrill", distance: 4 })?.text ?? "", /kunai: 40 AP/);
     const hexed = line({ lesson: "eRankDrill", round: 2, distance: 4, myDebuffs: ["Decrease Damage Given"] }, seen);
     assert.equal(hexed?.surface, "bubble");
-    assert.match(hexed?.text ?? "", /Hematoma Veil does the same to it for forty/);
+    assert.match(hexed?.text ?? "", /Hematoma Veil for 40 AP to reduce its damage/);
     seen.add(hexed!.id);
     const again = line({ lesson: "eRankDrill", round: 2, distance: 4, myDebuffs: ["Decrease Damage Given"] }, seen);
     assert.notEqual(again?.id, "drill-hexed", "a once-only bubble yields to the band after it has been shown");
     assert.equal(again?.surface, "band");
     const selfBuff = line({ lesson: "eRankDrill", myDebuffs: ["Decrease Damage Given"], fortyJutsu: { name: "Anvil Breath Guard", selfOnly: true, ready: true } });
-    assert.match(selfBuff?.text ?? "", /Anvil Breath Guard costs forty and steadies you/);
+    assert.match(selfBuff?.text ?? "", /Anvil Breath Guard costs 40 AP and targets you/);
     const noForty = line({ lesson: "eRankDrill", myDebuffs: ["Decrease Damage Given"], fortyJutsu: undefined });
-    assert.match(noForty?.text ?? "", /fades in two turns/);
+    assert.match(noForty?.text ?? "", /reduced for two turns/);
     // Seen live 2026-09-17: the player had already spent Hematoma Veil on it,
     // so the card was on cooldown when the hex landed. The bubble must not
     // suggest pressing it.
     const spent = line({ lesson: "eRankDrill", myDebuffs: ["Decrease Damage Given"], fortyJutsu: { name: "Hematoma Veil", selfOnly: false, ready: false } });
-    assert.match(spent?.text ?? "", /the way your Hematoma Veil hexed it/);
+    assert.match(spent?.text ?? "", /Hematoma Veil also reduced its damage and is now on cooldown/);
     assert.doesNotMatch(spent?.text ?? "", /still leaves you sixty/);
     const spentSelf = line({ lesson: "eRankDrill", myDebuffs: ["Decrease Damage Given"], fortyJutsu: { name: "Anvil Breath Guard", selfOnly: true, ready: false } });
-    assert.match(spentSelf?.text ?? "", /fades in two turns/);
+    assert.match(spentSelf?.text ?? "", /reduced for two turns/);
     assert.doesNotMatch(spentSelf?.text ?? "", /Anvil Breath Guard/);
 });
 
@@ -135,14 +135,14 @@ test("story: the braced guardian gets exactly three light cut-ins, in order, onc
     const seen = new Set<string>();
     const braced = line({ lesson: "storyFirst", enemyShield: 267 }, seen);
     assert.equal(braced?.id, "story-braced");
-    assert.match(braced?.text ?? "", /It's braced/);
+    assert.match(braced?.text ?? "", /shield absorbs damage before HP/);
     seen.add(braced!.id);
     const wasted = line({ lesson: "storyFirst", enemyShield: 100, history: { ...EMPTY_FIRST_FIGHT_HISTORY, castedSixtyIntoShield: true, enemyShieldSeen: true } }, seen);
     assert.equal(wasted?.id, "story-wasted");
     seen.add(wasted!.id);
     const open = line({ lesson: "storyFirst", enemyShield: 0, history: { ...EMPTY_FIRST_FIGHT_HISTORY, enemyShieldSeen: true } }, seen);
     assert.equal(open?.id, "story-open");
-    assert.match(open?.text ?? "", /Guard's down/);
+    assert.match(open?.text ?? "", /shield is gone/);
     seen.add(open!.id);
     assert.equal(line({ lesson: "storyFirst", enemyShield: 0, history: { ...EMPTY_FIRST_FIGHT_HISTORY, enemyShieldSeen: true } }, seen), null);
     // Before any shield has shown there is nothing to say.
@@ -153,7 +153,10 @@ test("errand: the poison line is honest about the choice and the second only fir
     const seen = new Set<string>();
     const poisoned = line({ lesson: "dRankErrand", myDebuffs: ["Poison", "Increase Damage Taken"] }, seen);
     assert.equal(poisoned?.id, "errand-poisoned");
-    assert.match(poisoned?.text ?? "", /Cleanse clears it, or end this fast/);
+    assert.match(poisoned?.text ?? "", /jutsu spends chakra or stamina\. Cleanse removes it/);
+    const withoutCleanse = line({ lesson: "dRankErrand", myDebuffs: ["Poison"], cleanseReady: false });
+    assert.match(withoutCleanse?.text ?? "", /Basic attacks avoid that extra damage/);
+    assert.doesNotMatch(withoutCleanse?.text ?? "", /Cleanse/);
     seen.add(poisoned!.id);
     assert.equal(line({ lesson: "dRankErrand", myDebuffs: ["Poison"] }, seen), null, "no nagging while the player has not cast through it");
     const bite = line({ lesson: "dRankErrand", myDebuffs: ["Poison"], history: { ...EMPTY_FIRST_FIGHT_HISTORY, castedSixtyWhilePoisoned: true } }, seen);

@@ -316,7 +316,7 @@ export function pvpRewardSettlementNotice(
     result: PvpRewardClaimConfirmed,
     options: { draw: boolean; spar: boolean; role?: "win" | "loss" },
 ): string {
-    if (options.draw) return "Draw confirmed — terminal battle effects are settled.";
+    if (options.draw) return "Draw confirmed. Your battle result and any HP or item changes have been saved.";
     if (options.spar) return "Spar complete — no progression rewards.";
     const base = result.base?.reward;
     // Owner ruling A9: say why a fight paid less than the full purse. A

@@ -4,6 +4,9 @@ import type { Character, VersionedCharacterCommit } from '../types/character';
 import type { CaravanCombatCatalogs } from '../features/sunscar/CaravanBattle';
 import { SunscarExchange, SunscarExchangeEntrance } from '../components/SunscarExchange';
 import { BlackMarketCrate } from '../components/BlackMarketCrate';
+import brokerCertificateArt from '../assets/festival/broker-certificate-v1.webp';
+import { brokerCertificateCount, type BrokerPayment } from '../../../shared/sunscar/broker-certificates';
+import { pendingBrokerPullIntent } from '../lib/black-market-intent';
 import { pullBlackMarket, describeReward, useBlackMarketUsage, BLACK_MARKET_COST, BLACK_MARKET_DAILY_CAP, type BlackMarketReward } from '../lib/black-market';
 import { rallyActive as activeRally, rallyRank } from '../../../shared/sunscar/rally-championship';
 import { caravanRank } from '../../../shared/sunscar/caravan-types';
@@ -14,6 +17,7 @@ import '../styles/sunscar-modes.css';
 import '../styles/sunscar-caravan.css';
 import '../styles/sunscar-responsive.css';
 import '../styles/sunscar-hub.css';
+import '../styles/broker-certificates.css';
 import type { Screen } from '../types/core';
 import { peekExchangeReturnContext } from '../lib/exchange-return';
 
@@ -56,20 +60,30 @@ export function SunscarFestival({ character, onVersionedCharacter, setCreatorIte
     useEffect(() => { const timer = window.setInterval(() => setToday(new Date(serverNow()).toISOString().slice(0, 10)), 60_000); return () => window.clearInterval(timer); }, []);
     const [bmBusy, setBmBusy] = useState(false);
     const bmBusyRef = useRef(false);
+    const [brokerPayment, setBrokerPayment] = useState<BrokerPayment>('ryo');
+    const pendingPull = pendingBrokerPullIntent(character.name);
+    const selectedPayment = pendingPull?.payment ?? brokerPayment;
+    const certificates = brokerCertificateCount(character);
     const brokerButtonRef = useRef<HTMLButtonElement>(null);
     // Shared with the player card's Sealed Crates cell; every pull's reply updates both.
     const bmUsed = useBlackMarketUsage(character.name, today);
+    const bmAtCap = bmUsed !== null && bmUsed >= BLACK_MARKET_DAILY_CAP;
+    const bmCanPay = selectedPayment === 'certificate' ? certificates > 0 : character.ryo >= BLACK_MARKET_COST;
+    const bmActionLabel = bmBusy ? 'Preparing crate…' : pendingPull ? 'Recover pending crate' : bmAtCap ? 'Daily crates claimed'
+        : selectedPayment === 'certificate' ? certificates > 0 ? 'Redeem certificate · Free crate' : 'No certificates remaining'
+        : bmCanPay ? 'Buy a sealed crate' : 'More ryo required';
     const [bmReveal, setBmReveal] = useState<BlackMarketReward | null>(null);
     const [brokerLog, setBrokerLog] = useState('A sealed crate. A closely guarded secret. Take your chances with the Broker’s collection.');
     async function buyCrate() {
         if (bmBusyRef.current) return;
         bmBusyRef.current = true; setBmBusy(true);
         try {
-            const res = await pullBlackMarket(character.name);
-            if (!res.ok || !res.reward || !res.character) { setBrokerLog(res.error ?? 'The Broker is unavailable.'); return; }
+            const res = await pullBlackMarket(character.name, selectedPayment);
             // Paid even if a newer save was adopted first and this commit is refused
             // as stale (the coordinator then reads the stored save back).
-            onVersionedCharacter(res.character, res._saveVersion);
+            // A declined purchase can also correct a stale certificate balance.
+            if (res.character) onVersionedCharacter(res.character, res._saveVersion);
+            if (!res.ok || !res.reward || !res.character) { setBrokerLog(res.error ?? 'The Broker is unavailable.'); return; }
             setBmReveal(res.reward);
             setBrokerLog(res.reward.label + '. ' + describeReward(res.reward) + '.');
         } finally { bmBusyRef.current = false; setBmBusy(false); }
@@ -105,8 +119,20 @@ export function SunscarFestival({ character, onVersionedCharacter, setCreatorIte
         </div>
         <div className="sunscar-hub-heading"><p className="sunscar-eyebrow">Under the lanterns</p><h2>The trading quarter</h2></div>
         <div className="sunscar-market-row"><SunscarExchangeEntrance onOpen={() => openDestination('exchange')}/><section className="sunscar-broker sunscar-poster"><div className="sunscar-broker-art sunscar-poster-art"><img className="sunscar-broker-market-art" src={brokerMarketArt} alt="The Broker guarding a sealed treasure chest in Sunscar’s lantern-lit black market"/></div><div className="sunscar-broker-copy sunscar-poster-copy"><p className="sunscar-eyebrow">The Black Market</p><h2>The Broker</h2><p role="status">{brokerLog}</p>
-            <div className="sunscar-crate-price sunscar-poster-meta"><strong>{BLACK_MARKET_COST.toLocaleString()} <small>Ryo / crate</small></strong><span>{bmUsed !== null ? `${bmUsed}/${BLACK_MARKET_DAILY_CAP} claimed today` : `${BLACK_MARKET_DAILY_CAP} crates per day`}</span></div>
-            <button ref={brokerButtonRef} onClick={() => void buyCrate()} disabled={bmBusy || character.ryo < BLACK_MARKET_COST || bmUsed !== null && bmUsed >= BLACK_MARKET_DAILY_CAP}>{bmBusy ? 'Preparing crate…' : bmUsed !== null && bmUsed >= BLACK_MARKET_DAILY_CAP ? 'Daily crates claimed' : character.ryo < BLACK_MARKET_COST ? 'More ryo required' : 'Buy a sealed crate'}</button><small>Your purse: {character.ryo.toLocaleString()} Ryo</small>
+            <div className="sunscar-crate-price sunscar-poster-meta">
+                <strong>{selectedPayment === 'certificate' ? 'Free' : BLACK_MARKET_COST.toLocaleString()} <small>{selectedPayment === 'certificate' ? 'with certificate' : 'Ryo / crate'}</small></strong>
+                <span>{bmUsed !== null ? `${bmUsed}/${BLACK_MARKET_DAILY_CAP} claimed today` : `${BLACK_MARKET_DAILY_CAP} crates per day`}</span>
+            </div>
+            <div className="broker-purchase-actions">
+                <div className="broker-payment-option"><img src={brokerCertificateArt} alt="" width={46} height={46}/><label>Pay with
+                    <select aria-label="Sealed crate payment" value={selectedPayment} disabled={bmBusy || !!pendingPull} onChange={event => setBrokerPayment(event.target.value as BrokerPayment)}>
+                        <option value="ryo">{BLACK_MARKET_COST.toLocaleString()} Ryo</option>
+                        <option value="certificate" disabled={certificates < 1}>Certificate ({certificates})</option>
+                    </select>
+                </label></div>
+                <button ref={brokerButtonRef} onClick={() => void buyCrate()} disabled={bmBusy || !pendingPull && (!bmCanPay || bmAtCap)}>{bmActionLabel}</button>
+            </div>
+            <small>Your purse: {character.ryo.toLocaleString()} Ryo · {certificates} certificate{certificates === 1 ? '' : 's'}<span className="broker-payment-note">Paid and certificate crates share the 10-crate daily limit.</span></small>
         </div></section></div><footer className="sunscar-hub-footer">The lanterns stay lit. Daily entries renew at 00:00 UTC.</footer>
     </div>;
 }
