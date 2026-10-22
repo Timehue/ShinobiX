@@ -821,7 +821,7 @@ async function settleSide(
             });
             credited = { ...character, ...result.patch };
             ratingAfter = result.newRating;
-            // Ranked purse (PVP_RANKED_PURSE, default off): paid in the same
+            // Ranked purse (on from launch, no switch): paid in the same
             // save commit as the Elo, which carries the currency ledger row,
             // and fenced by the same settlement stamp.
             rankedPurse = rankedPurseRyo(weightRow, { role, lucky: pvpLuckyActive(character) });
