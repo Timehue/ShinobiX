@@ -9,13 +9,13 @@ import type { ResourceSeal } from '../../api/world/_resource-gathering';
 import { expectVisibleTouchTarget } from './helpers/visible-target';
 const { mintResourceSeal, admitResourceAttempt, resolveResourceAttempt, equipGatheringTool } = createRequire(import.meta.url)('../../dist/api/world/_resource-gathering.js') as typeof import('../../api/world/_resource-gathering');
 
-async function install(page: Page, nodeId = 'resource-13', uses = 0, miningXp = 3200) {
+async function install(page: Page, nodeId = 'resource-13', uses = 0, miningXp = 3200, fishingXp = 3200) {
     const node = resourceNode(nodeId)!;
     let character: Record<string, unknown> = { ...uiAuditSave().character, name: 'GatherQA',
         inventory: ['tool-basic-pickaxe', 'tool-basic-fishing-pole'],
         equipment: { pickaxe: 'tool-golden-pickaxe', fishingPole: 'tool-golden-fishing-pole' },
         gatheringToolUses: { 'tool-basic-pickaxe': uses, 'tool-basic-fishing-pole': 0 },
-        resourceGathering: { ...readResourceGathering(null), miningXp, fishingXp: 3200 } };
+        resourceGathering: { ...readResourceGathering(null), miningXp, fishingXp } };
     let version = 1, settlements = 0, loseAck = false;
     const seals = new Map<string, ResourceSeal>();
     const player = { sector: node.sector, tile: node.approach, movementSeq: 0, resourceEpoch: 0 } as OnlinePlayer;
@@ -97,10 +97,60 @@ test('Outpost tabs, independent skills and tool slots remain accessible on small
     await page.getByRole('tab', { name: 'Mining', exact: true }).focus();
     await page.keyboard.press('ArrowLeft');
     await expect(page.getByRole('tab', { name: 'Fishing', exact: true })).toHaveAttribute('aria-selected', 'true');
+    for (const activity of ['Fishing', 'Mining']) {
+        await page.getByRole('tab', { name: activity, exact: true }).click();
+        await expect(page.getByRole('heading', { name: `${activity} · Level 10` })).toBeVisible();
+        await expect(page.getByRole('progressbar', { name: `${activity} skill progress` })).toHaveAttribute('value', '1');
+        const tier = page.locator('.outpost-site-tier').last();
+        await tier.locator('summary').focus();
+        await page.keyboard.press('Enter');
+        await expect(tier).toHaveAttribute('open', '');
+        await expect(tier.locator('article').first()).toBeVisible();
+        await page.keyboard.press('Enter');
+        await expect(tier).not.toHaveAttribute('open');
+        await noOverflow(page);
+        const audit = await new AxeBuilder({ page }).include('.shinobi-outpost').withTags(['wcag2a', 'wcag2aa']).analyze();
+        expect(audit.violations).toEqual([]);
+        await page.evaluate(() => window.scrollTo(0, 0));
+        await expect.poll(() => page.locator('.outpost-grade img').evaluateAll(images => images.every(image => (image as HTMLImageElement).complete && (image as HTMLImageElement).naturalWidth > 0))).toBe(true);
+        await page.screenshot({ path: info.outputPath(`outpost-${activity.toLowerCase()}.png`) });
+        await page.locator('.outpost-survey').screenshot({ path: info.outputPath(`outpost-${activity.toLowerCase()}-sites.png`) });
+    }
+});
+
+test('Outpost appraisal distinguishes locked grades and shows progress within the current level', async ({ page }) => {
+    await install(page, 'resource-13', 0, 125);
+    await page.goto('/e2e/fixtures/resource-gathering.html?screen=outpost');
+    await page.getByRole('tab', { name: 'Mining', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Mining · Level 2' })).toBeVisible();
+    const progress = page.getByRole('progressbar', { name: 'Mining skill progress' });
+    await expect(progress).toHaveAttribute('value', '25');
+    await expect(progress).toHaveAttribute('max', '150');
+    await expect(page.locator('.outpost-grade.is-locked')).toHaveCount(2);
+    await expect(page.locator('.outpost-grade--1')).toContainText('Available now');
+    await expect(page.locator('.outpost-grade--2')).toContainText('Unlocks at skill 4');
+    const rich = page.locator('.outpost-site-tier').nth(1);
+    await rich.locator('summary').click();
+    await expect(rich.locator('article').first()).toContainText('Unlocks at skill 4');
     await noOverflow(page);
-    const audit = await new AxeBuilder({ page }).include('.shinobi-outpost').withTags(['wcag2a', 'wcag2aa']).analyze();
-    expect(audit.violations).toEqual([]);
-    await page.screenshot({ path: info.outputPath('outpost.png'), fullPage: true });
+});
+
+test('level-one Outpost quality values stay within their cards on narrow phones', async ({ page }) => {
+    await install(page, 'resource-13', 0, 0, 0);
+    await page.goto('/e2e/fixtures/resource-gathering.html?screen=outpost');
+    for (const width of [320, 360, 390]) {
+        await page.setViewportSize({ width, height: 800 });
+        for (const activity of ['Fishing', 'Mining']) {
+            await page.getByRole('tab', { name: activity, exact: true }).click();
+            await expect(page.getByRole('heading', { name: `${activity} · Level 1` })).toBeVisible();
+            await expect(page.locator('.outpost-grade--0 strong')).toHaveText('100.0%');
+            expect(await page.locator('.outpost-grade').evaluateAll(cards => cards.every(card => {
+                const bounds = card.getBoundingClientRect(), value = card.querySelector('strong')!.getBoundingClientRect();
+                return card.scrollWidth <= card.clientWidth + 1 && value.right <= bounds.right + 1;
+            })), `${activity} appraisal should fit at ${width}px`).toBe(true);
+            await noOverflow(page);
+        }
+    }
 });
 
 test('Fracture Chain exposes the core and consumes the final basic tool use once', async ({ page }, info) => {
