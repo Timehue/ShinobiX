@@ -345,6 +345,18 @@ export type PvpFightCredit = {
     lMin: number;
 };
 
+/** The live thresholds behind a credit, so the player-facing copy never drifts from the dials. */
+export function pvpCreditRules() {
+    return {
+        minRounds: pvpMinRounds(),
+        minFightSeconds: Math.round(pvpMinFightMs() / 1000),
+        lossMinDamagePct: Math.round(PVP_LOSS_MIN_DAMAGE_FRAC * 100),
+        minAccountAgeHours: Math.round(pvpMinAccountAgeMs() / 3_600_000),
+        establishedLevel: PVP_ESTABLISHED_LEVEL,
+        levelGapMax: PVP_CREDIT_LEVEL_GAP_MAX,
+    };
+}
+
 /** Player-facing summary of the credit, returned with the reward (owner A9: every limit is visible). */
 export function pvpCreditView(credit: PvpFightCredit) {
     return {
@@ -355,6 +367,7 @@ export function pvpCreditView(credit: PvpFightCredit) {
         pairOrdinal: credit.pairOrdinal,
         pairWeight: credit.pairWeight,
         sideMult: credit.sideMult,
+        rules: pvpCreditRules(),
     };
 }
 

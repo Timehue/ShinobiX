@@ -62,6 +62,15 @@ export type PvpRewardCredit = {
     pairOrdinal: number;
     pairWeight: number;
     sideMult: number;
+    /** The live thresholds behind the credit (server dials); absent on older replies. */
+    rules?: {
+        minRounds: number;
+        minFightSeconds: number;
+        lossMinDamagePct: number;
+        minAccountAgeHours: number;
+        establishedLevel: number;
+        levelGapMax: number;
+    };
 };
 
 export type PvpWinBaseSummary = {
