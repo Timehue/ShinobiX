@@ -228,8 +228,10 @@ describe('the village-war purse', () => {
     it('pays no purse on wars that ended before it shipped, on legacy HP wars, or to a fresh alt', () => {
         assert.equal(settleVillageWarRewards(fighter(), campaignWar(), NOW, { ...FULL, epochMs: NOW }).purse, 0, 'ended before the epoch');
         assert.equal(settleVillageWarRewards(fighter(), campaignWar({ campaign: undefined }), NOW, FULL).purse, 0, 'HP damage is not campaign points');
-        const alt = fighter({ createdAt: NOW - 2 * HOUR - 24 * HOUR });
-        assert.equal(settleVillageWarRewards(alt, campaignWar(), NOW, FULL).purse, 0, 'an account under 72 h old when the war ended');
+        const alt = fighter({ createdAt: NOW - 2 * HOUR - 24 * HOUR, level: 19 });
+        assert.equal(settleVillageWarRewards(alt, campaignWar(), NOW, FULL).purse, 0, 'an account under 72 h old and below L20 when the war ended');
+        const freshEstablished = fighter({ createdAt: NOW - 2 * HOUR - 24 * HOUR });
+        assert.ok(settleVillageWarRewards(freshEstablished, campaignWar(), NOW, FULL).purse > 0, 'a fresh account at L20+ is established (owner A14)');
         const veteran = fighter({ createdAt: NOW - 30 * 24 * HOUR });
         assert.equal(settleVillageWarRewards(veteran, campaignWar(), NOW, FULL).purse, 22_500);
         assert.equal(settleVillageWarRewards(fighter({ createdAt: undefined }), campaignWar(), NOW, FULL).purse, 22_500, 'fail-open on a missing stamp');

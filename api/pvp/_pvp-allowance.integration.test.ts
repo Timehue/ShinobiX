@@ -53,8 +53,8 @@ type Duel = { battleId: string; win: Record<string, any>; loss?: Record<string, 
  * 60 s floor; `winnerHp` is the winner's HP at the KO (of 10,000), which sets
  * how much the loser dealt.
  */
-async function duel(winner: string, loser: string, o: { full: boolean; winnerHp?: number; loserClaims?: boolean; loserExtra?: Record<string, unknown> }): Promise<Duel> {
-    await seed(winner);
+async function duel(winner: string, loser: string, o: { full: boolean; winnerHp?: number; loserClaims?: boolean; loserExtra?: Record<string, unknown>; winnerExtra?: Record<string, unknown> }): Promise<Duel> {
+    await seed(winner, o.winnerExtra);
     await seed(loser, o.loserExtra);
     const admission = await post(attack, winner, { targetName: loser, attacker: { name: winner } });
     assert.equal(admission.status, 200, JSON.stringify(admission.body));
@@ -165,8 +165,15 @@ test('a >20-level stomp and a fresh-alt loser pay nothing and take no pair slot'
     assert.equal(await kv.get('pvp:pair:validstomplose:validstompwin:2026-10-21'), null);
     assert.equal((await kv.get<Record<string, any>>('save:validstompwin'))!.character.totalPvpKills, 1, 'the kill still counts');
 
-    const fresh = await duel('validfreshwin', 'validfreshlose', { full: true, loserClaims: false, loserExtra: { createdAt: Date.now() - 71 * 3_600_000 } });
+    // A fresh alt below L20 is not established (owner A14: 72 h old OR L20).
+    const fresh = await duel('validfreshwin', 'validfreshlose', { full: true, loserClaims: false,
+        winnerExtra: { level: 19 }, loserExtra: { level: 19, createdAt: Date.now() - 71 * 3_600_000 } });
     assert.deepEqual(reward(fresh.win), nothing);
     assert.equal(fresh.win.base.reward.credit.reason, 'too-young');
     assert.equal(await kv.get('pvp:pair:validfreshlose:validfreshwin:2026-10-21'), null);
+
+    // The same fresh account at L100 is established, so a reset week pays.
+    const established = await duel('validnewwin', 'validnewlose', { full: true, loserClaims: false,
+        loserExtra: { createdAt: Date.now() - 71 * 3_600_000 } });
+    assert.ok(established.win.base.reward.ryo > 0, JSON.stringify(established.win.base.reward));
 });

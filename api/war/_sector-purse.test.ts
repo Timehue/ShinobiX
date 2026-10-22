@@ -114,7 +114,8 @@ describe('paying the purse', () => {
         const l = ledger({ raider: { points: 100, side: ATTACKER } });
         assert.equal(purse.settleSectorWarPurses(fighter({ village: DEFENDER }), [l], NOW, { purseScale: 1 }).granted, false);
         assert.equal(purse.settleSectorWarPurses(fighter(), [l], NOW + 8 * 24 * HOUR, { purseScale: 1 }).granted, false);
-        assert.equal(purse.settleSectorWarPurses(fighter({ createdAt: NOW - 10 * HOUR }), [l], NOW, { purseScale: 1 }).granted, false);
+        assert.equal(purse.settleSectorWarPurses(fighter({ createdAt: NOW - 10 * HOUR, level: 19 }), [l], NOW, { purseScale: 1 }).granted, false);
+        assert.equal(purse.settleSectorWarPurses(fighter({ createdAt: NOW - 10 * HOUR, level: 20 }), [l], NOW, { purseScale: 1 }).granted, true, 'a fresh L20 account is established (owner A14)');
     });
 });
 

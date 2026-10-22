@@ -49,8 +49,8 @@ const C_FIELD = [
     { id: 'fetch-d-supply-trail', exploreCount: 3, raidCount: 1, levelReq: 1, xpReward: 90, ryoReward: 100, staminaReward: 8, currencyRewards: {} },
     { id: 'fetch-c-border-scout', exploreCount: 5, raidCount: 2, levelReq: 15, xpReward: 240, ryoReward: 540, staminaReward: 14, currencyRewards: {} },
     { id: 'fetch-b-enemy-cache', exploreCount: 7, raidCount: 3, levelReq: 30, xpReward: 520, ryoReward: 1320, staminaReward: 22, currencyRewards: { boneCharms: 1 } },
-    { id: 'fetch-a-black-route', exploreCount: 9, raidCount: 4, levelReq: 50, xpReward: 1100, ryoReward: 3050, staminaReward: 32, currencyRewards: { boneCharms: 2, auraDust: 20 } },
-    { id: 'fetch-s-shadow-front', exploreCount: 12, raidCount: 5, levelReq: 70, xpReward: 2400, ryoReward: 5630, staminaReward: 45, currencyRewards: { boneCharms: 3, auraDust: 45 } },
+    { id: 'fetch-a-black-route', exploreCount: 9, raidCount: 4, levelReq: 50, xpReward: 1100, ryoReward: 3050, staminaReward: 32, currencyRewards: { boneCharms: 1, auraDust: 20 } },
+    { id: 'fetch-s-shadow-front', exploreCount: 12, raidCount: 5, levelReq: 70, xpReward: 2400, ryoReward: 5630, staminaReward: 45, currencyRewards: { boneCharms: 2, auraDust: 45 } },
 ];
 
 describe('mission catalog matches the client reward tables', () => {

@@ -3,7 +3,7 @@ import { safeName } from '../_utils.js';
 import { economyDial } from '../_economy-dials.js';
 import { anchorRyoPerMinute } from '../../shared/economy-anchor.js';
 import { preparationTier } from '../../shared/war-preparations.js';
-import { ACCOUNT_AGE_MIN_MS } from '../pvp/_pvp-anti-alt.js';
+import { pvpAccountOldEnough } from '../pvp/_valid-fight.js';
 import { villageWarAgreementPayFraction, villageWarEndedEarlyByAgreement, warMinDurationMs } from './_early-end.js';
 import { stagedRaise, warPurseScale } from './_war-pay-scale.js';
 
@@ -127,11 +127,13 @@ export function villageWarPursePoints(war: VillageWarRewardRecord, contributorKe
     return found ? total : Math.max(0, Math.floor(fallback));
 }
 
-/** The 72 h account-age rule the PvP purse uses, at the moment the war ended. */
+/**
+ * The established-account rule the PvP purse uses, at the moment the war
+ * ended: 72 h old OR at PVP_ESTABLISHED_LEVEL (owner A14), so the first war
+ * after a reset pays without an env change. A missing createdAt passes.
+ */
 export function warAccountOldEnough(character: Record<string, unknown>, at: number): boolean {
-    const created = Number(character.createdAt);
-    // Fail open: a save with no createdAt stamp is not treated as a fresh alt.
-    return !(Number.isFinite(created) && created > 0 && at - created < ACCOUNT_AGE_MIN_MS);
+    return pvpAccountOldEnough(character.createdAt, at, character.level);
 }
 
 export function villageWarRewardToken(war: VillageWarRewardRecord): string {
