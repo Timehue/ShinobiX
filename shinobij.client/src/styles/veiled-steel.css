@@ -1251,11 +1251,6 @@ html body.ui-scroll-locked {
     min-height: 44px;
   }
 
-  .app-shell.screen-tavern .tavern-screen {
-    top: 0 !important;
-    height: auto !important;
-  }
-
   .app-shell.screen-tavern .tavern-compose :where(input, button) {
     min-height: 44px;
   }

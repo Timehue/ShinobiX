@@ -7,8 +7,9 @@ const previewRoot = previewRootFor(port);
 
 // The non-combat screen walk visits ~20 screens per project. Layout-at-viewport
 // is what it measures, and the two chromium viewports below cover that, so the
-// other five projects were paying 31 tests each for the same answer — which is
-// what took e2e-responsive from 8 min to 15 min.
+// other projects were paying 31 tests each for the same answer — which is
+// what took e2e-responsive from 8 min to 15 min. Mobile WebKit deliberately
+// retains the walkthrough: Safari layout and scrolling need their own coverage.
 //
 // item-artwork-coverage is deliberately NOT in this list: it is only 2 tests and
 // it decodes the actual WebP catalog, which is precisely the thing that can
@@ -16,6 +17,7 @@ const previewRoot = previewRootFor(port);
 // Source fixtures run through their dedicated Vite configs in CI.
 // They are source fixtures, so the immutable production-preview server cannot serve them.
 const SOURCE_FIXTURE_SPECS = ['**/village-transfer.spec.ts', '**/profession-change.spec.ts', '**/named-forge.spec.ts', '**/sector-hud.spec.ts', '**/wild-binding.spec.ts', '**/chronicle-packs.spec.ts', '**/tournaments.spec.ts', '**/tournaments-live.spec.ts', '**/pet-gauntlet-board.spec.ts', '**/world-eras.spec.ts', '**/rally-recovery.spec.ts', '**/player-friction-source.spec.ts', '**/dojo-circuit-gamepad.spec.ts'];
+SOURCE_FIXTURE_SPECS.push('**/iphone-experience.spec.ts');
 SOURCE_FIXTURE_SPECS.push('**/compact-map-notice.spec.ts', '**/resource-gathering.spec.ts', '**/travel-handoff.spec.ts');
 SOURCE_FIXTURE_SPECS.push('**/dungeon-presentation.spec.ts', '**/hollow-gate-return.spec.ts', '**/clan-boss-result.spec.ts', '**/arena-practice.spec.ts');
 SOURCE_FIXTURE_SPECS.push('**/sector-life.spec.ts', '**/chronicle-stop.spec.ts', '**/resource-surface.spec.ts', '**/ground-wildlife.spec.ts');
@@ -102,7 +104,7 @@ export default defineConfig({
         { name: 'webkit-desktop', testIgnore: SCREEN_WALK_SPEC, use: { browserName: 'webkit', viewport: { width: 1366, height: 768 } } },
         { name: 'chromium-compact', testIgnore: SCREEN_WALK_SPEC, use: { browserName: 'chromium', viewport: { width: 360, height: 640 }, isMobile: true, hasTouch: true } },
         { name: 'chromium-mobile', use: { browserName: 'chromium', viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true } },
-        { name: 'webkit-mobile', testIgnore: SCREEN_WALK_SPEC, use: { browserName: 'webkit', viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true } },
+        { name: 'webkit-mobile', use: { browserName: 'webkit', viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true } },
         { name: 'chromium-tablet', testIgnore: SCREEN_WALK_SPEC, use: { browserName: 'chromium', viewport: { width: 768, height: 1024 }, isMobile: true, hasTouch: true } },
     ],
 });
