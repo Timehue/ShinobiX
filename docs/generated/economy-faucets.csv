@@ -44,11 +44,11 @@ field-mission,fetch-b-enemy-cache,statPoints,3,"per claim, from the shared daily
 field-mission,fetch-b-enemy-cache,boneCharms,1,per daily claim,api/missions/_mission-catalog.ts,
 field-mission,fetch-a-black-route,ryo,3050,per daily claim,api/missions/_mission-catalog.ts,
 field-mission,fetch-a-black-route,statPoints,3,"per claim, from the shared daily stat-point budget",api/missions/_mission-catalog.ts,Before mission bonuses; XP fields are legacy display data.
-field-mission,fetch-a-black-route,boneCharms,2,per daily claim,api/missions/_mission-catalog.ts,
+field-mission,fetch-a-black-route,boneCharms,1,per daily claim,api/missions/_mission-catalog.ts,
 field-mission,fetch-a-black-route,auraDust,20,per daily claim,api/missions/_mission-catalog.ts,
 field-mission,fetch-s-shadow-front,ryo,5630,per daily claim,api/missions/_mission-catalog.ts,
 field-mission,fetch-s-shadow-front,statPoints,3,"per claim, from the shared daily stat-point budget",api/missions/_mission-catalog.ts,Before mission bonuses; XP fields are legacy display data.
-field-mission,fetch-s-shadow-front,boneCharms,3,per daily claim,api/missions/_mission-catalog.ts,
+field-mission,fetch-s-shadow-front,boneCharms,2,per daily claim,api/missions/_mission-catalog.ts,
 field-mission,fetch-s-shadow-front,auraDust,45,per daily claim,api/missions/_mission-catalog.ts,
 academy,academy-trial,xp,40,once per account,api/missions/_mission-catalog.ts,
 academy,academy-trial,ryo,6000,once per account,api/missions/_mission-catalog.ts,
@@ -60,7 +60,7 @@ academy,academy-checklist,fateShards,2,once per account,api/missions/_mission-ca
 daily-login,level-scaled-ryo,ryo,500+100*level (cap 8000),daily,api/player/_daily-login.ts,
 daily-login,streak-shards,fateShards,5,every 7 claim days (never resets),api/player/_daily-login.ts,
 daily-login,streak-early-shards,fateShards,2,claim days 2 and 3 (once per character),api/player/_daily-login.ts,
-hunt-mission,chance-drop,fateShards,1,"25% per hunt or fetch-s-shadow-front claim (L20+, account 72h+; dial HUNT_FS_CHANCE; no cap)",api/missions/_mission-catalog.ts,
+hunt-mission,chance-drop,fateShards,1,25% per hunt or fetch-s-shadow-front claim (L20+; dial HUNT_FS_CHANCE; no cap),api/missions/_mission-catalog.ts,
 hunt-mission,chance-drop,auraStones,1,20% per hunt claim (L50+; dial HUNT_AS_CHANCE; no cap),api/missions/_mission-catalog.ts,
 daily-stat-budget,shared-cap,statPoints,60,"daily ceiling shared by hunt/field claims, PvE and PvP wins (dial DAILY_STAT_POINT_CAP)",api/_stat-growth.ts,
 war-crate,legendary-war-crate,ryo,500,per crate,api/inventory/_war-crate.ts,

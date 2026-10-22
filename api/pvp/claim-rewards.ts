@@ -14,6 +14,7 @@ import {
     pvpCreditView,
     pvpLossFrac,
     pvpLuckyActive,
+    pvpMastery4049Enabled,
     pvpPurseScale,
     readRankedWeightRow,
     resolvePvpFightCredit,
@@ -584,15 +585,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 && (session.rankedKind === 'player' || session.rankedKind === 'pet')
                 && (session.winner === 'p1' || session.winner === 'p2'));
         const creditBase = rewardAuthorized && session.baseRewards === true && outcome === 'win';
-        // Loss pay (2026-10 rebalance #2): an engaged loser earns 0.4 of the
-        // win purse. Off while the purse dial is 0 (today's 75 flat), so the
-        // loser's claim then keeps its old path and never locks its own save.
+        // Loss credit (2026-10 rebalance #2 / #23): an engaged loser earns 0.4 of
+        // the win purse and, on Lv40-49 rows, loss mastery XP. Each half has its
+        // own switch, so turning loss ryo off (purse or loss dial at 0) keeps the
+        // mastery XP; with both off the loser's claim keeps its old path and never
+        // locks its own save.
         const creditLoss = rewardAuthorized
             && session.baseRewards === true
             && outcome === 'loss'
             && !isRankedClaim
-            && pvpPurseScale() > 0
-            && pvpLossFrac() > 0;
+            && ((pvpPurseScale() > 0 && pvpLossFrac() > 0) || pvpMastery4049Enabled());
         if (isRankedClaim || creditBase || creditLoss || shouldSettleVillageWar) {
             const kind: 'player' | 'pet' = session.rankedKind === 'pet' ? 'pet' : 'player';
             const ratingField = kind === 'pet' ? 'petRankedRating' : 'rankedRating';
@@ -794,7 +796,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             // Combat wins never take the era dial (2026-07-27 ruling,
                             // docs/leveling-without-xp-map.md §11 item 7), nor trait or
                             // encounter boosts. The admin growth event scales the
-                            // REQUEST; the shared 18/day combat budget then bounds what
+                            // REQUEST; the shared daily stat-point budget then bounds what
                             // is credited, so an event fills the budget sooner but never
                             // raises it (I-12). A replayed reservation returns the stored,
                             // already event-scaled points.

@@ -191,7 +191,7 @@ function economyExport() {
   addFlow(faucets, 'daily-login', 'level-scaled-ryo', 'ryo', `${LOGIN_RYO_BASE}+${LOGIN_RYO_PER_LEVEL}*level (cap ${LOGIN_RYO_CAP})`, 'daily', source('api/player/_daily-login.ts'));
   addFlow(faucets, 'daily-login', 'streak-shards', 'fateShards', STREAK_SHARD_REWARD, `every ${STREAK_SHARD_INTERVAL} claim days (never resets)`, source('api/player/_daily-login.ts'));
   addFlow(faucets, 'daily-login', 'streak-early-shards', 'fateShards', STREAK_EARLY_SHARD_REWARD, `claim days ${STREAK_EARLY_SHARD_DAYS.join(' and ')} (once per character)`, source('api/player/_daily-login.ts'));
-  addFlow(faucets, 'hunt-mission', 'chance-drop', 'fateShards', 1, `${HUNT_FS_CHANCE_DEFAULT * 100}% per hunt or ${FETCH_S_MISSION_ID} claim (L${HUNT_FS_MIN_LEVEL}+, account 72h+; dial HUNT_FS_CHANCE; no cap)`, source('api/missions/_mission-catalog.ts'));
+  addFlow(faucets, 'hunt-mission', 'chance-drop', 'fateShards', 1, `${HUNT_FS_CHANCE_DEFAULT * 100}% per hunt or ${FETCH_S_MISSION_ID} claim (L${HUNT_FS_MIN_LEVEL}+; dial HUNT_FS_CHANCE; no cap)`, source('api/missions/_mission-catalog.ts'));
   addFlow(faucets, 'hunt-mission', 'chance-drop', 'auraStones', 1, `${HUNT_AS_CHANCE_DEFAULT * 100}% per hunt claim (L${HUNT_AS_MIN_LEVEL}+; dial HUNT_AS_CHANCE; no cap)`, source('api/missions/_mission-catalog.ts'));
   addFlow(faucets, 'daily-stat-budget', 'shared-cap', 'statPoints', DAILY_STAT_POINT_CAP, 'daily ceiling shared by hunt/field claims, PvE and PvP wins (dial DAILY_STAT_POINT_CAP)', source('api/_stat-growth.ts'));
   addFlow(faucets, 'war-crate', 'legendary-war-crate', 'ryo', WAR_CRATE_RYO, 'per crate', source('api/inventory/_war-crate.ts'));

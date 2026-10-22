@@ -430,7 +430,7 @@
       "system": "field-mission",
       "id": "fetch-a-black-route",
       "currency": "boneCharms",
-      "amount": 2,
+      "amount": 1,
       "cadence": "per daily claim",
       "authority": "api/missions/_mission-catalog.ts",
       "notes": ""
@@ -466,7 +466,7 @@
       "system": "field-mission",
       "id": "fetch-s-shadow-front",
       "currency": "boneCharms",
-      "amount": 3,
+      "amount": 2,
       "cadence": "per daily claim",
       "authority": "api/missions/_mission-catalog.ts",
       "notes": ""
@@ -575,7 +575,7 @@
       "id": "chance-drop",
       "currency": "fateShards",
       "amount": 1,
-      "cadence": "25% per hunt or fetch-s-shadow-front claim (L20+, account 72h+; dial HUNT_FS_CHANCE; no cap)",
+      "cadence": "25% per hunt or fetch-s-shadow-front claim (L20+; dial HUNT_FS_CHANCE; no cap)",
       "authority": "api/missions/_mission-catalog.ts",
       "notes": ""
     },
