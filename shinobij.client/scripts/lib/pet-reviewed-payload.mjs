@@ -21,7 +21,12 @@ export function assertPayloadPreservedOrReviewed(path,bytes,json,bin,proof){
     const stage=resolve(path)===resolve(row.path)?'sha256':'lodSha256';
     assert.equal(sha(bytes),receipt[stage],`${path}: repaired payload changed after complete visual review`);
     assert.ok(receipt.reviewer&&receipt.reviewedAt&&receipt.fullBodyReviewed&&receipt.skullShapeReviewed&&receipt.transitionsReviewed,`${path}: incomplete review`);
-    assert.deepEqual(receipt.clips,PET_REVIEW_CLIPS);assert.deepEqual(receipt.views,['front','side']);
+    assert.deepEqual(receipt.clips,PET_REVIEW_CLIPS);
+    // The Viper remake requires its complete six-view review; older repairs
+    // retain their original two-view contract.
+    assert.deepEqual(receipt.views,row.pet.id==='rare-6'
+        ? ['front','side','other-side','back','top','rear-quarter']
+        : ['front','side']);
 }
 
 // The earlier detached-scalp attempt was explicitly rejected by the user.
