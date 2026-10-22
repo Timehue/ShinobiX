@@ -321,7 +321,7 @@ test('a real mixed expedition survives cache loss, pays supplies once under conc
     ]);
     for (const claim of claims) {
         assert.equal(claim.statusCode, 200);
-        assert.equal(claim.body?.ryoEarned, 2160, 'a growing non-Tamer earns the full base ryo lane');
+        assert.equal(claim.body?.ryoEarned, 648, 'a growing non-Tamer earns the base ryo lane (2,160 x the 0.3 expedition ryo scale)');
         assert.equal(claim.body?.petXpEarned, 1280);
         assert.deepEqual(claim.body?.materialRewards, sealedHaul);
         assert.equal(claim.body?.foundFate, sealedFate);
@@ -364,7 +364,7 @@ test('new Tamer collections pay the fixed bonus on both the first and later expe
         const cache = await kv.get<Record<string, unknown>>(`pet-exp-token:${player}:${token}`);
         const result = await post(player, { event: 'expedition', expeditionToken: token }, '127.0.0.112');
         assert.equal(result.statusCode, 200);
-        assert.equal(result.body?.ryoEarned, 270, '180 base ryo times the fixed 1.5 profession bonus');
+        assert.equal(result.body?.ryoEarned, 81, '180 base ryo times the fixed 1.5 profession bonus, times the 0.3 expedition ryo scale');
         assert.equal(result.body?.petXpEarned, 180, '120 base pet XP times the fixed 1.5 profession bonus');
         assert.equal(result.body?.firstExpedition, false);
         assert.equal(result.body?.foundFate, cache?.fateShardReward, 'cached claims use the same sealed shard amount');

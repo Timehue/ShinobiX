@@ -94,11 +94,25 @@ export const PET_EXPEDITION_PROVISION_RULES: Readonly<Record<PetExpeditionProvis
     'ancient-pet-treat': { label: 'Ancient Treats', petXpMultiplier: 1.30, materialMultiplier: 1.10 },
 };
 
+/**
+ * Share of the route's ryo an expedition actually pays (2026-10 economy
+ * rebalance, owner ruling 2026-10-22). Expeditions are idle income, so they sit
+ * under the passive ceiling: at 0.3 a Pet Tamer's 12 Ruins claims pay about
+ * 11,700 ryo a day (about 26,000 with full mastery and bold routes), against a
+ * regular L90 player's ~43,000 active day. The server passes its env reading
+ * (api/missions/expedition-start.ts `expeditionRyoScale()`, dial
+ * EXPEDITION_RYO_SCALE); the board previews at this code default. Ryo is sealed
+ * at launch, so a change never touches an expedition already in flight.
+ */
+export const PET_EXPEDITION_RYO_SCALE = 0.3;
+
 /** Version-2 secure-return rewards. All eligible pets earn the base rewards;
  * the fixed profession bonus stacks with purchased mastery and route choices. */
 export function petExpeditionRewardPreview(type: PetExpeditionType, options: {
     profession: unknown; risk: PetExpeditionRisk; provision: PetExpeditionProvision;
     rewardMastery: number; materialMastery: number;
+    /** Defaults to PET_EXPEDITION_RYO_SCALE; the server passes its dial reading. */
+    ryoScale?: number;
 }) {
     const route = PET_EXPEDITION_ROUTES[type];
     const hours = route.durationMinutes / 60;
@@ -107,8 +121,9 @@ export function petExpeditionRewardPreview(type: PetExpeditionType, options: {
     const provision = PET_EXPEDITION_PROVISION_RULES[options.provision];
     const materialMultiplier = profession * options.materialMastery * risk.materialMultiplier * provision.materialMultiplier;
     const chance = (value: number) => Math.min(1, Math.max(0, value * materialMultiplier));
+    const ryoScale = Number.isFinite(options.ryoScale) ? Math.max(0, options.ryoScale as number) : PET_EXPEDITION_RYO_SCALE;
     return {
-        ryo: Math.round(hours * route.ryoPerHour * profession * options.rewardMastery * risk.ryoMultiplier),
+        ryo: Math.round(hours * route.ryoPerHour * profession * options.rewardMastery * risk.ryoMultiplier * ryoScale),
         petXp: Math.round(hours * route.petXpPerHour * profession * provision.petXpMultiplier),
         chances: { bone: chance(route.findChances.bone), aura: chance(route.findChances.aura), fate: chance(route.findChances.fate) },
         materialMultiplier,
