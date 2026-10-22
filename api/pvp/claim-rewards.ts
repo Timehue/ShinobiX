@@ -16,6 +16,7 @@ import {
     pvpLuckyActive,
     pvpMastery4049Enabled,
     pvpPurseScale,
+    rankedPurseRyo,
     readRankedWeightRow,
     resolvePvpFightCredit,
 } from './_valid-fight.js';
@@ -73,6 +74,7 @@ import {
     pvpTerminalRecoveryExpiresAt,
 } from './_pending-session.js';
 import { reserveCombatStatBudget } from './_combat-stat-budget.js';
+import { dailyStatBudgetReply } from '../_daily-stat-budget.js';
 import { CLAN_WAR_PVP_SCROLL_DROP_CHANCE } from '../clan/war/_war-points.js';
 import type { CommittedPvpTerminalReplay } from './_committed-terminal-effects.js';
 
@@ -644,6 +646,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // Computed OUTSIDE the save lock (read-only key scan). Fails OPEN: a
             // KV hiccup must never block a legitimate rating settlement.
             let playerRankedRatingOut: RatingOut | undefined;
+            let playerRankedPurseOut: { ryo: number; reason?: 'too-young' } | undefined;
             if (playerRankedV2Claim) {
                 try {
                     const journal = playerRankedJournal;
@@ -668,13 +671,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             : journal.terminal.aRating;
                         // The result card shows the Elo the journal credited,
                         // at the match's sealed repeat/short-fight weight (I-3).
-                        const weight = journal.terminal.rankedEligible
-                            ? (await readRankedWeightRow(kv, journal.terminal.matchId).catch(() => null))?.weight ?? 1
-                            : 1;
+                        const weightRow = journal.terminal.rankedEligible
+                            ? await readRankedWeightRow(kv, journal.terminal.matchId).catch(() => null)
+                            : null;
+                        const weight = weightRow?.weight ?? 1;
                         const delta = journal.terminal.rankedEligible && journal.terminal.winner !== 'draw'
                             ? weightedRankedDelta(winnerSnapshot, loserSnapshot, weight) * (side === journal.terminal.winner ? 1 : -1)
                             : 0;
                         playerRankedRatingOut = { field: 'rankedRating', value, delta };
+                        // And the ranked purse the journal paid from the same row
+                        // (owner ruling A9: no silent wallet change).
+                        if (weightRow && journal.terminal.winner !== 'draw') {
+                            const role = side === journal.terminal.winner ? 'winner' as const : 'loser' as const;
+                            const claimer = (await kv.get<{ character?: Record<string, unknown> }>(`save:${claimerSlug}`).catch(() => null))?.character;
+                            playerRankedPurseOut = {
+                                ryo: rankedPurseRyo(weightRow, { role, lucky: pvpLuckyActive(claimer) }),
+                                ...(weightRow.purseBlocked ? { reason: weightRow.purseBlocked }
+                                    : role === 'loser' && weightRow.lossPurseBlocked ? { reason: weightRow.lossPurseBlocked } : {}),
+                            };
+                        }
                     }
                 } catch (error) {
                     const refusal = playerRankedClaimRefusal(error);
@@ -1109,11 +1124,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     rewardAuthorized,
                     progressionAuthorized,
                     ...(out.rating ? { rating: out.rating } : {}),
+                    ...(playerRankedPurseOut ? { rankedPurse: playerRankedPurseOut } : {}),
                     ...(out.base ? { base: out.base } : {}),
                     ...(out.warGround ? { warGroundReward: out.warGround } : {}),
                     ...(warPoints ? { warPoints } : {}),
                     ...(worldRaidProgressionForCaller ? { raidProgression: raidProgressionBody(worldRaidProgressionForCaller) } : {}),
                     ...(clanWarScrollDrop ? { clanWarScrollDrop } : {}),
+                    ...(outcome === 'win' ? await dailyStatBudgetReply(kv, playerName) : {}),
                     ...(finalChar ? { character: finalChar } : {}),
                     _saveVersion: Number(finalSave?._saveVersion ?? 0),
                 });

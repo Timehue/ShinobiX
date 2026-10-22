@@ -117,6 +117,17 @@ describe('paying the purse', () => {
         assert.equal(purse.settleSectorWarPurses(fighter({ createdAt: NOW - 10 * HOUR, level: 19 }), [l], NOW, { purseScale: 1 }).granted, false);
         assert.equal(purse.settleSectorWarPurses(fighter({ createdAt: NOW - 10 * HOUR, level: 20 }), [l], NOW, { purseScale: 1 }).granted, true, 'a fresh L20 account is established (owner A14)');
     });
+
+    it('pays nothing for a war that ended before the purse epoch, like the village purse', async () => {
+        const l = ledger({ raider: { points: 100, side: ATTACKER } });
+        assert.equal(purse.settleSectorWarPurses(fighter(), [l], NOW, { purseScale: 1, epochMs: l.endedAt + 1 }).granted, false);
+        assert.equal(purse.settleSectorWarPurses(fighter(), [l], NOW, { purseScale: 1, epochMs: l.endedAt }).granted, true);
+        // The claim route's defaults read the same epoch the village purse uses.
+        const { WAR_PURSE_EPOCH_DEFAULT_MS } = await import('./_reward.js');
+        assert.equal(purse.settleSectorWarPurses(fighter(), [l], NOW).granted, false, `${new Date(l.endedAt).toISOString()} is before the default epoch`);
+        const live = ledger({ raider: { points: 100, side: ATTACKER } }, { endedAt: WAR_PURSE_EPOCH_DEFAULT_MS + HOUR, settledAt: WAR_PURSE_EPOCH_DEFAULT_MS + HOUR });
+        assert.equal(purse.settleSectorWarPurses(fighter(), [live], WAR_PURSE_EPOCH_DEFAULT_MS + 2 * HOUR).ryo, 9_000);
+    });
 });
 
 describe('writing the ledger', { concurrency: false }, () => {

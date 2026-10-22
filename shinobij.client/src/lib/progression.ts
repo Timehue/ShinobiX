@@ -62,6 +62,8 @@ export type PvpRewardCredit = {
     pairOrdinal: number;
     pairWeight: number;
     sideMult: number;
+    /** Loss only: the loser was engaged, but the winner is not established. */
+    lossBlocked?: 'too-young';
     /** The live thresholds behind the credit (server dials); absent on older replies. */
     rules?: {
         minRounds: number;

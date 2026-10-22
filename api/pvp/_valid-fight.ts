@@ -86,8 +86,10 @@ export function pvpMinAccountAgeMs(): number {
 export function pvpMastery4049Enabled(): boolean {
     return economySwitch('PVP_MASTERY_40_49', true);
 }
-/** Ranked V2 pays the purse under the same pair weights as casual PvP. On from
- *  launch with no env switch (owner, 2026-10-22: tune the code if farming shows). */
+/** Ranked V2 pays the purse under the same pair weights and established-account
+ *  rule as casual PvP (sealRankedWeightRow). Combat is equalized in ranked, so
+ *  the level-gap rule does not apply. On from launch with no env switch (owner,
+ *  2026-10-22: tune the code if farming shows). */
 export const PVP_RANKED_PURSE_ENABLED = true;
 export function pvpRankedPurseEnabled(): boolean {
     return PVP_RANKED_PURSE_ENABLED;
@@ -345,6 +347,8 @@ export type PvpFightCredit = {
     /** pairWeight x sideMult; 0 when uncredited. Ryo, dust, mastery and Vanguard XP all scale by it. */
     factor: number;
     lMin: number;
+    /** Loss only: the loser was engaged, but the winner is not established, so no loss pay. */
+    lossBlocked?: 'too-young';
 };
 
 /** The live thresholds behind a credit, so the player-facing copy never drifts from the dials. */
@@ -369,6 +373,7 @@ export function pvpCreditView(credit: PvpFightCredit) {
         pairOrdinal: credit.pairOrdinal,
         pairWeight: credit.pairWeight,
         sideMult: credit.sideMult,
+        ...(credit.lossBlocked ? { lossBlocked: credit.lossBlocked } : {}),
         rules: pvpCreditRules(),
     };
 }
@@ -409,10 +414,11 @@ export async function resolvePvpFightCredit(store: SlotStore, o: {
     });
     // The loss purse is paid out of the winner's fight, so the winner must be
     // past the age floor too: a main cannot collect loss pay from fresh alts.
-    const sideMult = o.role === 'win'
-        ? pvpWinShortMult(c)
-        : pvpLossEngaged(o.session, c) && pvpAccountOldEnough(o.winnerChar?.createdAt, o.terminalAt, winnerLevel) ? 1 : 0;
-    const base = { kind: c.kind, completedRounds: c.completedRounds, durationMs: c.durationMs, short: c.short, sideMult, lMin };
+    const engaged = o.role === 'loss' && pvpLossEngaged(o.session, c);
+    const winnerEstablished = o.role === 'win' || pvpAccountOldEnough(o.winnerChar?.createdAt, o.terminalAt, winnerLevel);
+    const sideMult = o.role === 'win' ? pvpWinShortMult(c) : engaged && winnerEstablished ? 1 : 0;
+    const base = { kind: c.kind, completedRounds: c.completedRounds, durationMs: c.durationMs, short: c.short, sideMult, lMin,
+        ...(engaged && !winnerEstablished ? { lossBlocked: 'too-young' as const } : {}) };
     if (!fight.credited) {
         return { ...base, credited: false, reason: fight.reason, pairOrdinal: 0, pairWeight: 0, factor: 0 };
     }
@@ -526,6 +532,10 @@ export type RankedWeightRow = {
     engaged: boolean;
     /** The fight's slot on the CASUAL pair counter; present only when the ranked purse was on at publication. */
     sharedPairOrdinal?: number;
+    /** The loser was not established, so neither side is paid a purse (Elo is unaffected). */
+    purseBlocked?: 'too-young';
+    /** The winner was not established, so the loser is paid no loss purse. */
+    lossPurseBlocked?: 'too-young';
 };
 export const pvpRankedWeightKey = (matchId: string): string => `pvp:ranked-weight:${matchId}`;
 
@@ -551,6 +561,29 @@ export function parseRankedWeightRow(raw: unknown): RankedWeightRow | null {
         lMin,
         engaged: row.engaged,
         ...(Number.isSafeInteger(shared) && shared >= 1 ? { sharedPairOrdinal: shared } : {}),
+        ...(row.purseBlocked === 'too-young' ? { purseBlocked: 'too-young' as const } : {}),
+        ...(row.lossPurseBlocked === 'too-young' ? { lossPurseBlocked: 'too-young' as const } : {}),
+    };
+}
+
+/**
+ * The casual purse's established-account rule for a ranked match: whether the
+ * loser and the winner are each 72 h old OR level 20 at the fight's end.
+ * Levels come from the sealed session; a missing save or stamp passes.
+ */
+async function rankedPurseEstablishment(store: Pick<KvLike, 'get'>, session: PvpSession, terminalAt: number): Promise<{ loser: boolean; winner: boolean }> {
+    const winnerSide = winnerSideOf(session);
+    if (!winnerSide) return { loser: true, winner: true };
+    const loserSide = otherSide(winnerSide);
+    const characterOf = async (side: Side): Promise<Record<string, unknown>> => {
+        const slug = safeName(String(session[side]?.name ?? ''));
+        const record = slug ? await store.get<{ character?: Record<string, unknown> }>(`save:${slug}`) : null;
+        return record?.character ?? {};
+    };
+    const [winnerChar, loserChar] = await Promise.all([characterOf(winnerSide), characterOf(loserSide)]);
+    return {
+        loser: pvpAccountOldEnough(loserChar.createdAt, terminalAt, sideLevel(session, loserSide, loserChar.level)),
+        winner: pvpAccountOldEnough(winnerChar.createdAt, terminalAt, sideLevel(session, winnerSide, winnerChar.level)),
     };
 }
 
@@ -584,9 +617,16 @@ export async function sealRankedWeightRow(
         : 1;
     const weight = shortMult * pvpPairWeight(pairOrdinal);
     const lMin = Math.min(fightLevel(o.session.p1?.character?.level), fightLevel(o.session.p2?.character?.level));
+    // The casual purse's established-account rule gates the ranked purse too,
+    // so a fresh alt can neither feed a main ryo nor collect loss pay from one.
+    // It gates the ryo only: Elo keeps its weight (ranked has its own IP and
+    // device overlap check). A read that fails throws; the terminal retries.
+    const established = weight > 0 && pvpRankedPurseEnabled()
+        ? await rankedPurseEstablishment(store, o.session, endedAt)
+        : { loser: true, winner: true };
     // The ranked purse shares the casual pair counter, so ranked and casual
     // fights together stay inside one pair's 2.75 fights a day.
-    const sharedPairOrdinal = slotStore && pvpRankedPurseEnabled() && weight > 0
+    const sharedPairOrdinal = slotStore && pvpRankedPurseEnabled() && weight > 0 && established.loser
         ? await assignPvpCreditSlot(slotStore, {
             slotKey: pvpPairSlotKey(o.session.battleId),
             counterKey: pvpPairCounterKey(o.a, o.b, pvpUtcDay(endedAt)),
@@ -600,6 +640,8 @@ export async function sealRankedWeightRow(
         lMin,
         engaged: pvpLossEngaged(o.session, c),
         ...(sharedPairOrdinal ? { sharedPairOrdinal } : {}),
+        ...(established.loser ? {} : { purseBlocked: 'too-young' as const }),
+        ...(established.loser && !established.winner ? { lossPurseBlocked: 'too-young' as const } : {}),
     };
     const placed = await store.set(pvpRankedWeightKey(o.matchId), row, { nx: true, ex: o.ttlSeconds });
     if (placed === 'OK') return row;
@@ -617,5 +659,5 @@ export function rankedPurseRyo(row: RankedWeightRow | null, o: { role: 'winner' 
     const factor = row.shortMult * pvpPairWeight(row.sharedPairOrdinal);
     if (factor <= 0) return 0;
     if (o.role === 'winner') return floorPay(pvpWinPurse({ lMin: row.lMin, lucky: o.lucky }) * factor);
-    return row.engaged ? floorPay(pvpLossPurse({ lMin: row.lMin }) * pvpPairWeight(row.sharedPairOrdinal)) : 0;
+    return row.engaged && !row.lossPurseBlocked ? floorPay(pvpLossPurse({ lMin: row.lMin }) * pvpPairWeight(row.sharedPairOrdinal)) : 0;
 }

@@ -712,10 +712,10 @@ export function endedVillageWarRecordsFor(village: string, limit = 24): Detailed
                 rewards: endedEarlyByAgreement(war)
                     ? `Ended by agreement within ${VILLAGE_WAR_REWARD_MIN_DURATION_HOURS} hours — no crates, war purses or MVP rewards.`
                     : !war.winnerVillage
-                    ? "No decisive victor — no crate awarded. Fighters with 40+ points share the war purse at the losers' rate."
+                    ? "No decisive victor — no crate awarded. Fighters with 40+ war points (counted up to 400) share the war purse at the losers' rate."
                     : war.winnerVillage === village
-                        ? "Legendary War Crate and the war purse (MVP: +1 extra crate, 10k-15k ryo by level, +100 Honor Seals (Vanguard), +12 Bone Charms, +6 Fate Shards)"
-                        : "Loss consolation: +5k ryo, +50 Honor Seals (Vanguard), +6 Bone Charms, +3 Fate Shards (contributors only), and the war purse at the losers' rate",
+                        ? "Legendary War Crate and the war purse for 40+ war points, counted up to 400 (MVP: +1 extra crate, 10k-15k ryo by level, +100 Honor Seals (Vanguard), +12 Bone Charms, +6 Fate Shards)"
+                        : "Loss consolation: +5k ryo, +50 Honor Seals (Vanguard), +6 Bone Charms, +3 Fate Shards (contributors only), and the war purse at the losers' rate for 40+ war points, counted up to 400",
                 date: new Date(war.endedAt).toLocaleDateString(),
             };
         });

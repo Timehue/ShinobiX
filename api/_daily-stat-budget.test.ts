@@ -3,7 +3,7 @@ import { describe, it } from 'node:test';
 import { _makeMemoryKv } from './_storage.js';
 import { DAILY_COMBAT_STAT_CAP } from './_stat-growth.js';
 import { reserveCombatStatBudget } from './pvp/_combat-stat-budget.js';
-import { dailyStatBudgetKey, readDailyStatBudget, reserveDailyStatPoints } from './_daily-stat-budget.js';
+import { dailyStatBudgetKey, dailyStatBudgetReply, readDailyStatBudget, reserveDailyStatPoints } from './_daily-stat-budget.js';
 
 const DAY = Date.UTC(2026, 10, 2, 9, 0, 0);
 
@@ -23,6 +23,15 @@ describe('the mission-claim view of the shared daily stat-point budget', () => {
         // And a combat allocation looks like a replay to the claim path.
         const fightAgain = await reserveDailyStatPoints(store, { playerName: 'Rin', receiptId: 'ai-fight:t1', eventAt: DAY, requested: 3 });
         assert.deepEqual([fightAgain.points, fightAgain.replayed], [3, true]);
+    });
+
+    it('the reply field reports today\'s spend for every grant path, and a failed read omits it', async () => {
+        const store = _makeMemoryKv();
+        await reserveCombatStatBudget(store, { playerName: 'Rin', battleId: 'pvp-1', eventAt: DAY, requested: 6, cap: DAILY_COMBAT_STAT_CAP });
+        assert.deepEqual(await dailyStatBudgetReply(store, 'Rin', DAY), { statBudget: { day: '2026-11-02', spent: 6, cap: 60 } });
+        assert.deepEqual(await dailyStatBudgetReply(store, 'Rin', DAY + 86_400_000), { statBudget: { day: '2026-11-03', spent: 0, cap: 60 } });
+        const broken = { get: async () => { throw new Error('storage timeout'); } };
+        assert.deepEqual(await dailyStatBudgetReply(broken as never, 'Rin', DAY), {});
     });
 
     it('a spent budget pays 0 and writes nothing, so the allocation table never fills from claims', async () => {

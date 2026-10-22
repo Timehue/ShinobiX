@@ -48,7 +48,7 @@ import {
     type SectorWarBattleReceipt,
     type SectorWarSession,
 } from '../_sector-war.js';
-import { warAccountOldEnough, warPurseScale, type WarRewardCharacter } from './_reward.js';
+import { warAccountOldEnough, warPurseEpochMs, warPurseScale, type WarRewardCharacter } from './_reward.js';
 
 export const SECTOR_PURSE_POINTS_PER_WIN = 20;
 export const SECTOR_PURSE_POINT_CAP = 200;
@@ -194,7 +194,7 @@ export function settleSectorWarPurses(
     character: WarRewardCharacter,
     ledgers: readonly SectorWarPurseLedger[],
     now: number,
-    dials: { purseScale: number } = { purseScale: warPurseScale() },
+    dials: { purseScale: number; epochMs?: number } = { purseScale: warPurseScale(), epochMs: warPurseEpochMs() },
 ): { character: WarRewardCharacter; granted: boolean; purses: SectorPursePaid[]; ryo: number } {
     const village = String(character.village ?? '').trim();
     const slug = safeName(String(character.name ?? ''));
@@ -205,6 +205,9 @@ export function settleSectorWarPurses(
     for (const ledger of ledgers) {
         const marker = sectorPurseMarker(ledger);
         if (claimed.has(marker) || now - ledger.settledAt > SECTOR_PURSE_CLAIM_WINDOW_MS || now < ledger.settledAt) continue;
+        // The village purse's epoch (WAR_PURSE_EPOCH_MS): a war that ended before
+        // the purse shipped pays nothing, even if its rows outlived the reset.
+        if (ledger.endedAt < (dials.epochMs ?? 0)) continue;
         const entry = Object.prototype.hasOwnProperty.call(ledger.entries, slug) ? ledger.entries[slug] : null;
         // Paid to the side the wins were for, and only while the fighter is
         // still in that village: a defector does not collect the old side's purse.

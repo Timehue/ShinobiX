@@ -37,7 +37,9 @@ export function pvpCreditNote(credit: PvpRewardCredit | undefined, role: "win" |
             : `Short fight (under ${rules.minRounds} rounds or ${rules.minFightSeconds} seconds): ${Math.round(credit.sideMult * 100)}% pay.`);
     }
     if (role === "loss" && credit.sideMult <= 0 && credit.pairWeight > 0) {
-        notes.push(`Loss pay needs ${floor}, and ${rules.lossMinDamagePct}% of the winner's HP in damage.`);
+        notes.push(credit.lossBlocked === "too-young"
+            ? `No loss pay: the winner's account is under ${rules.minAccountAgeHours} hours old and below level ${rules.establishedLevel}.`
+            : `Loss pay needs ${floor}, and ${rules.lossMinDamagePct}% of the winner's HP in damage.`);
     }
     return notes.length ? notes.join(" ") : null;
 }

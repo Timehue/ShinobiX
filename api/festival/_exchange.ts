@@ -16,8 +16,8 @@ import { hasRecentIpOrFpOverlap } from '../_player-ips.js';
 // account on your own connection, and no listing the two currencies trade
 // refuses outright. Before this, an alt could list junk at up to 1e9 for a
 // main to buy (bypassing trade's caps, tax and budget), or sell Honor/Mythic
-// Seals for 1 ryo. Existing seal listings still settle.
-const EXCHANGE_UNLISTABLE_RESOURCES = new Set(['honorSeals', 'mythicSeals']);
+// Seals for 1 ryo. Existing seal listings still settle. The inventory view marks
+// the two unavailable (_exchange-assets.ts), so the sell picker never offers them.
 async function refuseSameConnection(player: string, seller: string): Promise<void> {
     let overlap = false;
     try { overlap = await hasRecentIpOrFpOverlap(player, seller); } catch { /* fail open, as trade does */ }
@@ -25,7 +25,7 @@ async function refuseSameConnection(player: string, seller: string): Promise<voi
 }
 import { kickPlayer } from '../_realtime/notify.js';
 import { loadSettlementCatalogs, type SettlementCatalogs } from '../shop/_catalog.js';
-import { balance, ExchangeError, exchangeGrantBlocker, exchangeInventory, grantAsset, objects, recoverExchangeDefinitions, removeAsset, sealAsset, type SealedExchangeAsset } from './_exchange-assets.js';
+import { balance, EXCHANGE_UNLISTABLE_RESOURCES, ExchangeError, exchangeGrantBlocker, exchangeInventory, grantAsset, objects, recoverExchangeDefinitions, removeAsset, sealAsset, type SealedExchangeAsset } from './_exchange-assets.js';
 
 type Obj = Record<string, unknown>;
 export type StoredExchangeListing = ExchangeListing & { sealed: SealedExchangeAsset; fingerprint: string; failure?: string; recoveryKey?: string; saleNoticePending?: boolean };

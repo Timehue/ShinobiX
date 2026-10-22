@@ -64,6 +64,19 @@ export async function readDailyStatBudget(store: Pick<KvLike, 'get'>, playerName
 }
 
 /**
+ * Today's spend as a reply field (`statBudget`), so every screen that can grant
+ * stat points shows "Stat points today: 41 / 60" from its first load, not only
+ * after a hunt claim (owner ruling A9). Display only: a failed read omits it.
+ */
+export async function dailyStatBudgetReply(store: Pick<KvLike, 'get'>, playerName: string, now = Date.now()): Promise<{ statBudget?: DailyStatBudgetView }> {
+    try {
+        return { statBudget: await readDailyStatBudget(store, playerName, now) };
+    } catch {
+        return {};
+    }
+}
+
+/**
  * Reserve one claim's stat points. `receiptId` is the claim's durable identity,
  * so a retry after a lost save write replays the same allocation and pays it
  * once. Returns the points to credit (never more than `requested` or what is

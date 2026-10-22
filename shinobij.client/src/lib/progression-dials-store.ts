@@ -14,8 +14,9 @@ export function sharedProgressionDialsPayload(): unknown {
 }
 
 // The last shared daily stat-point budget a server reply reported for a player
-// (`statBudget` on a hunt / field claim: { day, spent, cap }). Raw, like the
-// payload above; lib/progression-dials.ts validates it and drops a stale day.
+// (`statBudget` on a hunt / field claim, a PvE or PvP win, and the daily
+// missions read: { day, spent, cap }). Raw, like the payload above;
+// lib/progression-dials.ts validates it and drops a stale day.
 let dailyStatBudget: { playerName: string; value: unknown } | null = null;
 
 export function setSharedDailyStatBudget(playerName: string, value: unknown): void {
