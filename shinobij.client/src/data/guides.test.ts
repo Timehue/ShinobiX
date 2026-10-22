@@ -33,6 +33,7 @@ import { LOADOUT_CAP_BASE, LOADOUT_CAP_SUB, PET_CAP_BASE, PET_CAP_SUB } from "..
 import { PET_TUTORIAL_LESSONS } from "../lib/pet-tutorial";
 import { GUIDE_CATEGORIES, GUIDES } from "./guides";
 import { BANDIT_TOLL_RYO } from "../../../shared/road-toll";
+import { CARD_CHRONICLE_POINTS_DEFAULTS } from "../../../shared/card-chronicle-points";
 
 function textForGuide(id: string): string {
     const guide = GUIDES.find((candidate) => candidate.id === id);
@@ -192,6 +193,13 @@ test("high-drift guide numbers stay aligned with current game constants", () => 
     );
     assert.equal(callCosts.size, 1, "every Call Jutsu should share one Health cost for the guide to name");
     assert.match(chronicle, new RegExp(`Level 8 beast for ${[...callCosts][0]?.toLocaleString("en-US")} Health`, "i"));
+    // Card-battle Chronicle Points (api/card-clash/_card-cp.ts dial defaults).
+    const points = CARD_CHRONICLE_POINTS_DEFAULTS;
+    assert.match(chronicle, new RegExp(`pays ${points.pvpWin} Chronicle Points for a win and ${points.pvpLoss} for a loss`, "i"));
+    assert.equal(points.dungeon, points.gate, "the guide names one amount for Dungeon seals and Rift ambushes");
+    assert.match(chronicle, new RegExp(`Rift card ambush pays ${points.gate}\\b`, "i"));
+    assert.match(chronicle, new RegExp(`Sector War garrison pays ${points.garrison}\\b`, "i"));
+    assert.doesNotMatch(chronicle, /Echoes of War supplies the Chronicle Points/i, "Echoes is no longer the only source");
 
     assert.match(companions, new RegExp(`${numberText(SHOWDOWN_BENCH_SIZE)} reserves`, "i"));
     assert.match(companions, new RegExp(`round ${SHOWDOWN_TURN_CAP}`, "i"));

@@ -40,6 +40,12 @@ import {
   type EchoesVictorySummary,
 } from "./_echoes-catalog.js";
 import { echoesBattleBeatForMatch } from "./_echoes-battle-beat.js";
+import {
+  addChroniclePoints,
+  cardPveDungeonCp,
+  chroniclePointsOf,
+  recordCardChroniclePoints,
+} from "./_card-cp.js";
 
 const MATCH_ID_RE = /^[0-9a-fA-F-]{20,80}$/;
 const ACTIONS = new Set([
@@ -82,6 +88,8 @@ type StoredSession = AiMatchSession & {
   settledReward?: SettledReward;
   legacyCredit?: AiLegacyCredit;
   endedBy?: "forfeit";
+  /** Chronicle Points the Dungeon Card seal paid with its winning proof (display replay only). */
+  chroniclePointsAwarded?: number;
 };
 /** Exactly what settle() reads. A stored session satisfies it, and so does the
  *  record an expired, abandoned showdown is settled from. */
@@ -145,6 +153,8 @@ async function settleDungeonCard(
       ok: true;
       character: Record<string, unknown>;
       saveVersion: number;
+      /** Chronicle Points this call freshly credited with the winning proof. */
+      chroniclePoints: number;
     }
   | { ok: false; status: number; error: string }
 > {
@@ -159,9 +169,12 @@ async function settleDungeonCard(
       error: "The Dungeon Card session has no current authority binding.",
     };
   }
+  // Reset on every pass: the callback reruns after a lost compare-and-set.
+  let chroniclePoints = 0;
   const settled = await mutatePlayerSave(
     session.playerName,
     ({ character }) => {
+      chroniclePoints = 0;
       const applied = applyDungeonCardTerminal({
         character,
         dungeonRunToken,
@@ -172,19 +185,37 @@ async function settleDungeonCard(
       if (!applied.ok) {
         return { ok: false as const, status: 409, error: applied.error };
       }
+      // A won seal pays its Chronicle Points in the same write that records
+      // the proof. The proof is written once per run (a replay finds it
+      // alreadyApplied), so the points are too.
+      let next = applied.character;
+      if (!applied.alreadyApplied && session.winner === "player") {
+        chroniclePoints = cardPveDungeonCp();
+        next = addChroniclePoints(next, chroniclePoints);
+      }
       return {
         ok: true as const,
-        character: applied.character,
+        character: next,
         value: null,
         write: !applied.alreadyApplied,
       };
     },
   );
   if (!settled.ok) return settled;
+  if (chroniclePoints > 0) {
+    recordCardChroniclePoints({
+      kind: "dungeon",
+      txnId: `card-cp:dungeon:${session.matchId}`,
+      player: session.playerName,
+      amount: chroniclePoints,
+      balanceAfter: chroniclePointsOf(settled.character),
+    });
+  }
   return {
     ok: true,
     character: settled.character,
     saveVersion: settled._saveVersion,
+    chroniclePoints,
   };
 }
 
@@ -345,6 +376,7 @@ async function persistOrSettle(
         ok: true,
         session: projectAiMatch(session),
         reward: session.settledReward,
+        ...(session.chroniclePointsAwarded ? { chroniclePoints: session.chroniclePointsAwarded } : {}),
         ...snapshot,
         ...steps,
       },
@@ -366,6 +398,7 @@ async function persistOrSettle(
         };
       }
       session.settledAt = now;
+      if (dungeon.chroniclePoints > 0) session.chroniclePointsAwarded = dungeon.chroniclePoints;
       await kv.set(key, session, { ex: CARD_CLASH_AI_TOKEN_TTL_SECONDS });
       return {
         status: 200 as const,
@@ -374,6 +407,7 @@ async function persistOrSettle(
           session: projectAiMatch(session),
           character: dungeon.character,
           _saveVersion: dungeon.saveVersion,
+          ...(session.chroniclePointsAwarded ? { chroniclePoints: session.chroniclePointsAwarded } : {}),
           ...steps,
         },
       };
@@ -552,6 +586,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               ok: true,
               session: projectAiMatch(session),
               reward: session.settledReward,
+              ...(session.chroniclePointsAwarded ? { chroniclePoints: session.chroniclePointsAwarded } : {}),
               ...snapshot,
             },
           };

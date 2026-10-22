@@ -1334,7 +1334,7 @@
     "quickTake": [
       "Bring exactly 40 cards, open with five, and protect 8,000 Health.",
       "The first player skips the opening draw and cannot Battle that turn. Plan your opening around the field you leave behind.",
-      "Basic packs use Chronicle Points earned in Echoes of War. Choose an element, Jutsu, or Snares when your deck needs a particular kind of card."
+      "Basic packs use Chronicle Points from Echoes of War, duels against other players, and card battles in Dungeons, Rifts, and Sector War garrisons. Choose an element, Jutsu, or Snares when your deck needs a particular kind of card."
     ],
     "relatedGuideIds": [
       "clans-and-war",
@@ -1428,7 +1428,7 @@
         "blocks": [
           {
             "type": "p",
-            "text": "Basic packs cost Chronicle Points earned through Echoes of War in the Celestial Tower. Each contains five Common or Rare cards. Random Packs can contain Monsters of any element, Jutsu, and Snares. Element packs contain only matching Monsters; Jutsu and Snare packs focus on those card types."
+            "text": "Basic packs cost Chronicle Points, which the next section explains how to earn. Each contains five Common or Rare cards. Random Packs can contain Monsters of any element, Jutsu, and Snares. Element packs contain only matching Monsters; Jutsu and Snare packs focus on those card types."
           },
           {
             "type": "p",
@@ -1446,11 +1446,15 @@
         "blocks": [
           {
             "type": "p",
-            "text": "AI spar lets you test against Easy, Medium, or Hard. Free-play PvP lets you queue or challenge another player without risking rating. Neither awards ryo or rating. Start with Easy while you learn your opening, then try harder opponents as your deck improves."
+            "text": "AI spar lets you test against Easy, Medium, or Hard, and it pays nothing. Free-play PvP lets you queue or challenge another player without risking rating. It awards no ryo or rating, but a counted duel pays Chronicle Points. Start with Easy while you learn your opening, then try harder opponents as your deck improves."
           },
           {
             "type": "p",
-            "text": "AI wins update your Showdown record and can count toward Legacy. Free-play wins can count too when both players take part. Forfeits, timeouts, unfinished games, and very short matches do not qualify. Echoes of War supplies the Chronicle Points for Basic packs. Clan and Village War can also use Showdown results toward their own objectives."
+            "text": "AI wins update your Showdown record and can count toward Legacy. Free-play wins can count too when both players take part. Forfeits, timeouts, unfinished games, and very short matches do not qualify. Clan and Village War can also use Showdown results toward their own objectives."
+          },
+          {
+            "type": "p",
+            "text": "Chronicle Points come from several places. Echoes of War pays for its victories. A duel against another player in free play, a Clan War, or a Sector War pays 20 Chronicle Points for a win and 8 for a loss. It counts when it reaches turn 3, lasts 45 seconds, has three plays from each side, and ends without a forfeit or timeout. Wins traded back and forth with one opponent do not pay. Each opponent pays in full for your first two counted duels of the day, then half, then a quarter, then nothing until the next day. Winning a Dungeon card seal or a Rift card ambush pays 10, and beating a Sector War garrison pays 15. The result screen shows what each battle paid."
           }
         ]
       }

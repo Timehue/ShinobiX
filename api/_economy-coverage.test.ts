@@ -76,6 +76,9 @@ const INSTRUMENTED: { file: string; sources: string[] }[] = [
     // The Chronicle Point faucet and the card-pack sinks.
     { file: 'api/card-clash/open-pack.ts', sources: ['cardpack.open', 'cardpack.duplicate'] },
     { file: 'api/card-clash/ai-move.ts', sources: ['echoes.win'] },
+    // Card-battle Chronicle Points (owner request 2026-10-22): every faucet
+    // records through this one helper, which owns the five tags.
+    { file: 'api/card-clash/_card-cp.ts', sources: ['card.pvp.win', 'card.pvp.loss', 'card.pve.dungeon', 'card.pve.gate', 'card.pve.garrison'] },
     // Village and clan: the Kage stake and its refund, the Clan Exchange shelves.
     { file: 'api/village/kage-challenge.ts', sources: ['kage.stake'] },
     { file: 'api/village/_kage-inactivity.ts', sources: ['kage.stake-refund'] },
@@ -167,6 +170,21 @@ describe('economy telemetry coverage', () => {
             assert.equal(calls.length, 1, `${file} records '${source}' once`);
             assert.match(calls[0], /delta: -/, `${file} logs the sink '${source}' as a positive delta`);
         }
+    });
+
+    it('every card-battle Chronicle Point settle path credits through the recording helper', () => {
+        // The PvP hosts and the garrison pay through the outbox (settleCardCpCredit
+        // → payChroniclePointsOnce, which records); the Dungeon seal and the Rift
+        // ambush credit inside their own receipted write and record afterwards.
+        for (const file of ['api/card-clash/match.ts', 'api/clan/war/tilecards.ts', 'api/village/sector-card.ts']) {
+            assert.match(read(file), /settleCardCpCredit\(/, `${file} must settle its duel's Chronicle Points`);
+        }
+        assert.match(read('api/card-clash/ai-move.ts'), /recordCardChroniclePoints\(\{\s*kind: "dungeon"/);
+        assert.match(read('api/hollow-gate/card-settle.ts'), /recordCardChroniclePoints\(\{ kind: 'gate'/);
+        const helper = read('api/card-clash/_card-cp.ts');
+        assert.match(helper.slice(helper.indexOf('export async function payChroniclePointsOnce')), /recordCardChroniclePoints\(/,
+            'the outbox payment must record what it pays');
+        assert.match(helper.slice(helper.indexOf('export function recordCardChroniclePoints')), /currency: 'chroniclePoints'/);
     });
 
     it('the Black Market also records its Bone Charm and Aura Stone payouts', () => {

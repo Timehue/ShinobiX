@@ -14,6 +14,13 @@ import {
   type FreePlayParticipation,
 } from "./_freeplay-legacy.js";
 import {
+  cardCpReply,
+  ensureCardPvpCpCredit,
+  settleCardCpCredit,
+  type CardCpCommitted,
+  type CardCpCredit,
+} from "./_card-cp.js";
+import {
   resolveChronicleDeckWithSave,
   type ChronicleDeckResolution,
 } from "./_deck.js";
@@ -64,6 +71,8 @@ type FreePlaySession = {
   state?: ChronicleMatch;
   participation?: FreePlayParticipation;
   legacyCredit?: FreePlayLegacyCredit;
+  /** Chronicle Point outbox (api/card-clash/_card-cp.ts), keyed like the Legacy credit. */
+  cpCredit?: CardCpCredit;
   status: "awaiting-opponent" | "active" | "done";
   createdAt: number;
   updatedAt: number;
@@ -90,15 +99,33 @@ async function serverDeck(
 async function persistTerminalAndRepair(
   session: FreePlaySession,
   terminalStateChanged = false,
-): Promise<void> {
+): Promise<CardCpCommitted> {
   const creditPrepared = ensureFreePlayLegacyCredit(session);
+  // The Chronicle Point outbox shares the Legacy receipt id, so both read one
+  // reciprocal decision for this duel.
+  const pointsPrepared = ensureCardPvpCpCredit(session, `card-pvp:${session.matchId}`, "free-play");
   // The pending/skipped outbox is persisted with terminal state before the
   // best-effort Legacy write. A later state poll repairs pending delivery.
-  if (terminalStateChanged || creditPrepared) await saveSession(session);
+  if (terminalStateChanged || creditPrepared || pointsPrepared) await saveSession(session);
   if (await repairFreePlayLegacyCredit(session)) await saveSession(session);
+  const points = await settleCardCpCredit(session.cpCredit);
+  if (points.changed) await saveSession(session);
   if (session.legacyCredit && session.legacyCredit.status !== 'skipped' && session.participation) {
     await recordCircuitVerifiedVictory(session.legacyCredit.winnerName, 'cards', session.participation.startedAt, session.updatedAt);
   }
+  return points.committed;
+}
+
+/** The viewer's Chronicle Point result, and their fresh save once after it committed. */
+async function pointsReply(
+  session: FreePlaySession,
+  viewer: string,
+  admin: boolean,
+  committed?: CardCpCommitted,
+): Promise<Record<string, unknown>> {
+  const reply = await cardCpReply(session.cpCredit, viewer, { committed, deliver: !admin });
+  if (reply.changed) await saveSession(session);
+  return reply.body;
 }
 
 function autoAdvance(session: FreePlaySession, now: number): boolean {
@@ -240,11 +267,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           // State polls are read-only unless they create the short-lived pair
           // handoff or resolve an expired response/turn. This avoids a KV write
           // every few seconds for a turn-based game.
-          if (session.status === "done") await persistTerminalAndRepair(session, autoAdvanced);
-          else if (createdSession || autoAdvanced) await saveSession(session);
+          let points: Record<string, unknown> = {};
+          if (session.status === "done") {
+            const committed = await persistTerminalAndRepair(session, autoAdvanced);
+            points = await pointsReply(session, me, identity.admin, committed);
+          } else if (createdSession || autoAdvanced) await saveSession(session);
           return {
             status: 200 as const,
             body: {
+              ...points,
               session: session.state
                 ? projectMatchForViewer(session.state, side)
                 : {
@@ -332,11 +363,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           session.status === "done",
         );
         session.updatedAt = now;
-        if (session.status === "done") await persistTerminalAndRepair(session, true);
-        else await saveSession(session);
+        let points: Record<string, unknown> = {};
+        if (session.status === "done") {
+          const committed = await persistTerminalAndRepair(session, true);
+          points = await pointsReply(session, me, identity.admin, committed);
+        } else await saveSession(session);
         return {
           status: 200 as const,
-          body: { session: projectMatchForViewer(session.state, side) },
+          body: { ...points, session: projectMatchForViewer(session.state, side) },
         };
       },
       { failClosed: true },
