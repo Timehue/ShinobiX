@@ -217,7 +217,7 @@ async function readGainsWindow(name: string): Promise<GainsWindow | null> {
     } catch (e) {
         // best-effort — but log: a silent read failure resets the anti-farm
         // window to "fresh", quietly weakening the per-minute gain caps.
-        console.error(`[save gains-window] read failed for ${name}:`, e);
+        console.error('[save gains-window] read failed for', safeLogValue(name), safeLogValue(e));
         return null;
     }
 }
@@ -228,7 +228,7 @@ async function writeGainsWindow(name: string, w: GainsWindow): Promise<void> {
     } catch (e) {
         // best-effort — but log: dropping the window write degrades the anti-farm
         // limiter invisibly.
-        console.error(`[save gains-window] write failed for ${name}:`, e);
+        console.error('[save gains-window] write failed for', safeLogValue(name), safeLogValue(e));
     }
 }
 

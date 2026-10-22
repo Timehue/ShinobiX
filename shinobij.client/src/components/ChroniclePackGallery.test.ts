@@ -48,13 +48,24 @@ function renderedGallery(character: Character) {
     }));
 }
 
+/** Visible text of rendered markup: strip tags until none remain, then any stray "<". */
+function visibleText(markup: string): string {
+    let text = markup;
+    let previous: string;
+    do {
+        previous = text;
+        text = text.replace(/<[^>]*>/g, '');
+    } while (text !== previous);
+    return text.replace(/</g, '');
+}
+
 function renderedPackButton(character: Character, type: CardPackType) {
     const html = renderedGallery(character);
     const article = html.match(new RegExp(`<article class="chronicle-pack chronicle-pack--${type}"[\\s\\S]*?<\\/article>`))?.[0];
     assert.ok(article, `${type} pack must appear in the Card Hall gallery`);
     const button = article.match(/<button\b([^>]*)>([\s\S]*?)<\/button>/);
     assert.ok(button, `${type} pack must have an opening control`);
-    return { disabled: /\bdisabled(?:=|\s|$)/.test(button[1]), text: button[2].replace(/<[^>]*>/g, '') };
+    return { disabled: /\bdisabled(?:=|\s|$)/.test(button[1]), text: visibleText(button[2]) };
 }
 
 for (const type of CARD_PACK_TYPES) {
