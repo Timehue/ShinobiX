@@ -11,7 +11,10 @@ export function advanceAuthoredGroundMotion(options: {
     navigate: (position: GroundPosition, target: GroundPosition) => GroundPosition;
 }) {
     const { now, targetAt, navigate, speed } = options;
-    const elapsed = Math.max(0, options.elapsedMs);
+    const delayedMs = Math.max(0, options.elapsedMs);
+    // Catch ordinary late callbacks up, but a clock jump or long suspension
+    // must not traverse an entire route in one rendered frame.
+    const elapsed = delayedMs <= 1000 ? delayedMs : Math.min(delayedMs, options.maxStepMs);
     const maxStep = Math.max(1, options.maxStepMs);
     let position = { ...options.position };
     let consumed = 0;

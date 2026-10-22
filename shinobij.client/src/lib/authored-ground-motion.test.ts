@@ -73,3 +73,20 @@ test("a 720ms-late callback catches authored training motion up before the share
         `the pair lost alignment during the hold: ${states[0]!.row} vs ${states[1]!.row}`);
 });
 
+
+test("a clock jump keeps the physical navigator bounded instead of replaying a whole route in one frame", () => {
+    for (const elapsedMs of [2_000, 21_000, WORLD_HOUR_MS]) {
+        const position = { col: 5, row: 5 }, now = 8 * WORLD_HOUR_MS + elapsedMs;
+        const navigate = createSectorNavigator();
+        const result = advanceAuthoredGroundMotion({
+            position, elapsedMs, now, maxStepMs: STEP_MS, speed: WALK_SPEED,
+            targetAt: () => ({ col: 5, row: 3 }),
+            navigate: (from, to) => navigate(9, from, to),
+        });
+        const distance = Math.hypot(result.position.col - position.col, result.position.row - position.row);
+        assert.ok(distance > 0, "a discontinuity must still allow the next physical step");
+        assert.ok(distance <= WALK_SPEED * STEP_MS / 1000 + 1e-9,
+            `clock jump ${elapsedMs} traversed ${distance} tiles in one frame`);
+        assert.equal(result.unconsumedMs, 0, "discard the clock discontinuity rather than replaying it next frame");
+    }
+});
