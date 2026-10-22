@@ -16,9 +16,18 @@ import {
   createChronicleRequestOrder,
 } from "../lib/chronicle-pvp-refresh";
 import { chronicleDuelistAvatar } from "../lib/chronicle-duelist-art";
+import {
+  cardChroniclePointsLine,
+  parseCardChroniclePoints,
+  type CardChroniclePointsView,
+} from "../lib/card-chronicle-points";
 import { ChronicleDuelBoard } from "../components/ChronicleDuelBoard";
 import { gameConfirm } from "../components/GameAlert";
 import "../styles/chronicle-duel.css";
+
+/** A finished duel re-polls this often, this many times, while its Chronicle Points are pending. */
+const CHRONICLE_POINTS_RETRY_MS = 3_000;
+const CHRONICLE_POINTS_RETRIES = 10;
 
 /** A table answer that is not a match yet (no `p1`): which wait it is. */
 export interface CardDuelWaiting {
@@ -89,12 +98,15 @@ export function CardClashDuelScreen({
   config,
   sharedImages = {},
   context,
+  onVersionedCharacter,
 }: {
   character: Character;
   setScreen: (screen: Screen) => void;
   config: CardClashDuelConfig;
   sharedImages?: Record<string, string>;
   context?: Record<string, string>;
+  /** Adopts the save the server hands back once a duel's Chronicle Points commit. */
+  onVersionedCharacter?: (character: Character, saveVersion: number) => boolean;
 }) {
   const [view, setView] = useState<ChronicleProjection | null>(null);
   const [waiting, setWaiting] = useState(true);
@@ -117,6 +129,12 @@ export function CardClashDuelScreen({
   const [waitingInfo, setWaitingInfo] = useState<CardDuelWaiting | null>(null);
   const [seatOpen, setSeatOpen] = useState(false);
   const [warResult, setWarResult] = useState<CardDuelWarResult | undefined>(undefined);
+  const [chroniclePoints, setChroniclePoints] = useState<CardChroniclePointsView | null>(null);
+  // App's commit is a fresh function each render. Held in a ref so it never
+  // joins `post`'s deps: a per-render dep would re-arm the poll on every render.
+  const versionedRef = useRef(onVersionedCharacter);
+  useEffect(() => { versionedRef.current = onVersionedCharacter; }, [onVersionedCharacter]);
+  const pointsRetries = useRef(0);
   const waitEnded = Boolean(!view && waitingInfo && config.waitingEnded?.(waitingInfo));
   const seatJoinInFlight = useRef(false);
   const joined = useRef(false);
@@ -183,6 +201,12 @@ export function CardClashDuelScreen({
         }
         if (config.joinWhenSeatOpens && action === "state") setSeatOpen(body.seatOpen === true);
         if (body.warResult) setWarResult(body.warResult as CardDuelWarResult);
+        const points = parseCardChroniclePoints(body.chroniclePoints);
+        if (points) setChroniclePoints(points);
+        // A finished duel's reply carries the duelist's save once, after their
+        // Chronicle Points commit, so the new balance shows everywhere.
+        if (body.character && typeof body.character === "object" && Number.isSafeInteger(body._saveVersion))
+          versionedRef.current?.(body.character as Character, Number(body._saveVersion));
         return body;
       } catch (reason) {
         if (stateController?.signal.aborted) return null;
@@ -243,9 +267,15 @@ export function CardClashDuelScreen({
   useEffect(() => {
     // A duel that was called off before it began has nothing left to wait for.
     if (!stash || !pageVisible || busy || waitEnded) return;
-    const delay = chronicleNextStateRefreshMs(view, waiting);
+    // A finished duel whose Chronicle Points are still being recorded keeps a
+    // slow, bounded poll: the server pays an owed share on the next request.
+    const pointsPending = view?.status === "complete" && chroniclePoints?.status === "pending";
+    const delay = pointsPending
+      ? pointsRetries.current < CHRONICLE_POINTS_RETRIES ? CHRONICLE_POINTS_RETRY_MS : null
+      : chronicleNextStateRefreshMs(view, waiting);
     if (delay === null) return;
     const timer = window.setTimeout(() => {
+      if (pointsPending) pointsRetries.current += 1;
       // Re-arm AFTER the request settles, not before it starts. `finally` still
       // runs on a no-op "awaiting-p2" response or a transient failure, so the
       // chain survives exactly as it was meant to — but the next tick can no
@@ -258,7 +288,7 @@ export function CardClashDuelScreen({
         .finally(() => setPollNonce((nonce) => nonce + 1));
     }, delay);
     return () => window.clearTimeout(timer);
-  }, [busy, pageVisible, pollNonce, post, stash, view, waiting, waitEnded]);
+  }, [busy, pageVisible, pollNonce, post, stash, view, waiting, waitEnded, chroniclePoints]);
 
   useEffect(() => {
     if (view?.status !== "complete") return;
@@ -332,6 +362,7 @@ export function CardClashDuelScreen({
   const mySide = view?.viewerSide;
   const won = Boolean(view && mySide && view.winner === mySide);
   const draw = view?.winner === "draw";
+  const pointsLine = draw ? null : cardChroniclePointsLine(chroniclePoints);
   const opponentSide = view
     ? view.viewerSide === "p1"
       ? "p2"
@@ -384,6 +415,7 @@ export function CardClashDuelScreen({
                 {draw ? "Technical Draw" : won ? "Victory" : "Defeat"}
               </h2>
               <p>{config.doneNote(won, draw, warResult)}</p>
+              {pointsLine ? <p className="chronicle-points-line">{pointsLine}</p> : null}
             </section>
           ) : null}
           <ChronicleDuelBoard
@@ -410,10 +442,12 @@ export function ClanWarTileCardDuel({
   character,
   setScreen,
   sharedImages = {},
+  onVersionedCharacter,
 }: {
   character: Character;
   setScreen: (screen: Screen) => void;
   sharedImages?: Record<string, string>;
+  onVersionedCharacter?: (character: Character, saveVersion: number) => boolean;
 }) {
   return (
     <CardClashDuelScreen
@@ -422,6 +456,7 @@ export function ClanWarTileCardDuel({
       config={{...CLAN_WAR_DUEL_CONFIG,backScreen:clanWarReturnTarget(),backLabel:'Return to Clan War',
           doneNote:(_won,draw)=>draw?'The server recorded a draw.':'The server recorded this clan-war result.'}}
       sharedImages={sharedImages}
+      onVersionedCharacter={onVersionedCharacter}
     />
   );
 }

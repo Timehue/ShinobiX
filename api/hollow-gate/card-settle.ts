@@ -8,6 +8,7 @@ import { cors, safeName } from '../_utils.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { type AiMatchSession } from '../card-clash/_ai-engine.js';
 import { cardClashAiTokenKey } from '../card-clash/_ai-reward.js';
+import { addChroniclePoints, cardPveGateCp, chroniclePointsOf, recordCardChroniclePoints } from '../card-clash/_card-cp.js';
 import { hollowGateLossHp } from '../../shared/hollow-gate-loss.js';
 import { hollowGateCombatReward } from './_combat-session.js';
 import { hollowGateRunRyoScale } from './_gate-scale.js';
@@ -98,6 +99,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const credited = won
                 ? creditHollowGateLedger(run, `card:${encounterKey}`, { currencies: reward })
                 : null;
+            // Chronicle Points for the win, beside the ryo and Aura Dust. They are
+            // not run loot (not a Hollow Gate ledger currency), so they stay in the
+            // save whatever the run's end, and they ride the same receipted write.
+            const chroniclePoints = won ? cardPveGateCp() : 0;
+            const shownReward = { ...reward, chroniclePoints };
             const nextRun: HollowGateRunToken = alreadyResolved ? run : {
                 ...run,
                 pendingAmbush: null,
@@ -141,8 +147,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // only this run's resolved list or a scoped receipt can block it.
                 // An exact paid match with a stale run needs projection repair,
                 // not another HP charge or wallet credit.
+                const paidCharacter = !alreadyPaid && won ? addChroniclePoints(character, chroniclePoints) : character;
                 return { ok: true as const, character: {
-                    ...character,
+                    ...paidCharacter,
                     ...(!alreadyPaid && !won ? { hp: hollowGateLossHp(character.hp, character.maxHp) } : {}),
                     ...(!alreadyPaid && won ? {
                         ryo: Math.max(0, Math.floor(Number(character.ryo) || 0)) + reward.ryo,
@@ -152,13 +159,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     settledHollowGateEventIds: [...receipts.slice(-510), encounterReceipt, matchReceipt],
                     hollowGatePendingOperation: makeHollowGatePendingOperation({
                         token, kind: 'event', id: matchReceipt, before: run, after: nextRun,
-                        response: { ok: true, won, reward },
+                        response: { ok: true, won, reward: shownReward },
                     }),
                 }, value: { alreadyReported: alreadyPaid } };
             }, { hollowGateCurrencySource: 'run' });
             if (!saved.ok) return { status: saved.status, body: { error: saved.error } };
+            if (!saved.value.alreadyReported && chroniclePoints > 0) {
+                recordCardChroniclePoints({ kind: 'gate', txnId: `card-cp:gate:${encounterKey}:${digest}`, player: playerName,
+                    amount: chroniclePoints, balanceAfter: chroniclePointsOf(saved.character) });
+            }
             if (!alreadyResolved) await recoverHollowGatePendingOperation(kv, runKey, run, playerName, token);
-            return { status: 200, body: { ok: true, won, reward, alreadyReported: saved.value.alreadyReported,
+            return { status: 200, body: { ok: true, won, reward: shownReward, alreadyReported: saved.value.alreadyReported,
                 character: saved.character, _saveVersion: saved._saveVersion } };
         }, { failClosed: true, ttlSec: 10 });
         return res.status(result.status).json(result.body);

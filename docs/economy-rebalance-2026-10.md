@@ -155,6 +155,40 @@ Two pet values in this pass were replaced by newer owner-merged designs on `main
 beyond a playset convert to Chronicle Points or Fate Shards. The first Echoes win of the
 day pays +35 CP.
 
+Card battles outside Echoes also pay Chronicle Points (owner request, 2026-10-22), so the
+100-CP Basic pack has more than one source. All of it lives in `api/card-clash/_card-cp.ts`,
+and there is no daily cap (owner ruling).
+- **PvP card duels** pay 20 CP for a win and 8 for the loss. This covers free-play Chronicle
+  Showdown (queue and direct challenges), clan-war card duels (campaign queue and legacy
+  challenges), and sector-war duels between players (the war table and open-world duels).
+- A duel pays only when it would earn the free-play Legacy credit. It must end by play, not
+  by a forfeit or the walk-out clock. It must also last 45 s, have three meaningful actions
+  from each side, reach turn 3, and not be a reciprocal win. Both sides must have played
+  the duel out, so the same rule makes the loss "engaged". Free play reads the free-play
+  Legacy reciprocal history under the same receipt, so its Legacy and CP decisions always
+  agree. The clan-war and sector-war duels share a separate history, so a war duel never
+  changes a free-play Legacy decision.
+- One per-pair counter per UTC day, shared by all three PvP card modes, scales both shares
+  by 1 / 1 / 0.5 / 0.25 / 0. Two accounts therefore mint at most 55 + 22 CP from each other
+  a day, however they spread the duels across modes.
+- The PvP purse's established-account rule applies too (72 hours old OR level 20). A
+  losing account that is not established pays nobody, and a winner that is not
+  established still earns the win but the loser gets no loss pay. A main cannot farm
+  fresh alts from either seat.
+- **PvE card wins** pay 10 CP for a won Dungeon Card seal (once per run, with its proof) and
+  10 CP for a won Rift card ambush (once per Rift, beside its ryo and Aura Dust). These
+  points are not run loot, so a death keeps them. A won sector-war garrison assault pays
+  15 CP, at most one assault per two-hour garrison re-form.
+- **Unpaid:** Card Hall practice duels, `externalStakes` encounters with no server seal
+  (the flag is set by the client, so it has no access limit), and draws. Echoes of War
+  keeps its own table unchanged.
+- **Exactly once.** The Dungeon and Rift credits ride their existing receipted terminal
+  write. The PvP and garrison credits are an outbox on the duel's session, paid through
+  an in-save `serverSettlementReceipts` entry committed with the points, so a retry, a
+  lost reply or the second duelist's poll never pays twice. No save field was added.
+- Telemetry tags: `card.pvp.win`, `card.pvp.loss`, `card.pve.dungeon`, `card.pve.gate`,
+  `card.pve.garrison`.
+
 **World.** Wanderer favours re-anchored to 0.5 x (100 + 16 x min(L, 70)), with no daily
 cap. Wanderer quests are validated on the server. Chest duplicates pay their NPC value or
 Chronicle Points instead of nothing.
@@ -243,6 +277,8 @@ falls back to the default. Railway restarts the service when a variable changes.
 | `EXPEDITION_RYO_SCALE` | 0.3 | 0-1; kill value 1 | `api/missions/expedition-start.ts` (default in `shared/pet-expedition-contract.ts`) |
 | `TAMER_RYO_MULT` / `TAMER_XP_MULT` | 0.4 (pre-v2 expeditions only) / 0.5 | 0-1 | `api/missions/report-pet-event.ts` |
 | `HEALER_HEAL_XP_MULT` | 2 | 1-2 | `api/player/_healer-heal-xp.ts` |
+| `CARD_PVP_WIN_CP` / `CARD_PVP_LOSS_CP` | 20 / 8 | 0-100 each (before the pair weight) | `api/card-clash/_card-cp.ts` |
+| `CARD_PVE_DUNGEON_CP` / `CARD_PVE_GATE_CP` / `CARD_PVE_GARRISON_CP` | 10 / 10 / 15 | 0-100 each | `api/card-clash/_card-cp.ts` |
 
 The black-market pull stays a 75,000 constant on both sides, so the quoted and charged
 prices can never split. It moves to 90,000 by deploy if the Exchange Fate Shard loop

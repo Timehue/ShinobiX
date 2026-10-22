@@ -437,9 +437,11 @@ export type Character = {
     // Current Chronicle rules tutorial acknowledged by the player.
     cardClashTutorialVersion?: number;
     // ── Echoes of War (Celestial Tower Chronicle Showdown campaign) ──────────
-    // Chronicle Points: SERVER-OWNED campaign currency. Credited by the ai-move
-    // echoes settle, the pack surplus conversion and the Ancient Chest duplicate
-    // card; spent only through the server pack endpoints.
+    // Chronicle Points: SERVER-OWNED card currency. Credited by the ai-move
+    // echoes settle, card battles (free-play, clan-war and sector-war duels, the
+    // Dungeon Card seal, Rift card ambushes, sector garrisons; see
+    // api/card-clash/_card-cp.ts), the pack surplus conversion and the Ancient
+    // Chest duplicate card; spent only through the server pack endpoints.
     chroniclePoints?: number;
     // SERVER-OWNED per-encounter campaign record (wins + first-clear stamp).
     // Written only by the ai-move echoes settle; a generic save mirrors it.

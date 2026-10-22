@@ -77,6 +77,8 @@ export function CardClashDuel({
     const [resolutionReady, setResolutionReady] = useState(false);
     const [dungeonTerminalReady, setDungeonTerminalReady] = useState(false);
     const [echoesSummary, setEchoesSummary] = useState<EchoesSettleSummary | null>(null);
+    /** Chronicle Points the server paid with a won Dungeon Card seal. */
+    const [sealPoints, setSealPoints] = useState(0);
     const started = useRef(false);
     const replayToken = useRef(0);
     useEffect(() => () => { replayToken.current += 1; }, []);
@@ -104,6 +106,10 @@ export function CardClashDuel({
                 const summary = result.reward?.echoes ?? null;
                 setEchoesSummary(summary);
                 onEchoesSettled?.(summary);
+            }
+            if (dungeonRunToken) {
+                const points = Number(result.chroniclePoints);
+                setSealPoints(Number.isSafeInteger(points) && points > 0 ? points : 0);
             }
             setDungeonTerminalReady(true);
         }
@@ -282,7 +288,7 @@ export function CardClashDuel({
                 <button className="echoes-primary" onClick={resolve}>Continue</button>
             </section>
         ) : done ? (
-            <section className="chronicle-panel" style={{ marginBottom: 12, textAlign: "center" }}><h2>{won ? "Seal Claimed" : hollowGateCardMatchId ? draw ? "Draw — Ambush Fades" : "Keeper Wins" : draw ? "Draw — Seal Holds" : "Seal Holds"}</h2><p>{won ? "You won the Chronicle Showdown." : hollowGateCardMatchId ? "The ambush fades after 33% max HP recoil, stopping at 1 HP." : draw ? "A draw is not enough to break the seal." : "The Chronicle Keeper won the showdown."}</p><button onClick={() => void resolve()} disabled={busy}>Continue</button></section>
+            <section className="chronicle-panel" style={{ marginBottom: 12, textAlign: "center" }}><h2>{won ? "Seal Claimed" : hollowGateCardMatchId ? draw ? "Draw — Ambush Fades" : "Keeper Wins" : draw ? "Draw — Seal Holds" : "Seal Holds"}</h2><p>{won ? `You won the Chronicle Showdown.${sealPoints > 0 ? ` +${sealPoints} Chronicle Points.` : ""}` : hollowGateCardMatchId ? "The ambush fades after 33% max HP recoil, stopping at 1 HP." : draw ? "A draw is not enough to break the seal." : "The Chronicle Keeper won the showdown."}</p><button onClick={() => void resolve()} disabled={busy}>Continue</button></section>
         ) : null}
         {duel ? <ChronicleDuelBoard key={matchId || "duel"} state={duel} onResolutionReadyChange={setResolutionReady} cardsById={cardsById} playerAvatar={character.avatarImage} opponentAvatar={opponentAvatar ?? chronicleDuelistAvatar(foeName)} busy={busy} aiActing={aiActing} error={error} onExit={leaveShowdown} exitLabel="Leave encounter" onAction={(intent) => void act(intent)} /> : null}
     </main>;
