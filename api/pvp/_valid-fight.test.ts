@@ -26,6 +26,8 @@ import {
     pvpWinPurse,
     pvpWinShortMult,
     rankedPurseRyo,
+    PVP_RANKED_PURSE_ENABLED,
+    pvpRankedPurseEnabled,
     recordSleeperKoPairCredit,
     resolvePvpFightCredit,
     sealRankedWeightRow,
@@ -319,12 +321,12 @@ describe('ranked weight row', () => {
         const row = await sealRankedWeightRow(noIncr, { session: ranked(), matchId: 'm-noincr', a: 'alpha', b: 'beta', terminalAt: T0, ttlSeconds: 3600 });
         assert.equal(row.weight, 1);
     });
-    it('the ranked purse is off by default and shares the casual pair counter when on', async () => {
+    it('the ranked purse is on from launch with no switch and shares the casual pair counter', async () => {
         const store = _makeMemoryKv();
-        const off = await sealRankedWeightRow(store, { session: ranked(), matchId: 'm-off', a: 'alpha', b: 'beta', terminalAt: T0, ttlSeconds: 3600 });
-        assert.equal(off.sharedPairOrdinal, undefined);
-        assert.equal(rankedPurseRyo(off, { role: 'winner' }), 0);
-        process.env.PVP_RANKED_PURSE = '1';
+        assert.equal(PVP_RANKED_PURSE_ENABLED, true);
+        process.env.PVP_RANKED_PURSE = '0';
+        assert.equal(pvpRankedPurseEnabled(), true, 'no env var can turn it off');
+        delete process.env.PVP_RANKED_PURSE;
         full();
         const casual = { slotKey: 'pvp:pairslot:casual-1', counterKey: pvpPairCounterKey('alpha', 'beta', '2026-10-21') };
         await assignPvpCreditSlot(store, casual);

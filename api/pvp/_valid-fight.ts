@@ -86,9 +86,11 @@ export function pvpMinAccountAgeMs(): number {
 export function pvpMastery4049Enabled(): boolean {
     return economySwitch('PVP_MASTERY_40_49', true);
 }
-/** PVP_RANKED_PURSE (default off): ranked V2 pays the purse under the same pair weights. Data-gated (framework 8.2 Phase 2). */
+/** Ranked V2 pays the purse under the same pair weights as casual PvP. On from
+ *  launch with no env switch (owner, 2026-10-22: tune the code if farming shows). */
+export const PVP_RANKED_PURSE_ENABLED = true;
 export function pvpRankedPurseEnabled(): boolean {
-    return economySwitch('PVP_RANKED_PURSE', false);
+    return PVP_RANKED_PURSE_ENABLED;
 }
 
 // ── Purse ────────────────────────────────────────────────────────────────────
@@ -607,8 +609,8 @@ export async function sealRankedWeightRow(
 }
 
 /**
- * The ranked purse for one settled side (PVP_RANKED_PURSE). A terminal sealed
- * without a shared pair slot (before the flag, or pre-deploy) pays nothing.
+ * The ranked purse for one settled side. A terminal sealed without a shared
+ * pair slot (a short or zero-weight match, or one sealed pre-deploy) pays nothing.
  */
 export function rankedPurseRyo(row: RankedWeightRow | null, o: { role: 'winner' | 'loser'; lucky?: boolean }): number {
     if (!row || !row.sharedPairOrdinal || !pvpRankedPurseEnabled()) return 0;
