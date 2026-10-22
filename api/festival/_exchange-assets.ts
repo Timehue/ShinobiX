@@ -103,8 +103,12 @@ export function ownedQuantity(c: Obj, kind: ExchangeKind, id: string): number {
     return strings(c.inventory).filter(s => s === id).length + objects(c.itemStacks).filter(s => s.itemId === id).reduce((n, s) => n + balance(s.count), 0);
 }
 
+/** The two currencies trade refuses outright; the Exchange refuses to list them too (_exchange.ts). */
+export const EXCHANGE_UNLISTABLE_RESOURCES: ReadonlySet<string> = new Set(['honorSeals', 'mythicSeals']);
+
 export function unavailableReason(c: Obj, sealed: SealedExchangeAsset): string | undefined {
     const { kind, id } = sealed.asset;
+    if (kind === 'resource' && EXCHANGE_UNLISTABLE_RESOURCES.has(id)) return 'Honor Seals and Mythic Seals cannot be traded.';
     if (kind === 'card' && isChronicleProgressionCardId(id)) return 'This Chronicle record is an account progression unlock.';
     if (kind === 'pet') {
         const pet = objects(c.pets).find(p => p.id === id);

@@ -311,6 +311,12 @@ it('refuses new Honor Seal and Mythic Seal listings, as player trades do', async
         assert.equal(refused.status, 400, JSON.stringify(refused.body));
         assert.equal((await record('seller')).character[assetId], 100, `${assetId} never left the seller`);
     }
+    // The sell picker marks them unavailable up front instead of offering them.
+    const snapshot = await post({ action: 'browse', playerName: 'seller' });
+    for (const assetId of ['honorSeals', 'mythicSeals']) {
+        assert.match(String(snapshot.body.inventory.find((asset: Obj) => asset.id === assetId)?.unavailable), /cannot be traded/, assetId);
+    }
+    assert.equal(snapshot.body.inventory.find((asset: Obj) => asset.id === 'boneCharms')?.unavailable, undefined);
 });
 
 it('preserves companion identity, lineage, growth and remaining breeding uses', async () => {

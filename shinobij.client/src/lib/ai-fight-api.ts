@@ -1,6 +1,7 @@
 import type { Character } from "../types/character";
 import type { SoloPveSession } from "./solo-pve-api";
 import type { OrdinaryPveEncounter } from '../../../shared/ordinary-pve-encounter';
+import { setSharedDailyStatBudget } from "./progression-dials-store";
 import type {
     WorldAiFightContext,
     WorldAiFightPendingChain,
@@ -229,6 +230,8 @@ export type AiFightReportResult = {
     xp: number;
     ryo: number;
     statPoints: number;
+    /** Today's shared stat-point budget after this win (api/_daily-stat-budget.ts). */
+    statBudget?: { day: string; spent: number; cap: number };
     capped?: boolean;
     replayed?: boolean;
     character?: Partial<Character>;
@@ -262,6 +265,7 @@ export async function reportAiFightWin(playerName: string, token: string): Promi
         });
         if (!response.ok) return null;
         const data = await response.json().catch(() => null) as AiFightReportResult | null;
+        if (data?.ok) setSharedDailyStatBudget(playerName, data.statBudget);
         return data?.ok ? data : null;
     } catch {
         return null;

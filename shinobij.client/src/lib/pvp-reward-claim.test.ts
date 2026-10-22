@@ -198,6 +198,36 @@ describe("pvp-reward-claim", () => {
             "Result recorded — -12 Rating.");
     });
 
+    it("shows the ranked purse, why a fresh account got none, and today's stat-point budget", async () => {
+        const { currentDateKey } = await import("./utils");
+        const win = await postPvpRewardClaim(async () => response(200, {
+            ok: true, alreadyClaimed: false, completionPending: false, rewardAuthorized: true,
+            rating: { field: "rankedRating", value: 1016, delta: 16 },
+            rankedPurse: { ryo: 4050 },
+            statBudget: { day: currentDateKey(), spent: 24, cap: 60 },
+        }), { playerName: "rin", battleId: "ranked-win", outcome: "win" });
+        if (win.status !== "confirmed") return assert.fail("confirmed");
+        assert.equal(pvpRewardSettlementNotice(win, { draw: false, spar: false, role: "win" }),
+            "Rewards secured — +4,050 Ryo · +16 Rating. Stat points today: 24 / 60.");
+        const { dailyStatBudgetToday } = await import("./progression-dials");
+        assert.equal(dailyStatBudgetToday("rin")?.spent, 24, "the reply feeds the shared budget store");
+        const alt = await postPvpRewardClaim(async () => response(200, {
+            ok: true, alreadyClaimed: false, completionPending: false, rewardAuthorized: true,
+            rating: { field: "rankedRating", value: 1008, delta: 8 },
+            rankedPurse: { ryo: 0, reason: "too-young" },
+        }), { playerName: "rin", battleId: "ranked-alt", outcome: "win" });
+        if (alt.status !== "confirmed") return assert.fail("confirmed");
+        assert.match(pvpRewardSettlementNotice(alt, { draw: false, spar: false, role: "win" }),
+            /^Rewards secured — \+8 Rating\. No ranked purse: an account under 72 hours old and below level 20 was in this match\.$/);
+        const junk = await postPvpRewardClaim(async () => response(200, {
+            ok: true, alreadyClaimed: false, completionPending: false, rewardAuthorized: true,
+            rankedPurse: { ryo: -5 }, statBudget: { day: 7, spent: "x" },
+        }), { playerName: "rin", battleId: "ranked-junk", outcome: "win" });
+        if (junk.status !== "confirmed") return assert.fail("confirmed");
+        assert.equal(junk.rankedPurse, undefined);
+        assert.equal(junk.statBudget, undefined);
+    });
+
     it("shows raid impact only from an authoritative receipt after final confirmation", () => {
         const receipt = {
             status: "confirmed" as const, alreadyClaimed: true, completionPending: false,

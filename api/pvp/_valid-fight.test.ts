@@ -336,4 +336,35 @@ describe('ranked weight row', () => {
         assert.equal(rankedPurseRyo({ ...on, engaged: true }, { role: 'loser' }), 1620);
         assert.equal(rankedPurseRyo({ ...on, engaged: false }, { role: 'loser' }), 0);
     });
+    it('the ranked purse follows the established-account rule; Elo keeps its weight', async () => {
+        full();
+        const fresh = { createdAt: T0 - 3_600_000, level: 15 };
+        const old = { createdAt: T0 - 30 * 86_400_000, level: 15 };
+        // The session's p1 'A' wins; its sealed levels are the fight-time levels the rule reads.
+        const sealFor = async (winner: Record<string, unknown>, loser: Record<string, unknown>, id: string) => {
+            const store = _makeMemoryKv();
+            await store.set('save:a', { character: winner });
+            await store.set('save:b', { character: loser });
+            const level: [number, number] = [Number(winner.level), Number(loser.level)];
+            return sealRankedWeightRow(store, { session: { ...ranked({ level }), battleId: `pvp-${id}` } as PvpSession,
+                matchId: id, a: 'a', b: 'b', terminalAt: T0, ttlSeconds: 3600 });
+        };
+        // A fresh loser pays neither side, and spends no slot of the casual pair day.
+        const alt = await sealFor(old, fresh, 'm-fresh-loser');
+        assert.equal(alt.weight, 1, 'the match still counts for Elo');
+        assert.equal(alt.purseBlocked, 'too-young');
+        assert.equal(alt.sharedPairOrdinal, undefined);
+        assert.equal(rankedPurseRyo(alt, { role: 'winner' }), 0);
+        assert.equal(rankedPurseRyo({ ...alt, engaged: true }, { role: 'loser' }), 0);
+        // A fresh winner earns the win purse, but the loser gets no loss purse.
+        const main = await sealFor(fresh, old, 'm-fresh-winner');
+        assert.equal(main.lossPurseBlocked, 'too-young');
+        assert.ok(rankedPurseRyo(main, { role: 'winner' }) > 0);
+        assert.equal(rankedPurseRyo({ ...main, engaged: true }, { role: 'loser' }), 0);
+        // Level 20 is established at any account age.
+        const l20 = await sealFor(old, { ...fresh, level: 20 }, 'm-l20');
+        assert.equal(l20.purseBlocked, undefined);
+        assert.ok(rankedPurseRyo(l20, { role: 'winner' }) > 0);
+        assert.deepEqual(parseRankedWeightRow(JSON.parse(JSON.stringify(main))), main, 'the flags survive a round trip');
+    });
 });

@@ -20,6 +20,10 @@ describe("pvpCreditNote", () => {
         assert.match(pvpCreditNote({ ...full, credited: false, reason: "level-gap", pairWeight: 0 }, "win") ?? "", /20 levels/);
         assert.match(pvpCreditNote({ ...full, credited: false, reason: "too-young", pairWeight: 0 }, "loss") ?? "", /72 hours/);
         assert.match(pvpCreditNote({ ...full, sideMult: 0 }, "loss") ?? "", /15% of the winner's HP/);
+        // An engaged loser whose winner is not established is told the real reason.
+        const blocked = pvpCreditNote({ ...full, sideMult: 0, lossBlocked: "too-young" }, "loss") ?? "";
+        assert.match(blocked, /winner's account is under 72 hours old and below level 20/);
+        assert.doesNotMatch(blocked, /15% of the winner's HP/);
     });
     it("words the live thresholds the server sends, not hard-coded defaults", () => {
         const rules = { minRounds: 2, minFightSeconds: 30, lossMinDamagePct: 10, minAccountAgeHours: 48, establishedLevel: 20, levelGapMax: 15 };
