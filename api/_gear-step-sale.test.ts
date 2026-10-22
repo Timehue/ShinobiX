@@ -15,8 +15,8 @@ const stepItem = (id: string) => ITEM_CATALOG[id] as SettlementItem;
 const character = (over: Record<string, unknown> = {}) => ({ name: 'rill', ryo: 10, inventory: [], itemStacks: [], equipment: {}, ...over });
 
 describe('gear step drops sell for one flat price', () => {
-    it('is 500 ryo', () => {
-        assert.equal(GEAR_STEP_SELL_RYO, 500);
+    it('is 150 ryo', () => {
+        assert.equal(GEAR_STEP_SELL_RYO, 150);
     });
 
     it('sells from the backpack through the receipt path, once per request', () => {

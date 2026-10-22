@@ -174,6 +174,10 @@ export async function enterHollowGateShrineFlow(params: HollowGateEntryParams) {
     }
     // Named explicitly: the generic fallback below says to retry when the connection is stable, which is unactionable until discharge.
     if (serverStart?.reason === "hospitalized") { alert("You are still being treated. Leave the hospital before descending — no key was spent."); return; }
+    if (serverStart?.reason === "hollow-gate-sealed") {
+        alert("The Hollow Gate seal is still bound. Your village Kage must purchase the Hollow Gate upgrade from the Town Hall before anyone can enter.");
+        return;
+    }
     if (!serverStart?.token || !serverStart.character) {
         alert("The Hollow Gate could not establish a secure server run. No key was spent locally; retry when the connection is stable.");
         return;

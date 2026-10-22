@@ -74,21 +74,26 @@ describe('Honor Seal training through the real endpoints', () => {
         assert.equal(stored?.character.honorSeals, 55, 'and did not spend Seals (100 - 20 - 25)');
     });
 
-    it('lets the Seal speed-up buy the last partial 10-minute block, so "Finish now" can finish', async () => {
+    it('prices the speed-up at one Seal per 5 minutes (client mirror pinned in lib/progression-dials.test.ts)', async () => {
+        const { MINUTES_PER_SEAL } = await import('../jutsu/speedup.js');
+        assert.equal(MINUTES_PER_SEAL, 5);
+    });
+
+    it('lets the Seal speed-up buy the last partial 5-minute block, so "Finish now" can finish', async () => {
         const record = await kv.get<Record<string, unknown> & { activeJutsuTraining: { endsAt: number } }>(`save:${PLAYER}`);
         assert.ok(record?.activeJutsuTraining);
         const twentyFiveMinutesLeft = Date.now() + 25 * 60_000;
         await kv.set(`save:${PLAYER}`, { ...record, activeJutsuTraining: { ...record.activeJutsuTraining, endsAt: twentyFiveMinutesLeft } });
         const speedup = (await import('../jutsu/speedup.js')).default as unknown as Handler;
 
-        const tooMany = await post(speedup, { seals: 4 });
+        const tooMany = await post(speedup, { seals: 6 });
         assert.equal(tooMany.status, 400, 'still no selling more blocks than remain');
-        assert.equal(tooMany.body.maxSeals, 3);
-        const finish = await post(speedup, { seals: 3 });
+        assert.equal(tooMany.body.maxSeals, 5);
+        const finish = await post(speedup, { seals: 5 });
         assert.equal(finish.status, 200, JSON.stringify(finish.body));
         const after = await kv.get<{ _saveVersion: number; activeJutsuTraining: { endsAt: number }; character: { honorSeals: number } }>(`save:${PLAYER}`);
         assert.ok((after?.activeJutsuTraining.endsAt ?? Infinity) <= Date.now(), 'the lesson is now due');
-        assert.equal(after?.character.honorSeals, 52);
+        assert.equal(after?.character.honorSeals, 50);
         assert.equal(finish.body._saveVersion, after?._saveVersion, 'the reply acknowledges the version it actually stored');
     });
 

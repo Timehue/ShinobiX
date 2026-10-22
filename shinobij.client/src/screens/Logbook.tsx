@@ -14,6 +14,7 @@ import { gameConfirm } from "../components/GameAlert";
 import { gameToast } from "../components/GameToast";
 import { LogbookCareerRecord } from "../components/LogbookCareerRecord";
 import { DAILY_MISSION_LIMIT, FIELD_MISSION_STAT_POINTS } from "../constants/game";
+import { missionStatPointText } from "../lib/progression-dials";
 import { builtinFetchMissions, fieldMissionNextAction, mergeBuiltinMissions, missionRaidProgressKey, missionRaidRequirement } from "../data/missions";
 import { rewardSummary, statPointNote } from "../lib/currency";
 import { boostAmount, getMissionRewardBonus } from "../lib/village-upgrades";
@@ -192,7 +193,7 @@ export function Logbook({
             applySuccessfulMissionClaim(result);
             setAcceptedMissionIds((prev) => prev.filter((id) => id !== mission.id));
             setMissionProgress((prev) => ({ ...prev, [mission.id]: 0, [missionRaidProgressKey(mission.id)]: 0 }));
-            alert(`${mission.name} complete. ${statPointNote(result.reward.statPoints)}${rewardSummary(result.reward.ryo, result.reward.stamina, result.reward.currency, character)}.`);
+            alert(`${mission.name} complete. ${statPointNote(result.reward.statPoints)}${rewardSummary(result.reward.ryo, result.reward.stamina, result.reward.currency, character)}.${result.statBudget ? ` Stat points today: ${result.statBudget.spent} / ${result.statBudget.cap}.` : ""}`);
             return;
         }
         if (result.applied === false) {
@@ -533,7 +534,7 @@ export function Logbook({
                                 <CardVisual icon="📜" label={mission.name} />
                                 <span>{mission.name}</span>
                                 <small>Sector {mission.targetSector} | Explore {progress}/{mission.exploreCount}{raidReq > 0 ? ` | Raid ${raidProgress}/${raidReq}` : ""}</small>
-                                <small>Lvl {mission.levelReq} | +{FIELD_MISSION_STAT_POINTS} Stat Pts / {rewardSummary(boostedRyo, boostedStamina, mission.currencyRewards, character)}</small>
+                                <small>Lvl {mission.levelReq} | {missionStatPointText(character.name, FIELD_MISSION_STAT_POINTS)} / {rewardSummary(boostedRyo, boostedStamina, mission.currencyRewards, character)}</small>
                                 <p>{mission.description}</p>
                                 <div className="mission-progress"><span style={{ width: `${progressPercent}%` }}></span></div>
                                 {accepted && !complete && <p><strong>Next:</strong> {nextAction.instruction}</p>}

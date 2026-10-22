@@ -100,7 +100,9 @@ export const hiddenDungeonVnEvent: CreatorEvent = {
     xpReward: 0,
     ryoReward: 0,
     staminaReward: 0,
-    currencyRewards: { boneCharms: 10, auraStones: 5, fateShards: 5 },
+    // Mirrors the server's DUNGEON_CLEAR_REWARD (api/dungeon/_run.ts); pinned by
+    // scripts/dungeon-reward-parity.test.ts. The clear alert in App.tsx reads it.
+    currencyRewards: { boneCharms: 10, auraStones: 5, fateShards: 2 },
     dialogue: [
         "Narrator: The ground exhales old chakra.",
         "Narrator: Three seals burn in the dark: combat, strategy, and companionship.",

@@ -102,10 +102,22 @@ export function petExpeditionBasePetXp(type: PetExpeditionType): number {
     return Math.round(120 * Math.max(1, route.durationMinutes / 60) * route.petXpRate);
 }
 
-export function petExpeditionBaseRyo(type: PetExpeditionType, petLevel: number): number {
+/**
+ * TAMER_RYO_MULT (2026-10 economy rebalance #15; owner ruling A6: 0.4, kill
+ * value 1). It scales EVERY expedition's ryo, Tamer and non-Tamer alike, so the
+ * non-Tamer half rate stays below the Tamer rate. It lives inside the base so
+ * the server payout and the board preview cannot drift: the server passes its
+ * env reading (api/missions/report-pet-event.ts `tamerRyoMult()`), and the
+ * client previews at this code default. Ryo is computed at collection, so the
+ * change must deploy with the reset, when no expedition lease is in flight.
+ */
+export const TAMER_RYO_MULT = 0.4;
+
+export function petExpeditionBaseRyo(type: PetExpeditionType, petLevel: number, ryoMult: number = TAMER_RYO_MULT): number {
     const route = PET_EXPEDITION_ROUTES[type];
-    return 90 * Math.max(1, route.durationMinutes / 60) * route.ryoRate
-        + Math.max(1, Math.min(100, Math.floor(petLevel))) * 6;
+    const mult = Number.isFinite(ryoMult) ? Math.max(0, ryoMult) : TAMER_RYO_MULT;
+    return (90 * Math.max(1, route.durationMinutes / 60) * route.ryoRate
+        + Math.max(1, Math.min(100, Math.floor(petLevel))) * 6) * mult;
 }
 
 export function petExpeditionMaterialChances(

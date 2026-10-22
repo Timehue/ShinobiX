@@ -6,8 +6,8 @@ test.beforeEach(({ browserName }, testInfo) => {
 });
 
 // A gear step drop costs 0, so the usual half cost rule would give nothing and hide
-// the Sell button. It sells for one flat 500 ryo instead, and the server pays the same.
-test('a gear step drop can be sold for 500 ryo', async ({ page }) => {
+// the Sell button. It sells for one flat 150 ryo instead, and the server pays the same.
+test('a gear step drop can be sold for 150 ryo', async ({ page }) => {
     const errors: string[] = [];
     page.on('pageerror', error => errors.push(error.message));
     const save = uiAuditSave();
@@ -17,10 +17,10 @@ test('a gear step drop can be sold for 500 ryo', async ({ page }) => {
     const requests: Record<string, unknown>[] = [];
     await page.route('**/api/inventory/sell', async route => {
         requests.push(route.request().postDataJSON());
-        const character = { ...save.character, inventory: ['rustfang-kunai'], ryo: 600 };
+        const character = { ...save.character, inventory: ['rustfang-kunai'], ryo: 250 };
         const version = runtime.currentVersion() + 1;
         runtime.commitServerCharacter(character, version);
-        await route.fulfill({ json: { ok: true, character, settlement: { kind: 'inventory-sale', itemId: 'training-katana-s2', quantity: 1, ryo: 500 }, _saveVersion: version } });
+        await route.fulfill({ json: { ok: true, character, settlement: { kind: 'inventory-sale', itemId: 'training-katana-s2', quantity: 1, ryo: 150 }, _saveVersion: version } });
     });
     await expectUiAuditBoot(page, runtime, 'inventory');
 
@@ -31,12 +31,12 @@ test('a gear step drop can be sold for 500 ryo', async ({ page }) => {
     // It is its own named piece, and the description says which item it outclasses.
     await expect(dialog).toContainText('A prized find that outclasses the Training Katana.');
     await expect(dialog).toContainText('Damage 15 EP');
-    await expect(dialog).toContainText('Sell Value: 500 ryo');
-    const sell = dialog.getByRole('button', { name: 'Sell for 500 ryo', exact: true });
+    await expect(dialog).toContainText('Sell Value: 150 ryo');
+    const sell = dialog.getByRole('button', { name: 'Sell for 150 ryo', exact: true });
     await expect(sell).toBeEnabled();
     await sell.click();
 
-    await expect(page.locator('.game-toast-stack')).toContainText('for 500 ryo');
+    await expect(page.locator('.game-toast-stack')).toContainText('for 150 ryo');
     expect(requests).toHaveLength(1);
     expect(requests[0]).toMatchObject({ itemId: 'training-katana-s2', source: 'backpack', quantity: 1 });
     await expect(page.getByRole('button', { name: 'Inspect Scarlet Reed Katana', exact: true })).toHaveCount(0);

@@ -26,6 +26,9 @@ import { loadPublishedContent } from '../_content-store.js';
 import { HOLLOW_GATE_LEDGER_ITEM_IDS, type HollowGateRewardLedger } from './_ledger.js';
 import { withKvLock } from '../_lock.js';
 import { isDeepStrictEqual } from 'node:util';
+import { economySwitch } from '../_economy-dials.js';
+import { hollowGateEntryLevel } from './_gate-scale.js';
+import { advanceLastDailyReset } from '../_daily-reset-stamp.js';
 
 /*
  * /api/hollow-gate/start  — POST only  (docs/hollow-gate-augments.md)
@@ -111,6 +114,25 @@ async function rollbackDefinitiveStartFailure(reservation: StartReservation): Pr
 
 function utcDateKey(): string { return new Date().toISOString().slice(0, 10); }
 
+/**
+ * Code default of the HOLLOW_GATE_UNLOCK_ENFORCED switch (I-6). Off until the
+ * owner rules on the unlock price (framework question 3): today the seated
+ * Kage pays 10,000 personal Honor Seals per window, which would close the
+ * Gate for most villages if the server enforced it. The shipped client
+ * already refuses a standard start without an open window, so turning it on
+ * changes the outcome only for a modded client.
+ */
+export const HOLLOW_GATE_UNLOCK_ENFORCED = false;
+
+export function hollowGateUnlockEnforced(): boolean {
+    return economySwitch('HOLLOW_GATE_UNLOCK_ENFORCED', HOLLOW_GATE_UNLOCK_ENFORCED);
+}
+
+/** The village row the paid unlock writes (same slug as api/village/hollow-gate-unlock.ts). */
+export function hollowGateVillageStateKey(village: unknown): string {
+    return `game:village-state:${String(village ?? '').toLowerCase().replace(/[^a-z0-9]/g, '')}`;
+}
+
 type PublishedEventGate = {
     id: string;
     floors: number;
@@ -119,6 +141,8 @@ type PublishedEventGate = {
     bossAiId?: string;
     bossName?: string;
     keyCost: 0 | 1;
+    /** The event gate also needs the village's open seal (mirrors the client's requiresUnlock). */
+    requiresUnlock?: true;
     updatedAt: number;
 };
 
@@ -140,6 +164,8 @@ export function normalizePublishedEventGate(raw: unknown, requestedId: string): 
         ...(bossAiId ? { bossAiId } : {}),
         ...(bossName ? { bossName } : {}),
         keyCost: Number(config.keyCost) === 0 ? 0 : 1,
+        // Any truthy value, like the client's Boolean() (lib/hollow-gate-variant.ts).
+        ...(config.requiresUnlock ? { requiresUnlock: true as const } : {}),
         updatedAt: Math.max(0, Number(config.updatedAt) || 0),
     };
 }
@@ -292,6 +318,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (!identity.admin && isIncapacitated(character)) {
                 return { ok: false as const, status: 409, error: 'hospitalized' };
             }
+            // The village's 30-day Hollow Gate seal, checked here as well as in
+            // the client (lib/hollow-gate-entry.ts) so a modded client cannot
+            // skip it (I-6). Rifts never need it; an event gate only when its
+            // config asks. Refused before the key or a daily slot is spent.
+            if (!identity.admin && !riftDef && (!eventDef || eventDef.requiresUnlock === true) && hollowGateUnlockEnforced()) {
+                const villageState = await kv.get<Record<string, unknown>>(hollowGateVillageStateKey(character.village));
+                if (!(Number(villageState?.hollowGateUnlockedUntil) > Date.now())) {
+                    return { ok: false as const, status: 409, error: 'hollow-gate-sealed' };
+                }
+            }
             // A rift has no party or deck requirement. The quest is offered and
             // accepted at the rift's own level, and every encounter inside can be
             // played from there: a Hollow Hound never needs a pet, and the card
@@ -365,6 +401,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 pendingAmbush: null,
                 offeredAugmentIds: offers.map((o) => o.id), chosenAugmentId: null,
                 dailyRunOrdinal: ord,
+                // Sealed once: levelling mid-run does not raise the run's ryo
+                // scale. An admin-started run seals the target player's level.
+                entryLevel: hollowGateEntryLevel(character.level),
                 ...(riftDef ? {
                     variantId: riftDef.id,
                     riftDistortionId: riftWeeklyDistortion().id,
@@ -393,6 +432,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 ok: true as const,
                 character: {
                     ...afterKey,
+                    // A first dive of the UTC day rolls the day for every counter
+                    // keyed to lastDailyReset, not only this one (api/_daily-reset-stamp.ts).
+                    ...advanceLastDailyReset(afterKey, utcDateKey()),
                     dailyHollowGateRuns: ord,
                     lastDailyReset: utcDateKey(),
                     lastHollowGateStart: { requestId, token, at: Date.now() },

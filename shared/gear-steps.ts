@@ -30,8 +30,10 @@ export function gearStepArtPath(stepId: string): string {
 
 export const GEAR_STEP_SIZE = 0.5;
 
-/** What any gear step drop sells for, in ryo. Step items cost 0, so the usual half cost rule gives nothing. */
-export const GEAR_STEP_SELL_RYO = 500;
+/** What any gear step drop sells for, in ryo. Step items cost 0, so the usual half cost rule gives nothing.
+ *  150 since the 2026-10 economy rebalance (#33): at 500 a step drop out-sold most buyable base pieces.
+ *  Steps cannot be bought, so no buy-sell loop exists even where 150 exceeds half a tier-0 base's ask. */
+export const GEAR_STEP_SELL_RYO = 150;
 
 /** The next tier's base value for each steppable tier, indexed by tier. */
 const WEAPON_NEXT_EP = [17, 19, 22] as const;

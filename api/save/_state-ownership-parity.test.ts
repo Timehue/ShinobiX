@@ -84,7 +84,7 @@ const FROZEN = {
         // Reviewed relic extension: roster conversion and exact reward outcomes
         // are private server bookkeeping, never sealed fighter inputs.
         'relicRosterVersion', 'relicRewardLedger',
-        'totalPvpKills', 'monthlyPvpKills', 'pvpKillMonth', 'elderWinDays', 'elderRankedWinReceipts',
+        'totalPvpKills', 'monthlyPvpKills', 'pvpKillMonth', 'elderWinDays', 'elderRankedWinReceipts', 'villageMerit',
         'dailyAiKills', 'dailyPetWins', 'dailyTilesExplored', 'dailyMissionsCompleted',
         'dailyFateSpins', 'lastDailyReset',
         'claimedVillageAgendaDate', 'claimedMapControlDate', 'warGroundBountyDate',
@@ -208,7 +208,7 @@ const FROZEN = {
         'accountName',
         'sunscarRally', 'sunscarCaravan',
         'firstContract', // journal milestones are committed by existing authoritative actions, never generic saves
-        'elderWinDays', 'elderRankedWinReceipts',
+        'elderWinDays', 'elderRankedWinReceipts', 'villageMerit',
         'pvpKillMonth', // Monthly ANBU rankings must not accept a client-written reset month.
         'serverExploreDate', 'serverExploresToday', 'serverFreeDungeonProbeDate', 'serverFreeDungeonProbesToday', 'redeemedSectorExplorations',
         'serverChestDate', 'serverChestsToday', 'redeemedAncientChests',

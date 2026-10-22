@@ -43,6 +43,7 @@ import type { TowerSession } from './_tower-session.js';
 import { appendSettlementReceipt, inspectSettlementReceipt } from '../_settlement-receipts.js';
 import { GEAR_DROP_CHANCE_BP } from '../_gear-drops.js';
 import { settleGearDropForPlayer } from '../_gear-drop-settlement.js';
+import { activityPurseMinutes, activityPurseRyo, recordActivityPurse } from '../_activity-purse.js';
 
 // ─── minimal injectable interfaces ───────────────────────────────────────────
 export type TowerKv = {
@@ -146,6 +147,14 @@ export async function consumeRunToken(host: string, tokenId: string, deps: Store
 }
 
 // ─── live session ────────────────────────────────────────────────────────────
+/** Stamp `terminalAt` on the first write of a done run; later writes keep it. */
+export function stampTowerTerminalAt(session: Pick<TowerSession, 'status' | 'terminalAt'>, at: number): void {
+    if (session.status !== 'done') return;
+    const prior = Number(session.terminalAt);
+    if (Number.isFinite(prior) && prior > 0) return;
+    session.terminalAt = at;
+}
+
 export async function readSession(runId: string, deps: StoreDeps = {}): Promise<TowerSession | null> {
     const kv = deps.kv ?? realKv;
     return kv.get<TowerSession>(sessionKey(runId));
@@ -159,6 +168,8 @@ export async function writeSession(session: TowerSession, deps: StoreDeps = {}):
     // its gameplay expiry and is retained past it (F08): expiry is a terminal
     // event the lapse reconciler records, not a storage disappearance.
     if (session.status === 'active') session.expiresAt = now() + TOWER_SESSION_TTL * 1000;
+    // The first terminal write fixes when the run ended (the activity purse's clock).
+    stampTowerTerminalAt(session, now());
     const ttl = session.status === 'done' ? PAID_RECEIPT_TTL : TOWER_SESSION_TTL + TOWER_LAPSED_RETENTION_SECONDS;
     const written = await kv.set(sessionKey(session.runId), session, { ex: ttl });
     if (written === null) throw new Error('Tower session publication was not committed.');
@@ -289,7 +300,15 @@ function creditFloorClear(
     };
 }
 
-export type SettleResult = { paid: boolean; reason?: string; score?: number; relic?: { itemId?: string; fateShards?: number; reason?: string }; gearDrop?: { itemId?: string } };
+export type SettleResult = {
+    paid: boolean; reason?: string; score?: number;
+    relic?: { itemId?: string; fateShards?: number; reason?: string };
+    gearDrop?: { itemId?: string };
+    /** Endless Spire ryo purse for this clear (owner amendment A7); a replay reports the sealed amount. */
+    purse?: { ryo: number; minutes: number };
+    /** Endless Spire Fate Shards this clear paid: 0 when the tier was already cleared this week. */
+    shards?: number;
+};
 export type ConsumedItemsResult = { consumed: boolean; reason?: string; used?: Record<string, number> };
 
 function embeddedTowerReceipt(kind: 'items' | 'spire', parts: unknown[]): { requestId: string; fingerprint: string } {
@@ -541,15 +560,18 @@ export async function settleAssistForAlly(
 
 // ─── Endless Spire settlement (best-tier-per-week; separate from the story channel) ──
 // Apply a spire clear to a character: unlock the next tier (permanent battleTowerAscension),
-// bump the weekly-best (reset by week), and credit the flat Fate Shard reward (caller decides
-// whether it's the first clear of this tier this week). NO xp/ryo — a focused premium trickle.
+// bump the weekly-best (reset by week), credit the flat Fate Shard reward (caller decides
+// whether it's the first clear of this tier this week) and the ryo purse. NO xp.
+// The purse (owner amendment A7) pays every clear, 1.5 x A(L) per active minute of the
+// tier (api/_activity-purse.ts); the weekly-first rule still governs the Fate Shards only.
 function creditSpireClear(
-    char: Record<string, unknown>, tier: number, wk: string, shards: number,
+    char: Record<string, unknown>, tier: number, wk: string, shards: number, purseRyo = 0,
 ): Record<string, unknown> {
     const sameWeek = String(char.battleTowerSpireWeekKey ?? '') === wk;
     const weeklyBest = Math.max(sameWeek ? num(char.battleTowerSpireWeeklyBest) : 0, tier);
     return {
         ...char,
+        ...(purseRyo > 0 ? { ryo: Math.max(0, num(char.ryo)) + Math.floor(purseRyo) } : {}),
         fateShards: num(char.fateShards) + Math.max(0, Math.floor(shards)),
         // Permanent unlock: highest spire tier cleared (drives the entry gate + milestone titles).
         battleTowerAscension: Math.max(num(char.battleTowerAscension), tier),
@@ -633,7 +655,11 @@ export async function settleSpireForMember(
                         }).catch(() => null);
                     }
                 }
-                return unwritten({ paid: false, reason: 'already-paid', score: tier });
+                const sealedPurse = Math.max(0, Math.floor(num(inspection.receipt.value.purse)));
+                return unwritten({
+                    paid: false, reason: 'already-paid', score: tier,
+                    ...(sealedPurse > 0 ? { purse: { ryo: sealedPurse, minutes: num(inspection.receipt.value.purseMinutes) } } : {}),
+                });
             }
             if (inspection.status !== 'fresh') return unwritten({ paid: false, reason: 'invalid-receipt', score: tier });
             // Per-run replay guard (24h): a given run settles this member at most once.
@@ -651,21 +677,25 @@ export async function settleSpireForMember(
             const externalWeeklyPaid = !!(await kv.get(rewardReceipt));
             const weeklyPaid = embeddedWeeklyPaid || externalWeeklyPaid;
             const shards = weeklyPaid ? 0 : SPIRE_SHARDS_PER_TIER;
+            // The tier's own server clock: run start to the write that saw it cleared.
+            const purseMinutes = activityPurseMinutes(session.createdAt, session.terminalAt);
+            const purse = activityPurseRyo('spire', char.level, purseMinutes);
 
-            const cleared = creditSpireClear(char, tier, wk, shards);
+            const cleared = creditSpireClear(char, tier, wk, shards, purse);
             const credited = session.actors.some(actor => actor.ownerSlug === slug && !actor.ai)
                 ? creditElderWins(cleared, 0, 1, now()) : cleared;
             return {
                 ok: true,
                 character: appendSettlementReceipt(credited, inspection.receipts, {
                     ...identity,
-                    value: { runId: session.runId, tier, weekKey: wk, shards },
+                    value: { runId: session.runId, tier, weekKey: wk, shards, purse, purseMinutes },
                     settledAt: now(),
                 }),
-                value: { paid: true, score: tier },
+                value: { paid: true, score: tier, shards, ...(purse > 0 ? { purse: { ryo: purse, minutes: purseMinutes } } : {}) },
                 afterCommit: async () => {
                     await kv.set(runReceipt, { ts: now() }, { nx: true, ex: PAID_RECEIPT_TTL }).catch(() => null);
                     await kv.set(rewardReceipt, { ts: now() }, { nx: true, ex: SPIRE_REWARD_TTL }).catch(() => null);
+                    recordActivityPurse('spire', slug, session.runId, purse);
                     // Capture the maintained-leaderboard entry (best tier this week) — written AFTER the
                     // save lock releases so the board lock never nests inside the save lock.
                     captureBoardEntry(char, wk);

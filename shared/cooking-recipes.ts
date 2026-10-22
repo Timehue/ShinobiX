@@ -1,4 +1,11 @@
 import { FISH_RECIPES, type FishRecipeId } from './fish-recipes.js';
+/**
+ * What burns as fuel, spent in this order. Heartwood Bark is the scarce one, so
+ * Common Ember Ore and Ember Scale ("still warm to the touch") stand in for it
+ * 1:1 at the Noodle Den and the forge (2026-10 rebalance, item-use pass: Ember
+ * Ore had one recipe row and Ember Scale none of its own).
+ */
+export const FUEL_IDS = ['gather-heartwood-bark', 'gather-ember-ore', 'hunt-ember-scale'] as const;
 export type CookRecipeId = 'field-rations' | 'campaign-rations' | FishRecipeId;
 export type CookRecipe = {
     id: CookRecipeId; name: string; ryo: number; materials: readonly string[];

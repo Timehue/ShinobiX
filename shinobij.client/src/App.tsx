@@ -4671,7 +4671,7 @@ export default function App() {
             dungeonActionRef.current = false;
         }
         setActiveDungeonRunToken(null);
-        alert(`${activeDungeonEvent.name} cleared. +10 Bone Charms, +5 Aura Stones, +5 Fate Shards, +1 Dungeon Legendary Relic.${gearFound ? `\n${gearDropRewardLine(gearFound) ?? ""}` : ""}`);
+        const pay = hiddenDungeonVnEvent.currencyRewards; alert(`${activeDungeonEvent.name} cleared. +${pay?.boneCharms ?? 0} Bone Charms, +${pay?.auraStones ?? 0} Aura Stones, +${pay?.fateShards ?? 0} Fate Shards, +1 Dungeon Legendary Relic.${gearFound ? `\n${gearDropRewardLine(gearFound) ?? ""}` : ""}`);
         setActiveDungeonEvent(null);
         setScreen(dungeonReturnScreen);
     }

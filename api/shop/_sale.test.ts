@@ -1,6 +1,9 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { sellCatalogItem } from './_sale.js';
+import { unitSaleValue } from '../inventory/_sale.js';
+import { ITEM_CATALOG } from '../pvp/_item-catalog.js';
+import type { SettlementItem } from './_catalog.js';
 
 describe('server shop sale', () => {
     it('refuses selection-slot sales and consumes backing units only through backpack sales', () => {
@@ -46,5 +49,30 @@ describe('server shop sale', () => {
         assert.equal(sellCatalogItem({ equipment: { hand: 'other' } }, 'ashen-leaf-saber', 1, 'hand').ok, false);
         const out = sellCatalogItem({ ryo: 0, equipment: { hand: 'ashen-leaf-saber', weapon: 'ashen-leaf-saber' } }, 'ashen-leaf-saber', 1, 'hand');
         assert.equal(out.ok, true); if (out.ok) assert.equal(((out.character as Record<string, unknown>).equipment as any).hand, undefined);
+    });
+});
+
+it('/shop/sell credits the same unit price as /inventory/sell for every item it buys', () => {
+    let checked = 0;
+    for (const item of Object.values(ITEM_CATALOG)) {
+        const sold = sellCatalogItem({ ryo: 0, inventory: [item.id], itemStacks: [] }, item.id, 1);
+        if (!sold.ok) continue;
+        checked++;
+        assert.equal(sold.sale.unitValue, unitSaleValue({ ...item, cost: Math.max(0, Math.floor(Number(item.cost) || 0)) } as SettlementItem), item.id);
+    }
+    assert.ok(checked >= 100, `only ${checked} sellable items checked`);
+});
+
+describe('/shop/sell agrees with /inventory/sell (2026-10 item-use pass)', () => {
+    it('refuses the potion slot, as /inventory/sell does', () => {
+        const sold = sellCatalogItem({ ryo: 0, inventory: ['potion-rejuvenation'], itemStacks: [] }, 'potion-rejuvenation', 1);
+        assert.equal(sold.ok, false);
+    });
+
+    it('keeps the last copy of a collar or PvP gear a pet still wears', () => {
+        const pets = [{ id: 'p1', loadout: { pvp: 'pvp-aegis-pendant' } }];
+        assert.deepEqual(sellCatalogItem({ ryo: 0, inventory: ['pvp-aegis-pendant'], itemStacks: [], pets }, 'pvp-aegis-pendant', 1), { ok: false, reason: 'pet-unlock-worn' });
+        assert.equal(sellCatalogItem({ ryo: 0, inventory: ['pvp-aegis-pendant', 'pvp-aegis-pendant'], itemStacks: [], pets }, 'pvp-aegis-pendant', 1).ok, true);
+        assert.equal(sellCatalogItem({ ryo: 0, inventory: ['pvp-aegis-pendant'], itemStacks: [], pets: [] }, 'pvp-aegis-pendant', 1).ok, true);
     });
 });

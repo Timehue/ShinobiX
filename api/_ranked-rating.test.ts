@@ -1,6 +1,25 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { rankedDelta, creditRankedOutcome, creditRankedFromSelf, DEFAULT_RANKED_RATING } from './_ranked-rating.js';
+import { rankedDelta, creditRankedOutcome, creditRankedFromSelf, weightedRankedDelta, DEFAULT_RANKED_RATING } from './_ranked-rating.js';
+
+describe('weightedRankedDelta (I-3: repeat and short-fight weight, after the 8-point floor)', () => {
+    it('is rankedDelta at full weight and scales below it', () => {
+        for (const [w, l] of [[1000, 1000], [1400, 1000], [1000, 1400]] as const) {
+            assert.equal(weightedRankedDelta(w, l), rankedDelta(w, l));
+            assert.equal(weightedRankedDelta(w, l, 1), rankedDelta(w, l));
+        }
+        assert.equal(weightedRankedDelta(1000, 1000, 0.5), 6);
+        assert.equal(weightedRankedDelta(1400, 1000, 0.25), 2);
+        assert.equal(weightedRankedDelta(1000, 1000, 0), 0);
+    });
+    it('weights both sides of creditRankedOutcome the same; no weight is today’s credit', () => {
+        const win = creditRankedOutcome({ rankedRating: 1000 }, { role: 'winner', winnerRating: 1000, loserRating: 1000, kind: 'player', weight: 0.5 });
+        const loss = creditRankedOutcome({ rankedRating: 1000 }, { role: 'loser', winnerRating: 1000, loserRating: 1000, kind: 'player', weight: 0.5 });
+        assert.equal(win.newRating, 1006);
+        assert.equal(loss.newRating, 994);
+        assert.equal(creditRankedOutcome({ rankedRating: 1000 }, { role: 'winner', winnerRating: 1000, loserRating: 1000, kind: 'player' }).delta, 12);
+    });
+});
 
 // Pins the server rating math to the client's formula
 // (shinobij.client/src/lib/progression.ts rankedDelta) so moving the

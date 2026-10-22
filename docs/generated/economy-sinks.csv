@@ -1,5 +1,5 @@
 system,id,currency,amount,cadence,authority,notes
-shop,ancient-pet-treat,ryo,520,per unit,api/pvp/_item-catalog.ts,epic item
+shop,ancient-pet-treat,ryo,400,per unit,api/pvp/_item-catalog.ts,epic item
 shop,ash-wrapped-tanto,ryo,220,per unit,api/pvp/_item-catalog.ts,common hand
 shop,ashen-dragon-katana,fateShards,100,per unit,api/pvp/_item-catalog.ts,mythic hand
 shop,ashen-leaf-saber,ryo,480,per unit,api/pvp/_item-catalog.ts,rare hand
@@ -27,6 +27,7 @@ shop,collar-azure,fateShards,50,per unit,api/pvp/_item-catalog.ts,legendary item
 shop,collar-crimson,fateShards,50,per unit,api/pvp/_item-catalog.ts,legendary item
 shop,collar-emerald,fateShards,50,per unit,api/pvp/_item-catalog.ts,legendary item
 shop,collar-inferno,fateShards,80,per unit,api/pvp/_item-catalog.ts,legendary item
+shop,collar-prismatic,fateShards,400,per unit,api/pvp/_item-catalog.ts,mythic item
 shop,collar-rose,fateShards,120,per unit,api/pvp/_item-catalog.ts,mythic item
 shop,collar-tidal,fateShards,120,per unit,api/pvp/_item-catalog.ts,mythic item
 shop,collar-verdant,fateShards,80,per unit,api/pvp/_item-catalog.ts,legendary item
@@ -35,7 +36,7 @@ shop,consum-cleansing-incense,ryo,1120,per unit,api/pvp/_item-catalog.ts,uncommo
 shop,consum-lifeline-elixir,ryo,1440,per unit,api/pvp/_item-catalog.ts,rare item
 shop,consum-phantom-charm,ryo,960,per unit,api/pvp/_item-catalog.ts,uncommon item
 shop,consum-second-wind,ryo,1600,per unit,api/pvp/_item-catalog.ts,rare item
-shop,consum-smoke-pellet,ryo,960,per unit,api/pvp/_item-catalog.ts,uncommon item
+shop,consum-smoke-pellet,ryo,600,per unit,api/pvp/_item-catalog.ts,uncommon item
 shop,consum-thornmail-oil,ryo,1280,per unit,api/pvp/_item-catalog.ts,rare item
 shop,cracked-bone-dagger,ryo,235,per unit,api/pvp/_item-catalog.ts,common hand
 shop,crimson-chest,fateShards,150,per unit,api/pvp/_item-catalog.ts,legendary body
@@ -46,7 +47,7 @@ shop,crimson-legs,fateShards,150,per unit,api/pvp/_item-catalog.ts,legendary leg
 shop,crimson-waist,fateShards,150,per unit,api/pvp/_item-catalog.ts,legendary waist
 shop,eclipse-fang-dagger,fateShards,100,per unit,api/pvp/_item-catalog.ts,mythic hand
 shop,elderbranch-katana,fateShards,100,per unit,api/pvp/_item-catalog.ts,legendary hand
-shop,elemental-pet-treat,ryo,260,per unit,api/pvp/_item-catalog.ts,rare item
+shop,elemental-pet-treat,ryo,200,per unit,api/pvp/_item-catalog.ts,rare item
 shop,embercoil-scythe,fateShards,100,per unit,api/pvp/_item-catalog.ts,legendary hand
 shop,evo-stone-ascension,fateShards,400,per unit,api/pvp/_item-catalog.ts,mythic item
 shop,evo-stone-awakening,fateShards,150,per unit,api/pvp/_item-catalog.ts,legendary item
@@ -86,7 +87,7 @@ shop,pet-treat,ryo,80,per unit,api/pvp/_item-catalog.ts,common item
 shop,potion-rejuvenation,ryo,1800,per unit,api/pvp/_item-catalog.ts,rare potion
 shop,profession-change-approval,fateShards,200,per unit,api/pvp/_item-catalog.ts,legendary item
 shop,pve-apex-predator-fang,ryo,9600,per unit,api/pvp/_item-catalog.ts,epic item
-shop,pve-avengers-pendant,ryo,7200,per unit,api/pvp/_item-catalog.ts,epic item
+shop,pve-avengers-pendant,ryo,4000,per unit,api/pvp/_item-catalog.ts,epic item
 shop,pve-bloodbond-totem,ryo,8000,per unit,api/pvp/_item-catalog.ts,epic item
 shop,pve-frenzy-claw,ryo,5600,per unit,api/pvp/_item-catalog.ts,epic item
 shop,pve-guardians-blessing,ryo,5600,per unit,api/pvp/_item-catalog.ts,epic item
@@ -118,11 +119,11 @@ shop,sennin-feet,fateShards,150,per unit,api/pvp/_item-catalog.ts,legendary feet
 shop,sennin-legs,fateShards,150,per unit,api/pvp/_item-catalog.ts,legendary legs
 shop,sennin-waist,fateShards,150,per unit,api/pvp/_item-catalog.ts,legendary waist
 shop,shinobi-boots,ryo,195,per unit,api/pvp/_item-catalog.ts,uncommon feet
-shop,shinobi-vest,ryo,180,per unit,api/pvp/_item-catalog.ts,common body
+shop,shinobi-vest,ryo,60,per unit,api/pvp/_item-catalog.ts,common body
 shop,spirit-leech-wakizashi,ryo,850,per unit,api/pvp/_item-catalog.ts,epic hand
 shop,stormcoil-kusarigama,ryo,950,per unit,api/pvp/_item-catalog.ts,epic hand
 shop,tempest-fang-blade,fateShards,100,per unit,api/pvp/_item-catalog.ts,legendary hand
-shop,thrown-senbon,ryo,400,per unit,api/pvp/_item-catalog.ts,rare thrown
+shop,thrown-senbon,ryo,150,per unit,api/pvp/_item-catalog.ts,uncommon thrown
 shop,thrown-serpent-dust,ryo,400,per unit,api/pvp/_item-catalog.ts,rare thrown
 shop,thrown-shuriken,ryo,400,per unit,api/pvp/_item-catalog.ts,common thrown
 shop,tool-basic-fishing-pole,ryo,150,per unit,api/pvp/_item-catalog.ts,common fishingPole
@@ -133,12 +134,12 @@ shop,training-katana,ryo,240,per unit,api/pvp/_item-catalog.ts,common hand
 shop,village-transfer-scroll,fateShards,250,per unit,api/pvp/_item-catalog.ts,legendary item
 shop,void-leech-nodachi,fateShards,100,per unit,api/pvp/_item-catalog.ts,mythic hand
 shop,worldsplitter-katana,fateShards,100,per unit,api/pvp/_item-catalog.ts,mythic hand
-bloodline-forge,B Rank,boneCharms,100,per forge,api/bloodlines/_forge.ts,
+bloodline-forge,B Rank,boneCharms,200,per forge,api/bloodlines/_forge.ts,
 bloodline-forge,A Rank,auraStones,100,per forge,api/bloodlines/_forge.ts,
 bloodline-forge,S Rank,mythicSeals,100,per forge,api/bloodlines/_forge.ts,
-hollow-key-forge,hollowShards,hollowShards,80,per key,api/hollow-gate/_forge-key.ts,
+hollow-key-forge,hollowShards,hollowShards,120,per key,api/hollow-gate/_forge-key.ts,
 hollow-key-forge,dungeonKeys,dungeonKeys,5,per key,api/hollow-gate/_forge-key.ts,
-hollow-key-forge,fateShards,fateShards,10,per key,api/hollow-gate/_forge-key.ts,
+hollow-key-forge,fateShards,fateShards,15,per key,api/hollow-gate/_forge-key.ts,
 profile,profileRespec,fateShards,50,per action,api/profile/_settlement.ts,
 profile,statRespec,fateShards,50,per action,api/save/_stat-entitlement.ts,
 profile,customTitle,fateShards,10,per action,api/profile/_settlement.ts,
@@ -146,7 +147,7 @@ profile,titleStyle,fateShards,40,per action,api/profile/_settlement.ts,
 profile,titleIcon,fateShards,25,per action,api/profile/_settlement.ts,
 festival,black-market-pull,ryo,75000,per pull,api/festival/_black-market.ts,
 craft,named-forge,fateShards,200,per forge,shared/named-forge-economy.ts,
-kage,declare-challenge,ryo,250000,per challenge,api/village/_kage-challenge.ts,
+kage,declare-challenge,ryo,400000,per challenge,api/village/_kage-challenge.ts,
 shrine,communal-offering,ryo,10-250000,per offering,shared/shrines.ts,Pure sink; no payout.
 war,declare-war,warResources,800,per declaration,api/_war-economy.ts,
 war,sector-war,warResources,250,per sector war,api/_war-economy.ts,
@@ -155,3 +156,17 @@ war-mercenary,merc-reaver,warResources,110,per hire,api/_war-economy.ts,level 80
 war-mercenary,merc-shadow,warResources,170,per hire,api/_war-economy.ts,level 85
 war-mercenary,merc-oni,warResources,280,per hire,api/_war-economy.ts,level 95
 war-mercenary,merc-warlord,warResources,420,per hire,api/_war-economy.ts,level 100
+war-mercenary,merc-ronin,treasuryRyo,15000,per hire,shared/war-treasury-costs.ts,WAR_RYO_PER_WR dial; Kage only
+war-mercenary,merc-reaver,treasuryRyo,27500,per hire,shared/war-treasury-costs.ts,WAR_RYO_PER_WR dial; Kage only
+war-mercenary,merc-shadow,treasuryRyo,42500,per hire,shared/war-treasury-costs.ts,WAR_RYO_PER_WR dial; Kage only
+war-mercenary,merc-oni,treasuryRyo,70000,per hire,shared/war-treasury-costs.ts,WAR_RYO_PER_WR dial; Kage only
+war-mercenary,merc-warlord,treasuryRyo,105000,per hire,shared/war-treasury-costs.ts,WAR_RYO_PER_WR dial; Kage only
+war-preparation,tier-1,warResources,40,per key per war,shared/war-preparations.ts,
+war-preparation,tier-1,treasuryRyo,10000,per key per war,shared/war-preparations.ts,WAR_RYO_PER_WR dial
+war-preparation,tier-1,treasuryBoneCharms,20,per key per war,shared/war-preparations.ts,
+war-preparation,tier-2,warResources,80,per key per war,shared/war-preparations.ts,
+war-preparation,tier-2,treasuryRyo,20000,per key per war,shared/war-preparations.ts,WAR_RYO_PER_WR dial
+war-preparation,tier-2,treasuryBoneCharms,40,per key per war,shared/war-preparations.ts,
+war-preparation,tier-3,warResources,120,per key per war,shared/war-preparations.ts,
+war-preparation,tier-3,treasuryRyo,30000,per key per war,shared/war-preparations.ts,WAR_RYO_PER_WR dial
+war-preparation,tier-3,treasuryBoneCharms,60,per key per war,shared/war-preparations.ts,

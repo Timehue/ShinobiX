@@ -11,10 +11,12 @@ import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { randomUUID } from 'node:crypto';
 
 // Honor Seal training speedup. Each Seal reduces the active jutsu lesson's
-// timer (ryo or Seal lesson alike) by 10 minutes, up to the blocks that remain.
+// timer (ryo or Seal lesson alike) by 5 minutes, up to the blocks that remain.
 // activeJutsuTraining is server-owned; the client mirrors the new endsAt and
-// adopts the returned _saveVersion.
-const MINUTES_PER_SEAL = 10;
+// adopts the returned _saveVersion. Priced in the 2026-10 rebalance at 6 Seals
+// per 30-minute lesson (1 Seal ≈ 2,500 ryo of finish-now time). MIRROR:
+// shinobij.client/src/constants/game.ts SEAL_SPEEDUP_MINUTES_PER_SEAL.
+export const MINUTES_PER_SEAL = 5;
 const MAX_SEALS_PER_CALL = 20;
 
 // Vanguard Rank 8+ pays 90% of the listed cost (10% discount).
@@ -42,7 +44,7 @@ type Reply = { status: number; body: Record<string, unknown> };
 /*
  * Quartermaster capstone "Logistician": one free jutsu-lesson speedup per week.
  * Spent as a deliberate "Finish now — free" on the active lesson (a separate
- * button, so an ordinary −10 min click never burns it), for 0 Seals. The week
+ * button, so an ordinary −5 min click never burns it), for 0 Seals. The week
  * is the weekly mission board's (resets Monday 00:00 UTC). Usage is a dated key
  * outside the save — the same shape as the other per-period counters — so no
  * client autosave can reset it; it is claimed NX under the save lock.
@@ -184,10 +186,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             const requestedMinutes = sealsRequested * MINUTES_PER_SEAL;
             // Don't sell more Seals than the time left needs. The last Seal may
-            // cover a partial block: 25 minutes left takes 3 Seals. Rejecting any
+            // cover a partial block: 23 minutes left takes 5 Seals. Rejecting any
             // request past the exact minutes refused the very `maxSeals` this
             // reply suggests, so "Finish now" could never finish a lesson whose
-            // remainder wasn't a multiple of 10 minutes.
+            // remainder wasn't a multiple of the block.
             if (sealsRequested > blocksLeft) {
                 return refuse(char, {
                     status: 400,
@@ -200,7 +202,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
 
             // Report what was actually taken off: a partial last block buys the
-            // remainder, not a full 10 minutes (endsAt is clamped to now anyway).
+            // remainder, not a full block (endsAt is clamped to now anyway).
             const minutesReduced = Math.min(requestedMinutes, remainingMinutes);
             const newEndsAt = Math.max(now, Number(activeJutsuTraining.endsAt) - requestedMinutes * 60_000);
             return {

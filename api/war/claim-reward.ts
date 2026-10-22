@@ -7,9 +7,65 @@ import { cors, safeName } from '../_utils.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import type { ClanWar } from '../clan/war/_storage.js';
 import { settleClanWarRewards, settleVillageWarRewards, villageWarRewardToken, type VillageWarRewardRecord } from './_reward.js';
+import { listSectorWarPurseLedgers, settleSectorWarPurses, type SectorPursePaid } from './_sector-purse.js';
 import { bumpLegacyStats, legacyBootstrapBeforeCounterIncrement } from '../_legacy-track.js';
+import { recordEconomyTxn } from '../_economy.js';
+import { recordWarEcoEvent } from '../_war-telemetry.js';
 
 const WAR_ID_RE = /^[a-z0-9]+-vs-[a-z0-9]+$/;
+
+/*
+ * /api/war/claim-reward — POST { playerName, kind: 'village' | 'clan', warId }
+ *                      or POST { playerName, kind: 'sector' }
+ *
+ * Settles an ended war's rewards into the claimant's save, from the stored war
+ * row only (api/war/_reward.ts): crates, MVP, consolation and, for village
+ * wars, the war purse. `kind: 'sector'` pays every sector-war purse the player
+ * earned in the last 7 days (api/war/_sector-purse.ts); it names no war, since
+ * the ledgers are found by scan.
+ */
+
+type CurrencyDeltas = { ryo: number; honorSeals: number; boneCharms: number; fateShards: number };
+
+function currencyDeltas(before: Record<string, unknown>, after: Record<string, unknown>): CurrencyDeltas {
+    const d = (key: keyof CurrencyDeltas) => (Number(after[key]) || 0) - (Number(before[key]) || 0);
+    return { ryo: d('ryo'), honorSeals: d('honorSeals'), boneCharms: d('boneCharms'), fateShards: d('fateShards') };
+}
+
+/** Best-effort economy telemetry for a granted claim (framework I-19). */
+function recordClaimLedger(playerName: string, txnBase: string, deltas: CurrencyDeltas, ryoSplit: Array<{ source: string; ryo: number }>, source: string): void {
+    for (const part of ryoSplit) {
+        if (part.ryo > 0) void recordEconomyTxn({ txnId: `${txnBase}:${part.source}`, player: playerName, currency: 'ryo', delta: part.ryo, source: part.source });
+    }
+    for (const currency of ['honorSeals', 'boneCharms', 'fateShards'] as const) {
+        if (deltas[currency] > 0) void recordEconomyTxn({ txnId: `${txnBase}:${currency}`, player: playerName, currency, delta: deltas[currency], source });
+    }
+}
+
+async function claimSectorPurses(res: VercelResponse, playerName: string) {
+    const ledgers = await listSectorWarPurseLedgers();
+    const outcome = await mutatePlayerSave(playerName, ({ character }) => {
+        const settled = settleSectorWarPurses(character, ledgers, Date.now());
+        return { ok: true as const, character: settled.character, value: settled, write: settled.granted };
+    });
+    if (!outcome.ok) return res.status(outcome.status).json({ error: outcome.error });
+    const purses: SectorPursePaid[] = outcome.value.purses;
+    if (outcome.value.granted) {
+        const village = String(outcome.character.village ?? '');
+        for (const purse of purses) {
+            void recordEconomyTxn({ txnId: `war-purse:sector:${purse.contestId}:${purse.instance}:${playerName}`, player: playerName, currency: 'ryo', delta: purse.ryo, source: 'war.purse.sector' });
+            void recordWarEcoEvent({ eventId: `sector-purse:${purse.contestId}:${purse.instance}:${playerName}`, village, kind: 'war.purse.sector', amount: purse.ryo, meta: `sector:${purse.sector}` });
+        }
+    }
+    return res.status(200).json({
+        ok: true,
+        granted: outcome.value.granted,
+        sectorPurses: purses.map((p) => ({ sector: p.sector, outcome: p.outcome, ryo: p.ryo })),
+        sectorPurseRyo: outcome.value.ryo,
+        character: outcome.character,
+        _saveVersion: outcome._saveVersion,
+    });
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
@@ -19,14 +75,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     try {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {});
         const playerName = safeName(String(body.playerName ?? ''));
-        const kind = body.kind === 'clan' ? 'clan' : body.kind === 'village' ? 'village' : '';
+        const kind = body.kind === 'clan' ? 'clan' : body.kind === 'village' ? 'village' : body.kind === 'sector' ? 'sector' : '';
         const warId = String(body.warId ?? '').trim().toLowerCase();
-        if (!playerName || !kind || !WAR_ID_RE.test(warId)) return res.status(400).json({ error: 'Invalid war reward claim.' });
+        if (!playerName || !kind || (kind !== 'sector' && !WAR_ID_RE.test(warId))) return res.status(400).json({ error: 'Invalid war reward claim.' });
 
         const identity = await authedPlayerOrAdmin(req, playerName);
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         if (!identity.admin && identity.name !== playerName) return res.status(403).json({ error: 'Can only claim your own war rewards.' });
         if (!identity.admin && !(await enforceRateLimitKv(req, res, 'claim-war-reward', 30, 60_000, identity.name))) return;
+
+        if (kind === 'sector') return await claimSectorPurses(res, playerName);
 
         const war = kind === 'village'
             ? await kv.get<VillageWarRewardRecord>(`world:war:${warId}`)
@@ -41,9 +99,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // answer with the stored save instead of rewriting it. Writing bumped
             // _saveVersion on every no-op claim, and clients re-poll these, so the
             // version moved under open autosaves and turned them into 409s.
-            return { ok: true as const, character: reward.character, value: reward, write: reward.granted };
+            return {
+                ok: true as const,
+                character: reward.character,
+                value: { ...reward, deltas: currencyDeltas(character, reward.character) },
+                write: reward.granted,
+            };
         });
         if (!outcome.ok) return res.status(outcome.status).json({ error: outcome.error });
+        const { deltas, ...reward } = outcome.value;
+        if (reward.granted) {
+            const village = String(outcome.character.village ?? '');
+            const token = kind === 'village' ? villageWarRewardToken(war as VillageWarRewardRecord) : warId;
+            recordClaimLedger(playerName, `war-reward:${kind}:${token}:${playerName}`, deltas, [
+                { source: `war.reward.${kind}`, ryo: reward.ryo - reward.purse },
+                { source: 'war.purse.village', ryo: reward.purse },
+            ], `war.reward.${kind}`);
+            if (kind === 'village' && village) {
+                if (reward.purse > 0) void recordWarEcoEvent({ eventId: `purse:${token}:${playerName}`, village, kind: 'war.purse.village', amount: reward.purse });
+                const winnerCrates = reward.crates - (reward.mvp ? 1 : 0);
+                if (winnerCrates > 0) void recordWarEcoEvent({ eventId: `crate:${token}:${playerName}`, village, kind: 'war.crate.claim', amount: winnerCrates });
+            }
+        }
         if (kind === 'village' && war.endedAt) {
             const villageWar = war as VillageWarRewardRecord;
             const claims = new Set(Array.isArray(outcome.character.claimedWarCrateIds) ? outcome.character.claimedWarCrateIds.map(String) : []);
@@ -71,7 +148,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
         return res.status(200).json({
             ok: true,
-            ...outcome.value,
+            ...reward,
             character: outcome.character,
             _saveVersion: outcome._saveVersion,
         });

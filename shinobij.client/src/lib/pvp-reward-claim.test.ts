@@ -41,6 +41,23 @@ describe("pvp-reward-claim", () => {
         assert.equal(result.base?.reward?.jutsuXp, 40);
         assert.match(pvpRewardSettlementNotice(result, { draw: false, spar: false }), /\+40 Jutsu XP/);
     });
+    it("words the server's repeat-opponent credit on the result notice (owner A9)", async () => {
+        const credit = { credited: true, kind: "ko", short: false, pairOrdinal: 3, pairWeight: 0.5, sideMult: 1 };
+        const result = await postPvpRewardClaim(async () => response(200, {
+            ok: true, alreadyClaimed: false, completionPending: true, rewardAuthorized: true,
+            base: { reward: { ryo: 1012, combatGrowth: 6, auraDust: 3, credit } },
+        }), { playerName: "rin", battleId: "repeat-opponent", outcome: "win" });
+        assert.equal(result.status, "confirmed");
+        if (result.status !== "confirmed") return;
+        assert.equal(pvpRewardSettlementNotice(result, { draw: false, spar: false, role: "win" }),
+            "Rewards secured — +1,012 Ryo · +6 Combat Growth · +3 Aura Dust. Fight 3 with this opponent today: 50% pay.");
+        const full = await postPvpRewardClaim(async () => response(200, {
+            ok: true, alreadyClaimed: false, completionPending: true, rewardAuthorized: true,
+            base: { reward: { ryo: 2025, combatGrowth: 6, auraDust: 6, credit: { ...credit, pairOrdinal: 1, pairWeight: 1 } } },
+        }), { playerName: "rin", battleId: "first-meeting", outcome: "win" });
+        if (full.status !== "confirmed") return assert.fail("confirmed");
+        assert.doesNotMatch(pvpRewardSettlementNotice(full, { draw: false, spar: false, role: "win" }), /with this opponent/, "a full-credit fight adds no note");
+    });
     it("authorizes callbacks only after an explicit successful first claim", async () => {
         const result = await postPvpRewardClaim(async () => response(200, {
             ok: true,
@@ -82,6 +99,25 @@ describe("pvp-reward-claim", () => {
                 "Official result verified; no personal payout for this result.",
             );
         }
+    });
+
+    it("shows an engaged loser's server-paid loss purse beside the rating drop", async () => {
+        const result = await postPvpRewardClaim(async () => response(200, {
+            ok: true,
+            alreadyClaimed: false,
+            completionPending: true,
+            rewardAuthorized: true,
+            progressionAuthorized: true,
+            rating: { field: "rankedRating", value: 988, delta: -12 },
+            base: { ryo: 1620, xp: 0, level: 90, rankTitle: "Jonin", maxHp: 1, maxChakra: 1, maxStamina: 1, unspentStats: 0,
+                reward: { ryo: 1620, combatGrowth: 0, auraDust: 0 } },
+        }), { playerName: "rin", battleId: "battle-loss", outcome: "loss" });
+        assert.equal(result.status, "confirmed");
+        if (result.status !== "confirmed") return;
+        assert.equal(
+            pvpRewardSettlementNotice(result, { draw: false, spar: false }),
+            "Result recorded — +1,620 Ryo · -12 Rating.",
+        );
     });
 
     it("preserves the authoritative Clan War scroll roll and explains both outcomes", async () => {

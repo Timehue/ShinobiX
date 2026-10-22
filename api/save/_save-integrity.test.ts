@@ -296,16 +296,34 @@ describe('carried-pet entitlement authority', () => {
     });
 
     it('does not let an incoming forged Patreon flag raise a base account from five to six pets', () => {
+        // The base account already holds five server-granted pets; the forged
+        // flag tries to open a sixth slot for a client-defined pet.
+        const pets = Array.from({ length: 5 }, (_, index) => pet(index + 1));
         const incoming = wrap({
             name: 'PetCap',
             patreon: { active: true },
-            pets: Array.from({ length: 6 }, (_, index) => pet(index + 1)),
+            pets: [...pets, pet(6)],
         });
-        const stored = wrap({ name: 'PetCap', patreon: { active: false }, pets: [] });
-        const out = sanitizeCompatible(incoming, stored).character as Record<string, unknown>;
+        const stored = wrap({ name: 'PetCap', patreon: { active: false }, pets });
+        for (const sanitize of [sanitizeCompatible, sanitizeStrict]) {
+            const out = sanitize(incoming, stored).character as Record<string, unknown>;
+            assert.deepEqual(out.patreon, { active: false });
+            assert.deepEqual((out.pets as Array<{ id: string }>).map(({ id }) => id), pets.map(({ id }) => id));
+        }
+    });
 
-        assert.deepEqual(out.patreon, { active: false });
-        assert.equal((out.pets as unknown[]).length, 5);
+    it('never adds a pet from a generic save, even to an empty roster in compatibility mode (I-2)', () => {
+        // The removed carve-out kept up to five client-defined pets on an empty
+        // roster, and the Sanctuary could re-empty it to repeat the injection.
+        const forged = Array.from({ length: 5 }, (_, index) => ({
+            ...pet(index + 1), rarity: 'mythic', trait: 'Boonbringer', hp: 100, attack: 100, defense: 100, speed: 100,
+        }));
+        const stored = wrap({ name: 'PetInject', patreon: { active: false }, pets: [] });
+        for (const sanitize of [sanitizeCompatible, sanitizeStrict]) {
+            const out = sanitize(wrap({ name: 'PetInject', pets: forged, activePetId: 'pet-1' }), stored).character as Record<string, unknown>;
+            assert.deepEqual(out.pets, [], 'a generic save can never add a pet (I-2)');
+            assert.equal(out.activePetId, undefined);
+        }
     });
 
     it('preserves an already-stored six-pet roster non-destructively after a supporter lapse', () => {
@@ -440,9 +458,9 @@ describe('raw save server-ledger boundary', () => {
         assert.equal(out.ryo, 500, 'generic saves cannot originate ryo, even within the old bounded gain window');
         assert.deepEqual(out.stats, { strength: 22, speed: 20 }, 'earned/allocated stats must persist');
         assert.equal(out.unspentStats, 3 + 3892, 'the spend persists and the migration top-up lands in the pool');
-        assert.deepEqual(out.jutsuMastery, [{ jutsuId: 'known', level: 4, xp: 30 }], 'battle mastery must persist');
+        assert.deepEqual(out.jutsuMastery, [{ jutsuId: 'known', level: 4, xp: 10 }], 'mastery XP is server-settled only (I-1)');
         assert.deepEqual(out.inventory, ['sword'], 'net-new items require an authoritative server write even before the wider strict cutover');
-        assert.equal((out.pets as Array<Record<string, unknown>>)[0]?.id, 'story-pet', 'bounded pet progression must persist');
+        assert.deepEqual(out.pets, [], 'a generic save can never add a pet (I-2)');
         assert.equal(out.bankRyo, 900, 'server bank balance stays locked');
         assert.equal(out.rankedRating, 1111, 'player rating stays locked');
         assert.equal(out.petRankedRating, 1222, 'pet rating stays locked');
@@ -540,6 +558,18 @@ describe('raw save server-ledger boundary', () => {
         for (const [field, value] of Object.entries(stored)) {
             assert.deepEqual(out[field], value, `${field} latch must not be client mutable`);
         }
+    });
+
+    it('never banks mastery XP from a generic save, even in compatibility mode (I-1)', () => {
+        // The old drip accepted +0..100 XP per save on an unchanged level; a
+        // script could bank it past the level threshold and let one PvP win
+        // convert it into levels.
+        const out = sanitizeCompatible(
+            wrap({ jutsuMastery: [{ jutsuId: 'known', level: 4, xp: 199 }], equippedJutsuIds: ['known'] }),
+            wrap({ jutsuMastery: [{ jutsuId: 'known', level: 4, xp: 120 }], equippedJutsuIds: ['known'] }),
+        );
+        const char = out.character as Record<string, unknown>;
+        assert.deepEqual(char.jutsuMastery, [{ jutsuId: 'known', level: 4, xp: 120 }]);
     });
 
     it('pins jutsu mastery power while allowing only learned loadout ids', () => {

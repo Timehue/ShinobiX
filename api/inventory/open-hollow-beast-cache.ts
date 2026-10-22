@@ -9,6 +9,7 @@ import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { retryOnSaveVersionConflict } from '../save/_projected-write.js';
 import { gearRoll } from '../_gear-drops.js';
 import { HOLLOW_BEAST_CACHE_ID } from '../../shared/world-boss-cache.js';
+import { grantItemIds } from '../../shared/stacked-materials.js';
 
 const CACHE_RYO = 1_500;
 const CACHE_BONE_CHARMS = 1;
@@ -106,12 +107,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     itemStacks[keyIndex] = { ...itemStacks[keyIndex], count: count + 1 };
                 } else itemStacks.push({ itemId: 'dungeon-key', count: 1 });
             }
+            // The rolled material joins its itemStacks entry (owner ruling A12).
+            const stores = grantItemIds({ inventory: removed.inventory, itemStacks }, [rewards.materialId]);
             const next = {
                 ...character,
                 ryo: ryo + rewards.ryo,
                 boneCharms: boneCharms + rewards.boneCharms,
-                inventory: [...removed.inventory, rewards.materialId],
-                itemStacks,
+                inventory: stores.inventory,
+                itemStacks: stores.itemStacks,
             };
             return {
                 ok: true,

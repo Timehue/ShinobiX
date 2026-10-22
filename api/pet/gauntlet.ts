@@ -8,6 +8,7 @@ import { withKvLock } from '../_lock.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { replayGauntlet } from '../_pet-sim/gauntlet-sim.js';
 import { debitGauntletEntry } from './_gauntlet-entry.js';
+import { recordEconomyTxn } from '../_economy.js';
 import { isPlayerSaveVersionConflict, retryOnSaveVersionConflict, SAVE_VERSION_CONFLICT_REPLY } from '../save/_projected-write.js';
 
 /*
@@ -66,6 +67,19 @@ const clampInt = (v: unknown, lo: number, hi: number): number => {
 };
 const scoreOf = (roundsCleared: number, heartsLeft: number): number => roundsCleared * 1000 + heartsLeft * 100;
 
+/** Economy telemetry (I-19) for one committed run payout, keyed on its single-use
+ *  run token. A replayed report and a zero grant record nothing. */
+function recordGauntletPayout(
+    player: string,
+    runToken: string,
+    paid: { ryo: number; fateShards: number; boneCharms: number },
+    character: Record<string, unknown>,
+): void {
+    void recordEconomyTxn({ txnId: `pet-gauntlet:${runToken}:ryo`, player, currency: 'ryo', delta: paid.ryo, source: 'pet.gauntlet', balanceAfter: Number(character.ryo ?? 0) });
+    void recordEconomyTxn({ txnId: `pet-gauntlet:${runToken}:fateShards`, player, currency: 'fateShards', delta: paid.fateShards, source: 'pet.gauntlet', balanceAfter: Number(character.fateShards ?? 0) });
+    void recordEconomyTxn({ txnId: `pet-gauntlet:${runToken}:boneCharms`, player, currency: 'boneCharms', delta: paid.boneCharms, source: 'pet.gauntlet', balanceAfter: Number(character.boneCharms ?? 0) });
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
@@ -110,6 +124,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 return { ok: true, character: result.character, value: { chargedRyo: result.charged } };
             }));
             if (!reservation.ok) return res.status(reservation.status).json({ error: reservation.error });
+            // Economy telemetry (I-19): the committed entry fee, keyed on the
+            // save version that charged it. The day's first run is free and the
+            // zero delta records nothing.
+            void recordEconomyTxn({ txnId: `pet-gauntlet-entry:${me}:${reservation._saveVersion}`, player: me, currency: 'ryo', delta: -reservation.value.chargedRyo, source: 'pet.gauntlet.fee', balanceAfter: Number(reservation.character.ryo ?? 0) });
             const startChar = reservation.character;
             const used = startChar?.petGauntletRewardDate === dayStamp() ? Number(startChar.petGauntletRewardCount ?? 0) : 0;
             const rewardEligible = used < REWARDED_RUNS_PER_DAY;
@@ -219,7 +237,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     ok: true,
                     character: next,
                     value: null,
-                    afterCommit: () => kv.del(tokenKey(id)).then(() => undefined, () => undefined),
+                    afterCommit: async () => {
+                        await kv.del(tokenKey(id)).then(() => undefined, () => undefined);
+                        recordGauntletPayout(me, id, { ryo, fateShards: grantedFateShards, boneCharms: grantedBoneCharms }, next);
+                    },
                 };
             }));
             if (!committed.ok) {

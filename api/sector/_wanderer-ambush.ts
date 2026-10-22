@@ -7,10 +7,14 @@
  * baseline foe-kill count is sealed in KV at ambush START, and CLAIM only pays if
  * the player has actually won AMBUSH_KILLS_REQUIRED more fights since (i.e. cleared
  * the gauntlet). The reward is rolled SERVER-SIDE and the claim is daily-capped.
+ * The boss pays ryo, exactly one fate shard and 5–10 bone charms.
  */
 
 export const AMBUSH_KILLS_REQUIRED = 4;     // 3 robbers + 1 boss
 export const AMBUSH_REWARDS_PER_DAY = 3;    // cap on paid ambush clears / UTC day
+/** Fate Shards per paid clear (economy rebalance 2026-10, framework 3.1 / #34;
+ *  was 1–3, mean 2). Kill value: the old roll, 1 + floor(3U). */
+export const AMBUSH_FATE_SHARDS = 1;
 
 const clamp = (n: number, lo: number, hi: number) =>
     Math.max(lo, Math.min(hi, Math.floor(Number(n) || 0)));
@@ -21,13 +25,14 @@ export interface AmbushReward {
     boneCharms: number;
 }
 
-/** Boss-clear loot: a decent ryo range + 1–3 fate shards + 5–10 bone charms. */
+/** Boss-clear loot: a decent ryo range + 1 fate shard + 5–10 bone charms. Two
+ *  draws, ryo then bone charms (the shard draw is gone). */
 export function rollAmbushReward(level: number, rng: () => number): AmbushReward {
     const lvl = clamp(level, 1, 100);
     const ryoBase = 150 + lvl * 12;                       // L50≈750, L100≈1350
     return {
         ryo: Math.round(ryoBase * (0.8 + rng() * 0.6)),  // ≈0.8×–1.4× of base
-        fateShards: 1 + Math.floor(rng() * 3),           // 1–3
+        fateShards: AMBUSH_FATE_SHARDS,
         boneCharms: 5 + Math.floor(rng() * 6),           // 5–10
     };
 }

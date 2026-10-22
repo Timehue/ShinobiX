@@ -312,7 +312,8 @@ test('cross-player heal request is receipt-backed and idempotent', { concurrency
     const healer = await kv.get<{ character: { chakra: number; professionXp: number; serverSettlementReceipts: unknown[] } }>(`save:${HEALER}`);
     const target = await kv.get<{ character: { hp: number; hospitalized: boolean; serverSettlementReceipts: unknown[] } }>(`save:${TARGET}`);
     assert.equal(healer?.character.chakra, 80);
-    assert.equal(healer?.character.professionXp, 120);
+    // 80% restored x HEALER_HEAL_XP_MULT 2 = 160, x 1.5 raid assist = 240.
+    assert.equal(healer?.character.professionXp, 240);
     assert.equal(healer?.character.serverSettlementReceipts.length, 1);
     assert.equal(target?.character.hp, 100);
     assert.equal(target?.character.hospitalized, false);
@@ -321,15 +322,15 @@ test('cross-player heal request is receipt-backed and idempotent', { concurrency
     assert.equal(replay.out.body?._saveVersion, storedHealer?._saveVersion);
 });
 
-/** A hospitalized patient missing 80 HP: a rank-1 heal costs 20 chakra and pays 120 XP. */
-async function seedPatient(): Promise<void> {
+/** A hospitalized patient missing 80 HP: a rank-1 heal costs 20 chakra and pays 240 XP (raid assist). */
+async function seedPatient(hospitalizedAt = Date.now()): Promise<void> {
     await kv.del(`heal:lastHealedAt:${TARGET}`); // the per-target cooldown an earlier heal left
     await kv.set(`save:${TARGET}`, {
         _saveVersion: 1,
         character: {
             name: TARGET, profession: 'vanguard', village: 'Ember Village',
             hp: 20, maxHp: 100, chakra: 5, maxChakra: 80, stamina: 5, maxStamina: 70,
-            hospitalized: true, hospitalizedAt: Date.now(), hospitalizedUntil: Date.now() + 60_000,
+            hospitalized: true, hospitalizedAt, hospitalizedUntil: Date.now() + 60_000,
         },
     });
 }
@@ -363,7 +364,21 @@ test('a cross-player heal keeps the healer\'s idle recovery and pays from the re
     assert.ok(healer.hp >= 40, `hp ${healer.hp} lost the idle recovery`);
     assert.ok(healer.stamina >= 30, `stamina ${healer.stamina} lost the idle recovery`);
     assert.ok(healer.chakra >= 50, `chakra ${healer.chakra}: the 20-chakra cost comes out of the recovered pool`);
-    assert.equal(healer.professionXp, 120);
+    assert.equal(healer.professionXp, 240);
+});
+
+test('heal XP is doubled before the rank and assist bonuses (2026-10 rebalance, HEALER_HEAL_XP_MULT)', { concurrency: false }, async () => {
+    // Hospitalized 11 minutes ago: outside the 10-minute raid-assist window, so
+    // the rank-1 heal pays the doubled base alone, 80% restored x 2 = 160 (was 80).
+    await kv.set(`save:${HEALER}`, {
+        _saveVersion: 1,
+        character: { name: HEALER, profession: 'healer', professionXp: 0, professionRank: 1, village: 'Ember Village', chakra: 100 },
+    });
+    await seedPatient(Date.now() - 11 * 60_000);
+    const out = response();
+    await handler(crossHealRequest('heal_doubled_xp_000001'), out.res);
+    assert.equal(out.out.statusCode, 200, JSON.stringify(out.out.body));
+    assert.equal((await kv.get<{ character: { professionXp: number } }>(`save:${HEALER}`))?.character.professionXp, 160);
 });
 
 test('a target outside the hospital who recovered to full by settlement costs the healer nothing', { concurrency: false }, async () => {
@@ -423,7 +438,7 @@ test('a heal whose target write fails after the healer paid resumes on retry wit
     const healer = await kv.get<{ character: { chakra: number; professionXp: number } }>(`save:${HEALER}`);
     const target = await kv.get<{ character: { hp: number; hospitalized: boolean } }>(`save:${TARGET}`);
     assert.equal(healer?.character.chakra, 80, 'charged once');
-    assert.equal(healer?.character.professionXp, 120, 'XP paid once');
+    assert.equal(healer?.character.professionXp, 240, 'XP paid once');
     assert.equal(target?.character.hp, 100);
     assert.equal(target?.character.hospitalized, false);
     assert.equal((await getDurableSettlement(transactionId, { kv }))?.state, 'completed');

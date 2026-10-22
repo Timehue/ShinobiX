@@ -4,6 +4,8 @@ import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { CARD_PACK_TYPES } from '../../../api/card-clash/_pack';
 import {
+    conversionLabel,
+    conversionSummary,
     packArtUrl,
     packParticles,
     packTheme,
@@ -46,6 +48,31 @@ test("planPackReveal flags first-ever copies, counting duplicates inside the sam
         { id: "tc-01", isNew: false },
         { id: "tc-02", isNew: false },
     ]);
+});
+
+test("planPackReveal marks converted copies by server draw index, after the rarity sort, and never as NEW", () => {
+    // Server order: legendary, common, common. The reveal plays commons first,
+    // so the conversion must follow its draw index, not its reveal position.
+    const plan = planPackReveal(
+        ["tc-03", "tc-01", "tc-01"],
+        rarityOf,
+        new Map(),
+        new Map([[0, { chroniclePoints: 0, fateShards: 3 }], [2, { chroniclePoints: 5, fateShards: 0 }]]),
+    );
+    assert.deepEqual(plan, [
+        { id: "tc-01", isNew: true },
+        { id: "tc-01", isNew: false, converted: { chroniclePoints: 5, fateShards: 0 } },
+        { id: "tc-03", isNew: false, converted: { chroniclePoints: 0, fateShards: 3 } },
+    ]);
+    assert.equal(conversionSummary(plan), "Copies beyond your third became +5 Chronicle Points and +3 Fate Shards.");
+    assert.equal(conversionSummary(planPackReveal(["tc-01"], rarityOf, new Map())), null, "no conversion, no sentence");
+});
+
+test("conversion labels read naturally for one and many", () => {
+    assert.equal(conversionLabel({ chroniclePoints: 0, fateShards: 1 }), "+1 Fate Shard");
+    assert.equal(conversionLabel({ chroniclePoints: 0, fateShards: 3 }), "+3 Fate Shards");
+    assert.equal(conversionLabel({ chroniclePoints: 5, fateShards: 0 }), "+5 Chronicle Points");
+    assert.equal(conversionLabel({ chroniclePoints: 10, fateShards: 2 }), "+10 Chronicle Points and +2 Fate Shards");
 });
 
 test("unknown rarities sort as common instead of crashing", () => {

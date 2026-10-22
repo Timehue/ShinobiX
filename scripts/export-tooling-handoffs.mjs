@@ -11,7 +11,12 @@ import {
   COMBAT_MISSIONS,
   DAILY_HUNT_LIMIT,
   DAILY_MISSION_LIMIT,
+  FETCH_S_MISSION_ID,
   FIELD_MISSIONS,
+  HUNT_AS_CHANCE_DEFAULT,
+  HUNT_AS_MIN_LEVEL,
+  HUNT_FS_CHANCE_DEFAULT,
+  HUNT_FS_MIN_LEVEL,
   HUNT_MISSION_IDS,
 } from '../api/missions/_mission-catalog.ts';
 import { CLAN_WAR_PVP_WIN_SCROLLS } from '../api/clan/war/_war-points.ts';
@@ -40,8 +45,11 @@ import { STAT_RESPEC_FATE_COST } from '../api/save/_stat-entitlement.ts';
 import { BLACK_MARKET_COST } from '../api/festival/_black-market.ts';
 import { NAMED_FORGE_FATE_SHARD_COST } from '../shared/named-forge-economy.ts';
 import { KAGE_DECLARE_RYO_COST } from '../api/village/_kage-challenge.ts';
-import { LOGIN_RYO_BASE, LOGIN_RYO_CAP, LOGIN_RYO_PER_LEVEL, STREAK_SHARD_INTERVAL, STREAK_SHARD_REWARD } from '../api/player/_daily-login.ts';
-import { WAR_CRATE_HONOR, WAR_CRATE_KEY_CHANCE, WAR_CRATE_RYO } from '../api/inventory/_war-crate.ts';
+import { LOGIN_RYO_BASE, LOGIN_RYO_CAP, LOGIN_RYO_PER_LEVEL, STREAK_EARLY_SHARD_DAYS, STREAK_EARLY_SHARD_REWARD, STREAK_SHARD_INTERVAL, STREAK_SHARD_REWARD } from '../api/player/_daily-login.ts';
+import { WAR_CRATE_BONE_CHARMS, WAR_CRATE_HONOR, WAR_CRATE_KEY_CHANCE, WAR_CRATE_RYO } from '../api/inventory/_war-crate.ts';
+import { DAILY_STAT_POINT_CAP } from '../shared/combat-growth-rules.ts';
+import { RYO_PER_WR } from '../shared/war-treasury-costs.ts';
+import { preparationTreasuryCost } from '../shared/war-preparations.ts';
 import { BRED_APEX_TRAIT_CHANCE_PERCENT, SHRINE_DEFS, SHRINE_MAX_OFFERING, SHRINE_MIN_OFFERING, SHRINE_TIERS } from '../shared/shrines.ts';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -170,7 +178,7 @@ function economyExport() {
   for (const mission of FIELD_MISSIONS) {
     const hunt = HUNT_MISSION_IDS.has(mission.id);
     addFlow(faucets, hunt ? 'hunt-mission' : 'field-mission', mission.id, 'ryo', mission.ryoReward, 'per daily claim', source('api/missions/_mission-catalog.ts'));
-    addFlow(faucets, hunt ? 'hunt-mission' : 'field-mission', mission.id, 'statPoints', 3, 'per daily claim', source('api/missions/_mission-catalog.ts'), 'Daily checklist progression; XP fields are legacy display data.');
+    addFlow(faucets, hunt ? 'hunt-mission' : 'field-mission', mission.id, 'statPoints', 3, 'per claim, from the shared daily stat-point budget', source('api/missions/_mission-catalog.ts'), 'Before mission bonuses; XP fields are legacy display data.');
     for (const [currency, amount] of Object.entries(mission.currencyRewards ?? {})) {
       addFlow(faucets, hunt ? 'hunt-mission' : 'field-mission', mission.id, currency, amount, 'per daily claim', source('api/missions/_mission-catalog.ts'));
     }
@@ -181,9 +189,14 @@ function economyExport() {
     }
   }
   addFlow(faucets, 'daily-login', 'level-scaled-ryo', 'ryo', `${LOGIN_RYO_BASE}+${LOGIN_RYO_PER_LEVEL}*level (cap ${LOGIN_RYO_CAP})`, 'daily', source('api/player/_daily-login.ts'));
-  addFlow(faucets, 'daily-login', 'streak-shards', 'fateShards', STREAK_SHARD_REWARD, `every ${STREAK_SHARD_INTERVAL} streak days`, source('api/player/_daily-login.ts'));
+  addFlow(faucets, 'daily-login', 'streak-shards', 'fateShards', STREAK_SHARD_REWARD, `every ${STREAK_SHARD_INTERVAL} claim days (never resets)`, source('api/player/_daily-login.ts'));
+  addFlow(faucets, 'daily-login', 'streak-early-shards', 'fateShards', STREAK_EARLY_SHARD_REWARD, `claim days ${STREAK_EARLY_SHARD_DAYS.join(' and ')} (once per character)`, source('api/player/_daily-login.ts'));
+  addFlow(faucets, 'hunt-mission', 'chance-drop', 'fateShards', 1, `${HUNT_FS_CHANCE_DEFAULT * 100}% per hunt or ${FETCH_S_MISSION_ID} claim (L${HUNT_FS_MIN_LEVEL}+, account 72h+; dial HUNT_FS_CHANCE; no cap)`, source('api/missions/_mission-catalog.ts'));
+  addFlow(faucets, 'hunt-mission', 'chance-drop', 'auraStones', 1, `${HUNT_AS_CHANCE_DEFAULT * 100}% per hunt claim (L${HUNT_AS_MIN_LEVEL}+; dial HUNT_AS_CHANCE; no cap)`, source('api/missions/_mission-catalog.ts'));
+  addFlow(faucets, 'daily-stat-budget', 'shared-cap', 'statPoints', DAILY_STAT_POINT_CAP, 'daily ceiling shared by hunt/field claims, PvE and PvP wins (dial DAILY_STAT_POINT_CAP)', source('api/_stat-growth.ts'));
   addFlow(faucets, 'war-crate', 'legendary-war-crate', 'ryo', WAR_CRATE_RYO, 'per crate', source('api/inventory/_war-crate.ts'));
   addFlow(faucets, 'war-crate', 'legendary-war-crate', 'honorSeals', WAR_CRATE_HONOR, 'per crate', source('api/inventory/_war-crate.ts'));
+  addFlow(faucets, 'war-crate', 'legendary-war-crate', 'boneCharms', WAR_CRATE_BONE_CHARMS, 'per crate', source('api/inventory/_war-crate.ts'));
   addFlow(faucets, 'clan-war', 'shinobi-pvp-challenge-win', 'territoryControlScrolls', CLAN_WAR_PVP_WIN_SCROLLS, 'per finalized win', source('api/clan/war/_war-points.ts'), 'Only shinobi PvP challenge winners; exactly-once server settlement.');
   addFlow(faucets, 'territory', 'controlled-sector-daily', 'warResources', WR_PER_SECTOR_PER_DAY, 'per controlled sector/day', source('api/_war-economy.ts'));
   addFlow(faucets, 'territory', 'controlled-sector-daily', 'honorSeals', SEALS_PER_SECTOR_PER_DAY, 'per controlled sector/day', source('api/_war-economy.ts'));
@@ -206,6 +219,13 @@ function economyExport() {
   addFlow(sinks, 'war', 'declare-war', 'warResources', DECLARE_WAR_WR, 'per declaration', source('api/_war-economy.ts'));
   addFlow(sinks, 'war', 'sector-war', 'warResources', SECTOR_WAR_WR, 'per sector war', source('api/_war-economy.ts'));
   for (const merc of WR_MERC_TIERS) addFlow(sinks, 'war-mercenary', merc.id, 'warResources', merc.costWr, 'per hire', source('api/_war-economy.ts'), `level ${merc.level}`);
+  for (const merc of WR_MERC_TIERS) addFlow(sinks, 'war-mercenary', merc.id, 'treasuryRyo', merc.costWr * RYO_PER_WR, 'per hire', source('shared/war-treasury-costs.ts'), 'WAR_RYO_PER_WR dial; Kage only');
+  for (const tier of [0, 1, 2]) {
+    const q = preparationTreasuryCost(tier);
+    addFlow(sinks, 'war-preparation', `tier-${tier + 1}`, 'warResources', q.wr, 'per key per war', source('shared/war-preparations.ts'));
+    addFlow(sinks, 'war-preparation', `tier-${tier + 1}`, 'treasuryRyo', q.ryo, 'per key per war', source('shared/war-preparations.ts'), 'WAR_RYO_PER_WR dial');
+    addFlow(sinks, 'war-preparation', `tier-${tier + 1}`, 'treasuryBoneCharms', q.boneCharms, 'per key per war', source('shared/war-preparations.ts'));
+  }
 
   const shopItems = Object.values(ITEM_CATALOG)
     .filter((item) => Number(item.cost) > 0)
@@ -241,7 +261,7 @@ function economyExport() {
       shrines: { count: SHRINE_DEFS.length, minOfferingRyo: SHRINE_MIN_OFFERING, maxOfferingRyo: SHRINE_MAX_OFFERING, tiers: SHRINE_TIERS },
       notes: [
         'Amounts are base values. Runtime discounts, village upgrades, entitlements, and idempotency gates remain in code.',
-        'Legacy XP fields are exported for fidelity, but field/hunt progression is modeled as statPoints per the authoritative daily checklist.',
+        'Legacy XP fields are exported for fidelity, but field/hunt progression is modeled as statPoints drawn from the shared daily stat-point budget.',
         'Custom/admin content and probabilistic/event rewards are intentionally excluded unless represented by a stable server constant.',
       ],
     },

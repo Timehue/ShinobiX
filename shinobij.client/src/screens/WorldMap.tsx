@@ -4197,13 +4197,12 @@ function WorldMapContent({
         const allCards = getAllTileCards([]);
         const lootItem = activeChest.itemId ? starterItems.find((i) => i.id === activeChest.itemId) : null;
         const lootCard = activeChest.cardId ? allCards.find((c) => c.id === activeChest.cardId) : null;
-        const alreadyHaveCard = lootCard && character.tileCards.includes(lootCard.id);
         const rewardPrefix = activeChest.replayed ? "" : "+";
         const rewards: { icon: ReactNode; label: string; sub: string }[] = [];
         if (activeChest.ryo) rewards.push({ icon: <GameIcon name="ryo" size={22} />, label: `${rewardPrefix}${activeChest.ryo} Ryo`, sub: "Ancient gold" });
-        if (lootItem) rewards.push({ icon: <GameIcon name="bag" size={22} />, label: lootItem.name, sub: itemRevealSub(lootItem) });
-        if (lootCard) rewards.push({ icon: <GiCardPickup size={22} />, label: `${lootCard.name}${alreadyHaveCard ? " (duplicate)" : ""}`, sub: `${lootCard.rarity.charAt(0).toUpperCase() + lootCard.rarity.slice(1)} · ${lootCard.element}` });
-        if (activeChest.fateShards) rewards.push({ icon: <GameIcon name="shard" size={22} />, label: `${rewardPrefix}1 Fate Shard`, sub: "Premium currency" });
+        if (lootItem) rewards.push({ icon: <GameIcon name="bag" size={22} />, label: lootItem.name, sub: activeChest.duplicateSaleRyo ? `Already owned: sold for ${activeChest.duplicateSaleRyo} Ryo, counted above` : itemRevealSub(lootItem) });
+        if (lootCard) rewards.push({ icon: <GiCardPickup size={22} />, label: `${lootCard.name}${activeChest.chroniclePoints ? ` (duplicate: ${rewardPrefix}${activeChest.chroniclePoints} Chronicle Points)` : ""}`, sub: `${lootCard.rarity.charAt(0).toUpperCase() + lootCard.rarity.slice(1)} · ${lootCard.element}` });
+        if (activeChest.fateShards) rewards.push({ icon: <GameIcon name="shard" size={22} />, label: `${rewardPrefix}${activeChest.fateShards} Fate Shard${activeChest.fateShards === 1 ? "" : "s"}`, sub: "Premium currency" });
         if (activeChest.boneCharms) rewards.push({ icon: <GameIcon name="bone" size={22} />, label: `${rewardPrefix}1 Bone Charm`, sub: "Awakening Stone material" });
         if (activeChest.auraStones) rewards.push({ icon: <GameIcon name="crystal" size={22} />, label: `${rewardPrefix}1 Aura Stone`, sub: "Awakening Stone material" });
         if (activeChest.auraDust) rewards.push({ icon: <GameIcon name="sparkle" size={22} />, label: `${rewardPrefix}${activeChest.auraDust} Aura Dust`, sub: "Feeds the Aura Sphere" });
@@ -5139,7 +5138,7 @@ function WorldMapContent({
                     const richnessLabel = sectorRichnessLabel(richness);
                     const contract = localSectorContract(sector.id);
                     const sectorTitle = sector.id === 99
-                        ? "Death's Gate PvP zone: 2x Ryo, stat growth & Jutsu XP, 5% Bone Charm on win"
+                        ? "Death's Gate PvP zone: +25% Ryo & Jutsu XP, 5% Bone Charm on win"
                         : huntTrail
                             ? `${huntTrail.mission.name} trail | ${sectorName(sector.id) ?? `Sector ${sector.id}`} (S${sector.id})`
                             : `${sectorName(sector.id) ?? `Sector ${sector.id}`} (S${sector.id}) | ${weatherEffects[weatherForSector(sector.id, biomeForSector(sector.id))].name}${sectorShrine ? ` | ⛩ ${sectorShrine.name}` : ""}`;

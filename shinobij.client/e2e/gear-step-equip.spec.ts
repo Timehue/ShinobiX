@@ -26,7 +26,7 @@ test('a gear step armor piece shows its exact reduction and equips', async ({ pa
     // Standard armor is 1 percent, and step 2 adds a full point.
     await expect(dialog).toContainText('Damage Reduction: 2%');
     await expect(dialog).toContainText('A prized find that outclasses the Cloth Hood: 2% damage reduction, up from 1%.');
-    await expect(dialog).toContainText('Sell Value: 500 ryo');
+    await expect(dialog).toContainText('Sell Value: 150 ryo');
     await dialog.getByRole('button', { name: /^Equip to Head/ }).click();
 
     await expect(page.getByRole('button', { name: 'Head equipment slot, equipped with Mistwrap Cowl', exact: true })).toBeVisible();

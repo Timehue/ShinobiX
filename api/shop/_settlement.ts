@@ -11,7 +11,11 @@ import { isMarketplaceCard } from '../clan/war/_card-catalog.js';
 import { effectiveItemLevelReq, meetsItemLevelReq } from '../../shared/item-level-gate.js';
 import { withGearTierUnlock } from '../_gear-drops.js';
 import { wildBindingSeal } from '../../shared/wild-binding.js';
+import { petSupplyHoldCap } from '../_pet-sim/pet-config.js';
 import { PROFESSION_CHANGE_APPROVAL_ID, professionChangeUnlockError } from '../../shared/profession-change.js';
+import { VILLAGE_TRANSFER_SCROLL_ID, VILLAGE_TRANSFER_COST, villageTransferUnlockError } from '../../shared/village-transfer.js';
+import { cardPackCost, splitSurplusCardCopies, type CardDuplicateConversion, type CardDuplicateRefund } from '../card-clash/_pack.js';
+import type { PlayerCharacter } from '../save/_mutate-player-save.js';
 
 export type ShopPackId = 'standard' | 'epic' | 'legendary';
 // 'chroniclePoints' is valid for card packs only (the Basic Card Pack); shop
@@ -20,22 +24,25 @@ export type ShopCurrency = 'ryo' | 'fateShards' | 'chroniclePoints';
 
 export type ShopSettlementValue =
     | { kind: 'item-purchase'; itemId: string; quantity: number; currency: ShopCurrency; totalCost: number }
-    | { kind: 'card-pack'; packId: ShopPackId; drawn: string[]; currency: ShopCurrency; totalCost: number };
+    // `converted` / `refund` are absent on receipts written before the
+    // duplicate conversion shipped; such a receipt replays as no conversion.
+    | { kind: 'card-pack'; packId: ShopPackId; drawn: string[]; currency: ShopCurrency; totalCost: number; converted?: CardDuplicateConversion[]; refund?: CardDuplicateRefund };
 
 export type ShopSettlementResult =
     | { ok: true; character: Record<string, unknown>; value: ShopSettlementValue; replayed: boolean }
     | { ok: false; status: 400 | 409; error: string };
 
 // Kept aligned with the LIVE pack table in api/card-clash/_pack.ts (the path
-// the shipped client actually buys through): same prices, currencies, rarity
-// bands, and storefront pool halves. api/_cross-build-parity.test.ts pins the
-// Shop's odds disclosure to this table, so drift here is a player-facing lie.
-const PACKS: Record<ShopPackId, { count: number; rarities: SettlementCard['rarity'][]; cost: number; currency: ShopCurrency; pool: 'shop' | 'marketplace' }> = {
+// the shipped client actually buys through): same currencies, rarity bands and
+// storefront pool halves. The PRICE is not copied: applyCardPackPurchase reads
+// it from cardPackCost, so a re-price of the live table reaches this route too,
+// and a copy beyond the playset converts through the same splitSurplusCardCopies.
+const PACKS: Record<ShopPackId, { count: number; rarities: SettlementCard['rarity'][]; currency: ShopCurrency; pool: 'shop' | 'marketplace' }> = {
     // The Basic Card Pack costs Chronicle Points (Echoes of War), NOT ryo —
     // this legacy settlement path must never re-grow a ryo price for it.
-    standard: { count: 5, rarities: ['common', 'rare'], cost: 100, currency: 'chroniclePoints', pool: 'shop' },
-    epic: { count: 1, rarities: ['rare', 'epic'], cost: 10, currency: 'fateShards', pool: 'marketplace' },
-    legendary: { count: 1, rarities: ['legendary'], cost: 30, currency: 'fateShards', pool: 'marketplace' },
+    standard: { count: 5, rarities: ['common', 'rare'], currency: 'chroniclePoints', pool: 'shop' },
+    epic: { count: 1, rarities: ['rare', 'epic'], currency: 'fateShards', pool: 'marketplace' },
+    legendary: { count: 1, rarities: ['legendary'], currency: 'fateShards', pool: 'marketplace' },
 };
 const SHOP_SLOTS = new Set(['head', 'body', 'waist', 'legs', 'feet', 'hand', 'aura', 'weapon', 'thrown', 'item', 'potion', 'accessory', 'fishingPole', 'pickaxe']);
 const RYO_RARITIES = new Set(['common', 'uncommon', 'rare', 'epic']);
@@ -104,7 +111,8 @@ function holdCap(item: SettlementItem): number | null {
     if (slot === 'potion') return 2;
     if (slot === 'thrown') return 50;
     if (slot === 'item' && (item.weaponEffect != null || item.apCost != null || item.weaponEp != null || item.restoreChakra != null || item.restoreStamina != null)) return 50;
-    return null;
+    // Treats, PvE gear, battle consumables and evolution stones (2026-10 item-use pass).
+    return petSupplyHoldCap(item.id);
 }
 
 function itemCurrency(item: SettlementItem): ShopCurrency | null {
@@ -187,6 +195,12 @@ export function applyItemPurchase(
         const error = professionChangeUnlockError(character);
         if (error) return { ok: false, status: 400, error };
     }
+    // The same Level 100 + story gate /shop/purchase applies; this legacy route
+    // used to skip it (economy rebalance I-9 alignment).
+    if (item.id === VILLAGE_TRANSFER_SCROLL_ID) {
+        const error = villageTransferUnlockError(character);
+        if (error) return { ok: false, status: 400, error };
+    }
 
     const level = whole(character.level);
     if (level === null) return { ok: false, status: 409, error: 'Stored level is invalid. Contact support.' };
@@ -213,7 +227,11 @@ export function applyItemPurchase(
     const currency = itemCurrency(item)!;
     const balance = whole(character[currency]);
     if (balance === null) return { ok: false, status: 409, error: `Stored ${currency} balance is invalid. Contact support.` };
-    const unitCost = gatheringTool(item.id)?.durability === null ? 50 : discountedShopCost(item.cost, shopDiscountPercent(character, currency));
+    // Flat prices match /shop/purchase: the golden tools are 50 and the village
+    // transfer scroll is a flat 250 that no discount touches.
+    const unitCost = gatheringTool(item.id)?.durability === null ? 50
+        : item.id === VILLAGE_TRANSFER_SCROLL_ID ? VILLAGE_TRANSFER_COST
+        : discountedShopCost(item.cost, shopDiscountPercent(character, currency));
     const totalCost = unitCost * quantity;
     if (!Number.isSafeInteger(totalCost) || balance < totalCost) return { ok: false, status: 400, error: `Not enough ${currency === 'ryo' ? 'ryo' : 'Fate Shards'}.` };
 
@@ -260,7 +278,7 @@ export function applyCardPackPurchase(
     if (!canAppendPackableChronicleCards(owned, pack.count)) return { ok: false, status: 409, error: 'Your card collection is full.' };
     const balance = whole(character[pack.currency]);
     if (balance === null) return { ok: false, status: 409, error: 'Stored currency balance is invalid. Contact support.' };
-    const totalCost = discountedShopCost(pack.cost, shopDiscountPercent(character, pack.currency));
+    const totalCost = cardPackCost(character as PlayerCharacter, packId);
     const packCurrencyLabel = pack.currency === 'chroniclePoints'
         ? 'Chronicle Points — win Showdowns in Echoes of War to earn more'
         : pack.currency === 'ryo' ? 'ryo' : 'Fate Shards';
@@ -272,6 +290,15 @@ export function applyCardPackPurchase(
         if (!Number.isSafeInteger(index) || index < 0 || index >= pool.length) return { ok: false, status: 409, error: 'Card draw failed safely. Please retry.' };
         drawn.push(pool[index]!.id);
     }
-    const value: ShopSettlementValue = { kind: 'card-pack', packId, drawn, currency: pack.currency, totalCost };
-    return withReceipt({ ...character, [pack.currency]: balance - totalCost, tileCards: [...owned, ...drawn] }, prior.receipts, requestId, fingerprint, value, now);
+    // Admin creator cards convert by their own catalog rarity, the same field
+    // the pool filter above already trusts.
+    const split = splitSurplusCardCopies(owned, drawn, (id) => cards.get(id)?.rarity);
+    const next: Record<string, unknown> = { ...character, [pack.currency]: balance - totalCost, tileCards: [...owned, ...split.kept] };
+    if (split.refund.chroniclePoints > 0) next.chroniclePoints = (whole(next.chroniclePoints) ?? 0) + split.refund.chroniclePoints;
+    if (split.refund.fateShards > 0) next.fateShards = (whole(next.fateShards) ?? 0) + split.refund.fateShards;
+    const value: ShopSettlementValue = {
+        kind: 'card-pack', packId, drawn, currency: pack.currency, totalCost,
+        converted: split.converted, refund: split.refund,
+    };
+    return withReceipt(next, prior.receipts, requestId, fingerprint, value, now);
 }

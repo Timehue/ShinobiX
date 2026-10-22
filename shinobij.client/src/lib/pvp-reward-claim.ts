@@ -1,4 +1,5 @@
-import type { PvpWinBaseSummary } from "./progression";
+import type { PvpRewardCredit, PvpWinBaseSummary } from "./progression";
+import { pvpCreditNote } from "./pvp-credit-copy";
 import type { Character } from "../types/character";
 import { playerSlug } from "./utils";
 
@@ -305,17 +306,23 @@ function cleanBaseReward(raw: unknown): PvpWinBaseSummary["reward"] {
     const auraDust = Number(value.auraDust);
     if (![ryo, combatGrowth, auraDust].every((amount) => Number.isSafeInteger(amount) && amount >= 0)) return undefined;
     const jutsuXp = Number(value.jutsuXp);
-    return { ryo, combatGrowth, auraDust, ...(Number.isSafeInteger(jutsuXp) && jutsuXp >= 0 ? { jutsuXp } : {}) };
+    // How the server credited the fight (pair weight, short fight, age, level gap).
+    const credit = value.credit && typeof value.credit === "object" ? value.credit as PvpRewardCredit : undefined;
+    return { ryo, combatGrowth, auraDust, ...(Number.isSafeInteger(jutsuXp) && jutsuXp >= 0 ? { jutsuXp } : {}), ...(credit ? { credit } : {}) };
 }
 
 /** Player-facing copy for the exact authoritative terminal settlement. */
 export function pvpRewardSettlementNotice(
     result: PvpRewardClaimConfirmed,
-    options: { draw: boolean; spar: boolean },
+    options: { draw: boolean; spar: boolean; role?: "win" | "loss" },
 ): string {
     if (options.draw) return "Draw confirmed — terminal battle effects are settled.";
     if (options.spar) return "Spar complete — no progression rewards.";
     const base = result.base?.reward;
+    // Owner ruling A9: say why a fight paid less than the full purse. A
+    // full-credit fight has no note, so the usual line is unchanged.
+    const note = pvpCreditNote(base?.credit, options.role ?? (result.rating?.delta !== undefined && result.rating.delta < 0 ? "loss" : "win"));
+    const withNote = (text: string) => note ? `${text} ${note}` : text;
     const raid = result.raidProgression;
     const ryo = (base?.ryo ?? 0) + (result.warGroundReward?.ryoAwarded ?? 0) + (raid?.bonusRyo ?? 0);
     const rewards = [
@@ -330,9 +337,9 @@ export function pvpRewardSettlementNotice(
         result.clanWarScrollDrop?.awarded && "+1 Territory Scroll",
         result.rating?.delta && `${result.rating.delta > 0 ? "+" : ""}${result.rating.delta} Rating`,
     ].filter(Boolean);
-    if (rewards.length) return `${result.rating?.delta !== undefined && result.rating.delta < 0 ? "Result recorded" : "Rewards secured"} — ${rewards.join(" · ")}.`;
-    if (result.clanWarScrollDrop) return `No Territory Control Scroll this time (${result.clanWarScrollDrop.chancePercent}% chance per win).`;
-    return "Official result verified; no personal payout for this result.";
+    if (rewards.length) return withNote(`${result.rating?.delta !== undefined && result.rating.delta < 0 ? "Result recorded" : "Rewards secured"} — ${rewards.join(" · ")}.`);
+    if (result.clanWarScrollDrop) return withNote(`No Territory Control Scroll this time (${result.clanWarScrollDrop.chancePercent}% chance per win).`);
+    return withNote("Official result verified; no personal payout for this result.");
 }
 
 /** Result copy from the confirmed raid receipt; no client-side settlement math. */

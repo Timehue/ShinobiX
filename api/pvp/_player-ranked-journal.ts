@@ -20,6 +20,8 @@ import { isValidRankedFormatItemLedger, RANKED_FORMAT_VERSION } from './_ranked-
 import { applyDerivedLevel } from '../_xp-engine.js';
 import { DAILY_COMBAT_STAT_CAP, PVP_STAT_POINTS_PER_WIN, computeCombatStatGrowth } from '../_stat-growth.js';
 import { reserveCombatStatBudget } from './_combat-stat-budget.js';
+import { pvpLuckyActive, rankedPurseRyo, readRankedWeightRow, sealRankedWeightRow } from './_valid-fight.js';
+import { recordEconomyTxn } from '../_economy.js';
 
 export const PLAYER_RANKED_JOURNAL_VERSION = 'player-ranked-journal-v1' as const;
 export const PLAYER_RANKED_SETTLEMENT_STAMP_FIELD = 'playerRankedSettlementStamp' as const;
@@ -68,7 +70,9 @@ export type PlayerRankedSettlementResult = {
     ratings: { a: number; b: number };
 };
 
-type JournalStore = Pick<KvLike, 'get' | 'set' | 'compareSet' | 'keys' | 'hset'>;
+// `incr` is optional: a store without it (an old test fake) prices every
+// ranked match as the pair's first (api/pvp/_valid-fight.ts sealRankedWeightRow).
+type JournalStore = Pick<KvLike, 'get' | 'set' | 'compareSet' | 'keys' | 'hset'> & Partial<Pick<KvLike, 'incr'>>;
 
 async function projectRankedLeaderboardSide(store: JournalStore, slug: string): Promise<void> {
     if (!isPublicPlayerIndexKey(slug)) return;
@@ -553,9 +557,27 @@ export async function publishPlayerRankedTerminal(
         // needs full help-forward cleanup, but is a durable no-contest for
         // economic/progression rewards. Seal the joined decision here so a
         // later retry can never recompute it from changed or missing evidence.
-        const eligible = pvpSessionMayReward(session)
+        const baseEligible = pvpSessionMayReward(session)
             && await options.eligible(admission.a, admission.b);
         const terminalAt = Math.max(1, Math.floor(options.now ?? Date.now()));
+        // Ranked integrity (I-3): the match counts at its sealed weight, the
+        // pair's repeat weight today (1/1/0.5/0.25/0) times the short-fight
+        // share. A weight of 0 (a short flee/AFK, or the pair's 5th result
+        // today) seals the match ineligible: no Elo, stat points, rankedWins,
+        // elder win or Vanguard reward. The row is written before the terminal
+        // seal and is write-once, so every retry settles the same Elo.
+        let eligible = baseEligible;
+        if (baseEligible) {
+            const weight = await sealRankedWeightRow(store, {
+                session,
+                matchId: admission.matchId,
+                a: admission.a,
+                b: admission.b,
+                terminalAt,
+                ttlSeconds: JOURNAL_TTL_SECONDS,
+            });
+            eligible = weight.weight > 0;
+        }
         const core = sessionTerminalCore(session, admission, eligible, terminalAt);
         const fingerprint = playerRankedTerminalFingerprint(core);
         try {
@@ -752,6 +774,11 @@ async function settleSide(
         : winnerSide === side ? 'winner' as const : 'loser' as const;
     const legacySettlementId = pvpSettlementId('rating', terminal.battleId);
     const legacyFingerprint = legacyRole ? `rating-${legacyRole}` : null;
+    // The match's sealed credit weight (I-3). A terminal with no row was sealed
+    // before the weight existed and settles at full weight, as it always did.
+    const weightRow = role === 'winner' || role === 'loser'
+        ? await readRankedWeightRow(store, terminal.matchId)
+        : null;
     for (let attempt = 0; attempt < 32; attempt += 1) {
         const record = await store.get<Record<string, unknown>>(saveKey);
         if (!record?.character) throw new Error(`player-ranked-save-unreadable:${slug}`);
@@ -778,6 +805,7 @@ async function settleSide(
         }
 
         let credited = character;
+        let rankedPurse = 0;
         let ratingAfter = Number(character.rankedRating);
         if (!Number.isFinite(ratingAfter)) ratingAfter = 1000;
         const legacyAlreadySettled = legacyInspection?.status === 'replay';
@@ -789,9 +817,15 @@ async function settleSide(
                 winnerRating,
                 loserRating,
                 kind: 'player',
+                weight: weightRow?.weight ?? 1,
             });
             credited = { ...character, ...result.patch };
             ratingAfter = result.newRating;
+            // Ranked purse (PVP_RANKED_PURSE, default off): paid in the same
+            // save commit as the Elo, which carries the currency ledger row,
+            // and fenced by the same settlement stamp.
+            rankedPurse = rankedPurseRyo(weightRow, { role, lucky: pvpLuckyActive(character) });
+            if (rankedPurse > 0) credited = { ...credited, ryo: Math.max(0, Number(credited.ryo) || 0) + rankedPurse };
         } else if (existing) {
             ratingAfter = existing.ratingAfter;
         }
@@ -864,6 +898,17 @@ async function settleSide(
         );
         try {
             if (await commitPlayerSave(store, saveKey, record, next)) {
+                if (rankedPurse > 0) {
+                    // Ranked purse telemetry (I-19), after the commit, once per side.
+                    void recordEconomyTxn({
+                        txnId: `ranked-purse:${terminal.matchId}:${side}`,
+                        player: slug,
+                        currency: 'ryo',
+                        delta: rankedPurse,
+                        source: 'pvp.ranked',
+                        ts: terminal.terminalAt,
+                    });
+                }
                 await projectRankedLeaderboardSide(store, slug);
                 await confirmSide(store, journal, side, now);
                 return ratingAfter;

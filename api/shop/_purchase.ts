@@ -4,7 +4,9 @@ import { withGearTierUnlock } from '../_gear-drops.js';
 import { wildBindingSeal } from '../../shared/wild-binding.js';
 import { PROFESSION_CHANGE_APPROVAL_ID, professionChangeUnlockError } from '../../shared/profession-change.js';
 import { VILLAGE_TRANSFER_SCROLL_ID, VILLAGE_TRANSFER_COST, villageTransferUnlockError } from '../../shared/village-transfer.js';
-import { isPurchasableItem } from './_settlement.js';
+import { discountedShopCost, isPurchasableItem, shopDiscountPercent } from './_settlement.js';
+import { meetsItemLevelReq } from '../../shared/item-level-gate.js';
+import { petSupplyHoldCap } from '../_pet-sim/pet-config.js';
 
 type Character = Record<string, unknown>;
 
@@ -14,16 +16,6 @@ function itemCount(character: Character, id: string): number {
     const stacked = Array.isArray(character.itemStacks)
         ? (character.itemStacks as Array<Record<string, unknown>>).filter((s) => s?.itemId === id).reduce((n, s) => n + whole(s.count), 0) : 0;
     return inline + stacked;
-}
-
-function purchaseDiscount(character: Character, premium: boolean): number {
-    if (premium) return character.elderFocus === 'trade' ? 5 : 0;
-    const upgrades = character.villageUpgrades as Record<string, unknown> | undefined;
-    const clanUpgrades = character.clanUpgradeLevels as Record<string, unknown> | undefined;
-    return whole(upgrades?.shop) * 0.25
-        + (character.elderFocus === 'trade' ? 5 : 0)
-        + Math.min(10, whole(clanUpgrades?.blacksmith) * 0.2)
-        + (character.clanDoctrine === 'merchant' ? 5 : 0);
 }
 
 export function purchaseCatalogItem(character: Character, itemId: unknown, qtyRaw: unknown) {
@@ -39,20 +31,28 @@ export function purchaseCatalogItem(character: Character, itemId: unknown, qtyRa
     if (id === VILLAGE_TRANSFER_SCROLL_ID && villageTransferUnlockError(character)) {
         return { ok: false as const, reason: villageTransferUnlockError(character)! };
     }
-    if (whole(character.level) < whole(item.levelReq ?? 1)) return { ok: false as const, reason: 'level-required' as const };
+    // The rarity ladder (shared/item-level-gate.ts), the same gate the Shop screen,
+    // /shop/settle and the equip path apply. Reading the raw levelReq let a modded
+    // client buy 92 items below their tier floor (economy rebalance I-9).
+    if (!meetsItemLevelReq(item, character.level)) return { ok: false as const, reason: 'level-required' as const };
     const premium = item.rarity === 'legendary' || item.rarity === 'mythic';
     const currency = premium ? 'fateShards' : 'ryo';
     const combatConsumable = item.slot === 'thrown' || item.slot === 'potion'
         || (item.slot === 'item' && (item.weaponEffect != null || item.apCost != null || item.weaponEp != null || item.restoreChakra != null || item.restoreStamina != null));
     const beastSeal = wildBindingSeal(id);
-    const cap = beastSeal ? 99 : item.slot === 'potion' ? 2 : combatConsumable ? 50 : null;
+    // Pet supplies (treats, PvE gear, battle consumables, evolution stones) buy in
+    // bulk too; with no cap they sold one at a time from an empty stack.
+    const cap = beastSeal ? 99 : item.slot === 'potion' ? 2 : combatConsumable ? 50 : petSupplyHoldCap(id);
     let qty = cap == null ? 1 : Math.max(1, Math.min(cap, whole(qtyRaw) || 1));
     if (cap != null) qty = Math.min(qty, Math.max(0, cap - itemCount(character, id)));
     else if (itemCount(character, id) > 0 || (tool && gatheringToolOwned(character, id))) return { ok: false as const, reason: 'already-owned' as const };
     if (qty <= 0) return { ok: false as const, reason: 'hold-cap' as const };
-    const percent = purchaseDiscount(character, premium);
+    // The one discount rule /shop/settle and the Shop screen use, with the village
+    // shop and blacksmith levels capped at 50. This path read the shop level
+    // unbounded, so a corrupt or hand-edited level priced below the arbitrage floor.
+    const percent = shopDiscountPercent(character, currency);
     const unitCost = tool?.durability === null ? 50 : id === VILLAGE_TRANSFER_SCROLL_ID ? VILLAGE_TRANSFER_COST
-        : Math.max(1, Math.floor(baseCost * Math.max(0, 1 - percent / 100)));
+        : discountedShopCost(baseCost, percent);
     const totalCost = unitCost * qty;
     const balance = whole(character[currency]);
     if (balance < totalCost) return { ok: false as const, reason: 'insufficient-funds' as const };

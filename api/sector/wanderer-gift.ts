@@ -12,12 +12,15 @@ import {
     claimWandererUseCooldown,
     currentWandererCooldownUntil,
     naturalWandererOffers,
+    resolveNaturalWanderer,
     wandererUseCooldownKey,
     withWandererUseState,
 } from './_wanderer-encounter.js';
 import { bumpLegacyStats } from '../_legacy-track.js';
 import { bumpEraDiscoveryContribution } from '../_era.js';
 import { sectorPresenceBlock } from '../_sector-presence-gate.js';
+import { recordEconomyTxn } from '../_economy.js';
+import { MAX_WILD_SECTOR } from '../../shared/sector-geo.js';
 
 /*
  * /api/sector/wanderer-gift — POST only
@@ -53,7 +56,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!naturalWandererOffers(wandererId, Date.now(), body, ['gift'])) {
             return res.status(200).json({ ok: false, reason: 'invalid-wanderer' });
         }
-        const sector = Math.max(1, Math.min(60, Math.floor(Number(body.sector ?? 0)) || 0));
+        // The shared world bound, not a literal: a stale 60 clamped a gift-giver
+        // in sectors 61-66 to sector 60, whose presence check then always failed.
+        const sector = Math.max(1, Math.min(MAX_WILD_SECTOR, Math.floor(Number(body.sector ?? 0)) || 0));
 
         const identity = await authedPlayerOrAdmin(req, playerName);
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
@@ -87,6 +92,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     legacyWandererId = wandererId;
                 }
                 return refuse({ ok: false, reason: 'cooldown', cooldownUntil: saveCooldownUntil });
+            }
+            // The gift-giver must stand in the claimed sector (relocation honoured).
+            if (!resolveNaturalWanderer(wandererId, now, char, sector)) {
+                return refuse({ ok: false, reason: 'invalid-wanderer' });
             }
 
             const claimsSoFar = Math.max(0, Number((await kv.get<number>(dayKey)) ?? 0));
@@ -144,6 +153,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (committed.value.ok === true) {
             legacyWandererId = wandererId;
             committed.value._saveVersion = committed._saveVersion;
+            // Telemetry (I-19), once the gift has committed. A gift has no replay
+            // branch (a retry answers "cooldown"), so this runs once per gift.
+            const gift = committed.value.gift as Record<string, unknown>;
+            const totals = committed.value.totals as Record<string, unknown>;
+            const txnId = `gift:${playerName}:${wandererId}:${Number(committed.value.cooldownUntil) || 0}`;
+            for (const currency of ['ryo', 'fateShards', 'boneCharms'] as const) {
+                await recordEconomyTxn({ txnId: `${txnId}:${currency}`, player: playerName, currency, delta: Number(gift[currency]) || 0, source: 'wanderer.gift', balanceAfter: Number(totals[currency]) || 0 });
+            }
         }
 
         // Legacy tracking (ENABLE_LEGACY): a wanderer encounter is a sector

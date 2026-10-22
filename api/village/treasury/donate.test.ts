@@ -9,12 +9,13 @@ process.env.SESSION_SECRET = 'village-donate-test-secret';
  * Village Merit is a KAGE-CHALLENGE gate, so the ryo-value basis a donation
  * earns merit on is balance, not plumbing.
  *
- * Village Stores routing (ration-pack -> provisions, CRAFT_POINTS materials ->
- * materialPoints) briefly re-based routed donations on `routed.ryoValue`
- * (craft points x CRAFT_POINT_RYO_VALUE 4). For a hunt-torn-hide that is 3
- * points -> 12 ryo-equivalent against the 500 an item donation has always been
- * worth: a ~42x collapse, and an unapproved balance change. Every ITEM donation
- * earns on the same flat per-item basis, routed or not, rations included.
+ * Every item used to count a flat 500, so 500 junk items cleared the 250-merit
+ * gate in about ten clicks (economy rebalance 2026-10, I-7). Item merit now
+ * follows the Village Stores routing (../_donation-merit.ts): provisions
+ * (ration packs, supply bundles) keep 500 per item inside their daily donor cap,
+ * materials count at their NPC sale value, and a loose item the Kage could gift
+ * straight back earns nothing. `routed.ryoValue` (craft points x 4) is still
+ * NOT the merit basis.
  */
 
 type Handler = (req: never, res: never) => Promise<unknown>;
@@ -23,6 +24,9 @@ type Out = { statusCode: number; body?: Record<string, unknown> };
 let kv: typeof import('../../_storage.js').kv;
 let issuePlayerToken: typeof import('../../_auth.js').issuePlayerToken;
 let meritForDonation: typeof import('../_village-merit.js').meritForDonation;
+let npcUnitSaleValue: typeof import('../_donation-merit.js').npcUnitSaleValue;
+let VILLAGE_PROVISIONS_MERIT_RYO_PER_ITEM: number;
+let HUNT_MATERIAL_SELL_RYO: Record<string, number>;
 let donate: Handler;
 
 const PLAYER = 'meritdonor';
@@ -34,6 +38,8 @@ before(async () => {
     ({ kv } = await import('../../_storage.js'));
     ({ issuePlayerToken } = await import('../../_auth.js'));
     ({ meritForDonation } = await import('../_village-merit.js'));
+    ({ npcUnitSaleValue, VILLAGE_PROVISIONS_MERIT_RYO_PER_ITEM } = await import('../_donation-merit.js'));
+    ({ HUNT_MATERIAL_SELL_RYO } = await import('../../../shared/hunt-material-sale.js'));
     donate = (await import('./donate.js')).default as unknown as Handler;
 });
 
@@ -85,39 +91,63 @@ async function seedDonor(character: Record<string, unknown>) {
 const meritOf = async () => Number((await kv.get<{ character: Record<string, unknown> }>(`save:${PLAYER}`))?.character.villageMerit ?? 0);
 
 describe('village treasury donation merit', () => {
-    it('pays a routed MATERIAL donation the same flat per-item merit as any other item', async () => {
+    it('pays a routed MATERIAL donation its NPC sale value, not a flat 500 per item', async () => {
         await seedDonor({ itemStacks: [{ itemId: 'hunt-torn-hide', count: 10 }] });
         const out = await post({ itemId: 'hunt-torn-hide', count: 10 });
         assert.equal(out.statusCode, 200);
         // Routing still happened — the stack landed in materialPoints, not as a
         // loose treasury item (10 x 3 craft points).
         assert.deepEqual(out.body?.stores, { provisions: 0, materialPoints: 30 });
-        assert.equal(await meritOf(), meritForDonation(10 * 500), '10 items = 5,000 ryo-equivalent = 5 merit');
-        assert.equal(await meritOf(), 5);
-        assert.notEqual(await meritOf(), meritForDonation(30 * 4), 'NOT the craft-point ryo value (120 -> 0 merit)');
+        assert.equal(npcUnitSaleValue('hunt-torn-hide'), HUNT_MATERIAL_SELL_RYO['hunt-torn-hide']);
+        assert.equal(await meritOf(), meritForDonation(10 * 12), '10 hides sell for 120 ryo = 0 merit');
+        assert.equal(await meritOf(), 0);
     });
 
-    it('pays a routed RATION donation on that same per-item basis', async () => {
+    it('pays valuable materials what selling them would, and relics nothing', async () => {
+        // 25 x 50 + 150 = 1,400 material points, inside the 1,500-a-day donor cap.
+        await seedDonor({ itemStacks: [{ itemId: 'hunt-legendary-material', count: 25 }, { itemId: 'weekly-boss-core', count: 1 }] });
+        const out = await post({ itemId: 'hunt-legendary-material', count: 25 });
+        assert.equal(out.statusCode, 200, JSON.stringify(out.body));
+        assert.equal(await meritOf(), meritForDonation(25 * HUNT_MATERIAL_SELL_RYO['hunt-legendary-material']), '25 x 480 = 12,000 ryo of value');
+        assert.equal(await meritOf(), 12);
+        const relic = await post({ itemId: 'weekly-boss-core', count: 1 });
+        assert.equal(relic.statusCode, 200, JSON.stringify(relic.body));
+        assert.equal(await meritOf(), 12, 'an unsellable relic has no sale value');
+    });
+
+    it('keeps a routed RATION donation on its flat 500-per-item basis', async () => {
         await seedDonor({ itemStacks: [{ itemId: 'ration-pack', count: 4 }] });
         const out = await post({ itemId: 'ration-pack', count: 4 });
         assert.equal(out.statusCode, 200);
         assert.deepEqual(out.body?.stores, { provisions: 4, materialPoints: 0 });
-        assert.equal(await meritOf(), meritForDonation(4 * 500), '4 rations = 2,000 ryo-equivalent = 2 merit');
+        assert.equal(await meritOf(), meritForDonation(4 * VILLAGE_PROVISIONS_MERIT_RYO_PER_ITEM), '4 rations = 2,000 ryo-equivalent = 2 merit');
         assert.equal(await meritOf(), 2);
     });
 
-    it('leaves an UNROUTED item donation and a currency donation exactly as they were', async () => {
+    it('pays an UNROUTED item nothing (the Kage could gift it back), and currency its own amount', async () => {
         await seedDonor({ itemStacks: [{ itemId: 'item-smoke-bomb', count: 6 }] });
         const loose = await post({ itemId: 'item-smoke-bomb', count: 6 });
         assert.equal(loose.statusCode, 200);
         assert.equal(loose.body?.stores, undefined, 'an unrouted item stays a loose treasury item');
-        assert.equal(await meritOf(), 3);
+        assert.equal(await meritOf(), 0, 'it was worth 3 merit at the old flat 500 per item');
+        assert.deepEqual((await kv.get<{ treasury: { items: unknown[] } }>(VILLAGE_KEY))?.treasury.items, [{ itemId: 'item-smoke-bomb', count: 6 }], 'the treasury still receives it');
 
         await seedDonor({ ryo: 100_000 });
         const currency = await post({ currency: 'ryo', amount: 7_500 });
         assert.equal(currency.statusCode, 200);
         assert.equal(await meritOf(), meritForDonation(7_500), 'currency donations bill their own amount');
         assert.equal(await meritOf(), 7);
+    });
+
+    it('no longer reaches the 250-merit Kage gate with a pile of junk items', async () => {
+        // The I-7 exploit: 500 items at a flat 500 each was 250 merit in ten
+        // clicks. Fifty items a click now earns nothing.
+        await seedDonor({ itemStacks: [{ itemId: 'item-smoke-bomb', count: 500 }] });
+        for (let i = 0; i < 10; i += 1) {
+            (await import('../../_ratelimit.js')).__resetRateLimitsForTest();
+            assert.equal((await post({ itemId: 'item-smoke-bomb', count: 50, requestId: `village-merit-junk-${String(i).padStart(4, '0')}` })).statusCode, 200);
+        }
+        assert.equal(await meritOf(), 0);
     });
 });
 

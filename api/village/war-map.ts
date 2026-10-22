@@ -13,6 +13,8 @@ import { projectSectorWarForClient } from '../_sector-war.js';
 import { villageWarMapEnabled } from '../_release-flags.js';
 import { viewerVillageOf } from '../_viewer-village.js';
 import { listWarPreparationContexts, preparationView } from '../_war-preparations.js';
+import { preparationTreasuryCost, WAR_PREPARATION_KEYS } from '../../shared/war-preparations.js';
+import { ryoPerWr } from '../_war-economy.js';
 
 /*
  * /api/village/war-map — GET only. The read-only War-Map aggregator (Phase 6).
@@ -79,6 +81,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // A village's war chest, structures, stores and tax are for its own
         // members (owner ruling 2026-10-08). Everyone else gets the public view:
         // who holds what, and the rules of each held sector. Admins see all.
+        // Treasury ryo per WR this server charges now (WAR_RYO_PER_WR): every
+        // preparation's next-tier quote below uses it, and the client builds its
+        // copy from it, so a dial change never shows a stale price.
+        const perWr = ryoPerWr();
         const villages = await Promise.all(WAR_VILLAGES.map(async (v, i) => {
             const record = normalizeVillageWarRecord(v, warRaws[i] ?? undefined);
             const own = identity.admin || v === viewerVillage;
@@ -90,8 +96,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 village: v, record, treasurySeals, sectorsHeld: heldCount[v] ?? 0, kageSeated: kageSeats[i],
                 provisions: Number(treasury.provisions) || 0, materialPoints: Number(treasury.materialPoints) || 0,
                 heldSectors: heldLists[v] ?? [],
+                treasuryRyo: Number(treasury.ryo) || 0, treasuryBoneCharms: Number(treasury.boneCharms) || 0, ryoPerWr: perWr,
             });
-            return own ? { ...view, preparations: contexts.map(c => preparationView(c, record)) } : publicVillageWarMapView(view);
+            if (!own) return publicVillageWarMapView(view);
+            return {
+                ...view,
+                preparations: contexts.map((c) => {
+                    const prep = preparationView(c, record);
+                    const nextCost = Object.fromEntries(WAR_PREPARATION_KEYS.map((key) => [key, preparationTreasuryCost(prep.levels[key], perWr)]));
+                    return { ...prep, nextCost };
+                }),
+            };
         }));
 
         return res.status(200).json({

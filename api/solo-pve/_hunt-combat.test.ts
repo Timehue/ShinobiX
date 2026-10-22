@@ -186,12 +186,12 @@ describe('Tower-powered hunt encounters', () => {
         assert.equal(used.session.itemsUsed['hunt-potion'], 1);
         assert.equal(used.session.itemCharges['hunt-potion'], 0);
         assert.equal(applySoloPveAction(used.session, { type: 'huntAction', action: { type: 'item', itemId: 'hunt-potion' } }).applied, false);
-        const seal = { petId: 'pet-1', name: 'Fang', hp: 300, damage: 120, happiness: 100, loyal: true, moves: [], pveGearId: '', consumableId: 'pet-treat' };
+        const seal = { petId: 'pet-1', name: 'Fang', hp: 300, damage: 120, happiness: 100, loyal: true, moves: [], pveGearId: '', consumableId: 'consum-second-wind' };
         used.session.pendingCompanion = seal;
         used.session.huntCombat!.battle.pendingCompanion = seal;
         const summoned = applySoloPveAction(used.session, { type: 'huntAction', action: { type: 'summon' } });
         assert.equal(summoned.applied, true, summoned.reason ?? 'summon accepted');
-        assert.deepEqual(summoned.session.companionUsage, { petId: 'pet-1', consumableId: 'pet-treat' });
+        assert.deepEqual(summoned.session.companionUsage, { petId: 'pet-1', consumableId: 'consum-second-wind' });
         assert.equal(summoned.session.pendingCompanion, undefined);
         assert.ok(summoned.session.player.hp > used.session.player.hp);
         assert.equal(applySoloPveAction(summoned.session, { type: 'huntAction', action: { type: 'summon' } }).applied, false);

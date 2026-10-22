@@ -46,12 +46,24 @@ export function rankedDelta(winnerRating: number, loserRating: number): number {
     return Math.max(8, Math.round(24 * (1 - expected)));
 }
 
+/**
+ * Elo for a ranked V2 match credited at `weight` (I-3): the pair's repeat weight
+ * times the short-fight share (api/pvp/_valid-fight.ts sealRankedWeightRow).
+ * Applied after rankedDelta's 8-point floor, so a half-weight even match moves
+ * 6, not 8. Weight 1 is rankedDelta exactly; rankedDelta itself is untouched.
+ */
+export function weightedRankedDelta(winnerRating: number, loserRating: number, weight = 1): number {
+    const full = rankedDelta(winnerRating, loserRating);
+    if (!(weight < 1)) return full;
+    return Math.round(full * Math.max(0, weight));
+}
+
 export type RankedCreditResult = {
     /** Character fields to merge into the save (rating + the W/L counter). */
     patch: Record<string, number>;
     /** Rating AFTER applying the outcome — for the claim response / UI. */
     newRating: number;
-    /** Magnitude of the swing (always >= 8). */
+    /** Magnitude of the swing (>= 8 at full weight; a weighted V2 match can move less). */
     delta: number;
 };
 
@@ -77,11 +89,11 @@ function toNumber(value: unknown, fallback: number): number {
  */
 export function creditRankedOutcome(
     char: Record<string, unknown>,
-    opts: { role: 'winner' | 'loser'; winnerRating: number; loserRating: number; kind: RankedKind },
+    opts: { role: 'winner' | 'loser'; winnerRating: number; loserRating: number; kind: RankedKind; weight?: number },
 ): RankedCreditResult {
     const { role, winnerRating, loserRating, kind } = opts;
     const fields = FIELDS[kind];
-    const delta = rankedDelta(winnerRating, loserRating);
+    const delta = weightedRankedDelta(winnerRating, loserRating, opts.weight ?? 1);
     const current = toNumber(char[fields.rating], DEFAULT_RANKED_RATING);
 
     if (role === 'winner') {

@@ -81,7 +81,7 @@ export const hollowRifts: HollowRift[] = [
         landmark: "forgotten-shrine",
         bossAiId: "rift-boss-legacy-echo",
         bossName: "The Unremembered",
-        reward: { weight: 5, fateShards: 1, boneCharms: 8 },
+        reward: { weight: 5, fateShards: 1, boneCharms: 4 },
         intro: [
             {
                 title: "The Grave Keeper on the Low Road",
@@ -157,7 +157,7 @@ export const hollowRifts: HollowRift[] = [
         landmark: "hollow-rift",
         bossAiId: "rift-boss-hollow-stalker",
         bossName: "Hollow Stalker",
-        reward: { weight: 8, fateShards: 1, boneCharms: 15 },
+        reward: { weight: 8, fateShards: 1, boneCharms: 8 },
         intro: [
             {
                 title: "A Scout Off Her Route",
@@ -225,7 +225,7 @@ export const hollowRifts: HollowRift[] = [
         landmark: "rift-beast-den",
         bossAiId: "rift-boss-warren-alpha",
         bossName: "Warren Alpha",
-        reward: { weight: 9, fateShards: 1, boneCharms: 20 },
+        reward: { weight: 9, fateShards: 1, boneCharms: 10 },
         intro: [
             {
                 title: "The Handler at the Kennels",
@@ -294,7 +294,7 @@ export const hollowRifts: HollowRift[] = [
         landmark: "rift-machine",
         bossAiId: "rift-boss-engine-echo",
         bossName: "Engine-Echo",
-        reward: { weight: 11, fateShards: 2, boneCharms: 25 },
+        reward: { weight: 11, fateShards: 2, boneCharms: 12 },
         intro: [
             {
                 title: "The Recorder With the Wrong Ledger",
@@ -362,7 +362,7 @@ export const hollowRifts: HollowRift[] = [
         landmark: "rift-legacy",
         bossAiId: "rift-boss-hollow-legacy",
         bossName: "The Hollowed Name",
-        reward: { weight: 12, fateShards: 2, boneCharms: 30 },
+        reward: { weight: 12, fateShards: 2, boneCharms: 15 },
         intro: [
             {
                 title: "The Keeper of the Hall-Road",
@@ -430,7 +430,7 @@ export const hollowRifts: HollowRift[] = [
         landmark: "rift-machine",
         bossAiId: "rift-boss-mirror-shard",
         bossName: "Mirror-Shard Warden",
-        reward: { weight: 13, fateShards: 3, boneCharms: 35 },
+        reward: { weight: 13, fateShards: 3, boneCharms: 18 },
         intro: [
             {
                 title: "The Broker Who Sells Nothing Tonight",
@@ -498,7 +498,7 @@ export const hollowRifts: HollowRift[] = [
         landmark: "rift-gate",
         bossAiId: "rift-boss-gate-heir",
         bossName: "Hollow Gate Heir",
-        reward: { weight: 15, fateShards: 3, boneCharms: 45 },
+        reward: { weight: 15, fateShards: 3, boneCharms: 22 },
         intro: [
             {
                 title: "The Unsworn on the Ridge",

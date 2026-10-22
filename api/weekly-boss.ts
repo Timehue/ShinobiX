@@ -1,4 +1,5 @@
 import { ownsRelic, RELICS_BY_ID, DUPLICATE_RELIC_SHARDS } from '../shared/relics.js';
+import { grantItemIds } from '../shared/stacked-materials.js';
 import type { VercelRequest, VercelResponse } from './_vercel.js';
 import { kv } from './_storage.js';
 import { GEAR_DROP_CHANCE_BP, gearRoll, pickGearDrop } from './_gear-drops.js';
@@ -31,15 +32,27 @@ import {
     weeklyBossRunKey,
     type WeeklyBossAuthoritativeRun,
 } from './_weekly-boss-authoritative-run.js';
+import {
+    WEEKLY_BOSS_MVP_RYO_CAP,
+    WEEKLY_BOSS_PLAYER_RYO_CAP,
+    WEEKLY_BOSS_REWARD_REF_HP,
+    weeklyBossRyoRewardDetail,
+    type WeeklyBossRewardParams,
+} from '../shared/weekly-boss-rewards.js';
+import { economyDial } from './_economy-dials.js';
+import { recordEconomyTxn } from './_economy.js';
 
 // Weekly Boss is an unlimited-health score attack. Damage only grows the
 // leaderboard; availability is governed by the 72h event and player attempts.
-// hpMax remains a legacy reward-budget baseline, never a damage ceiling.
+// hpMax is combat metadata only (the fight's enemy HP baseline), never a damage
+// ceiling and no longer the reward budget: rewards read the fixed reference in
+// shared/weekly-boss-rewards.ts.
 // At despawn rewards are auto-distributed:
 //   • Top 25 contributors    → 1 Dungeon Key each
 //   • Top 10 contributors    → 1 Weekly Boss Core each (stacks with key)
-//   • All contributors       → ryo + xp share proportional to damage
-//                              (×2 for the MVP — top damage dealer)
+//   • All contributors       → a ryo share proportional to damage
+//                              (×2 for the MVP — top damage dealer), capped
+//                              per contributor (see weeklyBossRewardParams)
 // New ISO week → boss is auto-reset (picks a random non-boss AI, or uses
 // the admin-set weeklyBossOverride if present).
 
@@ -105,8 +118,91 @@ type WeeklyBossRewardEntry = {
     gotRelic: boolean;
     /** Sealed with the summary so the arena can list it. Older summaries omit it; the same roll is recomputed. */
     gotGear?: boolean;
+    /** The per-contributor cap that clipped `ryo`, sealed so the arena can say so. Absent when uncapped. */
+    ryoCappedAt?: number;
     isMvp: boolean;
 };
+
+/**
+ * The staff actor's ledger name. Admin test fights bank damage under it, and
+ * it is a reserved staff name (api/_text-moderation.ts), so no player owns it.
+ */
+export const WEEKLY_BOSS_ADMIN_ACTOR = 'admin';
+
+/**
+ * Weekly Boss reward dials (framework 8.3, owner amendment A5), read when a
+ * spawn's payout summary is frozen. A frozen summary keeps the values it was
+ * computed with.
+ *   WB_REWARD_REF_HP  reward reference HP, default 100,000 (10,000-1,000,000)
+ *   WB_PLAYER_CAP     per-contributor ryo cap, default 60,000 (1,000-1,000,000)
+ *   WB_MVP_CAP        the MVP's ryo cap, default 90,000 (1,000-1,000,000)
+ */
+export function weeklyBossRewardParams(): WeeklyBossRewardParams {
+    return {
+        refHp: economyDial('WB_REWARD_REF_HP', WEEKLY_BOSS_REWARD_REF_HP, { min: 10_000, max: 1_000_000 }),
+        playerCap: economyDial('WB_PLAYER_CAP', WEEKLY_BOSS_PLAYER_RYO_CAP, { min: 1_000, max: 1_000_000 }),
+        mvpCap: economyDial('WB_MVP_CAP', WEEKLY_BOSS_MVP_RYO_CAP, { min: 1_000, max: 1_000_000 }),
+    };
+}
+
+/**
+ * Freeze one spawn's payout: rank the contributors by damage and size each
+ * share. Pure; distributeRewardsIfExpired persists the result once.
+ *
+ * Only players who dealt damage are contributors (owner ruling 2026-10-15;
+ * older spawns can still hold 0-damage entries from before that rule). The
+ * staff actor is left out of the ranking and the share total, so an admin
+ * test fight can never take the MVP slot, a Core, Key or Cinder roll, or
+ * shrink a real contributor's share. The leaderboard still shows its damage.
+ */
+export function computeWeeklyBossRewardEntries(
+    boss: Pick<WeeklyBossState, 'damageByPlayer' | 'weekKey' | 'aiId'> & Partial<Pick<WeeklyBossState, 'hpMax'>>,
+    params: WeeklyBossRewardParams = weeklyBossRewardParams(),
+): WeeklyBossRewardEntry[] {
+    const entries = Object.entries(boss.damageByPlayer ?? {})
+        .filter(([name, dmg]) => Number(dmg) > 0 && name !== WEEKLY_BOSS_ADMIN_ACTOR)
+        .sort(([, a], [, b]) => (b as number) - (a as number));
+    const totalDmg = entries.reduce((sum, [, dmg]) => sum + (dmg as number), 0) || 1;
+    return entries.map(([name, dmg], i) => {
+        const share = (dmg as number) / totalDmg;
+        const isMvp = i === 0;
+        // Character XP is retired (leveling-without-xp map): the old XP share
+        // folds into ryo inside weeklyBossRyoRewardDetail, and every
+        // contributor gets a flat once-per-week stat-pool grant (receipt-gated).
+        const pay = weeklyBossRyoRewardDetail(share, isMvp, params);
+        return {
+            name,
+            damage: dmg as number,
+            rank: i + 1,
+            ryo: pay.ryo,
+            xp: 0,
+            gotCore: i < TOP_CORE_COUNT,
+            gotKey: i < TOP_KEY_COUNT,
+            gotRelic: i < TOP_CORE_COUNT && weeklyBossRelicRoll(boss.weekKey, boss.aiId, name),
+            // Every contributor rolls. Sealed here so the arena can list it, and so the
+            // credit later pays exactly what the summary promised.
+            gotGear: weeklyBossGearRoll(boss.weekKey, boss.aiId, name),
+            ...(pay.cappedAt !== undefined ? { ryoCappedAt: pay.cappedAt } : {}),
+            isMvp,
+        };
+    });
+}
+
+/**
+ * Economy telemetry for one committed weekly payout (I-19). Called from the
+ * credit's afterCommit only, so a replay or a lost compare-and-set logs
+ * nothing, and never awaited, so telemetry never holds the save lock. The
+ * txnIds are stable per (week, contributor), the same key the payout receipt
+ * uses, so a duplicate shows up in duplicateTxnIds.
+ */
+function recordWeeklyBossPayout(weekKey: string, name: string, ryo: number, fateShards: number): void {
+    if (ryo > 0) {
+        void recordEconomyTxn({ txnId: `weekly-boss:${weekKey}:${name}:ryo`, player: name, currency: 'ryo', delta: ryo, source: 'weeklyboss.payout' });
+    }
+    if (fateShards > 0) {
+        void recordEconomyTxn({ txnId: `weekly-boss:${weekKey}:${name}:fateShards`, player: name, currency: 'fateShards', delta: fateShards, source: 'weeklyboss.payout' });
+    }
+}
 
 export function applyWeeklyBossReward(
     character: Record<string, unknown>,
@@ -131,7 +227,6 @@ export function applyWeeklyBossReward(
     if (inspected.status !== 'fresh') throw new Error(`weekly-boss-receipt-${inspected.status}`);
 
     const inventory = Array.isArray(character.inventory) ? [...(character.inventory as string[])] : [];
-    if (entry.gotCore) inventory.push(WEEKLY_BOSS_CORE_ID);
     if (entry.gotKey) inventory.push(DUNGEON_KEY_ID);
     // A relic is unique gear: a second copy is worthless, so a duplicate pays
     // Fate Shards instead of vanishing (same rule as the chest faucet).
@@ -143,6 +238,8 @@ export function applyWeeklyBossReward(
         const gearDrop = pickGearDrop(character);
         if (gearDrop) inventory.push(gearDrop);
     }
+    // The Core is a counted stack (owner ruling A12), so it never takes a slot.
+    const stores = grantItemIds({ inventory, itemStacks: character.itemStacks }, entry.gotCore ? [WEEKLY_BOSS_CORE_ID] : []);
     const leveled = applyDerivedLevel({
         ...character,
         unspentStats: Math.max(0, Math.floor(Number(character.unspentStats) || 0)) + WEEKLY_BOSS_STAT_POINTS,
@@ -162,7 +259,8 @@ export function applyWeeklyBossReward(
         ...(duplicateRelic
             ? { fateShards: Math.max(0, Number(character.fateShards) || 0) + DUPLICATE_RELIC_FATE_SHARDS }
             : {}),
-        inventory,
+        inventory: stores.inventory,
+        ...(stores.itemStacks !== undefined ? { itemStacks: stores.itemStacks } : {}),
         weeklyBossKills: {
             ...priorKills,
             [weekKey]: aiId,
@@ -187,7 +285,8 @@ export type WeeklyBossState = {
     weekKey: string;
     aiId: string;
     bossName?: string;
-    /** Legacy reward-budget baseline. Not a health cap. */
+    /** The fight's enemy HP baseline: combat metadata only. Not a health cap,
+     *  and not the reward budget (shared/weekly-boss-rewards.ts). */
     hpMax: number;
     /** Legacy persisted field, ignored for gameplay and hidden by the public view. */
     hpRemaining: number;
@@ -300,13 +399,17 @@ export function applyWeeklyBossRunDamageReceipt(
     };
 }
 
-/** Never publish finite health for the weekly score attack, including legacy spawns. */
+/** Never publish finite health for the weekly score attack, including legacy spawns.
+ *  `rewardCaps` carries the live ryo caps so the arena quotes what the server pays
+ *  (owner amendment A9: every limit is visible where the activity is). */
 export function publicWeeklyBossState(boss: WeeklyBossState | null) {
     if (!boss) return null;
     const { bankedRunDamage: _privateSettlementReceipts, attemptRunReceipts: _privateStartReceipts,
-        hpMax: _rewardBudget, hpRemaining: _legacyRemaining, ...publicState } = boss;
+        hpMax: _combatHp, hpRemaining: _legacyRemaining, ...publicState } = boss;
+    const params = weeklyBossRewardParams();
     return { ...publicState, healthMode: 'unlimited' as const, hpMax: null, hpRemaining: null,
-        broken: false, totalDamage: weeklyBossTotalDamage(boss), spawnId: weeklyBossSpawnIdentity(boss) };
+        broken: false, totalDamage: weeklyBossTotalDamage(boss), spawnId: weeklyBossSpawnIdentity(boss),
+        rewardCaps: { playerRyo: params.playerCap, mvpRyo: params.mvpCap } };
 }
 
 const weeklyBossActiveRunKey = (playerName: string, bossStartedAt: number) =>
@@ -377,9 +480,10 @@ function isoWeekKey(d: Date = new Date()): string {
     return `${date.getUTCFullYear()}-W${String(weekNo).padStart(2, '0')}`;
 }
 
-// The legacy reward-budget baseline — used for leaderboard
-// formula scales ryo off. Single value per ISO week, never per-player.
-// Range: 50k → 150k.
+// The fight's enemy HP baseline: combat metadata only (the companion damage cap
+// and the enemy AI heal thresholds read it). Single value per ISO week, never
+// per-player. Range: 50k → 150k. Rewards no longer scale off it; they read the
+// fixed reference in shared/weekly-boss-rewards.ts.
 function defaultBossHp(weekKey: string): number {
     const wk = parseInt(weekKey.split('-W')[1] ?? '1', 10);
     return 50000 + Math.min(53, wk) * 1900;
@@ -527,37 +631,7 @@ async function distributeRewardsIfExpired(boss: WeeklyBossState): Promise<Weekly
             return;
         }
 
-        // Only players who dealt damage are contributors (older spawns can
-        // still hold 0-damage entries from before that rule).
-        const entries = Object.entries(fresh.damageByPlayer)
-            .filter(([, dmg]) => Number(dmg) > 0)
-            .sort(([, a], [, b]) => (b as number) - (a as number));
-        const totalDmg = entries.reduce((sum, [, dmg]) => sum + (dmg as number), 0) || 1;
-        const baseRyo = Math.floor(fresh.hpMax * 0.5);
-        const baseXp = Math.floor(fresh.hpMax * 0.25);
-
-        const computed: WeeklyBossRewardEntry[] = entries.map(([name, dmg], i) => {
-            const share = (dmg as number) / totalDmg;
-            const isMvp = i === 0;
-            return {
-                name,
-                damage: dmg as number,
-                rank: i + 1,
-                // Character XP is retired (leveling-without-xp map): the old XP
-                // share folds into ryo at ~0.75:1, and every contributor gets a
-                // flat once-per-week stat-pool grant below (receipt-gated).
-                ryo: Math.max(100, Math.floor(baseRyo * share * (isMvp ? 2 : 1) + 200))
-                    + Math.floor(Math.max(50, Math.floor(baseXp * share * (isMvp ? 2 : 1) + 100)) * 0.75),
-                xp: 0,
-                gotCore: i < TOP_CORE_COUNT,
-                gotKey: i < TOP_KEY_COUNT,
-                gotRelic: i < TOP_CORE_COUNT && weeklyBossRelicRoll(fresh.weekKey, fresh.aiId, name),
-                // Every contributor rolls. Sealed here so the arena can list it, and so the
-                // credit later pays exactly what the summary promised.
-                gotGear: weeklyBossGearRoll(fresh.weekKey, fresh.aiId, name),
-                isMvp,
-            };
-        });
+        const computed = computeWeeklyBossRewardEntries(fresh);
 
         const updated: WeeklyBossState = {
             ...fresh,
@@ -606,7 +680,14 @@ async function distributeRewardsIfExpired(boss: WeeklyBossState): Promise<Weekly
                         Date.now(),
                     );
                     if (applied.alreadyApplied) return { ok: true, write: false, character: freshChar, value: { newlyApplied: false } };
-                    return { ok: true, character: applied.character, value: { newlyApplied: true } };
+                    // A duplicate Cinder pays Fate Shards instead of the relic.
+                    const shardsPaid = Math.max(0, (Number(applied.character.fateShards) || 0) - (Number(freshChar.fateShards) || 0));
+                    return {
+                        ok: true,
+                        character: applied.character,
+                        value: { newlyApplied: true },
+                        afterCommit: () => recordWeeklyBossPayout(weekKey, entry.name, entry.ryo, shardsPaid),
+                    };
                 });
                 // No save → nothing to credit; count as done.
                 return credited.ok
@@ -716,7 +797,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     code: 'weekly-boss-recovery-stale',
                 });
             }
-            const actorName = identity.admin ? 'admin' : identity.name;
+            const actorName = identity.admin ? WEEKLY_BOSS_ADMIN_ACTOR : identity.name;
             const recovery = await probeWeeklyBossRecovery(actorName, boss);
             if (!recovery) {
                 return res.status(404).json({
@@ -890,7 +971,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 return res.status(409).json({ error: 'Boss despawned. Rewards have been distributed.', boss });
             }
 
-            const actorName = identity.admin ? 'admin' : identity.name;
+            const actorName = identity.admin ? WEEKLY_BOSS_ADMIN_ACTOR : identity.name;
             if (kind === 'damage' || kind === 'logFightLegacy') {
                 return res.status(410).json({
                     error: 'Client-reported Weekly Boss damage has been retired. Start a server-authoritative fight instead.',
@@ -1038,7 +1119,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             activeTtlSeconds: WEEKLY_BOSS_RUN_TTL_SECONDS,
                         });
                         // Health is simulation metadata only; damage is tracked independently.
-                        // Keep the existing baseline for percentage-based mechanics and rewards.
+                        // Keep the existing baseline for percentage-based mechanics (the
+                        // companion damage cap, the AI heal thresholds). Rewards do not read it.
                         session.enemy.hp = session.enemy.maxHp = Math.max(1, Math.floor(Number(boss!.hpMax) || 1));
                         if (!weeklyBossGuardEnabled() && session.weeklyBossGuard) session.weeklyBossGuard.mechanicsEnabled = false;
                         run = {

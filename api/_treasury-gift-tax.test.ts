@@ -2,7 +2,7 @@ import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { planTreasuryGift, TREASURY_GIFT_TAX_PCT, GIFT_TAX_EXEMPT_CURRENCIES } from './_treasury-gift-tax.js';
+import { planTreasuryGift, TREASURY_GIFT_TAX_PCT, GIFT_TAX_EXEMPT_CURRENCIES, TREASURY_GIFT_MIN_AMOUNT, treasuryGiftMinAmount, treasuryGiftMinMessage } from './_treasury-gift-tax.js';
 import { TRADE_TAX_PCT } from './player/_trade-core.js';
 
 /*
@@ -46,9 +46,38 @@ describe('treasury gift tax', () => {
         }
     });
 
-    it('a single-unit gift delivers that unit instead of evaporating', () => {
-        // The rare treasury currencies are gifted one at a time. floor(1 * 0.9)
-        // is 0, which would debit the treasury and credit the member nothing.
+    it('Fate Shard, Bone Charm and Aura Stone gifts need at least 2 units (I-16)', () => {
+        // Gifting one unit at a time was a 0% channel: floor(1 * 0.9) would
+        // credit nothing, so the single unit was delivered untaxed, up to the
+        // authoriser's whole daily budget.
+        assert.deepEqual(TREASURY_GIFT_MIN_AMOUNT, { fateShards: 2, boneCharms: 2, auraStones: 2 });
+        for (const currency of ['fateShards', 'boneCharms', 'auraStones']) {
+            assert.equal(treasuryGiftMinAmount(currency), 2, currency);
+            assert.match(treasuryGiftMinMessage(currency), /^Gift at least 2 [A-Z][a-z]+ [A-Z][a-z]+: one unit is burned/);
+        }
+        // Ryo is inert at one unit, Honor Seals are exempt, and Mythic Seals
+        // leave the giftable list separately.
+        for (const currency of ['ryo', 'honorSeals', 'mythicSeals', 'nonsense', undefined, null, 7]) {
+            assert.equal(treasuryGiftMinAmount(currency), 1, String(currency));
+        }
+        assert.equal(treasuryGiftMinAmount('toString'), 1, 'prototype keys are not currencies');
+    });
+
+    it('every allowed Fate Shard, Bone Charm and Aura Stone gift burns at least one unit', () => {
+        for (const currency of ['fateShards', 'boneCharms', 'auraStones']) {
+            for (let amount = treasuryGiftMinAmount(currency); amount <= 200; amount++) {
+                const split = planTreasuryGift(currency, amount);
+                assert.ok(split.burned >= 1, `${currency} x${amount} burned ${split.burned}`);
+                assert.equal(split.credit + split.burned, split.debit, `${currency} x${amount} must conserve`);
+                assert.ok(split.credit >= 1, `${currency} x${amount} must deliver something`);
+            }
+        }
+    });
+
+    it('a single unit that still reaches the split delivers that unit instead of evaporating', () => {
+        // Ryo and Mythic Seals may still be gifted one at a time, and a 1-unit
+        // gift debited before the minimum shipped may resume. floor(1 * 0.9) is
+        // 0, which would debit the treasury and credit the member nothing.
         for (const currency of ['ryo', 'fateShards', 'boneCharms', 'auraStones', 'mythicSeals']) {
             const split = planTreasuryGift(currency, 1);
             assert.equal(split.credit, 1, `${currency} must deliver its single unit`);
@@ -80,6 +109,19 @@ describe('treasury gift tax — wired into both treasuries', () => {
         for (const [name, src] of [['village', village], ['clan', clan]] as const) {
             assert.match(src, /planTreasuryGift\(key, amount\)/, `${name} must split the gift`);
             assert.match(src, /\+ split\.credit/, `${name} must credit the post-burn amount`);
+        }
+    });
+
+    it('both gift legs enforce the per-currency minimum on the fresh path only', () => {
+        // validateSource runs only on a fresh settlement (api/_cross-key-settlement.ts),
+        // so a crash-resumed gift that was debited before the minimum shipped
+        // still completes. A copy in the handler pre-check would strand it.
+        for (const [name, src] of [['village', village], ['clan', clan]] as const) {
+            const validate = src.slice(src.indexOf('validateSource:'), src.indexOf('debitSource:'));
+            assert.match(validate, /amount < treasuryGiftMinAmount\(currency\)/, `${name} must refuse a below-minimum gift before the debit`);
+            const preCheck = src.slice(0, src.indexOf('settleCrossKeyTransfer<'));
+            assert.doesNotMatch(preCheck, /treasuryGiftMinAmount\(/, `${name} must not refuse below-minimum gifts before the saga can resume them`);
+            assert.ok(src.indexOf('treasuryGiftMinAmount(currency)') < src.indexOf('planTreasuryGift(key, amount)'), `${name} checks the minimum before splitting`);
         }
     });
 

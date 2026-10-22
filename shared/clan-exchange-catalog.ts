@@ -126,12 +126,14 @@ export const CLAN_EXCHANGE_ITEMS: ClanExchangeItemDef[] = [
         tier: 2,
         hall: 'dojo',
         requiredClanLevel: 7,
-        name: 'Kaguya Aura Stone',
-        description: 'A single Kaguya aura stone for advanced shinobi growth.',
-        cost: 800,
+        // 5 stones for 400 CP (80 CP a stone, ~2 Fate Shards of value) since the
+        // 2026-10 economy rebalance (#36): at 800 CP for one stone the shelf was dead.
+        name: 'Kaguya Aura Stones',
+        description: 'Five Kaguya aura stones for advanced shinobi growth.',
+        cost: 400,
         limit: { kind: 'weekly', count: 2 },
         rarity: 'epic',
-        reward: { kind: 'currency', currency: 'auraStones', amount: 1 },
+        reward: { kind: 'currency', currency: 'auraStones', amount: 5 },
     },
     // ── Compound (Lv 15+) — officer stores ───────────────────────────
     {
@@ -213,12 +215,13 @@ export const CLAN_EXCHANGE_ITEMS: ClanExchangeItemDef[] = [
         tier: 3,
         hall: 'citadel',
         requiredClanLevel: 40,
+        // Bulk value over the Dojo shelf: 75 CP a stone against 80 (#36).
         name: 'Kaguya Aura Trove',
-        description: 'A trove of three Kaguya aura stones bound in a clan scroll.',
-        cost: 1_500,
+        description: 'A trove of twelve Kaguya aura stones bound in a clan scroll.',
+        cost: 900,
         limit: { kind: 'weekly', count: 1 },
         rarity: 'legendary',
-        reward: { kind: 'currency', currency: 'auraStones', amount: 3 },
+        reward: { kind: 'currency', currency: 'auraStones', amount: 12 },
     },
     {
         id: 'armorCache',
@@ -226,7 +229,7 @@ export const CLAN_EXCHANGE_ITEMS: ClanExchangeItemDef[] = [
         hall: 'citadel',
         requiredClanLevel: 40,
         name: 'Vault of the Fallen',
-        description: 'A vault of the fallen — unseals one Epic or Legendary armor piece from the live catalog. About one vault in five instead holds an upgrade armor piece with extra damage reduction, for the best gear tier you have bought or crafted.',
+        description: 'A vault of the fallen — unseals one Legendary set armor piece from the live catalog. About one vault in five instead holds an upgrade armor piece with extra damage reduction, for the best gear tier you have bought or crafted.',
         cost: 2_200,
         limit: { kind: 'weekly', count: 1 },
         rarity: 'legendary',

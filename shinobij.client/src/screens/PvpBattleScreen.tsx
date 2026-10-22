@@ -1204,6 +1204,7 @@ export function PvpBattleScreen({
         setPvpRewardNotice(pvpRewardSettlementNotice(result, {
             draw: isDrawNow,
             spar: effectiveIsSpar,
+            role: outcome === "loss" ? "loss" : "win",
         }));
         setPvpImpactLines(isDrawNow || effectiveIsSpar ? [] : pvpRewardImpactLines(result));
         const runCompletion = !isCancelledUnstartedPvpDuel(resolvedSession) && shouldRunPvpRewardCompletion(

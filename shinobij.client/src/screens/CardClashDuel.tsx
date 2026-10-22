@@ -256,6 +256,9 @@ export function CardClashDuel({
                             {echoesSummary.firstClearBonus > 0 ? (
                                 <span className="echoes-reward-row echoes-reward-row--first">First clear <strong>+{echoesSummary.firstClearBonus}</strong> Chronicle Points</span>
                             ) : null}
+                            {(echoesSummary.dailyFirstWinBonus ?? 0) > 0 ? (
+                                <span className="echoes-reward-row echoes-reward-row--first">First win today <strong>+{echoesSummary.dailyFirstWinBonus}</strong> Chronicle Points</span>
+                            ) : null}
                             {echoesSummary.bossBonus > 0 ? (
                                 <span className="echoes-reward-row echoes-reward-row--chapter">Chapter completed <strong>+{echoesSummary.bossBonus}</strong> Chronicle Points</span>
                             ) : null}

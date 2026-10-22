@@ -21,6 +21,8 @@ import {
     type HollowGateRewardCredit,
 } from './_ledger.js';
 import { rollHollowLockedDoor, type HollowLockedDoorResult } from './_locked-door.js';
+import { HOLLOW_GATE_RELIC_BONE_CHARMS } from './_combat-session.js';
+import { hollowGateRunRyoScale, scaleHollowGateRyo } from './_gate-scale.js';
 import { hollowGateManifestNode, hollowGatePositionNodeId } from './_floor-manifest.js';
 import { hollowGateWandererForNode } from './_wanderers.js';
 import { hollowGateWandererDistance } from '../../shared/hollow-gate-wanderers.js';
@@ -86,16 +88,20 @@ function maxEvents(action: EventAction, floor: number): number {
     return 1;
 }
 
-function rollEvent(action: EventAction, floor: number, profession: unknown): EventRoll {
+/** Roll one non-combat event's credit before the augment multiplier. `ryoScale`
+ *  is the run's sealed level scale (_gate-scale.ts). Exported for the roll tests. */
+export function rollEvent(action: EventAction, floor: number, profession: unknown, ryoScale = 1): EventRoll {
     if (action === 'shrine') return { action, credit: {}, torchDelta: 10 };
     if (action === 'chest') {
         return {
             action,
             credit: { currencies: {
-                ryo: randomInt(110, 310),
+                ryo: scaleHollowGateRyo(randomInt(110, 310), ryoScale),
                 auraDust: randomInt(0, 10) < 4 ? randomInt(5, 13) : 0,
-                auraStones: randomInt(1, 11),
-                boneCharms: randomInt(5, 16),
+                // 0-3 Aura Stones and 1-4 Bone Charms (2026-10 rebalance #16, #17):
+                // 1-10 and 5-15 made a Rift the only stone and charm source that mattered.
+                auraStones: randomInt(0, 4),
+                boneCharms: randomInt(1, 5),
                 hollowShards: hollowShardDrop(floor, 'chest'),
             } },
             keyDelta: randomInt(0, 10) < 3 ? 1 : 0,
@@ -109,12 +115,15 @@ function rollEvent(action: EventAction, floor: number, profession: unknown): Eve
         return { action, credit: { currencies: { auraDust: randomInt(18, 38) } } };
     }
     if (action === 'hidden-relic') {
+        // 15-34. Honor pays 3/5 of it (#28); the Fate Shard roll reads the
+        // uncut value, so the honor cut leaves it at P(1) = 0.5. The old extra
+        // coin flip is gone (#11) and Bone Charms are fixed (#16).
         const rawHonor = randomInt(15, 35);
         return { action, keyDelta: 1, credit: {
             currencies: {
-                honorSeals: profession === 'vanguard' ? rawHonor : 0,
-                boneCharms: Math.max(1, Math.floor(rawHonor / 8)),
-                fateShards: (randomInt(0, 2) === 0 ? 1 : 0) + Math.floor(rawHonor / 25),
+                honorSeals: profession === 'vanguard' ? Math.floor(rawHonor * 3 / 5) : 0,
+                boneCharms: HOLLOW_GATE_RELIC_BONE_CHARMS,
+                fateShards: Math.floor(rawHonor / 25),
             },
             items: { 'veil-of-the-hollow': 1 },
         } };
@@ -248,9 +257,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             let roll = await kv.get<EventRoll>(receiptKey);
             if (!roll) {
                 let candidate: EventRoll;
+                const ryoScale = hollowGateRunRyoScale(run);
                 if (action === 'locked-door') {
                     const unit = () => randomInt(1_000_000_000) / 1_000_000_000;
-                    const lockedResult: NonNullable<EventRoll['lockedResult']> = rollHollowLockedDoor(unit, Date.now(), floor);
+                    const lockedResult: NonNullable<EventRoll['lockedResult']> = rollHollowLockedDoor(unit, Date.now(), floor, ryoScale);
                     if (lockedResult.outcome === 'pet' && lockedResult.pet) lockedResult.petToken = randomUUID().replace(/-/g, '');
                     const loot = lockedResult.loot;
                     candidate = {
@@ -267,7 +277,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         } } : {},
                     };
                 } else {
-                    candidate = rollEvent(action, floor, currentChar.profession);
+                    candidate = rollEvent(action, floor, currentChar.profession, ryoScale);
                 }
                 candidate.credit = multiplyHollowGateCurrencyCredit(candidate.credit, rewardMultiplierForToken(run));
                 const placed = await kv.set(receiptKey, candidate, { nx: true, ex: EVENT_RECEIPT_TTL_SECONDS });

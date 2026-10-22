@@ -236,7 +236,7 @@ export function settleTowerPvp(
     }));
 }
 
-/** Acknowledge the zero-reward result, then clear this player's terminal match pointer. */
+/** Acknowledge the result (the server pays a winner's Team Arena purse), then clear this player's terminal match pointer. */
 export async function settleAndLeaveTowerPvp(matchId: string, playerName: string): Promise<TowerPvpSettleResponse<TowerSession>> {
     const settled = await settleTowerPvp(matchId, playerName);
     await leaveTowerPvp(playerName, settled.match as TowerPvpMatch);

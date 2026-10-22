@@ -168,12 +168,12 @@ try {
             const page = await prepare(browser, { width, height }, state, '?host=1&sector=99');
             await ready(page); await fits(page);
             assert(await page.getByRole('heading', { name: 'Obsidian Stronghold', exact: true }).isVisible());
-            assert(await page.getByText('4× PvP rewards', { exact: true }).isVisible());
+            assert(await page.getByText('1.5× PvP rewards', { exact: true }).isVisible());
             assert(await page.getByText('Ashen Threshold', { exact: true }).first().isVisible());
             await page.screenshot({ path: `${output}/${engineName}-obsidian-${width}x${height}.png` });
             await page.getByRole('button', { name: /^Players/ }).click();
             await page.locator('.stronghold-roster:visible').last().getByRole('button', { name: 'Inspect' }).first().click();
-            assert(await page.getByText('4× normal rewards on a PvP win.', { exact: true }).isVisible());
+            assert(await page.getByText('1.5× normal Ryo and Jutsu XP on a PvP win.', { exact: true }).isVisible());
             await page.getByRole('button', { name: 'Attack player' }).click();
             await page.getByRole('dialog').waitFor({ state: 'hidden' });
             assert.equal(await page.evaluate(() => document.body.dataset.attack), 'Rival');

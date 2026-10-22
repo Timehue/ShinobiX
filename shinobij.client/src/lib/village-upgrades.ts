@@ -13,6 +13,7 @@ import { clanUpgradeEffectPercent } from "./clan-upgrades";
 import { doctrineShopDiscount, doctrineHospitalDiscount, doctrineXpBonus } from "./clan-doctrines";
 import type { Character } from "../types/character";
 import type { VillageUpgrades, VillageUpgradeKey } from "../types/core";
+import { BANK_INTEREST_PRINCIPAL_CAP } from "../../../shared/bank-interest";
 
 export const VILLAGE_UPGRADE_MAX_LEVEL = 50;
 
@@ -29,7 +30,7 @@ export const villageUpgradeDefinitions: Array<{
         { key: "shop", name: "Shop", icon: "🛒", perLevel: 0.25, unit: "%", description: "0.25% shop discount per level." },
         { key: "townDefense", name: "Town Defense", icon: "🏯", perLevel: 0.1, unit: "%", description: "+0.1% defense vs Genjutsu, Taijutsu, Bukijutsu, and Ninjutsu while defending through the Village Guard queue." },
         { key: "petYard", name: "Pet Yard", icon: "🐾", perLevel: 0.25, unit: "%", description: "+0.25% pet XP from pet training per level." },
-        { key: "bank", name: "Bank", icon: "🏦", perLevel: 0.01, unit: "%", description: "+0.01% daily bank interest per level (max 0.5%/day at level 50)." },
+        { key: "bank", name: "Bank", icon: "🏦", perLevel: 0.01, unit: "%", description: `+0.01% daily bank interest per level (max 0.5%/day at level 50) on up to ${BANK_INTEREST_PRINCIPAL_CAP / 1_000_000}M banked ryo.` },
         { key: "missionHall", name: "Mission Hall", icon: "📜", perLevel: 0.5, unit: "%", description: "+0.5% stat points, ryo, and stamina from mission rewards per level." },
         { key: "hospital", name: "Hospital", icon: "⚕️", perLevel: 1, unit: "%", description: "1% hospital discount per level." },
     ];

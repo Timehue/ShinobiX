@@ -4,7 +4,9 @@ import type { Character } from "../types/character";
 import {
     __resetSettledWarClaimsForTest,
     activeVillageWarsFor,
+    applyAuthoritativeVillageWar,
     claimServerWarCrates,
+    endedVillageWarRecordsFor,
     hydrateSharedWorldState,
     loadVillageWar,
     villageWarHpMax,
@@ -204,5 +206,27 @@ describe("the winner's-crate sweep only asks for crates the player earned", () =
         const crates = await claimServerWarCrates(kaya);
         assert.deepEqual(crates.ids, ["war-crate-moonshadowvillage-vs-stormveilvillage-g2"]);
         assert.deepEqual(sent.map(entry => entry.body.warCrateId), ["war-crate-moonshadowvillage-vs-stormveilvillage-g2"]);
+    });
+});
+
+describe("ended village wars: surrender and the 72-hour reward floor (2026-10 rebalance, I-5)", () => {
+    it("keeps the server's surrenderedBy stamp through authoritative adoption", () => {
+        const war = applyAuthoritativeVillageWar(liveWar({ endedAt: Date.now(), surrenderedBy: STORM, winnerVillage: MOON }));
+        assert.equal(war?.surrenderedBy, STORM);
+        assert.equal(loadVillageWar(MOON, STORM)?.surrenderedBy, STORM);
+    });
+
+    it("an early surrender reads as an agreement ending with no crates or purses", () => {
+        const startedAt = Date.now() - 10 * 3_600_000;
+        applyAuthoritativeVillageWar(liveWar({ startedAt, endedAt: startedAt + 5 * 3_600_000, surrenderedBy: STORM, winnerVillage: MOON, warCrateId: undefined }));
+        const [record] = endedVillageWarRecordsFor(MOON);
+        assert.match(record.rewards, /^Ended by agreement within 72 hours/);
+    });
+
+    it("a fought-out win still names the crate and the war purse", () => {
+        const startedAt = Date.now() - 100 * 3_600_000;
+        applyAuthoritativeVillageWar(liveWar({ startedAt, endedAt: startedAt + 96 * 3_600_000, winnerVillage: MOON }));
+        const [record] = endedVillageWarRecordsFor(MOON);
+        assert.match(record.rewards, /^Legendary War Crate and the war purse/);
     });
 });

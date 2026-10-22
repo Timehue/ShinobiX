@@ -9,6 +9,7 @@ import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { type AiMatchSession } from '../card-clash/_ai-engine.js';
 import { cardClashAiTokenKey } from '../card-clash/_ai-reward.js';
 import { hollowGateCombatReward } from './_combat-session.js';
+import { hollowGateRunRyoScale } from './_gate-scale.js';
 import { creditHollowGateLedger } from './_ledger.js';
 import { hollowGateRunKey, rewardMultiplierForToken, type HollowGateRunToken } from './_run-token.js';
 import { hollowGateSavedTokenMismatch, makeHollowGatePendingOperation, recoverHollowGatePendingOperation } from './_pending-operation.js';
@@ -52,7 +53,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 return { status: 409, body: { error: 'The card result does not match the pending rift ambush.' } };
             }
             const won = session.winner === 'player';
-            const baseReward = hollowGateCombatReward(floor, 'ambush');
+            // A Rift meets at most one card ambush (step.ts), so only the ryo
+            // scale applies here, not the per-run ambush cap.
+            const baseReward = hollowGateCombatReward(floor, 'ambush', undefined, { ryoScale: hollowGateRunRyoScale(run) });
             const multiplier = rewardMultiplierForToken(run);
             const reward = won ? {
                 ryo: Math.floor(baseReward.ryo * multiplier),

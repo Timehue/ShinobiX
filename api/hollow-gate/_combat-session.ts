@@ -1,5 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import type { SoloPveSession } from '../solo-pve/_session.js';
+import { HOLLOW_GATE_PAID_AMBUSHES_PER_RUN, scaleHollowGateRyo } from './_gate-scale.js';
+import { hollowShardDrop } from './_run-token.js';
 
 export const HOLLOW_GATE_COMBAT_TTL_SECONDS = 24 * 60 * 60;
 export const HOLLOW_GATE_MAX_COMBATS_PER_FLOOR = 16;
@@ -271,31 +273,55 @@ export function hollowGatePostWinHp(maxHpRaw: unknown, survivingHpRaw: unknown, 
     return Math.min(maxHp, survivingHp);
 }
 
-export function hollowGateCombatReward(floorRaw: number, kind: HollowGateCombatKind, profession?: unknown): HollowGateCombatReward {
+/** Every Gate and Rift boss pays the same Fate Shards (2026-10 rebalance #11). */
+export const HOLLOW_GATE_BOSS_FATE_SHARDS = 3;
+/** A hidden relic's Bone Charms (#16); it used to follow its honor roll. */
+export const HOLLOW_GATE_RELIC_BONE_CHARMS = 2;
+
+/** Boss Bone Charms by floor: 3, 3, 4, 4, 5, then 5 (#16). */
+export function hollowGateBossBoneCharms(floorRaw: unknown): number {
+    const floor = Math.max(1, Math.floor(Number(floorRaw) || 1));
+    return Math.min(5, 3 + Math.floor((floor - 1) / 2));
+}
+
+export type HollowGateCombatRewardOptions = {
+    /** The run's sealed ryo scale (hollowGateRunRyoScale); 1 when omitted. */
+    ryoScale?: number;
+    /** Threat ambushes this run has already won (hollowGatePaidAmbushCount). */
+    paidAmbushes?: number;
+};
+
+export function hollowGateCombatReward(
+    floorRaw: number,
+    kind: HollowGateCombatKind,
+    profession?: unknown,
+    opts: HollowGateCombatRewardOptions = {},
+): HollowGateCombatReward {
     const floor = Math.max(1, Math.min(9, Math.floor(Number(floorRaw) || 1)));
     const boss = kind === 'boss';
     const ambush = kind === 'ambush';
     const depthMult = boss ? 1 + Math.max(0, floor - 1) * 0.2 : 1;
     // Character XP is retired (leveling-without-xp map): the old xp line
-    // (600/220/140 × depth) folds into ryo at ~0.75:1; loot lines unchanged.
-    const baseXp = boss ? 600 : ambush ? 220 : 140;
-    const baseRyo = (boss ? 2400 : ambush ? 900 : 380) + Math.floor(baseXp * 0.75);
+    // (600 boss / 140 otherwise) folds into ryo at ~0.75:1. A threat ambush
+    // pays a placed battle (#12); at 2.2x a battle it out-earned every loop.
+    const baseRyo = boss ? 2400 + Math.floor(600 * 0.75) : 380 + Math.floor(140 * 0.75);
     const baseDust = boss ? 30 : ambush ? 10 : 5;
-    const encounterHonor = boss ? Math.floor(25 * depthMult) : 0;
-    // The shipped final-clear modal paid these in addition to the boss drop.
-    // Boss combat is only admitted on the sealed final floor, so bank the same
-    // totals here instead of trusting a second client-side reward click.
-    const clearHonor = boss ? 75 : 0;
+    // Past the per-run cap an ambush still pays its Aura Dust, so a won fight
+    // never pays nothing.
+    const unpaidAmbush = ambush
+        && Math.max(0, Math.floor(Number(opts.paidAmbushes) || 0)) >= HOLLOW_GATE_PAID_AMBUSHES_PER_RUN;
+    // Boss combat is only admitted on the sealed final floor, so it banks the
+    // old final-clear package too. Honor, Bone Charms and Fate Shards are now
+    // separate tables: they used to be derived from the honor roll, so cutting
+    // honor (#28, x0.6: 15·depth + 45 = 57 + 3·floor) would have cut the rest.
     return {
         xp: 0, // retired — kept in the shape for old clients
-        ryo: Math.floor(baseRyo * depthMult),
+        ryo: unpaidAmbush ? 0 : scaleHollowGateRyo(Math.floor(baseRyo * depthMult), opts.ryoScale ?? 1),
         auraDust: Math.floor(baseDust * depthMult),
-        honorSeals: profession === 'vanguard' ? encounterHonor + clearHonor : 0,
-        boneCharms: (encounterHonor > 0 ? Math.max(1, Math.floor(encounterHonor / 8)) : 0)
-            + (clearHonor > 0 ? Math.max(1, Math.floor(clearHonor / 8)) : 0),
-        fateShards: Math.floor(encounterHonor / 25)
-            + (clearHonor > 0 ? 1 + Math.floor(clearHonor / 25) : 0),
-        hollowShards: boss ? 15 + floor * 5 : 0,
+        honorSeals: boss && profession === 'vanguard' ? 57 + 3 * floor : 0,
+        boneCharms: boss ? hollowGateBossBoneCharms(floor) : 0,
+        fateShards: boss ? HOLLOW_GATE_BOSS_FATE_SHARDS : 0,
+        hollowShards: boss ? hollowShardDrop(floor, 'boss') : 0,
         fragments: boss ? 2 : 0,
         veils: boss ? 1 : 0,
     };

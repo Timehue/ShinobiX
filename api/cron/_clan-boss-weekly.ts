@@ -24,6 +24,7 @@ import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { retryOnSaveVersionConflict } from '../save/_projected-write.js';
 import { clanBossEnabled } from '../_release-flags.js';
 import { safeLogValue } from '../_safe-log.js';
+import { recordEconomyTxn } from '../_economy.js';
 
 const ARCHIVE_TTL_SEC = 400 * 24 * 60 * 60;
 
@@ -186,10 +187,33 @@ async function creditMemberRewards(progress: ClanBossProgress, weekId: string): 
                 // Keep the last few weeks only — this is a dedupe ledger, not history.
                 clanBossWeeksPaid: [...claimed, weekId].slice(-8),
             };
-            return { ok: true, character: nextChar, value: null };
+            return { ok: true, character: nextChar, value: null, afterCommit: () => recordClanBossMemberPay(weekId, reward) };
         }));
     }
     return true;
+}
+
+/*
+ * Economy telemetry (I-19). Each is called only once its credit committed
+ * (a member's afterCommit; the clan row after its receipted write), and
+ * never awaited, so telemetry never holds the save or clan lock. The txnIds
+ * are the same week-and-payee keys the receipts use.
+ */
+function recordClanBossMemberPay(weekId: string, reward: { slug: string; ryo: number; fateShards: number }): void {
+    if (reward.ryo > 0) {
+        void recordEconomyTxn({ txnId: `clan-boss:${weekId}:${reward.slug}:ryo`, player: reward.slug, currency: 'ryo', delta: reward.ryo, source: 'clanboss.member' });
+    }
+    if (reward.fateShards > 0) {
+        void recordEconomyTxn({ txnId: `clan-boss:${weekId}:${reward.slug}:fateShards`, player: reward.slug, currency: 'fateShards', delta: reward.fateShards, source: 'clanboss.member' });
+    }
+}
+
+function recordClanBossTreasuryPay(weekId: string, slug: string, reward: ClanBossReward): void {
+    const player = `clan:${slug}`;
+    const txnId = (currency: string) => `clan-boss-treasury:${weekId}:${slug}:${currency}`;
+    if (reward.ryo > 0) void recordEconomyTxn({ txnId: txnId('ryo'), player, currency: 'ryo', delta: reward.ryo, source: 'clanboss.treasury' });
+    if (reward.fateShards > 0) void recordEconomyTxn({ txnId: txnId('fateShards'), player, currency: 'fateShards', delta: reward.fateShards, source: 'clanboss.treasury' });
+    if (reward.boneCharms > 0) void recordEconomyTxn({ txnId: txnId('boneCharms'), player, currency: 'boneCharms', delta: reward.boneCharms, source: 'clanboss.treasury' });
 }
 
 /** 'clan-missing' means no clan record exists (the clan dissolved), so nothing was paid. */
@@ -205,7 +229,10 @@ async function creditClanTreasury(clanName: string, reward: ClanBossReward, week
         // Member-scaled clan XP (10–15 members = 1.0×; small clans dampened,
         // capped) so a tiny clan can't rush hall tiers off the weekly boss.
         const applied = applyClanBossRewardToRecord(rec, reward, weekId);
-        if (applied.applied) await kv.set(clanKey, applied.record);
+        if (applied.applied) {
+            await kv.set(clanKey, applied.record);
+            recordClanBossTreasuryPay(weekId, clanSlug(clanName), reward);
+        }
         // Preserve the legacy marker for operational visibility. Correctness no
         // longer depends on this best-effort secondary write.
         await kv.set(receiptKey, '1', { ex: ARCHIVE_TTL_SEC }).catch(() => undefined);
