@@ -103,6 +103,7 @@ export function estimateTowerActionDamage(input: {
     ap?: number;
     pierce?: boolean;
     weaponElement?: string;
+    bossIncomingMultiplier?: number;
 }): { rawDamage: number; hpDamage: number; shieldAbsorbed: number } {
     const effectPower = Math.max(0, Number(input.effectPower) || 0);
     const weaponSwing = input.actionId === "weapon";
@@ -175,7 +176,7 @@ export function estimateTowerActionDamage(input: {
     const effectiveDr = rawDr > 0 ? rawDr / (rawDr + 0.5) : 0;
     const guardMitigation = Math.min(0.5, Math.max(0, Number(defenderCharacter.guardDefensePct) || 0) / 100);
     // A weapon's strength is its EP; like the server, no extra per-swing multiplier.
-    const rawDamage = Math.max(0, Math.floor(scaledEp * 32 * statFactor * terrain * bloodline * item * partyScale * amp * (1 - effectiveDr) * (1 - guardMitigation) * attackPill * defensePill));
+    const rawDamage = Math.max(0, Math.floor(scaledEp * 32 * statFactor * terrain * bloodline * item * partyScale * amp * (1 - effectiveDr) * (1 - guardMitigation) * attackPill * defensePill * (input.bossIncomingMultiplier ?? 1)));
     const shieldAbsorbed = Math.min(Math.max(0, Number(input.target.shield) || 0), rawDamage);
     return { rawDamage, hpDamage: Math.max(0, rawDamage - shieldAbsorbed), shieldAbsorbed };
 }

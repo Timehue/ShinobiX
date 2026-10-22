@@ -1,0 +1,12 @@
+✔ all approved roster models are colored, skinned, animated single-pet assets (866.9218ms)
+✔ all 161 production pets have complete proper skeletal animation banks (853.0719ms)
+✔ all 161 catalog identities resolve to a versioned runtime GLB with the full clip contract (153.9632ms)
+✔ Celestial Lion has the full pet animation bank and animated wings in every clip (1.8414ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1406.7924

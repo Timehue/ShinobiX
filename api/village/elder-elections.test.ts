@@ -236,6 +236,8 @@ test('Hollow Gate banks the player victory and its council win once across settl
     for (let i = 0; i < 2; i++) {
         const result = await request(name, { token: runToken, runId }, endpoint);
         assert.equal(result.status, 200, JSON.stringify(result.body));
+        assert.equal(result.body.terminalReason, undefined, 'historical loss/win records have no inferred reason');
+        assert.equal(result.body.opponentName, undefined, 'historical records may omit enemy metadata');
         assert.equal(result.body.character.elderWinDays[0].pve, 1);
     }
 });

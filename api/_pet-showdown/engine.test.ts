@@ -76,7 +76,7 @@ test('low-level counter techniques leave full-health pets alive on either side a
     for (const side of ['player', 'enemy'] as const) {
         const hit = (guarding = false, hp?: number) => {
             const attacker = fixture('mythic-0', 'kitsune'), defender = fixture('mythic-1', 'phoenix');
-            const battle = createShowdownSession({ sessionId: 'burst', playerName: 'A', enemyTeamName: 'B', format: '1v1', tier: 'warrior', seed: 7920,
+            const battle = createShowdownSession({ rulesetVersion: 'legacy-v2', sessionId: 'burst', playerName: 'A', enemyTeamName: 'B', format: '1v1', tier: 'warrior', seed: 7920,
                 playerPets: [side === 'player' ? attacker : defender], enemyPets: [side === 'enemy' ? attacker : defender], rewardEligible: false });
             const actor = battle[side][0], target = battle[side === 'player' ? 'enemy' : 'player'][0];
             if (hp !== undefined) target.hp = hp;
@@ -104,6 +104,8 @@ function makeSession(
     rewardEligible = false,
 ): ShowdownSession {
     return createShowdownSession({
+        // Retained-session invariants; progression-v3 has its own full-roster suite.
+        rulesetVersion: 'legacy-v2',
         sessionId: 'testsession', playerName: 'Tester', format, tier: 'warrior', seed,
         playerPets, enemyPets, enemyTeamName: 'Test Foes', rewardEligible,
     });
@@ -861,6 +863,27 @@ test('utility move descriptions state the actual weather and ward rules', () => 
     assert.match(moveEffectText('weather', 70, 'Fire'), /Fire damage \+18%; Water damage -12% for 8 rounds/);
     assert.match(moveEffectText('barrier', 100), /105 damage for up to 2 rounds/);
     assert.match(moveEffectText('protect', 90), /Fails if used in consecutive rounds/);
+    assert.match(moveEffectText('protect', 90), /Ongoing damage still applies/);
+    assert.match(moveEffectText('push', 90), /no reserve.*loses stamina/i);
+    assert.match(moveEffectText('push', 90), /Direct damage: 62% of a normal hit/);
+});
+
+test('new signature shield tooltips match both ordinary and mastered shield amounts', () => {
+    for (const mastered of [false, true]) {
+        const player = { ...structuredClone(PET_CATALOG['standard-0']), id: 'caster', templateId: 'standard-0', level: mastered ? 75 : 50 } as Pet;
+        const enemy = { ...structuredClone(PET_CATALOG['standard-1']), id: 'foe', templateId: 'standard-1', level: 50 } as Pet;
+        const session = createShowdownSession({ sessionId: 'shield-text', playerName: 'Tester', enemyTeamName: 'Foes',
+            playerPets: [player], enemyPets: [enemy], rulesetVersion: 'progression-v3', format: '1v1', tier: 'warrior', seed: 42, rewardEligible: false });
+        const caster = session.player[0];
+        caster.signatureMove = { ...caster.signatureMove, kind: 'shield', power: 100, hold: 0, upgrade: mastered ? 'signature-mastery' : undefined };
+        caster.meter = SHOWDOWN_METER_MAX;
+        caster.readiness = 3;
+        const signature = showdownStateView(session).player[0].moves.find(move => move.signature)!;
+        const percent = Number(signature.effect.match(mastered ? /Final Art shields (\d+)%/ : /Absorbs ([\d.]+)%/)?.[1]);
+        assert.equal(percent, mastered ? 25 : 22.5);
+        resolveShowdownRound(session, [{ kind: 'super', petId: 'caster', targetId: 'caster' }], [{ kind: 'rest', petId: 'foe' }]);
+        assert.equal(caster.statuses.find(status => status.kind === 'shield')?.magnitude, Math.round(caster.maxHp * percent / 100));
+    }
 });
 
 test('a self-buff is stored on the ACTOR under its renamed kind', () => {

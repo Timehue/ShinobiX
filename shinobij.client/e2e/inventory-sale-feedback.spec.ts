@@ -226,7 +226,9 @@ test('Inventory keeps late sale failures visible after closing details or openin
         await expect(warning).toBeVisible();
         await expect(warning).toBeInViewport();
         const dismiss = context.getByRole('button', { name: 'Dismiss sale notice', exact: true });
-        await expect(dismiss).toBeInViewport({ ratio: 1 });
+        // Allow subpixel intersection rounding at the viewport edge (0.99935
+        // on Chromium); keep the full touch-target and real click checks below.
+        await expect(dismiss).toBeInViewport({ ratio: 0.999 });
         // The modal entrance can briefly produce a subpixel transform on its 44px target.
         if (page.viewportSize()!.width <= 390) await expect.poll(async () => Math.round((await dismiss.boundingBox())!.height)).toBeGreaterThanOrEqual(44);
         await expect(warning).toContainText('Shinobi Vest sale:');

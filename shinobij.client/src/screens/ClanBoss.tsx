@@ -164,7 +164,7 @@ export function ClanBoss({ character, clanmates, hostLoadout, sharedImages, onRe
         const party = partiesUsable ? partyState?.party : undefined;
         const soloCompatibility = !partiesUsable;
         if (party && (!partyActionsUsable || !capabilityAdmissionAllowed(mutationAvailability("clanBossParties")))) {
-            setFlash("Party assault admission is paused. Your party remains intact.");
+            setFlash("New party assaults are temporarily paused. Your party remains together.");
             return;
         }
         if (busy || (!party && !soloCompatibility) || (party && (party.leaderSlug !== playerSlug || !party.canStart))) return;
@@ -213,7 +213,7 @@ export function ClanBoss({ character, clanmates, hostLoadout, sharedImages, onRe
         return (
             <div className="summary-box clan-boss-operation-fight" role="status">
                 <h3>Clan Boss operation paused</h3>
-                <p>Live operation admission is temporarily unavailable. Your accepted run remains server-owned and will resume here when progress-changing actions reopen.</p>
+                <p>Clan Boss battles are temporarily paused. Your active run is saved and can resume here when battles reopen.</p>
                 <button type="button" onClick={() => setFight(null)}>Return to operation status</button>
             </div>
         );
@@ -229,6 +229,7 @@ export function ClanBoss({ character, clanmates, hostLoadout, sharedImages, onRe
                     hostLoadout={hostLoadout}
                     runId={fight.runId}
                     initialSession={fight.session}
+                    variant="clan-boss"
                     stateFn={fetchAcceptedOperationState}
                     actionRetryFn={submitAcceptedOperationAction}
                     onRecordBattle={onRecordBattle}
@@ -237,7 +238,7 @@ export function ClanBoss({ character, clanmates, hostLoadout, sharedImages, onRe
                     settleOnAnyDone
                     onExit={() => {
                         setFight(null);
-                        setFlash("Assault resolved. Contribution, profession, clan, and sector results are sealed below.");
+                        setFlash("");
                         void load();
                     }}
                 />
@@ -246,7 +247,7 @@ export function ClanBoss({ character, clanmates, hostLoadout, sharedImages, onRe
     }
 
     if (loadState === "loading") return <div className="summary-box operation-loading" aria-busy="true"><p className="hint">Scouting the weekly threat and party service…</p></div>;
-    if (loadState === "error" || !view) return <div className="summary-box operation-error" role="status"><h3>Weekly Clan Boss</h3><p>The live operation state could not be reached. Your save and any active party remain server-side.</p><button type="button" onClick={() => void load()}>Retry</button></div>;
+    if (loadState === "error" || !view) return <div className="summary-box operation-error" role="status"><h3>Weekly Clan Boss</h3><p>The Clan Boss could not be loaded. Your progress and any active party are still saved.</p><button type="button" onClick={() => void load()}>Retry</button></div>;
     if (!view.active) return <div className="summary-box"><h3>Weekly Clan Boss</h3><p className="hint">No Clan Boss operation is active right now. A fresh threat appears at the weekly reset.</p></div>;
     if (!view.inClan || !view.myClan) return <div className="summary-box"><h3>Weekly Clan Boss</h3><p className="hint">Join a clan to form a real 1–4 player operation party.</p></div>;
 
@@ -270,7 +271,7 @@ export function ClanBoss({ character, clanmates, hostLoadout, sharedImages, onRe
 
             <div className="operation-world-context">
                 <div><span>Operation Sector</span><strong>{view.sectorState?.sectorName ?? `Sector ${boss?.sectorId ?? "—"}`}</strong><small>{view.sectorState?.regionName}</small></div>
-                <div><span>World Pressure</span><strong>{view.sectorState?.pressure ?? 100}%</strong><small>Bounded shared context · no territory ownership change</small></div>
+                <div><span>World Pressure</span><strong>{view.sectorState?.pressure ?? 100}%</strong><small>Boss assaults help your clan pressure its sector but do not transfer ownership.</small></div>
             </div>
 
             <div className="clan-raid-hp" aria-label={`Clan boss health ${clan.pool} of ${clan.poolMax}`}>
@@ -279,19 +280,20 @@ export function ClanBoss({ character, clanmates, hostLoadout, sharedImages, onRe
             </div>
 
             {flash ? <p className="clan-raid-flash" role="status">{flash}</p> : null}
-            {pendingRun ? <button type="button" className="operation-rejoin" onClick={() => { setFight(pendingRun); setPendingRun(null); }}>Rejoin your accepted operation</button> : null}
+            {clan.attemptPolicy === 'each-participant' ? <p className="hint">Each participant spends one of five weekly attempts when the assault is reserved. Leaving or losing an accepted assault does not refund it. Retrying the same start or result spends no additional attempt.</p> : null}
+            {pendingRun ? <button type="button" className="operation-rejoin" onClick={() => { setFight(pendingRun); setPendingRun(null); }}>{pendingRun.session.status === "done" ? "Finish assault results" : "Rejoin your accepted operation"}</button> : null}
             {!clanBossActionsAvailable ? <p className="clan-raid-flash" role="status">New assaults and party changes are paused. Status and accepted-operation recovery remain available.</p> : null}
 
             {!clan.killed && partyState && partiesUsable ? <ClanBossPartyLobby envelope={partyState} playerSlug={playerSlug} clanmates={clanmates} busy={busy || !clanBossActionsAvailable || !partyActionsAvailable} onAction={act} onStart={start} /> : null}
-            {!clan.killed && soloCompatibility ? <section className="operation-lobby"><h4>Solo Compatibility</h4><p>Party operations are temporarily disabled. The weekly boss remains available through the server-owned solo path.</p><button type="button" className="operation-start" disabled={busy || !clanBossActionsAvailable || clan.myAttemptsLeft <= 0} onClick={start}>{busy ? "Starting…" : !clanBossActionsAvailable ? "Assaults paused" : clan.myAttemptsLeft > 0 ? `Start solo assault (${clan.myAttemptsLeft} left)` : "No assaults left this week"}</button></section> : null}
-            {!partyState && partiesUsable ? <div className="operation-error" role="status"><p>The party service is offline. Existing combat remains recoverable; party changes are paused.</p><button type="button" onClick={() => void load()}>Retry party service</button></div> : null}
+            {!clan.killed && soloCompatibility ? <section className="operation-lobby"><h4>Solo Compatibility</h4><p>Party operations are temporarily disabled. You can still challenge the weekly boss alone.</p><button type="button" className="operation-start" disabled={busy || !clanBossActionsAvailable || clan.myAttemptsLeft <= 0} onClick={start}>{busy ? "Starting…" : !clanBossActionsAvailable ? "Assaults paused" : clan.myAttemptsLeft > 0 ? `Start solo assault (${clan.myAttemptsLeft} left)` : "No assaults left this week"}</button></section> : null}
+            {!partyState && partiesUsable ? <div className="operation-error" role="status"><p>Party matchmaking is offline. You can resume an existing battle, but cannot change the party right now.</p><button type="button" onClick={() => void load()}>Retry party service</button></div> : null}
 
             <div className="operation-preparation">
                 <h4>Preparation Loop</h4>
-                <p>Hunts supply materials → the existing Crafter makes pills, smoke bombs, and potions → the Tower engine seals and consumes equipped supplies → server contribution credits damage, healing, shielding, cleanses, objectives, and survival.</p>
+                <p>Gather materials from hunts and craft pills, smoke bombs, and potions before joining. Equip the supplies you want to use; used supplies are consumed. Damage, healing, shielding, cleanses, objectives, and survival all count toward contribution.</p>
             </div>
 
-            <p className="hint operation-score-note">Your clan has removed <strong>{clan.damageDealt.toLocaleString()}</strong> HP with <strong>{clan.participants}</strong> participating member{clan.participants === 1 ? "" : "s"}. This authored boss uses <strong>{boss?.mechanic}</strong> mechanics. Most assaults are expected to chip the persistent pool; active support and objective play qualify for threshold rewards without competing against damage dealers.</p>
+            <p className="hint operation-score-note">Your clan has removed <strong>{clan.damageDealt.toLocaleString()}</strong> HP with <strong>{clan.participants}</strong> participating member{clan.participants === 1 ? "" : "s"}. This authored boss uses <strong>{boss?.mechanic}</strong> mechanics. Bring three players for serious damage; solo assaults can bank little or none; active support and objective play qualify for threshold rewards without competing against damage dealers.</p>
             <p className="hint operation-score-note">Each assault applies profession XP, clan points, and sector pressure immediately. Qualified personal Ryo and Fate Shards are paid once by the weekly payout after the campaign ends. Each active contributor also has a 5% chance of an upgrade gear piece from every assault, paid immediately.</p>
 
             <h4>Clan Standings</h4>

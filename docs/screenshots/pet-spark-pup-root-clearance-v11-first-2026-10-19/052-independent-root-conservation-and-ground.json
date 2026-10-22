@@ -1,0 +1,58 @@
+{
+  "sourceBeforeSha256": "dbec52c429212b99bc9c843fe28c0eedf9a8803502f26e96c8aff656cb1d8927",
+  "sourceAfterSha256": "92362a0dcea663625a6da3cd88a5c229f690ab84c44aee9f787649ed21378329",
+  "sculptSkinTopologyBindNodesUnchanged": true,
+  "exactlyPreservedOriginalTracks": 180,
+  "correctedRootTranslationTracks": 3,
+  "xzSplitValidationSamples": 932,
+  "maxXzDifference": 2.9802322387695312e-8,
+  "minVerticalChange": -5.960464477539063e-8,
+  "denseIndependentSkinGroundReports": [
+    {
+      "stage": "source",
+      "name": "attack",
+      "poses": 353,
+      "minimumClearance": -0.0004551013054041597,
+      "at": 0.264049202590421
+    },
+    {
+      "stage": "source",
+      "name": "cast",
+      "poses": 381,
+      "minimumClearance": 0.0009471281320111435,
+      "at": 0.33887483700992554
+    },
+    {
+      "stage": "source",
+      "name": "idle_hitreact1",
+      "poses": 198,
+      "minimumClearance": 0.0005411985761295535,
+      "at": 0.23050214759930215
+    },
+    {
+      "stage": "battle",
+      "name": "attack",
+      "poses": 353,
+      "minimumClearance": -0.0004551013054041597,
+      "at": 0.264049202590421
+    },
+    {
+      "stage": "battle",
+      "name": "cast",
+      "poses": 381,
+      "minimumClearance": 0.0009471281320111435,
+      "at": 0.33887483700992554
+    },
+    {
+      "stage": "battle",
+      "name": "idle_hitreact1",
+      "poses": 198,
+      "minimumClearance": 0.0005411985761295535,
+      "at": 0.23050214759930215
+    }
+  ],
+  "fitFrequency": 240,
+  "verificationFrequency": 480,
+  "verificationSampleOffset": 0.37,
+  "passed": true
+}

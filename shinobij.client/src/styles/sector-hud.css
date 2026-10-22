@@ -81,7 +81,7 @@
 .sector-roster-list { list-style: none; padding: 0; margin: 0; }
 .sector-player-row { display: grid; grid-template-columns: 38px minmax(0, 1fr) auto; align-items: center; gap: 6px 9px; padding: 10px 0; border-top: 1px solid #45323e; content-visibility: auto; contain-intrinsic-block-size: auto 44px; }
 .sector-roster-portrait { position: relative; width: 38px; height: 38px; display: grid; place-items: center; overflow: hidden; border: 1px solid #a18a75; border-radius: 4px; background: #31222d; color: #ead497; font-size: 13px; font-weight: 700; }
-.sector-roster-portrait img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center; }
+.sector-roster-portrait img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; object-position: center; }
 .sector-roster-person { display: grid; gap: 3px; min-width: 0; }
 .sector-roster-person > strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; color: #f2eeeb; }
 .sector-roster-person > span { display: flex; flex-wrap: wrap; gap: 2px 7px; font-size: 12px; color: #cdbfc8; }

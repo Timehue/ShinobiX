@@ -11,15 +11,15 @@ import { JUTSU_CATALOG } from './pvp/_jutsu-catalog.js';
 test('ordinary NPC mastery follows player ryo, Seal, battle and rank ceilings', () => {
     for (let level = 1; level <= 100; level++) {
         const standard = pveAiMasteryForEncounter(level, 'standard');
-        assert.equal(standard, Math.min(level, jutsuRyoTrainingCap(level)));
-        assert.equal(pveAiMasteryForEncounter(level, 'weaker'), Math.floor(standard * 0.7));
-        assert.equal(pveAiMasteryForEncounter(level, 'dangerous'), jutsuSealTrainingCap(level));
+        assert.equal(standard, level >= 86 ? jutsuLevelCapForLevel(level) : level >= 61 ? jutsuSealTrainingCap(level) : Math.min(level, jutsuRyoTrainingCap(level)));
+        assert.equal(pveAiMasteryForEncounter(level, 'weaker'), Math.floor(Math.min(level, jutsuRyoTrainingCap(level)) * 0.7));
+        assert.equal(pveAiMasteryForEncounter(level, 'dangerous'), level >= 86 ? jutsuLevelCapForLevel(level) : jutsuSealTrainingCap(level));
         assert.equal(pveAiMasteryForEncounter(level, 'elite'), jutsuLevelCapForLevel(level));
         assert.equal(pveAiMasteryForEncounter(level, 'final-kage'), jutsuLevelCapForLevel(level));
         assert.equal(pveAiMasteryForEncounter(level, undefined), pveAiMasteryForLevel(level), 'unclassified hosts retain historical mastery');
     }
-    assert.deepEqual([10, 25, 50, 75, 100].map(l => pveAiMasteryForEncounter(l, 'standard')), [10, 20, 30, 30, 30]);
-    assert.deepEqual([10, 25, 50, 75, 100].map(l => pveAiMasteryForEncounter(l, 'dangerous')), [10, 20, 40, 40, 40]);
+    assert.deepEqual([10, 25, 50, 75, 100].map(l => pveAiMasteryForEncounter(l, 'standard')), [10, 20, 30, 40, 50]);
+    assert.deepEqual([10, 25, 50, 75, 100].map(l => pveAiMasteryForEncounter(l, 'dangerous')), [10, 20, 40, 40, 50]);
 });
 
 test('NPC damage uses the shared effective EP once, and setup remains zero damage', () => {
@@ -40,7 +40,7 @@ test('builder seals tier mastery, difficulty and safe identity art for this enco
             jutsu: [{ id: 'hit', name: 'Hit', type: 'Ninjutsu', ap: 60, effectPower: 36, cooldown: 7 }] },
     });
     const standard = build('standard'), elite = build('elite');
-    assert.deepEqual(standard.enemy.character.jutsuMastery, [{ jutsuId: 'hit', level: 30 }]);
+    assert.deepEqual(standard.enemy.character.jutsuMastery, [{ jutsuId: 'hit', level: 50 }]);
     assert.deepEqual(elite.enemy.character.jutsuMastery, [{ jutsuId: 'hit', level: 50 }]);
     assert.equal(standard.enemy.character.avatarImage, '/portraits/npc.webp');
     assert.equal(standard.enemy.character.pveDifficulty, 'standard');
@@ -55,8 +55,8 @@ test('ordinary progressive kits learn damaging rotations without inflating share
         const counts: number[] = [];
         for (const level of [36, 61, 86, 100]) {
             const ids = progressiveOrdinaryAiJutsuIds(id, level, 'standard')!;
-            const kit = resolveAiProfileJutsu(ids);
-            assert.ok(kit.length <= 8);
+            const kit = resolveAiProfileJutsu(ids, null, 12);
+            assert.ok(kit.length <= 12);
             assert.equal(kit.length, ids.length);
             const damaging = kit.filter(j => j.ap === 60);
             counts.push(damaging.length);

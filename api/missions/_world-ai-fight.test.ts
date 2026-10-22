@@ -436,6 +436,13 @@ describe('World AI fight authority for the road cast', () => {
         const mirrorOnly = (sector: number) => save(sector, { activeRiftQuest: { id: riftId, targetSector: sector, stage: 'travel', baseline: 0, bossName: 'X' } });
         const request = { kind: 'wanderer' as const, sourceId: `w-12-5000-${WANDERER_RIFT_INDEX}`, sector: 12 };
         assert.ok((await buildWorldAiFightSpec({ playerName: 'Roadwalker', request, save: sealed(12), now })).context.displayName);
+        for (const level of [12, 17, 35, 60, 99, 100]) {
+            const record = sealed(12);
+            const fight = await buildWorldAiFightSpec({ playerName: 'Roadwalker', request,
+                save: { ...record, character: { ...record.character, level } }, now });
+            assert.equal(fight.profile.level, Math.min(100, level + 1), `rift fight at player level ${level}`);
+            assert.equal(fight.context.sourceId, request.sourceId);
+        }
         await assert.rejects(buildWorldAiFightSpec({ playerName: 'Roadwalker', request, save: save(12, {}), now }), /world-wanderer-not-attackable/);
         await assert.rejects(buildWorldAiFightSpec({ playerName: 'Roadwalker', request, save: mirrorOnly(12), now }), /world-wanderer-not-attackable/,
             'a forged display mirror cannot summon a rift creature');

@@ -10,12 +10,16 @@ describe("Pet Home cross-layer integrity wiring", () => {
         const home = source("../screens/Home.tsx");
         const sanctuary = source("../components/PetSanctuary.tsx");
         const breeding = source("../components/PetBreedingBarn.tsx");
+        const incubator = source('../components/PetEggIncubator.tsx');
 
         assert.match(app, /<Home[^>]+onVersionedCharacter=\{commitVersionedCharacter\}/s);
         assert.ok(home.includes("<PetSanctuary") && home.includes("onVersionedCharacter={onVersionedCharacter}"));
         assert.ok(home.includes("<PetBreedingBarn") && (home.match(/onVersionedCharacter=\{onVersionedCharacter\}/g) ?? []).length === 2);
         assert.equal((sanctuary.match(/commitServerCharacter\(result\.character, result\._saveVersion\)/g) ?? []).length, 3);
-        assert.ok((breeding.match(/commitServerCharacter\(result\.character, (result\._saveVersion|version)\)/g) ?? []).length >= 3);
+        assert.equal((breeding.match(/\(authority\?\.commit \?\? commitServerCharacter\)\(result\.character, (result\._saveVersion|version)\)/g) ?? []).length, 2);
+        assert.match(app, /<PetEggIncubator[^\n]+beginCharacterSync=\{saveCoordinator\.beginCharacterSync\}/);
+        assert.match(home, /<PetBreedingBarn[^\n]+beginCharacterSync=\{beginCharacterSync\}/);
+        assert.equal((incubator.match(/\(authority\?\.commit \?\? latest\.current\.onVersionedCharacter\)\(/g) ?? []).length, 3);
         for (const component of [sanctuary, breeding]) {
             assert.ok(component.indexOf("if (onVersionedCharacter)") < component.indexOf("onServerVersion(version)"), "atomic adoption must take precedence over the compatibility fallback");
         }
@@ -23,8 +27,9 @@ describe("Pet Home cross-layer integrity wiring", () => {
 
     it("keeps the irreversible breeding commitment explicit in the confirmation dialog", () => {
         const breeding = source("../components/PetBreedingBarn.tsx");
-        assert.ok(breeding.includes("One breeding use will be permanently consumed from each parent."));
-        assert.ok(breeding.includes("Breeding takes 24 real hours and cannot be canceled or rerolled."));
+        assert.ok(breeding.includes('Each parent spends one breeding use, including on a failed attempt.'));
+        assert.ok(breeding.includes('There is an 80% chance of an egg.'));
+        assert.ok(breeding.includes('Successful eggs go to Sanctuary and hatch after 12 hours of gameplay; offline time does not count.'));
     });
 
     it("presents the Shinobi Hatchery name across navigation, facility UI, and occupied errors", () => {
@@ -37,7 +42,7 @@ describe("Pet Home cross-layer integrity wiring", () => {
         assert.ok(tabs.includes('aria-label={tab.full}') && tabs.includes('<PetHomeTabLabel full={tab.full}'));
         assert.ok(breeding.includes(">Shinobi Hatchery</h2>"));
         assert.ok(api.includes("body.message || body.error"), "friendly API messages must take precedence over stable error codes");
-        assert.ok(breedingStart.includes("error: 'breeding-barn-occupied', message: 'The Shinobi Hatchery is already occupied.'"));
+        assert.ok(breedingStart.includes("error: 'breeding-barn-occupied', message: 'An egg is already incubating in Sanctuary.'"));
     });
 
     it("server-authorizes transfer, breeding, and release against combat assignments", () => {

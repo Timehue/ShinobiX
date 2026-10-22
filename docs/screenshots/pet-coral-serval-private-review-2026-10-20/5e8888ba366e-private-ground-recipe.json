@@ -1,0 +1,90 @@
+{
+  "id": "rare-32",
+  "ground": -0.4944662911328591,
+  "padding": 0.002,
+  "corrections": [
+    {
+      "clip": "idle",
+      "keys": 377,
+      "maximumLift": 0.021537296910586368
+    },
+    {
+      "clip": "idle_2",
+      "keys": 274,
+      "maximumLift": 0.02341361732746361
+    },
+    {
+      "clip": "walk",
+      "keys": 215,
+      "maximumLift": 0.03137781423772179
+    },
+    {
+      "clip": "gallop",
+      "keys": 137,
+      "maximumLift": 0.06289166188105422
+    },
+    {
+      "clip": "gallop_jump",
+      "keys": 137,
+      "maximumLift": 0.003507736219546087
+    },
+    {
+      "clip": "attack",
+      "keys": 214,
+      "maximumLift": 0.022057121154486325
+    },
+    {
+      "clip": "idle_hitreact1",
+      "keys": 120,
+      "maximumLift": 0.05349417788547106
+    },
+    {
+      "clip": "death",
+      "keys": 334,
+      "maximumLift": 0.29281693958736665
+    },
+    {
+      "clip": "entrance",
+      "keys": 194,
+      "maximumLift": 0.003507733981022332
+    },
+    {
+      "clip": "cast",
+      "keys": 230,
+      "maximumLift": 0.019536322879394996
+    },
+    {
+      "clip": "guard",
+      "keys": 233,
+      "maximumLift": 0.022719195142948623
+    },
+    {
+      "clip": "rest",
+      "keys": 385,
+      "maximumLift": 0.013151432689651354
+    },
+    {
+      "clip": "victory",
+      "keys": 357,
+      "maximumLift": 0.00579718994449524
+    }
+  ],
+  "outputs": [
+    {
+      "stage": "source",
+      "path": ".tmp/coral-serval-floor/source-candidate-v1.glb",
+      "sha256": "c3646e4509d29640744c284d5ecdd8986b30e838a5454546ee3ed8cd2ea8ef00"
+    },
+    {
+      "stage": "battle",
+      "path": ".tmp/coral-serval-floor/battle-candidate-v1.glb",
+      "sha256": "c3822f0c668e7e494d3fde438012cf8d099e68befd560f86742d78faed4d0956"
+    }
+  ],
+  "pins": {
+    "source": "7bdcf083353458cd8cec1b100ac119f1450fa08d0aafc75884a3c5dad5b17fc9",
+    "battle": "c9eed68e14dcaf73b0a8b193baed67f528a047ec9808e175d820470b8381c19a"
+  },
+  "publicAssetsChanged": false,
+  "visualApproval": false
+}

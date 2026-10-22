@@ -18,7 +18,7 @@ const HINTS: Partial<Record<Screen, string>> = {
     clan: "Clan Hall - join or found a clan when you want group goals; village war content is best after the basics.",
     grandMarketplace: "Grand Marketplace - advanced trading and crafting options. Check costs before spending rare materials.",
     hallOfLegends: "Hall of Legends - long-term records live here. Early progress still comes from missions, training, and Logbook goals.",
-    hospital: "Hospital - recover here after a hard fight. If admitted, you must discharge before leaving.",
+    hospital: "Hospital - recover here after a knockout. Wait for free discharge or pay to leave immediately. Walk-in healing is for Healers only.",
     jutsuTraining: "Jutsu Hall - unlock and sharpen jutsu, then equip them from your Character screen so they appear in battle.",
     missions: "Mission Hall - accept work, finish the objective, then return here to claim the posted reward.",
     pets: "Pet Yard - manage companions, expeditions, and your active pet. Deep pet battles can wait until you know your main loop.",

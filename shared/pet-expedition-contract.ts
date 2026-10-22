@@ -19,12 +19,24 @@ export type PetExpeditionReturnOutcome = 'secured' | 'discovery' | 'setback';
 export const PET_EXPEDITION_DAILY_CAP = 12;
 export const PET_EXPEDITION_CARAVAN_BONUS = 2;
 export const PET_EXPEDITION_LOG_CAP = 20;
+export const PET_EXPEDITION_TAMER_MULTIPLIER = 1.5;
+export const PET_EXPEDITION_REWARD_VERSION = 2;
+export type PetExpeditionFindChances = { bone: number; aura: number; fate: number };
+
+export function petExpeditionProfessionMultiplier(profession: unknown): number {
+    return profession === 'petTamer' ? PET_EXPEDITION_TAMER_MULTIPLIER : 1;
+}
 
 export const PET_EXPEDITION_ROUTES: Readonly<Record<PetExpeditionType, {
     label: string;
     durationMinutes: number;
     durationLabel: string;
     description: string;
+    requiredLevel: number;
+    ryoPerHour: number;
+    petXpPerHour: number;
+    findChances: PetExpeditionFindChances;
+    // Historical rates reconstruct expeditions launched before reward version 2.
     petXpRate: number;
     ryoRate: number;
     boneRate: number;
@@ -33,17 +45,23 @@ export const PET_EXPEDITION_ROUTES: Readonly<Record<PetExpeditionType, {
 }>> = {
     scout: {
         label: 'Scout Routes', durationMinutes: 45, durationLabel: '45m',
-        description: 'Fast field report with the strongest ryo pace.',
+        description: 'A short outing with a small mixed material haul.',
+        requiredLevel: 20, ryoPerHour: 240, petXpPerHour: 160,
+        findChances: { bone: 0.25, aura: 0, fate: 0.03 },
         petXpRate: 1, ryoRate: 1.35, boneRate: 0.25, auraRate: 0, fateRate: 0.05,
     },
     forage: {
         label: 'Forage Wilds', durationMinutes: 120, durationLabel: '2h',
-        description: 'Best pet XP with a balanced material search.',
+        description: 'A larger mixed haul with better material quality odds.',
+        requiredLevel: 50, ryoPerHour: 360, petXpPerHour: 240,
+        findChances: { bone: 0.35, aura: 0, fate: 0.06 },
         petXpRate: 1.45, ryoRate: 1, boneRate: 0.30, auraRate: 0.01, fateRate: 0.05,
     },
     ruins: {
         label: 'Explore Old Ruins', durationMinutes: 240, durationLabel: '4h',
-        description: 'Longest route with the best rare-find odds.',
+        description: 'The richest haul, best XP pace, and strongest rare-find odds.',
+        requiredLevel: 80, ryoPerHour: 540, petXpPerHour: 320,
+        findChances: { bone: 0.50, aura: 0.04, fate: 0.12 },
         petXpRate: 1.2, ryoRate: 1.1, boneRate: 0.40, auraRate: 0.01, fateRate: 0.10,
     },
 };
@@ -75,6 +93,27 @@ export const PET_EXPEDITION_PROVISION_RULES: Readonly<Record<PetExpeditionProvis
     'elemental-pet-treat': { label: 'Elemental Treats', petXpMultiplier: 1.18, materialMultiplier: 1.05 },
     'ancient-pet-treat': { label: 'Ancient Treats', petXpMultiplier: 1.30, materialMultiplier: 1.10 },
 };
+
+/** Version-2 secure-return rewards. All eligible pets earn the base rewards;
+ * the fixed profession bonus stacks with purchased mastery and route choices. */
+export function petExpeditionRewardPreview(type: PetExpeditionType, options: {
+    profession: unknown; risk: PetExpeditionRisk; provision: PetExpeditionProvision;
+    rewardMastery: number; materialMastery: number;
+}) {
+    const route = PET_EXPEDITION_ROUTES[type];
+    const hours = route.durationMinutes / 60;
+    const profession = petExpeditionProfessionMultiplier(options.profession);
+    const risk = PET_EXPEDITION_RISK_RULES[options.risk];
+    const provision = PET_EXPEDITION_PROVISION_RULES[options.provision];
+    const materialMultiplier = profession * options.materialMastery * risk.materialMultiplier * provision.materialMultiplier;
+    const chance = (value: number) => Math.min(1, Math.max(0, value * materialMultiplier));
+    return {
+        ryo: Math.round(hours * route.ryoPerHour * profession * options.rewardMastery * risk.ryoMultiplier),
+        petXp: Math.round(hours * route.petXpPerHour * profession * provision.petXpMultiplier),
+        chances: { bone: chance(route.findChances.bone), aura: chance(route.findChances.aura), fate: chance(route.findChances.fate) },
+        materialMultiplier,
+    };
+}
 
 export type PetExpeditionChoiceResolution = {
     outcome: PetExpeditionReturnOutcome;

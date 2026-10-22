@@ -50,35 +50,22 @@
     .combat-avatar img {
         width: 100% !important;
         height: 100% !important;
-        object-fit: cover !important;
+        object-fit: contain !important;
     }
 
     .battle-avatar img,
     .combat-avatar img {
         width: 100% !important;
         height: 100% !important;
-        object-fit: cover !important;
+        object-fit: contain !important;
         display: block !important;
     }
 
-/* Combat dossier portrait — fill the frame, then crop head-anchored.
-   `.combat-avatar` is a `display: grid` box with `place-items: center`, so its
-   implicit row was sized by the IMAGE's intrinsic height: a 512x768 avatar in a
-   122px frame computed a 177px row, `height: 100%` resolved against that row
-   (not the frame), and the image overflowed. `overflow: hidden` + the 50%
-   radius then clipped the portrait's vertical MIDDLE — the fighter's chest —
-   and `object-fit: cover` never engaged at all, because the box already matched
-   the source's aspect.
-
-   Taking the image out of grid flow (absolute, like its `.combat-avatar-fallback`
-   sibling, which is why the parent is already `position: relative`) makes the
-   box exactly the frame, so `cover` + a head-anchored 25% finally apply.
-   The FILL half is desktop-only: the <=800px chip pins the avatar to an explicit
-   36/40px square, which has no percentage to resolve and already fills. The CROP
-   half applies at every width — that small square still crops a portrait source,
-   so without it the phone chip shows the same chest instead of a face. */
+/* Keep the complete portrait centered. The desktop image stays out of grid
+   flow so an intrinsic portrait height cannot enlarge the row and overflow
+   the dossier frame. Mobile chips already have explicit square dimensions. */
 .arena-fullscreen .combat-avatar img {
-    object-position: center 25% !important;
+    object-position: center !important;
 }
 
 @media (min-width: 801px) {
@@ -87,7 +74,8 @@
         inset: 0;
         width: 100% !important;
         height: 100% !important;
-        object-fit: cover !important;
+        object-fit: contain !important;
+        object-position: center;
     }
 }
 
@@ -95,7 +83,7 @@
 .tiny-map-avatar {
     width: 88% !important;
     height: 88% !important;
-    object-fit: cover !important;
+    object-fit: contain !important;
     border-radius: 50% !important;
     display: block !important;
     margin: auto !important;
@@ -121,7 +109,7 @@
     container-type: size;
 }
 .sector-image-map .tiny-map-avatar {
-    object-position: center 22% !important;
+    object-position: center !important;
 }
 .sector-image-map .scene-tile > .tiny-map-avatar {
     width: 88cqmin !important;
@@ -273,8 +261,8 @@
         width: 100% !important;
         height: 100% !important;
         border-radius: 50% !important;
-        object-fit: cover !important;
-        object-position: center 25% !important;
+        object-fit: contain !important;
+        object-position: center;
         display: block !important;
         border: none !important;
         box-shadow: none !important;
@@ -287,7 +275,7 @@
     width: 34px !important;
     height: 34px !important;
     border-radius: 50% !important;
-    object-fit: cover !important;
+    object-fit: contain !important;
     display: block !important;
     margin: auto !important;
     border: 2px solid rgba(255,255,255,0.8) !important;
@@ -394,7 +382,7 @@
     margin: 0 auto 10px;
     display: block;
     border-radius: 14px;
-    object-fit: cover;
+    object-fit: contain;
     border: 2px solid rgba(230, 196, 119, 0.65);
     box-shadow: 0 14px 28px rgba(0, 0, 0, 0.35);
 }
@@ -609,7 +597,7 @@
     width: 140px;
     height: 100%;
     min-height: 160px;
-    object-fit: cover;
+    object-fit: contain;
     display: block;
 }
 
@@ -695,7 +683,7 @@
     width: 28px;
     height: 28px;
     border-radius: 4px;
-    object-fit: cover;
+    object-fit: contain;
     flex-shrink: 0;
 }
 
@@ -1041,8 +1029,8 @@
 .sector-avatar-body img {
     width: 100%;
     height: 100%;
-    object-fit: cover;
-    object-position: center 22%;
+    object-fit: contain;
+    object-position: center;
     border-radius: 50%;
     border: 2px solid var(--marker-ring, rgba(255,255,255,.9));
     box-shadow: 0 3px 7px rgba(0,0,0,.55);
@@ -1170,6 +1158,7 @@
     text-overflow: ellipsis;
     white-space: nowrap;
     font-size: 0.55rem;
+    line-height: 1.2;
     font-weight: 700;
     color: #fff;
     background: rgba(20, 16, 28, 0.72);
@@ -1211,12 +1200,13 @@
 .sector-wanderer-bubble::after {
     content: "";
     position: absolute;
-    left: 50%;
+    left: var(--bubble-pointer-left, 50%);
     top: 100%;
     transform: translateX(-50%);
     border: 6px solid transparent;
     border-top-color: #fff;
 }
+.sector-wanderer-bubble[data-bubble-below="true"]::after { top: auto; bottom: 100%; border-top-color: transparent; border-bottom-color: #fff; }
 
 .stormveil-village-screen {
     position: relative;

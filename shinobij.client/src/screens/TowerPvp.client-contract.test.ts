@@ -36,7 +36,8 @@ test("forfeit bypasses turn-target gating and cannot present a clickable silent 
     const controlStart = fight.lastIndexOf('className="tower-fight-leave"', promptAt);
     const controlEnd = fight.indexOf('</button>', promptAt);
     const control = fight.slice(controlStart, controlEnd);
-    assert.match(control, /disabled=\{\(isTeamPvp \|\| isHunt \|\| isWorldBoss\) && busy\}/);
+    assert.match(control, /disabled=\{\(isTeamPvp \|\| isHunt \|\| isWorldBoss \|\| isStoryTrial\) && busy\}/);
+    assert.match(control, /Forfeit this trial\? You lose 10% of maximum HP/);
     assert.match(control, /void send\(\{ type: "forfeit" \}\)/);
     assert.doesNotMatch(control, /!myTurn|if \(myTurn\)|if \(!myTurn\)/);
 });
@@ -63,7 +64,8 @@ test("MPvP refresh recovery preserves the prefixed match lock through App boot",
     // fall through to the co-op Spire lobby with a PvP match id in the tower
     // run key while the player's live 2v2 carried on without them.
     assert.match(app, /const arena2v2 = isMpvpLeaseMode\(bootLock\.meta\?\.mode\)/);
-    assert.match(app, /setScreen\(arena2v2 \? "battleArena" : "battleTowers"\)/);
+    assert.match(app, /const recoveryScreen = towerBattleRecoveryScreen\(normalized.name, bootLock\.meta\?\.mode\)/);
+    assert.match(app, /setScreen\(recoveryScreen\)/);
     // The queue + board are one self-contained Battle Arena section.
     const section = readFileSync(new URL("../components/TeamArenaSection.tsx", import.meta.url), "utf8");
     assert.match(section, /<TowerPvpPanel/);

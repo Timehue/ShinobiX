@@ -20,7 +20,7 @@
     .war-shrine-tiles button:not(:disabled):hover { background: #e8c15c30; outline: 1px solid #edd17b; }
 }
 .war-shrine-player { position: absolute; pointer-events: none; display: grid; place-items: center; width: clamp(24px, 5vw, 42px); z-index: 2; }
-.war-shrine-player > img, .war-shrine-player > b { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 50%; border: 2px solid #e4c96d; background: #182334; display: grid; place-items: center; font-size: 12px; }
+.war-shrine-player > img, .war-shrine-player > b { width: 100%; aspect-ratio: 1; object-fit: contain; border-radius: 50%; border: 2px solid #e4c96d; background: #182334; display: grid; place-items: center; font-size: 12px; }
 .war-shrine-player.is-enemy > b { border-color: #f18a77; }
 .war-shrine-player small { background: #080d17e8; padding: 2px 4px; border-radius: 3px; font-size: 10px; white-space: nowrap; max-width: 80px; overflow: hidden; text-overflow: ellipsis; }
 .war-shrine-room .war-shrine-input-hint { margin: 0 0 8px; color: #c5cbd5; font-size: 12px; line-height: 1.4; }

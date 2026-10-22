@@ -192,6 +192,7 @@ test('a retained reciprocal compatibility proof mints one token and concurrent/l
     const matchToken = String(first.body?.matchToken ?? '');
     const proof = await kv.get<Record<string, unknown>>(`pet:ranked-token:${matchToken}`);
     assert.equal(proof?.authority, 'pet-ranked-queue-v1');
+    assert.equal(proof?.rulesetVersion, 'progression-v3');
     assert.equal(proof?.pairId, match.pairId);
     assert.equal(proof?.a, alpha);
     assert.equal(proof?.b, bravo);

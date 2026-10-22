@@ -1,0 +1,15 @@
+import test from'node:test';import assert from'node:assert/strict';import{readFile,writeFile,mkdtemp,rm}from'node:fs/promises';import{tmpdir}from'node:os';import{join,resolve}from'node:path';import * as T from'three';
+import{fitSnowRabbitNeckPivots}from'./lib/pet-snow-rabbit-neck-pivots.mjs';import{parseStudioGlb}from'./lib/pet-studio-glb.mjs';import{loadPetDeformationProbe}from'./lib/pet-deformation-probe.mjs';
+const fixture=new URL('./fixtures/pet-snow-rabbit-neck-pivots/input.glb',import.meta.url);
+test('private Snow Rabbit neck fit preserves the reviewed arms, all skin palettes, sculpt and thirteen authored performances',async()=>{
+const input=await readFile(fixture),result=await fitSnowRabbitNeckPivots(input),before=parseStudioGlb(input),after=parseStudioGlb(result.bytes);
+assert.equal(result.report.visualApproval,false);assert.equal(result.report.skinPalettesAndAuthoredChannelsChanged,false);
+assert.ok(after.bin.subarray(0,before.bin.length).equals(before.bin),'Original geometry, images, animation and skin streams changed');
+for(const key of['meshes','animations','materials','textures','images','samplers'])assert.deepEqual(after.json[key],before.json[key]);assert.equal(after.json.animations.length,13);
+const changed=[];for(let i=0;i<before.json.nodes.length;i++){if(JSON.stringify(before.json.nodes[i])===JSON.stringify(after.json.nodes[i]))continue;const prior=structuredClone(before.json.nodes[i]);assert.match(prior.name,/^(head|neck)$/);changed.push(prior.name);prior.translation=after.json.nodes[i].translation;assert.deepEqual(prior,after.json.nodes[i]);}assert.deepEqual(changed.sort(),['head','neck']);
+for(let i=0;i<before.json.skins.length;i++){const prior=structuredClone(before.json.skins[i]);prior.inverseBindMatrices=after.json.skins[i].inverseBindMatrices;assert.deepEqual(prior,after.json.skins[i]);}
+const directory=await mkdtemp(join(tmpdir(),'rabbit-neck-conservation-')),models=[];
+try{const output=join(directory,'candidate.glb');await writeFile(output,result.bytes);const old=await loadPetDeformationProbe(fixture),next=await loadPetDeformationProbe(output);models.push(old,next);let maximumBindDrift=0;for(let v=0;v<old.meshes[0].geometry.attributes.position.count;v++){const p=old.meshes[0].getVertexPosition(v,new T.Vector3()).applyMatrix4(old.meshes[0].matrixWorld),q=next.meshes[0].getVertexPosition(v,new T.Vector3()).applyMatrix4(next.meshes[0].matrixWorld);maximumBindDrift=Math.max(maximumBindDrift,p.distanceTo(q));}assert.ok(maximumBindDrift<.000002,'Rest surface moved instead of fitting its rig');}
+finally{for(const model of models)for(const mesh of model.meshes)mesh.geometry.dispose();assert.ok(resolve(directory).startsWith(resolve(tmpdir())+'/')||resolve(directory).startsWith(resolve(tmpdir())+'\\'));await rm(directory,{recursive:true,force:true});}
+});
+test('Snow Rabbit neck fit rejects a different candidate instead of guessing its anatomy',async()=>{const input=Buffer.from(await readFile(fixture));input[input.length-1]^=1;await assert.rejects(fitSnowRabbitNeckPivots(input),/Unexpected fitted-arm and floor input/);});

@@ -258,9 +258,9 @@ describe('step C wiring', () => {
         const configMastery = config.indexOf('sealPveAiMastery(session');
         assert.ok(configGuard > 0 && configMastery > 0, 'Clan Boss encounter config: fixture check — both seals present');
         assert.ok(configGuard < configMastery, 'Clan Boss encounter config: the guard must be sealed before mastery');
-        const clanBoss = read('api/clan-boss/assault-start.ts');
-        const configure = clanBoss.indexOf('configureClanBossEncounter(session');
-        const start = clanBoss.indexOf('startRound(session)');
+        const clanBoss = read('api/clan-boss/_start-publication.ts');
+        const configure = clanBoss.indexOf('configureClanBossEncounter(current');
+        const start = clanBoss.indexOf('startRound(current)');
         assert.ok(configure > 0 && start > 0, 'Clan Boss start: fixture check — config and first turn present');
         assert.ok(configure < start, 'Clan Boss encounter config must run before the first AI turn');
     });

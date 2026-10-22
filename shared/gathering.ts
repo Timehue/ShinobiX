@@ -3,7 +3,7 @@ import { isPlayableWildSector, sectorBiomeOf, type SectorBiome } from './sector-
 export * from './gathering-materials.js';
 import { COMMON_GATHER_IDS, BIOME_GATHER_IDS, type CommonGatherId } from './gathering-materials.js';
 
-export type PendingGatherFind = { id: string; sector: number; biome: SectorBiome; rareTrace: boolean; at: number };
+export type PendingGatherFind = { id: string; sector: number; biome: SectorBiome; rareTrace: boolean; at: number; groundTile?:number };
 export type GatherChoice = { common: CommonGatherId; takeTrace: boolean };
 export type GatherYield = { itemId: string; count: number }[];
 export function isCommonGatherId(value: unknown): value is CommonGatherId {

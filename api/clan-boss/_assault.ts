@@ -39,6 +39,7 @@ export function selectClanBossParty(
 }
 
 export type ClanBossAssaultRecord = {
+    rulesVersion?: 1 | 2;
     runId: string;
     weekId: string;
     clanName: string;

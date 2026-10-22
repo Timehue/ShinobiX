@@ -1,0 +1,46 @@
+✔ Manticore independently frozen landmarks cover the whole head, detect released distortion and pass repaired clips and blends (2094.5708ms)
+✔ Manticore anatomical legs preserve sculpt, UVs, textures, every original bone frame and inverse bind (74.4966ms)
+✔ Manticore keeps all original head, neck, tail and unrelated performance curves exactly (39.6859ms)
+✔ Manticore visible sole surfaces stay supported between keys, independently of joint-contact metadata (4254.144ms)
+✔ Manticore pinned three-stage recipe reproduces the visually reviewed bytes and rejects unexpected input (2114.8134ms)
+✔ Manticore shipping source reproduces all reviewed repair stages and authored limb performances (50.9768ms)
+✔ Manticore shipping battle LOD preserves independently frozen complete face and ruff through all clips and blends (535.2007ms)
+✔ Manticore animation source retention includes every current mesh and skin stream (15.1147ms)
+✔ Raiju independently frozen landmarks cover the whole head, detect released distortion and pass repaired clips and blends (1827.5316ms)
+✔ Raiju anatomical legs preserve sculpt, UVs, textures, every original bone frame and inverse bind (74.2849ms)
+✔ Raiju keeps all original head, neck, tail and unrelated performance curves exactly (39.0031ms)
+✔ Raiju visible sole surfaces stay supported between keys, independently of joint-contact metadata (3652.876ms)
+✔ Raiju pinned three-stage recipe reproduces the visually reviewed bytes and rejects unexpected input (2445.9953ms)
+✔ Raiju shipping source reproduces all reviewed repair stages and authored limb performances (48.3704ms)
+✔ Raiju shipping battle LOD preserves independently frozen complete face and ruff through all clips and blends (527.6294ms)
+✔ Raiju animation source retention includes every current mesh and skin stream (24.9786ms)
+✔ Sphinx independently frozen landmarks cover the whole head, detect released distortion and pass repaired clips and blends (954.8075ms)
+✔ Sphinx anatomical legs preserve sculpt, UVs, textures, every original bone frame and inverse bind (76.6289ms)
+✔ Sphinx keeps all original head, neck, tail and unrelated performance curves exactly (30.7321ms)
+✔ Sphinx visible sole surfaces stay supported between keys, independently of joint-contact metadata (2516.239ms)
+✔ Sphinx pinned four-stage recipe reproduces the visually reviewed bytes and rejects unexpected input (2697.2916ms)
+✔ Sphinx shipping source reproduces all reviewed repair stages and authored limb performances (158.5268ms)
+{"stage":"source","changed":559,"maxOtherError":2.9802322387695312e-8,"maxSectionError":5.427864380180836e-8}
+✔ Sphinx source: front-leg ownership repair changes only bilateral front-leg weights and preserves all other streams and curves (861.3593ms)
+{"stage":"battle","changed":212,"maxOtherError":2.9802322387695312e-8,"maxSectionError":5.21540641784668e-8}
+✔ Sphinx battle: front-leg ownership repair changes only bilateral front-leg weights and preserves all other streams and curves (230.8379ms)
+{"id":"legendary-23","stage":"source","shippingSha256":"a56a5fd114088d462c9a46a2c632ae664d19a2565d6d33e0178206486f64192b","comparedKeys":216,"maxWorldAngularError":7.884953353001448e-8,"ownLegCounterfactuals":4,"actualDeliveredOwnLegCounterfactuals":4,"deliveryScope":"shipping-public-assets","originalAndFittedJointDeltaEqual":true,"scalarRatios":"Retained in diagnostic evidence; exact original angular deltas and visible anatomical arcs govern this rig repair."}
+✔ legendary-23 source: original angular performances and independent own-leg paw motion survive the omitted-clip repair (14268.5096ms)
+{"id":"legendary-23","stage":"battle","shippingSha256":"75432ffd9a4d6360f6f98c459c1a74384901f56d74561c0bfe6af7b81405d9b8","comparedKeys":216,"maxWorldAngularError":7.884953353001448e-8,"ownLegCounterfactuals":4,"actualDeliveredOwnLegCounterfactuals":4,"deliveryScope":"shipping-public-assets","originalAndFittedJointDeltaEqual":true,"scalarRatios":"Retained in diagnostic evidence; exact original angular deltas and visible anatomical arcs govern this rig repair."}
+✔ legendary-23 battle: original angular performances and independent own-leg paw motion survive the omitted-clip repair (4552.2621ms)
+{"id":"legendary-24","stage":"source","shippingSha256":"29643a8d667aa4b3d1b7672a0ef4391fb305d87a814e2fecca0c053a0a16da8e","comparedKeys":216,"maxWorldAngularError":7.884953353001448e-8,"ownLegCounterfactuals":4,"actualDeliveredOwnLegCounterfactuals":4,"deliveryScope":"shipping-public-assets","originalAndFittedJointDeltaEqual":true,"scalarRatios":"Retained in diagnostic evidence; exact original angular deltas and visible anatomical arcs govern this rig repair."}
+✔ legendary-24 source: original angular performances and independent own-leg paw motion survive the omitted-clip repair (11852.5496ms)
+{"id":"legendary-24","stage":"battle","shippingSha256":"3526baf861f186943b5b3408143c7d901ce2a53ee5bad2790d22fff3676e6663","comparedKeys":216,"maxWorldAngularError":7.884953353001448e-8,"ownLegCounterfactuals":4,"actualDeliveredOwnLegCounterfactuals":4,"deliveryScope":"shipping-public-assets","originalAndFittedJointDeltaEqual":true,"scalarRatios":"Retained in diagnostic evidence; exact original angular deltas and visible anatomical arcs govern this rig repair."}
+✔ legendary-24 battle: original angular performances and independent own-leg paw motion survive the omitted-clip repair (4253.4267ms)
+{"id":"legendary-26","stage":"source","shippingSha256":"5bc12fe1bb6b8143aef155775af127ae9ebf25469d03521a46efaf4e72bc0dc7","comparedKeys":216,"maxWorldAngularError":7.884953353001448e-8,"ownLegCounterfactuals":4,"actualDeliveredOwnLegCounterfactuals":4,"deliveryScope":"shipping-public-assets","originalAndFittedJointDeltaEqual":true,"scalarRatios":"Retained in diagnostic evidence; exact original angular deltas and visible anatomical arcs govern this rig repair."}
+✔ legendary-26 source: original angular performances and independent own-leg paw motion survive the omitted-clip repair (26244.4666ms)
+{"id":"legendary-26","stage":"battle","shippingSha256":"9fa5d6ebaf45b7c6fcc4ac2e2bb1faa7f81def6429bad0d0eae21257d0c7b84f","comparedKeys":216,"maxWorldAngularError":7.884953353001448e-8,"ownLegCounterfactuals":4,"actualDeliveredOwnLegCounterfactuals":4,"deliveryScope":"shipping-public-assets","originalAndFittedJointDeltaEqual":true,"scalarRatios":"Retained in diagnostic evidence; exact original angular deltas and visible anatomical arcs govern this rig repair."}
+✔ legendary-26 battle: original angular performances and independent own-leg paw motion survive the omitted-clip repair (8390.0952ms)
+ℹ tests 30
+ℹ suites 0
+ℹ pass 30
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 71308.2733

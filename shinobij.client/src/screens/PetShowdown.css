@@ -537,7 +537,7 @@
     background: rgba(0, 0, 0, 0.45);
     border: 1px solid color-mix(in srgb, var(--plate-tint, #d9b478) 55%, transparent);
 }
-.showdown-plate-portrait img { width: 100%; height: 100%; object-fit: cover; }
+.showdown-plate-portrait img { width: 100%; height: 100%; object-fit: contain; }
 .showdown-plate-portrait > svg { color: var(--plate-tint, #d9b478); opacity: 0.9; }
 .showdown-plate.benched .showdown-plate-portrait { width: 32px; height: 32px; }
 .showdown-plate-ko {

@@ -22,10 +22,11 @@ export function makeHollowGatePendingOperation(args: {
     token: string;
     kind: HollowGatePendingOperation['kind'];
     id: string;
-    before: HollowGateRunToken;
+    before: HollowGateRunToken | null;
     after: HollowGateRunToken | null;
     response: Record<string, unknown>;
 }): HollowGatePendingOperation {
+    if (args.after && !args.before) throw new Error('hollow-gate-pending-before-missing');
     const before = args.before as unknown as Record<string, unknown>;
     const after = args.after as unknown as Record<string, unknown> | null;
     const changes: Change[] = [];
@@ -50,6 +51,25 @@ export function hollowGatePendingOperationOf(character: Character | undefined, t
 export function hollowGateSavedTokenMismatch(character: Character, token: string): boolean {
     const saved = character.hollowGateRun as Record<string, unknown> | null | undefined;
     return Boolean(saved?.runToken && saved.runToken !== token);
+}
+
+/** Clear only a proven ended projection; never touch a different or living run. */
+export function hollowGateEndedRunCharacter(character: Character, token: string): Character | null {
+    const marker = character.lastHollowGateStart as { token?: string } | undefined;
+    if (hollowGateSavedTokenMismatch(character, token) || (marker?.token && marker.token !== token)) return null;
+    const hp = Number(character.hp);
+    const fallen = Number.isFinite(hp) && hp <= 0;
+    // Older saves may have only a live start marker. Null alone cannot close
+    // that living run; a zero-HP body remains terminal even with a stale marker.
+    const explicitlyEnded = character.hollowGateRun === null && !marker?.token;
+    if (!explicitlyEnded && !fallen) return null;
+    const now = Date.now();
+    return { ...character, hollowGateRun: null, lastHollowGateStart: undefined,
+        ...(fallen ? { hp: 0, hospitalized: true,
+            hospitalizedAt: Number(character.hospitalizedAt) || now,
+            hospitalizedUntil: Number(character.hospitalizedUntil) || now + 60_000,
+        } : {}),
+    };
 }
 
 /**
@@ -111,14 +131,16 @@ async function repairHollowGateRun(
 ): Promise<HollowGateRunToken | null> {
     const proof = hollowGatePendingOperationOf(character, token);
     if (!proof || !character || hollowGateSavedTokenMismatch(character, token)) return run;
-    const receiptId = `${proof.kind}:${proof.id}`;
-    const applied = (run as RunWithReceipts | null)?.appliedSaveOperationIds ?? [];
-    if (applied.includes(receiptId)) return run;
     if (proof.terminal) {
+        // A later save CAS can retire a previously applied result with the
+        // same operation ID. Its terminal proof supersedes that live receipt.
         await store.del(runKey);
         await retireHollowGatePresenceByRunKey(store, runKey);
         return null;
     }
+    const receiptId = `${proof.kind}:${proof.id}`;
+    const applied = (run as RunWithReceipts | null)?.appliedSaveOperationIds ?? [];
+    if (applied.includes(receiptId)) return run;
     if (!run) {
         // A later extraction can consume the run while retaining the previous
         // operation proof. Its save-side terminal receipt wins on replay.

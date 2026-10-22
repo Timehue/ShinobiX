@@ -25,7 +25,7 @@ describe('catalog shop purchase', () => {
     it('derives premium currency and stored discounts', () => {
         const result = purchaseCatalogItem({ level: 100, fateShards: 1000, elderFocus: 'trade', inventory: [] }, 'golden-apple', 1);
         assert.equal(result.ok, true);
-        if (result.ok) { assert.equal(result.item.currency, 'fateShards'); assert.equal(result.item.unitCost, 19); }
+        if (result.ok) { assert.equal(result.item.currency, 'fateShards'); assert.equal(result.item.unitCost, 38); }
     });
     it('sells the profession scroll for 200 Fate Shards from level 20 after choosing a profession', () => {
         const result = purchaseCatalogItem({ level: 20, profession: 'vanguard', fateShards: 200, inventory: [] }, 'profession-change-approval', 1);
@@ -193,7 +193,8 @@ describe('pet supplies buy in bulk; pet unlocks stay single', () => {
     const rich = (extra: Record<string, unknown> = {}) => ({ level: 100, ryo: 1_000_000, fateShards: 100_000, inventory: [] as string[], itemStacks: [] as unknown[], ...extra });
 
     it('tops up a held stack of treats, PvE gear and battle consumables', () => {
-        for (const id of ['pet-treat', 'elemental-pet-treat', 'pve-frenzy-claw', 'consum-phantom-charm', 'golden-apple']) {
+        // Elemental and Ancient Treats are Crafter-only since main's pet growth v2.
+        for (const id of ['pet-treat', 'pve-frenzy-claw', 'consum-phantom-charm', 'golden-apple']) {
             const result = purchaseCatalogItem(rich({ itemStacks: [{ itemId: id, count: 3 }] }), id, 10);
             assert.equal(result.ok, true, id);
             if (result.ok) {
@@ -204,9 +205,16 @@ describe('pet supplies buy in bulk; pet unlocks stay single', () => {
     });
 
     it('clamps a pet supply to the 50 hold cap', () => {
-        const near = purchaseCatalogItem(rich({ itemStacks: [{ itemId: 'pet-treat', count: 45 }] }), 'pet-treat', 20);
+        const near = purchaseCatalogItem(rich({ itemStacks: [{ itemId: 'pve-frenzy-claw', count: 45 }] }), 'pve-frenzy-claw', 20);
         assert.equal(near.ok && near.item.qty, 5);
-        const full = purchaseCatalogItem(rich({ itemStacks: [{ itemId: 'pet-treat', count: 50 }] }), 'pet-treat', 1);
+        const full = purchaseCatalogItem(rich({ itemStacks: [{ itemId: 'pve-frenzy-claw', count: 50 }] }), 'pve-frenzy-claw', 1);
+        assert.deepEqual(full, { ok: false, reason: 'hold-cap' });
+    });
+
+    it('pet food keeps its own 9,999 counted stack, above the pet-supply cap', () => {
+        const treats = purchaseCatalogItem(rich({ itemStacks: [{ itemId: 'pet-treat', count: 45 }] }), 'pet-treat', 20);
+        assert.equal(treats.ok && treats.item.qty, 20);
+        const full = purchaseCatalogItem(rich({ itemStacks: [{ itemId: 'pet-treat', count: 9_999 }] }), 'pet-treat', 1);
         assert.deepEqual(full, { ok: false, reason: 'hold-cap' });
     });
 

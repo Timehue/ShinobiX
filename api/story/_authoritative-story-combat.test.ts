@@ -131,11 +131,14 @@ test('boss template is milestone-derived, display name is cosmetic only', () => 
     }
     const named = storyBossEnemyTemplate({ village: VILLAGE, progressIndex: 0, displayName: '  Captain Reika  ' });
     const anonymous = storyBossEnemyTemplate({ village: VILLAGE, progressIndex: 0 });
+    assert.equal(anonymous.name, 'Stormveil Training Scout');
     assert.equal(named.name, 'Captain Reika');
     assert.deepEqual({ ...named, name: anonymous.name }, anonymous);
-    // Chapter difficulty must be monotonically non-decreasing in HP.
+    // Generic chapter HP rises through 85. The finale uses an explicit smaller
+    // budget plus its exclusive full-kit Apex policy, verified in balance runs.
     const hps = Array.from({ length: STORY_LEVELS.length }, (_, i) => storyBossEnemyTemplate({ village: VILLAGE, progressIndex: i }).hp);
-    for (let i = 1; i < hps.length; i++) assert.ok(hps[i] >= hps[i - 1], `hp ramp at chapter ${i}`);
+    for (let i = 1; i < hps.length - 1; i++) assert.ok(hps[i] >= hps[i - 1], `hp ramp at chapter ${i}`);
+    assert.equal(storyBossEnemyTemplate({ village: VILLAGE, progressIndex: hps.length - 1 }).masterAi, true);
 });
 
 test('every story village maps to a valid tower biome and reward row', () => {

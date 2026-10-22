@@ -1,3 +1,5 @@
+import { petBattleJutsus } from '../../shared/pet-battle-loadout.js';
+import { rankedBuildForPet } from '../../shared/pet-tactics-build.js';
 import { createHash } from 'node:crypto';
 import { activeCarriedPets } from '../_entitlements.js';
 import { DEFAULT_RANKED_RATING, rankedDelta } from '../_ranked-rating.js';
@@ -31,7 +33,7 @@ const PET_ID = /^[A-Za-z0-9_.:-]{1,80}$/;
 const JUTSU_KINDS = new Set<PetJutsu['kind']>([
     'damage', 'buff', 'heal', 'debuff', 'dot', 'move', 'barrier', 'movelock',
     'lifesteal', 'shield', 'absorb', 'burn', 'freeze', 'confuse', 'stun',
-    'crush', 'wound', 'mark', 'slow', 'haste', 'taunt', 'push', 'pull',
+    'crush', 'wound', 'mark', 'slow', 'haste', 'taunt', 'push', 'pull', 'cleanse',
 ]);
 const RARITIES = new Set(['standard', 'rare', 'legendary', 'mythic']);
 const ELEMENTS = new Set(['Earth', 'Wind', 'Lightning', 'Fire', 'Water', 'None']);
@@ -188,6 +190,9 @@ function snapshotJutsu(raw: unknown, rarity: string): PetJutsu {
         cooldown: clampInt(rec.cooldown, 0, 60, 0),
         currentCooldown: 0,
         kind,
+        ...(typeof rec.abilityId === 'string' ? { abilityId: rec.abilityId.slice(0, 120) } : {}),
+        ...(typeof rec.baseAbilityId === 'string' ? { baseAbilityId: rec.baseAbilityId.slice(0, 120) } : {}),
+        ...(Number.isSafeInteger(rec.unlockLevel) ? { unlockLevel: Number(rec.unlockLevel) } : {}),
         ...(typeof rec.rounds === 'number' ? { rounds: clampInt(rec.rounds, 1, 20, 1) } : {}),
         ...(rec.signature === true ? { signature: true } : {}),
         ...(rec.aoe === true ? { aoe: true } : {}),
@@ -211,10 +216,10 @@ export function snapshotPetForRanked(raw: Record<string, unknown>): Pet | null {
         : null;
     const pvp = typeof loadout?.pvp === 'string' ? loadout.pvp.slice(0, 80) : '';
     const consumable = typeof loadout?.consumable === 'string' ? loadout.consumable.slice(0, 80) : '';
-    const jutsus = Array.isArray(raw.jutsus)
-        ? raw.jutsus.slice(0, 4).map((jutsu) => snapshotJutsu(jutsu, rarity))
-        : [];
+    const jutsus = petBattleJutsus({ ...raw, jutsus: Array.isArray(raw.jutsus) ? raw.jutsus : [] }, { forceProgression: true })
+        .slice(0, raw.rankedBuild ? 5 : 4).map((jutsu) => snapshotJutsu(jutsu, rarity));
     return {
+        battleLoadoutVersion: 'progression-v3',
         id,
         name: String(raw.name ?? 'Pet').slice(0, 40),
         rarity: rarity as Pet['rarity'],
@@ -227,6 +232,9 @@ export function snapshotPetForRanked(raw: Record<string, unknown>): Pet | null {
         speed: clampInt(raw.speed, 1, petStatCeil(rarity, 'speed'), 30),
         element: element as Pet['element'],
         jutsus,
+        ...(typeof raw.templateId === 'string' ? { templateId: raw.templateId.slice(0, 64) } : {}),
+        ...(raw.evolutionStage !== undefined ? { evolutionStage: raw.evolutionStage as Pet['evolutionStage'] } : {}),
+        ...(raw.rankedBuild ? { rankedBuild: rankedBuildForPet({ ...raw, id }) ?? undefined } : {}),
         unlockedForPve: false,
         ...(typeof raw.trait === 'string' ? { trait: raw.trait as Pet['trait'] } : {}),
         ...(pvp || consumable
@@ -312,6 +320,7 @@ export function resolveAuthoritativePetRankedMatch(input: {
     const aTeam = buildWarTeam(input.aCharacter, [String(input.aPet.id)]) ?? [input.aPet];
     const bTeam = buildWarTeam(input.bCharacter, [String(input.bPet.id)]) ?? [input.bPet];
     const simulated = resolveWarDuel({
+        rulesetVersion: 'progression-v3',
         sessionId: `ranked:${input.matchId}`,
         seed: input.seed,
         fromName: a,

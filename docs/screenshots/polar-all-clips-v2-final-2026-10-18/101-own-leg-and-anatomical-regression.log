@@ -1,0 +1,34 @@
+✔ CinderCub independently frozen landmarks cover the whole head, detect released distortion and pass repaired clips and blends (4233.3119ms)
+✔ CinderCub anatomical legs preserve sculpt, UVs, textures, every original bone frame and inverse bind (88.0021ms)
+✔ CinderCub keeps all original head, neck, tail and unrelated performance curves exactly (59.321ms)
+✔ CinderCub visible sole surfaces stay supported between keys, independently of joint-contact metadata (1306.2795ms)
+✔ CinderCub pinned four-stage recipe reproduces the visually reviewed bytes and rejects unexpected input (1547.251ms)
+✔ CinderCub shipping source reproduces all four anatomical stages and restored original limb performances (66.7165ms)
+✔ CinderCub shipping battle LOD preserves independently frozen complete face, both eyes, jaw and ears through all clips and blends (2239.7714ms)
+✔ CinderCub animation source retention includes every current mesh and skin stream (40.451ms)
+✔ Cinder Cub battle soles remain supported using original visible surface boxes (748.6289ms)
+✔ Cinder Cub actual source and battle soles have no inherited head or neck influences (124.7507ms)
+✔ Cinder retargeted neck/head curves retain eighteen finite strictly ordered timelines (22.6175ms)
+✔ Cinder Cub keeps the measured sculpt-forward direction distinct from generic rig +Z and retains all original joints (42.4126ms)
+✔ Polar Bear frozen facial landmarks detect the released defect and pass the anatomical candidate (2018.9478ms)
+✔ Polar Bear adds limb joints without changing sculpt, textures, original bone frames or unrelated curves (150.1747ms)
+✔ Polar Bear visible sole vertices stay supported between keys, independently of bone-contact reports (7501.1728ms)
+✔ Polar Bear gait stride adjustment leaves the existing default builder output unchanged (34.5ms)
+✔ Polar Bear three-stage recipe exactly reproduces the reviewed candidate and rejects other sources (2146.9931ms)
+✔ Polar Bear shipping source reproduces the anatomical stages and restored original limb performances (65.3645ms)
+{"id":"legendary-13","stage":"source","shippingSha256":"ace7249f33d8223b8d87fb1b0abedf60e6be96ffca1fd33495826e701a54939d","comparedKeys":216,"maxWorldAngularError":5.16191365590357e-8,"ownLegCounterfactuals":4,"actualShippingOwnLegCounterfactuals":4,"originalAndFittedJointDeltaEqual":true,"scalarRatios":"Retained in diagnostic evidence; exact original angular deltas and visible anatomical arcs govern this rig repair."}
+✔ legendary-13 source: original angular performances and independent own-leg paw motion survive the omitted-clip repair (34753.5696ms)
+{"id":"legendary-13","stage":"battle","shippingSha256":"ddc85a710a5a7adbd5fde0cd09d4abc7ee15f42e18d302dd94e3a85bf2b3e879","comparedKeys":216,"maxWorldAngularError":5.16191365590357e-8,"ownLegCounterfactuals":4,"actualShippingOwnLegCounterfactuals":4,"originalAndFittedJointDeltaEqual":true,"scalarRatios":"Retained in diagnostic evidence; exact original angular deltas and visible anatomical arcs govern this rig repair."}
+✔ legendary-13 battle: original angular performances and independent own-leg paw motion survive the omitted-clip repair (13676.3548ms)
+{"id":"starter-fire","stage":"source","shippingSha256":"2d88f6315b33a32a8ed3a032cedee52ddb39230a32d7c82fe269d11550fd574c","comparedKeys":216,"maxWorldAngularError":8.429369702178807e-8,"ownLegCounterfactuals":4,"actualShippingOwnLegCounterfactuals":4,"originalAndFittedJointDeltaEqual":true,"scalarRatios":"Retained in diagnostic evidence; exact original angular deltas and visible anatomical arcs govern this rig repair."}
+✔ starter-fire source: original angular performances and independent own-leg paw motion survive the omitted-clip repair (5653.4695ms)
+{"id":"starter-fire","stage":"battle","shippingSha256":"28c59477df4809a218a8b17c7dd39a1cacb43fc8440c546dc290a16fd40160e4","comparedKeys":216,"maxWorldAngularError":8.429369702178807e-8,"ownLegCounterfactuals":4,"actualShippingOwnLegCounterfactuals":4,"originalAndFittedJointDeltaEqual":true,"scalarRatios":"Retained in diagnostic evidence; exact original angular deltas and visible anatomical arcs govern this rig repair."}
+✔ starter-fire battle: original angular performances and independent own-leg paw motion survive the omitted-clip repair (4805.7879ms)
+ℹ tests 22
+ℹ suites 0
+ℹ pass 22
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 59838.932

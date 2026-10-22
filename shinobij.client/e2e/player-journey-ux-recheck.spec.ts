@@ -10,7 +10,7 @@ test.beforeEach(({ browserName }, info) => {
 });
 
 for (const viewport of [{ width: 360, height: 640 }, { width: 844, height: 390 }, { width: 979, height: 768 }, { width: 980, height: 768 }]) {
-    test(`Academy guide clears notices and navigation at ${viewport.width}x${viewport.height}`, async ({ page }) => {
+    test(`Academy guide clears notices and navigation at ${viewport.width}x${viewport.height}`, async ({ page }, info) => {
         await page.setViewportSize(viewport);
         const save = uiAuditSave();
         save.currentSector = 0;
@@ -23,7 +23,9 @@ for (const viewport of [{ width: 360, height: 640 }, { width: 844, height: 390 }
         await expect(guide).toBeVisible();
         await expect(guide.locator('.coach-guide-line')).toContainText('we can explore while it runs.');
         await page.waitForTimeout(600);
-        const evidence = resolve('..', 'docs/audits/ux-journey-2026-09-13', process.env.UX_AUDIT_PHASE ?? 'recheck');
+        const evidence = process.env.UX_AUDIT_PHASE
+            ? resolve('..', 'docs/audits/ux-journey-2026-09-13', process.env.UX_AUDIT_PHASE)
+            : info.outputDir;
         mkdirSync(evidence, { recursive: true });
         await page.screenshot({ path: resolve(evidence, `26-shell-${viewport.width}x${viewport.height}.png`) });
         const guideBox = (await guide.boundingBox())!;

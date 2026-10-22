@@ -84,7 +84,7 @@ async function exerciseConcessionRecovery(page: Page, withoutWebGL2 = false) {
     await page.goto('/', { waitUntil: 'domcontentloaded' });
     const quest = page.locator('.fp-quest-card');
     await expect(quest).toContainText(sitting.title, { timeout: 30_000 });
-    await expect(quest).toContainText('Sitting 4 of 5');
+    await expect(quest).toContainText('Round 4 of 5');
     if (withoutWebGL2) {
         await expect(page.getByTestId('pet-showdown-render-fallback')).toBeVisible();
         await expect(page.getByTestId('pet-showdown-root').locator('canvas')).toHaveCount(0);
@@ -100,7 +100,7 @@ async function exerciseConcessionRecovery(page: Page, withoutWebGL2 = false) {
     const error = page.locator('.fp-battle-network-error');
     await expect(error).toContainText('could not record the concession');
     await expect(confirmation).toBeVisible();
-    await expect(quest).toContainText('Sitting 4 of 5');
+    await expect(quest).toContainText('Round 4 of 5');
     if (withoutWebGL2) await expect(page.getByTestId('pet-showdown-render-fallback')).toBeVisible();
     expect(await page.evaluate(key => JSON.parse(localStorage.getItem(key) ?? 'null')?.sessionId, sessionKey)).toBe(sessionId);
     // The confirmation owns focus until the concession succeeds. Retrying its
@@ -111,8 +111,8 @@ async function exerciseConcessionRecovery(page: Page, withoutWebGL2 = false) {
     await expect(page.getByRole('button', { name: 'Forfeit the battle', exact: true })).toHaveCount(0);
     await expect(quest).toBeVisible();
     await expect(quest).toContainText(FIRST_PACT_STANDING_COURT_ROUNDS[0].title);
-    await expect(quest).toContainText('The Arbiter has reopened the docket');
-    await expect(quest).not.toContainText('Sitting 4 of 5');
+    await expect(quest).toContainText('The Arbiter awaits in the High Court square');
+    await expect(quest).not.toContainText('Round 4 of 5');
     expect(await page.evaluate(key => localStorage.getItem(key), sessionKey)).toBeNull();
     expect(concessions).toBe(2);
     expect(showdownActions).toEqual(['state', 'forfeit', 'forfeit']);

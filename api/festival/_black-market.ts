@@ -3,10 +3,10 @@
  * (api/festival/black-market.ts). Split out so the odds + magnitudes are
  * unit-testable with a seeded rng and live in one reviewable place.
  *
- * This is a SINK, not a faucet: the expected ryo return is well under the
- * COST (~32%, 24,100 ryo per 75,000 pull), so over many pulls the economy loses ryo. The upside tiers keep
- * it exciting without making it +EV. All currency payouts only — no inventory
- * mutation — so the handler stays a simple currency read-modify-write.
+ * Paid pulls are a ryo sink: expected ryo return is well under COST (~32%,
+ * 24,100 ryo per 75,000 pull). Earned Broker certificates cover the stake for
+ * a free pull using the same payout table and daily cap. Stake/certificate
+ * debit and currency payout commit on one character object.
  */
 
 // Sunscar is PERMANENT (owner ruling 2026-08-17), so this is standing economy,
@@ -23,18 +23,12 @@
 // this AND shinobij.client/src/lib/black-market.ts to 90,000 when the admin
 // snapshot's black-market loop product holds >= 0.93 for 7 days
 // (api/_black-market-loop.ts). No env override: the client quotes its own copy.
-export const BLACK_MARKET_COST = 75_000; // ryo per pull
-export const BLACK_MARKET_DAILY_CAP = 10;
+import { brokerCertificateCount, type BrokerPayment } from '../../shared/sunscar/broker-certificates.js';
+export type { BrokerCrateReward as BlackMarketReward } from '../../shared/sunscar/broker-certificates.js';
+import type { BrokerCrateReward as BlackMarketReward } from '../../shared/sunscar/broker-certificates.js';
 
-export type BlackMarketReward = {
-    tier: 'scraps' | 'trinket' | 'haul' | 'relic' | 'fortune' | 'jackpot';
-    label: string;
-    ryo: number;
-    fateShards: number;
-    boneCharms: number;
-    auraStones: number;
-    mythicSeals: number;
-};
+export const BLACK_MARKET_COST = 75_000; // ryo per paid pull
+export const BLACK_MARKET_DAILY_CAP = 10;
 
 // Inclusive integer in [min, max] from a [0,1) rng.
 function randInt(rand: () => number, min: number, max: number): number {
@@ -76,7 +70,7 @@ function num(v: unknown): number {
 export type BlackMarketPullSettlement =
     | { ok: false; status: 429; body: { error: string; dailyUsed: number; dailyCap: number } }
     | { ok: false; status: 400; body: { error: string } }
-    | { ok: true; reward: BlackMarketReward; nextCharacter: Record<string, unknown>; nextUsed: number };
+    | { ok: true; cost: number; reward: BlackMarketReward; nextCharacter: Record<string, unknown>; nextUsed: number };
 
 /**
  * Settle one pull. Pure: the handler owns every I/O step (lock, read, the two
@@ -88,13 +82,14 @@ export type BlackMarketPullSettlement =
  *
  * The debit and every credit land on ONE character object, so a pull can never
  * charge without paying: the single save write carries both halves or neither
- * happens. The caller must persist `nextCharacter` before `nextUsed` — writing
- * the counter first would let a crash bill a player for a pull they never got.
+ * happens. The caller must co-write the daily usage and receipt on that same
+ * character so an interrupted counter mirror cannot lose a counted pull.
  */
 export function settleBlackMarketPull(input: {
     character: Record<string, unknown>;
     used: number;
     roll: BlackMarketReward;
+    payment?: BrokerPayment;
 }): BlackMarketPullSettlement {
     const { character, used, roll } = input;
     if (used >= BLACK_MARKET_DAILY_CAP) {
@@ -108,16 +103,25 @@ export function settleBlackMarketPull(input: {
             },
         };
     }
-    if (num(character.ryo) < BLACK_MARKET_COST) {
+    const payment = input.payment ?? 'ryo';
+    if (payment !== 'ryo' && payment !== 'certificate') return { ok: false, status: 400, body: { error: 'Choose ryo or a Broker certificate.' } };
+    const certificates = brokerCertificateCount(character);
+    if (payment === 'certificate' && certificates < 1) {
+        return { ok: false, status: 400, body: { error: 'You do not have a Broker certificate.' } };
+    }
+    const cost = payment === 'certificate' ? 0 : BLACK_MARKET_COST;
+    if (num(character.ryo) < cost) {
         return { ok: false, status: 400, body: { error: `Not enough ryo. A pull costs ${BLACK_MARKET_COST.toLocaleString()}.` } };
     }
     return {
         ok: true,
+        cost,
         reward: roll,
         nextUsed: used + 1,
         nextCharacter: {
             ...character,
-            ryo: num(character.ryo) - BLACK_MARKET_COST + roll.ryo,
+            ...(payment === 'certificate' ? { brokerCertificates: certificates - 1 } : {}),
+            ryo: num(character.ryo) - cost + roll.ryo,
             fateShards: num(character.fateShards) + roll.fateShards,
             boneCharms: num(character.boneCharms) + roll.boneCharms,
             auraStones: num(character.auraStones) + roll.auraStones,

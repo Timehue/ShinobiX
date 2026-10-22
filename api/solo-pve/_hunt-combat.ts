@@ -8,9 +8,15 @@ import { applyAction, checkTowerWinner, endTurn, humanHasTowerAction, runAiUntil
 import type { TowerFloor } from '../towers/_floor-catalog.js';
 import { makeRng } from '../towers/_sim.js';
 import { companionConsumableHealPct } from '../combat-core/companion.js';
+import { huntMissionById } from '../missions/_mission-catalog.js';
+import { HUNT_AI_POLICY, HUNT_REACTIVE_POLICY } from '../towers/_hunt-ai.js';
+import { pveEasyBandHoldsBurst, pveDifficultyBand } from '../_pve-difficulty.js';
 
 export type HuntCombatState = {
-    formation: HuntFormation;
+    purpose?: 'story-twins' | 'narrative-group';
+    groupId?: string;
+    requiredEnemyIds?: string[];
+    formation: Omit<HuntFormation, 'count'> & { count: number };
     battle: TowerSession;
     usedJutsuIds?: string[];
 };
@@ -32,6 +38,14 @@ export function attachHuntCombat(session: SoloPveSession, context: WorldAiFightC
         return pos;
     };
     const player = fighterActor(session.player, 'player', session.ownerSlug, spawn(62));
+    const requirement = huntMissionById(context.missionId ?? context.sourceId)?.levelReq ?? 1;
+    const rank = requirement >= 70 ? 'S' : requirement >= 50 ? 'A' : requirement >= 30 ? 'B' : requirement >= 15 ? 'C' : 'D';
+    // Simultaneous easy-band packs already chain several enemy turns. Preserve
+    // their original chooser instead of compounding the onboarding pressure.
+    const tacticalHunt = formation.kind !== 'pack' || pveDifficultyBand(Number(session.enemy.character.level)) !== 'easy';
+    const reactiveHunt = tacticalHunt && formation.kind === 'single' && rank !== 'D'
+        && Number(player.character.level) > 15 && Number(session.enemy.character.level) > 15
+        && pveDifficultyBand(Number(session.enemy.character.level)) === 'easy';
     player.itemCharges = { ...session.itemCharges };
     const enemies = Array.from({ length: formation.count }, (_, index) => {
         const actor = fighterActor(session.enemy, `hunt-enemy-${index}`, null, spawn([33, 57, 81][index]!));
@@ -46,6 +60,11 @@ export function attachHuntCombat(session: SoloPveSession, context: WorldAiFightC
         actor.name = target || formation.count === 1 ? session.enemy.name : `${session.enemy.name} ${index + 1}`;
         actor.character.name = actor.name;
         actor.character.huntContractTarget = target;
+        if (tacticalHunt) actor.character.huntAiPolicy = HUNT_AI_POLICY;
+        else delete actor.character.huntAiPolicy;
+        actor.character.huntRank = rank;
+        if (reactiveHunt) actor.character.huntReactivePolicy = HUNT_REACTIVE_POLICY;
+        else delete actor.character.huntReactivePolicy;
         return actor;
     });
     const label = formation.kind === 'single' ? 'Lone creature'
@@ -68,6 +87,11 @@ export function attachHuntCombat(session: SoloPveSession, context: WorldAiFightC
     if (session.difficultyGuard) battle.pveGuard = { enemyLevel: session.difficultyGuard.enemyLevel, turnStartHp: {}, dealtThisTurn: {} };
     battle.weather = { positiveElement: session.environment.weatherPositiveElement, negativeElement: session.environment.weatherNegativeElement };
     battle.log.push(`${label}: ${session.enemy.name}.`);
+    const heavyRound = !pveEasyBandHoldsBurst(Number(session.enemy.character.level), 1) ? 1 : 3;
+    if(tacticalHunt&&pveDifficultyBand(Number(session.enemy.character.level))==='easy')
+        battle.log.push('The creature spends the opening round approaching and preparing. Basic attacks begin on round 2.');
+    battle.log.push(`${rank}-rank hunt: watch for afflictions and gap-closing techniques. Heavy techniques begin on round ${heavyRound}. Cleanse removes afflictions; Clear strips active defenses.`);
+    if (reactiveHunt) battle.log.push('Wounded retaliation: this lone creature can use heavy techniques from round 2 at 75% HP or below. Use defensive techniques to blunt the response or create distance before wounding it.');
     session.huntCombat = { formation, battle };
     startRound(battle);
     // The encounter already sealed the player's current resources. Tower turn
@@ -83,7 +107,7 @@ function projectedFighter(actor: TowerActor, previous: PvpFighter): PvpFighter {
     return { ...previous, hp, maxHp, chakra, maxChakra, stamina, maxStamina, shield, statuses, pos, character };
 }
 
-function projectHuntCombat(session: SoloPveSession): void {
+export function projectHuntCombat(session: SoloPveSession): void {
     const battle = session.huntCombat!.battle;
     const player = battle.actors.find(actor => actor.id === 'player')!;
     const enemies = [...battle.actors, ...(battle.pendingEnemyWaves ?? []).flatMap(wave => wave.actors)].filter(actor => actor.side === 'enemy');
@@ -116,13 +140,14 @@ export function applyHuntCombatAction(source: SoloPveSession, command: SoloPveAc
     if (intent.type === 'abandon' || intent.type === 'flee') {
         if (intent.type === 'flee' && (activeActor(battle)?.id !== player.id || battle.activeAp < 100)) return { applied: false, reason: 'cannot-act', session: source };
         const cost = Math.max(1, Math.floor(player.maxHp * .1));
+        const lostHp = Math.min(player.hp, cost);
         player.hp = Math.max(0, player.hp - cost);
         if (intent.type === 'abandon' || opts.escapeSucceeds?.() === true || player.hp === 0) {
             battle.status = 'done'; battle.winner = 'enemy'; battle.objectiveState.failed = true;
             session.outcome = intent.type === 'flee' && player.hp > 0 ? 'fled' : 'loss';
-            battle.log.push(`${player.name} leaves the hunt, losing ${cost} HP.`);
+            battle.log.push(`${player.name} leaves the ${session.huntCombat?.purpose === 'story-twins' ? 'trial' : session.huntCombat?.purpose === 'narrative-group' ? 'encounter' : 'hunt'}, losing ${lostHp} HP.`);
         } else {
-            battle.log.push(`${player.name} fails to escape and loses ${cost} HP.`);
+            battle.log.push(`${player.name} fails to escape and loses ${lostHp} HP.`);
             endTurn(battle, floor);
             runAiUntilHuman(battle, floor, rng);
         }

@@ -68,7 +68,7 @@ export function TournamentPanel({ character, sharedImages, onVersionedCharacter,
         // No refresh here: clearing battle/script re-activates useTournament,
         // whose board poll restarts with an immediate refresh.
     };
-    if (script) return <Suspense fallback={<p>Loading Colosseum replay…</p>}><PetShowdownReplay script={script} playerPets={pets} sharedImages={sharedImages} onExit={exit} /></Suspense>;
+    if (script) return <Suspense fallback={<p>Loading Colosseum replay…</p>}><PetShowdownReplay script={script} playerPets={pets} sharedImages={sharedImages} onExit={exit} exitLabel="Back to tournament" /></Suspense>;
     if (battle) return <Suspense fallback={<p>Loading tournament battle…</p>}><BattleTowerFight character={character} sharedImages={sharedImages}
         runId={battle.match.matchId} initialSession={battle.match.combat} stateFn={fetchTowerPvpSession}
         actionRetryFn={submitTowerPvpActionWithLostResponseRetry} settleFn={settle} settleOnAnyDone variant="team-pvp" pvpContextLabel="Tournament"

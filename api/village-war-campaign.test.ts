@@ -874,6 +874,11 @@ describe('five-day village campaigns', { concurrency: false }, () => {
         assert.equal(start.data.mode, 'pet'); assert.equal(start.data.status, 'done'); assert.equal(start.data.warResult.points, 50);
         const replay = await call(endpoint, 'alice', { name: 'alice', warId: id, action: 'watch', runId: start.data.runId });
         assert.equal(replay.status, 200); assert.ok(replay.data.script);
+        const defenderReplay = await call(endpoint, 'bob', { name: 'bob', warId: id, action: 'watch', runId: start.data.runId });
+        assert.equal(defenderReplay.status, 200);
+        assert.deepEqual(replay.data.script.initialState.player, defenderReplay.data.script.initialState.enemy);
+        assert.deepEqual(replay.data.script.finalState.enemy, defenderReplay.data.script.finalState.player);
+        assert.notEqual(replay.data.script.finalState.outcome, defenderReplay.data.script.finalState.outcome);
         await call(endpoint, 'bob', { name: 'bob', warId: id, action: 'state', runId: start.data.runId, winner: 'p1', points: 99999 });
         const fresh = await kv.get<any>(`world:war:${id}`);
         assert.equal((fresh.campaign.pvp[A] ?? 0) + (fresh.campaign.pvp[B] ?? 0), 50);

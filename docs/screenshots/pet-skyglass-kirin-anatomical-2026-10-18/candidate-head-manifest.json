@@ -1,0 +1,61 @@
+{
+  "schema": 1,
+  "errors": [],
+  "pets": [
+    {
+      "id": "mythic-12",
+      "name": "Skyglass Kirin",
+      "url": "/.tmp/skyglass-kirin-anatomical-v1/roster/mythic-12.glb",
+      "sha256": "9d39b74c479917baca5fefc7a6244794c5d597b2e2f515fe98323a8455ba3428",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "progress": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ],
+      "views": [
+        "head-front",
+        "head-side"
+      ],
+      "region": {
+        "y": [
+          -2,
+          -2
+        ],
+        "bounds": [
+          -0.29598489434033914,
+          0.4177077662080352,
+          0.38577023755972994,
+          1.1003441979820248,
+          0.31836513509236497,
+          1.046184780995528
+        ],
+        "cameraPadding": 1.15
+      },
+      "sheets": [
+        "mythic-12-head-front.webp",
+        "mythic-12-head-side.webp"
+      ],
+      "review": "pending",
+      "anatomySha256": "fc52dc74150bda0993548397a8027f855e552de4f5f1be9068a1752153bc410c"
+    }
+  ],
+  "artisticCertification": false
+}

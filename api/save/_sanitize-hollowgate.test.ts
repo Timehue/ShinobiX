@@ -162,7 +162,7 @@ test('hollowGateRun: matching-token autosave may update presentation but not ser
             entryCurrencies: { ryo: 5000 },
         },
     });
-    assert.equal((out.hollowGateRun as any).floor, 3);
+    assert.equal((out.hollowGateRun as any).floor, 2);
     assert.equal((out.hollowGateRun as any).serverSeed, 'server-seed');
     assert.equal((out.hollowGateRun as any).keys, 1);
     assert.equal((out.hollowGateRun as any).torch, 4);

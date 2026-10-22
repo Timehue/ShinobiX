@@ -125,7 +125,9 @@ function pose(rig, channels, p) {
 
 const SUPPORT = new Set(['idle', 'walk', 'gallop', 'guard', 'rest']);
 const CYCLE = new Set(['idle', 'walk', 'gallop', 'guard', 'rest']);
-export function finishCharacterTake(rig, take, clipName, family, showcase = false) {
+export function finishCharacterTake(rig, take, clipName, family, showcase = false, gaitStrideScale = 1, gaitVerticalScale = 1) {
+    if (!(gaitStrideScale > 0 && gaitStrideScale <= 1)) throw Error('Invalid gait stride scale');
+    if (!(gaitVerticalScale > 0 && gaitVerticalScale <= 1)) throw Error('Invalid gait vertical scale');
     const walking = clipName === 'walk' || clipName === 'gallop', running = clipName === 'gallop';
     const heavy = ['armored', 'charger', 'burrow-grappler'].includes(family), spring = family === 'hopper';
     const aquatic = ['aquatic', 'serpentine', 'amphibious'].includes(family);
@@ -178,7 +180,7 @@ export function finishCharacterTake(rig, take, clipName, family, showcase = fals
             const up = rig.chains[0].up, forward = rig.chains[0].forward;
             if (root) {
                 const rootBind = rig.bind[rig.byName.get('root')].p, delta = root.position.clone().sub(rootBind);
-                const bias = walking ? running ? .15 : .09 : .025;
+                const bias = walking ? (running ? .15 : .09) * gaitVerticalScale : .025;
                 root.position.copy(rootBind).addScaledVector(up, -length * bias + delta.y * (walking ? .25 : .15))
                     .addScaledVector(forward, delta.z * .4).addScaledVector(new Vector3().crossVectors(up, forward), delta.x);
             }
@@ -191,8 +193,8 @@ export function finishCharacterTake(rig, take, clipName, family, showcase = fals
                 } else if (chain.kind === 'tripod') phase += chain.part === 'mid' ? .5 : 0;
                 if (heavy) { duty = .74; phase = (chain.side === 'L' ? 0 : .5) + (chain.part === 'hind' ? .25 : 0); }
                 if (spring && running) { duty = .4; phase = chain.side === 'L' ? 0 : .065; }
-                const span = chain.length * (walking ? running ? heavy ? .48 : .72 : .48 : 0);
-                const step = walking ? footTrajectory(p + phase, span, chain.length * (running ? .2 : .12), duty) : { z: 0, y: 0, contact: true };
+                const span = chain.length * (walking ? running ? heavy ? .48 : .72 : .48 : 0) * gaitStrideScale;
+                const step = walking ? footTrajectory(p + phase, span, chain.length * (running ? .2 : .12) * gaitVerticalScale, duty) : { z: 0, y: 0, contact: true };
                 const target = chain.origin.clone().addScaledVector(chain.up, step.y).addScaledVector(chain.forward, step.z);
                 const orientation = chain.orientation.clone().multiply(new Quaternion().setFromEuler(new Euler(step.y / chain.length * .6, 0, 0)));
                 return { chain, target, orientation, step };

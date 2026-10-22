@@ -30,6 +30,9 @@ import { randomUUID } from 'node:crypto';
 import { TRACKER_TRAIL_TTL_MS, trackerTrailSectors, type TrackerTrail } from '../../shared/tracker-trail.js';
 import type { WandererVerb } from '../../shared/wanderer-roster.js';
 import { loadTrackerTrail, saveTrackerTrail, trackerTrailEncounterLive, trackerTrailInProgress, trackerTrailKey } from './_tracker-trail.js';
+import { linkLifeTracking } from './_life-tracking.js';
+import { lifeStorageKey,parseLifeState } from '../../shared/sector-life.js';
+import { LIFE_HUNT_LINES } from '../../shared/sector-life-tracking.js';
 
 type FavorRecord = {
     id: string;
@@ -132,6 +135,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 return res.status(200).json({ ok: false, reason: 'invalid-wanderer' });
             }
             const sector = sectorFrom(body.sector);
+            if(action==='tracker-trail-start'){
+                const hunt=parseLifeState(await kv.get(lifeStorageKey(sector)),Date.now()).hunt;
+                if(hunt?.trackerId===wandererId&&hunt.owner!==playerName)return res.status(200).json({ok:false,reason:'tracker-away',error:hunt.result?LIFE_HUNT_LINES.unavailable:LIFE_HUNT_LINES.busy});
+            }
             let legacyWandererId = '';
 
             const committed = await mutatePlayerSave<Reply>(playerName, async ({ character: char }) => {
@@ -344,6 +351,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         retryable: true,
                     });
                 }
+            }
+            if(action==='tracker-trail-start'&&committed.ok){
+                if(out.body.reason==='cooldown'){
+                    const hunt=parseLifeState(await kv.get(lifeStorageKey(sector)),Date.now()).hunt,trail=await loadTrackerTrail(playerName);
+                    if(hunt?.owner===playerName&&!hunt.result&&hunt.trailId===trail?.id&&await trackerTrailInProgress(playerName,trail)){
+                        const saved=await kv.get<{_saveVersion?:number}>(`save:${playerName}`);out.body={...out.body,ok:true,trail,_saveVersion:Number(saved?._saveVersion??committed._saveVersion)};
+                    }
+                }
+                if(out.body.ok===true&&out.body.trail)await linkLifeTracking(playerName,out.body.trail,wandererId);
             }
             return res.status(out.status).json(out.body);
         }

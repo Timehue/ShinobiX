@@ -49,7 +49,9 @@ test('all four story finales seal the highest legal policy, mastery and player c
     for (const [village, authored] of Object.entries(STORY_KAGE_ENCOUNTERS)) {
         const template = storyBossEnemyTemplate({ village, progressIndex: FINAL_INDEX });
         const session = encounter(village);
-        assert.equal(template.hp, 14_000, `${village}: existing server HP is unchanged`);
+        assert.equal(template.hp, ['Ashen Leaf Village', 'Frostfang Village'].includes(village) ? 10_300 : 10_000,
+            `${village}: explicit finale HP budget`);
+        assert.equal(session.enemy.maxHp, template.hp, 'no additional Tower or peer HP multiplier');
         assert.equal(template.armorRawDR, 0.18, `${village}: existing armor is unchanged`);
         assert.equal(session.enemy.name, authored.name);
         assert.equal(session.enemy.character.visual, storyOpponentId(village, 100));
@@ -70,7 +72,9 @@ test('all four story finales seal the highest legal policy, mastery and player c
         assert.ok(Object.values(session.enemy.character.stats as Record<string, number>).every((value) => value <= 2_500));
         const kit = session.enemy.character.jutsu as SoloPveJutsu[];
         assert.deepEqual(kit.map((move) => move.id), [...authored.jutsuIds]);
-        assert.equal(kit.filter((move) => Number(move.effectPower) > 1).length, 5, 'five real damaging moves, independent of utility slots');
+        assert.equal(kit.length, 12, 'the authored finale uses the challenge slot budget');
+        assert.equal(new Set(kit.map((move) => move.id)).size, 12, 'every equipped technique is distinct');
+        assert.equal(kit.filter((move) => Number(move.effectPower) > 1).length, 6, 'six real damaging moves, independent of utility slots');
         assert.ok(kit.every((move) => !move.tags?.some((tag) => tag.name === 'Stun')), 'no stun loop in the authored kit');
         for (const move of kit) {
             const catalog = JUTSU_CATALOG[move.id];

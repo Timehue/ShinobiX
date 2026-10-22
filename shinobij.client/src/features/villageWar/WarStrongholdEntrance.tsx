@@ -30,7 +30,7 @@ export function WarStrongholdEntrance({ character, target, campaign, mission, ad
                 onClick={() => { if (admissionOpen && entryEligible) onEnter(); }}>
                 {!admissionOpen ? 'Operation paused' : specialty ? 'Enter war stronghold' : !entryEligible ? `Requires level ${minimumLevel}` : 'Enter stronghold'}
             </button>
-            <button style={{ padding: '0.55rem 1.15rem', opacity: 0.8 }} onClick={onClose}>Retreat</button>
+            <button style={{ padding: '0.55rem 1.15rem', opacity: 0.8 }} onClick={onClose}>Stay outside</button>
         </div>
     </StrongholdDialog>;
 }

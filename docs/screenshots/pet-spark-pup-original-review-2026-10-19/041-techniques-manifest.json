@@ -1,0 +1,1625 @@
+{
+  "id": "starter-lightning",
+  "label": "independent-starter-lightning-techniques-v1",
+  "sourceManifestSha256": "51cf913ad354687a0937ed6e32a3fc8e8ab18e379130fbb4980ed1444bdc7d09",
+  "crop": {
+    "left": 128,
+    "top": 25,
+    "width": 267,
+    "height": 201
+  },
+  "nativePixelsPreserved": true,
+  "resizing": false,
+  "foregroundThreshold": 3,
+  "strips": [
+    {
+      "name": "front-block-0-half-0.png",
+      "sha256": "d888270df2542e008a70803c835d30b3f2e263af49a5621483f46bbc8bf26277",
+      "sources": [
+        {
+          "name": "starter-lightning-lightning-strike-front-0.png",
+          "sha256": "e914b0fd9a46df5f59da7b711ea710ff157541de914749a2275a468fa934b195",
+          "move": "lightning-strike",
+          "view": "front",
+          "time": 0.04
+        },
+        {
+          "name": "starter-lightning-lightning-strike-front-1.png",
+          "sha256": "222795dc90a489d7bf43b69fe2d7435ef51bbd0aeb22c0158a49b2efcb6368a2",
+          "move": "lightning-strike",
+          "view": "front",
+          "time": 0.12
+        },
+        {
+          "name": "starter-lightning-lightning-strike-front-2.png",
+          "sha256": "0eb20381542d9c92066fc75ddf7b46c777d637f22738a923d707eb901d03b2b9",
+          "move": "lightning-strike",
+          "view": "front",
+          "time": 0.24
+        },
+        {
+          "name": "starter-lightning-lightning-strike-front-3.png",
+          "sha256": "64b7b86da3d3036c98ff921831a913a739e38e7ef2563e9aca4216dcfb094a67",
+          "move": "lightning-strike",
+          "view": "front",
+          "time": 0.36
+        },
+        {
+          "name": "starter-lightning-lightning-strike-front-4.png",
+          "sha256": "8b63d512bca8ed4ae0f7945cefb58740d3f453c37232379023d6d62cd7034143",
+          "move": "lightning-strike",
+          "view": "front",
+          "time": 0.48
+        },
+        {
+          "name": "starter-lightning-lightning-strike-front-5.png",
+          "sha256": "f29587462b102851e81dbabefba275722c037298c508e1a735d370f6491496fe",
+          "move": "lightning-strike",
+          "view": "front",
+          "time": 0.6
+        },
+        {
+          "name": "starter-lightning-lightning-pulse-front-0.png",
+          "sha256": "4086c080971a9490115761b8d40bca90722b5cd9a26dbc683872a353a357ae6e",
+          "move": "lightning-pulse",
+          "view": "front",
+          "time": 0.04
+        },
+        {
+          "name": "starter-lightning-lightning-pulse-front-1.png",
+          "sha256": "7ad75b0d06d75e14b119de350110ff0624b800149339642f99298674463d057f",
+          "move": "lightning-pulse",
+          "view": "front",
+          "time": 0.12
+        },
+        {
+          "name": "starter-lightning-lightning-pulse-front-2.png",
+          "sha256": "199282ef7a26e9e2a7a645668e3abfa7ed27c281bdcbd734ccc609022fa38037",
+          "move": "lightning-pulse",
+          "view": "front",
+          "time": 0.24
+        },
+        {
+          "name": "starter-lightning-lightning-pulse-front-3.png",
+          "sha256": "c5deabf045ef1695f4c2f536191f7f6c9c284be35d849d984c40242ebed88d56",
+          "move": "lightning-pulse",
+          "view": "front",
+          "time": 0.36
+        },
+        {
+          "name": "starter-lightning-lightning-pulse-front-4.png",
+          "sha256": "f78e6d04e3a30abeab104eb3152cbd69885faef571d8a8df52ea5ec6c2c3776d",
+          "move": "lightning-pulse",
+          "view": "front",
+          "time": 0.48
+        },
+        {
+          "name": "starter-lightning-lightning-pulse-front-5.png",
+          "sha256": "233d5cb627d07d81f8699a6b5f03126dd792d315a9f48e016e0149f7334b6a30",
+          "move": "lightning-pulse",
+          "view": "front",
+          "time": 0.6
+        },
+        {
+          "name": "starter-lightning-lightning-breaker-front-0.png",
+          "sha256": "2be63999f69692aba6283e210b0fe2e65e88d2a7a185646d25e17102077ea66c",
+          "move": "lightning-breaker",
+          "view": "front",
+          "time": 0.04
+        },
+        {
+          "name": "starter-lightning-lightning-breaker-front-1.png",
+          "sha256": "9086c83ef21b8bcef6d1504ce2a7a0704906f3d6bdcd3701b04a6a62afaecc53",
+          "move": "lightning-breaker",
+          "view": "front",
+          "time": 0.12
+        },
+        {
+          "name": "starter-lightning-lightning-breaker-front-2.png",
+          "sha256": "6d191d6d8bffc4db3b5554bb433732089e5964a9633aa353fb236b7f724f5219",
+          "move": "lightning-breaker",
+          "view": "front",
+          "time": 0.24
+        },
+        {
+          "name": "starter-lightning-lightning-breaker-front-3.png",
+          "sha256": "1dda6547f12cfc45a0da847c46fd6ea0d06e957365e1a5fc32ebfbfe24770d24",
+          "move": "lightning-breaker",
+          "view": "front",
+          "time": 0.36
+        },
+        {
+          "name": "starter-lightning-lightning-breaker-front-4.png",
+          "sha256": "36b187b3d190af2e2fccffd756fa23340a3c8840d033070a4c70a71b151f0933",
+          "move": "lightning-breaker",
+          "view": "front",
+          "time": 0.48
+        },
+        {
+          "name": "starter-lightning-lightning-breaker-front-5.png",
+          "sha256": "2b9158536e4cb0d542cb318a2cb6726b659f68c24becf6bda4a60307104f00b5",
+          "move": "lightning-breaker",
+          "view": "front",
+          "time": 0.6
+        }
+      ],
+      "width": 1602,
+      "height": 681
+    },
+    {
+      "name": "front-block-0-half-1.png",
+      "sha256": "bad23d073f445b26f9cb75f55381ea2eb4f900f0c11f73260b0f067d4176bdbf",
+      "sources": [
+        {
+          "name": "starter-lightning-lightning-strike-front-6.png",
+          "sha256": "2a7d608fffc1e3a51cc8fcbe0c4b9b1172d4a095871ad8a2f60d3654f45b80f6",
+          "move": "lightning-strike",
+          "view": "front",
+          "time": 0.76
+        },
+        {
+          "name": "starter-lightning-lightning-strike-front-7.png",
+          "sha256": "0071b370337dae2d40937e141fb042425f42718ea6f17dc99f3cdf501aa960ef",
+          "move": "lightning-strike",
+          "view": "front",
+          "time": 0.96
+        },
+        {
+          "name": "starter-lightning-lightning-strike-front-8.png",
+          "sha256": "9f3f65fd62ac60f87dc6fb07356111ce508a4308068c3b9f9681b8ea7ca0b20a",
+          "move": "lightning-strike",
+          "view": "front",
+          "time": 1.2
+        },
+        {
+          "name": "starter-lightning-lightning-strike-front-9.png",
+          "sha256": "493970d18bc7e26b262f94d6d0e120f6c6507e32d8028b725cabe87f2c463f57",
+          "move": "lightning-strike",
+          "view": "front",
+          "time": 1.44
+        },
+        {
+          "name": "starter-lightning-lightning-strike-front-10.png",
+          "sha256": "b2b44213f048f7eed58f34a437cbce8c998e489ff7745db3691a7e2b44b084e3",
+          "move": "lightning-strike",
+          "view": "front",
+          "time": 1.68
+        },
+        {
+          "name": "starter-lightning-lightning-strike-front-11.png",
+          "sha256": "547e8937ebf47ce7fbbfb6be77b2cc9f1addaa5368f92022097c0eb1e0223056",
+          "move": "lightning-strike",
+          "view": "front",
+          "time": 1.92
+        },
+        {
+          "name": "starter-lightning-lightning-pulse-front-6.png",
+          "sha256": "0a53af0d316dc47fc68306b7fd7fb984fc88b4efafe3b898d24f69f71037cf21",
+          "move": "lightning-pulse",
+          "view": "front",
+          "time": 0.76
+        },
+        {
+          "name": "starter-lightning-lightning-pulse-front-7.png",
+          "sha256": "def83a8fac019529cb824eacfd88113bce29fe8ffbd5eee5c263dd0343eea304",
+          "move": "lightning-pulse",
+          "view": "front",
+          "time": 0.96
+        },
+        {
+          "name": "starter-lightning-lightning-pulse-front-8.png",
+          "sha256": "e3fa6595afef3fb420aa25810086fb17dec7597ff80314097d589d18a86855c5",
+          "move": "lightning-pulse",
+          "view": "front",
+          "time": 1.2
+        },
+        {
+          "name": "starter-lightning-lightning-pulse-front-9.png",
+          "sha256": "3dcc9f60a58c0058008de9f3569bbdbb73fc2b16385fc39cf1c53839ad763ea6",
+          "move": "lightning-pulse",
+          "view": "front",
+          "time": 1.44
+        },
+        {
+          "name": "starter-lightning-lightning-pulse-front-10.png",
+          "sha256": "4b4c6fcbcdef694a9abf29808ceb46f93b836b7fce673a72d7b3d7f2cdc81202",
+          "move": "lightning-pulse",
+          "view": "front",
+          "time": 1.68
+        },
+        {
+          "name": "starter-lightning-lightning-pulse-front-11.png",
+          "sha256": "841dea2b68f1fe3f621abf1b3ee3509f48b8d1e1bd018829182186d30ad1c2ce",
+          "move": "lightning-pulse",
+          "view": "front",
+          "time": 1.92
+        },
+        {
+          "name": "starter-lightning-lightning-breaker-front-6.png",
+          "sha256": "eb37f5a2ab076a54cff02c9b5ac3c9c24955a5c14ab6d3d6c4229537d7d6f47e",
+          "move": "lightning-breaker",
+          "view": "front",
+          "time": 0.76
+        },
+        {
+          "name": "starter-lightning-lightning-breaker-front-7.png",
+          "sha256": "1229fcb6ecc05c0aceb0eb90ae87781d1016c7fc3a8c75477ee998bc1cce34d2",
+          "move": "lightning-breaker",
+          "view": "front",
+          "time": 0.96
+        },
+        {
+          "name": "starter-lightning-lightning-breaker-front-8.png",
+          "sha256": "cb00e6e4c097daa58c6687d0a98172030218b9134855e35a5655ed1c36e1da1e",
+          "move": "lightning-breaker",
+          "view": "front",
+          "time": 1.2
+        },
+        {
+          "name": "starter-lightning-lightning-breaker-front-9.png",
+          "sha256": "f2c0cf099250b0b4c1361a970c4311bb60529f321e912aaa1a023b871649e96a",
+          "move": "lightning-breaker",
+          "view": "front",
+          "time": 1.44
+        },
+        {
+          "name": "starter-lightning-lightning-breaker-front-10.png",
+          "sha256": "323be67eb335c379d728711468d552a3bccc7620bb7bc76a876ff9886c160574",
+          "move": "lightning-breaker",
+          "view": "front",
+          "time": 1.68
+        },
+        {
+          "name": "starter-lightning-lightning-breaker-front-11.png",
+          "sha256": "9ed0b832bf6332adf8d7d8a712fa25fb0297a5650d6987959e065a31b62cc3fe",
+          "move": "lightning-breaker",
+          "view": "front",
+          "time": 1.92
+        }
+      ],
+      "width": 1602,
+      "height": 681
+    },
+    {
+      "name": "front-block-1-half-0.png",
+      "sha256": "4aeb696e269118aa1c43646a290f77d2f2c368d45c52149d59e7defaf0ef54c3",
+      "sources": [
+        {
+          "name": "starter-lightning-fire-pulse-front-0.png",
+          "sha256": "730f9d1bb8eaea391b6dea520ac71dc6134f388895fc5551e3a8a43baf5202fb",
+          "move": "fire-pulse",
+          "view": "front",
+          "time": 0.04
+        },
+        {
+          "name": "starter-lightning-fire-pulse-front-1.png",
+          "sha256": "eb9aa886ccf34daf0e340b99fe67e578903a880c332960eb3379303dc8a3d6cd",
+          "move": "fire-pulse",
+          "view": "front",
+          "time": 0.12
+        },
+        {
+          "name": "starter-lightning-fire-pulse-front-2.png",
+          "sha256": "41d3066737be6d8497cb47d47d7ad58d80f71e5bba2dbd84c99c6df1a9810b19",
+          "move": "fire-pulse",
+          "view": "front",
+          "time": 0.24
+        },
+        {
+          "name": "starter-lightning-fire-pulse-front-3.png",
+          "sha256": "f2cf6b0bf280261c75c45488ba1e304d9b5bfb12aa4f3a27159e1547cdf02764",
+          "move": "fire-pulse",
+          "view": "front",
+          "time": 0.36
+        },
+        {
+          "name": "starter-lightning-fire-pulse-front-4.png",
+          "sha256": "45000f6882dd052c861194f9a60f5f77d5a71c72cbb12dcb84aa134ce24fd30b",
+          "move": "fire-pulse",
+          "view": "front",
+          "time": 0.48
+        },
+        {
+          "name": "starter-lightning-fire-pulse-front-5.png",
+          "sha256": "5a4b8912cd6947e566d17bb08e7fcf8da7dd4f04e1aca5b8759c262e26763855",
+          "move": "fire-pulse",
+          "view": "front",
+          "time": 0.6
+        },
+        {
+          "name": "starter-lightning-bind-front-0.png",
+          "sha256": "e46c466e3a74ec9f02cc8d64cc674b1e55197bda92e8cb5db70feea298a3f3a7",
+          "move": "bind",
+          "view": "front",
+          "time": 0.04
+        },
+        {
+          "name": "starter-lightning-bind-front-1.png",
+          "sha256": "0542febafcd263c7ab09b630bc51bd9bbf8e3dcdfac4b0bc6e93b677569ef079",
+          "move": "bind",
+          "view": "front",
+          "time": 0.12
+        },
+        {
+          "name": "starter-lightning-bind-front-2.png",
+          "sha256": "2c5e84f9715ca9cfcfa6f21a22ec03b3de948d3d375a7f6504229542143cf505",
+          "move": "bind",
+          "view": "front",
+          "time": 0.24
+        },
+        {
+          "name": "starter-lightning-bind-front-3.png",
+          "sha256": "40d3ee4199f557a9a9d7f9de9cae92da8c1e84473408949ae5232f5dca1b80cb",
+          "move": "bind",
+          "view": "front",
+          "time": 0.36
+        },
+        {
+          "name": "starter-lightning-bind-front-4.png",
+          "sha256": "f4d6ca6caf66083ed0abfa5550d5de566f98e1063f2d05cc9baeff7a9b7d8daf",
+          "move": "bind",
+          "view": "front",
+          "time": 0.48
+        },
+        {
+          "name": "starter-lightning-bind-front-5.png",
+          "sha256": "ce12f31661ab0368b96df2ff26db9903773a5b5276822ea21938fde83909442d",
+          "move": "bind",
+          "view": "front",
+          "time": 0.6
+        },
+        {
+          "name": "starter-lightning-expose-front-0.png",
+          "sha256": "81e53fc1acd36fa892cc94dcf76eb4e986e3659b244e093568b23c6f0f0a7451",
+          "move": "expose",
+          "view": "front",
+          "time": 0.04
+        },
+        {
+          "name": "starter-lightning-expose-front-1.png",
+          "sha256": "36a248a0a88f9fde63efe18ef2da9b04c7b7ff82dae95bde2af17520c71e44fd",
+          "move": "expose",
+          "view": "front",
+          "time": 0.12
+        },
+        {
+          "name": "starter-lightning-expose-front-2.png",
+          "sha256": "d20373bc44b6e31a2fd14612b6ace8259760b01cbf87707b7e328000557e49fc",
+          "move": "expose",
+          "view": "front",
+          "time": 0.24
+        },
+        {
+          "name": "starter-lightning-expose-front-3.png",
+          "sha256": "b3e8011c58d2d35c95b257e85faa706087ca6ae97df6e266426ed223da62b17a",
+          "move": "expose",
+          "view": "front",
+          "time": 0.36
+        },
+        {
+          "name": "starter-lightning-expose-front-4.png",
+          "sha256": "86c35f07e59effcfc089998a98ab3b0b646ea0c7195a85bafab23eb7fc870070",
+          "move": "expose",
+          "view": "front",
+          "time": 0.48
+        },
+        {
+          "name": "starter-lightning-expose-front-5.png",
+          "sha256": "bd9ef6b5f22a865ab56ff1f794981b325c5cfe0289727f19c2e8869ddc150f7c",
+          "move": "expose",
+          "view": "front",
+          "time": 0.6
+        }
+      ],
+      "width": 1602,
+      "height": 681
+    },
+    {
+      "name": "front-block-1-half-1.png",
+      "sha256": "130c6bb3aa1d953653bbd662271fb38ba891d96932c2c3475a695c1de63f37a9",
+      "sources": [
+        {
+          "name": "starter-lightning-fire-pulse-front-6.png",
+          "sha256": "5b85f64a25be3fa2e8c9c0048c8e0b829ec7b2a377d7bd97725950680dbabec5",
+          "move": "fire-pulse",
+          "view": "front",
+          "time": 0.76
+        },
+        {
+          "name": "starter-lightning-fire-pulse-front-7.png",
+          "sha256": "eeb5332612cc2a98cbad03cb3694e7f66f0366a46088dfca18fb9adb375b1544",
+          "move": "fire-pulse",
+          "view": "front",
+          "time": 0.96
+        },
+        {
+          "name": "starter-lightning-fire-pulse-front-8.png",
+          "sha256": "9dd53c1cff935b1c1ba8131bd0c6ee686442bdba68bbc4fa651032cf11dd6b31",
+          "move": "fire-pulse",
+          "view": "front",
+          "time": 1.2
+        },
+        {
+          "name": "starter-lightning-fire-pulse-front-9.png",
+          "sha256": "fe0d50e1f3b14c6ae3e735a0803cf4ed573fe4396dc7f2287891318ba086d951",
+          "move": "fire-pulse",
+          "view": "front",
+          "time": 1.44
+        },
+        {
+          "name": "starter-lightning-fire-pulse-front-10.png",
+          "sha256": "cf7238c266cecb8ec986f8ea48c6befafc8fa409a9af24da0da795db5e78c9cd",
+          "move": "fire-pulse",
+          "view": "front",
+          "time": 1.68
+        },
+        {
+          "name": "starter-lightning-fire-pulse-front-11.png",
+          "sha256": "cc453c70b4ed2e57ac2fd174be4466bbf483ac8b5e976325b20d0f158f82f4e8",
+          "move": "fire-pulse",
+          "view": "front",
+          "time": 1.92
+        },
+        {
+          "name": "starter-lightning-bind-front-6.png",
+          "sha256": "650c090f875da0500746d646c8248478e20f265e36ac95eafd62974865f55a8c",
+          "move": "bind",
+          "view": "front",
+          "time": 0.76
+        },
+        {
+          "name": "starter-lightning-bind-front-7.png",
+          "sha256": "0a74c9d58e2397be528c2b05a7767470f02a0f688221d0f9ca0dfa9d59ee2fc2",
+          "move": "bind",
+          "view": "front",
+          "time": 0.96
+        },
+        {
+          "name": "starter-lightning-bind-front-8.png",
+          "sha256": "c552510d487566fdd79b2dfbea8ac4fe1d1f6f74009843b9f4c851d0feb8bf02",
+          "move": "bind",
+          "view": "front",
+          "time": 1.2
+        },
+        {
+          "name": "starter-lightning-bind-front-9.png",
+          "sha256": "2701ccec77f39ff80e0b4f922f5784363be070ef00ad095030d1baea3be3b9a3",
+          "move": "bind",
+          "view": "front",
+          "time": 1.44
+        },
+        {
+          "name": "starter-lightning-bind-front-10.png",
+          "sha256": "f288241f0f10d424465a2627e306d9f0229b68d9edb633e8fdffe3d06090eca8",
+          "move": "bind",
+          "view": "front",
+          "time": 1.68
+        },
+        {
+          "name": "starter-lightning-bind-front-11.png",
+          "sha256": "feadd1d5ccfb5d1aaa520164d729f3de60a657da0ad08f68f4f4a94f35e96f4d",
+          "move": "bind",
+          "view": "front",
+          "time": 1.92
+        },
+        {
+          "name": "starter-lightning-expose-front-6.png",
+          "sha256": "68a2e68e0e37dab7fba8cd55c9bda55d6c5748127b47db4f65d01b5cf449b0a8",
+          "move": "expose",
+          "view": "front",
+          "time": 0.76
+        },
+        {
+          "name": "starter-lightning-expose-front-7.png",
+          "sha256": "f55b4742212b735f042bea5e8aab2a8b1eb6716b74a0953abfa90dd2cfefb497",
+          "move": "expose",
+          "view": "front",
+          "time": 0.96
+        },
+        {
+          "name": "starter-lightning-expose-front-8.png",
+          "sha256": "997afdcd33d117fb1774e04970a83daee2351bb7fb163fcf17c6c47f347d0617",
+          "move": "expose",
+          "view": "front",
+          "time": 1.2
+        },
+        {
+          "name": "starter-lightning-expose-front-9.png",
+          "sha256": "ca84ecb7462f23ff18a2d253e5c3501b21f0d1aab9932b026923f2c198a2218d",
+          "move": "expose",
+          "view": "front",
+          "time": 1.44
+        },
+        {
+          "name": "starter-lightning-expose-front-10.png",
+          "sha256": "cf7238c266cecb8ec986f8ea48c6befafc8fa409a9af24da0da795db5e78c9cd",
+          "move": "expose",
+          "view": "front",
+          "time": 1.68
+        },
+        {
+          "name": "starter-lightning-expose-front-11.png",
+          "sha256": "9a311dad685c3c9c4e93053d0e786698caa7f1d8a6d6bca960776473d36650c0",
+          "move": "expose",
+          "view": "front",
+          "time": 1.92
+        }
+      ],
+      "width": 1602,
+      "height": 681
+    },
+    {
+      "name": "front-block-2-half-0.png",
+      "sha256": "ed3431bf7d8d9b972b7be66fb728632dd2e765306a86d1381e3f5a7bfe6f9b04",
+      "sources": [
+        {
+          "name": "starter-lightning-rally-front-0.png",
+          "sha256": "01873b241b084f30eb43bdebd2fc48431745bd5f7f0d7c2da4303078ab04c1e4",
+          "move": "rally",
+          "view": "front",
+          "time": 0.04
+        },
+        {
+          "name": "starter-lightning-rally-front-1.png",
+          "sha256": "1fda1fabcfdbc3e7f4296d54202309060d1fce54c918c0a904b9f0f9f5f7d08b",
+          "move": "rally",
+          "view": "front",
+          "time": 0.12
+        },
+        {
+          "name": "starter-lightning-rally-front-2.png",
+          "sha256": "2f5eb2ec01e0a62e54a0808a11e5c0debdb3c9b49fce5d8d072d81c5d9d63d14",
+          "move": "rally",
+          "view": "front",
+          "time": 0.24
+        },
+        {
+          "name": "starter-lightning-rally-front-3.png",
+          "sha256": "0e248b91185d2a1e09de880108565f4d06432cc32c2a24f52f34b4c4b2bf1455",
+          "move": "rally",
+          "view": "front",
+          "time": 0.36
+        },
+        {
+          "name": "starter-lightning-rally-front-4.png",
+          "sha256": "4581bfd5a4da1548d7e9f76264c6855005491a5871af5811046fad379d3d60a6",
+          "move": "rally",
+          "view": "front",
+          "time": 0.48
+        },
+        {
+          "name": "starter-lightning-rally-front-5.png",
+          "sha256": "7e37fd838e5ef2a889a1b3f9eb5cf7830a2811dc88ef833742a6f0dcda671b35",
+          "move": "rally",
+          "view": "front",
+          "time": 0.6
+        },
+        {
+          "name": "starter-lightning-protect-front-0.png",
+          "sha256": "c03d57f777da9a04fccd91f01a18ef21c3baa950c9ea30f13d41cfe296743c30",
+          "move": "protect",
+          "view": "front",
+          "time": 0.04
+        },
+        {
+          "name": "starter-lightning-protect-front-1.png",
+          "sha256": "0473a94cb92e74e56d42a27abe1d36bf35785f9522af3d448a6af152737bb972",
+          "move": "protect",
+          "view": "front",
+          "time": 0.12
+        },
+        {
+          "name": "starter-lightning-protect-front-2.png",
+          "sha256": "0f1095df4e0064fd9bbef5180ad59c674ff4919b79d07e41881d16438b926831",
+          "move": "protect",
+          "view": "front",
+          "time": 0.24
+        },
+        {
+          "name": "starter-lightning-protect-front-3.png",
+          "sha256": "4041525369e0987c4ee5c2ab9783c643f8338ce5e57f05a6ceec83861a8e3fed",
+          "move": "protect",
+          "view": "front",
+          "time": 0.36
+        },
+        {
+          "name": "starter-lightning-protect-front-4.png",
+          "sha256": "09ee9bb444244c6a3ce7a066c7a0b353f26396cd7b1295a2a36dc33c5aedce16",
+          "move": "protect",
+          "view": "front",
+          "time": 0.48
+        },
+        {
+          "name": "starter-lightning-protect-front-5.png",
+          "sha256": "9c67f3cf40bd7c4b559ea35fc34d582b0aafe0757c1cf17f1d9ac143be3490a1",
+          "move": "protect",
+          "view": "front",
+          "time": 0.6
+        },
+        {
+          "name": "starter-lightning-starter-lightning-signature-front-0.png",
+          "sha256": "b48c3b501bd66fab3e9cf00ffc83a975771e0ce298c809a2143fad951cc168e9",
+          "move": "starter-lightning-signature",
+          "view": "front",
+          "time": 0.04
+        },
+        {
+          "name": "starter-lightning-starter-lightning-signature-front-1.png",
+          "sha256": "e5db0ba2634d3e73cff5299e53c3dc0fca69abd8f7978ee4418b9c0b807761c3",
+          "move": "starter-lightning-signature",
+          "view": "front",
+          "time": 0.12
+        },
+        {
+          "name": "starter-lightning-starter-lightning-signature-front-2.png",
+          "sha256": "cc085bd0efaeb90fc954e9e8c62e274dbb092b9e4701fe004e5c4261f4c2532e",
+          "move": "starter-lightning-signature",
+          "view": "front",
+          "time": 0.24
+        },
+        {
+          "name": "starter-lightning-starter-lightning-signature-front-3.png",
+          "sha256": "c91464c8fe1443540b6043423a363761e9157217c2f327816b20078e450004da",
+          "move": "starter-lightning-signature",
+          "view": "front",
+          "time": 0.36
+        },
+        {
+          "name": "starter-lightning-starter-lightning-signature-front-4.png",
+          "sha256": "27333b61eb9b39d13b3f3efb0fda9cddf12423bc2eae41ddb1cf0db1aa2ad4fb",
+          "move": "starter-lightning-signature",
+          "view": "front",
+          "time": 0.48
+        },
+        {
+          "name": "starter-lightning-starter-lightning-signature-front-5.png",
+          "sha256": "58e58e0b5e752d32acd1a14c78483685d42f733ce7f871a9f9361c49885db2c0",
+          "move": "starter-lightning-signature",
+          "view": "front",
+          "time": 0.6
+        }
+      ],
+      "width": 1602,
+      "height": 681
+    },
+    {
+      "name": "front-block-2-half-1.png",
+      "sha256": "a05996c8c3d58eb0641712f93194ce3929ddd4143e7f27866de72d41d4cd1b78",
+      "sources": [
+        {
+          "name": "starter-lightning-rally-front-6.png",
+          "sha256": "52f1bd8131919582ee113bc314ff2660eab365ee817d9c155b0081d4b4b1b4a6",
+          "move": "rally",
+          "view": "front",
+          "time": 0.76
+        },
+        {
+          "name": "starter-lightning-rally-front-7.png",
+          "sha256": "ea94ef679d2f8eefa95ea03245ee5d687cac6415ab93cf4e0ed60fbe1b5d511c",
+          "move": "rally",
+          "view": "front",
+          "time": 0.96
+        },
+        {
+          "name": "starter-lightning-rally-front-8.png",
+          "sha256": "043b062c8804a0bdde39cefedddbf8cb76b948c250057087befeff5a14628569",
+          "move": "rally",
+          "view": "front",
+          "time": 1.2
+        },
+        {
+          "name": "starter-lightning-rally-front-9.png",
+          "sha256": "880f26e2b4d0c6d8ee4ecf49d2bf2ec98ca1098c5702937c32122230b96a5e54",
+          "move": "rally",
+          "view": "front",
+          "time": 1.44
+        },
+        {
+          "name": "starter-lightning-rally-front-10.png",
+          "sha256": "92d1a5b14a2ce7d3ec8429ba85560c3968226f9991688438ac0da59cc243b0d4",
+          "move": "rally",
+          "view": "front",
+          "time": 1.68
+        },
+        {
+          "name": "starter-lightning-rally-front-11.png",
+          "sha256": "7362121a7049b8c5af483267ec5c3ae593b9208ed78dba2815f07f59df0c0b81",
+          "move": "rally",
+          "view": "front",
+          "time": 1.92
+        },
+        {
+          "name": "starter-lightning-protect-front-6.png",
+          "sha256": "d35bbfc690f46cc168e47540053ec9b286ce876b7510e1f374f7a73af048d9e9",
+          "move": "protect",
+          "view": "front",
+          "time": 0.76
+        },
+        {
+          "name": "starter-lightning-protect-front-7.png",
+          "sha256": "fd7865313b2a292f2087f0f6f22a5e09aeb9348d571e10be676d8bbcf25fcb41",
+          "move": "protect",
+          "view": "front",
+          "time": 0.96
+        },
+        {
+          "name": "starter-lightning-protect-front-8.png",
+          "sha256": "8d27b6a59897b03558bf25da084b150693eeaab6af4afa2ed35a20635df4602e",
+          "move": "protect",
+          "view": "front",
+          "time": 1.2
+        },
+        {
+          "name": "starter-lightning-protect-front-9.png",
+          "sha256": "dc9bf4853b2349cc0181911d0e721cc2826c455df194af9a6a21db7811e8a5b3",
+          "move": "protect",
+          "view": "front",
+          "time": 1.44
+        },
+        {
+          "name": "starter-lightning-protect-front-10.png",
+          "sha256": "1613ff515ce8feb1bd90b0a5312340be3a908dfddf9b603ff6ef998ec89c2a05",
+          "move": "protect",
+          "view": "front",
+          "time": 1.68
+        },
+        {
+          "name": "starter-lightning-protect-front-11.png",
+          "sha256": "696113f047f30eeb39b119c2dee2f786e292b515e2a8e71ba22540c4e0cddd88",
+          "move": "protect",
+          "view": "front",
+          "time": 1.92
+        },
+        {
+          "name": "starter-lightning-starter-lightning-signature-front-6.png",
+          "sha256": "5f94add0c9b6c88f1449c02702269c3d093e8bfb3a2834d3e11dc65d17530262",
+          "move": "starter-lightning-signature",
+          "view": "front",
+          "time": 0.76
+        },
+        {
+          "name": "starter-lightning-starter-lightning-signature-front-7.png",
+          "sha256": "73dc4ed8facdb556511f5713705be6c0cb9d96e6fa42fe94e29193f601e7f30d",
+          "move": "starter-lightning-signature",
+          "view": "front",
+          "time": 0.96
+        },
+        {
+          "name": "starter-lightning-starter-lightning-signature-front-8.png",
+          "sha256": "577190b36b88007e580bca9fa4c1e621f452f6a9bb6dcc903cb1e8316d13a153",
+          "move": "starter-lightning-signature",
+          "view": "front",
+          "time": 1.2
+        },
+        {
+          "name": "starter-lightning-starter-lightning-signature-front-9.png",
+          "sha256": "bd815e29c2918c222b43fce5be6adb19656eafd6bd75be69ce36281fc57d90d1",
+          "move": "starter-lightning-signature",
+          "view": "front",
+          "time": 1.44
+        },
+        {
+          "name": "starter-lightning-starter-lightning-signature-front-10.png",
+          "sha256": "23921dff764b72fab18fccc6b44cfc094871f0cc941395374f96651b0640d739",
+          "move": "starter-lightning-signature",
+          "view": "front",
+          "time": 1.68
+        },
+        {
+          "name": "starter-lightning-starter-lightning-signature-front-11.png",
+          "sha256": "0e1ea1ff56d101596e8d4e2cecbb373458469477afc3bf0c7b52833b91144f00",
+          "move": "starter-lightning-signature",
+          "view": "front",
+          "time": 1.92
+        }
+      ],
+      "width": 1602,
+      "height": 681
+    },
+    {
+      "name": "side-block-0-half-0.png",
+      "sha256": "96b9c8117ba3d242e2999f73862f210c10184de1c111158c44ee3840c4c8aa08",
+      "sources": [
+        {
+          "name": "starter-lightning-lightning-strike-side-0.png",
+          "sha256": "016ab1ec886aae947d59bbf50288d9752eb51a09a5312f04d3c686a75508443b",
+          "move": "lightning-strike",
+          "view": "side",
+          "time": 0.04
+        },
+        {
+          "name": "starter-lightning-lightning-strike-side-1.png",
+          "sha256": "88a18e2c0009910cc78be75792f47c1bfbec7a812930827c7b9e358b25dd8473",
+          "move": "lightning-strike",
+          "view": "side",
+          "time": 0.12
+        },
+        {
+          "name": "starter-lightning-lightning-strike-side-2.png",
+          "sha256": "f67f35eef8535fe7215eff5b99c0663f69de530c18ab09d84e7197c075ea66c4",
+          "move": "lightning-strike",
+          "view": "side",
+          "time": 0.24
+        },
+        {
+          "name": "starter-lightning-lightning-strike-side-3.png",
+          "sha256": "25ef6bcfe0816d0d1ede3777d6c3dd380b6ed53c2469c30487ed8384a25275c5",
+          "move": "lightning-strike",
+          "view": "side",
+          "time": 0.36
+        },
+        {
+          "name": "starter-lightning-lightning-strike-side-4.png",
+          "sha256": "7d5bc9c26338a4de8cba74e0ce9ac72738fee751d6b3cae941d7941850340481",
+          "move": "lightning-strike",
+          "view": "side",
+          "time": 0.48
+        },
+        {
+          "name": "starter-lightning-lightning-strike-side-5.png",
+          "sha256": "39347dc76bb5e033dae01172b1e6e75d4512845c4b3584b3925d0c3a625f6914",
+          "move": "lightning-strike",
+          "view": "side",
+          "time": 0.6
+        },
+        {
+          "name": "starter-lightning-lightning-pulse-side-0.png",
+          "sha256": "52741362f969405856cc1dec33206e298391258387a003396eb0a34909cfc6de",
+          "move": "lightning-pulse",
+          "view": "side",
+          "time": 0.04
+        },
+        {
+          "name": "starter-lightning-lightning-pulse-side-1.png",
+          "sha256": "f467ede3634a9932d5afa25ce926819bbfdc38e466d239705aa5ab96c3639d1e",
+          "move": "lightning-pulse",
+          "view": "side",
+          "time": 0.12
+        },
+        {
+          "name": "starter-lightning-lightning-pulse-side-2.png",
+          "sha256": "b0fce03a0c02b7388e08da226e19adaf35ad807898d5ee5677e2513a5558111f",
+          "move": "lightning-pulse",
+          "view": "side",
+          "time": 0.24
+        },
+        {
+          "name": "starter-lightning-lightning-pulse-side-3.png",
+          "sha256": "0ae4d09f60433090c814b93944e010d7d2794ac485c1f1e832a6e5cf31c4479a",
+          "move": "lightning-pulse",
+          "view": "side",
+          "time": 0.36
+        },
+        {
+          "name": "starter-lightning-lightning-pulse-side-4.png",
+          "sha256": "cdc6f19f9af5f018a48f89baed020ef72c336b4465d0240075aa9726d8848e8c",
+          "move": "lightning-pulse",
+          "view": "side",
+          "time": 0.48
+        },
+        {
+          "name": "starter-lightning-lightning-pulse-side-5.png",
+          "sha256": "c8ede4e697aa2d7128be2f3b6447c7e1ed0c242938b0ea7cb172acf233b3dbcb",
+          "move": "lightning-pulse",
+          "view": "side",
+          "time": 0.6
+        },
+        {
+          "name": "starter-lightning-lightning-breaker-side-0.png",
+          "sha256": "eed05308788bdc3285af6b70f7a022de16f906c4cd363bbd42ccd9a955264d43",
+          "move": "lightning-breaker",
+          "view": "side",
+          "time": 0.04
+        },
+        {
+          "name": "starter-lightning-lightning-breaker-side-1.png",
+          "sha256": "066f31f61080605d528fbb12ca5f2c45c12880e58213aa5c86581be2e694b32d",
+          "move": "lightning-breaker",
+          "view": "side",
+          "time": 0.12
+        },
+        {
+          "name": "starter-lightning-lightning-breaker-side-2.png",
+          "sha256": "29defa09410271e5aa9c613f2965ddfe74fb6b1bc69ee0ad2e8cd4a1718c782d",
+          "move": "lightning-breaker",
+          "view": "side",
+          "time": 0.24
+        },
+        {
+          "name": "starter-lightning-lightning-breaker-side-3.png",
+          "sha256": "2d4b7fe6d5f1ff5bccf54aa14cabb7c069f1015c04c5a919bfaa21039f1d2286",
+          "move": "lightning-breaker",
+          "view": "side",
+          "time": 0.36
+        },
+        {
+          "name": "starter-lightning-lightning-breaker-side-4.png",
+          "sha256": "424f16b906fe14ae94aa048069be94cfa24b594208a9489f14e805429ecfcbdc",
+          "move": "lightning-breaker",
+          "view": "side",
+          "time": 0.48
+        },
+        {
+          "name": "starter-lightning-lightning-breaker-side-5.png",
+          "sha256": "79e51997d0fe217d071c40f4e6e2094241e3fa0e86a0c979ba3925b195a452b8",
+          "move": "lightning-breaker",
+          "view": "side",
+          "time": 0.6
+        }
+      ],
+      "width": 1602,
+      "height": 681
+    },
+    {
+      "name": "side-block-0-half-1.png",
+      "sha256": "e182584fa16e77fb2d32efff4326dafda4cefb3454a263606166757b61eaa8c6",
+      "sources": [
+        {
+          "name": "starter-lightning-lightning-strike-side-6.png",
+          "sha256": "0f26ee1533556d8b1fb5140e04dddcfd85cced48978dde83c5ba3f18ba1842c9",
+          "move": "lightning-strike",
+          "view": "side",
+          "time": 0.76
+        },
+        {
+          "name": "starter-lightning-lightning-strike-side-7.png",
+          "sha256": "00d42fb25ebca6969b877eab481608a2a970987ae75a5b3216cb10c0004611c8",
+          "move": "lightning-strike",
+          "view": "side",
+          "time": 0.96
+        },
+        {
+          "name": "starter-lightning-lightning-strike-side-8.png",
+          "sha256": "5949543d4904e33f3f11c55b0297449e9e46fc038a445464627bea60ce8216ac",
+          "move": "lightning-strike",
+          "view": "side",
+          "time": 1.2
+        },
+        {
+          "name": "starter-lightning-lightning-strike-side-9.png",
+          "sha256": "f2e4281385c01f804b64360fa1c0a7c1eee7855fcc508e2040859796fbb3a308",
+          "move": "lightning-strike",
+          "view": "side",
+          "time": 1.44
+        },
+        {
+          "name": "starter-lightning-lightning-strike-side-10.png",
+          "sha256": "836b037ac423320bfbfeb944ae5d531336b3cd08dd6ee83959d837bafa71d20d",
+          "move": "lightning-strike",
+          "view": "side",
+          "time": 1.68
+        },
+        {
+          "name": "starter-lightning-lightning-strike-side-11.png",
+          "sha256": "aa78a53ef5865cfd62cd1a352e16199e41ed4cc67a18016a99261f11a43da50f",
+          "move": "lightning-strike",
+          "view": "side",
+          "time": 1.92
+        },
+        {
+          "name": "starter-lightning-lightning-pulse-side-6.png",
+          "sha256": "6648b10bcb8ec5978e4b4be8e5c0bd7d0c94bda0ebde5a30272e5a3a292221e8",
+          "move": "lightning-pulse",
+          "view": "side",
+          "time": 0.76
+        },
+        {
+          "name": "starter-lightning-lightning-pulse-side-7.png",
+          "sha256": "66f6c08ca3f4d2f971a0c834628cbd5eb04f837053c78ce5454ca255b5b1f09c",
+          "move": "lightning-pulse",
+          "view": "side",
+          "time": 0.96
+        },
+        {
+          "name": "starter-lightning-lightning-pulse-side-8.png",
+          "sha256": "24b0a79201863929beeed22f00186b6388d71ceab0b6ab1350c4a865c5ffa394",
+          "move": "lightning-pulse",
+          "view": "side",
+          "time": 1.2
+        },
+        {
+          "name": "starter-lightning-lightning-pulse-side-9.png",
+          "sha256": "9a660752bb63d85eb28eb457fa1512f8a29d685f4737c5dd2b0df9a7c51739ce",
+          "move": "lightning-pulse",
+          "view": "side",
+          "time": 1.44
+        },
+        {
+          "name": "starter-lightning-lightning-pulse-side-10.png",
+          "sha256": "21e69867a7b0f789aae612f09fff0c8f8705424a444bf2d032c5295a46fb3bb6",
+          "move": "lightning-pulse",
+          "view": "side",
+          "time": 1.68
+        },
+        {
+          "name": "starter-lightning-lightning-pulse-side-11.png",
+          "sha256": "ca48830e6f310d829e01e640595d7c3ade9373728ffa36e4a67006d942172109",
+          "move": "lightning-pulse",
+          "view": "side",
+          "time": 1.92
+        },
+        {
+          "name": "starter-lightning-lightning-breaker-side-6.png",
+          "sha256": "89faff881d034dcbc35ef51d47b2f2c4735e5e1a1f32dd961e0491492473cc9d",
+          "move": "lightning-breaker",
+          "view": "side",
+          "time": 0.76
+        },
+        {
+          "name": "starter-lightning-lightning-breaker-side-7.png",
+          "sha256": "824273e64e8404188f11a997cabc7d337a0f3148eee7c8e5cf80544a992d68ed",
+          "move": "lightning-breaker",
+          "view": "side",
+          "time": 0.96
+        },
+        {
+          "name": "starter-lightning-lightning-breaker-side-8.png",
+          "sha256": "391c6de6f7170327c99bb14d8fdf9aac10cebfab690e7ab08deec0e2228f4f35",
+          "move": "lightning-breaker",
+          "view": "side",
+          "time": 1.2
+        },
+        {
+          "name": "starter-lightning-lightning-breaker-side-9.png",
+          "sha256": "f04a01245f979a049e68e0a67db0f3b75554833ec0e0be5be03ce27a1b9150dd",
+          "move": "lightning-breaker",
+          "view": "side",
+          "time": 1.44
+        },
+        {
+          "name": "starter-lightning-lightning-breaker-side-10.png",
+          "sha256": "0e36201d2d9601166b453b96825e7e9c23a8e2439d58e13a8b5983ccb645c4fa",
+          "move": "lightning-breaker",
+          "view": "side",
+          "time": 1.68
+        },
+        {
+          "name": "starter-lightning-lightning-breaker-side-11.png",
+          "sha256": "f87d2a8c02a1b1c2b3d7da4d8cf73ff3c1a423d5cd9aa1a560914450808c5205",
+          "move": "lightning-breaker",
+          "view": "side",
+          "time": 1.92
+        }
+      ],
+      "width": 1602,
+      "height": 681
+    },
+    {
+      "name": "side-block-1-half-0.png",
+      "sha256": "4415405a7f58641f5520290e535207553c79d7cd2afb35084f78948471a81ef8",
+      "sources": [
+        {
+          "name": "starter-lightning-fire-pulse-side-0.png",
+          "sha256": "4a072bd7a4308697daa6fe6a378b0b92a6fbaeb5ca2643d54ba74557f30e2b2c",
+          "move": "fire-pulse",
+          "view": "side",
+          "time": 0.04
+        },
+        {
+          "name": "starter-lightning-fire-pulse-side-1.png",
+          "sha256": "d85b37ad10d8dc2ba6c271f7e8c3a65e30f0df1a4f086782b0703db4888d12c1",
+          "move": "fire-pulse",
+          "view": "side",
+          "time": 0.12
+        },
+        {
+          "name": "starter-lightning-fire-pulse-side-2.png",
+          "sha256": "587c358acb4e9d042a1d6386d09da4a003ac2a9e196890b8f8e63cee11317872",
+          "move": "fire-pulse",
+          "view": "side",
+          "time": 0.24
+        },
+        {
+          "name": "starter-lightning-fire-pulse-side-3.png",
+          "sha256": "efedb3bc1aa6dfbe2c2720e20e578c0f229c4c05d886525b8ead59d8e890f289",
+          "move": "fire-pulse",
+          "view": "side",
+          "time": 0.36
+        },
+        {
+          "name": "starter-lightning-fire-pulse-side-4.png",
+          "sha256": "8ebed2691bb9aeaa9523ef00fe8289b1bafc4fbbf1c34fbbd1b3adee59d8397e",
+          "move": "fire-pulse",
+          "view": "side",
+          "time": 0.48
+        },
+        {
+          "name": "starter-lightning-fire-pulse-side-5.png",
+          "sha256": "41f70db58068409381e6399782841d3b63689239379b9475919f3c5fc343cce2",
+          "move": "fire-pulse",
+          "view": "side",
+          "time": 0.6
+        },
+        {
+          "name": "starter-lightning-bind-side-0.png",
+          "sha256": "71dd685668756dc942a8fca0035ee9457f491fcf55da565bca651ee17ffbfc21",
+          "move": "bind",
+          "view": "side",
+          "time": 0.04
+        },
+        {
+          "name": "starter-lightning-bind-side-1.png",
+          "sha256": "2f662776653eef099568f509c9f0a15be896a0e0812e5148d707ea74e3cb0a64",
+          "move": "bind",
+          "view": "side",
+          "time": 0.12
+        },
+        {
+          "name": "starter-lightning-bind-side-2.png",
+          "sha256": "a895cfac7854f3be413ec55e7a77eadebdfa0862d790d7c17f3e5867c366e42a",
+          "move": "bind",
+          "view": "side",
+          "time": 0.24
+        },
+        {
+          "name": "starter-lightning-bind-side-3.png",
+          "sha256": "9ad1e2ed62f935f1b839541fa735e3c40597d7d4673693069143ad0b08b899c0",
+          "move": "bind",
+          "view": "side",
+          "time": 0.36
+        },
+        {
+          "name": "starter-lightning-bind-side-4.png",
+          "sha256": "3225601333580f9a0369dc9f66642b1d0f6ff54684630aeb8a1ae9cd1bcc574a",
+          "move": "bind",
+          "view": "side",
+          "time": 0.48
+        },
+        {
+          "name": "starter-lightning-bind-side-5.png",
+          "sha256": "3780c482c47a29c963820d6761a890d7c2c40f3e53d8110368e0a8f12e95d551",
+          "move": "bind",
+          "view": "side",
+          "time": 0.6
+        },
+        {
+          "name": "starter-lightning-expose-side-0.png",
+          "sha256": "684462df777ca8b8bc3aa958c4b51745e9c12fc9b3095978f5a051364d8b246e",
+          "move": "expose",
+          "view": "side",
+          "time": 0.04
+        },
+        {
+          "name": "starter-lightning-expose-side-1.png",
+          "sha256": "5f54299be7e182e6db3005b39224501af0671ca8464d7d0cbfc95cadef3218ab",
+          "move": "expose",
+          "view": "side",
+          "time": 0.12
+        },
+        {
+          "name": "starter-lightning-expose-side-2.png",
+          "sha256": "8c09b9c4c2f89036edb532de6163a6aaa2106751c6ab507e285842b4d7935c95",
+          "move": "expose",
+          "view": "side",
+          "time": 0.24
+        },
+        {
+          "name": "starter-lightning-expose-side-3.png",
+          "sha256": "67c7cd59c1ba39fc6dada8d9cdb3f2f89c2096be532a0fdd9d16f68d6b99b425",
+          "move": "expose",
+          "view": "side",
+          "time": 0.36
+        },
+        {
+          "name": "starter-lightning-expose-side-4.png",
+          "sha256": "71d121f8b4c2d33141aad1c7b0bbbd4c063106bb921b55d72d3190ed6f2822a7",
+          "move": "expose",
+          "view": "side",
+          "time": 0.48
+        },
+        {
+          "name": "starter-lightning-expose-side-5.png",
+          "sha256": "75aabeffb860642ae05053e58996b774b2d4157245689c4cad36088f6de4a00d",
+          "move": "expose",
+          "view": "side",
+          "time": 0.6
+        }
+      ],
+      "width": 1602,
+      "height": 681
+    },
+    {
+      "name": "side-block-1-half-1.png",
+      "sha256": "87d64edf39e58e05ae6a8dd50cb17a9fce3ba3fd0d2a4bb73292a85e606bc77b",
+      "sources": [
+        {
+          "name": "starter-lightning-fire-pulse-side-6.png",
+          "sha256": "01fdf0a40fac0d5776702aca161324f6cd7bb30f6c5d04747ae81da6e65382a2",
+          "move": "fire-pulse",
+          "view": "side",
+          "time": 0.76
+        },
+        {
+          "name": "starter-lightning-fire-pulse-side-7.png",
+          "sha256": "7c7d3288e31e20b76e8f43a29a87e31eed2f5fbfa26b91655ea324b42a22c93d",
+          "move": "fire-pulse",
+          "view": "side",
+          "time": 0.96
+        },
+        {
+          "name": "starter-lightning-fire-pulse-side-8.png",
+          "sha256": "e991bf96258b9e66b97911ffca41862c59087def2b95e7c58f059609a2e0befa",
+          "move": "fire-pulse",
+          "view": "side",
+          "time": 1.2
+        },
+        {
+          "name": "starter-lightning-fire-pulse-side-9.png",
+          "sha256": "01fdc4f7bb67f977771f00e5486e66687b42a3b9cad73b0790c88002ef1ecc2b",
+          "move": "fire-pulse",
+          "view": "side",
+          "time": 1.44
+        },
+        {
+          "name": "starter-lightning-fire-pulse-side-10.png",
+          "sha256": "21e69867a7b0f789aae612f09fff0c8f8705424a444bf2d032c5295a46fb3bb6",
+          "move": "fire-pulse",
+          "view": "side",
+          "time": 1.68
+        },
+        {
+          "name": "starter-lightning-fire-pulse-side-11.png",
+          "sha256": "ca48830e6f310d829e01e640595d7c3ade9373728ffa36e4a67006d942172109",
+          "move": "fire-pulse",
+          "view": "side",
+          "time": 1.92
+        },
+        {
+          "name": "starter-lightning-bind-side-6.png",
+          "sha256": "a4cb485e41522eba8419315c0813e9db0bc0bfbb79f223f0e1c4b39a45c3b305",
+          "move": "bind",
+          "view": "side",
+          "time": 0.76
+        },
+        {
+          "name": "starter-lightning-bind-side-7.png",
+          "sha256": "3451e2d86deef63f34ea251b0c5f6ae610636d5bc6ce312174f2849e766b22e6",
+          "move": "bind",
+          "view": "side",
+          "time": 0.96
+        },
+        {
+          "name": "starter-lightning-bind-side-8.png",
+          "sha256": "59603780983a2cfa9ac71a82dea34eda103a3d39532ec83c0bc881990cd11860",
+          "move": "bind",
+          "view": "side",
+          "time": 1.2
+        },
+        {
+          "name": "starter-lightning-bind-side-9.png",
+          "sha256": "71247632a6598f88b5a55e9f3470673271ef710d186a3d15bee4079203808d42",
+          "move": "bind",
+          "view": "side",
+          "time": 1.44
+        },
+        {
+          "name": "starter-lightning-bind-side-10.png",
+          "sha256": "4d3d7d6438fa23c0a6a0ca4350b8c27d3a82c27ab9eee999ba18176f26ffeac5",
+          "move": "bind",
+          "view": "side",
+          "time": 1.68
+        },
+        {
+          "name": "starter-lightning-bind-side-11.png",
+          "sha256": "962448a2cff11ed78cbe20f11cbae9950f5b95966ab9632288dda50e2eb0e1b3",
+          "move": "bind",
+          "view": "side",
+          "time": 1.92
+        },
+        {
+          "name": "starter-lightning-expose-side-6.png",
+          "sha256": "da34c9d548866f2cbd6208673022b9cb6330b6d122e8aada8861ec03b6d4b115",
+          "move": "expose",
+          "view": "side",
+          "time": 0.76
+        },
+        {
+          "name": "starter-lightning-expose-side-7.png",
+          "sha256": "b6ef404510120ae050d6d59e95d4aad444f57d982c7caa0771a0d7f63a148093",
+          "move": "expose",
+          "view": "side",
+          "time": 0.96
+        },
+        {
+          "name": "starter-lightning-expose-side-8.png",
+          "sha256": "9586083b3758cc0cd10c9c6b451d2675bf974d311b98b5339c05b1e607d0104d",
+          "move": "expose",
+          "view": "side",
+          "time": 1.2
+        },
+        {
+          "name": "starter-lightning-expose-side-9.png",
+          "sha256": "b7630c527cf06b983a2f0851d59983c77651a8ca041319e032aed1a0739b4303",
+          "move": "expose",
+          "view": "side",
+          "time": 1.44
+        },
+        {
+          "name": "starter-lightning-expose-side-10.png",
+          "sha256": "789182d1db288a538276cb2525ceca5efa8d2072aa30319cec8db7ea32bf4559",
+          "move": "expose",
+          "view": "side",
+          "time": 1.68
+        },
+        {
+          "name": "starter-lightning-expose-side-11.png",
+          "sha256": "2da5730852e1689cf0362b84f9e6a6a4efc09f956dbccbae386fe1edaca5a19c",
+          "move": "expose",
+          "view": "side",
+          "time": 1.92
+        }
+      ],
+      "width": 1602,
+      "height": 681
+    },
+    {
+      "name": "side-block-2-half-0.png",
+      "sha256": "7190860f58d371b525e20cbf3adf5a18d88a55440eb8088213adf555165aa5bf",
+      "sources": [
+        {
+          "name": "starter-lightning-rally-side-0.png",
+          "sha256": "3af22319d1437306496a515737b34cde66b9dfe4d5692139e36e45063c865b33",
+          "move": "rally",
+          "view": "side",
+          "time": 0.04
+        },
+        {
+          "name": "starter-lightning-rally-side-1.png",
+          "sha256": "b20fe57ecd4dea08ecac012e2c956bf6d2dfa2c07a715db3e21651a2351d0628",
+          "move": "rally",
+          "view": "side",
+          "time": 0.12
+        },
+        {
+          "name": "starter-lightning-rally-side-2.png",
+          "sha256": "62ab7a26f63a8397c9ea3d0385ae4b1e779a98c762b5dc53c1528ddc209ca564",
+          "move": "rally",
+          "view": "side",
+          "time": 0.24
+        },
+        {
+          "name": "starter-lightning-rally-side-3.png",
+          "sha256": "3ccdce6950e6bb7f6f820dc1c4ec794b42e49d0cc3b90913df834ee05d2a859a",
+          "move": "rally",
+          "view": "side",
+          "time": 0.36
+        },
+        {
+          "name": "starter-lightning-rally-side-4.png",
+          "sha256": "d9973e817df9caa63ea100bcc536f3d4d2a4fbec41164de54fc9892027b2dceb",
+          "move": "rally",
+          "view": "side",
+          "time": 0.48
+        },
+        {
+          "name": "starter-lightning-rally-side-5.png",
+          "sha256": "7742c497596f93deb77392d01d1637df1b4b02a5d56fb22d08a52929c23d186b",
+          "move": "rally",
+          "view": "side",
+          "time": 0.6
+        },
+        {
+          "name": "starter-lightning-protect-side-0.png",
+          "sha256": "49c0ec044738849c47530e9cb9753037f31dc15f4cdfc0d484035c02f18a24c3",
+          "move": "protect",
+          "view": "side",
+          "time": 0.04
+        },
+        {
+          "name": "starter-lightning-protect-side-1.png",
+          "sha256": "7303b9c4b69d674581c013137a0882841941dbc55badd69ea385710e4975b1d9",
+          "move": "protect",
+          "view": "side",
+          "time": 0.12
+        },
+        {
+          "name": "starter-lightning-protect-side-2.png",
+          "sha256": "fac1627675762d227b9308d77f0ab675401efb3d4eabdbf5e9e3fa2807629fe0",
+          "move": "protect",
+          "view": "side",
+          "time": 0.24
+        },
+        {
+          "name": "starter-lightning-protect-side-3.png",
+          "sha256": "ba99206f1f71211fdcf423327c0c88fb804d822275c4edcab00dd3c78ceff690",
+          "move": "protect",
+          "view": "side",
+          "time": 0.36
+        },
+        {
+          "name": "starter-lightning-protect-side-4.png",
+          "sha256": "4ca871fdb8eb32a9fddd7079a8f2aa11219054cf60ea584c1f1d5e043b4acc71",
+          "move": "protect",
+          "view": "side",
+          "time": 0.48
+        },
+        {
+          "name": "starter-lightning-protect-side-5.png",
+          "sha256": "4937b13134115eabf1ac42c5dd5acdcbecd94784056d57a17a05ce92a927144d",
+          "move": "protect",
+          "view": "side",
+          "time": 0.6
+        },
+        {
+          "name": "starter-lightning-starter-lightning-signature-side-0.png",
+          "sha256": "95af8567736eee2799515bc871984712f3206264c0447d524bbcd5d5ff68cef7",
+          "move": "starter-lightning-signature",
+          "view": "side",
+          "time": 0.04
+        },
+        {
+          "name": "starter-lightning-starter-lightning-signature-side-1.png",
+          "sha256": "2803de14e4bcc62a252aef1842d4b0f19ad584320637f7575b4cfe1d2d4fbefe",
+          "move": "starter-lightning-signature",
+          "view": "side",
+          "time": 0.12
+        },
+        {
+          "name": "starter-lightning-starter-lightning-signature-side-2.png",
+          "sha256": "a7cecefc82967e769d91867d6a1f612f26694ed28dc20e87a8cd9ab13aca926d",
+          "move": "starter-lightning-signature",
+          "view": "side",
+          "time": 0.24
+        },
+        {
+          "name": "starter-lightning-starter-lightning-signature-side-3.png",
+          "sha256": "72bccd2f9c992ad9f0d9f6e5661a8d79cc21ec285c69b8900c1d9d593b5bc5e3",
+          "move": "starter-lightning-signature",
+          "view": "side",
+          "time": 0.36
+        },
+        {
+          "name": "starter-lightning-starter-lightning-signature-side-4.png",
+          "sha256": "fb913576905999edeb6995588520a783e36d3e6312daa4fc06888012e26640ac",
+          "move": "starter-lightning-signature",
+          "view": "side",
+          "time": 0.48
+        },
+        {
+          "name": "starter-lightning-starter-lightning-signature-side-5.png",
+          "sha256": "051195e97521de028450aa384b345b4809c2df22b27e543ae7961f76aedf53f8",
+          "move": "starter-lightning-signature",
+          "view": "side",
+          "time": 0.6
+        }
+      ],
+      "width": 1602,
+      "height": 681
+    },
+    {
+      "name": "side-block-2-half-1.png",
+      "sha256": "fd0b7d323e80a7e323135e7cd0fc6250f8a404107e8fc84655e13e42956175a3",
+      "sources": [
+        {
+          "name": "starter-lightning-rally-side-6.png",
+          "sha256": "bed03e9acf1da979e1a10b858264a5dca633fa43ef8cb45eac91d43350880e1f",
+          "move": "rally",
+          "view": "side",
+          "time": 0.76
+        },
+        {
+          "name": "starter-lightning-rally-side-7.png",
+          "sha256": "89b1d16cbbd6acd386d0b7cd9fe59e39f32a2f0e8431e0a8c7c2036a4f944da7",
+          "move": "rally",
+          "view": "side",
+          "time": 0.96
+        },
+        {
+          "name": "starter-lightning-rally-side-8.png",
+          "sha256": "10808d215ce39c76e0e6010d2c1f1fd23aed5bd16d391e1e004ee81a9b1b05eb",
+          "move": "rally",
+          "view": "side",
+          "time": 1.2
+        },
+        {
+          "name": "starter-lightning-rally-side-9.png",
+          "sha256": "0c4e285b75d1ba3e42d810899f5be2b76d9826d6b4f5d1ee91878f05c32f62a8",
+          "move": "rally",
+          "view": "side",
+          "time": 1.44
+        },
+        {
+          "name": "starter-lightning-rally-side-10.png",
+          "sha256": "d43a823587f56936ee0754160ba703b062c12fc8ec745276a9b258d895f1e919",
+          "move": "rally",
+          "view": "side",
+          "time": 1.68
+        },
+        {
+          "name": "starter-lightning-rally-side-11.png",
+          "sha256": "962448a2cff11ed78cbe20f11cbae9950f5b95966ab9632288dda50e2eb0e1b3",
+          "move": "rally",
+          "view": "side",
+          "time": 1.92
+        },
+        {
+          "name": "starter-lightning-protect-side-6.png",
+          "sha256": "2bef77894e91cadd16b8bdf61992ace2af35c9c2069f0996cc859cc338b3664f",
+          "move": "protect",
+          "view": "side",
+          "time": 0.76
+        },
+        {
+          "name": "starter-lightning-protect-side-7.png",
+          "sha256": "0b418733c78f9730edcbadcd0105e433874838640cb2a360b37b810749a167dd",
+          "move": "protect",
+          "view": "side",
+          "time": 0.96
+        },
+        {
+          "name": "starter-lightning-protect-side-8.png",
+          "sha256": "2f6a97e2b1463a9e31ff2c3e85985db53606972609968d54c1f5056b2d1ecf49",
+          "move": "protect",
+          "view": "side",
+          "time": 1.2
+        },
+        {
+          "name": "starter-lightning-protect-side-9.png",
+          "sha256": "55f82ff7e91965ae5ac39fc28ede7c7c34261c51cf4f047a68ab7fa68a6675d4",
+          "move": "protect",
+          "view": "side",
+          "time": 1.44
+        },
+        {
+          "name": "starter-lightning-protect-side-10.png",
+          "sha256": "39b24a23fd5b64fbf2cd9c19f5ef119259fa363c74e01f93240c780ca00b9c07",
+          "move": "protect",
+          "view": "side",
+          "time": 1.68
+        },
+        {
+          "name": "starter-lightning-protect-side-11.png",
+          "sha256": "61e251f94f45759f0f2f465081c055b13d69abf0cc518c330b2afeb863011257",
+          "move": "protect",
+          "view": "side",
+          "time": 1.92
+        },
+        {
+          "name": "starter-lightning-starter-lightning-signature-side-6.png",
+          "sha256": "cc5f91409d3f1daf08791a49fefaae074c0d7541f410d47e19ebf4dadf284b3f",
+          "move": "starter-lightning-signature",
+          "view": "side",
+          "time": 0.76
+        },
+        {
+          "name": "starter-lightning-starter-lightning-signature-side-7.png",
+          "sha256": "a0d0872e81a2714b273d993c2ef9f4ef9eeb50b285cc71caf54ff8188457c168",
+          "move": "starter-lightning-signature",
+          "view": "side",
+          "time": 0.96
+        },
+        {
+          "name": "starter-lightning-starter-lightning-signature-side-8.png",
+          "sha256": "3a1437c99250252dfccf336f2f654244133fa41a3d24aa2b9df25b89ce894024",
+          "move": "starter-lightning-signature",
+          "view": "side",
+          "time": 1.2
+        },
+        {
+          "name": "starter-lightning-starter-lightning-signature-side-9.png",
+          "sha256": "dc05067e3fbf8ef88a4fd5336b802de02653a7385698e3aa494fa6314b4c47c3",
+          "move": "starter-lightning-signature",
+          "view": "side",
+          "time": 1.44
+        },
+        {
+          "name": "starter-lightning-starter-lightning-signature-side-10.png",
+          "sha256": "22b726e8faa8e52833f730fea59012484f05358362c31f5a755140183d48ca86",
+          "move": "starter-lightning-signature",
+          "view": "side",
+          "time": 1.68
+        },
+        {
+          "name": "starter-lightning-starter-lightning-signature-side-11.png",
+          "sha256": "e35dca0d1f8bf62332cea959154c6080f78d9f810f0b96109140dbebd00032f2",
+          "move": "starter-lightning-signature",
+          "view": "side",
+          "time": 1.92
+        }
+      ],
+      "width": 1602,
+      "height": 681
+    }
+  ],
+  "review": "pending"
+}

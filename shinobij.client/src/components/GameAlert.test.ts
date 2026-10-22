@@ -1,16 +1,21 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { NOTICE_KEY_GUARD_MS, confirmFocusesCancel, noticeKeyCanDismiss, playerAlertText } from "./GameAlert";
+import { NOTICE_KEY_GUARD_MS, confirmFocusesCancel, gameConfirm, noticeKeyCanDismiss, playerAlertText } from "./GameAlert";
 
-const UNREACHABLE = "The server could not be reached. Check your connection and try again.";
-const SERVER_FAILED = "The server could not finish that. Try again in a moment.";
+const UNREACHABLE = "The request could not be confirmed. Check your connection and current progress before trying again.";
+const SERVER_FAILED = "The server reported an error. Check your current progress before trying again.";
 
 test("raw browser network errors become a sentence the player can act on", () => {
     for (const raw of ["Failed to fetch", "Load failed", "NetworkError when attempting to fetch resource.", "NetworkError when attempting to fetch resource"]) {
         assert.equal(playerAlertText(raw), UNREACHABLE, raw);
     }
-    // A 502 HTML page parsed as JSON.
-    assert.equal(playerAlertText("Unexpected token '<', \"<!DOCTYPE \"... is not valid JSON"), UNREACHABLE);
+});
+
+test("an unreadable response does not claim the server was unreachable or the action failed", () => {
+    for (const raw of ["Unexpected token '<', \"<!DOCTYPE \"... is not valid JSON", "Unexpected end of JSON input"]) {
+        assert.match(playerAlertText(raw), /response could not be read.*Check your current progress/);
+        assert.doesNotMatch(playerAlertText(raw), /could not be reached|Nothing was changed|not valid JSON/);
+    }
 });
 
 test("a bare server fault becomes a retry sentence", () => {
@@ -42,4 +47,12 @@ test("a destructive confirm opens on Cancel unless the caller chose otherwise", 
     assert.equal(confirmFocusesCancel({ initialFocus: "cancel" }), true);
     assert.equal(confirmFocusesCancel({}), false);
     assert.equal(confirmFocusesCancel(undefined), false);
+});
+
+test('an interrupted confirmation resolves false even before its host mounts', async () => {
+    const scope = new AbortController();
+    const result = gameConfirm('Enter the rift?', { signal: scope.signal });
+    scope.abort();
+    assert.equal(await result, false);
+    assert.equal(await gameConfirm('Stale entry', { signal: scope.signal }), false);
 });

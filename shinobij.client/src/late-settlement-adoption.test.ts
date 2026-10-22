@@ -23,7 +23,10 @@ function between(source: string, start: string, end: string): string {
 
 describe("late settlement replies are still adopted", () => {
     const tower = read("./screens/BattleTowerFight.tsx");
-    const block = between(tower, "const performSettlement = useCallback(", "}, [runId, me, meSlug, settleFn, onVersionedCharacter, isWorldBoss]);");
+    // The following lifecycle declaration bounds the callback independently of
+    // React's dependency list, which can grow as new encounter modes are added.
+    const block = between(tower, "const performSettlement = useCallback(", "const shouldSettle =");
+    assert.match(block, /return request;\s*\},\s*\[[^\]]*\]\);\s*$/, "the scan must end at the settlement callback");
 
     it("clan boss and mission settlements adopt the character before checking the screen is mounted", () => {
         const awaited = block.indexOf("await withTowerRequestDeadline(() => settleFn(runId, me))");

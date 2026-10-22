@@ -382,8 +382,8 @@ export function BattleTowersLobby({
                     <span className="tower-lobby-hero-kicker">Squad tactical ascent</span>
                     <h1 id="tower-lobby-title">Battle Towers</h1>
                     <p>
-                        Curated squad floors — objectives, battlefield gimmicks, and bosses with signature mechanics.
-                        First few floors free daily, then a small ryo toll; unlimited retries — the gate is tactics, not stamina.
+                        Squad battles with objectives, hazards, and boss mechanics.
+                        Your first three entries into uncleared floors each UTC day are free; later entries cost 1,500 ryo. Replaying a cleared floor is free.
                     </p>
                 </div>
             </section>
@@ -665,7 +665,7 @@ function SpireLadder({
             {/* Cinematic banner header — bespoke Endless Spire key art */}
             <div className="spire-banner" style={{ backgroundImage: `url(${spireKeyArt})` }}>
                 <div className="spire-banner-overlay">
-                    <span className="spire-title"><img src={spireKeyArt} width={20} height={20} alt="" aria-hidden="true" style={{ objectFit: "cover", borderRadius: 3, verticalAlign: "-5px" }} /> The Endless Spire</span>
+                    <span className="spire-title"><img src={spireKeyArt} width={20} height={20} alt="" aria-hidden="true" style={{ objectFit: "contain", borderRadius: 3, verticalAlign: "-5px" }} /> The Endless Spire</span>
                     <span className="spire-head-stats">
                         <b style={{ color: "#f4c48a" }}>{spireUnlocked}</b><span>/{SPIRE_MAX_TIER} cleared</span>
                         <span className="spire-head-dot">·</span>
@@ -749,7 +749,7 @@ function SpireLadder({
                                 {roomActive ? "Review current Ready Room" : "Prepare Spire Ready Room"}
                             </button>
                         )}
-                        <small className="spire-practice-note">Select this floor, then open a Spire Ready Room above. Direct AI entry is unavailable for progression integrity.</small>
+                        <small className="spire-practice-note">Select this floor, then open a Spire Ready Room above. The Spire requires four players and has no AI helpers.</small>
                     </div>
                 </div>
             </div>

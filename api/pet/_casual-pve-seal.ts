@@ -1,5 +1,7 @@
 import type { Pet, PetJutsu } from '../_pet-sim/pet-types.js';
 import type { SealedDuelParams } from './_duel-replay.js';
+import { petBattleJutsus } from '../../shared/pet-battle-loadout.js';
+import { rankedBuildForPet } from '../../shared/pet-tactics-build.js';
 
 /**
  * Versioned proof payload for a commanded casual PvE duel.  The start endpoint
@@ -7,11 +9,11 @@ import type { SealedDuelParams } from './_duel-replay.js';
  * endpoint replays only this projection.  Save-owned art, care timers, breeding
  * state, and other unbounded fields never enter the receipt.
  */
-export const CASUAL_PVE_SEAL_VERSION = 1 as const;
+export const CASUAL_PVE_SEAL_VERSION = 2 as const;
 const MAX_SEALED_JUTSUS = 16;
 
 export type CasualPveBattleSeal = {
-    version: typeof CASUAL_PVE_SEAL_VERSION;
+    version: 1 | typeof CASUAL_PVE_SEAL_VERSION;
     playerPets: Pet[];
     opponentPets: Pet[];
     params: SealedDuelParams;
@@ -28,6 +30,9 @@ function sealJutsu(jutsu: PetJutsu): PetJutsu {
         cooldown: finite(jutsu.cooldown, 0),
         currentCooldown: finite(jutsu.currentCooldown, 0),
         kind: jutsu.kind,
+        ...(typeof jutsu.abilityId === 'string' ? { abilityId: jutsu.abilityId.slice(0, 120) } : {}),
+        ...(typeof jutsu.baseAbilityId === 'string' ? { baseAbilityId: jutsu.baseAbilityId.slice(0, 120) } : {}),
+        ...(Number.isSafeInteger(jutsu.unlockLevel) ? { unlockLevel: jutsu.unlockLevel } : {}),
         ...(jutsu.rounds !== undefined ? { rounds: finite(jutsu.rounds, 0) } : {}),
         ...(jutsu.signature === true ? { signature: true } : {}),
         ...(jutsu.aoe === true ? { aoe: true } : {}),
@@ -44,6 +49,7 @@ export function casualPvePetSnapshot(pet: Pet): Pet {
         }
         : undefined;
     return {
+        battleLoadoutVersion: 'progression-v3',
         id: String(pet.id ?? '').slice(0, 64),
         name: String(pet.name ?? '').slice(0, 80),
         rarity: pet.rarity,
@@ -54,10 +60,11 @@ export function casualPvePetSnapshot(pet: Pet): Pet {
         attack: finite(pet.attack, 1),
         defense: finite(pet.defense, 1),
         speed: finite(pet.speed, 1),
-        jutsus: (Array.isArray(pet.jutsus) ? pet.jutsus : [])
+        jutsus: petBattleJutsus(pet, { forceProgression: true })
             .slice(0, MAX_SEALED_JUTSUS)
             .map(sealJutsu),
         unlockedForPve: pet.unlockedForPve === true,
+        ...(pet.rankedBuild ? { rankedBuild: rankedBuildForPet(pet) ?? undefined } : {}),
         ...(typeof pet.nickname === 'string' && pet.nickname
             ? { nickname: pet.nickname.slice(0, 80) }
             : {}),
@@ -119,7 +126,8 @@ export function parseSealedPetSnapshots(
         || (!options.allowRepeatedOpponentIds && new Set(expectedIds).size !== expectedIds.length)) return null;
     if (!Array.isArray(value) || value.length !== expectedIds.length || !value.every(validPet)) return null;
     const pets = value as Pet[];
-    return pets.every((pet, index) => pet.id === expectedIds[index]) ? pets : null;
+    return pets.every((pet, index) => pet.id === expectedIds[index])
+        ? pets.map(pet => ({ ...pet, battleLoadoutVersion: pet.battleLoadoutVersion === 'progression-v3' ? 'progression-v3' : 'legacy-v1' })) : null;
 }
 
 const validParams = (value: unknown): value is SealedDuelParams => {
@@ -141,11 +149,14 @@ const validParams = (value: unknown): value is SealedDuelParams => {
 export function parseCasualPveBattleSeal(value: unknown): CasualPveBattleSeal | null {
     if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
     const seal = value as Partial<CasualPveBattleSeal>;
-    if (seal.version !== CASUAL_PVE_SEAL_VERSION || !validParams(seal.params)) return null;
+    if ((seal.version !== 1 && seal.version !== CASUAL_PVE_SEAL_VERSION) || !validParams(seal.params)) return null;
     const expected = seal.params.mode === '2v2' ? 2 : 1;
     if (!Array.isArray(seal.playerPets) || !Array.isArray(seal.opponentPets)
         || seal.playerPets.length !== expected || seal.opponentPets.length !== expected) return null;
     if (!parseSealedPetSnapshots(seal.playerPets, seal.playerPets.map((pet) => String(pet?.id ?? '')))
         || !parseSealedPetSnapshots(seal.opponentPets, seal.opponentPets.map((pet) => String(pet?.id ?? '')))) return null;
-    return seal as CasualPveBattleSeal;
+    // Version-one receipts were minted with the unrestricted authored/saved
+    // loadout. Preserve that kit when checking their already-sealed input log.
+    return { ...seal, playerPets: seal.playerPets.map(pet => ({ ...pet, battleLoadoutVersion: seal.version === 1 ? 'legacy-v1' : 'progression-v3' })),
+        opponentPets: seal.opponentPets.map(pet => ({ ...pet, battleLoadoutVersion: seal.version === 1 ? 'legacy-v1' : 'progression-v3' })) } as CasualPveBattleSeal;
 }

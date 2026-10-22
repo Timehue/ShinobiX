@@ -1,0 +1,2194 @@
+[
+  {
+    "stage": "source",
+    "models": [
+      {
+        "url": "/pet-models/warfront-lod/starter-earth.glb?v=20260902-battle-lod-v1-e3c992fa17ab-0d32d4a122c8",
+        "sha256": "e3c992fa17abf531f99572620499560295a9a99b3d4518eee180f13a0b69890b"
+      }
+    ],
+    "companionComponentSha256": "c500075b2b259a3061a6706bfb7d3bb4e2f545e620d85dbd01f9a99597350419",
+    "frames": 216,
+    "exactPixels": 40,
+    "minClearance": 0.02169121538150141,
+    "errors": [],
+    "results": [
+      {
+        "name": "starter-earth-earth-strike-front-0.png",
+        "sha256": "4570c1765fb4309383bce8a2fc754230b30ae49ac1a73e821549860279ccb30f",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-strike-front-1.png",
+        "sha256": "a429a2b6dfb5555cda0586eedc08ed81e957e4567a06c3df5785544a19311f05",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-strike-front-2.png",
+        "sha256": "040e636a8817d7a55bd91e3c24248b0206b07ded429e3e4d3ecd404aad620aec",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-strike-front-3.png",
+        "sha256": "94a68eae6e51e26015836b2f882baad63be0b990c94fcdda9df492674597c8b2",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-strike-front-4.png",
+        "sha256": "d337b3afca4939faf6c55a8a60dd83f55371d5ba76450a12a939edc1d4203a44",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-strike-front-5.png",
+        "sha256": "49d0ab24e3ec6b528328a34740a3f7805b22ad7635a131ef152c8e4d48003405",
+        "exactDecodedPixelsIdentical": true
+      },
+      {
+        "name": "starter-earth-earth-strike-front-6.png",
+        "sha256": "961805c0122974a471d3cf56108d63042412324c81ce428d4306760a2060835d",
+        "exactDecodedPixelsIdentical": true
+      },
+      {
+        "name": "starter-earth-earth-strike-front-7.png",
+        "sha256": "3b0d0bd1eb3a3b8226c616453f8ae971a9d7fe5aadd2c4ae16175b9fd7cfab42",
+        "exactDecodedPixelsIdentical": true
+      },
+      {
+        "name": "starter-earth-earth-strike-front-8.png",
+        "sha256": "386e30094debef2945015a558b4f0572796cd54a78b886e7bfcf762086c8d0ce",
+        "exactDecodedPixelsIdentical": true
+      },
+      {
+        "name": "starter-earth-earth-strike-front-9.png",
+        "sha256": "33670149b5b0e3b5785b28a8a268f68531ae71913844ea2c1dbff2a26b8c61b7",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-strike-front-10.png",
+        "sha256": "f09329b33aaad78a4c968be7ae32e510383e7e5bc823794a6af666c001ed39ec",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-strike-front-11.png",
+        "sha256": "6aa3dca5ef35f88c0447b37362960ac879b169c508cadfc685540c8efed08e0d",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-strike-side-0.png",
+        "sha256": "d64cff66e56540afabe727b34afa66bceb351c2bbc1711772b7b028d5d8a6392",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-strike-side-1.png",
+        "sha256": "e228ff4bc133ad5184d983e03d7a12188253db63ce447cf215834f024f41e50b",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-strike-side-2.png",
+        "sha256": "9443f5bcb034efc31c2f707fe8a9e1e80a1e38fdcbadded0a36aec86b06507f4",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-strike-side-3.png",
+        "sha256": "54a70ff5e407155b727389c5314da1b80c8dc9261cb0caf92719d5d1af0b9b07",
+        "exactDecodedPixelsIdentical": true
+      },
+      {
+        "name": "starter-earth-earth-strike-side-4.png",
+        "sha256": "4af9962d261cae8de19b94ba8582d8d11e0dadef077d517f59fd3d03d83fb985",
+        "exactDecodedPixelsIdentical": true
+      },
+      {
+        "name": "starter-earth-earth-strike-side-5.png",
+        "sha256": "364095507d98a154e9440de41825fb35892d10c1c08dd265bd429cc902b5fa2e",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-strike-side-6.png",
+        "sha256": "ac87851b61b5a20fc027c57eb72ca17e437cc4dd9904816072813a5d8de98125",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-strike-side-7.png",
+        "sha256": "71594bcae1c0028322f218244521f3630f9d60b1350c7c87dbcd1ace58051d38",
+        "exactDecodedPixelsIdentical": true
+      },
+      {
+        "name": "starter-earth-earth-strike-side-8.png",
+        "sha256": "3c163eed4fb8c2c523f4949a1c438f3535b9733c9be519e2c0662b14c140da70",
+        "exactDecodedPixelsIdentical": true
+      },
+      {
+        "name": "starter-earth-earth-strike-side-9.png",
+        "sha256": "6de49fc953bd05568adcf0540d33bb67560329914ea3f4060b8152e5d0b7b074",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-strike-side-10.png",
+        "sha256": "9473670237aabfef8faf08af79133313df15e36e507ddb6bef76660645c3b274",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-strike-side-11.png",
+        "sha256": "74c48ebcf2192cd845fe24e63f0871941eb1898891703605e48544dea67503b0",
+        "exactDecodedPixelsIdentical": true
+      },
+      {
+        "name": "starter-earth-earth-pulse-front-0.png",
+        "sha256": "01a15a70445a63a9460f0599a2fd8bc7ad8b9633db5de1badf09e963fda4fce5",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-pulse-front-1.png",
+        "sha256": "b98eab46a571d1de878f8d649fa16b800e80d13a93868c36ae20682ef740851b",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-pulse-front-2.png",
+        "sha256": "8063602d2ad79c205d7fa87e03ee8780bd62180ed3985e0cd0e5659fd01a02f4",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-pulse-front-3.png",
+        "sha256": "d2cf94a89edf25d06c27957511d08b895929d4b02315b231ed2feac8488fddc6",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-pulse-front-4.png",
+        "sha256": "7a19c400807dcb4e5eb84d86bb0cb76dcbe5f725f166a5c53defc8eafd823a85",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-pulse-front-5.png",
+        "sha256": "857c3bf3c3fde7aa25ee29aeae54697bb4b9f9505d5de7fed3a10d17fb89abdc",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-pulse-front-6.png",
+        "sha256": "40d87b6bee711a0b79644b35a5f2b8d7fc08b728578a2e8beb88363f66c317db",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-pulse-front-7.png",
+        "sha256": "c0c44f72630d0edeea1560631177cf00067beeaca6a028d45b6bbe91259dc806",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-pulse-front-8.png",
+        "sha256": "e5eda9ef48986678c0c5358943e83bd805e6b31ed2f01b7e0e92875a6ecb4092",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-pulse-front-9.png",
+        "sha256": "5d57443c16183b0f611a281205835d0c68572a16ff7a02b6cee67759424e872d",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-pulse-front-10.png",
+        "sha256": "4cb84a8028622e29f5ba0332ad2a59e5ff260e15851136b47eb79f4203fd9f0d",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-pulse-front-11.png",
+        "sha256": "ca14761465bcc791944612847d843340cc690164c65c245a8fec2549e1535f5f",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-pulse-side-0.png",
+        "sha256": "f655be666c13479f42e104aa42b9f99b5cb8391709d5da33b4d4c417c1f7373b",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-pulse-side-1.png",
+        "sha256": "740ee2643fbb6cc462260e6f3851d9c25c6938ece3f518ae8406a3fb4641979c",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-pulse-side-2.png",
+        "sha256": "c95391db788a8134b629533feba7e8e4eca7656dc8d9b5d4bdfc9f53dfa47a21",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-pulse-side-3.png",
+        "sha256": "84df0c2e4d88b6c974028eccb49859799823e075a7e31f4fd70c09d700a74c9a",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-pulse-side-4.png",
+        "sha256": "9e367dce6121e931b80c9135c01aee57e7b0ce86b72a0b606dcbe86dfef8b710",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-pulse-side-5.png",
+        "sha256": "989ddc3847104da866e8dd31962d5906043a85de22592cc2631b9999e7f0d194",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-pulse-side-6.png",
+        "sha256": "57d35636a430e492fe393b5daf0273a97c197d2e619ab519fe399b5e2c863885",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-pulse-side-7.png",
+        "sha256": "4290053b0a55309e14cad54bd8bbab4a048896397c658c53213720057ce92cef",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-pulse-side-8.png",
+        "sha256": "8a8cde9069e6e447904b69ab748320fc19aa466ac1eaab69ae6584bd04f29e81",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-pulse-side-9.png",
+        "sha256": "8c1c48ca24b6c4379d6436bfaec3032bfd65f97debbf7d99291d5f1f1915bcce",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-pulse-side-10.png",
+        "sha256": "f251e5533a07ce88f24df27471b8e985679dc386e0ccabdcef621c3baa8a784b",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-pulse-side-11.png",
+        "sha256": "74c48ebcf2192cd845fe24e63f0871941eb1898891703605e48544dea67503b0",
+        "exactDecodedPixelsIdentical": true
+      },
+      {
+        "name": "starter-earth-earth-breaker-front-0.png",
+        "sha256": "3dd087dd2c4c7f7d357d73787e415a20d66095d6a33a3519dc44fa9898986ac1",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-breaker-front-1.png",
+        "sha256": "edf075d334c4060faa04cb78b607386ea2f7af66bbb7125040e1b521f8250ffd",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-breaker-front-2.png",
+        "sha256": "040e636a8817d7a55bd91e3c24248b0206b07ded429e3e4d3ecd404aad620aec",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-breaker-front-3.png",
+        "sha256": "43ea48306c62af30e7c2d24894f2ae41cdb2124e50bf16d9e35285e3274b9202",
+        "exactDecodedPixelsIdentical": true
+      },
+      {
+        "name": "starter-earth-earth-breaker-front-4.png",
+        "sha256": "d337b3afca4939faf6c55a8a60dd83f55371d5ba76450a12a939edc1d4203a44",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-breaker-front-5.png",
+        "sha256": "49d0ab24e3ec6b528328a34740a3f7805b22ad7635a131ef152c8e4d48003405",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-breaker-front-6.png",
+        "sha256": "961805c0122974a471d3cf56108d63042412324c81ce428d4306760a2060835d",
+        "exactDecodedPixelsIdentical": true
+      },
+      {
+        "name": "starter-earth-earth-breaker-front-7.png",
+        "sha256": "3b0d0bd1eb3a3b8226c616453f8ae971a9d7fe5aadd2c4ae16175b9fd7cfab42",
+        "exactDecodedPixelsIdentical": true
+      },
+      {
+        "name": "starter-earth-earth-breaker-front-8.png",
+        "sha256": "386e30094debef2945015a558b4f0572796cd54a78b886e7bfcf762086c8d0ce",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-breaker-front-9.png",
+        "sha256": "33670149b5b0e3b5785b28a8a268f68531ae71913844ea2c1dbff2a26b8c61b7",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-breaker-front-10.png",
+        "sha256": "f09329b33aaad78a4c968be7ae32e510383e7e5bc823794a6af666c001ed39ec",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-breaker-front-11.png",
+        "sha256": "f3bdb56100f5e9fce9049c83f304ea3ce6b79355a03f06f37a31adbb22fae34d",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-breaker-side-0.png",
+        "sha256": "d64cff66e56540afabe727b34afa66bceb351c2bbc1711772b7b028d5d8a6392",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-breaker-side-1.png",
+        "sha256": "dc61e437f2d3bd4da3a2eaa00650e918bdbe7eec6e354c6040c8441a48fe70d5",
+        "exactDecodedPixelsIdentical": true
+      },
+      {
+        "name": "starter-earth-earth-breaker-side-2.png",
+        "sha256": "9443f5bcb034efc31c2f707fe8a9e1e80a1e38fdcbadded0a36aec86b06507f4",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-breaker-side-3.png",
+        "sha256": "54a70ff5e407155b727389c5314da1b80c8dc9261cb0caf92719d5d1af0b9b07",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-breaker-side-4.png",
+        "sha256": "4af9962d261cae8de19b94ba8582d8d11e0dadef077d517f59fd3d03d83fb985",
+        "exactDecodedPixelsIdentical": true
+      },
+      {
+        "name": "starter-earth-earth-breaker-side-5.png",
+        "sha256": "364095507d98a154e9440de41825fb35892d10c1c08dd265bd429cc902b5fa2e",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-breaker-side-6.png",
+        "sha256": "ac87851b61b5a20fc027c57eb72ca17e437cc4dd9904816072813a5d8de98125",
+        "exactDecodedPixelsIdentical": true
+      },
+      {
+        "name": "starter-earth-earth-breaker-side-7.png",
+        "sha256": "71594bcae1c0028322f218244521f3630f9d60b1350c7c87dbcd1ace58051d38",
+        "exactDecodedPixelsIdentical": true
+      },
+      {
+        "name": "starter-earth-earth-breaker-side-8.png",
+        "sha256": "3c163eed4fb8c2c523f4949a1c438f3535b9733c9be519e2c0662b14c140da70",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-breaker-side-9.png",
+        "sha256": "6de49fc953bd05568adcf0540d33bb67560329914ea3f4060b8152e5d0b7b074",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-breaker-side-10.png",
+        "sha256": "f862e1967d534c059d9bd4994c37380ca1ebb966d967a8539bb914ac228650b5",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-breaker-side-11.png",
+        "sha256": "42a17d72e22769e9a7f3266e97c17353d8e695925363175a6f92a57fc5ac7c21",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-lightning-pulse-front-0.png",
+        "sha256": "777009edd16e40d014163b21cad8317883d5ccb8a1928d42fdcdcbb27d3f57d0",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-lightning-pulse-front-1.png",
+        "sha256": "7ab83fcd9a343e1c58b7a6a26c0ae064aa58a7c04a5d3ccfedff72d2d295c5c7",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-lightning-pulse-front-2.png",
+        "sha256": "7bc945655c76f6e44b28a8bcc789aa1e3baa5664a9966906807bd9cc9a8d6591",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-lightning-pulse-front-3.png",
+        "sha256": "bd54c986a269f14a53b93b207d94b6ee76c3e94bb8dd77fd763d2faaf778fe46",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-lightning-pulse-front-4.png",
+        "sha256": "f089d834576dec26351cff998e8402e3ba4894ddf20995eb341fd86cfc83e24d",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-lightning-pulse-front-5.png",
+        "sha256": "ca38443fb625aa4834f22ef3ff69696c8d40a8917fdfb6ce75097f530c2684ac",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-lightning-pulse-front-6.png",
+        "sha256": "70b5ff0c817625642b7fcff34d893cc8e006cf2ddb3d6df6f142f28b01e5e0b3",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-lightning-pulse-front-7.png",
+        "sha256": "3afd2dc6e8f06d72e62f46327f1170c04f2a4f68447d29568643b158893db9b2",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-lightning-pulse-front-8.png",
+        "sha256": "767e85210b19a53cc68c447bc81aafd6ee6cdce9238b085b70361736a887e74f",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-lightning-pulse-front-9.png",
+        "sha256": "5d57443c16183b0f611a281205835d0c68572a16ff7a02b6cee67759424e872d",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-lightning-pulse-front-10.png",
+        "sha256": "3022aec224b33c5dc0b1a70130ce7ade1a22e7c84eb9e9e5d8124617a6005893",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-lightning-pulse-front-11.png",
+        "sha256": "ca14761465bcc791944612847d843340cc690164c65c245a8fec2549e1535f5f",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-lightning-pulse-side-0.png",
+        "sha256": "a2a43dabbaf18356c7f2dd50b7e71fe6263957e3d40673fc5d4e9235b78627b5",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-lightning-pulse-side-1.png",
+        "sha256": "91000510553860f294bfb5406da646b6312bb0d1b16509330d6c000b6bd6755c",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-lightning-pulse-side-2.png",
+        "sha256": "9bdaeddbcde7dc388ebd4088d91aa973b1f63874b58599cf011ae0b02484eb7a",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-lightning-pulse-side-3.png",
+        "sha256": "c09fcc1928ca7e90c69009f2b158ca6c96019005432cbbfe5a9e2b51ed3ba7d3",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-lightning-pulse-side-4.png",
+        "sha256": "5f421c0b73b5c3e3c61d243e43778349cf72d6e759d028a5960d525dc7b8d772",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-lightning-pulse-side-5.png",
+        "sha256": "e9472272bb85a4da004ba7f414abbf3469ca5326b1f697f890144fb3754c5d9e",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-lightning-pulse-side-6.png",
+        "sha256": "e772120a27ae5445a8307c03cce1743d17db531fcf63d03eae3fbdef8889ed29",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-lightning-pulse-side-7.png",
+        "sha256": "9f8a97758f8cfb97ac5c31c98de0a5861224439f02725332d90d3aa996d865a8",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-lightning-pulse-side-8.png",
+        "sha256": "48c25b2b8bfffa35198f5fdfda11ec6fad29eb44131388e5c8f82b1d7a820035",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-lightning-pulse-side-9.png",
+        "sha256": "bd366a64d40e2714e0650e3921158296b2a117aad97851991a95a179842f7302",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-lightning-pulse-side-10.png",
+        "sha256": "f862e1967d534c059d9bd4994c37380ca1ebb966d967a8539bb914ac228650b5",
+        "exactDecodedPixelsIdentical": true
+      },
+      {
+        "name": "starter-earth-lightning-pulse-side-11.png",
+        "sha256": "74c48ebcf2192cd845fe24e63f0871941eb1898891703605e48544dea67503b0",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-open-wound-front-0.png",
+        "sha256": "72bb075aaa8482e1ca17d948d365e74ca6ce1e0e2e646b2c95e9f79d8fa4047f",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-open-wound-front-1.png",
+        "sha256": "edf075d334c4060faa04cb78b607386ea2f7af66bbb7125040e1b521f8250ffd",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-open-wound-front-2.png",
+        "sha256": "682a0372dd22a09b14966cc61f134e37ba1d7360bedf4344a0b81aa0d26a7026",
+        "exactDecodedPixelsIdentical": true
+      },
+      {
+        "name": "starter-earth-open-wound-front-3.png",
+        "sha256": "43ea48306c62af30e7c2d24894f2ae41cdb2124e50bf16d9e35285e3274b9202",
+        "exactDecodedPixelsIdentical": true
+      },
+      {
+        "name": "starter-earth-open-wound-front-4.png",
+        "sha256": "a7d5f430d488f70396e39e0a3729f5b495b23492984df1be552bff602de6f62d",
+        "exactDecodedPixelsIdentical": true
+      },
+      {
+        "name": "starter-earth-open-wound-front-5.png",
+        "sha256": "8274c4052c5d68022fa3936cffcac11ad0f2432566392f95a25fbce71f2a4cc1",
+        "exactDecodedPixelsIdentical": true
+      },
+      {
+        "name": "starter-earth-open-wound-front-6.png",
+        "sha256": "961805c0122974a471d3cf56108d63042412324c81ce428d4306760a2060835d",
+        "exactDecodedPixelsIdentical": true
+      },
+      {
+        "name": "starter-earth-open-wound-front-7.png",
+        "sha256": "3b0d0bd1eb3a3b8226c616453f8ae971a9d7fe5aadd2c4ae16175b9fd7cfab42",
+        "exactDecodedPixelsIdentical": true
+      },
+      {
+        "name": "starter-earth-open-wound-front-8.png",
+        "sha256": "82f218555d8798eb710015ca3fec7ef4af6a767eedea1b3b65d74cb22ae3f7a6",
+        "exactDecodedPixelsIdentical": true
+      },
+      {
+        "name": "starter-earth-open-wound-front-9.png",
+        "sha256": "edab319d0046f17ad1ebca1625aa82ab012125115883edc836b0701b3133c05f",
+        "exactDecodedPixelsIdentical": true
+      },
+      {
+        "name": "starter-earth-open-wound-front-10.png",
+        "sha256": "4cb84a8028622e29f5ba0332ad2a59e5ff260e15851136b47eb79f4203fd9f0d",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-open-wound-front-11.png",
+        "sha256": "ca14761465bcc791944612847d843340cc690164c65c245a8fec2549e1535f5f",
+        "exactDecodedPixelsIdentical": true
+      },
+      {
+        "name": "starter-earth-open-wound-side-0.png",
+        "sha256": "7eaab79662b2519f52edf7c98defea91d03a12bfadb53fc13ba6af6b8579eeea",
+        "exactDecodedPixelsIdentical": true
+      },
+      {
+        "name": "starter-earth-open-wound-side-1.png",
+        "sha256": "dc61e437f2d3bd4da3a2eaa00650e918bdbe7eec6e354c6040c8441a48fe70d5",
+        "exactDecodedPixelsIdentical": true
+      },
+      {
+        "name": "starter-earth-open-wound-side-2.png",
+        "sha256": "38e137703b1993d1e1e39326a6d33f1bcf78e401b333bd5690b0b61ca3e071ed",
+        "exactDecodedPixelsIdentical": true
+      },
+      {
+        "name": "starter-earth-open-wound-side-3.png",
+        "sha256": "0869d25f7b6ba6fa765d4ab28f88a17453843b146e65caa06938d9445e03214b",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-open-wound-side-4.png",
+        "sha256": "4af9962d261cae8de19b94ba8582d8d11e0dadef077d517f59fd3d03d83fb985",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-open-wound-side-5.png",
+        "sha256": "0c23d30491e158bbee5baf4ea246a89c44d14a35c7751bb9d48b1cb14f47fc6d",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-open-wound-side-6.png",
+        "sha256": "ac87851b61b5a20fc027c57eb72ca17e437cc4dd9904816072813a5d8de98125",
+        "exactDecodedPixelsIdentical": true
+      },
+      {
+        "name": "starter-earth-open-wound-side-7.png",
+        "sha256": "71594bcae1c0028322f218244521f3630f9d60b1350c7c87dbcd1ace58051d38",
+        "exactDecodedPixelsIdentical": true
+      },
+      {
+        "name": "starter-earth-open-wound-side-8.png",
+        "sha256": "7e42db1757ecd57da2e7bd8862b7654a56b4828885858e0ec0968b9812470fc6",
+        "exactDecodedPixelsIdentical": true
+      },
+      {
+        "name": "starter-earth-open-wound-side-9.png",
+        "sha256": "918f02879774d97a5e8cfdd51d50563d8790faef3a15df5af0cb897c6fe8381f",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-open-wound-side-10.png",
+        "sha256": "f251e5533a07ce88f24df27471b8e985679dc386e0ccabdcef621c3baa8a784b",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-open-wound-side-11.png",
+        "sha256": "74c48ebcf2192cd845fe24e63f0871941eb1898891703605e48544dea67503b0",
+        "exactDecodedPixelsIdentical": true
+      },
+      {
+        "name": "starter-earth-intercept-front-0.png",
+        "sha256": "cdea2a4b5f77a9096a12d1a32eaac684f5dc493bf246486a73222ad67a444718",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-intercept-front-1.png",
+        "sha256": "96f1c0c4d26de398e49be8e358eb97a17827c0bdcafe83c2e67a84654103e86a",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-intercept-front-2.png",
+        "sha256": "1a7711d089444e3d33af57b7afcfa3ce022def1c806a7a164deafd799c2200ce",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-intercept-front-3.png",
+        "sha256": "17da735e515c15b9771da4e167e64fe40aea9deebde4f777f73a16bf8df04fc8",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-intercept-front-4.png",
+        "sha256": "5f78211538b25e856a8e6ccd043c56e1ce18d4fef5f07a2dacafc2eb066ec76f",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-intercept-front-5.png",
+        "sha256": "790e5668d506c56dd10c1ddfb449e7cebab45d7183a8d472d370da9492e84137",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-intercept-front-6.png",
+        "sha256": "c3e95c5416db07f93759471640da729cac2836217a39bf15e4d2bd20d5ae8759",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-intercept-front-7.png",
+        "sha256": "762480183b97d6ccf9e15ab47fc2990b45c19d1a0891cd10aa0ee823861a0cb6",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-intercept-front-8.png",
+        "sha256": "aecb233cc8f10d8b1559efedb8f3178ceeb3669f09788ab5d24be373a3013d23",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-intercept-front-9.png",
+        "sha256": "64a2c229834de35b79a4371c5efd761f5fd9884a140f8d65c535d3b87a2bafb3",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-intercept-front-10.png",
+        "sha256": "4cb84a8028622e29f5ba0332ad2a59e5ff260e15851136b47eb79f4203fd9f0d",
+        "exactDecodedPixelsIdentical": true
+      },
+      {
+        "name": "starter-earth-intercept-front-11.png",
+        "sha256": "7fad03de65e481a98a38f3db745afc5a056eda62f66aa79e7bde408bace95d1b",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-intercept-side-0.png",
+        "sha256": "0018f21c86d2ef8c798a19fcd5a1f7cf2b28478e76d0149eb8e2fcaac12b2696",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-intercept-side-1.png",
+        "sha256": "cefa8d96c933f6f2db21c8fefe32c589d63d2da867d6cad81ce3e90a987f9d49",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-intercept-side-2.png",
+        "sha256": "c4e76f5fe5f4e6dc91b282caeba246be2d56df849a2395e1c79c9aa82d698eec",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-intercept-side-3.png",
+        "sha256": "239d7a01625a707d86747326bb9917de762511808a55d4705e85e12ad2e84e0a",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-intercept-side-4.png",
+        "sha256": "b4b65600dd2a8b5832eb55d64bb2e5346bc896d8b7c15a6d69a95102eb76bb06",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-intercept-side-5.png",
+        "sha256": "528033bbe647cb157580ad68173c29d733941290056e83d58916fd38fde69d67",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-intercept-side-6.png",
+        "sha256": "7258c819be5a29d2013d986aff619d969540e5387383fe96f3671342ac4d1a3f",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-intercept-side-7.png",
+        "sha256": "8a14910f374f920890e6318a10bcb51c7be18f860c2534447d8abbe61ccbb504",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-intercept-side-8.png",
+        "sha256": "9d5f68c1655dcf6b1e98418eddbbc9b32328ab446e9157ce05551dd88ba10294",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-intercept-side-9.png",
+        "sha256": "d0aae4bb8df6c16c01d0eb0bbd5dcc22deb38bae5b50e73b7562d323c0d07e7a",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-intercept-side-10.png",
+        "sha256": "f862e1967d534c059d9bd4994c37380ca1ebb966d967a8539bb914ac228650b5",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-intercept-side-11.png",
+        "sha256": "74c48ebcf2192cd845fe24e63f0871941eb1898891703605e48544dea67503b0",
+        "exactDecodedPixelsIdentical": true
+      },
+      {
+        "name": "starter-earth-aegis-front-0.png",
+        "sha256": "427dbcc7f2602358da2ea0b04f6180ca83a3138280ea5a60a3543cc6ce874db3",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-aegis-front-1.png",
+        "sha256": "4e2963c0e6a56a3feeb15970c6a53f29f206b76b0805e5fedb296af19f16eb53",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-aegis-front-2.png",
+        "sha256": "a19176f2c9eeeb8dc1f42dc32e60a00f30d6411996fb0ae6cd9580c680ceb67b",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-aegis-front-3.png",
+        "sha256": "8950f3173e8e9cad09d31153da8fdc71751dcab575185786bd1e067e21504ded",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-aegis-front-4.png",
+        "sha256": "9810fca410515ce742f0166d23c1a7488193aefb84623a5ed9634c698c7272de",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-aegis-front-5.png",
+        "sha256": "fecae4715a337529d3dc82d97c2046d293511101d237f2796fa698a91d768925",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-aegis-front-6.png",
+        "sha256": "f8308027950d7a000374070608a0d4871f224677e9a5c850dda72e33f4b19e15",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-aegis-front-7.png",
+        "sha256": "7b8dc07ee3efe336035c6b6ab99950ab3b6d5934fdd2ef6e4ba3f35588123822",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-aegis-front-8.png",
+        "sha256": "6bfbe5f2392654dbaeb9ee907f3cfe7520a6c3f38b027c3d7719a82ed17e7193",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-aegis-front-9.png",
+        "sha256": "5d57443c16183b0f611a281205835d0c68572a16ff7a02b6cee67759424e872d",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-aegis-front-10.png",
+        "sha256": "4cb84a8028622e29f5ba0332ad2a59e5ff260e15851136b47eb79f4203fd9f0d",
+        "exactDecodedPixelsIdentical": true
+      },
+      {
+        "name": "starter-earth-aegis-front-11.png",
+        "sha256": "ca14761465bcc791944612847d843340cc690164c65c245a8fec2549e1535f5f",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-aegis-side-0.png",
+        "sha256": "061f2651d52afef6c118652e9d0e77ab79ff059c7f51d374898daf8c73ff2ada",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-aegis-side-1.png",
+        "sha256": "8f69ff888204f2648bf2bc1e3f22bf6f72dcaa95c6addc256abfb6e215c03382",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-aegis-side-2.png",
+        "sha256": "fec9271209feaccfd19067948e247db15ee8002dc12eb74271662908519702b7",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-aegis-side-3.png",
+        "sha256": "492b1ab9d5cabdd40b17e2c6758d43c63639faae30544e0ddf2968043a3ccda7",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-aegis-side-4.png",
+        "sha256": "9b461643f1440c3e90152f96e9dbdf9a1fd573df1fb00db8858c45488f83cc52",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-aegis-side-5.png",
+        "sha256": "59daa24b43e63cbd22d66a532a6384a5eaae12e2f1f775f2a7bea5cdee8522a2",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-aegis-side-6.png",
+        "sha256": "fd5d614b08fa88890f4119baf5535a0919dd0ec0b314588eb399edbc41c919e2",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-aegis-side-7.png",
+        "sha256": "b274eaf3ce497f49693b3e56c03cfaca655de121bd78d53d57151ffa79fe5841",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-aegis-side-8.png",
+        "sha256": "8a86de72272d317e73ea30dd5ca27407edd3609d088ad9cef216cac362f21e90",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-aegis-side-9.png",
+        "sha256": "8c1c48ca24b6c4379d6436bfaec3032bfd65f97debbf7d99291d5f1f1915bcce",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-aegis-side-10.png",
+        "sha256": "f251e5533a07ce88f24df27471b8e985679dc386e0ccabdcef621c3baa8a784b",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-aegis-side-11.png",
+        "sha256": "74c48ebcf2192cd845fe24e63f0871941eb1898891703605e48544dea67503b0",
+        "exactDecodedPixelsIdentical": true
+      },
+      {
+        "name": "starter-earth-purify-front-0.png",
+        "sha256": "99efacd78f54815104aa41fc017477ad3afefaa1e798a1dc134d483b5cc8b48f",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-purify-front-1.png",
+        "sha256": "9bfad6dddb89ab79b1436a1a836c16f87ead55d75130c524091a2d1740354e1b",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-purify-front-2.png",
+        "sha256": "46dfdf303edccafbb2c9b6bebb127e66fff220ada3b01c0ce703265e830ed508",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-purify-front-3.png",
+        "sha256": "03d6c2594dc01bc53e90ac3618ce64744087067b0c7e12fa55736234b142cf12",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-purify-front-4.png",
+        "sha256": "3e251e347e04916d9f0df18e15d382be8f68e4e2761bcd551e04e52a5b2b3fde",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-purify-front-5.png",
+        "sha256": "65481dafeaa394eea06f08b1d7f92ea435707287cff45d9ce846eb73b077801a",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-purify-front-6.png",
+        "sha256": "07fdbf12dedbf847b1991501ee95b4d978d3c0ff29e8383d5a498acca9f71521",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-purify-front-7.png",
+        "sha256": "72c34104d7f860821dc93b081f73ab0cd9e9958b93f29bcf27f26350b479650c",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-purify-front-8.png",
+        "sha256": "1b4d49141edf36abbcc9353a77a5284fa9bee008b71e87b412ced7cf47585837",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-purify-front-9.png",
+        "sha256": "64a2c229834de35b79a4371c5efd761f5fd9884a140f8d65c535d3b87a2bafb3",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-purify-front-10.png",
+        "sha256": "4cb84a8028622e29f5ba0332ad2a59e5ff260e15851136b47eb79f4203fd9f0d",
+        "exactDecodedPixelsIdentical": true
+      },
+      {
+        "name": "starter-earth-purify-front-11.png",
+        "sha256": "6aa3dca5ef35f88c0447b37362960ac879b169c508cadfc685540c8efed08e0d",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-purify-side-0.png",
+        "sha256": "3cc2a0b8473ced212768d2d76eb416580db5a66f551c6b1c2987ff67f058d362",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-purify-side-1.png",
+        "sha256": "480819a96cfddc0cf2fc9043f3ddb498b36645f5c73953e735cd14401c5e3846",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-purify-side-2.png",
+        "sha256": "d9070f78257d2b8587c88df0fe655836b390dca4514d25157f33af26df370fbb",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-purify-side-3.png",
+        "sha256": "4706ac0a498ec1fe1774a4c11e903c8c035c8754033212e81f4501f1e450d8a0",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-purify-side-4.png",
+        "sha256": "e0c513d72dd581026f1494f5e54d7e1edb249835bd1b70c400b58f28745e6c16",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-purify-side-5.png",
+        "sha256": "ba1cae65f713735b3087d02b56c06ef7ddf8be510bf1312533da085db5cf2a8d",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-purify-side-6.png",
+        "sha256": "e3f0a64679f88306b7d2f7ac0ea5079abe07ed536fe5cc1ba5e0a43eef3dc5af",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-purify-side-7.png",
+        "sha256": "f783c0d09798969315cae547bfdc3e5af23e7ecdb3bb5caede7a1e9997338063",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-purify-side-8.png",
+        "sha256": "ce9cfe4ea8cd5699d4c0b29d25d6c32e6453311927283c8d60fe31708e8debf0",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-purify-side-9.png",
+        "sha256": "1558806ce3adedf01d43fab8eafac9876ffc42f9c0ccea6bd9a032721efeedeb",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-purify-side-10.png",
+        "sha256": "f862e1967d534c059d9bd4994c37380ca1ebb966d967a8539bb914ac228650b5",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-purify-side-11.png",
+        "sha256": "42a17d72e22769e9a7f3266e97c17353d8e695925363175a6f92a57fc5ac7c21",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-starter-earth-signature-front-0.png",
+        "sha256": "05b5a1d58bfe36b071c75c60c1bee652dd29a4efab7695c2bf89d3385a38677f",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-starter-earth-signature-front-1.png",
+        "sha256": "24f59e18ccb5c1d31861e0a7a9d967bd6d5795b1b7e6f79d92d97db89d1680da",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-starter-earth-signature-front-2.png",
+        "sha256": "43c4a0bd206a38da2b0509e42111363d2919dc85e465fd005b62996bfd392a16",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-starter-earth-signature-front-3.png",
+        "sha256": "e228876bc62c9156159b655b092c69da1f0910c21bebcba996c10a59fac1cde2",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-starter-earth-signature-front-4.png",
+        "sha256": "acacec0ef86858dae5b2a452afc0bc5d803adbaad0d622d53613fd89b946470a",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-starter-earth-signature-front-5.png",
+        "sha256": "5b0778cbaffdf1613e5c3da5cb2d6f7ffa85088ece0d728aa7aa88d187585a20",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-starter-earth-signature-front-6.png",
+        "sha256": "3f7f8016b456abaf90831e7c0def9a14b5b0e36e265db8fd6170e7fcecae34a1",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-starter-earth-signature-front-7.png",
+        "sha256": "437f67d8fa790ae84f2f504e0cc56d53513292f81b75e1e8dfb6007605db8952",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-starter-earth-signature-front-8.png",
+        "sha256": "386835151c154d518e5b8e14be7d35d22364cdb4730bc80c74e5ce75bdf3e012",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-starter-earth-signature-front-9.png",
+        "sha256": "5d57443c16183b0f611a281205835d0c68572a16ff7a02b6cee67759424e872d",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-starter-earth-signature-front-10.png",
+        "sha256": "3022aec224b33c5dc0b1a70130ce7ade1a22e7c84eb9e9e5d8124617a6005893",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-starter-earth-signature-front-11.png",
+        "sha256": "ca14761465bcc791944612847d843340cc690164c65c245a8fec2549e1535f5f",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-starter-earth-signature-side-0.png",
+        "sha256": "b0cb34cabf2bca70f234912c7420d65c09a852656673f12203842ba1937ea2cd",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-starter-earth-signature-side-1.png",
+        "sha256": "b23ba910331c2331faa4ac96a2ecba1c144a660768ddbbdefcc7cdb398f36ca9",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-starter-earth-signature-side-2.png",
+        "sha256": "8d588df0368f337c694b0275454f2fe14e5f220b4f7cdb35a828c4fa19b72d0d",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-starter-earth-signature-side-3.png",
+        "sha256": "91b104e380cc53d946728b234352f7b03bb831bed4ceb229f18ab28c1673b535",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-starter-earth-signature-side-4.png",
+        "sha256": "8b5708529bc14efe703bffa770fee02525c1bb5c1cee60be08ca4a31f44e82a0",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-starter-earth-signature-side-5.png",
+        "sha256": "32fa58b42822a3627e39223df4eca16a283f60c97b394220560b1e7898a87959",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-starter-earth-signature-side-6.png",
+        "sha256": "c3581b940c68b771c8bf3d7802e151ce61f3ea95f4ee11927991030e7144a49f",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-starter-earth-signature-side-7.png",
+        "sha256": "89436b8184cf36caca0b6aa10f0300236b10d1e15e8e869260736ea6a0e073a9",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-starter-earth-signature-side-8.png",
+        "sha256": "a9ca8da461ec5103d62fffc68050c3e2f3deff3281a9ac2abfd27ddc40b486d7",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-starter-earth-signature-side-9.png",
+        "sha256": "1f9416b2c9d789451dec23b7d960f6febeb6258770b5860ab42b937d9386a6b7",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-starter-earth-signature-side-10.png",
+        "sha256": "f862e1967d534c059d9bd4994c37380ca1ebb966d967a8539bb914ac228650b5",
+        "exactDecodedPixelsIdentical": true
+      },
+      {
+        "name": "starter-earth-starter-earth-signature-side-11.png",
+        "sha256": "74c48ebcf2192cd845fe24e63f0871941eb1898891703605e48544dea67503b0",
+        "exactDecodedPixelsIdentical": false
+      }
+    ]
+  },
+  {
+    "stage": "battle",
+    "models": [
+      {
+        "url": "/pet-models/warfront-lod/starter-earth.glb?v=20260902-battle-lod-v1-e3c992fa17ab-0d32d4a122c8",
+        "sha256": "0d32d4a122c8d5524a71489a420ed730986a95bce855bbe864b7dfb341f20bcc"
+      }
+    ],
+    "companionComponentSha256": "c500075b2b259a3061a6706bfb7d3bb4e2f545e620d85dbd01f9a99597350419",
+    "frames": 216,
+    "exactPixels": 34,
+    "minClearance": 0.017956297504368317,
+    "errors": [],
+    "results": [
+      {
+        "name": "starter-earth-earth-strike-front-0.png",
+        "sha256": "ebd43debe5a3647c559f93d4d13227a48cd724dca7ac704fbaec7e311f6c04b2",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-strike-front-1.png",
+        "sha256": "46533c71864e52cdc1972e5b428e6fa24b1b4ab9ff825572f4c25853f6c497c0",
+        "exactDecodedPixelsIdentical": true
+      },
+      {
+        "name": "starter-earth-earth-strike-front-2.png",
+        "sha256": "5482404ea3b5da92c219349cd4dada51c11738b979bad6becf48c5a51cbaaef2",
+        "exactDecodedPixelsIdentical": true
+      },
+      {
+        "name": "starter-earth-earth-strike-front-3.png",
+        "sha256": "492bbb4fe2b9f36b1fd9492cff53ec4c6f622b816742587834fe627e87bbec3a",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-strike-front-4.png",
+        "sha256": "e5ff765df550f788b331b28703839611ab22713a98a5e98ddc148b5d5dab099f",
+        "exactDecodedPixelsIdentical": true
+      },
+      {
+        "name": "starter-earth-earth-strike-front-5.png",
+        "sha256": "698dfb944da580de7090fcdab45053024b246c0408ed7187795d3a8209d34a59",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-strike-front-6.png",
+        "sha256": "421f4db025af89f26c9c2074300e3e0e2debd2bf3355ba306d5d9fa363c48b13",
+        "exactDecodedPixelsIdentical": true
+      },
+      {
+        "name": "starter-earth-earth-strike-front-7.png",
+        "sha256": "5ea6c3b6a6ee24bdcda6857d62077f62369767684e996dea7ecdc1ab5e4424ef",
+        "exactDecodedPixelsIdentical": true
+      },
+      {
+        "name": "starter-earth-earth-strike-front-8.png",
+        "sha256": "75281846c458e4819dcb872154cccef672965d0c83ecc6d77229c337612a3c2c",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-strike-front-9.png",
+        "sha256": "f800e865dc6c51c41bfdedf0ce8b96e016b2398141a2da99a8c837fe2ac3dacf",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-strike-front-10.png",
+        "sha256": "4b26aa41b5370ed06800fa309dd0ec47d7487c4757065daf182b6ac601bfb664",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-strike-front-11.png",
+        "sha256": "39442546f7868ded71dacd52b80be8e9cd476f92f9651a69209127d9b6d08b61",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-strike-side-0.png",
+        "sha256": "3b7eb5b605b13788dd5938c2272ecdb38bc7a75a916793988d984beb5628d8ec",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-strike-side-1.png",
+        "sha256": "307d7bff169d911ca801cf82ba4dd1f0a073dfe2c6cdcd8b2fb022f0f0cb8325",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-strike-side-2.png",
+        "sha256": "b12c3cf858ef2fb6d80404500927709e1be7f666af8995909c77629c8342b749",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-strike-side-3.png",
+        "sha256": "8a86b98afcab5c749883b01af916a2c12958e7c3d801543494a79fd34aaec3d8",
+        "exactDecodedPixelsIdentical": true
+      },
+      {
+        "name": "starter-earth-earth-strike-side-4.png",
+        "sha256": "9c73afb3f521aa95ffc316f22b24ea039979a2c7eeb29d70e6c44ece89096874",
+        "exactDecodedPixelsIdentical": true
+      },
+      {
+        "name": "starter-earth-earth-strike-side-5.png",
+        "sha256": "d890c011a72c6f0946088fc57a1474a9f31b09c585c1f2b628818e41cce8c45e",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-strike-side-6.png",
+        "sha256": "fdd397e06528054795f4a007acd35d58dc3c20630166dd4d183b576a8404c891",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-strike-side-7.png",
+        "sha256": "abcd5159a009d0cd85d85beed52d7dbb2a2489e672925078758cbb9848b43a1d",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-strike-side-8.png",
+        "sha256": "57a930a440b191a8a6c2026245f711113fa4e91d990b2a4f7b3b384d411b1264",
+        "exactDecodedPixelsIdentical": true
+      },
+      {
+        "name": "starter-earth-earth-strike-side-9.png",
+        "sha256": "8758a6b5cb7319930f01d88edfaac467fcd8bbd69faa87e3816adf921a3c4b18",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-strike-side-10.png",
+        "sha256": "e5ee94a928ee766b7adacc535a4e8faabdeb191144af42985ebeaa504312ef59",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-strike-side-11.png",
+        "sha256": "8a39f53eadcbb908311316b89bd47d7e6209e1e069f11e1a569db4e377b42a74",
+        "exactDecodedPixelsIdentical": true
+      },
+      {
+        "name": "starter-earth-earth-pulse-front-0.png",
+        "sha256": "82b89555f1539f2170c8a3fa69742209268340c6af9396c1ffa9a7d565fb53f9",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-pulse-front-1.png",
+        "sha256": "6ca2298e35ca9df9ecfa816a32a28319c68621e78116a55ac47d094d6cb9ced4",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-pulse-front-2.png",
+        "sha256": "0e9295614f7ae4c71884b854ad4c98c90f6f48cd6fe18f7c414d30efee5228a7",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-pulse-front-3.png",
+        "sha256": "7aaa14ccc2b8d1330492d31f2fc5200f103224f23044b76249f72354d017778f",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-pulse-front-4.png",
+        "sha256": "1c7c0c7317b11a9100d4076dc39b9809e8d220bde2b97c4ba23272f7022740b2",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-pulse-front-5.png",
+        "sha256": "5da43e7f23ba6ae07cc007cc7ec596cb4ea23111c2535c2e1666aeb2523b8fd5",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-pulse-front-6.png",
+        "sha256": "6553fd2ab290a6596f60d67c7af74bf2c34a99b1af7ddf248b5b39617b2a1528",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-pulse-front-7.png",
+        "sha256": "d3b7e75d959a8eb97794b62993fa2273b0cc4d94785996beab919e79d768417c",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-pulse-front-8.png",
+        "sha256": "72d905223f437dab83fdf749ebd220f90c3c5db1e6d90f02866c4ec4b161b528",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-pulse-front-9.png",
+        "sha256": "6a8a8b665e01306e5955300198195ae83bd8de1912136f82744837a4aa85871c",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-pulse-front-10.png",
+        "sha256": "4b26aa41b5370ed06800fa309dd0ec47d7487c4757065daf182b6ac601bfb664",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-pulse-front-11.png",
+        "sha256": "d4a31857d2191151fec87c19bc92a55b6f7130b1bb86933438f5f52f769fe871",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-pulse-side-0.png",
+        "sha256": "4c898946851d44f0e40dba53002cb05c8775958c7c0f24163cd741d36a27c5d3",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-pulse-side-1.png",
+        "sha256": "eaaeadaf29fbea3211ff98010fba186a69b0b2a839fcf0453821f7e66a093c86",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-pulse-side-2.png",
+        "sha256": "df02d626913d8f2691ce7442c9754f063ff4a511eca60a015f712b904eed2747",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-pulse-side-3.png",
+        "sha256": "9186ec221b90ae0436c2066201db98ae9ff5bb450d6d08a719230f8c81263151",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-pulse-side-4.png",
+        "sha256": "9a5e19ce96129ceb45bf4bcef30eddb3a9276a606846c5c03b6b758e16f97949",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-pulse-side-5.png",
+        "sha256": "e1d8660633120f07afac78bd04cb4f09647c156537f1b062d0b13247c974fdcb",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-pulse-side-6.png",
+        "sha256": "5894d766a75f754a17db8eb7036b762d38e8ab446ea60e98b42438181e6a61ed",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-pulse-side-7.png",
+        "sha256": "d57503ec8af3e443c134e828baada84fc6b0da167a4d307dc19a68e42e10f545",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-pulse-side-8.png",
+        "sha256": "f8c660b7fbefef4b177ede363a1af56f634c1616a578fab90cae2da05b2bdb55",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-pulse-side-9.png",
+        "sha256": "6789c0b61fb26bc83e27312d7f11461c508cdbf0ec2bfd56103d1dad425166b0",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-pulse-side-10.png",
+        "sha256": "6048ca50dc1b9f1b1e579a143a36b2807c1a811615da164d78e7231a376eb284",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-pulse-side-11.png",
+        "sha256": "8a39f53eadcbb908311316b89bd47d7e6209e1e069f11e1a569db4e377b42a74",
+        "exactDecodedPixelsIdentical": true
+      },
+      {
+        "name": "starter-earth-earth-breaker-front-0.png",
+        "sha256": "5f301a9490e6493548b0a019123551d2361324dcbfa126f5de7c4d3d4cf39b95",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-breaker-front-1.png",
+        "sha256": "46533c71864e52cdc1972e5b428e6fa24b1b4ab9ff825572f4c25853f6c497c0",
+        "exactDecodedPixelsIdentical": true
+      },
+      {
+        "name": "starter-earth-earth-breaker-front-2.png",
+        "sha256": "5482404ea3b5da92c219349cd4dada51c11738b979bad6becf48c5a51cbaaef2",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-breaker-front-3.png",
+        "sha256": "1f5844f39e3952e047b523644172306ed560d890430c0b4056f8db23cfeec2f9",
+        "exactDecodedPixelsIdentical": true
+      },
+      {
+        "name": "starter-earth-earth-breaker-front-4.png",
+        "sha256": "e5ff765df550f788b331b28703839611ab22713a98a5e98ddc148b5d5dab099f",
+        "exactDecodedPixelsIdentical": true
+      },
+      {
+        "name": "starter-earth-earth-breaker-front-5.png",
+        "sha256": "6ce95fa9ad84156a227a8f64631989b7b4a1d13bcd62b33e80e5059f40c5a380",
+        "exactDecodedPixelsIdentical": true
+      },
+      {
+        "name": "starter-earth-earth-breaker-front-6.png",
+        "sha256": "421f4db025af89f26c9c2074300e3e0e2debd2bf3355ba306d5d9fa363c48b13",
+        "exactDecodedPixelsIdentical": true
+      },
+      {
+        "name": "starter-earth-earth-breaker-front-7.png",
+        "sha256": "5ea6c3b6a6ee24bdcda6857d62077f62369767684e996dea7ecdc1ab5e4424ef",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-breaker-front-8.png",
+        "sha256": "c2f835e592ec655084b2c29cf655656767b6f7c85ca19c5a6220a45ea6466bd5",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-breaker-front-9.png",
+        "sha256": "05a313796fbb4b4c1d113fcb9ce4c76e9972fdf4701f65b09e07ce22b128ebe5",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-breaker-front-10.png",
+        "sha256": "b2515ec4c62295f18a3cf99216cab42ca9531443bf6ac397e10be9454ced9e61",
+        "exactDecodedPixelsIdentical": true
+      },
+      {
+        "name": "starter-earth-earth-breaker-front-11.png",
+        "sha256": "956406df5cec1a5b7f3bba3366fb88df8a4b0cc02fc7bbf340a3f6183a4a8f70",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-breaker-side-0.png",
+        "sha256": "bb9bf03b7b5b8044a099bc7fd3bed3aecd90beeb117fe7f26d426e60be570e74",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-breaker-side-1.png",
+        "sha256": "307d7bff169d911ca801cf82ba4dd1f0a073dfe2c6cdcd8b2fb022f0f0cb8325",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-breaker-side-2.png",
+        "sha256": "b12c3cf858ef2fb6d80404500927709e1be7f666af8995909c77629c8342b749",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-breaker-side-3.png",
+        "sha256": "b877f40f893ee72d590eea6a9d7317e88188a31b8b591bb5fe4f930ccb0aa9db",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-breaker-side-4.png",
+        "sha256": "9c73afb3f521aa95ffc316f22b24ea039979a2c7eeb29d70e6c44ece89096874",
+        "exactDecodedPixelsIdentical": true
+      },
+      {
+        "name": "starter-earth-earth-breaker-side-5.png",
+        "sha256": "d890c011a72c6f0946088fc57a1474a9f31b09c585c1f2b628818e41cce8c45e",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-breaker-side-6.png",
+        "sha256": "8a582a557599a2d8a73d10357c9b5fa3b81a76279db8a31f770ff802e69d7ade",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-breaker-side-7.png",
+        "sha256": "abcd5159a009d0cd85d85beed52d7dbb2a2489e672925078758cbb9848b43a1d",
+        "exactDecodedPixelsIdentical": true
+      },
+      {
+        "name": "starter-earth-earth-breaker-side-8.png",
+        "sha256": "97e2ce5bef8f62df775c0416e693861fee5fe902e7a8425c6fba0f27c03ad3e6",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-breaker-side-9.png",
+        "sha256": "8758a6b5cb7319930f01d88edfaac467fcd8bbd69faa87e3816adf921a3c4b18",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-breaker-side-10.png",
+        "sha256": "e5ee94a928ee766b7adacc535a4e8faabdeb191144af42985ebeaa504312ef59",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-earth-breaker-side-11.png",
+        "sha256": "8a39f53eadcbb908311316b89bd47d7e6209e1e069f11e1a569db4e377b42a74",
+        "exactDecodedPixelsIdentical": true
+      },
+      {
+        "name": "starter-earth-lightning-pulse-front-0.png",
+        "sha256": "49773385f61cc64ae016538a6b7624be33edf1bd85f58d2391f8a190a97c9f8f",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-lightning-pulse-front-1.png",
+        "sha256": "c9f28dc877c98daf28dab1c94bf9c0758b79ecc89be9660b56807ad9ef2520d6",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-lightning-pulse-front-2.png",
+        "sha256": "c5e4cfaaf4a9bc7d8834f4cd27ef7fe94114bd47f042470ebf9a121413b3baab",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-lightning-pulse-front-3.png",
+        "sha256": "db8e6b13b373c08f4c787e80cc47c1e5417b4fad0e3f0129d47b014d46b19048",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-lightning-pulse-front-4.png",
+        "sha256": "146bb3ed8b758edff9335c90cc85d1c8403a44510e6b4550c47cf3e7603a879d",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-lightning-pulse-front-5.png",
+        "sha256": "94c34671a82e3aa001343b65ec94f30a4aff7c7c3977b97b0e2eb7dbe9fdb6e6",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-lightning-pulse-front-6.png",
+        "sha256": "ac888f09bf2699c35e5fb3d8b6bef8ff27d5f069ae2ed764e9874cb1592855e5",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-lightning-pulse-front-7.png",
+        "sha256": "9e017cf1288633e6c716c3e64a1e7fd14283087797ace25f3da2c8d2c671f49a",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-lightning-pulse-front-8.png",
+        "sha256": "a59813efeccadeb5d7ac9762d8d3ad2ab8168ca0ca3ccf154ec5247981314ee2",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-lightning-pulse-front-9.png",
+        "sha256": "fdb7d1501755424eb976f5fe97565093cf0955006a395ac9eef4ae4ff849abc6",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-lightning-pulse-front-10.png",
+        "sha256": "4b26aa41b5370ed06800fa309dd0ec47d7487c4757065daf182b6ac601bfb664",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-lightning-pulse-front-11.png",
+        "sha256": "39442546f7868ded71dacd52b80be8e9cd476f92f9651a69209127d9b6d08b61",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-lightning-pulse-side-0.png",
+        "sha256": "3a46c4aee5c17f5f5ee5678595eb0b39be19c49ca0f5742d434c24288bb38cc9",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-lightning-pulse-side-1.png",
+        "sha256": "a34dc6d2f4b171e19aa71190b603e35324261d64eff2acd60dd366888cb1dda0",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-lightning-pulse-side-2.png",
+        "sha256": "027fd9372fbc56007d4bc9a1faeea651958e99808808f3e1f0052967d38458ae",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-lightning-pulse-side-3.png",
+        "sha256": "7ba9e1d2cda6789cf3a8ac4d6484bbe1bb062b8ce254c98f943cd111764781ff",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-lightning-pulse-side-4.png",
+        "sha256": "a5dccfcfd281b0dbb80bc59324b11c5813c3e183c9eb1d3d8f31ad10550e4f5b",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-lightning-pulse-side-5.png",
+        "sha256": "2ca21a7e55216e263d8973459e3873e341b730dc2dee3454b4dd4a4b79c84c7f",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-lightning-pulse-side-6.png",
+        "sha256": "45cbb79fcd38dc23a977e7a4ac8fdeb338f43961b3af4873641392fe52a21e70",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-lightning-pulse-side-7.png",
+        "sha256": "3655d9588c4c7aacbf673ce6cf24ff4573b4c11b14c88df1d911c275e318b2aa",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-lightning-pulse-side-8.png",
+        "sha256": "d57b75010b1d92940ba73252aa8d7e16b2e287fd15c518400a3988cdb114536b",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-lightning-pulse-side-9.png",
+        "sha256": "6789c0b61fb26bc83e27312d7f11461c508cdbf0ec2bfd56103d1dad425166b0",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-lightning-pulse-side-10.png",
+        "sha256": "c56b136cff9cc675d99f048e041bc866452b3cd20e52b4eee2040433d30e9b95",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-lightning-pulse-side-11.png",
+        "sha256": "c52eec9950d93e2ea63b8ba20afcc67d36924e8915a1de8f2d4d0eb0f3fb99ff",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-open-wound-front-0.png",
+        "sha256": "5f301a9490e6493548b0a019123551d2361324dcbfa126f5de7c4d3d4cf39b95",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-open-wound-front-1.png",
+        "sha256": "46533c71864e52cdc1972e5b428e6fa24b1b4ab9ff825572f4c25853f6c497c0",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-open-wound-front-2.png",
+        "sha256": "5482404ea3b5da92c219349cd4dada51c11738b979bad6becf48c5a51cbaaef2",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-open-wound-front-3.png",
+        "sha256": "1f5844f39e3952e047b523644172306ed560d890430c0b4056f8db23cfeec2f9",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-open-wound-front-4.png",
+        "sha256": "e5ff765df550f788b331b28703839611ab22713a98a5e98ddc148b5d5dab099f",
+        "exactDecodedPixelsIdentical": true
+      },
+      {
+        "name": "starter-earth-open-wound-front-5.png",
+        "sha256": "6ce95fa9ad84156a227a8f64631989b7b4a1d13bcd62b33e80e5059f40c5a380",
+        "exactDecodedPixelsIdentical": true
+      },
+      {
+        "name": "starter-earth-open-wound-front-6.png",
+        "sha256": "421f4db025af89f26c9c2074300e3e0e2debd2bf3355ba306d5d9fa363c48b13",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-open-wound-front-7.png",
+        "sha256": "5ea6c3b6a6ee24bdcda6857d62077f62369767684e996dea7ecdc1ab5e4424ef",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-open-wound-front-8.png",
+        "sha256": "c2f835e592ec655084b2c29cf655656767b6f7c85ca19c5a6220a45ea6466bd5",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-open-wound-front-9.png",
+        "sha256": "05a313796fbb4b4c1d113fcb9ce4c76e9972fdf4701f65b09e07ce22b128ebe5",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-open-wound-front-10.png",
+        "sha256": "e996b377cb8e983d8ad24147cd6e4977d8362f61deaa959db927baa92d50101a",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-open-wound-front-11.png",
+        "sha256": "956406df5cec1a5b7f3bba3366fb88df8a4b0cc02fc7bbf340a3f6183a4a8f70",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-open-wound-side-0.png",
+        "sha256": "bb9bf03b7b5b8044a099bc7fd3bed3aecd90beeb117fe7f26d426e60be570e74",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-open-wound-side-1.png",
+        "sha256": "307d7bff169d911ca801cf82ba4dd1f0a073dfe2c6cdcd8b2fb022f0f0cb8325",
+        "exactDecodedPixelsIdentical": true
+      },
+      {
+        "name": "starter-earth-open-wound-side-2.png",
+        "sha256": "b12c3cf858ef2fb6d80404500927709e1be7f666af8995909c77629c8342b749",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-open-wound-side-3.png",
+        "sha256": "b877f40f893ee72d590eea6a9d7317e88188a31b8b591bb5fe4f930ccb0aa9db",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-open-wound-side-4.png",
+        "sha256": "149366980a900486b1a888ebbede291595ec33badfb8045300317ec766e38bb5",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-open-wound-side-5.png",
+        "sha256": "d890c011a72c6f0946088fc57a1474a9f31b09c585c1f2b628818e41cce8c45e",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-open-wound-side-6.png",
+        "sha256": "8a582a557599a2d8a73d10357c9b5fa3b81a76279db8a31f770ff802e69d7ade",
+        "exactDecodedPixelsIdentical": true
+      },
+      {
+        "name": "starter-earth-open-wound-side-7.png",
+        "sha256": "abcd5159a009d0cd85d85beed52d7dbb2a2489e672925078758cbb9848b43a1d",
+        "exactDecodedPixelsIdentical": true
+      },
+      {
+        "name": "starter-earth-open-wound-side-8.png",
+        "sha256": "97e2ce5bef8f62df775c0416e693861fee5fe902e7a8425c6fba0f27c03ad3e6",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-open-wound-side-9.png",
+        "sha256": "c5fb0f78cccf0f69a6390ca3a577a3b5a04a23defba916de4c7939ea65d6824a",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-open-wound-side-10.png",
+        "sha256": "c56b136cff9cc675d99f048e041bc866452b3cd20e52b4eee2040433d30e9b95",
+        "exactDecodedPixelsIdentical": true
+      },
+      {
+        "name": "starter-earth-open-wound-side-11.png",
+        "sha256": "8a39f53eadcbb908311316b89bd47d7e6209e1e069f11e1a569db4e377b42a74",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-intercept-front-0.png",
+        "sha256": "32ba1f9491e448a1a1e40f2c5cadebbb9733bdba061f130f34d435873e12aaac",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-intercept-front-1.png",
+        "sha256": "f5e287470ea5973bf377bd140e4071fa6443c6ece5524451ba4d937f139dadc1",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-intercept-front-2.png",
+        "sha256": "cef6b2baf1fa7cf84735e3e92c7b13eb9f3bae287608c1396ed295eb312a9403",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-intercept-front-3.png",
+        "sha256": "b4cf3f73b2fc75342bef4619ce86cafd8c9b6622d239c1485cdf41e9fe6b8b2c",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-intercept-front-4.png",
+        "sha256": "6322c9e8f98c3332558a3b13ce3190518a014dae7748fcf9ec99abaca38128c0",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-intercept-front-5.png",
+        "sha256": "d8fce1141f5f1d7134ef0ca3178aab61d10af87f2444ea1afe6c5df00713a881",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-intercept-front-6.png",
+        "sha256": "3ff9ae89f3e04213c7cd12ec790e5789502cbbd5ca3ca24b20612b0c173487f1",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-intercept-front-7.png",
+        "sha256": "fc2f0d4a16919042b00ee42f75b0c664cb39c7eb76a7e9774bfe6c0eb3fcf68d",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-intercept-front-8.png",
+        "sha256": "efc3279f36a1dc5c01a1c6985677e3b0749d8b20f25e3b7983d6f650c7a28a68",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-intercept-front-9.png",
+        "sha256": "864d03c670cb3f2d9c69cb4689260934490a027c64a9adf48f54ddb0f5f33239",
+        "exactDecodedPixelsIdentical": true
+      },
+      {
+        "name": "starter-earth-intercept-front-10.png",
+        "sha256": "b2515ec4c62295f18a3cf99216cab42ca9531443bf6ac397e10be9454ced9e61",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-intercept-front-11.png",
+        "sha256": "956406df5cec1a5b7f3bba3366fb88df8a4b0cc02fc7bbf340a3f6183a4a8f70",
+        "exactDecodedPixelsIdentical": true
+      },
+      {
+        "name": "starter-earth-intercept-side-0.png",
+        "sha256": "22401124d6f1c51788e51c78fd4ca3d37f7f499ef678de74aaa35a21e45faa83",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-intercept-side-1.png",
+        "sha256": "a24183d64fa945bd5d10bad29f3213c15ea18aa46dadd50bf24c0e4a84b6d90b",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-intercept-side-2.png",
+        "sha256": "720c9ad6f0eeff0b6508b4ae39ca692dcc9654ec4fe4fbb0563892f91dec44d1",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-intercept-side-3.png",
+        "sha256": "757676e082b47d953b6bc47f5143c437324b96db6c4501ec5ef081e40b67a0ea",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-intercept-side-4.png",
+        "sha256": "cfb0fecfde2b87c39a42d6a2271f0ddedf208ce97968fa90dd7efc93b70f85bf",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-intercept-side-5.png",
+        "sha256": "705ffe6b29b5cb30cbe2f999bfdf8594a06e5c79af7a258b7b9a28650c8a1500",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-intercept-side-6.png",
+        "sha256": "0bd676adb804708245d8d73782ac7b8109f6f2d5ec1302e3cd1f3648e5b6cf6f",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-intercept-side-7.png",
+        "sha256": "1502cbfabf8ee2edb93aa1675794c8c6260059d1aa3a8d51d5904a6b35dd8efa",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-intercept-side-8.png",
+        "sha256": "4e7a33370210b7da84df7b6df5b00d7673f43734428f7918cca37a35590f5af2",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-intercept-side-9.png",
+        "sha256": "d87adcd48ee98171f7d0b9530542144d8da1e0f77ea783a8131836dc02f1b9cb",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-intercept-side-10.png",
+        "sha256": "e5ee94a928ee766b7adacc535a4e8faabdeb191144af42985ebeaa504312ef59",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-intercept-side-11.png",
+        "sha256": "8a39f53eadcbb908311316b89bd47d7e6209e1e069f11e1a569db4e377b42a74",
+        "exactDecodedPixelsIdentical": true
+      },
+      {
+        "name": "starter-earth-aegis-front-0.png",
+        "sha256": "13e7ee33878ad16a9a150c63daf78efc741a3eb61236432c89882d998d782109",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-aegis-front-1.png",
+        "sha256": "5cb57abf1ed75d63758131619ef562c8a7c88729381459a64a3ad48fed7b6683",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-aegis-front-2.png",
+        "sha256": "cf756f8826976257e2349cf6a58742c47ab428e30acd9bd220a8a635d7dbdf11",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-aegis-front-3.png",
+        "sha256": "529f014ea0e435ace34e248f4ff96c6b155b4b6da40b0a297fd13e1efc070394",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-aegis-front-4.png",
+        "sha256": "e0299ed4fd3cd070d8329d83f501c0361d4ec003fa9f67fe2de7fa1bab2d40a4",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-aegis-front-5.png",
+        "sha256": "046f1030041068d4896464519c1f917e8c1d9fb31b286391804a4d774bf1406b",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-aegis-front-6.png",
+        "sha256": "f87cc363d7ed2ac52874eecc380e7043c1d642800ac264cee5c443b5d720ab91",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-aegis-front-7.png",
+        "sha256": "77a7b5552506c7f46ec86cc26f329a8b6e865ec88bfc8de8711fda337ad197a7",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-aegis-front-8.png",
+        "sha256": "5b6c32251dea3e8685af29fe837093b97edc4d094643caf261dffb402a26f591",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-aegis-front-9.png",
+        "sha256": "b0a1aabfb162d3ffa4a043cd2de0babb421d77e7ea96abfb1c1c51e7e46041b7",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-aegis-front-10.png",
+        "sha256": "b2515ec4c62295f18a3cf99216cab42ca9531443bf6ac397e10be9454ced9e61",
+        "exactDecodedPixelsIdentical": true
+      },
+      {
+        "name": "starter-earth-aegis-front-11.png",
+        "sha256": "7fc37e806ca8571f6630810efc3cd9b06df59a32b7ba2f2ab82dff22ca45adc8",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-aegis-side-0.png",
+        "sha256": "6d94dc95ec73d42d0450cae29b5e167f10cc984d0d3f68536165af979e3a39ec",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-aegis-side-1.png",
+        "sha256": "4e9dd56fb540ce15f22c1d3f710959e3ea5eb5b2aaebf0b01d35c13330e384d2",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-aegis-side-2.png",
+        "sha256": "aa20037548661cf4b469b2f5a05a1696d4ff10fce33c3b2043669d79f625a35c",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-aegis-side-3.png",
+        "sha256": "c6bbbe1a5fa359ddfc4cf346dd458d062d9f871e9d0309b78ed255a0fe09adec",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-aegis-side-4.png",
+        "sha256": "e03296b39cdda75a66110521fbb1078a3de657c79aa4c6b171c69dcd1c56133f",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-aegis-side-5.png",
+        "sha256": "e1830c0d44f6ff49c0d063dde1187cd234e5b941391fbb0f6ace9e0a2e9a0378",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-aegis-side-6.png",
+        "sha256": "81f914060d093330beaf2d13bbfb4e31591531b08d9f412357bf5224cb496e83",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-aegis-side-7.png",
+        "sha256": "d6ff33b63d19d785859033fbca9f5fbf655bc1df409dfc55d2aeeabc98ae475d",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-aegis-side-8.png",
+        "sha256": "d40520276db280b44e867068bebb8648eae94210f260b4d54fcce3a01a550619",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-aegis-side-9.png",
+        "sha256": "39cf132b42bdaa342621aa15da440d8fd4343adc4d8b68dc1026a2aa8d4af62f",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-aegis-side-10.png",
+        "sha256": "c56b136cff9cc675d99f048e041bc866452b3cd20e52b4eee2040433d30e9b95",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-aegis-side-11.png",
+        "sha256": "8a39f53eadcbb908311316b89bd47d7e6209e1e069f11e1a569db4e377b42a74",
+        "exactDecodedPixelsIdentical": true
+      },
+      {
+        "name": "starter-earth-purify-front-0.png",
+        "sha256": "16985b21d2acb10e27b915b1bcfef44300ee976921db568f7c8b81053941cd00",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-purify-front-1.png",
+        "sha256": "2932107f81a1949711f10509128c834cc39ed909415665828cd727a57a5e7564",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-purify-front-2.png",
+        "sha256": "bb0020a57a96b4257ab439d5b9c8445096bcab04fbcb41b7e8145160993f36a0",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-purify-front-3.png",
+        "sha256": "d320ed7dda76aa7ec99c62d176e3510b5f4f809109b6c7ddaaea868a5ea55dcb",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-purify-front-4.png",
+        "sha256": "fca01d28f26f254f031bff323a6666a4cdc943f2aa8866bed17c0f49129aa6ba",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-purify-front-5.png",
+        "sha256": "ddfc244061f0e3cc07244b34b127f74fc329c2d45de4fe9b15cbf04ebbeb0cdf",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-purify-front-6.png",
+        "sha256": "fdfbf35fd93ad95131fcb2b30607f5b28211bdef39c886561a6e832236d34236",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-purify-front-7.png",
+        "sha256": "703a90c270d3694ec382e7439f703bea40493c53ff29489fc08fe159e0266a1e",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-purify-front-8.png",
+        "sha256": "23cee32f333b4798c32a776c7c0f1b59c252d3c595ac702160e31f6911a33515",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-purify-front-9.png",
+        "sha256": "864d03c670cb3f2d9c69cb4689260934490a027c64a9adf48f54ddb0f5f33239",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-purify-front-10.png",
+        "sha256": "b2515ec4c62295f18a3cf99216cab42ca9531443bf6ac397e10be9454ced9e61",
+        "exactDecodedPixelsIdentical": true
+      },
+      {
+        "name": "starter-earth-purify-front-11.png",
+        "sha256": "956406df5cec1a5b7f3bba3366fb88df8a4b0cc02fc7bbf340a3f6183a4a8f70",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-purify-side-0.png",
+        "sha256": "2296fd839540f959a2e069acbe1343157f4109a03d4052f2dcc17d7f09984fad",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-purify-side-1.png",
+        "sha256": "01a4ac450fecfd757baa3a010d8d59caec4d823ec212b5476a7c2b6aa6a722b8",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-purify-side-2.png",
+        "sha256": "6834c23b69aa6820b093024892e6cd0fd19bc758fa8ff6c75af26115816a01fb",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-purify-side-3.png",
+        "sha256": "aaa7bd2ee3e2cac51af311b60cc9a58354048fdc0aaa7ca1733df2a879579a61",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-purify-side-4.png",
+        "sha256": "64f12366a8680f28116ee3b9fcfa5e27506e2a0651c40d323d59b5e1bc6bde63",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-purify-side-5.png",
+        "sha256": "31433a865afee00a483b4c1da3d8b6590338bb2e2a65f16724d56ccef636cc4a",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-purify-side-6.png",
+        "sha256": "caf3cb99aa8f794d06a9afe082f5440b18d8788347f6237fc87b7dce523b6449",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-purify-side-7.png",
+        "sha256": "3642e8750863cd2b95b57aa6db81e6afe17c0368afa001fab9dfd94a51ee74a5",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-purify-side-8.png",
+        "sha256": "f7d947e4e3bf91ba797d8550445107ffccd2d4291b9b148f67313d5e0a3647c0",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-purify-side-9.png",
+        "sha256": "d87adcd48ee98171f7d0b9530542144d8da1e0f77ea783a8131836dc02f1b9cb",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-purify-side-10.png",
+        "sha256": "e5ee94a928ee766b7adacc535a4e8faabdeb191144af42985ebeaa504312ef59",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-purify-side-11.png",
+        "sha256": "8a39f53eadcbb908311316b89bd47d7e6209e1e069f11e1a569db4e377b42a74",
+        "exactDecodedPixelsIdentical": true
+      },
+      {
+        "name": "starter-earth-starter-earth-signature-front-0.png",
+        "sha256": "0a86a76785bf07bf8657dc6677f9f1eaae78531c118bf35bb70e3fc414e220ef",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-starter-earth-signature-front-1.png",
+        "sha256": "5fa514938182e86c6b40685fec956c69a18580e2bfe4de2653eed7e6edefac97",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-starter-earth-signature-front-2.png",
+        "sha256": "834021e12b979b3a214e56a2a95938131229bc3af563ddbdf387772a6a71d1d8",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-starter-earth-signature-front-3.png",
+        "sha256": "29a20cad5b34d70f89f1f842fe5fd8f4550c706ac99d65254a17ce78d86f7bac",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-starter-earth-signature-front-4.png",
+        "sha256": "26e938d8fac0745bef2b45c8cec5b0be67c276dd975a7ed648d905368d3f0132",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-starter-earth-signature-front-5.png",
+        "sha256": "e069b1b276b080efcf66fd9c40c9fe8b7f6720855f4b45e01f96a918d68d2d6c",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-starter-earth-signature-front-6.png",
+        "sha256": "44d8ce287e37c920e4a0f7acc1ae89aff934846f5e03618f0e5c3caa27e003ae",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-starter-earth-signature-front-7.png",
+        "sha256": "b94ef756967d116d3999492eef6b5e8f811c7b167070a80d0f98c19937e47572",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-starter-earth-signature-front-8.png",
+        "sha256": "cadff2f64713f7b75aa83ea3ea4d18d6c90993c84eb5164f4189216701345c1a",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-starter-earth-signature-front-9.png",
+        "sha256": "b0a1aabfb162d3ffa4a043cd2de0babb421d77e7ea96abfb1c1c51e7e46041b7",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-starter-earth-signature-front-10.png",
+        "sha256": "b2515ec4c62295f18a3cf99216cab42ca9531443bf6ac397e10be9454ced9e61",
+        "exactDecodedPixelsIdentical": true
+      },
+      {
+        "name": "starter-earth-starter-earth-signature-front-11.png",
+        "sha256": "d4a31857d2191151fec87c19bc92a55b6f7130b1bb86933438f5f52f769fe871",
+        "exactDecodedPixelsIdentical": true
+      },
+      {
+        "name": "starter-earth-starter-earth-signature-side-0.png",
+        "sha256": "0c0f42323cddf5092348507f0fef5c6cab166e0a76d11b2d2e372175f32218a9",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-starter-earth-signature-side-1.png",
+        "sha256": "f7f6fbef0b1c5c63077d51d1f3374db28a81da5e1a4572e8336ec717317801b0",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-starter-earth-signature-side-2.png",
+        "sha256": "ba35375986159d8148e402053adb4f82d46cf73a2195ed73e5d5920d8dec5de0",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-starter-earth-signature-side-3.png",
+        "sha256": "cfa6d877939cb68757b3ae7ed320937c22ee1471a11d5962265e4b5d5a68c493",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-starter-earth-signature-side-4.png",
+        "sha256": "41cb83475aa215a5c494f347638dcce8edf74ec41812cb07450df734802afa1c",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-starter-earth-signature-side-5.png",
+        "sha256": "84bdd3ff78938b8f1c19e8cf10d9ff84951ab25c966436df0e16057f4831e418",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-starter-earth-signature-side-6.png",
+        "sha256": "851621ec863f26b47dd4bfe8920a71f19fbf382886819d09e645a98bed734e2b",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-starter-earth-signature-side-7.png",
+        "sha256": "e4df9c8fbee79bc32006fb0bb44ab046e79a37935192e538003b1fd161539b4c",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-starter-earth-signature-side-8.png",
+        "sha256": "dca534e8847c6c5d2d849a1fb4369541455d4e7e4741cf3ffda4f3bba735d217",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-starter-earth-signature-side-9.png",
+        "sha256": "cda6715d8d936c5da1ea10e8c6daa3a6fe530ca318a5a36b21b6ea9fa6f8d012",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-starter-earth-signature-side-10.png",
+        "sha256": "c56b136cff9cc675d99f048e041bc866452b3cd20e52b4eee2040433d30e9b95",
+        "exactDecodedPixelsIdentical": false
+      },
+      {
+        "name": "starter-earth-starter-earth-signature-side-11.png",
+        "sha256": "c52eec9950d93e2ea63b8ba20afcc67d36924e8915a1de8f2d4d0eb0f3fb99ff",
+        "exactDecodedPixelsIdentical": false
+      }
+    ]
+  }
+]

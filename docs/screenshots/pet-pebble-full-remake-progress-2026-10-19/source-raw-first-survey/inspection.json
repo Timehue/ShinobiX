@@ -1,0 +1,101 @@
+{
+  "sourceSha256": "c56b6391da217d8aa076c5cde6ea150b0eefa78b33d0ba347390e58001fc3a83",
+  "phases": [
+    0,
+    0.125,
+    0.375,
+    0.625,
+    0.875,
+    1
+  ],
+  "views": [
+    "body-front",
+    "body-side",
+    "head-front",
+    "head-side"
+  ],
+  "files": [
+    {
+      "clip": "idle",
+      "file": ".tmp/pebble-full-remake/raw-survey-v6/idle.png",
+      "actuallyVisuallyInspected": true,
+      "assessment": "No facial warping, detached skin or thigh spikes observed in these six sampled phases; complete release review remains open"
+    },
+    {
+      "clip": "idle_2",
+      "file": ".tmp/pebble-full-remake/raw-survey-v6/idle_2.png",
+      "actuallyVisuallyInspected": true,
+      "assessment": "No facial warping, detached skin or thigh spikes observed in these six sampled phases; complete release review remains open"
+    },
+    {
+      "clip": "walk",
+      "file": ".tmp/pebble-full-remake/raw-survey-v6/walk.png",
+      "actuallyVisuallyInspected": true,
+      "assessment": "No facial warping, detached skin or thigh spikes observed in these six sampled phases; complete release review remains open"
+    },
+    {
+      "clip": "gallop",
+      "file": ".tmp/pebble-full-remake/raw-survey-v6/gallop.png",
+      "actuallyVisuallyInspected": true,
+      "assessment": "No facial warping, detached skin or thigh spikes observed in these six sampled phases; complete release review remains open"
+    },
+    {
+      "clip": "gallop_jump",
+      "file": ".tmp/pebble-full-remake/raw-survey-v6/gallop_jump.png",
+      "actuallyVisuallyInspected": true,
+      "assessment": "No facial warping, detached skin or thigh spikes observed in these six sampled phases; complete release review remains open"
+    },
+    {
+      "clip": "attack",
+      "file": ".tmp/pebble-full-remake/raw-survey-v6/attack.png",
+      "actuallyVisuallyInspected": true,
+      "assessment": "No facial warping, detached skin or thigh spikes observed in these six sampled phases; complete release review remains open"
+    },
+    {
+      "clip": "idle_hitreact1",
+      "file": ".tmp/pebble-full-remake/raw-survey-v6/idle_hitreact1.png",
+      "actuallyVisuallyInspected": true,
+      "assessment": "No facial warping, detached skin or thigh spikes observed in these six sampled phases; complete release review remains open"
+    },
+    {
+      "clip": "death",
+      "file": ".tmp/pebble-full-remake/raw-survey-v6/death.png",
+      "actuallyVisuallyInspected": true,
+      "assessment": "No facial warping, detached skin or thigh spikes observed in these six sampled phases; complete release review remains open"
+    },
+    {
+      "clip": "entrance",
+      "file": ".tmp/pebble-full-remake/raw-survey-v6/entrance.png",
+      "actuallyVisuallyInspected": true,
+      "assessment": "No facial warping, detached skin or thigh spikes observed in these six sampled phases; complete release review remains open"
+    },
+    {
+      "clip": "cast",
+      "file": ".tmp/pebble-full-remake/raw-survey-v6/cast.png",
+      "actuallyVisuallyInspected": true,
+      "assessment": "No facial warping, detached skin or thigh spikes observed in these six sampled phases; complete release review remains open"
+    },
+    {
+      "clip": "guard",
+      "file": ".tmp/pebble-full-remake/raw-survey-v6/guard.png",
+      "actuallyVisuallyInspected": true,
+      "assessment": "No facial warping, detached skin or thigh spikes observed in these six sampled phases; complete release review remains open"
+    },
+    {
+      "clip": "rest",
+      "file": ".tmp/pebble-full-remake/raw-survey-v6/rest.png",
+      "actuallyVisuallyInspected": true,
+      "assessment": "No facial warping, detached skin or thigh spikes observed in these six sampled phases; complete release review remains open"
+    },
+    {
+      "clip": "victory",
+      "file": ".tmp/pebble-full-remake/raw-survey-v6/victory.png",
+      "actuallyVisuallyInspected": true,
+      "assessment": "No facial warping, detached skin or thigh spikes observed in these six sampled phases; complete release review remains open"
+    }
+  ],
+  "errors": [],
+  "acceptance": "private draft survey only",
+  "scope": "First sampled source survey only; 13 clips × six phases × four views = 312 rendered poses",
+  "releaseApproval": false
+}

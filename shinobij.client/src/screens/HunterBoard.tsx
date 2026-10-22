@@ -509,7 +509,7 @@ export function HunterBoard({
                                         <div key={mission.id} className="hunt-contract-card">
                                             <div className="hunt-contract-top">
                                                 {beastPortrait(mission.aiProfileId)
-                                                    ? <img className="hunt-beast-portrait" src={beastPortrait(mission.aiProfileId)} alt={beastAi?.name ?? mission.name} style={{ width: 76, height: 76, objectFit: "cover", borderRadius: 10, flexShrink: 0, boxShadow: "0 2px 8px rgba(0,0,0,.4)" }} />
+                                                    ? <img className="hunt-beast-portrait" src={beastPortrait(mission.aiProfileId)} alt={beastAi?.name ?? mission.name} style={{ width: 76, height: 76, objectFit: "contain", borderRadius: 10, flexShrink: 0, boxShadow: "0 2px 8px rgba(0,0,0,.4)" }} />
                                                     : <span className="hunt-beast-icon"><GameArtIcon kind="petTamer" size={30} /></span>}
                                                 <div className="hunt-contract-info">
                                                     <strong>{mission.name}</strong>

@@ -8,6 +8,11 @@ import { AUGMENT_CATALOG, type HollowGateRunToken } from './_run-token.js';
 import type { HollowGateCombatBinding, HollowGateCombatKind } from './_combat-session.js';
 import { hollowGateWandererForNode } from './_wanderers.js';
 import { hollowGateWandererName, hollowGateWandererArt } from '../../shared/hollow-gate-wanderers.js';
+import { resolveAiProfileJutsu } from '../_ai-opponent-loadout.js';
+import { soloPveJutsuCompatibility } from '../solo-pve/_compatibility.js';
+import { validateServerAiRules } from '../combat-core/ai-authoring.js';
+import { SHRINE_AI_POLICY } from '../solo-pve/_ai-turn-policy.js';
+import { narrativeEnemyIdentity } from '../../shared/narrative-enemy-identity.js';
 
 const LOADOUTS: Record<'burst' | 'bruiser' | 'hunter' | 'boss', string[]> = {
     burst: ['starter-tai-water-2', 'starter-nin-lightning-2', 'starter-buki-fire-2', 'starter-tai-fire-2', 'starter-tai-earth-1', 'starter-universal-flicker'],
@@ -15,6 +20,14 @@ const LOADOUTS: Record<'burst' | 'bruiser' | 'hunter' | 'boss', string[]> = {
     hunter: ['starter-buki-wind-2', 'starter-nin-lightning-2', 'starter-tai-fire-2', 'starter-nin-earth-2', 'starter-buki-water-1', 'starter-universal-flicker'],
     boss: ['starter-gen-lightning-2', 'starter-nin-fire-2', 'starter-buki-water-2', 'starter-tai-lightning-2', 'starter-nin-earth-1', 'starter-gen-fire-1', 'starter-universal-flicker'],
 };
+
+/** Stable per sealed node: no reroll on resume, and no saved run/map migration. */
+function corridorLoadout(run: HollowGateRunToken, binding: HollowGateCombatBinding): 'burst' | 'bruiser' | 'hunter' {
+    let hash = 2166136261;
+    for (const char of `${run.seed}:${binding.floor}:${binding.nodeId}:${binding.kind}`)
+        hash = Math.imul(hash ^ char.charCodeAt(0), 16777619);
+    return (['hunter', 'burst', 'bruiser'] as const)[(hash >>> 0) % 3]!;
+}
 
 function augmentEffects(run: HollowGateRunToken) {
     const augment = run.chosenAugmentId ? AUGMENT_CATALOG[run.chosenAugmentId] : undefined;
@@ -53,12 +66,20 @@ export function buildHollowGateProfile(params: {
     const statMult = (boss ? 1.18 : 1 + depth * 0.035) * kindStatMult * augment.enemyStatMult * gentle;
     const stats = Object.fromEntries(Object.entries(aiStatsForLevel(level)).map(([key, value]) => [key, Math.max(1, Math.round(value * statMult))]));
     const baseHp = aiHpForLevel(level, boss ? 0.18 : elite ? 0.1 : 0.04);
-    const hp = Math.max(1, Math.floor(baseHp * (boss ? scale.hpMult : 1 + depth * 0.06) * kindHpMult * augment.enemyHpMult * gentle * (1 - augment.enemyHpShavePct)));
-    const loadoutId = boss ? 'boss' : elite || wanderer?.role === 'bandit' ? 'bruiser' : ambush || wanderer?.role === 'night-ninja' ? 'burst' : 'hunter';
+    // New shrine mobs keep their attacks, defenses and depth/augment rules,
+    // with less HP attrition. Stored sessions resume before this factory runs.
+    // Bosses (including named Rift bosses) retain their original HP exactly.
+    const mobHpMult = boss ? 1 : elite ? 0.60 : 0.65;
+    const hp = Math.max(1, Math.floor(baseHp * (boss ? scale.hpMult : 1 + depth * 0.06) * kindHpMult * augment.enemyHpMult * gentle * (1 - augment.enemyHpShavePct) * mobHpMult));
+    const loadoutId = boss ? 'boss' : elite || wanderer?.role === 'bandit' ? 'bruiser'
+        : wanderer?.role === 'night-ninja' ? 'burst' : wanderer || beast ? 'hunter'
+        : level > 30 && (kind === 'battle' || ambush) ? corridorLoadout(run, binding) : ambush ? 'burst' : 'hunter';
+    const authoredBoss = boss && narrativeEnemyIdentity(run.bossProfileId) ? run.bossProfileId : undefined;
     return {
         id: binding.enemyProfileId,
         name: wanderer ? hollowGateWandererName(wanderer) : boss ? (run.bossName || hollowGateHoundName(binding.floor, kind)) : hollowGateHoundName(binding.floor, kind),
-        visual: wanderer ? 'shinobi' : 'hollow-hound',
+        visual: authoredBoss ?? (wanderer ? 'shinobi' : 'hollow-hound'),
+        ...(authoredBoss ? { narrativeIdentityId: authoredBoss } : {}),
         ...(wanderer ? { avatarImage: hollowGateWandererArt(wanderer) } : {}),
         level,
         hp,
@@ -80,17 +101,33 @@ export function buildHollowGateSoloPveEncounter(params: {
     save: Record<string, unknown>;
     now: number;
     admin: AdminCombatContent | null;
+    namedBossProfile?: SoloPveAiProfile | null;
 }): SoloPveSession {
     const character = params.save.character as Record<string, unknown>;
     const augment = augmentEffects(params.run);
+    const profile = buildHollowGateProfile({ binding: params.binding, run: params.run, playerLevel: Math.max(1, Math.floor(Number(character.level) || 1)) });
+    const named = params.binding.kind === 'boss' && params.run.bossProfileId === params.namedBossProfile?.id ? params.namedBossProfile : null;
+    const namedJutsu = named ? resolveAiProfileJutsu(named.jutsuIds, params.admin) : [];
+    const program = named ? validateServerAiRules(named.rules, namedJutsu.map(jutsu => jutsu.id)) : null;
+    const supported = !!named && namedJutsu.length > 0 && !!program?.ok && namedJutsu.every(jutsu => soloPveJutsuCompatibility(jutsu).length === 0);
+    // The run already selected this authored opponent. Adopt its existing kit
+    // and rules only; shrine curves, mastery, resources and support budget stay sealed here.
+    if (supported) Object.assign(profile, {
+        jutsuIds: namedJutsu.map(jutsu => jutsu.id), rules: program.rules,
+        preserveNarrativeRules: true,
+        loadoutId: named.loadoutId,
+        ...(!params.run.bossName && typeof named.name === 'string' ? { name: named.name } : {}),
+        ...(typeof named.avatarImage === 'string' ? { avatarImage: named.avatarImage } : {}),
+    });
     const session = buildSoloPveAiEncounter({
         sessionId: params.binding.runId,
         playerName: params.binding.playerName,
         save: params.save,
-        profile: buildHollowGateProfile({ binding: params.binding, run: params.run, playerLevel: Math.max(1, Math.floor(Number(character.level) || 1)) }),
+        profile,
         now: params.now,
         admin: params.admin,
         difficultyMode: 'AI_FIGHT',
+        aiTurnPolicy: SHRINE_AI_POLICY,
         encounter: {
             kind: 'hollow-gate',
             id: `${params.run.seed}:${params.binding.floor}:${params.binding.nodeId}:${params.binding.kind}`,
@@ -102,11 +139,23 @@ export function buildHollowGateSoloPveEncounter(params: {
                 combatKind: params.binding.kind,
                 augmentId: params.run.chosenAugmentId ?? 'none',
                 noRetreat: augment.noRetreat,
+                ...(supported ? { namedBossProfileId: named.id } : {}),
             },
         },
         environment: { biome: 'shadow' },
     });
     const wanderer = params.binding.kind === 'battle' ? hollowGateWandererForNode(params.run, params.binding.nodeId) : undefined;
+    const corridor = !wanderer && (params.binding.kind === 'battle' || params.binding.kind === 'ambush');
+    session.shrineAi = { version: 1, healsUsed: 0, healLimit: params.binding.kind === 'elite' || params.binding.kind === 'boss' ? 2
+        : corridor && profile.loadoutId !== 'bruiser' ? 0 : 1,
+        ...(corridor ? { supportLimit: 1, supportsUsed: 0 } : {}) };
+    if (corridor) session.log.push(profile.loadoutId === 'bruiser'
+        ? 'Bruiser stance: close-range pressure and a defensive ward. Clear its ward; keep distance to limit its attacks.'
+        : profile.loadoutId === 'burst' ? 'Striker stance: gap-closing attacks and afflictions. Use defensive techniques during its approach; Cleanse active afflictions.'
+        : 'Hunter stance: ranged pressure and afflictions. Close distance or move beyond technique range; Cleanse active afflictions.');
+    const healText = session.shrineAi.healLimit === 0 ? 'cannot use Basic Heal' : `can use Basic Heal ${session.shrineAi.healLimit === 1 ? 'once' : 'twice'}`;
+    session.log.push(`Shrine tactics: ${session.enemy.name} ${healText}. After a support technique it must return to offense for a round. Clear removes active defenses; Cleanse removes afflictions.`);
+    if (corridor) session.log.push('This creature has one shared use of Basic Heal or a purely defensive technique for the entire fight. Damaging techniques, movement, Clear and Cleanse remain available.');
     if (wanderer) session.enemy.character.avatarImage = hollowGateWandererArt(wanderer);
     return session;
 }

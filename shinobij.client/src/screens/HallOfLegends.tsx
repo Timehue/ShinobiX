@@ -639,7 +639,7 @@ function HallOfLegends({ character, setScreen, playerRoster, onVersionedCharacte
                        same cover treatment as the era cards. */
                     <img
                         src="/legacy/hall-of-legends-banner.webp" alt=""
-                        style={{ width: "100%", maxHeight: 120, objectFit: "cover", display: "block", borderRadius: 10, marginBottom: 10 }}
+                        style={{ width: "100%", maxHeight: 120, objectFit: "contain", display: "block", borderRadius: 10, marginBottom: 10 }}
                         onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
                     />
                 )}
@@ -668,7 +668,7 @@ function HallOfLegends({ character, setScreen, playerRoster, onVersionedCharacte
                         : eraViews.map((e) => (
                             <div key={e.id} className="card" style={{ padding: 0, marginBottom: 12, overflow: "hidden", opacity: e.status === "locked" ? 0.55 : 1 }}>
                                 <div style={{ position: "relative" }}>
-                                    <img src={e.banner} alt={e.name} style={{ width: "100%", maxHeight: 130, objectFit: "cover", display: "block", filter: e.status === "unlocked" ? "none" : "saturate(.35) brightness(.7)" }} onError={(ev) => { (ev.currentTarget as HTMLImageElement).style.display = "none"; }} />
+                                    <img src={e.banner} alt={e.name} style={{ width: "100%", maxHeight: 130, objectFit: "contain", display: "block", filter: e.status === "unlocked" ? "none" : "saturate(.35) brightness(.7)" }} onError={(ev) => { (ev.currentTarget as HTMLImageElement).style.display = "none"; }} />
                                     <div style={{ position: "absolute", left: 12, bottom: 8, textShadow: "0 1px 6px rgba(0,0,0,.9)" }}>
                                         <b style={{ fontSize: "1rem", color: e.status === "unlocked" ? "var(--gold-300)" : "var(--slate-300)" }}>{e.name}</b>
                                         <span style={{ marginLeft: 8, fontSize: ".7rem", color: e.status === "unlocked" ? "var(--green-300)" : "var(--purple-400)" }}>

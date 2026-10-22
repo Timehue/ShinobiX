@@ -1,0 +1,87 @@
+{
+  "id": "rare-9",
+  "label": "parallel-a-private-second-rare-9-peak48-final",
+  "rendererSha256": "b2253b71fbcb21a83d82de35ab5783dd57b525cfc94740fb131dd1eb0049a897",
+  "companionComponentSha256": "dd0e422cec9458b37fb370c4ebc0af7717d129f93540420ea3a14c371f400dcd",
+  "captureHarnessSha256": "90bee391ab48fcadbebb5a339fc3ad0ed23fe30cbe68d7f8c3938feaea0cf32b",
+  "models": [
+    {
+      "url": "/pet-models/warfront-lod/roster/rare-9.glb?v=20260902-battle-lod-v1-89bf8bf77938-c12c91e5af36",
+      "sha256": "4a8fca3afbf41f1a4f6683014ca125c23e5b84355eb2e26ce293d30d82b72c3c"
+    }
+  ],
+  "moves": [
+    "earth-strike",
+    "earth-breaker",
+    "rare-9-signature"
+  ],
+  "views": [
+    "side"
+  ],
+  "requests": [
+    "https://localhost:5207/pet-models/warfront-lod/roster/rare-9.glb?v=20260902-battle-lod-v1-89bf8bf77938-c12c91e5af36",
+    "https://localhost:5207/pet-models/warfront-lod/roster/rare-9.glb?v=20260902-battle-lod-v1-89bf8bf77938-c12c91e5af36"
+  ],
+  "errors": [],
+  "frames": [
+    {
+      "move": "earth-strike",
+      "view": "side",
+      "i": 0,
+      "time": 0.48,
+      "engine": "three.js r185",
+      "previewFrames": "18",
+      "previewTime": "0.7110000000000002",
+      "previewMotion": "strike",
+      "previewCalls": "2",
+      "previewTriangles": "10032",
+      "previewModel": "/pet-models/warfront-lod/roster/rare-9.glb?v=20260902-battle-lod-v1-89bf8bf77938-c12c91e5af36",
+      "previewCare": "",
+      "previewCareSerial": "0",
+      "previewAppearance": "original",
+      "previewCollar": "",
+      "name": "rare-9-earth-strike-side-0.png",
+      "sha256": "561b31dc57f5bebff404a2a61b082bdf373ff4da2c06545245a63cda0c748668"
+    },
+    {
+      "move": "earth-breaker",
+      "view": "side",
+      "i": 0,
+      "time": 0.48,
+      "engine": "three.js r185",
+      "previewFrames": "33",
+      "previewTime": "1.3030000000000006",
+      "previewMotion": "strike",
+      "previewCalls": "2",
+      "previewTriangles": "10032",
+      "previewModel": "/pet-models/warfront-lod/roster/rare-9.glb?v=20260902-battle-lod-v1-89bf8bf77938-c12c91e5af36",
+      "previewCare": "",
+      "previewCareSerial": "0",
+      "previewAppearance": "original",
+      "previewCollar": "",
+      "name": "rare-9-earth-breaker-side-0.png",
+      "sha256": "a35aee0d859142223b97001906753c72834309ce238f4c8b48863fa1af09ca1a"
+    },
+    {
+      "move": "rare-9-signature",
+      "view": "side",
+      "i": 0,
+      "time": 0.48,
+      "engine": "three.js r185",
+      "previewFrames": "47",
+      "previewTime": "1.8790000000000011",
+      "previewMotion": "strike",
+      "previewCalls": "2",
+      "previewTriangles": "10032",
+      "previewModel": "/pet-models/warfront-lod/roster/rare-9.glb?v=20260902-battle-lod-v1-89bf8bf77938-c12c91e5af36",
+      "previewCare": "",
+      "previewCareSerial": "0",
+      "previewAppearance": "original",
+      "previewCollar": "",
+      "name": "rare-9-rare-9-signature-side-0.png",
+      "sha256": "39b0c164fd3b34c13ae637f70e02ba3038ea2342b24b7d7b298c6b275e20f02c"
+    }
+  ],
+  "sheets": [],
+  "review": "pending"
+}

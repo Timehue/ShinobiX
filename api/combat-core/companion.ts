@@ -9,6 +9,10 @@ import {
 import { activeCarriedPets } from '../_entitlements.js';
 import { petCombatBusyReason } from '../pet/_pet-busy.js';
 import { currentPetHappiness } from '../pet/_happiness.js';
+import { petBattleJutsus } from '../../shared/pet-battle-loadout.js';
+import { petSignatureMastery, petUnmasteredPower } from '../../shared/pet-ability-mastery.js';
+import { petBattleChannels } from '../../shared/pet-battle-stats.js';
+import { derivePetGrowthStats, sanitizeGrowthAllocation } from '../pet/_growth.js';
 import {
     PET_HAPPINESS_OBEDIENT,
     PET_HAPPINESS_RESTLESS,
@@ -25,10 +29,11 @@ export const COMPANION_RANGE = 2;
 export const COMPANION_DISOBEY_CHANCE = petHappinessDisobeyChance(PET_HAPPINESS_RESTLESS);
 export const COMPANION_OBEDIENT_HAPPINESS = PET_HAPPINESS_OBEDIENT;
 
-const SELF_KINDS = new Set(['heal', 'shield', 'barrier', 'buff', 'haste', 'absorb', 'taunt', 'move']);
+const SELF_KINDS = new Set(['heal', 'shield', 'barrier', 'buff', 'haste', 'absorb', 'taunt', 'move', 'cleanse']);
 const SUPPORT_KINDS = new Set(['heal', 'shield', 'barrier']);
+const boundedDefense = (value: unknown): number => Number.isFinite(Number(value)) ? Math.max(0, Math.min(10000, Number(value))) : 0;
 const KIND_DAMAGE_SCALE: Record<string, number> = {
-    heal: 0, shield: 0, barrier: 0, buff: 0, haste: 0, absorb: 0, taunt: 0, move: 0,
+    heal: 0, shield: 0, barrier: 0, buff: 0, haste: 0, absorb: 0, taunt: 0, move: 0, cleanse: 0,
     stun: 0.6, freeze: 0.6, movelock: 0.6,
     wound: 0.5, dot: 0.5, burn: 0.5,
     crush: 1, lifesteal: 1, damage: 1,
@@ -37,6 +42,9 @@ const KIND_DAMAGE_SCALE: Record<string, number> = {
 };
 
 export type CompanionMove = {
+    rulesetVersion?: 'progression-v3';
+    signatureMastery?: boolean;
+    offenseMastery?: boolean;
     name: string;
     kind: string;
     power: number;
@@ -45,9 +53,16 @@ export type CompanionMove = {
     signature: boolean;
 };
 
-type PetJutsuLike = { name?: string; kind?: string; power?: number; cooldown?: number; rounds?: number; signature?: boolean };
+type PetJutsuLike = { name?: string; kind?: string; power?: number; cooldown?: number; rounds?: number; signature?: boolean; upgrade?: string };
 type PetLike = {
     id?: string;
+    templateId?: unknown;
+    evolutionStage?: unknown;
+    rarity?: unknown;
+    role?: string;
+    growthBaseStats?: unknown;
+    growthAllocation?: unknown;
+    rankedBuild?: unknown;
     name?: string;
     nickname?: string;
     level?: number;
@@ -66,14 +81,12 @@ type PetLike = {
 };
 
 export function companionStrikeDamage(pet: PetLike): number {
-    const jutsus = Array.isArray(pet.jutsus) ? pet.jutsus : [];
-    const powers = jutsus.filter((jutsu) => jutsu?.kind === 'damage').map((jutsu) => Number(jutsu?.power ?? 0));
+    const jutsus = petBattleJutsus(pet, { forceProgression: true });
+    const powers = jutsus.filter((jutsu) => jutsu?.kind === 'damage').map((jutsu) => petUnmasteredPower(Number(jutsu?.power ?? 0), jutsu?.upgrade));
     const bestDamageJutsu = powers.length ? Math.max(0, ...powers) : 0;
     return Math.max(20, Math.floor(
         Number(pet.attack ?? 0) * 1.25
         + bestDamageJutsu * 0.6
-        + Number(pet.speed ?? 0) * 0.35
-        + (Number(pet.hp ?? 0) + Number(pet.defense ?? 0)) * 0.025
         + Number(pet.level ?? 0) * 2,
     ));
 }
@@ -86,6 +99,10 @@ export type CompanionSeal = {
     happiness: number;
     loyal: boolean;
     moves: CompanionMove[];
+    rulesetVersion?: 'progression-v3';
+    defense?: number;
+    spDefense?: number;
+    referenceHp?: number;
     pveGearId: string;
     consumableId?: string;
 };
@@ -99,15 +116,19 @@ export function sealCompanionFromSave(char: Record<string, unknown>, now = Date.
     const level = Math.max(0, Math.floor(Number(pet.level ?? 0)) || 0);
     if (level < 50) return null;
     if (petCombatBusyReason(char, pet as Record<string, unknown>, now)) return null;
-    const moves: CompanionMove[] = (Array.isArray(pet.jutsus) ? pet.jutsus : [])
+    const moves: CompanionMove[] = petBattleJutsus(pet, { forceProgression: true })
         .filter((jutsu) => jutsu && typeof jutsu.name === 'string' && jutsu.name)
         .slice(0, 8)
         .map((jutsu) => ({
+            rulesetVersion: 'progression-v3' as const,
+            ...(jutsu.signature && jutsu.upgrade === 'signature-mastery' ? { signatureMastery: true } : {}),
+            ...(!jutsu.signature && jutsu.upgrade === 'offense-mastery' ? { offenseMastery: true } : {}),
             name: String(jutsu.name).slice(0, 40),
             kind: String(jutsu.kind ?? 'damage'),
             power: Math.max(0, Math.floor(Number(jutsu.power ?? 0)) || 0),
-            cooldown: Math.max(1, Math.floor(Number(jutsu.cooldown ?? 1)) || 1),
-            rounds: Math.max(1, Math.floor(Number(jutsu.rounds ?? 2)) || 2),
+            cooldown: Math.max(['heal', 'shield', 'barrier', 'stun', 'freeze', 'movelock'].includes(String(jutsu.kind))
+                ? jutsu.upgrade === 'utility-mastery' ? 2 : 3 : 1, Math.floor(Number(jutsu.cooldown ?? 1)) || 1),
+            rounds: Math.min(2, Math.max(1, Math.floor(Number(jutsu.rounds ?? 2)) || 2)),
             signature: jutsu.signature === true,
         }));
     // PROJECT the pending bond decay rather than reading `pet.happiness` raw:
@@ -123,6 +144,14 @@ export function sealCompanionFromSave(char: Record<string, unknown>, now = Date.
     const consumableId = petConsumableById(pet.loadout?.consumable) ? String(pet.loadout?.consumable) : '';
     return {
         petId: String(pet.id ?? ''),
+        rulesetVersion: 'progression-v3',
+        defense: boundedDefense(pet.defense),
+        spDefense: petBattleChannels({ attack: Number(pet.attack) || 1, defense: boundedDefense(pet.defense), role: pet.role }).spDefense,
+        // Opponent threat uses the same species/level/trait baseline. Vitality
+        // increases actual survival instead of increasing every incoming hit.
+        referenceHp: pet.growthBaseStats ? derivePetGrowthStats({ ...pet,
+            growthAllocation: { ...sanitizeGrowthAllocation(pet.growthAllocation, pet.level), vitality: 0 } }).hp
+            : Math.max(1, Math.floor(Number(pet.hp) || 1)),
         name: String(pet.nickname?.trim() || pet.name || 'Companion').slice(0, 40),
         hp: Math.max(1, Math.floor(Number(pet.hp ?? 0)) || 1),
         // A neglected companion hits softer (x0.9 unhappy / x0.8 neglected).
@@ -171,15 +200,22 @@ export function pickCompanionMove(
     moves: CompanionMove[],
     cooldowns: Record<string, number>,
     hpFrac: number,
+    needsCleanse = false,
+    preparation?: { ordinaryActions: number; requiredActions: number },
 ): CompanionMove | null {
-    const ready = (move: CompanionMove) => Number(cooldowns[move.name] ?? 0) <= 0;
+    const ready = (move: CompanionMove) => Number(cooldowns[move.name] ?? 0) <= 0
+        && (!move.signature || !preparation || preparation.ordinaryActions >= preparation.requiredActions);
+    if (needsCleanse) {
+        const cleanse = moves.find(move => move.kind === 'cleanse' && ready(move));
+        if (cleanse) return cleanse;
+    }
     if (hpFrac < 0.5) {
         const support = moves.find((move) => SUPPORT_KINDS.has(move.kind) && ready(move));
         if (support) return support;
     }
     const usable = moves.filter((move) => !SELF_KINDS.has(move.kind) && ready(move));
-    if (usable.length === 0) return null;
     return usable.find((move) => move.signature)
+        ?? moves.find(move => ['buff', 'haste', 'absorb', 'taunt'].includes(move.kind) && ready(move))
         ?? usable.slice().sort((a, b) => b.power - a.power || a.name.localeCompare(b.name))[0]
         ?? null;
 }
@@ -188,6 +224,18 @@ export function companionMoveDamage(baseDamage: number, move: CompanionMove | nu
     if (!move) return Math.max(0, Math.floor(baseDamage));
     const scale = KIND_DAMAGE_SCALE[move.kind] ?? 1;
     if (scale <= 0) return 0;
-    const powerScale = Math.max(0.6, Math.min(1.4, (move.power || 40) / 45));
-    return Math.max(0, Math.floor(baseDamage * scale * powerScale));
+    const mastery = petSignatureMastery(move, move.rulesetVersion === 'progression-v3' && move.signature);
+    const advancedMastery = move.rulesetVersion === 'progression-v3' && !move.signature && move.offenseMastery === true;
+    const power = petUnmasteredPower(move.power, mastery.mastered ? 'signature-mastery' : advancedMastery ? 'offense-mastery' : undefined);
+    const powerScale = Math.max(0.6, Math.min(1.4, (power || 40) / 45));
+    const budget = move.rulesetVersion === 'progression-v3' && move.kind === 'lifesteal' ? .75 : 1;
+    return Math.max(0, Math.floor(baseDamage * scale * powerScale * budget * mastery.offenseMult * (advancedMastery ? 1.08 : 1)));
+}
+
+/** New summoned companions use a sealed species/level threat baseline.
+ * Guard gives bounded mitigation; Vitality can therefore buy additional hits. */
+export function companionIncomingDamage(referenceHp: number, defense: number, threatFraction: number): number {
+    const guard = boundedDefense(defense);
+    return Math.max(1, Math.floor(Math.max(1, Number(referenceHp) || 1) * threatFraction
+        * (1 - .3 * guard / (guard + 100))));
 }

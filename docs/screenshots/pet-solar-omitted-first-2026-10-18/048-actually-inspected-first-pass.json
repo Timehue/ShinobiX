@@ -1,0 +1,231 @@
+{
+  "id": "mythic-3",
+  "raw": [
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-final-five-v1-source-head/mythic-3-head-front-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "04c6706911fefb6a4e30fa0739ad6d09224d2ca178d5dfca2cb77a3a3d27cdee"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-final-five-v1-source-head/mythic-3-head-front-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "7cd3258d5d97ef9fdfe5d211631c76424d8fabf3c9af0f9ca4cadddd62c71c3c"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-final-five-v1-source-head/mythic-3-head-front-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "2eb095814f8dca915c9b0c7ebae7d449e8c21c4542cc6fde160979fed7538883"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-final-five-v1-source-head/mythic-3-head-side-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "69b3b7cf086be8be051feaa0aee9e0d0f838862a4bd0d00bb1293b9fb0d21a92"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-final-five-v1-source-head/mythic-3-head-side-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "4112392f3e4b677958a6e625d4358bd5d2d9ed83660bc534b4321ba793fa6b06"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-final-five-v1-source-head/mythic-3-head-side-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "1ea263546a3e60391211a5f9695427bf433d43bed15bdb3e5f04be7400febf77"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-final-five-v1-source-body/mythic-3-front-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "a384edb1b27dcf4249f3304254d36c5e3985749973ed7b6c1c8d9cf228b6d3ee"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-final-five-v1-source-body/mythic-3-front-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "ba0157d479405f9669121b4d428f2ca5c97b4773df5af76df44dcfefd5d1a0a5"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-final-five-v1-source-body/mythic-3-front-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "6249f56bb31ec3b7ee711993f6d3ae056958e2671a2d998fec7afa4f731a06f8"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-final-five-v1-source-body/mythic-3-side-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "74d54f18345cccd5a7042d3555f31e45115492ee09c4ce24301708d630534d09"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-final-five-v1-source-body/mythic-3-side-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "d433e7ac9374001e3eee19e18d9aaea096f9277e35b6f4fbf53bb426472239d5"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-final-five-v1-source-body/mythic-3-side-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "461217e114c4b37ab110fbacf03ef5bb9d0d2f83484912e4cab11c95534468c3"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-final-five-v1-battle-head/mythic-3-head-front-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "a52b178c68436cb41c06d1334e11d5469b2d7384195f92a92563f0f4ef2d526b"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-final-five-v1-battle-head/mythic-3-head-front-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "42ccf9c0f7c62da467c97b66544fa399a1c620995333fe1bb17eb0e753b649b0"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-final-five-v1-battle-head/mythic-3-head-front-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "1fe11f97482f870a0937076929fcdc1ee4dfc4c85a4dd187c5f8ed1503e34414"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-final-five-v1-battle-head/mythic-3-head-side-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "12fd7f816ff4107489bd90d167fbfc22aa6ae52c6181d127d16d9d1e08c44994"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-final-five-v1-battle-head/mythic-3-head-side-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "1784b8a6bf96d9b9910275d9c591264f715519e36ef34920e4710e14700e1a56"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-final-five-v1-battle-head/mythic-3-head-side-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "60e9f3f0f7fe30c236aa69a6247d1ac335601829e90ce5f14b12da208d9d0ec5"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-final-five-v1-battle-body/mythic-3-front-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "5ff28a929addb0ce235073e995a64804e71941de524c12de35343ffa4bcec312"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-final-five-v1-battle-body/mythic-3-front-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "584ce33cbedf430ac11c703c69b380b6bbfd28d0204dbd3111be6bcca693070b"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-final-five-v1-battle-body/mythic-3-front-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "e84dc9427be3f6dad236734c09e54ecb8df45d9ea7d014b6963bbcfa52fb13bb"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-final-five-v1-battle-body/mythic-3-side-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "f99bac744061c2ceb300fb3603aa466c709b45beeb78dd42a2a181f05d03d28d"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-final-five-v1-battle-body/mythic-3-side-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "85f21ce66f8283b75d9f47c5eb40074608fdf7447617f1118663bbae9e8475fd"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-final-five-v1-battle-body/mythic-3-side-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "cae4989a48470f07282130a4365a07b4f0ce44397f9cbf353c1b4612ebbe9c5a"
+    }
+  ],
+  "techniques": [
+    {
+      "path": ".tmp/pet-companion-techniques/independent-omitted-roster-final-five-v1-mythic-3-techniques/inspection-strips/front-block-0-half-0.png",
+      "sha256": "d158cb1fadc070b2c9737c107c8d92842ff74161026a64e8b9d7374212ad3657",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-omitted-roster-final-five-v1-mythic-3-techniques/inspection-strips/front-block-0-half-1.png",
+      "sha256": "6afd0deb8c898d4fc2b65858364461ace8dfffdcfca016b0f17081f8edbe58f0",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-omitted-roster-final-five-v1-mythic-3-techniques/inspection-strips/front-block-1-half-0.png",
+      "sha256": "c1777de2eec4027c56e9dcb832e17ff337acef79a0ee697aa797774392b01fac",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-omitted-roster-final-five-v1-mythic-3-techniques/inspection-strips/front-block-1-half-1.png",
+      "sha256": "0e629c8964955c268bf680993798896094458b58c06706e9b396ed54d82f2876",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-omitted-roster-final-five-v1-mythic-3-techniques/inspection-strips/front-block-2-half-0.png",
+      "sha256": "dd0b593b3b9c262fe08c2f5d478466238e084a949cb080eabb59e48cc6120b19",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-omitted-roster-final-five-v1-mythic-3-techniques/inspection-strips/front-block-2-half-1.png",
+      "sha256": "4780f3e4330f72f8f0395861046070d6418ebe3a6ffe416d0824a0df3a4db3ae",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-omitted-roster-final-five-v1-mythic-3-techniques/inspection-strips/side-block-0-half-0.png",
+      "sha256": "5a3aaee28fc6e968d94d738f78ad0dd9367e1474b6cc475a38c3539b9efad397",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-omitted-roster-final-five-v1-mythic-3-techniques/inspection-strips/side-block-0-half-1.png",
+      "sha256": "24103240bd3ba6b137112c5b29d1e0545318dcb544518730d634d3904efbfb22",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-omitted-roster-final-five-v1-mythic-3-techniques/inspection-strips/side-block-1-half-0.png",
+      "sha256": "bb69bae4ad19be39d61830dcf44ac7415f1dc09f15c0ae9ca37b4e214f4aecb6",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-omitted-roster-final-five-v1-mythic-3-techniques/inspection-strips/side-block-1-half-1.png",
+      "sha256": "531aa56a36d5a8d653bf76fb241d2c628e9d75dd56a9070a31290533f0f011a8",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-omitted-roster-final-five-v1-mythic-3-techniques/inspection-strips/side-block-2-half-0.png",
+      "sha256": "ae4af2b2f06221e5de049476f84b94d330f3c830a76e4a02407a2dc6c73f4d4c",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-omitted-roster-final-five-v1-mythic-3-techniques/inspection-strips/side-block-2-half-1.png",
+      "sha256": "2470b2601bcfb8e8f243ecb1b38d526de28833b728be62eaba7feb7007d43b88",
+      "actuallyInspected": true,
+      "result": "pass"
+    }
+  ],
+  "privateOwnLegRegression": {
+    "passed": 10,
+    "failed": 0
+  },
+  "nativeTechniqueFramesActuallyInspected": 216,
+  "nativeTechniqueStripsActuallyInspected": 12,
+  "firstPass": "source-and-direct-battle-raw-and-native-techniques-pass",
+  "notes": "All 24 raw slices and 216 native technique frames actually inspected. Skull, muzzle, antlers, neck/collar, shoulder and hip attachments and hoof motion remain coherent in the reviewed front/side views. Raw defeat retains the authored turn while runtime lifecycle still needs separate review. The regression log covers all five private candidates, ten stage cases total. Direct-retargeted old LOD remains diagnostic. Final regenerated delivery, runtime, advancing idle, atlas and second pass remain pending."
+}

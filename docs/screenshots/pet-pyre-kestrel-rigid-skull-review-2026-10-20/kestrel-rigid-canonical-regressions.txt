@@ -1,0 +1,13 @@
+✔ rare-27 retains its mesh and wings while the eyes/beak remain cohesive in all clips (394.5007ms)
+✔ Pyre Kestrel: passing facial landmarks cannot hide the released chest strips (370.2619ms)
+✔ Pyre Kestrel roster: chest repair preserves all facial clips and blends (254.7613ms)
+✔ Pyre Kestrel warfront-lod/roster: chest repair preserves all facial clips and blends (78.9405ms)
+✔ Pyre Kestrel: pinned chest binding reproduces shipping bytes and preserves the detailed sculpt and animation curves (19014.0837ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 20303.3841

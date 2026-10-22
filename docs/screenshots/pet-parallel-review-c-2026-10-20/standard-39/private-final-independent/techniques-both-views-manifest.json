@@ -1,0 +1,143 @@
+{
+  "label": "parallel-c-bird39-private-v1-techniques",
+  "panels": [
+    {
+      "path": ".tmp/pet-companion-techniques/parallel-c-bird39-private-v1-techniques/inspection-strips/both-block-0-half-0.png",
+      "sha256": "421465c53446ab4c18ece4000feb1f7f23a031dadb127a1d73675f7c7c6bdccc",
+      "sources": [
+        {
+          "path": ".tmp/pet-companion-techniques/parallel-c-bird39-private-v1-techniques/inspection-strips/front-block-0-half-0.png",
+          "sha256": "03e268347cfede8f60a8fa09cc83005bd160763a2b4f8d42824857f69169d977",
+          "width": 1416,
+          "height": 735,
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-companion-techniques/parallel-c-bird39-private-v1-techniques/inspection-strips/side-block-0-half-0.png",
+          "sha256": "642d105d33fca6ee42c4fface0247b83cd06a91c655bacf7ccec35fe33603d8d",
+          "width": 1416,
+          "height": 735,
+          "top": 735
+        }
+      ],
+      "nativePixelsPreserved": true,
+      "resizing": false,
+      "review": "pending"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/parallel-c-bird39-private-v1-techniques/inspection-strips/both-block-0-half-1.png",
+      "sha256": "493528cdedc53e4249250f77731b219a90ad8daf21b97996a17d76d9814d3921",
+      "sources": [
+        {
+          "path": ".tmp/pet-companion-techniques/parallel-c-bird39-private-v1-techniques/inspection-strips/front-block-0-half-1.png",
+          "sha256": "e1cbcd440bbd753eb7e013cdee3cd6cda4f4016a6a60d2939e19351375f4b06f",
+          "width": 1416,
+          "height": 735,
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-companion-techniques/parallel-c-bird39-private-v1-techniques/inspection-strips/side-block-0-half-1.png",
+          "sha256": "29d6b5519a267f6aa4ac5c4a07f90b6f61c141509bede193205768f610780e5e",
+          "width": 1416,
+          "height": 735,
+          "top": 735
+        }
+      ],
+      "nativePixelsPreserved": true,
+      "resizing": false,
+      "review": "pending"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/parallel-c-bird39-private-v1-techniques/inspection-strips/both-block-1-half-0.png",
+      "sha256": "10a5a54393eba1494502d5834992db296d75f54026c3f2fb8433f641434ed110",
+      "sources": [
+        {
+          "path": ".tmp/pet-companion-techniques/parallel-c-bird39-private-v1-techniques/inspection-strips/front-block-1-half-0.png",
+          "sha256": "59c648aeb8fc5564b918bcc7d377c33879e9ddc5baa4fbf4a4ab8789d474cad8",
+          "width": 1416,
+          "height": 735,
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-companion-techniques/parallel-c-bird39-private-v1-techniques/inspection-strips/side-block-1-half-0.png",
+          "sha256": "926c6a28c78a6eb77027d902d9d48188a274d0856c96cdea0b8d7af4ca554d7e",
+          "width": 1416,
+          "height": 735,
+          "top": 735
+        }
+      ],
+      "nativePixelsPreserved": true,
+      "resizing": false,
+      "review": "pending"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/parallel-c-bird39-private-v1-techniques/inspection-strips/both-block-1-half-1.png",
+      "sha256": "da3ef8c52d09f1fb1ea5d191367b4b1aa5979b1f7913003c947b681387436220",
+      "sources": [
+        {
+          "path": ".tmp/pet-companion-techniques/parallel-c-bird39-private-v1-techniques/inspection-strips/front-block-1-half-1.png",
+          "sha256": "8bb23953eee5105c3340f1afd8d7dcee79de05a2bad7ebc7ff7a1084976fa9ae",
+          "width": 1416,
+          "height": 735,
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-companion-techniques/parallel-c-bird39-private-v1-techniques/inspection-strips/side-block-1-half-1.png",
+          "sha256": "432b6a6f1c5c5a96abcecdb0e77b1af7fd84af0d08fceab4a74e82bb1047ba9c",
+          "width": 1416,
+          "height": 735,
+          "top": 735
+        }
+      ],
+      "nativePixelsPreserved": true,
+      "resizing": false,
+      "review": "pending"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/parallel-c-bird39-private-v1-techniques/inspection-strips/both-block-2-half-0.png",
+      "sha256": "9617d087d2ee30427c253e0070ee38b1108d5ac30963e8e6830b139ad0725b27",
+      "sources": [
+        {
+          "path": ".tmp/pet-companion-techniques/parallel-c-bird39-private-v1-techniques/inspection-strips/front-block-2-half-0.png",
+          "sha256": "597002c48f2048e1a4ee9b901e4b5d97489c009711fd6c06e9dbb7747b28ccf8",
+          "width": 1416,
+          "height": 735,
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-companion-techniques/parallel-c-bird39-private-v1-techniques/inspection-strips/side-block-2-half-0.png",
+          "sha256": "f43fa65b9f6a6eca0cb64b0aa45eb9a8b125c09201cf1f8735701b0ee8538b3a",
+          "width": 1416,
+          "height": 735,
+          "top": 735
+        }
+      ],
+      "nativePixelsPreserved": true,
+      "resizing": false,
+      "review": "pending"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/parallel-c-bird39-private-v1-techniques/inspection-strips/both-block-2-half-1.png",
+      "sha256": "37eee1c83719c2ae90e60108fd23b979369cea4b3456108e7ae7292225aad5ae",
+      "sources": [
+        {
+          "path": ".tmp/pet-companion-techniques/parallel-c-bird39-private-v1-techniques/inspection-strips/front-block-2-half-1.png",
+          "sha256": "482749257a8dd8e11ebcb7fb8b09548bffba95b096a1a095798ac3fb7b8f557d",
+          "width": 1416,
+          "height": 735,
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-companion-techniques/parallel-c-bird39-private-v1-techniques/inspection-strips/side-block-2-half-1.png",
+          "sha256": "cbefe434629b870984243b94bbc71bddb9b962e55d87ca67b26b7341335ce8cb",
+          "width": 1416,
+          "height": 735,
+          "top": 735
+        }
+      ],
+      "nativePixelsPreserved": true,
+      "resizing": false,
+      "review": "pending"
+    }
+  ]
+}

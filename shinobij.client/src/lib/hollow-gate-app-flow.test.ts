@@ -9,6 +9,7 @@ import {
     hollowGateRunAfterUnresolvedFight,
     hollowGateShinobiFallback,
     hollowGateStepOnlyChange,
+    hollowGateMirroredCharacter,
     isSameHollowGateFloor,
 } from "./hollow-gate-app-flow";
 
@@ -50,7 +51,16 @@ function run(overrides: Partial<HollowGateShrineRun> = {}): HollowGateShrineRun 
     } as HollowGateShrineRun;
 }
 
-describe("hollow gate descend — stale-write guard", () => {
+it("a temporarily unloaded shrine board preserves the character pointer and reference", () => {
+    const character = { hp: 1587, hollowGateRun: run() };
+    assert.equal(hollowGateMirroredCharacter(character, null), character);
+    assert.equal(character.hollowGateRun.runToken, "token-a");
+    assert.equal(hollowGateMirroredCharacter(character, character.hollowGateRun), character);
+    const next = run({ floor: 3 });
+    assert.equal(hollowGateMirroredCharacter(character, next)?.hollowGateRun, next);
+});
+
+describe("hollow gate descend - stale-write guard", () => {
     it("commits the next floor when the live run is still the floor it started from", () => {
         const from = run();
         const next = run({ floor: 3, keys: 0, torch: 10, runToken: undefined, serverSeed: undefined, playerX: 0, playerY: 0 });
@@ -141,6 +151,13 @@ describe("hollow gate pet defeat — the run the shrine keeps", () => {
         assert.equal(hollowGateRunAfterPetDefeat(run({ tiles: board }), undefined)?.tiles, board);
         assert.equal(hollowGateRunAfterPetDefeat(null, { floor: 2, runToken: "token-a" } as unknown as HollowGateShrineRun), null);
         assert.equal(hollowGateRunAfterPetDefeat(null, null), null);
+    });
+
+    it("honors an explicit ended null and never adopts a complete board into an ended live state", () => {
+        assert.equal(hollowGateRunAfterPetDefeat(run({ tiles: board }), null), null);
+        assert.equal(hollowGateRunAfterPetDefeat(null, run({ tiles: board })), null);
+        const live = run({ tiles: board });
+        assert.equal(hollowGateRunAfterPetDefeat(live, run({ runToken: 'different-run', tiles: board })), live);
     });
 });
 

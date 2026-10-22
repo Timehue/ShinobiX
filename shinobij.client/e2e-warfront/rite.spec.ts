@@ -204,7 +204,9 @@ test("deployment exposes ten unrestricted cells and only two enemy positions", a
     // is an informed read rather than a solved matchup.
     const scout = page.getByRole("region", { name: "Enemy revealed deployment" });
     await expect(scout).toBeVisible();
-    await expect(scout.getByText(/two stay sealed until combat/)).toBeVisible();
+    await expect(scout.getByText('Two enemy starting positions are shown. The other two are hidden until combat.', { exact: true })).toBeVisible();
+    await expect(scout.locator('.wfr-scout-pet')).toHaveCount(2);
+    await expect(scout.locator('.wfr-scout-job')).toHaveCount(2);
 
     await expect(page.getByLabel("Choose a pet to place").locator("button")).toHaveCount(4);
     await expect(page.getByLabel("Your deployment grid").locator("button")).toHaveCount(10);

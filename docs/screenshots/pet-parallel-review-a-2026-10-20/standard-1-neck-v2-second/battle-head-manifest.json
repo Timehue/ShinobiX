@@ -1,0 +1,76 @@
+{
+  "schema": 1,
+  "errors": [],
+  "pets": [
+    {
+      "id": "standard-1",
+      "name": "Snow Rabbit",
+      "url": "/.tmp/parallel-a-rabbit-neck-v2/battle-candidate-v1.glb",
+      "sha256": "ef764629d13c6385ac9fad182e24ceff5cb8110049580d3dc4486b7cc990b827",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "progress": [
+        0.04,
+        0.2,
+        0.4,
+        0.6,
+        0.8,
+        0.98
+      ],
+      "views": [
+        "head-front",
+        "head-side",
+        "head-other-side",
+        "head-under-front",
+        "head-under-side"
+      ],
+      "materialTreatment": {
+        "mode": "production-diffuse",
+        "materials": 1,
+        "metalnessMax": 0.05,
+        "roughnessRange": [
+          0.58,
+          0.82
+        ]
+      },
+      "region": {
+        "y": [
+          -2,
+          -2
+        ],
+        "bounds": [
+          -0.36,
+          0.36,
+          -0.03,
+          0.36,
+          0.1,
+          0.5
+        ],
+        "cameraPadding": 1.15
+      },
+      "sheets": [
+        "standard-1-head-front.webp",
+        "standard-1-head-side.webp",
+        "standard-1-head-other-side.webp",
+        "standard-1-head-under-front.webp",
+        "standard-1-head-under-side.webp"
+      ],
+      "review": "pending",
+      "anatomySha256": "035177f1cc0478fa23ef43727798c52e740055f21c7adff601b4738460d313b9"
+    }
+  ],
+  "artisticCertification": false
+}

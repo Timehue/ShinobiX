@@ -1,0 +1,12 @@
+[1/1] /pet-models/roster/mythic-4.glb: 30422 -> 10000 tris, silhouette 0.9912
+{
+  "mode": "generate",
+  "revision": "20260902-battle-lod-v1",
+  "assets": 1,
+  "totals": {
+    "sourceBytes": 111981872,
+    "lodBytes": 72354240,
+    "sourceTriangles": 5956618,
+    "lodTriangles": 1624735
+  }
+}

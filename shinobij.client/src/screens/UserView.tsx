@@ -206,7 +206,7 @@ export function UserView({
                         style={{ width: 110, height: 110, borderRadius: "50%", border: "3px solid var(--gold)", boxShadow: "0 0 0 3px rgba(230, 196, 119, 0.15)", overflow: "hidden", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.3)" }}
                     >
                         {avatar
-                            ? <img src={avatar} alt={viewedCharacter.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                            ? <img src={avatar} alt={viewedCharacter.name} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
                             : <span style={{ fontSize: "2rem", fontWeight: 700, color: "var(--gold)" }}>{viewedCharacter.name.slice(0, 2).toUpperCase()}</span>}
                     </div>
                     <div style={{ flex: 1, minWidth: 240 }}>
@@ -281,7 +281,7 @@ export function UserView({
                                 return (
                                     <div key={String(p.id)} className={petVisualVariantClass(p)} style={{ display: "flex", gap: 10, alignItems: "center", background: "rgba(15,23,42,0.7)", border: `1px solid ${rarityColor(p.rarity)}55`, borderRadius: 10, padding: 8 }}>
                                         <div style={{ width: 44, height: 44, borderRadius: 8, overflow: "hidden", flexShrink: 0, background: "rgba(0,0,0,0.3)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                                            {petImg ? <img src={petImg} alt={p.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <GameArtIcon kind="petTamer" size={28} />}
+                                            {petImg ? <img src={petImg} alt={p.name} style={{ width: "100%", height: "100%", objectFit: "contain" }} /> : <GameArtIcon kind="petTamer" size={28} />}
                                         </div>
                                         <div style={{ minWidth: 0 }}>
                                             <div style={{ color: "#f8fafc", fontWeight: 600, fontSize: "0.9rem", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.name}</div>

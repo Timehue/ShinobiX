@@ -276,6 +276,7 @@ export type BuildEncounterParams = {
     embedFloor?: boolean;
     /** Mode label used by clients/operations; defaults to the Celestial Tower id. */
     towerId?: string;
+    clanBossRulesVersion?: 1 | 2;
     /** wall-clock from the handler (kept out of the deterministic engine) */
     now: number;
 };
@@ -491,7 +492,9 @@ export function buildTowerEncounter(p: BuildEncounterParams): TowerSession {
     // Story floors scale enemy HP/damage DOWN for a party smaller than the balance baseline.
     // Endless Spire is ALWAYS full-strength (the tier is the escalation, never a party discount),
     // so skip party scaling entirely when this is an ascension run.
-    if (!p.ascension) applyPartyScaling(session, floor);
+    // Version-two clan operations retain authored enemy strength. Missing
+    // versions keep the deployed legacy discount, even after the rollout date.
+    if (!p.ascension && p.clanBossRulesVersion !== 2) applyPartyScaling(session, floor);
     if (publicTactics && useLargeEnvironment) initializeTowerTactics(session);
     if (p.embedFloor) session.encounterFloor = structuredClone(floor);
     return session;

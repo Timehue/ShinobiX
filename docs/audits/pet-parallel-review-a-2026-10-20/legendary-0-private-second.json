@@ -1,0 +1,563 @@
+{
+  "schema": 1,
+  "id": "legendary-0",
+  "reviewer": "parallel-reviewer-a",
+  "reviewedAt": "2026-10-20T22:10:12.545Z",
+  "status": "independent-private-second-visual-review-held",
+  "localVisualResult": "hold",
+  "sourceSha256": "a640a2ece20460e01753b856aeccbc954da3324d4b79a48c2877805c5dd8a164",
+  "battleSha256": "d5677ee35f52ab2462325e2f25e4cbce4e43d17e1433f1d7769c0cfedb790a43",
+  "atlasSha256": "db29f68e2fe30a03a95cf5ea2092323165e371d7ed74ed918abd2282a98ae7e8",
+  "rendererSha256": "b2253b71fbcb21a83d82de35ab5783dd57b525cfc94740fb131dd1eb0049a897",
+  "companionComponentSha256": "dd0e422cec9458b37fb370c4ebc0af7717d129f93540420ea3a14c371f400dcd",
+  "raw": {
+    "stages": [
+      "source",
+      "battle"
+    ],
+    "clipsPerStage": 13,
+    "phases": [
+      0.04,
+      0.2,
+      0.4,
+      0.6,
+      0.8,
+      0.98
+    ],
+    "views": [
+      "head-front",
+      "head-side",
+      "head-other-side",
+      "head-under-front",
+      "head-under-side",
+      "front",
+      "side"
+    ],
+    "sheetsPersonallyInspected": 14,
+    "poseViewsPersonallyInspected": 1092
+  },
+  "runtime": {
+    "stages": [
+      "source",
+      "battle"
+    ],
+    "qualities": [
+      "low",
+      "medium"
+    ],
+    "rows": 16,
+    "phases": [
+      0.04,
+      0.16,
+      0.36,
+      0.6,
+      0.84,
+      1
+    ],
+    "views": [
+      "head-front",
+      "head-side",
+      "body-front",
+      "body-side"
+    ],
+    "sheetsPersonallyInspected": 8,
+    "poseViewsPersonallyInspected": 1536
+  },
+  "actualCompanion": {
+    "stage": "battle",
+    "moves": [
+      "water-strike",
+      "water-pulse",
+      "water-breaker",
+      "wind-pulse",
+      "open-wound",
+      "intercept",
+      "aegis",
+      "purify",
+      "legendary-0-signature"
+    ],
+    "views": [
+      "front",
+      "side"
+    ],
+    "framesPersonallyInspected": 216,
+    "nativeStripsPersonallyInspected": 12,
+    "times": [
+      0.06,
+      0.16,
+      0.24,
+      0.36,
+      0.5,
+      0.6,
+      0.8,
+      1.02,
+      1.24,
+      1.48,
+      1.74,
+      2.02
+    ],
+    "advancingIdleFramesPersonallyInspected": 24,
+    "nativeContactAndFramingFramesPersonallyInspected": 9
+  },
+  "atlasCellsPersonallyInspected": 16,
+  "finding": "All required fresh second scopes viewed. Sampled face, neck and floor pass; broad raised foreleg silhouette at water strike side .24/.36 remains held pending anatomical assessment, without claiming a confirmed Glass-type plate defect.",
+  "findings": [
+    {
+      "category": "raised-foreleg-silhouette",
+      "result": "hold-pending-anatomical-assessment",
+      "detail": "Actual water strike side .24/.36 has a broad forward foreleg silhouette with short visible lower foreleg and paw, most evident in the supplementary native DPR3 .36 render. The surface remains rounded in the same-pose normal attachment and has no Glass Serpent type posterior pointed plate. This is a scoped anatomical concern, not a confirmed shared defect. Full approval withheld until the broad raised foreleg silhouette is resolved."
+    },
+    {
+      "category": "face-neck-floor",
+      "result": "pass-at-enumerated-samples",
+      "detail": "Muzzle, chin, headband, scarf and neck remained coherent through all raw/runtime samples. All sampled actual contact feet stay visible at the disk; head and tail remain framed."
+    }
+  ],
+  "evidence": [
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/private-ground-recipe.json",
+      "sha256": "29625319a8bfc2e87e63f338ea0f74d96e986c64c4ed9015d82ee866a71379c6",
+      "originalPath": "shinobij.client/.tmp/glacier-wolf-floor/private-ground-recipe.json",
+      "kind": "recipe",
+      "personallyVisuallyInspected": false
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/source-head-manifest.json",
+      "sha256": "75699ed888ed0750a5ccedcd7367180868a4999083390653849d5b826430e308",
+      "originalPath": "shinobij.client/.tmp/pet-shape-review/parallel-a-private-second-legendary-0-source-head/manifest.json",
+      "kind": "capture-manifest",
+      "personallyVisuallyInspected": false
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/source-legendary-0-head-front.webp",
+      "sha256": "35008782ed1623bfbdbb465e681fabc0075cac058771a181c500e6c182061877",
+      "originalPath": "shinobij.client/.tmp/pet-shape-review/parallel-a-private-second-legendary-0-source-head/legendary-0-head-front.webp",
+      "kind": "raw-head",
+      "personallyVisuallyInspected": true
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/source-legendary-0-head-side.webp",
+      "sha256": "739369abd0612455d3e3680b043b942d66436f5af23f0aad66a2425b47d38372",
+      "originalPath": "shinobij.client/.tmp/pet-shape-review/parallel-a-private-second-legendary-0-source-head/legendary-0-head-side.webp",
+      "kind": "raw-head",
+      "personallyVisuallyInspected": true
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/source-legendary-0-head-other-side.webp",
+      "sha256": "e62601ae667e8667dc6b92f97f3d16ff2e334d3fe2705e18d9d33a3107a9c521",
+      "originalPath": "shinobij.client/.tmp/pet-shape-review/parallel-a-private-second-legendary-0-source-head/legendary-0-head-other-side.webp",
+      "kind": "raw-head",
+      "personallyVisuallyInspected": true
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/source-legendary-0-head-under-front.webp",
+      "sha256": "4e0dc77b89cf1e4ce34678932fe7fbc841022595ebf6c093634f34706a15d5d4",
+      "originalPath": "shinobij.client/.tmp/pet-shape-review/parallel-a-private-second-legendary-0-source-head/legendary-0-head-under-front.webp",
+      "kind": "raw-head",
+      "personallyVisuallyInspected": true
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/source-legendary-0-head-under-side.webp",
+      "sha256": "570a47c6a6db6ba5a01f444d4644dffa054e3c260d13b5b1c3cc007f55069c4f",
+      "originalPath": "shinobij.client/.tmp/pet-shape-review/parallel-a-private-second-legendary-0-source-head/legendary-0-head-under-side.webp",
+      "kind": "raw-head",
+      "personallyVisuallyInspected": true
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/source-body-manifest.json",
+      "sha256": "7cf1b71c374d116811fe5bb4a17ce61aba34e250b43149060d866d088d6cbc69",
+      "originalPath": "shinobij.client/.tmp/pet-shape-review/parallel-a-private-second-legendary-0-source-body/manifest.json",
+      "kind": "capture-manifest",
+      "personallyVisuallyInspected": false
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/source-legendary-0-front.webp",
+      "sha256": "b8e7007d01c78d6e3dbbd9acfdfdeb2a49f5cfd2965311f317d5cf11b64e8051",
+      "originalPath": "shinobij.client/.tmp/pet-shape-review/parallel-a-private-second-legendary-0-source-body/legendary-0-front.webp",
+      "kind": "raw-body",
+      "personallyVisuallyInspected": true
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/source-legendary-0-side.webp",
+      "sha256": "d5aa85201dc0cef05459955c80e4b31c6bfe4381c68ea711e4b96d2b22f27fef",
+      "originalPath": "shinobij.client/.tmp/pet-shape-review/parallel-a-private-second-legendary-0-source-body/legendary-0-side.webp",
+      "kind": "raw-body",
+      "personallyVisuallyInspected": true
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/battle-head-manifest.json",
+      "sha256": "3f1a3f60115729f7904af2f996e130eb4b93a6da3b8f138d6d3debafde10d57c",
+      "originalPath": "shinobij.client/.tmp/pet-shape-review/parallel-a-private-second-legendary-0-battle-head/manifest.json",
+      "kind": "capture-manifest",
+      "personallyVisuallyInspected": false
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/battle-legendary-0-head-front.webp",
+      "sha256": "a03423d021221493b515fb85f1d6172508a3f38ae1aca07e398413dfbb48d07f",
+      "originalPath": "shinobij.client/.tmp/pet-shape-review/parallel-a-private-second-legendary-0-battle-head/legendary-0-head-front.webp",
+      "kind": "raw-head",
+      "personallyVisuallyInspected": true
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/battle-legendary-0-head-side.webp",
+      "sha256": "0cd468a28f415e8d59a79901c929b980e6a2997fdc08ca8a5c4c82ece50ffab3",
+      "originalPath": "shinobij.client/.tmp/pet-shape-review/parallel-a-private-second-legendary-0-battle-head/legendary-0-head-side.webp",
+      "kind": "raw-head",
+      "personallyVisuallyInspected": true
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/battle-legendary-0-head-other-side.webp",
+      "sha256": "637a2a63033bcab034d13d0d5632f2decb391b1b0d1ef5bc03bd6dc839459a0b",
+      "originalPath": "shinobij.client/.tmp/pet-shape-review/parallel-a-private-second-legendary-0-battle-head/legendary-0-head-other-side.webp",
+      "kind": "raw-head",
+      "personallyVisuallyInspected": true
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/battle-legendary-0-head-under-front.webp",
+      "sha256": "f0fba7a32370d68e1420c335371f84646ae4cbe4bfad689268e416d2edd6a069",
+      "originalPath": "shinobij.client/.tmp/pet-shape-review/parallel-a-private-second-legendary-0-battle-head/legendary-0-head-under-front.webp",
+      "kind": "raw-head",
+      "personallyVisuallyInspected": true
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/battle-legendary-0-head-under-side.webp",
+      "sha256": "81d74c5ff6afcb6db2b435d3638a149fa53a0c7898fe6a150c6727f36bcc2c85",
+      "originalPath": "shinobij.client/.tmp/pet-shape-review/parallel-a-private-second-legendary-0-battle-head/legendary-0-head-under-side.webp",
+      "kind": "raw-head",
+      "personallyVisuallyInspected": true
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/battle-body-manifest.json",
+      "sha256": "0b1dee5cb6d9b983ca25814157a7ada6f25aa730a6ef39ce91efa96d3f11e8f9",
+      "originalPath": "shinobij.client/.tmp/pet-shape-review/parallel-a-private-second-legendary-0-battle-body/manifest.json",
+      "kind": "capture-manifest",
+      "personallyVisuallyInspected": false
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/battle-legendary-0-front.webp",
+      "sha256": "51b614985937c79e7a6c744682ed3fb268cefeb10971113d9cafa7eb778b20b5",
+      "originalPath": "shinobij.client/.tmp/pet-shape-review/parallel-a-private-second-legendary-0-battle-body/legendary-0-front.webp",
+      "kind": "raw-body",
+      "personallyVisuallyInspected": true
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/battle-legendary-0-side.webp",
+      "sha256": "e68fc57a45ea8a6b3923c351ee7c6999794cfce99e08ebb0b7f0640f2d1f0093",
+      "originalPath": "shinobij.client/.tmp/pet-shape-review/parallel-a-private-second-legendary-0-battle-body/legendary-0-side.webp",
+      "kind": "raw-body",
+      "personallyVisuallyInspected": true
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/runtime-low-manifest.json",
+      "sha256": "f87fbf59df5250ab9a8a6a75645e50f40144e231534767eb391036fb82d19bfa",
+      "originalPath": "shinobij.client/.tmp/pet-shape-review/parallel-a-private-second-legendary-0-runtime-low/manifest.json",
+      "kind": "capture-manifest",
+      "personallyVisuallyInspected": false
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/runtime-low-legendary-0-source-head.webp",
+      "sha256": "1fe27879f489abbef5216ee12f2ece354311cd5fac8e46304f77e453bc04dae6",
+      "originalPath": "shinobij.client/.tmp/pet-shape-review/parallel-a-private-second-legendary-0-runtime-low/legendary-0-source-head.webp",
+      "kind": "runtime-low",
+      "personallyVisuallyInspected": true
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/runtime-low-legendary-0-source-body.webp",
+      "sha256": "31dcd8e18e2d8644b5793970610d7d702fe3531de6239557c4b2b6f40527c4fc",
+      "originalPath": "shinobij.client/.tmp/pet-shape-review/parallel-a-private-second-legendary-0-runtime-low/legendary-0-source-body.webp",
+      "kind": "runtime-low",
+      "personallyVisuallyInspected": true
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/runtime-low-legendary-0-battle-head.webp",
+      "sha256": "67a1a793def4f2485b85662bc580a325bed9800667355df53042b8f46f55feed",
+      "originalPath": "shinobij.client/.tmp/pet-shape-review/parallel-a-private-second-legendary-0-runtime-low/legendary-0-battle-head.webp",
+      "kind": "runtime-low",
+      "personallyVisuallyInspected": true
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/runtime-low-legendary-0-battle-body.webp",
+      "sha256": "04933c27079df4b4e50ced3e33a946f96d8e2c5dd157266ecb807104957b5484",
+      "originalPath": "shinobij.client/.tmp/pet-shape-review/parallel-a-private-second-legendary-0-runtime-low/legendary-0-battle-body.webp",
+      "kind": "runtime-low",
+      "personallyVisuallyInspected": true
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/runtime-medium-manifest.json",
+      "sha256": "ba09355916a82491e0a10b4f97dd26a976c3c42aa5227cd1e72fd5f0e487ec12",
+      "originalPath": "shinobij.client/.tmp/pet-shape-review/parallel-a-private-second-legendary-0-runtime-medium/manifest.json",
+      "kind": "capture-manifest",
+      "personallyVisuallyInspected": false
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/runtime-medium-legendary-0-source-head.webp",
+      "sha256": "ab90d59102f03626dc4521007c5327131640808b1dc509999b2f2f56cee89d40",
+      "originalPath": "shinobij.client/.tmp/pet-shape-review/parallel-a-private-second-legendary-0-runtime-medium/legendary-0-source-head.webp",
+      "kind": "runtime-medium",
+      "personallyVisuallyInspected": true
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/runtime-medium-legendary-0-source-body.webp",
+      "sha256": "5ac87926c75e35e986f0cc5d1d5420af4674a156b50638c5caf7512a652fd10a",
+      "originalPath": "shinobij.client/.tmp/pet-shape-review/parallel-a-private-second-legendary-0-runtime-medium/legendary-0-source-body.webp",
+      "kind": "runtime-medium",
+      "personallyVisuallyInspected": true
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/runtime-medium-legendary-0-battle-head.webp",
+      "sha256": "dd51f7a240269fb02cd2b4dbde980b9ea3000b4a08f4e1d7071ebe46ca8cd071",
+      "originalPath": "shinobij.client/.tmp/pet-shape-review/parallel-a-private-second-legendary-0-runtime-medium/legendary-0-battle-head.webp",
+      "kind": "runtime-medium",
+      "personallyVisuallyInspected": true
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/runtime-medium-legendary-0-battle-body.webp",
+      "sha256": "cefeab20ed616e2a8de2687db6eb42f64424b477aea01e0dd317fca3605dd09e",
+      "originalPath": "shinobij.client/.tmp/pet-shape-review/parallel-a-private-second-legendary-0-runtime-medium/legendary-0-battle-body.webp",
+      "kind": "runtime-medium",
+      "personallyVisuallyInspected": true
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/techniques-manifest.json",
+      "sha256": "a1ac291008ee68f35e81a1cd8186cd85f9bac27c695897b28a6418209dac50bc",
+      "originalPath": "shinobij.client/.tmp/pet-companion-techniques/parallel-a-private-second-legendary-0-techniques/manifest.json",
+      "kind": "capture-manifest",
+      "personallyVisuallyInspected": false
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/technique-strips-manifest.json",
+      "sha256": "57c5d92524a9fe423893658bad96e8041c348d0a0fc4ddd829f8effec2c7608b",
+      "originalPath": "shinobij.client/.tmp/pet-companion-techniques/parallel-a-private-second-legendary-0-techniques/inspection-strips/manifest.json",
+      "kind": "composition-manifest",
+      "personallyVisuallyInspected": false
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/technique-front-block-0-half-0.png",
+      "sha256": "5d0f04f7b43383f6e6563eb089996cfa623518986c8afadaa6df8aecab080ec2",
+      "originalPath": "shinobij.client/.tmp/pet-companion-techniques/parallel-a-private-second-legendary-0-techniques/inspection-strips/front-block-0-half-0.png",
+      "kind": "actual-techniques",
+      "personallyVisuallyInspected": true
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/technique-front-block-0-half-1.png",
+      "sha256": "7fe3aeee175e26e45cd40db9b105f0b930b2847bfef213d88e53c5cc6631dbe9",
+      "originalPath": "shinobij.client/.tmp/pet-companion-techniques/parallel-a-private-second-legendary-0-techniques/inspection-strips/front-block-0-half-1.png",
+      "kind": "actual-techniques",
+      "personallyVisuallyInspected": true
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/technique-front-block-1-half-0.png",
+      "sha256": "22beeb92f9dc32bfd0dcdea5c82ceee7cdd0f2ae68a37f3953125a90f431cc8a",
+      "originalPath": "shinobij.client/.tmp/pet-companion-techniques/parallel-a-private-second-legendary-0-techniques/inspection-strips/front-block-1-half-0.png",
+      "kind": "actual-techniques",
+      "personallyVisuallyInspected": true
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/technique-front-block-1-half-1.png",
+      "sha256": "6cf96b0a3db670fbfea10a090f352014a5ca73ee573909431230cf17bb69a6ae",
+      "originalPath": "shinobij.client/.tmp/pet-companion-techniques/parallel-a-private-second-legendary-0-techniques/inspection-strips/front-block-1-half-1.png",
+      "kind": "actual-techniques",
+      "personallyVisuallyInspected": true
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/technique-front-block-2-half-0.png",
+      "sha256": "e8faf80d333f904d7e1f54aa7b960ece575f348ab55dfd9e3ace0d5d99560e09",
+      "originalPath": "shinobij.client/.tmp/pet-companion-techniques/parallel-a-private-second-legendary-0-techniques/inspection-strips/front-block-2-half-0.png",
+      "kind": "actual-techniques",
+      "personallyVisuallyInspected": true
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/technique-front-block-2-half-1.png",
+      "sha256": "12aa35202c2ce7b6e54ab65a80f5ee835e5fa368578ebb1b435199a109bbf626",
+      "originalPath": "shinobij.client/.tmp/pet-companion-techniques/parallel-a-private-second-legendary-0-techniques/inspection-strips/front-block-2-half-1.png",
+      "kind": "actual-techniques",
+      "personallyVisuallyInspected": true
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/technique-side-block-0-half-0.png",
+      "sha256": "70838fe6c0ce503a3b6a4b1a2eb127b27f6d0e3a9a17a44bc92fa06dfbb72025",
+      "originalPath": "shinobij.client/.tmp/pet-companion-techniques/parallel-a-private-second-legendary-0-techniques/inspection-strips/side-block-0-half-0.png",
+      "kind": "actual-techniques",
+      "personallyVisuallyInspected": true
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/technique-side-block-0-half-1.png",
+      "sha256": "ea9a9d1a82dd408b403af862cd7c5018308ce8efae3ee531773850955789611c",
+      "originalPath": "shinobij.client/.tmp/pet-companion-techniques/parallel-a-private-second-legendary-0-techniques/inspection-strips/side-block-0-half-1.png",
+      "kind": "actual-techniques",
+      "personallyVisuallyInspected": true
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/technique-side-block-1-half-0.png",
+      "sha256": "edd362fadd6a90bc80a8b82e408a17df8b30068e69906fba9f86c0b28b113456",
+      "originalPath": "shinobij.client/.tmp/pet-companion-techniques/parallel-a-private-second-legendary-0-techniques/inspection-strips/side-block-1-half-0.png",
+      "kind": "actual-techniques",
+      "personallyVisuallyInspected": true
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/technique-side-block-1-half-1.png",
+      "sha256": "9e97b63e65d0d2c5ab4b2f88f3160155b7b5d28a00394d2f698274a069359b30",
+      "originalPath": "shinobij.client/.tmp/pet-companion-techniques/parallel-a-private-second-legendary-0-techniques/inspection-strips/side-block-1-half-1.png",
+      "kind": "actual-techniques",
+      "personallyVisuallyInspected": true
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/technique-side-block-2-half-0.png",
+      "sha256": "eb31e57e82d8a98c5de35db63a89a5ce1647ac8cf38df0e5f8b7c3b932cdba1d",
+      "originalPath": "shinobij.client/.tmp/pet-companion-techniques/parallel-a-private-second-legendary-0-techniques/inspection-strips/side-block-2-half-0.png",
+      "kind": "actual-techniques",
+      "personallyVisuallyInspected": true
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/technique-side-block-2-half-1.png",
+      "sha256": "2ebbcdb1570670e27d186dd9dc06656df9f96b11c13607fe46a7c919f4390bd2",
+      "originalPath": "shinobij.client/.tmp/pet-companion-techniques/parallel-a-private-second-legendary-0-techniques/inspection-strips/side-block-2-half-1.png",
+      "kind": "actual-techniques",
+      "personallyVisuallyInspected": true
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/native-legendary-0-water-strike-front-1.png",
+      "sha256": "9ac29154e5a40558073fbe7b7811ede3fddecd1de659bcceff13399a1766c3b6",
+      "originalPath": "shinobij.client/.tmp/pet-companion-techniques/parallel-a-private-second-legendary-0-techniques/legendary-0-water-strike-front-1.png",
+      "kind": "native-contact-framing",
+      "personallyVisuallyInspected": true
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/native-legendary-0-water-strike-front-2.png",
+      "sha256": "9c054879a83a3168e2634f2c161cba87dce7b71a20db9c6e606c21e221d6da94",
+      "originalPath": "shinobij.client/.tmp/pet-companion-techniques/parallel-a-private-second-legendary-0-techniques/legendary-0-water-strike-front-2.png",
+      "kind": "native-contact-framing",
+      "personallyVisuallyInspected": true
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/native-legendary-0-water-strike-front-3.png",
+      "sha256": "ea65a31750a10b3647040344074e93fa60e785504212ccd230d21334cb24793e",
+      "originalPath": "shinobij.client/.tmp/pet-companion-techniques/parallel-a-private-second-legendary-0-techniques/legendary-0-water-strike-front-3.png",
+      "kind": "native-contact-framing",
+      "personallyVisuallyInspected": true
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/native-legendary-0-water-strike-side-1.png",
+      "sha256": "2d039d6f00f3f4a05ba9ebc1c14ff389120f935b2029927128519aeb3da04eb3",
+      "originalPath": "shinobij.client/.tmp/pet-companion-techniques/parallel-a-private-second-legendary-0-techniques/legendary-0-water-strike-side-1.png",
+      "kind": "native-contact-framing",
+      "personallyVisuallyInspected": true
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/native-legendary-0-water-strike-side-2.png",
+      "sha256": "c33bb0524db18cc64f368a389878d26265f0a40db0e4d814caff5a3c8434cc99",
+      "originalPath": "shinobij.client/.tmp/pet-companion-techniques/parallel-a-private-second-legendary-0-techniques/legendary-0-water-strike-side-2.png",
+      "kind": "native-contact-framing",
+      "personallyVisuallyInspected": true
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/native-legendary-0-water-strike-side-3.png",
+      "sha256": "de44f7425e43477d7af9b680fe77b23a6e9eeeb6e8fbe13d3520b148cb8fb11c",
+      "originalPath": "shinobij.client/.tmp/pet-companion-techniques/parallel-a-private-second-legendary-0-techniques/legendary-0-water-strike-side-3.png",
+      "kind": "native-contact-framing",
+      "personallyVisuallyInspected": true
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/native-legendary-0-water-strike-side-5.png",
+      "sha256": "e692f3f7c438988da01e81194b666e21d1526e65d9eda21cf8c589b3af0e3c1a",
+      "originalPath": "shinobij.client/.tmp/pet-companion-techniques/parallel-a-private-second-legendary-0-techniques/legendary-0-water-strike-side-5.png",
+      "kind": "native-contact-framing",
+      "personallyVisuallyInspected": true
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/native-legendary-0-water-breaker-side-5.png",
+      "sha256": "30e0aa48407235c354b7a9a40f2f65600847b9bc8e99ae0d662fcb012695a97f",
+      "originalPath": "shinobij.client/.tmp/pet-companion-techniques/parallel-a-private-second-legendary-0-techniques/legendary-0-water-breaker-side-5.png",
+      "kind": "native-contact-framing",
+      "personallyVisuallyInspected": true
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/native-legendary-0-legendary-0-signature-side-5.png",
+      "sha256": "8a312c59a225ddce98dd83908f14d0a8b502647b6465e6ab212e9698719e434c",
+      "originalPath": "shinobij.client/.tmp/pet-companion-techniques/parallel-a-private-second-legendary-0-techniques/legendary-0-legendary-0-signature-side-5.png",
+      "kind": "native-contact-framing",
+      "personallyVisuallyInspected": true
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/advancing-idle-capture-manifest.json",
+      "sha256": "ac25131ee0109b1e04e9307db439b7fd79da4e9977b31c17175d41d4e66d11d7",
+      "originalPath": "shinobij.client/.tmp/pet-independent-face-recheck/companion/parallel-a-private-second-legendary-0-idle/manifest.json",
+      "kind": "capture-manifest",
+      "personallyVisuallyInspected": false
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/advancing-idle-native.png",
+      "sha256": "cd1b8c0c8d30dae07fa1c40f031efd5f001e0a1b5cc77fbf1819910cc7dc84a8",
+      "originalPath": "shinobij.client/.tmp/parallel-a-private-second-legendary-0/advancing-idle-native.png",
+      "kind": "advancing-idle24",
+      "personallyVisuallyInspected": true
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/idle-panel-manifest.json",
+      "sha256": "d36b206c497557863d2b0084932726962aa4aefebc4ae2d24338185d65bc5868",
+      "originalPath": "shinobij.client/.tmp/parallel-a-private-second-legendary-0/idle-panel-manifest.json",
+      "kind": "composition-manifest",
+      "personallyVisuallyInspected": false
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/atlas.webp",
+      "sha256": "db29f68e2fe30a03a95cf5ea2092323165e371d7ed74ed918abd2282a98ae7e8",
+      "originalPath": "shinobij.client/.tmp/glacier-wolf-floor/atlas-delivery/public/pet-models/warfront-impostors/roster/legendary-0.webp",
+      "kind": "atlas16",
+      "personallyVisuallyInspected": true
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/atlas-manifest.json",
+      "sha256": "73fb8ac53de9b1aefccc1f4d31b5cda0b37d01af3ccf8ebd5c9faa54be218202",
+      "originalPath": "shinobij.client/.tmp/glacier-wolf-floor/atlas-delivery/public/pet-models/warfront-impostors/manifest.json",
+      "kind": "capture-manifest",
+      "personallyVisuallyInspected": false
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/diagnostic-native3x-legendary-0-water-strike-side-0.png",
+      "sha256": "54157d0bc2356dcd6a86951a23572076c689ddee53f5002045a1a50aaee73e29",
+      "originalPath": "shinobij.client/.tmp/pet-companion-techniques/parallel-a-glacier-forelimb-native3x/legendary-0-water-strike-side-0.png",
+      "kind": "native-forelimb-diagnostic",
+      "personallyVisuallyInspected": true
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/diagnostic-native3x-legendary-0-water-strike-side-1.png",
+      "sha256": "5b9c056e959657c5304ee385ce0a823497cfe47bd88a716cccbb399e369cd127",
+      "originalPath": "shinobij.client/.tmp/pet-companion-techniques/parallel-a-glacier-forelimb-native3x/legendary-0-water-strike-side-1.png",
+      "kind": "native-forelimb-diagnostic",
+      "personallyVisuallyInspected": true
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/diagnostic-native3x-legendary-0-water-strike-side-2.png",
+      "sha256": "4ab3c6d30f137078e408fe5c900f422064afab5d8124ddf374e8e2df92ab136d",
+      "originalPath": "shinobij.client/.tmp/pet-companion-techniques/parallel-a-glacier-forelimb-native3x/legendary-0-water-strike-side-2.png",
+      "kind": "native-forelimb-diagnostic",
+      "personallyVisuallyInspected": true
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/diagnostic-native3x-legendary-0-water-strike-side-1-normals.png",
+      "sha256": "8fead95cbbf7dd4d3287e361c6b8441e14a4827159ec2881ec3e7beda267520a",
+      "originalPath": "shinobij.client/.tmp/pet-companion-techniques/parallel-a-glacier-forelimb-native3x/legendary-0-water-strike-side-1-normals.png",
+      "kind": "native-forelimb-diagnostic",
+      "personallyVisuallyInspected": true
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/diagnostic-native3x-manifest.json",
+      "sha256": "7f09fb22c0b6dfda1e1df30524ab0b1780fdcff984962832b35ec19ab7adffe3",
+      "originalPath": "shinobij.client/.tmp/pet-companion-techniques/parallel-a-glacier-forelimb-native3x/manifest.json",
+      "kind": "capture-manifest",
+      "personallyVisuallyInspected": false
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-a-2026-10-20/legendary-0-private-second/diagnostic-native3x-normal-attachments.json",
+      "sha256": "10df222abebaefb6e36286787421897b77766f860697e89e5597ebe95515ecc5",
+      "originalPath": "shinobij.client/.tmp/pet-companion-techniques/parallel-a-glacier-forelimb-native3x/normal-attachments.json",
+      "kind": "capture-manifest",
+      "personallyVisuallyInspected": false
+    }
+  ],
+  "liveVerified": false,
+  "productionAssetsModified": false,
+  "canonicalPromotionApproved": false,
+  "limits": "Independent visual judgment at the explicitly enumerated fresh sampled phases, using native lossless technique strips and full raw/runtime sheets. Other reviewers do not supply this judgment. Face, neck and sampled floor pass; raised foreleg silhouette requires anatomical assessment before full approval. Diagnostic DPR3 frames are supplementary native browser renders without post-resize, retaining the production pose and materials, plus a same-pose normal attachment. No live deployment claim. Source companion technique frames are not claimed because actual production selects battle. Numeric probes and existing review approval flags were not substituted for viewing images."
+}

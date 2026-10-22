@@ -25,6 +25,9 @@ import { petSlotAcceptsItem } from '../_pet-sim/pet-config.js';
 import { randomUUID } from 'node:crypto';
 import { sameTacticsBuild, validateTacticsBuild } from '../../shared/pet-tactics-build.js';
 import { ownedTacticsSpeciesId } from '../../shared/pet-tactics-roster.js';
+import { isPetFood, petFoodAllowance } from '../../shared/pet-food.js';
+import { normalizePetGrowth } from './_growth.js';
+import { appendSettlementReceipt, inspectSettlementReceipt, parseSettlementRequestId } from '../_settlement-receipts.js';
 
 function defensePetIds(defense: unknown): string[] {
     if (!defense || typeof defense !== 'object') return [];
@@ -62,20 +65,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const identity = await authedPlayerOrAdmin(req, playerName); if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         if (!identity.admin && identity.name !== playerName) return res.status(403).json({ error: 'Can only update your own pet.' });
         if (!identity.admin && !(await enforceRateLimitKv(req, res, 'pet-progress', 30, 60_000, identity.name))) return;
-        const now = Date.now();
         const trainingAction = action === 'start-training' || action === 'complete-training';
         // Set by the settle's afterCommit: the session this call settled, and the
         // mission-event list it stored (null if listing it failed).
         let settledTrainingMission: Parameters<typeof recordPendingTrainingMission>[1] | null = null;
         let listedTrainingMissions: Awaited<ReturnType<typeof recordPendingTrainingMission>> = null;
         const result = await mutatePlayerSave<{ action: string; pet: Record<string, unknown> | null; settledTraining?: string | null; gearBroke?: boolean; consumableSpent?: string | null }>(playerName, async ({ character }) => {
+            // Date the food allowance after acquiring the lock: a request
+            // queued across midnight must never write yesterday over today.
+            const now = Date.now();
             const pets = Array.isArray(character.pets) ? character.pets as Array<Record<string, unknown>> : [];
             const index = pets.findIndex((pet) => String(pet?.id ?? '') === petId); if (index < 0) return { ok: false as const, status: 404, error: 'Pet not found.' };
             // Settle the pending bond decay BEFORE anything reads happiness. We
             // hold the save mutation lock here, so this is the authoritative
             // tick even if the owner has not re-read their save since the UTC
             // rollover — no pet action can bank a missed day.
-            const pet = settlePetHappiness(pets[index], now).pet;
+            const pet = normalizePetGrowth(settlePetHappiness(pets[index], now).pet);
+            const foodAction = action === 'feed' || action === 'care-feed';
+            const feedRequestId = foodAction && body.requestId !== undefined ? parseSettlementRequestId(body.requestId) : null;
+            if (foodAction && body.requestId !== undefined && !feedRequestId) return { ok: false as const, status: 400, error: 'Invalid feeding request ID.' };
+            const feedFingerprint = `pet-${action}:${petId}:${String(body.itemId ?? '')}`;
+            const feedReceipt = feedRequestId ? inspectSettlementReceipt(character, feedRequestId, feedFingerprint) : null;
+            if (feedReceipt?.status === 'replay') return { ok: true as const, character, value: { action, pet }, write: false as const };
+            if (feedReceipt && feedReceipt.status !== 'fresh') return { ok: false as const, status: 409, error: 'Feeding receipt conflict. Refresh your companion before trying again.' };
             let nextCharacter = character; let nextPet = pet;
             if (activeBreedingParentIds(character, now).has(petId)) {
                 return { ok: false as const, status: 409, error: 'This pet is in the Shinobi Hatchery until the timer completes.' };
@@ -178,13 +190,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (await kv.get(`battle-lock:${playerName}`)) return { ok: false as const, status: 409, error: 'Finish or resume your active battle before changing this build.' };
                 nextPet = resetGrowthAllocation(pet);
             } else if (action === 'feed') {
-                const itemId = String(body.itemId ?? ''); const xp = PET_FEED_XP[itemId]; if (!xp) return { ok: false as const, status: 400, error: 'Invalid pet food.' };
+                const itemId = String(body.itemId ?? ''); const xp = PET_FEED_XP[itemId]; if (!isPetFood(itemId)) return { ok: false as const, status: 400, error: 'Invalid pet food.' };
+                const allowance = petFoodAllowance(pet, now);
+                if (Number(pet.level) >= Number(pet.maxLevel)) return { ok: false as const, status: 409, error: 'This companion is at max level. Food gives no XP; use happiness care instead.' };
+                if (xp > allowance.remaining) return { ok: false as const, status: 409, error: `Only ${allowance.remaining} food XP remains for this pet today. The shared 2,000 XP allowance resets at midnight UTC. No food was consumed. Use happiness care for no XP.` };
                 const afterItem = removePetItem(character, itemId); if (!afterItem) return { ok: false as const, status: 409, error: 'Pet food not owned.' };
                 nextCharacter = afterItem;
-                nextPet = Number(pet.level) >= Number(pet.maxLevel) ? { ...pet } : gainServerPetXp(pet, xp);
+                nextPet = gainServerPetXp({ ...pet, foodXpDay: allowance.day, foodXpUsed: allowance.used + xp }, xp);
                 // Treats cost an item, so their +10 is NOT rationed by the daily
                 // free-petting budget.
                 nextPet = grantPetHappiness(nextPet, 10, now);
+            } else if (action === 'care-feed') {
+                if (body.itemId !== 'pet-treat') return { ok: false as const, status: 400, error: 'Happiness-only care uses ordinary Treats only. Premium food is reserved for XP feeding.' };
+                if (clampHappiness(pet.happiness) >= 100) return { ok: false as const, status: 409, error: 'Happiness is already full. No Treat was consumed.' };
+                const afterItem = removePetItem(character, 'pet-treat');
+                if (!afterItem) return { ok: false as const, status: 409, error: 'An ordinary Treat is required for happiness care.' };
+                nextCharacter = afterItem;
+                nextPet = grantPetHappiness(pet, 10, now);
             } else if (action === 'pet') {
                 // The free interaction IS rationed: without a cap, one click
                 // would undo a decay tick that cost nothing to avoid, and the
@@ -312,13 +334,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             let breedingEvent: PetBreedingProgressEvent | null = null;
             if (settledTraining) {
                 breedingEvent = { kind: 'training', receipt: `training:${petId}:${String((pet.training as Record<string, unknown> | undefined)?.endsAt ?? now)}` };
-            } else if (action === 'feed') {
+            } else if (action === 'feed' || action === 'care-feed') {
                 breedingEvent = { kind: 'feed' };
             } else if (action === 'pet') {
                 breedingEvent = { kind: 'pet-interaction', petElement: String(pet.element ?? '') };
             }
             if (breedingEvent) finalizedCharacter = recordPetBreedingProgress(finalizedCharacter, breedingEvent, now).character;
-            if (action === 'pet' || action === 'feed') finalizedCharacter = recordFirstContractActivity(finalizedCharacter, 'companion', { kind: 'companion-care' }, now);
+            if (action === 'pet' || action === 'feed' || action === 'care-feed') finalizedCharacter = recordFirstContractActivity(finalizedCharacter, 'companion', { kind: 'companion-care' }, now);
+            if (feedRequestId && feedReceipt?.status === 'fresh') finalizedCharacter = appendSettlementReceipt(finalizedCharacter, feedReceipt.receipts, { requestId: feedRequestId, fingerprint: feedFingerprint, value: { kind: 'pet-feed', petId, itemId: String(body.itemId) }, settledAt: now });
             // A settled training earns Pet Tamer "trained a pet" credit whether it
             // was collected explicitly OR healed during a start-training attempt.
             // The event is listed the moment the settle commits, before it is

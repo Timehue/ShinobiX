@@ -1,0 +1,49 @@
+{
+  "at": "2026-10-20T18:24:53.345Z",
+  "priorHead": "2d58324e2b7fbbdbab5d427f63ef40765f321d78",
+  "ciRun": 39456640011,
+  "attempts": [
+    1,
+    2
+  ],
+  "secondCancelledJob": 118788543824,
+  "reason": "The unchanged monolithic live Express job exhausted its 35-minute ceiling twice. Partition the ten identical commands across three required jobs.",
+  "commandsByteIdentical": true,
+  "invocations": 10,
+  "partition": [
+    1,
+    1,
+    2,
+    3,
+    3,
+    3,
+    2,
+    3,
+    3,
+    3
+  ],
+  "jobCeilingMinutes": 35,
+  "stableAggregate": "CI / e2e-village-stores",
+  "aggregateFailsUnlessAllShardsSucceed": true,
+  "contractTests": {
+    "passed": 26,
+    "failed": 0
+  },
+  "productFilesChanged": false,
+  "releasePets": 38,
+  "liveVerified": false,
+  "evidence": [
+    {
+      "path": "docs/screenshots/pet-parallel-batch-village-sharding-2026-10-20/exact-journey-partition.json",
+      "sha256": "72bf2717fa2ddbb82d34cf9872c578372e40abbc37d47727f84e72215c13b31d"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-batch-village-sharding-2026-10-20/workflow-doc-contracts.log",
+      "sha256": "dc2f087f946a861493d07ebb1f1f2cbd7a2e63fd93e5f9227cfa4c960fa3a34f"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-batch-village-sharding-2026-10-20/second-timeout.log",
+      "sha256": "51c4942e368635fcd21e5c931210a1ff454263c53e498717037890a9c518b45b"
+    }
+  ]
+}

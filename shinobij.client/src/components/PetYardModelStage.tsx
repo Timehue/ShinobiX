@@ -7,7 +7,6 @@ import { warfrontPetModelConfig } from '../lib/pet-warfront-model-lod';
 import { PET_VISUAL_QUALITY_PRESETS } from '../lib/pet-visual-quality';
 import { petHeroMoveStyle } from '../lib/pet-hero-moves';
 import { petModelVariantSurface } from '../lib/pet-visual-variant';
-import { CHROMATIC_PET_SURFACE } from '../lib/pet-model-surface';
 import { petCareReaction, type PetAppearancePreview, type PetCareCue } from '../lib/pet-yard-interactions';
 import { PetCollarAura } from './PetCollarAura';
 import { PetModel3D, DEFAULT_PET_MODEL_FRAME, type PetModelMotion } from './PetModel3D';
@@ -88,8 +87,11 @@ function Fighter({ pet, paused, turn, take, move, onReady, careCue, baselineCare
         canvas.dataset.previewCollar = collarId;
     }, -1);
     if (!config) return null;
-    const surface = appearance === 'chromatic' ? CHROMATIC_PET_SURFACE : appearance === 'original' ? undefined : petModelVariantSurface(pet);
-    return <><group scale={2.15 / config.targetHeight} rotation={[0, turn, 0]}>
+    const surface = appearance === 'original' ? undefined : petModelVariantSurface(pet);
+    // These birds rise and extend toward the camera during their authored strike.
+    // Reserve that full motion envelope in the fixed inspection camera.
+    const previewHeight = ['rare-3', 'rare-7', 'rare-27', 'rare-38', 'standard-39', 'starter-wind', 'legendary-6', 'legendary-10', 'mythic-5'].includes(config.visualId) ? 1.8 : 2.15;
+    return <><group scale={previewHeight / config.targetHeight} rotation={[0, turn, 0]}>
         <PetModel3D config={config} frame={frame} element={pet.element} quality={PET_VISUAL_QUALITY_PRESETS.low}
             showIdentity={false} silhouette="surface-ink" surfaceTreatment={surface} />
     </group><PetCollarAura collarId={collarId} timeline={elapsed} /></>;

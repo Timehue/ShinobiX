@@ -235,12 +235,14 @@ test('legacy card packs charge the live pack table price, with and without the t
 // 2026-10 item-use pass: the legacy settlement route shares the pet supply hold
 // cap with /shop/purchase, so a held stack of treats or PvE gear tops up.
 test('pet supplies top up a held stack on the settlement route, and unlocks stay single', () => {
-    const treat = { ...ITEM_CATALOG['pet-treat'], cost: Number(ITEM_CATALOG['pet-treat'].cost) } as SettlementItem;
-    const bought = applyItemPurchase(character({ ryo: 100_000, itemStacks: [{ itemId: 'pet-treat', count: 45 }] }), treat, 20, 'pet-supply-settle-001', 100);
+    // Pet food keeps its own 9,999 stack (main's pet growth v2), so the 50 cap is
+    // pinned on a PvE gear piece.
+    const claw = { ...ITEM_CATALOG['pve-frenzy-claw'], cost: Number(ITEM_CATALOG['pve-frenzy-claw'].cost) } as SettlementItem;
+    const bought = applyItemPurchase(character({ level: 100, ryo: 1_000_000, itemStacks: [{ itemId: 'pve-frenzy-claw', count: 45 }] }), claw, 20, 'pet-supply-settle-001', 100);
     assert.equal(bought.ok, true);
     if (bought.ok && bought.value.kind === 'item-purchase') {
         assert.equal(bought.value.quantity, 5, 'clamped to the 50 hold cap');
-        assert.deepEqual(bought.character.itemStacks, [{ itemId: 'pet-treat', count: 50 }]);
+        assert.deepEqual(bought.character.itemStacks, [{ itemId: 'pve-frenzy-claw', count: 50 }]);
     }
     const collar = { ...ITEM_CATALOG['collar-crimson'], cost: Number(ITEM_CATALOG['collar-crimson'].cost) } as SettlementItem;
     const again = applyItemPurchase(character({ level: 70, fateShards: 1_000, inventory: ['collar-crimson'] }), collar, 1, 'pet-supply-settle-002', 100);

@@ -120,7 +120,7 @@
 .vwm-mercs h3 { margin: 0.2rem 0 0.4rem; }
 .vwm-merc-tiers { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 0.6rem; margin-top: 0.5rem; }
 .vwm-merc-tier { border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 10px; padding: 0.5rem; background: rgba(0, 0, 0, 0.18); text-align: center; }
-.vwm-merc-portrait { width: 100%; max-width: 120px; aspect-ratio: 1; object-fit: cover; border-radius: 8px; margin: 0 auto 0.35rem; display: block; }
+.vwm-merc-portrait { width: 100%; max-width: 120px; aspect-ratio: 1; object-fit: contain; border-radius: 8px; margin: 0 auto 0.35rem; display: block; }
 .vwm-merc-name { font-weight: 600; text-transform: capitalize; font-size: 0.85rem; margin-bottom: 0.35rem; }
 .vwm-merc-tier > button { width: 100%; background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.2); color: inherit; border-radius: 7px; padding: 0.3rem; cursor: pointer; font-size: 0.8rem; }
 @media (hover: hover) {

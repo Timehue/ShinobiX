@@ -9,6 +9,7 @@ import type { Character, VersionedCharacterCommit } from "../types/character";
 import type { Pet } from "../types/pet";
 import { gameConfirm } from "./GameAlert";
 import { CompanionIdentity } from "./CompanionIdentity";
+import { PetEggCard } from './PetEggCard';
 
 const ELEMENTS = ["all", "Fire", "Water", "Wind", "Lightning", "Earth"] as const;
 const RARITIES = ["all", "standard", "rare", "legendary", "mythic"] as const;
@@ -48,6 +49,7 @@ export function PetSanctuary({ character, updateCharacter, onVersionedCharacter,
     const [busyPetId, setBusyPetId] = useState("");
     const [message, setMessage] = useState("");
     const requestRef = useRef(0);
+    const newestHatchId = character.petBreedingHatchReceipts?.at(-1)?.petId;
 
     const filters = useMemo<PetSanctuaryFilters>(() => ({ search, element, rarity, origin }), [search, element, rarity, origin]);
     const carriedCapacity = maxPets(character);
@@ -85,7 +87,7 @@ export function PetSanctuary({ character, updateCharacter, onVersionedCharacter,
         const controller = new AbortController();
         const timer = window.setTimeout(() => void load("replace", null, controller.signal), search ? 240 : 0);
         return () => { controller.abort(); window.clearTimeout(timer); };
-    }, [load, search]);
+    }, [load, search, newestHatchId]);
 
     async function moveToSanctuary() {
         const pet = character.pets.find((entry) => entry.id === selectedDepositPetId);
@@ -130,10 +132,10 @@ export function PetSanctuary({ character, updateCharacter, onVersionedCharacter,
 
     return <section className="pet-sanctuary" aria-labelledby="pet-sanctuary-title">
         <div className="pet-sanctuary-hero" style={{ backgroundImage: `linear-gradient(90deg,rgba(3,8,18,.94),rgba(3,8,18,.38) 62%,rgba(3,8,18,.72)),linear-gradient(0deg,rgba(3,8,18,.92),transparent 55%),url(${sanctuaryArt})` }}>
-            <div><span className="pet-home-kicker">Unlimited bonded-companion preserve</span><h2 id="pet-sanctuary-title">Companion Sanctuary</h2><p>Companions beyond your carried roster rest here safely. Captures and hatches arrive automatically whenever your battle-ready spaces are full.</p></div>
+            <div><span className="pet-home-kicker">Unlimited bonded-companion preserve</span><h2 id="pet-sanctuary-title">Companion Sanctuary</h2><p>Companions rest here safely. Breeding eggs incubate here for 12 hours of gameplay and hatch automatically after your current battle or event.</p></div>
             <div className="pet-sanctuary-ledger" aria-label="Companion capacity"><span><b>{eligibleCarried.length}/{carriedCapacity}</b> Combat-carried</span>{preservedOverflowCount > 0 ? <span><b>{preservedOverflowCount}</b> Preserved overflow</span> : null}<span><b>{total}</b> Sanctuary</span><strong>No ownership cap</strong></div>
         </div>
-
+        {character.petBreeding?.state === 'egg' && <PetEggCard session={character.petBreeding} />}
         <div className="pet-sanctuary-manager">
             <div><span className="pet-home-kicker">Roster management</span><h3>Send a companion to rest</h3><p>Stored companions cannot enter PvE, Beastbound Warfront, Colosseum, training, expeditions, or breeding until returned to your carried roster.</p></div>
             <label><span>Owned companion</span><select value={selectedDepositPetId} onChange={(event) => setDepositPetId(event.target.value)} disabled={!character.pets.length || Boolean(busyPetId)}><option value="">No owned companions</option>{character.pets.map((pet) => <option key={pet.id} value={pet.id}>{petDisplayName(pet)} · Lv. {pet.level} · {title(pet.rarity)} · {eligibleCarriedIds.has(pet.id) ? "Carried" : "Preserved overflow"}</option>)}</select></label>

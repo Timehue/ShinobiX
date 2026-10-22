@@ -98,10 +98,10 @@ describe("pet tamer training and expedition bonuses", () => {
         assert.equal(petTamerTrainingSpeedPct(character({ profession: "petTamer", professionRank: 10 })), 20);
     });
 
-    it("scales expedition rewards +10% at unlock to +25% at rank 10", () => {
+    it("grants a fixed 50% expedition bonus at every Tamer rank", () => {
         assert.equal(petTamerExpeditionMult(character({ profession: "healer" })), 1);
-        assert.equal(petTamerExpeditionMult(character({ profession: "petTamer", professionRank: 0 })), 1.1);
-        assert.equal(petTamerExpeditionMult(character({ profession: "petTamer", professionRank: 10 })), 1.25);
+        assert.equal(petTamerExpeditionMult(character({ profession: "petTamer", professionRank: 0 })), 1.5);
+        assert.equal(petTamerExpeditionMult(character({ profession: "petTamer", professionRank: 10 })), 1.5);
     });
 });
 

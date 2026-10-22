@@ -1,3 +1,4 @@
+import type { ClanBossGuardState } from '../../../shared/clan-boss-guard.js';
 import type { TowerTacticsState, TowerClearComparison } from "../../../shared/tower-progression";
 /*
  * Battle Towers — client API + session types.
@@ -148,6 +149,7 @@ export type TowerFloorView = {
 };
 
 export type TowerSession = {
+    clanBossGuard?: ClanBossGuardState;
     towerTactics?: TowerTacticsState;
     towerId: string;
     runId: string;

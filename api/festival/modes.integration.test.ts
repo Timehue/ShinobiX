@@ -111,12 +111,23 @@ test('generic saves cannot forge, erase or rewind either festival progression', 
     await depart();
     ok(await call(rally, { action: 'prepare', petId }));
     const record = await stored();
-    const forged = { ...record.character, sunscarRally: { reputation: 99999, lastEntryDay: null, current: null }, sunscarCaravan: { reputation: 99999, current: null, lastEntryDay: null } };
+    record.character.brokerCertificates = 3;
+    record.character.brokerCrateLedger = { day: new Date(now).toISOString().slice(0, 10), used: 10, receipts: [] };
+    await kv.set(`save:${player}`, record);
+    const forged = { ...record.character, brokerCertificates: 99999, brokerCrateLedger: { day: '', used: 0, receipts: [] }, sunscarRally: { reputation: 99999, lastEntryDay: null, current: null }, sunscarCaravan: { reputation: 99999, current: null, lastEntryDay: null } };
     now += 4000;
     ok(await call(save, { ...record, character: forged, _baseSaveVersion: record._saveVersion }, { query: { name: player } }));
     const next = await stored();
     assert.deepEqual(next.character.sunscarRally, record.character.sunscarRally);
     assert.deepEqual(next.character.sunscarCaravan, record.character.sunscarCaravan);
+    assert.equal(next.character.brokerCertificates, 3);
+    assert.deepEqual(next.character.brokerCrateLedger, record.character.brokerCrateLedger);
+    delete next.character.brokerCertificates;
+    delete next.character.brokerCrateLedger;
+    now += 4000;
+    ok(await call(save, { ...next, _baseSaveVersion: next._saveVersion }, { query: { name: player } }));
+    assert.equal((await stored()).character.brokerCertificates, 3, 'stale autosaves cannot erase certificates');
+    assert.deepEqual((await stored()).character.brokerCrateLedger, record.character.brokerCrateLedger, 'stale autosaves cannot rewind the crate allowance');
 });
 test('Caravan opens a resumable 3–5 enemy Tower ambush with current vitals and settles defeat once', async () => {
     const opened = await prepareFight(), session = opened.session;

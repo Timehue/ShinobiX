@@ -96,16 +96,16 @@ export async function restoreSaveConflictRevision<TPayload extends Record<string
         };
         const applyAuthoritative = (raw: unknown): TPayload & { _saveVersion?: number } => {
             assertCurrent(draft.accountKey);
-            if (!isRecord(raw) || !isRecord(raw.character)) throw new Error("The authoritative restore response was invalid. The local draft remains protected.");
+            if (!isRecord(raw) || !isRecord(raw.character)) throw new Error("The restored save could not be read. Your device draft is still available.");
             const snapshot = raw as TPayload & { _saveVersion?: number };
             if (saveConflictAccountKey(String((snapshot.character as Record<string, unknown>).name ?? "")) !== draft.accountKey) {
-                throw new Error("The authoritative restore response belonged to a different account. The local draft remains protected.");
+                throw new Error("The restored save belongs to a different account. Your device draft is still available.");
             }
             const version = exactSaveVersion(snapshot._saveVersion);
-            if (version === null) throw new Error("The server did not return an authoritative save version. The local draft remains protected.");
+            if (version === null) throw new Error("The restored save could not be confirmed. Your device draft is still available.");
             protectAdvancedLocal();
             assertCurrent(draft.accountKey);
-            if (!params.applySnapshot(snapshot)) throw new Error("The server save is authoritative, but this client has already advanced. The local draft remains protected.");
+            if (!params.applySnapshot(snapshot)) throw new Error("Newer progress is already loaded. Your device draft is still available.");
             assertCurrent(draft.accountKey);
             params.latestVersion.current = Math.max(params.latestVersion.current, version);
             return snapshot;
@@ -130,20 +130,20 @@ export async function restoreSaveConflictRevision<TPayload extends Record<string
         if (!response.ok) throw new Error(`The server could not restore this draft (status ${response.status}).`);
         const acknowledgement = await response.json().catch(() => null);
         assertCurrent(draft.accountKey);
-        if (!isRecord(acknowledgement)) throw new Error("The server returned an invalid restore acknowledgement. Your draft remains protected.");
+        if (!isRecord(acknowledgement)) throw new Error("The restore response could not be read. Your device draft is still available.");
         if (acknowledgement.persisted === false) throw new Error(`The server deferred this restore (${String(acknowledgement.reason ?? "save locked")}). Your draft is still protected.`);
         const acknowledgedVersion = exactSaveVersion(acknowledgement._saveVersion);
-        if (acknowledgedVersion === null) throw new Error("The server did not confirm an authoritative save version. Your draft remains protected.");
+        if (acknowledgedVersion === null) throw new Error("The restored save could not be confirmed. Your device draft is still available.");
 
         const verifyResponse = await request(`/api/save/${encodeURIComponent(draft.accountName.toLowerCase())}`, requestInit({ cache: "no-store" }));
         assertCurrent(draft.accountKey);
-        if (!verifyResponse.ok) throw new Error("The draft was accepted, but its authoritative result could not be verified yet. The local draft remains protected.");
+        if (!verifyResponse.ok) throw new Error("Your draft was accepted, but the updated save could not be checked yet. Your device draft is still available.");
         const verifiedRaw = await verifyResponse.json().catch(() => null);
         assertCurrent(draft.accountKey);
-        if (!isRecord(verifiedRaw) || !isRecord(verifiedRaw.character)) throw new Error("The authoritative restore response was invalid. The local draft remains protected.");
+        if (!isRecord(verifiedRaw) || !isRecord(verifiedRaw.character)) throw new Error("The restored save could not be read. Your device draft is still available.");
         const verified = verifiedRaw as TPayload & { _saveVersion?: number };
         if (saveConflictAccountKey(String((verified.character as Record<string, unknown>).name ?? "")) !== draft.accountKey) {
-            throw new Error("The authoritative restore response belonged to a different account. The local draft remains protected.");
+            throw new Error("The restored save belongs to a different account. Your device draft is still available.");
         }
 
         const verifiedVersion = exactSaveVersion(verified._saveVersion);

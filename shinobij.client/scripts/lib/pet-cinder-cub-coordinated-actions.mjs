@@ -1,0 +1,80 @@
+import {createHash} from 'node:crypto';
+import {Quaternion,Euler,Matrix4} from 'three';
+import {parseStudioGlb,encodeStudioGlb,align4} from './pet-studio-glb.mjs';
+import {createCharacterRig,readCharacterTake,sampleChannel,solveFoot} from './pet-character-motion.mjs';
+import {studioTangents} from './pet-studio-curves.mjs';
+import {compactGlbDelivery} from '../compact-glb-delivery.mjs';
+
+/** Coordinate CinderCub's attack, cast and recoil. Preserve its sculpt, skin, face
+ * tracks, gait, idle and other authored performances exactly. */
+export async function repairCinderCubCoordinatedActions(bytes) {
+    const sourceSha256=createHash('sha256').update(bytes).digest('hex');
+    if(sourceSha256!=='167cf5d8815f26730127c01cac8a8f509a0c2fb564c13544ad11493c1a7e7ecc')throw Error('Unexpected CinderCub source');
+    const {json,bin}=parseStudioGlb(bytes),rig=createCharacterRig(json);
+    for(const chain of rig.chains)chain.forward.set(...[-0.4207775783403825,0,0.9071638383258028]).transformDirection(new Matrix4().copy(chain.frame.matrixWorld).invert());
+    if(rig.chains.length!==4||json.skins[0].joints.length!==33)throw Error('Unexpected CinderCub quadruped rig');
+    const idle=await readCharacterTake(json,bin,json.animations.find(c=>c.name==='idle'));
+    const rootId=rig.byName.get('root'),spineId=rig.byName.get('spine');
+    const idleSpine=idle.channels.find(c=>c.node===spineId&&c.path==='rotation');
+    const smooth=t=>{t=Math.max(0,Math.min(1,t));return t*t*(3-2*t);};
+    const pulse=(p,a,b,c)=>p<b?smooth((p-a)/(b-a)):1-smooth((p-b)/(c-b));
+    let binary=bin;
+    function append(values,type){
+        const offset=align4(binary.length),b=Buffer.from(values.buffer,values.byteOffset,values.byteLength);
+        binary=Buffer.concat([binary,Buffer.alloc(offset-binary.length),b]);
+        const view=json.bufferViews.push({buffer:0,byteOffset:offset,byteLength:b.length})-1;
+        return json.accessors.push({bufferView:view,componentType:5126,count:values.length/(type==='VEC4'?4:type==='VEC3'?3:1),type})-1;
+    }
+    const reports=[];
+    for(const name of ['attack','cast','idle_hitreact1']){
+        const clip=json.animations.find(c=>c.name===name),take=await readCharacterTake(json,bin,clip);
+        const times=Float32Array.from({length:49},(_,i)=>i/48*take.duration),streams=new Map(),contacts=[];
+        const remember=(node,path)=>streams.set(`${node}:${path}`,{node,path,values:[]});
+        remember(rootId,'translation');remember(spineId,'rotation');
+        for(const bone of ['chest','pelvis'])remember(rig.byName.get(bone),'rotation');
+        rig.chains.forEach(c=>c.ids.forEach(id=>remember(id,'rotation')));
+        for(const time of times){
+            const p=time/take.duration;rig.reset();
+            for(const c of take.channels){const v=sampleChannel(c,p),n=rig.nodes[c.node];if(c.path==='rotation')n.quaternion.fromArray(v);else if(c.path==='translation')n.position.fromArray(v);else n.scale.fromArray(v);}
+            for(const bone of ['chest','pelvis']){const id=rig.byName.get(bone);rig.nodes[id].quaternion.copy(rig.bind[id].q);}
+            const crouch=pulse(p,0,.28,.68),drive=pulse(p,.28,.48,.9),impact=pulse(p,0,.18,.78);
+            const recoil=name==='idle_hitreact1',cast=name==='cast',settle=rig.chains[0].length*.055;
+            rig.nodes[rootId].position.copy(rig.bind[rootId].p)
+                .addScaledVector(rig.chains[0].up,-settle-(recoil?.014*impact:.018*crouch))
+                .addScaledVector(rig.chains[0].forward,recoil?-.010*impact:cast?-.008*crouch:-.008*crouch+.014*drive);
+            rig.nodes[spineId].quaternion.fromArray(idleSpine?sampleChannel(idleSpine,0):rig.bind[spineId].q.toArray()).multiply(new Quaternion().setFromEuler(new Euler(
+                recoil?-.025*impact:cast?-.025*crouch+.012*drive:-.020*crouch+.025*drive,0,recoil?.025*impact:0)));
+            // Solve upper leg, knee and paw as one chain. Techniques keep the rear
+            // support paws down; casting and recoil keep all four grounded.
+            for(const chain of rig.chains){
+                for(const id of chain.ids)rig.nodes[id].quaternion.copy(rig.bind[id].q);
+                const swipe=name==='attack'&&chain.part==='front'&&chain.side==='L';
+                const lift=swipe?.055*pulse(p,.10,.34,.76):0,reach=swipe?.075*pulse(p,.20,.48,.85):0;
+                const target=chain.origin.clone().addScaledVector(chain.up,lift).addScaledVector(chain.forward,reach);
+                const error=solveFoot(rig,chain,target,chain.orientation);
+                contacts.push({p,foot:rig.nodes[chain.ids[2]].name,error,planted:!swipe||lift===0});
+            }
+            for(const s of streams.values()){const n=rig.nodes[s.node];s.values.push(...(s.path==='rotation'?n.quaternion.toArray():n.position.toArray()));}
+        }
+        const inputAccessor=append(times,'SCALAR');json.accessors[inputAccessor].min=[0];json.accessors[inputAccessor].max=[take.duration];
+        for(const s of streams.values()){
+            const width=s.path==='rotation'?4:3,values=Float32Array.from(s.values);
+            if(width===4)for(let i=1;i<times.length;i++){let dot=0;for(let k=0;k<4;k++)dot+=values[(i-1)*4+k]*values[i*4+k];if(dot<0)for(let k=0;k<4;k++)values[i*4+k]*=-1;}
+            const tangents=studioTangents(times,values,width,false),spline=new Float32Array(times.length*width*3);
+            for(let i=0;i<times.length;i++)for(let k=0;k<width;k++){spline[i*width*3+k]=spline[i*width*3+width*2+k]=tangents[i*width+k];spline[i*width*3+width+k]=values[i*width+k];}
+            const sampler={input:inputAccessor,output:append(spline,width===4?'VEC4':'VEC3'),interpolation:'CUBICSPLINE'},prior=clip.channels.find(c=>c.target.node===s.node&&c.target.path===s.path);
+            if(prior)clip.samplers[prior.sampler]=sampler;else{clip.samplers.push(sampler);clip.channels.push({sampler:clip.samplers.length-1,target:{node:s.node,path:s.path}});}
+        }
+        const report={name,keys:times.length,changedTracks:streams.size,maxContactError:Math.max(...contacts.filter(c=>c.planted).map(c=>c.error)),contacts};
+        if(report.maxContactError>.0001)throw Error(`Unreachable paw ${name}/${report.maxContactError}`);
+        reports.push(report);
+        json.extras.characterMotion.clips=json.extras.characterMotion.clips.filter(c=>c.name!==name);
+        json.extras.characterMotion.clips.push({name,contacts:contacts.filter(c=>c.planted).length,keys:times.length,tracks:streams.size,cyclic:false,maxContactErrorNormalized:report.maxContactError/rig.chains[0].length});
+    }
+    json.buffers[0].byteLength=align4(binary.length);
+    const report={revision:'20261018-cinder-cub-coordinated-actions-v2',sourceSha256,clips:reports};
+    json.extras.coordinatedActionRepair={...report,clips:reports.map(({contacts,...r})=>({...r,contacts:contacts.filter(c=>c.planted).length}))};
+    json.extras.characterMotion.plantedAttack=true;
+    json.extras.characterMotion.plantedRecoil=true;
+    const packed=parseStudioGlb(compactGlbDelivery(encodeStudioGlb(json,binary)));packed.json.extras.properAnimationSourceBoundary={binLength:packed.bin.length,accessorCount:packed.json.accessors.length,bufferViewCount:packed.json.bufferViews.length};return {bytes:encodeStudioGlb(packed.json,packed.bin),report};
+}

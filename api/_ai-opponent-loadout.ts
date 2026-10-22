@@ -34,6 +34,9 @@ export type AiOpponentJutsu = CombatJutsu & { visualEffect?: string };
 /** An AI never fights with more than this many jutsu (the fattest built-in
  *  loadout is 6; the cap only bounds a hand-authored `shared:ai-profiles` entry). */
 export const MAX_AI_LOADOUT_JUTSU = 8;
+/** Explicit veteran challenges may learn up to the player's baseline capacity.
+ * Unclassified hosts and admin-authored profiles retain the historical cap. */
+export const MAX_CHALLENGE_AI_LOADOUT_JUTSU = 12;
 
 const ORDINARY_PROGRESSIVE_KITS: Record<string, { damage: string[]; setup: string[] }> = {
     'builtin-ai-rogue-ninja': { damage: ['starter-tai-water-2', 'starter-tai-earth-2', 'starter-tai-fire-2', 'starter-tai-wind-2', 'starter-tai-lightning-2', 'starter-buki-earth-2'], setup: ['starter-tai-fire-4'] },
@@ -53,7 +56,13 @@ export function progressiveOrdinaryAiJutsuIds(profileId: string, level: number, 
     if (!kit || level <= 35 || difficulty === 'weaker' || !['standard', 'dangerous', 'elite'].includes(String(difficulty))) return null;
     const accelerated = difficulty === 'elite' ? 2 : difficulty === 'dangerous' ? 1 : 0;
     const damageCount = Math.min(6, (level >= 86 ? 6 : 5) + accelerated);
-    const setup = kit.setup.slice(0, MAX_AI_LOADOUT_JUTSU - damageCount - 1);
+    const extraSetup = level >= 61 ? difficulty === 'elite'
+        ? ['starter-nin-lightning-4', 'starter-nin-earth-1', 'starter-buki-wind-1', 'starter-gen-fire-3']
+        : difficulty === 'dangerous'
+            ? ['starter-nin-lightning-4', 'starter-nin-earth-1', 'starter-buki-wind-1']
+            : ['starter-nin-lightning-4', 'starter-buki-wind-1'] : [];
+    const setup = [...new Set([...kit.setup, ...extraSetup])].slice(0,
+        (level >= 61 ? MAX_CHALLENGE_AI_LOADOUT_JUTSU : MAX_AI_LOADOUT_JUTSU) - damageCount - 1);
     return [...kit.damage.slice(0, damageCount), ...setup, 'starter-universal-flicker'];
 }
 
@@ -97,12 +106,13 @@ function toEnemyJutsu(raw: Record<string, unknown>): AiOpponentJutsu | null {
 export function resolveAiProfileJutsu(
     jutsuIds: unknown,
     admin: AdminCombatContent | null = null,
+    maxJutsu = MAX_AI_LOADOUT_JUTSU,
 ): AiOpponentJutsu[] {
     if (!Array.isArray(jutsuIds)) return [];
     const seen = new Set<string>();
     const picked: Record<string, unknown>[] = [];
     for (const rawId of jutsuIds) {
-        if (picked.length >= MAX_AI_LOADOUT_JUTSU) break;
+        if (picked.length >= Math.max(1, Math.min(MAX_CHALLENGE_AI_LOADOUT_JUTSU, maxJutsu))) break;
         const id = typeof rawId === 'string' ? rawId.trim().slice(0, 120) : '';
         if (!id || seen.has(id)) continue;
         seen.add(id);

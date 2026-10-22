@@ -14,7 +14,7 @@
  * a speech bubble. Renderer + movement only — <WorldMap> owns the encounter, the
  * fight start and the priced flee, so nothing here touches combat, rewards, or saves.
  */
-import { type CSSProperties, useContext, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { type CSSProperties, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { WorldPlayerPosition } from '../lib/world-player-position';
 import type { Biome } from "../types/core";
 import type { Wanderer } from "../lib/wanderers";
@@ -25,6 +25,16 @@ import { createSectorNavigator } from "../lib/sector-path-waypoint";
 import { safeSectorTile, sectorObstaclesOn } from "../lib/sector-obstacles";
 import { isWalkableTile } from "../../../shared/sector-walk-mask";
 import { SECTOR_MARKER_ANCHOR, SECTOR_RING_AI, sectorMarkerBox } from "../lib/sector-marker";
+import type { LifeActor } from '../../../shared/sector-life';
+import { lifeActorPosition,lifeActivityAt,lifeActivityAtPosition } from '../../../shared/sector-life-motion';
+import { sectorTrackerAway } from '../lib/sector-life-art';
+import { isCoveredByCombat, subscribeCombatCover } from '../lib/combat-cover';
+import {useSectorServiceRoutine} from '../lib/sector-service-routine';
+import {layoutWandererLabels} from '../lib/wanderer-label-layout';
+import {publishFigureGroundPosition} from '../lib/figure-ground-position';
+import {GroundWorkTool} from './GroundWorkTool';
+import {paintGroundWorkTool} from '../lib/ground-work-tool';
+import {groundWorkPresentation} from '../lib/ground-work-surface';
 
 const GRID_W = 12;
 const GRID_H = 12;
@@ -67,6 +77,8 @@ const HUNT_LEASH_TILES = 8.0;   // ...and gives up outside this
 const REDUCED_STEP_MS = 200;
 const SMOOTH_MAX_DT = 0.05;
 const LABEL_LANES = 3;      // vertical lanes the name pill can sit in
+let nextAmbientGreetingAt = 0;
+let activeRoadSpeechUntil = 0;
 
 const AURA: Record<Biome, string> = {
     snow: "#cfe8ff", volcano: "#ff8a3d", shadow: "#c9a2ff", forest: "#9bf0a6", central: "#ffe9a6",
@@ -90,6 +102,8 @@ function labelLaneFor(id: string): number {
 }
 const colOf = (t: number) => t % GRID_W;
 const rowOf = (t: number) => Math.floor(t / GRID_W);
+const indoors=(life:LifeActor|undefined,p:{col:number;row:number},now:number)=>life?.hideAt!==undefined&&now>=life.hideAt&&Math.hypot(p.col-(life.hideTile??life.restTile)%12,p.row-Math.floor((life.hideTile??life.restTile)/12))<.18;
+const visualActivity=(life:LifeActor,p:{col:number;row:number},now:number)=>groundWorkPresentation(life,lifeActivityAtPosition(life,p,life.hideAt!==undefined&&!indoors(life,p,now)?Math.min(now,life.hideAt-1):now));
 
 export function SectorWanderer({
     wanderer,
@@ -97,22 +111,30 @@ export function SectorWanderer({
     playerIndex,
     biome,
     onEngage,
+    routine:suppliedRoutine,
 }: {
     wanderer: Wanderer;
     sector?: number;
     playerIndex: number;
     biome: Biome;
-    onEngage: (w: Wanderer) => boolean | void;
+    onEngage: (w: Wanderer,presentation?:Pick<LifeActor,'activity'|'line'>) => boolean | void;
+    /** Ambient routines use the same figure, portrait, grounding and motion as every other road NPC. */
+    routine?: LifeActor;
 }) {
     const wrapRef = useRef<HTMLDivElement | null>(null);
     const figRef = useRef<HTMLDivElement | null>(null);
     const spriteRef = useRef<HTMLSpanElement | null>(null);
+    const tackleRef=useRef<SVGSVGElement>(null),nativeReady=useRef(false);
+    const workToolRef=useRef<SVGSVGElement>(null),reducedTool=useRef(prefersReducedMotion());
 
     // Story and service characters are placed by id, not by the board, so ground
     // them here: an actor standing in rock or a building is one nobody can reach.
     const homeTile = safeSectorTile(sector, wanderer.homeTile);
     const walkable = (tile: number) => isWalkableTile(sector, tile, sectorObstaclesOn());
-    const initialPose = wanderer.movement === "stationary"
+    const worldPlayer = useContext(WorldPlayerPosition);
+    const nativeWork=worldPlayer!==null&&wanderer.verb==='angler'&&(sector===6||sector===18);
+    const service=useSectorServiceRoutine(sector,wanderer.id,nativeWork),routine=suppliedRoutine??service??undefined;
+    const initialPose = routine ? lifeActorPosition(sector, routine, serverNow()) : wanderer.movement === "stationary"
         ? loiterPositionAt(wanderer.id, homeTile, serverNow(), walkable)
         : { col: colOf(homeTile), row: rowOf(homeTile) };
     const posRef = useRef({ col: initialPose.col, row: initialPose.row });
@@ -133,14 +155,21 @@ export function SectorWanderer({
 
     // latest props for the long-lived RAF closure
     const playerRef = useRef(playerIndex);
-    const worldPlayer = useContext(WorldPlayerPosition);
     const onEngageRef = useRef(onEngage);
+    const routineRef = useRef(routine);
+    const wandererRef = useRef(wanderer);
+    useEffect(() => { wandererRef.current = wanderer; }, [wanderer]);
+    useLayoutEffect(() => { routineRef.current = routine; }, [routine]);
+    useLayoutEffect(()=>{nativeReady.current=service!==undefined;},[service]);
     useEffect(() => { playerRef.current = playerIndex; }, [playerIndex]);
     useEffect(() => { onEngageRef.current = onEngage; }, [onEngage]);
 
     const [bubble, setBubble] = useState<string | null>(null);
     const bubbleTimer = useRef(0);
     function speak(line: string) {
+        const now = performance.now();
+        if (now < activeRoadSpeechUntil) return;
+        activeRoadSpeechUntil = now + 3600;
         setBubble(line);
         window.clearTimeout(bubbleTimer.current);
         bubbleTimer.current = window.setTimeout(() => setBubble(null), 3600);
@@ -150,15 +179,27 @@ export function SectorWanderer({
         const { padX, gapX } = metricsRef.current;
         return (sizeRef.current.w - 2 * padX - (GRID_W - 1) * gapX) / GRID_W;
     }
-    function paint() {
+    const paint=useCallback(()=>{
         const fig = figRef.current;
         const { w, h } = sizeRef.current;
-        if (!fig || !w || !h) return;
+        if (!fig) return;
+        const life=routineRef.current,now=serverNow();
+        if(nativeWork&&nativeReady.current||life?.hideAt!==undefined)fig.style.visibility=!life||indoors(life,posRef.current,now)?'hidden':'';
+        const presentation=life?visualActivity(life,posRef.current,now):undefined;
+        if(life){const activity=presentation!.activity,title=`${life.name} · ${activity}`;
+            if(fig.dataset.activity!==activity||fig.title!==title){fig.dataset.activity=activity;fig.title=title;fig.setAttribute('aria-label',`${life.name}: ${activity}. Talk`);}}
+        if(!w||!h)return;
         const { padX, padY, gapX, gapY } = metricsRef.current;
         const cx = cellCentre(w, GRID_W, posRef.current.col, padX, gapX);
         const cy = cellCentre(h, GRID_H, posRef.current.row, padY, gapY);
         fig.style.transform = `translate(${cx}px, ${cy}px) translate(-50%, -${BASE_ANCHOR}%)`;
-    }
+        publishFigureGroundPosition(fig,posRef.current);
+        layoutWandererLabels(fig);
+        if(workToolRef.current)paintGroundWorkTool(workToolRef.current,!!presentation&&'working' in presentation&&presentation.working===true,cx/w*1200,cy/h*1200,now,reducedTool.current);
+        const fishing=routineRef.current?.fishing;
+        if(tackleRef.current)tackleRef.current.style.visibility=fishing&&now>=fishing.startsAt&&now<fishing.until&&Math.hypot(posRef.current.col-fishing.bank%12,posRef.current.row-Math.floor(fishing.bank/12))<.18?'visible':'hidden';
+    },[nativeWork]);
+    useLayoutEffect(()=>{paint();},[paint,routine]);
     function setWalking(on: boolean) { figRef.current?.classList.toggle("is-walking", on); }
     function applyFacing() { spriteRef.current?.style.setProperty("--face", String(facingRef.current)); }
 
@@ -186,15 +227,17 @@ export function SectorWanderer({
         });
         ro.observe(grid);
         return () => ro.disconnect();
-    }, []);
+    }, [paint]);
 
     // The movement loop.
     useEffect(() => {
         const reduced = prefersReducedMotion();
         // In the connected world an actor may follow you onto its sector's open land.
-        const navigate = createSectorNavigator(worldPlayer !== null);
+        const clearance=()=>routineRef.current?.clearance;
+        let navigate = createSectorNavigator(worldPlayer !== null,clearance);
         const maxDt = reduced ? REDUCED_STEP_MS / 1000 : SMOOTH_MAX_DT;
         const schedule = () => {
+            if ((routineRef.current||nativeWork) && (document.hidden || isCoveredByCombat())) return;
             if (reduced) stepTimerRef.current = window.setTimeout(() => tick(performance.now()), REDUCED_STEP_MS);
             else rafRef.current = requestAnimationFrame(tick);
         };
@@ -202,6 +245,7 @@ export function SectorWanderer({
         const wps = (wanderer.waypoints.length ? wanderer.waypoints : [wanderer.homeTile]).map(tile => safeSectorTile(sector, tile));
 
         const tick = (ts: number) => {
+            const wanderer = wandererRef.current;
             if (!lastTsRef.current) lastTsRef.current = ts;
             const dt = Math.min(maxDt, (ts - lastTsRef.current) / 1000);
             lastTsRef.current = ts;
@@ -213,6 +257,32 @@ export function SectorWanderer({
             const prow = actual?.row ?? rowOf(playerRef.current);
             const distPlayer = Math.hypot(pcol - p.col, prow - p.row);
             const armed = ts >= armedAtRef.current;
+            const life = routineRef.current;
+            const away=!life&&sectorTrackerAway(sector,wanderer.id);
+            if(figRef.current)figRef.current.style.visibility=away?'hidden':'';
+            if(away){setWalking(false);schedule();return;}
+            if(nativeWork&&nativeReady.current&&!life){if(figRef.current)figRef.current.style.visibility='hidden';setWalking(false);schedule();return;}
+            if (life) {
+                if (document.hidden) { setWalking(false); schedule(); return; }
+                const now = serverNow(), pose = lifeActorPosition(sector, life, reduced ? Math.floor(now / REDUCED_STEP_MS) * REDUCED_STEP_MS : now);
+                // Weather and event changes choose a new destination, never a new
+                // position. The established navigator walks there through real ground.
+                const next = navigate(sector,p,pose), dx = next.col-p.col, dy = next.row-p.row;
+                const distance = Math.hypot(dx,dy), step = Math.min(distance, .6*dt);
+                if (Math.abs(dx) > .005) facingRef.current = dx < 0 ? -1 : 1;
+                if (distance > .001) posRef.current = { col:p.col+dx/distance*step,row:p.row+dy/distance*step };
+                applyFacing(); setWalking(distance > .02 && !reduced); paint();
+                if(indoors(life,posRef.current,now)){if(figRef.current)figRef.current.style.visibility='hidden';schedule();return;}
+                const near = Math.hypot(pcol - posRef.current.col, prow - posRef.current.row) <= 1.8;
+                if (!near) greetedRef.current = false;
+                if (armed && near && !greetedRef.current) {
+                    greetedRef.current = true;
+                    // A passing greeting stays short. Full work instructions
+                    // belong in Talk, and only one ambient resident speaks at once.
+                    if (now >= nextAmbientGreetingAt) { nextAmbientGreetingAt = now + 45_000; speak(life.bark ?? (life.traveler ? 'Good to see you.' : 'Hello.')); }
+                }
+                schedule(); return;
+            }
             const movement = wanderer.movement
                 ?? ((wanderer.verb === "attack" || wanderer.verb === "bountyHunter") ? "pursue" : "patrol");
             // Pursuers HUNT: once they spot you they path to you and confront you,
@@ -299,8 +369,23 @@ export function SectorWanderer({
             schedule();
         };
 
+        let paused=document.hidden||isCoveredByCombat();
+        const syncRoutine = () => {
+            if (!routineRef.current&&!nativeWork) return;
+            cancelAnimationFrame(rafRef.current); window.clearTimeout(stepTimerRef.current); lastTsRef.current = 0;
+            const nextPaused=document.hidden||isCoveredByCombat();
+            if(paused&&!nextPaused&&routineRef.current){
+                const now=serverNow(),pose=lifeActorPosition(sector,routineRef.current,reduced?Math.floor(now/REDUCED_STEP_MS)*REDUCED_STEP_MS:now);
+                posRef.current={col:pose.col,row:pose.row};navigate=createSectorNavigator(worldPlayer!==null,clearance);setWalking(false);paint();
+            }
+            paused=nextPaused;
+            schedule();
+        };
+        const stopCover = routine||nativeWork ? subscribeCombatCover(syncRoutine) : () => {};
+        if (routine||nativeWork) document.addEventListener('visibilitychange', syncRoutine);
         schedule();
         return () => {
+            stopCover(); if (routine||nativeWork) document.removeEventListener('visibilitychange', syncRoutine);
             cancelAnimationFrame(rafRef.current);
             window.clearTimeout(stepTimerRef.current);
             window.clearTimeout(bubbleTimer.current);
@@ -309,29 +394,45 @@ export function SectorWanderer({
     }, []);
 
     function handleClick() {
-        onEngageRef.current(wanderer);   // opens the <WorldMap> interaction dialog
+        const current=routine?visualActivity(routine,posRef.current,serverNow()):undefined;
+        onEngageRef.current(nativeWork&&current?{...wanderer,greeting:current.line}:wanderer,current);
     }
 
     const img = wanderer.avatarImage || wandererAvatar(wanderer.avatarKey);
     const initials = wanderer.name.slice(0, 2).toUpperCase();
+    const presentation=routine?lifeActivityAt(routine,serverNow()):undefined,tackle=routine?.fishing;
     // Name pills used to be one fixed height above every figure, so two
     // wanderers standing near each other printed overlapping, unreadable text.
     // A stable per-wanderer lane spreads them across three heights: it cannot
     // make a collision impossible on a 12x12 board, but it makes the common
     // case (two neighbours) legible, and it never jitters as they walk because
     // the lane comes from the id, not from where they happen to be standing.
-    const labelLane = labelLaneFor(wanderer.id);
+    // Authored life already shares the batched collision packer. Start its names
+    // near their owners rather than adding a second static vertical offset.
+    const labelLane = routine ? 0 : labelLaneFor(wanderer.id);
 
     return (
-        <div className="sector-wanderer-overlay" ref={wrapRef} aria-hidden="true">
+        <div className="sector-wanderer-overlay" ref={wrapRef} aria-hidden={routine ? undefined : true}>
+            {routine?.workTool&&<GroundWorkTool toolRef={workToolRef} tool={routine.workTool}/>}
+            {tackle&&<svg ref={tackleRef} className="sector-fishing-tackle" viewBox="0 0 1200 1200" aria-hidden="true" data-water={tackle.water}>
+                <path d={tackle.rod} stroke="#34291c" strokeWidth="5"/><path d={tackle.rod} stroke="#b29b6d" strokeWidth="2.5"/>
+                <path d={tackle.cord} stroke="#e8dcc0" strokeWidth="1"/>
+                <g transform={`translate(${(tackle.water%12+.5)*100} ${(Math.floor(tackle.water/12)+.5)*100})`}>
+                    <ellipse className="sector-fishing-ripple" rx="10" ry="4"/>
+                    <ellipse rx="3" ry="5" fill="#c39164" stroke="#493a29" strokeWidth="1"/>
+                </g>
+            </svg>}
             <div
                 className="sector-avatar-figure sector-wanderer-figure"
                 ref={figRef}
                 role="button"
-                tabIndex={-1}
-                title={`${wanderer.name} · Lv ${wanderer.level} · ${wanderer.verb === "petDuel" ? "Wild beast" : "Wandering shinobi"}`}
+                tabIndex={routine ? 0 : -1}
+                aria-label={routine ? `${routine.name}: ${presentation!.activity}. Talk` : undefined}
+                data-life-resident={routine?.id}
+                onKeyDown={routine ? event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); handleClick(); } } : undefined}
+                title={routine?`${routine.name} · ${presentation!.activity}`:`${wanderer.name} · Lv ${wanderer.level} · ${wanderer.verb === "petDuel" ? "Wild beast" : "Wandering shinobi"}`}
                 onClick={handleClick}
-                style={{ ["--marker-ring"]: SECTOR_RING_AI } as CSSProperties}
+                style={{ ["--marker-ring"]: SECTOR_RING_AI,visibility:nativeWork&&service===null?'hidden':undefined } as CSSProperties}
             >
                 {bubble && <span className="sector-wanderer-bubble">{bubble}</span>}
                 <span className="sector-avatar-shadow" />
@@ -349,6 +450,7 @@ export function SectorWanderer({
                     {wanderer.name}
                 </span>
             </div>
+
         </div>
     );
 }

@@ -1,0 +1,10 @@
+{
+  "pass": true,
+  "sourceSha256": "586c33c3e7160d5048d32ac824f9152dcb4a1f9d70379e44a7cdc5bafa9ca6b8",
+  "candidateSha256": "62eabaf7202d7d74084f0fdb2ea21f73b13a798e58c019b4cec4c340ef0dc77b",
+  "originalBones": 21,
+  "appendedBones": 14,
+  "restDrift": 6.777157747260438e-8,
+  "exactCurves": 172,
+  "explicitlyAllowedCurves": 11
+}

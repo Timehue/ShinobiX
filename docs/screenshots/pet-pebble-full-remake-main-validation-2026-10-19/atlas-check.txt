@@ -1,0 +1,2 @@
+[1/1] /pet-models/starter-earth.glb -> /pet-models/warfront-impostors/starter-earth.webp (109114 bytes)
+Certified 1 deterministic Warfront impostor atlases (109114 bytes) in 1.21s.

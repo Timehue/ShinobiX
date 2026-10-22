@@ -18,6 +18,7 @@ let start: (req: VercelRequest, res: VercelResponse) => Promise<unknown>;
 let settle: (req: VercelRequest, res: VercelResponse) => Promise<unknown>;
 let descend: (req: VercelRequest, res: VercelResponse) => Promise<unknown>;
 let endRun: (req: VercelRequest, res: VercelResponse) => Promise<unknown>;
+let resume: typeof endRun;
 
 before(async () => {
     ({ kv } = await import('../_storage.js'));
@@ -26,6 +27,7 @@ before(async () => {
     settle = (await import('./card-settle.js')).default as unknown as typeof settle;
     descend = (await import('./descend.js')).default as unknown as typeof descend;
     endRun = (await import('./settle.js')).default as unknown as typeof endRun;
+    resume = (await import('./resume.js')).default as unknown as typeof resume;
 });
 
 beforeEach(async () => {
@@ -182,9 +184,9 @@ test('card settlement rejects an unrelated match and applies a loss once', async
     assert.equal(first.status, 200, JSON.stringify(first.body));
     assert.equal(first.body?.won, false);
     const saved = await kv.get<{ character: { hp: number; hollowGateRun: { threat: number }; settledHollowGateEventIds: string[] } }>('save:riftplayer');
-    assert.equal(saved?.character.hp, 60);
+    assert.equal(saved?.character.hp, 47);
     assert.equal(saved?.character.hollowGateRun.threat, 0);
-    assert.deepEqual(saved?.character.settledHollowGateEventIds, [`card:1:card:${nodeId}`, `card:${matchId}`],
+    assert.deepEqual(saved?.character.settledHollowGateEventIds, [`card:${createHash('sha256').update(token).digest('hex')}:1:card:${nodeId}`, `card:${matchId}`],
         'the receipt names the ambush encounter as well as the match');
     const cleared = await kv.get<HollowGateRunToken>(hollowGateRunKey('riftplayer', token));
     assert.equal(cleared?.pendingAmbush, null);
@@ -192,7 +194,7 @@ test('card settlement rejects an unrelated match and applies a loss once', async
     const replay = await call(settle, { token, matchId });
     assert.equal(replay.status, 200, JSON.stringify(replay.body));
     const savedAgain = await kv.get<{ character: { hp: number } }>('save:riftplayer');
-    assert.equal(savedAgain?.character.hp, 60);
+    assert.equal(savedAgain?.character.hp, 47);
 });
 
 test('a card win banks the normal ambush currency once in save and run ledger', async () => {
@@ -329,4 +331,141 @@ test('a save settled before encounter receipts existed keeps its match receipt h
     const after = (await kv.get<SaveWithWallet>('save:riftplayer'))!;
     assert.equal(after.character.ryo, 1100);
     assert.deepEqual(after.character.settledHollowGateEventIds, [`card:${settledMatch}`]);
+});
+
+for (const winner of ['player', 'opponent'] as const) {
+    test(`a later run may settle the same card step despite an earlier run's legacy receipt (${winner})`, async () => {
+        const nodeId = 'floor:1:ambush:threat-v20';
+        const priorMatch = await terminalMatch('prior-rift', nodeId, 'opponent');
+        await sealedCardAmbush('prior-rift', nodeId, priorMatch);
+        assert.equal((await call(settle, { token: 'prior-rift', matchId: priorMatch })).status, 200);
+        const currentMatch = await terminalMatch('fresh-rift', nodeId, winner);
+        const run = await sealedCardAmbush('fresh-rift', nodeId, currentMatch);
+        const saved = (await kv.get<Record<string, any>>('save:riftplayer'))!;
+        saved.character.hp = 100;
+        saved.character.maxHp = 10000;
+        // Exact pre-fix persisted shape: the encounter id has no run identity.
+        saved.character.settledHollowGateEventIds = [`card:1:card:${nodeId}`, `card:${priorMatch}`];
+        await kv.set('save:riftplayer', saved);
+        const first = await call(settle, { token: 'fresh-rift', matchId: currentMatch });
+        assert.equal(first.status, 200, JSON.stringify(first.body));
+        assert.equal(first.body?.won, winner === 'player');
+        const after = (await kv.get<Record<string, any>>('save:riftplayer'))!;
+        const expectedRyo = 100 + (winner === 'player'
+            ? Math.floor(hollowGateCombatReward(1, 'ambush').ryo * rewardMultiplierForToken(run)) : 0);
+        assert.equal(after.character.hp, winner === 'player' ? 100 : 1);
+        assert.equal(after.character.ryo, expectedRyo);
+        const replay = await call(settle, { token: 'fresh-rift', matchId: currentMatch });
+        assert.equal(replay.status, 200, JSON.stringify(replay.body));
+        const again = (await kv.get<Record<string, any>>('save:riftplayer'))!;
+        assert.equal(again.character.hp, after.character.hp);
+        assert.equal(again.character.ryo, expectedRyo);
+        const restored = await call(resume, {});
+        assert.equal(restored.body?.live, true);
+        assert.equal((restored.body?.run as Record<string, unknown>).pendingAmbush, null);
+    });
+}
+
+for (const winner of ['player', 'opponent'] as const) test(`an applied legacy card ${winner} repairs its still-bound run without another HP charge or reward`, async () => {
+    const token = 'legacy-applied-card';
+    const nodeId = 'floor:1:ambush:threat-v20';
+    const matchId = await terminalMatch(token, nodeId, winner);
+    const run = await sealedCardAmbush(token, nodeId, matchId);
+    const saved = (await kv.get<Record<string, any>>('save:riftplayer'))!;
+    saved.character.hp = 37;
+    const paidRyo = winner === 'player' ? 100 + Math.floor(hollowGateCombatReward(1, 'ambush').ryo * rewardMultiplierForToken(run)) : 100;
+    saved.character.ryo = paidRyo;
+    saved.character.settledHollowGateEventIds = [`card:${matchId}`];
+    await kv.set('save:riftplayer', saved);
+    const repaired = await call(settle, { token, matchId });
+    assert.equal(repaired.status, 200, JSON.stringify(repaired.body));
+    assert.equal((await kv.get<Record<string, any>>('save:riftplayer'))!.character.hp, 37);
+    assert.equal((await kv.get<Record<string, any>>('save:riftplayer'))!.character.ryo, paidRyo);
+    assert.equal((await kv.get<HollowGateRunToken>(hollowGateRunKey('riftplayer', token)))!.pendingAmbush, null);
+    const restored = await call(resume, {});
+    assert.equal((restored.body?.run as Record<string, unknown>).pendingAmbush, null);
+    await call(settle, { token, matchId });
+    assert.equal((await kv.get<Record<string, any>>('save:riftplayer'))!.character.hp, 37);
+});
+
+test('a genuinely ended legacy card run is acknowledged and never revived by Continue or reload', async () => {
+    const token = 'legacy-ended-card';
+    const nodeId = 'floor:1:ambush:threat-v20';
+    const matchId = await terminalMatch(token, nodeId, 'opponent');
+    await sealedCardAmbush(token, nodeId, matchId);
+    const saved = (await kv.get<Record<string, any>>('save:riftplayer'))!;
+    saved.character.hp = 0;
+    saved.character.hospitalized = true;
+    saved.character.hollowGateRun = null;
+    saved.character.lastHollowGateStart = { token, requestId: 'old-start' };
+    saved.character.settledHollowGateEventIds = [`card:${matchId}`];
+    await kv.set('save:riftplayer', saved);
+    const repaired = await call(settle, { token, matchId });
+    assert.equal(repaired.status, 200, JSON.stringify(repaired.body));
+    assert.equal(repaired.body?.ended, true);
+    assert.equal(await kv.get(hollowGateRunKey('riftplayer', token)), null);
+    assert.equal((await call(settle, { token, matchId })).status, 200);
+    const after = (await kv.get<Record<string, any>>('save:riftplayer'))!.character;
+    assert.equal(after.hp, 0);
+    assert.equal(after.hospitalized, true);
+    assert.equal(after.hollowGateRun, null);
+    assert.equal(after.lastHollowGateStart, undefined);
+    assert.equal(after.ryo, 100);
+    assert.equal((await call(resume, {})).body?.live, false);
+});
+
+test('Resume repairs an exact paid legacy card binding even after the Chronicle session expires', async () => {
+    const token = 'expired-paid-card';
+    const nodeId = 'floor:1:ambush:threat-v20';
+    const matchId = await terminalMatch(token, nodeId, 'opponent');
+    await sealedCardAmbush(token, nodeId, matchId);
+    const saved = (await kv.get<Record<string, any>>('save:riftplayer'))!;
+    saved.character.hp = 37;
+    saved.character.settledHollowGateEventIds = [`card:${matchId}`];
+    await kv.set('save:riftplayer', saved);
+    await kv.del(cardClashAiTokenKey(matchId));
+    const recovered = await call(start, { token, nodeId });
+    assert.equal(recovered.status, 200, JSON.stringify(recovered.body));
+    assert.equal(recovered.body?.resolved, true);
+    assert.equal(recovered.body?.alreadyReported, true);
+    assert.equal((await kv.get<Record<string, any>>('save:riftplayer'))!.character.hp, 37);
+    assert.deepEqual(await kv.keys('cc-ai:*'), [], 'a paid old match never mints a replacement duel');
+    assert.equal((await call(settle, { token, matchId })).status, 200, 'the durable repair proof can replay without an AI session');
+    const restored = await call(resume, {});
+    assert.equal((restored.body?.run as Record<string, unknown>).pendingAmbush, null);
+});
+
+test('an expired unpaid card binding remints a duel without inventing a result or HP charge', async () => {
+    const token = 'expired-unpaid-card';
+    const nodeId = 'floor:1:ambush:threat-v20';
+    const matchId = await terminalMatch(token, nodeId, 'opponent');
+    await sealedCardAmbush(token, nodeId, matchId);
+    const before = await kv.get('save:riftplayer');
+    await kv.del(cardClashAiTokenKey(matchId));
+    const result = await call(start, { token, nodeId });
+    assert.equal(result.status, 200, JSON.stringify(result.body));
+    assert.notEqual(result.body?.matchId, matchId);
+    assert.equal(result.body?.resolved, undefined);
+    assert.deepEqual(await kv.get('save:riftplayer'), before);
+});
+
+for (const winner of ['player', 'opponent'] as const) test(`a lost run-projection write repairs a card ${winner} result once on reload`, async () => {
+    const token = `write-failure-${winner}`;
+    const nodeId = 'floor:1:ambush:threat-v20';
+    const matchId = await terminalMatch(token, nodeId, winner);
+    await sealedCardAmbush(token, nodeId, matchId);
+    const compareSet = kv.compareSet;
+    let failed = false;
+    kv.compareSet = (async (key, ...args) => {
+        if (!failed && key === hollowGateRunKey('riftplayer', token)) { failed = true; throw new Error('fixture-run-projection-write-failed'); }
+        return compareSet.call(kv, key, ...args);
+    }) as typeof compareSet;
+    try { assert.equal((await call(settle, { token, matchId })).status, 500); }
+    finally { kv.compareSet = compareSet; }
+    assert.equal(failed, true);
+    const committed = await kv.get('save:riftplayer');
+    assert.equal((await call(resume, {})).body?.live, true);
+    assert.equal((await call(settle, { token, matchId })).status, 200);
+    assert.deepEqual(await kv.get('save:riftplayer'), committed, 'repair and Continue repeat no committed effects');
+    assert.equal((await kv.get<HollowGateRunToken>(hollowGateRunKey('riftplayer', token)))!.pendingAmbush, null);
 });

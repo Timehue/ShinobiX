@@ -1,0 +1,320 @@
+{
+  "id": "rare-3",
+  "asset": "C:\\Users\\Tyler R\\.codex\\worktrees\\40c2\\NinjaK\\shinobij.client\\.tmp\\sol-sky-falcon-tabs-v4\\source.glb",
+  "sha256": "bb79c492e29c5dcf4ec9c3ff97fe04ab6da60a55f4727d07a0139d20d28f75c8",
+  "rendererBundleSha256": "aebcf4fb161c4d49b42fe861941a03a4b63017f021334da449c27cedc29ee3ba",
+  "phases": [
+    0,
+    0.12,
+    0.24,
+    0.48,
+    0.76,
+    1
+  ],
+  "clips": [
+    "attack",
+    "idle_hitreact1",
+    "entrance"
+  ],
+  "views": [
+    "head-side",
+    "head-other-side"
+  ],
+  "images": [
+    {
+      "name": "rare-3-attack-0-head-side.png",
+      "sha256": "9516ea2b13336c35ef0f8a26ad8af9c26f6623d05b2b493b4ce686450bc3934c",
+      "clip": "attack",
+      "phase": 0,
+      "view": "head-side"
+    },
+    {
+      "name": "rare-3-attack-0.12-head-side.png",
+      "sha256": "3d4a3fde427cf3c5c8ef4c437bfee5c47fb82529c1ffe954b151804439f4e2d0",
+      "clip": "attack",
+      "phase": 0.12,
+      "view": "head-side"
+    },
+    {
+      "name": "rare-3-attack-0.24-head-side.png",
+      "sha256": "e892a7890e22cf246d0585305f84c6c9714246c4154ec1ab376d71d1d50ea6bb",
+      "clip": "attack",
+      "phase": 0.24,
+      "view": "head-side"
+    },
+    {
+      "name": "rare-3-attack-0.48-head-side.png",
+      "sha256": "e53a75b51ba5e3a39443e8364c7ba19b20638dc2a6a51a72176985cb785a6924",
+      "clip": "attack",
+      "phase": 0.48,
+      "view": "head-side"
+    },
+    {
+      "name": "rare-3-attack-0.76-head-side.png",
+      "sha256": "2d73a1179f79331a4cc921f92af098ee9ba4d7b2f896d025ddc020c0d1355bc1",
+      "clip": "attack",
+      "phase": 0.76,
+      "view": "head-side"
+    },
+    {
+      "name": "rare-3-attack-1-head-side.png",
+      "sha256": "38975928016b24ec702ecf1ffe713e4d9e1b53d56c784fcd71baac8d949d4190",
+      "clip": "attack",
+      "phase": 1,
+      "view": "head-side"
+    },
+    {
+      "name": "rare-3-attack-head-side-sheet.png",
+      "sha256": "943bc979b2e331a992dea88c25046da1c4395de09a6abd75c01aceec8bb1920c",
+      "clip": "attack",
+      "view": "head-side",
+      "sheet": true
+    },
+    {
+      "name": "rare-3-attack-0-head-other-side.png",
+      "sha256": "58f9bc11df2e26c577d30a9477b16644f73436f3f73a4069f60256af8e7ca53d",
+      "clip": "attack",
+      "phase": 0,
+      "view": "head-other-side"
+    },
+    {
+      "name": "rare-3-attack-0.12-head-other-side.png",
+      "sha256": "ad5cdc343d5c6abb632707968efaf6c54ce84613704249786b6ba7ff92c57ef2",
+      "clip": "attack",
+      "phase": 0.12,
+      "view": "head-other-side"
+    },
+    {
+      "name": "rare-3-attack-0.24-head-other-side.png",
+      "sha256": "14689a9237f8229e08e510e0841495f0790017b316e44a62c766422fd09821df",
+      "clip": "attack",
+      "phase": 0.24,
+      "view": "head-other-side"
+    },
+    {
+      "name": "rare-3-attack-0.48-head-other-side.png",
+      "sha256": "2579bb558d40b42588f0553871845e53919a49c6bd49f261554b968dae79ea16",
+      "clip": "attack",
+      "phase": 0.48,
+      "view": "head-other-side"
+    },
+    {
+      "name": "rare-3-attack-0.76-head-other-side.png",
+      "sha256": "8d18b5805d2aec93bb68bc2636ac0efa9157951d96f50627976d2fe20698b5bc",
+      "clip": "attack",
+      "phase": 0.76,
+      "view": "head-other-side"
+    },
+    {
+      "name": "rare-3-attack-1-head-other-side.png",
+      "sha256": "7a2218dd1877203ae7f1c8232b75349ddb74ef411f7e3bfb8c386dd5ed180693",
+      "clip": "attack",
+      "phase": 1,
+      "view": "head-other-side"
+    },
+    {
+      "name": "rare-3-attack-head-other-side-sheet.png",
+      "sha256": "073cf9eb4b0331800c7fcc457084f86ac30a054be78e5932b5d254f16eca6c2d",
+      "clip": "attack",
+      "view": "head-other-side",
+      "sheet": true
+    },
+    {
+      "name": "rare-3-idle_hitreact1-0-head-side.png",
+      "sha256": "c340c434f8890d0b72d2f28d604bc610565a7f4281bbc5c3c4d3cda819dc6dd9",
+      "clip": "idle_hitreact1",
+      "phase": 0,
+      "view": "head-side"
+    },
+    {
+      "name": "rare-3-idle_hitreact1-0.12-head-side.png",
+      "sha256": "a36d6c728c84376a7e1f97410092a0e24778c935bb48649c7825be7ea82404ee",
+      "clip": "idle_hitreact1",
+      "phase": 0.12,
+      "view": "head-side"
+    },
+    {
+      "name": "rare-3-idle_hitreact1-0.24-head-side.png",
+      "sha256": "539be6fff0e0c8a8fed11ed665e5433ef820f6286d3efc20ce6a0250c56c50dc",
+      "clip": "idle_hitreact1",
+      "phase": 0.24,
+      "view": "head-side"
+    },
+    {
+      "name": "rare-3-idle_hitreact1-0.48-head-side.png",
+      "sha256": "41f47127790b6053cbb3edfcf8ee63ba0df8f50f56c913a33e1463b557ac7199",
+      "clip": "idle_hitreact1",
+      "phase": 0.48,
+      "view": "head-side"
+    },
+    {
+      "name": "rare-3-idle_hitreact1-0.76-head-side.png",
+      "sha256": "5c46c8854040676a57517366f0d28c38376b803cbe5b979e90fa4d20ed2d3e77",
+      "clip": "idle_hitreact1",
+      "phase": 0.76,
+      "view": "head-side"
+    },
+    {
+      "name": "rare-3-idle_hitreact1-1-head-side.png",
+      "sha256": "2af9e17eae8891592b7cb8b09ea340e9b15f818a10c2834a5179f3a661c0d128",
+      "clip": "idle_hitreact1",
+      "phase": 1,
+      "view": "head-side"
+    },
+    {
+      "name": "rare-3-idle_hitreact1-head-side-sheet.png",
+      "sha256": "5919f5d62ea6330e883708be4b966d6e40e40f24f477548b329acc4cd54340fe",
+      "clip": "idle_hitreact1",
+      "view": "head-side",
+      "sheet": true
+    },
+    {
+      "name": "rare-3-idle_hitreact1-0-head-other-side.png",
+      "sha256": "3f36d4fdec9b9ed994c2a7405d120ad635cfd2e1d1146f14db5f9f795097c917",
+      "clip": "idle_hitreact1",
+      "phase": 0,
+      "view": "head-other-side"
+    },
+    {
+      "name": "rare-3-idle_hitreact1-0.12-head-other-side.png",
+      "sha256": "c5252191685bc848e7bef2ece82ff84cc35498c922d5ac9149a11591c20af3b2",
+      "clip": "idle_hitreact1",
+      "phase": 0.12,
+      "view": "head-other-side"
+    },
+    {
+      "name": "rare-3-idle_hitreact1-0.24-head-other-side.png",
+      "sha256": "386367cf53c972939966f5e54d91bc4f72b2c42bb2306a33bfce5d104bc6034e",
+      "clip": "idle_hitreact1",
+      "phase": 0.24,
+      "view": "head-other-side"
+    },
+    {
+      "name": "rare-3-idle_hitreact1-0.48-head-other-side.png",
+      "sha256": "b351b3245fa8fda0ebd946cdec165e4068394f5ec0cd9f9b5c4f1d8e20b4fcc0",
+      "clip": "idle_hitreact1",
+      "phase": 0.48,
+      "view": "head-other-side"
+    },
+    {
+      "name": "rare-3-idle_hitreact1-0.76-head-other-side.png",
+      "sha256": "a602d275cf84fd7997b53810f5b9147a00870a6002a2abad2a020e8bc70c7e42",
+      "clip": "idle_hitreact1",
+      "phase": 0.76,
+      "view": "head-other-side"
+    },
+    {
+      "name": "rare-3-idle_hitreact1-1-head-other-side.png",
+      "sha256": "21cd93dd36d635983c3090f8e710931ccd0abec460debcc2c7e846ab442bd80f",
+      "clip": "idle_hitreact1",
+      "phase": 1,
+      "view": "head-other-side"
+    },
+    {
+      "name": "rare-3-idle_hitreact1-head-other-side-sheet.png",
+      "sha256": "72f499e6a2215f5685e133d6b2d43ef31393672a635a491643c1ddb38ffd639c",
+      "clip": "idle_hitreact1",
+      "view": "head-other-side",
+      "sheet": true
+    },
+    {
+      "name": "rare-3-entrance-0-head-side.png",
+      "sha256": "1568beebbab123c4d632b577a3152a46f3052f74de80bb53e3e781a6ccee1189",
+      "clip": "entrance",
+      "phase": 0,
+      "view": "head-side"
+    },
+    {
+      "name": "rare-3-entrance-0.12-head-side.png",
+      "sha256": "186acb57f156d388d76539f3d3533d965f3a2df112259bfa62ef81d27c85a303",
+      "clip": "entrance",
+      "phase": 0.12,
+      "view": "head-side"
+    },
+    {
+      "name": "rare-3-entrance-0.24-head-side.png",
+      "sha256": "e106aa7f3444b63f6f610feb25f5bdd9b51bb2889d09469b9ee255af775d686a",
+      "clip": "entrance",
+      "phase": 0.24,
+      "view": "head-side"
+    },
+    {
+      "name": "rare-3-entrance-0.48-head-side.png",
+      "sha256": "5dc8e010ee87af29265c095e93773e2d0393108963551ad17f6e65524781c2f7",
+      "clip": "entrance",
+      "phase": 0.48,
+      "view": "head-side"
+    },
+    {
+      "name": "rare-3-entrance-0.76-head-side.png",
+      "sha256": "cc4800b28d77c4394bf85d259f2c5193f59d06576f922eb4fa8d9109bf47d0fe",
+      "clip": "entrance",
+      "phase": 0.76,
+      "view": "head-side"
+    },
+    {
+      "name": "rare-3-entrance-1-head-side.png",
+      "sha256": "a1f529ea00fc962f990d06ce2e74da35e84e15225c9ad9495f2b2afcb69cba2f",
+      "clip": "entrance",
+      "phase": 1,
+      "view": "head-side"
+    },
+    {
+      "name": "rare-3-entrance-head-side-sheet.png",
+      "sha256": "98aba7277118c5dc43b0611743a166b9c4eb53d81412f2b8027b49c66e5635c5",
+      "clip": "entrance",
+      "view": "head-side",
+      "sheet": true
+    },
+    {
+      "name": "rare-3-entrance-0-head-other-side.png",
+      "sha256": "080243b91f4b22e649261a2460d006dd52b3baabe9db264cc91f52fe8cbe0333",
+      "clip": "entrance",
+      "phase": 0,
+      "view": "head-other-side"
+    },
+    {
+      "name": "rare-3-entrance-0.12-head-other-side.png",
+      "sha256": "1203c65f54fc30587d57eef80d6219cf3baecd681b685349f493930fdc33f866",
+      "clip": "entrance",
+      "phase": 0.12,
+      "view": "head-other-side"
+    },
+    {
+      "name": "rare-3-entrance-0.24-head-other-side.png",
+      "sha256": "5407aa54d08e1a306e2222e29fe15189cf27d0ff4ca1b0397c267c38885cf392",
+      "clip": "entrance",
+      "phase": 0.24,
+      "view": "head-other-side"
+    },
+    {
+      "name": "rare-3-entrance-0.48-head-other-side.png",
+      "sha256": "7556124ad17b81b6f4d96476229ad43d63e3af112672eba63a2742b4e478d91a",
+      "clip": "entrance",
+      "phase": 0.48,
+      "view": "head-other-side"
+    },
+    {
+      "name": "rare-3-entrance-0.76-head-other-side.png",
+      "sha256": "6694d859ce3a6ec83347c4702b4e73dea49bcc742338d20176a2ab7fb584372d",
+      "clip": "entrance",
+      "phase": 0.76,
+      "view": "head-other-side"
+    },
+    {
+      "name": "rare-3-entrance-1-head-other-side.png",
+      "sha256": "c80234720fa0fa743adf7af758c928623dc4677ac6668d2109b201cd129c2ad2",
+      "clip": "entrance",
+      "phase": 1,
+      "view": "head-other-side"
+    },
+    {
+      "name": "rare-3-entrance-head-other-side-sheet.png",
+      "sha256": "d24692eea91a421866f8cd720e7c34e5d6b09e114ded9a0498e96aad5d479c7a",
+      "clip": "entrance",
+      "view": "head-other-side",
+      "sheet": true
+    }
+  ],
+  "errors": []
+}

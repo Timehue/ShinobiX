@@ -25,7 +25,7 @@ after(() => {
     else process.env.SESSION_SECRET = priorSecret;
 });
 
-async function call(name: string, matchId: string) {
+async function call(name: string, matchId: string, command: Record<string, unknown> = {}) {
     let status = 200;
     let body: Record<string, unknown> = {};
     const response = {
@@ -35,7 +35,7 @@ async function call(name: string, matchId: string) {
         end: () => response,
     };
     await handler({
-        method: 'POST', body: { action: 'settle', playerName: name, matchId },
+        method: 'POST', body: { action: 'settle', playerName: name, matchId, ...command },
         headers: { 'x-player-token': issuePlayerToken(name)! },
         socket: { remoteAddress: `10.29.0.${name.length}` },
     } as never, response as never);
@@ -79,4 +79,40 @@ test('all four ranked 2v2 players can acknowledge the same result after pointers
     }
     const rated = await kv.get<{ character: { ranked2v2Wins?: number; ranked2v2Losses?: number } }>(`save:${names[0]}`);
     assert.equal((rated?.character.ranked2v2Wins ?? 0) + (rated?.character.ranked2v2Losses ?? 0), 1);
+});
+
+test('ranked ready checks authenticate each member and start only after all four confirm', async () => {
+    const names = ['readyalpha', 'readybeta', 'readygamma', 'readydelta'];
+    for (const name of names) await kv.set(`save:${name}`, { character: {
+        name, level: 40, maxHp: 1200, maxChakra: 200, maxStamina: 200,
+        specialty: 'Taijutsu', stats: { strength: 200 }, jutsu: [],
+    } });
+    for (const [a, b] of [[names[0], names[1]], [names[2], names[3]]]) {
+        assert.equal((await duo.inviteRanked2v2Partner({ actor: a, target: b })).ok, true);
+        await duo.acceptRanked2v2Invite(b);
+        await duo.queueRanked2v2(a);
+    }
+    let match = (await duo.ranked2v2Status(names[0])).match!;
+    const command = { action: 'ready', ready: true, expectedVersion: match.version, requestId: crypto.randomUUID() };
+    assert.equal((await call('readyoutsider', match.matchId, command)).status, 403);
+    assert.equal((await call(names[0], match.matchId, { ...command, requestId: '' })).status, 400);
+    await writeMatch({ ...match, binding: { kind: 'public-queue' } });
+    const foreignSurface = await call(names[0], match.matchId, command);
+    assert.equal(foreignSurface.status, 403);
+    assert.equal(foreignSurface.body.errorCode, 'wrong-surface');
+    await writeMatch(match);
+    const first = await call(names[0], match.matchId, command);
+    assert.equal(first.status, 200);
+    assert.equal((await call(names[0], match.matchId, command)).body.replayed, true);
+    match = (await duo.ranked2v2Status(names[0])).match!;
+    assert.equal(match.status, 'ready');
+    for (const name of names.slice(1)) {
+        const result = await call(name, match.matchId, { action: 'ready', ready: true,
+            expectedVersion: match.version, requestId: crypto.randomUUID() });
+        assert.equal(result.status, 200);
+        match = (await duo.ranked2v2Status(names[0])).match!;
+    }
+    assert.equal(match.status, 'active');
+    assert.ok(match.roster.every(member => member.ready));
+    assert.ok(match.combat.turnQueue.length > 0);
 });

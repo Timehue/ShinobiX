@@ -13,7 +13,7 @@ export function storyDeliverySummary(result: StoryBossSettleResult): string[] {
     const delivery = result.delivery;
     if (!delivery) return [];
     const legacy = {
-        pending: 'Legacy contribution delivery is pending. Retry to finish.',
+        pending: 'Your reward is saved. Your Legacy progress is still pending. Press Retry saving progress to finish saving it.',
         unavailable: 'Legacy contribution status is unavailable.',
         confirmed: 'Legacy contribution recorded.',
         'not-applicable': '',

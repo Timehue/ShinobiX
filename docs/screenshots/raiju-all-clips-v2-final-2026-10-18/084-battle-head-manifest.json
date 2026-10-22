@@ -1,0 +1,72 @@
+{
+  "schema": 1,
+  "errors": [],
+  "pets": [
+    {
+      "id": "legendary-24",
+      "name": "Thunder Raiju",
+      "url": "/pet-models/warfront-lod/roster/legendary-24.glb",
+      "sha256": "3526baf861f186943b5b3408143c7d901ce2a53ee5bad2790d22fff3676e6663",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "progress": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ],
+      "views": [
+        "head-front",
+        "head-side",
+        "head-other-side"
+      ],
+      "materialTreatment": {
+        "mode": "production-diffuse",
+        "materials": 1,
+        "metalnessMax": 0.05,
+        "roughnessRange": [
+          0.58,
+          0.82
+        ]
+      },
+      "region": {
+        "y": [
+          -2,
+          -2
+        ],
+        "bounds": [
+          -0.33010767407093816,
+          0.31245584688684885,
+          0.054099943735250566,
+          0.5465365099197133,
+          0.611935501823775,
+          1.0961157903507512
+        ],
+        "cameraPadding": 1.15
+      },
+      "sheets": [
+        "legendary-24-head-front.webp",
+        "legendary-24-head-side.webp",
+        "legendary-24-head-other-side.webp"
+      ],
+      "review": "pending",
+      "anatomySha256": "47e86ad7c6b1e2bc868c12ab461bcb5e9c4236cb329038486acfeca13bb69b30"
+    }
+  ],
+  "artisticCertification": false
+}

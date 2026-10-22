@@ -1,4 +1,5 @@
 import { safeLogValue } from '../_safe-log.js';
+import { warMercenaryCombatProfile } from '../../shared/war-mercenary-profile.js';
 import { preparationLevels } from '../_war-preparations.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
@@ -403,7 +404,7 @@ async function doList(res: VercelResponse, identity: Identity, playerName: strin
     const perWr = ryoPerWr();
     const tierView = (t: (typeof WR_MERC_TIERS)[number], barracks?: number) => {
         const cost = mercHireCost(t.id, sectorsHeld, record, barracks);
-        return { ...t, cost, treasuryRyo: mercHireTreasuryRyo(cost, perWr), band: mercBandSize(t.id) };
+        return { ...t, combatProfile: warMercenaryCombatProfile(t.level), cost, treasuryRyo: mercHireTreasuryRyo(cost, perWr), band: mercBandSize(t.id) };
     };
     const hires = pruneMercHires(record.mercHires ?? [], now);
 

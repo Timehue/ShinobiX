@@ -19,6 +19,10 @@ test('roster projection preserves settled vitals, travel, public profile and pet
         hp: 5, maxHp: 100, chakra: 4, maxChakra: 100, stamina: 3, maxStamina: 100,
         ryo: 999, stats: {}, inventory: ['private-item'], pets: [],
         nindo: 'Stay true.', nindoBg: 'moon',
+        examsPassed: ['genin', 'chunin'],
+        unlockedAchievements: ['exam-genin', 'unknown-private-sentinel'],
+        achievementUnlockedAt: { 'exam-genin': 1234, 'unknown-private-sentinel': 5678 },
+        claimedAchievementRewards: ['exam-genin'],
         elderWinDays: [{ day: '2026-09-09', village: 'stormveilvillage', pvp: 1, pve: 2 }],
         elderRankedWinReceipts: [{ id: 'private-match', at: now }],
     };
@@ -49,6 +53,12 @@ test('roster projection preserves settled vitals, travel, public profile and pet
     const player = body!.players[0];
     const publicChar = player.character as Record<string, unknown>;
     assert.equal(publicChar.nindo, 'Stay true.');
+    assert.ok((publicChar.unlockedAchievements as string[]).includes('exam-genin'));
+    assert.ok((publicChar.unlockedAchievements as string[]).includes('exam-chunin'));
+    assert.ok(!(publicChar.unlockedAchievements as string[]).includes('unknown-private-sentinel'));
+    assert.deepEqual(publicChar.achievementUnlockedAt, { 'exam-genin': 1234 });
+    assert.ok(!('examsPassed' in publicChar));
+    assert.ok(!('claimedAchievementRewards' in publicChar));
     assert.ok(Number(publicChar.hp) >= 15);
     assert.ok(!('ryo' in publicChar) && !('inventory' in publicChar));
     assert.ok(!('elderWinDays' in publicChar) && !('elderRankedWinReceipts' in publicChar));
@@ -56,4 +66,20 @@ test('roster projection preserves settled vitals, travel, public profile and pet
     assert.equal(player.sleeping, true);
     assert.deepEqual(player.eligiblePets, []);
     assert.deepEqual(await kv.get('save:projectionninja'), save, 'read projection must not replace the save');
+
+    // Online players prefer a slim presence frame. That frame must neither
+    // erase the saved record nor publish client-reported achievement claims.
+    const { onlineStore } = await import('../_realtime/online-store.js');
+    t.mock.method(onlineStore, 'list', () => [{
+        name: 'projectionninja', sector: 39, lastSeenAt: now,
+        character: { name: 'ProjectionNinja', level: 20, unlockedAchievements: ['exam-special-jonin'], examsPassed: ['specialJonin'] },
+    }] as unknown as ReturnType<typeof onlineStore.list>);
+    __clearProcCache();
+    await handler({ method: 'GET', query: {}, headers: {} } as never, res as never);
+    const online = body!.players[0];
+    assert.equal(online.online, true);
+    const onlineCharacter = online.character as Record<string, unknown>;
+    assert.deepEqual(onlineCharacter.unlockedAchievements, publicChar.unlockedAchievements);
+    assert.deepEqual(onlineCharacter.achievementUnlockedAt, publicChar.achievementUnlockedAt);
+    assert.equal(onlineCharacter.nindo, 'Stay true.');
 });

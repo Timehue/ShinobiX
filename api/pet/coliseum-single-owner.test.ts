@@ -178,6 +178,23 @@ test('a sealed player challenge settles its win without paid progression', async
     }, authToken, '198.51.100.20'), started.res);
     assert.equal(started.out.statusCode, 200);
 
+    const defender = response();
+    const defenderAuth = issuePlayerToken(opponentName)!;
+    const defendBody = { playerName: opponentName, opponentName: playerName, mode: '1v1', pvpChallengeId: challengeId };
+    await startHandler(request(defendBody, defenderAuth, '198.51.100.22'), defender.res);
+    assert.equal(defender.out.statusCode, 200);
+    const challengerScript = started.out.body!.showdownScript as import('../../shared/pet-showdown-contract.js').ShowdownReplayScript;
+    const defenderScript = defender.out.body!.showdownScript as import('../../shared/pet-showdown-contract.js').ShowdownReplayScript;
+    assert.deepEqual(challengerScript.initialState.player, defenderScript.initialState.enemy);
+    assert.deepEqual(challengerScript.finalState.enemy, defenderScript.finalState.player);
+    assert.equal(challengerScript.finalState.outcome, 'win');
+    assert.equal(defenderScript.finalState.outcome, 'loss');
+    const resumedDefender = response();
+    await startHandler(request(defendBody, defenderAuth, '198.51.100.23'), resumedDefender.res);
+    assert.equal(resumedDefender.out.statusCode, 200);
+    assert.equal(resumedDefender.out.body!.resumed, true);
+    assert.deepEqual(resumedDefender.out.body!.showdownScript, defenderScript);
+
     const battleToken = String(started.out.body?.token ?? '');
     const token = await kv.get<Record<string, unknown>>(`pet:battle-token:${playerName}:${battleToken}`);
     assert.equal(token?.settlementPolicy, 'casual-no-progression');

@@ -1,0 +1,121 @@
+{
+  "stage": "grounded-v6-source",
+  "path": ".tmp/sol-viper-four-leg-rig-v1/grounded-v6/source.glb",
+  "sha256": "4d3136a78c73e66269ada4b2f02bcade5b279aa6dd7ea03a56d5c712e9ec398c",
+  "groundY": -0.49096588792516815,
+  "gateThreshold": 0.0018,
+  "minimumClearance": 0.0018775744100467118,
+  "minimumAt": {
+    "clip": "attack",
+    "time": 0.35805509984493256
+  },
+  "passes": true,
+  "poses": 57589,
+  "verticesPerPose": 24910,
+  "clips": [
+    {
+      "clip": "idle",
+      "rootKeys": 3265,
+      "keyAndMidpointSamples": 6529,
+      "minY": -0.4888673609462361,
+      "minClearance": 0.002098526978932036,
+      "minAt": 0.28442227840423584
+    },
+    {
+      "clip": "idle_2",
+      "rootKeys": 2569,
+      "keyAndMidpointSamples": 5137,
+      "minY": -0.4888876043055204,
+      "minClearance": 0.002078283619647736,
+      "minAt": 0.32086022198200226
+    },
+    {
+      "clip": "walk",
+      "rootKeys": 1761,
+      "keyAndMidpointSamples": 3521,
+      "minY": -0.48887934770096875,
+      "minClearance": 0.002086540224199407,
+      "minAt": 0.2798367142677307
+    },
+    {
+      "clip": "gallop",
+      "rootKeys": 1297,
+      "keyAndMidpointSamples": 2593,
+      "minY": -0.48896332368007805,
+      "minClearance": 0.0020025642450900993,
+      "minAt": 0.10153387114405632
+    },
+    {
+      "clip": "gallop_jump",
+      "rootKeys": 1253,
+      "keyAndMidpointSamples": 2505,
+      "minY": -0.48888690905745447,
+      "minClearance": 0.002078978867713688,
+      "minAt": 0.414704829454422
+    },
+    {
+      "clip": "attack",
+      "rootKeys": 1957,
+      "keyAndMidpointSamples": 3913,
+      "minY": -0.48908831351512144,
+      "minClearance": 0.0018775744100467118,
+      "minAt": 0.35805509984493256
+    },
+    {
+      "clip": "idle_hitreact1",
+      "rootKeys": 1097,
+      "keyAndMidpointSamples": 2193,
+      "minY": -0.4890013737940271,
+      "minClearance": 0.0019645141311410708,
+      "minAt": 0.15984893590211868
+    },
+    {
+      "clip": "death",
+      "rootKeys": 2585,
+      "keyAndMidpointSamples": 5169,
+      "minY": -0.48889638732187307,
+      "minClearance": 0.0020695006032950825,
+      "minAt": 0.1861119344830513
+    },
+    {
+      "clip": "entrance",
+      "rootKeys": 1793,
+      "keyAndMidpointSamples": 3585,
+      "minY": -0.4888827683853642,
+      "minClearance": 0.002083119539803946,
+      "minAt": 0.28837117552757263
+    },
+    {
+      "clip": "cast",
+      "rootKeys": 2113,
+      "keyAndMidpointSamples": 4225,
+      "minY": -0.4888862541730549,
+      "minClearance": 0.00207963375211323,
+      "minAt": 0.7059906721115112
+    },
+    {
+      "clip": "guard",
+      "rootKeys": 2177,
+      "keyAndMidpointSamples": 4353,
+      "minY": -0.4888659099769563,
+      "minClearance": 0.002099977948211873,
+      "minAt": 1.1262187957763672
+    },
+    {
+      "clip": "rest",
+      "rootKeys": 3625,
+      "keyAndMidpointSamples": 7249,
+      "minY": -0.48887301317493115,
+      "minClearance": 0.002092874750237006,
+      "minAt": 0.561323881149292
+    },
+    {
+      "clip": "victory",
+      "rootKeys": 3309,
+      "keyAndMidpointSamples": 6617,
+      "minY": -0.48887720041141863,
+      "minClearance": 0.002088687513749521,
+      "minAt": 0.3368654102087021
+    }
+  ]
+}

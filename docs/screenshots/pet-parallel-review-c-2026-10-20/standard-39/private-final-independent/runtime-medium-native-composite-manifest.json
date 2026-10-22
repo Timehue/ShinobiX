@@ -1,0 +1,121 @@
+{
+  "records": [
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-bird39-private-v1-runtime-medium/native-source-head.png",
+      "sha256": "36c621e71bd907657c89d367ca429320597341f74eb4bd83d7d3ef60acd4ebba",
+      "width": 1440,
+      "height": 2160,
+      "inputs": [
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-bird39-private-v1-runtime-medium/standard-39-source-head-0.png",
+          "sha256": "466976de994721e036ce70b02c223523557c7e63bd0861161a34e1b7b1d97da7",
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-bird39-private-v1-runtime-medium/standard-39-source-head-1.png",
+          "sha256": "b5b681ebb324374a16f50f65ccfa60096f8b52b17d399f6b9908fa4723f0fb49",
+          "top": 540
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-bird39-private-v1-runtime-medium/standard-39-source-head-2.png",
+          "sha256": "7c5368d3515c67068cf3505e0a50bc31c9dafb7f68565a7fb182f6965742e6e5",
+          "top": 1080
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-bird39-private-v1-runtime-medium/standard-39-source-head-3.png",
+          "sha256": "37257fd9d3e5ec153249889faac2ff185058b1aaeb89268a885437355c02e1f6",
+          "top": 1620
+        }
+      ],
+      "resizing": false
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-bird39-private-v1-runtime-medium/native-source-body.png",
+      "sha256": "fc52abd28bdc75f4f980ca51c9b6508bd3a66aa401753bed56b1c2210837c1d5",
+      "width": 1440,
+      "height": 2160,
+      "inputs": [
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-bird39-private-v1-runtime-medium/standard-39-source-body-0.png",
+          "sha256": "2ea5333c82472ae0fa217ffa93254d56fe9821caa60974ec7b6dd06e3ccbaecd",
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-bird39-private-v1-runtime-medium/standard-39-source-body-1.png",
+          "sha256": "b0a1edf8fbea19b9e82951eb28c1297381f259d0b54d8116e89294b01f78a391",
+          "top": 540
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-bird39-private-v1-runtime-medium/standard-39-source-body-2.png",
+          "sha256": "b511f2a6400cb64c94217c6b2f2251c97a2b99babbdc1fb2ec6d298316f669dc",
+          "top": 1080
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-bird39-private-v1-runtime-medium/standard-39-source-body-3.png",
+          "sha256": "221d3d0f1eac665fd6b37d587db07c65e0df36c8d8f2ee04a5ce5ee0e518510d",
+          "top": 1620
+        }
+      ],
+      "resizing": false
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-bird39-private-v1-runtime-medium/native-battle-head.png",
+      "sha256": "a8e5a4a4f81ea4085cd72d5b397839c10a7c556731495a5127699703c325839f",
+      "width": 1440,
+      "height": 2160,
+      "inputs": [
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-bird39-private-v1-runtime-medium/standard-39-battle-head-0.png",
+          "sha256": "f968d24a24df2178c739010ebb9e157c106828926f84be48ac480c51221d9d6c",
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-bird39-private-v1-runtime-medium/standard-39-battle-head-1.png",
+          "sha256": "861ddef541027b9333598e490228de0116cf7ea93066e856bbeea98c36a53faa",
+          "top": 540
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-bird39-private-v1-runtime-medium/standard-39-battle-head-2.png",
+          "sha256": "e17bffd6ccb8c5a8142760d318ac751d041b7cc2ac135df5f2e4b86e0401a320",
+          "top": 1080
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-bird39-private-v1-runtime-medium/standard-39-battle-head-3.png",
+          "sha256": "83e99ab55554756d6ea47ef6122d46f7df2671d0fdb9b1a76f53b5f7ea322e3a",
+          "top": 1620
+        }
+      ],
+      "resizing": false
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-bird39-private-v1-runtime-medium/native-battle-body.png",
+      "sha256": "bd7a031a0cf8c7195f5b4c7033c95995e046c31a2d6dfa5ff06120312badf9dd",
+      "width": 1440,
+      "height": 2160,
+      "inputs": [
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-bird39-private-v1-runtime-medium/standard-39-battle-body-0.png",
+          "sha256": "3762712d4e1f046ccb5731152699ddbd8f7a03f39babce22836fa4cf4cee061c",
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-bird39-private-v1-runtime-medium/standard-39-battle-body-1.png",
+          "sha256": "af349c869e4550c261a0f07dedcda25f8fd7d2692f8b1b841688ae7b849ae1a9",
+          "top": 540
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-bird39-private-v1-runtime-medium/standard-39-battle-body-2.png",
+          "sha256": "bcb750dcdcacdbf0ea1c16e316605ce8223d07e8ed0b480982268df5a1fdf48f",
+          "top": 1080
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-bird39-private-v1-runtime-medium/standard-39-battle-body-3.png",
+          "sha256": "297f9de248a4d7a29e01f0f77d877e5212946b9972607371a0d6b54a58fe041e",
+          "top": 1620
+        }
+      ],
+      "resizing": false
+    }
+  ],
+  "review": "pending"
+}

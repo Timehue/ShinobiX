@@ -19,6 +19,7 @@ const rosterSource = readFileSync(new URL("../lib/sector-player-roster.ts", impo
 const overlaySource = readFileSync(new URL("../components/WorldSectorOverlayLayer.tsx", import.meta.url), "utf8");
 const fieldMarkerSource = readFileSync(new URL("../components/SectorStoryFieldMarker.tsx", import.meta.url), "utf8");
 const dialogSource = readFileSync(new URL("../components/WorldWandererDialog.tsx", import.meta.url), "utf8");
+const ordinaryActionSource = readFileSync(new URL("../lib/ordinary-wanderer-actions.ts", import.meta.url), "utf8");
 const storyFieldRouteBoundarySource = readFileSync(new URL("../components/StoryFieldRouteBoundary.tsx", import.meta.url), "utf8");
 
 function lineCount(source: string): number {
@@ -278,11 +279,12 @@ test("WorldWandererDialog stays hook-free, network-free, persistence-free, porta
     assert.doesNotMatch(dialogSource, /\bcreatePortal\s*\(/u);
     assert.doesNotMatch(dialogSource, /\bDate\.now\s*\(|\bnew Date\s*\(|\b(?:setInterval|setTimeout)\s*\(/u);
     assert.doesNotMatch(dialogSource, /\b(?:mutationAvailability|capabilityAdmissionAllowed|postWandererService|engageMerc|coolWanderer)\b/u);
-    assert.match(dialogSource, /return \(\s*<div className="card"/u);
+    assert.match(dialogSource, /return \(\s*<div className="card world-wanderer-dialog"/u);
     assert.doesNotMatch(dialogSource, /position:\s*"fixed"|inset:\s*0|zIndex:\s*9999/u);
 });
 
-test("WorldWandererDialog makes every hostile that stops you a priced Fight/Flee choice", () => {
+test("WorldWandererDialog prices the bandit toll and the other hostile flee choices", () => {
+    assert.match(dialogSource, /const toll = offersBanditToll\(wandererDialog\);/u);
     // ⚖ OWNER RULING (2026-10-08): a hostile that catches you in a sector stops
     // you with Fight/Flee, bounty hunters included, and fleeing costs half your
     // HP plus part of the ryo you carry (shared/road-flee.ts). Only a bandit
@@ -291,21 +293,22 @@ test("WorldWandererDialog makes every hostile that stops you a priced Fight/Flee
     // a patrol of a village at war with yours stops you too, and its Fight is
     // the patrol fight.
     const hostileChoices = sliceBetween(dialogSource,
-        "wandererForcesChoice(wandererDialog.w) ? (",
-        ') : !wandererDialog.msg && wandererDialog.w.verb === "merchant"');
+        "wandererForcesChoice(w) ? (",
+        ') : !msg && ordinary');
     assertOrdered(hostileChoices, [
         'onClick={dismissWandererDialog}>Pass in peace</button>',
-        'onClick={() => startWandererAttack(wandererDialog.w, false)}',
+        'onClick={() => startWandererAttack(w, false)}',
         '>Fight anyway</button>',
-        '{roadFleePriceLine(character)}',
-        'onClick={() => wandererDialog.w.verb === "patrol" ? startPatrolFight(wandererDialog.w) : startWandererAttack(wandererDialog.w, !!wandererDialog.nemesis)}>Fight</button>',
-        'onClick={() => fleeWanderer(wandererDialog.w)}>Flee</button>',
+        'roadFleePriceLine(character)}',
+        'onClick={() => w.verb === "patrol" ? startPatrolFight(w) : startWandererAttack(w, !!nemesis)}>Fight</button>',
+        "onClick={() => fleeWanderer(w)}>{toll ? `Pay ${BANDIT_TOLL_RYO} ryo` : 'Flee'}</button>",
     ], "hostile encounter choice order");
     assert.match(worldMapSource, /function requiresWandererChoice\(d: WorldWandererDialogState \| null\) \{\s*return !!d && !d\.msg && wandererForcesChoice\(d\.w\);/u,
         "the dialog's Fight/Flee and WorldMap's no-free-Escape guard read the same rule");
     assert.doesNotMatch(hostileChoices, /onClick=\{dismissWandererDialog\}>Flee/u, "the paid flee must not route through the free dismissal");
     assert.doesNotMatch(dialogSource, /Combat is starting/u, "a contract hunter no longer starts its fight on contact");
-    assert.match(dialogSource, /wandererDialog\.w\.verb === "merchant"[\s\S]*onClick=\{closeWandererDialog\}>Leave<\/button>/u);
+    assert.match(ordinaryActionSource,/merchant:\[work\('Buy bone charms',tradeWithWanderer\),rumor,leave\]/u);
+    assert.match(ordinaryActionSource,/leave=action\('Leave',closeWandererDialog\)/u,'ordinary merchants retain free departure through the shared action model');
 });
 
 test("WorldMap charges a flee on the server and never lets Escape or the backdrop run for free", () => {
@@ -315,7 +318,7 @@ test("WorldMap charges a flee on the server and never lets Escape or the backdro
         "fleeRoadAmbush(character.name, asked.fleeId,",
         "if (!fled.ok) {",
         "setWandererDialog((current) => current?.w.id === w.id ? null : current);",
-        "coolWanderer(w.id, WANDERER_FLEE_COOLDOWN_MS);",
+        "coolWanderer(w.id, toll ? undefined : WANDERER_FLEE_COOLDOWN_MS);",
         "onServerVersion?.(fled._saveVersion)",
     ], "flee settles on the server before the hostile backs off");
     assert.doesNotMatch(flee, /ryo: [^f]|hp: [^f]/u, "the client adopts the server's totals and never computes its own");
@@ -335,8 +338,9 @@ test("WorldMap charges a flee on the server and never lets Escape or the backdro
     // One hostile at a time, and the one held back is DEFERRED, not dropped: a
     // refused engage returns false so the actor asks again once the choice ends.
     assert.match(engage, /if \(requiresWandererChoice\(wandererChoiceRef\.current\) \|\| bossDialog \|\| worldBossQueueOpen\) return false;/u);
-    assert.match(engage, /if \(wandererForcesChoice\(w\)\) wandererChoiceRef\.current = \{ w \}/u,
-        'the first hostile reserves the choice before React commits, so a second arrival cannot replace it');
+    assertOrdered(engage, ['if (wandererForcesChoice(w)) {', 'onEntryEncounterActiveChange?.(true);',
+        'wandererChoiceRef.current = { w };', 'rememberWanderer(w);'],
+        'the first hostile cancels entry and reserves the choice before React commits, so a second arrival cannot replace it');
     assert.match(sliceBetween(worldMapSource, "function handleBossEngage", "function standBossFight"),
         /if \(!roamingBoss\?\.aiId \|\| requiresWandererChoice\(wandererDialog\) \|\| worldBossQueueOpen\) return false;/u);
     // The world boss queue sheet and its raid open over the live sector board,

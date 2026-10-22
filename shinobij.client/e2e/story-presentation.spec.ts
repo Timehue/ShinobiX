@@ -10,15 +10,26 @@ test.setTimeout(180_000);
 const before = process.env.STORY_PRESENTATION_PHASE === 'before';
 const evidenceDirectory = process.env.STORY_PRESENTATION_ARTIFACT_ROOT
     ? path.resolve(process.env.STORY_PRESENTATION_ARTIFACT_ROOT)
-    : path.resolve(import.meta.dirname, '../../docs/story-presentation-evidence', before ? 'before' : 'after');
+    : process.env.STORY_PRESENTATION_PHASE
+        ? path.resolve(import.meta.dirname, '../../docs/story-presentation-evidence', before ? 'before' : 'after')
+        : null;
 const contentRoot = path.resolve(import.meta.dirname, '../src/generated/story-content');
 const villages = ['ashen-leaf', 'stormveil', 'frostfang', 'moonshadow'];
 const contents = villages.map(slug => JSON.parse(readFileSync(path.join(contentRoot, readdirSync(contentRoot).find(file => file.startsWith(`${slug}-`) && file.endsWith('.json'))!), 'utf8')) as StoryContentPayload);
+let captureSerial = 0;
+
+function evidencePath(info: TestInfo, filename: string) {
+    return evidenceDirectory ? path.join(evidenceDirectory, filename) : info.outputPath(filename);
+}
 
 async function screenshot(page: Page, info: TestInfo, name: string) {
-    const directory = evidenceDirectory;
-    mkdirSync(directory, { recursive: true });
-    await page.screenshot({ path: path.join(directory, `${name}-${info.project.name}.png`) });
+    // Ordinary smoke runs own their evidence. Replacing tracked PNGs (sometimes
+    // repeatedly during one reader loop) can hit Windows file locks and also
+    // dirty the checkout. Explicit before/after exports keep their stable names.
+    const serial = evidenceDirectory ? '' : `-${++captureSerial}`;
+    const target = evidencePath(info, `${name}-${info.project.name}${serial}.png`);
+    mkdirSync(path.dirname(target), { recursive: true });
+    await page.screenshot({ path: target });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
 }
 async function readerPrefs(page: Page, mode = 'cinematic') {
@@ -223,7 +234,7 @@ test('Ashen Leaf finale continues through personal consequence, epilogue and imm
     await expect.poll(() => runtime.lastCommit()?.postedState ?? '').toContain('"status":"seen"');
     const entry = page.locator('.story-archive-entry').filter({ hasText: chapter.title });
     await entry.locator('.story-archive-toggle').click();
-    await expect(entry).toContainText('Show her the better winter.');
+    await expect(entry).toContainText(hub.choices![0].text);
     await entry.getByRole('button', { name: 'Watch cinematic replay' }).scrollIntoViewIfNeeded();
     await screenshot(page, info, 'finale-archive');
     const calls = { starts, settlements, unlocks };
@@ -278,11 +289,11 @@ for (const [index, content] of contents.entries()) {
         await expect.poll(() => starts).toBe(1);
         const result = page.locator('.story-fight-complete-card');
         await expect(result).toBeVisible();
-        const retry = result.getByRole('button', { name: before ? 'Retry reward' : 'Retry record delivery' });
+        const retry = result.getByRole('button', { name: before ? 'Retry reward' : 'Retry saving progress' });
         await expect(retry).toBeEnabled();
         if (!before) {
             await expect(result).toContainText('75 ryo');
-            await expect(result).toContainText('Legacy contribution delivery is pending');
+            await expect(result).toContainText('Your Legacy progress is still pending');
             await expect(result).not.toContainText('123,456');
         }
         await screenshot(page, info, `${villages[index]}-partial-result`);
@@ -312,7 +323,7 @@ for (const [index, content] of contents.entries()) {
             combat: 'seeded completed server session; real settlement handler tested separately', starts, settlements,
             canonicalVillagePayloadResponses: storyRequests.length,
             canonicalVillagePayloads: [...new Set(storyRequests)], replayExtraStarts: 0, replayExtraSettlements: 0 }, null, 2);
-        writeFileSync(path.join(evidenceDirectory, `${villages[index]}-requests-${info.project.name}.json`), metrics);
+        writeFileSync(evidencePath(info, `${villages[index]}-requests-${info.project.name}.json`), metrics);
         await info.attach('fixture-contract', { body: metrics, contentType: 'application/json' });
     });
 }

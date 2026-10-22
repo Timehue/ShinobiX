@@ -1,0 +1,250 @@
+{
+  "id": "standard-48",
+  "frames": [
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/pangolin-private-v1-idle/standard-48/idle-0.png",
+      "sha256": "0b19f6ae395cfd1c40ade98ff5e9238ecff6643bc59197a3c72bed0b2e12cb24",
+      "crop": {
+        "left": 163,
+        "top": 51,
+        "width": 174,
+        "height": 167
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/pangolin-private-v1-idle/standard-48/idle-1.png",
+      "sha256": "e4a7973847b93c21256dfe6d6b924a7a1e6dd461d57e2a2038bdb7cf076c6ee2",
+      "crop": {
+        "left": 163,
+        "top": 50,
+        "width": 174,
+        "height": 168
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/pangolin-private-v1-idle/standard-48/idle-2.png",
+      "sha256": "a572b70d503bcca6f73cd818b7cede17821c3510f2500acc494fbcec37d33d6d",
+      "crop": {
+        "left": 163,
+        "top": 50,
+        "width": 174,
+        "height": 168
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/pangolin-private-v1-idle/standard-48/idle-3.png",
+      "sha256": "5a1217808da1feb2d7207cfe0fe6beb858a050975c30a8f5199e73119d5cfb6a",
+      "crop": {
+        "left": 163,
+        "top": 51,
+        "width": 174,
+        "height": 167
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/pangolin-private-v1-idle/standard-48/idle-4.png",
+      "sha256": "5c365fea892505105487c5125a557bc409b3a03f26fd905090d7c5f84dcebab7",
+      "crop": {
+        "left": 163,
+        "top": 50,
+        "width": 174,
+        "height": 168
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/pangolin-private-v1-idle/standard-48/idle-5.png",
+      "sha256": "16e346d26083dc7b07e18c994c68d5d2909012a535885e46de171a5523cb3b32",
+      "crop": {
+        "left": 163,
+        "top": 51,
+        "width": 174,
+        "height": 167
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/pangolin-private-v1-idle/standard-48/idle-6.png",
+      "sha256": "b29817a96ac6f3992f7c85cb3d31d30a5ae2bae50254af0db794b184c47311d4",
+      "crop": {
+        "left": 163,
+        "top": 50,
+        "width": 174,
+        "height": 168
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/pangolin-private-v1-idle/standard-48/idle-7.png",
+      "sha256": "5349e1f40418652244bcfefa43b75e2c5d2894f211dc2b552b4fb5057e55d22f",
+      "crop": {
+        "left": 163,
+        "top": 50,
+        "width": 174,
+        "height": 168
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/pangolin-private-v1-idle/standard-48/idle-8.png",
+      "sha256": "d1ff86478788b10b44f7c148f8dc79167b482b57178869e9aeda6d8d242358a4",
+      "crop": {
+        "left": 163,
+        "top": 51,
+        "width": 174,
+        "height": 167
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/pangolin-private-v1-idle/standard-48/idle-9.png",
+      "sha256": "4827837a5b04d6fc7bf38a6c9d82a105688d3192d5835a8611df9758fd3269be",
+      "crop": {
+        "left": 163,
+        "top": 50,
+        "width": 174,
+        "height": 168
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/pangolin-private-v1-idle/standard-48/idle-10.png",
+      "sha256": "21a83836910402922ab23378d0dc6b833cc867c19a3f72bf536552f3ad865ea9",
+      "crop": {
+        "left": 163,
+        "top": 51,
+        "width": 174,
+        "height": 167
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/pangolin-private-v1-idle/standard-48/idle-11.png",
+      "sha256": "f3c105e52b171c958f601d073e26d57ea9b843a0bd79f395c56beedaf6d55842",
+      "crop": {
+        "left": 163,
+        "top": 50,
+        "width": 174,
+        "height": 168
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/pangolin-private-v1-idle/standard-48/idle-12.png",
+      "sha256": "2c0d41b3db3bc101a4dece63b9880dfd2b5b8d592ebdb95235bec746b73814b4",
+      "crop": {
+        "left": 163,
+        "top": 50,
+        "width": 174,
+        "height": 168
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/pangolin-private-v1-idle/standard-48/idle-13.png",
+      "sha256": "b9c559fc700263aedd6e794a51815f4db19a587984008204e78c20caeb01f995",
+      "crop": {
+        "left": 163,
+        "top": 51,
+        "width": 174,
+        "height": 167
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/pangolin-private-v1-idle/standard-48/idle-14.png",
+      "sha256": "bb299fa7af306239812d12ff6eeb097e88a305024cbb50feaa179e281e481cfa",
+      "crop": {
+        "left": 163,
+        "top": 50,
+        "width": 174,
+        "height": 168
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/pangolin-private-v1-idle/standard-48/idle-15.png",
+      "sha256": "8ca7cc37724c47b5926ab0aa54aee8754ce2d41377386335a8121125079377b3",
+      "crop": {
+        "left": 163,
+        "top": 51,
+        "width": 174,
+        "height": 167
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/pangolin-private-v1-idle/standard-48/idle-16.png",
+      "sha256": "48c07231413cc9155cb140e8d0dde37dd9b7b8ff1e630103746f4b3bd8e69590",
+      "crop": {
+        "left": 163,
+        "top": 51,
+        "width": 174,
+        "height": 167
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/pangolin-private-v1-idle/standard-48/idle-17.png",
+      "sha256": "62b207e2796a9b5acd832980d04803accf1e51a0db3d28f8f059eccfa828acae",
+      "crop": {
+        "left": 163,
+        "top": 50,
+        "width": 174,
+        "height": 168
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/pangolin-private-v1-idle/standard-48/idle-18.png",
+      "sha256": "be4619d037db129109a308d52f716f39cc1f5f0d782e8ef5fb7ed316f0d5cdb2",
+      "crop": {
+        "left": 163,
+        "top": 51,
+        "width": 174,
+        "height": 167
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/pangolin-private-v1-idle/standard-48/idle-19.png",
+      "sha256": "8274cbe6453b33a10e93ccc1e89b1b3ee45da72c2f2697e548e73914d28361b3",
+      "crop": {
+        "left": 163,
+        "top": 50,
+        "width": 174,
+        "height": 168
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/pangolin-private-v1-idle/standard-48/idle-20.png",
+      "sha256": "fe2ea79d6cd2f48f0c5fcc7bc49ef7f11de5a6bd03792725d0f4c0851b0bc67e",
+      "crop": {
+        "left": 163,
+        "top": 51,
+        "width": 174,
+        "height": 167
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/pangolin-private-v1-idle/standard-48/idle-21.png",
+      "sha256": "d4190d47cc1a9f07d25ebdf5398a80423b64b8f68e892153b6628c9c7f5f4221",
+      "crop": {
+        "left": 163,
+        "top": 51,
+        "width": 174,
+        "height": 167
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/pangolin-private-v1-idle/standard-48/idle-22.png",
+      "sha256": "a54502fa221455e51deb135aa863134e9861325cfe5c37b3e3e14e1a11c4a2fc",
+      "crop": {
+        "left": 163,
+        "top": 50,
+        "width": 174,
+        "height": 168
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/pangolin-private-v1-idle/standard-48/idle-23.png",
+      "sha256": "f94ab874d73e352c4feb163f5da20cd2c4b0771e66519e81b0f35290f20ab481",
+      "crop": {
+        "left": 163,
+        "top": 51,
+        "width": 174,
+        "height": 167
+      }
+    }
+  ],
+  "frameCount": 24,
+  "sha256": "251656e7af11b897fbcd7e4746ab253128604981e0181daf2c4717c5378a4d04",
+  "nativePixelsPreserved": true,
+  "resizing": false,
+  "review": "pending"
+}

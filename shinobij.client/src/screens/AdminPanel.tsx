@@ -1,3 +1,4 @@
+import {adminNoMargin,adminCompactRow,adminBlueAction,adminSmallBottomGap,adminSectionPadding,adminErrorText,adminTopGap,adminSuccessNote,adminCoverImage,adminFlexible,adminAlignedRow,adminFlexibleField,adminToolbar,adminMutedText,adminCaption,adminDangerBadge,adminSectionGap,adminStack} from '../lib/admin-panel-styles';
 import { HOLLOW_GATE_KEY_DUNGEON_KEY_COST, HOLLOW_GATE_KEY_FATE_SHARD_COST, HOLLOW_GATE_UNLOCK_COST, setHollowGateKeyDungeonKeyCost, setHollowGateKeyFateShardCost, setHollowGateUnlockCost } from "../lib/hollow-gate-prices";
 import { stringifyServerSavePayload } from "../lib/server-save-payload";
 import { adminPetPortraitImage, publishAdminPetPortrait } from "../lib/admin-pet-template-art";
@@ -2657,7 +2658,7 @@ export function AdminPanel({
     return (
         <div className="card admin-panel global-menu-panel">
             <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-                <h2 style={{ margin: 0 }}>⚙️ Admin Panel</h2>
+                <h2 style={adminNoMargin}>⚙️ Admin Panel</h2>
                 <button className="village-save-btn" onClick={handleAdminSave} disabled={adminSaving} style={{ marginLeft: "auto" }}>
                     {adminSaving ? "Saving…" : "💾 Save"}
                 </button>
@@ -3074,12 +3075,12 @@ export function AdminPanel({
                             <div className="summary-box" style={{ margin: "6px 0" }}>
                                 <div style={{ fontSize: "0.8rem", color: "#94a3b8", marginBottom: 6 }}>Cast — reusable characters (saved on this device, across all VNs)</div>
                                 {vnCast.length === 0
-                                    ? <p className="hint" style={{ margin: 0 }}>No saved characters yet. Set a page's left/right name + avatar below, then "Save to cast" to reuse them on any page.</p>
-                                    : <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                                    ? <p className="hint" style={adminNoMargin}>No saved characters yet. Set a page's left/right name + avatar below, then "Save to cast" to reuse them on any page.</p>
+                                    : <div style={adminCompactRow}>
                                         {vnCast.map((m) => (
                                             <span key={m.name} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "3px 4px 3px 8px", border: "1px solid #334155", borderRadius: 999 }}>
                                                 {m.image
-                                                    ? <img src={m.image} alt={m.name} style={{ width: 22, height: 22, borderRadius: "50%", objectFit: "cover" }} />
+                                                    ? <img src={m.image} alt={m.name} style={{ width: 22, height: 22, borderRadius: "50%", objectFit: "contain" }} />
                                                     : <span style={{ width: 22, height: 22, borderRadius: "50%", background: "#1e293b", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 10 }}>{m.name.slice(0, 2).toUpperCase()}</span>}
                                                 <span style={{ fontSize: "0.85rem" }}>{m.name}</span>
                                                 <button type="button" title={`Remove ${m.name} from cast`} className="danger-button" style={{ padding: "0 7px", lineHeight: "20px" }} onClick={() => saveVnCast(vnCast.filter((c) => c.name !== m.name))}>×</button>
@@ -3091,7 +3092,7 @@ export function AdminPanel({
                                 {eventVnPages.slice(0, eventPageCount).map((page, index) => (
                                     <div className="summary-box admin-vn-page" id={`admin-vn-page-${index}`} key={index}>
                                         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                                            <h4 style={{ margin: 0 }}>Page {index + 1}</h4>
+                                            <h4 style={adminNoMargin}>Page {index + 1}</h4>
                                             <button type="button" onClick={() => { setPreviewVn(eventFromForm()); setPreviewVnPage(index); setPreviewVnLine(0); }}>▶️ Preview from here</button>
                                         </div>
                                         <label>Page Title</label><input value={page.title} onChange={(e) => updateVnPage(index, { title: e.target.value })} />
@@ -3370,7 +3371,7 @@ export function AdminPanel({
                                 <button onClick={createAdminEvent}>Create Visual Novel</button>
                                 <button onClick={saveAdminEventEdit}>Save Loaded VN</button>
                                 <button
-                                    style={{ background: "#1e3a5f", borderColor: "#60a5fa" }}
+                                    style={adminBlueAction}
                                     onClick={() => {
                                         const ev = eventFromForm();
                                         setPreviewVn(ev);
@@ -3410,7 +3411,7 @@ export function AdminPanel({
                             <div className="menu">
                                 <button onClick={() => loadAdminEvent(petEncounterView)}>Load for Editing</button>
                                 <button
-                                    style={{ background: "#1e3a5f", borderColor: "#60a5fa" }}
+                                    style={adminBlueAction}
                                     onClick={() => {
                                         setPreviewVn(petEncounterView);
                                         setPreviewVnPage(0);
@@ -3449,7 +3450,7 @@ export function AdminPanel({
                                     💾 Save as Ancient Chest VN
                                 </button>
                                 <button
-                                    style={{ background: "#1e3a5f", borderColor: "#60a5fa" }}
+                                    style={adminBlueAction}
                                     onClick={() => {
                                         setPreviewVn(ancientChestView);
                                         setPreviewVnPage(0);
@@ -3501,7 +3502,7 @@ export function AdminPanel({
                         <label>Find Saved AI</label>
                         {allAdminAis.length === 0 ? <p className="hint">No AI profiles yet. Build one below and save it.</p> : (
                             <>
-                                <input placeholder="🔍 Filter AIs by name / village / level…" value={aiFindQuery} onChange={(e) => setAiFindQuery(e.target.value)} style={{ marginBottom: 6 }} />
+                                <input placeholder="🔍 Filter AIs by name / village / level…" value={aiFindQuery} onChange={(e) => setAiFindQuery(e.target.value)} style={adminSmallBottomGap} />
                                 <select value={selectedAdminAiProfile?.id ?? ""} onChange={(e) => setSelectedAiId(e.target.value)}>
                                     {allAdminAis
                                         .filter((ai) => { const q = aiFindQuery.trim().toLowerCase(); return !q || ai.id === selectedAiId || `${ai.name} ${ai.village} lv${ai.level}`.toLowerCase().includes(q); })
@@ -3739,7 +3740,7 @@ export function AdminPanel({
                                     {/* AI list */}
                                     <div className="bulk-card-list">
                                         {visibleAis.length === 0 && (
-                                            <p className="hint" style={{ padding: "8px 0" }}>All AI profiles already have images.</p>
+                                            <p className="hint" style={adminSectionPadding}>All AI profiles already have images.</p>
                                         )}
                                         {visibleAis.map(ai => {
                                             const checked = aiBulkSelections.includes(ai.id);
@@ -3797,7 +3798,7 @@ export function AdminPanel({
                                     {/* Errors */}
                                     {aiBulkErrors.length > 0 && (
                                         <div className="bulk-error-list">
-                                            <strong style={{ color: "#f87171" }}>Errors ({aiBulkErrors.length}):</strong>
+                                            <strong style={adminErrorText}>Errors ({aiBulkErrors.length}):</strong>
                                             {aiBulkErrors.map(e => (
                                                 <div key={e.id} className="bulk-error-row">❌ <strong>{e.name}</strong>: {e.error}</div>
                                             ))}
@@ -3805,7 +3806,7 @@ export function AdminPanel({
                                     )}
 
                                     {/* Generate button */}
-                                    <div className="menu" style={{ marginTop: 10 }}>
+                                    <div className="menu" style={adminTopGap}>
                                         <button
                                             className="bulk-generate-btn"
                                             disabled={aiBulkRunning || selectedCount === 0}
@@ -4093,7 +4094,7 @@ export function AdminPanel({
                                             {/* Item list */}
                                             <div className="bulk-card-list">
                                                 {visibleItems.length === 0 && (
-                                                    <p className="hint" style={{ padding: "8px 0" }}>
+                                                    <p className="hint" style={adminSectionPadding}>
                                                         {itemBulkSkipExisting ? "All items in this filter already have images." : "No items found."}
                                                     </p>
                                                 )}
@@ -4151,7 +4152,7 @@ export function AdminPanel({
                                             {/* Errors */}
                                             {itemBulkErrors.length > 0 && (
                                                 <div className="bulk-error-list">
-                                                    <strong style={{ color: "#f87171" }}>Errors ({itemBulkErrors.length}):</strong>
+                                                    <strong style={adminErrorText}>Errors ({itemBulkErrors.length}):</strong>
                                                     {itemBulkErrors.map(e => (
                                                         <div key={e.id} className="bulk-error-row">❌ <strong>{e.name}</strong>: {e.error}</div>
                                                     ))}
@@ -4159,7 +4160,7 @@ export function AdminPanel({
                                             )}
 
                                             {/* Generate button */}
-                                            <div className="menu" style={{ marginTop: 10 }}>
+                                            <div className="menu" style={adminTopGap}>
                                                 <button
                                                     className="bulk-generate-btn"
                                                     disabled={itemBulkRunning || selCount === 0}
@@ -4203,7 +4204,7 @@ export function AdminPanel({
                         })()}
 
                         <h4>All Items</h4>
-                        <input placeholder="🔍 Filter items by name / slot / rarity…" value={itemLibQuery} onChange={(e) => setItemLibQuery(e.target.value)} style={{ marginBottom: 6 }} />
+                        <input placeholder="🔍 Filter items by name / slot / rarity…" value={itemLibQuery} onChange={(e) => setItemLibQuery(e.target.value)} style={adminSmallBottomGap} />
                         {getAllItems(creatorItems).filter((item) => { const q = itemLibQuery.trim().toLowerCase(); return !q || `${item.name} ${equipmentSlotLabel(item.slot)} ${item.rarity}`.toLowerCase().includes(q); }).map((item) => {
                             const isCreator = creatorItems.some((c) => c.id === item.id);
                             return (
@@ -4211,7 +4212,7 @@ export function AdminPanel({
                                     style={{ display: "flex", alignItems: "center", gap: "0.6rem", flexWrap: "wrap" }}>
                                     {item.image
                                         ? <img src={item.image} alt={item.name}
-                                            style={{ width: 48, height: 48, objectFit: "cover", borderRadius: 6, flexShrink: 0, border: "1px solid #334155" }} />
+                                            style={{ width: 48, height: 48, objectFit: "contain", borderRadius: 6, flexShrink: 0, border: "1px solid #334155" }} />
                                         : <div style={{ width: 48, height: 48, borderRadius: 6, background: "#0f172a", border: "1px dashed #334155", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>🖼️</div>
                                     }
                                     <div style={{ flex: 1, minWidth: 0 }}>
@@ -4355,7 +4356,7 @@ export function AdminPanel({
                         }}>
                             {jutsuIsGenerating ? "Generating..." : "Generate All Missing Jutsu Images"}
                         </button>
-                        {jutsuGenStatus && <p className="hint" style={{ color: "#a5d6a7", marginTop: "0.4rem" }}>{jutsuGenStatus}</p>}
+                        {jutsuGenStatus && <p className="hint" style={adminSuccessNote}>{jutsuGenStatus}</p>}
 
                         <hr style={{ margin: "12px 0", borderColor: "rgba(255,255,255,0.1)" }} />
                         <p className="hint">Recompress already-saved jutsu images to ~512 px JPEG to reduce storage size.</p>
@@ -4421,7 +4422,7 @@ export function AdminPanel({
                         }}>
                             {jutsuIsGenerating ? "Generating..." : "Generate All Missing Bloodline Images"}
                         </button>
-                        {jutsuGenStatus && <p className="hint" style={{ color: "#a5d6a7", marginTop: "0.4rem" }}>{jutsuGenStatus}</p>}
+                        {jutsuGenStatus && <p className="hint" style={adminSuccessNote}>{jutsuGenStatus}</p>}
                     </section>
                 </div>
             )}
@@ -4612,7 +4613,7 @@ export function AdminPanel({
                                     return (
                                         <div key={p.id} style={{ width: 92, textAlign: "center", border: selected ? "2px solid #8b5cf6" : img ? "1px solid #334155" : "1px solid #b45309", borderRadius: 8, padding: 6, background: "#0f172a" }}>
                                             <div style={{ width: 72, height: 72, margin: "0 auto", borderRadius: 8, overflow: "hidden", display: "grid", placeItems: "center", background: "#1e293b" }}>
-                                                {img ? <img src={img} alt={p.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <span style={{ fontSize: 11, color: "#f59e0b" }}>no image</span>}
+                                                {img ? <img src={img} alt={p.name} style={adminCoverImage} /> : <span style={{ fontSize: 11, color: "#f59e0b" }}>no image</span>}
                                             </div>
                                             <div style={{ fontSize: "0.66rem", color: "#cbd5e1", margin: "4px 0", lineHeight: 1.1, height: 24, overflow: "hidden" }}>{p.name}</div>
                                             <button
@@ -4915,7 +4916,7 @@ export function AdminPanel({
                         }}>
                             {petIsGenerating ? "Generating..." : "Generate All Missing Pet Images"}
                         </button>
-                        {petGenStatus && <p className="hint" style={{ color: "#a5d6a7", marginTop: "0.4rem" }}>{petGenStatus}</p>}
+                        {petGenStatus && <p className="hint" style={adminSuccessNote}>{petGenStatus}</p>}
 
                         <hr style={{ margin: "12px 0", borderColor: "rgba(255,255,255,0.1)" }} />
                         <p className="hint">Recompress already-saved pet images to ~256 px JPEG. Shrinks storage from ~1.5 MB ? ~50 KB per image.</p>
@@ -5051,7 +5052,7 @@ export function AdminPanel({
                                     {/* Card list */}
                                     <div className="bulk-card-list">
                                         {visibleCards.length === 0 && (
-                                            <p className="hint" style={{ padding: "8px 0" }}>All cards already have images.</p>
+                                            <p className="hint" style={adminSectionPadding}>All cards already have images.</p>
                                         )}
                                         {visibleCards.map(card => {
                                             const checked = bulkSelections.includes(card.id);
@@ -5107,7 +5108,7 @@ export function AdminPanel({
                                     {/* Errors */}
                                     {bulkErrors.length > 0 && (
                                         <div className="bulk-error-list">
-                                            <strong style={{ color: "#f87171" }}>Errors ({bulkErrors.length}):</strong>
+                                            <strong style={adminErrorText}>Errors ({bulkErrors.length}):</strong>
                                             {bulkErrors.map(e => (
                                                 <div key={e.id} className="bulk-error-row">❌ <strong>{e.name}</strong>: {e.error}</div>
                                             ))}
@@ -5115,7 +5116,7 @@ export function AdminPanel({
                                     )}
 
                                     {/* Generate button */}
-                                    <div className="menu" style={{ marginTop: 10 }}>
+                                    <div className="menu" style={adminTopGap}>
                                         <button
                                             className="bulk-generate-btn"
                                             disabled={bulkRunning || selectedCount === 0}
@@ -5133,13 +5134,13 @@ export function AdminPanel({
 
                     <section className="summary-box">
                         <h4>All Cards ({[...creatorCards, ...shinobiTileCards.filter((s) => !creatorCards.some((c) => c.id === s.id))].length})</h4>
-                        <input placeholder="🔍 Filter cards by name / element / rarity…" value={cardLibQuery} onChange={(e) => setCardLibQuery(e.target.value)} style={{ marginBottom: 6 }} />
+                        <input placeholder="🔍 Filter cards by name / element / rarity…" value={cardLibQuery} onChange={(e) => setCardLibQuery(e.target.value)} style={adminSmallBottomGap} />
                         {([...creatorCards, ...shinobiTileCards.filter((s) => !creatorCards.some((c) => c.id === s.id))]).filter((card) => { const q = cardLibQuery.trim().toLowerCase(); return !q || `${card.name} ${card.element} ${card.rarity}`.toLowerCase().includes(q); }).map((card) => {
                             const isCreator = creatorCards.some((c) => c.id === card.id);
                             return (
                                 <div key={card.id} className="summary-box" style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
-                                    {card.image && <img src={card.image} alt={card.name} style={{ width: 40, height: 40, objectFit: "cover", borderRadius: 4 }} />}
-                                    <span style={{ flex: 1 }}><strong>{card.name}</strong> | {card.element} | {card.rarity}</span>
+                                    {card.image && <img src={card.image} alt={card.name} style={{ width: 40, height: 40, objectFit: "contain", borderRadius: 4 }} />}
+                                    <span style={adminFlexible}><strong>{card.name}</strong> | {card.element} | {card.rarity}</span>
                                     <button onClick={() => loadAdminCard(card)}>Edit</button>
                                     {isCreator && (
                                         <button className="danger-button" onClick={() => { setCreatorCards(creatorCards.filter((c) => c.id !== card.id)); if (editingCardId === card.id) setEditingCardId(""); }}>Delete</button>
@@ -5172,10 +5173,10 @@ export function AdminPanel({
                     <div className="admin-subpanel">
                         <div className="admin-panel-heading">
                             <h3>👥 Player Management</h3>
-                            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                                <p style={{ margin: 0 }}>Give items, manage weapons/bloodlines, and reset accounts.</p>
+                            <div style={adminAlignedRow}>
+                                <p style={adminNoMargin}>Give items, manage weapons/bloodlines, and reset accounts.</p>
                                 <button style={{ fontSize: "0.8rem", padding: "3px 10px" }} onClick={fetchAllKnownPlayers}>🔄 Refresh Player List</button>
-                                {allKnownPlayers.length > 0 && <span className="hint" style={{ margin: 0 }}>{allKnownPlayers.length} accounts · {allKnownPlayers.filter(p => p.online).length} online</span>}
+                                {allKnownPlayers.length > 0 && <span className="hint" style={adminNoMargin}>{allKnownPlayers.length} accounts · {allKnownPlayers.filter(p => p.online).length} online</span>}
                             </div>
                         </div>
 
@@ -5215,7 +5216,7 @@ export function AdminPanel({
                             })()}
                             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
                                 <input
-                                    style={{ flex: 1, minWidth: 160 }}
+                                    style={adminFlexibleField}
                                     value={pmTargetName}
                                     onChange={e => changePmTargetName(e.target.value)}
                                     placeholder="Or type player name manually"
@@ -5262,7 +5263,7 @@ export function AdminPanel({
                             </p>
                             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
                                 <input
-                                    style={{ flex: 1, minWidth: 160 }}
+                                    style={adminFlexibleField}
                                     value={pmTargetName}
                                     onChange={e => changePmTargetName(e.target.value)}
                                     placeholder="Player name"
@@ -5292,8 +5293,8 @@ export function AdminPanel({
                         {/* -- Manual Stat Edit -- */}
                         <section className="summary-box">
                             <h4>📊 Edit Player Stats</h4>
-                            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 8 }}>
-                                <input style={{ flex: 1, minWidth: 160 }} value={pmEditName} onChange={e => changePmEditName(e.target.value)} placeholder="Player name" />
+                            <div style={adminToolbar}>
+                                <input style={adminFlexibleField} value={pmEditName} onChange={e => changePmEditName(e.target.value)} placeholder="Player name" />
                                 <button onClick={pmEditLookup} disabled={!pmEditName.trim()}>Look Up</button>
                             </div>
                             {pmEditMsg && <p className="hint" style={{ color: pmEditMsg.startsWith("✅") ? "#4ade80" : pmEditMsg.startsWith("❌") ? "#f87171" : "#fcd34d", marginBottom: 8 }}>{pmEditMsg}</p>}
@@ -5321,7 +5322,7 @@ export function AdminPanel({
                                         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: "6px 12px", marginBottom: 10 }}>
                                             {fields.map(f => (
                                                 <label key={f.key} style={{ display: "flex", flexDirection: "column", fontSize: "0.78rem", gap: 2 }}>
-                                                    <span style={{ color: "#94a3b8" }}>{f.label}</span>
+                                                    <span style={adminMutedText}>{f.label}</span>
                                                     <input
                                                         type="number"
                                                         value={pmEditFields[f.key] ?? 0}
@@ -5360,13 +5361,13 @@ export function AdminPanel({
                                         {/* Equipment */}
                                         {Object.keys(equipment).length > 0 && (
                                             <div>
-                                                <p style={{ fontSize: "0.8rem", color: "#94a3b8", marginBottom: 4 }}>⚔️ Equipment</p>
+                                                <p style={adminCaption}>⚔️ Equipment</p>
                                                 <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
                                                     {Object.entries(equipment).map(([slot, itemId]) => (
                                                         <div key={slot} style={{ display: "flex", alignItems: "center", gap: 4, background: "#1e293b", border: "1px solid #334155", borderRadius: 4, padding: "2px 6px", fontSize: "0.75rem" }}>
-                                                            <span style={{ color: "#94a3b8" }}>{slot}:</span>
+                                                            <span style={adminMutedText}>{slot}:</span>
                                                             <span>{itemName(itemId)}</span>
-                                                            <button onClick={() => unequipSlot(slot)} style={{ fontSize: "0.65rem", padding: "1px 5px", background: "#7f1d1d", borderColor: "#ef4444", color: "#fca5a5" }}>✕</button>
+                                                            <button onClick={() => unequipSlot(slot)} style={adminDangerBadge}>✕</button>
                                                         </div>
                                                     ))}
                                                 </div>
@@ -5375,7 +5376,7 @@ export function AdminPanel({
                                         {/* Inventory — stacked by item ID */}
                                         {inventory.length > 0 && (
                                             <div>
-                                                <p style={{ fontSize: "0.8rem", color: "#94a3b8", marginBottom: 4 }}>🎒 Inventory ({inventory.length} items)</p>
+                                                <p style={adminCaption}>🎒 Inventory ({inventory.length} items)</p>
                                                 <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
                                                     {(() => {
                                                         const stacked: { itemId: string; indices: number[] }[] = [];
@@ -5398,8 +5399,8 @@ export function AdminPanel({
                                                                 <div key={itemId} style={{ display: "flex", alignItems: "center", gap: 4, background: "#1e293b", border: "1px solid #334155", borderRadius: 4, padding: "2px 6px", fontSize: "0.75rem" }}>
                                                                     <span>{itemName(itemId)}</span>
                                                                     {count > 1 && <span style={{ background: "#334155", borderRadius: 8, padding: "0 5px", fontSize: "0.65rem", color: "#94a3b8" }}>×{count}</span>}
-                                                                    <button onClick={removeOne} title="Remove one" style={{ fontSize: "0.65rem", padding: "1px 5px", background: "#7f1d1d", borderColor: "#ef4444", color: "#fca5a5" }}>−1</button>
-                                                                    {count > 1 && <button onClick={removeAll} title={`Remove all ${count}`} style={{ fontSize: "0.65rem", padding: "1px 5px", background: "#7f1d1d", borderColor: "#ef4444", color: "#fca5a5" }}>−{count}</button>}
+                                                                    <button onClick={removeOne} title="Remove one" style={adminDangerBadge}>−1</button>
+                                                                    {count > 1 && <button onClick={removeAll} title={`Remove all ${count}`} style={adminDangerBadge}>−{count}</button>}
                                                                 </div>
                                                             );
                                                         });
@@ -5410,11 +5411,11 @@ export function AdminPanel({
                                         {/* Pets */}
                                         {pets.length > 0 && (
                                             <div>
-                                                <p style={{ fontSize: "0.8rem", color: "#94a3b8", marginBottom: 4 }}>🐾 Pets</p>
+                                                <p style={adminCaption}>🐾 Pets</p>
                                                 <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                                                     {pets.map(pet => (
                                                         <div key={pet.id} style={{ display: "flex", alignItems: "center", gap: 8, background: "#1e293b", border: "1px solid #334155", borderRadius: 4, padding: "4px 8px", fontSize: "0.78rem" }}>
-                                                            <span style={{ flex: 1 }}><strong>{petDisplayName(pet)}</strong> <span style={{ color: "#94a3b8" }}>Lv {pet.level} · {pet.rarity}{pet.nickname ? ` · "${pet.nickname}"` : ""}</span></span>
+                                                            <span style={adminFlexible}><strong>{petDisplayName(pet)}</strong> <span style={adminMutedText}>Lv {pet.level} · {pet.rarity}{pet.nickname ? ` · "${pet.nickname}"` : ""}</span></span>
                                                             <button onClick={() => removePet(pet.id)} style={{ fontSize: "0.65rem", padding: "1px 8px", background: "#7f1d1d", borderColor: "#ef4444", color: "#fca5a5" }}>Remove</button>
                                                         </div>
                                                     ))}
@@ -5429,9 +5430,9 @@ export function AdminPanel({
                         {/* -- Reset Account -- */}
                         <section className="summary-box" style={{ borderColor: "#7f1d1d" }}>
                             <h4>🔄 Reset Player Account</h4>
-                            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 8 }}>
+                            <div style={adminToolbar}>
                                 <input
-                                    style={{ flex: 1, minWidth: 160 }}
+                                    style={adminFlexibleField}
                                     value={pmTargetName}
                                     onChange={e => changePmTargetName(e.target.value)}
                                     placeholder="Player name"
@@ -5448,7 +5449,7 @@ export function AdminPanel({
                         <section className="summary-box" style={{ borderColor: "#78350f" }}>
                             <h4>👑 Reset Village Kage</h4>
                             <p className="hint">Resets the Kage system for a village back to NPC control. Clears seated Kage, first liberator, and re-seals the system so a player must complete the level-100 story fight again to unlock it.</p>
-                            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 8 }}>
+                            <div style={adminToolbar}>
                                 <select value={kageResetVillage} onChange={e => setKageResetVillage(e.target.value)} style={{ flex: 1, minWidth: 180 }}>
                                     {villages.map(v => <option key={v} value={v}>{v}</option>)}
                                 </select>
@@ -5476,7 +5477,7 @@ export function AdminPanel({
                         <section className="summary-box" style={{ borderColor: "#a16207" }}>
                             <h4>👑 Seat Village Kage</h4>
                             <p className="hint">Installs a player as a village's <strong>seated Kage</strong> — unlocking the Kage system for that village if needed (skips the level-100 story requirement) and replacing any current Kage. The seated Kage is who the Sector War Map, treasury, and merc/structure endpoints authorize, so use this to hand a player the war controls (e.g. seat a test account to verify Sector War).</p>
-                            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 8 }}>
+                            <div style={adminToolbar}>
                                 <select value={kageSeatVillage} onChange={e => setKageSeatVillage(e.target.value)} style={{ minWidth: 170 }}>
                                     {villages.map(v => <option key={v} value={v}>{v}</option>)}
                                 </select>
@@ -5519,7 +5520,7 @@ export function AdminPanel({
                         <section className="summary-box" style={{ borderColor: "#166534" }}>
                             <h4>🗺 Seed Sector Ownership</h4>
                             <p className="hint">One-time launch step for Sector War: stamps each war village's home sectors with their starting owner (<code>world:territory.ownerVillage</code>). Until this runs, a Kage's <b>Declare War</b> is rejected ("that sector has no current owner"), "Sectors held" reads 0, and Map-Control rewards don't pay out. Idempotent — safe to re-run; it only fills in sectors whose owner is unset.</p>
-                            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 8 }}>
+                            <div style={adminToolbar}>
                                 <button
                                     style={{ background: "#166534", borderColor: "#4ade80", color: "#dcfce7" }}
                                     disabled={!adminPw}
@@ -5607,11 +5608,11 @@ export function AdminPanel({
                             {reviewItems.length === 0
                                 ? <p className="hint">No items pending review.</p>
                                 : reviewItems.map(item => (
-                                    <div key={item.id} className="summary-box" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                                        {item.image && <img src={item.image} alt={item.name} style={{ width: 48, height: 48, objectFit: "cover", borderRadius: 6, border: "1px solid #334155" }} />}
-                                        <div style={{ flex: 1 }}>
+                                    <div key={item.id} className="summary-box" style={adminAlignedRow}>
+                                        {item.image && <img src={item.image} alt={item.name} style={{ width: 48, height: 48, objectFit: "contain", borderRadius: 6, border: "1px solid #334155" }} />}
+                                        <div style={adminFlexible}>
                                             <strong>{item.name}</strong>
-                                            <p className="hint" style={{ margin: 0 }}>{item.slot} · {item.rarity}</p>
+                                            <p className="hint" style={adminNoMargin}>{item.slot} · {item.rarity}</p>
                                         </div>
                                         <button onClick={() => pmApproveItem(item.id)}>✅ Approve</button>
                                         <button className="danger-button" onClick={() => pmDeleteItem(item.id)}>🗑️ Delete</button>
@@ -5627,11 +5628,11 @@ export function AdminPanel({
                             {reviewBloodlines.length === 0
                                 ? <p className="hint">No bloodlines created yet.</p>
                                 : reviewBloodlines.map(bl => (
-                                    <div key={bloodlineReviewKey(bl)} className="summary-box" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                                        {bl.image && <img src={bl.image} alt={bl.name} style={{ width: 48, height: 48, objectFit: "cover", borderRadius: 6, border: "1px solid #334155" }} />}
-                                        <div style={{ flex: 1 }}>
+                                    <div key={bloodlineReviewKey(bl)} className="summary-box" style={adminAlignedRow}>
+                                        {bl.image && <img src={bl.image} alt={bl.name} style={{ width: 48, height: 48, objectFit: "contain", borderRadius: 6, border: "1px solid #334155" }} />}
+                                        <div style={adminFlexible}>
                                             <strong>{bl.name}</strong>
-                                            <p className="hint" style={{ margin: 0 }}>{bl.ownerName ? `By ${bl.ownerName} · ` : ""}{bl.rank}{bl.specialElement ? ` · ${bl.specialElement}` : ""} · {bl.totalPoints} pts · {bl.jutsus.length} jutsus</p>
+                                            <p className="hint" style={adminNoMargin}>{bl.ownerName ? `By ${bl.ownerName} · ` : ""}{bl.rank}{bl.specialElement ? ` · ${bl.specialElement}` : ""} · {bl.totalPoints} pts · {bl.jutsus.length} jutsus</p>
                                             {bl.lore && <p className="hint" style={{ margin: "4px 0 0" }}>{bl.lore}</p>}
                                         </div>
                                         <button onClick={() => { loadAdminBloodline(bl); setActiveAdminPanel("jutsuBloodlines"); }}>✏️ Edit</button>
@@ -6062,7 +6063,7 @@ export function AdminPanel({
                                                     <div key={asset.key} style={{ display: "grid", gridTemplateColumns: "120px 1fr auto", gap: 10, alignItems: "center", padding: 8, background: "rgba(15,9,28,0.4)", border: "1px solid rgba(168,85,247,0.25)", borderRadius: 6 }}>
                                                         <div style={{ width: 120, height: 120, background: "rgba(0,0,0,0.45)", border: "1px dashed rgba(168,85,247,0.4)", borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
                                                             {currentImage
-                                                                ? <img src={currentImage} alt={asset.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                                                                ? <img src={currentImage} alt={asset.name} style={adminCoverImage} />
                                                                 : <span style={{ color: "#a78bfa", fontSize: 11, textAlign: "center", padding: 6 }}>No image yet</span>}
                                                         </div>
                                                         <div style={{ display: "grid", gap: 6 }}>
@@ -6106,7 +6107,7 @@ export function AdminPanel({
                                 );
                             })}
                         </div>
-                        <p className="hint" style={{ marginTop: 12 }}>
+                        <p className="hint" style={adminSectionGap}>
                             Tip: images are looked up by their shared key. <code>item:&lt;id&gt;</code> for inventory icons,
                             <code> ai:&lt;id&gt;</code> for AI portraits, and <code>landmark:</code> / <code>shrine:</code> keys for shrine scenes.
                             The legacy boss image key is mirrored into creatorAis for compatible event variants. Standard runs use the Hollow Hound / Oni Hound combat art.
@@ -6128,7 +6129,7 @@ export function AdminPanel({
                             </div>
                         </section>
 
-                        <section className="summary-box" style={{ marginTop: 12 }}>
+                        <section className="summary-box" style={adminSectionGap}>
                             <h3>🛠 Run / State Tools</h3>
                             <p className="hint">These act on the <strong>currently signed-in admin character</strong> (you: {character.name}, village: {character.village}).</p>
                             <div className="menu" style={{ flexWrap: "wrap", gap: 8 }}>
@@ -6156,13 +6157,13 @@ export function AdminPanel({
                             </div>
                         </section>
 
-                        <section className="summary-box" style={{ marginTop: 12 }}>
+                        <section className="summary-box" style={adminSectionGap}>
                             <h3>⚙ Configuration (runtime tunables)</h3>
                             <p className="hint">
                                 These are live tunables. Changes apply immediately to your current session. They <strong>do not persist</strong> across page refresh — for permanent changes, edit the defaults in <code>App.tsx</code>.
                             </p>
                             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, fontSize: 13 }}>
-                                <label style={{ display: "grid", gap: 4 }}>
+                                <label style={adminStack}>
                                     <span>Kage unlock cost (Honor Seals)</span>
                                     <input
                                         type="number" min={0} step={100}
@@ -6170,7 +6171,7 @@ export function AdminPanel({
                                         onChange={(e) => { setHollowGateUnlockCost(Math.max(0, Math.floor(Number(e.target.value) || 0))); }}
                                     />
                                 </label>
-                                <label style={{ display: "grid", gap: 4 }}>
+                                <label style={adminStack}>
                                     <span>Key craft cost — Dungeon Keys</span>
                                     <input
                                         type="number" min={0} step={1}
@@ -6178,7 +6179,7 @@ export function AdminPanel({
                                         onChange={(e) => { setHollowGateKeyDungeonKeyCost(Math.max(0, Math.floor(Number(e.target.value) || 0))); }}
                                     />
                                 </label>
-                                <label style={{ display: "grid", gap: 4 }}>
+                                <label style={adminStack}>
                                     <span>Key craft cost — Fate Shards</span>
                                     <input
                                         type="number" min={0} step={1}
@@ -6186,20 +6187,20 @@ export function AdminPanel({
                                         onChange={(e) => { setHollowGateKeyFateShardCost(Math.max(0, Math.floor(Number(e.target.value) || 0))); }}
                                     />
                                 </label>
-                                <label style={{ display: "grid", gap: 4 }}>
+                                <label style={adminStack}>
                                     <span>Standard run depth</span>
                                     <strong>{HOLLOW_GATE_MAX_FLOOR} floors (server contract)</strong>
                                 </label>
-                                <label style={{ display: "grid", gap: 4 }}>
+                                <label style={adminStack}>
                                     <span>Threat and trap rules</span>
                                     <strong>Server-owned: 4 Threat/step, 100 trigger, 33% max-HP traps</strong>
                                 </label>
-                                <label style={{ display: "grid", gap: 4 }}>
+                                <label style={adminStack}>
                                     <span>Boss reward boost per floor (mult)</span>
                                     <strong>Server-owned: +0.20 per floor</strong>
                                 </label>
                             </div>
-                            <p className="hint" style={{ marginTop: 10 }}>
+                            <p className="hint" style={adminTopGap}>
                                 Default values: Unlock <strong>10,000</strong> · Key (DK) <strong>5</strong> · Key (FS) <strong>10</strong> · Max Floor <strong>5</strong> · Threat/Step <strong>7</strong> · Ambush <strong>100</strong> · Trap Dmg <strong>0.33</strong> · Boss Floor Mult <strong>0.2</strong>
                             </p>
                         </section>
@@ -6415,7 +6416,7 @@ export function AdminPanel({
                                                 Biome: <strong>{dungeon.biome}</strong> · Level Req: <strong>{dungeon.levelReq}</strong> · Event ID: <code>{dungeon.id}</code> · Slots filled: <strong>{filled}/{slotTypes.length}</strong>
                                             </p>
                                         </div>
-                                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                                        <div style={adminCompactRow}>
                                             <button
                                                 style={{ background: "linear-gradient(135deg, #4f46e5, #818cf8)", color: "#fff", fontWeight: 600, fontSize: "0.78rem", padding: "4px 10px" }}
                                                 disabled={dungeonImgBulkRunning}
@@ -6444,7 +6445,7 @@ export function AdminPanel({
                                                 <div key={key} className="summary-box" style={{ display: "grid", gridTemplateColumns: "90px 1fr", gap: 10, alignItems: "center" }}>
                                                     <div style={{ width: 90, height: 90, background: "rgba(0,0,0,0.45)", border: "1px dashed rgba(250,204,21,0.4)", borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", position: "relative" }}>
                                                         {currentImage
-                                                            ? <img src={currentImage} alt={slotDef.label} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                                                            ? <img src={currentImage} alt={slotDef.label} style={adminCoverImage} />
                                                             : <span style={{ color: "#facc15", fontSize: 11, textAlign: "center", padding: 4 }}>No image</span>}
                                                         {currentImage && (
                                                             <span
@@ -6458,7 +6459,7 @@ export function AdminPanel({
                                                     <div>
                                                         <strong style={{ fontSize: "0.9rem" }}>{slotDef.label}</strong>
                                                         <p className="hint" style={{ margin: "2px 0 6px", fontSize: "0.72rem" }}>{slotDef.hint}</p>
-                                                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                                                        <div style={adminCompactRow}>
                                                             <label style={{ cursor: dungeonImgBulkRunning ? "not-allowed" : "pointer", padding: "4px 10px", background: "linear-gradient(135deg, #ca8a04, #facc15)", borderRadius: 4, color: "#1c1917", fontSize: "0.78rem", fontWeight: 600, opacity: dungeonImgBulkRunning ? 0.5 : 1 }}>
                                                                 {currentImage ? "Replace" : "Upload"}
                                                                 <input

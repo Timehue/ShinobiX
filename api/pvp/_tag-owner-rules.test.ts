@@ -52,12 +52,12 @@ function shove(name: 'Push' | 'Pull', range: number) {
 describe('Drain does its full amount no matter what', () => {
     it('a ranked 300 Drain logs 300 and lands 300 HP and chakra through max armor, DDT and a Defense Pill', () => {
         const cast = applyJutsu(fighter('alice', 0, 0.35, [DRAIN]), fighter('bob', 1, 0.35), DRAIN as never, 1, 'central', 1);
-        assert.ok(cast.lines.includes('Drain: bob loses 300 HP+chakra/turn for 2 turns.'), cast.lines.join(' | '));
+        assert.ok(cast.lines.includes('Drain: bob loses 300 HP and up to 300 chakra at turn end for 2 rounds, starting next round.'), cast.lines.join(' | '));
         const defended = { ...cast.opponent, statuses: [...cast.opponent.statuses, ...DEFENSES] };
         const tick = applyDoTs(defended, 2);
         assert.equal(tick.fighter.hp, defended.hp - 300);
         assert.equal(tick.fighter.chakra, defended.chakra - 300);
-        assert.ok(tick.lines.includes('bob drained 300 HP+chakra.'), tick.lines.join(' | '));
+        assert.ok(tick.lines.includes('bob loses 300 HP and 300 chakra to Drain.'), tick.lines.join(' | '));
     });
 });
 
@@ -77,7 +77,7 @@ describe('the Ranked Kunai Wound bleeds 25% of the damage the hit caused', () =>
         assert.ok(caused > 0, 'the kunai hits');
         const wound = hit.opponent.statuses.find(status => status.name === 'Wound')!;
         assert.equal(wound.amount, Math.floor(caused * 0.25));
-        assert.ok(hit.lines.includes(`Wound: bob bleeds ${wound.amount}/turn for 2 turns.`), hit.lines.join(' | '));
+        assert.ok(hit.lines.includes(`Wound: bob will lose ${wound.amount} HP to Wound at turn end for 2 rounds, starting next round.`), hit.lines.join(' | '));
 
         const defended = { ...hit.opponent, statuses: [...hit.opponent.statuses, ...DEFENSES] };
         const tick = applyDoTs(defended, 2);

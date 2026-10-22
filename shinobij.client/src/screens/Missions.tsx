@@ -369,7 +369,7 @@ export function Missions({
             if (!result.ok) return alert(result.error === "mission_not_eligible"
                 ? claimReasonMessage(result.reason ?? "not-yet-unlocked", result as Parameters<typeof claimReasonMessage>[1])
                 : result.error ?? "The Mission Hall could not accept this contract.");
-            if (!adopted) return alert("The Mission Hall accepted this contract, but its ledger is still syncing. Reopen the board to recover it.");
+            if (!adopted) return alert("The Mission Hall accepted this contract, but your updated progress could not be loaded. Reopen the board to load it.");
             if (result.reason === "already-claimed-today") {
                 return alert("That contract was already claimed today. The Mission Hall refreshed your ledger instead of accepting it again.");
             }

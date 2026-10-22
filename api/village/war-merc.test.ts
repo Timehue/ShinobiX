@@ -360,7 +360,8 @@ describe('list: the effective price, the wars to hire for, the allowance left', 
         assert.equal(list.statusCode, 200);
         const tiers = list.body?.tiers as Array<{ id: string; costWr: number; cost: number }>;
         // The treasury ryo follows the discounted WR: 15 x 250.
-        assert.deepEqual(tiers.find((t) => t.id === 'merc-ronin'), { id: 'merc-ronin', level: 75, costWr: 60, cost: 15, treasuryRyo: 3_750, band: 3 });
+        assert.deepEqual(tiers.find((t) => t.id === 'merc-ronin'), { id: 'merc-ronin', level: 75, costWr: 60, cost: 15, treasuryRyo: 3_750, band: 3,
+            combatProfile: { classification: 'special-npc', role: 'Ronin', tactics: 'Veteran duelist: damage focus sets up elemental strikes, with Wound and Poison to pressure recovery.' } });
         assert.equal(list.body?.treasuryRyo, TREASURY_RYO, 'the members see the treasury the hires spend');
         assert.equal(list.body?.ryoPerWr, 250);
         const contexts = list.body?.contexts as Array<Json>;

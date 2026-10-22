@@ -1,0 +1,36 @@
+{
+  "baseCommit": "5f212c4cd90c8eb0e6b6b02f5f4ab7448c578fc3",
+  "scope": "Preserve original portrait identity reference images and their original expected hashes while shipping new animated battle atlases.",
+  "records": [
+    {
+      "id": "rare-3",
+      "reference": "pet-models/warfront-impostors/roster/rare-3.webp",
+      "sha256": "274f49508f44766e6ffc5da0d9c6e9c826a94d1cbfea5043de10fee5533a7a61",
+      "disposition": "original image still current"
+    },
+    {
+      "id": "rare-6",
+      "reference": "pet-models/warfront-impostors/roster/rare-6.webp",
+      "archive": "art-source/pet-portrait-refresh/reference-archive/rare-6-model-atlas.webp",
+      "sha256": "c5c5920a4b4ea8969f90a065fa4fddc7a9579dab710189e65093abd02783b5d8",
+      "disposition": "original image archived byte for byte",
+      "replacementAtlasSha256": "d5d5c916f1ca3c8e272c5bb060ac56d4a24ff0a2f50b68568800f50f5758c729"
+    },
+    {
+      "id": "standard-2",
+      "reference": "pet-models/warfront-impostors/roster/standard-2.webp",
+      "archive": "art-source/pet-portrait-refresh/reference-archive/standard-2-model-atlas.webp",
+      "sha256": "8af4ffc23f4c0e0c8ffb43d6ac9f4d389d297578e0f045c067fafde077882d20",
+      "disposition": "original image archived byte for byte",
+      "replacementAtlasSha256": "61e32886b4d13287b84ca4131138f4f3267ad89d1cad159c5e12564c85e952bf"
+    },
+    {
+      "id": "standard-3",
+      "reference": "pet-models/warfront-impostors/roster/standard-3.webp",
+      "archive": "art-source/pet-portrait-refresh/reference-archive/standard-3-model-atlas.webp",
+      "sha256": "74ad8b3f68ea46019ee4123fb63da470581966d6af0b9525843f26112d56e3aa",
+      "disposition": "original image archived byte for byte",
+      "replacementAtlasSha256": "767719ffb6eb249c6811ca330e2c03f80eeb1db64e408f41c33cf2ed24403f19"
+    }
+  ]
+}

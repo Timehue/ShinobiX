@@ -110,7 +110,8 @@ describe('AI-fight scaling parity (server ⇄ client)', () => {
         assert.doesNotMatch(host, /relevelBuiltinAi|missionAiLevelAndBonus/, 'the live AI host must not scale a local combatant');
         assert.match(start, /resolveAiFightScaling\(\{\s*opponentId: body\.opponentId,\s*battleKind: body\.battleKind,\s*playerLevel:/, 'sealed AI start no longer resolves mission scaling from server inputs');
         assert.match(start, /\.\.\.\(scaling \? \{ scaling \} : \{\}\)/, 'sealed AI start no longer passes resolved scaling into encounter construction');
-        assert.match(encounter, /const profile = params\.scaling && Number\.isFinite\(params\.scaling\.level\)\s*\? relevelAiProfile\(/, 'Solo PvE encounter no longer applies sealed scaling');
+        assert.match(encounter, /const sourceProfile = params\.scaling && Number\.isFinite\(params\.scaling\.level\)\s*\? relevelAiProfile\(/, 'Solo PvE encounter no longer applies sealed scaling');
+        assert.match(encounter, /const profile = identity \? \{ \.\.\.sourceProfile,/, 'narrative appearance must build on the server-scaled profile');
     });
 
     // The positive case above names the ONE host that must not scale locally;

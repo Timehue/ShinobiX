@@ -506,6 +506,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // a dropped response cannot lose the client-enqueued report callback.
         let worldRaidProgression: CappedRaidProgressionResult | null = null;
         const raidSector = Math.floor(Number(session.rewardSector));
+        const rememberDuel=(already:boolean)=>{
+            const sector=session.duelGround?.sector??raidSector;
+            if(outcome==='win'&&!already&&Number.isSafeInteger(sector))
+                void recordSectorDuelScar(sector,winnerName,loserName,Date.now(),session.duelGround?.tile,session.duelGround?.witnesses).catch(()=>undefined);
+        };
         const worldAttacker = sealedWorldRaidAttacker(session);
         if (worldAttacker?.side === session.winner
             && worldAttacker.name === safeName(winnerName)
@@ -1096,6 +1101,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         source: `${playerRankedV2Claim ? 'ranked-player-v2' : session.ranked ? `ranked-${session.rankedKind ?? 'player'}` : session.baseRewards ? 'base' : 'verified'}:${outcome}`,
                     });
                 }
+                rememberDuel(out.already);
                 return res.status(200).json({
                     ok: true,
                     alreadyClaimed: out.already,
@@ -1161,15 +1167,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
             // The ground remembers this fight (shared/sector-scars). Written
             // from the WINNER's own first claim so one duel leaves one mark,
-            // and from `session.rewardSector` — the sector the server itself
-            // confirmed both fighters were standing in, never a client's claim
-            // about where it happened. Fire-and-forget by design: a scar is a
+            // from the sealed battle-start ground (sector-only reward metadata
+            // for older sessions), never a client's claim about where it
+            // happened. Fire-and-forget by design: a scar is a
             // display record nothing reads back, so it must not be able to
             // delay or fail a settled reward (same posture as creditSectorIntel
             // on the explore receipt).
-            if (outcome === 'win' && !alreadyClaimed && Number.isSafeInteger(raidSector)) {
-                void recordSectorDuelScar(raidSector, winnerName, loserName).catch(() => undefined);
-            }
+            rememberDuel(alreadyClaimed);
             return res.status(200).json({
                 ok: true,
                 alreadyClaimed,

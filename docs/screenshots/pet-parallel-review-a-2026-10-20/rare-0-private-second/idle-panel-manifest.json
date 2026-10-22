@@ -1,0 +1,247 @@
+{
+  "frames": [
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/parallel-a-private-second-rare-0-idle/rare-0/idle-0.png",
+      "sha256": "07a345bb7621e5c6ad2df6f8a30322d38adb4be00830e56c824a24e99c7973e2",
+      "crop": {
+        "left": 163,
+        "top": 37,
+        "width": 174,
+        "height": 181
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/parallel-a-private-second-rare-0-idle/rare-0/idle-1.png",
+      "sha256": "40f00eb08316c73a8d2ae8b402746e7e3e1414460bf184f1d2256ded8ea91e5f",
+      "crop": {
+        "left": 163,
+        "top": 39,
+        "width": 174,
+        "height": 179
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/parallel-a-private-second-rare-0-idle/rare-0/idle-2.png",
+      "sha256": "76dabfc355de45e74e6fd9275e4b0fabb271b9553191acefbdb65194d7d57a26",
+      "crop": {
+        "left": 163,
+        "top": 36,
+        "width": 174,
+        "height": 182
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/parallel-a-private-second-rare-0-idle/rare-0/idle-3.png",
+      "sha256": "e295e213f4225aba325e07291eba7ace01d3c8ab2fc0e3a36c26b7059cccbb01",
+      "crop": {
+        "left": 163,
+        "top": 37,
+        "width": 174,
+        "height": 181
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/parallel-a-private-second-rare-0-idle/rare-0/idle-4.png",
+      "sha256": "df2af79d0e0540e5f863592cfa4b5dd86ff1741101662808c2c7add160fec0a5",
+      "crop": {
+        "left": 163,
+        "top": 38,
+        "width": 174,
+        "height": 180
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/parallel-a-private-second-rare-0-idle/rare-0/idle-5.png",
+      "sha256": "4eb122b398f22819251047911e4b2826889aa30c09ecad562753f3985246f4d0",
+      "crop": {
+        "left": 163,
+        "top": 38,
+        "width": 174,
+        "height": 180
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/parallel-a-private-second-rare-0-idle/rare-0/idle-6.png",
+      "sha256": "004ac007b668b0a1290bc9a4b24d72ba48d436eea8284c354dde932b16b84ae2",
+      "crop": {
+        "left": 163,
+        "top": 38,
+        "width": 174,
+        "height": 180
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/parallel-a-private-second-rare-0-idle/rare-0/idle-7.png",
+      "sha256": "23261cec9465661f160cf017e85061ae2d93a88f4a2f283811eda784cf33ac33",
+      "crop": {
+        "left": 163,
+        "top": 35,
+        "width": 174,
+        "height": 183
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/parallel-a-private-second-rare-0-idle/rare-0/idle-8.png",
+      "sha256": "3a324a68f70dd37b9f00327a39a704eb686fe00466e0376322cfa33f76ee86ec",
+      "crop": {
+        "left": 163,
+        "top": 39,
+        "width": 174,
+        "height": 179
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/parallel-a-private-second-rare-0-idle/rare-0/idle-9.png",
+      "sha256": "17c6da38d70c6e7771f3aefaa32ea86ffeca4adbb95c0169537f07f39d7868dd",
+      "crop": {
+        "left": 163,
+        "top": 37,
+        "width": 174,
+        "height": 181
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/parallel-a-private-second-rare-0-idle/rare-0/idle-10.png",
+      "sha256": "c132e0a6c9b6e9b361ae0b560f545e145b5a85a935481e37e43489c266e0ec1f",
+      "crop": {
+        "left": 163,
+        "top": 40,
+        "width": 174,
+        "height": 178
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/parallel-a-private-second-rare-0-idle/rare-0/idle-11.png",
+      "sha256": "760d45581c27551beddf2e86de1a72d4f383c6da2ff34b213b01f8183f779403",
+      "crop": {
+        "left": 163,
+        "top": 35,
+        "width": 174,
+        "height": 183
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/parallel-a-private-second-rare-0-idle/rare-0/idle-12.png",
+      "sha256": "5b2e8297e5697b3cc53123f44df089c886754898fbaa7d2ad544f254adbeb1bf",
+      "crop": {
+        "left": 163,
+        "top": 38,
+        "width": 174,
+        "height": 180
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/parallel-a-private-second-rare-0-idle/rare-0/idle-13.png",
+      "sha256": "81eeda64f238b67b2ca534bce284f186df57ba6cac78cee7c6612c7e6c05f70b",
+      "crop": {
+        "left": 163,
+        "top": 37,
+        "width": 174,
+        "height": 181
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/parallel-a-private-second-rare-0-idle/rare-0/idle-14.png",
+      "sha256": "055b7df35efa1c01742262ed3989dce1553fca8e3ac1553c4cc15ba58f704b04",
+      "crop": {
+        "left": 163,
+        "top": 38,
+        "width": 174,
+        "height": 180
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/parallel-a-private-second-rare-0-idle/rare-0/idle-15.png",
+      "sha256": "e0ee55da56bba0d3526c2a38066fe9faf5cc0f9beb0f29e1c7de591b8b39e83c",
+      "crop": {
+        "left": 163,
+        "top": 37,
+        "width": 174,
+        "height": 181
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/parallel-a-private-second-rare-0-idle/rare-0/idle-16.png",
+      "sha256": "2c69f749794eb8e6ca60b5374189b2158ca6af78b515729e1cb845e2c3d4e140",
+      "crop": {
+        "left": 163,
+        "top": 36,
+        "width": 174,
+        "height": 182
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/parallel-a-private-second-rare-0-idle/rare-0/idle-17.png",
+      "sha256": "f9454990e3863adf9447123ac8f8e6d5df7342e27e98712a43813109a4946267",
+      "crop": {
+        "left": 163,
+        "top": 40,
+        "width": 174,
+        "height": 178
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/parallel-a-private-second-rare-0-idle/rare-0/idle-18.png",
+      "sha256": "0bf1c4be0b9e4f2a42c55af8abbf04ee674b8782f5c9ba49e1aa71dac7fbcd65",
+      "crop": {
+        "left": 163,
+        "top": 37,
+        "width": 174,
+        "height": 181
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/parallel-a-private-second-rare-0-idle/rare-0/idle-19.png",
+      "sha256": "66a883bb7e59cd8ea9d695459d0c37e1d32f29c248de7023326699949ce0d3cb",
+      "crop": {
+        "left": 163,
+        "top": 40,
+        "width": 174,
+        "height": 178
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/parallel-a-private-second-rare-0-idle/rare-0/idle-20.png",
+      "sha256": "300069e950d20afc45eef60c030cc6fb2992d81f2aebee08ed190ac8145b84bf",
+      "crop": {
+        "left": 163,
+        "top": 35,
+        "width": 174,
+        "height": 183
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/parallel-a-private-second-rare-0-idle/rare-0/idle-21.png",
+      "sha256": "09e7496e64ff3e70b9b61e22f5c9ad290077d883e87da96a94c6cfeb735f2cd6",
+      "crop": {
+        "left": 163,
+        "top": 37,
+        "width": 174,
+        "height": 181
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/parallel-a-private-second-rare-0-idle/rare-0/idle-22.png",
+      "sha256": "044e9bfc5bfe95563d091f92d17044e64ec669744a1c0f06cb8cf5b1be4010e0",
+      "crop": {
+        "left": 163,
+        "top": 38,
+        "width": 174,
+        "height": 180
+      }
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/parallel-a-private-second-rare-0-idle/rare-0/idle-23.png",
+      "sha256": "7c5c4b9d46c4ebb9fb25e24c3fc2be143aa9328ef718f696cc0204ce7ce99bb8",
+      "crop": {
+        "left": 163,
+        "top": 38,
+        "width": 174,
+        "height": 180
+      }
+    }
+  ],
+  "nativePixelsPreserved": true,
+  "resizing": false,
+  "approval": false
+}

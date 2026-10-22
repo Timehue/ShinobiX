@@ -18,6 +18,7 @@
  */
 import { kv } from './_storage.js';
 import { safeName } from './_utils.js';
+import { warMercenaryCombatProfile } from '../shared/war-mercenary-profile.js';
 
 // After a merc fights a player, that player is off-limits to ALL mercs for this
 // long. Tunable. (Owner: "add a 15 min cd so they can't spam attack the same
@@ -115,6 +116,7 @@ export interface RoamingMercView {
     tierId: string;
     level: number;
     context: 'sector' | 'village';
+    combatProfile: ReturnType<typeof warMercenaryCombatProfile>;
 }
 
 /** Pure: flatten the bands hostile to a viewer into individual roaming merc NPCs
@@ -130,7 +132,7 @@ export function synthRoamingMercs(bands: readonly HostileBand[]): RoamingMercVie
             if (out.length >= ROAMING_MERC_RENDER_CAP) return out;
             const index = nextIndex.get(band) ?? 0;
             nextIndex.set(band, index + 1);
-            out.push({ id: mercNpcId(b.village, b.tierId, index), village: b.village, tierId: b.tierId, level: b.level, context: b.context });
+            out.push({ id: mercNpcId(b.village, b.tierId, index), village: b.village, tierId: b.tierId, level: b.level, context: b.context, combatProfile: warMercenaryCombatProfile(b.level) });
         }
     }
     return out;

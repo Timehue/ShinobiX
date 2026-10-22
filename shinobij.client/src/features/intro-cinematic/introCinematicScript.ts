@@ -34,15 +34,15 @@ export type CinematicLine = {
 // ── Beat 1-3: awakening → warning → gift offer (before pet selection) ────────
 export const PRE_GIFT_LINES: CinematicLine[] = [
     { speaker: "narrator", text: "Cold spray touches your face. Water strikes stone somewhere close." },
-    { speaker: "narrator", text: "You remember the village gate, a pull behind your ribs, and then the road disappearing under white light." },
+    { speaker: "narrator", text: "You were leaving your village when something pulled you off the road. A flash of white light is the last thing you remember." },
     { speaker: "narrator", text: "A white fox sits beside your dropped pack, one paw planted on the strap." },
     { speaker: "fox", label: "???", text: "Easy. Sit up slowly. I had enough strength to bring you here, not enough to catch you twice." },
     { speaker: "fox", label: "???", text: "Check your hands. Good. Now say your name to yourself. If you still remember it, we are doing better than I feared." },
     { speaker: "fox", text: `I am ${FOX_NAME}. I keep this waterfall shrine and the old road beneath it. These days I mostly keep the roof from falling in.` },
     { speaker: "fox", text: "An old machine beneath the road tried to identify you and pull you in. When it failed, it tried again. I brought you here before it could succeed." },
-    { speaker: "fox", vision: true, text: "Sunken Court mason marks cover its housing. The shrine lintel calls it the Hollow Gate. I do not know why the Court built it. I know it measures people because I have watched the marks change." },
-    { speaker: "fox", vision: true, rumble: true, text: "When it reached for you, its slate kept clearing instead of naming a place for you. That failure bought me time to pull you free." },
-    { speaker: "fox", text: "That blank is a failed record, not a destiny. Drink from the cup, not the waterfall. Then tell me what matters before somebody else decides what it means." },
+    { speaker: "fox", vision: true, text: "It is called the Hollow Gate. The Sunken Court built it long ago. I have seen it examine travelers, but I still do not know why." },
+    { speaker: "fox", vision: true, rumble: true, text: "It could not identify you. Its record kept going blank, and I used that delay to pull you free." },
+    { speaker: "fox", text: "You are safe here for now. Have some water from the cup. Then tell me: what matters most to you?" },
 ];
 
 // The player's answer is a narrative identity, not a build choice. It earns an
@@ -51,7 +51,7 @@ export const PRE_GIFT_LINES: CinematicLine[] = [
 export function buildVowResponseLines(vow: AcademyVow): CinematicLine[] {
     return [
         { speaker: "fox", text: academyVowDefinition(vow).shiranuiResponse },
-        { speaker: "fox", text: "You should not take that road alone. Five young companions shelter here, one for each chakra nature. Choose the one willing to choose you, {name}." },
+        { speaker: "fox", text: "You should not travel alone. Five young companions shelter here, one for each chakra element. Choose a companion to travel and fight beside you, {name}." },
     ];
 }
 
@@ -60,20 +60,20 @@ export function buildVowResponseLines(vow: AcademyVow): CinematicLine[] {
 // village names data/sectors.ts `villages` uses.
 export const VILLAGE_LORE_LINES: Record<string, [string, string]> = {
     "Stormveil Village": [
-        "Stormveil keeps a public challenge board beside the arena. Post a reason, answer a bell, and expect half the village to argue about it by supper.",
-        "The arena road is loud and easy to find. Report to its keeper first; they can tell you which bell is meant for rookies.",
+        "Stormveil settles disputes through public arena challenges. Fighters write their names and reasons on the challenge board before each bout.",
+        "The challenge board keeper registers new fighters. You will meet them when you begin the village story.",
     ],
     "Ashen Leaf Village": [
-        "Ashen Leaf will ask your name, your craft, and what you intend to become. The Branch Register keeps the words, so take your time answering.",
-        "Follow the cedar wall to its keeper. Do not lean on it; the fresh grafts stain worse than ink.",
+        "Ashen Leaf records each shinobi's name, craft, and ambitions in a living cedar wall called the Branch Register.",
+        "Its keeper will ask what you hope to become. Take your time answering; the village keeps that promise on record.",
     ],
     "Frostfang Village": [
-        "Frostfang counts arrivals at the gate and again at every storm bell. Give the roll caller both your names so nobody searches for you in a whiteout.",
+        "Frostfang checks who is inside the village whenever a storm approaches. Give the gate guard your name and your companion's so the rescue crews know you are safe.",
         "The rope lines lead to the training yard. Keep a glove on the line and let your companion choose the pace.",
     ],
     "Moonshadow Village": [
-        "Moonshadow uses aliases, sealed files, and curtained booths. Ask which name a clerk needs before you offer one.",
-        "The canal lamps lead to the trainee desk. Keep your purse closed until somebody gives you a price in writing.",
+        "Moonshadow guards its secrets carefully. Many residents use aliases, and official records are kept sealed.",
+        "The canal lamps lead to the trainee desk. Ask for prices in writing before you pay anyone.",
     ],
 };
 
@@ -116,6 +116,6 @@ export function buildCompanionIntroLines(village: string, petName: string, vow: 
     return [
         { speaker: "fox", label: petName, text: `So this is ${village}. ${flavor}` },
         { speaker: "fox", label: petName, text: academyVowDefinition(vow).companionCallback },
-        { speaker: "fox", label: petName, text: "Come on, {name}. Guide me to where new shinobi report. If we get lost, I will blame the village signs." },
+        { speaker: "fox", label: petName, text: "Let's start at the Training Grounds, {name}. I'll help you train, learn a jutsu, and prepare for your first spar." },
     ];
 }

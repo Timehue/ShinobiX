@@ -1,0 +1,331 @@
+{
+  "baselineCommit": "5f212c4cd90c8eb0e6b6b02f5f4ab7448c578fc3",
+  "cache": {
+    "unchanged": 155,
+    "changes": [
+      {
+        "id": "standard-2",
+        "before": "20261014-reviewed-skull-v1-20261013-studio-v1-20261013-articulation-v1-20261014-contact-performance-v1",
+        "after": "20261021-pet-final-six-v1-20261013-studio-v1-20261013-articulation-v1-20261014-contact-performance-v1"
+      },
+      {
+        "id": "standard-3",
+        "before": "20261014-reviewed-skull-v1-20261013-studio-v1-20261013-articulation-v1-20261014-contact-performance-v1",
+        "after": "20261021-pet-final-six-v1-20261013-studio-v1-20261013-articulation-v1-20261014-contact-performance-v1"
+      },
+      {
+        "id": "standard-15",
+        "before": "20261015-independent-complete-face-v2-20261013-studio-v1-20261013-articulation-v1-20261014-contact-performance-v1",
+        "after": "20261021-pet-final-six-v1-20261013-studio-v1-20261013-articulation-v1-20261014-contact-performance-v1"
+      },
+      {
+        "id": "rare-3",
+        "before": "20261012-connected-weight-v2-20261013-studio-v1-20261013-articulation-v1-20261014-contact-performance-v1",
+        "after": "20261021-pet-final-six-v1-20261013-studio-v1-20261013-articulation-v1-20261014-contact-performance-v1"
+      },
+      {
+        "id": "rare-6",
+        "before": "20261014-reviewed-skull-v1-20261013-studio-v1-20261013-articulation-v1-20261014-contact-performance-v1",
+        "after": "20261021-pet-final-six-v1-20261013-studio-v1-20261013-articulation-v1-20261014-contact-performance-v1"
+      },
+      {
+        "id": "rare-21",
+        "before": "20261015-independent-complete-face-v2-20261013-studio-v1-20261013-articulation-v1-20261014-contact-performance-v1",
+        "after": "20261021-pet-final-six-v1-20261013-studio-v1-20261013-articulation-v1-20261014-contact-performance-v1"
+      }
+    ]
+  },
+  "facialAnnotations": [
+    {
+      "id": "standard-2",
+      "sourceSha256": "109cc8c38508d744ce5bf2dbf181e70d11f6b2a545b799dd4ac23f0f1f51131d",
+      "before": "4164302cf152284d589303552e53d662c37d2de11c606613f05db74fc18b8ac0",
+      "after": "c74f79f66cb0771576d121b8e759ec38077372d5f3a481102b5b860d67255920",
+      "priorReleaseAnnotation": null,
+      "scope": "Import the existing frozen independent full-face annotation used in private QA, refreshing only its rest-frame geometry fingerprint. Frozen anatomical picks, visible bind coordinate frame and all thresholds retained."
+    },
+    {
+      "id": "standard-15",
+      "sourceSha256": "ab43d66d55404a9dcbee9abf6693522d84c987d85f2177002de42ce6f9c8a03a",
+      "before": "86909885ee5a6bb29f36b1e21abddd01c470782d0220d55a505a33a4c8636928",
+      "after": "b43d5f0351fb23de8a568ab359b16240c7d8297aff687ec5d18374afb4b2fe7f",
+      "priorReleaseAnnotation": {
+        "camera": {
+          "y": [
+            -2,
+            -2
+          ],
+          "bounds": [
+            -0.5,
+            0.82,
+            0.07,
+            0.82,
+            0.35,
+            0.95
+          ],
+          "cameraPadding": 1.2
+        },
+        "status": "landmark-coverage-reviewed",
+        "sourceSha256": "d7d87b6b34c3ae7e13af979a698efa2e586f8c5161c481328656cb223ec26bc3",
+        "coverageEvidence": ".tmp/pet-independent-face-recheck/standard-15-landmark-coverage.png",
+        "landmarks": {
+          "upperFace": {
+            "center": [
+              0.029776435709460047,
+              0.4562228094174101,
+              0.5892963451732701
+            ],
+            "radius": 0.1,
+            "pickedPixel": [
+              157,
+              210
+            ],
+            "pickedView": "head-front",
+            "pickedPose": "idle 0%",
+            "anchorBone": "head"
+          },
+          "muzzle": {
+            "center": [
+              0.16145653521295472,
+              0.32247988890028323,
+              0.7963268024749681
+            ],
+            "radius": 0.08,
+            "pickedPixel": [
+              184,
+              240
+            ],
+            "pickedView": "head-front",
+            "pickedPose": "idle 0%",
+            "anchorBone": "head"
+          },
+          "lowerFace": {
+            "center": [
+              0.13656690393497484,
+              0.189452162852,
+              0.6145536679570581
+            ],
+            "radius": 0.08,
+            "pickedPixel": [
+              184,
+              256
+            ],
+            "pickedView": "head-front",
+            "pickedPose": "idle 0%",
+            "anchorBone": "head"
+          },
+          "rightWhiskers": {
+            "center": [
+              0.5885026253116897,
+              0.23386645526285732,
+              0.637624149398963
+            ],
+            "radius": 0.19,
+            "pickedPixel": [
+              285,
+              174
+            ],
+            "pickedView": "head-front",
+            "pickedPose": "idle 0%",
+            "anchorBone": "head",
+            "anatomy": "Visible outer whisker shaft and tips, separately marked from muzzle and lower jaw."
+          },
+          "leftWhiskers": {
+            "center": [
+              -0.25875614766800553,
+              0.2817892201056118,
+              0.6107863399208198
+            ],
+            "radius": 0.19,
+            "pickedPixel": [
+              82,
+              167
+            ],
+            "pickedView": "head-front",
+            "pickedPose": "idle 0%",
+            "anchorBone": "head",
+            "anatomy": "Visible outer whisker shaft and tips, separately marked from muzzle and lower jaw."
+          }
+        },
+        "geometrySha256": "86909885ee5a6bb29f36b1e21abddd01c470782d0220d55a505a33a4c8636928",
+        "geometryToVisibleBind": [
+          1.0000001863185013,
+          0,
+          0,
+          0,
+          0,
+          0.9999999705101307,
+          -2.6330477825853293e-8,
+          0,
+          0,
+          -2.583547975554268e-8,
+          1.00000020665423,
+          0,
+          -2.5932802242417674e-9,
+          3.601595555124959e-8,
+          8.687275829255547e-9,
+          1
+        ],
+        "headCountVisuallyVerified": 1,
+        "heads": [
+          {
+            "id": "primary",
+            "landmarks": [
+              "upperFace",
+              "muzzle",
+              "lowerFace"
+            ]
+          }
+        ],
+        "coverageReviewedAt": "2026-10-16T04:08:53.602Z",
+        "coverageFinding": "Front and side coverage marker actually inspected: eye and upper head, muzzle, chin, and separate full left/right whisker shafts and tips. Wider facial camera retains both whiskers and ears; purple whisker coverage excludes the rear flame and robe."
+      },
+      "scope": "Import the existing frozen independent full-face annotation used in private QA, refreshing only its rest-frame geometry fingerprint. Frozen anatomical picks, visible bind coordinate frame and all thresholds retained."
+    },
+    {
+      "id": "rare-21",
+      "sourceSha256": "7f6f76da7133b7c5076e65fd2c5d5dc494493a031650b086a6dafebc488ba10a",
+      "before": "02c50a788fb337e04bf0cc89e66c30dffd269a74cdee3fdaabafb732e3b32d83",
+      "after": "c3b9f286a08ca7f32a59ec90e12deb7c10160629b915f203c9b3ca7e5b8708c3",
+      "priorReleaseAnnotation": {
+        "camera": {
+          "y": [
+            -2,
+            -2
+          ],
+          "bounds": [
+            -0.24960812847198155,
+            0.3498702428926754,
+            0.14419611925266348,
+            0.5788048838632867,
+            0.3126178845306806,
+            0.8266946824287024
+          ],
+          "cameraPadding": 1.15
+        },
+        "status": "landmark-coverage-reviewed",
+        "sourceSha256": "9bd8b442fc3086eac620c07308d5b1f32bfd0cae69e97136473c22ba210949a4",
+        "coverageEvidence": ".tmp/pet-independent-face-recheck/rare-21-landmark-coverage.png",
+        "landmarks": {
+          "upperFace": {
+            "center": [
+              -0.009608128471981548,
+              0.3988048838632866,
+              0.5926178845306806
+            ],
+            "radius": 0.1,
+            "pickedPixel": [
+              164,
+              198
+            ],
+            "pickedView": "head-front",
+            "pickedPose": "idle 0%",
+            "anchorBone": "head"
+          },
+          "muzzle": {
+            "center": [
+              0.09239963173561627,
+              0.3032418886755398,
+              0.7066946824287024
+            ],
+            "radius": 0.08,
+            "pickedPixel": [
+              178,
+              211
+            ],
+            "pickedView": "head-front",
+            "pickedPose": "idle 0%",
+            "anchorBone": "head"
+          },
+          "lowerFace": {
+            "center": [
+              0.10987024289267538,
+              0.23419611925266348,
+              0.6610388769947145
+            ],
+            "radius": 0.08,
+            "pickedPixel": [
+              183,
+              218
+            ],
+            "pickedView": "head-front",
+            "pickedPose": "idle 0%",
+            "anchorBone": "head"
+          },
+          "jawChin": {
+            "center": [
+              0.4132908070492319,
+              0.2928206053331325,
+              0.4244604280392758
+            ],
+            "radius": 0.11,
+            "pickedPixel": [
+              180,
+              183
+            ],
+            "pickedView": "head-side",
+            "pickedPose": "idle 0%",
+            "anchorBone": "head"
+          }
+        },
+        "geometrySha256": "02c50a788fb337e04bf0cc89e66c30dffd269a74cdee3fdaabafb732e3b32d83",
+        "geometryToVisibleBind": [
+          1.0000002858312196,
+          0,
+          0,
+          0,
+          0,
+          1.0000001069265778,
+          -3.3828588263951076e-8,
+          0,
+          0,
+          -1.8390840766935312e-8,
+          1.0000003433127307,
+          0,
+          4.176515294622776e-7,
+          -1.0019088392265729e-7,
+          1.0172528236429557e-9,
+          1
+        ],
+        "headCountVisuallyVerified": 1,
+        "heads": [
+          {
+            "id": "primary",
+            "landmarks": [
+              "upperFace",
+              "muzzle",
+              "lowerFace",
+              "jawChin"
+            ]
+          }
+        ]
+      },
+      "scope": "Import the existing frozen independent full-face annotation used in private QA, refreshing only its rest-frame geometry fingerprint. Frozen anatomical picks, visible bind coordinate frame and all thresholds retained."
+    },
+    {
+      "id": "rare-3",
+      "sourceSha256": "bb79c492e29c5dcf4ec9c3ff97fe04ab6da60a55f4727d07a0139d20d28f75c8",
+      "before": "d514fa4153cca8a6b7579c659de8911410985670b3cb28c4a480a90a020dd270",
+      "after": "d514fa4153cca8a6b7579c659de8911410985670b3cb28c4a480a90a020dd270",
+      "priorReleaseAnnotation": null,
+      "scope": "Import the existing frozen independent full-face annotation used in private QA, refreshing only its rest-frame geometry fingerprint. Frozen anatomical picks, visible bind coordinate frame and all thresholds retained."
+    },
+    {
+      "id": "rare-6",
+      "sourceSha256": "4d3136a78c73e66269ada4b2f02bcade5b279aa6dd7ea03a56d5c712e9ec398c",
+      "before": "fd51c2e21d594042279de0ef951a50e661cc8b3eafb99d6bede3bcf28afb39c5",
+      "after": "f40da8c67330571eaa628b9f40cb3e2f4ba2c1552ede0f587e29a93c1976283a",
+      "priorReleaseAnnotation": null,
+      "scope": "Import the existing frozen independent full-face annotation used in private QA, refreshing only its rest-frame geometry fingerprint. Frozen anatomical picks, visible bind coordinate frame and all thresholds retained."
+    },
+    {
+      "id": "standard-3",
+      "sourceSha256": "56167f114c6650325944de89162f2f899466a77bdefdf118c84588a7f57788b6",
+      "before": "d6871097655447a3814d538e216eac517ff3abc6b02aa2b3eacf1cd6077aaf69",
+      "after": "94fa3ed8eb150fd99013f36b3e3f7775ed036665976a26b172da9786d6559208",
+      "priorReleaseAnnotation": null,
+      "scope": "Import the existing frozen independent full-face annotation used in private QA, refreshing only its rest-frame geometry fingerprint. Frozen anatomical picks, visible bind coordinate frame and all thresholds retained."
+    }
+  ],
+  "artisticApproval": false
+}

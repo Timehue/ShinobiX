@@ -1,0 +1,104 @@
+{
+  "config": {
+    "y": [
+      -0.03,
+      0.1
+    ],
+    "z": [
+      0.4,
+      0.55
+    ],
+    "cameraPadding": 1.4,
+    "status": "repair",
+    "finding": "All twelve original raw face and body slices and all 216 native actual technique frames inspected. Muzzle, lower jaw and ears shear under head tilt. Complete-face binding is a separate stage; visible anatomical leg chains and coordinated standing actions remain required. Preserve nine-tail sculpt and authored motion. Candidate not yet visually inspected.",
+    "revision": "20261017-eclipse-kitsune-independent-complete-face-v1",
+    "supersedesSourceSha256": "dc3e3e762dace863f535d7264b242ba89de0e00d34018b83092f39ea6c94812e",
+    "repairRegion": {
+      "y": [
+        -0.14,
+        -0.04
+      ],
+      "z": [
+        0.55,
+        0.68
+      ],
+      "x": [
+        0.3,
+        0.42
+      ]
+    },
+    "union": [
+      {
+        "y": [
+          -0.14,
+          -0.04
+        ],
+        "z": [
+          0.55,
+          0.68
+        ],
+        "x": [
+          0.3,
+          0.42
+        ]
+      }
+    ],
+    "continuousInfluencePacking": true
+  },
+  "result": {
+    "id": "mythic-0",
+    "changed": 4137,
+    "rigid": 1790
+  },
+  "face": {
+    "poses": 971,
+    "regions": [
+      {
+        "name": "upperFace",
+        "vertices": 91,
+        "edges": 204,
+        "maxDrift": 2.9842479489017667e-15,
+        "worldMinRatio": 0.9999981967514081,
+        "worldMaxRatio": 1.00000096893125,
+        "maximumTime": 0.45230952330998014
+      },
+      {
+        "name": "muzzle",
+        "vertices": 108,
+        "edges": 216,
+        "maxDrift": 3.854172639338013e-15,
+        "worldMinRatio": 0.9999981966262849,
+        "worldMaxRatio": 1.000000968982117,
+        "maximumTime": 0.45230952330998014
+      },
+      {
+        "name": "lowerFace",
+        "vertices": 90,
+        "edges": 174,
+        "maxDrift": 4.836475143730938e-15,
+        "worldMinRatio": 0.9999981965725312,
+        "worldMaxRatio": 1.000000968982117,
+        "maximumTime": 0.45230952330998014
+      },
+      {
+        "name": "jawChin",
+        "vertices": 130,
+        "edges": 290,
+        "maxDrift": 2.3632917104986763e-15,
+        "worldMinRatio": 0.999998196613575,
+        "worldMaxRatio": 1.0000009684708673,
+        "maximumTime": 0.45230952330998014
+      },
+      {
+        "name": "ear",
+        "vertices": 108,
+        "edges": 244,
+        "maxDrift": 3.766579993105547e-15,
+        "worldMinRatio": 0.9999981965725349,
+        "worldMaxRatio": 1.0000009689722575,
+        "maximumTime": 0.45230952330998014
+      }
+    ],
+    "failed": false
+  }
+}

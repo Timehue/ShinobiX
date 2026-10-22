@@ -13,6 +13,9 @@ import { spendPetHappiness } from '../pet/_happiness.js';
 import { PET_EXPEDITION_TYPES, petExpeditionSealForToken, type PetExpeditionSeal, type PetExpeditionType } from './_pet-expedition-lease.js';
 import { recordPetBreedingProgress } from '../pet/_breeding-requirements.js';
 import { economyDial } from '../_economy-dials.js';
+import { addOwned, countOwned } from '../craft/_forge.js';
+import { craftMaterialName } from '../../shared/crafting-recipes.js';
+import { petExpeditionReturnMaterials, type PetExpeditionMaterialReward } from '../../shared/pet-expedition-materials.js';
 import {
     PET_EXPEDITION_DAILY_CAP,
     PET_EXPEDITION_LOG_CAP,
@@ -20,6 +23,7 @@ import {
     PET_EXPEDITION_RETURN_CHOICES,
     PET_EXPEDITION_RISK_RULES,
     PET_EXPEDITION_ROUTES,
+    PET_EXPEDITION_REWARD_VERSION,
     TAMER_RYO_MULT,
     petExpeditionBaseRyo,
     petExpeditionMaterialChances,
@@ -68,8 +72,10 @@ export function tamerXpMult(): number {
 /**
  * TAMER_RYO_MULT (default 0.4 per owner ruling A6, range 0-1; kill value 1).
  * The env override of the shared code default. It is applied in exactly one
- * place, inside petExpeditionBaseRyo, so it also scales non-Tamer expeditions
- * and the board preview reads the same base; never multiply it in again here.
+ * place, inside petExpeditionBaseRyo, so it also scales non-Tamer expeditions;
+ * never multiply it in again here. Since main's reward version 2 (#446) that
+ * base only prices expeditions launched before v2: new runs pay the ryo sealed
+ * at launch by petExpeditionRewardPreview, which this dial does not touch.
  */
 export function tamerRyoMult(): number {
     return economyDial('TAMER_RYO_MULT', TAMER_RYO_MULT, { min: 0, max: 1 });
@@ -227,12 +233,37 @@ export function clearStuckExpeditionLease(
         const exp = pet && typeof pet.expedition === 'object' && pet.expedition ? pet.expedition as Record<string, unknown> : null;
         if (!exp) return pet;
         const byToken = !!match.token && exp.token === match.token;
-        const byId = !!match.petId && String(pet.id ?? '') === match.petId;
+        // An explicit stale token must never fall back to a newer trip's pet id.
+        const byId = !match.token && !!match.petId && String(pet.id ?? '') === match.petId;
         if (!byToken && !byId) return pet;
+        const token = typeof exp.token === 'string' ? exp.token : '';
+        if (token && petExpeditionSealForToken(char, token, '')) return pet;
         cleared = true;
         return { ...pet, expedition: undefined };
     });
     return { pets: next, cleared };
+}
+
+/** Match the inventory's 9,999-unit and 200-key limits before committing any
+ * part of a haul. A completed trip remains collectable after making room. */
+export function petExpeditionMaterialCapacityError(
+    character: Record<string, unknown>,
+    rewards: readonly PetExpeditionMaterialReward[],
+): string | null {
+    const stacks = Array.isArray(character.itemStacks) ? character.itemStacks as Array<Record<string, unknown>> : [];
+    const storedIds = new Set(stacks.filter(stack => Number(stack?.count) > 0).map(stack => String(stack.itemId)));
+    const quantities = new Map<string, number>();
+    for (const reward of rewards) quantities.set(reward.itemId, (quantities.get(reward.itemId) ?? 0) + reward.count);
+    const newIds = [...quantities.keys()].filter(id => !storedIds.has(id));
+    if (storedIds.size + newIds.length > Math.max(200, storedIds.size)) {
+        return 'Make room in your material stacks before collecting. Your expedition and its rewards remain ready.';
+    }
+    for (const [itemId, quantity] of quantities) {
+        if (countOwned(character, itemId) + quantity > 9999) {
+            return `Make room for ${craftMaterialName(itemId)} before collecting. Your expedition and its rewards remain ready.`;
+        }
+    }
+    return null;
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -287,9 +318,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const selfHealStuckExpedition = async (match: { token?: string; petId?: string }): Promise<{ character: Record<string, unknown> | null; saveVersion: number }> => {
             // Clearing a lease is a value, so re-running it after a lost
             // compare-and-set lands it once.
-            const healed = await retryOnSaveVersionConflict(() => mutatePlayerSave<null>(playerName, ({ character: char }) => {
+            const healed = await retryOnSaveVersionConflict(() => mutatePlayerSave<null>(playerName, async ({ character: char }) => {
                 const { pets, cleared } = clearStuckExpeditionLease(char, match);
                 if (!cleared) return { ok: true, write: false, character: char, value: null };
+                // Older trips can have a usable cache seal without durable
+                // fallback fields. Preserve those too; recovery is not cancel.
+                const storedPets = char.pets as Array<Record<string, unknown>>;
+                for (let index = 0; index < pets.length; index++) {
+                    const trip = storedPets[index]?.expedition as Record<string, unknown> | undefined;
+                    const token = typeof trip?.token === 'string' ? trip.token : '';
+                    if (token && !pets[index].expedition && await kv.get(`pet-exp-token:${playerName}:${token}`)) {
+                        return { ok: true, write: false, character: char, value: null };
+                    }
+                }
                 return { ok: true, character: { ...char, pets }, value: null };
             }));
             return healed.ok
@@ -300,11 +341,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const preChar = preCheck?.character as Record<string, unknown> | undefined;
         const isTamer = preChar?.profession === 'petTamer';
         const isExpeditionEvent = event === 'expedition' || event === 'long-expedition';
-        // Pet Tamers get the full flow (currency + XP + missions). Non-Tamers are
-        // allowed ONLY for expedition events, and ONLY with a valid token — which
-        // the server mints solely for a maxed pet — earning half-rate currency,
-        // no Tamer XP and no mission progress. pet-train (and any tokenless path)
-        // from a non-Tamer earns nothing.
+        // All level-eligible pets can earn sealed expedition rewards. Profession
+        // XP and Tamer missions remain exclusive to that profession.
         if (!isTamer && !isExpeditionEvent) {
             return res.status(200).json({ ok: true, petTamer: false });
         }
@@ -317,7 +355,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // expedition to have actually run for its full duration. No fallback: an
         // expedition event without a valid, matured token earns nothing (returns
         // 200 + a reason so the client mirrors the zero-reward result cleanly).
-        const NO_REWARD = { expeditionXp: 0, ryoEarned: 0, foundBone: 0, foundAura: 0, foundFate: 0, missionsCompleted: [] as never[] };
+        const NO_REWARD = { expeditionXp: 0, ryoEarned: 0, foundBone: 0, foundAura: 0, foundFate: 0, materialRewards: [], missionsCompleted: [] as never[] };
         // Pet Tamer mastery (Expeditioner path) reward multipliers, sealed into the
         // token at launch (PvE currency only). Default 1 = no bonus.
         let expRewardMult = 1;
@@ -370,6 +408,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         foundBone: Number(completed.foundBone ?? 0),
                         foundAura: Number(completed.foundAura ?? 0),
                         foundFate: Number(completed.foundFate ?? 0),
+                        materialRewards: Array.isArray(completed.materialRewards) ? completed.materialRewards : [],
                         story: String(completed.story ?? ''),
                         returnOutcome: String(completed.returnOutcome ?? 'secured'),
                         outcomeLabel: String(completed.outcomeLabel ?? 'Haul secured'),
@@ -402,8 +441,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // Capture the sealed mastery multipliers (clamped for safety).
             expRewardMult = Math.max(1, Math.min(2, Number(tokenData.expRewardMult ?? 1)));
             expMaterialMult = Math.max(1, Math.min(2, Number(tokenData.expMaterialMult ?? 1)));
-            // Sealed reward scale (clamped 0..1) + Tamer flag. A non-Tamer token
-            // carries rewardScale 0.5 and tamer=false → half currency, no XP/missions.
+            // Legacy runs retain their sealed partial-reward scale. New runs
+            // seal complete payouts separately; the Tamer flag gates profession XP.
             rewardScale = Math.max(0, Math.min(1, Number(tokenData.rewardScale ?? 1)));
             tamerToken = tokenData.tamer !== false;
             expeditionPetId = String(tokenData.petId ?? '');
@@ -426,6 +465,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         let firstExpedition = false;
         let escortBonus = false;
         let dailyCapHit = false;
+        let materialRewards: PetExpeditionMaterialReward[] = [];
         let dailyClaimCount = 0;
         let dailyClaimCap = PET_EXPEDITION_DAILY_CAP;
         let tokenAlreadySpent = false;
@@ -438,7 +478,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // The token receipt commits with the payout, so re-running the whole
             // settlement after a lost compare-and-set pays it once (a save
             // deleted mid-call answers 404 and settles nothing, as before).
-            await retryOnSaveVersionConflict(() => mutatePlayerSave<null>(playerName, async ({ character: char }) => {
+            const settlement = await retryOnSaveVersionConflict(() => mutatePlayerSave<null>(playerName, async ({ character: char }) => {
                 const unwritten = { ok: true as const, write: false, character: char, value: null };
                 if (expeditionTokenKey) {
                     const receipts = Array.isArray(char.redeemedPetExpeditionTokens)
@@ -490,8 +530,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     }
                     : {};
                 const isFirstToday = claimedToday === 0;
+                const modernRewards = expeditionSeal?.rewardVersion === PET_EXPEDITION_REWARD_VERSION;
                 const escortReady = !!char.petEscortBonusReady;
-                firstExpedition = tamerToken && isFirstToday;
+                firstExpedition = tamerToken && isFirstToday && !modernRewards;
                 escortBonus = tamerToken && escortReady;
                 const rank = Number(char.professionRank ?? 1);
                 const rewardPet = (Array.isArray(char.pets) ? char.pets as Array<Record<string, unknown>> : [])
@@ -500,13 +541,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const riskRule = PET_EXPEDITION_RISK_RULES[expeditionSeal?.risk ?? 'safe'];
                 const provisionRule = PET_EXPEDITION_PROVISION_RULES[expeditionSeal?.provision ?? 'none'];
                 const choice = resolvePetExpeditionChoice(returnChoice, Math.random());
+                materialRewards = petExpeditionReturnMaterials(expeditionSeal?.materialRewards ?? [], choice.materialMultiplier);
+                const capacityError = petExpeditionMaterialCapacityError(char, materialRewards);
+                if (capacityError) return { ok: false as const, status: 409, error: capacityError };
                 returnOutcome = choice.outcome;
                 outcomeLabel = choice.label;
                 happinessCost = riskRule.happinessCost;
 
-                // Tamer XP only on the full Tamer path; a non-Tamer (half-rate
-                // maxed-pet) token earns currency only.
-                expeditionXp = tamerToken ? tamerXpForExpedition(durationMinutes, { isFirstToday, escortReady }) : 0;
+                // New runs use the fixed reward lane, without first-run doubling.
+                expeditionXp = tamerToken ? tamerXpForExpedition(durationMinutes, { isFirstToday: isFirstToday && !modernRewards, escortReady }) : 0;
                 // The XP is credited in THIS write, beside the token receipt, so
                 // a retry that finds the receipt has nothing left to pay. It used
                 // to be a second save write after this one: when that write failed
@@ -517,33 +560,40 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     ? professionXpAfterAward('petTamer', char.professionXp, char.professionRank, expeditionXp)
                     : null;
 
-                // Non-Tamers get no rank/first/mastery modifiers. Their saved
-                // rewardScale makes a maxed pet half-rate and a growing pet XP-only.
                 if (expType) {
-                    const tamerMult = tamerToken ? petTamerExpeditionMultFromRank(rank, char.profession) : 1;
-                    const firstBonus = tamerToken && isFirstToday ? 2 : 1;
-                    const dropBonus = tamerToken ? (tamerMult - 1) + (isFirstToday ? 0.5 : 0) : 0;
-                    ryoEarned = Math.round(petExpeditionBaseRyo(expType, petLevel, tamerRyoMult())
-                        * tamerMult * firstBonus * expRewardMult * rewardScale * boonMult
-                        * riskRule.ryoMultiplier * choice.ryoMultiplier);
-                    const chances = petExpeditionMaterialChances(expType, {
-                        dropBonus,
-                        multiplier: expMaterialMult * riskRule.materialMultiplier
-                            * provisionRule.materialMultiplier * choice.materialMultiplier,
-                        rewardScale,
+                    // Version 2 seals the full fixed-profession payout at launch.
+                    // Keep the historical calculation for runs already underway;
+                    // TAMER_RYO_MULT applies only to that historical base.
+                    const tamerMult = !modernRewards && tamerToken ? petTamerExpeditionMultFromRank(rank, char.profession) : 1;
+                    const firstBonus = !modernRewards && tamerToken && isFirstToday ? 2 : 1;
+                    const dropBonus = !modernRewards && tamerToken ? (tamerMult - 1) + (isFirstToday ? 0.5 : 0) : 0;
+                    ryoEarned = modernRewards
+                        ? Math.round(Number(expeditionSeal?.ryoReward ?? 0) * boonMult * choice.ryoMultiplier)
+                        : Math.round(petExpeditionBaseRyo(expType, petLevel, tamerRyoMult())
+                            * tamerMult * firstBonus * expRewardMult * rewardScale * boonMult
+                            * riskRule.ryoMultiplier * choice.ryoMultiplier);
+                    const chances = modernRewards ? {
+                        bone: Math.min(1, Number(expeditionSeal?.premiumChances?.bone ?? 0) * choice.materialMultiplier),
+                        aura: Math.min(1, Number(expeditionSeal?.premiumChances?.aura ?? 0) * choice.materialMultiplier),
+                        fate: Math.min(1, Number(expeditionSeal?.premiumChances?.fate ?? 0) * choice.materialMultiplier),
+                    } : petExpeditionMaterialChances(expType, {
+                        dropBonus, multiplier: expMaterialMult * riskRule.materialMultiplier
+                            * provisionRule.materialMultiplier * choice.materialMultiplier, rewardScale,
                     });
                     foundBone = Math.random() < chances.bone ? 1 : 0;
                     foundAura = Math.random() < chances.aura ? 1 : 0;
-                    foundFate = Math.random() < chances.fate ? 1 : 0;
+                    foundFate = Math.random() < chances.fate ? (modernRewards ? expeditionSeal?.fateShardReward ?? 1 : 1) : 0;
                 }
 
                 // Stamp daily tracking + consume escort bonus + apply currencies.
                 const pets = Array.isArray(char.pets) ? char.pets as Array<Record<string, unknown>> : [];
-                const petXpMult = (tamerToken ? petTamerExpeditionMultFromRank(rank, char.profession) * (isFirstToday ? 2 : 1) : 1)
-                    * boonMult * provisionRule.petXpMultiplier;
+                const petXpMult = modernRewards ? boonMult
+                    : (tamerToken ? petTamerExpeditionMultFromRank(rank, char.profession) * (isFirstToday ? 2 : 1) : 1)
+                        * boonMult * provisionRule.petXpMultiplier;
                 const nextPets = pets.map((pet) => {
                     if (String(pet?.id ?? '') !== expeditionPetId) return pet;
-                    const settled = settleServerPetExpedition(pet, expType ?? 'scout', durationMinutes, petXpMult);
+                    const settled = settleServerPetExpedition(pet, expType ?? 'scout', durationMinutes, petXpMult,
+                        modernRewards ? Number(expeditionSeal?.petXpReward ?? 0) : undefined);
                     petXpEarned = settled.xp;
                     // Settle the daily bond decay BEFORE charging the bold-route
                     // cost, so the deduction comes off the happiness the pet
@@ -584,6 +634,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     foundBone,
                     foundAura,
                     foundFate,
+                    materialRewards,
                     happinessCost,
                     firstExpedition,
                     escortBonus,
@@ -592,7 +643,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     ? char.petExpeditionLog as Array<Record<string, unknown>>
                     : [];
                 const progressedCharacter = recordPetBreedingProgress({
-                    ...char,
+                    ...materialRewards.reduce((next, reward) => addOwned(next, reward.itemId, reward.count, true), char),
                     ...redeemedReceipts,
                     pets: nextPets,
                     petExpeditionLog: [...priorLog.slice(-(PET_EXPEDITION_LOG_CAP - 1)), logEntry],
@@ -623,6 +674,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     },
                 };
             }));
+            if (!settlement.ok) return res.status(settlement.status).json({ error: settlement.error });
             if (tokenAlreadySpent) {
                 const current = await kv.get<Record<string, unknown>>(saveKey);
                 // The lock callback may assign this replay record; TypeScript
@@ -650,6 +702,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         foundBone: Number(replay.foundBone ?? 0),
                         foundAura: Number(replay.foundAura ?? 0),
                         foundFate: Number(replay.foundFate ?? 0),
+                        materialRewards: Array.isArray(replay.materialRewards) ? replay.materialRewards : [],
                         story: String(replay.story ?? ''),
                         returnOutcome: String(replay.returnOutcome ?? 'secured'),
                         outcomeLabel: String(replay.outcomeLabel ?? 'Haul secured'),
@@ -678,6 +731,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     foundBone: 0,
                     foundAura: 0,
                     foundFate: 0,
+                    materialRewards: [],
                     dailyClaims: dailyClaimCount,
                     dailyCap: dailyClaimCap,
                     resetAt: Date.parse(`${new Date(Date.now() + 86_400_000).toISOString().slice(0, 10)}T00:00:00.000Z`),
@@ -688,8 +742,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
         }
 
-        // Mission progress + profession XP are Pet Tamer–only. A non-Tamer earns
-        // just the half-rate currency credited above (no missions, no XP).
+        // Mission progress and profession XP remain Pet Tamer-only. Other
+        // professions keep their sealed currency, materials, and pet XP.
         let missionsCompleted: CompletedMissionInfo[] = [];
         let missionXpAwarded = 0;
         if (isTamer) {
@@ -730,6 +784,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             foundBone,
             foundAura,
             foundFate,
+            materialRewards,
             story: expeditionStory,
             returnChoice,
             returnOutcome,

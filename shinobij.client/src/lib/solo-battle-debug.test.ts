@@ -15,6 +15,13 @@ function session(events: SoloPveCombatEvent[], eventSeq = events.at(-1)?.seq ?? 
         events, eventSeq, status: 'active', outcome: null } as SoloPveSession;
 }
 
+test('legacy losses keep an unknown terminal reason instead of inventing a knockout', () => {
+    const old = { ...session([event(1)]), status: 'done' as const, outcome: 'loss' as const };
+    const record = mergeSoloBattleDebug(undefined, old, 1);
+    assert.equal(record.terminalReason, undefined);
+    assert.match(soloBattleDebugText(record), /not recorded/);
+});
+
 test('a live journal preserves opening actions after the server rolling window passes 80 events', () => {
     const opening = mergeSoloBattleDebug(undefined, session(Array.from({ length: 80 }, (_, i) => event(i + 1))), 1);
     const later = mergeSoloBattleDebug(opening, session(Array.from({ length: 80 }, (_, i) => event(i + 21))), 2);
@@ -31,6 +38,29 @@ test('late resume and sequence gaps explicitly export a partial history', () => 
     assert.match(soloBattleDebugText(late), /Partial action history: earlier events were unavailable/);
     const first = mergeSoloBattleDebug(undefined, session([event(1)]), 1);
     assert.equal(mergeSoloBattleDebug(first, session([event(3)]), 2).complete, false);
+});
+
+test('switching accounts cannot reuse another player journal with the same session id', t => {
+    const previous = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+    // Leave these journals expired when the real clock is restored so the
+    // module cache cannot affect the independent three-fight hydration test.
+    const now = Date.now() - 8 * 24 * 60 * 60 * 1000;
+    t.mock.method(Date, 'now', () => now);
+    let stored = '[]';
+    Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: {
+        getItem: () => stored, setItem: (_key: string, value: string) => { stored = value; },
+    } });
+    t.after(() => { if (previous) Object.defineProperty(globalThis, 'localStorage', previous); else Reflect.deleteProperty(globalThis, 'localStorage'); });
+    const rill = captureSoloBattleDebug({ ...session([event(1)]), sessionId: 'shared-account-session' });
+    const buster = captureSoloBattleDebug({ ...session([event(81)]), sessionId: 'shared-account-session', player: { name: 'Buster' } });
+
+    assert.equal(rill.complete, true);
+    assert.equal(buster.player, 'Buster');
+    assert.equal(buster.complete, false);
+    assert.deepEqual(buster.rows.map(row => row.seq), [81, 81]);
+    assert.equal(captureSoloBattleDebug({ ...session([event(1)]), sessionId: 'shared-account-session' }), rill);
+    const sharedSessionRows = JSON.parse(stored).filter((record: { sessionId: string }) => record.sessionId === 'shared-account-session');
+    assert.deepEqual(sharedSessionRows.map((record: { player: string }) => record.player).sort(), ['Buster', 'Rill']);
 });
 
 test('the local bound is explicit and keeps the ending without claiming completeness', () => {
@@ -54,8 +84,9 @@ test('an oversized source line is shortened explicitly instead of claiming a ful
 
 test('a new fight after reload retains the prior recent journals within the three-fight bound', () => {
     const previous = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+    const capturedAt = Date.now();
     const earlier = ['old-fight-a', 'old-fight-b'].map((id, index) => mergeSoloBattleDebug(undefined,
-        { ...session([event(1)]), sessionId: id }, Date.now() - 1000 - index));
+        { ...session([event(1)]), sessionId: id }, capturedAt - 1000 - index));
     let stored = JSON.stringify(earlier);
     Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: {
         getItem: () => stored, setItem: (_key: string, value: string) => { stored = value; },

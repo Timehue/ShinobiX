@@ -1,0 +1,61 @@
+{
+  "schema": 1,
+  "errors": [],
+  "pets": [
+    {
+      "id": "mythic-11",
+      "name": "Moonwell Leviathan",
+      "url": "/.tmp/moonwell-leviathan-independent-face-v7/roster/mythic-11.glb",
+      "sha256": "1330ad1d1678bd1e9c1148d70def3fc33cb1e84af64d81e52d7f444daa158da6",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "progress": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ],
+      "views": [
+        "head-front",
+        "head-side"
+      ],
+      "region": {
+        "y": [
+          -2,
+          -2
+        ],
+        "bounds": [
+          -0.29026666784390037,
+          0.4699262690441781,
+          0.3220724395193053,
+          0.9859542335396168,
+          -0.11320061336078735,
+          0.5915765797487835
+        ],
+        "cameraPadding": 1.15
+      },
+      "sheets": [
+        "mythic-11-head-front.webp",
+        "mythic-11-head-side.webp"
+      ],
+      "review": "pending",
+      "anatomySha256": "89ecd805514ae8dcc8a4cafe45ad4cfe5172b648df4843550d409bdc3156f827"
+    }
+  ],
+  "artisticCertification": false
+}

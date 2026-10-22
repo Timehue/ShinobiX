@@ -168,9 +168,12 @@ test('the Gauntlet logs its entry fee as a sink and its run payout once', async 
     const reported = await call(gauntlet, player, { action: 'report', runToken, transcript }, '198.51.100.43');
     assert.equal(reported.status, 200, JSON.stringify(reported.body));
     assert.equal(reported.body.ryo, 250);
-    // A replayed report finds no token (it was consumed) and pays nothing.
+    // A replayed report finds the retired seal's saved receipt (main's idempotent
+    // report): it answers the same payout and pays, and logs, nothing again.
     const replay = await call(gauntlet, player, { action: 'report', runToken, transcript }, '198.51.100.43');
-    assert.equal(replay.status, 409);
+    assert.equal(replay.status, 200, JSON.stringify(replay.body));
+    assert.equal(replay.body.ryo, 250);
+    assert.equal(((await kv.get<Json>(`save:${player}`))!.character as Json).ryo, 2_000 - 1_500 + 250, 'paid once');
     assert.deepEqual((await dayRow(player, 'ryo'))['pet.gauntlet'], { c: 250, d: 0, n: 1 });
 });
 

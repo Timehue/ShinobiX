@@ -1,0 +1,121 @@
+{
+  "records": [
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-glacier-wolf-v1-private-v1-runtime-medium/native-source-head.png",
+      "sha256": "6ab097a2882611c6464e974077e0659b2dfcc1c8c0746785666b2c0a791fabfe",
+      "width": 1440,
+      "height": 2160,
+      "inputs": [
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-glacier-wolf-v1-private-v1-runtime-medium/legendary-0-source-head-0.png",
+          "sha256": "eb67f8c57157f80e9cb07990a9bef7f0007d1cb55a74dc674fe9e0db315e4f04",
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-glacier-wolf-v1-private-v1-runtime-medium/legendary-0-source-head-1.png",
+          "sha256": "b7e38f066d0db05213fbbdd70b32d213379410c27b3d141f6c03a895677f7615",
+          "top": 540
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-glacier-wolf-v1-private-v1-runtime-medium/legendary-0-source-head-2.png",
+          "sha256": "125700468229d126f2fdba89bed35ca73b4500b6597db2280104026c473dd0e5",
+          "top": 1080
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-glacier-wolf-v1-private-v1-runtime-medium/legendary-0-source-head-3.png",
+          "sha256": "ff77c9e1c14803f7d884c4db3b8b09be2510bb0d67ba1f12aa06768bbe4847ae",
+          "top": 1620
+        }
+      ],
+      "resizing": false
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-glacier-wolf-v1-private-v1-runtime-medium/native-source-body.png",
+      "sha256": "64c97a5cbd744114ccc951712d2825a94ba9072e0ac10041048dbc0719dec0a5",
+      "width": 1440,
+      "height": 2160,
+      "inputs": [
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-glacier-wolf-v1-private-v1-runtime-medium/legendary-0-source-body-0.png",
+          "sha256": "3f951c3675383b8d038787887125a18ef16c8ff370a0261c84bcf336a2b92f4f",
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-glacier-wolf-v1-private-v1-runtime-medium/legendary-0-source-body-1.png",
+          "sha256": "107298fd2e1c1f976104c9a421e440a5d0c334af533435a1b4298bfcca318394",
+          "top": 540
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-glacier-wolf-v1-private-v1-runtime-medium/legendary-0-source-body-2.png",
+          "sha256": "3df40b48feec70b7803e231b85cf317bd6ed82ca49cbb0668490212980351a53",
+          "top": 1080
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-glacier-wolf-v1-private-v1-runtime-medium/legendary-0-source-body-3.png",
+          "sha256": "331ce38bed789bd64d67cdc178d62ac4911ece3c415917fc553afb4f2c1bfa1c",
+          "top": 1620
+        }
+      ],
+      "resizing": false
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-glacier-wolf-v1-private-v1-runtime-medium/native-battle-head.png",
+      "sha256": "c0e9611671885acc0d807fdfaf8575d26462454522968d5356b600a43d11543b",
+      "width": 1440,
+      "height": 2160,
+      "inputs": [
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-glacier-wolf-v1-private-v1-runtime-medium/legendary-0-battle-head-0.png",
+          "sha256": "e5f6207665c8308dc037962d0437427e58fbb2005c492ee8b2d9d40482b90c43",
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-glacier-wolf-v1-private-v1-runtime-medium/legendary-0-battle-head-1.png",
+          "sha256": "137d1e6acb20d953d040fd14e6dc702367af6eba925befead5ac4732019a21e1",
+          "top": 540
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-glacier-wolf-v1-private-v1-runtime-medium/legendary-0-battle-head-2.png",
+          "sha256": "84f2b6cc5c056c899f28ca61257b74d9e2a9173e65dc445bfd532f5a19ce8fbd",
+          "top": 1080
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-glacier-wolf-v1-private-v1-runtime-medium/legendary-0-battle-head-3.png",
+          "sha256": "ca941af9c1b807afa62fc612b5452f60f8af1c5f935eafc230176fe690a8efe5",
+          "top": 1620
+        }
+      ],
+      "resizing": false
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-glacier-wolf-v1-private-v1-runtime-medium/native-battle-body.png",
+      "sha256": "29506d84895f9fbbc4e6e70501e4e43b55d3b27b19a3edab28c6eddb965eeea3",
+      "width": 1440,
+      "height": 2160,
+      "inputs": [
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-glacier-wolf-v1-private-v1-runtime-medium/legendary-0-battle-body-0.png",
+          "sha256": "9e0014b224c6f07bf73ee9953183baf7e5dbee27d6ebaa8ef65e814f7cf7c30a",
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-glacier-wolf-v1-private-v1-runtime-medium/legendary-0-battle-body-1.png",
+          "sha256": "d0a425b88ba8b92645417c02ab1b42f19d3f00c15aa96459d58f3f54a842e164",
+          "top": 540
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-glacier-wolf-v1-private-v1-runtime-medium/legendary-0-battle-body-2.png",
+          "sha256": "260b9d6c28cbe3fbdc9b033531733de964126821a400748670a216d88f2f4272",
+          "top": 1080
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-glacier-wolf-v1-private-v1-runtime-medium/legendary-0-battle-body-3.png",
+          "sha256": "ae62f52d54eab33e6f1776e57db40a1c1737c590d92923d300ee660686e828ec",
+          "top": 1620
+        }
+      ],
+      "resizing": false
+    }
+  ],
+  "review": "pending"
+}

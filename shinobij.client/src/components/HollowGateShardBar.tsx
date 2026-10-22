@@ -28,7 +28,7 @@ export function HollowGateShardBar({ run, character, setRun, onVersionedCharacte
 
     async function use(id: string) {
         if (!run.runToken) {
-            pushLog("This legacy run has no server seal. Leave and begin a verified run before using shrine relics.");
+            pushLog("Shrine relics cannot be used in this older run. Leave and start a new run to use them.");
             return;
         }
         const actions = {
@@ -43,7 +43,7 @@ export function HollowGateShardBar({ run, character, setRun, onVersionedCharacte
         if (!action) return pushLog("Unknown shrine relic.");
         const result = await requestHollowGateServerConsumable(character.name, run.runToken, action);
         if (!result?.ok || !result.character || !result.runState) {
-            pushLog(result?.error ?? "The shrine could not seal that relic. Retry in a moment.");
+            pushLog(result?.error ?? "The relic use could not be confirmed. Check your run before trying again.");
             return;
         }
         const latest = latestRunRef.current.runToken === run.runToken ? latestRunRef.current : run;
@@ -66,7 +66,7 @@ export function HollowGateShardBar({ run, character, setRun, onVersionedCharacte
         onVersionedCharacter({ ...result.character, hollowGateRun: nextRun }, result._saveVersion);
         setRun(nextRun);
         const consumable = HOLLOW_SHARD_CONSUMABLES.find((entry) => entry.id === id);
-        pushLog(`${consumable?.label ?? "Shrine relic"} answers the server-sealed run.`);
+        pushLog(`${consumable?.label ?? "Shrine relic"} activated.`);
     }
 
     return (

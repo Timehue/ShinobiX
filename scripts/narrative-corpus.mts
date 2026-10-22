@@ -36,6 +36,25 @@ import { rawPetPool } from '../shinobij.client/src/data/pet-pool.ts';
 import { eventItems } from '../shinobij.client/src/data/event-items.ts';
 import { starterItems } from '../shinobij.client/src/data/starter-items.ts';
 import { buildGatherVn, FIND_SCENES } from '../shinobij.client/src/lib/gathering-vn.ts';
+import { LIFE_REGIONS, LIFE_STOP_REGIONS, LIFE_EVENTS, LIFE_TRAVELERS } from '../shared/sector-life-content.ts';
+import { PATROL_VILLAGE_VOICES, patrolGreeting } from '../shared/village-patrol.ts';
+import { LIFE_LOCAL_REACTIONS } from '../shared/sector-life-villages.ts';
+import { LIFE_TRAVELER_CONTEXT, LIFE_EVENT_NEWS } from '../shared/sector-life-conversations.ts';
+import { LIFE_ROAD_CREWS,LIFE_TRAINING_LINES } from '../shared/sector-life-routines.ts';
+import { LIFE_SHRINE_LINES,shrineKeeperThanks } from '../shared/sector-life-memory.ts';
+import { LIFE_COURIER_LINES } from '../shared/sector-life-courier.ts';
+import { LIFE_HUNT_LINES } from '../shared/sector-life-tracking.ts';
+import {ANGLER_WORK_LINES} from '../shared/sector-angler-work.ts';
+import {CHRONICLE_STOP_LINES} from '../shared/sector-chronicle-stop.ts';
+import {TEA_COURIER_LINES} from '../shared/sector-tea-courier.ts';
+import {DOCK_SHIPMENT_LINES} from '../shared/sector-dock-shipment.ts';
+import {FORAGER_LINES} from '../shared/sector-forager-work.ts';
+import {SHRINE_WORK_LINES} from '../shared/sector-shrine-work.ts';
+import {MIDLANDS_FIELD_LINES} from '../shared/sector-midlands-work.ts';
+import {FESTIVAL_LINES} from '../shared/sector-festival-work.ts';
+import {ROAD_VISIT_LINES} from '../shared/sector-road-visit.ts';
+import {CHRONICLE_WATCH_LINES} from '../shared/sector-chronicle-spectators.ts';
+import {FRONTIER_LINES} from '../shared/sector-frontier-work.ts';
 export type Choice = {
     text: string;
     nextPage?: number;
@@ -80,6 +99,15 @@ export type Scene = {
 const data = (file: string) => `shinobij.client/src/data/${file}.ts`;
 const lib = (file: string) => `shinobij.client/src/lib/${file}.ts`;
 export const supplementalSources = [
+    'shared/sector-life-routines.ts',
+    'shared/sector-forager-work.ts',
+    'shared/sector-shrine-work.ts',
+    'shared/sector-midlands-work.ts',
+    'shared/sector-festival-work.ts',
+    'shared/sector-road-visit.ts', 'shared/sector-chronicle-spectators.ts', 'shared/sector-frontier-work.ts',
+    'shared/sector-chronicle-stop.ts', 'api/sector/_life-chronicle.ts', 'shared/sector-dock-shipment.ts',
+    'shared/sector-life-content.ts', 'shared/sector-life-courier.ts', 'shared/sector-life-tracking.ts','shared/sector-life-witness.ts', 'shared/sector-angler-work.ts', 'api/sector/life.ts', 'shinobij.client/src/components/SectorLife.tsx',
+    'shinobij.client/src/components/SectorWanderer.tsx',
     'shinobij.client/src/lib/legacy-sage-vn.ts', 'shinobij.client/src/lib/legacy-rumors.ts',
     'shinobij.client/src/lib/contract-hunter-wanderers.ts', 'shinobij.client/src/lib/wanderers.ts',
     'shinobij.client/src/lib/first-pact-interiors.ts', 'shinobij.client/src/lib/first-pact-aftermath.ts',
@@ -98,7 +126,7 @@ export const supplementalSources = [
     'api/_legacy-core.ts', 'api/legacy/trial.ts', 'shinobij.client/src/components/EmissaryTrialPanel.tsx',
     'shinobij.client/src/components/SageOfferModal.tsx', 'shinobij.client/src/screens/LegacyPanel.tsx',
     // World interaction dialogue and guild/rumor flavor delivered outside VN objects.
-    'shinobij.client/src/components/WorldWandererDialog.tsx', 'shinobij.client/src/screens/HunterBoard.tsx',
+    'shinobij.client/src/components/WorldWandererDialog.tsx', 'shinobij.client/src/lib/ordinary-wanderer-actions.ts', 'shinobij.client/src/screens/HunterBoard.tsx',
     'shinobij.client/src/lib/chronicle-lock.ts', 'shinobij.client/src/lib/first-fight-coach.ts',
     // Hollow Gate run narration (tile, shard, wing, boss and recovery messages).
     'shinobij.client/src/lib/hollow-gate-app-flow.ts', 'shinobij.client/src/lib/hollow-gate-shards.ts',
@@ -265,5 +293,28 @@ export function buildCorpus(): Scene[] {
     prose('world-lore', data('pet-pool'), 'pet-catalog', rawPetPool.map(({ name, description }) => ({ name, description })), 'Species observations and breeding-only descriptions.');
     prose('world-lore', data('event-items'), 'story-evidence-items', eventItems.map(({ name, description, flavorText }) => ({ name, description, flavorText })), 'Story evidence descriptions and inscriptions.');
     prose('world-lore', data('starter-items'), 'item-catalog', starterItems.map(({ name, description, flavorText }) => ({ name, description, flavorText })), 'Item descriptions and inscriptions; equipment mechanics are unchanged.');
+    prose('world-lore', 'shared/sector-life-content.ts', 'sector-life-regions', LIFE_REGIONS, 'Literal work, night and shelter dialogue, selected from current world conditions.');
+    prose('world-lore', 'shared/sector-life-content.ts', 'sector-life-painted-stops', LIFE_STOP_REGIONS, 'Staff and dialogue tied to admitted painted workplaces.');
+    prose('world-lore', 'shared/sector-life-content.ts', 'sector-life-events', LIFE_EVENTS, 'Optional shared roadside tasks, server-owned stage instructions and actual aftermath.');
+    prose('world-lore', 'shared/sector-life-content.ts', 'sector-life-travelers', LIFE_TRAVELERS, 'Recurring road travelers and cosmetic prior-meeting dialogue.');
+    prose('world-lore', 'shared/sector-life-villages.ts', 'sector-life-village-reactions', LIFE_LOCAL_REACTIONS, 'Regional workers recognize the saved village without changing services.');
+    prose('world-lore', 'shared/sector-life-conversations.ts', 'sector-life-context', [LIFE_TRAVELER_CONTEXT,LIFE_EVENT_NEWS], 'Actual weather, current shared aftermath and recorded duels change recurring conversations.');
+    prose('world-lore', 'shared/sector-life-routines.ts', 'sector-life-road-crews', LIFE_ROAD_CREWS, 'Paired workers meet on connected roads before returning to their posts.');
+    prose('world-lore','shared/sector-life-routines.ts','sector-life-training',LIFE_TRAINING_LINES,'The existing Ashen Leaf pair practise real forward/back steps on four reviewed grass cells after their handover, then return to their road posts. No combat, rewards or new actors.');
+    prose('world-lore', 'shared/sector-life-memory.ts', 'sector-life-shrine-memory', [LIFE_SHRINE_LINES,shrineKeeperThanks('Aki')], 'Keeper and visitor speech follows actual upkeep, offering tiers and road itineraries.');
+    prose('world-lore', 'shared/sector-life-courier.ts', 'sector-life-courier-rescue', LIFE_COURIER_LINES, 'A real injured courier returns to a road stop, rests and continues deliveries. Unattended outcomes never thank a player.');
+    prose('world-lore', 'shared/sector-life-tracking.ts', 'sector-life-tracking-party', LIFE_HUNT_LINES, 'A natural tracker uses the existing two-sector animal encounter. Durable pet results determine return speech; abandoned trails never claim a binding.');
+    prose('world-lore','shared/sector-angler-work.ts','sector-life-angler-work',ANGLER_WORK_LINES,'Existing natural anglers fish at reviewed water and enter an actual gatehouse during weather, night and shift closure.');
+    prose('world-lore','shared/sector-chronicle-stop.ts','sector-life-chronicle-stop',CHRONICLE_STOP_LINES,'Two travelers play a real seeded Chronicle exhibition at the painted tea table; actual engine turns and results determine dialogue, and weather closes the shared round.');
+    prose('world-lore','shared/sector-frontier-work.ts','sector-life-frontier-work',FRONTIER_LINES,'Existing Hollow Road keeper and Lavafront scout check real approaches and the painted pack/carrying gear. Actual pose and drawn-floor gates keep scenery claims literal; weather, darkness and active shared errands keep requesters at their original stop. Cached rounds end at that stop and expired searches stop generating current-search claims. No invented attacks, damage, equipment owners, victims or collected supplies.');
+    prose('world-lore','shared/sector-chronicle-spectators.ts','sector-life-chronicle-spectators',CHRONICLE_WATCH_LINES,'Existing tea visitors and Gen watch from actual clear ground, cite the real seeded turn/life/result and react to interruption without fabricating a win. Actual pose gates observation, and original road departures/recognition/recorded same-person witnesses remain.');
+    prose('world-lore','shared/sector-road-visit.ts','sector-life-road-visits',ROAD_VISIT_LINES,'Finite cached visits keep original reciprocal entries/exits and conversations. Rest claims wait for the actual stop; real road departures continue during outages.');
+    prose('world-lore','shared/sector-tea-courier.ts','sector-life-courier-tea',TEA_COURIER_LINES,'Tetsu arrives at the staffed Heartwood tea table, rests beside the kettle and continues his real letter route.');
+    prose('world-lore','shared/sector-dock-shipment.ts','sector-life-dock-shipment',DOCK_SHIPMENT_LINES,'A real merchant and crossing guard attend fallen bundles. Server-owned aid, native road travel and unloading determine when recovered goods appear at the dock loading point. Only recorded contributors are thanked.');
+    prose('world-lore','shared/sector-forager-work.ts','sector-life-forager-work',FORAGER_LINES,'The existing Ashen Leaf herbalist inspects the painted upper fern patch, puts away notes and returns to the village gate. Weather and night send the same native actor inside. No gathering or reward is implied.');
+    prose('world-lore','shared/sector-shrine-work.ts','sector-life-shrine-work',SHRINE_WORK_LINES,'The existing Heartwood keeper sweeps two paved approach sections between lamp checks in dry daylight. Actual pose gates work speech and the attached broom; active lamp help, night and weather stop the work.');
+    prose('world-lore','shared/sector-midlands-work.ts','sector-life-midlands-work',MIDLANDS_FIELD_LINES,'Suzu tends the actual painted herb-row edges while Kota checks the southern road and returns east after their handover. Weather and cached shift closure retain real road exits. Missing garden imagery uses truthful verge-checking presentation without a hoe or crop claim.');
+    prose('world-lore','shared/sector-festival-work.ts','sector-life-festival-work',FESTIVAL_LINES,'The original cook Eda fetches bowls, attends the building counter, packs it and waits beside the closed building. Nene and Ko show two laps from opposite corners of a real clearing, then return to their roads. Actual pose and displayed floor gate counter/step claims; weather stops work and cached shifts close without reopening. The northern courier rescue is preserved.');
+    prose('world-lore', 'shared/village-patrol.ts', 'village-patrol-rivalries', Object.keys(PATROL_VILLAGE_VOICES).flatMap(owner=>Object.keys(PATROL_VILLAGE_VOICES).map(visitor=>patrolGreeting(owner===visitor?'home':'rival',0,owner,visitor))), 'Patrol voice follows road ownership; fictional rival-village jabs.');
     return out;
 }

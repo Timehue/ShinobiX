@@ -1,0 +1,52 @@
+{
+  "config": {
+    "y": [
+      0.3,
+      0.5
+    ],
+    "z": [
+      0.25,
+      0.4
+    ],
+    "cameraPadding": 1.3,
+    "status": "repair",
+    "finding": "Original twelve raw head/body slices, all 216 actual equipped-technique frames and the original four-view sole overlay inspected. Lower jaw has a residual shear. Actual strike drives body/legs below the preview floor; body folding, sliding support and gait leg splay require separately fitted limbs and coordinated actions. This is an unapproved intermediate face stage.",
+    "revision": "20261018-skyglass-kirin-complete-jaw-v1",
+    "supersedesSourceSha256": "e6b7c87ebd610f7d97856b5b7dfe1e49c1da33da09781e5a89582d2d093fbba2",
+    "repairRegion": {
+      "y": [
+        0.34,
+        0.42
+      ],
+      "z": [
+        0.7,
+        0.78
+      ],
+      "x": [
+        0.18,
+        0.25
+      ]
+    },
+    "union": [
+      {
+        "y": [
+          0.34,
+          0.42
+        ],
+        "z": [
+          0.7,
+          0.78
+        ],
+        "x": [
+          0.18,
+          0.25
+        ]
+      }
+    ]
+  },
+  "result": {
+    "id": "mythic-12",
+    "changed": 1129,
+    "rigid": 531
+  }
+}

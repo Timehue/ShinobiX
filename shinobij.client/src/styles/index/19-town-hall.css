@@ -27,7 +27,7 @@
         aspect-ratio: 1 / 1;
         border-radius: 10px;
         border: 2px solid rgba(230, 196, 119, .45);
-        object-fit: cover;
+        object-fit: contain;
         background: rgba(15,23,42,.85);
     }
 

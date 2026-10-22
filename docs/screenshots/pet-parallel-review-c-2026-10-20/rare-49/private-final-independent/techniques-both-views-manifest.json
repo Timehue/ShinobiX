@@ -1,0 +1,143 @@
+{
+  "label": "parallel-c-capybara-private-v1-techniques",
+  "panels": [
+    {
+      "path": ".tmp/pet-companion-techniques/parallel-c-capybara-private-v1-techniques/inspection-strips/both-block-0-half-0.png",
+      "sha256": "e1d8bbfee8794c95539fa8e1ceb5499e10791dd9c7594d68aa3e2c50cf4d4c09",
+      "sources": [
+        {
+          "path": ".tmp/pet-companion-techniques/parallel-c-capybara-private-v1-techniques/inspection-strips/front-block-0-half-0.png",
+          "sha256": "bc9eedbe44d266dee0df06b9926fa980d55593fc177a576afb24998e556eb782",
+          "width": 1320,
+          "height": 609,
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-companion-techniques/parallel-c-capybara-private-v1-techniques/inspection-strips/side-block-0-half-0.png",
+          "sha256": "7f21181dc242b1f7c82c7fb8576b863c3f7cc3762315646880939eb56f00af70",
+          "width": 1320,
+          "height": 609,
+          "top": 609
+        }
+      ],
+      "nativePixelsPreserved": true,
+      "resizing": false,
+      "review": "pending"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/parallel-c-capybara-private-v1-techniques/inspection-strips/both-block-0-half-1.png",
+      "sha256": "ffe110882018dcebc2e79b31852e0b4f431ad21b6cbebea5e381d1b18c84bc95",
+      "sources": [
+        {
+          "path": ".tmp/pet-companion-techniques/parallel-c-capybara-private-v1-techniques/inspection-strips/front-block-0-half-1.png",
+          "sha256": "ff1da48e238decdeb916e9ba2cdc036a397ef6c930804ab37977040ec5c951c2",
+          "width": 1320,
+          "height": 609,
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-companion-techniques/parallel-c-capybara-private-v1-techniques/inspection-strips/side-block-0-half-1.png",
+          "sha256": "4e4e360e099df687d5ad2b4bb6e5cea402e08d32abbb495ebf8589dc3e066264",
+          "width": 1320,
+          "height": 609,
+          "top": 609
+        }
+      ],
+      "nativePixelsPreserved": true,
+      "resizing": false,
+      "review": "pending"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/parallel-c-capybara-private-v1-techniques/inspection-strips/both-block-1-half-0.png",
+      "sha256": "3cfafe08b992b41a93034705f17d50da771c74729e90fa3c9cd3fa9e1ccbf686",
+      "sources": [
+        {
+          "path": ".tmp/pet-companion-techniques/parallel-c-capybara-private-v1-techniques/inspection-strips/front-block-1-half-0.png",
+          "sha256": "4c764ba6a394cba03f1ee2dda66b73554ebce6a52a294e5806e24f595c71cc7f",
+          "width": 1320,
+          "height": 609,
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-companion-techniques/parallel-c-capybara-private-v1-techniques/inspection-strips/side-block-1-half-0.png",
+          "sha256": "4658632e2f9fcf096f5edf8bf9692d3c2a38e39d6c8a1e0a9051bf6aeab190c6",
+          "width": 1320,
+          "height": 609,
+          "top": 609
+        }
+      ],
+      "nativePixelsPreserved": true,
+      "resizing": false,
+      "review": "pending"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/parallel-c-capybara-private-v1-techniques/inspection-strips/both-block-1-half-1.png",
+      "sha256": "af2958cf8f5885672398547c65ca7571b66024ae48d284f131bd0c87c44508c6",
+      "sources": [
+        {
+          "path": ".tmp/pet-companion-techniques/parallel-c-capybara-private-v1-techniques/inspection-strips/front-block-1-half-1.png",
+          "sha256": "8a4ac8674031beb5083e0013cfdb98d3d8c15f329cb2405a50b59305af8fd99b",
+          "width": 1320,
+          "height": 609,
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-companion-techniques/parallel-c-capybara-private-v1-techniques/inspection-strips/side-block-1-half-1.png",
+          "sha256": "faf9fc32f93c615aa297ab81012df057ed3bb957e897cd1a1766952ef242d205",
+          "width": 1320,
+          "height": 609,
+          "top": 609
+        }
+      ],
+      "nativePixelsPreserved": true,
+      "resizing": false,
+      "review": "pending"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/parallel-c-capybara-private-v1-techniques/inspection-strips/both-block-2-half-0.png",
+      "sha256": "ca7b36ae9822f4d7cbeedb6b092b15a59462aa583618771c311e5690a089d230",
+      "sources": [
+        {
+          "path": ".tmp/pet-companion-techniques/parallel-c-capybara-private-v1-techniques/inspection-strips/front-block-2-half-0.png",
+          "sha256": "15a07085c4aba56ed80a4ea73b372bcae50e1c06e05d6e4e5274c8063efb6715",
+          "width": 1320,
+          "height": 609,
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-companion-techniques/parallel-c-capybara-private-v1-techniques/inspection-strips/side-block-2-half-0.png",
+          "sha256": "7081fa0c74e4ca980d89504cb79702e4d4c6018b7c76382739afdf8b96c61e29",
+          "width": 1320,
+          "height": 609,
+          "top": 609
+        }
+      ],
+      "nativePixelsPreserved": true,
+      "resizing": false,
+      "review": "pending"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/parallel-c-capybara-private-v1-techniques/inspection-strips/both-block-2-half-1.png",
+      "sha256": "d6023602152e3a85868e622a8a478e8f5b7f4b2482b7b268c174355972c551a1",
+      "sources": [
+        {
+          "path": ".tmp/pet-companion-techniques/parallel-c-capybara-private-v1-techniques/inspection-strips/front-block-2-half-1.png",
+          "sha256": "c1745f20d34d731da5a13e8e4ac28f596bae00fbc811d1e0e86c0f3ad093a624",
+          "width": 1320,
+          "height": 609,
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-companion-techniques/parallel-c-capybara-private-v1-techniques/inspection-strips/side-block-2-half-1.png",
+          "sha256": "3213027ceba5a820dd4eca5717384cbcdef00dc443dbc6dbac50954babbd5f54",
+          "width": 1320,
+          "height": 609,
+          "top": 609
+        }
+      ],
+      "nativePixelsPreserved": true,
+      "resizing": false,
+      "review": "pending"
+    }
+  ]
+}

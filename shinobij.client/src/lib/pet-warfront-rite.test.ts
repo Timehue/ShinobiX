@@ -9,6 +9,7 @@ import {
     tryMoveRitePet, type RitePlan,
 } from "./pet-warfront-rite";
 import { riteTacticalReport } from "./pet-warfront-rite-presentation";
+import { petBattleJutsus } from '../../../shared/pet-battle-loadout';
 import {
     WARFRONT_ARENA_X, WARFRONT_ARENA_Y, WARFRONT_DEFAULT_DEPLOYMENT,
     WARFRONT_DEPLOYMENT_NODES, WARFRONT_GRID_COLS, WARFRONT_GRID_ROWS,
@@ -181,7 +182,9 @@ test("best of three stops when a side reaches two", () => {
 });
 
 test("exact cumulative exit health stays below the survivor floor until the next clash", () => {
-    const result = runWarfrontRite(band("carry-blue"), band("carry-red"), 4, plan(), plan());
+    // Retain the authored-kit transcript that exercises this exact survivor-floor edge.
+    const retained = (prefix: string) => band(prefix).map(pet => ({ ...pet, battleLoadoutVersion: 'legacy-v1' as const }));
+    const result = runWarfrontRite(retained("carry-blue"), retained("carry-red"), 4, plan(), plan());
     assert.equal(result.clashes.length, 3, "carry-floor fixture must reach the deciding clash");
     const clash = result.clashes[1];
     const combatant = clash.red.find((entry) => entry.slot === 1);
@@ -201,6 +204,35 @@ test("exact cumulative exit health stays below the survivor floor until the next
     const expectedNextEntry = RITE_MIN_ENTRY_HP + (1 - RITE_MIN_ENTRY_HP) * share;
     assert.ok(Math.abs(next.entryHp - expectedNextEntry) <= 1e-12,
         `next-clash floor/regroup mismatch: expected ${expectedNextEntry}, got ${next.entryHp}`);
+});
+
+test('fresh progression carry preserves exact exit health and regroups only the next admission', () => {
+    let transitions = 0;
+    for (const seed of [1, 4, 7]) {
+        const blue = band('progression-carry-blue'), red = band('progression-carry-red');
+        for (const pet of [...blue, ...red]) {
+            const kit = petBattleJutsus(pet, { forceProgression: true });
+            assert.ok(kit.length > 0 && kit.every(move => !!move.abilityId && (move.unlockLevel ?? 1) <= pet.level));
+        }
+        const result = runWarfrontRite(blue, red, seed, plan(), plan());
+        for (let index = 0; index < result.clashes.length; index++) {
+            const clash = result.clashes[index];
+            for (const [side, team] of [['blue', 'player'], ['red', 'enemy']] as const) for (const combatant of clash[side]) {
+                const actor = clash.result.snapshots.at(-1)?.actors.find(actor => actor.team === team && actor.slot === combatant.lane);
+                assert.ok(actor);
+                const expectedExit = combatant.entryHp * actor.hp / actor.maxHp;
+                assert.ok(Math.abs(combatant.exitHp - expectedExit) <= 1e-12, 'the public exit is the actual cumulative HUD fraction');
+                const next = result.clashes[index + 1]?.[side].find(entry => entry.slot === combatant.slot);
+                if (next && combatant.exitHp > 0) {
+                    const base = Math.max(RITE_MIN_ENTRY_HP, combatant.exitHp);
+                    const share = clash.winner === null || clash.winner === side ? RITE_REGROUP : RITE_LOSER_REGROUP;
+                    assert.ok(Math.abs(next.entryHp - Math.min(1, base + (1 - base) * share)) <= 1e-12);
+                    transitions++;
+                }
+            }
+        }
+    }
+    assert.ok(transitions >= 4, 'the progression fixtures must actually exercise surviving next-clash admissions');
 });
 
 test("ordered re-form locks can change both rematches without rewriting a completed clash", () => {

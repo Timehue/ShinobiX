@@ -1,0 +1,351 @@
+{
+  "id": "standard-3",
+  "name": "Forest Hawk",
+  "reviewer": "parallel-c",
+  "reviewedAt": "2026-10-20T19:53:40.109Z",
+  "candidate": "canonical-exact-bytes-held-for-scarf-diagnosis",
+  "sourceSha256": "3f95067b53342568b4dd24d334da9e5e6520f848199cccb62c56935210b8f55f",
+  "battleSha256": "9e787a24295c6566edf2f3470e1414c21dc17fcf763e50a6e9f75cb9c6426efc",
+  "atlasSha256": "926e491bdf63cbb20fc3a2207ed2a57fcd1cf464410920771ce11d9529e14c6d",
+  "rendererSha256": "b2253b71fbcb21a83d82de35ab5783dd57b525cfc94740fb131dd1eb0049a897",
+  "companionComponentSha256": "17ac6c4c1c4ef4eb242bebf5f0a34d9de3519bb5d6415aa906b1970afcc440f8",
+  "raw": {
+    "clipsPerStage": 13,
+    "progress": [
+      0.08,
+      0.28,
+      0.48,
+      0.68,
+      0.88,
+      1
+    ],
+    "headViews": 5,
+    "bodyViews": 2,
+    "poseViewsActuallyViewed": 1092
+  },
+  "runtime": {
+    "rowsPerStagePerBudget": 16,
+    "budgets": [
+      "low",
+      "medium"
+    ],
+    "views": [
+      "front",
+      "side"
+    ],
+    "regions": [
+      "body",
+      "head"
+    ],
+    "phaseSamples": 6,
+    "poseViewsActuallyViewed": 1536,
+    "display": "Eight native lossless composites assembled from four slices each, personally viewed at original detail."
+  },
+  "actualBattleTechniqueFramesActuallyViewed": 216,
+  "extraNativeContactFramingFramesActuallyViewed": 3,
+  "advancingIdleFramesActuallyViewed": 24,
+  "atlasCellsActuallyViewed": 16,
+  "status": "hold-scarf-shape",
+  "result": "Full independent visual coverage completed on these exact canonical bytes. All source and battle thirteen raw clips, five face and two body views at six fresh phases were personally seen. Eyes, beak, cream cheeks and chin remain coherent; wings, torso, hips, legs, talons and feather tail stay connected. The dark scarf has an unresolved shape change: raw attack .28 compresses it into a thin strip beneath the lower beak while cream throat/chest elongates; attack .48 expands it into a broad rounded dark bib covering the raised throat. Under-front .28 shows an uneven lateral scarf edge. Cast tilted-up poses show a milder expansion. All low/medium transition rows were reviewed, including strike onset .025/.05/.10 where the expanded dark bib is also conspicuous. All216 actual battle technique frames were reviewed: Wind Strike and Wind Breaker .24/.36 show the compressed strip, and .48 the expanded bib. Full native Wind Strike front .36/.48 and side .48 retain this appearance. This remains a bounded ownership/rigging concern, not a claim of topology tearing. Idle24 and atlas16 personally viewed; those scopes retain coherent anatomy.",
+  "scopeLimit": "Complete personally viewed local canonical scope held for scarf ownership/anatomy diagnosis. No whole-pet approval or live verification. Parent first-scope receipts remain unchanged; no numerical clearance inferred from pixels.",
+  "wholePetApproval": false,
+  "evidence": [
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-3/canonical-full-scarf-hold/source-standard-3-head-front.webp",
+      "sha256": "fcff174c118fd564a98967525600f48b389d50b158f5720589b00670166b9a0a",
+      "kind": "fresh-raw-head",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-3/canonical-full-scarf-hold/source-standard-3-head-side.webp",
+      "sha256": "0c5cb7fb86fbee8b9f977a839ec583b2ec21d3b33e0cbd7e662b88abf473b667",
+      "kind": "fresh-raw-head",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-3/canonical-full-scarf-hold/source-standard-3-head-other-side.webp",
+      "sha256": "478f757ea1eebd245cbed329d4353f7b01effd2c726665f0d802c3e16061ba2d",
+      "kind": "fresh-raw-head",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-3/canonical-full-scarf-hold/source-standard-3-head-under-front.webp",
+      "sha256": "991c9f48d45c8e3beedde9f2cb7194fc9016109c586b7e31d0a91682448d5cec",
+      "kind": "fresh-raw-head",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-3/canonical-full-scarf-hold/source-standard-3-head-under-side.webp",
+      "sha256": "20137811706747b25878f2f470358361ea5a080b7c50124c5d568ddb70642984",
+      "kind": "fresh-raw-head",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-3/canonical-full-scarf-hold/source-head-manifest.json",
+      "sha256": "4269773fabe7a91ad5075505f664990884ade78b3ca710e1405b4ea5e5ca52a8",
+      "kind": "capture-manifest",
+      "actuallyViewed": false
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-3/canonical-full-scarf-hold/source-standard-3-front.webp",
+      "sha256": "2090ff777d3bb127c1701efce46d63c7764dd238e9f59122d791d5dcbfedead0",
+      "kind": "fresh-raw-body",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-3/canonical-full-scarf-hold/source-standard-3-side.webp",
+      "sha256": "933b035cc60ad2efb73a169d58fee200210bd79a260330c60f1d1f16d8144fc6",
+      "kind": "fresh-raw-body",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-3/canonical-full-scarf-hold/source-body-manifest.json",
+      "sha256": "3b542515cb6ca70840d39289b22a2eca2e645019d74ac0ba33952a64c1a0f607",
+      "kind": "capture-manifest",
+      "actuallyViewed": false
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-3/canonical-full-scarf-hold/battle-standard-3-head-front.webp",
+      "sha256": "8767978a583ff41b5c56039891c56a05ad325bd5c74f332f0fad0b5d21f9da96",
+      "kind": "fresh-raw-head",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-3/canonical-full-scarf-hold/battle-standard-3-head-side.webp",
+      "sha256": "a012f6d21bf7397804cc54fe9ac2e9f8524e4096cfc399aafe96e2b7f6ff483e",
+      "kind": "fresh-raw-head",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-3/canonical-full-scarf-hold/battle-standard-3-head-other-side.webp",
+      "sha256": "057180c71b33953cd9b15a4b886504b3a917329e6a289dd9c44ecb23f43b1d43",
+      "kind": "fresh-raw-head",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-3/canonical-full-scarf-hold/battle-standard-3-head-under-front.webp",
+      "sha256": "5f811e0ffd2e85b774eaceed64785335510be934cc5d9330251bb313420242ea",
+      "kind": "fresh-raw-head",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-3/canonical-full-scarf-hold/battle-standard-3-head-under-side.webp",
+      "sha256": "196e357eea919e7c8e84450bc20b4b7354ea9c6911553c494bc5fb8ff0092c21",
+      "kind": "fresh-raw-head",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-3/canonical-full-scarf-hold/battle-head-manifest.json",
+      "sha256": "ab523eb8b944a16f144cd38dac11e9586a6c06696dd22e816b9134f2f07a7d92",
+      "kind": "capture-manifest",
+      "actuallyViewed": false
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-3/canonical-full-scarf-hold/battle-standard-3-front.webp",
+      "sha256": "5e7c249fa6f7c5cd2ef28e81c883f6391e9259b0cf971ec998f61e13c2356d60",
+      "kind": "fresh-raw-body",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-3/canonical-full-scarf-hold/battle-standard-3-side.webp",
+      "sha256": "7197b4a1e9d4df8cdcadfda0bf57d06f4dbafc06903bc8904f7a23e09b41ee1c",
+      "kind": "fresh-raw-body",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-3/canonical-full-scarf-hold/battle-body-manifest.json",
+      "sha256": "74cb271795757493a7d2438b706b1d9dde3de32b086612e401fb41070196ad5c",
+      "kind": "capture-manifest",
+      "actuallyViewed": false
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-3/canonical-full-scarf-hold/runtime-low-source-body.png",
+      "sha256": "73aaab4df23e943b27a69c6082c98d39c388a8fafead09faaede95992885a3e0",
+      "kind": "runtime-low",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-3/canonical-full-scarf-hold/runtime-low-source-head.png",
+      "sha256": "a8d9a6dc5cb39d52c9e6825f034532c1bf429a935aa1a67e6db2f61b06f17ef6",
+      "kind": "runtime-low",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-3/canonical-full-scarf-hold/runtime-low-battle-body.png",
+      "sha256": "acfcf48aadb6ebeb32b34c7900f210f04f2b5e466e716a344d3fcdf5b28c2802",
+      "kind": "runtime-low",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-3/canonical-full-scarf-hold/runtime-low-battle-head.png",
+      "sha256": "af201e5cf7fdd5e3afd3b88b4f0264090e5bd75cf801df4ecb6711fb880f43db",
+      "kind": "runtime-low",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-3/canonical-full-scarf-hold/runtime-low-manifest.json",
+      "sha256": "e7296d5b025fcd388d4c3bd6acd321656aaf8aa0232db1bdda52c5e2b6eb1aad",
+      "kind": "capture-manifest",
+      "actuallyViewed": false
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-3/canonical-full-scarf-hold/runtime-low-native-composite-manifest.json",
+      "sha256": "e3780f70425c44071381fd50d529ec80d6a0c181cef428294d2daa83b884ae22",
+      "kind": "composition-manifest",
+      "actuallyViewed": false
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-3/canonical-full-scarf-hold/runtime-medium-source-body.png",
+      "sha256": "12bb12a44e5a8306c40441326971de79cdd1c874c7caf2147d09d40ad11db481",
+      "kind": "runtime-medium",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-3/canonical-full-scarf-hold/runtime-medium-source-head.png",
+      "sha256": "3c68567bfceba908082b5681a84b5f13d6a755ce4b33537f372f5d73e5d1c5a2",
+      "kind": "runtime-medium",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-3/canonical-full-scarf-hold/runtime-medium-battle-body.png",
+      "sha256": "be86f879ec79e5743a62f4ef6854ba860aaab39a1d3109d7b494c78ab69867ae",
+      "kind": "runtime-medium",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-3/canonical-full-scarf-hold/runtime-medium-battle-head.png",
+      "sha256": "99dbe6c08ff2cf7b816085b0a0840f1dcb86144754f8f51fe2949b971f65c258",
+      "kind": "runtime-medium",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-3/canonical-full-scarf-hold/runtime-medium-manifest.json",
+      "sha256": "eb817d9d288d5ef69f064e6a5b0dc3192774491572c9af925cdcaa877b7ac317",
+      "kind": "capture-manifest",
+      "actuallyViewed": false
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-3/canonical-full-scarf-hold/runtime-medium-native-composite-manifest.json",
+      "sha256": "83131cc1489e8f98b63c70fc6190af179e3b0dfba9b232e119ab944d7a211c72",
+      "kind": "composition-manifest",
+      "actuallyViewed": false
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-3/canonical-full-scarf-hold/technique-both-block-0-half-0.png",
+      "sha256": "141ccc20b0e25f991f75c3d9b4a02b65a1201664e7993b087460bdfd7fb5e9e8",
+      "kind": "actual-battle-techniques",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-3/canonical-full-scarf-hold/technique-both-block-0-half-1.png",
+      "sha256": "727f2e1ae05850ed5ad59c1ec89431d45e7e08dc457db9705297ffd2f853f1e5",
+      "kind": "actual-battle-techniques",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-3/canonical-full-scarf-hold/technique-both-block-1-half-0.png",
+      "sha256": "d16d80b2d8eee06b281c4a5604ac614baf1d6e9edcda036f42157b18810adb0b",
+      "kind": "actual-battle-techniques",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-3/canonical-full-scarf-hold/technique-both-block-1-half-1.png",
+      "sha256": "f4d400042a493132bdb0d53d5ce22ea20caf128ebb05da71f08c5fd7a8f958da",
+      "kind": "actual-battle-techniques",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-3/canonical-full-scarf-hold/technique-both-block-2-half-0.png",
+      "sha256": "c83fabc058184c2c75516b356c49c13d59a1fee84f154a5572f0146086354aaa",
+      "kind": "actual-battle-techniques",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-3/canonical-full-scarf-hold/technique-both-block-2-half-1.png",
+      "sha256": "e250a43c8caad93aeec5758ea3f11b9a9323ead9fb13aad4bad6876aaa7917a2",
+      "kind": "actual-battle-techniques",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-3/canonical-full-scarf-hold/standard-3-wind-strike-front-3.png",
+      "sha256": "b52029425c8760d1ae0e1c08ebb31b1afed46ca413eeb8aada488cff37fddc3d",
+      "kind": "native-contact-framing",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-3/canonical-full-scarf-hold/standard-3-wind-strike-front-4.png",
+      "sha256": "f2947ff5fff2e09a88966d4165f224c2e5d3ec2cb252c014e31c37e07211f53f",
+      "kind": "native-contact-framing",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-3/canonical-full-scarf-hold/standard-3-wind-strike-side-4.png",
+      "sha256": "a99ec9bd8688cd9096b5e874010e816bac434040298391f45ecb0812e7731112",
+      "kind": "native-contact-framing",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-3/canonical-full-scarf-hold/techniques-manifest.json",
+      "sha256": "e208f89421d84c7e9f22e8808557ec1264c9d1d3d487597b1cc6d7908c94a400",
+      "kind": "capture-manifest",
+      "actuallyViewed": false
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-3/canonical-full-scarf-hold/techniques-both-views-manifest.json",
+      "sha256": "60923c1bd4d51fc85eea2f3c02a7d4952be0df1c2c06963d877a880e113028a8",
+      "kind": "composition-manifest",
+      "actuallyViewed": false
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-3/canonical-full-scarf-hold/advancing-idle-native.png",
+      "sha256": "e9007381b3d854022b633f06ed07315fb7546f703a807716d83ce022dc4c333e",
+      "kind": "advancing-idle",
+      "actuallyViewed": true,
+      "detail": "original"
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-3/canonical-full-scarf-hold/advancing-idle-native-manifest.json",
+      "sha256": "26ad45b914a2bfbe635d572eb9732607bb12a25886bdc4c2a756c210b2d9db4c",
+      "kind": "capture-manifest",
+      "actuallyViewed": false
+    },
+    {
+      "path": "docs/screenshots/pet-parallel-review-c-2026-10-20/standard-3/canonical-full-scarf-hold/atlas.webp",
+      "sha256": "926e491bdf63cbb20fc3a2207ed2a57fcd1cf464410920771ce11d9529e14c6d",
+      "kind": "atlas",
+      "actuallyViewed": true,
+      "detail": "original"
+    }
+  ]
+}

@@ -54,6 +54,8 @@ describe('The Hollow Gate Reckoning authority', () => {
         const awakening = announcements?.find((item) => item.type === 'world_crisis_80_awakened')?.message ?? '';
         assert.match(awakening, /triggered the public alarm/i);
         assert.match(awakening, /record keepers opened four regional reports already filed by Kite Harrow/i);
+        assert.match(awakening, /same quartered claim from Hollow Gate/i);
+        assert.match(awakening, /fight a three-person Collection Cell as a shinobi, or send three companions against a pursuit pack/i);
         assert.doesNotMatch(awakening, /field record reconciled|reconciled Harrow's four/i);
 
         await stateApi.applyWorldCrisis80AdminAction({ action: 'resolve', now: 9_000 });

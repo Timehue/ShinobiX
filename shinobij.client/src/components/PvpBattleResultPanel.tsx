@@ -34,7 +34,7 @@ export function PvpBattleResultPanel(p: Props) {
             role="dialog" aria-modal="true" aria-labelledby="pvp-battle-result-title">
             <article className="card battle-ended-card pvp-result-card">
                 <header>
-                    <small>{cancelled ? "Duel ended before combat" : `Duel complete · Round ${p.round}`}</small>
+                        <small>{cancelled ? "Duel ended before combat" : `Duel complete · Round ${p.round}`}</small>
                     <h2 id="pvp-battle-result-title" className={p.outcome === "victory" ? "battle-result-win" : p.outcome === "defeat" ? "battle-result-loss" : ""}>{title}</h2>
                     <strong>{p.combatants}</strong>
                 </header>

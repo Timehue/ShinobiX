@@ -1,0 +1,72 @@
+{
+  "schema": 1,
+  "errors": [],
+  "pets": [
+    {
+      "id": "starter-lightning",
+      "name": "Spark Pup",
+      "url": "/.tmp/spark-pup-root-clearance-v11/warfront-lod/starter-lightning.glb",
+      "sha256": "bbb14b6789d665d0c1bc4397e256cf7389eb14590059770ad852fcdf65e5e30e",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "progress": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ],
+      "views": [
+        "head-front",
+        "head-side",
+        "head-other-side"
+      ],
+      "materialTreatment": {
+        "mode": "production-diffuse",
+        "materials": 1,
+        "metalnessMax": 0.05,
+        "roughnessRange": [
+          0.58,
+          0.82
+        ]
+      },
+      "region": {
+        "y": [
+          -2,
+          -2
+        ],
+        "bounds": [
+          -0.5691014733202012,
+          0.5422856886469936,
+          -0.12004407966300533,
+          0.7519420552271345,
+          0.42150745773702036,
+          1.1003678509180546
+        ],
+        "cameraPadding": 1.15
+      },
+      "sheets": [
+        "starter-lightning-head-front.webp",
+        "starter-lightning-head-side.webp",
+        "starter-lightning-head-other-side.webp"
+      ],
+      "review": "pending",
+      "anatomySha256": "8553923dd9d5dc179a1f2e2f412c8a6f5c2dcf3e892441d1dc9cd9a3b0149097"
+    }
+  ],
+  "artisticCertification": false
+}

@@ -112,7 +112,7 @@ describe("challenge acceptance save-session authority", () => {
             /const notified = await (?:\(await loadPlayerApi\(\)\)\.)?postPlayerChallengeNotice/,
             "the notice must not be awaited on the routing path — a hung notice cannot strand a live session",
         );
-        assert.match(playerAccept, /may not be pulled in automatically/,
+        assert.match(playerAccept, /may not join automatically/,
             "a failed notice must still tell the accepter their opponent needs to reopen the game");
         assert.doesNotMatch(playerAccept, /fetchPlayerCombatSave\(challenge\.fromName\)/,
             "the browser must not repeat the server's challenger-save read before connecting");

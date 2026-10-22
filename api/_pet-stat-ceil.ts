@@ -1,10 +1,10 @@
 /*
  * Server-side anti-tamper ceiling for pet battle stats (hp / attack / defense / speed).
  *
- * Reset-era growth is bounded by level 100, a 50-point per-attribute cap, and
+ * Reset-era growth is bounded by level 100, a 297-point total budget, and
  * authoritative recalculation from immutable species stats. The largest legal
  * multiplier is an attribute at level 100 with an apex trait:
- *   1 + 0.7425 core + 0.50 allocation + 0.20 trait = 2.4425× species base.
+ *   1 + 0.7425 core + 0.9675 allocation + 0.20 trait = 2.91× species base.
  *
  * The flat 100k clamp that replaced the old per-rarity caps was ~300x a legit
  * level-100 build, so it did NOT actually stop a tampered save from sealing an
@@ -28,7 +28,7 @@ export const PET_BASE_STATS: Record<string, Record<PetCeilStat, number>> = {
     mythic:    { hp: 462, attack: 60, defense: 43, speed: 45 },
 };
 
-// 5× the rarity baseline leaves room for species/role variance above the 2.4425×
+// 5× the rarity baseline leaves room for species/role variance above the 2.91×
 // growth maximum while substantially tightening the legacy combat boundary.
 export const PET_STAT_CEIL_FACTOR = 5;
 

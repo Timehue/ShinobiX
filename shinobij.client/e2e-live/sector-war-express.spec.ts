@@ -112,6 +112,15 @@ async function backToSector(page: Page) {
     await expect(sectorMap).toBeVisible({ timeout: 60_000 });
 }
 
+async function watchSectorReplayFast(page: Page) {
+    // Watch every recorded beat using the viewer's existing fast control.
+    // Two normal-speed replays can outlast the result assertion's deadline.
+    const replay = page.getByRole('dialog', { name: /Pet Showdown/ });
+    await expect(replay).toBeVisible({ timeout: 30_000 });
+    await replay.getByRole('button', { name: 'Normal playback', exact: true }).click();
+    await expect(replay.getByRole('button', { name: 'Fast playback', exact: true })).toBeVisible();
+}
+
 async function logoutAndRelogin(page: Page, name: string) {
     const loggedOut = page.getByTestId('start-create');
     const blocked = page.getByRole('alertdialog', { name: /Save temporarily paused|Save Failed/ });
@@ -177,10 +186,11 @@ test('a real sector pet war is discoverable, replayed, persistent, and isolated 
     expect(decided).toMatchObject({ status: 'done', appliedToContest: true, engine: 'showdown' });
 
     await expect(page.getByText(/Your pet won the sector duel|Your pet was defeated/)).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByRole('dialog', { name: /Pet Showdown/ })).toBeVisible({ timeout: 30_000 });
+    // Watch the complete recorded duel using the viewer's existing fast-playback control.
+    await watchSectorReplayFast(page);
     const result = page.getByRole('dialog', { name: /Victory|Defeat/ });
     await expect(result).toBeVisible({ timeout: 60_000 });
-    await result.getByRole('button', { name: 'Leave the Showdown', exact: true }).click();
+    await result.getByRole('button', { name: 'Back to World Map', exact: true }).click();
     await page.locator('.app-shell[data-screen="worldMap"]').waitFor({ state: 'visible' });
 
     const scored = (await warMap(request, attacker.headers)).contests.find((entry: Json) => entry.id === contest.id) as Json;
@@ -277,6 +287,7 @@ test('attacking an enemy in a Pet war\'s sector is a pet battle, opened on both 
         await expect(defenderPage.getByText(verdict)).toBeVisible({ timeout: 30_000 });
         const attackerWon = await page.getByText('Your pet won the sector duel!').isVisible();
         expect(await defenderPage.getByText('Your pet won the sector duel!').isVisible(), 'one battle, one winner').toBe(!attackerWon);
+        await Promise.all([page, defenderPage].map(watchSectorReplayFast));
         await page.screenshot({ path: info.outputPath('open-pet-battle-attacker.png'), animations: 'disabled' });
         await defenderPage.screenshot({ path: info.outputPath('open-pet-battle-target.png'), animations: 'disabled' });
 
@@ -286,7 +297,7 @@ test('attacking an enemy in a Pet war\'s sector is a pet battle, opened on both 
 
         const result = page.getByRole('dialog', { name: /Victory|Defeat/ });
         await expect(result).toBeVisible({ timeout: 60_000 });
-        await result.getByRole('button', { name: 'Leave the Showdown', exact: true }).click();
+        await result.getByRole('button', { name: 'Back to World Map', exact: true }).click();
         await backToSector(page);
 
         // The loser cannot be set on again at once, and whoever tries is told why
@@ -296,7 +307,7 @@ test('attacking an enemy in a Pet war\'s sector is a pet battle, opened on both 
         if (!attackerWon) {
             const targetResult = defenderPage.getByRole('dialog', { name: /Victory|Defeat/ });
             await expect(targetResult).toBeVisible({ timeout: 60_000 });
-            await targetResult.getByRole('button', { name: 'Leave the Showdown', exact: true }).click();
+            await targetResult.getByRole('button', { name: 'Back to World Map', exact: true }).click();
             await backToSector(defenderPage);
         }
         const again = winnerPage.getByRole('button', { name: `Pet battle ${loserName}`, exact: true });

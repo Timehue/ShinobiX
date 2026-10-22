@@ -1,0 +1,76 @@
+{
+  "schema": 1,
+  "errors": [],
+  "pets": [
+    {
+      "id": "rare-42",
+      "name": "Thunder Jerboa",
+      "url": "/.tmp/thunder-jerboa-floor/source-candidate-v1.glb",
+      "sha256": "778b0163155152d9e2730491cbddf0f0ca54d021bdc2be2a8ef49a289029e4cd",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "progress": [
+        0.04,
+        0.2,
+        0.4,
+        0.6,
+        0.8,
+        0.98
+      ],
+      "views": [
+        "head-front",
+        "head-side",
+        "head-other-side",
+        "head-under-front",
+        "head-under-side"
+      ],
+      "materialTreatment": {
+        "mode": "production-diffuse",
+        "materials": 1,
+        "metalnessMax": 0.05,
+        "roughnessRange": [
+          0.58,
+          0.82
+        ]
+      },
+      "region": {
+        "y": [
+          -2,
+          -2
+        ],
+        "bounds": [
+          -0.26291923363491765,
+          0.3775921724435859,
+          -0.26554459369904243,
+          0.18088584211951322,
+          0.5141289559674816,
+          1.0044281603090728
+        ],
+        "cameraPadding": 1.15
+      },
+      "sheets": [
+        "rare-42-head-front.webp",
+        "rare-42-head-side.webp",
+        "rare-42-head-other-side.webp",
+        "rare-42-head-under-front.webp",
+        "rare-42-head-under-side.webp"
+      ],
+      "review": "pending",
+      "anatomySha256": "3e068d5f82a990e29ec79a27ffe69b6327c62b85ae03c8defa0a9ab5b4ed5368"
+    }
+  ],
+  "artisticCertification": false
+}

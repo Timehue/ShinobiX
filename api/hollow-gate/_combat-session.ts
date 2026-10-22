@@ -52,6 +52,7 @@ export interface HollowGateCombatBinding extends HollowGateActiveEncounter {
 }
 
 export interface HollowGatePetResultReceipt {
+    consumablesCommitted?: true;
     version: typeof HOLLOW_GATE_PET_AUTHORITY_VERSION;
     engine: HollowGatePetEngine;
     proofId: string;
@@ -167,6 +168,7 @@ export function parseHollowGatePetResultReceipt(value: unknown): HollowGatePetRe
         runId: receipt.runId,
         outcome: receipt.outcome,
         playerPetIds: receipt.playerPetIds.slice(0, HOLLOW_GATE_PET_MAX_FIELD),
+        ...(receipt.consumablesCommitted === true ? { consumablesCommitted: true } : {}),
         settledAt: Number(receipt.settledAt),
     };
 }

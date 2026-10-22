@@ -56,12 +56,12 @@ export const CLAN_UPGRADE_MAX_LEVEL = 50;
 export const clanMissionDefinitions = [
     { key: "battle", name: "Win 20 Battles", description: "Clan members combine for 20 battle wins.", target: 20, reward: "+450 Clan XP / +2,500 Treasury Ryo" },
     { key: "mission", name: "Complete 50 Missions", description: "Clan members combine for 50 mission completions.", target: 50, reward: "+650 Clan XP / +3,500 Treasury Ryo" },
-    { key: "guard", name: "Defend Village 10 Times", description: "Ten level-5+ members active in clan battles or missions this month. Sector guards count too.", target: 10, reward: "+500 Clan XP / +2,000 Treasury Ryo" },
+    { key: "guard", name: "Build a Guard Roster of 10", description: "Reach a combined total of 10: guards in reward-active clan sectors plus clan members at level 5 or higher who won a clan battle or finished a mission this month.", target: 10, reward: "+500 Clan XP / +2,000 Treasury Ryo" },
     { key: "territory", name: "Claim Territory", description: "Capture and keep one reward-active clan sector.", target: 1, reward: "Prestige milestone (no item payout)" },
-    { key: "anbu", name: "ANBU Recon Support", description: "Coordinate with ANBU scouts, sector guards, and raid defense missions.", target: 10, reward: "+300 Clan XP / intel advantage" },
-    { key: "donation", name: "Donate 25,000 Ryo", description: "Members donate 25,000 ryo to the treasury this month. Each Fate Shard, Bone Charm, Aura Stone or Mythic Seal counts as 1,000; items do not count.", target: 25000, reward: "+700 Clan XP / +1 Aura Stone" },
-    { key: "training", name: "Train 100 Hours", description: "Long-term clan discipline objective.", target: 100, reward: "+600 Clan XP" },
-    { key: "raid", name: "Defeat 5 Raid Bosses", description: "Raid contribution objective for future PvE events.", target: 5, reward: "+1,350 Clan XP" },
+    { key: "anbu", name: "ANBU Recon Support", description: "Reach 10 recon points. Each guard in a reward-active clan sector adds 1 point; every 5 clan battle wins recorded this month add 1 point.", target: 10, reward: "+300 Clan XP" },
+    { key: "donation", name: "Donate 25,000 Ryo", description: "Members donate 25,000 ryo to the clan treasury this month. Each donated Fate Shard, Bone Charm, Aura Stone or Mythic Seal counts as 1,000 ryo. Items do not count.", target: 25000, reward: "+700 Clan XP / +1 Aura Stone" },
+    { key: "training", name: "Build 100 Activity Points", description: "Battle, mission, and event contributions recorded this month count toward this score. Each contribution adds 1.5 points, rounded down after totaling. No training timer is required.", target: 100, reward: "+600 Clan XP" },
+    { key: "raid", name: "Earn 15 Event Contributions", description: "Every 3 clan event contributions recorded this month fill 1 of the 5 progress steps. Reach 15 contributions to complete the objective.", target: 5, reward: "+1,350 Clan XP" },
 ] as const;
 
 // ── Clan war (CW) tables ─────────────────────────────────────────────────

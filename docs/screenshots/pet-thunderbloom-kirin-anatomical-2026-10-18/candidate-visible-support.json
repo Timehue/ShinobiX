@@ -1,0 +1,95 @@
+{
+  "id": "mythic-13",
+  "sha256": "62eabaf7202d7d74084f0fdb2ea21f73b13a798e58c019b4cec4c340ef0dc77b",
+  "geometrySourceSha256": "1b474681fb09b7ab68b28010e2e34ae2d6af67bc34f68262d01167e6576f2495",
+  "posesPerClip": 481,
+  "results": [
+    {
+      "name": "attack",
+      "paws": {
+        "frontL": {
+          "maxDrift": 0.08615993047633685,
+          "minFloorDelta": -0.000019552566375313774,
+          "maxFloorDelta": 0.05502912726714382,
+          "maxNeckHeadContribution": 0
+        },
+        "frontR": {
+          "maxDrift": 0.00013676077341013952,
+          "minFloorDelta": -0.00006093831599707222,
+          "maxFloorDelta": 0.00003584762855279866,
+          "maxNeckHeadContribution": 0
+        },
+        "hindL": {
+          "maxDrift": 0.00012077470405115623,
+          "minFloorDelta": -0.000017033429121737775,
+          "maxFloorDelta": 0.00003061771932200141,
+          "maxNeckHeadContribution": 0
+        },
+        "hindR": {
+          "maxDrift": 0.00012077470405115623,
+          "minFloorDelta": -0.000017033429121737775,
+          "maxFloorDelta": 0.00003061771932200141,
+          "maxNeckHeadContribution": 0
+        }
+      }
+    },
+    {
+      "name": "cast",
+      "paws": {
+        "frontL": {
+          "maxDrift": 0.00010954940922338271,
+          "minFloorDelta": -0.00002462190642993356,
+          "maxFloorDelta": 0.000026921473321506184,
+          "maxNeckHeadContribution": 0
+        },
+        "frontR": {
+          "maxDrift": 0.00010954940922338271,
+          "minFloorDelta": -0.00002462190642993356,
+          "maxFloorDelta": 0.000026921473321506184,
+          "maxNeckHeadContribution": 0
+        },
+        "hindL": {
+          "maxDrift": 8.067476733182207e-8,
+          "minFloorDelta": -5.940714753460696e-8,
+          "maxFloorDelta": 2.9129482381762273e-8,
+          "maxNeckHeadContribution": 0
+        },
+        "hindR": {
+          "maxDrift": 8.067476733182207e-8,
+          "minFloorDelta": -5.940714753460696e-8,
+          "maxFloorDelta": 2.9129482381762273e-8,
+          "maxNeckHeadContribution": 0
+        }
+      }
+    },
+    {
+      "name": "idle_hitreact1",
+      "paws": {
+        "frontL": {
+          "maxDrift": 0.000004689101225400438,
+          "minFloorDelta": -0.0000010501589147171586,
+          "maxFloorDelta": 5.329091993244717e-7,
+          "maxNeckHeadContribution": 0
+        },
+        "frontR": {
+          "maxDrift": 1.5663127869998948e-7,
+          "minFloorDelta": -6.903936733415605e-8,
+          "maxFloorDelta": 4.499278261071993e-8,
+          "maxNeckHeadContribution": 0
+        },
+        "hindL": {
+          "maxDrift": 2.313292077591435e-7,
+          "minFloorDelta": -2.0286827084881054e-7,
+          "maxFloorDelta": 3.19488234756804e-8,
+          "maxNeckHeadContribution": 0
+        },
+        "hindR": {
+          "maxDrift": 2.313292077591435e-7,
+          "minFloorDelta": -2.0286827084881054e-7,
+          "maxFloorDelta": 3.19488234756804e-8,
+          "maxNeckHeadContribution": 0
+        }
+      }
+    }
+  ]
+}

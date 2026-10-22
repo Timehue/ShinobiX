@@ -1,0 +1,15 @@
+✔ all 322 selected pet GLBs retain exact live geometry, textures, skins and animation payloads (26253.941ms)
+✔ unknown extension references pass through without stripping (115.3427ms)
+✔ foot contact has constant ground speed, clear swing and continuous takeoff/landing (1.2523ms)
+✔ leg solve preserves contact under rotated, nonuniform evolved-model transforms (3.3557ms)
+✔ every delivered full model and LOD carries the reviewed contact bank and bounded precision (11470.779ms)
+✔ production spline interpolation keeps planted feet grounded and cyclic poses seamless (1418.9753ms)
+✔ every live pet and battle LOD keeps its reviewed mesh payload and polished curves (12041.759ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 27611.8987

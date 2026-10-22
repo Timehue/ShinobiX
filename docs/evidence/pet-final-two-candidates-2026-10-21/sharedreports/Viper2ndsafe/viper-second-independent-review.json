@@ -1,0 +1,80 @@
+{
+  "schema": 1,
+  "recordedAt": "2026-10-21",
+  "reviewer": "review-c-luna",
+  "petId": "rare-6",
+  "petName": "Dune Viper",
+  "candidate": "private grounded-v6",
+  "status": "PASS",
+  "independentOf": "review-a-luna",
+  "assetPins": {
+    "source": {
+      "path": "shinobij.client/.tmp/sol-viper-four-leg-rig-v1/grounded-v6/source.glb",
+      "sha256": "4d3136a78c73e66269ada4b2f02bcade5b279aa6dd7ea03a56d5c712e9ec398c"
+    },
+    "battle": {
+      "path": "shinobij.client/.tmp/sol-viper-four-leg-rig-v1/grounded-v6/battle.glb",
+      "sha256": "8a713fca3ad3b93464e9885fdfb4316931bdd8900df4b1f2bf4dd60d8af5ceab"
+    }
+  },
+  "evidence": {
+    "root": "shinobij.client/.tmp/sol-viper-four-leg-rig-v1/review/",
+    "firstReviewManifest": {
+      "path": "shinobij.client/.tmp/sol-viper-four-leg-rig-v1/review/final-private-review.json",
+      "sha256": "eb3a7f6782530462b51bb6a764ec1af4d166cfa9dd4e73cf8b2f2c25d3a5d4f9"
+    },
+    "captureManifests": [
+      {
+        "path": "shinobij.client/.tmp/sol-viper-four-leg-rig-v1/review/raw/manifest.json",
+        "sha256": "1b7ba2fd865b11732db77a04062fbcf5c43aba39204b05ef7265d97784707518",
+        "scope": "source+battle; 13 clips; six phases; front, side, head-front, head-side, head-other-side; ten sheets; zero capture errors"
+      },
+      {
+        "path": "shinobij.client/.tmp/sol-viper-four-leg-rig-v1/review/runtime-low/manifest.json",
+        "sha256": "98bd38e3d63a634efb06c69ccd70106859adf461bc39d979c0f7e8e12e5ef704",
+        "scope": "low quality; source+battle; 16 transitions; six phases; front+side; head+body; four sheets; zero capture errors"
+      },
+      {
+        "path": "shinobij.client/.tmp/sol-viper-four-leg-rig-v1/review/runtime-medium/manifest.json",
+        "sha256": "ddf8275fda4df008efcae9be5a10328e7f127719bc8070a94901c94381cd44e2",
+        "scope": "medium quality; source+battle; 16 transitions; six phases; front+side; head+body; four sheets; zero capture errors"
+      },
+      {
+        "path": "shinobij.client/.tmp/sol-viper-four-leg-rig-v1/review/companion/manifest.json",
+        "sha256": "fc5ff5e8e779ad3b2c9b7a6e9d5b7c319c2eccacbd4601f4e375ee4bc7c9e11a",
+        "componentBundleSha256": "ce8a249b686bc94929c4b1cfb6957120b62af7385a8014d7ad343ba2db9612db",
+        "componentSourceSha256": "58173d245b0db737a1753eacb1cc47df347614f8a2e94eb20ac7272bb3712c89",
+        "rendererSourceSha256": "00dfcc369924555ee93b1feb92c814433ba97317fa9a684c4936c0c3f8e92f56",
+        "scope": "production companion component; battle asset bytes pinned; 24 idle frames; nine techniques x 12 phases x front+side = 216 frames; 36 technique sheets; zero capture errors"
+      },
+      {
+        "path": ".tmp/sol-pet-release/shinobij.client/public/pet-models/warfront-impostors/manifest.json",
+        "scope": "release-delivery impostor atlas entry pins rare-6 battle SHA 8a713fca3ad3b93464e9885fdfb4316931bdd8900df4b1f2bf4dd60d8af5ceab and atlas SHA d5d5c916f1ca3c8e272c5bb060ac56d4a24ff0a2f50b68568800f50f5758c729"
+      }
+    ],
+    "pixelHashValidation": {
+      "checked": 78,
+      "hashMismatches": 0,
+      "includes": "ten raw sheets, eight low+medium runtime sheets, 24 idle frames, 36 technique sheets"
+    },
+    "atlas": {
+      "path": ".tmp/sol-pet-release/shinobij.client/public/pet-models/warfront-impostors/roster/rare-6.webp",
+      "sha256": "d5d5c916f1ca3c8e272c5bb060ac56d4a24ff0a2f50b68568800f50f5758c729",
+      "battleLodSha256": "8a713fca3ad3b93464e9885fdfb4316931bdd8900df4b1f2bf4dd60d8af5ceab",
+      "dimensions": "512x512; 4x4; 16 rendered animation poses",
+      "personallyViewed": true
+    }
+  },
+  "visualReview": {
+    "raw": "I personally inspected all source and battle raw sheets. The coiled tail, torso, head, and four feet remain connected through idle, walk, gallop, jump, attack, hit reaction, death, entrance, cast, guard, rest, and victory. Death and entrance curl the neck and body down over the coil coherently; no detached limb or stretched face is visible.",
+    "runtime": "I personally inspected all low and medium runtime sheets for all 16 transitions on both source and battle models. The transition poses preserve the same connected silhouette. The head/neck orientation shifts with the body, and the feet remain attached; no extra collapse or separation is visible.",
+    "idle": "All 24 idle frames were inspected in the companion preview sheet. The upright neck, face, coil, and feet remain stable without visible discontinuity.",
+    "techniques": "I personally inspected all 36 front/side technique sheets, covering all nine techniques at 12 phases each. The small head, forefoot, and body pose changes remain connected; no visible face shear, limb separation, or deformation was found.",
+    "atlas": "I inspected the exact delivery atlas after confirming its manifest entry pins the reviewed battle GLB. All 16 cells show the same identity and connected body; the death cells are intentionally curled rather than separated.",
+    "verdict": "No confirmed distortion in the full required visual scope."
+  },
+  "limitations": [
+    "The earlier atlas file happened to have the same SHA-256 as the regenerated delivery atlas. This pass inspected the delivered file and verified its current manifest binding to the exact reviewed battle hash; the earlier default-bind comparison was not used as evidence for animated atlas compatibility.",
+    "This is a private-candidate review only. It does not claim production promotion or live deployment."
+  ]
+}

@@ -1,0 +1,137 @@
+{
+  "schema": 1,
+  "recordedAt": "2026-10-21T06:49:18.192Z",
+  "rendererBundleSha256": "12425a72a8f032645e6149725fef5e057d469761c0e535f122dca2b8cf9debb7",
+  "rendererSourceSha256": {
+    "component": "00dfcc369924555ee93b1feb92c814433ba97317fa9a684c4936c0c3f8e92f56",
+    "audit": "f2776e2fc3afbba5ea90e100314b24ca11f1414ca8e672c365b4a8ef3167c324"
+  },
+  "scope": {
+    "rows": [
+      {
+        "name": "idle",
+        "duration": 1.2
+      },
+      {
+        "name": "run",
+        "duration": 0.8
+      },
+      {
+        "name": "dash",
+        "duration": 0.6
+      },
+      {
+        "name": "windup",
+        "duration": 0.38
+      },
+      {
+        "name": "strike",
+        "duration": 0.26
+      },
+      {
+        "name": "recover",
+        "duration": 0.51
+      },
+      {
+        "name": "stagger",
+        "duration": 0.65
+      },
+      {
+        "name": "dodge",
+        "duration": 0.65
+      },
+      {
+        "name": "guard",
+        "duration": 0.8
+      },
+      {
+        "name": "rest",
+        "duration": 1.2
+      },
+      {
+        "name": "cast",
+        "duration": 0.9
+      },
+      {
+        "name": "entrance",
+        "duration": 1.1
+      },
+      {
+        "name": "victory",
+        "duration": 1.2
+      },
+      {
+        "name": "dead",
+        "duration": 1.6
+      },
+      {
+        "name": "revive",
+        "duration": 0.8
+      },
+      {
+        "name": "attack-sequence",
+        "duration": 1.7
+      }
+    ],
+    "phases": [
+      0.025,
+      0.1,
+      0.25,
+      0.5,
+      0.75,
+      1
+    ],
+    "views": [
+      "front",
+      "side"
+    ],
+    "parts": [
+      "head",
+      "body"
+    ],
+    "stages": [
+      "source",
+      "battle"
+    ]
+  },
+  "pets": [
+    {
+      "id": "rare-6",
+      "stages": [
+        {
+          "stage": "source",
+          "modelSha256": "4d3136a78c73e66269ada4b2f02bcade5b279aa6dd7ea03a56d5c712e9ec398c",
+          "loadedMeshes": 1,
+          "quality": "low",
+          "sheets": [
+            {
+              "name": "rare-6-source-head.webp",
+              "sha256": "e33215e8f9d39d2886b79fcc43ec04370071d011b74122b2c55965be949fdc5e"
+            },
+            {
+              "name": "rare-6-source-body.webp",
+              "sha256": "8ea3ab524655d3c2d24aee38b34911921f1e5caf53e349fc8636e081e3208aa6"
+            }
+          ]
+        },
+        {
+          "stage": "battle",
+          "modelSha256": "8a713fca3ad3b93464e9885fdfb4316931bdd8900df4b1f2bf4dd60d8af5ceab",
+          "loadedMeshes": 1,
+          "quality": "low",
+          "sheets": [
+            {
+              "name": "rare-6-battle-head.webp",
+              "sha256": "728a9660602fc3797764401608ed8ad54f3824170aacbdaa7bf7360407389c6b"
+            },
+            {
+              "name": "rare-6-battle-body.webp",
+              "sha256": "fb5cd057456acd30385aeec21babe38edf4c1e84fe4c5ce7fb5969f84c915907"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": []
+}

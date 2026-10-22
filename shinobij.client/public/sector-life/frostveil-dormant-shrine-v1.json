@@ -1,0 +1,55 @@
+{
+  "sector": 31,
+  "artKey": 53,
+  "key": "frostveil-dormant-shrine-v1",
+  "provider": "built-in image_gen",
+  "method": "Full-sector generated edits admitted only at the four authored shrine lamp areas; protected original architecture and all other terrain remain exact before compression.",
+  "areas": [
+    {
+      "left": 168,
+      "top": 751,
+      "width": 54,
+      "height": 54
+    },
+    {
+      "left": 288,
+      "top": 751,
+      "width": 54,
+      "height": 54
+    },
+    {
+      "left": 168,
+      "top": 840,
+      "width": 54,
+      "height": 54
+    },
+    {
+      "left": 288,
+      "top": 840,
+      "width": 54,
+      "height": 54
+    }
+  ],
+  "protected": [
+    {
+      "left": 174,
+      "top": 604,
+      "width": 166,
+      "height": 158
+    }
+  ],
+  "changedOutside": 0,
+  "baseSha256": "a7f5e1bb0d55066d1f158b53c865372b6cefb511e1127c808672168a80afbd08",
+  "sourceHashes": {
+    "unlit": "842da10b0c35db98b0dbbbe8e66b5bd09daed63f9605541f688e122237af8ac0",
+    "lit": "12c74f95fecfae1cd4032ee3716d2c8c56e34f9ac684e847628e8e68982bab17"
+  },
+  "deliveredSha256": "971f2ef680aba8229330fedb96676f239c492bd665cec8cbcc9babb92a04ff63",
+  "bytes": 247642,
+  "prompts": "output/living-world/regional-shrine-image-prompts.json",
+  "visualReview": "passed: full-floor and actual desktop/phone scene review; authored keeper/visitor posts leave the painted lamps and walking approach clear",
+  "evidence": [
+    "output/living-world/browser/desktop-regional-shrine-frostveil-dormant.png",
+    "output/living-world/browser/phone-regional-shrine-frostveil-dormant.png"
+  ]
+}

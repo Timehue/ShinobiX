@@ -1,0 +1,51 @@
+{
+  "id": "rare-3",
+  "coverage": {
+    "rawBattleManifestSha256": "bd18b594738110774374c9dbadf563ffc6c6588ea7d76e12a6ce9a4228666d01",
+    "idle": "Battle idle capture set is bound to the current battle SHA and may be inspected independently; source idle entries are bound to stale source SHA c911fd0c4c18e190b4ebb60d9d76f47b4e8adcbb3a7cdae5ae85711cf08069d6. This report did not personally inspect idle frames.",
+    "rawSourceManifestSha256": "fd6de293b54e95f539d39541413d4ed6fe6fe87d3f186ab17940464a6c31ce05",
+    "rawPhases": [
+      0,
+      0.12,
+      0.24,
+      0.375,
+      0.48,
+      0.625,
+      0.875,
+      1
+    ],
+    "rawStageHashesMatch": true,
+    "rawViews": [
+      "front",
+      "side",
+      "head-front",
+      "head-side",
+      "head-other-side",
+      "head-under-front",
+      "head-under-side"
+    ],
+    "atlas": {
+      "path": "shinobij.client/public/pet-models/warfront-impostors/roster/rare-3.webp",
+      "cellsPersonallyViewed": 16,
+      "sha256": "274f49508f44766e6ffc5da0d9c6e9c826a94d1cbfea5043de10fee5533a7a61",
+      "result": "No malformed, detached, or visibly distorted silhouette seen at atlas-cell scale."
+    },
+    "runtimeLowMedium": "not verified in this report",
+    "techniques": "not verified in this report",
+    "rawClipCount": 13,
+    "rawPersonallyInspected": false
+  },
+  "sourceSha256": "bb79c492e29c5dcf4ec9c3ff97fe04ab6da60a55f4727d07a0139d20d28f75c8",
+  "reviewedAt": "2026-10-21",
+  "schema": 1,
+  "finding": "The exact-current V4 source and current battle LOD are hash-pinned by existing raw manifests. I personally inspected all 16 production impostor atlas cells and saw no malformed or detached silhouette at atlas-cell scale. This is not a full visual PASS: exact-current runtime, idle and technique visual evidence has not been personally reviewed here; the available idle manifest is bound to stale source SHA c911fd0c4c18e190b4ebb60d9d76f47b4e8adcbb3a7cdae5ae85711cf08069d6 and was excluded.",
+  "name": "Sky Falcon",
+  "battleSha256": "97dc8d666e5930e3726c682672bcaecab2524c386869b56cabeca59b7f6f2cb5",
+  "limitations": [
+    "This is a durable package status record, not independent approval of the candidate.",
+    "C current second report is HOLD/in correction; awaiting corrected separate report and restored B first report.",
+    "Exact-current low runtime and technique visual review remains incomplete in this package."
+  ],
+  "reviewer": "review_a_luna",
+  "status": "HOLD-incomplete-exact-current-review"
+}

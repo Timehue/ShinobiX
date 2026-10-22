@@ -1,0 +1,72 @@
+{
+  "schema": 1,
+  "errors": [],
+  "pets": [
+    {
+      "id": "mythic-12",
+      "name": "Skyglass Kirin",
+      "url": "/pet-models/warfront-lod/roster/mythic-12.glb",
+      "sha256": "712487fa403b0112b170c435b7b0f25078dddb0f58100580ad8156b49abbc525",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "progress": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ],
+      "views": [
+        "head-front",
+        "head-side",
+        "head-other-side"
+      ],
+      "materialTreatment": {
+        "mode": "production-diffuse",
+        "materials": 1,
+        "metalnessMax": 0.05,
+        "roughnessRange": [
+          0.58,
+          0.82
+        ]
+      },
+      "region": {
+        "y": [
+          -2,
+          -2
+        ],
+        "bounds": [
+          -0.29598489434033914,
+          0.4177077662080352,
+          0.38577023755972994,
+          1.1003441979820248,
+          0.31836513509236497,
+          1.046184780995528
+        ],
+        "cameraPadding": 1.15
+      },
+      "sheets": [
+        "mythic-12-head-front.webp",
+        "mythic-12-head-side.webp",
+        "mythic-12-head-other-side.webp"
+      ],
+      "review": "pending",
+      "anatomySha256": "b9a29a23ac15117e43b755576f1f38c08d139534e9a065f59699ee656e1ba31e"
+    }
+  ],
+  "artisticCertification": false
+}

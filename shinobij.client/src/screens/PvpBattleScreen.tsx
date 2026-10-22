@@ -246,6 +246,7 @@ export function PvpBattleScreen({
     onWin,
     onLoss,
     onCompletionConfirmed,
+    onRankedSessionConfirmed,
     onExit,
     returnTarget = "battleArena",
     returnLabel = "Return to Arena",
@@ -282,6 +283,8 @@ export function PvpBattleScreen({
     onRewardClaim?: (claim: PvpRewardClaimConfirmed, context?: PvpRewardContinuationContext) => void | Promise<void>;
     /** Fires only after durable App continuations and the server ACK confirm. */
     onCompletionConfirmed?: () => void;
+    /** Repair old/missing browser return context from the sealed session. */
+    onRankedSessionConfirmed?: () => void;
     onExit?: (target: Screen) => void;
     /** Exact origin to restore after the settled result is acknowledged. */
     returnTarget?: Screen;
@@ -305,6 +308,9 @@ export function PvpBattleScreen({
         .some(name => name.trim().toLowerCase() === character.name.trim().toLowerCase()));
     const terminalFightRemovedRef = useRef(false);
     const serverPlayerRanked = session?.playerRankedAuthorityVersion === 2 || session?.ranked === true;
+    useEffect(() => {
+        if (serverPlayerRanked && !spectatorOrigin && isAccountSessionCurrent()) onRankedSessionConfirmed?.();
+    }, [serverPlayerRanked, spectatorOrigin, onRankedSessionConfirmed, isAccountSessionCurrent]);
     // Items are live for real fighters in casual PvP (consumable authority v2:
     // the server seals the budget from the save and deducts at settlement).
     // They stay off only for a v1 session still in flight from before the
@@ -2912,6 +2918,7 @@ export function PvpBattleScreen({
 
                     <PlainCombatBattleLog
                         lines={battleLogLines}
+                        currentRound={session.round}
                         turnLabel={!bothJoined ? `Waiting for ${awaitingFighterName}` : isMyTurn ? "Your Turn" : `${displayedTurnName}'s Turn`}
                         selfName={me.name}
                         oppName={opp.name}

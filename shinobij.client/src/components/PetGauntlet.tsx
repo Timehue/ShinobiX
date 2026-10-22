@@ -22,7 +22,7 @@ import {
     GAUNTLET_REROLL_COST, GAUNTLET_ITEMS, GAUNTLET_RELICS, GAUNTLET_START_HEARTS, GAUNTLET_SHARD_COST, GAUNTLET_CHARM_COST, GAUNTLET_SPIKE_ROUND, itemCost,
     type GauntletRun, type GauntletBuffs,
 } from "../lib/pet-gauntlet";
-import { startGauntlet, reportGauntlet, type GauntletReward, type GauntletAction } from "../lib/pet-gauntlet-api";
+import { startGauntlet, reportGauntlet, pendingGauntlet, rememberGauntlet, type GauntletReward, type GauntletAction } from "../lib/pet-gauntlet-api";
 import { GAUNTLET_NEW_RUN_FEE } from "../lib/entry-fee";
 import { resolveSynergies, applySynergiesToSquad } from "../lib/pet-synergies";
 import { teamStatTotals, elementalEdge, type TeamStatTotals } from "../lib/pet-gauntlet-stats";
@@ -36,6 +36,12 @@ import gauntletBoard from "../assets/coliseum/gauntlet-board.webp";
 
 // Relic icon art (gpt-image-1, transparent). Auto-resolved by filename
 // (`<relicId>.webp`); unknown / missing files use matching Shinobi art.
+const nativePresentationStyle0 = { display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 } satisfies import('react').CSSProperties;
+const nativePresentationStyle1 = { display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 } satisfies import('react').CSSProperties;
+const nativePresentationStyle2 = { position: "absolute", bottom: 0, left: 2, filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.95))" } satisfies import('react').CSSProperties;
+const nativePresentationStyle3 = { display: "flex", gap: 8, flexWrap: "wrap" } satisfies import('react').CSSProperties;
+const nativePresentationStyle4 = { fontWeight: 400, fontSize: "0.74rem" } satisfies import('react').CSSProperties;
+const nativePresentationStyle5 = { margin: "3px 0 6px", fontSize: "0.7rem", minHeight: 28 } satisfies import('react').CSSProperties;
 const RELIC_ART = import.meta.glob<{ default: string }>("../assets/coliseum/relics/*.webp", { eager: true });
 const relicArt = (id: string): string | null => RELIC_ART[`../assets/coliseum/relics/${id}.webp`]?.default ?? null;
 const RELIC_FALLBACK_ART: Record<string, GameArtIconKind> = {
@@ -153,17 +159,21 @@ function TeamStatCard({ title, accent, totals, edge, footer }: { title: string; 
     );
 }
 
-export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: { sharedImages?: Record<string, string>; character: Character; updateCharacter: (c: Character) => void }) {
+export function PetGauntlet({ sharedImages = {}, character, updateCharacter, onVersionedCharacter }: { sharedImages?: Record<string, string>; character: Character; updateCharacter: (c: Character) => void; onVersionedCharacter?: (c: Character, version: number) => void }) {
+    const [pending] = useState(() => pendingGauntlet(character.name));
     // run is null until the server hands back the weekly seed + run token.
-    const [run, setRun] = useState<GauntletRun | null>(null);
-    const [meta, setMeta] = useState<{ token: string; weekKey: string; rewardEligible: boolean } | null>(null);
+    const [run, setRun] = useState<GauntletRun | null>(pending?.run ?? null);
+    const [meta, setMeta] = useState<{ token: string; weekKey: string; rewardEligible: boolean } | null>(pending?.meta ?? null);
     const [reward, setReward] = useState<GauntletReward | null>(null);   // shown on the end screen
     const reportedRef = useRef(false);                                   // report the finished run exactly once
+    const [reportError, setReportError] = useState(false);
+    const [reportExpired, setReportExpired] = useState(false);
+    const [reportAttempt, setReportAttempt] = useState(0);
     // The player's decision transcript (drafts / rerolls / items / relics / premium
     // buys / per-fight placement), in order — replayed server-side to re-simulate the
     // run. Fight outcomes are NOT recorded (the server re-fights each round). Reset on
     // each new run; a run-changing action is recorded next to its setRun call.
-    const transcriptRef = useRef<GauntletAction[]>([]);
+    const transcriptRef = useRef<GauntletAction[]>(pending?.transcript ?? []);
     const record = (a: GauntletAction) => { transcriptRef.current.push(a); };
     const [shopOpen, setShopOpen] = useState(false);                     // the relic bazaar overlay (opened on demand)
     // The active fight: the precomputed board result the board renderer plays.
@@ -173,6 +183,8 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
     useEffect(() => { charRef.current = character; }, [character]);
     const updateCharacterRef = useRef(updateCharacter);
     useEffect(() => { updateCharacterRef.current = updateCharacter; }, [updateCharacter]);
+    const versionedRef = useRef(onVersionedCharacter);
+    useEffect(() => { versionedRef.current = onVersionedCharacter; }, [onVersionedCharacter]);
 
     const fielded = useMemo(() => (run ? fieldedPets(run) : []), [run]);
     const synergies = useMemo(() => resolveSynergies(fielded), [fielded]);
@@ -227,16 +239,22 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
     // await), never synchronously in the effect body.
     const [nonce, setNonce] = useState(0);
     useEffect(() => {
+        if (pending && nonce === 0) return;
         let alive = true;
         void (async () => {
-            const s = await startGauntlet();
+            const s = await startGauntlet(charRef.current.name);
             if (!alive) return;
-            if (s?.character) updateCharacterRef.current(s.character);
+            if (s?.character) {
+                if (versionedRef.current && Number.isSafeInteger(s._saveVersion)) versionedRef.current(s.character, s._saveVersion!);
+                else updateCharacterRef.current(s.character);
+            }
             setMeta(s ? { token: s.runToken, weekKey: s.weekKey, rewardEligible: s.rewardEligible } : null);
             setCells({});
             setSelId(null);
             setFight(null);
             setReward(null);
+            setReportError(false);
+            setReportExpired(false);
             reportedRef.current = false;
             transcriptRef.current = [];
             // Seed the run with the SERVER-MINTED per-run seed so the server can
@@ -246,7 +264,7 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
             setRun(startGauntletRun(seed >>> 0));
         })();
         return () => { alive = false; };
-    }, [nonce]);
+    }, [nonce, pending]);
 
     // When a run ends, report it once → the server pays Ryo (sealed schedule) and
     // returns the credited amount + weekly rank, which we mirror onto the local
@@ -257,22 +275,22 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
         reportedRef.current = true;
         const { token } = meta;
         const transcript = transcriptRef.current;
+        rememberGauntlet({ player: character.name, run, meta, transcript });
+        let alive = true;
         void (async () => {
             const rep = await reportGauntlet(token, transcript);
-            if (!rep) return;
-            setReward(rep);
-            // Mirror the SERVER-granted amounts onto the local character (reconcile).
-            if (rep.ryo > 0 || rep.fateShards > 0 || rep.boneCharms > 0) {
-                const c = charRef.current;
-                updateCharacter({
-                    ...c,
-                    ryo: rep.balances.ryo,
-                    fateShards: rep.balances.fateShards,
-                    boneCharms: rep.balances.boneCharms,
-                });
+            if (!alive) return;
+            if (!rep) { setReportError(true); return; }
+            if ('expired' in rep) { setReportExpired(true); return; }
+            if (rep.character) {
+                if (versionedRef.current && Number.isSafeInteger(rep._saveVersion)) versionedRef.current(rep.character, rep._saveVersion!);
+                else updateCharacterRef.current(rep.character);
             }
+            rememberGauntlet(null);
+            setReward(rep);
         })();
-    }, [run, meta, updateCharacter]);
+        return () => { alive = false; reportedRef.current = false; };
+    }, [run, meta, character.name, reportAttempt]);
 
     if (!run) {
         return <section className="summary-box" style={{ padding: "2rem", textAlign: "center", color: "#94a3b8" }}>Entering the weekly Gauntlet…</section>;
@@ -338,9 +356,10 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
     }
 
     const newRun = () => {
+        if (run && (run.status === 'won' || run.status === 'lost') && meta && !reward) return;
         // The start endpoint debits the stored wallet under its save lock. This
         // local check only gives immediate feedback; it cannot grant a paid run.
-        if ((charRef.current.ryo ?? 0) < GAUNTLET_NEW_RUN_FEE) {
+        if (meta && (charRef.current.ryo ?? 0) < GAUNTLET_NEW_RUN_FEE) {
             return alert(`A new Gauntlet run costs ${GAUNTLET_NEW_RUN_FEE.toLocaleString()} ryo. Not enough ryo.`);
         }
         setRun(null);
@@ -361,6 +380,7 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                     Drafted pets vanish when the run ends — but clearing rounds pays <strong style={{ color: "#fcd34d" }}>Ryo</strong>, and the deepest clears
                     climb the weekly <strong style={{ color: "#c4b5fd" }}>Hall of Legends</strong> board.
                     {meta && !meta.rewardEligible && <em style={{ color: "#fca5a5" }}> · Daily Ryo cap reached — this run is for the leaderboard.</em>}
+                    {!meta && <em> · Practice run — entry not confirmed. This run has no rewards.</em>}
                 </p>
             </div>
 
@@ -374,7 +394,7 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                 <span style={{ color: "#93c5fd" }}>Round {Math.min(run.round, run.maxRounds)} / {run.maxRounds}</span>
                 <span style={{ marginLeft: "auto", display: "inline-flex", gap: 8 }}>
                     {!over && <button type="button" style={btn("#a855f7")} onClick={() => setShopOpen(true)}><GameArtIcon kind="shop" size={18} /> Shop</button>}
-                    <button type="button" style={btn("#475569")} onClick={newRun}>↻ New run ({GAUNTLET_NEW_RUN_FEE.toLocaleString()} ryo)</button>
+                    <button type="button" style={btn("#475569")} disabled={over && !!meta && !reward} onClick={newRun}>{meta ? '↻ New run' : 'Retry entry'} ({!meta ? 'up to ' : ''}{GAUNTLET_NEW_RUN_FEE.toLocaleString()} ryo)</button>
                 </span>
             </div>
 
@@ -395,12 +415,17 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                                     {reward.boneCharms > 0 && <><GameArtIcon kind="boneCharm" size={22} /> +{reward.boneCharms} Bone Charm{reward.boneCharms === 1 ? "" : "s"}</>}
                                 </span>
                             )}
-                            <span className="hint" style={{ fontSize: "0.78rem" }}>Weekly score {reward.score.toLocaleString()}{reward.rank ? ` · rank #${reward.rank}` : ""} · see the Hall of Legends → Gauntlet board</span>
+                            <span className="hint" style={{ fontSize: "0.78rem" }}>{reward.score === null ? 'Saved reward receipt recovered' : `Weekly score ${reward.score.toLocaleString()}${reward.rank ? ` · rank #${reward.rank}` : ''}`} · see the Hall of Legends → Gauntlet board</span>
                         </div>
                     ) : (
-                        <p className="hint" style={{ fontSize: "0.74rem", opacity: 0.75 }}>Tallying the result…</p>
+                        reportExpired ? <div role="alert"><p>This report has expired, and no saved reward receipt is available.</p>
+                            {meta && <button type="button" onClick={() => { rememberGauntlet(null); setMeta(null); }}>Dismiss expired report</button>}
+                        </div> : !meta ? <p className="hint">Practice run complete — no rewards.</p> : reportError ? <div role="alert">
+                            <p>Your Gauntlet result could not be confirmed. Your report is saved for retry.</p>
+                            <button type="button" onClick={() => { reportedRef.current = false; setReportError(false); setReportAttempt(value => value + 1); }}>Retry Gauntlet result</button>
+                        </div> : <p className="hint" role="status">Tallying the result…</p>
                     )}
-                    <div><button type="button" style={{ ...btn("#f59e0b"), padding: "8px 18px", fontSize: "0.9rem" }} onClick={newRun}>Run the weekly Gauntlet again</button></div>
+                    <div><button type="button" disabled={!!meta && !reward} style={{ ...btn("#f59e0b"), padding: "8px 18px", fontSize: "0.9rem" }} onClick={newRun}>Run the weekly Gauntlet again</button></div>
                 </div>
             ) : (
                 <>
@@ -408,12 +433,12 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                     <p className="hint" style={{ margin: "-2px 0 4px", fontSize: "0.76rem", color: run.log[run.log.length - 1]?.includes("lost") ? "#fca5a5" : "#cbd5e1" }}>{run.log[run.log.length - 1]}</p>
                     {/* Fielded squad + active synergies */}
                     <div>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
+                        <div style={nativePresentationStyle0}>
                             <h4 style={{ margin: 0, color: "#e2e8f0" }}>Your Formation ({fielded.length}/5)</h4>
                             <button type="button" style={btn("#f59e0b", fielded.length === 0)} disabled={fielded.length === 0} onClick={startRound}><GameArtIcon kind="attack" size={18} /> Fight round {run.round}</button>
                         </div>
                         {synergies.length > 0 ? (
-                            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
+                            <div style={nativePresentationStyle1}>
                                 {synergies.map((s) => (
                                     <span key={s.def.key} title={`${s.def.flavor} — ${s.tier.note}`} style={{ display: "inline-flex", gap: 5, alignItems: "center", padding: "3px 9px", borderRadius: 999, background: `${s.def.color}22`, border: `1px solid ${s.def.color}`, color: s.def.color, fontWeight: 700, fontSize: "0.74rem" }}>
                                         <GameArtIcon kind={synergyArtKind(s.def.kind, s.def.match)} size={20} />{s.def.label} ×{s.count} <span style={{ opacity: 0.85 }}>· {s.tier.note}</span>
@@ -451,7 +476,7 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                                                         return (
                                                             <div key={`e${gr}-${c}`} style={{ aspectRatio: "1", borderRadius: 6, border: "1px solid rgba(220,90,90,0.26)", background: "rgba(80,25,25,0.22)", position: "relative", display: "grid", placeItems: "center", opacity: 0.72 }}>
                                                                 {eu && eimg ? <img src={eimg} alt="" draggable={false} style={{ maxWidth: "100%", maxHeight: "82%", objectFit: "contain", transform: "scaleX(-1)" }} /> : null}
-                                                                {eu?.pet.element && ELEMENT_ART_KIND[eu.pet.element] && <span title={eu.pet.element} style={{ position: "absolute", bottom: 0, left: 2, filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.95))" }}><GameArtIcon kind={ELEMENT_ART_KIND[eu.pet.element]} size={14} /></span>}
+                                                                {eu?.pet.element && ELEMENT_ART_KIND[eu.pet.element] && <span title={eu.pet.element} style={nativePresentationStyle2}><GameArtIcon kind={ELEMENT_ART_KIND[eu.pet.element]} size={14} /></span>}
                                                             </div>
                                                         );
                                                     }
@@ -465,7 +490,7 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                                                             style={{ aspectRatio: "1", borderRadius: 6, border: `1px solid ${sel ? "#e6c477" : "rgba(96,165,250,0.42)"}`, background: pet ? "rgba(15,23,42,0.5)" : "rgba(30,52,82,0.3)", cursor: "pointer", padding: 2, position: "relative", display: "grid", placeItems: "center", boxShadow: sel ? "0 0 10px rgba(230, 196, 119, 0.7)" : "none" }}>
                                                             {pet && img ? <img src={img} alt={pet.name} draggable={false} style={{ maxWidth: "100%", maxHeight: "82%", objectFit: "contain" }} /> : null}
                                                             {pet && petStar(run, pet.id) > 1 && <span title={`Merged ★${petStar(run, pet.id)}`} style={{ position: "absolute", top: 1, left: 3, fontSize: "0.56rem", fontWeight: 900, color: "#fcd34d", textShadow: "0 1px 2px rgba(0,0,0,0.9)" }}>★{petStar(run, pet.id)}</span>}
-                                                            {pet?.element && ELEMENT_ART_KIND[pet.element] && <span title={pet.element} style={{ position: "absolute", bottom: 0, left: 2, filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.95))" }}><GameArtIcon kind={ELEMENT_ART_KIND[pet.element]} size={14} /></span>}
+                                                            {pet?.element && ELEMENT_ART_KIND[pet.element] && <span title={pet.element} style={nativePresentationStyle2}><GameArtIcon kind={ELEMENT_ART_KIND[pet.element]} size={14} /></span>}
                                                             {pet && <span title={ROLE_META[roleOf(pet)].label} style={{ position: "absolute", bottom: 1, right: 3, filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.95))" }}><GameArtIcon kind={ROLE_ART_KIND[roleOf(pet)]} size={14} /></span>}
                                                         </button>
                                                     );
@@ -529,14 +554,14 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                         relic bazaar (below) sits behind the shopkeeper overlay. */}
                     {/* Shop */}
                     <div>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
+                        <div style={nativePresentationStyle0}>
                             <h4 style={{ margin: 0, color: "#e2e8f0" }}>Recruit Shop</h4>
                             <button type="button" style={btn("#38bdf8", run.valor < rerollCost)} disabled={run.valor < rerollCost} onClick={() => { record({ k: "reroll" }); setRun(rerollShop(run)); }}>
                                 <GameArtIcon kind="dice" size={18} /> Reroll ({rerollCost === 0 ? "free" : `${rerollCost}✦`})
                             </button>
                         </div>
                         <p className="hint" style={{ margin: "0 0 6px" }}>Recruit a pet you already own to <strong style={{ color: "#fcd34d" }}>merge</strong> it — the copy levels up (★) with a stat boost instead of taking a roster slot.</p>
-                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                        <div style={nativePresentationStyle3}>
                             {run.shop.length === 0
                                 ? <p className="hint">Sold out — reroll for fresh recruits.</p>
                                 : run.shop.map((offer, i) => {
@@ -580,8 +605,8 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
 
                     {/* Item shop — Valor consumables that buff the whole run */}
                     <div>
-                        <h4 style={{ margin: "0 0 6px", color: "#e2e8f0" }}>Quartermaster <span className="hint" style={{ fontWeight: 400, fontSize: "0.74rem" }}>· run-wide upgrades</span></h4>
-                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                        <h4 style={{ margin: "0 0 6px", color: "#e2e8f0" }}>Quartermaster <span className="hint" style={nativePresentationStyle4}>· run-wide upgrades</span></h4>
+                        <div style={nativePresentationStyle3}>
                             {GAUNTLET_ITEMS.map((def) => {
                                 const owned = run.itemsBought[def.id] ?? 0;
                                 const maxed = owned >= def.max;
@@ -595,7 +620,7 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                                             <strong style={{ display: "flex", alignItems: "center", gap: 5, fontSize: "0.84rem", color: "#e2e8f0" }}><GameArtIcon kind={ITEM_ART[def.id] ?? "reward"} size={18} /> {def.name}</strong>
                                             {def.max > 1 && <span style={{ fontSize: "0.64rem", color: "#64748b" }}>{owned}/{def.max}</span>}
                                         </div>
-                                        <p className="hint" style={{ margin: "3px 0 6px", fontSize: "0.7rem", minHeight: 28 }}>{def.blurb}</p>
+                                        <p className="hint" style={nativePresentationStyle5}>{def.blurb}</p>
                                         <button type="button" style={btn("#f59e0b", blocked)} disabled={blocked} onClick={() => { record({ k: "item", id: def.id }); setRun(buyItem(run, def.id)); }}>{label}</button>
                                     </div>
                                 );
@@ -605,9 +630,9 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
 
                     {/* Relics — permanent run-long boons, bought with Valor (rolled shelf + owned strip) */}
                     <div>
-                        <h4 style={{ margin: "0 0 6px", color: "#e2e8f0" }}>Relics <span className="hint" style={{ fontWeight: 400, fontSize: "0.74rem" }}>· permanent run-long boons · a fresh selection from {GAUNTLET_RELICS.length} relics rotates in each round (reroll for more)</span></h4>
+                        <h4 style={{ margin: "0 0 6px", color: "#e2e8f0" }}>Relics <span className="hint" style={nativePresentationStyle4}>· permanent run-long boons · a fresh selection from {GAUNTLET_RELICS.length} relics rotates in each round (reroll for more)</span></h4>
                         {run.relics.length > 0 && (
-                            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
+                            <div style={nativePresentationStyle1}>
                                 {run.relics.map((id) => { const d = relicDef(id); const art = relicArt(id); return (
                                     <span key={id} title={d.blurb} style={{ display: "inline-flex", gap: 5, alignItems: "center", padding: "3px 9px", borderRadius: 999, background: "rgba(168,85,247,0.16)", border: "1px solid #a855f7", color: "#d8b4fe", fontWeight: 700, fontSize: "0.74rem" }}>
                                         {art ? <img src={art} alt="" style={{ width: 16, height: 16, objectFit: "contain" }} /> : <GameArtIcon kind={relicFallback(id)} size={16} />}{d.name}
@@ -615,7 +640,7 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                                 ); })}
                             </div>
                         )}
-                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                        <div style={nativePresentationStyle3}>
                             {run.relicShop.length === 0
                                 ? <p className="hint">No relics on offer — reroll to seek new boons.</p>
                                 : run.relicShop.map((id) => { const d = relicDef(id); const blocked = run.valor < d.cost; const art = relicArt(id); return (
@@ -624,7 +649,7 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                                             {art ? <img src={art} alt="" style={{ width: 28, height: 28, objectFit: "contain", filter: "drop-shadow(0 2px 3px rgba(0,0,0,0.5))" }} /> : <GameArtIcon kind={relicFallback(id)} size={28} />}
                                             {d.name}
                                         </strong>
-                                        <p className="hint" style={{ margin: "3px 0 6px", fontSize: "0.7rem", minHeight: 28 }}>{d.blurb}</p>
+                                        <p className="hint" style={nativePresentationStyle5}>{d.blurb}</p>
                                         <button type="button" style={btn("#a855f7", blocked)} disabled={blocked} onClick={() => { record({ k: "relic", id }); setRun(buyRelic(run, id)); }}>Buy · {d.cost}✦</button>
                                     </div>
                                 ); })}
@@ -636,8 +661,8 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                         once per day each (so Valor can't mint unlimited currency). */}
                     {premiumUnlocked(run) && (
                         <div>
-                            <h4 style={{ display: "flex", alignItems: "center", gap: 6, margin: "0 0 6px", color: "#fcd34d" }}><GameArtIcon kind="crown" size={22} /> Rare Goods <span className="hint" style={{ fontWeight: 400, fontSize: "0.74rem" }}>· cleared round 9! · banked to your account at run end (once per day each)</span></h4>
-                            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                            <h4 style={{ display: "flex", alignItems: "center", gap: 6, margin: "0 0 6px", color: "#fcd34d" }}><GameArtIcon kind="crown" size={22} /> Rare Goods <span className="hint" style={nativePresentationStyle4}>· cleared round 9! · banked to your account at run end (once per day each)</span></h4>
+                            <div style={nativePresentationStyle3}>
                                 {[
                                     { kind: "fateShard" as const, name: "Fate Shard", cost: GAUNTLET_SHARD_COST, bought: run.boughtFateShard },
                                     { kind: "boneCharm" as const, name: "Bone Charm", cost: GAUNTLET_CHARM_COST, bought: run.boughtBoneCharm },
@@ -646,7 +671,7 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                                     return (
                                         <div key={p.kind} style={{ border: "1px solid #b45309", borderRadius: 10, background: "rgba(67,40,8,0.5)", padding: "8px 10px", width: 162 }}>
                                             <strong style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: "0.84rem", color: "#fde68a" }}><GameArtIcon kind={p.kind} size={25} /> {p.name}</strong>
-                                            <p className="hint" style={{ margin: "3px 0 6px", fontSize: "0.7rem", minHeight: 28 }}>Bank 1 {p.name} to your account when the run ends.</p>
+                                            <p className="hint" style={nativePresentationStyle5}>Bank 1 {p.name} to your account when the run ends.</p>
                                             <button type="button" style={btn("#f59e0b", blocked)} disabled={blocked} onClick={() => { record({ k: "premium", kind: p.kind }); setRun(buyPremium(run, p.kind)); }}>{p.bought ? "Queued ✓" : `Buy · ${p.cost}✦`}</button>
                                         </div>
                                     );

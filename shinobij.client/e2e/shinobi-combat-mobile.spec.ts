@@ -282,7 +282,8 @@ for (const mode of ["solo", "pvp"] as const) {
                 // down the strip, which is what made players reaching for Cast
                 // hit Details instead.
                 expect(glyphBox!.y - cardBox.y).toBeLessThanOrEqual(8);
-                await expect(firstCard.locator(".combat-jutsu-thumb img")).toHaveCSS("object-fit", "cover");
+                await expect(firstCard.locator(".combat-jutsu-thumb img")).toHaveCSS("object-fit", "contain");
+                await expect(firstCard.locator(".combat-jutsu-thumb img")).toHaveCSS("object-position", "50% 50%");
             }
 
             if (viewport.width === 390) {

@@ -1,0 +1,41 @@
+✔ standard-7 retains its mesh and wings while the eyes/beak remain cohesive in all clips (447.6974ms)
+✔ standard-10 retains its mesh and wings while the eyes/beak remain cohesive in all clips (264.9833ms)
+✔ standard-17 retains its mesh and wings while the eyes/beak remain cohesive in all clips (260.5464ms)
+✔ standard-35 retains its mesh and wings while the eyes/beak remain cohesive in all clips (264.1801ms)
+✔ standard-36 retains its mesh and wings while the eyes/beak remain cohesive in all clips (257.2996ms)
+✔ standard-37 retains its mesh and wings while the eyes/beak remain cohesive in all clips (267.474ms)
+✔ standard-39 retains its mesh and wings while the eyes/beak remain cohesive in all clips (227.7981ms)
+✔ standard-44 retains its mesh and wings while the eyes/beak remain cohesive in all clips (238.864ms)
+✔ rare-3 retains its mesh and wings while the eyes/beak remain cohesive in all clips (213.7382ms)
+✔ rare-7 retains its mesh and wings while the eyes/beak remain cohesive in all clips (257.4104ms)
+✔ rare-10 retains its mesh and wings while the eyes/beak remain cohesive in all clips (344.0216ms)
+✔ rare-17 retains its mesh and wings while the eyes/beak remain cohesive in all clips (566.7861ms)
+✔ rare-18 retains its mesh and wings while the eyes/beak remain cohesive in all clips (347.9228ms)
+✔ rare-27 retains its mesh and wings while the eyes/beak remain cohesive in all clips (373.4068ms)
+✔ rare-35 retains its mesh and wings while the eyes/beak remain cohesive in all clips (410.8204ms)
+✔ rare-36 retains its mesh and wings while the eyes/beak remain cohesive in all clips (359.3668ms)
+✔ rare-37 retains its mesh and wings while the eyes/beak remain cohesive in all clips (400.5815ms)
+✔ rare-38 retains its mesh and wings while the eyes/beak remain cohesive in all clips (352.0671ms)
+✔ rare-39 retains its mesh and wings while the eyes/beak remain cohesive in all clips (357.1294ms)
+✔ rare-44 retains its mesh and wings while the eyes/beak remain cohesive in all clips (496.538ms)
+✔ legendary-1 retains its mesh and wings while the eyes/beak remain cohesive in all clips (495.8257ms)
+✔ legendary-6 retains its mesh and wings while the eyes/beak remain cohesive in all clips (339.7176ms)
+✔ legendary-10 retains its mesh and wings while the eyes/beak remain cohesive in all clips (408.6333ms)
+✔ legendary-14 retains its mesh and wings while the eyes/beak remain cohesive in all clips (356.6481ms)
+✔ legendary-16 retains its mesh and wings while the eyes/beak remain cohesive in all clips (405.133ms)
+✔ legendary-21 retains its mesh and wings while the eyes/beak remain cohesive in all clips (388.3565ms)
+✔ mythic-5 retains its mesh and wings while the eyes/beak remain cohesive in all clips (336.568ms)
+✔ starter-wind retains its mesh and wings while the eyes/beak remain cohesive in all clips (838.9439ms)
+✔ starter-wind-r retains its mesh and wings while the eyes/beak remain cohesive in all clips (341.375ms)
+✔ starter-wind-l retains its mesh and wings while the eyes/beak remain cohesive in all clips (770.3745ms)
+✔ all 161 production pets have complete proper skeletal animation banks (299.9573ms)
+✔ all 161 catalog identities resolve to a versioned runtime GLB with the full clip contract (178.9399ms)
+✔ Celestial Lion has the full pet animation bank and animated wings in every clip (2.4335ms)
+ℹ tests 33
+ℹ suites 0
+ℹ pass 33
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 11699.2038

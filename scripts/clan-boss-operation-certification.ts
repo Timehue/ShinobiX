@@ -2,7 +2,7 @@
  * Hermetic HTTP certification for the server-owned Clan Boss operation.
  *
  * Boots the real Express route graph against the explicit in-memory QA KV,
- * creates 1/2/4-player clans, then drives create/join, optimistic-concurrency
+ * creates 1/2/3/4-player clans, then drives create/join, optimistic-concurrency
  * conflict, idempotent retry, ready, duplicate start, reconnect, terminal Tower
  * actions, concurrent settlement, and party cleanup over HTTP.
  *
@@ -20,6 +20,7 @@ const REQUESTED_PORT = Number(process.argv.find((arg) => arg.startsWith('--port=
 let base = '';
 const ADMIN_PASSWORD = `Operation-${randomBytes(12).toString('hex')}`;
 const SUFFIX = randomBytes(3).toString('hex');
+const VERSION_TWO = process.argv.includes('--v2');
 
 process.env.NODE_ENV = 'test';
 process.env.SHINOBIX_QA_MEMORY_KV = '1';
@@ -176,6 +177,13 @@ async function runScenario(size: 1 | 2 | 4, kv: Json): Promise<void> {
     const runId = String(starts[0]!.body.runId ?? '');
     if (!check(runId.startsWith('cboss-') && starts[1]!.body.runId === runId, 'duplicate start reserves one attempt and one run')) return;
     let session = starts[0]!.body.session as Json;
+    if (VERSION_TWO) {
+        check(session.clanBossGuard?.version === 2, 'accepted encounter seals version-two guard rules');
+        for (const player of players) {
+            const status = await http('/api/clan-boss/get?player=' + encodeURIComponent(player.name), { token: player.token });
+            check(status.body.myClan?.myAttemptsLeft === 4 && status.body.myClan?.attemptPolicy === 'each-participant', 'each participating member spends exactly one attempt');
+        }
+    }
 
     let actions = 0;
     let reconnects = 0;
@@ -227,6 +235,12 @@ async function runScenario(size: 1 | 2 | 4, kv: Json): Promise<void> {
 
     const after = await partyGet(players[0]!);
     check(after.status === 200 && after.body.party === null, 'terminal settlement releases the player→party index');
+    for (const player of players) {
+        const state = await http(`/api/towers/state?runId=${encodeURIComponent(runId)}&playerName=${encodeURIComponent(player.name)}`, { token: player.token });
+        const discovered = await http(`/api/towers/my-run?playerName=${encodeURIComponent(player.name)}`, { token: player.token });
+        check(state.status === 200 && state.body.session?.rewardSettlementState === 'settled', `${player.name} sees delivered settlement state`);
+        check(discovered.status === 200 && !discovered.body.runId, `${player.name} has no stale completed Rejoin operation`);
+    }
 }
 
 async function runSoloCompatibility(kv: Json): Promise<void> {
@@ -367,9 +381,9 @@ async function main(): Promise<void> {
         const now = Date.now();
         const weekId = bossStorage.clanBossWeekId(now);
         await kv.set(bossStorage.clanBossWeekKey(weekId), {
-            weekId, bossId: 'oni-warlord', spawnedAt: now - 1_000, endsAt: now + 24 * 60 * 60 * 1000,
+            weekId, ...(VERSION_TWO ? { rulesVersion: 2 } : {}), bossId: 'oni-warlord', spawnedAt: now - 1_000, endsAt: now + 24 * 60 * 60 * 1000,
         });
-        for (const size of [1, 2, 4] as const) await runScenario(size, kv);
+        for (const size of [1, 2, 3, 4] as const) await runScenario(size, kv);
         await runSoloCompatibility(kv);
         await runCrossModeHandoff(kv);
     } catch (error) {

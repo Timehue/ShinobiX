@@ -1,0 +1,158 @@
+{
+  "id": "standard-18",
+  "assembled": [
+    {
+      "name": "source-exposure-head-front-whole.png",
+      "sha256": "fbb8f8a6e1006b7a73e31bb3cd1aff291b2623ba5a437b73b0a4ba6cb594e15a",
+      "sources": [
+        {
+          "path": "docs/screenshots/pet-independent-face-2026-10-15/standard-18-exposure-source-head-front-0.png",
+          "sha256": "09f1d29751d36d9170a6647b2dadeb8a3d7c81da2fcb367a4b0cc09c4eac0b43"
+        },
+        {
+          "path": "docs/screenshots/pet-independent-face-2026-10-15/standard-18-exposure-source-head-front-1.png",
+          "sha256": "eca4df99aac2c8efce3446d6e8c222ed88d2cc8e7d799445ee9a85233a687e8c"
+        },
+        {
+          "path": "docs/screenshots/pet-independent-face-2026-10-15/standard-18-exposure-source-head-front-2.png",
+          "sha256": "f437e7113e72d799dd6348e654f2865a57d9a6af64907e0bdc63dba289ac3138"
+        }
+      ],
+      "resizing": false
+    },
+    {
+      "name": "source-exposure-head-side-whole.png",
+      "sha256": "5e0ce136550e57f539a222bbae3d0f44113e2b7d1fcaf1602ebf2ddae0fec888",
+      "sources": [
+        {
+          "path": "docs/screenshots/pet-independent-face-2026-10-15/standard-18-exposure-source-head-side-0.png",
+          "sha256": "aa2ccb7badf7010a5851fbf97d473180d4d5eecd82a1ff28fdb222fda8e61915"
+        },
+        {
+          "path": "docs/screenshots/pet-independent-face-2026-10-15/standard-18-exposure-source-head-side-1.png",
+          "sha256": "ce7d4508eaeaf775c5279ff3b87c6f827e0721bf9d97939211941786dba4ba1e"
+        },
+        {
+          "path": "docs/screenshots/pet-independent-face-2026-10-15/standard-18-exposure-source-head-side-2.png",
+          "sha256": "903232efd72987535f121b2dd7f51572d7e0bb331a1d82d8be9bbe896d1dcaf6"
+        }
+      ],
+      "resizing": false
+    },
+    {
+      "name": "source-exposure-front-whole.png",
+      "sha256": "dab3a2ae33de85cbf0320de132a50959cfa5f5b5377dd76876fd44e180c879ce",
+      "sources": [
+        {
+          "path": "docs/screenshots/pet-independent-face-2026-10-15/standard-18-exposure-source-front-0.png",
+          "sha256": "130d9521491964aaf304a54346964fb72bb989637f78d8a6f853e28e8221f8fe"
+        },
+        {
+          "path": "docs/screenshots/pet-independent-face-2026-10-15/standard-18-exposure-source-front-1.png",
+          "sha256": "a951dca16c2856dc1c4274168a533934236068294d6e75c11c7d83c17f624cc2"
+        },
+        {
+          "path": "docs/screenshots/pet-independent-face-2026-10-15/standard-18-exposure-source-front-2.png",
+          "sha256": "aa6e6bb491e8eb91c8b13030ac23f6ae0e65dc4aa8656b787022d9feb891ef0c"
+        }
+      ],
+      "resizing": false
+    },
+    {
+      "name": "source-exposure-side-whole.png",
+      "sha256": "b00d37c5d86bc21427ffc1acd4ce119d5c89e6bb6dbff91611262014569b116f",
+      "sources": [
+        {
+          "path": "docs/screenshots/pet-independent-face-2026-10-15/standard-18-exposure-source-side-0.png",
+          "sha256": "197a1cb96b94d591201f7880b3a0e0e9a463bfd5a3d70d62d1cc8296c26fc5ae"
+        },
+        {
+          "path": "docs/screenshots/pet-independent-face-2026-10-15/standard-18-exposure-source-side-1.png",
+          "sha256": "baf6dfb6ba7d479fe7ab1fa460ee8abf55ffff3ac5aba582304cdf4cd9657f0a"
+        },
+        {
+          "path": "docs/screenshots/pet-independent-face-2026-10-15/standard-18-exposure-source-side-2.png",
+          "sha256": "dad61746a903f33b9c0eb825b0774933ce03a228b1ea8347fbe38e6a126d9bda"
+        }
+      ],
+      "resizing": false
+    },
+    {
+      "name": "battle-exposure-head-front-whole.png",
+      "sha256": "a5960de350ced361c4339eb4e241b5cd9b987ad521b8586a65c76e1ef830708c",
+      "sources": [
+        {
+          "path": "docs/screenshots/pet-independent-face-2026-10-15/standard-18-exposure-battle-head-front-0.png",
+          "sha256": "631fa4b64d50922aa02286c0f5e10ae7d01f966f0285b0606cbd2a3195f8bffb"
+        },
+        {
+          "path": "docs/screenshots/pet-independent-face-2026-10-15/standard-18-exposure-battle-head-front-1.png",
+          "sha256": "64d9008ac51a2bf2fe2d77ef8c43d1a4d7fb772844b9a4439709f9e0df7c4d1e"
+        },
+        {
+          "path": "docs/screenshots/pet-independent-face-2026-10-15/standard-18-exposure-battle-head-front-2.png",
+          "sha256": "ce9ce05f71824f3c96f6ddede97ae0a036bf659912191d7c48c37b8960fd9cdb"
+        }
+      ],
+      "resizing": false
+    },
+    {
+      "name": "battle-exposure-head-side-whole.png",
+      "sha256": "9085e2dc2adbfbd27e4cfe12df762ca62025fa0b2de0a9464e6f27a6a117737f",
+      "sources": [
+        {
+          "path": "docs/screenshots/pet-independent-face-2026-10-15/standard-18-exposure-battle-head-side-0.png",
+          "sha256": "3734c72a5a1cd19301d68c8ac3e188b8fc4e3658691885a97f3f06be220b9ac6"
+        },
+        {
+          "path": "docs/screenshots/pet-independent-face-2026-10-15/standard-18-exposure-battle-head-side-1.png",
+          "sha256": "7a43037d1ce20bf774bc6d0ad2bd51640e2c9c820071d1caec329b33ebbbe49f"
+        },
+        {
+          "path": "docs/screenshots/pet-independent-face-2026-10-15/standard-18-exposure-battle-head-side-2.png",
+          "sha256": "921139035a442679ae1421b8ccd74b3b579b56193c753257b991e5e52890f16f"
+        }
+      ],
+      "resizing": false
+    },
+    {
+      "name": "battle-exposure-front-whole.png",
+      "sha256": "0f09709a859410d03c4153b088bae9d5198cb5e61ea156a20a46ca490d8f6762",
+      "sources": [
+        {
+          "path": "docs/screenshots/pet-independent-face-2026-10-15/standard-18-exposure-battle-front-0.png",
+          "sha256": "ecc9703fc34d04b32cde21e8c81a1106a1c41cf85249ab4717ec5c6eac3130c8"
+        },
+        {
+          "path": "docs/screenshots/pet-independent-face-2026-10-15/standard-18-exposure-battle-front-1.png",
+          "sha256": "86760cb2885f2219b06c554b7c0259682c14e8832fe777317b78f8c9fa055e69"
+        },
+        {
+          "path": "docs/screenshots/pet-independent-face-2026-10-15/standard-18-exposure-battle-front-2.png",
+          "sha256": "b0d1b848468c556df841a678233abf00d71b138f6697b9b18f99f237d50d2e9d"
+        }
+      ],
+      "resizing": false
+    },
+    {
+      "name": "battle-exposure-side-whole.png",
+      "sha256": "39cb210cb8dc0ebaf526dd077938adeb7b30328d3a97a58f1e58cbf221514296",
+      "sources": [
+        {
+          "path": "docs/screenshots/pet-independent-face-2026-10-15/standard-18-exposure-battle-side-0.png",
+          "sha256": "b70e4363b1a9772ac3c2729394890b232bbef3f971cfa1991e7c480fa104ed42"
+        },
+        {
+          "path": "docs/screenshots/pet-independent-face-2026-10-15/standard-18-exposure-battle-side-1.png",
+          "sha256": "fb2112bfbe6734e9e62fc7785347d0114446a991767032d679fbe0e247e84f1f"
+        },
+        {
+          "path": "docs/screenshots/pet-independent-face-2026-10-15/standard-18-exposure-battle-side-2.png",
+          "sha256": "3b0211cc6fd55ad2db3043b9e0b6263178b305732681f62bc4aaca706952c086"
+        }
+      ],
+      "resizing": false
+    }
+  ],
+  "review": "pending"
+}

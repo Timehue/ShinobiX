@@ -96,7 +96,7 @@ async function adopt(boss: BossLike | null | undefined, key: string, account: st
     try { storage?.setItem(storageKey(account), key); } catch { /* The session record still prevents a repeat. */ }
     const distributedAt = Number(boss?.distributedAt) || 0;
     const fresh = distributedAt === 0 || (options.now ?? Date.now)() - distributedAt < FRESH_REWARD_MS;
-    if (fresh) (options.toast ?? defaultToast)("Your Weekly Boss rewards have arrived. Check your bag.");
+    if (fresh) (options.toast ?? defaultToast)("Your Weekly Boss rewards have arrived. Your ryo, stat points, and item totals have been refreshed.");
     return "adopted";
 }
 

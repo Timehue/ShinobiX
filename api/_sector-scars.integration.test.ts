@@ -12,6 +12,7 @@ import { contractSectorsForDay, sectorContractFor, utcDayOf } from '../shared/se
 import { MAX_SCARS_PER_SECTOR } from '../shared/sector-scars.js';
 import { WORLD_HOUR_MS } from '../shared/world-clock.js';
 import { WILD_SECTOR_IDS } from '../shared/sector-geo.js';
+import { nearestWalkableTile,isWalkableTile } from '../shared/sector-walk-mask.js';
 
 process.env.NODE_ENV = 'test';
 process.env.SHINOBIX_QA_MEMORY_KV = '1';
@@ -63,6 +64,12 @@ beforeEach(async () => {
 after(() => { delete process.env.SHINOBIX_QA_MEMORY_KV; });
 
 describe('sector scars in storage', () => {
+    it('keeps a real walkable battle tile and discards closed or malformed locations',async()=>{
+        const tile=nearestWalkableTile(SECTOR,77);await scars.recordSectorDuelScar(SECTOR,'Aki','Rin',NOW,tile);
+        assert.equal((await scars.readSectorScars(SECTOR,NOW))[0].tile,tile);
+        const closed=Array.from({length:144},(_,i)=>i).find(i=>!isWalkableTile(SECTOR,i))!;
+        for(const bad of [closed,144,-1,NaN]){await scars.recordSectorDuelScar(SECTOR,'Aki','Rin',NOW,bad);assert.equal((await scars.readSectorScars(SECTOR,NOW))[0].tile,undefined);}
+    });
     it('a recorded duel is readable back under the sector key', async () => {
         await scars.recordSectorDuelScar(SECTOR, 'Kaze', 'Rin');
         const found = await scars.readSectorScars(SECTOR);

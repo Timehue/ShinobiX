@@ -1,0 +1,15 @@
+{
+  "id": "rare-32",
+  "at": "2026-10-20T14:59:41.450Z",
+  "sourceSha256": "c3646e4509d29640744c284d5ecdd8986b30e838a5454546ee3ed8cd2ea8ef00",
+  "battleSha256": "c3822f0c668e7e494d3fde438012cf8d099e68befd560f86742d78faed4d0956",
+  "atlasSha256": "c33e9004fb0c80b97b3b04d942dc371b884edb87cd9520f102ad67e4d9f85742",
+  "reviews": [
+    "docs/audits/pet-coral-serval-private-first-review-2026-10-20.json",
+    "docs/screenshots/pet-parallel-review-c-2026-10-20/rare-32/private-final-independent/independent-final-visual-review.json"
+  ],
+  "sourceBattleAtlasExactlyEqualReviewedPrivateBytes": true,
+  "unselectedManifestEntriesUnchanged": true,
+  "canonicalRegressionsPending": true,
+  "liveVerified": false
+}

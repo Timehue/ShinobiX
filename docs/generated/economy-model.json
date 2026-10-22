@@ -673,15 +673,6 @@
   "sinks": [
     {
       "system": "shop",
-      "id": "ancient-pet-treat",
-      "currency": "ryo",
-      "amount": 400,
-      "cadence": "per unit",
-      "authority": "api/pvp/_item-catalog.ts",
-      "notes": "epic item"
-    },
-    {
-      "system": "shop",
       "id": "ash-wrapped-tanto",
       "currency": "ryo",
       "amount": 220,
@@ -1105,15 +1096,6 @@
     },
     {
       "system": "shop",
-      "id": "elemental-pet-treat",
-      "currency": "ryo",
-      "amount": 200,
-      "cadence": "per unit",
-      "authority": "api/pvp/_item-catalog.ts",
-      "notes": "rare item"
-    },
-    {
-      "system": "shop",
       "id": "embercoil-scythe",
       "currency": "fateShards",
       "amount": 100,
@@ -1170,7 +1152,7 @@
       "system": "shop",
       "id": "golden-apple",
       "currency": "fateShards",
-      "amount": 20,
+      "amount": 40,
       "cadence": "per unit",
       "authority": "api/pvp/_item-catalog.ts",
       "notes": "legendary item"
@@ -1431,7 +1413,7 @@
       "system": "shop",
       "id": "pet-treat",
       "currency": "ryo",
-      "amount": 80,
+      "amount": 400,
       "cadence": "per unit",
       "authority": "api/pvp/_item-catalog.ts",
       "notes": "common item"
@@ -2213,15 +2195,6 @@
   ],
   "shopItems": [
     {
-      "id": "ancient-pet-treat",
-      "name": "Ancient Treats",
-      "rarity": "epic",
-      "slot": "item",
-      "levelReq": 1,
-      "baseCost": 400,
-      "currency": "ryo"
-    },
-    {
       "id": "ash-wrapped-tanto",
       "name": "Ash-Wrapped Tanto",
       "rarity": "common",
@@ -2645,15 +2618,6 @@
       "currency": "fateShards"
     },
     {
-      "id": "elemental-pet-treat",
-      "name": "Elemental Treats",
-      "rarity": "rare",
-      "slot": "item",
-      "levelReq": 1,
-      "baseCost": 200,
-      "currency": "ryo"
-    },
-    {
       "id": "embercoil-scythe",
       "name": "Embercoil Scythe",
       "rarity": "legendary",
@@ -2713,7 +2677,7 @@
       "rarity": "legendary",
       "slot": "item",
       "levelReq": 1,
-      "baseCost": 20,
+      "baseCost": 40,
       "currency": "fateShards"
     },
     {
@@ -2974,7 +2938,7 @@
       "rarity": "common",
       "slot": "item",
       "levelReq": 1,
-      "baseCost": 80,
+      "baseCost": 400,
       "currency": "ryo"
     },
     {
@@ -3433,11 +3397,15 @@
       "api/pet/_breeding.ts",
       "api/pet/_owned-pet.ts",
       "api/pet/_pet-busy.ts",
+      "shared/pet-incubation.ts",
       "shared/shrines.ts"
     ],
-    "rulesVersion": 2,
+    "rulesVersion": 3,
     "minimumParentLevel": 50,
-    "durationMs": 86400000,
+    "durationMs": 43200000,
+    "eggChancePercent": 80,
+    "incubationClock": "foreground-gameplay",
+    "eggLocation": "sanctuary",
     "usesPerPet": {
       "min": 5,
       "max": 10

@@ -1,0 +1,471 @@
+{
+  "id": "starter-earth",
+  "name": "Pebble Tortoise",
+  "status": "unreleased-full-remake-in-progress",
+  "releaseApproval": false,
+  "userRejectedPredecessor": "docs/audits/pet-pebble-user-rejection-2026-10-19.json",
+  "construction": {
+    "provider": "Project-authored Blender sculpt; no paid generation or external mesh",
+    "blender": "4.5.14 LTS",
+    "geometry": "New continuous skull, muzzle, chin, neck, torso, arms, hands, hips, legs and toes; fitted headband/scarf; separate pebble scutes",
+    "uv": "New smart unwrap and material/AO bake; lossless WebP source",
+    "rig": "Existing 13-clip rig retained; new anatomical skin weights; visible-surface root-height calibration"
+  },
+  "candidate": {
+    "sourceSha256": "c56b6391da217d8aa076c5cde6ea150b0eefa78b33d0ba347390e58001fc3a83",
+    "battleSha256": "6e06cb1f5d8af22302d52cf7febf2e69a608db1e5031e2f7659684d2fb47b6be",
+    "sourceTriangles": 39488,
+    "battleTriangles": 9998,
+    "sourceBytes": 2830916,
+    "battleBytes": 706000,
+    "silhouettes": {
+      "front": 0.995102,
+      "threeQuarter": 0.994796,
+      "side": 0.993536
+    },
+    "sourceAuthoringBeforeGroundSha256": "d2052ba00628709f23b67c1d5b474a103ee8120d8dfbe4c0730fc90deaafa8f8"
+  },
+  "findingsFixedInPrivateDraft": [
+    {
+      "finding": "Palm/thigh weight contamination created triangular thigh spikes",
+      "evidence": "v1-knees-clay-private.png vs v6-knees-clay-private.png; rejected fixture reproduces >6× edge stretch",
+      "correction": "Anatomical volume classification plus correctly centered knee/ankle blends"
+    },
+    {
+      "finding": "Lowest chin vertices partially followed chest and spine",
+      "evidence": "Rejected loose-chin fixture; corrected complete-face regression including lower chin",
+      "correction": "Rigid visible jaw attachment with continuous neck transition"
+    },
+    {
+      "finding": "New visible feet initially sank slightly in production technique capture",
+      "evidence": "Earlier private production capture; no final acceptance transferred",
+      "correction": "Measured production-ground calibration; final source and battle verification pending"
+    }
+  ],
+  "verified": {
+    "continuousSkin": {
+      "components": 1,
+      "vertices": 6372,
+      "boundaryEdges": 0,
+      "nonManifoldEdges": 0
+    },
+    "focusedTests": {
+      "passed": 5,
+      "failed": 0,
+      "allClips": 13,
+      "blendCombinations": 468,
+      "scope": "Pinned pre-ground anatomy fixture; tests do not certify art"
+    },
+    "lint": {
+      "errors": 0,
+      "preExistingWarnings": 23
+    },
+    "firstSourceVisualSurvey": {
+      "clips": 13,
+      "phases": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ],
+      "views": [
+        "body-front",
+        "body-side",
+        "head-front",
+        "head-side"
+      ],
+      "frames": 312,
+      "allSheetsActuallySeen": true,
+      "scopedPass": true
+    },
+    "clayJoints": {
+      "clips": [
+        "gallop_jump",
+        "entrance",
+        "attack"
+      ],
+      "phases": [
+        0.125,
+        0.25,
+        0.375,
+        0.5,
+        0.625,
+        0.875
+      ],
+      "regions": [
+        "knees",
+        "shoulders"
+      ],
+      "actuallySeen": true
+    },
+    "combinedTests": {
+      "passed": 9,
+      "failed": 0,
+      "scope": "5 private remake regressions plus 4 user-rejection gate tests"
+    },
+    "fullGeometry": [
+      {
+        "stage": "source",
+        "sha256": "c56b6391da217d8aa076c5cde6ea150b0eefa78b33d0ba347390e58001fc3a83",
+        "poses": 9989,
+        "failedModels": 0,
+        "deformationWarnings": 0
+      },
+      {
+        "stage": "battle",
+        "sha256": "6e06cb1f5d8af22302d52cf7febf2e69a608db1e5031e2f7659684d2fb47b6be",
+        "poses": 9989,
+        "failedModels": 0,
+        "deformationWarnings": 0
+      }
+    ],
+    "productionContact": [
+      {
+        "stage": "source",
+        "sha256": "c56b6391da217d8aa076c5cde6ea150b0eefa78b33d0ba347390e58001fc3a83",
+        "moves": 9,
+        "frames": 216,
+        "minimumPlaneClearance": 0.02158863574329038,
+        "errors": 0,
+        "allImagesVisuallyReviewed": false,
+        "scope": "Numeric production contact only; technique image inspection still pending"
+      },
+      {
+        "stage": "battle",
+        "sha256": "6e06cb1f5d8af22302d52cf7febf2e69a608db1e5031e2f7659684d2fb47b6be",
+        "moves": 9,
+        "frames": 216,
+        "minimumPlaneClearance": 0.022553597424715726,
+        "errors": 0,
+        "allImagesVisuallyReviewed": false,
+        "scope": "Numeric production contact only; technique image inspection still pending"
+      }
+    ],
+    "battleRawCaptured": {
+      "clips": 13,
+      "frames": 312,
+      "allImagesVisuallyReviewed": false
+    }
+  },
+  "pending": [
+    "Additional rear/opposite-side/under-jaw animation views",
+    "Complete battle raw-animation visual review",
+    "Advancing companion idle and atlas review",
+    "Independent second visual pass with offset phase samples",
+    "Canonical source/battle manifests, fresh acceptance receipt, isolated main validation and live deployment verification",
+    "Final independent face probes on exact source and battle delivery hashes",
+    "Visual inspection of all captured production technique frames; every runtime transition remains open"
+  ],
+  "calibration": {
+    "sourceSha256": "d2052ba00628709f23b67c1d5b474a103ee8120d8dfbe4c0730fc90deaafa8f8",
+    "sha256": "c56b6391da217d8aa076c5cde6ea150b0eefa78b33d0ba347390e58001fc3a83",
+    "presentationGround": {
+      "source": -0.9769887286036918,
+      "battle": -0.9776359174628287
+    },
+    "reports": [
+      {
+        "clip": "idle",
+        "keys": 547,
+        "maximumLift": 0.02417995276003826,
+        "minimumBefore": -0.9996686813637301,
+        "ground": -0.9769887286036918,
+        "padding": 0.0015
+      },
+      {
+        "clip": "idle_2",
+        "keys": 429,
+        "maximumLift": 0.04068929709276048,
+        "minimumBefore": -1.0161780256964523,
+        "ground": -0.9769887286036918,
+        "padding": 0.0015
+      },
+      {
+        "clip": "walk",
+        "keys": 299,
+        "maximumLift": 0.024908250231685636,
+        "minimumBefore": -1.0003969788353775,
+        "ground": -0.9769887286036918,
+        "padding": 0.0015
+      },
+      {
+        "clip": "gallop",
+        "keys": 221,
+        "maximumLift": 0.050816479285019756,
+        "minimumBefore": -1.0263052078887116,
+        "ground": -0.9769887286036918,
+        "padding": 0.0015
+      },
+      {
+        "clip": "gallop_jump",
+        "keys": 210,
+        "maximumLift": 0.024177673325422866,
+        "minimumBefore": -0.9996664019291147,
+        "ground": -0.9769887286036918,
+        "padding": 0.0015
+      },
+      {
+        "clip": "attack",
+        "keys": 328,
+        "maximumLift": 0.022676146609890147,
+        "minimumBefore": -0.998164875213582,
+        "ground": -0.9769887286036918,
+        "padding": 0.0015
+      },
+      {
+        "clip": "idle_hitreact1",
+        "keys": 184,
+        "maximumLift": 0.022676206615529604,
+        "minimumBefore": -0.9981649352192214,
+        "ground": -0.9769887286036918,
+        "padding": 0.0015
+      },
+      {
+        "clip": "death",
+        "keys": 613,
+        "maximumLift": 0.7724484847472667,
+        "minimumBefore": -1.7479372133509585,
+        "ground": -0.9769887286036918,
+        "padding": 0.0015
+      },
+      {
+        "clip": "entrance",
+        "keys": 299,
+        "maximumLift": 0.11518027319165192,
+        "minimumBefore": -1.0906690017953438,
+        "ground": -0.9769887286036918,
+        "padding": 0.0015
+      },
+      {
+        "clip": "cast",
+        "keys": 354,
+        "maximumLift": 0.022676146609890147,
+        "minimumBefore": -0.998164875213582,
+        "ground": -0.9769887286036918,
+        "padding": 0.0015
+      },
+      {
+        "clip": "guard",
+        "keys": 361,
+        "maximumLift": 0.024176195167958547,
+        "minimumBefore": -0.9996649237716504,
+        "ground": -0.9769887286036918,
+        "padding": 0.0015
+      },
+      {
+        "clip": "rest",
+        "keys": 605,
+        "maximumLift": 0.024406474787076027,
+        "minimumBefore": -0.9998952033907679,
+        "ground": -0.9769887286036918,
+        "padding": 0.0015
+      },
+      {
+        "clip": "victory",
+        "keys": 551,
+        "maximumLift": 0.029816290546767932,
+        "minimumBefore": -1.0053050191504598,
+        "ground": -0.9769887286036918,
+        "padding": 0.0015
+      }
+    ],
+    "acceptance": "Private candidate; offset-grid and production contact verification pending"
+  },
+  "evidence": [
+    {
+      "path": "docs/screenshots/pet-pebble-full-remake-progress-2026-10-19/source-raw-first-survey/idle.png",
+      "sha256": "7661a330c95bb7110dfb1d99c15974e296f28c11cb238ae77899efc391d19402"
+    },
+    {
+      "path": "docs/screenshots/pet-pebble-full-remake-progress-2026-10-19/source-raw-first-survey/idle_2.png",
+      "sha256": "4a9e755ca1e7ba8dc33d2c8c3ccfa38f5ba2533d541de73aa8f3dbfd7b39af36"
+    },
+    {
+      "path": "docs/screenshots/pet-pebble-full-remake-progress-2026-10-19/source-raw-first-survey/walk.png",
+      "sha256": "6d19dd75c7d5823bf3d6f8ba9843d5aa187e55e421925bae9c94080199be9588"
+    },
+    {
+      "path": "docs/screenshots/pet-pebble-full-remake-progress-2026-10-19/source-raw-first-survey/gallop.png",
+      "sha256": "fb6fe2ee083ac172492ed689551a784d48acb4129da1383e0b90e8b67dcea045"
+    },
+    {
+      "path": "docs/screenshots/pet-pebble-full-remake-progress-2026-10-19/source-raw-first-survey/gallop_jump.png",
+      "sha256": "435d901b200b5ce68ef741383b2196003050aa94b0c55cfd99a3444eaef724ef"
+    },
+    {
+      "path": "docs/screenshots/pet-pebble-full-remake-progress-2026-10-19/source-raw-first-survey/attack.png",
+      "sha256": "f68c525fe643f8af421830fafbbdfe3aa56ca6a59015cabddf765e33ca6210eb"
+    },
+    {
+      "path": "docs/screenshots/pet-pebble-full-remake-progress-2026-10-19/source-raw-first-survey/idle_hitreact1.png",
+      "sha256": "e9093570e99780b32a870697ecf2df73836a030e32d70f48dec0a0d748438195"
+    },
+    {
+      "path": "docs/screenshots/pet-pebble-full-remake-progress-2026-10-19/source-raw-first-survey/death.png",
+      "sha256": "4c23a366225f963e28bd82f6036c2c1e2e3e4a6a9e23752fa02dd0ae966c8a21"
+    },
+    {
+      "path": "docs/screenshots/pet-pebble-full-remake-progress-2026-10-19/source-raw-first-survey/entrance.png",
+      "sha256": "fb5854c412addd43767a19c8d30cc98fbd2f65b3d7edabb0d6997671eda10fc6"
+    },
+    {
+      "path": "docs/screenshots/pet-pebble-full-remake-progress-2026-10-19/source-raw-first-survey/cast.png",
+      "sha256": "51a0be05670610d985dc7926e556bd8d2dd02ef2f5670cc1ec132cbf6c273aa5"
+    },
+    {
+      "path": "docs/screenshots/pet-pebble-full-remake-progress-2026-10-19/source-raw-first-survey/guard.png",
+      "sha256": "90fdc528b9f49e99ed8a5753b27c5876b0563bfe362fc93de08f8e1a02b08531"
+    },
+    {
+      "path": "docs/screenshots/pet-pebble-full-remake-progress-2026-10-19/source-raw-first-survey/rest.png",
+      "sha256": "83688ea5a8c9eacb8fa93dcf537a063927ad0188fbae96e49bdc90216d121ef5"
+    },
+    {
+      "path": "docs/screenshots/pet-pebble-full-remake-progress-2026-10-19/source-raw-first-survey/victory.png",
+      "sha256": "f86224d44fb037ac34a8e03b024030ef4a226add50ffde644f9be3a10e1c00eb"
+    },
+    {
+      "path": "docs/screenshots/pet-pebble-full-remake-progress-2026-10-19/remade-turnaround-unreleased.png",
+      "sha256": "255111e0f3838844791034632a3c51d5f71660ecacabf149727afc584ac7a2a3"
+    },
+    {
+      "path": "docs/screenshots/pet-pebble-full-remake-progress-2026-10-19/remade-head-unreleased.png",
+      "sha256": "75ec3ee1cbe63250fc02d5be38f88548a2329e98e804cb30ff78e5be1d30958c"
+    },
+    {
+      "path": "docs/screenshots/pet-pebble-full-remake-progress-2026-10-19/v1-knees-clay-private.png",
+      "sha256": "5eaf7e7dfedce06281cc0cade68a82ea214215b0426078e88fc2eb1c3e50d69d"
+    },
+    {
+      "path": "docs/screenshots/pet-pebble-full-remake-progress-2026-10-19/v6-knees-clay-private.png",
+      "sha256": "6400b8438d472bcebefb660dae495154d7d1cbba0650838d843ed9fd0fc3e498"
+    },
+    {
+      "path": "docs/screenshots/pet-pebble-full-remake-progress-2026-10-19/v6-shoulders-clay-private.png",
+      "sha256": "054a8bf8014d9f9b7361a8906a3fe3521fcf673d0753651e64d4892c06ed6eb1"
+    },
+    {
+      "path": "docs/screenshots/pet-pebble-full-remake-progress-2026-10-19/private-skin-topology.json",
+      "sha256": "d60dee1f4fed38c227b55d42076f8f48c2b4912c662a5a585b143f6de6a5b7be"
+    },
+    {
+      "path": "docs/screenshots/pet-pebble-full-remake-progress-2026-10-19/joint-witness-survey.json",
+      "sha256": "a03e109b58f8eabcb3a82a44fb05e29c8198ba1396f1365a895230ff47b6fecc"
+    },
+    {
+      "path": "docs/screenshots/pet-pebble-full-remake-progress-2026-10-19/private-ground-calibration.json",
+      "sha256": "59bd9d4913fbdf12b45bd71a4d39e039d270afb53dd8dce7c6b8f4336b6e94ad"
+    },
+    {
+      "path": "docs/screenshots/pet-pebble-full-remake-progress-2026-10-19/private-regressions.log",
+      "sha256": "c105e848101347b5367624d7840e259eefc8f92b61a0737ba833e4617b699963"
+    },
+    {
+      "path": "docs/screenshots/pet-pebble-full-remake-progress-2026-10-19/lint.log",
+      "sha256": "9ff371e5e0f35ddb05edcc0deaa00cc6a9cc0151d470b9a034678fdbc0e1ee8b"
+    },
+    {
+      "path": "docs/asset-sources/pebble-tortoise-remake-2026-10-19/candidate-full-unreleased.glb",
+      "sha256": "c56b6391da217d8aa076c5cde6ea150b0eefa78b33d0ba347390e58001fc3a83"
+    },
+    {
+      "path": "docs/asset-sources/pebble-tortoise-remake-2026-10-19/candidate-battle-unreleased.glb",
+      "sha256": "6e06cb1f5d8af22302d52cf7febf2e69a608db1e5031e2f7659684d2fb47b6be"
+    },
+    {
+      "path": "docs/asset-sources/pebble-tortoise-remake-2026-10-19/private-battle-certification.json",
+      "sha256": "a0b6cf717ba2efae64bbac57f8655cba4c303958efe59cac8a17daadffc180c5"
+    },
+    {
+      "path": "docs/screenshots/pet-pebble-full-remake-progress-2026-10-19/remake-and-rejection-gate-tests.log",
+      "sha256": "d4b58ce704b4ac0b585464ff4d9a5b0a7069bb94a591161581543e65126c61f2"
+    },
+    {
+      "path": "docs/screenshots/pet-pebble-full-remake-progress-2026-10-19/source-geometry.json",
+      "sha256": "2c2108ab553d000b91784e3da3f6c4ab6950093f5a036fcfa6343443e69ae915"
+    },
+    {
+      "path": "docs/screenshots/pet-pebble-full-remake-progress-2026-10-19/source-production-technique-contact.json",
+      "sha256": "94d6528d7ca09655856293596366a9753cfe53a6ed3769129c95729022f13966"
+    },
+    {
+      "path": "docs/screenshots/pet-pebble-full-remake-progress-2026-10-19/battle-geometry.json",
+      "sha256": "fdbdd6511ee44a78b407dfd17da9e7b3d8ce2baa20ba07b26cebcaacd4277fb4"
+    },
+    {
+      "path": "docs/screenshots/pet-pebble-full-remake-progress-2026-10-19/battle-production-technique-contact.json",
+      "sha256": "6519e8348264d7fbb044819a3f93ec822371bcf07d7c7745699a1ceca2fd5970"
+    },
+    {
+      "path": "docs/screenshots/pet-pebble-full-remake-progress-2026-10-19/battle-raw-unreviewed-manifest.json",
+      "sha256": "fad3324bf4537917312385bff47c09f405042175e8c4f3bd025669f68ec49bfd"
+    },
+    {
+      "path": "docs/asset-sources/pebble-tortoise-remake-2026-10-19/assemble-pebble-remade.mjs",
+      "sha256": "f24230ba1f1fee6cd189251f89bf9fd177fecb7a156f60d0f026ff1ced640211"
+    },
+    {
+      "path": "docs/asset-sources/pebble-tortoise-remake-2026-10-19/authored-atlas.png",
+      "sha256": "83a39f88044e725ad23fbda38e753311f75a997200cdcccd9c3733c0ddfb5250"
+    },
+    {
+      "path": "docs/asset-sources/pebble-tortoise-remake-2026-10-19/calibrate-remade-pebble-ground.mjs",
+      "sha256": "76fccdf8ba35b2df6d43119c61efdca5cbda76fb03c1e2ec40058acda6939cfc"
+    },
+    {
+      "path": "docs/asset-sources/pebble-tortoise-remake-2026-10-19/check-remade-pebble-topology.mjs",
+      "sha256": "38d309b4a25ef1162969e5c2b86e4a66345c0d259be9c49ed51b81f8d770d39d"
+    },
+    {
+      "path": "docs/asset-sources/pebble-tortoise-remake-2026-10-19/pebble-remade-sculpt-unreleased.blend",
+      "sha256": "ec72ea93e720e304249a618e3942bc70492d39a48b0b6093ad27dca2a8b17ecc"
+    },
+    {
+      "path": "docs/asset-sources/pebble-tortoise-remake-2026-10-19/probe-pebble-remade-face.mjs",
+      "sha256": "6c5ed4d254d4751ba735dd04a96478010cdd8583a853fd214bd9060ab75b1819"
+    },
+    {
+      "path": "docs/screenshots/pet-pebble-full-remake-progress-2026-10-19/authoring-readme-v6.md",
+      "sha256": "80616bfd84762cdeee5c5a5ec1ba7886b7be8f14a46f1838c43168f0aebd9942"
+    },
+    {
+      "path": "docs/asset-sources/pebble-tortoise-remake-2026-10-19/remake-pebble-sculpt.py",
+      "sha256": "bed848c4ca8f57fbc21dacc62e7208b4b8c349ac4775a571c8f9263b6ea1f4bd"
+    },
+    {
+      "path": "docs/screenshots/pet-pebble-full-remake-progress-2026-10-19/private-regression-contract-v6.json",
+      "sha256": "dad8e8028ab57ca8a4bee85cfab14c1578c24df0e60729e5c8219df3a5641795"
+    },
+    {
+      "path": "shinobij.client/scripts/fixtures/pet-pebble-full-remake-private/new-anatomy-before-ground.glb",
+      "sha256": "d2052ba00628709f23b67c1d5b474a103ee8120d8dfbe4c0730fc90deaafa8f8"
+    },
+    {
+      "path": "shinobij.client/scripts/fixtures/pet-pebble-full-remake-private/rejected-loose-chin.glb",
+      "sha256": "d85fd66e8d002063005045aee6b2af4cc54fa5530dae2d8479b06a13e5a3d8e5"
+    },
+    {
+      "path": "shinobij.client/scripts/fixtures/pet-pebble-full-remake-private/rejected-spiked-joints.glb",
+      "sha256": "e1f721076a75de1afa132a58a3957d61e475112413c0dcbd85880bfdb10ddf08"
+    },
+    {
+      "path": "docs/screenshots/pet-pebble-full-remake-progress-2026-10-19/private-regressions-v6.mjs",
+      "sha256": "77f1838b9d2ffa02cee006baaf45ea33364323583adb7ccf7ece58960a00b5d5"
+    },
+    {
+      "path": "docs/screenshots/pet-pebble-full-remake-progress-2026-10-19/source-raw-first-survey/inspection.json",
+      "sha256": "d3c65f19b80e95cb71d17bf52e3352a1081750777bc62d43a401e2e7b63c0eed"
+    }
+  ],
+  "rosterCountersUnchanged": {
+    "verifiedLive": 29,
+    "locallyDoubleReviewedAwaitingRelease": 17,
+    "fullReviewStillOpen": 115,
+    "total": 161
+  },
+  "publicGameAssetsModified": false,
+  "mainOrLiveUpdatedByThisRemake": false,
+  "preservedV6SourceSnapshots": "Mutable authoring instructions and regressions evolved after v6. Their originally fingerprinted bytes are preserved as v6 snapshots beside the old progress evidence; current v9 review is separate."
+}

@@ -555,6 +555,30 @@ export async function reopenPartyStart(partyId: string, requestId: string, now =
     }, { failClosed: true });
 }
 
+/** Repair only the unchanged party/version left by the old paid-start catch. */
+export async function recoverLegacyPartyStart(input: {
+    partyId: string; requestId: string; host: string; clanName: string; weekId: string;
+    bossId: string; members: string[]; reservedAt: number; expectedVersion: number;
+}): Promise<StoredParty | null> {
+    return withKvLock(partyKey(input.partyId), async () => {
+        const party = await loadParty(input.partyId);
+        if (!party || party.status !== 'forming' || party.startRequestId || party.runId
+            || !Number.isInteger(input.expectedVersion) || party.version !== input.expectedVersion + 2
+            || party.leaderSlug !== input.host || party.clanName !== input.clanName
+            || party.weekId !== input.weekId || party.bossId !== input.bossId
+            || party.createdAt > input.reservedAt || party.updatedAt < input.reservedAt
+            || party.members.length !== input.members.length
+            || party.members.some(m => !input.members.includes(m.slug) || m.joinedAt > input.reservedAt
+                || !m.ready || !m.snapshot || m.snapshot.sealedAt > input.reservedAt)) return null;
+        const indexes = await Promise.all(party.members.map(m => kv.get<string>(partyPlayerKey(m.slug))));
+        if (indexes.some(id => id !== party.id)) return null;
+        const next: StoredParty = { ...party, status: 'starting', startRequestId: input.requestId,
+            version: party.version + 1, updatedAt: Date.now() };
+        await saveParty(next);
+        return next;
+    }, { failClosed: true });
+}
+
 export async function completeParty(partyId: string, runId: string, now = Date.now()): Promise<StoredParty | null> {
     return withKvLock(partyKey(partyId), async () => {
         const party = await loadParty(partyId);

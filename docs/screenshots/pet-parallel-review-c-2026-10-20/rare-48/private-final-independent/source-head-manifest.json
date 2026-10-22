@@ -1,0 +1,76 @@
+{
+  "schema": 1,
+  "errors": [],
+  "pets": [
+    {
+      "id": "rare-48",
+      "name": "Terra Porcupine",
+      "url": "/.tmp/rare-48-floor/source-candidate-v1.glb",
+      "sha256": "2beae9892d3ea25b5ec79d07b7b01f446a0cc0026ee1663867800b2622458a24",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "progress": [
+        0.08,
+        0.28,
+        0.48,
+        0.68,
+        0.88,
+        1
+      ],
+      "views": [
+        "head-front",
+        "head-side",
+        "head-other-side",
+        "head-under-front",
+        "head-under-side"
+      ],
+      "materialTreatment": {
+        "mode": "production-diffuse",
+        "materials": 1,
+        "metalnessMax": 0.05,
+        "roughnessRange": [
+          0.58,
+          0.82
+        ]
+      },
+      "region": {
+        "y": [
+          -2,
+          -2
+        ],
+        "bounds": [
+          -0.2612157395339922,
+          0.34716920571915866,
+          0.06781037617590108,
+          0.4945899354421171,
+          0.32511251129655905,
+          0.889063292411764
+        ],
+        "cameraPadding": 1.15
+      },
+      "sheets": [
+        "rare-48-head-front.webp",
+        "rare-48-head-side.webp",
+        "rare-48-head-other-side.webp",
+        "rare-48-head-under-front.webp",
+        "rare-48-head-under-side.webp"
+      ],
+      "review": "pending",
+      "anatomySha256": "b3c3a7bdbdcf9d91bc2d0ecf7b18aebc315d10b76c843c1958e483942af6ad46"
+    }
+  ],
+  "artisticCertification": false
+}

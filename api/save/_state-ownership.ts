@@ -105,6 +105,8 @@ const f = (
  * derived lists inherit table order, which is not behavior (see header).
  */
 export const SAVE_FIELD_CONTRACT: readonly SaveFieldDef[] = [
+    f('brokerCertificates', 'character', 'server-owned', 'sunscar-broker', ['server-mirror-char', 'combat-strip-char'], 'Verified Rally and Caravan rewards grant certificates; Broker redemption spends one with its crate payout.'),
+    f('brokerCrateLedger', 'character', 'server-owned', 'sunscar-broker', ['server-mirror-char', 'combat-strip-char'], 'Daily pull count and retry receipts commit with the stake/certificate debit and payout.'),
     f('resourceGathering', 'character', 'server-owned', 'resource-gathering', ['server-mirror-char', 'combat-strip-char'], 'Start spends the shared allowance, node charge and tool use; resolution co-writes skill XP, items and receipt.'),
     f('gatheringToolUses', 'character', 'server-owned', 'resource-gathering', ['server-mirror-char', 'combat-strip-char'], 'Only shop grants initialize tools; admitted resource attempts debit durability.'),
     f('sunscarCaravan', 'character', 'server-owned', 'sunscar-caravan', ['server-mirror-char', 'combat-strip-char'], 'Expedition choices, run bindings, daily entry, reputation and payout commit together.'),
@@ -308,6 +310,7 @@ export const SAVE_FIELD_CONTRACT: readonly SaveFieldDef[] = [
     f('redeemedDungeonRuns', 'character', 'server-payout-stamp', 'hollow-gate', ['progression-entitlement-char']),
     f('redeemedHollowGateRuns', 'character', 'server-payout-stamp', 'hollow-gate', ['progression-entitlement-char']),
     f('redeemedPetBattleTokens', 'character', 'server-payout-stamp', 'pets', ['progression-entitlement-char']),
+    f('petShowdownAdmission', 'character', 'server-owned', 'pets', ['strict-ledger-char', 'always-ledger-char', 'combat-strip-char'], 'server-owned pending paid arena session; committed with its sealed combat and one-use item spend'),
     f('redeemedPetExpeditionTokens', 'character', 'server-payout-stamp', 'pets', ['progression-entitlement-char']),
     f('claimedServerMissions', 'character', 'server-payout-stamp', 'missions', ['progression-entitlement-char'], 'per-day mission claim receipts'),
     f('redeemedPetGauntletRuns', 'character', 'server-payout-stamp', 'pets', ['progression-entitlement-char']),
@@ -474,6 +477,7 @@ export const SAVE_FIELD_CONTRACT: readonly SaveFieldDef[] = [
     f('activeStoryReckoningSeal', 'top', 'server-payout-stamp', 'story', ['ledger-toplevel']),
     f('activeRiftQuestSeal', 'top', 'server-payout-stamp', 'hollow-gate', ['ledger-toplevel']),
     f('activeQuestbookSeal', 'top', 'server-payout-stamp', 'wanderers', ['ledger-toplevel']),
+    f('banditTollReceipts', 'top', 'server-payout-stamp', 'wanderers', ['ledger-toplevel', 'combat-strip-toplevel']),
     f('creatorJutsus', 'top', 'shared-admin-content', 'authored-content', ['ledger-toplevel', 'shared-admin-content', 'public-combat-toplevel'], 'players: frozen to stored (mirror); admin slots: published content'),
     f('creatorAis', 'top', 'shared-admin-content', 'authored-content', ['ledger-toplevel', 'shared-admin-content', 'combat-strip-toplevel']),
     f('creatorMissions', 'top', 'shared-admin-content', 'authored-content', ['ledger-toplevel', 'shared-admin-content', 'combat-strip-toplevel']),
@@ -526,6 +530,8 @@ export const SAVE_FIELD_CONTRACT: readonly SaveFieldDef[] = [
     f('growthAllocation', 'pet', 'server-owned', 'pets', ['pet-identity']),
     f('growthPoints', 'pet', 'server-owned', 'pets', ['pet-identity'], 'derived from level minus committed allocation'),
     f('happiness', 'pet', 'server-owned', 'pets', ['pet-identity']),
+    f('foodXpDay', 'pet', 'server-owned', 'pets', ['pet-identity'], 'UTC day of the food XP allowance'),
+    f('foodXpUsed', 'pet', 'server-owned', 'pets', ['pet-identity'], 'food XP committed with consumption under the save lock'),
     f('happinessDay', 'pet', 'server-owned', 'pets', ['pet-identity'], 'UTC day index of the last bond-decay settle (shared/pet-happiness.ts)'),
     f('happinessPets', 'pet', 'server-owned', 'pets', ['pet-identity'], 'free petting points already spent on happinessDay'),
     f('training', 'pet', 'server-owned', 'pets', ['pet-identity']),

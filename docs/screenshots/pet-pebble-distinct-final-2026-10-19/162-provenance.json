@@ -1,0 +1,16 @@
+{
+  "source": "public/pet-models/starter-earth.glb",
+  "sourceSha256": "0a1706f3bfbe4399202530b788c5b1573ceecaf6a345fa38296e389f4c5feae5",
+  "request": "Give Pebble Tortoise its own distinct model instead of sharing Stone Turtle",
+  "basis": "Existing Pebble-specific green/blue reconstruction and its original 13 animation clips; no Stone Turtle geometry copied; new local smooth scalp mesh and anatomical binding/joint placement",
+  "meshSha256": "789f87dd462a45e3794f3fbe4be71f9d71dec0c2ef8faa844a5a4a59d20257bf",
+  "contactBeforeSha256": "ca69ecae82731c2b4ef9d6780e420212fe76eecf16a268c3c79bc08451980f20",
+  "finalSourceSha256": "c99b0471489b65a5fe2c4b9b50bf781c48f4820f7eacdb092cf983a15ca51894",
+  "pipeline": [
+    "rebuild-pebble-tortoise.mjs: remove misplaced shell cap, author a smooth scalp, relocate generic joints to visible limbs, normalize rig, and rebind Pebble skin",
+    "finish-pet-character-motion.mjs --model=starter-earth: bake support/locomotion against the relocated two-leg rig; saved as contact-motion-before.glb",
+    "repair-pebble-tortoise-root-clearance.mjs: fit only root Y on attack/cast/recoil and prevent duplicate host crouch",
+    "targeted battle LOD and impostor generation; preserve independent scalp/headband samples"
+  ],
+  "motionAuthoringScriptSha256": "cdf50db2b353f2e0a1ff3102fc8288b30b889e265d70c3a950125434743b5a79"
+}

@@ -40,14 +40,14 @@ same commit as the workflow.
 | --- | --- | ---: | --- |
 | `CI / server-contracts` | `server_contracts` | 15 min | Fail-closed aggregate over the three root test shards (see below). Locked root install; deployment, rollback, mission, asset, pet-breeding, and tooling contracts; then requires every shard to have succeeded. |
 | `CI / server-build-security` | `server_build_security` | 30 min | Locked root install; backup/restore contract, root audit, one server build, checksum/provenance generation, and server artifact production. A high-severity advisory fails the audit at once; only an audit endpoint that returns no verdict is retried, for up to three attempts. |
-| `CI / pg-integration` | `pg_integration` | 10 min | Locked root install; runs `kv.compareSetMany` (the multi-key compare-and-set every currency-moving save write commits through) against a real `postgres:16` service container: jsonb equality, `ON CONFLICT ... WHERE`, `FOR SHARE` holds, rollback, opposite-order batches, and lock-lease fencing. The schema is read from `supabase-schema.sql`. `PG_INTEGRATION_REQUIRED=1` fails the job if the suite would skip. Required through `CI / test-build` (see below), not yet as its own context. |
+| `CI / pg-integration` | `pg_integration` | 30 min | Locked root install; runs `kv.compareSetMany` (the multi-key compare-and-set every currency-moving save write commits through) against a real `postgres:16` service container: jsonb equality, `ON CONFLICT ... WHERE`, `FOR SHARE` holds, rollback, opposite-order batches, and lock-lease fencing. The schema is read from `supabase-schema.sql`. `PG_INTEGRATION_REQUIRED=1` fails the job if the suite would skip. Required through `CI / test-build` (see below), not yet as its own context. The ceiling includes checkout of the immutable visual evidence as well as the complete test suite. |
 | `CI / client-quality` | `client_quality` | 35 min | Locked root/client installs; shipped pet rig/animation, Warfront/Rally LOD, and Warfront impostor certification ahead of the build; lint, story-content/TypeScript/production build, build-size and visual-baseline-size gates, client audit (with the same retry rule as the root audit), and checksum-backed client artifact production. |
 | `CI / release-certification` | `release_certification` | 15 min | Downloads and verifies the exact compiled release artifacts, then runs the fresh-account/combat certification against them. |
 | `CI / concurrency-smoke` | `concurrency_smoke` | 15 min | Downloads and verifies the release artifacts, then runs the short real-server concurrent-player smoke. It is not a database capacity test. |
-| `CI / e2e-responsive` | `e2e_responsive` | 5 min | Fail-closed aggregate requiring every responsive smoke slice (`e2e_responsive_matrix`) and both flow jobs with the CSP, Stronghold, and dedicated suites (`e2e_responsive_flows`) to succeed. |
+| `CI / e2e-responsive` | `e2e_responsive` | 5 min | Fail-closed aggregate requiring every responsive smoke slice (`e2e_responsive_matrix`) and all twelve flow jobs with the CSP, Stronghold, and dedicated suites (`e2e_responsive_flows`) to succeed. |
 | `CI / e2e-combat` | `e2e_combat` | 5 min | Fail-closed stable aggregate requiring all three combat browser shards to succeed. |
 | `CI / e2e-warfront` | `e2e_warfront` | 29 min | Warfront positional-mode browser coverage on seven Chromium viewport projects, including renders of eight real skinned rigs, and adaptive-layout evidence. |
-| `CI / e2e-village-stores` | `e2e_village_stores` | 35 min | Ten live Express player-journey steps in Chromium, each against its own real server started from the release artifact (see below). |
+| `CI / e2e-village-stores` | `e2e_village_stores` | 5 min | Requires all three gameplay shards; ten live Express player-journey steps retain separate real servers and all existing cases. |
 
 `CI / release-artifact` (`release_artifact`, 20 minutes) is an internal join that
 assembles and verifies the server and client outputs and distribution contract
@@ -73,16 +73,16 @@ run once, in the aggregate: each takes under a minute, and running them in every
 shard would only triple them. Require the stable `CI / server-contracts`
 aggregate rather than individual shards.
 
-Responsive coverage runs as five `e2e_responsive_matrix` shards, named
-`CI / e2e-responsive / 1-of-5` through `CI / e2e-responsive / 5-of-5`. Each has a
+Responsive coverage runs as seven `e2e_responsive_matrix` shards, named
+`CI / e2e-responsive / 1-of-7` through `CI / e2e-responsive / 7-of-7`. Each has a
 35-minute ceiling and runs only its slice of the complete Playwright suite,
-partitioned with `--shard=N/5`. The smoke step has its own 31-minute limit, so a
+partitioned with `--shard=N/7`. The smoke step has its own 31-minute limit, so a
 hung slice fails while there is still time to upload its evidence. On main in
 October 2026 a slice took 12 to 26 minutes and setup about 2.
 
 The CSP check, the Stronghold modes and the dedicated suites run beside the
-slices in two `e2e_responsive_flows` jobs, named `CI / e2e-responsive-flows / 1`
-and `CI / e2e-responsive-flows / 2`, each with a 29-minute ceiling:
+slices in twelve `e2e_responsive_flows` jobs, named `CI / e2e-responsive-flows / 1`
+through `CI / e2e-responsive-flows / 12`, each with a 29-minute ceiling:
 
 - Flow 1: the built CSP in Chromium and WebKit; all three Stronghold modes,
   in order, because they build into the same disposable fixture directory;
@@ -92,8 +92,52 @@ and `CI / e2e-responsive-flows / 2`, each with a 29-minute ceiling:
 - Flow 2: fishing and the Fracture Chain; Chronicle pack purchase and recovery;
   Pet Gauntlet playback and renderer recovery; named forge purchase and
   recovery; Rally renderer recovery; the Dojo Circuit gamepad flow.
+- Flows 3 through 10: the complete living-sector source suite, split into eight
+  Playwright slices. Test-level sharding keeps the large sector-life spec from
+  occupying a whole job; each slice still runs one worker. Flows 5 and 6
+  also check pet-inspired ground wildlife on desktop (flow 5) and phone
+  (flow 6), including player approaches, hidden/combat pauses, reduced motion,
+  and missing-art recovery. These flows also check the actual owned walking
+  companion, tracking-clue reactions, selection/away states, portrait fallback
+  and connected road crossings, using the world's existing render frame. All source
+  life shards also verify native paired training and cached crew departures,
+  the existing Heartwood keeper sweeping two actual paved sections with an
+  attached tool, pose-correct speech, weather/help interruption and cached night closure,
+  plus shrine visitors keeping their arrival/visit/departure speech during API
+  outages, hiding only at an actual road exit and starting the next wave at its entry,
+  the existing Midlands workers tending two actual painted herb-row edges and
+  checking the southern/eastern roads, including rain, cached exit, missing-garden
+  recovery and reduced-motion tool/hidden/combat behavior,
+  the original festival cook opening/serving/packing the attached counter and
+  the existing guide/runner showing square steps in the clearing, including
+  missing-floor presentation, rain, real road exits and cached closure,
+  recurring travelers and the injured courier retaining the same figure during
+  cached arrival/rest/departure, speaking about rest only at the actual stop,
+  and hiding at their road exit before a fresh visit creates its new figure,
+  plus existing tea-stop spectators reacting to the actual Chronicle turns and
+  result with independently reachable Talk and work buttons on desktop and phone,
+  the existing Hollow Road keeper and Lavafront scout checking protected painted
+  gear details, keeping task/courier locations and original story quest givers,
+  with cached rounds, weather/night waits, missing-floor dialogue, reduced-motion
+  pause/resume and separated, readable native portraits,
+  gulls over reviewed harbor water, and moths tied to the actually rendered lit
+  Moonwell lamps, including image fallback, immediate sky changes on foreground
+  resume and reduced motion. The supplied winter stop keeps the brazier and all
+  shrine-light states, while its existing warming pair leaves around the sled
+  and windbreak through actual road exits during API outages. All source
+  fixtures use their dedicated Vite configurations, while the main smoke keeps
+  using its immutable production preview. Their screenshots and geometry
+  evidence are retained with the flow artifacts.
+- Flows 11 and 12: dock shipments on desktop and phone respectively, including
+  delivery, unattended recovery and cached aftermath during an outage, plus
+  name/greeting separation from players, building titles and resource icons in
+  portrait and landscape layouts. Flow 11 also runs the complete Chronicle
+  tea-stop and daytime handover suite; flow 12 runs painted mining/fishing
+  placement. Both companion suites retain their desktop and phone projects.
+  These groups leave setup and cleanup room under the same ceiling while
+  keeping every existing case and assertion.
 
-Each flow job measured 11 to 15 minutes of suite time on main. A failed step
+The original first two flow jobs measured 11 to 15 minutes of suite time on main. A failed step
 skips every later check in its job, so a red flow job says nothing about the
 suites after the failure. The suite moved from two shards to three when run
 `35326317976` exhausted shard 2's budget at test entry 824 of 875, after its
@@ -101,7 +145,10 @@ Stronghold checks had passed. It moved to five when three-shard run
 `36622735387` exhausted shards 1 and 2 before every browser case ran. The flow
 suites left the slices after shards 2 and 5 reached 32 to 34 of their 35 minutes
 on main, and PR #407's shard 2 was cancelled at the ceiling with every test
-passing. Each change kept the whole suite. Require the stable
+passing. Run `39433723955` exhausted the five-way first slice twice; its retry
+reached 634 of 700 cases before cancellation. Seven slices retain all 3,499
+test/project cases exactly once (six slices of 500, one of 499), with the same
+step and job ceilings. Each change kept the whole suite. Require the stable
 `CI / e2e-responsive` aggregate rather than individual matrix children.
 
 The actual combat work runs as the `e2e_combat_matrix` job with the emitted names
@@ -112,7 +159,14 @@ not each matrix child, so future safe sharding changes do not silently rename th
 branch-protection contract.
 
 `CI / e2e-village-stores` keeps the name of its first journey, the Village Stores
-economy loop, but it now runs ten live Express steps in Chromium. Each step
+economy loop. Three `e2e_village_stores_matrix` shards, named
+`CI / e2e-village-stores / 1-of-3` through `CI / e2e-village-stores / 3-of-3`,
+each have a 35-minute ceiling. They partition the ten live Express steps in
+Chromium without changing any command, project, assertion, or retry setting.
+Shard 1 runs economy/Academy/routes and desktop recovery; shard 2 runs mobile
+recovery and fieldwork/crafting/binding; shard 3 runs MMO, authored missions,
+PvP, Exchange/sector war, presence/tavern, and Hollow Gate. The stable aggregate
+requires every shard to succeed, and each shard retains uniquely named evidence. Each step
 starts its own real server from the release artifact with a fresh in-memory
 store, so each step gets its own budget under the real registration limit of 25
 accounts per IP per 15 minutes. The steps are:

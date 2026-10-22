@@ -12,6 +12,8 @@ export type ClanBossStanding = { clanName: string; score: number; killed: boolea
 export type ClanBossMyClan = {
     clanName: string; pool: number; poolMax: number; killed: boolean; damageDealt: number;
     participants: number; attemptsPerMember: number; myAttemptsLeft: number; rank: number | null; score: number;
+    rulesVersion?: 1 | 2;
+    attemptPolicy?: 'each-participant' | 'host-only';
 };
 export type ClanBossView = {
     ok: boolean;

@@ -217,9 +217,9 @@ async function sealAiFightEncounter(
 
         // Step 3c: scaling from SERVER state. `body.opponentLevel` is never read
         // for the encounter — a client-chosen level is a client-chosen
-        // difficulty. Combat missions are the only entry point that re-levels
-        // its opponent (see _ai-fight-scaling.ts); everything else resolves to
-        // undefined and is built at its authored level, matching the client.
+        // difficulty. The authority resolver separately validates Arena's
+        // explicit consensual practiceLevel. Other non-mission entry points
+        // keep their authored level or dedicated server-owned scaling.
         const scaling = worldSpec ? undefined : genericAuthority?.scaling ?? resolveAiFightScaling({
             opponentId: body.opponentId,
             battleKind: body.battleKind,

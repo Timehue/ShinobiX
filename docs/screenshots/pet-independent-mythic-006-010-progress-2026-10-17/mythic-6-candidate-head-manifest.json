@@ -1,0 +1,61 @@
+{
+  "schema": 1,
+  "errors": [],
+  "pets": [
+    {
+      "id": "mythic-6",
+      "name": "Azure Ryujin",
+      "url": "/.tmp/azure-ryujin-anatomical-v2/roster/mythic-6.glb",
+      "sha256": "8c2c2bfc468365ec3cac2083756048ee0641393f7de5257514dc501203ce4daa",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "progress": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ],
+      "views": [
+        "head-front",
+        "head-side"
+      ],
+      "region": {
+        "y": [
+          -2,
+          -2
+        ],
+        "bounds": [
+          -0.4896711720609205,
+          0.22417313227414853,
+          0.15830268844617126,
+          0.8764984561196292,
+          0.3440457934161838,
+          1.1090869060534025
+        ],
+        "cameraPadding": 1.15
+      },
+      "sheets": [
+        "mythic-6-head-front.webp",
+        "mythic-6-head-side.webp"
+      ],
+      "review": "pending",
+      "anatomySha256": "e07f076e9e6d41316b473901f3824dac6ec0b79dd0d179739201600085d15bb4"
+    }
+  ],
+  "artisticCertification": false
+}

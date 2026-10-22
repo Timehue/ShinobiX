@@ -2,10 +2,13 @@ import {
     PET_EXPEDITION_PROVISIONS,
     PET_EXPEDITION_RISKS,
     PET_EXPEDITION_TYPES,
+    PET_EXPEDITION_REWARD_VERSION,
+    type PetExpeditionFindChances,
     type PetExpeditionProvision,
     type PetExpeditionRisk,
     type PetExpeditionType,
 } from '../../shared/pet-expedition-contract.js';
+import { readPetExpeditionMaterials, type PetExpeditionMaterialReward } from '../../shared/pet-expedition-materials.js';
 
 export { PET_EXPEDITION_TYPES } from '../../shared/pet-expedition-contract.js';
 export type { PetExpeditionType } from '../../shared/pet-expedition-contract.js';
@@ -28,6 +31,12 @@ export interface PetExpeditionSeal {
     region: string;
     biome: string;
     choiceVersion: number;
+    materialRewards?: PetExpeditionMaterialReward[];
+    rewardVersion?: number;
+    ryoReward?: number;
+    petXpReward?: number;
+    premiumChances?: PetExpeditionFindChances;
+    fateShardReward?: number;
 }
 type RecordLike = Record<string, unknown>;
 
@@ -87,6 +96,18 @@ export function petExpeditionSealForToken(characterRaw: unknown, token: string, 
             region: String(saved?.region ?? expedition.region ?? '').slice(0, 80),
             biome: String(saved?.biome ?? expedition.biome ?? 'central').slice(0, 24),
             choiceVersion: Math.floor(clamped(saved?.choiceVersion ?? 0, 0, 1)),
+            ...(Array.isArray(saved?.materialRewards) ? { materialRewards: readPetExpeditionMaterials(saved.materialRewards) } : {}),
+            ...(saved?.rewardVersion === PET_EXPEDITION_REWARD_VERSION ? {
+                rewardVersion: PET_EXPEDITION_REWARD_VERSION,
+                ryoReward: clamped(saved.ryoReward, 0, 100_000),
+                petXpReward: clamped(saved.petXpReward, 0, 10_000),
+                fateShardReward: Math.floor(clamped(saved.fateShardReward ?? 1, 1, 4)),
+                premiumChances: {
+                    bone: clamped(recordOf(saved.premiumChances)?.bone, 0, 1),
+                    aura: clamped(recordOf(saved.premiumChances)?.aura, 0, 1),
+                    fate: clamped(recordOf(saved.premiumChances)?.fate, 0, 1),
+                },
+            } : {}),
         };
     }
     return null;

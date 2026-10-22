@@ -1,0 +1,35 @@
+{
+  "at": "2026-10-20T04:25:26.593Z",
+  "failedCiRun": 39364978785,
+  "failedJob": 118449731320,
+  "failures": [
+    "legendary-6",
+    "legendary-16"
+  ],
+  "diagnosis": "Historical birdFaceRepair.original accessor indices refer to old accessor tables; later complete-face rebinding rebuilt those tables. Runtime models load normally; original reconstruction inside the legacy test failed.",
+  "fix": "Use existing immutable independently pinned complete-face original models as bind baselines for these two identities. All original mesh, rig, bind, weight, 13-clip and authored edge assertions remain.",
+  "targetedTests": {
+    "total": 30,
+    "passed": 30,
+    "failed": 0
+  },
+  "targetedLint": {
+    "errors": 0
+  },
+  "publicAssetBytesChanged": false,
+  "evidence": [
+    {
+      "path": "shinobij.client/scripts/bird-faces.test.mjs",
+      "sha256": "189049843cf95789d5c9b2875daf91408acf419f2110535faeb4ab9c08364e34"
+    },
+    {
+      "path": "shinobij.client/scripts/fixtures/pet-complete-face-20261015/legendary-6-v1.glb",
+      "sha256": "969f6f0ac6355377d7d6bb3a65799aa98bd2a8591e09c78c8bb3f6badcdd2579"
+    },
+    {
+      "path": "shinobij.client/scripts/fixtures/pet-complete-face-20261015/legendary-16-v1.glb",
+      "sha256": "d761f0769ecacdd38a5290f5a9536c74f8aeae358fa0cbeb37a9d115880798f8"
+    }
+  ],
+  "fullCiRequiredBeforeMerge": true
+}

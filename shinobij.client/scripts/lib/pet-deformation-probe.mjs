@@ -7,7 +7,11 @@ import { encodeGlb } from '../repair-bird-faces.mjs';
 
 /** CPU copy of the actual shipping skin. Only image decoding is removed. */
 export async function loadPetDeformationProbe(path) {
-    const bytes = await readFile(path), length = bytes.readUInt32LE(12);
+    return loadPetDeformationProbeBytes(await readFile(path));
+}
+
+export async function loadPetDeformationProbeBytes(bytes) {
+    const length = bytes.readUInt32LE(12);
     const json = JSON.parse(bytes.subarray(20, 20 + length));
     const scratch = structuredClone(json);
     scratch.materials = []; scratch.images = []; scratch.textures = [];
@@ -19,7 +23,7 @@ export async function loadPetDeformationProbe(path) {
     gltf.scene.traverse(node => { if (node.isSkinnedMesh) meshes.push(node); });
     const update = () => { gltf.scene.updateMatrixWorld(true); meshes.forEach(mesh => mesh.skeleton.update()); };
     update();
-    return { ...gltf, meshes, json, update, sha256: createHash('sha256').update(bytes).digest('hex') };
+    return { ...gltf, meshes, json, binary: bytes.subarray(28 + length), update, sha256: createHash('sha256').update(bytes).digest('hex') };
 }
 
 export function snapshotPetPose(scene) {

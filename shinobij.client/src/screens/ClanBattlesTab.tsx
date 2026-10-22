@@ -1,3 +1,4 @@
+import {warSectionCard,warActionRow,warFlexibleField,warMutedHeading,warPrimaryButton,warSmallButton} from '../lib/clan-battles-styles';
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { visiblePoll } from "../lib/poll";
@@ -289,7 +290,7 @@ export function ClanBattlesTab({ character, playerRoster, setScreen, launchClanW
                     </div>
 
                     {/* Send a challenge — 1v1 sends immediately; 2v2 opens a queue */}
-                    <div style={{ background: "#0b1220", border: "1px solid var(--slate-700)", borderRadius: 6, padding: "0.8rem", marginBottom: "1rem" }}>
+                    <div style={warSectionCard}>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
                             <strong style={{ display: "inline-flex", alignItems: "center", gap: 5, color: "var(--blue-400)" }}><GameArtIcon kind="attack" size={21} /> Send Anonymous Challenge to {enemyClan}</strong>
                             <span style={{ fontSize: "0.78rem", color: atSlotCap ? "var(--red-400)" : "var(--text-dim)" }}>
@@ -339,18 +340,18 @@ export function ClanBattlesTab({ character, playerRoster, setScreen, launchClanW
                                     const minsLeft = Math.max(1, Math.ceil((ch.expiresAt - Date.now()) / 60_000));
                                     const isSeed = ch.fromPlayer.toLowerCase() === character.name.toLowerCase();
                                     return (
-                                        <div key={ch.id} style={{ background: "#0b1220", padding: "0.5rem 0.7rem", borderRadius: 4, marginTop: 6, display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
-                                            <strong style={{ flex: 1, minWidth: 200 }}>
+                                        <div key={ch.id} style={warActionRow}>
+                                            <strong style={warFlexibleField}>
                                                 <ClanWarModeIcon mode={ch.mode} /> {CW_MODE_LABEL[ch.mode]}
-                                                <span style={{ color: "var(--text-dim)", fontWeight: 400 }}> · seed: {ch.fromPlayer} · expires in {minsLeft}m</span>
+                                                <span style={warMutedHeading}> · seed: {ch.fromPlayer} · expires in {minsLeft}m</span>
                                             </strong>
                                             {!isSeed && (
-                                                <button onClick={() => handleJoinSend(ch.id)} disabled={busy} style={{ padding: "0.3rem 0.6rem", background: "#15803d", borderColor: "var(--green-400)", fontSize: "0.85rem" }}>
+                                                <button onClick={() => handleJoinSend(ch.id)} disabled={busy} style={warPrimaryButton}>
                                                     <GameArtIcon kind="roleSage" size={17} /> Join as partner
                                                 </button>
                                             )}
                                             {isSeed && (
-                                                <button onClick={() => handleLeaveSend(ch.id)} disabled={busy} className="danger-button" style={{ padding: "0.3rem 0.6rem", fontSize: "0.8rem" }}>
+                                                <button onClick={() => handleLeaveSend(ch.id)} disabled={busy} className="danger-button" style={warSmallButton}>
                                                     ✕ Cancel queue
                                                 </button>
                                             )}
@@ -381,32 +382,32 @@ export function ClanBattlesTab({ character, playerRoster, setScreen, launchClanW
                                     const queueCount = (ch.acceptedPlayer ? 1 : 0) + (ch.acceptedPlayer2 ? 1 : 0);
                                     const queueLabel = isTwoV ? ` · accept queue ${queueCount}/2` : "";
                                     return (
-                                        <div key={ch.id} style={{ background: "#0b1220", padding: "0.5rem 0.7rem", borderRadius: 4, marginTop: 6, display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
-                                            <strong style={{ flex: 1, minWidth: 200 }}>
+                                        <div key={ch.id} style={warActionRow}>
+                                            <strong style={warFlexibleField}>
                                                 <ClanWarModeIcon mode={ch.mode} /> {CW_MODE_LABEL[ch.mode]}
-                                                <span style={{ color: "var(--text-dim)", fontWeight: 400 }}> (−{CW_DAMAGE[ch.mode]} HP · {minsLeft}m{queueLabel})</span>
+                                                <span style={warMutedHeading}> (−{CW_DAMAGE[ch.mode]} HP · {minsLeft}m{queueLabel})</span>
                                                 {isTwoV && ch.acceptedPlayer && <span style={{ color: "#a7f3d0", fontSize: "0.78rem", marginLeft: 6 }}>· queued: {ch.acceptedPlayer}{ch.acceptedPlayer2 ? ` + ${ch.acceptedPlayer2}` : ""}</span>}
                                             </strong>
                                             {!isTwoV && !meQueued && (
                                                 <button onClick={() => handleAccept(ch)} disabled={busy} style={{ padding: "0.3rem 0.6rem", background: "#15803d", borderColor: "var(--green-400)" }}>Accept</button>
                                             )}
                                             {isTwoV && !meQueued && !ch.acceptedPlayer && (
-                                                <button onClick={() => handleAccept(ch)} disabled={busy} style={{ padding: "0.3rem 0.6rem", background: "#15803d", borderColor: "var(--green-400)", fontSize: "0.85rem" }}>
+                                                <button onClick={() => handleAccept(ch)} disabled={busy} style={warPrimaryButton}>
                                                     <GameArtIcon kind="roleDefender" size={17} /> Queue to accept (1st)
                                                 </button>
                                             )}
                                             {isTwoV && !meQueued && ch.acceptedPlayer && !ch.acceptedPlayer2 && (
-                                                <button onClick={() => handleJoinAccept(ch.id)} disabled={busy} style={{ padding: "0.3rem 0.6rem", background: "#15803d", borderColor: "var(--green-400)", fontSize: "0.85rem" }}>
+                                                <button onClick={() => handleJoinAccept(ch.id)} disabled={busy} style={warPrimaryButton}>
                                                     <GameArtIcon kind="roleSage" size={17} /> Join accept queue (2nd)
                                                 </button>
                                             )}
                                             {isTwoV && meQueued && (
-                                                <button onClick={() => handleLeaveAccept(ch.id)} disabled={busy} className="danger-button" style={{ padding: "0.3rem 0.6rem", fontSize: "0.8rem" }}>
+                                                <button onClick={() => handleLeaveAccept(ch.id)} disabled={busy} className="danger-button" style={warSmallButton}>
                                                     ✕ Leave accept queue
                                                 </button>
                                             )}
                                             {!meQueued && (
-                                                <button onClick={() => handleDecline(ch.id)} disabled={busy} className="danger-button" style={{ padding: "0.3rem 0.6rem", fontSize: "0.8rem" }}>
+                                                <button onClick={() => handleDecline(ch.id)} disabled={busy} className="danger-button" style={warSmallButton}>
                                                     Decline (clan)
                                                 </button>
                                             )}
@@ -432,18 +433,18 @@ export function ClanBattlesTab({ character, playerRoster, setScreen, launchClanW
                                     const enemyQueueCount = (ch.acceptedPlayer ? 1 : 0) + (ch.acceptedPlayer2 ? 1 : 0);
                                     const enemyQueueLabel = isTwoV ? ` · enemy accept queue ${enemyQueueCount}/2` : "";
                                     return (
-                                        <div key={ch.id} style={{ background: "#0b1220", padding: "0.5rem 0.7rem", borderRadius: 4, marginTop: 6, display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
-                                            <strong style={{ flex: 1, minWidth: 200 }}>
+                                        <div key={ch.id} style={warActionRow}>
+                                            <strong style={warFlexibleField}>
                                                 <ClanWarModeIcon mode={ch.mode} /> {CW_MODE_LABEL[ch.mode]}
-                                                <span style={{ color: "var(--text-dim)", fontWeight: 400 }}> · {ch.fromPlayer}{ch.fromPlayer2 ? ` + ${ch.fromPlayer2}` : ""} · expires in {minsLeft}m{enemyQueueLabel}</span>
+                                                <span style={warMutedHeading}> · {ch.fromPlayer}{ch.fromPlayer2 ? ` + ${ch.fromPlayer2}` : ""} · expires in {minsLeft}m{enemyQueueLabel}</span>
                                             </strong>
                                             {isTwoV && mine && (
-                                                <button onClick={() => handleLeaveSend(ch.id)} disabled={busy} style={{ padding: "0.3rem 0.6rem", fontSize: "0.8rem" }}>
+                                                <button onClick={() => handleLeaveSend(ch.id)} disabled={busy} style={warSmallButton}>
                                                     <GameArtIcon kind="speed" size={17} /> Leave send queue
                                                 </button>
                                             )}
                                             {mine && (
-                                                <button onClick={() => handleCancel(ch.id)} disabled={busy} className="danger-button" style={{ padding: "0.3rem 0.6rem", fontSize: "0.8rem" }}>
+                                                <button onClick={() => handleCancel(ch.id)} disabled={busy} className="danger-button" style={warSmallButton}>
                                                     Cancel (full)
                                                 </button>
                                             )}
@@ -494,9 +495,9 @@ export function ClanBattlesTab({ character, playerRoster, setScreen, launchClanW
                                     return (
                                         <div key={ch.id} style={{ background: "#0b1220", padding: "0.6rem 0.7rem", borderRadius: 4, marginTop: 6 }}>
                                             <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", marginBottom: 6 }}>
-                                                <strong style={{ flex: 1, minWidth: 200 }}>
+                                                <strong style={warFlexibleField}>
                                                     <ClanWarModeIcon mode={ch.mode} /> {CW_MODE_LABEL[ch.mode]}
-                                                    <span style={{ color: "var(--text-dim)", fontWeight: 400 }}> · vs {opponents.join(" + ") || "?"} · −{CW_DAMAGE[ch.mode]} HP on win</span>
+                                                    <span style={warMutedHeading}> · vs {opponents.join(" + ") || "?"} · −{CW_DAMAGE[ch.mode]} HP on win</span>
                                                 </strong>
                                                 <button onClick={() => launchBattle(ch)} disabled={busy} style={{ padding: "0.25rem 0.55rem", background: "var(--slate-900)", borderColor: "var(--slate-600)", color: "var(--text-dim)", fontSize: "0.78rem" }}>
                                                     ↻ Re-launch
@@ -525,7 +526,7 @@ export function ClanBattlesTab({ character, playerRoster, setScreen, launchClanW
 
                     {/* Recent battles log */}
                     {myWar.completedChallenges.length > 0 && (
-                        <div style={{ background: "#0b1220", border: "1px solid var(--slate-700)", borderRadius: 6, padding: "0.8rem", marginBottom: "1rem" }}>
+                        <div style={warSectionCard}>
                             <strong style={{ display: "inline-flex", alignItems: "center", gap: 5, color: "var(--text-dim)" }}><GameArtIcon kind="mission" size={18} /> Recent Battles</strong>
                             <div style={{ display: "grid", gap: 4, marginTop: 6, fontSize: "0.82rem" }}>
                                 {myWar.completedChallenges.slice(0, 10).map(ch => {
@@ -550,7 +551,7 @@ export function ClanBattlesTab({ character, playerRoster, setScreen, launchClanW
 
             {/* No active war — show declare form if I'm leadership */}
             {!loading && !myWar && (
-                <div style={{ background: "#0b1220", border: "1px solid var(--slate-700)", borderRadius: 6, padding: "0.8rem", marginBottom: "1rem" }}>
+                <div style={warSectionCard}>
                     <p style={{ marginTop: 0 }}>Your clan ({myClan}) is not currently in a clan war.</p>
                     {canLead ? (
                         <>

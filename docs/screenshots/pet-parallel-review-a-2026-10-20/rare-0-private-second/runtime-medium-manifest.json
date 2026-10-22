@@ -1,0 +1,293 @@
+{
+  "schema": 1,
+  "rendererSha256": "b2253b71fbcb21a83d82de35ab5783dd57b525cfc94740fb131dd1eb0049a897",
+  "captureHarnessSha256": "cce6b44f827692020f0b9479c1ccad317ab72544369ffc47f07241762df596d3",
+  "viewport": {
+    "width": 1280,
+    "height": 800
+  },
+  "rows": [
+    {
+      "name": "idle",
+      "duration": 1.2,
+      "frame": {
+        "motion": "idle"
+      }
+    },
+    {
+      "name": "run",
+      "duration": 0.8,
+      "frame": {
+        "motion": "run",
+        "moving": true,
+        "speed": 3
+      }
+    },
+    {
+      "name": "dash",
+      "duration": 0.6,
+      "frame": {
+        "motion": "dash",
+        "moving": true,
+        "speed": 5
+      }
+    },
+    {
+      "name": "windup",
+      "duration": 0.38,
+      "frame": {
+        "motion": "windup"
+      }
+    },
+    {
+      "name": "strike",
+      "duration": 0.26,
+      "frame": {
+        "motion": "strike",
+        "contactPose": true
+      }
+    },
+    {
+      "name": "recover",
+      "duration": 0.51,
+      "frame": {
+        "motion": "recover"
+      }
+    },
+    {
+      "name": "stagger",
+      "duration": 0.65,
+      "frame": {
+        "motion": "stagger",
+        "hit": 0.6,
+        "contactPose": true
+      }
+    },
+    {
+      "name": "dodge",
+      "duration": 0.65,
+      "frame": {
+        "motion": "dodge"
+      }
+    },
+    {
+      "name": "guard",
+      "duration": 0.8,
+      "frame": {
+        "motion": "guard"
+      }
+    },
+    {
+      "name": "rest",
+      "duration": 1.2,
+      "frame": {
+        "motion": "rest"
+      }
+    },
+    {
+      "name": "cast",
+      "duration": 0.9,
+      "frame": {
+        "motion": "idle",
+        "casting": true
+      }
+    },
+    {
+      "name": "entrance",
+      "duration": 1.1,
+      "frame": {
+        "motion": "idle"
+      }
+    },
+    {
+      "name": "victory",
+      "duration": 1.2,
+      "frame": {
+        "motion": "idle",
+        "victorious": true
+      }
+    },
+    {
+      "name": "dead",
+      "duration": 1.6,
+      "frame": {
+        "motion": "dead"
+      }
+    },
+    {
+      "name": "revive",
+      "duration": 0.8,
+      "frame": {
+        "motion": "idle"
+      }
+    },
+    {
+      "name": "attack-sequence",
+      "duration": 1.7,
+      "frame": {
+        "motion": "windup"
+      }
+    }
+  ],
+  "phases": [
+    0.04,
+    0.16,
+    0.36,
+    0.6,
+    0.84,
+    1
+  ],
+  "views": [
+    "front",
+    "side"
+  ],
+  "errors": [],
+  "pets": [
+    {
+      "id": "rare-0",
+      "name": "Crimson Fox",
+      "captures": [
+        {
+          "stage": "source",
+          "sha256": "6df0ace2467866aa31640936c2cb9a309e0da5afd31ff443485ee242a9fb8991",
+          "meshes": 1,
+          "headVertices": [
+            1857
+          ],
+          "quality": "medium",
+          "diagnosticNormalSurfaces": 0,
+          "diagnostic": {
+            "landmarkCamera": false,
+            "normals": false
+          },
+          "sheets": [
+            {
+              "name": "rare-0-source-head.webp",
+              "sha256": "aaebb9233d152720b3159aa4f4664f9c36ad43590241db4b41f3f51a9463c07a"
+            },
+            {
+              "name": "rare-0-source-body.webp",
+              "sha256": "e22a06e51ded0035ee3edc8a0473973d98ba9a94152194312e541641aa2138df"
+            }
+          ],
+          "pairedNormalPoseVerified": false,
+          "cameraSha256": "6da4404dff9eff74af19a1584188f154cd8638c009f901c5bb7e42a28e3e41c8",
+          "anatomySha256": "b2cfa3e021e29261f10dce98cb9e47a52e8e0d571da39fe98507549bd9020be7",
+          "anatomyReport": {
+            "poses": 471,
+            "regions": [
+              {
+                "name": "upperFace",
+                "vertices": 91,
+                "edges": 226,
+                "maxDrift": 5.450630542084191e-15,
+                "worldMinRatio": 0.9999981965725266,
+                "worldMaxRatio": 1.0000005051622571,
+                "maximumTime": 4.7339999999999955
+              },
+              {
+                "name": "muzzle",
+                "vertices": 66,
+                "edges": 150,
+                "maxDrift": 6.5477209764564814e-15,
+                "worldMinRatio": 0.9999981967359206,
+                "worldMaxRatio": 1.000000561883257,
+                "maximumTime": 12.044666666666638
+              },
+              {
+                "name": "lowerFace",
+                "vertices": 60,
+                "edges": 125,
+                "maxDrift": 6.539149121217998e-15,
+                "worldMinRatio": 0.9999981967342112,
+                "worldMaxRatio": 1.0000005594347523,
+                "maximumTime": 4.7339999999999955
+              },
+              {
+                "name": "jawChin",
+                "vertices": 141,
+                "edges": 304,
+                "maxDrift": 4.6144343433141415e-15,
+                "worldMinRatio": 0.9999981966149328,
+                "worldMaxRatio": 1.0000005486543495,
+                "maximumTime": 4.7339999999999955
+              }
+            ],
+            "failed": false
+          }
+        },
+        {
+          "stage": "battle",
+          "sha256": "41064054c79377cbeb35d618427ee22f1b4f59b836710c76e0a44aa03e85aa61",
+          "meshes": 1,
+          "headVertices": [
+            514
+          ],
+          "quality": "medium",
+          "diagnosticNormalSurfaces": 0,
+          "diagnostic": {
+            "landmarkCamera": false,
+            "normals": false
+          },
+          "sheets": [
+            {
+              "name": "rare-0-battle-head.webp",
+              "sha256": "b4845abe9a9bd6cf012e43621fb7de9449bd09ab8f0cb529be2d19e69fb4ccce"
+            },
+            {
+              "name": "rare-0-battle-body.webp",
+              "sha256": "74fad37a8dc419d515fc082ebef8f3272e2d9baf338f02aac1e83d0833accf3c"
+            }
+          ],
+          "pairedNormalPoseVerified": false,
+          "cameraSha256": "6da4404dff9eff74af19a1584188f154cd8638c009f901c5bb7e42a28e3e41c8",
+          "anatomySha256": "b2cfa3e021e29261f10dce98cb9e47a52e8e0d571da39fe98507549bd9020be7",
+          "anatomyReport": {
+            "poses": 471,
+            "regions": [
+              {
+                "name": "upperFace",
+                "vertices": 27,
+                "edges": 54,
+                "maxDrift": 4.129284942579313e-15,
+                "worldMinRatio": 0.9999981978655283,
+                "worldMaxRatio": 1.0000004786800385,
+                "maximumTime": 12.955333333333304
+              },
+              {
+                "name": "muzzle",
+                "vertices": 29,
+                "edges": 57,
+                "maxDrift": 6.346470076754643e-15,
+                "worldMinRatio": 0.99999819673591,
+                "worldMaxRatio": 1.000000546360733,
+                "maximumTime": 8.292666666666651
+              },
+              {
+                "name": "lowerFace",
+                "vertices": 21,
+                "edges": 32,
+                "maxDrift": 5.404311531804004e-15,
+                "worldMinRatio": 0.9999981970330887,
+                "worldMaxRatio": 1.0000005594347523,
+                "maximumTime": 4.823333333333329
+              },
+              {
+                "name": "jawChin",
+                "vertices": 45,
+                "edges": 62,
+                "maxDrift": 3.8533541942828625e-15,
+                "worldMinRatio": 0.9999981965921376,
+                "worldMaxRatio": 1.0000004421488067,
+                "maximumTime": 8.225999999999985
+              }
+            ],
+            "failed": false
+          }
+        }
+      ],
+      "review": "pending"
+    }
+  ],
+  "artisticCertification": false
+}

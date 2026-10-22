@@ -1,0 +1,390 @@
+{
+  "id": "starter-earth",
+  "sourceSha256": "c99b0471489b65a5fe2c4b9b50bf781c48f4820f7eacdb092cf983a15ca51894",
+  "firstPassComplete": true,
+  "secondPassComplete": false,
+  "live": false,
+  "reviewedRaw": 30,
+  "rows": [
+    {
+      "stage": "source",
+      "part": "head",
+      "path": ".tmp/pet-independent-face-recheck/slices/pebble-distinct-contact-v2-source-head/starter-earth-head-front-0.png",
+      "sha256": "e79412b7e4302a7df7e81fd24db602bfe514870cf25440724ca6ef48d8f31364",
+      "actuallyInspected": true,
+      "result": "pass",
+      "notes": "Corrected source/battle: all thirteen takes inspected; face and scalp coherent, limbs joined, no stretched hand sheets in these samples."
+    },
+    {
+      "stage": "source",
+      "part": "head",
+      "path": ".tmp/pet-independent-face-recheck/slices/pebble-distinct-contact-v2-source-head/starter-earth-head-front-1.png",
+      "sha256": "629e157e0f00a05270c4a3884bd81a52e1766c277424a659d9f7ec873c9919e0",
+      "actuallyInspected": true,
+      "result": "pass",
+      "notes": "Corrected source/battle: all thirteen takes inspected; face and scalp coherent, limbs joined, no stretched hand sheets in these samples."
+    },
+    {
+      "stage": "source",
+      "part": "head",
+      "path": ".tmp/pet-independent-face-recheck/slices/pebble-distinct-contact-v2-source-head/starter-earth-head-front-2.png",
+      "sha256": "dc93c5d0ffecb3b2da3ffcfdd24abe14c7dfe3035d6a8804579929cc8a175317",
+      "actuallyInspected": true,
+      "result": "pass",
+      "notes": "Corrected source/battle: all thirteen takes inspected; face and scalp coherent, limbs joined, no stretched hand sheets in these samples."
+    },
+    {
+      "stage": "source",
+      "part": "head",
+      "path": ".tmp/pet-independent-face-recheck/slices/pebble-distinct-contact-v2-source-head/starter-earth-head-other-side-0.png",
+      "sha256": "c779d7a0cd9bc2074fcbaeee5b756d859e637d95ac0b8453c8718073f7bc860b",
+      "actuallyInspected": true,
+      "result": "pass",
+      "notes": "Corrected source/battle: all thirteen takes inspected; face and scalp coherent, limbs joined, no stretched hand sheets in these samples."
+    },
+    {
+      "stage": "source",
+      "part": "head",
+      "path": ".tmp/pet-independent-face-recheck/slices/pebble-distinct-contact-v2-source-head/starter-earth-head-other-side-1.png",
+      "sha256": "ecdeb96d3a745636bc680173636ff05eb7426905ee057794e0b9cb48b504f117",
+      "actuallyInspected": true,
+      "result": "pass",
+      "notes": "Corrected source/battle: all thirteen takes inspected; face and scalp coherent, limbs joined, no stretched hand sheets in these samples."
+    },
+    {
+      "stage": "source",
+      "part": "head",
+      "path": ".tmp/pet-independent-face-recheck/slices/pebble-distinct-contact-v2-source-head/starter-earth-head-other-side-2.png",
+      "sha256": "62f530c2073287b4c82b9070aa569f389c69328a9b5b9b202a46f226c884703e",
+      "actuallyInspected": true,
+      "result": "pass",
+      "notes": "Corrected source/battle: all thirteen takes inspected; face and scalp coherent, limbs joined, no stretched hand sheets in these samples."
+    },
+    {
+      "stage": "source",
+      "part": "head",
+      "path": ".tmp/pet-independent-face-recheck/slices/pebble-distinct-contact-v2-source-head/starter-earth-head-side-0.png",
+      "sha256": "fe637565d7a23b4650bd8ad5c8c1ee059241bc3b7e097ac0a0c6b189141f85e5",
+      "actuallyInspected": true,
+      "result": "pass",
+      "notes": "Corrected source/battle: all thirteen takes inspected; face and scalp coherent, limbs joined, no stretched hand sheets in these samples."
+    },
+    {
+      "stage": "source",
+      "part": "head",
+      "path": ".tmp/pet-independent-face-recheck/slices/pebble-distinct-contact-v2-source-head/starter-earth-head-side-1.png",
+      "sha256": "68c0ebc754feba1c80ed070f102ac86af8dd1327aa774350a58aabd72fca08d4",
+      "actuallyInspected": true,
+      "result": "pass",
+      "notes": "Corrected source/battle: all thirteen takes inspected; face and scalp coherent, limbs joined, no stretched hand sheets in these samples."
+    },
+    {
+      "stage": "source",
+      "part": "head",
+      "path": ".tmp/pet-independent-face-recheck/slices/pebble-distinct-contact-v2-source-head/starter-earth-head-side-2.png",
+      "sha256": "bdc2303aa87e82340036dfa8c2e046d482db9d01107964cc867a00691c620137",
+      "actuallyInspected": true,
+      "result": "pass",
+      "notes": "Corrected source/battle: all thirteen takes inspected; face and scalp coherent, limbs joined, no stretched hand sheets in these samples."
+    },
+    {
+      "stage": "source",
+      "part": "body",
+      "path": ".tmp/pet-independent-face-recheck/slices/pebble-distinct-contact-v2-source-body/starter-earth-front-0.png",
+      "sha256": "ff67335fee4656a8695c25db98b080cf8d60406072799fc44b49d9e612368b89",
+      "actuallyInspected": true,
+      "result": "pass",
+      "notes": "Corrected source/battle: all thirteen takes inspected; face and scalp coherent, limbs joined, no stretched hand sheets in these samples."
+    },
+    {
+      "stage": "source",
+      "part": "body",
+      "path": ".tmp/pet-independent-face-recheck/slices/pebble-distinct-contact-v2-source-body/starter-earth-front-1.png",
+      "sha256": "28bf267e9690bf634cc01a77031fbdcac47840c54d16f377b604a6c15e074904",
+      "actuallyInspected": true,
+      "result": "pass",
+      "notes": "Corrected source/battle: all thirteen takes inspected; face and scalp coherent, limbs joined, no stretched hand sheets in these samples."
+    },
+    {
+      "stage": "source",
+      "part": "body",
+      "path": ".tmp/pet-independent-face-recheck/slices/pebble-distinct-contact-v2-source-body/starter-earth-front-2.png",
+      "sha256": "7cdfed5b03184f6ea60433fbb4fafe623acfbec33c3933655d3ad26692d88e3c",
+      "actuallyInspected": true,
+      "result": "pass",
+      "notes": "Corrected source/battle: all thirteen takes inspected; face and scalp coherent, limbs joined, no stretched hand sheets in these samples."
+    },
+    {
+      "stage": "source",
+      "part": "body",
+      "path": ".tmp/pet-independent-face-recheck/slices/pebble-distinct-contact-v2-source-body/starter-earth-side-0.png",
+      "sha256": "95fb7f65c818ff3f0cb17f492c80029fbabc8b34c474dee5b292930cbb5c8ca0",
+      "actuallyInspected": true,
+      "result": "pass",
+      "notes": "Corrected source/battle: all thirteen takes inspected; face and scalp coherent, limbs joined, no stretched hand sheets in these samples."
+    },
+    {
+      "stage": "source",
+      "part": "body",
+      "path": ".tmp/pet-independent-face-recheck/slices/pebble-distinct-contact-v2-source-body/starter-earth-side-1.png",
+      "sha256": "f34f3eb37274699230805899c8406083e6a00ef8e1f8e0b9cb13b4c31400c17b",
+      "actuallyInspected": true,
+      "result": "pass",
+      "notes": "Corrected source/battle: all thirteen takes inspected; face and scalp coherent, limbs joined, no stretched hand sheets in these samples."
+    },
+    {
+      "stage": "source",
+      "part": "body",
+      "path": ".tmp/pet-independent-face-recheck/slices/pebble-distinct-contact-v2-source-body/starter-earth-side-2.png",
+      "sha256": "b9dd92422474c98d125c36425469a03ff24e1acbb301675a767e1a9f25b971e7",
+      "actuallyInspected": true,
+      "result": "pass",
+      "notes": "Corrected source/battle: all thirteen takes inspected; face and scalp coherent, limbs joined, no stretched hand sheets in these samples."
+    },
+    {
+      "stage": "battle",
+      "part": "head",
+      "path": ".tmp/pet-independent-face-recheck/slices/pebble-distinct-contact-v2-battle-head/starter-earth-head-front-0.png",
+      "sha256": "88309430ab46efa494e3323e8c157a38303ac0189a43e6953a5d27d7b23f9ac7",
+      "actuallyInspected": true,
+      "result": "pass",
+      "notes": "Corrected source/battle: all thirteen takes inspected; face and scalp coherent, limbs joined, no stretched hand sheets in these samples."
+    },
+    {
+      "stage": "battle",
+      "part": "head",
+      "path": ".tmp/pet-independent-face-recheck/slices/pebble-distinct-contact-v2-battle-head/starter-earth-head-front-1.png",
+      "sha256": "8162eae1614a3a53fafd40545651bd54b5526072549de1743848c633c306c3c9",
+      "actuallyInspected": true,
+      "result": "pass",
+      "notes": "Corrected source/battle: all thirteen takes inspected; face and scalp coherent, limbs joined, no stretched hand sheets in these samples."
+    },
+    {
+      "stage": "battle",
+      "part": "head",
+      "path": ".tmp/pet-independent-face-recheck/slices/pebble-distinct-contact-v2-battle-head/starter-earth-head-front-2.png",
+      "sha256": "0ea7e12d54129b7a651c0f575031a3d00b1c48fdbe50ae7b8328273b713a65ed",
+      "actuallyInspected": true,
+      "result": "pass",
+      "notes": "Corrected source/battle: all thirteen takes inspected; face and scalp coherent, limbs joined, no stretched hand sheets in these samples."
+    },
+    {
+      "stage": "battle",
+      "part": "head",
+      "path": ".tmp/pet-independent-face-recheck/slices/pebble-distinct-contact-v2-battle-head/starter-earth-head-other-side-0.png",
+      "sha256": "d585e584493b04660665d67d8673a097a7c6668f21dfa0cd63ba5431977353d2",
+      "actuallyInspected": true,
+      "result": "pass",
+      "notes": "Corrected source/battle: all thirteen takes inspected; face and scalp coherent, limbs joined, no stretched hand sheets in these samples."
+    },
+    {
+      "stage": "battle",
+      "part": "head",
+      "path": ".tmp/pet-independent-face-recheck/slices/pebble-distinct-contact-v2-battle-head/starter-earth-head-other-side-1.png",
+      "sha256": "eb2a2c3dcd34e062e631c219f18032410fc040423b8a10bf3eaf4f490c06b70a",
+      "actuallyInspected": true,
+      "result": "pass",
+      "notes": "Corrected source/battle: all thirteen takes inspected; face and scalp coherent, limbs joined, no stretched hand sheets in these samples."
+    },
+    {
+      "stage": "battle",
+      "part": "head",
+      "path": ".tmp/pet-independent-face-recheck/slices/pebble-distinct-contact-v2-battle-head/starter-earth-head-other-side-2.png",
+      "sha256": "c123a76dc14a8eb652718e659ec13643898e1a0161f4d7887010934e996caebf",
+      "actuallyInspected": true,
+      "result": "pass",
+      "notes": "Corrected source/battle: all thirteen takes inspected; face and scalp coherent, limbs joined, no stretched hand sheets in these samples."
+    },
+    {
+      "stage": "battle",
+      "part": "head",
+      "path": ".tmp/pet-independent-face-recheck/slices/pebble-distinct-contact-v2-battle-head/starter-earth-head-side-0.png",
+      "sha256": "16788fb557e4db8c63931921c7f54c2835936d01fcbb514cad411275c3a6c0e0",
+      "actuallyInspected": true,
+      "result": "pass",
+      "notes": "Corrected source/battle: all thirteen takes inspected; face and scalp coherent, limbs joined, no stretched hand sheets in these samples."
+    },
+    {
+      "stage": "battle",
+      "part": "head",
+      "path": ".tmp/pet-independent-face-recheck/slices/pebble-distinct-contact-v2-battle-head/starter-earth-head-side-1.png",
+      "sha256": "1c6b69e24bdbbd4e8961111b4385078689fecccbc9da9c27bab2bb4ad749813f",
+      "actuallyInspected": true,
+      "result": "pass",
+      "notes": "Corrected source/battle: all thirteen takes inspected; face and scalp coherent, limbs joined, no stretched hand sheets in these samples."
+    },
+    {
+      "stage": "battle",
+      "part": "head",
+      "path": ".tmp/pet-independent-face-recheck/slices/pebble-distinct-contact-v2-battle-head/starter-earth-head-side-2.png",
+      "sha256": "cf4a9a0444957e882fb8869729ae7acac6a77ee965cf530c410baed641c6a737",
+      "actuallyInspected": true,
+      "result": "pass",
+      "notes": "Corrected source/battle: all thirteen takes inspected; face and scalp coherent, limbs joined, no stretched hand sheets in these samples."
+    },
+    {
+      "stage": "battle",
+      "part": "body",
+      "path": ".tmp/pet-independent-face-recheck/slices/pebble-distinct-contact-v2-battle-body/starter-earth-front-0.png",
+      "sha256": "0ac99cf18d5b61e0bca64ae98b9ec5ee9d3e0019f34edaa77c6b49ca96f79c7d",
+      "actuallyInspected": true,
+      "result": "pass",
+      "notes": "Corrected source/battle: all thirteen takes inspected; face and scalp coherent, limbs joined, no stretched hand sheets in these samples."
+    },
+    {
+      "stage": "battle",
+      "part": "body",
+      "path": ".tmp/pet-independent-face-recheck/slices/pebble-distinct-contact-v2-battle-body/starter-earth-front-1.png",
+      "sha256": "53bd44122c87a27b069aa14a3d1e31f3e7252c5e212199ab18dddfca9184f95c",
+      "actuallyInspected": true,
+      "result": "pass",
+      "notes": "Corrected source/battle: all thirteen takes inspected; face and scalp coherent, limbs joined, no stretched hand sheets in these samples."
+    },
+    {
+      "stage": "battle",
+      "part": "body",
+      "path": ".tmp/pet-independent-face-recheck/slices/pebble-distinct-contact-v2-battle-body/starter-earth-front-2.png",
+      "sha256": "19625a26eac3b2463e954ff7de1876b96d9aa245b175f476a088a25502ae0027",
+      "actuallyInspected": true,
+      "result": "pass",
+      "notes": "Corrected source/battle: all thirteen takes inspected; face and scalp coherent, limbs joined, no stretched hand sheets in these samples."
+    },
+    {
+      "stage": "battle",
+      "part": "body",
+      "path": ".tmp/pet-independent-face-recheck/slices/pebble-distinct-contact-v2-battle-body/starter-earth-side-0.png",
+      "sha256": "ae3407b38bf7dd790a5d1137963f63a471605b4a80deb51eea271fedcf4d630a",
+      "actuallyInspected": true,
+      "result": "pass",
+      "notes": "Corrected source/battle: all thirteen takes inspected; face and scalp coherent, limbs joined, no stretched hand sheets in these samples."
+    },
+    {
+      "stage": "battle",
+      "part": "body",
+      "path": ".tmp/pet-independent-face-recheck/slices/pebble-distinct-contact-v2-battle-body/starter-earth-side-1.png",
+      "sha256": "d6674c98438f8ffe9d426f519a7b4a595c5f154d0374df858b15973d9e6fb552",
+      "actuallyInspected": true,
+      "result": "pass",
+      "notes": "Corrected source/battle: all thirteen takes inspected; face and scalp coherent, limbs joined, no stretched hand sheets in these samples."
+    },
+    {
+      "stage": "battle",
+      "part": "body",
+      "path": ".tmp/pet-independent-face-recheck/slices/pebble-distinct-contact-v2-battle-body/starter-earth-side-2.png",
+      "sha256": "37b30248bb877e53356a3219d0517abd706249015a2d3f5798a00af5b688da1a",
+      "actuallyInspected": true,
+      "result": "pass",
+      "notes": "Corrected source/battle: all thirteen takes inspected; face and scalp coherent, limbs joined, no stretched hand sheets in these samples."
+    }
+  ],
+  "previousRejectedPass": ".tmp/pebble-distinct-v1-visual-progress.json",
+  "regressionTests": 8,
+  "allRegressionTestsPass": true,
+  "rawFirstPassComplete": true,
+  "productionContact": {
+    "frames": 216,
+    "minClearance": 0.0054540697750742155,
+    "evidence": ".tmp/pet-companion-techniques/pebble-distinct-contact-v2-production-contact-retry/manifest.json",
+    "pass": true
+  },
+  "techniques": [
+    {
+      "path": ".tmp/pet-companion-techniques/pebble-distinct-contact-v2-techniques/inspection-strips/front-block-0-half-0.png",
+      "sha256": "9797b997dfbeaacd2a080be351a33b74695eebd960f109c88f385e2c56205799",
+      "frames": 18,
+      "actuallyInspected": true,
+      "result": "pass",
+      "notes": "All nine techniques, windup/strike/recovery/return to idle: coherent face, connected shoulders/hips and feet visible above the floor."
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/pebble-distinct-contact-v2-techniques/inspection-strips/front-block-0-half-1.png",
+      "sha256": "804a605534347b1d1ae5d08119b20b1fb1ec697ad838d3590b233bd956c6e514",
+      "frames": 18,
+      "actuallyInspected": true,
+      "result": "pass",
+      "notes": "All nine techniques, windup/strike/recovery/return to idle: coherent face, connected shoulders/hips and feet visible above the floor."
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/pebble-distinct-contact-v2-techniques/inspection-strips/front-block-1-half-0.png",
+      "sha256": "bbaf7b0a868464c3deffab21edffd3f7ad661c1e0ed3ca3d27c282cb0630a532",
+      "frames": 18,
+      "actuallyInspected": true,
+      "result": "pass",
+      "notes": "All nine techniques, windup/strike/recovery/return to idle: coherent face, connected shoulders/hips and feet visible above the floor."
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/pebble-distinct-contact-v2-techniques/inspection-strips/front-block-1-half-1.png",
+      "sha256": "814871f4161d6ceb2880c76b25e38fc779c2a30e839ed76c27f2dbd0a94e47a4",
+      "frames": 18,
+      "actuallyInspected": true,
+      "result": "pass",
+      "notes": "All nine techniques, windup/strike/recovery/return to idle: coherent face, connected shoulders/hips and feet visible above the floor."
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/pebble-distinct-contact-v2-techniques/inspection-strips/front-block-2-half-0.png",
+      "sha256": "ac7216148c578e69138da348c8eabc66518d87cebc4ae08690b2a0f0dfed3358",
+      "frames": 18,
+      "actuallyInspected": true,
+      "result": "pass",
+      "notes": "All nine techniques, windup/strike/recovery/return to idle: coherent face, connected shoulders/hips and feet visible above the floor."
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/pebble-distinct-contact-v2-techniques/inspection-strips/front-block-2-half-1.png",
+      "sha256": "026255ce8b8265cb2cc45c10c7536f29f7c00fb13473ccd5e24538069f3e20dc",
+      "frames": 18,
+      "actuallyInspected": true,
+      "result": "pass",
+      "notes": "All nine techniques, windup/strike/recovery/return to idle: coherent face, connected shoulders/hips and feet visible above the floor."
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/pebble-distinct-contact-v2-techniques/inspection-strips/side-block-0-half-0.png",
+      "sha256": "16b27eb0e193c553fc7d0421d43e5f86691b7bff5c0d046df59a94645ed5077f",
+      "frames": 18,
+      "actuallyInspected": true,
+      "result": "pass",
+      "notes": "All nine techniques, windup/strike/recovery/return to idle: coherent face, connected shoulders/hips and feet visible above the floor."
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/pebble-distinct-contact-v2-techniques/inspection-strips/side-block-0-half-1.png",
+      "sha256": "789f470036fe587867564c03963700ea6357296a54f9d57543d2ae1ca7b34f90",
+      "frames": 18,
+      "actuallyInspected": true,
+      "result": "pass",
+      "notes": "All nine techniques, windup/strike/recovery/return to idle: coherent face, connected shoulders/hips and feet visible above the floor."
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/pebble-distinct-contact-v2-techniques/inspection-strips/side-block-1-half-0.png",
+      "sha256": "96f6e52c1fa8002118a0e1468ac460127c408ac67b9975cd13fb1e98df0e2ddc",
+      "frames": 18,
+      "actuallyInspected": true,
+      "result": "pass",
+      "notes": "All nine techniques, windup/strike/recovery/return to idle: coherent face, connected shoulders/hips and feet visible above the floor."
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/pebble-distinct-contact-v2-techniques/inspection-strips/side-block-1-half-1.png",
+      "sha256": "c56f74189e10a8622ddfedfe00cb8c0a43a72cfaeb5c998db3267c12d4ee9feb",
+      "frames": 18,
+      "actuallyInspected": true,
+      "result": "pass",
+      "notes": "All nine techniques, windup/strike/recovery/return to idle: coherent face, connected shoulders/hips and feet visible above the floor."
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/pebble-distinct-contact-v2-techniques/inspection-strips/side-block-2-half-0.png",
+      "sha256": "120f4ea993e267855b639d708120c7ef0e1c354a1fd591ec65ce5dd5aad9af6b",
+      "frames": 18,
+      "actuallyInspected": true,
+      "result": "pass",
+      "notes": "All nine techniques, windup/strike/recovery/return to idle: coherent face, connected shoulders/hips and feet visible above the floor."
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/pebble-distinct-contact-v2-techniques/inspection-strips/side-block-2-half-1.png",
+      "sha256": "b82741b8094f0e7e4fd1105c262f6a186dc113d8d79882b45c6daaec2bb02d7c",
+      "frames": 18,
+      "actuallyInspected": true,
+      "result": "pass",
+      "notes": "All nine techniques, windup/strike/recovery/return to idle: coherent face, connected shoulders/hips and feet visible above the floor."
+    }
+  ],
+  "techniqueFramesActuallyInspected": 216,
+  "recordedAt": "2026-10-19T19:21:52.984Z"
+}

@@ -16,9 +16,9 @@ const NEAR_BOTTOM_PX = 48;
 function refusalLine(refusal: SectorChatRefusal): string {
     if (refusal.silencedUntil) return `You are silenced until ${sectorChatClock(refusal.silencedUntil)}.`;
     if (refusal.status === 429) return `You are speaking too fast. Try again in ${Math.max(1, Math.ceil((refusal.retryAfterMs ?? 1000) / 1000))}s.`;
-    if (refusal.status === 409) return 'Your voice cannot reach this sector yet. Give it a moment.';
-    if (refusal.status === 0) return 'The message did not carry. Check your connection and try again.';
-    if (refusal.status >= 500) return 'The sector could not hear you. Try again in a moment.';
+    if (refusal.status === 409) return 'Your connection to this sector is not ready. Wait a moment before sending another message.';
+    if (refusal.status === 0) return 'Your message could not be confirmed. Check the chat before sending it again.';
+    if (refusal.status >= 500) return 'The sector chat could not send your message. Try again in a moment.';
     return refusal.error;
 }
 

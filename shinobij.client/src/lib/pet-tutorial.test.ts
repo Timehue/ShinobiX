@@ -63,7 +63,7 @@ describe("Tamer Tomoe curriculum", () => {
 
         const [firstVisit] = petMentorWandererFor(character(2, 1), 12);
         assert.match(firstVisit.greeting, /second tail/i);
-        assert.match(firstVisit.greeting, /his own Bondwake/i);
+        assert.match(firstVisit.greeting, /a change called Bondwake/i);
         assert.doesNotMatch(firstVisit.greeting, /bond worth studying|mature partnership/i);
     });
 

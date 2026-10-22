@@ -1,0 +1,121 @@
+{
+  "records": [
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-azure-private-v1-runtime-medium/native-source-head.png",
+      "sha256": "ccc0e226be0e49ac333f4e0d344407f7ffc06d7ab99869650ddb6916f9e21782",
+      "width": 1440,
+      "height": 2160,
+      "inputs": [
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-azure-private-v1-runtime-medium/rare-8-source-head-0.png",
+          "sha256": "e52da51f5e090000861d3820e832e1e5d3d133a4d882169e3ce532d66ffe5b1f",
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-azure-private-v1-runtime-medium/rare-8-source-head-1.png",
+          "sha256": "81ef21b021772d25c6bfe0880715f446cf4d371959b75ce2e4068b5c63be7c68",
+          "top": 540
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-azure-private-v1-runtime-medium/rare-8-source-head-2.png",
+          "sha256": "6f1c69573c211521b95c0108b23bfa1f531cd80d709e08023e10b2de48df7c1d",
+          "top": 1080
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-azure-private-v1-runtime-medium/rare-8-source-head-3.png",
+          "sha256": "67119b6a1d064a7a75619221eec3f64c4dfbb52f0d6048ba6d9edd424d68c31b",
+          "top": 1620
+        }
+      ],
+      "resizing": false
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-azure-private-v1-runtime-medium/native-source-body.png",
+      "sha256": "85acfc1820b53b89fe15a5906a11f9eba148f47ee5a62b07f879c21f1627d8aa",
+      "width": 1440,
+      "height": 2160,
+      "inputs": [
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-azure-private-v1-runtime-medium/rare-8-source-body-0.png",
+          "sha256": "45476cc2cfb69fa993aaf22bf34c56105e134488bffd31e3ce08833910a95304",
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-azure-private-v1-runtime-medium/rare-8-source-body-1.png",
+          "sha256": "bdbbba120f764c77ca5b2c4f6a9516c3dcee9599e4c213e878ba167429e6e74c",
+          "top": 540
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-azure-private-v1-runtime-medium/rare-8-source-body-2.png",
+          "sha256": "1ed696af4cc74129ed62acabc6851fba2db2b03ee9e6e6ea3b7938a5c369ece0",
+          "top": 1080
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-azure-private-v1-runtime-medium/rare-8-source-body-3.png",
+          "sha256": "3cf24d8f8bf9f007f3554418624d896b02210f0ebeabbd6ace6bf3c74b58fc1e",
+          "top": 1620
+        }
+      ],
+      "resizing": false
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-azure-private-v1-runtime-medium/native-battle-head.png",
+      "sha256": "560fa529fcc5403f2e332cc0e190583c15fbe659c9c0faea6a1cc0382a08a4d2",
+      "width": 1440,
+      "height": 2160,
+      "inputs": [
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-azure-private-v1-runtime-medium/rare-8-battle-head-0.png",
+          "sha256": "ce1af01cfbdd3153ff03af4519d733c2507898794a365e31dfaa493ee36824d9",
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-azure-private-v1-runtime-medium/rare-8-battle-head-1.png",
+          "sha256": "57ed498bb5989d4c9ad4145810ec9b54e968d3bd14ac92e117474fe0507ae81b",
+          "top": 540
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-azure-private-v1-runtime-medium/rare-8-battle-head-2.png",
+          "sha256": "1384290bdd3ccf3be605bfea50991d00fba7e88959fbf93d2f6118cde11245f6",
+          "top": 1080
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-azure-private-v1-runtime-medium/rare-8-battle-head-3.png",
+          "sha256": "65f646ea2fe77c3ff3fbb5c8f7fdf76b45bda05d7b151b8e9ee381064fb4fa22",
+          "top": 1620
+        }
+      ],
+      "resizing": false
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-azure-private-v1-runtime-medium/native-battle-body.png",
+      "sha256": "c6173a4ed8af5310099e89152d4ba545b05146b267020e5cff38d58cf77ce443",
+      "width": 1440,
+      "height": 2160,
+      "inputs": [
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-azure-private-v1-runtime-medium/rare-8-battle-body-0.png",
+          "sha256": "be64bec281fed886779962353212e3b787cd10acb85a86e18b1453115d1a6e19",
+          "top": 0
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-azure-private-v1-runtime-medium/rare-8-battle-body-1.png",
+          "sha256": "48c2b27d5a584392b0a80da6c818cf388ebef656753a3d35541bbeb2611f06d7",
+          "top": 540
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-azure-private-v1-runtime-medium/rare-8-battle-body-2.png",
+          "sha256": "648ea4915d662541921c700ff8604cc50ec1dba437fb6ed4f827ea5042719a5e",
+          "top": 1080
+        },
+        {
+          "path": ".tmp/pet-independent-face-recheck/slices/parallel-c-azure-private-v1-runtime-medium/rare-8-battle-body-3.png",
+          "sha256": "9d4359ecfe188ebcd19a0d6cdd93f7bd505a03115da0317a5f9bcae5d95ca5fa",
+          "top": 1620
+        }
+      ],
+      "resizing": false
+    }
+  ],
+  "review": "pending"
+}

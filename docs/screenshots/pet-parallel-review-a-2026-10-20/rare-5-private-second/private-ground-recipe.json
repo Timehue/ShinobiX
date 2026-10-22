@@ -1,0 +1,84 @@
+{
+  "id": "rare-5",
+  "ground": -0.4907302048700748,
+  "padding": 0.002,
+  "corrections": [
+    {
+      "clip": "idle",
+      "keys": 465,
+      "maximumLift": 0.012303286918206702
+    },
+    {
+      "clip": "idle_2",
+      "keys": 367,
+      "maximumLift": 0.024832051352269957
+    },
+    {
+      "clip": "walk",
+      "keys": 257,
+      "maximumLift": 0.018263985321249177
+    },
+    {
+      "clip": "gallop",
+      "keys": 177,
+      "maximumLift": 0.021032808879125175
+    },
+    {
+      "clip": "gallop_jump",
+      "keys": 180,
+      "maximumLift": 0.007307509206115337
+    },
+    {
+      "clip": "attack",
+      "keys": 281,
+      "maximumLift": 0.06383189949056645
+    },
+    {
+      "clip": "idle_hitreact1",
+      "keys": 158,
+      "maximumLift": 0.04402692303972222
+    },
+    {
+      "clip": "death",
+      "keys": 457,
+      "maximumLift": 0.3840685434594123
+    },
+    {
+      "clip": "entrance",
+      "keys": 256,
+      "maximumLift": 0.04194111992654581
+    },
+    {
+      "clip": "cast",
+      "keys": 303,
+      "maximumLift": 0.013864661655007215
+    },
+    {
+      "clip": "guard",
+      "keys": 311,
+      "maximumLift": 0.012632233334005538
+    },
+    {
+      "clip": "rest",
+      "keys": 517,
+      "maximumLift": 0.012304294147157724
+    },
+    {
+      "clip": "victory",
+      "keys": 472,
+      "maximumLift": 0.013130906057245761
+    }
+  ],
+  "outputs": [
+    {
+      "stage": "source",
+      "path": ".tmp/ironback-turtle-floor/source-candidate-v1.glb",
+      "sha256": "822922ebb6a96378205d2ecc96ffd4b5d08356dd76dd19bec0eda7b4ae19d718"
+    },
+    {
+      "stage": "battle",
+      "path": ".tmp/ironback-turtle-floor/battle-candidate-v1.glb",
+      "sha256": "75ecf3ff80acc7bfbd45d75cd75187ebd13edb9a8d15772be61ed8b39c452057"
+    }
+  ]
+}
