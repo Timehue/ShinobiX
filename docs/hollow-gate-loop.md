@@ -101,9 +101,9 @@ actually enforceable — which is what makes this redesign worth doing.
 - **Unlock:** the seated Kage spends `HOLLOW_GATE_UNLOCK_COST` = 10,000 Honor
   Seals (one-time, village-wide, one-way). Server-gated to seatedKage/admin in
   `api/_village-state-validate.ts`. The shrine then appears on the World Map for
-  everyone in the village. `/api/hollow-gate/start` also enforces the open window
-  for standard and `requiresUnlock` event gates (never Rifts) when the env switch
-  `HOLLOW_GATE_UNLOCK_ENFORCED` is on; it defaults off until the unlock price is ruled.
+  everyone in the village. The client gates entry on the open window
+  (`lib/hollow-gate-entry.ts`); the owner chose (2026-10-22) not to add a
+  server-side lock or env switch to `/api/hollow-gate/start`.
 - **Entry:** consumes 1 **Hollow Gate Key** item (`hollow-gate-key`). Key
   sources today: in-run chests (~30%/chest) and the Kage-liberation story finale.
 - **Daily cap:** two runs per UTC day, plus the server-clamped Extra Dive
