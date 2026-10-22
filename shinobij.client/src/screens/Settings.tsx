@@ -9,6 +9,7 @@ import { AccountDeletionCard } from '../components/AccountDeletionCard';
 import { getReaderMode, setReaderMode, type ReaderMode } from '../lib/reader-preference';
 import { getAudioVolume, isAudioMuted, setAudioMuted, setAudioVolume, subscribeAudioMute } from '../lib/pet-music';
 import { primeGameAudio } from '../lib/game-audio';
+import { IphoneInstallGuide } from '../components/IphoneInstallGuide';
 import '../styles/settings.css';
 
 export function Settings({ character, onVersionedCharacter, onDelete }: {
@@ -20,6 +21,7 @@ export function Settings({ character, onVersionedCharacter, onDelete }: {
     useEffect(() => subscribeAudioMute(() => { setMuted(isAudioMuted()); setVolume(getAudioVolume()); }), []);
     return <div className="settings-page card">
         <header><p className="settings-eyebrow">YOUR PREFERENCES</p><h1>Settings</h1><p>Make yourself at home. Manage sound, story presentation, and your account.</p></header>
+        <IphoneInstallGuide />
         <section className="settings-section" aria-labelledby="presentation-heading">
             <h2 id="presentation-heading">Story presentation</h2>
             <label htmlFor="settings-reader">Visual novel reader</label>

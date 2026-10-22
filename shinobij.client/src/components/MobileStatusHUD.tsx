@@ -78,15 +78,15 @@ export const MobileStatusHUD = memo(function MobileStatusHUD({
             <div className="mthd-bars">
                 <div className="mthd-bar mthd-bar-hp" title={`HP ${formatExact(character.hp)}/${formatExact(character.maxHp)}`}>
                     <div className="mthd-bar-fill" style={{ width: `${hpPct}%` }} />
-                    <span className="mthd-bar-label">{formatCompact(character.hp)}</span>
+                    <span className="mthd-bar-label"><span className="mthd-bar-name">HP </span>{formatCompact(character.hp)}</span>
                 </div>
                 <div className="mthd-bar mthd-bar-chakra" title={`Chakra ${formatExact(character.chakra)}/${formatExact(character.maxChakra)}`}>
                     <div className="mthd-bar-fill" style={{ width: `${chakraPct}%` }} />
-                    <span className="mthd-bar-label">{formatCompact(character.chakra)}</span>
+                    <span className="mthd-bar-label"><span className="mthd-bar-name">Chakra </span>{formatCompact(character.chakra)}</span>
                 </div>
                 <div className="mthd-bar mthd-bar-stamina" title={`Stamina ${formatExact(character.stamina)}/${formatExact(character.maxStamina)}`}>
                     <div className="mthd-bar-fill" style={{ width: `${staminaPct}%` }} />
-                    <span className="mthd-bar-label">{formatCompact(character.stamina)}</span>
+                    <span className="mthd-bar-label"><span className="mthd-bar-name">Stamina </span>{formatCompact(character.stamina)}</span>
                 </div>
             </div>
 
