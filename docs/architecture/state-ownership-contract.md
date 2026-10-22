@@ -101,7 +101,8 @@ unless `STRICT_RAW_SAVE_LEDGER` is explicitly `'0'` (an emergency off switch).
 No other code reads the env var. Forged gear resolves through the forged-item
 registry (`api/_forged-item-registry.ts`), so before a deploy whose preserved
 saves hold pre-registry forged gear, run `npm run scan:data -- --repair` once
-(additive registry backfill only). The strict-default save/reload journey is
+(it registers missing forged items, reconciles currency ledger rows and publishes
+unpublished admin content; it never edits a save). The strict-default save/reload journey is
 pinned by `api/save/_strict-default-roundtrip.test.ts`.
 
 ## Remaining ownership work (out of P0-1 scope)

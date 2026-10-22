@@ -65,7 +65,8 @@ plateaus at L70, so endgame per-minute pay stops rising.
   stack.
 - **Strict save ledger is the code default.**
 - **"Established account" = 72 hours old OR level 20.** This lets the week after a
-  reset pay PvP, war and Fate Shard drops with no environment change.
+  reset pay PvP and war purses with no environment change. Fate Shard drops gate on
+  level 20 alone, with no age branch.
 - Standing rulings kept: no PvP power from money, grind or luck; Mythic Seals have no
   faucet; progression is not more ryo-purchasable; Honor Seals stay Vanguard-exclusive;
   named gear, Echoes 10/day, manual ranked and Weekly Boss untouched.
@@ -73,16 +74,21 @@ plateaus at L70, so endgame per-minute pay stops rising.
 ## 5. What changed, by system
 
 **Progression.** Training sessions are 3 / 9 / 33 / 65 (from 3 / 10 / 38 / 72), which
-puts a regular player at L90 in about 88-90 days. The shared 60 daily budget replaces
+puts a regular player at L90 in about 86 days (`api/_progression-pacing-replay.test.ts`
+holds it inside 80-96). The shared 60 daily budget replaces
 the per-claim grant and the old 18/day combat cap. PvP growth no longer multiplies after
-the cap. The seal speed-up costs 1 seal per 5 minutes (was 10).
+the cap. The seal speed-up costs 1 seal per 5 minutes (was 10). Every screen that can
+grant stat points shows "Stat points today: X / 60": the Missions chip and the Hunter
+Board line (fed by the daily-missions read and every hunt or field claim) and the PvE
+and PvP win results (`api/_daily-stat-budget.ts` `dailyStatBudgetReply`).
 
 **Missions and onboarding.** Hunts re-anchored to 280 / 480 / 660 / 1,020 / 1,450 ryo
 by tier. Fetch missions: 100 / 540 / 1,320 / 3,050 / 5,630. Combat missions:
 40 / 80 / 200 / 380 / 600 / 900. The Academy Trial pays 6,000 ryo and the Checklist
 4,000 (were 30 and 120), so a new graduate can afford the Lv3 jutsu goal at the L10
-stall point. The login streak counts claim days and never resets. The two top fetch
-missions pay fewer Bone Charms (2 → 1, 3 → 2).
+stall point. The login streak counts claim days and never resets. The top tiers pay
+fewer Bone Charms: the L50 hunts and the A-rank fetch pay 1 (were 2), the L70 hunts
+and the S-rank fetch pay 2 (were 3). Their flat Fate Shard became the 25% chance drop.
 
 **PvE.** The AI purse is min(150, 60 + L) ryo (was 75 flat).
 
@@ -100,16 +106,31 @@ Stronghold multipliers are 1.25 / 1.5 (were 2 / 4). The bounty placement fee is 
 burned, and a funder cannot claim their own bounty. Ranked Elo, stat points and the
 ranked-win count move only on credited fights.
 
+Ranked V2 pays the same purse, priced from the match's sealed weight row, under the same
+pair weights and established-account rule. The level-gap rule does not apply because
+ranked combat is equalized. A fresh loser blocks the purse for both sides but not the
+Elo, which ranked guards with its own IP and device overlap check. The result screen
+shows the ranked purse, and why it paid none.
+
 **War.**
 - Village wars pay a purse from contribution points: min(points, 400) x 0.3 x A(L) for
   winners, 0.18 for losers.
-- Sector wars pay their first purse.
+- Sector wars pay their first purse (`api/war/_sector-purse.ts`): 20 points per credited
+  win (a mercenary repel counts a quarter, a garrison assault half), at least 30, counted
+  up to 200, times 0.3 x A(L) for the side that captured or held and 0.12 for the side
+  that failed. Only established accounts are paid, and only for wars that ended after
+  `WAR_PURSE_EPOCH_MS`. It does not check the defeated opponent's account, so an alt in
+  the rival village could feed it; the 200-point cap bounds that at 18,000 ryo per war.
+- The War Hall states the village purse's 40-point floor and 400-point cap, and the
+  guide states both purses' rules.
 - War MVP pays max(10,000, 50 x A).
 - ANBU vault raids pay up to 3,000 at the lower fighter's level.
 - Mercenaries and war preparations also cost treasury ryo (250 per War Resource;
   preparations also cost treasury Bone Charms), paid by the Kage. This is the
   war-facing endgame ryo sink.
-- A war ended by surrender before 72 hours pays no crates, purses or MVP.
+- A war ended by surrender before 72 hours pays no crates, purses or MVP. One ended by
+  agreement later pays its purse, purse honor and MVP raise at the share of the five-day
+  campaign that was fought (60% at 72 hours, `api/war/_early-end.ts`).
 
 **Hollow Gate and Rifts.** Ryo is scaled by min(1, 1.04 x A(L) / 312), sealed at run
 start, with full pay from L70. The framework's 1.2 ignored the augment every run must
@@ -129,7 +150,9 @@ at 1.5 x A per active minute. The Dojo Circuit, public Team Arena, tournaments a
 L80 crisis pay 0.5 x A per active minute.
 
 **Bank, trade, shop.** The bank principal cap is 1M (was 10M), so passive interest tops
-out at 5,000 a day. Hunt-material NPC prices are x0.8. A gear step sells for 150. A
+out at 5,000 a day. The top five hunt-material NPC prices are x0.8 (Ember Scale 144,
+Shadow Pelt 176, Ancient Beast Core and Titan Bone 360, Legendary Material 480); the
+lower tiers carry early-game hunt income and are unchanged. A gear step sells for 150. A
 crafted charm sells for at most 0.7x its inputs. The shop route now enforces the same
 rarity level ladder as the client. Pet supplies buy in stacks up to 50. The B-rank
 bloodline forge costs 200 Bone Charms.
@@ -160,7 +183,8 @@ Card battles outside Echoes also pay Chronicle Points (owner request, 2026-10-22
 and there is no daily cap (owner ruling).
 - **PvP card duels** pay 20 CP for a win and 8 for the loss. This covers free-play Chronicle
   Showdown (queue and direct challenges), clan-war card duels (campaign queue and legacy
-  challenges), and sector-war duels between players (the war table and open-world duels).
+  challenges), sector-war duels between players (the war table and open-world duels), and
+  Village War card strongholds held by a player (`api/village/war-campaign.ts`).
 - A duel pays only when it would earn the free-play Legacy credit. It must end by play, not
   by a forfeit or the walk-out clock. It must also last 45 s, have three meaningful actions
   from each side, reach turn 3, and not be a reciprocal win. Both sides must have played
@@ -168,17 +192,21 @@ and there is no daily cap (owner ruling).
   Legacy reciprocal history under the same receipt, so its Legacy and CP decisions always
   agree. The clan-war and sector-war duels share a separate history, so a war duel never
   changes a free-play Legacy decision.
-- One per-pair counter per UTC day, shared by all three PvP card modes, scales both shares
+- One per-pair counter per UTC day, shared by every PvP card mode, scales both shares
   by 1 / 1 / 0.5 / 0.25 / 0. Two accounts therefore mint at most 55 + 22 CP from each other
   a day, however they spread the duels across modes.
-- The PvP purse's established-account rule applies too (72 hours old OR level 20). A
-  losing account that is not established pays nobody, and a winner that is not
-  established still earns the win but the loser gets no loss pay. A main cannot farm
-  fresh alts from either seat.
+- The PvP purse's credited-fight gate applies too (`evaluateCreditedPvpFight`). A winner
+  more than 20 levels above the loser earns nobody anything, and a losing account that
+  is not established (72 hours old OR level 20) pays nobody. A winner that is not
+  established still earns the win, but the loser gets no loss pay. A main cannot farm
+  fresh or low-level alts from either seat. The gate reads both saves; a failed read
+  leaves the credit pending for the next poll instead of passing it.
 - **PvE card wins** pay 10 CP for a won Dungeon Card seal (once per run, with its proof) and
   10 CP for a won Rift card ambush (once per Rift, beside its ryo and Aura Dust). These
   points are not run loot, so a death keeps them. A won sector-war garrison assault pays
-  15 CP, at most one assault per two-hour garrison re-form.
+  15 CP, at most one assault per two-hour garrison re-form. A won Village War assault on
+  an ANBU or Kage deck pays the same 15, bounded by the campaign's personal daily support
+  allowance it reserves.
 - **Unpaid:** Card Hall practice duels, `externalStakes` encounters with no server seal
   (the flag is set by the client, so it has no access limit), and draws. Echoes of War
   keeps its own table unchanged.
@@ -202,7 +230,8 @@ Village Merit. The Clan Exchange Aura Stone shelves are re-priced (5 for 400, 12
 
 - Overflowing materials substitute in existing recipe slots:
   - any of Ancient Beast Core, Titan Bone and Legendary Material where a core is needed;
-  - Shadow Pelt where Shadow Thread is;
+  - Shadow Pelt where Shadow Thread is, in the Master Beast Seal, Bloodbond Totem, Phantom
+    Charm and Serpent Dust (the Black Lotus Dagger keeps exact thread);
   - Ember Scale as forge and cooking fuel;
   - every grade of river fish in pet treats.
 - Out-of-tier gear steps, non-story relics and the weekly-boss core have Village Stores
@@ -240,13 +269,19 @@ Village Merit. The Clan Exchange Aura Stone shelves are re-priced (5 for 400, 12
 - 1-unit treasury gifts are taxed (seals stay exempt).
 - Clan missions pay from monthly progress.
 - Village Merit is server-owned.
-- Economy telemetry covers the writers touched by this pass, and the coverage test
-  points at the live shop route.
+- Economy telemetry covers the faucets this pass re-anchored, and the coverage test
+  points at the live shop route. Seven touched writers are still on the census's
+  pending list (`api/_economy-writer-census.test.ts`): six Hollow Gate routes (attune,
+  card settle, combat settle, events, key forging, consumables) and the jutsu seal
+  speed-up. The Gate's per-run net is recorded at settlement, but until these record
+  their own moves, the faucet:sink watch below cannot see those sinks.
 
 ## 8. Tuning dials
 
-Every dial is a server environment variable with a code default. An out-of-range value
-falls back to the default. Railway restarts the service when a variable changes.
+Every dial is a server environment variable with a code default, and every default is
+the live launch value: nothing has to be set. An out-of-range value falls back to the
+default, except `STAT_GAIN_MULTIPLIER`, which clamps to 2.5. Railway restarts the
+service when a variable changes.
 
 | Dial | Default | Range / kill value | File |
 |---|---|---|---|
@@ -264,12 +299,13 @@ falls back to the default. Railway restarts the service when a variable changes.
 | `PVP_MASTERY_40_49` | on | switch | `api/pvp/_valid-fight.ts` |
 | `WAR_PURSE_SCALE` | 1 | 0-1 | `api/war/_war-pay-scale.ts` |
 | `WAR_PURSE_WIN_K` / `WAR_PURSE_LOSE_K` | 0.3 / 0.18 | 0-0.6 / 0-0.36 | `api/war/_reward.ts` |
+| `WAR_PURSE_EPOCH_MS` | 2026-10-22 UTC | any epoch ms; wars that ended earlier pay no village or sector purse | `api/war/_reward.ts` |
 | `WAR_MIN_DURATION_HOURS` | 72 | 0-120 | `api/war/_early-end.ts` |
 | `WAR_RYO_PER_WR` | 250 | 0-2,000 | `api/_war-economy.ts` |
 | `GATE_RYO_K` | 1.04 | 1.0-1.4, or 99 = flat | `api/hollow-gate/_gate-scale.ts` |
 | `ENDLESS_REWARD_MULT` / `_FACTOR_CAP_WAVE` / `_LEVEL_CAP` | 0.55 / 20 / 70 | kill 1 / 200 / 1,000 | `api/endless/_run.ts` |
 | `ENDLESS_FS_LIFETIME_FIRST` / `ENDLESS_BC_FIRST_RUN_OF_DAY` | on / on | switches | `api/endless/_run.ts` |
-| `WB_REWARD_REF_HP` / `WB_PLAYER_CAP` / `WB_MVP_CAP` | 100,000 / 60,000 / 90,000 | 1,000-1,000,000 | `api/weekly-boss.ts` |
+| `WB_REWARD_REF_HP` / `WB_PLAYER_CAP` / `WB_MVP_CAP` | 100,000 / 60,000 / 90,000 | 10,000-1,000,000 / 1,000-1,000,000 / 1,000-1,000,000 | `api/weekly-boss.ts` |
 | `SPIRE_PURSE_SCALE` / `SIDE_MODE_PURSE_SCALE` | 1 / 1 | 0-2 | `api/_activity-purse.ts` |
 | `BANK_INTEREST_PRINCIPAL_CAP` | 1,000,000 | 100,000-10,000,000 | `api/_bank-interest.ts` |
 | `EXPEDITION_RYO_SCALE` | 0.3 | 0-1; kill value 1 | `api/missions/expedition-start.ts` (default in `shared/pet-expedition-contract.ts`) |
@@ -286,18 +322,24 @@ product stays at 0.93 or above for 7 days.
 
 - **Deploy with the reset.** Nothing has to be set on Railway.
 - **Preserved named gear.** If the reset's preserve list keeps any named (forged) gear,
-  run `npm run scan:data -- --repair` once against production before the deploy. It
-  only adds missing forged-item registry records; it never edits a save. Without it,
-  strict mode would drop pre-registry forged gear.
+  run `npm run scan:data -- --repair` once against production before the deploy.
+  Without it, strict mode would drop pre-registry forged gear. It never edits a save,
+  but `--repair` does three things: it registers missing forged items, reconciles each
+  save's currency ledger row (which writes missing rows and deletes orphaned ones), and
+  publishes authored admin content that was never published. It exits non-zero on any
+  finding, including ones that block nothing.
 - **Endless runs in flight** switch to the new formula at once. This is safe only
   because the deploy coincides with the reset.
 - **Watch after launch** (weekly):
   - median days at exactly L10 after graduation;
-  - regular days to L90 (target 88 ± 10%);
+  - regular days to L90 (target 86, inside 80-96);
   - the PvP purse p99;
   - the Exchange Fate Shard median;
   - the faucet:sink ratio for war-active L90 players (alert above 20).
 - **Tuning rule.** Change one lever per currency per release, by about 15% at a time.
+- **Rollback is one-way for hunt materials.** They fold into `itemStacks` on every save,
+  and an older build reads them only from `inventory[]`, so a rollback would hide them.
+  Roll forward instead.
 
 ## 10. Open owner questions and follow-ups
 
@@ -309,3 +351,23 @@ product stays at 0.93 or above for 7 days.
 - `claimedWarCrateIds` has no pruning, and purse markers now add to it.
 - Ranked pays the PvP purse from launch (owner 2026-10-22, no switch). If the
   valid-fight share or pair-concentration telemetry shows farming, tune it in code.
+
+Raised by the 2026-10-22 tie-in audit, for the owner:
+- Clan missions claim weekly against monthly progress, and a claim consumes nothing,
+  so a clan that meets a target in week 1 can claim it again in weeks 2-5 with no new
+  play (`api/clan/mission/claim.ts`). This predates the pass, which only narrowed
+  lifetime counters to monthly ones. Fixing it means each claim consumes its target
+  from the month's progress.
+- The AI-fight ryo taper (full pay for 50 wins a day, a quarter to 100, then none) is
+  a daily ryo limit, which the no-daily-ryo-cap ruling may or may not cover. It
+  predates the pass, and the win result says when it applied.
+- Mythic Seals have no source (standing ruling), but S-rank Awakening still shows a
+  100-seal progress bar, the hidden "Hold 10 Mythic Seals" achievement cannot be
+  earned, and clan and village donate buttons still accept a seal.
+- Flat faucets this pass did not re-anchor to A(L): the Pet Gauntlet (250 a round and
+  1,500 a clear, 3 paid runs a day), the world boss event (2,500), map control (100 per
+  held sector a day), the pet arena and Rift quest completion.
+- Card duels ended by a forfeit or the turn clock pay neither player, so a losing
+  player can deny the winner's 20 CP by conceding. The PvP ryo purse pays the winner
+  after a fight that met its length floor.
+- The sector-war purse does not check the defeated opponent's account (see section 5).
