@@ -1,0 +1,264 @@
+# Economy rebalance, October 2026
+
+The owner asked for a full view of the economy, and for everything given out to be
+rebalanced, prices included. This is the record of what was measured, what changed and
+why, and which levers exist to tune it after launch. It ships with the planned server
+reset. Code comments that say "2026-10 rebalance" point here.
+
+## 1. How it was measured
+
+- **Census.** 18 mappers read every faucet, sink and price in `api/`, `shared/` and the
+  client, with file and line, cadence, caps, odds and authority. Four researchers
+  surveyed published MMO economy practice (faucet/sink accounting, reward-per-minute
+  parity, pacing curves, small-population and PvP-first design, rebalance method).
+- **Prices.** About 320 prices were catalogued and expressed in hours and days of
+  income for three archetypes: casual (about 30 minutes a day), regular (about 1.5 hours
+  a day) and hardcore (about 4 hours a day), at L10, L30, L50, L70 and L90.
+- **Live data (prod, read-only, 2026-10-16).** 160 of 181 real accounts never passed L9,
+  11 accounts sat at exactly L10, and no organic player was past L29. With no
+  mid-game cohort to calibrate against, the rebalance is model-driven.
+- **Design.** Three independent frameworks (player experience, economist, endgame/PvP)
+  were scored by three judges, merged, turned into 15 per-system specs, checked against
+  the owner rulings and the numbers, built, and audited value by value (262 checks).
+
+**Correction to older notes.** Character XP is retired. Level comes from earned stat
+points (L10 1,800, L30 6,100, L90 23,704, L100 29,000; all stats max at 29,880).
+
+## 2. What was wrong
+
+| Problem | Before |
+|---|---|
+| Repeatable hunt and field claims paid the "once a day" stat grant on every claim | up to 135-205 stat points a day against a 45 design |
+| Uncapped or level-flat ryo faucets | Endless Tower up to 2.6M per run, milestones re-paid every run; Hollow Gate and Rifts level-flat (an L12 Rift paid 5x the normal rate); bank interest up to 50k a day; Tamer expeditions about 24k a day idle; wanderer favours uncapped; weekly-boss solo MVP 178,750 |
+| No endgame ryo sink | after the 5.2M jutsu ladder, income ran 25-32x recurring spend; nothing facing war |
+| PvP and war underpaid | about 1% of PvE per minute; ranked paid no currency |
+| Rare currencies piled up | Bone Charms and Aura Stones 10-30x their single sink; a 1-per-week Mythic Seal faucet against the zero-faucet ruling |
+| Prices flat while income rose 3.5-7x | most recurring prices trivial from L30; 19 dead sinks |
+| Items with no use | sell-only gear steps, overflowing materials, strictly dominated items, three dead story relics, an admin-only collar |
+
+## 3. The anchor and the parity rule
+
+`shared/economy-anchor.ts`: **A(L) = min(300, 20 + 4L)** ryo per active minute. It
+plateaus at L70, so endgame per-minute pay stops rising.
+
+- Every repeatable activity is sized as a multiple of A(L). Most PvE sits near 1x, the
+  hardest content up to about 1.5x, PvP and war at a bounded premium.
+- Client-reported AI loops (combat missions, the hunt kill receipt) stay at 0.7x or
+  below, because the server does not simulate those fights. Pay rises only on
+  server-settled loops.
+- Every converter loop (craft-then-sell, Fate Shard keys, the black market) must have a
+  rate product below 1.
+
+## 4. Owner rulings that shaped it
+
+- Ships with the reset, single step. No environment variables are needed to go live.
+- **One daily stat-point budget of 60** (`DAILY_STAT_POINT_CAP`), shared by hunts, field
+  runs, PvE and PvP. Idle training and one-time grants sit outside it. No "first N
+  claims" rules.
+- **No daily Fate Shard cap and no daily ryo cap.** Hunt and fetch-S claims from L20
+  have a 25% chance of 1 Fate Shard; hunts from L50 have a 20% chance of 1 Aura Stone.
+  No pity timer.
+- **PvP and war pay live at full.** The anti-farm rules are always on.
+- **Jutsu mastery Lv40-49 is reachable through PvP**: 60 XP per valid win, 30 per
+  engaged loss. The ceiling is unchanged.
+- **Every item and material has a use**, through existing systems only. Hunt materials
+  stack.
+- **Strict save ledger is the code default.**
+- **"Established account" = 72 hours old OR level 20.** This lets the week after a
+  reset pay PvP, war and Fate Shard drops with no environment change.
+- Standing rulings kept: no PvP power from money, grind or luck; Mythic Seals have no
+  faucet; progression is not more ryo-purchasable; Honor Seals stay Vanguard-exclusive;
+  named gear, Echoes 10/day, manual ranked and Weekly Boss untouched.
+
+## 5. What changed, by system
+
+**Progression.** Training sessions are 3 / 9 / 33 / 65 (from 3 / 10 / 38 / 72), which
+puts a regular player at L90 in about 88-90 days. The shared 60 daily budget replaces
+the per-claim grant and the old 18/day combat cap. PvP growth no longer multiplies after
+the cap. The seal speed-up costs 1 seal per 5 minutes (was 10).
+
+**Missions and onboarding.** Hunts re-anchored to 280 / 480 / 660 / 1,020 / 1,450 ryo
+by tier. Fetch missions: 100 / 540 / 1,320 / 3,050 / 5,630. Combat missions:
+40 / 80 / 200 / 380 / 600 / 900. The Academy Trial pays 6,000 ryo and the Checklist
+4,000 (were 30 and 120), so a new graduate can afford the Lv3 jutsu goal at the L10
+stall point. The login streak counts claim days and never resets. The two top fetch
+missions pay fewer Bone Charms (2 → 1, 3 → 2).
+
+**PvE.** The AI purse is min(150, 60 + L) ryo (was 75 flat).
+
+**PvP** (`api/pvp/_valid-fight.ts`). A win pays 13.5 x A(lower level): 810 at L10,
+4,050 at L70+. An engaged loss pays 40% of that. The anti-farm rules:
+- Pay is keyed to the lower fighter's level.
+- A winner more than 20 levels up is paid nothing.
+- An account that is not established is paid nothing.
+- Each unordered pair of players earns 1 / 1 / 0.5 / 0.25 / 0 credit for its fights in
+  one UTC day.
+- A KO under 3 rounds or 60 seconds pays half; a flee or AFK under that pays nothing.
+- Loss pay needs an engaged loser.
+
+Stronghold multipliers are 1.25 / 1.5 (were 2 / 4). The bounty placement fee is 15%,
+burned, and a funder cannot claim their own bounty. Ranked Elo, stat points and the
+ranked-win count move only on credited fights.
+
+**War.**
+- Village wars pay a purse from contribution points: min(points, 400) x 0.3 x A(L) for
+  winners, 0.18 for losers.
+- Sector wars pay their first purse.
+- War MVP pays max(10,000, 50 x A).
+- ANBU vault raids pay up to 3,000 at the lower fighter's level.
+- Mercenaries and war preparations also cost treasury ryo (250 per War Resource;
+  preparations also cost treasury Bone Charms), paid by the Kage. This is the
+  war-facing endgame ryo sink.
+- A war ended by surrender before 72 hours pays no crates, purses or MVP.
+
+**Hollow Gate and Rifts.** Ryo is scaled by min(1, 1.04 x A(L) / 312), sealed at run
+start, with full pay from L70. The framework's 1.2 ignored the augment every run must
+take, which already pays at least 1.2x. Threat ambushes pay 485 x scale, at most 16 per
+run. Fate Shard, Bone Charm, Aura Stone and Hollow Shard faucets are trimmed.
+Consumables cost 10 / 15 / 25 / 25 / 40 / 60 Hollow Shards, and keys cost 15 FS or
+120 Hollow Shards. The village unlock check exists behind a switch, off by default,
+until the owner sets its price.
+
+**Endless Tower.** The pay factor is capped at wave 20, the level term at L70, and the
+whole reward x0.55. Fate Shard milestones pay only on a lifetime-first wave; Bone Charms
+pay on the first run of the UTC day.
+
+**Bosses and side modes.** The weekly boss pays on a fixed reference HP of 100,000, with
+a per-player cap of 60,000 and an MVP cap of 90,000. The Endless Spire pays a ryo purse
+at 1.5 x A per active minute. The Dojo Circuit, public Team Arena, tournaments and the
+L80 crisis pay 0.5 x A per active minute.
+
+**Bank, trade, shop.** The bank principal cap is 1M (was 10M), so passive interest tops
+out at 5,000 a day. Hunt-material NPC prices are x0.8. A gear step sells for 150. A
+crafted charm sells for at most 0.7x its inputs. The shop route now enforces the same
+rarity level ladder as the client. Pet supplies buy in stacks up to 50. The B-rank
+bloodline forge costs 200 Bone Charms.
+
+**Pets and professions.** Tamer expeditions pay ryo x0.4 and Tamer XP x0.5. Healer heal
+XP is x2. Elemental and Ancient Treats cost 200 and 400. Wild-pet rare odds go from 0.3%
+to 1.2%, which fixes an inverted tier.
+
+**Chronicle.** The Elite pack costs 6 FS and the single Legendary pack 20 FS. Duplicates
+beyond a playset convert to Chronicle Points or Fate Shards. The first Echoes win of the
+day pays +35 CP.
+
+**World.** Wanderer favours re-anchored to 0.5 x (100 + 16 x min(L, 70)), with no daily
+cap. Wanderer quests are validated on the server. Chest duplicates pay their NPC value or
+Chronicle Points instead of nothing.
+
+**Village and clan.** The Kage stake is 400k. The clan raid mission pays clan XP instead
+of a Mythic Seal, and Mythic Seals can no longer be gifted from a treasury. Clan donation
+XP is capped at 2,000 per member per week. Donated items count at their NPC value toward
+Village Merit. The Clan Exchange Aura Stone shelves are re-priced (5 for 400, 12 for 900).
+
+## 6. Items and materials
+
+- Overflowing materials substitute in existing recipe slots:
+  - any of Ancient Beast Core, Titan Bone and Legendary Material where a core is needed;
+  - Shadow Pelt where Shadow Thread is;
+  - Ember Scale as forge and cooking fuel;
+  - every grade of river fish in pet treats.
+- Out-of-tier gear steps, non-story relics and the weekly-boss core have Village Stores
+  donation values.
+- Strictly dominated items re-priced or given a horizontal role:
+  - Shinobi Vest;
+  - Senbon (uncommon, 150 ryo);
+  - Avenger's Pendant (4,000);
+  - Smoke Pellet (600);
+  - Drownstone Compass (now +8% Water);
+  - the Sennin set (PvE-leaning: +1.5% PvE damage per piece, nothing in PvP).
+- Three retired story relics are taken on turn-in. The Prismatic Collar sells for 400 FS.
+- **Hunt materials and the weekly-boss core stack** in `itemStacks`
+  (`shared/stacked-materials.ts`). Existing loose copies fold into the stack on every
+  save, idempotently and without losing or duplicating a unit. Recipes, the named forge,
+  donations, Hunter rank turn-ins, the NPC sale, the Exchange and trades all read both
+  stores.
+- Item server bugs fixed:
+  - Any item could be equipped as a pet battle consumable.
+  - Equipped pet PvP gear stayed sellable.
+  - Worn-out pet PvE gear never expired.
+  - Caravan summons spent a consumable without the heal.
+  - A chest step drop overwrote a relic hit.
+
+## 7. Integrity fixes
+
+- Strict save ledger by default: forged jutsu XP and injected pets are refused.
+- The jutsu mastery cascade levels only on XP granted this call.
+- Ranked win-trading closed, and PvP base farming bounded by the rules in section 5.
+- Collusive surrender floor (72 hours).
+- Map control counts only war-held sectors.
+- The occupation tax is assessed by the server.
+- Client-picked wanderer quests are validated.
+- No bounty self-laundering.
+- 1-unit treasury gifts are taxed (seals stay exempt).
+- Clan missions pay from monthly progress.
+- Village Merit is server-owned.
+- Economy telemetry covers the writers touched by this pass, and the coverage test
+  points at the live shop route.
+
+## 8. Tuning dials
+
+Every dial is a server environment variable with a code default. An out-of-range value
+falls back to the default. Railway restarts the service when a variable changes.
+
+| Dial | Default | Range / kill value | File |
+|---|---|---|---|
+| `DAILY_STAT_POINT_CAP` | 60 | 0-300 | `api/_stat-growth.ts` |
+| `STAT_GAIN_MULTIPLIER` | 1 | (0, 2.5] | `api/_stat-growth.ts` |
+| `TRAINING_RATE_TABLE` | v2 | `legacy` = 3/10/38/72 | `api/_training-config.ts` |
+| `STRICT_RAW_SAVE_LEDGER` | strict | only `0` turns it off | `api/save/_sanitize-ledger.ts` |
+| `HUNT_FS_CHANCE` / `HUNT_AS_CHANCE` | 0.25 / 0.2 | 0-1 | `api/missions/_mission-catalog.ts` |
+| `ACADEMY_TRIAL_RYO` / `ACADEMY_CHECKLIST_RYO` | 6,000 / 4,000 | 0-20,000 | `api/missions/_mission-catalog.ts` |
+| `AI_FIGHT_PURSE_BASE` / `_PER_LEVEL` | 60 / 1 | 0-150 / 0-3 | `api/missions/_ai-fight-reward.ts` |
+| `PVP_PURSE_SCALE` | 1 | 0-1; 0 = the old 75 flat | `api/pvp/_valid-fight.ts` |
+| `PVP_LOSS_FRAC` | 0.4 | 0-0.4 | `api/pvp/_valid-fight.ts` |
+| `PVP_MIN_ROUNDS` / `PVP_MIN_FIGHT_MS` / `PVP_SHORT_FIGHT_MULT` | 3 / 60,000 / 0.5 | 0-25 / 0-600,000 / 0-1 | `api/pvp/_valid-fight.ts` |
+| `PVP_LOSER_MIN_AGE_MS` | 72 h | 0-72 h; L20+ always passes | `api/pvp/_valid-fight.ts` |
+| `PVP_MASTERY_40_49` | on | switch | `api/pvp/_valid-fight.ts` |
+| `PVP_RANKED_PURSE` | off | switch (data-gated) | `api/pvp/_valid-fight.ts` |
+| `WAR_PURSE_SCALE` | 1 | 0-1 | `api/war/_war-pay-scale.ts` |
+| `WAR_PURSE_WIN_K` / `WAR_PURSE_LOSE_K` | 0.3 / 0.18 | 0-0.6 / 0-0.36 | `api/war/_reward.ts` |
+| `WAR_MIN_DURATION_HOURS` | 72 | 0-120 | `api/war/_early-end.ts` |
+| `WAR_RYO_PER_WR` | 250 | 0-2,000 | `api/_war-economy.ts` |
+| `GATE_RYO_K` | 1.04 | 1.0-1.4, or 99 = flat | `api/hollow-gate/_gate-scale.ts` |
+| `HOLLOW_GATE_UNLOCK_ENFORCED` | off | switch | `api/hollow-gate/start.ts` |
+| `ENDLESS_REWARD_MULT` / `_FACTOR_CAP_WAVE` / `_LEVEL_CAP` | 0.55 / 20 / 70 | kill 1 / 200 / 1,000 | `api/endless/_run.ts` |
+| `ENDLESS_FS_LIFETIME_FIRST` / `ENDLESS_BC_FIRST_RUN_OF_DAY` | on / on | switches | `api/endless/_run.ts` |
+| `WB_REWARD_REF_HP` / `WB_PLAYER_CAP` / `WB_MVP_CAP` | 100,000 / 60,000 / 90,000 | 1,000-1,000,000 | `api/weekly-boss.ts` |
+| `SPIRE_PURSE_SCALE` / `SIDE_MODE_PURSE_SCALE` | 1 / 1 | 0-2 | `api/_activity-purse.ts` |
+| `BANK_INTEREST_PRINCIPAL_CAP` | 1,000,000 | 100,000-10,000,000 | `api/_bank-interest.ts` |
+| `TAMER_RYO_MULT` / `TAMER_XP_MULT` | 0.4 / 0.5 | 0-1 | `api/missions/report-pet-event.ts` |
+| `HEALER_HEAL_XP_MULT` | 2 | 1-2 | `api/player/_healer-heal-xp.ts` |
+
+The black-market pull stays a 75,000 constant on both sides, so the quoted and charged
+prices can never split. It moves to 90,000 by deploy if the Exchange Fate Shard loop
+product stays at 0.93 or above for 7 days.
+
+## 9. Rollout
+
+- **Deploy with the reset.** Nothing has to be set on Railway.
+- **Preserved named gear.** If the reset's preserve list keeps any named (forged) gear,
+  run `npm run scan:data -- --repair` once against production before the deploy. It
+  only adds missing forged-item registry records; it never edits a save. Without it,
+  strict mode would drop pre-registry forged gear.
+- **Endless runs in flight** switch to the new formula at once. This is safe only
+  because the deploy coincides with the reset.
+- **Watch after launch** (weekly):
+  - median days at exactly L10 after graduation;
+  - regular days to L90 (target 88 ± 10%);
+  - the PvP purse p99;
+  - the Exchange Fate Shard median;
+  - the faucet:sink ratio for war-active L90 players (alert above 20).
+- **Tuning rule.** Change one lever per currency per release, by about 15% at a time.
+
+## 10. Open owner questions and follow-ups
+
+- The Hollow Gate unlock price when it is enforced (recommended: 3,000 treasury seals per
+  30 days, Rifts exempt).
+- Whether war purses should be priced at the level a player fought at. Today they use
+  the level at claim time, because battle receipts carry no level.
+- Whether Elders may spend treasury ryo on mercenaries. Today only the Kage can.
+- A PvP detection report for the owner (pair concentration, fight length, flee and AFK
+  share) needs an admin route and is not built.
+- `claimedWarCrateIds` has no pruning, and purse markers now add to it.
+- Ranked joins the PvP purse later, once the valid-fight share holds for two weeks.
