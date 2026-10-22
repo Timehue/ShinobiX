@@ -21,4 +21,11 @@ describe("pvpCreditNote", () => {
         assert.match(pvpCreditNote({ ...full, credited: false, reason: "too-young", pairWeight: 0 }, "loss") ?? "", /72 hours/);
         assert.match(pvpCreditNote({ ...full, sideMult: 0 }, "loss") ?? "", /15% of the winner's HP/);
     });
+    it("words the live thresholds the server sends, not hard-coded defaults", () => {
+        const rules = { minRounds: 2, minFightSeconds: 30, lossMinDamagePct: 10, minAccountAgeHours: 48, establishedLevel: 20, levelGapMax: 15 };
+        assert.equal(pvpCreditNote({ ...full, short: true, sideMult: 0.5, rules }, "win"), "Short fight (under 2 rounds or 30 seconds): 50% pay.");
+        assert.match(pvpCreditNote({ ...full, sideMult: 0, rules }, "loss") ?? "", /2 rounds and 30 seconds, and 10% of the winner's HP/);
+        assert.match(pvpCreditNote({ ...full, credited: false, reason: "too-young", pairWeight: 0, rules }, "loss") ?? "", /under 48 hours old and below level 20/);
+        assert.match(pvpCreditNote({ ...full, credited: false, reason: "level-gap", pairWeight: 0, rules }, "win") ?? "", /more than 15 levels/);
+    });
 });
