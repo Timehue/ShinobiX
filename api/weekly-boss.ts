@@ -344,11 +344,22 @@ export function reserveWeeklyBossAttemptReceipt(
     return {
         boss: {
             ...boss,
-            attemptsByPlayer: { ...(boss.attemptsByPlayer ?? {}), [playerName]: used + 1 },
-            attemptRunReceipts: { ...(boss.attemptRunReceipts ?? {}), [runId]: playerName },
+            attemptsByPlayer: withRecordEntry(boss.attemptsByPlayer, playerName, used + 1),
+            attemptRunReceipts: withRecordEntry(boss.attemptRunReceipts, runId, playerName),
         },
         replayed: false,
     };
+}
+
+/** A copy of a stored map with one entry set, in place or appended. Built from
+ *  entries rather than a computed property write, so a player-supplied key
+ *  only ever becomes an own data property. */
+function withRecordEntry<T>(record: Record<string, T> | undefined, key: string, value: T): Record<string, T> {
+    const entries = Object.entries(record ?? {});
+    const index = entries.findIndex(([existing]) => existing === key);
+    if (index >= 0) entries[index] = [key, value];
+    else entries.push([key, value]);
+    return Object.fromEntries(entries);
 }
 
 export function rollbackWeeklyBossAttemptReceipt(
