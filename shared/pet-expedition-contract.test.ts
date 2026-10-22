@@ -5,6 +5,7 @@ import {
     PET_EXPEDITION_CARAVAN_BONUS,
     PET_EXPEDITION_RISK_RULES,
     PET_EXPEDITION_ROUTES,
+    PET_EXPEDITION_RYO_SCALE,
     TAMER_RYO_MULT,
     petExpeditionBasePetXp,
     petExpeditionBaseRyo,
@@ -71,7 +72,8 @@ test('material chances are bounded and stories persist world context', () => {
 
 test('level-gated routes improve ryo and pet XP per hour while the profession bonus stays fixed', () => {
     let priorRyoRate = 0, priorXpRate = 0;
-    for (const [type, level, ryo, petXp] of [['scout', 20, 180, 120], ['forage', 50, 720, 480], ['ruins', 80, 2160, 1280]] as const) {
+    // Ryo carries PET_EXPEDITION_RYO_SCALE (0.3): 180 / 720 / 2,160 route ryo pay 54 / 216 / 648.
+    for (const [type, level, ryo, petXp] of [['scout', 20, 54, 120], ['forage', 50, 216, 480], ['ruins', 80, 648, 1280]] as const) {
         const route = PET_EXPEDITION_ROUTES[type];
         assert.equal(route.requiredLevel, level);
         const base = petExpeditionRewardPreview(type, { profession: 'vanguard', risk: 'safe', provision: 'none', rewardMastery: 1, materialMastery: 1 });
@@ -88,6 +90,19 @@ test('level-gated routes improve ryo and pet XP per hour while the profession bo
     }
 });
 
+test('expedition ryo carries the 0.3 scale under the passive ceiling, and the server may pass its dial', () => {
+    assert.equal(PET_EXPEDITION_RYO_SCALE, 0.3);
+    const opts = { profession: 'petTamer', risk: 'safe', provision: 'none', rewardMastery: 1, materialMastery: 1 } as const;
+    assert.equal(petExpeditionRewardPreview('ruins', opts).ryo, 972);
+    assert.equal(petExpeditionRewardPreview('ruins', { ...opts, ryoScale: 1 }).ryo, 3240, 'kill value 1 restores the full route pay');
+    assert.equal(petExpeditionRewardPreview('ruins', { ...opts, ryoScale: 0 }).ryo, 0);
+    assert.equal(petExpeditionRewardPreview('ruins', { ...opts, ryoScale: Number.NaN }).ryo, 972, 'a bad reading falls back to the default');
+    // 12 Ruins claims a day: about 11,700 ryo for a Tamer, under the passive ceiling.
+    assert.ok(12 * 972 >= 10_000 && 12 * 972 <= 13_000);
+    // Pet XP and material odds are untouched by the ryo scale.
+    assert.equal(petExpeditionRewardPreview('ruins', { ...opts, ryoScale: 0 }).petXp, petExpeditionRewardPreview('ruins', opts).petXp);
+});
+
 test('Fate finds grow with route level while Aura Stones belong to the highest route', () => {
     const previews = (['scout', 'forage', 'ruins'] as const).map(type => petExpeditionRewardPreview(type,
         { profession: 'vanguard', risk: 'safe', provision: 'none', rewardMastery: 1, materialMastery: 1 }));
@@ -98,7 +113,7 @@ test('Fate finds grow with route level while Aura Stones belong to the highest r
 test('purchased mastery remains useful and premium odds cannot exceed certainty', () => {
     const base = petExpeditionRewardPreview('ruins', { profession: 'petTamer', risk: 'safe', provision: 'none', rewardMastery: 1, materialMastery: 1 });
     const mastered = petExpeditionRewardPreview('ruins', { profession: 'petTamer', risk: 'safe', provision: 'none', rewardMastery: 1.15, materialMastery: 1.15 });
-    assert.equal(mastered.ryo, 3726);
+    assert.equal(mastered.ryo, 1118, '4 h x 540 x 1.5 Tamer x 1.15 mastery x 0.3 scale');
     assert.ok(mastered.materialMultiplier > base.materialMultiplier);
     assert.ok(mastered.chances.aura > base.chances.aura);
     const boosted = petExpeditionRewardPreview('ruins', { profession: 'petTamer', risk: 'bold', provision: 'ancient-pet-treat', rewardMastery: 2, materialMastery: 2 });

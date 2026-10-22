@@ -281,7 +281,7 @@ test('a growing non-Tamer pet earns the base lane and a high-level pet can choos
     const pet = ((result.body?.character as Record<string, unknown>).pets as Array<Record<string, unknown>>)[0];
     const seal = (pet.expedition as Record<string, unknown>).serverSeal as Record<string, unknown>;
     assert.equal(seal.rewardScale, 1);
-    assert.equal(seal.ryoReward, 180);
+    assert.equal(seal.ryoReward, 54, 'scout route ryo 180 x the 0.3 expedition ryo scale');
     assert.equal(seal.petXpReward, 120);
     assert.ok((seal.materialRewards as unknown[]).length > 0);
     await seedPlayer('expeditionhigherscout', { petLevel: 100 });
