@@ -82,3 +82,5 @@ Before release, use a real older/small iPhone and a current notched iPhone to ve
 5. Play for 15–20 minutes to assess memory pressure, heat, battery consumption and full-effects performance.
 
 This report records the local pre-release audit. Production deployment status is tracked by GitHub/Railway; App Store publication is outside this change.
+
+The production-configured Docker gate subsequently measured 9,591,567 B of product JS/CSS, 8,498 B above the preceding Docker baseline. The aggregate budget accounts for this intentional iPhone feature growth at 9,595,000 B. The independently enforced startup, individual chunk, CSS and asset limits are unchanged; the measured initial graph is 1,398,719 B raw / 395,632 B gzip. The earlier local size result did not include all production environment-dependent code paths.
