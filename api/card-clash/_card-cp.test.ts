@@ -187,7 +187,7 @@ describe('a PvP card duel credit', () => {
         assert.equal(cp.cardCpView(alt, 'alpha')?.reason, 'too-young');
         // A fresh winner earns the win, but the established loser gets no loss pay.
         await seed('fresh-winner', 0, fresh);
-        await seed('veteran', 0, { createdAt: Date.now() - 30 * 86_400_000, level: 60 });
+        await seed('veteran', 0, { createdAt: Date.now() - 30 * 86_400_000, level: 40 });
         const main = cp.prepareCardPvpCpCredit(duel({ p1: 'fresh-winner', p2: 'veteran' }), 'card-pvp:alt-winner')!;
         await cp.settleCardCpCredit(main);
         assert.equal(main.status, 'done');
@@ -201,6 +201,48 @@ describe('a PvP card duel credit', () => {
         assert.equal(ok.status, 'done');
         assert.equal(await pointsOf('veteran'), 20);
         assert.equal(await pointsOf('new-l20'), 8);
+    });
+
+    it('follows the PvP level-gap rule: a winner more than 20 levels above the loser pays nobody', async () => {
+        const old = Date.now() - 30 * 86_400_000;
+        await seed('main', 0, { createdAt: old, level: 90 });
+        await seed('alt', 0, { createdAt: old, level: 69 });
+        const stomp = cp.prepareCardPvpCpCredit(duel({ p1: 'main', p2: 'alt' }), 'card-pvp:gap-stomp')!;
+        await cp.settleCardCpCredit(stomp);
+        assert.equal(stomp.status, 'skipped');
+        assert.equal(stomp.reason, 'level-gap');
+        assert.deepEqual(cp.cardCpView(stomp, 'alt'), { earned: 0, status: 'none', reason: 'level-gap' });
+        assert.equal(await pointsOf('main') + await pointsOf('alt'), 0);
+        // The pair spent no slot of its day count on the uncredited duel.
+        assert.equal(await kv.get(cp.cardCpPairSlotKey('card-pvp:gap-stomp')), null);
+        // Exactly 20 levels pays, and so does the lower-level side winning.
+        await seed('alt70', 0, { createdAt: old, level: 70 });
+        const edge = cp.prepareCardPvpCpCredit(duel({ p1: 'main', p2: 'alt70' }), 'card-pvp:gap-edge')!;
+        await cp.settleCardCpCredit(edge);
+        assert.equal(edge.status, 'done');
+        const upset = cp.prepareCardPvpCpCredit(duel({ p1: 'alt', p2: 'main' }), 'card-pvp:gap-upset')!;
+        await cp.settleCardCpCredit(upset);
+        assert.equal(upset.status, 'done');
+        assert.equal(await pointsOf('alt'), 20);
+        assert.equal(await pointsOf('main'), 20 + 8);
+    });
+
+    it('a failed save read leaves the credit pending instead of passing the gate', async (t) => {
+        await seed('alpha');
+        await seed('bravo', 0, { createdAt: Date.now() - 3_600_000, level: 5 });
+        const credit = cp.prepareCardPvpCpCredit(duel({}), 'card-pvp:read-fail')!;
+        const originalGet = kv.get.bind(kv);
+        const patched = t.mock.method(kv, 'get', async (key: string) => {
+            if (key === 'save:bravo') throw new Error('injected-save-read-failure');
+            return originalGet(key);
+        });
+        await cp.settleCardCpCredit(credit);
+        patched.mock.restore();
+        assert.equal(credit.status, 'pending');
+        assert.equal(credit.amounts, undefined, 'nothing is sealed on a failed read');
+        await cp.settleCardCpCredit(credit);
+        assert.equal(credit.reason, 'too-young', 'the retry reads the real save and applies the gate');
+        assert.equal(await pointsOf('alpha'), 0);
     });
 
     it('a reciprocal win pays neither duelist', async () => {
@@ -273,8 +315,10 @@ describe('a PvP card duel credit', () => {
         await seed('bravo');
         const realGet = kv.get.bind(kv);
         let refuse = true;
+        let bravoReads = 0;
         (kv as unknown as { get: typeof kv.get }).get = (async (key: string) => {
-            if (refuse && key === 'save:bravo') throw new Error('injected save outage');
+            // The first read is the established-account gate; the outage hits the payment.
+            if (refuse && key === 'save:bravo' && ++bravoReads > 1) throw new Error('injected save outage');
             return realGet(key);
         }) as typeof kv.get;
         const credit = cp.prepareCardPvpCpCredit(duel({}), 'card-pvp:retry')!;

@@ -36,5 +36,6 @@ export function cardChroniclePointsLine(view: CardChroniclePointsView | null | u
     if (view.reason === "reciprocal") return "No Chronicle Points: wins traded back and forth with one opponent do not count.";
     if (view.reason === "repeat") return "No Chronicle Points: duels with this opponent have paid all they can today.";
     if (view.reason === "too-young") return "No Chronicle Points: an account under 72 hours old and below level 20 was in this duel.";
+    if (view.reason === "level-gap") return "No Chronicle Points: the winner was more than 20 levels above the loser.";
     return null;
 }

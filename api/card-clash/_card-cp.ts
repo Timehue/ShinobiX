@@ -3,8 +3,9 @@
  * 2026-10-22; docs/economy-rebalance-2026-10.md, "Chronicle").
  *
  * PvP. Free-play Chronicle Showdown (card-clash/match.ts), clan-war card duels
- * (clan/war/tilecards.ts) and sector-war duels between players
- * (village/sector-card.ts: the war table and open-world duels). A win pays
+ * (clan/war/tilecards.ts), sector-war duels between players
+ * (village/sector-card.ts: the war table and open-world duels) and Village War
+ * card strongholds held by a player (village/war-campaign.ts). A win pays
  * CARD_PVP_WIN_CP and the loss CARD_PVP_LOSS_CP, and only when the duel would
  * earn the free-play Legacy credit (_freeplay-legacy.ts): ended by play, 45 s,
  * three meaningful actions from each side, turn 3, not a reciprocal win. Since
@@ -16,9 +17,11 @@
  *
  * PvE. A won Dungeon Card seal (CARD_PVE_DUNGEON_CP, card-clash/ai-move.ts), a
  * won Hollow Gate card ambush (CARD_PVE_GATE_CP, hollow-gate/card-settle.ts)
- * and a won sector-war garrison assault (CARD_PVE_GARRISON_CP, here through
- * settleCardCpCredit). Each mode's own access limit bounds it: a Dungeon key
- * per run, one card ambush per Rift, the garrison's two-hour re-form window.
+ * and a won sector-war garrison assault or Village War assault on an ANBU or
+ * Kage deck (CARD_PVE_GARRISON_CP, here through settleCardCpCredit). Each
+ * mode's own access limit bounds it: a Dungeon key per run, one card ambush per
+ * Rift, the garrison's two-hour re-form window, the campaign's personal daily
+ * support allowance.
  *
  * Unpaid by design: Card Hall practice duels, externalStakes encounters that
  * carry no server seal (their start is a client flag), and Echoes of War, which
@@ -38,7 +41,7 @@ import { recordEconomyTxn } from '../_economy.js';
 import { pushSaveVersion } from '../_realtime/notify.js';
 import { mutatePlayerSave, type PlayerSaveMutationResult } from '../save/_mutate-player-save.js';
 import { appendSettlementReceipt, inspectSettlementReceipt } from '../_settlement-receipts.js';
-import { assignPvpCreditSlot, pvpAccountOldEnough, pvpPairWeight, pvpUtcDay } from '../pvp/_valid-fight.js';
+import { assignPvpCreditSlot, evaluateCreditedPvpFight, pvpAccountOldEnough, pvpPairWeight, pvpUtcDay } from '../pvp/_valid-fight.js';
 import {
     FREEPLAY_LEGACY_MIN_ACTIONS_PER_SIDE,
     FREEPLAY_LEGACY_MIN_DURATION_MS,
@@ -223,7 +226,7 @@ export type CardCpCredit = {
     /** The duel's terminal clock: the UTC day the pair counter is charged to. */
     endedAt: number;
     status: 'pending' | 'done' | 'skipped';
-    reason?: 'participation' | 'reciprocal' | 'too-young';
+    reason?: 'participation' | 'reciprocal' | 'too-young' | 'level-gap';
     pairOrdinal?: number;
     pairWeight?: number;
     /** Sealed once, so every retry pays the same amounts. */
@@ -347,15 +350,19 @@ export async function settleCardCpCredit(credit: CardCpCredit | undefined): Prom
     if (!credit || credit.status !== 'pending') return { changed, committed };
     try {
         if (!credit.amounts && credit.kind === 'pvp') {
-            // The PvP purse's established-account rule (72 h old OR level 20,
-            // pvp/_valid-fight.ts): a fresh loser pays nobody, and a fresh winner
-            // earns the win but the loser gets no loss pay, so a main can farm
-            // fresh alts from neither seat. A missing save or stamp passes (fail-open).
+            // The PvP purse's credited-fight gate (pvp/_valid-fight.ts): a winner
+            // more than 20 levels above the loser earns nobody anything, and a
+            // loser that is not established (72 h old OR level 20) pays nobody.
+            // A fresh winner earns the win but the loser gets no loss pay, so a
+            // main can farm alts from neither seat. A deleted save or a missing
+            // stamp passes; a failed read throws and leaves the credit pending.
             const [winnerChar, loserChar] = await Promise.all([credit.winnerName, credit.targetName].map(async (name) =>
-                ((await kv.get<{ character?: Record<string, unknown> }>(`save:${safeName(name)}`).catch(() => null))?.character) ?? {}));
-            if (!pvpAccountOldEnough(loserChar.createdAt, credit.endedAt, loserChar.level)) {
+                (await kv.get<{ character?: Record<string, unknown> }>(`save:${safeName(name)}`))?.character ?? {}));
+            const gate = evaluateCreditedPvpFight({ winnerLevel: Number(winnerChar.level), loserLevel: Number(loserChar.level),
+                loserCreatedAt: loserChar.createdAt, terminalAt: credit.endedAt });
+            if (!gate.credited) {
                 credit.status = 'skipped';
-                credit.reason = 'too-young';
+                credit.reason = gate.reason ?? 'too-young';
                 return { changed: true, committed };
             }
             winnerEstablished = pvpAccountOldEnough(winnerChar.createdAt, credit.endedAt, winnerChar.level);

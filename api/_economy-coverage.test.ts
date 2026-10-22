@@ -176,7 +176,7 @@ describe('economy telemetry coverage', () => {
         // The PvP hosts and the garrison pay through the outbox (settleCardCpCredit
         // → payChroniclePointsOnce, which records); the Dungeon seal and the Rift
         // ambush credit inside their own receipted write and record afterwards.
-        for (const file of ['api/card-clash/match.ts', 'api/clan/war/tilecards.ts', 'api/village/sector-card.ts']) {
+        for (const file of ['api/card-clash/match.ts', 'api/clan/war/tilecards.ts', 'api/village/sector-card.ts', 'api/village/war-campaign.ts']) {
             assert.match(read(file), /settleCardCpCredit\(/, `${file} must settle its duel's Chronicle Points`);
         }
         assert.match(read('api/card-clash/ai-move.ts'), /recordCardChroniclePoints\(\{\s*kind: "dungeon"/);
