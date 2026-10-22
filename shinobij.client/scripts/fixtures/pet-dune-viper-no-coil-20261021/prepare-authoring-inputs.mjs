@@ -1,0 +1,10 @@
+import{readFile,writeFile,mkdir}from'node:fs/promises';import * as T from'three';import sharp from'sharp';import{parseStudioGlb}from'../../lib/pet-studio-glb.mjs';import{loadPetDeformationProbeBytes}from'../../lib/pet-deformation-probe.mjs';
+const m=await loadPetDeformationProbeBytes(await readFile(new URL('source-before-remake.glb',import.meta.url))),s=m.meshes[0],a=s.geometry.attributes;
+const data={vertices:Array.from({length:a.position.count},(_,i)=>s.getVertexPosition(i,new T.Vector3()).applyMatrix4(s.matrixWorld).toArray()),faces:Array.from({length:s.geometry.index.count/3},(_,i)=>[0,1,2].map(k=>s.geometry.index.getX(i*3+k))),uv:Array.from({length:a.position.count},(_,i)=>[a.uv.getX(i),a.uv.getY(i)]),weights:Array.from({length:a.position.count},(_,i)=>[0,1,2,3].map(k=>[a.skinIndex.getComponent(i,k),a.skinWeight.getComponent(i,k)]))};
+await mkdir(new URL('./',import.meta.url),{recursive:true});await writeFile(new URL('./original.json',import.meta.url),JSON.stringify(data));
+const rigLegTranslations=[{names:['upper_armL','forearmL','handL'],delta:[-.035,0,0]},{names:['upper_armR','forearmR','handR'],delta:[.035,0,0]},{names:['thighL','shinL','footL'],delta:[-.07,0,-.07]},{names:['thighR','shinR','footR'],delta:[.095,0,.10]}];
+const slim=structuredClone(data);slim.rigLegTranslations=rigLegTranslations;
+for(let v=0;v<slim.vertices.length;v++){const p=data.vertices[v],shares=rigLegTranslations.map(c=>data.weights[v].reduce((sum,[j,w])=>sum+(c.names.includes(s.skeleton.bones[j].name)?w:0),0)),best=shares.indexOf(Math.max(...shares)),low=T.MathUtils.smoothstep(-p[1],.23,.34),amount=low*Math.min(1,shares[best]/.7);for(let k=0;k<3;k++)slim.vertices[v][k]+=rigLegTranslations[best].delta[k]*amount;}
+await writeFile(new URL('./original-slim.json',import.meta.url),JSON.stringify(slim));
+
+const {json,bin}=parseStudioGlb(await readFile(new URL('source-before-remake.glb',import.meta.url)));const view=json.bufferViews[json.images[0].bufferView];const texture=bin.subarray(view.byteOffset,view.byteOffset+view.byteLength);await writeFile(new URL('original-texture.rgba',import.meta.url),await sharp(texture).ensureAlpha().raw().toBuffer());

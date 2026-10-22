@@ -388,3 +388,6 @@ docs/evidence/pet-last-six-candidates-2026-10-21/** -text -whitespace
 docs/evidence/pet-final-two-candidates-2026-10-21/** -text -whitespace
 docs/evidence/pet-atlas-regeneration-2026-10-21/** -text -whitespace
 docs/audits/pet-final-six-integrated-validation-2026-10-21/** -text -whitespace
+# Preserve the byte-pinned Viper authoring inputs and reviewed evidence.
+shinobij.client/scripts/fixtures/pet-dune-viper-no-coil-20261021/** -text -whitespace
+docs/screenshots/pet-dune-viper-lean-no-coil-review-2026-10-21/** -text -whitespace
