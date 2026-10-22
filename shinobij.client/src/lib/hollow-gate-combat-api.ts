@@ -30,6 +30,8 @@ export type HollowGateCombatSettleResult = {
     alreadyReported?: boolean;
     reward?: Record<string, number>;
     elementalShards?: number;
+    /** Won threat ambushes only: this one's place against the run's paid-ambush cap. */
+    ambushPurse?: { ordinal: number; paidCap: number; paid: boolean };
     character?: Character | null;
     _saveVersion?: number;
     error?: string;

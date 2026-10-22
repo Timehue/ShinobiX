@@ -124,7 +124,7 @@ export function awardClanPoints<T extends Record<string, unknown>>(
         || (sealedMission && missionReceipts.some(entry => entry.id === eventId))) {
         return { character, awarded: 0, requested, weekKey, weeklyEarned: currentWeekly, weeklyCap: CLAN_POINTS_WEEKLY_CAP, reason: 'duplicate-event' };
     }
-    if (currentWeekly >= CLAN_POINTS_WEEKLY_CAP || currentWeekly + requested > CLAN_POINTS_WEEKLY_CAP) {
+    if (currentWeekly >= CLAN_POINTS_WEEKLY_CAP) {
         return {
             character: { ...character, weeklyClanPointsWeek: weekKey, weeklyClanPoints: currentWeekly } as T,
             awarded: 0,
@@ -135,26 +135,34 @@ export function awardClanPoints<T extends Record<string, unknown>>(
             reason: 'weekly-cap',
         };
     }
+    // An award that would cross the cap pays the headroom left, not nothing
+    // (economy rebalance 2026-10, #39): 950 + 75 pays 50. The event id is
+    // recorded with the partial amount, so a retry is a duplicate and the
+    // clamped decision is final.
+    const awarded = Math.min(requested, CLAN_POINTS_WEEKLY_CAP - currentWeekly);
     const historyEntry: ClanPointHistoryEntry = {
         id: eventId,
         ts,
         source,
-        amount: requested,
+        amount: awarded,
         weekKey,
         metadata: Object.keys(metadata).length ? metadata : undefined,
     };
 
     const next = {
         ...character,
-        clanPoints: floorNonNegative(character.clanPoints) + requested,
-        weeklyClanPoints: currentWeekly + requested,
+        clanPoints: floorNonNegative(character.clanPoints) + awarded,
+        weeklyClanPoints: currentWeekly + awarded,
         weeklyClanPointsWeek: weekKey,
-        lifetimeClanPoints: floorNonNegative(character.lifetimeClanPoints) + requested,
+        lifetimeClanPoints: floorNonNegative(character.lifetimeClanPoints) + awarded,
         clanPointHistory: [historyEntry, ...existingHistory].slice(0, CLAN_POINT_HISTORY_LIMIT),
         ...(sealedMission ? {clanMissionPointReceipts: [{id: eventId, ts}, ...missionReceipts.filter(entry => entry.ts >= ts - 21 * 86_400_000)]} : {}),
     } as T;
 
-    return { character: next, awarded: requested, requested, weekKey, weeklyEarned: currentWeekly + requested, weeklyCap: CLAN_POINTS_WEEKLY_CAP };
+    return {
+        character: next, awarded, requested, weekKey, weeklyEarned: currentWeekly + awarded, weeklyCap: CLAN_POINTS_WEEKLY_CAP,
+        ...(awarded < requested ? { reason: 'weekly-cap' as const } : {}),
+    };
 }
 
 export async function awardClanPointsToPlayerSave(

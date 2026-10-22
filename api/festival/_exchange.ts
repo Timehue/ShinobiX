@@ -7,7 +7,7 @@ import { withKvLock } from '../_lock.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { battleLockedFor } from '../_elapsed-state.js';
 import { FORGED_ITEM_ID } from '../_forged-item-registry.js';
-import { recordEconomyTxn } from '../_economy.js';
+import { recordEconomyTxn, recordExchangeResourceSale } from '../_economy.js';
 import { pushOfflineNotice } from '../player/_offline-notices.js';
 import { hasRecentIpOrFpOverlap } from '../_player-ips.js';
 
@@ -218,6 +218,13 @@ async function recoverLocked(current: StoredExchangeListing, catalogs?: Settleme
         // sides of our own trade against each other.
         await recordEconomyTxn({ txnId: `exchange:${listing.id}:buy`, player: listing.buyer!, currency: exchangeCurrency(listing), delta: -listing.price, source: 'sunscar.exchange' });
         await recordEconomyTxn({ txnId: `exchange:${listing.id}:sell`, player: listing.seller, currency: exchangeCurrency(listing), delta: listing.proceeds, source: 'sunscar.exchange' });
+        // The two legs above are a transfer between players; only the fee
+        // leaves the economy, so it is the sink the faucet:sink ledger counts.
+        if (listing.fee > 0) await recordEconomyTxn({ txnId: `exchange:${listing.id}:fee`, player: listing.seller, currency: exchangeCurrency(listing), delta: -listing.fee, source: 'exchange.fee' });
+        // The FS / BC / AS price thermometer (econ rebalance BTEI-07): one
+        // sample per sold resource lot, recorded once at the sold transition.
+        await recordExchangeResourceSale({ id: listing.id, seller: listing.seller, buyer: listing.buyer, asset: listing.asset,
+            quantity: listing.quantity, price: listing.price, currency: exchangeCurrency(listing), fee: listing.fee, completedAt: listing.completedAt });
     }
     if (listing.state === 'sold' && listing.saleNoticePending) {
         try {

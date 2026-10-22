@@ -136,6 +136,13 @@ function liveWanderer(verb: string) {
     throw new Error(`no ${verb} wanderer rolled at the frozen clock`);
 }
 
+/** The one errand a sage offers the fixture (no pets, no starter cards). The
+ *  server refuses any other id (I-13). */
+async function sageErrand(wandererId: string): Promise<string> {
+    const { questIdForWanderer, lockedQuestMetrics } = await import('../../shared/wanderer-quest-offer.js');
+    return questIdForWanderer(wandererId, lockedQuestMetrics({ pets: [] }));
+}
+
 async function contractFixture(name: string) {
     const { contractSectorsForDay, sectorContractFor, utcDayOf } = await import('../../shared/sector-contracts.js');
     const { contractProgressKey, contractClaimKey } = await import('../_sector-contracts.js');
@@ -180,8 +187,10 @@ describe('sector writers keep the idle recovery a player earned', { concurrency:
         const name = `${PREFIX}questaccept`;
         await seedTired(name);
         const { w, sector } = liveWanderer('quest');
-        const out = await post('./wanderer-quest.js', { playerName: name, action: 'accept', questId: 'wq-cull', wandererId: w.id, sector });
+        const questId = await sageErrand(w.id);
+        const out = await post('./wanderer-quest.js', { playerName: name, action: 'accept', questId, wandererId: w.id, sector });
         assert.equal(out.body?.ok, true, JSON.stringify(out.body));
+        assert.equal(out.body?.id, questId);
         await assertRecovered(name, 'wanderer quest accept');
     });
 
@@ -231,9 +240,16 @@ describe('sector writers keep the idle recovery a player earned', { concurrency:
         // so every resume probe offered this already-paid claim again.
         assert.equal(((await stored(name)).character as Json).worldAiPendingOutcome, null, 'the paid pending outcome is cleared');
         await assertRecovered(name, 'wanderer ambush');
+        assert.equal(((await stored(name)).character as Json).fateShards, 1, 'a paid clear is exactly one fate shard');
 
         const replay = await post('./wanderer-ambush.js', { playerName: name, action: 'claim' });
         assert.equal(replay.body?.replayed, true, JSON.stringify(replay.body));
+
+        // Telemetry (I-19): the fresh payout is logged once, the replay is not.
+        const { econPlayerDayKey, econUtcDay } = await import('../_economy.js');
+        const row = await kv.get<Record<string, Record<string, { c: number; n: number }>>>(econPlayerDayKey(econUtcDay(Date.now()), name));
+        assert.deepEqual(row?.fateShards?.['wanderer.ambush'], { c: 1, d: 0, n: 1 });
+        assert.equal(row?.ryo?.['wanderer.ambush']?.n, 1);
     });
 });
 
@@ -295,11 +311,12 @@ describe('a write that loses its compare-and-set gives back what it spent first'
         const name = `${PREFIX}questlost`;
         await seedTired(name);
         const { w, sector } = liveWanderer('quest');
-        const lost = await losingOnce(name, () => post('./wanderer-quest.js', { playerName: name, action: 'accept', questId: 'wq-cull', wandererId: w.id, sector }));
+        const questId = await sageErrand(w.id);
+        const lost = await losingOnce(name, () => post('./wanderer-quest.js', { playerName: name, action: 'accept', questId, wandererId: w.id, sector }));
         assert.equal(lost.statusCode, 503, JSON.stringify(lost.body));
         assert.equal(await kv.get(`wanderer-quest:${name}`), null, 'no seal was cached ahead of the durable write');
 
-        const accepted = await post('./wanderer-quest.js', { playerName: name, action: 'accept', questId: 'wq-cull', wandererId: w.id, sector });
+        const accepted = await post('./wanderer-quest.js', { playerName: name, action: 'accept', questId, wandererId: w.id, sector });
         assert.equal(accepted.body?.ok, true, JSON.stringify(accepted.body));
     });
 });

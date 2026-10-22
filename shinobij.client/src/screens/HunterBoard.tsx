@@ -7,6 +7,7 @@ import type { CreatorMission } from "../types/missions";
 import type { Screen } from "../types/core";
 import { HUNTER_RANKUP, HUNTER_RANK_COLORS, HUNTER_RANK_LABELS, HUNT_MATERIAL_NAMES, HUNT_MIN_RANK, type MissionRank } from "../constants/hunter";
 import { FIELD_MISSION_STAT_POINTS } from "../constants/game";
+import { dailyStatBudgetLine, missionDropChanceText, missionStatPointText } from "../lib/progression-dials";
 import { GameArtIcon } from "../components/GameArtIcon";
 import { rewardSummary, statPointNote } from "../lib/currency";
 import { ClaimImpactNotice } from "../components/ClaimImpactNotice";
@@ -272,7 +273,7 @@ export function HunterBoard({
             applySuccessfulMissionClaim(result);
             setAcceptedMissionIds((prev) => prev.filter((id) => id !== mission.id));
             setMissionProgress((prev) => ({ ...prev, [mission.id]: 0 }));
-            setLastClaim({ title: mission.name, reward: `${statPointNote(result.reward.statPoints)}${rewardSummary(result.reward.ryo, result.reward.stamina, result.reward.currency, character, { items: materialNames(result.reward.items ?? []) })}` });
+            setLastClaim({ title: mission.name, reward: `${statPointNote(result.reward.statPoints)}${rewardSummary(result.reward.ryo, result.reward.stamina, result.reward.currency, character, { items: materialNames(result.reward.items ?? []) })}${result.statBudget ? ` · Stat points today: ${result.statBudget.spent} / ${result.statBudget.cap}` : ""}` });
             return;
         }
         if (result.applied === false) {
@@ -407,6 +408,7 @@ export function HunterBoard({
                 />
             )}</SharedClockLeaf>
             <SharedClockLeaf>{() => !hasDailyHuntSlot(character) && <p role="status">Rewards reset at midnight UTC. You can still accept and track eligible contracts.</p>}</SharedClockLeaf>
+            <SharedClockLeaf>{() => dailyStatBudgetLine(character.name) && <p className="hunt-stat-budget">{dailyStatBudgetLine(character.name)}. Hunts, field jobs and fight wins share this budget; it resets at midnight UTC.</p>}</SharedClockLeaf>
             {lastClaim && <ClaimImpactNotice {...lastClaim} onClose={() => setLastClaim(null)} />}
 
             <div className="hunter-rank-banner">
@@ -512,7 +514,7 @@ export function HunterBoard({
                                                 <div className="hunt-contract-info">
                                                     <strong>{mission.name}</strong>
                                                     <small>Sector {mission.targetSector} · Lvl {mission.levelReq}+</small>
-                                                    <small>+{FIELD_MISSION_STAT_POINTS} Stat Pts / {rewardSummary(boostAmount(mission.ryoReward, missionRewardBonus), boostAmount(mission.staminaReward, missionRewardBonus), mission.currencyRewards, character)}</small>
+                                                    <small>{missionStatPointText(character.name, FIELD_MISSION_STAT_POINTS)} / {rewardSummary(boostAmount(mission.ryoReward, missionRewardBonus), boostAmount(mission.staminaReward, missionRewardBonus), mission.currencyRewards, character)}{missionDropChanceText(character.level, "hunt") ? ` · ${missionDropChanceText(character.level, "hunt")}` : ""}</small>
                                                     {mission.itemRewards && (
                                                         <div className="hunt-drops" style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap", marginTop: 2 }}>
                                                             <span style={{ opacity: .7, fontSize: 11 }}>Drops:</span>

@@ -120,13 +120,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // a hard ryo sink on every pull; the payout is a faucet only when the
             // roll pays ryo back. Netting them would hide the gross churn, which is
             // the number that says whether this table is a sink at all.
-            const reward = (out.body.reward ?? {}) as { ryo?: number; fateShards?: number };
+            const reward = (out.body.reward ?? {}) as { ryo?: number; fateShards?: number; boneCharms?: number; auraStones?: number };
             await recordEconomyTxn({ txnId: `black-market:${playerName}:${now}`, player: playerName, currency: 'ryo', delta: -BLACK_MARKET_COST, source: 'blackmarket.stake' });
             if (Number(reward.ryo) > 0) {
                 await recordEconomyTxn({ txnId: `black-market-payout:${playerName}:${now}`, player: playerName, currency: 'ryo', delta: Number(reward.ryo), source: 'blackmarket.payout' });
             }
             if (Number(reward.fateShards) > 0) {
                 await recordEconomyTxn({ txnId: `black-market-shards:${playerName}:${now}`, player: playerName, currency: 'fateShards', delta: Number(reward.fateShards), source: 'blackmarket.payout' });
+            }
+            // The relic cache and the jackpot also pay Bone Charms and Aura
+            // Stones (~0.53 BC and ~0.26 AS a pull); without these rows the
+            // ledger's faucets-by-source never saw them (I-19).
+            if (Number(reward.boneCharms) > 0) {
+                await recordEconomyTxn({ txnId: `black-market-bc:${playerName}:${now}`, player: playerName, currency: 'boneCharms', delta: Number(reward.boneCharms), source: 'blackmarket.payout' });
+            }
+            if (Number(reward.auraStones) > 0) {
+                await recordEconomyTxn({ txnId: `black-market-as:${playerName}:${now}`, player: playerName, currency: 'auraStones', delta: Number(reward.auraStones), source: 'blackmarket.payout' });
             }
         }
         return res.status(out.status).json(out.body);

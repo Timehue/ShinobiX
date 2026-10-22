@@ -276,6 +276,12 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
             setError(result.error);
             return;
         }
+        // A paid bout spends the fielded pets' one-use battle items at kickoff
+        // (api/pet/showdown.ts). Adopt that committed save so the roster stops
+        // showing a spent item.
+        if ("character" in result && result.character && "saveVersion" in result && typeof result.saveVersion === "number") {
+            onVersionedCharacter?.(result.character as Character, result.saveVersion);
+        }
         // Preserve a real session for resume if navigation wins the request,
         // but do not warm/mount its arena or reactivate fullscreen after exit.
         writeSessionBreadcrumb({ sessionId: result.state.sessionId, petIds: selected, playerName: character.name });
@@ -291,7 +297,7 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
         setStarting(false);
         setBattle({ state: result.state, key: battleKey.current++ });
         setSignals(true, true);
-    }, [starting, selected, size, character.name, format, tier, bout, selectedPets, setSignals]);
+    }, [starting, selected, size, character.name, format, tier, bout, selectedPets, setSignals, onVersionedCharacter]);
 
     const launchRoadChallenge = async () => {
         const ref = pendingWanderer?.wanderer;
@@ -403,7 +409,7 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
                     somewhere else. */}
                 <h1>{bout === "arena" ? "The Colosseum" : "Training Grounds"}</h1>
                 <p className="showdown-tagline">{bout === "arena"
-                    ? "The arena has your challenger. Read the elements, ride the stamina, land the perfect strike — and finish with a signature."
+                    ? "The arena has your challenger. Read the elements, ride the stamina, land the perfect strike — and finish with a signature. Equipped battle items are spent when the bout begins."
                     : "Spar as long as you like. Read the elements, ride the stamina, land the perfect strike — and finish with a signature. Nothing here is paid or capped."}</p>
             </div>
 

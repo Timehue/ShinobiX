@@ -248,7 +248,7 @@ All live in `api/_anbu-infiltration.ts` as named constants:
 
 - Roll weights: both = 0.10 (rare jackpot), supply = 0.45, wr = 0.45.
 - `SKIM_PCT` = 1; `DAILY_LOSS_CAP_PCT` = 50 (per-sector supply + per-village WR).
-- `RAID_RYO_REWARD` = 500 flat (daily ceiling = attempts cap × 500).
+- `RAID_RYO_REWARD` = 3,000 at full pay: 10 x A(min(raider level, sealed ANBU level)), never below 500 (`raidRyoReward`), staged by WAR_PURSE_SCALE; daily ceiling = attempts cap x that.
 - `MAX_RAID_ATTEMPTS_PER_DAY` = 8 (counts starts, like raid-start's mint cap).
 - Turn-in: `CLAN_CACHES_PER_POINT` = 2, `VILLAGE_CACHES_PER_POINT` = 1; clan side
   also bounded by the existing clan-points pipe (250/award, 1 000/week);

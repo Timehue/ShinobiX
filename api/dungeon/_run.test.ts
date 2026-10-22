@@ -1,4 +1,4 @@
-import { describe, it } from 'node:test'; import { strict as assert } from 'node:assert'; import { DUNGEON_MIN_RUN_MS, mutateDungeonRun, resolveFreeDungeonMiss } from './_run.js';
+import { describe, it } from 'node:test'; import { strict as assert } from 'node:assert'; import { DUNGEON_CLEAR_REWARD, DUNGEON_MIN_RUN_MS, mutateDungeonRun, resolveFreeDungeonMiss } from './_run.js';
 import { applyDungeonWardenSettlement } from './_ai-fight.js';
 import { applyDungeonCardTerminal, applyDungeonPetTerminal, dungeonCardMatchId } from './_encounter-proof.js';
 describe('dungeon run authority', () => {
@@ -53,7 +53,10 @@ describe('dungeon run authority', () => {
         assert.equal(tooShort.ok, false);
         if (!tooShort.ok) assert.equal(tooShort.reason, 'dungeon-run-too-short');
         const settled = mutateDungeonRun(pet.character, 'settle', 'token12345', 'x', 1000 + DUNGEON_MIN_RUN_MS); assert.equal(settled.ok, true); if (!settled.ok) return;
-        assert.equal(settled.character.fateShards, 5); assert.deepEqual(settled.character.inventory, ['dungeon-legendary-relic']);
+        // 2026-10 rebalance: Fate Shards 5 → 2; Bone Charms and Aura Stones unchanged.
+        assert.deepEqual(DUNGEON_CLEAR_REWARD, { boneCharms: 10, auraStones: 5, fateShards: 2 });
+        assert.equal(settled.character.fateShards, 2); assert.equal(settled.character.boneCharms, 10); assert.equal(settled.character.auraStones, 5);
+        assert.deepEqual(settled.character.inventory, ['dungeon-legendary-relic']);
         const replay = mutateDungeonRun(settled.character, 'settle', 'token12345', 'x', 999999); assert.equal(replay.ok, true); if (replay.ok) assert.equal(replay.alreadyApplied, true);
     });
     it('preserves redeemed-run replay but does not grandfather an active Warden-only run', () => {

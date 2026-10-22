@@ -365,6 +365,7 @@ describe('World AI fight authority for the road cast', () => {
         assert.equal(spec.profile.pveDifficulty, preview.difficulty);
         assert.equal(spec.context.encounter?.id, preview.id);
         assert.equal(spec.context.encounter?.portraitKey, preview.portraitKey);
+        assert.equal(spec.context.encounter?.baseRyo, 150, 'the purse follows the L100 save, not the regional NPC level');
         assert.ok(Number(spec.profile.level) < 100, 'ordinary road NPC does not become player + 1');
         await assert.rejects(buildWorldAiFightSpec({ playerName: 'Roadwalker', request: { ...request, encounterId: 'ordinary-deadbeef' },
             save: save(road.sector, { level: 100 }), now: road.now }), /preview-stale/);

@@ -16,6 +16,7 @@ import { markPveOutcomeSettled, stampPveOutcomeBody } from '../pve/_fight-outcom
 import { readSoloPveSession, writeSoloPveSession } from '../solo-pve/_store.js';
 import { applySoloPveUsageCosts, withSoloPveSettlementReceipt } from '../solo-pve/_settlement.js';
 import { HG_CLAWBACK_KEYS, hollowGateRunKey, HOLLOW_GATE_RUN_EXPIRED_MESSAGES, itemStackCount, rewardMultiplierForToken, type HollowGateRunToken } from './_run-token.js';
+import { hollowGateAmbushPurse, hollowGatePaidAmbushCount, hollowGateRunRyoScale, type HollowGateAmbushPurse } from './_gate-scale.js';
 import {
     hollowGateCombatBindingKey,
     hollowGatePostWinHp,
@@ -61,6 +62,10 @@ type CombatReceipt = {
     reward: HollowGateCombatReward;
     elementalShards: number;
     settledAt: number;
+    /** Won threat ambushes only: this one's place against the per-run purse cap,
+     *  so the reward line can say how many paid ambushes are left (owner rule:
+     *  every limit is visible). Absent on older receipts. */
+    ambushPurse?: HollowGateAmbushPurse;
 };
 
 export function hollowGateCombatReceiptNeedsRecovery(
@@ -224,6 +229,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         petDefeat: existingReceipt.petDefeat ?? false,
                         reward: existingReceipt.reward,
                         elementalShards: existingReceipt.elementalShards,
+                        ...(existingReceipt.ambushPurse ? { ambushPurse: existingReceipt.ambushPurse } : {}),
                         character: current?.character ?? null,
                         _saveVersion: Number(current?._saveVersion ?? 0),
                     } };
@@ -278,7 +284,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (existing) return { receipt: existing, character: char, saveVersion: Number(record._saveVersion ?? 0) };
                 if (hollowGateSavedTokenMismatch(char, token)) return { error: 'The saved run does not match this combat.' };
 
-                const reward = won ? hollowGateCombatReward(binding!.floor, binding!.kind, char.profession) : hollowGateCombatReward(binding!.floor, binding!.kind, undefined);
+                // The ryo scale is the run's sealed entry level, and the ambush
+                // cap counts wins before this one (the run's resolved list
+                // gains this encounter only after settlement).
+                const rewardOptions = { ryoScale: hollowGateRunRyoScale(run), paidAmbushes: hollowGatePaidAmbushCount(run) };
+                const reward = won
+                    ? hollowGateCombatReward(binding!.floor, binding!.kind, char.profession, rewardOptions)
+                    : hollowGateCombatReward(binding!.floor, binding!.kind, undefined, rewardOptions);
                 if (won) {
                     const multiplier = rewardMultiplierForToken(run);
                     for (const key of ['ryo', 'auraDust', 'honorSeals', 'boneCharms', 'fateShards', 'hollowShards'] as const) {
@@ -290,7 +302,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
                 const elementalShards = won && binding!.kind === 'boss'
                     && randomInt(0, 10_000) < Math.floor(Math.min(0.8, 0.5 + binding!.floor * 0.03) * 10_000) ? 1 : 0;
-                const receipt: CombatReceipt = { version: 2, won, revived, escaped, petDefeat, reward, elementalShards, settledAt: Date.now() };
+                const ambushPurse = hollowGateAmbushPurse(binding!.kind, won, rewardOptions.paidAmbushes);
+                const receipt: CombatReceipt = {
+                    version: 2, won, revived, escaped, petDefeat, reward, elementalShards, settledAt: Date.now(),
+                    ...(ambushPurse ? { ambushPurse } : {}),
+                };
                 const placed = await kv.set(receiptKey, receipt, { nx: true, ex: COMBAT_RECEIPT_TTL_SECONDS });
                 if (!placed) {
                     const raced = await kv.get<CombatReceipt>(receiptKey);
@@ -444,7 +460,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 next.settledHollowGateCombatIds = [...settledIds.filter((id) => id !== runId).slice(-199), runId];
                 next.hollowGatePendingOperation = makeHollowGatePendingOperation({
                     token, kind: 'combat', id: runId, before: run, after: runAfterCombatSettlement(run, binding, receipt),
-                    response: { ok: true, won, revived, escaped, petDefeat, reward: receipt.reward, elementalShards },
+                    response: {
+                        ok: true, won, revived, escaped, petDefeat, reward: receipt.reward, elementalShards,
+                        ...(receipt.ambushPurse ? { ambushPurse: receipt.ambushPurse } : {}),
+                    },
                 });
                 // Retain the receipt when commitment is uncertain. Retry checks
                 // the server-owned applied IDs before deciding whether to pay.
@@ -476,6 +495,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 petDefeat,
                 reward: banked.receipt.reward,
                 elementalShards: banked.receipt.elementalShards,
+                ...(banked.receipt.ambushPurse ? { ambushPurse: banked.receipt.ambushPurse } : {}),
                 character: banked.character,
                 _saveVersion: banked.saveVersion,
             } };

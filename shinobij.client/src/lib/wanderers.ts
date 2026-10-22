@@ -30,6 +30,7 @@ import {
     parseWandererId, relocateWandererInto, wandererCastAt, wandererDayBucketFromMs, wandererForSlot, worldNightIndexFromMs,
     type Wanderer, type WandererVerb,
 } from "../../../shared/wanderer-roster";
+import { questIdForWanderer } from "../../../shared/wanderer-quest-offer";
 import { useEffect, useMemo, useState } from "react";
 
 /** Which world night it is (null by day), re-checked every 30s, so a sector's
@@ -388,31 +389,16 @@ export function relicSurveyWalkthrough(
     return RELIC_SURVEY_STEPS.map((step) => ({ ...step, done: seen.has(step.biome) }));
 }
 
-/** Quest objectives this character has no way to make progress on yet — the same
- *  content locks as lockedWandererVerbs, expressed as counters. Without this a
- *  sage could hand a pre-codex player "Win 2 Shinobi Chronicle Showdowns", which
- *  is unwinnable while the Card Hall is sealed, and it occupies their one quest
- *  slot. (The server owns the target + reward per quest id either way; this only
- *  decides what gets OFFERED.) */
-export function lockedQuestMetrics(
-    character: { starterCardsClaimed?: boolean; pets?: unknown[] } | null | undefined,
-): WandererQuestMetric[] {
-    const locked: WandererQuestMetric[] = [];
-    if (character?.starterCardsClaimed !== true) locked.push("cardClashWins");
-    if (!character?.pets?.length) locked.push("totalPetWins");
-    return locked;
-}
+// Which errand a sage offers, and which objectives a character cannot progress
+// yet, live in shared/wanderer-quest-offer.ts: the server refuses any other
+// quest id (framework I-13), so both sides must run the one pick.
+export { lockedQuestMetrics } from "../../../shared/wanderer-quest-offer";
 
 /** The (stable) quest a given sage offers — deterministic from its id, drawn only
  *  from objectives the player can actually make progress on. */
 export function questForWanderer(w: Wanderer, lockedMetrics?: readonly WandererQuestMetric[]): WandererQuestDef {
-    const pool = lockedMetrics?.length
-        ? WANDERER_QUEST_CATALOG.filter((q) => !lockedMetrics.includes(q.metric))
-        : WANDERER_QUEST_CATALOG;
-    const catalog = pool.length ? pool : WANDERER_QUEST_CATALOG;
-    let h = 0;
-    for (let i = 0; i < w.id.length; i++) h = (Math.imul(h, 31) + w.id.charCodeAt(i)) >>> 0;
-    return catalog[h % catalog.length];
+    const id = questIdForWanderer(w.id, lockedMetrics);
+    return WANDERER_QUEST_CATALOG.find((q) => q.id === id) ?? WANDERER_QUEST_CATALOG[0];
 }
 
 /** Which character counter an active quest tracks (for client-side progress). */

@@ -53,7 +53,7 @@ export const PROFESSION_INFO: ProfessionInfo[] = [
         icon: "✚",
         accent: "#22d3ee",
         summary:
-            "A support shinobi who keeps the village standing. Heal wounded and knocked-out allies for profession XP equal to the share of HP you restore.",
+            "A support shinobi who keeps the village standing. Heal wounded and knocked-out allies for profession XP worth twice the share of HP you restore.",
         perks: [
             "Heal hospitalized allies in your village for XP",
             "Per-target heal cooldown shrinks as you rank up — plus instant, free self-discharge from the hospital",

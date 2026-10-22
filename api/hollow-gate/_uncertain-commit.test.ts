@@ -158,6 +158,7 @@ for (const secondWind of [false, true]) for (const commit of [false, true]) {
 }
 
 test('refused Sanctify save leaves its cost, checkpoint, and run ledger untouched until one successful retry', async t => {
+    const { HOLLOW_GATE_CONSUMABLE_COSTS } = await import('./use-consumable.js');
     const f = await preparedRun('refusedsanctify');
     const consumable = (await import('./use-consumable.js')).default as unknown as Handler;
     const assertFault = rejectBeforeCommit(t, f.saveKey);
@@ -168,7 +169,7 @@ test('refused Sanctify save leaves its cost, checkpoint, and run ledger untouche
     assert.deepEqual(await kv.get(f.runKey), f.run, 'no free checkpoint or lost run rewards');
     assert.equal((await call(consumable, f.name, request)).status, 200);
     const committed = (await kv.get<Save>(f.saveKey))!;
-    assert.equal(committed.character.hollowShards, 1276);
+    assert.equal(committed.character.hollowShards, 1290 - HOLLOW_GATE_CONSUMABLE_COSTS.sanctify);
     assert.deepEqual(credits.hollowGateCreditBasis(committed.character), { runToken: f.token, checkpointVersion: 1 });
     assert.equal((await call(consumable, f.name, request)).status, 200);
     assert.deepEqual(await kv.get(f.saveKey), committed);
@@ -248,6 +249,7 @@ test('chest retry after committed CAS and unavailable readback pays the sealed r
 });
 
 test('Sanctify retry after committed CAS and unavailable readback charges and advances its checkpoint once', async t => {
+    const { HOLLOW_GATE_CONSUMABLE_COSTS } = await import('./use-consumable.js');
     const f = await preparedRun('sanctify');
     const consumable = (await import('./use-consumable.js')).default as unknown as Handler;
     const assertFault = loseCommitAndFirstReadback(t, f.saveKey);
@@ -256,7 +258,7 @@ test('Sanctify retry after committed CAS and unavailable readback charges and ad
     assertFault();
     assert.ok(first.status === 200 || first.status === 500 || first.status === 503);
     const committed = (await kv.get<Save>(f.saveKey))!;
-    assert.equal(committed.character.hollowShards, 1276);
+    assert.equal(committed.character.hollowShards, 1290 - HOLLOW_GATE_CONSUMABLE_COSTS.sanctify);
     assert.deepEqual(credits.hollowGateCreditBasis(committed.character), { runToken: f.token, checkpointVersion: 1 });
     const retry = await call(consumable, f.name, request);
     assert.equal(retry.status, 200, String(retry.body?.error));
@@ -269,7 +271,7 @@ test('Sanctify retry after committed CAS and unavailable readback charges and ad
     assert.equal(after._saveVersion, committed._saveVersion);
     assert.deepEqual(credits.hollowGateCreditBasis(after.character), { runToken: f.token, checkpointVersion: 1 });
     assert.deepEqual(credits.hollowGateExternalCredits(after.character, f.token), {});
-    assert.equal((await kv.get<HollowGateRunToken>(f.runKey))!.entryCurrencies.hollowShards, 1276);
+    assert.equal((await kv.get<HollowGateRunToken>(f.runKey))!.entryCurrencies.hollowShards, 1290 - HOLLOW_GATE_CONSUMABLE_COSTS.sanctify);
 });
 
 for (const outcome of ['win', 'death', 'revived'] as const) test(`verified Solo PvE ${outcome} retry after committed CAS and unavailable readback settles once`, async t => {

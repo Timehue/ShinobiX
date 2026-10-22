@@ -47,6 +47,11 @@ import { VILLAGE_STRUCTURE_MAX_LEVEL } from '../_war-economy.js';
  *
  * Every refusal carries BOTH `error` (the machine code, unchanged) and `message`
  * (the sentence the clients render) — see structureUpgradeErrorMessage.
+ *
+ * Per-war preparations (2026-10 rebalance, #6) also cost treasury ryo and Bone
+ * Charms per WR (api/_war-preparations.ts upgradeWarPreparation): short →
+ * 402 'insufficient-treasury-ryo' / 'insufficient-treasury-bc' { need, have };
+ * a treasury row that moved mid-commit → 503 'treasury-busy', nothing spent.
  */
 
 const VILLAGE_STATE_PREFIX = 'game:village-state:';
@@ -85,6 +90,12 @@ export function structureUpgradeErrorMessage(
             return `The treasury is short — ${amount(opts.cost)} Honor Seals needed.`;
         case 'insufficient-wr':
             return `The war pool is short — ${amount(opts.cost)} War Resources needed.`;
+        case 'insufficient-treasury-ryo':
+            return `The treasury is short — ${amount(opts.need)} ryo needed.`;
+        case 'insufficient-treasury-bc':
+            return `The treasury is short — ${amount(opts.need)} Bone Charms needed.`;
+        case 'treasury-busy':
+            return 'The treasury is busy. Nothing was spent; try again in a moment.';
         case 'materials-required':
             return `The stores are short — ${amount(opts.need)} materials needed, and ${amount(opts.have)} are stocked.`;
         case 'max-level':
@@ -241,8 +252,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }, { failClosed: true });
 
         if (!result.ok) {
-            const status = (result.error === 'insufficient-seals' || result.error === 'insufficient-wr' || result.error === 'materials-required') ? 402
+            const status = (result.error === 'insufficient-seals' || result.error === 'insufficient-wr' || result.error === 'materials-required'
+                || result.error === 'insufficient-treasury-ryo' || result.error === 'insufficient-treasury-bc') ? 402
+                : result.error === 'treasury-busy' ? 503
                 : (result.error === 'max-level' || result.error === 'level-changed' || result.error === 'retired-structure' || result.error === 'purchase-reconcile-required' || result.error === 'war-ended') ? 409 : 400;
+            if (result.error === 'insufficient-treasury-ryo' || result.error === 'insufficient-treasury-bc') {
+                void recordWarEcoEvent({ eventId: `treasury-short:prep:${villageWarSlug(village)}:${String(body.warInstance ?? '')}:${structure}:${toLevel ?? 0}:${Date.now()}`, village, kind: 'treasury.short', amount: 1, meta: `prep:${structure}` });
+            }
             const need = 'need' in result ? result.need : undefined;
             const have = 'have' in result ? result.have : undefined;
             const level = 'currentLevel' in result ? result.currentLevel : undefined;
@@ -273,6 +289,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // are bought again in the next war, and an id of village/structure/level
         // alone made that second purchase read as a replay and dropped its spend.
         void recordWarEcoEvent({ eventId: isPerWarStructure(structure) ? `structure:${villageWarSlug(village)}:${String(body.warInstance ?? "")}:${structure}:${result.newLevel}` : txId, village, kind: isPerWarStructure(structure) ? 'wr.spend.structure' : 'seals.spend.structure', amount: result.cost ?? 0, meta: structure });
+        // The treasury share of a preparation tier (2026-10 rebalance, #6). A
+        // replay reports what was paid but spends nothing, so it records nothing.
+        if (isPerWarStructure(structure) && !('replayed' in result && result.replayed)) {
+            const prepEventId = `prep-treasury:${villageWarSlug(village)}:${String(body.warInstance ?? '')}:${structure}:${result.newLevel}`;
+            const paidRyo = 'treasuryRyo' in result ? Number(result.treasuryRyo) || 0 : 0;
+            const paidCharms = 'treasuryBoneCharms' in result ? Number(result.treasuryBoneCharms) || 0 : 0;
+            if (paidRyo > 0 || paidCharms > 0) invalidateProcCache('game-state:frame');
+            if (paidRyo > 0) void recordWarEcoEvent({ eventId: `${prepEventId}:ryo`, village, kind: 'treasury.ryo.spend.prep', amount: paidRyo, meta: structure });
+            if (paidCharms > 0) void recordWarEcoEvent({ eventId: `${prepEventId}:bc`, village, kind: 'treasury.bc.spend.prep', amount: paidCharms, meta: structure });
+        }
         return res.status(200).json(result);
     } catch (err) {
         // A reserved/debited-but-unfinished purchase is parked for the economy

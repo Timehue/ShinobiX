@@ -1,6 +1,10 @@
 import { GATHER_NAMES, GATHER_RECIPE_INGREDIENTS } from './gathering-materials.js';
 import { RESOURCE_ITEMS, resourceItemId, RESOURCE_GRADES, type ResourceFamily, type ResourceGrade } from './resource-items.js';
 import { resourceForgeRequirement } from './resource-forging.js';
+import { HUNT_MATERIAL_SELL_RYO } from './hunt-material-sale.js';
+import { FUEL_IDS } from './cooking-recipes.js';
+import { WEEKLY_BOSS_CORE_ID } from './stacked-materials.js';
+import { RARITY_LEVEL_FLOOR } from './item-level-gate.js';
 
 /** Each row is required; IDs within a row are interchangeable, lowest-first. */
 export type CraftIngredient = { ids: readonly string[]; count: number; label: string };
@@ -26,6 +30,7 @@ export const CRAFT_MATERIAL_NAMES: Readonly<Record<string, string>> = {
     'hunt-titan-bone': 'Titan Bone', 'hunt-legendary-material': 'Legendary Material',
     'dungeon-legendary-relic': 'Dungeon Legendary Relic',
     'warforged-relic': 'Warforged Relic', 'veil-of-the-hollow': 'Veil of the Hollow',
+    'weekly-boss-core': 'Weekly Boss Core',
     'ration-pack': 'Ration Pack', 'pet-treat': 'Pet Treat',
 };
 export const craftMaterialName = (id: string) => CRAFT_MATERIAL_NAMES[id] ?? id;
@@ -46,8 +51,23 @@ const feather = (count: number) => material('hunt-wild-feather', count);
 const hide = (count: number) => choice(['hunt-torn-hide', 'hunt-frost-pelt', 'hunt-shadow-pelt'], count);
 const fang = (count: number) => choice(['hunt-small-fang', 'hunt-wolf-fang', 'hunt-shadow-claw'], count);
 const scale = (count: number) => choice(['hunt-ash-scale', 'hunt-ember-scale'], count, 'Ash / Ember Scale');
-const core = (count: number) => material('hunt-ancient-beast-core', count);
 const iron = (count: number, grade: ResourceGrade = 0) => gradedCraftMaterial('gather-iron-sand', grade, count);
+// 2026-10 rebalance, item-use pass. Each substitute stands in 1:1 and comes
+// LAST in its row, so the planner keeps spending the original material first
+// and a craft never costs more than before.
+// Forge fuel: Common Ember Ore and Ember Scale burn like Heartwood Bark
+// (shared/cooking-recipes.ts FUEL_IDS, the same row the Noodle Den uses).
+const fuel = (count: number) => choice(FUEL_IDS, count, 'Heartwood Bark or Ember fuel');
+// Shadow Pelt (two per Moon Serpent hunt, and the hide row spends Torn Hide
+// first) stands in for the trace-only Shadow Thread.
+const threadOrPelt = (count: number) => choice(['gather-shadow-thread', 'hunt-shadow-pelt'], count, 'Shadow Thread / Shadow Pelt');
+// One S-rank trophy row: each apex hunt drops only one of core or bone, so
+// either (or a Legendary Material) builds every repeatable pet recipe. The
+// recipe's original trophy leads; Legendary Material is always last.
+const trophy = (count: number, first: 'hunt-ancient-beast-core' | 'hunt-titan-bone' = 'hunt-ancient-beast-core') =>
+    choice([first, first === 'hunt-titan-bone' ? 'hunt-ancient-beast-core' : 'hunt-titan-bone', 'hunt-legendary-material'], count);
+// Every grade of River Fish feeds the uncapped Treats recipe, not only Common.
+const meatOrFish = (count: number) => choice(['hunt-beast-meat', ...RESOURCE_GRADES.map((_, grade) => resourceItemId('gather-river-fish', grade as ResourceGrade))], count, 'Beast Meat / River Fish (any grade)');
 
 /** Equipment carries bulk ore costs. Regional traces are rare (2% on a mining
  * success), so everyday medicines accept Common minerals and advanced gear
@@ -55,36 +75,84 @@ const iron = (count: number, grade: ResourceGrade = 0) => gradedCraftMaterial('g
 export const SUPPLY_CRAFT_RECIPES: Readonly<Record<string, SupplyCraftRecipe>> = {
     'village-supply-bundle': { ingredients: exact('village-supply-bundle') },
     'village-supply-crate': { ingredients: exact('village-supply-crate') },
-    'pet-treat': { ingredients: [choice(['hunt-beast-meat', 'gather-river-fish'], 4), herb(2)] },
+    'pet-treat': { ingredients: [meatOrFish(4), herb(2)] },
     'elemental-pet-treat': { ingredients: [material('pet-treat', 2), choice(['gather-rime-crystal', 'gather-ember-ore', 'gather-stormglass-shard'], 2), herb(1)] },
-    'beast-seal-master': { ingredients: [gradedCraftMaterial('gather-stormglass-shard', 1, 4), bark(4), thread(4), fiber(8)], levelReq: 30 },
+    'beast-seal-master': { ingredients: [gradedCraftMaterial('gather-stormglass-shard', 1, 4), bark(4), threadOrPelt(4), fiber(8)], levelReq: 30 },
     'currency:aura-dust': { ingredients: [gradedCraftMaterial('gather-stormglass-shard', 0, 2), herb(4), fiber(2)], currency: 'auraDust', amount: 50 },
     'currency:bone-charm': { ingredients: [material('hunt-cracked-horn', 6), material('hunt-small-fang', 4), fiber(4), gradedCraftMaterial('gather-stormglass-shard', 0, 1)], currency: 'boneCharms', amount: 1 },
-    // Bark fuels the forge; fiber ties the finished throwing tools into bundles.
-    'thrown-shuriken': { ingredients: [iron(6), bark(1), fiber(2)], count: 3 },
-    'thrown-senbon': { ingredients: [iron(3, 1), bark(1), fiber(2)] },
-    'thrown-serpent-dust': { ingredients: [herb(6), thread(1), feather(2)] },
-    'item-smoke-bomb': { ingredients: [bark(1), herb(4), fiber(2)] },
-    'item-attack-pill': { ingredients: [herb(4), material('hunt-beast-meat', 2), bark(1)] },
-    'item-defense-pill': { ingredients: [herb(4), material('hunt-cracked-horn', 2), bark(1)] },
-    'potion-rejuvenation': { ingredients: [herb(10), gradedCraftMaterial('gather-rime-crystal', 0, 2), bark(1)] },
+    // Fuel feeds the forge; fiber ties the finished throwing tools into bundles.
+    // A combat consumable equips into a character slot, which the rarity ladder
+    // gates (shared/item-level-gate.ts), so its recipe opens at that same level:
+    // a Lv1-29 crafter used to make Lv30 consumables they could only sell (2026-10
+    // item-use pass). The Shuriken is common, so its recipe stays open.
+    'thrown-shuriken': { ingredients: [iron(6), fuel(1), fiber(2)], count: 3 },
+    'thrown-senbon': { ingredients: [iron(3, 1), fuel(1), fiber(2)], levelReq: RARITY_LEVEL_FLOOR.uncommon },
+    'thrown-serpent-dust': { ingredients: [herb(6), threadOrPelt(1), feather(2)], levelReq: RARITY_LEVEL_FLOOR.rare },
+    'item-smoke-bomb': { ingredients: [bark(1), herb(4), fiber(2)], levelReq: RARITY_LEVEL_FLOOR.rare },
+    'item-attack-pill': { ingredients: [herb(4), material('hunt-beast-meat', 2), bark(1)], levelReq: RARITY_LEVEL_FLOOR.rare },
+    'item-defense-pill': { ingredients: [herb(4), material('hunt-cracked-horn', 2), bark(1)], levelReq: RARITY_LEVEL_FLOOR.rare },
+    'potion-rejuvenation': { ingredients: [herb(10), gradedCraftMaterial('gather-rime-crystal', 0, 2), bark(1)], levelReq: RARITY_LEVEL_FLOOR.rare },
     'pve-hunters-bond-harness': { ingredients: [hide(12), fiber(8), iron(6, 1)] },
     'pve-loyal-companion-bell': { ingredients: [iron(8, 1), fiber(6), gradedCraftMaterial('gather-stormglass-shard', 1, 1)] },
     'pve-frenzy-claw': { ingredients: [material('hunt-shadow-claw', 8), iron(8, 1), fiber(6)] },
     'pve-guardians-blessing': { ingredients: [scale(8), gradedCraftMaterial('gather-rime-crystal', 1, 1), fiber(6)] },
-    'pve-sanguine-charm': { ingredients: [fang(10), core(2), fiber(6)] },
+    'pve-sanguine-charm': { ingredients: [fang(10), trophy(2), fiber(6)] },
     'pve-predators-fang': { ingredients: [material('hunt-wolf-fang', 8), iron(6, 2), fiber(6)] },
     'pve-avengers-pendant': { ingredients: [iron(8, 2), gradedCraftMaterial('gather-ember-ore', 1, 1), fiber(6)] },
-    'pve-bloodbond-totem': { ingredients: [bark(4), core(3), thread(2), fiber(6)] },
+    'pve-bloodbond-totem': { ingredients: [bark(4), trophy(3), threadOrPelt(2), fiber(6)] },
     'pve-pack-alpha-crest': { ingredients: [material('hunt-frost-pelt', 8), material('hunt-wolf-fang', 6), iron(8, 2), fiber(8)] },
-    'pve-apex-predator-fang': { ingredients: [material('hunt-titan-bone', 4), material('hunt-shadow-claw', 8), iron(10, 2), fiber(8)] },
-    'consum-phantom-charm': { ingredients: [thread(1), feather(3), fiber(3)] },
+    'pve-apex-predator-fang': { ingredients: [trophy(4, 'hunt-titan-bone'), material('hunt-shadow-claw', 8), iron(10, 2), fiber(8)] },
+    'consum-phantom-charm': { ingredients: [threadOrPelt(1), feather(3), fiber(3)] },
     'consum-smoke-pellet': { ingredients: [bark(1), herb(6), fiber(3)] },
     'consum-cleansing-incense': { ingredients: [herb(6), bark(1), fiber(2)] },
     'consum-thornmail-oil': { ingredients: [herb(5), material('hunt-beast-meat', 2), scale(3)] },
     'consum-lifeline-elixir': { ingredients: [herb(8), gradedCraftMaterial('gather-rime-crystal', 0, 2), bark(1)] },
-    'consum-second-wind': { ingredients: [herb(8), core(1), feather(3)] },
+    'consum-second-wind': { ingredients: [herb(8), trophy(1), feather(3)] },
 };
+
+/*
+ * NPC buy-back cap for crafted goods (2026-10 economy rebalance, framework 2.11 /
+ * 5.1, #33). A supply recipe charges no ryo and its outputs used to sell for half
+ * their catalog cost, so crafting turned unsellable gathered materials, and hunt
+ * materials at 1.65-17x their own sale price, into ryo. A crafted good now sells
+ * for at most 7/10 of the cheapest NPC value its recipe accepts, so crafting to
+ * sell is always worse than selling the inputs raw. A recipe made only of
+ * gathered materials (which have no NPC price) sells for nothing. Both sale
+ * routes and the Inventory preview price through standardSaleUnitValue.
+ */
+export const CRAFTED_SALE_INPUT_NUM = 7;
+export const CRAFTED_SALE_INPUT_DEN = 10;
+/** Crafted intermediates are valued through their own recipe this many levels deep. */
+const CRAFTED_SALE_MAX_DEPTH = 2;
+
+function npcUnitValue(id: string, depth: number): number {
+    if (Object.hasOwn(HUNT_MATERIAL_SELL_RYO, id)) return HUNT_MATERIAL_SELL_RYO[id];
+    if (depth < CRAFTED_SALE_MAX_DEPTH && Object.hasOwn(SUPPLY_CRAFT_RECIPES, id)) return craftedCap(id, depth + 1) ?? 0;
+    // Gathered and graded materials, rations and relics have no NPC price.
+    return 0;
+}
+
+function craftedCap(itemId: string, depth: number): number | null {
+    if (!Object.hasOwn(SUPPLY_CRAFT_RECIPES, itemId)) return null;
+    const recipe = SUPPLY_CRAFT_RECIPES[itemId];
+    if (recipe.currency) return null; // a currency recipe makes no item
+    // Ids in a row are interchangeable, and the player can always pay with the cheapest.
+    const inputs = recipe.ingredients.reduce((sum, row) =>
+        sum + row.count * Math.min(...row.ids.map((id) => npcUnitValue(id, depth))), 0);
+    return Math.floor((inputs * CRAFTED_SALE_INPUT_NUM) / (CRAFTED_SALE_INPUT_DEN * (recipe.count ?? 1)));
+}
+
+/** Per-unit NPC cap for a crafted good; null when the item has no supply recipe. */
+export function craftedSaleCapRyo(itemId: string): number | null {
+    return craftedCap(itemId, 0);
+}
+
+/** The standard NPC unit price, floor(cost / 2), capped for crafted goods. 0 means unsellable. */
+export function standardSaleUnitValue(itemId: string, cost: number): number {
+    const half = Math.floor(Math.max(0, Number(cost) || 0) / 2);
+    const cap = craftedSaleCapRyo(itemId);
+    return cap == null ? half : Math.min(half, cap);
+}
 
 export type CraftableGear = { id: string; slot: string; rarity: string; weaponEp?: number; armorQuality?: string };
 export function gearCraftIngredients(item: CraftableGear): CraftIngredient[] {
@@ -93,21 +161,27 @@ export function gearCraftIngredients(item: CraftableGear): CraftIngredient[] {
     const weapon = item.slot === 'hand' && item.weaponEp != null;
     const ingredients: CraftIngredient[] = [{ ids: ore.ids, count: ore.count, label: ore.label }];
     if (weapon) {
-        ingredients.push(bark(2), fiber((ore.grade + 1) * 2));
+        ingredients.push(fuel(2), fiber((ore.grade + 1) * 2));
+        // The Elderbranch is carved from the wood itself, so it keeps exact bark.
         if (item.id === 'elderbranch-katana') ingredients[1] = bark(4);
         if (item.id === 'black-lotus-dagger') ingredients.push(thread(3));
         if (item.id === 'frostfang-oathblade') ingredients.push(gradedCraftMaterial('gather-rime-crystal', 2, 2));
         if (item.id === 'embercoil-scythe') ingredients.push(gradedCraftMaterial('gather-ember-ore', 2, 2));
         if (item.id === 'tempest-fang-blade') ingredients.push(gradedCraftMaterial('gather-stormglass-shard', 2, 2));
-        if (item.rarity === 'epic') ingredients.push(gradedCraftMaterial('gather-stormglass-shard', 1, 1));
-        if (item.rarity === 'legendary') ingredients.push(choice(['dungeon-legendary-relic', 'warforged-relic', 'veil-of-the-hollow'], 1, 'Dungeon / Warforged / Hollow relic'));
+        // The Weekly Boss Core is "used to forge epic and legendary weapons": it
+        // stands in, last in each row, for the epic catalyst or the legendary relic.
+        if (item.rarity === 'epic') {
+            const catalyst = gradedCraftMaterial('gather-stormglass-shard', 1, 1);
+            ingredients.push(choice([...catalyst.ids, WEEKLY_BOSS_CORE_ID], 1, `${catalyst.label}, or a Weekly Boss Core`));
+        }
+        if (item.rarity === 'legendary') ingredients.push(choice(['dungeon-legendary-relic', 'warforged-relic', 'veil-of-the-hollow', WEEKLY_BOSS_CORE_ID], 1, 'Dungeon / Warforged / Hollow relic or Weekly Boss Core'));
     } else {
         // Leather lining, ties and metal reinforcement scale with the piece's size.
+        // The Crafter forges Rare armor only (api/craft/_forge.ts), and every
+        // Rare piece takes the shared hide row, which already accepts Frost and
+        // Shadow Pelt.
         const size = item.slot === 'body' ? 8 : item.slot === 'legs' ? 6 : 4;
         ingredients.push(hide(size), fiber(item.slot === 'body' ? 6 : item.slot === 'legs' ? 4 : 3));
-        if (item.id.includes('frost') || item.id.includes('snow')) ingredients[1] = material('hunt-frost-pelt', size);
-        if (item.id.includes('shadow')) ingredients[1] = material('hunt-shadow-pelt', size);
-        if (item.id.includes('ember') || item.id.includes('ash')) ingredients.push(scale(2));
     }
     return ingredients;
 }

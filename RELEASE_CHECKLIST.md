@@ -29,8 +29,9 @@ have current evidence.
 - [ ] Production storage is the current Supabase/base-store topology; the retired cPanel overlay is not configured
 - [ ] Credentialed `/health?deep=1` confirms `saveStore=base-store` and a fresh backup
 - [ ] Staging gate: `HEALTH_DEEP_TOKEN=... EXPECTED_SAVE_STORE=base-store REQUIRE_FRESH_BACKUP=1 node scripts/release-health-check.mjs https://your-staging-url.com`
-- [ ] Forged-item scanner/backfill and remaining legacy-writer migration are complete before setting `STRICT_RAW_SAVE_LEDGER=1`
-- [ ] If `STRICT_RAW_SAVE_LEDGER=1` is part of this cutover, the exact-candidate staging journey proves mastery, pets, inventory, and progression survive save/reload
+- [ ] The strict raw-save ledger is the code default (owner amendment A13): `STRICT_RAW_SAVE_LEDGER` is unset on Railway (only an explicit `0` turns it off, as an emergency switch)
+- [ ] Before a deploy whose preserved saves hold pre-registry forged gear, `npm run scan:data -- --repair` has run once (additive forged-item registry backfill only)
+- [ ] The exact-candidate staging journey proves mastery, pets, inventory (hunt-material stacks included), equipment (named and forged gear included), stats/level and currencies survive save/reload under the strict default
 - [ ] Retired Weekly Boss client-damage and mission client-win routes return their fail-closed responses
 
 ## Gameplay Smoke

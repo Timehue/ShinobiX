@@ -433,8 +433,9 @@ export type Character = {
     // Current Chronicle rules tutorial acknowledged by the player.
     cardClashTutorialVersion?: number;
     // ── Echoes of War (Celestial Tower Chronicle Showdown campaign) ──────────
-    // Chronicle Points: SERVER-OWNED campaign currency. Credited only by the
-    // ai-move echoes settle; spent only through the server pack endpoints.
+    // Chronicle Points: SERVER-OWNED campaign currency. Credited by the ai-move
+    // echoes settle, the pack surplus conversion and the Ancient Chest duplicate
+    // card; spent only through the server pack endpoints.
     chroniclePoints?: number;
     // SERVER-OWNED per-encounter campaign record (wins + first-clear stamp).
     // Written only by the ai-move echoes settle; a generic save mirrors it.
@@ -787,7 +788,7 @@ export type Character = {
     dailyBlackMarketCrates?: number;
     dailyBlackMarketCratesDay?: string;
     // Daily login-streak reward (server-authoritative, api/player/daily-login.ts).
-    // loginStreak = consecutive UTC days claimed; lastLoginRewardDate = the UTC
+    // loginStreak = UTC days claimed in total (never resets); lastLoginRewardDate = the UTC
     // date (YYYY-MM-DD) of the last grant, which gates the once-per-day payout.
     // Written by the server inside the save lock; the client mirrors them after a
     // claim so a follow-up autosave preserves them.

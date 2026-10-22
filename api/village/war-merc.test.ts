@@ -99,6 +99,27 @@ async function seedPlayers() {
     for (const village of [DEFENDER, ATTACKER]) {
         await kv.set(villageWarKey(village), { warResources: 2_000, structures: {}, sectors: {}, mercLeases: [] });
     }
+    // Hires also cost treasury ryo (2026-10 rebalance): a well-funded treasury.
+    await kv.set(TREASURY_KEY, { treasury: { ryo: TREASURY_RYO, honorSeals: 0 } });
+    await kv.set('game:village-state:moonshadowvillage', { treasury: { ryo: TREASURY_RYO } });
+}
+
+const TREASURY_KEY = 'game:village-state:frostfangvillage';
+const TREASURY_RYO = 2_000_000;
+
+async function treasuryRyo(): Promise<number> {
+    return Number(((await kv.get(TREASURY_KEY)) as { treasury?: { ryo?: number } } | null)?.treasury?.ryo);
+}
+
+/** Run `fn` with the treasury-ryo dial at 0: the WR-only prices, where an Elder
+ *  hires exactly as before the rebalance. */
+async function withWrOnlyHires<T>(fn: () => Promise<T>): Promise<T> {
+    process.env.WAR_RYO_PER_WR = '0';
+    try {
+        return await fn();
+    } finally {
+        delete process.env.WAR_RYO_PER_WR;
+    }
 }
 
 async function seedVillageWar(generation = 2) {
@@ -149,7 +170,7 @@ after(async () => {
 });
 
 describe('village-war hires: Kage seat 3, each Elder seat 1, per war instance', { concurrency: false }, () => {
-    it('enforces the seat allowances and binds every band to the war', async () => {
+    it('enforces the seat allowances and binds every band to the war', () => withWrOnlyHires(async () => {
         await seedVillageWar(2);
         for (let i = 0; i < 3; i += 1) {
             const ok = await hire(D_KAGE, DEFENDER, { context: 'village' });
@@ -175,7 +196,8 @@ describe('village-war hires: Kage seat 3, each Elder seat 1, per war instance', 
             assert.equal(lease.count, 3);
         }
         assert.deepEqual((rec.mercHires ?? []).map((h) => h.seat), ['kage', 'kage', 'kage', 'elder-1', 'elder-2']);
-    });
+        assert.equal(await treasuryRyo(), TREASURY_RYO, 'WR-only hires leave the treasury alone');
+    }));
 
     it('the next war between the same villages starts a fresh allowance', async () => {
         await seedVillageWar(2);
@@ -226,7 +248,7 @@ describe('sector-war hires: the DEFENDER only, 3 per contest', { concurrency: fa
         assert.equal(list.statusCode, 200);
         assert.deepEqual(list.body?.contexts, []);
     });
-    it('lets the defending Kage and Elders hire 3 in all, and refuses the attacker', async () => {
+    it('lets the defending Kage and Elders hire 3 in all, and refuses the attacker', () => withWrOnlyHires(async () => {
         const contest = await seedContest();
         const refused = await hire(A_KAGE, ATTACKER, { context: 'sector', contestId: contest.id });
         assert.equal(refused.statusCode, 403);
@@ -247,7 +269,7 @@ describe('sector-war hires: the DEFENDER only, 3 per contest', { concurrency: fa
         const instance = war.sectorWarInstanceTag(contest);
         assert.ok(rec.mercLeases.every((l) => (l.context as Json)?.kind === 'sector'
             && (l.context as Json)?.contestId === contest.id && (l.context as Json)?.instance === instance));
-    });
+    }));
 
     it('refuses a Card contest and a contest of another village', async () => {
         const card = await seedContest('card');
@@ -287,6 +309,9 @@ describe('the WR debit happens once; a retried click replays', { concurrency: fa
         assert.equal(retry.body?.replayed, true);
         assert.equal(retry.body?.hireId, first.body?.hireId);
         assert.equal(retry.body?.cost, 280);
+        assert.equal(first.body?.treasuryRyo, 70_000, '280 WR x 250 treasury ryo');
+        assert.equal(retry.body?.treasuryRyo, 70_000, 'the replay reports what the proof says was paid');
+        assert.equal(await treasuryRyo(), TREASURY_RYO - 70_000, 'the treasury was charged once');
         const rec = await record(DEFENDER);
         assert.equal(rec.warResources, 2_000 - 280, 'charged once');
         assert.equal(rec.mercLeases.length, 1);
@@ -334,18 +359,23 @@ describe('list: the effective price, the wars to hire for, the allowance left', 
         const list = await post(D_KAGE, { action: 'list', village: DEFENDER });
         assert.equal(list.statusCode, 200);
         const tiers = list.body?.tiers as Array<{ id: string; costWr: number; cost: number }>;
-        assert.deepEqual(tiers.find((t) => t.id === 'merc-ronin'), { id: 'merc-ronin', level: 75, costWr: 60, cost: 15, band: 3 });
+        // The treasury ryo follows the discounted WR: 15 x 250.
+        assert.deepEqual(tiers.find((t) => t.id === 'merc-ronin'), { id: 'merc-ronin', level: 75, costWr: 60, cost: 15, treasuryRyo: 3_750, band: 3 });
+        assert.equal(list.body?.treasuryRyo, TREASURY_RYO, 'the members see the treasury the hires spend');
+        assert.equal(list.body?.ryoPerWr, 250);
         const contexts = list.body?.contexts as Array<Json>;
         assert.deepEqual(contexts.map((c) => [c.kind, c.enemy, c.hiresLimit, c.callerHiresLeft]), [
             ['village', ATTACKER, 6, 3],
             ['sector', ATTACKER, 3, 3],
         ]);
         assert.equal(contexts[1].contestId, contest.id);
-        assert.deepEqual(list.body?.viewer, { role: 'kage', seats: ['kage'], canHire: true, canDeploy: true });
+        assert.deepEqual(list.body?.viewer, { role: 'kage', seats: ['kage'], canHire: true, canDeploy: true, canSpendTreasury: true });
 
         const hired = await hire(D_KAGE, DEFENDER, { context: 'sector', contestId: contest.id });
         assert.equal(hired.body?.cost, 15, 'the charge matches the quote');
+        assert.equal(hired.body?.treasuryRyo, 3_750);
         assert.equal((await record(DEFENDER)).warResources, 2_000 - 15);
+        assert.equal(await treasuryRyo(), TREASURY_RYO - 3_750);
     });
 
     it('shows the attacker its siege as unhireable and refuses a non-member', async () => {
@@ -357,16 +387,100 @@ describe('list: the effective price, the wars to hire for, the allowance left', 
         const outsider = await post(A_KAGE, { action: 'list', village: DEFENDER });
         assert.equal(outsider.statusCode, 403);
         const villager = await post(D_VILLAGER, { action: 'list', village: DEFENDER });
-        assert.deepEqual(villager.body?.viewer, { role: 'none', seats: [], canHire: false, canDeploy: false });
+        assert.deepEqual(villager.body?.viewer, { role: 'none', seats: [], canHire: false, canDeploy: false, canSpendTreasury: false });
+        const elder = await post(D_ELDERS[0], { action: 'list', village: DEFENDER });
+        const elderView = elder.body?.viewer as Json | undefined;
+        assert.equal(elderView?.canHire, true);
+        assert.equal(elderView?.canSpendTreasury, false, 'an Elder hires only bands that cost the treasury nothing');
+    });
+});
+
+// 2026-10 rebalance (#6): a hire also costs treasury ryo per WR charged.
+describe('treasury ryo on a hire', { concurrency: false }, () => {
+    it('debits WR and treasury ryo in one commit and writes a payment proof', async () => {
+        const contest = await seedContest();
+        const out = await hire(D_KAGE, DEFENDER, { context: 'sector', contestId: contest.id }, 'merc-reaver');
+        assert.equal(out.statusCode, 200, JSON.stringify(out.body));
+        assert.equal(out.body?.cost, 110);
+        assert.equal(out.body?.treasuryRyo, 27_500);
+        assert.equal(out.body?.remainingTreasuryRyo, TREASURY_RYO - 27_500);
+        assert.equal((await record(DEFENDER)).warResources, 2_000 - 110);
+        const state = (await kv.get(TREASURY_KEY)) as { treasury: { ryo: number }; settlementReceipts: Array<Json & { purchase?: Json }> };
+        assert.equal(state.treasury.ryo, TREASURY_RYO - 27_500);
+        const proof = state.settlementReceipts.find((r) => r.purchase?.kind === 'merc');
+        assert.equal(proof?.resource, 'ryo');
+        assert.equal(proof?.amount, 27_500);
+        assert.deepEqual(proof?.purchase, { kind: 'merc', village: DEFENDER, ref: String(out.body?.hireId), ryo: 27_500, boneCharms: 0 });
+    });
+
+    it('a short treasury refuses with 402 and moves nothing', async () => {
+        const contest = await seedContest();
+        await kv.set(TREASURY_KEY, { treasury: { ryo: 100_000 } });
+        const before = await record(DEFENDER);
+        const out = await hire(D_KAGE, DEFENDER, { context: 'sector', contestId: contest.id }, 'merc-warlord');
+        assert.equal(out.statusCode, 402);
+        assert.equal(out.body?.error, 'treasury-ryo');
+        assert.equal(out.body?.need, 105_000);
+        assert.equal(out.body?.have, 100_000);
+        assert.match(String(out.body?.message), /treasury is short — 105,000 ryo/);
+        assert.deepEqual(await record(DEFENDER), before);
+        assert.equal(await treasuryRyo(), 100_000);
+    });
+
+    it('an Elder may not spend the treasury: a paid band is refused, nothing moves', async () => {
+        const contest = await seedContest();
+        const before = await record(DEFENDER);
+        const out = await hire(D_ELDERS[0], DEFENDER, { context: 'sector', contestId: contest.id });
+        assert.equal(out.statusCode, 403);
+        assert.equal(out.body?.error, 'kage-only');
+        assert.match(String(out.body?.message), /only the seated Kage can spend the treasury/);
+        assert.deepEqual(await record(DEFENDER), before);
+        assert.equal(await treasuryRyo(), TREASURY_RYO);
+    });
+
+    it('a free comeback band costs the treasury nothing, so an Elder may still hire it', async () => {
+        const contest = await seedContest();
+        // The defender holds no war sector at all: comeback hires are free.
+        await kv.set('world:territory:1', { sector: 1, ownerVillage: ATTACKER });
+        const out = await hire(D_ELDERS[0], DEFENDER, { context: 'sector', contestId: contest.id });
+        assert.equal(out.statusCode, 200, JSON.stringify(out.body));
+        assert.equal(out.body?.cost, 0);
+        assert.equal(out.body?.treasuryRyo, 0);
+        assert.equal(await treasuryRyo(), TREASURY_RYO);
+    });
+
+    it('a commit that loses its compare-and-set answers 503 and moves nothing', async () => {
+        const contest = await seedContest();
+        const before = await record(DEFENDER);
+        const original = kv.compareSetMany;
+        kv.compareSetMany = async () => false;
+        let out: Awaited<ReturnType<typeof hire>>;
+        try { out = await hire(D_KAGE, DEFENDER, { context: 'sector', contestId: contest.id }); }
+        finally { kv.compareSetMany = original; }
+        assert.equal(out.statusCode, 503);
+        assert.deepEqual(await record(DEFENDER), before);
+        assert.equal(await treasuryRyo(), TREASURY_RYO);
+    });
+
+    it('concurrent retries of one click debit both pools once', async () => {
+        const contest = await seedContest();
+        const requestId = 'concurrent-click-000001';
+        const answers = await Promise.all(Array.from({ length: 4 }, () => hire(D_KAGE, DEFENDER, { context: 'sector', contestId: contest.id }, 'merc-shadow', requestId)));
+        assert.ok(answers.some((a) => a.statusCode === 200), JSON.stringify(answers.map((a) => a.statusCode)));
+        assert.ok(answers.every((a) => a.statusCode === 200 || a.statusCode === 503), JSON.stringify(answers.map((a) => [a.statusCode, a.body])));
+        assert.equal((await record(DEFENDER)).warResources, 2_000 - 170);
+        assert.equal(await treasuryRyo(), TREASURY_RYO - 42_500);
+        assert.equal(((await record(DEFENDER)).mercHires ?? []).length, 1);
     });
 });
 
 describe('attack: the defending leaders send a merc at any attacker, anywhere', { concurrency: false }, () => {
     it('resolves a defender band against an attacking-village player in another sector', async () => {
         const contest = await seedContest();
-        const hired = await hire(D_ELDERS[1], DEFENDER, { context: 'sector', contestId: contest.id });
+        // The Kage hires (a paid band spends the treasury); any leader may send it.
+        const hired = await hire(D_KAGE, DEFENDER, { context: 'sector', contestId: contest.id });
         const bandId = String(hired.body?.hireId);
-        const out = await post(D_KAGE, { action: 'attack', village: DEFENDER, bandId, targetPlayer: A_RAIDER });
+        const out = await post(D_ELDERS[1], { action: 'attack', village: DEFENDER, bandId, targetPlayer: A_RAIDER });
         assert.equal(out.statusCode, 200, JSON.stringify(out.body));
         assert.equal(out.body?.mercsRemaining, 2);
         const after = war.normalizeSectorWarSession((await kv.get(war.sectorWarKey(contest.id))) as never)!;

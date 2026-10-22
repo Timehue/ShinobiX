@@ -9,7 +9,8 @@ import type { Character, VersionedCharacterCommit } from "../types/character";
 import type { CreatorAi } from "../types/creator-ai";
 import type { CreatorMission } from "../types/missions";
 import type { Screen } from "../types/core";
-import { DAILY_MISSION_LIMIT, FIELD_MISSION_STAT_POINTS } from "../constants/game";
+import { DAILY_MISSION_LIMIT, FETCH_S_MISSION_ID, FIELD_MISSION_STAT_POINTS } from "../constants/game";
+import { dailyStatBudgetToday, missionDropChanceText, missionStatPointText } from "../lib/progression-dials";
 import { DailyProfessionMissions } from "../screens/DailyProfessionMissions";
 import { WeeklyBoard } from "../components/WeeklyBoard";
 import { BackToVillageButton } from "../components/BackToVillageButton";
@@ -414,7 +415,7 @@ export function Missions({
             applySuccessfulMissionClaim(result);
             setAcceptedMissionIds((prev) => prev.filter((id) => id !== mission.id));
             setMissionProgress((prev) => ({ ...prev, [mission.id]: 0, [missionRaidProgressKey(mission.id)]: 0 }));
-            setLastClaim({ title: mission.name, reward: `${statPointNote(result.reward.statPoints)}${rewardSummary(result.reward.ryo, result.reward.stamina,result.reward.currency, character)}` });
+            setLastClaim({ title: mission.name, reward: `${statPointNote(result.reward.statPoints)}${rewardSummary(result.reward.ryo, result.reward.stamina,result.reward.currency, character)}${result.statBudget ? ` · Stat points today: ${result.statBudget.spent} / ${result.statBudget.cap}` : ""}` });
             return;
         }
         if (result.applied === false) {
@@ -498,6 +499,16 @@ export function Missions({
                         <span className="mh-stat-label">Daily</span>
                         <span className="mh-stat-value"><SharedClockLeaf>{() => dailyMissionsCompleted(character)}</SharedClockLeaf><span className="mh-stat-max">/20</span></span>
                     </div>
+                    <SharedClockLeaf>{() => {
+                        // The one shared daily stat-point budget, once a claim today has reported it.
+                        const budget = dailyStatBudgetToday(character.name);
+                        return budget && (
+                            <div className="mh-stat-chip" title="Hunts, field jobs and fight wins share this budget. It resets at midnight UTC.">
+                                <span className="mh-stat-label">Stat points today</span>
+                                <span className="mh-stat-value">{budget.spent}<span className="mh-stat-max">/{budget.cap}</span></span>
+                            </div>
+                        );
+                    }}</SharedClockLeaf>
                 </div>
             </div>
 
@@ -731,7 +742,8 @@ export function Missions({
                                             {raidReq > 0 && <span><small>Raid</small><strong>×{raidReq}</strong></span>}
                                         </div>
                                         <div className="mh-fetch-rewards">
-                                            <span><GameIcon name="medal" size={14} style={{ verticalAlign: "-2px", marginRight: 3 }} />+{FIELD_MISSION_STAT_POINTS} Stat Pts</span>
+                                            <span><GameIcon name="medal" size={14} style={{ verticalAlign: "-2px", marginRight: 3 }} />{missionStatPointText(character.name, FIELD_MISSION_STAT_POINTS)}</span>
+                                            {mission.id === FETCH_S_MISSION_ID && missionDropChanceText(character.level, "fetch-s") && <span><GameIcon name="shard" size={14} style={{ verticalAlign: "-2px", marginRight: 3 }} />{missionDropChanceText(character.level, "fetch-s")}</span>}
                                             <span><GameIcon name="ryo" size={14} style={{ verticalAlign: "-2px", marginRight: 3 }} />{boostAmount(mission.ryoReward, missionRewardBonus)} ryo</span>
                                         </div>
                                         {accepted && (

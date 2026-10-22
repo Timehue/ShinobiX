@@ -1,5 +1,6 @@
 import { addOwned, countOwned, removeOwned } from '../craft/_forge.js';
-import { COOK_RECIPES as SHARED_COOK_RECIPES, type CookRecipeId, type CookRecipe } from '../../shared/cooking-recipes.js';
+import { COOK_RECIPES as SHARED_COOK_RECIPES, FUEL_IDS, type CookRecipeId, type CookRecipe } from '../../shared/cooking-recipes.js';
+import { planCraftIngredients } from '../../shared/crafting-recipes.js';
 import { RESOURCE_ITEMS } from '../../shared/resource-gathering.js';
 import {
     COOK_COUNT_FIELD, COOK_DATE_FIELD, DAILY_RATION_COOK_CAP, RATION_ITEM_ID,
@@ -29,7 +30,9 @@ export type CafeteriaMeal = {
 export const CAFETERIA_MEALS: Record<CafeteriaMealId, CafeteriaMeal> = {
     'small-ramen': { id: 'small-ramen', name: 'Small Ramen', cost: 20, hp: 25, chakra: 10, stamina: 10, hpPct: 10, chakraPct: 5, staminaPct: 5 },
     'shinobi-meal': { id: 'shinobi-meal', name: 'Shinobi Meal', cost: 50, hp: 75, chakra: 35, stamina: 35, hpPct: 25, chakraPct: 15, staminaPct: 15 },
-    feast: { id: 'feast', name: 'Feast', cost: 100, hp: 9999, chakra: 9999, stamina: 9999 },
+    // 100% of each bar (2026-10 item-use pass): the 9,999 flats stopped one point
+    // short of the 10,000 pools, so the "full restore" Feast was not full.
+    feast: { id: 'feast', name: 'Feast', cost: 100, hp: 9999, chakra: 9999, stamina: 9999, hpPct: 100, chakraPct: 100, staminaPct: 100 },
 };
 
 function num(v: unknown): number {
@@ -91,11 +94,16 @@ export function applyCookRecipe(character: Record<string, unknown>, recipe: Cook
     if (!materialUsed) return { ok: false, error: `${recipe.name} needs ${materialCount} ${cookMaterialChoiceName(recipe)}.`, dailyCooked, dailyCap: DAILY_RATION_COOK_CAP };
     if (countOwned(character, 'gather-field-herb') < recipe.herbs)
         return { ok: false, error: `${recipe.name} needs ${recipe.herbs} Field Herb${recipe.herbs === 1 ? '' : 's'}.`, dailyCooked, dailyCap: DAILY_RATION_COOK_CAP };
-    if (countOwned(character, 'gather-heartwood-bark') < recipe.fuel)
-        return { ok: false, error: `${recipe.name} needs ${recipe.fuel} Heartwood Bark for cooking fuel.`, dailyCooked, dailyCap: DAILY_RATION_COOK_CAP };
+    // Fuel burns bark first, then Ember Ore, then Ember Scale (FUEL_IDS). No
+    // fuel id is ever food or seasoning, so the rows cannot double-spend.
+    const fuelPlan = recipe.fuel > 0
+        ? planCraftIngredients([{ ids: FUEL_IDS, count: recipe.fuel, label: 'fuel' }], (id) => countOwned(character, id))
+        : {};
+    if (!fuelPlan)
+        return { ok: false, error: `${recipe.name} needs ${recipe.fuel} Heartwood Bark for cooking fuel (Ember Ore or Ember Scale also burn).`, dailyCooked, dailyCap: DAILY_RATION_COOK_CAP };
     let next = removeOwned({ ...character, ryo: ryo - recipe.ryo }, materialUsed, materialCount);
     next = removeOwned(next, 'gather-field-herb', recipe.herbs);
-    next = removeOwned(next, 'gather-heartwood-bark', recipe.fuel);
+    for (const [id, amount] of Object.entries(fuelPlan)) next = removeOwned(next, id, amount);
     next = addOwned(next, RATION_ITEM_ID, recipe.rations, true);
     next = stampDailyCounter(next, COOK_DATE_FIELD, COOK_COUNT_FIELD, today, dailyCooked + recipe.rations);
     return { ok: true, character: next, cooked: recipe.rations, dailyCooked: dailyCooked + recipe.rations, dailyCap: DAILY_RATION_COOK_CAP, materialUsed };

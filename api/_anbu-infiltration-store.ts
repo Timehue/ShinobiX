@@ -59,7 +59,8 @@ import {
     cacheItemIdForPool,
     turnInCaches,
     utcDateKey,
-    RAID_RYO_REWARD,
+    RAID_RYO_FLOOR,
+    raidRyoReward,
     CACHE_STACK_CAP,
     CLAN_CACHES_PER_POINT,
     VILLAGE_TURNIN_MAX_POINTS,
@@ -67,6 +68,7 @@ import {
     type DailyLossLedger,
 } from './_anbu-infiltration.js';
 import { augmentSaveWithForgedDefs } from './_forged-item-registry.js';
+import { recordEconomyTxn } from './_economy.js';
 import { hydrateCharacterFromSave } from './pvp/session.js';
 import { applySoloPveUsageCosts } from './solo-pve/_settlement.js';
 import type { SoloPveSession } from './solo-pve/_session.js';
@@ -432,8 +434,12 @@ export async function settleInfiltrationWin(
         let saveVersion = 0;
         let character: Record<string, unknown> = {};
         let alreadySettled = false;
+        let raidRyo = 0;
+        // The sealed ANBU defender's level, from the fight's own session (the
+        // raid pays at the lower of the two levels, raidRyoReward).
+        const defenderLevel = Number(session?.enemy?.character?.level);
         try {
-            const out = await retryOnSaveVersionConflict(() => mutatePlayerSave<{ replayed: boolean; lost: number }>(run.raiderSlug, ({ character: char }) => {
+            const out = await retryOnSaveVersionConflict(() => mutatePlayerSave<{ replayed: boolean; lost: number; ryo: number }>(run.raiderSlug, ({ character: char }) => {
                 const inspected = inspectSettlementReceipt(char, receiptId, fingerprint);
                 if (inspected.status === 'conflict' || inspected.status === 'invalid') {
                     return { ok: false, status: 409, error: RECEIPT_CONFLICT };
@@ -444,9 +450,11 @@ export async function settleInfiltrationWin(
                         ok: true,
                         write: false,
                         character: char,
-                        value: { replayed: true, lost: Math.max(0, Math.floor(num(value.overflowLost))) },
+                        // A replay answers with the ryo the first settlement paid.
+                        value: { replayed: true, lost: Math.max(0, Math.floor(num(value.overflowLost))), ryo: Math.max(0, Math.floor(num(value.ryo, RAID_RYO_FLOOR))) },
                     };
                 }
+                const ryoGain = raidRyoReward(char.level, defenderLevel);
                 const raidBody = session
                     ? settleRaidBody(char, inspected.receipts, session, run.raiderSlug, t)
                     : { character: char, receipts: [...inspected.receipts] };
@@ -470,7 +478,7 @@ export async function settleInfiltrationWin(
                 const credited = {
                     ...settled,
                     itemStacks: stacks,
-                    ryo: num(settled.ryo) + RAID_RYO_REWARD,
+                    ryo: num(settled.ryo) + ryoGain,
                 };
                 const nextChar = appendSettlementReceipt(credited, raidBody.receipts, {
                     requestId: receiptId,
@@ -481,12 +489,12 @@ export async function settleInfiltrationWin(
                         wrSkim,
                         supplyCaches,
                         wrCaches,
-                        ryo: RAID_RYO_REWARD,
+                        ryo: ryoGain,
                         overflowLost: lost,
                     },
                     settledAt: t,
                 });
-                return { ok: true, character: nextChar, value: { replayed: false, lost } };
+                return { ok: true, character: nextChar, value: { replayed: false, lost, ryo: ryoGain } };
             }));
             if (!out.ok) {
                 // Anything but the receipt refusal is a missing save (or a raider
@@ -501,6 +509,7 @@ export async function settleInfiltrationWin(
             }
             alreadySettled = out.value.replayed;
             overflowLost = out.value.lost;
+            raidRyo = out.value.ryo;
             saveVersion = num(out._saveVersion);
             character = out.character;
         } catch (creditErr) {
@@ -524,13 +533,17 @@ export async function settleInfiltrationWin(
         }, { kv: kv as never });
         await kv.set(`${AUDIT_LOG_PREFIX}${run.raiderSlug}:${t}`, {
             ts: t, runId: run.runId, raider: run.raiderSlug, sector: run.sector,
-            targetVillage: run.targetVillage, rolled, supplySkim, wrSkim, ryo: RAID_RYO_REWARD,
+            targetVillage: run.targetVillage, rolled, supplySkim, wrSkim, ryo: raidRyo,
         }, { ex: 30 * 24 * 60 * 60 }).catch(() => undefined);
+        // Economy telemetry (framework I-19): the raid's ryo is a war faucet.
+        if (!alreadySettled && raidRyo > 0) {
+            void recordEconomyTxn({ txnId: `anbu-raid:${run.runId}`, player: run.raiderSlug, currency: 'ryo', delta: raidRyo, source: 'war.anbu.raid' });
+        }
 
         return {
             ok: true, alreadySettled, rolled,
             supplySkim, wrSkim, supplyCaches, wrCaches,
-            ryo: RAID_RYO_REWARD, overflowLost, saveVersion, character,
+            ryo: raidRyo, overflowLost, saveVersion, character,
         };
     } catch (err) {
         // A process that observes a debit-phase failure promotes the durable

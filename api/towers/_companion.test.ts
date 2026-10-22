@@ -1,10 +1,10 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { createTowerSession, getActor, type TowerActor, type TowerMap } from './_tower-session.js';
-import { checkTowerWinner, companionObedienceRoll, runAiUntilHuman, startRound } from './_engine.js';
+import { applyAction, checkTowerWinner, companionObedienceRoll, runAiUntilHuman, startRound } from './_engine.js';
 import type { TowerFloor } from './_floor-catalog.js';
 import {
-    COMPANION_ACTOR_ID, companionActor, companionGearDamageMult, companionHealOnSummonPct,
+    COMPANION_ACTOR_ID, companionActor, companionConsumableHealPct, companionGearDamageMult, companionHealOnSummonPct,
     companionMoveDamage, companionObeys, companionOwnerLifestealPct, companionStrikeDamage,
     pickCompanionMove, sealCompanionFromSave, type CompanionMove,
 } from './_companion.js';
@@ -232,6 +232,38 @@ describe('summoned companion (mission pet)', () => {
         assert.equal(sealed?.name, 'Fang', 'a renamed pet shows its nickname, not the species name');
         assert.equal(sealed?.pveGearId, 'pve-pack-alpha-crest');
         assert.equal(sealed?.loyal, true, 'Pack Alpha Crest grants loyalty');
+    });
+
+    // 2026-10 item-use pass: worn-out gear and stray slot items grant nothing.
+    it('seals no loyalty from spent PVE gear, and no consumable from a stray slot item', () => {
+        const pet = (loadout: Record<string, unknown>) => [{ id: 'b', name: 'Wolf Pup', level: 50, hp: 50, attack: 8, loadout }];
+        const spent = sealCompanionFromSave({ pets: pet({ pve: 'pve-pack-alpha-crest', pveDurability: 0 }), activePetId: 'b' });
+        assert.equal(spent?.pveGearId, '', 'spent gear seals as no gear');
+        assert.equal(spent?.loyal, false, 'and its loyalty is spent with it');
+        assert.equal(sealCompanionFromSave({ pets: pet({ pve: 'pve-loyal-companion-bell', pveDurability: 1 }), activePetId: 'b' })?.loyal, true);
+        assert.equal(sealCompanionFromSave({ pets: pet({ consumable: 'pet-treat' }), activePetId: 'b' })?.consumableId, undefined);
+        assert.equal(sealCompanionFromSave({ pets: pet({ consumable: 'consum-second-wind' }), activePetId: 'b' })?.consumableId, 'consum-second-wind');
+        assert.equal(companionConsumableHealPct('pet-treat'), 0);
+        assert.equal(companionConsumableHealPct('consum-smoke-pellet'), 25);
+        assert.equal(companionConsumableHealPct(undefined), 0);
+    });
+
+    it('a caravan summon pays the battle consumable heal, as solo PvE does', () => {
+        const summonHeal = (consumableId?: string) => {
+            const s = mkSession([
+                mk('sq-1', 'squad', 0, { hp: 400, maxHp: 1000, ai: false, ownerSlug: 'rill' }),
+                mk('en-1', 'enemy', 7),
+            ]);
+            startRound(s);
+            s.turnQueue = ['sq-1', 'en-1']; s.activeIndex = 0; s.activeAp = 100;
+            s.pendingCompanion = { ...SEAL, ...(consumableId ? { consumableId } : {}) };
+            const before = getActor(s, 'sq-1')!.hp;
+            assert.equal(applyAction(s, mkFloor(), { actorId: 'sq-1', type: 'summon' }, () => 0.5).applied, true);
+            assert.equal(s.companionUsage?.consumableId, consumableId);
+            return getActor(s, 'sq-1')!.hp - before;
+        };
+        assert.equal(summonHeal('consum-second-wind'), 250, '25% of a 1,000 HP pool');
+        assert.equal(summonHeal(), 0);
     });
 
     it('reads the equipped PVE-gear perks from the sealed gear id', () => {

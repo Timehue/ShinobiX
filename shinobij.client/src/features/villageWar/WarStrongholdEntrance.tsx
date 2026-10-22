@@ -24,7 +24,7 @@ export function WarStrongholdEntrance({ character, target, campaign, mission, ad
         <img src='/landmarks/anbu-vault.webp' alt='' className={`stronghold-boss-portrait${obsidian ? ' stronghold-obsidian-portrait' : ''}`} />
         <p style={{ fontSize: 13, opacity: 0.82, margin: '0.3rem 0 0.8rem' }}>{description}</p>
         <p className='stronghold-reward-detail'>Stronghold entry unlocks at level {minimumLevel}.{!target.warEntry && !obsidian && !allied && ` Anbu treasury raids require level ${ANBU_RAID_MIN_LEVEL}.`}</p>
-        {obsidian && <p className='stronghold-reward-detail'><b>4× normal Ryo, stat growth and Jutsu XP on PvP wins.</b> That’s double Death’s Gate’s usual rewards. Both fighters must start inside. Patrols do not earn this bonus. Normal reward limits apply.</p>}
+        {obsidian && <p className='stronghold-reward-detail'><b>1.5× normal Ryo and Jutsu XP on PvP wins.</b> The rest of Death’s Gate pays 1.25×. Both fighters must start inside. Patrols do not earn this bonus. Normal reward limits apply.</p>}
         <div className='stronghold-dialog-actions'>
             <button disabled={!admissionOpen || !entryEligible} style={{ padding: '0.55rem 1.15rem', opacity: admissionOpen && entryEligible ? 1 : 0.55 }}
                 onClick={() => { if (admissionOpen && entryEligible) onEnter(); }}>

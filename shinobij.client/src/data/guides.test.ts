@@ -21,6 +21,7 @@ import {
 } from "../../../shared/chronicle-duel";
 import { HOLLOW_GATE_DEPTH } from "../../../shared/hollow-gate-contract";
 import { NAMED_FORGE_FATE_SHARD_COST } from "../../../shared/named-forge-economy";
+import { BLOODLINE_FORGE_COSTS } from "../../../shared/bloodline-forge-costs";
 import {
     SHOWDOWN_BENCH_SIZE,
     SHOWDOWN_TURN_CAP,
@@ -211,4 +212,16 @@ test("economy guidance distinguishes catalogs, currency transfers, and claimable
     assert.match(copy, /Direct player transfers send currency, not items/i);
     assert.match(copy, /Bank interest requires banked ryo and at least one Town Hall Bank upgrade/i);
     assert.match(copy, /must be collected manually/i);
+});
+
+test("the Awakening Stone forge table quotes the server's bloodline prices", () => {
+    const awakening = GUIDES.flatMap((guide) => guide.sections).find((section) => section.heading === "Awakenings and forged Bloodlines");
+    assert.ok(awakening, "the awakening section exists");
+    const table = awakening.blocks.find((block) => block.type === "table");
+    assert.ok(table && table.type === "table", "the forge table exists");
+    const row = (rank: string) => table.rows.find((cells) => cells[0] === rank)?.[3];
+    assert.equal(row("B"), `${BLOODLINE_FORGE_COSTS["B Rank"].cost} Bone Charms`);
+    assert.equal(row("A"), `${BLOODLINE_FORGE_COSTS["A Rank"].cost} Aura Stones`);
+    const text = awakening.blocks.filter((block) => block.type === "p").map((block) => block.text).join(" ");
+    assert.match(text, /A paid roll always changes your elements/);
 });

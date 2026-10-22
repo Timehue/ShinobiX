@@ -7,6 +7,7 @@ import { usePublicBloodlines } from "../lib/use-public-bloodlines";
 import { serverNow } from "../lib/server-clock";
 import { NAMED_ITEM_LEVEL_REQ } from "../../../shared/item-level-gate";
 import { isStepItemId } from "../../../shared/gear-steps";
+import { BLOODLINE_FORGE_COSTS } from "../../../shared/bloodline-forge-costs";
 import {
     canPayNamedForge,
     NAMED_FORGE_FATE_SHARD_COST,
@@ -103,6 +104,7 @@ import { BloodlineAwakeningCinematic, type BloodlineRitualRank } from "../compon
 import { playGameSfx, primeGameAudio } from "../lib/game-audio";
 import { primeCentralAwakeningArtwork } from "../lib/central-awakening-artwork";
 import { dailyMissionsCompleted } from "../lib/character-progress";
+import { ENDLESS_BC_FIRST_RUN_OF_DAY, ENDLESS_FACTOR_CAP_WAVE, ENDLESS_FS_LIFETIME_FIRST } from "../lib/endless-tower";
 
 const WEEKLY_BOSS_ART: Record<string, string> = {
     "ashen-dragon": weeklyAshenDragonArt,
@@ -536,7 +538,7 @@ export function CentralHub({
         const [primary, other] = getCharacterElements(character);
         if (!(await gameConfirm(
             primary
-                ? `Reroll your ${primary} element for 10 Fate Shards? The stone picks a random element to replace it${other ? `, and your ${other} element stays` : ""}. You cannot choose the result. Gear and jutsu that need ${primary} may stop working.`
+                ? `Reroll your ${primary} element for 10 Fate Shards? The stone picks a different random element to replace it${other ? `, and your ${other} element stays` : ""}. You cannot choose the result. Gear and jutsu that need ${primary} may stop working.`
                 : "Roll an element for 10 Fate Shards? The stone picks one at random. You cannot choose the result.",
             { title: "Reroll element", confirmLabel: "Reroll", danger: true },
         ))) return;
@@ -555,7 +557,7 @@ export function CentralHub({
         }
         if (awakeningRequestRef.current || ritualBusy) return;
         if (!(await gameConfirm(
-            `Reroll your ${owned[0]} and ${owned[1]} elements for 15 Fate Shards? The stone picks two random elements to replace them. You cannot choose the result. Gear and jutsu that need ${owned[0]} or ${owned[1]} may stop working.`,
+            `Reroll your ${owned[0]} and ${owned[1]} elements for 15 Fate Shards? The stone picks a new pair of elements; you never get the same pair back. You cannot choose the result. Gear and jutsu that need ${owned[0]} or ${owned[1]} may stop working.`,
             { title: "Reroll both elements", confirmLabel: "Reroll both", danger: true },
         ))) return;
         void rollAwakening(AWAKENING_PAID_BOTH_ID);
@@ -1077,11 +1079,10 @@ export function CentralHub({
                             <div>· Each wave drops a random AI scaled to your level + current wave. Every 10th wave is a boss.</div>
                             <div>· Win → bank ryo, advance to the next wave with whatever HP you have left.</div>
                             <div>· Die → all banked ryo is lost. Hospital trip applies. <strong>Milestone currencies stay credited.</strong></div>
-                            <div style={{ marginTop: 6 }}><strong>Kill milestones</strong> (auto-credited, repeat every 20 kills):</div>
-                            <div>· Kills 5, 10 → <span style={{ color: "#a78bfa" }}>+5 Bone Charms</span></div>
-                            <div>· Kill 15 → <span style={{ color: "var(--gold)" }}>+5 Fate Shards</span></div>
-                            <div>· Kill 20 → <span style={{ color: "#a78bfa" }}>+5 Bone Charms</span> &amp; <span style={{ color: "var(--gold)" }}>+5 Fate Shards</span></div>
-                            <div>· Pattern repeats: 25/30 bone, 35 fate, 40 both, and so on.</div>
+                            <div>· Ryo per wave stops rising after wave {ENDLESS_FACTOR_CAP_WAVE}, but milestone waves still pay double or triple.</div>
+                            <div style={{ marginTop: 6 }}><strong>Kill milestones</strong> are credited automatically.</div>
+                            <div>· {ENDLESS_BC_FIRST_RUN_OF_DAY ? "Your free run each UTC day pays" : "Every run pays"} <span style={{ color: "#a78bfa" }}>+5 Bone Charms</span> at kills 5, 10, 20, 25, 30, 40, and so on.</div>
+                            <div>· <span style={{ color: "var(--gold)" }}>+5 Fate Shards</span> pay at kills 15, 20, 35, 40, and so on{ENDLESS_FS_LIFETIME_FIRST ? ", but only on a wave you have never cleared before" : ""}.</div>
                             <div style={{ marginTop: 6 }}><strong>Rest stops:</strong> every 10th kill automatically restores 33% HP and 50% chakra &amp; stamina.</div>
                         </div>
                         <div className="celestial-panel-options">
@@ -1322,8 +1323,10 @@ export function CentralHub({
                             <div className="aw-forge-grid">
                                 {BLOODLINE_AWAKENING_TIERS.map((tier) => {
                                     const balance = character[tier.materialKey] ?? 0;
-                                    const remaining = Math.max(0, 100 - balance);
-                                    const isReady = balance >= 100;
+                                    // The server's price table (B 200, A 100, S 100), never a local copy.
+                                    const cost = BLOODLINE_FORGE_COSTS[tier.rank].cost;
+                                    const remaining = Math.max(0, cost - balance);
+                                    const isReady = balance >= cost;
                                     const jutsuCount = jutsuCountForRank(tier.rank);
                                     const pointBudget = pointBudgetForRank(tier.rank);
                                     const percentChoices = bloodlineTagPercentChoices(tier.rank);
@@ -1344,14 +1347,14 @@ export function CentralHub({
                                             </div>
                                             <div className="aw-forge-material">
                                                 <ShinobiCurrencyIcon name={tier.currencyIcon} size={29} />
-                                                <div><strong>100 {tier.materialName}</strong><small>{balance} held in inventory</small></div>
+                                                <div><strong>{cost} {tier.materialName}</strong><small>{balance} held in inventory</small></div>
                                             </div>
-                                            <div className="aw-forge-meter" aria-label={`${Math.min(balance, 100)} of 100 ${tier.materialName}`}>
-                                                <i style={{ width: `${Math.min(100, balance)}%` }} />
+                                            <div className="aw-forge-meter" aria-label={`${Math.min(balance, cost)} of ${cost} ${tier.materialName}`}>
+                                                <i style={{ width: `${Math.min(100, Math.floor((balance / cost) * 100))}%` }} />
                                             </div>
                                             <button
                                                 className="aw-forge-btn"
-                                                onClick={() => awakeningCreateBloodline(tier.rank, tier.materialKey, 100, !isReady)}
+                                                onClick={() => awakeningCreateBloodline(tier.rank, tier.materialKey, cost, !isReady)}
                                                 disabled={ritualBusy}
                                             >
                                                 <span>{bloodlineForgeBusy ? "Attuning…" : isReady ? `Awaken ${tier.rank}` : "Resume paid ritual"}</span>
@@ -1378,7 +1381,7 @@ export function CentralHub({
                     { name: "Bone Charm", desc: "+1 Bone Charm", itemId: "currency:bone-charm" },
                     // Thrown weapons
                     { name: "Shuriken ×3", desc: "3× Shuriken (18 EP thrown)", itemId: "thrown-shuriken", per: 3 },
-                    { name: "Senbon ×1", desc: "1× Senbon (300 dmg/round, 2 rounds)", itemId: "thrown-senbon", per: 1 },
+                    { name: "Senbon ×1", desc: "1× Senbon (bleeds 25% of the hit, 2 rounds)", itemId: "thrown-senbon", per: 1 },
                     { name: "Serpent Dust ×1", desc: "1× Serpent Dust (10% poison, 2 rounds)", itemId: "thrown-serpent-dust", per: 1 },
                     // Combat items
                     { name: "Smoke Bomb ×1", desc: "1× Smoke Bomb (blocks direct damage for both players for 1 round; Pierce and Wound, Poison, and Drain damage still land)", itemId: "item-smoke-bomb", per: 1 },

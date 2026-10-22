@@ -430,6 +430,14 @@ token deletion for exactly-once semantics.
       (`api/sector/_wanderer-encounter.ts`). Matching only the echoed fields let
       any real wanderer id — a bandit, a night ninja — claim a gift when the
       client simply left the verb out.
+      Then check that the NPC **stands in the claimed sector**
+      (`resolveNaturalWanderer(id, now, character, sector)`), and that what it
+      offers (a quest id, for example) is the server's own pick
+      (`validateWandererQuestPick` in `api/sector/_wanderer-quest.ts`).
+- [ ] A one-time onboarding grant names the server-owned latch it pays on: the
+      Academy Trial needs the sealed spar latch (`academySparClaimed`), and the
+      Academy Checklist the server-owned goals (`academyChecklistGoalsMet`), so a
+      fresh account cannot claim them from a client-reported step.
 - [ ] **Register the new endpoint in `server.ts`** (cPanel parity) and confirm
       the client call path matches the handler file path (Vercel parity).
 - [ ] `npm test` (repo root) + `npm run lint` (`shinobij.client/`).
@@ -450,8 +458,8 @@ decision at session creation:
   base rewards. Every legitimate base-reward flow is player-vs-real-player
   (challenge accept, sector raid vs a real defender); save-less AI guards take a
   separate client `raidAi` path that never sets `baseRewards`.
-- **A non-admin cannot self-assign the Death's Gate (sector 99) 2× multiplier.**
-  The 2× is honored only when the server confirms from **presence** that BOTH
+- **A non-admin cannot self-assign the Death's Gate multiplier (1.25×, 1.5× in the Obsidian Stronghold).**
+  The multiplier is honored only when the server confirms from **presence** that BOTH
   fighters are at sector 99. An attacker controls only their own presence, so the
   opponent being at 99 (which they cannot fake) is what gates the bonus — it
   applies only to a genuine Death's Gate fight, and an unverified claimed `99` is
@@ -564,9 +572,21 @@ No cross-row transaction, no migration. The idempotency key is server-derived
 from the battleId (`pvp-<kind>-<battleId>`), so it can't be forged, and each
 fighter's save tracks its own settlement — a two-sided rating recovers each side
 on its own retry. Rating and item-consumption are now fully atomic. The base
-reward's payout is atomic too; its two *auxiliary* rows (the repeat-opponent
-decay counter and the daily stat-growth budget) can, in the rare crash-between-
-those-and-the-write case, advance twice — which only shrinks a *future* reward
-(still fails toward less), and is strictly better than losing the whole payout.
-Covered by `api/pvp/_reward-settlement.test.ts` (exactly-once, crash-before-write
-recovery, independent two-sided rating).
+reward's payout is atomic too; its two *auxiliary* rows (the unordered daily
+pair counter, `pvp:pair:<a>:<b>:<day>`, slot-memoised per battle in
+`pvp:pairslot:<battleId>`, api/pvp/_valid-fight.ts, and the daily stat-growth
+budget) can, in the rare crash-between-those-and-the-write case, advance twice —
+which only shrinks a *future* reward (still fails toward less), and is strictly
+better than losing the whole payout. Covered by
+`api/pvp/_reward-settlement.test.ts` (exactly-once, crash-before-write recovery,
+independent two-sided rating).
+
+PvP pay is one valid-fight rule set (2026-10 economy rebalance,
+`api/pvp/_valid-fight.ts`): the lower fighter's level keys the purse; a winner
+more than 20 levels up earns nothing; the loser (and, for loss pay, the winner)
+must be at least 72 h old; one unordered pair counter per UTC day weights the
+pair's fights 1 / 1 / 0.5 / 0.25 / 0; under 3 completed rounds or 60 s a KO or
+round-cap win pays half and a flee or AFK win nothing; loss pay needs an engaged
+fight (15% of the winner's max HP in damage, from the winner's sealed start HP).
+Ranked V2 seals the same weight in `pvp:ranked-weight:<matchId>` before the
+terminal.

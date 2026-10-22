@@ -103,15 +103,15 @@ export function sanitizeProgression(
         char.hollowGateAttunement = clamped;
     }
 
-    // Account creation timestamp — backfill if missing so anti-alt checks
-    // have a stable reference. Existing characters get a "now" stamp the
-    // first time they save after this lands; new characters set it client-
-    // side at creation.
-    if (!exChar.createdAt && !char.createdAt) {
-        char.createdAt = Date.now();
-    } else if (exChar.createdAt) {
-        // Once stamped, the value is immutable — clients can't claim a fake old age.
+    // Account creation timestamp — the anti-alt reference for every 72 h rule
+    // (PvP credit, hunt Fate Shards, the outbound transfer tier). The server
+    // stamps it on the first save that lacks one and ignores the client's value:
+    // a first save carrying createdAt: 1 would otherwise read as years old and
+    // clear all of those checks at once. Once stamped it is immutable.
+    if (exChar.createdAt) {
         char.createdAt = exChar.createdAt;
+    } else {
+        char.createdAt = opts.now ?? Date.now();
     }
 
     // Profession: lock the profession choice (the server-side picker and its
@@ -288,22 +288,14 @@ export function sanitizeProgression(
             .slice(0, 100)
             .map((jutsuId) => ({ jutsuId, level: 1, xp: 0 }));
     } else {
-        const storedMastery = Array.isArray(exChar.jutsuMastery)
-            ? exChar.jutsuMastery as Array<Record<string, unknown>>
+        // Mastery XP is server-settled only (training endpoints, PvP settlement).
+        // No client path writes it (lib/jutsu-scaling gainJutsuXp has no callers),
+        // so a generic save never raises it, strict ledger or not. The old
+        // non-strict +100 XP drip let a script bank XP that one PvP win then
+        // converted into levels (I-1).
+        char.jutsuMastery = Array.isArray(exChar.jutsuMastery)
+            ? (exChar.jutsuMastery as Array<Record<string, unknown>>).map((storedRow) => storedRow)
             : [];
-        const requestedMastery = Array.isArray(char.jutsuMastery)
-            ? char.jutsuMastery as Array<Record<string, unknown>>
-            : [];
-        const requestedById = new Map(requestedMastery.map((row) => [String(row?.jutsuId ?? ''), row]));
-        char.jutsuMastery = storedMastery.map((storedRow) => {
-            if (strictLedger) return storedRow;
-            const proposed = requestedById.get(String(storedRow?.jutsuId ?? ''));
-            const sameLevel = Number(proposed?.level) === Number(storedRow.level);
-            const xpGain = Number(proposed?.xp) - Number(storedRow.xp ?? 0);
-            return proposed && sameLevel && xpGain >= 0 && xpGain <= 100
-                ? { ...storedRow, xp: Number(proposed.xp) }
-                : storedRow;
-        });
     }
 
     // HP / chakra / stamina must not exceed their own max fields.

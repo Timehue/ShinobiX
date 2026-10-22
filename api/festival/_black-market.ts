@@ -4,7 +4,7 @@
  * unit-testable with a seeded rng and live in one reviewable place.
  *
  * This is a SINK, not a faucet: the expected ryo return is well under the
- * COST (~45%), so over many pulls the economy loses ryo. The upside tiers keep
+ * COST (~32%, 24,100 ryo per 75,000 pull), so over many pulls the economy loses ryo. The upside tiers keep
  * it exciting without making it +EV. All currency payouts only — no inventory
  * mutation — so the handler stays a simple currency read-modify-write.
  */
@@ -15,10 +15,14 @@
 // each — about 2,500 a year for someone pulling the daily cap — which made it
 // quietly the largest uncontrolled premium faucet in the game.
 //
-// Re-costed to 75,000 (still only ~0.4 days of a strong player's income, and
-// the deepest ryo sink available) with the premium tiers cut roughly 55%. It
-// stays a genuine ryo sink by construction: expected ryo return is well under
-// the cost, asserted by the colocated test.
+// Re-costed to 75,000 (1.73 regular L90 days at 43,360 a day, and the deepest
+// ryo sink available) with the premium tiers cut roughly 55%. It stays a
+// genuine ryo sink by construction: expected ryo return is well under the cost,
+// asserted by the colocated test, which also pins the Exchange FS break-even
+// price above the 140k alarm. Guard dial (econ framework #40): the owner moves
+// this AND shinobij.client/src/lib/black-market.ts to 90,000 when the admin
+// snapshot's black-market loop product holds >= 0.93 for 7 days
+// (api/_black-market-loop.ts). No env override: the client quotes its own copy.
 export const BLACK_MARKET_COST = 75_000; // ryo per pull
 export const BLACK_MARKET_DAILY_CAP = 10;
 

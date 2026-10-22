@@ -15,6 +15,7 @@ import {
     questBookRyo,
     aggregateChoiceEffects,
     parseQuestbookSeal,
+    questBookGate,
 } from "./_questbook.js";
 
 const VALID_METRICS = new Set(["totalAiKills", "totalPetWins", "cardClashWins", "totalTilesExplored"]);
@@ -159,5 +160,26 @@ describe("parseQuestbookSeal", () => {
         assert.equal(parseQuestbookSeal({ id: "__proto__", stage: 0, baseline: 0 }), null);
         assert.equal(parseQuestbookSeal({ id: "qb-bell", stage: -1, baseline: 0 }), null);
         assert.equal(parseQuestbookSeal({ id: "qb-bell", stage: 0, baseline: NaN }), null);
+    });
+});
+
+describe("questBookGate (the war and rivalry epics, enforced at accept)", () => {
+    const cases: Array<[string, { atWar: boolean; hasRivalry: boolean }, string]> = [
+        ["qb-defector", { atWar: false, hasRivalry: false }, "requires-war"],
+        ["qb-defector", { atWar: false, hasRivalry: true }, "requires-war"],
+        ["qb-defector", { atWar: true, hasRivalry: false }, "ok"],
+        ["qb-ashes", { atWar: true, hasRivalry: false }, "requires-rivalry"],
+        ["qb-ashes", { atWar: false, hasRivalry: true }, "ok"],
+        ["qb-bell", { atWar: false, hasRivalry: false }, "ok"],
+        ["qb-gauntlet", { atWar: false, hasRivalry: false }, "ok"],
+    ];
+    for (const [id, ctx, expected] of cases) {
+        it(`${id} at war=${ctx.atWar} rivalry=${ctx.hasRivalry} -> ${expected}`, () => {
+            assert.equal(questBookGate(QUEST_BOOK[id], ctx), expected);
+        });
+    }
+    it("only the two gated epics carry a gate", () => {
+        const gated = Object.values(QUEST_BOOK).filter((q) => q.requiresWar || q.requiresRivalry).map((q) => q.id).sort();
+        assert.deepEqual(gated, ["qb-ashes", "qb-defector"]);
     });
 });

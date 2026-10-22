@@ -9,6 +9,8 @@ import {
 } from './_black-market.js';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { BLACK_MARKET_DIAL_COST, BLACK_MARKET_DIAL_LOOP_THRESHOLD, blackMarketLoopProduct, blackMarketPullEv } from '../_black-market-loop.js';
+import { EXCHANGE_FEE_PERCENT } from '../../shared/sunscar-exchange.js';
 
 // A deterministic rng that yields a fixed first value (tier pick) then mid-range
 // values for the payout sizing calls.
@@ -67,6 +69,54 @@ test('is a net ryo sink: expected ryo return is well under cost', () => {
     const avgRyo = ryoOut / N;
     // Expected ryo payout should be clearly below the 25k cost (it's a sink).
     assert.ok(avgRyo < BLACK_MARKET_COST * 0.7, `avg ryo ${avgRyo} should be < ${BLACK_MARKET_COST * 0.7}`);
+});
+
+/*
+ * The FS-loop guard (2026-10 economy rebalance, #40). A pull's Fate Shards sell
+ * for ryo on the Sunscar Exchange, so above some Exchange FS price the pull pays
+ * back more ryo than it costs and the black market turns from the game's
+ * deepest ryo sink into a printer. The owner's alarm raises the pull to 90,000
+ * when the FS median holds above 140k; this pins the break-even price above
+ * that alarm, so the alarm always fires before the loop exceeds 1.
+ */
+// Framework valuation of the 0.53 Bone Charms + 0.26 Aura Stones a pull pays,
+// a documented floor assumption (the admin snapshot uses measured medians).
+const BC_AS_RYO = 3_000;
+const FS_ALARM_RYO = 140_000;
+
+test('the pull EV is exact: 24,100 ryo, 0.32 FS, 0.53 BC and 0.26 AS', () => {
+    const ev = blackMarketPullEv();
+    assert.ok(Math.abs(ev.ryo - 24_100) < 1e-6, String(ev.ryo));
+    assert.ok(Math.abs(ev.fateShards - 0.32) < 1e-9, String(ev.fateShards));
+    assert.ok(Math.abs(ev.boneCharms - 0.53) < 1e-9, String(ev.boneCharms));
+    assert.ok(Math.abs(ev.auraStones - 0.26) < 1e-9, String(ev.auraStones));
+});
+
+test('the black market stays a ryo sink until the Exchange FS price clears the 140k alarm', () => {
+    const ev = blackMarketPullEv();
+    const keep = 1 - EXCHANGE_FEE_PERCENT / 100;
+    const breakEven = (BLACK_MARKET_COST - ev.ryo - BC_AS_RYO) / (ev.fateShards * keep);
+    // 47,900 / 0.304 = 157,566 at today's numbers. Raising the FS tiers or
+    // cutting the price drags this toward the alarm and fails here first.
+    assert.ok(breakEven >= 150_000, `break-even FS price ${Math.round(breakEven)} is too close to the ${FS_ALARM_RYO} alarm`);
+    assert.ok(breakEven > FS_ALARM_RYO);
+    // The dial price restores the margin (break-even about 206,900).
+    assert.ok((BLACK_MARKET_DIAL_COST - ev.ryo - BC_AS_RYO) / (ev.fateShards * keep) > 200_000);
+});
+
+test('the snapshot loop product agrees with the guard and crosses 1 at break-even', () => {
+    const atAlarm = blackMarketLoopProduct({ fateShards: FS_ALARM_RYO })!;
+    assert.deepEqual(atAlarm.assumed, ['boneCharms', 'auraStones']);
+    assert.ok(atAlarm.product < 1, 'the alarm sits below break-even');
+    assert.ok(Math.abs(atAlarm.product - BLACK_MARKET_DIAL_LOOP_THRESHOLD) < 0.01, `L at the 140k alarm is ${atAlarm.product}`);
+    const measuredAll = blackMarketLoopProduct({ fateShards: 150_000, boneCharms: 700, auraStones: 9_000 })!;
+    assert.deepEqual(measuredAll.assumed, []);
+    // Expensive Aura Stones pull break-even down: the dial must watch the
+    // measured product, not the FS median alone.
+    const pricyStones = blackMarketLoopProduct({ fateShards: 130_000, auraStones: 60_000 })!;
+    assert.ok(pricyStones.product > 1, `L ${pricyStones.product} with 60k Aura Stones`);
+    assert.equal(blackMarketLoopProduct({ fateShards: null }), null);
+    assert.ok(blackMarketLoopProduct({ fateShards: FS_ALARM_RYO }, BLACK_MARKET_DIAL_COST)!.product < atAlarm.product);
 });
 
 test('the displayed price matches the charged price', () => {

@@ -368,7 +368,7 @@ export type PvpSession = {
     // Server-authoritative base PvP-win reward (audit #7 / Stage 3 Phase 3).
     // `baseRewards` opts this session into server crediting of the winner's base
     // ryo + XP (via the ported gainXp) on claim-rewards; `rewardSector` is the
-    // battle's sector, used ONLY for the Death's Gate (99) 2× bonus — everything
+    // battle's sector, used ONLY for the Death's Gate (99) bonus — everything
     // else is read from the winner's full save under the claim lock. Absent on
     // pre-Phase-3 / non-opted sessions, which keep the NX-only casual path.
     /** Server-verified world PvP with both fighters inside sector 99 at creation. */
@@ -738,10 +738,11 @@ export function trimPvpLog(log: string[]): string[] {
 export const P1_START = 62;
 export const P2_START = 57;
 
-// Death's Gate is the one sector whose base PvP-win reward is doubled
-// (computePvpWinGains in api/_xp-engine.ts checks `rewardSector === 99`). The
-// sector is unverifiable from a session-create request, so a non-admin client
-// cannot self-assign it for the 2× — see the base-reward stamp in the handler.
+// Death's Gate is the one sector whose base PvP purse is multiplied (1.25x, or
+// 1.5x inside the Obsidian Stronghold; api/pvp/_valid-fight.ts checks
+// `rewardSector === 99`). The sector is unverifiable from a session-create
+// request, so a non-admin client cannot self-assign the bonus — see the
+// base-reward stamp in the handler.
 const DEATHS_GATE_SECTOR = 99;
 
 // ─── Server-side sanitization of client-supplied combat data ─────────────────
@@ -1296,7 +1297,7 @@ export function resolveEquippedLoadout(
 // hole in that resolution: an ADMIN-authored item's definition lives on the admin
 // save slots, and a player's `creatorItems` is only a client-written mirror of
 // them — a stale POST can erase the entry while its id stays in `equipment`, and
-// under STRICT_RAW_SAVE_LEDGER=1 a new player's array never receives it at all.
+// under the strict ledger (the code default) a new player's array never receives it at all.
 // Without the admin catalog those pieces resolve to nothing and the fighter
 // enters the match without their gear. (A forged `named-weapon-*` still lives
 // ONLY in the player's own array — nothing else can supply it.)

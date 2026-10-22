@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { grantWildPet, rollWildPet, rollWildPetLevel } from './_encounter.js';
+import { grantWildPet, rollWildPet, rollWildPetLevel, WILD_HIT_CEILING, WILD_RARITY_CEILINGS } from './_encounter.js';
 import { PET_CATALOG } from './_catalog.js';
 import { NIGHT_ONLY_WILD_PET_IDS } from '../../shared/night-pets.js';
 
@@ -41,9 +41,12 @@ describe('wild pet encounter authority', () => {
         assert.match(String(pet?.id), /^mythic-\d+-123$/);
     });
     it('keeps hit and rarity thresholds fixed under world weather', () => {
+        // 2026-10 rebalance: rare 0.3% -> 1.2%, every other band unchanged, so
+        // the hit ceiling moves 0.05 -> 0.059.
         const cases: Array<[number, string | null]> = [
             [0.001, 'mythic'], [0.002, 'mythic'], [0.007, 'legendary'],
-            [0.01, 'rare'], [0.05, 'standard'], [0.050001, null],
+            [0.0071, 'rare'], [0.01, 'rare'], [0.019, 'rare'], [0.0191, 'standard'],
+            [0.05, 'standard'], [0.050001, 'standard'], [0.059, 'standard'], [0.059001, null],
         ];
         for (const [chance, rarity] of cases) {
             for (const weather of ['clear', 'rain', 'ashfall'] as const) {
@@ -53,11 +56,12 @@ describe('wild pet encounter authority', () => {
         }
     });
     it('a guaranteed (tracker trail) roll always hits with the Explore hit rarity mix', () => {
-        // The first roll is scaled into the 0..0.05 hit band, so each rarity
-        // keeps exactly its share of an Explore HIT: 4/6/10/80 percent.
+        // The first roll is scaled into the 0..0.059 hit band, so each rarity
+        // keeps exactly its share of an Explore HIT: 3.4 / 8.5 / 20.3 / 67.8
+        // percent (mythic / legendary / rare / standard).
         const cases: Array<[number, string]> = [
-            [0, 'mythic'], [0.039, 'mythic'], [0.0401, 'legendary'], [0.139, 'legendary'],
-            [0.1401, 'rare'], [0.199, 'rare'], [0.2001, 'standard'], [0.999999, 'standard'],
+            [0, 'mythic'], [0.0338, 'mythic'], [0.0340, 'legendary'], [0.1186, 'legendary'],
+            [0.1187, 'rare'], [0.2001, 'rare'], [0.3220, 'rare'], [0.3221, 'standard'], [0.999999, 'standard'],
         ];
         for (const [unit, rarity] of cases) {
             const values = [unit, 0.45, 0.1]; let i = 0;
@@ -121,11 +125,21 @@ describe('wild pet encounter authority', () => {
     });
     it('night gating never changes the hit or rarity roll', () => {
         for (const now of [1, 60 * 60 * 1000]) {
-            for (const [chance, rarity] of [[0.001, 'mythic'], [0.007, 'legendary'], [0.01, 'rare'], [0.05, 'standard'], [0.050001, null]] as const) {
+            for (const [chance, rarity] of [[0.001, 'mythic'], [0.007, 'legendary'], [0.01, 'rare'], [0.019, 'rare'], [0.05, 'standard'], [0.059, 'standard'], [0.059001, null]] as const) {
                 const values = [chance, 0.45, 0.1]; let i = 0;
                 assert.equal(rollWildPet(() => values[i++] ?? 0, now)?.rarity ?? null, rarity);
             }
         }
+    });
+    it('rarity bands widen from mythic to standard, with rare at 1.2% of Explores (2026-10 rebalance)', () => {
+        const { mythic, legendary, rare, standard } = WILD_RARITY_CEILINGS;
+        const widths = [mythic, legendary - mythic, rare - legendary, standard - rare].map((w) => Math.round(w * 1e6) / 1e6);
+        assert.deepEqual(widths, [0.002, 0.005, 0.012, 0.04], 'mythic 0.2%, legendary 0.5%, rare 1.2%, standard 4.0%');
+        for (let i = 1; i < widths.length; i += 1) assert.ok(widths[i] > widths[i - 1], 'a rarer tier can never be commoner than the tier below it');
+        assert.equal(WILD_HIT_CEILING, standard);
+        // The share each tier holds of a guaranteed Tracker-trail roll.
+        const trail = widths.map((w) => Math.round((w / WILD_HIT_CEILING) * 1000) / 10);
+        assert.deepEqual(trail, [3.4, 8.5, 20.3, 67.8]);
     });
     it('every night-only pet is a real wild template', () => {
         for (const id of NIGHT_ONLY_WILD_PET_IDS) {

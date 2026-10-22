@@ -215,6 +215,28 @@ test('a challenge open against the absent Kage is cleared, the stake refunded, n
     assert.equal(inbox[0].amount, 250_000);
 });
 
+test('a challenge stamped with the stake it was charged refunds exactly that stake', async () => {
+    // The stake rose to 400,000 in the 2026-10 rebalance. The unstamped
+    // fixture above (a challenge declared before the stamp) still refunds the
+    // 250,000 it was charged; a stamped one refunds its own amount.
+    await kv.set(settle.kageKey(VILLAGE), {
+        ...seated(),
+        challenge: { challengeId: 'c-stamped', challenger: 'Stamped-One', status: 'pending', createdAt: NOW - DAY, obligationRemainingMs: 1_800_000, stakeRyo: 400_000 },
+    });
+    await kv.set('save:sleepy-kage', { _saveAt: NOW - 12 * DAY });
+    await kv.set('save:stamped-one', { character: { name: 'Stamped-One', ryo: 1_000 }, _saveVersion: 3, _saveAt: NOW - 1000 });
+    await kv.del(mod.kageStakeRefundKey('stamped-one'));
+    await kv.del(notices.offlineNoticesKey('stamped-one'));
+
+    const r = await mod.runKageInactivityPass(NOW);
+    assert.deepEqual(r.dethroned, [VILLAGE]);
+    const save = await kv.get<Record<string, unknown>>('save:stamped-one');
+    assert.equal((save?.character as Record<string, unknown>).ryo, 401_000, 'the stamped stake came back');
+    const inbox = await notices.takeOfflineNotices('stamped-one');
+    assert.equal(inbox.length, 1);
+    assert.equal(inbox[0].amount, 400_000);
+});
+
 test('a refund that cannot commit is PARKED as a durable compensation, never destroyed', async () => {
     // The dethrone drops the challenge row in the same CAS as the seat change,
     // so there is no second chance: an uncreditable stake used to be logged and

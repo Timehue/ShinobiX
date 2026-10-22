@@ -67,7 +67,12 @@ export function settleShopItemPurchase(playerName: string, itemId: string, quant
 }
 
 export function settleShopCardPack(playerName: string, packId: ShopPackId) {
-    return postSettlement<{ kind: 'card-pack'; packId: ShopPackId; drawn: string[]; totalCost: number }>(
+    return postSettlement<{
+        kind: 'card-pack'; packId: ShopPackId; drawn: string[]; totalCost: number;
+        // Copies past the 3-copy playset convert server-side; absent on older receipts.
+        converted?: Array<{ index: number; cardId: string; chroniclePoints: number; fateShards: number }>;
+        refund?: { chroniclePoints: number; fateShards: number };
+    }>(
         '/api/shop/settle',
         { playerName, action: { type: 'open-card-pack', packId } },
         'Could not open the card pack. Nothing was changed; please retry.',

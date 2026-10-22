@@ -58,10 +58,12 @@ describe("item detail presentation", () => {
         }
         const fish = presentItem(item({ id: 'gather-river-fish-superior' }));
         assert.equal(fish.category, 'Cooking Ingredient');
-        assert.equal(fish.use, 'Cook at the Cafeteria');
+        assert.equal(fish.use, 'Cook at the Cafeteria or make Treats in the Crafter');
         const ore = presentItem(item({ id: 'gather-iron-sand-pristine' }));
         assert.equal(ore.category, 'Crafting Material');
         assert.match(ore.use, /Crafter.*Shinobi Outpost/);
         assert.equal(ore.showPlayerSlot, false);
+        // The refinery takes Fine grade and up only, so Common ore is never sent there.
+        assert.equal(presentItem(item({ id: 'gather-iron-sand' })).use, 'Spend in the Crafter');
     });
 });

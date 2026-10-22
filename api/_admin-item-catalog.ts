@@ -11,7 +11,7 @@
  *   - it is client-written on the normal save path (`out.creatorItems =
  *     sanitizedCreatorItems` replaces rather than merges), so a stale POST can
  *     erase a definition whose id is still equipped;
- *   - under STRICT_RAW_SAVE_LEDGER=1 `creatorItems` becomes server-owned and a new
+ *   - under the strict ledger (the code default) `creatorItems` is server-owned and a new
  *     player's array starts EMPTY, so an admin-authored item would never reach it.
  *
  * Either way the id resolves to nothing and the piece is silently dropped from the

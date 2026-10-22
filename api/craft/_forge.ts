@@ -5,16 +5,13 @@ import { effectiveItemLevelReq } from '../../shared/item-level-gate.js';
 import { isStepItemId } from '../../shared/gear-steps.js';
 import { withGearTierUnlock } from '../_gear-drops.js';
 import { SUPPLY_CRAFT_RECIPES, gearCraftIngredients, planCraftIngredients, planSelectedCraftIngredients, type CraftIngredient } from '../../shared/crafting-recipes.js';
+import { buildCraftPointTable } from '../../shared/village-stores-points.js';
 
 // Legacy material-point valuations remain the Village Stores donation contract.
 // The Crafter now consumes the exact ingredients in shared/crafting-recipes.ts.
-export const CRAFT_POINTS: Record<string, number> = {
-    'hunt-torn-hide': 3, 'hunt-wild-feather': 3, 'hunt-small-fang': 3, 'hunt-cracked-horn': 3,
-    'hunt-beast-meat': 5, 'hunt-frost-pelt': 8, 'hunt-shadow-claw': 8, 'hunt-wolf-fang': 10,
-    'hunt-ash-scale': 15, 'hunt-ember-scale': 20, 'hunt-shadow-pelt': 25,
-    'hunt-ancient-beast-core': 30, 'hunt-titan-bone': 30, 'hunt-legendary-material': 50,
-    'weekly-boss-core': 150, 'dungeon-legendary-relic': 200, 'warforged-relic': 250, 'veil-of-the-hollow': 250,
-};
+// Hunt materials and forge relics, plus (2026-10 item-use pass) non-story relics
+// and gear step drops: shared/village-stores-points.ts, mirrored by the client.
+export const CRAFT_POINTS: Record<string, number> = buildCraftPointTable(Object.values(ITEM_CATALOG));
 
 const STACKABLE_OUTPUTS = new Set([...Object.keys(SUPPLY_CRAFT_RECIPES), 'dungeon-legendary-relic']);
 const count = (v: unknown) => Math.max(0, Math.floor(Number(v) || 0));

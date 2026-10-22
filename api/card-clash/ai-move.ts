@@ -6,6 +6,7 @@ import { enforceRateLimitKv } from "../_ratelimit.js";
 import { cors } from "../_utils.js";
 import { withKvLock } from "../_lock.js";
 import { mutatePlayerSave } from "../save/_mutate-player-save.js";
+import { recordEconomyTxn } from "../_economy.js";
 import { bumpLegacyStats, legacyBootstrapBeforeCounterIncrement } from "../_legacy-track.js";
 import {
   CARD_CLASH_AI_MIN_WIN_DURATION_MS,
@@ -210,9 +211,13 @@ async function settle(
     winner === "player" &&
     now - Number(session.createdAt ?? 0) < CARD_CLASH_AI_MIN_WIN_DURATION_MS;
   const today = utcDateKey(now);
+  // Chronicle Points this settle freshly credited, for the telemetry below.
+  // Reset on every pass: the callback reruns after a lost compare-and-set.
+  let freshEchoesPoints = 0;
   const settled = await mutatePlayerSave(
     session.playerName,
     ({ character }) => {
+      freshEchoesPoints = 0;
       // In-save replay receipt: if this session already paid (a retry after a
       // crash between the payout write and the session settledAt mark), hand
       // back the recorded reward without paying again.
@@ -278,6 +283,7 @@ async function settle(
         );
         nextCharacter = applied.character;
         value.echoes = applied.summary;
+        freshEchoesPoints = applied.summary.points;
       }
       // Receipt rides the SAME write as the payout (atomic by construction).
       nextCharacter.redeemedCardClashAiSessions = [
@@ -289,6 +295,19 @@ async function settle(
   );
   if (!settled.ok)
     return { ok: false, status: settled.status, error: settled.error };
+  // Economy telemetry (I-19): the Chronicle Point faucet, after the commit. A
+  // receipt replay leaves freshEchoesPoints at 0 and records nothing. The tag
+  // literals are single-quoted because the telemetry census only reads those.
+  if (freshEchoesPoints > 0) {
+    void recordEconomyTxn({
+      txnId: `echoes:${receiptId}`,
+      player: session.playerName,
+      currency: 'chroniclePoints',
+      delta: freshEchoesPoints,
+      source: 'echoes.win',
+      balanceAfter: settled.value.echoes?.balance,
+    });
+  }
   return {
     ok: true,
     reward: settled.value,

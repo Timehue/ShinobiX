@@ -29,6 +29,9 @@ export type EchoesSettleSummary = {
     firstClear: boolean;
     firstClearBonus: number;
     bossBonus: number;
+    /** First paid repeat win of the UTC day. Optional: receipts settled before
+     *  the bonus shipped replay without it. */
+    dailyFirstWinBonus?: number;
     wins: number;
     balance: number;
     unlockedFloor: number | null;

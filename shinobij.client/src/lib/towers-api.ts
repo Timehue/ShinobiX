@@ -271,7 +271,13 @@ export type TowerActionResponse = {
     replayed?: boolean;
 };
 export type TowerActionCommandMeta = { moveToken: string; expectedVersion?: number };
-export type TowerSettleResult = { paid: boolean; reason?: string; score?: number; gearDrop?: { itemId?: string } };
+export type TowerSettleResult = {
+    paid: boolean; reason?: string; score?: number; gearDrop?: { itemId?: string };
+    /** Endless Spire ryo purse for this clear (2026-10 rebalance, owner amendment A7). */
+    purse?: { ryo: number; minutes: number };
+    /** Endless Spire Fate Shards this clear paid; 0 when the tier was already banked this week. */
+    shards?: number;
+};
 export type TowerConsumedItemsResult = { consumed: boolean; reason?: string; used?: Record<string, number> };
 export type TowerSettleResponse = {
     personalBest?: TowerClearComparison;

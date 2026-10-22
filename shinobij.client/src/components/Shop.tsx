@@ -15,7 +15,7 @@ import { weaponEffectDisplayValue } from "../lib/weapon-effect-display";
 import { countItem, itemCountsById } from "../lib/inventory";
 import { gatheringTool } from '../../../shared/gathering-tools';
 import { normalizeEquipmentSlot, equipmentSlotLabel, armorReductionForQuality, consolidateItemBonuses, consumableHoldCap } from "../lib/equipment";
-import { petFeedXpForItem, stackableItemIds } from "../data/pet-config";
+import { petFeedXpForItem, petSupplyHoldCap, stackableItemIds } from "../data/pet-config";
 import { getShopDiscountPercent, discountCost } from "../lib/village-upgrades";
 import { GameIcon, type GameIconName } from "./icons/GameIcon";
 import { GameArtIcon } from "./GameArtIcon";
@@ -66,6 +66,14 @@ const ARMOR_SHOP_SLOTS: EquipmentSlot[] = ["body", "head", "waist", "legs", "fee
 function isShopConsumable(item: GameItem) {
     const s = normalizeEquipmentSlot(item.slot);
     return s === "potion" || (s === "item" && (!!item.weaponEffect || item.restoreChakra != null || item.restoreStamina != null));
+}
+
+// How many of an item the shop lets you hold: the combat-consumable caps, then
+// the pet supplies (treats, PvE gear, battle consumables, evolution stones),
+// which buy in bulk to the same 50. Mirrors the cap in api/shop/_purchase.ts.
+// Null keeps an item a single, one-off purchase.
+function shopHoldCap(item: GameItem): number | null {
+    return consumableHoldCap(item) ?? petSupplyHoldCap(item.id);
 }
 
 const SHOP_SLOT_GROUPS: { label: string; slots: EquipmentSlot[]; consumables?: boolean; beastSeals?: boolean }[] = [
@@ -224,11 +232,11 @@ function ShopBase({
         // "no requirement" here and then be refused by the server.
         if (!meetsItemLevelReq(item, character.level)) return alert(`Requires Level ${effectiveItemLevelReq(item)}. You are Level ${character.level}.`);
 
-        // Consumables/throwables/potions buy in bulk up to a per-item hold cap
-        // (single shared pool — what you own is the ammo battle spends). Other
-        // gear stays single-purchase. Clamp the requested amount to what's left
-        // under the cap so a bulk buy can never overflow it.
-        const cap = consumableHoldCap(item);
+        // Consumables/throwables/potions and pet supplies buy in bulk up to a
+        // per-item hold cap (single shared pool — what you own is the ammo battle
+        // spends). Other gear stays single-purchase. Clamp the requested amount to
+        // what's left under the cap so a bulk buy can never overflow it.
+        const cap = shopHoldCap(item);
         let n = cap == null ? 1 : Math.max(1, Math.floor(qty));
         if (cap != null) {
             const capLeft = Math.max(0, cap - countItem(character, item.id));
@@ -268,7 +276,7 @@ function ShopBase({
     }
 
     const alreadyOwned = (item: GameItem) =>
-        stackableItemIds.has(item.id) ? false : ownedGearIds.has(item.id);
+        stackableItemIds.has(item.id) || shopHoldCap(item) != null ? false : ownedGearIds.has(item.id);
 
     function itemBonusLines(item: GameItem) {
         // Armor blocks maxChakra/maxStamina visually so the popup doesn't
@@ -339,9 +347,9 @@ function ShopBase({
                                             : <small style={{ fontWeight: "bold" }}>{currencyIcon} {finalCost} {currencyLabel}{shopDiscountPercent > 0 ? ` (was ${item.cost})` : ""}{owned ? " — Owned" : ""}</small>
                                         }
 
-                                        {consumableHoldCap(item) != null && (
+                                        {shopHoldCap(item) != null && (
                                             <small style={{ color: "#86efac", fontWeight: "bold" }}>
-                                                In bag: {bagCount(item.id)} / {consumableHoldCap(item)}
+                                                In bag: {bagCount(item.id)} / {shopHoldCap(item)}
                                             </small>
                                         )}
                                     </button>
@@ -479,7 +487,7 @@ function ShopBase({
 
                                 <div className="item-popup-actions">
                                     {(() => {
-                                        const cap = consumableHoldCap(selectedItem);
+                                        const cap = shopHoldCap(selectedItem);
                                         const unit = getShopCost(selectedItem.cost, selectedItem.id);
                                         // buy() refuses an over-level item, so the button says so
                                         // up front instead of opening a refusal.

@@ -52,6 +52,7 @@ test('shared game-state batches both collections once, shares concurrent builds,
             clanPetBattles: { fox: { id: 'battle-1' } },
             arenaTournament: null, arenaActiveFights: [], weeklyBossAiId: null, dojoCircuitEnabled: false,
             boostEvent: null,
+            progressionDials: { statGainMultiplier: 1, trainingRateTable: 'v2', dailyStatPointCap: 60, huntDropChances: { fateShards: 0.25, auraStones: 0.2 } },
         });
     }
     const same = response();

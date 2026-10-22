@@ -3,8 +3,10 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import test from 'node:test';
 import type { SettlementItem } from '../shop/_catalog.js';
-import { applyInventorySale, HUNT_MATERIAL_SELL_RYO } from './_sale.js';
+import { applyInventorySale, HUNT_MATERIAL_SELL_RYO, npcSaleValue } from './_sale.js';
 import { HUNT_MATERIAL_SELL_RYO as SHARED_HUNT_MATERIAL_SELL_RYO } from '../../shared/hunt-material-sale.js';
+import { GEAR_STEP_SELL_RYO } from '../../shared/gear-steps.js';
+import { NAMED_GEAR_SELL_RYO } from '../../shared/named-gear-rules.js';
 
 const item = (overrides: Partial<SettlementItem> = {}): SettlementItem => ({
     id: 'sale-item', name: 'Sale Item', slot: 'hand', rarity: 'common', cost: 101, ...overrides,
@@ -78,14 +80,14 @@ test('hunt drop materials (cost:0) sell for their rarity-tiered ryo value', () =
     );
     assert.equal(sold.ok, true);
     if (sold.ok) assert.equal(sold.character.ryo, 30);
-    // legendary Legendary Material = 600 ryo each
+    // legendary Legendary Material = 480 ryo each (600 before the 2026-10 x0.8 trim)
     const leg = applyInventorySale(
         character({ ryo: 0, inventory: ['hunt-legendary-material'] }),
         item({ id: 'hunt-legendary-material', slot: 'item', rarity: 'legendary', cost: 0 }),
         'backpack', 1, undefined, 'huntsale002', 100,
     );
     assert.equal(leg.ok, true);
-    if (leg.ok) assert.equal(leg.character.ryo, 600);
+    if (leg.ok) assert.equal(leg.character.ryo, 480);
     // a NON-hunt cost:0 item stays unsellable (materials didn't make everything sellable)
     assert.equal(
         applyInventorySale(character({ inventory: ['misc'] }), item({ id: 'misc', slot: 'item', cost: 0 }), 'backpack', 1, undefined, 'huntsale003', 100).ok,
@@ -117,8 +119,8 @@ test('every shared hunt-material price preserves the authoritative sale payout',
     const expectedPrices = {
         'hunt-torn-hide': 12, 'hunt-wild-feather': 12, 'hunt-small-fang': 12, 'hunt-cracked-horn': 12,
         'hunt-beast-meat': 15, 'hunt-frost-pelt': 40, 'hunt-shadow-claw': 40, 'hunt-wolf-fang': 55,
-        'hunt-ash-scale': 80, 'hunt-ember-scale': 180, 'hunt-shadow-pelt': 220,
-        'hunt-ancient-beast-core': 450, 'hunt-titan-bone': 450, 'hunt-legendary-material': 600,
+        'hunt-ash-scale': 80, 'hunt-ember-scale': 144, 'hunt-shadow-pelt': 176,
+        'hunt-ancient-beast-core': 360, 'hunt-titan-bone': 360, 'hunt-legendary-material': 480,
     };
     assert.strictEqual(HUNT_MATERIAL_SELL_RYO, SHARED_HUNT_MATERIAL_SELL_RYO, 'legacy API export remains compatible');
     assert.deepEqual(HUNT_MATERIAL_SELL_RYO, expectedPrices);
@@ -138,4 +140,19 @@ test('every shared hunt-material price preserves the authoritative sale payout',
         assert.equal(priced.ok, true, id);
         if (priced.ok) assert.equal(priced.value.ryo, 50, 'positive catalog cost still takes precedence over the material price');
     }
+});
+
+test('npcSaleValue prices one unit exactly as the sale route credits it', () => {
+    const cases: Array<[SettlementItem, number]> = [
+        [item({ cost: 101 }), 50],
+        [item({ id: 'hunt-legendary-material', slot: 'item', rarity: 'legendary', cost: 0 }), 480],
+        [item({ id: 'training-katana-s2', cost: 0 }), GEAR_STEP_SELL_RYO],
+        [item({ id: 'named-weapon-123456781234123412341234567890ab', slot: 'hand', cost: 0 }), NAMED_GEAR_SELL_RYO],
+    ];
+    for (const [sold, expected] of cases) {
+        assert.equal(npcSaleValue(sold), expected, sold.id);
+        const credited = applyInventorySale(character({ ryo: 0, inventory: [sold.id] }), sold, 'backpack', 1, undefined, `npc-${sold.id}`, 100);
+        assert.equal(credited.ok && credited.value.ryo, expected, `${sold.id} credited`);
+    }
+    assert.equal(npcSaleValue(item({ id: 'misc', slot: 'item', cost: 0 })), 0, 'an item the shop will not buy is worth 0');
 });

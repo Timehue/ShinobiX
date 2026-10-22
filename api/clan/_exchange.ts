@@ -187,6 +187,10 @@ export function eligibleCacheItems(
         if (EVENT_ITEM_IDS.has(item.id)) return false;
         // Gear step drops have their own roll (see applyReward); they are not cache stock.
         if (isStepItemId(item.id)) return false;
+        // The Ranked Seal pieces are the Ranked Format's loaned kit: no passive and
+        // cost 0, so a cache copy was a worse legendary piece that could not even be
+        // sold (2026-10 item-use pass). The ranked loadout itself is unchanged.
+        if (item.id.startsWith('ranked-format-')) return false;
         const rarity = String(item.rarity ?? '').toLowerCase();
         if (rarity !== 'epic' && rarity !== 'legendary') return false;
         return cache === 'weapon' ? isWeapon(item) : isArmor(item);

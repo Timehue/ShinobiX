@@ -9,7 +9,10 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock, LockContendedError } from '../_lock.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
-import { carriedRegenCursor, settleIdleRecovery } from '../save/_mutate-player-save.js';
+import { carriedRegenCursor, mutatePlayerSave, settleIdleRecovery } from '../save/_mutate-player-save.js';
+import { advanceLastDailyReset } from '../_daily-reset-stamp.js';
+import { recordEconomyTxn } from '../_economy.js';
+import { activityPurseMinutes, creditActivityPurse, publicActivityPurse } from '../_activity-purse.js';
 import { isPlayerSaveVersionConflict, retryOnSaveVersionConflict, writeSaveProjected } from '../save/_projected-write.js';
 import { showdownBusyIssue } from './_showdown-readiness.js';
 import { startNaturalWandererShowdown } from './_wanderer-showdown.js';
@@ -32,6 +35,7 @@ import {
 import {
     createShowdownSession,
     resolveShowdownRound,
+    showdownConsumableSpends,
     showdownStateView,
     type ShowdownSession as EngineShowdownSession,
 } from '../_pet-showdown/engine.js';
@@ -275,6 +279,42 @@ function isShowdownBindingMissing(
         || (session.bindingKind === 'first-pact' && !bindings.firstPact);
 }
 
+/**
+ * Strike the battle items a reward-eligible session committed
+ * (showdownConsumableSpends) from the saved pets, under the save lock. Every
+ * item must still sit in its pet's consumable slot: the session sealed the
+ * pets from an unlocked read, so an item unequipped since then refuses the
+ * bout (409) instead of burning nothing. A session that committed nothing
+ * writes nothing.
+ */
+export async function burnSealedShowdownConsumables(
+    playerName: string,
+    session: ShowdownSession,
+): Promise<
+    | { ok: true; commit: { character: Record<string, unknown>; _saveVersion: number } | null }
+    | { ok: false; status: number; error: string }
+> {
+    const spends = showdownConsumableSpends(session);
+    if (spends.length === 0) return { ok: true, commit: null };
+    const burned = await retryOnSaveVersionConflict(() => mutatePlayerSave<null>(playerName, ({ character }) => {
+        const pets = Array.isArray(character.pets) ? [...character.pets as Array<Record<string, unknown>>] : [];
+        for (const spend of spends) {
+            const index = pets.findIndex((pet) => String(pet?.id ?? '') === spend.petId);
+            const loadout = index >= 0 && pets[index].loadout && typeof pets[index].loadout === 'object'
+                ? { ...pets[index].loadout as Record<string, unknown> }
+                : null;
+            if (!loadout || loadout.consumable !== spend.consumableId) {
+                return { ok: false as const, status: 409, error: 'A battle item changed before the bout began. Check your companions\' loadouts and try again.' };
+            }
+            delete loadout.consumable;
+            pets[index] = { ...pets[index], loadout };
+        }
+        return { ok: true as const, character: { ...character, pets }, value: null };
+    }));
+    if (!burned.ok) return { ok: false, status: burned.status === 404 ? 404 : 409, error: burned.error };
+    return { ok: true, commit: { character: burned.character, _saveVersion: burned._saveVersion } };
+}
+
 /** Win payout under the save lock. Exactly-once via the paired receipts. */
 export async function settleShowdownWin(playerName: string, session: ShowdownSession): Promise<Record<string, unknown>> {
     // PRACTICE AND PARENT-BOUND FIGHTS PAY NOTHING here, and pay it cheaply: no
@@ -364,6 +404,9 @@ export async function settleShowdownWin(playerName: string, session: ShowdownSes
         const reward = petArenaRyoReward(session.sealedOpponentLevel);
         const paidCharacter = {
             ...recovery.character,
+            // A first win of the UTC day rolls the day for every counter keyed
+            // to lastDailyReset, not only the arena's (api/_daily-reset-stamp.ts).
+            ...advanceLastDailyReset(recovery.character, today),
             redeemedPetBattleTokens: [...receipts, receipt],
             ryo: Number(char.ryo ?? 0) + reward,
             totalPetWins: Number(char.totalPetWins ?? 0) + 1,
@@ -393,6 +436,10 @@ export async function settleShowdownWin(playerName: string, session: ShowdownSes
         // receipt is still covering, and it is covering for a full day of wins.
         await kv.set(paidKey, { sessionId: session.sessionId, at: Date.now(), legacyApplied: false }, { nx: true, ex: PAID_RECEIPT_TTL_SECONDS })
             .catch(() => undefined);
+        // Economy telemetry (I-19): the committed purse, once per session (a
+        // replayed receipt returns above). Up to 100 wins a player a day, so it
+        // updates the day rows but stays off the recent-txn list.
+        void recordEconomyTxn({ txnId: `pet-arena:${session.sessionId}`, player: playerName, currency: 'ryo', delta: reward, source: 'pet.arena', balanceAfter: Number(updatedChar.ryo ?? 0) }, { list: false });
         return {
             reward,
             progressionEligible: true,
@@ -832,13 +879,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (hollowGate) session.bindingKind = 'hollow-gate';
             armTurnDeadline(session);
             await kv.set(sessionKey(playerName, sessionId), session, { ex: SESSION_TTL_SECONDS });
+            // A paid bout spends the one-use battle items it sealed, exactly as a
+            // PvE summon does (api/pet/_progress.ts applyPetSummonCost); until now
+            // the item showed as spent in the fight and came back on the next
+            // load. The session is stored FIRST, so a burn that commits always has
+            // its fight; a refused or failed burn leaves the item in the save, and
+            // the stored session, whose id the client never received, is deleted
+            // or simply expires. A Hollow Gate bout is unpaid and burns nothing.
+            const burned = await burnSealedShowdownConsumables(playerName, session);
+            if (!burned.ok) {
+                await kv.del(sessionKey(playerName, sessionId)).catch(() => undefined);
+                return res.status(burned.status).json({ error: burned.error });
+            }
             await publishShowdownPresence(kv, playerName, sessionId); // F01: a live showdown is provable presence
             if (hollowGate) {
                 // Server-only bookkeeping, stored beside the session and never
                 // surfaced to the client.
                 await kv.set(showdownHollowGateKey(playerName, sessionId), hollowGate, { ex: SESSION_TTL_SECONDS });
             }
-            return res.status(200).json({ ok: true, state: viewOf(session), dailyCap: DAILY_ARENA_WIN_CAP });
+            return res.status(200).json({
+                ok: true,
+                state: viewOf(session),
+                dailyCap: DAILY_ARENA_WIN_CAP,
+                ...(burned.commit ? { character: burned.commit.character, _saveVersion: burned.commit._saveVersion } : {}),
+            });
         }
 
         if (action === 'encounter') {
@@ -1183,13 +1247,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     path: 'companion',
                     outcome: session.outcome,
                 });
+                // A won companion-front deployment pays the side-mode purse
+                // (owner amendment A7), as the shinobi front does
+                // (api/world-crisis-80/combat-settle.ts). Receipted in the save,
+                // so a re-post of the finished turn answers with the same purse.
+                const purse = session.outcome === 'win'
+                    ? await creditActivityPurse({
+                        mode: 'crisis80',
+                        playerSlug: playerName,
+                        outcomeId: `showdown:${session.sessionId}`,
+                        startedAt: session.createdAt,
+                        minutes: activityPurseMinutes(session.createdAt, session.circuitFinishedAt),
+                    })
+                    : null;
                 settlement = {
                     ...settlement,
                     worldCrisis80: {
                         crisis,
                         contributed: session.outcome === 'win',
                         village: crisisBinding.village,
+                        ...(purse ? { purse: publicActivityPurse(purse) } : {}),
                     },
+                    ...(purse?.save ? { character: purse.save.character, _saveVersion: purse.save._saveVersion } : {}),
                 };
             }
             if (firstPactBinding && session.outcome) {

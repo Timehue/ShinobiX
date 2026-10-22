@@ -4,7 +4,10 @@
 // plain fetch already carries the player token / name / fingerprint headers.)
 
 import type { IntelTier, StoresLedgerEntry } from "./village-stores";
-import type { WarPreparation } from '../../../shared/war-preparations';
+import type { WarPreparation, WarPreparationKey } from '../../../shared/war-preparations';
+
+/** A preparation tier's whole price: WR plus treasury ryo and Bone Charms. */
+export interface WarPreparationQuote { wr: number; ryo: number; boneCharms: number }
 import type { OpenSectorBattle } from "./sector-war-engagement";
 
 export type WinCondition = "combat" | "card" | "pet";
@@ -29,8 +32,15 @@ export interface VillageWarMapView {
     warResources?: number;
     warResourcesCap?: number;
     treasurySeals?: number;
+    /** Treasury ryo and Bone Charms: war preparations and merc hires spend
+     *  them (2026-10 rebalance). Absent from an older server: unknown, not 0. */
+    treasuryRyo?: number;
+    treasuryBoneCharms?: number;
+    /** Treasury ryo per WR the server charges now (its WAR_RYO_PER_WR dial). */
+    ryoPerWr?: number;
     structures?: Record<string, number>;
-    preparations?: WarPreparation[];
+    /** Each preparation carries the server's quote for the next tier of each key. */
+    preparations?: Array<WarPreparation & { nextCost?: Partial<Record<WarPreparationKey, WarPreparationQuote>> }>;
     depotDailyIncome?: number;
     upkeepWr?: number;
     dormant?: boolean;
@@ -396,6 +406,8 @@ export interface WrMercTierView {
     costWr: number;
     /** What the server charges right now (comeback × Barracks applied). */
     cost?: number;
+    /** Treasury ryo that cost brings with it (2026-10 rebalance). */
+    treasuryRyo?: number;
     /** Mercs in one band of this tier. */
     band?: number;
 }
@@ -435,12 +447,20 @@ export interface MercContextView {
 export interface MercListView {
     ok?: boolean;
     warResources?: number;
+    /** The village treasury's ryo, which hires also spend (2026-10 rebalance). */
+    treasuryRyo?: number;
+    /** Treasury ryo per WR the server charges now. */
+    ryoPerWr?: number;
     tiers?: WrMercTierView[];
     contexts?: MercContextView[];
     /** Sieges this village runs — it can no longer hire for those. */
     attacking?: Array<{ contestId: string; sector: number; enemy: string; endsAt: number }>;
     leases?: MercLeaseView[];
-    viewer?: { role: "kage" | "elder" | "none"; seats: string[]; canHire: boolean; canDeploy: boolean };
+    viewer?: {
+        role: "kage" | "elder" | "none"; seats: string[]; canHire: boolean; canDeploy: boolean;
+        /** Only the seated Kage spends the treasury: an Elder hires only bands that cost it nothing. */
+        canSpendTreasury?: boolean;
+    };
 }
 export type MercHireContext = { kind: "village" } | { kind: "sector"; contestId: string };
 export interface MercHireResult {
@@ -449,6 +469,9 @@ export interface MercHireResult {
     hireId?: string;
     tierId?: string;
     cost?: number;
+    /** Treasury ryo the hire cost (0 for a free or WR-only hire). */
+    treasuryRyo?: number;
+    remainingTreasuryRyo?: number;
     expiresAt?: number;
     band?: number;
     hiresLeft?: number;

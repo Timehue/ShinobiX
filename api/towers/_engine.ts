@@ -40,7 +40,7 @@ import {
     type TargetPlan,
 } from '../combat-core/n-actor.js';
 import {
-    COMPANION_ACTOR_ID, COMPANION_MAX_DAMAGE_FRAC, COMPANION_RANGE, companionActor, companionGearDamageMult,
+    COMPANION_ACTOR_ID, COMPANION_MAX_DAMAGE_FRAC, COMPANION_RANGE, companionActor, companionConsumableHealPct, companionGearDamageMult,
     companionHealOnSummonPct, companionMoveDamage, companionObeys, companionOwnerLifestealPct,
     isCompanionActor, pickCompanionMove, type CompanionMove,
 } from './_companion.js';
@@ -2467,8 +2467,10 @@ function applyResolvedAction(session: TowerSession, floor: TowerFloor, action: T
         };
         session.turnQueue.splice(session.activeIndex + 1, 0, COMPANION_ACTOR_ID);
         session.log.push(`${actor.name} summons ${seal.name}!`);
-        // PVE-gear perk: some collars heal the summoner as the pet lands.
-        const healPct = companionHealOnSummonPct(seal.pveGearId);
+        // PVE-gear perk: some collars heal the summoner as the pet lands. The battle
+        // consumable's 25% heal applies here too: the caravan spent the consumable
+        // at settlement but never paid its heal (solo PvE already did).
+        const healPct = companionHealOnSummonPct(seal.pveGearId) + companionConsumableHealPct(seal.consumableId);
         if (healPct > 0 && actor.hp > 0) {
             const heal = Math.max(1, Math.floor(actor.maxHp * (healPct / 100)));
             actor.hp = Math.min(actor.maxHp, actor.hp + heal);

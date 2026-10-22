@@ -3,7 +3,7 @@ import { sanitizeNarrativeIdentity } from './_sanitize-narrative.js';
 import { sanitizeProgression } from './_sanitize-progression.js';
 import { unfundedStatGains } from './_stat-entitlement.js';
 import { sanitizePetRoster } from './_sanitize-pets.js';
-import { sanitizeInventory } from './_sanitize-inventory.js';
+import { foldStackedMaterialsOnSave, sanitizeInventory } from './_sanitize-inventory.js';
 import { preserveGearStepItems } from './_gear-step-floor.js';
 import { recordEquippedNamedGear } from './_named-gear-equipped.js';
 import { sanitizeExamProgress } from './_sanitize-exams.js';
@@ -325,6 +325,9 @@ export function sanitizeCharacterSave(
 
     const finalChar = isFirstSave ? applyCanonicalFirstSave(char) : char;
     enforceRawSaveLedgerBoundary(finalChar, exChar, isFirstSave, inChar);
+    // After the boundary has settled ownership, in both ledger modes: hunt
+    // materials and the Weekly Boss Core move into itemStacks (A12).
+    foldStackedMaterialsOnSave(finalChar);
     if (!isFirstSave && opts.allowGearStepRemoval !== true) preserveGearStepItems(finalChar, exChar);
     if (!isFirstSave && !opts.adminContentSlot) recordEquippedNamedGear(finalChar, exChar);
 

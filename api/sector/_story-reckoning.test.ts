@@ -10,7 +10,9 @@ import {
     ownedItemCount,
     parseStoryReckoningSeal,
     storyReckoningPresenceReason,
+    handOverRetiredProof,
 } from "./_story-reckoning.js";
+import { RETIRED_RELIC_IDS } from "../../shared/relics.js";
 
 test("story reckoning eligibility follows level, village, progress, and completion trait", () => {
     const def = STORY_RECKONINGS["story-reckoning-mira-marker"];
@@ -94,4 +96,21 @@ test("client reckoning data and server catalog agree, with real drop items (no d
     for (const id of Object.keys(STORY_RECKONINGS)) {
         assert.ok(clientIds.has(id), `server catalog has an orphan ${id} with no client arc`);
     }
+});
+
+// 2026-10 item-use pass: the three retired relic ids are turn-in proof only (not
+// equippable, unsellable, wanted by no recipe), so the turn-in takes the copy.
+test("the turn-in hands over a retired proof item and keeps every keepsake", () => {
+    const retired = Object.values(STORY_RECKONINGS).filter((def) => (RETIRED_RELIC_IDS as readonly string[]).includes(def.dropItemId));
+    assert.deepEqual(retired.map((def) => def.dropItemId).sort(), [...RETIRED_RELIC_IDS].sort(), "each retired id is one reckoning's proof");
+    for (const def of retired) {
+        const after = handOverRetiredProof({ inventory: ["cloth-hood", def.dropItemId], itemStacks: [] }, def.dropItemId);
+        assert.deepEqual(after.inventory, ["cloth-hood"], `${def.dropItemId} is handed over`);
+        assert.equal(ownedItemCount(after, def.dropItemId), 0);
+    }
+    const keepsake = { inventory: ["event-kesa-marker"], itemStacks: [] };
+    assert.equal(handOverRetiredProof(keepsake, "event-kesa-marker"), keepsake, "an equippable keepsake stays");
+    const endpoint = readFileSync(join(process.cwd(), "api", "sector", "story-reckoning.ts"), "utf8");
+    assert.match(endpoint, /const handedOver = handOverRetiredProof\(char, def\.dropItemId\);\s*const updated = \{\s*\.\.\.handedOver,/,
+        "the paying turn-in branch builds its character from the handed-over save");
 });

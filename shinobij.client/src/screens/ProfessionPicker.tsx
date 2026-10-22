@@ -39,7 +39,7 @@ const PROFESSIONS: ProfessionInfo[] = [
         name: "Healer",
         tagline: "Mend what war breaks.",
         bullets: [
-            "Heal allies for XP (% HP restored)",
+            "Heal allies for XP (2× the % HP restored)",
             "Faster per-target heal cooldown with rank · instant free self-discharge",
             "Rank 10: see & heal injured villagers anywhere in the world",
         ],

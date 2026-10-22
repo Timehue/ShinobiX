@@ -25,7 +25,7 @@
       "system": "combat-mission",
       "id": "combat-e-drill",
       "currency": "ryo",
-      "amount": 10,
+      "amount": 40,
       "cadence": "per claim",
       "authority": "api/missions/_mission-catalog.ts",
       "notes": ""
@@ -34,7 +34,7 @@
       "system": "combat-mission",
       "id": "combat-d-errand",
       "currency": "ryo",
-      "amount": 20,
+      "amount": 80,
       "cadence": "per claim",
       "authority": "api/missions/_mission-catalog.ts",
       "notes": ""
@@ -43,7 +43,7 @@
       "system": "combat-mission",
       "id": "combat-c-patrol",
       "currency": "ryo",
-      "amount": 60,
+      "amount": 200,
       "cadence": "per claim",
       "authority": "api/missions/_mission-catalog.ts",
       "notes": ""
@@ -52,7 +52,7 @@
       "system": "combat-mission",
       "id": "combat-b-escort",
       "currency": "ryo",
-      "amount": 125,
+      "amount": 380,
       "cadence": "per claim",
       "authority": "api/missions/_mission-catalog.ts",
       "notes": ""
@@ -61,7 +61,7 @@
       "system": "combat-mission",
       "id": "combat-a-hunt",
       "currency": "ryo",
-      "amount": 250,
+      "amount": 600,
       "cadence": "per claim",
       "authority": "api/missions/_mission-catalog.ts",
       "notes": ""
@@ -70,7 +70,7 @@
       "system": "combat-mission",
       "id": "combat-s-crisis",
       "currency": "ryo",
-      "amount": 600,
+      "amount": 900,
       "cadence": "per claim",
       "authority": "api/missions/_mission-catalog.ts",
       "notes": ""
@@ -79,7 +79,7 @@
       "system": "hunt-mission",
       "id": "hunt-wild-boar",
       "currency": "ryo",
-      "amount": 60,
+      "amount": 280,
       "cadence": "per daily claim",
       "authority": "api/missions/_mission-catalog.ts",
       "notes": ""
@@ -89,15 +89,15 @@
       "id": "hunt-wild-boar",
       "currency": "statPoints",
       "amount": 3,
-      "cadence": "per daily claim",
+      "cadence": "per claim, from the shared daily stat-point budget",
       "authority": "api/missions/_mission-catalog.ts",
-      "notes": "Daily checklist progression; XP fields are legacy display data."
+      "notes": "Before mission bonuses; XP fields are legacy display data."
     },
     {
       "system": "hunt-mission",
       "id": "hunt-forest-hawk",
       "currency": "ryo",
-      "amount": 60,
+      "amount": 280,
       "cadence": "per daily claim",
       "authority": "api/missions/_mission-catalog.ts",
       "notes": ""
@@ -107,15 +107,15 @@
       "id": "hunt-forest-hawk",
       "currency": "statPoints",
       "amount": 3,
-      "cadence": "per daily claim",
+      "cadence": "per claim, from the shared daily stat-point budget",
       "authority": "api/missions/_mission-catalog.ts",
-      "notes": "Daily checklist progression; XP fields are legacy display data."
+      "notes": "Before mission bonuses; XP fields are legacy display data."
     },
     {
       "system": "hunt-mission",
       "id": "hunt-frost-wolf",
       "currency": "ryo",
-      "amount": 160,
+      "amount": 480,
       "cadence": "per daily claim",
       "authority": "api/missions/_mission-catalog.ts",
       "notes": ""
@@ -125,15 +125,15 @@
       "id": "hunt-frost-wolf",
       "currency": "statPoints",
       "amount": 3,
-      "cadence": "per daily claim",
+      "cadence": "per claim, from the shared daily stat-point budget",
       "authority": "api/missions/_mission-catalog.ts",
-      "notes": "Daily checklist progression; XP fields are legacy display data."
+      "notes": "Before mission bonuses; XP fields are legacy display data."
     },
     {
       "system": "hunt-mission",
       "id": "hunt-ash-lizard",
       "currency": "ryo",
-      "amount": 160,
+      "amount": 480,
       "cadence": "per daily claim",
       "authority": "api/missions/_mission-catalog.ts",
       "notes": ""
@@ -143,15 +143,15 @@
       "id": "hunt-ash-lizard",
       "currency": "statPoints",
       "amount": 3,
-      "cadence": "per daily claim",
+      "cadence": "per claim, from the shared daily stat-point budget",
       "authority": "api/missions/_mission-catalog.ts",
-      "notes": "Daily checklist progression; XP fields are legacy display data."
+      "notes": "Before mission bonuses; XP fields are legacy display data."
     },
     {
       "system": "hunt-mission",
       "id": "hunt-shadow-panther",
       "currency": "ryo",
-      "amount": 340,
+      "amount": 660,
       "cadence": "per daily claim",
       "authority": "api/missions/_mission-catalog.ts",
       "notes": ""
@@ -161,9 +161,9 @@
       "id": "hunt-shadow-panther",
       "currency": "statPoints",
       "amount": 3,
-      "cadence": "per daily claim",
+      "cadence": "per claim, from the shared daily stat-point budget",
       "authority": "api/missions/_mission-catalog.ts",
-      "notes": "Daily checklist progression; XP fields are legacy display data."
+      "notes": "Before mission bonuses; XP fields are legacy display data."
     },
     {
       "system": "hunt-mission",
@@ -178,7 +178,7 @@
       "system": "hunt-mission",
       "id": "hunt-ironback-bear",
       "currency": "ryo",
-      "amount": 340,
+      "amount": 660,
       "cadence": "per daily claim",
       "authority": "api/missions/_mission-catalog.ts",
       "notes": ""
@@ -188,9 +188,9 @@
       "id": "hunt-ironback-bear",
       "currency": "statPoints",
       "amount": 3,
-      "cadence": "per daily claim",
+      "cadence": "per claim, from the shared daily stat-point budget",
       "authority": "api/missions/_mission-catalog.ts",
-      "notes": "Daily checklist progression; XP fields are legacy display data."
+      "notes": "Before mission bonuses; XP fields are legacy display data."
     },
     {
       "system": "hunt-mission",
@@ -205,7 +205,7 @@
       "system": "hunt-mission",
       "id": "hunt-ember-drake",
       "currency": "ryo",
-      "amount": 750,
+      "amount": 1020,
       "cadence": "per daily claim",
       "authority": "api/missions/_mission-catalog.ts",
       "notes": ""
@@ -215,15 +215,15 @@
       "id": "hunt-ember-drake",
       "currency": "statPoints",
       "amount": 3,
-      "cadence": "per daily claim",
+      "cadence": "per claim, from the shared daily stat-point budget",
       "authority": "api/missions/_mission-catalog.ts",
-      "notes": "Daily checklist progression; XP fields are legacy display data."
+      "notes": "Before mission bonuses; XP fields are legacy display data."
     },
     {
       "system": "hunt-mission",
       "id": "hunt-ember-drake",
       "currency": "boneCharms",
-      "amount": 2,
+      "amount": 1,
       "cadence": "per daily claim",
       "authority": "api/missions/_mission-catalog.ts",
       "notes": ""
@@ -241,7 +241,7 @@
       "system": "hunt-mission",
       "id": "hunt-moon-serpent",
       "currency": "ryo",
-      "amount": 750,
+      "amount": 1020,
       "cadence": "per daily claim",
       "authority": "api/missions/_mission-catalog.ts",
       "notes": ""
@@ -251,15 +251,15 @@
       "id": "hunt-moon-serpent",
       "currency": "statPoints",
       "amount": 3,
-      "cadence": "per daily claim",
+      "cadence": "per claim, from the shared daily stat-point budget",
       "authority": "api/missions/_mission-catalog.ts",
-      "notes": "Daily checklist progression; XP fields are legacy display data."
+      "notes": "Before mission bonuses; XP fields are legacy display data."
     },
     {
       "system": "hunt-mission",
       "id": "hunt-moon-serpent",
       "currency": "boneCharms",
-      "amount": 2,
+      "amount": 1,
       "cadence": "per daily claim",
       "authority": "api/missions/_mission-catalog.ts",
       "notes": ""
@@ -277,7 +277,7 @@
       "system": "hunt-mission",
       "id": "hunt-ancient-chakra-beast",
       "currency": "ryo",
-      "amount": 1800,
+      "amount": 1450,
       "cadence": "per daily claim",
       "authority": "api/missions/_mission-catalog.ts",
       "notes": ""
@@ -287,15 +287,15 @@
       "id": "hunt-ancient-chakra-beast",
       "currency": "statPoints",
       "amount": 3,
-      "cadence": "per daily claim",
+      "cadence": "per claim, from the shared daily stat-point budget",
       "authority": "api/missions/_mission-catalog.ts",
-      "notes": "Daily checklist progression; XP fields are legacy display data."
+      "notes": "Before mission bonuses; XP fields are legacy display data."
     },
     {
       "system": "hunt-mission",
       "id": "hunt-ancient-chakra-beast",
       "currency": "boneCharms",
-      "amount": 3,
+      "amount": 2,
       "cadence": "per daily claim",
       "authority": "api/missions/_mission-catalog.ts",
       "notes": ""
@@ -311,18 +311,9 @@
     },
     {
       "system": "hunt-mission",
-      "id": "hunt-ancient-chakra-beast",
-      "currency": "fateShards",
-      "amount": 1,
-      "cadence": "per daily claim",
-      "authority": "api/missions/_mission-catalog.ts",
-      "notes": ""
-    },
-    {
-      "system": "hunt-mission",
       "id": "hunt-worldstorm-dragon",
       "currency": "ryo",
-      "amount": 1800,
+      "amount": 1450,
       "cadence": "per daily claim",
       "authority": "api/missions/_mission-catalog.ts",
       "notes": ""
@@ -332,15 +323,15 @@
       "id": "hunt-worldstorm-dragon",
       "currency": "statPoints",
       "amount": 3,
-      "cadence": "per daily claim",
+      "cadence": "per claim, from the shared daily stat-point budget",
       "authority": "api/missions/_mission-catalog.ts",
-      "notes": "Daily checklist progression; XP fields are legacy display data."
+      "notes": "Before mission bonuses; XP fields are legacy display data."
     },
     {
       "system": "hunt-mission",
       "id": "hunt-worldstorm-dragon",
       "currency": "boneCharms",
-      "amount": 3,
+      "amount": 2,
       "cadence": "per daily claim",
       "authority": "api/missions/_mission-catalog.ts",
       "notes": ""
@@ -355,19 +346,10 @@
       "notes": ""
     },
     {
-      "system": "hunt-mission",
-      "id": "hunt-worldstorm-dragon",
-      "currency": "fateShards",
-      "amount": 1,
-      "cadence": "per daily claim",
-      "authority": "api/missions/_mission-catalog.ts",
-      "notes": ""
-    },
-    {
       "system": "field-mission",
       "id": "fetch-d-supply-trail",
       "currency": "ryo",
-      "amount": 75,
+      "amount": 100,
       "cadence": "per daily claim",
       "authority": "api/missions/_mission-catalog.ts",
       "notes": ""
@@ -377,15 +359,15 @@
       "id": "fetch-d-supply-trail",
       "currency": "statPoints",
       "amount": 3,
-      "cadence": "per daily claim",
+      "cadence": "per claim, from the shared daily stat-point budget",
       "authority": "api/missions/_mission-catalog.ts",
-      "notes": "Daily checklist progression; XP fields are legacy display data."
+      "notes": "Before mission bonuses; XP fields are legacy display data."
     },
     {
       "system": "field-mission",
       "id": "fetch-c-border-scout",
       "currency": "ryo",
-      "amount": 190,
+      "amount": 540,
       "cadence": "per daily claim",
       "authority": "api/missions/_mission-catalog.ts",
       "notes": ""
@@ -395,15 +377,15 @@
       "id": "fetch-c-border-scout",
       "currency": "statPoints",
       "amount": 3,
-      "cadence": "per daily claim",
+      "cadence": "per claim, from the shared daily stat-point budget",
       "authority": "api/missions/_mission-catalog.ts",
-      "notes": "Daily checklist progression; XP fields are legacy display data."
+      "notes": "Before mission bonuses; XP fields are legacy display data."
     },
     {
       "system": "field-mission",
       "id": "fetch-b-enemy-cache",
       "currency": "ryo",
-      "amount": 420,
+      "amount": 1320,
       "cadence": "per daily claim",
       "authority": "api/missions/_mission-catalog.ts",
       "notes": ""
@@ -413,9 +395,9 @@
       "id": "fetch-b-enemy-cache",
       "currency": "statPoints",
       "amount": 3,
-      "cadence": "per daily claim",
+      "cadence": "per claim, from the shared daily stat-point budget",
       "authority": "api/missions/_mission-catalog.ts",
-      "notes": "Daily checklist progression; XP fields are legacy display data."
+      "notes": "Before mission bonuses; XP fields are legacy display data."
     },
     {
       "system": "field-mission",
@@ -430,7 +412,7 @@
       "system": "field-mission",
       "id": "fetch-a-black-route",
       "currency": "ryo",
-      "amount": 900,
+      "amount": 3050,
       "cadence": "per daily claim",
       "authority": "api/missions/_mission-catalog.ts",
       "notes": ""
@@ -440,9 +422,9 @@
       "id": "fetch-a-black-route",
       "currency": "statPoints",
       "amount": 3,
-      "cadence": "per daily claim",
+      "cadence": "per claim, from the shared daily stat-point budget",
       "authority": "api/missions/_mission-catalog.ts",
-      "notes": "Daily checklist progression; XP fields are legacy display data."
+      "notes": "Before mission bonuses; XP fields are legacy display data."
     },
     {
       "system": "field-mission",
@@ -466,7 +448,7 @@
       "system": "field-mission",
       "id": "fetch-s-shadow-front",
       "currency": "ryo",
-      "amount": 2100,
+      "amount": 5630,
       "cadence": "per daily claim",
       "authority": "api/missions/_mission-catalog.ts",
       "notes": ""
@@ -476,9 +458,9 @@
       "id": "fetch-s-shadow-front",
       "currency": "statPoints",
       "amount": 3,
-      "cadence": "per daily claim",
+      "cadence": "per claim, from the shared daily stat-point budget",
       "authority": "api/missions/_mission-catalog.ts",
-      "notes": "Daily checklist progression; XP fields are legacy display data."
+      "notes": "Before mission bonuses; XP fields are legacy display data."
     },
     {
       "system": "field-mission",
@@ -499,15 +481,6 @@
       "notes": ""
     },
     {
-      "system": "field-mission",
-      "id": "fetch-s-shadow-front",
-      "currency": "fateShards",
-      "amount": 1,
-      "cadence": "per daily claim",
-      "authority": "api/missions/_mission-catalog.ts",
-      "notes": ""
-    },
-    {
       "system": "academy",
       "id": "academy-trial",
       "currency": "xp",
@@ -520,7 +493,7 @@
       "system": "academy",
       "id": "academy-trial",
       "currency": "ryo",
-      "amount": 30,
+      "amount": 6000,
       "cadence": "once per account",
       "authority": "api/missions/_mission-catalog.ts",
       "notes": ""
@@ -547,7 +520,7 @@
       "system": "academy",
       "id": "academy-checklist",
       "currency": "ryo",
-      "amount": 120,
+      "amount": 4000,
       "cadence": "once per account",
       "authority": "api/missions/_mission-catalog.ts",
       "notes": ""
@@ -584,8 +557,44 @@
       "id": "streak-shards",
       "currency": "fateShards",
       "amount": 5,
-      "cadence": "every 7 streak days",
+      "cadence": "every 7 claim days (never resets)",
       "authority": "api/player/_daily-login.ts",
+      "notes": ""
+    },
+    {
+      "system": "daily-login",
+      "id": "streak-early-shards",
+      "currency": "fateShards",
+      "amount": 2,
+      "cadence": "claim days 2 and 3 (once per character)",
+      "authority": "api/player/_daily-login.ts",
+      "notes": ""
+    },
+    {
+      "system": "hunt-mission",
+      "id": "chance-drop",
+      "currency": "fateShards",
+      "amount": 1,
+      "cadence": "25% per hunt or fetch-s-shadow-front claim (L20+, account 72h+; dial HUNT_FS_CHANCE; no cap)",
+      "authority": "api/missions/_mission-catalog.ts",
+      "notes": ""
+    },
+    {
+      "system": "hunt-mission",
+      "id": "chance-drop",
+      "currency": "auraStones",
+      "amount": 1,
+      "cadence": "20% per hunt claim (L50+; dial HUNT_AS_CHANCE; no cap)",
+      "authority": "api/missions/_mission-catalog.ts",
+      "notes": ""
+    },
+    {
+      "system": "daily-stat-budget",
+      "id": "shared-cap",
+      "currency": "statPoints",
+      "amount": 60,
+      "cadence": "daily ceiling shared by hunt/field claims, PvE and PvP wins (dial DAILY_STAT_POINT_CAP)",
+      "authority": "api/_stat-growth.ts",
       "notes": ""
     },
     {
@@ -601,7 +610,16 @@
       "system": "war-crate",
       "id": "legendary-war-crate",
       "currency": "honorSeals",
-      "amount": 10,
+      "amount": 25,
+      "cadence": "per crate",
+      "authority": "api/inventory/_war-crate.ts",
+      "notes": ""
+    },
+    {
+      "system": "war-crate",
+      "id": "legendary-war-crate",
+      "currency": "boneCharms",
+      "amount": 1,
       "cadence": "per crate",
       "authority": "api/inventory/_war-crate.ts",
       "notes": ""
@@ -657,7 +675,7 @@
       "system": "shop",
       "id": "ancient-pet-treat",
       "currency": "ryo",
-      "amount": 520,
+      "amount": 400,
       "cadence": "per unit",
       "authority": "api/pvp/_item-catalog.ts",
       "notes": "epic item"
@@ -907,6 +925,15 @@
     },
     {
       "system": "shop",
+      "id": "collar-prismatic",
+      "currency": "fateShards",
+      "amount": 400,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "mythic item"
+    },
+    {
+      "system": "shop",
       "id": "collar-rose",
       "currency": "fateShards",
       "amount": 120,
@@ -981,7 +1008,7 @@
       "system": "shop",
       "id": "consum-smoke-pellet",
       "currency": "ryo",
-      "amount": 960,
+      "amount": 600,
       "cadence": "per unit",
       "authority": "api/pvp/_item-catalog.ts",
       "notes": "uncommon item"
@@ -1080,7 +1107,7 @@
       "system": "shop",
       "id": "elemental-pet-treat",
       "currency": "ryo",
-      "amount": 260,
+      "amount": 200,
       "cadence": "per unit",
       "authority": "api/pvp/_item-catalog.ts",
       "notes": "rare item"
@@ -1440,7 +1467,7 @@
       "system": "shop",
       "id": "pve-avengers-pendant",
       "currency": "ryo",
-      "amount": 7200,
+      "amount": 4000,
       "cadence": "per unit",
       "authority": "api/pvp/_item-catalog.ts",
       "notes": "epic item"
@@ -1728,7 +1755,7 @@
       "system": "shop",
       "id": "shinobi-vest",
       "currency": "ryo",
-      "amount": 180,
+      "amount": 60,
       "cadence": "per unit",
       "authority": "api/pvp/_item-catalog.ts",
       "notes": "common body"
@@ -1764,10 +1791,10 @@
       "system": "shop",
       "id": "thrown-senbon",
       "currency": "ryo",
-      "amount": 400,
+      "amount": 150,
       "cadence": "per unit",
       "authority": "api/pvp/_item-catalog.ts",
-      "notes": "rare thrown"
+      "notes": "uncommon thrown"
     },
     {
       "system": "shop",
@@ -1863,7 +1890,7 @@
       "system": "bloodline-forge",
       "id": "B Rank",
       "currency": "boneCharms",
-      "amount": 100,
+      "amount": 200,
       "cadence": "per forge",
       "authority": "api/bloodlines/_forge.ts",
       "notes": ""
@@ -1890,7 +1917,7 @@
       "system": "hollow-key-forge",
       "id": "hollowShards",
       "currency": "hollowShards",
-      "amount": 80,
+      "amount": 120,
       "cadence": "per key",
       "authority": "api/hollow-gate/_forge-key.ts",
       "notes": ""
@@ -1908,7 +1935,7 @@
       "system": "hollow-key-forge",
       "id": "fateShards",
       "currency": "fateShards",
-      "amount": 10,
+      "amount": 15,
       "cadence": "per key",
       "authority": "api/hollow-gate/_forge-key.ts",
       "notes": ""
@@ -1980,7 +2007,7 @@
       "system": "kage",
       "id": "declare-challenge",
       "currency": "ryo",
-      "amount": 250000,
+      "amount": 400000,
       "cadence": "per challenge",
       "authority": "api/village/_kage-challenge.ts",
       "notes": ""
@@ -2056,6 +2083,132 @@
       "cadence": "per hire",
       "authority": "api/_war-economy.ts",
       "notes": "level 100"
+    },
+    {
+      "system": "war-mercenary",
+      "id": "merc-ronin",
+      "currency": "treasuryRyo",
+      "amount": 15000,
+      "cadence": "per hire",
+      "authority": "shared/war-treasury-costs.ts",
+      "notes": "WAR_RYO_PER_WR dial; Kage only"
+    },
+    {
+      "system": "war-mercenary",
+      "id": "merc-reaver",
+      "currency": "treasuryRyo",
+      "amount": 27500,
+      "cadence": "per hire",
+      "authority": "shared/war-treasury-costs.ts",
+      "notes": "WAR_RYO_PER_WR dial; Kage only"
+    },
+    {
+      "system": "war-mercenary",
+      "id": "merc-shadow",
+      "currency": "treasuryRyo",
+      "amount": 42500,
+      "cadence": "per hire",
+      "authority": "shared/war-treasury-costs.ts",
+      "notes": "WAR_RYO_PER_WR dial; Kage only"
+    },
+    {
+      "system": "war-mercenary",
+      "id": "merc-oni",
+      "currency": "treasuryRyo",
+      "amount": 70000,
+      "cadence": "per hire",
+      "authority": "shared/war-treasury-costs.ts",
+      "notes": "WAR_RYO_PER_WR dial; Kage only"
+    },
+    {
+      "system": "war-mercenary",
+      "id": "merc-warlord",
+      "currency": "treasuryRyo",
+      "amount": 105000,
+      "cadence": "per hire",
+      "authority": "shared/war-treasury-costs.ts",
+      "notes": "WAR_RYO_PER_WR dial; Kage only"
+    },
+    {
+      "system": "war-preparation",
+      "id": "tier-1",
+      "currency": "warResources",
+      "amount": 40,
+      "cadence": "per key per war",
+      "authority": "shared/war-preparations.ts",
+      "notes": ""
+    },
+    {
+      "system": "war-preparation",
+      "id": "tier-1",
+      "currency": "treasuryRyo",
+      "amount": 10000,
+      "cadence": "per key per war",
+      "authority": "shared/war-preparations.ts",
+      "notes": "WAR_RYO_PER_WR dial"
+    },
+    {
+      "system": "war-preparation",
+      "id": "tier-1",
+      "currency": "treasuryBoneCharms",
+      "amount": 20,
+      "cadence": "per key per war",
+      "authority": "shared/war-preparations.ts",
+      "notes": ""
+    },
+    {
+      "system": "war-preparation",
+      "id": "tier-2",
+      "currency": "warResources",
+      "amount": 80,
+      "cadence": "per key per war",
+      "authority": "shared/war-preparations.ts",
+      "notes": ""
+    },
+    {
+      "system": "war-preparation",
+      "id": "tier-2",
+      "currency": "treasuryRyo",
+      "amount": 20000,
+      "cadence": "per key per war",
+      "authority": "shared/war-preparations.ts",
+      "notes": "WAR_RYO_PER_WR dial"
+    },
+    {
+      "system": "war-preparation",
+      "id": "tier-2",
+      "currency": "treasuryBoneCharms",
+      "amount": 40,
+      "cadence": "per key per war",
+      "authority": "shared/war-preparations.ts",
+      "notes": ""
+    },
+    {
+      "system": "war-preparation",
+      "id": "tier-3",
+      "currency": "warResources",
+      "amount": 120,
+      "cadence": "per key per war",
+      "authority": "shared/war-preparations.ts",
+      "notes": ""
+    },
+    {
+      "system": "war-preparation",
+      "id": "tier-3",
+      "currency": "treasuryRyo",
+      "amount": 30000,
+      "cadence": "per key per war",
+      "authority": "shared/war-preparations.ts",
+      "notes": "WAR_RYO_PER_WR dial"
+    },
+    {
+      "system": "war-preparation",
+      "id": "tier-3",
+      "currency": "treasuryBoneCharms",
+      "amount": 60,
+      "cadence": "per key per war",
+      "authority": "shared/war-preparations.ts",
+      "notes": ""
     }
   ],
   "shopItems": [
@@ -2065,7 +2218,7 @@
       "rarity": "epic",
       "slot": "item",
       "levelReq": 1,
-      "baseCost": 520,
+      "baseCost": 400,
       "currency": "ryo"
     },
     {
@@ -2312,6 +2465,15 @@
       "currency": "fateShards"
     },
     {
+      "id": "collar-prismatic",
+      "name": "Prismatic Collar",
+      "rarity": "mythic",
+      "slot": "item",
+      "levelReq": 1,
+      "baseCost": 400,
+      "currency": "fateShards"
+    },
+    {
       "id": "collar-rose",
       "name": "Blossom Collar",
       "rarity": "mythic",
@@ -2389,7 +2551,7 @@
       "rarity": "uncommon",
       "slot": "item",
       "levelReq": 1,
-      "baseCost": 960,
+      "baseCost": 600,
       "currency": "ryo"
     },
     {
@@ -2488,7 +2650,7 @@
       "rarity": "rare",
       "slot": "item",
       "levelReq": 1,
-      "baseCost": 260,
+      "baseCost": 200,
       "currency": "ryo"
     },
     {
@@ -2848,7 +3010,7 @@
       "rarity": "epic",
       "slot": "item",
       "levelReq": 1,
-      "baseCost": 7200,
+      "baseCost": 4000,
       "currency": "ryo"
     },
     {
@@ -3136,7 +3298,7 @@
       "rarity": "common",
       "slot": "body",
       "levelReq": 1,
-      "baseCost": 180,
+      "baseCost": 60,
       "currency": "ryo"
     },
     {
@@ -3169,10 +3331,10 @@
     {
       "id": "thrown-senbon",
       "name": "Senbon",
-      "rarity": "rare",
+      "rarity": "uncommon",
       "slot": "thrown",
       "levelReq": 1,
-      "baseCost": 400,
+      "baseCost": 150,
       "currency": "ryo"
     },
     {
@@ -3304,7 +3466,7 @@
     },
     "crate": {
       "ryo": 500,
-      "honorSeals": 10,
+      "honorSeals": 25,
       "dungeonKeyChance": 0.35
     }
   },
@@ -3337,7 +3499,7 @@
   },
   "notes": [
     "Amounts are base values. Runtime discounts, village upgrades, entitlements, and idempotency gates remain in code.",
-    "Legacy XP fields are exported for fidelity, but field/hunt progression is modeled as statPoints per the authoritative daily checklist.",
+    "Legacy XP fields are exported for fidelity, but field/hunt progression is modeled as statPoints drawn from the shared daily stat-point budget.",
     "Custom/admin content and probabilistic/event rewards are intentionally excluded unless represented by a stable server constant."
   ]
 }
