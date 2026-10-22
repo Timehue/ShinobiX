@@ -65,7 +65,7 @@ const REPAIRED_RIG_REVISIONS: Readonly<Record<string, string>> = {
     'rare-1': SHARED_RIG_REPAIR_REVISION_2,
     'rare-2': SHARED_RIG_REPAIR_REVISION_2,
     'rare-4': SHARED_RIG_REPAIR_REVISION_2,
-    'rare-6': SHARED_RIG_REPAIR_REVISION_2,
+    'rare-6': '20261021-viper-lean-no-coil-v1',
     'rare-11': SHARED_RIG_REPAIR_REVISION_2,
     'rare-12': SHARED_RIG_REPAIR_REVISION_2,
     'rare-13': SHARED_RIG_REPAIR_REVISION_2,
@@ -163,7 +163,7 @@ const REPAIRED_RIG_REVISIONS: Readonly<Record<string, string>> = {
     'standard-8': "20261014-reviewed-skull-v1",
     'standard-9': SHARED_RIG_REPAIR_REVISION_5,
     ...Object.fromEntries([
-        'standard-2', 'standard-3', 'standard-15', 'rare-3', 'rare-6', 'rare-21',
+        'standard-2', 'standard-3', 'standard-15', 'rare-3', 'rare-21',
     ].map(id => [id, FINAL_SIX_PET_REPAIR_REVISION])),
     ...Object.fromEntries([
         'legendary-0', 'standard-39', 'standard-47', 'standard-48',

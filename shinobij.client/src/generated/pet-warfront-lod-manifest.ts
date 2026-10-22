@@ -92,7 +92,7 @@ const modelRows = [
     ["roster/rare-48.glb","-2beae9892d3e-aaccda813f03",40000,14000],
     ["roster/rare-49.glb","-7c03b5408685-f932d72bde29",40000,10000],
     ["roster/rare-5.glb","-822922ebb6a9-75ecf3ff80ac",40000,10000],
-    ["roster/rare-6.glb","-4d3136a78c73-8a713fca3ad3",40000,10000],
+    ["roster/rare-6.glb","-99576c778214-c7f0310195a1",34726,10000],
     ["roster/rare-7.glb","-ca345fab1f67-ff6e981e230d",40000,10000],
     ["roster/rare-8.glb","-ee1ba3aefbc3-e71fca282959",40000,10000],
     ["roster/rare-9.glb","-954d6063adc9-4a8fca3afbf4",40000,10000],

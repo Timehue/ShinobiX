@@ -1,0 +1,32 @@
+{
+  "status": "Reviewed authoring inputs; CI and production verification are separate release gates",
+  "originalSourceSha256": "4d3136a78c73e66269ada4b2f02bcade5b279aa6dd7ea03a56d5c712e9ec398c",
+  "sourceCandidateSha256": "99576c778214596fd055148b3ce0cb26ef2f5f112f521b3fe0a5c60d3232bb2b",
+  "blender": "4.5.14 LTS 62c1db4208e8",
+  "inputs": {
+    "source-before-remake.glb": {
+      "sha256": "4d3136a78c73e66269ada4b2f02bcade5b279aa6dd7ea03a56d5c712e9ec398c",
+      "bytes": 2304004
+    },
+    "authored-geometry.json.gz": {
+      "sha256": "51278bcf7f890856cd250136cfbebea95289b1af7b4b8f889a92a66d1edad808",
+      "bytes": 2028062
+    },
+    "lean-texture.webp": {
+      "sha256": "6ba909db13927f920a1ff06a242894d67c385312ef0313903e29f8b36d61c6e3",
+      "bytes": 2118942
+    },
+    "sculpt.py": {
+      "sha256": "f9f4112265fb5a10408f86a05d6652939eaf20e3814d50811b1032bfa69c50d4",
+      "bytes": 8621
+    },
+    "bake-texture.py": {
+      "sha256": "3a5449aca1cb9a301fe9e2119c1c5c4083f75027849d5d29c1159484445ee41c",
+      "bytes": 4528
+    },
+    "prepare-authoring-inputs.mjs": {
+      "sha256": "4669e845f4d3c0ca6bd5afb90f7a56e68ec44430d8d80bdccc3511c4293e62c4",
+      "bytes": 2163
+    }
+  }
+}

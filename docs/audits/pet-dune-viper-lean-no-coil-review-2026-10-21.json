@@ -1,0 +1,152 @@
+{
+  "schema": 1,
+  "status": "LOCAL_VISUAL_AND_NUMERIC_GATES_PASSED",
+  "action": "STAGE_NEW_PACKAGE",
+  "petId": "rare-6",
+  "assetPins": {
+    "source": {
+      "path": "shinobij.client/public/pet-models/roster/rare-6.glb",
+      "sha256": "99576c778214596fd055148b3ce0cb26ef2f5f112f521b3fe0a5c60d3232bb2b"
+    },
+    "battle": {
+      "path": "shinobij.client/public/pet-models/warfront-lod/roster/rare-6.glb",
+      "sha256": "c7f0310195a184e5287ffb035efa6f8105f8705260e9d49273b37cf2679cdca8"
+    },
+    "atlas": {
+      "path": "shinobij.client/public/pet-models/warfront-impostors/roster/rare-6.webp",
+      "sha256": "b406b5a966e3555572e32e300ff4fde6e4feadfaa1f200d06a8a15f467524acc"
+    }
+  },
+  "reviews": [
+    {
+      "path": "C:\\Users\\Tyler R\\.codex\\worktrees\\40c2\\NinjaK\\.tmp\\sol-pet-release\\shinobij.client\\.tmp\\viper-tail-rebuild\\review-a-all-v14-attestation.json",
+      "reviewer": "review_a_luna",
+      "sha256": "617189be1cd2902f9c6e74d98d06f899b65575011ae9ce6e3e4223604485940a"
+    },
+    {
+      "path": "C:\\Users\\Tyler R\\.codex\\worktrees\\40c2\\NinjaK\\.tmp\\sol-pet-release\\shinobij.client\\.tmp\\viper-tail-rebuild\\review-c-all-v14.json",
+      "reviewer": "C",
+      "sha256": "2eb08fc8aae346a44a95017de251a6917aad12593679054357e306d5d132c5be"
+    }
+  ],
+  "captureManifests": [
+    {
+      "path": "C:\\Users\\Tyler R\\.codex\\worktrees\\40c2\\NinjaK\\.tmp\\sol-pet-release\\shinobij.client\\.tmp\\viper-tail-rebuild\\slim-v14-source-full-capture\\manifest.json",
+      "sha256": "86f7ff118640000389857e1b3deead5445b501d7120b488aad094108f2ce0e41",
+      "evidenceRows": 481
+    },
+    {
+      "path": "C:\\Users\\Tyler R\\.codex\\worktrees\\40c2\\NinjaK\\.tmp\\sol-pet-release\\shinobij.client\\.tmp\\viper-tail-rebuild\\slim-v14-battle-full-capture\\manifest.json",
+      "sha256": "6b8fd5a15f7a1a6021ae6deddc0b6ae7c992aa9b9f5ee506a8b967a1fc0c2fb0",
+      "evidenceRows": 481
+    },
+    {
+      "path": "C:\\Users\\Tyler R\\.codex\\worktrees\\40c2\\NinjaK\\.tmp\\sol-pet-release\\shinobij.client\\.tmp\\pet-shape-review\\viper-no-coil-runtime-v14\\manifest.json",
+      "sha256": "aa99a63322ee86968161a8f36bb1478a256696ade7f5d2e8cbdfe2810f06d416",
+      "evidenceRows": 4
+    },
+    {
+      "path": "C:\\Users\\Tyler R\\.codex\\worktrees\\40c2\\NinjaK\\.tmp\\sol-pet-release\\shinobij.client\\.tmp\\pet-shape-review\\viper-no-coil-runtime-v14-low\\manifest.json",
+      "sha256": "258d715bad340dc36eb85f8344eb45c65906fdc7a69c09343fb7dac9f14a7861",
+      "evidenceRows": 4
+    },
+    {
+      "path": "C:\\Users\\Tyler R\\.codex\\worktrees\\40c2\\NinjaK\\.tmp\\sol-pet-release\\shinobij.client\\.tmp\\pet-companion-techniques\\viper-no-coil-v14\\manifest.json",
+      "sha256": "ef0767d1bc6e903de6e7698577675c05da75f0cc4f755eac03dbadcc0601b5fb",
+      "evidenceRows": 252
+    }
+  ],
+  "numericArtifacts": [
+    {
+      "path": "C:\\Users\\Tyler R\\.codex\\worktrees\\40c2\\NinjaK\\.tmp\\sol-pet-release\\shinobij.client\\.tmp\\pet-animation-audit\\rare-6-no-coil-v14-source-motion-audit.json.gz",
+      "sha256": "30d91d488cc8bcd71a0595163b45cfcecb7efb22ba8f9c7f92d3875fbd217b6f"
+    },
+    {
+      "path": "C:\\Users\\Tyler R\\.codex\\worktrees\\40c2\\NinjaK\\.tmp\\sol-pet-release\\shinobij.client\\.tmp\\pet-animation-audit\\rare-6-no-coil-v14-battle-motion-audit.json.gz",
+      "sha256": "65d10ce0b1157fe14163c3e1a892743b6017094f8970a01e8d4bc249e6542180"
+    },
+    {
+      "path": "C:\\Users\\Tyler R\\.codex\\worktrees\\40c2\\NinjaK\\.tmp\\sol-pet-release\\shinobij.client\\.tmp\\pet-independent-face-recheck\\probes\\viper-no-coil-v14.json",
+      "sha256": "dbc14ee848335b5f31ea7d0b7eef1bbcda703ea1607bee7fef3d166c1102dbfe"
+    },
+    {
+      "path": "C:\\Users\\Tyler R\\.codex\\worktrees\\40c2\\NinjaK\\.tmp\\sol-pet-release\\shinobij.client\\.tmp\\viper-tail-rebuild\\v14-floor-480hz.json",
+      "sha256": "ebd7be35a6e5d015182a098904686fcc17d045c4cfd138a98f6f26b6d6e0bf94"
+    },
+    {
+      "path": "C:\\Users\\Tyler R\\.codex\\worktrees\\40c2\\NinjaK\\.tmp\\sol-pet-release\\shinobij.client\\.tmp\\pet-model-certification\\structural-audit.json",
+      "sha256": "4e46a28456ef4b168901023ef9bbaf389fbda7badfaaa07d6b3d6603ae26a1f7"
+    },
+    {
+      "path": "C:\\Users\\Tyler R\\.codex\\worktrees\\40c2\\NinjaK\\.tmp\\sol-pet-release\\shinobij.client\\.tmp\\viper-tail-rebuild\\v14-gate-summary.json",
+      "sha256": "66db13b3801c646ba09db061125f31d6072b0405396fab879852857e86c8777b"
+    },
+    {
+      "path": "C:\\Users\\Tyler R\\.codex\\worktrees\\40c2\\NinjaK\\.tmp\\sol-pet-release\\shinobij.client\\.tmp\\viper-tail-rebuild\\v14-metadata-conservation.json",
+      "sha256": "a99a44feca0c846e74940b5fda38b6d868045d380b6ff288589aeb7976f323ef"
+    },
+    {
+      "path": "C:\\Users\\Tyler R\\.codex\\worktrees\\40c2\\NinjaK\\.tmp\\sol-pet-release\\shinobij.client\\.tmp-viper-remake-tests.log",
+      "sha256": "7961047db1e5bd06017c1087b5b08b71827da8775eaaeb7c2f6746e550d10ada"
+    },
+    {
+      "path": "C:\\Users\\Tyler R\\.codex\\worktrees\\40c2\\NinjaK\\.tmp\\sol-pet-release\\shinobij.client\\.tmp-viper-no-coil-lint.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "evidenceFileCount": 1222,
+  "destination": "docs/screenshots/pet-dune-viper-lean-no-coil-review-2026-10-21",
+  "newAudit": "docs/audits/pet-dune-viper-lean-no-coil-review-2026-10-21.json",
+  "canonicalShapeReceiptModified": true,
+  "integrityManifest": "docs/screenshots/pet-dune-viper-lean-no-coil-review-2026-10-21/integrity-manifest.json",
+  "reviewedAt": "2026-10-21T16:20:22.941Z",
+  "numericGates": {
+    "id": "rare-6",
+    "sourceSha256": "99576c778214596fd055148b3ce0cb26ef2f5f112f521b3fe0a5c60d3232bb2b",
+    "battleSha256": "c7f0310195a184e5287ffb035efa6f8105f8705260e9d49273b37cf2679cdca8",
+    "atlasSha256": "b406b5a966e3555572e32e300ff4fde6e4feadfaa1f200d06a8a15f467524acc",
+    "geometry": {
+      "source": {
+        "poses": 57589,
+        "deformationWarnings": 0
+      },
+      "battle": {
+        "poses": 57589,
+        "deformationWarnings": 0
+      },
+      "allVertices": true,
+      "connectedUvSeams": true
+    },
+    "face": {
+      "assets": 2,
+      "clipsPerAsset": 13,
+      "crossBlendsPerAsset": 468,
+      "failures": 0,
+      "frozenPicksUnchanged": true
+    },
+    "floor": {
+      "sampleHz": 480,
+      "posesPerAsset": 7146,
+      "sourceClearance": 0.0024727454395431225,
+      "battleClearance": 0.0033497625538728704
+    },
+    "structural": {
+      "models": 161,
+      "failures": 0,
+      "duplicates": 0,
+      "missingTailWeights": 0
+    },
+    "regressionTests": {
+      "passed": 3,
+      "failed": 0
+    },
+    "scope": "Local numeric gates only; visual reports, CI and actual live verification are separate."
+  },
+  "productionBuild": {
+    "status": "PASS",
+    "productJsCssBytes": 9571135,
+    "maximumBytes": 9585000
+  },
+  "ci": "pending",
+  "liveVerified": false
+}
