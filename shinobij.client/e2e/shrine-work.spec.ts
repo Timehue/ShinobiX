@@ -10,6 +10,8 @@ import {isWalkableTile} from '../../shared/sector-walk-mask';
 type Pose={col:number;row:number;activity?:string};
 declare global{interface Window{shrineWorkPose:()=>Pose;shrineWorkVisitors:()=>Pose[]}}
 const evidence=process.env.SHRINE_WORK_EVIDENCE_DIR??'../output/living-world/leaf-work/browser';mkdirSync(evidence,{recursive:true});
+// Fixed, not Date.now(): a roaming Legacy Emissary ignores quietRoadCooldowns, and no sector has one at any hour of 2026-10-10 (01:00 UTC is world noon).
+const LEAF_WORK_SCENARIO_EPOCH=Date.UTC(2026,9,10,1);
 
 test('a crowded shrine greeting leaves the caretaker name attached to its owner',async({page},info)=>{
     // A deterministic DOM geometry fixture: unlike the native journey below,
@@ -53,7 +55,7 @@ test('a crowded shrine greeting leaves the caretaker name attached to its owner'
 
 for(const mode of ['round','weather and help','cached night','reduced motion'] as const)test(`Heartwood leaf work ${mode}: actual native caretaker, tool and approach remain coherent`,async({page},info)=>{
     test.setTimeout(240_000);
-    const day=Math.floor(Date.now()/WORLD_DAY_MS)*WORLD_DAY_MS,start=day+5*WORLD_HOUR_MS;
+    const day=Math.floor(LEAF_WORK_SCENARIO_EPOCH/WORLD_DAY_MS)*WORLD_DAY_MS,start=day+5*WORLD_HOUR_MS;
     const now=start+6*180_000+25_000;
     if(mode==='reduced motion')await page.emulateMedia({reducedMotion:'reduce'});
     await page.clock.install({time:new Date(now)});await page.clock.setFixedTime(now);

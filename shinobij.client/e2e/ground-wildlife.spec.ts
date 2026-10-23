@@ -10,9 +10,11 @@ import {isWorldNight} from '../../shared/world-phase';
 import {isWalkableTile} from '../../shared/sector-walk-mask';
 
 const evidence=resolve('../output/living-world/wildlife/browser');mkdirSync(evidence,{recursive:true});
+// Fixed, not Date.now(): a roaming Legacy Emissary ignores quietRoadCooldowns, and no sector has one at any hour of 2026-10-10 (01:00 UTC is world noon).
+const WILDLIFE_SCENARIO_EPOCH=Date.UTC(2026,9,10,1);
 declare global {interface Window{groundQa:{draws:number;frames:{ms:number;draws:number}[];last?:number[]}}}
 function sightingTime(h:GroundHabitat){
- const day=Math.floor(Date.now()/WORLD_DAY_MS)*WORLD_DAY_MS,preferred=(h.night?22:11)*WORLD_HOUR_MS;
+ const day=Math.floor(WILDLIFE_SCENARIO_EPOCH/WORLD_DAY_MS)*WORLD_DAY_MS,preferred=(h.night?22:11)*WORLD_HOUR_MS;
  for(let i=0;i<WORLD_DAY_MS;i+=1000){const now=day+(preferred+i)%WORLD_DAY_MS,s=groundSightingAt(h.sector,now,h.night);if(isWorldNight(now)===h.night&&s&&now>s.start+5000&&now<s.end-30_000)return now;}
  throw Error(`No reviewed sighting time for ${h.species}`);
 }
