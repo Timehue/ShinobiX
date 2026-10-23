@@ -19,7 +19,7 @@ describe('achievement authority catalog', () => {
         for (const id of ['level-10', 'level-100', 'ryo-25k', 'secret-untouched', 'secret-packrat', 'secret-weekly-bosses-5', 'secret-minmaxer']) assert.ok(ids.includes(id), id);
     });
     it('the Salvager counts war crate ids, not the stats, consolation or purse markers beside them', () => {
-        const markers = ['stats-w1', 'clan-war-stats-w2', 'purse-tok1', 'sector-purse:c1:1', 'loser-crate-w3', 'clan-war-consol-w4', 'purse-tok2', 'purse-tok3', 'sector-purse:c2:1', 'stats-w5'];
+        const markers = ['stats-w1', 'clan-war-stats-w2', 'purse-tok1', 'sector-purse:c1:1', 'loser-crate-w3', 'clan-war-consol-w4', 'purse-tok2', 'purse-tok3', 'sector-purse:c2:1', 'stats-w5', 'consolation-floor-tok4'];
         const crates = Array.from({ length: 9 }, (_, i) => `war-crate-v${i}`);
         assert.equal(eligibleAchievementIds({ claimedWarCrateIds: [...markers, ...crates] }).includes('secret-war-crates-10'), false);
         assert.equal(eligibleAchievementIds({ claimedWarCrateIds: [...markers, ...crates, 'war-crate-v9'] }).includes('secret-war-crates-10'), true);

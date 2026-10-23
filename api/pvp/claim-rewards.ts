@@ -10,15 +10,18 @@ import { creditPvpWinBase, applyDerivedLevel } from '../_xp-engine.js';
 import { patchBattleSettlement } from '../_receipts.js';
 import {
     pvpCreditAuraDust,
+    pvpCreditRules,
     pvpCreditRyo,
     pvpCreditView,
     pvpLossFrac,
     pvpLuckyActive,
     pvpMastery4049Enabled,
+    pvpPairWeight,
     pvpPurseScale,
     rankedPurseRyo,
     readRankedWeightRow,
     resolvePvpFightCredit,
+    type RankedWeightRow,
 } from './_valid-fight.js';
 import { recordEconomyTxn } from '../_economy.js';
 import { hasRecentIpOrFpOverlap } from '../_player-ips.js';
@@ -148,6 +151,27 @@ function playerRankedClaimRefusal(error: unknown): string | null {
         return 'This ranked match has no recorded result to settle.';
     }
     return null;
+}
+
+/**
+ * A ranked purse as the casual purse's credit view (pvpCreditView), so the
+ * result screen words its repeat-opponent, short-fight, loss-engagement and
+ * account-age reductions the same way (owner ruling A9). Pure; reads the sealed row.
+ */
+function rankedPurseCredit(row: RankedWeightRow, role: 'winner' | 'loser') {
+    const blocked = Boolean(row.purseBlocked);
+    const pairOrdinal = row.sharedPairOrdinal ?? row.pairOrdinal;
+    return {
+        credited: !blocked,
+        ...(row.purseBlocked ? { reason: row.purseBlocked } : {}),
+        kind: row.shortMult === 0 ? 'flee' as const : 'ko' as const,
+        short: row.shortMult < 1,
+        pairOrdinal: blocked ? 0 : pairOrdinal,
+        pairWeight: blocked ? 0 : pvpPairWeight(pairOrdinal),
+        sideMult: role === 'winner' ? row.shortMult : row.engaged && !row.lossPurseBlocked ? 1 : 0,
+        ...(role === 'loser' && row.engaged && row.lossPurseBlocked ? { lossBlocked: row.lossPurseBlocked } : {}),
+        rules: pvpCreditRules(),
+    };
 }
 
 // Every claim-side replay runs after the claim has sealed (or loaded) the exact
@@ -646,7 +670,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // Computed OUTSIDE the save lock (read-only key scan). Fails OPEN: a
             // KV hiccup must never block a legitimate rating settlement.
             let playerRankedRatingOut: RatingOut | undefined;
-            let playerRankedPurseOut: { ryo: number; reason?: 'too-young' } | undefined;
+            let playerRankedPurseOut: { ryo: number; reason?: 'too-young'; credit: ReturnType<typeof rankedPurseCredit> } | undefined;
             if (playerRankedV2Claim) {
                 try {
                     const journal = playerRankedJournal;
@@ -688,6 +712,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                                 ryo: rankedPurseRyo(weightRow, { role, lucky: pvpLuckyActive(claimer) }),
                                 ...(weightRow.purseBlocked ? { reason: weightRow.purseBlocked }
                                     : role === 'loser' && weightRow.lossPurseBlocked ? { reason: weightRow.lossPurseBlocked } : {}),
+                                credit: rankedPurseCredit(weightRow, role),
                             };
                         }
                     }

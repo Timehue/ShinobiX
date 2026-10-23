@@ -68,7 +68,7 @@ const numeric: Array<[string, string, number]> = [
 // claimedWarCrateIds is the war payout stamp array: besides crate ids it holds
 // stats, consolation and purse markers (2026-10 rebalance), so the Salvager
 // counts crate ids only. Mirrored in shinobij.client/src/constants/achievements.ts.
-const NON_CRATE_MARKER = /^(?:stats-|clan-war-stats-|purse-|sector-purse:|loser-crate-|clan-war-consol-)/;
+const NON_CRATE_MARKER = /^(?:stats-|clan-war-stats-|purse-|sector-purse:|loser-crate-|consolation-floor-|clan-war-consol-)/;
 const warCratesClaimed = (ids: unknown): number => (Array.isArray(ids) ? ids.filter((id) => !NON_CRATE_MARKER.test(String(id))).length : 0);
 
 const value = (character: Character, field: string): number => field.endsWith('.length')

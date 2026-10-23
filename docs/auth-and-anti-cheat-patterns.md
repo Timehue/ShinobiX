@@ -584,9 +584,11 @@ independent two-sided rating).
 PvP pay is one valid-fight rule set (2026-10 economy rebalance,
 `api/pvp/_valid-fight.ts`): the lower fighter's level keys the purse; a winner
 more than 20 levels up earns nothing; the loser (and, for loss pay, the winner)
-must be at least 72 h old; one unordered pair counter per UTC day weights the
+must be established, 72 h old OR level 20 (`pvpAccountOldEnough`); one unordered pair counter per UTC day weights the
 pair's fights 1 / 1 / 0.5 / 0.25 / 0; under 3 completed rounds or 60 s a KO or
 round-cap win pays half and a flee or AFK win nothing; loss pay needs an engaged
 fight (15% of the winner's max HP in damage, from the winner's sealed start HP).
 Ranked V2 seals the same weight in `pvp:ranked-weight:<matchId>` before the
-terminal.
+terminal, and its purse follows the same established-account rule (ranked combat
+is equalized, so the level gap does not apply). Card Chronicle Points apply the
+whole gate, level gap included (`api/card-clash/_card-cp.ts`).

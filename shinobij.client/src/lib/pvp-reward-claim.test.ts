@@ -219,6 +219,24 @@ describe("pvp-reward-claim", () => {
         if (alt.status !== "confirmed") return assert.fail("confirmed");
         assert.match(pvpRewardSettlementNotice(alt, { draw: false, spar: false, role: "win" }),
             /^Rewards secured — \+8 Rating\. No ranked purse: an account under 72 hours old and below level 20 was in this match\.$/);
+        // The server's ranked credit view words repeat-opponent and loss reductions like casual PvP.
+        const credit = { credited: true, kind: "ko", short: false, pairOrdinal: 3, pairWeight: 0.5, sideMult: 1 };
+        const repeat = await postPvpRewardClaim(async () => response(200, {
+            ok: true, alreadyClaimed: false, completionPending: false, rewardAuthorized: true,
+            rating: { field: "rankedRating", value: 1008, delta: 8 },
+            rankedPurse: { ryo: 2025, credit },
+        }), { playerName: "rin", battleId: "ranked-repeat", outcome: "win" });
+        if (repeat.status !== "confirmed") return assert.fail("confirmed");
+        assert.equal(pvpRewardSettlementNotice(repeat, { draw: false, spar: false, role: "win" }),
+            "Rewards secured — +2,025 Ryo · +8 Rating. Fight 3 with this opponent today: 50% pay.");
+        const blocked = await postPvpRewardClaim(async () => response(200, {
+            ok: true, alreadyClaimed: false, completionPending: false, rewardAuthorized: true,
+            rating: { field: "rankedRating", value: 992, delta: -8 },
+            rankedPurse: { ryo: 0, credit: { ...credit, pairOrdinal: 1, pairWeight: 1, sideMult: 0, lossBlocked: "too-young" } },
+        }), { playerName: "rin", battleId: "ranked-loss-blocked", outcome: "loss" });
+        if (blocked.status !== "confirmed") return assert.fail("confirmed");
+        assert.match(pvpRewardSettlementNotice(blocked, { draw: false, spar: false, role: "loss" }),
+            /-8 Rating\. No loss pay: the winner's account is under 72 hours old and below level 20\.$/);
         const junk = await postPvpRewardClaim(async () => response(200, {
             ok: true, alreadyClaimed: false, completionPending: false, rewardAuthorized: true,
             rankedPurse: { ryo: -5 }, statBudget: { day: 7, spent: "x" },

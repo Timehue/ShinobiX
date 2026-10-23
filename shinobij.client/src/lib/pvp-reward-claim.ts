@@ -35,8 +35,8 @@ export type PvpRewardClaimConfirmed = {
     /** Stronger server proof that this match may feed generic progression. */
     progressionAuthorized: boolean;
     rating?: PvpRewardRating;
-    /** Ranked V2: the purse the ranked journal paid this side, and why it paid none. */
-    rankedPurse?: { ryo: number; reason?: "too-young" };
+    /** Ranked V2: the purse the ranked journal paid this side, why it paid none, and its credit view. */
+    rankedPurse?: { ryo: number; reason?: "too-young"; credit?: PvpRewardCredit };
     base?: PvpWinBaseSummary;
     character?: Character;
     _saveVersion?: number;
@@ -327,9 +327,12 @@ export function pvpRewardSettlementNotice(
     // Owner ruling A9: say why a fight paid less than the full purse. A
     // full-credit fight has no note, so the usual line is unchanged.
     const role = options.role ?? (result.rating?.delta !== undefined && result.rating.delta < 0 ? "loss" : "win");
-    const rankedNote = result.rankedPurse?.reason === "too-young"
-        ? "No ranked purse: an account under 72 hours old and below level 20 was in this match."
-        : null;
+    // A ranked purse words its reductions exactly like the casual purse.
+    const rankedNote = result.rankedPurse?.credit
+        ? pvpCreditNote(result.rankedPurse.credit, role)
+        : result.rankedPurse?.reason === "too-young"
+            ? "No ranked purse: an account under 72 hours old and below level 20 was in this match."
+            : null;
     const budget = role === "win" && result.statBudget
         ? `Stat points today: ${Math.min(result.statBudget.spent, result.statBudget.cap)} / ${result.statBudget.cap}.`
         : null;
@@ -376,7 +379,8 @@ function cleanRankedPurse(raw: unknown): PvpRewardClaimConfirmed["rankedPurse"] 
     const value = raw as Record<string, unknown>;
     const ryo = Number(value.ryo);
     if (!Number.isSafeInteger(ryo) || ryo < 0) return undefined;
-    return { ryo, ...(value.reason === "too-young" ? { reason: "too-young" as const } : {}) };
+    const credit = value.credit && typeof value.credit === "object" ? value.credit as PvpRewardCredit : undefined;
+    return { ryo, ...(value.reason === "too-young" ? { reason: "too-young" as const } : {}), ...(credit ? { credit } : {}) };
 }
 
 function cleanStatBudget(raw: unknown): PvpRewardClaimConfirmed["statBudget"] {

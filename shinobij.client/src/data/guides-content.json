@@ -1018,7 +1018,7 @@
         "blocks": [
           {
             "type": "p",
-            "text": "The seated Kage declares Village War using village War Resources. One hour of preparation is followed by five full days of scoring. Town Hall shows the score, strongholds, shrine schedule, and field orders. The higher final score wins; equal scores draw. Village War results do not transfer sector ownership. A war ended by surrender or peace before 72 hours of fighting pays no crates, war purses or MVP rewards. A war fought longer pays every fighter with 40+ points a war purse at their level, with points counted up to 400; winners earn the higher rate. An account must be 72 hours old or level 20 to be paid."
+            "text": "The seated Kage declares Village War using village War Resources. One hour of preparation is followed by five full days of scoring. Town Hall shows the score, strongholds, shrine schedule, and field orders. The higher final score wins; equal scores draw. Village War results do not transfer sector ownership. A war ended by surrender or peace before 72 hours of fighting pays no crates, war purses or MVP rewards. A war fought longer pays every fighter with 40+ points a war purse at their level, with points counted up to 400; winners earn the higher rate. The War Academy bonus on support operations does not count toward the purse. An account must be 72 hours old or level 20 to be paid."
           },
           {
             "type": "p",
@@ -1094,7 +1094,7 @@
         "blocks": [
           {
             "type": "p",
-            "text": "Sector Wars decide village control of land. A clan can plant its banner only in a sector its village already controls. The clan needs at least ten members, no other held sector, and 75 Territory Control Scrolls in its treasury. Leadership spends all 75 together to capture; partial deposits do not reserve a claim. A Sector War also pays a purse to the fighters who won its battles: 20 points a win, at least two wins, counted up to ten. The side that captures or holds the sector earns the higher rate, and an account must be 72 hours old or level 20 to be paid."
+            "text": "Sector Wars decide village control of land. A clan can plant its banner only in a sector its village already controls. The clan needs at least ten members, no other held sector, and 75 Territory Control Scrolls in its treasury. Leadership spends all 75 together to capture; partial deposits do not reserve a claim. A Sector War also pays a purse to the fighters who won its battles: 20 points a win, at least two wins, counted up to ten. The side that captures or holds the sector earns the higher rate, and an account must be 72 hours old or level 20 to be paid. A war its attackers abandon pays only if it ran for 48 hours, with the defenders at the higher rate."
           },
           {
             "type": "p",
@@ -1743,7 +1743,7 @@
         "blocks": [
           {
             "type": "p",
-            "text": "A standard Hollow Gate dive is a five-floor expedition through a partly hidden map. Your village needs an active 30-day access seal opened by its seated Kage. A fresh standard run spends one Hollow Gate Key and one daily entry. The base allowance is two starts per UTC day, with an extra start available through Attunement. Resume an unfinished run instead of paying for a new one."
+            "text": "A standard Hollow Gate dive is a five-floor expedition through a partly hidden map. Your village needs an active 30-day access seal opened by its seated Kage. A fresh standard run spends one Hollow Gate Key and one daily entry. The base allowance is two starts per UTC day, with an extra start available through Attunement. Resume an unfinished run instead of paying for a new one. Ryo found in the Gate and in Rifts scales with your level when the run starts, reaching full pay at level 70."
           },
           {
             "type": "p",

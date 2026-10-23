@@ -896,19 +896,22 @@ async function settleSide(
             { ...record, character: nextCharacter },
             { regenAt: carriedRegenCursor(character, nextCharacter, settled.regen) },
         );
+        // Ranked purse telemetry (I-19), after the commit, once per side. The
+        // txnId is per match and side, so the recovery path below may record it too.
+        const recordRankedPurse = () => {
+            if (rankedPurse <= 0) return;
+            void recordEconomyTxn({
+                txnId: `ranked-purse:${terminal.matchId}:${side}`,
+                player: slug,
+                currency: 'ryo',
+                delta: rankedPurse,
+                source: 'pvp.ranked',
+                ts: terminal.terminalAt,
+            });
+        };
         try {
             if (await commitPlayerSave(store, saveKey, record, next)) {
-                if (rankedPurse > 0) {
-                    // Ranked purse telemetry (I-19), after the commit, once per side.
-                    void recordEconomyTxn({
-                        txnId: `ranked-purse:${terminal.matchId}:${side}`,
-                        player: slug,
-                        currency: 'ryo',
-                        delta: rankedPurse,
-                        source: 'pvp.ranked',
-                        ts: terminal.terminalAt,
-                    });
-                }
+                recordRankedPurse();
                 await projectRankedLeaderboardSide(store, slug);
                 await confirmSide(store, journal, side, now);
                 return ratingAfter;
@@ -925,6 +928,8 @@ async function settleSide(
             if (recoveredStamp?.fingerprint === terminal.fingerprint
                 && recoveredStamp.role === role
                 && (!legacyFingerprint || recoveredLegacy?.status === 'replay')) {
+                // The commit landed and only its reply was lost: the purse was paid.
+                recordRankedPurse();
                 await projectRankedLeaderboardSide(store, slug);
                 await confirmSide(store, journal, side, now);
                 const recoveredRating = Number(recoveredCharacter?.rankedRating);

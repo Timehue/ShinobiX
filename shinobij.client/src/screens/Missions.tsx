@@ -503,7 +503,7 @@ export function Missions({
                         // The one shared daily stat-point budget, once a claim today has reported it.
                         const budget = dailyStatBudgetToday(character.name);
                         return budget && (
-                            <div className="mh-stat-chip" title="Hunts, field jobs and fight wins share this budget. It resets at midnight UTC.">
+                            <div className="mh-stat-chip" title="Hunts, field jobs and fight wins share this budget. It resets at midnight UTC. Training is separate and does not count toward it.">
                                 <span className="mh-stat-label">Stat points today</span>
                                 <span className="mh-stat-value">{budget.spent}<span className="mh-stat-max">/{budget.cap}</span></span>
                             </div>
