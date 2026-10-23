@@ -366,7 +366,7 @@ test("the personal quest opens over the map without moving or resizing it", asyn
 });
 
 test("field work saves a route choice, resumes its next objective, and replays history read-only", async ({ page }, testInfo) => {
-    test.skip(!["chromium-desktop", "chromium-mobile"].includes(testInfo.project.name), "covered at desktop and mobile widths in Chromium");
+    test.skip(!["chromium-desktop", "chromium-mobile", "webkit-mobile"].includes(testInfo.project.name), "covered in desktop/mobile Chromium and mobile Safari");
     await configureReader(page);
     const runtime = await installFieldRuntime(page);
     await page.goto("/#/worldMap", { waitUntil: "networkidle" });
@@ -488,7 +488,7 @@ test("the journal can abandon an opening or return-stage field reckoning", async
 });
 
 test("a stale successful field response stays open until same-choice replay is adopted", async ({ page }, testInfo) => {
-    test.skip(!["chromium-desktop", "chromium-mobile"].includes(testInfo.project.name), "covered at desktop and mobile widths in Chromium");
+    test.skip(!["chromium-desktop", "chromium-mobile", "webkit-mobile"].includes(testInfo.project.name), "covered in desktop/mobile Chromium and mobile Safari");
     await configureReader(page);
     const runtime = await installFieldRuntime(page, "stale-success");
     await page.goto("/#/worldMap", { waitUntil: "networkidle" });

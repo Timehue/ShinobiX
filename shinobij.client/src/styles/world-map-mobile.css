@@ -342,6 +342,10 @@
     .wm-scale-pin > :is(.atlas-sector, .atlas-landmark) {
         pointer-events: auto;
     }
+    /* Keyboard and assistive focus must keep its destination above nearby
+       counter-scaled markers, including on touch devices without hover. */
+    .wm-scale-pin:has(> .atlas-sector:focus-visible) { z-index: 20 !important; }
+    .wm-scale-pin[data-map-layer="24"]:has(> .atlas-sector:focus-visible) { z-index: 24 !important; }
     @media (hover: hover) {
         .wm-scale-pin:has(> .atlas-sector:hover) { z-index: 20 !important; }
         .wm-scale-pin[data-map-layer="24"]:has(> .atlas-sector:hover) { z-index: 24 !important; }

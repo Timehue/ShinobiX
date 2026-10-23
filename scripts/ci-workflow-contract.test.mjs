@@ -11,6 +11,25 @@ const occurrences = (needle) => workflow.split(needle).length - 1;
 const responsiveShards = () => workflow.split('  e2e_responsive_matrix:\n')[1]?.split('\n  e2e_responsive_flows:\n')[0];
 const responsiveFlows = () => workflow.split('  e2e_responsive_flows:\n')[1]?.split('\n  e2e_responsive:\n')[0];
 
+test('the iPhone device matrix gates the built release through required responsive CI', () => {
+    const flows = responsiveFlows();
+    assert.ok(flows, 'responsive flow job is missing');
+    const steps = flows.split(/^ {6}- /m).slice(1);
+    const iphone = steps.filter(step => /npm run test:e2e:iphone\b/.test(step));
+    assert.equal(iphone.length, 1, 'run the device matrix once, rather than dropping or duplicating it across shards');
+    assert.match(iphone[0], /if: \$\{\{ matrix\.shard == 12 \}\}/);
+    assert.match(iphone[0], /IPHONE_AUDIT_BUILT: '1'/, 'the shipping bundle must be tested');
+    assert.match(iphone[0], /iphone-experience\.spec\.ts --forbid-only/);
+    assert.match(iphone[0], /tee \.ci-evidence\/e2e-responsive-flows-\$\{\{ matrix\.shard \}\}\/iphone\.log/);
+    assert.match(workflow, /needs: \[e2e_responsive_matrix, e2e_responsive_flows\]/);
+    const config = readFileSync(new URL('../shinobij.client/playwright.iphone.config.ts', import.meta.url), 'utf8');
+    assert.match(config, /IPHONE_AUDIT_BUILT === '1'/);
+    assert.match(config, /prepare-e2e-preview\.mjs/, 'the audit must use the verified immutable release snapshot');
+    const smokeConfig = readFileSync(new URL('../shinobij.client/playwright.config.ts', import.meta.url), 'utf8');
+    assert.match(smokeConfig, /SOURCE_FIXTURE_SPECS\.push\('\*\*\/iphone-experience\.spec\.ts'\)/,
+        'dedicated device tests must not accidentally run on incompatible desktop smoke projects');
+});
+
 test('split CI exposes stable required check names with bounded jobs', () => {
     const requiredNames = [
         'CI / server-contracts',

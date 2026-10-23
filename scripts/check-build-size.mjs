@@ -869,14 +869,22 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // CI measures 9,583,007 B with release env vars; the production Docker build
 // measures 9,583,069 B. Allow 5 KB for the combined graph (1,931 B headroom
 // above Docker); startup raw/gzip, per-chunk, CSS and asset limits stay fixed.
+// 2026-10-22 IPHONE SUPPORT: Production Image run 39860938515 measures
+// 9,591,567 B after the Home Screen guide, readable phone HUD and keyboard/
+// safe-area handling: 8,498 B above the prior Docker baseline. Allow 10 KB
+// for this intentional feature growth, retaining 3,433 B of aggregate room.
+// The measured initial graph is 1,398,719 B raw / 395,632 B gzip; its separate
+// startup limits, per-chunk, CSS and asset gates are unchanged.
+// Release-gate overlay corrections measure 9,592,610 B locally with the same
+// production args (initial 1,399,360 B raw / 395,784 B gzip), within this cap.
 // 2026-10-22 SECTOR-LOCATION LAG PASS (PR #484): optimistic shrine-room walks,
 // the paused (not unmounted) world under strongholds, the Hollow Gate entry seal
-// hand-off, chunk warm-ups and the touch-atlas pin ring measure 9,586,413 B in CI
-// and 9,586,503 B in the production Docker build, about 3.4 KB over current main.
-// The owner approved raising the cap for these lag and travel fixes. Allow 9.59 MB
-// for 3,497 B of headroom above Docker. Startup raw/gzip, per-chunk, CSS and asset
-// limits stay fixed.
-const TOTAL_JS_CSS_FAIL_BYTES = 9_590_000;
+// hand-off, chunk warm-ups and the touch-atlas pin ring add about 3.4 KB of lazy
+// code (alone over the 9,585,000 B cap: 9,586,413 B in CI, 9,586,503 B in Docker).
+// Merged with the iPhone work above they measure 9,596,064 B locally with CI's
+// VITE_* settings. The owner approved raising the cap for these lag and travel
+// fixes. Allow 9.60 MB. Startup raw/gzip, per-chunk, CSS and asset limits stay fixed.
+const TOTAL_JS_CSS_FAIL_BYTES = 9_600_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai
