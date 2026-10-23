@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { resourceQualityWeights, resourceQuality, resourceSuccessRate, resourceActionsToday, resourceNodeState } from './resource-gathering.js';
 import { initializeGatheringTool, useGatheringTool, gatheringToolRemaining } from './gathering-tools.js';
-import { FRACTURE_TEMPLATES, solveFractureChain } from './fracture-chain.js';
+import { FRACTURE_TEMPLATES, fractureTemplatePool, solveFractureChain } from './fracture-chain.js';
 
 test('every level improves success and cumulative quality at each site ceiling', () => {
     for (const ceiling of [0, 1, 2, 3] as const) {
@@ -43,6 +43,11 @@ test('50th basic use is admitted and breaks; re-equip cannot reset uses; gold is
 });
 test('every fracture formation has a clean solution, legal partial paths and destructive overlap', () => {
     FRACTURE_TEMPLATES.forEach((template, index) => {
+        assert.equal(template.faces, template.faults.length);
+        for (const site of template.sites) {
+            assert.equal(new Set(site.path).size, site.path.length, `${template.name}: path cannot hit itself`);
+            assert.ok(site.path.every(face => Number.isInteger(face) && face >= 0 && face < template.faces));
+        }
         const solutions: number[][] = [];
         function visit(selected: number[]) {
             if (selected.length === template.charges) {
@@ -58,4 +63,14 @@ test('every fracture formation has a clean solution, legal partial paths and des
     });
     assert.equal(solveFractureChain(0, [0, 2])!.destroyed, true);
     assert.equal(solveFractureChain(0, [0, 1])!.performance, 10);
+});
+test('Veinbreaking expands each tier without repointing historical attempt templates', () => {
+    assert.deepEqual(FRACTURE_TEMPLATES.slice(0, 3).map(t => t.name), ['Twin seam', 'Split crown', 'Threefold core']);
+    const basic = fractureTemplatePool(1), rich = fractureTemplatePool(4), master = fractureTemplatePool(7);
+    assert.ok(basic.length >= 4); assert.ok(rich.length >= 4);
+    assert.deepEqual(master, rich);
+    for (const [pool, charges] of [[basic, 2], [rich, 3]] as const) {
+        assert.equal(new Set(pool).size, pool.length);
+        for (const index of pool) assert.equal(FRACTURE_TEMPLATES[index].charges, charges);
+    }
 });

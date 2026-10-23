@@ -58,14 +58,14 @@ test('real map approaches, both minigames, Outpost tabs and fish cooking persist
         await page.getByRole('button', { name: /^Harbor iron seam, mining/ }).click();
     }
     await page.getByRole('button', { name: 'Begin mining · 1 action' }).click();
-    await expect(page.locator('.fracture-board')).toBeVisible();
+    await expect(page.locator('.vein-scene')).toBeVisible();
     const admitted = await (await request.get(`/api/save/${name}`, { headers })).json();
     const state = readResourceGathering(admitted.character.resourceGathering);
     for (const key of ['successDraw', 'qualityDraw', 'traceDraw', 'rules', 'authorityEpoch']) expect(state.active).not.toHaveProperty(key);
     const formation = FRACTURE_TEMPLATES[state.active!.template];
     for (const site of formation.sites.slice(0, formation.charges)) await page.getByRole('button', { name: new RegExp(`^${site.label}`) }).click();
     await page.screenshot({ path: info.outputPath('live-mining.png'), fullPage: true });
-    await page.getByRole('button', { name: 'Detonate chain', exact: true }).click();
+    await page.getByRole('button', { name: 'Release fracture', exact: true }).click();
     await expect(page.getByRole('region', { name: 'Mining result' })).toBeVisible();
     await page.screenshot({ path: info.outputPath('live-mining-result.png'), fullPage: true });
     await page.getByRole('button', { name: 'Back to map', exact: true }).click();

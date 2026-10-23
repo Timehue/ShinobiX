@@ -891,7 +891,11 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // 2026-10-23 integration: retain main's 10 KB iPhone allocation alongside
 // the 30 KB fishing allocation. The combined aggregate cap is 9.625 MB;
 // the independent startup, per-chunk, lazy-fishing and runtime-art limits stay fixed.
-const TOTAL_JS_CSS_FAIL_BYTES = 9_625_000;
+// 2026-10-23 Veinbreaking integration retains the fishing allocation and adds
+// 30 KB for the paper talismans, deposit variations and recovery compatibility.
+// Production-format build args measure 9,635,492 B, leaving 19,508 B headroom.
+// Startup, per-chunk, lazy-fishing and asset gates remain unchanged.
+const TOTAL_JS_CSS_FAIL_BYTES = 9_655_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai

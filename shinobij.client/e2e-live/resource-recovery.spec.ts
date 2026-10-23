@@ -90,7 +90,7 @@ for (const activity of ['mining', 'fishing'] as const) {
             const first = page.getByRole('button', { name: new RegExp(`^${formation.sites[0].label}, reaches`) });
             await expect(first).toHaveAttribute('aria-pressed', 'true');
             for (const site of formation.sites.slice(1, formation.charges)) await page.getByRole('button', { name: new RegExp(`^${site.label}, reaches`) }).click();
-            const detonate = page.getByRole('button', { name: 'Detonate chain', exact: true });
+            const detonate = page.getByRole('button', { name: 'Release fracture', exact: true });
             if (info.project.name.includes('landscape')) await expectVisibleTouchTarget(detonate);
             await detonate.click();
         }
