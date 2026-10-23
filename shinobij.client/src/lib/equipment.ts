@@ -38,7 +38,7 @@ export const itemSectionOptions: ReadonlyArray<{ value: EquipmentSlot; label: st
     { value: "item", label: "Item" },
     { value: "thrown", label: "Thrown" },
     { value: "potion", label: "Potion" },
-    { value: "fishingPole", label: "Fishing Pole" },
+    { value: "fishingPole", label: "Fishing Kunai" },
     { value: "pickaxe", label: "Pickaxe" },
 ];
 

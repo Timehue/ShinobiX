@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { before, test } from 'node:test';
 import { resourceNode, RETIRED_RESOURCE_NODE_IDS } from '../../shared/resource-nodes.js';
 import { readResourceGathering, resourceActionsToday } from '../../shared/resource-gathering.js';
+import { kunaiFish, kunaiFlightMs, kunaiSeed } from '../../shared/kunai-fishing.js';
 import { countOwned } from '../craft/_forge.js';
 import { sectorPoolKey, cleanSectorPoolRow } from './_sector-pool.js';
 process.env.NODE_ENV = 'test'; process.env.SHINOBIX_QA_MEMORY_KV = '1'; process.env.SESSION_SECRET = 'resource-integration-secret';
@@ -222,6 +223,59 @@ test('the final basic pickaxe use stays unequipped after settlement and a fresh 
     assert.equal(readResourceGathering(saved.resourceGathering).active, undefined);
     assert.equal((await post(name, { action: 'start', nodeId: 'resource-17', mode: 'relaxed', requestId: 'resource-final-pickaxe-use-002' })).status, 409);
 });
+
+for (const challenge of [
+    { level: 1, xp: 0, fish: 0, species: 'Silver Dace', requirement: 1, blocked: false },
+    { level: 1, xp: 0, fish: 1, species: 'Bronze Carp', requirement: 4, blocked: true },
+    { level: 4, xp: 450, fish: 1, species: 'Bronze Carp', requirement: 4, blocked: false },
+    { level: 7, xp: 1400, fish: 2, species: 'River Sturgeon', requirement: 10, blocked: true },
+    { level: 10, xp: 3200, fish: 2, species: 'River Sturgeon', requirement: 10, blocked: false },
+]) {
+    test(`ranked fishing HTTP settlement: Fishing ${challenge.level}, ${challenge.species}, final tool use and replay`, async (t) => {
+        t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
+        const name = `rankedhttp${challenge.level}${challenge.fish}`, node = resourceNode('resource-1')!;
+        await seed(name, { equipment: { fishingPole: 'tool-basic-fishing-pole' },
+            gatheringToolUses: { 'tool-basic-fishing-pole': 49 }, resourceGathering: { fishingXp: challenge.xp } });
+        online.startTravel(name, node.sector, Date.now(), 29, node.approach);
+        const id = `ranked-http-${challenge.level}-${challenge.fish}-attempt`;
+        const admitted = await post(name, { action: 'start', nodeId: node.id, mode: 'active', requestId: id });
+        assert.equal(admitted.status, 200);
+        const active = readResourceGathering((admitted.body.character as Json).resourceGathering).active!;
+        assert.equal(active.fishingStyle, 'kunai'); assert.equal(active.fishingShoal, 'ranked');
+        assert.equal(active.skillLevel, challenge.level); assert.equal(active.toolBroke, true);
+        // Only the trusted fixture fixes this journal's motion seed and random draws.
+        const key = `economy-tx:resource-gathering:${createHash('sha256').update(`${name}:${id}`).digest('hex')}`;
+        const journal = (await kv.get<{ meta: Json }>(key))!;
+        const seal = { ...(journal.meta.seal as Json), hookAt: 2718, template: 0, successDraw: .999, traceDraw: 1 };
+        await kv.set(key, { ...journal, meta: { ...journal.meta, seal } });
+        const shot = { kind: 'throw' as const, at: 1000, x: 50, y: 45 };
+        for (let n = 0; n < 20; n++) {
+            const point = kunaiFish(kunaiSeed({ hookAt: 2718, template: 0 }), challenge.fish, shot.at + kunaiFlightMs(shot));
+            shot.x = point.x; shot.y = point.y;
+        }
+        t.mock.timers.tick(Math.ceil(shot.at + kunaiFlightMs(shot) + 1251));
+        const settled = await post(name, { action: 'resolve', requestId: id, events: [shot], skillLevel: 10, fishingShoal: undefined, success: true, amount: 99 });
+        assert.equal(settled.status, 200);
+        const character = settled.body.character as Json, state = readResourceGathering(character.resourceGathering);
+        const receipt = state.receipts.at(-1)!;
+        assert.equal(receipt.outcome, challenge.blocked ? 'failed' : 'success');
+        assert.deepEqual(receipt.fishingCatch, { name: challenge.species, requiredLevel: challenge.requirement,
+            fisherLevel: challenge.level, tooStrong: challenge.blocked });
+        assert.equal(receipt.xp, challenge.blocked ? 3 : 10);
+        assert.equal(state.fishingXp, challenge.xp + receipt.xp); assert.equal(state.active, undefined);
+        assert.equal(resourceActionsToday(character), 1); assert.equal(state.nodes[node.id].attempts, 1);
+        assert.equal((character.gatheringToolUses as Json)['tool-basic-fishing-pole'], 50);
+        assert.equal((character.equipment as Json).fishingPole, undefined);
+        assert.equal(receipt.toolBroke, true);
+        if (challenge.blocked) { assert.equal(receipt.itemId, undefined); assert.deepEqual(character.itemStacks, []); }
+        else assert.equal(countOwned(character, receipt.itemId!), 1);
+        const replay = await post(name, { action: 'resolve', requestId: id, events: [] });
+        assert.equal(replay.status, 200); assert.equal(replay.body.replayed, true);
+        assert.deepEqual(replay.body.receipt, receipt); assert.deepEqual(replay.body.character, character);
+        assert.deepEqual((await kv.get<Json>(`save:${name}`))!.character, character);
+        assert.equal((await post(name, { action: 'start', nodeId: node.id, mode: 'active', requestId: `${id}-again` })).status, 409);
+    });
+}
 
 test('both shop tool kinds persist their price, lifetime and independent equipment slots', async () => {
     const name = 'resourcealltools'; await seed(name, { equipment: {}, ryo: 1000, fateShards: 150 });

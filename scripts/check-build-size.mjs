@@ -7,6 +7,7 @@ const distDir = process.env.BUILD_SIZE_DIR || join(process.cwd(), 'shinobij.clie
 
 const JS_CHUNK_FAIL_BYTES = 1_500_000;
 const CSS_FILE_FAIL_BYTES = 750_000;
+const KUNAI_FISHING_LAZY_FAIL_BYTES = 24_000;
 const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // All emitted product JS/CSS includes lazy 3D/gameplay chunks and production
 // build-arg code that is not always present in local builds. Keep startup gates
@@ -877,15 +878,29 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // startup limits, per-chunk, CSS and asset gates are unchanged.
 // Release-gate overlay corrections measure 9,592,610 B locally with the same
 // production args (initial 1,399,360 B raw / 395,784 B gzip), within this cap.
+// 2026-10-22: requested kunai fishing replaces new casts with aiming, shared
+// projectile collision, animated fish/tether retrieval and touch controls.
+// Product graph measures 9,602,363 B (+17,611 B over the prior fishing pass).
+// Its dedicated lazy JS/CSS is 16,887 B, independently capped below at 20 KB.
+// Allow 9.61 MB including release variance. Startup remains 394,288 B gzip;
+// startup, per-chunk, CSS and runtime-asset limits are unchanged.
+// 2026-10-22 ranked-fish follow-up: sealed species requirements/failure receipts,
+// level badges, break-free motion and realistic hand/kunai sprites extend the
+// requested minigame. Its own lazy JS/CSS is now capped at 24 KB. Allow 9.615 MB
+// aggregate including release variance; startup, chunk and asset gates stay fixed.
+// 2026-10-23 integration: retain main's 10 KB iPhone allocation alongside
+// the 30 KB fishing allocation. The combined aggregate cap is 9.625 MB;
+// the independent startup, per-chunk, lazy-fishing and runtime-art limits stay fixed.
 // 2026-10-22: the economy rebalance (docs/economy-rebalance-2026-10.md) merged
 // with current main measures 9,596,150 B locally: its client adds about 13 KB of
 // visible-limit copy, the daily stat-budget display, progression dials and the
 // stacked-material fold. Allow 9.61 MB (13,850 B of local headroom); the startup
 // graph (1,400,648 B raw / 396,652 B gzip), per-chunk, CSS and asset gates stay fixed.
-// 2026-10-22 MERGE: both raises above landed together. The merged tree measures
-// 9,620,199 B locally (initial graph 1,406,121 B raw / 398,041 B gzip, still
-// under its own unchanged 399,000 B gate). Allow 9.63 MB: 9,801 B of headroom.
-const TOTAL_JS_CSS_FAIL_BYTES = 9_630_000;
+// 2026-10-23 MERGE: the fishing, iPhone and economy raises landed together. The
+// merged tree measures 9,648,036 B locally (initial graph 1,406,347 B raw /
+// 398,078 B gzip, under its own unchanged 399,000 B gate). Allow 9.658 MB:
+// 9,964 B of headroom.
+const TOTAL_JS_CSS_FAIL_BYTES = 9_658_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai
@@ -1254,6 +1269,13 @@ try {
     const manifest = JSON.parse(readFileSync(join(distDir, '.vite', 'manifest.json'), 'utf8'));
     const entries = Object.entries(manifest);
     const byFile = new Map(entries.map(([key, value]) => [value.file, { key, ...value }]));
+    const kunai = entries.find(([, value]) => value.src === 'src/components/KunaiFishing.tsx')?.[1];
+    if (!kunai?.isDynamicEntry) throw new Error('kunai fishing must remain a lazy entry');
+    const kunaiFiles = [kunai.file, ...(kunai.css ?? [])];
+    const kunaiBytes = kunaiFiles.reduce((sum, file) => sum + statSync(join(distDir, file)).size, 0);
+    console.log(`[sizecheck] Lazy kunai fishing: ${exact(kunaiBytes)} JS/CSS (${KUNAI_FISHING_LAZY_FAIL_BYTES.toLocaleString('en-US')} B ceiling).`);
+    if (kunaiFiles.some(file => initialRefs.includes(file))) failures.push('kunai fishing entered the startup graph');
+    if (kunaiBytes > KUNAI_FISHING_LAZY_FAIL_BYTES) failures.push(`kunai fishing is ${kunaiBytes} B; lazy JS/CSS threshold is ${KUNAI_FISHING_LAZY_FAIL_BYTES.toLocaleString('en-US')} B`);
     const routeClosure = (source) => {
         const found = entries.find(([, value]) => value.src === source);
         if (!found) throw new Error(`manifest entry for ${source} was not emitted`);
@@ -1292,7 +1314,7 @@ try {
     const villageJsonGzipTotal = villageJson.reduce((sum, file) => sum + file.gzip, 0);
     console.log(`[sizecheck] Admin Visual Novels: ${exact(admin.raw + villageJsonRawTotal)} raw / ${exact(admin.gzip + villageJsonGzipTotal)} gzip (${admin.count} incremental JS/CSS + four village JSON).`);
 } catch (err) {
-    failures.push(`could not measure on-demand story routes from Vite manifest: ${err.message}`);
+    failures.push(`could not measure on-demand routes from Vite manifest: ${err.message}`);
 }
 
 if (budgetedJsCssTotal > TOTAL_JS_CSS_WARN_BYTES) {

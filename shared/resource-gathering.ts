@@ -1,5 +1,6 @@
 /** Canonical rules shared by the Outpost, world nodes and authoritative settlement. */
 import type { ResourceActivity, ResourceGrade } from './resource-items';
+import type { KunaiCatch } from './kunai-fishing';
 export { RESOURCE_GRADES, RESOURCE_FAMILIES, RESOURCE_ITEMS, resourceItemId } from './resource-items';
 export type { ResourceActivity, ResourceGrade, ResourceFamily } from './resource-items';
 export const RESOURCE_DAILY_LIMIT = 100;
@@ -45,11 +46,14 @@ export function resourceNodeState(state: ResourceNodeState | undefined, now: num
 export type ResourcePublicAttempt = {
     id: string; nodeId: string; activity: ResourceActivity; startedAt: number; expiresAt: number;
     skillLevel: number; mode: 'active' | 'relaxed'; template: number; hookAt: number; movementSequence: number; toolBroke?: boolean;
+    fishingStyle?: 'kunai';
+    fishingShoal?: 'ranked';
 };
 export type ResourceReceipt = {
     id: string; activity: ResourceActivity; outcome: 'success' | 'failed' | 'cancelled' | 'expired';
     itemId?: string; grade?: ResourceGrade; xp: number; performance: number; toolBroke: boolean;
     traceId?: string;
+    fishingCatch?: KunaiCatch;
     worldBossEventId?: string;
     settledAt?: number;
 };
