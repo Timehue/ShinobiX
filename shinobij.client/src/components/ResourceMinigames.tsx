@@ -1,22 +1,29 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState, type CSSProperties } from 'react';
 import type { ResourcePublicAttempt } from '../../../shared/resource-gathering';
 import { FRACTURE_TEMPLATES, solveFractureChain } from '../../../shared/fracture-chain';
 import { scoreFishing, FISHING_REEL_MS, type FishingEvent } from '../../../shared/fishing-game';
 import { serverNow } from '../lib/server-clock';
 import { resourceNode } from '../../../shared/resource-nodes';
-import water from '../assets/sectors/water.webp';
+import { FishingScene } from './FishingScene';
 import stoneTexture from '../assets/warfront/cliff-rock.jpg';
 import './resource-minigames.css';
 
-export function ResourceMinigame({ attempt, busy, resolve }: { attempt: ResourcePublicAttempt; busy: boolean; resolve: (input: Record<string, unknown>) => void }) {
+const KunaiFishing = lazy(() => import('./KunaiFishing'));
+export function ResourceMinigame({ attempt, busy, resolve, fishingGold = false }: { attempt: ResourcePublicAttempt; busy: boolean; resolve: (input: Record<string, unknown>) => void; fishingGold?: boolean }) {
+    if (attempt.activity === 'fishing' && attempt.fishingStyle === 'kunai') return <Suspense fallback={<p role="status">Preparing your fishing kunai…</p>}><KunaiFishing attempt={attempt} busy={busy} resolve={resolve} golden={fishingGold} /></Suspense>;
     if (attempt.mode === 'relaxed') return <RelaxedGathering attempt={attempt} busy={busy} resolve={resolve} />;
     return attempt.activity === 'mining' ? <FractureChain attempt={attempt} busy={busy} resolve={resolve} /> : <CastAndReel attempt={attempt} busy={busy} resolve={resolve} />;
 }
 function RelaxedGathering({ attempt, busy, resolve }: { attempt: ResourcePublicAttempt; busy: boolean; resolve: (input: Record<string, unknown>) => void }) {
-    const [ready, setReady] = useState(false);
-    useEffect(() => { const timer = window.setTimeout(() => setReady(true), Math.max(0, attempt.startedAt + 3000 - serverNow())); return () => clearTimeout(timer); }, [attempt.startedAt]);
+    const [elapsed, setElapsed] = useState(() => Math.max(0, serverNow() - attempt.startedAt));
+    const ready = elapsed >= 3000;
+    useEffect(() => {
+        if (ready) return;
+        const timer = window.setInterval(() => setElapsed(Math.max(0, serverNow() - attempt.startedAt)), 50);
+        return () => clearInterval(timer);
+    }, [attempt.startedAt, ready]);
     return <div className={`resource-relaxed resource-relaxed--${attempt.activity}`}>
-        <div className="resource-relaxed-art" aria-hidden="true" style={{ backgroundImage: `url(${attempt.activity === 'mining' ? stoneTexture : water})` }}><img src={`/items/${attempt.activity === 'mining' ? 'tool-golden-pickaxe' : 'tool-golden-fishing-pole'}.svg`} alt="" /></div>
+        <div className="resource-relaxed-art" aria-hidden="true" style={attempt.activity === 'mining' ? { backgroundImage: `url(${stoneTexture})` } : undefined}>{attempt.activity === 'mining' ? <img src="/items/tool-golden-pickaxe.svg" alt="" /> : <FishingScene elapsed={elapsed} hookAt={1800} relaxed />}</div>
         <p>{attempt.activity === 'mining' ? 'Chakra follows the seam. The stone begins to separate.' : 'Your line settles into the current. A shadow approaches the float.'}</p>
         <p>Animation mode uses your skill’s baseline success rate.</p>
         <button type="button" disabled={busy || !ready} onClick={() => resolve({})}>{busy ? 'Recovering result…' : ready ? 'Collect result' : 'Gathering…'}</button>
@@ -119,7 +126,24 @@ function CastAndReel({ attempt, busy, resolve }: { attempt: ResourcePublicAttemp
     });
     const [elapsed, setElapsed] = useState(() => Math.max(0, serverNow() - attempt.startedAt));
     const held = useRef(false);
-    useEffect(() => { const timer = window.setInterval(() => setElapsed(Math.max(0, serverNow() - attempt.startedAt)), 50); return () => clearInterval(timer); }, [attempt.startedAt]);
+    useEffect(() => {
+        function releaseControl() {
+            held.current = false;
+            setEvents(current => {
+                if (current.at(-1)?.kind !== 'reel' || current.length >= 48) return current;
+                const next: FishingEvent[] = [...current, { kind: 'release', at: Math.max(current.at(-1)!.at, serverNow() - attempt.startedAt) }];
+                try { sessionStorage.setItem(key, JSON.stringify(next)); } catch { /* memory only */ }
+                return next;
+            });
+        }
+        function visibilityChanged() { if (document.hidden) releaseControl(); }
+        window.addEventListener('blur', releaseControl);
+        document.addEventListener('visibilitychange', visibilityChanged);
+        return () => {
+            window.removeEventListener('blur', releaseControl);
+            document.removeEventListener('visibilitychange', visibilityChanged);
+        };
+    }, [attempt.startedAt, key]);
     function record(kind: FishingEvent['kind']) {
         const at = Math.max(0, serverNow() - attempt.startedAt);
         setEvents(current => { if (current.length >= 48) return current; const next = [...current, { kind, at }]; try { sessionStorage.setItem(key, JSON.stringify(next)); } catch { /* memory only */ } return next; });
@@ -128,33 +152,32 @@ function CastAndReel({ attempt, busy, resolve }: { attempt: ResourcePublicAttemp
     const hooked = events.length > 0, hookMissed = !hooked && elapsed > attempt.hookAt + 1200;
     const done = hookMissed || (hooked && elapsed >= events[0].at + FISHING_REEL_MS);
     const live = hooked ? scoreFishing(attempt.hookAt, events, elapsed, true) : null;
-    const reeling = !done && events.at(-1)?.kind === 'reel';
     const tension = Math.round(live?.tension ?? 35);
-    const phase = done ? '03' : hooked ? '02' : '01';
+    const broken = live?.tension === 100;
+    const reeling = !done && !broken && events.at(-1)?.kind === 'reel';
+    const phase = done || broken ? '03' : hooked ? '02' : '01';
+    useEffect(() => {
+        if (done) return;
+        const timer = window.setInterval(() => setElapsed(Math.max(0, serverNow() - attempt.startedAt)), 50);
+        return () => clearInterval(timer);
+    }, [attempt.startedAt, done]);
+    const status = broken ? 'The line snapped. Release sooner next time.'
+        : done ? hookMissed ? 'The fish slipped away.' : live?.failed ? 'The fish got away. Reel within the marked zone.' : 'The catch is ready.'
+        : !hooked ? elapsed < attempt.hookAt ? 'Line cast. Watch the float…' : 'The float dipped — hook now!'
+        : tension > 80 ? 'Release now — the line is close to snapping!' : tension < 20 ? 'Hold to reel — take up the slack.'
+        : reeling ? 'Keep pulling. Release before the line strains.' : 'Hold to pull. Release to ease tension.';
     return <div className="fishing-game">
-        <div className="gather-game-heading"><div><p className="resource-kicker">Fishing · Cast · Hook · Reel</p><h3>{done ? hookMissed || live?.failed ? 'Lost to the current' : 'Within reach' : hooked ? 'Follow the pull' : 'Read the water'}</h3></div><span className="gather-game-method">{phase} / 03</span></div>
-        <div className={`fishing-water${elapsed < 900 ? ' casting' : ''}${elapsed >= attempt.hookAt && !hooked && !hookMissed ? ' biting' : ''}${hooked ? ' hooked' : ''}${reeling ? ' reeling' : ''}${done && !hookMissed && !live?.failed ? ' landed' : ''}${done && (hookMissed || live?.failed) ? ' escaped' : ''}`} style={{ '--fishing-scene': `url(${water})` } as CSSProperties} aria-hidden="true">
-            <div className="fishing-current"/><span className="fishing-scene-caption">{hooked ? reeling ? 'Drawing the line' : 'Ease the tension' : 'A quiet stretch of water'}</span>
-            <svg className="fishing-tackle" viewBox="0 0 100 60" preserveAspectRatio="none">
-                <defs><linearGradient id="fishing-bamboo"><stop stopColor="#47321f"/><stop offset=".5" stopColor="#d0b174"/><stop offset="1" stopColor="#725233"/></linearGradient></defs>
-                <path className="fishing-rod" d={reeling ? 'M4 60 Q23 21 48 17 Q23 24 6 60Z' : 'M4 60 Q18 29 44 8 Q19 31 6 60Z'} />
-                <path className="fishing-grip" d="M5 60 15 43" />
-                <path className="fishing-binding" d="M6 56 9 57M8 53 11 54M10 50 13 51M12 47 15 48M22 30 24 31M34 17 36 18"/>
-                <ellipse className="fishing-spool" cx="12" cy="53" rx="3" ry="4"/><path className="fishing-binding" d="M12 50V56M10 53H14"/>
-                <path className="fishing-cord" d={reeling ? 'M48 17 Q49 32 49 47' : 'M44 8 Q47 30 49 47'} />
-                {elapsed < 900 && <path className="fishing-cast-arc" pathLength="1" d="M44 8 Q72 -5 49 47" />}
-            </svg>
-            <span className="fishing-ripple"/><span className="fishing-float"/><svg className="fishing-shadow" viewBox="0 0 80 30"><g transform={done && (hookMissed || live?.failed) ? undefined : 'translate(80 0) scale(-1 1)'}><path d="M15 15C27 0 49 1 65 15 49 29 27 30 15 15L2 5 5 15 2 25Z"/><path d="M32 8 38 1 46 8M31 22 37 29 44 22"/></g></svg>
-            {hooked && <span key={done && !live?.failed ? 'landed' : 'hooked'} className="fishing-splash"/>}
-        </div>
-        <p className="fishing-status" role="status">{done ? hookMissed ? 'The fish slipped away.' : live?.failed ? 'The line went slack or snapped.' : 'The catch is ready.' : hooked ? 'Hold to pull. Release to ease tension.' : elapsed < attempt.hookAt ? 'Line cast. Watch the float…' : 'The float dipped — hook now!'}</p>
-        {!hooked && !hookMissed && <button type="button" className="resource-primary" onClick={() => record('hook')} disabled={elapsed < attempt.hookAt || busy}>Hook fish</button>}
+        <div className="gather-game-heading"><div><p className="resource-kicker">Fishing · Cast · Hook · Reel</p><h3>{broken ? 'The line snapped' : done ? hookMissed || live?.failed ? 'Lost to the current' : 'Within reach' : hooked ? 'Follow the pull' : 'Read the water'}</h3></div><span className="gather-game-method">{phase} / 03</span></div>
+        <FishingScene elapsed={elapsed} hookAt={attempt.hookAt} hooked={hooked} reeling={reeling} tension={tension}
+            progress={live?.progress ?? 0} outcome={broken ? 'escaped' : done ? hookMissed || live?.failed ? 'escaped' : 'landed' : undefined} />
+        <p className="fishing-status" role="status">{status}</p>
+        {!hooked && !hookMissed && <button type="button" autoFocus className="resource-primary" onClick={() => { if (elapsed >= attempt.hookAt && !busy) record('hook'); }} aria-disabled={elapsed < attempt.hookAt || busy}>Hook fish</button>}
         {hooked && <><div className="fishing-instruments"><label className="resource-meter"><span>Line tension <strong>{tension > 80 ? 'Ease off' : tension < 20 ? 'Pull now' : 'Steady'}</strong></span><span className={`fishing-tension${tension > 80 ? ' is-danger' : tension < 20 ? ' is-slack' : ''}`} role="meter" aria-label="Line tension" aria-valuemin={0} aria-valuemax={100} aria-valuenow={tension} aria-valuetext={`${tension}% · ${tension > 80 ? 'High tension' : tension < 20 ? 'Slack line' : 'Safe tension'}`}><span className="fishing-tension-fill" style={{ width: `${tension}%` }}/></span><small>Slack <span>Keep within the marked zone</span> Strain</small></label>
-            <label className="resource-meter"><span>Catch progress <strong>{Math.round(live?.progress ?? 0)}%</strong></span><progress max={100} value={live?.progress ?? 0}/><small>Bring the catch to shore</small></label></div>
-            <button type="button" className={`resource-primary fishing-reel${reeling ? ' is-held' : ''}`} disabled={done || busy}
-                onPointerDown={event => { event.currentTarget.setPointerCapture(event.pointerId); reel(true); }} onPointerUp={() => reel(false)} onPointerCancel={() => reel(false)} onBlur={() => reel(false)}
+            <label className="resource-meter"><span>Catch progress <strong>{Math.round(live?.progress ?? 0)}%</strong></span><progress aria-label="Catch progress" max={100} value={live?.progress ?? 0}/><small>Bring the catch to shore</small></label></div>
+            <button type="button" autoFocus aria-pressed={reeling} className={`resource-primary fishing-reel${reeling ? ' is-held' : ''}`} disabled={done || broken || busy}
+                onPointerDown={event => { if (!event.isPrimary || event.button !== 0) return; event.preventDefault(); event.currentTarget.focus(); event.currentTarget.setPointerCapture(event.pointerId); reel(true); }} onPointerUp={event => { if (event.isPrimary) reel(false); }} onPointerCancel={event => { if (event.isPrimary) reel(false); }} onLostPointerCapture={() => reel(false)} onBlur={() => reel(false)}
                 onKeyDown={event => { if ((event.key === ' ' || event.key === 'Enter') && !event.repeat) { event.preventDefault(); reel(true); } }}
                 onKeyUp={event => { if (event.key === ' ' || event.key === 'Enter') { event.preventDefault(); reel(false); } }}>Hold to reel</button></>}
-        {done && <button type="button" className="resource-primary fishing-collect" disabled={busy} onClick={() => resolve({ events: hookMissed ? [{ kind: 'hook', at: elapsed }, { kind: 'reel', at: elapsed }] : events.length === 1 ? [...events, { kind: 'reel', at: elapsed }] : events })}>{busy ? 'Recovering catch…' : 'Collect result'}</button>}
+        {done && <button type="button" autoFocus className="resource-primary fishing-collect" disabled={busy} onClick={() => resolve({ events: hookMissed ? [{ kind: 'hook', at: elapsed }, { kind: 'reel', at: elapsed }] : events.length === 1 ? [...events, { kind: 'reel', at: elapsed }] : events })}>{busy ? 'Recovering catch…' : 'Collect result'}</button>}
     </div>;
 }

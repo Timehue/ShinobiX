@@ -6,6 +6,7 @@ import type { Character, VersionedCharacterCommit } from '../types/character';
 import { CentralDestinationHeader } from './CentralDestinationHeader';
 import { GatheringEquipment } from './GatheringEquipment';
 import { ResourceRefinery } from './ResourceRefinery';
+import { gatheringToolArtwork } from '../lib/gathering-tool-art';
 import './outpost-resource-panel.css';
 
 const GRADE_LEVELS = [1, 2, 4, 7];
@@ -19,7 +20,7 @@ export function OutpostResourcePanel({ activity, character, commit, onBack, onMa
     const state = readResourceGathering(character.resourceGathering), xp = state[`${activity}Xp`];
     const level = resourceSkillLevel(xp), floor = RESOURCE_SKILL_XP[level - 1], next = RESOURCE_SKILL_XP[level];
     const weights = resourceQualityWeights(level, 3), nodes = RESOURCE_NODES.filter(node => node.activity === activity);
-    const toolArt = `/items/tool-basic-${mining ? 'pickaxe' : 'fishing-pole'}.svg`;
+    const toolArt = gatheringToolArtwork(mining ? 'tool-basic-pickaxe' : 'tool-basic-fishing-pole');
     const materialArt = mining ? '/items/gather-iron-sand-v1.webp' : '/items/gather-river-fish.svg';
     return <div className={`outpost-resource-panel field-station field-station--${activity}`}>
         <CentralDestinationHeader
@@ -27,12 +28,12 @@ export function OutpostResourcePanel({ activity, character, commit, onBack, onMa
             eyebrow={`The Thousand Gates · ${mining ? 'Mineral reconnaissance' : 'Waterside reconnaissance'}`}
             title={`${label} · Level ${level}`} icon={<img src={toolArt} alt="" />} onBack={onBack}
             subtitle={mining ? 'Read the fractures. Uncover the ore. Forge what comes next.' : 'Find stillness in the current. Bring the river’s bounty home.'}
-            statusLabel="Basic site success" statusValue={`${resourceSuccessRate(level, 1)}%`} tone={mining ? 'gold' : 'azure'} />
+            statusLabel={mining ? 'Basic site success' : 'Animation success'} statusValue={`${resourceSuccessRate(level, 1)}%`} tone={mining ? 'gold' : 'azure'} />
 
         <section className="outpost-field-brief" aria-label={`${label} field skill`}>
             <div className="outpost-field-method"><p className="resource-kicker">Independent field skill</p>
                 <h3>{mining ? 'Follow the fault' : 'Read the water'}</h3>
-                <p>{mining ? 'Place chakra charges along visible fractures. Expose the core without sending two cracks into the same face.' : 'Hook when the float dips, then hold and release Reel to keep the line tension under control.'}</p>
+                <p>{mining ? 'Place chakra charges along visible fractures. Expose the core without sending two cracks into the same face.' : 'Lead a swimming fish and release your tethered kunai. Three throws per attempt; misses scatter the shoal. Read each fish’s Fishing level: locked fish break free and end the attempt.'}</p>
             </div>
             <div className="outpost-skill-progress"><div><span>Skill progression</span><strong>{next ? `${xp} / ${next} XP` : 'Mastered'}</strong></div>
                 <progress aria-label={`${label} skill progress`} max={next ? next - floor : 1} value={next ? xp - floor : 1} />
@@ -57,7 +58,7 @@ export function OutpostResourcePanel({ activity, character, commit, onBack, onMa
         <section className="outpost-survey" aria-label={mining ? 'Mineral seam directory' : 'Fishing water directory'}>
             <div className="resource-section-heading"><div><p className="resource-kicker">Field atlas · {nodes.length} known sites</p>
                 <h3>{mining ? 'Known mineral seams' : 'Known fishing waters'}</h3></div><button className="outpost-map-action" type="button" onClick={onMap}>Open world map <span aria-hidden="true">↗</span></button></div>
-            <p className="resource-note">Travel to a site on the world map to {mining ? 'work the seam' : 'cast your line'}. Expand a tier to scout its locations.</p>
+            <p className="resource-note">Travel to a site on the world map to {mining ? 'work the seam' : 'throw your kunai'}. Expand a tier to scout its locations.</p>
             {SITE_TIERS.map(tier => <details className="outpost-site-tier" key={tier.skill} open={tier.skill === 1}>
                 <summary><span className="outpost-tier-mark" aria-hidden="true">{tier.skill === 1 ? 'I' : tier.skill === 4 ? 'II' : 'III'}</span>
                     <strong>{tier.name} {mining ? 'seams' : 'waters'}</strong><span>Skill {tier.skill}{level < tier.skill ? ' · Locked' : ' · Available'}</span></summary>

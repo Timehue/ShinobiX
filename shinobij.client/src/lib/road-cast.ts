@@ -145,9 +145,9 @@ export function withPatrolStance(
 }
 
 const BAIT_LORE = [
-    "Equip a fishing pole in Inventory before you cast.",
+    "Equip a fishing kunai in Inventory before you throw.",
     "Practicing raises your Fishing skill and helps you catch better fish.",
-    "A worn-out pole won't help you. Check its durability before fishing.",
+    "A worn-out kunai won't help you. Check its durability before fishing.",
     "Each shoal allows three attempts before it needs time to refill.",
 ];
 

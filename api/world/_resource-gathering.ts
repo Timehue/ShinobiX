@@ -7,6 +7,7 @@ import { readResourceGathering, resourceSkillLevel, resourceSuccessRate, resourc
     type ResourceReceipt, type ResourceFamily, type ResourceGrade } from '../../shared/resource-gathering.js';
 import { solveFractureChain } from '../../shared/fracture-chain.js';
 import { scoreFishing } from '../../shared/fishing-game.js';
+import { scoreKunaiFishing, kunaiSeed } from '../../shared/kunai-fishing.js';
 import type { OnlinePlayer } from '../_realtime/types.js';
 
 export type ResourceSeal = ResourcePublicAttempt & {
@@ -31,7 +32,7 @@ export function resourceAdmissionError(character: Record<string, unknown>, node:
     if (resourceNodeState(state.nodes[node.id], now).attempts >= 3) return 'This node is empty. Return after it replenishes.';
     const slot = node.activity === 'mining' ? 'pickaxe' : 'fishingPole';
     const id = (character.equipment as Record<string, string> | undefined)?.[slot];
-    if (gatheringTool(id)?.slot !== slot || gatheringToolRemaining(character, id!) === 0) return `Equip a ${slot === 'pickaxe' ? 'pickaxe' : 'fishing pole'} in Inventory first.`;
+    if (gatheringTool(id)?.slot !== slot || gatheringToolRemaining(character, id!) === 0) return `Equip a ${slot === 'pickaxe' ? 'pickaxe' : 'fishing kunai'} in Inventory first.`;
     return null;
 }
 export function mintResourceSeal(character: Record<string, unknown>, node: ResourceNode, id: string, mode: 'active' | 'relaxed', player: OnlinePlayer, now: number): ResourceSeal {
@@ -39,6 +40,7 @@ export function mintResourceSeal(character: Record<string, unknown>, node: Resou
     return { id, nodeId: node.id, activity: node.activity, startedAt: now, expiresAt: now + RESOURCE_ATTEMPT_MS,
         mode, skillLevel: resourceSkillLevel(state[`${node.activity}Xp`]),
         template: node.difficulty === 1 ? randomInt(0, 2) : 2, hookAt: 1800 + randomInt(0, 1200),
+        ...(node.activity === 'fishing' ? { fishingStyle: 'kunai' as const, fishingShoal: 'ranked' as const } : {}),
         movementSequence: player.movementSeq ?? 0, authorityEpoch: player.resourceEpoch ?? 0,
         rules: { version: 1, difficulty: node.difficulty, ceiling: node.ceiling, family: node.family, trace: node.trace },
         successDraw: resourceDraw(), qualityDraw: resourceDraw(), traceDraw: resourceDraw(), toolBroke: false };
@@ -54,6 +56,8 @@ export function admitResourceAttempt(character: Record<string, unknown>, seal: R
         nodes: { ...state.nodes, [node.id]: { attempts, refillAt: attempts === 3 ? now + RESOURCE_REFILL_MS : 0 } },
         active: { id: seal.id, nodeId: seal.nodeId, activity: seal.activity, startedAt: seal.startedAt, expiresAt: seal.expiresAt,
             skillLevel: seal.skillLevel, mode: seal.mode, template: seal.template, hookAt: seal.hookAt,
+            ...(seal.fishingStyle ? { fishingStyle: seal.fishingStyle } : {}),
+            ...(seal.fishingShoal ? { fishingShoal: seal.fishingShoal } : {}),
             movementSequence: seal.movementSequence, toolBroke: tool.broke } } };
 }
 export function resolveResourceAttempt(character: Record<string, unknown>, id: string, input: { cancel?: boolean; placements?: unknown; events?: unknown }, player: OnlinePlayer | null, now: number, seal?: ResourceSeal) {
@@ -77,26 +81,31 @@ export function resolveResourceAttempt(character: Record<string, unknown>, id: s
     const interrupted = Boolean(resourcePositionError(player, node)) || (player ? player.movementSeq ?? 0 : -1) !== active.movementSequence
         || (player ? player.resourceEpoch ?? 0 : -1) !== active.authorityEpoch;
     let outcome: ResourceReceipt['outcome'] = expired ? 'expired' : input.cancel || interrupted ? 'cancelled' : 'failed';
-    let performance = 0, gameFailed = false;
+    let performance = 0, gameFailed = false, fishingCatch: ResourceReceipt['fishingCatch'];
     if (!expired && !input.cancel && !interrupted) {
-        if (now - active.startedAt < 2500) return { ok: false as const, error: 'The attempt is still playing. Try again in a moment.' };
+        if (!(active.fishingStyle === 'kunai' && active.mode === 'active') && now - active.startedAt < 2500) return { ok: false as const, error: 'The attempt is still playing. Try again in a moment.' };
         if (active.mode === 'active') {
             if (active.activity === 'mining') {
                 const solved = solveFractureChain(active.template, input.placements);
                 if (!solved) return { ok: false as const, error: 'Place the required charges at different legal seams before detonating.' };
                 performance = solved.performance; gameFailed = solved.destroyed;
             } else {
-                const fishing = scoreFishing(active.hookAt, input.events, now - active.startedAt);
-                if (!fishing) return { ok: false as const, error: 'The fishing sequence is incomplete. Finish reeling before resolving.' };
+                const fishing = active.fishingStyle === 'kunai'
+                    ? scoreKunaiFishing(kunaiSeed(active), input.events, now - active.startedAt, false, active.fishingShoal === 'ranked' ? active.skillLevel : undefined)
+                    : scoreFishing(active.hookAt, input.events, now - active.startedAt);
+                if (!fishing) return { ok: false as const, error: 'The fishing sequence is incomplete. Finish retrieving before resolving.' };
                 performance = fishing.performance; gameFailed = fishing.failed;
+                if ('catchInfo' in fishing) fishingCatch = fishing.catchInfo;
             }
         }
-        if (!gameFailed && active.successDraw * 100 < resourceSuccessRate(active.skillLevel, rules.difficulty, performance)) outcome = 'success';
+        if (!gameFailed && ((active.fishingStyle === 'kunai' && active.mode === 'active')
+            || active.successDraw * 100 < resourceSuccessRate(active.skillLevel, rules.difficulty, performance))) outcome = 'success';
     }
     const grade = outcome === 'success' ? resourceQuality(active.skillLevel, rules.ceiling, active.qualityDraw) : undefined;
     const itemId = grade == null ? undefined : resourceItemId(rules.family, grade);
     const xp = outcome === 'success' ? 10 : outcome === 'failed' ? 3 : 0;
     const receipt: ResourceReceipt = { id, activity: active.activity, outcome, itemId, grade, xp, performance, toolBroke: active.toolBroke,
+        ...(fishingCatch ? { fishingCatch } : {}),
         ...(node.worldBossCrystal && active.worldBossEventId ? { worldBossEventId: active.worldBossEventId } : {}), settledAt: now };
     let next = itemId ? addOwned(character, itemId, 1, true) : character;
     if (grade != null && rules.trace && active.traceDraw < .02) {

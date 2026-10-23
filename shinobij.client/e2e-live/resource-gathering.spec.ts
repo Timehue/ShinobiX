@@ -5,6 +5,7 @@ import { uniquePlayerName } from './helpers/player-names';
 import { quietRoadCooldowns } from './helpers/quiet-road';
 import { LATEST_PATCH_NOTE } from '../src/data/patch-notes';
 import { FRACTURE_TEMPLATES } from '../../shared/fracture-chain';
+import { kunaiFish, kunaiFlightMs, kunaiSeed } from '../../shared/kunai-fishing';
 import { readResourceGathering } from '../../shared/resource-gathering';
 import { expectVisibleTouchTarget } from '../e2e/helpers/visible-target';
 
@@ -74,25 +75,21 @@ test('real map approaches, both minigames, Outpost tabs and fish cooking persist
     await expect.poll(async () => (await (await request.get('/api/player/world-move', { headers })).json()).tile, { timeout: 30_000 }).toBe(99);
     await expect(page.locator('.sector-player-tile')).toHaveAttribute('aria-label', 'Current tile row 9 column 4');
     await page.getByRole('button', { name: /^Dockside shoal, fishing/ }).click();
-    await page.getByRole('button', { name: 'Cast line · 1 action' }).click();
-    const hook = page.getByRole('button', { name: 'Hook fish', exact: true });
-    await expect(hook).toBeEnabled();
-    if (info.project.name.includes('landscape')) await expectVisibleTouchTarget(hook);
-    await hook.focus();
-    await page.keyboard.press('Enter');
-    const reel = page.getByRole('button', { name: 'Hold to reel', exact: true });
-    await expect(reel).toBeEnabled();
-    if (info.project.name.includes('landscape')) await expectVisibleTouchTarget(reel);
-    await expect(page.locator('.fishing-tension-fill')).toBeVisible();
-    // Keep input on the reel control as the final phase changes its layout.
-    // Pointer and touch targets are covered by the focused component suite.
-    await reel.focus();
-    for (let cycle = 0; cycle < 3; cycle++) {
-        await page.keyboard.down('Space'); await page.waitForTimeout(1300);
-        await page.keyboard.up('Space'); await page.waitForTimeout(700);
+    await page.getByRole('button', { name: 'Ready kunai · 1 action' }).click();
+    const throwButton = page.getByRole('button', { name: 'Throw kunai', exact: true });
+    await expect(throwButton).toBeEnabled();
+    if (info.project.name.includes('landscape')) await expectVisibleTouchTarget(throwButton);
+    const fishingSave = await (await request.get(`/api/save/${name}`, { headers })).json();
+    const attempt = readResourceGathering(fishingSave.character.resourceGathering).active!;
+    const pool = (await page.getByRole('application', { name: 'Kunai fishing pool' }).boundingBox())!;
+    const shot = { kind: 'throw' as const, at: Date.now() - attempt.startedAt + 30, x: 50, y: 45 };
+    for (let n = 0; n < 15; n++) {
+        const point = kunaiFish(kunaiSeed(attempt), 0, shot.at + kunaiFlightMs(shot));
+        shot.x = point.x; shot.y = point.y;
     }
-    await page.screenshot({ path: info.outputPath('live-fishing-reel.png'), fullPage: true });
-    await page.getByRole('button', { name: 'Collect result', exact: true }).click();
+    await page.mouse.click(pool.x + shot.x / 100 * pool.width, pool.y + shot.y / 100 * pool.height);
+    await expect(page.locator('.kunai-game')).toHaveAttribute('data-phase', 'hauling');
+    await page.screenshot({ path: info.outputPath('live-kunai-retrieval.png'), fullPage: true });
     await expect(page.getByRole('region', { name: 'Fishing result' })).toBeVisible();
     const finished = await (await request.get(`/api/save/${name}`, { headers })).json();
     expect(readResourceGathering(finished.character.resourceGathering).attemptsToday).toBe(2);
@@ -173,7 +170,7 @@ test('shop tools equip, survive reload, spend durability, and connect to refinin
         expect(failed).toEqual([]);
     };
     await navigate('shop');
-    for (const tool of [{ id: 'tool-basic-pickaxe', name: 'Basic Pickaxe' }, { id: 'tool-basic-fishing-pole', name: 'Basic Fishing Pole' }]) {
+    for (const tool of [{ id: 'tool-basic-pickaxe', name: 'Basic Pickaxe' }, { id: 'tool-basic-fishing-pole', name: 'Basic Fishing Kunai' }]) {
         await page.getByRole('button', { name: new RegExp(tool.name) }).click();
         const popup = page.getByRole('dialog', { name: `${tool.name} item details` });
         await expect(popup).toContainText('50 gathering attempts');
@@ -195,10 +192,10 @@ test('shop tools equip, survive reload, spend durability, and connect to refinin
         await expect(details).toHaveCount(0);
     };
     await equipTool('Basic Pickaxe', 'Pickaxe');
-    await equipTool('Basic Fishing Pole', 'Fishing Pole');
+    await equipTool('Basic Fishing Kunai', 'Fishing Kunai');
     const basicSlots = [
         loadout.getByRole('button', { name: 'Mining equipment slot, equipped with Basic Pickaxe, 50 of 50 uses left', exact: true }),
-        loadout.getByRole('button', { name: 'Fishing equipment slot, equipped with Basic Fishing Pole, 50 of 50 uses left', exact: true }),
+        loadout.getByRole('button', { name: 'Fishing equipment slot, equipped with Basic Fishing Kunai, 50 of 50 uses left', exact: true }),
     ];
     for (const slot of basicSlots) await expect(slot).toBeVisible();
     await loadout.screenshot({ path: info.outputPath('basic-tool-kit.png') });
@@ -234,7 +231,7 @@ test('shop tools equip, survive reload, spend durability, and connect to refinin
     expect(readResourceGathering(current.resourceGathering).attemptsToday).toBe(1);
     await page.getByRole('button', { name: 'Back to map', exact: true }).click();
     await navigate('grandMarketplace');
-    for (const tool of [{ id: 'tool-golden-pickaxe', name: 'Golden Pickaxe' }, { id: 'tool-golden-fishing-pole', name: 'Golden Fishing Pole' }]) {
+    for (const tool of [{ id: 'tool-golden-pickaxe', name: 'Golden Pickaxe' }, { id: 'tool-golden-fishing-pole', name: 'Golden Fishing Kunai' }]) {
         await page.getByRole('button', { name: new RegExp(tool.name) }).click();
         const popup = page.getByRole('dialog', { name: `${tool.name} item details` });
         await expect(popup).toContainText('Permanent · never breaks');
@@ -252,9 +249,9 @@ test('shop tools equip, survive reload, spend durability, and connect to refinin
     await expect(toolDetails).not.toContainText('Equip for passive bonuses');
     await toolDetails.getByRole('button', { name: 'Close', exact: true }).last().click();
     await equipTool('Golden Pickaxe', 'Pickaxe');
-    await equipTool('Golden Fishing Pole', 'Fishing Pole');
+    await equipTool('Golden Fishing Kunai', 'Fishing Kunai');
     await expect(loadout.getByRole('button', { name: 'Mining equipment slot, equipped with Golden Pickaxe, never breaks', exact: true })).toBeVisible();
-    await expect(loadout.getByRole('button', { name: 'Fishing equipment slot, equipped with Golden Fishing Pole, never breaks', exact: true })).toBeVisible();
+    await expect(loadout.getByRole('button', { name: 'Fishing equipment slot, equipped with Golden Fishing Kunai, never breaks', exact: true })).toBeVisible();
     await loadout.screenshot({ path: info.outputPath('golden-tool-kit.png') });
     await healthy(); await page.screenshot({ path: info.outputPath('golden-tools-equipped.png'), fullPage: true });
     current = await readSave(); expect(current.inventory).toEqual(expect.arrayContaining(['tool-basic-pickaxe', 'tool-basic-fishing-pole']));

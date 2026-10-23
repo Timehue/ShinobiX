@@ -7,8 +7,10 @@ export type ResourceResponse = {
 };
 export async function resourceRequest(body: Record<string, unknown>): Promise<ResourceResponse> {
     const intent = body.action === 'start' || body.action === 'refine' ? pendingEconomyIntent('resource-gathering', [body.action, body.playerName, body.nodeId, body.mode, body.itemId, body.quantity]) : null;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 20_000);
     try {
-        const response = await fetch('/api/world/resource', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        const response = await fetch('/api/world/resource', { method: 'POST', signal: controller.signal, headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ ...body, ...(intent ? { requestId: intent.requestId } : {}) }) });
         const result = await response.json() as ResourceResponse;
         if (intent && economyIntentSettled(response.status, result)) intent.complete();
@@ -22,5 +24,6 @@ export async function resourceRequest(body: Record<string, unknown>): Promise<Re
             }
         }
         return { ...result, ok: response.ok && result.ok };
-    } catch { return { ok: false, error: 'Connection interrupted. Retry to recover the same attempt.' }; }
+    } catch { return { ok: false, error: controller.signal.aborted ? 'Connection timed out. Retry to recover the same attempt.' : 'Connection interrupted. Retry to recover the same attempt.' }; }
+    finally { clearTimeout(timeout); }
 }
