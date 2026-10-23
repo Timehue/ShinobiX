@@ -219,6 +219,14 @@ html body.coach-banner-open .onboarding-coach-banner.coach-trail-chip {
     overflow-y: visible;
   }
 
+  /* Geometry must exist before the optional mobile presentation chunk loads. */
+  :root {
+    --mobile-aaa-hud-height: 56px;
+    --mobile-aaa-nav-height: 72px;
+    --shell-mobile-nav-height: var(--mobile-aaa-nav-height);
+    --mobile-aaa-gutter: clamp(8px, 2.8vw, 16px);
+  }
+
   body {
     min-block-size: 100dvh;
     /* Let the document element own mobile scrolling. Making a content-height
@@ -265,8 +273,9 @@ html body.coach-banner-open .onboarding-coach-banner.coach-trail-chip {
     margin-inline: auto;
     padding:
       calc(var(--mobile-aaa-hud-height) + env(safe-area-inset-top, 0px) + var(--sp-3))
-      var(--mobile-aaa-gutter)
-      calc(var(--mobile-aaa-nav-height) + env(safe-area-inset-bottom, 0px) + var(--sp-5));
+      max(var(--mobile-aaa-gutter), env(safe-area-inset-right, 0px))
+      calc(var(--mobile-aaa-nav-height) + env(safe-area-inset-bottom, 0px) + var(--sp-5))
+      max(var(--mobile-aaa-gutter), env(safe-area-inset-left, 0px));
     line-height: 1.55;
   }
 
@@ -344,11 +353,33 @@ html body.coach-banner-open .onboarding-coach-banner.coach-trail-chip {
     inset-block-start: 0;
     inset-inline: 0;
     z-index: var(--z-sticky);
-    padding: calc(var(--sp-2) + env(safe-area-inset-top, 0px)) var(--sp-3) var(--sp-2);
+    padding:
+      calc(var(--sp-2) + env(safe-area-inset-top, 0px))
+      max(var(--sp-3), env(safe-area-inset-right, 0px)) var(--sp-2)
+      max(var(--sp-3), env(safe-area-inset-left, 0px));
+  }
+
+  .app-shell[data-shell="adaptive"][data-ui-mode="noncombat"] .tavern-screen {
+    padding-inline-start: env(safe-area-inset-left, 0px);
+    padding-inline-end: env(safe-area-inset-right, 0px);
   }
 
   .app-shell[data-shell="adaptive"].screen-tavern > .mobile-top-hud {
     display: none !important;
+  }
+
+  html[data-keyboard-open] .app-shell[data-ui-mode="noncombat"] .mobile-bottom-nav {
+    display: none;
+  }
+
+  html[data-keyboard-open] .app-shell[data-ui-mode="noncombat"] .tavern-screen {
+    top: var(--visual-viewport-top, 0px);
+    bottom: auto;
+    height: var(--visual-viewport-height, 100dvh);
+    box-sizing: border-box;
+    padding-bottom: 8px;
+    padding-left: max(10px, env(safe-area-inset-left, 0px));
+    padding-right: max(10px, env(safe-area-inset-right, 0px));
   }
 
   .mobile-bottom-nav {
@@ -365,8 +396,10 @@ html body.coach-banner-open .onboarding-coach-banner.coach-trail-chip {
   }
 
   .app-shell[data-ui-mode="noncombat"] .mobile-bottom-nav {
+    box-sizing: border-box;
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
+    block-size: calc(var(--mobile-aaa-nav-height) + env(safe-area-inset-bottom, 0px));
     min-block-size: var(--mobile-aaa-nav-height);
     padding:
       6px max(6px, env(safe-area-inset-right, 0px))
@@ -444,6 +477,45 @@ html body.coach-banner-open .app-shell[data-shell="adaptive"][data-ui-mode="nonc
   }
 }
 
+/* Keep the complete portrait HUD eager: its row placement, labels and content
+   clearance must agree even when the optional mobile skin cannot load. */
+@media (max-width: 559px) and (min-height: 481px) {
+  :root { --mobile-aaa-hud-height: 96px; }
+  .app-shell[data-ui-mode="noncombat"] .mobile-top-hud {
+    box-sizing: border-box;
+    display: grid;
+    grid-template-columns: 48px minmax(0, 1fr) auto;
+    grid-template-rows: 48px 20px;
+    gap: 6px 8px;
+    min-block-size: calc(96px + env(safe-area-inset-top, 0px));
+    padding: calc(8px + env(safe-area-inset-top, 0px)) max(12px, env(safe-area-inset-right, 0px)) 10px max(12px, env(safe-area-inset-left, 0px));
+  }
+  .app-shell[data-ui-mode="noncombat"] .mthd-back { grid-column: 1; grid-row: 1; }
+  .app-shell[data-ui-mode="noncombat"] .mthd-identity {
+    grid-column: 2;
+    grid-row: 1;
+    min-width: 0;
+    max-width: none;
+  }
+  .app-shell[data-ui-mode="noncombat"] .mobile-top-hud:not(:has(.mthd-back)) .mthd-identity { grid-column: 1 / 3; }
+  .app-shell[data-ui-mode="noncombat"] .mthd-name { max-width: 100%; font-size: 13px; }
+  .app-shell[data-ui-mode="noncombat"] .mthd-level { font-size: 11px; }
+  .app-shell[data-ui-mode="noncombat"] .mthd-name-row { overflow: hidden; }
+  .app-shell[data-ui-mode="noncombat"] .mthd-bars {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    width: 100%;
+  }
+  .app-shell[data-ui-mode="noncombat"] .mthd-bar { height: 20px; }
+  .app-shell[data-ui-mode="noncombat"] .mthd-bar-label { gap: 3px; font-size: 12px; line-height: 1; }
+  .app-shell[data-ui-mode="noncombat"] .mthd-bar-name { display: inline; }
+  .app-shell[data-ui-mode="noncombat"] .mthd-resources { grid-column: 3; grid-row: 1; gap: 4px; }
+  .app-shell[data-ui-mode="noncombat"] .mthd-resource { font-size: 12px; }
+}
+
 /* Chronicle duels are sealed, viewport-sized play surfaces. Keep this
    takeover geometry here so the adaptive shell remains the single authority
    for rail visibility, root columns, and center-stage scrolling at every
@@ -482,7 +554,7 @@ html body.coach-banner-open .app-shell[data-shell="adaptive"][data-ui-mode="nonc
 }
 /* Preserve usable sector space above the navigation in short phone landscape. */
 @media (max-height: 450px) and (min-width: 560px) and (max-width: 979px) {
-  .app-shell.screen-worldMap[data-ui-mode="noncombat"]:has(.sector-stage-panel) .mobile-bottom-nav { min-block-size: 54px; padding-block: 4px; }
+  .app-shell.screen-worldMap[data-ui-mode="noncombat"]:has(.sector-stage-panel) .mobile-bottom-nav { --mobile-aaa-nav-height: 54px; min-block-size: 54px; padding-block: 4px; }
   .app-shell.screen-worldMap[data-ui-mode="noncombat"]:has(.sector-stage-panel) .mobile-nav-btn { min-block-size: 44px; padding-block: 2px; }
   .app-shell.screen-worldMap[data-ui-mode="noncombat"]:has(.sector-stage-panel) .mobile-nav-btn .mnb-icon { min-block-size: 20px; }
   .app-shell.screen-worldMap[data-ui-mode="noncombat"]:has(.sector-stage-panel) .mobile-nav-btn svg { width: 20px; height: 20px; }

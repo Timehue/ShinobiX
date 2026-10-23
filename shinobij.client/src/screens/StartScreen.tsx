@@ -3,6 +3,7 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import { type Character } from "../App";
 import { villages } from "../data/sectors";
 import { GameIcon } from "../components/icons/GameIcon";
+import { IphoneInstallGuide } from "../components/IphoneInstallGuide";
 import { GameplayGallery } from "./start/GameplayGallery";
 import { LandingAtmosphere } from "./start/LandingAtmosphere";
 import { useLandingReveals } from "./start/useLandingReveals";
@@ -324,6 +325,7 @@ function LandingMain({ onOpenCreate, onOpenLogin, onOpenGuides, onOpenLeaderboar
                             <button type="button" className="landing-cta landing-cta--ghost" onClick={() => scrollTo('landing-gameplay')}><span className="landing-play-icon" aria-hidden="true">◇</span> See gameplay</button>
                         </div>
                         <p className="landing-cta-note" role={!registrationOpen ? 'status' : undefined}>{registrationOpen ? 'Free to play  ·  No download required' : registrationMessage}</p>
+                        <IphoneInstallGuide />
                     </div>
                 </div>
                 <button type="button" className="landing-scroll-cue" onClick={() => scrollTo('landing-discover')}><span>See the world</span><span aria-hidden="true">⌄</span></button>

@@ -1,3 +1,5 @@
+.mthd-bar-name { display: none; }
+
 /* ===== Mobile: the tavern is a full-page chat — only the message log scrolls =====
    The mobile shell is a document-scroll page (html/body/#root scroll, .center-game
    is height:auto). That let the whole page scroll around the chat. On the tavern

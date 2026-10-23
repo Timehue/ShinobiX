@@ -9,6 +9,7 @@ import { AccountDeletionCard } from '../components/AccountDeletionCard';
 import { getReaderMode, setReaderMode, type ReaderMode } from '../lib/reader-preference';
 import { getAudioVolume, isAudioMuted, setAudioMuted, setAudioVolume, subscribeAudioMute } from '../lib/pet-music';
 import { primeGameAudio } from '../lib/game-audio';
+import { IphoneInstallGuide } from '../components/IphoneInstallGuide';
 import '../styles/settings.css';
 
 export function Settings({ character, onVersionedCharacter, onDelete }: {
@@ -36,6 +37,7 @@ export function Settings({ character, onVersionedCharacter, onDelete }: {
             <label className="settings-check"><input type="checkbox" checked={muted} onChange={e => { setAudioMuted(e.target.checked); if (!e.target.checked) primeGameAudio(); }} />Mute all audio</label>
             <p className="hint">Controls music, story ambience, and sound effects. Reader and audio preferences are saved on this device.</p>
         </section>
+        <IphoneInstallGuide />
         <section className="settings-section" aria-labelledby="account-heading">
             <h2 id="account-heading">Account &amp; sign-in</h2>
             <GoogleLinkCard playerName={character.name} />
