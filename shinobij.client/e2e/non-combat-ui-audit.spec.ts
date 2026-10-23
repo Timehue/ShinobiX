@@ -264,7 +264,9 @@ async function capture(page: Page, testInfo: TestInfo, screen: string) {
 
 test("touch audit measures active native labels and rejects ineffective label targets", async ({ page }) => {
     for (const type of ["checkbox", "radio"]) {
-        await page.setContent(`<main class="center-game">
+        // Match the game's standards-mode viewport. Safari auto-zooms a bare
+        // fixture and reports a 48px label as 47.999996px, a false audit failure.
+        await page.setContent(`<!doctype html><meta name="viewport" content="width=device-width, initial-scale=1"><main class="center-game">
             <input id="choice" type="${type}" aria-label="Compact choice" style="width:18px;height:18px;margin:0">
             <label for="choice" style="display:inline-flex;width:120px;height:48px;align-items:center">Choose</label>
         </main>`);
