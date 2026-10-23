@@ -152,7 +152,7 @@ test('a paid casual (Warfront-policy) win rolls the shared day and records its p
 test('the Gauntlet logs its entry fee as a sink and its run payout once', async (t) => {
     t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
     const player = 'petgauntlettelemetry';
-    await kv.set(`save:${player}`, { _saveVersion: 1, character: { name: player, ryo: 2_000 } });
+    await kv.set(`save:${player}`, { _saveVersion: 1, character: { name: player, level: 90, ryo: 2_000 } });
     const free = await call(gauntlet, player, { action: 'start' }, '198.51.100.42');
     assert.equal(free.body.chargedRyo, 0);
     const charged = await call(gauntlet, player, { action: 'start' }, '198.51.100.42');

@@ -8,6 +8,7 @@ import { withKvLock } from '../_lock.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { replayGauntlet } from '../_pet-sim/gauntlet-sim.js';
 import { debitGauntletEntry } from './_gauntlet-entry.js';
+import { petGauntletRyoSchedule } from '../../shared/pet-gauntlet-economy.js';
 import { recordEconomyTxn } from '../_economy.js';
 import { isPlayerSaveVersionConflict, retryOnSaveVersionConflict, SAVE_VERSION_CONFLICT_REPLY } from '../save/_projected-write.js';
 
@@ -38,8 +39,8 @@ import { isPlayerSaveVersionConflict, retryOnSaveVersionConflict, SAVE_VERSION_C
 // ── Tunables (sealed server-side) ────────────────────────────────────────────
 const MAX_ROUNDS = 10;            // mirrors GAUNTLET_MAX_ROUNDS on the client
 const START_HEARTS = 3;           // mirrors GAUNTLET_START_HEARTS
-const RYO_PER_ROUND = 250;        // Ryo per round cleared
-const CLEAR_BONUS = 1500;         // extra Ryo for clearing all rounds
+// Ryo per round cleared and the full-clear bonus scale with A(L) and are sealed
+// at start: 250 / 1,500 from L70 (shared/pet-gauntlet-economy.ts).
 const REWARDED_RUNS_PER_DAY = 3;  // only the first N rewarded runs/day pay Ryo
 const TOKEN_TTL_SECONDS = 60 * 60; // a full run fits comfortably
 const LB_MAX = 1000;
@@ -123,7 +124,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const reply = (sealed: SealedRun, character: Record<string, unknown>, version: number, chargedRyo: number, resumed = false) => {
                     const used = character.petGauntletRewardDate === dayStamp() ? Number(character.petGauntletRewardCount ?? 0) : 0;
                     return res.status(200).json({ runToken: id, seed: sealed.seed, weekKey: sealed.weekKey, rewardEligible: sealed.rewardEligible,
-                        maxRounds: sealed.maxRounds, rewardedRunsLeft: Math.max(0, REWARDED_RUNS_PER_DAY - used), chargedRyo, resumed,
+                        maxRounds: sealed.maxRounds, perRound: sealed.perRound, clearBonus: sealed.clearBonus,
+                        rewardedRunsLeft: Math.max(0, REWARDED_RUNS_PER_DAY - used), chargedRyo, resumed,
                         balances: { ryo: Number(character.ryo ?? 0) }, character, _saveVersion: version });
                 };
                 const existing = await kv.get<SealedRun>(tokenKey(id));
@@ -140,8 +142,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const result = debitGauntletEntry(char, dayStamp());
                     if (!result.ok) return { ok: false, status: 409, error: `A new Gauntlet run costs ${result.required.toLocaleString()} ryo. Not enough ryo.` };
                     const used = char.petGauntletRewardDate === dayStamp() ? Number(char.petGauntletRewardCount ?? 0) : 0;
+                    const schedule = petGauntletRyoSchedule(char.level);
                     const sealed: SealedRun = { player: me, weekKey, seed: randomInt(1, 0x7fffffff), rewardEligible: used < REWARDED_RUNS_PER_DAY,
-                        perRound: RYO_PER_ROUND, clearBonus: CLEAR_BONUS, maxRounds: MAX_ROUNDS, startHearts: START_HEARTS };
+                        perRound: schedule.perRound, clearBonus: schedule.clearBonus, maxRounds: MAX_ROUNDS, startHearts: START_HEARTS };
                     // The existing run-seal row and the save/ledger commit in
                     // one transaction. A lost reply cannot debit another entry.
                     return { ok: true, character: result.character, value: { chargedRyo: result.charged, sealed },

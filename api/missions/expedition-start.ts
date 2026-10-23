@@ -29,7 +29,7 @@ import { sectorBiomeOf, sectorName, sectorRegionLabel } from '../../shared/secto
 import { rollPetExpeditionMaterials } from '../../shared/pet-expedition-materials.js';
 import { economyDial } from '../_economy-dials.js';
 
-/** EXPEDITION_RYO_SCALE (default 0.3, range 0-1; kill value 1): the share of a
+/** EXPEDITION_RYO_SCALE (default 0.2, range 0-1; kill value 1): the share of a
  *  route's ryo an expedition pays, sealed at launch. */
 export function expeditionRyoScale(): number {
     return economyDial('EXPEDITION_RYO_SCALE', PET_EXPEDITION_RYO_SCALE, { min: 0, max: 1 });

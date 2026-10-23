@@ -6,7 +6,7 @@ describe('server-authoritative Pet Gauntlet entry fee', () => {
     const day = '2026-08-07';
 
     it('grants one daily free run, then debits each start', () => {
-        const first = debitGauntletEntry({ ryo: 2_000 }, day);
+        const first = debitGauntletEntry({ ryo: 2_000, level: 90 }, day);
         assert.equal(first.ok, true);
         if (!first.ok) return;
         assert.equal(first.charged, 0);
@@ -16,9 +16,19 @@ describe('server-authoritative Pet Gauntlet entry fee', () => {
     });
 
     it('fails closed when the stored wallet cannot cover a paid run', () => {
-        assert.deepEqual(debitGauntletEntry({ ryo: PET_GAUNTLET_ENTRY_FEE - 1, petGauntletEntryDate: day, petGauntletEntryCount: 1 }, day), {
+        assert.deepEqual(debitGauntletEntry({ ryo: PET_GAUNTLET_ENTRY_FEE - 1, level: 90, petGauntletEntryDate: day, petGauntletEntryCount: 1 }, day), {
             ok: false,
             required: PET_GAUNTLET_ENTRY_FEE,
         });
+    });
+
+    it('scales the paid entry with the stored level', () => {
+        const paid = debitGauntletEntry({ ryo: 1_000, level: 10, petGauntletEntryDate: day, petGauntletEntryCount: 1 }, day);
+        assert.equal(paid.ok, true);
+        if (paid.ok) {
+            assert.equal(paid.charged, 300);
+            assert.equal(paid.character.ryo, 700);
+        }
+        assert.deepEqual(debitGauntletEntry({ ryo: 299, level: 10, petGauntletEntryDate: day, petGauntletEntryCount: 1 }, day), { ok: false, required: 300 });
     });
 });

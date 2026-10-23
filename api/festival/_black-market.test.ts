@@ -4,6 +4,7 @@ import {
     rollBlackMarket,
     settleBlackMarketPull,
     BLACK_MARKET_COST,
+    BLACK_MARKET_CERTIFICATE_COST,
     BLACK_MARKET_DAILY_CAP,
     type BlackMarketReward,
 } from './_black-market.js';
@@ -155,12 +156,13 @@ const player = (over: Record<string, unknown> = {}) => ({
     auraStones: 1, mythicSeals: 1, level: 40, ...over,
 });
 
-test('a certificate spends no ryo, consumes one certificate and uses a daily pull', () => {
-    const before = { ...player({ ryo: 0 }), brokerCertificates: 2 };
+test('a certificate covers half the stake, consumes one certificate and uses a daily pull', () => {
+    assert.equal(BLACK_MARKET_CERTIFICATE_COST, 37_500);
+    const before = { ...player({ ryo: BLACK_MARKET_CERTIFICATE_COST }), brokerCertificates: 2 };
     const settled = settleBlackMarketPull({ character: before, used: 9, roll: PAYOUT, payment: 'certificate' });
     assert.equal(settled.ok, true);
     if (!settled.ok) return;
-    assert.equal(settled.cost, 0);
+    assert.equal(settled.cost, BLACK_MARKET_CERTIFICATE_COST);
     assert.equal(settled.nextCharacter.ryo, PAYOUT.ryo);
     assert.equal(settled.nextCharacter.brokerCertificates, 1);
     assert.equal(settled.nextCharacter.fateShards, 1 + PAYOUT.fateShards);
@@ -184,6 +186,20 @@ test('certificate payment requires a real whole certificate and never falls back
         assert.equal(paid.cost, BLACK_MARKET_COST);
         assert.equal(paid.nextCharacter.brokerCertificates, 2, 'paying ryo keeps certificates');
     }
+});
+
+test('a certificate pull without its half stake is refused and keeps the certificate', () => {
+    const settled = settleBlackMarketPull({ character: player({ ryo: BLACK_MARKET_CERTIFICATE_COST - 1, brokerCertificates: 1 }), used: 0, roll: PAYOUT, payment: 'certificate' });
+    assert.equal(settled.ok, false);
+    if (settled.ok) return;
+    assert.equal(settled.status, 400);
+    assert.match(String(settled.body.error), /certificate crate costs 37,500/);
+});
+
+test('a certificate pull is still a ryo sink in expectation', () => {
+    // About 24,100 expected ryo back against the 37,500 half stake.
+    const ev = blackMarketPullEv();
+    assert.ok(ev.ryo < BLACK_MARKET_CERTIFICATE_COST, `EV ${ev.ryo} must stay under the certificate stake`);
 });
 
 test('a pull debits the stake and credits the roll on ONE character object', () => {

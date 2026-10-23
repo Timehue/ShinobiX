@@ -187,10 +187,12 @@ test('Rare armor (the only armor the Crafter forges) takes ore, the shared hide 
 test('no substitution raises a crafted good\'s NPC sale cap (the crafted-goods converter fix still holds)', () => {
     // Values computed from the pre-substitution recipes: a substitute is never
     // cheaper than the material it stands in for, so each row's cheapest input,
-    // and with it the 7/10 cap, is unchanged.
+    // and with it the 7/10 cap, is unchanged. The core-row caps follow the
+    // 2026-10-23 cut to Ancient Beast Core / Titan Bone (200) and Legendary
+    // Material (240), which keeps Legendary Material the dearest core.
     const before: Record<string, number> = {
         'pet-treat': 0, 'thrown-shuriken': 0, 'thrown-senbon': 0, 'thrown-serpent-dust': 16, 'consum-phantom-charm': 25,
-        'pve-bloodbond-totem': 756, 'pve-sanguine-charm': 588, 'consum-second-wind': 277, 'pve-apex-predator-fang': 1232,
+        'pve-bloodbond-totem': 420, 'pve-sanguine-charm': 364, 'consum-second-wind': 165, 'pve-apex-predator-fang': 784,
         'beast-seal-master': 0, 'elemental-pet-treat': 0,
     };
     for (const [id, cap] of Object.entries(before)) assert.equal(craftedSaleCapRyo(id), cap, id);

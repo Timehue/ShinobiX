@@ -80,14 +80,15 @@ test('hunt drop materials (cost:0) sell for their rarity-tiered ryo value', () =
     );
     assert.equal(sold.ok, true);
     if (sold.ok) assert.equal(sold.character.ryo, 30);
-    // legendary Legendary Material = 480 ryo each (600 before the 2026-10 x0.8 trim)
+    // legendary Legendary Material = 240 ryo each (600, then 480 after the
+    // 2026-10 x0.8 trim, then 240 by owner ruling 2026-10-23)
     const leg = applyInventorySale(
         character({ ryo: 0, inventory: ['hunt-legendary-material'] }),
         item({ id: 'hunt-legendary-material', slot: 'item', rarity: 'legendary', cost: 0 }),
         'backpack', 1, undefined, 'huntsale002', 100,
     );
     assert.equal(leg.ok, true);
-    if (leg.ok) assert.equal(leg.character.ryo, 480);
+    if (leg.ok) assert.equal(leg.character.ryo, 240);
     // a NON-hunt cost:0 item stays unsellable (materials didn't make everything sellable)
     assert.equal(
         applyInventorySale(character({ inventory: ['misc'] }), item({ id: 'misc', slot: 'item', cost: 0 }), 'backpack', 1, undefined, 'huntsale003', 100).ok,
@@ -120,7 +121,7 @@ test('every shared hunt-material price preserves the authoritative sale payout',
         'hunt-torn-hide': 12, 'hunt-wild-feather': 12, 'hunt-small-fang': 12, 'hunt-cracked-horn': 12,
         'hunt-beast-meat': 15, 'hunt-frost-pelt': 40, 'hunt-shadow-claw': 40, 'hunt-wolf-fang': 55,
         'hunt-ash-scale': 80, 'hunt-ember-scale': 144, 'hunt-shadow-pelt': 176,
-        'hunt-ancient-beast-core': 360, 'hunt-titan-bone': 360, 'hunt-legendary-material': 480,
+        'hunt-ancient-beast-core': 200, 'hunt-titan-bone': 200, 'hunt-legendary-material': 240,
     };
     assert.strictEqual(HUNT_MATERIAL_SELL_RYO, SHARED_HUNT_MATERIAL_SELL_RYO, 'legacy API export remains compatible');
     assert.deepEqual(HUNT_MATERIAL_SELL_RYO, expectedPrices);
@@ -145,7 +146,7 @@ test('every shared hunt-material price preserves the authoritative sale payout',
 test('npcSaleValue prices one unit exactly as the sale route credits it', () => {
     const cases: Array<[SettlementItem, number]> = [
         [item({ cost: 101 }), 50],
-        [item({ id: 'hunt-legendary-material', slot: 'item', rarity: 'legendary', cost: 0 }), 480],
+        [item({ id: 'hunt-legendary-material', slot: 'item', rarity: 'legendary', cost: 0 }), 240],
         [item({ id: 'training-katana-s2', cost: 0 }), GEAR_STEP_SELL_RYO],
         [item({ id: 'named-weapon-123456781234123412341234567890ab', slot: 'hand', cost: 0 }), NAMED_GEAR_SELL_RYO],
     ];

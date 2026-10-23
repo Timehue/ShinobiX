@@ -96,15 +96,17 @@ export const PET_EXPEDITION_PROVISION_RULES: Readonly<Record<PetExpeditionProvis
 
 /**
  * Share of the route's ryo an expedition actually pays (2026-10 economy
- * rebalance, owner ruling 2026-10-22). Expeditions are idle income, so they sit
- * under the passive ceiling: at 0.3 a Pet Tamer's 12 Ruins claims pay about
- * 11,700 ryo a day (about 26,000 with full mastery and bold routes), against a
- * regular L90 player's ~43,000 active day. The server passes its env reading
+ * rebalance, owner rulings 2026-10-22 and 2026-10-23). Expeditions are idle
+ * income, so they sit under active play: at 0.3 the release audit still found
+ * passive income at or above active income for casual players and maxed Tamers,
+ * so the owner lowered it to 0.2. Twelve safe Ruins claims now pay 7,776 ryo a
+ * day for a base Pet Tamer and 5,184 for other professions, against 27,000 for
+ * 90 active minutes at L90 (A = 300). The server passes its env reading
  * (api/missions/expedition-start.ts `expeditionRyoScale()`, dial
  * EXPEDITION_RYO_SCALE); the board previews at this code default. Ryo is sealed
  * at launch, so a change never touches an expedition already in flight.
  */
-export const PET_EXPEDITION_RYO_SCALE = 0.3;
+export const PET_EXPEDITION_RYO_SCALE = 0.2;
 
 /** Version-2 secure-return rewards. All eligible pets earn the base rewards;
  * the fixed profession bonus stacks with purchased mastery and route choices. */

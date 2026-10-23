@@ -147,12 +147,18 @@ pay on the first run of the UTC day.
 **Bosses and side modes.** The weekly boss pays on a fixed reference HP of 100,000, with
 a per-player cap of 60,000 and an MVP cap of 90,000. The Endless Spire pays a ryo purse
 at 1.5 x A per active minute. The Dojo Circuit, public Team Arena, tournaments and the
-L80 crisis pay 0.5 x A per active minute.
+L80 crisis pay 0.5 x A per active minute. The Pet Gauntlet's ryo scales with A(L) (owner
+ruling 2026-10-23, `shared/pet-gauntlet-economy.ts`). From L70 it pays its old schedule:
+250 a cleared round and 1,500 for a full clear, on the first three runs a day. Below L70
+the round pay, the clear bonus and the paid-entry fee shrink in proportion, so an L10 full
+clear pays 800 and a paid entry costs 300. The run seals its schedule at start.
 
 **Bank, trade, shop.** The bank principal cap is 1M (was 10M), so passive interest tops
-out at 5,000 a day. The top five hunt-material NPC prices are x0.8 (Ember Scale 144,
-Shadow Pelt 176, Ancient Beast Core and Titan Bone 360, Legendary Material 480); the
-lower tiers carry early-game hunt income and are unchanged. A gear step sells for 150. A
+out at 5,000 a day. The top five hunt-material NPC prices were cut x0.8 (Ember Scale 144,
+Shadow Pelt 176). The release audit still found L70+ hunts paying about 1.7 x A through
+material sales, so the owner cut the top three again (2026-10-23): Ancient Beast Core and
+Titan Bone sell for 200 (were 360) and Legendary Material for 240 (was 480). The lower
+tiers carry early-game hunt income and are unchanged. A gear step sells for 150. A
 crafted charm sells for at most 0.7x its inputs. The shop route now enforces the same
 rarity level ladder as the client. Pet supplies buy in stacks up to 50. The B-rank
 bloodline forge costs 200 Bone Charms.
@@ -163,12 +169,14 @@ rare odds go from 0.3% to 1.2%, which fixes an inverted tier.
 Two pet values in this pass were replaced by newer owner-merged designs on `main`:
 - Expedition ryo. Reward version 2 (#446) seals a fixed payout at launch (240 / 360 /
   540 ryo per hour by route, x1.5 for Pet Tamers, times purchased mastery and the bold
-  route). Unscaled, a Tamer's 12 Ruins claims paid about 38,900 ryo a day idle (87,000
-  at full mastery and bold), so the owner chose (2026-10-22) to keep the v2 design and
-  scale its ryo by `EXPEDITION_RYO_SCALE` 0.3 (`shared/pet-expedition-contract.ts`):
-  about 11,700 a day for a base Tamer, about 26,000 at full mastery and bold, and about
-  7,800 for other professions. Pet XP and material odds are not scaled. The older x0.4
-  `TAMER_RYO_MULT` applies only to expeditions launched before version 2.
+  route). Unscaled, a Tamer's 12 Ruins claims paid about 38,900 ryo a day idle, so the
+  owner chose (2026-10-22) to keep the v2 design and scale its ryo by
+  `EXPEDITION_RYO_SCALE` (`shared/pet-expedition-contract.ts`). It shipped at 0.3. The
+  release audit then found passive income at or above active income for casual players
+  and maxed Tamers, so the owner lowered it to 0.2 (2026-10-23). Twelve safe Ruins claims
+  now pay 7,776 a day for a base Tamer and 5,184 for other professions. Pet XP and
+  material odds are not scaled. The older x0.4 `TAMER_RYO_MULT` applies only to
+  expeditions launched before version 2.
 - Pet food. Pet growth v2 (`docs/pet-growth-food-redesign.md`) makes Elemental and
   Ancient Treats Crafter-only, prices Treats at 400 ryo and Golden Apples at 40 Fate
   Shards, and caps food XP at 2,000 per pet per day. The rebalance's 200 / 400 shop
@@ -308,7 +316,7 @@ service when a variable changes.
 | `WB_REWARD_REF_HP` / `WB_PLAYER_CAP` / `WB_MVP_CAP` | 100,000 / 60,000 / 90,000 | 10,000-1,000,000 / 1,000-1,000,000 / 1,000-1,000,000 | `api/weekly-boss.ts` |
 | `SPIRE_PURSE_SCALE` / `SIDE_MODE_PURSE_SCALE` | 1 / 1 | 0-2 | `api/_activity-purse.ts` |
 | `BANK_INTEREST_PRINCIPAL_CAP` | 1,000,000 | 100,000-10,000,000 | `api/_bank-interest.ts` |
-| `EXPEDITION_RYO_SCALE` | 0.3 | 0-1; kill value 1 | `api/missions/expedition-start.ts` (default in `shared/pet-expedition-contract.ts`) |
+| `EXPEDITION_RYO_SCALE` | 0.2 | 0-1; kill value 1 | `api/missions/expedition-start.ts` (default in `shared/pet-expedition-contract.ts`) |
 | `TAMER_RYO_MULT` / `TAMER_XP_MULT` | 0.4 (pre-v2 expeditions only) / 0.5 | 0-1 | `api/missions/report-pet-event.ts` |
 | `HEALER_HEAL_XP_MULT` | 2 | 1-2 | `api/player/_healer-heal-xp.ts` |
 | `CARD_PVP_WIN_CP` / `CARD_PVP_LOSS_CP` | 20 / 8 | 0-100 each (before the pair weight) | `api/card-clash/_card-cp.ts` |
@@ -317,6 +325,13 @@ service when a variable changes.
 The black-market pull stays a 75,000 constant on both sides, so the quoted and charged
 prices can never split. It moves to 90,000 by deploy if the Exchange Fate Shard loop
 product stays at 0.93 or above for 7 days.
+
+A Broker certificate covers half the stake (owner ruling 2026-10-23), so a certificate
+pull costs 37,500 ryo (`BLACK_MARKET_CERTIFICATE_COST`, mirrored in the client). A pull
+returns about 24,100 ryo in expectation, so a certificate pull now removes about 13,400
+ryo before resale instead of creating 24,100. Before this, a Rally winner's two
+certificates and a Caravan delivery's one were worth about 72,000 ryo a day at any level.
+A certificate pull without the other half is refused, and the certificate is kept.
 
 ## 9. Rollout
 
@@ -364,9 +379,9 @@ Raised by the 2026-10-22 tie-in audit, for the owner:
 - Mythic Seals have no source (standing ruling), but S-rank Awakening still shows a
   100-seal progress bar, the hidden "Hold 10 Mythic Seals" achievement cannot be
   earned, and clan and village donate buttons still accept a seal.
-- Flat faucets this pass did not re-anchor to A(L): the Pet Gauntlet (250 a round and
-  1,500 a clear, 3 paid runs a day), the world boss event (2,500), map control (100 per
-  held sector a day), the pet arena and Rift quest completion.
+- Flat faucets this pass did not re-anchor to A(L): the world boss event (2,500), map
+  control (100 per held sector a day), the pet arena and Rift quest completion. The Pet
+  Gauntlet was re-anchored on 2026-10-23 (section 5).
 - Card duels ended by a forfeit or the turn clock pay neither player, so a losing
   player can deny the winner's 20 CP by conceding. The PvP ryo purse pays the winner
   after a fight that met its length floor.

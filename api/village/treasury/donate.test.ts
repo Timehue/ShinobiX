@@ -108,11 +108,11 @@ describe('village treasury donation merit', () => {
         await seedDonor({ itemStacks: [{ itemId: 'hunt-legendary-material', count: 25 }, { itemId: 'weekly-boss-core', count: 1 }] });
         const out = await post({ itemId: 'hunt-legendary-material', count: 25 });
         assert.equal(out.statusCode, 200, JSON.stringify(out.body));
-        assert.equal(await meritOf(), meritForDonation(25 * HUNT_MATERIAL_SELL_RYO['hunt-legendary-material']), '25 x 480 = 12,000 ryo of value');
-        assert.equal(await meritOf(), 12);
+        assert.equal(await meritOf(), meritForDonation(25 * HUNT_MATERIAL_SELL_RYO['hunt-legendary-material']), '25 x 240 = 6,000 ryo of value');
+        assert.equal(await meritOf(), 6);
         const relic = await post({ itemId: 'weekly-boss-core', count: 1 });
         assert.equal(relic.statusCode, 200, JSON.stringify(relic.body));
-        assert.equal(await meritOf(), 12, 'an unsellable relic has no sale value');
+        assert.equal(await meritOf(), 6, 'an unsellable relic has no sale value');
     });
 
     it('keeps a routed RATION donation on its flat 500-per-item basis', async () => {
