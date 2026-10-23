@@ -1,0 +1,127 @@
+/* Veiled Steel fieldwork: quiet stone, weathered seal paper, contained spirit light. */
+.veinbreaking{--vein-mineral:#a98b57;--vein-glint:#e5d3a5;--vein-shadow:#554631;--vein-spirit:var(--sj-spirit,#74adbd);--vein-danger:var(--sj-warning,#d29448);position:relative}
+.vein-workspace{display:grid;grid-template-columns:minmax(0,1fr) 190px;align-items:center;gap:24px}
+.vein-scene{--vein-mineral:#a98b57;--vein-glint:#e5d3a5;--vein-shadow:#554631;position:relative;isolation:isolate;width:100%;max-width:360px;aspect-ratio:1;margin:10px auto 12px;background:radial-gradient(ellipse at 50% 65%,color-mix(in srgb,var(--vein-mineral) 12%,transparent),transparent 66%)}
+.vein-scene:before{content:'';position:absolute;inset:12% 8% 2%;z-index:-1;background:#080b0f;filter:blur(12px);border-radius:50%;opacity:.8}
+.vein-scene--frozen{--vein-mineral:#8eafbd;--vein-glint:#e0edf1;--vein-shadow:#3f596c}
+.vein-scene--volcanic{--vein-mineral:#ba7850;--vein-glint:#efb887;--vein-shadow:#592f26}
+.vein-scene--crystal{--vein-mineral:#7fadb6;--vein-glint:#d2edf1;--vein-shadow:#3f536c}
+.vein-scene-caption{position:absolute;left:0;top:-6px;color:var(--sj-text-secondary,#b7c0c8);font-size:11px;letter-spacing:.08em;text-transform:uppercase}
+.vein-rock{display:block;width:100%;height:100%;overflow:visible}
+.vein-texture{filter:saturate(.3) brightness(.85)}
+.vein-scene--frozen .vein-texture{filter:saturate(.25) brightness(1.1)}
+.vein-scene--volcanic .vein-texture{filter:sepia(.3) saturate(.5) brightness(.65)}
+.vein-scene--crystal .vein-texture{filter:saturate(.3) brightness(.75) hue-rotate(150deg)}
+.vein-strata{fill:none;stroke:#b7c0c8;stroke-width:.8;opacity:.15}
+.vein-thread{fill:none;stroke:var(--vein-mineral);stroke-width:.65;opacity:.55}
+.vein-frost{fill:none;stroke:var(--vein-glint);stroke-width:.45;opacity:.5}
+.vein-heat{fill:none;stroke:var(--vein-mineral);stroke-width:1;opacity:.4}
+.vein-scene.is-releasing .vein-heat{animation:vein-warm .9s ease-out}
+.vein-glass{fill:var(--vein-shadow);stroke:var(--vein-glint);stroke-width:.4;opacity:.7}
+.vein-arc{fill:none;stroke:var(--vein-glint);stroke-width:.65;opacity:0}
+.vein-scene.is-releasing .vein-arc{animation:vein-warm .65s ease-out .65s}
+.vein-pocket{opacity:.35;transition:opacity .28s ease,filter .28s ease}
+.vein-pocket.is-exposed{opacity:1;filter:drop-shadow(0 0 1.2px var(--vein-mineral))}
+.vein-facet{fill:none;stroke:var(--vein-glint);stroke-width:.5;opacity:.65}
+.vein-grains{stroke:var(--vein-glint);stroke-width:.8;stroke-linecap:round}
+.vein-shell{transform-box:fill-box;transform-origin:center;transition:transform .55s cubic-bezier(.4,0,1,1),opacity .5s ease .1s}
+.vein-shell>path:first-child{fill:#34393e;stroke:#656969;stroke-width:.45}
+.vein-shell-edge{fill:none;stroke:#9a9b91;stroke-width:.4;opacity:.35}
+.vein-scene--volcanic .vein-shell>path:first-child{fill:#302c2c;stroke:#665449}
+.vein-scene--frozen .vein-shell>path:first-child{fill:#465661;stroke:#8dabb4}
+.vein-scene--crystal .vein-shell>path:first-child{fill:#303d49;stroke:#667f88}
+.vein-shell.is-loose{transform:translate(var(--chip-x),var(--chip-y)) rotate(var(--chip-turn));opacity:0}
+.vein-fault{fill:none;stroke:#c5c0ac;stroke-width:.45;opacity:.36;transition:stroke .18s,opacity .18s}
+.vein-fault.is-selected{stroke:var(--vein-spirit);stroke-width:.8;opacity:.85}
+.vein-fault.is-preview{stroke:var(--vein-glint);stroke-width:1;opacity:1;stroke-dasharray:1.5 1}
+.vein-fault.is-fired{stroke:var(--vein-glint);stroke-width:1;opacity:1;stroke-dasharray:1;stroke-dashoffset:1;animation:vein-crack .5s ease-out forwards;filter:drop-shadow(0 0 1.2px var(--vein-mineral))}
+.vein-pocket-marker circle{fill:#121820;stroke:#a3a89d;stroke-width:.35}
+.vein-pocket-marker text{fill:#f0ede5;font:500 4.3px var(--font-body,sans-serif)}
+.vein-pocket-marker.is-covered circle{fill:#36535d;stroke:var(--vein-spirit)}
+.vein-pocket-marker.is-stressed circle{fill:#68412b;stroke:#e6b080}
+.vein-pocket-marker.is-stressed text{fill:#fff0dd}
+.vein-debris{fill:var(--vein-glint);animation:vein-debris .65s ease-in forwards;pointer-events:none}
+.vein-scene--iron .vein-debris{animation-duration:.8s}
+.vein-scene--frozen .vein-debris{fill:#c9e1ea}
+.vein-scene--volcanic .vein-debris{fill:#d29a6b}
+.vein-scan{fill:none;stroke:var(--vein-spirit);stroke-width:.7;transform-origin:center;animation:vein-read .9s ease-out both;pointer-events:none}
+.vein-talisman{--talisman-ember:var(--sj-gold,#d1a758);display:block;width:32px;height:48px;overflow:visible;pointer-events:none;filter:drop-shadow(0 2px 2px #080b0f);opacity:.65;transition:opacity .18s,transform .18s}
+.vein-talisman-glow{fill:none;stroke:var(--vein-spirit);stroke-width:4;opacity:.3;filter:drop-shadow(0 0 4px var(--vein-spirit));transition:opacity .18s}
+.vein-talisman.is-primed{opacity:1;transform:rotate(-6deg)}
+.vein-talisman.is-primed .vein-talisman-glow{opacity:.75}
+.vein-talisman-rule{fill:none;stroke:#8c7657;stroke-width:.8;opacity:.55}
+.vein-talisman-ink{fill:#833c3e;stroke:#833c3e;stroke-width:.7;font:26px Georgia,serif}
+.vein-talisman-paper{transform-origin:50% 70%}
+.vein-talisman-char{fill:#302923;opacity:0}
+.vein-talisman-burn{fill:none;stroke:var(--talisman-ember);stroke-width:2;opacity:0;filter:drop-shadow(0 0 3px var(--talisman-ember))}
+.vein-talisman-flame{fill:var(--talisman-ember);opacity:0;transform-origin:50% 80%;filter:drop-shadow(0 0 3px var(--talisman-ember))}
+.vein-talisman-embers{fill:var(--talisman-ember);opacity:0}
+.vein-talisman.is-igniting .vein-talisman-glow{stroke:var(--talisman-ember);opacity:.3}
+/* Every burn finishes inside its 650ms wave, including the final charge
+   before the existing 2500ms settlement boundary. */
+.vein-talisman.is-igniting .vein-talisman-paper{animation:vein-talisman-scorch .5s ease-out forwards}
+.vein-talisman.is-igniting .vein-talisman-char{animation:vein-talisman-char .4s ease-out forwards}
+.vein-talisman.is-igniting .vein-talisman-burn{animation:vein-talisman-ignite .5s ease-out forwards}
+.vein-talisman.is-igniting .vein-talisman-flame{animation:vein-talisman-flame .36s ease-out forwards}
+.vein-talisman.is-igniting .vein-talisman-embers{animation:vein-talisman-embers .48s ease-out forwards}
+.vein-talisman.is-igniting :is(.vein-talisman-paper,.vein-talisman-char,.vein-talisman-burn,.vein-talisman-flame,.vein-talisman-embers){animation-delay:var(--ignition-delay,0ms)}
+.vein-scene.is-crushed .vein-pocket{filter:saturate(.3);opacity:.35}
+.vein-scene.is-crushed .vein-fault{stroke:var(--vein-danger)}
+.resource-dialog .vein-seal{position:absolute;transform:translate(-50%,-50%);display:grid;place-items:center;width:48px;height:50px;min-height:44px;padding:0;border:0;border-radius:4px;background:transparent;color:#18212b;box-shadow:none}
+.vein-seal-number{position:absolute;right:0;top:0;display:grid;place-items:center;width:18px;height:18px;border-radius:50%;background:#18212b;color:#f0ede5;font-size:11px;border:1px solid #8b927f}
+.vein-seal.is-placed .vein-seal-number{background:#35535e;border-color:var(--vein-spirit)}
+.resource-dialog .vein-seal:disabled{opacity:.65}.resource-dialog .vein-seal.is-placed:disabled{opacity:1}
+.resource-dialog .vein-seal:focus-visible{outline:2px solid var(--vein-spirit);outline-offset:2px}
+@media(hover:hover){.resource-dialog .vein-seal:not(:disabled):hover .vein-talisman{opacity:1;transform:translateY(-2px) rotate(-6deg)}}
+.vein-guide{padding-left:18px;border-left:1px solid var(--sj-border,#38424b)}
+.vein-guide .resource-kicker{font-size:11px;margin:0 0 8px;color:var(--sj-text-secondary,#b7c0c8)}
+.vein-guide h4{font:400 24px/1.2 var(--font-display,Georgia,serif);color:var(--sj-text-primary,#f0ede5);margin:0 0 12px}
+.vein-guide p{font-size:13px;line-height:1.55;color:var(--sj-text-secondary,#b7c0c8);margin:10px 0}
+.resource-dialog .vein-read{min-height:44px;padding:8px 12px;border:1px solid #637b86;border-radius:4px;background:#18212b;color:#d8e8eb;font-size:13px}
+.vein-guide .vein-route{min-height:60px;font-size:12px;color:var(--sj-text-secondary,#b7c0c8)}
+.vein-guide .vein-assessment{color:#c5d9d9;padding-top:10px;border-top:1px solid #38424b}
+.vein-guide .vein-assessment.is-warning{color:#efbd8b}
+.vein-guide small{font-size:11px;line-height:1.5;color:var(--sj-text-secondary,#b7c0c8)}
+.vein-readout{margin:6px 0 12px;padding:8px 0;border-top:1px solid #38424b;font-size:12px;color:var(--sj-text-secondary,#b7c0c8);text-align:center}
+.veinbreaking>.resource-primary{display:block;width:100%}
+.veinbreaking--relaxed .vein-scene{max-width:290px}
+.veinbreaking--relaxed .vein-seal:disabled{opacity:1}
+@keyframes vein-crack{to{stroke-dashoffset:0}}
+@keyframes vein-debris{0%{opacity:.85;transform:translate(0,0)}100%{opacity:0;transform:translate(var(--dust-x),18px)}}
+@keyframes vein-read{from{transform:scale(.08);opacity:.9}to{transform:scale(1.12);opacity:0}}
+@keyframes vein-talisman-scorch{0%,25%{filter:brightness(1.15)}100%{filter:brightness(.65)}}
+@keyframes vein-talisman-char{0%{opacity:0}100%{opacity:1}}
+@keyframes vein-talisman-ignite{0%{opacity:0}20%{opacity:1}100%{opacity:.35}}
+@keyframes vein-talisman-flame{0%{opacity:0;transform:scaleY(.2)}30%{opacity:.85;transform:scaleY(1)}100%{opacity:0;transform:translateY(-8px) scaleY(.5)}}
+@keyframes vein-talisman-embers{0%{opacity:0;transform:translateY(0)}25%{opacity:1}100%{opacity:0;transform:translateY(-24px)}}
+@keyframes vein-warm{0%,100%{opacity:.2}45%{opacity:.85}}
+@media(max-width:600px){
+ .vein-workspace{grid-template-columns:1fr;gap:4px}.vein-scene{max-width:300px;margin-block:16px 6px}
+ .vein-guide{border:0;padding:0;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 12px;align-items:center}
+ .vein-guide .resource-kicker,.vein-guide h4,.vein-guide small,.vein-guide .vein-route{display:none}
+ .vein-guide p{font-size:12px;margin:0}.vein-guide .vein-assessment{grid-column:1/-1;border:0;padding:4px 0}
+ .vein-readout{font-size:11px;margin-block:4px 8px;padding-block:6px}
+}
+@media(max-height:700px) and (min-width:601px){.vein-scene{max-width:290px}.vein-guide p{margin-block:7px}.vein-guide h4{font-size:21px;margin-bottom:6px}}
+@media(max-width:600px) and (max-height:700px){.vein-scene{max-width:240px}.vein-guide p{font-size:11px}}
+@media(min-width:480px) and (max-height:500px){
+ .veinbreaking{display:grid;grid-template-columns:minmax(200px,1fr) minmax(0,1fr);gap:3px 16px;padding-top:4px}
+ .vein-workspace{display:contents}.vein-scene{grid-column:1;grid-row:1/5;max-width:210px;margin:10px auto 0}
+ .veinbreaking>.gather-game-heading{grid-column:2;grid-row:1}.vein-guide{grid-column:2;grid-row:2;border:0;padding:0;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px}
+ .vein-guide .resource-kicker,.vein-guide h4,.vein-guide small,.vein-guide .vein-route{display:none}
+ .vein-guide p{font-size:11px;margin:0}.vein-guide .vein-assessment{grid-column:1/-1;border:0;padding:0;font-size:11px}
+ .resource-dialog .vein-read{padding:6px;font-size:11px}.veinbreaking>.vein-readout{grid-column:2;grid-row:3;margin:0;padding:3px 0;font-size:11px}
+ .veinbreaking>.resource-primary,.veinbreaking>.resource-recover{grid-column:2;grid-row:4;min-height:46px}
+ .veinbreaking>.resource-recover{z-index:1}.vein-scene-caption{font-size:10px}
+ .veinbreaking--relaxed .vein-scene{max-width:200px}
+}
+@media(min-width:480px) and (max-height:350px){.veinbreaking{grid-template-columns:minmax(175px,.85fr) minmax(0,1fr);gap:2px 12px}.vein-scene{max-width:180px}.vein-guide p{font-size:11px}.vein-scene-caption{top:-8px}.veinbreaking>.vein-readout{font-size:10px}.veinbreaking--relaxed .vein-scene{max-width:180px}}
+@media(prefers-reduced-motion:reduce){
+ .vein-shell,.vein-pocket,.vein-fault,.vein-talisman{transition:none!important}
+ .vein-fault.is-fired{animation:none;stroke-dashoffset:0;filter:none}
+ .vein-debris,.vein-scan{display:none}
+ .vein-talisman-glow{transition:none;filter:none}
+ .vein-talisman.is-igniting .vein-talisman-paper,.vein-talisman.is-igniting .vein-talisman-char,.vein-talisman.is-igniting .vein-talisman-burn,.vein-talisman.is-igniting .vein-talisman-flame,.vein-talisman.is-igniting .vein-talisman-embers{animation:none}
+ .vein-talisman.is-igniting .vein-talisman-char{opacity:1}.vein-talisman.is-igniting .vein-talisman-burn{opacity:.65;filter:none}
+ .vein-scene.is-releasing .vein-heat,.vein-scene.is-releasing .vein-arc{animation:none}
+}

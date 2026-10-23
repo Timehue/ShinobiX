@@ -5,12 +5,13 @@ import { uiAuditSave } from './helpers/ui-audit-runtime';
 import { kunaiFish, kunaiFlightMs, kunaiSeed } from '../../shared/kunai-fishing';
 import { resourceNode } from '../../shared/resource-nodes';
 import { readResourceGathering } from '../../shared/resource-gathering';
+import { FRACTURE_TEMPLATES } from '../../shared/fracture-chain';
 import type { OnlinePlayer } from '../../api/_realtime/types';
 import type { ResourceSeal } from '../../api/world/_resource-gathering';
 import { expectVisibleTouchTarget } from './helpers/visible-target';
 const { mintResourceSeal, admitResourceAttempt, resolveResourceAttempt, equipGatheringTool } = createRequire(import.meta.url)('../../dist/api/world/_resource-gathering.js') as typeof import('../../api/world/_resource-gathering');
 
-async function install(page: Page, nodeId = 'resource-13', uses = 0, miningXp = 3200, fishingXp = 3200) {
+async function install(page: Page, nodeId = 'resource-13', uses = 0, miningXp = 3200, fishingXp = 3200, fixture: { template?: number; successDraw?: number } = {}) {
     const node = resourceNode(nodeId)!;
     let character: Record<string, unknown> = { ...uiAuditSave().character, name: 'GatherQA',
         inventory: ['tool-basic-pickaxe', 'tool-basic-fishing-pole'],
@@ -31,7 +32,7 @@ async function install(page: Page, nodeId = 'resource-13', uses = 0, miningXp = 
             const active = readResourceGathering(character.resourceGathering).active;
             if (active?.id === body.requestId) return route.fulfill({ json: { ok: true, character, _saveVersion: version, attempt: active, replayed: true } });
             const seal = mintResourceSeal(character, node, body.requestId, body.mode, player, Date.now());
-            seal.template = node.difficulty === 1 ? 0 : 2; seal.successDraw = 0; seal.qualityDraw = .99;
+            seal.template = fixture.template ?? (node.difficulty === 1 ? 0 : 2); seal.successDraw = fixture.successDraw ?? 0; seal.qualityDraw = .99;
             if (node.activity === 'fishing') seal.hookAt = 2718;
             seals.set(seal.id, seal);
             character = admitResourceAttempt(character, seal, Date.now())!;
@@ -156,7 +157,7 @@ test('level-one Outpost quality values stay within their cards on narrow phones'
     }
 });
 
-test('Fracture Chain exposes the core and consumes the final basic tool use once', async ({ page }, info) => {
+test('Veinbreaking exposes the core and consumes the final basic tool use once', async ({ page }, info) => {
     const runtime = await install(page, 'resource-13', 49);
     runtime.character().equipment = { pickaxe: 'tool-basic-pickaxe', fishingPole: 'tool-golden-fishing-pole' };
     // The initial browser seed is supplied again with the final-use tool equipped.
@@ -164,11 +165,15 @@ test('Fracture Chain exposes the core and consumes the final basic tool use once
     await page.goto('/e2e/fixtures/resource-gathering.html?node=resource-13');
     await page.getByRole('button', { name: /^Harbor iron seam, mining/ }).click();
     await page.getByRole('button', { name: 'Begin mining · 1 action' }).click();
-    const detonate = page.getByRole('button', { name: 'Detonate chain', exact: true });
+    const detonate = page.getByRole('button', { name: 'Release fracture', exact: true });
     await expect(detonate).toBeVisible();
     const actionBox = await detonate.boundingBox();
     expect(actionBox!.y + actionBox!.height).toBeLessThanOrEqual(page.viewportSize()!.height);
-    const charges = page.locator('.fracture-charge');
+    const charges = page.locator('.vein-seal');
+    await expect(page.locator('.vein-talisman').first()).toBeVisible();
+    await expect(page.locator('.vein-talisman')).toHaveCount(await charges.count());
+    await expect(page.locator('.vein-scene > .vein-talisman')).toHaveCount(0);
+    await expect(page.locator('.vein-scene img[src*="pickaxe"]')).toHaveCount(0);
     if (info.project.name.includes('landscape')) {
         for (const charge of await charges.all()) await expectVisibleTouchTarget(charge);
     }
@@ -187,7 +192,7 @@ test('Fracture Chain exposes the core and consumes the final basic tool use once
     await noOverflow(page);
     expect((await new AxeBuilder({ page }).include('.resource-dialog').withTags(['wcag2a', 'wcag2aa']).analyze()).violations).toEqual([]);
     await page.screenshot({ path: info.outputPath('fracture-placed.png'), fullPage: true });
-    await page.getByRole('button', { name: 'Detonate chain', exact: true }).click();
+    await page.getByRole('button', { name: 'Release fracture', exact: true }).click();
     await expect(page.getByText('Your basic tool broke after its 50th use.', { exact: false })).toBeVisible();
     expect(runtime.settlements()).toBe(1);
     expect(readResourceGathering(runtime.character().resourceGathering).attemptsToday).toBe(1);
@@ -403,22 +408,91 @@ for (const challenge of [
     });
 }
 
-for (const deposit of [{ id: 'resource-15', skin: 'frozen' }, { id: 'resource-22', skin: 'volcanic' }]) {
+for (const deposit of [{ id: 'resource-15', skin: 'frozen' }, { id: 'resource-22', skin: 'volcanic' }, { id: 'resource-14', skin: 'crystal' }]) {
     test(`${deposit.skin} deposits keep their terrain identity through a three-charge fracture`, async ({ page }, info) => {
         const runtime = await install(page, deposit.id);
         await page.goto(`/e2e/fixtures/resource-gathering.html?node=${deposit.id}`);
         await page.getByRole('button', { name: new RegExp(`^${runtime.node.name}, mining`) }).click();
         await page.getByRole('button', { name: 'Begin mining · 1 action' }).click();
-        await expect(page.locator(`.fracture-board--${deposit.skin}`)).toBeVisible();
+        await expect(page.locator(`.vein-scene--${deposit.skin}`)).toBeVisible();
         for (const site of ['Crown seam', 'East seam', 'West seam']) await page.getByRole('button', { name: new RegExp(`^${site}`) }).click();
-        await expect(page.getByText('3 / 3 charges placed', { exact: false })).toBeVisible();
+        await expect(page.getByText('3 / 3 seals placed', { exact: false })).toBeVisible();
         await page.screenshot({ path: info.outputPath(`${deposit.skin}-fracture.png`), fullPage: true });
-        await page.getByRole('button', { name: 'Detonate chain', exact: true }).click();
+        await page.getByRole('button', { name: 'Release fracture', exact: true }).click();
         await expect(page.getByRole('heading', { name: 'Superior Iron Sand', exact: true })).toBeVisible();
         expect(runtime.settlements()).toBe(1);
         await noOverflow(page);
     });
 }
+
+for (const template of [3, 4, 5, 6, 7]) test(`Veinbreaking formation ${template} supports readable paths and a clean server extraction`, async ({ page }, info) => {
+    const nodeId = template < 5 ? 'resource-13' : 'resource-15';
+    const runtime = await install(page, nodeId, 0, 3200, 3200, { template });
+    await page.goto(`/e2e/fixtures/resource-gathering.html?node=${nodeId}`);
+    await page.getByRole('button', { name: new RegExp(`^${runtime.node.name}, mining`) }).click();
+    await page.getByRole('button', { name: 'Begin mining · 1 action' }).click();
+    await expect(page.getByRole('heading', { name: 'Veinbreaking', exact: true })).toBeVisible();
+    await expect(page.locator('.vein-talisman').first()).toBeVisible();
+    await page.getByRole('button', { name: 'Read seam', exact: true }).click();
+    await expect(page.locator('.vein-scan')).toBeAttached();
+    const formation = FRACTURE_TEMPLATES[template];
+    for (const seal of await page.locator('.vein-seal').all()) await expectVisibleTouchTarget(seal);
+    expect(await page.locator('.vein-seal').evaluateAll(seals => {
+        const boxes = seals.map(seal => seal.getBoundingClientRect());
+        return boxes.every((a, i) => boxes.slice(i + 1).every(b =>
+            Math.min(a.right, b.right) - Math.max(a.left, b.left) <= 1 || Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) <= 1));
+    }), 'seal touch targets must not overlap').toBe(true);
+    for (const site of formation.sites.slice(0, formation.charges)) {
+        const seal = page.getByRole('button', { name: new RegExp(`^${site.label}, reaches`) });
+        await expectVisibleTouchTarget(seal); await seal.click();
+    }
+    await expect(page.getByRole('status').filter({ hasText: `${formation.faces} / ${formation.faces} pockets reached` })).toBeVisible();
+    await noOverflow(page);
+    await page.screenshot({ path: info.outputPath(`veinbreaking-${template}-placed.png`), fullPage: true });
+    await page.getByRole('button', { name: 'Release fracture', exact: true }).click();
+    await expect(page.getByRole('region', { name: 'Mining result' })).toContainText('Added to your inventory');
+    expect(runtime.settlements()).toBe(1);
+    expect(readResourceGathering(runtime.character().resourceGathering).attemptsToday).toBe(1);
+});
+
+test('Veinbreaking previews crossing damage and distinguishes a clean extraction failure', async ({ page }) => {
+    await install(page, 'resource-13', 0, 3200, 3200, { successDraw: .999 });
+    await page.goto('/e2e/fixtures/resource-gathering.html?node=resource-13');
+    await page.getByRole('button', { name: /^Harbor iron seam, mining/ }).click();
+    await page.getByRole('button', { name: 'Begin mining · 1 action' }).click();
+    await page.getByRole('button', { name: /^Northwest seam/ }).click();
+    await page.getByRole('button', { name: /^East cross-fault/ }).click();
+    await expect(page.getByText('1 pocket under crossing fractures', { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: /^East cross-fault/ }).click();
+    await page.getByRole('button', { name: /^Southeast seam/ }).click();
+    await page.getByRole('button', { name: 'Release fracture', exact: true }).click();
+    await expect(page.getByRole('region', { name: 'Mining result' })).toContainText('The fracture held, but no usable ore could be extracted.');
+});
+
+test('Veinbreaking propagates cracks, sheds stone and honors reduced motion', async ({ page }, info) => {
+    const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
+    await install(page);
+    await page.goto('/e2e/fixtures/resource-gathering.html?node=resource-13');
+    await page.getByRole('button', { name: /^Harbor iron seam, mining/ }).click();
+    await page.getByRole('button', { name: 'Begin mining · 1 action' }).click();
+    await page.getByRole('button', { name: /^Northwest seam/ }).click();
+    await page.getByRole('button', { name: /^Southeast seam/ }).click();
+    await expect(page.locator('.vein-talisman').first()).toHaveClass(/is-primed/);
+    await expect(page.locator('.vein-talisman').first()).not.toHaveClass(/is-igniting/);
+    await page.getByRole('button', { name: 'Release fracture', exact: true }).click();
+    await expect(page.locator('.vein-fault.is-fired').first()).toBeAttached();
+    await expect(page.locator('.vein-shell.is-loose').first()).toBeAttached();
+    const reduced = await page.evaluate(() => matchMedia('(prefers-reduced-motion: reduce)').matches);
+    await expect(page.locator('.vein-talisman').first()).toHaveClass(/is-igniting/);
+    await expect(page.locator('.vein-seal:not(.is-placed) .vein-talisman.is-igniting')).toHaveCount(0);
+    await expect(page.locator('.vein-seal.is-fired .vein-talisman-paper').first()).toHaveCSS('animation-name', reduced ? 'none' : 'vein-talisman-scorch');
+    await expect(page.locator('.vein-seal.is-fired .vein-talisman-flame').first()).toHaveCSS('animation-name', reduced ? 'none' : 'vein-talisman-flame');
+    await expect(page.locator('.vein-fault.is-fired').first()).toHaveCSS('animation-name', reduced ? 'none' : 'vein-crack');
+    if (reduced) await expect(page.locator('.vein-debris').first()).toHaveCSS('display', 'none');
+    await page.screenshot({ path: info.outputPath('veinbreaking-fracture-in-motion.png'), fullPage: true, animations: 'allow' });
+    await expect(page.getByRole('region', { name: 'Mining result' })).toBeVisible();
+    expect(errors).toEqual([]);
+});
 
 test('field report shows a skill level up, repeat gathering and an exhausted node', async ({ page }, info) => {
     const runtime = await install(page, 'resource-13', 0, 90);
@@ -452,7 +526,7 @@ test('overlapping charges destroy the core even with a successful extraction rol
     await page.getByRole('button', { name: new RegExp(`^${runtime.node.name}, mining`) }).click();
     await page.getByRole('button', { name: 'Begin mining · 1 action' }).click();
     for (const site of ['Crown seam', 'East seam', 'Diagonal fracture']) await page.getByRole('button', { name: new RegExp(`^${site}`) }).click();
-    await page.getByRole('button', { name: 'Detonate chain', exact: true }).click();
+    await page.getByRole('button', { name: 'Release fracture', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'The seam gave way.', exact: true })).toBeVisible();
     const state = readResourceGathering(runtime.character().resourceGathering);
     expect(state.receipts.at(-1)).toMatchObject({ outcome: 'failed', xp: 3 });
@@ -468,6 +542,8 @@ test('refreshing an admitted attempt preserves its node, charges and repeat acti
     await page.getByRole('radio', { name: /Watch animation/ }).check();
     await page.getByRole('button', { name: 'Begin mining · 1 action' }).click();
     await expect(page.getByText('Animation mode uses your skill’s baseline success rate.', { exact: true })).toBeVisible();
+    await expect(page.locator('.vein-talisman').first()).toBeVisible();
+    await expect(page.locator('.vein-scene img[src*="pickaxe"]')).toHaveCount(0);
     await page.addInitScript(seed => { (window as unknown as { resourceSeed: unknown }).resourceSeed = seed; }, runtime.character());
     await page.reload();
     await page.getByRole('button', { name: 'Collect result', exact: true }).click();
@@ -566,7 +642,7 @@ test('mining settlement recovery stays reachable after a transient resolve error
     await page.getByRole('button', { name: 'Begin mining · 1 action' }).click();
     await page.getByRole('button', { name: /^Northwest seam/ }).click();
     await page.getByRole('button', { name: /^Southeast seam/ }).click();
-    await page.getByRole('button', { name: 'Detonate chain', exact: true }).click();
+    await page.getByRole('button', { name: 'Release fracture', exact: true }).click();
     await expect(page.getByRole('alert')).toContainText('Temporary gathering connection error.');
     const recover = page.getByRole('button', { name: 'Recover result', exact: true });
     await expect(recover).toBeVisible();
@@ -583,7 +659,7 @@ test('reload during committed mining detonation cannot reopen or improve its for
     await page.getByRole('button', { name: 'Begin mining · 1 action' }).click();
     await page.getByRole('button', { name: /^Northwest seam/ }).click();
     await page.getByRole('button', { name: /^East cross-fault/ }).click();
-    await page.getByRole('button', { name: 'Detonate chain', exact: true }).click();
+    await page.getByRole('button', { name: 'Release fracture', exact: true }).click();
     await page.addInitScript(seed => { (window as unknown as { resourceSeed: unknown }).resourceSeed = seed; }, runtime.character());
     // Keep settlement unresolved across the document transition so the test
     // checks the frozen input phase rather than simply reading a final receipt.
@@ -594,8 +670,8 @@ test('reload during committed mining detonation cannot reopen or improve its for
         await delayed; return route.fallback();
     });
     await page.reload({ waitUntil: 'domcontentloaded' });
-    await expect(page.locator('.fracture-board')).toBeVisible();
-    for (const charge of await page.locator('.fracture-charge').all()) await expect(charge).toBeDisabled();
+    await expect(page.locator('.vein-scene')).toBeVisible();
+    for (const charge of await page.locator('.vein-seal').all()) await expect(charge).toBeDisabled();
     await expect(page.getByRole('button', { name: /^East cross-fault/ })).toHaveAttribute('aria-pressed', 'true');
     await expect(page.getByRole('button', { name: /^Southeast seam/ })).toHaveAttribute('aria-pressed', 'false');
     await page.screenshot({ path: info.outputPath('mining-detonation-restored.png'), fullPage: true });
@@ -604,6 +680,37 @@ test('reload during committed mining detonation cannot reopen or improve its for
     const state = readResourceGathering(runtime.character().resourceGathering);
     expect(state.receipts.at(-1)).toMatchObject({ outcome: 'failed', xp: 3 });
     expect(state.attemptsToday).toBe(1); expect(runtime.settlements()).toBe(1);
+});
+
+test('reload resumes spent talismans without replaying their ignition or spending another action', async ({ page }, info) => {
+    const runtime = await install(page);
+    let release!: () => void;
+    const delayed = new Promise<void>(resolve => { release = resolve; });
+    await page.route('**/api/world/resource', async route => {
+        if (route.request().postDataJSON().action !== 'resolve') return route.fallback();
+        await delayed; return route.fallback();
+    });
+    await page.goto('/e2e/fixtures/resource-gathering.html?node=resource-13');
+    await page.getByRole('button', { name: /^Harbor iron seam, mining/ }).click();
+    await page.getByRole('button', { name: 'Begin mining · 1 action' }).click();
+    for (const site of ['Northwest seam', 'Southeast seam']) await page.getByRole('button', { name: new RegExp(`^${site}`) }).click();
+    await page.getByRole('button', { name: 'Release fracture', exact: true }).click();
+    await expect(page.locator('.vein-seal.is-fired')).toHaveCount(2);
+    await expect(page.locator('.vein-seal.is-fired .vein-talisman-char').last()).toHaveCSS('opacity', '1');
+    await page.addInitScript(seed => { (window as unknown as { resourceSeed: unknown }).resourceSeed = seed; }, runtime.character());
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await expect(page.locator('.vein-seal.is-fired')).toHaveCount(2);
+    await expect(page.locator('.vein-seal.is-fired .vein-talisman-flame').first()).toHaveCSS('opacity', '0');
+    await expect(page.locator('.vein-seal.is-fired .vein-talisman-char').first()).toHaveCSS('opacity', '1');
+    const delay = await page.locator('.vein-seal.is-fired .vein-talisman-paper').first().evaluate(element => parseFloat(getComputedStyle(element).animationDelay));
+    // Reduced motion uses a static spent state; normal motion must resume
+    // beyond the original burn instead of starting a fresh flame on reload.
+    if (!await page.evaluate(() => matchMedia('(prefers-reduced-motion: reduce)').matches)) expect(delay).toBeLessThan(-.5);
+    await page.screenshot({ path: info.outputPath('mining-spent-talismans-restored.png'), fullPage: true });
+    release();
+    await expect(page.getByRole('region', { name: 'Mining result' })).toBeVisible();
+    expect(runtime.settlements()).toBe(1);
+    expect(readResourceGathering(runtime.character().resourceGathering).attemptsToday).toBe(1);
 });
 
 test('reload recovers the same committed mining receipt after a lost acknowledgement', async ({ page }, info) => {
@@ -615,12 +722,12 @@ test('reload recovers the same committed mining receipt after a lost acknowledge
     await page.getByRole('button', { name: /^Northwest seam/ }).click();
     await page.getByRole('button', { name: /^East cross-fault/ }).click();
     runtime.loseAckOnce();
-    await page.getByRole('button', { name: 'Detonate chain', exact: true }).click();
+    await page.getByRole('button', { name: 'Release fracture', exact: true }).click();
     await expect(page.getByRole('alert')).toContainText('Settlement acknowledgement lost.');
     await page.addInitScript(seed => { (window as unknown as { resourceSeed: unknown }).resourceSeed = seed; }, admitted);
     await page.reload({ waitUntil: 'domcontentloaded' });
     await expect(page.getByRole('heading', { name: 'The seam gave way.', exact: true })).toBeVisible();
-    await expect(page.locator('.fracture-charge')).toHaveCount(0);
+    await expect(page.locator('.vein-seal')).toHaveCount(0);
     await expect(page.getByRole('region', { name: 'Mining result' })).toContainText('2/3');
     expect(runtime.settlements()).toBe(1);
     const state = readResourceGathering(runtime.character().resourceGathering);

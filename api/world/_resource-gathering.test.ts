@@ -10,10 +10,52 @@ import { countOwned, applyForge } from '../craft/_forge.js';
 import { ITEM_CATALOG } from '../pvp/_item-catalog.js';
 import { applyCookRecipe, cookRecipe } from '../player/_cafeteria.js';
 import { purchaseCatalogItem } from '../shop/_purchase.js';
+import { FRACTURE_TEMPLATES, fractureTemplatePool } from '../../shared/fracture-chain.js';
 const now = Date.parse('2026-10-07T12:00:00Z');
 const node = resourceNode('resource-17')!;
 const player: OnlinePlayer = { name: 'miner', displayName: 'Miner', sector: node.sector, tile: node.approach, lastSeenAt: now, connectedAt: now, pendingAttacker: null, character: null, movementSeq: 4 };
 const base = () => ({ name: 'miner', level: 100, ryo: 999999, fateShards: 500, inventory: [] as string[], itemStacks: [] as { itemId: string; count: number }[], equipment: { pickaxe: 'tool-golden-pickaxe' } });
+test('older open tabs keep receiving formations their deployed client can render', () => {
+    for (const difficulty of [1, 4, 7] as const) {
+        for (let i = 0; i < 20; i++) {
+            const seal = mintResourceSeal(base(), { ...node, difficulty }, `old-tab-${i}`, 'active', player, now, false);
+            assert.ok((difficulty === 1 ? [0, 1] : [2]).includes(seal.template));
+        }
+    }
+});
+test('every new formation preserves extraction, quality, trace rewards, XP and one action per attempt', () => {
+    for (const difficulty of [1, 4, 7] as const) {
+        const site = RESOURCE_NODES.find(n => n.activity === 'mining' && n.difficulty === difficulty && (difficulty === 1 || n.trace))!;
+        const presence = { ...player, sector: site.sector, tile: site.approach };
+        for (const template of fractureTemplatePool(difficulty)) {
+            const c = { ...base(), resourceGathering: { miningXp: 3200 } };
+            const seal = { ...mintResourceSeal(c, site, `vein-${difficulty}-${template}`, 'active', presence, now), template, successDraw: 0, qualityDraw: .999, traceDraw: 0 };
+            const admitted = admitResourceAttempt(c, seal, now)!;
+            assert.equal(readResourceGathering(admitted.resourceGathering).active?.toolId, 'tool-golden-pickaxe');
+            const result = resolveResourceAttempt(admitted, seal.id, { placements: Array.from({ length: FRACTURE_TEMPLATES[template].charges }, (_, i) => i) }, presence, now + 4000, seal);
+            assert.ok(result.ok); if (!result.ok) continue;
+            assert.equal(result.receipt.outcome, 'success'); assert.equal(result.receipt.performance, 10);
+            assert.equal(result.receipt.xp, 10); assert.equal(result.receipt.grade, site.ceiling);
+            assert.equal(countOwned(result.character, result.receipt.itemId!), 1);
+            if (site.trace) { assert.ok(result.receipt.traceId); assert.equal(countOwned(result.character, result.receipt.traceId!), 1); }
+            assert.equal(resourceActionsToday(result.character, now), 1);
+            assert.equal(readResourceGathering(result.character.resourceGathering).nodes[site.id].attempts, 1);
+            const replay = resolveResourceAttempt(result.character, seal.id, {}, presence, now + 5000);
+            assert.ok(replay.ok); if (replay.ok) assert.deepEqual(replay.character, result.character);
+        }
+    }
+});
+test('failed mining reports fracture damage separately from the unchanged extraction roll', () => {
+    for (const [placements, reason] of [[[0, 2], 'fracture'], [[0, 1], 'extraction']] as const) {
+        const seal = { ...mintResourceSeal(base(), node, `failure-${reason}`, 'active', player, now), template: 0, successDraw: .999 };
+        const admitted = admitResourceAttempt(base(), seal, now)!;
+        const result = resolveResourceAttempt(admitted, seal.id, { placements }, player, now + 4000, seal);
+        assert.ok(result.ok); if (!result.ok) continue;
+        assert.equal(result.receipt.miningFailure, reason); assert.equal(result.receipt.outcome, 'failed');
+        assert.equal(result.receipt.itemId, undefined); assert.equal(result.receipt.xp, 3);
+        assert.equal(resourceActionsToday(result.character, now), 1);
+    }
+});
 test('all 84 active nodes have reviewed water/rock targets and walkable adjacent approaches', () => {
     assert.equal(RESOURCE_NODES.length, 84);
     assert.equal(new Set(RESOURCE_NODES.map(n => n.id)).size, 84);

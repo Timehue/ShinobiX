@@ -7,7 +7,7 @@ export const outpostItems: GameItem[] = [
     ...GATHERING_TOOLS.map(tool => ({
         id: tool.id, name: tool.name, slot: tool.slot, cost: tool.cost, rarity: tool.rarity,
         serviceItem: true, levelReq: 1, bonuses: {}, image: gatheringToolArtwork(tool.id),
-        description: `${tool.slot === 'pickaxe' ? 'Equip to mine rock formations with Fracture Chain.' : 'Equip to fish at water nodes.'} ${tool.durability === null ? 'Permanent tool. Same gathering rates as a basic tool.' : 'Breaks after 50 attempts, including unsuccessful attempts.'}`,
+        description: `${tool.slot === 'pickaxe' ? 'Equip to mine rock formations with Veinbreaking.' : 'Equip to fish at water nodes.'} ${tool.durability === null ? 'Permanent tool. Same gathering rates as a basic tool.' : 'Breaks after 50 attempts, including unsuccessful attempts.'}`,
     })),
     // Common minerals already exist; their ids and exploration uses stay compatible.
     ...RESOURCE_ITEMS.filter(item => item.grade > 0 || item.activity === 'fishing').map(item => ({

@@ -1571,7 +1571,7 @@
           },
           {
             "type": "p",
-            "text": "On the World Map, select a shoal or mineral node and approach its marked shore or rock base. Lead moving fish and land a tethered Fishing Kunai, with three throws per attempt. Fish display their required Fishing level. Hitting one above your level fails the attempt; misses scatter the shoal. Mining asks you to place charges along the fractures without destroying the core. Watch animation uses your skill’s baseline success chance."
+            "text": "On the World Map, select a shoal or mineral node and approach its marked shore or rock base. Lead moving fish and land a tethered Fishing Kunai, with three throws per attempt. Fish display their required Fishing level. Hitting one above your level fails the attempt; misses scatter the shoal. Mining uses Veinbreaking: place chakra paper seals along the faults, then release the fractures. Each pocket needs one fracture; crossing fractures crush the ore. The seals ignite in placement order. A clean fracture still uses your Mining skill's extraction chance. Watch animation uses your skill’s baseline success chance."
           },
           {
             "type": "p",

@@ -10,29 +10,6 @@
 .resource-dialog.resource-dialog--working .resource-primary{min-height:46px;border:1px solid #c4a46d;background:linear-gradient(120deg,#c7a56d,#e0c28a 48%,#b99459);color:#211b13;font-size:13px;box-shadow:inset 0 1px #f7e1b3,0 3px 8px #0005;transition:filter .15s,box-shadow .15s}
 @media (hover:hover){.resource-dialog.resource-dialog--working .resource-primary:not(:disabled):hover{filter:brightness(1.1);box-shadow:inset 0 1px #f7e1b3,0 3px 14px #d3b57725}}
 .resource-dialog--working .resource-primary:is(:disabled,[aria-disabled=true]){opacity:.55}
-.fracture-workspace{display:grid;grid-template-columns:minmax(0,1fr) 190px;align-items:center;gap:24px}
-.fracture-board{--mineral:#b99a63;position:relative;width:100%;max-width:min(100%,max(220px,calc(100dvh - 420px)));margin:auto;aspect-ratio:1;isolation:isolate;background:radial-gradient(ellipse,#b79c5630,transparent 65%)}
-.fracture-board:after{content:'';position:absolute;inset:4%;pointer-events:none;box-shadow:0 18px 25px #0008;clip-path:polygon(10% 0,70% 0,100% 30%,90% 85%,65% 100%,15% 90%,0 60%);z-index:-1}
-.fracture-board>svg{display:block;width:100%;height:100%;overflow:visible}
-.fracture-surface-label{position:absolute;top:1%;left:3%;font-size:8px;text-transform:uppercase;letter-spacing:.15em;color:#d4c4a2;z-index:1;text-shadow:0 1px 3px #000}
-.fracture-texture{filter:saturate(.25) brightness(.8)}
-.fracture-mineral{fill:none;stroke:var(--mineral);stroke-width:.55;opacity:.55}
-.fracture-shell{fill:#363638;stroke:#807968;stroke-width:.2;opacity:.7;transition:transform .7s ease-out,opacity .7s ease-out}
-.fracture-shell.loosened{transform:translate(var(--shear-x),var(--shear-y)) rotate(8deg);opacity:0}
-.fault-line{fill:none;stroke:#b3a48c;stroke-width:.65;stroke-linejoin:bevel;opacity:.65;filter:drop-shadow(0 1px 1px #000)}
-.fault-line--selected{stroke:#e8bd70;stroke-width:.85;opacity:1}
-.fault-line--fired{stroke:#fff0c7;stroke-width:1.1;stroke-dasharray:1;stroke-dashoffset:1;animation:fracture-crack .6s ease-out forwards;filter:drop-shadow(0 0 1.4px #ffc46e);opacity:1}
-.core-face>path{stroke:#c7ae7d;stroke-width:.3}.core-face>circle{fill:#262322;stroke:#c7ae7d;stroke-width:.3}.core-face>text{font:600 4.2px sans-serif;fill:#fff0ce}.core-face.exposed{filter:drop-shadow(0 0 2px #f1c788)}.core-face.exposed>circle{fill:#e3c38a}.core-face.exposed>text{fill:#211c16}
-.fracture-board--frozen{--mineral:#bbcfe0}.fracture-board--frozen .fracture-texture{filter:saturate(.4) brightness(1.05) hue-rotate(25deg)}.fracture-board--frozen .core-face>path{fill:#afc3d4}
-.fracture-board--volcanic{--mineral:#e08853}.fracture-board--volcanic .fracture-texture{filter:sepia(.4) saturate(.7) brightness(.7)}.fracture-board--volcanic .core-face>path{fill:#b87c50}
-.fracture-board--crystal{--mineral:#b6a0c8}.fracture-board--crystal .fracture-texture{filter:sepia(.3) hue-rotate(220deg) saturate(.7) brightness(.8)}.fracture-board--crystal .core-face>path{fill:#a49ab7}
-.fracture-board.shattered .core-face>path{fill:#8c4834;stroke:#dd9371}.fracture-board.shattered{filter:sepia(.3)}
-.resource-dialog .fracture-charge{position:absolute;transform:translate(-50%,-50%);width:48px;height:48px;min-height:44px;border:1px solid #b9a78280;border-radius:50%;background:radial-gradient(circle,#1d1b18e8,#0a0d11d9);padding:0;box-shadow:0 2px 5px #0009;color:#ead6ad;transition:border-color .15s,box-shadow .15s}
-.fracture-charge svg{position:absolute;inset:0;width:100%;height:100%;fill:none;stroke:#bbaa87;stroke-width:.8;opacity:.7}.fracture-charge .seal-paper{fill:#b6a07814;stroke:none}.fracture-charge span{position:relative;display:grid;place-items:center;width:100%;height:100%;font:600 13px var(--font-body,sans-serif);text-shadow:0 1px #000}
-.resource-dialog .fracture-charge.placed{background:radial-gradient(circle,#9c7430,#34271b);border-color:#e3c28b;box-shadow:0 0 0 3px #e2bb6e18,0 0 18px #dcb55a35;color:#fff0ce}.fracture-charge.placed svg{stroke:#ffe0a0;opacity:.9}.fracture-charge.placed span{transform:translate(17px,-17px);width:18px;height:18px;border-radius:50%;background:#e3c28b;color:#211b15;text-shadow:none;font-size:10px}
-@media (hover:hover){.resource-dialog .fracture-charge:not(:disabled):hover{border-color:#fff0ce;box-shadow:0 0 0 3px #e2bb6e26}}.resource-dialog .fracture-charge:disabled{opacity:.65}.resource-dialog .fracture-charge.placed:disabled{opacity:1}
-.fracture-guide{border-left:1px solid #a98a522f;padding-left:20px}.fracture-guide .resource-kicker{font-size:9px;margin:0 0 12px}.fracture-guide h4{font:400 21px/1.25 var(--font-display,Georgia,serif);color:#e9d6b4;margin:0 0 12px}.fracture-guide p{font-size:12px;color:#c1b9aa;margin:10px 0}.fracture-face-key{display:flex;gap:6px;margin:18px 0;flex-wrap:wrap}.fracture-face-key span{display:grid;place-items:center;width:22px;height:25px;border:1px solid #8b795a;color:#d2bd96;font-size:11px;clip-path:polygon(15% 0,85% 0,100% 50%,85% 100%,15% 100%,0 50%)}.fracture-face-key .exposed{background:#c2a36c;color:#17191d}.fracture-guide .fracture-caution{border-top:1px solid #a98a522f;padding-top:12px;color:#dbac8c}.fracture-guide small{font-size:10px;color:#b6afa1}
-.fracture-readout{margin:12px 0!important;padding:10px 0;border-block:1px solid #d7ba7826;font-size:11px;color:#c6bbab;text-align:center}.fracture-game>.resource-primary{display:block;width:100%}
 .fishing-water{position:relative;isolation:isolate;height:clamp(165px,calc(100dvh - 500px),280px);overflow:hidden;border:1px solid #796446;box-shadow:inset 0 0 40px #000a;background:#172831}
 .fishing-water:before{content:'';position:absolute;inset:0;background:linear-gradient(0deg,#0a152dc9,transparent 65%),var(--fishing-scene) center 70%/cover;filter:saturate(.5) brightness(.7)}
 .fishing-water:after{content:'';position:absolute;inset:0;pointer-events:none;box-shadow:inset 0 0 45px #03080d8c;border:4px solid #100f0c35}
@@ -64,11 +41,10 @@
 .fishing-tension{position:relative;display:block;height:7px;border:1px solid #8a7552;background:linear-gradient(90deg,#9a796322 20%,#e7c68726 20% 80%,#c17d6b33 80%)}.fishing-tension:before,.fishing-tension:after{content:'';position:absolute;top:-3px;bottom:-3px;width:1px;background:#e6d7b8;z-index:1}.fishing-tension:before{left:20%}.fishing-tension:after{left:80%}.fishing-tension-fill{display:block;height:100%;background:#d1a758}.fishing-tension.is-danger .fishing-tension-fill{background:#d18c74}.fishing-tension.is-slack .fishing-tension-fill{background:#a98968}
 .resource-meter progress{appearance:none;width:100%;height:7px;border:1px solid #756446;border-radius:0;background:#292b2d;color:#bfa779;accent-color:#bfa779}.resource-meter progress::-webkit-progress-bar{background:#292b2d}.resource-meter progress::-webkit-progress-value{background:#bfa779}.resource-meter progress::-moz-progress-bar{background:#bfa779}
 .fishing-game>.resource-primary{width:100%}.fishing-reel{touch-action:none;user-select:none}.resource-dialog.resource-dialog--working .fishing-reel.is-held{box-shadow:inset 0 2px 7px #33200b90,0 0 12px #d3b57735;filter:brightness(.9)}.fishing-reel:disabled{display:none}
-.resource-relaxed{text-align:center;padding-top:18px}.resource-relaxed-art{position:relative;display:grid;place-items:center;height:240px;background-position:center;background-size:cover;border:1px solid #796446;box-shadow:inset 0 0 90px #000b}.resource-relaxed-art img{width:130px;height:170px;object-fit:contain;filter:drop-shadow(0 6px 6px #0009);animation:resource-float 3s ease-in-out infinite}.resource-relaxed p{font-size:12px;color:#c6bbab}.resource-relaxed button{min-height:44px}
-@keyframes fracture-crack{to{stroke-dashoffset:0}}@keyframes resource-float{50%{transform:translateY(3px) rotate(-5deg)}}@keyframes resource-bite{50%{transform:translateY(14px)}}@keyframes resource-cast-line{0%{stroke-dashoffset:1;opacity:0}40%{opacity:.8}100%{stroke-dashoffset:0;opacity:0}}@keyframes resource-splash{from{transform:scale(.4);opacity:1}to{transform:scale(2.3);opacity:0}}
-@media(max-width:600px){.resource-dialog.resource-dialog--working>.ui-modal-body{padding:0 16px 10px}.gather-game-heading{padding:14px 0 12px}.gather-game-heading h3{font-size:24px}.gather-game-method{font-size:8px;max-width:70px}.fracture-workspace{display:flex;flex-direction:column;gap:8px}.fracture-board{max-width:min(100%,300px)}.fracture-guide{border:0;border-top:1px solid #a98a522f;padding:8px 0 0;width:100%;display:grid;grid-template-columns:1fr auto;gap:4px 12px}.fracture-guide .resource-kicker,.fracture-guide h4,.fracture-guide small{display:none}.fracture-guide p{margin:0;font-size:10px;line-height:1.5}.fracture-guide .fracture-caution{border:0;padding:0;grid-column:1/-1}.fracture-face-key{margin:0;grid-column:2;grid-row:1;align-self:center;gap:3px}.fracture-face-key span{width:17px;height:20px;font-size:9px}.fracture-readout{font-size:9px;padding:8px 0;margin:8px 0!important}.fishing-water{height:240px}.fishing-instruments{grid-template-columns:1fr;gap:14px;padding-bottom:14px}.resource-meter{gap:7px}.fishing-status{font-size:12px;line-height:1.5;margin:12px 0!important}.resource-relaxed-art{height:210px}}
-@media(max-height:700px){.gather-game-heading{padding-block:10px}.fracture-board{max-width:280px;margin:auto}.fishing-water{height:200px}.resource-dialog.resource-dialog--working .resource-cancel{margin-top:4px}.fishing-instruments{padding-block:10px;gap:12px}.fracture-guide p{font-size:10px}}
-@media(max-width:600px) and (max-height:700px){.fracture-board{max-width:220px}.fishing-water{height:165px}.fishing-instruments{grid-template-columns:1fr 1fr;gap:12px}.resource-meter small span{display:none}.resource-meter>span:first-child{flex-wrap:wrap;row-gap:2px}.resource-dialog.resource-dialog--working .resource-cancel{font-size:10px}.gather-game-heading h3{font-size:22px}}
+.resource-relaxed{text-align:center;padding-top:18px}.resource-relaxed-art{position:relative;display:grid;place-items:center;height:240px;background-position:center;background-size:cover;border:1px solid #796446;box-shadow:inset 0 0 90px #000b}.resource-relaxed-art img{width:130px;height:170px;object-fit:contain;filter:drop-shadow(0 6px 6px #0009);animation:resource-float 3s ease-in-out infinite}.resource-relaxed p{font-size:12px;color:#c6bbab}.resource-relaxed button{min-height:44px}@keyframes resource-float{50%{transform:translateY(3px) rotate(-5deg)}}@keyframes resource-bite{50%{transform:translateY(14px)}}@keyframes resource-cast-line{0%{stroke-dashoffset:1;opacity:0}40%{opacity:.8}100%{stroke-dashoffset:0;opacity:0}}@keyframes resource-splash{from{transform:scale(.4);opacity:1}to{transform:scale(2.3);opacity:0}}
+@media(max-width:600px){.resource-dialog.resource-dialog--working>.ui-modal-body{padding:0 16px 10px}.gather-game-heading{padding:14px 0 12px}.gather-game-heading h3{font-size:24px}.gather-game-method{font-size:8px;max-width:70px}.fishing-water{height:240px}.fishing-instruments{grid-template-columns:1fr;gap:14px;padding-bottom:14px}.resource-meter{gap:7px}.fishing-status{font-size:12px;line-height:1.5;margin:12px 0!important}.resource-relaxed-art{height:210px}}
+@media(max-height:700px){.gather-game-heading{padding-block:10px}.fishing-water{height:200px}.resource-dialog.resource-dialog--working .resource-cancel{margin-top:4px}.fishing-instruments{padding-block:10px;gap:12px}}
+@media(max-width:600px) and (max-height:700px){.fishing-water{height:165px}.fishing-instruments{grid-template-columns:1fr 1fr;gap:12px}.resource-meter small span{display:none}.resource-meter>span:first-child{flex-wrap:wrap;row-gap:2px}.resource-dialog.resource-dialog--working .resource-cancel{font-size:10px}.gather-game-heading h3{font-size:22px}}
 /* Short landscape keeps the timed input beside the scene, in the initial
    visible body. Controls retain their touch sizes instead of requiring scroll. */
 @media(min-width:480px) and (max-height:500px){
@@ -89,17 +65,6 @@
  .resource-meter small{font-size:8px}
  .resource-meter small span{display:none}
  .fishing-game>.resource-primary{grid-column:2;grid-row:4;margin:0;width:100%}
- .fracture-game{display:grid;grid-template-columns:minmax(220px,1fr) minmax(0,1fr);grid-template-rows:26px auto 34px 46px;gap:4px 16px;padding-top:6px}
- .fracture-workspace{display:contents}
- .fracture-board{grid-column:1;grid-row:1/5;max-width:200px}
- .fracture-game>.gather-game-heading{grid-column:2;grid-row:1}
- .fracture-guide{grid-column:2;grid-row:2;border:0;padding:0}
- .fracture-guide .resource-kicker,.fracture-guide h4,.fracture-face-key,.fracture-guide small{display:none}
- .fracture-guide p{margin:4px 0;font-size:10px;line-height:1.4}
- .fracture-guide .fracture-caution{border:0;padding:0}
- .fracture-readout{grid-column:2;grid-row:3;margin:0!important;padding:3px 0;font-size:9px;line-height:1.4}
- .fracture-game>.resource-primary{grid-column:2;grid-row:4}
- .fracture-game>.resource-recover{grid-column:2;grid-row:4;z-index:1;min-height:46px}
  .resource-relaxed{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px 16px;padding-top:6px}
  .resource-relaxed-art{grid-column:1;grid-row:1/4;height:170px}
  .resource-relaxed-art img{height:130px}
@@ -114,14 +79,10 @@
  .fishing-instruments{padding:0;gap:8px}
  .resource-meter{gap:2px;font-size:10px}
  .resource-meter small{line-height:1.2}
- .fracture-game{grid-template-columns:minmax(170px,1fr) minmax(0,1fr);grid-template-rows:22px auto 28px 46px;gap:2px 12px;padding-top:2px}
- .fracture-board{max-width:160px}
- .fracture-guide p{font-size:9px;margin:2px 0}
- .fracture-readout{font-size:8px;padding:1px 0}
  .resource-relaxed-art{height:138px}
  .resource-relaxed-art img{height:110px}
 }
-@media(prefers-reduced-motion:reduce){.fracture-shell,.resource-dialog.resource-dialog--working .resource-primary{transition:none}.fault-line--fired{animation:none;stroke-dashoffset:0;filter:none}.fishing-float,.fishing-water.biting .fishing-float,.fishing-splash,.resource-relaxed-art img{animation:none}.fishing-water.biting .fishing-float{transform:translateY(14px);box-shadow:0 0 0 4px #d5b77755}.fishing-cast-arc{display:none}.fishing-splash{opacity:.6}}
+@media(prefers-reduced-motion:reduce){.resource-dialog.resource-dialog--working .resource-primary{transition:none}.fishing-float,.fishing-water.biting .fishing-float,.fishing-splash,.resource-relaxed-art img{animation:none}.fishing-water.biting .fishing-float{transform:translateY(14px);box-shadow:0 0 0 4px #d5b77755}.fishing-cast-arc{display:none}.fishing-splash{opacity:.6}}
 
 @media(min-width:480px) and (max-height:500px){.fishing-scene-caption{top:10px;left:12px;font-size:8px}.fishing-game>.fishing-status{font-size:10px;line-height:1.2}.fishing-bite-cue{top:15%;padding:4px 8px;font-size:9px}}
 @media(min-width:480px) and (max-height:350px){.fishing-game>.fishing-status{font-size:9px}}

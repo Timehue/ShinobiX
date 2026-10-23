@@ -20,7 +20,10 @@ export function GatheringResult({ character, receipt, node, charges, today, busy
     const caught = receipt.fishingCatch;
     const title = item?.name ?? (caught?.tooStrong ? 'Outmatched by the fish.' : receipt.outcome === 'failed' ? mining ? 'The seam gave way.' : 'This one got away.'
         : receipt.outcome === 'expired' ? 'Time to move on.' : 'Tools down.');
-    const detail = caught?.tooStrong ? `${caught.name} requires Fishing Lv.${caught.requiredLevel}. You were Lv.${caught.fisherLevel}; it broke free.` : receipt.outcome === 'failed' ? mining ? 'No usable ore survived the break.' : 'Your kunai came back empty.'
+    const detail = caught?.tooStrong ? `${caught.name} requires Fishing Lv.${caught.requiredLevel}. You were Lv.${caught.fisherLevel}; it broke free.` : receipt.outcome === 'failed' ? mining
+        ? receipt.miningFailure === 'extraction' ? 'The fracture held, but no usable ore could be extracted. Mining skill still determines extraction success.'
+            : receipt.miningFailure === 'fracture' ? 'Crossing fractures crushed the core. Keep each pocket on a single fracture path.' : 'No usable ore survived the break.'
+        : 'Your kunai came back empty.'
         : receipt.outcome === 'expired' ? 'The attempt expired before you finished.' : 'You left the node before finishing.';
     return <section className={`gather-report gather-report--${mining ? 'mining' : 'fishing'} gather-report--${receipt.outcome}`} aria-label={`${activity} result`}>
         <div className="gather-report-find" role="status">

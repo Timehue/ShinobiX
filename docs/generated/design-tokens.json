@@ -2294,11 +2294,15 @@
           },
           {
             "source": "shinobij.client/src/components/resource-minigames.css",
-            "line": 109
+            "line": 74
           },
           {
             "source": "shinobij.client/src/components/resource-minigames.css",
-            "line": 127
+            "line": 88
+          },
+          {
+            "source": "shinobij.client/src/components/veinbreaking.css",
+            "line": 118
           }
         ]
       },
@@ -2733,19 +2737,27 @@
           },
           {
             "source": "shinobij.client/src/components/resource-minigames.css",
+            "line": 50
+          },
+          {
+            "source": "shinobij.client/src/components/resource-minigames.css",
             "line": 74
           },
           {
             "source": "shinobij.client/src/components/resource-minigames.css",
-            "line": 109
+            "line": 87
           },
           {
             "source": "shinobij.client/src/components/resource-minigames.css",
-            "line": 126
+            "line": 88
           },
           {
-            "source": "shinobij.client/src/components/resource-minigames.css",
-            "line": 127
+            "source": "shinobij.client/src/components/veinbreaking.css",
+            "line": 107
+          },
+          {
+            "source": "shinobij.client/src/components/veinbreaking.css",
+            "line": 118
           },
           {
             "source": "shinobij.client/src/styles/mission-arena-fight.css",
@@ -2791,11 +2803,11 @@
           },
           {
             "source": "shinobij.client/src/components/resource-minigames.css",
-            "line": 74
+            "line": 50
           },
           {
             "source": "shinobij.client/src/components/resource-minigames.css",
-            "line": 126
+            "line": 87
           },
           {
             "source": "shinobij.client/src/components/underground-sector.css",
@@ -2812,6 +2824,10 @@
           {
             "source": "shinobij.client/src/components/underground-sector.css",
             "line": 258
+          },
+          {
+            "source": "shinobij.client/src/components/veinbreaking.css",
+            "line": 107
           },
           {
             "source": "shinobij.client/src/features/anbuInfiltration/stronghold.css",
@@ -3314,11 +3330,19 @@
           },
           {
             "source": "shinobij.client/src/components/resource-minigames.css",
-            "line": 69
+            "line": 45
           },
           {
             "source": "shinobij.client/src/components/resource-minigames.css",
-            "line": 71
+            "line": 47
+          },
+          {
+            "source": "shinobij.client/src/components/veinbreaking.css",
+            "line": 98
+          },
+          {
+            "source": "shinobij.client/src/components/veinbreaking.css",
+            "line": 106
           },
           {
             "source": "shinobij.client/src/features/villageWar/village-campaign.css",
@@ -3402,6 +3426,17 @@
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
             "line": 1962
+          }
+        ]
+      },
+      {
+        "direction": "min",
+        "axis": "width",
+        "valuePx": 601,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/components/veinbreaking.css",
+            "line": 105
           }
         ]
       },
@@ -3773,15 +3808,23 @@
           },
           {
             "source": "shinobij.client/src/components/resource-minigames.css",
-            "line": 70
+            "line": 46
           },
           {
             "source": "shinobij.client/src/components/resource-minigames.css",
-            "line": 71
+            "line": 47
           },
           {
             "source": "shinobij.client/src/components/underground-sector.css",
             "line": 237
+          },
+          {
+            "source": "shinobij.client/src/components/veinbreaking.css",
+            "line": 105
+          },
+          {
+            "source": "shinobij.client/src/components/veinbreaking.css",
+            "line": 106
           },
           {
             "source": "shinobij.client/src/features/character-creator/character-creator.css",
