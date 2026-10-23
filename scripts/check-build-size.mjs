@@ -869,7 +869,14 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // CI measures 9,583,007 B with release env vars; the production Docker build
 // measures 9,583,069 B. Allow 5 KB for the combined graph (1,931 B headroom
 // above Docker); startup raw/gzip, per-chunk, CSS and asset limits stay fixed.
-const TOTAL_JS_CSS_FAIL_BYTES = 9_585_000;
+// 2026-10-22 SECTOR-LOCATION LAG PASS (PR #484): optimistic shrine-room walks,
+// the paused (not unmounted) world under strongholds, the Hollow Gate entry seal
+// hand-off, chunk warm-ups and the touch-atlas pin ring measure 9,586,413 B in CI
+// and 9,586,503 B in the production Docker build, about 3.4 KB over current main.
+// The owner approved raising the cap for these lag and travel fixes. Allow 9.59 MB
+// for 3,497 B of headroom above Docker. Startup raw/gzip, per-chunk, CSS and asset
+// limits stay fixed.
+const TOTAL_JS_CSS_FAIL_BYTES = 9_590_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai
