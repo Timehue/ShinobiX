@@ -1176,9 +1176,9 @@ test("expedition route levels and base rewards remain clear on desktop and touch
             if (level >= minimum) await expect(route).toBeEnabled();
             else await expect(route).toBeDisabled();
         }
-        // Route ryo x EXPEDITION_RYO_SCALE 0.3 (2026-10 rebalance): Scout 180 -> 54, Ruins 2,160 -> 648.
-        await expect(routes.getByRole('radio', { name: /Scout Routes/ }).locator('dl > div').filter({ hasText: 'Secure ryo' })).toHaveText(/Secure ryo\s*54$/);
-        await expect(routes.getByRole('radio', { name: /Explore Old Ruins/ }).locator('dl > div').filter({ hasText: 'Secure ryo' })).toHaveText(/Secure ryo\s*648$/);
+        // Route ryo x EXPEDITION_RYO_SCALE 0.2 (2026-10 rebalance): Scout 180 -> 36, Ruins 2,160 -> 432.
+        await expect(routes.getByRole('radio', { name: /Scout Routes/ }).locator('dl > div').filter({ hasText: 'Secure ryo' })).toHaveText(/Secure ryo\s*36$/);
+        await expect(routes.getByRole('radio', { name: /Explore Old Ruins/ }).locator('dl > div').filter({ hasText: 'Secure ryo' })).toHaveText(/Secure ryo\s*432$/);
         await expect(page.getByText('All eligible pets earn ryo, materials, and pet XP.', { exact: false })).toBeVisible();
     }
 });

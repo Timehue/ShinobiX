@@ -150,8 +150,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (out.status === 200 && !out.body.replayed) {
             const eventId = typeof requestId === 'string' ? requestId : String(now);
             await kv.set(`audit:black-market:${playerName}:${eventId}`, { ts: now, player: playerName, cost: out.body.cost, payment, reward: out.body.reward }, { ex: 30 * 24 * 60 * 60 }).catch(() => undefined);
-            // Log paid stakes and payouts separately. Certificate pulls have no
-            // ryo stake, so telemetry must not record a fictitious debit.
+            // Log stakes and payouts separately. A certificate pull stakes half
+            // the price, so its debit is the 37,500 it actually charged.
             const reward = (out.body.reward ?? {}) as { ryo?: number; fateShards?: number; boneCharms?: number; auraStones?: number };
             if (Number(out.body.cost) > 0) await recordEconomyTxn({ txnId: `black-market:${playerName}:${eventId}`, player: playerName, currency: 'ryo', delta: -Number(out.body.cost), source: 'blackmarket.stake' });
             if (Number(reward.ryo) > 0) {
