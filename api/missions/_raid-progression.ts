@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { bumpLegacyStats, legacyBootstrapBeforeCounterIncrement } from '../_legacy-track.js';
 import { kv } from '../_storage.js';
 import { withKvLock } from '../_lock.js';
+import { recordEconomyTxn } from '../_economy.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { creditFieldRaidProgress } from './_field-raid-progress.js';
 import {
@@ -176,6 +177,18 @@ export async function settleRaidProgressionWithDailyCap(params: {
     };
 }
 
+/** Economy telemetry for a committed Vanguard rank bonus (I-19). Called from
+ *  the fresh credit's afterCommit only, so a replayed proof logs nothing, and
+ *  never awaited, so telemetry never holds the save lock. */
+function recordVanguardRaidBonus(playerName: string, eventReceiptId: string, bonusRyo: number, bonusSeals: number): void {
+    if (bonusRyo > 0) {
+        void recordEconomyTxn({ txnId: `raid:${eventReceiptId}:ryo`, player: playerName, currency: 'ryo', delta: bonusRyo, source: 'raid.vanguard' });
+    }
+    if (bonusSeals > 0) {
+        void recordEconomyTxn({ txnId: `raid:${eventReceiptId}:honorSeals`, player: playerName, currency: 'honorSeals', delta: bonusSeals, source: 'raid.vanguard' });
+    }
+}
+
 /**
  * Complete the mission/profession/Legacy half of one sealed raid proof.
  *
@@ -273,6 +286,9 @@ export async function settleRaidProgression(params: {
                 raidProgressionSettlements: [...existing, settlement],
             },
             value: settlement,
+            afterCommit: character.profession === 'vanguard'
+                ? () => recordVanguardRaidBonus(params.playerName, eventReceiptId, bonusRyo, bonusSeals)
+                : undefined,
         };
     });
     if (!result.ok) throw new Error(result.error);

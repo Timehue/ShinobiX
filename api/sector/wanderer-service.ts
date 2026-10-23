@@ -24,6 +24,7 @@ import {
 import { bumpEraDiscoveryContribution } from '../_era.js';
 import { bumpLegacyStats } from '../_legacy-track.js';
 import { sectorPresenceBlock } from '../_sector-presence-gate.js';
+import { recordEconomyTxn } from '../_economy.js';
 import { MAX_WILD_SECTOR, playableFieldObjectiveSector } from '../../shared/sector-geo.js';
 import { randomUUID } from 'node:crypto';
 import { TRACKER_TRAIL_TTL_MS, trackerTrailSectors, type TrackerTrail } from '../../shared/tracker-trail.js';
@@ -49,6 +50,13 @@ const SERVICE_VERBS: Record<'merchant' | 'medic' | 'favor-start' | 'tracker-trai
     'favor-start': ['tracker'],
     'tracker-trail-start': ['tracker'],
 };
+
+/** Services that happen in one sector. Each must name it: an omitted sector used
+ *  to skip the presence gate and default to sector 1, so a merchant, medic or
+ *  favour could be used from anywhere. Abandoning a trail is not sector-bound. */
+const SECTOR_BOUND_ACTIONS: ReadonlySet<string> = new Set([
+    'merchant', 'medic', 'favor-start', 'favor-claim', 'tracker-trail-start', 'tracker-trail-step',
+]);
 
 const FAVOR_TTL_SECONDS = 24 * 60 * 60;
 const favorKeyFor = (playerName: string) => `wanderer-favor:${playerName}`;
@@ -101,10 +109,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
         if (!identity.admin && !(await enforceRateLimitKv(req, res, `wanderer-service-${action}`, 20, 60_000, identity.name))) return;
 
+        if (SECTOR_BOUND_ACTIONS.has(action) && !(int(body.sector) >= 1)) {
+            return res.status(400).json({ error: 'Missing sector.' });
+        }
         // Same wild-field rule as exploring and attacking: a wanderer service is
         // an in-sector encounter, so the payout requires actually being there
-        // (api/_sector-presence-gate.ts). Actions that carry no sector are not
-        // gated — the helper ignores anything below sector 1.
+        // (api/_sector-presence-gate.ts). Every sector-bound action carries a
+        // sector (checked above); the helper ignores anything below sector 1.
         const presenceBlock = sectorPresenceBlock(playerName, body.sector);
         if (presenceBlock && !identity.admin) {
             return res.status(presenceBlock.status).json({ error: presenceBlock.error, reason: presenceBlock.reason });
@@ -140,6 +151,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         legacyWandererId = wandererId;
                     }
                     return answer({ ok: false, reason: 'cooldown', cooldownUntil: saveCooldownUntil });
+                }
+                // The rolled wanderer must stand in the sector the player is in
+                // (relocation honoured through char.wandererMoves), so a road
+                // service cannot be bought from a sector it was never in.
+                if (!resolveNaturalWanderer(wandererId, now, char, sector)) {
+                    return answer({ ok: false, reason: 'invalid-wanderer' });
                 }
 
                 // Every service below claims the wanderer's hard cooldown row
@@ -310,6 +327,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (committed.ok && committed.value.body.ok === true) legacyWandererId = wandererId;
             const out = replyFor(committed);
 
+            // Telemetry (I-19) for the two road services that move currency, once
+            // the save has committed. The cooldown stamp makes each txn id unique.
+            if (committed.ok && committed.value.body.ok === true && (action === 'merchant' || action === 'medic')) {
+                const offer = committed.value.body.offer as { cost?: unknown; boneCharms?: unknown };
+                const totals = committed.value.body.totals as Record<string, unknown>;
+                const txnId = `${action}:${playerName}:${wandererId}:${num(committed.value.body.cooldownUntil)}`;
+                if (action === 'merchant') {
+                    await recordEconomyTxn({ txnId, player: playerName, currency: 'ryo', delta: -num(offer.cost), source: 'wanderer.merchant', balanceAfter: num(totals.ryo) });
+                    await recordEconomyTxn({ txnId: `${txnId}:boneCharms`, player: playerName, currency: 'boneCharms', delta: num(offer.boneCharms), source: 'wanderer.merchant', balanceAfter: num(totals.boneCharms) });
+                } else {
+                    await recordEconomyTxn({ txnId, player: playerName, currency: 'ryo', delta: -num(offer.cost), source: 'wanderer.medic', balanceAfter: num(totals.ryo) });
+                }
+            }
+
             if (legacyWandererId) {
                 const receiptId = `wanderer-discovery:${legacyWandererId}`;
                 const delivered = await bumpLegacyStats(playerName, { sectorDiscoveries: 1 }, { receiptId });
@@ -383,6 +414,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 };
             });
             const out = replyFor(committed);
+            if (committed.ok && committed.value.body.ok === true) {
+                const reward = committed.value.body.reward as { ryo?: unknown; boneCharms?: unknown };
+                const totals = committed.value.body.totals as Record<string, unknown>;
+                await recordEconomyTxn({ txnId: `favor:${favorId}`, player: playerName, currency: 'ryo', delta: num(reward.ryo), source: 'wanderer.favor', balanceAfter: num(totals.ryo) });
+                await recordEconomyTxn({ txnId: `favor:${favorId}:boneCharms`, player: playerName, currency: 'boneCharms', delta: num(reward.boneCharms), source: 'wanderer.favor', balanceAfter: num(totals.boneCharms) });
+            }
             // The encounter itself was credited at favor-start. Delivering the
             // parcel is not a second NPC discovery; counting both made one
             // wanderer worth two sector discoveries and had no replay-safe

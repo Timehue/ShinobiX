@@ -8,9 +8,13 @@ import {
     mercAllowanceLine,
     mercContextTime,
     mercContextTitle,
+    mercHiredToast,
     mercTierCost,
+    mercTierTreasuryRyo,
+    mercTreasuryRuleLine,
     withMercRetry,
 } from './village-war-merc-panel';
+import { treasuryAffordability } from './village-war-map-ui';
 
 // The War Map mercenary panel's pure half (owner redesign 2026-10-08): a band
 // is hired FOR one war, the panel quotes the server's price, and a hire click
@@ -53,6 +57,37 @@ describe('copy', () => {
         assert.equal(mercTierCost({ costWr: 60, cost: 15 }), 15);
         assert.equal(mercTierCost({ costWr: 60, cost: 0 }), 0, 'a free comeback hire is free');
         assert.equal(mercTierCost({ costWr: 60 }), 60, 'an older server that quotes nothing falls back to the base');
+    });
+});
+
+describe('the treasury share of a hire (2026-10 rebalance)', () => {
+    it('prices a tier\'s treasury ryo at the server\'s quote, else its WR at the server\'s rate', () => {
+        assert.equal(mercTierTreasuryRyo({ costWr: 60, cost: 15, treasuryRyo: 3_750 }), 3_750);
+        assert.equal(mercTierTreasuryRyo({ costWr: 60, cost: 15 }, 460), 6_900, 'the rate the server sent');
+        assert.equal(mercTierTreasuryRyo({ costWr: 60, cost: 15 }), 3_750, 'the shared default when it sent none');
+        assert.equal(mercTierTreasuryRyo({ costWr: 60, cost: 0 }), 0, 'a free comeback band stays free');
+    });
+
+    it('builds the rule line from the server\'s rate and drops it when the rate is 0', () => {
+        assert.match(mercTreasuryRuleLine(250), /250 treasury ryo per War Resource/);
+        assert.match(mercTreasuryRuleLine(460), /460 treasury ryo/);
+        assert.match(mercTreasuryRuleLine(undefined), /250 treasury ryo/);
+        assert.equal(mercTreasuryRuleLine(0), '');
+        assert.match(mercTreasuryRuleLine(250), /only the seated Kage can spend the treasury/);
+    });
+
+    it('names both pools a hire spent', () => {
+        assert.equal(mercHiredToast('Reaver', 'Defending Sector 23 vs Moonshadow Village', { cost: 110, treasuryRyo: 27_500 }),
+            'Reaver band hired for Defending Sector 23 vs Moonshadow Village — 110 WR and 27,500 treasury ryo.');
+        assert.equal(mercHiredToast('Rōnin', 'X', { cost: 0, treasuryRyo: 0 }), 'Rōnin band hired for X — 0 WR.');
+        assert.match(mercHiredToast('Rōnin', 'X', { replayed: true }), /already hired — nothing more was spent/);
+    });
+
+    it('treats a treasury balance the server did not send as unknown, never as 0', () => {
+        assert.deepEqual(treasuryAffordability(27_500, undefined, 'ryo'), { affordable: true, label: '' });
+        assert.deepEqual(treasuryAffordability(27_500, 10_000, 'ryo'), { affordable: false, label: 'Treasury short · 27,500 ryo' });
+        assert.equal(treasuryAffordability(27_500, 27_500, 'ryo').affordable, true);
+        assert.equal(treasuryAffordability(0, 0, 'ryo').affordable, true, 'a free purchase is always affordable');
     });
 });
 

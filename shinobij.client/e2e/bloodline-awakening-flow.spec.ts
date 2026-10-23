@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import { applyBloodlineForgePurchase, type BloodlineForgeRank, type PendingBloodlineForge } from "../../api/bloodlines/_forge";
+import { BLOODLINE_FORGE_COSTS } from "../../shared/bloodline-forge-costs";
 import { expectUiAuditBoot, installUiAuditRuntime, uiAuditSave } from "./helpers/ui-audit-runtime";
 
 test.use({ contextOptions: { reducedMotion: "no-preference" } });
@@ -30,7 +31,9 @@ for (const tier of ranks) {
             }
         });
         const save = uiAuditSave();
-        const character = { ...save.character, boneCharms: 140, auraStones: 140, mythicSeals: 140, element: "Water", elements: ["Water", "Wind"] };
+        // Hold the rank's price plus 40, so the 40 left after the debit proves the server price was charged.
+        const held = BLOODLINE_FORGE_COSTS[tier.rank].cost + 40;
+        const character = { ...save.character, boneCharms: held, auraStones: held, mythicSeals: held, element: "Water", elements: ["Water", "Wind"] };
         save.character = character;
         const runtime = await installUiAuditRuntime(page, save);
         await page.addInitScript(() => localStorage.setItem("audioMuted", "0"));
@@ -65,7 +68,7 @@ for (const tier of ranks) {
         expect(requests).toBe(1);
         expect(runtimeErrors).toEqual([]);
         expect(missingRitualAssets).toEqual([]);
-        expect(debit).toBe(100);
+        expect(debit).toBe(BLOODLINE_FORGE_COSTS[tier.rank].cost);
         const summary = page.getByLabel("Awakening summary");
         await expect(summary).toContainText(tier.rank);
         await expect(summary).toContainText("Water");

@@ -9,6 +9,7 @@ import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { applyCafeteriaMeal, cafeteriaMeal, cookRecipe, applyCookRecipe } from './_cafeteria.js';
 import { villageStoresEnabled } from '../_release-flags.js';
 import { parseSettlementRequestId, inspectSettlementReceipt, appendSettlementReceipt, ownReceiptValue } from '../_settlement-receipts.js';
+import { recordEconomyTxn } from '../_economy.js';
 
 /*
  * /api/player/cafeteria - POST
@@ -53,6 +54,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (recipe) {
             const requestId = parseSettlementRequestId(body.requestId);
             if (recipe.id.startsWith('fish-rations-') && !requestId) return res.status(400).json({ error: 'A cooking request ID is required.' });
+            // Set only on the fresh branch, so a receipt replay logs nothing.
+            // mutatePlayerSave runs the callback once and throws on a lost
+            // compare-and-set, so a true flag means the debit committed.
+            let freshCook = false;
             const cooked = await mutatePlayerSave(playerName, ({ character }) => {
                 const fingerprint = `cook:${recipe.id}`;
                 const prior = requestId ? inspectSettlementReceipt(character, requestId, fingerprint) : null;
@@ -63,9 +68,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const value = { cooked: applied.cooked, dailyCooked: applied.dailyCooked, dailyCap: applied.dailyCap };
                 const next = requestId && prior?.status === 'fresh' ? appendSettlementReceipt(applied.character, prior.receipts,
                     { requestId, fingerprint, value, settledAt: Date.now() }) : applied.character;
+                freshCook = true;
                 return { ok: true, character: next, value };
             });
             if (!cooked.ok) return res.status(cooked.status).json({ error: cooked.error });
+            // Economy telemetry (I-19): the ryo the recipe burned, after the commit.
+            if (freshCook && recipe.ryo > 0) {
+                void recordEconomyTxn({
+                    txnId: `cafeteria-cook:${playerName}:${requestId ?? cooked._saveVersion}`,
+                    player: playerName,
+                    currency: 'ryo',
+                    delta: -recipe.ryo,
+                    source: 'cafeteria.cook',
+                    balanceAfter: Number(cooked.character.ryo ?? 0),
+                });
+            }
             return res.status(200).json({ ok: true, recipe: recipe.id, ...cooked.value, character: cooked.character, _saveVersion: cooked._saveVersion });
         }
 
@@ -76,6 +93,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         });
 
         if (!out.ok) return res.status(out.status).json({ error: out.error });
+        // Economy telemetry (I-19): the meal's ryo sink, after the commit.
+        if (meal!.cost > 0) {
+            void recordEconomyTxn({
+                txnId: `cafeteria-meal:${playerName}:${out._saveVersion}`,
+                player: playerName,
+                currency: 'ryo',
+                delta: -meal!.cost,
+                source: 'cafeteria.meal',
+                balanceAfter: Number(out.character.ryo ?? 0),
+            });
+        }
         return res.status(200).json({ ok: true, meal, character: out.character, _saveVersion: out._saveVersion });
     } catch (err) {
         console.error('[player/cafeteria]', safeLogValue(err));

@@ -8,8 +8,11 @@ import { enforceRateLimit } from '../_ratelimit.js';
 import { recordEraCampaignEvidence } from '../_era-campaign.js';
 import { withKvLock } from '../_lock.js';
 import { applyDerivedLevel } from '../_xp-engine.js';
+import { advanceLastDailyReset } from '../_daily-reset-stamp.js';
+import { randomInt } from 'node:crypto';
 import { ACADEMY_LEVEL_FLOORS, grantAcademyLevelFloor } from '../_tutorial-progression.js';
 import { combinedStatBoost } from '../_stat-growth.js';
+import { reserveDailyStatPoints, type DailyStatBudgetView } from '../_daily-stat-budget.js';
 import { boostMultiplier } from '../_boost-event.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import { carriedRegenCursor, settleIdleRecovery } from '../save/_mutate-player-save.js';
@@ -57,6 +60,12 @@ import {
     FIELD_MISSION_STAT_POINTS,
     ACADEMY_TRIAL_STAT_POINTS,
     ACADEMY_CHECKLIST_STAT_POINTS,
+    DROP_ROLL_SCALE,
+    academyChecklistGoalsMet,
+    academyChecklistRyo,
+    academyTrialRyo,
+    missionDropCurrency,
+    withMissionDrops,
     missionRewardBonusPct,
     boostAmount,
     hasDailyMissionSlot,
@@ -64,7 +73,7 @@ import {
     markMissionCompletedFields,
     markHuntCompletedFields,
     applyCurrencyRewardFields,
-    grantItemsToInventory,
+    grantItemsToCharacter,
     type CurrencyKey,
 } from './_mission-catalog.js';
 import {
@@ -113,13 +122,20 @@ import { serverFieldMissionRun, withoutServerFieldMissionRun } from './_field-tr
 // Eligibility enforced server-side (against the SAVED character, not the body):
 //   • combat       — missionId must be in pendingCombatMissionClaims (queued by
 //                    the Arena win); consumed on claim. Counts toward daily cap.
-//   • field        — level requirement + daily cap. (Explore/raid progress stays
-//                    client-tracked — same trust model as raids/expeditions.)
+//   • field        — level requirement + daily cap + the run's server progress
+//                    receipt (explores and sealed outpost raids).
 //   • hunt         — Hunter Guild contract: level req + the INDEPENDENT daily
-//                    hunt cap; grants material drops (itemRewards) server-side so
-//                    they can't be minted client-side (audit M-1). Hunt progress
-//                    (explore count) stays client-tracked like field missions.
-//   • academy-trial— one-time (character.academyTrialClaimed). OFF the daily cap.
+//                    hunt cap + the server kill proof; grants material drops
+//                    (itemRewards) server-side so they can't be minted
+//                    client-side (audit M-1).
+//   • academy-trial— one-time (character.academyTrialClaimed) and only after the
+//                    sealed Academy spar (the server-stamped academySparClaimed).
+//                    OFF the daily cap.
+//   • academy-checklist — one-time (academyChecklistClaimed) and only once the
+//                    server-owned goals hold (academyChecklistGoalsMet: jutsu
+//                    mastery Lv3, an AI win, a completed mission). OFF the cap.
+// Hunt and field stat points draw from the one shared daily stat-point budget
+// (api/_daily-stat-budget.ts); the Academy and Apex capstones stay outside it.
 //
 // Unknown / creator-authored mission ids are not paid here. Rewarded missions
 // must be in the server catalog so eligibility and payout are authoritative.
@@ -259,6 +275,8 @@ type ClaimOutcome =
         };
         combat?: { aiProfileId: string; missionKey: string };
         completion: 'daily' | 'total' | 'none' | 'hunt';
+        /** The shared daily stat-point budget after a hunt / field claim (owner A9). */
+        statBudget?: DailyStatBudgetView;
         replayed?: boolean;
         combatRunId?: string;
         /** Internal recovery binding; stripped from the HTTP response. */
@@ -689,7 +707,8 @@ async function applyReservedCombatMissionPayout(params: {
         };
     }
     if (reward.items.length > 0) {
-        next = { ...next, inventory: grantItemsToInventory(next, reward.items) };
+        // Hunt materials stack in itemStacks (A12); other items stay in inventory[].
+        next = { ...next, ...grantItemsToCharacter(next, reward.items) };
     }
     next = {
         ...next,
@@ -725,9 +744,13 @@ async function applyReservedCombatMissionPayout(params: {
     next = {
         ...next,
         totalMissionsCompleted: Number(next.totalMissionsCompleted ?? 0) + 1,
+        // A settlement from an earlier day than the stored stamp counts toward
+        // no day. Otherwise it may roll the day, and then the other counters
+        // keyed to lastDailyReset are zeroed with it (api/_daily-reset-stamp.ts).
         ...(currentDailyDay > settlementDay
             ? {}
             : {
+                ...advanceLastDailyReset(next, settlementDay),
                 dailyMissionsCompleted: currentDailyDay === settlementDay
                     ? Number(next.dailyMissionsCompleted ?? 0) + 1
                     : 1,
@@ -1013,12 +1036,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             // ── Resolve mission + per-type eligibility ──────────────────────
             // baseXp is retired (leveling-without-xp map): the progression payout
-            // is baseStatPoints — pool points on ONCE-PER-DAY claims (the daily
-            // checklist: field/hunt) and one-time capstones (apex, academy).
+            // is baseStatPoints — pool points on every field/hunt claim, drawn
+            // from the shared daily stat-point budget, and one-time capstones
+            // (apex, academy) outside it.
             // Repeatable combat-mission slots pay ryo only (the farm-bound).
             let baseRyo = 0, baseStamina = 0;
             let baseStatPoints = 0;
-            let boostStatPoints = false; // true only for daily-checklist claims
+            let boostStatPoints = false; // true only for the budgeted hunt / field claims
+            let boostRyo = true;         // false for the fixed one-time Academy grants
             const territoryScrolls = 0;
             let items: string[] = [];
             let currencyBase: Partial<Record<CurrencyKey, number>> | undefined;
@@ -1121,7 +1146,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 progressReceiptKeyToClear = progressKey;
                 baseRyo = def.ryoReward; baseStamina = def.staminaReward;
                 baseStatPoints = FIELD_MISSION_STAT_POINTS; boostStatPoints = true;
-                currencyBase = def.currencyRewards;
+                // A copy with this claim's server-rolled drops (fetch-S Fate
+                // Shard); the catalog object is never mutated.
+                currencyBase = withMissionDrops(def.currencyRewards, missionDropCurrency({
+                    char, missionType: 'field', missionId, now: Date.now(), roll: () => randomInt(DROP_ROLL_SCALE),
+                }));
                 completion = 'daily';
             } else if (missionType === 'hunt') {
                 // Hunter Guild contract — own daily pool, grants material drops.
@@ -1156,7 +1185,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 progressReceiptKeyToClear = progressKey;
                 baseRyo = def.ryoReward; baseStamina = def.staminaReward;
                 baseStatPoints = FIELD_MISSION_STAT_POINTS; boostStatPoints = true;
-                currencyBase = def.currencyRewards;
+                // A copy with this claim's server-rolled Fate Shard / Aura Stone
+                // drops; the catalog object is never mutated.
+                currencyBase = withMissionDrops(def.currencyRewards, missionDropCurrency({
+                    char, missionType: 'hunt', missionId, now: Date.now(), roll: () => randomInt(DROP_ROLL_SCALE),
+                }));
                 items = def.itemRewards ?? [];
                 completion = 'hunt';
                 huntRankBonusPct = Math.max(0, Math.min(5, Math.floor(Number(char.hunterRank ?? 0)))) * 5;
@@ -1183,9 +1216,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 apexWeekToStamp = settledWeek;
                 apexReceiptKeyToClear = apexKillReceiptKey(playerName, settledWeek);
             } else if (missionType === 'academy-trial') {
-                // academy-trial — one-time, off the daily cap.
+                // academy-trial — one-time, off the daily cap. The sealed Academy
+                // spar stamps academySparClaimed (api/story/_settle.ts) before the
+                // Trial card appears, so a fresh character cannot post straight
+                // here for the 6,000-ryo grant.
                 if (char.academyTrialClaimed) return { applied: false, reason: 'already-claimed' };
-                baseRyo = ACADEMY_TRIAL.ryo; baseStamina = ACADEMY_TRIAL.stamina;
+                if (char.academySparClaimed !== true) return { applied: false, reason: 'not-yet-unlocked' };
+                baseRyo = academyTrialRyo(); baseStamina = ACADEMY_TRIAL.stamina;
+                boostRyo = false; // sized to the Lv1 -> 3 lessons, so no mission bonus
                 baseStatPoints = ACADEMY_TRIAL_STAT_POINTS; // one-time onboarding, unboosted
                 completion = 'total';
                 academyTrialClaimed = true;
@@ -1193,8 +1231,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // academy-checklist — the one-time graduation capstone. Off the
                 // daily cap, doesn't count toward mission totals (completion 'none'),
                 // grants a small premium (Fate Shards) bonus from the sealed catalog.
+                // It needs the server-owned checklist goals, including the
+                // 6,500-ryo jutsu Lv3, so it can never be farmed for net ryo.
                 if (char.academyChecklistClaimed) return { applied: false, reason: 'already-claimed' };
-                baseRyo = ACADEMY_CHECKLIST.ryo; baseStamina = ACADEMY_CHECKLIST.stamina;
+                if (!academyChecklistGoalsMet(char)) return { applied: false, reason: 'not-yet-unlocked' };
+                baseRyo = academyChecklistRyo(); baseStamina = ACADEMY_CHECKLIST.stamina;
+                boostRyo = false; // pays exactly the Lv3 -> 4 lesson
                 baseStatPoints = ACADEMY_CHECKLIST_STAT_POINTS; // one-time graduation capstone, unboosted
                 currencyBase = { fateShards: ACADEMY_CHECKLIST.fateShards };
                 completion = 'none';
@@ -1207,15 +1249,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             // ── Compute server-authoritative amounts ────────────────────────
             // huntRankBonusPct is 0 for every non-hunt claim, so this only lifts hunts.
-            const ryoBoosted = boostAmount(baseRyo, bonusPct + huntRankBonusPct);
+            const ryoBoosted = boostRyo ? boostAmount(baseRyo, bonusPct + huntRankBonusPct) : baseRyo;
             const staminaBoosted = baseStamina > 0 ? boostAmount(baseStamina, bonusPct) : 0;
-            // Daily-checklist grants are boosted by the same mission bonuses that
-            // used to boost mission XP, plus the era dial (aggregate-capped);
-            // one-time capstones pay their fixed value. A boost event multiplies
-            // the daily-checklist grant as its own factor, after the aggregate cap.
-            let statPointsGranted = baseStatPoints > 0
-                ? Math.max(0, Math.round(baseStatPoints * (boostStatPoints ? combinedStatBoost(bonusPct + huntRankBonusPct) * growthEventBoost : 1)))
-                : 0;
+            // Hunt / field grants are boosted by the same mission bonuses that
+            // used to boost mission XP, plus the era dial (aggregate-capped); a
+            // boost event multiplies that request as its own factor. The request
+            // then reserves against the shared daily budget, which pays what is
+            // left of it, so no boost can raise the cap. One-time capstones pay
+            // their fixed value outside the budget.
+            let statPointsGranted = 0;
+            let statBudget: DailyStatBudgetView | undefined;
+            if (baseStatPoints > 0 && boostStatPoints) {
+                const requested = Math.max(0, Math.round(baseStatPoints * combinedStatBoost(bonusPct + huntRankBonusPct) * growthEventBoost));
+                const reserved = await reserveDailyStatPoints(kv, {
+                    playerName,
+                    receiptId: `mission:${missionReceipt}`,
+                    eventAt: Date.now(),
+                    requested,
+                });
+                statPointsGranted = reserved.points;
+                statBudget = reserved.budget;
+            } else if (baseStatPoints > 0) {
+                statPointsGranted = baseStatPoints;
+            }
 
             // ── Apply onto the saved character ──────────────────────────────
             // Character XP is retired: the stat-pool grant moves the earned
@@ -1236,7 +1292,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 next = { ...next, stamina: Math.min(maxStamina, Number(next.stamina ?? 0) + staminaBoosted) };
             }
             if (items.length > 0) {
-                next = { ...next, inventory: grantItemsToInventory(next, items) };
+                // Hunt materials stack in itemStacks (A12); other items stay in inventory[].
+                next = { ...next, ...grantItemsToCharacter(next, items) };
             }
             const currencyFields = applyCurrencyRewardFields(next, currencyBase);
             next = { ...next, ...currencyFields };
@@ -1397,6 +1454,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 ...(combatSettlement ? { combatRunId: combatSettlement.runId } : {}),
                 ...(combatSettlement ? { combatSettlementFingerprint: combatSettlement.rewardFingerprint } : {}),
                 completion,
+                ...(statBudget ? { statBudget } : {}),
                 ...(academyTrialClaimed ? { academyTrialClaimed: true } : {}),
                 ...(academyChecklistClaimed ? { academyChecklistClaimed: true } : {}),
             };
@@ -1442,12 +1500,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
             }
             // Economy telemetry — log the server-computed faucet deltas (ryo +
-            // any premium currency) so created-vs-destroyed is measurable.
+            // any premium currency) so created-vs-destroyed is measurable. The
+            // one-time Academy grants carry their own sources so the new-account
+            // faucet (and an alt farm on it) reads apart from repeatable missions.
             const r = outcome.reward;
             const economyReceipt = outcome.missionReceipt ?? `${todayKey}:${missionType}:${missionId}`;
-            if (r.ryo) await recordEconomyTxn({ txnId: `mission:${economyReceipt}`, player: playerName, currency: 'ryo', delta: r.ryo, source: 'mission.claim' });
+            const economySource = missionType === 'academy-trial'
+                ? 'academy.trial'
+                : missionType === 'academy-checklist' ? 'academy.checklist' : 'mission.claim';
+            if (r.ryo) await recordEconomyTxn({ txnId: `mission:${economyReceipt}`, player: playerName, currency: 'ryo', delta: r.ryo, source: economySource });
             for (const [cur, amt] of Object.entries(r.currency ?? {})) {
-                if (amt) await recordEconomyTxn({ txnId: `mission:${economyReceipt}:${cur}`, player: playerName, currency: cur, delta: Number(amt), source: 'mission.claim' });
+                if (amt) await recordEconomyTxn({ txnId: `mission:${economyReceipt}:${cur}`, player: playerName, currency: cur, delta: Number(amt), source: economySource });
             }
             const metricRecord = await kv.get<Record<string, unknown>>(saveKey).catch(() => null);
             const finalChar = (metricRecord?.character ?? null) as Record<string, unknown> | null;

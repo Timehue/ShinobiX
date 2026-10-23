@@ -10,7 +10,7 @@
 import type { Character } from "../types/character";
 
 // MIRROR: api/village/_kage-challenge.ts KAGE_DECLARE_RYO_COST.
-export const KAGE_CHALLENGE_RYO_COST = 250_000;
+export const KAGE_CHALLENGE_RYO_COST = 400_000;
 export const KAGE_CHALLENGE_MIN_LEVEL = 90;
 export const KAGE_CHALLENGE_MIN_MERIT = 250;
 export const KAGE_MIN_ACCOUNT_AGE_MS = 7 * 24 * 60 * 60 * 1000;
@@ -37,6 +37,8 @@ export type ServerKageChallenge = {
     clockPauseReason?: 'offline' | 'kage-unavailable';
     clockRunning?: boolean;
     battleId?: string;
+    /** Ryo this challenge's declaration charged (absent on older challenges). */
+    stakeRyo?: number;
 };
 export type ServerKageState = {
     kageSystemUnlocked?: boolean;

@@ -94,7 +94,10 @@ test('the stored reward matches what the player was granted', async () => {
     assert.ok(MATERIALS.includes(rewards.materialId));
     const saved = await character();
     assert.equal(saved.ryo, 1_600);
-    assert.deepEqual(saved.inventory, [rewards.materialId]);
+    // The material is a counted stack (owner ruling A12), not an inventory[] slot.
+    assert.deepEqual(saved.inventory, []);
+    const material = (saved.itemStacks as Array<{ itemId: string; count: number }>).find(s => s.itemId === rewards.materialId);
+    assert.equal(material?.count, 1);
     const keys = (saved.itemStacks as Array<{ itemId: string; count: number }>).find(s => s.itemId === 'dungeon-key');
     assert.equal(keys?.count ?? 0, rewards.dungeonKey ? 1 : 0);
 });

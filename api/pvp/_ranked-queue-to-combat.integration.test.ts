@@ -305,7 +305,12 @@ test('two ranked queue entries create a ranked-format PvP combat session', async
     await kv.set(`player-ip:${BOB}:8.8.8.8`, 1);
     await kv.set(`player-fp:${ALICE}:${'a'.repeat(32)}`, 1);
     await kv.set(`player-fp:${BOB}:${'b'.repeat(32)}`, 1);
-    const terminal = { ...lastSession, status: 'done', winner: 'p1', endedAt: Date.now() };
+    // A full-length KO: 3 completed rounds and 60 s (api/pvp/_valid-fight.ts).
+    const terminal = {
+        ...lastSession, status: 'done', winner: 'p1', round: 4,
+        p2: { ...lastSession.p2, hp: 0 },
+        endedAt: Number(lastSession.createdAt) + 60_000,
+    };
     await kv.set(`pvp:${battleId}`, terminal);
     await kv.set(receiptKey(battleId), buildBattleReceipt(terminal as never, terminal.endedAt));
     const winnerClaim = await post(claimRewards, ALICE, {

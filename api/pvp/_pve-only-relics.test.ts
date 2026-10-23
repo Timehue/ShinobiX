@@ -28,8 +28,8 @@ const STAT_FIELDS = [
 ];
 // Best-in-slot endgame kit — the build for which stat bonuses are provably inert.
 const BIS = {
-    head: 'sennin-crown', body: 'sennin-chest', waist: 'sennin-waist',
-    legs: 'sennin-legs', feet: 'sennin-feet', gloves: 'legendary-gloves',
+    head: 'legendary-crown', body: 'legendary-chest', waist: 'legendary-waist',
+    legs: 'legendary-legs', feet: 'legendary-feet', gloves: 'legendary-gloves',
     hand: 'void-leech-nodachi',
 };
 const BLAST = {

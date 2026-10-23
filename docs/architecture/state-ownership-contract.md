@@ -91,15 +91,19 @@ legacy loading-mask handling, and the retention migration.
 - **Combat (owner read):** blacklist strip (`combat-strip-*`) of
   meta/currency/receipt fields.
 
-## Why STRICT_RAW_SAVE_LEDGER stays unchanged
+## STRICT_RAW_SAVE_LEDGER: strict is the code default
 
-The strict flip makes the full `strict-ledger-char` set stored-copy-wins and
-turns inventory validation count-consuming. It is gated on later phases: P0-3
-must first fix named-weapon resolution (strict mode would otherwise drop
-forged gear whose only definition lives in the player's own `creatorItems`),
-and P0-4 must move admin item publishing off the ordinary save path (strict
-mode freezes admin-slot `creatorItems` there). P0-1 changes neither the flag
-nor any compatibility behavior it gates.
+The strict boundary makes the full `strict-ledger-char` set stored-copy-wins and
+turns inventory validation count-consuming. Since the 2026-10 economy rebalance
+(owner amendment A13, 2026-10-22) it is the CODE DEFAULT: the one reader,
+`strictRawSaveLedgerEnabled()` in `api/save/_sanitize-ledger.ts`, is strict
+unless `STRICT_RAW_SAVE_LEDGER` is explicitly `'0'` (an emergency off switch).
+No other code reads the env var. Forged gear resolves through the forged-item
+registry (`api/_forged-item-registry.ts`), so before a deploy whose preserved
+saves hold pre-registry forged gear, run `npm run scan:data -- --repair` once
+(it registers missing forged items, reconciles currency ledger rows and publishes
+unpublished admin content; it never edits a save). The strict-default save/reload journey is
+pinned by `api/save/_strict-default-roundtrip.test.ts`.
 
 ## Remaining ownership work (out of P0-1 scope)
 

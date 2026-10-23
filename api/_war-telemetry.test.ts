@@ -157,6 +157,28 @@ test('every kind a caller records is kept: a per-war structure upgrade counts as
     assert.equal(summarizeVillageAgg(agg).wrOut, 300);
 });
 
+test('the 2026-10 rebalance war kinds are kept and summarized (framework 8.4)', async () => {
+    const kv = memKv();
+    const village = 'Frostfang Village';
+    const events: Array<[string, number]> = [
+        ['treasury.ryo.spend.merc', 27_500], ['treasury.ryo.spend.prep', 10_000], ['treasury.bc.spend.prep', 20],
+        ['treasury.short', 1], ['war.end.agreement', 1], ['war.end.agreement.under96h', 1],
+        ['war.purse.village', 22_500], ['war.purse.sector', 9_000], ['war.crate.claim', 1],
+    ];
+    for (const [kind, amount] of events) await recordWarEcoEvent({ eventId: `rebalance:${kind}`, village, kind, amount }, { kv });
+    const agg = (await kv.get(warEcoAggKey(village))) as WarEcoAgg;
+    for (const [kind, amount] of events) assert.equal(agg[kind as keyof WarEcoAgg], amount, kind);
+    const v = summarizeVillageAgg(agg);
+    assert.equal(v.treasuryRyoOut, 37_500, 'merc + preparation treasury ryo');
+    assert.equal(v.treasuryBoneCharmsOut, 20);
+    assert.equal(v.treasuryShortRefusals, 1);
+    assert.equal(v.pursePaid, 31_500, 'village + sector purses');
+    assert.equal(v.crateClaims, 1);
+    assert.equal(v.agreementEnds, 1);
+    assert.equal(v.agreementEndsUnder96h, 1);
+    assert.equal(v.wrOut, 0, 'treasury spends are not War Resources');
+});
+
 test('recordWarEcoEvent is a best-effort no-op on bad input (never throws)', async () => {
     const kv = memKv();
     await recordWarEcoEvent({ eventId: 'x', village: 'Stormveil Village', kind: 'not-a-kind', amount: 50 }, { kv });

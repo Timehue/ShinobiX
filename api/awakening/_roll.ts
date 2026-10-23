@@ -43,13 +43,27 @@ export function rollAwakening(character: Record<string, unknown>, kindRaw: unkno
         // A single reroll therefore preserves the secondary nature, while the
         // two-element option replaces both. Any exceptional extra elements are
         // preserved and excluded from the new rolls so the list stays unique.
+        //
+        // A paid roll never pays for nothing (2026-10 economy rebalance): the
+        // single reroll lands on an element the player does not hold, and the
+        // two-element reroll never hands back the pair already held, in either
+        // order. Both stay uniform over what is left. Refusals come before the
+        // debit, so a player with nothing new to roll is never charged.
         const preserved = owned.slice(rerollCount);
-        const pool = AWAKENING_ELEMENTS.filter((element) => !preserved.includes(element));
-        const rolled: string[] = [];
-        while (rolled.length < rerollCount) {
-            const element = pick(pool, randomIndex);
-            rolled.push(element);
-            pool.splice(pool.indexOf(element as typeof pool[number]), 1);
+        const replaced = owned.slice(0, rerollCount);
+        let rolled: string[];
+        if (rerollCount === 1) {
+            const pool = AWAKENING_ELEMENTS.filter((element) => !owned.includes(element));
+            if (!pool.length) return { ok: false as const, reason: 'no-new-element' as const };
+            rolled = [pick(pool, randomIndex)];
+        } else {
+            const pool = AWAKENING_ELEMENTS.filter((element) => !preserved.includes(element));
+            const pairs: string[][] = [];
+            for (const a of pool) for (const b of pool) {
+                if (a !== b && !(replaced.includes(a) && replaced.includes(b))) pairs.push([a, b]);
+            }
+            if (!pairs.length) return { ok: false as const, reason: 'no-new-element' as const };
+            rolled = pairs[Math.max(0, Math.min(pairs.length - 1, Math.floor(randomIndex(pairs.length))))]!;
         }
         next = [...rolled, ...preserved];
         fateShards -= cost;

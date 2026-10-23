@@ -1,5 +1,5 @@
-import { trainingStatGain, rookieStatMultiplier, type TrainingTier } from '../_training-config.js';
-import { combinedStatBoost } from '../_stat-growth.js';
+import { sealedTrainingGain, rookieStatMultiplier, type TrainingTier } from '../_training-config.js';
+import { statGainMultiplier } from '../_stat-growth.js';
 import { earnedStatPoints, levelForEarned } from '../_xp-engine.js';
 
 export const TRAINING_TOKEN_TTL_SECONDS = 25 * 60 * 60;
@@ -67,11 +67,11 @@ export function storedTrainingGrant(raw: unknown, token: string): StoredTraining
     const sealedXp = Math.floor(Number(record.xp));
     if (!TRAINING_STATS.has(stat)) return null;
     // Hard upper bound on anything start.ts can seal: the 8h tier's base gain
-    // (72 = 9/h × 8h, api/_training-config.ts) × the aggregate boost ceiling
-    // (2.5) × the rookie peak (5) = 900, × a 2× boost event
-    // (shared/boost-event.ts BOOST_MAX_MULTIPLIER) = 1,800. MAX_SEALED_STAT_GAIN
-    // carries headroom above that so a tier or dial nudge does not silently
-    // start rejecting valid leases — it is a sanity bound, not a balance lever. Old leases (sealed before the rookie
+    // (65 = 8.125/h × 8h, api/_training-config.ts) × the aggregate boost ceiling
+    // (2.5) × the rookie peak (6) × the war-morale buff (1.1) × a 2× boost event
+    // (shared/boost-event.ts BOOST_MAX_MULTIPLIER) = 2,145; the legacy kill-switch
+    // table's 72 gives 2,376. Both pinned by api/_training-parity.test.ts.
+    // MAX_SEALED_STAT_GAIN is a sanity bound, not a balance lever. Old leases (sealed before the rookie
     // curve, ≤1000) still validate unchanged. sealedXp is a retired legacy field
     // (character XP is gone) — still parsed off old leases, never paid.
     if (!Number.isFinite(sealedGain) || sealedGain < 0 || sealedGain > MAX_SEALED_STAT_GAIN) return null;
@@ -135,9 +135,10 @@ export function trustedTrainingRewards(
     const bonusPct = trainingBonusPct(character);
     const ledgerLevel = character ? levelForEarned(earnedStatPoints(character)) : 1;
     const rookieMult = rookieStatMultiplier(ledgerLevel);
-    const base = Math.max(0, trainingStatGain(tier, tier.ms, 0));
     return {
-        sealedGain: Math.max(0, Math.round(base * combinedStatBoost(bonusPct) * rookieMult)),
+        // The same helper the Training preview runs, fed the era dial the
+        // game-state frame publishes (round(base × combinedStatBoost × rookie)).
+        sealedGain: sealedTrainingGain(tier, bonusPct, ledgerLevel, statGainMultiplier()),
         sealedXp: 0,
         bonusPct,
         rookieMult,

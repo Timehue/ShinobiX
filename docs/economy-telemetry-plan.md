@@ -21,8 +21,9 @@ on the same artifact:
 ## What already exists (don't rebuild)
 
 - **Sinks are in place:** the 10% **trade burn** (`api/player/_trade-core.ts`
-  `TRADE_TAX_PCT = 0.10`, returns `burned`), the **bank-interest 10M principal
-  cap**, and the **black-market** server-rolled sink. The economy *mechanics* are
+  `TRADE_TAX_PCT = 0.10`, returns `burned`), the **bank-interest principal cap**
+  (1M since the 2026-10 rebalance, dial `BANK_INTEREST_PRINCIPAL_CAP`, kill value
+  10M), and the **black-market** server-rolled sink. The economy *mechanics* are
   reasonable; the gap is purely visibility + detection.
 - **Audit substrate:** `api/_audit.ts` — capped, lock-serialized, newest-first
   append-only lists per domain (`content`/`reward`/`sector`/`combat`),
@@ -66,10 +67,16 @@ type EconTxn = {
 
 Two stores, both behind the existing best-effort + capped pattern:
 
-- `econ:txns` — a **capped recent list** (newest-first, ~5000 like the audit log)
-  for drill-down. NOT the source of truth for totals (it ages out).
+- `econ:txns` — a **capped recent list** (newest-first, 1,000 entries of
+  low-frequency txns; high-frequency sources such as `pvp.`, `ai-fight.` and
+  `wanderer.` skip it) for drill-down. NOT the source of truth for totals (it
+  ages out).
 - `econ:agg:<currency>` — **running counters** `{ created, destroyed }` bumped on
   every txn via `kv.incr`-style updates, so supply trends survive list rollover.
+- Added in the 2026-10 rebalance (all TTL'd, see the header of `api/_economy.ts`):
+  `econ:day:<date>:<currency>` per-source day rows, `econ:pday:<date>:<slug>`
+  per-player day rows, `econ:pidx:<date>` the day's player index, and
+  `econ:exchange-res:<date>` Sunscar Exchange resource-lot samples.
 
 ## Hook points (the server-authoritative reward writers)
 

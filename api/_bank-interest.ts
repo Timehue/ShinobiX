@@ -11,12 +11,27 @@
 //   nextClaimAt       = (lastBankInterestAt ?? 0) + 24h
 //   canClaimInterest  = bankRyo > 0 && interestPercent > 0 && now >= nextClaimAt
 //   projectedInterest = shared projectedBankInterest(bankRyo, interestPercent)
+//                       (the server passes its principal-cap dial, default equal)
 // The 24h gate is evaluated against the SERVER clock (not a client Date.now()),
 // closing the clock-rollback claim-repeatedly vector that the sanitizer's
 // lastBankInterestAt window check also guards.
 
-import { BANK_INTEREST_WINDOW_MS, projectedBankInterest } from '../shared/bank-interest.js';
+import { BANK_INTEREST_PRINCIPAL_CAP, BANK_INTEREST_WINDOW_MS, projectedBankInterest } from '../shared/bank-interest.js';
+import { economyDial } from './_economy-dials.js';
 export { BANK_INTEREST_WINDOW_MS, BANK_INTEREST_PRINCIPAL_CAP } from '../shared/bank-interest.js';
+
+// Economy dial (2026-10 rebalance, framework 8.3): the interest-earning
+// principal. Default 1,000,000 (the shared constant); kill value 10,000,000
+// restores the pre-rebalance ceiling without a deploy. Kept above 100,000 so
+// a typo cannot quietly zero a communal upgrade's payout. The Bank screen
+// previews with the shared default, so an env change is an emergency lever:
+// a lasting change also edits shared/bank-interest.ts.
+export const BANK_INTEREST_PRINCIPAL_CAP_DIAL = 'BANK_INTEREST_PRINCIPAL_CAP';
+export const BANK_INTEREST_PRINCIPAL_CAP_RANGE = { min: 100_000, max: 10_000_000 } as const;
+export function bankInterestPrincipalCap(): number {
+    return economyDial(BANK_INTEREST_PRINCIPAL_CAP_DIAL, BANK_INTEREST_PRINCIPAL_CAP, BANK_INTEREST_PRINCIPAL_CAP_RANGE);
+}
+
 // villageUpgradeDefinitions: { key:'bank', perLevel: 0.01 } and
 // VILLAGE_UPGRADE_MAX_LEVEL = 50 (shinobij.client/src/lib/village-upgrades.ts).
 // De-inflation (progression redesign Phase 3): cut from 0.25 (12.5%/day max) to
@@ -59,7 +74,7 @@ export function computeBankInterest(char: CharLike, now: number): BankInterestRe
     if (interestPercent <= 0) return { eligible: false, interest: 0, interestPercent, nextClaimAt, reason: 'no-upgrade' };
     if (bankRyo <= 0) return { eligible: false, interest: 0, interestPercent, nextClaimAt, reason: 'empty' };
     if (now < nextClaimAt) return { eligible: false, interest: 0, interestPercent, nextClaimAt, reason: 'cooldown' };
-    const interest = projectedBankInterest(bankRyo, interestPercent);
+    const interest = projectedBankInterest(bankRyo, interestPercent, bankInterestPrincipalCap());
     if (interest <= 0) return { eligible: false, interest: 0, interestPercent, nextClaimAt, reason: 'too-small' };
     return { eligible: true, interest, interestPercent, nextClaimAt, reason: 'ok' };
 }

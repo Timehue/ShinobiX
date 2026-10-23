@@ -41,7 +41,7 @@ export interface ShardPackage {
  * The $5 tier is the base rate every other tier's bonus is measured against.
  *
  * ECONOMY CONTEXT — a deliberately premium rate, 7.00 to 9.00 shards per dollar:
- *   Legendary card pack ..............  30 shards ≈ $4
+ *   Legendary card pack ..............  20 shards ≈ $3
  *   one legendary armour piece ....... 150 shards ≈ $19
  *   profession change / forge roll ... 200 shards ≈ $25
  *   best-in-slot legendary loadout ... 900 shards = the $100 tier exactly

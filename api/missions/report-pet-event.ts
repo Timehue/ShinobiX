@@ -12,6 +12,7 @@ import { settleServerPetExpedition } from '../pet/_progress.js';
 import { spendPetHappiness } from '../pet/_happiness.js';
 import { PET_EXPEDITION_TYPES, petExpeditionSealForToken, type PetExpeditionSeal, type PetExpeditionType } from './_pet-expedition-lease.js';
 import { recordPetBreedingProgress } from '../pet/_breeding-requirements.js';
+import { economyDial } from '../_economy-dials.js';
 import { addOwned, countOwned } from '../craft/_forge.js';
 import { craftMaterialName } from '../../shared/crafting-recipes.js';
 import { petExpeditionReturnMaterials, type PetExpeditionMaterialReward } from '../../shared/pet-expedition-materials.js';
@@ -23,12 +24,14 @@ import {
     PET_EXPEDITION_RISK_RULES,
     PET_EXPEDITION_ROUTES,
     PET_EXPEDITION_REWARD_VERSION,
+    TAMER_RYO_MULT,
     petExpeditionBaseRyo,
     petExpeditionMaterialChances,
     petExpeditionStory,
     resolvePetExpeditionChoice,
     type PetExpeditionReturnChoice,
 } from '../../shared/pet-expedition-contract.js';
+import { recordEconomyTxn } from '../_economy.js';
 
 async function deliverPetExpeditionLegacy(
     playerName: string,
@@ -42,9 +45,9 @@ async function deliverPetExpeditionLegacy(
     });
 }
 
-// Server-side Tamer XP for completed expeditions. Matches the client-side
-// formula (5 XP/min base, +50% for >=1h, +100% for >=4h, x2 daily First
-// Expedition, x1.2 if petEscortBonusReady is consumed).
+// Server-side Tamer XP for completed expeditions: 5 XP/min base, +50% for >=1h,
+// +100% for >=4h, x2 daily First Expedition, x1.2 if petEscortBonusReady is
+// consumed, then TAMER_XP_MULT. The client only displays the server's figure.
 const MIN_EXPEDITION_MINUTES = 10;
 // Longest legitimate expedition is 4 hours. Anything claimed beyond that is
 // either a bot or a buggy client — clip at 240 min so XP / Ryo formulas
@@ -56,7 +59,29 @@ const MAX_EXPEDITION_MINUTES = 240;
 function utcDateKey(at: number | Date = Date.now()): string {
     return new Date(at).toISOString().slice(0, 10);
 }
-function tamerXpForExpedition(durationMinutes: number, opts: { isFirstToday: boolean; escortReady: boolean }): number {
+/**
+ * TAMER_XP_MULT (default 0.5, range 0-1; kill value 1). Framework 3.12 / #37:
+ * Tamer stays the fastest profession, at half its old rate (rank 10 in 2-4 days
+ * instead of 1-2 for a heavy Tamer). Applied after the duration, first-of-day
+ * and escort multipliers, so the pre-rebalance figure is reproduced bit-exactly at 1.
+ */
+export function tamerXpMult(): number {
+    return economyDial('TAMER_XP_MULT', 0.5, { min: 0, max: 1 });
+}
+
+/**
+ * TAMER_RYO_MULT (default 0.4 per owner ruling A6, range 0-1; kill value 1).
+ * The env override of the shared code default. It is applied in exactly one
+ * place, inside petExpeditionBaseRyo, so it also scales non-Tamer expeditions;
+ * never multiply it in again here. Since main's reward version 2 (#446) that
+ * base only prices expeditions launched before v2: new runs pay the ryo sealed
+ * at launch by petExpeditionRewardPreview, which this dial does not touch.
+ */
+export function tamerRyoMult(): number {
+    return economyDial('TAMER_RYO_MULT', TAMER_RYO_MULT, { min: 0, max: 1 });
+}
+
+export function tamerXpForExpedition(durationMinutes: number, opts: { isFirstToday: boolean; escortReady: boolean }): number {
     if (durationMinutes < MIN_EXPEDITION_MINUTES) return 0;
     const base = Math.floor(durationMinutes * 5);
     let mult = 1;
@@ -64,7 +89,7 @@ function tamerXpForExpedition(durationMinutes: number, opts: { isFirstToday: boo
     else if (durationMinutes >= 60) mult = 1.5;    // +50% for ≥1h
     if (opts.isFirstToday) mult *= 2;
     if (opts.escortReady) mult *= 1.2;
-    return Math.floor(base * mult);
+    return Math.floor(Math.floor(base * mult) * tamerXpMult());
 }
 
 // Pet Tamer mission progress reporter. Pet expedition/training state is
@@ -157,6 +182,25 @@ async function replayExpeditionMissions(
     const now = new Date();
     if (utcDateKey(settledAt) !== utcDateKey(now)) return [];
     return (await reportExpeditionMissions(playerName, event, token, now)).missionsCompleted;
+}
+
+/**
+ * Economy telemetry (I-19) for one committed expedition haul, keyed on its
+ * single-use receipt. Ryo and the common finds skip the recent-txn list (up to
+ * 14 claims a player a day); the rare Fate Shard stays listed. Best-effort:
+ * recordEconomyTxn never throws into the payout and ignores a zero delta.
+ */
+function recordExpeditionHaul(
+    playerName: string,
+    receipt: string,
+    haul: { ryo: number; boneCharms: number; auraStones: number; fateShards: number },
+    character: Record<string, unknown>,
+): void {
+    const txnId = (currency: string) => `pet-expedition:${receipt}:${currency}`;
+    void recordEconomyTxn({ txnId: txnId('ryo'), player: playerName, currency: 'ryo', delta: haul.ryo, source: 'expedition.claim', balanceAfter: Number(character.ryo ?? 0) }, { list: false });
+    void recordEconomyTxn({ txnId: txnId('boneCharms'), player: playerName, currency: 'boneCharms', delta: haul.boneCharms, source: 'expedition.claim', balanceAfter: Number(character.boneCharms ?? 0) }, { list: false });
+    void recordEconomyTxn({ txnId: txnId('auraStones'), player: playerName, currency: 'auraStones', delta: haul.auraStones, source: 'expedition.claim', balanceAfter: Number(character.auraStones ?? 0) }, { list: false });
+    void recordEconomyTxn({ txnId: txnId('fateShards'), player: playerName, currency: 'fateShards', delta: haul.fateShards, source: 'expedition.claim', balanceAfter: Number(character.fateShards ?? 0) });
 }
 
 /** Boonbringer doubles expedition Ryo and pet XP. Keep this server-owned so a
@@ -518,13 +562,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
                 if (expType) {
                     // Version 2 seals the full fixed-profession payout at launch.
-                    // Keep the historical calculation for runs already underway.
+                    // Keep the historical calculation for runs already underway;
+                    // TAMER_RYO_MULT applies only to that historical base.
                     const tamerMult = !modernRewards && tamerToken ? petTamerExpeditionMultFromRank(rank, char.profession) : 1;
                     const firstBonus = !modernRewards && tamerToken && isFirstToday ? 2 : 1;
                     const dropBonus = !modernRewards && tamerToken ? (tamerMult - 1) + (isFirstToday ? 0.5 : 0) : 0;
                     ryoEarned = modernRewards
                         ? Math.round(Number(expeditionSeal?.ryoReward ?? 0) * boonMult * choice.ryoMultiplier)
-                        : Math.round(petExpeditionBaseRyo(expType, petLevel)
+                        : Math.round(petExpeditionBaseRyo(expType, petLevel, tamerRyoMult())
                             * tamerMult * firstBonus * expRewardMult * rewardScale * boonMult
                             * riskRule.ryoMultiplier * choice.ryoMultiplier);
                     const chances = modernRewards ? {
@@ -621,6 +666,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     value: null,
                     afterCommit: async () => {
                         if (expeditionTokenKey) await kv.del(expeditionTokenKey).catch(() => undefined);
+                        // Only the committed, paying settle reaches here: a replayed
+                        // receipt, the claim cap and a stale lease write nothing.
+                        recordExpeditionHaul(playerName, expeditionReceipt, {
+                            ryo: ryoEarned, boneCharms: foundBone, auraStones: foundAura, fateShards: foundFate,
+                        }, progressedCharacter);
                     },
                 };
             }));

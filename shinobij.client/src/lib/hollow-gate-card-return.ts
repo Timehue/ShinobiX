@@ -7,6 +7,13 @@ import type { HollowGateEventModal } from './hollow-gate-tile';
 
 export type HollowGateCardBinding = { token: string; nodeId: string; matchId: string };
 
+/** The run-log line for a won card ambush, naming every currency the server paid. */
+export function hollowGateCardWinLogLine(reward?: { ryo: number; auraDust: number; chroniclePoints?: number }): string {
+    const points = Math.max(0, Math.floor(Number(reward?.chroniclePoints) || 0));
+    const paid = [`+${reward?.ryo ?? 0} ryo`, `+${reward?.auraDust ?? 0} Aura Dust`, ...(points > 0 ? [`+${points} Chronicle Points`] : [])];
+    return `The Chronicle Keeper falls. The card ambush seal breaks. ${paid.join(', ')}.`;
+}
+
 /** Leaving an unfinished match preserves its binding and offers its normal exits. */
 export function leaveHollowGateCardAmbushFlow(params: {
     binding: HollowGateCardBinding | null;
@@ -58,7 +65,7 @@ export async function finishHollowGateCardAmbushFlow(params: {
     }
     params.setRun(previous => previous?.runToken === binding.token ? { ...previous, threat: 0, activeCombat: undefined } : previous);
     params.pushLog(settled.alreadyReported ? 'The Chronicle result was already sealed. The corridor is open.'
-        : settled.won ? `The Chronicle Keeper falls. The card ambush seal breaks. +${settled.reward?.ryo ?? 0} ryo, +${settled.reward?.auraDust ?? 0} Aura Dust.`
+        : settled.won ? hollowGateCardWinLogLine(settled.reward)
             : `The Chronicle Keeper wins. The ambush seal fades; ${HOLLOW_GATE_LOSS_HP_PERCENT}% max HP recoils, stopping at 1 HP.`);
     params.setScreen('hollowGateShrine');
 }

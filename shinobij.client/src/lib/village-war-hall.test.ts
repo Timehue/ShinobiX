@@ -15,14 +15,18 @@ import {
     VILLAGE_WAR_DECLARE_WR,
     villageWarDeclareWrCost,
     villageWarPeaceView,
+    warAcceptPeaceConfirmText,
+    warAgreementFloorNote,
     warCrateDeclineMessage,
     warDeclareBlockReason,
     warDeclareConfirmText,
     warDeclareCostText,
     warDeclareQuoteFromMap,
+    warSurrenderConfirmText,
     type AdoptedWarRow,
 } from "./village-war-hall";
 import type { VillageWarRecord } from "./world-state";
+import { VILLAGE_WAR_REWARD_MIN_DURATION_HOURS } from "../../../shared/village-war-reward-floor";
 
 const MOON = "Moonshadow Village";
 const STORM = "Stormveil Village";
@@ -127,6 +131,14 @@ describe("peace and surrender controls", () => {
             { ourOfferAt: 2_000, enemyOfferAt: null, peaceCommand: "withdraw-peace", peaceLabel: "Withdraw peace offer" });
         const junk = { peaceProposals: { [MOON]: Number.NaN, [STORM]: -5 } } as unknown as Pick<VillageWarRecord, "peaceProposals">;
         assert.equal(villageWarPeaceView(junk, MOON, STORM).peaceLabel, "Propose peace");
+    });
+
+    it("warns, before a surrender or a peace, that an early agreement pays no rewards (2026-10 rebalance)", () => {
+        assert.match(warSurrenderConfirmText(MOON, STORM), /LOSS for Moonshadow Village/);
+        for (const text of [warSurrenderConfirmText(MOON, STORM), warAcceptPeaceConfirmText(STORM)]) {
+            assert.match(text, /before 72 hours of fighting pays no crates, war purses or MVP rewards to either side/);
+        }
+        assert.ok(warAgreementFloorNote().includes(String(VILLAGE_WAR_REWARD_MIN_DURATION_HOURS)), "the copy names the floor the server applies");
     });
 
     it("sends the Kage command as kind war-command and reports the server's answer", async () => {

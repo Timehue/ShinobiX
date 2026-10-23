@@ -12,6 +12,9 @@ import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock, LockContendedError } from '../_lock.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import { carriedRegenCursor, settleIdleRecovery } from '../save/_mutate-player-save.js';
+import { advanceLastDailyReset } from '../_daily-reset-stamp.js';
+import { recordEconomyTxn } from '../_economy.js';
+import { activityPurseMinutes, creditActivityPurse, publicActivityPurse } from '../_activity-purse.js';
 import { isPlayerSaveVersionConflict, retryOnSaveVersionConflict, writeSaveProjected } from '../save/_projected-write.js';
 import { showdownBusyIssue } from './_showdown-readiness.js';
 import { startNaturalWandererShowdown } from './_wanderer-showdown.js';
@@ -367,6 +370,9 @@ export async function settleShowdownWin(playerName: string, session: ShowdownSes
         const reward = petArenaRyoReward(session.sealedOpponentLevel);
         const paidCharacter = {
             ...recovery.character,
+            // A first win of the UTC day rolls the day for every counter keyed
+            // to lastDailyReset, not only the arena's (api/_daily-reset-stamp.ts).
+            ...advanceLastDailyReset(recovery.character, today),
             redeemedPetBattleTokens: [...receipts, receipt],
             ryo: Number(char.ryo ?? 0) + reward,
             totalPetWins: Number(char.totalPetWins ?? 0) + 1,
@@ -398,6 +404,10 @@ export async function settleShowdownWin(playerName: string, session: ShowdownSes
         // receipt is still covering, and it is covering for a full day of wins.
         await kv.set(paidKey, { sessionId: session.sessionId, at: Date.now(), legacyApplied: false }, { nx: true, ex: PAID_RECEIPT_TTL_SECONDS })
             .catch(() => undefined);
+        // Economy telemetry (I-19): the committed purse, once per session (a
+        // replayed receipt returns above). Up to 100 wins a player a day, so it
+        // updates the day rows but stays off the recent-txn list.
+        void recordEconomyTxn({ txnId: `pet-arena:${session.sessionId}`, player: playerName, currency: 'ryo', delta: reward, source: 'pet.arena', balanceAfter: Number(updatedChar.ryo ?? 0) }, { list: false });
         return {
             reward,
             petXpTotal: petProgression.total,
@@ -1220,13 +1230,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     path: 'companion',
                     outcome: session.outcome,
                 });
+                // A won companion-front deployment pays the side-mode purse
+                // (owner amendment A7), as the shinobi front does
+                // (api/world-crisis-80/combat-settle.ts). Receipted in the save,
+                // so a re-post of the finished turn answers with the same purse.
+                const purse = session.outcome === 'win'
+                    ? await creditActivityPurse({
+                        mode: 'crisis80',
+                        playerSlug: playerName,
+                        outcomeId: `showdown:${session.sessionId}`,
+                        startedAt: session.createdAt,
+                        minutes: activityPurseMinutes(session.createdAt, session.circuitFinishedAt),
+                    })
+                    : null;
                 settlement = {
                     ...settlement,
                     worldCrisis80: {
                         crisis,
                         contributed: session.outcome === 'win',
                         village: crisisBinding.village,
+                        ...(purse ? { purse: publicActivityPurse(purse) } : {}),
                     },
+                    ...(purse?.save ? { character: purse.save.character, _saveVersion: purse.save._saveVersion } : {}),
                 };
             }
             if (firstPactBinding && session.outcome) {

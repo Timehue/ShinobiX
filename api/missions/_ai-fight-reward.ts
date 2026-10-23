@@ -5,10 +5,15 @@
  * ~90-day progression curve — without walling a normal active player. Deliberately
  * GENEROUS; tune these before enabling AI_FIGHT_SERVER_AUTH / aiFightServerAuth.v1.
  *
- * The per-fight clamps are anti-inflation safety rails on the client-reported base
- * (legit max today is 125 XP "Swift" / 90 ryo "Lucky"; the headroom covers future
- * trait/content tweaks without re-touching this file).
+ * The per-fight clamps are anti-inflation safety rails on the client-reported base.
+ * The legit max ryo is now 150 (L90+, or L76+ with Lucky), so the ryo clamp is
+ * binding, not headroom: it is what caps a forged or farmed day at 9,350 ryo.
+ *
+ * The level-scaled purse a win seals (aiFightPurseForLevel) also lives here,
+ * next to the clamp that bounds it. It reads its two env dials per call.
  */
+
+import { economyDial } from '../_economy-dials.js';
 
 export const AI_FIGHT_SOFT_CAP_PER_DAY = 50;   // full reward for the first N AI wins/day
 // Absolute ceiling on paid AI wins. The battle token reduces arbitrary claims,
@@ -18,9 +23,45 @@ export const AI_FIGHT_SOFT_CAP_PER_DAY = 50;   // full reward for the first N AI
 export const AI_FIGHT_HARD_CAP_PER_DAY = 100;
 export const AI_FIGHT_REDUCED_MULT = 0.25;     // reward multiplier past the soft cap
 export const MAX_AI_FIGHT_XP = 150;            // per-fight base XP clamp (legit max 125)
-export const MAX_AI_FIGHT_RYO = 150;           // per-fight base ryo clamp (legit max 90)
+export const MAX_AI_FIGHT_RYO = 150;           // per-fight base ryo clamp; binds from L90 (L76 with Lucky)
 // TTL on the date-keyed daily counter so old date keys self-evict (a bit over a day).
 export const AI_FIGHT_DAILY_COUNT_TTL_SECONDS = 26 * 60 * 60;
+
+// Ordinary AI purse (2026-10 economy rebalance, framework #25): 60 + level,
+// capped by MAX_AI_FIGHT_RYO. A Lucky active pet adds a flat 15 under the same
+// cap, so Lucky saturates from L76 and adds nothing from L90.
+export const AI_FIGHT_PURSE_BASE = 60;
+export const AI_FIGHT_PURSE_PER_LEVEL = 1;
+export const AI_FIGHT_LUCKY_BONUS = 15;
+/** Per-level dial ceiling: anything steeper just reaches the 150 clamp sooner. */
+export const AI_FIGHT_PURSE_PER_LEVEL_MAX = 3;
+
+function wholeDial(name: string, fallback: number, max: number): number {
+    const value = economyDial(name, fallback, { min: 0, max });
+    return Number.isInteger(value) ? value : fallback;
+}
+
+/** AI_FIGHT_PURSE_BASE (default 60, whole ryo 0-150), read per call. Kill value:
+ *  75 with AI_FIGHT_PURSE_PER_LEVEL 0 restores the flat 75 (90 with Lucky). */
+export function aiFightPurseBase(): number {
+    return wholeDial('AI_FIGHT_PURSE_BASE', AI_FIGHT_PURSE_BASE, MAX_AI_FIGHT_RYO);
+}
+
+/** AI_FIGHT_PURSE_PER_LEVEL (default 1, whole ryo 0-3), read per call. */
+export function aiFightPursePerLevel(): number {
+    return wholeDial('AI_FIGHT_PURSE_PER_LEVEL', AI_FIGHT_PURSE_PER_LEVEL, AI_FIGHT_PURSE_PER_LEVEL_MAX);
+}
+
+/**
+ * The base ryo an ordinary AI win seals at the player's level: base + perLevel
+ * x level (+15 for an active Lucky pet), never above MAX_AI_FIGHT_RYO. A
+ * missing or invalid level reads as L1, the same clamp the World fight uses.
+ */
+export function aiFightPurseForLevel(level: unknown, trait?: string | null): number {
+    const lv = Math.max(1, Math.min(100, Math.floor(Number(level) || 1)));
+    const lucky = trait === 'Lucky' ? AI_FIGHT_LUCKY_BONUS : 0;
+    return Math.min(MAX_AI_FIGHT_RYO, aiFightPurseBase() + aiFightPursePerLevel() * lv + lucky);
+}
 
 export type AiFightReward = { xp: number; ryo: number; capped: boolean };
 

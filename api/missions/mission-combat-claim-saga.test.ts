@@ -30,6 +30,10 @@ let activeKey: typeof import('./_authoritative-combat-session.js').missionCombat
 let bindingKey: typeof import('./_authoritative-combat-session.js').missionCombatBindingKey;
 let rewardFingerprint: typeof import('./_authoritative-combat-session.js').missionCombatRewardFingerprint;
 let missionByKey: typeof import('./_mission-catalog.js').combatMissionByKey;
+// The seeded 100 ryo plus the mission's catalog purse, and the two newbie daily
+// rewards (120 + 160) a combat claim can help forward.
+const missionPaidRyo = () => 100 + missionByKey(MISSION_ID)!.ryo;
+const NEWBIE_RYO = 280;
 let createSession: typeof import('../solo-pve/_session.js').createSoloPveSession;
 let writeSession: typeof import('../solo-pve/_store.js').writeSoloPveSession;
 let readSession: typeof import('../solo-pve/_store.js').readSoloPveSession;
@@ -444,7 +448,7 @@ describe('mission writes keep the idle recovery the player earned', { concurrenc
         const retry = await claim(player);
         assert.equal(retry.statusCode, 200, JSON.stringify(retry.body));
         const character = await assertRecovered(player, at);
-        assert.equal(Number(character.ryo), 440, 'the newbie rewards still landed exactly once');
+        assert.equal(Number(character.ryo), missionPaidRyo() + NEWBIE_RYO, 'the newbie rewards still landed exactly once');
     });
 });
 
@@ -1235,7 +1239,7 @@ describe('mission payout receipt recovery', { concurrency: false }, () => {
             () => claim(player),
         );
         assert.equal(failed.statusCode, 500);
-        assert.equal(Number((await savedCharacter(player)).ryo), 160, 'only the primary mission payout landed');
+        assert.equal(Number((await savedCharacter(player)).ryo), missionPaidRyo(), 'only the primary mission payout landed');
         const crashAuthority = await kv.get<unknown>(tokenKey(player, MISSION_ID));
         assert.ok(parseCombatMissionClaimPaymentReservation(crashAuthority));
         assert.equal(oldWorkerWouldAcceptToken(crashAuthority), false,
@@ -1252,14 +1256,14 @@ describe('mission payout receipt recovery', { concurrency: false }, () => {
 
         const retry = await claim(player);
         assert.equal(retry.statusCode, 200);
-        assert.equal(Number((await savedCharacter(player)).ryo), 440, 'the two newbie rewards land exactly once');
+        assert.equal(Number((await savedCharacter(player)).ryo), missionPaidRyo() + NEWBIE_RYO, 'the two newbie rewards land exactly once');
         const dailyAfterRetry = await kv.get<{ missions?: unknown[]; combatMissionEffects?: unknown[] }>(`missions:newbie-daily:${player}`);
         assert.deepEqual(dailyAfterRetry?.missions, rolledMissions, 'help-forward does not roll the new daily board backwards');
         assert.equal(dailyAfterRetry?.combatMissionEffects?.length, 1);
         assert.ok(Number((dailyAfterRetry?.combatMissionEffects?.[0] as Record<string, unknown>)?.acknowledgedAt) > 0,
             'ack retains a bounded terminal run ID so a paused stale caller cannot reapply it');
         assert.equal((await claim(player)).statusCode, 200);
-        assert.equal(Number((await savedCharacter(player)).ryo), 440);
+        assert.equal(Number((await savedCharacter(player)).ryo), missionPaidRyo() + NEWBIE_RYO);
     });
 
     it('honors pinned newbie Ryo when a profession is chosen after the target marker commits', async (t) => {
@@ -1282,7 +1286,7 @@ describe('mission payout receipt recovery', { concurrency: false }, () => {
             () => claim(player),
         );
         assert.equal(interrupted.statusCode, 500);
-        assert.equal(Number((await savedCharacter(player)).ryo), 160);
+        assert.equal(Number((await savedCharacter(player)).ryo), missionPaidRyo());
         const saveKey = `save:${player}`;
         const record = (await kv.get<Record<string, unknown>>(saveKey))!;
         await kv.set(saveKey, {
@@ -1295,7 +1299,7 @@ describe('mission payout receipt recovery', { concurrency: false }, () => {
         assert.equal(recovered.statusCode, 200);
         const recoveredCharacter = await savedCharacter(player);
         assert.equal(recoveredCharacter.profession, 'Medic');
-        assert.equal(Number(recoveredCharacter.ryo), 440,
+        assert.equal(Number(recoveredCharacter.ryo), missionPaidRyo() + NEWBIE_RYO,
             'the run marker, not the later profession state, owns the already-earned 280 Ryo');
         const daily = await kv.get<{ combatMissionEffects?: Array<{ runId?: string; acknowledgedAt?: number }> }>(
             `missions:newbie-daily:${player}`,
@@ -1303,7 +1307,7 @@ describe('mission payout receipt recovery', { concurrency: false }, () => {
         assert.ok(daily?.combatMissionEffects?.some((entry) => entry.runId === runId
             && Number(entry.acknowledgedAt) > 0));
         assert.equal((await claim(player)).statusCode, 200);
-        assert.equal(Number((await savedCharacter(player)).ryo), 440);
+        assert.equal(Number((await savedCharacter(player)).ryo), missionPaidRyo() + NEWBIE_RYO);
     });
 
     it('help-forwards an unstaged receipt instead of silently declaring its post-effects complete', async (t) => {

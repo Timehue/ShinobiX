@@ -7,8 +7,9 @@ import { LockContendedError } from '../_lock.js';
 import { mutatePlayerSave, mutatePlayerSaves, type PlayerSavesSide } from '../save/_mutate-player-save.js';
 import { onlineStore } from '../_realtime/online-store.js';
 import { getTravelLease, travelLeaseReceipt } from '../_realtime/travel-lease.js';
-import { computePvpWinGains, creditPvpWinBase } from '../_xp-engine.js';
-import { previewPairWinDecay, recordPairWinAndDecay } from '../pvp/_reward-farm.js';
+import { creditPvpWinBase } from '../_xp-engine.js';
+import { previewSleeperKoCredit, pvpLuckyActive, recordSleeperKoPairCredit } from '../pvp/_valid-fight.js';
+import { recordEconomyTxn } from '../_economy.js';
 import { hasRecentIpOrFpOverlap } from '../_player-ips.js';
 import {
     VANGUARD_SEALS_PER_KILL,
@@ -39,8 +40,8 @@ import { settleBountyForSessionlessKill } from '../pvp/_bounty-settle.js';
 //
 // Per the owner's design call this is a FREE KILL (no fight, fully
 // server-resolved → nothing is trusted from the client) that grants the
-// attacker the SAME rewards as a live PvP win — base ryo+XP (with the existing
-// repeat-opponent decay), a PvP kill credit, and Vanguard Honor Seals under the
+// attacker a quarter of a live PvP win's purse (inside the same unordered daily
+// pair weights), a PvP kill credit, and Vanguard Honor Seals under the
 // existing daily / per-target caps — and sends the victim to the hospital +
 // back to the village. Anti-farm is structural: the KO relocates the victim to
 // sector 0 so they immediately leave the sleeper pool and can't be re-killed
@@ -339,8 +340,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // same target (or the attacker's own concurrent autosave) can't
         // interleave or deadlock — and fail closed: a contended lock aborts (503)
         // rather than racing a currency / save write. The KO commits first, then
-        // the attacker's credit. No conflict retry: the repeat-opponent counter
-        // is recorded outside the saves.
+        // the attacker's credit. No conflict retry: the pair counter is
+        // recorded outside the saves.
         const outcome = await mutatePlayerSaves([targetSlug, attackerSlug], async (sides) => {
             // Re-read inside the locks so we settle against committed state.
             const lockedCamp = await getSleeperCamp(targetSlug);
@@ -368,15 +369,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const xpGained = 0; // character XP retired — kept in the response shape for old clients
             let sealsGained = 0;
 
+            let sleeperFactor = 0;
             if (rewardEligible) {
-                // Base ryo — same primitives the live PvP winner uses, scaled by
-                // the existing repeat-opponent decay. (Character XP is retired;
-                // sleeper kills deliberately grant NO stat growth — that stays a
-                // serious-fight reward on the live claim path.) The win is priced
-                // now and recorded only once the credit has committed (below).
-                const { ryoGain } = computePvpWinGains(aChar as never, targetSector);
-                const decay = await previewPairWinDecay(attackerSlug, targetSlug);
-                ryoGained = Math.max(0, Math.floor(ryoGain * decay));
+                // Base ryo — a quarter of the live PvP purse, inside the same
+                // unordered daily pair weights (api/pvp/_valid-fight.ts). A target
+                // under 72 h old or >20 levels below pays nothing. (Character XP
+                // is retired; sleeper kills grant NO stat growth.) The KO is
+                // priced now and counted only once the credit has committed.
+                const koCredit = await previewSleeperKoCredit(kv, {
+                    attackerSlug,
+                    targetSlug,
+                    attackerLevel: aChar.level,
+                    targetLevel: tChar.level,
+                    targetCreatedAt: tChar.createdAt,
+                    rewardEligible,
+                    lucky: pvpLuckyActive(aChar),
+                    sector: targetSector,
+                    now: Date.now(),
+                });
+                ryoGained = koCredit.ryo;
+                sleeperFactor = koCredit.factor;
                 const credit = creditPvpWinBase(aChar as never, ryoGained);
                 updatedAttacker = credit.char as unknown as Record<string, unknown>;
                 // Reward credit reconciles level fields by cloning its input;
@@ -399,7 +411,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (updatedAttacker.profession === 'vanguard' && !targetTooYoung) {
                     const grant = computeSleeperSeals(updatedAttacker, tChar, targetSlug);
                     if (grant) {
-                        const nextXp = Number(updatedAttacker.professionXp ?? 0) + grant.xpGain;
+                        // Vanguard XP follows the KO's pair credit (I-17).
+                        const nextXp = Number(updatedAttacker.professionXp ?? 0) + Math.floor(grant.xpGain * sleeperFactor);
                         updatedAttacker = {
                             ...updatedAttacker,
                             honorSeals: Number(updatedAttacker.honorSeals ?? 0) + grant.seals,
@@ -426,9 +439,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const attackerSide: PlayerSavesSide = rewardEligible || attackerShielded
                 ? {
                     character: updatedAttacker,
-                    // Record the win only once its credit has committed, so a
-                    // KO or credit that never landed cannot decay the next one.
-                    ...(rewardEligible ? { afterCommit: async () => { await recordPairWinAndDecay(attackerSlug, targetSlug); } } : {}),
+                    // Count the KO against the pair's day only once its credit
+                    // has committed, so a KO or credit that never landed cannot
+                    // weight the next one. An uncredited or pair-exhausted KO
+                    // (factor 0) pays nothing and need not count.
+                    ...(rewardEligible && sleeperFactor > 0 ? { afterCommit: async () => {
+                        await recordSleeperKoPairCredit(kv, { attackerSlug, targetSlug, now: Date.now() });
+                    } } : {}),
                 }
                 : { write: false, character: aChar };
             return {
@@ -468,6 +485,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // when the KO pays nothing (anti-alt): no save write, no version moved.
             saveVersion: attackerSave.written ? attackerSave._saveVersion : null,
         };
+        // Economy telemetry (I-19): the KO purse, after the commit.
+        if (settled.reward.ryo > 0) {
+            void recordEconomyTxn({ txnId: `sleeper-ko:${attackerSlug}:${targetSlug}:${Date.now()}`, player: attackerSlug, currency: 'ryo', delta: settled.reward.ryo, source: 'pvp.sleeper' });
+        }
         // Collect any bounty standing on that head. MUST run out here, after the
         // KO's save locks have released: the bounty path takes the board lock and
         // THEN save:<attacker>, so taking it while still holding the save would
@@ -476,6 +497,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // claimable and never undoes a committed KO.
         const bounty = await settleBountyForSessionlessKill({
             attackerSlug,
+            attackerName: settled.attackerName,
             victimSlug: targetSlug,
             victimName: settled.reward.target,
             rewardEligible: settled.reward.rewardEligible,

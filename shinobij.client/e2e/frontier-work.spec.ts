@@ -1,6 +1,7 @@
 import {test,expect} from '@playwright/test';
 import {mkdirSync,writeFileSync} from 'node:fs';
 import {installUiAuditRuntime,uiAuditSave} from './helpers/ui-audit-runtime';
+import {waitForCurrentSectorMap} from './helpers/sector-navigation';
 import {quietRoadCooldowns} from '../e2e-live/helpers/quiet-road';
 import {lifeActorsAt,lifeSceneView,parseLifeState,LIFE_WINDOW_MS} from '../../shared/sector-life';
 import {FRONTIER_SITES,FRONTIER_LINES,frontierWorkPlan,FRONTIER_ROUND_MS} from '../../shared/sector-frontier-work';
@@ -11,6 +12,7 @@ import {QUEST_GIVER_PRESENCE} from '../src/lib/wanderers';
 import {storyRoadEvents} from '../src/data/story-road-events';
 
 type Pose={col:number;row:number;activity?:string;visible:boolean;original:boolean};
+const FRONTIER_SCENARIO_EPOCH=Date.UTC(2026,9,23,18);
 declare global{interface Window{frontierOriginal:HTMLElement;frontierRead:()=>Pose}}
 const evidence=process.env.FRONTIER_WORK_EVIDENCE_DIR??'../output/living-world/frontier/browser';mkdirSync(evidence,{recursive:true});
 for(const sector of [55,60])for(const mode of ['inspection','weather','task','fallback'] as const)test(`Frontier ${sector}: ${mode}`,async({page},info)=>{
@@ -18,7 +20,7 @@ for(const sector of [55,60])for(const mode of ['inspection','weather','task','fa
     const site=FRONTIER_SITES[sector],plan=frontierWorkPlan(sector)!;
     // This window brings Mapless Ojii onto Gen's road. Keep their coexistence
     // in the review instead of letting the wall clock remove that regression.
-    let day=Date.UTC(2026,9,23,18);
+    let day=FRONTIER_SCENARIO_EPOCH;
     // The Hollow inspection retains the naturally visiting Gen; no extra
     // witness or invented crowd is inserted into either sparse region.
     if(sector===55)for(let i=0;i<500;i++,day+=WORLD_DAY_MS){
@@ -37,8 +39,8 @@ for(const sector of [55,60])for(const mode of ['inspection','weather','task','fa
     if(mode==='fallback')await page.route(`**/sector-life/${site.painting}.webp`,r=>r.abort());
     await page.route('**/api/world-state**',r=>r.fulfill({json:{territories:[{sector,ownerClan:'FrontierReview',weather,hp:100}],wars:[],standings:[]}}));
     await page.route('**/api/sector/life**',async r=>{if(r.request().method()!=='GET')mutations.push(r.request().method());if(offline){await r.abort();return;}const at=await page.evaluate(()=>Date.now());await r.fulfill({json:{ok:true,serverNow:at,view:scene(at)}});});
-    await page.goto('/#/worldMap');const map=page.locator('.continuous-world-map'),back=page.getByRole('button',{name:`Return to Sector ${sector}`,exact:false});
-    await expect.poll(async()=>await back.isVisible()||await map.isVisible(),{timeout:60_000}).toBe(true);if(await back.isVisible())await back.click();await expect(map).toHaveAttribute('aria-busy','false');
+    await page.goto('/#/worldMap',{waitUntil:'domcontentloaded'});const map=page.locator('.continuous-world-map');
+    await waitForCurrentSectorMap(page,sector);
     if(sector===55&&mode!=='inspection')await expect(map.locator('.sector-wanderer-label').filter({hasText:'Mapless Ojii'})).toBeVisible();
     const actor=page.locator(`[data-life-resident="${id}"]`);await expect(actor).toBeVisible();
     // Freeze the functional clock after bootstrap; these samples make no

@@ -65,6 +65,10 @@ test('admitted Death’s Gate blocks lava and roofs while grounding arena arriva
         assert.deepEqual(sectorExits(99), []);
         assert.equal(strongholdRooms(99).length, 12); assert.equal(buildStrongholdTiles(99).length, 37 * 23);
         assert.equal(strongholdPvpRewardMultiplier(99), 2); assert.equal(strongholdPvpRewardMultiplier(99, 'deathsgate'), 4);
+        // The anchored purse's table (2026-10 rebalance #22); the legacy x2/x4 is only for the 75 flat.
+        assert.equal(strongholdPvpRewardMultiplier(99, undefined, true), 1.25);
+        assert.equal(strongholdPvpRewardMultiplier(99, 'deathsgate', true), 1.5);
+        assert.equal(strongholdPvpRewardMultiplier(12, 'deathsgate', true), 1);
         process.env.DISABLE_SECTOR_OBSTACLES = '1';
         assert.equal(serverWalkableTile(99, 96), true);
     } finally {

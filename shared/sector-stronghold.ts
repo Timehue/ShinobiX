@@ -13,9 +13,22 @@ export const STRONGHOLD_THREAT_PER_STEP = 4;
 export const DEATHS_GATE_STRONGHOLD_SECTOR = 99;
 export const isDeathsGateStronghold = (sector: number) => sector === DEATHS_GATE_STRONGHOLD_SECTOR;
 export const strongholdTitle = (sector: number) => isDeathsGateStronghold(sector) ? 'Obsidian Stronghold' : `Sector ${sector} Stronghold`;
-/** Only the server may stamp the additional interior bonus onto a PvP session. */
-export function strongholdPvpRewardMultiplier(sector: unknown, rewardStronghold?: unknown): number {
-    return Number(sector) === DEATHS_GATE_STRONGHOLD_SECTOR ? (rewardStronghold === 'deathsgate' ? 4 : 2) : 1;
+/** Contested-ground PvP multipliers on the anchored purse (2026-10 rebalance #22):
+ *  Death's Gate 1.25x, the Obsidian Stronghold interior 1.5x, so contested PvP
+ *  pays about 1.7x / 2.0x A(L) per minute. */
+export const DEATHS_GATE_PVP_MULT = 1.25;
+export const OBSIDIAN_PVP_MULT = 1.5;
+/** The flat 75-ryo purse's multipliers, still used when the purse dial is 0. */
+export const LEGACY_DEATHS_GATE_PVP_MULT = 2;
+export const LEGACY_OBSIDIAN_PVP_MULT = 4;
+/** Only the server may stamp the additional interior bonus onto a PvP session.
+ *  `anchored` selects the table for the A(L)-sized purse; the legacy x2 / x4
+ *  table must never multiply it (api/pvp/_valid-fight.ts pvpStrongholdMult). */
+export function strongholdPvpRewardMultiplier(sector: unknown, rewardStronghold?: unknown, anchored = false): number {
+    if (Number(sector) !== DEATHS_GATE_STRONGHOLD_SECTOR) return 1;
+    const interior = rewardStronghold === 'deathsgate';
+    if (anchored) return interior ? OBSIDIAN_PVP_MULT : DEATHS_GATE_PVP_MULT;
+    return interior ? LEGACY_OBSIDIAN_PVP_MULT : LEGACY_DEATHS_GATE_PVP_MULT;
 }
 export const STRONGHOLD_ROOMS = [
     'Entry Hall', 'Watch Barracks', 'Armory', 'Signal Chamber',

@@ -12,7 +12,9 @@ import {
     turnInDestination,
     computeRaidReward,
     DAILY_LOSS_CAP_PCT,
+    RAID_RYO_FLOOR,
     RAID_RYO_REWARD,
+    raidRyoReward,
     type DailyLossLedger,
 } from './_anbu-infiltration.js';
 
@@ -165,4 +167,31 @@ test('computeRaidReward: ryo override is honored and floored ≥ 0', () => {
     assert.equal(r.ryo, 250);
     const neg = computeRaidReward({ roll: 0.05, now: NOW, supply: { balance: 100, ledger: null }, wr: { balance: 100, ledger: null }, ryo: -5 });
     assert.equal(neg.ryo, 0);
+});
+
+// 2026-10 rebalance (#31): the raid pays 10 x A(L) at the LOWER of the raider's
+// and the sealed ANBU defender's levels, never below the old 500, staged by
+// WAR_PURSE_SCALE. A colluding Kage who seats a low-level alt as ANBU cannot
+// feed a partner's L100 raiders full pay.
+test('raidRyoReward: a raid win pays 3,000 against an L70+ defender, scaled down against a low-level one', () => {
+    assert.equal(RAID_RYO_REWARD, 3_000);
+    assert.equal(RAID_RYO_FLOOR, 500);
+    assert.equal(raidRyoReward(100, 100, 1), 3_000);
+    assert.equal(raidRyoReward(100, 70, 1), 3_000);
+    assert.equal(raidRyoReward(100, 50, 1), 2_200, '10 x A(50) = 10 x 220');
+    assert.equal(raidRyoReward(100, 10, 1), 600, 'an L10 ANBU alt: 10 x A(10)');
+    assert.equal(raidRyoReward(100, 1, 1), 500, 'never below the old flat 500');
+    assert.equal(raidRyoReward(100, undefined, 1), 3_000, 'an unknown defender level falls back to the raider');
+});
+
+test('raidRyoReward: WAR_PURSE_SCALE stages the raise above 500; 0 is the old pay', () => {
+    assert.equal(raidRyoReward(100, 100, 0.5), 1_750);
+    assert.equal(raidRyoReward(100, 100, 0), 500);
+    process.env.WAR_PURSE_SCALE = '0';
+    try {
+        assert.equal(raidRyoReward(100, 100), 500);
+    } finally {
+        delete process.env.WAR_PURSE_SCALE;
+    }
+    assert.equal(raidRyoReward(100, 100), 3_000, 'full pay by default (owner amendment A13)');
 });

@@ -7,11 +7,12 @@ import { enforceRateLimitKv } from '../_ratelimit.js';
 import { LockContendedError } from '../_lock.js';
 import { mutatePlayerSave, type PlayerSaveMutationResult } from '../save/_mutate-player-save.js';
 import { isPlayerSaveVersionConflict } from '../save/_projected-write.js';
-import { WANDERER_QUESTS, isWandererQuestId, wandererQuestRyo, wandererQuestComplete, parseWandererQuestSeal, RESET_ON_ACCEPT_METRICS, SURVEY_RESET_FIELDS, type WandererQuestSeal } from './_wanderer-quest.js';
-import { currentWandererCooldownUntil, naturalWandererOffers, parseNaturalWandererId, withWandererUseState } from './_wanderer-encounter.js';
+import { WANDERER_QUESTS, isWandererQuestId, wandererQuestRyo, wandererQuestComplete, parseWandererQuestSeal, RESET_ON_ACCEPT_METRICS, SURVEY_RESET_FIELDS, validateWandererQuestPick, type WandererQuestSeal } from './_wanderer-quest.js';
+import { currentWandererCooldownUntil, naturalWandererOffers, parseNaturalWandererId, resolveNaturalWanderer, withWandererUseState } from './_wanderer-encounter.js';
 import { bumpLegacyStats, legacyEnabled } from '../_legacy-track.js';
 import { bumpEraDiscoveryContribution } from '../_era.js';
 import { sectorPresenceBlock } from '../_sector-presence-gate.js';
+import { recordEconomyTxn } from '../_economy.js';
 import { MAX_WILD_SECTOR } from '../../shared/sector-geo.js';
 
 /*
@@ -20,7 +21,9 @@ import { MAX_WILD_SECTOR } from '../../shared/sector-geo.js';
  * Server-authoritative sector-wanderer quest. The baseline (foe-kills at accept)
  * and quest id are sealed in KV; the reward is recomputed from the catalog at
  * claim. The character.activeWandererQuest field is a DISPLAY mirror only — the
- * server never trusts it (see docs/auth-and-anti-cheat-patterns.md).
+ * server never trusts it (see docs/auth-and-anti-cheat-patterns.md). The quest
+ * id the client names must be the errand this NPC offers (I-13,
+ * validateWandererQuestPick), and a road sage must stand in the claimed sector.
  *
  *   accept → { ok:true, id, target, baseline } | { ok:false, reason }
  *   claim  → { ok:true, ryo, totalRyo } | { ok:false, reason, progress?, target? }
@@ -111,7 +114,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (naturalWanderer) {
                     const cooldownUntil = currentWandererCooldownUntil(char, wandererId, now);
                     if (cooldownUntil) return answer({ ok: false, reason: 'cooldown', cooldownUntil });
+                    // The sage must stand where the player says they met it
+                    // (relocation honoured), not merely exist somewhere today.
+                    if (!resolveNaturalWanderer(wandererId, now, char, sector)) return answer({ ok: false, reason: 'invalid-wanderer' });
                 }
+                const pick = validateWandererQuestPick(questId, wandererId, !!naturalWanderer, char);
+                if (!pick.ok) return answer({ ok: false, reason: pick.reason });
 
                 // A SURVEY metric (relicSurveyCount) is zeroed on accept, so progress
                 // only ever counts work done after the errand was taken — otherwise a
@@ -191,6 +199,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (naturalWanderer) {
                     const cooldownUntil = currentWandererCooldownUntil(char, wandererId, now);
                     if (cooldownUntil) return answer({ ok: false, reason: 'cooldown', cooldownUntil });
+                    if (!resolveNaturalWanderer(wandererId, now, char, sector)) return answer({ ok: false, reason: 'invalid-wanderer' });
                 }
 
                 const current = num(char[def.metric]);
@@ -220,6 +229,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 };
             });
             const out = replyFor(committed);
+            const paid = out.body as { ok?: boolean; replayed?: boolean; ryo?: number; totalRyo?: number };
+            // Telemetry (I-19) for a fresh payout only, before the Legacy step:
+            // a Legacy 503 is retried as a replay, which must not log it twice.
+            if (out.status === 200 && paid.ok === true && paid.replayed !== true && completedReceiptId) {
+                await recordEconomyTxn({ txnId: `wanderer-quest:${completedReceiptId}`, player: playerName, currency: 'ryo', delta: num(paid.ryo), source: 'wanderer.quest', balanceAfter: num(paid.totalRyo) });
+            }
 
             // Legacy tracking (ENABLE_LEGACY): AFTER the fail-closed save lock
             // releases — bumpLegacyStats takes its own lock, and nesting it

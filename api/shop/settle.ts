@@ -67,6 +67,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 balanceAfter: Number(out.character[out.value.currency] ?? 0),
             });
         }
+        // The duplicate-card rebate (a copy past the 3-copy playset), recorded
+        // only for a fresh settlement; a replay returns its stored receipt.
+        const rebate = !out.value.replayed && out.value.kind === 'card-pack' ? out.value.refund : undefined;
+        for (const [currency, amount] of [['chroniclePoints', rebate?.chroniclePoints ?? 0], ['fateShards', rebate?.fateShards ?? 0]] as const) {
+            if (amount > 0) void recordEconomyTxn({
+                txnId: `shop:${playerName}:${requestId}:${currency}`, player: playerName, currency, delta: amount,
+                source: 'shop.card-pack-rebate', balanceAfter: Number(out.character[currency] ?? 0),
+            });
+        }
         return res.status(200).json({ ok: true, settlement: out.value, character: out.character, _saveVersion: out._saveVersion });
     } catch (error) {
         console.error('[shop/settle]', safeLogValue(error));

@@ -32,6 +32,9 @@ export interface GauntletStart {
     weekKey: string;
     rewardEligible: boolean;
     maxRounds: number;
+    /** The sealed ryo schedule for this run (scaled by level; shared/pet-gauntlet-economy.ts). */
+    perRound?: number;
+    clearBonus?: number;
     rewardedRunsLeft: number;
     chargedRyo: number;
     balances: { ryo: number };

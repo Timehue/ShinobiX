@@ -1,20 +1,21 @@
 import type { PlayerCharacter } from '../save/_mutate-player-save.js';
+import {
+    BLOODLINE_FORGE_COSTS,
+    BLOODLINE_FORGE_RANKS,
+    type BloodlineForgeCurrency,
+    type BloodlineForgeRank,
+} from '../../shared/bloodline-forge-costs.js';
 
-export const BLOODLINE_FORGE_RANKS = ['B Rank', 'A Rank', 'S Rank'] as const;
-export type BloodlineForgeRank = typeof BLOODLINE_FORGE_RANKS[number];
-export type BloodlineForgeCurrency = 'boneCharms' | 'auraStones' | 'mythicSeals';
+// The price table lives in shared/ so the Awakening Stone screen quotes the
+// same numbers the server debits. Re-exported under the names callers import.
+export { BLOODLINE_FORGE_COSTS, BLOODLINE_FORGE_RANKS };
+export type { BloodlineForgeCurrency, BloodlineForgeRank };
 
 export interface PendingBloodlineForge {
     id: string;
     rank: BloodlineForgeRank;
     issuedAt: number;
 }
-
-export const BLOODLINE_FORGE_COSTS: Record<BloodlineForgeRank, { currency: BloodlineForgeCurrency; cost: number }> = {
-    'B Rank': { currency: 'boneCharms', cost: 100 },
-    'A Rank': { currency: 'auraStones', cost: 100 },
-    'S Rank': { currency: 'mythicSeals', cost: 100 },
-};
 
 const PENDING_FORGE_CAP = 3;
 

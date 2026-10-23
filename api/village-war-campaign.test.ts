@@ -53,6 +53,9 @@ async function seed(startsAt = Date.now() - 3_600_000, version: 2 | 3 = 2) {
     await kv.set('save:bob', { character: { name: 'Bob', village: B, level: 100, hp: 1000, maxHp: 1000 } });
     return row;
 }
+async function chroniclePointsOf(slug: string): Promise<number> {
+    return Number((await kv.get<any>(`save:${slug}`))?.character?.chroniclePoints ?? 0);
+}
 describe('five-day village campaigns', { concurrency: false }, () => {
     it('caps only v3 shrine extras while normal role rewards and deductions survive restart and retries', async () => {
         const { ROLE_KAGE, ROLE_ELDER, ROLE_ANBU, ROLE_VILLAGER } = await import('./_war-role.js');
@@ -854,6 +857,65 @@ describe('five-day village campaigns', { concurrency: false }, () => {
         assert.equal(result.status, 200, JSON.stringify(result.data)); assert.equal(result.data.warResult.points, 50);
         await call(endpoint, 'bob', { name: 'bob', warId: id, action: 'state', runId: start.data.runId });
         assert.equal((await kv.get<any>(`world:war:${id}`)).campaign.pvp[B], 50);
+        assert.equal(result.data.chroniclePoints.reason, 'participation', 'a forfeited duel pays no Chronicle Points');
+        assert.equal(await chroniclePointsOf('alice') + await chroniclePointsOf('bob'), 0);
+    });
+    it('pays a played-out card stronghold duel 20 and 8 Chronicle Points once, with the saves handed back', async () => {
+        const row = await seed(); row.campaign.intel[A] = 72;
+        await kv.set(`world:war:${id}`, row);
+        const objective = row.campaign.strongholds.find(o => o.village === B && o.mode === 'card')!;
+        const deck = await import('./card-clash/_deck.js'); await deck.resolveChronicleDeckWithSave('bob', []);
+        presence.upsert({ name: 'alice', sector: objective.sector, character: { level: 100, village: A } });
+        presence.upsert({ name: 'bob', sector: 0, character: { level: 100, village: B } });
+        await call(endpoint, 'alice', { name: 'alice', warId: id, action: 'enter', objectiveId: objective.id });
+        await call(endpoint, 'bob', { name: 'bob', warId: id, action: 'defend', objectiveId: objective.id });
+        const start = await call(endpoint, 'alice', { name: 'alice', warId: id, action: 'start', objectiveId: objective.id });
+        assert.equal(start.status, 200, JSON.stringify(start.data)); assert.equal(start.data.npc, false);
+        const key = `village-campaign-run:${start.data.runId}`;
+        const run = await kv.get<any>(key);
+        assert.deepEqual({ p1: run.participation.p1Actions, p2: run.participation.p2Actions }, { p1: 0, p2: 0 }, 'plays are counted from the deal');
+        const now = Date.now();
+        run.card.status = 'complete'; run.card.winner = 'p1'; run.card.turnNumber = 5;
+        run.participation = { startedAt: now - 90_000, p1Actions: 4, p2Actions: 4, endedBy: 'play' };
+        await kv.set(key, run);
+        const winner = await call(endpoint, 'alice', { name: 'alice', warId: id, action: 'state', runId: start.data.runId });
+        assert.equal(winner.status, 200, JSON.stringify(winner.data));
+        assert.deepEqual(winner.data.chroniclePoints, { earned: 20, status: 'paid', pairWeight: 1 });
+        assert.equal(winner.data.character.chroniclePoints, 20);
+        assert.equal(winner.data.warResult.points, 50);
+        const loser = await call(endpoint, 'bob', { name: 'bob', warId: id, action: 'state', runId: start.data.runId });
+        assert.deepEqual(loser.data.chroniclePoints, { earned: 8, status: 'paid', pairWeight: 1 });
+        assert.equal(loser.data.character.chroniclePoints, 8);
+        const replay = await call(endpoint, 'alice', { name: 'alice', warId: id, action: 'state', runId: start.data.runId });
+        assert.equal(replay.data.character, undefined, 'the save is handed back once');
+        const view = await call(endpoint, 'alice', { name: 'alice', warId: id, action: 'view' });
+        assert.equal(view.data.run.chroniclePoints.earned, 20);
+        assert.equal(await chroniclePointsOf('alice'), 20);
+        assert.equal(await chroniclePointsOf('bob'), 8);
+    });
+    it('pays a won card assault on the ANBU deck 15 Chronicle Points once, and a lost one nothing', async () => {
+        const row = await seed(); row.campaign.intel[A] = 72;
+        await kv.set(`world:war:${id}`, row);
+        const deck = await import('./card-clash/_deck.js'); await deck.resolveChronicleDeckWithSave('bob', []);
+        await kv.set('game:village-state:moonshadowvillage', { anbuAppointees: ['bob'] });
+        const objective = row.campaign.strongholds.find(o => o.village === B && o.mode === 'card')!;
+        presence.upsert({ name: 'alice', sector: objective.sector, character: { level: 100, village: A } });
+        await call(endpoint, 'alice', { name: 'alice', warId: id, action: 'enter', objectiveId: objective.id });
+        for (const [winner, paid] of [['p1', 15], ['p2', 0]] as const) {
+            const start = await call(endpoint, 'alice', { name: 'alice', warId: id, action: 'start', objectiveId: objective.id });
+            assert.equal(start.status, 200, JSON.stringify(start.data)); assert.equal(start.data.npc, true);
+            const key = `village-campaign-run:${start.data.runId}`;
+            const run = await kv.get<any>(key);
+            run.aiCard.state.status = 'complete'; run.aiCard.state.winner = winner;
+            await kv.set(key, run);
+            const done = await call(endpoint, 'alice', { name: 'alice', warId: id, action: 'state', runId: start.data.runId });
+            assert.equal(done.status, 200, JSON.stringify(done.data));
+            if (paid) assert.deepEqual(done.data.chroniclePoints, { earned: 15, status: 'paid' });
+            else assert.equal(done.data.chroniclePoints, undefined);
+            await call(endpoint, 'alice', { name: 'alice', warId: id, action: 'state', runId: start.data.runId });
+            assert.equal(await chroniclePointsOf('alice'), 15);
+            assert.equal(await chroniclePointsOf('bob'), 0, 'the ANBU whose deck defended is never paid');
+        }
     });
     it('resolves a pet stronghold with sealed player teams and a replay, without consuming a PvE attempt', async () => {
         const row = await seed(); row.campaign.intel[A] = 72;

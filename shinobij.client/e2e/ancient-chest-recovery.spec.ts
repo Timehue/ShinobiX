@@ -122,6 +122,48 @@ for (const replayed of [false, true]) {
     }
 }
 
+test('a duplicate gear roll shows the sale value the server paid for it', async ({ page }) => {
+    // Economy rebalance 2026-10 (#38): gear already in the backpack is sold for
+    // its NPC value instead of vanishing. The reveal must say so, inside the
+    // ryo line it already counts, without overflowing a phone screen.
+    test.setTimeout(90_000);
+    const initial = uiAuditSave();
+    initial.currentSector = 1;
+    // The fixture backpack already holds a Rustfang Kunai.
+    initial.character = { ...initial.character, level: 1, ryo: 75_062, auraDust: 105 };
+    const runtime = await installUiAuditRuntime(page, initial);
+    await page.addInitScript(() => {
+        localStorage.setItem('vnTextSpeed.v1', 'instant');
+        if (!sessionStorage.getItem('chestRecoveryFixture.seeded')) {
+            localStorage.setItem('worldRewardRecovery.v1:auditninja', JSON.stringify([{
+                id: 'duplicatechest001', playerName: 'AuditNinja', kind: 'chest', sector: 1,
+                worldExploreRequestId: 'duplicatediscovery001', createdAt: Date.now(),
+            }]));
+            sessionStorage.setItem('chestRecoveryFixture.seeded', '1');
+        }
+    });
+    await page.route('**/api/player/daily-login', route => route.fulfill({ json: {
+        ok: true, alreadyClaimed: true, granted: { ryo: 0, fateShards: 0 },
+        balances: { ryo: 75_519, fateShards: initial.character!.fateShards },
+    } }));
+    await page.route('**/api/world/open-chest', async route => {
+        const character = { ...initial.character, ryo: 75_519, auraDust: 115 };
+        const version = runtime.currentVersion() + 1;
+        runtime.commitServerCharacter(character, version);
+        await route.fulfill({ json: { ok: true, replayed: false, character, _saveVersion: version,
+            loot: { xp: 0, ryo: 457, itemId: 'rustfang-kunai', duplicateSaleRyo: 112, auraDust: 10 } } });
+    });
+    await page.goto('/#/worldMap', { waitUntil: 'domcontentloaded' });
+    await page.locator('.cvn-skip, .vn-skip-button').click();
+    const reveal = page.locator('.chest-reveal');
+    await expect(reveal.getByRole('heading', { name: 'Rewards saved' })).toBeVisible({ timeout: 30_000 });
+    await expect(reveal.locator('.chest-reward-row strong').filter({ hasText: /457 Ryo/ })).toHaveText('+457 Ryo');
+    const kunai = reveal.locator('.chest-reward-row').filter({ hasText: 'Rustfang Kunai' });
+    await expect(kunai).toContainText('Already owned: sold for 112 Ryo, counted above');
+    await expectChestActionClear(page);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+});
+
 test('repeated lost chest ACKs recover one paid receipt and disclose its replay', async ({ page }) => {
     test.setTimeout(90_000);
     const initial = uiAuditSave();

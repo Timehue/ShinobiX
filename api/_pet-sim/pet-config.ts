@@ -13,6 +13,7 @@
 import type { Pet, PetRarity, PetTrait, PetTrainingType, PetExpeditionType } from "./pet-types.js";
 import { PET_EXPEDITION_ROUTES } from "../../shared/pet-expedition-contract.js";
 import { RESOURCE_ITEMS } from "../../shared/resource-items.js";
+import { STACKED_MATERIAL_IDS } from "../../shared/stacked-materials.js";
 import {
     TERRITORY_CONTROL_SCROLL_ID, DUNGEON_KEY_ID, LEGENDARY_WAR_CRATE_ID,
     HOLLOW_BEAST_CACHE_ID, WARFORGED_RELIC_ID, DUNGEON_LEGENDARY_RELIC_ID,
@@ -29,8 +30,8 @@ export const petTraitDescriptions: Record<PetTrait, string> = {
     Loyal: "Earns 50% more XP from every completed training timer",
     Aggressive: "Pet spawns with +15% attack",
     Guardian: "Pet spawns with +20% HP & defense — reduces your incoming battle damage by 8% while active",
-    Swift: "Pet spawns with +20% speed — you earn +25% XP from battles while active",
-    Lucky: "You earn +20% ryo from battles while this pet is active",
+    Swift: "Pet spawns with +20% speed",
+    Lucky: "You earn 15 extra ryo for each ordinary fight or PvP win while this pet is active. Ordinary fights have a pay ceiling, so the bonus fades out at high level.",
     Battleborn: "Pet spawns with +10% to all stats",
     Fateweaver: "Apex · +20% to all stats, 18% dodge, greatly raised critical chance, and immunity to freeze and confusion",
     Hollowborn: "Apex · +5% to all stats; deals 12% more pet-battle damage, drains 12% of damage dealt, and has greatly raised critical chance",
@@ -134,7 +135,8 @@ export const stackableItemIds = new Set<string>([
     // Character.itemStacks (one entry each) instead of one inventory[] slot per
     // copy — which is what used to overflow the 500-entry save cap and silently
     // drop newly-picked-up items. Evolution stones are deliberately NOT here:
-    // they're 1-at-a-time and the evolve paths key off inventory[].
+    // the evolve paths key off inventory[], so each stone stays one entry there
+    // (they still buy in bulk, see petSupplyHoldCap below).
     DUNGEON_KEY_ID,
     LEGENDARY_WAR_CRATE_ID,
     HOLLOW_BEAST_CACHE_ID,
@@ -158,6 +160,9 @@ export const stackableItemIds = new Set<string>([
     "thrown-shuriken", "thrown-senbon", "thrown-serpent-dust",
     "item-smoke-bomb", "item-attack-pill", "item-defense-pill",
     "potion-rejuvenation",
+    // Hunt materials and the Weekly Boss Core (owner ruling A12, 2026-10
+    // rebalance): one shared list, which the server's save fold and grants use too.
+    ...STACKED_MATERIAL_IDS,
 ]);
 
 export function petFeedXpForItem(itemId?: string): number | undefined {
@@ -177,8 +182,9 @@ export function petFeedXpForItem(itemId?: string): number | undefined {
 //   cost   — price in Fate Shards. Cheapest is 50; rarer colors cost more.
 // Unlock-style cosmetics: buy once, then equip on any pet for free.
 //   prismatic — true for the animated rainbow collar. Its glow cycles through
-//               every hue instead of using a single `glow` color, and it is
-//               NOT sold in any shop (cost 0); it's admin-granted only for now.
+//               every hue instead of using a single `glow` color. It is the top
+//               rung of the Fate Shard ladder (2026-10 item-use pass: at cost 0
+//               it had no source but an admin grant).
 export type PetCollar = {
     id: string;
     name: string;
@@ -200,7 +206,7 @@ export const petCollars: PetCollar[] = [
     { id: "collar-tidal",     name: "Riptide Collar",     tint: "teal",               glow: "rgba(45, 212, 191, 0.95)",  rarity: "mythic",    cost: 120 },
     { id: "collar-amethyst",  name: "Twilight Collar",    tint: "amethyst",           glow: "rgba(192, 132, 252, 0.95)", rarity: "mythic",    cost: 200 },
     { id: "collar-void",      name: "Voidpulse Collar",   tint: "violet void",        glow: "rgba(232, 121, 249, 0.95)", rarity: "mythic",    cost: 300 },
-    { id: "collar-prismatic", name: "Prismatic Collar",   tint: "shifting prismatic", glow: "rgba(255, 255, 255, 0.95)", rarity: "mythic",    cost: 0, prismatic: true },
+    { id: "collar-prismatic", name: "Prismatic Collar",   tint: "shifting prismatic", glow: "rgba(255, 255, 255, 0.95)", rarity: "mythic",    cost: 400, prismatic: true },
 ];
 
 export const petCollarIds: ReadonlySet<string> = new Set(petCollars.map((c) => c.id));
@@ -347,10 +353,10 @@ export function petGearLifestealHeal(attacker: Pet, damageDealt: number): number
 //   avengerBelowPct/Bonus — +% summon damage while YOU are below an HP% line
 // These are CONSUMABLE gear: equipping installs the piece with a durability of
 // PET_PVE_DURABILITY summons, and it breaks (is destroyed) once spent. Crafted
-// in the Crafter (Supplies tab) at an epic/legendary craft-point cost, or
-// bought for ryo in the Shop (Aura / Accessory) — they are NOT in the Grand
-// Marketplace. `craftPts` = Crafter cost; `cost` = ryo Shop price. `desc`
-// shows in the shop, crafter, and loadout picker.
+// in the Crafter (Supplies tab) from the exact ingredients in
+// shared/crafting-recipes.ts, or bought for ryo in the Shop (Aura / Accessory) —
+// they are NOT in the Grand Marketplace. `cost` = ryo Shop price. `desc` shows
+// in the shop, crafter, and loadout picker.
 export const PET_PVE_DURABILITY = 20;
 
 export type PetPveGear = {
@@ -358,7 +364,9 @@ export type PetPveGear = {
     name: string;
     rarity: "rare" | "epic";
     cost: number;       // ryo Shop price (expensive — these are consumable)
-    craftPts: number;   // Crafter craft-point cost (epic/legendary tier)
+    /** @deprecated Retired craft-point price. The Crafter spends the exact recipe
+     *  in shared/crafting-recipes.ts and nothing reads this field. */
+    craftPts: number;
     desc: string;
     summonDmgPct?: number;
     loyalty?: boolean;
@@ -377,7 +385,9 @@ export const petPveGear: PetPveGear[] = [
     { id: "pve-guardians-blessing",   name: "Guardian's Blessing",   rarity: "epic", cost: 5600, craftPts: 350, desc: "Restore 15% of your max HP when you summon",       healOnSummonPctOfMaxHp: 15 },
     { id: "pve-sanguine-charm",       name: "Sanguine Charm",        rarity: "epic", cost: 6400, craftPts: 350, desc: "Heal for 20% of your pet's attack damage",         playerLifestealPct: 20 },
     { id: "pve-predators-fang",       name: "Predator's Fang",       rarity: "epic", cost: 7200, craftPts: 420, desc: "+35% summon damage to foes below 40% HP",          executeBelowPct: 40, executeBonusPct: 35 },
-    { id: "pve-avengers-pendant",     name: "Avenger's Pendant",     rarity: "epic", cost: 7200, craftPts: 420, desc: "+30% summon damage while you're below 30% HP",     avengerBelowPct: 30, avengerBonusPct: 30 },
+    // 4000 (2026-10 item-use pass): at 7200 it lost to the 5600-ryo Frenzy Claw,
+    // which pays the same +30% at every HP, not only below 30%.
+    { id: "pve-avengers-pendant",     name: "Avenger's Pendant",     rarity: "epic", cost: 4000, craftPts: 420, desc: "+30% summon damage while you're below 30% HP",     avengerBelowPct: 30, avengerBonusPct: 30 },
     { id: "pve-bloodbond-totem",      name: "Bloodbond Totem",       rarity: "epic", cost: 8000, craftPts: 420, desc: "Heal for 35% of your pet's attack damage",         playerLifestealPct: 35 },
     { id: "pve-pack-alpha-crest",     name: "Pack Alpha Crest",      rarity: "epic", cost: 8800, craftPts: 490, desc: "+18% summon damage and your pet never backfires",   summonDmgPct: 18, loyalty: true },
     { id: "pve-apex-predator-fang",   name: "Apex Predator Fang",    rarity: "epic", cost: 9600, craftPts: 490, desc: "+25% summon damage, +25% more vs foes below 40% HP", summonDmgPct: 25, executeBelowPct: 40, executeBonusPct: 25 },
@@ -440,7 +450,9 @@ export type PetConsumable = {
     name: string;
     rarity: "uncommon" | "rare";
     cost: number;       // ryo Shop price (expensive — single-use reactive items)
-    craftPts: number;   // Crafter (Supplies) craft-point cost — epic tier
+    /** @deprecated Retired craft-point price. The Crafter spends the exact recipe
+     *  in shared/crafting-recipes.ts and nothing reads this field. */
+    craftPts: number;
     desc: string;
     effect: PetConsumableEffect;
     value?: number;
@@ -448,7 +460,9 @@ export type PetConsumable = {
 
 export const petConsumables: PetConsumable[] = [
     { id: "consum-phantom-charm",     name: "Phantom Charm",     rarity: "uncommon", cost: 960,  craftPts: 170, desc: "Dodges the next attack",                              effect: "dodge",    value: 1 },
-    { id: "consum-smoke-pellet",      name: "Smoke Pellet",      rarity: "uncommon", cost: 960,  craftPts: 170, desc: "The next attack deals 50% less damage",                effect: "mitigate", value: 50 },
+    // 600 (2026-10 item-use pass): the budget pick. At 960 it cost the same as
+    // the Phantom Charm, which negates the hit it only halves.
+    { id: "consum-smoke-pellet",      name: "Smoke Pellet",      rarity: "uncommon", cost: 600,  craftPts: 170, desc: "The next attack deals 50% less damage",                effect: "mitigate", value: 50 },
     { id: "consum-cleansing-incense", name: "Cleansing Incense", rarity: "uncommon", cost: 1120, craftPts: 200, desc: "Purges all poisons, burns, and control effects once", effect: "cleanse" },
     { id: "consum-thornmail-oil",     name: "Thornmail Oil",     rarity: "rare",     cost: 1280, craftPts: 220, desc: "Reflects 40% of the next attack back at the attacker", effect: "thorns",   value: 40 },
     { id: "consum-lifeline-elixir",   name: "Lifeline Elixir",   rarity: "rare",     cost: 1440, craftPts: 250, desc: "First time below 35% HP, heals 30% of max HP",        effect: "lifeline", value: 30 },
@@ -474,4 +488,52 @@ export function petConsumableCharges(pet: Pet): { dodge: number; mitigate: numbe
         lifeline: c?.effect === "lifeline" ? (c.value ?? 30) : 0,
         cleanse:  c?.effect === "cleanse"  ? 1 : 0,
     };
+}
+
+// ── Pet equipment slots ──────────────────────────────────────────────────
+// Which items each Pet Yard slot takes. The equip route checks this, so a treat
+// or a stray item id can never sit in the Consumable slot and heal like a real
+// battle consumable (2026-10 item-use pass).
+export type PetEquipSlot = "collar" | "pvp" | "pve" | "consumable";
+
+const PET_SLOT_ITEM_IDS: Record<PetEquipSlot, ReadonlySet<string>> = {
+    collar: petCollarIds,
+    pvp: new Set(petPvpGear.map((g) => g.id)),
+    pve: new Set(petPveGear.map((g) => g.id)),
+    consumable: new Set(petConsumables.map((c) => c.id)),
+};
+
+export function petSlotAcceptsItem(slot: string, itemId?: string): boolean {
+    const ids = (PET_SLOT_ITEM_IDS as Record<string, ReadonlySet<string> | undefined>)[slot];
+    return !!ids && !!itemId && ids.has(itemId);
+}
+
+/** Collars and PvP gear are unlocks: one backpack copy equips on every pet and
+ *  stays in the backpack. PvE gear and consumables move onto the pet instead. */
+export const PET_UNLOCK_SLOTS = ["collar", "pvp"] as const;
+
+export function isPetUnlockItem(itemId?: string): boolean {
+    return PET_UNLOCK_SLOTS.some((slot) => petSlotAcceptsItem(slot, itemId));
+}
+
+// ── Pet supply hold cap ──────────────────────────────────────────────────
+// Treats, the Golden Apple, PvE gear, battle consumables and evolution stones
+// buy in bulk up to this many held, the same 50 the combat consumables use.
+// Without a cap the shop sold them one at a time, and only from an empty stack
+// (2026-10 item-use pass). Collars and PvP gear stay single-purchase unlocks.
+export const PET_SUPPLY_HOLD_CAP = 50;
+/** The two starter-pet evolution stones (api/pet/_evolution.ts requiredItem). */
+export const PET_EVOLUTION_STONE_IDS = ["evo-stone-awakening", "evo-stone-ascension"] as const;
+
+const PET_SUPPLY_IDS: ReadonlySet<string> = new Set<string>([
+    ...petFeedItems.map((item) => item.id),
+    ...petPveGear.map((g) => g.id),
+    ...petConsumables.map((c) => c.id),
+    ...PET_EVOLUTION_STONE_IDS,
+]);
+
+/** The most of a pet supply a player may hold through the shop, or null when
+ *  the item is not one. */
+export function petSupplyHoldCap(itemId?: string): number | null {
+    return itemId && PET_SUPPLY_IDS.has(itemId) ? PET_SUPPLY_HOLD_CAP : null;
 }

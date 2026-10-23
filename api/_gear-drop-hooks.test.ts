@@ -16,6 +16,7 @@ import { applyAiFightSecondaryRewards } from './missions/_ai-fight-secondary.js'
 import { settleAncientChestLoot } from './world/_chest.js';
 import { GEAR_DROP_CHANCE_BP, gearRoll } from './_gear-drops.js';
 import { isStepItemId } from '../shared/gear-steps.js';
+import { ITEM_CATALOG } from './pvp/_item-catalog.js';
 
 const hash = gearRoll;
 const boss = GEAR_DROP_CHANCE_BP.boss / 10_000;
@@ -33,7 +34,9 @@ describe('weekly boss drop', () => {
         const name = nameWhere(true);
         const paid = applyWeeklyBossReward(base, '2026-W32', 'boss-ai', reward(name), 1_000);
         assert.equal(stepIds(paid.character.inventory).length, 1);
-        assert.deepEqual((paid.character.inventory as string[]).slice(0, 2), ['weekly-boss-core', 'dungeon-key']);
+        // The Core is a counted stack since owner ruling A12; the step piece is a slot item.
+        assert.deepEqual((paid.character.inventory as string[]).slice(0, 1), ['dungeon-key']);
+        assert.deepEqual(paid.character.itemStacks, [{ itemId: 'weekly-boss-core', count: 1 }]);
         const replay = applyWeeklyBossReward(paid.character, '2026-W32', 'boss-ai', reward(name), 2_000);
         assert.equal(replay.alreadyApplied, true);
         assert.equal(stepIds(replay.character.inventory).length, 1);
@@ -41,7 +44,8 @@ describe('weekly boss drop', () => {
 
     it('adds nothing on a miss', () => {
         const paid = applyWeeklyBossReward(base, '2026-W32', 'boss-ai', reward(nameWhere(false)), 1_000);
-        assert.deepEqual(paid.character.inventory, ['weekly-boss-core', 'dungeon-key']);
+        assert.deepEqual(paid.character.inventory, ['dungeon-key']);
+        assert.deepEqual(paid.character.itemStacks, [{ itemId: 'weekly-boss-core', count: 1 }]);
     });
 
     it('pays exactly what the sealed summary promised, so the arena list is never wrong', () => {
@@ -146,7 +150,9 @@ describe('ancient chest drop', () => {
         assert.deepEqual(settleLoot(['cloth-hood-s1'], 'cloth-hood-s1'), ['cloth-hood-s1', 'cloth-hood-s1']);
     });
 
-    it('still pays an ordinary unique item only once, as before', () => {
+    it('still pays an ordinary unique item only once, as before, and the second copy as its sale value', () => {
         assert.deepEqual(settleLoot(['cloth-hood'], 'cloth-hood'), ['cloth-hood']);
+        const settled = settleAncientChestLoot({ inventory: ['cloth-hood'], itemStacks: [], tileCards: [], level: 1, xp: 0 }, { xp: 0, itemId: 'cloth-hood' });
+        assert.equal(settled.character.ryo, Math.floor(Number(ITEM_CATALOG['cloth-hood'].cost) / 2));
     });
 });

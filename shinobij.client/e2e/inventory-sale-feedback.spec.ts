@@ -42,13 +42,13 @@ async function fixture(page: Page, options: { heldVersion?: number } = {}) {
         await page.evaluate(() => document.fonts.ready);
     }
     async function acceptSale(route: Route, stale = false) {
-        const character = { ...save.character, inventory: ['rustfang-kunai'], itemStacks: [], ryo: 10270 };
+        const character = { ...save.character, inventory: ['rustfang-kunai'], itemStacks: [], ryo: 10090 };
         // The server always stores the sale. A stale reply carries a version
         // older than the save the client already holds, as when a later write's
         // version was adopted before this reply landed.
         const heldVersion = runtime.currentVersion();
         runtime.commitServerCharacter(character, heldVersion + 1);
-        await route.fulfill({ json: { ok: true, character, settlement: { kind: 'inventory-sale', itemId: 'shinobi-vest', quantity: 3, ryo: 270 }, _saveVersion: stale ? heldVersion - 1 : heldVersion + 1 } });
+        await route.fulfill({ json: { ok: true, character, settlement: { kind: 'inventory-sale', itemId: 'shinobi-vest', quantity: 3, ryo: 90 }, _saveVersion: stale ? heldVersion - 1 : heldVersion + 1 } });
     }
     return { boot, acceptSale };
 }
@@ -72,7 +72,7 @@ async function openVest(page: Page, keyboard = false) {
 }
 
 // Sell All takes two taps: the first only arms it, the second sells.
-const SELL_ALL_CONFIRM = 'Confirm: sell all 3 for 270 ryo';
+const SELL_ALL_CONFIRM = 'Confirm: sell all 3 for 90 ryo';
 async function sellAllVests(vest: Locator) {
     await vest.getByRole('button', { name: /Sell all x3/ }).click();
     await vest.getByRole('button', { name: SELL_ALL_CONFIRM, exact: true }).click();
@@ -120,7 +120,7 @@ test('Inventory guards a pending Sell All and keeps a newly opened selection aft
     await expect.poll(() => requests.length).toBe(1);
     await expect(all).toBeDisabled();
     await expect(all).toHaveAttribute('aria-busy', 'true');
-    await expect(vest.getByRole('button', { name: 'Sell for 90 ryo', exact: true })).toBeDisabled();
+    await expect(vest.getByRole('button', { name: 'Sell for 30 ryo', exact: true })).toBeDisabled();
     await expect(vest.getByRole('status')).toContainText('Selling 3 × Shinobi Vest');
     await expect(vest.getByRole('button', { name: 'Close item details', exact: true })).toBeEnabled();
     await capture(page, 'inventory-sale-pending');
@@ -131,7 +131,7 @@ test('Inventory guards a pending Sell All and keeps a newly opened selection aft
     const kunai = page.getByRole('dialog', { name: 'Rustfang Kunai item details', exact: true });
     await expect(kunai).toBeVisible();
     release!();
-    await expect(page.locator('.game-toast-stack')).toContainText('Sold 3 × Shinobi Vest for 270 ryo.');
+    await expect(page.locator('.game-toast-stack')).toContainText('Sold 3 × Shinobi Vest for 90 ryo.');
     await expect(kunai).toBeVisible();
     await expect(kunai.getByRole('button', { name: 'Sell for 112 ryo', exact: true })).toBeEnabled();
     await expect(page.getByRole('alertdialog', { name: 'Notice', exact: true })).toHaveCount(0);
@@ -179,7 +179,7 @@ test('Inventory preserves an interrupted sale with inline recovery and distingui
     mode = 'accepted';
     await sellAllVests(vest);
     await expect(vest).toHaveCount(0);
-    await expect(page.locator('.game-toast-stack')).toContainText('Sold 3 × Shinobi Vest for 270 ryo.');
+    await expect(page.locator('.game-toast-stack')).toContainText('Sold 3 × Shinobi Vest for 90 ryo.');
     expect(requests).toHaveLength(6);
 });
 
@@ -194,7 +194,7 @@ test('Inventory confirms a settled sale whose reply arrives after a newer save',
     const vest = await openVest(page, true);
     await sellAllVests(vest);
     await expect(vest).toHaveCount(0);
-    await expect(page.locator('.game-toast-stack')).toContainText('Sold 3 × Shinobi Vest for 270 ryo.');
+    await expect(page.locator('.game-toast-stack')).toContainText('Sold 3 × Shinobi Vest for 90 ryo.');
     await expect(page.locator('#inventory-sale-error')).toHaveCount(0);
     // The stored-save read-back removes the sold vests.
     await expect(page.getByRole('button', { name: 'Inspect Shinobi Vest', exact: true })).toHaveCount(0);

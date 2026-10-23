@@ -70,7 +70,8 @@ test('workshop ingredient batches, armor lining and edible campaign rations pers
     await expect(recipe('Shuriken ×3').getByRole('button')).toBeDisabled();
     await crafter.locator('.cf-batch').getByRole('button', { name: '×5', exact: true }).click();
     await expect(recipe('Shuriken ×3')).toContainText('Iron Sand or better: 64/30');
-    await expect(recipe('Shuriken ×3')).toContainText('Heartwood Bark: 10/5');
+    // Fuel row: Heartwood Bark, Common Ember Ore or Ember Scale (2026-10 item-use pass).
+    await expect(recipe('Shuriken ×3')).toContainText('Heartwood Bark or Ember fuel: 10/5');
     await expect(recipe('Shuriken ×3')).toContainText('Binding Fiber: 18/10');
     await recipe('Shuriken ×3').scrollIntoViewIfNeeded();
     await page.screenshot({ path: info.outputPath('shuriken-three-materials.png'), fullPage: true });

@@ -188,6 +188,10 @@ export async function readTowerPvpMatch(matchIdInput: string, deps: TowerPvpStor
 
 export async function writeTowerPvpMatch(match: StoredTowerPvpMatch, deps: TowerPvpStoreDeps = {}): Promise<void> {
     const kv = deps.kv ?? realKv;
+    // The first write that sees the match done fixes when it ended. Later
+    // acknowledgements bump updatedAt, so this, not updatedAt, is the clock
+    // the Team Arena and tournament purse reads (api/towers/_pvp-purse.ts).
+    if (match.status === 'done' && !(Number(match.combat.terminalAt) > 0)) match.combat.terminalAt = match.updatedAt;
     const ttl = match.status === 'ready' || match.status === 'active' ? TOWER_PVP_LIVE_TTL : TOWER_PVP_TERMINAL_TTL;
     await requiredSet(kv, towerPvpMatchKey(match.matchId), match, ttl);
 }
