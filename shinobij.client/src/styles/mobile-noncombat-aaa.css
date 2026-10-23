@@ -702,6 +702,31 @@
     min-inline-size: 48px !important;
     min-block-size: 48px !important;
   }
+
+  /* The world-map overview is a coordinate map, like the sector board. The
+     desktop composition draws it ~550-800px wide, and 67 pins floored to 48px
+     piled onto each other and onto the village crests: on a 1024px tablet a
+     tap on Stormveil Village travelled to Sector 8 instead. The pins keep
+     their painted size; a transparent ring is the finger target, sized so
+     every pin and every crest centre still receives its own tap. */
+  .app-shell[data-ui-mode="noncombat"].screen-worldMap .world-map-scroll .atlas-sector {
+    min-inline-size: 0 !important;
+    min-block-size: 0 !important;
+  }
+
+  .app-shell[data-ui-mode="noncombat"].screen-worldMap .world-map-scroll .atlas-sector::after {
+    content: "";
+    position: absolute;
+    inset: -6px;
+    border-radius: 50%;
+  }
+}
+
+/* A wider desktop map spreads the pins far enough for the full 48px ring. */
+@media (pointer: coarse) and (min-width: 1280px) {
+  .app-shell[data-ui-mode="noncombat"].screen-worldMap .world-map-scroll .atlas-sector::after {
+    inset: -10px;
+  }
 }
 
 /* ==========================================================================

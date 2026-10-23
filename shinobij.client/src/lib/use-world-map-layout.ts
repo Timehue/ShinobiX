@@ -96,6 +96,10 @@ export function useWorldMapLayout(active: boolean) {
                 frame.style.setProperty("--wm-frame-height", heightValue);
             }
             if (frame.dataset.wmLayout !== layout) frame.dataset.wmLayout = layout;
+            // The card carries it too, so its back bar is styled without a
+            // `:has()`. That attribute rule made Chrome re-check every page-level
+            // `:has()` anchor on each DOM change anywhere, even inside Hollow Gate.
+            if (card && card.dataset.wmLayout !== layout) card.dataset.wmLayout = layout;
 
             // ScreenHint is a body portal. Align its optional trigger with the
             // back bar so it cannot cover the last region button above the nav.
@@ -145,6 +149,7 @@ export function useWorldMapLayout(active: boolean) {
             if (pendingFrame) window.cancelAnimationFrame(pendingFrame);
             frame.style.removeProperty("--wm-frame-height");
             delete frame.dataset.wmLayout;
+            if (card) delete card.dataset.wmLayout;
             positionedTip?.style.removeProperty("--wm-tip-top");
             positionedTip?.style.removeProperty("--wm-tip-left");
         };

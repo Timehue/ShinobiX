@@ -27,6 +27,14 @@ export function GameplayGallery() {
     useEffect(() => {
         if (enlarged && !dialogRef.current?.open) dialogRef.current?.showModal();
     }, [enlarged]);
+    // The page stops scrolling under an open lightbox. A class, not
+    // `html:has(.landing-lightbox[open])`: an attribute selector inside `:has()`
+    // made Chrome re-check every page-level `:has()` on each DOM change.
+    useEffect(() => {
+        if (!enlarged) return undefined;
+        document.documentElement.classList.add('landing-lightbox-open');
+        return () => document.documentElement.classList.remove('landing-lightbox-open');
+    }, [enlarged]);
 
     function openScreenshot(screenshot: GameplayScreenshot, opener: HTMLButtonElement) {
         // WebKit does not focus a button on pointer click, so the dialog's

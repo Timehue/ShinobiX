@@ -878,6 +878,15 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // startup limits, per-chunk, CSS and asset gates are unchanged.
 // Release-gate overlay corrections measure 9,592,610 B locally with the same
 // production args (initial 1,399,360 B raw / 395,784 B gzip), within this cap.
+// 2026-10-22 SECTOR-LOCATION LAG PASS (PR #484): optimistic shrine-room walks,
+// the paused (not unmounted) world under strongholds, the Hollow Gate entry seal
+// hand-off, chunk warm-ups and the touch-atlas pin ring add about 3.4 KB of lazy
+// code (alone over the 9,585,000 B cap: 9,586,413 B in CI, 9,586,503 B in Docker).
+// Merged with the iPhone work above they measure 9,596,064 B locally with CI's
+// VITE_* settings. The owner approved raising the cap for these lag and travel
+// fixes. Allow 9.60 MB. Startup raw/gzip, per-chunk, CSS and asset limits stay fixed.
+// Merged again onto the fishing work below (2026-10-23), the whole graph measures
+// 9,623,877 B with CI's VITE_* settings, inside the 9.625 MB cap set there.
 // 2026-10-22: requested kunai fishing replaces new casts with aiming, shared
 // projectile collision, animated fish/tether retrieval and touch controls.
 // Product graph measures 9,602,363 B (+17,611 B over the prior fishing pass).
