@@ -119,7 +119,8 @@ test('every purchasable item resolves to artwork that ships', () => {
         .filter((item) => item.image?.startsWith('/items/'))
         .filter((item) => {
             try {
-                return statSync(join(clientRoot, 'public', item.image as string)).size === 0;
+                // A cache-busting query (`?v=…`) names the same shipped file.
+                return statSync(join(clientRoot, 'public', (item.image as string).split('?')[0])).size === 0;
             } catch {
                 return true;
             }
