@@ -7,7 +7,7 @@ import { safeName, cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
-import { TRAINING_TIERS } from '../_training-config.js';
+import { trainingRateTable, trainingTiersFor } from '../_training-config.js';
 import { ACADEMY_LEVEL_FLOORS, grantAcademyLevelFloor } from '../_tutorial-progression.js';
 import { moraleForCharacter, applyMoraleToGain } from '../_war-morale.js';
 import { boostMultiplier } from '../_boost-event.js';
@@ -136,7 +136,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
         const playerName = safeName(String(body.playerName ?? ''));
         const stat = STAT_KEYS.includes(body.stat) ? String(body.stat) : null;
-        const tier = TRAINING_TIERS.find((t) => t.id === body.tierId) ?? null;
+        // TRAINING_RATE_TABLE=legacy is the no-deploy rollback of the rebalanced
+        // table; it affects new starts only (a running lease keeps its seal).
+        const tier = trainingTiersFor(trainingRateTable()).find((t) => t.id === body.tierId) ?? null;
 
         if (!playerName) return res.status(400).json({ error: 'Invalid player name.' });
         if (!stat) return res.status(400).json({ error: 'Invalid stat.' });
@@ -224,8 +226,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // The boost multiplies the stat gain only. sealedXp is a retired
                 // field that is never paid, and the lease-recovery parser rejects
                 // one above 750, so it must not grow. Worst case for the gain: 8h
-                // base 72 × 2.5 aggregate × 5 rookie × war-morale buff × 2 event
-                // stays under MAX_SEALED_STAT_GAIN (2,500).
+                // base 65 × 2.5 aggregate × 6 rookie × 1.1 war-morale × 2 event
+                // = 2,145 ≤ MAX_SEALED_STAT_GAIN 2,500 (legacy table: 72 → 2,376).
+                // The Training preview runs the same arithmetic (previewTrainingGain).
                 const sealedGain = applyMoraleToGain(trusted.sealedGain, morale.xpMult * eventBoost);
                 const sealedXp = applyMoraleToGain(trusted.sealedXp, morale.xpMult);
                 const bonusPct = trusted.bonusPct;

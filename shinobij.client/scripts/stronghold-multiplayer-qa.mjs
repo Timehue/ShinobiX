@@ -29,8 +29,12 @@ if (postgres) {
     process.env.SHINOBIX_QA_MEMORY_KV = '1';
 }
 process.env.SESSION_SECRET = randomBytes(32).toString('hex');
+// Fresh QA accounts are under the 72 h PvP age floor and the scripted KO is a
+// one-round fight, so lift the valid-fight floors to price the full purse.
+process.env.PVP_LOSER_MIN_AGE_MS = '0'; process.env.PVP_MIN_ROUNDS = '0'; process.env.PVP_MIN_FIGHT_MS = '0';
 const { kv, saveStoreKind, closeStoragePool } = await import('../../api/_storage.ts'); assert.equal(saveStoreKind, postgres ? 'base-store' : 'memory-qa');
 const { onlineStore } = await import('../../api/_realtime/online-store.ts');
+const { pvpWinPurse } = await import('../../api/pvp/_valid-fight.ts');
 const { issuePlayerToken } = await import('../../api/_auth.ts');
 const { strongholdVisitKey } = await import('../../api/village/_stronghold.ts');
 const { homeVillageForSector } = await import('../../api/_war-map-sectors.ts');
@@ -112,7 +116,7 @@ try {
                 // admission, both joins, KO and rewards still use actual handlers.
                 const live = await kv.get(`pvp:${battleId}`); await kv.set(`pvp:${battleId}`, { ...live, activePlayer: 'p1', roundOpener: 'p1', p1: { ...live.p1, pos: 61 }, p2: { ...live.p2, pos: 62, hp: 1 } });
                 const ko = await post(alpha, 'pvp/move', { playerName: one, battleId, role: 'p1', action: 'basicAttack', moveToken: 'physical-ko' }); assert.equal(ko.body.status, 'done', JSON.stringify(ko.body));
-                const paid = await post(alpha, 'pvp/claim-rewards', { playerName: one, battleId, outcome: 'win', completionVersion: 1 }); assert.equal(paid.status, 200, JSON.stringify(paid.body)); assert.equal(paid.body.base.reward.ryo, sector === 99 ? 300 : 75);
+                const paid = await post(alpha, 'pvp/claim-rewards', { playerName: one, battleId, outcome: 'win', completionVersion: 1 }); assert.equal(paid.status, 200, JSON.stringify(paid.body)); assert.equal(paid.body.base.reward.ryo, pvpWinPurse({ lMin: 50, sector, stronghold: made.body.session.rewardStronghold }));
                 const before = await kv.get(`save:${one}`); const replay = await post(alpha, 'pvp/claim-rewards', { playerName: one, battleId, outcome: 'win', completionVersion: 1 }); assert.equal(replay.status, 200); assert.equal((await kv.get(`save:${one}`)).character.ryo, before.character.ryo);
                 checks.push({ engine: engineName, sector, playerLevel: 50, defenderVillage, twoAuthenticatedBrowsers: true, livePeerMovement: true, exteriorIsolation: true, collisionRejected: true, leaveReconnect: true, offlineRecovery: true, staleLeaseRejected: true, battleAdmission: true, bothJoins: true, combatMovementBlocked: true, koAndRewards: true, rewardReplay: true });
                 await Promise.all(contexts.map(c => c.close())); onlineStore.remove(one); onlineStore.remove(two); onlineStore.remove(outsider);

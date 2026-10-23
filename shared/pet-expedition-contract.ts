@@ -94,11 +94,27 @@ export const PET_EXPEDITION_PROVISION_RULES: Readonly<Record<PetExpeditionProvis
     'ancient-pet-treat': { label: 'Ancient Treats', petXpMultiplier: 1.30, materialMultiplier: 1.10 },
 };
 
+/**
+ * Share of the route's ryo an expedition actually pays (2026-10 economy
+ * rebalance, owner rulings 2026-10-22 and 2026-10-23). Expeditions are idle
+ * income, so they sit under active play: at 0.3 the release audit still found
+ * passive income at or above active income for casual players and maxed Tamers,
+ * so the owner lowered it to 0.2. Twelve safe Ruins claims now pay 7,776 ryo a
+ * day for a base Pet Tamer and 5,184 for other professions, against 27,000 for
+ * 90 active minutes at L90 (A = 300). The server passes its env reading
+ * (api/missions/expedition-start.ts `expeditionRyoScale()`, dial
+ * EXPEDITION_RYO_SCALE); the board previews at this code default. Ryo is sealed
+ * at launch, so a change never touches an expedition already in flight.
+ */
+export const PET_EXPEDITION_RYO_SCALE = 0.2;
+
 /** Version-2 secure-return rewards. All eligible pets earn the base rewards;
  * the fixed profession bonus stacks with purchased mastery and route choices. */
 export function petExpeditionRewardPreview(type: PetExpeditionType, options: {
     profession: unknown; risk: PetExpeditionRisk; provision: PetExpeditionProvision;
     rewardMastery: number; materialMastery: number;
+    /** Defaults to PET_EXPEDITION_RYO_SCALE; the server passes its dial reading. */
+    ryoScale?: number;
 }) {
     const route = PET_EXPEDITION_ROUTES[type];
     const hours = route.durationMinutes / 60;
@@ -107,8 +123,9 @@ export function petExpeditionRewardPreview(type: PetExpeditionType, options: {
     const provision = PET_EXPEDITION_PROVISION_RULES[options.provision];
     const materialMultiplier = profession * options.materialMastery * risk.materialMultiplier * provision.materialMultiplier;
     const chance = (value: number) => Math.min(1, Math.max(0, value * materialMultiplier));
+    const ryoScale = Number.isFinite(options.ryoScale) ? Math.max(0, options.ryoScale as number) : PET_EXPEDITION_RYO_SCALE;
     return {
-        ryo: Math.round(hours * route.ryoPerHour * profession * options.rewardMastery * risk.ryoMultiplier),
+        ryo: Math.round(hours * route.ryoPerHour * profession * options.rewardMastery * risk.ryoMultiplier * ryoScale),
         petXp: Math.round(hours * route.petXpPerHour * profession * provision.petXpMultiplier),
         chances: { bone: chance(route.findChances.bone), aura: chance(route.findChances.aura), fate: chance(route.findChances.fate) },
         materialMultiplier,
@@ -141,10 +158,22 @@ export function petExpeditionBasePetXp(type: PetExpeditionType): number {
     return Math.round(120 * Math.max(1, route.durationMinutes / 60) * route.petXpRate);
 }
 
-export function petExpeditionBaseRyo(type: PetExpeditionType, petLevel: number): number {
+/**
+ * TAMER_RYO_MULT (2026-10 economy rebalance #15; owner ruling A6: 0.4, kill
+ * value 1). It scales EVERY expedition's ryo, Tamer and non-Tamer alike, so the
+ * non-Tamer half rate stays below the Tamer rate. It lives inside the base so
+ * the server payout and the board preview cannot drift: the server passes its
+ * env reading (api/missions/report-pet-event.ts `tamerRyoMult()`), and the
+ * client previews at this code default. Ryo is computed at collection, so the
+ * change must deploy with the reset, when no expedition lease is in flight.
+ */
+export const TAMER_RYO_MULT = 0.4;
+
+export function petExpeditionBaseRyo(type: PetExpeditionType, petLevel: number, ryoMult: number = TAMER_RYO_MULT): number {
     const route = PET_EXPEDITION_ROUTES[type];
-    return 90 * Math.max(1, route.durationMinutes / 60) * route.ryoRate
-        + Math.max(1, Math.min(100, Math.floor(petLevel))) * 6;
+    const mult = Number.isFinite(ryoMult) ? Math.max(0, ryoMult) : TAMER_RYO_MULT;
+    return (90 * Math.max(1, route.durationMinutes / 60) * route.ryoRate
+        + Math.max(1, Math.min(100, Math.floor(petLevel))) * 6) * mult;
 }
 
 export function petExpeditionMaterialChances(

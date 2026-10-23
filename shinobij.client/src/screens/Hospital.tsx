@@ -340,7 +340,7 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster, onServe
                             <h3>Injured villagers</h3>
                         </div>
                     </div>
-                    {isHealer && <p className="facility-panel-intro">Treat hospitalized allies in {character.village}. Each heal grants profession XP equal to the percentage restored.{healerRank >= 10 && " Rank 10 expands your reach beyond village borders."}</p>}
+                    {isHealer && <p className="facility-panel-intro">Treat hospitalized allies in {character.village}. Each heal grants profession XP worth twice the percentage restored.{healerRank >= 10 && " Rank 10 expands your reach beyond village borders."}</p>}
                     <HealerInjuredList character={character} updateCharacter={updateCharacter} playerRoster={playerRoster} onServerVersion={onServerVersion} />
                 </section>
             </div>

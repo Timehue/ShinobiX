@@ -26,6 +26,8 @@ import { loadPublishedContent } from '../_content-store.js';
 import { HOLLOW_GATE_LEDGER_ITEM_IDS, type HollowGateRewardLedger } from './_ledger.js';
 import { withKvLock } from '../_lock.js';
 import { isDeepStrictEqual } from 'node:util';
+import { hollowGateEntryLevel } from './_gate-scale.js';
+import { advanceLastDailyReset } from '../_daily-reset-stamp.js';
 
 /*
  * /api/hollow-gate/start  — POST only  (docs/hollow-gate-augments.md)
@@ -120,6 +122,8 @@ type PublishedEventGate = {
     bossAiId?: string;
     bossName?: string;
     keyCost: 0 | 1;
+    /** The event gate also needs the village's open seal (mirrors the client's requiresUnlock). */
+    requiresUnlock?: true;
     updatedAt: number;
 };
 
@@ -143,6 +147,8 @@ export function normalizePublishedEventGate(raw: unknown, requestedId: string): 
         ...(bossAiId ? { bossAiId } : {}),
         ...(bossName ? { bossName } : {}),
         keyCost: Number(config.keyCost) === 0 ? 0 : 1,
+        // Any truthy value, like the client's Boolean() (lib/hollow-gate-variant.ts).
+        ...(config.requiresUnlock ? { requiresUnlock: true as const } : {}),
         updatedAt: Math.max(0, Number(config.updatedAt) || 0),
     };
 }
@@ -368,6 +374,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 pendingAmbush: null,
                 offeredAugmentIds: offers.map((o) => o.id), chosenAugmentId: null,
                 dailyRunOrdinal: ord,
+                // Sealed once: levelling mid-run does not raise the run's ryo
+                // scale. An admin-started run seals the target player's level.
+                entryLevel: hollowGateEntryLevel(character.level),
                 ...(riftDef ? {
                     variantId: riftDef.id,
                     variantLabel: `${riftDef.bossName} Rift`,
@@ -398,6 +407,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 ok: true as const,
                 character: {
                     ...afterKey,
+                    // A first dive of the UTC day rolls the day for every counter
+                    // keyed to lastDailyReset, not only this one (api/_daily-reset-stamp.ts).
+                    ...advanceLastDailyReset(afterKey, utcDateKey()),
                     dailyHollowGateRuns: ord,
                     lastDailyReset: utcDateKey(),
                     lastHollowGateStart: { requestId, token, at: Date.now() },

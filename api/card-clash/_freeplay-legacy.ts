@@ -5,6 +5,8 @@ import type { ChronicleActionIntent, ChronicleMatch, ChronicleSideKey } from "..
 
 export const FREEPLAY_LEGACY_MIN_DURATION_MS = 45_000;
 export const FREEPLAY_LEGACY_MIN_ACTIONS_PER_SIDE = 3;
+/** The duel must reach this turn number to count. */
+export const FREEPLAY_LEGACY_MIN_TURN = 3;
 const PAIR_HISTORY_TTL_SEC = 7 * 24 * 60 * 60;
 const PAIR_HISTORY_CAP = 16;
 
@@ -53,19 +55,40 @@ export function recordFreePlayParticipation(
   return next;
 }
 
+/**
+ * The free-play participation rule: a duel ended by play (not a forfeit or the
+ * clock), at least FREEPLAY_LEGACY_MIN_DURATION_MS long, with three meaningful
+ * actions from EACH side, that reached turn 3. Because both sides must have
+ * played and nobody walked out, a duel that passes also proves the loser was
+ * engaged. Shared by the Legacy credit and the card Chronicle Point credit
+ * (api/card-clash/_card-cp.ts), so the two can never disagree about a duel.
+ */
+export function freePlayParticipationQualified(input: {
+  participation?: FreePlayParticipation;
+  /** The duel's terminal clock (the session's updatedAt when it ended). */
+  endedAt: number;
+  turnNumber: number;
+}): boolean {
+  const participation = input.participation;
+  return Boolean(
+    participation
+    && participation.endedBy === "play"
+    && input.endedAt - participation.startedAt >= FREEPLAY_LEGACY_MIN_DURATION_MS
+    && participation.p1Actions >= FREEPLAY_LEGACY_MIN_ACTIONS_PER_SIDE
+    && participation.p2Actions >= FREEPLAY_LEGACY_MIN_ACTIONS_PER_SIDE
+    && input.turnNumber >= FREEPLAY_LEGACY_MIN_TURN,
+  );
+}
+
 export function ensureFreePlayLegacyCredit(session: CreditSession): boolean {
   if (session.legacyCredit || !session.state || session.state.status !== "complete") return false;
   const winner = session.state.winner;
   if (!winner || winner === "draw") return false;
-  const participation = session.participation;
-  const qualified = Boolean(
-    participation
-    && participation.endedBy === "play"
-    && session.updatedAt - participation.startedAt >= FREEPLAY_LEGACY_MIN_DURATION_MS
-    && participation.p1Actions >= FREEPLAY_LEGACY_MIN_ACTIONS_PER_SIDE
-    && participation.p2Actions >= FREEPLAY_LEGACY_MIN_ACTIONS_PER_SIDE
-    && session.state.turnNumber >= 3,
-  );
+  const qualified = freePlayParticipationQualified({
+    participation: session.participation,
+    endedAt: session.updatedAt,
+    turnNumber: session.state.turnNumber,
+  });
   session.legacyCredit = {
     receiptId: `card-pvp:${session.matchId}`,
     winnerName: winner === "p1" ? session.p1Name : session.p2Name,
@@ -79,13 +102,27 @@ export function ensureFreePlayLegacyCredit(session: CreditSession): boolean {
 type PairOutcome = { matchId: string; winner: string; at: number; eligible: boolean };
 type PairHistory = { outcomes: PairOutcome[] };
 
-function pairHistoryKey(left: string, right: string): string {
+/** The free-play history the Legacy credit reads. Other callers name their own. */
+export const FREEPLAY_PAIR_HISTORY_PREFIX = "cc-freeplay-legacy-pair";
+
+function pairHistoryKey(left: string, right: string, prefix = FREEPLAY_PAIR_HISTORY_PREFIX): string {
   const pair = [left.trim().toLowerCase(), right.trim().toLowerCase()].sort();
-  return `cc-freeplay-legacy-pair:${encodeURIComponent(pair[0])}:${encodeURIComponent(pair[1])}`;
+  return `${prefix}:${encodeURIComponent(pair[0])}:${encodeURIComponent(pair[1])}`;
 }
 
-async function reservePairDecision(credit: FreePlayLegacyCredit, now: number): Promise<boolean> {
-  const key = pairHistoryKey(credit.winnerName, credit.targetName);
+/**
+ * Record (once per receipt) whether this duel's win is reciprocal: the pair's
+ * previous recorded winner was this duel's loser. A replay of the same receipt
+ * returns the decision first recorded, so every caller that names one duel by
+ * one receipt reads one answer. `historyPrefix` selects the history: the
+ * default is the free-play one the Legacy credit uses.
+ */
+export async function reserveFreePlayPairDecision(
+  credit: Pick<FreePlayLegacyCredit, "receiptId" | "winnerName" | "targetName">,
+  now: number,
+  historyPrefix: string = FREEPLAY_PAIR_HISTORY_PREFIX,
+): Promise<boolean> {
+  const key = pairHistoryKey(credit.winnerName, credit.targetName, historyPrefix);
   return withKvLock(key, async () => {
     const stored = await kv.get<PairHistory>(key);
     const outcomes = Array.isArray(stored?.outcomes) ? stored.outcomes : [];
@@ -115,7 +152,7 @@ export async function repairFreePlayLegacyCredit(session: CreditSession): Promis
     credit.status = "done";
     return true;
   }
-  const eligible = await reservePairDecision(credit, session.updatedAt);
+  const eligible = await reserveFreePlayPairDecision(credit, session.updatedAt);
   if (!eligible) {
     credit.status = "skipped";
     credit.reason = "reciprocal";

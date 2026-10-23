@@ -8,8 +8,9 @@
  *                                        One array entry per item.
  *   • `itemStacks: {itemId,count}[]`   — counted stacks for non-unique bulk
  *                                        items (consumables, throwables, scrolls,
- *                                        pet food/gear, dungeon shards). One
- *                                        entry per distinct id with a quantity.
+ *                                        pet food/gear, dungeon shards, gathered
+ *                                        and hunt materials). One entry per
+ *                                        distinct id with a quantity.
  *
  * `stackableItemIds` decides which store an id belongs in. Routing everything
  * through these helpers means callers never have to know — and the counts they
@@ -153,6 +154,9 @@ export function unifiedItemStacks(character: Character): ItemStack[] {
  * which had stackable ids inline as duplicate strings — into uniques left in
  * `inventory[]` plus counted `itemStacks`. Run on save load (client) so the
  * rest of the app sees the normalized shape. Running twice is a no-op.
+ * A copy that would push its stack past MAX_ITEM_STACK stays in `inventory[]`
+ * rather than being clamped away, so the fold never loses a unit (the server's
+ * fold, shared/stacked-materials.ts, keeps the same rule).
  */
 export function normalizeInventory(character: Character): Character {
     const inv = Array.isArray(character.inventory) ? character.inventory : [];
@@ -160,7 +164,7 @@ export function normalizeInventory(character: Character): Character {
     const counts = new Map<string, number>();
     for (const s of stacksOf(character)) counts.set(s.itemId, s.count);
     for (const entry of inv) {
-        if (typeof entry === "string" && isStackableId(entry)) {
+        if (typeof entry === "string" && isStackableId(entry) && (counts.get(entry) ?? 0) < MAX_ITEM_STACK) {
             counts.set(entry, (counts.get(entry) ?? 0) + 1);
         } else {
             uniques.push(entry);

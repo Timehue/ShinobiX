@@ -83,7 +83,8 @@ export const MENTOR_CLAN_POINTS_MAX = 100;
 /**
  * Clan Points the sensei requests for ONE claimed batch. The whole batch goes
  * to awardClanPoints as a single request, so a batch that would cross the
- * weekly cap is refused whole — never split it into per-milestone awards.
+ * weekly cap is clamped to the headroom left in one final decision — never
+ * split it into per-milestone awards.
  */
 export function mentorClanPointsRequest(count: number): number {
     const n = Math.max(0, Math.floor(count));

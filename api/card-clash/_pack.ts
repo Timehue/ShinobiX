@@ -1,6 +1,6 @@
 import type { PlayerCharacter } from '../save/_mutate-player-save.js';
-import { BUILTIN_CLASH, isMarketplaceCard } from '../clan/war/_card-catalog.js';
-import { getChronicleCard, type ChronicleElement } from '../../shared/chronicle-duel.js';
+import { BUILTIN_CLASH, isMarketplaceCard, type MarketplaceCardRarity } from '../clan/war/_card-catalog.js';
+import { getChronicleCard, MAX_COPIES_PER_CARD, type ChronicleElement } from '../../shared/chronicle-duel.js';
 import { canAppendPackableChronicleCards, CARD_COLLECTION_CAP } from './_collection-cap.js';
 
 export const CARD_PACK_TYPES = ['standard', 'fire', 'water', 'earth', 'wind', 'lightning', 'snare', 'jutsu', 'epic', 'legendary', 'epic-five', 'legendary-five'] as const;
@@ -37,13 +37,75 @@ const PACKS: Record<CardPackType, PackDefinition> = {
     jutsu: { ...BASIC_PACK, cardClass: 'magic' },
     // Grand Marketplace (Fate Shards): the ranked premium half. The Elite pack
     // covers top Rares + Epics; the Legendary pack guarantees the top rarity.
-    epic: { currency: 'fateShards', baseCost: 10, count: 1, rarities: ['rare', 'epic'], pool: 'marketplace' },
-    legendary: { currency: 'fateShards', baseCost: 30, count: 1, rarities: ['legendary'], pool: 'marketplace' },
+    // Singles are priced per card at the Quintet rate (economy rebalance
+    // 2026-10): Elite 6 / 0.842 Epic share = 7.1 FS per Epic against the Epic
+    // Quintet's 7, and Legendary 20 equals the Legendary Quintet's 100 / 5.
+    epic: { currency: 'fateShards', baseCost: 6, count: 1, rarities: ['rare', 'epic'], pool: 'marketplace' },
+    legendary: { currency: 'fateShards', baseCost: 20, count: 1, rarities: ['legendary'], pool: 'marketplace' },
     'epic-five': { currency: 'fateShards', baseCost: 35, count: 5, rarities: ['epic'], pool: 'marketplace' },
     'legendary-five': { currency: 'fateShards', baseCost: 100, count: 5, rarities: ['legendary'], pool: 'marketplace' },
 };
 
 export { CARD_COLLECTION_CAP } from './_collection-cap.js';
+
+/** Copies of one card id a pack keeps before a further pulled copy converts
+ *  (economy rebalance 2026-10, framework 3.6). One playset for every card, not
+ *  the card's own deck limit, so the 2nd and 3rd copy of a limit-1 card stay
+ *  tradeable. Kill switch: Number.POSITIVE_INFINITY keeps every copy again. */
+export const CARD_PLAYSET_COPIES: number = MAX_COPIES_PER_CARD;
+
+/** What a pulled copy beyond the playset pays instead of joining the
+ *  collection. A never-pay-zero floor, not pity: the draw itself never looks at
+ *  ownership. Keyed by BUILTIN_CLASH rarity (the Mythic-tier card is
+ *  `legendary` there). The rebate stays under a quarter of what the pack cost,
+ *  so opening packs for it can never pay for the next one. */
+export const CARD_DUPLICATE_CONVERSION: Readonly<Record<MarketplaceCardRarity, Readonly<{ chroniclePoints: number; fateShards: number }>>> = Object.freeze({
+    common: Object.freeze({ chroniclePoints: 5, fateShards: 0 }),
+    rare: Object.freeze({ chroniclePoints: 5, fateShards: 0 }),
+    epic: Object.freeze({ chroniclePoints: 0, fateShards: 1 }),
+    legendary: Object.freeze({ chroniclePoints: 0, fateShards: 3 }),
+});
+
+/** One drawn copy that converted; `index` is its position in the draw. */
+export type CardDuplicateConversion = { index: number; cardId: string; chroniclePoints: number; fateShards: number };
+export type CardDuplicateRefund = { chroniclePoints: number; fateShards: number };
+
+/** Split drawn ids into kept copies and converted surplus, in draw order.
+ *  Owned copies (starter-codex copies included) and copies kept earlier in the
+ *  same pack both count toward the playset. An id with no known rarity is
+ *  always kept, so a catalog gap can never silently destroy a card. */
+export function splitSurplusCardCopies(
+    owned: readonly string[],
+    drawn: readonly string[],
+    rarityOf: (id: string) => string | undefined,
+): { kept: string[]; converted: CardDuplicateConversion[]; refund: CardDuplicateRefund } {
+    const counts = new Map<string, number>();
+    for (const id of owned) counts.set(id, (counts.get(id) ?? 0) + 1);
+    const kept: string[] = [];
+    const converted: CardDuplicateConversion[] = [];
+    const refund: CardDuplicateRefund = { chroniclePoints: 0, fateShards: 0 };
+    drawn.forEach((cardId, index) => {
+        const have = counts.get(cardId) ?? 0;
+        const rarity = rarityOf(cardId);
+        const value = rarity && Object.prototype.hasOwnProperty.call(CARD_DUPLICATE_CONVERSION, rarity)
+            ? CARD_DUPLICATE_CONVERSION[rarity as MarketplaceCardRarity]
+            : undefined;
+        if (value && have >= CARD_PLAYSET_COPIES) {
+            converted.push({ index, cardId, chroniclePoints: value.chroniclePoints, fateShards: value.fateShards });
+            refund.chroniclePoints += value.chroniclePoints;
+            refund.fateShards += value.fateShards;
+            return;
+        }
+        kept.push(cardId);
+        counts.set(cardId, have + 1);
+    });
+    return { kept, converted, refund };
+}
+
+/** The undiscounted price, for the legacy /shop/settle table and tests. */
+export function cardPackBaseCost(type: CardPackType): number {
+    return PACKS[type].baseCost;
+}
 
 export function parseCardPackType(value: unknown): CardPackType | null {
     return typeof value === 'string' && (CARD_PACK_TYPES as readonly string[]).includes(value)
@@ -77,7 +139,15 @@ export function cardPackCost(character: PlayerCharacter, type: CardPackType): nu
 }
 
 export type CardPackOpen =
-    | { ok: true; character: PlayerCharacter; cards: string[]; currency: CardPackCurrency; cost: number; balance: number }
+    | {
+        ok: true; character: PlayerCharacter;
+        /** Every drawn id in draw order, converted copies included (the reveal shows them all). */
+        cards: string[];
+        currency: CardPackCurrency; cost: number;
+        /** Pack-currency balance after the debit and any rebate in that currency. */
+        balance: number;
+        converted: CardDuplicateConversion[]; refund: CardDuplicateRefund;
+    }
     | { ok: false; status: number; error: string };
 
 export function applyCardPackOpen(
@@ -113,19 +183,30 @@ export function applyCardPackOpen(
     const cards: string[] = [];
     for (let i = 0; i < def.count; i++) {
         // Each slot draws from the full eligible pool with replacement. Owned
-        // copies and earlier pulls never change the odds; deck limits apply
-        // only when building a deck, not when collecting cards.
+        // copies never change the odds. A copy beyond the 3-copy playset
+        // converts after the draw (CARD_DUPLICATE_CONVERSION).
         const rawIndex = Math.floor(Number(pickIndex(pool.length)) || 0);
         const id = pool[Math.max(0, Math.min(pool.length - 1, rawIndex))];
         cards.push(id);
     }
-    const nextBalance = balance - cost;
+    const split = splitSurplusCardCopies(owned, cards, (id) => BUILTIN_CLASH[id]?.rarity);
+    // Debit, kept cards and rebate ride one character, so mutatePlayerSave
+    // commits both currency ledgers in the same write.
+    const next: PlayerCharacter = { ...character, [def.currency]: balance - cost, tileCards: [...owned, ...split.kept] };
+    if (split.refund.chroniclePoints > 0) {
+        next.chroniclePoints = Math.max(0, Math.floor(Number(next.chroniclePoints) || 0)) + split.refund.chroniclePoints;
+    }
+    if (split.refund.fateShards > 0) {
+        next.fateShards = Math.max(0, Math.floor(Number(next.fateShards) || 0)) + split.refund.fateShards;
+    }
     return {
         ok: true,
-        character: { ...character, [def.currency]: nextBalance, tileCards: [...owned, ...cards] },
+        character: next,
         cards,
         currency: def.currency,
         cost,
-        balance: nextBalance,
+        balance: Math.max(0, Math.floor(Number(next[def.currency]) || 0)),
+        converted: split.converted,
+        refund: split.refund,
     };
 }

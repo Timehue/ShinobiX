@@ -85,14 +85,14 @@ after(async () => {
 
 describe('pet equip — same-item re-equip is a true no-op', { concurrency: false }, () => {
     it('leaves worn PvE gear at its remaining durability and touches nothing else', async () => {
-        await seed({ pve: 'pet-armor', pveDurability: 1 }, []);
+        await seed({ pve: 'pve-hunters-bond-harness', pveDurability: 1 }, []);
         const before = await kv.get<Json>(SAVE_KEY);
 
-        const out = await post({ action: 'equip', petId: 'pet-1', slot: 'pve', itemId: 'pet-armor' });
+        const out = await post({ action: 'equip', petId: 'pet-1', slot: 'pve', itemId: 'pve-hunters-bond-harness' });
         assert.equal(out.statusCode, 200, JSON.stringify(out.body));
 
         const stored = await storedPet();
-        assert.equal((stored.loadout as Json).pve, 'pet-armor');
+        assert.equal((stored.loadout as Json).pve, 'pve-hunters-bond-harness');
         assert.equal((stored.loadout as Json).pveDurability, 1, 'durability must not be refreshed to 20');
         const record = await kv.get<Json>(SAVE_KEY);
         assert.deepEqual((record?.character as Json).inventory, [], 'no inventory movement');
@@ -100,18 +100,18 @@ describe('pet equip — same-item re-equip is a true no-op', { concurrency: fals
         assert.equal(out.body?._saveVersion, before?._saveVersion, 'the response echoes the unchanged version');
 
         // A retry of the same no-op is still a no-op.
-        const again = await post({ action: 'equip', petId: 'pet-1', slot: 'pve', itemId: 'pet-armor' });
+        const again = await post({ action: 'equip', petId: 'pet-1', slot: 'pve', itemId: 'pve-hunters-bond-harness' });
         assert.equal(again.statusCode, 200);
         assert.equal(((await storedPet()).loadout as Json).pveDurability, 1);
     });
 
     it('a genuine replacement debits one item and grants full durability exactly once', async () => {
-        await seed({ pve: 'pet-armor', pveDurability: 1 }, ['pet-plate']);
+        await seed({ pve: 'pve-hunters-bond-harness', pveDurability: 1 }, ['pve-frenzy-claw']);
 
-        const out = await post({ action: 'equip', petId: 'pet-1', slot: 'pve', itemId: 'pet-plate' });
+        const out = await post({ action: 'equip', petId: 'pet-1', slot: 'pve', itemId: 'pve-frenzy-claw' });
         assert.equal(out.statusCode, 200, JSON.stringify(out.body));
         let stored = await storedPet();
-        assert.equal((stored.loadout as Json).pve, 'pet-plate');
+        assert.equal((stored.loadout as Json).pve, 'pve-frenzy-claw');
         assert.equal((stored.loadout as Json).pveDurability, 20, 'a real replacement starts at the existing full durability');
         assert.deepEqual(((await kv.get<Json>(SAVE_KEY))?.character as Json).inventory, [], 'the replacement was consumed');
 
@@ -121,16 +121,46 @@ describe('pet equip — same-item re-equip is a true no-op', { concurrency: fals
         const wornPets = ((worn?.character as Json).pets as Json[]).map((p) => ({ ...p, loadout: { ...(p.loadout as Json), pveDurability: 3 } }));
         await kv.set(SAVE_KEY, { ...worn, character: { ...(worn?.character as Json), pets: wornPets } });
 
-        const retry = await post({ action: 'equip', petId: 'pet-1', slot: 'pve', itemId: 'pet-plate' });
+        const retry = await post({ action: 'equip', petId: 'pet-1', slot: 'pve', itemId: 'pve-frenzy-claw' });
         assert.equal(retry.statusCode, 200);
         stored = await storedPet();
         assert.equal((stored.loadout as Json).pveDurability, 3, 'a retried replacement cannot repair the gear');
     });
 
     it('still refuses a replacement the player does not own', async () => {
-        await seed({ pve: 'pet-armor', pveDurability: 1 }, []);
-        const out = await post({ action: 'equip', petId: 'pet-1', slot: 'pve', itemId: 'pet-plate' });
+        await seed({ pve: 'pve-hunters-bond-harness', pveDurability: 1 }, []);
+        const out = await post({ action: 'equip', petId: 'pet-1', slot: 'pve', itemId: 'pve-frenzy-claw' });
         assert.equal(out.statusCode, 409);
         assert.equal(((await storedPet()).loadout as Json).pveDurability, 1);
+    });
+});
+
+/*
+ * 2026-10 item-use pass: each slot takes only its own kind. Any owned item used
+ * to fit any slot, and a PvE summon healed 25% for whatever sat in the Consumable
+ * slot, so an 80-ryo Treat did the work of a 1,600-ryo Second Wind.
+ */
+describe('pet equip — each slot takes only its own kind of item', { concurrency: false }, () => {
+    it('refuses a Treat in the Consumable slot and keeps the Treat', async () => {
+        await seed({}, ['pet-treat']);
+        const out = await post({ action: 'equip', petId: 'pet-1', slot: 'consumable', itemId: 'pet-treat' });
+        assert.equal(out.statusCode, 400, JSON.stringify(out.body));
+        assert.equal(((await storedPet()).loadout as Json).consumable, undefined);
+        assert.deepEqual(((await kv.get<Json>(SAVE_KEY))?.character as Json).inventory, ['pet-treat'], 'nothing was debited');
+    });
+
+    it('refuses PvP gear in the PvE slot and a collar in the PvP slot', async () => {
+        await seed({}, ['pvp-aegis-pendant', 'collar-crimson']);
+        assert.equal((await post({ action: 'equip', petId: 'pet-1', slot: 'pve', itemId: 'pvp-aegis-pendant' })).statusCode, 400);
+        assert.equal((await post({ action: 'equip', petId: 'pet-1', slot: 'pvp', itemId: 'collar-crimson' })).statusCode, 400);
+        assert.deepEqual((await storedPet()).loadout, {});
+    });
+
+    it('still equips a real battle consumable, which moves onto the pet', async () => {
+        await seed({}, ['consum-phantom-charm']);
+        const out = await post({ action: 'equip', petId: 'pet-1', slot: 'consumable', itemId: 'consum-phantom-charm' });
+        assert.equal(out.statusCode, 200, JSON.stringify(out.body));
+        assert.equal(((await storedPet()).loadout as Json).consumable, 'consum-phantom-charm');
+        assert.deepEqual(((await kv.get<Json>(SAVE_KEY))?.character as Json).inventory, []);
     });
 });

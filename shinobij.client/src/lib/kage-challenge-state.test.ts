@@ -124,7 +124,7 @@ describe('kageEligibility ids (vacant-seat claim filter)', () => {
 
     it('lets the claim drop the ryo stake WITHOUT matching on the label', () => {
         // The Council Hall used to filter with `!req.label.endsWith("ryo")` — a
-        // string test that would silently start demanding 250,000 ryo for a free
+        // string test that would silently start demanding the ryo stake for a free
         // claim the moment the label or the cost was retuned.
         const blockers = kageEligibility(poor, now).filter((r) => !r.ok && r.id !== 'ryo');
         assert.deepEqual(blockers.map((r) => r.id), ['level', 'merit']);

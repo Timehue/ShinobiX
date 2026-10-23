@@ -217,10 +217,10 @@ describe('parity: bank interest rate + cap (village-upgrades.ts + Bank.tsx ⇄ a
         assert.equal(client, server, 'bank interest rate drifted between village-upgrades.ts and _bank-interest.ts');
     });
     it('both build roots use the shared interest projection and principal cap', () => {
-        assert.equal(numFrom(BANK_RULES, /BANK_INTEREST_PRINCIPAL_CAP\s*=\s*([\d_]+)/, 'shared BANK_INTEREST_PRINCIPAL_CAP'), 10_000_000);
+        assert.equal(numFrom(BANK_RULES, /BANK_INTEREST_PRINCIPAL_CAP\s*=\s*([\d_]+)/, 'shared BANK_INTEREST_PRINCIPAL_CAP'), 1_000_000);
         assert.match(BANK_INT, /from ['"]\.\.\/shared\/bank-interest\.js['"]/);
         assert.match(BANK_SCREEN, /from ['"]\.\.\/\.\.\/\.\.\/shared\/bank-interest['"]/);
-        assert.match(BANK_INT, /const interest = projectedBankInterest\(bankRyo, interestPercent\)/);
+        assert.match(BANK_INT, /const interest = projectedBankInterest\(bankRyo, interestPercent, bankInterestPrincipalCap\(\)\)/);
         assert.match(BANK_SCREEN, /const projectedInterest = projectedBankInterest\(character\.bankRyo, interestPercent\)/);
         assert.doesNotMatch(BANK_INT, /const BANK_INTEREST_PRINCIPAL_CAP\s*=/);
         assert.doesNotMatch(BANK_SCREEN, /const BANK_INTEREST_PRINCIPAL_CAP\s*=/);
@@ -302,5 +302,31 @@ describe('parity: Card Hall pack disclosure and live server pools', () => {
     it('draws uniformly from eligible playable cards', () => {
         assert.match(PACKS, /pickIndex\(pool\.length\)/);
         assert.doesNotMatch(PACKS, /luckBonus|pityCounter|weightedPick/i);
+    });
+
+    it('discloses the duplicate conversion and the Mythic-tier Legendary', () => {
+        assert.match(GALLERY, /converts instead: Common and Rare cards give 5 Chronicle Points, Epic cards give 1 Fate Shard, and Legendary cards give 3 Fate Shards/);
+        assert.match(GALLERY, /The Legendary pool includes one Mythic-tier card, drawn at the same rate as every Legendary/);
+        assert.match(PACKS, /common: Object\.freeze\(\{ chroniclePoints: 5, fateShards: 0 \}\)/);
+        assert.match(PACKS, /rare: Object\.freeze\(\{ chroniclePoints: 5, fateShards: 0 \}\)/);
+        assert.match(PACKS, /epic: Object\.freeze\(\{ chroniclePoints: 0, fateShards: 1 \}\)/);
+        assert.match(PACKS, /legendary: Object\.freeze\(\{ chroniclePoints: 0, fateShards: 3 \}\)/);
+    });
+});
+
+describe('parity: bloodline forge price (2026-10 rebalance, B = 200 Bone Charms)', () => {
+    const FORGE = read('api', 'bloodlines', '_forge.ts');
+    const HUB = read('shinobij.client', 'src', 'screens', 'CentralHub.tsx');
+
+    it('the route and the Awakening Stone both read the shared table', () => {
+        assert.match(FORGE, /from '\.\.\/\.\.\/shared\/bloodline-forge-costs\.js'/);
+        assert.match(HUB, /from "\.\.\/\.\.\/\.\.\/shared\/bloodline-forge-costs"/);
+        assert.match(HUB, /BLOODLINE_FORGE_COSTS\[tier\.rank[^\]]*\]\.cost/);
+    });
+
+    it('the screen no longer hard-codes the old 100 price', () => {
+        assert.doesNotMatch(HUB, /awakeningCreateBloodline\(tier\.rank, tier\.materialKey, 100/);
+        assert.doesNotMatch(HUB, /100 - balance/);
+        assert.doesNotMatch(HUB, /<strong>100 \{tier\.materialName\}/);
     });
 });

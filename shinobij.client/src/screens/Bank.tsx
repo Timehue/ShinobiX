@@ -1,4 +1,4 @@
-import { BANK_INTEREST_WINDOW_MS, projectedBankInterest } from "../../../shared/bank-interest";
+import { BANK_INTEREST_PRINCIPAL_CAP, BANK_INTEREST_WINDOW_MS, projectedBankInterest } from "../../../shared/bank-interest";
 import { getBankInterestPercent } from "../lib/village-upgrades";
 import { useRef, useState, useSyncExternalStore } from "react";
 import { type Character } from "../App";
@@ -11,6 +11,7 @@ import { getSharedNow, subscribeSharedNow } from "../lib/shared-now-store";
 import { pendingBankTransferIntent, readPendingBankTransferIntent } from "../lib/bank-transfer-intent";
 import type { VersionedCharacterCommit } from "../types/character";
 import { FacilityHero } from "../components/FacilityHero";
+import { characterWithVillageTax, readVillageTaxEcho, villageTaxNotice } from "../lib/village-tax-echo";
 import { GameIcon, ShinobiCurrencyIcon } from "../components/icons/GameIcon";
 
 const noSubscription = () => () => undefined;
@@ -130,6 +131,15 @@ export function Bank({ character, updateCharacter, onVersionedCharacter, onBack 
                 body: JSON.stringify({ playerName: character.name, direction, action: direction, amount: value, requestId: intent.requestId }),
             });
             const data = await response.json().catch(() => null) as { error?: string; character?: Character; _saveVersion?: number; replayed?: boolean } | null;
+            // The day's occupation tax, assessed by the server before the move
+            // (2026-10 rebalance). A refusal still carries it: adopt its balances
+            // and stamped version so the next autosave is not stale.
+            const villageTax = readVillageTaxEcho(data);
+            const taxNotice = villageTaxNotice(villageTax);
+            if (villageTax?._saveVersion && (!response.ok || !data?.character)) {
+                onVersionedCharacter(characterWithVillageTax(character, villageTax), villageTax._saveVersion);
+            }
+            if (taxNotice) gameToast(taxNotice);
             if (!response.ok || !data?.character) {
                 // A rate limit or expired login can arrive after the first
                 // attempt committed and lost its response. Keep that receipt ID
@@ -185,6 +195,16 @@ export function Bank({ character, updateCharacter, onVersionedCharacter, onBack 
                 body: JSON.stringify({ playerName: character.name }),
             });
             data = await res.json().catch(() => ({}));
+            // The day's occupation tax, assessed by the server first (2026-10
+            // rebalance): adopt its post-tax wallet, and on a refusal its
+            // stamped version too, so the next autosave is not stale.
+            const villageTax = readVillageTaxEcho(data);
+            if (villageTax) {
+                if (villageTax._saveVersion && (!res.ok || !data.ok)) onVersionedCharacter(characterWithVillageTax(character, villageTax), villageTax._saveVersion);
+                else if (villageTax.applied) updateCharacter((prev) => prev ? characterWithVillageTax(prev, villageTax) : prev);
+                const taxNotice = villageTaxNotice(villageTax);
+                if (taxNotice) gameToast(taxNotice);
+            }
             if (!res.ok || !data.ok) return alert(res.status >= 400 && res.status < 500 && res.status !== 408
                 ? data.error || "Bank interest claim was rejected."
                 : AMBIGUOUS_ACTION_MESSAGE);
@@ -296,7 +316,7 @@ export function Bank({ character, updateCharacter, onVersionedCharacter, onBack 
                         <button onClick={claimInterest} aria-describedby={interestError ? "bank-interest-error" : undefined} disabled={bankBusy || !canClaimInterest || projectedInterest <= 0}>Collect interest</button>
                     </div>
                     {interestError && <p id="bank-interest-error" className="facility-inline-warning" role="alert">{interestError}</p>}
-                    <p className="facility-fine-print">Town Hall upgrades add +0.01% interest per level, up to 0.5% daily. Claims refresh every 24 hours.</p>
+                    <p className="facility-fine-print">Town Hall upgrades add +0.01% interest per level, up to 0.5% daily, paid on up to {BANK_INTEREST_PRINCIPAL_CAP.toLocaleString()} banked ryo. Claims refresh every 24 hours.</p>
                 </section>
 
                 <section className="facility-panel bank-wire-panel">

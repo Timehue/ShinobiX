@@ -205,9 +205,12 @@ test('a late phase-3 continuation for A cannot contaminate B while A pays exactl
         assert.deepEqual(await kv.get(BOSS_KEY), cleanB, 'late A finalization must leave B byte-identical');
 
         const saved = await kv.get<{ character?: Json }>(SAVE_KEY);
-        assert.equal(saved?.character?.ryo, 137_875);
+        // A solo MVP: the 90,000 MVP cap (owner amendment A5) on top of 100 starting ryo.
+        assert.equal(saved?.character?.ryo, 90_100);
         assert.equal(saved?.character?.unspentStats, 10);
-        assert.deepEqual(saved?.character?.inventory, ['weekly-boss-core', 'dungeon-key']);
+        // Paid exactly once: one Core in its stack (owner ruling A12), one key.
+        assert.deepEqual(saved?.character?.inventory, ['dungeon-key']);
+        assert.deepEqual(saved?.character?.itemStacks, [{ itemId: 'weekly-boss-core', count: 1 }]);
         assert.equal((saved?.character?.serverSettlementReceipts as unknown[])?.length, 1);
     } finally {
         releasePhaseThree.resolve();
@@ -256,7 +259,7 @@ test('reset returns 409 and preserves expired authority when a contributor canno
     const recovered = await invoke('POST', { kind: 'reset', expectedSpawnId: spawnA, requestedSpawnId: REQUEST_PENDING_B });
     assert.equal(recovered.statusCode, 200, 'a later retry settles the retained authority before replacement');
     const paid = await kv.get<{ character?: Json }>(SAVE_KEY);
-    assert.equal(paid?.character?.ryo, 137_875);
+    assert.equal(paid?.character?.ryo, 90_100, 'a solo MVP is paid the 90,000 MVP cap');
     assert.equal((paid?.character?.serverSettlementReceipts as unknown[])?.length, 1);
     assert.notEqual((await kv.get<Json>(BOSS_KEY))?.spawnId, spawnA);
 });

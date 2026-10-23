@@ -15,6 +15,9 @@
 // path now pays a head: the live duel (api/pvp/bounty.ts) and the sleeping-camp
 // KO (api/player/sleeper-kill.ts). Two copies of this string would silently
 // split the board in half — one pool nobody could claim from the other door.
+import { safeName } from '../_utils.js';
+import { bountyPlacementFee } from '../../shared/pvp-bounty-fee.js';
+
 export const BOUNTY_KEY = 'pvp:bounties';
 export const BOUNTY_AUDIT_PREFIX = 'audit:pvp-bounty:';
 
@@ -120,11 +123,13 @@ export type PlaceInput = {
     targetExists: boolean;
     board: BountyBoard;
 };
-export type PlaceResult = { ok: false; reason: string } | { ok: true; board: BountyBoard; amount: number };
+export type PlaceResult = { ok: false; reason: string } | { ok: true; board: BountyBoard; amount: number; fee: number };
 
 /**
  * Validate + apply a bounty placement. Pure: the endpoint debits the placer's
  * ryo (committed under lock) once this returns ok, and persists the new board.
+ * The placer pays the stake plus a 15% posting fee; only the stake is escrowed,
+ * the fee is burned (shared/pvp-bounty-fee.ts).
  */
 export function placeBounty(input: PlaceInput, now: number): PlaceResult {
     const { placerName, targetName, placerRyo, targetExists, board } = input;
@@ -134,7 +139,10 @@ export function placeBounty(input: PlaceInput, now: number): PlaceResult {
     if (!targetExists) return { ok: false, reason: 'That player does not exist.' };
     if (amount < BOUNTY_MIN_PLACE) return { ok: false, reason: `Minimum bounty is ${BOUNTY_MIN_PLACE.toLocaleString()} ryo.` };
     if (amount > BOUNTY_MAX_PLACE) return { ok: false, reason: `Maximum single bounty is ${BOUNTY_MAX_PLACE.toLocaleString()} ryo.` };
-    if (placerRyo < amount) return { ok: false, reason: 'You do not have enough ryo.' };
+    const fee = bountyPlacementFee(amount);
+    if (placerRyo < amount + fee) {
+        return { ok: false, reason: `You need the stake plus a 15% posting fee (${(amount + fee).toLocaleString()} ryo).` };
+    }
 
     const existing = findBounty(board, targetName);
     const currentTotal = existing?.amount ?? 0;
@@ -147,10 +155,24 @@ export function placeBounty(input: PlaceInput, now: number): PlaceResult {
 
     const credited = creditBountyPlacement(board, { target: targetName, amount, placer: placerName }, now);
     if (!credited) return { ok: false, reason: 'The bounty board is full right now.' };
-    return { ok: true, board: credited, amount };
+    return { ok: true, board: credited, amount, fee };
 }
 
-export type BountyPlacementPlan = { target: string; amount: number; placer: string };
+/** `fee` is the burned posting fee; journals written before the fee existed omit it. */
+export type BountyPlacementPlan = { target: string; amount: number; placer: string; fee?: number };
+
+/**
+ * Whether the duel or KO winner funded this head. A contributor who beats the
+ * target cannot reclaim their own stake (I-14): the head stays for another
+ * hunter. Contributors are stored as lower-cased display names.
+ */
+export function isBountyContributor(head: Pick<Bounty, 'contributors'> | undefined, winnerDisplay: string, winnerSlug: string): boolean {
+    if (!head) return false;
+    const display = lower(winnerDisplay);
+    return head.contributors.some((contributor) => (
+        (display !== '' && contributor === display) || (winnerSlug !== '' && safeName(contributor) === winnerSlug)
+    ));
+}
 
 /**
  * Escrow an already-paid stake onto a head. Pure, and deliberately free of the

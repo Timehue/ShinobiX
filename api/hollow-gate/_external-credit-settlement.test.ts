@@ -180,7 +180,9 @@ test('real bank transfers preserve pre-run funds and cannot launder run loot thr
 test('sanctify absorbs existing external credits once, including a lost commit acknowledgement', async () => {
     const f = await preparedWallet('checkpoint');
     await f.external(90);
-    const consumable = (await import('./use-consumable.js')).default as unknown as Handler;
+    const consumables = await import('./use-consumable.js');
+    const consumable = consumables.default as unknown as Handler;
+    const sanctifyCost = consumables.HOLLOW_GATE_CONSUMABLE_COSTS.sanctify;
     const originalCompare = kv.compareSet.bind(kv);
     let lost = false;
     kv.compareSet = async (...args: Parameters<typeof kv.compareSet>) => {
@@ -197,7 +199,7 @@ test('sanctify absorbs existing external credits once, including a lost commit a
     const { hollowGateExternalCredits } = await import('./_external-credits.js');
     const checkpoint = (await kv.get<Save>(f.saveKey))!;
     assert.deepEqual(hollowGateExternalCredits(checkpoint.character, f.token), {});
-    assert.equal(checkpoint.character.hollowShards, 1276);
+    assert.equal(checkpoint.character.hollowShards, 1290 - sanctifyCost);
     assert.equal((await kv.get<HollowGateRunToken>(f.runKey))!.entryCurrencies.ryo, 1290);
     assert.equal((await call(consumable, f.playerName, request)).status, 200);
     assert.equal((await kv.get<Save>(f.saveKey))!._saveVersion, checkpoint._saveVersion);
@@ -205,7 +207,7 @@ test('sanctify absorbs existing external credits once, including a lost commit a
     const ended = await call(settle, f.playerName, { playerName: f.playerName, token: f.token, action: 'abandon' });
     assert.equal(ended.status, 200, String(ended.body?.error));
     const after = (await kv.get<Save>(f.saveKey))!.character;
-    for (const key of f.keys) assert.equal(after[key], key === 'hollowShards' ? 1296 : 1310);
+    for (const key of f.keys) assert.equal(after[key], key === 'hollowShards' ? 1310 - sanctifyCost : 1310);
 });
 
 test('trap death retains all seven external currencies and clears their provenance', async () => {

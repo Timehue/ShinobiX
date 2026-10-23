@@ -2,7 +2,7 @@ import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { TREASURY_GIFT_TAX_PCT } from './_treasury-gift-tax';
+import { TREASURY_GIFT_TAX_PCT, treasuryGiftMinAmount } from './_treasury-gift-tax';
 
 /*
  * The treasury screens quote two server numbers back to the player: the gift
@@ -15,18 +15,25 @@ import { TREASURY_GIFT_TAX_PCT } from './_treasury-gift-tax';
 
 const read = (...seg: string[]) => readFileSync(join(process.cwd(), ...seg), 'utf8');
 
-const SCREENS: { file: string; label: RegExp; cap: RegExp; donate: string[] }[] = [
+// `min` names the screen's per-currency gift-minimum table, which must quote
+// TREASURY_GIFT_MIN_AMOUNT (I-16) for every currency the screen can send.
+// `noSealGift` asserts the screen's send select offers no Mythic Seals (I-8).
+const SCREENS: { file: string; label: RegExp; cap: RegExp; donate: string[]; min?: RegExp; noSealGift?: boolean }[] = [
     {
         file: 'TownHall.tsx',
         label: /TREASURY_GIFT_TAX_LABEL\s*=\s*"(\d+)%"/,
         cap: /TREASURY_DONATE_MAX_RYO\s*=\s*([\d_]+)/,
         donate: ['api', 'village', 'treasury', 'donate.ts'],
+        min: /TREASURY_GIFT_MIN_AMOUNT[^=]*=\s*\{([^}]*)\}/,
+        noSealGift: true,
     },
     {
         file: 'ClanHall.tsx',
         label: /CLAN_GIFT_TAX_LABEL\s*=\s*"(\d+)%"/,
         cap: /CLAN_DONATE_MAX_RYO\s*=\s*([\d_]+)/,
         donate: ['api', 'clan', 'treasury', 'donate.ts'],
+        min: /CLAN_GIFT_MIN_AMOUNT[^=]*=\s*\{([^}]*)\}/,
+        noSealGift: true,
     },
 ];
 
@@ -59,5 +66,33 @@ describe('treasury UI quotes the server’s own numbers', () => {
         it(`${screen.file} reports the burn instead of swallowing it`, () => {
             assert.match(src, /burned in transit/, `${screen.file} must tell the player what the levy took`);
         });
+
+        if (screen.min) {
+            const minPattern = screen.min;
+            it(`${screen.file} quotes the server's per-currency gift minimum`, () => {
+                const m = src.match(minPattern);
+                assert.ok(m, `${screen.file} must declare its gift-minimum table`);
+                const table = Object.fromEntries([...m![1].matchAll(/(\w+)\s*:\s*(\d+)/g)].map(([, key, value]) => [key, Number(value)]));
+                for (const currency of new Set(['ryo', 'fateShards', 'boneCharms', 'auraStones', 'mythicSeals', ...Object.keys(table)])) {
+                    assert.equal(table[currency], treasuryGiftMinAmount(currency), `${screen.file} quotes a ${currency} minimum the server does not enforce`);
+                }
+            });
+        }
+
+        if (screen.noSealGift) {
+            it(`${screen.file} never offers a Mythic Seal gift (I-8)`, () => {
+                // Both transfer routes refuse every Mythic Seal gift, so a send
+                // option for it is a button that can only fail.
+                assert.doesNotMatch(src, /<option value="mythicSeals">/, `${screen.file} still offers Mythic Seals in a send select`);
+            });
+        }
     }
+});
+
+describe('Clan Hall quotes the weekly donation XP budget the server applies', () => {
+    const src = read('shinobij.client', 'src', 'screens', 'ClanHall.tsx');
+    it('shows this week\'s donation XP against CLAN_DONATION_XP_WEEKLY_CAP', () => {
+        assert.match(src, /Clan XP from your donations this week: <b>\{myDonationXpWeek\.toLocaleString\(\)\} \/ \{CLAN_DONATION_XP_WEEKLY_CAP\.toLocaleString\(\)\}<\/b>/);
+        assert.match(src, /\{myClanPointsWeek\.toLocaleString\(\)\} \/ \{CLAN_POINTS_WEEKLY_CAP\.toLocaleString\(\)\} Clan Points this week/);
+    });
 });

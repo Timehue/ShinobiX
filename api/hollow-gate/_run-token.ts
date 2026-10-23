@@ -64,14 +64,17 @@ export function canonicalHollowGateDepth(requested?: unknown): number {
 }
 
 // VERBATIM mirror of the client hollowShardDrop (lib/hollow-gate-run.ts). The
-// drift test asserts this matches the client for every floor/source.
+// drift test asserts this matches the client for every floor/source. Every
+// faucet is 0.6x the launch curve (2026-10 rebalance #26) so shards stay a
+// budget against the consumable and key prices; 3/5 of an integer never lands
+// on .5, so the rounding has no ties.
 export function hollowShardDrop(floor: number, source: 'chest' | 'lockedChest' | 'boss' | 'shardVein'): number {
     const f = Math.max(1, Math.floor(floor));
     switch (source) {
-        case 'chest': return 2 + f;
-        case 'shardVein': return 3 + f * 2;
-        case 'lockedChest': return 5 + f * 2;
-        case 'boss': return 15 + f * 5;
+        case 'chest': return Math.round((2 + f) * 3 / 5);
+        case 'shardVein': return Math.round((3 + f * 2) * 3 / 5);
+        case 'lockedChest': return Math.round((5 + f * 2) * 3 / 5);
+        case 'boss': return Math.round((15 + f * 5) * 3 / 5);
         default: return 0;
     }
 }
@@ -145,6 +148,9 @@ export interface HollowGateRunToken {
     offeredAugmentIds: string[];
     chosenAugmentId: string | null;
     dailyRunOrdinal: number;
+    /** Character level sealed at start; it sets the run's ryo scale
+     *  (_gate-scale.ts). Absent on runs minted before it existed (scale 1). */
+    entryLevel?: number;
     variantId?: string;
     variantLabel?: string;
     /** Weekly map-information rule selected by the server for Rifts. */

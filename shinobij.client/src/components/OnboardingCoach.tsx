@@ -542,7 +542,8 @@ export function OnboardingCoach({
                     <h2 style={{ marginTop: 0 }}>Skip the Academy tutorial?</h2>
                     <p style={{ lineHeight: 1.5, color: "var(--slate-300)" }}>
                         It walks you through your first training, jutsu, gear, spar, and
-                        rewards. You can’t easily restart it once it’s skipped.
+                        rewards. You can’t easily restart it once it’s skipped, and
+                        skipping gives up the Academy Trial’s ryo reward and its jump to level 10.
                     </p>
                     <button className="start-primary-btn" style={{ width: "100%" }} onClick={() => setConfirmingSkip(false)}>
                         Keep going

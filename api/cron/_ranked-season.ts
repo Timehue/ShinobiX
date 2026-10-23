@@ -28,6 +28,7 @@ import { DEFAULT_RANKED_RATING } from '../_ranked-rating.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import { carriedRegenCursor, settleIdleRecovery } from '../save/_mutate-player-save.js';
 import { commitPlayerSave } from '../save/_commit-player-save.js';
+import { recordEconomyTxn } from '../_economy.js';
 import { commitPetRankedStartingPair } from '../pet/_ranked-engine.js';
 import {
     getPetRankedJournal,
@@ -675,7 +676,14 @@ async function applySeasonSettlement(
             // The Aura Stone reward commits its currency ledger row in the same
             // transaction (commitPlayerSave); both rows are compare-and-set, so
             // this retry loop stays safe without the save lock it never took.
-            if (await commitPlayerSave(store, key, record, updated)) return;
+            if (await commitPlayerSave(store, key, record, updated)) {
+                // Economy telemetry (I-19): the podium's Aura Stones, once per
+                // player and season (the in-save receipt stops a re-run).
+                if (settlement.rewardApplied && reward && reward.auraStones > 0) {
+                    void recordEconomyTxn({ txnId: `ranked-season:${seasonId}:${slug}:auraStones`, player: slug, currency: 'auraStones', delta: reward.auraStones, source: 'ranked.season', balanceAfter: Number(settlement.character.auraStones ?? 0) });
+                }
+                return;
+            }
         } catch (error) {
             // The exact intended bytes may already have been followed by an
             // unrelated save mutation. The embedded receipt is the authority

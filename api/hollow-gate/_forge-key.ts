@@ -1,5 +1,10 @@
 export type KeyForgeSource = 'hollowShards' | 'dungeonKeys' | 'fateShards';
-export const KEY_FORGE_COSTS = { hollowShards: 80, dungeonKeys: 5, fateShards: 10 } as const;
+/** Per key (2026-10 rebalance #27). A full run pays ~6.5 Fate Shards and ~160
+ *  Hollow Shards before its augment, so 15 FS keeps the FS loop well below one
+ *  key per key (~0.43) and 120 HSh holds the shard loop near 1.33, bounded by
+ *  the daily dive cap. Client mirrors: lib/hollow-gate-prices.ts (FS) and
+ *  lib/hollow-gate-attunement.ts (shards). */
+export const KEY_FORGE_COSTS = { hollowShards: 120, dungeonKeys: 5, fateShards: 15 } as const;
 
 function countItem(character: Record<string, unknown>, itemId: string): number {
     const inventory = Array.isArray(character.inventory) ? character.inventory as unknown[] : [];

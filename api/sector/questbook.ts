@@ -8,9 +8,11 @@ import { LockContendedError } from '../_lock.js';
 import { mutatePlayerSave, type PlayerSaveMutation, type PlayerSaveMutationResult } from '../save/_mutate-player-save.js';
 import { isPlayerSaveVersionConflict } from '../save/_projected-write.js';
 import { worldContextWinProofCount } from '../missions/_world-ai-fight.js';
+import { activeVillageWarEnemiesOf } from '../world-state.js';
 import {
     QUEST_BOOK,
     isQuestBookId,
+    questBookGate,
     finalStageIndex,
     questStageComplete,
     stageIsChoice,
@@ -194,6 +196,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const cooling = await kv.get(doneKeyFor(playerName, questId));
                 if (cooling) return unwritten(char, { ok: false, reason: 'cooldown' });
                 if (!bandMatches(entry, num(char.level) || 1)) return unwritten(char, { ok: false, reason: 'band' });
+                // War and rivalry epics: the same condition the client offers them
+                // on (I-13). The war read runs only for an epic that needs it.
+                if (entry.requiresWar || entry.requiresRivalry) {
+                    const village = typeof char.village === 'string' ? char.village : '';
+                    const atWar = !!entry.requiresWar && !!village && (await activeVillageWarEnemiesOf(village)).length > 0;
+                    const nemesis = char.wandererNemesis;
+                    const hasRivalry = !!nemesis && typeof nemesis === 'object' && !Array.isArray(nemesis);
+                    const gate = questBookGate(entry, { atWar, hasRivalry });
+                    if (gate !== 'ok') return unwritten(char, { ok: false, reason: gate });
+                }
 
                 const sealed = sealStage(questId, 0, char, {}, Date.now());
                 return persist(playerName, char, sealed, { ok: true, id: questId, stage: 0, target: entry.stages[0].count, deadline: sealed.deadline ?? null });

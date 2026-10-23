@@ -1,5 +1,5 @@
 import type { Character } from "../types/character";
-import { COOK_RECIPES as SHARED_COOK_RECIPES, type CookRecipeId, type CookRecipe } from '../../../shared/cooking-recipes';
+import { COOK_RECIPES as SHARED_COOK_RECIPES, FUEL_IDS, type CookRecipeId, type CookRecipe } from '../../../shared/cooking-recipes';
 import { RESOURCE_ITEMS } from '../../../shared/resource-items';
 import { pendingEconomyIntent, economyIntentSettled } from './economy-request-intent';
 
@@ -23,7 +23,7 @@ export type CafeteriaMeal = {
 export const CAFETERIA_MEALS: CafeteriaMeal[] = [
     { id: "small-ramen", name: "Small Ramen", cost: 20, hp: 25, chakra: 10, stamina: 10, hpPct: 10, chakraPct: 5, staminaPct: 5 },
     { id: "shinobi-meal", name: "Shinobi Meal", cost: 50, hp: 75, chakra: 35, stamina: 35, hpPct: 25, chakraPct: 15, staminaPct: 15 },
-    { id: "feast", name: "Feast", cost: 100, hp: 9999, chakra: 9999, stamina: 9999 },
+    { id: "feast", name: "Feast", cost: 100, hp: 9999, chakra: 9999, stamina: 9999, hpPct: 100, chakraPct: 100, staminaPct: 100 },
 ];
 
 export type CafeteriaMealResult = {
@@ -46,10 +46,19 @@ export const COOK_MATERIAL_NAMES: Record<string, string> = {
     ...Object.fromEntries(RESOURCE_ITEMS.filter(item => item.activity === 'fishing').map(item => [item.id, item.name])),
     "gather-field-herb": "Field Herb",
     "gather-heartwood-bark": "Heartwood Bark (fuel)",
+    "gather-ember-ore": "Ember Ore (fuel)",
+    "hunt-ember-scale": "Ember Scale (fuel)",
     "hunt-beast-meat": "Beast Meat",
 };
 /** Every material any recipe can consume, in recipe order, de-duplicated. */
-export const COOK_MATERIAL_IDS: string[] = Array.from(new Set(COOK_RECIPES.flatMap((r) => [...r.materials, 'gather-field-herb', 'gather-heartwood-bark'])));
+export const COOK_MATERIAL_IDS: string[] = Array.from(new Set(COOK_RECIPES.flatMap((r) => [...r.materials, 'gather-field-herb', ...FUEL_IDS])));
+/** What burns as cooking fuel, bark first (mirror of applyCookRecipe's order). */
+export { FUEL_IDS };
+
+/** Fuel units held across every fuel material (bark, Ember Ore, Ember Scale). */
+export function fuelOwned(character: OwnedShape): number {
+    return FUEL_IDS.reduce((sum, id) => sum + countOwnedItem(character, id), 0);
+}
 
 /** The display name for a cook material — never the raw item id. */
 export function cookMaterialName(itemId: string): string {
@@ -72,7 +81,7 @@ const RECIPE_FOOD_NAME: Partial<Record<CookRecipeId, string>> = {
 /** Food, seasoning, cooking fuel and ryo, followed by the ration yield. */
 export function cookRecipeLine(recipe: CookRecipe): string {
     const days = RATION_DAYS_IN_WORDS[recipe.rations] ?? String(recipe.rations);
-    return `${recipe.materialCount ? `${recipe.materialCount} ` : ''}${cookMaterialChoiceName(recipe)}, ${recipe.herbs} Field Herb${recipe.herbs === 1 ? '' : 's'}, ${recipe.fuel} Heartwood Bark for fuel and ${recipe.ryo} ryo — ${days} days of ${RECIPE_FOOD_NAME[recipe.id] ?? "rations"}.`;
+    return `${recipe.materialCount ? `${recipe.materialCount} ` : ''}${cookMaterialChoiceName(recipe)}, ${recipe.herbs} Field Herb${recipe.herbs === 1 ? '' : 's'}, ${recipe.fuel} Heartwood Bark for fuel (or Ember Ore / Ember Scale) and ${recipe.ryo} ryo — ${days} days of ${RECIPE_FOOD_NAME[recipe.id] ?? "rations"}.`;
 }
 
 type OwnedShape = { inventory?: string[]; itemStacks?: { itemId: string; count: number }[] };
@@ -115,7 +124,7 @@ export function cookRecipeGate(character: OwnedShape & { ryo?: number }, recipe:
     const material = recipe.materials.find((m) => countOwnedItem(character, m) >= (recipe.materialCount ?? 1));
     if (!material) return { ok: false, reason: `Needs ${recipe.materialCount ?? 1} ${cookMaterialChoiceName(recipe)}` };
     if (countOwnedItem(character, 'gather-field-herb') < recipe.herbs) return { ok: false, reason: `Needs ${recipe.herbs} Field Herb${recipe.herbs === 1 ? '' : 's'} (have ${countOwnedItem(character, 'gather-field-herb')})` };
-    if (countOwnedItem(character, 'gather-heartwood-bark') < recipe.fuel) return { ok: false, reason: `Needs ${recipe.fuel} Heartwood Bark for cooking fuel (have ${countOwnedItem(character, 'gather-heartwood-bark')})` };
+    if (fuelOwned(character) < recipe.fuel) return { ok: false, reason: `Needs ${recipe.fuel} Heartwood Bark for cooking fuel (Ember Ore or Ember Scale also burn; have ${fuelOwned(character)})` };
     return { ok: true, material };
 }
 

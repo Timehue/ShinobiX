@@ -93,6 +93,7 @@ test('precomputed favorable request ids cannot select Explore difficulty, role o
         assert.equal(outcome.encounter.archetype, expected.archetype);
         assert.equal(outcome.encounter.level, expected.level);
         assert.equal(outcome.encounter.sourceId, id, 'the request id controls receipt identity only');
+        assert.equal(outcome.encounter.baseRyo, 150, 'an L100 explorer seals the level-scaled purse at its clamp');
         descriptors.push(outcome.encounter);
     }
     assert.notEqual(descriptors[0].id, descriptors[1].id);

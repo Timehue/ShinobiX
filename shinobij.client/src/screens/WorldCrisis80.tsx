@@ -265,7 +265,7 @@ export function WorldCrisis80({
                         </div>
                         <button type="button" onClick={() => void launchCompanions()} disabled={!active || selectedPets.length !== 3 || !!launching}>{launching === "companion" ? "Calling the pack…" : availablePets.length < 3 ? "Three ready companions required" : `Send companion team (${selectedPets.length}/3)`}</button>
                     </article>
-                    <small className="reckoning__authority">Both fronts share one village target. Fights and contribution proofs are resolved by the server; no arena reward or ranked season is involved.</small>
+                    <small className="reckoning__authority">Both fronts share one village target. Fights and contribution proofs are resolved by the server. A won deployment pays a small ryo purse by time in the fight; no ranked season is involved.</small>
                 </aside>
             </div>
 

@@ -23,7 +23,8 @@ import {
     type GauntletRun, type GauntletBuffs,
 } from "../lib/pet-gauntlet";
 import { startGauntlet, reportGauntlet, pendingGauntlet, rememberGauntlet, type GauntletReward, type GauntletAction } from "../lib/pet-gauntlet-api";
-import { GAUNTLET_NEW_RUN_FEE } from "../lib/entry-fee";
+import { gauntletNewRunFee } from "../lib/entry-fee";
+import { petGauntletRyoSchedule } from "../../../shared/pet-gauntlet-economy";
 import { resolveSynergies, applySynergiesToSquad } from "../lib/pet-synergies";
 import { teamStatTotals, elementalEdge, type TeamStatTotals } from "../lib/pet-gauntlet-stats";
 import { petScenicPortraitImage as petCardImage } from "../lib/pet-scenic-portrait";
@@ -359,8 +360,9 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter, onV
         if (run && (run.status === 'won' || run.status === 'lost') && meta && !reward) return;
         // The start endpoint debits the stored wallet under its save lock. This
         // local check only gives immediate feedback; it cannot grant a paid run.
-        if (meta && (charRef.current.ryo ?? 0) < GAUNTLET_NEW_RUN_FEE) {
-            return alert(`A new Gauntlet run costs ${GAUNTLET_NEW_RUN_FEE.toLocaleString()} ryo. Not enough ryo.`);
+        const fee = gauntletNewRunFee(charRef.current);
+        if (meta && (charRef.current.ryo ?? 0) < fee) {
+            return alert(`A new Gauntlet run costs ${fee.toLocaleString()} ryo. Not enough ryo.`);
         }
         setRun(null);
         setNonce((n) => n + 1);
@@ -368,6 +370,8 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter, onV
 
     const rosterFull = run.roster.length >= 5;
     const over = run.status === "won" || run.status === "lost";
+    // A preview only: the server seals the same level-scaled schedule at start.
+    const ryoSchedule = petGauntletRyoSchedule(character.level);
     const rerollCost = hasFreeReroll(run.relics) && run.rerolls === 0 ? 0 : GAUNTLET_REROLL_COST;
 
     return (
@@ -377,7 +381,8 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter, onV
                 <h3 style={{ display: "flex", alignItems: "center", gap: 7, margin: 0, font: "800 1.15rem var(--font-display)", color: "#fcd34d" }}><GameArtIcon kind="attack" size={30} /> Pet Gauntlet</h3>
                 <p className="hint" style={{ margin: "4px 0 0" }}>
                     Draft a run-only squad from a <strong style={{ color: "#c4b5fd" }}>randomized</strong> shop, chase element &amp; role synergies, and survive {run.maxRounds} escalating rounds.
-                    Drafted pets vanish when the run ends — but clearing rounds pays <strong style={{ color: "#fcd34d" }}>Ryo</strong>, and the deepest clears
+                    Drafted pets vanish when the run ends — but clearing rounds pays <strong style={{ color: "#fcd34d" }}>Ryo</strong> ({ryoSchedule.perRound.toLocaleString()} a round
+                    and {ryoSchedule.clearBonus.toLocaleString()} for a full clear at your level, on your first three runs a day), and the deepest clears
                     climb the weekly <strong style={{ color: "#c4b5fd" }}>Hall of Legends</strong> board.
                     {meta && !meta.rewardEligible && <em style={{ color: "#fca5a5" }}> · Daily Ryo cap reached — this run is for the leaderboard.</em>}
                     {!meta && <em> · Practice run — entry not confirmed. This run has no rewards.</em>}
@@ -394,7 +399,7 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter, onV
                 <span style={{ color: "#93c5fd" }}>Round {Math.min(run.round, run.maxRounds)} / {run.maxRounds}</span>
                 <span style={{ marginLeft: "auto", display: "inline-flex", gap: 8 }}>
                     {!over && <button type="button" style={btn("#a855f7")} onClick={() => setShopOpen(true)}><GameArtIcon kind="shop" size={18} /> Shop</button>}
-                    <button type="button" style={btn("#475569")} disabled={over && !!meta && !reward} onClick={newRun}>{meta ? '↻ New run' : 'Retry entry'} ({!meta ? 'up to ' : ''}{GAUNTLET_NEW_RUN_FEE.toLocaleString()} ryo)</button>
+                    <button type="button" style={btn("#475569")} disabled={over && !!meta && !reward} onClick={newRun}>{meta ? '↻ New run' : 'Retry entry'} ({!meta ? 'up to ' : ''}{gauntletNewRunFee(character).toLocaleString()} ryo)</button>
                 </span>
             </div>
 

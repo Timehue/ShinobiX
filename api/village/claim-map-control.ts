@@ -8,7 +8,10 @@ import { withKvLock } from '../_lock.js';
 import { computeMapControlReward } from '../_map-control-reward.js';
 import { carriedRegenCursor, settleIdleRecovery, writeVersionedPlayerSave } from '../save/_mutate-player-save.js';
 import { MERIT_MAP_CONTROL, meritNum } from './_village-merit.js';
-import { territoryRewardsSuspended } from '../_territory-lifecycle.js';
+import { heldSectorsForVillage } from '../_war-held-sectors.js';
+import { assessVillageTax } from '../_war-tax-apply.js';
+import { villageTaxEcho } from './_village-tax-echo.js';
+import { recordEconomyTxn } from '../_economy.js';
 
 /*
  * /api/village/claim-map-control  — POST only
@@ -22,9 +25,9 @@ import { territoryRewardsSuspended } from '../_territory-lifecycle.js';
  * only cap ryo/seals/charms/shards, never verify the sector count.
  *
  * This endpoint OWNS both halves:
- *   1. Sector count — scanned from the canonical world:territory:* records
- *      (ownerVillage === village), mirroring the client's villageOwnedTerritories.
- *      The client can no longer fake it.
+ *   1. Sector count — the WAR sectors the village holds, read from the
+ *      canonical world:territory:* records by api/_war-held-sectors.ts (the
+ *      count the War Map shows). The client can no longer fake it.
  *   2. Payout — computed server-side by the verbatim-ported computeMapControlReward
  *      (api/_map-control-reward.ts, tested server==client) and credited to the
  *      player's OWN save under lock:save:<name> (the autosave's lock — option A)
@@ -47,7 +50,6 @@ import { territoryRewardsSuspended } from '../_territory-lifecycle.js';
  * member of `village`. Rate-limited 30/min per actor.
  */
 
-const TERRITORY_KEY_PREFIX = 'world:territory:';
 const CLAIM_MARKER_TTL_SEC = 2 * 24 * 60 * 60; // 2 days — comfortably past one UTC day
 const AUDIT_LOG_PREFIX = 'audit:village-map-control:';
 
@@ -87,24 +89,34 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
         }
 
-        // ── Server-authoritative sector count. Scan the canonical world-state
-        // territory records and count the ones this village owns (mirrors the
-        // client's villageOwnedTerritories: ownerVillage === village). Read
-        // outside the save lock — territories are not part of the player save;
-        // a snapshot count is exactly what the client used too.
-        const territoryKeys = await kv.keys(`${TERRITORY_KEY_PREFIX}*`);
-        const territories = territoryKeys.length
-            ? ((await kv.mget<Record<string, unknown>[]>(...territoryKeys)).filter(Boolean) as Record<string, unknown>[])
-            : [];
-        const rewardNow = Date.now();
-        const sectors = territories.filter((t) => String(t.ownerVillage ?? '').trim() === village
-            && !territoryRewardsSuspended(t, rewardNow)).length;
+        // ── Server-authoritative sector count: the WAR sectors the village
+        // holds, by the one definition the WR faucet, the tax tier and the War
+        // Map use (api/_war-held-sectors.ts). Counting every territory row with
+        // this village's ownerVillage paid +100 ryo a member a day, forever, for
+        // the stray stamps a released clan capture leaves on non-war sectors
+        // (2026-10 rebalance, I-10). Read outside the save lock — territories
+        // are not part of the player save. A failed scan is not a count.
+        let sectors: number;
+        try {
+            sectors = await heldSectorsForVillage(village);
+        } catch (e) {
+            console.error('[village/claim-map-control] territory scan failed', safeLogValue(e));
+            return res.status(503).json({ error: 'Could not read territory — retry.' });
+        }
 
         if (sectors <= 0) {
             // Mirrors the client guard ("Your village does not control any sectors
             // yet."). No marker placed, so the player can claim once they own one.
             return res.status(400).json({ error: 'Your village does not control any sectors yet.' });
         }
+
+        // The occupation tax, assessed by the server on a path every member
+        // takes daily (2026-10 rebalance, I-11): it used to run only when the
+        // client called /api/village/tax, so a modded client was never taxed.
+        // Before the save lock (the tax takes its own village-row and save
+        // locks) and after every refusal above, so a refusal never follows the
+        // tax's day stamp. Idempotent per day; never throws.
+        const villageTax = await assessVillageTax(playerName);
 
         const date = utcDate();
         const marker = `map-control-personal:${playerName.toLowerCase()}:${date}`;
@@ -168,10 +180,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             result = out;
         } catch (e) {
             console.error('[village/claim-map-control] credit failed', e);
-            return res.status(503).json({ error: 'Could not credit your map control reward — please retry.' });
+            return res.status(503).json({ error: 'Could not credit your map control reward — please retry.', ...villageTaxEcho(villageTax) });
         }
 
         if (!result.alreadyClaimed) {
+            // Economy telemetry (framework I-19): map control is a daily war faucet.
+            for (const currency of ['ryo', 'honorSeals', 'boneCharms', 'fateShards'] as const) {
+                const delta = Number(result.granted[currency]) || 0;
+                if (delta > 0) void recordEconomyTxn({ txnId: `map-control:${playerName}:${date}:${currency}`, player: playerName, currency, delta, source: 'village.map-control' });
+            }
             await kv.set(`${AUDIT_LOG_PREFIX}${villageSlugForAudit(village)}:${Date.now()}`, {
                 ts: Date.now(),
                 actor: identity.admin ? 'admin' : identity.name,
@@ -182,7 +199,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }, { ex: 30 * 24 * 60 * 60 }).catch(() => undefined);
         }
 
-        return res.status(200).json({ ok: true, sectors, alreadyClaimed: result.alreadyClaimed, granted: result.granted, balances: result.balances, _saveVersion: result.saveVersion });
+        return res.status(200).json({ ok: true, sectors, alreadyClaimed: result.alreadyClaimed, granted: result.granted, balances: result.balances, _saveVersion: result.saveVersion, ...villageTaxEcho(villageTax) });
     } catch (err) {
         console.error('[village/claim-map-control]', safeLogValue(err));
         return res.status(500).json({ error: 'Internal server error.' });

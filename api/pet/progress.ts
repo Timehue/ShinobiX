@@ -17,9 +17,11 @@ import { recordPetBreedingProgress, type PetBreedingProgressEvent } from './_bre
 import { flushPendingTrainingMissions, petTrainingMissionReceipt, recordPendingTrainingMission } from './_training-mission.js';
 import { activeBreedingParentIds, petBusyMessage, petBusyReason } from './_pet-busy.js';
 import { kv } from '../_storage.js';
+import { recordEconomyTxn } from '../_economy.js';
 import { moraleForCharacter, applyMoraleToGain } from '../_war-morale.js';
 import { activeCarriedPetIds, activeTrainingPetIds, PET_TRAINING_CAP } from '../_entitlements.js';
 import { applyGrowthAllocation, resetGrowthAllocation } from './_growth.js';
+import { petSlotAcceptsItem } from '../_pet-sim/pet-config.js';
 import { randomUUID } from 'node:crypto';
 import { sameTacticsBuild, validateTacticsBuild } from '../../shared/pet-tactics-build.js';
 import { ownedTacticsSpeciesId } from '../../shared/pet-tactics-roster.js';
@@ -44,6 +46,8 @@ function defensePetIds(defense: unknown): string[] {
  * under the save lock and handed back if the write fails.
  */
 const PRODIGY_ID = 'prodigy';
+/** The Fate Shard fee for renaming a companion (unchanged by the 2026-10 rebalance). */
+const PET_NICKNAME_FATE_SHARDS = 10;
 const PRODIGY_KEY_TTL_SEC = 2 * 24 * 60 * 60;
 const utcDay = (now: number) => new Date(now).toISOString().slice(0, 10);
 const nextUtcMidnight = (now: number) => Date.parse(`${utcDay(now)}T00:00:00.000Z`) + 24 * 60 * 60 * 1000;
@@ -218,8 +222,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 nextPet = petted;
             } else if (action === 'nickname') {
                 const nickname = String(body.nickname ?? '').trim().slice(0, 24); if (!nickname) return { ok: false as const, status: 400, error: 'Nickname required.' };
-                const shards = Math.max(0, Number(character.fateShards) || 0); if (shards < 10) return { ok: false as const, status: 409, error: 'Need 10 Fate Shards.' };
-                nextCharacter = { ...character, fateShards: shards - 10 }; nextPet = { ...pet, nickname };
+                const shards = Math.max(0, Number(character.fateShards) || 0); if (shards < PET_NICKNAME_FATE_SHARDS) return { ok: false as const, status: 409, error: `Need ${PET_NICKNAME_FATE_SHARDS} Fate Shards.` };
+                nextCharacter = { ...character, fateShards: shards - PET_NICKNAME_FATE_SHARDS }; nextPet = { ...pet, nickname };
             } else if (action === 'equip') {
                 const slot = String(body.slot ?? '');
                 if (!['collar', 'pvp', 'pve', 'consumable'].includes(slot)) return { ok: false as const, status: 400, error: 'Invalid pet equipment slot.' };
@@ -239,6 +243,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     return { ok: true as const, character, value: { action, pet, settledTraining: null }, write: false as const };
                 }
                 if (itemId && itemId !== current) {
+                    // Each slot takes only its own kind (shared pet-config table). Any
+                    // owned item used to fit any slot, and the PvE summon healed 25%
+                    // for whatever sat in the Consumable slot, a Treat included.
+                    if (!petSlotAcceptsItem(slot, itemId)) return { ok: false as const, status: 400, error: 'That item does not fit this pet equipment slot.' };
                     const owned = removePetItem(character, itemId);
                     if (!owned) return { ok: false as const, status: 409, error: 'Pet equipment is not owned.' };
                     if (slot === 'pve' || slot === 'consumable') nextCharacter = owned;
@@ -365,6 +373,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // spent for good. A later failure must not hand it back, or the same
         // day could seal a second instant session.
         prodigyClaim = null;
+        // Economy telemetry (I-19): the committed 10-Fate-Shard rename fee,
+        // keyed on the save version that charged it.
+        if (result.value.action === 'nickname') {
+            void recordEconomyTxn({ txnId: `pet-nickname:${petId}:${result._saveVersion}`, player: playerName, currency: 'fateShards', delta: -PET_NICKNAME_FATE_SHARDS, source: 'pet.nickname.fee', balanceAfter: Number(result.character.fateShards ?? 0) });
+        }
         // Report the session this call settled and any an earlier training
         // action left owed. A report that fails stays owed for the next one; it
         // no longer fails a collect whose session has already settled.

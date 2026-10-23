@@ -8,6 +8,7 @@ import { enforceRateLimitKv } from '../../_ratelimit.js';
 import { cors, clanBareSlug, clanRecordKey, safeName } from '../../_utils.js';
 import { mutatePlayerSave } from '../../save/_mutate-player-save.js';
 import { isPlayerSaveVersionConflict, SAVE_VERSION_CONFLICT_REPLY } from '../../save/_projected-write.js';
+import { recordEconomyTxn } from '../../_economy.js';
 import {
     buyClanExchangeItem,
     CLAN_EXCHANGE_ITEMS,
@@ -124,6 +125,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             cost: item.cost,
             reward: item.reward,
         }, { ex: 90 * 24 * 60 * 60 }).catch(() => undefined);
+
+        // Economy telemetry (I-19, framework 8.4): the currency a shelf paid
+        // out, after the commit. Clan Points are not an economy currency; the
+        // reward is the faucet (Aura Stone shelves, ryo pouches, charms, shards).
+        if (item.reward.kind === 'currency' && item.reward.amount > 0) {
+            void recordEconomyTxn({
+                txnId: `clan-exchange:${playerName}:${itemId}:${purchase._saveVersion ?? purchaseNow.getTime()}`,
+                player: playerName,
+                currency: item.reward.currency,
+                delta: item.reward.amount,
+                source: 'clan.exchange',
+            });
+        }
 
         return res.status(200).json({
             ok: true,

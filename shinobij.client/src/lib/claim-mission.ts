@@ -18,13 +18,15 @@ import { currentMonthKey } from "./utils";
 import { notifyFieldTrailStateChanged } from "./field-trail-api";
 import { missionClaimActionScope, startActionDeadline } from "./action-deadline-store";
 import { recordServerConfirmedPlayEvent } from "./google-play-games";
+import { setSharedDailyStatBudget } from "./progression-dials-store";
+import { addItems } from "./inventory";
 import type { Character, CurrencyRewards } from "../types/character";
 
 export type MissionType = "combat" | "field" | "hunt" | "apex" | "academy-trial" | "academy-checklist";
 
 export type ClaimReward = {
     xpBoosted: number;        // retired (character XP removed) — servers send 0
-    statPoints?: number;      // daily-checklist / capstone stat-pool grant
+    statPoints?: number;      // hunt / field (shared daily budget) or capstone stat-pool grant
     ryo: number;
     stamina: number;
     territoryScrolls: number; // retired compatibility field; servers send 0
@@ -39,6 +41,8 @@ export type ClaimMissionResult =
         reward: ClaimReward;
         combat?: { aiProfileId: string; missionKey: string };
         completion: "daily" | "total" | "none" | "hunt";
+        /** The shared daily stat-point budget after a hunt / field claim. */
+        statBudget?: { day: string; spent: number; cap: number };
         academyTrialClaimed?: boolean;
         academyChecklistClaimed?: boolean;
         character?: Character;
@@ -115,6 +119,11 @@ export async function postClaimMission(
         if (missionType === "field" && result?.ok === true && result.applied === true) {
             notifyFieldTrailStateChanged(playerName, missionId);
         }
+        // Remember the day's shared stat-point budget for the mission screens
+        // ("Stat points today: 41 / 60").
+        if (result.ok === true && result.applied === true && result.statBudget) {
+            setSharedDailyStatBudget(playerName, result.statBudget);
+        }
         return result;
     } catch {
         return null;
@@ -156,7 +165,8 @@ export function applyServerMissionReward(
         next = { ...next, stamina: Math.min(next.maxStamina, next.stamina + result.reward.stamina) };
     }
     if (result.reward.items && result.reward.items.length > 0) {
-        next = { ...next, inventory: [...next.inventory, ...result.reward.items] };
+        // Same stores the server used: hunt materials join itemStacks (A12).
+        next = addItems(next, result.reward.items);
     }
     next = applyCurrencyRewards(next, result.reward.currency);
     if (result.combat) {

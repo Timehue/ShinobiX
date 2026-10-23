@@ -10,14 +10,19 @@ import { HG_CLAWBACK_KEYS, hollowGateRunKey, HOLLOW_GATE_RUN_EXPIRED_MESSAGES, t
 import { normalizeHollowGateLedger } from './_ledger.js';
 
 type Action = 'reignite' | 'skeleton-key' | 'hollow-ward' | 'diviner-eye' | 'sanctify' | 'arm-second-wind';
-const COSTS: Record<Action, number> = {
-    reignite: 6,
-    'skeleton-key': 8,
-    'hollow-ward': 14,
-    'diviner-eye': 16,
-    sanctify: 14,
-    'arm-second-wind': 30,
+/** Hollow Shard prices (2026-10 rebalance #26), re-priced with the 0.6x shard
+ *  faucets so a run-saver is a choice: at 14 shards, Sanctify made a ~31k haul
+ *  death-proof by reflex. Client mirror: lib/hollow-gate-shards.ts (its
+ *  `second-wind` is `arm-second-wind` here), pinned by _consumable-cost-parity.test.ts. */
+export const HOLLOW_GATE_CONSUMABLE_COSTS: Readonly<Record<Action, number>> = {
+    reignite: 10,
+    'skeleton-key': 15,
+    'hollow-ward': 25,
+    'diviner-eye': 25,
+    sanctify: 40,
+    'arm-second-wind': 60,
 };
+const COSTS = HOLLOW_GATE_CONSUMABLE_COSTS;
 const num = (value: unknown): number => Number.isFinite(Number(value)) ? Number(value) : 0;
 const publicRunState = (run: HollowGateRunToken) => ({
     keys: Math.max(0, Math.floor(num(run.keys))),

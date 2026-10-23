@@ -60,10 +60,18 @@ describe('_ai-fight-token', () => {
         assert.deepEqual(validateAiFightRewardClaim(token, 999, 999), { ok: true, xp: 100, ryo: 75 });
     });
 
-    it('computes AI fight base rewards from the active pet trait', () => {
-        assert.deepEqual(computeAiFightBaseReward({ activePetId: 'p1', pets: [{ id: 'p1', trait: 'Swift' }] }), { xp: 125, ryo: 75, trait: 'Swift' });
-        assert.deepEqual(computeAiFightBaseReward({ activePetId: 'p1', pets: [{ id: 'p1', trait: 'Lucky' }] }), { xp: 100, ryo: 90, trait: 'Lucky' });
-        assert.deepEqual(computeAiFightBaseReward({ activePetId: 'p2', pets: [{ id: 'p1', trait: 'Swift' }] }), { xp: 100, ryo: 75, trait: null });
+    it('computes AI fight base rewards from the save level and the active pet trait', () => {
+        const at = (level: unknown, trait?: string) =>
+            computeAiFightBaseReward({ level, activePetId: 'p1', pets: trait ? [{ id: 'p1', trait }] : [] });
+        assert.deepEqual(at(10, 'Swift'), { xp: 125, ryo: 70, trait: 'Swift' });
+        assert.deepEqual(at(50, 'Lucky'), { xp: 100, ryo: 125, trait: 'Lucky' });
+        assert.deepEqual(at(90), { xp: 100, ryo: 150, trait: null });
+        assert.equal(at(76, 'Lucky').ryo, 150, 'Lucky saturates under the clamp');
+        assert.equal(at(undefined).ryo, 61, 'a missing level reads as L1');
+        // An owned Lucky pet that is not the active pet adds nothing.
+        assert.deepEqual(computeAiFightBaseReward({ level: 30, activePetId: 'p2', pets: [{ id: 'p1', trait: 'Lucky' }] }), { xp: 100, ryo: 90, trait: null });
+        assert.deepEqual(computeAiFightBaseReward({ level: 30, activePetId: 'p2', pets: [{ id: 'p1', trait: 'Swift' }] }), { xp: 100, ryo: 90, trait: null });
+        assert.deepEqual(computeAiFightBaseReward(null), { xp: 100, ryo: 61, trait: null });
     });
 
     it('carries a separately discriminated solo-PvE session binding', () => {

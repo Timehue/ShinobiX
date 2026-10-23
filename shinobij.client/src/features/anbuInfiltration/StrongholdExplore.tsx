@@ -393,7 +393,7 @@ export function StrongholdExplore({ character, sector, targetVillage, sharedImag
             </div>
             <button className="stronghold-leave" onClick={() => void leave()} disabled={!!pending || admissionPending}>{pending === 'leave' ? 'Leaving…' : 'Leave stronghold'}</button>
         </header>
-        {obsidian && <div className="stronghold-reward-banner"><strong>4× PvP rewards</strong><span>Ryo · Stat growth · Jutsu XP</span></div>}
+        {obsidian && <div className="stronghold-reward-banner"><strong>1.5× PvP rewards</strong><span>Ryo · Jutsu XP</span></div>}
         {contest && <div className="stronghold-war-banner" role="status"><span><b>Sector {sector} war · {sectorContestLabel(contest.winCondition)}</b><small>{contest.attackerVillage} vs {contest.defenderVillage} · Eligible battles inside count toward this sector.</small></span>
             {onOpenSectorContest && <button disabled={movementBlocked || !state || threat >= 100} onClick={() => { stopWalk(); onOpenSectorContest(); }}>Open {sectorContestLabel(contest.winCondition).toLowerCase()}</button>}
             {onFightSectorGarrison && sectorContestGarrisonReady(contest, presenceTime) && <button disabled={movementBlocked || !state || threat >= 100} onClick={() => { stopWalk(); onFightSectorGarrison(); }}>Fight garrison</button>}
@@ -451,7 +451,7 @@ export function StrongholdExplore({ character, sector, targetVillage, sharedImag
                         : <><p>A sealed patrol ledger rests here. Inspect it for route intel; it does not affect patrol pressure.</p>
                             <button disabled={intelPending || !!pending || threat >= 100 || !!state?.patrol} onClick={() => void claimIntel()}>{intelPending ? 'Reading…' : 'Inspect patrol ledger'}</button></>}
                 </div>}
-                <p className="stronghold-hint">Each step adds 4% threat. Defeat the patrol to keep exploring. {obsidian ? 'Meet your rivals at the Blood Altar in the southeast. PvP wins anywhere inside earn double Death’s Gate’s rewards. Patrols do not earn this bonus. Normal reward limits apply.' : 'The Anbu guards the vault in the southeast.'}</p>
+                <p className="stronghold-hint">Each step adds 4% threat. Defeat the patrol to keep exploring. {obsidian ? 'Meet your rivals at the Blood Altar in the southeast. PvP wins anywhere inside earn more than Death’s Gate’s rewards. Patrols do not earn this bonus. Normal reward limits apply.' : 'The Anbu guards the vault in the southeast.'}</p>
                 <p className="stronghold-hint underground-field-note">Sector {sector} · Shared dungeon<br />Your sector, village allegiance and active war follow you inside. Rival battles use this sector’s combat rules. {obsidian ? 'Patrols keep their normal rewards.' : 'Patrols and the Anbu keep their own rewards and event credit.'}</p>
             </aside></StrongholdDialog>}
         </div>
@@ -466,7 +466,7 @@ export function StrongholdExplore({ character, sector, targetVillage, sharedImag
         {selectedPeer && <StrongholdDialog title={selectedPeer.name} busy={!!pending} onClose={() => setSelectedPeer(null)}>
             <p>Level {selectedPeer.level} · {selectedPeer.village}</p>
             <p>{selectedEngagement?.kind === 'contest' ? `Challenge this shinobi to a ${sectorContestLabel(selectedEngagement.winCondition).toLowerCase()}. The result counts toward the active sector war.` : 'Challenge this shinobi to a sector battle. Your current health and supplies carry into the fight.'}</p>
-            {obsidian && <p className="stronghold-reward-detail"><b>4× normal rewards on a PvP win.</b> Both fighters must be inside when the battle starts. Ryo, stat growth and XP for jutsu you cast receive the bonus; normal limits and repeat-opponent reductions apply.</p>}
+            {obsidian && <p className="stronghold-reward-detail"><b>1.5× normal Ryo and Jutsu XP on a PvP win.</b> Both fighters must be inside when the battle starts. Ryo and XP for jutsu you cast receive the bonus; repeat-opponent and short-fight reductions apply.</p>}
             <div className="stronghold-dialog-actions"><button className="stronghold-attack" disabled={blocked || !!pending || threat >= 100 || !availablePeers.some(p => p.name === selectedPeer.name)} onClick={() => void attack(selectedPeer)}>{pending === 'attack' ? 'Connecting…' : 'Attack player'}</button><button onClick={() => setSelectedPeer(null)}>Cancel</button></div>
         </StrongholdDialog>}
     </section>;

@@ -1,4 +1,5 @@
 import { MAX_WILD_SECTOR, isPlayableWildSector } from '../../shared/sector-geo.js';
+import { anchorRyoPerMinute } from '../../shared/economy-anchor.js';
 
 export type WandererMerchantOffer = {
     cost: number;
@@ -16,8 +17,6 @@ export type WandererFavorReward = {
     ryo: number;
     boneCharms: number;
 };
-
-const SECTOR_COUNT = 60;
 
 function clampInt(v: unknown, min: number, max: number): number {
     const n = Math.floor(Number(v) || 0);
@@ -61,8 +60,10 @@ export function wandererMedicOffer(
     return { cost: Math.max(160, Math.min(25_000, raw)), missingHp, missingChakra, missingStamina };
 }
 
-export function wandererFavorTargetSector(favorId: string, originSector: unknown, maxSector = SECTOR_COUNT): number {
-    const max = Math.max(2, Math.min(MAX_WILD_SECTOR, Math.floor(Number(maxSector) || SECTOR_COUNT)));
+/** A delivery target in any playable wild sector: 61-66 included, the Sunscar
+ *  Festival sector (54) skipped. */
+export function wandererFavorTargetSector(favorId: string, originSector: unknown, maxSector = MAX_WILD_SECTOR): number {
+    const max = Math.max(2, Math.min(MAX_WILD_SECTOR, Math.floor(Number(maxSector) || MAX_WILD_SECTOR)));
     const from = clampInt(originSector, 1, max);
     const h = hashString(`favor:${favorId}:${from}`);
     const span = max - 1;
@@ -73,11 +74,20 @@ export function wandererFavorTargetSector(favorId: string, originSector: unknown
     return dest;
 }
 
+/** Wanderer favour pay (economy rebalance 2026-10, framework #19): two anchor
+ *  minutes plus 10, which is 0.5 x (100 + 16 x min(L, 70)), plus a 0-95 spread
+ *  per favour. Mean 178 / 338 / 498 / 658 at L10 / 30 / 50 / 70+, or 1.48x /
+ *  1.21x / 1.13x / 1.10x the anchor at two minutes a favour, and it stops rising
+ *  where A(L) does. Kill value (the old formula): 220 + 14L + (h % 160). */
+export const FAVOR_RYO_ANCHOR_MINUTES = 2;
+export const FAVOR_RYO_FLAT = 10;
+export const FAVOR_RYO_SPREAD = 96;
+
 export function wandererFavorReward(level: unknown, favorId: string): WandererFavorReward {
     const lvl = clampInt(level, 1, 100);
     const h = hashString(`favor-reward:${favorId}`);
     return {
-        ryo: 220 + lvl * 14 + (h % 160),
+        ryo: FAVOR_RYO_ANCHOR_MINUTES * anchorRyoPerMinute(lvl) + FAVOR_RYO_FLAT + (h % FAVOR_RYO_SPREAD),
         boneCharms: 1 + (h % 2),
     };
 }

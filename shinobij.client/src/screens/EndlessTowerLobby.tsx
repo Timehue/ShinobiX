@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { Character } from "../types/character";
-import { endlessWaveReward } from "../lib/endless-tower";
+import { ENDLESS_FACTOR_CAP_WAVE, endlessWaveReward } from "../lib/endless-tower";
 import { endlessEntryCost } from "../lib/entry-fee";
 import endlessTowerHero from "../assets/towers/endless-tower-hero.webp";
 
@@ -70,6 +70,7 @@ export function EndlessTowerLobby({
             <div style={{ padding: "1rem 1.4rem 1.4rem" }}>
             <p style={{ color: "var(--text-dim)", marginTop: 0 }}>
                 Each wave is harder than the last. Every 5th floor is a milestone (×2 rewards); every 10th is a boss floor (×3).
+                Ryo per floor stops rising after floor {ENDLESS_FACTOR_CAP_WAVE}, but milestone floors still pay double or triple.
                 Defeat loses the run's unclaimed ryo. Retreat between waves to keep it; milestone currencies stay yours.
             </p>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.8rem", margin: "1rem 0" }}>

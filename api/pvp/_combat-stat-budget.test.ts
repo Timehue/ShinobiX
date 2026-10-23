@@ -1,4 +1,5 @@
 import { strict as assert } from 'node:assert';
+import { createHash } from 'node:crypto';
 import { describe, it } from 'node:test';
 import { _makeMemoryKv } from '../_storage.js';
 import { reservePvpCombatStatBudget } from './_combat-stat-budget.js';
@@ -59,5 +60,28 @@ describe('PvP event-time combat-stat budget', () => {
         assert.equal((await reservePvpCombatStatBudget(store, {
             playerName: 'Winner', battleId: 'battle-after-migrate', eventAt: EVENT, requested: 3, cap: 5,
         })).points, 0);
+    });
+
+    // The cap is the DAILY_STAT_POINT_CAP dial, and hunt/field claims share the
+    // row, so neither a lowered cap nor a long day may fail a fight's reward.
+    it('a row spent past a lowered cap grants 0 instead of failing every reservation', async () => {
+        const store = _makeMemoryKv();
+        await store.set('combat-stat-count:winner:2026-08-15', { version: 1, day: '2026-08-15', spent: 70, legacySpent: 70, allocations: {} });
+        assert.deepEqual(await reservePvpCombatStatBudget(store, {
+            playerName: 'Winner', battleId: 'battle-lowered', eventAt: EVENT, requested: 6, cap: 60,
+        }), { points: 0, replayed: false, day: '2026-08-15' });
+    });
+
+    it('a full allocation table on a spent budget still settles the next battle at 0', async () => {
+        const store = _makeMemoryKv();
+        const allocations: Record<string, unknown> = {};
+        for (let i = 0; i < 128; i += 1) {
+            const battleId = `old-${i}`;
+            allocations[createHash('sha256').update(battleId).digest('hex')] = { version: 1, battleId, points: 0 };
+        }
+        await store.set('combat-stat-count:winner:2026-08-15', { version: 1, day: '2026-08-15', spent: 60, legacySpent: 60, allocations });
+        assert.deepEqual(await reservePvpCombatStatBudget(store, {
+            playerName: 'Winner', battleId: 'battle-129', eventAt: EVENT, requested: 3, cap: 60,
+        }), { points: 0, replayed: false, day: '2026-08-15' });
     });
 });

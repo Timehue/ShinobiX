@@ -35,12 +35,21 @@ test('cookRecipeGate: cap → ryo → material, in the server order', () => {
     assert.deepEqual(cookRecipeGate({ ...base, ryo: 29 }, field, NOW), { ok: false, reason: 'Not enough ryo (30 needed)' });
     assert.deepEqual(cookRecipeGate({ ryo: 100 }, campaign, NOW), { ok: false, reason: 'Needs 4 Beast Meat' });
     assert.deepEqual(cookRecipeGate({ ryo: 100 }, field, NOW), { ok: false, reason: 'Needs 1 Beast Meat' });
-    assert.deepEqual(cookRecipeGate({ ...base, itemStacks: base.itemStacks.filter(stack => stack.itemId !== 'gather-heartwood-bark') }, campaign, NOW), { ok: false, reason: 'Needs 2 Heartwood Bark for cooking fuel (have 0)' });
+    assert.deepEqual(cookRecipeGate({ ...base, itemStacks: base.itemStacks.filter(stack => stack.itemId !== 'gather-heartwood-bark') }, campaign, NOW), { ok: false, reason: 'Needs 2 Heartwood Bark for cooking fuel (Ember Ore or Ember Scale also burn; have 0)' });
+});
+
+test('cookRecipeGate counts Ember Ore and Ember Scale as fuel, the same rows applyCookRecipe burns', () => {
+    const noBark = { ryo: 1_000, itemStacks: [{ itemId: 'gather-field-herb', count: 2 }, { itemId: 'hunt-beast-meat', count: 4 }] };
+    assert.deepEqual(cookRecipeGate({ ...noBark, itemStacks: [...noBark.itemStacks, { itemId: 'gather-ember-ore', count: 1 }, { itemId: 'hunt-ember-scale', count: 1 }] }, campaign, NOW), { ok: true, material: 'hunt-beast-meat' });
+    assert.deepEqual(cookRecipeGate({ ...noBark, itemStacks: [...noBark.itemStacks, { itemId: 'hunt-ember-scale', count: 1 }] }, campaign, NOW),
+        { ok: false, reason: 'Needs 2 Heartwood Bark for cooking fuel (Ember Ore or Ember Scale also burn; have 1)' });
+    // Ash Scale is not fuel; only the Ember Drake's scale burns.
+    assert.equal(cookRecipeGate({ ...noBark, itemStacks: [...noBark.itemStacks, { itemId: 'hunt-ash-scale', count: 5 }] }, field, NOW).ok, false);
 });
 
 test('cook materials are named, never raw ids', () => {
-    assert.deepEqual(COOK_MATERIAL_IDS, ['gather-river-fish', 'gather-field-herb', 'gather-heartwood-bark', 'gather-river-fish-fine',
-        'gather-river-fish-superior', 'gather-river-fish-pristine', 'hunt-beast-meat']);
+    assert.deepEqual(COOK_MATERIAL_IDS, ['gather-river-fish', 'gather-field-herb', 'gather-heartwood-bark', 'gather-ember-ore', 'hunt-ember-scale',
+        'gather-river-fish-fine', 'gather-river-fish-superior', 'gather-river-fish-pristine', 'hunt-beast-meat']);
     assert.equal(cookMaterialChoiceName(campaign), 'Beast Meat');
     assert.equal(cookMaterialChoiceName(field), 'Beast Meat');
     // an id the map has not heard of falls back to itself rather than "undefined"
@@ -49,12 +58,12 @@ test('cook materials are named, never raw ids', () => {
 });
 
 test('cookRecipeLine reads as voice and takes every number from the recipe', () => {
-    assert.equal(cookRecipeLine(field), '1 Beast Meat, 1 Field Herb, 1 Heartwood Bark for fuel and 30 ryo — five days of field rations.');
-    assert.equal(cookRecipeLine(campaign), '4 Beast Meat, 2 Field Herbs, 2 Heartwood Bark for fuel and 80 ryo — twenty days of siege rations.');
+    assert.equal(cookRecipeLine(field), '1 Beast Meat, 1 Field Herb, 1 Heartwood Bark for fuel (or Ember Ore / Ember Scale) and 30 ryo — five days of field rations.');
+    assert.equal(cookRecipeLine(campaign), '4 Beast Meat, 2 Field Herbs, 2 Heartwood Bark for fuel (or Ember Ore / Ember Scale) and 80 ryo — twenty days of siege rations.');
     // an unlisted yield still renders, as a numeral rather than a blank
     assert.equal(
         cookRecipeLine({ ...field, ryo: 45, rations: 7 }),
-        '1 Beast Meat, 1 Field Herb, 1 Heartwood Bark for fuel and 45 ryo — 7 days of field rations.',
+        '1 Beast Meat, 1 Field Herb, 1 Heartwood Bark for fuel (or Ember Ore / Ember Scale) and 45 ryo — 7 days of field rations.',
     );
 });
 
@@ -64,6 +73,7 @@ test('hasAnyCookMaterial decides whether the kitchen owes an empty state', () =>
     assert.equal(hasAnyCookMaterial({ inventory: ['hunt-beast-meat'] }), true);
     assert.equal(hasAnyCookMaterial({ itemStacks: [{ itemId: 'hunt-ash-scale', count: 1 }] }), false, 'scales are not food');
     assert.equal(hasAnyCookMaterial({ itemStacks: [{ itemId: 'hunt-ash-scale', count: 0 }] }), false, 'an empty stack is not a material');
+    assert.equal(hasAnyCookMaterial({ itemStacks: [{ itemId: 'hunt-ember-scale', count: 1 }] }), true, 'Ember Scale burns as fuel');
 });
 
 test('the Noodle Den screen has an empty state, a toast, and no "?" in a confirmation', async () => {

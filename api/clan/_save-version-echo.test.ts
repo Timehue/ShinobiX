@@ -127,7 +127,7 @@ describe('clan full-character mutation version echoes', { concurrency: false }, 
             level: 1,
             xp: 0,
             treasury: {},
-            members: [{ name: 'EchoMission', battleContrib: 20, level: 10 }],
+            members: [{ name: 'EchoMission', battleContrib: 20, level: 10, month: new Date().toISOString().slice(0, 7) }],
         });
         const body = { playerName: 'EchoMission', clan: 'Echo Mission', missionKey: 'battle' };
 

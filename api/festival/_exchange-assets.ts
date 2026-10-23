@@ -12,6 +12,8 @@ import type { SettlementCatalogs } from '../shop/_catalog.js';
 import { NAMED_GEAR_EXCHANGE_BLOCK_MESSAGE } from '../../shared/named-gear-rules.js';
 import { wasEverEquipped } from '../save/_named-gear-equipped.js';
 import { weaponTagEffectText } from '../pvp/_weapon-tags.js';
+import { isStackedMaterialId } from '../../shared/stacked-materials.js';
+import { PET_UNLOCK_WORN_ERROR, petUnlockLeftWithoutCopy } from '../pet/_pet-unlocks.js';
 
 type Obj = Record<string, unknown>;
 export type SealedExchangeAsset = { asset: ExchangeAsset; definition: Obj; stackable: boolean; attunement?: string };
@@ -88,7 +90,10 @@ export function sealAsset(record: Obj, catalogs: SettlementCatalogs, kind: Excha
         if (definition.evolutionStage === 0 || definition.evolutionStage === 1 || definition.evolutionStage === 2) asset.evolutionStage = definition.evolutionStage;
         if (typeof definition.paletteVariantId === 'string' && definition.paletteVariantId.trim()) asset.paletteVariantId = definition.paletteVariantId.trim();
     }
-    return { asset, definition, stackable: definition.stackable === true || objects(c.itemStacks).some(s => s.itemId === id), ...(typeof attunement === 'string' ? { attunement } : {}) };
+    // Hunt materials and the Weekly Boss Core always land in the buyer's stack (A12),
+    // even when the seller's units were still legacy inventory[] copies.
+    const stackable = definition.stackable === true || (kind === 'item' && isStackedMaterialId(id)) || objects(c.itemStacks).some(s => s.itemId === id);
+    return { asset, definition, stackable, ...(typeof attunement === 'string' ? { attunement } : {}) };
 }
 
 export function ownedQuantity(c: Obj, kind: ExchangeKind, id: string): number {
@@ -98,8 +103,12 @@ export function ownedQuantity(c: Obj, kind: ExchangeKind, id: string): number {
     return strings(c.inventory).filter(s => s === id).length + objects(c.itemStacks).filter(s => s.itemId === id).reduce((n, s) => n + balance(s.count), 0);
 }
 
+/** The two currencies trade refuses outright; the Exchange refuses to list them too (_exchange.ts). */
+export const EXCHANGE_UNLISTABLE_RESOURCES: ReadonlySet<string> = new Set(['honorSeals', 'mythicSeals']);
+
 export function unavailableReason(c: Obj, sealed: SealedExchangeAsset): string | undefined {
     const { kind, id } = sealed.asset;
+    if (kind === 'resource' && EXCHANGE_UNLISTABLE_RESOURCES.has(id)) return 'Honor Seals and Mythic Seals cannot be traded.';
     if (kind === 'card' && isChronicleProgressionCardId(id)) return 'This Chronicle record is an account progression unlock.';
     if (kind === 'pet') {
         const pet = objects(c.pets).find(p => p.id === id);
@@ -131,6 +140,8 @@ export function removeAsset(c: Obj, sealed: SealedExchangeAsset, quantity: numbe
         return { ...s, count: balance(s.count) - take };
     }).filter(s => Number(s.count) > 0);
     const inventory = drain(strings(c.inventory));
+    // The last copy of a pet unlock (collar, PvP gear) stays while a pet wears it.
+    if (petUnlockLeftWithoutCopy({ ...c, inventory, itemStacks }, id)) throw new ExchangeError(PET_UNLOCK_WORN_ERROR);
     const equipment = { ...(c.equipment as Obj ?? {}) };
     if (!inventory.includes(id) && !itemStacks.some(s => s.itemId === id)) {
         for (const slot of ['item', 'item1', 'item2', 'item3', 'thrown', 'potion']) if (equipment[slot] === id) equipment[slot] = null;
