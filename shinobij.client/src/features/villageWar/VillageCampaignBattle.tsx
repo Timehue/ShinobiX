@@ -25,7 +25,8 @@ export default function VillageCampaignBattle({ character, warId, run, sharedIma
         awaitingNote: 'Preparing the stronghold defense.', forfeitConfirm: 'Forfeit this stronghold battle?',
         doneNote: () => 'The server recorded this battle. Return to the war to see the score.', autoJoin: true }), []);
     const cardContext = useMemo(() => ({ name: character.name, warId, runId: run.runId }), [character.name, warId, run.runId]);
-    if (run.mode === 'card') return <CardClashDuelScreen character={character} setScreen={onBack} config={cardConfig} sharedImages={sharedImages} context={cardContext} />;
+    if (run.mode === 'card') return <CardClashDuelScreen character={character} setScreen={onBack} config={cardConfig} sharedImages={sharedImages} context={cardContext}
+        onVersionedCharacter={onVersionedCharacter} />;
     if (run.mode === 'pet') return <PetDuelReplayScreen<CampaignPetSession> pets={activeCarriedPets(character)} config={{
         title: 'Village War · Pet Stronghold', intro: 'Your sealed pet team fights the stronghold defense.',
         missingText: 'No pet battle selected.', backLabel: 'Back to war', onBack, ready: true, pickerless: { loading: 'Loading the sealed battle…', missing: 'This battle could not be loaded.' },

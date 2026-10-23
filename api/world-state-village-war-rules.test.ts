@@ -370,6 +370,46 @@ describe('spoils settlement', { concurrency: false }, () => {
         const standing = await kv.get<Record<string, any>>('village:war-standing:ashenleafvillage');
         assert.equal(standing?.wins, 1);
     });
+
+    // 2026-10 rebalance (I-5b): rotating early surrenders kept a village on the
+    // loser's +10% comeback rally almost permanently. An agreement before the
+    // 72 h floor still moves the spoils, but stamps no rally either way.
+    async function settleSurrenderedWar(liveHours: number) {
+        await kv.set('world:territory:1', { sector: 1, ownerVillage: 'Stormveil Village' });
+        await kv.set('shared:village-war:ashenleafvillage', { warResources: 2_000 });
+        const leafRallyUntil = Date.now() + 2 * DAY;
+        await kv.set('game:village-state:moonshadowvillage', { treasury: { ryo: 100_000, honorSeals: 200, fateShards: 50 } });
+        await kv.set('game:village-state:ashenleafvillage', { treasury: { ryo: 0 }, warLossDebuffUntil: leafRallyUntil });
+        const endedAt = Date.now() - 8 * DAY;
+        const liveFrom = endedAt - liveHours * 60 * 60 * 1_000;
+        await kv.set(WAR_KEY, liveWar({
+            endedAt, winnerVillage: LEAF, surrenderedBy: MIST,
+            startedAt: liveFrom - 60_000, pendingUntil: liveFrom, updatedAt: endedAt,
+        }));
+        const out = await call('leafkage', { kind: 'war', war: { villages: [LEAF, MIST] } });
+        assert.equal(out.statusCode, 200, JSON.stringify(out.body));
+        assert.ok(await kv.get(`war:settled:${PAIR_ID}-g1`));
+        return {
+            leafRallyUntil,
+            loser: await kv.get<Record<string, any>>('game:village-state:moonshadowvillage'),
+            winner: await kv.get<Record<string, any>>('game:village-state:ashenleafvillage'),
+        };
+    }
+
+    it('an early surrender moves the spoils but stamps no rally on the loser and leaves the winner\'s live rally alone', async () => {
+        const { leafRallyUntil, loser, winner } = await settleSurrenderedWar(2);
+        assert.equal(loser?.treasury?.ryo, 95_000, 'the spoils still move');
+        assert.equal(winner?.treasury?.ryo, 5_000);
+        assert.equal(loser?.warLossDebuffUntil, undefined, 'no comeback rally for an early surrender');
+        assert.equal(winner?.warLossDebuffUntil, leafRallyUntil, 'the winner\'s own rally is not cleared');
+    });
+
+    it('a surrender after 72 hours of war still starts the loser\'s rally', async () => {
+        const { loser, winner } = await settleSurrenderedWar(96);
+        assert.equal(loser?.treasury?.ryo, 95_000);
+        assert.ok(Number(loser?.warLossDebuffUntil) > Date.now(), 'the loser rallies');
+        assert.equal(winner?.warLossDebuffUntil, 0, 'a victory ends the winner\'s rally, as before');
+    });
 });
 
 describe('war-ground raids through real fights', { concurrency: false }, () => {

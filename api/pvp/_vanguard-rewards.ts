@@ -25,6 +25,8 @@ import {
     type PvpSession,
 } from './session.js';
 import type { PlayerRankedTerminal } from './_player-ranked-journal.js';
+import { ACCOUNT_AGE_MIN_MS, levelGapMult } from './_pvp-anti-alt.js';
+import { pvpVanguardXpFactor, readRankedWeightRow } from './_valid-fight.js';
 
 // Pet escort: Vanguard with an active pet on a PvP win gets +5% Seals AND
 // each Pet Tamer in their clan with an active escort offer gets a +20% Tamer
@@ -65,18 +67,12 @@ export const VANGUARD_SEALS_PER_KILL = [0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5] as cons
  */
 export const DAILY_SEAL_CAP = 150;
 export const PER_TARGET_DAILY_CAP = 3;
-export const ACCOUNT_AGE_MIN_MS = 72 * 60 * 60 * 1000;
+// The age and gap rules live in _pvp-anti-alt.ts so the PvP purse shares them.
+export { ACCOUNT_AGE_MIN_MS, levelGapMult };
 const MIN_FIGHT_DURATION_MS = 15_000;
 
 function todayKey(): string {
     return new Date().toISOString().slice(0, 10);
-}
-
-export function levelGapMult(attackerLevel: number, opponentLevel: number): number {
-    const gap = attackerLevel - opponentLevel;
-    if (gap > 20) return 0;
-    if (gap > 10) return 0.5;
-    return 1;
 }
 
 export function vanguardXpForLevel(targetLevel: number): number {
@@ -196,15 +192,34 @@ async function grantVanguardRewardsForSessionLegacy(session: PvpSession): Promis
         const dailyCap = DAILY_SEAL_CAP + Math.min(15, masteryBonus('vanguard', spec, 'sealDailyCapFlat'));
         seals = Math.min(seals, Math.max(0, dailyCap - dailySoFar));
         seals = Math.min(seals, Math.max(0, PER_TARGET_DAILY_CAP - targetSoFar));
-        if (seals <= 0) return { granted: false, reason: 'capped' };
+
+        // Profession XP (always granted when Vanguard wins a real human fight,
+        // regardless of seal cap — XP and Seals can decouple at the daily cap).
+        // Rank 2+ perk: +10% XP. Multiplier is based on rank BEFORE this grant.
+        // XP follows the fight's PvP credit (I-17): pair weight x short-fight share.
+        const baseXpGain = vanguardXpForLevel(Number(loserChar.level ?? 1));
+        const xpFactor = await pvpVanguardXpFactor(kv, {
+            session,
+            winnerSlug,
+            loserSlug,
+            winnerChar,
+            loserChar,
+            terminalAt: Number(session.endedAt) || Date.now(),
+        });
+        const xpGain = Math.floor((rank >= 2 ? Math.floor(baseXpGain * 1.1) : baseXpGain) * xpFactor);
+        // Same rule as the V2 path (2026-10 rebalance, parity fix): a seal-capped
+        // win still pays its XP. At rank 5+ one kill fills the 3-per-target cap,
+        // so this path used to pay XP for only the first win per opponent a day.
+        if (seals <= 0 && xpGain <= 0) return { granted: false, reason: 'capped' };
 
         // Pet escort: if the Vanguard has an active pet and their clan has any
         // Pet Tamer with an active escort offer, +5% Seals to Vanguard AND set
-        // a next-expedition bonus flag on each offering Pet Tamer.
+        // a next-expedition bonus flag on each offering Pet Tamer. A win that
+        // pays no seals has nothing to boost and stamps no escort.
         const winnerClan = typeof winnerChar.clan === 'string' ? winnerChar.clan : '';
         const hasActivePet = typeof winnerChar.activePetId === 'string' && winnerChar.activePetId.length > 0;
         let escorters: string[] = [];
-        if (winnerClan && hasActivePet) {
+        if (seals > 0 && winnerClan && hasActivePet) {
             try {
                 escorters = await listActiveEscorters(winnerClan);
             } catch { /* best-effort */ }
@@ -212,12 +227,6 @@ async function grantVanguardRewardsForSessionLegacy(session: PvpSession): Promis
                 seals = Math.floor(seals * PET_ESCORT_SEAL_BONUS);
             }
         }
-
-        // Profession XP (always granted when Vanguard wins a real human fight,
-        // regardless of seal cap — XP and Seals can decouple at the daily cap).
-        // Rank 2+ perk: +10% XP. Multiplier is based on rank BEFORE this grant.
-        const baseXpGain = vanguardXpForLevel(Number(loserChar.level ?? 1));
-        const xpGain = rank >= 2 ? Math.floor(baseXpGain * 1.1) : baseXpGain;
 
         const nextHonor = Number(winnerChar.honorSeals ?? 0) + seals;
         const nextProfessionXp = Number(winnerChar.professionXp ?? 0) + xpGain;
@@ -275,14 +284,17 @@ async function grantVanguardRewardsForSessionLegacy(session: PvpSession): Promis
             // The verified claim endpoint is the durable retry path if the
             // terminal move could not finish this grant. Escort stamps are
             // already idempotent and therefore safe to encounter again.
+            // The daily seal counters move only when seals were paid (as on V2).
             const updatedCharacter = {
                 ...winnerChar,
                 honorSeals: nextHonor,
                 professionXp: nextProfessionXp,
                 professionRank: nextRank,
-                dailyHonorSealsEarned: dailySoFar + seals,
-                dailyHonorSealsByTarget: nextByTarget,
-                vanguardDailyResetDate: today,
+                ...(seals > 0 ? {
+                    dailyHonorSealsEarned: dailySoFar + seals,
+                    dailyHonorSealsByTarget: nextByTarget,
+                    vanguardDailyResetDate: today,
+                } : {}),
             };
             winnerWriteAttempted = true;
             await writeVanguardSave(kv, winnerKey, winnerRecord, updatedCharacter);
@@ -865,6 +877,7 @@ async function computeVanguardReward(
     winnerChar: Record<string, unknown>,
     loserChar: Record<string, unknown>,
     options: VanguardRewardOptions,
+    xpFactor = 1,
 ): Promise<{
     outcome: VanguardRewardOutcome;
     character: Record<string, unknown>;
@@ -946,9 +959,10 @@ async function computeVanguardReward(
         if (escorters.length > 0) seals = Math.floor(seals * PET_ESCORT_SEAL_BONUS);
     }
 
-    // XP intentionally survives a zero Seal daily/per-target cap.
+    // XP intentionally survives a zero Seal daily/per-target cap, but follows
+    // the fight's PvP credit (I-17): pair weight x short-fight share.
     const baseXpGain = vanguardXpForLevel(Number(loserSnapshot.level ?? 1));
-    const xpGain = rank >= 2 ? Math.floor(baseXpGain * 1.1) : baseXpGain;
+    const xpGain = Math.floor((rank >= 2 ? Math.floor(baseXpGain * 1.1) : baseXpGain) * Math.max(0, Math.min(1, xpFactor)));
     const nextProfessionXp = Number(winnerChar.professionXp ?? 0) + xpGain;
     let character: Record<string, unknown> = {
         ...winnerChar,
@@ -1142,12 +1156,26 @@ export async function grantVanguardRewardsForSession(
             return { granted: false };
         }
 
+        // Ranked V2 uses the match's sealed Elo weight (a missing row is a
+        // pre-deploy terminal: full weight); casual and world fights price the
+        // shared pair slot, so this saga and the later claim agree.
+        const xpFactor = options.rankedTerminal
+            ? (await readRankedWeightRow(store, options.rankedTerminal.matchId))?.weight ?? 1
+            : await pvpVanguardXpFactor(store, {
+                session,
+                winnerSlug: authority.winner,
+                loserSlug: authority.loser,
+                winnerChar,
+                loserChar,
+                terminalAt: Number(session.endedAt) || authority.terminalAt,
+            });
         const computed = await computeVanguardReward(
             session,
             authority,
             winnerChar,
             loserChar,
             options,
+            xpFactor,
         );
 
         // Escort flags are boolean/idempotent and precede the winner's exact

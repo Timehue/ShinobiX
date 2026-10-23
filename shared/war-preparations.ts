@@ -1,4 +1,6 @@
 /** Shared display and server balance for individual-war preparations. */
+import { preparationBoneCharmsForWr, RYO_PER_WR, treasuryRyoForWr } from './war-treasury-costs.js';
+
 export const WAR_PREPARATION_KEYS = ['watchtower', 'barracks', 'warAcademy'] as const;
 export type WarPreparationKey = typeof WAR_PREPARATION_KEYS[number];
 export const WAR_PREPARATION_MAX_TIER = 3;
@@ -24,6 +26,14 @@ export function preparationTier(value: unknown): number {
     return Number.isFinite(n) ? Math.max(0, Math.min(3, Math.floor(n))) : 0;
 }
 export function preparationCost(current: number): number { return 40 * (preparationTier(current) + 1); }
+/** The whole price of the next tier above `current` (2026-10 rebalance, #6): its
+ *  WR, plus treasury ryo and Bone Charms per WR (shared/war-treasury-costs.ts).
+ *  At the default rate: 40 WR + 10,000 ryo + 20 BC, then 80 / 20,000 / 40 and
+ *  120 / 30,000 / 60. `ryoPerWr` 0 is the WR-only price. */
+export function preparationTreasuryCost(current: number, ryoPerWr: number = RYO_PER_WR): { wr: number; ryo: number; boneCharms: number } {
+    const wr = preparationCost(current);
+    return { wr, ryo: treasuryRyoForWr(wr, ryoPerWr), boneCharms: preparationBoneCharmsForWr(wr, ryoPerWr) };
+}
 export function preparationUpkeep(levels: WarPreparation['levels']): number {
     const raw = WAR_PREPARATION_KEYS.reduce((sum, key) => sum + 2 * preparationTier(levels[key]), 0);
     return Math.ceil(raw * (1 - preparationTier(levels.barracks) / 10));

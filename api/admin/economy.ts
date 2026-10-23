@@ -16,8 +16,15 @@ import { readCurrencyLedgerTelemetry } from '../_currency-ledger.js';
 // (WR + treasury-seal faucet-vs-sink, tax split, maintenance, dormancy per
 // village — plan §8). Read-only, admin-gated.
 //
+// The 2026-10 rebalance adds three report-only sections from api/_economy.ts:
+// `today` (per-source counters), `players` (PvP purse percentiles, the exploit
+// alarm, FS earned and sink participation per player) and `exchange` (the
+// Exchange FS / BC / AS medians, the black-market loop product and dial signal,
+// and gift-priced resource lots for anti-RMT review). None of them acts on
+// its own; the owner reads them. `recent` holds at most MAX_ECON_TXNS (1,000).
+//
 //   GET /api/admin/economy?limit=200   (x-admin-password header)
-//   → 200 { aggregates, recent, duplicateTxnIds, war, currencyLedger }
+//   → 200 { aggregates, recent, duplicateTxnIds, today, players, exchange, war, currencyLedger }
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();

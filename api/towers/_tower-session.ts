@@ -209,6 +209,14 @@ export type TowerSession = {
     expiresAt?: number;
     /** Set only when the run was terminalized because it lapsed (F08): its expiry. */
     lapsedAt?: number;
+    /**
+     * Wall-clock of the first write that saw the run terminal, stamped by the
+     * store (writeSession, writeTowerPvpMatch) and never moved after. With
+     * createdAt it bounds the run's active minutes for the activity purses
+     * (api/_activity-purse.ts). Absent on rows that ended before it existed,
+     * which pay no purse. The engine never reads it.
+     */
+    terminalAt?: number;
     /** wall-clock when the CURRENT human's turn began (handler-set). Drives the co-op
      *  AFK auto-pass so a live run never deadlocks on an absent player. */
     turnStartedAt?: number;

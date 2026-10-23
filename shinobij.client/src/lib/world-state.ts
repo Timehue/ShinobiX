@@ -27,6 +27,8 @@ import type { TreasuryItemStack } from "./items";
 import { villages } from "../data/sectors";
 import { isWildSector, MAX_WILD_SECTOR, WILD_SECTOR_IDS } from "../../../shared/sector-geo";
 import { resolveSectorWeather } from "../../../shared/sector-weather";
+import { VILLAGE_WAR_REWARD_MIN_DURATION_HOURS } from "../../../shared/village-war-reward-floor";
+import { setSharedProgressionDialsPayload } from "./progression-dials-store";
 import { clampNumber, playerSlug } from "./utils";
 import { cleanVillageTreasury, defaultVillageTreasury, makeVillageDailyAgenda, normalizeAnbuAppointees, normalizeVillageDailyAgenda } from "./village-state";
 import { normalizeNoticePosts } from "./clan-notices";
@@ -48,6 +50,8 @@ export type VillageWarRecord = {
     hpMax?: Record<string, number>;
     /** Server-owned: village → when its Kage offered peace (ms). Both = peace. */
     peaceProposals?: Record<string, number>;
+    /** Server-owned: the village whose Kage surrendered, when that ended the war. */
+    surrenderedBy?: string;
     warGroundSector: number;
     warGroundHp: number;
     startedAt: number;
@@ -202,6 +206,7 @@ export function hydrateSharedGameState(data: {
     weeklyBossAiId?: string | null;
     dojoCircuitEnabled?: boolean;
     boostEvent?: unknown;
+    progressionDials?: unknown;
 }): boolean {
     const villageStates: Record<string, VillageState> = {};
     const rawVS = data.villageStates;
@@ -268,6 +273,7 @@ export function hydrateSharedGameState(data: {
     sharedWeeklyBossAiIdCache = data.weeklyBossAiId ?? "";
     sharedDojoCircuitEnabledCache = data.dojoCircuitEnabled === true;
     sharedBoostEventPayloadCache = data.boostEvent ?? null;
+    setSharedProgressionDialsPayload(data.progressionDials);
     // See hydrateSharedWorldState: report change so the 5s poller skips the
     // wasted full-app re-render when the server payload is unchanged.
     const snapshot = JSON.stringify([
@@ -275,6 +281,8 @@ export function hydrateSharedGameState(data: {
         sharedArenaTournamentCache, sharedArenaActiveFightsCache,
         sharedPendingClanPetBattleCache, sharedWeeklyBossAiIdCache,
         sharedDojoCircuitEnabledCache, sharedBoostEventPayloadCache,
+        // A Railway dial flip re-renders the Training preview and mission cards.
+        data.progressionDials ?? null,
     ]);
     const changed = snapshot !== lastSharedGameStateSnapshot;
     lastSharedGameStateSnapshot = snapshot;
@@ -460,6 +468,8 @@ export type VillageWar = {
     hpMax?: Record<string, number>;
     /** Server-owned: village → when its Kage offered peace (ms). Both = peace. */
     peaceProposals?: Record<string, number>;
+    /** Server-owned: the village whose Kage surrendered, when that ended the war. */
+    surrenderedBy?: string;
     warGroundSector: number;
     warGroundHp: number;
     startedAt: number;
@@ -536,6 +546,7 @@ function normalizeVillageWar(data: Partial<VillageWar> & { villages: [string, st
         winnerVillage: data.winnerVillage,
         endedAt: data.endedAt,
         warCrateId: data.warCrateId,
+        ...(typeof data.surrenderedBy === "string" && data.surrenderedBy ? { surrenderedBy: data.surrenderedBy } : {}),
         contributions: data.contributions,
         mvpByVillage: data.mvpByVillage,
         loserCrateId: data.loserCrateId,
@@ -672,6 +683,17 @@ export function activeVillageWarsGlobal(): VillageWar[] {
 // the rest of that path (recordVillageWarRaid, applyVillageWarDamage): PvP war
 // damage settles server-side (settlePvpVillageWarContinuation), and the server
 // applies mission damage and ends the war itself.
+/** A war ended by surrender or an agreed peace before the reward floor (mirrors
+ *  api/war/_early-end.ts). The server strips the crate id from such an ending,
+ *  so a missing `warCrateId` is the stamp to read. */
+function endedEarlyByAgreement(war: VillageWar): boolean {
+    if (!war.endedAt || war.warCrateId) return false;
+    const offers = war.peaceProposals ?? {};
+    const agreed = Boolean(war.surrenderedBy) || (!war.winnerVillage && war.villages.every((v) => Number(offers[v]) > 0));
+    const liveFrom = Number(war.pendingUntil) || Number(war.startedAt) || 0;
+    return agreed && war.endedAt - liveFrom < VILLAGE_WAR_REWARD_MIN_DURATION_HOURS * 3_600_000;
+}
+
 export function endedVillageWarRecordsFor(village: string, limit = 24): DetailedVillageWarRecord[] {
     return Object.values(sharedVillageWarCache)
         .filter((war): war is VillageWar & { endedAt: number } => Boolean(war.endedAt) && war.villages.includes(village))
@@ -687,11 +709,13 @@ export function endedVillageWarRecordsFor(village: string, limit = 24): Detailed
                 topDefender: mvp,
                 topAttacker: mvp,
                 mvpClan: "—",
-                rewards: !war.winnerVillage
-                    ? "No decisive victor — no crate awarded."
+                rewards: endedEarlyByAgreement(war)
+                    ? `Ended by agreement within ${VILLAGE_WAR_REWARD_MIN_DURATION_HOURS} hours — no crates, war purses or MVP rewards.`
+                    : !war.winnerVillage
+                    ? "No decisive victor — no crate awarded. Fighters with 40+ war points (counted up to 400) share the war purse at the losers' rate."
                     : war.winnerVillage === village
-                        ? "Legendary War Crate (MVP: +1 extra crate, +10k ryo, +50 Honor Seals, +2 Fate Shards)"
-                        : "Loss consolation: +5k ryo, +25 Honor Seals, +1 Fate Shard (contributors only)",
+                        ? "Legendary War Crate and the war purse for 40+ war points, counted up to 400 (MVP: +1 extra crate, 10k-15k ryo by level, +100 Honor Seals (Vanguard), +12 Bone Charms, +6 Fate Shards)"
+                        : "Loss consolation: +5k ryo, +50 Honor Seals (Vanguard), +6 Bone Charms, +3 Fate Shards (contributors only), and the war purse at the losers' rate for 40+ war points, counted up to 400",
                 date: new Date(war.endedAt).toLocaleDateString(),
             };
         });
@@ -857,6 +881,8 @@ export type ServerWarRewardClaim = {
     mvp: boolean;
     consolation: boolean;
     lifetimeDamage: number;
+    /** Ryo the village war purse paid across the claimed wars. */
+    purse: number;
 };
 
 /**
@@ -889,6 +915,7 @@ export async function claimServerWarRewards(character: Character): Promise<Serve
     let mvp = false;
     let consolation = false;
     let lifetimeDamage = 0;
+    let purse = 0;
     for (const [claimId, candidate] of candidates) {
         const settledKey = warClaimKey(character, claimId);
         if (warClaimSettled(settledKey)) continue;
@@ -912,11 +939,12 @@ export async function claimServerWarRewards(character: Character): Promise<Serve
             mvp ||= result.mvp === true;
             consolation ||= result.consolation === true;
             lifetimeDamage += Number(result.lifetimeDamage ?? 0);
+            purse += Number((result as { purse?: unknown }).purse ?? 0);
         } catch {
             // Fail closed; the next world/clan poll retries the idempotent claim.
         }
     }
-    return latest ? { character: latest, _saveVersion: latestSaveVersion, granted, crates, mvp, consolation, lifetimeDamage } : null;
+    return latest ? { character: latest, _saveVersion: latestSaveVersion, granted, crates, mvp, consolation, lifetimeDamage, purse } : null;
 }
 
 /**

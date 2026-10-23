@@ -19,7 +19,9 @@ before(async () => {
     ({ structureUpgradeErrorMessage } = await import('./war-structure.js'));
 });
 
-const CODES = ['insufficient-seals', 'insufficient-wr', 'materials-required', 'max-level', 'unknown-structure', 'not-per-war', 'retired-structure', 'purchase-reconcile-required'];
+const CODES = ['insufficient-seals', 'insufficient-wr', 'materials-required', 'max-level', 'unknown-structure', 'not-per-war', 'retired-structure', 'purchase-reconcile-required',
+    // 2026-10 rebalance: war preparations also cost treasury ryo and Bone Charms.
+    'insufficient-treasury-ryo', 'insufficient-treasury-bc', 'treasury-busy'];
 
 describe('structureUpgradeErrorMessage', () => {
     it('humanises every refusal the handler can return', () => {
@@ -57,6 +59,12 @@ describe('structureUpgradeErrorMessage', () => {
         assert.equal(structureUpgradeErrorMessage('insufficient-seals', {}), 'The treasury is short — 0 Honor Seals needed.');
         assert.equal(structureUpgradeErrorMessage('insufficient-wr', { cost: -12 }), 'The war pool is short — 0 War Resources needed.');
         assert.doesNotMatch(structureUpgradeErrorMessage('materials-required', { need: Number.NaN, have: undefined }), /NaN|undefined/);
+    });
+
+    it('names the treasury shortfall of a war preparation', () => {
+        assert.equal(structureUpgradeErrorMessage('insufficient-treasury-ryo', { need: 30_000, have: 100 }), 'The treasury is short — 30,000 ryo needed.');
+        assert.equal(structureUpgradeErrorMessage('insufficient-treasury-bc', { need: 60, have: 1 }), 'The treasury is short — 60 Bone Charms needed.');
+        assert.equal(structureUpgradeErrorMessage('treasury-busy', {}), 'The treasury is busy. Nothing was spent; try again in a moment.');
     });
 
     it('groups thousands so a 2,400-material bill is readable', () => {

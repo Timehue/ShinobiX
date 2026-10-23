@@ -8,6 +8,10 @@ import {
     isBoostEventActive,
     sanitizeBoostEvent,
 } from './boost-event.ts';
+import { LEGACY_TRAINING_TIERS, ROOKIE_STAT_PEAK_MULTIPLIER, TRAINING_TIERS, trainingStatGain } from '../api/_training-config.js';
+import { MAX_AGGREGATE_STAT_BOOST } from '../api/_stat-growth.js';
+import { WAR_DEBUFF_TRAINING_XP_MULT } from '../api/_war-morale.js';
+import { MAX_SEALED_STAT_GAIN } from '../api/training/_session.js';
 
 const HOUR = 3_600_000;
 const T0 = 1_800_000_000_000;
@@ -62,9 +66,18 @@ test('buildBoostEvent accepts only the offered multipliers and a 1-72h window', 
 });
 
 test('the cap stays within the training seal ceiling', () => {
-    // 8h tier base 72 × aggregate 2.5 × rookie peak 5 × cap must stay under
-    // MAX_SEALED_STAT_GAIN (2,500) in api/training/_session.ts.
-    assert.ok(72 * 2.5 * 5 * BOOST_MAX_MULTIPLIER < 2500);
+    // The largest 8h base on either training table (65 live, 72 on the legacy
+    // kill switch) × the 2.5 aggregate ceiling × the rookie peak × the war-morale
+    // buff × this cap must stay within MAX_SEALED_STAT_GAIN (2,500) in
+    // api/training/_session.ts, or a legitimate lease is rejected at completion.
+    const eightHourBase = Math.max(...[TRAINING_TIERS, LEGACY_TRAINING_TIERS].map((tiers) => {
+        const tier = tiers.find((t) => t.id === '8h')!;
+        return trainingStatGain(tier, tier.ms);
+    }));
+    const worst = Math.round(eightHourBase * MAX_AGGREGATE_STAT_BOOST * ROOKIE_STAT_PEAK_MULTIPLIER
+        * WAR_DEBUFF_TRAINING_XP_MULT * BOOST_MAX_MULTIPLIER);
+    assert.equal(worst, 2376);
+    assert.ok(worst <= MAX_SEALED_STAT_GAIN);
 });
 
 test('time-left text', () => {

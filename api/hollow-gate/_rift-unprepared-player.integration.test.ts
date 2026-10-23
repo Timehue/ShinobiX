@@ -3,6 +3,7 @@ import { before, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { riftQuestRyo, riftTargetSector } from '../sector/_rift-quest.js';
 import { hollowGateCombatReward } from './_combat-session.js';
+import { hollowGateRunRyoScale } from './_gate-scale.js';
 import { hollowGateRunKey, rewardMultiplierForToken, type HollowGateRunToken } from './_run-token.js';
 
 // The intro rift's real audience, end to end through the real handlers: a
@@ -145,6 +146,11 @@ test('an unprepared level-12 player descends the intro rift and resolves every e
     const chosen = await call('choose', { token, augmentId: offered[0] });
     assert.equal(chosen.status, 200, JSON.stringify(chosen.body));
     const multiplier = rewardMultiplierForToken(await readRun(token));
+    // The run seals the player's level, and a level-12 rift pays level-12 ryo
+    // (2026-10 rebalance #1), not the L60+ purse.
+    assert.equal((await readRun(token)).entryLevel, 12);
+    const ryoScale = hollowGateRunRyoScale(await readRun(token));
+    assert.ok(ryoScale > 0.2 && ryoScale < 0.3, `level-12 ryo scale ${ryoScale}`);
     const sealed = await call('floorSeal', { token, floor: 1, width: WIDTH, height: HEIGHT, playerX: 1, playerY: 1, tiles: riftBoard() });
     assert.equal(sealed.status, 200, JSON.stringify(sealed.body));
 
@@ -166,7 +172,8 @@ test('an unprepared level-12 player descends the intro rift and resolves every e
     const bossSettled = await call('combatSettle', { token, runId: bossStart.body.runId });
     assert.equal(bossSettled.status, 200, JSON.stringify(bossSettled.body));
     assert.equal(bossSettled.body.won, true);
-    const bossReward = Math.floor(hollowGateCombatReward(1, 'boss').ryo * multiplier);
+    const bossReward = Math.floor(hollowGateCombatReward(1, 'boss', undefined, { ryoScale }).ryo * multiplier);
+    assert.ok(bossReward < Math.floor(hollowGateCombatReward(1, 'boss').ryo * multiplier), 'the boss pays below the flat purse');
     let save = await readSave();
     assert.equal(save.character.ryo, 250 + bossReward, 'the boss pays its sealed reward once');
     assert.ok(save.character.riftQuestBossReceipt, 'the boss kill is bound to the accepted rift');
@@ -196,7 +203,7 @@ test('an unprepared level-12 player descends the intro rift and resolves every e
     const houndSettled = await call('combatSettle', { token, runId: houndStart.body.runId });
     assert.equal(houndSettled.status, 200, JSON.stringify(houndSettled.body));
     assert.equal(houndSettled.body.won, true);
-    const houndReward = Math.floor(hollowGateCombatReward(1, 'battle').ryo * multiplier);
+    const houndReward = Math.floor(hollowGateCombatReward(1, 'battle', undefined, { ryoScale }).ryo * multiplier);
     save = await readSave();
     assert.equal(save.character.ryo, 250 + bossReward + houndReward, 'the Hound pays its sealed reward once');
 

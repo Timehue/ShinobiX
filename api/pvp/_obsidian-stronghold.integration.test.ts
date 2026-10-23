@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
-import { before, test } from 'node:test';
+import { before, mock, test } from 'node:test';
 import type { PvpSession } from './session.js';
 import { PVP_CASUAL_STAT_POINTS_PER_WIN } from '../_stat-growth.js';
+import { pvpWinPurse } from './_valid-fight.js';
 
 process.env.NODE_ENV = 'test';
 process.env.SHINOBIX_QA_MEMORY_KV = '1';
@@ -71,12 +72,18 @@ async function start(suffix: string, inside: boolean, sector = 99) {
     return { one, two, battleId: session.battleId };
 }
 
-for (const [suffix, inside, sector, multiplier] of [['inside', true, 99, 4], ['outside', false, 99, 2], ['normal', true, 12, 1]] as const) {
-    test(`${suffix}: admission → committed cast → KO → reward claim, with replay and location changes`, async () => {
+// The anchored purse is live by default (PVP_PURSE_SCALE 1, owner A13): the Obsidian
+// interior pays 1.5x and Death's Gate 1.25x on 13.5 x A(100) = 4,050 (#22).
+for (const [suffix, inside, sector, multiplier, ryo] of [['inside', true, 99, 1.5, 6075], ['outside', false, 99, 1.25, 5062], ['normal', true, 12, 1, 4050]] as const) {
+    test(`${suffix}: admission → committed cast → KO → reward claim, with replay and location changes`, async (t) => {
+        // A full-credit fight needs 3 completed rounds and 60 s (api/pvp/_valid-fight.ts).
+        mock.timers.enable({ apis: ['Date'], now: Date.now() });
+        t.after(() => mock.timers.reset());
         const { one, two, battleId } = await start(suffix, inside, sector);
+        mock.timers.tick(61_000);
         const live = (await kv.get<PvpSession>(`pvp:${battleId}`))!;
         // Deterministic board setup; every action and reward still uses the real handler.
-        await kv.set(`pvp:${battleId}`, { ...live, activePlayer: 'p1', roundOpener: 'p1', p1: { ...live.p1, pos: 61 }, p2: { ...live.p2, pos: 63, hp: 1 } });
+        await kv.set(`pvp:${battleId}`, { ...live, round: 4, turnStartedAt: Date.now(), lastMoveAt: Date.now(), activePlayer: 'p1', roundOpener: 'p1', p1: { ...live.p1, pos: 61 }, p2: { ...live.p2, pos: 63, hp: 1 } });
         const invalid = await post(move, one, { battleId, role: 'p1', action: 'jutsu', jutsuId: FLICKER, tile: 63, moveToken: 'invalid-cast' });
         assert.ok(invalid.body.rejected, JSON.stringify(invalid.body));
         assert.equal((await kv.get<PvpSession>(`pvp:${battleId}`))?.jutsuUsed, undefined);
@@ -93,12 +100,15 @@ for (const [suffix, inside, sector, multiplier] of [['inside', true, 99, 4], ['o
         online.remove(one); online.remove(two);
         const paid = await post(claim, one, { battleId, outcome: 'win', completionVersion: 1 });
         assert.equal(paid.status, 200, JSON.stringify(paid.body));
-        assert.equal(paid.body.base.reward.ryo, 75 * multiplier);
+        assert.equal(paid.body.base.reward.ryo, ryo);
+        assert.equal(ryo, pvpWinPurse({ lMin: 100, sector, stronghold: inside && sector === 99 ? 'deathsgate' : undefined }));
+        assert.equal(paid.body.base.reward.credit.pairWeight, 1);
+        assert.equal(paid.body.base.reward.credit.sideMult, 1);
         assert.equal(paid.body.base.reward.combatGrowth, PVP_CASUAL_STAT_POINTS_PER_WIN);
-        assert.equal(paid.body.base.reward.jutsuXp, 10 * multiplier);
+        assert.equal(paid.body.base.reward.jutsuXp, Math.floor(10 * multiplier));
         assert.equal(paid.body.base.reward.auraDust, 6, 'unrelated rewards do not multiply');
         const save = (await kv.get<Record<string, any>>(`save:${one}`))!;
-        assert.equal(save.character.jutsuMastery.find((r: any) => r.jutsuId === FLICKER).xp, 10 * multiplier);
+        assert.equal(save.character.jutsuMastery.find((r: any) => r.jutsuId === FLICKER).xp, Math.floor(10 * multiplier));
         await kv.del(`pvp:${battleId}`); // Claim recovery uses the sealed snapshot, not current presence.
         const replay = await post(claim, one, { battleId, outcome: 'win', completionVersion: 1 });
         assert.equal(replay.status, 200, JSON.stringify(replay.body));

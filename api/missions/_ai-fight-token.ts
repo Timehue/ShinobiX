@@ -1,4 +1,4 @@
-import { MAX_AI_FIGHT_RYO, MAX_AI_FIGHT_XP } from './_ai-fight-reward.js';
+import { MAX_AI_FIGHT_RYO, MAX_AI_FIGHT_XP, aiFightPurseForLevel } from './_ai-fight-reward.js';
 import type { WorldAiFightContext } from '../../shared/world-ai-fight.js';
 import { cleanOrdinaryPveEncounter, type OrdinaryPveEncounter } from '../../shared/ordinary-pve-encounter.js';
 
@@ -146,13 +146,16 @@ export function createAiFightTokenRecord(
     };
 }
 
+/** The reward an ordinary AI win seals from the stored save: the level-scaled
+ *  purse (2026-10 rebalance) and the active pet's trait. The level is the
+ *  server-derived save level, never a request value. */
 export function computeAiFightBaseReward(character: Record<string, unknown> | null | undefined): { xp: number; ryo: number; trait: string | null } {
     const pets = Array.isArray(character?.pets) ? character.pets as Array<Record<string, unknown>> : [];
     const activePet = pets.find((pet) => pet && pet.id === character?.activePetId);
     const trait = activePet && typeof activePet.trait === 'string' ? activePet.trait : null;
     return {
         xp: trait === 'Swift' ? 125 : 100,
-        ryo: trait === 'Lucky' ? 90 : 75,
+        ryo: aiFightPurseForLevel(character?.level, trait),
         trait,
     };
 }

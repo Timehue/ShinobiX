@@ -12,6 +12,8 @@ export function aiFightWinRewardText(result: AiFightSettleResult, spar: boolean,
     const limit = result.capped ? result.ryo > 0
         ? ' The daily ryo limit reduced this payout.'
         : ' The daily ryo limit prevented a ryo payout.' : '';
+    // The shared daily stat-point budget, so a win that paid no stat points says why.
+    if (result.statBudget && !spar) rewards.push(`Stat points today: ${Math.min(result.statBudget.spent, result.statBudget.cap)} / ${result.statBudget.cap}`);
     if (rewards.length) return rewards.join(' · ') + limit;
     if (spar) return 'Practice bout — no rewards.';
     return `No direct ryo or stat points were awarded for this ${worldEncounter ? 'encounter' : 'fight'}.` + limit;

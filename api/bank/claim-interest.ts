@@ -9,6 +9,8 @@ import { retryOnSaveVersionConflict } from '../save/_projected-write.js';
 import { computeBankInterest, BANK_INTEREST_WINDOW_MS } from '../_bank-interest.js';
 import { recordEconomyTxn } from '../_economy.js';
 import { recordBetaMetric } from '../_beta-metrics.js';
+import { assessVillageTax } from '../_war-tax-apply.js';
+import { villageTaxEcho } from '../village/_village-tax-echo.js';
 
 /*
  * /api/bank/claim-interest  — POST only
@@ -52,6 +54,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
         if (!identity.admin && !(await enforceRateLimitKv(req, res, 'bank-claim-interest', 30, 60_000, identity.name))) return;
 
+        // The day's occupation tax, assessed by the server first (2026-10 rebalance,
+        // I-11), so interest is paid on the post-tax vault. Outside the save lock
+        // (the tax takes its own), idempotent per day, never throws.
+        const villageTax = await assessVillageTax(playerName);
         const now = Date.now();
 
         type Decision =
@@ -76,16 +82,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }));
         } catch (e) {
             console.error('[bank/claim-interest] credit failed', e);
-            return res.status(503).json({ error: 'Could not claim bank interest — please retry.' });
+            return res.status(503).json({ error: 'Could not claim bank interest — please retry.', ...villageTaxEcho(villageTax) });
         }
 
+        // Refusals after the assessment still echo it (its day stamp moved the
+        // save version; the client adopts that).
         if (!committed.ok) {
             if (committed.status === 404) return res.status(404).json({ error: 'Your save was not found.' });
-            return res.status(committed.status).json({ error: committed.error });
+            return res.status(committed.status).json({ error: committed.error, ...villageTaxEcho(villageTax) });
         }
         const out = { ...committed.value, saveVersion: committed._saveVersion };
         if (!out.credited) {
-            return res.status(200).json({ ok: true, eligible: false, claimed: 0, reason: out.reason, nextClaimAt: out.nextClaimAt, _saveVersion: out.saveVersion });
+            return res.status(200).json({ ok: true, eligible: false, claimed: 0, reason: out.reason, nextClaimAt: out.nextClaimAt, _saveVersion: out.saveVersion, ...villageTaxEcho(villageTax) });
         }
 
         await kv.set(`${AUDIT_LOG_PREFIX}${playerName}:${now}`, {
@@ -106,6 +114,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             lastBankInterestAt: now,
             nextClaimAt: out.nextClaimAt,
             _saveVersion: out.saveVersion,
+            ...villageTaxEcho(villageTax),
         });
     } catch (err) {
         console.error('[bank/claim-interest]', safeLogValue(err));

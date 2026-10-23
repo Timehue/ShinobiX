@@ -29,6 +29,9 @@ export type EchoesSettleSummary = {
     firstClear: boolean;
     firstClearBonus: number;
     bossBonus: number;
+    /** First paid repeat win of the UTC day. Optional: receipts settled before
+     *  the bonus shipped replay without it. */
+    dailyFirstWinBonus?: number;
     wins: number;
     balance: number;
     unlockedFloor: number | null;
@@ -50,6 +53,8 @@ export type ChronicleAiResult = {
      * snapshots let the client show each cause before the next response. */
     aiSteps?: ChronicleProjection[];
     reward?: { result: "player" | "opponent" | "draw"; ryo: number; dailyBonus: boolean; echoes?: EchoesSettleSummary };
+    /** Chronicle Points a won Dungeon Card seal paid (absent when it paid none). */
+    chroniclePoints?: number;
     character?: Character;
     migratedDeck?: string[];
 };

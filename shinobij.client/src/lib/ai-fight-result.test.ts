@@ -19,6 +19,14 @@ test('zero-ryo receipts preserve stat growth and distinguish a limit from practi
     assert.doesNotMatch(aiFightWinRewardText({ ...receipt, settled: false }, false, false), /\+2/);
 });
 
+test('a win states the shared daily stat-point budget, so a spent budget explains zero stat points', () => {
+    const receipt: AiFightSettleResult = { settled: true, outcome: 'win', ryo: 120, statPoints: 0,
+        statBudget: { day: '2026-10-22', spent: 60, cap: 60 }, capped: false, replayed: false, character: null, fetchMissionsCredited: [] };
+    assert.equal(aiFightWinRewardText(receipt, false, false), '+120 ryo · Stat points today: 60 / 60');
+    assert.match(aiFightWinRewardText({ ...receipt, ryo: 0 }, false, false), /^Stat points today: 60 \/ 60$/);
+    assert.match(aiFightWinRewardText({ ...receipt, ryo: 0 }, true, false), /Practice bout/, 'a spar never shows the budget');
+});
+
 test('a knockout returns to the hospital; a surviving or recovered fighter keeps the original destination', () => {
     assert.equal(aiFightExitScreen(true, 'worldMap'), 'hospital');
     assert.equal(aiFightExitScreen(false, 'worldMap'), 'worldMap');

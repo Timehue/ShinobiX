@@ -31,32 +31,64 @@ export function rarityTier(rarity: string | undefined): number {
     return RARITY_TIER[rarity ?? ""] ?? 0;
 }
 
+/** What a drawn copy past the 3-copy playset paid instead of joining the collection. */
+export interface PackCardConversion {
+    chroniclePoints: number;
+    fateShards: number;
+}
+
 export interface PackRevealEntry {
     id: string;
     /** First copy the player has ever owned (earlier flips in the same pack count as owned). */
     isNew: boolean;
+    /** Set when the server converted this copy (it was never added to the collection). */
+    converted?: PackCardConversion;
 }
 
 /**
  * Order a pack's cards for the reveal — stable sort, rarest last — and flag
  * which flips are brand-new pulls versus duplicates. `ownedBefore` is the
  * owned-copies count *before* this pack was applied to the save (starter
- * copies included), so a starter-deck card never reads as NEW.
+ * copies included), so a starter-deck card never reads as NEW. `conversions`
+ * is keyed by the card's index in the server's draw order, so it survives the
+ * rarity sort; a converted copy is never NEW.
  */
 export function planPackReveal(
     cards: readonly string[],
     rarityOf: (id: string) => string | undefined,
     ownedBefore: ReadonlyMap<string, number>,
+    conversions?: ReadonlyMap<number, PackCardConversion>,
 ): PackRevealEntry[] {
     const ordered = cards
         .map((id, index) => ({ id, index }))
         .sort((a, b) => (rarityTier(rarityOf(a.id)) - rarityTier(rarityOf(b.id))) || (a.index - b.index));
     const pulledSoFar = new Map<string, number>();
-    return ordered.map(({ id }) => {
+    return ordered.map(({ id, index }) => {
+        const conversion = conversions?.get(index);
+        if (conversion) {
+            return { id, isNew: false, converted: { chroniclePoints: conversion.chroniclePoints, fateShards: conversion.fateShards } };
+        }
         const already = (ownedBefore.get(id) ?? 0) + (pulledSoFar.get(id) ?? 0);
         pulledSoFar.set(id, (pulledSoFar.get(id) ?? 0) + 1);
         return { id, isNew: already === 0 };
     });
+}
+
+/** "+3 Fate Shards", "+1 Fate Shard", "+5 Chronicle Points", or both joined. */
+export function conversionLabel(value: PackCardConversion): string {
+    const parts: string[] = [];
+    if (value.chroniclePoints > 0) parts.push(`+${value.chroniclePoints} Chronicle ${value.chroniclePoints === 1 ? "Point" : "Points"}`);
+    if (value.fateShards > 0) parts.push(`+${value.fateShards} Fate ${value.fateShards === 1 ? "Shard" : "Shards"}`);
+    return parts.join(" and ");
+}
+
+/** The summary sentence for a pack whose surplus copies converted, or null. */
+export function conversionSummary(plan: readonly PackRevealEntry[]): string | null {
+    const total = plan.reduce<PackCardConversion>((sum, entry) => entry.converted
+        ? { chroniclePoints: sum.chroniclePoints + entry.converted.chroniclePoints, fateShards: sum.fateShards + entry.converted.fateShards }
+        : sum, { chroniclePoints: 0, fateShards: 0 });
+    if (total.chroniclePoints <= 0 && total.fateShards <= 0) return null;
+    return `Copies beyond your third became ${conversionLabel(total)}.`;
 }
 
 export interface PackTheme {

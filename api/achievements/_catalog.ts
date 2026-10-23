@@ -62,8 +62,14 @@ const numeric: Array<[string, string, number]> = [
     ['secret-charms-100', 'boneCharms', 100], ['secret-stones-100', 'auraStones', 100], ['secret-mythic-10', 'mythicSeals', 10], ['secret-loadout-full', 'equippedJutsuIds.length', 15],
     ['secret-monthly-50', 'monthlyPvpKills', 50], ['secret-hunter-5', 'hunterRank', 5], ['secret-bestiary-50', 'defeatedAiIds.length', 50], ['secret-bestiary-200', 'defeatedAiIds.length', 200],
     ['secret-elements-3', 'elements.length', 3], ['secret-menagerie-5', 'pets.length', 5], ['secret-exams-3', 'examsPassed.length', 3], ['secret-war-vet-50', 'villageWarMissionsCompleted', 50],
-    ['secret-tile-cards-1000', 'tileCards.length', 1000], ['secret-war-crates-10', 'claimedWarCrateIds.length', 10],
+    ['secret-tile-cards-1000', 'tileCards.length', 1000],
 ];
+
+// claimedWarCrateIds is the war payout stamp array: besides crate ids it holds
+// stats, consolation and purse markers (2026-10 rebalance), so the Salvager
+// counts crate ids only. Mirrored in shinobij.client/src/constants/achievements.ts.
+const NON_CRATE_MARKER = /^(?:stats-|clan-war-stats-|purse-|sector-purse:|loser-crate-|consolation-floor-|clan-war-consol-)/;
+const warCratesClaimed = (ids: unknown): number => (Array.isArray(ids) ? ids.filter((id) => !NON_CRATE_MARKER.test(String(id))).length : 0);
 
 const value = (character: Character, field: string): number => field.endsWith('.length')
     ? field === 'unlockedAchievements.length' ? achievementMetaCount(character.unlockedAchievements)
@@ -138,6 +144,7 @@ export const ACHIEVEMENT_RULES: Rule[] = [
     { id: 'secret-story-titled', hidden: true, check: (c) => Boolean(c.storyTitle) },
     { id: 'secret-weekly-bosses-5', hidden: true, check: (c) => c.weeklyBossKills != null && typeof c.weeklyBossKills === 'object' && Object.keys(c.weeklyBossKills as object).length >= 5 },
     { id: 'secret-minmaxer', hidden: true, check: (c) => n(c, 'level') >= 50 && n(c, 'unspentStats') === 0 },
+    { id: 'secret-war-crates-10', hidden: true, check: (c) => warCratesClaimed(c.claimedWarCrateIds) >= 10 },
 ];
 
 export function eligibleAchievementIds(character: Character): string[] {

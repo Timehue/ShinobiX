@@ -32,18 +32,21 @@ function allocationKey(battleId: string): string {
     return createHash('sha256').update(battleId).digest('hex');
 }
 
-function parseBudget(raw: unknown, day: string, cap: number): CombatStatBudget | null {
+// The cap is NOT checked here: it is a dial (DAILY_STAT_POINT_CAP), so a row
+// spent under a higher cap before a restart stays valid and simply leaves 0
+// points to grant, instead of failing every reservation for the rest of the day.
+function parseBudget(raw: unknown, day: string): CombatStatBudget | null {
     if (raw === null) return null;
     // Rolling-deploy bridge: the pre-v1 writer stored only a numeric count at
     // this exact key. Preserve that spent budget; the next CAS migrates it to
     // the proof-bearing row without granting those points again.
-    if (Number.isSafeInteger(raw) && Number(raw) >= 0 && Number(raw) <= cap) {
+    if (Number.isSafeInteger(raw) && Number(raw) >= 0) {
         return { version: 1, day, spent: Number(raw), legacySpent: Number(raw), allocations: {} };
     }
     if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new Error('pvp-combat-stat-budget-invalid');
     const value = raw as Partial<CombatStatBudget>;
     if (value.version !== 1 || value.day !== day || !Number.isSafeInteger(value.spent)
-        || Number(value.spent) < 0 || Number(value.spent) > cap
+        || Number(value.spent) < 0
         || !value.allocations || typeof value.allocations !== 'object' || Array.isArray(value.allocations)) {
         throw new Error('pvp-combat-stat-budget-invalid');
     }
@@ -98,16 +101,21 @@ export async function reserveCombatStatBudget(
     const receiptKey = allocationKey(battleId);
     for (let attempt = 0; attempt < 16; attempt += 1) {
         const raw = await store.get<unknown>(key);
-        const current = parseBudget(raw, day, cap) ?? { version: 1 as const, day, spent: 0, allocations: {} };
+        const current = parseBudget(raw, day) ?? { version: 1 as const, day, spent: 0, allocations: {} };
         const prior = current.allocations[receiptKey];
         if (prior) {
             if (prior.battleId !== battleId) throw new Error('pvp-combat-stat-budget-fingerprint-conflict');
             return { points: prior.points, replayed: true, day };
         }
+        const points = Math.min(requested, Math.max(0, cap - current.spent));
+        // A spent budget (or a 0 request) grants nothing, so it needs no
+        // receipt. Writing a 0-point row for every later win filled the table
+        // and made win #129 of a UTC day throw for every fight source. `spent`
+        // never falls within a day, so a retry of this battle also reads 0.
+        if (points === 0) return { points: 0, replayed: false, day };
         if (Object.keys(current.allocations).length >= MAX_ALLOCATIONS) {
             throw new Error('pvp-combat-stat-budget-full');
         }
-        const points = Math.min(requested, Math.max(0, cap - current.spent));
         const desired: CombatStatBudget = {
             version: 1,
             day,

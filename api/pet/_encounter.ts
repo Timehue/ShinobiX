@@ -9,8 +9,18 @@ const TRAITS = ['Loyal', 'Aggressive', 'Guardian', 'Swift', 'Lucky', 'Battleborn
 export type WildPetTrait = typeof TRAITS[number];
 export const DAILY_WILD_ENCOUNTER_ATTEMPTS = 150;
 
-/** The Explore hit ceiling: a roll above this is a miss. */
-const WILD_HIT_CEILING = 0.05;
+/**
+ * Cumulative Explore-roll ceilings per rarity. Economy rebalance 2026-10 (#38):
+ * the rare band widened 0.3% -> 1.2% to end the inversion (rare was scarcer
+ * than legendary). Mythic 0.2%, legendary 0.5% and standard 4.0% are
+ * unchanged, so the hit ceiling rises 5% -> 5.9%. Each band is wider than the
+ * one above it (0.2 < 0.5 < 1.2 < 4.0), so the table cannot invert again.
+ */
+export const WILD_RARITY_CEILINGS = { mythic: 0.002, legendary: 0.007, rare: 0.019, standard: 0.059 } as const;
+
+/** The Explore hit ceiling: a roll above this is a miss. api/world/_explore.ts
+ *  sizes the later Explore outcomes against this probe. */
+export const WILD_HIT_CEILING = WILD_RARITY_CEILINGS.standard;
 
 function petLevel(value: unknown): number {
     const level = Number(value);
@@ -27,11 +37,15 @@ export function rollWildPetLevel(companionLevel: unknown, random: () => number):
 /**
  * `guaranteed` (a Tracker trail's final sector) always yields a pet: the first
  * roll is scaled into the hit band, so the rarity mix is exactly an Explore
- * HIT's (80% standard, 6% rare, 10% legendary, 4% mythic).
+ * HIT's (67.8% standard, 20.3% rare, 8.5% legendary, 3.4% mythic since the
+ * 2026-10 rare-band change).
  */
 export function rollWildPet(random: () => number, now = Date.now(), condition?: { weather: SectorWeather }, options?: { guaranteed?: boolean }): Record<string, unknown> | null {
     const roll = options?.guaranteed ? random() * WILD_HIT_CEILING : random();
-    const rarity = roll <= 0.002 ? 'mythic' : roll <= 0.007 ? 'legendary' : roll <= 0.01 ? 'rare' : roll <= WILD_HIT_CEILING ? 'standard' : null;
+    const rarity = roll <= WILD_RARITY_CEILINGS.mythic ? 'mythic'
+        : roll <= WILD_RARITY_CEILINGS.legendary ? 'legendary'
+            : roll <= WILD_RARITY_CEILINGS.rare ? 'rare'
+                : roll <= WILD_RARITY_CEILINGS.standard ? 'standard' : null;
     if (!rarity) return null;
     // Night-only pets (shared/night-pets.ts) are in the pool only after dark,
     // judged by the same world clock as the sky. Like weather, this changes

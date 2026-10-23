@@ -164,6 +164,10 @@ export async function startHollowGatePetDuel(
  * to the team you bring, enforces the daily win cap up front, and seals the
  * payout into the session. No tier is sent, because a chosen tier on a paying
  * path is a difficulty slider on a faucet.
+ *
+ * A paid bout spends the fielded pets' one-use battle items at kickoff. When it
+ * did, the reply carries the committed save, which the caller should adopt so
+ * the roster stops showing the spent item.
  */
 export async function startArenaBout(
     playerName: string,

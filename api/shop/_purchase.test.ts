@@ -2,6 +2,7 @@ import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { purchaseCatalogItem } from './_purchase.js';
 import { ITEM_CATALOG } from '../pvp/_item-catalog.js';
+import { effectiveItemLevelReq } from '../../shared/item-level-gate.js';
 
 describe('catalog shop purchase', () => {
     it('rejects direct purchases of every forge-only weapon and armor without charging', () => {
@@ -19,7 +20,7 @@ describe('catalog shop purchase', () => {
     it('atomically debits ryo and grants an ordinary catalog item', () => {
         const result = purchaseCatalogItem({ level: 10, ryo: 1000, inventory: [] }, 'shinobi-vest', 99);
         assert.equal(result.ok, true);
-        if (result.ok) { assert.equal(result.item.qty, 1); assert.equal(result.character.ryo, 820); assert.deepEqual(result.character.inventory, ['shinobi-vest']); }
+        if (result.ok) { assert.equal(result.item.qty, 1); assert.equal(result.character.ryo, 940); assert.deepEqual(result.character.inventory, ['shinobi-vest']); }
     });
     it('derives premium currency and stored discounts', () => {
         const result = purchaseCatalogItem({ level: 100, fateShards: 1000, elderFocus: 'trade', inventory: [] }, 'golden-apple', 1);
@@ -123,5 +124,144 @@ describe('catalog shop purchase', () => {
     it('fails closed on insufficient funds and duplicate gear', () => {
         assert.equal(purchaseCatalogItem({ level: 100, ryo: 0, inventory: [] }, 'shinobi-vest', 1).ok, false);
         assert.equal(purchaseCatalogItem({ level: 100, ryo: 1000, inventory: ['shinobi-vest'] }, 'shinobi-vest', 1).ok, false);
+    });
+});
+
+describe('catalog shop purchase: the rarity level ladder (I-9)', () => {
+    const buyer = (level: number) => ({ level, ryo: 1_000_000, fateShards: 1_000_000, inventory: [], itemStacks: [] });
+    const refusedFree = (level: number, id: string) => {
+        const character = buyer(level);
+        const before = structuredClone(character);
+        assert.deepEqual(purchaseCatalogItem(character, id, 1), { ok: false, reason: 'level-required' }, `${id} at L${level}`);
+        assert.deepEqual(character, before, `${id} at L${level} charged on refusal`);
+    };
+    const bought = (level: number, id: string) => assert.equal(purchaseCatalogItem(buyer(level), id, 1).ok, true, `${id} at L${level}`);
+
+    it('gates a mythic weapon at Level 80, not its authored 55', () => {
+        refusedFree(55, 'worldsplitter-katana');
+        refusedFree(79, 'worldsplitter-katana');
+        bought(80, 'worldsplitter-katana');
+    });
+
+    it('gates legendary armour at Level 65, not its authored 40', () => {
+        refusedFree(40, 'bulwark-chest');
+        refusedFree(64, 'bulwark-chest');
+        bought(65, 'bulwark-chest');
+    });
+
+    it('gates an ungated legendary pet item and an uncommon armour piece at their tier floors', () => {
+        refusedFree(1, 'golden-apple');
+        bought(65, 'golden-apple');
+        refusedFree(5, 'reinforced-vest');
+        bought(15, 'reinforced-vest');
+    });
+
+    it('keeps the authored gates of service items', () => {
+        // A legendary-rarity document, priced in Fate Shards, still opens at its own Level 20.
+        assert.equal(purchaseCatalogItem({ ...buyer(20), profession: 'vanguard' }, 'profession-change-approval', 1).ok, true);
+        bought(1, 'tool-golden-pickaxe');
+        bought(1, 'beast-seal-ancient');
+    });
+
+    it('every purchasable item is refused one level under its ladder level and never refused for level at it', () => {
+        let checked = 0;
+        for (const item of Object.values(ITEM_CATALOG)) {
+            const level = effectiveItemLevelReq(item);
+            const at = purchaseCatalogItem({ ...buyer(level), profession: 'vanguard', storyChapter: 99, storyProgress: { chapter: 99 } }, item.id, 1);
+            if (!at.ok && at.reason === 'item-not-for-sale') continue;
+            checked++;
+            assert.notEqual(!at.ok && at.reason, 'level-required', `${item.id} refused for level at L${level}`);
+            if (level > 1) {
+                const under = purchaseCatalogItem(buyer(level - 1), item.id, 1);
+                assert.equal(under.ok, false, `${item.id} bought at L${level - 1}`);
+                // The two scrolls refuse earlier with their own unlock message.
+                if (!['profession-change-approval', 'village-transfer-scroll'].includes(item.id)) {
+                    assert.equal(!under.ok && under.reason, 'level-required', `${item.id} at L${level - 1}`);
+                }
+            }
+        }
+        assert.ok(checked >= 100, `only ${checked} purchasable items checked`);
+    });
+});
+
+/*
+ * 2026-10 item-use pass. Pet supplies had no hold cap, so the shop forced qty 1
+ * and refused 'already-owned' once one was held: treats, PvE gear, battle
+ * consumables and evolution stones sold one at a time, from an empty stack.
+ */
+describe('pet supplies buy in bulk; pet unlocks stay single', () => {
+    const rich = (extra: Record<string, unknown> = {}) => ({ level: 100, ryo: 1_000_000, fateShards: 100_000, inventory: [] as string[], itemStacks: [] as unknown[], ...extra });
+
+    it('tops up a held stack of treats, PvE gear and battle consumables', () => {
+        // Elemental and Ancient Treats are Crafter-only since main's pet growth v2.
+        for (const id of ['pet-treat', 'pve-frenzy-claw', 'consum-phantom-charm', 'golden-apple']) {
+            const result = purchaseCatalogItem(rich({ itemStacks: [{ itemId: id, count: 3 }] }), id, 10);
+            assert.equal(result.ok, true, id);
+            if (result.ok) {
+                assert.equal(result.item.qty, 10, id);
+                assert.deepEqual(result.character.itemStacks, [{ itemId: id, count: 13 }], id);
+            }
+        }
+    });
+
+    it('clamps a pet supply to the 50 hold cap', () => {
+        const near = purchaseCatalogItem(rich({ itemStacks: [{ itemId: 'pve-frenzy-claw', count: 45 }] }), 'pve-frenzy-claw', 20);
+        assert.equal(near.ok && near.item.qty, 5);
+        const full = purchaseCatalogItem(rich({ itemStacks: [{ itemId: 'pve-frenzy-claw', count: 50 }] }), 'pve-frenzy-claw', 1);
+        assert.deepEqual(full, { ok: false, reason: 'hold-cap' });
+    });
+
+    it('pet food keeps its own 9,999 counted stack, above the pet-supply cap', () => {
+        const treats = purchaseCatalogItem(rich({ itemStacks: [{ itemId: 'pet-treat', count: 45 }] }), 'pet-treat', 20);
+        assert.equal(treats.ok && treats.item.qty, 20);
+        const full = purchaseCatalogItem(rich({ itemStacks: [{ itemId: 'pet-treat', count: 9_999 }] }), 'pet-treat', 1);
+        assert.deepEqual(full, { ok: false, reason: 'hold-cap' });
+    });
+
+    it('buys several evolution stones as inventory entries, where the evolve route reads them', () => {
+        const result = purchaseCatalogItem(rich({ inventory: ['evo-stone-awakening'] }), 'evo-stone-awakening', 2);
+        assert.equal(result.ok, true);
+        if (result.ok) {
+            assert.deepEqual(result.character.inventory, ['evo-stone-awakening', 'evo-stone-awakening', 'evo-stone-awakening']);
+            assert.equal(result.item.totalCost, 2 * Number(ITEM_CATALOG['evo-stone-awakening'].cost));
+        }
+    });
+
+    it('keeps collars and PvP gear one-off unlocks', () => {
+        for (const id of ['collar-crimson', 'pvp-aegis-pendant']) {
+            const first = purchaseCatalogItem(rich(), id, 5);
+            assert.equal(first.ok && first.item.qty, 1, id);
+            assert.deepEqual(purchaseCatalogItem(rich({ inventory: [id] }), id, 1), { ok: false, reason: 'already-owned' }, id);
+        }
+    });
+
+    it('sells the Prismatic Collar at the top of the Fate Shard collar ladder', () => {
+        const collars = Object.values(ITEM_CATALOG).filter((item) => item.id.startsWith('collar-'));
+        const top = Math.max(...collars.map((item) => Number(item.cost)));
+        assert.equal(Number(ITEM_CATALOG['collar-prismatic'].cost), top, 'the most expensive collar');
+        assert.ok(collars.filter((item) => item.id !== 'collar-prismatic').every((item) => Number(item.cost) < top));
+        const bought = purchaseCatalogItem(rich(), 'collar-prismatic', 1);
+        assert.equal(bought.ok, true);
+        if (bought.ok) assert.equal(bought.item.currency, 'fateShards');
+        assert.equal(purchaseCatalogItem(rich({ level: 79 }), 'collar-prismatic', 1).ok, false, 'a mythic, so Lv80');
+    });
+
+    it('prices the re-priced budget picks under the item that used to beat them', () => {
+        assert.ok(Number(ITEM_CATALOG['pve-avengers-pendant'].cost) < Number(ITEM_CATALOG['pve-frenzy-claw'].cost));
+        assert.ok(Number(ITEM_CATALOG['consum-smoke-pellet'].cost) < Number(ITEM_CATALOG['consum-phantom-charm'].cost));
+    });
+});
+
+describe('the shop discount is the one capped rule', () => {
+    it('reads the village shop and blacksmith levels capped at 50, as /shop/settle does', () => {
+        const capped = purchaseCatalogItem({ level: 10, ryo: 10_000, inventory: [], villageUpgrades: { shop: 50 }, clanUpgradeLevels: { blacksmith: 50 } }, 'cloth-robe', 1);
+        const corrupt = purchaseCatalogItem({ level: 10, ryo: 10_000, inventory: [], villageUpgrades: { shop: 400 }, clanUpgradeLevels: { blacksmith: 999 } }, 'cloth-robe', 1);
+        assert.equal(capped.ok, true);
+        assert.equal(corrupt.ok, true);
+        if (capped.ok && corrupt.ok) {
+            assert.equal(corrupt.item.unitCost, capped.item.unitCost, 'a level past the cap buys nothing more');
+            // 12.5% village + 10% blacksmith on the 150-ryo robe.
+            assert.equal(capped.item.unitCost, Math.floor(150 * (1 - 22.5 / 100)));
+        }
     });
 });

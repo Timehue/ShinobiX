@@ -1,5 +1,7 @@
 import { provisionValue } from '../../../shared/gathering-supplies';
 import { displayPlayerName } from '../../../shared/player-name';
+import { buildCraftPointTable } from '../../../shared/village-stores-points';
+import { starterItems } from '../data/starter-items';
 /*
  * Village Stores — client mirror of api/_village-stores.ts + api/_village-intel.ts.
  *
@@ -180,18 +182,13 @@ export function storesLedgerRows(raw: unknown, now: number = Date.now(), rows: n
 
 export const RATION_ITEM_ID = "ration-pack";
 
-/** Materials credited per donatable material / relic — mirrors the
- *  api/craft/_forge.ts CRAFT_POINTS table. KEEP IN SYNC: the server is still
- *  the authority on what a donation credits; this table only lets the Town Hall
- *  say how much of the daily materials cap a donation would spend BEFORE the
- *  request, so the 1,500/day 429 is never a surprise. */
-export const CRAFT_POINT_VALUES: Readonly<Record<string, number>> = {
-    "hunt-torn-hide": 3, "hunt-wild-feather": 3, "hunt-small-fang": 3, "hunt-cracked-horn": 3,
-    "hunt-beast-meat": 5, "hunt-frost-pelt": 8, "hunt-shadow-claw": 8, "hunt-wolf-fang": 10,
-    "hunt-ash-scale": 15, "hunt-ember-scale": 20, "hunt-shadow-pelt": 25,
-    "hunt-ancient-beast-core": 30, "hunt-titan-bone": 30, "hunt-legendary-material": 50,
-    "weekly-boss-core": 150, "dungeon-legendary-relic": 200, "warforged-relic": 250, "veil-of-the-hollow": 250,
-};
+/** Materials credited per donatable material / relic / gear step — the same
+ *  shared/village-stores-points.ts table the server's api/craft/_forge.ts
+ *  CRAFT_POINTS builds, from the client's copy of the item catalog. The server
+ *  is still the authority on what a donation credits; this table only lets the
+ *  Town Hall say how much of the daily materials cap a donation would spend
+ *  BEFORE the request, so the 1,500/day 429 is never a surprise. */
+export const CRAFT_POINT_VALUES: Readonly<Record<string, number>> = buildCraftPointTable(starterItems);
 
 /** Which store an item donation lands in — mirrors storesDonationRouting's
  *  id rule (ration-pack → provisions; anything in CRAFT_POINT_VALUES →

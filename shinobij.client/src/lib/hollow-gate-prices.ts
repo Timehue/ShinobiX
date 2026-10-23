@@ -2,7 +2,8 @@
 
 export let HOLLOW_GATE_KEY_DUNGEON_KEY_COST = 5;
 
-export let HOLLOW_GATE_KEY_FATE_SHARD_COST = 10;
+// Default mirrors api/hollow-gate/_forge-key.ts KEY_FORGE_COSTS.fateShards (parity-tested).
+export let HOLLOW_GATE_KEY_FATE_SHARD_COST = 15;
 
 export function setHollowGateKeyDungeonKeyCost(v: number) { HOLLOW_GATE_KEY_DUNGEON_KEY_COST = v; }
 

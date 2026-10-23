@@ -4,9 +4,10 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { projectTowerPvpMatchForViewer, TOWER_PVP_ID } from './_pvp-session.js';
 import { settleTowerPvpMatch } from './_pvp-lifecycle.js';
+import { settleTowerPvpPurse, towerPvpPurseReply } from './_pvp-purse.js';
 import { LockContendedError } from '../_lock.js';
 
-/** POST an idempotent zero-reward terminal acknowledgement. */
+/** POST an idempotent terminal acknowledgement, then the winner's Team Arena purse. */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
@@ -24,9 +25,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const slug = identity.admin ? playerName : identity.name;
         const result = await settleTowerPvpMatch(matchId, slug, {}, 'public-queue');
         res.setHeader('Cache-Control', 'private, no-store');
-        return result.ok
-            ? res.status(200).json({ ...result.response, match: projectTowerPvpMatchForViewer(result.response.match, slug) })
-            : res.status(result.status).json({ error: result.error, errorCode: result.code, match: result.match ? projectTowerPvpMatchForViewer(result.match, slug) : undefined });
+        if (!result.ok) {
+            return res.status(result.status).json({ error: result.error, errorCode: result.code, match: result.match ? projectTowerPvpMatchForViewer(result.match, slug) : undefined });
+        }
+        // The acknowledgement writes no save; the Team Arena purse (owner
+        // amendment A7) is its own receipted credit, retried by any re-settle.
+        const purse = await settleTowerPvpPurse(result.response.match, slug);
+        return res.status(200).json({
+            ...result.response,
+            match: projectTowerPvpMatchForViewer(result.response.match, slug),
+            ...towerPvpPurseReply(purse),
+        });
     } catch (error) {
         if (error instanceof LockContendedError) {
             res.setHeader('Retry-After', '1');

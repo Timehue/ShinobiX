@@ -78,6 +78,11 @@ test('wipes every player-scoped namespace found in the live store', () => {
         'era:contrib-idempotent:missions',
         'econ:agg:ryo',
         'econ:txns',
+        // 2026-10 rebalance telemetry rows: baselines restart with the reset.
+        'econ:day:2026-10-17:ryo',
+        'econ:pday:2026-10-17:someplayer',
+        'econ:pidx:2026-10-17',
+        'econ:exchange-res:2026-10-17',
         'war:eco:agg:ashen-leaf-village',
         'war:eco:txns',
         'war:settled:abc',

@@ -12,7 +12,7 @@ import {
     type MercListView,
     type WrMercTierView,
 } from "../lib/village-war-map";
-import { busyLabel, wrAffordability } from "../lib/village-war-map-ui";
+import { busyLabel, treasuryAffordability, wrAffordability } from "../lib/village-war-map-ui";
 import {
     MERC_RULES_LINES,
     groupMercBands,
@@ -20,7 +20,10 @@ import {
     mercBandLine,
     mercContextTime,
     mercContextTitle,
+    mercHiredToast,
     mercTierCost,
+    mercTierTreasuryRyo,
+    mercTreasuryRuleLine,
     withMercRetry,
 } from "../lib/village-war-merc-panel";
 import { mercPortrait } from "../lib/merc-ai";
@@ -72,8 +75,11 @@ export function VillageWarMercPanel({ character, onChanged }: { character: Chara
     const tiers = data.tiers ?? [];
     const contexts = data.contexts ?? [];
     const canHire = data.viewer?.canHire === true;
+    // Only the seated Kage spends the treasury (an older server sends no flag: let it answer).
+    const canSpendTreasury = data.viewer?.canSpendTreasury !== false;
     const pool = data.warResources ?? 0;
     const groups = groupMercBands(data.leases ?? [], contexts);
+    const treasuryRule = mercTreasuryRuleLine(data.ryoPerWr);
 
     const hire = (c: MercContextView, t: WrMercTierView) => act(`hire-${c.key}-${t.id}`, async () => {
         // One id per click, reused by every retry of THIS click: a lost response
@@ -81,9 +87,7 @@ export function VillageWarMercPanel({ character, onChanged }: { character: Chara
         const requestId = newMercRequestId();
         const context = c.kind === "sector" && c.contestId ? { kind: "sector" as const, contestId: c.contestId } : { kind: "village" as const };
         const r = await withMercRetry(() => hireMerc(character.name, village, t.id, context, requestId));
-        gameToast(r.replayed
-            ? `That ${mercTierName(t.id)} band was already hired — nothing more was spent.`
-            : `${mercTierName(t.id)} band hired for ${mercContextTitle(c)} — ${Math.max(0, Number(r.cost) || 0).toLocaleString()} WR.`);
+        gameToast(mercHiredToast(mercTierName(t.id), mercContextTitle(c), r));
     });
 
     const deploy = (band: MercLeaseView) => act(`deploy-${band.id}`, async () => {
@@ -97,6 +101,12 @@ export function VillageWarMercPanel({ character, onChanged }: { character: Chara
         <div className="card vwm-mercs">
             <h3>Mercenaries</h3>
             {MERC_RULES_LINES.map((line) => <p key={line} className="hint">{line}</p>)}
+            {treasuryRule && (
+                <p className="hint">
+                    {treasuryRule}
+                    {data.treasuryRyo !== undefined ? ` The treasury holds ${data.treasuryRyo.toLocaleString()} ryo.` : ""}
+                </p>
+            )}
             {!canHire && (
                 <p className="hint" style={{ color: "#e6c477" }}><GameArtIcon kind="crown" size={16} /> Only your seated Kage or a current Elder can hire and send mercenaries.</p>
             )}
@@ -115,18 +125,23 @@ export function VillageWarMercPanel({ character, onChanged }: { character: Chara
                             const id = `hire-${c.key}-${t.id}`;
                             const portrait = mercPortrait(t.id);
                             const afford = wrAffordability(mercTierCost(t), pool, { verb: "Hire" });
+                            // The treasury share sits beside the WR check (2026-10 rebalance).
+                            const tierRyo = mercTierTreasuryRyo(t, data.ryoPerWr);
+                            const treasury = treasuryAffordability(tierRyo, data.treasuryRyo, "ryo");
+                            const kageOnly = tierRyo > 0 && !canSpendTreasury;
                             const outOfHires = canHire && c.callerHiresLeft <= 0;
                             return (
                                 <div key={t.id} className="vwm-merc-tier">
                                     {portrait && <img className="vwm-merc-portrait" src={portrait} alt={t.id} />}
                                     <div className="vwm-merc-name">{mercTierName(t.id)} · L{t.level}</div>
                                     <button
-                                        disabled={!canHire || outOfHires || !!busy || !afford.affordable}
-                                        title={!canHire ? "Only the seated Kage or a current Elder can hire mercenaries" : undefined}
+                                        disabled={!canHire || outOfHires || !!busy || !afford.affordable || !treasury.affordable || kageOnly}
+                                        title={!canHire ? "Only the seated Kage or a current Elder can hire mercenaries" : kageOnly ? "Only the seated Kage can spend the treasury" : undefined}
                                         onClick={() => void hire(c, t)}
                                     >
-                                        {outOfHires ? "No hires left" : busyLabel(busy, id, "Hiring…", afford.label)}
+                                        {outOfHires ? "No hires left" : !treasury.affordable && afford.affordable ? treasury.label : busyLabel(busy, id, "Hiring…", afford.label)}
                                     </button>
+                                    {tierRyo > 0 ? <div className="vwm-merc-band">+ {tierRyo.toLocaleString()} treasury ryo{kageOnly ? " · Kage only" : ""}</div> : null}
                                     {t.band ? <div className="vwm-merc-band">{t.band} mercs · 2-day contract</div> : null}
                                 </div>
                             );

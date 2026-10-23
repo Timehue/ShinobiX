@@ -6,7 +6,7 @@ The Exchange occupies the festival's top-middle card. Dice of Fate occupies the 
 
 The trading hall supports browsing, text search, category, rarity, and listing-currency filters, budget filtering, sorting, pagination, inspection, publishing a listing, buying a whole lot, cancellation, and personal trade history.
 
-Supported assets are owned pets, named weapons and armor, regular equipment and accessories, consumables, crafting materials, extra Chronicle cards, and Fate Shards, Bone Charms, Aura Stones, Honor Seals, and Mythic Seals. Sellers choose ryo or Fate Shards for each listing. Buyers pay the listed currency; there is no automatic conversion.
+Supported assets are owned pets, named weapons and armor, regular equipment and accessories, consumables, crafting materials, extra Chronicle cards, and Fate Shards, Bone Charms and Aura Stones. Honor Seals and Mythic Seals cannot be listed, as player trades refuse them; the sell picker marks them unavailable, and listings made before that rule still settle. Sellers choose ryo or Fate Shards for each listing. Buyers pay the listed currency; there is no automatic conversion.
 
 - Listings are free. The seller pays a 5% fee in the listing currency when a sale completes, rounded down to a whole unit. A 201 Fate Shards sale deducts 10 Shards and pays the seller 191 Shards.
 - Prices are for the entire lot. There are no auctions or partial fills.

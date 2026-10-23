@@ -241,19 +241,19 @@
               ],
               [
                 "1 Hour",
-                "+10",
+                "+9",
                 "15",
                 "A short break"
               ],
               [
                 "4 Hours",
-                "+38",
+                "+33",
                 "35",
                 "An afternoon away"
               ],
               [
                 "8 Hours",
-                "+72",
+                "+65",
                 "60",
                 "Work or sleep"
               ]
@@ -291,7 +291,7 @@
           },
           {
             "type": "p",
-            "text": "Once-per-day field jobs and hunt claims also award unspent stat points. Pick the rewards you need now; you do not have to empty every daily counter."
+            "text": "Hunt claims and field jobs also award unspent stat points. They share one daily budget of 60 stat points with your fight wins, and it resets at midnight UTC. Pick the rewards you need now; you do not have to empty every daily counter."
           }
         ]
       },
@@ -498,7 +498,7 @@
         "blocks": [
           {
             "type": "p",
-            "text": "AI practice and direct player spars in the Battle Arena do not affect ranked rating, and losing one never sends you to the Hospital. Team Arena is a four-player 2v2 mode with balanced teams, no consumables, and no rating, currency, or progression rewards. Queue solo and matchmaking finds the other three fighters."
+            "text": "AI practice and direct player spars in the Battle Arena do not affect ranked rating, and losing one never sends you to the Hospital. Team Arena is a four-player 2v2 mode with balanced teams, no consumables, and no rating or progression rewards. Each member of the winning team earns a small ryo purse by time in the fight. A short fight, a forfeit, or a fifth meeting with the same fighters in one day pays less or nothing. Queue solo and matchmaking finds the other three fighters."
           },
           {
             "type": "p",
@@ -514,7 +514,7 @@
           },
           {
             "type": "p",
-            "text": "Stay on the board and ready up each round; missing a deadline can eliminate you. The bracket is single elimination. Tournament rounds spend no consumables, change no ladder rating, and award no normal combat payout. The board records the champion."
+            "text": "Stay on the board and ready up each round; missing a deadline can eliminate you. The bracket is single elimination. Tournament rounds spend no consumables and change no ladder rating. Each member of a winning side earns a small ryo purse by time in the fight. The board records the champion."
           },
           {
             "type": "callout",
@@ -598,7 +598,7 @@
         "blocks": [
           {
             "type": "p",
-            "text": "Claim a free random element roll at the Awakening Stone at levels 2 and 20. A paid roll costs 10 Fate Shards for your primary element, keeping the secondary if you have one, or 15 to reroll both. You cannot choose the result. Check equipped gear and jutsu before replacing an element they need."
+            "text": "Claim a free random element roll at the Awakening Stone at levels 2 and 20. A paid roll costs 10 Fate Shards for your primary element, keeping the secondary if you have one, or 15 to reroll both. You cannot choose the result. A paid roll always changes your elements. Check equipped gear and jutsu before replacing an element they need."
           },
           {
             "type": "table",
@@ -614,7 +614,7 @@
                 "B",
                 "4",
                 "7",
-                "100 Bone Charms"
+                "200 Bone Charms"
               ],
               [
                 "A",
@@ -662,7 +662,7 @@
         "blocks": [
           {
             "type": "p",
-            "text": "Use the Shop and Grand Marketplace for catalog purchases, and the Crafter for recipes. Direct player transfers send currency, not items. Sunscar Exchange handles eligible player listings. Check level and element requirements before spending materials or ryo."
+            "text": "Use the Shop and Grand Marketplace for catalog purchases, and the Crafter for recipes. Direct player transfers send currency, not items. Sunscar Exchange handles eligible player listings. Check level and element requirements before spending materials or ryo. Crafted goods sell to the shop for at most 7/10 of what their hunt materials fetch; a craft made only of gathered materials cannot be sold."
           },
           {
             "type": "p",
@@ -682,7 +682,7 @@
           },
           {
             "type": "p",
-            "text": "Some weapon and armor drops are improved versions of a catalog item. Each step adds 0.5 EP to a weapon or 0.5 percentage points of armor protection strength, staying below the next tier. Protection combines with other reductions with diminishing returns. Buying or crafting better gear unlocks drops from higher eligible upgrade tiers. Upgrade pieces cannot be bought or crafted, and spares sell for 500 ryo."
+            "text": "Some weapon and armor drops are improved versions of a catalog item. Each step adds 0.5 EP to a weapon or 0.5 percentage points of armor protection strength, staying below the next tier. Protection combines with other reductions with diminishing returns. Buying or crafting better gear unlocks drops from higher eligible upgrade tiers. Upgrade pieces cannot be bought or crafted, and spares sell for 150 ryo."
           },
           {
             "type": "p",
@@ -875,7 +875,7 @@
           },
           {
             "type": "p",
-            "text": "During Hollow Gate Reckoning, choose the shinobi front or bring a ready companion team to the companion front. Either front helps your village reach its target. Check your health, loadout, and available companions before committing an attempt."
+            "text": "During Hollow Gate Reckoning, choose the shinobi front or bring a ready companion team to the companion front. Either front helps your village reach its target. A won deployment pays a small ryo purse by time in the fight. Check your health, loadout, and available companions before committing an attempt."
           }
         ]
       },
@@ -885,7 +885,7 @@
         "blocks": [
           {
             "type": "p",
-            "text": "When a Dojo Circuit is scheduled, join through your village and begin a trial before playing. Earn seals through shinobi sparring, Chronicle duels, and a rewarded Pet Colosseum win. Combat seals record automatically. Return to the Circuit to record AI card and companion wins before the event closes."
+            "text": "When a Dojo Circuit is scheduled, join through your village and begin a trial before playing. Earn seals through shinobi sparring, Chronicle duels, and a rewarded Pet Colosseum win. Combat seals record automatically. Each new seal also pays a small ryo purse by time in the winning fight. Return to the Circuit to record AI card and companion wins before the event closes."
           },
           {
             "type": "p",
@@ -1018,7 +1018,7 @@
         "blocks": [
           {
             "type": "p",
-            "text": "The seated Kage declares Village War using village War Resources. One hour of preparation is followed by five full days of scoring. Town Hall shows the score, strongholds, shrine schedule, and field orders. The higher final score wins; equal scores draw. Village War results do not transfer sector ownership."
+            "text": "The seated Kage declares Village War using village War Resources. One hour of preparation is followed by five full days of scoring. Town Hall shows the score, strongholds, shrine schedule, and field orders. The higher final score wins; equal scores draw. Village War results do not transfer sector ownership. A war ended by surrender or peace before 72 hours of fighting pays no crates, war purses or MVP rewards. A war fought longer pays every fighter with 40+ points a war purse at their level, with points counted up to 400; winners earn the higher rate. The War Academy bonus on support operations does not count toward the purse. An account must be 72 hours old or level 20 to be paid."
           },
           {
             "type": "p",
@@ -1076,7 +1076,7 @@
         "blocks": [
           {
             "type": "p",
-            "text": "Village Provisions come from donated ration packs and packed village supplies. Cook rations in the Noodle Den; gathered ingredients and fish support its recipes. Donated crafting materials and relics become Materials. The Supply Depot converts Materials into War Resources and advanced structures also require them."
+            "text": "Village Provisions come from donated ration packs and packed village supplies. Cook rations in the Noodle Den; gathered ingredients and fish support its recipes. Donated crafting materials and relics become Materials. Spare relics (50 materials per relic tier) and upgrade gear pieces you have outgrown (50, 75 or 100 by tier) count too; a donation earns the same Village Merit as selling the item and donating the ryo. The Supply Depot converts Materials into War Resources and advanced structures also require them."
           },
           {
             "type": "p",
@@ -1084,7 +1084,7 @@
           },
           {
             "type": "p",
-            "text": "Watchtower, Barracks, and War Academy preparations belong to an individual war and end with it. Leadership should check their current scouting, upkeep, or support effect before spending War Resources. Supply Depot and Treasury Vault upgrades are permanent."
+            "text": "Watchtower, Barracks, and War Academy preparations belong to an individual war and end with it. Leadership should check their current scouting, upkeep, or support effect before spending War Resources, treasury ryo and Bone Charms. Each tier also costs the treasury 250 ryo and half a Bone Charm per War Resource. Supply Depot and Treasury Vault upgrades are permanent."
           }
         ]
       },
@@ -1094,7 +1094,7 @@
         "blocks": [
           {
             "type": "p",
-            "text": "Sector Wars decide village control of land. A clan can plant its banner only in a sector its village already controls. The clan needs at least ten members, no other held sector, and 75 Territory Control Scrolls in its treasury. Leadership spends all 75 together to capture; partial deposits do not reserve a claim."
+            "text": "Sector Wars decide village control of land. A clan can plant its banner only in a sector its village already controls. The clan needs at least ten members, no other held sector, and 75 Territory Control Scrolls in its treasury. Leadership spends all 75 together to capture; partial deposits do not reserve a claim. A Sector War also pays a purse to the fighters who won its battles: 20 points a win, at least two wins, counted up to ten. The side that captures or holds the sector earns the higher rate, and an account must be 72 hours old or level 20 to be paid. A war its attackers abandon pays only if it ran for 48 hours, with the defenders at the higher rate."
           },
           {
             "type": "p",
@@ -1334,7 +1334,7 @@
     "quickTake": [
       "Bring exactly 40 cards, open with five, and protect 8,000 Health.",
       "The first player skips the opening draw and cannot Battle that turn. Plan your opening around the field you leave behind.",
-      "Basic packs use Chronicle Points earned in Echoes of War. Choose an element, Jutsu, or Snares when your deck needs a particular kind of card."
+      "Basic packs use Chronicle Points from Echoes of War, duels against other players, and card battles in Dungeons, Rifts, Sector War garrisons, and Village War strongholds. Choose an element, Jutsu, or Snares when your deck needs a particular kind of card."
     ],
     "relatedGuideIds": [
       "clans-and-war",
@@ -1428,11 +1428,11 @@
         "blocks": [
           {
             "type": "p",
-            "text": "Basic packs cost Chronicle Points earned through Echoes of War in the Celestial Tower. Each contains five Common or Rare cards. Random Packs can contain Monsters of any element, Jutsu, and Snares. Element packs contain only matching Monsters; Jutsu and Snare packs focus on those card types."
+            "text": "Basic packs cost Chronicle Points, which the next section explains how to earn. Each contains five Common or Rare cards. Random Packs can contain Monsters of any element, Jutsu, and Snares. Element packs contain only matching Monsters; Jutsu and Snare packs focus on those card types."
           },
           {
             "type": "p",
-            "text": "Premium packs cost Fate Shards. Elite gives one Rare or Epic card, Legendary gives one Legendary, and the two Quintet packs give five Epic or five Legendary cards. Read the listing for the current price and pool. Cards are equally likely within each pack's eligible pool, and duplicates can appear even within one pack. Owning a card does not lower its chance of appearing again."
+            "text": "Premium packs cost Fate Shards. Elite gives one Rare or Epic card, Legendary gives one Legendary, and the two Quintet packs give five Epic or five Legendary cards. Read the listing for the current price and pool. Cards are equally likely within each pack's eligible pool, and duplicates can appear even within one pack. Owning a card does not lower its chance of appearing again. A copy beyond your third of a card converts into 5 Chronicle Points (Common or Rare), 1 Fate Shard (Epic) or 3 Fate Shards (Legendary)."
           },
           {
             "type": "p",
@@ -1446,11 +1446,15 @@
         "blocks": [
           {
             "type": "p",
-            "text": "AI spar lets you test against Easy, Medium, or Hard. Free-play PvP lets you queue or challenge another player without risking rating. Neither awards ryo or rating. Start with Easy while you learn your opening, then try harder opponents as your deck improves."
+            "text": "AI spar lets you test against Easy, Medium, or Hard, and it pays nothing. Free-play PvP lets you queue or challenge another player without risking rating. It awards no ryo or rating, but a counted duel pays Chronicle Points. Start with Easy while you learn your opening, then try harder opponents as your deck improves."
           },
           {
             "type": "p",
-            "text": "AI wins update your Showdown record and can count toward Legacy. Free-play wins can count too when both players take part. Forfeits, timeouts, unfinished games, and very short matches do not qualify. Echoes of War supplies the Chronicle Points for Basic packs. Clan and Village War can also use Showdown results toward their own objectives."
+            "text": "AI wins update your Showdown record and can count toward Legacy. Free-play wins can count too when both players take part. Forfeits, timeouts, unfinished games, and very short matches do not qualify. Clan and Village War can also use Showdown results toward their own objectives."
+          },
+          {
+            "type": "p",
+            "text": "Chronicle Points come from several places. Echoes of War pays for its victories. A duel against another player in free play, a Clan War, a Sector War, or a Village War card stronghold pays 20 Chronicle Points for a win and 8 for a loss. It counts when it reaches turn 3, lasts 45 seconds, has three plays from each side, and ends without a forfeit or timeout. Wins traded back and forth with one opponent do not pay. Each opponent pays in full for your first two counted duels of the day, then half, then a quarter, then nothing until the next day. A duel pays no one when the loser is under 72 hours old and below level 20, or when the winner is more than 20 levels above the loser. A winner that new still earns the win, but the loser gets no loss pay. Winning a Dungeon card seal or a Rift card ambush pays 10, and beating a Sector War garrison pays 15, as does beating a Village War stronghold's ANBU deck. The result screen shows what each battle paid."
           }
         ]
       }
@@ -1589,7 +1593,7 @@
           },
           {
             "type": "p",
-            "text": "Fish can be cooked into ration packs in the Noodle Den. The recipe also needs Field Herb, Heartwood Bark, and ryo. Higher-grade fish make more rations, within the 40-ration daily cooking allowance. Packed village supplies and donated rations help shared stores; common gathered materials can also fund your clan's Hall project."
+            "text": "Fish can be cooked into ration packs in the Noodle Den. The recipe also needs Field Herb, Heartwood Bark, and ryo. Common Ember Ore or an Ember Scale can stand in for Heartwood Bark as fuel, at the Noodle Den and the forge. Higher-grade fish make more rations, within the 40-ration daily cooking allowance. Packed village supplies and donated rations help shared stores; common gathered materials can also fund your clan's Hall project."
           },
           {
             "type": "p",
@@ -1689,7 +1693,7 @@
           },
           {
             "type": "p",
-            "text": "Each wave gets harder, and you carry your remaining HP into the next fight. Cash out between waves to keep your run earnings. Defeat costs the unclaimed ryo and sends you to the Hospital; milestone currencies stay yours. Your first fresh run each UTC day is free. Later starts cost 3,000 ryo more each time, while resuming an active run is free."
+            "text": "Each wave gets harder, and you carry your remaining HP into the next fight. Cash out between waves to keep your run earnings. Defeat costs the unclaimed ryo and sends you to the Hospital; milestone currencies stay yours. Ryo per wave stops rising after wave 20. Bone Charm milestones pay on your free run each UTC day, and Fate Shard milestones pay only on waves beyond your best. Your first fresh run each UTC day is free. Later starts cost 3,000 ryo more each time, while resuming an active run is free."
           },
           {
             "type": "h",
@@ -1697,7 +1701,7 @@
           },
           {
             "type": "p",
-            "text": "Endless Spire is a 20-stage boss climb for exactly four players. It has weekly blessings, keystones, and a leaderboard. There are no AI helpers. Agree on who will handle the boss mechanics before the party starts."
+            "text": "Endless Spire is a 20-stage boss climb for exactly four players. It has weekly blessings, keystones, and a leaderboard. Every cleared stage pays each member a ryo purse by time in the fight. Fate Shards pay on the first clear of a stage each week. There are no AI helpers. Agree on who will handle the boss mechanics before the party starts."
           }
         ]
       },
@@ -1715,7 +1719,7 @@
           },
           {
             "type": "p",
-            "text": "Rewards arrive when the event ends. Every contributor earns a ryo share and a once-per-week grant of 10 stat points. The top 25 receive a Dungeon Key, and the top 10 also receive a Weekly Boss Core. Contributors can also receive an upgrade gear drop. Check the reward panel after the timer ends."
+            "text": "Rewards arrive when the event ends. Every contributor earns a ryo share by damage, capped at 60,000 ryo (90,000 for the MVP), and a once-per-week grant of 10 stat points. The top 25 receive a Dungeon Key, and the top 10 also receive a Weekly Boss Core. Contributors can also receive an upgrade gear drop. Check the reward panel after the timer ends."
           }
         ]
       },
@@ -1739,7 +1743,7 @@
         "blocks": [
           {
             "type": "p",
-            "text": "A standard Hollow Gate dive is a five-floor expedition through a partly hidden map. Your village needs an active 30-day access seal opened by its seated Kage. A fresh standard run spends one Hollow Gate Key and one daily entry. The base allowance is two starts per UTC day, with an extra start available through Attunement. Resume an unfinished run instead of paying for a new one."
+            "text": "A standard Hollow Gate dive is a five-floor expedition through a partly hidden map. Your village needs an active 30-day access seal opened by its seated Kage. A fresh standard run spends one Hollow Gate Key and one daily entry. The base allowance is two starts per UTC day, with an extra start available through Attunement. Resume an unfinished run instead of paying for a new one. Ryo found in the Gate and in Rifts scales with your level when the run starts, reaching full pay at level 70."
           },
           {
             "type": "p",
@@ -1789,7 +1793,7 @@
         "blocks": [
           {
             "type": "p",
-            "text": "Open the Celestial Tower from the Central Hub to find its campaigns alongside the Tower climbs. Echoes of War is a Chronicle card campaign; its victories earn Chronicle Points for Basic packs."
+            "text": "Open the Celestial Tower from the Central Hub to find its campaigns alongside the Tower climbs. Echoes of War is a Chronicle card campaign; its victories earn Chronicle Points for Basic packs. Your first repeat win each day pays 35 extra Chronicle Points."
           },
           {
             "type": "p",

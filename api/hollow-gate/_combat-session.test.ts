@@ -3,7 +3,9 @@ import { test } from 'node:test';
 import { createSoloPveSession, type SoloPveSession } from '../solo-pve/_session.js';
 import {
     createHollowGateCombatBinding,
+    HOLLOW_GATE_BOSS_FATE_SHARDS,
     HOLLOW_GATE_PET_AUTHORITY_VERSION,
+    hollowGateBossBoneCharms,
     hollowGateCombatReward,
     hollowGateEncounterKey,
     hollowGatePetAuthorityMatches,
@@ -99,7 +101,48 @@ test('node ids and encounter keys reject identity reuse', () => {
 test('server reward table preserves floor scaling and profession rules', () => {
     assert.deepEqual(hollowGateCombatReward(1, 'battle'), { xp: 0, ryo: 485, auraDust: 5, honorSeals: 0, boneCharms: 0, fateShards: 0, hollowShards: 0, fragments: 0, veils: 0 });
     const boss = hollowGateCombatReward(5, 'boss', 'vanguard');
-    assert.deepEqual({ xp: boss.xp, ryo: boss.ryo, auraDust: boss.auraDust, honorSeals: boss.honorSeals, boneCharms: boss.boneCharms, fateShards: boss.fateShards, hollowShards: boss.hollowShards, fragments: boss.fragments, veils: boss.veils }, { xp: 0, ryo: Math.floor(2850 * 1.8), auraDust: 54, honorSeals: 120, boneCharms: 14, fateShards: 5, hollowShards: 40, fragments: 2, veils: 1 });
+    // 2026-10 rebalance: honor x0.6 (57 + 3·floor), BC and FS fixed, shards x0.6.
+    assert.deepEqual({ ...boss }, { xp: 0, ryo: Math.floor(2850 * 1.8), auraDust: 54, honorSeals: 72, boneCharms: 5, fateShards: 3, hollowShards: 24, fragments: 2, veils: 1 });
+});
+
+test('a threat ambush pays a placed battle, not 2.2x one (rebalance #12)', () => {
+    assert.deepEqual(hollowGateCombatReward(1, 'ambush'), { xp: 0, ryo: 485, auraDust: 10, honorSeals: 0, boneCharms: 0, fateShards: 0, hollowShards: 0, fragments: 0, veils: 0 });
+    assert.equal(hollowGateCombatReward(4, 'ambush').ryo, hollowGateCombatReward(4, 'battle').ryo);
+});
+
+test('only the first 16 threat ambushes of a run pay ryo; later ones still pay dust', () => {
+    assert.equal(hollowGateCombatReward(2, 'ambush', undefined, { paidAmbushes: 15 }).ryo, 485);
+    const unpaid = hollowGateCombatReward(2, 'ambush', undefined, { paidAmbushes: 16 });
+    assert.equal(unpaid.ryo, 0);
+    assert.equal(unpaid.auraDust, 10, 'a won ambush never pays nothing');
+    assert.equal(hollowGateCombatReward(2, 'battle', undefined, { paidAmbushes: 99 }).ryo, 485, 'the cap is for ambushes only');
+    assert.equal(hollowGateCombatReward(5, 'boss', undefined, { paidAmbushes: 99 }).ryo, Math.floor(2850 * 1.8));
+});
+
+test('the sealed ryo scale cuts ryo only, after the depth multiplier', () => {
+    assert.equal(hollowGateCombatReward(1, 'battle', undefined, { ryoScale: 0.5 }).ryo, 242);
+    const scaled = hollowGateCombatReward(5, 'boss', 'vanguard', { ryoScale: 0.5 });
+    assert.equal(scaled.ryo, Math.floor(Math.floor(2850 * 1.8) * 0.5));
+    const full = hollowGateCombatReward(5, 'boss', 'vanguard');
+    assert.deepEqual({ ...scaled, ryo: full.ryo }, full, 'shards, charms, dust and honor ignore the level scale');
+    assert.equal(hollowGateCombatReward(1, 'battle', undefined, { ryoScale: 7 }).ryo, 485, 'a scale never raises pay');
+});
+
+test('boss Fate Shards and Bone Charms are fixed tables, decoupled from honor (rebalance #11, #16)', () => {
+    const floors = [1, 2, 3, 4, 5].map((floor) => hollowGateCombatReward(floor, 'boss', 'vanguard'));
+    assert.deepEqual(floors.map((r) => r.boneCharms), [3, 3, 4, 4, 5]);
+    assert.deepEqual(floors.map((r) => r.fateShards), [3, 3, 3, 3, 3]);
+    assert.deepEqual(floors.map((r) => r.honorSeals), [60, 63, 66, 69, 72]);
+    assert.deepEqual(floors.map((r) => r.hollowShards), [12, 15, 18, 21, 24]);
+    // Without honor (not a Vanguard) the charm and shard tables do not move.
+    const plain = [1, 3, 5].map((floor) => hollowGateCombatReward(floor, 'boss'));
+    assert.deepEqual(plain.map((r) => r.honorSeals), [0, 0, 0]);
+    assert.deepEqual(plain.map((r) => r.boneCharms), [3, 4, 5]);
+    assert.deepEqual(plain.map((r) => r.fateShards), [3, 3, 3]);
+    assert.equal(HOLLOW_GATE_BOSS_FATE_SHARDS, 3);
+    assert.equal(hollowGateBossBoneCharms(9), 5);
+    // Honor is a boss reward only, even for a Vanguard.
+    assert.equal(hollowGateCombatReward(3, 'elite', 'vanguard').honorSeals, 0);
 });
 
 test('Second Wind is sealed at start and post-win HP is the server session HP', () => {

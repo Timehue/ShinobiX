@@ -332,6 +332,48 @@ describe('sector-war settlement World Herald', { concurrency: false }, () => {
         assert.deepEqual(posts.map((p) => p.title).sort(), [`Sector ${SECTOR} Falls`, `Sector ${SECTOR} Holds`]);
     });
 
+    // 2026-10 rebalance (#7): the sector-war purse ledger is built from the
+    // war's receipts AFTER the verdict is durable, so reward bookkeeping never
+    // holds a verdict back.
+    it('a captured and a defended war each write one purse ledger, and a retried pass writes no second one', async () => {
+        const { listSectorWarPurseLedgers } = await import('./war/_sector-purse.js');
+        const now = Date.now();
+        const wins = (by: string, attackerWon: boolean, n: number) => Array.from({ length: n }, (_, i) => ({ battleId: `${by}-${i}`, attackerWon, points: 5, by, at: now - 70 * 60 * 60_000 + i }));
+        await kv.set(CONTEST_KEY, { ...dueWar(now, { attacker: 15, defender: 5 }), appliedBattles: [...wins('raider', true, 3), ...wins('holder', false, 1)] });
+        const [captured] = await settle.settleDueSectorWars(now);
+        assert.equal(captured.attackerWon, true);
+        await settle.settleDueSectorWars(now + 1_000);
+        let ledgers = await listSectorWarPurseLedgers();
+        assert.equal(ledgers.length, 1);
+        assert.equal(ledgers[0].outcome, 'captured');
+        assert.deepEqual(ledgers[0].entries, { raider: { points: 60, side: ATTACKER }, holder: { points: 20, side: DEFENDER } });
+
+        await kv.set(CONTEST_KEY, { ...dueWar(now, { attacker: 0, defender: 10 }), declarationGeneration: 2, appliedBattles: wins('keeper', false, 2) });
+        const [held] = await settle.settleDueSectorWars(now);
+        assert.equal(held.attackerWon, false);
+        ledgers = await listSectorWarPurseLedgers();
+        assert.equal(ledgers.length, 2);
+        const defended = ledgers.find((l) => l.outcome === 'defended');
+        assert.equal(defended?.winnerVillage, DEFENDER);
+        assert.deepEqual(defended?.entries, { keeper: { points: 40, side: DEFENDER } });
+    });
+
+    it('a malformed battle receipt never holds the verdict back', async () => {
+        const { listSectorWarPurseLedgers } = await import('./war/_sector-purse.js');
+        const { sectorWarBattleReceiptKey } = await import('./_sector-war.js');
+        const now = Date.now();
+        const war = { ...dueWar(now, { attacker: 10, defender: 0 }), appliedBattles: [
+            { battleId: 'ok-1', attackerWon: true, points: 5, by: 'raider', at: now - 70 * 60 * 60_000 },
+            { battleId: 'ok-2', attackerWon: true, points: 5, by: 'raider', at: now - 69 * 60 * 60_000 },
+        ] };
+        await kv.set(CONTEST_KEY, war);
+        await kv.set(sectorWarBattleReceiptKey(war, 'corrupt'), { not: 'a receipt' });
+        const [verdict] = await settle.settleDueSectorWars(now);
+        assert.equal(verdict?.attackerWon, true, 'the war settled');
+        const [ledger] = await listSectorWarPurseLedgers();
+        assert.deepEqual(ledger?.entries, { raider: { points: 40, side: ATTACKER } }, 'the readable receipts still count');
+    });
+
     it('copy helper names the right village for each verdict', () => {
         const war = { id: CONTEST_ID, sector: SECTOR, attackerVillage: ATTACKER, defenderVillage: DEFENDER };
         assert.equal(settle.sectorWarResolutionAnnouncement(war, { attackerWon: true, attackerPoints: 1, defenderPoints: 0 }).village, ATTACKER);

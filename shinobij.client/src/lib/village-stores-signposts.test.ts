@@ -14,7 +14,7 @@ import {
     villageSupplyCall,
     type VillageSupplyCallInput,
 } from "./village-stores-signposts";
-import { COOK_MATERIAL_IDS, COOK_RECIPES } from "./cafeteria";
+import { COOK_MATERIAL_IDS, COOK_RECIPES, FUEL_IDS } from "./cafeteria";
 import { GARRISON_RATIONS_PER_DAY, INTEL_DECLARE_BASE_COST, INTEL_TTL_DAYS, RATION_ITEM_ID, WAR_RATIONS_PER_DAY } from "./village-stores";
 
 // ── 1. Cookable-material mapping ───────────────────────────────────────────
@@ -28,7 +28,8 @@ test("every cookable material carries a signpost naming its recipe and yield", (
         assert.ok(recipe);
         assert.equal(sign.screen, "cafeteria");
         assert.equal(sign.actionLabel, "Cook at the Noodle Den");
-        const purpose = id === 'gather-heartwood-bark' ? 'Fuel for' : 'Cooks into';
+        // Bark, Ember Ore and Ember Scale all burn as fuel (shared/cooking-recipes.ts FUEL_IDS).
+        const purpose = (FUEL_IDS as readonly string[]).includes(id) ? 'Fuel for' : 'Cooks into';
         assert.match(sign.line, new RegExp(`^${purpose} ${recipe.name} at the Noodle Den — `, "u"));
         assert.ok(sign.line.includes(`${recipe.rations} rations`), sign.line);
         // Cooking is not free (Field 30 ryo, Campaign 80) — the signpost must

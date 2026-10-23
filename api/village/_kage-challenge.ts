@@ -30,10 +30,17 @@ export const KAGE_MIN_MERIT = 250;                           // personal Village
 // Vanguard's PvP earnings and exist to fund VILLAGE upgrades; taxing a political
 // act with them punished the profession for a civic ambition unrelated to it.
 // Ryo is the universal currency, so every profession pays the same price, and
-// the endgame ryo economy gains a real sink. Sized at roughly a strong
-// level-90+ player's daily income: a genuine commitment, not a wall — the seat
-// is already gated by level 90, account age, 250 Village Merit and a cooldown.
-export const KAGE_DECLARE_RYO_COST = 250_000;
+// the endgame ryo economy gains a real sink. Sized at ~8-9 regular L90 days of
+// income (economy rebalance 2026-10, #29): a political one-off, burned win or
+// lose. The seat is also gated by level 90, account age, 250 Village Merit and
+// a cooldown.
+export const KAGE_DECLARE_RYO_COST = 400_000;
+/** Charged by every challenge declared before `stakeRyo` was stamped on the row. */
+export const KAGE_LEGACY_DECLARE_RYO_COST = 250_000;
+/** Sanity ceiling on a stamped stake. The Kage row is server-written only, so
+ *  this guards against a corrupt value, not a player; it sits far above any
+ *  plausible stake so a later price cut never short-refunds an older challenge. */
+export const KAGE_STAKE_REFUND_MAX = 10_000_000;
 export const KAGE_MIN_ACCOUNT_AGE_MS = 7 * 24 * 60 * 60_000; // anti fresh-alt
 export const KAGE_HISTORY_MAX = 50;                          // bounded permanent record
 
@@ -57,6 +64,9 @@ export type KageChallenge = {
     createdAt: number;
     /** Trusted origin of the declaration stake, retained for delayed compensation. */
     chargedHollowGateCreditBasis?: NonNullable<ReturnType<typeof hollowGateCreditBasis>>;
+    /** Ryo the declaration actually charged. A refund pays this, not the current
+     *  price, so a stake change never over- or under-refunds an open challenge. */
+    stakeRyo?: number;
     obligationRemainingMs: number; // burns down only during verified overlap
     /** Server-retained public invitation, recoverable after a normal popup expires. */
     duelInvitation?: Record<string, unknown>;
@@ -116,9 +126,21 @@ export type DeclareInput = {
 export type DeclareResult = { ok: true } | { ok: false; reason: string };
 
 /**
+ * The ryo a challenge's declaration charged: its stamped `stakeRyo`, or the
+ * legacy 250,000 for a challenge declared before the stamp existed (or one whose
+ * stamp is unreadable). Inactivity refunds pay exactly this.
+ */
+export function kageChallengeStake(challenge: Pick<KageChallenge, 'stakeRyo'>): number {
+    const stamped = challenge.stakeRyo;
+    return typeof stamped === 'number' && Number.isSafeInteger(stamped) && stamped > 0 && stamped <= KAGE_STAKE_REFUND_MAX
+        ? stamped
+        : KAGE_LEGACY_DECLARE_RYO_COST;
+}
+
+/**
  * Can `challengerName` declare a challenge right now? Pure — the endpoint feeds
- * it the authoritative save/village values and applies the 250,000-ryo debit
- * itself. An existing challenge blocks until a response clock or duel resolves it.
+ * it the authoritative save/village values and applies the KAGE_DECLARE_RYO_COST
+ * debit itself. An existing challenge blocks until a response clock or duel resolves it.
  */
 export function canDeclareChallenge(input: DeclareInput): DeclareResult {
     const { now, state, challengerName, challengerRyo } = input;

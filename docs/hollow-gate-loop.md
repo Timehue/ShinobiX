@@ -46,8 +46,9 @@ actually enforceable — which is what makes this redesign worth doing.
     (entry currency snapshot → 50% claw-back, keeps XP/pets/uniques, forfeits
     Key) + `hollowShards` scaffold (field, per-save cap, combat-strip) +
     unit-tested `lib/hollow-gate-run.ts`.
-  - `e67de6fd` (1B): depth-scaled Hollow Shard drops wired into chests (F1=3…F5=7),
-    sealed-door Ancient Chests (7…15), and the final boss (40), shown in logs/modals.
+  - `e67de6fd` (1B): depth-scaled Hollow Shard drops wired into chests,
+    sealed-door Ancient Chests and the final boss, shown in logs/modals (2026-10
+    values: chests F1=2…F5=4, doors 4…9, boss 24).
   - NEEDS AN OWNER PLAYTEST — Torch drop/drain + shard drop rates are starting
     values; tune once felt (all localized — easy to adjust).
 - ✅ **Phase 2A shipped** (`68b364d9`): retired `pet_battle`/`tile_game` walk-on
@@ -71,7 +72,7 @@ actually enforceable — which is what makes this redesign worth doing.
   Dive) via `lib/hollow-gate-attunement` + a World Map Enter/Attune menu.
   Server-clamped in api/save.
 - ✅ **Key Forge shipped** (`65e0d9db`): the Attunement panel forges Hollow Gate
-  Keys from shards (now 80 each), closing the self-sustaining loop.
+  Keys from shards (120 each since the 2026-10 rebalance), closing the self-sustaining loop.
 - ↩️ **Wings reverted to random maze** (`0b47ecfa`): per owner preference the
   floors are random again, NOT the fixed hub+3-wing structure. The wing
   generator (`hollow-gate-wings`) is kept but off by default; the wing UI/
@@ -100,7 +101,9 @@ actually enforceable — which is what makes this redesign worth doing.
 - **Unlock:** the seated Kage spends `HOLLOW_GATE_UNLOCK_COST` = 10,000 Honor
   Seals (one-time, village-wide, one-way). Server-gated to seatedKage/admin in
   `api/_village-state-validate.ts`. The shrine then appears on the World Map for
-  everyone in the village.
+  everyone in the village. The client gates entry on the open window
+  (`lib/hollow-gate-entry.ts`); the owner chose (2026-10-22) not to add a
+  server-side lock or env switch to `/api/hollow-gate/start`.
 - **Entry:** consumes 1 **Hollow Gate Key** item (`hollow-gate-key`). Key
   sources today: in-run chests (~30%/chest) and the Kage-liberation story finale.
 - **Daily cap:** two runs per UTC day, plus the server-clamped Extra Dive
@@ -120,17 +123,20 @@ actually enforceable — which is what makes this redesign worth doing.
   seals an ambush at Threat 100. The client only animates the receipt.
 - **Tiles:** `battle` / `elite` / ambush / `boss` (Hollow Hound combat choice) ·
   `trap` (percent max-HP damage, no heal, lethal) · `chest` · `shrine` (Torch
-  refill + hidden chamber) · `locked` (server-rolled chest/trap/pet reward) ·
+  refill + hidden chamber) · `locked` (server-rolled: chest on 3 doors in 4, trap on 1) ·
   `npc` Shrine Keeper (the only heal exception / refill Torch / gift Key) ·
   `descend` (next floor; carry run seal, choices, Keys and Torch) · `exit`.
-- **Battle reward (Arena):** normal ≈140 XP / 380 ryo / 5 dust; ambush ≈220 /
-  900 / 10; boss ≈600 / 2400 / 30, all ×`(1 + 0.2·(floor−1))`
-  (`HOLLOW_GATE_BOSS_FLOOR_REWARD_MULT`).
+- **Battle reward (Arena):** battle and threat ambush 485 ryo (5 / 10 dust); boss
+  2,850 ryo / 30 dust ×`(1 + 0.2·(floor−1))`. Ryo × the run's level scale
+  min(1, GATE_RYO_K·A(L)/312), sealed from the start level
+  (`api/hollow-gate/_gate-scale.ts`). At most 16 threat ambushes per run pay ryo;
+  later ones pay their dust.
 - **Surviving any fight → Threat 0; Torch is not refilled.**
 - **Floors:** F1–4 = descend staircase; F5 = Hollow Hound Alpha.
   `HOLLOW_GATE_MAX_FLOOR` is the shared five-floor server contract.
-- **F5 clear bonus:** Honor/charm/shard package + 1 Dungeon Legendary Fragment +
-  1 Veil of the Hollow, then auto-extract.
+- **Boss package:** 3 Fate Shards, 3-5 Bone Charms by floor, Hollow Shards,
+  Vanguard honor 57 + 3·floor, 2 Dungeon Legendary Fragments and 1 Veil of the
+  Hollow, then auto-extract.
 - **Rewards apply to the character live and to the exact run ledger.** Unique
   source IDs make event/combat replay idempotent; final settlement clamps away
   unrecorded gain without restoring currency legitimately spent during the run.
@@ -433,20 +439,21 @@ were touched.
   +4 on descend. Fights no longer refill it (the clock). `DAILY_HOLLOW_GATE_CAP`
   = 2 (+ Extra Dive attunement).
 
-**Shard income** (`lib/hollow-gate-run.ts` `hollowShardDrop`): chest 2+floor
-(F1=3…F5=7) · shardVein 3+2·floor (5…13) · lockedChest 5+2·floor (7…15) ·
-boss 15+5·floor (F5=40). A full 5-floor clear nets ~250 shards. (Generous on
-purpose for a new system — trim here first if the economy feels too fast.)
+**Shard income** (`lib/hollow-gate-run.ts` `hollowShardDrop`, 0.6x the launch
+curve): chest round(0.6·(2+floor)) (F1=2…F5=4) · shardVein round(0.6·(3+2·floor))
+(3…8) · lockedChest round(0.6·(5+2·floor)) (4…9) · boss round(0.6·(15+5·floor))
+(F5=24). A full 5-floor clear nets ~160 shards before the augment.
 
-**In-run consumable costs** (`lib/hollow-gate-shards.ts`): Reignite 6 · Skeleton
-Key 8 · Sanctify 14 · **Hollow Ward 14** · **Diviner's Eye 16** · **Second Wind
-30**. (Bolded ones were nudged up this pass — the strong run-savers should be
-deliberate.)
+**In-run consumable costs** (`lib/hollow-gate-shards.ts`, charged by
+`use-consumable.ts`): Reignite 10 · Skeleton Key 15 · Hollow Ward 25 · Diviner's
+Eye 25 · Sanctify 40 · Second Wind 60.
+
+**Paid threat ambushes** ≤ 16 per run (`HOLLOW_GATE_PAID_AMBUSHES_PER_RUN`).
 
 **Attunement** (`lib/hollow-gate-attunement.ts`): node cost = `baseCost × (rank+1)`
 — Seasoned Delver 30 (×2) · Reiki Reserves 30 (×2) · Cartographer 40 (×1) ·
 Greedy Hands 45 (×3) · Extra Dive 120 (×1) · Key Forge 150 (×1). **Key Forge
-craft `KEY_FORGE_COST` = 80/key** (nudged from 60). Death loot retention =
+craft `KEY_FORGE_COST` = 120/key** (15 Fate Shards at the Crafter). Death loot retention =
 0.5 + 0.1·Greedy-Hands (cap 0.8).
 
 **Save caps** (`api/save/[name].ts`): `hollowShards` +200/save cycle;
