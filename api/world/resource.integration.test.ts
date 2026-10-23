@@ -33,6 +33,36 @@ async function seed(name: string, patch: Json = {}) {
     await kv.set(`save:${name}`, { _saveVersion: 1, _saveAt: Date.now(), currentSector: node.sector, character });
     online.upsert({ name, sector: node.sector, tile: node.approach, character: { level: 100 } });
 }
+test('new mining formations recover only in supported clients without restarting or spending twice', async () => {
+    const name = 'veincompatibility'; await seed(name);
+    const requestId = 'vein-compatible-attempt-001', nodeId = 'resource-17';
+    const started = await post(name, { action: 'start', nodeId, mode: 'active', requestId, miningGameVersion: 2 });
+    assert.equal(started.status, 200);
+    // Trusted fixture selects an appended formation deterministically. The
+    // browser never gets to choose or replace the server's admitted template.
+    const saved = (await kv.get<Json>(`save:${name}`))!, character = saved.character as Json;
+    const state = readResourceGathering(character.resourceGathering);
+    const active = { ...state.active!, template: 3 };
+    await kv.set(`save:${name}`, { ...saved, character: { ...character, resourceGathering: { ...state, active } } });
+    const journalKey = `economy-tx:resource-gathering:${createHash('sha256').update(`${name}:${requestId}`).digest('hex')}`;
+    const journal = (await kv.get<{ meta: Json }>(journalKey))!;
+    await kv.set(journalKey, { ...journal, meta: { ...journal.meta, seal: { ...(journal.meta.seal as Json), template: 3 } } });
+    const before = await kv.get(`save:${name}`);
+    for (const action of ['status', 'start']) {
+        const oldTab = await post(name, { action, nodeId, mode: 'active', requestId });
+        assert.equal(oldTab.status, 409); assert.match(String(oldTab.body.error), /Refresh the page/);
+        assert.deepEqual(await kv.get(`save:${name}`), before);
+    }
+    const recovered = await post(name, { action: 'status', nodeId, requestId, miningGameVersion: 2 });
+    assert.equal(recovered.status, 200);
+    const restored = readResourceGathering((recovered.body.character as Json).resourceGathering);
+    assert.equal(restored.active?.id, requestId); assert.equal(restored.active?.template, 3);
+    assert.equal(restored.attemptsToday, 1);
+    const retry = await post(name, { action: 'start', nodeId, mode: 'active', requestId, miningGameVersion: 2 });
+    assert.equal(retry.status, 200); assert.equal(retry.body.replayed, true);
+    assert.equal(readResourceGathering((retry.body.character as Json).resourceGathering).attemptsToday, 1);
+    assert.equal((await post(name, { action: 'cancel', requestId })).status, 200);
+});
 test('all retired building and ruin sites reject new starts without spending resources', async () => {
     for (const [i, id] of RETIRED_RESOURCE_NODE_IDS.entries()) {
         const name = `retiredsite${i}`, node = resourceNode(id)!;

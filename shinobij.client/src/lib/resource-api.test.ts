@@ -36,6 +36,9 @@ test('status completes a lost admission with the same ID before the next attempt
     assert.equal(restored.attempt?.id, calls[0].requestId);
     assert.equal(calls.length, 3);
     assert.equal(calls[2].requestId, calls[0].requestId);
+    assert.equal(calls[0].miningGameVersion, 2);
+    assert.equal(calls[1].miningGameVersion, 2, 'status recovery advertises supported formations before rendering the saved attempt');
+    assert.equal(calls[2].miningGameVersion, 2, 'recovered admissions advertise the same supported formations');
     assert.equal(readPendingEconomyIntent('resource-gathering', parts), null);
     await resourceRequest(start);
     assert.notEqual(calls[3].requestId, calls[0].requestId);

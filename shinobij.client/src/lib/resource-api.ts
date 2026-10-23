@@ -11,7 +11,7 @@ export async function resourceRequest(body: Record<string, unknown>): Promise<Re
     const timeout = setTimeout(() => controller.abort(), 20_000);
     try {
         const response = await fetch('/api/world/resource', { method: 'POST', signal: controller.signal, headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ...body, ...(intent ? { requestId: intent.requestId } : {}) }) });
+            body: JSON.stringify({ ...body, ...(['start', 'status'].includes(String(body.action)) ? { miningGameVersion: 2 } : {}), ...(intent ? { requestId: intent.requestId } : {}) }) });
         const result = await response.json() as ResourceResponse;
         if (intent && economyIntentSettled(response.status, result)) intent.complete();
         const active = result.character?.resourceGathering?.active;

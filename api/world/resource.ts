@@ -67,6 +67,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     }
                 }
             }
+            if ((action === 'status' || action === 'start') && state.active?.activity === 'mining'
+                && state.active.mode === 'active' && state.active.template >= 3 && body.miningGameVersion !== 2) {
+                return { ok: false, status: 409, error: 'This mining formation needs the updated game. Refresh the page to resume your attempt. Nothing extra has been spent.' };
+            }
             if (action === 'status') {
                 // Recover a settlement whose response was lost before reload,
                 // as well as an interruption closed by this status request.
@@ -114,7 +118,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             journal = await reserveEconomyTx({ id: txId, kind: 'resource-gathering', debitKey: sectorPoolKey(node.sector, now),
                 creditKey: `save:${identity.name}`, resource: 'explores', amount: 1,
                 meta: { fingerprint, nodeId: node.id, playerName: identity.name, poolEnabled,
-                    seal: { ...mintResourceSeal(current, node, id, body.mode as 'active' | 'relaxed', player, now),
+                    seal: { ...mintResourceSeal(current, node, id, body.mode as 'active' | 'relaxed', player, now, body.miningGameVersion === 2),
                         ...(worldBossEventId ? { worldBossEventId } : {}) } } });
             if (journal.meta?.fingerprint !== fingerprint) return { ok: false, status: 409, error: 'This attempt ID was already used for another action.' };
             if (journal.state === 'complete' || journal.state === 'refunded') return { ok: false, status: 409, error: 'This attempt has already closed. Choose the node again to start another.' };

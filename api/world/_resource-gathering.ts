@@ -5,7 +5,7 @@ import { resourceNode, validResourceNodeTerrain, type ResourceNode } from '../..
 import { readResourceGathering, resourceSkillLevel, resourceSuccessRate, resourceQuality, resourceItemId,
     resourceActionsToday, resourceNodeState, RESOURCE_ATTEMPT_MS, RESOURCE_REFILL_MS, type ResourcePublicAttempt,
     type ResourceReceipt, type ResourceFamily, type ResourceGrade } from '../../shared/resource-gathering.js';
-import { solveFractureChain } from '../../shared/fracture-chain.js';
+import { fractureTemplatePool, solveFractureChain } from '../../shared/fracture-chain.js';
 import { scoreFishing } from '../../shared/fishing-game.js';
 import { scoreKunaiFishing, kunaiSeed } from '../../shared/kunai-fishing.js';
 import type { OnlinePlayer } from '../_realtime/types.js';
@@ -35,11 +35,15 @@ export function resourceAdmissionError(character: Record<string, unknown>, node:
     if (gatheringTool(id)?.slot !== slot || gatheringToolRemaining(character, id!) === 0) return `Equip a ${slot === 'pickaxe' ? 'pickaxe' : 'fishing kunai'} in Inventory first.`;
     return null;
 }
-export function mintResourceSeal(character: Record<string, unknown>, node: ResourceNode, id: string, mode: 'active' | 'relaxed', player: OnlinePlayer, now: number): ResourceSeal {
+export function mintResourceSeal(character: Record<string, unknown>, node: ResourceNode, id: string, mode: 'active' | 'relaxed', player: OnlinePlayer, now: number, veinbreaking = true): ResourceSeal {
     const state = readResourceGathering(character.resourceGathering);
+    // Tabs opened before deployment can only render the original three layouts.
+    const templates = veinbreaking ? fractureTemplatePool(node.difficulty) : node.difficulty === 1 ? [0, 1] : [2];
+    const slot = node.activity === 'mining' ? 'pickaxe' : 'fishingPole';
     return { id, nodeId: node.id, activity: node.activity, startedAt: now, expiresAt: now + RESOURCE_ATTEMPT_MS,
         mode, skillLevel: resourceSkillLevel(state[`${node.activity}Xp`]),
-        template: node.difficulty === 1 ? randomInt(0, 2) : 2, hookAt: 1800 + randomInt(0, 1200),
+        toolId: gatheringTool((character.equipment as Record<string, string> | undefined)?.[slot])?.id,
+        template: templates[randomInt(templates.length)], hookAt: 1800 + randomInt(0, 1200),
         ...(node.activity === 'fishing' ? { fishingStyle: 'kunai' as const, fishingShoal: 'ranked' as const } : {}),
         movementSequence: player.movementSeq ?? 0, authorityEpoch: player.resourceEpoch ?? 0,
         rules: { version: 1, difficulty: node.difficulty, ceiling: node.ceiling, family: node.family, trace: node.trace },
@@ -58,7 +62,7 @@ export function admitResourceAttempt(character: Record<string, unknown>, seal: R
             skillLevel: seal.skillLevel, mode: seal.mode, template: seal.template, hookAt: seal.hookAt,
             ...(seal.fishingStyle ? { fishingStyle: seal.fishingStyle } : {}),
             ...(seal.fishingShoal ? { fishingShoal: seal.fishingShoal } : {}),
-            movementSequence: seal.movementSequence, toolBroke: tool.broke } } };
+            movementSequence: seal.movementSequence, toolBroke: tool.broke, toolId: seal.toolId } } };
 }
 export function resolveResourceAttempt(character: Record<string, unknown>, id: string, input: { cancel?: boolean; placements?: unknown; events?: unknown }, player: OnlinePlayer | null, now: number, seal?: ResourceSeal) {
     const state = readResourceGathering(character.resourceGathering);
@@ -106,6 +110,7 @@ export function resolveResourceAttempt(character: Record<string, unknown>, id: s
     const xp = outcome === 'success' ? 10 : outcome === 'failed' ? 3 : 0;
     const receipt: ResourceReceipt = { id, activity: active.activity, outcome, itemId, grade, xp, performance, toolBroke: active.toolBroke,
         ...(fishingCatch ? { fishingCatch } : {}),
+        ...(active.activity === 'mining' && outcome === 'failed' ? { miningFailure: gameFailed ? 'fracture' as const : 'extraction' as const } : {}),
         ...(node.worldBossCrystal && active.worldBossEventId ? { worldBossEventId: active.worldBossEventId } : {}), settledAt: now };
     let next = itemId ? addOwned(character, itemId, 1, true) : character;
     if (grade != null && rules.trace && active.traceDraw < .02) {
