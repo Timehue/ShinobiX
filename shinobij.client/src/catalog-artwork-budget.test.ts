@@ -119,7 +119,9 @@ test('every purchasable item resolves to artwork that ships', () => {
         .filter((item) => item.image?.startsWith('/items/'))
         .filter((item) => {
             try {
-                return statSync(join(clientRoot, 'public', item.image as string)).size === 0;
+                // Cache versions identify the HTTP response, not a file on disk.
+                const pathname = new URL(item.image as string, 'https://artwork.invalid').pathname;
+                return statSync(join(clientRoot, 'public', pathname)).size === 0;
             } catch {
                 return true;
             }
