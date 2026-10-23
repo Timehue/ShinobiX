@@ -1,0 +1,188 @@
+{
+  "schema": 1,
+  "rendererSha256": "e7e9909cc6a9e738072d9d186c6f726b49c81d64a7c09d5c5c49ceb7528d1a5a",
+  "rows": [
+    {
+      "name": "idle",
+      "duration": 1.2,
+      "frame": {
+        "motion": "idle"
+      }
+    },
+    {
+      "name": "run",
+      "duration": 0.8,
+      "frame": {
+        "motion": "run",
+        "moving": true,
+        "speed": 3
+      }
+    },
+    {
+      "name": "dash",
+      "duration": 0.6,
+      "frame": {
+        "motion": "dash",
+        "moving": true,
+        "speed": 5
+      }
+    },
+    {
+      "name": "windup",
+      "duration": 0.38,
+      "frame": {
+        "motion": "windup"
+      }
+    },
+    {
+      "name": "strike",
+      "duration": 0.26,
+      "frame": {
+        "motion": "strike",
+        "contactPose": true
+      }
+    },
+    {
+      "name": "recover",
+      "duration": 0.51,
+      "frame": {
+        "motion": "recover"
+      }
+    },
+    {
+      "name": "stagger",
+      "duration": 0.65,
+      "frame": {
+        "motion": "stagger",
+        "hit": 0.6,
+        "contactPose": true
+      }
+    },
+    {
+      "name": "dodge",
+      "duration": 0.65,
+      "frame": {
+        "motion": "dodge"
+      }
+    },
+    {
+      "name": "guard",
+      "duration": 0.8,
+      "frame": {
+        "motion": "guard"
+      }
+    },
+    {
+      "name": "rest",
+      "duration": 1.2,
+      "frame": {
+        "motion": "rest"
+      }
+    },
+    {
+      "name": "cast",
+      "duration": 0.9,
+      "frame": {
+        "motion": "idle",
+        "casting": true
+      }
+    },
+    {
+      "name": "entrance",
+      "duration": 1.1,
+      "frame": {
+        "motion": "idle"
+      }
+    },
+    {
+      "name": "victory",
+      "duration": 1.2,
+      "frame": {
+        "motion": "idle",
+        "victorious": true
+      }
+    },
+    {
+      "name": "dead",
+      "duration": 1.6,
+      "frame": {
+        "motion": "dead"
+      }
+    },
+    {
+      "name": "revive",
+      "duration": 0.8,
+      "frame": {
+        "motion": "idle"
+      }
+    },
+    {
+      "name": "attack-sequence",
+      "duration": 1.7,
+      "frame": {
+        "motion": "windup"
+      }
+    }
+  ],
+  "phases": [
+    0.025,
+    0.1,
+    0.25,
+    0.5,
+    0.75,
+    1
+  ],
+  "views": [
+    "front",
+    "side"
+  ],
+  "errors": [],
+  "pets": [
+    {
+      "id": "rare-6",
+      "name": "Dune Viper",
+      "captures": [
+        {
+          "stage": "source",
+          "sha256": "99576c778214596fd055148b3ce0cb26ef2f5f112f521b3fe0a5c60d3232bb2b",
+          "meshes": 1,
+          "headVertices": [
+            2757
+          ],
+          "quality": "low",
+          "sheets": [
+            {
+              "name": "rare-6-source-head.webp",
+              "sha256": "08d2d2ceb6df88a7cecb4d87e53540805effa0c3c3c918d4bb7ef9cd46993d55"
+            },
+            {
+              "name": "rare-6-source-body.webp",
+              "sha256": "eb0bce29e3c4603995518bc071175ee5c20e164f11825efc3c57becbbcb9d47e"
+            }
+          ]
+        },
+        {
+          "stage": "battle",
+          "sha256": "c7f0310195a184e5287ffb035efa6f8105f8705260e9d49273b37cf2679cdca8",
+          "meshes": 1,
+          "headVertices": [
+            1059
+          ],
+          "quality": "low",
+          "sheets": [
+            {
+              "name": "rare-6-battle-head.webp",
+              "sha256": "a47f974641a062c4fd43f3232897017f09b18b62d2489491519986ce5eaa3b15"
+            },
+            {
+              "name": "rare-6-battle-body.webp",
+              "sha256": "6649cdab5dab6c536a4860ee7f075068d25df78d2e4a1d74f11fc9947d84649e"
+            }
+          ]
+        }
+      ],
+      "review": "pending"
+    }
+  ],
+  "artisticCertification": false
+}

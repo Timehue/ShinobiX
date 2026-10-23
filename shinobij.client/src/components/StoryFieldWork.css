@@ -71,6 +71,13 @@
 }
 .story-field-status span { flex: 1 1 220px; }
 .story-field-status button { min-height: 44px; }
+@media (max-width: 979px) {
+    .story-field-status {
+        top: calc(var(--mobile-aaa-hud-height, 56px) + env(safe-area-inset-top, 0px) + 8px);
+        max-height: calc(100dvh - var(--mobile-aaa-hud-height, 56px) - var(--mobile-aaa-nav-height, 72px) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 24px);
+        overflow-y: auto;
+    }
+}
 .sector-story-field-marker { min-height: 44px; max-width: 150px; }
 .sector-story-field-marker span { white-space: normal; overflow-wrap: anywhere; }
 @media (max-width: 480px) {

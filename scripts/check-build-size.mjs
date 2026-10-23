@@ -869,12 +869,23 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // CI measures 9,583,007 B with release env vars; the production Docker build
 // measures 9,583,069 B. Allow 5 KB for the combined graph (1,931 B headroom
 // above Docker); startup raw/gzip, per-chunk, CSS and asset limits stay fixed.
+// 2026-10-22 IPHONE SUPPORT: Production Image run 39860938515 measures
+// 9,591,567 B after the Home Screen guide, readable phone HUD and keyboard/
+// safe-area handling: 8,498 B above the prior Docker baseline. Allow 10 KB
+// for this intentional feature growth, retaining 3,433 B of aggregate room.
+// The measured initial graph is 1,398,719 B raw / 395,632 B gzip; its separate
+// startup limits, per-chunk, CSS and asset gates are unchanged.
+// Release-gate overlay corrections measure 9,592,610 B locally with the same
+// production args (initial 1,399,360 B raw / 395,784 B gzip), within this cap.
 // 2026-10-22: the economy rebalance (docs/economy-rebalance-2026-10.md) merged
 // with current main measures 9,596,150 B locally: its client adds about 13 KB of
 // visible-limit copy, the daily stat-budget display, progression dials and the
 // stacked-material fold. Allow 9.61 MB (13,850 B of local headroom); the startup
 // graph (1,400,648 B raw / 396,652 B gzip), per-chunk, CSS and asset gates stay fixed.
-const TOTAL_JS_CSS_FAIL_BYTES = 9_610_000;
+// 2026-10-22 MERGE: both raises above landed together. The merged tree measures
+// 9,620,199 B locally (initial graph 1,406,121 B raw / 398,041 B gzip, still
+// under its own unchanged 399,000 B gate). Allow 9.63 MB: 9,801 B of headroom.
+const TOTAL_JS_CSS_FAIL_BYTES = 9_630_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai

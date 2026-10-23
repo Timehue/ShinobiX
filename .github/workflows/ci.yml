@@ -328,7 +328,7 @@ jobs:
       - name: Certify shipped pet rigs and animations
         run: npm run qa:pet-models --prefix shinobij.client 2>&1 | tee .ci-evidence/client-quality/pet-models.log
       - name: Check facial deformation, rig normalization and review evidence
-        run: node --test shinobij.client/scripts/oni-hound-skull.test.mjs shinobij.client/scripts/pet-deformation-probe.test.mjs shinobij.client/scripts/normalize-reviewed-pet-rig-scale.test.mjs shinobij.client/scripts/check-pet-shape-review.test.mjs 2>&1 | tee .ci-evidence/client-quality/pet-facial-shape.log
+        run: node --test shinobij.client/scripts/oni-hound-skull.test.mjs shinobij.client/scripts/pet-deformation-probe.test.mjs shinobij.client/scripts/normalize-reviewed-pet-rig-scale.test.mjs shinobij.client/scripts/check-pet-shape-review.test.mjs shinobij.client/scripts/pet-dune-viper-no-coil.test.mjs 2>&1 | tee .ci-evidence/client-quality/pet-facial-shape.log
       - name: Require current animation shape reviews for every pet
         run: npm run check:pet-shape-review --prefix shinobij.client 2>&1 | tee .ci-evidence/client-quality/pet-shape-review.log
       - name: Certify all Warfront and Rally LODs
@@ -760,6 +760,11 @@ jobs:
         with:
           browsers: chromium firefox webkit
           log: .ci-evidence/e2e-responsive-flows-${{ matrix.shard }}/browser-install.log
+      - name: iPhone installation, keyboard, rotation and Android parity
+        if: ${{ matrix.shard == 12 }}
+        env:
+          IPHONE_AUDIT_BUILT: '1'
+        run: npm run test:e2e:iphone --prefix shinobij.client -- iphone-experience.spec.ts --forbid-only 2>&1 | tee .ci-evidence/e2e-responsive-flows-${{ matrix.shard }}/iphone.log
       - name: Verify built CSP in Chromium and WebKit
         if: ${{ matrix.shard == 1 }}
         run: node --test scripts/check-http-security-browser.mjs 2>&1 | tee .ci-evidence/e2e-responsive-flows-${{ matrix.shard }}/csp-browser.log
