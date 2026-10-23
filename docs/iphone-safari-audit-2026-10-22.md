@@ -84,3 +84,18 @@ Before release, use a real older/small iPhone and a current notched iPhone to ve
 This report records the local pre-release audit. Production deployment status is tracked by GitHub/Railway; App Store publication is outside this change.
 
 The production-configured Docker gate subsequently measured 9,591,567 B of product JS/CSS, 8,498 B above the preceding Docker baseline. The aggregate budget accounts for this intentional iPhone feature growth at 9,595,000 B. The independently enforced startup, individual chunk, CSS and asset limits are unchanged; the measured initial graph is 1,398,719 B raw / 395,632 B gzip. The earlier local size result did not include all production environment-dependent code paths.
+
+## Release-gate regression follow-up
+
+The full repository browser gates exposed additional narrow-phone paths beyond the dedicated installation matrix:
+
+- Navigation rendered at 84px while overlays reserved 66–72px. The eager shell now gives it an explicit 72px height plus the safe area, shares that height with overlay clearance, and retains the 54px short-landscape map variant. The storage notice no longer overlaps navigation.
+- On a short phone, the taller header and readable reward text could leave part of the chest's Continue button behind navigation. Chest details now have a labeled, keyboard-focusable scrolling region while Continue stays visible. Reward amounts, receipts and claiming behavior are unchanged.
+- Story-field retry notices now clear the shared mobile header and stay within the available viewport. Both complete story recovery/replay scenarios now run on mobile Safari as well as desktop/mobile Chromium.
+- The generated design-token/breakpoint inventory has been refreshed and its drift check passes.
+- Installation help follows story/audio preferences in Settings, preserving the existing initial controller focus and D-pad setting order.
+- The audit's native-label fixture now includes the game's doctype and viewport metadata. A bare Safari fixture auto-zoomed and reported a 48px label as 47.999996px. The audit still enforces the same minimum and rejects hidden, pointer-disabled and ineffective labels.
+
+The navigation correction passed the complete **60/60** production-build device matrix again (6.9 minutes). The consolidated overlay build passed **27** applicable existing storage-notice, chest recovery and story recovery/replay checks across desktop Chromium, narrow/mobile Chromium and mobile Safari; five unsupported-profile cases were intentionally skipped. Existing layout/navigation contracts passed **27/27**, and the client TypeScript check passed. The production-configured build and all size gates pass at **9,592,610 B** of product JS/CSS, with an initial graph of **1,399,360 B raw / 395,784 B gzip**. Local browser evidence is in `test-results/iphone-nav-fix-matrix` and `test-results/iphone-overlays-final`.
+
+The final Settings placement passed **6/6** device-profile installation/installed-state checks and **6/6** controller/Academy-guide checks (including 360×640, short landscape and the 979/980px navigation handoff). The corrected label fixture passed **3/3** Chromium/Safari self-tests. Full frontend lint passed with zero errors and the existing 24 refresh warnings; targeted lint on the last test/Settings edits also passed. The generated handoff drift check is current. Evidence is in `test-results/iphone-release-settings`, `test-results/iphone-release-controller-academy` and `test-results/iphone-touch-audit-fixed`.

@@ -875,6 +875,8 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // for this intentional feature growth, retaining 3,433 B of aggregate room.
 // The measured initial graph is 1,398,719 B raw / 395,632 B gzip; its separate
 // startup limits, per-chunk, CSS and asset gates are unchanged.
+// Release-gate overlay corrections measure 9,592,610 B locally with the same
+// production args (initial 1,399,360 B raw / 395,784 B gzip), within this cap.
 const TOTAL_JS_CSS_FAIL_BYTES = 9_595_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry

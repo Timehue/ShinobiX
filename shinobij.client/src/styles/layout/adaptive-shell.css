@@ -223,6 +223,7 @@ html body.coach-banner-open .onboarding-coach-banner.coach-trail-chip {
   :root {
     --mobile-aaa-hud-height: 56px;
     --mobile-aaa-nav-height: 72px;
+    --shell-mobile-nav-height: var(--mobile-aaa-nav-height);
     --mobile-aaa-gutter: clamp(8px, 2.8vw, 16px);
   }
 
@@ -395,8 +396,10 @@ html body.coach-banner-open .onboarding-coach-banner.coach-trail-chip {
   }
 
   .app-shell[data-ui-mode="noncombat"] .mobile-bottom-nav {
+    box-sizing: border-box;
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
+    block-size: calc(var(--mobile-aaa-nav-height) + env(safe-area-inset-bottom, 0px));
     min-block-size: var(--mobile-aaa-nav-height);
     padding:
       6px max(6px, env(safe-area-inset-right, 0px))
@@ -551,7 +554,7 @@ html body.coach-banner-open .app-shell[data-shell="adaptive"][data-ui-mode="nonc
 }
 /* Preserve usable sector space above the navigation in short phone landscape. */
 @media (max-height: 450px) and (min-width: 560px) and (max-width: 979px) {
-  .app-shell.screen-worldMap[data-ui-mode="noncombat"]:has(.sector-stage-panel) .mobile-bottom-nav { min-block-size: 54px; padding-block: 4px; }
+  .app-shell.screen-worldMap[data-ui-mode="noncombat"]:has(.sector-stage-panel) .mobile-bottom-nav { --mobile-aaa-nav-height: 54px; min-block-size: 54px; padding-block: 4px; }
   .app-shell.screen-worldMap[data-ui-mode="noncombat"]:has(.sector-stage-panel) .mobile-nav-btn { min-block-size: 44px; padding-block: 2px; }
   .app-shell.screen-worldMap[data-ui-mode="noncombat"]:has(.sector-stage-panel) .mobile-nav-btn .mnb-icon { min-block-size: 20px; }
   .app-shell.screen-worldMap[data-ui-mode="noncombat"]:has(.sector-stage-panel) .mobile-nav-btn svg { width: 20px; height: 20px; }
