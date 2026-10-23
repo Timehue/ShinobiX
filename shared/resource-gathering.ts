@@ -45,13 +45,14 @@ export function resourceNodeState(state: ResourceNodeState | undefined, now: num
 }
 export type ResourcePublicAttempt = {
     id: string; nodeId: string; activity: ResourceActivity; startedAt: number; expiresAt: number;
-    skillLevel: number; mode: 'active' | 'relaxed'; template: number; hookAt: number; movementSequence: number; toolBroke?: boolean;
+    skillLevel: number; mode: 'active' | 'relaxed'; template: number; hookAt: number; movementSequence: number; toolBroke?: boolean; toolId?: string;
     fishingStyle?: 'kunai';
     fishingShoal?: 'ranked';
 };
 export type ResourceReceipt = {
     id: string; activity: ResourceActivity; outcome: 'success' | 'failed' | 'cancelled' | 'expired';
     itemId?: string; grade?: ResourceGrade; xp: number; performance: number; toolBroke: boolean;
+    miningFailure?: 'fracture' | 'extraction';
     traceId?: string;
     fishingCatch?: KunaiCatch;
     worldBossEventId?: string;

@@ -9,6 +9,7 @@ import { GatheringResult } from './GatheringResult';
 import { serverClockOffsetMs } from '../lib/server-clock';
 import { useSharedNow } from '../lib/use-shared-now';
 import { gatheringTool, gatheringToolRemaining } from '../../../shared/gathering-tools';
+import { gatheringToolArtwork } from '../lib/gathering-tool-art';
 import './resource-gathering.css';
 
 export function ResourceWorld({ character, sector, tile, commit, walk, worldBossCrystals }: {
@@ -112,7 +113,7 @@ export function ResourceWorld({ character, sector, tile, commit, walk, worldBoss
                 title={candidate.name + ' · Skill ' + candidate.difficulty + (candidate.worldBossCrystal ? ' · yields one Hollow Shard for the World Boss event' : ' · ' + remaining + '/3 attempts')}
                 onPointerDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); setSelected(candidate); setReceipt(null); setError(''); }}>
                 <span className="resource-node-medallion" aria-hidden="true">
-                    <img className="resource-node-art" src={candidate.worldBossCrystal ? '/items/gather-stormglass-shard-v1.webp' : candidate.activity === 'fishing' ? '/items/gather-river-fish.svg' : '/items/tool-basic-pickaxe.svg'} alt="" draggable={false} />
+                    <img className="resource-node-art" src={candidate.worldBossCrystal ? '/items/gather-stormglass-shard-v1.webp' : candidate.activity === 'fishing' ? '/items/gather-river-fish.svg' : gatheringToolArtwork('tool-basic-pickaxe')} alt="" draggable={false} />
                 </span>
                 <small className="resource-node-charges" aria-hidden="true">{candidate.worldBossCrystal ? 'EVENT' : `${remaining}/3`}</small>
             </button>;
@@ -127,7 +128,7 @@ export function ResourceWorld({ character, sector, tile, commit, walk, worldBoss
                 <ResourceMinigame key={active.id} attempt={active} busy={busy || now >= active.expiresAt} fishingGold={toolId === 'tool-golden-fishing-pole'} resolve={input => void request('resolve', input)} />
                 <button type="button" className="resource-cancel" disabled={busy} onClick={() => void request('cancel')}>{now >= active.expiresAt ? 'Close expired attempt' : 'Abandon attempt (action stays spent)'}</button>
             </> : node && <div className="resource-node-intro">
-                <p className="resource-kicker">{node.worldBossCrystal ? 'World threat · Hollow Shard' : node.activity === 'mining' ? 'Mountain seam · Fracture Chain' : 'Water shoal · Kunai fishing'}</p>
+                <p className="resource-kicker">{node.worldBossCrystal ? 'World threat · Hollow Shard' : node.activity === 'mining' ? 'Mountain seam · Veinbreaking' : 'Water shoal · Kunai fishing'}</p>
                 <div className="resource-node-stats"><span>Your skill <strong>{level}</strong></span><span>Attempts <strong>{charges}/3</strong></span><span>{node.activity === 'fishing' ? 'Relaxed success' : 'Baseline success'} <strong>{resourceSuccessRate(level, node.difficulty)}%</strong></span></div>
                 <p>{node.difficulty === 1 ? 'Basic' : node.difficulty === 4 ? 'Rich' : 'Master'} site · Requires skill {node.difficulty} · Quality up to {RESOURCE_GRADES[node.ceiling]}</p>
                 {node.worldBossCrystal && <p>This vein is shared across the world. A successful mine stores one Hollow Shard for you. Turn it in on the World Bosses screen for contribution points and to fill the world's weakening meter.</p>}

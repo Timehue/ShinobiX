@@ -32,8 +32,8 @@ export function OutpostResourcePanel({ activity, character, commit, onBack, onMa
 
         <section className="outpost-field-brief" aria-label={`${label} field skill`}>
             <div className="outpost-field-method"><p className="resource-kicker">Independent field skill</p>
-                <h3>{mining ? 'Follow the fault' : 'Read the water'}</h3>
-                <p>{mining ? 'Place chakra charges along visible fractures. Expose the core without sending two cracks into the same face.' : 'Lead a swimming fish and release your tethered kunai. Three throws per attempt; misses scatter the shoal. Read each fish’s Fishing level: locked fish break free and end the attempt.'}</p>
+                <h3>{mining ? 'Veinbreaking · Read the seam' : 'Read the water'}</h3>
+                <p>{mining ? 'Read the rock, place chakra seals, and release a controlled fracture. Reach each mineral pocket once; crossing fractures crush the ore.' : 'Lead a swimming fish and release your tethered kunai. Three throws per attempt; misses scatter the shoal. Read each fish’s Fishing level: locked fish break free and end the attempt.'}</p>
             </div>
             <div className="outpost-skill-progress"><div><span>Skill progression</span><strong>{next ? `${xp} / ${next} XP` : 'Mastered'}</strong></div>
                 <progress aria-label={`${label} skill progress`} max={next ? next - floor : 1} value={next ? xp - floor : 1} />
