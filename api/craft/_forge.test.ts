@@ -1,6 +1,9 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { applyForge, countOwned } from './_forge.js';
+import { ITEM_CATALOG } from '../pvp/_item-catalog.js';
+import { SUPPLY_CRAFT_RECIPES } from '../../shared/crafting-recipes.js';
+import { effectiveItemLevelReq } from '../../shared/item-level-gate.js';
 
 describe('server Crafter ingredient recipes', () => {
     it('spends only selected ore grades, rejects ineligible ingredients and leaves the original save untouched', () => {
@@ -85,5 +88,44 @@ describe('server Crafter ingredient recipes', () => {
         const aura = applyForge({ level: 100, auraDust: 7, itemStacks: [{ itemId: 'gather-stormglass-shard', count: 4 }, { itemId: 'gather-stormglass-shard-fine', count: 8 }, { itemId: 'gather-field-herb', count: 8 }, { itemId: 'gather-binding-fiber', count: 4 }] }, 'supply', 'currency:aura-dust', 2)!;
         assert.equal(aura.auraDust, 107); assert.equal(countOwned(aura, 'gather-stormglass-shard'), 0);
         assert.equal(countOwned(aura, 'gather-stormglass-shard-fine'), 8);
+    });
+});
+
+/*
+ * 2026-10 item-use pass: a combat consumable equips into a character slot that
+ * the rarity ladder gates, so its supply recipe opens at that same level. A
+ * Lv1-29 crafter used to make Lv30 pills, smoke, needles and potions that they
+ * could only sell. Pet supplies stay open: no character level gates their use.
+ */
+describe('supply recipes open at the level their output can be used', () => {
+    const characterEquipped = (id: string) => {
+        const item = ITEM_CATALOG[id];
+        if (!item) return false;
+        return item.slot === 'thrown' || item.slot === 'potion'
+            || (item.slot === 'item' && (item.weaponEffect != null || item.apCost != null || item.weaponEp != null || item.restoreChakra != null || item.restoreStamina != null));
+    };
+
+    it('gates every combat consumable recipe at the ladder level of its output', () => {
+        let checked = 0;
+        for (const [id, recipe] of Object.entries(SUPPLY_CRAFT_RECIPES)) {
+            if (!characterEquipped(id)) continue;
+            checked++;
+            assert.equal(recipe.levelReq ?? 1, effectiveItemLevelReq(ITEM_CATALOG[id]), `${id} recipe gate`);
+        }
+        assert.ok(checked >= 7, `${checked} combat consumable recipes`);
+    });
+
+    it('refuses an Attack Pill at Lv29 and crafts it at Lv30', () => {
+        const save = (level: number) => ({ level, itemStacks: [
+            { itemId: 'gather-field-herb', count: 4 }, { itemId: 'hunt-beast-meat', count: 2 }, { itemId: 'gather-heartwood-bark', count: 1 },
+        ] });
+        assert.equal(applyForge(save(29), 'supply', 'item-attack-pill', 1), null);
+        assert.equal(countOwned(applyForge(save(30), 'supply', 'item-attack-pill', 1)!, 'item-attack-pill'), 1);
+    });
+
+    it('keeps the Shuriken and the pet supplies open from Lv1', () => {
+        for (const id of ['thrown-shuriken', 'pet-treat', 'elemental-pet-treat', 'consum-lifeline-elixir', 'pve-frenzy-claw']) {
+            assert.equal(SUPPLY_CRAFT_RECIPES[id]?.levelReq ?? 1, 1, id);
+        }
     });
 });

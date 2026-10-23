@@ -21,7 +21,8 @@ import { withKvLock } from '../_lock.js';
 import { announce } from '../_announce.js';
 import { WAR_VILLAGES } from '../_war-map-sectors.js';
 import { pushOfflineNotice } from '../player/_offline-notices.js';
-import { closeCurrentReign, KAGE_DECLARE_RYO_COST, type KageChallenge, type KageStateLike } from './_kage-challenge.js';
+import { closeCurrentReign, kageChallengeStake, type KageChallenge, type KageStateLike } from './_kage-challenge.js';
+import { recordEconomyTxn } from '../_economy.js';
 import { kageKey } from './_kage-settle.js';
 import { recordAudit } from '../_audit.js';
 import { settlementFingerprint, settlementTransactionId } from '../_durable-settlement.js';
@@ -145,9 +146,9 @@ async function processVillage(village: string, now: number): Promise<KageInactiv
         console.warn(`[kage-inactivity] ${village}: offline notice for ${kage} failed.`, (err as Error).message);
     }
     // A challenge that was open against the absentee dies with the reign. The
-    // challenger did nothing wrong: refund the declare stake (the exact
-    // KAGE_DECLARE_RYO_COST debit kage-challenge.ts applied) under their save
-    // lock, tell them, and apply NO cooldown.
+    // challenger did nothing wrong: refund the declare stake (the exact debit
+    // kage-challenge.ts applied, kageChallengeStake) under their save lock,
+    // tell them, and apply NO cooldown.
     if (clearedChallenge) await refundClearedChallenge(village, clearedChallenge, now);
     console.log(`[kage-inactivity] ${village}: ${kage} absent since ${new Date(lastActiveAt).toISOString()} — seat declared open.`);
     return { village, outcome: 'dethroned', kage, lastActiveAt };
@@ -163,7 +164,7 @@ function num(v: unknown): number {
  * The dethrone commits the seat change and DROPS the open challenge in one CAS,
  * so by the time the refund runs there is no row left to retry from. If the
  * challenger's save is missing, their save lock is contended, or KV hiccups, the
- * 250,000-ryo stake used to be destroyed with nothing but a console line.
+ * ryo stake used to be destroyed with nothing but a console line.
  *
  * It is now PARKED as a durable pending compensation keyed per challenge, which
  * the player's next heartbeat drains (api/player/heartbeat.ts) — the same
@@ -340,6 +341,9 @@ export async function drainKageStakeRefunds(slug: string, now: number = Date.now
     }
 
     for (const e of outcome.paid) {
+        // Economy telemetry (I-19): the stake comes back, so the kage.stake sink
+        // nets out. Only entries this drain actually paid, after their commit.
+        void recordEconomyTxn({ txnId: `kage-stake-refund:${e.id}`, player: safe, currency: 'ryo', delta: e.amount, source: 'kage.stake-refund' });
         try {
             await pushOfflineNotice(safe, { kind: 'kage-challenge-refunded', by: 'inactivity', village: e.village, sector: 0, at: now, amount: e.amount });
         } catch { /* the ryo already landed; the note is best-effort */ }
@@ -355,7 +359,9 @@ async function refundClearedChallenge(village: string, challenge: KageChallenge,
     const entry: PendingStakeRefund = {
         id: `kage-stake:${village}:${challenge.challengeId}`,
         village,
-        amount: KAGE_DECLARE_RYO_COST,
+        // What this challenge was charged, not today's price: an open 250,000
+        // challenge must not refund 400,000 after the stake rose.
+        amount: kageChallengeStake(challenge),
         at: now,
         ...(challenge.chargedHollowGateCreditBasis ? { chargedHollowGateCreditBasis: challenge.chargedHollowGateCreditBasis } : {}),
     };

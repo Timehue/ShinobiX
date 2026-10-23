@@ -20,8 +20,8 @@ import { sanitizeCharacterSave, buildPublicSaveDTO, combatProjection, isAdminCon
  *  2. Scenario assertions — the ownership rules the snapshots encode, stated
  *     explicitly so a snapshot regen cannot silently launder a rule change.
  *
- * Determinism notes: fixtures always carry `createdAt` (else the sanitizer
- * stamps Date.now()), and all date stamps use a fixed past date so the
+ * Determinism notes: an existing save's `createdAt` is kept, and a first save
+ * is stamped with the sanitizer clock (`opts.now`), and all date stamps use a fixed past date so the
  * SERVER_UTC_DATE comparisons take the same branch on any test day.
  *
  * Scenarios NOT covered here (covered elsewhere, handler-level):
@@ -222,10 +222,12 @@ function runScenarios(): Record<string, unknown> {
         () => sanitizeCharacterSave(incomingAutosave(), storedSave()));
     out['existing-player-autosave.strict'] = withStrictLedger('1',
         () => sanitizeCharacterSave(incomingAutosave(), storedSave()));
+    // The server stamps createdAt on a first save; pin its clock to the
+    // fixture's value so the snapshot stays deterministic.
     out['first-save.nonstrict'] = withStrictLedger('0',
-        () => sanitizeCharacterSave(firstSaveAttempt(), null));
+        () => sanitizeCharacterSave(firstSaveAttempt(), null, { now: 1_600_000_000_000 }));
     out['first-save.strict'] = withStrictLedger('1',
-        () => sanitizeCharacterSave(firstSaveAttempt(), null));
+        () => sanitizeCharacterSave(firstSaveAttempt(), null, { now: 1_600_000_000_000 }));
     {
         const { incoming, existing } = adminSlotSave();
         out['admin-content-slot-save.nonstrict'] = withStrictLedger('0',

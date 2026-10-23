@@ -535,7 +535,9 @@ describe('player ranked terminal journal', () => {
         };
         await settlePlayerRankedJournal(store, journal, NOW + 4);
         const alice = char(await base.get('save:alice'));
-        assert.equal(alice.ryo, 777);
+        // The successor's 777 is kept; the ranked purse (on from launch) lands on
+        // top of it: 13.5 x A(1) = 13.5 x 24 = 324 at the fixture's level 1.
+        assert.equal(alice.ryo, 777 + 324);
         assert.equal(alice.rankedRating, 1012);
         assert.equal(alice.rankedWins, 1);
     });

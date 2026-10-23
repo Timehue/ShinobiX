@@ -1,5 +1,7 @@
 import { parseStoryFieldProgress, type StoryFieldProgress } from '../../shared/story-field-work.js';
 import { OUTSKIRTS_SECTORS, VILLAGE_OUTSKIRTS } from '../../shared/sector-geo.js';
+import { RETIRED_RELIC_IDS } from '../../shared/relics.js';
+import { removeOwned } from '../craft/_forge.js';
 
 export const STORY_RECKONING_DAILY_CAP = 3;
 
@@ -231,4 +233,16 @@ export function ownedItemCount(char: { inventory?: unknown; itemStacks?: unknown
         for (const equipped of Object.values(char.equipment)) if (equipped === itemId) count += 1;
     }
     return count;
+}
+
+/**
+ * The turn-in takes one copy of a RETIRED relic id (shared/relics.ts). Those three
+ * drops are turn-in proof and nothing else: not equippable, cost 0 (unsellable),
+ * wanted by no recipe or donation, so a kept copy sat in the backpack for good
+ * (2026-10 item-use pass). Every other drop is a keepsake relic or armor piece
+ * and stays. The quest's completion trait stops its task from minting it again.
+ */
+export function handOverRetiredProof<T extends Record<string, unknown>>(char: T, dropItemId: string): T {
+    if (!(RETIRED_RELIC_IDS as readonly string[]).includes(dropItemId)) return char;
+    return removeOwned(char, dropItemId, 1) as T;
 }

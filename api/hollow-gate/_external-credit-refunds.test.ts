@@ -21,6 +21,8 @@ let credits: typeof import('./_external-credits.js');
 let bounty: Handler;
 let kage: Handler;
 let unlock: Handler;
+let KAGE_DECLARE_RYO_COST: number;
+let bountyPlacementTotal: typeof import('../../shared/pvp-bounty-fee.js').bountyPlacementTotal;
 
 before(async () => {
     const storage = await import('../_storage.js');
@@ -31,6 +33,8 @@ before(async () => {
     bounty = (await import('../pvp/bounty.js')).default as unknown as Handler;
     kage = (await import('../village/kage-challenge.js')).default as unknown as Handler;
     unlock = (await import('../village/hollow-gate-unlock.js')).default as unknown as Handler;
+    ({ KAGE_DECLARE_RYO_COST } = await import('../village/_kage-challenge.js'));
+    ({ bountyPlacementTotal } = await import('../../shared/pvp-bounty-fee.js'));
 });
 
 beforeEach(async () => {
@@ -86,7 +90,9 @@ for (const scenario of ['bounty', 'kage', 'unlock'] as const) {
     test(`${scenario} publication failure restores the charged wallet without minting Hollow Gate external credits`, async t => {
         const f = await prepare(`hgrefund${scenario}`);
         const resource = scenario === 'unlock' ? 'honorSeals' : 'ryo';
-        const amount = scenario === 'bounty' ? 1000 : scenario === 'kage' ? 250_000 : 10_000;
+        const amount = scenario === 'bounty' ? 1000 : scenario === 'kage' ? KAGE_DECLARE_RYO_COST : 10_000;
+        // A bounty also burns its 15% posting fee on top of the stake.
+        const charge = scenario === 'bounty' ? bountyPlacementTotal(amount) : amount;
         const failedKey = scenario === 'bounty' ? 'pvp:bounties'
             : scenario === 'kage' ? kageKey : 'game:village-state:frostfangvillage';
         if (scenario === 'bounty') {
@@ -105,7 +111,7 @@ for (const scenario of ['bounty', 'kage', 'unlock'] as const) {
         t.mock.method(kv, 'set', async (...args: Parameters<typeof kv.set>) => {
             if (args[0] === failedKey) {
                 const charged = (await kv.get<Save>(f.saveKey))!;
-                assert.equal(charged.character[resource], Number(f.save.character[resource]) - amount,
+                assert.equal(charged.character[resource], Number(f.save.character[resource]) - charge,
                     'the injected failure follows the real committed debit');
                 faults++;
                 throw new Error('injected HG refund publication failure');
@@ -139,7 +145,8 @@ test('a real Sanctify between bounty debit and failed publication protects the r
     const bountyKey = 'pvp:bounties';
     await kv.set('save:hgrefundtarget', { character: { name: 'hgrefundtarget', ryo: 100 } });
     await kv.set(bountyKey, { bounties: [] });
-    const sanctify = (await import('./use-consumable.js')).default as unknown as Handler;
+    const consumables = await import('./use-consumable.js');
+    const sanctify = consumables.default as unknown as Handler;
     const settle = (await import('./settle.js')).default as unknown as Handler;
     const originalSet = kv.set.bind(kv);
     let checkpoint: Save | undefined;
@@ -147,7 +154,7 @@ test('a real Sanctify between bounty debit and failed publication protects the r
     t.mock.method(kv, 'set', async (...args: Parameters<typeof kv.set>) => {
         if (args[0] === bountyKey) {
             const charged = (await kv.get<Save>(f.saveKey))!;
-            assert.equal(charged.character.ryo, Number(f.save.character.ryo) - 1000);
+            assert.equal(charged.character.ryo, Number(f.save.character.ryo) - bountyPlacementTotal(1000));
             const response = await call(sanctify, f.name, {
                 action: 'sanctify', token: f.runToken, requestId: 'hg-refund-checkpoint-consumable',
             });
@@ -169,8 +176,9 @@ test('a real Sanctify between bounty debit and failed publication protects the r
     const refunded = (await kv.get<Save>(f.saveKey))!;
     assert.equal(refunded._saveVersion, f.save._saveVersion + 3);
     assert.equal(refunded.character.ryo, f.save.character.ryo);
-    assert.equal(refunded.character.hollowShards, 86, 'the real Sanctify cost remains charged');
-    assert.deepEqual(credits.hollowGateExternalCredits(refunded.character, f.runToken), { ryo: 1000 });
+    assert.equal(refunded.character.hollowShards, 100 - consumables.HOLLOW_GATE_CONSUMABLE_COSTS.sanctify, 'the real Sanctify cost remains charged');
+    // The refund returns the stake and its posting fee, all of it protected.
+    assert.deepEqual(credits.hollowGateExternalCredits(refunded.character, f.runToken), { ryo: bountyPlacementTotal(1000) });
     assert.equal(credits.hollowGateProtectedCurrencyBaseline(refunded.character, f.runToken, 'ryo', checkpoint.character.ryo), f.save.character.ryo);
     assert.deepEqual(await kv.get(bountyKey), { bounties: [] });
     const ended = await call(settle, f.name, { token: f.runToken, action: 'abandon' });

@@ -25,20 +25,52 @@ type Out = { statusCode: number; body?: Json };
 const PREFIX = 'tamerxponce';
 const TOKEN = 'tamerxponceexpedition001';
 // A 45-minute Scout route earns 45 x 5 = 225 Tamer XP, doubled for the day's
-// first expedition (tamerXpForExpedition). 450 XP is profession rank 3.
-const EXPEDITION_TAMER_XP = 450;
-const RANK_AFTER_EXPEDITION = 3;
+// first expedition, then halved by TAMER_XP_MULT (2026-10 rebalance #37):
+// 225 XP, which is profession rank 2 (thresholds 0 / 100 / 350).
+const EXPEDITION_TAMER_XP = 225;
+const RANK_AFTER_EXPEDITION = 2;
 
 let kv: typeof import('../_storage.js').kv;
 let handler: Handler;
 let issuePlayerToken: typeof import('../_auth.js').issuePlayerToken;
 let resetRateLimits: typeof import('../_ratelimit.js').__resetRateLimitsForTest;
+let tamerXpForExpedition: typeof import('./report-pet-event.js').tamerXpForExpedition;
 
 before(async () => {
     ({ kv } = await import('../_storage.js'));
     ({ issuePlayerToken } = await import('../_auth.js'));
     ({ __resetRateLimitsForTest: resetRateLimits } = await import('../_ratelimit.js'));
-    handler = (await import('./report-pet-event.js')).default as unknown as Handler;
+    const route = await import('./report-pet-event.js');
+    handler = route.default as unknown as Handler;
+    tamerXpForExpedition = route.tamerXpForExpedition;
+});
+
+describe('Tamer expedition XP runs at half its pre-rebalance rate (TAMER_XP_MULT)', { concurrency: false }, () => {
+    const withDial = (value: string | undefined, run: () => void) => {
+        const prior = process.env.TAMER_XP_MULT;
+        if (value === undefined) delete process.env.TAMER_XP_MULT; else process.env.TAMER_XP_MULT = value;
+        try { run(); } finally {
+            if (prior === undefined) delete process.env.TAMER_XP_MULT; else process.env.TAMER_XP_MULT = prior;
+        }
+    };
+
+    it('halves every route, after the duration, first-of-day and escort multipliers', () => withDial(undefined, () => {
+        const plain = { isFirstToday: false, escortReady: false };
+        assert.equal(tamerXpForExpedition(45, plain), 112, 'Scout: floor(225 / 2)');
+        assert.equal(tamerXpForExpedition(45, { isFirstToday: true, escortReady: false }), 225);
+        assert.equal(tamerXpForExpedition(120, plain), 450, 'Forage: 120 x 5 x 1.5 / 2');
+        assert.equal(tamerXpForExpedition(240, plain), 1200, 'Ruins: 240 x 5 x 2 / 2');
+        assert.equal(tamerXpForExpedition(240, { isFirstToday: true, escortReady: true }), 2880, 'Ruins, first of day, escorted');
+        assert.equal(tamerXpForExpedition(9, { isFirstToday: true, escortReady: true }), 0, 'under 10 minutes pays nothing');
+    }));
+
+    it('reproduces the pre-rebalance figures at the kill value 1, and ignores an out-of-range value', () => {
+        withDial('1', () => {
+            assert.equal(tamerXpForExpedition(45, { isFirstToday: false, escortReady: false }), 225);
+            assert.equal(tamerXpForExpedition(240, { isFirstToday: true, escortReady: true }), 5760);
+        });
+        withDial('3', () => assert.equal(tamerXpForExpedition(240, { isFirstToday: true, escortReady: true }), 2880, 'falls back to 0.5'));
+    });
 });
 
 beforeEach(async () => {

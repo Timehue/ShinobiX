@@ -49,9 +49,9 @@ async function post(handler: Handler, playerName: string, body: Record<string, u
     return out;
 }
 
-async function seedRun(playerName: string) {
+async function seedRun(playerName: string, wave = 7, extra: Record<string, unknown> = {}) {
     const now = Date.now();
-    const run: EndlessRun = { runToken: `publication${playerName}Token`, wave: 7, bankedRyo: 6400,
+    const run: EndlessRun = { runToken: `publication${playerName}Token`, wave, bankedRyo: 6400,
         bankedXp: 0, startedAt: now - 60_000, highestMilestoneClaimed: 5 };
     const character = {
         name: playerName, level: 50, ryo: 15_000, xp: 0,
@@ -60,7 +60,7 @@ async function seedRun(playerName: string) {
             ninjutsuOffense: 100, ninjutsuDefense: 100, taijutsuOffense: 100, taijutsuDefense: 100,
             bukijutsuOffense: 100, bukijutsuDefense: 100, genjutsuOffense: 100, genjutsuDefense: 100 },
         jutsu: [], inventory: [], itemStacks: [], equipment: {}, pets: [],
-        endlessTowerRun: run, boneCharms: 0, fateShards: 0,
+        endlessTowerRun: run, boneCharms: 0, fateShards: 0, ...extra,
     };
     const save = { _saveVersion: 1, _saveAt: now, _regenAt: now, character, creatorItems: [] };
     await kv.set(`save:${playerName}`, save);
@@ -69,8 +69,8 @@ async function seedRun(playerName: string) {
 
 type Fixture = Awaited<ReturnType<typeof seedRun>>;
 
-async function seedLegacyWave(playerName: string) {
-    const fixture = await seedRun(playerName);
+async function seedLegacyWave(playerName: string, wave = 7, extra: Record<string, unknown> = {}) {
+    const fixture = await seedRun(playerName, wave, extra);
     const runId = waves.endlessWaveRunId();
     const now = Date.now();
     const built = waves.buildEndlessWaveEncounter({ playerName, save: fixture.save, runToken: fixture.run.runToken,
@@ -262,6 +262,63 @@ test('a committed publication whose acknowledgement is lost resumes the same wav
     assert.equal((await kv.get<{ sessionId: string }>(`battle-state:${fixture.playerName}`))?.sessionId, publishedId);
     assert.deepEqual(await kv.keys('solo-pve:endlesswave-*'), [`solo-pve:${publishedId}`]);
     await assertBankUnchanged(fixture);
+});
+
+type LoggedTxn = { txnId: string; player: string; currency: string; delta: number; source: string };
+const txnsOf = async (playerName: string) => ((await kv.get<LoggedTxn[]>('econ:txns')) ?? []).filter((txn) => txn.player === playerName);
+
+test('economy telemetry logs a milestone and a cash-out once each, with first-ascent Fate Shards on their own source', async () => {
+    // Wave 20 pays 5 BC + 5 FS. Best 19 makes it a lifetime-first wave; counter 1 makes it the day's free run.
+    const fixture = await seedLegacyWave('telemetrymilestone', 20, { endlessTowerBestWave: 19, dailyEndlessRuns: 1 });
+    await sessions.writeSoloPveSession(terminal(fixture.session, 'win'));
+    const settle = () => post(runAction, fixture.playerName, { action: 'settle', runToken: fixture.run.runToken, waveRunId: fixture.runId });
+    const settled = await settle();
+    assert.equal(settled.status, 200, JSON.stringify(settled.body));
+    assert.deepEqual(settled.body?.milestone, { boneCharms: 5, fateShards: 5 });
+    assert.equal((await settle()).body?.replayed, true);
+    const milestones = (await txnsOf(fixture.playerName)).filter((txn) => txn.txnId.startsWith('endless:milestone:'));
+    assert.deepEqual(milestones.map(({ currency, delta, source }) => ({ currency, delta, source }))
+        .sort((a, b) => a.currency.localeCompare(b.currency)), [
+        { currency: 'boneCharms', delta: 5, source: 'endless.milestone' },
+        { currency: 'fateShards', delta: 5, source: 'endless.milestone.first' },
+    ]);
+
+    const expected = fixture.run.bankedRyo + endlessWaveReward(20, 50).ryo;
+    assert.equal((await cashout(fixture)).body?.creditedRyo, expected);
+    assert.equal((await cashout(fixture)).body?.replayed, true);
+    const cashouts = (await txnsOf(fixture.playerName)).filter((txn) => txn.txnId.startsWith('endless:cashout:'));
+    assert.deepEqual(cashouts.map(({ currency, delta, source }) => ({ currency, delta, source })),
+        [{ currency: 'ryo', delta: expected, source: 'endless.cashout' }]);
+});
+
+test('a milestone the rebalance does not pay logs nothing', async () => {
+    // Wave 20 was already cleared (best 20) and this is a paid second run (counter 2).
+    const fixture = await seedLegacyWave('telemetryunpaid', 20, { endlessTowerBestWave: 20, dailyEndlessRuns: 2 });
+    await sessions.writeSoloPveSession(terminal(fixture.session, 'win'));
+    const settled = await post(runAction, fixture.playerName, { action: 'settle', runToken: fixture.run.runToken, waveRunId: fixture.runId });
+    assert.equal(settled.status, 200, JSON.stringify(settled.body));
+    assert.deepEqual(settled.body?.milestone, { boneCharms: 0, fateShards: 0 });
+    assert.equal(settled.body?.character.boneCharms, 0);
+    assert.equal(settled.body?.character.fateShards, 0);
+    assert.deepEqual(await txnsOf(fixture.playerName), []);
+});
+
+test('a paid start logs its entry fee as a ryo sink; a resume logs nothing', async (t) => {
+    // The fee reads today's UTC day; freeze Date so the seeded day cannot roll over mid-test.
+    t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
+    const playerName = 'telemetryentry';
+    await kv.set(`save:${playerName}`, { _saveVersion: 1, _saveAt: Date.now(), _regenAt: Date.now(), creatorItems: [], character: {
+        name: playerName, level: 50, ryo: 15_000, xp: 0, hp: 1000, maxHp: 1000, chakra: 500, maxChakra: 500, stamina: 500, maxStamina: 500,
+        stats: {}, jutsu: [], inventory: [], itemStacks: [], equipment: {}, pets: [],
+        dailyEndlessRuns: 1, dailyEndlessDate: new Date().toISOString().slice(0, 10), endlessTowerRun: null,
+    } });
+    const started = await post(runAction, playerName, { action: 'start' });
+    assert.equal(started.status, 200, JSON.stringify(started.body));
+    assert.equal(started.body?.cost, 3000);
+    const resumed = await post(runAction, playerName, { action: 'start' });
+    assert.equal(resumed.body?.resumed, true);
+    assert.deepEqual((await txnsOf(playerName)).map(({ txnId, currency, delta, source }) => ({ txnId, currency, delta, source })),
+        [{ txnId: `endless:entry:${started.body?.run.runToken}`, currency: 'ryo', delta: -3000, source: 'endless.entry' }]);
 });
 
 test('cashout racing a fresh publication cannot bank the run and leave a playable wave behind', { timeout: 5000 }, async () => {

@@ -25,6 +25,8 @@ let kv: typeof import('../_storage.js').kv;
 let issuePlayerToken: typeof import('../_auth.js').issuePlayerToken;
 let onlineStore: typeof import('../_realtime/online-store.js').onlineStore;
 let roster: typeof import('../../shared/wanderer-roster.js');
+let questOffer: typeof import('../../shared/wanderer-quest-offer.js');
+let economy: typeof import('../_economy.js');
 let gift: Handler;
 let quest: Handler;
 let service: Handler;
@@ -47,6 +49,8 @@ before(async () => {
     ({ issuePlayerToken } = await import('../_auth.js'));
     ({ onlineStore } = await import('../_realtime/online-store.js'));
     roster = await import('../../shared/wanderer-roster.js');
+    questOffer = await import('../../shared/wanderer-quest-offer.js');
+    economy = await import('../_economy.js');
     gift = (await import('./wanderer-gift.js')).default as unknown as Handler;
     quest = (await import('./wanderer-quest.js')).default as unknown as Handler;
     service = (await import('./wanderer-service.js')).default as unknown as Handler;
@@ -205,9 +209,11 @@ describe('sector wanderer reward endpoints verify the claimed NPC, not just the 
         const player = 'claimplayerquest';
         const { w, sector } = liveWanderer('quest');
         await seedPlayer(player, sector);
+        // The fixture has no pets and no starter cards, so both locks apply.
+        const offered = questOffer.questIdForWanderer(w.id, questOffer.lockedQuestMetrics({}));
 
         const forged = await post(quest, player, {
-            action: 'accept', questId: 'wq-cull', sector, wandererId: w.id,
+            action: 'accept', questId: offered, sector, wandererId: w.id,
             wandererName: `${w.name} the Impostor`,
         });
         assert.equal(forged.statusCode, 200);
@@ -216,12 +222,127 @@ describe('sector wanderer reward endpoints verify the claimed NPC, not just the 
         assert.equal(await kv.get(`wanderer-quest:${player}`), null, 'nothing was sealed');
 
         const honest = await post(quest, player, {
-            action: 'accept', questId: 'wq-cull', sector, wandererId: w.id,
+            action: 'accept', questId: offered, sector, wandererId: w.id,
             wandererArchetype: w.archetype, wandererVerb: w.verb, wandererLevel: w.level, wandererName: w.name,
         });
         assert.equal(honest.statusCode, 200);
         assert.equal(honest.body?.ok, true, JSON.stringify(honest.body));
-        assert.equal(honest.body?.id, 'wq-cull');
+        assert.equal(honest.body?.id, offered);
+    });
+
+    it('wanderer-quest accepts only the errand the sage offers (I-13)', async () => {
+        const player = 'claimplayerpick';
+        const { w, sector } = liveWanderer('quest');
+        await seedPlayer(player, sector);
+        const offered = questOffer.questIdForWanderer(w.id, questOffer.lockedQuestMetrics({}));
+        const other = questOffer.WANDERER_QUEST_OFFER_POOL.find((q) => q.id !== offered && q.metric === 'totalAiKills')!.id;
+
+        const picked = await post(quest, player, { action: 'accept', questId: other, sector, wandererId: w.id });
+        assert.deepEqual(picked.body, { ok: false, reason: 'invalid-quest' }, 'a client-picked errand is refused');
+        const anonymous = await post(quest, player, { action: 'accept', questId: offered, sector });
+        assert.deepEqual(anonymous.body, { ok: false, reason: 'invalid-quest' }, 'a road errand needs a road sage');
+        const save = await kv.get<{ activeWandererQuestSeal?: unknown; character: Record<string, unknown> }>(`save:${player}`);
+        assert.equal(save?.activeWandererQuestSeal ?? null, null, 'no seal');
+        assert.equal(save?.character.activeWandererQuest ?? null, null, 'no mirror');
+        assert.equal(await kv.get(`wanderer-quest:${player}`), null);
+        assert.equal(await kv.get(`wanderer-use:${player}:${w.id}`), null, 'no wanderer cooldown spent');
+
+        const honest = await post(quest, player, { action: 'accept', questId: offered, sector, wandererId: w.id });
+        assert.equal(honest.body?.ok, true, JSON.stringify(honest.body));
+    });
+
+    it('sector-bound road services refuse a request that names no sector', async () => {
+        const player = 'claimplayernosector';
+        const { w, sector } = liveWanderer('merchant');
+        await seedPlayer(player, sector);
+        for (const [action, extra] of [
+            ['merchant', { wandererId: w.id }], ['medic', { wandererId: w.id }], ['favor-start', { wandererId: w.id }],
+            ['favor-claim', { favorId: 'favor-x' }], ['tracker-trail-start', { wandererId: w.id }], ['tracker-trail-step', { trailId: 'trail-x' }],
+        ] as Array<[string, Record<string, unknown>]>) {
+            const out = await post(service, player, { action, ...extra });
+            assert.equal(out.statusCode, 400, action);
+            assert.equal(out.body?.error, 'Missing sector.', action);
+        }
+        assert.equal((await kv.get<{ character: Record<string, unknown> }>(`save:${player}`))?.character.ryo, 5_000);
+    });
+
+    it('a real wanderer is refused from a sector it is not standing in', async () => {
+        // The player really is in `away` (presence passes), but the wanderer the
+        // id names stands in its own sector, so nothing is bought, paid or sealed.
+        const cases: Array<[string, Handler, string, Record<string, unknown>]> = [
+            ['gift', gift, 'gift', {}],
+            ['merchant', service, 'merchant', { action: 'merchant' }],
+            ['favor-start', service, 'tracker', { action: 'favor-start' }],
+            ['quest accept', quest, 'quest', { action: 'accept' }],
+        ];
+        for (const [name, handler, verb, body] of cases) {
+            const { w, sector } = liveWanderer(verb);
+            const away = sector === 2 ? 3 : 2;
+            const player = `claimplayeraway${verb}`;
+            await seedPlayer(player, away);
+            const questId = verb === 'quest' ? { questId: questOffer.questIdForWanderer(w.id, questOffer.lockedQuestMetrics({})) } : {};
+            const out = await post(handler, player, { ...body, ...questId, sector: away, wandererId: w.id });
+            assert.equal(out.statusCode, 200, name);
+            assert.equal(out.body?.reason, 'invalid-wanderer', `${name}: ${JSON.stringify(out.body)}`);
+            const save = await kv.get<{ character: Record<string, unknown> }>(`save:${player}`);
+            assert.equal(save?.character.ryo, 5_000, `${name}: nothing paid or charged`);
+            assert.equal(save?.character.boneCharms, 0, `${name}: no bone charms`);
+            assert.equal(await kv.get(`wanderer-use:${player}:${w.id}`), null, `${name}: no cooldown spent`);
+            assert.equal(await kv.get(`wanderer-favor:${player}`), null, `${name}: no favor sealed`);
+            assert.equal(await kv.get(`wanderer-quest:${player}`), null, `${name}: no quest sealed`);
+        }
+    });
+
+    it('a gift-giver in the outer sectors 61-66 pays', async () => {
+        // The gift clamp used a literal 60, so a 61-66 gift was presence-checked
+        // against sector 60 and always refused.
+        const start = roster.wandererDayBucketFromMs(FIXED_NOW);
+        let found: { w: { id: string }; sector: number; bucket: number } | null = null;
+        for (let bucket = start; bucket < start + 400 && !found; bucket++) {
+            for (let sector = 61; sector <= roster.WANDERER_SECTOR_COUNT && !found; sector++) {
+                const w = roster.rollWanderers(sector, bucket).find((candidate) => candidate.verb === 'gift');
+                if (w) found = { w, sector, bucket };
+            }
+        }
+        assert.ok(found, 'some window puts a gift-giver in 61-66');
+        try {
+            // FIXED_NOW is a bucket start, so whole buckets step from it.
+            mock.timers.setTime(FIXED_NOW + (found.bucket - start) * roster.WANDERER_BUCKET_MS + 60_000);
+            assert.equal(roster.wandererDayBucketFromMs(Date.now()), found.bucket);
+            const player = 'claimplayerouter';
+            await seedPlayer(player, found.sector);
+            const out = await post(gift, player, { sector: found.sector, wandererId: found.w.id });
+            assert.equal(out.statusCode, 200, JSON.stringify(out.body));
+            assert.equal(out.body?.ok, true, JSON.stringify(out.body));
+        } finally {
+            mock.timers.setTime(FIXED_NOW);
+        }
+    });
+
+    it('records the road services and the favour in economy telemetry (I-19)', async () => {
+        const day = economy.econUtcDay(Date.now());
+        const row = async (player: string) => (await kv.get<Record<string, Record<string, { c: number; d: number; n: number }>>>(economy.econPlayerDayKey(day, player))) ?? {};
+
+        const merchant = liveWanderer('merchant');
+        const buyer = 'claimplayertelemetry';
+        await seedPlayer(buyer, merchant.sector);
+        const bought = await post(service, buyer, { action: 'merchant', sector: merchant.sector, wandererId: merchant.w.id });
+        assert.equal(bought.body?.ok, true, JSON.stringify(bought.body));
+        const offer = bought.body?.offer as { cost: number; boneCharms: number };
+        const bought1 = await row(buyer);
+        assert.deepEqual(bought1.ryo?.['wanderer.merchant'], { c: 0, d: offer.cost, n: 1 }, 'the merchant is a ryo sink');
+        assert.deepEqual(bought1.boneCharms?.['wanderer.merchant'], { c: offer.boneCharms, d: 0, n: 1 });
+
+        const courier = 'claimplayertelefavor';
+        const favor = { id: 'favor-telemetry', originSector: 3, targetSector: 4, giver: 'Courier', expiresAt: Date.now() + 60_000 };
+        await seedPlayer(courier, 4, { activeWandererFavor: favor });
+        await kv.set(`wanderer-favor:${courier}`, favor);
+        const delivered = await post(service, courier, { action: 'favor-claim', sector: 4, favorId: favor.id });
+        assert.equal(delivered.body?.ok, true, JSON.stringify(delivered.body));
+        const reward = delivered.body?.reward as { ryo: number; boneCharms: number };
+        const favorRow = await row(courier);
+        assert.deepEqual(favorRow.ryo?.['wanderer.favor'], { c: reward.ryo, d: 0, n: 1 });
+        assert.deepEqual(favorRow.boneCharms?.['wanderer.favor'], { c: reward.boneCharms, d: 0, n: 1 });
     });
 
     it('wanderer-service refuses a forged courier name and still starts an honest favor', async () => {

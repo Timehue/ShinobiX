@@ -1,4 +1,5 @@
 import { displayPlayerName } from "../../../shared/player-name";
+import { bountyPlacementFee } from "../../../shared/pvp-bounty-fee";
 import { useEffect, useState } from "react";
 import { GameArtIcon } from "./GameArtIcon";
 import { gameToast } from "./GameToast";
@@ -29,6 +30,7 @@ export function BountyBoardPanel({
     const [bounties, setBounties] = useState<BountyEntry[] | null>(null);
     const [bountyTarget, setBountyTarget] = useState("");
     const [bountyAmount, setBountyAmount] = useState(5000);
+    const bountyFee = bountyPlacementFee(bountyAmount);
 
     useEffect(() => {
         let alive = true;
@@ -42,8 +44,11 @@ export function BountyBoardPanel({
         if (target.toLowerCase() === character.name.toLowerCase()) return alert("You can't bounty yourself.");
         if (bountyAmount < 1000) return alert("Minimum bounty is 1,000 ryo.");
         // An unconfirmed earlier placement may already be charged; its retry
-        // finishes it without charging again, so do not refuse it here.
-        if ((character.ryo ?? 0) < bountyAmount && !hasPendingBountyPlacement(character.name, target, bountyAmount)) return alert("You don't have enough ryo.");
+        // finishes it without charging again, so do not refuse it here. The
+        // placer pays the stake plus the burned posting fee.
+        if ((character.ryo ?? 0) - bountyFee < bountyAmount && !hasPendingBountyPlacement(character.name, target, bountyAmount)) {
+            return alert(`You need ${(bountyAmount + bountyFee).toLocaleString()} ryo: the stake plus a ${bountyFee.toLocaleString()} ryo posting fee.`);
+        }
         const res = await placeBounty(character.name, target, bountyAmount);
         if (!res.ok) return alert(res.error || "Could not place the bounty.");
         // Adopt the server-committed balance (escrow is server-authoritative) —
@@ -90,6 +95,7 @@ export function BountyBoardPanel({
                 value={bountyAmount}
                 onChange={(e) => setBountyAmount(Math.max(0, Math.floor(Number(e.target.value) || 0)))}
             />
+            <p className="hint">Posting fee: {bountyFee.toLocaleString()} ryo (15%, burned). The full stake goes on the head.</p>
             <div className="menu"><button onClick={() => void submitBounty()} disabled={!canPlaceBounty} title={!canPlaceBounty ? "Jonin rank is required to place a bounty." : undefined}>Place bounty</button></div>
 
             <p className="hint" style={{ marginTop: 10 }}>

@@ -19,6 +19,9 @@ import { resolveWarDuel, type WarDuelInput } from '../_pet-showdown/war-duel.js'
 import { replayFromOpposingSide } from '../_pet-showdown/_viewer-replay.js';
 import { resolveChronicleDeckMutation, resolveChronicleDeckWithSave } from '../card-clash/_deck.js';
 import { createAiMatch, applyPlayerAction, projectAiMatch, type AiMatchSession } from '../card-clash/_ai-engine.js';
+import { recordFreePlayParticipation, type FreePlayParticipation } from '../card-clash/_freeplay-legacy.js';
+import { cardCpReply, prepareCardGarrisonCpCredit, prepareCardPvpCpCredit, settleCardCpCredit,
+    type CardCpCommitted, type CardCpCredit } from '../card-clash/_card-cp.js';
 import { createMatch, applyAction, advanceExpiredChronicleTurn, projectMatchForViewer,
     type ChronicleMatch, type ChronicleActionIntent } from '../../shared/chronicle-duel.js';
 import { readSoloPveSession, writeSoloPveSession } from '../solo-pve/_store.js';
@@ -59,6 +62,10 @@ interface CampaignRun {
     card?: ChronicleMatch; aiCard?: AiMatchSession; battleId?: string;
     result?: { scored: boolean; points: number }; saveVersion?: number; endedAt?: number;
     fieldMissionId?: string;
+    /** Card mode: the plays each side made, for the Chronicle Point participation rule. */
+    participation?: FreePlayParticipation;
+    /** Card mode: the Chronicle Point outbox (api/card-clash/_card-cp.ts). */
+    cpCredit?: CardCpCredit;
 }
 interface Defense { player: string; village: string; objectiveId: string; seenAt: number; }
 const runKey = (id: string) => `village-campaign-run:${id}`;
@@ -212,7 +219,31 @@ async function chooseDefense(war: CampaignWarRow, objectiveId: string, enemy: st
     }
     return null;
 }
-async function projectRun(run: CampaignRun, me: string) {
+/**
+ * Pay a finished card battle's Chronicle Points (call with the run lock held).
+ * A duel against a defending player pays like every other PvP card duel; a won
+ * assault on the ANBU or Kage deck pays like a sector-war garrison, and the
+ * personal daily support allowance it reserves bounds it.
+ */
+async function settleCampaignCardPoints(run: CampaignRun): Promise<CardCpCommitted> {
+    const state = run.card ?? run.aiCard?.state;
+    if (state?.status !== 'complete') return {};
+    let created = false;
+    if (!run.cpCredit) {
+        const receiptId = `village-campaign-card:${run.id}`;
+        const endedAt = run.endedAt ?? Date.now();
+        const credit = run.card
+            ? prepareCardPvpCpCredit({ p1Name: run.attacker, p2Name: run.defender, state: run.card,
+                participation: run.participation, updatedAt: endedAt }, receiptId, 'war')
+            : prepareCardGarrisonCpCredit({ receiptId, attackerName: run.attacker, won: state.winner === 'p1', endedAt });
+        if (credit) { run.cpCredit = credit; created = true; }
+    }
+    const points = await settleCardCpCredit(run.cpCredit);
+    if (created || points.changed) await kv.set(runKey(run.id), run, { ex: RETAIN });
+    return points.committed;
+}
+/** `deliver` hands the viewer's save back once after their points commit; only under the run lock. */
+async function projectRun(run: CampaignRun, me: string, points?: { committed?: CardCpCommitted; deliver: boolean }) {
     const side = me === run.attacker ? 'p1' : 'p2';
     let session: unknown;
     if (run.card) session = projectMatchForViewer(run.card, side);
@@ -220,8 +251,10 @@ async function projectRun(run: CampaignRun, me: string) {
     if (run.mode === 'combat' && run.npc) session = await readSoloPveSession(run.id);
     if (run.pet) session = { status: run.status, winner: run.petWinner === 'from' ? 'p1' : 'p2',
         p1: { name: run.attacker, pet: run.pet.fromPets[0] }, p2: { name: run.pet.toName, pet: run.pet.toPets[0] }, seed: run.pet.seed };
+    const reply = run.cpCredit ? await cardCpReply(run.cpCredit, me, { committed: points?.committed, deliver: !!points?.deliver }) : { body: {}, changed: false };
+    if (reply.changed) await kv.set(runKey(run.id), run, { ex: RETAIN });
     return { runId: run.id, mode: run.mode, npc: run.npc, status: run.status, battleId: run.battleId,
-        session, warResult: run.result, ...(run.saveVersion === undefined ? {} : { _saveVersion: run.saveVersion }) };
+        session, warResult: run.result, ...(run.saveVersion === undefined ? {} : { _saveVersion: run.saveVersion }), ...reply.body };
 }
 async function scoreRun(run: CampaignRun, winner: 'p1' | 'p2' | 'draw', at: number): Promise<void> {
     const result = await mutateCampaignWar(run.warId, async war => {
@@ -570,6 +603,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         const theirs = await legalDeck(defense.player);
                         if (!theirs) refuse('The defender has no legal deck.');
                         run.card = createMatch(me, mine.deck, defense.player, theirs, Math.random, now);
+                        run.participation = { startedAt: now, p1Actions: 0, p2Actions: 0 };
                     } else {
                         const fielded = await fieldCampaignAnbu(enemy, legalDeck);
                         if (!fielded.ok) refuse('No enemy ANBU or Kage can field a Chronicle deck.');
@@ -619,9 +653,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (action !== 'state' && action !== 'join' && action !== 'resolve') {
                     const intent = { ...body, action } as ChronicleActionIntent;
                     if (run.card) {
-                        const applied = applyAction(run.card, me === run.attacker ? 'p1' : 'p2', intent, Date.now());
+                        const side = me === run.attacker ? 'p1' : 'p2';
+                        const applied = applyAction(run.card, side, intent, Date.now());
                         if (!applied.ok) refuse(applied.error);
                         run.card = applied.state;
+                        run.participation = recordFreePlayParticipation(run.participation ?? { startedAt: run.createdAt, p1Actions: 0, p2Actions: 0 },
+                            side, intent.action, run.card.status === 'complete');
                     } else {
                         const applied = applyPlayerAction(run.aiCard!, intent, Date.now());
                         if (!applied.ok) refuse(applied.error);
@@ -630,7 +667,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const state = run.card ?? run.aiCard!.state;
                 if (state.status === 'complete') run.endedAt ??= Date.now();
                 await kv.set(runKey(id), run, { ex: RETAIN });
-                if (state.status === 'complete') await scoreRun(run, state.winner ?? 'draw', run.endedAt!);
+                if (state.status === 'complete') {
+                    await scoreRun(run, state.winner ?? 'draw', run.endedAt!);
+                    return await projectRun(run, me, { committed: await settleCampaignCardPoints(run), deliver: !identity.admin });
+                }
             }
             if (action === 'resolve' && run.mode === 'combat' && run.npc) {
                 const session = await readSoloPveSession(id);

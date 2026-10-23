@@ -14,14 +14,16 @@ export function applyCompanionUsageCost<T extends Record<string, unknown>>(
     const pets = (character.pets as Array<Record<string, unknown>>).map((pet) => {
         if (String(pet?.id ?? '') !== usage.petId) return pet;
         const loadout = { ...(pet.loadout && typeof pet.loadout === 'object' ? pet.loadout as Record<string, unknown> : {}) };
-        if (usage.pveGearId && loadout.pve === usage.pveGearId) {
-            const durability = Math.max(0, Math.floor(Number(loadout.pveDurability) || 0));
-            if (durability <= 0) {
-                delete loadout.pve;
-                delete loadout.pveDurability;
-            } else {
-                loadout.pveDurability = durability - 1;
-            }
+        if (typeof loadout.pve === 'string' && Math.max(0, Math.floor(Number(loadout.pveDurability) || 0)) <= 0) {
+            // Gear already spent to 0 seals as no gear, so the usage below never
+            // names it and it used to stay on the pet for good. It breaks on this
+            // summon instead, as the client-run summon cost does (api/pet/_progress.ts
+            // applyPetSummonCost).
+            delete loadout.pve;
+            delete loadout.pveDurability;
+            changed = true;
+        } else if (usage.pveGearId && loadout.pve === usage.pveGearId) {
+            loadout.pveDurability = Math.floor(Number(loadout.pveDurability)) - 1;
             changed = true;
         }
         if (usage.consumableId && loadout.consumable === usage.consumableId) {

@@ -33,7 +33,9 @@ import { withKvLock } from '../_lock.js';
 import {
     BOUNTY_KEY,
     BOUNTY_AUDIT_PREFIX,
+    findBounty,
     finishBountyClaim,
+    isBountyContributor,
     normalizeBoard,
     reserveBountyClaim,
     restoreBountyClaim,
@@ -63,6 +65,8 @@ const NOTHING: BountySettlement = { amount: 0, saveVersion: null };
  */
 export async function settleBountyForSessionlessKill(args: {
     attackerSlug: string;
+    /** Attacker's display name, for the contributor check (optional; the slug is checked too). */
+    attackerName?: string;
     victimSlug: string;
     /** Display name, for the board lookup (bounties are keyed by display name). */
     victimName: string;
@@ -80,6 +84,12 @@ export async function settleBountyForSessionlessKill(args: {
             const loaded = normalizeBoard(await kv.get<BountyBoard>(BOUNTY_KEY));
             // Finish any payout an earlier crash left half done.
             const board = await sweepPendingBountyClaims(loaded, now, claimId);
+            // A contributor cannot collect a head they funded (I-14): the pool
+            // stays on the board for another hunter.
+            if (isBountyContributor(findBounty(board, args.victimName), args.attackerName ?? '', args.attackerSlug)) {
+                if (board !== loaded) await kv.set(BOUNTY_KEY, board);
+                return NOTHING;
+            }
             const reserved = reserveBountyClaim(board, args.victimName, { id: claimId, winner: args.attackerSlug, at: now });
             if (!reserved.ok) {
                 // No bounty on this head — an ordinary no-op.

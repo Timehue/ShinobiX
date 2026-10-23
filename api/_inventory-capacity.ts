@@ -71,11 +71,11 @@ export function inventoryFullBlock(
  * Refuse only when an action would actually GROW an already-full inventory.
  *
  * The plain `inventoryFullBlock` is wrong for anything that consumes inventory
- * entries to produce one — crafting is the clearest case: a rare weapon burns
- * 150-800 craft points drawn from `hunt-*` materials, none of which are
- * stackable, so it removes roughly 30-50 individual entries and adds 1. A bag
- * full of hunt materials is exactly how a bag reaches the cap, and crafting is
- * the designed way out of it, so a naive check blocks the escape hatch.
+ * entries to produce one — crafting is the clearest case. Hunt materials and the
+ * Weekly Boss Core are counted stacks since the 2026-10 rebalance (owner ruling
+ * A12, shared/stacked-materials.ts), so they no longer fill the bag, but a
+ * legacy save can still hold `inventory[]` copies until its next save folds
+ * them, and spending those must never be blocked by the cap they helped fill.
  *
  * Pass the character the action WOULD produce. The action is refused only if it
  * both ends over the cap AND ends with more entries than it started with, so a

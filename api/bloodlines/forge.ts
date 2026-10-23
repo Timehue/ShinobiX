@@ -6,6 +6,7 @@ import { enforceRateLimitKv } from '../_ratelimit.js';
 import { cors, safeName } from '../_utils.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { applyBloodlineForgePurchase } from './_forge.js';
+import { recordEconomyTxn } from '../_economy.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
@@ -47,6 +48,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             };
         });
         if (!result.ok) return res.status(result.status).json({ error: result.error });
+        // Economy telemetry (I-19): the ritual's material sink, after the commit.
+        // A resumed entitlement was paid earlier and charges 0, so it logs nothing.
+        if (!result.value.resumed && result.value.cost > 0) {
+            void recordEconomyTxn({
+                txnId: `bloodline-forge:${playerName}:${result._saveVersion}`,
+                player: playerName,
+                currency: result.value.currency,
+                delta: -result.value.cost,
+                source: 'bloodline.forge',
+                balanceAfter: result.value.balance,
+            });
+        }
         return res.status(200).json({
             ok: true,
             ...result.value,

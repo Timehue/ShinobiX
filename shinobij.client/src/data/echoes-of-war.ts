@@ -112,6 +112,8 @@ export const ECHOES_REWARD_DISPLAY = {
     basicPackCost: 100,
     /** Repeat wins that pay per UTC day; first clears always pay. */
     repeatWinsPerDay: 10,
+    /** Extra points on the first paid repeat win of each UTC day. */
+    firstDailyWinBonus: 35,
 } as const;
 
 /** Paying repeat wins left today, read from the server-kept `echoesOfWar._daily`. */
@@ -119,6 +121,12 @@ export function echoesRepeatWinsLeftToday(raw: unknown, now: number = Date.now()
     const daily = raw && typeof raw === "object" ? (raw as Record<string, unknown>)._daily as { day?: unknown; paid?: unknown } | undefined : undefined;
     const paid = daily?.day === new Date(now).toISOString().slice(0, 10) ? Math.max(0, Math.floor(Number(daily.paid) || 0)) : 0;
     return Math.max(0, ECHOES_REWARD_DISPLAY.repeatWinsPerDay - paid);
+}
+
+/** True until today's first paid repeat win: the server pays the bonus while
+ *  no repeat win has been paid this UTC day. */
+export function echoesFirstDailyWinAvailable(raw: unknown, now: number = Date.now()): boolean {
+    return echoesRepeatWinsLeftToday(raw, now) === ECHOES_REWARD_DISPLAY.repeatWinsPerDay;
 }
 
 export const ECHOES_FLOOR_COUNT = 10;

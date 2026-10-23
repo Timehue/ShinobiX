@@ -15,6 +15,7 @@ import {
     KAGE_ACCEPT_OBLIGATION_MS, KAGE_POST_DEFENSE_GRACE_MS,
     KAGE_LOSS_COOLDOWN_MS, KAGE_PRESS_MAX_STEP_MS, KAGE_MIN_CHALLENGER_LEVEL,
     KAGE_MIN_MERIT, KAGE_DECLARE_RYO_COST, KAGE_MIN_ACCOUNT_AGE_MS,
+    KAGE_LEGACY_DECLARE_RYO_COST, KAGE_STAKE_REFUND_MAX, kageChallengeStake,
     type DeclareInput, type KageStateLike, type KageChallenge,
 } from './_kage-challenge.js';
 
@@ -294,8 +295,8 @@ describe('Kage challenge cost — server/client parity', () => {
         const townHall = read('shinobij.client/src/screens/TownHall.tsx');
         const stateLib = read('shinobij.client/src/lib/kage-challenge-state.ts');
 
-        assert.match(server, /export const KAGE_DECLARE_RYO_COST = 250_000;/);
-        assert.match(stateLib, /export const KAGE_CHALLENGE_RYO_COST = 250_000;/);
+        assert.match(server, /export const KAGE_DECLARE_RYO_COST = 400_000;/);
+        assert.match(stateLib, /export const KAGE_CHALLENGE_RYO_COST = 400_000;/);
 
         // TownHall must IMPORT that mirror rather than re-declare the price. It
         // used to keep its own copy, which is a third place for the number to
@@ -371,6 +372,39 @@ describe('Kage challenge cost — server/client parity', () => {
         const kinds = read('api/_save-debit-kinds.ts');
         const saga = kinds.slice(kinds.indexOf('export const KAGE_CHALLENGE_DECLARE_SAGA'));
         assert.match(saga, /refund: \(character, plan\) => \(\{ \.\.\.character, ryo: ryoOf\(character\) \+ plan\.cost \}\)/);
+    });
+
+    it('stamps the charged stake on the challenge row, and the inactivity refund pays it', () => {
+        // Without the stamp, raising the stake would make an inactivity refund
+        // of a challenge opened at the old price pay the new one (economy
+        // rebalance 2026-10, VCS-02): 150,000 minted per open 250,000 challenge.
+        const handler = read('api/village/kage-challenge.ts');
+        assert.match(handler, /stakeRyo: KAGE_DECLARE_RYO_COST,/);
+        const inactivity = read('api/village/_kage-inactivity.ts');
+        assert.match(inactivity, /amount: kageChallengeStake\(challenge\),/);
+        assert.doesNotMatch(inactivity, /amount: KAGE_DECLARE_RYO_COST/);
+    });
+});
+
+describe('kageChallengeStake — the stake a challenge was charged', () => {
+    it('is the legacy 250,000 for an unstamped or unreadable challenge', () => {
+        assert.equal(KAGE_LEGACY_DECLARE_RYO_COST, 250_000);
+        for (const stakeRyo of [undefined, 0, -1, Number.NaN, 1.5, '400000' as unknown as number, Number.MAX_SAFE_INTEGER + 2]) {
+            assert.equal(kageChallengeStake({ stakeRyo }), 250_000, String(stakeRyo));
+        }
+        assert.equal(kageChallengeStake({}), 250_000);
+    });
+    it('is the stamped amount, current price or not', () => {
+        assert.equal(kageChallengeStake({ stakeRyo: KAGE_DECLARE_RYO_COST }), 400_000);
+        assert.equal(kageChallengeStake({ stakeRyo: 250_000 }), 250_000);
+        // A later price cut must not short-refund a challenge opened at a higher
+        // price, so the only ceiling is a sanity bound far above any stake.
+        assert.equal(kageChallengeStake({ stakeRyo: 750_000 }), 750_000);
+        assert.equal(kageChallengeStake({ stakeRyo: KAGE_STAKE_REFUND_MAX }), KAGE_STAKE_REFUND_MAX);
+    });
+    it('falls back to the legacy stake above the sanity ceiling', () => {
+        assert.equal(kageChallengeStake({ stakeRyo: 1_000_000_000 }), 250_000);
+        assert.equal(kageChallengeStake({ stakeRyo: KAGE_STAKE_REFUND_MAX + 1 }), 250_000);
     });
 });
 

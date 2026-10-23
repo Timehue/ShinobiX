@@ -1,5 +1,4 @@
 import { safeLogValue } from '../_safe-log.js';
-import { territoryRewardsSuspended } from '../_territory-lifecycle.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
 import { cors, safeName } from '../_utils.js';
@@ -11,6 +10,10 @@ import { seededVillageAgenda, verifyAgendaCompletion } from '../_village-agenda.
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { retryOnSaveVersionConflict } from '../save/_projected-write.js';
 import { MERIT_DAILY_AGENDA, meritNum } from './_village-merit.js';
+import { heldSectorsForVillage } from '../_war-held-sectors.js';
+import { assessVillageTax } from '../_war-tax-apply.js';
+import { villageTaxEcho } from './_village-tax-echo.js';
+import { recordEconomyTxn } from '../_economy.js';
 
 /*
  * /api/village/claim-daily-agenda  — POST only
@@ -176,17 +179,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const seededKinds = seededVillageAgenda(village, date).map((task) => task.kind);
             let heldSectors = 0;
             if (seededKinds.includes('control')) {
-                const territoryKeys = await kv.keys('world:territory:*');
-                const territories = territoryKeys.length
-                    ? ((await kv.mget<Record<string, unknown>[]>(...territoryKeys)).filter(Boolean) as Record<string, unknown>[])
-                    : [];
-                const rewardNow = Date.now();
-                heldSectors = territories.filter((t) => String(t.ownerVillage ?? '').trim() === village
-                    && !territoryRewardsSuspended(t, rewardNow)).length;
+                // The held WAR sectors (api/_war-held-sectors.ts), the count map
+                // control pays on: a stray ownerVillage stamp on a non-war
+                // sector no longer completes the task (2026-10 rebalance, I-10).
+                try {
+                    heldSectors = await heldSectorsForVillage(village);
+                } catch (e) {
+                    console.error('[village/claim-daily-agenda] territory scan failed', safeLogValue(e));
+                    return res.status(503).json({ error: 'Could not read territory — retry.' });
+                }
             }
             const gate = verifyAgendaCompletion(seededKinds, heldSectors);
             if (!gate.ok) return res.status(403).json({ error: gate.error });
         }
+
+        // The occupation tax, assessed by the server on a path every member
+        // takes daily (2026-10 rebalance, I-11): it used to run only when the
+        // client called /api/village/tax. After every refusal above, before the
+        // save lock (the tax takes its own locks). Idempotent per day; never throws.
+        const villageTax = await assessVillageTax(playerName);
 
         // ── PERSONAL reward (audit #7 / Stage 3 Phase 2) ───────────────────────
         // Credit the player's OWN fixed agenda reward under lock:save:<name> (the
@@ -218,14 +229,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     },
                 };
             }));
+            // Refusals after the assessment still echo it (its day stamp moved
+            // the save version; the client adopts that).
             if (!out.ok) {
                 if (out.status === 404) return res.status(404).json({ error: 'Your save was not found.' });
-                return res.status(out.status).json({ error: out.error });
+                return res.status(out.status).json({ error: out.error, ...villageTaxEcho(villageTax) });
             }
             personal = { ...out.value, saveVersion: out._saveVersion };
+            // Economy telemetry (framework I-19): the agenda reward is a daily faucet.
+            if (!personal.alreadyClaimed) {
+                for (const currency of ['ryo', 'boneCharms', 'honorSeals'] as const) {
+                    const delta = Number(personal.granted[currency]) || 0;
+                    if (delta > 0) void recordEconomyTxn({ txnId: `village-agenda:${playerName}:${date}:${currency}`, player: playerName, currency, delta, source: 'village.agenda' });
+                }
+            }
         } catch (e) {
             console.error('[village/claim-daily-agenda] personal credit failed', e);
-            return res.status(503).json({ error: 'Could not credit your daily reward — please retry.' });
+            return res.status(503).json({ error: 'Could not credit your daily reward — please retry.', ...villageTaxEcho(villageTax) });
         }
 
         // One treasury credit per player per UTC day. The bounded claim-ID list
@@ -262,6 +282,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             granted: treasuryOutcome.alreadyClaimed ? { honorSeals: 0, ryo: 0, boneCharms: 0 } : AGENDA_TREASURY,
             personal,
             _saveVersion: personal.saveVersion,
+            ...villageTaxEcho(villageTax),
         });
     } catch (err) {
         console.error('[village/claim-daily-agenda]', safeLogValue(err));

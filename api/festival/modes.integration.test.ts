@@ -180,7 +180,8 @@ test('traveling without a companion never seals the globally active pet into com
 test('a real combat victory resumes the route and charges a summoned companion only once', async () => {
     const record = await stored();
     record.character.pets[0].level = 50;
-    record.character.pets[0].loadout = { pve: 'pet-fang-wrap', pveDurability: 5, consumable: 'pet-bond-treat' };
+    // Real catalog ids: only a real battle consumable seals and is spent (2026-10 item-use pass).
+    record.character.pets[0].loadout = { pve: 'pve-frenzy-claw', pveDurability: 5, consumable: 'consum-phantom-charm' };
     record.character.inventory = ['potion-rejuvenation'];
     record.character.equipment = { potion: 'potion-rejuvenation' };
     await kv.set(`save:${player}`, record);

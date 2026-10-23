@@ -414,6 +414,29 @@ test('a genuinely ended legacy card run is acknowledged and never revived by Con
     assert.equal((await call(resume, {})).body?.live, false);
 });
 
+test('a recovered paid card win rebuilds the run ledger at the sealed entry-level scale', async () => {
+    // The save committed the win (its receipt is there) but the run token's
+    // update was lost. The rebuilt ledger is the death-retention basis, so it
+    // must hold what card-settle paid, not the full-scale purse.
+    const token = 'recovered-scaled-card';
+    const nodeId = 'floor:1:ambush:threat-v20';
+    const matchId = await terminalMatch(token, nodeId, 'player');
+    const run = await sealedCardAmbush(token, nodeId, matchId, { entryLevel: 10 });
+    const saved = (await kv.get<Record<string, any>>('save:riftplayer'))!;
+    saved.character.settledHollowGateEventIds = [`card:${matchId}`];
+    await kv.set('save:riftplayer', saved);
+    const { hollowGateRunRyoScale } = await import('./_gate-scale.js');
+    const scaled = Math.floor(hollowGateCombatReward(1, 'ambush', undefined, { ryoScale: hollowGateRunRyoScale(run) }).ryo
+        * rewardMultiplierForToken(run));
+    assert.ok(scaled < Math.floor(hollowGateCombatReward(1, 'ambush').ryo * rewardMultiplierForToken(run)), 'a level-10 entry pays below the flat purse');
+    const recovered = await call(settle, { token, matchId });
+    assert.equal(recovered.status, 200, JSON.stringify(recovered.body));
+    assert.equal(recovered.body?.alreadyReported, true);
+    assert.equal((recovered.body?.reward as { ryo: number }).ryo, scaled);
+    const updatedRun = await kv.get<HollowGateRunToken>(hollowGateRunKey('riftplayer', token));
+    assert.equal(updatedRun?.rewardLedger?.currencies.ryo, scaled);
+});
+
 test('Resume repairs an exact paid legacy card binding even after the Chronicle session expires', async () => {
     const token = 'expired-paid-card';
     const nodeId = 'floor:1:ambush:threat-v20';

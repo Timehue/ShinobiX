@@ -25,6 +25,7 @@ import {
 } from './_combat-session.js';
 import { hollowGatePetChildKey, hollowGatePetResultKey, hollowGateShowdownSidecarKey } from './_pet-authority.js';
 import { recordBetaMetric } from '../_beta-metrics.js';
+import { recordEconomyTxn } from '../_economy.js';
 import { soloPveSessionKey } from '../solo-pve/_store.js';
 import {
     HOLLOW_GATE_LEDGER_ITEM_IDS,
@@ -297,6 +298,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 source: outcome,
             });
             return res.status(200).json({ ok: true, alreadyReported: true, character: result.character, _saveVersion: result._saveVersion });
+        }
+        // Economy telemetry (I-19): one net txn per currency the run banked, at
+        // its end. `credited` is already net of in-run spends (Sanctify and the
+        // other shard consumables), so those are not recorded again as sinks.
+        // Unlisted: a full run touches up to seven currencies.
+        for (const [currency, amount] of Object.entries(credited)) {
+            if (amount > 0) {
+                void recordEconomyTxn({
+                    txnId: `hollowgate:${playerName}:${token}:${currency}`, player: playerName, currency, delta: amount,
+                    source: outcome === 'death' ? 'hollowgate.death' : 'hollowgate.extract',
+                    balanceAfter: Number(result.character[currency] ?? 0),
+                }, { list: false });
+            }
         }
         await recordBetaMetric({
             event: outcome === 'death'

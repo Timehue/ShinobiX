@@ -16,6 +16,9 @@ import type { BrokerCrateReward as BlackMarketReward } from '../../../shared/sun
 // this is the displayed price. Keep in sync or the pull quotes one number and
 // charges another.
 export const BLACK_MARKET_COST = 75_000;
+// MIRROR: api/festival/_black-market.ts BLACK_MARKET_CERTIFICATE_COST — a
+// certificate covers half the stake, so a certificate crate still costs this.
+export const BLACK_MARKET_CERTIFICATE_COST = BLACK_MARKET_COST / 2;
 export const BLACK_MARKET_DAILY_CAP = 10;
 
 export type BlackMarketResult = {

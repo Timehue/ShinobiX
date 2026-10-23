@@ -18,8 +18,10 @@ import { chronicleUnlocked, CHRONICLE_LOCKED_ERROR } from './_starter-cards.js';
  * then join /api/card-clash/match with the minted matchId.
  *
  * Chronicle Showdown has no rating, so pairing is by LEVEL proximity (band widens with
- * wait time, falls back to anyone). Free-play is UNRANKED with NO currency reward
- * — the match handler pays nothing, so there is no win-trading incentive here.
+ * wait time, falls back to anyone). Free-play is UNRANKED. Its only reward is a
+ * small Chronicle Point credit the match handler settles under the free-play
+ * participation, reciprocal-win and per-pair day rules (api/card-clash/_card-cp.ts),
+ * so trading wins with one partner stops paying within a day.
  *
  * Body: { name, action: 'join' | 'leave' | 'poll' }
  */

@@ -14,8 +14,21 @@ import { LATEST_PATCH_NOTE } from '../src/data/patch-notes';
  * per navigation/request phase per project, with no performance thresholds.
  */
 type Json = Record<string, unknown>;
-type PackReply = { ok?: boolean; replayed?: boolean; cards?: string[]; cost?: number; currency?: string; _saveVersion?: number };
+type PackReply = {
+    ok?: boolean; replayed?: boolean; cards?: string[]; cost?: number; currency?: string; _saveVersion?: number;
+    converted?: Array<{ index: number; cardId: string; chroniclePoints: number; fateShards: number }>;
+    refund?: { chroniclePoints: number; fateShards: number };
+};
 const PACK_PATH = '/api/card-clash/open-pack';
+
+/** The drawn cards that joined the collection: a copy past the 3-copy playset
+ *  converts into points or shards instead (rare from an empty collection, but
+ *  possible, so the expectations read it from the server reply). */
+function keptCards(body: PackReply): string[] {
+    const converted = new Set((body.converted ?? []).map((entry) => entry.index));
+    return (body.cards ?? []).filter((_, index) => !converted.has(index));
+}
+const rebate = (body: PackReply, currency: 'chroniclePoints' | 'fateShards') => body.refund?.[currency] ?? 0;
 
 function economicState(record: Json) {
     const character = record.character as Json;
@@ -126,8 +139,10 @@ for (const [type, label, cost] of [
         await expect(opening.locator('.pack-card__missing')).toHaveCount(0);
         await opening.getByRole('button', { name: /Done/ }).click();
         const committed = economicState(await account.readSave());
-        expect(committed).toEqual({ ...before, fateShards: before.fateShards - cost,
-            cards: [...before.cards, ...body.cards!].sort() });
+        expect(committed).toEqual({ ...before,
+            fateShards: before.fateShards - cost + rebate(body, 'fateShards'),
+            chroniclePoints: before.chroniclePoints + rebate(body, 'chroniclePoints'),
+            cards: [...before.cards, ...keptCards(body)].sort() });
         await expect(page.getByLabel('Pack balances')).toContainText(`${committed.fateShards} Fate Shards`);
         await page.reload({ waitUntil: 'domcontentloaded' });
         await expectPackArchiveReady(page);
@@ -216,8 +231,8 @@ test(`seeded Chronicle pack with ${initialChroniclePoints} CP: lost committed re
         expect(observed[0].body.currency).toBe('chroniclePoints');
         const committed = economicState(await account.readSave());
         expect(committed).toEqual({
-            ...opening, chroniclePoints: opening.chroniclePoints - 100,
-            cards: [...opening.cards, ...observed[0].body.cards!].sort(),
+            ...opening, chroniclePoints: opening.chroniclePoints - 100 + rebate(observed[0].body, 'chroniclePoints'),
+            cards: [...opening.cards, ...keptCards(observed[0].body)].sort(),
         });
         evidence.push({ phase: 'committed-response-discarded', requestId: observed[0].requestId, ...committed });
         const pendingKey = `shinobix.card-pack:${JSON.stringify({ playerName: account.name, packType: 'standard' })}`;
@@ -256,16 +271,18 @@ test(`seeded Chronicle pack with ${initialChroniclePoints} CP: lost committed re
         expect(observed[2].body.replayed).not.toBe(true);
         expect(observed[2].body.cards).toHaveLength(5);
         closing = economicState(await account.readSave());
+        const rebates = rebate(observed[0].body, 'chroniclePoints') + rebate(observed[2].body, 'chroniclePoints');
         expect(closing).toEqual({
-            ...opening, chroniclePoints: opening.chroniclePoints - 200,
-            cards: [...committed.cards, ...observed[2].body.cards!].sort(),
+            ...opening, chroniclePoints: opening.chroniclePoints - 200 + rebates,
+            cards: [...committed.cards, ...keptCards(observed[2].body)].sort(),
         });
         await expect(pointsBalance(page)).toHaveText(String(closing.chroniclePoints));
-        expect(opening.chroniclePoints).toBe(closing.chroniclePoints + 2 * 100);
+        expect(opening.chroniclePoints).toBe(closing.chroniclePoints + 2 * 100 - rebates);
         evidence.push({ phase: 'distinct-purchase-confirmed', requestId: observed[2].requestId, ...closing });
         } else {
-            expect(closing.chroniclePoints).toBe(0);
-            expect(opening.chroniclePoints).toBe(closing.chroniclePoints + 100);
+            const leftover = rebate(observed[0].body, 'chroniclePoints');
+            expect(closing.chroniclePoints).toBe(leftover);
+            expect(opening.chroniclePoints).toBe(closing.chroniclePoints + 100 - leftover);
             await expect(reveal.getByRole('button', { name: /Open another/i })).toBeDisabled();
             expect(economicState(await account.readSave())).toEqual(closing);
             expect(observed).toHaveLength(2);

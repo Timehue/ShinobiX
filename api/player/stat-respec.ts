@@ -5,6 +5,7 @@ import { enforceRateLimitKv } from '../_ratelimit.js';
 import { cors, safeName } from '../_utils.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { applyPaidStatRespec, STAT_RESPEC_FATE_COST } from '../save/_stat-entitlement.js';
+import { recordEconomyTxn } from '../_economy.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
@@ -24,6 +25,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return { ok: true as const, character: next, value: { cost: STAT_RESPEC_FATE_COST } };
         });
         if (!result.ok) return res.status(result.status).json({ error: result.error });
+        // Economy telemetry (I-19): the committed Fate Shard sink, under the same
+        // tag as the profile-settle respec. Every committed call is a new respec.
+        void recordEconomyTxn({
+            txnId: `stat-respec:${playerName}:${result._saveVersion}`,
+            player: playerName,
+            currency: 'fateShards',
+            delta: -result.value.cost,
+            source: 'profile.respec-stats',
+            balanceAfter: Number(result.character.fateShards ?? 0),
+        });
         return res.status(200).json({ ok: true, ...result.value, character: result.character, _saveVersion: result._saveVersion });
     } catch (error) {
         console.error('[player/stat-respec]', safeLogValue(error));

@@ -22,6 +22,7 @@ import {
     kageKey,
 } from './_kage-settle.js';
 import { advanceKageChallengeClock } from './_kage-clock.js';
+import { recordEconomyTxn } from '../_economy.js';
 
 /*
  * /api/village/kage-challenge — POST only
@@ -31,7 +32,7 @@ import { advanceKageChallengeClock } from './_kage-clock.js';
  * real, async, online-only contest. See _kage-challenge.ts for the model + rules.
  *
  * Actions (body.action):
- *   - declare : a gated villager stakes 250,000 ryo to open a challenge.
+ *   - declare : a gated villager stakes KAGE_DECLARE_RYO_COST (400,000) ryo to open a challenge.
  *               Eligibility now requires PERSONAL Village Merit (char.villageMerit),
  *               not the shared village contribution pool.
  *   - press   : compatibility refresh; server sampling advances the response clocks.
@@ -111,7 +112,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // (api/_save-debit-saga.ts) under the same Kage-row → save lock
             // order. The stake used to be a plain debit followed by a plain
             // challenge write: a debit that committed but reported an error
-            // lost 250,000 ryo with no reconcilable record, and a challenge
+            // lost the whole stake with no reconcilable record, and a challenge
             // write that committed but reported an error was refunded anyway,
             // leaving a free challenge. A retry with the same request id now
             // finishes an unknown outcome; only a provably failed challenge
@@ -144,6 +145,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         const chargedHollowGateCreditBasis = hollowGateCreditBasis(staked);
                         const challenge = {
                             ...newChallenge(challengerName, now, randomUUID()),
+                            // The stake actually charged rides on the row, so an
+                            // inactivity refund pays it back exactly (kageChallengeStake).
+                            stakeRyo: KAGE_DECLARE_RYO_COST,
                             ...(chargedHollowGateCreditBasis ? { chargedHollowGateCreditBasis } : {}),
                         } as unknown as Record<string, unknown>;
                         return { ok: true, character: staked, plan: { challenge, cost: KAGE_DECLARE_RYO_COST }, result: { challenge } };
@@ -153,9 +157,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         pending: 'Your stake was taken but the challenge did not open yet. Declare again to finish it; you will not be charged twice.',
                     },
                 });
-                if (!outcome.replayed) await audit(village, { action: 'declare', challenger: challengerName });
                 const current = (outcome.shared as KageStateLike).challenge;
                 const challenge = current && current.challengeId === outcome.result.challenge.challengeId ? current : outcome.result.challenge;
+                if (!outcome.replayed) {
+                    await audit(village, { action: 'declare', challenger: challengerName });
+                    // Economy telemetry (I-19, framework 8.4 sink participation):
+                    // the burned stake, once per opened challenge, after the commit.
+                    // A saga refund never reaches here, and an inactivity refund
+                    // records its own kage.stake-refund.
+                    void recordEconomyTxn({
+                        txnId: `kage-stake:${village.toLowerCase()}:${String(outcome.result.challenge.challengeId ?? '')}`,
+                        player: playerName,
+                        currency: 'ryo',
+                        delta: -KAGE_DECLARE_RYO_COST,
+                        source: 'kage.stake',
+                        balanceAfter: num(outcome.character.ryo),
+                    });
+                }
                 return res.status(200).json({ ok: true, challenge, character: outcome.character, _saveVersion: outcome._saveVersion });
             } catch (error) {
                 if (error instanceof SaveDebitRefusal) return res.status(error.status).json({ ...error.details, error: error.message });

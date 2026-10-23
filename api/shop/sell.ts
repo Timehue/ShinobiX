@@ -5,6 +5,7 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { sellCatalogItem } from './_sale.js';
+import { recordEconomyTxn } from '../_economy.js';
 
 const cleanId = (v: unknown) => typeof v === 'string' && /^[A-Za-z0-9_-]{8,96}$/.test(v) ? v : '';
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -24,6 +25,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return { ok: true as const, character: { ...sold.character, redeemedShopSales: [...receipts.slice(-99), receipt] }, value: { sale: sold.sale, replayed: false } };
         });
         if (!result.ok) return res.status(result.status).json({ error: result.error });
+        // Economy telemetry (I-19): the NPC buy-back faucet, after the commit; a
+        // replayed requestId returns its stored receipt and records nothing.
+        const sale = result.value.sale as { totalValue?: unknown } | undefined;
+        const credited = Math.max(0, Math.floor(Number(sale?.totalValue) || 0));
+        if (!result.value.replayed && credited > 0) {
+            void recordEconomyTxn({ txnId: `shop.sell:${playerName}:${requestId}`, player: playerName, currency: 'ryo', delta: credited, source: 'shop.sell', balanceAfter: Number(result.character.ryo ?? 0) });
+        }
         return res.status(200).json({ ok: true, ...result.value, character: result.character, _saveVersion: result._saveVersion });
     } catch (error) { console.error('[shop/sell]', safeLogValue(error)); return res.status(500).json({ error: 'Internal server error.' }); }
 }

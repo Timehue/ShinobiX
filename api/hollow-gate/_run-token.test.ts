@@ -57,18 +57,30 @@ test('only the matching active admin-published event can seal a custom gate', ()
 });
 
 test('hollowShardDrop matches the documented curve, and the client source still defines it (drift guard)', () => {
+    // 2026-10 rebalance #26: every faucet is 0.6x the launch curve.
     for (let f = 1; f <= 8; f++) {
-        assert.equal(serverShardDrop(f, 'chest'), 2 + f);
-        assert.equal(serverShardDrop(f, 'shardVein'), 3 + f * 2);
-        assert.equal(serverShardDrop(f, 'lockedChest'), 5 + f * 2);
-        assert.equal(serverShardDrop(f, 'boss'), 15 + f * 5);
+        assert.equal(serverShardDrop(f, 'chest'), Math.round((2 + f) * 3 / 5));
+        assert.equal(serverShardDrop(f, 'shardVein'), Math.round((3 + f * 2) * 3 / 5));
+        assert.equal(serverShardDrop(f, 'lockedChest'), Math.round((5 + f * 2) * 3 / 5));
+        assert.equal(serverShardDrop(f, 'boss'), Math.round((15 + f * 5) * 3 / 5));
     }
+    const byFloor = (source: Parameters<typeof serverShardDrop>[1]) => [1, 2, 3, 4, 5].map((f) => serverShardDrop(f, source));
+    assert.deepEqual(byFloor('chest'), [2, 2, 3, 4, 4]);
+    assert.deepEqual(byFloor('shardVein'), [3, 4, 5, 7, 8]);
+    assert.deepEqual(byFloor('lockedChest'), [4, 5, 7, 8, 9]);
+    assert.deepEqual(byFloor('boss'), [12, 15, 18, 21, 24]);
     // The CLIENT source must still define these exact formulas — if it changes,
     // this fails so the server mirror gets updated in lockstep.
-    assert.ok(CLIENT_RUN_SRC.includes('return 2 + f;'), 'client chest curve drifted');
-    assert.ok(CLIENT_RUN_SRC.includes('return 3 + f * 2;'), 'client shardVein curve drifted');
-    assert.ok(CLIENT_RUN_SRC.includes('return 5 + f * 2;'), 'client lockedChest curve drifted');
-    assert.ok(CLIENT_RUN_SRC.includes('return 15 + f * 5;'), 'client boss curve drifted');
+    assert.ok(CLIENT_RUN_SRC.includes('return Math.round((2 + f) * 3 / 5);'), 'client chest curve drifted');
+    assert.ok(CLIENT_RUN_SRC.includes('return Math.round((3 + f * 2) * 3 / 5);'), 'client shardVein curve drifted');
+    assert.ok(CLIENT_RUN_SRC.includes('return Math.round((5 + f * 2) * 3 / 5);'), 'client lockedChest curve drifted');
+    assert.ok(CLIENT_RUN_SRC.includes('return Math.round((15 + f * 5) * 3 / 5);'), 'client boss curve drifted');
+});
+
+test('an event gate that demands the village seal keeps that rule on the server', () => {
+    assert.equal(normalizePublishedEventGate({ id: 'event-one', active: true, requiresUnlock: true }, 'event-one')?.requiresUnlock, true);
+    assert.equal(normalizePublishedEventGate({ id: 'event-one', active: true, requiresUnlock: 1 }, 'event-one')?.requiresUnlock, true);
+    assert.equal('requiresUnlock' in normalizePublishedEventGate({ id: 'event-one', active: true, requiresUnlock: false }, 'event-one')!, false);
 });
 
 test('clawback key set matches the client source', () => {

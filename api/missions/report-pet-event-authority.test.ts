@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { after, before, test } from 'node:test';
 
 process.env.NODE_ENV = 'test';
@@ -11,6 +13,9 @@ type Out = { statusCode: number; body?: Record<string, unknown> };
 let kv: typeof import('../_storage.js').kv;
 let handler: Handler;
 let issuePlayerToken: (name: string) => string | null;
+let drainBackgroundWork: typeof import('../_background-work.js').drainBackgroundWork;
+let econPlayerDayKey: typeof import('../_economy.js').econPlayerDayKey;
+let econUtcDay: typeof import('../_economy.js').econUtcDay;
 
 function response() {
     const out: Out = { statusCode: 200 };
@@ -49,6 +54,8 @@ function expedition(token: string, now: number) {
 before(async () => {
     ({ kv } = await import('../_storage.js'));
     ({ issuePlayerToken } = await import('../_auth.js'));
+    ({ drainBackgroundWork } = await import('../_background-work.js'));
+    ({ econPlayerDayKey, econUtcDay } = await import('../_economy.js'));
     handler = (await import('./report-pet-event.js')).default as unknown as Handler;
 });
 
@@ -155,7 +162,8 @@ test('return settlement uses the sealed setup, records world story, charges bold
         materialRewards: [{ itemId: 'hunt-legendary-material', count: 999 }],
     }, '127.0.0.91');
     assert.equal(first.statusCode, 200);
-    assert.equal(first.body?.ryoEarned, 404, 'saved level 100 + sealed scout/bold/half-rate determine ryo');
+    // 721.5 base x TAMER_RYO_MULT 0.4 x half rate x bold 1.12 = 161.6 (404 before the 2026-10 rebalance).
+    assert.equal(first.body?.ryoEarned, 162, 'saved level 100 + sealed scout/bold/half-rate determine ryo');
     assert.equal(first.body?.happinessCost, 5);
     assert.match(String(first.body?.story), /Moongrotto/);
     const firstCharacter = first.body?.character as Record<string, unknown>;
@@ -182,6 +190,67 @@ test('return settlement uses the sealed setup, records world story, charges bold
     assert.equal(replayCharacter.ryo, firstCharacter.ryo, 'replay cannot pay twice');
     assert.deepEqual(replay.body?.materialRewards, first.body?.materialRewards, 'replay returns the original material receipt');
     assert.deepEqual(replayCharacter.itemStacks, firstCharacter.itemStacks, 'replay cannot duplicate supplies or change its return choice');
+});
+
+test('TAMER_RYO_MULT is read once, inside the shared base, and its kill value restores the old pay', async () => {
+    // Applying the dial twice (here AND inside petExpeditionBaseRyo) would pay
+    // 0.4 x 0.4 of the old rate; the source keeps exactly one reading, passed
+    // into the base the client preview also uses.
+    const source = readFileSync(join(process.cwd(), 'api', 'missions', 'report-pet-event.ts'), 'utf8');
+    assert.equal(source.match(/tamerRyoMult\(\)(?!:)/g)?.length, 1, 'the dial is read at exactly one call site');
+    assert.match(source, /petExpeditionBaseRyo\(expType, petLevel, tamerRyoMult\(\)\)/);
+    assert.doesNotMatch(source, /[\w)\]]\s*\*\s*(?:TAMER_RYO_MULT|tamerRyoMult)\b/, 'never multiplied in on top of the base');
+
+    const previous = process.env.TAMER_RYO_MULT;
+    const { tamerRyoMult } = await import('./report-pet-event.js');
+    for (const [raw, expected] of [[undefined, 0.4], ['0.25', 0.25], ['0', 0], ['1', 1], ['2', 0.4], ['-0.1', 0.4], ['many', 0.4]] as const) {
+        if (raw === undefined) delete process.env.TAMER_RYO_MULT; else process.env.TAMER_RYO_MULT = raw;
+        assert.equal(tamerRyoMult(), expected, `TAMER_RYO_MULT='${raw}'`);
+    }
+    process.env.TAMER_RYO_MULT = '1';
+    try {
+        const player = 'expeditionryokillvalue';
+        const token = 'ryokillvalue001';
+        const now = Date.now();
+        await kv.set(`save:${player}`, {
+            _saveVersion: 1,
+            character: {
+                name: player, level: 30, ryo: 0, boneCharms: 0, auraStones: 0, fateShards: 0,
+                pets: [{
+                    id: 'pet-1', name: 'Kumo', rarity: 'standard', level: 100, maxLevel: 100, xp: 0,
+                    hp: 300, attack: 60, defense: 40, speed: 35, happiness: 50, jutsus: [], expedition: expedition(token, now),
+                }],
+            },
+        });
+        const claim = await post(player, { event: 'expedition', petId: 'pet-1', expeditionToken: token, returnChoice: 'secure' }, '127.0.0.95');
+        assert.equal(claim.statusCode, 200);
+        assert.equal(claim.body?.ryoEarned, 404, 'TAMER_RYO_MULT=1 pays the pre-rebalance rate');
+    } finally {
+        if (previous === undefined) delete process.env.TAMER_RYO_MULT; else process.env.TAMER_RYO_MULT = previous;
+    }
+});
+
+test('a committed haul records its ryo once under expedition.claim; the replay records nothing (I-19)', async () => {
+    const player = 'expeditiontelemetry';
+    const token = 'telemetry001';
+    const now = Date.now();
+    await kv.set(`save:${player}`, {
+        _saveVersion: 1,
+        character: {
+            name: player, level: 30, ryo: 0, boneCharms: 0, auraStones: 0, fateShards: 0,
+            pets: [{
+                id: 'pet-1', name: 'Kumo', rarity: 'standard', level: 100, maxLevel: 100, xp: 0,
+                hp: 300, attack: 60, defense: 40, speed: 35, happiness: 50, jutsus: [], expedition: expedition(token, now),
+            }],
+        },
+    });
+    const first = await post(player, { event: 'expedition', petId: 'pet-1', expeditionToken: token, returnChoice: 'secure' }, '127.0.0.96');
+    assert.equal(first.statusCode, 200);
+    const replay = await post(player, { event: 'expedition', petId: 'pet-1', expeditionToken: token, returnChoice: 'secure' }, '127.0.0.97');
+    assert.equal(replay.body?.replayed, true);
+    await drainBackgroundWork();
+    const day = await kv.get<Record<string, Record<string, { c: number; d: number; n: number }>>>(econPlayerDayKey(econUtcDay(Date.now()), player));
+    assert.deepEqual(day?.ryo?.['expedition.claim'], { c: Number(first.body?.ryoEarned), d: 0, n: 1 });
 });
 
 test('claim cap leaves the completed lease ready and rejects invalid choices', async (t) => {
@@ -252,7 +321,7 @@ test('a real mixed expedition survives cache loss, pays supplies once under conc
     ]);
     for (const claim of claims) {
         assert.equal(claim.statusCode, 200);
-        assert.equal(claim.body?.ryoEarned, 2160, 'a growing non-Tamer earns the full base ryo lane');
+        assert.equal(claim.body?.ryoEarned, 432, 'a growing non-Tamer earns the base ryo lane (2,160 x the 0.2 expedition ryo scale)');
         assert.equal(claim.body?.petXpEarned, 1280);
         assert.deepEqual(claim.body?.materialRewards, sealedHaul);
         assert.equal(claim.body?.foundFate, sealedFate);
@@ -295,7 +364,7 @@ test('new Tamer collections pay the fixed bonus on both the first and later expe
         const cache = await kv.get<Record<string, unknown>>(`pet-exp-token:${player}:${token}`);
         const result = await post(player, { event: 'expedition', expeditionToken: token }, '127.0.0.112');
         assert.equal(result.statusCode, 200);
-        assert.equal(result.body?.ryoEarned, 270, '180 base ryo times the fixed 1.5 profession bonus');
+        assert.equal(result.body?.ryoEarned, 54, '180 base ryo times the fixed 1.5 profession bonus, times the 0.2 expedition ryo scale');
         assert.equal(result.body?.petXpEarned, 180, '120 base pet XP times the fixed 1.5 profession bonus');
         assert.equal(result.body?.firstExpedition, false);
         assert.equal(result.body?.foundFate, cache?.fateShardReward, 'cached claims use the same sealed shard amount');

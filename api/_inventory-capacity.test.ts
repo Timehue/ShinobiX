@@ -11,7 +11,7 @@ import {
     inventoryGrowthBlock,
     inventoryRoomLeft,
 } from './_inventory-capacity.js';
-import { forgeHollowGateKey } from './hollow-gate/_forge-key.js';
+import { forgeHollowGateKey, KEY_FORGE_COSTS } from './hollow-gate/_forge-key.js';
 import { AURA_SPHERE_EVENT_ID, claimBuiltinEvent } from './events/_claim.js';
 import { addOwned } from './craft/_forge.js';
 
@@ -74,7 +74,7 @@ describe('player-initiated grants refuse before spending anything', () => {
         if (out.ok !== true) return;
         assert.equal((out.character.inventory as string[]).length, INVENTORY_CAP, 'inventory[] is untouched');
         assert.deepEqual(out.character.itemStacks, [{ itemId: 'hollow-gate-key', count: 1 }]);
-        assert.equal(out.character.fateShards, 9_989, 'and the shards were spent exactly once');
+        assert.equal(out.character.fateShards, 9_999 - KEY_FORGE_COSTS.fateShards, 'and the shards were spent exactly once');
     });
 
     it('stacks a second forged key rather than starting a new entry', () => {
