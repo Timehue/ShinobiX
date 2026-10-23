@@ -127,6 +127,17 @@ function SectorChatView({ sector, present, playerName, hudRef, sheetOpen, onShee
         return () => observer.disconnect();
     }, [newest, open, pinned, docked]);
 
+    // An open docked chat shortens the player list above it. The column reads
+    // that from its own attribute rather than a `:has()` on the chat, which made
+    // Chrome re-check every page-level `:has()` on each DOM change anywhere.
+    const dockedOpen = open && !inline && layout === 'roomy';
+    useLayoutEffect(() => {
+        const host = rootRef.current?.parentElement;
+        if (!host) return undefined;
+        host.toggleAttribute('data-chat-docked', dockedOpen);
+        return () => host.removeAttribute('data-chat-docked');
+    }, [dockedOpen, status]);
+
     if (status === 'unavailable') return null;
 
     const markRead = () => setReadTs((ts) => Math.max(ts, newest));

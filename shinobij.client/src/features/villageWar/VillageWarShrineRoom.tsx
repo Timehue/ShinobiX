@@ -21,6 +21,13 @@ export function VillageWarShrineRoom({ character, warId, objective, sharedImages
     const [now, setNow] = useState(() => Date.now());
     const alive = useRef(false), pending = useRef(false), polling = useRef(false), entered = useRef(false), walking = useRef(false);
     const current = useRef<CampaignResponse['room']>(undefined);
+    // A walk is one sealed step per tile. `goal` is the latest tile asked for,
+    // so a tap mid-walk turns the walk instead of being dropped. `stepping` is
+    // the tile the step in flight is moving to: the avatar shows there at once
+    // rather than a full round trip later. `steps` counts the steps sent, so a
+    // poll reply that left before a step cannot pull the avatar back.
+    const goal = useRef<number | null>(null), steps = useRef(0);
+    const [stepping, setStepping] = useState<number | null>(null);
     const dialog = useRef<HTMLDialogElement>(null);
     useEffect(() => {
         const element = dialog.current;
@@ -34,9 +41,11 @@ export function VillageWarShrineRoom({ character, warId, objective, sharedImages
         const stop = visiblePoll(async () => {
             if (pending.current || polling.current) return;
             polling.current = true;
+            const sent = steps.current;
             try {
                 const response = await campaignRequest(character.name, warId, entered.current ? 'shrine-state' : 'shrine-enter', { objectiveId: objective.id });
-                entered.current = true; adopt(response);
+                entered.current = true;
+                if (steps.current === sent) adopt(response);
             } catch (reason) { if (alive.current) setError(reason instanceof Error ? reason.message : 'The shrine could not be reached.'); }
             finally { polling.current = false; }
         }, 5_000, 0.1, { immediate: true });
@@ -50,45 +59,51 @@ export function VillageWarShrineRoom({ character, warId, objective, sharedImages
     const closed = now >= target.closesAt;
     const enemies = room?.players.filter(p => p.village !== character.village) ?? [];
     const avatar = resolveOwnAvatar(character, sharedImages);
-    async function act(action: string, extra: Record<string, unknown> = {}) {
+    /** `quiet` leaves the floor tiles enabled, so a tap can turn the walk and a step does not re-render
+     *  all 144 of them twice. Every other control waits on `stepping` instead, as it waited on `busy`. */
+    async function act(action: string, extra: Record<string, unknown> = {}, quiet = false) {
         if (pending.current) return;
-        pending.current = true; setBusy(true);
+        pending.current = true; if (!quiet) setBusy(true);
         try { const response = await campaignRequest(character.name, warId, action, { objectiveId: objective.id, ...extra }); adopt(response); return response; }
         catch (reason) { if (alive.current) setError(reason instanceof Error ? reason.message : 'Shrine action failed.'); }
-        finally { pending.current = false; if (alive.current) setBusy(false); }
+        finally { pending.current = false; if (alive.current && !quiet) setBusy(false); }
     }
     async function walkTo(tile: number) {
-        if (walking.current || busy || error || !entered.current || closed || me?.inBattle) return;
+        if (busy || error || !entered.current || closed || me?.inBattle) return;
+        goal.current = tile;
+        if (walking.current) return;
         walking.current = true;
-        try { while (alive.current) {
-            const from = current.current?.players.find(p => p.name === slug(character.name))?.tile;
-            if (from === undefined || from === tile) return;
-            const x = from % 12, y = Math.floor(from / 12), tx = tile % 12, ty = Math.floor(tile / 12);
+        try { while (alive.current && goal.current !== null) {
+            const from = current.current?.players.find(p => p.name === slug(character.name))?.tile, target = goal.current;
+            if (from === undefined || from === target) return;
+            const x = from % 12, y = Math.floor(from / 12), tx = target % 12, ty = Math.floor(target / 12);
             const next = x !== tx ? from + Math.sign(tx - x) : from + Math.sign(ty - y) * 12;
-            if (!await act('shrine-step', { tile: next })) return;
-        } } finally { walking.current = false; }
+            setStepping(next); steps.current++;
+            if (!await act('shrine-step', { tile: next }, true)) return;
+        } } finally { walking.current = false; goal.current = null; if (alive.current) setStepping(null); }
     }
     async function leave() {
+        goal.current = null;
         const response = await act('shrine-leave');
         if (response) onExit();
     }
     if (battle) return <Suspense fallback={<p>Opening shrine combat…</p>}><Battle character={character} warId={warId} run={battle}
         sharedImages={sharedImages} onVersionedCharacter={onVersionedCharacter} onBack={() => setBattle(null)} /></Suspense>;
     return <dialog ref={dialog} className='war-shrine-dialog' aria-label='Golden shrine interior'
-        onCancel={event => { event.preventDefault(); if (!busy && !me?.inBattle) void leave(); }}>
+        onCancel={event => { event.preventDefault(); if (!busy && stepping === null && !me?.inBattle) void leave(); }}>
         <section className='war-shrine-room' aria-label='Golden war shrine room'>
         <header className='war-shrine-header'><h2>Golden War Shrine</h2>
-            <button className='war-shrine-leave' aria-label='Leave shrine' disabled={busy || !!me?.inBattle} onClick={() => void leave()}>Leave</button>
+            <button className='war-shrine-leave' aria-label='Leave shrine' disabled={busy || stepping !== null || !!me?.inBattle} onClick={() => void leave()}>Leave</button>
             <p className='war-shrine-meta'>Sector {objective.sector} · Shinobi PvP · {target.bouts}/{target.limit} {campaignVersion === 3 ? 'extra-point wins' : 'scored wins'}</p></header>
         <p className='war-shrine-window' role='status'>{closed ? 'This scoring window is complete.' : `Window closes in ${Math.max(0, Math.ceil((target.closesAt - now) / 60_000))} minutes.`}</p>
-        {error && <div><p role='alert'>{error}</p><button disabled={busy || closed}
+        {error && <div><p role='alert'>{error}</p><button disabled={busy || stepping !== null || closed}
             onClick={async () => { const response = await act('shrine-enter'); if (response) entered.current = true; }}>Re-enter shrine</button></div>}
         {!room && !error && <p>Entering the golden shrine…</p>}
         <div className='war-shrine-room-body'><div className='war-shrine-floor' role='group' aria-label='Shrine floor' onKeyDown={event => {
             if (!me) return;
             const delta = ({ ArrowUp: -12, ArrowDown: 12, ArrowLeft: -1, ArrowRight: 1 } as Record<string, number>)[event.key];
             if (delta === undefined) return;
-            event.preventDefault(); const tile = me.tile + delta, x = tile % 12, y = Math.floor(tile / 12);
+            event.preventDefault(); const tile = (stepping ?? me.tile) + delta, x = tile % 12, y = Math.floor(tile / 12);
             if (x >= 1 && x <= 10 && y >= 1 && y <= 10) void walkTo(tile);
         }} tabIndex={0}>
             <img className='war-shrine-floor-art' src='/ui/village-war/war-shrine-floor-gold-v1.webp' alt='Overhead golden shrine courtyard with a central seal and stone paths' />
@@ -96,10 +111,11 @@ export function VillageWarShrineRoom({ character, warId, objective, sharedImages
                 aria-label={`Walk to shrine tile ${tile % 12 + 1}, ${Math.floor(tile / 12) + 1}`} tabIndex={-1}
                 disabled={busy || closed || !me || tile % 12 < 1 || tile % 12 > 10 || Math.floor(tile / 12) < 1 || Math.floor(tile / 12) > 10}
                 onClick={() => void walkTo(tile)} />)}</div>
-            {room?.players.map((player, i) => <span key={player.name} className={`war-shrine-player ${player.village === character.village ? 'is-ally' : 'is-enemy'}`}
-                style={{ left: `${((player.tile % 12 + .5) / 12) * 100}%`, top: `${((Math.floor(player.tile / 12) + .5) / 12) * 100}%`, transform: `translate(-50%, -50%) translateX(${i * 6}px)` }}>
+            {room?.players.map((player, i) => { const tile = player === me ? stepping ?? player.tile : player.tile;
+                return <span key={player.name} className={`war-shrine-player ${player.village === character.village ? 'is-ally' : 'is-enemy'}`}
+                style={{ left: `${((tile % 12 + .5) / 12) * 100}%`, top: `${((Math.floor(tile / 12) + .5) / 12) * 100}%`, transform: `translate(-50%, -50%) translateX(${i * 6}px)` }}>
                 {player.name === slug(character.name) && avatar ? <img src={avatar} alt='' /> : <b>{player.displayName.slice(0, 2).toUpperCase()}</b>}
-                <small>{player.name === slug(character.name) ? 'You' : player.displayName}</small></span>)}
+                <small>{player.name === slug(character.name) ? 'You' : player.displayName}</small></span>; })}
         </div>
         <aside aria-label='Shrine control'><p className='war-shrine-input-hint'>Choose a tile or use arrow keys to move.</p>
         <p className='war-shrine-control' role='status'>{target.bonusSettled ? target.bonusWinner
@@ -107,7 +123,7 @@ export function VillageWarShrineRoom({ character, warId, objective, sharedImages
             : enemies.length ? 'Both villages are inside. The shrine is contested.'
                 : me && target.controlVillage === character.village ? 'Your village controls the shrine and is adding uncontested time.' : 'Hold the shrine uncontested to add time for your village.'}</p>
         <ShrineControlTimes objective={target} villages={[...new Set([character.village, ...Object.keys(target.controlTimeMs ?? {}), ...(room?.players.map(p => p.village) ?? [])])]} />
-        {enemies.length > 0 && <div className='war-shrine-opponents'>{enemies.map(player => <button key={player.name} disabled={busy || closed || !!me?.inBattle || player.inBattle}
+        {enemies.length > 0 && <div className='war-shrine-opponents'>{enemies.map(player => <button key={player.name} disabled={busy || stepping !== null || closed || !!me?.inBattle || player.inBattle}
             onClick={async () => { const response = await act('start', { target: player.name }); if (response?.runId) setBattle(response); }}>
             {player.inBattle ? `${player.displayName} is fighting` : `Fight ${player.displayName}`}</button>)}</div>}
         <details className='war-shrine-rules'><summary>Controls and scoring</summary>

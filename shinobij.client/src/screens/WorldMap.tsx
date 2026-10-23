@@ -4424,7 +4424,7 @@ function WorldMapContent({
                 <div className="instance-frame sector-instance-frame">
                     <WorldSectorCanvas {...lifeTracesProps}
                         obstacles={sectorObstacles}
-                        suspended={!!vaultRaid}
+                        suspended={!!vaultRaid} paused={warShrine.open}
                         sector={selectedSector}
                         biome={biome}
                         weather={sectorWeather}

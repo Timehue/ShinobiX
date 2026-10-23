@@ -9,6 +9,9 @@ const changedViewerError='The signed-in player changed. Reopen the clan page.';
 
 // Listing remains on the startup graph; paid and battle actions load on use.
 // Capture the caller before loading so a delayed chunk cannot switch actors.
+/** Fetch the action chunk before a room's first request needs it. The browser keeps a failed
+ * import, so a failed warm-up is that request's failure too, reported by its own error path. */
+export function warmClanWarActions() { void import('./clan-war-actions').catch(() => undefined); }
 async function loadClanWarActions() {
     const viewer = viewerCache.scope();
     const actions=await retryDynamicImport(()=>import('./clan-war-actions')).catch(()=>{

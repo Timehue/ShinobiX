@@ -166,7 +166,7 @@ export function PetExpeditionBoard({
                 <fieldset>
                     <legend>Risk stance</legend>
                     {PET_EXPEDITION_RISKS.map((value) => (
-                        <label key={value}>
+                        <label key={value} className="pet-expedition-risk">
                             <input type="radio" name="pet-expedition-risk" value={value} checked={risk === value} disabled={Boolean(selectedPet?.expedition) || launchBusy} onChange={() => onRiskChange(value)} />
                             <span><strong>{PET_EXPEDITION_RISK_RULES[value].label}</strong><small>{PET_EXPEDITION_RISK_RULES[value].description}</small></span>
                         </label>

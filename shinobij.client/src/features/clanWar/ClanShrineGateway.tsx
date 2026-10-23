@@ -1,7 +1,7 @@
 /* eslint-disable react-hooks/set-state-in-effect -- physical room and campaign polling */
 import {useCallback,useEffect,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
-import {cwListWars,cwQueueAction,type ClanShrineRoomView,type CwWar,type CwChallenge} from '../../lib/clan-war-api';
+import {cwListWars,cwQueueAction,warmClanWarActions,type ClanShrineRoomView,type CwWar,type CwChallenge} from '../../lib/clan-war-api';
 import {visiblePoll} from '../../lib/poll';
 import {resolveOwnAvatar} from '../../lib/own-avatar';
 import {clanWarPlayerKey} from '../../../../shared/clan-war-campaign';
@@ -19,6 +19,8 @@ export function ClanShrineGateway({character,sector,present,blocked,sharedImages
     useEffect(()=>{const timer=setInterval(()=>setNow(Date.now()),1000);return()=>clearInterval(timer);},[]);
     const relevant=wars.filter(war=>war.clans.includes(character.clan??'')&&!war.endedAt&&war.campaignView?.eligible);
     const entrances=relevant.flatMap(war=>war.campaignView!.shrines.filter(window=>window.sector===sector&&now<window.closesAt).slice(0,1).map(window=>({war,window})));
+    const enterable=present&&entrances.some(entry=>entry.window.state==='open');
+    useEffect(()=>{if(enterable)warmClanWarActions();},[enterable]);
     useEffect(()=>{
         if(!present||blocked||open)return;
         try{const value=JSON.parse(sessionStorage.getItem(REOPEN)??'null') as {warId?:string;index?:number}|null;
@@ -40,13 +42,18 @@ function ClanShrineRoom({character,initialWar,index,sharedImages,onExit,onLaunch
         onLaunchBattle?:(challenge:CwChallenge,warId:string)=>void}) {
     const [war,setWar]=useState(initialWar),[room,setRoom]=useState<ClanShrineRoomView>(),[error,setError]=useState(''),[busy,setBusy]=useState(false),[now,setNow]=useState(()=>Date.now());
     const entered=useRef(false),pending=useRef(false),mounted=useRef(false),dialog=useRef<HTMLDialogElement>(null),walkPending=useRef(false);
+    // One step is in flight at a time and the latest tap waits behind it. The
+    // avatar shows on the step's tile at once, not a round trip later, and a
+    // poll whose request overlapped any step cannot pull it back.
+    const queued=useRef<number|null>(null),steps=useRef(0),[stepping,setStepping]=useState<number|null>(null);
     const leaveTimer=useRef<ReturnType<typeof setTimeout>|undefined>(undefined);
     const refresh=useCallback(async()=>{
-        if(pending.current)return;pending.current=true;
+        // A poll that starts mid-step can reach the queue lock before the step and answer with the old tile.
+        if(pending.current)return;pending.current=true;const sent=walkPending.current?-1:steps.current;
         try{const result=await cwQueueAction({warId:initialWar.id,action:entered.current?'shrine-state':'shrine-enter',scope:'shrine',windowIndex:index});
             if(!mounted.current)return;
             if(!result.ok){setError(result.error??'The shrine could not be reached.');return;}
-            entered.current=true;if(result.war)setWar(result.war);if(result.room)setRoom(result.room);setNow(result.serverNow??Date.now());setError('');
+            entered.current=true;if(result.war)setWar(result.war);if(result.room&&steps.current===sent&&!walkPending.current)setRoom(result.room);setNow(result.serverNow??Date.now());setError('');
         }finally{pending.current=false;}
     },[index,initialWar.id]);
     useEffect(()=>{
@@ -60,14 +67,18 @@ function ClanShrineRoom({character,initialWar,index,sharedImages,onExit,onLaunch
     },[initialWar.id,index,refresh]);
     const window=war.campaignView!.shrines.find(entry=>entry.index===index)!,me=room?.players.find(player=>player.name===clanWarPlayerKey(character.name));
     const active=war.campaignView!.matches.some(match=>match.scope==='shrine'&&match.windowIndex===index&&match.status==='active');
-    const closed=now>=window.closesAt,avatar=resolveOwnAvatar(character,sharedImages);
+    const closed=now>=window.closesAt,avatar=resolveOwnAvatar(character,sharedImages),own=stepping??me?.tile??0;
     async function leave(){if(pending.current||active)return;setBusy(true);const response=await cwQueueAction({warId:war.id,action:'shrine-leave',scope:'shrine',windowIndex:index});setBusy(false);if(response.ok)onExit();else setError(response.error??'Could not leave the shrine.');}
     async function walk(tile:number){
-        if(!me||walkPending.current||pending.current||active||closed||me.inBattle)return;
+        if(!me||active||closed||me.inBattle)return;
+        queued.current=tile;if(walkPending.current)return;
         walkPending.current=true;
-        try{const response=await cwQueueAction({warId:war.id,action:'shrine-walk',scope:'shrine',windowIndex:index,tile});
-            if(!mounted.current)return;if(!response.ok)setError(response.error??'That step is unavailable.');else{if(response.room)setRoom(response.room);setError('');}
-        }finally{walkPending.current=false;}
+        try{while(mounted.current&&queued.current!==null){
+            const next=queued.current;queued.current=null;setStepping(next);steps.current++;
+            const response=await cwQueueAction({warId:war.id,action:'shrine-walk',scope:'shrine',windowIndex:index,tile:next});
+            if(!mounted.current)return;if(!response.ok){setError(response.error??'That step is unavailable.');return;}
+            if(response.room)setRoom(response.room);setError('');
+        }}finally{walkPending.current=false;queued.current=null;if(mounted.current)setStepping(null);}
     }
     function launch(challenge:CwChallenge,warId:string){
         try{sessionStorage.setItem(REOPEN,JSON.stringify({warId,index}));setSectorReopen(window.sector??null);}catch{/* Navigation remains available. */}
@@ -79,13 +90,13 @@ function ClanShrineRoom({character,initialWar,index,sharedImages,onExit,onLaunch
             {error&&<p role="alert">{error} {!closed&&<button disabled={busy} onClick={()=>{entered.current=false;void refresh();}}>Re-enter shrine</button>}</p>}
             <div className="clan-shrine-layout"><div><div className="clan-shrine-floor" tabIndex={0} role="group" aria-label="Shrine courtyard" onKeyDown={event=>{
                 const delta=({ArrowUp:-12,ArrowDown:12,ArrowLeft:-1,ArrowRight:1} as Record<string,number>)[event.key];if(delta===undefined||!me)return;
-                event.preventDefault();void walk(me.tile+delta);
+                event.preventDefault();void walk(own+delta);
             }}><img src="/ui/village-war/war-shrine-floor-gold-v1.webp" alt="Overhead golden shrine courtyard"/><div className="clan-shrine-tiles">{Array.from({length:144},(_,tile)=><button key={tile} tabIndex={-1} aria-label={`Walk to tile ${tile%12+1}, ${Math.floor(tile/12)+1}`}
                 disabled={!me||closed||active||tile%12<1||tile%12>10||Math.floor(tile/12)<1||Math.floor(tile/12)>10
-                    ||Math.abs(tile%12-me.tile%12)+Math.abs(Math.floor(tile/12)-Math.floor(me.tile/12))>1} onClick={()=>void walk(tile)}/>)}</div>
-                {room?.players.map(player=><span key={player.name} className={`clan-shrine-player ${player.clan===character.clan?'is-ally':'is-rival'}`}
-                    style={{left:`${(player.tile%12+.5)/12*100}%`,top:`${(Math.floor(player.tile/12)+.5)/12*100}%`}}>
-                    {player.name===clanWarPlayerKey(character.name)&&avatar?<img src={avatar} alt=""/>:<b>{player.displayName.slice(0,2).toUpperCase()}</b>}<small>{player.name===clanWarPlayerKey(character.name)?'You':`${player.displayName} · ${player.clan===character.clan?'Ally':'Rival'}`}</small></span>)}</div>
+                    ||Math.abs(tile%12-own%12)+Math.abs(Math.floor(tile/12)-Math.floor(own/12))>1} onClick={()=>void walk(tile)}/>)}</div>
+                {room?.players.map(player=>{const tile=player===me?own:player.tile;return <span key={player.name} className={`clan-shrine-player ${player.clan===character.clan?'is-ally':'is-rival'}`}
+                    style={{left:`${(tile%12+.5)/12*100}%`,top:`${(Math.floor(tile/12)+.5)/12*100}%`}}>
+                    {player.name===clanWarPlayerKey(character.name)&&avatar?<img src={avatar} alt=""/>:<b>{player.displayName.slice(0,2).toUpperCase()}</b>}<small>{player.name===clanWarPlayerKey(character.name)?'You':`${player.displayName} · ${player.clan===character.clan?'Ally':'Rival'}`}</small></span>;})}</div>
                 <p className="hint">Choose an adjacent tile or use arrow keys. Both clans must be inside to begin a bonus match.</p>
                 <details><summary>Players inside · {room?.players.length??0}</summary><ul>{room?.players.map(player=><li key={player.name}>{player.displayName} · {player.clan}{player.inBattle?' · fighting':''}</li>)}</ul></details></div>
                 {room?<ClanWarCampaignPanel war={war} name={character.name} clanName={character.clan??''} scope="shrine" windowIndex={index}
