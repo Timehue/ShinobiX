@@ -132,8 +132,9 @@ test("WorldMap and its selected-sector leaves keep the projection line-budget ra
         // Shrine room state/presentation and vault marker selection remain in
         // feature leaves. Tighten the achieved count instead of growing this screen.
         // Encounter mode mapping now lives in world-ai-presentation-modes.ts.
-        lineCount(worldMapSource) <= 5336,
-        `WorldMap.tsx grew past 5,336 lines; retired overview layers must stay retired.`,
+        // Chest reward presentation now lives in AncientChestRewards.tsx.
+        lineCount(worldMapSource) <= 5310,
+        `WorldMap.tsx grew past 5,310 lines; retired overview layers must stay retired.`,
     );
     assert.ok(
         lineCount(canvasSource) <= 220,

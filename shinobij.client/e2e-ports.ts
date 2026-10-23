@@ -50,5 +50,6 @@ export const mobileGauntletE2ePort = () => resolvePort('MOBILE_GAUNTLET_PORT', 4
 // snapshot must have a distinct port/name even after smoke's server has exited.
 export const dojoE2ePort = () => resolvePort('DOJO_E2E_PORT', 4180, 23178, 'Dojo production preview');
 export const resourceE2ePort = () => resolvePort('RESOURCE_E2E_PORT', 4181, 24179, 'gathering fixture');
+export const iphoneE2ePort = () => resolvePort('IPHONE_E2E_PORT', 4184, 25180, 'iPhone audit');
 
 export const previewRootFor = (port: string) => `.playwright-dist-${port.replace(/[^a-z0-9_-]/gi, '_')}`;
