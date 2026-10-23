@@ -9630,10 +9630,10 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "4D3136A78C73E66269ADA4B2F02BCADE5B279AA6DD7EA03A56D5C712E9EC398C",
+      "sha256": "99576C778214596FD055148B3CE0CB26EF2F5F112F521B3FE0A5C60D3232BB2B",
       "visualReview": {
         "passed": true,
-        "reason": "Dune Viper preserves its unusual golden serpent-drake identity with full S-neck, cream belly, dark headwrap, one continuous coil and four small clawed limbs."
+        "reason": "The user-requested remake has a lean golden serpent-drake torso, original S-neck/head/headwrap and cream ventral plates, four connected clawed limbs, and one tapered rearward tail without the coil. Two independent visual reviews cover all thirteen source and battle clips, medium/low runtime transitions, nine companion techniques, and all sixteen atlas cells."
       },
       "multiViewProof": {
         "source": "public\\pet-models\\roster-concepts\\rare-6-turnaround-v1.png",
@@ -9676,13 +9676,14 @@
             "frames": 59,
             "runtimeErrors": 0
           }
-        }
+        },
+        "supersededByRemake": "20261021-viper-lean-no-coil-v1"
       },
       "validation": {
         "ok": true,
-        "bytes": 2304004,
-        "triangles": 40000,
-        "vertices": 24882,
+        "bytes": 4981176,
+        "triangles": 34726,
+        "vertices": 21582,
         "skins": 1,
         "animations": 13
       },
@@ -9753,6 +9754,17 @@
         ],
         "changedVertices": 6124,
         "rigidVertices": 4138
+      },
+      "leanNoCoilRemake": {
+        "revision": "20261021-viper-lean-no-coil-v1",
+        "priorSourceSha256": "4d3136a78c73e66269ada4b2f02bcade5b279aa6dd7ea03a56d5c712e9ec398c",
+        "sourceSha256": "99576c778214596fd055148b3ce0cb26ef2f5f112f521b3fe0a5c60d3232bb2b",
+        "battleSha256": "c7f0310195a184e5287ffb035efa6f8105f8705260e9d49273b37cf2679cdca8",
+        "atlasSha256": "b406b5a966e3555572e32e300ff4fde6e4feadfaa1f200d06a8a15f467524acc",
+        "authoringInputs": "scripts/fixtures/pet-dune-viper-no-coil-20261021",
+        "recipe": "scripts/build-dune-viper-no-coil.mjs",
+        "review": "docs/audits/pet-dune-viper-lean-no-coil-review-2026-10-21.json",
+        "newPaidGeneration": false
       }
     },
     "rare-7": {
