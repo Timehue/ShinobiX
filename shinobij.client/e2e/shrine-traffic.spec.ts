@@ -10,10 +10,12 @@ import {isWalkableTile} from '../../shared/sector-walk-mask';
 type Pose={col:number;row:number;visible:boolean;activity?:string;original:boolean};
 declare global{interface Window{trafficOriginal:HTMLElement;trafficKeeper:HTMLElement;trafficRead:()=>Pose}}
 const evidence='../output/living-world/shrine-traffic/browser';mkdirSync(evidence,{recursive:true});
+// Fixed, not Date.now(): a roaming Legacy Emissary ignores quietRoadCooldowns, and no sector has one at any hour of 2026-10-10 (01:00 UTC is world noon).
+const TRAFFIC_SCENARIO_EPOCH=Date.UTC(2026,9,10,1);
 
 test('cached shrine visitor finishes the real visit, hides at the actual exit, and a fresh wave enters independently',async({page},info)=>{
     test.setTimeout(360_000);
-    let since=Math.floor(Date.now()/WORLD_DAY_MS)*WORLD_DAY_MS+8*WORLD_HOUR_MS;
+    let since=Math.floor(TRAFFIC_SCENARIO_EPOCH/WORLD_DAY_MS)*WORLD_DAY_MS+8*WORLD_HOUR_MS;
     for(let attempt=0;attempt<32;attempt++,since+=WORLD_DAY_MS){
         const memory={tier:2,maintainedAt:0,by:'',supportStartedAt:since};
         if([since+2000,since+2000+600_000-9000].every(at=>lifeSceneView(15,{...parseLifeState(null,at),step:3,updatedAt:since-1000},at,'clear',undefined,undefined,memory).actors.some(actor=>actor.id==='pilgrim:15:0')))break;
