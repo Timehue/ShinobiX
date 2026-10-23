@@ -27,10 +27,11 @@ for (const version of [2, 3] as const) for (const capped of [false, true]) test(
     await page.route('**/api/world-state', route => route.fulfill({ json: { territories: [], standings: [], wars: [{
         id: warId, villages: [village, enemy], startedAt: startsAt, updatedAt: startsAt, campaignVersion: version,
         campaignEndsAt: endsAt, warGroundSector: 40, hp: { [village]: 5000, [enemy]: 5000 }, warPoints: { [village]: 250, [enemy]: 100 } }] } }));
-    await page.route('**/api/village/war-campaign', route => {
+    let holdStep: Promise<void> | null = null;
+    await page.route('**/api/village/war-campaign', async route => {
         const body = route.request().postDataJSON();
         actions.push(body);
-        if (body.action === 'shrine-step') tile = body.tile;
+        if (body.action === 'shrine-step') { if (holdStep) await holdStep; tile = body.tile; }
         const players = [{ name: 'auditninja', displayName: 'AuditNinja', village, tile, inBattle: false },
             ...(rivalInside ? [{ name: 'moonshinobi', displayName: 'MoonShinobi', village: enemy, tile: 65, inBattle: false }] : [])];
         return route.fulfill({ json: { campaign, defense: null, run: null,
@@ -72,6 +73,22 @@ for (const version of [2, 3] as const) for (const capped of [false, true]) test(
     await page.keyboard.press('ArrowUp');
     await expect.poll(() => tile).toBe(114);
     expect(worldSteps).toBe(outsideSteps, 'room movement must not move the character in the world outside');
+    // The avatar moves when the step is sent, not a round trip later.
+    const self = room.locator('.war-shrine-player', { hasText: 'You' });
+    const rowOf = () => self.evaluate(element => (element as HTMLElement).style.top);
+    const before = await rowOf();
+    let release!: () => void;
+    holdStep = new Promise<void>(resolve => { release = resolve; });
+    await page.keyboard.press('ArrowUp');
+    await expect.poll(rowOf, { timeout: 2_000 }).not.toBe(before);
+    expect(tile, 'the server has not answered the step yet').toBe(114);
+    // Every action that would be dropped behind the step in flight waits for it.
+    await expect(room.getByRole('button', { name: 'Leave shrine', exact: true })).toBeDisabled();
+    await expect(room.getByRole('button', { name: 'Fight MoonShinobi', exact: true })).toBeDisabled();
+    release(); holdStep = null;
+    await expect(room.getByRole('button', { name: 'Fight MoonShinobi', exact: true })).toBeEnabled();
+    await expect.poll(() => tile).toBe(102);
+    await expect.poll(async () => parseFloat(await rowOf())).toBeCloseTo(((Math.floor(102 / 12) + .5) / 12) * 100, 2);
     for (let tab = 0; tab < 3; tab++) {
         await page.keyboard.press('Tab');
         // Native dialogs may focus BODY for one Tab when cycling; the background

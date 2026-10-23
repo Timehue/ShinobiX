@@ -210,7 +210,7 @@ describe("Tower narrow combat composition", () => {
         assert.match(source, /combat-item-button rarity-\$\{cs\.rarity \?\? "common"\}/);
         assert.match(source, /className="tower-sr-only" role="status" aria-live="polite" aria-atomic="true"/);
         assert.match(tacticalCss, /\.tower-sr-only \{[\s\S]*?position: absolute;[\s\S]*?clip: rect\(0, 0, 0, 0\)/);
-        assert.match(source, /className="tower-fight-header tower-fight-statusbar"[\s\S]*?session\.status === "active"[\s\S]*?<button[\s\S]*?type="button"[\s\S]*?className="tower-fight-leave"[\s\S]*?Forfeit[\s\S]*?Leave view/);
+        assert.match(source, /className=\{`tower-fight-header tower-fight-statusbar\$\{canCancelAction \? " has-cancel" : ""\}`\}[\s\S]*?session\.status === "active"[\s\S]*?<button[\s\S]*?type="button"[\s\S]*?className="tower-fight-leave"[\s\S]*?Forfeit[\s\S]*?Leave view/);
         assert.ok(source.indexOf('className="tower-resource-rail tower-header-resource-rail"') < source.indexOf('className="tower-action-dock"'),
             "AP belongs in the header, above the command deck");
         assert.doesNotMatch(source, /className="tower-action-topline"/);

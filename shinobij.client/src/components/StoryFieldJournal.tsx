@@ -1,3 +1,4 @@
+import { useState, type ReactNode } from 'react';
 import type { Character } from '../types/character';
 import { storyFieldHistories, storyFieldObjective } from '../lib/story-field-work';
 import './StoryFieldWork.css';
@@ -10,8 +11,8 @@ export function StoryFieldJournal({ character, currentSector, abandonBusy = fals
     const objective = storyFieldObjective(character);
     const remembered = storyFieldHistories(character);
     if (!objective && !remembered.length) return null;
-    return <aside className="story-field-journal" aria-label="Personal quest">
-        <details className="story-field-journal-disclosure">
+    return <JournalDisclosure>{(open, setOpen) => <aside className={`story-field-journal${open ? ' is-open' : ''}`} aria-label="Personal quest">
+        <details className="story-field-journal-disclosure" onToggle={event => setOpen(event.currentTarget.open)}>
         <summary className="story-field-journal-toggle">
             <span><strong>{objective?.title ?? 'Your journeys'}</strong>
                 <small>{objective ? `${objective.name} · Sector ${objective.sector}` : 'Review your past routes'}</small></span>
@@ -34,5 +35,14 @@ export function StoryFieldJournal({ character, currentSector, abandonBusy = fals
         </details>}
         </div>
         </details>
-    </aside>;
+    </aside>}</JournalDisclosure>;
+}
+
+/** Widened while open. A class, not `:has(> details[open])`: that rule made
+ * Chrome re-check every page-level `:has()` on each DOM change anywhere. The
+ * state lives here, mounted only while the journal shows, so hiding the journal
+ * resets it together with its `<details>`. */
+function JournalDisclosure({ children }: { children: (open: boolean, setOpen: (open: boolean) => void) => ReactNode }) {
+    const [open, setOpen] = useState(false);
+    return <>{children(open, setOpen)}</>;
 }

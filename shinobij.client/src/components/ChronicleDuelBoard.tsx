@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type SyntheticEvent } from "react";
 import { getSharedNow, subscribeSharedNow } from "../lib/shared-now-store";
 import {
   CHRONICLE_FOUNDING_FORMAT,
@@ -329,6 +329,12 @@ export function ChronicleDuelBoard({
   // Which graveyard pile is open for browsing. Piles are face-up public
   // information in this format, so either side's is readable at any time.
   const [graveyardView, setGraveyardView] = useState<"me" | "foe" | null>(null);
+  // The graveyard drawer shows while either pile's <details> is open. A class,
+  // not `:has(details[open])`: that rule made Chrome re-check every page-level
+  // `:has()` on each DOM change anywhere, even in Hollow Gate.
+  const [graveyardsOpen, setGraveyardsOpen] = useState(false);
+  const syncGraveyards = (event: SyntheticEvent<HTMLDetailsElement>) =>
+    setGraveyardsOpen(Boolean(event.currentTarget.parentElement?.querySelector("details[open]")));
   const [forfeitArmed, setForfeitArmed] = useState(false);
   const [duelMenuOpen, setDuelMenuOpen] = useState(false);
   const [recapOpen, setRecapOpen] = useState(false);
@@ -1918,8 +1924,8 @@ export function ChronicleDuelBoard({
         </div>
       </div>
 
-      <div className="chronicle-graveyards">
-        <details open={targetsGraveyard || undefined}>
+      <div className={`chronicle-graveyards${graveyardsOpen ? " is-open" : ""}`}>
+        <details open={targetsGraveyard || undefined} onToggle={syncGraveyards}>
           <summary>Your Graveyard ({me.graveyard.length})</summary>
           <div>
             {me.graveyard.map((id, index) => (
@@ -1944,7 +1950,7 @@ export function ChronicleDuelBoard({
             ))}
           </div>
         </details>
-        <details>
+        <details onToggle={syncGraveyards}>
           <summary>Opponent Graveyard ({foe.graveyard.length})</summary>
           <div>
             {foe.graveyard.map((id, index) => (

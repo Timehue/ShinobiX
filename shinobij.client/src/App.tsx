@@ -497,7 +497,7 @@ import { hollowGateEncounterPresentation } from "./lib/hollow-gate-presentation"
 import { resumeHollowGateServerRun, settleHollowGateRunOnly, startHollowGateServerRun, attachStartedRun, clearHollowGateRunLocal, reportHollowGateRunError } from "./lib/hollow-gate-server";
 import { returnToWorldBossHollowBeast } from "./lib/world-boss-hub-navigation";
 import { startHollowGateCombat, settleHollowGateCombat, type HollowGateCombatKind, type HollowGateCombatSettleResult, type HollowGateServerFight } from "./lib/hollow-gate-combat-api";
-import { hollowGateRewardLines, hollowGateSealRunMarkers, resolveHollowGateServerEvent, sealHollowGateFloor } from "./lib/hollow-gate-event-api";
+import { hollowGateRewardLines, hollowGateSealRunMarkers, resolveHollowGateServerEvent, sealHollowGateFloor, takeFreshHollowGateSeal } from "./lib/hollow-gate-event-api";
 import { hollowGateRunSummary } from "./lib/hollow-gate-summary";
 import { hollowGateNpcCanTalk } from './lib/hollow-gate-npc-range';
 import { hollowGateRunScopeMatches } from "./lib/hollow-gate-run-scope";
@@ -1310,7 +1310,7 @@ export default function App() {
         if (!token || !playerName || hollowGateRun?.activeCombat) return;
         const floor = hollowGateRun.floor;
         let cancelled = false;
-        void sealHollowGateFloor(playerName, token, hollowGateRun).then((result) => {
+        void Promise.resolve(takeFreshHollowGateSeal(token, floor) ?? sealHollowGateFloor(playerName, token, hollowGateRun)).then((result) => {
             if (cancelled) return;
             if (result.position || result.activeCombat || result.detour || result.riftSignal || result.wanderers) {
                 setHollowGateRun((previous) => {

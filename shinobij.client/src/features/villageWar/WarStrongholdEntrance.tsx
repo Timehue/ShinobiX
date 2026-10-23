@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import type { Character } from '../../types/character';
 import type { CampaignFieldMissionView, CampaignView } from '../../../../shared/village-war-campaign';
 import { ANBU_RAID_MIN_LEVEL, STRONGHOLD_MIN_LEVEL, isDeathsGateStronghold, strongholdLevelEligible, strongholdTitle } from '../../../../shared/sector-stronghold';
@@ -9,6 +10,10 @@ export function WarStrongholdEntrance({ character, target, campaign, mission, ad
     campaign?: CampaignView; mission?: CampaignFieldMissionView | null; admissionOpen: boolean;
     onEnter: () => void; onClose: () => void;
 }) {
+    // Fetch the stronghold screen while the player reads this prompt, so Enter
+    // opens it at once instead of waiting on its chunk. A failed warm-up is
+    // Enter's failure too (the browser keeps a failed import).
+    useEffect(() => { void import('../anbuInfiltration/AnbuVaultRaid').catch(() => undefined); }, []);
     const minimumLevel = target.warEntry ? 15 : STRONGHOLD_MIN_LEVEL;
     const entryEligible = target.warEntry ? (character.level ?? 0) >= 15 : strongholdLevelEligible(character.level);
     const espionage = mission?.kind === 'espionage' && mission.status === 'active' && mission.sectors[0] === target.sector;
