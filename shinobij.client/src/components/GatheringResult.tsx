@@ -2,6 +2,7 @@ import { RESOURCE_ITEMS, RESOURCE_GRADES, RESOURCE_SKILL_XP, readResourceGatheri
 import { gatheringToolRemaining } from '../../../shared/gathering-tools';
 import type { ResourceNode } from '../../../shared/resource-nodes';
 import type { Character } from '../types/character';
+import { gatheringToolArtwork } from '../lib/gathering-tool-art';
 
 export function GatheringResult({ character, receipt, node, charges, today, busy, onBack, onAgain }: {
     character: Character; receipt: ResourceReceipt; node: ResourceNode | null | undefined;
@@ -16,21 +17,23 @@ export function GatheringResult({ character, receipt, node, charges, today, busy
     const toolId = character.equipment?.[mining ? 'pickaxe' : 'fishingPole'];
     const usableTool = Boolean(toolId && gatheringToolRemaining(character, toolId) !== 0);
     const repeat = Boolean(node && charges > 0 && today < 100 && usableTool);
-    const title = item?.name ?? (receipt.outcome === 'failed' ? mining ? 'The seam gave way.' : 'This one got away.'
+    const caught = receipt.fishingCatch;
+    const title = item?.name ?? (caught?.tooStrong ? 'Outmatched by the fish.' : receipt.outcome === 'failed' ? mining ? 'The seam gave way.' : 'This one got away.'
         : receipt.outcome === 'expired' ? 'Time to move on.' : 'Tools down.');
-    const detail = receipt.outcome === 'failed' ? mining ? 'No usable ore survived the break.' : 'The line came back empty.'
+    const detail = caught?.tooStrong ? `${caught.name} requires Fishing Lv.${caught.requiredLevel}. You were Lv.${caught.fisherLevel}; it broke free.` : receipt.outcome === 'failed' ? mining ? 'No usable ore survived the break.' : 'Your kunai came back empty.'
         : receipt.outcome === 'expired' ? 'The attempt expired before you finished.' : 'You left the node before finishing.';
     return <section className={`gather-report gather-report--${mining ? 'mining' : 'fishing'} gather-report--${receipt.outcome}`} aria-label={`${activity} result`}>
         <div className="gather-report-find" role="status">
             <div className="gather-report-art" aria-hidden="true">
                 {item ? <><img src={item.activity === 'fishing' ? '/items/gather-river-fish.svg' : `/items/${item.family}-v1.webp`} alt="" /><span>×1</span></>
-                    : <img className="gather-report-empty" src={`/items/tool-basic-${mining ? 'pickaxe' : 'fishing-pole'}.svg`} alt="" />}
+                    : <img className="gather-report-empty" src={gatheringToolArtwork(mining ? 'tool-basic-pickaxe' : 'tool-basic-fishing-pole')} alt="" />}
             </div>
             <div className="gather-report-description">
                 <p className="gather-report-label">{item ? mining ? 'Material recovered' : 'Catch landed' : 'Field notes'}</p>
                 <h3>{title}</h3>
                 {item ? <><span className={`gather-report-grade gather-report-grade--${item.grade}`}>{RESOURCE_GRADES[item.grade]} quality</span><p className="gather-report-stowed">Added to your inventory</p></>
                     : <p className="gather-report-stowed">{detail}</p>}
+                {item && caught && <p className="gather-report-stowed">{caught.name} · Fishing Lv.{caught.requiredLevel}</p>}
             </div>
         </div>
         {trace && <div className="gather-report-trace"><img src={`/items/${trace.family}-v1.webp`} alt="" /><span>Rare seam find <strong>+1 {trace.name}</strong></span></div>}
