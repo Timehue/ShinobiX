@@ -19,6 +19,9 @@ import { mutatePlayerSave } from './save/_mutate-player-save.js';
 import { applyTournamentVictory } from './achievements/_tournament.js';
 import { setCircuitEnabled } from './dojo-circuit/_store.js';
 import { readActiveBoostEvent } from './_boost-event.js';
+import { DAILY_COMBAT_STAT_CAP, statGainMultiplier } from './_stat-growth.js';
+import { trainingRateTable } from './_training-config.js';
+import { huntAsChance, huntFsChance } from './missions/_mission-catalog.js';
 
 const LEADERSHIP_IMAGES_KEY = 'game:village-leadership-images';
 const VILLAGE_STATE_PREFIX = 'game:village-state:';
@@ -145,6 +148,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     // The running timed boost event, or null. Clients re-check
                     // endsAt themselves, so a cached frame never shows a stale one.
                     boostEvent,
+                    // Server-env progression dials (global, so the shared cache and
+                    // ETag are correct): the Training preview multiplies by the era
+                    // dial and picks the live table; mission cards show the shared
+                    // daily stat-point budget and the hunt drop chances. A Railway
+                    // flip reaches clients within one frame cache (~8 s).
+                    progressionDials: {
+                        statGainMultiplier: statGainMultiplier(),
+                        trainingRateTable: trainingRateTable(),
+                        dailyStatPointCap: DAILY_COMBAT_STAT_CAP,
+                        huntDropChances: { fateShards: huntFsChance(), auraStones: huntAsChance() },
+                    },
                 };
                 const builtEtag = `W/"${createHash('sha256').update(JSON.stringify(built)).digest('base64')}"`;
                 return { payload: built, etag: builtEtag };

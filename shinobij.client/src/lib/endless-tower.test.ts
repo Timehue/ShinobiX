@@ -4,6 +4,8 @@ import {
     endlessScaleFactor,
     endlessWaveReward,
     endlessTowerMilestoneReward,
+    ENDLESS_FACTOR_CAP_WAVE,
+    ENDLESS_LEVEL_CAP,
 } from './endless-tower';
 
 // Character XP is retired (docs/leveling-without-xp-map.md): waves bank ryo
@@ -23,14 +25,24 @@ describe('endlessWaveReward — ryo-only banking (XP retired)', () => {
         const w = endlessWaveReward(3, 50);
         assert.equal(w.xp, 0);
         // base ryo (40 + 50·6 = 340) + old xp line (15 + 50·2 = 115) × 0.75,
-        // both × the wave-3 scale factor.
+        // both × the wave-3 scale factor, then the rebalance × 0.55.
         const factor = endlessScaleFactor(3);
-        assert.equal(w.ryo, Math.floor(340 * factor) + Math.floor(115 * factor * 0.75));
+        assert.equal(w.ryo, Math.floor((Math.floor(340 * factor) + Math.floor(115 * factor * 0.75)) * 0.55));
     });
     it('still scales with wave and flags milestones', () => {
         assert.ok(endlessWaveReward(10, 50).ryo > endlessWaveReward(1, 50).ryo);
         assert.equal(endlessWaveReward(10, 50).isMilestone, true);
         assert.equal(endlessWaveReward(3, 50).isMilestone, false);
+    });
+    it('stops rising after the cap wave and the cap level (2026-10 rebalance)', () => {
+        assert.equal(ENDLESS_FACTOR_CAP_WAVE, 20);
+        assert.equal(ENDLESS_LEVEL_CAP, 70);
+        assert.equal(endlessWaveReward(20, 50).ryo, 2264);
+        assert.equal(endlessWaveReward(200, 50).ryo, 2264);
+        assert.equal(endlessWaveReward(21, 50).ryo, 754);
+        assert.equal(endlessWaveReward(20, 90).ryo, endlessWaveReward(20, 70).ryo);
+        // The difficulty curve itself stays uncapped.
+        assert.ok(endlessScaleFactor(200) > endlessScaleFactor(20));
     });
 });
 

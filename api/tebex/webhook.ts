@@ -3,6 +3,7 @@ import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { clientIp } from '../_client-ip.js';
 import { kv } from '../_storage.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
+import { recordEconomyTxn } from '../_economy.js';
 import { applyEntitlementToSave, SUBSCRIBER_TIER } from '../_subscription.js';
 import { tebexSubscriptionPackageId } from './_basket-core.js';
 import { findParkedSubscription, stampParkedSubscription, type ParkedSubscription } from './_cancel-subscription.js';
@@ -271,6 +272,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     console.log('[tebex] granted', outcome.transactionId, outcome.playerName, result.value.shards, result.value.granted ? 'new' : 'replay');
+    // Economy telemetry (I-19): the real-money shard faucet. Telemetry only, after
+    // the committed grant; recordEconomyTxn swallows its own errors, so it can
+    // never fail or delay the payment acknowledgement. A redelivery logs nothing.
+    if (result.value.granted && result.value.shards > 0) {
+        void recordEconomyTxn({
+            txnId: `tebex:${outcome.transactionId}`,
+            player: outcome.playerName,
+            currency: 'fateShards',
+            delta: result.value.shards,
+            source: 'tebex.shards',
+            balanceAfter: Number((result.character as unknown as Record<string, unknown>).fateShards ?? 0),
+        });
+    }
     // `_saveVersion` is echoed even though the caller is Tebex rather than a
     // player's client, so there is no autosave to reconcile against. It costs
     // nothing, it keeps this route inside the repo-wide rule that a

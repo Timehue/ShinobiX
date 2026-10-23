@@ -31,7 +31,7 @@ export type OwnershipCategory =
     | 'server-owned'
     /** Claim stamp / latch / receipt that gates a payout; server writes it in the same save write as the payout. */
     | 'server-payout-stamp'
-    /** Client-writable but numerically clamped, floored, or delta-capped by the sanitizer (compat headroom until STRICT_RAW_SAVE_LEDGER=1). */
+    /** Client-writable but numerically clamped, floored, or delta-capped by the sanitizer (compat headroom only while the strict ledger is switched off: STRICT_RAW_SAVE_LEDGER=0). */
     | 'server-clamped'
     /** Recomputed server-side from other validated fields; the client-sent value is ignored. */
     | 'derived'
@@ -58,7 +58,7 @@ export type FieldScope = 'top' | 'character' | 'pet';
  * by api/save/[name].ts. A field may sit behind several boundaries.
  */
 export type SaveBoundary =
-    | 'strict-ledger-char'       // copied from stored on first save always; on every save when STRICT_RAW_SAVE_LEDGER=1
+    | 'strict-ledger-char'       // copied from stored on first save always; on every save in strict mode (the code default; STRICT_RAW_SAVE_LEDGER=0 turns it off)
     | 'always-ledger-char'       // copied from stored on EVERY save regardless of the flag
     | 'payout-char'              // claim stamps: copied from stored on every save
     | 'ledger-toplevel'          // top-level: stored copy wins on every non-first save
@@ -146,7 +146,7 @@ export const SAVE_FIELD_CONTRACT: readonly SaveFieldDef[] = [
     f('lastBankInterestAt', 'character', 'server-payout-stamp', 'currency', ['payout-char', 'combat-strip-char']),
     f('honorSeals', 'character', 'server-ledger', 'currency', ['strict-ledger-char', 'currency-zero-gain', 'combat-strip-char']),
     f('fateShards', 'character', 'server-ledger', 'currency', ['strict-ledger-char', 'currency-zero-gain', 'combat-strip-char'], 'stored balance wins; non-strict legacy full stat reset may debit its server-validated exact cost'),
-    f('chroniclePoints', 'character', 'server-ledger', 'currency', ['strict-ledger-char', 'currency-zero-gain', 'combat-strip-char'], 'Echoes of War campaign currency — credited by card-clash/ai-move settle, debited by card-clash/open-pack + shop/settle'),
+    f('chroniclePoints', 'character', 'server-ledger', 'currency', ['strict-ledger-char', 'currency-zero-gain', 'combat-strip-char'], 'Chronicle card currency — credited by card-clash/ai-move settle (Echoes of War, the Dungeon Card seal), the card-battle settlements in card-clash/_card-cp.ts (free-play, clan-war and sector-war duels, the sector garrison) and hollow-gate/card-settle, the duplicate-card conversion in card-clash/open-pack + shop/settle and the Ancient Chest duplicate card (world/open-chest), debited by card-clash/open-pack + shop/settle'),
     f('boneCharms', 'character', 'server-ledger', 'currency', ['strict-ledger-char', 'currency-zero-gain', 'combat-strip-char']),
     f('auraStones', 'character', 'server-ledger', 'currency', ['strict-ledger-char', 'currency-zero-gain', 'combat-strip-char']),
     f('auraDust', 'character', 'server-ledger', 'currency', ['strict-ledger-char', 'currency-zero-gain', 'combat-strip-char']),
@@ -187,7 +187,7 @@ export const SAVE_FIELD_CONTRACT: readonly SaveFieldDef[] = [
     f('miraaWagerDate', 'character', 'server-payout-stamp', 'festival', ['always-ledger-char', 'strict-ledger-char', 'combat-strip-char'], 'daily Miraa quota date stamped by the wager settlement'),
     f('miraaWagerCount', 'character', 'server-payout-stamp', 'festival', ['always-ledger-char', 'strict-ledger-char', 'combat-strip-char'], 'daily Miraa quota count stamped only after an affordable wager is reserved'),
     f('levelLedgerMigrated', 'character', 'derived', 'progression', [], 'one-time ledger-migration latch, server-managed'),
-    f('createdAt', 'character', 'server-owned', 'identity', ['combat-strip-char'], 'immutable once stamped (anti-alt reference)'),
+    f('createdAt', 'character', 'server-owned', 'identity', ['combat-strip-char'], 'server-stamped on the first save, then immutable (anti-alt reference)'),
 
     // ── Claim stamps & payout latches ───────────────────────────────────────
     f('lastLoginRewardDate', 'character', 'server-payout-stamp', 'daily-login', ['payout-char']),
@@ -337,6 +337,7 @@ export const SAVE_FIELD_CONTRACT: readonly SaveFieldDef[] = [
     // ── Lifetime / leaderboard counters (client delta 0) ────────────────────
     f('elderWinDays', 'character', 'server-owned', 'village', ['server-mirror-char', 'combat-strip-char'], 'Verified combat wins by UTC day and village; council elections use the completed 30-day term'),
     f('elderRankedWinReceipts', 'character', 'server-owned', 'village', ['server-mirror-char', 'combat-strip-char'], 'Ranked win election credit replay protection'),
+    f('villageMerit', 'character', 'server-owned', 'village', ['server-mirror-char', 'combat-strip-char'], 'Kage-challenge gate (KAGE_MIN_MERIT); credited only by the daily agenda, map control, village treasury donations, ANBU cache turn-ins and war crates, and reset by a village transfer; never accepted from a generic save'),
     f('totalPvpKills', 'character', 'server-owned', 'counters', ['lifetime-counter-char', 'combat-strip-char']),
     f('totalAiKills', 'character', 'server-owned', 'counters', ['lifetime-counter-char', 'combat-strip-char']),
     f('totalVillageRaids', 'character', 'server-owned', 'counters', ['lifetime-counter-char', 'combat-strip-char']),
@@ -372,7 +373,7 @@ export const SAVE_FIELD_CONTRACT: readonly SaveFieldDef[] = [
     f('clanMissionPointReceipts', 'character', 'server-payout-stamp', 'clan', ['always-ledger-char', 'strict-ledger-char', 'combat-strip-char'], 'weekly clan mission credit evidence independent of the short display history'),
     f('clanWarRewardReceipts', 'character', 'server-payout-stamp', 'clan', ['always-ledger-char', 'strict-ledger-char', 'combat-strip-char'], 'campaign match and victory rewards co-written with personal credit; independent of display history'),
     f('mentorRewardReceipts', 'character', 'server-payout-stamp', 'clan', ['always-ledger-char', 'strict-ledger-char', 'combat-strip-char'], 'co-written mentor milestone payout receipts (api/clan/_mentor-settlement.ts); kept until the sensei record finalizes the batch'),
-    f('clanDonationXp', 'character', 'server-payout-stamp', 'clan', ['always-ledger-char', 'strict-ledger-char', 'combat-strip-char'], 'UTC day and XP reserved atomically with a clan donation debit; pending credits consume quota too'),
+    f('clanDonationXp', 'character', 'server-payout-stamp', 'clan', ['always-ledger-char', 'strict-ledger-char', 'combat-strip-char'], 'UTC day (non-ryo) and ISO week (every kind) donation XP reserved atomically with a clan donation debit; pending credits consume quota too'),
     f('clan', 'character', 'server-clamped', 'clan', [], 'cross-validated against save:clan-<slug> (validateClanAndVillageIdentity)'),
     f('clanUpgradeLevels', 'character', 'server-clamped', 'clan', [], 'mirror of the canonical clan record .upgrades; cross-validated against save:clan-<slug> whenever it changes (validateClanAndVillageIdentity). Server reads it for shop/card-pack/hospital discounts AND the sealed training stat gain, so a client-authored value would mint progression'),
     f('clanDoctrine', 'character', 'server-clamped', 'clan', [], 'mirror of the canonical clan record .doctrine; same cross-validation and the same reason — it feeds trainingBonusPct'),
@@ -409,9 +410,9 @@ export const SAVE_FIELD_CONTRACT: readonly SaveFieldDef[] = [
     f('equipment', 'character', 'server-clamped', 'equipment', [], 'enforceEquipmentOwnership on every save: slot whitelist, ownership, slot-kind'),
     f('equippedJutsuIds', 'character', 'server-clamped', 'combat-loadout', [], 'capped at maxLoadout; strict: must be learned'),
     f('rankedFormatWeaponId', 'character', 'server-owned', 'combat-loadout', [], 'locked to stored; only api/pvp/ranked-format-weapon.ts sets it (must be one of RANKED_FORMAT_LEGENDARY_WEAPON_IDS)'),
-    f('jutsuMastery', 'character', 'server-owned', 'jutsu', [], 'training endpoints only; non-strict allows ≤100 xp drip on unchanged levels'),
+    f('jutsuMastery', 'character', 'server-owned', 'jutsu', [], 'training and PvP settlement only'),
     f('jutsu', 'character', 'deprecated', 'jutsu', ['strict-ledger-char', 'always-ledger-char'], 'legacy loadout snapshot: frozen to the stored copy for migration only; new clients persist equippedJutsuIds'),
-    f('pets', 'character', 'server-owned', 'pets', [], 'roster additions only via befriend flow; identity forced per pet-identity boundary'),
+    f('pets', 'character', 'server-owned', 'pets', [], 'roster additions only via the dedicated pet endpoints (starter, wild binding, breeding hatch, befriend, Exchange); a generic save never adds a pet (I-2); identity forced per pet-identity boundary'),
     f('activePetId', 'character', 'server-clamped', 'pets', [], 'must reference an owned pet (strict branch)'),
     f('activePetId2v2', 'character', 'server-clamped', 'pets', [], 'must reference an owned pet (strict branch)'),
     f('tileCards', 'character', 'server-owned', 'cards', ['combat-strip-char'], 'fully entitled — no new card via generic save (preserveEntitledStringArray)'),

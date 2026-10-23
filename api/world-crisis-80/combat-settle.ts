@@ -7,6 +7,7 @@ import { cors, safeName } from '../_utils.js';
 import { releaseTowerBattleLeases, towerBattleLeaseMembers } from '../towers/_battle-lease.js';
 import { readSession, settleConsumedItemsForMember, writeSession } from '../towers/_tower-store.js';
 import { WORLD_CRISIS_80_ID } from '../../shared/world-crisis-80.js';
+import { activityPurseMinutes, creditActivityPurse, publicActivityPurse } from '../_activity-purse.js';
 import { readWorldCrisis80Projection, recordWorldCrisis80Defense } from './_state.js';
 
 /** POST /api/world-crisis-80/combat-settle
@@ -53,6 +54,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     outcome: won ? 'win' : session.winner === 'draw' ? 'draw' : 'loss',
                 });
             const consumables = await settleConsumedItemsForMember({ session, slug: playerName });
+            // A won deployment pays the side-mode purse (owner amendment A7):
+            // 0.5 x A(L) per active minute of the fight. Receipted in the save,
+            // so a repeat settle answers with the same purse and never pays twice.
+            const purse = won && member
+                ? await creditActivityPurse({
+                    mode: 'crisis80',
+                    playerSlug: playerName,
+                    outcomeId: runId,
+                    startedAt: session.createdAt,
+                    minutes: activityPurseMinutes(session.createdAt, session.terminalAt),
+                })
+                : null;
             if (session.rewardSettlementState !== 'settled') {
                 session.rewardSettlementState = 'settled';
                 await writeSession(session);
@@ -69,6 +82,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     village: binding.village,
                     crisis,
                     consumables,
+                    ...(purse ? { purse: publicActivityPurse(purse) } : {}),
                     character: record?.character,
                     _saveVersion: Number(record?._saveVersion ?? 0),
                 },

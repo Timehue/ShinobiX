@@ -3,7 +3,8 @@
 // Owner redesign 2026-10-08: a band is hired FOR one war (the village's all-out
 // village war, or a Combat sector war it DEFENDS) and acts only there.
 
-import { WarMapRequestError, type MercContextView, type MercLeaseView, type WrMercTierView } from "./village-war-map";
+import { WarMapRequestError, type MercContextView, type MercHireResult, type MercLeaseView, type WrMercTierView } from "./village-war-map";
+import { RYO_PER_WR, treasuryRyoForWr } from "../../../shared/war-treasury-costs";
 
 /** The rules, in two sentences the panel shows above the hire buttons. */
 export const MERC_RULES_LINES: readonly string[] = [
@@ -39,6 +40,30 @@ export function mercAllowanceLine(c: Pick<MercContextView, "kind" | "hiresUsed" 
  *  an older server that does not quote it). */
 export function mercTierCost(t: Pick<WrMercTierView, "cost" | "costWr">): number {
     return Math.max(0, Math.floor(Number(t.cost ?? t.costWr) || 0));
+}
+
+/** The treasury ryo a tier's hire also costs (2026-10 rebalance): the server's
+ *  quote, else its WR price at the rate the server sent, else the shared default. */
+export function mercTierTreasuryRyo(t: Pick<WrMercTierView, "cost" | "costWr" | "treasuryRyo">, ryoPerWr?: number): number {
+    const quoted = Number(t.treasuryRyo);
+    if (Number.isFinite(quoted) && quoted >= 0) return Math.floor(quoted);
+    return treasuryRyoForWr(mercTierCost(t), Number.isFinite(Number(ryoPerWr)) ? Number(ryoPerWr) : RYO_PER_WR);
+}
+
+/** The rule line for the treasury share, built from the rate the server charges,
+ *  never a hand-copied number; empty while the rate is 0 (WR-only hires). */
+export function mercTreasuryRuleLine(ryoPerWr: number | undefined): string {
+    const rate = Number.isFinite(Number(ryoPerWr)) ? Number(ryoPerWr) : RYO_PER_WR;
+    if (rate <= 0) return "";
+    return `Each hire also costs ${rate.toLocaleString()} treasury ryo per War Resource it costs, and only the seated Kage can spend the treasury. A free comeback band costs the treasury nothing.`;
+}
+
+/** The toast after a hire, naming both pools it spent. */
+export function mercHiredToast(tierName: string, warTitle: string, r: Pick<MercHireResult, "cost" | "treasuryRyo" | "replayed">): string {
+    if (r.replayed) return `That ${tierName} band was already hired — nothing more was spent.`;
+    const wr = Math.max(0, Number(r.cost) || 0).toLocaleString();
+    const ryo = Math.max(0, Number(r.treasuryRyo) || 0);
+    return `${tierName} band hired for ${warTitle} — ${wr} WR${ryo > 0 ? ` and ${ryo.toLocaleString()} treasury ryo` : ""}.`;
 }
 
 export interface MercBandGroup {

@@ -1,4 +1,6 @@
-import type { PvpWinBaseSummary } from "./progression";
+import type { PvpRewardCredit, PvpWinBaseSummary } from "./progression";
+import { pvpCreditNote } from "./pvp-credit-copy";
+import { setSharedDailyStatBudget } from "./progression-dials-store";
 import type { Character } from "../types/character";
 import { playerSlug } from "./utils";
 
@@ -33,6 +35,8 @@ export type PvpRewardClaimConfirmed = {
     /** Stronger server proof that this match may feed generic progression. */
     progressionAuthorized: boolean;
     rating?: PvpRewardRating;
+    /** Ranked V2: the purse the ranked journal paid this side, why it paid none, and its credit view. */
+    rankedPurse?: { ryo: number; reason?: "too-young"; credit?: PvpRewardCredit };
     base?: PvpWinBaseSummary;
     character?: Character;
     _saveVersion?: number;
@@ -41,6 +45,8 @@ export type PvpRewardClaimConfirmed = {
     warGroundReward?: PvpWarGroundReward;
     /** Present only for the winning player in a settled Clan War shinobi duel. */
     clanWarScrollDrop?: ClanWarScrollDrop;
+    /** Today's shared stat-point budget after a win (api/_daily-stat-budget.ts). */
+    statBudget?: { day: string; spent: number; cap: number };
 };
 
 export type PvpRewardClaimRetry = {
@@ -305,19 +311,35 @@ function cleanBaseReward(raw: unknown): PvpWinBaseSummary["reward"] {
     const auraDust = Number(value.auraDust);
     if (![ryo, combatGrowth, auraDust].every((amount) => Number.isSafeInteger(amount) && amount >= 0)) return undefined;
     const jutsuXp = Number(value.jutsuXp);
-    return { ryo, combatGrowth, auraDust, ...(Number.isSafeInteger(jutsuXp) && jutsuXp >= 0 ? { jutsuXp } : {}) };
+    // How the server credited the fight (pair weight, short fight, age, level gap).
+    const credit = value.credit && typeof value.credit === "object" ? value.credit as PvpRewardCredit : undefined;
+    return { ryo, combatGrowth, auraDust, ...(Number.isSafeInteger(jutsuXp) && jutsuXp >= 0 ? { jutsuXp } : {}), ...(credit ? { credit } : {}) };
 }
 
 /** Player-facing copy for the exact authoritative terminal settlement. */
 export function pvpRewardSettlementNotice(
     result: PvpRewardClaimConfirmed,
-    options: { draw: boolean; spar: boolean },
+    options: { draw: boolean; spar: boolean; role?: "win" | "loss" },
 ): string {
     if (options.draw) return "Draw confirmed. Your battle result and any HP or item changes have been saved.";
     if (options.spar) return "Spar complete — no progression rewards.";
     const base = result.base?.reward;
+    // Owner ruling A9: say why a fight paid less than the full purse. A
+    // full-credit fight has no note, so the usual line is unchanged.
+    const role = options.role ?? (result.rating?.delta !== undefined && result.rating.delta < 0 ? "loss" : "win");
+    // A ranked purse words its reductions exactly like the casual purse.
+    const rankedNote = result.rankedPurse?.credit
+        ? pvpCreditNote(result.rankedPurse.credit, role)
+        : result.rankedPurse?.reason === "too-young"
+            ? "No ranked purse: an account under 72 hours old and below level 20 was in this match."
+            : null;
+    const budget = role === "win" && result.statBudget
+        ? `Stat points today: ${Math.min(result.statBudget.spent, result.statBudget.cap)} / ${result.statBudget.cap}.`
+        : null;
+    const notes = [pvpCreditNote(base?.credit, role), rankedNote, budget].filter(Boolean);
+    const withNote = (text: string) => notes.length ? `${text} ${notes.join(" ")}` : text;
     const raid = result.raidProgression;
-    const ryo = (base?.ryo ?? 0) + (result.warGroundReward?.ryoAwarded ?? 0) + (raid?.bonusRyo ?? 0);
+    const ryo = (base?.ryo ?? 0) + (result.rankedPurse?.ryo ?? 0) + (result.warGroundReward?.ryoAwarded ?? 0) + (raid?.bonusRyo ?? 0);
     const rewards = [
         ryo && `+${ryo.toLocaleString()} Ryo`,
         base?.combatGrowth && `+${base.combatGrowth} Combat Growth`,
@@ -330,9 +352,9 @@ export function pvpRewardSettlementNotice(
         result.clanWarScrollDrop?.awarded && "+1 Territory Scroll",
         result.rating?.delta && `${result.rating.delta > 0 ? "+" : ""}${result.rating.delta} Rating`,
     ].filter(Boolean);
-    if (rewards.length) return `${result.rating?.delta !== undefined && result.rating.delta < 0 ? "Result recorded" : "Rewards secured"} — ${rewards.join(" · ")}.`;
-    if (result.clanWarScrollDrop) return `No Territory Control Scroll this time (${result.clanWarScrollDrop.chancePercent}% chance per win).`;
-    return "Official result verified; no personal payout for this result.";
+    if (rewards.length) return withNote(`${result.rating?.delta !== undefined && result.rating.delta < 0 ? "Result recorded" : "Rewards secured"} — ${rewards.join(" · ")}.`);
+    if (result.clanWarScrollDrop) return withNote(`No Territory Control Scroll this time (${result.clanWarScrollDrop.chancePercent}% chance per win).`);
+    return withNote("Official result verified; no personal payout for this result.");
 }
 
 /** Result copy from the confirmed raid receipt; no client-side settlement math. */
@@ -350,6 +372,23 @@ export function pvpRewardImpactLines(result: PvpRewardClaimConfirmed): string[] 
         lines.push(`${raid.missionsCompleted.length} Vanguard missions completed`);
     }
     return lines;
+}
+
+function cleanRankedPurse(raw: unknown): PvpRewardClaimConfirmed["rankedPurse"] {
+    if (!raw || typeof raw !== "object") return undefined;
+    const value = raw as Record<string, unknown>;
+    const ryo = Number(value.ryo);
+    if (!Number.isSafeInteger(ryo) || ryo < 0) return undefined;
+    const credit = value.credit && typeof value.credit === "object" ? value.credit as PvpRewardCredit : undefined;
+    return { ryo, ...(value.reason === "too-young" ? { reason: "too-young" as const } : {}), ...(credit ? { credit } : {}) };
+}
+
+function cleanStatBudget(raw: unknown): PvpRewardClaimConfirmed["statBudget"] {
+    if (!raw || typeof raw !== "object") return undefined;
+    const value = raw as Record<string, unknown>;
+    const spent = Number(value.spent), cap = Number(value.cap);
+    if (typeof value.day !== "string" || !Number.isInteger(spent) || !Number.isInteger(cap) || spent < 0 || cap < 0) return undefined;
+    return { day: value.day, spent, cap };
 }
 
 function cleanRaidProgression(raw: unknown): PvpRaidProgression | undefined {
@@ -419,6 +458,9 @@ export async function postPvpRewardClaim(
         const clanWarScrollDrop = cleanClanWarScrollDrop(payload.clanWarScrollDrop);
         const warPoints = cleanWarPoints(payload.warPoints);
         const warGroundReward = cleanWarGroundReward(payload.warGroundReward);
+        const rankedPurse = cleanRankedPurse(payload.rankedPurse);
+        const statBudget = cleanStatBudget(payload.statBudget);
+        if (statBudget) setSharedDailyStatBudget(request.playerName, statBudget);
         if (typeof payload.completionPending !== "boolean") {
             return {
                 status: "retry",
@@ -434,6 +476,8 @@ export async function postPvpRewardClaim(
             rewardAuthorized: payload.rewardAuthorized === true || !!rating || !!base,
             progressionAuthorized: payload.progressionAuthorized === true || !!rating || !!base,
             ...(rating ? { rating } : {}),
+            ...(rankedPurse ? { rankedPurse } : {}),
+            ...(statBudget ? { statBudget } : {}),
             ...(base ? { base } : {}),
             ...(character ? { character } : {}),
             ...(Number.isFinite(saveVersion) ? { _saveVersion: saveVersion } : {}),

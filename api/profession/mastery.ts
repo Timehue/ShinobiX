@@ -4,6 +4,7 @@ import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
+import { recordEconomyTxn } from '../_economy.js';
 import { applyMasteryInvestment } from '../_profession-mastery.js';
 
 const RESPEC_COST = 50_000;
@@ -31,6 +32,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return { ok: false as const, status: 400, error: 'Invalid mastery action.' };
         });
         if (!result.ok) return res.status(result.status).json({ error: result.error });
+        // Economy telemetry (I-19): the respec fee sink, after the commit. Every
+        // committed respec charged exactly RESPEC_COST; the save version keys it.
+        if (action === 'respec') {
+            void recordEconomyTxn({ txnId: `profession-respec:${playerName}:${result._saveVersion}`, player: playerName, currency: 'ryo', delta: -RESPEC_COST, source: 'profession.respec', balanceAfter: Math.max(0, Number(result.character.ryo) || 0) });
+        }
         return res.status(200).json({ ok: true, character: result.character, _saveVersion: result._saveVersion });
     } catch (error) { console.error('[profession/mastery]', safeLogValue(error)); return res.status(500).json({ error: 'Internal server error.' }); }
 }

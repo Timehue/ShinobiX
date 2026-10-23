@@ -79,8 +79,10 @@ Add it inside `certify()` in `scripts/release-certification.mjs` using
 ## Where this gates
 
 Runs in CI on every PR and push to main, after the root build so it certifies
-the built `dist/server.js`. It is the pre-flight for the three pending
-cutovers — `STRICT_RAW_SAVE_LEDGER=1`, the shared-content slot freeze
-(`docs/runbooks/shared-content-cutover.md`), and the currency-ledger
+the built `dist/server.js`. It is the pre-flight for the two pending
+cutovers — the shared-content slot freeze
+(`docs/runbooks/shared-content-cutover.md`) and the currency-ledger
 fail-closed step (`docs/runbooks/currency-ledger-cutover.md`). Run it against staging with
-`--url=` before flipping any of them.
+`--url=` before flipping either. The strict raw save ledger is no longer a cutover: it is
+the code default since the October 2026 economy rebalance, and only
+`STRICT_RAW_SAVE_LEDGER=0` turns it off.

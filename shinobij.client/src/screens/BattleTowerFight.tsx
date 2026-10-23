@@ -119,6 +119,7 @@ type SettlementState = {
     attempts: number;
     /** Set by a custom settle that grants an upgrade gear piece (Clan Boss). */
     gearLine?: string | null;
+    purseLine?: string | null;
     worldBossReceipt?: WorldBossRaidReceipt;
 };
 
@@ -151,14 +152,28 @@ function towerRewardReceiptText(result: TowerSettleResult, spire: boolean): stri
 }
 
 function towerClearReceiptText(result: TowerSettleResult, spire: boolean): string {
+    const spirePurse = spire && result.purse?.ryo ? `+${result.purse.ryo.toLocaleString()} ryo purse` : "";
     if (result.paid) return spire
-        ? `+${SPIRE_SHARDS_PER_TIER} Fate Shards`
+        ? [result.shards === 0 ? "Fate Shards already banked for this floor this week" : `+${SPIRE_SHARDS_PER_TIER} Fate Shards`, spirePurse].filter(Boolean).join(" · ")
         : result.score ? `First-clear reward paid · score +${result.score}` : "First-clear reward paid";
-    if (result.reason === "already-paid") return spire ? "Weekly floor reward already banked" : "This run reward was already banked";
+    if (result.reason === "already-paid") return spire
+        ? ["Weekly floor reward already banked", spirePurse].filter(Boolean).join(" · ")
+        : "This run reward was already banked";
     if (result.reason === "already-first-cleared") return "First-clear reward already claimed · no new reward";
     if (result.reason === "unverified-assist") return "Unverified assist · no progression reward";
     if (result.reason === "not-cleared") return "No clear reward on this attempt";
     return `No new reward${result.reason ? ` · ${result.reason.replace(/-/g, " ")}` : ""}`;
+}
+
+/** The Team Arena / tournament / L80 crisis purse line (owner amendments A7, A9). */
+function activityPurseLine(purse?: { ryo?: number; reason?: string }): string | null {
+    if (!purse) return null;
+    const ryo = Math.max(0, Math.floor(Number(purse.ryo) || 0));
+    if (ryo > 0) return purse.reason === "already-paid" ? `Purse already banked · ${ryo.toLocaleString()} ryo` : `+${ryo.toLocaleString()} ryo purse`;
+    if (purse.reason === "too-young") return "No purse: an opposing account is too new to pay out.";
+    if (purse.reason === "level-gap") return "No purse: you were more than 20 levels above the opposing side.";
+    if (purse.reason === "nothing-earned") return "No purse: the fight was too short, the other side forfeited, or you have met these fighters too often today.";
+    return null;
 }
 
 function towerActionRejectionText(reason?: string): string {
@@ -1056,7 +1071,7 @@ export function BattleTowerFight({
                         const error = clanBossSettlementError(response);
                         if (error) throw new Error(error);
                     }
-                    const mutation = (response ?? {}) as { character?: Character; _saveVersion?: unknown; gearDrop?: { itemId?: string }; settled?: boolean; bankedDamage?: number; hpRemaining?: number };
+                    const mutation = (response ?? {}) as { character?: Character; _saveVersion?: unknown; gearDrop?: { itemId?: string }; purse?: { ryo?: number; reason?: string }; settled?: boolean; bankedDamage?: number; hpRemaining?: number };
                     if (isWorldBoss && (mutation.settled !== true || !Number.isFinite(mutation.hpRemaining) || !Number.isFinite(mutation.bankedDamage))) {
                         throw new Error("The server did not confirm your world boss contribution. Retry settlement.");
                     }
@@ -1067,6 +1082,7 @@ export function BattleTowerFight({
                     if (!mountedRef.current) return;
                     // A custom settle (the Clan Boss) has no per floor receipt, so name its gear piece here.
                     setSettlement(current => ({ ...current, phase: "settled", message: null, customResult: response, gearLine: gearDropRewardLine(mutation.gearDrop?.itemId),
+                        purseLine: activityPurseLine(mutation.purse),
                         worldBossReceipt: isWorldBoss ? { bankedDamage: mutation.bankedDamage!, hpRemaining: mutation.hpRemaining! } : undefined,
                     }));
                     return;
@@ -2509,7 +2525,7 @@ export function BattleTowerFight({
                             roundsLabel={clanBossResult?.roundsLabel}
                             objectiveLabel={clanBossResult?.objective ?? (isWorldBoss ? worldBossResult.objective : undefined)}
                             worldBossReceipt={settlement.worldBossReceipt} />
-                        {isTeamPvp && pvpContextLabel === 'Team Arena' && <p className="hint">Competitive exhibition complete · no rating, currency, items, or progression rewards.</p>}
+                        {isTeamPvp && pvpContextLabel === 'Team Arena' && <p className="hint">Competitive exhibition complete · no rating, items, or progression rewards. The winning team earns a ryo purse by time in the fight.</p>}
                         {eventResultHint && <p className="hint">{eventResultHint}</p>}
                         {!isTeamPvp && !isWorldBoss && !isClanBoss && !isHunt && !isCaravanAmbush && session.winner === "squad" && (
                             settlement.response?.results[meSlug]
@@ -2517,6 +2533,7 @@ export function BattleTowerFight({
                                 : <p className="hint">{settlement.phase === "error" ? "Your rewards are not saved yet." : "Saving your rewards…"}</p>
                         )}
                         {settlement.gearLine && <p className="tower-completion-reward" data-testid="tower-gear-drop">{settlement.gearLine}</p>}
+                        {settlement.purseLine && <p className="tower-completion-reward" data-testid="tower-activity-purse">{settlement.purseLine}</p>}
                         {milestoneReceipts}
                         {storyFieldReport && <p className="tower-result-milestone-receipt">{storyFieldReport}</p>}
                         {!isWorldBoss && !isClanBoss && towerRecordReceipts}

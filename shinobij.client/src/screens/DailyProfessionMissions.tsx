@@ -4,6 +4,7 @@ import { visiblePoll } from "../lib/poll";
 import { LoadingState } from "../components/ui/LoadingState";
 import { GameArtIcon } from "../components/GameArtIcon";
 import { readDailyMissionCache, writeDailyMissionCache } from "../lib/daily-mission-cache";
+import { setSharedDailyStatBudget } from "../lib/progression-dials-store";
 import type { Character, Profession } from "../App";
 
 type DailyMission = {
@@ -112,6 +113,9 @@ export function DailyProfessionMissions({ character, headquarters = false }: { c
                     }
                 }
                 seededRef.current = true;
+                // Today's shared stat-point budget rides this read, so the Missions
+                // and Hunter Board lines show it before the first claim of the day.
+                setSharedDailyStatBudget(character.name, (json as { statBudget?: unknown }).statBudget);
                 setError(null);
                 setData(json);
                 writeDailyMissionCache(character.name, character.profession ?? null, json);

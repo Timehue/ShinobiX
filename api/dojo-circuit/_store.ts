@@ -1,6 +1,7 @@
 import { kv } from '../_storage.js';
 import { withKvLock } from '../_lock.js';
 import { invalidateProcCache } from '../_proc-cache.js';
+import { activityPurseMinutes, creditActivityPurse } from '../_activity-purse.js';
 import type { CircuitAttempt, CircuitDiscipline, CircuitEvent, CircuitHistory, CircuitVictory } from '../../shared/dojo-circuit.js';
 export const CIRCUIT_KEY = 'game:dojo-circuit:state';
 export const CIRCUIT_ENABLED_KEY = 'game:dojo-circuit:enabled';
@@ -34,11 +35,31 @@ export async function recordCircuitVerifiedVictory(playerId: string, discipline:
             if (attempt.verifiedVictory) return;
             attempt.verifiedVictory = pendingProof;
         } else {
-            if (!entrant.seals.some(s => s.discipline === discipline)) entrant.seals.push({ discipline, earnedAt: finishedAt });
+            if (!entrant.seals.some(s => s.discipline === discipline)) {
+                await creditCircuitSealPurse(playerId, event.id, discipline, startedAt, finishedAt);
+                entrant.seals.push({ discipline, earnedAt: finishedAt });
+            }
             delete state.attempts[`player:${playerId}`];
         }
         await kv.set(CIRCUIT_KEY, state);
     }, { failClosed: true });
+}
+/**
+ * The seal purse (owner amendment A7): earning a seal pays 0.5 x A(L) per
+ * active minute of the verified victory that earned it, at most once per
+ * (event, discipline, player). Called under the Circuit lock just before the
+ * seal is recorded; the credit is receipted in the save, so a seal write that
+ * fails and is retried never pays twice. Best effort: a busy save pays
+ * nothing rather than holding back the seal.
+ */
+export async function creditCircuitSealPurse(playerId: string, eventId: string, discipline: CircuitDiscipline, startedAt: number, finishedAt: number) {
+    return creditActivityPurse({
+        mode: 'dojo',
+        playerSlug: playerId,
+        outcomeId: `${eventId}:${discipline}`,
+        startedAt,
+        minutes: activityPurseMinutes(startedAt, finishedAt),
+    });
 }
 /** A paused attempt cannot earn credit from activity played while the event was off. */
 export async function setCircuitEnabled(enabled: boolean) {

@@ -235,7 +235,7 @@ export function TowerPvpPanel({
                     <small>{realtimeConnected ? "Realtime channel connected" : "HTTP recovery mode"}</small>
                 </div>
             </header>
-            <p className="tower-pvp-intro">Four players are split into balanced two-person teams. Fight on the Tower board with the standard combat effects. Consumables are disabled, and matches award no rating, currency, or progression.</p>
+            <p className="tower-pvp-intro">Four players are split into balanced two-person teams. Fight on the Tower board with the standard combat effects. Consumables are disabled, and matches award no rating or progression. Each member of the winning team earns a small ryo purse based on time in the fight. A short fight, a forfeit, or a fifth meeting with the same fighters in one day pays less or nothing.</p>
             {error && <div className="tower-pvp-error" role="alert">{error}</div>}
 
             {presence.state === "idle" && (

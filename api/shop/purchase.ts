@@ -7,6 +7,7 @@ import { enforceRateLimitKv } from '../_ratelimit.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { purchaseCatalogItem } from './_purchase.js';
 import { captureServerProductEvent } from '../_product-analytics.js';
+import { recordEconomyTxn } from '../_economy.js';
 
 const cleanId = (value: unknown) => {
     const id = typeof value === 'string' ? value.trim().slice(0, 96) : '';
@@ -33,11 +34,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (prior) return { ok: true as const, character, value: { purchase: prior.purchase, replayed: true } };
             const bought = purchaseCatalogItem(character, body.itemId, body.qty);
             if (!bought.ok) return { ok: false as const, status: 409, error: bought.reason };
-            // Reachable ONLY for non-stackable gear, which is always qty 1:
-            // `purchaseCatalogItem` routes every stackable buy into `itemStacks`,
-            // and the catalog items that allow qty > 1 are stackable, so a bulk
-            // consumable order never touches `inventory[]` and can never be
-            // refused here. That ordering is load-bearing — gating the raw
+            // Reachable ONLY for non-stackable items: `purchaseCatalogItem` routes
+            // every stackable buy into `itemStacks`, so a bulk consumable order
+            // never touches `inventory[]` and can never be refused here. The one
+            // non-stackable bulk buy is the evolution stone (the evolve route reads
+            // inventory[]), and each stone is a real slot this gate must count. That ordering is load-bearing — gating the raw
             // pre-routing result would have told a full-bag veteran "Your
             // inventory is full." when they tried to buy a healing potion.
             //
@@ -55,6 +56,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 source: 'shop',
                 contentId: String(purchase?.id ?? 'unknown'),
             });
+            // Economy telemetry (I-19): the Quartermaster / Marketplace sink, after
+            // the commit and only for the request that paid. A replayed requestId
+            // returns its stored receipt and records nothing.
+            const paid = result.value.purchase as { currency?: unknown; totalCost?: unknown } | undefined;
+            const totalCost = Math.max(0, Math.floor(Number(paid?.totalCost) || 0));
+            const currency = paid?.currency === 'fateShards' ? 'fateShards' : 'ryo';
+            if (totalCost > 0) {
+                void recordEconomyTxn({
+                    txnId: `shop.purchase:${playerName}:${requestId}`,
+                    player: playerName,
+                    currency,
+                    delta: -totalCost,
+                    source: 'shop.purchase',
+                    balanceAfter: Number(result.character[currency] ?? 0),
+                });
+            }
         }
         return res.status(200).json({ ok: true, ...result.value, character: result.character, _saveVersion: result._saveVersion });
     } catch (error) {

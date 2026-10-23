@@ -125,25 +125,30 @@ for (const flag of [undefined, '0', '1']) describe(`equipment conservation, stri
     }));
 
     it('refuses repeat equipped-consumable sales in both handlers and permits one backpack sale', () => withLedger(flag, () => {
+        // Serpent Dust, not Shuriken: a gather-only Shuriken craft sells for
+        // nothing since the 2026-10 crafted-goods cap (shared/crafting-recipes.ts),
+        // so its refusal would no longer prove the equipped-reference rule.
+        // Serpent Dust shares the thrown slot and sells for 7/10 of 2 Wild Feathers.
+        const dust = 'thrown-serpent-dust';
         for (const route of ['inventory', 'shop']) {
-            let current = character({ itemStacks: [{ itemId: shuriken, count: 1 }] });
+            let current = character({ itemStacks: [{ itemId: dust, count: 1 }] });
             for (let n = 0; n < 3; n++) {
-                current = save({ ...current, equipment: { thrown: shuriken } }, current);
+                current = save({ ...current, equipment: { thrown: dust } }, current);
                 const before = structuredClone(current);
                 const sale = route === 'inventory'
-                    ? applyInventorySale(current, ITEM_CATALOG[shuriken] as SettlementItem, 'equipped', 1, 'thrown', `audit-sale-${n}`, 100 + n)
-                    : sellCatalogItem(current, shuriken, 1, 'thrown');
+                    ? applyInventorySale(current, ITEM_CATALOG[dust] as SettlementItem, 'equipped', 1, 'thrown', `audit-sale-${n}`, 100 + n)
+                    : sellCatalogItem(current, dust, 1, 'thrown');
                 assert.equal(sale.ok, false);
                 assert.deepEqual(current, before);
             }
             const sale = route === 'inventory'
-                ? applyInventorySale(current, ITEM_CATALOG[shuriken] as SettlementItem, 'backpack', 1, undefined, 'audit-sale-backpack', 200)
-                : sellCatalogItem(current, shuriken, 1);
+                ? applyInventorySale(current, ITEM_CATALOG[dust] as SettlementItem, 'backpack', 1, undefined, 'audit-sale-backpack', 200)
+                : sellCatalogItem(current, dust, 1);
             assert.equal(sale.ok, true);
             if (!sale.ok) return;
             const settled = save(sale.character, sale.character);
-            assert.equal(settled.ryo, 200);
-            assert.equal(ownedCount(settled, shuriken), 0);
+            assert.equal(settled.ryo, 16);
+            assert.equal(ownedCount(settled, dust), 0);
             assert.deepEqual(settled.equipment, {});
         }
     }));

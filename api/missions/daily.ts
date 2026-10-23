@@ -10,6 +10,7 @@ import {
     type MissionGrantSettlement,
 } from './_progress.js';
 import type { Profession } from './_pool.js';
+import { dailyStatBudgetReply } from '../_daily-stat-budget.js';
 
 const VALID_PROFESSIONS: Profession[] = ['healer', 'vanguard', 'petTamer'];
 
@@ -50,6 +51,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 date: newbie.date,
                 missions: newbie.missions,
                 ...settledVersion(settled),
+                ...await dailyStatBudgetReply(kv, playerName),
             });
         }
 
@@ -59,7 +61,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // or mission issuance semantics.
         const state = await loadOrIssueDailyMissions(playerName, profession, new Date(), char ?? null);
         if (!state) {
-            return res.status(200).json({ profession, missions: [] });
+            return res.status(200).json({ profession, missions: [], ...await dailyStatBudgetReply(kv, playerName) });
         }
         const settled = state.pendingXpGrants?.length ? await settlePendingMissionXpGrants(playerName) : null;
 
@@ -69,6 +71,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             missions: state.missions,
             replacements: state.replacements ?? [],
             ...settledVersion(settled),
+            ...await dailyStatBudgetReply(kv, playerName),
         });
     } catch (err) {
         // Structured log so a Railway/cPanel 500 here is diagnosable without a

@@ -5,7 +5,8 @@ import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
-import { DAILY_ANCIENT_CHEST_LIMIT, rollAncientChestLoot, settleAncientChestLoot } from './_chest.js';
+import { DAILY_ANCIENT_CHEST_LIMIT, rollAncientChestLoot, settleAncientChestLoot, withChestStepDrop, type AncientChestLoot } from './_chest.js';
+import { recordEconomyTxn } from '../_economy.js';
 import { kv } from '../_storage.js';
 import { GEAR_DROP_CHANCE_BP, rollGearDrop } from '../_gear-drops.js';
 import {
@@ -133,12 +134,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // New discoveries already reserved their slot. Only legacy chest
             // receipts (from before reservation cutover) spend one at open.
             if (!reserved && count >= DAILY_ANCIENT_CHEST_LIMIT) return { ok: false as const, status: 409, error: 'daily-limit' };
-            const loot = rollAncientChestLoot(body.sector, () => randomInt(1_000_000_000) / 1_000_000_000);
-            if (!loot) return { ok: false as const, status: 400, error: 'invalid-sector' };
-            // A gear step drop takes the place of the usual item, card or shard roll.
-            // It is stored in the loot, so a retried open replays it and never re-rolls.
-            const gearDrop = rollGearDrop(character, GEAR_DROP_CHANCE_BP.ancientChest);
-            if (gearDrop) Object.assign(loot, { itemId: gearDrop, cardId: undefined, fateShards: undefined, boneCharms: undefined, auraStones: undefined });
+            const rolled = rollAncientChestLoot(body.sector, () => randomInt(1_000_000_000) / 1_000_000_000);
+            if (!rolled) return { ok: false as const, status: 400, error: 'invalid-sector' };
+            // A gear step drop takes the place of the usual item, card or shard roll,
+            // never of a chase relic (withChestStepDrop). It is stored in the loot,
+            // so a retried open replays it and never re-rolls.
+            const loot = withChestStepDrop(rolled, rollGearDrop(character, GEAR_DROP_CHANCE_BP.ancientChest));
             // Legacy discoveries only (see the pool comment above). Never a
             // refusal: this chest is already the player's, and the discovery
             // that minted it already cost them a daily chest slot.
@@ -182,6 +183,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (details && typeof details.error === 'string') return res.status(result.status).json(details);
             } catch { /* plain error */ }
             return res.status(result.status).json({ error: result.error });
+        }
+        // Telemetry (I-19) once the payout has committed, for a fresh open only.
+        // It runs before the durable-receipt write below: a failure there answers
+        // 503, and the retry replays this receipt, so it is logged exactly once.
+        if (!result.value.replayed && result.value.loot && typeof result.value.loot === 'object') {
+            const loot = result.value.loot as AncientChestLoot;
+            for (const currency of ['ryo', 'fateShards', 'boneCharms', 'auraStones', 'auraDust', 'chroniclePoints'] as const) {
+                const delta = Math.max(0, Math.floor(Number(loot[currency]) || 0));
+                if (delta > 0) await recordEconomyTxn({ txnId: `chest:${worldExploreRequestId}:${currency}`, player: playerName, currency, delta, source: 'world.chest', balanceAfter: Number(result.character[currency]) || 0 });
+            }
         }
         if (durableDiscovery && result.value.loot && typeof result.value.loot === 'object') {
             // The character projection is intentionally bounded. Seal the

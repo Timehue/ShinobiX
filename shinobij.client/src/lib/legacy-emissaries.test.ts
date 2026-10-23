@@ -12,6 +12,13 @@ import { strict as assert } from "node:assert";
 import { rollEmissarySpawn, emissaryForCategory, EMISSARY_DEFS, EMISSARY_MIN_LEVEL, EMISSARY_WANDERER_PREFIX } from "./legacy-emissaries";
 import {loiterPositionAt} from './wanderer-loiter';
 import {isWalkableTile,nearestWalkableTile} from '../../../shared/sector-walk-mask';
+import {
+    EMISSARY_ERRAND_GIVER,
+    EMISSARY_MIN_LEVEL as SERVER_EMISSARY_MIN_LEVEL,
+    EMISSARY_WANDERER_PREFIX as SERVER_EMISSARY_WANDERER_PREFIX,
+    WANDERER_QUESTS,
+    validateWandererQuestPick,
+} from "../../../api/sector/_wanderer-quest";
 
 const CATEGORY = EMISSARY_DEFS[0].categories[0];
 const PUBLIC_LEGACY_CATEGORIES = [
@@ -108,5 +115,21 @@ describe("rollEmissarySpawn", () => {
         const rate = hits / (windows * 60);
         assert.ok(rate > 0.02, `roamer is actually encounterable (${rate.toFixed(3)})`);
         assert.ok(rate < 0.15, `roamer is not wallpaper (${rate.toFixed(3)})`);
+    });
+});
+
+describe("emissary errands match the server's pick table (I-13)", () => {
+    it("every errand an emissary offers is the one the server accepts from it", () => {
+        const offered = EMISSARY_DEFS.flatMap((d) => d.quests.map((q) => ({ slug: d.slug, q })));
+        assert.deepEqual(Object.keys(EMISSARY_ERRAND_GIVER).sort(), offered.map(({ q }) => q.id).sort());
+        for (const { slug, q } of offered) {
+            assert.equal(EMISSARY_ERRAND_GIVER[q.id], slug, q.id);
+            assert.equal(WANDERER_QUESTS[q.id]?.metric, q.metric, `${q.id} metric`);
+            assert.equal(WANDERER_QUESTS[q.id]?.target, q.target, `${q.id} target`);
+            const character = { level: EMISSARY_MIN_LEVEL, starterCardsClaimed: true, pets: [{}] };
+            assert.equal(validateWandererQuestPick(q.id, `${EMISSARY_WANDERER_PREFIX}${slug}`, false, character).ok, true, q.id);
+        }
+        assert.equal(SERVER_EMISSARY_MIN_LEVEL, EMISSARY_MIN_LEVEL);
+        assert.equal(SERVER_EMISSARY_WANDERER_PREFIX, EMISSARY_WANDERER_PREFIX);
     });
 });

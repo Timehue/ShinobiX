@@ -32,13 +32,13 @@ Healer power scales by **scope of who you can help**, not by reduced cooldown.
 
 ### Healer XP
 
-- **XP = percent of HP restored.** A heal that restores 50% of target's max HP = 50 XP. A heal that restores 80% = 80 XP. Caps at 100 XP per heal.
+- **XP = 2 × the percent of HP restored** (dial HEALER_HEAL_XP_MULT, 2 since the 2026-10 economy pass). A heal that restores 50% of the target's max HP = 100 XP; 80% = 160 XP. The percent caps at 100 before the doubling and before the rank, mastery and assist bonuses.
 - **Healer needs more total XP than other professions** — uses the **1.5× XP curve** (see XP curves section).
 - **Synergy bonus:** Healing a player who was hospitalized from a raid within the last 10 min = +50% XP for that heal.
 
 ### Healer XP sources
 
-- Heal another player (XP = % HP restored)
+- Heal another player (XP = 2 × % HP restored)
 - Complete healing missions
 - Heal clan members or village allies (same heal action, no extra modifier)
 
@@ -84,7 +84,7 @@ PvP and raid profession. Only profession that earns **Honor Seals**.
 
 ### Vanguard XP
 
-- **XP per PvP kill:** 100 base + 10 per target level above 30 (max ~800 XP for a Level 100 kill)
+- **XP per PvP kill:** 100 base + 10 per target level above 30 (max ~800 XP for a Level 100 kill). Repeat opponents pay reduced XP: the unordered daily pair weights (1 / 1 / 0.5 / 0.25 / 0) and the short-fight rule scale it, the same factor as the PvP purse. A seal-capped win still pays its XP.
 - **Raid mission completion:** XP per mission tier
 - AI defender kills: 0 XP
 
@@ -110,6 +110,7 @@ Mission counters track **unique targets** where applicable.
 | Rule | Number |
 |------|--------|
 | Max Honor Seals per unique target per day | 3 (4th+ kill from same target = 0 Seals) |
+| Vanguard XP from one opponent per UTC day | Fights 1-2 full, 3rd 50%, 4th 25%, 5th+ 0 (unordered pair, the same counter as the PvP purse); a short KO pays half, a flee/AFK win 0 |
 | Level gap for full Seal reward | Within 10 levels of attacker |
 | Level gap with reduced reward | 10–20 levels below = 50% Seals |
 | Level gap with no reward | >20 levels below attacker = 0 Seals |
@@ -161,7 +162,7 @@ Pet-focused profession. Makes pets stronger in PvE, trains pets faster, gets bet
 
 ### Pet Tamer XP
 
-- **5 XP per minute of expedition duration.** A 30-minute expedition = 150 XP. A 4-hour expedition = 1,200 XP.
+- **2.5 XP per minute of expedition duration** (dial TAMER_XP_MULT 0.5 on the old 5, 2026-10 economy pass). A 30-minute expedition = 75 XP. A 4-hour expedition = 600 XP before its length and first-of-day bonuses.
 - **Long-expedition bonuses:** +50% XP for expeditions ≥1 hour, +100% XP for expeditions ≥4 hours (rewards committing to longer runs).
 - **Daily "First Expedition" bonus:** 2× Tamer XP on the first completed expedition each day (login hook).
 - **Pet escort synergy:** +20% Tamer XP on the next expedition after a successful escorted raid (see Cross-profession synergies).
@@ -215,7 +216,7 @@ require the jutsu's bloodline to be equipped, like ryo lessons. (The old instant
 
 Spend Honor Seals to cut time off the active jutsu lesson (ryo or Seal).
 
-- 1 Seal = −10 min; the last Seal may cover a partial 10-minute block
+- 1 Seal = −5 min; the last Seal may cover a partial 5-minute block
 - "Finish now" buys exactly the blocks left
 - Vanguard Rank 8+ pays 90%; the Quartermaster **Stockpile** mastery node takes
   a further 5% per rank off (capped at 50% combined)
@@ -280,9 +281,9 @@ Target: ~30 days of moderately active play to reach Rank 10.
 
 | Profession | Per-action XP | Expected daily XP | Days to Rank 10 |
 |------------|--------------|-------------------|-----------------|
-| Healer | ~60 XP/heal (avg) | ~1,800 (30 heals) | ~27 days |
+| Healer | ~120 XP/heal (avg) | ~3,600 (30 heals) | ~14 days |
 | Vanguard | ~300 XP/kill (Lv 50) | ~4,500 (15 kills) | ~7 days |
-| Pet Tamer | 5 XP/min + bonuses | ~750 (4 expeditions) | ~44 days |
+| Pet Tamer | 2.5 XP/min + bonuses | ~6,000 (4 Ruins) | ~5.5 days |
 
 Vanguard is intentionally fast for highly active PvPers. Pet Tamer is slow but largely passive. Healer sits in the middle.
 

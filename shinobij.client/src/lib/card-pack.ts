@@ -9,6 +9,11 @@ export interface CardPackResult {
     currency?: 'ryo' | 'fateShards' | 'chroniclePoints';
     cost?: number;
     balance?: number;
+    /** Drawn copies past the 3-copy playset, by draw index, and what each paid
+     *  instead (api/card-clash/_pack.ts CARD_DUPLICATE_CONVERSION). Optional so
+     *  an older server or a replayed pre-conversion receipt still parses. */
+    converted?: Array<{ index: number; cardId: string; chroniclePoints: number; fateShards: number }>;
+    refund?: { chroniclePoints: number; fateShards: number };
     character?: Character;
     _saveVersion?: number;
     replayed?: boolean;

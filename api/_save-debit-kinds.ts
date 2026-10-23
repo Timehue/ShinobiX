@@ -45,8 +45,13 @@ export const BOUNTY_PLACE_SAGA: SaveDebitDefinition<BountyBoard, BountyPlacement
         if (!credited) throw new SaveDebitNeedsReconcile('The bounty board is full, so the escrow cannot be added.');
         return credited;
     },
-    // The placement it replaces refunded a failed board write too.
-    refund: (character, plan) => ({ ...character, ryo: ryoOf(character) + plan.amount }),
+    // The placement it replaces refunded a failed board write too. A stake that
+    // never reached the board burns no fee, so the fee comes back with it;
+    // journals written before the fee existed carry none.
+    refund: (character, plan) => ({
+        ...character,
+        ryo: ryoOf(character) + plan.amount + Math.max(0, Math.floor(Number(plan.fee) || 0)),
+    }),
 };
 
 export type ClanDonationPlan = {

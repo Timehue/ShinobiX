@@ -37,10 +37,11 @@ import { mutateJutsuRyoTraining } from "../lib/jutsu-ryo-api";
 import { friendlyJutsuTrainingError, jutsuHallNoticeTitle, trainingResponseError, type JutsuHallNotice } from "../lib/training-feedback";
 import { requireServerSettlement } from "../lib/server-settlement-gate";
 import { AMBIGUOUS_ACTION_MESSAGE } from "../lib/ambiguous-action";
-import { JUTSU_TRAINING_CAP, jutsuLevelCapForLevel, statCapForLevel } from "../constants/game";
+import { JUTSU_TRAINING_CAP, SEAL_SPEEDUP_MINUTES_PER_SEAL, jutsuLevelCapForLevel, statCapForLevel } from "../constants/game";
 import { masteryBonus, masteryHasCapstone } from "../lib/profession-mastery";
 
-import { TRAINING_TIERS, trainingStatGain, rookieStatMultiplier } from "../lib/training-config";
+import { previewTrainingGain, trainingTiersFor } from "../lib/training-config";
+import { sharedProgressionDials } from "../lib/progression-dials";
 import { loadBoostEvent } from "../lib/boost-event-state";
 import { boostMultiplierAt } from "../../../shared/boost-event";
 import type { Character, VersionedCharacterCommit } from "../types/character";
@@ -99,13 +100,17 @@ export function Training({ character, savedBloodlines = [], onVersionedCharacter
         { title: "Defense", description: "Damage resistance by incoming style.", stats: ["ninjutsuDefense", "taijutsuDefense", "genjutsuDefense", "bukijutsuDefense"] as (keyof Stats)[] },
     ];
     // Timer tiers come from lib/training-config (per-hour rates + XP trickle +
-    // stamina), decorated with the duration glyph for display.
-    const timers = TRAINING_TIERS;
+    // stamina): the table the server's TRAINING_RATE_TABLE dial says is live,
+    // as published on the game-state frame.
+    const progressionDials = sharedProgressionDials();
+    const timers = trainingTiersFor(progressionDials.trainingRateTable);
     const trainingXpBonus = getTrainingXpBonus(character);
     // The level the earned-points ledger supports, ignoring exam holds — this is
     // what the server feeds the rookie multiplier, so the preview must use it too.
     const ledgerLevel = levelForEarned(earnedStatPoints(character));
     const trainingEventBoost = boostMultiplierAt(loadBoostEvent(), "training", serverNow());
+    // War morale scales the seal too (rallying ×1.1, Ashfall ×0.95).
+    const warMorale = useVillageWarMorale(character.village);
     const showAcademyTrainingHint = normalizeOnboardingStep(character.onboardingStep) === "training" && !activeTraining;
     const selectedStatLabel = STAT_LABELS[selectedStat]?.label ?? formatStatName(selectedStat);
     // Two-axis training: the server seals the reward, debits stamina, persists
@@ -295,18 +300,21 @@ export function Training({ character, savedBloodlines = [], onVersionedCharacter
                 <div className="location-grid training-timer-grid">
                 {timers.map((timer) => {
                     // XP retired — the growth bonus now boosts the STAT gain
-                    // itself. Mirror the server seal exactly (trainingStatGain
-                    // with the save-derived bonus, then the rookie multiplier as
-                    // its own factor, exactly as trustedTrainingRewards does; no
-                    // client-only multipliers). The multiplier reads the
-                    // LEDGER-derived level, not character.level — they diverge
-                    // under an exam hold, and the server seals from the ledger.
-                    const baseGain = Math.max(0, Math.round(
-                        trainingStatGain(timer, timer.ms, trainingXpBonus) * rookieStatMultiplier(ledgerLevel),
-                    ));
-                    // A running boost event is sealed at start (api/training/start.ts)
-                    // with the same rounding as applyMoraleToGain.
-                    const gain = baseGain > 0 ? Math.max(1, Math.round(baseGain * trainingEventBoost)) : 0;
+                    // itself. previewTrainingGain runs the server seal's own
+                    // arithmetic (sealedTrainingGain: base × min(2.5, bonus × era
+                    // dial) × rookie on the LEDGER level, which differs from
+                    // character.level under an exam hold), then war morale × a
+                    // running boost event with applyMoraleToGain's rounding. It
+                    // equals the seal unless a morale or event window opens or
+                    // closes between this render and the start.
+                    const gain = previewTrainingGain({
+                        tier: timer,
+                        bonusPct: trainingXpBonus,
+                        ledgerLevel,
+                        eraDial: progressionDials.statGainMultiplier,
+                        moraleXpMult: warMorale.xpMult,
+                        eventBoost: trainingEventBoost,
+                    });
                     const disabledReason = trainingBusy
                         ? "Training action is being saved."
                         : activeTraining
@@ -418,13 +426,13 @@ function JutsuSealPanel({
     const fromLevel = selectedMastery?.level ?? 0;
     const sealLesson = selectedJutsu ? sealLessonFrom(fromLevel, character) : null;
     const balance = character.honorSeals ?? 0;
-    // "Finish now" buys exactly the 10-minute blocks left (api/jutsu/speedup.ts
-    // sells at most that many). A flat 10 Seals asked for 100 minutes and was
-    // refused on every 30-minute lesson.
-    // 2s of margin so a request landing just past a 10-minute boundary is not
+    // "Finish now" buys exactly the 5-minute blocks left (api/jutsu/speedup.ts
+    // sells at most that many). A flat Seal count asked for more minutes than
+    // remained and was refused on every 30-minute lesson.
+    // 2s of margin so a request landing just past a 5-minute boundary is not
     // over the server's count (at worst a second or two remains, which completes).
     const remainingMinutes = activeJutsuTraining ? Math.max(0, Math.ceil((activeJutsuTraining.endsAt - serverNow() - 2_000) / 60_000)) : 0;
-    const finishSeals = Math.max(1, Math.min(20, Math.ceil(remainingMinutes / 10)));
+    const finishSeals = Math.max(1, Math.min(20, Math.ceil(remainingMinutes / SEAL_SPEEDUP_MINUTES_PER_SEAL)));
     // Same arithmetic as the server's effectiveSpeedupCost (api/jutsu/speedup.ts):
     // Vanguard Rank 8+ pays 90%, and the Quartermaster "Stockpile" node stacks.
     const stockpilePct = Math.min(50, masteryBonus(character, "sealSpeedupCostPct"));
@@ -570,7 +578,7 @@ function JutsuSealPanel({
                 {activeJutsuTraining && serverNow() < activeJutsuTraining.endsAt && (
                     <>
                         <button onClick={() => void speedUp(1)} disabled={busy || balance < speedupCost(1) || speedUpWaitSec > 0} style={{ background: "linear-gradient(#422006,#1c1006)", borderColor: "#fde68a" }}>
-                            {busy ? "Spending…" : speedUpWaitSec > 0 ? `Ready in ${speedUpWaitSec}s` : "−10 min (1 Seal)"}
+                            {busy ? "Spending…" : speedUpWaitSec > 0 ? `Ready in ${speedUpWaitSec}s` : `−${SEAL_SPEEDUP_MINUTES_PER_SEAL} min (1 Seal)`}
                         </button>
                         <button onClick={() => void finishWithSeals()} disabled={busy || balance < finishCost || speedUpWaitSec > 0} style={{ background: "linear-gradient(#422006,#1c1006)", borderColor: "#fde68a" }}>
                             {busy ? "Spending…" : `Finish now (${finishCost} Seal${finishCost === 1 ? "" : "s"})`}

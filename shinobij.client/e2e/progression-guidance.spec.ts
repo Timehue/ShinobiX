@@ -42,7 +42,7 @@ test('mission reward guidance distinguishes ryo claims from the shared growth bu
     await expectUiAuditBoot(page, runtime, 'missions');
     await page.getByRole('tab', { name: 'Combat', exact: true }).click();
     await page.getByText('How rewards grow your shinobi', { exact: true }).click();
-    await expect(page.getByText('Eligible AI and player wins share 18 combat stat points per UTC day.', { exact: true })).toBeVisible();
+    await expect(page.getByText('Hunt claims, field jobs and eligible AI and player wins share 60 stat points per UTC day.', { exact: true })).toBeVisible();
     await expect(page.getByText(/Their mission claim does not award combat-growth points/)).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
 });

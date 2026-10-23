@@ -3,10 +3,12 @@
  * (api/festival/black-market.ts). Split out so the odds + magnitudes are
  * unit-testable with a seeded rng and live in one reviewable place.
  *
- * Paid pulls are a ryo sink: expected ryo return is well under COST (~45%).
- * Earned Broker certificates cover the stake for a free pull using the same
- * payout table and daily cap. Stake/certificate debit and currency payout
- * commit on one character object.
+ * Paid pulls are a ryo sink: expected ryo return is well under COST (~32%,
+ * 24,100 ryo per 75,000 pull). An earned Broker certificate covers half the
+ * stake (owner ruling 2026-10-23), so a certificate pull costs 37,500 and stays
+ * a sink too (about 13,400 net before resale), with the same payout table and
+ * daily cap. Stake/certificate debit and currency payout commit on one
+ * character object.
  */
 
 // Sunscar is PERMANENT (owner ruling 2026-08-17), so this is standing economy,
@@ -15,15 +17,21 @@
 // each — about 2,500 a year for someone pulling the daily cap — which made it
 // quietly the largest uncontrolled premium faucet in the game.
 //
-// Re-costed to 75,000 (still only ~0.4 days of a strong player's income, and
-// the deepest ryo sink available) with the premium tiers cut roughly 55%. It
-// stays a genuine ryo sink by construction: expected ryo return is well under
-// the cost, asserted by the colocated test.
+// Re-costed to 75,000 (1.73 regular L90 days at 43,360 a day, and the deepest
+// ryo sink available) with the premium tiers cut roughly 55%. It stays a
+// genuine ryo sink by construction: expected ryo return is well under the cost,
+// asserted by the colocated test, which also pins the Exchange FS break-even
+// price above the 140k alarm. Guard dial (econ framework #40): the owner moves
+// this AND shinobij.client/src/lib/black-market.ts to 90,000 when the admin
+// snapshot's black-market loop product holds >= 0.93 for 7 days
+// (api/_black-market-loop.ts). No env override: the client quotes its own copy.
 import { brokerCertificateCount, type BrokerPayment } from '../../shared/sunscar/broker-certificates.js';
 export type { BrokerCrateReward as BlackMarketReward } from '../../shared/sunscar/broker-certificates.js';
 import type { BrokerCrateReward as BlackMarketReward } from '../../shared/sunscar/broker-certificates.js';
 
 export const BLACK_MARKET_COST = 75_000; // ryo per paid pull
+/** The ryo a certificate pull still stakes: the certificate covers the other half. */
+export const BLACK_MARKET_CERTIFICATE_COST = BLACK_MARKET_COST / 2;
 export const BLACK_MARKET_DAILY_CAP = 10;
 
 // Inclusive integer in [min, max] from a [0,1) rng.
@@ -105,9 +113,10 @@ export function settleBlackMarketPull(input: {
     if (payment === 'certificate' && certificates < 1) {
         return { ok: false, status: 400, body: { error: 'You do not have a Broker certificate.' } };
     }
-    const cost = payment === 'certificate' ? 0 : BLACK_MARKET_COST;
+    const cost = payment === 'certificate' ? BLACK_MARKET_CERTIFICATE_COST : BLACK_MARKET_COST;
     if (num(character.ryo) < cost) {
-        return { ok: false, status: 400, body: { error: `Not enough ryo. A pull costs ${BLACK_MARKET_COST.toLocaleString()}.` } };
+        const what = payment === 'certificate' ? 'A certificate crate' : 'A pull';
+        return { ok: false, status: 400, body: { error: `Not enough ryo. ${what} costs ${cost.toLocaleString()}.` } };
     }
     return {
         ok: true,

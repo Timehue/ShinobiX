@@ -150,15 +150,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (out.status === 200 && !out.body.replayed) {
             const eventId = typeof requestId === 'string' ? requestId : String(now);
             await kv.set(`audit:black-market:${playerName}:${eventId}`, { ts: now, player: playerName, cost: out.body.cost, payment, reward: out.body.reward }, { ex: 30 * 24 * 60 * 60 }).catch(() => undefined);
-            // Log paid stakes and payouts separately. Certificate pulls have no
-            // ryo stake, so telemetry must not record a fictitious debit.
-            const reward = (out.body.reward ?? {}) as { ryo?: number; fateShards?: number };
+            // Log stakes and payouts separately. A certificate pull stakes half
+            // the price, so its debit is the 37,500 it actually charged.
+            const reward = (out.body.reward ?? {}) as { ryo?: number; fateShards?: number; boneCharms?: number; auraStones?: number };
             if (Number(out.body.cost) > 0) await recordEconomyTxn({ txnId: `black-market:${playerName}:${eventId}`, player: playerName, currency: 'ryo', delta: -Number(out.body.cost), source: 'blackmarket.stake' });
             if (Number(reward.ryo) > 0) {
                 await recordEconomyTxn({ txnId: `black-market-payout:${playerName}:${eventId}`, player: playerName, currency: 'ryo', delta: Number(reward.ryo), source: 'blackmarket.payout' });
             }
             if (Number(reward.fateShards) > 0) {
                 await recordEconomyTxn({ txnId: `black-market-shards:${playerName}:${eventId}`, player: playerName, currency: 'fateShards', delta: Number(reward.fateShards), source: 'blackmarket.payout' });
+            }
+            // The relic cache and the jackpot also pay Bone Charms and Aura
+            // Stones (~0.53 BC and ~0.26 AS a pull); without these rows the
+            // ledger's faucets-by-source never saw them (I-19).
+            if (Number(reward.boneCharms) > 0) {
+                await recordEconomyTxn({ txnId: `black-market-bc:${playerName}:${eventId}`, player: playerName, currency: 'boneCharms', delta: Number(reward.boneCharms), source: 'blackmarket.payout' });
+            }
+            if (Number(reward.auraStones) > 0) {
+                await recordEconomyTxn({ txnId: `black-market-as:${playerName}:${eventId}`, player: playerName, currency: 'auraStones', delta: Number(reward.auraStones), source: 'blackmarket.payout' });
             }
         }
         return res.status(out.status).json(out.body);

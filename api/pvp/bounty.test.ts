@@ -85,7 +85,53 @@ test('level-based Jonin can place a bounty without the optional Jonin exam stamp
 
     const placed = await call(PLACER, { action: 'place', target: 'Bounty Target', amount: 1_000 });
     assert.equal(placed.statusCode, 200, JSON.stringify(placed.body));
-    assert.equal((placed.body?.balances as { ryo: number }).ryo, 49_000);
+    // 1,000 escrowed + the 150 posting fee burned (#30).
+    assert.equal((placed.body?.balances as { ryo: number }).ryo, 48_850);
+});
+
+test('placing a bounty charges the stake plus a burned 15% posting fee', async () => {
+    await kv.set(`save:${PLACER}`, { _saveVersion: 1, character: { name: 'Bounty Placer', ryo: 1_000, examsPassed: ['jonin'] } });
+    const short = await call(PLACER, { action: 'place', target: 'Bounty Target', amount: 1_000 });
+    assert.equal(short.statusCode, 400, JSON.stringify(short.body));
+    assert.match(String(short.body?.error), /posting fee/);
+    assert.equal((await kv.get<{ character: { ryo: number } }>(`save:${PLACER}`))?.character.ryo, 1_000, 'a refused placement charges nothing');
+
+    await kv.set(`save:${PLACER}`, { _saveVersion: 1, character: { name: 'Bounty Placer', ryo: 1_150, examsPassed: ['jonin'] } });
+    const placed = await call(PLACER, { action: 'place', target: 'Bounty Target', amount: 1_000 });
+    assert.equal(placed.statusCode, 200, JSON.stringify(placed.body));
+    assert.equal((placed.body?.balances as { ryo: number }).ryo, 0);
+    const board = await kv.get<{ bounties: Array<{ amount: number }> }>('pvp:bounties');
+    assert.equal(board?.bounties[0]?.amount, 1_000, 'only the stake is escrowed; the fee is destroyed');
+});
+
+test('a contributor who beats the target cannot reclaim their own stake (I-14)', async () => {
+    const placed = await call(PLACER, { action: 'place', target: 'Bounty Target', amount: 2_000 });
+    assert.equal(placed.statusCode, 200, JSON.stringify(placed.body));
+    const ryoAfterPlacing = (await kv.get<{ character: { ryo: number } }>(`save:${PLACER}`))?.character.ryo;
+
+    const selfBattle = 'pvp-bounty-self-claim-battle-1234';
+    const now = Date.now();
+    await kv.set(`pvp:${selfBattle}`, {
+        battleId: selfBattle,
+        p1: { name: 'Bounty Placer', character: { name: 'Bounty Placer' } },
+        p2: { name: 'Bounty Target', character: { name: 'Bounty Target' } },
+        status: 'done', winner: 'p1', rewardAuthority: 'world', joined: { p1: true, p2: true },
+        baseRewards: true, log: [], createdAt: now - 5_000, endedAt: now - 1_000,
+    });
+    const self = await call(PLACER, { action: 'claim', battleId: selfBattle });
+    assert.equal(self.statusCode, 200, JSON.stringify(self.body));
+    assert.equal(self.body?.amount, 0);
+    assert.equal(self.body?.voided, 'contributor');
+    assert.equal((await kv.get<{ character: { ryo: number } }>(`save:${PLACER}`))?.character.ryo, ryoAfterPlacing);
+    const board = await kv.get<{ bounties: Array<{ amount: number }> }>('pvp:bounties');
+    assert.equal(board?.bounties[0]?.amount, 2_000, 'the head stays on the board');
+
+    // Another hunter still collects the whole pool.
+    const battleId = 'pvp-bounty-after-self-claim-12345';
+    await seedHunterWin(battleId);
+    const hunted = await call(HUNTER, { action: 'claim', battleId });
+    assert.equal(hunted.statusCode, 200, JSON.stringify(hunted.body));
+    assert.equal(hunted.body?.amount, 2_000);
 });
 
 async function feedOf(type: string) {
