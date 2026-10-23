@@ -3,6 +3,7 @@ import { mkdirSync,writeFileSync } from 'node:fs';
 import { installUiAuditRuntime,uiAuditSave } from './helpers/ui-audit-runtime';
 import { quietRoadCooldowns } from '../e2e-live/helpers/quiet-road';
 import {installDateOnlyClock,setDateOnlyClock} from './helpers/date-only-clock';
+import {waitForCurrentSectorMap} from './helpers/sector-navigation';
 import { lifeAnchors,lifeEventView,lifeSceneView,parseLifeState,advanceLifeEvent,LIFE_WINDOW_MS } from '../../shared/sector-life';
 import { travelerRoute,lifeActorsAt,lifeCourierRoute,LIFE_ACTIVE_MS } from '../../shared/sector-life';
 import { COURIER_REST_MS } from '../../shared/sector-life-courier';
@@ -666,11 +667,7 @@ for (const sector of [2,15,42]) test(`sector ${sector}: painted workplace stays 
     if(sector===42) now=Math.floor(now/LIFE_WINDOW_MS)*LIFE_WINDOW_MS+19*60_000;
     await page.goto('/#/worldMap');
     await expect(page.locator('.app-shell')).toHaveAttribute('data-screen','worldMap',{timeout:60_000});
-    const returnButton=page.getByRole('button',{name:`Return to Sector ${sector}`,exact:false});
-    await expect.poll(async()=>await returnButton.isVisible()||await page.locator('.continuous-world-map').isVisible(),{timeout:60_000}).toBe(true);
-    if(await returnButton.isVisible())await returnButton.click();
-    await expect(page.locator('.continuous-world-map')).toBeVisible();
-    await expect(page.locator('.continuous-world-map')).toHaveAttribute('aria-busy','false');
+    await waitForCurrentSectorMap(page,sector);
     await expect(page.locator('[data-life-resident]')).not.toHaveCount(0);
     await expect(page.locator('[data-life-resident] .sector-avatar-body img').first()).toHaveAttribute('src',/tracker|courier|pilgrim|merchant/);
     await expect(page.locator('.sector-life-wildlife canvas')).toBeAttached();
@@ -684,9 +681,7 @@ for (const sector of [2,15,42]) test(`sector ${sector}: painted workplace stays 
         await page.locator('.continuous-world-map').screenshot({path:`${evidence}/${info.project.name}-midlands-staffed-no-errand.png`});
         now=Math.floor(now/LIFE_WINDOW_MS)*LIFE_WINDOW_MS+60_000;
         await page.reload();
-        const back=page.getByRole('button',{name:`Return to Sector ${sector}`,exact:false});
-        await expect.poll(async()=>await back.isVisible()||await page.locator('.continuous-world-map').isVisible(),{timeout:60_000}).toBe(true);
-        if(await back.isVisible())await back.click();
+        await waitForCurrentSectorMap(page,sector);
         await expect(page.locator('.sector-life-point')).toHaveClass(/life-active/);
     }
     for(let step=0;step<3;step++) {
