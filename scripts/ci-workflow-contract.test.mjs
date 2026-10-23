@@ -188,7 +188,7 @@ test('built CSP and every Stronghold audit feed the required responsive gate wit
     assert.deepEqual([...strongholdOrder].sort((a, b) => a - b), strongholdOrder);
     assert.match(responsive, /name: Retain responsive browser evidence\n\s+if: always\(\)/);
     assert.match(flows, /name: Retain responsive flow evidence\n\s+if: always\(\)/);
-    assert.match(flows, /shard: \[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12\]/, 'every responsive flow shard must be scheduled');
+    assert.match(flows, /shard: \[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13\]/, 'every responsive flow shard must be scheduled');
     for(let shard=1;shard<=8;shard++)assert(flows.includes(`lifeShard: ${shard}/8`),'every living-sector slice must be gated');
     assert.match(flows, /needs: release_artifact\n\s+if: \$\{\{ always\(\) \}\}/);
     const aggregate = workflow.split('  e2e_responsive:\n')[1]?.split('\n  e2e_combat_matrix:\n')[0];
@@ -219,6 +219,10 @@ test('dedicated world suites run once without sharing living-sector job budgets'
     assert.ok(wildlife?.includes('if: ${{ matrix.shard == 5 || matrix.shard == 7 }}'));
     assert.ok(dock?.includes('if: ${{ matrix.shard == 11 || matrix.shard == 12 }}'));
     assert.doesNotMatch(dock, /continue-on-error|--grep|--max-failures/);
+    // Fishing and the Fracture Chain is 17-19 minutes on its own, so it shares no flow job.
+    const fishing = steps.find((step) => step.startsWith('Fishing and Fracture Chain interaction\n'));
+    assert.ok(fishing?.includes('if: ${{ matrix.shard == 13 }}'), 'the fishing suite runs alone on flow 13');
+    assert.equal(steps.filter((step) => step.includes('if: ${{ matrix.shard == 13 }}')).length, 1, 'nothing else shares flow 13');
     for (const [name, shard] of [['Painted terrain resource placement', 12], ['Chronicle stop and daytime handover', 11]]) {
         const step = steps.find((value) => value.startsWith(`${name}\n`));
         assert.ok(step?.includes(`if: \${{ matrix.shard == ${shard} }}`));
