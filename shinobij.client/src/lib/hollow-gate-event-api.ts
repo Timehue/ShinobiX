@@ -92,6 +92,25 @@ export async function sealHollowGateFloor(playerName: string, token: string, run
     }
 }
 
+type FloorSealResult = Awaited<ReturnType<typeof sealHollowGateFloor>>;
+let freshSeal: { token: string; floor: number; at: number; result: FloorSealResult } | null = null;
+/**
+ * An entry that just sealed its first floor hands the reply to the shrine
+ * screen. That screen seals its floor on mount to read a pending ambush on
+ * every route in; straight after an entry, it was a second identical request
+ * under the run lock, racing the player's first steps. Only a successful seal
+ * is handed over, so a failed one is still retried on mount.
+ */
+export function rememberEntryHollowGateSeal(token: string, floor: number, result: FloorSealResult) {
+    freshSeal = result.ok ? { token, floor, at: Date.now(), result } : null;
+}
+/** The entry's seal of this floor, taken once and only while it is a few seconds old. */
+export function takeFreshHollowGateSeal(token: string, floor: number, maxAgeMs = 10_000): FloorSealResult | null {
+    const seal = freshSeal;
+    freshSeal = null;
+    return seal && seal.token === token && seal.floor === floor && Date.now() - seal.at <= maxAgeMs ? seal.result : null;
+}
+
 export function hollowGateSealRunMarkers(result: Awaited<ReturnType<typeof sealHollowGateFloor>>) {
     return {
         ...(result.wanderers ? { wanderers: result.wanderers } : {}),

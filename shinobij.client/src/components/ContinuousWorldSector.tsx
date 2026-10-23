@@ -26,6 +26,7 @@ export function ContinuousWorldSector(props: WorldSectorCanvasProps) {
     useEffect(() => {
         const abort = new AbortController(); let alive = true;
         void mountContinuousWorld({ canvas: canvas.current!, chunk: chunk.current!, marker: marker.current!, signal: abort.signal,
+            paused: () => Boolean(latest.current.suspended || latest.current.paused),
             blocked: () => Boolean(latest.current.suspended || latest.current.worldMovementBlocked?.()
                 || document.querySelector('[aria-modal=true],dialog[open]')),
             onAuthority: (sector, tile) => latest.current.onWorldAuthority?.(sector, tile), onStatus: setStatus,
@@ -45,13 +46,14 @@ export function ContinuousWorldSector(props: WorldSectorCanvasProps) {
     useEffect(() => { void engine.current?.externalSector(props.sector); }, [props.sector, props.suspended]);
     return <main className="tile-scene sector-stage-panel">
         {!props.suspended && props.hudLayer}
-        <div className="pixel-map walkable-sector-map sector-image-map continuous-world-map" data-ground-floor="true" aria-busy={!ready}>
+        <div className="pixel-map walkable-sector-map sector-image-map continuous-world-map" data-ground-floor="true" aria-busy={!ready} data-suspended={props.suspended || undefined}>
             <canvas ref={canvas} tabIndex={0} aria-label="World terrain. Hold WASD or arrows to walk; tap a destination or drag to steer." />
             <DayNightSky className="on-floor" />
-            <SceneAmbience biome={props.ambienceBiome} weather={props.weather} weatherSector={props.sector} weatherBiome={props.biome} />
+            {!props.suspended && !props.paused && <SceneAmbience biome={props.ambienceBiome} weather={props.weather} weatherSector={props.sector} weatherBiome={props.biome} />}
             {props.regionSplash && <RegionSplash {...props.regionSplash} onDone={props.onRegionSplashDone} />}
             <div className="pixel-map continuous-world-chunk" ref={chunk} data-world-chunk={props.sector}>
-                {Array.from({ length: 144 }, (_, tile) => <button key={tile} type="button" tabIndex={tile === props.playerTile ? 0 : -1}
+                {/* A stronghold covers a suspended world: its tiles would only re-render, unseen, on every map update. */}
+                {!props.suspended && Array.from({ length: 144 }, (_, tile) => <button key={tile} type="button" tabIndex={tile === props.playerTile ? 0 : -1}
                     className={`scene-tile continuous-world-tile${tile === props.playerTile && onPainting ? ' sector-player-tile' : ''}`}
                     disabled={!ready} aria-label={props.roadExits.some(e => e.tile === tile)
                         ? `Cross to ${sectorName(props.roadExits.find(e => e.tile === tile)!.destinationSector)}`
@@ -60,7 +62,7 @@ export function ContinuousWorldSector(props: WorldSectorCanvasProps) {
                         const exit = props.roadExits.find(e => e.tile === tile);
                         engine.current?.go(exit?.destinationSector ?? props.sector, exit?.destinationTile ?? tile);
                     }} />)}
-                {props.showLivePeers && <ContinuousWorldPeers sector={props.sector} selfName={props.playerName} sharedImages={props.sharedImages} />}
+                {props.showLivePeers && !props.suspended && <ContinuousWorldPeers sector={props.sector} selfName={props.playerName} sharedImages={props.sharedImages} />}
                 <WorldPlayerPosition.Provider value={position}>{props.overlayLayer}{props.encounterLayer}
                     {!props.suspended && ready && <SectorLife key={`${props.playerName}:${props.sector}`} sector={props.sector} player={props.playerName} tile={props.playerTile} biome={props.biome}
                         traces={props.lifeTraces} openReports={props.onOpenLifeTraces} onTrack={props.onLifeTrack} walk={(sector, tile) => engine.current?.go(sector, tile)} />}
