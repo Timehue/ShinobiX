@@ -46,7 +46,7 @@ test('split CI exposes stable required check names with bounded jobs', () => {
     for (const name of requiredNames) {
         assert.equal(occurrences(`name: ${name}\n`), 1, `${name} must remain a unique stable check context`);
     }
-    assert.match(workflow, /name: CI \/ e2e-responsive \/ \$\{\{ matrix\.shard \}\}-of-7/);
+    assert.match(workflow, /name: CI \/ e2e-responsive \/ \$\{\{ matrix\.shard \}\}-of-12/);
     assert.match(workflow, /name: CI \/ e2e-combat \/ \$\{\{ matrix\.shard \}\}/);
     const timeouts = [...workflow.matchAll(/timeout-minutes:\s*(\d+)/g)].map((match) => Number(match[1]));
     assert.ok(timeouts.length >= requiredNames.length, 'every job must declare a timeout');
@@ -87,7 +87,7 @@ test('split CI preserves every release gate and builds each artifact once', () =
     for (const command of commands) assert.ok(workflow.includes(command), `missing CI gate: ${command}`);
     assert.equal(occurrences('npm run build:server'), 1, 'server release artifact must be built exactly once');
     assert.equal(occurrences('npm run build --prefix shinobij.client'), 1, 'client release artifact must be built exactly once');
-    assert.ok(workflow.includes('npm run test:e2e --prefix shinobij.client -- --shard=${{ matrix.shard }}/7'), 'responsive certification must run all seven Playwright shards');
+    assert.ok(workflow.includes('npm run test:e2e --prefix shinobij.client -- --shard=${{ matrix.shard }}/12'), 'responsive certification must run all twelve Playwright shards');
     assert.ok(workflow.includes('node-version-file: .nvmrc'), 'CI must take its Node version from .nvmrc');
 });
 
@@ -113,7 +113,7 @@ test('responsive browser discovery installs runtime and direct QA build dependen
     // but fails while discovering the ranked replay fixture on a fresh runner.
     const responsive = responsiveShards();
     assert.ok(responsive, 'the responsive shard job must exist');
-    assert.match(responsive, /shard: \[1, 2, 3, 4, 5, 6, 7\]/, 'every responsive shard must be scheduled');
+    assert.match(responsive, /shard: \[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12\]/, 'every responsive shard must be scheduled');
     const rootInstall = responsive.search(/run: npm ci 2>&1/);
     const browserRun = responsive.indexOf('run: npm run test:e2e --prefix shinobij.client');
     assert.ok(rootInstall >= 0 && browserRun > rootInstall,
@@ -133,7 +133,7 @@ test('Pet Gauntlet renderer regression runs as a dedicated source fixture in CI'
     const flows = responsiveFlows();
     const step = flows?.split(/\n(?=      - name: )/).find((value) => value.startsWith('      - name: Pet Gauntlet playback and renderer recovery\n'));
     assert.ok(step, 'the required responsive job must execute the renderer recovery check');
-    assert.match(step, /if: \$\{\{ matrix\.shard == 2 \}\}/, 'the expensive source fixture must run once');
+    assert.match(step, /if: \$\{\{ matrix\.shard == 15 \}\}/, 'the expensive source fixture must run once');
     assert.match(step, /xvfb-run -a npm run test:e2e:gauntlet-render --prefix shinobij\.client/,
         'the headful WebGL regression needs a virtual display on the Linux CI runner');
     assert.match(step, /2>&1 \| tee \.ci-evidence\/e2e-responsive-.*\/gauntlet-render\.log/,
@@ -188,7 +188,7 @@ test('built CSP and every Stronghold audit feed the required responsive gate wit
     assert.deepEqual([...strongholdOrder].sort((a, b) => a - b), strongholdOrder);
     assert.match(responsive, /name: Retain responsive browser evidence\n\s+if: always\(\)/);
     assert.match(flows, /name: Retain responsive flow evidence\n\s+if: always\(\)/);
-    assert.match(flows, /shard: \[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12\]/, 'every responsive flow shard must be scheduled');
+    assert.match(flows, /shard: \[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15\]/, 'every responsive flow shard must be scheduled');
     for(let shard=1;shard<=8;shard++)assert(flows.includes(`lifeShard: ${shard}/8`),'every living-sector slice must be gated');
     assert.match(flows, /needs: release_artifact\n\s+if: \$\{\{ always\(\) \}\}/);
     const aggregate = workflow.split('  e2e_responsive:\n')[1]?.split('\n  e2e_combat_matrix:\n')[0];
@@ -481,9 +481,9 @@ test('every workflow takes its Node version from .nvmrc', () => {
 test('named forge and Chronicle packs run every dedicated project in required CI', () => {
     const flows = responsiveFlows();
     for (const [label, config, shard, log] of [
-        ['Named forge purchase and recovery', 'playwright.named-forge.config.ts', 2, 'named-forge.log'],
+        ['Named forge purchase and recovery', 'playwright.named-forge.config.ts', 15, 'named-forge.log'],
         ['Chronicle pack purchase and recovery', 'playwright.chronicle-packs.config.ts', 2, 'chronicle-packs.log'],
-        ['Rally renderer recovery', 'playwright.rally-recovery.config.ts', 2, 'rally-recovery.log'],
+        ['Rally renderer recovery', 'playwright.rally-recovery.config.ts', 15, 'rally-recovery.log'],
     ]) {
         const step = flows?.split('      - name: ').find(value => value.startsWith(`${label}\n`));
         assert.ok(step, `${label} must run in the required responsive job`);
@@ -500,11 +500,57 @@ test('responsive matrix schedules each slice exactly once with matching evidence
     const shards = JSON.parse(responsive.match(/shard: (\[[^\]]+\])/)?.[1]);
     const denominator = Number(responsive.match(/--shard=\$\{\{ matrix\.shard \}\}\/(\d+)/)?.[1]);
     assert.deepEqual(shards, Array.from({length: denominator}, (_, index) => index + 1));
-    assert.equal(denominator, 7);
+    assert.equal(denominator, 12);
     const evidenceTotals = [...responsive.matchAll(/-of-(\d+)/g)].map(match => Number(match[1]));
     assert.ok(evidenceTotals.length >= 8);
     assert.ok(evidenceTotals.every(total => total === denominator));
     assert.doesNotMatch(responsive, /--grep|--project|--max-failures/, 'splitting must retain the complete browser suite');
+});
+
+test('gathering keeps both complete slices outside the recovery job budget', () => {
+    const flows = responsiveFlows();
+    const matrix = flows.split('    steps:')[0];
+    const resourceSlices = [...matrix.matchAll(/- shard: (\d+)\n\s+resourceShard: (\d+\/2)/g)]
+        .map((match) => [Number(match[1]), match[2]]);
+    assert.deepEqual(resourceSlices, [[13, '1/2'], [14, '2/2']]);
+    const gathering = flows.split('      - name: ').find((step) => step.startsWith('Fishing and Fracture Chain interaction\n'));
+    assert.ok(gathering.includes('if: ${{ matrix.shard == 13 || matrix.shard == 14 }}'));
+    assert.ok(gathering.includes('--shard=${{ matrix.resourceShard }}'));
+    assert.equal(occurrences('--config playwright.resource-gathering.config.ts'), 1);
+    assert.doesNotMatch(gathering, /continue-on-error|--project|--grep|--max-failures/);
+    assert.match(flows, /^    timeout-minutes: 29$/m);
+});
+
+test('recovery suites each retain one required invocation with cleanup room', () => {
+    const steps = responsiveFlows().split('      - name: ');
+    for (const [label, shard] of [
+        ['Chronicle pack purchase and recovery', 2],
+        ['Hollow Gate terminal card return and retry', 2],
+        ['Pet Gauntlet playback and renderer recovery', 15],
+        ['Named forge purchase and recovery', 15],
+        ['Rally renderer recovery', 15],
+        ['Dojo Circuit gamepad flow', 15],
+    ]) {
+        const matching = steps.filter(step => step.startsWith(`${label}\n`));
+        assert.equal(matching.length, 1, `${label} must run exactly once`);
+        assert.ok(matching[0].includes(`if: \${{ matrix.shard == ${shard} }}`));
+        assert.doesNotMatch(matching[0], /continue-on-error|--project|--grep|--shard|--max-failures/);
+    }
+});
+
+test('both Warfront slices feed its stable required check with complete evidence', () => {
+    const matrix = workflow.split('  e2e_warfront_matrix:\n')[1]?.split('\n  e2e_warfront:\n')[0];
+    const aggregate = workflow.split('  e2e_warfront:\n')[1]?.split('\n  e2e_village_stores_matrix:\n')[0];
+    assert.ok(matrix && aggregate);
+    assert.match(matrix, /fail-fast: false/);
+    assert.match(matrix, /shard: \[1, 2\]/);
+    assert.match(matrix, /^    timeout-minutes: 29$/m);
+    assert.ok(matrix.includes('npm run test:e2e:warfront --prefix shinobij.client -- --shard=${{ matrix.shard }}/2'));
+    assert.ok(matrix.includes('name: evidence-e2e-warfront-${{ matrix.shard }}-of-2-'));
+    assert.doesNotMatch(matrix.split('      - name: Warfront positional-mode browser matrix\n')[1]
+        ?.split('      - name: Retain Warfront browser evidence\n')[0], /continue-on-error|--project|--grep|--max-failures/);
+    assert.match(aggregate, /needs: e2e_warfront_matrix\n\s+if: \$\{\{ always\(\) \}\}/);
+    assert.ok(aggregate.includes('test "$WARFRONT_SHARDS" = success'));
 });
 
 test('live Express sharding preserves ten exclusive invocations and a fail-closed stable aggregate', () => {
