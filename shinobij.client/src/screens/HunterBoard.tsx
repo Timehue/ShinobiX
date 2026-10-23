@@ -408,7 +408,7 @@ export function HunterBoard({
                 />
             )}</SharedClockLeaf>
             <SharedClockLeaf>{() => !hasDailyHuntSlot(character) && <p role="status">Rewards reset at midnight UTC. You can still accept and track eligible contracts.</p>}</SharedClockLeaf>
-            <SharedClockLeaf>{() => dailyStatBudgetLine(character.name) && <p className="hunt-stat-budget">{dailyStatBudgetLine(character.name)}. Hunts, field jobs and fight wins share this budget; it resets at midnight UTC.</p>}</SharedClockLeaf>
+            <SharedClockLeaf>{() => dailyStatBudgetLine(character.name) && <p className="hunt-stat-budget">{dailyStatBudgetLine(character.name)}. Hunts, field jobs and fight wins share this budget; it resets at midnight UTC. Training is separate and does not count toward it.</p>}</SharedClockLeaf>
             {lastClaim && <ClaimImpactNotice {...lastClaim} onClose={() => setLastClaim(null)} />}
 
             <div className="hunter-rank-banner">

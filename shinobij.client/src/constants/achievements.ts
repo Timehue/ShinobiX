@@ -66,7 +66,7 @@ const evolvedPetsAtStage = (c: Character, stage: number): number =>
 const uniqueCardCount = (c: Character): number => new Set(c.tileCards ?? []).size;
 // claimedWarCrateIds also holds stats, consolation and purse markers; the
 // Salvager counts crate ids only (mirrors api/achievements/_catalog.ts).
-const NON_CRATE_MARKER = /^(?:stats-|clan-war-stats-|purse-|sector-purse:|loser-crate-|clan-war-consol-)/;
+const NON_CRATE_MARKER = /^(?:stats-|clan-war-stats-|purse-|sector-purse:|loser-crate-|consolation-floor-|clan-war-consol-)/;
 const warCratesClaimed = (ids: unknown): number => (Array.isArray(ids) ? ids.filter((id) => !NON_CRATE_MARKER.test(String(id))).length : 0);
 const coreEquipmentCount = (c: Character): number =>
     ["hand", "gloves", "body", "waist", "legs", "feet", "head", "thrown"]
