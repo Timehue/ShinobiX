@@ -68,3 +68,27 @@ test('failed admission reconciliation keeps the restored attempt and retry ident
     assert.equal(readPendingEconomyIntent('resource-gathering', parts)?.requestId, pending.requestId);
     pending.complete();
 });
+
+test('a stalled request times out and retry keeps the same admission identity', async (t) => {
+    t.mock.timers.enable({ apis: ['setTimeout'] });
+    const start = { action: 'start', playerName: 'timeout-gatherer', nodeId: 'resource-1', mode: 'active' };
+    const parts = ['start', start.playerName, start.nodeId, start.mode, undefined, undefined];
+    const ids: unknown[] = [];
+    let signal: AbortSignal | undefined;
+    globalThis.fetch = async (_url, init) => {
+        ids.push(JSON.parse(String(init?.body)).requestId);
+        if (ids.length > 1) return reply(200, { ok: true });
+        signal = init?.signal ?? undefined;
+        return new Promise((_resolve, reject) => signal?.addEventListener('abort', () => reject(new Error('aborted')), { once: true }));
+    };
+    const waiting = resourceRequest(start);
+    assert.ok(signal, 'requests must be abortable instead of leaving controls busy indefinitely');
+    t.mock.timers.tick(20_000);
+    const timedOut = await waiting;
+    assert.equal(timedOut.ok, false); assert.match(timedOut.error!, /timed out/i);
+    assert.equal(signal.aborted, true);
+    assert.equal(readPendingEconomyIntent('resource-gathering', parts)?.requestId, ids[0]);
+    assert.equal((await resourceRequest(start)).ok, true);
+    assert.equal(ids.length, 2); assert.equal(ids[1], ids[0]);
+    assert.equal(readPendingEconomyIntent('resource-gathering', parts), null);
+});

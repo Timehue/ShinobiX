@@ -2289,8 +2289,16 @@
         "valuePx": 350,
         "occurrences": [
           {
+            "source": "shinobij.client/src/components/kunai-fishing.css",
+            "line": 14
+          },
+          {
             "source": "shinobij.client/src/components/resource-minigames.css",
-            "line": 95
+            "line": 109
+          },
+          {
+            "source": "shinobij.client/src/components/resource-minigames.css",
+            "line": 127
           }
         ]
       },
@@ -2716,12 +2724,28 @@
         "valuePx": 480,
         "occurrences": [
           {
-            "source": "shinobij.client/src/components/resource-minigames.css",
-            "line": 60
+            "source": "shinobij.client/src/components/kunai-fishing.css",
+            "line": 13
+          },
+          {
+            "source": "shinobij.client/src/components/kunai-fishing.css",
+            "line": 14
           },
           {
             "source": "shinobij.client/src/components/resource-minigames.css",
-            "line": 95
+            "line": 74
+          },
+          {
+            "source": "shinobij.client/src/components/resource-minigames.css",
+            "line": 109
+          },
+          {
+            "source": "shinobij.client/src/components/resource-minigames.css",
+            "line": 126
+          },
+          {
+            "source": "shinobij.client/src/components/resource-minigames.css",
+            "line": 127
           },
           {
             "source": "shinobij.client/src/styles/mission-arena-fight.css",
@@ -2762,8 +2786,16 @@
         "valuePx": 500,
         "occurrences": [
           {
+            "source": "shinobij.client/src/components/kunai-fishing.css",
+            "line": 13
+          },
+          {
             "source": "shinobij.client/src/components/resource-minigames.css",
-            "line": 60
+            "line": 74
+          },
+          {
+            "source": "shinobij.client/src/components/resource-minigames.css",
+            "line": 126
           },
           {
             "source": "shinobij.client/src/components/underground-sector.css",
@@ -3277,12 +3309,16 @@
         "valuePx": 600,
         "occurrences": [
           {
-            "source": "shinobij.client/src/components/resource-minigames.css",
-            "line": 55
+            "source": "shinobij.client/src/components/kunai-fishing.css",
+            "line": 12
           },
           {
             "source": "shinobij.client/src/components/resource-minigames.css",
-            "line": 57
+            "line": 69
+          },
+          {
+            "source": "shinobij.client/src/components/resource-minigames.css",
+            "line": 71
           },
           {
             "source": "shinobij.client/src/features/villageWar/village-campaign.css",
@@ -3737,11 +3773,11 @@
           },
           {
             "source": "shinobij.client/src/components/resource-minigames.css",
-            "line": 56
+            "line": 70
           },
           {
             "source": "shinobij.client/src/components/resource-minigames.css",
-            "line": 57
+            "line": 71
           },
           {
             "source": "shinobij.client/src/components/underground-sector.css",

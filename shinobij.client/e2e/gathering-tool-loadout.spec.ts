@@ -9,7 +9,7 @@ test.beforeEach(({ browserName }) => {
     test.skip(browserName !== 'chromium', 'The loadout row is checked at every width in Chromium.');
 });
 
-// The pickaxe and fishing pole live in the active loadout, on their own row
+// The pickaxe and fishing kunai live in the active loadout, on their own row
 // under the feet, and still equip through the server-owned gathering endpoint.
 test('gathering tools equip into their own row of the active loadout', async ({ page }, info) => {
     const errors: string[] = [];
@@ -41,7 +41,7 @@ test('gathering tools equip into their own row of the active loadout', async ({ 
     const loadout = page.locator('.inventory-equipped-panel');
     const fishing = loadout.getByRole('button', { name: /^Fishing equipment slot/ });
     const mining = loadout.getByRole('button', { name: /^Mining equipment slot/ });
-    await expect(fishing).toHaveAccessibleName('Fishing equipment slot, equipped with Basic Fishing Pole, 3 of 50 uses left');
+    await expect(fishing).toHaveAccessibleName('Fishing equipment slot, equipped with Basic Fishing Kunai, 3 of 50 uses left');
     await expect(fishing.locator('.equip-slot-durability.low')).toHaveCount(1);
     await expect(mining).toHaveAccessibleName('Mining equipment slot, empty');
 
@@ -78,7 +78,7 @@ test('gathering tools equip into their own row of the active loadout', async ({ 
 
     // A filled tool slot opens the tool, whose durability and Unequip still work.
     await fishing.click();
-    const rod = page.getByRole('dialog', { name: 'Basic Fishing Pole item details' });
+    const rod = page.getByRole('dialog', { name: 'Basic Fishing Kunai item details' });
     await expect(rod).toContainText('Durability: 3 / 50 uses remaining');
     await rod.getByRole('button', { name: 'Unequip', exact: true }).click();
     await expect(rod).toHaveCount(0);

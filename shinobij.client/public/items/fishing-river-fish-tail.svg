@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 170 80"><defs>
+                <linearGradient id="scales" x1="0" y1="0" x2=".2" y2="1"><stop stop-color="#3d6167"/><stop offset=".42" stop-color="#93b5b4"/><stop offset=".65" stop-color="#d8dfcb"/><stop offset="1" stop-color="#7e9691"/></linearGradient>
+                <linearGradient id="fin"><stop stop-color="#adbbac"/><stop offset="1" stop-color="#445e62"/></linearGradient>
+            </defs><g class="fishing-fish-tail"><path d="M119 39 Q145 21 161 14 L155 39 164 65 Q141 61 119 43Z" fill="url(#fin)" stroke="#78968d" stroke-width="1.2"/><path d="M127 40 154 23M128 42 156 55M129 41 154 40" fill="none" stroke="#d2d7b0" opacity=".4"/></g></svg>

@@ -108,7 +108,7 @@ describe('equipped-item resolution against the admin catalog', () => {
     });
 
     // Gathering tools sit in the active loadout for fishing and mining only.
-    it('never seals an equipped pickaxe or fishing pole into a fighter', () => {
+    it('never seals an equipped pickaxe or fishing kunai into a fighter', () => {
         const hydrated = hydrateCharacterFromSave(
             saveCharacter({ hand: 'custom-storm-tanto', pickaxe: 'tool-basic-pickaxe', fishingPole: 'tool-golden-fishing-pole' }),
             {},

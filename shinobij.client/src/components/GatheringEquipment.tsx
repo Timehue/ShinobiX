@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import type { Character, VersionedCharacterCommit } from '../types/character';
 import { GATHERING_TOOLS, gatheringTool, gatheringToolRemaining } from '../../../shared/gathering-tools';
 import { resourceRequest } from '../lib/resource-api';
+import { gatheringToolArtwork } from '../lib/gathering-tool-art';
 import './resource-gathering.css';
 
 export function GatheringEquipment({ character, commit }: { character: Character; commit: VersionedCharacterCommit }) {
@@ -22,10 +23,10 @@ export function GatheringEquipment({ character, commit }: { character: Character
             const remaining = equipped ? gatheringToolRemaining(character, equipped.id) : 0;
             const options = GATHERING_TOOLS.filter(tool => tool.slot === slot && character.inventory.includes(tool.id));
             return <article key={slot} className={`gathering-tool-slot${equipped ? ' equipped' : ''}`}>
-                <img src={`/items/${equipped?.id ?? (slot === 'pickaxe' ? 'tool-basic-pickaxe' : 'tool-basic-fishing-pole')}.svg`} alt="" />
-                <div><h3>{slot === 'pickaxe' ? 'Pickaxe' : 'Fishing Pole'}</h3><p>{equipped?.name ?? 'Empty slot'}</p>
+                <img src={gatheringToolArtwork(equipped?.id ?? (slot === 'pickaxe' ? 'tool-basic-pickaxe' : 'tool-basic-fishing-pole'))} alt="" />
+                <div><h3>{slot === 'pickaxe' ? 'Pickaxe' : 'Fishing Kunai'}</h3><p>{equipped?.name ?? 'Empty slot'}</p>
                     {equipped && <p className={remaining !== null && remaining <= 5 ? 'resource-warning' : ''}>{remaining === null ? 'Permanent · never breaks' : `${remaining} / 50 uses remaining`}</p>}
-                    {equipped && <button type="button" disabled={busy} onClick={() => void equip(equipped.id, true)}>Unequip {slot === 'pickaxe' ? 'pickaxe' : 'fishing pole'}</button>}
+                    {equipped && <button type="button" disabled={busy} onClick={() => void equip(equipped.id, true)}>Unequip {slot === 'pickaxe' ? 'pickaxe' : 'fishing kunai'}</button>}
                     {options.map(tool => <button type="button" key={tool.id} disabled={busy || gatheringToolRemaining(character, tool.id) === 0} onClick={() => void equip(tool.id, false)}>Equip {tool.name}</button>)}
                     {!equipped && options.length === 0 && <small>Available at the Ryo Shop. Permanent gold tools are in the Grand Marketplace.</small>}
                 </div>
