@@ -2543,7 +2543,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/components/resource-gathering.css",
-            "line": 86
+            "line": 83
           }
         ]
       },
@@ -3581,8 +3581,12 @@
         "valuePx": 650,
         "occurrences": [
           {
+            "source": "shinobij.client/src/components/outpost-resource-panel.css",
+            "line": 135
+          },
+          {
             "source": "shinobij.client/src/components/resource-gathering.css",
-            "line": 35
+            "line": 32
           },
           {
             "source": "shinobij.client/src/features/dojo-circuit/dojo-circuit.css",
@@ -4431,6 +4435,10 @@
         "axis": "width",
         "valuePx": 900,
         "occurrences": [
+          {
+            "source": "shinobij.client/src/components/outpost-resource-panel.css",
+            "line": 131
+          },
           {
             "source": "shinobij.client/src/components/underground-sector.css",
             "line": 185
