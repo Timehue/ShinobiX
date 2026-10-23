@@ -196,7 +196,7 @@ export const ChronicleCardView = memo(function ChronicleCardView({
   return (
     <CardRoot
       type={onClick ? "button" : undefined}
-      className={`chronicle-card ${card.cardClass} ${card.cardClass === "monster" ? `${card.monsterType}-monster` : ""} ${card.cardClass === "magic" ? `${card.magicType}-magic` : ""} rarity-${card.rarity} ${nameLengthClass} ${compact ? "compact" : ""} ${selected ? "selected" : ""}`}
+      className={`chronicle-card face-up ${card.cardClass} ${card.cardClass === "monster" ? `${card.monsterType}-monster` : ""} ${card.cardClass === "magic" ? `${card.magicType}-magic` : ""} rarity-${card.rarity} ${nameLengthClass} ${compact ? "compact" : ""} ${selected ? "selected" : ""}`}
       style={style}
       onClick={onClick}
       disabled={onClick ? disabled : undefined}

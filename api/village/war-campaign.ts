@@ -42,6 +42,7 @@ import { kickPlayer } from '../_realtime/notify.js';
 import { pushOfflineNotice } from '../player/_offline-notices.js';
 import { onlineStore } from '../_realtime/online-store.js';
 import { isIncapacitated } from '../_elapsed-state.js';
+import { readSavePresenceFacts, type SavePresenceFacts } from '../_save-presence-facts.js';
 import { strongholdLocation, touchStrongholdPresence, leaveStrongholdPresence } from '../_stronghold-presence.js';
 import { sectorPresenceBlock } from '../_sector-presence-gate.js';
 import { VILLAGE_BIOME, isWarVillage } from '../_war-map-sectors.js';
@@ -51,6 +52,7 @@ import { fieldOperationAction, fieldMissionFor, projectFieldMission, guardStrong
 import { getSectorOwnerVillage } from '../_sector-war-store.js';
 
 const RETAIN = 14 * 86_400;
+const SHRINE_ROOM_ACTIONS = new Set(['shrine-enter', 'shrine-state', 'shrine-step', 'shrine-leave']);
 const DEFENSE_TTL = 86_400;
 interface CampaignRun {
     id: string; warId: string; generation: number; objectiveId?: string; operation?: WarOperation;
@@ -104,15 +106,55 @@ async function legalDeck(slug: string): Promise<string[] | null> {
     const deck = resolveChronicleDeckMutation(save.character, []);
     return deck.ok ? deck.value.deck : null;
 }
-async function shrineRoster(war: CampaignWarRow, sector: number) {
+/**
+ * `facts` carries the save facts already read in this request. A shrine
+ * request takes the roster before and after its change under the war-row lock,
+ * and every player in the room polls through that lock, so each name is read
+ * once and only as the projected facts, never the whole save.
+ */
+async function shrineRoster(war: CampaignWarRow, sector: number, facts = new Map<string, SavePresenceFacts>()) {
     const candidates = shrineRoomPlayers(war, sector);
-    const saves = await Promise.all(candidates.map(({ player }) => kv.get<{ character?: Record<string, unknown> }>(`save:${player.name}`)));
-    return candidates.flatMap(({ player, tile }, index) => {
-        const character = saves[index]?.character, village = String(character?.village ?? '');
+    const missing = [...new Set(candidates.map(({ player }) => player.name).filter(name => !facts.has(name)))];
+    (await readSavePresenceFacts(missing)).forEach((row, index) => facts.set(missing[index], row));
+    return candidates.flatMap(({ player, tile }) => {
+        const character = facts.get(player.name)?.character, village = String(character?.village ?? '');
         const eligible = !!character && war.villages.includes(village) && Number(character.level) >= 15 && !isIncapacitated(character);
         confirmShrineRoomVillage(player.name, eligible ? village : undefined);
         return eligible ? [{ name: player.name, displayName: String(character!.name ?? player.displayName), village, tile, inBattle: !!player.inBattle }] : [];
     });
+}
+/**
+ * One step inside the golden shrine, without the war-row lock or a war-row
+ * write. Every shrine request used to queue on the war-wide lock to rewrite the
+ * whole row, so a busy room refused steps as "Village war is busy". A step
+ * cannot change who is inside: it needs a live room lease (shrineRoomLocation)
+ * and only renews it. Control time is measured in memory from presence
+ * (_village-war-shrine-closing.ts) and saved by that module's own 5 s timer and
+ * by every room poll, so nothing a step did to the row was the only record of
+ * anything. The checks are the locked path's, in its order, and the reply is
+ * built from a copy of the row, so it shows the same live control and totals.
+ */
+async function stepShrineRoom(war: CampaignWarRow, me: string, character: Record<string, unknown>, village: string, body: Record<string, unknown>) {
+    const now = Date.now(), objective = war.campaign!.shrine.find(o => o.id === body.objectiveId);
+    if (!objective) refuse('This shrine belongs to another war.');
+    if (!campaignWarPlayable(war) || isIncapacitated(character) || Number(character.level) < 15) refuse('Recover and reach level 15 before entering the shrine.');
+    const block = sectorPresenceBlock(me, objective.sector);
+    if (block) refuse(block.error);
+    const player = onlineStore.get(me);
+    if (player?.locationUnverified || (player?.travelingUntil ?? 0) > now) refuse('Finish your travel before entering the shrine.');
+    const location = shrineRoomLocation(me, war, objective.sector, now);
+    if (!location || location.objectiveId !== objective.id) refuse('Travel to the shrine sector and enter its golden shrine first.');
+    const next = Number(body.tile), x = next % 12, y = Math.floor(next / 12), tile = location.tile;
+    if (player?.inBattle || !Number.isInteger(next) || x < 1 || x > 10 || y < 1 || y > 10
+        || Math.abs(x - tile % 12) + Math.abs(y - Math.floor(tile / 12)) !== 1) refuse('Choose an adjacent floor tile while out of battle.');
+    touchShrineRoom(me, war, objective.sector, objective.id, next, now);
+    const view = structuredClone(war), shown = view.campaign!.shrine.find(o => o.id === objective.id)!;
+    applyShrineClosingControl(view, now);
+    advanceCampaign(view.campaign!, now);
+    const players = await shrineRoster(view, objective.sector);
+    updateShrineControl(view.campaign!, shown, players.map(p => p.village), now);
+    const { controlParticipantMs: _private, ...publicObjective } = shown;
+    return { ok: true, room: { objective: publicObjective, players, serverNow: now }, campaign: campaignView(view.campaign!, view.villages, village, now) };
 }
 async function shrineOpponent(war: CampaignWarRow, objectiveId: string, enemy: string, target?: string): Promise<Defense | null> {
     const objective = war.campaign!.shrine.find(o => o.id === objectiveId)!;
@@ -330,11 +372,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const me = identity.admin ? safeName(String(body.name ?? '')) : identity.name;
     if (!(await enforceRateLimitKv(req, res, 'village-campaign', 90, 60_000, me))) return;
     try {
-        const save = await kv.get<Record<string, unknown>>(`save:${me}`);
+        const action = String(body.action ?? 'view');
+        // The shrine room is walked tile by tile and polled every 5 s. It
+        // decides only on the save facts, so it never reads the whole save.
+        const shrineAction = SHRINE_ROOM_ACTIONS.has(action);
+        const save = shrineAction ? (await readSavePresenceFacts([me]))[0] : await kv.get<Record<string, unknown>>(`save:${me}`);
         const character = save?.character as Record<string, unknown> | undefined;
         if (!character) return res.status(404).json({ error: 'Player save missing.' });
         const village = String(character.village ?? '');
-        const action = String(body.action ?? 'view');
         const warId = String(body.warId ?? '');
         const war = await kv.get<CampaignWarRow>(`world:war:${warId}`);
         if (!war?.campaign || !war.villages.includes(village)) return res.status(403).json({ error: 'You are not a participant in this village war.' });
@@ -347,15 +392,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (!['operation-leave', 'operation-abandon'].includes(action) && (isIncapacitated(character) || Number(character.level) < 15)) refuse('Recover and reach level 15 before carrying out field orders.');
             return res.status(200).json(await fieldOperationAction(warId, war.declarationGeneration!, me, village, action, body.operation, body.missionId));
         }
-        if (['shrine-enter', 'shrine-state', 'shrine-step', 'shrine-leave'].includes(action)) {
+        if (action === 'shrine-step') return res.status(200).json(await stepShrineRoom(war, me, character, village, body));
+        if (shrineAction) {
             const result = await mutateCampaignWar(warId, async current => {
+                const facts = new Map<string, SavePresenceFacts>();
                 const now = Date.now(), objective = current.campaign!.shrine.find(o => o.id === body.objectiveId);
                 if (!objective || current.declarationGeneration !== war.declarationGeneration) refuse('This shrine belongs to another war.');
                 applyShrineClosingControl(current, now);
                 advanceCampaign(current.campaign!, now);
                 // Record the old roster before changing membership, so leaving or
                 // entering from another village cannot preserve a stale sole hold.
-                const before = await shrineRoster(current, objective.sector);
+                const before = await shrineRoster(current, objective.sector, facts);
                 updateShrineControl(current.campaign!, objective, before.map(p => p.village), now);
                 if (action === 'shrine-leave') {
                     if (onlineStore.get(me)?.inBattle) refuse('Finish your battle before leaving the shrine.');
@@ -377,23 +424,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         // replacement so a concurrent exterior move or reconnect
                         // cannot carry a sole occupant's previous hold forward.
                         leaveShrineRoom(me);
-                        const enteringRoster = await shrineRoster(current, objective.sector);
+                        const enteringRoster = await shrineRoster(current, objective.sector, facts);
                         updateShrineControl(current.campaign!, objective, enteringRoster.map(p => p.village), now);
                         touchShrineRoom(me, current, objective.sector, objective.id, undefined, now, village);
                         scheduleShrineClosing(current, objective);
                     } else {
+                        // shrine-state: a step takes stepShrineRoom, outside this lock.
                         if (!location || location.objectiveId !== objective.id) refuse('Travel to the shrine sector and enter its golden shrine first.');
-                        let tile = location.tile;
-                        if (action === 'shrine-step') {
-                            const next = Number(body.tile), x = next % 12, y = Math.floor(next / 12);
-                            if (player?.inBattle || !Number.isInteger(next) || x < 1 || x > 10 || y < 1 || y > 10
-                                || Math.abs(x - tile % 12) + Math.abs(y - Math.floor(tile / 12)) !== 1) refuse('Choose an adjacent floor tile while out of battle.');
-                            tile = next;
-                        }
-                        touchShrineRoom(me, current, objective.sector, objective.id, tile, now);
+                        touchShrineRoom(me, current, objective.sector, objective.id, location.tile, now);
                     }
                 }
-                const players = await shrineRoster(current, objective.sector);
+                const players = await shrineRoster(current, objective.sector, facts);
                 updateShrineControl(current.campaign!, objective, players.map(p => p.village), now);
                 applyShrineClosingControl(current, now);
                 current.updatedAt = now;

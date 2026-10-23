@@ -78,6 +78,19 @@ test('cropping preserves exact screen coordinates of floor art and collision foo
     }
 });
 
+test('a walk moves the raster window on every other step at most, so terrain is not rebuilt per tile', () => {
+    const view = { width: 390, height: 520 }, tileSize = 72, width = 37, height = 23;
+    let previous = '', moves = 0;
+    for (let playerX = 6; playerX <= 30; playerX++) {
+        const camera = undergroundCamera({ view, tileSize, width, height, playerX, playerY: 11 });
+        const crop = undergroundRenderWindow({ view, tileSize, width, height, camera });
+        const key = `${crop.left},${crop.width}`;
+        if (previous && key !== previous) moves++;
+        previous = key;
+    }
+    assert(moves <= 13, `the window moved on ${moves} of 24 steps`);
+});
+
 test('unmeasured views defer terrain instead of rasterizing a full-size initial atlas', () => {
     assert.deepEqual(undergroundRenderWindow({ view: { width: 0, height: 0 }, width: 37, height: 23, tileSize: 96, camera: { x: 0, y: 0 } }), { left: 0, top: 0, width: 0, height: 0 });
 });

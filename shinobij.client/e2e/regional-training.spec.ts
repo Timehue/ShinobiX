@@ -29,7 +29,6 @@ for(const mode of ['drill','rain','cached shift'] as const)test(`Ashen training 
     await page.goto('/#/worldMap');const map=page.locator('.continuous-world-map'),back=page.getByRole('button',{name:'Return to Sector 9',exact:false});
     await expect.poll(async()=>await back.isVisible()||await map.isVisible(),{timeout:60_000}).toBe(true);if(await back.isVisible())await back.click();await expect(map).toHaveAttribute('aria-busy','false');
     const first=page.locator('[data-life-resident="crew:9:0"]'),second=page.locator('[data-life-resident="crew:9:1"]');await expect(first).toHaveCount(1);await expect(second).toHaveCount(1);
-    await page.clock.setSystemTime(new Date(now-60_000));await page.clock.pauseAt(new Date(now));
     await page.evaluate(async()=>{
         const registry=await import('/src/lib/figure-ground-position.ts');registry.observeFigureGroundPositions();
         window.trainingReadPose=()=>[0,1].map(index=>{
@@ -39,6 +38,9 @@ for(const mode of ['drill','rain','cached shift'] as const)test(`Ashen training 
             return {...p,visible:getComputedStyle(node).visibility!=='hidden',activity:node.dataset.activity};
         });
     });
+    // Pause at the fixed boot time before enabling elapsed wall time. Rewinding
+    // live actors and fast-forwarding a minute makes the pair desynchronize.
+    await page.clock.pauseAt(new Date(now));await page.clock.setSystemTime(new Date(now));
     await page.clock.runFor(300);const read=()=>page.evaluate(()=>window.trainingReadPose());
     await expect(first).toHaveAttribute('data-activity','Practising footwork');await expect(second).toHaveAttribute('data-activity','Practising footwork');
     if(mode==='drill'){

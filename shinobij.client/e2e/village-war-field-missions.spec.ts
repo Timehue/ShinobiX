@@ -146,6 +146,12 @@ test('a level-15 village defender takes guard duty in an owned stronghold and ca
     });
     await expectUiAuditBoot(page, runtime, 'worldMap');
     const back = page.getByRole('button', { name: `← Return to Sector ${sector}`, exact: true }); await expect(back).toBeVisible(); await back.click();
+    // The world pauses under a stronghold instead of being torn down: leaving
+    // must not rebuild the world (a new canvas, renderer and decoded maps); it
+    // only re-reads its position once.
+    const world = page.locator('.continuous-world-map');
+    await expect(world).toHaveAttribute('aria-busy', 'false', { timeout: 30_000 });
+    await world.locator('canvas[aria-label^="World terrain"]').evaluate(canvas => { (canvas as HTMLCanvasElement & { strongholdProbe?: boolean }).strongholdProbe = true; });
     await page.getByRole('button', { name: /Sector Stronghold — defend/ }).click();
     const entrance = page.getByRole('dialog', { name: `Sector ${sector} Stronghold`, exact: true });
     await expect(entrance.getByText(/Take guard duty from level 15/)).toBeVisible();
@@ -158,6 +164,9 @@ test('a level-15 village defender takes guard duty in an owned stronghold and ca
     await expectViewportSafe(page, { horizontalScrollers: ['.world-map-grid', '.world-sector-stage'] });
     await testInfo.attach('owned-stronghold-defense', { body: await page.screenshot({ path: testInfo.outputPath('owned-stronghold-defense.png') }), contentType: 'image/png' });
     await room.getByRole('button', { name: 'Leave stronghold', exact: true }).click(); await expect(room).toHaveCount(0);
+    await expect(world).toHaveAttribute('aria-busy', 'false');
+    expect(await world.locator('canvas[aria-label^="World terrain"]').evaluate(canvas => (canvas as HTMLCanvasElement & { strongholdProbe?: boolean }).strongholdProbe),
+        'the same world canvas survives the stronghold visit').toBe(true);
     const entry = actions.find(a => a.action === 'guard-enter'), leave = actions.find(a => a.action === 'guard-leave');
     expect(entry?.sector).toBe(sector); expect(entry?.visitId).toBeTruthy(); expect(leave?.visitId).toBe(entry?.visitId);
 });

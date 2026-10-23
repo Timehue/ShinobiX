@@ -13,7 +13,10 @@ type Host = { canvas: HTMLCanvasElement; chunk: HTMLDivElement; marker: HTMLDivE
     onPosition?: (sector: number, col: number, row: number) => void;
     /** A tap on painted ground of the current sector; true when a landmark there took it. */
     onTapTile?: (tile: number) => boolean;
-    blocked: () => boolean; onAuthority: (sector: number, tile: number) => void; onStatus: (status: string) => void; signal: AbortSignal };
+    blocked: () => boolean;
+    /** A fullscreen interior covers the world: stop drawing and sending until it closes. */
+    paused?: () => boolean;
+    onAuthority: (sector: number, tile: number) => void; onStatus: (status: string) => void; signal: AbortSignal };
 /** The server walks a newer world graph than this tab loaded; only a reload can follow it. */
 export const STALE_WORLD_STATUS = 'The world map was updated. Reload to keep exploring.';
 const staleReply = (reply: WorldMovementReply, version: string) => Boolean(reply.worldPosition && reply.worldPosition.layoutVersion !== version);
@@ -32,7 +35,7 @@ export async function mountContinuousWorld(host: Host) {
     let sequence = initial.sequence ?? 0, sector = initial.sector!, tile = initial.tile!;
     let held: WorldPoint | null = null, frame = 0, last = 0, lastSend = 0;
     let inFlight = false, disposed = false, stale = false, sentCursor = '', resyncing = false, drag: { x: number; y: number; moved: boolean } | null = null;
-    let requestedSector = sector, retryAfter = 0, refusedInRow = 0;
+    let requestedSector = sector, retryAfter = 0, refusedInRow = 0, resumed = false;
     const pace = createWorldMovePacer(6.5);
     const resumable = (reply: WorldMovementReply) => refusedInRow === 1 && (reply.reason === 'speed' || reply.reason === 'busy');
     function accept(reply: WorldMovementReply) {
@@ -113,22 +116,28 @@ export async function mountContinuousWorld(host: Host) {
     window.addEventListener('keydown', keydown, true); window.addEventListener('keyup', keyup); window.addEventListener('blur', blur);
     host.canvas.addEventListener('pointerdown', pointerdown); host.canvas.addEventListener('pointermove', pointermove);
     host.canvas.addEventListener('pointerup', pointerup); host.canvas.addEventListener('pointercancel', pointercancel);
-    async function resync() {
-        if (requestedSector === sector || inFlight || resyncing || disposed || host.blocked()) return;
+    /** `force` re-reads the server position in the same sector: the world may have moved this player while paused.
+     *  A failed re-read keeps `resumed` set, so the tick retries it after `retryAfter`. */
+    async function resync(force = false) {
+        if ((!force && requestedSector === sector) || inFlight || resyncing || disposed || host.blocked()) return;
         resyncing = true; walker.stop(); held = null;
         try {
             const reply = await worldMovementRequest(undefined, undefined, host.signal), cursor = world.model.read(reply.worldPosition);
-            if (staleReply(reply, world.space.layoutVersion)) { stale = true; host.onStatus(STALE_WORLD_STATUS); }
+            if (staleReply(reply, world.space.layoutVersion)) { stale = true; resumed = false; host.onStatus(STALE_WORLD_STATUS); }
             else if (reply.ok && cursor && !disposed) {
-                walker.restore(cursor); sequence = reply.sequence ?? 0; sector = reply.sector!; tile = reply.tile!;
+                walker.restore(cursor); sequence = reply.sequence ?? 0; sector = reply.sector!; tile = reply.tile!; resumed = false;
                 requestedSector = sector; pace.reset(); sentCursor = ''; host.onAuthority(sector, tile); host.onStatus('');
             } else retryAfter = performance.now() + 1000;
         } catch { if (!disposed) { retryAfter = performance.now() + 1000; host.onStatus('Connection interrupted. Movement paused.'); } }
         finally { resyncing = false; }
     }
     function tick(now: number) {
+        // A fullscreen interior covers the world: draw and send nothing, but keep
+        // the renderer and its decoded maps, so leaving costs one position read
+        // (the forced resync below), not a reconnect and a rebuilt renderer.
+        if (host.paused?.()) { last = 0; resumed = true; frame = requestAnimationFrame(tick); return; }
         const dt = Math.min(.05, (now - (last || now)) / 1000); last = now;
-        if (requestedSector !== sector && now >= retryAfter) void resync();
+        if ((resumed || requestedSector !== sector) && now >= retryAfter) void resync(resumed);
         // Each update must cover less ground than WORLD_UPDATE_TILES, or walking
         // waits between replies even on a fast connection (125 ms = 0.8 tile). The
         // socket drops a world:move that lands within 80 ms of the last one, and
