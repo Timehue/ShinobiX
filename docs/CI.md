@@ -44,7 +44,7 @@ same commit as the workflow.
 | `CI / client-quality` | `client_quality` | 35 min | Locked root/client installs; shipped pet rig/animation, Warfront/Rally LOD, and Warfront impostor certification ahead of the build; lint, story-content/TypeScript/production build, build-size and visual-baseline-size gates, client audit (with the same retry rule as the root audit), and checksum-backed client artifact production. |
 | `CI / release-certification` | `release_certification` | 15 min | Downloads and verifies the exact compiled release artifacts, then runs the fresh-account/combat certification against them. |
 | `CI / concurrency-smoke` | `concurrency_smoke` | 15 min | Downloads and verifies the release artifacts, then runs the short real-server concurrent-player smoke. It is not a database capacity test. |
-| `CI / e2e-responsive` | `e2e_responsive` | 5 min | Fail-closed aggregate requiring every responsive smoke slice (`e2e_responsive_matrix`) and all fourteen flow jobs with the CSP, Stronghold, and dedicated suites (`e2e_responsive_flows`) to succeed. |
+| `CI / e2e-responsive` | `e2e_responsive` | 5 min | Fail-closed aggregate requiring every responsive smoke slice (`e2e_responsive_matrix`) and all fifteen flow jobs with the CSP, Stronghold, and dedicated suites (`e2e_responsive_flows`) to succeed. |
 | `CI / e2e-combat` | `e2e_combat` | 5 min | Fail-closed stable aggregate requiring all three combat browser shards to succeed. |
 | `CI / e2e-warfront` | `e2e_warfront` | 5 min | Fail-closed aggregate requiring both Warfront browser shards (`e2e_warfront_matrix`) to succeed. |
 | `CI / e2e-village-stores` | `e2e_village_stores` | 5 min | Requires all three gameplay shards; ten live Express player-journey steps retain separate real servers and all existing cases. |
@@ -73,16 +73,16 @@ run once, in the aggregate: each takes under a minute, and running them in every
 shard would only triple them. Require the stable `CI / server-contracts`
 aggregate rather than individual shards.
 
-Responsive coverage runs as seven `e2e_responsive_matrix` shards, named
-`CI / e2e-responsive / 1-of-7` through `CI / e2e-responsive / 7-of-7`. Each has a
+Responsive coverage runs as twelve `e2e_responsive_matrix` shards, named
+`CI / e2e-responsive / 1-of-12` through `CI / e2e-responsive / 12-of-12`. Each has a
 35-minute ceiling and runs only its slice of the complete Playwright suite,
-partitioned with `--shard=N/7`. The smoke step has its own 31-minute limit, so a
+partitioned with `--shard=N/12`. The smoke step has its own 31-minute limit, so a
 hung slice fails while there is still time to upload its evidence. On main in
 October 2026 a slice took 12 to 26 minutes and setup about 2.
 
 The CSP check, the Stronghold modes and the dedicated suites run beside the
-slices in fourteen `e2e_responsive_flows` jobs, named `CI / e2e-responsive-flows / 1`
-through `CI / e2e-responsive-flows / 14`, each with a 29-minute ceiling:
+slices in fifteen `e2e_responsive_flows` jobs, named `CI / e2e-responsive-flows / 1`
+through `CI / e2e-responsive-flows / 15`, each with a 29-minute ceiling:
 
 - Flow 1: the built CSP in Chromium and WebKit; all three Stronghold modes,
   in order, because they build into the same disposable fixture directory;
@@ -90,8 +90,7 @@ through `CI / e2e-responsive-flows / 14`, each with a 29-minute ceiling:
   refresh; the profession scroll purchase and change flow; village transfer
   purchase and recovery.
 - Flow 2: Chronicle pack purchase and recovery; Hollow Gate terminal-card return
-  and retry; Pet Gauntlet playback and renderer recovery; named forge purchase and
-  recovery; Rally renderer recovery; the Dojo Circuit gamepad flow.
+  and retry.
 - Flows 3 through 10: the complete living-sector source suite, split into eight
   Playwright slices. Test-level sharding keeps the large sector-life spec from
   occupying a whole job; each slice still runs one worker. Flows 5 and 7
@@ -140,7 +139,12 @@ through `CI / e2e-responsive-flows / 14`, each with a 29-minute ceiling:
   suite, split with `resourceShard: 1/2` and `resourceShard: 2/2`. Its 273 cases
   took 19.1 minutes before the other recovery suites even began, so it now has
   two dedicated jobs. The inventories contain 156 and 117 cases with no overlap
-  or omissions; all recovery suites remain on flow 2.
+  or omissions.
+- Flow 15: Pet Gauntlet playback and renderer recovery; named forge purchase and
+  recovery; Rally renderer recovery; the Dojo Circuit gamepad flow. Run
+  `39972028678` passed every recovery case but exhausted flow 2 during cleanup
+  after a slow checkout. This split leaves setup and evidence-upload room
+  under the existing 29-minute ceiling.
 
 The original first two flow jobs measured 11 to 15 minutes of suite time on main. A failed step
 skips every later check in its job, so a red flow job says nothing about the
@@ -151,9 +155,10 @@ Stronghold checks had passed. It moved to five when three-shard run
 suites left the slices after shards 2 and 5 reached 32 to 34 of their 35 minutes
 on main, and PR #407's shard 2 was cancelled at the ceiling with every test
 passing. Run `39433723955` exhausted the five-way first slice twice; its retry
-reached 634 of 700 cases before cancellation. Seven slices retain all 3,499
-test/project cases exactly once (six slices of 500, one of 499), with the same
-step and job ceilings. Each change kept the whole suite. Require the stable
+reached 634 of 700 cases before cancellation, prompting seven slices. As the
+inventory grew, run `39972028678` exhausted slice 3 at entry 485 of 547. Twelve
+slices retain every test/project case exactly once with the same step and job
+ceilings. Each change kept the whole suite. Require the stable
 `CI / e2e-responsive` aggregate rather than individual matrix children.
 
 The actual combat work runs as the `e2e_combat_matrix` job with the emitted names
