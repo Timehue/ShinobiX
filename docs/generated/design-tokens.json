@@ -2555,7 +2555,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/components/resource-gathering.css",
-            "line": 83
+            "line": 85
           }
         ]
       },
@@ -3672,7 +3672,7 @@
           },
           {
             "source": "shinobij.client/src/components/resource-gathering.css",
-            "line": 32
+            "line": 34
           },
           {
             "source": "shinobij.client/src/features/dojo-circuit/dojo-circuit.css",

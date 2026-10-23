@@ -65,11 +65,9 @@ for(const cached of ['empty','working'] as const)test(`angler cache ${cached}: a
     await dialog.getByRole('button',{name:'Ask about the water',exact:true}).click();await expect(dialog).toContainText(/Try .+ shoal\./);
     await dialog.screenshot({path:`${evidence}/${info.project.name}-angler-rollover-${cached}-outage.png`});expect(errors).toEqual([]);
 });
-// Its own fixed day: LIFE_SCENARIO_EPOCH's first sector 6 angler fishes from tile 39, under the phone's Stillwater shoal button; 2026-10-13 06:00 UTC fishes from 38.
-const ANGLER_SCENARIO_EPOCH=Date.UTC(2026,9,13,6);
 for(const sector of [6,18])for(const mode of ['weather','stale-night','unavailable'] as const)test(`working angler ${sector} ${mode}: the existing service fishes real water and uses the gatehouse`,async({page},info)=>{
     let initial=0,work:NonNullable<ReturnType<typeof currentWorkingAngler>>|undefined;
-    for(let i=0;i<120&&!work;i++){initial=(Math.floor(ANGLER_SCENARIO_EPOCH/WANDERER_BUCKET_MS)+i)*WANDERER_BUCKET_MS+10*WORLD_HOUR_MS;work=currentWorkingAngler(sector,initial);}
+    for(let i=0;i<120&&!work;i++){initial=(Math.floor(LIFE_SCENARIO_EPOCH/WANDERER_BUCKET_MS)+i)*WANDERER_BUCKET_MS+10*WORLD_HOUR_MS;work=currentWorkingAngler(sector,initial);}
     expect(work).toBeTruthy();const {wanderer,site}=work!;
     await page.clock.install({time:new Date(initial)});
     const save=uiAuditSave(),cooldowns=quietRoadCooldowns([sector],initial);delete cooldowns[wanderer.id];
