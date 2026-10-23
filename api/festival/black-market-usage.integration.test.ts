@@ -56,10 +56,13 @@ test('the count read needs a signed session for the same player', async () => {
 });
 
 const requestId = (suffix: string) => `${today()}_request_${suffix}`;
+// A certificate covers half the stake, so each one is seeded with exactly the
+// other half in ryo.
+const CERTIFICATE_STAKE = 37_500;
 async function certificates(count: number) {
     const record = await kv.get<Obj>(`save:${player}`);
     record!.character.brokerCertificates = count;
-    record!.character.ryo = 0;
+    record!.character.ryo = count * CERTIFICATE_STAKE;
     await kv.set(`save:${player}`, record);
 }
 
@@ -243,12 +246,12 @@ test('certificate and ryo purchases share the daily cap and certificates survive
     await kv.set(`bm:count:${player}:${today()}`, 8);
     assert.equal((await call('POST')).body.dailyUsed, 9);
     const before = await kv.get<Obj>(`save:${player}`);
-    const free = await call('POST', { payment: 'certificate' });
-    assert.equal(free.status, 200, JSON.stringify(free.body));
-    assert.equal(free.body.cost, 0);
-    assert.equal(free.body.dailyUsed, 10);
-    assert.equal(free.body.character.brokerCertificates, 1);
-    assert.equal(free.body.character.ryo, before!.character.ryo + free.body.reward.ryo);
+    const half = await call('POST', { payment: 'certificate' });
+    assert.equal(half.status, 200, JSON.stringify(half.body));
+    assert.equal(half.body.cost, CERTIFICATE_STAKE);
+    assert.equal(half.body.dailyUsed, 10);
+    assert.equal(half.body.character.brokerCertificates, 1);
+    assert.equal(half.body.character.ryo, before!.character.ryo - CERTIFICATE_STAKE + half.body.reward.ryo);
     assert.equal((await call('GET')).body.dailyUsed, 10);
     const saved = await kv.get(`save:${player}`);
     assert.equal((await call('POST', { payment: 'certificate' })).status, 429);
@@ -269,6 +272,18 @@ test('missing certificates and unsupported payment methods cannot award a crate 
         assert.deepEqual(await kv.get(`save:${player}`), before);
         assert.equal((await call('GET')).body.dailyUsed, 0);
     }
+});
+
+test('a certificate pull without its half stake keeps the certificate and the daily pull', async () => {
+    await certificates(1);
+    const record = await kv.get<Obj>(`save:${player}`);
+    record!.character.ryo = CERTIFICATE_STAKE - 1;
+    await kv.set(`save:${player}`, record);
+    const result = await call('POST', { payment: 'certificate', requestId: requestId('short_stake') });
+    assert.equal(result.status, 400);
+    assert.match(String(result.body.error), /certificate crate costs 37,500/);
+    assert.deepEqual(await kv.get(`save:${player}`), record);
+    assert.equal((await call('GET')).body.dailyUsed, 0);
 });
 
 test('a refusal returns the current balance without writing so a stale device can reconcile', async () => {

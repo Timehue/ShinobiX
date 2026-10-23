@@ -18,6 +18,7 @@ import { effectiveItemLevelReq, meetsItemLevelReq } from "../../../shared/item-l
 import { HUNT_MATERIAL_SELL_RYO } from "../../../shared/hunt-material-sale";
 import { GEAR_STEP_SELL_RYO, isStepItemId } from "../../../shared/gear-steps";
 import { NAMED_GEAR_SELL_RYO, isNamedGearId } from "../../../shared/named-gear-rules";
+import { standardSaleUnitValue } from "../../../shared/crafting-recipes";
 import {
     type Character,
     type EquipmentSlot,
@@ -658,7 +659,9 @@ export function Inventory({
         // Hunt drop materials are cost:0 (un-buyable); their shared table gives
         // the preview and authoritative sale the same rarity-tiered ryo value.
         if ((item.cost ?? 0) <= 0 && item.id in HUNT_MATERIAL_SELL_RYO) return HUNT_MATERIAL_SELL_RYO[item.id];
-        return Math.floor(Math.max(0, (item.cost ?? 0)) / 2);
+        // Half the cost, capped for crafted goods at 7/10 of their inputs' NPC
+        // value: the same shared helper both sale routes price through.
+        return standardSaleUnitValue(item.id, item.cost ?? 0);
     }
 
     async function sellSelectedItem(count = 1) {

@@ -11,6 +11,7 @@ import { settlePetBreedingSession } from './_breeding-requirements.js';
 import { migrateCharacterOwnedPets } from './_owned-pet.js';
 import { petBusyReason, petBusyMessage } from './_pet-busy.js';
 import { getPetFromSanctuary, removePetFromSanctuary, storePetInSanctuary } from './_sanctuary.js';
+import { withoutUnbackedPetUnlocks } from './_pet-unlocks.js';
 
 type SanctuaryAction = 'to-sanctuary' | 'to-roster' | 'release';
 type TransferResult =
@@ -122,12 +123,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
                 const sanctuaryItem = await getPetFromSanctuary(playerName, petId);
                 if (!sanctuaryItem) return { ok: false, status: 404, error: 'pet-not-in-sanctuary' };
-                const nextCharacter = { ...character, pets: [...pets, sanctuaryItem.pet] };
+                // A stored pet is outside the roster the sale, Exchange and donation
+                // checks read, so its collar or PvP gear may have been sold meanwhile.
+                // It comes back without the unlocks the backpack no longer holds.
+                const returning = withoutUnbackedPetUnlocks(sanctuaryItem.pet as Record<string, unknown>, character);
+                const nextCharacter = { ...character, pets: [...pets, returning] };
                 const written = await writeVersionedPlayerSave(`save:${playerName}`, record, nextCharacter, {}, {
                     regenAt: carriedRegenCursor(recovery.character, nextCharacter, recovery.regen),
                 });
                 await removePetFromSanctuary(playerName, petId).catch((error) => console.error('[pet/sanctuary/transfer] withdraw cleanup', safeLogValue(error)));
-                return { ok: true, character: nextCharacter, pet: sanctuaryItem.pet, version: written._saveVersion, action, replayed: false };
+                return { ok: true, character: nextCharacter, pet: returning, version: written._saveVersion, action, replayed: false };
             }
 
             if (carriedPet) return { ok: false, status: 409, error: 'pet-is-carried', message: 'Move this companion to the Sanctuary before releasing it.' };

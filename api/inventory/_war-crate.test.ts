@@ -6,6 +6,8 @@ import {
     applyWarCrateOpen,
     DUNGEON_KEY_ID,
     LEGENDARY_WAR_CRATE_ID,
+    WAR_CRATE_BONE_CHARMS,
+    WAR_CRATE_HONOR,
     WARFORGED_RELIC_ID,
 } from './_war-crate.js';
 
@@ -35,10 +37,23 @@ test('opening a stacked crate consumes one and grants the sealed Vanguard payout
     assert.equal(count(out.character, LEGENDARY_WAR_CRATE_ID), 1);
     assert.equal(count(out.character, WARFORGED_RELIC_ID), 1);
     assert.equal(count(out.character, DUNGEON_KEY_ID), 1);
-    assert.deepEqual(out.rewards, { ryo: 500, honorSeals: 10, boneCharms: 1, relic: true, dungeonKey: true });
+    assert.deepEqual(out.rewards, { ryo: 500, honorSeals: 25, boneCharms: 1, relic: true, dungeonKey: true });
     assert.equal(out.character.ryo, 600);
-    assert.equal(out.character.honorSeals, 12);
+    assert.equal(out.character.honorSeals, 27);
     assert.equal(out.character.boneCharms, 4);
+});
+
+test('crate Bone Charms are their own constant and do not follow the honor (2026-10 rebalance)', () => {
+    // The charm used to be floor(WAR_CRATE_HONOR / 8): raising the honor to 25
+    // would have tripled it. The rebalance raises only the seals.
+    assert.equal(WAR_CRATE_HONOR, 25);
+    assert.equal(WAR_CRATE_BONE_CHARMS, 1);
+    assert.notEqual(WAR_CRATE_BONE_CHARMS, Math.max(1, Math.floor(WAR_CRATE_HONOR / 8)));
+    for (const profession of ['vanguard', 'medic']) {
+        const out = applyWarCrateOpen(base({ profession }), 0.9);
+        assert.equal(out.ok, true);
+        if (out.ok) assert.equal(out.rewards.boneCharms, 1, profession);
+    }
 });
 
 test('legacy inventory crates are consumed and non-Vanguards receive no Honor Seals', () => {

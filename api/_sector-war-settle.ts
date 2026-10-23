@@ -51,6 +51,12 @@ import { recordWarEcoEvent } from './_war-telemetry.js';
 import { legacyEnabled, bumpLegacyStats } from './_legacy-track.js';
 import { announce } from './_announce.js';
 import { zeroSectorIntel } from './_village-intel.js';
+import { recordSectorWarPurseLedger, sweepSectorWarPurseLedgers } from './war/_sector-purse.js';
+
+/** The purse-ledger sweep runs at most this often per process (the 5-minute
+ *  settlement tick drives it; lazy endpoint calls in between skip it). */
+const PURSE_SWEEP_INTERVAL_MS = 4 * 60 * 1000;
+let lastPurseSweepAt = Number.NEGATIVE_INFINITY;
 
 /** World Herald copy for a settled war. Exported for the test. */
 export function sectorWarResolutionAnnouncement(
@@ -195,6 +201,10 @@ export async function settleDueSectorWars(now: number = Date.now()): Promise<Sec
                 attackerPoints: outcome.session.attackerPoints,
                 defenderPoints: outcome.session.defenderPoints,
             });
+            // The sector-war purse ledger (2026-10 rebalance), AFTER the verdict
+            // is durable: reward bookkeeping never holds a verdict back. Never
+            // throws; a failed write is retried by the sweep below.
+            await recordSectorWarPurseLedger(outcome.session);
             // Village Stores — Intel: a resolved war (either outcome) burns BOTH
             // sides' intel on the sector. Idempotent delete, best-effort, after the
             // war lock (api/_village-intel.ts).
@@ -250,6 +260,12 @@ export async function settleDueSectorWars(now: number = Date.now()): Promise<Sec
                 error: warEventError(error),
             }, contended ? 'warn' : 'error');
         }
+    }
+    // Ledgers this pass could not write, and abandoned wars (which settle on the
+    // Kage's order, outside this pass). Throttled; never throws.
+    if (now - lastPurseSweepAt >= PURSE_SWEEP_INTERVAL_MS) {
+        lastPurseSweepAt = now;
+        await sweepSectorWarPurseLedgers();
     }
     return settled;
 }

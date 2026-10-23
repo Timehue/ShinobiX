@@ -39,6 +39,7 @@ type ClientOpponent = {
 async function loadClientData(): Promise<{
     ECHOES_OPPONENTS: readonly ClientOpponent[];
     ECHOES_REWARD_DISPLAY: Record<string, number>;
+    echoesFirstDailyWinAvailable: (raw: unknown, now?: number) => boolean;
     ECHOES_SCENES: Readonly<Record<string, ClientScenes>>;
 }> {
     // Computed specifiers on purpose: tsx resolves them at runtime, but tsc does
@@ -51,6 +52,7 @@ async function loadClientData(): Promise<{
     const shell = (await import(shellSpecifier)) as {
         ECHOES_OPPONENTS: readonly ClientOpponent[];
         ECHOES_REWARD_DISPLAY: Record<string, number>;
+        echoesFirstDailyWinAvailable: (raw: unknown, now?: number) => boolean;
     };
     const scenes = (await import(scenesSpecifier)) as {
         ECHOES_SCENES: Readonly<Record<string, ClientScenes>>;
@@ -119,6 +121,9 @@ test('reward amounts match the handoff economy', () => {
     assert.equal(ECHOES_REWARDS.firstClearBonus, 35);
     assert.equal(ECHOES_REWARDS.bossFirstClearBonus, 50);
     assert.equal(ECHOES_REWARDS.basicPackCost, 100);
+    // Economy rebalance 2026-10: the day's first paid repeat win pays 15 + 35.
+    assert.equal(ECHOES_REWARDS.firstDailyWinBonus, 35);
+    assert.equal(ECHOES_REWARDS.repeatWinsPerDay, 10);
 });
 
 test('floors unlock strictly in order from a fresh record', () => {
@@ -141,23 +146,29 @@ test('floors unlock strictly in order from a fresh record', () => {
     assert.equal(echoesHighestUnlockedFloor(gap), 1);
 });
 
-test('victory settlement pays 50 on a first clear, 15 on a repeat, and 100 on the boss first clear', () => {
+test('victory settlement pays 50 on a first clear, 50 on the day\'s first repeat, 15 after, and 100 on the boss first clear', () => {
     const tovin = echoesEncounterById('echoes-1-tovin')!;
     const first = applyEchoesVictory({ chroniclePoints: 0 }, tovin, 1000, "recovered-ground");
     assert.equal(first.summary.points, 50);
     assert.equal(first.summary.firstClear, true);
     assert.equal(first.summary.bossBonus, 0);
+    assert.equal(first.summary.dailyFirstWinBonus, 0, 'a first clear never takes the daily bonus');
     assert.equal(first.summary.balance, 50);
     assert.equal(first.summary.unlockedFloor, 2);
     assert.equal(first.summary.battleBeat, "recovered-ground");
     assert.equal((first.character.chroniclePoints as number), 50);
 
     const repeat = applyEchoesVictory(first.character, tovin, 2000, "denied-attack");
-    assert.equal(repeat.summary.points, 15);
+    assert.equal(repeat.summary.points, 50, 'the first paid repeat win of the UTC day pays 15 + 35');
+    assert.equal(repeat.summary.basePoints, 15);
+    assert.equal(repeat.summary.dailyFirstWinBonus, 35);
     assert.equal(repeat.summary.firstClear, false);
-    assert.equal(repeat.summary.balance, 65);
+    assert.equal(repeat.summary.balance, 100);
     assert.equal(repeat.summary.unlockedFloor, null);
     assert.equal(repeat.summary.wins, 2);
+    const again = applyEchoesVictory(repeat.character, tovin, 3000);
+    assert.equal(again.summary.points, 15);
+    assert.equal(again.summary.dailyFirstWinBonus, 0);
     // The first-clear stamp never moves on later wins.
     const record = echoesProgressOf(repeat.character);
     assert.equal(record['echoes-1-tovin']!.firstClearAt, 1000);
@@ -201,6 +212,20 @@ test('client display data mirrors the server encounter table exactly', async () 
     assert.equal(client.ECHOES_REWARD_DISPLAY.bossFirstClearBonus, ECHOES_REWARDS.bossFirstClearBonus);
     assert.equal(client.ECHOES_REWARD_DISPLAY.basicPackCost, ECHOES_REWARDS.basicPackCost);
     assert.equal(client.ECHOES_REWARD_DISPLAY.repeatWinsPerDay, ECHOES_REWARDS.repeatWinsPerDay);
+    assert.equal(client.ECHOES_REWARD_DISPLAY.firstDailyWinBonus, ECHOES_REWARDS.firstDailyWinBonus);
+});
+
+test('the client reads the same first-win-of-the-day state the server pays on', async () => {
+    const client = await loadClientData();
+    const tovin = echoesEncounterById('echoes-1-tovin')!;
+    const day = Date.UTC(2026, 9, 20, 9);
+    const cleared = applyEchoesVictory({ chroniclePoints: 0 }, tovin, day);
+    assert.equal(client.echoesFirstDailyWinAvailable(cleared.character.echoesOfWar, day), true, 'a first clear leaves the bonus up');
+    const paid = applyEchoesVictory(cleared.character, tovin, day + 1);
+    assert.equal(paid.summary.dailyFirstWinBonus, ECHOES_REWARDS.firstDailyWinBonus);
+    assert.equal(client.echoesFirstDailyWinAvailable(paid.character.echoesOfWar, day + 2), false, 'spent for the day');
+    assert.equal(client.echoesFirstDailyWinAvailable(paid.character.echoesOfWar, day + 24 * 60 * 60 * 1000), true, 'back the next UTC day');
+    assert.equal(client.echoesFirstDailyWinAvailable(undefined, day), true);
 });
 
 test('every scene stays inside the handoff beat budget and every art asset exists', async () => {
@@ -239,16 +264,47 @@ test('repeat wins pay for the first ten each UTC day; first clears always pay (o
     character = first.character;
     for (let i = 0; i < ECHOES_REWARDS.repeatWinsPerDay; i += 1) {
         const won = applyEchoesVictory(character, tovin, day1 + i + 1);
-        assert.equal(won.summary.points, ECHOES_REWARDS.repeatWin, `paid repeat win ${i + 1}`);
+        const expected = ECHOES_REWARDS.repeatWin + (i === 0 ? ECHOES_REWARDS.firstDailyWinBonus : 0);
+        assert.equal(won.summary.points, expected, `paid repeat win ${i + 1}`);
         character = won.character;
     }
     const capped = applyEchoesVictory(character, tovin, day1 + 100);
     assert.equal(capped.summary.points, 0, 'the eleventh repeat win of the day pays nothing');
+    assert.equal(capped.summary.dailyFirstWinBonus, 0, 'and carries no bonus');
     assert.equal(capped.summary.repeatWinsLeftToday, 0);
     assert.equal(capped.summary.wins, ECHOES_REWARDS.repeatWinsPerDay + 2, 'it still counts as a win');
-    assert.equal(capped.character.chroniclePoints, (first.character.chroniclePoints as number) + ECHOES_REWARDS.repeatWin * ECHOES_REWARDS.repeatWinsPerDay);
+    assert.equal(capped.character.chroniclePoints, (first.character.chroniclePoints as number)
+        + ECHOES_REWARDS.repeatWin * ECHOES_REWARDS.repeatWinsPerDay + ECHOES_REWARDS.firstDailyWinBonus);
     assert.deepEqual(echoesProgressOf(capped.character)[tovin.id]?.wins, capped.summary.wins, 'the daily counter does not disturb encounter progress');
 
     const nextDay = applyEchoesVictory(capped.character, tovin, day1 + 24 * 60 * 60 * 1000);
-    assert.equal(nextDay.summary.points, ECHOES_REWARDS.repeatWin, 'the allowance resets at the next UTC day');
+    assert.equal(nextDay.summary.points, ECHOES_REWARDS.repeatWin + ECHOES_REWARDS.firstDailyWinBonus,
+        'the allowance and the first-win bonus reset at the next UTC day');
+});
+
+test('a first clear neither earns nor consumes the daily first-win bonus', () => {
+    const tovin = echoesEncounterById('echoes-1-tovin')!;
+    const vetta = echoesEncounterById('echoes-2-vetta')!;
+    const day = Date.UTC(2026, 9, 18, 8);
+    const clearOne = applyEchoesVictory({ chroniclePoints: 0 }, tovin, day);
+    assert.equal(clearOne.summary.points, 50);
+    // A second first clear the same day still pays only its first-clear total.
+    const clearTwo = applyEchoesVictory(clearOne.character, vetta, day + 1);
+    assert.equal(clearTwo.summary.points, ECHOES_REWARDS.repeatWin + ECHOES_REWARDS.firstClearBonus);
+    assert.equal(clearTwo.summary.dailyFirstWinBonus, 0);
+    const repeat = applyEchoesVictory(clearTwo.character, tovin, day + 2);
+    assert.equal(repeat.summary.points, 50, 'the bonus waits for the first repeat win');
+    const second = applyEchoesVictory(repeat.character, vetta, day + 3);
+    assert.equal(second.summary.points, 15);
+});
+
+test('the first-win bonus keys on the UTC day of the settlement time', () => {
+    const tovin = echoesEncounterById('echoes-1-tovin')!;
+    const cleared = applyEchoesVictory({ chroniclePoints: 0 }, tovin, Date.UTC(2026, 9, 18, 12));
+    const lateNight = applyEchoesVictory(cleared.character, tovin, Date.UTC(2026, 9, 18, 23, 59, 59));
+    assert.equal(lateNight.summary.points, 50);
+    const justAfter = applyEchoesVictory(lateNight.character, tovin, Date.UTC(2026, 9, 19, 0, 0, 1));
+    assert.equal(justAfter.summary.points, 50, 'two seconds later is a new UTC day');
+    const thatDay = applyEchoesVictory(justAfter.character, tovin, Date.UTC(2026, 9, 19, 0, 0, 2));
+    assert.equal(thatDay.summary.points, 15);
 });

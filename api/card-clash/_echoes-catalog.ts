@@ -35,6 +35,11 @@ export const ECHOES_REWARDS = Object.freeze({
     /** Repeat (non-first-clear) wins that pay `repeatWin` per UTC day (owner
      *  ruling 2026-10-15). First clears always pay. 10 × 15 = 150 points/day. */
     repeatWinsPerDay: 10,
+    /** Extra points on the first PAID repeat win of each UTC day (economy
+     *  rebalance 2026-10): 15 + 35 = 50, so a one-duel day funds a Basic pack
+     *  every two days. It reuses the `_daily` counter (`paid === 0` before this
+     *  win); first clears neither earn nor consume it. Daily max 185. */
+    firstDailyWinBonus: 35,
 });
 
 /** Where the daily repeat-win counter lives inside the server-owned
@@ -234,12 +239,14 @@ export function echoesFloorUnlocked(progress: EchoesProgress, floor: number): bo
 export interface EchoesVictorySummary {
     encounterId: string;
     floor: number;
-    /** Total Chronicle Points credited (base + first-clear + boss bonus). */
+    /** Total Chronicle Points credited (base + first-clear + boss + first-win-of-the-day bonus). */
     points: number;
     basePoints: number;
     firstClear: boolean;
     firstClearBonus: number;
     bossBonus: number;
+    /** ECHOES_REWARDS.firstDailyWinBonus when this was the day's first paid repeat win, else 0. */
+    dailyFirstWinBonus: number;
     wins: number;
     balance: number;
     unlockedFloor: number | null;
@@ -270,7 +277,8 @@ export function applyEchoesVictory(
     const basePoints = repeatPays ? ECHOES_REWARDS.repeatWin : 0;
     const firstClearBonus = firstClear ? ECHOES_REWARDS.firstClearBonus : 0;
     const bossBonus = firstClear && def.isBoss ? ECHOES_REWARDS.bossFirstClearBonus : 0;
-    const points = basePoints + firstClearBonus + bossBonus;
+    const dailyFirstWinBonus = !firstClear && repeatPays && daily.paid === 0 ? ECHOES_REWARDS.firstDailyWinBonus : 0;
+    const points = basePoints + firstClearBonus + bossBonus + dailyFirstWinBonus;
     const wins = prior.wins + 1;
     const nextProgress: EchoesProgress = {
         ...progress,
@@ -289,7 +297,7 @@ export function applyEchoesVictory(
         character: { ...character, chroniclePoints: balance, echoesOfWar: { ...nextProgress, [ECHOES_DAILY_KEY]: nextDaily } },
         summary: {
             encounterId: def.id, floor: def.floor, points, basePoints, firstClear,
-            firstClearBonus, bossBonus, wins, balance, unlockedFloor,
+            firstClearBonus, bossBonus, dailyFirstWinBonus, wins, balance, unlockedFloor,
             repeatWinsLeftToday: Math.max(0, ECHOES_REWARDS.repeatWinsPerDay - nextDaily.paid),
             battleBeat: normalizeEchoesBattleBeat(battleBeat),
         },

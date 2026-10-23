@@ -14,6 +14,7 @@ import {
     isStackableId,
     MAX_ITEM_STACK,
 } from "./inventory";
+import { STACKED_MATERIAL_IDS } from "../../../shared/stacked-materials";
 
 // Minimal character: the helpers only read/write inventory + itemStacks.
 function mk(inventory: string[] = [], itemStacks?: { itemId: string; count: number }[]): Character {
@@ -185,6 +186,30 @@ describe("inventory — normalizeInventory (migration)", () => {
         const norm = normalizeInventory(mixed);
         assert.deepEqual(norm.inventory, []);
         assert.deepEqual(norm.itemStacks, [{ itemId: STACK, count: 3 }]);
+    });
+
+    it("folds hunt materials and the Weekly Boss Core into stacks on load (owner ruling A12)", () => {
+        for (const id of STACKED_MATERIAL_IDS) assert.equal(isStackableId(id), true, id);
+        const legacy = mk([GEAR, ...Array(7).fill("hunt-legendary-material"), "weekly-boss-core", ...Array(3).fill("hunt-torn-hide")],
+            [{ itemId: "hunt-legendary-material", count: 5 }]);
+        let current = normalizeInventory(legacy);
+        assert.deepEqual(current.inventory, [GEAR]);
+        for (let load = 0; load < 5; load++) current = normalizeInventory(current);
+        assert.equal(countItem(current, "hunt-legendary-material"), 12);
+        assert.equal(countItem(current, "weekly-boss-core"), 1);
+        assert.equal(countItem(current, "hunt-torn-hide"), 3);
+        assert.equal(totalItemCount(current), totalItemCount(legacy), "repeated loads never create or drop a unit");
+        // A hunt grant on the client lands in the stack too.
+        assert.deepEqual(addItem(mk(), "hunt-titan-bone", 2).itemStacks, [{ itemId: "hunt-titan-bone", count: 2 }]);
+    });
+
+    it("keeps a copy that would overflow a full stack in inventory[] instead of clamping it away", () => {
+        const full = mk([STACK, STACK], [{ itemId: STACK, count: MAX_ITEM_STACK - 1 }]);
+        const norm = normalizeInventory(full);
+        assert.deepEqual(norm.inventory, [STACK]);
+        assert.deepEqual(norm.itemStacks, [{ itemId: STACK, count: MAX_ITEM_STACK }]);
+        assert.equal(countItem(norm, STACK), MAX_ITEM_STACK + 1);
+        assert.deepEqual(normalizeInventory(norm), norm);
     });
 });
 

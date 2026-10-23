@@ -11,6 +11,8 @@ import { TOURNAMENT_MODES, TOURNAMENT_WINDOW_MS, type Tournament, type Tournamen
 import { loadTowerPvpFighter, readTowerPvpMatch } from '../towers/_pvp-store.js';
 import { projectTowerPvpMatchForViewer } from '../towers/_pvp-session.js';
 import { settleTowerPvpMatch } from '../towers/_pvp-lifecycle.js';
+import { settleTowerPvpPurse, towerPvpPurseReply } from '../towers/_pvp-purse.js';
+import type { StoredTowerPvpMatch } from '../towers/_pvp-session.js';
 import { sealChallengedPets } from '../pet/_pvp-duel.js';
 import { replayFromOpposingSide } from '../_pet-showdown/_viewer-replay.js';
 import { TOURNAMENT_KEY, tournamentLock, readTournament, progressTournament, tickTournaments, cancelTournament,
@@ -63,6 +65,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const body = (typeof req.body === 'string' ? JSON.parse(req.body) : req.body ?? {}) as Record<string, unknown>;
         const action = String(body.action ?? '');
         if (['create', 'cancel'].includes(action) && !isFullAdmin(req)) fail(403, 'Only a full administrator can manage tournaments.');
+        // A settled match's purse is credited after the tournament lock is
+        // released, so the save lock never nests inside it.
+        const purseFor: { match?: StoredTowerPvpMatch } = {};
         const result = await tournamentLock(async () => {
             let event = await readTournament();
             if (event && action !== 'cancel') await progressTournament(event);
@@ -143,7 +148,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             const settled = await settleTowerPvpMatch(match!.battleId, playerId, {}, 'tournament');
                             if (!settled.ok) fail(settled.status, settled.error);
                             if (!archived) await progressTournament(current);
-                            if (settled.ok) return { ...settled.response, match: projectTowerPvpMatchForViewer(settled.response.match, playerId) };
+                            if (settled.ok) {
+                                purseFor.match = settled.response.match;
+                                return { ...settled.response, match: projectTowerPvpMatchForViewer(settled.response.match, playerId) };
+                            }
                         }
                         if (action === 'battle') {
                             const battle = await readTowerPvpMatch(match!.battleId);
@@ -160,6 +168,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             await kv.set(TOURNAMENT_KEY, event);
             return { event, serverNow: Date.now(), playerId };
         });
+        // Tournament match purse (owner amendment A7): the acknowledgement above
+        // writes no save; the winner's purse is its own receipted credit, and a
+        // repeat settle retries it without paying twice.
+        if (purseFor.match && playerId) {
+            const purse = await settleTowerPvpPurse(purseFor.match, playerId);
+            if (purse) return res.status(200).json({ ...result, ...towerPvpPurseReply(purse) });
+        }
         return res.status(200).json(result);
     } catch (error) {
         if (error instanceof TournamentError) return res.status(error.status).json({ error: error.message });

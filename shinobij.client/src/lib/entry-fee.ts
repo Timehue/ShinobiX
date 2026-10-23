@@ -9,6 +9,7 @@
  * (or pet-win / tower-XP) daily counters.
  */
 import type { Character } from "../types/character";
+import { petGauntletRyoSchedule } from "../../../shared/pet-gauntlet-economy";
 
 function todayKey(): string {
     return new Date().toISOString().slice(0, 10);
@@ -38,6 +39,9 @@ export function battleEntryCost(character: Character): number {
 }
 
 // ── Pet Gauntlet ─────────────────────────────────────────────────────────────
-// The first run each UTC day is free; every later server-minted run costs this
-// flat amount. The server owns the counter and debit.
-export const GAUNTLET_NEW_RUN_FEE = 1500;
+// The first run each UTC day is free; every later server-minted run costs the
+// level's entry fee: 1,500 from L70, scaled by A(L) below that. The server owns
+// the counter and debit.
+export function gauntletNewRunFee(character: Pick<Character, "level">): number {
+    return petGauntletRyoSchedule(character.level).entryFee;
+}

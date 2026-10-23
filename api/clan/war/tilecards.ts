@@ -12,6 +12,8 @@ import {
 import { awardWarEndClanXp } from './_war-xp.js';
 import { awardFinalizedWarPoints } from './_war-points.js';
 import { resolveChronicleDeckWithSave, type ChronicleDeckResolution } from '../../card-clash/_deck.js';
+import { recordFreePlayParticipation, type FreePlayParticipation } from '../../card-clash/_freeplay-legacy.js';
+import { cardCpReply, ensureCardPvpCpCredit, settleCardCpCredit, type CardCpCommitted, type CardCpCredit } from '../../card-clash/_card-cp.js';
 import {
     CHRONICLE_RULES_VERSION, advanceExpiredChronicleTurn, applyAction, createMatch,
     projectMatchForViewer,
@@ -24,8 +26,29 @@ type Session = {
     rulesVersion: typeof CHRONICLE_RULES_VERSION; warId: string; challengeId: string;
     p1Name: string; p1Clan: string; p1Deck: string[]; p2Name?: string; p2Clan?: string; p2Deck?: string[];
     state?: ChronicleMatch; status: 'awaiting-p2' | 'active' | 'done'; createdAt: number; updatedAt: number;
+    /** Who played the duel out, by the free-play rules (api/card-clash/_freeplay-legacy.ts). */
+    participation?: FreePlayParticipation;
+    /** Chronicle Point outbox for the two duelists (api/card-clash/_card-cp.ts). */
+    cpCredit?: CardCpCredit;
 };
 const sessionKey = (id: string) => `cw-tilecards:${id}`;
+/** One duel per session row: a challenge whose row expired and was re-dealt is a new duel. */
+const pointsReceiptId = (session: Session) => `card-pvp:cw:${session.challengeId}:${session.createdAt}`;
+/** Pay (or retry) the finished duel's Chronicle Points. Idempotent; persists the row when it moved. */
+async function settlePoints(session: Session): Promise<CardCpCommitted> {
+    if (session.status !== 'done') return {};
+    const prepared = ensureCardPvpCpCredit(session, pointsReceiptId(session), 'war');
+    const points = await settleCardCpCredit(session.cpCredit);
+    if (prepared || points.changed) await kv.set(sessionKey(session.challengeId), session, { ex: SESSION_TTL_SEC });
+    return points.committed;
+}
+/** The viewer's Chronicle Point result, and their fresh save once after it committed. */
+async function pointsReply(session: Session, viewer: string, admin: boolean, committed?: CardCpCommitted): Promise<Record<string, unknown>> {
+    if (session.status !== 'done') return {};
+    const reply = await cardCpReply(session.cpCredit, viewer, { committed, deliver: !admin });
+    if (reply.changed) await kv.set(sessionKey(session.challengeId), session, { ex: SESSION_TTL_SEC });
+    return reply.body;
+}
 function submittedIds(value: unknown): string[] { if (!Array.isArray(value)) return []; return value.flatMap((entry) => typeof entry === 'string' ? [entry] : entry && typeof entry === 'object' && typeof (entry as { id?: unknown }).id === 'string' ? [String((entry as { id: string }).id)] : []); }
 function index(value: unknown): number | undefined { const n = Number(value); return Number.isFinite(n) ? Math.floor(n) : undefined; }
 // Deck resolution WRITES the player's save (starter grants + the approved deck)
@@ -46,10 +69,10 @@ function winnerResult(session: Session, challenge: { fromClan: string }): Challe
     const clan = winner === 'p1' ? session.p1Clan : session.p2Clan;
     return clan === challenge.fromClan ? 'from-wins' : 'to-wins';
 }
-async function persistAndFinalize(session: Session) {
+async function persistAndFinalize(session: Session): Promise<CardCpCommitted> {
     await kv.set(sessionKey(session.challengeId), session, { ex: SESSION_TTL_SEC });
     await syncCardDuelPresence(kv, sessionKey(session.challengeId), session, SESSION_TTL_SEC); // F01
-    if (session.status !== 'done' || !session.state?.winner) return;
+    if (session.status !== 'done' || !session.state?.winner) return {};
     const warKey = `clan-war:${session.warId}`;
     const finalized = await withKvLock(warKey, async () => {
         const fresh = await kv.get<ClanWar>(warKey); if (!fresh) return null;
@@ -65,6 +88,8 @@ async function persistAndFinalize(session: Session) {
         if (finalized.war.campaign) await awardFinalizedWarPoints({war:finalized.war,challenge:finalized.completed},'');
         if (finalized.warJustEnded) await awardWarEndClanXp(finalized.war).catch((error) => console.error('[clan/war/tilecards] clan-xp award failed', error));
     }
+    // The duel's own Chronicle Points, whatever the war made of the result.
+    return settlePoints(session);
 }
 // The shared clock: passes expired turns, and forfeits a duelist who misses two
 // in a row (shared/chronicle-duel.ts advanceExpiredChronicleTurn). The war then
@@ -73,7 +98,10 @@ function advanceTimeout(session: Session, now: number): boolean {
     if (!session.state || session.state.status !== 'active') return false;
     const state = advanceExpiredChronicleTurn(session.state, now);
     if (state === session.state) return false;
-    session.state = state; session.status = state.status === 'complete' ? 'done' : 'active'; session.updatedAt = now; return true;
+    session.state = state; session.status = state.status === 'complete' ? 'done' : 'active'; session.updatedAt = now;
+    // A clock ending (the two-miss walk-out forfeit) is not a played duel.
+    if (session.status === 'done' && session.participation) session.participation.endedBy = 'timeout';
+    return true;
 }
 /** Campaign closure drives the same authoritative clock even when duelists disconnect. */
 export async function reconcileClanWarCardDuel(challengeId: string, now = Date.now()): Promise<Session | null> {
@@ -104,7 +132,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // A duelist's (or an admin's) request keeps what the clock settled even when that request is refused below.
             // Nobody else moves a duel's clock: their requests are refused and write nothing. A state poll persists it itself.
             if (session && autoAdvanced && action !== 'state' && (viewer || identity.admin)) await persistAndFinalize(session);
-            if (action === 'state') { if (!session) return {status:404 as const,body:{error:'No duel session yet.'}}; if (!viewer && !identity.admin) return {status:403 as const,body:{error:'Only duelists may inspect this duel.'}}; if (autoAdvanced) await persistAndFinalize(session); const side = viewer ?? 'p1'; return {status:200 as const,body:{session:session.state?projectMatchForViewer(session.state,side):{rulesVersion:CHRONICLE_RULES_VERSION,status:session.status,viewerSide:side}}}; }
+            if (action === 'state') { if (!session) return {status:404 as const,body:{error:'No duel session yet.'}}; if (!viewer && !identity.admin) return {status:403 as const,body:{error:'Only duelists may inspect this duel.'}}; const committed = autoAdvanced ? await persistAndFinalize(session) : await settlePoints(session); const points = await pointsReply(session, me, identity.admin, committed); const side = viewer ?? 'p1'; return {status:200 as const,body:{...points,session:session.state?projectMatchForViewer(session.state,side):{rulesVersion:CHRONICLE_RULES_VERSION,status:session.status,viewerSide:side}}}; }
             if (action === 'join' || action === 'submit-deck') {
                 const war = await kv.get<ClanWar>(`clan-war:${warId}`); if (!war) return {status:404 as const,body:{error:'War not found.'}};
                 const challenge = war.pendingChallenges.find((item)=>item.id===challengeId); if (!challenge) return {status:404 as const,body:{error:'Challenge not found.'}};
@@ -120,11 +148,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if(!session){session={rulesVersion:CHRONICLE_RULES_VERSION,warId,challengeId,p1Name:me,p1Clan:clan,p1Deck:deck,status:'awaiting-p2',createdAt:now,updatedAt:now};await kv.set(sessionKey(challengeId),session,{ex:SESSION_TTL_SEC});await syncCardDuelPresence(kv,sessionKey(challengeId),session,SESSION_TTL_SEC);return{status:200 as const,body:{...version,session:{rulesVersion:CHRONICLE_RULES_VERSION,status:session.status,viewerSide:'p1'}}};}
                 if(safeName(session.p1Name)===safeName(me)||session.p2Name&&safeName(session.p2Name)===safeName(me)){const side=safeName(session.p1Name)===safeName(me)?'p1':'p2';return{status:200 as const,body:{...version,session:session.state?projectMatchForViewer(session.state,side):{rulesVersion:CHRONICLE_RULES_VERSION,status:session.status,viewerSide:side}}};}
                 if(session.status!=='awaiting-p2'||session.p1Clan===clan)return{status:403 as const,body:{error:'The opposing seat is unavailable.'}};
-                session.p2Name=me;session.p2Clan=clan;session.p2Deck=deck;session.state=createMatch(session.p1Name,session.p1Deck,me,deck,Math.random,now);session.status='active';session.updatedAt=now;await kv.set(sessionKey(challengeId),session,{ex:SESSION_TTL_SEC});await syncCardDuelPresence(kv,sessionKey(challengeId),session,SESSION_TTL_SEC);return{status:200 as const,body:{...version,session:projectMatchForViewer(session.state,'p2')}};
+                session.p2Name=me;session.p2Clan=clan;session.p2Deck=deck;session.state=createMatch(session.p1Name,session.p1Deck,me,deck,Math.random,now);session.status='active';session.participation={startedAt:now,p1Actions:0,p2Actions:0};session.updatedAt=now;await kv.set(sessionKey(challengeId),session,{ex:SESSION_TTL_SEC});await syncCardDuelPresence(kv,sessionKey(challengeId),session,SESSION_TTL_SEC);return{status:200 as const,body:{...version,session:projectMatchForViewer(session.state,'p2')}};
             }
             if(!session||!session.state)return{status:404 as const,body:{error:'No active duel session.'}}; const side=viewer??(identity.admin?(body.side==='p2'?'p2':'p1'):null); if(!side)return{status:403 as const,body:{error:'Only the two duelists can act.'}};
-            if(!ACTIONS.has(action))return{status:400 as const,body:{error:`Unknown action: ${action}`}}; const applied=applyAction(session.state,side,actionIntent(body,action),now);if(!applied.ok)return{status:400 as const,body:{error:applied.error}};
-            session.state=applied.state;session.status=applied.state.status==='complete'?'done':'active';session.updatedAt=now;await persistAndFinalize(session);return{status:200 as const,body:{session:projectMatchForViewer(session.state,side)}};
+            if(!ACTIONS.has(action))return{status:400 as const,body:{error:`Unknown action: ${action}`}}; const requested=actionIntent(body,action); const applied=applyAction(session.state,side,requested,now);if(!applied.ok)return{status:400 as const,body:{error:applied.error}};
+            session.state=applied.state;session.status=applied.state.status==='complete'?'done':'active';session.updatedAt=now;
+            session.participation=recordFreePlayParticipation(session.participation??{startedAt:now,p1Actions:0,p2Actions:0},side,requested.action,session.status==='done');
+            const committed=await persistAndFinalize(session);const points=await pointsReply(session,me,identity.admin,committed);return{status:200 as const,body:{...points,session:projectMatchForViewer(session.state,side)}};
         },{failClosed:true}); return res.status(result.status).json(result.body);
     } catch(error){console.error('[clan/war/tilecards]',error);return res.status(500).json({error:'Internal server error.'});}
 }

@@ -14,6 +14,7 @@ import type { Character } from "../types/character";
 import { comebackCostMultiplier } from "./village-stores";
 import { fetchWarMap, WarMapRequestError, type WarMapResponse } from "./village-war-map";
 import { postVillageWarUpdate, villageWarCrateEarnedBy, type VillageWarRecord } from "./world-state";
+import { VILLAGE_WAR_REWARD_MIN_DURATION_HOURS } from "../../../shared/village-war-reward-floor";
 
 /** Mirrors api/_war-economy.ts DECLARE_WAR_WR: a declaration's full price. */
 export const VILLAGE_WAR_DECLARE_WR = 800;
@@ -149,14 +150,20 @@ export function villageWarPeaceView(war: Pick<VillageWarRecord, "peaceProposals"
     return { ourOfferAt, enemyOfferAt, peaceCommand: "propose-peace", peaceLabel: enemyOfferAt ? "Accept peace" : "Propose peace" };
 }
 
+/** The agreement floor (2026-10 rebalance, I-5), named the way the server applies
+ *  it: a surrender or agreed peace before this much live war pays no rewards. */
+export function warAgreementFloorNote(): string {
+    return `A war ended by surrender or peace before ${VILLAGE_WAR_REWARD_MIN_DURATION_HOURS} hours of fighting pays no crates, war purses or MVP rewards to either side.`;
+}
+
 /** The surrender confirmation: it must say plainly that this is a loss. */
 export function warSurrenderConfirmText(myVillage: string, enemyVillage: string): string {
-    return `Surrender to ${enemyVillage}? The war ends now as a LOSS for ${myVillage}. ${enemyVillage} wins: it takes spoils from our village treasury, and its fighters earn Legendary War Crates. This cannot be undone.`;
+    return `Surrender to ${enemyVillage}? The war ends now as a LOSS for ${myVillage}. ${enemyVillage} wins: it takes spoils from our village treasury, and its fighters earn Legendary War Crates. ${warAgreementFloorNote()} This cannot be undone.`;
 }
 
 /** The confirmation for accepting the enemy's standing peace offer. */
 export function warAcceptPeaceConfirmText(enemyVillage: string): string {
-    return `Accept ${enemyVillage}'s peace offer? The war ends now with no winner: no spoils and no winner's crates for either side.`;
+    return `Accept ${enemyVillage}'s peace offer? The war ends now with no winner: no spoils and no winner's crates for either side. ${warAgreementFloorNote()}`;
 }
 
 /** A war row from a server reply, or null when the reply carried none. */

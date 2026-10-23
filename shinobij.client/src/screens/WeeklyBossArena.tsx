@@ -327,6 +327,14 @@ export function WeeklyBossArena({
     const myRank = sortedEntries.findIndex(([n]) => n === myKey);
     const myRankDisplay = myRank >= 0 ? myRank + 1 : null;
     const mySummary = bossState.distributionSummary?.find(e => e.name === myKey);
+    // The server sends its live per-contributor ryo caps (api/weekly-boss.ts
+    // publicWeeklyBossState), so the copy quotes what the payout will apply.
+    const rewardCaps = bossState.rewardCaps;
+    const mySummaryRyoNote = !mySummary
+        ? ""
+        : mySummary.ryoCappedAt !== undefined
+            ? ` (${mySummary.isMvp ? "MVP, " : ""}capped at ${mySummary.ryoCappedAt.toLocaleString()})`
+            : mySummary.isMvp ? " (MVP ×2 ryo)" : "";
     const myRewardConfirmed = weeklyBossRewardConfirmed(bossState, character.name);
     // Server caps the player at 3 arena attempts per boss spawn. Show the
     // counter prominently so the player knows when they're about to burn
@@ -428,7 +436,12 @@ export function WeeklyBossArena({
                 <div><GiTrophy style={WB_ICON} /><strong>Rewards at despawn</strong></div>
                 <div>· Top 10 by damage → <strong style={{ color: "var(--gold)" }}>1 Weekly Boss Core</strong> each</div>
                 <div>· Top 25 by damage → <strong style={{ color: "var(--blue-400)" }}>1 Dungeon Key</strong> each</div>
-                <div>· Every contributor → a ryo share by damage + 10 stat points (MVP = top 1 gets <strong>×2</strong> ryo)</div>
+                <div>
+                    · Every contributor → a ryo share by damage
+                    {rewardCaps ? <>, up to <strong>{rewardCaps.playerRyo.toLocaleString()}</strong> ryo</> : null}
+                    {" "}+ 10 stat points (MVP = top 1 gets <strong>×2</strong>
+                    {rewardCaps ? <>, up to <strong>{rewardCaps.mvpRyo.toLocaleString()}</strong></> : null})
+                </div>
                 <div>· Every contributor → a 5% chance of an <strong style={{ color: "var(--gold)" }}>upgrade gear piece</strong>, a weapon or armor a little stronger than your tier</div>
                 <div style={{ marginTop: 4, color: "var(--text-dim)" }}>
                     {roaming
@@ -551,7 +564,7 @@ export function WeeklyBossArena({
                 <div style={{ background: "rgba(15,118,110,0.18)", border: "1px solid rgba(74,222,128,0.4)", borderRadius: 6, padding: "0.6rem 0.8rem", margin: "0.8rem 0 0.4rem", fontSize: "0.85rem" }}>
                     <strong style={{ color: "var(--green-400)" }}>{myRewardConfirmed ? "✓ Weekly reward delivery confirmed." : "Reward delivery pending."}</strong> {myRewardConfirmed ? "Weekly reward allocation:" : "Scheduled reward:"}
                     <ul style={{ margin: "4px 0 0 18px" }}>
-                        <li>+{mySummary.ryo.toLocaleString()} ryo · +10 stat points{mySummary.isMvp ? " (MVP ×2 ryo)" : ""}</li>
+                        <li>+{mySummary.ryo.toLocaleString()} ryo · +10 stat points{mySummaryRyoNote}</li>
                         {mySummary.gotCore && <li>+1 Weekly Boss Core (top 10)</li>}
                         {mySummary.gotKey && <li>+1 Dungeon Key (top 25)</li>}
                         {myRewardConfirmed && <li>Check Inventory for any additional item drops. Weekly Boss rewards are paid once per week.</li>}
@@ -577,6 +590,8 @@ type WeeklyBossRewardEntry = {
     gotKey: boolean;
     /** Sealed by the server with the summary; absent on payouts made before gear drops. */
     gotGear?: boolean;
+    /** The per-contributor cap that clipped `ryo`; absent when the share was under it. */
+    ryoCappedAt?: number;
     isMvp: boolean;
 };
 
@@ -599,6 +614,8 @@ type WeeklyBossState = {
     creditedPlayers?: string[];
     distributedAt?: number;
     distributionSummary?: WeeklyBossRewardEntry[];
+    /** The server's live per-contributor ryo caps (absent from an older server). */
+    rewardCaps?: { playerRyo: number; mvpRyo: number };
     // Legacy fields — kept for type-compat with pre-despawn state shapes.
     lastKillRewardedAt?: number;
     killRewardedTo?: string[];

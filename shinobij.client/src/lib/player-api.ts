@@ -93,7 +93,7 @@ export async function postHollowGateUnlock(playerName: string, village: string):
 export type KageChallengeDeclareReply = { ok?: boolean; error?: string; challenge?: unknown; character?: Character; _saveVersion?: number };
 
 // Declare a Kage challenge (api/village/kage-challenge.ts action "declare").
-// The 250,000-ryo stake carries a retained requestId, so a retry after a
+// The Kage stake carries a retained requestId, so a retry after a
 // lost answer finishes or replays the first declaration, never stakes twice.
 export async function postKageChallengeDeclare(playerName: string, village: string): Promise<{ ok: boolean; data: KageChallengeDeclareReply }> {
     const intent = pendingEconomyIntent("kage-challenge-declare", stakeIntentParts(playerName, village));

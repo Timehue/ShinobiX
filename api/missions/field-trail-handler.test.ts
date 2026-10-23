@@ -18,12 +18,15 @@ let progressHandler: Handler;
 let claimHandler: Handler;
 let raidStartHandler: Handler;
 let settleRaidProgression: typeof import('./_raid-progression.js').settleRaidProgression;
+// fetch-d at an unboosted L1 player pays its catalog ryo (framework #18 re-anchor).
+let fetchDRyo: number;
 
 before(async () => {
     ({ kv } = await import('../_storage.js'));
     ({ issuePlayerToken } = await import('../_auth.js'));
     ({ onlineStore } = await import('../_realtime/online-store.js'));
     ({ settleRaidProgression } = await import('./_raid-progression.js'));
+    fetchDRyo = (await import('./_mission-catalog.js')).fieldMissionById(MISSION_ID)!.ryoReward;
     trailHandler = (await import('./field-trail.js')).default as unknown as Handler;
     progressHandler = (await import('./record-progress.js')).default as unknown as Handler;
     claimHandler = (await import('./claim-mission.js')).default as unknown as Handler;
@@ -38,6 +41,7 @@ beforeEach(async () => {
         'legacy:stats:fieldtrail*',
         'ratelimit:*fieldtrail*',
         'lock:*fieldtrail*',
+        'combat-stat-count:fieldtrail*',
     ]) {
         const keys = await kv.keys(pattern);
         if (keys.length) await kv.del(...keys);
@@ -321,16 +325,16 @@ describe('authoritative field mission lifecycle', () => {
         const claim = await post(claimHandler, player, { missionType: 'field', missionId: MISSION_ID });
         assert.equal(claim.statusCode, 200, JSON.stringify(claim.body));
         assert.equal(claim.body?.applied, true);
-        assert.equal((claim.body?.reward as Record<string, unknown>).ryo, 75);
+        assert.equal((claim.body?.reward as Record<string, unknown>).ryo, fetchDRyo);
         const paid = claim.body?.character as Record<string, unknown>;
-        assert.equal(paid.ryo, 125);
+        assert.equal(paid.ryo, 50 + fetchDRyo);
         assert.deepEqual(paid.serverFieldMissionRuns, {});
 
         const replay = await post(claimHandler, player, { missionType: 'field', missionId: MISSION_ID });
         assert.equal(replay.body?.applied, false, JSON.stringify(replay.body));
         assert.match(String(replay.body?.reason), /already-claimed|not-accepted/);
         const afterReplay = await kv.get<Record<string, unknown>>(`save:${player}`);
-        assert.equal((afterReplay?.character as Record<string, unknown>).ryo, 125);
+        assert.equal((afterReplay?.character as Record<string, unknown>).ryo, 50 + fetchDRyo);
 
         const reaccepted = await post(trailHandler, player, { missionId: MISSION_ID, action: 'accept' });
         assert.equal(reaccepted.statusCode, 200);
@@ -367,7 +371,7 @@ describe('authoritative field mission lifecycle', () => {
         const secondClaim = await post(claimHandler, player, { missionType: 'field', missionId: MISSION_ID });
         assert.equal(secondClaim.statusCode, 200);
         assert.equal(secondClaim.body?.applied, true);
-        assert.equal((secondClaim.body?.character as Record<string, unknown>).ryo, 200);
+        assert.equal((secondClaim.body?.character as Record<string, unknown>).ryo, 50 + 2 * fetchDRyo);
         assert.equal((secondClaim.body?.character as Record<string, unknown>).dailyMissionsCompleted, 2);
 
         const replaySecond = await post(claimHandler, player, { missionType: 'field', missionId: MISSION_ID });
@@ -406,5 +410,59 @@ describe('authoritative field mission lifecycle', () => {
         const staleClaim = await post(claimHandler, player, { missionType: 'field', missionId: MISSION_ID });
         assert.equal(staleClaim.body?.applied, false);
         assert.match(String(staleClaim.body?.reason), /already-claimed|not-accepted/);
+    });
+
+    it('pays field stat points from the one shared daily budget, never past it, with no first-N rule', async (t) => {
+        // The budget row is combat-stat-count:<player>:<UTC day>, so hold one day.
+        t.mock.timers.enable({ apis: ['Date'], now: Date.UTC(2026, 9, 17, 12, 0, 0) });
+        const today = new Date().toISOString().slice(0, 10);
+        const { __resetRateLimitsForTest } = await import('../_ratelimit.js');
+        const { reserveDailyStatPoints } = await import('../_daily-stat-budget.js');
+        // Five of today's field receipts already on the save: the retired rule
+        // paid a sixth claim nothing; the shared budget pays it while it lasts.
+        const seeded = Array.from({ length: 5 }, (_, i) => `${today}:field:${MISSION_ID}:seededrun${i}`);
+        const claimSixth = async (player: string, budgetSpent: number) => {
+            await seedPlayer(player, { level: 1, village: 'Stormveil Village', claimedServerMissions: seeded, unspentStats: 7 });
+            // Earlier hunts, fights and claims today already spent `budgetSpent`.
+            for (let i = 0; budgetSpent - 3 * i > 0; i += 1) {
+                await reserveDailyStatPoints(kv, {
+                    playerName: player, receiptId: `mission:${today}:hunt:hunt-wild-boar:earlier${i}`, eventAt: Date.now(),
+                    requested: Math.min(3, budgetSpent - 3 * i),
+                });
+            }
+            const run = stateFrom(await post(trailHandler, player, { missionId: MISSION_ID, action: 'accept' }));
+            for (const [index, id] of [`${player}ex01`, `${player}ex02`, `${player}ex03`].entries()) {
+                await addExploreReceipt(player, id, run.acceptedAt + index + 1);
+                const recorded = await post(progressHandler, player, {
+                    missionId: MISSION_ID, kind: 'field-explore', runId: run.runId, worldExploreRequestId: id,
+                });
+                assert.equal(recorded.body?.recorded, true, JSON.stringify(recorded.body));
+            }
+            onlineStore.upsert({ name: player, sector: 13, character: { name: player, hp: 100, maxHp: 100 } });
+            __resetRateLimitsForTest();
+            const launched = await post(raidStartHandler, player, { requestId: `${player}raidstart01`, sector: 13 });
+            assert.equal(launched.statusCode, 200, JSON.stringify(launched.body));
+            await settleRaidProgression({ playerName: player, proofId: `sealed-${player}-raid`, proofAt: run.acceptedAt + 10, sector: 13 });
+            const claim = await post(claimHandler, player, { missionType: 'field', missionId: MISSION_ID });
+            assert.equal(claim.statusCode, 200, JSON.stringify(claim.body));
+            assert.equal(claim.body?.applied, true, JSON.stringify(claim.body));
+            assert.equal((claim.body?.reward as Record<string, unknown>).ryo, fetchDRyo, 'ryo still pays on every claim');
+            return claim;
+        };
+
+        const open = await claimSixth('fieldtrailopen', 0);
+        assert.equal((open.body?.reward as Record<string, unknown>).statPoints, 3, 'a sixth field claim pays while the budget lasts');
+        assert.equal((open.body?.character as Record<string, unknown>).unspentStats, 10);
+        assert.deepEqual(open.body?.statBudget, { day: today, spent: 3, cap: 60 }, 'the reply carries the day\'s budget');
+
+        const last = await claimSixth('fieldtraillast', 58);
+        assert.equal((last.body?.reward as Record<string, unknown>).statPoints, 2, 'the claim pays what is left of the budget');
+        assert.equal((last.body?.character as Record<string, unknown>).unspentStats, 9);
+        assert.deepEqual(last.body?.statBudget, { day: today, spent: 60, cap: 60 });
+
+        const spent = await claimSixth('fieldtrailspent', 60);
+        assert.equal((spent.body?.reward as Record<string, unknown>).statPoints, 0, 'a spent budget pays no stat points');
+        assert.equal((spent.body?.character as Record<string, unknown>).unspentStats, 7);
+        assert.deepEqual(spent.body?.statBudget, { day: today, spent: 60, cap: 60 });
     });
 });

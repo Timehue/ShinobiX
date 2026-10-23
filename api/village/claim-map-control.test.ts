@@ -25,11 +25,13 @@ let kv: typeof import('../_storage.js').kv;
 let issuePlayerToken: typeof import('../_auth.js').issuePlayerToken;
 let resetRateLimits: () => void;
 let handler: Handler;
+let computeMapControlReward: typeof import('../_map-control-reward.js').computeMapControlReward;
 
 before(async () => {
     ({ kv } = await import('../_storage.js'));
     ({ issuePlayerToken } = await import('../_auth.js'));
     ({ __resetRateLimitsForTest: resetRateLimits } = await import('../_ratelimit.js'));
+    ({ computeMapControlReward } = await import('../_map-control-reward.js'));
     handler = (await import('./claim-map-control.js')).default as unknown as Handler;
 });
 
@@ -203,5 +205,93 @@ describe('the personal Map Control reward is paid once per day', { concurrency: 
         await kv.set('save:mapforger', { _saveVersion: 1, character: { name: 'mapforger', village: VILLAGE, ryo: 0 } });
         assert.equal((await claim('mapforger', PLAYER)).status, 403);
         assert.equal(await ryo(), 1_000);
+    });
+});
+
+// 2026-10 rebalance, I-10: map control pays on the WAR sectors the village holds
+// (api/_war-held-sectors.ts), the count the War Map, the WR faucet and the tax
+// tier use. A released clan capture leaves its ownerVillage stamp on a
+// non-war sector, and counting every stamped row paid +100 ryo a member a day
+// for it, forever.
+describe('map control counts held WAR sectors only', { concurrency: false }, () => {
+    test('a wilderness sector stamped with the village does not count', async (t) => {
+        holdUtcDay(t);
+        await kv.set('world:territory:70', { ownerVillage: VILLAGE });
+        const out = await claim();
+        assert.equal(out.status, 200, JSON.stringify(out.body));
+        assert.equal(out.body?.sectors, 3, 'sector 70 is not a war sector');
+        assert.deepEqual(out.body?.granted, computeMapControlReward(3, false));
+    });
+
+    test('a suspended war sector does not count', async (t) => {
+        holdUtcDay(t);
+        await kv.set('world:territory:3', { ownerVillage: VILLAGE, rewardSuspendedAt: Date.now() - 1_000 });
+        const out = await claim();
+        assert.equal(out.status, 200, JSON.stringify(out.body));
+        assert.equal(out.body?.sectors, 2);
+        assert.deepEqual(out.body?.granted, computeMapControlReward(2, false));
+    });
+
+    test('a failed territory scan answers 503 and stamps nothing', async (t) => {
+        holdUtcDay(t);
+        const keys = kv.keys.bind(kv);
+        t.mock.method(kv, 'keys', async (pattern: string) => {
+            if (pattern === 'world:territory:*') throw new Error('injected: territory scan failed');
+            return keys(pattern);
+        });
+        const out = await claim();
+        assert.equal(out.status, 503);
+        const saved = (await kv.get<Record<string, any>>(SAVE_KEY))!;
+        assert.equal(saved.character.ryo, 1_000);
+        assert.equal(saved.character.claimedMapControlDate, undefined);
+        assert.equal(saved._saveVersion, 1, 'nothing was written');
+    });
+});
+
+// 2026-10 rebalance, I-11: the occupation tax used to run only when the client
+// POSTed /api/village/tax, so a modded client that never did was never taxed.
+describe('the daily claim assesses the occupation tax on the server', { concurrency: false }, () => {
+    async function seedConqueror() {
+        // The eight Frostfang home sectors plus sector 1: nine held war sectors (1%).
+        await kv.set('world:territory:2', { ownerVillage: 'Stormveil Village' });
+        await kv.set('world:territory:3', { ownerVillage: 'Stormveil Village' });
+        for (const sector of [26, 27, 28, 29, 30, 31, 32, 33]) await kv.set(`world:territory:${sector}`, { ownerVillage: VILLAGE });
+        await kv.set('village:kage:frostfang-village', { seatedKage: 'frostkage' });
+        await kv.set(SAVE_KEY, { _saveVersion: 1, character: { name: PLAYER, village: VILLAGE, level: 40, ryo: 500_000, bankRyo: 0, honorSeals: 0, boneCharms: 0, fateShards: 0, villageMerit: 0 } });
+    }
+
+    test('a conqueror who never called /api/village/tax is taxed once by the first claim', async (t) => {
+        holdUtcDay(t);
+        await seedConqueror();
+        const out = await claim();
+        assert.equal(out.status, 200, JSON.stringify(out.body));
+        assert.equal(out.body?.sectors, 9);
+        const tax = out.body?.villageTax as Record<string, unknown> | undefined;
+        assert.equal(tax?.applied, true);
+        assert.equal(tax?.taxed, 4_950, '1% of (500,000 - 5,000)');
+        const reward = computeMapControlReward(9, false).ryo;
+        assert.equal(await ryo(), 500_000 - 4_950 + reward, 'the reward lands on the post-tax balance');
+        const saved = (await kv.get<Record<string, any>>(SAVE_KEY))!;
+        assert.equal(saved.character.lastTaxDate, new Date().toISOString().slice(0, 10));
+        const treasury = await kv.get<Record<string, any>>('game:village-state:frostfangvillage');
+        assert.equal(treasury?.treasury?.ryo, 2_475, 'half to the treasury, half burned');
+
+        // A second hooked call the same day charges nothing.
+        const again = await claim();
+        assert.equal(again.body?.alreadyClaimed, true);
+        assert.equal(again.body?.villageTax, undefined, 'nothing was assessed again');
+        assert.equal(await ryo(), 500_000 - 4_950 + reward);
+    });
+
+    test('a peace-time village is charged nothing, and the day is stamped once', async (t) => {
+        holdUtcDay(t);
+        await kv.set('village:kage:frostfang-village', { seatedKage: 'frostkage' });
+        await kv.set(SAVE_KEY, { _saveVersion: 1, character: { name: PLAYER, village: VILLAGE, level: 40, ryo: 500_000, bankRyo: 0, honorSeals: 0, boneCharms: 0, fateShards: 0, villageMerit: 0 } });
+        const out = await claim();
+        assert.equal(out.status, 200, JSON.stringify(out.body));
+        assert.equal((out.body?.villageTax as Record<string, unknown> | undefined)?.applied, false);
+        assert.equal(await ryo(), 500_000 + computeMapControlReward(3, false).ryo, 'no ryo was taxed');
+        const saved = (await kv.get<Record<string, any>>(SAVE_KEY))!;
+        assert.equal(saved.character.lastTaxDate, new Date().toISOString().slice(0, 10));
     });
 });

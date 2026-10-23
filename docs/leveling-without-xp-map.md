@@ -38,14 +38,17 @@ The two-axis redesign (live on main) already moved every stat point onto its own
 server-authoritative rails:
 
 - **Training** is direct-to-stat via sealed tokens (`api/training/start.ts` →
-  `api/training/complete.ts` → `api/training/_grant.ts:11-21`), 3/10/38/72 pts per
+  `api/training/complete.ts` → `api/training/_grant.ts:11-21`), 3/9/33/65 pts per
   15m/1h/4h/8h session, 96 starts/day. Rates descend with tier length so chaining
-  short timers out-earns long ones (96× 15m = 288/day … 3× 8h = 216/day); the
-  reference 24h regimen (12× 1h + 4h + 8h = 230/day) caps a 12-stat build in ~89
-  days. Early sessions are additionally multiplied by `rookieStatMultiplier`
+  short timers out-earns long ones (96× 15m = 288/day … 3× 8h = 195/day); the
+  reference 24h regimen (12× 1h + 4h + 8h) gives 206/day; the regular (8h + 3× 4h,
+  +10%) reaches L90 ~86 days after the Academy
+  (api/_progression-pacing-replay.test.ts). TRAINING_RATE_TABLE=legacy restores
+  3/10/38/72 for new starts. Early sessions are additionally multiplied by `rookieStatMultiplier`
   (×6 at L1 → 1.0 at L35, keyed off the earned-points ledger, not stored level).
 - **Combat growth** is earned from eligible PvE and player PvP wins; see the live
-  policy above for the 3/6 per-win awards and shared 18/day cap.
+  policy above for the 3/6 per-win awards; they share the one daily stat-point
+  budget (DAILY_STAT_POINT_CAP, 60) with hunt and field claims.
 - **The ledger is already conserved and server-enforced.** The save sanitizer's
   `preserveStatPointEntitlement` (`api/save/_stat-entitlement.ts:52-55`) computes
   `allocated(stats) + unspentStats` and **rejects any client save that changes the
@@ -170,43 +173,30 @@ on top.* Three grant classes:
   (progress-flag / receipt-gated). Story deliberately does **not** compete with
   dailies for budget — a story day is a bonus day, which is the strongest form
   of "leaving room for story."
-- **The daily checklist (the dailies slice, target = 45 pts as built):** stat
-  grants ride ONLY on claims that are already once-per-day — the 10 hunt + 5
-  fetch board dailies at **+3 each** (`FIELD_MISSION_STAT_POINTS`,
-  `api/missions/_mission-catalog.ts`). A full clear sums to
-  `DAILY_PVE_GROWTH_TARGET = 45` **by construction** — there is no clamp to
-  slam into, no "my later dailies paid zero" feel; the existing once-per-day
-  claim receipts are the idempotency guard. Profession dailies stay on their
-  own profession-XP track (a different namespace, untouched); festival dice add
-  small seasonal pool points (+1–5) on top of the target. The checklist grows
-  with level as boards unlock (dailies are levelReq-gated); the invariant pins
-  the fully-unlocked sum, and early bands lean on training anyway. Values are
-  pinned by a test: full-clear sum ∈ target ±10% — **base values; growth
-  boosts (§4.1) multiply after.**
-- **The combat slice (18 stat points/day shared by PvE and player PvP):** each
-  eligible PvE win awards 3 points and each eligible player PvP win awards 6.
-  Both use `computeCombatStatGrowth`, the auto+pool split, and the replay-safe
-  `combat-stat-count` reservation. These are direct awards: pet traits, encounter
-  bonuses, and the era dial do not multiply them. The cap keeps repeatable wins
-  a supplement to daily missions and training.
+- **One shared daily stat-point budget (owner ruling A1, 2026-10):** every
+  hunt claim and field claim pays +3 (`FIELD_MISSION_STAT_POINTS`, boosted by the
+  mission bonuses and a growth event), every eligible PvE win 3 and every eligible
+  player PvP win 6, until the day's `DAILY_STAT_POINT_CAP` (env dial, default 60,
+  `api/_stat-growth.ts`) is spent. All of them reserve against the replay-safe
+  `combat-stat-count:<player>:<UTC day>` row; a boost scales the request, never the
+  cap. Idle training and one-time grants (story, Academy, Story Tower, Apex,
+  weekly bosses) stay outside it. The claim and Mission Hall screens show
+  'Stat points today: 41 / 60'. Profession dailies stay on their own
+  profession-XP track (a different namespace, untouched).
 
 **Unlimited-repeat mission claims pay ryo only** — repeatable combat-mission
-slots, tower assists and similar turn-ins. Eligible server-settled PvE wins use
-the shared combat budget; spars and plain practice stay at zero. Daily base
-maximum = 45 + 18
-= 63 direct budgeted stat points (on par with the old 60/day allowance), plus
-eligible one-time grants. Growth boosts apply only to eligible non-combat grants
-such as training and checklist rewards (§4.1). Surface it
-as a split meter — **"Daily Growth 33/45 · Combat 12/18"** — so progress reads
-as bars you fill. Non-combat claims and eligible PvE/PvP combat wins grant
-**pool-only** (`unspentStats +=`), so players choose where every point goes.
+slots, tower assists and similar turn-ins; spars and plain practice stay at
+zero. Non-combat claims and eligible PvE/PvP combat wins grant **pool-only**
+(`unspentStats +=`), so players choose where every point goes.
 
 ### 4.1 Growth boosts — eligible XP bonuses become stat-gain bonuses
 
 Growth boosts apply to eligible non-combat stat grants, so developed worlds can
 progress faster through training and checklist rewards. PvE/PvP wins award the
-exact points reserved from the shared 18-point daily combat budget; boosts do
-not change either the award or the amount charged to that budget. Boosts never
+exact points reserved from the shared daily stat-point budget; boosts do
+not change either the award or the amount charged to that budget. One exception:
+the admin growth event on casual PvP wins scales the 6-point REQUEST before the
+budget is reserved, so it fills the budget sooner but never raises it (I-12). Boosts never
 raise the 2500 ceiling, only how quickly eligible non-combat grants reach it.
 
 | XP-boost today | Becomes |
@@ -216,7 +206,7 @@ raise the 2500 ceiling, only how quickly eligible non-combat grants reach it.
 | Mission XP boosts — `boostAmount(xp, townHallBonus + huntRankBonus)` (`api/missions/claim-mission.ts:391`) | Same `boostAmount`, applied to the **checklist grants** (base +4 → boosted). |
 | Swift trait +25% PvP XP (`computePvpWinGains`) | No stat-growth multiplier. Win-based PvP points remain the direct 6-point award before the shared daily cap. |
 | Death's Gate sector 99 ×2 XP | No stat-growth multiplier. It continues to affect the separate ryo reward. |
-| `CHARACTER_XP_GAIN_MULTIPLIER` (client+server constant, parity-pinned = 1) | **Retired.** Successor: **`STAT_GAIN_MULTIPLIER` — a server-env era dial** (default 1) applied to eligible non-combat grants such as training and checklist rewards. PvE/PvP win awards are excluded. Server-only: no client constant or cross-build pin, and it can be changed without a rebuild. UI shows a **"Growth Surge ×N"** badge when the server reports it active. |
+| `CHARACTER_XP_GAIN_MULTIPLIER` (client+server constant, parity-pinned = 1) | **Retired.** Successor: **`STAT_GAIN_MULTIPLIER` — a server-env era dial** (default 1) applied to eligible non-combat grants such as training and checklist rewards. PvE/PvP win awards are excluded. Server-env only (no client constant, no rebuild); surfaced on the game-state frame (`progressionDials`) so the Training preview matches the seal. Pacing steps are limited to STAT_GAIN_DIAL_STEPS (0.9 / 0.95 / 1 / 1.03 / 1.06) because the 3-point 15m session moves in whole points. UI shows a **"Growth Surge ×N"** badge when the server reports it active. |
 | Aura "Jutsu XP +N%", pet/profession/clan XP boosts | Untouched — different XP namespaces. |
 
 **The two-generation effect, quantified (full cap, standard profile):**

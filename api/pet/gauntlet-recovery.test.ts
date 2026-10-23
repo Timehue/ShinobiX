@@ -12,7 +12,7 @@ before(async () => { ({ kv } = await import('../_storage.js')); handler = (await
 beforeEach(async () => {
     player = `gauntletrecover${Math.random().toString(36).slice(2, 10)}`;
     token = (await import('../_auth.js')).issuePlayerToken(player)!;
-    await kv.set(`save:${player}`, { _saveVersion: 1, character: { name: player, ryo: 1000, fateShards: 4, boneCharms: 3 } });
+    await kv.set(`save:${player}`, { _saveVersion: 1, character: { name: player, level: 90, ryo: 1000, fateShards: 4, boneCharms: 3 } });
 });
 async function post(body: Record<string, unknown>) {
     const result = { status: 200, body: {} as Record<string, any> };

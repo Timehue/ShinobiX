@@ -67,14 +67,14 @@ test('all battle families use the same exactly-once campaign credit and mark it 
         const keys=await kv.keys('*');if(keys.length)await kv.del(...keys);
     }
 });
-test('earned points survive departure and use the current weekly cap without resetting an older week',async()=>{
+test('earned points survive departure and are clamped to the current weekly cap without resetting an older week',async()=>{
     const {war,challenge,now}=await fixture();const result=apply(war,challenge,'draw',now);
     await kv.set(`clan-war:${war.id}`,result.war);
     const save=await kv.get<Record<string,any>>('save:a-0');save!.character.clan='';save!.character.weeklyClanPoints=990;await kv.set('save:a-0',save);
     await award(result.war,result.war.campaign!.matches[challenge.id]);
-    assert.equal((await char('a-0')).clan,'');assert.equal((await char('a-0')).clanPoints,0);assert.equal((await char('a-0')).weeklyClanPoints,990);
+    assert.equal((await char('a-0')).clan,'');assert.equal((await char('a-0')).clanPoints,10);assert.equal((await char('a-0')).weeklyClanPoints,1000);
     const paid=await kv.get<Record<string,any>>('save:a-0');paid!.character.weeklyClanPointsWeek='2099-W01';paid!.character.weeklyClanPoints=0;await kv.set('save:a-0',paid);
-    await award(result.war,result.war.campaign!.matches[challenge.id]);assert.equal((await char('a-0')).clanPoints,0);
+    await award(result.war,result.war.campaign!.matches[challenge.id]);assert.equal((await char('a-0')).clanPoints,10);
     assert.equal((await char('b-0')).clanPoints,25);
 });
 test('payout repair credits the missing player after a failed commit, without duplicating the paid player',async()=>{

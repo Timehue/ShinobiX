@@ -53,8 +53,11 @@ function command(player: string, cmd: string) {
     return post(player, { kind: 'war-command', command: cmd, villages: [LEAF, MIST] });
 }
 
-function liveWar(overrides: Record<string, unknown> = {}) {
-    const startedAt = Date.now() - 3 * 60 * 60 * 1_000;
+const HOUR = 60 * 60 * 1_000;
+
+/** A war that has been LIVE (past its 1 h pre-war window) for `liveHours`. */
+function liveWar(overrides: Record<string, unknown> = {}, liveHours = 2) {
+    const startedAt = Date.now() - (liveHours + 1) * HOUR;
     return {
         id: 'ashenleafvillage-vs-moonshadowvillage',
         villages: [LEAF, MIST],
@@ -120,8 +123,23 @@ describe('village-war peace and surrender', { concurrency: false }, () => {
         assert.ok(endedAt >= before && endedAt <= after, 'the server clock stamps the end');
         assert.equal(ended?.winnerVillage, undefined, 'an agreed peace has no winner');
         assert.equal(ended?.loserCrateId, undefined, 'no consolation without a winner');
-        assert.deepEqual(ended?.mvpByVillage, { [LEAF]: 'Leaf Hero', [MIST]: 'Mist Hero' }, 'MVPs are stamped on every ending');
+        // Two hours of war: an agreement before the 72 h floor pays no crates or
+        // MVP rewards (2026-10 rebalance, I-5). The stats stay.
+        assert.deepEqual(ended?.mvpByVillage, {}, 'an early peace stamps no MVP');
+        assert.equal(ended?.warCrateId, undefined, 'and removes the crate id stamped at declaration');
+        assert.equal(ended?.contributions?.leafhero?.damage, 400, 'the contribution ledger is kept');
         assert.ok(await kv.get(`war:cooldown:ashenleafvillage-vs-moonshadowvillage`), 'the rematch cooldown starts');
+    });
+
+    it('a peace agreed after 72 hours of war still stamps both MVPs', async () => {
+        await kv.set(WAR_KEY, liveWar({}, 73));
+        await command('leafkage', 'propose-peace');
+        const accept = await command('mistkage', 'propose-peace');
+        assert.equal(accept.statusCode, 200, JSON.stringify(accept.body));
+        const ended = accept.body?.war;
+        assert.ok(Number(ended?.endedAt) > 0);
+        assert.equal(ended?.winnerVillage, undefined);
+        assert.deepEqual(ended?.mvpByVillage, { [LEAF]: 'Leaf Hero', [MIST]: 'Mist Hero' }, 'MVPs are stamped on every ending past the floor');
     });
 
     it('lets a Kage withdraw an offer before the other side accepts', async () => {
@@ -135,7 +153,7 @@ describe('village-war peace and surrender', { concurrency: false }, () => {
     });
 
     it('surrender ends the war as a loss for the surrendering village', async () => {
-        await kv.set(WAR_KEY, liveWar());
+        await kv.set(WAR_KEY, liveWar({}, 73));
         const out = await command('mistkage', 'surrender');
         assert.equal(out.statusCode, 200, JSON.stringify(out.body));
         const war = out.body?.war;
@@ -144,6 +162,36 @@ describe('village-war peace and surrender', { concurrency: false }, () => {
         assert.equal(war?.surrenderedBy, MIST);
         assert.equal(war?.loserCrateId, 'loser-crate-ashenleafvillage-vs-moonshadowvillage-g1');
         assert.equal(war?.warCrateId, 'war-crate-ashenleafvillage-vs-moonshadowvillage-g1');
+        assert.deepEqual(war?.mvpByVillage, { [LEAF]: 'Leaf Hero', [MIST]: 'Mist Hero' });
+    });
+
+    it('a surrender before 72 hours of war pays no crates or MVP to either side, but still ends it as a loss', async () => {
+        await kv.set(WAR_KEY, liveWar());
+        const out = await command('mistkage', 'surrender');
+        assert.equal(out.statusCode, 200, JSON.stringify(out.body));
+        const war = out.body?.war;
+        assert.equal(war?.winnerVillage, LEAF, 'the result stands');
+        assert.equal(war?.surrenderedBy, MIST);
+        assert.equal(war?.warCrateId, undefined, 'the winner crate id stamped at declaration is removed');
+        assert.equal(war?.loserCrateId, undefined, 'no consolation');
+        assert.deepEqual(war?.mvpByVillage, {}, 'no MVP');
+        assert.equal(war?.contributions?.misthero?.damage, 250, 'stats only: the ledger stays');
+        const stored = await kv.get<Record<string, unknown>>(WAR_KEY);
+        assert.equal(stored?.warCrateId, undefined, 'the stored row carries no crate either');
+    });
+
+    it('WAR_MIN_DURATION_HOURS=0 turns the floor off: an instant surrender pays as before', async () => {
+        process.env.WAR_MIN_DURATION_HOURS = '0';
+        try {
+            await kv.set(WAR_KEY, liveWar());
+            const out = await command('mistkage', 'surrender');
+            assert.equal(out.statusCode, 200, JSON.stringify(out.body));
+            assert.equal(out.body?.war?.warCrateId, 'war-crate-ashenleafvillage-vs-moonshadowvillage-g1');
+            assert.equal(out.body?.war?.loserCrateId, 'loser-crate-ashenleafvillage-vs-moonshadowvillage-g1');
+            assert.deepEqual(out.body?.war?.mvpByVillage, { [LEAF]: 'Leaf Hero', [MIST]: 'Mist Hero' });
+        } finally {
+            delete process.env.WAR_MIN_DURATION_HOURS;
+        }
     });
 
     it('only a seated Kage of a warring village may offer peace or surrender, and admins may not', async () => {

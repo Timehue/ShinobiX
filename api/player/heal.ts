@@ -11,6 +11,8 @@ import { isPlayerSaveVersionConflict, retryOnSaveVersionConflict, SAVE_VERSION_C
 import { hospitalDischargeBaseCost } from '../../shared/hospital-discharge-cost.js';
 import { getDurableSettlement } from '../_durable-settlement.js';
 import { parseSettlementRequestId } from '../_settlement-receipts.js';
+import { recordEconomyTxn } from '../_economy.js';
+import { healerBaseHealXp } from './_healer-heal-xp.js';
 import {
     CrossHealSettlementError,
     crossHealTransaction,
@@ -27,7 +29,7 @@ import {
 
 // Per-target cooldown is now rank-scaled via healerPerTargetCooldownMs(rank).
 // Baseline (rank 1) is 5 min; rank 10 is 1.5 min. See api/missions/_progress.ts.
-const HEALER_MAX_XP_PER_HEAL = 100;
+// The base heal XP (capped at 100, then x HEALER_HEAL_XP_MULT) is ./_healer-heal-xp.ts.
 // Healer assist synergy: +50% XP for healing a target who was hospitalized
 // within the last 10 minutes (recent-fight proxy — players are hospitalized
 // from PvP losses, so a fresh hospitalization means combat assist).
@@ -300,6 +302,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }));
             if (!discharged.ok) return res.status(404).json({ error: discharged.code === 'character-not-found' ? 'Character not found.' : 'Player not found.' });
             const dischargeResult = discharged.value;
+            // Economy telemetry (I-19): the committed pay-skip fee. Refusals and the
+            // already-discharged replay report chargedRyo 0 and log nothing.
+            const chargedRyo = Number(dischargeResult.body.chargedRyo ?? 0);
+            if (dischargeResult.status === 200 && chargedRyo > 0) {
+                void recordEconomyTxn({ txnId: `hospital-pay-skip:${targetName}:${discharged._saveVersion}`, player: targetName, currency: 'ryo', delta: -chargedRyo, source: 'hospital.pay-skip', balanceAfter: Number(discharged.character.ryo ?? 0) });
+            }
             if (dischargeResult.withSave) {
                 dischargeResult.body.character = discharged.character;
                 dischargeResult.body._saveVersion = discharged._saveVersion;
@@ -413,12 +421,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
         }
 
-        // Compute XP from % HP restored (cap 100 XP/heal). HP is restored to
-        // full, so XP = (1 - currentHp/maxHp) * 100.
+        // Compute XP from % HP restored. HP is restored to full, so the base is
+        // (1 - currentHp/maxHp) * 100, capped at 100, then doubled by
+        // HEALER_HEAL_XP_MULT (2026-10 rebalance #37, ./_healer-heal-xp.ts).
         const curHp = Number(targetChar.hp ?? 0);
         const maxHp = Number(targetChar.maxHp ?? 1);
         const pctHealed = maxHp > 0 ? Math.max(0, Math.min(1, 1 - curHp / maxHp)) : 0;
-        let xpGained = Math.min(HEALER_MAX_XP_PER_HEAL, Math.floor(pctHealed * 100));
+        let xpGained = healerBaseHealXp(pctHealed);
 
         // Rank-scaled heal XP bonus: r2=+5%, r3=+10%, …, r10=+50%. Applied
         // BEFORE the raid-assist multiplier so the two perks stack cleanly.

@@ -20,6 +20,9 @@
  * not control this activity.
  */
 
+import { anchorRyoPerMinute } from '../shared/economy-anchor.js';
+import { stagedRaise, warPurseScale } from './war/_war-pay-scale.js';
+
 // ── Balance knobs (all pending sign-off) ─────────────────────────────────────
 /** Percent of a pool's *current* balance skimmed on a successful skim of it. */
 export const SKIM_PCT = 1;
@@ -32,8 +35,34 @@ export const ROLL_WR_WEIGHT = 0.45;
 /** Turn-in ratios (caches : points). War Supply → clan 2:1, War Resource → village 1:1. */
 export const CLAN_CACHES_PER_POINT = 2;
 export const VILLAGE_CACHES_PER_POINT = 1;
-/** Flat personal ryo granted on any successful raid (before the endpoint's daily cap). */
-export const RAID_RYO_REWARD = 500;
+/** Personal ryo for a successful raid at full pay: 10 x A(70+) = 3,000, about
+ *  1.0 x A per minute of a ~10-minute raid (2026-10 rebalance, #31; it was a
+ *  flat 500, 0.16 x A). Paid by raidRyoReward below. */
+export const RAID_RYO_REWARD = 3_000;
+/** The pre-rebalance flat raid pay, and the floor of the level-scaled one. */
+export const RAID_RYO_FLOOR = 500;
+/** Raid ryo per A(L) at full pay. */
+export const RAID_RYO_PER_ANCHOR = 10;
+
+/**
+ * The raid's personal ryo, keyed on the LOWER of the raider's and the sealed
+ * ANBU defender's levels (framework 2.8's lower-level pay rule): the rival Kage
+ * seats the ANBU, with no level floor, so a colluding village could seat L1
+ * alts for a partner's L100 raiders to beat eight times a day. Full pay is
+ * 10 x A(min level), so 3,000 only against an L70+ defender and 600 against an
+ * L10 alt, never below the old 500. WAR_PURSE_SCALE stages the raise above
+ * 500 (api/war/_war-pay-scale.ts). An unknown defender level falls back to the
+ * raider's. Pure.
+ */
+export function raidRyoReward(raiderLevel: unknown, defenderLevel: unknown, scale: number = warPurseScale()): number {
+    const raider = Number(raiderLevel);
+    const defender = Number(defenderLevel);
+    const level = Number.isFinite(defender) && defender > 0
+        ? Math.min(Number.isFinite(raider) && raider > 0 ? raider : defender, defender)
+        : raider;
+    const full = Math.min(RAID_RYO_REWARD, Math.max(RAID_RYO_FLOOR, RAID_RYO_PER_ANCHOR * anchorRyoPerMinute(level)));
+    return stagedRaise(RAID_RYO_FLOOR, full, scale);
+}
 /** Endpoint-enforced ceiling on raids/day per attacker (heavy activity — deliberately low). */
 export const MAX_RAID_ATTEMPTS_PER_DAY = 8;
 /** Inventory stack ceiling for each cache item (user-specified). */
