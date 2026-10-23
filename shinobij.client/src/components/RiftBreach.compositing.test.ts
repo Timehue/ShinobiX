@@ -33,12 +33,18 @@ test("rift energy keyframes animate only compositor properties", () => {
     }
 });
 
-test("the rift card keeps no live backdrop blur behind its animating overlay", () => {
-    assert.match(sharedCard, /\.center-game > \.card,[\s\S]*?backdrop-filter: blur\(3px\) !important;/, "the shared card blur changed; re-check the rift override");
-    const override = css.match(/^([^{}\n]*\.underground-world--rift[^{}\n]*)\{\s*backdrop-filter:\s*none !important;\s*\}/m);
-    assert.ok(override, "underground-sector.css lost the rift card's backdrop-filter override");
-    const classes = override[1].match(/\.[\w-]+/g)?.length ?? 0;
-    assert.ok(classes > 2, `${override[1].trim()} must out-rank .center-game > .card without relying on load order`);
+test("every Hollow Gate card, rift or normal floor, keeps no live backdrop blur behind its moving board", () => {
+    assert.match(sharedCard, /\.center-game > \.card,[\s\S]*?backdrop-filter: blur\(3px\) !important;/, "the shared card blur changed; re-check the Hollow Gate override");
+    const override = css.match(/^([^{}\n]*)\{\s*backdrop-filter:\s*none !important;\s*\}/m);
+    assert.ok(override, "underground-sector.css lost the Hollow Gate card's backdrop-filter override");
+    const selector = override[1].trim();
+    assert.equal(selector, ".card.hollow-gate-shrine.underground-world--cave", "the override must cover normal floors and rifts alike");
+    // HollowGateShrineView gives every card --cave and adds --rift only for quest rifts.
+    const view = readFileSync(join(root, "features", "hollowGate", "HollowGateShrineView.tsx"), "utf8");
+    assert.match(view, /className=\{`card hollow-gate-shrine underground-world underground-world--cave\$\{isQuestRift \? ' underground-world--rift' : ''\}`\}/,
+        "the Hollow Gate card no longer always carries the class the override keys on");
+    const classes = selector.match(/\.[\w-]+/g)?.length ?? 0;
+    assert.ok(classes > 2, `${selector} must out-rank .center-game > .card without relying on load order`);
     // Dropping the blur is invisible only while the card hides what is behind it.
     const backing = css.match(/\.hollow-gate-shrine\.underground-world--rift \{[^}]*background: linear-gradient\(([^)]*)\) !important/)?.[1] ?? "";
     const alphas = [...backing.matchAll(/#[0-9a-f]{6}([0-9a-f]{2})\b/gi)].map(m => parseInt(m[1], 16) / 255);

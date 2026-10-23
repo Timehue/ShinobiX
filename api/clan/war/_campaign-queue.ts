@@ -2,6 +2,7 @@ import { randomInt, randomUUID } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
 import { storedValueEquals } from '../../_stored-value.js';
 import { kv } from '../../_storage.js';
+import { readKvProjection } from '../../_storage-projection.js';
 import { withKvLock } from '../../_lock.js';
 import { clanBareSlug, clanRecordKey, safeName } from '../../_utils.js';
 import { onlineStore } from '../../_realtime/online-store.js';
@@ -152,8 +153,9 @@ export async function actClanWarQueue(input: { warId: string; playerName: string
             try { if (!(await kv.compareSet(key, current, next))) throw new Error('The clan war changed during queue admission. Retry.'); }
             catch (error) { if (!storedValueEquals(await kv.get(key).catch(() => null), next)) throw error; }
         }
-        const record = await kv.get<Record<string, unknown>>(clanRecordKey(roster.clan));
-        const scout = Number((record?.upgrades as Record<string, unknown> | undefined)?.scoutNetwork ?? 0);
+        // Every shrine step and 5 s room poll lands here: read the one upgrade, not the clan record.
+        const [record] = await readKvProjection(kv, [clanRecordKey(roster.clan)], { scoutNetwork: ['upgrades', 'scoutNetwork'] });
+        const scout = Number(record?.scoutNetwork ?? 0);
         return { war: redactClanWarForViewer(next, roster.clan, name, now, scout), serverNow: now,
             ...(scope === 'shrine' && windowIndex !== undefined&&!clanShrinePresenceError(name,next,windowIndex,now)
                 ? { shrinePlayers: clanShrineRoster(next, windowIndex, now),room:clanShrineRoom(next,windowIndex,now) } : {}) };

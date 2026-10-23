@@ -41,8 +41,10 @@ export type WorldSectorCanvasProps = {
     playerTile: number;
     playerName: string;
     playerAvatarImage: string;
-    /** A fullscreen interior covers this scene; release its renderers while keeping the host slots mounted. */
+    /** A fullscreen interior covers this scene. The tile scene releases its renderers; the continuous world stays mounted, paused and hidden, so leaving costs no reconnect. The host slots stay mounted either way. */
     suspended?: boolean;
+    /** A modal room covers this scene: stop drawing the world, but keep its HUD and peers mounted. */
+    paused?: boolean;
     isCurrent: boolean;
     enterDirection: SectorDirection | null;
     regionSplash: { label: string; tint: string; stamp: number } | null;
@@ -99,7 +101,11 @@ export function WorldSectorCanvas(props: WorldSectorCanvasProps) { const {
     overlayLayer,
     encounterLayer,
 } = props;
-    if (!suspended && isCurrent && roadExits.length && props.onWorldAuthority) return <ContinuousWorldSector {...props} />;
+    // A suspended continuous world stays mounted and paused: tearing it down
+    // made every stronghold exit reconnect, rebuild the renderer and decode the
+    // sector maps again before the player could walk. Now leaving only
+    // re-reads the position (continuous-world-controller resync).
+    if (isCurrent && roadExits.length && props.onWorldAuthority) return <ContinuousWorldSector {...props} />;
     const mapMode = Boolean(mapImage);
     const fallbackMarkers = players.slice(0, 48);
     return (

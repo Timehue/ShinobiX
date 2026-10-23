@@ -26,7 +26,7 @@
 #landing-home :is(a,button,[tabindex]):focus-visible { outline: 2px solid #f2d397; outline-offset: 5px; }
 #landing-home section[id] { scroll-margin-top: 116px; }
 #landing-home:focus, #landing-home section[id]:focus { outline: none; }
-html:has(.landing-lightbox[open]) { overflow: hidden; scrollbar-gutter: stable; }
+html.landing-lightbox-open { overflow: hidden; scrollbar-gutter: stable; }
 .landing-skip { position: absolute; top: 10px; left: 16px; transform: translateY(-200%); z-index: 100; padding: 10px 18px; background: #e1c594; color: #111; }
 .landing-skip:focus { transform: none; }
 .landing-topbar { position: sticky; top: 0; z-index: 50; background: #0e0d0df5; border-bottom: 1px solid var(--landing-line); backdrop-filter: blur(16px); }

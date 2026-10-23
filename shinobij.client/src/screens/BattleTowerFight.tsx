@@ -1849,7 +1849,7 @@ export function BattleTowerFight({
                 {/* Board */}
                 <main className={`tower-fight-main tower-battle-${battleTabs.tab}`} style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
                     <ClanBossGuardBanner guard={session.clanBossGuard} round={session.round} />
-                    <header className="tower-fight-header tower-fight-statusbar" style={{
+                    <header className={`tower-fight-header tower-fight-statusbar${canCancelAction ? " has-cancel" : ""}`} style={{
                             ...(encounterArt ? { ["--tower-encounter-art" as string]: `url("${encounterArt.src}")` } : {}),
                         }} data-has-encounter-art={encounterArt ? "true" : undefined} data-art-kind={encounterArt?.kind}>
                         <h1 className="tower-fight-title" title={storyEncounterTitle}>{isTeamPvp ? `${session.actors.filter(a => a.side === 'squad').length}v${session.actors.filter(a => a.side === 'enemy').length} ${pvpContextLabel}` : storyEncounterTitle}</h1>
