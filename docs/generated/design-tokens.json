@@ -2524,7 +2524,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/layout/adaptive-shell.css",
-            "line": 553
+            "line": 556
           },
           {
             "source": "shinobij.client/src/styles/sector-hud.css",
@@ -2595,11 +2595,11 @@
           },
           {
             "source": "shinobij.client/src/styles/layout/adaptive-shell.css",
-            "line": 314
+            "line": 315
           },
           {
             "source": "shinobij.client/src/styles/layout/adaptive-shell.css",
-            "line": 437
+            "line": 440
           },
           {
             "source": "shinobij.client/src/styles/world-map-mobile.css",
@@ -2626,7 +2626,7 @@
           },
           {
             "source": "shinobij.client/src/components/StoryFieldWork.css",
-            "line": 76
+            "line": 83
           },
           {
             "source": "shinobij.client/src/components/craft-material-picker.css",
@@ -2752,7 +2752,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/layout/adaptive-shell.css",
-            "line": 479
+            "line": 482
           }
         ]
       },
@@ -2920,7 +2920,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/14-menu-panels-bloodline-vn.css",
-            "line": 1561
+            "line": 1579
           },
           {
             "source": "shinobij.client/src/styles/index/18-mobile-safe-adaptive.css",
@@ -3035,15 +3035,15 @@
           },
           {
             "source": "shinobij.client/src/styles/layout/adaptive-shell.css",
-            "line": 304
+            "line": 305
           },
           {
             "source": "shinobij.client/src/styles/layout/adaptive-shell.css",
-            "line": 471
+            "line": 474
           },
           {
             "source": "shinobij.client/src/styles/layout/adaptive-shell.css",
-            "line": 479
+            "line": 482
           },
           {
             "source": "shinobij.client/src/styles/layout/adaptive-stages.css",
@@ -3196,7 +3196,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/layout/adaptive-shell.css",
-            "line": 553
+            "line": 556
           },
           {
             "source": "shinobij.client/src/styles/sector-hud.css",
@@ -3458,7 +3458,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/14-menu-panels-bloodline-vn.css",
-            "line": 1419
+            "line": 1437
           },
           {
             "source": "shinobij.client/src/styles/index/29-clan-exchange-storefront.css",
@@ -4595,6 +4595,10 @@
         "valuePx": 979,
         "occurrences": [
           {
+            "source": "shinobij.client/src/components/StoryFieldWork.css",
+            "line": 74
+          },
+          {
             "source": "shinobij.client/src/screens/FirstPact.css",
             "line": 243
           },
@@ -4625,6 +4629,10 @@
           {
             "source": "shinobij.client/src/styles/combat-grid-appearance.css",
             "line": 69
+          },
+          {
+            "source": "shinobij.client/src/styles/index/14-menu-panels-bloodline-vn.css",
+            "line": 857
           },
           {
             "source": "shinobij.client/src/styles/index/18-mobile-safe-adaptive.css",
@@ -4676,19 +4684,19 @@
           },
           {
             "source": "shinobij.client/src/styles/layout/adaptive-shell.css",
-            "line": 422
+            "line": 425
           },
           {
             "source": "shinobij.client/src/styles/layout/adaptive-shell.css",
-            "line": 437
+            "line": 440
           },
           {
             "source": "shinobij.client/src/styles/layout/adaptive-shell.css",
-            "line": 553
+            "line": 556
           },
           {
             "source": "shinobij.client/src/styles/layout/adaptive-shell.css",
-            "line": 560
+            "line": 563
           },
           {
             "source": "shinobij.client/src/styles/layout/adaptive-stages.css",

@@ -21,7 +21,6 @@ export function Settings({ character, onVersionedCharacter, onDelete }: {
     useEffect(() => subscribeAudioMute(() => { setMuted(isAudioMuted()); setVolume(getAudioVolume()); }), []);
     return <div className="settings-page card">
         <header><p className="settings-eyebrow">YOUR PREFERENCES</p><h1>Settings</h1><p>Make yourself at home. Manage sound, story presentation, and your account.</p></header>
-        <IphoneInstallGuide />
         <section className="settings-section" aria-labelledby="presentation-heading">
             <h2 id="presentation-heading">Story presentation</h2>
             <label htmlFor="settings-reader">Visual novel reader</label>
@@ -38,6 +37,7 @@ export function Settings({ character, onVersionedCharacter, onDelete }: {
             <label className="settings-check"><input type="checkbox" checked={muted} onChange={e => { setAudioMuted(e.target.checked); if (!e.target.checked) primeGameAudio(); }} />Mute all audio</label>
             <p className="hint">Controls music, story ambience, and sound effects. Reader and audio preferences are saved on this device.</p>
         </section>
+        <IphoneInstallGuide />
         <section className="settings-section" aria-labelledby="account-heading">
             <h2 id="account-heading">Account &amp; sign-in</h2>
             <GoogleLinkCard playerName={character.name} />
