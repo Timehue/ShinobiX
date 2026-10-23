@@ -689,11 +689,14 @@ jobs:
     # slices so they retain their own Vite servers and the same 29-minute limit.
     # Give dock journeys and their Chronicle/terrain companions separate jobs
     # so sector slices and checkout leave time for every case and cleanup.
+    # Fishing and the Fracture Chain (273 cases, 17-19 minutes) run alone on
+    # flow 13: beside flow 2's other suites and a slow checkout they reached the
+    # 29-minute ceiling on every attempt of PR #482's run 39915415386.
     timeout-minutes: 29
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
         include:
           - shard: 3
             lifeShard: 1/8
@@ -809,7 +812,7 @@ jobs:
         working-directory: shinobij.client
         run: node node_modules/@playwright/test/cli.js test --config playwright.village-transfer.config.ts 2>&1 | tee ../.ci-evidence/e2e-responsive-flows-${{ matrix.shard }}/village-transfer.log
       - name: Fishing and Fracture Chain interaction
-        if: ${{ matrix.shard == 2 }}
+        if: ${{ matrix.shard == 13 }}
         working-directory: shinobij.client
         run: node node_modules/@playwright/test/cli.js test --config playwright.resource-gathering.config.ts --retries=1 --forbid-only 2>&1 | tee ../.ci-evidence/e2e-responsive-flows-${{ matrix.shard }}/resource-gathering.log
       - name: Chronicle pack purchase and recovery

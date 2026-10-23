@@ -44,7 +44,7 @@ same commit as the workflow.
 | `CI / client-quality` | `client_quality` | 35 min | Locked root/client installs; shipped pet rig/animation, Warfront/Rally LOD, and Warfront impostor certification ahead of the build; lint, story-content/TypeScript/production build, build-size and visual-baseline-size gates, client audit (with the same retry rule as the root audit), and checksum-backed client artifact production. |
 | `CI / release-certification` | `release_certification` | 15 min | Downloads and verifies the exact compiled release artifacts, then runs the fresh-account/combat certification against them. |
 | `CI / concurrency-smoke` | `concurrency_smoke` | 15 min | Downloads and verifies the release artifacts, then runs the short real-server concurrent-player smoke. It is not a database capacity test. |
-| `CI / e2e-responsive` | `e2e_responsive` | 5 min | Fail-closed aggregate requiring every responsive smoke slice (`e2e_responsive_matrix`) and all twelve flow jobs with the CSP, Stronghold, and dedicated suites (`e2e_responsive_flows`) to succeed. |
+| `CI / e2e-responsive` | `e2e_responsive` | 5 min | Fail-closed aggregate requiring every responsive smoke slice (`e2e_responsive_matrix`) and all thirteen flow jobs with the CSP, Stronghold, and dedicated suites (`e2e_responsive_flows`) to succeed. |
 | `CI / e2e-combat` | `e2e_combat` | 5 min | Fail-closed stable aggregate requiring all three combat browser shards to succeed. |
 | `CI / e2e-warfront` | `e2e_warfront` | 29 min | Warfront positional-mode browser coverage on seven Chromium viewport projects, including renders of eight real skinned rigs, and adaptive-layout evidence. |
 | `CI / e2e-village-stores` | `e2e_village_stores` | 5 min | Requires all three gameplay shards; ten live Express player-journey steps retain separate real servers and all existing cases. |
@@ -81,15 +81,15 @@ hung slice fails while there is still time to upload its evidence. On main in
 October 2026 a slice took 12 to 26 minutes and setup about 2.
 
 The CSP check, the Stronghold modes and the dedicated suites run beside the
-slices in twelve `e2e_responsive_flows` jobs, named `CI / e2e-responsive-flows / 1`
-through `CI / e2e-responsive-flows / 12`, each with a 29-minute ceiling:
+slices in thirteen `e2e_responsive_flows` jobs, named `CI / e2e-responsive-flows / 1`
+through `CI / e2e-responsive-flows / 13`, each with a 29-minute ceiling:
 
 - Flow 1: the built CSP in Chromium and WebKit; all three Stronghold modes,
   in order, because they build into the same disposable fixture directory;
   sector controls and spectator integration; era campaigns and admission
   refresh; the profession scroll purchase and change flow; village transfer
   purchase and recovery.
-- Flow 2: fishing and the Fracture Chain; Chronicle pack purchase and recovery;
+- Flow 2: Chronicle pack purchase and recovery;
   Pet Gauntlet playback and renderer recovery; named forge purchase and
   recovery; Rally renderer recovery; the Dojo Circuit gamepad flow.
 - Flows 3 through 10: the complete living-sector source suite, split into eight
@@ -134,6 +134,9 @@ through `CI / e2e-responsive-flows / 12`, each with a 29-minute ceiling:
   portrait and landscape layouts. Flow 11 also runs the complete Chronicle
   tea-stop and daytime handover suite; flow 12 runs painted mining/fishing
   placement. Both companion suites retain their desktop and phone projects.
+- Flow 13: fishing and the Fracture Chain, alone. Its 273 cases take 17 to 19
+  minutes, and beside flow 2's other suites and a slow checkout they reached
+  the ceiling on every attempt (October 2026).
   These groups leave setup and cleanup room under the same ceiling while
   keeping every existing case and assertion.
 
