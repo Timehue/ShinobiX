@@ -78,6 +78,15 @@ export function layoutWandererLabels(figure:HTMLElement) {
         }
         // Read all geometry before writing any style to avoid layout per label.
         for(const entry of entries)if(!visible.includes(entry)){entry.label.style.translate='';entry.label.style.removeProperty('--bubble-pointer-left');delete entry.label.dataset.bubbleBelow;shifts.delete(entry.label);}
+        // Resolve the most crowded names first. An isolated actor can use a
+        // different nearby lane; reserving its preferred lane first can leave
+        // an adjacent pair with no caption position within their owner's reach.
+        const names=visible.filter(entry=>!entry.label.classList.contains('sector-wanderer-bubble'));
+        const density=new Map(names.map(entry=>[entry,names.filter(other=>other!==entry
+            &&Math.abs(other.body.x-entry.body.x)<entry.rect.width/2+other.body.width+gap
+            &&Math.abs(other.body.y-entry.body.y)<entry.rect.height*3).length]));
+        visible.sort((a,b)=>Number(a.label.classList.contains('sector-wanderer-bubble'))-Number(b.label.classList.contains('sector-wanderer-bubble'))
+            ||(density.get(b)??0)-(density.get(a)??0));
         for(const entry of visible){const speech=entry.label.classList.contains('sector-wanderer-bubble');
             // A greeting belongs above or below its speaker, with enough room
             // for its tail. It must not sit across the player's portrait.

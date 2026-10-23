@@ -1,0 +1,29 @@
+.iphone-install-guide {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 40rem;
+  margin: 16px 0;
+  border: 1px solid var(--sj-border-strong);
+  border-radius: 12px;
+  background: var(--sj-surface-low);
+  color: var(--sj-text-primary);
+  font: 400 16px/1.6 var(--font-body, sans-serif);
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+.iphone-install-guide > summary {
+  box-sizing: border-box;
+  min-height: 48px;
+  padding: 12px 16px;
+  cursor: pointer;
+  font-weight: 650;
+  color: var(--sj-gold-bright);
+}
+.iphone-install-guide[open] > summary { border-bottom: 1px solid var(--sj-border-soft); }
+.iphone-install-guide-body { padding: 4px 16px 16px; }
+.iphone-install-guide-body p { margin: 12px 0; font-size: 16px; line-height: 1.6; }
+.iphone-install-guide-body ol { margin: 16px 0; padding-left: 24px; }
+.iphone-install-guide-body li { padding-left: 4px; margin: 14px 0; font-size: 16px; line-height: 1.6; }
+.iphone-install-guide-body a { color: var(--sj-spirit-bright); text-decoration: underline; text-underline-offset: 3px; }
+.iphone-install-guide-body .iphone-install-guide-note { color: var(--sj-text-secondary); font-size: 14px; }
+.landing-hero-copy > .iphone-install-guide { max-width: 34rem; }

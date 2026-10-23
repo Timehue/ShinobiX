@@ -1,4 +1,5 @@
 import { gainXp } from "../lib/character-level-projection";
+import { AncientChestRewards } from "../components/AncientChestRewards";
 import {ClanShrineGateway} from '../features/clanWar/ClanShrineGateway';
 import type {CwChallenge} from '../lib/clan-war-api';
 import { resourceActionsToday } from '../../../shared/resource-gathering';
@@ -32,7 +33,6 @@ import "../styles/chronicle-duel.css";
 import "../styles/card-pack-opening.css";
 import {
     GiCardPickup,
-    GiOpenTreasureChest,
     GiPawPrint,
     GiTrail,
 } from "../components/icons/LightweightGameIcons";
@@ -4211,33 +4211,7 @@ function WorldMapContent({
         if (activeChest.auraStones) rewards.push({ icon: <GameIcon name="crystal" size={22} />, label: `${rewardPrefix}1 Aura Stone`, sub: "Awakening Stone material" });
         if (activeChest.auraDust) rewards.push({ icon: <GameIcon name="sparkle" size={22} />, label: `${rewardPrefix}${activeChest.auraDust} Aura Dust`, sub: "Feeds the Aura Sphere" });
 
-        return (
-            <div className="card cinematic-card ancient-chest-reveal-card">
-                <div className="chest-reveal">
-                    <div className="chest-reveal-header">
-                        <p className="act-label"><GiOpenTreasureChest style={{ verticalAlign: "-0.14em", marginRight: "0.3rem" }} />ANCIENT CHEST CONTENTS</p>
-                        <h2 className="chest-reveal-title">{activeChest.replayed ? "Previously saved chest" : "Rewards saved"}</h2>
-                        <p className="chest-reveal-sub">{activeChest.replayed
-                            ? "These rewards were saved when this chest was first opened."
-                            : "These rewards are saved to your character."}</p>
-                    </div>
-                    <div className="chest-rewards">
-                        {rewards.map((r, i) => (
-                            <div key={i} className="chest-reward-row">
-                                <span className="chest-reward-icon">{r.icon}</span>
-                                <div className="chest-reward-text">
-                                    <strong>{r.label}</strong>
-                                    <small>{r.sub}</small>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                    <button className="chest-claim-btn" onClick={() => claimChest()}>
-                        Continue
-                    </button>
-                </div>
-            </div>
-        );
+        return <AncientChestRewards replayed={Boolean(activeChest.replayed)} rewards={rewards} onContinue={() => claimChest()} />;
     }
 
     if (isTraveling) {

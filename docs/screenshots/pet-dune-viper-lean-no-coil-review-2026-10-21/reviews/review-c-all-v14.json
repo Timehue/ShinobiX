@@ -1,0 +1,509 @@
+{
+  "schema": "pet-visual-review/v1",
+  "petId": "rare-6",
+  "petName": "Dune Viper",
+  "reviewer": "C",
+  "review": "PASS",
+  "reviewedAt": "2026-10-21",
+  "scope": "Independent visual signoff for exact v14 source, battle LOD, medium and low runtime, nine equipped companion techniques, and animated impostor atlas.",
+  "modelPins": {
+    "source": {
+      "path": "public/pet-models/roster/rare-6.glb",
+      "sha256": "99576c778214596fd055148b3ce0cb26ef2f5f112f521b3fe0a5c60d3232bb2b"
+    },
+    "battle": {
+      "path": "public/pet-models/warfront-lod/roster/rare-6.glb",
+      "sha256": "c7f0310195a184e5287ffb035efa6f8105f8705260e9d49273b37cf2679cdca8"
+    },
+    "atlas": {
+      "path": "public/pet-models/warfront-impostors/roster/rare-6.webp",
+      "sha256": "b406b5a966e3555572e32e300ff4fde6e4feadfaa1f200d06a8a15f467524acc"
+    },
+    "rendererSha256": "e7e9909cc6a9e738072d9d186c6f726b49c81d64a7c09d5c5c49ceb7528d1a5a"
+  },
+  "visualInspection": {
+    "rawSource": {
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "phases": [
+        0,
+        0.12,
+        0.28,
+        0.48,
+        0.76,
+        1
+      ],
+      "views": [
+        "body-front",
+        "body-side",
+        "body-other-side",
+        "body-back",
+        "body-top",
+        "body-rear-quarter"
+      ],
+      "contactSheets": 13,
+      "captureCount": 468,
+      "personallyViewed": true,
+      "finding": "Continuous straight tail attached behind the hind feet through all sampled clips and views; body, neck, limbs and silhouette remain coherent. No coil or separated tail segment observed."
+    },
+    "rawBattle": {
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "phases": [
+        0,
+        0.12,
+        0.28,
+        0.48,
+        0.76,
+        1
+      ],
+      "views": [
+        "body-front",
+        "body-side",
+        "body-other-side",
+        "body-back",
+        "body-top",
+        "body-rear-quarter"
+      ],
+      "contactSheets": 13,
+      "captureCount": 468,
+      "personallyViewed": true,
+      "finding": "Battle LOD preserves the same continuous tail line and attached body across all sampled clips/views; no visible tail or limb deformation."
+    },
+    "runtimeMedium": {
+      "rows": [
+        "idle",
+        "run",
+        "dash",
+        "windup",
+        "strike",
+        "recover",
+        "stagger",
+        "dodge",
+        "guard",
+        "rest",
+        "cast",
+        "entrance",
+        "victory",
+        "dead",
+        "revive",
+        "attack-sequence"
+      ],
+      "phases": [
+        0.025,
+        0.1,
+        0.25,
+        0.5,
+        0.75,
+        1
+      ],
+      "views": [
+        "front",
+        "side"
+      ],
+      "quality": "medium",
+      "sheets": 4,
+      "personallyViewed": true,
+      "finding": "Source and battle head/body sheets show connected anatomy through movement, death and revive; no visible distortion."
+    },
+    "runtimeLow": {
+      "rows": [
+        "idle",
+        "run",
+        "dash",
+        "windup",
+        "strike",
+        "recover",
+        "stagger",
+        "dodge",
+        "guard",
+        "rest",
+        "cast",
+        "entrance",
+        "victory",
+        "dead",
+        "revive",
+        "attack-sequence"
+      ],
+      "phases": [
+        0.025,
+        0.1,
+        0.25,
+        0.5,
+        0.75,
+        1
+      ],
+      "views": [
+        "front",
+        "side"
+      ],
+      "quality": "low",
+      "sheets": 4,
+      "personallyViewed": true,
+      "finding": "Low-quality source and battle head/body remain coherent; no visible distortion."
+    },
+    "techniques": {
+      "moves": [
+        "fire-strike",
+        "fire-pulse",
+        "fire-breaker",
+        "earth-pulse",
+        "open-wound",
+        "expose",
+        "rally",
+        "protect",
+        "rare-6-signature"
+      ],
+      "views": [
+        "front",
+        "side"
+      ],
+      "phases": 12,
+      "sheets": 36,
+      "frames": 216,
+      "personallyViewed": true,
+      "finding": "Reviewed all nine moves in front and side over 12 phases. No disconnection or distortion; tail stays attached and consistently extends behind hindquarters."
+    },
+    "atlas": {
+      "cells": 16,
+      "personallyViewed": true,
+      "finding": "All 16 animated atlas cells inspected; no disconnected or stretched tail/body observed."
+    }
+  },
+  "visualVerdict": "PASS: no visible deformation found in the inspected exact-v14 evidence.",
+  "numericCertification": "Outside scope of this visual review; see parent certification records.",
+  "manifestHashes": [
+    {
+      "path": ".tmp/viper-tail-rebuild/slim-v14-source-full-capture/manifest.json",
+      "sha256": "86f7ff118640000389857e1b3deead5445b501d7120b488aad094108f2ce0e41"
+    },
+    {
+      "path": ".tmp/viper-tail-rebuild/slim-v14-battle-full-capture/manifest.json",
+      "sha256": "6b8fd5a15f7a1a6021ae6deddc0b6ae7c992aa9b9f5ee506a8b967a1fc0c2fb0"
+    },
+    {
+      "path": ".tmp/pet-shape-review/viper-no-coil-runtime-v14/manifest.json",
+      "sha256": "aa99a63322ee86968161a8f36bb1478a256696ade7f5d2e8cbdfe2810f06d416"
+    },
+    {
+      "path": ".tmp/pet-shape-review/viper-no-coil-runtime-v14-low/manifest.json",
+      "sha256": "258d715bad340dc36eb85f8344eb45c65906fdc7a69c09343fb7dac9f14a7861"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/viper-no-coil-v14/manifest.json",
+      "sha256": "ef0767d1bc6e903de6e7698577675c05da75f0cc4f755eac03dbadcc0601b5fb"
+    }
+  ],
+  "evidence": [
+    {
+      "path": ".tmp/viper-tail-rebuild/slim-v14-source-full-capture/idle__six-phase-six-view.png",
+      "sha256": "2a4a3b0a1ccfb369c33f0d500f8eb7fa26ed67c0b52fd2cf65cde63e194b55a5"
+    },
+    {
+      "path": ".tmp/viper-tail-rebuild/slim-v14-source-full-capture/idle_2__six-phase-six-view.png",
+      "sha256": "b68803a387ca364d520a9eec6fac5cbfe41c1317479ad5ef4f3b6acb46947373"
+    },
+    {
+      "path": ".tmp/viper-tail-rebuild/slim-v14-source-full-capture/walk__six-phase-six-view.png",
+      "sha256": "0ba95643e003ce5015b0d14c8199ce74673671b82dedbee2f4d08cc534be794f"
+    },
+    {
+      "path": ".tmp/viper-tail-rebuild/slim-v14-source-full-capture/gallop__six-phase-six-view.png",
+      "sha256": "cd16f233159f8a01591c78bb32a1156a1bd05b8d214ef6e4f271db90683d089b"
+    },
+    {
+      "path": ".tmp/viper-tail-rebuild/slim-v14-source-full-capture/gallop_jump__six-phase-six-view.png",
+      "sha256": "ce3858e87f062c4468a2b6545738ca7679f6a3eb299e03569c2b7bf069e291f6"
+    },
+    {
+      "path": ".tmp/viper-tail-rebuild/slim-v14-source-full-capture/attack__six-phase-six-view.png",
+      "sha256": "28549b215e4ca158bb7b42bee3c1de1575e64c703bab670fcfbf37b1e91fe3bd"
+    },
+    {
+      "path": ".tmp/viper-tail-rebuild/slim-v14-source-full-capture/idle_hitreact1__six-phase-six-view.png",
+      "sha256": "c4ee444b52471f61f846eb103e78d379771991c35466c7698be3580bc4c74400"
+    },
+    {
+      "path": ".tmp/viper-tail-rebuild/slim-v14-source-full-capture/death__six-phase-six-view.png",
+      "sha256": "94a7efa41bfcfdf8fa591108b607fd01645fde1928162cfdf4d96631c88cf94a"
+    },
+    {
+      "path": ".tmp/viper-tail-rebuild/slim-v14-source-full-capture/entrance__six-phase-six-view.png",
+      "sha256": "47b70ab77a14b92495f4dc2affda2d48e0d90931d54bd1271fdeb07932d75b64"
+    },
+    {
+      "path": ".tmp/viper-tail-rebuild/slim-v14-source-full-capture/cast__six-phase-six-view.png",
+      "sha256": "445218e02e8cf423ade6ed01a39ba897c741ee68b665174e36c27d8c1b2042f6"
+    },
+    {
+      "path": ".tmp/viper-tail-rebuild/slim-v14-source-full-capture/guard__six-phase-six-view.png",
+      "sha256": "b03bf705d3b76d86344dde2d4b97b5fb5fd44dd0d59ef1f308752822b0f73dd4"
+    },
+    {
+      "path": ".tmp/viper-tail-rebuild/slim-v14-source-full-capture/rest__six-phase-six-view.png",
+      "sha256": "316e8a2fd2fd32a19a43f280857191fe532cafa4c0c689840ed74bbf6f20cbf3"
+    },
+    {
+      "path": ".tmp/viper-tail-rebuild/slim-v14-source-full-capture/victory__six-phase-six-view.png",
+      "sha256": "57f6193227a5b44089a366d32b85a4c10bef237cc3dcbaa01e4939e71cd1fb14"
+    },
+    {
+      "path": ".tmp/viper-tail-rebuild/slim-v14-battle-full-capture/idle__six-phase-six-view.png",
+      "sha256": "2813e55b4128efb58293e37f47688c59b0f5acac066f581eb7720432f406b566"
+    },
+    {
+      "path": ".tmp/viper-tail-rebuild/slim-v14-battle-full-capture/idle_2__six-phase-six-view.png",
+      "sha256": "d1f964743f0bf591b6e61c16c7937fc0e031d4a93809d480b5b67bf8dfef0f62"
+    },
+    {
+      "path": ".tmp/viper-tail-rebuild/slim-v14-battle-full-capture/walk__six-phase-six-view.png",
+      "sha256": "317193faa55987e287f5d8798cb7d59dcd2ffd55ad9bf5f3d3a41b98f4fcd30d"
+    },
+    {
+      "path": ".tmp/viper-tail-rebuild/slim-v14-battle-full-capture/gallop__six-phase-six-view.png",
+      "sha256": "6702523a1d2fb951684ce9137df817a90e164819d625c0dce62de5b7560e35f9"
+    },
+    {
+      "path": ".tmp/viper-tail-rebuild/slim-v14-battle-full-capture/gallop_jump__six-phase-six-view.png",
+      "sha256": "a6a1c47c80b8df4ed91bddf9227f4708fae8f1c87df755d164264c4d0cc6a2c8"
+    },
+    {
+      "path": ".tmp/viper-tail-rebuild/slim-v14-battle-full-capture/attack__six-phase-six-view.png",
+      "sha256": "9939a6364fb31d61b26455f53ab54919e8749fcf3970b4cede24a153aca24331"
+    },
+    {
+      "path": ".tmp/viper-tail-rebuild/slim-v14-battle-full-capture/idle_hitreact1__six-phase-six-view.png",
+      "sha256": "1771d3b7d99666a8a75b6c4ec333e54c593aa14a3dccb46289ef9e62d31ff784"
+    },
+    {
+      "path": ".tmp/viper-tail-rebuild/slim-v14-battle-full-capture/death__six-phase-six-view.png",
+      "sha256": "c34eb0e49ee0c484e1a7f32dae5b6f6a1acb1771625b0b27c9b6178aae082865"
+    },
+    {
+      "path": ".tmp/viper-tail-rebuild/slim-v14-battle-full-capture/entrance__six-phase-six-view.png",
+      "sha256": "ef52b118d8357337084f330f6ff69f1bbff9f193395521f6826df90434c878f9"
+    },
+    {
+      "path": ".tmp/viper-tail-rebuild/slim-v14-battle-full-capture/cast__six-phase-six-view.png",
+      "sha256": "aabecd88eec8110058c4b32482c10421a729823d471eee97e20730b272fe0a6e"
+    },
+    {
+      "path": ".tmp/viper-tail-rebuild/slim-v14-battle-full-capture/guard__six-phase-six-view.png",
+      "sha256": "b3c4feaf00ef5ef17ecb83e54c5cac5918eaf6ede5e0ddd37a6e164f54c2fe7a"
+    },
+    {
+      "path": ".tmp/viper-tail-rebuild/slim-v14-battle-full-capture/rest__six-phase-six-view.png",
+      "sha256": "c6b156184975f4f8c6296a6d43f860f0e86ca49bd24f13fa359653015e6f876a"
+    },
+    {
+      "path": ".tmp/viper-tail-rebuild/slim-v14-battle-full-capture/victory__six-phase-six-view.png",
+      "sha256": "aa260af2ec0553a2416cbc45273c58bed67d9ebe9ff29f498fb068b8509d9b4a"
+    },
+    {
+      "path": ".tmp/pet-shape-review/viper-no-coil-runtime-v14/rare-6-source-head.webp",
+      "sha256": "1d6f264b0cafbcb1e856999b999288e1ab459c1760239ac1907a5a364623f307"
+    },
+    {
+      "path": ".tmp/pet-shape-review/viper-no-coil-runtime-v14/rare-6-source-body.webp",
+      "sha256": "55f11325f5235a000c25b09251e291cfb25dcf7ea0302d2fa8235956f1e8e703"
+    },
+    {
+      "path": ".tmp/pet-shape-review/viper-no-coil-runtime-v14/rare-6-battle-head.webp",
+      "sha256": "af3d2eda49e24b9247f1c6e8d6092221ecca353c7bf8248848b3e0344defe802"
+    },
+    {
+      "path": ".tmp/pet-shape-review/viper-no-coil-runtime-v14/rare-6-battle-body.webp",
+      "sha256": "8af19e7055663a88f38406ccc4753158595a9e81def1809d5f0ee137533fb24f"
+    },
+    {
+      "path": ".tmp/pet-shape-review/viper-no-coil-runtime-v14-low/rare-6-source-head.webp",
+      "sha256": "08d2d2ceb6df88a7cecb4d87e53540805effa0c3c3c918d4bb7ef9cd46993d55"
+    },
+    {
+      "path": ".tmp/pet-shape-review/viper-no-coil-runtime-v14-low/rare-6-source-body.webp",
+      "sha256": "eb0bce29e3c4603995518bc071175ee5c20e164f11825efc3c57becbbcb9d47e"
+    },
+    {
+      "path": ".tmp/pet-shape-review/viper-no-coil-runtime-v14-low/rare-6-battle-head.webp",
+      "sha256": "a47f974641a062c4fd43f3232897017f09b18b62d2489491519986ce5eaa3b15"
+    },
+    {
+      "path": ".tmp/pet-shape-review/viper-no-coil-runtime-v14-low/rare-6-battle-body.webp",
+      "sha256": "6649cdab5dab6c536a4860ee7f075068d25df78d2e4a1d74f11fc9947d84649e"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/viper-no-coil-v14/rare-6-fire-strike-front-sheet-0.webp",
+      "sha256": "ea702cea5383647274a11cdd7bea28a7320636c4620202cec046d49a121680e2"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/viper-no-coil-v14/rare-6-fire-strike-front-sheet-1.webp",
+      "sha256": "8b46e30719bf56caa88ea38702128f1ee06d4a33aa0d6c17e306a63e891e25fc"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/viper-no-coil-v14/rare-6-fire-strike-side-sheet-0.webp",
+      "sha256": "6a7a1a71f6340524b29acfc36bbb1176f3f5fd6442ef410b22eab77cda2f097a"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/viper-no-coil-v14/rare-6-fire-strike-side-sheet-1.webp",
+      "sha256": "717722a64f746f2ad8bb74751d0f548ad32ac5bdbdc548cfd8f21cd6c47d00ad"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/viper-no-coil-v14/rare-6-fire-pulse-front-sheet-0.webp",
+      "sha256": "b9766ee2ae9b0d521052f9d92394b99de3eae4ce26cfd8032a04ab917fbf04a0"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/viper-no-coil-v14/rare-6-fire-pulse-front-sheet-1.webp",
+      "sha256": "d7b49705181b494d7c2505c9bf052f27ec5eccba8db6076d84b6539898cab8a7"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/viper-no-coil-v14/rare-6-fire-pulse-side-sheet-0.webp",
+      "sha256": "f7dd259485d41244f399f759bdd8d074475356055d0204cae08e20e476554a9e"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/viper-no-coil-v14/rare-6-fire-pulse-side-sheet-1.webp",
+      "sha256": "8f6e0ead458bee080fa1f8a87fc937bdf87536500e9e74f2f7d950420bf45104"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/viper-no-coil-v14/rare-6-fire-breaker-front-sheet-0.webp",
+      "sha256": "3960752c42b06cd908eb48f627719fc88a5b298f4924ee608983cf693e728f5b"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/viper-no-coil-v14/rare-6-fire-breaker-front-sheet-1.webp",
+      "sha256": "0fa06547c3ba224227885abdf487149e4d73c9ce2934c02e8792b915871a98ef"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/viper-no-coil-v14/rare-6-fire-breaker-side-sheet-0.webp",
+      "sha256": "4b284115d343b6bb94952096d641b7355e4e9d07c3d283284a24a6e396d1d4b6"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/viper-no-coil-v14/rare-6-fire-breaker-side-sheet-1.webp",
+      "sha256": "518fb6c70c7cd9a7a51322512eaa351c36473fff735456a58eb72d9c4b5cca84"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/viper-no-coil-v14/rare-6-earth-pulse-front-sheet-0.webp",
+      "sha256": "36d703c32e9e0b67f6e324da7aff5600382a40e38953d2c43f2894445faec280"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/viper-no-coil-v14/rare-6-earth-pulse-front-sheet-1.webp",
+      "sha256": "7430e9b52fc26e1ad6c9c96f1520fcca75a63d854a911fe8c870b6a927981834"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/viper-no-coil-v14/rare-6-earth-pulse-side-sheet-0.webp",
+      "sha256": "c115c2daa531ffb9807d0d277ec75a7683c2e1bfb0de6a029fb098711cab60d8"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/viper-no-coil-v14/rare-6-earth-pulse-side-sheet-1.webp",
+      "sha256": "44a0efc2dc4a7f8e83ac314a3a601a54936ebe3e535e18e006464633bf8bb7a5"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/viper-no-coil-v14/rare-6-open-wound-front-sheet-0.webp",
+      "sha256": "189d252d09836333cf942f72c9c269fa991d5494c0c719d1b2c0f4bdb1187b54"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/viper-no-coil-v14/rare-6-open-wound-front-sheet-1.webp",
+      "sha256": "79be90de4a281ad7b33dabe529b1355b44744fb902a20dee0a6f28d65b3f6f39"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/viper-no-coil-v14/rare-6-open-wound-side-sheet-0.webp",
+      "sha256": "1b347bca7abce55b21f3e0192922928b08332c8c18210db9b998fff4381987b9"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/viper-no-coil-v14/rare-6-open-wound-side-sheet-1.webp",
+      "sha256": "0851412304bf177ebb840c381f35f9390c30c8b77faae48944bb8b5c0c195aa3"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/viper-no-coil-v14/rare-6-expose-front-sheet-0.webp",
+      "sha256": "5cd40a57a5371e4b90d55f273f4d49a3967e171b81e904ca65e2829af3f57bb1"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/viper-no-coil-v14/rare-6-expose-front-sheet-1.webp",
+      "sha256": "6b9925419c9c06c534708be7990110a3db708a1f43371a7398305bde457c6550"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/viper-no-coil-v14/rare-6-expose-side-sheet-0.webp",
+      "sha256": "0f8d0737b2f3586f06255e6be268f46cf1eeff08f273a5d75429e0fbf71e4b4f"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/viper-no-coil-v14/rare-6-expose-side-sheet-1.webp",
+      "sha256": "c6c0b97ed26a1875afee65f84b58d5512512db09f900c67aad1e1a5bc506cf50"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/viper-no-coil-v14/rare-6-rally-front-sheet-0.webp",
+      "sha256": "ba876df94e16800edda39d9f5d792b4f252c48c3ae7c6085dc8ba059dcf0113e"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/viper-no-coil-v14/rare-6-rally-front-sheet-1.webp",
+      "sha256": "6d376a5639808a72385b69f14f4146fa06c72f713e44c319f8b68f6398b08c8a"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/viper-no-coil-v14/rare-6-rally-side-sheet-0.webp",
+      "sha256": "5e0169c135c859c75180477440d61284f323f78aba418fc8184e2344e29d1a6a"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/viper-no-coil-v14/rare-6-rally-side-sheet-1.webp",
+      "sha256": "9789a6eaaa361e00f8bf94dc6a3b3964c4139990f6d283af27caae8a5c26afc9"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/viper-no-coil-v14/rare-6-protect-front-sheet-0.webp",
+      "sha256": "9e6e1018ff4bc1044d3fecde462fb1705fa36e60a3b16dbc2fe17cbf4ed1d371"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/viper-no-coil-v14/rare-6-protect-front-sheet-1.webp",
+      "sha256": "21f1ffecf402a71d4c38ea4ee1a7be20cc7546178a7bd3c5d7e13b147ffdc5dd"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/viper-no-coil-v14/rare-6-protect-side-sheet-0.webp",
+      "sha256": "81ccc9ea2b8c08e1e3b3efdf25d27b12dde74cac15bc63368a528c8c5d862220"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/viper-no-coil-v14/rare-6-protect-side-sheet-1.webp",
+      "sha256": "38ff54f2734ab6bfcc0c64049d777ef6d7be78c991e13cf1dac50e10e6bd9bea"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/viper-no-coil-v14/rare-6-rare-6-signature-front-sheet-0.webp",
+      "sha256": "8722d5415749f61048f82fe02bdbc62e59f2647728e73b3562091dbd1087017a"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/viper-no-coil-v14/rare-6-rare-6-signature-front-sheet-1.webp",
+      "sha256": "9a93b0a6653b1841943e379cf887a9340b09cdc00eff4ba047e06381a75266b5"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/viper-no-coil-v14/rare-6-rare-6-signature-side-sheet-0.webp",
+      "sha256": "956cdcdbda08850aa04700182b2b72021be4c1fbf7767bb173ac6cb6644c30d8"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/viper-no-coil-v14/rare-6-rare-6-signature-side-sheet-1.webp",
+      "sha256": "3d25af28e7b11505b0ea1155c5a8f7ab5142aa0244285f164abdbebbef3e36d7"
+    },
+    {
+      "path": "public/pet-models/warfront-impostors/roster/rare-6.webp",
+      "sha256": "b406b5a966e3555572e32e300ff4fde6e4feadfaa1f200d06a8a15f467524acc"
+    }
+  ]
+}
