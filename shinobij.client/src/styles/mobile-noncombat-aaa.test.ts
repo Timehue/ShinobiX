@@ -52,6 +52,17 @@ test("large touch displays get 48px targets without changing desktop composition
     assert.match(css, /@media \(pointer: coarse\) and \(min-width: 980px\)[\s\S]*?:not\(\.sector-avatar-figure, \.scene-tile\)/);
 });
 
+test("large touch displays keep world-map pins map-sized with a ring that cannot bury village crests", () => {
+    // 48px pins on the ~550px desktop-composition atlas overlapped 91 times at
+    // 1024x768 and covered Stormveil, Ashen Leaf and Central: their taps went
+    // to Sectors 8, 15 and 47 (2026-10-22). A 40px ring keeps all 67 pins and
+    // every crest centre reachable there; 48px is safe from 1280px.
+    const block = css.match(/@media \(pointer: coarse\) and \(min-width: 980px\) \{[\s\S]*?\n\}/)?.[0] ?? "";
+    assert.match(block, /\.screen-worldMap \.world-map-scroll \.atlas-sector \{\s*min-inline-size: 0 !important;\s*min-block-size: 0 !important;/);
+    assert.match(block, /\.screen-worldMap \.world-map-scroll \.atlas-sector::after \{\s*content: "";\s*position: absolute;\s*inset: -6px;/);
+    assert.match(css, /@media \(pointer: coarse\) and \(min-width: 1280px\) \{\s*[^{}]*\.atlas-sector::after \{\s*inset: -10px;/);
+});
+
 test("training timer portal uses a responsive 2×2 choice grid and compact short-landscape sheet", () => {
     assert.match(training, /backdropClassName="training-timer-backdrop"/);
     assert.match(training, /className="training-timer-modal"/);

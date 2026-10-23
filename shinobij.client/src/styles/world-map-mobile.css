@@ -273,8 +273,10 @@
     }
 
     /* Short landscape screens use the same right-hand column for back/help and
-       the six regions, giving the map the full available height. */
-    html.wm-zoom .app-shell.screen-worldMap .world-atlas-card:has(> .world-atlas-frame[data-wm-layout="wide"]) > .wm-topbar {
+       the six regions, giving the map the full available height. The layout
+       is mirrored onto the card: a `:has()` on the frame's attribute made Chrome
+       re-check every page-level `:has()` anchor on each DOM change anywhere. */
+    html.wm-zoom .app-shell.screen-worldMap .world-atlas-card[data-wm-layout="wide"] > .wm-topbar {
         position: absolute;
         top: 8px;
         right: 8px;

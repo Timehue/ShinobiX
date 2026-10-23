@@ -2316,7 +2316,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/mobile-noncombat-aaa.css",
-            "line": 973
+            "line": 998
           },
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
@@ -2395,7 +2395,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/mobile-noncombat-aaa.css",
-            "line": 981
+            "line": 1006
           }
         ]
       },
@@ -2756,19 +2756,19 @@
           },
           {
             "source": "shinobij.client/src/components/underground-sector.css",
-            "line": 103
+            "line": 107
           },
           {
             "source": "shinobij.client/src/components/underground-sector.css",
-            "line": 190
+            "line": 194
           },
           {
             "source": "shinobij.client/src/components/underground-sector.css",
-            "line": 217
+            "line": 221
           },
           {
             "source": "shinobij.client/src/components/underground-sector.css",
-            "line": 258
+            "line": 262
           },
           {
             "source": "shinobij.client/src/features/anbuInfiltration/stronghold.css",
@@ -2933,7 +2933,7 @@
           },
           {
             "source": "shinobij.client/src/styles/mobile-noncombat-aaa.css",
-            "line": 1020
+            "line": 1045
           },
           {
             "source": "shinobij.client/src/styles/pet-arena-lobby.css",
@@ -3391,19 +3391,19 @@
           },
           {
             "source": "shinobij.client/src/components/underground-sector.css",
-            "line": 93
+            "line": 97
           },
           {
             "source": "shinobij.client/src/components/underground-sector.css",
-            "line": 200
+            "line": 204
           },
           {
             "source": "shinobij.client/src/components/underground-sector.css",
-            "line": 217
+            "line": 221
           },
           {
             "source": "shinobij.client/src/components/underground-sector.css",
-            "line": 237
+            "line": 241
           },
           {
             "source": "shinobij.client/src/features/anbuInfiltration/stronghold.css",
@@ -3726,7 +3726,7 @@
           },
           {
             "source": "shinobij.client/src/components/underground-sector.css",
-            "line": 237
+            "line": 241
           },
           {
             "source": "shinobij.client/src/features/character-creator/character-creator.css",
@@ -4433,7 +4433,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/components/underground-sector.css",
-            "line": 181
+            "line": 185
           },
           {
             "source": "shinobij.client/src/features/anbuInfiltration/stronghold.css",
@@ -4677,11 +4677,11 @@
           },
           {
             "source": "shinobij.client/src/styles/mobile-noncombat-aaa.css",
-            "line": 694
+            "line": 719
           },
           {
             "source": "shinobij.client/src/styles/mobile-noncombat-aaa.css",
-            "line": 991
+            "line": 1016
           },
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
@@ -5268,6 +5268,10 @@
           {
             "source": "shinobij.client/src/styles/mission-arena-fight.css",
             "line": 746
+          },
+          {
+            "source": "shinobij.client/src/styles/mobile-noncombat-aaa.css",
+            "line": 705
           },
           {
             "source": "shinobij.client/src/styles/tower-tactical.css",

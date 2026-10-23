@@ -9,7 +9,7 @@ import { currentDateKey } from "./utils";
 import { attunementDailyBonus } from "./hollow-gate-attunement";
 import { buildHollowGateRunFromStart, HOLLOW_GATE_FLOOR_LOAD_FAILED } from "./hollow-gate-run-build";
 import type { HollowGateRecoveryParams } from "./hollow-gate-recovery";
-import { sealHollowGateFloor } from "./hollow-gate-event-api";
+import { rememberEntryHollowGateSeal, sealHollowGateFloor } from "./hollow-gate-event-api";
 import { startHollowGateServerRun, attachStartedRun } from "./hollow-gate-server";
 import { hollowGateRunMaxFloor, hollowGateBossDisplayName, variantFromEventConfig } from "./hollow-gate-variant";
 import { isHollowGateUnlocked, loadVillageState } from "./world-state";
@@ -200,6 +200,7 @@ export async function enterHollowGateShrineFlow(params: HollowGateEntryParams) {
         if (!run) { alert(HOLLOW_GATE_FLOOR_LOAD_FAILED); return; }
         const floorSeal = await sealHollowGateFloor(character!.name, start.token!, run);
         if (interrupted()) { preserveStartedRun(start); return; }
+        rememberEntryHollowGateSeal(start.token!, run.floor, floorSeal);
         const sealedRun = { ...run, wanderers: floorSeal.wanderers, floorFeatures: floorSeal.floorFeatures,
             floorFeaturesVersion: floorSeal.floorFeatures ? 1 as const : undefined, detourTileIndex: floorSeal.detour?.tileIndex,
             detourExtraSteps: floorSeal.detour?.extraSteps, riftSignalTileIndex: floorSeal.riftSignal?.tileIndex };
