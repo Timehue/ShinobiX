@@ -801,7 +801,7 @@
         "blocks": [
           {
             "type": "p",
-            "text": "Look for shoal and mineral markers in the sector. Select one to see its skill requirement and remaining attempts, then use Approach to walk to the shore or rock base. Equip the right tool before starting: a fishing pole for Fishing or a pickaxe for Mining."
+            "text": "Look for shoal and mineral markers in the sector. Select one to see its skill requirement and remaining attempts, then use Approach to walk to the shore or rock base. Equip the right tool before starting: a fishing kunai for Fishing or a pickaxe for Mining."
           },
           {
             "type": "p",
@@ -1563,11 +1563,11 @@
           },
           {
             "type": "p",
-            "text": "Buy a Basic Fishing Pole or Basic Pickaxe from the Ryo Shop and equip it in its gathering slot through Inventory or the Outpost. Each basic tool lasts 50 attempts. Golden tools in the Grand Marketplace never break. Gathering tools do not take a combat equipment slot or add battle stats."
+            "text": "Buy a Basic Fishing Kunai or Basic Pickaxe from the Ryo Shop and equip it in its gathering slot through Inventory or the Outpost. Each basic tool lasts 50 attempts. Golden tools in the Grand Marketplace never break. Gathering tools do not take a combat equipment slot or add battle stats."
           },
           {
             "type": "p",
-            "text": "On the World Map, select a shoal or mineral node and approach its marked shore or rock base. Play the minigame for up to a 10 percentage point success bonus, or watch the relaxed animation at the baseline chance. Fishing asks you to hook the bite and manage line tension. Mining asks you to place charges along the fractures without destroying the core."
+            "text": "On the World Map, select a shoal or mineral node and approach its marked shore or rock base. Lead moving fish and land a tethered Fishing Kunai, with three throws per attempt. Fish display their required Fishing level. Hitting one above your level fails the attempt; misses scatter the shoal. Mining asks you to place charges along the fractures without destroying the core. Watch animation uses your skill’s baseline success chance."
           },
           {
             "type": "p",

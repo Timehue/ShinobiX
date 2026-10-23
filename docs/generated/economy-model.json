@@ -3159,7 +3159,7 @@
     },
     {
       "id": "tool-basic-fishing-pole",
-      "name": "Basic Fishing Pole",
+      "name": "Basic Fishing Kunai",
       "rarity": "common",
       "slot": "fishingPole",
       "levelReq": 1,
@@ -3177,7 +3177,7 @@
     },
     {
       "id": "tool-golden-fishing-pole",
-      "name": "Golden Fishing Pole",
+      "name": "Golden Fishing Kunai",
       "rarity": "legendary",
       "slot": "fishingPole",
       "levelReq": 1,

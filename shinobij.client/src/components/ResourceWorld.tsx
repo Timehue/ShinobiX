@@ -15,7 +15,7 @@ export function ResourceWorld({ character, sector, tile, commit, walk, worldBoss
     character: Character; sector: number; tile: number; commit: VersionedCharacterCommit; walk: (sector: number, tile: number) => void;
     worldBossCrystals?: { active?: boolean; eventId?: string; minedNodeIds?: readonly string[] };
 }) {
-    const [selected, setSelected] = useState<ResourceNode | null>(null), [mode, setMode] = useState<'active' | 'relaxed'>('active');
+    const [selected, setSelected] = useState<ResourceNode | null>(null), [mode, setMode] = useState<'active' | 'relaxed'>(character.resourceGathering?.active?.mode ?? 'active');
     const [busy, setBusy] = useState(false), [error, setError] = useState(''), [receipt, setReceipt] = useState<ResourceReceipt | null>(null);
     const [worldBossHollowShard, setWorldBossHollowShard] = useState<ResourceResponse['worldBossHollowShard']>();
     const [locallyMinedCrystals, setLocallyMinedCrystals] = useState<Record<string, string[]>>({});
@@ -26,11 +26,13 @@ export function ResourceWorld({ character, sector, tile, commit, walk, worldBoss
     const [recoveryRetry, setRecoveryRetry] = useState(0);
     const ready = recovery.name === character.name && recovery.status === 'ready';
     const recoveryAttemptRef = useRef(character.resourceGathering?.active);
+    const recoveryTargetRef = useRef<{ name: string; id: string; nodeId: string } | null>(null);
     useEffect(() => { recoveryAttemptRef.current = character.resourceGathering?.active; }, [character.resourceGathering?.active]);
     const inFlight = useRef(false), commitRef = useRef(commit); useEffect(() => { commitRef.current = commit; }, [commit]);
     useEffect(() => {
         let alive = true;
-        const attempt = recoveryAttemptRef.current;
+        const target = recoveryTargetRef.current;
+        const attempt = target?.name === character.name ? target : recoveryAttemptRef.current;
         void resourceRequest({ action: 'status', playerName: character.name, requestId: attempt?.id, nodeId: attempt?.nodeId }).then(result => {
             if (!alive) return;
             if (!result.ok || !result.character || !commitRef.current(result.character, result._saveVersion)) {
@@ -43,6 +45,9 @@ export function ResourceWorld({ character, sector, tile, commit, walk, worldBoss
                 clearAttemptInput(result.receipt.id);
                 setReceipt(result.receipt);
             }
+            const restored = result.character.resourceGathering?.active;
+            if (restored) setMode(restored.mode);
+            recoveryTargetRef.current = null;
             setError(''); setRecovery({ name: character.name, status: 'ready' });
         });
         return () => { alive = false; };
@@ -60,7 +65,15 @@ export function ResourceWorld({ character, sector, tile, commit, walk, worldBoss
         inFlight.current = true; setBusy(true); setError('');
         try {
             const result = await resourceRequest({ action, playerName: character.name, nodeId: node.id, mode, requestId: active?.id, ...input });
-            if (result.character && !commitRef.current(result.character, result._saveVersion)) { setError('A newer save arrived. Reopen this node to recover its result.'); return false; }
+            if (result.character && !commitRef.current(result.character, result._saveVersion)) {
+                // Preserve the requested attempt even if a newer snapshot has
+                // already cleared active. Status can then recover its receipt.
+                const id = result.receipt?.id ?? result.attempt?.id ?? result.character.resourceGathering?.active?.id ?? active?.id;
+                if (id) recoveryTargetRef.current = { name: character.name, id, nodeId: node.id };
+                setRecovery({ name: character.name, status: 'failed' });
+                setError('A newer save arrived. Check gathering again to recover its result.');
+                return false;
+            }
             if (!result.ok) { setError(result.error ?? 'Gathering is unavailable.'); return false; }
             if (result.worldBossHollowShard) {
                 setWorldBossHollowShard(result.worldBossHollowShard);
@@ -111,21 +124,21 @@ export function ResourceWorld({ character, sector, tile, commit, walk, worldBoss
             </div> : receipt ? <GatheringResult character={character} receipt={receipt} node={node} charges={charges} today={today} busy={busy}
                 onBack={close} onAgain={() => { void request('start').then(started => { if (started) setReceipt(null); }); }} /> : active ? <><div className="resource-attempt-strip"><span>Action spent · {today}/100 today</span><span>{Math.max(0, Math.min(Math.ceil((active.expiresAt - active.startedAt) / 1000), Math.ceil((active.expiresAt - now) / 1000)))}s remaining</span></div>
                 {now >= active.expiresAt && <p role="status">This attempt expired. Close it to return to the map.</p>}
-                <ResourceMinigame key={active.id} attempt={active} busy={busy || now >= active.expiresAt} resolve={input => void request('resolve', input)} />
+                <ResourceMinigame key={active.id} attempt={active} busy={busy || now >= active.expiresAt} fishingGold={toolId === 'tool-golden-fishing-pole'} resolve={input => void request('resolve', input)} />
                 <button type="button" className="resource-cancel" disabled={busy} onClick={() => void request('cancel')}>{now >= active.expiresAt ? 'Close expired attempt' : 'Abandon attempt (action stays spent)'}</button>
             </> : node && <div className="resource-node-intro">
-                <p className="resource-kicker">{node.worldBossCrystal ? 'World threat · Hollow Shard' : node.activity === 'mining' ? 'Mountain seam · Fracture Chain' : 'Water shoal · Cast and reel'}</p>
-                <div className="resource-node-stats"><span>Your skill <strong>{level}</strong></span><span>Attempts <strong>{charges}/3</strong></span><span>Baseline success <strong>{resourceSuccessRate(level, node.difficulty)}%</strong></span></div>
+                <p className="resource-kicker">{node.worldBossCrystal ? 'World threat · Hollow Shard' : node.activity === 'mining' ? 'Mountain seam · Fracture Chain' : 'Water shoal · Kunai fishing'}</p>
+                <div className="resource-node-stats"><span>Your skill <strong>{level}</strong></span><span>Attempts <strong>{charges}/3</strong></span><span>{node.activity === 'fishing' ? 'Relaxed success' : 'Baseline success'} <strong>{resourceSuccessRate(level, node.difficulty)}%</strong></span></div>
                 <p>{node.difficulty === 1 ? 'Basic' : node.difficulty === 4 ? 'Rich' : 'Master'} site · Requires skill {node.difficulty} · Quality up to {RESOURCE_GRADES[node.ceiling]}</p>
                 {node.worldBossCrystal && <p>This vein is shared across the world. A successful mine stores one Hollow Shard for you. Turn it in on the World Bosses screen for contribution points and to fill the world's weakening meter.</p>}
                 <p>Explore, fishing and mining share 100 total actions per UTC day. Failures and abandoned attempts count. Empty nodes replenish after 10 minutes.</p>
                 <p><strong>{100 - Math.min(100, today)} actions left today</strong></p>
                 {charges === 0 ? <p role="status">Replenishes in {Math.max(1, Math.ceil((resourceNodeState(state.nodes[node.id], now).refillAt - now) / 60_000))} {Math.ceil((resourceNodeState(state.nodes[node.id], now).refillAt - now) / 60_000) <= 1 ? 'minute' : 'minutes'}.</p>
                     : level < node.difficulty ? <p role="status">Train your {node.activity} skill to {node.difficulty} to use this node.</p>
-                    : !usableTool ? <p role="status">Equip a {toolSlot === 'pickaxe' ? 'pickaxe' : 'fishing pole'} in Inventory first. Basic tools are available at the Ryo Shop.</p>
+                    : !usableTool ? <p role="status">Equip a {toolSlot === 'pickaxe' ? 'pickaxe' : 'fishing kunai'} in Inventory first. Basic tools are available at the Ryo Shop.</p>
                     : tile !== node.approach || sector !== node.sector ? <button type="button" className="resource-primary" onClick={() => { setSelected(null); requestAnimationFrame(() => walk(node.sector, node.approach)); }}>Approach {node.activity === 'mining' ? 'rock base' : 'shore'}</button>
-                    : <><fieldset className="resource-mode"><legend>Gathering style</legend><label><input type="radio" name="gather-mode" checked={mode === 'active'} onChange={() => setMode('active')} />Play minigame · up to +10% success</label><label><input type="radio" name="gather-mode" checked={mode === 'relaxed'} onChange={() => setMode('relaxed')} />Watch animation · baseline success</label></fieldset>
-                        <button type="button" className="resource-primary" disabled={busy || today >= 100} onClick={() => void request('start')}>{busy ? 'Starting…' : node.activity === 'mining' ? 'Begin mining · 1 action' : 'Cast line · 1 action'}</button></>}
+                    : <><fieldset className="resource-mode"><legend>Gathering style</legend><label><input type="radio" name="gather-mode" checked={mode === 'active'} onChange={() => setMode('active')} />{node.activity === 'fishing' ? 'Kunai fishing · higher-level fish fail the attempt' : 'Play minigame · up to +10% success'}</label><label><input type="radio" name="gather-mode" checked={mode === 'relaxed'} onChange={() => setMode('relaxed')} />Watch animation · baseline success</label></fieldset>
+                        <button type="button" className="resource-primary" disabled={busy || today >= 100} onClick={() => void request('start')}>{busy ? 'Starting…' : node.activity === 'mining' ? 'Begin mining · 1 action' : 'Ready kunai · 1 action'}</button></>}
             </div>}
             {receipt && node?.worldBossCrystal && receipt.outcome === 'success' && worldBossHollowShard && <p className="resource-world-boss-receipt" role="status">{worldBossHollowShard.harvested ? 'Hollow Shard secured' : 'This Hollow Shard was already claimed'} · You hold {worldBossHollowShard.heldHollowShards} · {worldBossHollowShard.pointsPerShard.toLocaleString()} points per shard when turned in.</p>}
             {error && <p className="resource-warning" role="alert">{error}</p>}
@@ -136,6 +149,7 @@ export function ResourceWorld({ character, sector, tile, commit, walk, worldBoss
 function clearAttemptInput(id: string) {
     try {
         sessionStorage.removeItem(`outpost-fishing:${id}`);
+        sessionStorage.removeItem(`outpost-kunai:${id}`);
         sessionStorage.removeItem(`outpost-mining:${id}`);
     } catch { /* optional recovery storage */ }
 }

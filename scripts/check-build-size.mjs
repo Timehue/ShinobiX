@@ -7,6 +7,7 @@ const distDir = process.env.BUILD_SIZE_DIR || join(process.cwd(), 'shinobij.clie
 
 const JS_CHUNK_FAIL_BYTES = 1_500_000;
 const CSS_FILE_FAIL_BYTES = 750_000;
+const KUNAI_FISHING_LAZY_FAIL_BYTES = 24_000;
 const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // All emitted product JS/CSS includes lazy 3D/gameplay chunks and production
 // build-arg code that is not always present in local builds. Keep startup gates
@@ -884,7 +885,22 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // Merged with the iPhone work above they measure 9,596,064 B locally with CI's
 // VITE_* settings. The owner approved raising the cap for these lag and travel
 // fixes. Allow 9.60 MB. Startup raw/gzip, per-chunk, CSS and asset limits stay fixed.
-const TOTAL_JS_CSS_FAIL_BYTES = 9_600_000;
+// Merged again onto the fishing work below (2026-10-23), the whole graph measures
+// 9,623,877 B with CI's VITE_* settings, inside the 9.625 MB cap set there.
+// 2026-10-22: requested kunai fishing replaces new casts with aiming, shared
+// projectile collision, animated fish/tether retrieval and touch controls.
+// Product graph measures 9,602,363 B (+17,611 B over the prior fishing pass).
+// Its dedicated lazy JS/CSS is 16,887 B, independently capped below at 20 KB.
+// Allow 9.61 MB including release variance. Startup remains 394,288 B gzip;
+// startup, per-chunk, CSS and runtime-asset limits are unchanged.
+// 2026-10-22 ranked-fish follow-up: sealed species requirements/failure receipts,
+// level badges, break-free motion and realistic hand/kunai sprites extend the
+// requested minigame. Its own lazy JS/CSS is now capped at 24 KB. Allow 9.615 MB
+// aggregate including release variance; startup, chunk and asset gates stay fixed.
+// 2026-10-23 integration: retain main's 10 KB iPhone allocation alongside
+// the 30 KB fishing allocation. The combined aggregate cap is 9.625 MB;
+// the independent startup, per-chunk, lazy-fishing and runtime-art limits stay fixed.
+const TOTAL_JS_CSS_FAIL_BYTES = 9_625_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai
@@ -1253,6 +1269,13 @@ try {
     const manifest = JSON.parse(readFileSync(join(distDir, '.vite', 'manifest.json'), 'utf8'));
     const entries = Object.entries(manifest);
     const byFile = new Map(entries.map(([key, value]) => [value.file, { key, ...value }]));
+    const kunai = entries.find(([, value]) => value.src === 'src/components/KunaiFishing.tsx')?.[1];
+    if (!kunai?.isDynamicEntry) throw new Error('kunai fishing must remain a lazy entry');
+    const kunaiFiles = [kunai.file, ...(kunai.css ?? [])];
+    const kunaiBytes = kunaiFiles.reduce((sum, file) => sum + statSync(join(distDir, file)).size, 0);
+    console.log(`[sizecheck] Lazy kunai fishing: ${exact(kunaiBytes)} JS/CSS (${KUNAI_FISHING_LAZY_FAIL_BYTES.toLocaleString('en-US')} B ceiling).`);
+    if (kunaiFiles.some(file => initialRefs.includes(file))) failures.push('kunai fishing entered the startup graph');
+    if (kunaiBytes > KUNAI_FISHING_LAZY_FAIL_BYTES) failures.push(`kunai fishing is ${kunaiBytes} B; lazy JS/CSS threshold is ${KUNAI_FISHING_LAZY_FAIL_BYTES.toLocaleString('en-US')} B`);
     const routeClosure = (source) => {
         const found = entries.find(([, value]) => value.src === source);
         if (!found) throw new Error(`manifest entry for ${source} was not emitted`);
@@ -1291,7 +1314,7 @@ try {
     const villageJsonGzipTotal = villageJson.reduce((sum, file) => sum + file.gzip, 0);
     console.log(`[sizecheck] Admin Visual Novels: ${exact(admin.raw + villageJsonRawTotal)} raw / ${exact(admin.gzip + villageJsonGzipTotal)} gzip (${admin.count} incremental JS/CSS + four village JSON).`);
 } catch (err) {
-    failures.push(`could not measure on-demand story routes from Vite manifest: ${err.message}`);
+    failures.push(`could not measure on-demand routes from Vite manifest: ${err.message}`);
 }
 
 if (budgetedJsCssTotal > TOTAL_JS_CSS_WARN_BYTES) {
