@@ -188,7 +188,7 @@ test('built CSP and every Stronghold audit feed the required responsive gate wit
     assert.deepEqual([...strongholdOrder].sort((a, b) => a - b), strongholdOrder);
     assert.match(responsive, /name: Retain responsive browser evidence\n\s+if: always\(\)/);
     assert.match(flows, /name: Retain responsive flow evidence\n\s+if: always\(\)/);
-    assert.match(flows, /shard: \[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12\]/, 'every responsive flow shard must be scheduled');
+    assert.match(flows, /shard: \[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14\]/, 'every responsive flow shard must be scheduled');
     for(let shard=1;shard<=8;shard++)assert(flows.includes(`lifeShard: ${shard}/8`),'every living-sector slice must be gated');
     assert.match(flows, /needs: release_artifact\n\s+if: \$\{\{ always\(\) \}\}/);
     const aggregate = workflow.split('  e2e_responsive:\n')[1]?.split('\n  e2e_combat_matrix:\n')[0];
@@ -505,6 +505,35 @@ test('responsive matrix schedules each slice exactly once with matching evidence
     assert.ok(evidenceTotals.length >= 8);
     assert.ok(evidenceTotals.every(total => total === denominator));
     assert.doesNotMatch(responsive, /--grep|--project|--max-failures/, 'splitting must retain the complete browser suite');
+});
+
+test('gathering keeps both complete slices outside the recovery job budget', () => {
+    const flows = responsiveFlows();
+    const matrix = flows.split('    steps:')[0];
+    const resourceSlices = [...matrix.matchAll(/- shard: (\d+)\n\s+resourceShard: (\d+\/2)/g)]
+        .map((match) => [Number(match[1]), match[2]]);
+    assert.deepEqual(resourceSlices, [[13, '1/2'], [14, '2/2']]);
+    const gathering = flows.split('      - name: ').find((step) => step.startsWith('Fishing and Fracture Chain interaction\n'));
+    assert.ok(gathering.includes('if: ${{ matrix.shard == 13 || matrix.shard == 14 }}'));
+    assert.ok(gathering.includes('--shard=${{ matrix.resourceShard }}'));
+    assert.equal(occurrences('--config playwright.resource-gathering.config.ts'), 1);
+    assert.doesNotMatch(gathering, /continue-on-error|--project|--grep|--max-failures/);
+    assert.match(flows, /^    timeout-minutes: 29$/m);
+});
+
+test('both Warfront slices feed its stable required check with complete evidence', () => {
+    const matrix = workflow.split('  e2e_warfront_matrix:\n')[1]?.split('\n  e2e_warfront:\n')[0];
+    const aggregate = workflow.split('  e2e_warfront:\n')[1]?.split('\n  e2e_village_stores_matrix:\n')[0];
+    assert.ok(matrix && aggregate);
+    assert.match(matrix, /fail-fast: false/);
+    assert.match(matrix, /shard: \[1, 2\]/);
+    assert.match(matrix, /^    timeout-minutes: 29$/m);
+    assert.ok(matrix.includes('npm run test:e2e:warfront --prefix shinobij.client -- --shard=${{ matrix.shard }}/2'));
+    assert.ok(matrix.includes('name: evidence-e2e-warfront-${{ matrix.shard }}-of-2-'));
+    assert.doesNotMatch(matrix.split('      - name: Warfront positional-mode browser matrix\n')[1]
+        ?.split('      - name: Retain Warfront browser evidence\n')[0], /continue-on-error|--project|--grep|--max-failures/);
+    assert.match(aggregate, /needs: e2e_warfront_matrix\n\s+if: \$\{\{ always\(\) \}\}/);
+    assert.ok(aggregate.includes('test "$WARFRONT_SHARDS" = success'));
 });
 
 test('live Express sharding preserves ten exclusive invocations and a fail-closed stable aggregate', () => {
