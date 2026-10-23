@@ -689,11 +689,13 @@ jobs:
     # slices so they retain their own Vite servers and the same 29-minute limit.
     # Give dock journeys and their Chronicle/terrain companions separate jobs
     # so sector slices and checkout leave time for every case and cleanup.
+    # Gathering now takes 19 minutes for all 273 cases. Give its two complete
+    # slices their own jobs so flow 2 can finish the remaining recovery suites.
     timeout-minutes: 29
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
         include:
           - shard: 3
             lifeShard: 1/8
@@ -717,6 +719,10 @@ jobs:
             dockProject: desktop
           - shard: 12
             dockProject: phone
+          - shard: 13
+            resourceShard: 1/2
+          - shard: 14
+            resourceShard: 2/2
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -809,9 +815,9 @@ jobs:
         working-directory: shinobij.client
         run: node node_modules/@playwright/test/cli.js test --config playwright.village-transfer.config.ts 2>&1 | tee ../.ci-evidence/e2e-responsive-flows-${{ matrix.shard }}/village-transfer.log
       - name: Fishing and Fracture Chain interaction
-        if: ${{ matrix.shard == 2 }}
+        if: ${{ matrix.shard == 13 || matrix.shard == 14 }}
         working-directory: shinobij.client
-        run: node node_modules/@playwright/test/cli.js test --config playwright.resource-gathering.config.ts --retries=1 --forbid-only 2>&1 | tee ../.ci-evidence/e2e-responsive-flows-${{ matrix.shard }}/resource-gathering.log
+        run: node node_modules/@playwright/test/cli.js test --config playwright.resource-gathering.config.ts --shard=${{ matrix.resourceShard }} --retries=1 --forbid-only 2>&1 | tee ../.ci-evidence/e2e-responsive-flows-${{ matrix.shard }}/resource-gathering.log
       - name: Chronicle pack purchase and recovery
         if: ${{ matrix.shard == 2 }}
         working-directory: shinobij.client
@@ -1020,16 +1026,19 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
-  e2e_warfront:
-    name: CI / e2e-warfront
+  e2e_warfront_matrix:
+    name: CI / e2e-warfront / ${{ matrix.shard }}-of-2
     needs: release_artifact
     if: ${{ always() }}
     runs-on: ubuntu-latest
-    # This is a seven-project browser matrix that also renders eight real skinned
-    # rigs, so it belongs on the same 29-minute budget as the other two browser
-    # matrices rather than the 20 it was given: observed green runs already take
-    # 14-17 minutes, which left the job less headroom than one slow runner uses.
+    # All 52 applicable cases passed in 18.6 minutes, but setup and cleanup
+    # exhausted the 29-minute job. Split the same seven-project inventory
+    # across two runners, retaining the existing per-job ceiling.
     timeout-minutes: 29
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -1040,7 +1049,7 @@ jobs:
       - name: Initialize evidence
         run: |
           mkdir -p .ci-evidence/e2e-warfront
-          printf 'sha=%s\nrun_id=%s\nrun_attempt=%s\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" > .ci-evidence/e2e-warfront/provenance.txt
+          printf 'sha=%s\nrun_id=%s\nrun_attempt=%s\nshard=%s-of-2\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "${{ matrix.shard }}" > .ci-evidence/e2e-warfront/provenance.txt
       - name: Require successful release artifact
         if: ${{ needs.release_artifact.result != 'success' }}
         run: |
@@ -1070,19 +1079,44 @@ jobs:
           browsers: chromium
           log: .ci-evidence/e2e-warfront/browser-install.log
       - name: Warfront positional-mode browser matrix
-        run: npm run test:e2e:warfront --prefix shinobij.client 2>&1 | tee .ci-evidence/e2e-warfront/playwright.log
+        run: npm run test:e2e:warfront --prefix shinobij.client -- --shard=${{ matrix.shard }}/2 2>&1 | tee .ci-evidence/e2e-warfront/playwright.log
       - name: Retain Warfront browser evidence
         if: always()
         continue-on-error: true
         uses: actions/upload-artifact@v7
         with:
           include-hidden-files: true
-          name: evidence-e2e-warfront-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          name: evidence-e2e-warfront-${{ matrix.shard }}-of-2-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             .ci-evidence/e2e-warfront/
             shinobij.client/playwright-report/
             shinobij.client/test-results/
             .playwright-mcp/aaa-adaptive/
+          if-no-files-found: warn
+          retention-days: 14
+
+  e2e_warfront:
+    name: CI / e2e-warfront
+    needs: e2e_warfront_matrix
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require every Warfront shard
+        env:
+          WARFRONT_SHARDS: ${{ needs.e2e_warfront_matrix.result }}
+        run: |
+          mkdir -p .ci-evidence/e2e-warfront
+          printf 'warfront-shards=%s\n' "$WARFRONT_SHARDS" | tee .ci-evidence/e2e-warfront/shards.log
+          test "$WARFRONT_SHARDS" = success
+      - name: Retain Warfront aggregate evidence
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v7
+        with:
+          name: evidence-e2e-warfront-aggregate-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          include-hidden-files: true
+          path: .ci-evidence/e2e-warfront/
           if-no-files-found: warn
           retention-days: 14
 
