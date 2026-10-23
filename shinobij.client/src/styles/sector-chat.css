@@ -17,7 +17,8 @@
    takes the rest: measured 2026-10-04, a full roster otherwise left a 1080p
    chat log 84px tall. */
 .sector-chat.is-open[data-layout="roomy"] { flex: 1 1 0; min-height: 220px; }
-.sector-nearby:has(> .sector-chat.is-open[data-layout="roomy"]) > .sector-nearby-scroll { flex: 0 1 auto; max-height: 50%; }
+/* SectorChat sets data-chat-docked while open in its roomy layout (no `:has()`: see SectorChat). */
+.sector-nearby[data-chat-docked] > .sector-nearby-scroll { flex: 0 1 auto; max-height: 50%; }
 
 .sector-chat-head { position: relative; margin: 0; font: inherit; }
 /* A gilded seam with a diamond at its centre marks where the chat begins. */

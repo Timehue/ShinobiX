@@ -3,6 +3,10 @@
 /* Override the adaptive tile-scene rule without making other maps non-scrollable. */
 .map-instance .instance-frame>main.tile-scene>.pixel-map.continuous-world-map{overflow:clip}
 .continuous-world-map>canvas{position:absolute;inset:0;width:100%;height:100%;z-index:1;touch-action:none}
+/* A stronghold covers the paused world. It stays mounted so leaving costs no reconnect, but out of sight, focus and hit-tests.
+   The sky and the self marker leave layout too, so the marker's idle animation stops restyling under the stronghold. */
+.continuous-world-map[data-suspended]>canvas{visibility:hidden}
+.continuous-world-map[data-suspended]>.day-night-sky,.continuous-world-map[data-suspended]>.continuous-world-self{display:none}
 /* Day/night washes the terrain canvas (z1) under the tiles and players (z5). Kept more specific than the shared
    `.day-night-sky.on-floor{z-index:-1}`, so it never depends on this lazy sheet loading after the main one. */
 .pixel-map.continuous-world-map>.day-night-sky{z-index:2;pointer-events:none}

@@ -49,6 +49,11 @@ export function undergroundCamera(args: {
     return { x: axis(view.width, width, playerX, room?.x, room?.width), y: axis(view.height, height, playerY, room?.y, room?.height) };
 }
 
+/** Snap window edges outward to this many tiles. A window that follows the
+ * camera tile by tile adds and removes a whole row or column of terrain on
+ * every step; snapped, it moves on every other step at most. */
+export const UNDERGROUND_WINDOW_SNAP = 2;
+
 /** Bound SVG raster work to the camera, retaining world coordinates and two
  * tiles of overscan for the existing one-step camera transition. */
 export function undergroundRenderWindow(args: {
@@ -57,9 +62,11 @@ export function undergroundRenderWindow(args: {
 }): { left: number; top: number; width: number; height: number } {
     const { view, width, height, tileSize, camera } = args;
     if (view.width <= 0 || view.height <= 0 || tileSize <= 0) return { left: 0, top: 0, width: 0, height: 0 };
-    const left = Math.max(0, Math.floor(-camera.x / tileSize) - 2);
-    const top = Math.max(0, Math.floor(-camera.y / tileSize) - 2);
-    const right = Math.min(width, Math.ceil((-camera.x + view.width) / tileSize) + 2);
-    const bottom = Math.min(height, Math.ceil((-camera.y + view.height) / tileSize) + 2);
+    const down = (value: number) => Math.floor(value / UNDERGROUND_WINDOW_SNAP) * UNDERGROUND_WINDOW_SNAP;
+    const up = (value: number) => Math.ceil(value / UNDERGROUND_WINDOW_SNAP) * UNDERGROUND_WINDOW_SNAP;
+    const left = Math.max(0, down(Math.floor(-camera.x / tileSize) - 2));
+    const top = Math.max(0, down(Math.floor(-camera.y / tileSize) - 2));
+    const right = Math.min(width, up(Math.ceil((-camera.x + view.width) / tileSize) + 2));
+    const bottom = Math.min(height, up(Math.ceil((-camera.y + view.height) / tileSize) + 2));
     return { left, top, width: Math.max(0, right - left), height: Math.max(0, bottom - top) };
 }

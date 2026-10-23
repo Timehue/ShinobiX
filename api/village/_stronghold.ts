@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { kv } from '../_storage.js';
-import { readKvProjection, type KvProjection } from '../_storage-projection.js';
+import { readKvProjection } from '../_storage-projection.js';
+import { readSavePresenceFacts, type SavePresenceFacts } from '../_save-presence-facts.js';
 import { withKvLock } from '../_lock.js';
 import { onlineStore } from '../_realtime/online-store.js';
 import { battleAuthorityKeys, battleEvidenceFrom, resolveBattleAuthority } from '../_realtime/battle-authority.js';
@@ -30,27 +31,12 @@ type Result = { status: number; body: Record<string, unknown> };
 const fail = (error: string, status = 409): Result => ({ status, body: { error } });
 
 /**
- * The save fields a stronghold entry or step decides on: village (war
- * objectives), level (admission) and the three isIncapacitated reads. A step
- * used to read the whole save twice, hundreds of KB per tile; Postgres now
- * extracts these where the save lives. A save whose character holds none of
- * them falls back to the whole read, so every check decides exactly as before.
+ * The save fields a stronghold entry or step decides on (SAVE_PRESENCE_FACTS).
+ * A step used to read the whole save twice, hundreds of KB per tile.
  */
-const STRONGHOLD_SAVE_FACTS: KvProjection = {
-    name: ['character', 'name'],
-    village: ['character', 'village'],
-    level: ['character', 'level'],
-    hp: ['character', 'hp'],
-    hospitalized: ['character', 'hospitalized'],
-    hospitalizedUntil: ['character', 'hospitalizedUntil'],
-};
-type StrongholdSaveFacts = { character?: Record<string, unknown> } | null;
-async function strongholdSaveFacts(playerName: string): Promise<StrongholdSaveFacts> {
-    const saveKey = `save:${playerName}`;
-    const [row] = await readKvProjection(kv, [saveKey], STRONGHOLD_SAVE_FACTS);
-    if (!row) return null;
-    if (Object.keys(row).length > 0) return { character: row };
-    return kv.get<{ character?: Record<string, unknown> }>(saveKey);
+async function strongholdSaveFacts(playerName: string): Promise<SavePresenceFacts> {
+    const [facts] = await readSavePresenceFacts([playerName]);
+    return facts;
 }
 
 /** `values` is the battleAuthorityKeys read when the caller already made it. */

@@ -21,7 +21,7 @@
     line-height: 1.4;
     text-align: left;
 }
-.story-field-journal:has(> details[open]) { width: min(320px, calc(100% - 16px)); }
+.story-field-journal.is-open { width: min(320px, calc(100% - 16px)); }
 .story-field-journal .story-field-journal-toggle {
     position: sticky;
     top: 0;

@@ -105,7 +105,7 @@ test("Team PvP presentation keeps live-player art and hides disabled consumable 
 });
 
 test("mobile Tower combat wraps critical controls and permits vertical scrolling on the fitted board", () => {
-    assert.match(fight, /className="tower-fight-header tower-fight-statusbar"/,
+    assert.match(fight, /className=\{?["`]tower-fight-header tower-fight-statusbar[$"`]/,
         "the header must retain both its compact-layout hook and semantic status-bar hook");
     assert.match(fight, /className="tower-fight-turn-pill"/);
     assert.match(tacticalCss, /\.tower-fight-turn-pill\s*\{[^}]*max-width:\s*100%/,

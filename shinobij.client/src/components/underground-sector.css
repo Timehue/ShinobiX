@@ -72,11 +72,15 @@
 .underground-world--rift .hg-cave-header h2 { font-weight: 500; color: #f2ece2 !important; }
 .underground-world--rift[data-hg-depths="1"] .underground-depths { display: none; }
 .hollow-gate-shrine.underground-world--rift { border-color: #aaa0c63b !important; background: linear-gradient(145deg, #14131cf5, #0b0b13fa) !important; box-shadow: inset 0 1px 0 #ffffff08, 0 18px 60px #0005; }
-/* That ~97% opaque backing hides the shared `.card` 3px backdrop blur, yet every
-   frame of the rift energy overlay inside the card re-read and re-blurred the
-   whole backdrop (12 of 16.7 ms per frame in software compositing, 1 ms without
-   it). Three classes outrank `.center-game > .card` in any stylesheet order. */
-.card.hollow-gate-shrine.underground-world--rift { backdrop-filter: none !important; }
+/* The shared `.card` 3px backdrop blur is re-read and re-blurred on every frame
+   anything inside the card moves: the rift energy overlay, the walking board.
+   For rifts that cost 12 of 16.7 ms per frame in software compositing (1 ms
+   without it). It is invisible on every Hollow Gate floor: the rift backing is
+   ~97% opaque, and behind a normal floor's card the page is dark and soft
+   (mean change 0.3 of 255 with it removed, 2026-10-22). Every Hollow Gate card,
+   rift or not, carries --cave. Three classes outrank `.center-game > .card` in
+   any stylesheet order. */
+.card.hollow-gate-shrine.underground-world--cave { backdrop-filter: none !important; }
 .underground-world--rift .hg-viewport { border-color: #a29abc4d; box-shadow: 0 0 30px #0005; background: #080a13; }
 .underground-world--rift .hg-viewport::after { content: ''; position: absolute; inset: 0; z-index: 2; background: radial-gradient(ellipse at 50% 35%, transparent 30%, #0608125c 100%); pointer-events: none; }
 .underground-world--rift .hg-cave-location { background: #0c101be8; box-shadow: none; padding: 7px 10px; }
