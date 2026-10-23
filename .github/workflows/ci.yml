@@ -602,19 +602,19 @@ jobs:
           retention-days: 14
 
   e2e_responsive_matrix:
-    name: CI / e2e-responsive / ${{ matrix.shard }}-of-7
+    name: CI / e2e-responsive / ${{ matrix.shard }}-of-12
     needs: release_artifact
     if: ${{ always() }}
     runs-on: ubuntu-latest
-    # Run 39433723955 exhausted the five-way smoke slice twice; its retry
-    # reached 634/700 cases before cancellation. Seven slices preserve every
-    # browser case while keeping the existing 31-minute step and 35-minute job
-    # ceilings. CSP, Stronghold and dedicated suites remain in the flow jobs.
+    # Run 39972028678 exhausted seven-way smoke slice 3 at 485/547 cases.
+    # Twelve slices preserve every browser case while keeping the existing
+    # 31-minute step and 35-minute job ceilings. CSP, Stronghold and dedicated
+    # suites remain in the flow jobs.
     timeout-minutes: 35
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5, 6, 7]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -624,18 +624,18 @@ jobs:
           cache-dependency-path: shinobij.client/package-lock.json
       - name: Initialize evidence
         run: |
-          mkdir -p .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-7
-          printf 'sha=%s\nrun_id=%s\nrun_attempt=%s\nshard=%s-of-7\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "${{ matrix.shard }}" > .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-7/provenance.txt
+          mkdir -p .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-12
+          printf 'sha=%s\nrun_id=%s\nrun_attempt=%s\nshard=%s-of-12\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "${{ matrix.shard }}" > .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-12/provenance.txt
       - name: Require successful release artifact
         if: ${{ needs.release_artifact.result != 'success' }}
         run: |
-          echo "release-artifact=${{ needs.release_artifact.result }}" | tee .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-7/upstream-results.log
+          echo "release-artifact=${{ needs.release_artifact.result }}" | tee .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-12/upstream-results.log
           exit 1
       # Ranked browser fixtures need root storage packages.
       - name: Install server runtime and QA dependencies
-        run: npm ci 2>&1 | tee .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-7/root-install.log
+        run: npm ci 2>&1 | tee .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-12/root-install.log
       - name: Install client dependencies
-        run: npm ci --prefix shinobij.client 2>&1 | tee .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-7/client-install.log
+        run: npm ci --prefix shinobij.client 2>&1 | tee .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-12/client-install.log
       - name: Download joined release artifact
         uses: actions/download-artifact@v8
         with:
@@ -656,21 +656,21 @@ jobs:
         uses: ./.github/actions/playwright-browsers
         with:
           browsers: chromium firefox webkit
-          log: .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-7/browser-install.log
+          log: .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-12/browser-install.log
       - name: Cross-browser responsive and accessibility smoke
         # Below the job ceiling, so a hung smoke fails here and the evidence
         # upload below still runs, including when a runner becomes slow.
         timeout-minutes: 31
-        run: npm run test:e2e --prefix shinobij.client -- --shard=${{ matrix.shard }}/7 2>&1 | tee .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-7/playwright.log
+        run: npm run test:e2e --prefix shinobij.client -- --shard=${{ matrix.shard }}/12 2>&1 | tee .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-12/playwright.log
       - name: Retain responsive browser evidence
         if: always()
         continue-on-error: true
         uses: actions/upload-artifact@v7
         with:
           include-hidden-files: true
-          name: evidence-e2e-responsive-${{ matrix.shard }}-of-7-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          name: evidence-e2e-responsive-${{ matrix.shard }}-of-12-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
-            .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-7/
+            .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-12/
             shinobij.client/playwright-report/
             shinobij.client/test-results/
           if-no-files-found: warn
@@ -695,7 +695,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
         include:
           - shard: 3
             lifeShard: 1/8
@@ -827,18 +827,20 @@ jobs:
         working-directory: shinobij.client
         run: node --import tsx node_modules/@playwright/test/cli.js test --config playwright.hollow-gate-return.config.ts --forbid-only 2>&1 | tee ../.ci-evidence/e2e-responsive-flows-${{ matrix.shard }}/hollow-gate-return.log
       - name: Pet Gauntlet playback and renderer recovery
-        if: ${{ matrix.shard == 2 }}
+        # Run 39972028678 passed every recovery case but exhausted flow 2
+        # during cleanup after a slow checkout. Keep room for setup and evidence.
+        if: ${{ matrix.shard == 15 }}
         run: xvfb-run -a npm run test:e2e:gauntlet-render --prefix shinobij.client 2>&1 | tee .ci-evidence/e2e-responsive-flows-${{ matrix.shard }}/gauntlet-render.log
       - name: Named forge purchase and recovery
-        if: ${{ matrix.shard == 2 }}
+        if: ${{ matrix.shard == 15 }}
         working-directory: shinobij.client
         run: node node_modules/@playwright/test/cli.js test --config playwright.named-forge.config.ts --retries=0 --forbid-only 2>&1 | tee ../.ci-evidence/e2e-responsive-flows-${{ matrix.shard }}/named-forge.log
       - name: Rally renderer recovery
-        if: ${{ matrix.shard == 2 }}
+        if: ${{ matrix.shard == 15 }}
         working-directory: shinobij.client
         run: node node_modules/@playwright/test/cli.js test --config playwright.rally-recovery.config.ts --retries=0 --forbid-only 2>&1 | tee ../.ci-evidence/e2e-responsive-flows-${{ matrix.shard }}/rally-recovery.log
       - name: Dojo Circuit gamepad flow
-        if: ${{ matrix.shard == 2 }}
+        if: ${{ matrix.shard == 15 }}
         working-directory: shinobij.client
         run: npm run test:e2e:dojo-circuit 2>&1 | tee ../.ci-evidence/e2e-responsive-flows-${{ matrix.shard }}/dojo-circuit.log
       - name: Living sectors, weather and native actor routines
