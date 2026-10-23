@@ -2,6 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import { createRequire } from 'node:module';
 import { uiAuditSave } from './helpers/ui-audit-runtime';
+import { kunaiFish, kunaiFlightMs, kunaiSeed } from '../../shared/kunai-fishing';
 import { resourceNode } from '../../shared/resource-nodes';
 import { readResourceGathering } from '../../shared/resource-gathering';
 import type { OnlinePlayer } from '../../api/_realtime/types';
@@ -16,7 +17,7 @@ async function install(page: Page, nodeId = 'resource-13', uses = 0, miningXp = 
         equipment: { pickaxe: 'tool-golden-pickaxe', fishingPole: 'tool-golden-fishing-pole' },
         gatheringToolUses: { 'tool-basic-pickaxe': uses, 'tool-basic-fishing-pole': 0 },
         resourceGathering: { ...readResourceGathering(null), miningXp, fishingXp } };
-    let version = 1, settlements = 0, loseAck = false;
+    let version = 1, settlements = 0, loseAck = false, staleAck = false;
     const seals = new Map<string, ResourceSeal>();
     const player = { sector: node.sector, tile: node.approach, movementSeq: 0, resourceEpoch: 0 } as OnlinePlayer;
     await page.addInitScript(seed => { (window as unknown as { resourceSeed: unknown }).resourceSeed = seed; }, character);
@@ -31,6 +32,7 @@ async function install(page: Page, nodeId = 'resource-13', uses = 0, miningXp = 
             if (active?.id === body.requestId) return route.fulfill({ json: { ok: true, character, _saveVersion: version, attempt: active, replayed: true } });
             const seal = mintResourceSeal(character, node, body.requestId, body.mode, player, Date.now());
             seal.template = node.difficulty === 1 ? 0 : 2; seal.successDraw = 0; seal.qualityDraw = .99;
+            if (node.activity === 'fishing') seal.hookAt = 2718;
             seals.set(seal.id, seal);
             character = admitResourceAttempt(character, seal, Date.now())!;
         }
@@ -41,10 +43,11 @@ async function install(page: Page, nodeId = 'resource-13', uses = 0, miningXp = 
         }
         if (body.action !== 'status') version++;
         if (body.action === 'resolve' && loseAck) { loseAck = false; return route.fulfill({ status: 503, json: { ok: false, error: 'Settlement acknowledgement lost.' } }); }
+        if (body.action === 'resolve' && staleAck) { staleAck = false; return route.fulfill({ json: { ok: true, character, receipt, _saveVersion: 0 } }); }
         if (body.action === 'status') receipt = readResourceGathering(character.resourceGathering).receipts.find(receipt => receipt.id === body.requestId);
         return route.fulfill({ json: { ok: true, character, _saveVersion: version, receipt, nodeId: receipt ? body.nodeId : undefined } });
     });
-    return { node, character: () => character, settlements: () => settlements, loseAckOnce: () => { loseAck = true; } };
+    return { node, character: () => character, settlements: () => settlements, loseAckOnce: () => { loseAck = true; }, staleAckOnce: () => { staleAck = true; } };
 }
 async function noOverflow(page: Page) {
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
@@ -75,13 +78,13 @@ test('narrow equipment panels keep tool controls contained and reachable after e
     await install(page);
     await page.goto('/e2e/fixtures/resource-gathering.html?screen=kit');
     const kit = page.getByRole('region', { name: 'Gathering equipment' });
-    for (const name of ['Basic Pickaxe', 'Basic Fishing Pole']) {
+    for (const name of ['Basic Pickaxe', 'Basic Fishing Kunai']) {
         await kit.getByRole('button', { name: `Equip ${name}`, exact: true }).click();
     }
     await expect(kit.getByText('50 / 50 uses remaining')).toHaveCount(2);
     expect(await kit.locator('.gathering-tool-slot').evaluateAll(cards => cards.every(card =>
         card.scrollWidth <= card.clientWidth + 1))).toBe(true);
-    await kit.getByRole('button', { name: 'Unequip fishing pole', exact: true }).click();
+    await kit.getByRole('button', { name: 'Unequip fishing kunai', exact: true }).click();
     await kit.getByRole('button', { name: 'Unequip pickaxe', exact: true }).click();
     await noOverflow(page);
 });
@@ -194,46 +197,211 @@ test('Fracture Chain exposes the core and consumes the final basic tool use once
     await page.screenshot({ path: info.outputPath('mining-result.png'), fullPage: true });
 });
 
-test('cast, hook and controlled reel input produce a server-replayed catch', async ({ page }, info) => {
+async function startKunai(page: Page, fishingXp = 3200) {
+    const runtime = await install(page, 'resource-1', 0, 3200, fishingXp);
+    await page.goto('/e2e/fixtures/resource-gathering.html?node=resource-1');
+    await page.getByRole('button', { name: /^Dockside shoal, fishing/ }).click();
+    await page.getByRole('button', { name: 'Ready kunai · 1 action' }).click();
+    await expect(page.getByRole('button', { name: 'Throw kunai', exact: true })).toBeEnabled();
+    return runtime;
+}
+async function leadFish(page: Page, runtime: Awaited<ReturnType<typeof install>>, touch = false, index = 0) {
+    const active = readResourceGathering(runtime.character().resourceGathering).active!;
+    const shots = await page.evaluate(id => JSON.parse(sessionStorage.getItem(`outpost-kunai:${id}`) || '[]'), active.id);
+    // Resolve layout before predicting the moving target, especially on Firefox.
+    const box = (await page.getByRole('application', { name: 'Kunai fishing pool' }).boundingBox())!;
+    const shot = { kind: 'throw' as const, at: Date.now() - active.startedAt + 25, x: 50, y: 45 };
+    for (let n = 0; n < 15; n++) {
+        const point = kunaiFish(kunaiSeed(active), index, shot.at + kunaiFlightMs(shot), shots);
+        shot.x = point.x; shot.y = point.y;
+    }
+    const x = box.x + shot.x / 100 * box.width, y = box.y + shot.y / 100 * box.height;
+    if (touch) await page.touchscreen.tap(x, y); else await page.mouse.click(x, y);
+}
+
+test('kunai aiming, swimming fish and tether retrieval produce one server-replayed catch', async ({ page }, info) => {
+    const runtime = await startKunai(page);
+    const pool = page.getByRole('application', { name: 'Kunai fishing pool' });
+    await expect(pool).toBeFocused();
+    await expectVisibleTouchTarget(page.getByRole('button', { name: 'Throw kunai', exact: true }));
+    const box = (await pool.boundingBox())!;
+    expect(box.width).toBeGreaterThan(200); expect(box.height).toBeGreaterThan(125);
+    await page.screenshot({ path: info.outputPath('kunai-aim.png'), fullPage: true });
+    await leadFish(page, runtime, Boolean(info.project.use.hasTouch));
+    await expect(page.locator('.kunai-game')).toHaveAttribute('data-phase', 'hauling');
+    await page.screenshot({ path: info.outputPath('kunai-haul.png'), fullPage: true });
+    await expect(page.getByRole('heading', { name: 'Fine River Fish', exact: true })).toBeVisible();
+    const state = readResourceGathering(runtime.character().resourceGathering);
+    expect(state.receipts.at(-1)).toMatchObject({ outcome: 'success', xp: 10 });
+    expect(state.attemptsToday).toBe(1); expect(runtime.settlements()).toBe(1);
+    await noOverflow(page);
+    expect((await new AxeBuilder({ page }).include('.resource-dialog').withTags(['wcag2a', 'wcag2aa']).analyze()).violations).toEqual([]);
+    await page.screenshot({ path: info.outputPath('kunai-result.png'), fullPage: true });
+});
+
+test('kunai misses scatter the shoal and three throws exhaust the attempt without an item', async ({ page }, info) => {
+    const runtime = await startKunai(page);
+    const pool = page.getByRole('application', { name: 'Kunai fishing pool' });
+    for (let n = 0; n < 3; n++) {
+        await expect(page.getByRole('button', { name: 'Throw kunai', exact: true })).toBeEnabled();
+        const box = (await pool.boundingBox())!;
+        await page.mouse.click(box.x + box.width * .06, box.y + box.height * .12);
+        await expect(page.locator('.kunai-game')).toHaveAttribute('data-phase', 'returning');
+        if (!n) await page.screenshot({ path: info.outputPath('kunai-miss.png'), fullPage: true });
+    }
+    await expect(page.getByRole('heading', { name: 'This one got away.' })).toBeVisible();
+    const state = readResourceGathering(runtime.character().resourceGathering);
+    expect(state.receipts.at(-1)).toMatchObject({ outcome: 'failed', xp: 3 });
+    expect(state.receipts.at(-1)?.itemId).toBeUndefined(); expect(runtime.settlements()).toBe(1);
+    await noOverflow(page);
+});
+
+test('kunai clock corrections cannot rewind a committed throw or crash retrieval', async ({ page }) => {
+    const errors: string[] = [];
+    page.on('pageerror', error => errors.push(error.message));
+    const runtime = await startKunai(page);
+    const pool = (await page.getByRole('application', { name: 'Kunai fishing pool' }).boundingBox())!;
+    await page.mouse.click(pool.x + pool.width * .06, pool.y + pool.height * .12);
+    await expect(page.locator('.kunai-shots')).toHaveAttribute('aria-label', '2 of 3 kunai throws remaining');
+    await page.evaluate(() => {
+        // A device/server-clock correction can arrive between animation frames.
+        const originalNow = Date.now;
+        Date.now = () => originalNow() - 4000;
+        setTimeout(() => { Date.now = originalNow; }, 400);
+    });
+    await expect(page.getByRole('button', { name: 'Throw kunai', exact: true })).toBeEnabled();
+    await expect(page.locator('.kunai-shots')).toHaveAttribute('aria-label', '2 of 3 kunai throws remaining');
+    await leadFish(page, runtime);
+    await expect(page.getByRole('region', { name: 'Fishing result' })).toBeVisible();
+    expect(errors).toEqual([]); expect(runtime.settlements()).toBe(1);
+});
+
+test('kunai pointer cancellation and lost window focus cannot throw; keyboard aiming works', async ({ page }) => {
+    const runtime = await startKunai(page);
+    const pool = page.getByRole('application', { name: 'Kunai fishing pool' });
+    const box = (await pool.boundingBox())!;
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2, { button: 'right' });
+    await expect(page.locator('.kunai-shots')).toHaveAttribute('aria-label', '3 of 3 kunai throws remaining');
+    await page.mouse.move(box.x + 25, box.y + 30); await page.mouse.down();
+    await pool.dispatchEvent('pointercancel', { pointerId: 1 }); await page.mouse.up();
+    await expect(page.locator('.kunai-shots')).toHaveAttribute('aria-label', '3 of 3 kunai throws remaining');
+    await page.mouse.down(); await page.evaluate(() => window.dispatchEvent(new Event('blur'))); await page.mouse.up();
+    await expect(page.locator('.kunai-shots')).toHaveAttribute('aria-label', '3 of 3 kunai throws remaining');
+    await pool.focus();
+    for (let n = 0; n < 30; n++) await page.keyboard.press('ArrowLeft');
+    for (let n = 0; n < 30; n++) await page.keyboard.press('ArrowUp');
+    await page.keyboard.press('Space');
+    await expect(page.locator('.kunai-shots')).toHaveAttribute('aria-label', '2 of 3 kunai throws remaining');
+    await expect(page.getByRole('button', { name: 'Throw kunai', exact: true })).toBeEnabled();
+    await leadFish(page, runtime);
+    await expect(page.getByRole('heading', { name: 'Fine River Fish', exact: true })).toBeVisible();
+    expect(runtime.settlements()).toBe(1);
+});
+
+test('kunai reload preserves committed throws and a lost acknowledgement is recovered once', async ({ page }, info) => {
+    const runtime = await startKunai(page);
+    const pool = page.getByRole('application', { name: 'Kunai fishing pool' }), box = (await pool.boundingBox())!;
+    await page.mouse.click(box.x + box.width * .06, box.y + box.height * .12);
+    await page.addInitScript(seed => { (window as unknown as { resourceSeed: unknown }).resourceSeed = seed; }, runtime.character());
+    await page.reload();
+    await expect(page.locator('.kunai-shots')).toHaveAttribute('aria-label', '2 of 3 kunai throws remaining');
+    await expect(page.getByRole('button', { name: 'Throw kunai', exact: true })).toBeEnabled();
+    runtime.loseAckOnce(); await leadFish(page, runtime);
+    await expect(page.getByRole('alert')).toContainText('Settlement acknowledgement lost.');
+    const recover = page.getByRole('button', { name: 'Recover result', exact: true });
+    await expectVisibleTouchTarget(recover);
+    await page.screenshot({ path: info.outputPath('kunai-recovery.png'), fullPage: true });
+    await recover.click();
+    await expect(page.getByRole('heading', { name: 'Fine River Fish', exact: true })).toBeVisible();
+    expect(readResourceGathering(runtime.character().resourceGathering).attemptsToday).toBe(1);
+    expect(runtime.settlements()).toBe(1); await noOverflow(page);
+});
+
+test('kunai stale settlement replies offer direct recovery without abandoning or spending again', async ({ page }, info) => {
+    const runtime = await startKunai(page);
+    const id = readResourceGathering(runtime.character().resourceGathering).active!.id;
+    runtime.staleAckOnce(); await leadFish(page, runtime);
+    const recover = page.getByRole('button', { name: 'Check gathering again', exact: true });
+    await expect(recover).toBeVisible();
+    await expectVisibleTouchTarget(recover);
+    await expect(page.getByRole('alert')).toContainText('Check gathering again');
+    await expect(page.getByRole('button', { name: 'Abandon attempt (action stays spent)', exact: true })).toHaveCount(0);
+    await page.screenshot({ path: info.outputPath('stale-settlement-recovery.png'), fullPage: true });
+    await recover.click();
+    await expect(page.getByRole('heading', { name: 'Fine River Fish', exact: true })).toBeVisible();
+    const state = readResourceGathering(runtime.character().resourceGathering);
+    expect(state.receipts).toHaveLength(1); expect(state.receipts[0].id).toBe(id);
+    expect(state.attemptsToday).toBe(1); expect(runtime.settlements()).toBe(1);
+    await page.getByRole('button', { name: 'Fish again', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Throw kunai', exact: true })).toBeEnabled();
+    expect(readResourceGathering(runtime.character().resourceGathering).attemptsToday).toBe(2);
+});
+
+test('kunai watch mode recovered from status keeps its mode when fishing again', async ({ page }) => {
+    const runtime = await install(page, 'resource-1');
+    let allowSettlement = false;
+    await page.route('**/api/world/resource', route => {
+        if (route.request().postDataJSON().action === 'resolve' && !allowSettlement)
+            return route.fulfill({ status: 503, json: { ok: false, error: 'Reconnect before recording.' } });
+        return route.fallback();
+    });
+    await page.goto('/e2e/fixtures/resource-gathering.html?node=resource-1');
+    await page.getByRole('button', { name: /^Dockside shoal, fishing/ }).click();
+    await page.getByRole('radio', { name: /Watch animation/ }).check();
+    await page.getByRole('button', { name: 'Ready kunai · 1 action' }).click();
+    await expect(page.getByText('River technique', { exact: true })).toBeVisible();
+    const id = readResourceGathering(runtime.character().resourceGathering).active!.id;
+    // Keep the original stale boot save: status alone must restore the attempt and mode.
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    allowSettlement = true;
+    await expect(page.getByRole('region', { name: 'Fishing result' })).toBeVisible();
+    expect(readResourceGathering(runtime.character().resourceGathering).receipts.at(-1)?.id).toBe(id);
+    await page.getByRole('button', { name: 'Fish again', exact: true }).click();
+    await expect(page.getByText('River technique', { exact: true })).toBeVisible();
+    const state = readResourceGathering(runtime.character().resourceGathering);
+    expect(state.active?.mode).toBe('relaxed'); expect(state.attemptsToday).toBe(2);
+    expect(runtime.settlements()).toBe(1);
+});
+
+test('kunai relaxed mode animates a throw and retrieval without timed input', async ({ page }, info) => {
     const runtime = await install(page, 'resource-1');
     await page.goto('/e2e/fixtures/resource-gathering.html?node=resource-1');
     await page.getByRole('button', { name: /^Dockside shoal, fishing/ }).click();
-    await page.getByRole('button', { name: 'Cast line · 1 action' }).click();
-    await expect(page.locator('.fishing-rod')).toBeVisible();
-    expect(Number((await page.locator('.resource-attempt-strip span').last().innerText()).match(/\d+/)![0])).toBeLessThanOrEqual(90);
-    const hook = page.getByRole('button', { name: 'Hook fish', exact: true });
-    await expect(hook).toBeEnabled();
-    await expectVisibleTouchTarget(hook);
-    await hook.click();
-    const reel = page.getByRole('button', { name: 'Hold to reel', exact: true });
-    await expect(reel).toBeVisible();
-    await expectVisibleTouchTarget(reel);
-    await page.screenshot({ path: info.outputPath('fishing-hooked.png'), fullPage: true, animations: 'disabled' });
-    await reel.focus();
-    for (let cycle = 0; cycle < 3; cycle++) {
-        await page.keyboard.down('Space');
-        await expect(reel).toHaveClass(/is-held/);
-        await page.waitForTimeout(1300);
-        await page.keyboard.up('Space');
-        await expect(reel).not.toHaveClass(/is-held/);
-        await page.waitForTimeout(700);
-    }
-    await page.screenshot({ path: info.outputPath('fishing-reel.png'), fullPage: true });
-    const collect = page.getByRole('button', { name: 'Collect result', exact: true });
-    await expect(collect).toBeVisible();
-    const tension = Number(await page.getByRole('meter', { name: 'Line tension' }).getAttribute('aria-valuenow'));
-    await expect(page.locator('.fishing-tension-fill')).toHaveCSS('background-color', tension > 80 ? 'rgb(209, 140, 116)' : tension < 20 ? 'rgb(169, 137, 104)' : 'rgb(209, 167, 88)');
-    expect((await new AxeBuilder({ page }).include('.resource-dialog').withTags(['wcag2a', 'wcag2aa']).analyze()).violations).toEqual([]);
-    await collect.click();
+    await page.getByRole('radio', { name: /Watch animation/ }).check();
+    await page.getByRole('button', { name: 'Ready kunai · 1 action' }).click();
+    await expect(page.getByRole('application', { name: 'Kunai fishing pool' })).toBeVisible();
+    await expect(page.getByText('Animation mode uses your skill’s baseline success rate.', { exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Throw kunai', exact: true })).toHaveCount(0);
+    await expect(page.locator('.kunai-game')).toHaveAttribute('data-phase', 'hauling');
+    await page.screenshot({ path: info.outputPath('kunai-relaxed.png'), fullPage: true });
     await expect(page.getByRole('heading', { name: 'Fine River Fish', exact: true })).toBeVisible();
-    await expect(page.getByText('Fine quality', { exact: true })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Fish again' })).toBeVisible();
-    expect(runtime.settlements()).toBe(1);
-    await noOverflow(page);
-    await page.screenshot({ path: info.outputPath('fishing-result.png'), fullPage: true });
-    await page.getByRole('button', { name: 'Back to map', exact: true }).click();
-    await expect(page.getByRole('dialog')).toHaveCount(0);
+    expect(runtime.settlements()).toBe(1); await noOverflow(page);
 });
+
+for (const challenge of [
+    { xp: 0, level: 1, index: 1, species: 'Bronze Carp', required: 4, blocked: true },
+    { xp: 450, level: 4, index: 1, species: 'Bronze Carp', required: 4, blocked: false },
+    { xp: 1400, level: 7, index: 2, species: 'River Sturgeon', required: 10, blocked: true },
+    { xp: 3200, level: 10, index: 2, species: 'River Sturgeon', required: 10, blocked: false },
+]) {
+    test(`kunai ranked fish: Lv${challenge.level} versus ${challenge.species} Lv${challenge.required}`, async ({ page }, info) => {
+        const runtime = await startKunai(page, challenge.xp);
+        await expect(page.locator('#kunai-help')).toContainText(`Fishing Lv.${challenge.level}`);
+        await expect(page.locator('#kunai-species')).toContainText(`${challenge.species}, requires Fishing level ${challenge.required}, ${challenge.blocked ? 'too strong' : 'catchable'}`);
+        await page.screenshot({ path: info.outputPath('ranked-shoal.png'), fullPage: true });
+        await leadFish(page, runtime, Boolean(info.project.use.hasTouch), challenge.index);
+        await expect(page.locator('.kunai-game')).toHaveAttribute('data-phase', challenge.blocked ? 'resisting' : 'hauling');
+        await page.screenshot({ path: info.outputPath(challenge.blocked ? 'fish-breaking-free.png' : 'ranked-catch.png'), fullPage: true });
+        await expect(page.getByRole('heading', { name: challenge.blocked ? 'Outmatched by the fish.' : 'Fine River Fish', exact: true })).toBeVisible();
+        const state = readResourceGathering(runtime.character().resourceGathering), receipt = state.receipts.at(-1)!;
+        expect(receipt).toMatchObject({ outcome: challenge.blocked ? 'failed' : 'success', xp: challenge.blocked ? 3 : 10,
+            fishingCatch: { name: challenge.species, requiredLevel: challenge.required, fisherLevel: challenge.level, tooStrong: challenge.blocked } });
+        if (challenge.blocked) { expect(receipt.itemId).toBeUndefined(); await expect(page.getByRole('region', { name: 'Fishing result' })).toContainText(`requires Fishing Lv.${challenge.required}`); }
+        expect(state.attemptsToday).toBe(1); expect(runtime.settlements()).toBe(1);
+        await noOverflow(page);
+        expect((await new AxeBuilder({ page }).include('.resource-dialog').withTags(['wcag2a', 'wcag2aa']).analyze()).violations).toEqual([]);
+    });
+}
 
 for (const deposit of [{ id: 'resource-15', skin: 'frozen' }, { id: 'resource-22', skin: 'volcanic' }]) {
     test(`${deposit.skin} deposits keep their terrain identity through a three-charge fracture`, async ({ page }, info) => {
@@ -308,6 +476,7 @@ test('refreshing an admitted attempt preserves its node, charges and repeat acti
     await expect(page.getByText('This node replenishes in 10 minutes.')).toHaveCount(0);
     await page.getByRole('button', { name: 'Mine again', exact: false }).click();
     await expect(page.getByText('Action spent · 2/100 today')).toBeVisible();
+    expect(readResourceGathering(runtime.character().resourceGathering).active?.mode).toBe('relaxed');
     expect(runtime.settlements()).toBe(1);
     expect(readResourceGathering(runtime.character().resourceGathering).attemptsToday).toBe(2);
 });
@@ -330,7 +499,7 @@ for (const activity of ['mining', 'fishing'] as const) {
         await page.goto(`/e2e/fixtures/resource-gathering.html?node=${nodeId}`);
         await page.getByRole('button', { name: new RegExp(`^${runtime.node.name}, ${activity}`) }).click();
         await page.getByRole('radio', { name: /Watch animation/ }).check();
-        await page.getByRole('button', { name: activity === 'mining' ? 'Begin mining · 1 action' : 'Cast line · 1 action' }).click();
+        await page.getByRole('button', { name: activity === 'mining' ? 'Begin mining · 1 action' : 'Ready kunai · 1 action' }).click();
         // This case rejects a status version after an acknowledged admission;
         // wait for that acknowledgement before intentionally reloading.
         await expect(page.locator('.resource-attempt-strip')).toBeVisible();
@@ -355,7 +524,7 @@ for (const activity of ['mining', 'fishing'] as const) {
         // attempt or private seal held by the original broader fixture route.
         await page.route('**/api/world/resource', route => route.fulfill({ json: { ok: true, character: admitted, _saveVersion: 2 } }));
         await page.getByRole('button', { name: 'Check gathering again', exact: true }).click();
-        await expect(page.getByRole('button', { name: 'Collect result', exact: true })).toBeVisible();
+        await expect(activity === 'fishing' ? page.getByRole('application', { name: 'Kunai fishing pool' }) : page.getByRole('button', { name: 'Collect result', exact: true })).toBeVisible();
         expect(readResourceGathering(runtime.character().resourceGathering).attemptsToday).toBe(1);
         expect(runtime.settlements()).toBe(0);
     });
