@@ -16,6 +16,7 @@ import type { WandererQuestMetric } from "./wanderers";
 import type { Wanderer } from "./wanderers";
 import { wandererLevelFor, wandererHash32 as hash32, mulberry32 } from "./wanderers";
 import { FESTIVAL_SECTOR } from "../../../shared/sector-geo";
+import {frontierEmissaryHomeTile} from './frontier-emissary-placement';
 
 export type EmissarySlug =
     | "storm-caller-ryn" | "veil-mother-suzu" | "iron-pilgrim-daigo" | "blade-keeper-hana"
@@ -270,7 +271,7 @@ export function rollEmissarySpawn(
 
     const col = 2 + Math.floor(rng() * 8);
     const row = 2 + Math.floor(rng() * 8);
-    const home = row * GRID + col;
+    const home = frontierEmissaryHomeTile(sector,`${EMISSARY_WANDERER_PREFIX}${def.slug}`,row * GRID + col);
     const waypoints = [home];
     for (let i = 0; i < 2; i++) {
         const nc = Math.max(1, Math.min(10, col + (Math.floor(rng() * 5) - 2)));
