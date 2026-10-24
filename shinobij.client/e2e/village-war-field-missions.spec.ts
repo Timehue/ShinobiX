@@ -4,17 +4,22 @@ import { expectViewportSafe } from './helpers/adaptive-assertions';
 import { isWalkableTile, nearestWalkableTile } from '../../shared/sector-walk-mask';
 import { sectorFloorLayout } from '../src/lib/sector-floor-layout';
 
+// Fixed, not Date.now(): these cooldowns leave the angler and rift slots open and the sky follows the clock, so the cast changed every 6 h bucket; 01:00 UTC is world noon.
+const WAR_SCENARIO_EPOCH = Date.UTC(2026, 9, 10, 1);
+
 for (const [mode, label] of [['combat', 'Shinobi PvP'], ['pet', 'Pet battles only'], ['card', 'Card battles only']] as const) {
     test(`a revealed ${mode} war stronghold admits physical entry and binds its specialty assault`, async ({ page }, info) => {
         test.setTimeout(90_000);
+        const now = WAR_SCENARIO_EPOCH;
+        await page.clock.install({ time: new Date(now) });
         const save = { ...uiAuditSave(), currentSector: 18, currentTile: sectorFloorLayout(18)!.sites.stronghold!.approach };
-        const bucket = Math.floor(Date.now() / (6 * 3_600_000)), cooldowns: Record<string, number> = {};
-        for (const offset of [-1, 0, 1]) for (const index of [0, 1, 2]) cooldowns[`w-18-${bucket + offset}-${index}`] = Date.now() + 30 * 86_400_000;
+        const bucket = Math.floor(now / (6 * 3_600_000)), cooldowns: Record<string, number> = {};
+        for (const offset of [-1, 0, 1]) for (const index of [0, 1, 2]) cooldowns[`w-18-${bucket + offset}-${index}`] = now + 30 * 86_400_000;
         save.character = { ...save.character, level: 15, wandererCooldowns: cooldowns };
         const runtime = await installUiAuditRuntime(page, save);
         await page.addInitScript(() => localStorage.setItem('legacyRumors.seen.v1:auditninja', JSON.stringify([10, 20, 30, 40, 45])));
         const village = 'Stormveil Village', enemy = 'Moonshadow Village', warId = 'moonshadowvillage-vs-stormveilvillage';
-        const startsAt = Date.now() - 3_600_000, endsAt = startsAt + 5 * 86_400_000;
+        const startsAt = now - 3_600_000, endsAt = startsAt + 5 * 86_400_000;
         const objective = { id: `enemy-${mode}`, mode, sector: 18, village: enemy, opensAt: startsAt, closesAt: endsAt, limit: 3, bouts: 0, wins: {} };
         const campaign = { version: 2, startsAt, endsAt, shrine: [], strongholds: [objective], intel: 72, hiddenStrongholds: 0,
             scores: { [village]: { pvp: 0, pve: 0, rawPve: 0, total: 0 } },
@@ -55,28 +60,30 @@ for (const [mode, label] of [['combat', 'Shinobi PvP'], ['pet', 'Pet battles onl
 
 test('an espionage traveler enters the assigned stronghold, sees sentry and player choices, and physically leaves', async ({ page }, testInfo) => {
     test.setTimeout(90_000);
+    const now = WAR_SCENARIO_EPOCH;
+    await page.clock.install({ time: new Date(now) });
     const save = { ...uiAuditSave(), currentSector: 18, currentTile: nearestWalkableTile(18, 78) };
-    const bucket = Math.floor(Date.now() / (6 * 3_600_000)), cooldowns: Record<string, number> = {};
-    for (const offset of [-1, 0, 1]) for (const index of [0, 1, 2]) cooldowns[`w-18-${bucket + offset}-${index}`] = Date.now() + 30 * 86_400_000;
+    const bucket = Math.floor(now / (6 * 3_600_000)), cooldowns: Record<string, number> = {};
+    for (const offset of [-1, 0, 1]) for (const index of [0, 1, 2]) cooldowns[`w-18-${bucket + offset}-${index}`] = now + 30 * 86_400_000;
     save.character = { ...save.character, level: 15, wandererCooldowns: cooldowns };
     const runtime = await installUiAuditRuntime(page, save);
     await page.addInitScript(() => localStorage.setItem('legacyRumors.seen.v1:auditninja', JSON.stringify([10, 20, 30, 40, 45])));
     const village = 'Stormveil Village', enemy = 'Moonshadow Village', warId = 'moonshadowvillage-vs-stormveilvillage';
-    const startsAt = Date.now() - 3_600_000, endsAt = startsAt + 5 * 86_400_000;
+    const startsAt = now - 3_600_000, endsAt = startsAt + 5 * 86_400_000;
     const campaign = { version: 2, startsAt, endsAt, shrine: [], strongholds: [], scores: {}, intel: 0, hiddenStrongholds: 3,
         operationAllowance: { total: 1, categories: { espionage: 1 }, players: {} }, operationResetAt: startsAt + 86_400_000 };
-    const mission = { id: 'vwm-fixture', kind: 'espionage', village, enemy, createdAt: Date.now(), sectors: [18], completedSectors: [],
-        status: 'active', holdSeconds: 0, holdRequired: 0, insideStronghold: false, serverNow: Date.now() };
+    const mission = { id: 'vwm-fixture', kind: 'espionage', village, enemy, createdAt: now, sectors: [18], completedSectors: [],
+        status: 'active', holdSeconds: 0, holdRequired: 0, insideStronghold: false, serverNow: now };
     const actions: Record<string, unknown>[] = [], errors: string[] = [];
     page.on('pageerror', error => errors.push(error.message));
     await page.route('**/api/world-state', route => route.fulfill({ json: { territories: [], standings: [], wars: [{ id: warId,
         villages: [village, enemy], startedAt: startsAt, updatedAt: startsAt, campaignVersion: 2, campaignEndsAt: endsAt,
         warGroundSector: 47, hp: { [village]: 5000, [enemy]: 5000 }, warPoints: { [village]: 0, [enemy]: 0 } }] } }));
-    await page.route('**/api/village/war-campaign', route => {
+    await page.route('**/api/village/war-campaign', async route => {
         const body = route.request().postDataJSON(); actions.push(body);
         if (body.action === 'operation-enter') mission.insideStronghold = true;
         if (body.action === 'operation-leave') mission.insideStronghold = false;
-        mission.serverNow = Date.now();
+        mission.serverNow = await page.evaluate(() => Date.now());
         if (body.action === 'start') return route.fulfill({ status: 409, json: { error: 'Finish your current combat settlement first.' } });
         return route.fulfill({ json: { campaign, mission, run: null, defense: null,
             peers: mission.insideStronghold ? [{ name: 'MoonShinobi', level: 100, village: enemy, inBattle: false }] : [] } });
@@ -122,14 +129,16 @@ test('an espionage traveler enters the assigned stronghold, sees sentry and play
 
 test('a level-15 village defender takes guard duty in an owned stronghold and can confront an espionage visitor', async ({ page }, testInfo) => {
     test.setTimeout(90_000);
+    const now = WAR_SCENARIO_EPOCH;
+    await page.clock.install({ time: new Date(now) });
     const sector = 4, save = { ...uiAuditSave(), currentSector: sector, currentTile:sectorFloorLayout(sector)!.sites.stronghold!.approach };
     save.triggeredEvents = [...(save.triggeredEvents ?? []), 'story-interlude-stormveil-village-88', 'story-interlude-stormveil-village-92'];
-    const bucket = Math.floor(Date.now() / (6 * 3_600_000)), cooldowns: Record<string, number> = {};
-    for (const offset of [-1, 0, 1]) for (const index of [0, 1, 2]) cooldowns[`w-${sector}-${bucket + offset}-${index}`] = Date.now() + 30 * 86_400_000;
+    const bucket = Math.floor(now / (6 * 3_600_000)), cooldowns: Record<string, number> = {};
+    for (const offset of [-1, 0, 1]) for (const index of [0, 1, 2]) cooldowns[`w-${sector}-${bucket + offset}-${index}`] = now + 30 * 86_400_000;
     save.character = { ...save.character, level: 15, wandererCooldowns: cooldowns };
     const runtime = await installUiAuditRuntime(page, save);
     await page.addInitScript(() => localStorage.setItem('legacyRumors.seen.v1:auditninja', JSON.stringify([10, 20, 30, 40, 45])));
-    const village = 'Stormveil Village', enemy = 'Moonshadow Village', startsAt = Date.now() - 1000, endsAt = startsAt + 5 * 86_400_000;
+    const village = 'Stormveil Village', enemy = 'Moonshadow Village', startsAt = now - 1000, endsAt = startsAt + 5 * 86_400_000;
     const campaign = { version: 2, startsAt, endsAt, shrine: [], strongholds: [], scores: {}, intel: 0, hiddenStrongholds: 3,
         operationAllowance: { total: 0, categories: {}, players: {} }, operationResetAt: startsAt + 86_400_000 };
     const actions: Record<string, unknown>[] = [];
