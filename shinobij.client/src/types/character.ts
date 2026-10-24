@@ -303,6 +303,7 @@ export type StoryEpilogueReceipt = {
 // ── Character ─────────────────────────────────────────────────────────────
 
 export type Character = {
+    sectorBuildings?: import('../../../shared/sector-building-types').SectorBuildingProgress;
     resourceGathering?: import('../../../shared/resource-gathering').ResourceGatheringState;
     gatheringToolUses?: Record<string, number>;
     pendingGatherFinds?: PendingGatherFind[];

@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "provider": "built-in image_gen",
+  "assets": [
+    {
+      "id": "gatehouse-winter",
+      "prompt": "Create the Frostfang winter counterpart of this finished Shinobi Journey game illustration. Preserve the beautiful detailed painterly art style, practical original shinobi fantasy design, 16:9 landscape composition, sheltered cedar public speaking counter, adult duty officer recording road work in an open paper register, slate masonry, indigo cloth, rolled blankets and tied sealed pouches. Transform the visible outdoors into a convincing snowy mountain village: snow-laden blue-grey tiled roofs, bare winter branches and firs, a maintained snow-cleared approach with packed snow at its margins, breath-cold outdoor light contrasting the warm lantern-lit counter. The officer wears a warm layered indigo winter duty coat. Replace all autumn foliage and green moss with winter-appropriate stone and snow. Quiet inhabited civilian service. No modern objects, no franchise emblems, no text, no typography, no UI. Polished production illustration readable in a small game modal banner.",
+      "source": "C:\\Users\\Tyler R\\.codex\\generated_images\\01a166f5-d313-7e32-81be-1d6e1fd17b76\\exec-6e10d713-9f60-47ce-a6d3-bee86807a26f.png"
+    },
+    {
+      "id": "teahouse-winter",
+      "prompt": "Create the Frostfang winter counterpart of this finished Shinobi Journey game illustration. Preserve the beautiful detailed painterly art style, practical original shinobi fantasy architecture, 16:9 landscape composition and warm hospitable civilian tea service. This is the Lower-Road Kitchen on a snowy rescue road: a warmly sheltered cedar kitchen with an adult winter cook pouring steaming tea beside a hot broth pot, a bundled adult shinobi traveler and a living fox resting on a dry woven mat, a folded Chronicle record sheet at the low table. Through the open shelter show snow-covered firs, blue-grey snowy mountain rooftops, a maintained packed-snow return road and winter travelers with covered supply baskets. Remove the outdoor flowering garden, spring blossoms and green herb rows; dried herbs can hang under the protected eaves. Warm paper lanterns and practical indigo winter clothing against cold outdoor light. No franchise symbols, no modern objects, no text, no typography or UI. A polished production game illustration with focal tea service readable at small dialog banner size.",
+      "source": "C:\\Users\\Tyler R\\.codex\\generated_images\\01a166f5-d313-7e32-81be-1d6e1fd17b76\\exec-c64121fa-cb35-4ea2-972f-88c759efcd1f.png"
+    }
+  ]
+}
