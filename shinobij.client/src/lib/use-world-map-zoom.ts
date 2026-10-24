@@ -271,6 +271,7 @@ export function useWorldMapZoom(initialRegion: WorldMapRegionId = "ashen"): Worl
     // The viewport measurer, so the activation effect can re-measure the moment
     // the `wm-zoom` class lands (see that effect for why the order matters).
     const measureRef = useRef<() => void>(() => undefined);
+    const commitResizeRef = useRef<(() => void) | null>(null);
     const activationRef = useRef<() => void>(() => undefined);
     // Attaches or detaches the pan's touchmove guard to match zoom mode, so the
     // activation effect can re-sync it (see viewportRef for why it exists).
@@ -593,7 +594,9 @@ export function useWorldMapZoom(initialRegion: WorldMapRegionId = "ashen"): Worl
             if (!activeRef.current) return;
 
             cancelAnimationFrame(animationFrame);
-            animationFrame = requestAnimationFrame(() => {
+            const applyResize = () => {
+                animationFrame = 0;
+                commitResizeRef.current = null;
                 commitView((current) => {
                     if (regionRef.current !== null) {
                         return getWorldMapRegionView(nextSize, regionRef.current);
@@ -631,7 +634,12 @@ export function useWorldMapZoom(initialRegion: WorldMapRegionId = "ashen"): Worl
                     const next = { zoom, tx: point.x, ty: point.y };
                     return sameView(current, next) ? current : next;
                 });
-            });
+            };
+            commitResizeRef.current = () => {
+                cancelAnimationFrame(animationFrame);
+                applyResize();
+            };
+            animationFrame = requestAnimationFrame(applyResize);
         };
         measureRef.current = measure;
         measure();
@@ -640,6 +648,7 @@ export function useWorldMapZoom(initialRegion: WorldMapRegionId = "ashen"): Worl
         resizeCleanupRef.current = () => {
             ro?.disconnect();
             cancelAnimationFrame(animationFrame);
+            commitResizeRef.current = null;
         };
     }, [commitView]);
 
@@ -927,6 +936,12 @@ export function useWorldMapZoom(initialRegion: WorldMapRegionId = "ashen"): Worl
         mousePressed.current = false;
         if (!activeRef.current || !viewport || pressed
             || !target.matches(".atlas-sector, .atlas-landmark")) return;
+        // A resize may already have measured new bounds while its camera
+        // remapping waits for a frame. Finish that remapping before revealing
+        // focus, or it can reinterpret the new focused view using the old size
+        // and move the marker back outside the clipped viewport.
+        measureRef.current();
+        commitResizeRef.current?.();
         // A region may still be easing toward viewRef's endpoint. Finish that
         // move before comparing painted marker bounds with camera coordinates.
         commitView(viewRef.current, false, true);
