@@ -5,6 +5,7 @@ import { craftMaterialName } from "../../shared/crafting-recipes";
 import { PET_SCENIC_PORTRAITS } from "../src/lib/pet-portrait-assets.generated";
 import AxeBuilder from "@axe-core/playwright";
 import { gotoSettled, reloadSettled } from "./helpers/network-settle";
+import { API_CONNECTION_RETRIES } from "../e2e-live/helpers/reconnecting-request";
 
 // Full-page captures below and retained failure video preserve visual evidence.
 // Packaging the redundant trace screenshot resources can exhaust tracing's
@@ -268,7 +269,7 @@ async function installPetHomeApi(page: Page) {
     // and battle-lock below; later reads still use the stateful route.
     await page.route(url => url.origin === origin && url.pathname === '/', async route => {
         if (!route.request().isNavigationRequest()) return route.continue();
-        const response = await route.fetch();
+        const response = await route.fetch({ maxRetries: API_CONNECTION_RETRIES });
         const snapshot = JSON.stringify(saveSnapshot()).replaceAll('<', '\\u003c');
         return route.fulfill({ response, body: (await response.text()).replace('<head>',
             `<head><script>window.__petHomeBootSave=${snapshot};</script>`) });
