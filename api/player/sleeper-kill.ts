@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
-import { cors, safeName } from '../_utils.js';
+import { cors, ownCountValue, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { LockContendedError } from '../_lock.js';
@@ -8,14 +8,13 @@ import { mutatePlayerSave, mutatePlayerSaves, type PlayerSavesSide } from '../sa
 import { onlineStore } from '../_realtime/online-store.js';
 import { getTravelLease, travelLeaseReceipt } from '../_realtime/travel-lease.js';
 import { creditPvpWinBase } from '../_xp-engine.js';
-import { previewSleeperKoCredit, pvpLuckyActive, recordSleeperKoPairCredit } from '../pvp/_valid-fight.js';
+import { reserveSleeperKoCredit, pvpAccountOldEnough, pvpLuckyActive, PvpCreditSlotPendingError } from '../pvp/_valid-fight.js';
 import { recordEconomyTxn } from '../_economy.js';
 import { hasRecentIpOrFpOverlap } from '../_player-ips.js';
 import {
     VANGUARD_SEALS_PER_KILL,
     DAILY_SEAL_CAP,
     PER_TARGET_DAILY_CAP,
-    ACCOUNT_AGE_MIN_MS,
     levelGapMult,
     vanguardXpForLevel,
     rankFromXp,
@@ -129,7 +128,7 @@ export function computeSleeperSeals(
     const byTarget: Record<string, number> = dailyActive
         ? ((winnerChar.dailyHonorSealsByTarget as Record<string, number>) ?? {})
         : {};
-    const targetSoFar = byTarget[loserSlug] ?? 0;
+    const targetSoFar = ownCountValue(byTarget, loserSlug);
     const dailyCap = DAILY_SEAL_CAP + Math.min(15, masteryBonus('vanguard', spec, 'sealDailyCapFlat'));
     seals = Math.min(seals, Math.max(0, dailyCap - dailySoFar));
     seals = Math.min(seals, Math.max(0, PER_TARGET_DAILY_CAP - targetSoFar));
@@ -331,17 +330,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (await hasRecentIpOrFpOverlap(attackerSlug, targetSlug)) rewardEligible = false;
         } catch { /* fail open */ }
 
-        const targetTooYoung = (() => {
-            const created = Number(targetChar?.createdAt ?? 0);
-            return created > 0 && (Date.now() - created) < ACCOUNT_AGE_MIN_MS;
-        })();
+        // Established = 72 h OR L20, the rule every PvP payout shares.
+        const targetTooYoung = !pvpAccountOldEnough(targetChar?.createdAt, Date.now(), targetChar?.level);
 
         // Both saves are locked in one sorted order — so two attackers racing the
         // same target (or the attacker's own concurrent autosave) can't
         // interleave or deadlock — and fail closed: a contended lock aborts (503)
         // rather than racing a currency / save write. The KO commits first, then
-        // the attacker's credit. No conflict retry: the pair counter is
-        // recorded outside the saves.
+        // the attacker's credit. A failed-save retry keeps the same camp's
+        // durable pair reservation instead of consuming another ordinal.
         const outcome = await mutatePlayerSaves([targetSlug, attackerSlug], async (sides) => {
             // Re-read inside the locks so we settle against committed state.
             const lockedCamp = await getSleeperCamp(targetSlug);
@@ -375,8 +372,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // unordered daily pair weights (api/pvp/_valid-fight.ts). A target
                 // under 72 h old or >20 levels below pays nothing. (Character XP
                 // is retired; sleeper kills grant NO stat growth.) The KO is
-                // priced now and counted only once the credit has committed.
-                const koCredit = await previewSleeperKoCredit(kv, {
+                // reserved before either save moves, using the camp's stable identity.
+                const koCredit = await reserveSleeperKoCredit(kv, {
+                    receiptId: [attackerSlug, targetSlug, lockedCamp.createdAt, lockedCamp.sector].join(':'),
                     attackerSlug,
                     targetSlug,
                     attackerLevel: aChar.level,
@@ -439,13 +437,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const attackerSide: PlayerSavesSide = rewardEligible || attackerShielded
                 ? {
                     character: updatedAttacker,
-                    // Count the KO against the pair's day only once its credit
-                    // has committed, so a KO or credit that never landed cannot
-                    // weight the next one. An uncredited or pair-exhausted KO
-                    // (factor 0) pays nothing and need not count.
-                    ...(rewardEligible && sleeperFactor > 0 ? { afterCommit: async () => {
-                        await recordSleeperKoPairCredit(kv, { attackerSlug, targetSlug, now: Date.now() });
-                    } } : {}),
                 }
                 : { write: false, character: aChar };
             return {
@@ -543,7 +534,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         });
     } catch (err) {
         // failClosed lock contention surfaces here — signal "transient, retry".
-        if (err instanceof LockContendedError) {
+        if (err instanceof LockContendedError || err instanceof PvpCreditSlotPendingError) {
             return res.status(503).json({ error: 'Could not record the KO — please retry.' });
         }
         console.error('[sleeper-kill]', err);
