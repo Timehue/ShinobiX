@@ -39,7 +39,20 @@ async function fetchJson(path) {
         throw new Error(`${url} returned non-JSON body with HTTP ${res.status}`);
     }
     if (!res.ok) {
-        throw new Error(`${url} failed with HTTP ${res.status}`);
+        // Diagnose the production probe without logging database URLs, raw SQL
+        // errors, passwords, or any other server-returned free text.
+        const checks = {};
+        for (const key of ['lockFencing', 'set', 'get', 'del', 'setNx', 'hset', 'hdel', 'diskWrite', 'diskRead', 'backupFresh']) {
+            if (typeof body?.checks?.[key] === 'boolean') checks[key] = body.checks[key];
+        }
+        const error = typeof body?.error === 'string' ? body.error : '';
+        const category = /authentication|password|ECIRCUITBREAKER/i.test(error) ? 'database-authentication'
+            : /certificate|\bTLS\b|\bSSL\b/i.test(error) ? 'database-tls'
+            : /ENOTFOUND|ECONNREFUSED|ETIMEDOUT|timed out|timeout|connection terminated/i.test(error) ? 'database-connectivity'
+            : /permission denied/i.test(error) ? 'database-permission'
+            : /does not exist|undefined function|undefined table/i.test(error) ? 'database-schema'
+            : error ? 'unclassified-storage-error' : 'failed-readiness-check';
+        throw new Error(`${url} failed with HTTP ${res.status}; checks=${JSON.stringify(checks)} category=${category}`);
     }
     return body;
 }
