@@ -22,6 +22,16 @@ defaults:
   run:
     shell: bash
 
+# SPARSE CHECKOUT. docs/screenshots, docs/evidence and docs/audits hold ~9 GB of
+# the ~10.5 GB tree, and a full checkout took 6-7 minutes in EVERY job: 267 of
+# the 704 runner-minutes on run 39994416239. The jobs that only build the server
+# or test the joined release artifact never read those folders, so they skip
+# them (sparse checkout also makes actions/checkout fetch with blob:none, so the
+# skipped blobs are never downloaded). Specs that WRITE audit output there still
+# can; the folder is simply untracked on the runner. client-quality and the
+# server-contracts jobs keep a full checkout: the pet certification and shape
+# review gates read evidence under docs/screenshots.
+
 env:
   VITE_SENTRY_DSN: https://public@example.invalid/1
   VITE_SENTRY_RELEASE: ci
@@ -164,6 +174,14 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
+        with:
+          # Skips the review-evidence folders; see SPARSE CHECKOUT at the top.
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /*
+            !/docs/screenshots/
+            !/docs/evidence/
+            !/docs/audits/
       - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
@@ -271,6 +289,14 @@ jobs:
           --health-retries 12
     steps:
       - uses: actions/checkout@v7
+        with:
+          # Skips the review-evidence folders; see SPARSE CHECKOUT at the top.
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /*
+            !/docs/screenshots/
+            !/docs/evidence/
+            !/docs/audits/
       - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
@@ -418,6 +444,14 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
+        with:
+          # Skips the review-evidence folders; see SPARSE CHECKOUT at the top.
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /*
+            !/docs/screenshots/
+            !/docs/evidence/
+            !/docs/audits/
       - name: Initialize evidence
         run: |
           mkdir -p .ci-evidence/release-artifact
@@ -498,6 +532,14 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
+        with:
+          # Skips the review-evidence folders; see SPARSE CHECKOUT at the top.
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /*
+            !/docs/screenshots/
+            !/docs/evidence/
+            !/docs/audits/
       - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
@@ -555,6 +597,14 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
+        with:
+          # Skips the review-evidence folders; see SPARSE CHECKOUT at the top.
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /*
+            !/docs/screenshots/
+            !/docs/evidence/
+            !/docs/audits/
       - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
@@ -617,6 +667,14 @@ jobs:
         shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
     steps:
       - uses: actions/checkout@v7
+        with:
+          # Skips the review-evidence folders; see SPARSE CHECKOUT at the top.
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /*
+            !/docs/screenshots/
+            !/docs/evidence/
+            !/docs/audits/
       - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
@@ -736,6 +794,14 @@ jobs:
             lifeShard: 12/12
     steps:
       - uses: actions/checkout@v7
+        with:
+          # Skips the review-evidence folders; see SPARSE CHECKOUT at the top.
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /*
+            !/docs/screenshots/
+            !/docs/evidence/
+            !/docs/audits/
       - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
@@ -951,6 +1017,14 @@ jobs:
             projects: --project=webkit-layout
     steps:
       - uses: actions/checkout@v7
+        with:
+          # Skips the review-evidence folders; see SPARSE CHECKOUT at the top.
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /*
+            !/docs/screenshots/
+            !/docs/evidence/
+            !/docs/audits/
       - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
@@ -1054,6 +1128,14 @@ jobs:
         shard: [1, 2]
     steps:
       - uses: actions/checkout@v7
+        with:
+          # Skips the review-evidence folders; see SPARSE CHECKOUT at the top.
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /*
+            !/docs/screenshots/
+            !/docs/evidence/
+            !/docs/audits/
       - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
@@ -1147,6 +1229,14 @@ jobs:
         shard: [1, 2, 3]
     steps:
       - uses: actions/checkout@v7
+        with:
+          # Skips the review-evidence folders; see SPARSE CHECKOUT at the top.
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /*
+            !/docs/screenshots/
+            !/docs/evidence/
+            !/docs/audits/
       - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
