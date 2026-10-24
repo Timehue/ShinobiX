@@ -21,6 +21,7 @@ import { SCAR_TTL_MS,type SectorScar } from '../../shared/sector-scars';
 import { SHRINE_DEFS } from '../../shared/shrines';
 import { sectorFloorLayout } from '../src/lib/sector-floor-layout';
 import {wildlifeDiscovery,WILDLIFE_DISCOVERY_WINDOW} from '../../shared/sector-life-discovery';
+import {RESOURCE_NODES} from '../../shared/resource-nodes';
 import {currentWorkingAngler,nextAnglerState,anglerWorkRoutine,type AnglerState} from '../../shared/sector-angler-work';
 import {WANDERER_BUCKET_MS} from '../../shared/wanderer-roster';
 import {LIFE_ROAD_CREWS} from '../../shared/sector-life-routines';
@@ -96,6 +97,11 @@ for(const sector of [6,18])for(const mode of ['weather','stale-night','unavailab
     await expect(gear).toHaveAttribute('data-water',String(site.water));await expect(gear).toBeVisible();await expect(figure).toHaveAttribute('data-activity','Fishing by the bank');await page.clock.fastForward(4000);await snap('fishing');
     await figure.click();const dialog=page.getByRole('dialog');await expect(dialog).toContainText("I'm watching the float.");
     await dialog.getByRole('button',{name:'Ask about the water',exact:true}).click();await expect(dialog).toContainText(/Try .+ shoal\./);await dialog.getByRole('button',{name:'Close',exact:true}).click();
+    for(const node of RESOURCE_NODES.filter(node=>node.sector===sector&&node.activity==='fishing')){
+        await page.getByRole('button',{name:`${node.name}, fishing, 3 attempts remaining, skill ${node.difficulty}`,exact:true}).click();
+        const shoal=page.getByRole('dialog',{name:node.name,exact:true});await expect(shoal).toBeVisible();
+        await shoal.getByRole('button',{name:/Close/}).click();
+    }
     const cover=async()=>{await page.evaluate(()=>{const node=document.createElement('div');node.className='combat-instance';document.body.append(node);});await page.waitForTimeout(80);};
     const uncover=async()=>{await page.evaluate(()=>document.querySelector('body>.combat-instance')?.remove());await page.waitForTimeout(80);};
     const advanceTo=async(time:number)=>{const now=await page.evaluate(()=>Date.now());if(time>now)await page.clock.fastForward(time-now);};
