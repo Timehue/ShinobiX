@@ -16,7 +16,7 @@ describe("war reward alerts", () => {
         assert.equal(warRewardAlert({ crates: 1, mvp: false, consolation: false, purse: 22_500 }),
             "You received 1 Legendary War Crate from recent war rewards! Check your inventory. War purse delivered: +22,500 ryo.");
         assert.equal(warRewardAlert({ crates: 0, mvp: false, consolation: true, purse: 13_500 }),
-            "Consolation rewards from a recent war loss have been added to your account. War purse delivered: +13,500 ryo.");
+            "Your recent war-loss rewards have been settled. War purse delivered: +13,500 ryo.");
         assert.equal(warRewardAlert({ crates: 0, mvp: false, consolation: false, purse: 4_000 }), "War purse delivered: +4,000 ryo.");
         assert.equal(warRewardAlert({ crates: 0, mvp: false, consolation: false }), null);
         assert.equal(sectorPurseAlert(9_000), "Sector war purse delivered: +9,000 ryo.");

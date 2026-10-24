@@ -6,8 +6,9 @@
  * answers, with counts instead of assumptions:
  *
  *   • is any equipped item a dangling reference? (the named-weapon loss class)
- *   • is any forged weapon missing from the durable registry? (blocks the
- *     STRICT_RAW_SAVE_LEDGER flip — flipping without this DELETES that gear)
+ *   • is any forged weapon missing from the durable registry? (a fight can then
+ *     not recover its definition if the save loses it; strict mode never reads
+ *     the registry, so this no longer blocks STRICT_RAW_SAVE_LEDGER)
  *   • has any authored content never reached the canonical content store?
  *     (blocks the shared-content slot freeze)
  *   • does any currency ledger disagree with its save? (blocks the currency
@@ -190,7 +191,7 @@ async function main() {
         log(`\n[scan] scanned ${scanned} saves\n`);
         const labels = {
             danglingEquipment: 'equipped gear with NO resolvable definition (drops from every fight)',
-            forgedNotRegistered: 'forged gear not in the durable registry (BLOCKS strict-ledger flip)',
+            forgedNotRegistered: 'forged gear not in the durable registry (no fight-time recovery; --repair backfills)',
             unownedEquipment: 'equipped gear the player does not hold',
             duplicatePets: 'duplicate pet ids within one save',
             missingSaveVersion: 'saves with no version stamp (next save is rejected 426)',
@@ -207,12 +208,13 @@ async function main() {
         if (REPAIR) {
             log(`\n[scan] repaired: ${repaired.forgedRegistered} forged definitions, ${repaired.ledgersWritten} ledgers, ${repaired.contentPublished} content fields`);
         }
-        const blockers = counts.forgedNotRegistered + counts.ledgerMissingOrStale + counts.contentNotPublished;
+        const blockers = counts.ledgerMissingOrStale + counts.contentNotPublished;
         const bugs = counts.ledgerDivergent + counts.danglingEquipment + counts.impossibleBalance;
         log('');
         if (bugs > 0) log(`[scan] ${bugs} record(s) need INVESTIGATION before launch.`);
         if (blockers > 0) log(`[scan] ${blockers} cutover blocker(s) — re-run with --repair, then re-scan.`);
-        if (bugs === 0 && blockers === 0) log('[scan] CLEAN — no integrity findings; all three cutovers are unblocked.');
+        if (counts.forgedNotRegistered > 0) log(`[scan] ${counts.forgedNotRegistered} forged definition(s) are not in the registry — --repair backfills them (recovery only, not a blocker).`);
+        if (bugs === 0 && blockers === 0 && counts.forgedNotRegistered === 0) log('[scan] CLEAN — no integrity findings; all three cutovers are unblocked.');
     }
     const total = Object.values(counts).reduce((a, b) => a + b, 0);
     return total === 0 ? 0 : 1;

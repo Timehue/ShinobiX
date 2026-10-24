@@ -148,7 +148,7 @@ test('premium packs debit Fate Shards and draw only Marketplace cards', () => {
         assert.equal(isMarketplaceCard(epic.cards[0]), true);
     }
     const legendary = applyCardPackOpen({ fateShards: 19, tileCards: [], elderFocus: 'trade' }, 'legendary', () => 0);
-    assert.equal(legendary.ok, true, '5% trade discount floors 20 to 19');
+    assert.equal(legendary.ok, true, '5% trade discount rounds 20 to 19');
     if (legendary.ok) {
         assert.equal(legendary.cost, 19);
         assert.equal(legendary.balance, 0);
@@ -177,7 +177,7 @@ for (const [type, rarity, cost] of [['epic-five', 'epic', 35], ['legendary-five'
         }
         assert.deepEqual(character.tileCards, []);
         assert.equal(character.fateShards, cost);
-        assert.equal(cardPackCost({ elderFocus: 'trade' }, type), Math.floor(cost * .95));
+        assert.equal(cardPackCost({ elderFocus: 'trade' }, type), Math.round(cost * .95));
     });
 
     test(`${type}: insufficient shards or inventory room spends nothing`, () => {
@@ -330,11 +330,11 @@ test('Legendary pulls beyond the playset convert, and the kept copies survive a 
     assert.deepEqual(laterSave.tileCards, second.character.tileCards);
 });
 
-test('Grand Marketplace singles cost Elite 6 and Legendary 20 Fate Shards; the trade elder pays 5 and 19', () => {
+test('Grand Marketplace singles cost Elite 6 and Legendary 20 Fate Shards; the trade elder pays 6 and 19', () => {
     assert.equal(cardPackBaseCost('epic'), 6);
     assert.equal(cardPackBaseCost('legendary'), 20);
     assert.equal(cardPackCost({}, 'epic'), 6);
-    assert.equal(cardPackCost({ elderFocus: 'trade' }, 'epic'), 5);
+    assert.equal(cardPackCost({ elderFocus: 'trade' }, 'epic'), 6);
     assert.equal(cardPackCost({}, 'legendary'), 20);
     assert.equal(cardPackCost({ elderFocus: 'trade' }, 'legendary'), 19);
     // Per card, a single now matches its Quintet: 20 per Legendary, 35 / 5 = 7 per Epic.
@@ -448,4 +448,21 @@ test('a card with no known rarity is always kept, never silently converted', () 
     assert.deepEqual(split.refund, { chroniclePoints: 0, fateShards: 0 });
     const proto = splitSurplusCardCopies(Array(3).fill('x'), ['x'], () => 'toString');
     assert.deepEqual(proto.kept, ['x'], 'inherited object keys are not a rarity');
+});
+
+test('premium trade-focus prices round to the nearest shard and debit the quoted amount', () => {
+    for (const [type, cost] of [['epic', 6], ['legendary', 19], ['epic-five', 33], ['legendary-five', 95]] as const) {
+        assert.equal(cardPackCost({ elderFocus: 'trade' }, type), cost);
+        const exact = applyCardPackOpen({ elderFocus: 'trade', fateShards: cost, tileCards: [] }, type, distinct());
+        assert.equal(exact.ok, true, type);
+        if (exact.ok) { assert.equal(exact.cost, cost); assert.equal(exact.balance, 0); }
+        const short = { elderFocus: 'trade', fateShards: cost - 1, tileCards: [] };
+        assert.equal(applyCardPackOpen(short, type, distinct()).ok, false, type);
+        assert.equal(short.fateShards, cost - 1);
+    }
+    // The expected Epic cost retains the intended quintet advantage after discount.
+    assert.ok(cardPackCost({ elderFocus: 'trade' }, 'epic') / (64 / 76) >= cardPackCost({ elderFocus: 'trade' }, 'epic-five') / 5);
+    for (const type of CARD_PACK_TYPES.filter(type => !['epic', 'legendary', 'epic-five', 'legendary-five'].includes(type))) {
+        assert.equal(cardPackCost({ elderFocus: 'trade' }, type), 100);
+    }
 });

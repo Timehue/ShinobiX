@@ -5,7 +5,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import type { Character } from '../types/character';
 import type { CardPackType } from '../lib/card-pack';
 import { cacheVillageElders, resetVillageElders } from '../lib/village-elder-focus';
-import { CARD_DUPLICATE_CONVERSION, CARD_PACK_TYPES, applyCardPackOpen } from '../../../api/card-clash/_pack';
+import { CARD_DUPLICATE_CONVERSION, CARD_PACK_TYPES, applyCardPackOpen, cardPackCost } from '../../../api/card-clash/_pack';
 import { BUILTIN_CLASH } from '../../../api/clan/war/_card-catalog';
 import { getChronicleCard } from '../../../shared/chronicle-duel';
 import { packArtUrl, packTheme } from '../lib/card-pack-reveal';
@@ -112,7 +112,7 @@ for (const [type, cost] of [['epic-five', 35], ['legendary-five', 100]] as const
         assert.equal(renderedPackButton(fixture({ fateShards: cost }), type).disabled, false);
         assert.match(renderedGallery(fixture()), /5 random Epic cards/);
         assert.match(renderedGallery(fixture()), /5 random Legendary cards/);
-        const discounted = Math.floor(cost * .95);
+        const discounted = Math.round(cost * .95);
         cacheVillageElders('Pack test village', ['', 'Rin', ''], Date.now() + 86400000);
         const tradeCharacter = fixture({ village: 'Pack test village', fateShards: discounted, elderFocus: 'trade' });
         assert.equal(renderedPackButton(tradeCharacter, type).disabled, false);
@@ -189,4 +189,17 @@ test('the odds disclose the duplicate conversion at the server\'s values', () =>
     assert.equal(Number(sentence[3]), CARD_DUPLICATE_CONVERSION.legendary.fateShards);
     assert.equal(CARD_DUPLICATE_CONVERSION.common.fateShards + CARD_DUPLICATE_CONVERSION.rare.fateShards, 0);
     assert.equal(CARD_DUPLICATE_CONVERSION.epic.chroniclePoints + CARD_DUPLICATE_CONVERSION.legendary.chroniclePoints, 0);
+});
+
+test('trade-focus gallery prices and affordability match server rounding for every pack', () => {
+    cacheVillageElders('Rounding village', ['', 'Rin', ''], Date.now() + 86400000);
+    for (const type of CARD_PACK_TYPES) {
+        const cost = cardPackCost({ elderFocus: 'trade' }, type);
+        const currency = ['epic', 'legendary', 'epic-five', 'legendary-five'].includes(type) ? 'fateShards' : 'chroniclePoints';
+        const character = fixture({ village: 'Rounding village', elderFocus: 'trade', [currency]: cost });
+        const exact = renderedPackButton(character, type);
+        assert.equal(exact.disabled, false, type);
+        assert.ok(exact.text.includes(cost + ' ' + (currency === 'fateShards' ? 'Fate Shards' : 'Chronicle Points')), type);
+        assert.equal(renderedPackButton({ ...character, [currency]: cost - 1 }, type).disabled, true, type);
+    }
 });

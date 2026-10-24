@@ -56,6 +56,15 @@ test('a rewarded win after a level-gap no-payout remains replayable', async () =
     assert.equal(skipped.character.professionXp, paid.character.professionXp);
 });
 
+test('a young loser pays Vanguard seals once established by level, the rule every PvP payout shares', async () => {
+    const { store, session, grant } = await setup();
+    // Bob's account is one hour old: under 72 h, so only level 20+ establishes it.
+    await store.set('save:bob', { _saveVersion: 1, character: { name: 'Bob', level: 50, createdAt: NOW - 3_600_000 } });
+    assert.deepEqual(await grant(session('young-l50', 50)), { granted: true, seals: 1, xp: 300 });
+    await store.set('save:bob', { _saveVersion: 2, character: { name: 'Bob', level: 10, createdAt: NOW - 3_600_000 } });
+    assert.deepEqual(await grant(session('young-l10', 10)), { granted: false, reason: 'too-young' });
+});
+
 for (const granted of [true, false]) {
     test(`repairs the merged ${granted ? 'paid' : 'no-payout'} marker from its exact committed receipt`, async () => {
         const { store, session, grant, record } = await setup();
