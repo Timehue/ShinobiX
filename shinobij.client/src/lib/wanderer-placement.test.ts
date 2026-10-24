@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { sectorStrideTile, sectorWandererHomeTile } from "./wanderer-placement";
-import { loiterRouteTiles } from "./wanderer-loiter";
+import { loiterPositionAt, loiterRouteClearsTiles } from "./wanderer-loiter";
 import { synthChronicleScribe } from "./chronicle-scribe";
 import { synthSageWanderer } from "./legacy";
 import { synthRiftGiver } from "./hollow-rifts";
@@ -16,6 +16,7 @@ import { lifeStandingTiles } from "../../../shared/sector-life-standing";
 import { isWalkableTile, nearestWalkableTile } from "../../../shared/sector-walk-mask";
 import { PLAYABLE_WILD_SECTOR_IDS, WILD_SECTOR_IDS } from "../../../shared/sector-geo";
 import { wandererDayBucketFromMs } from "../../../shared/wanderer-roster";
+import { FRONTIER_SITES, frontierRestSpot } from "../../../shared/sector-frontier-work";
 import type { Character } from "../types/character";
 import type { Wanderer } from "./wanderers";
 
@@ -23,8 +24,18 @@ const gap = (a: number, b: number) => Math.max(Math.abs(a % 12 - b % 12), Math.a
 /** The nearest resident standing tile, in tiles (1 = beside it, 0 = on it). */
 const residentGap = (sector: number, tile: number) => lifeStandingTiles(sector).reduce((least, other) => Math.min(least, gap(tile, other)), Infinity);
 
-const walkGap = (id: string, sector: number, home: number) =>
-    Math.min(...loiterRouteTiles(id, home, (tile) => isWalkableTile(sector, tile)).map((tile) => residentGap(sector, tile)));
+/** The closest the rendered loiter walk comes to a resident standing tile, sampled
+ *  over a full loop (1 = it brushes beside one, 0 = it steps onto one). */
+function walkGap(id: string, sector: number, home: number) {
+    const walkable = (tile: number) => isWalkableTile(sector, tile);
+    let least = Infinity;
+    for (let at = 0; at < 30_000; at += 100) {
+        const pose = loiterPositionAt(id, home, at, walkable);
+        for (const tile of lifeStandingTiles(sector)) least = Math.min(least, Math.max(Math.abs(pose.col - tile % 12), Math.abs(pose.row - Math.floor(tile / 12))));
+    }
+    return least;
+}
+const besideResidents = (sector: number) => Array.from({ length: 144 }, (_, tile) => tile).filter((tile) => residentGap(sector, tile) <= 1);
 const INTERIOR = Array.from({ length: 64 }, (_, i) => (2 + Math.floor(i / 8)) * 12 + 2 + i % 8);
 
 /** The actor never stands on or beside a resident's standing tile, and never walks
@@ -32,11 +43,13 @@ const INTERIOR = Array.from({ length: 64 }, (_, i) => (2 + Math.floor(i / 8)) * 
  *  between the actor and every resident. */
 function assertClearOfResidents(wanderer: Wanderer, sector: number) {
     const label = `${wanderer.name} (${wanderer.id}) at tile ${wanderer.homeTile} in sector ${sector}`;
-    assert.ok(isWalkableTile(sector, wanderer.homeTile), `${label} stands on walkable ground`);
+    const walkable = (tile: number) => isWalkableTile(sector, tile);
+    assert.ok(walkable(wanderer.homeTile), `${label} stands on walkable ground`);
     assert.ok(residentGap(sector, wanderer.homeTile) >= 2, `${label} stands on or beside a resident`);
     const walk = walkGap(wanderer.id, sector, wanderer.homeTile);
     assert.ok(walk >= 1, `${label} walks onto a resident's tile`);
-    const room = INTERIOR.some((tile) => isWalkableTile(sector, tile) && walkGap(wanderer.id, sector, tile) >= 2);
+    const beside = besideResidents(sector);
+    const room = INTERIOR.some((tile) => walkable(tile) && loiterRouteClearsTiles(wanderer.id, tile, walkable, beside));
     if (room) assert.ok(walk >= 2, `${label} walks beside a resident although the sector has room`);
 }
 
@@ -81,8 +94,7 @@ describe("recurring wanderer placement", () => {
     it("keeps the stride tile wherever no resident is near it", () => {
         for (const sector of WILD_SECTOR_IDS) for (const id of ["chronicle-scribe", "legacy-sage", ...storyRoadEvents.map((event) => event.id)]) {
             const stride = nearestWalkableTile(sector, sectorStrideTile(id, sector));
-            const walk = loiterRouteTiles(id, stride, (tile) => isWalkableTile(sector, tile));
-            if (walk.every((tile) => residentGap(sector, tile) >= 2)) assert.equal(sectorWandererHomeTile(id, sector), stride, `${id} in sector ${sector}`);
+            if (walkGap(id, sector, stride) >= 2) assert.equal(sectorWandererHomeTile(id, sector), stride, `${id} in sector ${sector}`);
         }
     });
 });
@@ -120,6 +132,20 @@ describe("quest givers and sector residents", () => {
             }
         }
         assert.ok(roaming > 50 && fixed > 50, `probe range exercised both modes (${roaming} roaming, ${fixed} fixed)`);
+    });
+
+    it("still leaves the Hollow Road's painted gear clear after stepping off residents", () => {
+        const site = FRONTIER_SITES[55], gear = [frontierRestSpot(55, 79), site.stop, site.inspection, ...site.clearance];
+        const walkable = (tile: number) => isWalkableTile(55, tile);
+        let seen = 0;
+        for (let bucket = 9000; bucket < 9400; bucket++) {
+            const spawn = rollEmissarySpawn("aki", 60, null, bucket, 55);
+            if (!spawn) continue;
+            seen++;
+            assert.ok(loiterRouteClearsTiles(spawn.wanderer.id, spawn.wanderer.homeTile, walkable, gear),
+                `${spawn.wanderer.name} at ${spawn.wanderer.homeTile} crosses the Hollow Road gear`);
+        }
+        assert.ok(seen > 5, `probe range exercised sector 55 (${seen} spawns)`);
     });
 
     it("moves Mapless Ojii off Gen's road stop in sector 55 (2026-10-23, 18:00-24:00 UTC)", () => {

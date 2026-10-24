@@ -188,8 +188,8 @@ test('built CSP and every Stronghold audit feed the required responsive gate wit
     assert.deepEqual([...strongholdOrder].sort((a, b) => a - b), strongholdOrder);
     assert.match(responsive, /name: Retain responsive browser evidence\n\s+if: always\(\)/);
     assert.match(flows, /name: Retain responsive flow evidence\n\s+if: always\(\)/);
-    assert.match(flows, /shard: \[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15\]/, 'every responsive flow shard must be scheduled');
-    for(let shard=1;shard<=8;shard++)assert(flows.includes(`lifeShard: ${shard}/8`),'every living-sector slice must be gated');
+    assert.match(flows, /shard: \[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19\]/, 'every responsive flow shard must be scheduled');
+    for(let shard=1;shard<=12;shard++)assert(flows.includes(`lifeShard: ${shard}/12`),'every living-sector slice must be gated');
     assert.match(flows, /needs: release_artifact\n\s+if: \$\{\{ always\(\) \}\}/);
     const aggregate = workflow.split('  e2e_responsive:\n')[1]?.split('\n  e2e_combat_matrix:\n')[0];
     assert.match(aggregate, /needs: \[e2e_responsive_matrix, e2e_responsive_flows\]/);
@@ -203,8 +203,8 @@ test('dedicated world suites run once without sharing living-sector job budgets'
     const entries = [...matrix.matchAll(/^          - shard: (\d+)\n((?:            [^\n]+\n)*)/gm)]
         .map((match) => ({ shard: Number(match[1]), body: match[2] }));
     assert.deepEqual(entries.filter((entry) => entry.body.includes('lifeShard:'))
-        .map((entry) => [entry.shard, entry.body.match(/lifeShard: (\d+\/8)/)?.[1]]),
-        Array.from({ length: 8 }, (_, index) => [index + 3, `${index + 1}/8`]));
+        .map((entry) => [entry.shard, entry.body.match(/lifeShard: (\d+\/12)/)?.[1]]),
+        [3,4,5,6,7,8,9,10,16,17,18,19].map((shard,index)=>[shard,`${index+1}/12`]));
     assert.deepEqual(entries.filter((entry) => entry.body.includes('groundProject:'))
         .map((entry) => [entry.shard, entry.body.match(/groundProject: (\w+)/)?.[1]]),
         [[5, 'desktop'], [7, 'phone']]);
@@ -215,7 +215,7 @@ test('dedicated world suites run once without sharing living-sector job budgets'
     const life = steps.find((step) => step.startsWith('Living sectors, weather and native actor routines\n'));
     const wildlife = steps.find((step) => step.startsWith('Pet-inspired ground wildlife and pause behavior\n'));
     const dock = steps.find((step) => step.startsWith('Dock shipment delivery and cached aftermath\n'));
-    assert.ok(life?.includes('if: ${{ matrix.shard >= 3 && matrix.shard <= 10 }}'));
+    assert.ok(life?.includes('if: ${{ (matrix.shard >= 3 && matrix.shard <= 10) || (matrix.shard >= 16 && matrix.shard <= 19) }}'));
     assert.ok(wildlife?.includes('if: ${{ matrix.shard == 5 || matrix.shard == 7 }}'));
     assert.ok(dock?.includes('if: ${{ matrix.shard == 11 || matrix.shard == 12 }}'));
     assert.doesNotMatch(dock, /continue-on-error|--grep|--max-failures/);

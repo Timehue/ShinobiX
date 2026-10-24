@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { loiterPositionAt, loiterRouteTiles } from "./wanderer-loiter";
+import { loiterPositionAt } from "./wanderer-loiter";
 import { sectorWandererHomeTile } from "./wanderer-placement";
 import { isWalkableTile, nearestWalkableTile } from "../../../shared/sector-walk-mask";
 import { WILD_SECTOR_IDS } from "../../../shared/sector-geo";
@@ -19,21 +19,6 @@ describe("loitering on authored collision", () => {
                 }
                 assert(Math.hypot(pose.col - previous.col, pose.row - previous.row) <= 0.081);
                 previous = pose;
-            }
-        }
-    });
-
-    it("reports every tile the walk crosses, so placement can check the whole loop", () => {
-        for (const sector of [1, 42, 55]) for (const id of ["chronicle-scribe", "legacy-sage", "legacy-emissary-mapless-ojii"]) {
-            const walkable = (tile: number) => isWalkableTile(sector, tile);
-            const home = nearestWalkableTile(sector, sectorWandererHomeTile(id, sector));
-            const route = new Set(loiterRouteTiles(id, home, walkable));
-            assert.ok(route.has(home));
-            for (let time = 0; time <= 40_000; time += 100) {
-                const pose = loiterPositionAt(id, home, time, walkable);
-                for (const col of [Math.floor(pose.col + 1e-9), Math.ceil(pose.col - 1e-9)]) for (const row of [Math.floor(pose.row + 1e-9), Math.ceil(pose.row - 1e-9)]) {
-                    assert(route.has(row * 12 + col), `${id} in sector ${sector} reaches tile ${row * 12 + col} outside its reported route`);
-                }
             }
         }
     });

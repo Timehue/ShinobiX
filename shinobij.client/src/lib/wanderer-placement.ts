@@ -1,6 +1,6 @@
 import { isWalkableTile, nearestWalkableTile } from "../../../shared/sector-walk-mask";
 import { lifeStandingTiles } from "../../../shared/sector-life-standing";
-import { loiterRouteTiles } from "./wanderer-loiter";
+import { loiterRouteClearsTiles } from "./wanderer-loiter";
 
 const GRID = 12;
 
@@ -48,12 +48,15 @@ export function clearOfSectorResidents(id: string, sector: number, preferred: nu
     const standing = lifeStandingTiles(sector);
     const walkable = (tile: number) => isWalkableTile(sector, tile);
     const gap = (tile: number) => standing.reduce((least, other) => Math.min(least, tileGap(tile, other)), Infinity);
+    // A walk that clears every tile on or beside a resident by a full tile
+    // keeps two tiles between the actor and that resident.
+    const besideStanding = Array.from({ length: GRID * GRID }, (_, tile) => tile).filter((tile) => gap(tile) <= 1);
     // 0: the whole walk keeps a free tile between it and a resident. 1: it never
     // steps onto one and the home tile is not beside one. 2: home is not on one.
     const rank = (home: number) => {
         if (!walkable(home)) return 4;
-        const walk = Math.min(...loiterRouteTiles(id, home, walkable).map(gap));
-        return walk >= 2 ? 0 : walk >= 1 && gap(home) >= 2 ? 1 : gap(home) >= 1 ? 2 : 3;
+        if (loiterRouteClearsTiles(id, home, walkable, besideStanding)) return 0;
+        return loiterRouteClearsTiles(id, home, walkable, standing) && gap(home) >= 2 ? 1 : gap(home) >= 1 ? 2 : 3;
     };
     const start = nearestWalkableTile(sector, preferred);
     let best = start, bestRank = rank(start);

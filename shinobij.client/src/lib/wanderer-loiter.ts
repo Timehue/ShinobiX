@@ -55,22 +55,15 @@ function routeFor(id: string, homeTile: number, walkable?: (tile: number) => boo
     return [home, near, far, near, home];
 }
 
-/** Every tile the walkable loop crosses, home first. Placement checks the whole
- *  walk, not just the home tile, before it puts an actor beside someone else. */
-export function loiterRouteTiles(id: string, homeTile: number, walkable: (tile: number) => boolean): number[] {
-    const route = routeFor(id, homeTile, walkable);
-    const tiles = new Set<number>([homeTile]);
-    for (let i = 1; i < route.length; i++) {
-        // Walkable legs are cardinal (see routeFor), so stepping both axes visits each tile.
-        const from = route[i - 1], to = route[i];
-        const steps = Math.max(Math.abs(to.col - from.col), Math.abs(to.row - from.row));
-        for (let step = 0; step <= steps; step++) {
-            const col = from.col + Math.sign(to.col - from.col) * Math.min(step, Math.abs(to.col - from.col));
-            const row = from.row + Math.sign(to.row - from.row) * Math.min(step, Math.abs(to.row - from.row));
-            tiles.add(row * GRID + col);
-        }
-    }
-    return [...tiles];
+/** Check whole cardinal legs, including the space between their endpoints. */
+export function loiterRouteClearsTiles(id:string,homeTile:number,walkable:(tile:number)=>boolean,reserved:readonly number[]):boolean {
+    const route=routeFor(id,homeTile,walkable);
+    return route.slice(1).every((end,index)=>reserved.every(tile=>{
+        const start=route[index],col=tile%GRID,row=Math.floor(tile/GRID);
+        const dx=Math.max(Math.min(start.col,end.col)-col,col-Math.max(start.col,end.col),0);
+        const dy=Math.max(Math.min(start.row,end.row)-row,row-Math.max(start.row,end.row),0);
+        return Math.max(dx,dy)>=1;
+    }));
 }
 
 /** Position at an absolute time; consecutive calls and sector remounts agree.
