@@ -12,9 +12,12 @@ export const LEGENDARY_WAR_CRATE_ID = 'legendary-war-crate';
 
 // ── Village-war reward values (2026-10 rebalance, framework 2.9 / #28 / #32 / #7) ──
 
-/** Honor on the consolation of a lost war (25 before the rebalance; seals move toward war). */
+/** Honor support floor on a lost village war; not added to earned rewards. */
 export const VILLAGE_WAR_CONSOLATION_HONOR = 50;
 export const VILLAGE_WAR_CONSOLATION_RYO = 5_000;
+/** Explicit support floor: Honor does not create additional consolation BC/FS. */
+export const VILLAGE_WAR_CONSOLATION_BONE_CHARMS = 6;
+export const VILLAGE_WAR_CONSOLATION_FATE_SHARDS = 1;
 /** Honor on a side's MVP bundle (50 before the rebalance). */
 export const VILLAGE_WAR_MVP_HONOR = 100;
 /** Today's MVP ryo, and the floor of the anchored MVP purse. */
@@ -198,17 +201,26 @@ function clanDamageFor(war: ClanWar, clan: string, playerName: string): number {
     return damage;
 }
 
-function applyCurrency(character: WarRewardCharacter, ryo: number, honor: number, shards: number): WarRewardCharacter {
+type WarCurrency = { ryo: number; honorSeals: number; boneCharms: number; fateShards: number };
+
+/** Historical MVP/purse conversion; consolation uses its explicit floor below. */
+function warCurrency(ryo: number, honor: number, shards: number): WarCurrency {
     const normalizedHonor = Math.max(0, Math.floor(honor));
-    const bonusCharms = normalizedHonor > 0 ? Math.max(1, Math.floor(normalizedHonor / 8)) : 0;
-    const bonusShards = Math.floor(normalizedHonor / 25);
+    return { ryo, honorSeals: normalizedHonor, boneCharms: normalizedHonor > 0 ? Math.max(1, Math.floor(normalizedHonor / 8)) : 0, fateShards: shards + Math.floor(normalizedHonor / 25) };
+}
+
+function applyWarCurrency(character: WarRewardCharacter, reward: WarCurrency): WarRewardCharacter {
     return {
         ...character,
-        ryo: numeric(character, 'ryo') + ryo,
-        honorSeals: numeric(character, 'honorSeals') + (character.profession === 'vanguard' ? normalizedHonor : 0),
-        boneCharms: numeric(character, 'boneCharms') + bonusCharms,
-        fateShards: numeric(character, 'fateShards') + shards + bonusShards,
+        ryo: numeric(character, 'ryo') + reward.ryo,
+        honorSeals: numeric(character, 'honorSeals') + (character.profession === 'vanguard' ? reward.honorSeals : 0),
+        boneCharms: numeric(character, 'boneCharms') + reward.boneCharms,
+        fateShards: numeric(character, 'fateShards') + reward.fateShards,
     };
+}
+
+function applyCurrency(character: WarRewardCharacter, ryo: number, honor: number, shards: number): WarRewardCharacter {
+    return applyWarCurrency(character, warCurrency(ryo, honor, shards));
 }
 
 export function settleVillageWarRewards(
@@ -227,8 +239,8 @@ export function settleVillageWarRewards(
     const markers: string[] = [];
     let crates = 0;
     let ryo = 0;
-    let honor = 0;
-    let shards = 0;
+    let earnedPurse = 0;
+    let earnedPurseHonor = 0;
     let mvp = false;
     let consolation = false;
     let lifetimeDamage = 0;
@@ -275,24 +287,22 @@ export function settleVillageWarRewards(
 
     const rewardToken = villageWarRewardToken(war);
     const mvpId = `mvp-crate-${rewardToken}`;
+    const consolationFloorId = `consolation-floor-${rewardToken}`;
+    // Stage the MVP raise by rollout scale and the campaign fraction fought.
+    const mvpRyo = stagedRaise(VILLAGE_WAR_MVP_RYO_FLOOR, villageWarMvpRyoFull(level), dials.purseScale * payFraction);
     if (isMvp && !claimed.has(mvpId)) {
         markers.push(mvpId);
         crates += 1;
-        // The anchored raise above today's 10,000 is staged by WAR_PURSE_SCALE
-        // and, on an agreement ending, by the share of the campaign fought.
-        ryo += stagedRaise(VILLAGE_WAR_MVP_RYO_FLOOR, villageWarMvpRyoFull(level), dials.purseScale * payFraction);
-        honor += VILLAGE_WAR_MVP_HONOR;
-        shards += 2;
         mvp = true;
         mvpCount += 1;
     }
 
+    // Loss support follows the war purse's established-account rule (72 h OR
+    // L20), so a fresh alt cannot join the losing side for a free floor.
     if (war.loserCrateId && war.winnerVillage && war.winnerVillage !== village
-        && contribution?.side === village && contribution.damage >= 50 && !claimed.has(war.loserCrateId)) {
-        markers.push(war.loserCrateId);
-        ryo += VILLAGE_WAR_CONSOLATION_RYO;
-        honor += VILLAGE_WAR_CONSOLATION_HONOR;
-        shards += 1;
+        && contribution?.side === village && contribution.damage >= 50 && !claimed.has(war.loserCrateId)
+        && warAccountOldEnough(character, war.endedAt)) {
+        markers.push(war.loserCrateId, consolationFloorId);
         consolation = true;
     }
 
@@ -303,18 +313,18 @@ export function settleVillageWarRewards(
     // claimedWarCrateIds payout stamp, so no save field is added.
     const purseId = `purse-${rewardToken}`;
     if (dials.purseScale > 0 && war.campaign && war.endedAt >= dials.epochMs && !earlyAgreement
-        && contribution?.side === village && !claimed.has(purseId) && warAccountOldEnough(character, war.endedAt)) {
+        && contribution?.side === village && warAccountOldEnough(character, war.endedAt)) {
         const points = villageWarPursePoints(war, contributorKey, village, Number(contribution.damage) || 0);
         if (points >= WAR_PURSE_MIN_POINTS) {
             const capped = Math.min(points, WAR_PURSE_POINT_CAP);
             const k = war.winnerVillage === village ? dials.winK : dials.loseK;
             const scale = dials.purseScale * payFraction;
-            purse = Math.round(capped * k * anchorRyoPerMinute(level) * scale);
-            purseHonor = Math.floor(Math.floor(capped / WAR_PURSE_HONOR_POINTS_PER_SEAL) * scale);
-            if (purse > 0 || purseHonor > 0) {
+            earnedPurse = Math.round(capped * k * anchorRyoPerMinute(level) * scale);
+            earnedPurseHonor = Math.floor(Math.floor(capped / WAR_PURSE_HONOR_POINTS_PER_SEAL) * scale);
+            if (!claimed.has(purseId) && (earnedPurse > 0 || earnedPurseHonor > 0)) {
                 markers.push(purseId);
-                ryo += purse;
-                honor += purseHonor;
+                purse = earnedPurse;
+                purseHonor = earnedPurseHonor;
             }
         }
     }
@@ -329,7 +339,37 @@ export function settleVillageWarRewards(
         return nothing(character);
     }
 
-    let next = applyCurrency(character, ryo, honor, shards);
+    // Include already claimed components when calculating the floor. Subtract
+    // them before payment, so partial claims, staged purses and retries cannot
+    // turn consolation back into an additive reward. Crates stay independent.
+    const entitlement = (hasMvp: boolean, hasPurse: boolean, hasConsolation: boolean, legacyConsolation = false): WarCurrency => {
+        const reward = warCurrency(
+            (hasMvp ? mvpRyo : 0) + (hasPurse ? earnedPurse : 0) + (legacyConsolation ? VILLAGE_WAR_CONSOLATION_RYO : 0),
+            (hasMvp ? VILLAGE_WAR_MVP_HONOR : 0) + (hasPurse ? earnedPurseHonor : 0) + (legacyConsolation ? VILLAGE_WAR_CONSOLATION_HONOR : 0),
+            (hasMvp ? 2 : 0) + (legacyConsolation ? 1 : 0),
+        );
+        if (hasConsolation && !legacyConsolation) {
+            reward.ryo = Math.max(reward.ryo, VILLAGE_WAR_CONSOLATION_RYO);
+            reward.honorSeals = Math.max(reward.honorSeals, VILLAGE_WAR_CONSOLATION_HONOR);
+            reward.boneCharms = Math.max(reward.boneCharms, VILLAGE_WAR_CONSOLATION_BONE_CHARMS);
+            reward.fateShards = Math.max(reward.fateShards, VILLAGE_WAR_CONSOLATION_FATE_SHARDS);
+        }
+        return reward;
+    };
+    const hadConsolation = !!war.loserCrateId && claimed.has(war.loserCrateId);
+    const before = entitlement(claimed.has(mvpId), claimed.has(purseId), hadConsolation,
+        hadConsolation && !claimed.has(consolationFloorId));
+    const after = entitlement(claimed.has(mvpId) || mvp, claimed.has(purseId) || markers.includes(purseId), hadConsolation || consolation);
+    const paid: WarCurrency = {
+        ryo: Math.max(0, after.ryo - before.ryo),
+        honorSeals: Math.max(0, after.honorSeals - before.honorSeals),
+        boneCharms: Math.max(0, after.boneCharms - before.boneCharms),
+        fateShards: Math.max(0, after.fateShards - before.fateShards),
+    };
+    ryo = paid.ryo;
+    purse = Math.min(purse, paid.ryo);
+    purseHonor = Math.min(purseHonor, paid.honorSeals);
+    let next = applyWarCurrency(character, paid);
     next = {
         ...next,
         inventory: [...(character.inventory ?? []), ...Array.from({ length: crates }, () => LEGENDARY_WAR_CRATE_ID)],
