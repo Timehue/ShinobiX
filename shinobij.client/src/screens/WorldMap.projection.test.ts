@@ -133,6 +133,8 @@ test("WorldMap and its selected-sector leaves keep the projection line-budget ra
         // feature leaves. Tighten the achieved count instead of growing this screen.
         // Encounter mode mapping now lives in world-ai-presentation-modes.ts.
         // Chest reward presentation now lives in AncientChestRewards.tsx.
+        // The public building book adds one atlas callback and still fits the
+        // existing 5,310-line guard after main's chest presentation extraction.
         lineCount(worldMapSource) <= 5310,
         `WorldMap.tsx grew past 5,310 lines; retired overview layers must stay retired.`,
     );

@@ -913,7 +913,12 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // together. The merged tree measures 9,662,387 B locally (initial graph 1,406,430 B
 // raw / 398,086 B gzip, under its own unchanged 399,000 B gate). Allow 9.672 MB:
 // 9,613 B of headroom.
-const TOTAL_JS_CSS_FAIL_BYTES = 9_672_000;
+// 2026-10-23 SECTOR BUILDINGS: retain current main's 9.672 MB allocation and
+// the building feature's previously verified 50 KB allocation (9.585 -> 9.635 MB
+// on its original base). The combined aggregate ceiling is 9.722 MB. Counter
+// authoring/private parsing stay server-side; presentation lives in the lazy
+// world screen. Startup raw/gzip, per-chunk, CSS and runtime-asset gates stay fixed.
+const TOTAL_JS_CSS_FAIL_BYTES = 9_722_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai

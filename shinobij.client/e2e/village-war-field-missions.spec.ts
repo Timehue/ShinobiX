@@ -7,9 +7,7 @@ import { sectorFloorLayout } from '../src/lib/sector-floor-layout';
 for (const [mode, label] of [['combat', 'Shinobi PvP'], ['pet', 'Pet battles only'], ['card', 'Card battles only']] as const) {
     test(`a revealed ${mode} war stronghold admits physical entry and binds its specialty assault`, async ({ page }, info) => {
         test.setTimeout(90_000);
-        const footprint = sectorFloorLayout(18)!.sites.stronghold!.footprint;
-        const tile = footprint[1]! * 12 + footprint[0]!;
-        const save = { ...uiAuditSave(), currentSector: 18, currentTile: nearestWalkableTile(18, tile) };
+        const save = { ...uiAuditSave(), currentSector: 18, currentTile: sectorFloorLayout(18)!.sites.stronghold!.approach };
         const bucket = Math.floor(Date.now() / (6 * 3_600_000)), cooldowns: Record<string, number> = {};
         for (const offset of [-1, 0, 1]) for (const index of [0, 1, 2]) cooldowns[`w-18-${bucket + offset}-${index}`] = Date.now() + 30 * 86_400_000;
         save.character = { ...save.character, level: 15, wandererCooldowns: cooldowns };
@@ -34,6 +32,7 @@ for (const [mode, label] of [['combat', 'Shinobi PvP'], ['pet', 'Pet battles onl
         await expectUiAuditBoot(page, runtime, 'worldMap');
         await page.getByRole('button', { name: '← Return to Sector 18', exact: true }).click();
         await page.getByRole('button', { name: /Moonshadow Village Sector Stronghold.*infiltrate/ }).click();
+        await page.getByRole('dialog').getByRole('button',{name:'Enter the stronghold',exact:true}).click();
         const prompt = page.getByRole('dialog');
         await expect(prompt.getByText(/Human victories earn 50 War Points/)).toBeVisible();
         await expect(prompt.getByText(/Explore 12 chambers/)).toHaveCount(0);
@@ -123,7 +122,7 @@ test('an espionage traveler enters the assigned stronghold, sees sentry and play
 
 test('a level-15 village defender takes guard duty in an owned stronghold and can confront an espionage visitor', async ({ page }, testInfo) => {
     test.setTimeout(90_000);
-    const sector = 4, save = { ...uiAuditSave(), currentSector: sector };
+    const sector = 4, save = { ...uiAuditSave(), currentSector: sector, currentTile:sectorFloorLayout(sector)!.sites.stronghold!.approach };
     save.triggeredEvents = [...(save.triggeredEvents ?? []), 'story-interlude-stormveil-village-88', 'story-interlude-stormveil-village-92'];
     const bucket = Math.floor(Date.now() / (6 * 3_600_000)), cooldowns: Record<string, number> = {};
     for (const offset of [-1, 0, 1]) for (const index of [0, 1, 2]) cooldowns[`w-${sector}-${bucket + offset}-${index}`] = Date.now() + 30 * 86_400_000;
@@ -153,6 +152,7 @@ test('a level-15 village defender takes guard duty in an owned stronghold and ca
     await expect(world).toHaveAttribute('aria-busy', 'false', { timeout: 30_000 });
     await world.locator('canvas[aria-label^="World terrain"]').evaluate(canvas => { (canvas as HTMLCanvasElement & { strongholdProbe?: boolean }).strongholdProbe = true; });
     await page.getByRole('button', { name: /Sector Stronghold — defend/ }).click();
+    await page.getByRole('dialog').getByRole('button',{name:'Enter the stronghold',exact:true}).click();
     const entrance = page.getByRole('dialog', { name: `Sector ${sector} Stronghold`, exact: true });
     await expect(entrance.getByText(/Take guard duty from level 15/)).toBeVisible();
     await entrance.getByRole('button', { name: 'Enter stronghold', exact: true }).click();

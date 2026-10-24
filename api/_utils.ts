@@ -65,6 +65,10 @@ const REPLACE_SUBTREE_KEYS = new Set<string>([
     // Gathering settlements remove the active attempt. Retaining its old key
     // would reopen a finished minigame and block the next node indefinitely.
     'resourceGathering',
+    // Counter settlements clear active work and reserved tea on completion or
+    // cancellation. Generic saves mirror this complete server-owned subtree.
+    // Retaining absent keys could reopen a paid order with a fresh request ID.
+    'sectorBuildings',
     // Era stage transitions reset counters and replace historical short-chapter
     // completion. Generic saves preserve this server-owned map before merging.
     'eraJourneys',
