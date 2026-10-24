@@ -55,6 +55,24 @@ function routeFor(id: string, homeTile: number, walkable?: (tile: number) => boo
     return [home, near, far, near, home];
 }
 
+/** Every tile the walkable loop crosses, home first. Placement checks the whole
+ *  walk, not just the home tile, before it puts an actor beside someone else. */
+export function loiterRouteTiles(id: string, homeTile: number, walkable: (tile: number) => boolean): number[] {
+    const route = routeFor(id, homeTile, walkable);
+    const tiles = new Set<number>([homeTile]);
+    for (let i = 1; i < route.length; i++) {
+        // Walkable legs are cardinal (see routeFor), so stepping both axes visits each tile.
+        const from = route[i - 1], to = route[i];
+        const steps = Math.max(Math.abs(to.col - from.col), Math.abs(to.row - from.row));
+        for (let step = 0; step <= steps; step++) {
+            const col = from.col + Math.sign(to.col - from.col) * Math.min(step, Math.abs(to.col - from.col));
+            const row = from.row + Math.sign(to.row - from.row) * Math.min(step, Math.abs(to.row - from.row));
+            tiles.add(row * GRID + col);
+        }
+    }
+    return [...tiles];
+}
+
 /** Position at an absolute time; consecutive calls and sector remounts agree.
  *  With `walkable`, every point of the loop stays on ground a player can stand on. */
 export function loiterPositionAt(id: string, homeTile: number, nowMs: number, walkable?: (tile: number) => boolean): LoiterPosition {

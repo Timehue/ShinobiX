@@ -15,6 +15,7 @@
 import type { WandererQuestMetric } from "./wanderers";
 import type { Wanderer } from "./wanderers";
 import { wandererLevelFor, wandererHash32 as hash32, mulberry32 } from "./wanderers";
+import { clearOfSectorResidents } from "./wanderer-placement";
 import { FESTIVAL_SECTOR } from "../../../shared/sector-geo";
 
 export type EmissarySlug =
@@ -270,7 +271,10 @@ export function rollEmissarySpawn(
 
     const col = 2 + Math.floor(rng() * 8);
     const row = 2 + Math.floor(rng() * 8);
-    const home = row * GRID + col;
+    const id = `${EMISSARY_WANDERER_PREFIX}${def.slug}`;
+    // The rolled tile can be a resident's rest stop; step off it, the way every
+    // other story and service character does.
+    const home = clearOfSectorResidents(id, sector, row * GRID + col);
     const waypoints = [home];
     for (let i = 0; i < 2; i++) {
         const nc = Math.max(1, Math.min(10, col + (Math.floor(rng() * 5) - 2)));
@@ -282,7 +286,7 @@ export function rollEmissarySpawn(
         def,
         sector,
         wanderer: {
-            id: `${EMISSARY_WANDERER_PREFIX}${def.slug}`,
+            id,
             name: def.name,
             archetype: def.slug,
             verb: "legacyQuest",
