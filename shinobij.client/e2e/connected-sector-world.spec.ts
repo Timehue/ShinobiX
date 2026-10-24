@@ -101,13 +101,17 @@ test('an old saved position inside a building initializes on accessible ground',
 });
 test('members can enter the centered village', async ({ page }) => {
     await boot(page, 9, 102, 'Ashen Leaf Village');
-    const entrance = page.getByRole('button', { name: 'Enter Ashen Leaf Village', exact: true });
+    const entrance = page.getByRole('button', { name: 'Visit Ashen Leaf Village gate counter', exact: true });
     await expect(entrance).toBeEnabled(); await entrance.click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Enter Ashen Leaf Village', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Ashen Leaf Village', exact: true })).toBeVisible();
 });
 test('the centered village entrance preserves its membership restriction', async ({ page }) => {
     await boot(page, 9, 102);
-    await expect(page.getByRole('button', { name: 'Ashen Leaf Village — village members only', exact: true })).toBeDisabled();
+    const counter=page.getByRole('button', { name: 'Visit Ashen Leaf Village gate counter', exact: true });
+    await expect(counter).toBeEnabled();await counter.click();
+    await expect(page.getByRole('dialog')).toContainText('Entry beyond the gate is for village members');
+    await expect(page.getByRole('dialog').getByRole('button',{name:'Enter Ashen Leaf Village',exact:true})).toHaveCount(0);
 });
 test('Death’s Gate retains its isolated painted arena and blocked lava', async ({ page }) => {
     await boot(page, 99, 53);

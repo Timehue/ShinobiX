@@ -359,9 +359,14 @@ test("the personal quest opens over the map without moving or resizing it", asyn
     const sectorBounds = await sectorMap.boundingBox();
     await openJournal(sectorJournal);
     expect(await sectorMap.boundingBox()).toEqual(sectorBounds);
+    const roadBook=page.locator('.sector-building-work-chip');
+    await expect(roadBook).toBeHidden();
     await page.screenshot({ path: testInfo.outputPath('sector-quest-expanded.png') });
     await sectorJournal.locator('.story-field-journal-toggle').click();
     expect(await sectorMap.boundingBox()).toEqual(sectorBounds);
+    await expect(roadBook).toBeVisible();
+    const journalRect=await sectorJournal.boundingBox(),bookRect=await roadBook.boundingBox();
+    expect(journalRect&&bookRect&&journalRect.x<bookRect.x+bookRect.width&&journalRect.x+journalRect.width>bookRect.x&&journalRect.y<bookRect.y+bookRect.height&&journalRect.y+journalRect.height>bookRect.y).toBe(false);
     await page.screenshot({ path: testInfo.outputPath('sector-quest-collapsed.png') });
 });
 

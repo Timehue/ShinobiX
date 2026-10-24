@@ -1,0 +1,46 @@
+.sector-building-threshold{position:absolute;z-index:7;transform:translate(-50%,-100%);margin:0;padding:0;border:0;background:transparent;box-shadow:none;cursor:pointer;touch-action:manipulation;min-width:0;min-height:0}
+@media(hover:hover){.sector-building-threshold:hover{transform:translate(-50%,-100%);background:transparent;box-shadow:none;filter:none}}
+.sector-building-threshold:focus-visible{outline:2px solid #e6ca8e;outline-offset:3px}
+.sector-building-name,.sector-building-condition{position:absolute;left:50%;top:100%;transform:translateX(-50%);width:max-content;max-width:min(170px,34vw);padding:3px 5px;border-radius:4px;background:color-mix(in srgb,var(--sj-background) 92%,transparent);color:var(--sj-text-primary);font:600 clamp(9px,1.1vw,11px)/1.25 Georgia,serif;pointer-events:none;text-shadow:0 1px #000;text-align:center}
+.sector-building-condition{top:calc(100% + 24px);font-size:9px;color:var(--sj-text-secondary)}
+.sector-building-threshold.is-player-at-label .sector-building-name{top:4px;transform:translateX(-50%)}
+.sector-building-restoration-art{position:absolute;z-index:5;object-fit:contain;pointer-events:none}
+.sector-building-road-sign{display:block;width:100%;height:100%;object-fit:contain;pointer-events:none}
+.sector-building-maintenance-seal{position:absolute;right:8%;top:20%;width:18px;height:22px;display:grid;place-items:center;border:1px solid var(--sj-border-strong);border-radius:2px;background:var(--sj-surface-raised);color:var(--sj-text-primary);font:bold 10px Georgia,serif;box-shadow:1px 2px 3px #0007;pointer-events:none}
+.sector-building-maintenance-seal.maintenance-2{border-color:#ccb58b;background:#884636;color:#f4e1be}.sector-building-maintenance-seal.maintenance-3{border-color:#f4d785;background:#755c28;color:#fff0bb}
+.sector-building-work-point{position:absolute;z-index:9;transform:translate(-50%,-50%);width:44px;height:44px;min-width:44px;min-height:44px;border:1px solid var(--sj-gold);border-radius:50%;background:color-mix(in srgb,var(--sj-surface-low) 94%,transparent);color:var(--sj-gold-bright);padding:0;font-size:23px;line-height:1;touch-action:manipulation}
+@media(hover:hover){.sector-building-work-point:hover{transform:translate(-50%,-50%);background:var(--sj-surface-high)}}
+.sector-building-work-chip{position:absolute;z-index:10;left:8px;top:8px;min-height:44px;max-width:65%;padding:7px 11px;border:1px solid var(--sj-gold);background:color-mix(in srgb,var(--sj-background) 95%,transparent);color:var(--sj-text-primary);border-radius:5px;font-size:11px;text-align:left}
+.sector-building-work-chip span{display:block;text-transform:uppercase;letter-spacing:.12em;font-size:9px;color:var(--sj-gold-bright)}
+/* Personal quests own the upper-left slot. Keep the road book reachable in
+   the opposite lower corner, and let an expanded journal own the playfield. */
+main.tile-scene:has(.story-field-journal)>.sector-building-work-chip{top:auto;bottom:8px;left:auto;right:8px;max-width:min(180px,60%)}
+main.tile-scene:has(.story-field-journal.is-open)>.sector-building-work-chip{visibility:hidden;pointer-events:none}
+.building-counter-modal{--building-ink:var(--sj-background);--building-paper:var(--sj-text-primary);--building-gold:var(--sj-gold);--building-muted:var(--sj-text-secondary);background:linear-gradient(145deg,var(--sj-surface-low),var(--sj-background));border:1px solid var(--building-gold);color:var(--building-paper);max-width:780px}
+.building-counter-modal .ui-modal-title{color:var(--sj-gold-bright)}
+.building-counter{font-size:14px;line-height:1.55;color:var(--building-paper);overflow-wrap:anywhere}
+.building-counter-art{display:block;width:100%;height:clamp(110px,20vh,190px);object-fit:cover;border-radius:5px;margin-bottom:14px;border:1px solid #b39a6044}
+.building-counter button{min-height:44px;white-space:normal}
+/* A work step can replace a button under the pointer. Keep hit geometry fixed
+   so the global one-pixel hover lift cannot oscillate at the new top edge. */
+.building-counter-modal .building-counter button{transform:none}
+.building-work-history article,.building-recorded-account{padding:12px;border:1px solid #b39a6044;background:var(--sj-surface-low);border-radius:5px;margin:10px 0}
+.building-work-history h4,.building-recorded-account h4{margin:0 0 6px;color:var(--sj-gold-bright)}
+.building-relationship{padding:0 0 10px;border-bottom:1px solid #b39a6033}.building-relationship ul{padding-left:20px}
+.building-counter blockquote{border-left:2px solid #b39a60;padding:8px 14px;margin:14px 0;font-style:italic}
+.building-counter-heading{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:0 0 12px;border-bottom:1px solid #b39a604d}
+.building-counter-heading p{font:600 21px/1.2 Georgia,serif;margin:4px 0}.building-counter small{display:block;color:var(--building-muted);font-size:12px}
+.building-counter-heading>span{color:var(--sj-gold);font-size:12px;white-space:nowrap}
+.building-counter-tabs{display:flex;gap:5px;overflow-x:auto;padding:12px 0;scrollbar-width:thin}
+.building-counter-tabs button{flex:0 0 auto;background:var(--sj-surface);border:1px solid var(--sj-border-strong);padding:5px 11px;border-radius:4px;font-size:12px;color:var(--building-paper)}
+.building-counter-tabs button[aria-pressed=true]{border-color:var(--building-gold);background:color-mix(in srgb,var(--sj-seal) 30%,var(--sj-surface-low));color:var(--sj-gold-bright)}
+.building-greeting{font:18px/1.55 Georgia,serif;color:var(--sj-text-primary);border-left:2px solid var(--building-gold);padding:4px 14px}
+.building-actions{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}.building-counter button:disabled{cursor:default;opacity:.55}
+.building-hint{color:var(--sj-text-secondary);font-size:12px}.building-counter details{border-top:1px solid #b39a6033;padding:12px 0}.building-counter summary{cursor:pointer;min-height:30px;color:var(--sj-gold-bright)}
+.building-restoration{padding:14px 16px;background:#b3a2640c;border:1px solid #b39a6044;border-radius:6px}.building-restoration progress{display:block;width:100%;height:9px;margin:10px 0;accent-color:var(--sj-gold)}.building-restoration p{font-size:12px;margin:0}
+.building-material-selection fieldset{border:1px solid #b39a604d;border-radius:5px;padding:10px 12px;margin:12px 0}.building-material-selection legend{color:var(--sj-gold-bright);padding:0 6px}.building-material-selection legend span{font-size:12px;margin-left:6px}.building-material-selection label{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:8px 0}.building-material-selection input{width:70px;min-height:44px;border:1px solid #ae9a6655;border-radius:4px;background:var(--building-ink);color:var(--building-paper);padding:6px}
+.building-recipe-list article,.building-register article{padding:15px 0;border-bottom:1px solid #b39a6033}.building-register h3{font:20px Georgia,serif;color:#e5d3a5;margin:0}
+.building-current-work{padding:12px 0}.building-current-work h3{font:22px/1.3 Georgia,serif;color:#eddeb7}.building-cancel{margin-top:20px;font-size:12px}
+.building-receipt{margin-top:16px;padding:10px 14px;border-left:2px solid var(--sj-gold);background:color-mix(in srgb,var(--sj-gold) 7%,transparent)}.building-receipt p{margin:4px 0}.building-error{margin-top:12px;padding:10px 12px;border:1px solid var(--sj-danger);color:#efc5b3}
+@media(max-width:600px){.building-counter{font-size:13px}.building-counter-heading p{font-size:18px}.building-greeting{font-size:16px}.building-actions>button{flex:1 1 140px}.sector-building-name{max-width:100px;font-size:9px}.sector-building-condition{display:none}.sector-building-work-chip{max-width:58%;font-size:10px}.building-counter-modal{padding:12px}}
+@media(prefers-reduced-motion:reduce){.building-counter *{scroll-behavior:auto;transition:none}}

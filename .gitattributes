@@ -14,6 +14,8 @@ docs/screenshots/oni-all-clips-v2-final-2026-10-18/*.log text eol=lf
 docs/audits/oni-*.json text eol=lf
 docs/audits/pet-omitted-*.json text eol=lf
 shinobij.client/scripts/fixtures/pet-omitted-limb-performances/*.json text eol=lf
+# The Sky Falcon repair pins this selection's exact SHA, including newlines.
+shinobij.client/scripts/fixtures/pet-sky-falcon-tabs-20261021/*.json text eol=lf
 shinobij.client/src/generated/story-content/*.json text eol=lf
 shinobij.client/src/generated/story-content/*.ts text eol=lf
 

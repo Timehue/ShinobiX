@@ -57,6 +57,16 @@ hosted runners. The build-size contract remains in `CI / client-quality`. The
 join is not a separately required context because every required artifact
 consumer fails closed if that join or its inputs fail.
 
+Building player journeys run as two `e2e_sector_buildings` shards, named
+`CI / e2e-sector-buildings / 1-of-2` through `CI / e2e-sector-buildings / 2-of-2`,
+each with a 29-minute ceiling. The desktop and phone shards each boot a fresh
+real Express server from the verified release artifact. They cover repair
+escrow and shared artwork, junior stronghold reception, connected-road courier
+delivery and reconnect, ruin evidence, tea recovery and saved receipts, all six
+shrine registers, canonical workshop crafting, distinct festival duties and
+contact/watch work. Separate servers retain the real registration allowance.
+The compatibility `test_build` aggregate requires both shards to succeed.
+
 The root suite runs as the `server_contracts_matrix` job, with the emitted names
 `CI / server-contracts / 1` through `CI / server-contracts / 3`, each with a
 29-minute ceiling. Each shard runs `npm run test:ci`, the same runner as
