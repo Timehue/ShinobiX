@@ -25,3 +25,8 @@ export function brokerCertificateCount(character: { brokerCertificates?: unknown
 export function rallyBrokerCertificates(place: number): number {
     return place === 1 ? 2 : place === 2 ? 1 : 0;
 }
+
+/** A completed daily delivery earns one certificate; a failed delivery earns none. */
+export function caravanBrokerCertificates(success: boolean): number {
+    return success ? 1 : 0;
+}
