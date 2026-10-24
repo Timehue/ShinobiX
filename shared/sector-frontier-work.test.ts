@@ -26,7 +26,8 @@ test('the two sparse scenes reuse original people, original task locations and e
 });
 
 test('Gen uses a clear inward road shoulder, outside every current story-quest loiter route, with his five-minute itinerary',()=>{
-    const quest=nearestWalkableTile(55,sectorWandererHomeTile('story-road-border-smoke',55));assert.equal(quest,77);
+    // 75, not its stride tile 77: that sits beside the camp stop at 78.
+    const quest=nearestWalkableTile(55,sectorWandererHomeTile('story-road-border-smoke',55));assert.equal(quest,75);
     let gen:ReturnType<typeof lifeActorsAt>[number]|undefined;
     for(let slot=0;slot<30&&!gen;slot++)gen=lifeActorsAt(55,slot*300_000+90_000,'clear').find(a=>a.id==='gen');
     assert(gen);assert.equal(gen.restTile,70);assert.equal(gen.hideAt,gen.motion!.start+300_000);assert(gen.traveler);assert(gen.phases!.some(p=>p.returnGreeting));
