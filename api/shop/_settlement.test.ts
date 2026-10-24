@@ -9,6 +9,7 @@ import { ITEM_CATALOG } from '../pvp/_item-catalog.js';
 import { cardPackBaseCost, cardPackCost, CARD_DUPLICATE_CONVERSION } from '../card-clash/_pack.js';
 import { BUILTIN_CLASH, isMarketplaceCard } from '../clan/war/_card-catalog.js';
 import type { PlayerCharacter } from '../save/_mutate-player-save.js';
+import { SERVER_SETTLEMENT_RECEIPTS_FIELD, type ServerSettlementReceipt } from '../_settlement-receipts.js';
 import { VILLAGE_TRANSFER_COST, VILLAGE_TRANSFER_SCROLL_ID } from '../../shared/village-transfer.js';
 
 const item = (overrides: Partial<SettlementItem> = {}): SettlementItem => ({
@@ -228,7 +229,7 @@ test('legacy card packs charge the live pack table price, with and without the t
         const opened = applyCardPackPurchase(character({ fateShards: 100, elderFocus }), cards, packId, `cardpack-price-${packId}-${elderFocus ?? 'none'}`, 100, () => 0);
         return opened.ok && opened.value.kind === 'card-pack' ? opened.value.totalCost : null;
     };
-    assert.deepEqual([price('epic'), price('epic', 'trade'), price('legendary'), price('legendary', 'trade')], [6, 5, 20, 19]);
+    assert.deepEqual([price('epic'), price('epic', 'trade'), price('legendary'), price('legendary', 'trade')], [6, 6, 20, 19]);
     assert.ok([...cards.keys()].some(isMarketplaceCard), 'the marketplace half is drawn from the live catalog');
 });
 
@@ -247,4 +248,24 @@ test('pet supplies top up a held stack on the settlement route, and unlocks stay
     const collar = { ...ITEM_CATALOG['collar-crimson'], cost: Number(ITEM_CATALOG['collar-crimson'].cost) } as SettlementItem;
     const again = applyItemPurchase(character({ level: 70, fateShards: 1_000, inventory: ['collar-crimson'] }), collar, 1, 'pet-supply-settle-002', 100);
     assert.equal(again.ok, false, 'a collar is a one-off unlock');
+});
+test('a pre-rounding five-shard receipt replays at its original price, while a new Elite needs six', () => {
+    const cards = new Map<string, SettlementCard>();
+    for (const [id, card] of Object.entries(BUILTIN_CLASH)) cards.set(id, { id, rarity: card.rarity as SettlementCard['rarity'] });
+    const requestId = 'legacy-trade-price-replay';
+    const opened = applyCardPackPurchase(character({ elderFocus: 'trade' }), cards, 'epic', requestId, 100, () => 0);
+    assert.equal(opened.ok, true);
+    if (!opened.ok) return;
+    // A persisted purchase from before the correction remains a five-shard purchase.
+    const old = structuredClone(opened.character);
+    old.fateShards = 95;
+    (old[SERVER_SETTLEMENT_RECEIPTS_FIELD] as ServerSettlementReceipt[])[0].value.totalCost = 5;
+    const before = structuredClone(old);
+    const replay = applyCardPackPurchase(old, cards, 'epic', requestId, 101, () => assert.fail('receipt replay must not draw again'));
+    assert.equal(replay.ok, true);
+    if (replay.ok) { assert.equal(replay.replayed, true); assert.equal(replay.value.totalCost, 5); assert.deepEqual(replay.character, before); }
+    const short = character({ fateShards: 5, elderFocus: 'trade' });
+    const rejected = applyCardPackPurchase(short, cards, 'epic', 'legacy-new-elite-price', 102, () => assert.fail('unfunded purchase must not draw'));
+    assert.equal(rejected.ok, false);
+    assert.equal(short.fateShards, 5);
 });
