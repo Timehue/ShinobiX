@@ -42,10 +42,10 @@ describe('authoritative war reward settlement', () => {
             now,
         );
         assert.equal(result.consolation, true);
-        // Consolation honor 25 → 50: a Healer gets no seals, 6 BC and 1 + 2 FS.
+        // Consolation is an explicit floor: no seals for Healers, 6 BC and 1 FS.
         assert.equal(result.character.honorSeals, 0);
         assert.equal(result.character.boneCharms, 6);
-        assert.equal(result.character.fateShards, 3);
+        assert.equal(result.character.fateShards, 1);
         assert.equal(result.character.ryo, 5_000);
     });
 
@@ -59,7 +59,7 @@ describe('authoritative war reward settlement', () => {
         assert.equal(result.character.honorSeals, VILLAGE_WAR_CONSOLATION_HONOR);
         assert.equal(VILLAGE_WAR_CONSOLATION_HONOR, 50);
         assert.equal(result.character.boneCharms, 6);
-        assert.equal(result.character.fateShards, 3);
+        assert.equal(result.character.fateShards, 1);
     });
 
     it('does not let generation-one reward markers suppress a rematch reward', () => {
@@ -180,7 +180,7 @@ describe('the village-war purse', () => {
         const loss = settleVillageWarRewards(fighter({ name: 'Miko', village: 'Sand' }), campaignWar(), NOW, FULL);
         assert.equal(loss.purse, 13_500, '250 points x 0.18 x 300');
         assert.equal(loss.consolation, true);
-        assert.equal(loss.ryo, 13_500 + 5_000);
+        assert.equal(loss.ryo, 13_500, 'the purse already exceeds the support floor');
     });
 
     it('needs 40 points and caps at 400', () => {

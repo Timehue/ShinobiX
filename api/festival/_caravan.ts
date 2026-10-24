@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { brokerCertificateCount } from '../../shared/sunscar/broker-certificates.js';
+import { brokerCertificateCount, caravanBrokerCertificates } from '../../shared/sunscar/broker-certificates.js';
 import { dailyLoginRyo } from '../player/_daily-login.js';
 import { isIncapacitated } from '../_elapsed-state.js';
 import { petCombatBusyReason } from '../pet/_pet-busy.js';
@@ -76,7 +76,7 @@ export function finishCaravan(character: Obj, progress: CaravanProgress, reason:
     const reputation = success ? preview.reputation : Math.max(0, Math.floor(run.reputation / 2));
     const ryo = success ? preview.ryo : 0;
     run.status = success ? 'complete' : 'failed';
-    run.result = { ryo, reputation, cargo: run.cargo, objectiveComplete, reason, brokerCertificates: success ? 1 : 0 };
+    run.result = { ryo, reputation, cargo: run.cargo, objectiveComplete, reason, brokerCertificates: caravanBrokerCertificates(success) };
     run.updatedAt = now;
     progress.reputation += reputation;
     if (success) progress.deliveries++;

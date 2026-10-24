@@ -97,11 +97,16 @@ export const PET_EXPEDITION_PROVISION_RULES: Readonly<Record<PetExpeditionProvis
 /**
  * Share of the route's ryo an expedition actually pays (2026-10 economy
  * rebalance, owner rulings 2026-10-22 and 2026-10-23). Expeditions are idle
- * income, so they sit under active play: at 0.3 the release audit still found
- * passive income at or above active income for casual players and maxed Tamers,
- * so the owner lowered it to 0.2. Twelve safe Ruins claims now pay 7,776 ryo a
- * day for a base Pet Tamer and 5,184 for other professions, against 27,000 for
- * 90 active minutes at L90 (A = 300). The server passes its env reading
+ * income, so they sit at a separate passive-income rate. At 0.3 the release
+ * audit still found passive income at or above active income for casual players
+ * and maxed Tamers, so the owner lowered it to 0.2. At 0.2, 12 safe Ruins claims
+ * pay 7,776 ryo for a base Tamer and 5,184 for other professions, against 27,000
+ * for 90 active minutes at L90 (A = 300). The legal 15% mastery/bold/14-claim
+ * scenario pays 11,690 secure ryo; Boonbringer doubles it to 23,380 at return.
+ * These are conditional gross scenarios, not a proven passive ceiling. The
+ * tooling income forecasts (scripts/_economy-income-forecasts.ts) model
+ * investigation outcomes; feeding costs and roster uptime are stated there as
+ * assumptions, not modeled. The server passes its env reading
  * (api/missions/expedition-start.ts `expeditionRyoScale()`, dial
  * EXPEDITION_RYO_SCALE); the board previews at this code default. Ryo is sealed
  * at launch, so a change never touches an expedition already in flight.
@@ -160,12 +165,11 @@ export function petExpeditionBasePetXp(type: PetExpeditionType): number {
 
 /**
  * TAMER_RYO_MULT (2026-10 economy rebalance #15; owner ruling A6: 0.4, kill
- * value 1). It scales EVERY expedition's ryo, Tamer and non-Tamer alike, so the
- * non-Tamer half rate stays below the Tamer rate. It lives inside the base so
- * the server payout and the board preview cannot drift: the server passes its
- * env reading (api/missions/report-pet-event.ts `tamerRyoMult()`), and the
- * client previews at this code default. Ryo is computed at collection, so the
- * change must deploy with the reset, when no expedition lease is in flight.
+ * value 1). It scales the ryo of expeditions launched BEFORE reward version 2,
+ * Tamer and non-Tamer alike, so the non-Tamer half rate stays below the Tamer
+ * rate. Those legacy runs compute ryo at collection, so the server passes its
+ * env reading (api/missions/report-pet-event.ts `tamerRyoMult()`). Version-2
+ * expeditions seal their ryo at launch and use PET_EXPEDITION_RYO_SCALE instead.
  */
 export const TAMER_RYO_MULT = 0.4;
 

@@ -8,7 +8,7 @@ import { pvpSessionMayGrantProgress, type PvpSession } from '../pvp/session.js';
 import { loadPvpRewardRecoverySnapshot } from '../pvp/_reward-recovery.js';
 import { hasRecentIpOverlap } from '../_player-ips.js';
 import { settlePvpLegacyProgress } from '../_legacy-pvp-settlement.js';
-import { ACCOUNT_AGE_MIN_MS } from '../pvp/_pvp-anti-alt.js';
+import { pvpAccountOldEnough } from '../pvp/_valid-fight.js';
 
 // Quick-surrender protection: fights ending in <15s grant no mission progress.
 const MIN_FIGHT_DURATION_MS = 15_000;
@@ -153,8 +153,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(200).json({ ok: true, vanguard: true, reason: 'quick-surrender', xpAwarded: 0, missionsCompleted: [] });
         }
 
-        const opponentCreated = Number(opponentChar?.createdAt ?? 0);
-        if (opponentCreated > 0 && (Date.now() - opponentCreated) < ACCOUNT_AGE_MIN_MS) {
+        // Established = 72 h OR L20, the rule every PvP payout shares.
+        if (!pvpAccountOldEnough(opponentChar?.createdAt, Date.now(), opponentChar?.level)) {
             return res.status(200).json({ ok: true, vanguard: true, reason: 'account-too-young', xpAwarded: 0, missionsCompleted: [] });
         }
 

@@ -12,6 +12,7 @@ import { loadTowerPvpFighter, readTowerPvpMatch } from '../towers/_pvp-store.js'
 import { projectTowerPvpMatchForViewer } from '../towers/_pvp-session.js';
 import { settleTowerPvpMatch } from '../towers/_pvp-lifecycle.js';
 import { settleTowerPvpPurse, towerPvpPurseReply } from '../towers/_pvp-purse.js';
+import { PvpCreditSlotPendingError } from '../pvp/_valid-fight.js';
 import type { StoredTowerPvpMatch } from '../towers/_pvp-session.js';
 import { sealChallengedPets } from '../pet/_pvp-duel.js';
 import { replayFromOpposingSide } from '../_pet-showdown/_viewer-replay.js';
@@ -179,7 +180,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     } catch (error) {
         if (error instanceof TournamentError) return res.status(error.status).json({ error: error.message });
         if (error instanceof SyntaxError) return res.status(400).json({ error: 'Invalid request.' });
-        if (error instanceof LockContendedError) return res.status(503).json({ error: 'Tournament updating. Please retry.' });
+        // An unconfirmed purse pair slot leaves the purse unpaid; a repeat settle retries it.
+        if (error instanceof LockContendedError || error instanceof PvpCreditSlotPendingError) return res.status(503).json({ error: 'Tournament updating. Please retry.' });
         console.error('[tournaments]', error instanceof Error ? error.message : 'Unknown error');
         return res.status(500).json({ error: 'Tournament unavailable. Please retry.' });
     }
