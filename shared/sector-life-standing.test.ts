@@ -5,7 +5,7 @@ import {lifeRegionFor} from './sector-life-content.js';
 import {parseShrineCare} from './sector-life-memory.js';
 import {CHRONICLE_STOP_SECTOR,CHRONICLE_STOP_SEATS,CHRONICLE_WATCH_TILES} from './sector-chronicle-stop.js';
 import {PLAYABLE_WILD_SECTOR_IDS} from './sector-geo.js';
-import {LIFE_STANDING_TILES,lifeStandingTiles} from './sector-life-standing.js';
+import {LIFE_STANDING_CODES,lifeStandingTiles} from './sector-life-standing.js';
 
 /** Thirty hours of samples, cycling weather, errand stage and shrine upkeep, catch
  * every traveler stop, crew post, courier, keeper and pilgrim. The 337 s step
@@ -26,12 +26,16 @@ function standingTiles(sector:number):number[] {
 }
 
 test('the client table of resident standing tiles matches the live sector-life cast',()=>{
-    const expected=Object.fromEntries(PLAYABLE_WILD_SECTOR_IDS.map(sector=>[sector,standingTiles(sector)]));
-    assert.deepEqual(LIFE_STANDING_TILES,expected,`Residents moved. Replace LIFE_STANDING_TILES in shared/sector-life-standing.ts with:\n${JSON.stringify(expected).replaceAll('"','')}`);
+    const last=Math.max(...PLAYABLE_WILD_SECTOR_IDS);
+    const expected=Array.from({length:last},(_,i)=>PLAYABLE_WILD_SECTOR_IDS.includes(i+1)?standingTiles(i+1):[]);
+    const codes=expected.map(tiles=>tiles.map(tile=>tile.toString(36).padStart(2,'0')).join('')).join(',');
+    assert.equal(LIFE_STANDING_CODES,codes,`Residents moved. Replace LIFE_STANDING_CODES in shared/sector-life-standing.ts with:\n'${codes}'`);
+    for(let sector=1;sector<=last;sector++)assert.deepEqual(lifeStandingTiles(sector),expected[sector-1],`sector ${sector} decodes`);
 });
 
 test('sectors without residents reserve nothing',()=>{
     assert.deepEqual(lifeStandingTiles(0),[]);
     assert.deepEqual(lifeStandingTiles(54),[]);
-    assert.deepEqual(lifeStandingTiles(55),LIFE_STANDING_TILES[55]);
+    assert.deepEqual(lifeStandingTiles(67),[]);
+    assert.ok(lifeStandingTiles(55).includes(70),"Gen's road stop in sector 55");
 });
