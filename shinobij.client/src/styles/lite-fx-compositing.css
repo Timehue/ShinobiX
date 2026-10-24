@@ -94,10 +94,6 @@ html.lite-fx .cvn-scene-caption {
 }
 
 /* Landing page — a weak phone's first impression, so these matter. */
-html.lite-fx .landing-eyebrow {
-    background: rgba(120, 53, 15, 0.55) !important; /* was .22, amber hue kept */
-}
-
 html.lite-fx .landing-cta--ghost {
     background: rgba(2, 6, 23, 0.74) !important; /* was .42 */
 }
