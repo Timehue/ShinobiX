@@ -718,9 +718,8 @@ test('daytime wildlife reacts to walking and stays visible without animation und
     await page.route('**/api/sector/life**',request=>{const now=Date.now();return request.fulfill({json:{ok:true,serverNow:now,view:lifeSceneView(42,parseLifeState(null,now),now,'clear')}});});
     const stats=()=>page.evaluate(()=>(window as unknown as {wildlifeQa:{frames:number;points:number[][]}}).wildlifeQa);
     async function enter() {
-        await page.goto('/#/worldMap');const back=page.getByRole('button',{name:'Return to Sector 42',exact:false});
-        await expect.poll(async()=>await back.isVisible()||await page.locator('.continuous-world-map').isVisible(),{timeout:60_000}).toBe(true);
-        if(await back.isVisible())await back.click();
+        await page.goto('/#/worldMap');
+        await waitForCurrentSectorMap(page,42);
         await expect(page.locator('.sector-life-wildlife canvas')).toBeAttached();
     }
     await enter();await expect.poll(async()=>(await stats()).frames).toBeGreaterThan(3);
