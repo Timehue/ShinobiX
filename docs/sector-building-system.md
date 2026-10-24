@@ -158,6 +158,9 @@ variants and three transparent restoration stages. Input manifests in
 source paths. `sector-building-art-v1.json` pins output hashes and sizes;
 `node scripts/package-sector-building-art.mjs` repackages the retained originals.
 Normal builds consume the checked WebP assets and do not call a provider.
+The release verifier gives the fifteen assets a separate, fixed 1,410,782-byte
+partition and verifies that delivered files match their checked source bytes.
+The existing allowance for all other runtime assets remains unchanged.
 
 `DISABLE_SECTOR_BUILDINGS=1` temporarily closes counter books. Existing guarded
 entrance callbacks remain available at their proper thresholds when counter

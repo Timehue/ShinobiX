@@ -918,6 +918,8 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // on its original base). The combined aggregate ceiling is 9.722 MB. Counter
 // authoring/private parsing stay server-side; presentation lives in the lazy
 // world screen. Startup raw/gzip, per-chunk, CSS and runtime-asset gates stay fixed.
+// The integrated build measures 9,698,641 B; startup gzip is 398,228 B against
+// the unchanged 399,000 B ceiling.
 const TOTAL_JS_CSS_FAIL_BYTES = 9_722_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
