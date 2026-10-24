@@ -152,9 +152,9 @@ const STARTER_BLOODLINE_JUTSU_IDS: Record<string, readonly string[]> = {
  * The ONE reader of STRICT_RAW_SAVE_LEDGER. Strict is the code default (owner
  * amendment A13, 2026-10-22: no env var is needed to go live); only an explicit
  * '0' turns it off, as an emergency switch. High-impact inventory/equipment
- * minting is closed independently below, in either mode. Before a deploy whose
- * preserved saves hold pre-registry forged gear, run
- * `npm run scan:data -- --repair` once (additive forged-item registry backfill).
+ * minting is closed independently below, in either mode. Strict mode does not
+ * read the forged-item registry: stored forged gear and its stored definition
+ * pass through as on the non-strict path (api/save/_forged-item-preservation.test.ts).
  */
 function strictRawSaveLedgerEnabled(): boolean {
     return process.env.STRICT_RAW_SAVE_LEDGER !== '0';
