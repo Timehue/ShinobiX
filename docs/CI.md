@@ -44,7 +44,7 @@ same commit as the workflow.
 | `CI / client-quality` | `client_quality` | 35 min | Locked root/client installs; shipped pet rig/animation, Warfront/Rally LOD, and Warfront impostor certification ahead of the build; lint, story-content/TypeScript/production build, build-size and visual-baseline-size gates, client audit (with the same retry rule as the root audit), and checksum-backed client artifact production. |
 | `CI / release-certification` | `release_certification` | 15 min | Downloads and verifies the exact compiled release artifacts, then runs the fresh-account/combat certification against them. |
 | `CI / concurrency-smoke` | `concurrency_smoke` | 15 min | Downloads and verifies the release artifacts, then runs the short real-server concurrent-player smoke. It is not a database capacity test. |
-| `CI / e2e-responsive` | `e2e_responsive` | 5 min | Fail-closed aggregate requiring every responsive smoke slice (`e2e_responsive_matrix`) and all fifteen flow jobs with the CSP, Stronghold, and dedicated suites (`e2e_responsive_flows`) to succeed. |
+| `CI / e2e-responsive` | `e2e_responsive` | 5 min | Fail-closed aggregate requiring every responsive smoke slice (`e2e_responsive_matrix`) and all nineteen flow jobs with the CSP, Stronghold, and dedicated suites (`e2e_responsive_flows`) to succeed. |
 | `CI / e2e-combat` | `e2e_combat` | 5 min | Fail-closed stable aggregate requiring all three combat browser shards to succeed. |
 | `CI / e2e-warfront` | `e2e_warfront` | 5 min | Fail-closed aggregate requiring both Warfront browser shards (`e2e_warfront_matrix`) to succeed. |
 | `CI / e2e-village-stores` | `e2e_village_stores` | 5 min | Requires all three gameplay shards; ten live Express player-journey steps retain separate real servers and all existing cases. |
@@ -81,8 +81,8 @@ hung slice fails while there is still time to upload its evidence. On main in
 October 2026 a slice took 12 to 26 minutes and setup about 2.
 
 The CSP check, the Stronghold modes and the dedicated suites run beside the
-slices in fifteen `e2e_responsive_flows` jobs, named `CI / e2e-responsive-flows / 1`
-through `CI / e2e-responsive-flows / 15`, each with a 29-minute ceiling:
+slices in nineteen `e2e_responsive_flows` jobs, named `CI / e2e-responsive-flows / 1`
+through `CI / e2e-responsive-flows / 19`, each with a 29-minute ceiling:
 
 - Flow 1: the built CSP in Chromium and WebKit; all three Stronghold modes,
   in order, because they build into the same disposable fixture directory;
@@ -91,8 +91,12 @@ through `CI / e2e-responsive-flows / 15`, each with a 29-minute ceiling:
   purchase and recovery.
 - Flow 2: Chronicle pack purchase and recovery; Hollow Gate terminal-card return
   and retry.
-- Flows 3 through 10: the complete living-sector source suite, split into eight
-  Playwright slices. Test-level sharding keeps the large sector-life spec from
+- Flows 3 through 10 and 16 through 19: the complete living-sector source suite,
+  split into twelve Playwright slices (`lifeShard: 1/12` through `12/12`).
+  Run `40008030861` spent over fifteen minutes setting up slice 4-of-8, then
+  reached the ceiling in its final case. Twelve slices leave setup and cleanup
+  room while retaining every case and the same limit.
+  Test-level sharding keeps the large sector-life spec from
   occupying a whole job; each slice still runs one worker. Flows 5 and 7
   also check pet-inspired ground wildlife on desktop (flow 5) and phone
   (flow 7), including player approaches, hidden/combat pauses, reduced motion,

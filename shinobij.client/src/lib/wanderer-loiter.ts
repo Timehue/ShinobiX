@@ -55,6 +55,17 @@ function routeFor(id: string, homeTile: number, walkable?: (tile: number) => boo
     return [home, near, far, near, home];
 }
 
+/** Check whole cardinal legs, including the space between their endpoints. */
+export function loiterRouteClearsTiles(id:string,homeTile:number,walkable:(tile:number)=>boolean,reserved:readonly number[]):boolean {
+    const route=routeFor(id,homeTile,walkable);
+    return route.slice(1).every((end,index)=>reserved.every(tile=>{
+        const start=route[index],col=tile%GRID,row=Math.floor(tile/GRID);
+        const dx=Math.max(Math.min(start.col,end.col)-col,col-Math.max(start.col,end.col),0);
+        const dy=Math.max(Math.min(start.row,end.row)-row,row-Math.max(start.row,end.row),0);
+        return Math.max(dx,dy)>=1;
+    }));
+}
+
 /** Position at an absolute time; consecutive calls and sector remounts agree.
  *  With `walkable`, every point of the loop stays on ground a player can stand on. */
 export function loiterPositionAt(id: string, homeTile: number, nowMs: number, walkable?: (tile: number) => boolean): LoiterPosition {
