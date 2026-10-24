@@ -8,10 +8,14 @@ import { EXCHANGE_FEE_PERCENT } from '../shared/sunscar-exchange.js';
  *
  *   L = (EV ryo + (1 - fee) x (EV FS x P_FS + EV BC x P_BC + EV AS x P_AS)) / cost
  *
- * stays below 1 the black market is a net ryo sink; above 1 it prints ryo. The
- * admin economy snapshot evaluates L daily on the measured Exchange medians, and
- * the owner raises the pull to 90,000 when it holds at or above 0.93 for seven
- * days (0.93 is the point an FS median of about 141k reaches at the fallback
+ * measures private resale return, not global currency creation: buyers pay
+ * with existing ryo. A paid pull directly destroys cost - EV ryo; a certificate
+ * pull stakes half the cost (owner ruling 2026-10-23), so it destroys
+ * cost / 2 - EV ryo. The admin snapshot evaluates L on Exchange medians as
+ * a market-incentive signal. Its existing 0.93/seven-day/90,000 review values
+ * remain unchanged here; a price change needs a separate decision after
+ * evaluating paid and certificate redemptions, actual fees and player outcomes.
+ * (0.93 is the point an FS median of about 141k reaches at the fallback
  * Bone Charm and Aura Stone prices). The dial is a deliberate deploy rather than
  * an env override: the client quotes its own copy of the price, and a
  * server-only change would split the quoted and charged price.

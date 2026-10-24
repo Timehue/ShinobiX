@@ -715,7 +715,7 @@ export function endedVillageWarRecordsFor(village: string, limit = 24): Detailed
                     ? "No decisive victor — no crate awarded. Fighters with 40+ war points (counted up to 400) share the war purse at the losers' rate."
                     : war.winnerVillage === village
                         ? "Legendary War Crate and the war purse for 40+ war points, counted up to 400 (MVP: +1 extra crate, 10k-15k ryo by level, +100 Honor Seals (Vanguard), +12 Bone Charms, +6 Fate Shards)"
-                        : "Loss consolation: +5k ryo, +50 Honor Seals (Vanguard), +6 Bone Charms, +3 Fate Shards (contributors only), and the war purse at the losers' rate for 40+ war points, counted up to 400",
+                        : "Loss support for 50+ contribution points tops up purse/MVP rewards to 5k ryo, 50 Honor Seals (Vanguard), 6 Bone Charms and 1 Fate Shard. Already earned rewards count toward each floor. War purse: 40+ points, capped at 400.",
                 date: new Date(war.endedAt).toLocaleDateString(),
             };
         });

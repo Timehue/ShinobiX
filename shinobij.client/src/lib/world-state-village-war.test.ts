@@ -15,6 +15,8 @@ import {
 } from "./world-state";
 import { __setVillageWarMissionRetryMsForTest, applyVillageWarMissionDamage } from "./village-war-mission-damage";
 
+import { VILLAGE_WAR_CONSOLATION_BONE_CHARMS, VILLAGE_WAR_CONSOLATION_FATE_SHARDS, VILLAGE_WAR_CONSOLATION_HONOR } from '../../../api/war/_reward';
+
 const MOON = "Moonshadow Village";
 const STORM = "Stormveil Village";
 const originalFetch = globalThis.fetch;
@@ -229,4 +231,17 @@ describe("ended village wars: surrender and the 72-hour reward floor (2026-10 re
         const [record] = endedVillageWarRecordsFor(MOON);
         assert.match(record.rewards, /^Legendary War Crate and the war purse/);
     });
+});
+
+it("loss records describe the server support floor instead of an additive currency bundle", () => {
+    const startedAt = Date.now() - 121 * 3_600_000;
+    applyAuthoritativeVillageWar(liveWar({ startedAt, endedAt: startedAt + 120 * 3_600_000, winnerVillage: MOON }));
+    const [record] = endedVillageWarRecordsFor(STORM);
+    assert.ok(record.rewards.includes('50+ contribution points tops up purse/MVP rewards to 5k ryo'));
+    assert.ok(record.rewards.includes(VILLAGE_WAR_CONSOLATION_HONOR + ' Honor Seals (Vanguard)'));
+    assert.ok(record.rewards.includes(VILLAGE_WAR_CONSOLATION_BONE_CHARMS + ' Bone Charms'));
+    assert.ok(record.rewards.includes(VILLAGE_WAR_CONSOLATION_FATE_SHARDS + ' Fate Shard'));
+    assert.match(record.rewards, /Already earned rewards count toward each floor/);
+    assert.ok(record.rewards.includes('40+ points, capped at 400'));
+    for (const obsolete of ['+5k', '+3 Fate Shards', 'and the war purse']) assert.equal(record.rewards.includes(obsolete), false);
 });

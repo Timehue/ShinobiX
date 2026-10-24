@@ -4,7 +4,7 @@ import { kv } from '../_storage.js';
 import type { KvLike } from '../_storage.js';
 import { storedValueEquals } from '../_stored-value.js';
 import { withKvLock } from '../_lock.js';
-import { safeName, setSafeRecordValue } from '../_utils.js';
+import { ownCountValue, safeName, setSafeRecordValue } from '../_utils.js';
 import { hasRecentIpOrFpOverlap } from '../_player-ips.js';
 import { listActiveEscorters } from '../clan/pet-escort/_storage.js';
 import { masteryBonus, masteryHasCapstone } from '../_profession-mastery.js';
@@ -26,7 +26,7 @@ import {
 } from './session.js';
 import type { PlayerRankedTerminal } from './_player-ranked-journal.js';
 import { ACCOUNT_AGE_MIN_MS, levelGapMult } from './_pvp-anti-alt.js';
-import { pvpVanguardXpFactor, readRankedWeightRow } from './_valid-fight.js';
+import { pvpAccountOldEnough, pvpVanguardXpFactor, readRankedWeightRow } from './_valid-fight.js';
 
 // Pet escort: Vanguard with an active pet on a PvP win gets +5% Seals AND
 // each Pet Tamer in their clan with an active escort offer gets a +20% Tamer
@@ -155,9 +155,9 @@ async function grantVanguardRewardsForSessionLegacy(session: PvpSession): Promis
         const loserChar = loserRecord?.character as Record<string, unknown> | undefined;
         if (!loserChar) return { granted: false };
 
-        // Anti-alt: account age and IP overlap.
-        const loserCreated = Number(loserChar.createdAt ?? 0);
-        if (loserCreated > 0 && (Date.now() - loserCreated) < ACCOUNT_AGE_MIN_MS) {
+        // Anti-alt: account age and IP overlap. Established = 72 h OR L20, the
+        // one rule every PvP payout shares (api/pvp/_valid-fight.ts).
+        if (!pvpAccountOldEnough(loserChar.createdAt, Date.now(), loserChar.level)) {
             return { granted: false, reason: 'too-young' };
         }
         // Includes browser-fingerprint overlap, so VPN rotation alone no
@@ -188,7 +188,7 @@ async function grantVanguardRewardsForSessionLegacy(session: PvpSession): Promis
             ? ((winnerChar.dailyHonorSealsByTarget as Record<string, number>) ?? {})
             : {};
         const loserKey = loserSlug; // per-target daily cap keyed by canonical slug
-        const targetSoFar = byTarget[loserKey] ?? 0;
+        const targetSoFar = ownCountValue(byTarget, loserKey);
         const dailyCap = DAILY_SEAL_CAP + Math.min(15, masteryBonus('vanguard', spec, 'sealDailyCapFlat'));
         seals = Math.min(seals, Math.max(0, dailyCap - dailySoFar));
         seals = Math.min(seals, Math.max(0, PER_TARGET_DAILY_CAP - targetSoFar));
@@ -898,8 +898,9 @@ async function computeVanguardReward(
     if (authority.terminalAt - Number(session.createdAt ?? 0) < MIN_FIGHT_DURATION_MS) {
         return noGrant('too-quick');
     }
-    const loserCreated = Number(loserChar.createdAt ?? 0);
-    if (loserCreated > 0 && authority.terminalAt - loserCreated < ACCOUNT_AGE_MIN_MS) {
+    // Established = 72 h OR L20 (api/pvp/_valid-fight.ts). The level comes from
+    // the sealed session snapshot, so a retry decides exactly as the first try.
+    if (!pvpAccountOldEnough(loserChar.createdAt, authority.terminalAt, loserSnapshot.level)) {
         return noGrant('too-young');
     }
     // Ranked V2 uses the journal's already-sealed strict anti-alt decision.
@@ -932,7 +933,7 @@ async function computeVanguardReward(
     const byTarget: Record<string, number> = dailyActive && vanguardRecord(winnerChar.dailyHonorSealsByTarget)
         ? winnerChar.dailyHonorSealsByTarget as Record<string, number>
         : {};
-    const targetSoFar = Math.max(0, Number(byTarget[authority.loser] ?? 0));
+    const targetSoFar = ownCountValue(byTarget, authority.loser);
     const dailyCap = DAILY_SEAL_CAP + Math.min(15, masteryBonus('vanguard', spec, 'sealDailyCapFlat'));
     // A delayed retry must not roll a newer UTC day's counters backward. XP
     // remains payable; only the now-unprovable past-day Seal slice fails closed.
@@ -1053,6 +1054,24 @@ export async function grantVanguardRewardsForSession(
             }
         }
 
+        // Pair eligibility must be durable before this saga takes ownership.
+        // A counter outage must leave a fresh request retryable, rather than
+        // stranding it behind a reserved Vanguard owner/lease. Reuse the sealed
+        // factor below so no second uncertain pair read follows the reservation.
+        let reservedXpFactor: number | undefined;
+        if (!options.rankedTerminal) {
+            const opponent = await store.get<Record<string, unknown>>(loserKey);
+            const opponentChar = opponent?.character as Record<string, unknown> | undefined;
+            if (opponentChar) reservedXpFactor = await pvpVanguardXpFactor(store, {
+                session,
+                winnerSlug: authority.winner,
+                loserSlug: authority.loser,
+                winnerChar,
+                loserChar: opponentChar,
+                terminalAt: Number(session.endedAt) || authority.terminalAt,
+            });
+        }
+
         let intent: VanguardRewardIntentV2 | null = null;
         for (let attempt = 0; attempt < 16 && !intent; attempt += 1) {
             const raw = await store.get<unknown>(intentKey);
@@ -1161,7 +1180,7 @@ export async function grantVanguardRewardsForSession(
         // shared pair slot, so this saga and the later claim agree.
         const xpFactor = options.rankedTerminal
             ? (await readRankedWeightRow(store, options.rankedTerminal.matchId))?.weight ?? 1
-            : await pvpVanguardXpFactor(store, {
+            : reservedXpFactor ?? await pvpVanguardXpFactor(store, {
                 session,
                 winnerSlug: authority.winner,
                 loserSlug: authority.loser,

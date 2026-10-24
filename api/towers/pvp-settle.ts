@@ -6,6 +6,7 @@ import { projectTowerPvpMatchForViewer, TOWER_PVP_ID } from './_pvp-session.js';
 import { settleTowerPvpMatch } from './_pvp-lifecycle.js';
 import { settleTowerPvpPurse, towerPvpPurseReply } from './_pvp-purse.js';
 import { LockContendedError } from '../_lock.js';
+import { PvpCreditSlotPendingError } from '../pvp/_valid-fight.js';
 
 /** POST an idempotent terminal acknowledgement, then the winner's Team Arena purse. */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -37,7 +38,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             ...towerPvpPurseReply(purse),
         });
     } catch (error) {
-        if (error instanceof LockContendedError) {
+        // An unconfirmed purse pair slot leaves the purse unpaid; a repeat settle retries it.
+        if (error instanceof LockContendedError || error instanceof PvpCreditSlotPendingError) {
             res.setHeader('Retry-After', '1');
             return res.status(503).json({ error: 'Tower MPvP state is busy. Retry this request.', errorCode: 'tower-pvp-busy' });
         }
