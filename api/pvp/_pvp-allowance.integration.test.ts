@@ -53,7 +53,7 @@ type Duel = { battleId: string; win: Record<string, any>; loss?: Record<string, 
  * 60 s floor; `winnerHp` is the winner's HP at the KO (of 10,000), which sets
  * how much the loser dealt.
  */
-async function duel(winner: string, loser: string, o: { full: boolean; winnerHp?: number; loserClaims?: boolean; loserExtra?: Record<string, unknown>; winnerExtra?: Record<string, unknown> }): Promise<Duel> {
+async function duel(winner: string, loser: string, o: { full: boolean; winnerHp?: number; loserClaims?: boolean; loserExtra?: Record<string, unknown>; winnerExtra?: Record<string, unknown>; recoverClaim?: (failed: { status: number; body: Record<string, any> }, battleId: string) => Promise<void> }): Promise<Duel> {
     await seed(winner, o.winnerExtra);
     await seed(loser, o.loserExtra);
     const admission = await post(attack, winner, { targetName: loser, attacker: { name: winner } });
@@ -78,10 +78,22 @@ async function duel(winner: string, loser: string, o: { full: boolean; winnerHp?
         p2: { ...live.p2, pos: 63, hp: 1 },
     });
     const ko = await post(move, winner, { battleId, role: 'p1', action: 'basicAttack', moveToken: 'ko' });
-    assert.equal(ko.body.status, 'done', JSON.stringify(ko.body));
-    assert.equal(ko.body.winner, 'p1');
+    if (o.recoverClaim && ko.status >= 500) {
+        // Reward storage can fail after the winning move committed. The
+        // sealed outcome remains authoritative and its claim is retryable.
+        const sealed = (await kv.get<PvpSession>('pvp:' + battleId))!;
+        assert.equal(sealed.status, 'done', JSON.stringify(ko.body));
+        assert.equal(sealed.winner, 'p1');
+    } else {
+        assert.equal(ko.body.status, 'done', JSON.stringify(ko.body));
+        assert.equal(ko.body.winner, 'p1');
+    }
     online.remove(winner); online.remove(loser);
-    const win = await post(claim, winner, { battleId, outcome: 'win', completionVersion: 1 });
+    let win = await post(claim, winner, { battleId, outcome: 'win', completionVersion: 1 });
+    if (o.recoverClaim) {
+        await o.recoverClaim(win, battleId);
+        win = await post(claim, winner, { battleId, outcome: 'win', completionVersion: 1 });
+    }
     assert.equal(win.status, 200, JSON.stringify(win.body));
     const winAck = await post(claim, winner, { battleId, outcome: 'win', completionVersion: 1, completionAck: true });
     assert.equal(winAck.status, 200, JSON.stringify(winAck.body));
@@ -176,4 +188,42 @@ test('a >20-level stomp and a fresh-alt loser pay nothing and take no pair slot'
     const established = await duel('validnewwin', 'validnewlose', { full: true, loserClaims: false,
         loserExtra: { createdAt: Date.now() - 71 * 3_600_000 } });
     assert.ok(established.win.base.reward.ryo > 0, JSON.stringify(established.win.base.reward));
+});
+
+
+test('pair storage failures leave legitimate and exhausted claims retryable without duplicate pay', async (t) => {
+    mock.timers.enable({ apis: ['Date'], now: Date.UTC(2026, 9, 21, 16, 0, 0) });
+    t.after(() => mock.timers.reset());
+    const compareSetMany = kv.compareSetMany!.bind(kv);
+    let unavailable = true;
+    t.mock.method(kv as typeof kv & { compareSetMany: NonNullable<typeof kv.compareSetMany> }, 'compareSetMany', async (ops: Parameters<NonNullable<typeof kv.compareSetMany>>[0]) => {
+        if (unavailable && ops.some((op: { key: string }) => op.key.startsWith('pvp:pair:'))) {
+            throw new Error('pair-counter transaction unavailable');
+        }
+        return compareSetMany(ops);
+    });
+    for (const exhausted of [false, true]) {
+        const winner = exhausted ? 'retryexhaustedwin' : 'retryvalidwin';
+        const loser = exhausted ? 'retryexhaustedlose' : 'retryvalidlose';
+        const counterKey = 'pvp:pair:' + [winner, loser].sort().join(':') + ':2026-10-21';
+        if (exhausted) await kv.set(counterKey, 5);
+        unavailable = true;
+        const result = await duel(winner, loser, {
+            full: true, winnerHp: 8000,
+            recoverClaim: async (failed) => {
+                assert.equal(failed.status, 503, JSON.stringify(failed.body));
+                assert.equal((await kv.get<Record<string, any>>('save:' + winner))!.character.ryo, 0);
+                assert.equal(await kv.get(counterKey), exhausted ? 5 : null, 'no partial pair allocation');
+                unavailable = false;
+            },
+        });
+        assert.equal(result.win.base.reward.ryo, exhausted ? 0 : 4050);
+        assert.equal(result.loss?.base?.reward?.ryo, exhausted ? 0 : 1620);
+        assert.equal(await kv.get(counterKey), exhausted ? 6 : 1);
+        const before = (await kv.get<Record<string, any>>('save:' + winner))!.character.ryo;
+        const replay = await post(claim, winner, { battleId: result.battleId, outcome: 'win', completionVersion: 1 });
+        assert.equal(replay.status, 200);
+        assert.equal((await kv.get<Record<string, any>>('save:' + winner))!.character.ryo, before);
+        assert.equal(await kv.get(counterKey), exhausted ? 6 : 1, 'both sides and replays share one slot');
+    }
 });

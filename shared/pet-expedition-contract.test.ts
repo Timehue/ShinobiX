@@ -90,16 +90,15 @@ test('level-gated routes improve ryo and pet XP per hour while the profession bo
     }
 });
 
-test('expedition ryo carries the 0.2 scale under active play, and the server may pass its dial', () => {
+test('base expedition ryo carries the 0.2 scale, and the server may pass its dial', () => {
     assert.equal(PET_EXPEDITION_RYO_SCALE, 0.2);
     const opts = { profession: 'petTamer', risk: 'safe', provision: 'none', rewardMastery: 1, materialMastery: 1 } as const;
     assert.equal(petExpeditionRewardPreview('ruins', opts).ryo, 648);
     assert.equal(petExpeditionRewardPreview('ruins', { ...opts, ryoScale: 1 }).ryo, 3240, 'kill value 1 restores the full route pay');
     assert.equal(petExpeditionRewardPreview('ruins', { ...opts, ryoScale: 0 }).ryo, 0);
     assert.equal(petExpeditionRewardPreview('ruins', { ...opts, ryoScale: Number.NaN }).ryo, 648, 'a bad reading falls back to the default');
-    // 12 safe Ruins claims a day: 7,776 ryo for a base Tamer, well under 90
-    // active minutes at L90 (27,000).
-    assert.equal(12 * 648, 7_776);
+    // Base safe-route scenario only; advanced traits/mastery are forecast separately.
+    assert.equal(PET_EXPEDITION_DAILY_CAP * 648, 7_776);
     // Pet XP and material odds are untouched by the ryo scale.
     assert.equal(petExpeditionRewardPreview('ruins', { ...opts, ryoScale: 0 }).petXp, petExpeditionRewardPreview('ruins', opts).petXp);
 });

@@ -9,11 +9,26 @@ import {walkPath,isWalkableTile} from './sector-walk-mask.js';
 import {lifeActorPosition} from './sector-life-motion.js';
 import {isWorldNight} from './world-phase.js';
 import {WORLD_DAY_MS,WORLD_HOUR_MS} from './world-clock.js';
+import {RESOURCE_NODES,resourceNodePosition} from './resource-nodes.js';
+import {sectorMarkerBox} from '../shinobij.client/src/lib/sector-marker.js';
 
 export function workingExample(sector:number){
     for(let bucket=80;bucket<300;bucket++)for(let offset=0;offset<WANDERER_BUCKET_MS;offset+=60_000){const now=bucket*WANDERER_BUCKET_MS+offset,work=currentWorkingAngler(sector,now);if(work&&!isWorldNight(now)&&now%WORLD_DAY_MS>=8*WORLD_HOUR_MS&&offset<WANDERER_BUCKET_MS-120_000)return {now,work};}
     throw Error(`No natural angler for ${sector}`);
 }
+
+test('Stillwater anglers and shoals retain separate pointer centres on the smallest map',()=>{
+    const tilePx=24,figure=sectorMarkerBox(tilePx);
+    for(const sector of [6])for(const bucket of [...Array.from({length:200},(_,i)=>i),83003]){
+        const work=currentWorkingAngler(sector,bucket*WANDERER_BUCKET_MS+10*WORLD_HOUR_MS);if(!work)continue;
+        const bank=work.site.bank,x=(bank%12+.5)*tilePx,y=(Math.floor(bank/12)+.5)*tilePx-figure.h/2;
+        for(const node of RESOURCE_NODES.filter(node=>node.sector===sector)){
+            assert.notEqual(bank,node.approach,`${sector}: keep the player's gathering approach free`);
+            const marker=resourceNodePosition(node),distance=Math.hypot(x-marker.left*.12*tilePx,y-marker.top*.12*tilePx);
+            assert(distance>27,`${sector}/${bucket}: ${node.name} must not cover the angler's pointer centre`);
+        }
+    }
+});
 test('natural anglers keep their real IDs, water positions and connected gatehouse routes',()=>{
     for(const sector of ANGLER_WORK_SECTORS){let checked=0;
         for(let bucket=0;bucket<100;bucket++){

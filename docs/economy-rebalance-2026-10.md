@@ -66,7 +66,9 @@ plateaus at L70, so endgame per-minute pay stops rising.
 - **Strict save ledger is the code default.**
 - **"Established account" = 72 hours old OR level 20.** This lets the week after a
   reset pay PvP and war purses with no environment change. Fate Shard drops gate on
-  level 20 alone, with no age branch.
+  level 20 alone, with no age branch. Since 2026-10-23 the same rule (one function,
+  `pvpAccountOldEnough`) also gates Vanguard Honor Seals and XP, the sleeper KO and
+  the legacy PvP-win report, which had kept a 72-hour-only check.
 - Standing rulings kept: no PvP power from money, grind or luck; Mythic Seals have no
   faucet; progression is not more ryo-purchasable; Honor Seals stay Vanguard-exclusive;
   named gear, Echoes 10/day, manual ranked and Weekly Boss untouched.
@@ -124,6 +126,18 @@ shows the ranked purse, and why it paid none.
 - The War Hall states the village purse's 40-point floor and 400-point cap, and the
   guide states both purses' rules.
 - War MVP pays max(10,000, 50 x A).
+- Village-war loss consolation is a component-wise support floor of 5,000 ryo,
+  50 Honor (Vanguard only), 6 Bone Charms and 1 Fate Shard, not an addition to
+  the purse and MVP. Consolation Honor no longer creates extra BC/FS. The full
+  earned bundle, including already claimed MVP/purse components, counts toward
+  the floor. Existing receipts remain spent; old additive payouts are not clawed
+  back. The existing claim-marker array also records the floor policy so later
+  staged purse claims subtract support already paid. Crates remain separate.
+  Loss support follows the established-account rule (72 hours old OR level 20), as
+  the war purse does, so a fresh alt cannot join the losing side for a free floor.
+  At L90/400 points, including fixed crate currency, a Vanguard MVP winner gets
+  52,000 ryo / 200 Honor / 20 BC / 8 FS; the loser gets
+  37,100 / 175 / 19 / 8, replacing the additive 42,100 / 225 / 26 / 11.
 - ANBU vault raids pay up to 3,000 at the lower fighter's level.
 - Mercenaries and war preparations also cost treasury ryo (250 per War Resource;
   preparations also cost treasury Bone Charms), paid by the Kage. This is the
@@ -169,14 +183,19 @@ rare odds go from 0.3% to 1.2%, which fixes an inverted tier.
 Two pet values in this pass were replaced by newer owner-merged designs on `main`:
 - Expedition ryo. Reward version 2 (#446) seals a fixed payout at launch (240 / 360 /
   540 ryo per hour by route, x1.5 for Pet Tamers, times purchased mastery and the bold
-  route). Unscaled, a Tamer's 12 Ruins claims paid about 38,900 ryo a day idle, so the
-  owner chose (2026-10-22) to keep the v2 design and scale its ryo by
+  route). The owner chose (2026-10-22) to retain v2 and scale ryo by
   `EXPEDITION_RYO_SCALE` (`shared/pet-expedition-contract.ts`). It shipped at 0.3. The
   release audit then found passive income at or above active income for casual players
-  and maxed Tamers, so the owner lowered it to 0.2 (2026-10-23). Twelve safe Ruins claims
-  now pay 7,776 a day for a base Tamer and 5,184 for other professions. Pet XP and
-  material odds are not scaled. The older x0.4 `TAMER_RYO_MULT` applies only to
-  expeditions launched before version 2.
+  and maxed Tamers, so the owner lowered it to 0.2 (2026-10-23). Twelve safe Ruins
+  claims now gross 7,776 ryo for a base Tamer or 5,184 for another profession. A legal
+  15% reward mastery, bold route and Caravan Master setup permits 14 claims and
+  grosses 11,690 secure ryo; Boonbringer doubles this to 23,380 at return. If every
+  investigation succeeds, that setup returns 29,232; its investigation expectation
+  is 23,150.4 after per-return integer rounding, not the all-success outcome. These
+  require L80 pets, enough available pets/slots, timely restarts and happiness
+  upkeep. Feeding and opportunity costs are excluded. The old 26,000 figure was
+  not a valid maximum. Pet XP and material odds are not scaled. The older x0.4
+  `TAMER_RYO_MULT` applies only to expeditions launched before version 2.
 - Pet food. Pet growth v2 (`docs/pet-growth-food-redesign.md`) makes Elemental and
   Ancient Treats Crafter-only, prices Treats at 400 ryo and Golden Apples at 40 Fate
   Shards, and caps food XP at 2,000 per pet per day. The rebalance's 200 / 400 shop
@@ -184,7 +203,9 @@ Two pet values in this pass were replaced by newer owner-merged designs on `main
 
 **Chronicle.** The Elite pack costs 6 FS and the single Legendary pack 20 FS. Duplicates
 beyond a playset convert to Chronicle Points or Fate Shards. The first Echoes win of the
-day pays +35 CP.
+day pays +35 CP. Premium trade-focus discounts round to the nearest Fate Shard:
+Elite 6, Legendary 19, Epic Quintet 33, Legendary Quintet 95. Basic packs remain
+100 Chronicle Points, without a discount. Server charges and gallery quotes match.
 
 Card battles outside Echoes also pay Chronicle Points (owner request, 2026-10-22), so the
 100-CP Basic pack has more than one source. All of it lives in `api/card-clash/_card-cp.ts`,
@@ -323,28 +344,46 @@ service when a variable changes.
 | `CARD_PVE_DUNGEON_CP` / `CARD_PVE_GATE_CP` / `CARD_PVE_GARRISON_CP` | 10 / 10 / 15 | 0-100 each | `api/card-clash/_card-cp.ts` |
 
 The black-market pull stays a 75,000 constant on both sides, so the quoted and charged
-prices can never split. It moves to 90,000 by deploy if the Exchange Fate Shard loop
-product stays at 0.93 or above for 7 days.
+prices can never split. The Exchange resale-product signal describes private market
+incentives, not global ryo creation. A paid pull returns 24,100 expected ryo and
+therefore destroys 50,900 before Exchange fees. A Broker certificate covers half the
+stake (owner ruling 2026-10-23), so a certificate pull costs 37,500 ryo
+(`BLACK_MARKET_CERTIFICATE_COST`, mirrored in the client) and destroys about 13,400.
+Before the ruling it was free and created 24,100. First place in the daily Rally
+awards two certificates and a successful daily Caravan one. Those three were worth a
+conditional 72,300 expected ryo on redemption at any level; redeeming them now removes
+about 40,200. These certificate sources predate this rebalance. A certificate pull
+without the other half is refused, and the certificate is kept. Earning certificates
+is not immediate ryo; redemption consumes the existing daily Broker pull allowance.
+Reselling resources transfers existing money and burns the fee. Expected net Broker
+cash is −13,400 × certificate pulls − 50,900 × paid pulls, less actual Exchange fees.
+The existing 0.93/seven-day/90,000 review constants are unchanged; they do not
+establish inflation or authorize an automatic price rise.
 
-A Broker certificate covers half the stake (owner ruling 2026-10-23), so a certificate
-pull costs 37,500 ryo (`BLACK_MARKET_CERTIFICATE_COST`, mirrored in the client). A pull
-returns about 24,100 ryo in expectation, so a certificate pull now removes about 13,400
-ryo before resale instead of creating 24,100. Before this, a Rally winner's two
-certificates and a Caravan delivery's one were worth about 72,000 ryo a day at any level.
-A certificate pull without the other half is refused, and the certificate is kept.
+Reproducible code-default scenarios live in
+`scripts/_economy-income-forecasts.ts` and are generated into
+`docs/generated/economy-model.json`, alongside separate gross faucet/debit rows.
+Run `npm run export:tooling-handoffs` and `npm run check:tooling-handoffs`.
+At L90 the anchor is 300 ryo per active minute, or 27,000 for 90 standard active
+minutes. Login, passive income and activity-specific bonuses must be shown
+separately; a 43,000 all-source routine is not 43,000 anchor-only active income.
+Conditional daily maxima cannot all be added to one player's 90-minute routine.
+No prototype mastery, Arena, Gate, crafting, hunt or monitoring rates are changed
+by these corrections.
 
 ## 9. Rollout
 
-- **Deploy with the reset.** Nothing has to be set on Railway.
-- **Preserved named gear.** If the reset's preserve list keeps any named (forged) gear,
-  run `npm run scan:data -- --repair` once against production before the deploy.
-  Without it, strict mode would drop pre-registry forged gear. It never edits a save,
-  but `--repair` does three things: it registers missing forged items, reconciles each
-  save's currency ledger row (which writes missing rows and deletes orphaned ones), and
-  publishes authored admin content that was never published. It exits non-zero on any
-  finding, including ones that block nothing.
-- **Endless runs in flight** switch to the new formula at once. This is safe only
-  because the deploy coincides with the reset.
+- **Shipped 2026-10-23 without the reset** (PR #482, merge `2ece3f9f5`). Nothing has to be
+  set on Railway.
+- **Named (forged) gear needs no pre-deploy step.** Strict mode never reads the
+  forged-item registry. It keeps every item the stored save holds and the stored forged
+  definitions, exactly as the non-strict path does (pinned by
+  `api/save/_forged-item-preservation.test.ts`). `npm run scan:data -- --repair` still
+  backfills the registry, which lets a fight recover an equipped definition a save lost,
+  but it gates nothing. It never edits a save, though `--repair` also reconciles each
+  save's currency ledger row (writing missing rows and deleting orphaned ones) and
+  publishes authored admin content that was never published.
+- **Endless runs in flight** at the deploy switched to the new formula at once.
 - **Watch after launch** (weekly):
   - median days at exactly L10 after graduation;
   - regular days to L90 (target 86, inside 80-96);

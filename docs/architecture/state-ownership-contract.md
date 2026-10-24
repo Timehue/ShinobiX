@@ -98,11 +98,12 @@ turns inventory validation count-consuming. Since the 2026-10 economy rebalance
 (owner amendment A13, 2026-10-22) it is the CODE DEFAULT: the one reader,
 `strictRawSaveLedgerEnabled()` in `api/save/_sanitize-ledger.ts`, is strict
 unless `STRICT_RAW_SAVE_LEDGER` is explicitly `'0'` (an emergency off switch).
-No other code reads the env var. Forged gear resolves through the forged-item
-registry (`api/_forged-item-registry.ts`), so before a deploy whose preserved
-saves hold pre-registry forged gear, run `npm run scan:data -- --repair` once
-(it registers missing forged items, reconciles currency ledger rows and publishes
-unpublished admin content; it never edits a save). The strict-default save/reload journey is
+No other code reads the env var. Strict mode does not read the forged-item
+registry (`api/_forged-item-registry.ts`): stored inventory, equipment and forged
+definitions pass through exactly as on the non-strict path, so pre-registry forged
+gear needs no pre-deploy step (pinned by `api/save/_forged-item-preservation.test.ts`).
+The registry is fight-time recovery for an equipped definition a save lost;
+`npm run scan:data -- --repair` backfills it. The strict-default save/reload journey is
 pinned by `api/save/_strict-default-roundtrip.test.ts`.
 
 ## Remaining ownership work (out of P0-1 scope)

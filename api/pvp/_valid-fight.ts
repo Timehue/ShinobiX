@@ -18,10 +18,11 @@
  * so a fight that pays no ryo pays no side reward either.
  *
  * The counters are ephemeral KV rows with a TTL, never save fields, and they
- * fail open: a storage hiccup prices the fight as the pair's first.
+ * fail closed: an unconfirmed pair slot leaves settlement pending for a retry.
  */
 
 import type { KvLike } from '../_storage.js';
+import { makeKvLockPrimitives, withLockCore } from '../_lock.js';
 import { safeName } from '../_utils.js';
 import { economyDial, economySwitch } from '../_economy-dials.js';
 import { anchorRyoPerMinute } from '../../shared/economy-anchor.js';
@@ -292,41 +293,81 @@ export const pvpRankedPairCounterKey = (a: string, b: string, day: string): stri
 };
 export const pvpRankedPairSlotKey = (matchId: string): string => `pvp:rankedpairslot:${matchId}`;
 
-type SlotStore = Pick<KvLike, 'get' | 'set' | 'incr'>;
+type SlotStore = Pick<KvLike, 'get' | 'set' | 'incr'>
+    & Partial<Pick<KvLike, 'compareSetMany' | 'delIfEqual'>>;
 type SlotKeys = { slotKey: string; counterKey: string };
 
+/** Eligibility is unconfirmed; keep the sealed outcome retryable, never assume full credit. */
+export class PvpCreditSlotPendingError extends Error {
+    constructor(cause?: unknown) {
+        super('pvp-credit-slot-pending', { cause });
+        this.name = 'PvpCreditSlotPendingError';
+    }
+}
+
 function storedOrdinal(raw: unknown): number | null {
+    if (raw === null) return null;
     const n = Number(raw);
-    return Number.isSafeInteger(n) && n > 0 ? n : null;
+    if (!Number.isSafeInteger(n) || n < 1) throw new PvpCreditSlotPendingError();
+    return n;
+}
+
+function nextPairOrdinal(raw: unknown): number {
+    const n = raw === null ? 0 : Number(raw);
+    if (!Number.isSafeInteger(n) || n < 0 || n >= Number.MAX_SAFE_INTEGER) throw new PvpCreditSlotPendingError();
+    return n + 1;
 }
 
 /**
- * The fight's ordinal on a day counter, assigned once per fight: every helper
- * and retry that names the same slot reads the same number, and the counter
- * moves once. A crash between the increment and the memo can only advance the
- * counter (prices a later fight lower), never mint. Fails open to 1.
+ * Commit the pair counter and this fight's immutable ordinal together. A lost
+ * commit reply leaves settlement pending: a retry reads the same slot without
+ * incrementing again. Existing numeric counters and fight slots stay compatible.
  */
 export async function assignPvpCreditSlot(store: SlotStore, keys: SlotKeys): Promise<number> {
     try {
         const existing = storedOrdinal(await store.get(keys.slotKey));
-        if (existing) return existing;
-        const n = await store.incr(keys.counterKey, { ex: PVP_COUNTER_TTL_SECONDS });
-        const placed = await store.set(keys.slotKey, n, { nx: true, ex: PVP_SLOT_TTL_SECONDS });
-        if (placed === 'OK') return n;
-        return storedOrdinal(await store.get(keys.slotKey)) ?? n;
-    } catch {
-        return 1;
+        if (existing !== null) return existing;
+        if (typeof store.compareSetMany !== 'function' || typeof store.delIfEqual !== 'function') {
+            throw new PvpCreditSlotPendingError();
+        }
+        const compareSetMany = store.compareSetMany.bind(store);
+        const primitives = makeKvLockPrimitives({
+            set: store.set.bind(store),
+            delIfEqual: store.delIfEqual.bind(store),
+        });
+        return await withLockCore(keys.counterKey, async () => {
+            for (let attempt = 0; attempt < 8; attempt += 1) {
+                const slot = storedOrdinal(await store.get(keys.slotKey));
+                if (slot !== null) return slot;
+                const counter = await store.get(keys.counterKey);
+                const ordinal = nextPairOrdinal(counter);
+                // Both rows commit or neither does. Never split an increment
+                // from its memo: a retry could otherwise lose a legitimate slot.
+                const committed = await compareSetMany([
+                    { op: 'cas', key: keys.counterKey, expected: counter, value: ordinal, ex: PVP_COUNTER_TTL_SECONDS },
+                    { op: 'cas', key: keys.slotKey, expected: null, value: ordinal, ex: PVP_SLOT_TTL_SECONDS },
+                ]);
+                if (committed) return ordinal;
+            }
+            throw new PvpCreditSlotPendingError();
+        }, primitives, { failClosed: true });
+    } catch (error) {
+        // Do not recover inside a possibly poisoned storage/lease context.
+        // A later request confirms whether the all-or-nothing write committed.
+        if (error instanceof PvpCreditSlotPendingError) throw error;
+        throw new PvpCreditSlotPendingError(error);
     }
 }
 
-/** The ordinal assignPvpCreditSlot would give, without assigning anything. Fails open to 1. */
+/** Read a fight's slot or the next ordinal; storage uncertainty never grants credit. */
 export async function peekPvpCreditSlot(store: Pick<KvLike, 'get'>, keys: SlotKeys): Promise<number> {
     try {
         const existing = storedOrdinal(await store.get(keys.slotKey));
-        if (existing) return existing;
-        return (storedOrdinal(await store.get(keys.counterKey)) ?? 0) + 1;
-    } catch {
-        return 1;
+        if (existing !== null) return existing;
+        return nextPairOrdinal(await store.get(keys.counterKey));
+    } catch (error) {
+        if (error instanceof PvpCreditSlotPendingError) throw error;
+        throw new PvpCreditSlotPendingError(error);
     }
 }
 
@@ -452,7 +493,7 @@ export function pvpCreditAuraDust(credit: PvpFightCredit): number {
  * saga and the later claim agree; any other session only reads the ordinal.
  */
 export async function pvpVanguardXpFactor(
-    store: Pick<KvLike, 'get'> & Partial<Pick<KvLike, 'set' | 'incr'>>,
+    store: Pick<KvLike, 'get'> & Partial<Pick<KvLike, 'set' | 'incr' | 'compareSetMany' | 'delIfEqual'>>,
     o: {
         session: PvpSession;
         winnerSlug: string;
@@ -475,10 +516,9 @@ export async function pvpVanguardXpFactor(
 // ── Sleeper KO (api/player/sleeper-kill.ts) ──────────────────────────────────
 
 /**
- * A sleeping-camp KO has no battle id and commits before the counter can move,
- * so it previews the pair ordinal (read only) and records it after the credit
- * lands (recordSleeperKoPairCredit): a credit that never committed is never
- * counted. It pays 25% of the win purse, inside the same pair weights.
+ * Read-only quote for a sleeping-camp KO. The financial path must reserve
+ * the quoted pair slot with reserveSleeperKoCredit before crediting a save.
+ * It pays 25% of the win purse, inside the same pair weights.
  */
 export async function previewSleeperKoCredit(store: Pick<KvLike, 'get'>, o: {
     attackerSlug: string;
@@ -500,21 +540,41 @@ export async function previewSleeperKoCredit(store: Pick<KvLike, 'get'>, o: {
     if (!o.rewardEligible || !fight.credited) {
         return { credited: false, reason: fight.reason, pairOrdinal: 0, pairWeight: 0, factor: 0, ryo: 0 };
     }
-    let pairOrdinal = 1;
+    let pairOrdinal: number;
     try {
-        pairOrdinal = (storedOrdinal(await store.get(pvpPairCounterKey(o.attackerSlug, o.targetSlug, pvpUtcDay(o.now)))) ?? 0) + 1;
-    } catch { /* fail open: first fight of the day */ }
+        pairOrdinal = nextPairOrdinal(await store.get(pvpPairCounterKey(o.attackerSlug, o.targetSlug, pvpUtcDay(o.now))));
+    } catch (error) {
+        throw new PvpCreditSlotPendingError(error);
+    }
     const pairWeight = pvpPairWeight(pairOrdinal);
     const lMin = Math.min(fightLevel(o.attackerLevel), fightLevel(o.targetLevel));
     const purse = pvpWinPurse({ lMin, lucky: o.lucky, sector: o.sector });
     return { credited: true, pairOrdinal, pairWeight, factor: pairWeight, ryo: floorPay(PVP_SLEEPER_PURSE_FRAC * purse * pairWeight) };
 }
 
-/** Count a committed sleeper KO against the pair's day. Fails open. */
+/**
+ * Reserve a sleeper KO before either save moves. The server-owned camp identity
+ * reuses this slot on a failed-save retry; no post-credit counter can be lost.
+ */
+export async function reserveSleeperKoCredit(
+    store: SlotStore,
+    o: Parameters<typeof previewSleeperKoCredit>[1] & { receiptId: string },
+): Promise<Awaited<ReturnType<typeof previewSleeperKoCredit>>> {
+    const preview = await previewSleeperKoCredit(store, o);
+    if (!preview.credited) return preview;
+    const pairOrdinal = await assignPvpCreditSlot(store, {
+        slotKey: pvpPairSlotKey('sleeper:' + o.receiptId),
+        counterKey: pvpPairCounterKey(o.attackerSlug, o.targetSlug, pvpUtcDay(o.now)),
+    });
+    const pairWeight = pvpPairWeight(pairOrdinal);
+    const lMin = Math.min(fightLevel(o.attackerLevel), fightLevel(o.targetLevel));
+    const purse = pvpWinPurse({ lMin, lucky: o.lucky, sector: o.sector });
+    return { ...preview, pairOrdinal, pairWeight, factor: pairWeight, ryo: floorPay(PVP_SLEEPER_PURSE_FRAC * purse * pairWeight) };
+}
+
+/** Legacy preview/count callers must surface a failed count; financial settlement reserves first. */
 export async function recordSleeperKoPairCredit(store: Pick<KvLike, 'incr'>, o: { attackerSlug: string; targetSlug: string; now: number }): Promise<void> {
-    try {
-        await store.incr(pvpPairCounterKey(o.attackerSlug, o.targetSlug, pvpUtcDay(o.now)), { ex: PVP_COUNTER_TTL_SECONDS });
-    } catch { /* fail open */ }
+    await store.incr(pvpPairCounterKey(o.attackerSlug, o.targetSlug, pvpUtcDay(o.now)), { ex: PVP_COUNTER_TTL_SECONDS });
 }
 
 // ── Ranked V2 weight (I-3) ───────────────────────────────────────────────────
