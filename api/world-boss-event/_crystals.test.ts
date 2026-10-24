@@ -93,6 +93,10 @@ for (const slug of ['__proto__', 'constructor']) {
         assert.deepEqual(mined.hollowShardProfileByPlayer?.[slug], {
             name: player.name, village: player.village, clan: player.clan,
         });
+        const persisted = JSON.parse(JSON.stringify(mined)) as WorldBossEventRecord;
+        assert.equal(Object.hasOwn(persisted.hollowShardsHeldByPlayer!, slug), true);
+        assert.equal(persisted.hollowShardsHeldByPlayer?.[slug], 1);
+        assert.deepEqual(persisted.hollowShardProfileByPlayer?.[slug], mined.hollowShardProfileByPlayer?.[slug]);
         assert.equal((await applyWorldBossCrystalHarvest(event.eventId, 'crystal-node-1', player, now + 1))?.harvested, false);
 
         const requestId = 'legacy-shard-deposit-1234';

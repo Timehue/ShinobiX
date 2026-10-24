@@ -21,6 +21,14 @@ export type WorldBossCrystalPlayer = {
     clan: string;
 };
 
+function updatePlayerEntry<T>(record: Record<string, T>, slug: string, value: T): Record<string, T> {
+    // Identities are dictionary keys, including retained prototype-shaped
+    // names. Map keeps them as data; fromEntries defines JSON-safe own entries.
+    const entries = new Map(Object.entries(record));
+    entries.set(slug, value);
+    return Object.fromEntries(entries);
+}
+
 export async function worldBossCrystalCanBeMined(nodeId: string, now = Date.now()): Promise<boolean> {
     const event = await readActiveWorldBossEvent();
     if (!event || !worldBossEventIsOpen({ ...event, status: worldBossEventStatus(event, now) }, now)) return false;
@@ -43,22 +51,18 @@ export async function applyWorldBossCrystalHarvest(
             event.minedCrystalNodeIds = [...mined, nodeId];
             const held = event.hollowShardsHeldByPlayer ?? {};
             const priorHeld = Object.hasOwn(held, player.slug) ? held[player.slug] : 0;
-            // Retained account names can equal Object prototype members. A
-            // computed own property preserves those accounts through JSON too.
-            event.hollowShardsHeldByPlayer = {
-                ...held,
-                [player.slug]: Math.max(0, Math.floor(Number(priorHeld) || 0)) + 1,
-            };
+            event.hollowShardsHeldByPlayer = updatePlayerEntry(
+                held, player.slug, Math.max(0, Math.floor(Number(priorHeld) || 0)) + 1,
+            );
             const profiles = event.hollowShardProfileByPlayer ?? {};
             const priorProfile = Object.hasOwn(profiles, player.slug) ? profiles[player.slug] : undefined;
-            event.hollowShardProfileByPlayer = {
-                ...profiles,
-                [player.slug]: priorProfile ?? {
+            event.hollowShardProfileByPlayer = updatePlayerEntry(
+                profiles, player.slug, priorProfile ?? {
                     name: player.name.slice(0, 40),
                     village: player.village.slice(0, 40),
                     clan: player.clan.slice(0, 40),
                 },
-            };
+            );
             event.updatedAt = now;
             await writeWorldBossEvent(event);
             harvested = true;
@@ -124,7 +128,7 @@ export async function depositWorldBossHollowShards(
         if (deposited < 1) return { ok: false, error: 'The Hollow Shard meter is already full.' };
         const points = deposited * WORLD_BOSS_HOLLOW_SHARD_POINTS;
         const totalDeposited = previousTotal + deposited;
-        event.hollowShardsHeldByPlayer = { ...held, [player.slug]: heldCount - deposited };
+        event.hollowShardsHeldByPlayer = updatePlayerEntry(held, player.slug, heldCount - deposited);
         event.hollowShardsDeposited = totalDeposited;
 
         const profiles = event.hollowShardProfileByPlayer ?? {};
@@ -144,7 +148,7 @@ export async function depositWorldBossHollowShards(
             matches: Math.max(0, Math.floor(Number(prior?.matches) || 0)),
             firstAt: prior?.firstAt ?? now,
         };
-        event.participants = { ...participants, [player.slug]: participant };
+        event.participants = updatePlayerEntry(participants, player.slug, participant);
         event.crystalDepositReceipts = {
             ...receipts,
             [receiptKey]: { playerSlug: player.slug, shards: deposited, points, depositedAt: now },
