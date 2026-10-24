@@ -3337,6 +3337,10 @@
             "line": 47
           },
           {
+            "source": "shinobij.client/src/components/sector-buildings.css",
+            "line": 45
+          },
+          {
             "source": "shinobij.client/src/components/veinbreaking.css",
             "line": 98
           },

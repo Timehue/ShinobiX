@@ -69,7 +69,7 @@ export function layoutWandererLabels(figure:HTMLElement) {
         // The self marker is a sibling of the moving chunk. Include it, peers
         // and fixed building titles in the same batched geometry read; names
         // must not cover players or turn a building title into an NPC's name.
-        for(const node of scene.querySelectorAll<HTMLElement|SVGElement>('.sector-ground-landmark-label,.sector-village-entrance-name,.sector-village-entrance-action,.resource-world-node,.sector-life-point,.sector-avatar-figure:not(.sector-wanderer-figure) .sector-avatar-body,.continuous-world-peer .sector-avatar-body,[data-painted-name-clearance],[data-work-tool-clearance]')){
+        for(const node of scene.querySelectorAll<HTMLElement|SVGElement>('.sector-ground-landmark-label,.sector-building-name,.sector-building-condition,.sector-village-entrance-name,.sector-village-entrance-action,.resource-world-node,.sector-life-point,.sector-avatar-figure:not(.sector-wanderer-figure) .sector-avatar-body,.continuous-world-peer .sector-avatar-body,[data-painted-name-clearance],[data-work-tool-clearance]')){
             if(node.closest('[hidden]')||(node instanceof SVGElement?getComputedStyle(node).visibility==='hidden':!node.offsetParent))continue;
             const box=node.getBoundingClientRect();
             if(!box.width||!box.height||box.right<=bounds.left||box.left>=bounds.right||box.bottom<=bounds.top||box.top>=bounds.bottom)continue;

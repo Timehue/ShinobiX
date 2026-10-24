@@ -491,7 +491,7 @@ async function expectCompanionAvatars(page: Page, selector: string, expected: nu
     }
 }
 
-test("pet avatars load and fit in every Companion Home card", async ({ page }, testInfo) => {
+async function installPortraitHomeApi(page: Page) {
     const state = await installPetHomeApi(page);
     // A stale saved image must not hide the reviewed portrait for its template.
     state.character.pets[0].image = "/pet-portraits/missing-sumi.webp";
@@ -500,14 +500,29 @@ test("pet avatars load and fit in every Companion Home card", async ({ page }, t
         { image: "/pet-poses/rare-3-idle.webp" });
     state.character.pets[3] = pet("qa-fire-spent", "rare-40", "Volt Polecat", "Lightning", "rare", 0,
         { image: "/pet-poses/rare-40-run-a.webp" });
+    return state;
+}
+
+async function openPortraitHome(page: Page) {
+    await installPortraitHomeApi(page);
     await openHome(page);
+}
+
+// Each surface keeps the standard test deadline and its own clean fixture.
+// The former six-surface flow could exhaust that deadline before later cards
+// were exercised, obscuring which surface actually failed.
+test("pet avatars load and fit in the Companion Home collection", async ({ page }, testInfo) => {
+    await openPortraitHome(page);
     await expectCompanionAvatars(page, ".pet-collection-card", 4);
     await expect(page.locator('.pet-collection-card:has-text("Sumi") .companion-identity-art img')).toHaveAttribute("src", PET_SCENIC_PORTRAITS['rare-26']);
     for (const [name, id] of [['Sky Falcon', 'rare-3'], ['Volt Polecat', 'rare-40']]) {
         await expect(page.locator(`.pet-collection-card:has-text("${name}") .companion-identity-art img`)).toHaveAttribute("src", PET_SCENIC_PORTRAITS[id]);
     }
     await shot(page, testInfo, "portrait-collection");
+});
 
+test("pet avatars load and fit in the Companion Home yard", async ({ page }, testInfo) => {
+    await openPortraitHome(page);
     await page.getByRole("button", { name: "Pet Yard" }).click();
     await expectCompanionAvatars(page, ".pet-slot-card.companion-card", 4);
     await page.locator('.pet-slot-card:has-text("Ember Phoenix")').click();
@@ -523,7 +538,10 @@ test("pet avatars load and fit in every Companion Home card", async ({ page }, t
         await expect(page.locator(".pet-detail-avatar img")).toHaveAttribute("src", PET_SCENIC_PORTRAITS[id]);
         await shot(page, testInfo, `portrait-yard-${id}`);
     }
+});
 
+test("pet avatars load and fit in the Companion Home arena", async ({ page }, testInfo) => {
+    await openPortraitHome(page);
     await page.getByRole("button", { name: "Pet Arena" }).click();
     await expectCompanionAvatars(page, '.pet-arena-selector[data-side="player"] .pet-pick.companion-card', 4);
     await page.locator('.pet-arena-selector[data-side="player"] .pet-pick:has-text("Ember Phoenix")').click();
@@ -535,17 +553,26 @@ test("pet avatars load and fit in every Companion Home card", async ({ page }, t
         await page.locator(`.pet-arena-selector[data-side="player"] .pet-pick:has-text("${name}")`).click();
         await expect(page.locator('.pet-arena-selector[data-side="player"] .pet-arena-avatar img')).toHaveAttribute("src", PET_SCENIC_PORTRAITS[id]);
     }
+});
 
+test("pet avatars load and fit in the Companion Home sanctuary", async ({ page }, testInfo) => {
+    await openPortraitHome(page);
     await page.getByRole("button", { name: "Sanctuary", exact: true }).click();
     await expectCompanionAvatars(page, ".pet-sanctuary-card", 2);
     await shot(page, testInfo, "portrait-sanctuary");
+});
 
+test("pet avatars load and fit in the Companion Home hatchery", async ({ page }, testInfo) => {
+    await openPortraitHome(page);
     await page.getByRole("button", { name: "Shinobi Hatchery" }).click();
     await page.getByLabel("First parent").selectOption("qa-fire-1");
     await page.getByLabel("Second parent").selectOption("qa-fire-2");
     await expectCompanionAvatars(page, ".breeding-parent-preview", 2);
     await shot(page, testInfo, "portrait-hatchery");
+});
 
+test("pet avatars load and fit in the Companion Home exchange", async ({ page }, testInfo) => {
+    const state = await installPortraitHomeApi(page);
     // Exchange snapshots must retain form identity even with an opaque owned id.
     const asset = { id: 'opaque-owned-companion', templateId: 'starter-earth', evolutionStage: 1,
         kind: 'pet', category: 'pets', rarity: 'rare', name: 'Granite Tortoise', level: 60,
