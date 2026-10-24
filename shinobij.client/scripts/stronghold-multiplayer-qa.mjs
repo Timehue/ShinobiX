@@ -7,6 +7,7 @@ import express from 'express';
 import { build } from 'esbuild';
 import { chromium, webkit } from '@playwright/test';
 import pg from 'pg';
+import { displayPlayerName } from '../../shared/player-name.ts';
 
 // Default to isolated memory. Postgres is supplied by the fresh-cluster helper;
 // fail closed before writing if the loopback test database is not empty.
@@ -57,6 +58,7 @@ app.use(express.static(bundle)); app.use(express.static(resolve('public')));
 const server = createServer(app); await new Promise(r => server.listen(0, '127.0.0.1', r));
 const base = `http://127.0.0.1:${server.address().port}`, errors = [], checks = [], metrics = [], loadSamples = [];
 function monitor(page) { page.on('pageerror', e => errors.push(String(e))); }
+function inspectPlayer(page, name) { return page.getByRole('button', { name: `Inspect ${displayPlayerName(name)}`, exact: true }); }
 async function post(page, path, body) { return page.evaluate(async ({ path, body }) => { const response = await fetch('/api/' + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); return { status: response.status, body: await response.json() }; }, { path, body }); }
 async function seed(name, sector, village) {
     const character = { name, level: 50, village, avatarImage: '/anbu/frostfang.webp', hp: 10000, maxHp: 10000, chakra: 1000, maxChakra: 1000,
@@ -75,8 +77,8 @@ try {
                 const pages = await Promise.all(contexts.map(c => c.newPage())); pages.forEach(monitor); const [alpha, beta] = pages;
                 const url = name => `${base}/?mode=stronghold&multiplayer&level=50&sector=${sector}&name=${name}&targetVillage=${encodeURIComponent(defenderVillage)}&village=${encodeURIComponent(name === one ? 'Moonshadow Village' : defenderVillage)}`;
                 await Promise.all([alpha.goto(url(one)), beta.goto(url(two))]);
-                await alpha.getByRole('button', { name: `Inspect ${two}`, exact: true }).waitFor(); await beta.getByRole('button', { name: `Inspect ${one}`, exact: true }).waitFor();
-                assert.equal(await alpha.getByRole('button', { name: `Inspect ${outsider}`, exact: true }).count(), 0, 'exterior peers stay outside');
+                await inspectPlayer(alpha, two).waitFor(); await inspectPlayer(beta, one).waitFor();
+                assert.equal(await inspectPlayer(alpha, outsider).count(), 0, 'exterior peers stay outside');
                 assert.equal(await alpha.locator('.stronghold-decoration').count(), 0, 'legacy door overlays are removed');
                 for (const page of pages) {
                     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), false);
@@ -96,14 +98,14 @@ try {
                 const rejected = await post(alpha, 'village/anbu-infiltration', { action: 'stronghold-step', playerName: one, sector, presenceId: moved.presenceId, version: moved.version, tile: blocked });
                 assert.equal(rejected.status, 409); assert.equal((await kv.get(strongholdVisitKey(one, sector))).threat, 4);
                 const oldBeta = await kv.get(strongholdVisitKey(two, sector)); await beta.getByRole('button', { name: 'Leave stronghold' }).click();
-                await alpha.getByRole('button', { name: `Inspect ${two}`, exact: true }).waitFor({ state: 'hidden' }); await beta.goto(url(two));
-                await alpha.getByRole('button', { name: `Inspect ${two}`, exact: true }).waitFor();
+                await inspectPlayer(alpha, two).waitFor({ state: 'hidden' }); await beta.goto(url(two));
+                await inspectPlayer(alpha, two).waitFor();
                 const staleLease = await post(beta, 'village/anbu-infiltration', { action: 'stronghold-state', playerName: two, sector, presenceId: oldBeta.presenceId }); assert.equal(staleLease.status, 409);
                 await contexts[1].setOffline(true); await new Promise(r => setTimeout(r, 2400)); await contexts[1].setOffline(false);
-                await beta.getByRole('button', { name: `Inspect ${one}`, exact: true }).waitFor();
+                await inspectPlayer(beta, one).waitFor();
                 assert.equal((await kv.get(strongholdVisitKey(one, sector))).threat, 4, 'peer reconnect cannot change another player’s threat');
                 await alpha.screenshot({ path: `${output}/${engineName}-${sector}-two-player-phone.png` });
-                await alpha.getByRole('button', { name: `Inspect ${two}`, exact: true }).click(); await alpha.getByRole('button', { name: 'Attack player', exact: true }).click();
+                await inspectPlayer(alpha, two).click(); await alpha.getByRole('button', { name: 'Attack player', exact: true }).click();
                 await alpha.waitForFunction(() => document.body.dataset.attack === 'true');
                 const made = await post(alpha, 'pvp/session', { playerName: one, battleId: `physical${engineName}${sector}000000000000`, p1Character, p2Character, baseRewards: true, rewardSector: sector, useCurrentVitals: true, requireWorldCoLocation: true });
                 assert.equal(made.status, 200, JSON.stringify(made.body)); assert.equal(made.body.session.rewardAuthority, 'world');

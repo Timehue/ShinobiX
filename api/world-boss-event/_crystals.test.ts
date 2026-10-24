@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { kv } from '../_storage.js';
 import { worldBossEventKey, type WorldBossEventRecord } from './_event.js';
-import { depositWorldBossHollowShards, type WorldBossCrystalDepositResult } from './_crystals.js';
+import { applyWorldBossCrystalHarvest, depositWorldBossHollowShards, type WorldBossCrystalDepositResult } from './_crystals.js';
 
 test('Hollow Shard turn-in request replays award points exactly once', async t => {
     const now = 1_000_000;
@@ -58,3 +58,58 @@ test('Hollow Shard turn-in request replays award points exactly once', async t =
     const secondRequest = await depositWorldBossHollowShards(event.eventId, player, 'different-request-12345', now + 2);
     assert.deepEqual(secondRequest, { ok: false, error: 'You have no Hollow Shards ready to turn in.' });
 });
+
+for (const slug of ['__proto__', 'constructor']) {
+    test(`retained ${slug} account keeps mined shards, contribution and replay ownership`, async t => {
+        const now = 1_000_000;
+        const event: WorldBossEventRecord = {
+            version: 1, eventId: `crystal-legacy-${slug}`, bossId: 'hollow-beast', bossName: 'Chicxulub',
+            status: 'roaming', startedAt: now - 1_000, roamEndsAt: now + 10_000,
+            endsAt: now + 20_000, endedAt: null, hpMax: 100_000, hp: 100_000,
+            participants: {}, settledMatchIds: [], updatedAt: now,
+        };
+        const key = worldBossEventKey(event.eventId);
+        const records = new Map<string, unknown>([[key, structuredClone(event)]]);
+        t.mock.method(kv, 'get', async <T>(key: string): Promise<T | null> => {
+            const value = records.get(key);
+            return value === undefined ? null : structuredClone(value) as T;
+        });
+        t.mock.method(kv, 'set', async (key: string, value: unknown, options?: { nx?: boolean }) => {
+            if (options?.nx && records.has(key)) return null;
+            records.set(key, structuredClone(value));
+            return 'OK';
+        });
+        t.mock.method(kv, 'delIfEqual', async (key: string, expected: string) => {
+            if (records.get(key) !== expected) return false;
+            records.delete(key);
+            return true;
+        });
+        const player = { slug, name: slug, village: 'Frostfang Village', clan: 'Legacy Clan' };
+        const harvested = await applyWorldBossCrystalHarvest(event.eventId, 'crystal-node-1', player, now);
+        assert.equal(harvested?.harvested, true);
+        assert.equal(harvested?.heldHollowShards, 1);
+        const mined = records.get(key) as WorldBossEventRecord;
+        assert.equal(Object.hasOwn(mined.hollowShardsHeldByPlayer!, slug), true);
+        assert.deepEqual(mined.hollowShardProfileByPlayer?.[slug], {
+            name: player.name, village: player.village, clan: player.clan,
+        });
+        assert.equal((await applyWorldBossCrystalHarvest(event.eventId, 'crystal-node-1', player, now + 1))?.harvested, false);
+
+        const requestId = 'legacy-shard-deposit-1234';
+        const deposited = await depositWorldBossHollowShards(event.eventId, player, requestId, now + 2);
+        assert.equal(deposited.ok, true);
+        if (!deposited.ok) return;
+        assert.equal(deposited.deposited, 1);
+        assert.equal(deposited.heldHollowShards, 0);
+        const settled = records.get(key) as WorldBossEventRecord;
+        assert.equal(Object.hasOwn(settled.participants, slug), true);
+        assert.equal(Object.getPrototypeOf(settled.participants), Object.prototype);
+        assert.equal(settled.participants[slug]?.name, player.name);
+        assert.equal(settled.participants[slug]?.village, player.village);
+        assert.equal(settled.participants[slug]?.crystalPoints, deposited.points);
+        assert.equal(settled.hollowShardsDeposited, 1);
+        const replay = await depositWorldBossHollowShards(event.eventId, player, requestId, now + 3);
+        assert.equal(replay.ok && replay.replayed, true);
+        assert.equal((records.get(key) as WorldBossEventRecord).hollowShardsDeposited, 1);
+    });
+}
