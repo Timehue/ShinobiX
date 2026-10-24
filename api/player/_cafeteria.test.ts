@@ -100,8 +100,25 @@ describe('_cafeteria - Village Stores cook recipes', () => {
         const base = { ryo: 80, itemStacks: [{ itemId: 'hunt-beast-meat', count: 4 }, { itemId: 'gather-field-herb', count: 2 }, { itemId: 'gather-heartwood-bark', count: 1 }] };
         const before = structuredClone(base);
         const result = applyCookRecipe(base, cookRecipe('campaign-rations')!, NOW);
-        assert.deepEqual(result, { ok: false, error: 'Campaign Rations needs 2 Heartwood Bark for cooking fuel.', dailyCooked: 0, dailyCap: 40 });
+        assert.deepEqual(result, { ok: false, error: 'Campaign Rations needs 2 Heartwood Bark for cooking fuel (Ember Ore or Ember Scale also burn).', dailyCooked: 0, dailyCap: 40 });
         assert.deepEqual(base, before);
+    });
+    it('Ember Ore and Ember Scale burn as fuel 1:1, after the bark is spent (item-use pass)', () => {
+        const base = { ryo: 80, itemStacks: [
+            { itemId: 'hunt-beast-meat', count: 4 }, { itemId: 'gather-field-herb', count: 2 },
+            { itemId: 'gather-heartwood-bark', count: 1 }, { itemId: 'gather-ember-ore', count: 3 }, { itemId: 'hunt-ember-scale', count: 2 },
+        ] };
+        const result = applyCookRecipe(base, cookRecipe('campaign-rations')!, NOW);
+        assert.equal(result.ok, true);
+        if (!result.ok) return;
+        const left = (id: string) => (result.character.itemStacks as Array<{ itemId: string; count: number }>).find(s => s.itemId === id)?.count ?? 0;
+        assert.equal(left('gather-heartwood-bark'), 0, 'bark burns first');
+        assert.equal(left('gather-ember-ore'), 2, 'then one Ember Ore covers the second unit');
+        assert.equal(left('hunt-ember-scale'), 2, 'Ember Scale is untouched while ore remains');
+        const scalesOnly = applyCookRecipe({ ryo: 30, itemStacks: [{ itemId: 'hunt-beast-meat', count: 1 }, { itemId: 'gather-field-herb', count: 1 }, { itemId: 'hunt-ember-scale', count: 1 }] }, cookRecipe('field-rations')!, NOW);
+        assert.equal(scalesOnly.ok, true, 'an Ember Scale alone fuels a batch');
+        // Ash Scale is not fuel, so a pile of it still cooks nothing.
+        assert.equal(applyCookRecipe({ ryo: 30, itemStacks: [{ itemId: 'hunt-beast-meat', count: 1 }, { itemId: 'gather-field-herb', count: 1 }, { itemId: 'hunt-ash-scale', count: 9 }] }, cookRecipe('field-rations')!, NOW).ok, false);
     });
     it('a refusal names the materials, never their item ids', () => {
         const bare = applyCookRecipe({ ryo: 999 }, cookRecipe('campaign-rations')!, NOW);
@@ -116,5 +133,20 @@ describe('_cafeteria - Village Stores cook recipes', () => {
         for (const message of [bare.error, field.error]) assert.doesNotMatch(message, /hunt-/);
         assert.equal(cookMaterialName('hunt-unknown'), 'hunt-unknown', 'an unmapped id falls back to itself, never undefined');
         assert.equal(cookMaterialChoiceName(cookRecipe('campaign-rations')!), 'Beast Meat');
+    });
+});
+
+// 2026-10 item-use pass: the Feast is sold as a full restore, but its 9,999 flats
+// stopped one point short of the 10,000 resource pools.
+describe('_cafeteria - the Feast restores every bar to full', () => {
+    it('fills drained 10,000-point pools exactly', () => {
+        const meal = cafeteriaMeal('feast')!;
+        const result = applyCafeteriaMeal({ ryo: 100, hp: 0, maxHp: 10_000, chakra: 0, maxChakra: 10_000, stamina: 0, maxStamina: 10_000 }, meal);
+        assert.equal(result.ok, true);
+        if (!result.ok) return;
+        assert.equal(result.character.hp, 10_000);
+        assert.equal(result.character.chakra, 10_000);
+        assert.equal(result.character.stamina, 10_000);
+        assert.equal(result.character.ryo, 0);
     });
 });

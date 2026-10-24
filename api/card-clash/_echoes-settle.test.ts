@@ -207,7 +207,7 @@ test("the witness API seals an eligible answer and conflicting retries return th
   assert.deepEqual(character("echo").echoesWitnessChoices, { "echoes-age-1": "warnings-first" });
 });
 
-test("a repeat win pays 15 and the boss first clear pays 100", async () => {
+test("the day's first repeat win pays 50, a later one 15, and the boss first clear pays 100", async () => {
   store.clear();
   seedPlayer("echo", {
     chroniclePoints: 50,
@@ -216,10 +216,20 @@ test("a repeat win pays 15 and the boss first clear pays 100", async () => {
   const { matchId } = await startEchoes("echo", "echoes-1-tovin");
   forceTerminal(matchId, "p1");
   const repeat = (await call(aiMove, { matchId, action: "state" })).body as {
-    reward: { echoes?: { points: number; balance: number } };
+    reward: { echoes?: { points: number; balance: number; dailyFirstWinBonus: number } };
   };
-  assert.equal(repeat.reward.echoes?.points, ECHOES_REWARDS.repeatWin);
-  assert.equal(character("echo").chroniclePoints, 65);
+  assert.equal(repeat.reward.echoes?.points, ECHOES_REWARDS.repeatWin + ECHOES_REWARDS.firstDailyWinBonus);
+  assert.equal(repeat.reward.echoes?.dailyFirstWinBonus, ECHOES_REWARDS.firstDailyWinBonus);
+  assert.equal(character("echo").chroniclePoints, 100);
+
+  const later = await startEchoes("echo", "echoes-1-tovin");
+  forceTerminal(later.matchId, "p1");
+  const laterBody = (await call(aiMove, { matchId: later.matchId, action: "state" })).body as {
+    reward: { echoes?: { points: number; dailyFirstWinBonus: number } };
+  };
+  assert.equal(laterBody.reward.echoes?.points, ECHOES_REWARDS.repeatWin);
+  assert.equal(laterBody.reward.echoes?.dailyFirstWinBonus, 0);
+  assert.equal(character("echo").chroniclePoints, 115);
 
   // Boss floor (admin identity bypasses the floor gate, the payout does not care).
   const boss = await startEchoes("echo", "echoes-10-halden");
@@ -230,7 +240,39 @@ test("a repeat win pays 15 and the boss first clear pays 100", async () => {
   assert.equal(bossBody.reward.echoes?.points, 100);
   assert.equal(bossBody.reward.echoes?.bossBonus, ECHOES_REWARDS.bossFirstClearBonus);
   assert.equal(bossBody.reward.echoes?.unlockedFloor, null);
-  assert.equal(character("echo").chroniclePoints, 165);
+  assert.equal(character("echo").chroniclePoints, 215);
+});
+
+test("a paid Echoes win records one echoes.win txn; the receipt replay records none", async () => {
+  const { drainBackgroundWork } = await import("../_background-work.js");
+  store.clear();
+  seedPlayer("echotelemetry", {
+    chroniclePoints: 0,
+    echoesOfWar: { "echoes-1-tovin": { wins: 1, firstClearAt: 111 } },
+  });
+  const { matchId } = await startEchoes("echotelemetry", "echoes-1-tovin");
+  forceTerminal(matchId, "p1");
+  const settled = await call(aiMove, { matchId, action: "state" });
+  assert.equal(settled.statusCode, 200);
+  await drainBackgroundWork();
+  type Txn = { txnId: string; player: string; currency: string; delta: number; source: string; balanceAfter?: number };
+  const mine = () => ((store.get("econ:txns") as Txn[] | undefined) ?? []).filter((txn) => txn.player === "echotelemetry");
+  assert.deepEqual(mine().map(({ txnId, currency, delta, source, balanceAfter }) => ({ txnId, currency, delta, source, balanceAfter })), [
+    { txnId: `echoes:cc-ai:${matchId}`, currency: "chroniclePoints", delta: 50, source: "echoes.win", balanceAfter: 50 },
+  ]);
+
+  // Crash between the payout write and the session mark: the retry settles
+  // again, finds the in-save receipt, and neither pays nor logs a second time.
+  const session = store.get(`cc-ai:${matchId}`) as Record<string, unknown>;
+  delete session.settledAt;
+  delete session.settledReward;
+  store.set(`cc-ai:${matchId}`, session);
+  const replay = await call(aiMove, { matchId, action: "state" });
+  assert.equal(replay.statusCode, 200);
+  assert.equal((replay.body as { reward: { echoes?: { points: number } } }).reward.echoes?.points, 50);
+  await drainBackgroundWork();
+  assert.equal(mine().length, 1);
+  assert.equal(character("echotelemetry").chroniclePoints, 50);
 });
 
 test("a loss settles with zero Chronicle Points and no progression", async () => {

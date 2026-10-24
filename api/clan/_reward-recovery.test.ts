@@ -31,7 +31,7 @@ beforeEach(async () => {
  time = new Date('2026-09-14T12:00:00Z').getTime();
  Date.now = () => time;
  for (const key of await kv.keys('*')) await kv.del(key);
- await kv.set(clanKey, {name: clanName, level: 25, xp: 0, treasury: {ryo: 1000, warSupply: 10}, members: [{name: playerName, battleContrib: 20}]});
+ await kv.set(clanKey, {name: clanName, level: 25, xp: 0, treasury: {ryo: 1000, warSupply: 10}, members: [{name: playerName, battleContrib: 20, month: '2026-09'}]});
  await kv.set(playerKey, {_saveVersion: 1, character: {name: playerName, clan: clanName, clanPoints: 4000}});
 });
 afterEach(() => {kv.set = originalSet; kv.compareSet = originalCas; Date.now = realNow;});

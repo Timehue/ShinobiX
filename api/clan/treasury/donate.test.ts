@@ -28,6 +28,7 @@ let reconcile: Handler;
 let economyTxKey: typeof import('../../_economy-tx.js').economyTxKey;
 let readEconomyTxSnapshot: typeof import('../../_economy-tx.js').readEconomyTxSnapshot;
 let saveDebitTransactionId: typeof import('../../_save-debit-saga.js').saveDebitTransactionId;
+let clanPointWeekKey: typeof import('../../_clan-points.js').clanPointWeekKey;
 let expectedAfter1000Xp: { xp: number; level: number };
 
 before(async () => {
@@ -38,6 +39,7 @@ before(async () => {
     ({ __resetRateLimitsForTest: resetRateLimits } = await import('../../_ratelimit.js'));
     ({ economyTxKey, readEconomyTxSnapshot } = await import('../../_economy-tx.js'));
     ({ saveDebitTransactionId } = await import('../../_save-debit-saga.js'));
+    ({ clanPointWeekKey } = await import('../../_clan-points.js'));
     donate = (await import('./donate.js')).default as unknown as Handler;
     reconcile = (await import('../../admin/economy-reconcile.js')).default as unknown as Handler;
 });
@@ -208,9 +210,13 @@ test('non-members, forged identities, reused ids and short balances move nothing
     assert.equal((await kv.get<{ character: { ryo: number } }>(`save:${OUTSIDER}`))?.character.ryo, 100_000);
 });
 
-// Clan XP from non-ryo donations is capped per donor per UTC day (2,000), so
-// donating one Mythic Seal and having an officer gift it straight back cannot
-// loop clan XP. Ryo stays uncapped: its gifts are taxed.
+// Clan XP from donations shares one budget per donor per ISO week (2,000) across
+// every kind, ryo included (economy rebalance 2026-10, #39). Non-ryo donations
+// also keep their 2,000-per-UTC-day cap, so donating one Mythic Seal and having
+// an officer gift it straight back cannot loop clan XP. Ryo uses only its own
+// weekly budget: it never had a daily cap or the daily audit.
+const today = () => new Date().toISOString().slice(0, 10);
+const thisWeek = () => clanPointWeekKey(new Date(Date.now()));
 async function clanXpTotal(): Promise<number> {
     const { clanXpNeededServer } = await import('../_mission-catalog.js');
     const { xp, level } = await clan();
@@ -258,7 +264,7 @@ test('pending credits reserve XP before a new donation, and retry grants only th
     });
     const first = await call(sealDonation('clan-xp-pending-first-01'));
     assert.equal(first.statusCode, 503, JSON.stringify(first.body));
-    assert.deepEqual(await quota(), { day: new Date().toISOString().slice(0, 10), used: 2_000 });
+    assert.deepEqual(await quota(), { day: today(), used: 2_000, week: thisWeek(), weekUsed: 2_000 });
     assert.equal((await donor()).mythicSeals, 30, 'quota and debit committed together');
     broken = false;
     assert.equal((await call(sealDonation('clan-xp-pending-second-1'))).statusCode, 200);
@@ -323,8 +329,9 @@ test('a rejected donor commit consumes neither seals nor XP quota', async (t) =>
     assert.equal(await clanXpTotal(), 2_000);
 });
 
-test('UTC rollover gives the next day its own quota and never charges an old pending retry again', async (t) => {
-    t.mock.timers.enable({ apis: ['Date'], now: new Date('2026-10-20T23:59:59.000Z') });
+test('ISO week rollover gives the next week its own quota and never charges an old pending retry again', async (t) => {
+    // Sunday 23:59:59 UTC to Monday 00:00:01 UTC: the day and the ISO week roll together.
+    t.mock.timers.enable({ apis: ['Date'], now: new Date('2026-10-25T23:59:59.000Z') });
     await seedSeals();
     const original = kv.set.bind(kv);
     let broken = true;
@@ -334,15 +341,27 @@ test('UTC rollover gives the next day its own quota and never charges an old pen
     });
     const old = 'clan-xp-midnight-old-01';
     assert.equal((await call(sealDonation(old))).statusCode, 503);
-    assert.deepEqual(await quota(), { day: '2026-10-20', used: 2_000 });
-    t.mock.timers.setTime(Date.parse('2026-10-21T00:00:01.000Z'));
+    assert.deepEqual(await quota(), { day: '2026-10-25', used: 2_000, week: '2026-W43', weekUsed: 2_000 });
+    t.mock.timers.setTime(Date.parse('2026-10-26T00:00:01.000Z'));
     broken = false;
     assert.equal((await call(sealDonation('clan-xp-midnight-new-01'))).statusCode, 200);
-    assert.deepEqual(await quota(), { day: '2026-10-21', used: 2_000 });
+    assert.deepEqual(await quota(), { day: '2026-10-26', used: 2_000, week: '2026-W44', weekUsed: 2_000 });
     assert.equal((await call(sealDonation(old))).statusCode, 200);
-    assert.deepEqual(await quota(), { day: '2026-10-21', used: 2_000 });
+    assert.deepEqual(await quota(), { day: '2026-10-26', used: 2_000, week: '2026-W44', weekUsed: 2_000 });
     assert.equal((await call(sealDonation('clan-xp-midnight-zero-1'))).statusCode, 200);
-    assert.equal(await clanXpTotal(), 4_000, '2,000 reserved on each of two UTC days');
+    assert.equal(await clanXpTotal(), 4_000, '2,000 reserved in each of two ISO weeks');
+});
+
+test('a new UTC day inside the same ISO week grants no more XP once the weekly budget is spent', async (t) => {
+    t.mock.timers.enable({ apis: ['Date'], now: new Date('2026-10-20T12:00:00.000Z') });
+    await seedSeals();
+    assert.equal((await call(sealDonation('clan-xp-week-binds-day1'))).statusCode, 200);
+    assert.deepEqual(await quota(), { day: '2026-10-20', used: 2_000, week: '2026-W43', weekUsed: 2_000 });
+    t.mock.timers.setTime(Date.parse('2026-10-21T12:00:00.000Z'));
+    assert.equal((await call(sealDonation('clan-xp-week-binds-day2'))).statusCode, 200, 'the donation itself still lands');
+    assert.deepEqual(await quota(), { day: '2026-10-21', used: 0, week: '2026-W43', weekUsed: 2_000 });
+    assert.equal(await clanXpTotal(), 2_000, 'the daily cap refreshed, the weekly budget did not');
+    assert.equal((await clan()).treasury.mythicSeals, 20);
 });
 
 test('crossing midnight during initialization keeps one admission day and leaves an unexpected new-day counter intact', async (t) => {
@@ -355,11 +374,11 @@ test('crossing midnight during initialization keeps one admission day and leaves
         return original(...args);
     });
     assert.equal((await call(sealDonation('clan-xp-crossing-day-01'))).statusCode, 200);
-    assert.deepEqual(await quota(), { day: '2026-10-20', used: 2_000 });
+    assert.deepEqual(await quota(), { day: '2026-10-20', used: 2_000, week: '2026-W43', weekUsed: 2_000 });
     const next = await call(sealDonation('clan-xp-crossing-day-02'));
     assert.equal(next.statusCode, 409, 'a partial rollout counter cannot prove the remaining quota');
     assert.equal(next.body?.review, true);
-    assert.deepEqual(await quota(), { day: '2026-10-20', used: 2_000 });
+    assert.deepEqual(await quota(), { day: '2026-10-20', used: 2_000, week: '2026-W43', weekUsed: 2_000 });
     assert.equal((await donor()).mythicSeals, 30, 'review refusal takes nothing');
     assert.equal(await clanXpTotal(), 2_000);
     assert.equal(await kv.get(`clan-donate-xp:${DONOR}:2026-10-21`), 1_500, 'legacy counters are never overwritten');
@@ -417,7 +436,7 @@ test('pre-cap donation receipts do not retroactively consume the introduced dail
     }];
     await kv.set(`save:${DONOR}`, saved);
     assert.equal((await call(sealDonation('clan-xp-first-cap-budget'))).statusCode, 200);
-    assert.deepEqual(await quota(), { day: new Date().toISOString().slice(0, 10), used: 2_000 });
+    assert.deepEqual(await quota(), { day: today(), used: 2_000, week: thisWeek(), weekUsed: 2_000 });
     assert.equal(await clanXpTotal(), 2_000, 'the first rollout introduces a fresh capped budget');
 });
 
@@ -438,7 +457,7 @@ test('malformed/future quota or legacy history is an explicit review refusal bef
     await kv.set(`clan-donate-xp:${DONOR}:${day}`, 'unreadable');
     assert.equal((await call(sealDonation('clan-xp-malformed-legacy'))).statusCode, 409);
     assert.equal((await donor()).mythicSeals, 40);
-    assert.equal((await call({ currency: 'ryo', amount: 1_000, requestId: 'clan-xp-ryo-unaffected-1' })).statusCode, 200, 'ryo is uncapped');
+    assert.equal((await call({ currency: 'ryo', amount: 1_000, requestId: 'clan-xp-ryo-unaffected-1' })).statusCode, 200, 'ryo uses its own weekly budget');
 });
 
 test('unrelated rolling receipt history does not prevent first-rollout initialization; saturated legacy quota permits gifts', async () => {
@@ -516,4 +535,110 @@ test('an already-admitted donation still recovers when its quota later needs rev
     assert.equal((await donor()).mythicSeals, 30);
     assert.equal((await call(sealDonation('clan-xp-review-new-0001'))).statusCode, 409);
     assert.equal((await donor()).mythicSeals, 30, 'only new debit admission is held');
+});
+
+// ── The weekly budget covers ryo too (economy rebalance 2026-10, #39) ────────
+
+async function seedRyo(ryo = 400_000, extra: Record<string, unknown> = {}): Promise<void> {
+    await kv.set(`save:${DONOR}`, { _saveVersion: 1, character: { name: DONOR, clan: 'Mist', level: 40, ryo, mythicSeals: 40, inventory: [], ...extra } });
+}
+
+test('ryo donation clan XP stops at the weekly budget while the treasury still receives every ryo', async (t) => {
+    t.mock.timers.enable({ apis: ['Date'], now: new Date('2026-10-20T12:00:00.000Z') });
+    await seedRyo();
+    for (const [i, expectedTotal] of [1_000, 2_000, 2_000].entries()) {
+        resetRateLimits();
+        const out = await call({ currency: 'ryo', amount: 35_000, requestId: `clan-xp-ryo-weekly-${String(i).padStart(5, '0')}` });
+        assert.equal(out.statusCode, 200, JSON.stringify(out.body));
+        assert.equal(await clanXpTotal(), expectedTotal);
+    }
+    assert.equal((await clan()).treasury.ryo, 105_000, 'the treasury is credited in full');
+    assert.equal((await donor()).ryo, 400_000 - 105_000);
+    assert.deepEqual(await quota(), { week: '2026-W43', weekUsed: 2_000 }, 'ryo never writes the daily fields');
+
+    // The next ISO week opens a fresh budget.
+    t.mock.timers.setTime(Date.parse('2026-10-27T12:00:00.000Z'));
+    assert.equal((await call({ currency: 'ryo', amount: 35_000, requestId: 'clan-xp-ryo-weekly-next1' })).statusCode, 200);
+    assert.equal(await clanXpTotal(), 3_000);
+    assert.deepEqual(await quota(), { week: '2026-W44', weekUsed: 1_000 });
+});
+
+test('ryo and non-ryo donations draw from one weekly budget and keep each other\'s fields', async (t) => {
+    t.mock.timers.enable({ apis: ['Date'], now: new Date('2026-10-20T12:00:00.000Z') });
+    await seedRyo();
+    assert.equal((await call({ currency: 'ryo', amount: 35_000, requestId: 'clan-xp-mixed-ryo-first1' })).statusCode, 200);
+    assert.deepEqual(await quota(), { week: '2026-W43', weekUsed: 1_000 });
+    // Ten seals ask for 2,000; only the 1,000 the week has left is granted.
+    assert.equal((await call(sealDonation('clan-xp-mixed-seal-second'))).statusCode, 200);
+    assert.deepEqual(await quota(), { day: '2026-10-20', used: 1_000, week: '2026-W43', weekUsed: 2_000 });
+    assert.equal(await clanXpTotal(), 2_000);
+    // A ryo donation after it carries the daily fields through untouched.
+    assert.equal((await call({ currency: 'ryo', amount: 35_000, requestId: 'clan-xp-mixed-ryo-third1' })).statusCode, 200);
+    assert.deepEqual(await quota(), { day: '2026-10-20', used: 1_000, week: '2026-W43', weekUsed: 2_000 });
+    assert.equal(await clanXpTotal(), 2_000);
+    assert.equal((await clan()).treasury.ryo, 70_000);
+    assert.equal((await clan()).treasury.mythicSeals, 10);
+});
+
+test('a malformed or future weekly stamp is a review refusal before any debit, for ryo and non-ryo alike', async (t) => {
+    t.mock.timers.enable({ apis: ['Date'], now: new Date('2026-10-20T12:00:00.000Z') });
+    const bad = [
+        { week: '2026-W43' }, { weekUsed: 10 }, { week: '2026-43', weekUsed: 0 }, { week: '2026-W43', weekUsed: -1 },
+        { week: '2026-W43', weekUsed: '0' }, { week: '2099-W01', weekUsed: 0 }, { day: '2026-10-20', used: 0, week: 'soon', weekUsed: 0 },
+    ];
+    for (const [i, quotaValue] of bad.entries()) {
+        await seedRyo(400_000, { clanDonationXp: quotaValue });
+        const ryo = await call({ currency: 'ryo', amount: 35_000, requestId: `clan-xp-bad-week-ryo-${String(i).padStart(3, '0')}` });
+        assert.equal(ryo.statusCode, 409, `${JSON.stringify(quotaValue)}: ${JSON.stringify(ryo.body)}`);
+        assert.equal(ryo.body?.review, true);
+        const seal = await call(sealDonation(`clan-xp-bad-week-seal-${String(i).padStart(3, '0')}`));
+        assert.equal(seal.statusCode, 409, JSON.stringify(quotaValue));
+        assert.equal((await donor()).ryo, 400_000, 'nothing was debited');
+        assert.equal((await donor()).mythicSeals, 40);
+    }
+    assert.equal((await clan()).treasury.ryo, 0);
+});
+
+test('a parallel burst of ryo donations cannot overshoot the weekly budget', async () => {
+    await seedRyo(1_000_000);
+    const burst = await Promise.all(Array.from({ length: 6 }, (_, i) =>
+        call({ currency: 'ryo', amount: 35_000, requestId: `clan-xp-ryo-burst-${String(i).padStart(6, '0')}` })));
+    for (const out of burst) assert.ok(out.statusCode === 200 || out.statusCode === 503, `unexpected ${out.statusCode}: ${JSON.stringify(out.body)}`);
+    const landed = burst.filter((out) => out.statusCode === 200).length;
+    assert.ok(landed >= 1);
+    assert.equal(await clanXpTotal(), Math.min(landed, 2) * 1_000, 'each landed donation granted its share, up to the budget');
+});
+
+test('admin reconciliation of a stuck ryo donation pays its sealed XP without reserving again', async (t) => {
+    await seedRyo();
+    const original = kv.set.bind(kv);
+    let broken = true;
+    t.mock.method(kv, 'set', async (...args: Parameters<typeof kv.set>) => {
+        if (broken && args[0] === CLAN_KEY) throw new Error('injected stuck ryo donation');
+        return original(...args);
+    });
+    const id = 'clan-xp-ryo-admin-stuck1';
+    assert.equal((await call({ currency: 'ryo', amount: 35_000, requestId: id })).statusCode, 503);
+    assert.equal((await quota() as { weekUsed: number }).weekUsed, 1_000, 'the pending credit reserved its XP with the debit');
+    broken = false;
+    const txId = saveDebitTransactionId('clan-treasury-donate', DONOR, id);
+    assert.equal((await adminReconcile({ txId })).body?.status, 'completed');
+    assert.equal(await clanXpTotal(), 1_000);
+    assert.equal((await quota() as { weekUsed: number }).weekUsed, 1_000, 'reconciliation did not reserve a second time');
+    assert.equal((await clan()).treasury.ryo, 35_000);
+});
+
+// ── Monthly contribution counts real value only (I-15, VCS-12) ───────────────
+
+test('the monthly contribution counts whole thousands of ryo and currency units, never items', async () => {
+    await seedRyo(100_000, { itemStacks: [{ itemId: 'item-smoke-bomb', count: 5 }] });
+    assert.equal((await call({ currency: 'ryo', amount: 999, requestId: 'clan-contrib-ryo-0999-01' })).statusCode, 200);
+    assert.equal((await donor()).clanEventContrib, 0, 'under 1,000 ryo no longer rounds up to one');
+    assert.equal(await clanXpTotal(), 28, 'the donation still earns its clan XP inside the budget');
+    assert.equal((await call({ currency: 'ryo', amount: 2_500, requestId: 'clan-contrib-ryo-2500-01' })).statusCode, 200);
+    assert.equal((await donor()).clanEventContrib, 2);
+    assert.equal((await call({ itemId: 'item-smoke-bomb', count: 3, requestId: 'clan-contrib-items-0001' })).statusCode, 200);
+    assert.equal((await donor()).clanEventContrib, 2, 'an item can be gifted back untaxed, so it counts nothing');
+    assert.equal((await call(sealDonation('clan-contrib-seals-00001', 3))).statusCode, 200);
+    assert.equal((await donor()).clanEventContrib, 5, 'one per Fate Shard, Bone Charm, Aura Stone or Mythic Seal');
 });

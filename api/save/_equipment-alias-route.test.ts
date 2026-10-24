@@ -60,7 +60,7 @@ for (const flag of [undefined, '0', '1']) {
             for (const [route, saleHandler] of saleHandlers) {
                 for (const [alias, slot, id, value] of [
                     ['weapon', 'hand', 'rustfang-kunai', 112],
-                    ['armor', 'body', 'shinobi-vest', 90],
+                    ['armor', 'body', 'shinobi-vest', 30],
                 ] as const) {
                     const name = `aliassale${flag ?? 'unset'}${route}${alias}`;
                     await kv.set(`save:${name}`, {

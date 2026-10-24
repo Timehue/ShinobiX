@@ -40,7 +40,7 @@ export function VanguardHub({ character, onVersionedCharacter, setScreen, onBack
                     <div className="ph-honor-rate"><span>Base victory reward</span><strong>{VANGUARD_SEALS_PER_KILL[rank]} <small>Seals</small></strong></div>
                     <div className="ph-meter-label"><span>Earned today</span><strong>{sealsToday} <span>/ {dailyCap}</span></strong></div>
                     <div className="profession-progress-track ph-meter" role="progressbar" aria-label="Daily Honor Seal progress" aria-valuemin={0} aria-valuemax={dailyCap} aria-valuenow={cappedSeals}><span style={{ width: `${cappedSeals / dailyCap * 100}%` }} /></div>
-                    <p className="ph-note">Up to {VANGUARD_PER_TARGET_DAILY_CAP} Seals per target each day. Only qualifying real-player kills count.</p>
+                    <p className="ph-note">Up to {VANGUARD_PER_TARGET_DAILY_CAP} Seals per target each day. Only qualifying real-player kills count. Profession XP follows the PvP pay: full for your first two fights with one opponent each UTC day, then 50%, 25%, and none.</p>
                 </div>
             </section>
             <section aria-label="Vanguard destinations">

@@ -27,7 +27,7 @@ before(async () => {
     ({ kv } = await import('../_storage.js'));
     token = (await import('../_auth.js')).issuePlayerToken(PLAYER)!;
     handler = (await import('./gauntlet.js')).default as unknown as Handler;
-    await kv.set(`save:${PLAYER}`, { _saveVersion: 1, character: { name: PLAYER, ryo: 2_000 } });
+    await kv.set(`save:${PLAYER}`, { _saveVersion: 1, character: { name: PLAYER, level: 90, ryo: 2_000 } });
 });
 
 after(() => {
@@ -71,7 +71,7 @@ test('Gauntlet start debits the stored wallet after the daily free run', async (
 test('repeated, concurrent and interrupted Gauntlet admissions keep one seal and charge each new entry once', async () => {
     const player = 'gauntletentryretry';
     const auth = (await import('../_auth.js')).issuePlayerToken(player)!;
-    await kv.set(`save:${player}`, { _saveVersion: 1, character: { name: player, ryo: 10000 } });
+    await kv.set(`save:${player}`, { _saveVersion: 1, character: { name: player, level: 90, ryo: 10000 } });
     const start = async (requestId: string) => {
         const result = response(); await handler(request({ requestId }, auth), result.res); return result.out;
     };
@@ -117,4 +117,24 @@ test('repeated, concurrent and interrupted Gauntlet admissions keep one seal and
     assert.equal(recovered.statusCode, 200);
     assert.equal(recovered.body?.resumed, true);
     assert.equal((await kv.get<any>(`save:${player}`)).character.ryo, 4000);
+});
+
+test('a low-level start seals ryo pay and charges its entry at that level', async (t) => {
+    t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
+    const player = 'gauntletlowlevel';
+    const auth = (await import('../_auth.js')).issuePlayerToken(player)!;
+    await kv.set(`save:${player}`, { _saveVersion: 1, character: { name: player, level: 10, ryo: 1_000 } });
+    const start = async () => { const result = response(); await handler(request({}, auth), result.res); return result.out; };
+    const free = await start();
+    assert.equal(free.statusCode, 200);
+    assert.equal(free.body?.chargedRyo, 0);
+    assert.equal(free.body?.perRound, 50);
+    assert.equal(free.body?.clearBonus, 300);
+    const sealed = await kv.get<{ perRound: number; clearBonus: number }>(`petgauntlet:tok:${free.body?.runToken}`);
+    assert.equal(sealed?.perRound, 50);
+    assert.equal(sealed?.clearBonus, 300);
+    const paid = await start();
+    assert.equal(paid.statusCode, 200);
+    assert.equal(paid.body?.chargedRyo, 300);
+    assert.equal((await kv.get<any>(`save:${player}`)).character.ryo, 700);
 });

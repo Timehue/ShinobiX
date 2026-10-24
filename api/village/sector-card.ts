@@ -18,6 +18,11 @@ import {
 import { commitSectorWarBattle, loadSectorWar, type SectorWarBattleCommit, type SectorWarBattleDecision } from '../_sector-war-store.js';
 import { villageWarMapEnabled } from '../_release-flags.js';
 import { resolveChronicleDeckMutation, resolveChronicleDeckWithSave, type ChronicleDeckResolution } from '../card-clash/_deck.js';
+import { recordFreePlayParticipation, type FreePlayParticipation } from '../card-clash/_freeplay-legacy.js';
+import {
+    cardCpReply, ensureCardPvpCpCredit, prepareCardGarrisonCpCredit, settleCardCpCredit,
+    type CardCpCommitted, type CardCpCredit,
+} from '../card-clash/_card-cp.js';
 import {
     claimOpenSectorBattle,
     endOwnOpenBattleProtection,
@@ -50,7 +55,11 @@ type WarResult={scored:boolean;points?:number;reason?:string};
 type Session={rulesVersion:typeof CHRONICLE_RULES_VERSION;sectorWarId:string;sector:number;attackerVillage:string;defenderVillage:string;p1Name:string;p1Deck:string[];p2Name?:string;p2Deck?:string[];state?:ChronicleMatch;status:'awaiting-defender'|'awaiting-target'|'active'|'done'|'void';createdAt:number;updatedAt:number;appliedToContest?:boolean;warResult?:WarResult;
     /** Set on an OPEN-WORLD duel (action `engage`): both seats are named, and the
      *  challenged player must take theirs by `joinBy` or it is void. */
-    open?:{engageId:string;initiator:string;target:string;joinBy:number}};
+    open?:{engageId:string;initiator:string;target:string;joinBy:number};
+    /** Who played the duel out, by the free-play rules (api/card-clash/_freeplay-legacy.ts). */
+    participation?:FreePlayParticipation;
+    /** Chronicle Point outbox for the two duelists (api/card-clash/_card-cp.ts). */
+    cpCredit?:CardCpCredit};
 function warResultFrom(commit:SectorWarBattleCommit):WarResult{return commit.status==='applied'?{scored:true,points:commit.receipt.points}:{scored:false,reason:commit.status==='skipped'?commit.reason:'missing'}}
 function warResultOf(session:{warResult?:WarResult}):{warResult?:WarResult}{return session.warResult?{warResult:session.warResult}:{}}
 /** When the duel ended: the session's last change, stamped by the move (or the
@@ -73,14 +82,22 @@ function cleanEngageId(raw:unknown):string{const id=String(raw??'').trim();retur
 function keyOf(session:Session):string{return session.open?openKey(session.open.engageId):sessionKey(session.sectorWarId)}
 async function saveSession(session:Session){const key=keyOf(session);await kv.set(key,session,{ex:SESSION_TTL_SEC});await syncCardDuelPresence(kv,key,session,SESSION_TTL_SEC)}
 async function applyOutcome(session:Session){if(!session.state?.winner||session.appliedToContest)return;const winner=session.state.winner;const winnerName=winner==='p1'?session.p1Name:winner==='p2'?(session.p2Name??''):'';const loserName=winner==='p1'?(session.p2Name??''):winner==='p2'?session.p1Name:'';const[winnerRole,loserRole]=await Promise.all([sectorWarRoleOf(winnerName),sectorWarRoleOf(loserName)]);const endedAt=battleEndedAt(session);/* One CAS commits the receipt with the tally (deduped past the in-row ledger). A settled war is no longer written, a duel opened before this contest instance belongs to an earlier war on the sector, and a duel that ENDED after the war stopped being live is past the whistle: it is skipped, never scored as a 0-point receipt (which still logged `battle-scored` and still put its winner on the capture credit). */const commit=await commitSectorWarBattle({contestId:session.sectorWarId,battleId:session.open?`card-open:${session.sectorWarId}:${session.open.engageId}`:`card:${session.sectorWarId}:${session.createdAt}`,decide:async(contest):Promise<SectorWarBattleDecision>=>{if(contest.flipped||contest.expiredAt)return{kind:'skip',reason:'terminal'};if(session.createdAt<contest.startedAt)return{kind:'skip',reason:'superseded'};if(!isSectorWarActive(contest,endedAt))return{kind:'skip',reason:'superseded'};const[atkRaw,defRaw]=await Promise.all([kv.get<Record<string,unknown>>(villageWarKey(session.attackerVillage)),kv.get<Record<string,unknown>>(villageWarKey(session.defenderVillage))]);const outcome=applyContestBattleByWinner(contest,winner,{now:endedAt,roleSwing:sectorControlSwing(winnerRole,loserRole),attackerMult:sectorWarDamageMultiplier(normalizeVillageWarRecord(session.attackerVillage,atkRaw??undefined)),defenderMult:defenderPointsMultiplier(normalizeVillageWarRecord(session.defenderVillage,defRaw??undefined)),by:winnerName});if(!outcome)return{kind:'skip',reason:'draw'};/* sectors never flip mid-war — settlement compares the tallies at 72h */return{kind:'score',outcome,attackerWon:winner==='p1',by:winnerName,at:endedAt}}});session.appliedToContest=true;session.warResult=warResultFrom(commit)}
-async function persist(session:Session){if(session.status==='done'){const first=!session.appliedToContest;await applyOutcome(session);if(first&&session.open)await protectOpenDuelLoser(session)}await saveSession(session)}
+async function persist(session:Session):Promise<CardCpCommitted>{if(session.status==='done'){const first=!session.appliedToContest;await applyOutcome(session);if(first&&session.open)await protectOpenDuelLoser(session)}await saveSession(session);return settlePoints(session)}
+/** One duel per table row (a finished table is replaced by a new row) and per open duel. */
+function pointsReceiptId(session:Session):string{return session.open?`card-pvp:sector-open:${session.open.engageId}`:`card-pvp:sector:${session.sectorWarId}:${session.createdAt}`}
+/** Pay (or retry) a finished player duel's Chronicle Points, whatever the war made of it. Idempotent. */
+async function settlePoints(session:Session):Promise<CardCpCommitted>{if(session.status!=='done')return{};const prepared=ensureCardPvpCpCredit(session,pointsReceiptId(session),'war');const points=await settleCardCpCredit(session.cpCredit);if(prepared||points.changed)await kv.set(keyOf(session),session,{ex:SESSION_TTL_SEC});return points.committed}
+/** The viewer's Chronicle Point result, and their fresh save once after it committed. */
+async function pointsReply(session:Session,viewer:string,admin:boolean,committed?:CardCpCommitted):Promise<Record<string,unknown>>{if(session.status!=='done')return{};const reply=await cardCpReply(session.cpCredit,viewer,{committed,deliver:!admin});if(reply.changed)await kv.set(keyOf(session),session,{ex:SESSION_TTL_SEC});return reply.body}
 /** An open duel was decided: its loser is protected. The winner, and either side of a draw, may fight again at once (owner ruling 2026-10-09). */
 async function protectOpenDuelLoser(session:Session){const winner=session.state?.winner;const loser=winner==='p1'?(session.p2Name??''):winner==='p2'?session.p1Name:'';if(loser)await protectOpenBattleLoser(session.sectorWarId,loser,Date.now())}
 // The shared clock: passes expired turns, and forfeits a duelist who misses two in
 // a row (shared/chronicle-duel.ts advanceExpiredChronicleTurn); applyOutcome then
 // scores that forfeit on the contest like any other result. Returns whether the
 // clock settled anything, so the handler can keep it even when it refuses the request.
-function timeout(session:Session,now:number):boolean{if(!session.state||session.state.status!=='active')return false;const state=advanceExpiredChronicleTurn(session.state,now);const advanced=state!==session.state;if(!advanced)return false;session.state=state;session.status=state.status==='complete'?'done':'active';session.updatedAt=now;return true}
+function timeout(session:Session,now:number):boolean{if(!session.state||session.state.status!=='active')return false;const state=advanceExpiredChronicleTurn(session.state,now);const advanced=state!==session.state;if(!advanced)return false;session.state=state;session.status=state.status==='complete'?'done':'active';session.updatedAt=now;/* A clock ending is not a played duel: it earns no Chronicle Points. */if(session.status==='done'&&session.participation)session.participation.endedBy='timeout';return true}
+/** Count one applied move toward the duel's participation record. */
+function noteMove(session:Session,side:ChronicleSideKey,action:string,now:number){session.participation=recordFreePlayParticipation(session.participation??{startedAt:now,p1Actions:0,p2Actions:0},side,action,session.status==='done')}
 function intent(body:Record<string,unknown>,action:string):ChronicleActionIntent{return{action,handIndex:idx(body.handIndex),zoneIndex:idx(body.zoneIndex),tributeZoneIndexes:Array.isArray(body.tributeZoneIndexes)?body.tributeZoneIndexes.map(idx).filter((n):n is number=>n!==undefined):undefined,attackerZoneIndex:idx(body.attackerZoneIndex),targetZoneIndex:body.targetZoneIndex===null?null:idx(body.targetZoneIndex),targetSide:body.targetSide==='p1'||body.targetSide==='p2'?body.targetSide:undefined,graveyardIndex:idx(body.graveyardIndex),...(body.position==='attack'||body.position==='defense'?{position:body.position}:{})}}
 
 
@@ -122,7 +139,37 @@ type GarrisonSession = {
     updatedAt: number;
     appliedToContest?: boolean;
     warResult?: WarResult;
+    /** Chronicle Point outbox for a won assault (api/card-clash/_card-cp.ts). */
+    cpCredit?: CardCpCredit;
 };
+
+/** Pay (or retry) a won assault's Chronicle Points: the garrison's two-hour
+ *  re-form window is what bounds it. A loss, draw or forfeit pays nothing. */
+async function settleGarrisonPoints(session: GarrisonSession): Promise<{ changed: boolean; committed: CardCpCommitted }> {
+    if (!aiMatchIsDone(session.match)) return { changed: false, committed: {} };
+    let prepared = false;
+    if (!session.cpCredit) {
+        const credit = prepareCardGarrisonCpCredit({
+            receiptId: `card-pve:${session.match.matchId}`,
+            attackerName: session.attackerName,
+            won: session.match.winner === 'player',
+            endedAt: battleEndedAt(session),
+        });
+        if (credit) {
+            session.cpCredit = credit;
+            prepared = true;
+        }
+    }
+    const points = await settleCardCpCredit(session.cpCredit);
+    return { changed: prepared || points.changed, committed: points.committed };
+}
+
+/** The attacker's Chronicle Point result, and their fresh save once after it committed. */
+async function garrisonPointsReply(session: GarrisonSession, admin: boolean, committed?: CardCpCommitted): Promise<Record<string, unknown>> {
+    const reply = await cardCpReply(session.cpCredit, session.attackerName, { committed, deliver: !admin });
+    if (reply.changed) await kv.set(garrisonKey(session.sectorWarId), session, { ex: SESSION_TTL_SEC });
+    return reply.body;
+}
 
 /** Read a player's server-approved Chronicle deck WITHOUT writing their save.
  *  resolveChronicleDeckWithSave grants starter cards and bumps `_saveVersion`;
@@ -216,7 +263,7 @@ type GarrisonReply = { status: 200 | 400 | 403 | 404 | 409; body: Record<string,
 /** Act on the attacker's OWN live garrison match. No contest gate: a match in
  *  progress always finishes (the war ending mid-match only means the result
  *  will not score — applyGarrisonOutcome reads the battle's own clock). */
-async function actOnOwnGarrison(session: GarrisonSession, action: string, body: Record<string, unknown>, now: number): Promise<GarrisonReply> {
+async function actOnOwnGarrison(session: GarrisonSession, action: string, body: Record<string, unknown>, now: number, admin: boolean): Promise<GarrisonReply> {
     if (action === 'join' || action === 'state') {
         return { status: 200, body: { session: projectAiMatch(session.match), garrisonDefendedByKage: session.defendedByKage } };
     }
@@ -229,17 +276,24 @@ async function actOnOwnGarrison(session: GarrisonSession, action: string, body: 
     }
     session.updatedAt = now;
     if (aiMatchIsDone(session.match)) await applyGarrisonOutcome(session);
+    const points = await settleGarrisonPoints(session);
     await saveGarrison(session);
-    return { status: 200, body: { session: projectAiMatch(session.match), ...warResultOf(session) } };
+    const pointsBody = await garrisonPointsReply(session, admin, points.committed);
+    return { status: 200, body: { ...pointsBody, session: projectAiMatch(session.match), ...warResultOf(session) } };
 }
 
 async function runGarrison(me: string, admin: boolean, sectorWarId: string, action: string, body: Record<string, unknown>): Promise<GarrisonReply> {
     const now = Date.now();
     let session = await kv.get<GarrisonSession>(garrisonKey(sectorWarId));
+    const previous = session;
     const mine = !!session && session.match.rulesVersion === CHRONICLE_RULES_VERSION && safeName(session.attackerName) === safeName(me);
-    if (session && mine && session.match.status === 'active') return actOnOwnGarrison(session, action, body, now);
+    if (session && mine && session.match.status === 'active') return actOnOwnGarrison(session, action, body, now, admin);
     if (session && mine && action === 'state') {
-        return { status: 200, body: { session: projectAiMatch(session.match), ...warResultOf(session) } };
+        // A finished assault's poll retries its Chronicle Points if they are still owed.
+        const points = await settleGarrisonPoints(session);
+        if (points.changed) await kv.set(garrisonKey(sectorWarId), session, { ex: SESSION_TTL_SEC });
+        const pointsBody = await garrisonPointsReply(session, admin, points.committed);
+        return { status: 200, body: { ...pointsBody, session: projectAiMatch(session.match), ...warResultOf(session) } };
     }
 
     // Everything else opens (or would open) a NEW match, and that needs a live
@@ -308,6 +362,8 @@ async function runGarrison(me: string, admin: boolean, sectorWarId: string, acti
         match, createdAt: now, updatedAt: now,
     };
     if (aiMatchIsDone(fresh.match)) await applyGarrisonOutcome(fresh);
+    // The new row replaces the finished one's outbox: pay what it still owes first.
+    if (previous && aiMatchIsDone(previous.match)) await settleGarrisonPoints(previous);
     await saveGarrison(fresh);
     await alertSectorPreparation(contest, `card-garrison:${now}`, 'card', now).catch(() => undefined);
     return { status: 200, body: { ...versionEcho(attackerDeck), session: projectAiMatch(fresh.match), garrisonDefendedByKage: defender.byKage, ...warResultOf(fresh) } };
@@ -370,14 +426,18 @@ async function runTable(me: string, admin: boolean, sectorWarId: string, action:
         // Write only what changed. Every duelist polls every two seconds, and
         // each poll used to rewrite the session and both presence rows under
         // the table lock even when nothing had moved.
+        let committed: CardCpCommitted = {};
         if (advanced || (session.status === 'done' && !session.appliedToContest)) {
-            await persist(session);
+            committed = await persist(session);
+        } else if (session.status === 'done') {
+            committed = await settlePoints(session);
         } else if (viewer === 'p1' && session.status === 'awaiting-defender' && now - session.updatedAt >= AWAITING_SEAT_REFRESH_MS) {
             // A waiting attacker's open table stays alive while they wait.
             session.updatedAt = now;
             await saveSession(session);
         }
-        return { status: 200, body: { session: seatedProjection(session, viewer ?? 'p1'), ...warResultOf(session) } };
+        const points = await pointsReply(session, me, admin, committed);
+        return { status: 200, body: { ...points, session: seatedProjection(session, viewer ?? 'p1'), ...warResultOf(session) } };
     }
 
     if (action === 'join' || action === 'submit-deck') {
@@ -404,8 +464,8 @@ async function runTable(me: string, admin: boolean, sectorWarId: string, action:
             if (!attacker) return { status: 200, body: { session: waitingTable('awaiting-attacker', null) } };
             const resolution = await resolveDeck(me, ids(body.deck ?? body.defaultDeck), admin);
             if (!resolution) return { status: 400, body: { error: 'No legal 40-card Chronicle deck is available.' } };
-            /* A finished table is scored before a new one replaces it, including one the clock ended on this request (applyOutcome runs once per table). */
-            if (session) await applyOutcome(session);
+            /* A finished table is scored before a new one replaces it, including one the clock ended on this request (applyOutcome runs once per table). Its Chronicle Points are settled first too: the new row replaces its outbox. */
+            if (session) { await applyOutcome(session); await settlePoints(session); }
             session = {
                 rulesVersion: CHRONICLE_RULES_VERSION, sectorWarId, sector: contest.sector,
                 attackerVillage: contest.attackerVillage, defenderVillage: contest.defenderVillage,
@@ -423,6 +483,7 @@ async function runTable(me: string, admin: boolean, sectorWarId: string, action:
         session.p2Deck = resolution.deck;
         session.state = createMatch(session.p1Name, session.p1Deck, me, resolution.deck, Math.random, now);
         session.status = 'active';
+        session.participation = { startedAt: now, p1Actions: 0, p2Actions: 0 };
         session.updatedAt = now;
         await saveSession(session);
         return { status: 200, body: { ...versionEcho(resolution), session: projectMatchForViewer(session.state, 'p2') } };
@@ -432,13 +493,16 @@ async function runTable(me: string, admin: boolean, sectorWarId: string, action:
     const side = viewer ?? (admin ? (body.side === 'p2' ? 'p2' : 'p1') : null);
     if (!side) return { status: 403, body: { error: 'Only the two duelists can act.' } };
     if (!ACTIONS.has(action)) return { status: 400, body: { error: `Unknown action: ${action}` } };
-    const applied = applyAction(session.state, side, intent(body, action), now);
+    const requested = intent(body, action);
+    const applied = applyAction(session.state, side, requested, now);
     if (!applied.ok) return { status: 400, body: { error: applied.error } };
     session.state = applied.state;
     session.status = applied.state.status === 'complete' ? 'done' : 'active';
     session.updatedAt = now;
-    await persist(session);
-    return { status: 200, body: { session: projectMatchForViewer(session.state, side), ...warResultOf(session) } };
+    noteMove(session, side, requested.action, now);
+    const committed = await persist(session);
+    const points = await pointsReply(session, me, admin, committed);
+    return { status: 200, body: { ...points, session: projectMatchForViewer(session.state, side), ...warResultOf(session) } };
 }
 
 /** An open duel that is not a match yet, as one duelist sees it: whom it is
@@ -534,6 +598,7 @@ async function runOpenDuel(me: string, admin: boolean, sectorWarId: string, enga
             else session.p2Deck = resolution.deck;
             session.state = createMatch(session.p1Name, session.p1Deck, session.p2Name ?? '', session.p2Deck ?? [], Math.random, now);
             session.status = 'active';
+            session.participation = { startedAt: now, p1Actions: 0, p2Actions: 0 };
             session.updatedAt = now;
             await saveSession(session);
             // The match is live: its presence now proves both duelists are in a
@@ -550,19 +615,25 @@ async function runOpenDuel(me: string, admin: boolean, sectorWarId: string, enga
 
     // A live or finished match runs exactly like the table's: the shared clock,
     // the same moves, and the same once-only scoring when it ends.
-    if (timeout(session, now) || (session.status === 'done' && !session.appliedToContest)) await persist(session);
+    let committed: CardCpCommitted = {};
+    if (timeout(session, now) || (session.status === 'done' && !session.appliedToContest)) committed = await persist(session);
+    else if (session.status === 'done') committed = await settlePoints(session);
     if (action === 'state' || action === 'join' || action === 'cancel') {
-        return { status: 200, body: { session: seatedProjection(session, seat), ...warResultOf(session) } };
+        const points = await pointsReply(session, me, admin, committed);
+        return { status: 200, body: { ...points, session: seatedProjection(session, seat), ...warResultOf(session) } };
     }
     if (!session.state || session.status !== 'active') return { status: 409, body: { error: 'This battle is over.' } };
     if (!ACTIONS.has(action)) return { status: 400, body: { error: `Unknown action: ${action}` } };
-    const applied = applyAction(session.state, seat, intent(body, action), now);
+    const requested = intent(body, action);
+    const applied = applyAction(session.state, seat, requested, now);
     if (!applied.ok) return { status: 400, body: { error: applied.error } };
     session.state = applied.state;
     session.status = applied.state.status === 'complete' ? 'done' : 'active';
     session.updatedAt = now;
-    await persist(session);
-    return { status: 200, body: { session: projectMatchForViewer(session.state, seat), ...warResultOf(session) } };
+    noteMove(session, seat, requested.action, now);
+    const moved = await persist(session);
+    const points = await pointsReply(session, me, admin, moved);
+    return { status: 200, body: { ...points, session: projectMatchForViewer(session.state, seat), ...warResultOf(session) } };
 }
 
 /** Sector-war Chronicle Showdown; p1 is always attacker and the contest consumes only the shared engine winner. */

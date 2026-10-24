@@ -9,6 +9,7 @@ import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { loadSettlementCatalogs } from '../shop/_catalog.js';
 import { applyInventorySale, type InventorySaleSource } from './_sale.js';
 import { namedGearSaleItem } from './_named-sale-item.js';
+import { PET_UNLOCK_WORN_ERROR, petUnlockLeftWithoutCopy } from '../pet/_pet-unlocks.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
@@ -43,6 +44,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 Date.now(),
             );
             if (!settled.ok) return settled;
+            // A collar or PvP pet gear copy is an unlock every pet shares: the last
+            // one stays while a pet wears it (api/pet/_pet-unlocks.ts). A replay
+            // returns its stored receipt and is never refused.
+            if (!settled.replayed && petUnlockLeftWithoutCopy(settled.character, item.id)) {
+                return { ok: false as const, status: 409, error: PET_UNLOCK_WORN_ERROR };
+            }
             return { ok: true as const, character: settled.character, value: { ...settled.value, replayed: settled.replayed } };
         });
         if (!out.ok) return res.status(out.status).json({ error: out.error });

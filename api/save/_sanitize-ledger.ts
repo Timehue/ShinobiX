@@ -148,11 +148,16 @@ const STARTER_BLOODLINE_JUTSU_IDS: Record<string, readonly string[]> = {
     'Iron Fang': ['iron-fang-anvil-breath', 'iron-fang-ferrous-crash', 'iron-fang-magnet-knuckle', 'iron-fang-steel-maw'],
 };
 
+/**
+ * The ONE reader of STRICT_RAW_SAVE_LEDGER. Strict is the code default (owner
+ * amendment A13, 2026-10-22: no env var is needed to go live); only an explicit
+ * '0' turns it off, as an emergency switch. High-impact inventory/equipment
+ * minting is closed independently below, in either mode. Before a deploy whose
+ * preserved saves hold pre-registry forged gear, run
+ * `npm run scan:data -- --repair` once (additive forged-item registry backfill).
+ */
 function strictRawSaveLedgerEnabled(): boolean {
-    // This wider cutover is deliberately opt-in until every remaining legacy
-    // progression writer and the forged-item backfill have been certified.
-    // High-impact inventory/equipment minting is closed independently below.
-    return process.env.STRICT_RAW_SAVE_LEDGER === '1';
+    return process.env.STRICT_RAW_SAVE_LEDGER !== '0';
 }
 
 function starterJutsuIdsForBloodline(raw: unknown): readonly string[] {

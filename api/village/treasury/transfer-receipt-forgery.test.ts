@@ -116,9 +116,16 @@ test('a village-state save cannot erase the agenda receipts that stop a second t
     // would put the second on a fresh day, so the tithe would pay again.
     // Freeze Date (Date.now and new Date alike) from here on.
     t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
-    for (let sector = 1; sector <= 10; sector++) {
+    // The agenda's `control` task counts held WAR sectors (2026-10 rebalance,
+    // I-10), so the village holds real war sectors here, not arbitrary rows.
+    const { homeSectorsForVillage } = await import('../../_war-map-sectors.js');
+    for (const sector of homeSectorsForVillage('Ashen Leaf Village')) {
         await kv.set(`world:territory:${sector}`, { sector, ownerVillage: VILLAGE });
     }
+    // A war village holds its own sector too, so the table reads as seeded
+    // rather than falling back to the home baseline.
+    const [moonSector] = homeSectorsForVillage('Moonshadow Village');
+    await kv.set(`world:territory:${moonSector}`, { sector: moonSector, ownerVillage: 'Moonshadow Village' });
     const first = await call(agenda, ALT, { playerName: ALT, village: VILLAGE });
     assert.equal(first.statusCode, 200, JSON.stringify(first.body));
     assert.equal(first.body?.treasuryAlreadyClaimed, false);

@@ -19,6 +19,7 @@
 
 import { NAMED_GEAR_DONATE_BLOCK_MESSAGE } from '../shared/named-gear-rules.js';
 import { wasEverEquipped } from './save/_named-gear-equipped.js';
+import { PET_UNLOCK_WORN_ERROR, petUnlockLeftWithoutCopy } from './pet/_pet-unlocks.js';
 
 export type TreasuryItemStack = { itemId: string; count: number };
 
@@ -169,6 +170,8 @@ export function applyTreasuryDonation(
         return { ok: false, status: 400, error: `You do not own ${count} of that item (have ${owned}).` };
     }
     const removed = removeOwned(donorChar, itemId, count);
+    // The last copy of a pet unlock (collar, PvP gear) stays while a pet wears it.
+    if (petUnlockLeftWithoutCopy({ ...donorChar, ...removed }, itemId)) return { ok: false, status: 400, error: PET_UNLOCK_WORN_ERROR };
     nextDonorChar.inventory = removed.inventory;
     nextDonorChar.itemStacks = removed.itemStacks;
     nextTreasury.items = cleanTreasuryItems([...(Array.isArray(prevTreasury.items) ? prevTreasury.items : []), { itemId, count }]);

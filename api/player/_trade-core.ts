@@ -20,8 +20,13 @@ export const TRADE_CURRENCIES: TradeCurrency[] = ['ryo', 'fateShards', 'boneChar
 
 // Per-transfer ceilings (mirror the clan/village treasury-transfer caps so no
 // single call can move an unbounded amount) and floors (kill dust-spam trades).
+// The rare currencies start at 2 (2026-10 economy rebalance, the trade half of
+// I-16): a 1-unit trade burned nothing, so 1,000 one-shard sends moved a whole
+// daily budget at 0%. From 2 units the floored tax always burns at least one,
+// matching TREASURY_GIFT_MIN_AMOUNT so neither channel undercuts the other.
+// MIRROR: shinobij.client/src/lib/player-trade.ts (parity-pinned).
 export const TRADE_CAPS: Record<TradeCurrency, number> = { ryo: 200_000, fateShards: 200, boneCharms: 200, auraStones: 200 };
-export const TRADE_MINS: Record<TradeCurrency, number> = { ryo: 1_000, fateShards: 1, boneCharms: 1, auraStones: 1 };
+export const TRADE_MINS: Record<TradeCurrency, number> = { ryo: 1_000, fateShards: 2, boneCharms: 2, auraStones: 2 };
 
 export function isTradeCurrency(c: unknown): c is TradeCurrency {
     return typeof c === 'string' && (TRADE_CURRENCIES as string[]).includes(c);
@@ -51,7 +56,8 @@ export function planTrade(currency: unknown, amountRaw: unknown, senderBalance: 
     if (n(senderBalance) < amount) return { ok: false, reason: `You don't have ${amount.toLocaleString()} ${currency}.` };
     // Floored, so the burn absorbs the rounding remainder — except at a single
     // unit, where flooring would credit 0 and the trade would deliver nothing.
-    // TRADE_MINS allows a 1-shard/charm/stone trade, so that case is reachable.
+    // TRADE_MINS no longer admits a single unit, so this floor is now only a
+    // guard that keeps a lowered minimum from ever crediting 0.
     const credit = Math.max(1, Math.floor(amount * (1 - TRADE_TAX_PCT)));
     const burned = amount - credit;
     return { ok: true, currency, debit: amount, credit, burned };

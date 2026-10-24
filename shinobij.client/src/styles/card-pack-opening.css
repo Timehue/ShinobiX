@@ -1102,3 +1102,40 @@
     transition-duration: 0s !important;
   }
 }
+
+/* A copy past the 3-copy playset converted into points or shards (economy
+   rebalance 2026-10). Appended after every media-query block on purpose:
+   docs/generated/design-tokens.json records their line numbers. Centered
+   along the card's foot and allowed to wrap, so the longest label still fits
+   the 81 px summary card on a phone. A converted copy is never NEW, so the two
+   badges never share a card. */
+.pack-card__converted {
+  position: absolute;
+  left: 50%;
+  bottom: 8px;
+  z-index: 6;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: calc(100% + 8px);
+  background: linear-gradient(#5a4a26, #3b3018);
+  color: #f1dca0;
+  font-family: inherit;
+  font-size: 0.6rem;
+  font-weight: 800;
+  line-height: 1.15;
+  text-align: center;
+  padding: 4px 7px;
+  border-radius: 6px;
+  border: 1px solid rgba(240, 196, 99, 0.55);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.55);
+}
+.pack-summary__card .pack-card__converted {
+  bottom: 4px;
+  padding: 3px 5px;
+}
+.pack-summary__head .pack-summary__converted {
+  color: #e6cf8f;
+  font-size: 0.8rem;
+  letter-spacing: 0.02em;
+  text-transform: none;
+}

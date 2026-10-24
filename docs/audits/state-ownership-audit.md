@@ -51,7 +51,7 @@ Format: domain | canonical location | ownership | mutators | stale-autosave-over
 | Equipped items | `character.equipment` | MIXED — `enforceEquipmentOwnership` (`:547`): slot whitelist, ownership, slot-kind | generic save | No unowned equips | lock | LOW |
 | creatorItems (personal forged) | TOP-LEVEL `creatorItems`, ids `named-(weapon\|armor)-<uuid>` (`FORGED_ITEM_ID`, `:432`) | MIXED — numerics clamped (`:2033-2098`); revived if omitted (`preserveForgedItems`, `:470`); stripped from admin slots | craft/named.ts mints | No (revival guard) | lock | LOW |
 | Admin-authored content | `save:admin1` / `save:admin2` root fields (`SHARED_ADMIN_CONTENT_FIELDS`, `:97`) | ADMIN — deleted from player `character.*` (`:1852-1858`); top-level `creator*` frozen (`SERVER_LEDGER_TOPLEVEL_FIELDS`, `:397`) | admin save path (`?signal=1`) | No | admin-lock signal, NOT withKvLock | MEDIUM |
-| Jutsu mastery / equipped / training | `character.jutsuMastery`, `equippedJutsuIds`, top-level `activeJutsuTraining` | SERVER — mastery stored-only (≤100 xp drip non-strict, `:1185-1193`); queue frozen (`:2145`) | training endpoints | No | lock | LOW |
+| Jutsu mastery / equipped / training | `character.jutsuMastery`, `equippedJutsuIds`, top-level `activeJutsuTraining` | SERVER — mastery stored-only (no client XP writes in any mode, `:1185-1193`); queue frozen (`:2145`) | training endpoints | No | lock | LOW |
 | Bloodlines | `savedBloodlines`, `pendingBloodlineForges` (top-level) | MIXED — content client-authored, budget/rank clamped (`:1586-1698`); rank mint requires server forge entitlement (`:2146-2148`) | bloodlines/forge | No rank mint | lock | LOW |
 | Legacies | `character.legacy`, `serverTitles` | SERVER — stored always wins (`:890`, `:857`) | legacy/sage, legacy/trial, admin/legacy | No | lock | LOW |
 | Pets | `character.pets`, `activePetId` | SERVER — see caveat below | pet/befriend, choose-starter, progress, evolve, battle-result | Removal only | lock | LOW |
@@ -158,9 +158,7 @@ not in the stored roster is DROPPED whenever `strictLedger ||
 existingPets.length > 0` (`:1348`). For existing pets, `PET_IDENTITY_FIELDS`
 (`:1333-1341`) are forced from stored — a generic save can remove a pet but not
 train/rename/fabricate one. Canonical add path: `api/pet/befriend.ts`
-(mutatePlayerSave). **Caveat:** legacy carve-out — a save whose stored roster is
-EMPTY (non-strict) may add one bounded pet (stats 1–100, no jutsus/level/xp,
-`:1349-1354`).
+(mutatePlayerSave). The legacy empty-roster carve-out (one bounded client-defined pet) was removed in the 2026-10 economy pass (I-2): a generic save never adds a pet in either ledger mode.
 
 ### Whole-save writes without a lock
 
@@ -184,7 +182,6 @@ LockContendedError → 429 (`:2793`). Two verified exceptions:
 - One net-new non-server-owned inventory item per save (`:1462`).
 - Non-strict inventory/itemStacks presence-checked, not count-consumed, for
   equipment (`:511-537` comment).
-- Empty-roster pet carve-out (above).
 
 ### Storage & auth context
 
@@ -203,4 +200,4 @@ LockContendedError → 429 (`:2793`). Two verified exceptions:
 - Actual production value of `STRICT_RAW_SAVE_LEDGER` on Railway.
 - Whether any live saves still carry pre-version-stamp state (426 path traffic).
 - Existing corrupted/duplicated live records (pets, inventory, receipts).
-- Whether the empty-roster pet carve-out is still exercised by real accounts.
+- Pets injected through the removed empty-roster carve-out before 2026-10 (no level, xp or jutsus array) are kept; a read-only rule in scripts/data-integrity-scan.mjs could list them.

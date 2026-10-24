@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { normalizeVillageWarRecord } from './_war-state.js';
-import { villageWarMapView } from './_war-map-view.js';
+import { publicVillageWarMapView, villageWarMapView } from './_war-map-view.js';
 
 function recordWith(structures: Record<string, number> = {}, warResources = 0, dormant = false) {
     return normalizeVillageWarRecord('Moonshadow Village', { warResources, structures, dormant });
@@ -72,6 +72,23 @@ describe('war-map view: tax rate mirrors the charge', () => {
         });
         assert.equal(v.taxRatePct, 1);
         assert.equal(v.kageSeated, true);
+    });
+
+    it('carries the treasury ryo and Bone Charms preparations spend, for members only (2026-10 rebalance)', () => {
+        const v = villageWarMapView({
+            village: 'Frostfang Village', record: normalizeVillageWarRecord('Frostfang Village'), treasurySeals: 10, sectorsHeld: 8,
+            treasuryRyo: 120_000, treasuryBoneCharms: 45, ryoPerWr: 250,
+        });
+        assert.equal(v.treasuryRyo, 120_000);
+        assert.equal(v.treasuryBoneCharms, 45);
+        assert.equal(v.ryoPerWr, 250);
+        const outsider = publicVillageWarMapView(v) as Record<string, unknown>;
+        for (const field of ['treasuryRyo', 'treasuryBoneCharms', 'ryoPerWr', 'treasurySeals', 'warResources']) {
+            assert.equal(field in outsider, false, `${field} is the members' business`);
+        }
+        const defaults = villageWarMapView({ village: 'Frostfang Village', record: normalizeVillageWarRecord('Frostfang Village'), treasurySeals: 0, sectorsHeld: 8 });
+        assert.equal(defaults.treasuryRyo, 0);
+        assert.equal(defaults.ryoPerWr, 250, 'the shared code default when no rate is passed');
     });
 
     it('treats an omitted seat as seated, so existing callers are unchanged', () => {

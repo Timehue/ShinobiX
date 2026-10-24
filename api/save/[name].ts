@@ -3,7 +3,7 @@ import { sanitizeNarrativeIdentity } from './_sanitize-narrative.js';
 import { sanitizeProgression } from './_sanitize-progression.js';
 import { unfundedStatGains } from './_stat-entitlement.js';
 import { sanitizePetRoster } from './_sanitize-pets.js';
-import { sanitizeInventory } from './_sanitize-inventory.js';
+import { foldStackedMaterialsOnSave, sanitizeInventory } from './_sanitize-inventory.js';
 import { preserveGearStepItems } from './_gear-step-floor.js';
 import { recordEquippedNamedGear } from './_named-gear-equipped.js';
 import { sanitizeExamProgress } from './_sanitize-exams.js';
@@ -217,7 +217,7 @@ async function readGainsWindow(name: string): Promise<GainsWindow | null> {
     } catch (e) {
         // best-effort — but log: a silent read failure resets the anti-farm
         // window to "fresh", quietly weakening the per-minute gain caps.
-        console.error(`[save gains-window] read failed for ${name}:`, e);
+        console.error('[save gains-window] read failed for', safeLogValue(name), safeLogValue(e));
         return null;
     }
 }
@@ -228,7 +228,7 @@ async function writeGainsWindow(name: string, w: GainsWindow): Promise<void> {
     } catch (e) {
         // best-effort — but log: dropping the window write degrades the anti-farm
         // limiter invisibly.
-        console.error(`[save gains-window] write failed for ${name}:`, e);
+        console.error('[save gains-window] write failed for', safeLogValue(name), safeLogValue(e));
     }
 }
 
@@ -325,6 +325,9 @@ export function sanitizeCharacterSave(
 
     const finalChar = isFirstSave ? applyCanonicalFirstSave(char) : char;
     enforceRawSaveLedgerBoundary(finalChar, exChar, isFirstSave, inChar);
+    // After the boundary has settled ownership, in both ledger modes: hunt
+    // materials and the Weekly Boss Core move into itemStacks (A12).
+    foldStackedMaterialsOnSave(finalChar);
     if (!isFirstSave && opts.allowGearStepRemoval !== true) preserveGearStepItems(finalChar, exChar);
     if (!isFirstSave && !opts.adminContentSlot) recordEquippedNamedGear(finalChar, exChar);
 

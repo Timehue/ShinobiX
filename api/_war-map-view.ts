@@ -9,6 +9,7 @@
  */
 
 import {
+    RYO_PER_WR,
     WR_POOL_CAP,
     taxRateForSectors,
 } from './_war-economy.js';
@@ -74,6 +75,12 @@ export interface VillageWarMapView {
     depotConversionCap: number;
     /** Last 10 stores ledger rows, oldest first. */
     storesLedger: StoresLedgerEntry[];
+    // ── Treasury on escalation (2026-10 rebalance, #6) ──
+    /** The treasury's ryo and Bone Charms: preparations and merc hires spend them. */
+    treasuryRyo: number;
+    treasuryBoneCharms: number;
+    /** Treasury ryo per WR this server charges now (the WAR_RYO_PER_WR dial). */
+    ryoPerWr: number;
 }
 
 function round2(n: number): number {
@@ -96,6 +103,11 @@ export function villageWarMapView(args: {
     /** The sectors the village holds (api/_war-held-sectors.ts
      *  loadHeldSectorLists). Omitted = its home sectors, the old view. */
     heldSectors?: readonly number[];
+    /** Treasury ryo and Bone Charms (default 0). */
+    treasuryRyo?: number;
+    treasuryBoneCharms?: number;
+    /** Treasury ryo per WR (default: the shared code default). */
+    ryoPerWr?: number;
 }): VillageWarMapView {
     const { village, record } = args;
     const treasurySeals = Math.max(0, Math.floor(Number(args.treasurySeals) || 0));
@@ -140,6 +152,9 @@ export function villageWarMapView(args: {
         materialPoints: Math.max(0, Math.floor(Number(args.materialPoints) || 0)),
         depotConversionCap: depotConversionCap(effectiveLevel(record, 'supplyDepot')),
         storesLedger: parseStoresLedger(record.storesLedger).slice(-STORES_LEDGER_VIEW_ROWS),
+        treasuryRyo: Math.max(0, Math.floor(Number(args.treasuryRyo) || 0)),
+        treasuryBoneCharms: Math.max(0, Math.floor(Number(args.treasuryBoneCharms) || 0)),
+        ryoPerWr: Number.isFinite(Number(args.ryoPerWr)) ? Math.max(0, Number(args.ryoPerWr)) : RYO_PER_WR,
     };
 }
 

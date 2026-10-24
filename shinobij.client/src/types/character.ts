@@ -402,7 +402,7 @@ export type Character = {
     sunscarExchangeReceipts?: string[];
     sunscarRally?: import('../../../shared/sunscar/rally-championship').RallyProgress;
     sunscarCaravan?: import('../../../shared/sunscar/caravan-types').CaravanProgress;
-    /** Server-issued certificates, each redeemable for one free Broker sealed crate. */
+    /** Server-issued certificates, each covering half of one Broker sealed crate's stake. */
     brokerCertificates?: number;
     brokerCrateLedger?: import('../../../shared/sunscar/broker-certificates').BrokerCrateLedger;
     equipment: EquipmentSlots;
@@ -437,8 +437,11 @@ export type Character = {
     // Current Chronicle rules tutorial acknowledged by the player.
     cardClashTutorialVersion?: number;
     // ── Echoes of War (Celestial Tower Chronicle Showdown campaign) ──────────
-    // Chronicle Points: SERVER-OWNED campaign currency. Credited only by the
-    // ai-move echoes settle; spent only through the server pack endpoints.
+    // Chronicle Points: SERVER-OWNED card currency. Credited by the ai-move
+    // echoes settle, card battles (free-play, clan-war and sector-war duels, the
+    // Dungeon Card seal, Rift card ambushes, sector garrisons; see
+    // api/card-clash/_card-cp.ts), the pack surplus conversion and the Ancient
+    // Chest duplicate card; spent only through the server pack endpoints.
     chroniclePoints?: number;
     // SERVER-OWNED per-encounter campaign record (wins + first-clear stamp).
     // Written only by the ai-move echoes settle; a generic save mirrors it.
@@ -792,7 +795,7 @@ export type Character = {
     dailyBlackMarketCrates?: number;
     dailyBlackMarketCratesDay?: string;
     // Daily login-streak reward (server-authoritative, api/player/daily-login.ts).
-    // loginStreak = consecutive UTC days claimed; lastLoginRewardDate = the UTC
+    // loginStreak = UTC days claimed in total (never resets); lastLoginRewardDate = the UTC
     // date (YYYY-MM-DD) of the last grant, which gates the once-per-day payout.
     // Written by the server inside the save lock; the client mirrors them after a
     // claim so a follow-up autosave preserves them.

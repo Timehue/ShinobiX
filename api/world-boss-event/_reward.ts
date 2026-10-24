@@ -5,6 +5,8 @@ import { GEAR_DROP_CHANCE_BP, gearRoll, pickGearDrop } from '../_gear-drops.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { retryOnSaveVersionConflict } from '../save/_projected-write.js';
 import { applyDerivedLevel, type XpCharacter } from '../_xp-engine.js';
+import { recordEconomyTxn } from '../_economy.js';
+import { grantItemIds } from '../../shared/stacked-materials.js';
 import type { WorldBossRewardReceipt } from './_event.js';
 
 const WORLD_BOSS_STAT_POINTS = 3;
@@ -42,6 +44,13 @@ function replayedReward(value: Record<string, unknown>): WorldBossRewardReceipt 
     };
 }
 
+/** Economy telemetry for one committed package (I-19). Not awaited: telemetry
+ *  never holds the save lock. The txnIds derive from the package receipt. */
+function recordWorldBossReward(requestId: string, playerSlug: string): void {
+    void recordEconomyTxn({ txnId: `${requestId}:ryo`, player: playerSlug, currency: 'ryo', delta: WORLD_BOSS_RYO, source: 'worldboss.reward' });
+    void recordEconomyTxn({ txnId: `${requestId}:boneCharms`, player: playerSlug, currency: 'boneCharms', delta: WORLD_BOSS_BONE_CHARMS, source: 'worldboss.reward' });
+}
+
 /** Once-per-event account-bound package; every item and currency is saved under one receipt. */
 export async function settleWorldBossReward(input: {
     eventId: string;
@@ -68,9 +77,12 @@ export async function settleWorldBossReward(input: {
             gearDrop = pickGearDrop(character, stableRng(input.eventId, input.playerSlug)) ?? undefined;
             if (gearDrop) itemIds.push(gearDrop);
         }
-        const inventory = Array.isArray(character.inventory)
-            ? [...character.inventory.filter((item): item is string => typeof item === 'string'), ...itemIds]
-            : [...itemIds];
+        // The Core and the material join their itemStacks entries (owner ruling
+        // A12); the gear drop is a unique piece and stays in inventory[].
+        const stores = grantItemIds({
+            inventory: Array.isArray(character.inventory) ? character.inventory.filter((item): item is string => typeof item === 'string') : [],
+            itemStacks: character.itemStacks,
+        }, itemIds);
         const unspentStats = Math.max(0, Math.floor(Number(character.unspentStats) || 0)) + WORLD_BOSS_STAT_POINTS;
         const leveled = applyDerivedLevel({ ...character, unspentStats } as unknown as XpCharacter) as unknown as Record<string, unknown>;
         const reward: WorldBossRewardReceipt = {
@@ -93,7 +105,8 @@ export async function settleWorldBossReward(input: {
             rankTitle: leveled.rankTitle,
             ryo: Math.max(0, Number(character.ryo) || 0) + WORLD_BOSS_RYO,
             boneCharms: Math.max(0, Number(character.boneCharms) || 0) + WORLD_BOSS_BONE_CHARMS,
-            inventory,
+            inventory: stores.inventory,
+            ...(stores.itemStacks !== undefined ? { itemStacks: stores.itemStacks } : {}),
         };
         return {
             ok: true,
@@ -104,6 +117,9 @@ export async function settleWorldBossReward(input: {
                 settledAt: Date.now(),
             }),
             value: reward,
+            // Only the fresh credit reaches here, and afterCommit runs only once
+            // it committed, so a replay or a lost compare-and-set logs nothing.
+            afterCommit: () => recordWorldBossReward(requestId, input.playerSlug),
         };
     }));
     if (!result.ok) return null;

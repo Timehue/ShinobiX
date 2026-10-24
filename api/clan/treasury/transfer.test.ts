@@ -54,6 +54,40 @@ async function post(body: Record<string, unknown>): Promise<ResponseOut> {
 }
 
 describe('clan treasury transfer settlement', () => {
+    it('refuses a 1-unit Aura Stone gift and moves nothing (I-16)', { concurrency: false }, async () => {
+        await kv.set(CLAN_KEY, {
+            founderName: 'Founder',
+            members: [{ name: 'Founder', isFounder: true }, { name: 'Recipient' }],
+            treasury: { ryo: 100, auraStones: 5 },
+        });
+        await kv.set(RECIPIENT_KEY, { _saveVersion: 1, character: { name: 'Recipient', clan: 'Ashwind', ryo: 10, auraStones: 0 } });
+        const refused = await post({ clanName: 'Ashwind', recipientName: 'Recipient', currency: 'auraStones', amount: 1, requestId: 'clan-transfer-one-as-01' });
+        assert.equal(refused.statusCode, 400);
+        assert.match(String(refused.body?.error), /^Gift at least 2 Aura Stones/);
+        assert.equal((await kv.get<{ treasury?: { auraStones?: number } }>(CLAN_KEY))?.treasury?.auraStones, 5);
+        assert.equal((await kv.get<{ character?: { auraStones?: number } }>(RECIPIENT_KEY))?.character?.auraStones, 0);
+        // One ryo stays deliverable: the minimum covers only the laundering-capable rare currencies.
+        assert.equal((await post({ clanName: 'Ashwind', recipientName: 'Recipient', currency: 'ryo', amount: 1, requestId: 'clan-transfer-one-ryo-01' })).statusCode, 200);
+    });
+
+    it('refuses a Mythic Seal gift and moves nothing (I-8)', { concurrency: false }, async () => {
+        await kv.set(CLAN_KEY, {
+            founderName: 'Founder',
+            members: [{ name: 'Founder', isFounder: true }, { name: 'Recipient' }],
+            treasury: { ryo: 100, mythicSeals: 12 },
+        });
+        await kv.set(RECIPIENT_KEY, { _saveVersion: 1, character: { name: 'Recipient', clan: 'Ashwind', ryo: 10, mythicSeals: 0 } });
+        for (const amount of [1, 5, 50]) {
+            const refused = await post({ clanName: 'Ashwind', recipientName: 'Recipient', currency: 'mythicSeals', amount, requestId: `clan-transfer-seal-${String(amount).padStart(4, '0')}` });
+            assert.equal(refused.statusCode, 400, JSON.stringify(refused.body));
+            assert.match(String(refused.body?.error), /Mythic Seals cannot be gifted/);
+        }
+        assert.equal((await kv.get<{ treasury?: { mythicSeals?: number } }>(CLAN_KEY))?.treasury?.mythicSeals, 12, 'the treasury keeps its seals');
+        const recipient = await kv.get<{ _saveVersion?: number; character?: { mythicSeals?: number } }>(RECIPIENT_KEY);
+        assert.equal(recipient?.character?.mythicSeals, 0);
+        assert.equal(recipient?._saveVersion, 1, 'the recipient save was never written');
+    });
+
     it('debits and credits exactly once on replay', { concurrency: false }, async () => {
         const body = { clanName: 'Ashwind', recipientName: 'Recipient', currency: 'ryo', amount: 25, requestId: 'clan-transfer-replay-01' };
         const first = await post(body);

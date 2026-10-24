@@ -16,6 +16,8 @@ import {
     parseBankTransferAmount,
     type BankTransferAction,
 } from './_transfer.js';
+import { assessVillageTax } from '../_war-tax-apply.js';
+import { villageTaxEcho } from '../village/_village-tax-echo.js';
 
 /*
  * /api/bank/transfer - POST { playerName, action, amount, requestId? }
@@ -61,6 +63,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identityName) return res.status(401).json({ error: 'Authentication required.' });
         if (identityName !== playerName) return res.status(403).json({ error: 'You can only use your own bank account.' });
         if (!(await enforceRateLimitKv(req, res, 'bank-transfer', 20, 60_000, identityName, { strict: true }))) return;
+        // The day's occupation tax, assessed by the server before the move (2026-10
+        // rebalance, I-11): a conqueror's modded client that never called
+        // /api/village/tax was never taxed. Outside the save lock (the tax takes its
+        // own), idempotent per day, never throws. The move below reads the post-tax
+        // balances, so the returned character already reflects it.
+        const villageTax = await assessVillageTax(playerName);
         try {
             const out = await mutatePlayerSave(playerName, ({ character }) => {
                 const fingerprint = requestId ? bankTransferFingerprint(action, amount) : '';
@@ -110,16 +118,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     value,
                 };
             });
-            if (!out.ok) return res.status(out.status).json({ error: out.error });
+            // A refusal still echoes the tax: its day stamp moved the save version,
+            // and the client adopts that so its next autosave is not stale.
+            if (!out.ok) return res.status(out.status).json({ error: out.error, ...villageTaxEcho(villageTax) });
             return res.status(200).json({
                 ok: true,
                 ...out.value,
                 character: out.character,
                 _saveVersion: out._saveVersion,
+                ...villageTaxEcho(villageTax),
             });
         } catch (err) {
             console.error('[bank/transfer] locked mutation failed', safeLogValue(err));
-            return res.status(503).json({ error: 'Could not update your bank account. Please retry.' });
+            return res.status(503).json({ error: 'Could not update your bank account. Please retry.', ...villageTaxEcho(villageTax) });
         }
     } catch (err) {
         console.error('[bank/transfer]', safeLogValue(err));

@@ -33,7 +33,13 @@ const SECTOR_CARD_CONFIG: CardClashDuelConfig = {
     autoJoin: true,
 };
 
-type SectorWarCardBattleProps = { character: Character; setScreen: (s: Screen) => void; sharedImages?: Record<string, string> };
+type SectorWarCardBattleProps = {
+    character: Character;
+    setScreen: (s: Screen) => void;
+    sharedImages?: Record<string, string>;
+    /** Adopts the save a finished duel hands back once its Chronicle Points commit. */
+    onVersionedCharacter?: (character: Character, saveVersion: number) => boolean;
+};
 
 export function SectorWarCardBattle(props: SectorWarCardBattleProps) {
     // A new open duel for a player already on this screen remounts the table, so
@@ -42,7 +48,7 @@ export function SectorWarCardBattle(props: SectorWarCardBattleProps) {
     return <SectorWarCardTable key={generation} {...props} />;
 }
 
-function SectorWarCardTable({ character, setScreen, sharedImages = {} }: SectorWarCardBattleProps) {
+function SectorWarCardTable({ character, setScreen, sharedImages = {}, onVersionedCharacter }: SectorWarCardBattleProps) {
     // An entry from the world map records its return target beside the stash, so
     // the table sends the player back to the sector they opened it from rather
     // than a War Map they never visited — and says so on its buttons.
@@ -82,5 +88,5 @@ function SectorWarCardTable({ character, setScreen, sharedImages = {} }: SectorW
             } : {}),
         };
     }, []);
-    return <CardClashDuelScreen character={character} setScreen={setScreen} config={config} sharedImages={sharedImages} />;
+    return <CardClashDuelScreen character={character} setScreen={setScreen} config={config} sharedImages={sharedImages} onVersionedCharacter={onVersionedCharacter} />;
 }

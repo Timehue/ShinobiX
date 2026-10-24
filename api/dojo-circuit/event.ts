@@ -7,7 +7,7 @@ import { kv } from '../_storage.js';
 import { withKvLock, LockContendedError } from '../_lock.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { circuitHistory, circuitPhase, isCircuitDiscipline, type CircuitEvent } from '../../shared/dojo-circuit.js';
-import { CIRCUIT_KEY, CIRCUIT_ENABLED_KEY, readCircuit, setCircuitEnabled, circuitVictoryFits } from './_store.js';
+import { CIRCUIT_KEY, CIRCUIT_ENABLED_KEY, readCircuit, setCircuitEnabled, circuitVictoryFits, creditCircuitSealPurse } from './_store.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
@@ -43,6 +43,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             await setCircuitEnabled(body.enabled);
             return await respond(body.enabled ? 'Dojo Circuit is enabled.' : 'Dojo Circuit is off. Recorded seals are preserved.');
         }
+        // The seal purse a 'check' credits (owner amendment A7), quoted in its reply.
+        const sealPurse: { ryo?: number } = {};
         const result = await withKvLock(CIRCUIT_KEY, async () => {
             const state = await readCircuit();
             const enabled = await kv.get<boolean>(CIRCUIT_ENABLED_KEY) === true;
@@ -105,7 +107,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         const proof = attempt.verifiedVictory;
                         // Lifetime counters (including legacy attempt baselines) are never proof.
                         if (!proof?.matchId || !circuitVictoryFits(event, attempt, proof.startedAt, proof.finishedAt)) return fail(409, 'No qualifying match has been verified yet. Finish this trial and check again.');
-                        if (!entrant.seals.some(s => s.discipline === attempt.discipline)) entrant.seals.push({ discipline: attempt.discipline, earnedAt: proof.finishedAt });
+                        if (!entrant.seals.some(s => s.discipline === attempt.discipline)) {
+                            sealPurse.ryo = (await creditCircuitSealPurse(playerId, event.id, attempt.discipline, proof.startedAt, proof.finishedAt)).ryo;
+                            entrant.seals.push({ discipline: attempt.discipline, earnedAt: proof.finishedAt });
+                        }
                         delete state.attempts[attemptKey];
                     } else if (action === 'leaveTrial') {
                         delete state.attempts[attemptKey];
@@ -116,7 +121,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return { status: 200, error: '' };
         }, { failClosed: true, ttlSec: 30 });
         if (result.status !== 200) return res.status(result.status).json({ error: result.error });
-        return await respond(action === 'check' ? 'Seal earned. Your victory is on the world board.' : undefined);
+        const purseRyo = sealPurse.ryo ?? 0;
+        return await respond(action === 'check'
+            ? `Seal earned. Your victory is on the world board.${purseRyo > 0 ? ` +${purseRyo.toLocaleString('en-US')} ryo.` : ''}`
+            : undefined);
     } catch (error) {
         if (error instanceof LockContendedError) return res.status(503).json({ error: 'The event board is updating. Please try again.' });
         if (error instanceof SyntaxError) return res.status(400).json({ error: 'Invalid request.' });

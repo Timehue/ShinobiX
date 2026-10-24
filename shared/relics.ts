@@ -44,7 +44,9 @@ export const RELIC_ROSTER: readonly RelicDef[] = [
     relic('relic-umbral-knot', 'Umbral Knot', 45, 2, { pveGenjutsuDamagePercent: 6 }, { kind: 'chest', biome: 'shadow', chance: 0.003 }),
     relic('relic-stormglass-pendulum', 'Stormglass Pendulum', 60, 3, { pveLightningDamagePercent: 8 }, { kind: 'chest', biome: 'central', chance: 0.0015 }),
     relic('relic-gravewatch-fang', 'Gravewatch Fang', 60, 3, { pveTaijutsuDamagePercent: 8 }, { kind: 'chest', biome: 'central', chance: 0.0015 }),
-    relic('relic-drownstone-compass', 'Drownstone Compass', 70, 3, { pveWindDamagePercent: 8 }, { kind: 'chest', biome: 'central', chance: 0.0015 }),
+    // Water, not Wind (2026-10 item-use pass): the Lv70 Skybreak Prism already
+    // gives +12% Wind in the same slot, and Water topped out at the Lv45 Lens.
+    relic('relic-drownstone-compass', 'Drownstone Compass', 70, 3, { pveWaterDamagePercent: 8 }, { kind: 'chest', biome: 'central', chance: 0.0015 }),
     offenseRelic('relic-duelists-red-cord', "Duelist's Red Cord", 'Bukijutsu'),
     offenseRelic('relic-mirror-mask-shard', 'Mirror-Mask Shard', 'Genjutsu'),
     offenseRelic('relic-conquerors-war-seal', "Conqueror's War Seal", 'Taijutsu'),

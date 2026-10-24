@@ -8,6 +8,19 @@ const existingCharacter = {
     mythicSeals: 14, honorSeals: 15, hollowShards: 16, stats: {}, inventory: [], pets: [],
 };
 
+/** Run under one ledger mode. Strict is the code default (owner A13); '0' is the emergency off switch. */
+function withLedger<T>(mode: '0' | '1' | undefined, run: () => T): T {
+    const previous = process.env.STRICT_RAW_SAVE_LEDGER;
+    if (mode === undefined) delete process.env.STRICT_RAW_SAVE_LEDGER;
+    else process.env.STRICT_RAW_SAVE_LEDGER = mode;
+    try {
+        return run();
+    } finally {
+        if (previous === undefined) delete process.env.STRICT_RAW_SAVE_LEDGER;
+        else process.env.STRICT_RAW_SAVE_LEDGER = previous;
+    }
+}
+
 describe('generic-save economy entitlement', () => {
     it('rejects every positive wallet, XP, level, and profession-XP delta', () => {
         const forged = Object.fromEntries(Object.entries(existingCharacter).map(([key, value]) =>
@@ -19,18 +32,26 @@ describe('generic-save economy entitlement', () => {
         }
     });
 
-    it('preserves Fate Shards while retaining existing material-wallet spending before the strict cutover', () => {
+    it('preserves Fate Shards while retaining existing material-wallet spending with the strict ledger switched off', () => {
         const incoming = {
             ...existingCharacter,
             fateShards: 9, boneCharms: 10, auraStones: 11, auraDust: 12,
             mythicSeals: 13, honorSeals: 14, hollowShards: 15,
         };
-        const result = sanitizeCharacterSave({ character: incoming }, { character: existingCharacter });
+        const result = withLedger('0', () => sanitizeCharacterSave({ character: incoming }, { character: existingCharacter }));
         const char = result.character as Record<string, unknown>;
         assert.equal(char.fateShards, 10);
         assert.equal(char.hollowShards, 15);
         assert.equal(char.level, 12);
         assert.equal(char.xp, 345);
+    });
+
+    it('is strict when STRICT_RAW_SAVE_LEDGER is unset: the code default (owner A13)', () => {
+        const incoming = { ...existingCharacter, ryo: 9_000, fateShards: 9, hollowShards: 15 };
+        const char = withLedger(undefined, () => sanitizeCharacterSave({ character: incoming }, { character: existingCharacter })).character as Record<string, unknown>;
+        assert.equal(char.ryo, 10_000);
+        assert.equal(char.fateShards, 10);
+        assert.equal(char.hollowShards, 16, 'a generic save cannot spend a material wallet under the default');
     });
 
     it('re-asserts stored ryo: a generic save can neither spend it nor erase a server credit', () => {
@@ -46,13 +67,13 @@ describe('generic-save economy entitlement', () => {
         assert.equal((missing.character as Record<string, unknown>).ryo, 10_000, 'a save that omits ryo keeps the stored balance');
     });
 
-    it('ALLOW_CLIENT_RYO_DECREASE=1 restores the old decrease-free rule as a rollback', () => {
+    it('ALLOW_CLIENT_RYO_DECREASE=1 restores the old decrease-free rule as a rollback (strict ledger off)', () => {
         const previous = process.env.ALLOW_CLIENT_RYO_DECREASE;
         process.env.ALLOW_CLIENT_RYO_DECREASE = '1';
         try {
-            const spent = sanitizeCharacterSave({ character: { ...existingCharacter, ryo: 9_000 } }, { character: existingCharacter });
+            const spent = withLedger('0', () => sanitizeCharacterSave({ character: { ...existingCharacter, ryo: 9_000 } }, { character: existingCharacter }));
             assert.equal((spent.character as Record<string, unknown>).ryo, 9_000);
-            const minted = sanitizeCharacterSave({ character: { ...existingCharacter, ryo: 20_000 } }, { character: existingCharacter });
+            const minted = withLedger('0', () => sanitizeCharacterSave({ character: { ...existingCharacter, ryo: 20_000 } }, { character: existingCharacter }));
             assert.equal((minted.character as Record<string, unknown>).ryo, 10_000, 'the rollback never lets ryo rise');
         } finally {
             if (previous === undefined) delete process.env.ALLOW_CLIENT_RYO_DECREASE;

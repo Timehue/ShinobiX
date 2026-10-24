@@ -7,7 +7,7 @@ import { BlackMarketCrate } from '../components/BlackMarketCrate';
 import brokerCertificateArt from '../assets/festival/broker-certificate-v1.webp';
 import { brokerCertificateCount, type BrokerPayment } from '../../../shared/sunscar/broker-certificates';
 import { pendingBrokerPullIntent } from '../lib/black-market-intent';
-import { pullBlackMarket, describeReward, useBlackMarketUsage, BLACK_MARKET_COST, BLACK_MARKET_DAILY_CAP, type BlackMarketReward } from '../lib/black-market';
+import { pullBlackMarket, describeReward, useBlackMarketUsage, BLACK_MARKET_COST, BLACK_MARKET_CERTIFICATE_COST, BLACK_MARKET_DAILY_CAP, type BlackMarketReward } from '../lib/black-market';
 import { rallyActive as activeRally, rallyRank } from '../../../shared/sunscar/rally-championship';
 import { caravanRank } from '../../../shared/sunscar/caravan-types';
 import { serverNow } from '../lib/server-clock';
@@ -68,10 +68,13 @@ export function SunscarFestival({ character, onVersionedCharacter, setCreatorIte
     // Shared with the player card's Sealed Crates cell; every pull's reply updates both.
     const bmUsed = useBlackMarketUsage(character.name, today);
     const bmAtCap = bmUsed !== null && bmUsed >= BLACK_MARKET_DAILY_CAP;
-    const bmCanPay = selectedPayment === 'certificate' ? certificates > 0 : character.ryo >= BLACK_MARKET_COST;
+    // A certificate covers half the stake; the purse pays the other half.
+    const bmPrice = selectedPayment === 'certificate' ? BLACK_MARKET_CERTIFICATE_COST : BLACK_MARKET_COST;
+    const bmCanPay = (selectedPayment !== 'certificate' || certificates > 0) && character.ryo >= bmPrice;
     const bmActionLabel = bmBusy ? 'Preparing crate…' : pendingPull ? 'Recover pending crate' : bmAtCap ? 'Daily crates claimed'
-        : selectedPayment === 'certificate' ? certificates > 0 ? 'Redeem certificate · Free crate' : 'No certificates remaining'
-        : bmCanPay ? 'Buy a sealed crate' : 'More ryo required';
+        : selectedPayment === 'certificate' && certificates < 1 ? 'No certificates remaining'
+        : !bmCanPay ? 'More ryo required'
+        : selectedPayment === 'certificate' ? 'Redeem certificate · Half-price crate' : 'Buy a sealed crate';
     const [bmReveal, setBmReveal] = useState<BlackMarketReward | null>(null);
     const [brokerLog, setBrokerLog] = useState('A sealed crate. A closely guarded secret. Take your chances with the Broker’s collection.');
     async function buyCrate() {
@@ -120,7 +123,7 @@ export function SunscarFestival({ character, onVersionedCharacter, setCreatorIte
         <div className="sunscar-hub-heading"><p className="sunscar-eyebrow">Under the lanterns</p><h2>The trading quarter</h2></div>
         <div className="sunscar-market-row"><SunscarExchangeEntrance onOpen={() => openDestination('exchange')}/><section className="sunscar-broker sunscar-poster"><div className="sunscar-broker-art sunscar-poster-art"><img className="sunscar-broker-market-art" src={brokerMarketArt} alt="The Broker guarding a sealed treasure chest in Sunscar’s lantern-lit black market"/></div><div className="sunscar-broker-copy sunscar-poster-copy"><p className="sunscar-eyebrow">The Black Market</p><h2>The Broker</h2><p role="status">{brokerLog}</p>
             <div className="sunscar-crate-price sunscar-poster-meta">
-                <strong>{selectedPayment === 'certificate' ? 'Free' : BLACK_MARKET_COST.toLocaleString()} <small>{selectedPayment === 'certificate' ? 'with certificate' : 'Ryo / crate'}</small></strong>
+                <strong>{bmPrice.toLocaleString()} <small>{selectedPayment === 'certificate' ? 'Ryo + certificate' : 'Ryo / crate'}</small></strong>
                 <span>{bmUsed !== null ? `${bmUsed}/${BLACK_MARKET_DAILY_CAP} claimed today` : `${BLACK_MARKET_DAILY_CAP} crates per day`}</span>
             </div>
             <div className="broker-purchase-actions">

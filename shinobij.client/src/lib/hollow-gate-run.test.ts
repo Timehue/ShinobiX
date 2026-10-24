@@ -63,13 +63,14 @@ test("preview matches what claw-back would remove", () => {
 });
 
 test("shard drops scale with depth and source", () => {
-    assert.equal(hollowShardDrop(1, "chest"), 3);
-    assert.equal(hollowShardDrop(5, "chest"), 7);
-    assert.equal(hollowShardDrop(1, "lockedChest"), 7);
-    assert.equal(hollowShardDrop(5, "lockedChest"), 15);
-    assert.equal(hollowShardDrop(5, "boss"), 40);
-    assert.equal(hollowShardDrop(1, "shardVein"), 5);
-    assert.equal(hollowShardDrop(5, "shardVein"), 13);
+    // 2026-10 rebalance: every faucet is 0.6x the launch curve.
+    assert.equal(hollowShardDrop(1, "chest"), 2);
+    assert.equal(hollowShardDrop(5, "chest"), 4);
+    assert.equal(hollowShardDrop(1, "lockedChest"), 4);
+    assert.equal(hollowShardDrop(5, "lockedChest"), 9);
+    assert.equal(hollowShardDrop(5, "boss"), 24);
+    assert.equal(hollowShardDrop(1, "shardVein"), 3);
+    assert.equal(hollowShardDrop(5, "shardVein"), 8);
     // deeper sources always pay at least as much
     assert.ok(hollowShardDrop(3, "lockedChest") > hollowShardDrop(3, "chest"));
 });

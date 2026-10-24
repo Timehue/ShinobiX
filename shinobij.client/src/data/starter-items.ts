@@ -24,7 +24,7 @@ import {
     PROFESSION_CHANGE_SCROLL_IMAGE,
 } from "../../../shared/profession-change";
 
-type LegendarySetEffect = "damagePercent" | "absorbPercent" | "lifeStealPercent" | "shield" | "reflectPercent";
+type LegendarySetEffect = "damagePercent" | "pveDamagePercent" | "absorbPercent" | "lifeStealPercent" | "shield" | "reflectPercent";
 
 function legendarySetBonuses(effect: LegendarySetEffect, value: number, offense = 30): GameItem["bonuses"] {
     return {
@@ -46,7 +46,9 @@ const baseStarterItems: GameItem[] = [
         name: "Shinobi Vest",
         slot: "body",
         rarity: "common",
-        cost: 180,
+        // 2026-10 rebalance: 60 (was 180). At 180 the vest cost more than the
+        // 150-ryo robe while giving a quarter of its stats.
+        cost: 60,
         image: "/items/starter-shinobi-vest-v2.webp",
         description: "Light armor for rookie shinobi.",
         bonuses: { taijutsuDefense: 20 },
@@ -137,7 +139,7 @@ const baseStarterItems: GameItem[] = [
         cost: 0,
         serviceItem: true,
         image: "/items/beast-seal-master.webp",
-        description: "A masterwork binding talisman forged from rare hunt materials. Can bind at 65% Resolve or lower.",
+        description: "A masterwork binding talisman of Stormglass, Heartwood Bark and Shadow Thread or a hunted Shadow Pelt. Can bind at 65% Resolve or lower.",
         bonuses: {},
     },
     {
@@ -157,7 +159,7 @@ const baseStarterItems: GameItem[] = [
         name: "Territory Control Scroll",
         slot: "item",
         rarity: "rare",
-        // cost: 0 → not sold in the shop. Earned only as a mission/raid drop.
+        // cost: 0 → not sold in the shop. Its one source is a Clan War PvP win.
         cost: 0,
         image: "/items/item-territory-control-scroll-v1.webp",
         description: "A clan territory scroll used to claim sectors, restore sector HP, and reinforce control. Earned through finalized Clan War shinobi PvP battles.",
@@ -239,7 +241,8 @@ const baseStarterItems: GameItem[] = [
     })),
     // PVP battle gear — one buyable item per gear (see petPvpGear). Each grants
     // stat modifiers applied to the pet in pet arena battles when equipped in
-    // the PVP slot. Sold for ryo; buy once, equip on any pet.
+    // the PVP slot. Sold for Fate Shards in the Grand Marketplace; buy once, equip
+    // on any pet (the last copy stays while a pet wears it: api/pet/_pet-unlocks.ts).
     ...petPvpGear.map((gear): GameItem => ({
         id: gear.id,
         name: gear.name,
@@ -273,7 +276,7 @@ const baseStarterItems: GameItem[] = [
         bonuses: {},
     })),
     // -- Hunting materials ----------------------------------------------------
-    { id: "hunt-beast-meat", name: "Beast Meat", slot: "item", rarity: "common", cost: 0, image: "/items/hunt-beast-meat-v1.webp", description: "Coarse meat carved from a wild beast. Used in the Crafter to make pet treats.", bonuses: {} },
+    { id: "hunt-beast-meat", name: "Beast Meat", slot: "item", rarity: "common", cost: 0, image: "/items/hunt-beast-meat-v1.webp", description: "Coarse meat carved from a wild beast. Cooks into rations at the Noodle Den, goes into pet treats, Attack Pills and Thornmail Oil at the Crafter, and is the first Hunter rank turn-in.", bonuses: {} },
     { id: "hunt-torn-hide", name: "Torn Hide", slot: "item", rarity: "common", cost: 0, image: "/items/hunt-torn-hide-v1.webp", description: "Ragged hide stripped from a forest creature. Crafting material.", bonuses: {} },
     { id: "hunt-small-fang", name: "Small Fang", slot: "item", rarity: "common", cost: 0, image: "/items/hunt-small-fang-v1.webp", description: "A sharp fang from a minor beast. Crafting material.", bonuses: {} },
     { id: "hunt-cracked-horn", name: "Cracked Horn", slot: "item", rarity: "common", cost: 0, image: "/items/hunt-cracked-horn-v1.webp", description: "A broken horn from a wild animal. Crafting material.", bonuses: {} },
@@ -282,21 +285,21 @@ const baseStarterItems: GameItem[] = [
     { id: "hunt-frost-pelt", name: "Frost Pelt", slot: "item", rarity: "rare", cost: 0, image: "/items/hunt-frost-pelt-v1.webp", description: "Ice-laced pelt from a snow-region beast. Crafting material.", bonuses: {} },
     { id: "hunt-ash-scale", name: "Ash Scale", slot: "item", rarity: "rare", cost: 0, image: "/items/hunt-ash-scale-v1.webp", description: "A heat-blackened scale from a volcanic lizard. Crafting material for armor and protective pet gear; also used for Hunter rank turn-ins.", bonuses: {} },
     { id: "hunt-shadow-claw", name: "Shadow Claw", slot: "item", rarity: "rare", cost: 0, image: "/items/hunt-shadow-claw-v1.webp", description: "A razor-sharp claw from a shadow-region predator. Crafting material.", bonuses: {} },
-    { id: "hunt-shadow-pelt", name: "Shadow Pelt", slot: "item", rarity: "epic", cost: 0, image: "/items/hunt-shadow-pelt-v1.webp", description: "Dark, chakra-absorbing pelt from the Shadow Panther. Crafting material for stealth armor and pet harnesses; also used for Hunter rank turn-ins.", bonuses: {} },
-    { id: "hunt-ember-scale", name: "Ember Scale", slot: "item", rarity: "epic", cost: 0, image: "/items/hunt-ember-scale-v1.webp", description: "A glowing scale from the Ember Drake, still warm to the touch. Crafting material.", bonuses: {} },
-    { id: "hunt-ancient-beast-core", name: "Ancient Beast Core", slot: "item", rarity: "epic", cost: 0, image: "/items/hunt-ancient-beast-core-v1.webp", description: "The crystallized chakra core of an ancient beast. Extremely rare crafting material.", bonuses: {} },
-    { id: "hunt-titan-bone", name: "Titan Bone", slot: "item", rarity: "epic", cost: 0, image: "/items/hunt-titan-bone-v1.webp", description: "A massive bone fragment from the Worldstorm Dragon. Near-indestructible.", bonuses: {} },
-    { id: "hunt-legendary-material", name: "Legendary Material", slot: "item", rarity: "legendary", cost: 0, image: "/items/hunt-legendary-material-v1.webp", description: "A rare trophy from S-rank beasts. Required for the highest Hunter rank; surplus trophies can supply the Village Stores.", bonuses: {} },
+    { id: "hunt-shadow-pelt", name: "Shadow Pelt", slot: "item", rarity: "epic", cost: 0, image: "/items/hunt-shadow-pelt-v1.webp", description: "Dark, chakra-absorbing pelt from the Shadow Panther. Crafting material for stealth armor and pet harnesses, a stand-in for Shadow Thread at the Crafter, and a Hunter rank turn-in.", bonuses: {} },
+    { id: "hunt-ember-scale", name: "Ember Scale", slot: "item", rarity: "epic", cost: 0, image: "/items/hunt-ember-scale-v1.webp", description: "A glowing scale from the Ember Drake, still warm to the touch. Crafting material for protective pet gear that also burns as forge and cooking fuel in place of Heartwood Bark.", bonuses: {} },
+    { id: "hunt-ancient-beast-core", name: "Ancient Beast Core", slot: "item", rarity: "epic", cost: 0, image: "/items/hunt-ancient-beast-core-v1.webp", description: "The crystallized chakra core of an ancient beast. Extremely rare crafting material for named gear and the strongest pet gear and Second Wind, where a Titan Bone or Legendary Material can stand in for it.", bonuses: {} },
+    { id: "hunt-titan-bone", name: "Titan Bone", slot: "item", rarity: "epic", cost: 0, image: "/items/hunt-titan-bone-v1.webp", description: "A massive bone fragment from the Worldstorm Dragon. Near-indestructible. Crafting material for named weapons and apex pet gear, where an Ancient Beast Core or Legendary Material can stand in for it.", bonuses: {} },
+    { id: "hunt-legendary-material", name: "Legendary Material", slot: "item", rarity: "legendary", cost: 0, image: "/items/hunt-legendary-material-v1.webp", description: "A rare trophy from S-rank beasts. Feeds every named-gear roll and the highest Hunter rank, stands in for a core or bone in apex pet gear, and surplus trophies supply the Village Stores.", bonuses: {} },
     // Village Stores: cooked at the Noodle Den from hunt materials, donated 1:1 into
     // the village's Provisions (api/_village-stores.ts). cost 0 — never a ryo faucet.
     { id: "gather-field-herb", name: "Field Herb", slot: "item", rarity: "common", cost: 0, image: "/items/gather-field-herb-v1.webp", description: "Gathered while exploring. A crafting material used in recipes and village supplies.", bonuses: {} },
     { id: "gather-binding-fiber", name: "Binding Fiber", slot: "item", rarity: "common", cost: 0, image: "/items/gather-binding-fiber-v1.webp", description: "Gathered while exploring. A crafting material used in recipes and village supplies.", bonuses: {} },
     { id: "gather-iron-sand", name: "Iron Sand", slot: "item", rarity: "common", cost: 0, image: "/items/gather-iron-sand-v1.webp", description: "Found while exploring or mining. A crafting material used in forging and village supplies.", bonuses: {} },
-    { id: "gather-heartwood-bark", name: "Heartwood Bark", slot: "item", rarity: "rare", cost: 0, image: "/items/gather-heartwood-bark-v1.webp", description: "A regional crafting material found in the forest. Used in legendary weapon recipes.", bonuses: {} },
-    { id: "gather-shadow-thread", name: "Shadow Thread", slot: "item", rarity: "rare", cost: 0, image: "/items/gather-shadow-thread-v1.webp", description: "A regional crafting material found in the shadow country. Used in legendary weapon recipes.", bonuses: {} },
-    { id: "gather-rime-crystal", name: "Rime Crystal", slot: "item", rarity: "rare", cost: 0, image: "/items/gather-rime-crystal-v1.webp", description: "A regional crafting material found in the snowfields. Used in legendary weapon recipes.", bonuses: {} },
-    { id: "gather-ember-ore", name: "Ember Ore", slot: "item", rarity: "rare", cost: 0, image: "/items/gather-ember-ore-v1.webp", description: "A regional crafting material found in the volcanic region. Used in legendary weapon recipes.", bonuses: {} },
-    { id: "gather-stormglass-shard", name: "Stormglass Shard", slot: "item", rarity: "rare", cost: 0, image: "/items/gather-stormglass-shard-v1.webp", description: "A regional crafting material found in the central region. Used in legendary weapon recipes.", bonuses: {} },
+    { id: "gather-heartwood-bark", name: "Heartwood Bark", slot: "item", rarity: "rare", cost: 0, image: "/items/gather-heartwood-bark-v1.webp", description: "A regional crafting material found in the forest. Fuels the forge and the Noodle Den, and goes into legendary weapons, pills, potions, smoke, Master Beast Seals and pet gear.", bonuses: {} },
+    { id: "gather-shadow-thread", name: "Shadow Thread", slot: "item", rarity: "rare", cost: 0, image: "/items/gather-shadow-thread-v1.webp", description: "A regional crafting material found in the shadow country. Woven into Master Beast Seals, Serpent Dust, Phantom Charms, Bloodbond Totems and the Black Lotus Dagger.", bonuses: {} },
+    { id: "gather-rime-crystal", name: "Rime Crystal", slot: "item", rarity: "rare", cost: 0, image: "/items/gather-rime-crystal-v1.webp", description: "A regional crafting material found in the snowfields, also struck while mining there. Used in legendary weapons, Rejuvenation Potions, Lifeline Elixirs and Elemental and Ancient Treats.", bonuses: {} },
+    { id: "gather-ember-ore", name: "Ember Ore", slot: "item", rarity: "rare", cost: 0, image: "/items/gather-ember-ore-v1.webp", description: "A regional crafting material found in the volcanic region, also struck while mining there. Used in legendary weapons and Elemental and Ancient Treats, and burns as forge and cooking fuel in place of Heartwood Bark.", bonuses: {} },
+    { id: "gather-stormglass-shard", name: "Stormglass Shard", slot: "item", rarity: "rare", cost: 0, image: "/items/gather-stormglass-shard-v1.webp", description: "A regional crafting material found in the central region, also struck while mining there. Used in epic and legendary weapons, Aura Dust, Bone Charms and Elemental and Ancient Treats.", bonuses: {} },
     { id: "village-supply-bundle", name: "Village Supply Bundle", slot: "item", rarity: "common", cost: 0, image: "/items/village-supply-bundle-v1.webp", description: "Donate at your village Town Hall for 10 provisions. Shares the 40-provisions daily limit. Cannot be sold or donated to clans.", bonuses: {} },
     { id: "village-supply-crate", name: "Village Supply Crate", slot: "item", rarity: "uncommon", cost: 0, image: "/items/village-supply-crate-v1.webp", description: "Donate at your village Town Hall for 40 provisions. Shares the 40-provisions daily limit. Cannot be sold or donated to clans.", bonuses: {} },
     { id: "ration-pack", name: "Ration Pack", slot: "item", rarity: "common", cost: 0, image: "/items/hunt-beast-meat-v1.webp", description: "Donate at your village Town Hall for 1 provision per pack. Village provision donations share a limit of 40 per day.", bonuses: {} },
@@ -306,13 +309,13 @@ const baseStarterItems: GameItem[] = [
     { id: "war-supply-cache", name: "War Supply Cache", slot: "item", rarity: "rare", cost: 0, image: "/items/war-supply-cache.webp", description: "War supplies skimmed from an enemy sector's vault. Turn in at your Clan Hall. 2 caches earn 1 clan point.", bonuses: {} },
     { id: "war-resource-cache", name: "War Resource Cache", slot: "item", rarity: "rare", cost: 0, image: "/items/war-resource-cache.webp", description: "War resources bled from an enemy village's war chest. Turn in at your Town Hall for 1 village merit each.", bonuses: {} },
     // -- Weapon forging materials ----------------------------------------------
-    { id: "weekly-boss-core", name: "Weekly Boss Core", slot: "item", rarity: "legendary", cost: 0, description: "A core earned from boss rewards. A crafting material used to forge epic and legendary weapons.", bonuses: {} },
+    { id: "weekly-boss-core", name: "Weekly Boss Core", slot: "item", rarity: "legendary", cost: 0, description: "A core earned from boss rewards. A crafting material used to forge epic and legendary weapons: it stands in for an epic weapon's Stormglass catalyst or a legendary weapon's relic at the Crafter. The Village Stores take it for 150 materials.", bonuses: {} },
     { id: HOLLOW_BEAST_CACHE_ID, name: "Hollow Beast Cache", slot: "item", rarity: "legendary", cost: 0, image: "/items/war-supply-cache.webp", description: "A sealed reward cache earned by the top 15 contributors when The Hollow Beast is defeated. Open it from your backpack.", bonuses: {} },
     { id: "dungeon-key", name: "Dungeon Key", slot: "item", rarity: "rare", cost: 0, image: "/items/starter-dungeon-key-v2.webp", description: "A key that opens one Hidden Dungeon run. Drops from weekly bosses and war crates.", bonuses: {} },
     { id: "dungeon-legendary-relic", name: "Dungeon Legendary Relic", slot: "item", rarity: "legendary", cost: 0, description: "A relic recovered from a Hidden Dungeon. Used to forge legendary weapons.", bonuses: {} },
     { id: "dungeon-legendary-fragment", name: "Dungeon Legendary Fragment", slot: "item", rarity: "epic", cost: 0, description: "A chakra-burnt fragment shed by the Hollow Hound Alpha. Combine fragments to forge a Dungeon Legendary Relic.", bonuses: {} },
     { id: "veil-of-the-hollow", name: "Veil of the Hollow", slot: "item", rarity: "legendary", cost: 0, description: "A relic claimed from a Hidden Chamber deep within the Hollow Gate Shrine. Whispers of the Hollow Hounds cling to it. Substitutes for a Warforged Relic when forging legendary weapons.", bonuses: {} },
-    { id: "hollow-gate-key", name: "Hollow Gate Key", slot: "item", rarity: "rare", cost: 0, description: "A bone-pale key etched with Hollow Gate sigils. Starting an ordinary five-floor run consumes one key and requires your village's active 30-day access seal. Resuming that run spends no new key; accepted rift assignments are free. Crafted at the Crafter from 5 Dungeon Keys or 10 Fate Shards; granted on completing your village story.", bonuses: {} },
+    { id: "hollow-gate-key", name: "Hollow Gate Key", slot: "item", rarity: "rare", cost: 0, description: "A bone-pale key etched with Hollow Gate sigils. Starting an ordinary five-floor run consumes one key and requires your village's active 30-day access seal. Resuming that run spends no new key; accepted rift assignments are free. Crafted at the Crafter from 5 Dungeon Keys or 15 Fate Shards; granted on completing your village story.", bonuses: {} },
     { id: "warforged-relic", name: "Warforged Relic", slot: "item", rarity: "legendary", cost: 0, description: "A battle-marked relic from a war crate. Used to forge legendary weapons.", bonuses: {} },
     { id: "legendary-war-crate", name: "Legendary War Crate", slot: "item", rarity: "legendary", cost: 0, description: "A crate awarded for major clan or village war victories. Open for a Warforged Relic and a chance at a Dungeon Key. At level 100, each of the four +14% PvE offense relics has a 0.10% bonus chance.", bonuses: {} },
     // -- Elemental attunement (Shards → Core → weapon element) ------------------
@@ -336,13 +339,16 @@ const baseStarterItems: GameItem[] = [
         id: "thrown-senbon",
         name: "Senbon",
         slot: "thrown",
-        rarity: "rare",
-        cost: 400,
+        // Uncommon at 150 (2026-10 item-use pass): the cheap bleed throw. At 400 ryo
+        // and Lv30 it lost to the Lv1, 400-ryo Shuriken on every count.
+        rarity: "uncommon",
+        cost: 150,
         image: "/items/shop-senbon-v1.webp",
-        description: "Throwing needles that deal damage and apply Wound. Starting next round, the target bleeds for 25% of the damage dealt per turn for 2 rounds. Cleanse can remove the bleed.",
+        description: "Throwing needles that deal damage and apply Wound. Starting next round, the target bleeds for 25% of the damage dealt per turn for 2 rounds, and the bleed still lands through Smoke Bomb. Cleanse can remove the bleed.",
         weaponEp: 0,
         weaponEffect: "Wound",
-        weaponEffectValue: 300,
+        // The applied value: thrown Wound is capped at 25% of the hit (combat-core/formulas.ts).
+        weaponEffectValue: 25,
         apCost: 20,
         weaponCooldown: 5,
         bonuses: {},
@@ -480,12 +486,14 @@ const baseStarterItems: GameItem[] = [
     { id: "mirror-waist", name: "Mirror Soul Obi", slot: "waist", rarity: "legendary", cost: 150, description: "Reflects 1% of incoming post-shield damage back at the attacker. Pierce bypasses Reflect. Applies while this piece is equipped.", armorQuality: "Legendary", levelReq: 40, bonuses: legendarySetBonuses("reflectPercent", 1) },
     { id: "mirror-legs", name: "Mirror Soul Greaves", slot: "legs", rarity: "legendary", cost: 150, description: "Reflects 1% of incoming post-shield damage back at the attacker. Pierce bypasses Reflect. Applies while this piece is equipped.", armorQuality: "Legendary", levelReq: 40, bonuses: legendarySetBonuses("reflectPercent", 1) },
     { id: "mirror-feet", name: "Mirror Soul Sabatons", slot: "feet", rarity: "legendary", cost: 150, description: "Reflects 1% of incoming post-shield damage back at the attacker. Pierce bypasses Reflect. Applies while this piece is equipped.", armorQuality: "Legendary", levelReq: 40, bonuses: legendarySetBonuses("reflectPercent", 1) },
-    // Set 6: Sennin God — +1% damage given per piece (5% max)
-    { id: "sennin-crown", name: "Sennin God's Crown", slot: "head", rarity: "legendary", cost: 150, description: "Adds 1% to your damage bonus. Applies while this piece is equipped.", armorQuality: "Legendary", levelReq: 40, bonuses: legendarySetBonuses("damagePercent", 1) },
-    { id: "sennin-chest", name: "Sennin God's Mantle", slot: "body", rarity: "legendary", cost: 150, description: "Adds 1% to your damage bonus. Applies while this piece is equipped.", armorQuality: "Legendary", levelReq: 40, bonuses: legendarySetBonuses("damagePercent", 1) },
-    { id: "sennin-waist", name: "Sennin God's Obi", slot: "waist", rarity: "legendary", cost: 150, description: "Adds 1% to your damage bonus. Applies while this piece is equipped.", armorQuality: "Legendary", levelReq: 40, bonuses: legendarySetBonuses("damagePercent", 1) },
-    { id: "sennin-legs", name: "Sennin God's Greaves", slot: "legs", rarity: "legendary", cost: 150, description: "Adds 1% to your damage bonus. Applies while this piece is equipped.", armorQuality: "Legendary", levelReq: 40, bonuses: legendarySetBonuses("damagePercent", 1) },
-    { id: "sennin-feet", name: "Sennin God's Sandals", slot: "feet", rarity: "legendary", cost: 150, description: "Adds 1% to your damage bonus. Applies while this piece is equipped.", armorQuality: "Legendary", levelReq: 40, bonuses: legendarySetBonuses("damagePercent", 1) },
+    // Set 6: Sennin God — +1.5% damage against PvE enemies per piece (7.5% max), none
+    // in PvP. The PvE twin of Void Sovereign, whose 1% applies everywhere (2026-10
+    // item-use pass: the two sets were identical, piece for piece).
+    { id: "sennin-crown", name: "Sennin God's Crown", slot: "head", rarity: "legendary", cost: 150, description: "Adds 1.5% damage against PvE enemies, with no bonus against players. Applies while this piece is equipped.", armorQuality: "Legendary", levelReq: 40, bonuses: legendarySetBonuses("pveDamagePercent", 1.5) },
+    { id: "sennin-chest", name: "Sennin God's Mantle", slot: "body", rarity: "legendary", cost: 150, description: "Adds 1.5% damage against PvE enemies, with no bonus against players. Applies while this piece is equipped.", armorQuality: "Legendary", levelReq: 40, bonuses: legendarySetBonuses("pveDamagePercent", 1.5) },
+    { id: "sennin-waist", name: "Sennin God's Obi", slot: "waist", rarity: "legendary", cost: 150, description: "Adds 1.5% damage against PvE enemies, with no bonus against players. Applies while this piece is equipped.", armorQuality: "Legendary", levelReq: 40, bonuses: legendarySetBonuses("pveDamagePercent", 1.5) },
+    { id: "sennin-legs", name: "Sennin God's Greaves", slot: "legs", rarity: "legendary", cost: 150, description: "Adds 1.5% damage against PvE enemies, with no bonus against players. Applies while this piece is equipped.", armorQuality: "Legendary", levelReq: 40, bonuses: legendarySetBonuses("pveDamagePercent", 1.5) },
+    { id: "sennin-feet", name: "Sennin God's Sandals", slot: "feet", rarity: "legendary", cost: 150, description: "Adds 1.5% damage against PvE enemies, with no bonus against players. Applies while this piece is equipped.", armorQuality: "Legendary", levelReq: 40, bonuses: legendarySetBonuses("pveDamagePercent", 1.5) },
     // Set 7: Ranked Seal — Ranked Format's fixed neutral armor
     // (api/pvp/_ranked-format.ts). Not shop-purchasable (cost 0). Same
     // +30-all-stats magnitude as every other legendary set, but deliberately

@@ -41,6 +41,8 @@ export type AiFightSettleResult = {
     /** What the server actually granted — never a client-side prediction. */
     ryo: number;
     statPoints: number;
+    /** Today's shared stat-point budget after this win, when the server reported it. */
+    statBudget?: { day: string; spent: number; cap: number };
     capped: boolean;
     replayed: boolean;
     /** The post-settle character returned by the server. */
@@ -157,6 +159,8 @@ export async function settleAiFight(params: {
         outcome,
         ryo: Number(reported.ryo) || 0,
         statPoints: Math.max(0, Math.floor(Number(reported.statPoints) || 0)),
+        ...(reported.statBudget && Number.isInteger(reported.statBudget.spent) && Number.isInteger(reported.statBudget.cap)
+            ? { statBudget: reported.statBudget } : {}),
         capped: reported.capped === true,
         replayed: reported.replayed === true,
         character: settledCharacter,

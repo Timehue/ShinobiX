@@ -10,6 +10,10 @@ export const DUNGEON_MIN_RUN_MS = 30_000;
 export const FREE_DUNGEON_LEVEL = 50;
 export const FREE_DUNGEON_CHANCE = 0.02;
 export const FREE_DUNGEON_DAILY_PROBE_LIMIT = DAILY_SECTOR_EXPLORE_LIMIT;
+/** Currency paid on a verified clear (2026-10 rebalance: Fate Shards 5 → 2). The
+ *  client copy is hiddenDungeonVnEvent.currencyRewards (data/vn-events.ts), which
+ *  scripts/dungeon-reward-parity.test.ts pins to this object. */
+export const DUNGEON_CLEAR_REWARD = { boneCharms: 10, auraStones: 5, fateShards: 2 } as const;
 
 export type FreeDungeonProbeReceipt = {
     requestId: string;
@@ -241,9 +245,9 @@ export function mutateDungeonRun(
     return { ok: true as const, alreadyApplied: false, token, ...(gearDropId ? { gearDropId } : {}), character: {
         ...character, activeDungeonRun: null, redeemedDungeonRuns: [...receipts, token], inventory,
         serverFreeDungeonProbeReceipts: probeReceipts(character).map((entry) => entry.token === token ? { ...entry, resolvedAt: now } : entry),
-        boneCharms: Math.max(0, Math.floor(Number(character.boneCharms) || 0)) + 10,
-        auraStones: Math.max(0, Math.floor(Number(character.auraStones) || 0)) + 5,
-        fateShards: Math.max(0, Math.floor(Number(character.fateShards) || 0)) + 5,
+        boneCharms: Math.max(0, Math.floor(Number(character.boneCharms) || 0)) + DUNGEON_CLEAR_REWARD.boneCharms,
+        auraStones: Math.max(0, Math.floor(Number(character.auraStones) || 0)) + DUNGEON_CLEAR_REWARD.auraStones,
+        fateShards: Math.max(0, Math.floor(Number(character.fateShards) || 0)) + DUNGEON_CLEAR_REWARD.fateShards,
         totalPetWins: Math.max(0, Math.floor(Number(character.totalPetWins) || 0)) + 1,
     } };
 }

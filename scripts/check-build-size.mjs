@@ -904,7 +904,16 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // 30 KB for the paper talismans, deposit variations and recovery compatibility.
 // Production-format build args measure 9,635,492 B, leaving 19,508 B headroom.
 // Startup, per-chunk, lazy-fishing and asset gates remain unchanged.
-const TOTAL_JS_CSS_FAIL_BYTES = 9_655_000;
+// 2026-10-22: the economy rebalance (docs/economy-rebalance-2026-10.md) merged
+// with current main measures 9,596,150 B locally: its client adds about 13 KB of
+// visible-limit copy, the daily stat-budget display, progression dials and the
+// stacked-material fold. Allow 9.61 MB (13,850 B of local headroom); the startup
+// graph (1,400,648 B raw / 396,652 B gzip), per-chunk, CSS and asset gates stay fixed.
+// 2026-10-23 MERGE: the Veinbreaking, fishing, iPhone and economy raises landed
+// together. The merged tree measures 9,662,387 B locally (initial graph 1,406,430 B
+// raw / 398,086 B gzip, under its own unchanged 399,000 B gate). Allow 9.672 MB:
+// 9,613 B of headroom.
+const TOTAL_JS_CSS_FAIL_BYTES = 9_672_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai

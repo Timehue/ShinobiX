@@ -28,6 +28,7 @@ let resetRateLimits: () => void;
 let unlock: Handler;
 let declareWar: Handler;
 let kage: Handler;
+let KAGE_DECLARE_RYO_COST: number;
 
 before(async () => {
     ({ kv } = await import('../_storage.js'));
@@ -36,6 +37,7 @@ before(async () => {
     unlock = (await import('./hollow-gate-unlock.js')).default as unknown as Handler;
     declareWar = (await import('../clan/war/declare.js')).default as unknown as Handler;
     kage = (await import('./kage-challenge.js')).default as unknown as Handler;
+    ({ KAGE_DECLARE_RYO_COST } = await import('./_kage-challenge.js'));
 });
 
 async function wipe() {
@@ -302,17 +304,18 @@ describe('Kage challenge declaration settles exactly once', { concurrency: false
         assert.equal(first.status, 200, JSON.stringify(first.body));
         const id = (await openChallenge())?.challengeId;
         assert.ok(id);
+        assert.equal((await openChallenge())?.stakeRyo, KAGE_DECLARE_RYO_COST, 'the row carries the stake it charged, for an exact inactivity refund');
         const retry = await challenge('kage-declare-once-00001');
         assert.equal(retry.status, 200);
         assert.equal((retry.body?.challenge as Record<string, unknown>)?.challengeId, id);
-        assert.equal(await field(CHALLENGER_SAVE, 'ryo'), 250_000);
+        assert.equal(await field(CHALLENGER_SAVE, 'ryo'), 500_000 - KAGE_DECLARE_RYO_COST);
     });
 
     test('concurrent duplicates stake once', async () => {
         await openSeat();
         const answers = await Promise.all(Array.from({ length: 4 }, () => challenge('kage-declare-burst-0001')));
         assert.ok(answers.some((a) => a.status === 200), JSON.stringify(answers));
-        assert.equal(await field(CHALLENGER_SAVE, 'ryo'), 250_000);
+        assert.equal(await field(CHALLENGER_SAVE, 'ryo'), 500_000 - KAGE_DECLARE_RYO_COST);
     });
 
     test('a challenge write that committed but reported an error is not refunded; the retry finishes it', async () => {
@@ -323,15 +326,15 @@ describe('Kage challenge declaration settles exactly once', { concurrency: false
         } finally {
             restore();
         }
-        // Before the fix: the challenge stood AND the 250,000 ryo came back.
+        // Before the fix: the challenge stood AND the stake came back.
         assert.ok(await openChallenge(), 'the challenge opened');
-        assert.equal(await field(CHALLENGER_SAVE, 'ryo'), 250_000, 'so the stake stays taken');
+        assert.equal(await field(CHALLENGER_SAVE, 'ryo'), 500_000 - KAGE_DECLARE_RYO_COST, 'so the stake stays taken');
         assert.equal((await challenge('kage-declare-landed-001')).status, 200);
-        assert.equal(await field(CHALLENGER_SAVE, 'ryo'), 250_000);
+        assert.equal(await field(CHALLENGER_SAVE, 'ryo'), 500_000 - KAGE_DECLARE_RYO_COST);
     });
 
     test('short balances, forged identities and an open challenge move nothing', async () => {
-        await openSeat(249_999);
+        await openSeat(KAGE_DECLARE_RYO_COST - 1);
         assert.notEqual((await challenge('kage-declare-short-0001')).status, 200);
         await openSeat();
         await kv.set('save:stakeforger', { _saveVersion: 1, character: { name: 'stakeforger', village: KAGE_VILLAGE, ryo: 500_000 } });

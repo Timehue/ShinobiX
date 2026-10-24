@@ -94,7 +94,7 @@ test('Weekly Boss damage has no pool ceiling and preserves attempt receipts', ()
     const settled = applyWeeklyBossRunDamageReceipt(reserved.boss, 'run-b', 'bob', 9_000_000);
     assert.equal(settled.damage, 9_000_000);
     assert.equal(settled.boss.damageByPlayer.bob, 9_000_000);
-    assert.equal(settled.boss.hpMax, 10_000, 'reward budget remains stable');
+    assert.equal(settled.boss.hpMax, 10_000, 'the combat HP baseline is unchanged by banking damage');
     assert.equal(settled.boss.attemptsByPlayer?.bob, 1);
     const replay = applyWeeklyBossRunDamageReceipt(settled.boss, 'run-b', 'bob', 1);
     assert.equal(replay.damage, 9_000_000);
