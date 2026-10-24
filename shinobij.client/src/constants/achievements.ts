@@ -64,6 +64,10 @@ const petsAtOrAboveLevel = (c: Character, level: number): number =>
 const evolvedPetsAtStage = (c: Character, stage: number): number =>
     (c.pets ?? []).filter((pet) => whole(pet.evolutionStage) >= stage).length;
 const uniqueCardCount = (c: Character): number => new Set(c.tileCards ?? []).size;
+// claimedWarCrateIds also holds stats, consolation and purse markers; the
+// Salvager counts crate ids only (mirrors api/achievements/_catalog.ts).
+const NON_CRATE_MARKER = /^(?:stats-|clan-war-stats-|purse-|sector-purse:|loser-crate-|consolation-floor-|clan-war-consol-)/;
+const warCratesClaimed = (ids: unknown): number => (Array.isArray(ids) ? ids.filter((id) => !NON_CRATE_MARKER.test(String(id))).length : 0);
 const coreEquipmentCount = (c: Character): number =>
     ["hand", "gloves", "body", "waist", "legs", "feet", "head", "thrown"]
         .filter((slot) => Boolean(c.equipment?.[slot as keyof Character["equipment"]])).length;
@@ -229,8 +233,8 @@ export const ACHIEVEMENTS: ReadonlyArray<Achievement> = [
     { id: "ranked-season-3", name: "Ranked Dynasty", desc: "Finish #1 in 3 ranked seasons.", category: "Ranked", icon: "🏛", check: c => whole(c.rankedSeasonsWon) >= 3, progress: c => numericProgress(c.rankedSeasonsWon, 3, "season victories") },
 
     // Commitment, wanderers, and achievement metas
-    { id: "login-streak-7", name: "Seven Dawns", desc: "Reach a 7-day login streak.", category: "Progression", icon: "🌅", check: c => whole(c.loginStreak) >= 7, progress: c => numericProgress(c.loginStreak, 7, "login streak") },
-    { id: "login-streak-30", name: "Moon's Devotion", desc: "Reach a 30-day login streak.", category: "Progression", icon: "🌙", check: c => whole(c.loginStreak) >= 30, progress: c => numericProgress(c.loginStreak, 30, "login streak") },
+    { id: "login-streak-7", name: "Seven Dawns", desc: "Collect the daily reward on 7 days.", category: "Progression", icon: "🌅", check: c => whole(c.loginStreak) >= 7, progress: c => numericProgress(c.loginStreak, 7, "login streak") },
+    { id: "login-streak-30", name: "Moon's Devotion", desc: "Collect the daily reward on 30 days.", category: "Progression", icon: "🌙", check: c => whole(c.loginStreak) >= 30, progress: c => numericProgress(c.loginStreak, 30, "login streak") },
     { id: "wanderer-first", name: "A Chance Meeting", desc: "Complete your first sector wanderer quest.", category: "Exploration", icon: "🥾", check: c => count(c.redeemedWandererQuests) >= 1, progress: c => arrayProgress(c.redeemedWandererQuests, 1, "wanderer quests") },
     { id: "wanderer-25", name: "Crossroads Sage", desc: "Complete 25 sector wanderer quests.", category: "Exploration", icon: "🧙", check: c => count(c.redeemedWandererQuests) >= 25, progress: c => arrayProgress(c.redeemedWandererQuests, 25, "wanderer quests") },
     { id: "achievements-25", name: "First Shelf", desc: "Unlock 25 achievements. Exam distinctions are counted separately.", category: "Meta", icon: "🏅", check: c => achievementMetaCount(c.unlockedAchievements) >= 25, progress: c => numericProgress(achievementMetaCount(c.unlockedAchievements), 25, "achievements") },
@@ -258,7 +262,7 @@ export const ACHIEVEMENTS: ReadonlyArray<Achievement> = [
     { id: "secret-weekly-bosses-5",  name: "Weekly Reaper",     desc: "Defeat 5 distinct weekly bosses.",              category: "Combat",     icon: "👺", hidden: true, check: c => Object.keys(c.weeklyBossKills ?? {}).length >= 5 },
     { id: "secret-tile-cards-1000",  name: "Tile Collector",    desc: "Collect 1,000 tile cards.",                     category: "Exploration",icon: "🀄", hidden: true, check: c => (c.tileCards?.length ?? 0) >= 1000 },
     { id: "secret-minmaxer",         name: "Min-Maxer",         desc: "Reach level 50+ with zero unspent stat points.",category: "Progression",icon: "🧮", hidden: true, check: c => c.level >= 50 && c.unspentStats === 0 },
-    { id: "secret-war-crates-10",    name: "Salvager",          desc: "Claim 10 war crates.",                          category: "Village",    icon: "📦", hidden: true, check: c => (c.claimedWarCrateIds?.length ?? 0) >= 10 },
+    { id: "secret-war-crates-10",    name: "Salvager",          desc: "Claim 10 war crates.",                          category: "Village",    icon: "📦", hidden: true, check: c => warCratesClaimed(c.claimedWarCrateIds) >= 10 },
 ];
 
 /** Permanent ledger truth for presentation; live predicates only discover new unlocks. */

@@ -212,6 +212,10 @@ async function requestSectorExplore(
 export type AncientChestLoot = {
     xp: number; ryo?: number; itemId?: string; cardId?: string;
     fateShards?: number; boneCharms?: number; auraStones?: number; auraDust?: number;
+    /** Chronicle Points the server paid for a card already owned. */
+    chroniclePoints?: number;
+    /** Ryo, already inside `ryo`, the server paid for gear already owned (its NPC sale value). */
+    duplicateSaleRyo?: number;
 };
 
 export type AncientChestResult = {

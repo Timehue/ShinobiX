@@ -12,7 +12,7 @@ import { runSaveDebitSaga, SaveDebitRefusal } from '../../_save-debit-saga.js';
 import { CLAN_DONATION_SAGA } from '../../_save-debit-kinds.js';
 import { villageStoresEnabled } from '../../_release-flags.js';
 import { routeStoresDonation, type StoresRouted } from '../../_treasury-stores-donate.js';
-import { reserveClanDonationXp } from './_donation-xp.js';
+import { reserveClanDonationXp, reserveClanRyoDonationXp } from './_donation-xp.js';
 
 /*
  * /api/clan/treasury/donate  — POST only
@@ -28,8 +28,9 @@ import { reserveClanDonationXp } from './_donation-xp.js';
  *
  * This endpoint is the intended path: it debits the donor's save AND credits
  * the clan treasury under dual locks, so the two halves can't be separated.
- * Clan XP is sealed with the debit; the contribution and daily XP reservation
- * are committed in that same donor save. Generic saves cannot reset the quota.
+ * Clan XP is sealed with the debit; the contribution and the weekly (and, for
+ * non-ryo, daily) XP reservation are committed in that same donor save. Generic
+ * saves cannot reset the quota.
  *
  * Body (currency):  { playerName, clan, currency, amount, requestId? }
  * Body (item):      { playerName, clan, itemId, count?, requestId? }   // count defaults to 1
@@ -70,11 +71,12 @@ const TERRITORY_CONTROL_SCROLL_ID = 'territory-control-scroll';
 
 const AUDIT_LOG_PREFIX = 'audit:clan-treasury-donate:';
 
-// Clan XP from NON-ryo donations is capped per donor per UTC day. A 1-unit
-// treasury gift burns nothing (api/_treasury-gift-tax.ts), so donating one
-// Mythic Seal (+200 XP) and having an officer gift it straight back was a free
-// loop worth ~6,000 clan XP a minute. Ryo is uncapped: its gifts are taxed, so
-// a ryo loop pays for itself. 2,000 XP = ten single-unit currency donations.
+// Clan XP from donations shares one budget per donor per ISO week, 2,000 across
+// every kind (economy rebalance 2026-10, #39; _donation-xp.ts). Uncapped ryo and
+// a 2,000-a-day non-ryo door let a clan buy its level, and the Exchange halls
+// that level unlocks, at any speed. Non-ryo donations also keep their original
+// 2,000-a-UTC-day cap as an inner bound: a 1-unit treasury gift used to burn
+// nothing, so a Mythic Seal donated and gifted straight back was a free loop.
 
 function clanSlugBare(name: string): string {
     return name.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -128,7 +130,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!targetSlug) return res.status(400).json({ error: 'Invalid clan name.' });
         const clanSaveKey = `save:clan-${targetSlug}`;
         const amount = donation.kind === 'currency' ? Math.floor(donation.amount) : Math.floor(donation.count);
-        const cappedXp = !(donation.kind === 'currency' && donation.currency === 'ryo');
+        const ryoDonation = donation.kind === 'currency' && donation.currency === 'ryo';
 
         // ── Atomic donate ──────────────────────────────────────────────
         // The clan save row (the shared, contended resource) is locked first,
@@ -136,7 +138,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // the opposite order, so the nesting can't deadlock. The donor debit is
         // COMMITTED before the treasury credit, so a credit failure can never
         // leave the treasury credited without a matching debit.
-        // Reserving daily XP in the same debit commit also covers interrupted
+        // Reserving XP in the same debit commit also covers interrupted
         // credits. There is no post-credit counter write for a crash to skip.
         const settled = await runSaveDebitSaga({
             definition: CLAN_DONATION_SAGA,
@@ -173,9 +175,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     if (r.routed) { outcome = { ok: true, nextDonorChar: r.nextDonorChar, nextTreasury: r.nextTreasury }; routed = r.routed; }
                 }
 
+                // The monthly contribution the donation / raid / training clan
+                // missions read (I-15). Only currency counts, at its real value:
+                // a gift back out of the treasury burns 10% (and at least one
+                // unit, I-16), so a donate-and-return loop costs something. Item
+                // gifts are untaxed, so a single item cycled through the treasury
+                // would complete those missions for free; items count 0. Ryo has
+                // no 1-point floor, so 1-ryo clicks no longer count as 1,000 ryo.
                 const contribution = donation.kind === 'currency'
-                    ? donation.currency === 'ryo' ? Math.max(1, Math.floor(donation.amount / 1000)) : Math.floor(donation.amount)
-                    : Math.floor(donation.count);
+                    ? ryoDonation ? Math.floor(donation.amount / 1000) : Math.floor(donation.amount)
+                    : 0;
                 const now = Date.now();
                 const month = new Date(now).toISOString().slice(0, 7);
                 const priorContribution = donorChar.clanContribMonth === month ? Math.max(0, Number(donorChar.clanEventContrib) || 0) : 0;
@@ -184,12 +193,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const rawClanXp = donation.kind === 'currency'
                     ? donation.currency === 'ryo' ? Math.floor(donation.amount / 35) : Math.floor(donation.amount) * 200
                     : donation.itemId === TERRITORY_CONTROL_SCROLL_ID ? Math.floor(donation.count) * 20 : 50;
-                const reservation = cappedXp ? await reserveClanDonationXp(donorChar, playerName, rawClanXp, now) : null;
-                const clanXp = reservation?.clanXp ?? rawClanXp;
+                // Ryo reserves from the weekly budget alone; every other kind
+                // also from its daily one. The treasury is credited in full
+                // either way: only the clan XP is held to the budget.
+                const reservation = ryoDonation
+                    ? reserveClanRyoDonationXp(donorChar, rawClanXp, now)
+                    : await reserveClanDonationXp(donorChar, playerName, rawClanXp, now);
+                const clanXp = reservation.clanXp;
                 return {
                     ok: true,
-                    character: { ...nextDonorChar, ...(reservation ? { clanDonationXp: reservation.quota } : {}) },
-                    plan: { treasury: treasuryCreditPlan(donation, routed), clanXp, ...(reservation ? { clanXpDay: reservation.quota.day } : {}) },
+                    character: { ...nextDonorChar, clanDonationXp: reservation.quota },
+                    // clanXpDay is the non-ryo daily audit's marker, so a ryo plan never carries it.
+                    plan: { treasury: treasuryCreditPlan(donation, routed), clanXp, ...(!ryoDonation && reservation.quota.day ? { clanXpDay: reservation.quota.day } : {}) },
                     result: {},
                 };
             },

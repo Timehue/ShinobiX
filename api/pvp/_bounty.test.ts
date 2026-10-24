@@ -5,10 +5,11 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import {
-    placeBounty, claimBounty, findBounty, normalizeBoard, emptyBoard,
+    placeBounty, claimBounty, findBounty, normalizeBoard, emptyBoard, isBountyContributor,
     BOUNTY_MIN_PLACE, BOUNTY_MAX_PLACE, BOUNTY_MAX_PER_TARGET,
     type BountyBoard, type PlaceInput,
 } from './_bounty.js';
+import { BOUNTY_PLACEMENT_FEE_RATE, bountyPlacementFee, bountyPlacementTotal } from '../../shared/pvp-bounty-fee.js';
 
 const NOW = 1_700_000_000_000;
 
@@ -93,5 +94,40 @@ describe('normalizeBoard', () => {
     it('returns an empty board for junk input', () => {
         assert.deepEqual(normalizeBoard(null), emptyBoard());
         assert.deepEqual(normalizeBoard({ nope: true }), emptyBoard());
+    });
+});
+
+describe('posting fee (#30)', () => {
+    it('is 15% of the stake, rounded down', () => {
+        assert.equal(BOUNTY_PLACEMENT_FEE_RATE, 0.15);
+        assert.equal(bountyPlacementFee(1_000), 150);
+        assert.equal(bountyPlacementFee(1_001), 150);
+        assert.equal(bountyPlacementFee(1_007), 151);
+        assert.equal(bountyPlacementFee(1_000_000), 150_000);
+        assert.equal(bountyPlacementFee(0), 0);
+        assert.equal(bountyPlacementTotal(10_000), 11_500);
+    });
+    it('needs the stake plus the fee, and escrows only the stake', () => {
+        assert.equal(placeBounty(placeInput({ amount: 1_000, placerRyo: 1_000 }), NOW).ok, false);
+        assert.equal(placeBounty(placeInput({ amount: 1_000, placerRyo: 1_149 }), NOW).ok, false);
+        const placed = placeBounty(placeInput({ amount: 1_000, placerRyo: 1_150 }), NOW);
+        assert.ok(placed.ok);
+        if (!placed.ok) return;
+        assert.equal(placed.fee, 150);
+        assert.equal(findBounty(placed.board, 'Kenji')?.amount, 1_000);
+    });
+});
+
+describe('isBountyContributor (I-14)', () => {
+    const head = { contributors: ['bounty placer', 'rill'] };
+    it('matches a contributor by display name or by slug', () => {
+        assert.equal(isBountyContributor(head, 'Bounty Placer', 'bountyplacer'), true);
+        assert.equal(isBountyContributor(head, '', 'bountyplacer'), true, 'a slug-only caller still matches');
+        assert.equal(isBountyContributor(head, 'Rill', 'rill'), true);
+    });
+    it('does not match a hunter who never funded the head', () => {
+        assert.equal(isBountyContributor(head, 'Bounty Hunter', 'bountyhunter'), false);
+        assert.equal(isBountyContributor(undefined, 'Bounty Placer', 'bountyplacer'), false);
+        assert.equal(isBountyContributor(head, '', ''), false);
     });
 });

@@ -1,6 +1,6 @@
 import { after, before, beforeEach, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { getDurableSettlement, settlementTransactionId } from '../../_durable-settlement.js';
+import { beginDurableSettlement, getDurableSettlement, settlementFingerprint, settlementTransactionId, updateDurableSettlement } from '../../_durable-settlement.js';
 
 process.env.NODE_ENV = 'test';
 process.env.SHINOBIX_QA_MEMORY_KV = '1';
@@ -135,6 +135,88 @@ describe('village treasury transfer settlement', () => {
         const bag = (await kv.get<{ character?: { inventory?: string[] } }>(RECIPIENT_KEY))?.character?.inventory ?? [];
         assert.equal(bag.length, 500);
         assert.equal(bag.includes('rustfang-kunai'), false);
+    });
+
+    it('delivers a hunt material into the recipient stack even when the bag is full (owner ruling A12)', { concurrency: false }, async () => {
+        await kv.set(VILLAGE_KEY, { treasury: { ryo: 100, items: [{ itemId: 'hunt-legendary-material', count: 1 }] } });
+        await kv.set(RECIPIENT_KEY, {
+            _saveVersion: 1,
+            character: { name: 'Recipient', village: 'Leaf', ryo: 10,
+                inventory: [...Array.from({ length: 499 }, (_, i) => `gear-${i}`), 'hunt-legendary-material'],
+                itemStacks: [{ itemId: 'hunt-legendary-material', count: 2 }] },
+        });
+        const sent = await post({ village: 'Leaf', recipientName: 'Recipient', itemId: 'hunt-legendary-material', requestId: 'village-transfer-stack-01' });
+        assert.equal(sent.statusCode, 200, JSON.stringify(sent.body));
+        const saved = (await kv.get<{ character?: { inventory?: string[]; itemStacks?: Array<{ itemId: string; count: number }> } }>(RECIPIENT_KEY))?.character;
+        assert.equal(saved?.inventory?.length, 499, 'the legacy copy folded out of inventory[] and no slot was used');
+        assert.deepEqual(saved?.itemStacks, [{ itemId: 'hunt-legendary-material', count: 4 }], '2 stacked + 1 legacy + 1 gifted');
+        assert.deepEqual((await kv.get<{ treasury?: { items?: unknown[] } }>(VILLAGE_KEY))?.treasury?.items, []);
+    });
+
+    it('refuses a 1-unit Fate Shard gift and moves nothing (I-16)', { concurrency: false }, async () => {
+        await kv.set(VILLAGE_KEY, { treasury: { ryo: 100, fateShards: 10 } });
+        await kv.set(RECIPIENT_KEY, { _saveVersion: 1, character: { name: 'Recipient', village: 'Leaf', ryo: 10, fateShards: 0 } });
+        const refused = await post({ village: 'Leaf', recipientName: 'Recipient', currency: 'fateShards', amount: 1, requestId: 'village-transfer-one-fs-01' });
+        assert.equal(refused.statusCode, 400);
+        assert.match(String(refused.body?.error), /^Gift at least 2 Fate Shards/);
+        assert.equal((await kv.get<{ treasury?: { fateShards?: number } }>(VILLAGE_KEY))?.treasury?.fateShards, 10);
+        assert.equal((await kv.get<{ character?: { fateShards?: number } }>(RECIPIENT_KEY))?.character?.fateShards, 0);
+        // Two units clear the minimum and burn exactly one.
+        const sent = await post({ village: 'Leaf', recipientName: 'Recipient', currency: 'fateShards', amount: 2, requestId: 'village-transfer-two-fs-01' });
+        assert.equal(sent.statusCode, 200, JSON.stringify(sent.body));
+        assert.equal(sent.body?.burned, 1);
+        assert.equal((await kv.get<{ treasury?: { fateShards?: number } }>(VILLAGE_KEY))?.treasury?.fateShards, 8);
+        assert.equal((await kv.get<{ character?: { fateShards?: number } }>(RECIPIENT_KEY))?.character?.fateShards, 1);
+    });
+
+    it('still finishes a 1-unit gift that was debited before the minimum shipped', { concurrency: false }, async () => {
+        // A gift journaled and debited by the old build, then interrupted, must
+        // complete on retry: refusing it would strand the treasury debit.
+        const requestId = 'village-transfer-legacy-one-fs-01';
+        const operationType = 'village-treasury-transfer';
+        const transactionId = settlementTransactionId(operationType, requestId);
+        const fingerprint = settlementFingerprint({ operation: operationType, village: 'leaf', recipientName: 'recipient', currency: 'fateShards', itemId: '', amount: 1 });
+        await beginDurableSettlement({ transactionId, idempotencyKey: requestId, operationType, fingerprint, actorIds: ['admin', 'leaf', 'recipient'], resource: 'fateShards', amount: 1, meta: { sourceKey: VILLAGE_KEY, recipientKey: RECIPIENT_KEY } }, { kv });
+        await updateDurableSettlement(transactionId, { state: 'debit-applied' }, { kv });
+        await kv.set(VILLAGE_KEY, { treasury: { ryo: 100, fateShards: 9 }, settlementReceipts: [{ transactionId, fingerprint, resource: 'fateShards', amount: 1, appliedAt: Date.now() }] });
+        await kv.set(RECIPIENT_KEY, { _saveVersion: 1, character: { name: 'Recipient', village: 'Leaf', ryo: 10, fateShards: 0 } });
+
+        const resumed = await post({ village: 'Leaf', recipientName: 'Recipient', currency: 'fateShards', amount: 1, requestId });
+        assert.equal(resumed.statusCode, 200, JSON.stringify(resumed.body));
+        assert.equal((await kv.get<{ treasury?: { fateShards?: number } }>(VILLAGE_KEY))?.treasury?.fateShards, 9, 'debited once, never again');
+        assert.equal((await kv.get<{ character?: { fateShards?: number } }>(RECIPIENT_KEY))?.character?.fateShards, 1, 'the stranded unit is delivered');
+        assert.equal((await getDurableSettlement(transactionId, { kv }))?.state, 'completed');
+    });
+
+    it('refuses a Mythic Seal gift and moves nothing (I-8)', { concurrency: false }, async () => {
+        await kv.set(VILLAGE_KEY, { treasury: { ryo: 100, mythicSeals: 7 } });
+        await kv.set(RECIPIENT_KEY, { _saveVersion: 1, character: { name: 'Recipient', village: 'Leaf', ryo: 10, mythicSeals: 0 } });
+        for (const amount of [1, 2, 50]) {
+            const refused = await post({ village: 'Leaf', recipientName: 'Recipient', currency: 'mythicSeals', amount, requestId: `village-transfer-seal-${String(amount).padStart(4, '0')}` });
+            assert.equal(refused.statusCode, 400, JSON.stringify(refused.body));
+            assert.match(String(refused.body?.error), /Mythic Seals cannot be gifted/);
+        }
+        assert.equal((await kv.get<{ treasury?: { mythicSeals?: number } }>(VILLAGE_KEY))?.treasury?.mythicSeals, 7, 'the treasury keeps its seals');
+        const recipient = await kv.get<{ _saveVersion?: number; character?: { mythicSeals?: number } }>(RECIPIENT_KEY);
+        assert.equal(recipient?.character?.mythicSeals, 0);
+        assert.equal(recipient?._saveVersion, 1, 'the recipient save was never written');
+    });
+
+    it('still finishes a Mythic Seal gift that was debited before the rule shipped', { concurrency: false }, async () => {
+        const requestId = 'village-transfer-legacy-seal-01';
+        const operationType = 'village-treasury-transfer';
+        const transactionId = settlementTransactionId(operationType, requestId);
+        const fingerprint = settlementFingerprint({ operation: operationType, village: 'leaf', recipientName: 'recipient', currency: 'mythicSeals', itemId: '', amount: 3 });
+        await beginDurableSettlement({ transactionId, idempotencyKey: requestId, operationType, fingerprint, actorIds: ['admin', 'leaf', 'recipient'], resource: 'mythicSeals', amount: 3, meta: { sourceKey: VILLAGE_KEY, recipientKey: RECIPIENT_KEY } }, { kv });
+        await updateDurableSettlement(transactionId, { state: 'debit-applied' }, { kv });
+        await kv.set(VILLAGE_KEY, { treasury: { ryo: 100, mythicSeals: 4 }, settlementReceipts: [{ transactionId, fingerprint, resource: 'mythicSeals', amount: 3, appliedAt: Date.now() }] });
+        await kv.set(RECIPIENT_KEY, { _saveVersion: 1, character: { name: 'Recipient', village: 'Leaf', ryo: 10, mythicSeals: 0 } });
+
+        const resumed = await post({ village: 'Leaf', recipientName: 'Recipient', currency: 'mythicSeals', amount: 3, requestId });
+        assert.equal(resumed.statusCode, 200, JSON.stringify(resumed.body));
+        assert.equal((await kv.get<{ treasury?: { mythicSeals?: number } }>(VILLAGE_KEY))?.treasury?.mythicSeals, 4, 'debited once, never again');
+        assert.ok(Number((await kv.get<{ character?: { mythicSeals?: number } }>(RECIPIENT_KEY))?.character?.mythicSeals) > 0, 'the stranded seals are delivered');
+        assert.equal((await getDurableSettlement(transactionId, { kv }))?.state, 'completed');
     });
 
     it('delivers the same gift once the recipient makes room', { concurrency: false }, async () => {

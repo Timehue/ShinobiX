@@ -1,6 +1,22 @@
 import { INVENTORY_CAP as BASE_INVENTORY_CAP } from '../_inventory-capacity.js';
 import { preserveOwnedItems } from './_entitlement-guard.js';
 import { countEquippedItems } from '../_equipment-ownership.js';
+import { ITEM_STACK_KEY_CAP, ITEM_STACK_MAX, foldStackedMaterials } from '../../shared/stacked-materials.js';
+
+/**
+ * Fold `inventory[]` copies of hunt materials and the Weekly Boss Core into
+ * `itemStacks` (owner ruling A12, 2026-10 rebalance). Runs on the FINAL
+ * character of every save write, after the ledger boundary has settled what the
+ * player owns, so it only ever moves units between the two stores: per id,
+ * inventory copies plus stack count are unchanged, and a second pass is a no-op.
+ * A unit that does not fit (full stack, no free stack key) stays where it was.
+ */
+export function foldStackedMaterialsOnSave(char: Record<string, unknown>): void {
+    const folded = foldStackedMaterials(char);
+    if (folded === char) return;
+    char.inventory = folded.inventory;
+    char.itemStacks = folded.itemStacks;
+}
 
 export function sanitizeInventory(char: Record<string, unknown>, exChar: Record<string, unknown>) {
 
@@ -27,9 +43,8 @@ export function sanitizeInventory(char: Record<string, unknown>, exChar: Record<
     // stackable ids out of inventory[] into here, which is what keeps the cap
     // above from overflowing for hoarders). Validate structurally so a tampered
     // client can't bloat the save: dedupe by id, floor + clamp each count, drop
-    // non-positive entries, and cap the number of distinct stack keys.
-    const ITEM_STACK_MAX = 9999;
-    const ITEM_STACK_KEY_CAP = 200;
+    // non-positive entries, and cap the number of distinct stack keys
+    // (ITEM_STACK_MAX / ITEM_STACK_KEY_CAP, shared/stacked-materials.ts).
     if (Array.isArray(char.itemStacks)) {
         const counts = new Map<string, number>();
         for (const s of char.itemStacks as unknown[]) {

@@ -5,8 +5,9 @@
  */
 import { describe, it } from "node:test";
 import { strict as assert } from "node:assert";
-import { rollWanderers, wandererLevelFor, wandererDayBucket, wandererCount, wandererPresenceGate, isWandererOnCooldown, withWandererCooldown, WANDERER_NPC_COOLDOWN_MS, WANDERER_FLEE_COOLDOWN_MS, WANDERER_DECLINE_COOLDOWN_MS, QUEST_GIVER_PRESENCE, MAX_ROAMING_QUEST_GIVERS, MAX_SECTOR_WANDERERS, pickRoamingQuestGivers, capSectorWanderers, lockedWandererVerbs, wandererVerbLockReason, lockedQuestMetrics, questForWanderer, resolveWandererById, isWanderersEnabled, parseWandererId, wandererRelocationSector, pruneWandererMoves, hasWandererRelocated, wanderersVisitingSector, type Wanderer } from "./wanderers";
+import { rollWanderers, wandererLevelFor, wandererDayBucket, wandererCount, wandererPresenceGate, isWandererOnCooldown, withWandererCooldown, WANDERER_NPC_COOLDOWN_MS, WANDERER_FLEE_COOLDOWN_MS, WANDERER_DECLINE_COOLDOWN_MS, QUEST_GIVER_PRESENCE, MAX_ROAMING_QUEST_GIVERS, MAX_SECTOR_WANDERERS, pickRoamingQuestGivers, capSectorWanderers, lockedWandererVerbs, wandererVerbLockReason, lockedQuestMetrics, questForWanderer, WANDERER_QUEST_CATALOG, resolveWandererById, isWanderersEnabled, parseWandererId, wandererRelocationSector, pruneWandererMoves, hasWandererRelocated, wanderersVisitingSector, type Wanderer } from "./wanderers";
 import { MAX_WILD_SECTOR } from "../../../shared/sector-geo";
+import { WANDERER_QUEST_OFFER_POOL, questIdForWanderer } from "../../../shared/wanderer-quest-offer";
 
 const GRID = 12;
 const onGrid = (t: number) => Number.isInteger(t) && t >= 0 && t < GRID * GRID;
@@ -193,6 +194,22 @@ describe("content-locked archetypes", () => {
         assert.ok(metrics.has("cardClashWins") && metrics.has("totalPetWins"), "unlocking restores the full catalog");
         // No lock argument must behave exactly like an empty lock list.
         assert.deepEqual(questForWanderer(sage("w-7-5000-0"), open), questForWanderer(sage("w-7-5000-0")));
+    });
+
+    it("offers exactly the errand the server will accept (shared pick, I-13)", () => {
+        // The server refuses any quest id but the one shared/wanderer-quest-offer.ts
+        // picks, so the catalog order and metrics here must match its pool.
+        assert.deepEqual(WANDERER_QUEST_CATALOG.map(({ id, metric }) => ({ id, metric })), WANDERER_QUEST_OFFER_POOL.map(({ id, metric }) => ({ id, metric })));
+        const sage = (id: string): Wanderer => ({
+            id, name: id, archetype: "sage", verb: "quest", level: 10,
+            homeTile: 30, waypoints: [30], greeting: "…", tellTint: "#fff", avatarKey: "sage",
+        });
+        const lockSets = [[], ["cardClashWins"], ["totalPetWins"], ["cardClashWins", "totalPetWins"]] as const;
+        for (let i = 0; i < 500; i++) {
+            const id = `w-${(i % 66) + 1}-${5000 + i}-${i % 3}`;
+            for (const locked of lockSets) assert.equal(questForWanderer(sage(id), locked).id, questIdForWanderer(id, locked), `${id} [${locked.join(",")}]`);
+        }
+        assert.deepEqual(lockedQuestMetrics({ starterCardsClaimed: true, pets: [] }), ["totalPetWins"]);
     });
 
     it("wanderers are always on — no per-device kill switch", () => {

@@ -66,6 +66,8 @@ test('a per-war structure bought again in a later war is logged again, not dropp
         await kv.set('village:kage:frostfang-village', { seatedKage: 'frostkage' });
         await kv.set('save:frostkage', { _saveVersion: 1, character: { name: 'frostkage', village: FROST, level: 50, ryo: 0 } });
         await kv.set(FROST_WAR, { warResources: 1_000, structures: { ramparts: 0, watchtower: 0, barracks: 0, warAcademy: 0, supplyDepot: 0, treasuryVault: 0 }, sectors: {}, mercLeases: [], dormant: false, lastWarPassDate: '', terrainSetBy: {} });
+        // A preparation tier also costs treasury ryo and Bone Charms (2026-10 rebalance).
+        await kv.set('game:village-state:frostfangvillage', { treasury: { ryo: 100_000, boneCharms: 100 } });
 
         const { newSectorWarSession, sectorWarKey } = await import('../_sector-war.js');
         const { sectorPreparationInstance } = await import('../_war-preparations.js');
@@ -92,6 +94,10 @@ test('a per-war structure bought again in a later war is logged again, not dropp
         assert.notEqual(events[0].eventId, events[1].eventId);
         const agg = await kv.get<Record<string, number>>(telemetry.warEcoAggKey(FROST));
         assert.equal(agg?.['wr.spend.structure'], Number(first.body?.cost) + Number(second.body?.cost), 'the sink counts both spends');
+        // The treasury share of each purchase is a sink too; the replay adds none.
+        assert.equal(agg?.['treasury.ryo.spend.prep'], 20_000, 'two tier-1 purchases at 10,000 ryo');
+        assert.equal(agg?.['treasury.bc.spend.prep'], 40, 'and 20 Bone Charms each');
+        assert.equal(telemetry.summarizeVillageAgg(agg ?? {}).treasuryRyoOut, 20_000);
     } finally {
         mock.timers.reset();
     }

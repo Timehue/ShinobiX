@@ -108,6 +108,61 @@ test('a real training start seals the boosted gain while a training event runs',
     assert.equal(boosted.xp, plain.xp, 'the retired sealed XP field is never boosted');
 });
 
+async function startTraining(name: string, tierId: string, character: Record<string, unknown> = {}) {
+    const start = (await import('../training/start.js')).default as unknown as (req: never, res: never) => Promise<unknown>;
+    await kv.set(`save:${name}`, { _saveVersion: 1, character: {
+        name, level: 1, stamina: 100, unspentStats: 0, totalStatsTrained: 0,
+        stats: { strength: 10, speed: 10, intelligence: 10, willpower: 10 }, ...character,
+    } });
+    const out = { status: 200, body: {} as any };
+    const res = { setHeader() { return res; }, status(code: number) { out.status = code; return res; }, json(value: unknown) { out.body = value; return res; }, end() { return res; } };
+    await start({ method: 'POST', body: { playerName: name, stat: 'strength', tierId }, query: {},
+        headers: { 'x-admin-password': 'boost-test-full' }, socket: { remoteAddress: '127.0.0.95' } } as never, res as never);
+    assert.equal(out.status, 200, JSON.stringify(out.body));
+    const saved = await kv.get<{ activeTraining?: { statGain?: number } }>(`save:${name}`);
+    return saved?.activeTraining?.statGain;
+}
+
+test('TRAINING_RATE_TABLE=legacy is the no-deploy rollback for new 8h starts', async () => {
+    const { rookieStatMultiplier } = await import('../_training-config.js');
+    const rookie = rookieStatMultiplier(1); // the fixture's ledger level
+    const previous = process.env.TRAINING_RATE_TABLE;
+    try {
+        delete process.env.TRAINING_RATE_TABLE;
+        assert.equal(await startTraining('ratetablev2', '8h'), Math.round(65 * rookie));
+        process.env.TRAINING_RATE_TABLE = 'legacy';
+        assert.equal(await startTraining('ratetablelegacy', '8h'), Math.round(72 * rookie));
+        process.env.TRAINING_RATE_TABLE = 'v3-typo';
+        assert.equal(await startTraining('ratetabletypo', '8h'), Math.round(65 * rookie), 'an unknown value reads as v2');
+    } finally {
+        if (previous === undefined) delete process.env.TRAINING_RATE_TABLE; else process.env.TRAINING_RATE_TABLE = previous;
+    }
+});
+
+test('a rallying village seals the morale-scaled gain the Training preview shows', async () => {
+    const { earnedForLevel, levelForEarned } = await import('../_xp-engine.js');
+    const { TRAINING_TIERS, previewTrainingGain } = await import('../../shinobij.client/src/lib/training-config.js');
+    const village = 'Stormveil Village';
+    await kv.set('game:village-state:stormveilvillage', { warLossDebuffUntil: Date.now() + 3_600_000 });
+    try {
+        const ledger = { level: 40, unspentStats: earnedForLevel(40), village };
+        const ledgerLevel = levelForEarned(earnedForLevel(40));
+        const eightHour = TRAINING_TIERS.find((tier) => tier.id === '8h')!;
+        const preview = (eventBoost: number) => previewTrainingGain({
+            tier: eightHour, bonusPct: 0, ledgerLevel, eraDial: 1, moraleXpMult: 1.1, eventBoost,
+        });
+        const rallying = await startTraining('moralerally', '8h', ledger);
+        assert.equal(rallying, 72, '65 × 1.1 = 71.5 → 72');
+        assert.equal(rallying, preview(1));
+        await request({ action: 'start', multiplier: 2, targets: ['training'], hours: 1 });
+        const rallyingEvent = await startTraining('moralerallyevent', '8h', ledger);
+        assert.equal(rallyingEvent, 143, '65 × 1.1 × 2 = 143');
+        assert.equal(rallyingEvent, preview(2));
+    } finally {
+        await kv.del('game:village-state:stormveilvillage');
+    }
+});
+
 test('every other grant site applies its boost (source pins)', async () => {
     const { readFileSync } = await import('node:fs');
     const { join } = await import('node:path');
@@ -120,10 +175,16 @@ test('every other grant site applies its boost (source pins)', async () => {
     const missions = src('missions', 'claim-mission.ts');
     assert.match(missions, /boostMultiplier\('growth'\)/);
     assert.match(missions, /combinedStatBoost\(bonusPct \+ huntRankBonusPct\) \* growthEventBoost/);
-    // Casual PvP win growth, judged at the battle's end.
+    // Casual PvP win growth, judged at the battle's end: the event scales the
+    // request before the 18/day budget; the era dial never applies (I-12).
     const pvp = src('pvp', 'claim-rewards.ts');
     assert.match(pvp, /boostMultiplier\('growth', rewardEventAt\)/);
-    assert.match(pvp, /statGainMultiplier\(\) \* growthEventBoost/);
+    assert.match(pvp, /PVP_CASUAL_STAT_POINTS_PER_WIN \* growthEventBoost/);
+    assert.ok(
+        pvp.indexOf('PVP_CASUAL_STAT_POINTS_PER_WIN * growthEventBoost') < pvp.indexOf('reserveCombatStatBudget(kv'),
+        'the event scales the request, which the budget then bounds',
+    );
+    assert.doesNotMatch(pvp, /statGainMultiplier\(/);
     // Training (proven end to end above) reads it once, outside the save lock.
     const training = src('training', 'start.ts');
     assert.ok(training.indexOf("boostMultiplier('training'") < training.indexOf('withKvLock(saveKey'), 'read before the save lock');

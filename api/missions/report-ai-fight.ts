@@ -13,7 +13,9 @@ import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { applyDerivedLevel, gainXp } from '../_xp-engine.js';
 import { AI_PVE_STAT_POINTS_PER_WIN, DAILY_COMBAT_STAT_CAP, computeCombatStatGrowth } from '../_stat-growth.js';
 import { reserveCombatStatBudget } from '../pvp/_combat-stat-budget.js';
+import { dailyStatBudgetReply } from '../_daily-stat-budget.js';
 import { withKvLock } from '../_lock.js';
+import { recordEconomyTxn } from '../_economy.js';
 import {
     AI_FIGHT_TOKEN_TTL_SECONDS,
     aiFightTokenKey,
@@ -469,6 +471,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 AI_FIGHT_DAILY_COUNT_TTL_SECONDS,
             );
         }
+        // Faucet telemetry (2026-10 rebalance, I-19): the level-scaled AI purse
+        // is the largest repeatable PvE ryo source. Committed, non-replayed
+        // paying wins only; best-effort, and 'ai-fight.' is a high-frequency
+        // prefix, so it updates the aggregates without flooding econ:txns.
+        if (paysReward && !reward.replayed && reward.ryo > 0) {
+            void recordEconomyTxn({ txnId: `ai-fight:${aiFightToken}`, player: playerName, currency: 'ryo', delta: reward.ryo, source: 'ai-fight.win' });
+        }
         if (isSoloPveSession(settledUsageSession) && settledUsageSession.terminalEvidence) {
             try {
                 const priorReceipt = settledUsageSession.terminalEvidence.receipt;
@@ -710,6 +719,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             xp: reward.xp,
             ryo: reward.ryo,
             statPoints: reward.statPoints,
+            ...(outcome === 'win' ? await dailyStatBudgetReply(kv, playerName) : {}),
             capped: reward.capped,
             dailyCount,
             fetchMissionsCredited,

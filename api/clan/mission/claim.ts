@@ -13,7 +13,7 @@ import {
     CLAN_MISSION_TARGETS,
     CLAN_MISSION_REWARDS,
     clanMissionProgressServer,
-
+    clanMissionPointEligible,
     scaledClanXp,
     isClanMissionKey,
     type ClanMissionKey,
@@ -56,6 +56,7 @@ type ClanMissionMember = {
     missionContrib?: number;
     eventContrib?: number;
     level?: number;
+    month?: string;
 };
 
 type ClanMissionTerritory = Record<string, unknown> & { ownerClan?: string; guards?: unknown[] };
@@ -96,16 +97,9 @@ function pointEligibleMembers(
     for (const member of members) {
         const name = safeName(String(member.name ?? ''));
         if (!name) continue;
-        const battle = Number(member.battleContrib ?? 0) || 0;
-        const mission = Number(member.missionContrib ?? 0) || 0;
-        const event = Number(member.eventContrib ?? 0) || 0;
-        const level = Number(member.level ?? 0) || 0;
-        const eligible =
-            (missionKey === 'battle' && battle > 0)
-            || (missionKey === 'mission' && mission > 0)
-            || (missionKey === 'guard' && (level >= 5 || guardNames.has(name)))
-            || (missionKey === 'anbu' && (battle > 0 || event > 0 || guardNames.has(name)))
-            || (missionKey === 'raid' && event > 0);
+        // This month's counters only, and never donations alone (I-15;
+        // clanMissionPointEligible in ../_mission-catalog.ts).
+        const eligible = clanMissionPointEligible(member, missionKey, guardNames.has(name), now);
         if (eligible && !names.includes(name)) names.push(name);
         if (names.length >= 50) break;
     }

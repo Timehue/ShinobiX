@@ -116,6 +116,26 @@ it('settles Fate Shards with the same rounded-down 5% fee and no ryo charge', as
     assert.deepEqual(txns.filter(t => t.txnId === `exchange:${id}:sell`).map(t => [t.currency, t.delta]), [['fateShards', 191]]);
 });
 
+it('records a ryo-priced Fate Shard lot as one price sample and its fee as the sink; an item lot records no sample', async () => {
+    const { econExchangeSampleKey, econUtcDay } = await import('../_economy.js');
+    const key = econExchangeSampleKey(econUtcDay(Date.now()));
+    await kv.del(key);
+    await patch('buyer', { ryo: 400_000 });
+    const created = await list({ kind: 'resource', assetId: 'fateShards', quantity: 3, price: 390_000 });
+    assert.equal(created.status, 200, JSON.stringify(created.body));
+    const id = created.body.listing.id;
+    for (let attempt = 0; attempt < 2; attempt++) assert.equal((await buy(id, 'buyer', 390_000)).status, 200);
+    const samples = (await kv.get<Obj[]>(key)) ?? [];
+    assert.deepEqual(samples.filter(s => s.id === id).map(s => [s.r, s.cur, s.p, s.q, s.pair]), [['fateShards', 'ryo', 130_000, 3, 'buyer|seller']],
+        'one sample per sold lot, even when the buy is retried');
+    const txns = (await kv.get<Obj[]>('econ:txns'))!;
+    assert.deepEqual(txns.filter(t => t.txnId === `exchange:${id}:fee`).map(t => [t.currency, t.delta, t.source]), [['ryo', -19_500, 'exchange.fee']]);
+
+    const item = (await list({ price: 1000 })).body.listing.id;
+    assert.equal((await buy(item, 'buyer', 1000)).status, 200);
+    assert.equal(((await kv.get<Obj[]>(key)) ?? []).some(s => s.id === item), false, 'an item sale is not a resource price');
+});
+
 it('rejects missing or mismatched currency quotes and currency changes under a reused request ID', async () => {
     const requestId = randomUUID();
     const created = await list({ requestId, currency: 'fateShards', price: 50 });
@@ -291,6 +311,12 @@ it('refuses new Honor Seal and Mythic Seal listings, as player trades do', async
         assert.equal(refused.status, 400, JSON.stringify(refused.body));
         assert.equal((await record('seller')).character[assetId], 100, `${assetId} never left the seller`);
     }
+    // The sell picker marks them unavailable up front instead of offering them.
+    const snapshot = await post({ action: 'browse', playerName: 'seller' });
+    for (const assetId of ['honorSeals', 'mythicSeals']) {
+        assert.match(String(snapshot.body.inventory.find((asset: Obj) => asset.id === assetId)?.unavailable), /cannot be traded/, assetId);
+    }
+    assert.equal(snapshot.body.inventory.find((asset: Obj) => asset.id === 'boneCharms')?.unavailable, undefined);
 });
 
 it('preserves companion identity, lineage, growth and remaining breeding uses', async () => {

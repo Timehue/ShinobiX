@@ -4,10 +4,14 @@ import { activeBreedingParentIds } from '../pet/_pet-busy.js';
 import { petStatCeil } from '../_pet-stat-ceil.js';
 import { copyStoredField } from './_sanitize-ledger.js';
 
+/**
+ * `_strictLedger` is kept for the callers' signature: since the 2026-10 economy
+ * rebalance (I-2) the pet roster is server-owned in both ledger modes.
+ */
 export function sanitizePetRoster(
     char: Record<string, unknown>,
     exChar: Record<string, unknown>,
-    strictLedger: boolean,
+    _strictLedger: boolean,
 ) {
 
     // Pet roster cap: a tampered client cannot grow the carried roster beyond
@@ -27,20 +31,15 @@ export function sanitizePetRoster(
     // combat progression, timers, paid identity, and gear are all committed by
     // dedicated pet endpoints. A generic save cannot add/remove ownership or
     // train, feed, rename, equip, or fabricate expedition state.
-    // Once strict settlement is enabled, pet identity and progression must
-    // come from dedicated endpoints. Compatibility mode retains bounded legacy
-    // pet rewards until every caller has migrated.
+    // A generic save can never ADD a pet, in either ledger mode. Ownership
+    // enters only through the dedicated server endpoints (starter, wild
+    // binding, breeding hatch, legacy befriend, Exchange). The old empty-roster
+    // carve-out kept up to 5-6 client-defined pets (rarity, apex trait, growth
+    // stats all the client's choice) and the Sanctuary could re-empty the roster
+    // to repeat it (economy rebalance I-2). No honest client used it: every
+    // catalog pet carries level, xp and jutsus, which the carve-out refused.
     char.pets = submittedPets
-        .filter((pet) => {
-            if (existingPetById.has(String(pet?.id ?? ''))) return true;
-            if (strictLedger || existingPets.length > 0) return false;
-            const stats = ['hp', 'attack', 'defense', 'speed'].map((field) => Number(pet?.[field]));
-            return typeof pet?.id === 'string'
-                && stats.every((value) => Number.isFinite(value) && value >= 1 && value <= 100)
-                && !Array.isArray(pet.jutsus)
-                && pet.level === undefined
-                && pet.xp === undefined;
-        })
+        .filter((pet) => existingPetById.has(String(pet?.id ?? '')))
         .map((pet) => {
             const stored = existingPetById.get(String(pet.id));
             if (!stored) return pet;

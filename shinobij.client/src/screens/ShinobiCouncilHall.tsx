@@ -148,7 +148,7 @@ export function ShinobiCouncilHall({ character, setScreen, playerRoster, launchC
     const homeSeatOpen = !!homeKage?.kageSystemUnlocked && !homeKage.seatedKage;
     // Nothing is STAKED on a claim, so the ryo requirement does not apply. Match
     // on the requirement's id — the old `!label.endsWith("ryo")` test would have
-    // started demanding 250,000 ryo the moment that label was reworded.
+    // started demanding the ryo stake the moment that label was reworded.
     const claimBlockers = homeSeatOpen
         ? kageEligibility(character, Date.now()).filter(req => !req.ok && req.id !== "ryo")
         : [];

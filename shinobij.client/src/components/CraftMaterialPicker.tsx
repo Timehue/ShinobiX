@@ -15,10 +15,24 @@ type Props = {
     onCancel: () => void; onConfirm: (materials: CraftMaterialSelection) => Promise<string | undefined>;
 };
 
+/**
+ * The starting amount for one option of a material group. A single-material
+ * group is fixed. A group with alternatives starts empty so the player chooses,
+ * unless only ONE of its materials is in stock and it covers the whole group:
+ * then there is no choice to make, and the substitutes the 2026-10 item-use pass
+ * added (fuel, Shadow Pelt, the trophy row) cost a hunter no extra input.
+ */
+function preselectedAmount(ingredient: CraftIngredient, id: string, quantity: number, owned: (id: string) => number): number {
+    const required = ingredient.count * quantity;
+    if (ingredient.ids.length === 1) return required;
+    const stocked = ingredient.ids.filter(option => owned(option) > 0);
+    return stocked.length === 1 && stocked[0] === id && owned(id) >= required ? required : 0;
+}
+
 export function CraftMaterialPicker({ recipe, owned, ryo, opener, onCancel, onConfirm }: Props) {
     const returnFocusRef = useRef(opener);
     const [materials, setMaterials] = useState<Record<string, number>[]>(() => recipe.ingredients.map(ingredient =>
-        Object.fromEntries(ingredient.ids.map(id => [id, ingredient.ids.length === 1 ? ingredient.count * recipe.quantity : 0]))));
+        Object.fromEntries(ingredient.ids.map(id => [id, preselectedAmount(ingredient, id, recipe.quantity, owned)]))));
     const [busy, setBusy] = useState(false);
     const [confirmed, setConfirmed] = useState(false);
     const [error, setError] = useState('');

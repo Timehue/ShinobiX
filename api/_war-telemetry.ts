@@ -13,7 +13,7 @@ import { runBackgroundWork } from './_background-work.js';
 // PLAYER currencies) — WR + treasury seals are village-scoped, not a player
 // wallet, so they get their own sink with a per-village aggregate.
 //
-// Strictly additive + best-effort, exactly like recordEconomyTxn(): a logging
+// Strictly additive + best-effort, exactly like the economy ledger's recordEconomyTxn: a logging
 // hiccup NEVER fails the real war-economy write (every public fn swallows + logs
 // its own errors). Meant to be called from inside the writer's existing
 // withKvLock(...) right where the server computes the amount, so the logged
@@ -38,7 +38,17 @@ export type WarEcoKind =
     | 'tax.treasury'         // taxed ryo credited to the village treasury (as ryo, not seals)
     | 'dormancy.enter'       // village fell dormant (couldn't pay upkeep)
     | 'dormancy.exit'        // village recovered from dormancy
-    | 'sector.capture';      // a sector flipped owner (count, amount = 1)
+    | 'sector.capture'       // a sector flipped owner (count, amount = 1)
+    // ── 2026-10 rebalance (framework 8.4 war telemetry) ──
+    | 'treasury.ryo.spend.merc' // treasury ryo burned hiring a mercenary band (sink)
+    | 'treasury.ryo.spend.prep' // treasury ryo burned on a war preparation tier (sink)
+    | 'treasury.bc.spend.prep'  // treasury Bone Charms burned on a war preparation tier (sink)
+    | 'treasury.short'          // a merc hire or preparation refused for a short treasury (count)
+    | 'war.end.agreement'       // a village war ended by surrender or agreed peace (count)
+    | 'war.end.agreement.under96h' // …of which under 96 h of live war (count)
+    | 'war.purse.village'       // village-war purse ryo paid to a member (faucet)
+    | 'war.purse.sector'        // sector-war purse ryo paid to a member (faucet)
+    | 'war.crate.claim';        // a winner's Legendary War Crate claimed (count)
 
 // A kind missing here is dropped by recordWarEcoEvent. war-structure.ts has
 // recorded 'wr.spend.structure' since 2026-06-30 without it being listed, so
@@ -48,6 +58,8 @@ export const WAR_ECO_KINDS: readonly WarEcoKind[] = [
     'seals.earn', 'seals.spend.structure',
     'tax.collect', 'tax.burn', 'tax.treasury',
     'dormancy.enter', 'dormancy.exit', 'sector.capture',
+    'treasury.ryo.spend.merc', 'treasury.ryo.spend.prep', 'treasury.bc.spend.prep', 'treasury.short',
+    'war.end.agreement', 'war.end.agreement.under96h', 'war.purse.village', 'war.purse.sector', 'war.crate.claim',
 ];
 
 // The WR sink kinds — summed into "WR out" for the faucet-vs-sink view.
@@ -57,6 +69,14 @@ export const WR_SINK_KINDS: readonly WarEcoKind[] = [
 // The treasury-seal sink kinds — summed into "seals out".
 export const SEAL_SINK_KINDS: readonly WarEcoKind[] = [
     'seals.spend.structure',
+];
+// The treasury-ryo sink kinds — summed into "treasury ryo out" (the war chest's burn).
+export const TREASURY_RYO_SINK_KINDS: readonly WarEcoKind[] = [
+    'treasury.ryo.spend.merc', 'treasury.ryo.spend.prep',
+];
+// The war purse kinds — summed into "purse paid".
+export const WAR_PURSE_KINDS: readonly WarEcoKind[] = [
+    'war.purse.village', 'war.purse.sector',
 ];
 
 export interface WarEcoEvent {
@@ -108,6 +128,19 @@ export interface WarEcoVillageView {
     maintenancePaid: number;
     dormancyEnters: number;
     sectorsCaptured: number;
+    /** Treasury ryo burned on merc hires and war preparations. */
+    treasuryRyoOut: number;
+    /** Treasury Bone Charms burned on war preparations. */
+    treasuryBoneCharmsOut: number;
+    /** Merc hires and preparations refused because the treasury was short. */
+    treasuryShortRefusals: number;
+    /** War purse ryo paid to members (village + sector wars). */
+    pursePaid: number;
+    /** Winner's crates claimed (framework 8.2: crate claims vs war count). */
+    crateClaims: number;
+    /** Village wars ended by surrender or peace, and how many under 96 h. */
+    agreementEnds: number;
+    agreementEndsUnder96h: number;
     byKind: WarEcoAgg;
 }
 
@@ -131,6 +164,13 @@ export function summarizeVillageAgg(agg: WarEcoAgg): WarEcoVillageView {
         maintenancePaid: get('wr.spend.maintenance'),
         dormancyEnters: get('dormancy.enter'),
         sectorsCaptured: get('sector.capture'),
+        treasuryRyoOut: sum(TREASURY_RYO_SINK_KINDS),
+        treasuryBoneCharmsOut: get('treasury.bc.spend.prep'),
+        treasuryShortRefusals: get('treasury.short'),
+        pursePaid: sum(WAR_PURSE_KINDS),
+        crateClaims: get('war.crate.claim'),
+        agreementEnds: get('war.end.agreement'),
+        agreementEndsUnder96h: get('war.end.agreement.under96h'),
         byKind: { ...agg },
     };
 }

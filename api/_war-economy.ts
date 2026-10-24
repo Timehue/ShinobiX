@@ -10,6 +10,9 @@
  * Design: docs/village-war-map-economy-plan.md §6.
  */
 
+import { economyDial } from './_economy-dials.js';
+import { RYO_PER_WR as RYO_PER_WR_DEFAULT } from '../shared/war-treasury-costs.js';
+
 // ── Sector benefits (per controlled sector, per day → village pool) ── §6.1
 export const WR_PER_SECTOR_PER_DAY = 25;
 export const SEALS_PER_SECTOR_PER_DAY = 1;
@@ -39,6 +42,21 @@ export const WR_MERC_TIERS: readonly WrMercTier[] = [
     { id: 'merc-oni', level: 95, costWr: 280 },
     { id: 'merc-warlord', level: 100, costWr: 420 },
 ];
+
+// ── Treasury ryo on escalation (2026-10 rebalance, framework #6) ──
+// Merc hires and war preparations also cost treasury ryo per WR actually
+// charged (and preparations treasury Bone Charms): shared/war-treasury-costs.ts.
+export { RYO_PER_WR, PREP_BONE_CHARMS_PER_WR } from '../shared/war-treasury-costs.js';
+/** The largest WAR_RYO_PER_WR a dial may set. */
+export const RYO_PER_WR_MAX = 2_000;
+
+/** WAR_RYO_PER_WR (default 250, whole numbers 0-2,000): treasury ryo per WR on
+ *  merc hires and preparations. 0 is the kill switch: WR-only prices again, and
+ *  no preparation Bone Charms either. The replies that quote a price carry the
+ *  rate they used, so the client never shows a stale one. */
+export function ryoPerWr(): number {
+    return Math.floor(economyDial('WAR_RYO_PER_WR', RYO_PER_WR_DEFAULT, { min: 0, max: RYO_PER_WR_MAX }));
+}
 
 // ── WR pool storage cap (bounds passive hoarding at peace) ── §16c
 export const WR_POOL_CAP = 5_000;

@@ -142,6 +142,14 @@ describe('gear level ladder — enforcement is wired, not decorative', () => {
         assert.match(shop, /meetsItemLevelReq\(item, character\.level\)/);
     });
 
+    it('the live purchase route gates on the ladder, not the raw field (I-9)', () => {
+        // /shop/purchase is the route the Shop screen calls. It used to read
+        // item.levelReq directly, so 92 items were buyable below their tier.
+        const purchase = readFileSync(join(root, 'api', 'shop', '_purchase.ts'), 'utf8');
+        assert.match(purchase, /meetsItemLevelReq\(item, character\.level\)/);
+        assert.doesNotMatch(purchase, /whole\(item\.levelReq/);
+    });
+
     it('the save path refuses to EQUIP above the wearer level', () => {
         assert.match(save, /meetsItemLevelReq\(gated, equipLevel\)/);
     });

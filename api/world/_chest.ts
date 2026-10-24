@@ -4,11 +4,19 @@ import { isWildSector, sectorBiomeOf } from '../../shared/sector-geo.js';
 import { canAppendPackableChronicleCards } from '../card-clash/_collection-cap.js';
 import { WILD_BINDING_CHEST_DROP_CHANCE } from '../../shared/wild-binding.js';
 import { isStepItemId } from '../../shared/gear-steps.js';
+import { ITEM_CATALOG } from '../pvp/_item-catalog.js';
+import { npcSaleValue } from '../inventory/_sale.js';
+import { CARD_DUPLICATE_CONVERSION } from '../card-clash/_pack.js';
+import type { SettlementItem } from '../shop/_catalog.js';
 
 export const DAILY_ANCIENT_CHEST_LIMIT = 23;
 export type AncientChestLoot = {
     xp: number; ryo?: number; itemId?: string; cardId?: string;
     fateShards?: number; boneCharms?: number; auraStones?: number; auraDust?: number;
+    /** Chronicle Points paid for a card already owned. */
+    chroniclePoints?: number;
+    /** Ryo, already counted inside `ryo`, paid for gear already owned: its NPC sale value. */
+    duplicateSaleRyo?: number;
 };
 
 // Higher food tiers are Crafter-only; existing player stock is unaffected.
@@ -34,6 +42,43 @@ const RARE_GEAR = [
     'rare-chest-plate', 'chain-obi', 'rare-greaves', 'rare-tabi', 'mistfang-tanto',
     'ashen-leaf-saber', 'riverbone-spear', 'iron-fang-knuckles', 'blue-thread-dagger',
 ];
+
+const CHEST_GEAR_IDS: ReadonlySet<string> = new Set([...COMMON_GEAR, ...RARE_GEAR]);
+const RARE_CARD_IDS: ReadonlySet<string> = new Set(RARE_CARDS);
+
+/**
+ * Chest gear that stacks (the throwables and the Rejuvenation Potion) is never a
+ * duplicate: one more unit always lands in its itemStacks count. It used to count
+ * as owned unique gear, so a second Shuriken or Potion paid nothing (2026-10
+ * item-use pass). The pet treats keep their own inventory[] path below.
+ */
+export function isStackedChestGear(itemId: string): boolean {
+    return CHEST_GEAR_IDS.has(itemId) && ITEM_CATALOG[itemId]?.stackable === true;
+}
+
+/**
+ * The NPC sale value owed for a chest gear roll the backpack already holds, else
+ * 0 (economy rebalance 2026-10, framework #38: a completed roll never pays
+ * nothing). It uses the same "owned" test as applyAncientChestLoot, so it pays
+ * exactly where that drops the second copy. Relics keep their own Fate Shard
+ * rule, and gear steps and stacking gear (isStackedChestGear) are always granted.
+ * The value is the sale route's own (npcSaleValue), and a parity test holds it to
+ * what /api/inventory/sell credits.
+ */
+export function chestDuplicateGearValue(character: Record<string, unknown>, itemId: string): number {
+    if (!CHEST_GEAR_IDS.has(itemId) || isRelicId(itemId) || isStepItemId(itemId) || isStackedChestGear(itemId)) return 0;
+    const inventory = Array.isArray(character.inventory) ? character.inventory as unknown[] : [];
+    if (!inventory.includes(itemId)) return 0;
+    const item = ITEM_CATALOG[itemId];
+    if (!item) return 0;
+    return npcSaleValue({ ...item, cost: Math.max(0, Math.floor(Number(item.cost) || 0)) } as SettlementItem);
+}
+
+/** Chronicle Points for a chest card already owned. The chest pools hold only
+ *  common and rare cards, which convert like a surplus pack copy. */
+export function chestDuplicateCardPoints(cardId: string): number {
+    return CARD_DUPLICATE_CONVERSION[RARE_CARD_IDS.has(cardId) ? 'rare' : 'common'].chroniclePoints;
+}
 
 /** Legendary chest relic chance; Epic relics have a wider band in the roster. */
 export const WILD_RELIC_DROP_CHANCE = 0.0015;
@@ -93,6 +138,18 @@ export function rollAncientChestLoot(sectorRaw: unknown, random: () => number): 
     return loot;
 }
 
+/**
+ * Fold a gear step drop into a rolled chest. The step takes the place of the
+ * usual item, card or shard roll, but never of a chase relic: that band is the
+ * rarest outcome of the slot roll (0.15-0.3%) and the 5% step used to erase it
+ * (2026-10 item-use pass). The Chakra Ring sits in the ordinary rare-gear band,
+ * so a step still replaces it like any other gear roll.
+ */
+export function withChestStepDrop(loot: AncientChestLoot, stepId: string | null): AncientChestLoot {
+    if (!stepId || (loot.itemId && CHEST_RELIC_IDS.includes(loot.itemId))) return loot;
+    return { ...loot, itemId: stepId, cardId: undefined, fateShards: undefined, boneCharms: undefined, auraStones: undefined };
+}
+
 export function applyAncientChestLoot(character: Record<string, unknown>, loot: AncientChestLoot) {
     const leveled = gainXp(character, loot.xp) as Record<string, unknown>;
     const inventory = Array.isArray(leveled.inventory) ? (leveled.inventory as string[]) : [];
@@ -101,8 +158,10 @@ export function applyAncientChestLoot(character: Record<string, unknown>, loot: 
         : [];
     const tileCards = Array.isArray(leveled.tileCards) ? (leveled.tileCards as string[]) : [];
     const stackable = loot.itemId === 'pet-treat' || loot.itemId === 'elemental-pet-treat' || loot.itemId === 'ancient-pet-treat';
-    const tempered = loot.itemId === 'beast-seal-tempered';
-    const existingTempered = itemStacks.find((stack) => stack.itemId === loot.itemId);
+    // Pet food (counted stacks since pet growth v2), the Tempered Seal and stacking
+    // chest gear land in a counted itemStacks entry.
+    const counted = stackable || loot.itemId === 'beast-seal-tempered' || (!!loot.itemId && isStackedChestGear(loot.itemId));
+    const existingStack = itemStacks.find((stack) => stack.itemId === loot.itemId);
     return {
         ...leveled,
         ryo: Math.max(0, Number(leveled.ryo) || 0) + (loot.ryo ?? 0),
@@ -110,16 +169,14 @@ export function applyAncientChestLoot(character: Record<string, unknown>, loot: 
         boneCharms: Math.max(0, Number(leveled.boneCharms) || 0) + (loot.boneCharms ?? 0),
         auraStones: Math.max(0, Number(leveled.auraStones) || 0) + (loot.auraStones ?? 0),
         auraDust: Math.max(0, Number(leveled.auraDust) || 0) + (loot.auraDust ?? 0),
+        // Only when paid, so a save that never earned a Chronicle Point gains no key.
+        ...(loot.chroniclePoints ? { chroniclePoints: Math.max(0, Number(leveled.chroniclePoints) || 0) + loot.chroniclePoints } : {}),
         // A gear step drop is always paid, even when a copy is already owned.
-        inventory: loot.itemId && !tempered && !stackable && (isStepItemId(loot.itemId) || !inventory.includes(loot.itemId)) ? [...inventory, loot.itemId] : inventory,
-        itemStacks: stackable
-            ? itemStacks.some(stack => stack.itemId === loot.itemId)
-                ? itemStacks.map(stack => stack.itemId === loot.itemId ? { ...stack, count: stack.count + 1 } : stack)
+        inventory: loot.itemId && !counted && (isStepItemId(loot.itemId) || !inventory.includes(loot.itemId)) ? [...inventory, loot.itemId] : inventory,
+        itemStacks: counted
+            ? existingStack
+                ? itemStacks.map((stack) => stack === existingStack ? { ...stack, count: Math.min(9999, stack.count + 1) } : stack)
                 : [...itemStacks, { itemId: loot.itemId!, count: 1 }]
-            : tempered
-            ? existingTempered
-                ? itemStacks.map((stack) => stack === existingTempered ? { ...stack, count: Math.min(9999, stack.count + 1) } : stack)
-                : [...itemStacks, { itemId: 'beast-seal-tempered', count: 1 }]
             : itemStacks,
         tileCards: loot.cardId && !tileCards.includes(loot.cardId) ? [...tileCards, loot.cardId] : tileCards,
     };
@@ -147,6 +204,19 @@ export function settleAncientChestLoot(character: Record<string, unknown>, rolle
             itemId: undefined,
             fateShards: (rolled.fateShards ?? 0) + DUPLICATE_RELIC_FATE_SHARDS,
         };
+        return { character: applyAncientChestLoot(character, loot), loot };
+    }
+    // Duplicate gear pays its NPC sale value. The id stays in the loot so the
+    // reveal can name the item; applyAncientChestLoot still skips the copy.
+    const dupRyo = typeof rolled.itemId === 'string' ? chestDuplicateGearValue(character, rolled.itemId) : 0;
+    if (dupRyo > 0) {
+        const loot: AncientChestLoot = { ...rolled, ryo: (rolled.ryo ?? 0) + dupRyo, duplicateSaleRyo: dupRyo };
+        return { character: applyAncientChestLoot(character, loot), loot };
+    }
+    // A duplicate card pays Chronicle Points, at the collection cap too: the cap's
+    // Fate Shard replacement below is for a NEW card that has no room.
+    if (typeof rolled.cardId === 'string' && tileCards.includes(rolled.cardId)) {
+        const loot: AncientChestLoot = { ...rolled, chroniclePoints: (rolled.chroniclePoints ?? 0) + chestDuplicateCardPoints(rolled.cardId) };
         return { character: applyAncientChestLoot(character, loot), loot };
     }
     const addsUniqueCard = typeof rolled.cardId === 'string' && !tileCards.includes(rolled.cardId);

@@ -19,6 +19,7 @@ import {
     storyReckoningTaskComplete,
     storyReckoningRyo,
     ownedItemCount,
+    handOverRetiredProof,
     type StoryReckoningDef,
     parseStoryReckoningSeal,
     type StoryReckoningSeal,
@@ -308,8 +309,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     ryo, fateShards: def.fateShards, title: def.title,
                     completionTrait: def.completionTrait,
                 };
+                // A retired relic id is turn-in proof only: it is handed over here.
+                const handedOver = handOverRetiredProof(char, def.dropItemId);
                 const updated = {
-                    ...char, ryo: totalRyo, fateShards: totalFateShards, questTitles, storyTraits,
+                    ...handedOver, ryo: totalRyo, fateShards: totalFateShards, questTitles, storyTraits,
                     activeStoryReckoning: null,
                     storyReckoningRewardDate: today,
                     storyReckoningRewardCount: claimedToday + 1,

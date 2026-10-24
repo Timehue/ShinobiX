@@ -45,22 +45,24 @@ export interface RiftQuestDef {
     boneCharms: number;
 }
 
+// Completion Bone Charms are half the launch table (2026-10 rebalance #16):
+// with the Gate chest charms they made Rifts the charm source that mattered.
 export const RIFT_QUESTS: Record<string, RiftQuestDef> = {
     // L12 legacy-intro rift: a gentle first taste + teaches what Legacies are.
     // Modest reward (intro tier), smaller than the L30 stalker.
     "rift-legacy-echo": {
         id: "rift-legacy-echo", levelReq: 12, bossName: "The Unremembered",
-        floors: 1, bossAiId: "rift-boss-legacy-echo", weight: 5, fateShards: 1, boneCharms: 8,
+        floors: 1, bossAiId: "rift-boss-legacy-echo", weight: 5, fateShards: 1, boneCharms: 4,
     },
     "rift-hollow-stalker": {
         id: "rift-hollow-stalker", levelReq: 30, bossName: "Hollow Stalker",
-        floors: 2, bossAiId: "rift-boss-hollow-stalker", weight: 8, fateShards: 1, boneCharms: 15,
+        floors: 2, bossAiId: "rift-boss-hollow-stalker", weight: 8, fateShards: 1, boneCharms: 8,
     },
-    "rift-beast-warren": { id: "rift-beast-warren", levelReq: 40, floors: 2, bossAiId: "rift-boss-warren-alpha", bossName: "Warren Alpha", weight: 9, fateShards: 1, boneCharms: 20 },
-    "rift-engine-echo": { id: "rift-engine-echo", levelReq: 52, floors: 3, bossAiId: "rift-boss-engine-echo", bossName: "Engine-Echo", weight: 11, fateShards: 2, boneCharms: 25 },
-    "rift-hollow-name": { id: "rift-hollow-name", levelReq: 62, floors: 2, bossAiId: "rift-boss-hollow-legacy", bossName: "The Hollowed Name", weight: 12, fateShards: 2, boneCharms: 30 },
-    "rift-mirror-shard": { id: "rift-mirror-shard", levelReq: 70, floors: 3, bossAiId: "rift-boss-mirror-shard", bossName: "Mirror-Shard Warden", weight: 13, fateShards: 3, boneCharms: 35 },
-    "rift-gate-heir": { id: "rift-gate-heir", levelReq: 80, floors: 3, bossAiId: "rift-boss-gate-heir", bossName: "Hollow Gate Heir", weight: 15, fateShards: 3, boneCharms: 45 },
+    "rift-beast-warren": { id: "rift-beast-warren", levelReq: 40, floors: 2, bossAiId: "rift-boss-warren-alpha", bossName: "Warren Alpha", weight: 9, fateShards: 1, boneCharms: 10 },
+    "rift-engine-echo": { id: "rift-engine-echo", levelReq: 52, floors: 3, bossAiId: "rift-boss-engine-echo", bossName: "Engine-Echo", weight: 11, fateShards: 2, boneCharms: 12 },
+    "rift-hollow-name": { id: "rift-hollow-name", levelReq: 62, floors: 2, bossAiId: "rift-boss-hollow-legacy", bossName: "The Hollowed Name", weight: 12, fateShards: 2, boneCharms: 15 },
+    "rift-mirror-shard": { id: "rift-mirror-shard", levelReq: 70, floors: 3, bossAiId: "rift-boss-mirror-shard", bossName: "Mirror-Shard Warden", weight: 13, fateShards: 3, boneCharms: 18 },
+    "rift-gate-heir": { id: "rift-gate-heir", levelReq: 80, floors: 3, bossAiId: "rift-boss-gate-heir", bossName: "Hollow Gate Heir", weight: 15, fateShards: 3, boneCharms: 22 },
 };
 
 const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, Math.floor(Number(n) || 0)));

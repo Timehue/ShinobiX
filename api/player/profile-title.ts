@@ -8,6 +8,15 @@ import { isAllowedCustomTitle, sanitizeUserText, TEXT_LIMITS } from '../_text-mo
 import { TITLE_ICON_SET, TITLE_STYLE_IDS, isKnownEarnedTitle, normalizeTitleKey } from '../_titles-registry.js';
 import { getActiveSilence } from '../admin/moderation.js';
 import { ownsKnownProfileTitle } from './_profile-title-ownership.js';
+import { recordEconomyTxn } from '../_economy.js';
+
+// The same ledger tags api/profile/settle.ts uses for these purchases, so one
+// sink is never split across two names.
+const TITLE_PURCHASE_SOURCES: Record<string, string> = {
+    title: 'profile.purchase-title',
+    style: 'profile.purchase-title-style',
+    icon: 'profile.purchase-title-icon',
+};
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req); if (req.method === 'OPTIONS') return res.status(200).end(); if (req.method !== 'POST') return res.status(405).end();
@@ -47,6 +56,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return { ok: true as const, character: { ...character, [field]: value, fateShards: shards - cost }, value: { action, cost } };
         });
         if (!result.ok) return res.status(result.status).json({ error: result.error });
+        // Economy telemetry (I-19), after the commit. A repeat of the same pick
+        // costs 0 and logs nothing.
+        if (result.value.cost > 0) {
+            void recordEconomyTxn({
+                txnId: `profile-title:${playerName}:${result._saveVersion}`,
+                player: playerName,
+                currency: 'fateShards',
+                delta: -result.value.cost,
+                source: TITLE_PURCHASE_SOURCES[result.value.action] ?? 'profile.purchase-title',
+                balanceAfter: Number(result.character.fateShards ?? 0),
+            });
+        }
         return res.status(200).json({ ok: true, ...result.value, character: result.character, _saveVersion: result._saveVersion });
     } catch (error) { console.error('[player/profile-title]', safeLogValue(error)); return res.status(500).json({ error: 'Internal server error.' }); }
 }

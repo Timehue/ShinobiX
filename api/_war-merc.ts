@@ -18,7 +18,9 @@ import {
     MERC_HIRES_PER_VILLAGE_WAR_KAGE,
     MERC_HIRES_PER_VILLAGE_WAR_ELDER,
     MERC_HIRES_PER_SECTOR_CONTEST,
+    ryoPerWr,
 } from './_war-economy.js';
+import { treasuryRyoForWr } from '../shared/war-treasury-costs.js';
 import { mercCostMultiplier } from './_war-structures.js';
 import { mercContextKey, type VillageWarRecord, type MercLease, type MercLeaseContext, type MercHireReceipt } from './_war-state.js';
 
@@ -37,6 +39,14 @@ export function mercHireCost(tierId: string, sectorsHeld: number, record: Villag
     const afterComeback = tier.costWr * comebackCostMultiplier(sectorsHeld);
     const afterBarracks = afterComeback * mercCostMultiplier(record) * (1 - Math.max(0, Math.min(3, Math.floor(barracksTier))) * 0.05);
     return Math.max(0, Math.round(afterBarracks));
+}
+
+/** Treasury ryo a hire also costs (2026-10 rebalance, #6): the WR actually
+ *  charged × the ryo-per-WR rate, so the comeback and Barracks discounts apply
+ *  to both pools and a free comeback hire stays free. Full price at the default
+ *  rate: 15,000 / 27,500 / 42,500 / 70,000 / 105,000. */
+export function mercHireTreasuryRyo(wrCharged: number, perWr: number = ryoPerWr()): number {
+    return treasuryRyoForWr(wrCharged, perWr);
 }
 
 // The three helpers below address LEGACY (tier, hirer) leases — the shape hired

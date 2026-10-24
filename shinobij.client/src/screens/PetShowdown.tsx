@@ -450,7 +450,7 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
                     somewhere else. */}
                 <h1>{bout === "arena" ? "The Colosseum" : "Training Grounds"}</h1>
                 <p className="showdown-tagline">{bout === "arena"
-                    ? "The arena has your challenger. Read the elements, ride the stamina, land the perfect strike — and finish with a signature."
+                    ? "The arena has your challenger. Read the elements, ride the stamina, land the perfect strike — and finish with a signature. Equipped battle items are spent when the bout begins."
                     : "Spar as long as you like. Read the elements, ride the stamina, land the perfect strike — and finish with a signature. Nothing here is paid or capped."}</p>
             </div>
 

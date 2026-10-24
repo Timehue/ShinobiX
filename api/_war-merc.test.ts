@@ -3,10 +3,10 @@ import assert from 'node:assert/strict';
 import {
     mercHireCost, addOrRefreshLease, hasActiveLease, consumeLease, claimMercFromBand, MERC_LEASE_MS,
     MERC_HIRE_RECEIPT_GRACE_MS, mercHireAllowance, mercHireId, newBoundBand, claimMercFromBandKey,
-    leaseServes, bandsServing, mercBandKey, pruneMercHires,
+    leaseServes, bandsServing, mercBandKey, pruneMercHires, mercHireTreasuryRyo,
 } from './_war-merc.js';
 import { normalizeVillageWarRecord, type MercLease, type MercLeaseContext, type MercHireReceipt } from './_war-state.js';
-import { mercBandSize } from './_war-economy.js';
+import { mercBandSize, RYO_PER_WR, ryoPerWr, WR_MERC_TIERS } from './_war-economy.js';
 
 test('mercHireCost applies the comeback discount to the tier base', () => {
     const rec = normalizeVillageWarRecord('Stormveil Village'); // all structures L0 → Barracks mult 1
@@ -25,6 +25,38 @@ test('mercHireCost: Barracks levels reduce the cost', () => {
     const discounted = mercHireCost('merc-warlord', 8, withBarracks, 3);
     assert.ok(discounted < full, `Barracks should cut the cost: ${discounted} < ${full}`);
     assert.ok(discounted > 0, 'a max-Barracks discount is bounded, not free');
+});
+
+test('mercHireTreasuryRyo: 250 treasury ryo per WR actually charged (2026-10 rebalance, #6)', () => {
+    const rec = normalizeVillageWarRecord('Stormveil Village');
+    assert.equal(RYO_PER_WR, 250);
+    assert.equal(mercHireTreasuryRyo(mercHireCost('merc-ronin', 8, rec), 250), 15_000);
+    assert.deepEqual(WR_MERC_TIERS.map((t) => mercHireTreasuryRyo(mercHireCost(t.id, 8, rec), 250)), [15_000, 27_500, 42_500, 70_000, 105_000]);
+    // The comeback discount applies to both pools, and a free hire stays free.
+    assert.equal(mercHireTreasuryRyo(mercHireCost('merc-ronin', 1, rec), 250), 3_750);
+    assert.equal(mercHireTreasuryRyo(mercHireCost('merc-ronin', 0, rec), 250), 0);
+    // Barracks tier 3 on a warlord band: 420 x 0.85 = 357 WR.
+    assert.equal(mercHireCost('merc-warlord', 8, rec, 3), 357);
+    assert.equal(mercHireTreasuryRyo(357, 250), 89_250);
+    // The dial at 0 restores the WR-only price.
+    assert.equal(mercHireTreasuryRyo(420, 0), 0);
+});
+
+test('WAR_RYO_PER_WR moves the rate; an out-of-range value falls back to 250', () => {
+    process.env.WAR_RYO_PER_WR = '460';
+    try {
+        assert.equal(ryoPerWr(), 460);
+        assert.equal(mercHireTreasuryRyo(60), 27_600);
+    } finally {
+        delete process.env.WAR_RYO_PER_WR;
+    }
+    process.env.WAR_RYO_PER_WR = '5000';
+    try {
+        assert.equal(ryoPerWr(), 250);
+    } finally {
+        delete process.env.WAR_RYO_PER_WR;
+    }
+    assert.equal(ryoPerWr(), 250);
 });
 
 test('mercBandSize escalates 3->5 with tier, 0 for unknown', () => {

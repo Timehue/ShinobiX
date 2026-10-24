@@ -1,4 +1,5 @@
 import { hasInventoryRoom } from '../../_inventory-capacity.js';
+import { grantItemIds, isStackedMaterialId } from '../../../shared/stacked-materials.js';
 import type { VercelRequest, VercelResponse } from '../../_vercel.js';
 import { kv } from '../../_storage.js';
 import { cors, safeName } from '../../_utils.js';
@@ -6,7 +7,7 @@ import { authedPlayerOrAdmin } from '../../_auth.js';
 import { enforceRateLimitKv } from '../../_ratelimit.js';
 import { invalidateProcCache } from '../../_proc-cache.js';
 import { crossKeyTransferReply, settleCrossKeyTransfer, SettlementValidationError } from '../../_cross-key-settlement.js';
-import { planTreasuryGift } from '../../_treasury-gift-tax.js';
+import { planTreasuryGift, treasuryGiftMinAmount, treasuryGiftMinMessage } from '../../_treasury-gift-tax.js';
 import { hasRecentIpOrFpOverlap } from '../../_player-ips.js';
 import { settlementFingerprint } from '../../_durable-settlement.js';
 import { recordEconomyTxn } from '../../_economy.js';
@@ -56,6 +57,10 @@ type TransferCurrency =
 const ALLOWED_CURRENCIES: ReadonlySet<TransferCurrency> = new Set<TransferCurrency>([
     'ryo', 'honorSeals', 'fateShards', 'boneCharms', 'auraStones', 'mythicSeals',
 ]);
+// Mythic Seals stay a treasury balance but no longer leave it as a Kage gift
+// (economy rebalance 2026-10, I-8), the same rule as the clan treasury. Refused
+// on the fresh-settlement path only, so a pre-rule debit still finishes.
+const NON_GIFTABLE_CURRENCIES: ReadonlySet<string> = new Set(['mythicSeals']);
 
 // Per-call hard ceiling on a single gift amount. Mirrors the donation-side
 // MAX_TREASURY_INCREASE caps in _village-state-validate.ts so an abusive
@@ -220,6 +225,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             validateSource: (source) => {
                 const sourceTreasury = (source.treasury ?? {}) as Record<string, unknown> & { items?: Array<{ itemId: string; count: number }> };
                 if (isCurrency) {
+                    if (NON_GIFTABLE_CURRENCIES.has(String(currency))) throw new SettlementValidationError(400, 'Mythic Seals cannot be gifted from a treasury.');
+                    // The per-currency gift minimum (I-16) lives here, not in the
+                    // pre-check above: this hook runs only on a fresh settlement,
+                    // so a 1-unit gift debited before the rule shipped still
+                    // finishes on retry instead of stranding the debit.
+                    if (amount < treasuryGiftMinAmount(currency)) throw new SettlementValidationError(400, treasuryGiftMinMessage(currency));
                     const available = Math.max(0, Number(sourceTreasury[currency as TransferCurrency] ?? 0));
                     if (available < amount) throw new SettlementValidationError(400, `Insufficient treasury ${currency} (have ${available}, need ${amount}).`);
                 } else {
@@ -262,7 +273,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // Named after the RECIPIENT, and from their own stored save name
                 // rather than the request body: 'Your inventory is full.' would
                 // send a Kage with an empty bag to check their own.
-                if (!isCurrency && !hasInventoryRoom(character)) {
+                // A hunt material or Weekly Boss Core joins a stack, not a slot (A12).
+                if (!isCurrency && !isStackedMaterialId(itemId) && !hasInventoryRoom(character)) {
                     const who = String(character.name ?? '').trim() || recipientName;
                     throw new SettlementValidationError(409, `${who}'s inventory is full, so the gift stayed in the treasury.`);
                 }
@@ -311,10 +323,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
                 // Capacity was settled in validateRecipient, before the debit.
                 // Nothing may throw from here on: the treasury write has already
-                // committed by the time this runs.
-                const inventory = Array.isArray(character.inventory) ? [...character.inventory] : [];
-                inventory.push(itemId!);
-                return { character: { ...character, inventory }, result: { itemId } };
+                // committed by the time this runs. grantItemIds never refuses:
+                // a stacked material joins itemStacks, anything else inventory[].
+                return { character: grantItemIds(character, [itemId]), result: { itemId } };
             },
         });
         // The gate is held from before the check inside the settlement until
@@ -344,10 +355,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Economy telemetry — the gift levy is currency DESTROYED, the same
         // signal as trade.burn. Without this the treasury channel moves volume
         // the faucet/sink ledger never sees, which is precisely the blind spot
-        // the levy was added to close (api/_treasury-gift-tax.ts).
-        if ('currency' in transfer.result && Number(transfer.result.burned) > 0) {
+        // the levy was added to close (api/_treasury-gift-tax.ts). A replay moved
+        // nothing, so it logs nothing; the settlement id keeps the txn stable.
+        if (!transfer.replayed && 'currency' in transfer.result && Number(transfer.result.burned) > 0) {
             await recordEconomyTxn({
-                txnId: `village-treasury-gift-burn:${Date.now()}`,
+                txnId: `village-treasury-gift-burn:${requestId}`,
                 player: recipientName,
                 currency: String(transfer.result.currency),
                 delta: -Number(transfer.result.burned),

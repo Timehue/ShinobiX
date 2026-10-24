@@ -35,9 +35,10 @@ const BOARD = ['tamer-short-walk', 'tamer-routine-patrol', 'tamer-long-haul'];
 // The seeded Pet Tamer is rank 2 with 100 profession XP, so every board mission
 // is eligible. A 45-minute Scout pays 225 Tamer XP, doubled as the day's first
 // expedition; a 4-hour Ruins pays 1,200, doubled for the length and again as
-// the first. Short Walk pays 30 profession XP, Long Haul 100.
-const SCOUT_PROFESSION_XP = 100 + 450 + 30;
-const RUINS_PROFESSION_XP = 100 + 4_800 + 100 + 30;
+// the first. TAMER_XP_MULT then halves both (2026-10 rebalance #37): 225 and
+// 2,400. Short Walk pays 30 profession XP, Long Haul 100.
+const SCOUT_PROFESSION_XP = 100 + 225 + 30;
+const RUINS_PROFESSION_XP = 100 + 2_400 + 100 + 30;
 
 let kv: typeof import('../_storage.js').kv;
 let handler: Handler;

@@ -20,8 +20,10 @@ import {
     type MercLeaseContext,
     type VillageWarRecord,
 } from '../_war-state.js';
-import { wrMercTierById, WR_MERC_TIERS, mercBandSize } from '../_war-economy.js';
-import { mercBandKey, mercHireAllowance, mercHireCost, mercHireId, newBoundBand, pruneMercHires, type MercHireAllowance } from '../_war-merc.js';
+import { wrMercTierById, WR_MERC_TIERS, mercBandSize, ryoPerWr } from '../_war-economy.js';
+import { mercBandKey, mercHireAllowance, mercHireCost, mercHireId, mercHireTreasuryRyo, newBoundBand, pruneMercHires, type MercHireAllowance } from '../_war-merc.js';
+import { findWarTreasuryPayment, treasuryBalances, villageTreasuryKey, withWarTreasuryPayment } from '../_war-treasury-payment.js';
+import { invalidateProcCache } from '../_proc-cache.js';
 import { recordWarEcoEvent } from '../_war-telemetry.js';
 import { activeContestOnSector, listActiveSectorWars, loadSectorWar } from '../_sector-war-store.js';
 import { isSectorWarActive, sectorWarInstanceTag, sectorWarKey, type SectorWarSession } from '../_sector-war.js';
@@ -58,6 +60,11 @@ import { villageWarMapEnabled } from '../_release-flags.js';
  *              fail-closed lock, together with the band and its hire receipt.
  *              `requestId` (one per click) makes it idempotent: a retry after a
  *              lost response replays the first answer and charges nothing.
+ *              A hire also costs TREASURY ryo per WR charged (2026-10 rebalance,
+ *              WAR_RYO_PER_WR, default 250), committed with the WR debit and a
+ *              payment proof in one all-or-nothing write; only the seated Kage
+ *              may spend the treasury, so an Elder hires only bands that cost
+ *              it nothing (a free comeback band, or with the dial at 0).
  *   - attack : a Kage/Elder of the DEFENDING village sends one merc of a band
  *              hired for a live Combat contest at any ATTACKING-village player,
  *              wherever they are (owner ruling). Resolved server-side.
@@ -173,13 +180,15 @@ function findHire(record: VillageWarRecord, hireId: string): MercHireReceipt | n
     return (record.mercHires ?? []).find((h) => h.id === hireId) ?? null;
 }
 
-function hireBody(receipt: MercHireReceipt, replayed: boolean, hiresLeft?: number) {
+function hireBody(receipt: MercHireReceipt, replayed: boolean, hiresLeft: number | undefined, treasuryRyo: number) {
     return {
         ok: true,
         replayed,
         hireId: receipt.id,
         tierId: receipt.tierId,
         cost: receipt.cost,
+        /** Treasury ryo the hire cost (0 for a free or WR-only hire). */
+        treasuryRyo,
         expiresAt: receipt.expiresAt,
         band: mercBandSize(receipt.tierId),
         context: receipt.context,
@@ -187,9 +196,11 @@ function hireBody(receipt: MercHireReceipt, replayed: boolean, hiresLeft?: numbe
     };
 }
 
-function replayHire(res: VercelResponse, receipt: MercHireReceipt, playerName: string) {
+/** A replay reports the treasury ryo its proof says was paid, not today's rate. */
+async function replayHire(res: VercelResponse, village: string, receipt: MercHireReceipt, playerName: string) {
     if (receipt.player !== playerName) return res.status(409).json({ error: 'That request id belongs to another hire.' });
-    return res.status(200).json(hireBody(receipt, true));
+    const paid = findWarTreasuryPayment(await kv.get<Record<string, unknown>>(villageTreasuryKey(village)), 'merc', village, receipt.id);
+    return res.status(200).json(hireBody(receipt, true, undefined, paid?.ryo ?? 0));
 }
 
 function allowanceRefusal(context: MercLeaseContext, allowance: MercHireAllowance): string {
@@ -210,7 +221,7 @@ async function doHire(req: VercelRequest, res: VercelResponse, identity: Identit
     // A retried click replays its first answer BEFORE anything that may have
     // changed since is re-checked — the war may even be over by now.
     const prior = findHire(await readRecord(village), hireId);
-    if (prior) return replayHire(res, prior, playerName);
+    if (prior) return replayHire(res, village, prior, playerName);
 
     const leader = await leadershipOf(village, playerName, identity.admin);
     if (!leader.member) return res.status(403).json({ error: 'You must belong to this village.' });
@@ -225,11 +236,14 @@ async function doHire(req: VercelRequest, res: VercelResponse, identity: Identit
     const sectorsHeld = await heldSectorsForVillage(village);
 
     const key = villageWarKey(village);
-    // Match settlement/declaration's lock order: war instance, then war chest.
+    const stateKey = villageTreasuryKey(village);
+    // Lock order: war instance, then the treasury row, then the war chest — the
+    // order settlement/declaration and api/village/war-structure.ts already use.
     // A quote cannot buy a spent band after settlement or a replaced generation.
     const contextLock = context.kind === 'sector' ? sectorWarKey(context.contestId) : `world:war:${context.warId}`;
-    const out = await withKvLock(contextLock, () => withKvLock(key, async () => {
-        const record = normalizeVillageWarRecord(village, (await kv.get<Record<string, unknown>>(key)) ?? undefined);
+    const out = await withKvLock(contextLock, () => withKvLock(stateKey, () => withKvLock(key, async () => {
+        const rawRecord = (await kv.get<Record<string, unknown>>(key)) ?? null;
+        const record = normalizeVillageWarRecord(village, rawRecord ?? undefined);
         const replayed = findHire(record, hireId);
         if (replayed) return { kind: 'replay' as const, receipt: replayed };
         const commitNow = Date.now();
@@ -245,26 +259,76 @@ async function doHire(req: VercelRequest, res: VercelResponse, identity: Identit
         if (hires.length >= MERC_HIRE_RECEIPTS_MAX) return { kind: 'full' as const };
         const cost = mercHireCost(tierId, sectorsHeld, record, preparationLevels(record, mercContextKey(context), commitNow).barracks);
         if (record.warResources < cost) return { kind: 'poor' as const, cost };
+        // The treasury ryo the hire also costs (2026-10 rebalance, #6): WR
+        // actually charged x the dial, so a free comeback hire stays free.
+        const treasuryRyo = mercHireTreasuryRyo(cost);
+        // Spending the communal treasury is the seated Kage's power (the
+        // occupation tax rests on it, api/_war-tax-apply.ts): an Elder may
+        // still hire a band that costs the treasury nothing.
+        if (treasuryRyo > 0 && !leader.seats.includes('kage')) return { kind: 'kage-only' as const, treasuryRyo };
         const { lease, receipt } = newBoundBand({ id: hireId, tierId, player: playerName, seat: allowance.seat, context, contextEndsAt: live.value.endsAt, cost, now: commitNow });
-        await kv.set(key, {
+        const nextRecord = {
             ...record,
             warResources: record.warResources - cost,
             mercLeases: [...record.mercLeases, lease],
             mercHires: [...hires, receipt],
-        });
-        return { kind: 'hired' as const, receipt, hiresLeft: Math.max(0, allowance.callerLeft - 1) };
-    }, { failClosed: true }), { failClosed: true });
+        };
+        const hiresLeft = Math.max(0, allowance.callerLeft - 1);
+        if (treasuryRyo <= 0) {
+            await kv.set(key, nextRecord);
+            return { kind: 'hired' as const, receipt, hiresLeft, treasuryRyo: 0, remainingTreasuryRyo: null };
+        }
+        const rawState = (await kv.get<Record<string, unknown>>(stateKey)) ?? null;
+        const have = treasuryBalances(rawState).ryo;
+        if (have < treasuryRyo) return { kind: 'treasury-short' as const, need: treasuryRyo, have };
+        // The treasury debit, its proof and the band land in ONE commit, or none
+        // of them does: never two plain writes across two rows.
+        if (typeof kv.compareSetMany !== 'function') return { kind: 'busy' as const };
+        const nextState = withWarTreasuryPayment(rawState ?? {}, { kind: 'merc', village, ref: hireId, ryo: treasuryRyo, boneCharms: 0 }, commitNow);
+        const committed = await kv.compareSetMany([
+            { op: 'cas', key: stateKey, expected: rawState, value: nextState },
+            { op: 'cas', key, expected: rawRecord, value: nextRecord },
+        ]);
+        if (!committed) return { kind: 'busy' as const };
+        invalidateProcCache('game-state:frame');
+        return { kind: 'hired' as const, receipt, hiresLeft, treasuryRyo, remainingTreasuryRyo: have - treasuryRyo };
+    }, { failClosed: true }), { failClosed: true }), { failClosed: true });
 
-    if (out.kind === 'replay') return replayHire(res, out.receipt, playerName);
+    if (out.kind === 'replay') return replayHire(res, village, out.receipt, playerName);
     if (out.kind === 'closed') return res.status(out.status).json({ error: out.error });
     if (out.kind === 'limit') return res.status(409).json({ error: allowanceRefusal(context, out.allowance) });
     if (out.kind === 'full') return res.status(409).json({ error: 'Too many mercenary contracts are on the books. Try again once a war ends.' });
     if (out.kind === 'poor') return res.status(402).json({ error: `Hiring this mercenary costs ${out.cost} War Resources.` });
+    if (out.kind === 'kage-only') {
+        return res.status(403).json({
+            error: 'kage-only',
+            treasuryRyo: out.treasuryRyo,
+            message: `This band costs ${out.treasuryRyo.toLocaleString('en-US')} treasury ryo, and only the seated Kage can spend the treasury.`,
+        });
+    }
+    if (out.kind === 'treasury-short') {
+        void recordWarEcoEvent({ eventId: `treasury-short:merc:${villageWarSlug(village)}:${hireId}`, village, kind: 'treasury.short', amount: 1, meta: `merc:${tierId}` });
+        return res.status(402).json({
+            error: 'treasury-ryo',
+            need: out.need,
+            have: out.have,
+            message: `The village treasury is short — ${out.need.toLocaleString('en-US')} ryo needed for this band.`,
+        });
+    }
+    // A treasury row changed between the read and the commit: nothing moved,
+    // and a retry with the same request id is safe.
+    if (out.kind === 'busy') return res.status(503).json({ error: 'The war chest is busy. Try again.' });
     // Telemetry (best-effort): WR spent on the hire (0 = a free comeback hire → no event).
     if (out.receipt.cost > 0) {
         void recordWarEcoEvent({ eventId: `merc:${villageWarSlug(village)}:${hireId}`, village, kind: 'wr.spend.merc', amount: out.receipt.cost, meta: tierId });
     }
-    return res.status(200).json(hireBody(out.receipt, false, out.hiresLeft));
+    if (out.treasuryRyo > 0) {
+        void recordWarEcoEvent({ eventId: `merc-ryo:${villageWarSlug(village)}:${hireId}`, village, kind: 'treasury.ryo.spend.merc', amount: out.treasuryRyo, meta: tierId });
+    }
+    return res.status(200).json({
+        ...hireBody(out.receipt, false, out.hiresLeft, out.treasuryRyo),
+        ...(out.remainingTreasuryRyo !== null ? { remainingTreasuryRyo: out.remainingTreasuryRyo } : {}),
+    });
 }
 
 // ── list (read-only menu, contexts, allowances, bands) ─────────────────────────
@@ -328,12 +392,20 @@ async function doList(res: VercelResponse, identity: Identity, playerName: strin
     if (!leader.member) return res.status(403).json({ error: 'You must belong to this village.' });
 
     const now = Date.now();
-    const [record, wars, contests, sectorsHeld] = await Promise.all([
+    const [record, wars, contests, sectorsHeld, villageState] = await Promise.all([
         readRecord(village),
         listVillageWarInstances(now),
         listActiveSectorWars(now),
         heldSectorsForVillage(village),
+        kv.get<Record<string, unknown>>(villageTreasuryKey(village)),
     ]);
+    // The rate this server charges right now, so the panel's copy and the
+    // treasury price of each tier can never show a stale dial.
+    const perWr = ryoPerWr();
+    const tierView = (t: (typeof WR_MERC_TIERS)[number], barracks?: number) => {
+        const cost = mercHireCost(t.id, sectorsHeld, record, barracks);
+        return { ...t, combatProfile: warMercenaryCombatProfile(t.level), cost, treasuryRyo: mercHireTreasuryRyo(cost, perWr), band: mercBandSize(t.id) };
+    };
     const hires = pruneMercHires(record.mercHires ?? [], now);
 
     const contexts: MercContextView[] = [];
@@ -356,14 +428,22 @@ async function doList(res: VercelResponse, identity: Identity, playerName: strin
     return res.status(200).json({
         ok: true,
         warResources: record.warResources,
+        // The village treasury's ryo (members only, like the WR pool): hires
+        // also cost treasury ryo per WR charged (2026-10 rebalance, #6).
+        treasuryRyo: treasuryBalances(villageState).ryo,
+        ryoPerWr: perWr,
         // `cost` is what the server charges right now (comeback × Barracks
         // applied); `costWr` stays the undiscounted base for older clients.
-        tiers: WR_MERC_TIERS.map((t) => ({ ...t, combatProfile: warMercenaryCombatProfile(t.level), cost: mercHireCost(t.id, sectorsHeld, record), band: mercBandSize(t.id) })),
-        contexts: contexts.map(c => ({ ...c, tiers: WR_MERC_TIERS.map(t => ({ ...t, combatProfile: warMercenaryCombatProfile(t.level),
-            cost: mercHireCost(t.id, sectorsHeld, record, preparationLevels(record, c.key, now).barracks), band: mercBandSize(t.id) })) })),
+        // `treasuryRyo` is the treasury ryo that cost brings with it.
+        tiers: WR_MERC_TIERS.map((t) => tierView(t)),
+        contexts: contexts.map(c => ({ ...c, tiers: WR_MERC_TIERS.map(t => tierView(t, preparationLevels(record, c.key, now).barracks)) })),
         attacking,
         leases,
-        viewer: { role: leader.role, seats: leader.seats, canHire: leader.seats.length > 0, canDeploy: leader.seats.length > 0 },
+        viewer: {
+            role: leader.role, seats: leader.seats, canHire: leader.seats.length > 0, canDeploy: leader.seats.length > 0,
+            // Only the seated Kage spends the treasury; an Elder hires bands that cost it nothing.
+            canSpendTreasury: leader.seats.includes('kage'),
+        },
     });
 }
 

@@ -1,17 +1,26 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import * as server from "../api/endless/_run";
 import {
     endlessScaleFactor as serverFactor,
     endlessWaveReward as serverReward,
     endlessMilestoneReward as serverMilestone,
 } from "../api/endless/_run";
+import * as client from "../shinobij.client/src/lib/endless-tower";
 import {
     endlessScaleFactor as clientFactor,
     endlessWaveReward as clientReward,
     endlessTowerMilestoneReward as clientMilestone,
 } from "../shinobij.client/src/lib/endless-tower";
 import { endlessWaveSeed, scaleEndlessProfile, type EndlessProfile } from "../api/endless/_wave-opponent";
+
+// The parity below is between the client mirror and the server's CODE defaults.
+// An env override on Railway is a server-only kill switch, so clear any here.
+const DIALS = ["ENDLESS_REWARD_MULT", "ENDLESS_FACTOR_CAP_WAVE", "ENDLESS_LEVEL_CAP", "ENDLESS_FS_LIFETIME_FIRST", "ENDLESS_BC_FIRST_RUN_OF_DAY"] as const;
+for (const name of DIALS) delete process.env[name];
+// Either side of every clamp (level 70, wave 20) plus the extremes.
+const LEVELS = [1, 10, 30, 50, 69, 70, 71, 90, 100, 150];
 
 const BASE: EndlessProfile = {
     id: "builtin-ai-academy-sparring",
@@ -26,9 +35,24 @@ const BASE: EndlessProfile = {
 test("display-only Endless previews match authoritative reward math", () => {
     for (let wave = 1; wave <= 200; wave++) {
         assert.equal(clientFactor(wave), serverFactor(wave), `factor drift at wave ${wave}`);
-        assert.deepEqual(clientReward(wave, 50), { ...serverReward(wave, 50), isMilestone: wave % 5 === 0 });
+        for (const level of LEVELS) {
+            assert.deepEqual(clientReward(wave, level), { ...serverReward(wave, level), isMilestone: wave % 5 === 0 },
+                `reward drift at wave ${wave}, level ${level}`);
+        }
         assert.deepEqual(clientMilestone(wave), serverMilestone(wave));
     }
+});
+
+test("the client mirrors every Endless rebalance dial default", () => {
+    for (const name of DIALS) {
+        assert.equal(client[name], server[name], `${name} drifted between client and server`);
+    }
+    // With no env override, the server's call-time dials equal those defaults.
+    assert.equal(server.endlessRewardMult(), client.ENDLESS_REWARD_MULT);
+    assert.equal(server.endlessFactorCapWave(), client.ENDLESS_FACTOR_CAP_WAVE);
+    assert.equal(server.endlessLevelCap(), client.ENDLESS_LEVEL_CAP);
+    assert.equal(server.endlessFsLifetimeFirst(), client.ENDLESS_FS_LIFETIME_FIRST);
+    assert.equal(server.endlessBcFirstRunOfDay(), client.ENDLESS_BC_FIRST_RUN_OF_DAY);
 });
 
 test("server-owned opponent scaling keeps its caps and milestone label", () => {

@@ -21,5 +21,10 @@ export function formatHollowGateCombatReward(result: HollowGateCombatSettleResul
         reward.fragments ? `+${reward.fragments} Legendary Fragment` : "",
         reward.veils ? `+${reward.veils} Veil of the Hollow` : "",
         result.elementalShards ? `+${result.elementalShards} Elemental Shard` : "",
+        result.ambushPurse
+            ? result.ambushPurse.paid
+                ? `paid ambush ${result.ambushPurse.ordinal} of ${result.ambushPurse.paidCap} this run`
+                : `this run's ${result.ambushPurse.paidCap} paid ambushes are spent, dust only`
+            : "",
     ].filter(Boolean).join(", ");
 }

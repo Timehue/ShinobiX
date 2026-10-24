@@ -3,6 +3,7 @@ import { kv } from '../_storage.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import type { AiMatchSession } from '../card-clash/_ai-engine.js';
 import { hollowGateCombatReward } from './_combat-session.js';
+import { hollowGateRunRyoScale } from './_gate-scale.js';
 import { creditHollowGateLedger } from './_ledger.js';
 import { hollowGateRunKey, rewardMultiplierForToken, type HollowGateRunToken } from './_run-token.js';
 import { hollowGateEndedRunCharacter, hollowGateSavedTokenMismatch, makeHollowGatePendingOperation, recoverHollowGatePendingOperation } from './_pending-operation.js';
@@ -25,7 +26,9 @@ export async function recoverPaidHollowGateCard(params: {
     const won = Boolean(known && session?.winner === 'player');
     const floor = Math.max(1, Math.floor(Number(run.currentFloor) || 1));
     const key = `${floor}:card:${nodeId}`;
-    const base = hollowGateCombatReward(floor, 'ambush');
+    // The same sealed entry-level scale card-settle.ts paid with, so the rebuilt
+    // ledger (the death-retention basis) matches the wallet.
+    const base = hollowGateCombatReward(floor, 'ambush', undefined, { ryoScale: hollowGateRunRyoScale(run) });
     const reward = won ? { ryo: Math.floor(base.ryo * rewardMultiplierForToken(run)), auraDust: Math.floor(base.auraDust * rewardMultiplierForToken(run)) }
         : { ryo: 0, auraDust: 0 };
     const ledger = won ? creditHollowGateLedger(run, `card:${key}`, { currencies: reward }).ledger : run.rewardLedger;
