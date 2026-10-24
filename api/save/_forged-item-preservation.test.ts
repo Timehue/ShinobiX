@@ -104,6 +104,40 @@ describe('sanitizeCharacterSave wiring', () => {
         }
     });
 
+    it('strict mode keeps unregistered forged gear exactly as the non-strict path does', () => {
+        // Strict is the code default and never reads the forged-item registry, so
+        // pre-registry gear needs no backfill before a deploy: each case below must
+        // come out the same in both modes.
+        const armor = { id: STRIPPED, name: 'Veil', slot: 'body', rarity: 'legendary' };
+        const storedChar = { name: 'Tester', level: 90, levelLedgerMigrated: true, stats: {}, unspentStats: 0,
+            inventory: [STRIPPED], itemStacks: [], pets: [], equipment: { weapon: DASHED }, jutsuMastery: [], equippedJutsuIds: [] };
+        const owned = { _saveVersion: 5, character: storedChar, creatorItems: [forged, armor] };
+        const cases = {
+            echo: { character: structuredClone(storedChar), creatorItems: [forged, armor] },
+            'lost definitions': { character: structuredClone(storedChar), creatorItems: [] },
+            'moved armor to body': { character: { ...structuredClone(storedChar), inventory: [], equipment: { weapon: DASHED, body: STRIPPED } }, creatorItems: [forged, armor] },
+        };
+        const run = (mode: '0' | undefined, incoming: Record<string, unknown>) => {
+            const previous = process.env.STRICT_RAW_SAVE_LEDGER;
+            if (mode === undefined) delete process.env.STRICT_RAW_SAVE_LEDGER; else process.env.STRICT_RAW_SAVE_LEDGER = mode;
+            try {
+                const out = sanitizeCharacterSave(structuredClone(incoming), structuredClone(owned)) as Record<string, any>;
+                const held = (id: string) => (out.character.inventory ?? []).includes(id) || Object.values(out.character.equipment ?? {}).includes(id);
+                const defined = (id: string) => (out.creatorItems ?? []).some((i: { id?: string }) => i?.id === id);
+                return { weapon: [held(DASHED), defined(DASHED)], armor: [held(STRIPPED), defined(STRIPPED)], equipment: out.character.equipment };
+            } finally {
+                if (previous === undefined) delete process.env.STRICT_RAW_SAVE_LEDGER;
+                else process.env.STRICT_RAW_SAVE_LEDGER = previous;
+            }
+        };
+        for (const [label, incoming] of Object.entries(cases)) {
+            const strict = run(undefined, incoming);
+            assert.deepEqual(strict.weapon, [true, true], `${label}: strict keeps the forged weapon and its definition`);
+            assert.deepEqual(strict.armor, [true, true], `${label}: strict keeps the forged armor and its definition`);
+            assert.deepEqual(strict, run('0', incoming), `${label}: strict and non-strict agree`);
+        }
+    });
+
     it('keeps the stored forged definition on the non-strict path when a stale client changes its bonuses', () => {
         const previous = process.env.STRICT_RAW_SAVE_LEDGER;
         process.env.STRICT_RAW_SAVE_LEDGER = '0';
