@@ -10,6 +10,8 @@
 import { describe, it } from "node:test";
 import { strict as assert } from "node:assert";
 import { rollEmissarySpawn, emissaryForCategory, EMISSARY_DEFS, EMISSARY_MIN_LEVEL, EMISSARY_WANDERER_PREFIX } from "./legacy-emissaries";
+import {loiterPositionAt} from './wanderer-loiter';
+import {isWalkableTile,nearestWalkableTile} from '../../../shared/sector-walk-mask';
 import {
     EMISSARY_ERRAND_GIVER,
     EMISSARY_MIN_LEVEL as SERVER_EMISSARY_MIN_LEVEL,
@@ -33,6 +35,15 @@ function activeWindow(): { name: string; bucket: number } {
 }
 
 describe("rollEmissarySpawn", () => {
+    it('the Ojii window that blocked deployment keeps his complete loop off Gen’s resting place',()=>{
+        const spawn=rollEmissarySpawn('AuditNinja',85,null,82999,55);
+        assert.ok(spawn);assert.equal(spawn.def.slug,'mapless-ojii');assert.equal(spawn.sector,55);assert.equal(spawn.wanderer.level,81);
+        const home=nearestWalkableTile(55,spawn.wanderer.homeTile);
+        for(let at=0;at<60_000;at+=100){
+            const p=loiterPositionAt(spawn.wanderer.id,home,at,tile=>isWalkableTile(55,tile));
+            assert.ok(Math.max(Math.abs(p.col-10),Math.abs(p.row-5))>=1,`Ojii overlaps Gen at ${at}ms`);
+        }
+    });
     it("has exactly one trial-giver for every player-facing Legacy category", () => {
         for (const category of PUBLIC_LEGACY_CATEGORIES) {
             const serving = EMISSARY_DEFS.filter((definition) => definition.categories.includes(category));

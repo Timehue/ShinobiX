@@ -17,6 +17,7 @@ import type { Wanderer } from "./wanderers";
 import { wandererLevelFor, wandererHash32 as hash32, mulberry32 } from "./wanderers";
 import { clearOfSectorResidents } from "./wanderer-placement";
 import { FESTIVAL_SECTOR } from "../../../shared/sector-geo";
+import {frontierEmissaryHomeTile} from './frontier-emissary-placement';
 
 export type EmissarySlug =
     | "storm-caller-ryn" | "veil-mother-suzu" | "iron-pilgrim-daigo" | "blade-keeper-hana"
@@ -273,8 +274,9 @@ export function rollEmissarySpawn(
     const row = 2 + Math.floor(rng() * 8);
     const id = `${EMISSARY_WANDERER_PREFIX}${def.slug}`;
     // The rolled tile can be a resident's rest stop; step off it, the way every
-    // other story and service character does.
-    const home = clearOfSectorResidents(id, sector, row * GRID + col);
+    // other story and service character does. The Hollow Road's painted gear
+    // is cleared first, so the resident check starts from a tile that leaves it.
+    const home = clearOfSectorResidents(id, sector, frontierEmissaryHomeTile(sector, id, row * GRID + col));
     const waypoints = [home];
     for (let i = 0; i < 2; i++) {
         const nc = Math.max(1, Math.min(10, col + (Math.floor(rng() * 5) - 2)));
