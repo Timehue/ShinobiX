@@ -43,6 +43,7 @@ import { taxRateMultiplier } from './_war-structures.js';
 import { isWarVillage } from './_war-map-sectors.js';
 import { kageKey } from './village/_kage-settle.js';
 import { recordWarEcoEvent } from './_war-telemetry.js';
+import { recordEconomyTxn } from './_economy.js';
 import {
     runSaveDebitSaga,
     saveDebitTransactionId,
@@ -71,7 +72,8 @@ const VILLAGE_STATE_PREFIX = 'game:village-state:';
  * This is not a loophole worth farming: an unseated village also cannot declare a
  * village war or a sector war, set win-conditions, or upgrade a structure — every
  * one of those is Kage-gated — and its Elders keep only their own small share (one
- * terrain pick, one mercenary hire per war). Dodging the tax means forfeiting
+ * terrain pick, and only mercenary bands that cost the treasury nothing: a paid
+ * band is the Kage's to buy). Dodging the tax means forfeiting
  * almost the entire war toolkit.
  */
 export async function isVillageKageSeated(village: string): Promise<boolean> {
@@ -318,6 +320,9 @@ export async function assessVillageTax(playerName: string, now: number = Date.no
             void recordWarEcoEvent({ eventId, village, kind: 'tax.collect', amount: outcome.fromWallet + outcome.fromBank, ts: now, meta: name });
             if (outcome.toBurn > 0) void recordWarEcoEvent({ eventId: `${eventId}:burn`, village, kind: 'tax.burn', amount: outcome.toBurn, ts: now });
             if (outcome.toTreasury > 0) void recordWarEcoEvent({ eventId: `${eventId}:treasury`, village, kind: 'tax.treasury', amount: outcome.toTreasury, ts: now });
+            // Economy telemetry (I-19): the day's tax leaves the player's wallet
+            // and bank (burned share plus treasury share), a sink in the ledger.
+            void recordEconomyTxn({ txnId: `village-tax:${name}:${today}`, player: name, currency: 'ryo', delta: -(outcome.fromWallet + outcome.fromBank), source: 'village.tax', balanceAfter: outcome.nextRyo });
         }
 
         return {

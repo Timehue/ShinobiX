@@ -136,6 +136,34 @@ describe('player auth hardening', () => {
         assert.equal(login.body?.ok, true);
     });
 
+    it('reserves every Object.prototype member name, in any case, at account creation', async () => {
+        const { PROTOTYPE_MEMBER_NAMES, isReservedNameShape } = await import('./player-auth.js');
+        // Complete against the running engine, so a new built-in member fails here.
+        for (const member of [...Object.getOwnPropertyNames(Object.prototype), 'prototype']) {
+            assert.ok(PROTOTYPE_MEMBER_NAMES.has(member.toLowerCase()), `${member} must be reserved`);
+            assert.equal(isReservedNameShape(member), true, member);
+        }
+        for (const name of ['__proto__', 'constructor', 'Constructor', 'toString', 'VALUEOF', 'hasOwnProperty']) {
+            const out = await register(name);
+            assert.equal(out.statusCode, 403, name);
+            assert.match(String(out.body?.error), /reserved/i, name);
+            assert.equal((await post({ action: 'guest', name })).statusCode, 403, `guest ${name}`);
+        }
+        assert.equal([...store.keys()].some(key => key.startsWith('auth:') || key.startsWith('save:')), false, 'no refused name wrote an account');
+        // Ordinary names that merely contain a member name stay available.
+        assert.equal((await register('constructorkid')).statusCode, 200);
+        assert.equal(isReservedNameShape('Proto'), false);
+    });
+
+    it('keeps an existing account with a now-reserved name able to sign in', async () => {
+        assert.equal((await register('seedvictim', 'StrongPass1')).statusCode, 200);
+        // An account created before the reservation: same credential, reserved slug.
+        store.set('auth:constructor', structuredClone(store.get('auth:seedvictim')));
+        const login = await post({ action: 'verify', name: 'constructor', password: 'StrongPass1' });
+        assert.equal(login.statusCode, 200, JSON.stringify(login.body));
+        assert.equal(login.body?.ok, true);
+    });
+
     it('enforces the account password policy server-side', async () => {
         assert.match(playerPasswordPolicyError('short1')!, /at least 8/i);
         assert.match(playerPasswordPolicyError('lettersOnly')!, /letter and one number/i);

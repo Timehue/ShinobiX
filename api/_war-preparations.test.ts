@@ -18,6 +18,15 @@ before(async () => {
     campaign = await import('./_village-war-campaign.js'); sector = await import('./_sector-war.js');
 });
 beforeEach(async () => { const keys = await kv.keys('*'); if (keys.length) await kv.del(...keys); });
+// A tier also costs treasury ryo and Bone Charms (2026-10 rebalance, #6).
+const TREASURY_RYO = 1_000_000, TREASURY_BC = 1_000;
+const treasuryKey = (village: string) => `game:village-state:${state.villageWarSlug(village)}`;
+async function seedTreasury(village: string, treasury: Record<string, number> = { ryo: TREASURY_RYO, boneCharms: TREASURY_BC }) {
+    await kv.set(treasuryKey(village), { treasury });
+}
+async function treasuryOf(village: string): Promise<Record<string, number>> {
+    return ((await kv.get<{ treasury?: Record<string, number> }>(treasuryKey(village)))?.treasury) ?? {};
+}
 async function seedSector(n = 26, generation = 1) {
     const now = Date.now();
     const war = sector.newSectorWarSession({ sector: n, attackerVillage: A, defenderVillage: B,
@@ -26,24 +35,76 @@ async function seedSector(n = 26, generation = 1) {
     await kv.set(sector.sectorWarKey(war.id), war);
     await kv.set(state.villageWarKey(A), { ...state.defaultVillageWarRecord(A), warResources: 2000 });
     await kv.set(state.villageWarKey(B), { ...state.defaultVillageWarRecord(B), warResources: 2000 });
+    await seedTreasury(A);
+    await seedTreasury(B);
     return war;
 }
-it('each purchase and its tier share one write; a lost answer replays without another debit', async () => {
+it('a purchase moves WR, treasury ryo, Bone Charms and the tier in one commit; a lost answer replays without another debit', async () => {
     const war = await seedSector(), instance = prep.sectorPreparationInstance(war), key = state.villageWarKey(A);
-    const original = kv.set;
+    const original = kv.compareSetMany!;
     let injected = false;
-    kv.set = (async (...args: Parameters<typeof original>) => {
+    kv.compareSetMany = (async (...args: Parameters<typeof original>) => {
         const result = await original.apply(kv, args);
-        if (args[0] === key && !injected) { injected = true; throw new Error('lost purchase response'); }
+        if (!injected) { injected = true; throw new Error('lost purchase response'); }
         return result;
     }) as typeof original;
     try { await assert.rejects(prep.upgradeWarPreparation(A, 'warAcademy', instance, 1), /lost purchase response/); }
-    finally { kv.set = original; }
-    assert.equal((await prep.upgradeWarPreparation(A, 'warAcademy', instance, 1)).ok, true);
+    finally { kv.compareSetMany = original; }
+    const replay = await prep.upgradeWarPreparation(A, 'warAcademy', instance, 1);
+    assert.equal(replay.ok, true);
+    assert.equal('replayed' in replay && replay.replayed, true);
+    assert.equal('treasuryRyo' in replay && replay.treasuryRyo, 10_000, 'the replay reports what the proof says was paid');
     const record = state.normalizeVillageWarRecord(A, await kv.get(key) ?? undefined);
     assert.equal(record.warResources, 1960);
     assert.equal(prep.preparationLevels(record, instance).warAcademy, 1);
     assert.equal(record.structures.warAcademy, 0);
+    const treasury = await treasuryOf(A);
+    assert.equal(treasury.ryo, TREASURY_RYO - 10_000, 'tier 1: 40 WR x 250 ryo, once');
+    assert.equal(treasury.boneCharms, TREASURY_BC - 20, 'and 40 x 0.5 Bone Charms');
+});
+it('the price of each tier: 40 / 80 / 120 WR + 10,000 / 20,000 / 30,000 ryo + 20 / 40 / 60 Bone Charms', async () => {
+    const { preparationTreasuryCost } = await import('../shared/war-preparations.js');
+    assert.deepEqual([0, 1, 2].map((tier) => preparationTreasuryCost(tier)), [
+        { wr: 40, ryo: 10_000, boneCharms: 20 }, { wr: 80, ryo: 20_000, boneCharms: 40 }, { wr: 120, ryo: 30_000, boneCharms: 60 },
+    ]);
+    assert.deepEqual(preparationTreasuryCost(0, 0), { wr: 40, ryo: 0, boneCharms: 0 }, 'the dial at 0 is the WR-only price');
+});
+it('a short treasury refuses with no movement, in ryo and in Bone Charms', async () => {
+    const war = await seedSector(), instance = prep.sectorPreparationInstance(war);
+    await seedTreasury(A, { ryo: 9_999, boneCharms: 1_000 });
+    const poor = await prep.upgradeWarPreparation(A, 'barracks', instance, 1);
+    assert.equal(poor.ok, false);
+    assert.equal('error' in poor && poor.error, 'insufficient-treasury-ryo');
+    assert.equal('need' in poor && poor.need, 10_000);
+    await seedTreasury(A, { ryo: 50_000, boneCharms: 19 });
+    const charmless = await prep.upgradeWarPreparation(A, 'barracks', instance, 1);
+    assert.equal('error' in charmless && charmless.error, 'insufficient-treasury-bc');
+    assert.deepEqual(await treasuryOf(A), { ryo: 50_000, boneCharms: 19 });
+    assert.equal((await kv.get<import('./_war-state.js').VillageWarRecord>(state.villageWarKey(A)))!.warResources, 2000);
+});
+it('a commit that loses its compare-and-set moves nothing', async () => {
+    const war = await seedSector(), instance = prep.sectorPreparationInstance(war);
+    const original = kv.compareSetMany;
+    kv.compareSetMany = async () => false;
+    let busy: Awaited<ReturnType<typeof prep.upgradeWarPreparation>>;
+    try { busy = await prep.upgradeWarPreparation(A, 'barracks', instance, 1); }
+    finally { kv.compareSetMany = original; }
+    assert.equal('error' in busy && busy.error, 'treasury-busy');
+    assert.deepEqual(await treasuryOf(A), { ryo: TREASURY_RYO, boneCharms: TREASURY_BC });
+    assert.equal((await kv.get<import('./_war-state.js').VillageWarRecord>(state.villageWarKey(A)))!.warResources, 2000);
+});
+it('WAR_RYO_PER_WR=0 charges WR only', async () => {
+    const war = await seedSector(), instance = prep.sectorPreparationInstance(war);
+    process.env.WAR_RYO_PER_WR = '0';
+    try {
+        const out = await prep.upgradeWarPreparation(A, 'barracks', instance, 1);
+        assert.equal(out.ok, true);
+        assert.equal('treasuryRyo' in out && out.treasuryRyo, 0);
+    } finally {
+        delete process.env.WAR_RYO_PER_WR;
+    }
+    assert.deepEqual(await treasuryOf(A), { ryo: TREASURY_RYO, boneCharms: TREASURY_BC });
+    assert.equal((await kv.get<import('./_war-state.js').VillageWarRecord>(state.villageWarKey(A)))!.warResources, 1960);
 });
 it('concurrent requests for the same tier debit once and all temporary buildings stop at tier three', async () => {
     const war = await seedSector(), instance = prep.sectorPreparationInstance(war);
@@ -83,6 +144,7 @@ it('peace, surrender and a war closing during its quote cannot spend resources',
     try { assert.equal((await prep.upgradeWarPreparation(A, 'watchtower', instance, 1)).ok, false); }
     finally { kv.get = original; }
     assert.equal((await kv.get<import('./_war-state.js').VillageWarRecord>(state.villageWarKey(A)))!.warResources, 2000);
+    assert.deepEqual(await treasuryOf(A), { ryo: TREASURY_RYO, boneCharms: TREASURY_BC }, 'nor any treasury ryo or Bone Charms');
 });
 it('campaign preparations can be purchased during funded preparation and disappear from live contexts on surrender', async () => {
     const now = Date.now(), c = campaign.createVillageCampaign([A, B], now + 1000, 40);
@@ -90,6 +152,7 @@ it('campaign preparations can be purchased during funded preparation and disappe
         startedAt: now, updatedAt: now, declarationGeneration: 4, campaign: c };
     await kv.set(`world:war:${war.id}`, war);
     await kv.set(state.villageWarKey(A), { ...state.defaultVillageWarRecord(A), warResources: 1000 });
+    await seedTreasury(A);
     const instance = prep.campaignPreparationInstance(war);
     assert.equal((await prep.upgradeWarPreparation(A, 'warAcademy', instance, 1)).ok, true);
     await kv.set(`world:war:${war.id}`, { ...war, endedAt: now + 1 });
@@ -172,13 +235,13 @@ it('the daily pass removes surrendered preparations before billing while another
     assert.equal(record.warResources, 1960);
     assert.deepEqual(record.warPreparations, []);
 });
-it('the real upgrade endpoint allows the seated Kage, rejects a member, and never charges treasury seals for a temporary tier', async () => {
+it('the real upgrade endpoint allows the seated Kage, rejects a member, and charges treasury ryo and Bone Charms but never seals for a temporary tier', async () => {
     const war = await seedSector(), village = B;
     const { issuePlayerToken } = await import('./_auth.js');
     const handler = (await import('./village/war-structure.js')).default as unknown as (req: never, res: never) => Promise<unknown>;
     await kv.set('village:kage:frostfang-village', { seatedKage: 'frostkage' });
     for (const name of ['frostkage', 'villager']) await kv.set(`save:${name}`, { _saveVersion: 1, character: { name, village, level: 50 } });
-    await kv.set('game:village-state:frostfangvillage', { treasury: { honorSeals: 100, materialPoints: 200 } });
+    await kv.set('game:village-state:frostfangvillage', { treasury: { honorSeals: 100, materialPoints: 200, ryo: 50_000, boneCharms: 30 } });
     async function call(name: string) {
         let statusCode = 200, body: Record<string, unknown> = {};
         const res = { setHeader() { return res; }, status(n: number) { statusCode = n; return res; },
@@ -189,8 +252,25 @@ it('the real upgrade endpoint allows the seated Kage, rejects a member, and neve
     }
     const before = await kv.get('game:village-state:frostfangvillage');
     assert.equal((await call('villager')).statusCode, 403);
+    assert.deepEqual(await kv.get('game:village-state:frostfangvillage'), before, 'a refused member moves nothing');
     const purchase = await call('frostkage');
     assert.equal(purchase.statusCode, 200, JSON.stringify(purchase.body));
     assert.equal(purchase.body.currency, 'wr'); assert.equal(purchase.body.cost, 40);
-    assert.deepEqual(await kv.get('game:village-state:frostfangvillage'), before);
+    assert.equal(purchase.body.treasuryRyo, 10_000);
+    assert.equal(purchase.body.treasuryBoneCharms, 20);
+    assert.equal(purchase.body.remainingTreasuryRyo, 40_000);
+    assert.equal(purchase.body.remainingTreasuryBoneCharms, 10);
+    assert.deepEqual(await treasuryOf(village), { honorSeals: 100, materialPoints: 200, ryo: 40_000, boneCharms: 10 });
+    // The next tier needs 40 Bone Charms: a short treasury answers 402 with the sentence the client shows.
+    const short = await (async () => {
+        let statusCode = 200, body: Record<string, unknown> = {};
+        const res = { setHeader() { return res; }, status(n: number) { statusCode = n; return res; },
+            json(v: Record<string, unknown>) { body = v; return res; }, end() { return res; } };
+        await handler({ method: 'POST', headers: { 'x-player-name': 'frostkage', 'x-player-token': issuePlayerToken('frostkage') },
+            body: { playerName: 'frostkage', village, structure: 'warAcademy', toLevel: 2, warInstance: prep.sectorPreparationInstance(war) } } as never, res as never);
+        return { statusCode, body };
+    })();
+    assert.equal(short.statusCode, 402);
+    assert.equal(short.body.error, 'insufficient-treasury-bc');
+    assert.equal(short.body.message, 'The treasury is short — 40 Bone Charms needed.');
 });

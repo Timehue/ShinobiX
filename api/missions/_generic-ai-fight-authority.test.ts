@@ -119,6 +119,8 @@ describe('generic AI fight authority', () => {
         const first = await resolveGenericAiFightAuthority(params);
         const retry = await resolveGenericAiFightAuthority({ ...params, character: { ...character, level: 100 } });
         assert.deepEqual(first.encounter, retry.encounter);
+        assert.equal(first.encounter?.baseRyo, 85, 'the upgrade seals the L25 purse');
+        assert.equal(retry.encounter?.baseRyo, 85, 'a retry at L100 keeps the sealed purse');
         for (const at of [Date.now() - 31 * 86400000, Date.now() + 120000]) {
             await assert.rejects(resolveGenericAiFightAuthority({ ...params, store: memoryStore() as never,
                 character: { ...character, redeemedSectorExplorations: [{ id, sector: 61, at, outcome: { kind: 'battle' } }] } }), /does not prove/);

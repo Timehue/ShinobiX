@@ -6,6 +6,7 @@ import { kv } from '../_storage.js';
 import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
+import { recordEconomyTxn } from '../_economy.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { readSoloPveSession, writeSoloPveSession } from '../solo-pve/_store.js';
 import { applySoloPveUsageCosts, withSoloPveSettlementReceipt } from '../solo-pve/_settlement.js';
@@ -43,6 +44,7 @@ type EndlessReceipt = {
     creditedRyo?: number;
 };
 type EndlessAction = 'start' | EndlessReceipt['action'];
+type EndlessEconomyTxn = { txnId: string; currency: 'ryo' | 'boneCharms' | 'fateShards'; delta: number; source: string };
 
 const receiptsOf = (character: Record<string, unknown>): EndlessReceipt[] => Array.isArray(character.redeemedEndlessActions)
     ? (character.redeemedEndlessActions as EndlessReceipt[]).filter((entry) => entry && typeof entry.key === 'string').slice(-128)
@@ -70,11 +72,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // The wave whose HP this settle wrote, so its run marker can be set once
         // the save write commits (see the note in api/pve/_fight-outcome-settlement.ts).
         let wroteWaveBody = null as SoloPveSession | null;
+        // Currency deltas of the attempt that commits (reset per attempt, empty
+        // on a replayed receipt), logged once the save write succeeds.
+        let economyTxns: EndlessEconomyTxn[] = [];
         const result = await mutatePlayerSave<Record<string, unknown>>(playerName, async ({ character }) => {
             wroteWaveBody = null;
+            economyTxns = [];
             if (action === 'start') {
                 const started = startEndlessRun(character, randomUUID().replace(/-/g, ''), dayKey());
                 if (!started.ok) return { ok: false as const, status: 409, error: started.reason };
+                if (!started.resumed && started.cost > 0) {
+                    economyTxns = [{ txnId: `endless:entry:${started.run.runToken}`, currency: 'ryo', delta: -started.cost, source: 'endless.entry' }];
+                }
                 return {
                     ok: true as const,
                     character: started.character,
@@ -128,6 +137,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     };
                 }
                 const paid = cashOutEndless(character, run, dayKey());
+                if (paid.creditedRyo > 0) {
+                    economyTxns = [{ txnId: `endless:cashout:${runToken}`, currency: 'ryo', delta: paid.creditedRyo, source: 'endless.cashout' }];
+                }
                 const receipt: EndlessReceipt = {
                     key: runToken,
                     action,
@@ -184,6 +196,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     bodyWritten ? { ...vitals, hp: undefined } : vitals,
                 );
                 if (!won) return { ok: false as const, status: 409, error: 'unexpected-endless-wave' };
+                // A lifetime-first Fate Shard milestone is a bounded first-ascent
+                // grant (at most 100 per account), so it gets its own source and
+                // can be kept out of the repeatable-FS alarms.
+                economyTxns = (['boneCharms', 'fateShards'] as const)
+                    .filter((currency) => won.milestone[currency] > 0)
+                    .map((currency) => ({
+                        txnId: `endless:milestone:${waveRunId}:${currency}`,
+                        currency,
+                        delta: won.milestone[currency],
+                        source: currency === 'fateShards' && won.lifetimeFirst ? 'endless.milestone.first' : 'endless.milestone',
+                    }));
                 const receipt: EndlessReceipt = {
                     key: waveRunId,
                     action,
@@ -223,6 +246,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         if (!result.ok) return res.status(result.status).json({ error: result.error });
         if (wroteWaveBody) await markPveOutcomeSettled(wroteWaveBody, playerName, Date.now());
+        // Economy telemetry (I-19). Best-effort: recordEconomyTxn never throws into the reward path.
+        await Promise.allSettled(economyTxns.map((txn) => recordEconomyTxn({ ...txn, player: playerName })));
 
         if (action === 'settle' && waveRunId) {
             const binding = await kv.get<EndlessWaveBinding>(endlessWaveBindingKey(waveRunId)).catch(() => null);

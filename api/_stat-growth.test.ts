@@ -52,8 +52,8 @@ describe('computeCombatStatGrowth', () => {
         assert.deepEqual(g.allocated, {});
     });
 
-    it('the PvP slice is 18/day (3 serious wins — dailies are the bulk of daily growth)', () => {
-        assert.equal(DAILY_COMBAT_STAT_CAP, 18);
+    it('hunts, field claims, PvE and PvP share one 60/day stat-point budget (owner ruling A1)', () => {
+        assert.equal(DAILY_COMBAT_STAT_CAP, 60);
     });
 });
 

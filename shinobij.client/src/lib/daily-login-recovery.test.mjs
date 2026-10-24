@@ -255,7 +255,9 @@ for (const timing of ['before request', 'during request']) {
     test(`pending profile, equipment and allocated stats survive a daily claim: ${timing}`, async () => {
         const f = await fixture({ inventory: ['shinobi-vest'], equipment: {}, unspentStats: 10,
             nindo: 'Original creed', nindoBg: '' });
-        const pending = { nindo: 'My pending creed', nindoBg: 'ember', equipment: { body: 'shinobi-vest' },
+        // Equipping moves the vest out of the backpack: the strict ledger (the
+        // code default, owner A13) counts units, so one vest cannot be both.
+        const pending = { nindo: 'My pending creed', nindoBg: 'ember', inventory: [], equipment: { body: 'shinobi-vest' },
             stats: { ...f.initial.stats, strength: f.initial.stats.strength + 2 }, unspentStats: 8 };
         if (timing === 'before request') f.edit(pending);
         const realFetch = globalThis.fetch;

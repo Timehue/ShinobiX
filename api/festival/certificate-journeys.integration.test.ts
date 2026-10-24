@@ -15,6 +15,8 @@ let rally: Handler, caravan: Handler, broker: Handler;
 let now = Date.UTC(2026, 9, 18, 12);
 const realNow = Date.now, player = 'certificate-journey';
 let petId = '';
+// A certificate covers half the 75,000 stake; the purse pays the other half.
+const CERTIFICATE_STAKE = 37_500;
 
 before(async () => {
     ({ kv } = await import('../_storage.js'));
@@ -30,7 +32,7 @@ beforeEach(async () => {
     const { createOwnedPet } = await import('../pet/_owned-pet.js');
     const pet = createOwnedPet('starter-fire', { origin: 'starter' }); petId = String(pet.id);
     await kv.set(`save:${player}`, { _saveVersion: 1, _saveAt: now, _regenAt: now, creatorItems: [], creatorJutsus: [], character: {
-        name: player, level: 30, ryo: 0, hp: 100, maxHp: 100, chakra: 100, maxChakra: 100, stamina: 100, maxStamina: 100,
+        name: player, level: 30, ryo: 2 * CERTIFICATE_STAKE, hp: 100, maxHp: 100, chakra: 100, maxChakra: 100, stamina: 100, maxStamina: 100,
         stats: {}, inventory: [], itemStacks: [], equipment: {}, pets: [pet], jutsus: [], village: 'Ashen Leaf Village', element: 'Fire',
     } });
 });
@@ -72,8 +74,8 @@ for (const [place, expected] of [[1, 2], [2, 1]]) test(`Rally place ${place}: ac
     for (let index = 0; index < expected; index++) {
         const before = await stored();
         const pulled = ok(await call(broker, { payment: 'certificate', requestId: `${new Date(now).toISOString().slice(0, 10)}_${randomUUID()}` }));
-        assert.equal(pulled.cost, 0);
-        assert.equal(pulled.character.ryo, before.character.ryo + pulled.reward.ryo);
+        assert.equal(pulled.cost, CERTIFICATE_STAKE);
+        assert.equal(pulled.character.ryo, before.character.ryo - CERTIFICATE_STAKE + pulled.reward.ryo);
         assert.equal(pulled.character.brokerCertificates, expected - index - 1);
         assert.equal(pulled.dailyUsed, index + 1);
     }
@@ -105,7 +107,7 @@ for (const success of [true, false]) test(`Caravan actual ${success ? 'delivery'
     const pull = await call(broker, { payment: 'certificate', requestId: `${new Date(now).toISOString().slice(0, 10)}_${randomUUID()}` });
     assert.equal(pull.status, success ? 200 : 400, JSON.stringify(pull.body));
     if (success) {
-        assert.equal(pull.body.cost, 0);
+        assert.equal(pull.body.cost, CERTIFICATE_STAKE);
         assert.equal(pull.body.character.brokerCertificates, 0);
         assert.equal(pull.body.dailyUsed, 1);
     }

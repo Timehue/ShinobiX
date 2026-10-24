@@ -1287,11 +1287,10 @@ export function createShowdownSession(input: {
     enemyPets: Pet[];
     enemyTeamName: string;
     /** Whether a WIN from this session may pay. Sealed here at start so the
-     *  payout can never be argued from anything the client sends later. Every
-     *  caller today is the hand-picked-AI practice entry and passes false; the
-     *  flag exists because the live entry points (Hollow Gate, sector ambush,
-     *  clan/sector war) are slated to migrate onto this engine and those DO
-     *  pay — at which point they set it true and nothing else has to move. */
+     *  payout can never be argued from anything the client sends later. The
+     *  paid Coliseum entry (`arena` in api/pet/showdown.ts) passes true and
+     *  burns the items this commits (showdownConsumableSpends); practice,
+     *  Hollow Gate, wanderer and the other unpaid entries pass false. */
     rewardEligible: boolean;
     /** Live player-vs-player. Arms the endpoint's 45s command timer; every
      *  caller today is an AI entry and omits it. */
@@ -1350,9 +1349,9 @@ export function createShowdownSession(input: {
  * loadout.consumable`, reporting which id was spent).
  *
  * The engine is pure and never writes a save; the endpoint that owns the save
- * lock calls this and does the delete. It returns EMPTY today, because every
- * caller seals rewardEligible=false — the spend path activates with the first
- * reward-eligible caller (Hollow Gate, sector ambush, clan/sector war).
+ * lock calls this and does the delete. The paid Coliseum entry does so at
+ * admission (api/pet/_showdown-admission.ts spendShowdownConsumables); an unpaid
+ * session seals rewardEligible=false and this returns EMPTY.
  */
 export function showdownConsumableSpends(session: ShowdownSession): Array<{ petId: string; consumableId: string }> {
     return session.player

@@ -10,8 +10,10 @@
  *   training — the stat gain SEALED when a training session starts. A session
  *              started during the event keeps its boost even if it finishes
  *              after the event ends; one started before does not gain it.
- *   growth   — stat points from the daily mission checklist and from casual
- *              PvP wins, as its own factor after the aggregate bonus cap.
+ *   growth   — stat points from the daily mission checklist (its own factor
+ *              after the aggregate bonus cap) and from casual PvP wins, where
+ *              it scales the 6-point REQUEST and the shared 18/day combat
+ *              budget still bounds what is credited.
  *   jutsu    — jutsu lesson SPEED: lesson time is divided by the multiplier
  *              (still floored by the lesson engine's own minimum).
  */

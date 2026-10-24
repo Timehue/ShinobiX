@@ -13,7 +13,9 @@
  * Screens own the markup; this file owns the sentences and the "should we say
  * anything at all?" predicates, so both are testable without a DOM.
  */
-import { COOK_RECIPES, type CookRecipe } from "./cafeteria";
+import { COOK_RECIPES, FUEL_IDS, type CookRecipe } from "./cafeteria";
+
+const isFuel = (id: string) => (FUEL_IDS as readonly string[]).includes(id);
 import {
     GARRISON_RATIONS_PER_DAY,
     INTEL_DECLARE_BASE_COST,
@@ -45,7 +47,7 @@ export type StoresItemSignpost = {
  *  the same "first owned material" order applyCookRecipe uses). */
 export function cookRecipeForMaterial(itemId: string): CookRecipe | null {
     const id = String(itemId ?? "");
-    return COOK_RECIPES.find((r) => r.materials.includes(id) || id === "gather-field-herb" || id === "gather-heartwood-bark") ?? null;
+    return COOK_RECIPES.find((r) => r.materials.includes(id) || id === "gather-field-herb" || isFuel(id)) ?? null;
 }
 
 /**
@@ -70,7 +72,7 @@ export function storesItemSignpost(itemId: string): StoresItemSignpost | null {
     if (!recipe) return null;
     return {
         itemId: id,
-        line: `${id === "gather-heartwood-bark" ? "Fuel for" : "Cooks into"} ${recipe.name} at the Noodle Den — ${recipe.rations} rations, ${recipe.ryo} ryo a batch.`,
+        line: `${isFuel(id) ? "Fuel for" : "Cooks into"} ${recipe.name} at the Noodle Den — ${recipe.rations} rations, ${recipe.ryo} ryo a batch.`,
         actionLabel: "Cook at the Noodle Den",
         screen: "cafeteria",
     };

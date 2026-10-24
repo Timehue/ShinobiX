@@ -57,6 +57,8 @@ import {
 import { CENTRAL_SECTORS, homeSectorsForVillage, isWarVillage, NON_WAR_SPECIAL_SECTORS, WAR_VILLAGES } from './_war-map-sectors.js';
 import { territoryVillageOwnershipError } from './_territory-ownership.js';
 import { settlementMoralePatch } from './_war-morale.js';
+import { villageWarEndedByAgreement, villageWarEndedEarlyByAgreement, villageWarLiveFrom, warMinDurationMs } from './war/_early-end.js';
+import { recordWarEcoEvent } from './_war-telemetry.js';
 import { heldSectorsForVillage } from './_war-held-sectors.js';
 import {
     activeContestOnSector,
@@ -190,7 +192,12 @@ function villageWarHpOf(war: Pick<VillageWar, 'hp' | 'hpMax'>, village: string):
  * the winner's crate id and the losers' consolation id. Only some endings used
  * to: a war that ran out on decay or hit the 14-day limit had no MVP and no
  * consolation id, so the MVP crate and the consolation the War Hall promises
- * were silently never claimable for the commonest way a quiet war ends. Pure.
+ * were silently never claimable for the commonest way a quiet war ends.
+ *
+ * Except an early agreement (api/war/_early-end.ts, I-5): a surrender or agreed
+ * peace before the floor stamps no MVP and REMOVES the crate ids. The winner's
+ * crate id is stamped at declaration, so leaving it would still pay the crate.
+ * Pure.
  */
 function stampVillageWarEnding(war: VillageWar, args: { endedAt: number; winnerVillage?: string }): VillageWar {
     const next: VillageWar = {
@@ -207,6 +214,13 @@ function stampVillageWarEnding(war: VillageWar, args: { endedAt: number; winnerV
             .filter((entry) => entry && entry.side === village && Number(entry.damage) > 0)
             .sort((a, b) => Number(b.damage) - Number(a.damage));
         if (side[0]?.name) setSafeRecordValue(mvpByVillage, village, side[0].name);
+    }
+    if (villageWarEndedEarlyByAgreement(next, warMinDurationMs())) {
+        // Stats only: the contribution ledger, standings and spoils stay.
+        next.mvpByVillage = {};
+        delete next.warCrateId;
+        delete next.loserCrateId;
+        return next;
     }
     next.mvpByVillage = mvpByVillage;
     if (next.winnerVillage) {
@@ -1229,6 +1243,11 @@ async function settleVillageWarSpoils(war: VillageWar, now: number): Promise<boo
     const [k1, k2] = [winnerKey, loserKey].sort();
     const token = villageWarGenerationToken(war);
     const markerKey = `war:settled:${token}`;
+    // An early agreement ending (I-5b) still moves the spoils, but starts no
+    // comeback rally on the loser and leaves the winner's own rally alone:
+    // rotating early surrenders kept a village on +10% training and pet XP
+    // almost permanently.
+    const morale = !villageWarEndedEarlyByAgreement(war, warMinDurationMs());
     await withKvLock<void>(k1, async () => withKvLock<void>(k2, async () => {
         // The marker is written only after every part below has landed. (A
         // marker from the old code, which wrote it first, stays final too: it
@@ -1244,7 +1263,7 @@ async function settleVillageWarSpoils(war: VillageWar, now: number): Promise<boo
             spoils = computeSpoils({ ryo: vnum(lt.ryo), honorSeals: vnum(lt.honorSeals), fateShards: vnum(lt.fateShards) });
             await kv.set(loserKey, {
                 ...loserState,
-                ...settlementMoralePatch('loser', now),
+                ...(morale ? settlementMoralePatch('loser', now) : {}),
                 treasury: { ...lt, ryo: vnum(lt.ryo) - spoils.ryo, honorSeals: vnum(lt.honorSeals) - spoils.honorSeals, fateShards: vnum(lt.fateShards) - spoils.fateShards },
                 [WAR_SPOILS_RECEIPTS_FIELD]: withWarSpoilsReceipt(loserReceipts, token, { side: 'loser', spoils, at: now }),
             });
@@ -1255,7 +1274,7 @@ async function settleVillageWarSpoils(war: VillageWar, now: number): Promise<boo
             // do not add a progression-speed buff on top of those advantages.
             await kv.set(winnerKey, {
                 ...winnerState,
-                ...settlementMoralePatch('winner', now),
+                ...(morale ? settlementMoralePatch('winner', now) : {}),
                 treasury: { ...wt, ryo: vnum(wt.ryo) + spoils.ryo, honorSeals: vnum(wt.honorSeals) + spoils.honorSeals, fateShards: vnum(wt.fateShards) + spoils.fateShards },
                 [WAR_SPOILS_RECEIPTS_FIELD]: withWarSpoilsReceipt(winnerReceipts, token, { side: 'winner', spoils, at: now }),
             });
@@ -2377,6 +2396,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const publication = await commitWarBattleSettlement(kv, warKey, war, next);
                     if (publication.status === 'conflict') return { status: 503, body: { error: 'Village-war state changed; retry.' } };
                     if (publication.row.endedAt) await ensureWarRematchCooldown(publication.row);
+                    if (publication.row.endedAt && villageWarEndedByAgreement(publication.row)) {
+                        // Surrender timing (framework 8.4: agreement endings
+                        // under 96 h should stay at or below 10% of wars).
+                        const hours = Math.max(0, Math.floor((publication.row.endedAt - villageWarLiveFrom(publication.row)) / 3_600_000));
+                        const eventId = `war-agreement:${villageWarGenerationToken(publication.row)}`;
+                        void recordWarEcoEvent({ eventId, village: actorVillage, kind: 'war.end.agreement', amount: 1, meta: `${command}:${hours}h` });
+                        if (hours < 96) void recordWarEcoEvent({ eventId: `${eventId}:under96h`, village: actorVillage, kind: 'war.end.agreement.under96h', amount: 1, meta: `${command}:${hours}h` });
+                    }
                     await kv.set(`audit:village-war-command:${normalizeVillageKey(actorVillage)}:${now}`, {
                         ts: now, command, actor: identity.name, village: actorVillage, warId: war.id,
                     }, { ex: 30 * 24 * 60 * 60 }).catch(() => undefined);

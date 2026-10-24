@@ -48,6 +48,9 @@ function character(name: string): Record<string, unknown> {
         xp: 0,
         experience: 0,
         ryo: 0,
+        // Stored, so the acknowledgement echoes it under either ledger mode
+        // (strict, the code default, only copies a field the save holds).
+        fateShards: 0,
         rank: 'Academy Student',
         rankTitle: 'Academy Student',
         village: '',

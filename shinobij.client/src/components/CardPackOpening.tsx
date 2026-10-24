@@ -28,12 +28,15 @@ import type { ChronicleDisplayCard } from "../lib/chronicle-duel";
 import type { CardPackType } from "../lib/card-pack";
 import {
     RARITY_ACCENT,
+    conversionLabel,
+    conversionSummary,
     packArtUrl,
     packParticles,
     packTheme,
     planPackReveal,
     rarityTier,
     revealSfxForRarity,
+    type PackCardConversion,
 } from "../lib/card-pack-reveal";
 import { playChronicleSfx, primeChronicleSfx } from "../lib/chronicle-sfx";
 import { isLowEndMobile } from "../lib/device-tier";
@@ -54,6 +57,7 @@ export function CardPackOpening({
     cards,
     cardsById,
     ownedBefore,
+    conversions,
     title,
     countLabel,
     flipLimit,
@@ -68,6 +72,9 @@ export function CardPackOpening({
     cardsById: Record<string, ChronicleDisplayCard>;
     /** Owned-copy counts BEFORE this pack was applied (drives the NEW badges). */
     ownedBefore: ReadonlyMap<string, number>;
+    /** Copies past the 3-copy playset the server converted, keyed by their
+     *  index in `cards`. Omitted by the Traveler's Codex hand-off. */
+    conversions?: ReadonlyMap<number, PackCardConversion>;
     /** Names this opening when it isn't a shop pack (the Traveler's Codex
      *  hand-off), replacing the pack's own label and the summary heading. */
     title?: string;
@@ -85,9 +92,10 @@ export function CardPackOpening({
 }) {
     const theme = useMemo(() => packTheme(packType), [packType]);
     const plan = useMemo(
-        () => planPackReveal(cards, (id) => cardsById[id]?.rarity, ownedBefore),
-        [cards, cardsById, ownedBefore],
+        () => planPackReveal(cards, (id) => cardsById[id]?.rarity, ownedBefore, conversions),
+        [cards, cardsById, ownedBefore, conversions],
     );
+    const convertedNote = useMemo(() => conversionSummary(plan), [plan]);
     // What the player taps through. `plan` is ordered rarest-last, so trimming
     // from the FRONT keeps the crescendo and drops the commons — which the
     // summary still shows.
@@ -413,6 +421,11 @@ export function CardPackOpening({
                                                 NEW
                                             </span>
                                         )}
+                                        {flippedNow && entry.converted && (
+                                            <span className="pack-card__converted" aria-hidden="true">
+                                                {conversionLabel(entry.converted)}
+                                            </span>
+                                        )}
                                         {flippedNow && !reduceMotion && (
                                             <span
                                                 key={`fx-${idx}`}
@@ -517,6 +530,7 @@ export function CardPackOpening({
                         <div className="pack-summary__head">
                             <h2>{title ?? "Your Pull"}</h2>
                             <p>{title ? countText : `${label} — ${countText}`}</p>
+                            {convertedNote ? <p className="pack-summary__converted">{convertedNote}</p> : null}
                         </div>
                         <div className="pack-summary__row">
                             {plan.map((entry, i) => {
@@ -534,7 +548,7 @@ export function CardPackOpening({
                                             } as CSSProperties
                                         }
                                         onClick={() => setInspect(i)}
-                                        aria-label={`Read ${card?.name ?? entry.id} full size`}
+                                        aria-label={`Read ${card?.name ?? entry.id} full size${entry.converted ? `, converted to ${conversionLabel(entry.converted)}` : ""}`}
                                     >
                                         <span className="pack-summary__cardinner">
                                             {card ? (
@@ -544,6 +558,7 @@ export function CardPackOpening({
                                             )}
                                         </span>
                                         {entry.isNew && <span className="pack-card__new">NEW</span>}
+                                        {entry.converted && <span className="pack-card__converted">{conversionLabel(entry.converted)}</span>}
                                     </button>
                                 );
                             })}
@@ -587,6 +602,7 @@ export function CardPackOpening({
                         <span>
                             {(cardsById[plan[inspect].id]?.rarity ?? "common").toUpperCase()}
                             {plan[inspect].isNew ? " · NEW TO YOUR COLLECTION" : ""}
+                            {plan[inspect].converted ? ` · BEYOND YOUR THIRD COPY: ${conversionLabel(plan[inspect].converted!).toUpperCase()}` : ""}
                         </span>
                         <small>Tap anywhere to close</small>
                     </div>

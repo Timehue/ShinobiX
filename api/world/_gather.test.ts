@@ -11,6 +11,7 @@ import { routeStoresDonation } from '../_treasury-stores-donate.js';
 import { applyTreasuryDonation } from '../_treasury-donate.js';
 import { gearCraftIngredients } from '../../shared/crafting-recipes.js';
 import { ITEM_CATALOG } from '../pvp/_item-catalog.js';
+import { WILD_HIT_CEILING } from '../pet/_encounter.js';
 
 for (const level of [1, 49, 50, 100]) for (const chest of [true, false]) test(`exact overall rates and boundaries: level ${level}, chests ${chest}`, () => {
     const r = sectorExplorePostChestRates(level, chest);
@@ -19,7 +20,7 @@ for (const level of [1, 49, 50, 100]) for (const chest of [true, false]) test(`e
     close(r.gather*r.d,0.20);
     close(r.battle*r.d,0.8*r.d-0.15);
     close(r.quiet*r.d,0.2*r.d-0.05);
-    close((level>=50 ? 0.02 : 0)+(level>=50 ? 0.98 : 1)*0.05+r.survival*(chest?0.15:0)+r.d,1);
+    close((level>=50 ? 0.02 : 0)+(level>=50 ? 0.98 : 1)*WILD_HIT_CEILING+r.survival*(chest?0.15:0)+r.d,1);
     for (const [roll,kind] of [[0,'battle'],[r.battle-1e-10,'battle'],[r.battle,'none'],[r.battle+r.quiet-1e-10,'none'],[r.battle+r.quiet,'gather'],[0.99999,'gather']] as const) {
         const seq=[0.9,roll]; assert.equal(rollSectorExploreOutcome(()=>seq.shift()!,chest,level).kind,kind);
     }

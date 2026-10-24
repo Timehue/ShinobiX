@@ -95,3 +95,45 @@ describe('combined village reward Legacy delivery', { concurrency: false }, () =
         await assertCounters();
     });
 });
+
+// 2026-10 rebalance (framework #7): the war purses, paid by the same claim.
+describe('war purses through /api/war/claim-reward', { concurrency: false }, () => {
+    it('a campaign war pays the village purse once, on the claimant\'s save', async (t) => {
+        process.env.WAR_PURSE_EPOCH_MS = '0';
+        t.after(() => { delete process.env.WAR_PURSE_EPOCH_MS; });
+        const save = await kv.get<any>(`save:${PLAYER}`);
+        await kv.set(`save:${PLAYER}`, { ...save, character: { ...save.character, level: 90 } });
+        const row = await kv.get<any>(`world:war:${WAR_ID}`);
+        await kv.set(`world:war:${WAR_ID}`, { ...row, mvpByVillage: {}, campaign: {}, contributions: { [PLAYER]: { damage: 250, side: VILLAGE, name: PLAYER } } });
+        const first = await claimReward();
+        assert.equal(first.status, 200, JSON.stringify(first.body));
+        assert.equal(first.body.purse, 22_500, '250 points x 0.3 x A(90)');
+        assert.equal(first.body.purseHonor, 31);
+        const character = (await kv.get<any>(`save:${PLAYER}`)).character;
+        assert.equal(character.ryo, 22_500);
+        assert.ok(character.claimedWarCrateIds.includes(`purse-${WAR_ID}-g2`));
+        const again = await claimReward();
+        assert.equal(again.body.granted, false);
+        assert.equal((await kv.get<any>(`save:${PLAYER}`)).character.ryo, 22_500, 'paid once');
+    });
+
+    it('kind "sector" pays every unclaimed sector-war purse once', async () => {
+        const { sectorWarPurseKey, SECTOR_PURSE_TTL_SEC } = await import('./_sector-purse.js');
+        const now = Date.now();
+        await kv.set(sectorWarPurseKey('26:x-vs-y', 'g1.s1'), {
+            version: 1, contestId: '26:x-vs-y', instance: 'g1.s1', sector: 26, outcome: 'defended',
+            winnerVillage: VILLAGE, loserVillage: 'Ashen Leaf Village', startedAt: now - 80 * 3_600_000,
+            endedAt: now - 3_600_000, settledAt: now - 3_600_000,
+            entries: { [PLAYER]: { points: 100, side: VILLAGE } },
+        }, { ex: SECTOR_PURSE_TTL_SEC });
+        const first = await call(reward, { kind: 'sector' });
+        assert.equal(first.status, 200, JSON.stringify(first.body));
+        assert.equal(first.body.granted, true);
+        assert.equal(first.body.sectorPurseRyo, Math.round(100 * 0.3 * 100), 'five wins at L20 (A = 100)');
+        assert.equal((await kv.get<any>(`save:${PLAYER}`)).character.ryo, 3_000);
+        const again = await call(reward, { kind: 'sector' });
+        assert.equal(again.status, 200);
+        assert.equal(again.body.granted, false);
+        assert.equal((await kv.get<any>(`save:${PLAYER}`)).character.ryo, 3_000);
+    });
+});

@@ -70,13 +70,24 @@ const RESERVED_NAME_PREFIXES = ['clan-', 'admin-', 'system-', 'server-'];
 // after a role is still the one shape a future signing slip would turn into an
 // admin token, so neither name is handed out.
 const RESERVED_NAME_LITERALS = new Set(['admin', 'admin1', 'admin2', 'system', 'server', 'kage', 'narrator', 'player', 'full', 'content']);
+// Object.prototype's own member names plus `prototype`, in the lowercase slug
+// form safeName stores. Server code keys plain objects by player slug, and a
+// slug like `constructor` or `__proto__` reads an INHERITED member there: the
+// sleeper-kill per-target counter `byTarget[slug] ?? 0` returned the Object
+// function, so a KO on a player named "constructor" priced NaN Honor Seals and
+// slipped its per-target cap. Refused at creation like the storage prefixes
+// above; existing accounts keep their names.
+export const PROTOTYPE_MEMBER_NAMES: ReadonlySet<string> = new Set([
+    '__proto__', 'constructor', 'prototype', 'hasownproperty', 'isprototypeof', 'propertyisenumerable',
+    'tostring', 'tolocalestring', 'valueof', '__definegetter__', '__definesetter__', '__lookupgetter__', '__lookupsetter__',
+]);
 export function isReservedNameShape(name: string): boolean {
     // Check the safeName slug — that's the form the storage key actually uses,
     // so a display name like "clan - cheat" (slug "clan-cheat") is caught by
     // the `clan-` prefix guard exactly as a literal "clan-cheat" would be.
     const n = safeName(name);
     if (!n) return true;
-    if (RESERVED_NAME_LITERALS.has(n)) return true;
+    if (RESERVED_NAME_LITERALS.has(n) || PROTOTYPE_MEMBER_NAMES.has(n)) return true;
     return RESERVED_NAME_PREFIXES.some((p) => n.startsWith(p));
 }
 

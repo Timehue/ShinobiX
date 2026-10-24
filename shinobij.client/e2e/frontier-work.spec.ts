@@ -11,12 +11,17 @@ import {QUEST_GIVER_PRESENCE} from '../src/lib/wanderers';
 import {storyRoadEvents} from '../src/data/story-road-events';
 
 type Pose={col:number;row:number;activity?:string;visible:boolean;original:boolean};
+const FRONTIER_SCENARIO_EPOCH=Date.UTC(2026,9,23,16);
 declare global{interface Window{frontierOriginal:HTMLElement;frontierRead:()=>Pose}}
 const evidence=process.env.FRONTIER_WORK_EVIDENCE_DIR??'../output/living-world/frontier/browser';mkdirSync(evidence,{recursive:true});
 for(const sector of [55,60])for(const mode of ['inspection','weather','task','fallback'] as const)test(`Frontier ${sector}: ${mode}`,async({page},info)=>{
     test.setTimeout(600_000);page.setDefaultTimeout(15_000);
     const site=FRONTIER_SITES[sector],plan=frontierWorkPlan(sector)!;
-    let day=Math.floor(Date.now()/WORLD_DAY_MS)*WORLD_DAY_MS;
+    // A fixed scenario day, not the wall clock. quietRoadCooldowns silences the
+    // natural cast, but a roaming Legacy Emissary (level 40+) visits a sector for a
+    // whole 6 h window: started at 18:00-20:00 UTC on 2026-10-23, this scene put
+    // Mapless Ojii on Gen's road tile and failed only then.
+    let day=Math.floor(FRONTIER_SCENARIO_EPOCH/WORLD_DAY_MS)*WORLD_DAY_MS;
     // The Hollow inspection retains the naturally visiting Gen; no extra
     // witness or invented crowd is inserted into either sparse region.
     if(sector===55)for(let i=0;i<500;i++,day+=WORLD_DAY_MS){

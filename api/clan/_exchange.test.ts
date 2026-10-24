@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buyClanExchangeItem, eligibleCacheItems, refundClanExchangeTreasuryPurchase,CLAN_EXCHANGE_ITEMS } from './_exchange.js';
-import type { CatalogItem } from '../pvp/_item-catalog.js';
+import { ITEM_CATALOG, type CatalogItem } from '../pvp/_item-catalog.js';
 
 function clan(level = 10) {
     return { name: 'Storm Clan', level, xp: 0, treasury: { warSupply: 10 } };
@@ -92,6 +92,21 @@ test('eligibleCacheItems uses only epic/legendary weapons and armor from the cat
     assert.deepEqual(armor.all.map((item) => item.id).sort(), ['epicHelm', 'legendaryArmor']);
 });
 
+// 2026-10 item-use pass: the Ranked Seal pieces are the Ranked Format's loaned kit
+// (no passive, cost 0, unsellable), so a Vault copy was always a worse legendary.
+test('the Vault of the Fallen never rolls a Ranked Seal piece, and every piece it rolls has a set passive', () => {
+    const armor = eligibleCacheItems(ITEM_CATALOG, 'armor');
+    assert.ok(armor.all.length >= 30, `${armor.all.length} armor pieces in the pool`);
+    for (const item of armor.all) {
+        assert.ok(!item.id.startsWith('ranked-format-'), `${item.id} is the ranked kit`);
+        const bonuses = (item.bonuses ?? {}) as Record<string, unknown>;
+        const passive = ['damagePercent', 'pveDamagePercent', 'absorbPercent', 'lifeStealPercent', 'shield', 'reflectPercent']
+            .some((field) => Number(bonuses[field]) > 0);
+        assert.ok(passive, `${item.id} carries a set passive`);
+    }
+    assert.ok(Object.keys(ITEM_CATALOG).some((id) => id.startsWith('ranked-format-')), 'the ranked kit itself is still in the catalog');
+});
+
 test('weapon and armor caches roll eligible catalog items', () => {
     const weapon = buyClanExchangeItem({ character: character(7000), clanData: clan(25), itemId: 'weaponCache', itemCatalog: testCatalog, rng: () => 0 });
     assert.equal(weapon.ok, true);
@@ -155,6 +170,17 @@ test('the balanced premium shelves give better bulk value and attainable cache s
     assert.ok(large.cost/10000<small.cost/2500);assert.ok(coffer.cost/50000<large.cost/10000);
     assert.ok(get('weaponCache').cost<=2*1000);assert.ok(get('armorCache').cost<=3*1000);
     assert.equal(get('weaponCache').requiredClanLevel,25);assert.equal(get('armorCache').requiredClanLevel,40);
+});
+test('the Aura Stone shelves sell 5 stones for 400 CP and a 12-stone trove at bulk value (economy rebalance 2026-10)',()=>{
+    const get=(id:string)=>CLAN_EXCHANGE_ITEMS.find(item=>item.id===id)!;
+    const stone=get('auraStone'),trove=get('auraStoneBundle');
+    assert.equal(stone.cost,400);assert.deepEqual(stone.reward,{kind:'currency',currency:'auraStones',amount:5});
+    assert.deepEqual(stone.limit,{kind:'weekly',count:2});assert.equal(stone.requiredClanLevel,7);assert.equal(stone.hall,'dojo');
+    assert.equal(trove.cost,900);assert.deepEqual(trove.reward,{kind:'currency',currency:'auraStones',amount:12});
+    assert.deepEqual(trove.limit,{kind:'weekly',count:1});assert.equal(trove.requiredClanLevel,40);assert.equal(trove.hall,'citadel');
+    assert.ok(trove.cost/12<stone.cost/5,'the trove is the cheaper stone');
+    const bought=buyClanExchangeItem({character:character(1000),clanData:clan(7),itemId:'auraStone'});
+    assert.equal(bought.ok,true);if(bought.ok){assert.equal(bought.character.clanPoints,600);assert.equal(bought.character.auraStones,5);}
 });
 test('a server-sealed paid recovery keeps its original catalog terms after a price rebalance',()=>{
     const original={...CLAN_EXCHANGE_ITEMS.find(item=>item.id==='weaponCache')!,cost:6000};

@@ -10,6 +10,7 @@ import { isPlayerSaveVersionConflict } from '../save/_projected-write.js';
 import { rollAmbushReward, ambushCleared, AMBUSH_REWARDS_PER_DAY } from './_wanderer-ambush.js';
 import { bumpLegacyStats } from '../_legacy-track.js';
 import { bumpEraDiscoveryContribution } from '../_era.js';
+import { recordEconomyTxn } from '../_economy.js';
 import { cleanWorldAiPendingOutcome } from '../missions/_world-ai-fight.js';
 
 /*
@@ -154,6 +155,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (committed.value.ok === true) {
                 committed.value.character = committed.character;
                 committed.value._saveVersion = committed._saveVersion;
+            }
+            // Telemetry (I-19) for a fresh payout only, before the Legacy step: a
+            // Legacy 503 is retried as a replay, which must not log it twice.
+            if (committed.value.ok === true && committed.value.replayed !== true && legacyReceiptId) {
+                const reward = committed.value.reward as Record<string, unknown>;
+                const totals = committed.value.totals as Record<string, unknown>;
+                for (const currency of ['ryo', 'fateShards', 'boneCharms'] as const) {
+                    await recordEconomyTxn({ txnId: `wanderer-ambush:${legacyReceiptId}:${currency}`, player: playerName, currency, delta: num(reward[currency]), source: 'wanderer.ambush', balanceAfter: num(totals[currency]) });
+                }
             }
 
             // Legacy tracking (ENABLE_LEGACY): a cleared ambush gauntlet is a

@@ -93,19 +93,20 @@ export function hollowGateClawBackPreview(character: Character, run: HollowGateS
 /**
  * Depth-scaled Hollow Shard payout for a drop source. Shards are a
  * Hollow-Gate-only currency spent on in-run consumables + the Shrine Attunement
- * tree (see docs/hollow-gate-loop.md §7). Tunable — these are starting values.
+ * tree (see docs/hollow-gate-loop.md §7). Every faucet is 0.6x the launch curve
+ * (2026-10 rebalance), mirrored verbatim by api/hollow-gate/_run-token.ts.
  */
 export function hollowShardDrop(floor: number, source: "chest" | "lockedChest" | "boss" | "shardVein"): number {
     const f = Math.max(1, Math.floor(floor));
     switch (source) {
         case "chest":
-            return 2 + f;                 // F1=3 … F5=7
+            return Math.round((2 + f) * 3 / 5);         // F1=2 … F5=4
         case "shardVein":
-            return 3 + f * 2;             // F1=5 … F5=13 (the dedicated shard source)
+            return Math.round((3 + f * 2) * 3 / 5);     // F1=3 … F5=8 (the dedicated shard source)
         case "lockedChest":
-            return 5 + f * 2;             // F1=7 … F5=15
+            return Math.round((5 + f * 2) * 3 / 5);     // F1=4 … F5=9
         case "boss":
-            return 15 + f * 5;            // F5=40
+            return Math.round((15 + f * 5) * 3 / 5);    // F5=24
         default:
             return 0;
     }

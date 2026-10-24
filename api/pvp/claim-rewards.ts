@@ -5,13 +5,28 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
 import { recordSectorDuelScar } from '../_sector-scars.js';
-import { creditRankedOutcome, rankedDelta } from '../_ranked-rating.js';
-import { computePvpWinGains, creditPvpWinBase, applyDerivedLevel } from '../_xp-engine.js';
+import { creditRankedOutcome, weightedRankedDelta } from '../_ranked-rating.js';
+import { creditPvpWinBase, applyDerivedLevel } from '../_xp-engine.js';
 import { patchBattleSettlement } from '../_receipts.js';
-import { recordPairWinAndDecay } from './_reward-farm.js';
+import {
+    pvpCreditAuraDust,
+    pvpCreditRules,
+    pvpCreditRyo,
+    pvpCreditView,
+    pvpLossFrac,
+    pvpLuckyActive,
+    pvpMastery4049Enabled,
+    pvpPairWeight,
+    pvpPurseScale,
+    rankedPurseRyo,
+    readRankedWeightRow,
+    resolvePvpFightCredit,
+    type RankedWeightRow,
+} from './_valid-fight.js';
+import { recordEconomyTxn } from '../_economy.js';
 import { hasRecentIpOrFpOverlap } from '../_player-ips.js';
 import { mutatePlayerSaveLocked } from '../save/_mutate-player-save.js';
-import { computeCombatStatGrowth, PVP_CASUAL_STAT_POINTS_PER_WIN, DAILY_COMBAT_STAT_CAP, statGainMultiplier } from '../_stat-growth.js';
+import { computeCombatStatGrowth, PVP_CASUAL_STAT_POINTS_PER_WIN, DAILY_COMBAT_STAT_CAP } from '../_stat-growth.js';
 import { boostMultiplier } from '../_boost-event.js';
 import { creditPvpJutsuMastery } from './_jutsu-mastery-reward.js';
 import { recordBetaMetric } from '../_beta-metrics.js';
@@ -62,6 +77,7 @@ import {
     pvpTerminalRecoveryExpiresAt,
 } from './_pending-session.js';
 import { reserveCombatStatBudget } from './_combat-stat-budget.js';
+import { dailyStatBudgetReply } from '../_daily-stat-budget.js';
 import { CLAN_WAR_PVP_SCROLL_DROP_CHANCE } from '../clan/war/_war-points.js';
 import type { CommittedPvpTerminalReplay } from './_committed-terminal-effects.js';
 
@@ -135,6 +151,27 @@ function playerRankedClaimRefusal(error: unknown): string | null {
         return 'This ranked match has no recorded result to settle.';
     }
     return null;
+}
+
+/**
+ * A ranked purse as the casual purse's credit view (pvpCreditView), so the
+ * result screen words its repeat-opponent, short-fight, loss-engagement and
+ * account-age reductions the same way (owner ruling A9). Pure; reads the sealed row.
+ */
+function rankedPurseCredit(row: RankedWeightRow, role: 'winner' | 'loser') {
+    const blocked = Boolean(row.purseBlocked);
+    const pairOrdinal = row.sharedPairOrdinal ?? row.pairOrdinal;
+    return {
+        credited: !blocked,
+        ...(row.purseBlocked ? { reason: row.purseBlocked } : {}),
+        kind: row.shortMult === 0 ? 'flee' as const : 'ko' as const,
+        short: row.shortMult < 1,
+        pairOrdinal: blocked ? 0 : pairOrdinal,
+        pairWeight: blocked ? 0 : pvpPairWeight(pairOrdinal),
+        sideMult: role === 'winner' ? row.shortMult : row.engaged && !row.lossPurseBlocked ? 1 : 0,
+        ...(role === 'loser' && row.engaged && row.lossPurseBlocked ? { lossBlocked: row.lossPurseBlocked } : {}),
+        rules: pvpCreditRules(),
+    };
 }
 
 // Every claim-side replay runs after the claim has sealed (or loaded) the exact
@@ -562,9 +599,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         //     exactly once via a per-player `pvp:ranked-rating:<slug>:<battleId>`
         //     NX receipt — so a loser can no longer dodge the rating drop by
         //     simply never claiming (#8). Draws skip (Elo is win/loss only).
-        //   • BASE ryo + XP — when the session was stamped baseRewards AND this is
-        //     the WINNER's own claim, computed from the verbatim gainXp port on
-        //     the winner's save (Death's Gate sector-99 2× via rewardSector).
+        //   • BASE purse — when the session was stamped baseRewards AND this is
+        //     the WINNER's own claim (or, with the anchored purse on, the engaged
+        //     LOSER's), priced by api/pvp/_valid-fight.ts from the sealed session
+        //     (Death's Gate / Obsidian multiplier via rewardSector + stamp).
         // `alreadyClaimed` tracks ONLY the caller's own claim receipt (`key`),
         // which gates the client's local self-apply — kept INDEPENDENT of the
         // rating settlement, so the winner pre-settling the loser's RATING does
@@ -578,7 +616,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 && (session.rankedKind === 'player' || session.rankedKind === 'pet')
                 && (session.winner === 'p1' || session.winner === 'p2'));
         const creditBase = rewardAuthorized && session.baseRewards === true && outcome === 'win';
-        if (isRankedClaim || creditBase || shouldSettleVillageWar) {
+        // Loss credit (2026-10 rebalance #2 / #23): an engaged loser earns 0.4 of
+        // the win purse and, on Lv40-49 rows, loss mastery XP. Each half has its
+        // own switch, so turning loss ryo off (purse or loss dial at 0) keeps the
+        // mastery XP; with both off the loser's claim keeps its old path and never
+        // locks its own save.
+        const creditLoss = rewardAuthorized
+            && session.baseRewards === true
+            && outcome === 'loss'
+            && !isRankedClaim
+            && ((pvpPurseScale() > 0 && pvpLossFrac() > 0) || pvpMastery4049Enabled());
+        if (isRankedClaim || creditBase || creditLoss || shouldSettleVillageWar) {
             const kind: 'player' | 'pet' = session.rankedKind === 'pet' ? 'pet' : 'player';
             const ratingField = kind === 'pet' ? 'petRankedRating' : 'rankedRating';
             const winnerRating = Number((session.winner === 'p1' ? session.p1Rating : session.p2Rating) ?? 1000);
@@ -593,7 +641,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 totalPvpKills?: number;
                 monthlyPvpKills?: number;
                 pvpKillMonth?: string;
-                reward?: { ryo: number; combatGrowth: number; auraDust: number; jutsuXp?: number };
+                reward?: {
+                    ryo: number;
+                    combatGrowth: number;
+                    auraDust: number;
+                    jutsuXp?: number;
+                    /** How this fight was credited (repeat opponent, short fight), for the result card. */
+                    credit?: ReturnType<typeof pvpCreditView>;
+                };
             };
             type WarGroundOut = {
                 fresh: boolean;
@@ -608,12 +663,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // certainly two alts (or a same-household boost), so we do NOT move
             // either player's Elo — the win/loss simply doesn't count for the
             // ladder. Mirrors the same-device rule already enforced for Vanguard
-            // Honor-Seals (_vanguard-rewards.ts). The base ryo/XP path is left
-            // alone here — it has its own repeat-opponent decay (#1), which has
-            // no device false-positives — so only the LADDER is protected.
+            // Honor-Seals (_vanguard-rewards.ts). The base purse is left alone
+            // here — it has its own unordered daily pair weights
+            // (_valid-fight.ts), which have no device false-positives — so only
+            // the LADDER is protected.
             // Computed OUTSIDE the save lock (read-only key scan). Fails OPEN: a
             // KV hiccup must never block a legitimate rating settlement.
             let playerRankedRatingOut: RatingOut | undefined;
+            let playerRankedPurseOut: { ryo: number; reason?: 'too-young'; credit: ReturnType<typeof rankedPurseCredit> } | undefined;
             if (playerRankedV2Claim) {
                 try {
                     const journal = playerRankedJournal;
@@ -636,10 +693,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         const loserSnapshot = journal.terminal.winner === 'a'
                             ? journal.terminal.bRating
                             : journal.terminal.aRating;
+                        // The result card shows the Elo the journal credited,
+                        // at the match's sealed repeat/short-fight weight (I-3).
+                        const weightRow = journal.terminal.rankedEligible
+                            ? await readRankedWeightRow(kv, journal.terminal.matchId).catch(() => null)
+                            : null;
+                        const weight = weightRow?.weight ?? 1;
                         const delta = journal.terminal.rankedEligible && journal.terminal.winner !== 'draw'
-                            ? rankedDelta(winnerSnapshot, loserSnapshot) * (side === journal.terminal.winner ? 1 : -1)
+                            ? weightedRankedDelta(winnerSnapshot, loserSnapshot, weight) * (side === journal.terminal.winner ? 1 : -1)
                             : 0;
                         playerRankedRatingOut = { field: 'rankedRating', value, delta };
+                        // And the ranked purse the journal paid from the same row
+                        // (owner ruling A9: no silent wallet change).
+                        if (weightRow && journal.terminal.winner !== 'draw') {
+                            const role = side === journal.terminal.winner ? 'winner' as const : 'loser' as const;
+                            const claimer = (await kv.get<{ character?: Record<string, unknown> }>(`save:${claimerSlug}`).catch(() => null))?.character;
+                            playerRankedPurseOut = {
+                                ryo: rankedPurseRyo(weightRow, { role, lucky: pvpLuckyActive(claimer) }),
+                                ...(weightRow.purseBlocked ? { reason: weightRow.purseBlocked }
+                                    : role === 'loser' && weightRow.lossPurseBlocked ? { reason: weightRow.lossPurseBlocked } : {}),
+                                credit: rankedPurseCredit(weightRow, role),
+                            };
+                        }
                     }
                 } catch (error) {
                     const refusal = playerRankedClaimRefusal(error);
@@ -702,8 +777,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // ONE kv.set, so a crash between the two can't permanently lose the
             // payout the way the old separate-receipt `key` gate did. Re-reads the
             // save so a rating patch applied just above is preserved.
+            // The ryo this claim freshly committed, for the economy telemetry row
+            // written after the save commit (never from inside the decision, which
+            // can run more than once).
+            let committedPvpRyo: { player: string; delta: number; txnId: string; source: 'pvp.win' | 'pvp.loss' } | null = null;
             const settleBaseForWinner = async (): Promise<BaseOut | undefined> => {
                 const out = await mutatePlayerSaveLocked<BaseOut>(winnerSlug, async ({ character: char }) => {
+                    committedPvpRyo = null;
                     // #1A settlement-side guard (defense in depth): base ryo/XP is a
                     // PvP-win reward, so re-verify AT THE MONEY-MOVING STEP that the
                     // loser was a real player with an authoritative save — session
@@ -713,51 +793,70 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     // transient loser-save read miss; the winner can retry the claim.
                     const loserRecord = loserSlug ? await kv.get<Record<string, unknown>>(`save:${loserSlug}`) : null;
                     if (!loserRecord?.character) throw new Error('pvp-base-loser-save-missing');
-                    const { ryoGain } = computePvpWinGains(char, session.rewardSector, session.rewardStronghold);
                     const sid = pvpSettlementId('base', battleId);
                     const decision = inspectPvpCredit(char, sid, 'base');
                     if (decision.fresh) {
-                        // Repeat-opponent decay (audit #1): scale this win's base
-                        // reward down by how many times the winner already banked a
-                        // win over THIS loser in the last hour. The in-save receipt
-                        // makes the PAYOUT exactly-once; the decay counter + daily stat
-                        // budget below are separate rows, so in the rare case of a
-                        // crash AFTER these advance but BEFORE the atomic save write,
-                        // the retry advances them once more. That only ever shrinks a
-                        // FUTURE reward (fails toward less, never a mint), and is
-                        // strictly better than the old bug where the whole payout was
-                        // lost. The loser is a confirmed real player (guarded above),
-                        // so the pair-decay always applies.
-                        const decay = await recordPairWinAndDecay(winnerSlug, loserSlug);
-                        const dRyo = Math.max(0, Math.floor(ryoGain * decay));
+                        // One valid-fight rule set (api/pvp/_valid-fight.ts): the
+                        // lower level prices the purse, a >20-level stomp or a
+                        // loser under 72 h old pays nothing, the unordered pair's
+                        // fights today weigh 1/1/0.5/0.25/0, and a short flee/AFK
+                        // win pays 0 (a short KO half). The in-save receipt makes
+                        // the PAYOUT exactly-once; the pair slot is assigned once
+                        // per battle, so a retry or the loser's claim reads the
+                        // same ordinal and the counter moves once.
+                        const fight = await resolvePvpFightCredit(kv, {
+                            session,
+                            battleId,
+                            winnerSlug,
+                            loserSlug,
+                            winnerChar: char,
+                            loserChar: loserRecord.character as Record<string, unknown>,
+                            terminalAt: rewardEventAt,
+                            role: 'win',
+                        });
+                        const dRyo = pvpCreditRyo(fight, {
+                            role: 'win',
+                            lucky: pvpLuckyActive(char),
+                            sector: session.rewardSector,
+                            stronghold: session.rewardStronghold,
+                        });
+                        const dDust = pvpCreditAuraDust(fight);
                         const credit = creditPvpWinBase(char, dRyo);
                         let finalChar: Record<string, unknown> = credit.char;
-                        const mastery = creditPvpJutsuMastery(finalChar, session, decay);
+                        const mastery = creditPvpJutsuMastery(finalChar, session, fight.factor, 'win');
                         finalChar = mastery.character;
                         let summary: BaseOut = credit.summary;
                         let combatGrowthAwarded = 0;
                         // Eligible player-versus-player wins grant small, daily-capped
                         // combat stat growth. Spars and pet-only ranked matches do not
                         // reach this player-character reward path. Modern ranked player
-                        // matches settle growth in the ranked journal.
-                        const shouldGrowPlayer = !isRankedClaim
-                            || (!playerRankedV2Claim && session.rankedKind === 'player');
+                        // matches settle growth in the ranked journal. A fight that
+                        // pays no ryo (uncredited, pair exhausted, short flee/AFK)
+                        // reserves nothing from the shared daily stat budget.
+                        const shouldGrowPlayer = (!isRankedClaim
+                            || (!playerRankedV2Claim && session.rankedKind === 'player'))
+                            && fight.factor > 0;
                         if (shouldGrowPlayer) {
                             const statsNow = (finalChar.stats ?? {}) as Record<string, number>;
-                            // PvP stat rewards are the direct daily-budget amount.
-                            // Trait, encounter, and era boosts never multiply win growth.
+                            // Combat wins never take the era dial (2026-07-27 ruling,
+                            // docs/leveling-without-xp-map.md §11 item 7), nor trait or
+                            // encounter boosts. The admin growth event scales the
+                            // REQUEST; the shared daily stat-point budget then bounds what
+                            // is credited, so an event fills the budget sooner but never
+                            // raises it (I-12). A replayed reservation returns the stored,
+                            // already event-scaled points.
+                            const requestedGrowth = Math.round(PVP_CASUAL_STAT_POINTS_PER_WIN * growthEventBoost);
                             const statBudget = await reserveCombatStatBudget(kv, {
                                 playerName: winnerSlug,
                                 battleId,
                                 eventAt: rewardEventAt,
-                                requested: PVP_CASUAL_STAT_POINTS_PER_WIN,
+                                requested: requestedGrowth,
                                 cap: DAILY_COMBAT_STAT_CAP,
                             });
-                            const baseEarned = statBudget.points;
-                            const boosted = Math.round(baseEarned * statGainMultiplier() * growthEventBoost);
-                            const g = computeCombatStatGrowth(statsNow, Number(finalChar.level) || 1, boosted, boosted);
+                            const earned = statBudget.points;
+                            const g = computeCombatStatGrowth(statsNow, Number(finalChar.level) || 1, earned, earned);
                             combatGrowthAwarded = g.spent;
-                            if (baseEarned > 0 && g.spent > 0) {
+                            if (earned > 0 && g.spent > 0) {
                                 const newStats: Record<string, number> = { ...statsNow };
                                 for (const [k, v] of Object.entries(g.allocated)) newStats[k] = (Number(newStats[k]) || 0) + (v ?? 0);
                                 const newUnspent = (Number(finalChar.unspentStats) || 0) + g.unspentGain;
@@ -789,14 +888,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                                 : 1;
                         finalChar = {
                             ...finalChar,
-                            auraDust: Math.max(0, Number(finalChar.auraDust) || 0) + 6,
+                            auraDust: Math.max(0, Number(finalChar.auraDust) || 0) + dDust,
                             totalPvpKills: Math.max(0, Math.floor(Number(finalChar.totalPvpKills) || 0)) + 1,
                             monthlyPvpKills: monthlyKills,
                             pvpKillMonth: month,
                         };
                         summary = {
                             ...summary,
-                            reward: { ryo: dRyo, combatGrowth: combatGrowthAwarded, auraDust: 6, jutsuXp: mastery.awarded },
+                            reward: {
+                                ryo: dRyo,
+                                combatGrowth: combatGrowthAwarded,
+                                auraDust: dDust,
+                                jutsuXp: mastery.awarded,
+                                credit: pvpCreditView(fight),
+                            },
                             auraDust: Number(finalChar.auraDust),
                             inventory: finalChar.inventory,
                             totalPvpKills: Number(finalChar.totalPvpKills),
@@ -806,6 +911,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         // Embed the idempotency receipt INTO the credited character so
                         // the payout and its marker persist together in one atomic write.
                         const credited = embedPvpSettlementReceipt(finalChar, decision.receipts, sid, 'base', Date.now());
+                        committedPvpRyo = { player: winnerSlug, delta: dRyo, txnId: sid, source: 'pvp.win' };
                         return { ok: true, value: summary, character: credited };
                     }
                     const totals: BaseOut = {
@@ -837,6 +943,72 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 return out.value;
             };
 
+            // Credit an engaged loser's loss pay exactly once (in-save receipt,
+            // like the winner's base). It shares the battle's pair slot with the
+            // winner's claim. Being beaten without engaging (short fight, flee,
+            // AFK, under 15% of the winner's HP dealt) or past the pair's 4th
+            // fight today pays nothing. Stat points and Aura Dust stay win-only.
+            const settleBaseForLoser = async (): Promise<BaseOut | undefined> => {
+                const out = await mutatePlayerSaveLocked<BaseOut>(loserSlug, async ({ character: char }) => {
+                    committedPvpRyo = null;
+                    // Fails closed on a transient read miss: the loser can retry.
+                    const winnerRecord = winnerSlug ? await kv.get<Record<string, unknown>>(`save:${winnerSlug}`) : null;
+                    if (!winnerRecord?.character) throw new Error('pvp-loss-winner-save-missing');
+                    const sid = pvpSettlementId('loss', battleId);
+                    const decision = inspectPvpCredit(char, sid, 'loss');
+                    const totals = (c: Record<string, unknown>): BaseOut => ({
+                        ryo: Number(c.ryo) || 0,
+                        xp: Number(c.xp) || 0,
+                        level: Number(c.level) || 0,
+                        rankTitle: typeof c.rankTitle === 'string' ? c.rankTitle : '',
+                        maxHp: Number(c.maxHp) || 0,
+                        maxChakra: Number(c.maxChakra) || 0,
+                        maxStamina: Number(c.maxStamina) || 0,
+                        unspentStats: Number(c.unspentStats) || 0,
+                    });
+                    if (decision.fresh) {
+                        const fight = await resolvePvpFightCredit(kv, {
+                            session,
+                            battleId,
+                            winnerSlug,
+                            loserSlug,
+                            winnerChar: winnerRecord.character as Record<string, unknown>,
+                            loserChar: char,
+                            terminalAt: rewardEventAt,
+                            role: 'loss',
+                        });
+                        const lossRyo = pvpCreditRyo(fight, {
+                            role: 'loss',
+                            sector: session.rewardSector,
+                            stronghold: session.rewardStronghold,
+                        });
+                        let finalChar: Record<string, unknown> = lossRyo > 0
+                            ? { ...char, ryo: (Number(char.ryo) || 0) + lossRyo }
+                            : char;
+                        const mastery = creditPvpJutsuMastery(finalChar, session, fight.factor, 'loss');
+                        finalChar = mastery.character;
+                        const summary: BaseOut = {
+                            ...totals(finalChar),
+                            reward: {
+                                ryo: lossRyo,
+                                combatGrowth: 0,
+                                auraDust: 0,
+                                jutsuXp: mastery.awarded,
+                                credit: pvpCreditView(fight),
+                            },
+                        };
+                        const credited = embedPvpSettlementReceipt(finalChar, decision.receipts, sid, 'loss', Date.now());
+                        committedPvpRyo = { player: loserSlug, delta: lossRyo, txnId: sid, source: 'pvp.loss' };
+                        return { ok: true, value: summary, character: credited };
+                    }
+                    if (!decision.needsBackfill) return { ok: true, value: totals(char), character: char, write: false };
+                    const backfilled = embedPvpSettlementReceipt(char, decision.receipts, sid, 'loss', Date.now());
+                    return { ok: true, value: totals(char), character: backfilled };
+                });
+                if (!out.ok) throw new Error(out.status === 404 ? 'pvp-loss-loser-save-missing' : out.error);
+                return out.value;
+            };
+
             const settleWarGroundForWinner = async (creditWarGround: boolean): Promise<WarGroundOut | undefined> => {
                 if (!creditWarGround) return undefined;
                 const out = await mutatePlayerSaveLocked<WarGroundOut>(winnerSlug, ({ character: char }) => {
@@ -858,8 +1030,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             try {
                 // Lock every save we may write — claimer + opponent for a ranked
-                // settlement, winner-only for a casual base reward.
-                const locks = isRankedClaim ? [winnerSlug, loserSlug] : [winnerSlug];
+                // settlement or a loser's loss pay, winner-only for a casual win.
+                // Sorted lock order keeps the two fighters' claims deadlock-free.
+                const locks = isRankedClaim || creditLoss ? [winnerSlug, loserSlug] : [winnerSlug];
                 const out = await withSavesLocked(locks, async () => {
                     // Caller's own claim receipt — gates the client's local
                     // self-apply (alreadyClaimed). Distinct from the per-player
@@ -918,7 +1091,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         : undefined;
                     const base = (helpForwardServerCredits && creditBase && claimerSlug === winnerSlug)
                         ? await settleBaseForWinner()
-                        : undefined;
+                        : (helpForwardServerCredits && creditLoss && claimerSlug === loserSlug && loserSlug !== winnerSlug)
+                            ? await settleBaseForLoser()
+                            : undefined;
 
                     const rating = playerRankedRatingOut
                         ?? (claimerSlug === winnerSlug ? winnerRatingOut
@@ -937,6 +1112,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     }
                     return { already, completionPending: reservation.completionPending, rating, base, warGround };
                 });
+                // PvP purse telemetry (I-19): only a credit this claim committed,
+                // after the commit. Best-effort; never blocks the claim.
+                const pvpTxn = committedPvpRyo as { player: string; delta: number; txnId: string; source: string } | null;
+                if (pvpTxn && pvpTxn.delta > 0) {
+                    void recordEconomyTxn({ ...pvpTxn, currency: 'ryo', ts: rewardEventAt });
+                }
                 // Record the server-credited settlement on the durable battle
                 // receipt (Priority 4 visibility). Best-effort: never blocks or
                 // fails the claim. The shared receipt stores the unsigned Elo
@@ -968,11 +1149,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     rewardAuthorized,
                     progressionAuthorized,
                     ...(out.rating ? { rating: out.rating } : {}),
+                    ...(playerRankedPurseOut ? { rankedPurse: playerRankedPurseOut } : {}),
                     ...(out.base ? { base: out.base } : {}),
                     ...(out.warGround ? { warGroundReward: out.warGround } : {}),
                     ...(warPoints ? { warPoints } : {}),
                     ...(worldRaidProgressionForCaller ? { raidProgression: raidProgressionBody(worldRaidProgressionForCaller) } : {}),
                     ...(clanWarScrollDrop ? { clanWarScrollDrop } : {}),
+                    ...(outcome === 'win' ? await dailyStatBudgetReply(kv, playerName) : {}),
                     ...(finalChar ? { character: finalChar } : {}),
                     _saveVersion: Number(finalSave?._saveVersion ?? 0),
                 });

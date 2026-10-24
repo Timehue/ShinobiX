@@ -1,4 +1,4 @@
-/** One certificate pays for one Broker sealed crate; redemption still uses a daily pull. */
+/** One certificate covers half of one Broker sealed crate's stake; redemption still uses a daily pull. */
 export type BrokerPayment = 'ryo' | 'certificate';
 
 export type BrokerCrateReward = {

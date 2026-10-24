@@ -1,4 +1,5 @@
 import {
+    petConsumableById,
     petPveHealOnSummonPct,
     petPveLifestealPct,
     petPveLoyalty,
@@ -136,6 +137,11 @@ export function sealCompanionFromSave(char: Record<string, unknown>, now = Date.
     // Nothing is written here — the durable tick happens on the owner's save
     // read and on any pet action (api/pet/_happiness.ts).
     const happiness = currentPetHappiness(pet as Record<string, unknown>, now);
+    // Spent PvE gear (durability 0) grants nothing, loyalty included: the Bell and
+    // the Crest used to stay loyal for good once worn out (2026-10 item-use pass).
+    const pveGearId = Number(pet.loadout?.pveDurability ?? 0) > 0 ? String(pet.loadout?.pve ?? '') : '';
+    // Only a real battle consumable heals on summon; a stray id in the slot is inert.
+    const consumableId = petConsumableById(pet.loadout?.consumable) ? String(pet.loadout?.consumable) : '';
     return {
         petId: String(pet.id ?? ''),
         rulesetVersion: 'progression-v3',
@@ -152,18 +158,18 @@ export function sealCompanionFromSave(char: Record<string, unknown>, now = Date.
         // The multiplier is 1 at 50+, so a maintained pet is untouched.
         damage: Math.max(1, Math.floor(companionStrikeDamage(pet) * petHappinessCombatMult(happiness))),
         happiness,
-        loyal: petPveLoyalty(pet as never) === true,
+        loyal: pveGearId ? petPveLoyalty(asGearedPet(pveGearId)) === true : false,
         moves,
-        pveGearId: Number(pet.loadout?.pveDurability ?? 0) > 0 ? String(pet.loadout?.pve ?? '') : '',
-        ...(pet.loadout?.consumable ? { consumableId: String(pet.loadout.consumable) } : {}),
+        pveGearId,
+        ...(consumableId ? { consumableId } : {}),
     };
 }
 
 export function companionConsumableHealPct(consumableId: string | undefined): number {
-    return consumableId ? PET_CONSUMABLE_PVE_HEAL_PCT : 0;
+    return petConsumableById(consumableId) ? PET_CONSUMABLE_PVE_HEAL_PCT : 0;
 }
 
-const asGearedPet = (gearId: string) => ({ loadout: { pve: gearId } }) as never;
+function asGearedPet(gearId: string) { return ({ loadout: { pve: gearId } }) as never; }
 
 export function companionGearDamageMult(gearId: string, enemyHpPct: number, ownerHpPct: number): number {
     return gearId ? petPveSummonDamageMult(asGearedPet(gearId), enemyHpPct, ownerHpPct) : 1;

@@ -83,6 +83,21 @@ export function wrAffordability(cost: number, pool: number, opts: { verb: string
 }
 
 /**
+ * Affordability of the TREASURY share of a war purchase (2026-10 rebalance:
+ * merc hires and war preparations also cost treasury ryo and Bone Charms).
+ * A balance the server did not send is UNKNOWN, not 0: the button stays enabled
+ * and the server's 402 answers, so an older server, or a mocked view without
+ * the field, never locks a purchase that would go through.
+ */
+export function treasuryAffordability(need: number, have: number | undefined, unit: string): AffordabilityView {
+    const cost = Math.max(0, Math.floor(Number(need) || 0));
+    const known = have !== undefined && have !== null && Number.isFinite(Number(have));
+    if (cost <= 0 || !known) return { affordable: true, label: "" };
+    if (Math.max(0, Math.floor(Number(have))) < cost) return { affordable: false, label: `Treasury short · ${cost.toLocaleString()} ${unit}` };
+    return { affordable: true, label: `${cost.toLocaleString()} ${unit}` };
+}
+
+/**
  * The visible explanation of the `~` on the declare button — never a tooltip,
  * and short enough to sit inside a sector card at 360px. The intel tier is
  * per-sector, so the line belongs on the card rather than once per screen.

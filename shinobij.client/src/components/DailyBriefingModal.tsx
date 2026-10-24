@@ -1,8 +1,9 @@
 /*
  * Daily Briefing — a once-per-day "notice board" modal shown to level-5+ players
  * when they return for the day. It:
- *   • auto-collects the server-authoritative login-streak reward (ryo daily,
- *     +5 Fate Shards every 7th consecutive day) and shows what was granted,
+ *   • collects the server-authoritative login-streak reward (ryo daily, +5 Fate
+ *     Shards every 7th claim day, +2 on claim days 2 and 3; the streak counts
+ *     claim days and never resets) and shows what was granted,
  *   • presents one server-authored four-horizon Activity Spine,
  *   • reports every active war in the world (village + clan), even ones the
  *     player isn't part of, click-through to the relevant screen,
@@ -28,7 +29,7 @@ import { claimDailyLoginOutcome, type DailyLoginResult, type DailyLoginCommitFac
 import { fetchAnnouncements, fetchEras, fetchLegacyStatus, useLegacyAvailability, type AnnouncementView, type EraView } from "../lib/legacy";
 import { nextUnseenRumorMilestone, markLevelRumorSeen, recordRumorHeard, rememberedRumorCategory, rumorForCategory } from "../lib/legacy-rumors";
 import { briefingWarPriorities, worldReport } from "../lib/daily-briefing";
-import { dailyLoginRyo, STREAK_SHARD_INTERVAL, STREAK_SHARD_REWARD } from "../lib/daily-login-preview";
+import { dailyLoginRyo, loginShardsForClaimDay, STREAK_EARLY_SHARD_DAYS, STREAK_SHARD_INTERVAL, STREAK_SHARD_REWARD } from "../lib/daily-login-preview";
 import briefingBg from "../assets/daily-briefing.webp";
 import { Modal } from "./ui/Modal";
 import { ActivitySpine } from "./ActivitySpine";
@@ -162,9 +163,9 @@ export function DailyBriefingModal({
     // Only burn the day's SEEN_KEY once the login reward is actually settled.
     // Marking it seen on any close meant a player who dismissed the briefing
     // before hitting Claim never got another chance that day — and a missed day
-    // breaks the login streak, which is the whole point of the panel. An
-    // unclaimed close now dismisses for THIS session only, so the briefing (and
-    // the claim) comes back on the next load.
+    // is a lost claim day (the day's ryo, and one step toward the shard bonus).
+    // An unclaimed close now dismisses for THIS session only, so the briefing
+    // (and the claim) comes back on the next load.
     const rewardSettled = alreadyClaimedToday || Boolean(claim);
     const close = () => {
         if (rewardSettled) {
@@ -180,6 +181,8 @@ export function DailyBriefingModal({
     const shardCountdown = claim
         ? claim.daysUntilShardBonus
         : (STREAK_SHARD_INTERVAL - (streak % STREAK_SHARD_INTERVAL)) % STREAK_SHARD_INTERVAL;
+    // Before today's claim this is today's claim day; after it, the next one.
+    const nextClaimShards = loginShardsForClaimDay(streak + 1);
 
     const { featured: wars, remaining: otherWars } = briefingWarPriorities(worldReport(now), character.village, character.clan ?? "");
 
@@ -230,8 +233,12 @@ export function DailyBriefingModal({
                                         {claim && shardCountdown === 0
                                             ? `+${STREAK_SHARD_REWARD} Fate Shards today!`
                                             : (claim || alreadyClaimedToday)
-                                                ? `${shardCountdown} day${shardCountdown === 1 ? "" : "s"} to ${STREAK_SHARD_REWARD} Fate Shards`
-                                                : "Claim to extend your streak"}
+                                                ? STREAK_EARLY_SHARD_DAYS.includes(streak + 1)
+                                                    ? `+${nextClaimShards} Fate Shards on your next claim`
+                                                    : `${shardCountdown} claim day${shardCountdown === 1 ? "" : "s"} to ${STREAK_SHARD_REWARD} Fate Shards`
+                                                : nextClaimShards > 0
+                                                    ? `Claim for +${nextClaimShards} Fate Shards`
+                                                    : "Claim to extend your streak"}
                                     </span>
                                 </div>
                             </div>

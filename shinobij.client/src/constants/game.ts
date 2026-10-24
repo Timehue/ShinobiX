@@ -165,10 +165,23 @@ export const DAILY_MISSION_LIMIT = 20;
 // Hunter Guild contracts have their own daily pool, separate from the
 // mission limit above — a player gets 20 missions AND 20 hunts per day.
 export const DAILY_HUNT_LIMIT = 20;
-// Daily-checklist stat grant per once-per-day field/hunt claim (leveling-
-// without-xp map §4). Mirror of api/missions/_mission-catalog.ts
-// FIELD_MISSION_STAT_POINTS — display only; the server seals the real grant.
+// Stat grant per field/hunt claim before mission bonuses (leveling-without-xp
+// map §4). Mirror of api/missions/_mission-catalog.ts FIELD_MISSION_STAT_POINTS
+// — display only; the server seals the real grant. Every claim draws from the
+// one shared daily stat-point budget (shared/combat-growth-rules.ts
+// DAILY_STAT_POINT_CAP; the live value arrives on the game-state frame).
 export const FIELD_MISSION_STAT_POINTS = 3;
+// Hunt claims (and fetch-S) can drop a Fate Shard from this level, and hunts an
+// Aura Stone from the second. Mirror of _mission-catalog.ts HUNT_FS_MIN_LEVEL /
+// HUNT_AS_MIN_LEVEL and the chance defaults; the live chances arrive on the
+// game-state frame (lib/progression-dials). Parity: lib/progression-dials.test.ts.
+export const HUNT_FS_MIN_LEVEL = 20;
+export const HUNT_AS_MIN_LEVEL = 50;
+export const HUNT_DROP_CHANCE_DEFAULTS = { fateShards: 0.25, auraStones: 0.2 } as const;
+export const FETCH_S_MISSION_ID = "fetch-s-shadow-front";
+// One Honor Seal shaves this many minutes off an active jutsu lesson. Mirror of
+// api/jutsu/speedup.ts MINUTES_PER_SEAL.
+export const SEAL_SPEEDUP_MINUTES_PER_SEAL = 5;
 
 // ── Item IDs (special / shared) ──────────────────────────────────────────
 export const WEEKLY_BOSS_CORE_ID = "weekly-boss-core";

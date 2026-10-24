@@ -7,6 +7,8 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
 import { creditRankedOutcome } from '../_ranked-rating.js';
+import { advanceLastDailyReset } from '../_daily-reset-stamp.js';
+import { recordEconomyTxn } from '../_economy.js';
 import { rankedArenaWinner, retainSettledRankedArena } from '../_pet-tactics/ranked.js';
 import { TacticsError } from '../_pet-tactics/engine.js';
 import { replayCasualPetDuel, parseDuelInputLog } from './_duel-replay.js';
@@ -1590,6 +1592,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const reward = sealedRewardRyo ?? petArenaRyoReward(opponentLevel);
             const winCharacter = {
                 ...spentChar,
+                // A first win of the UTC day rolls the day for every counter keyed
+                // to lastDailyReset, not only the arena's (api/_daily-reset-stamp.ts).
+                ...advanceLastDailyReset(spentChar, today),
                 ryo: Number(char.ryo ?? 0) + reward,
                 totalPetWins: Number(char.totalPetWins ?? 0) + 1,
                 dailyPetWins: dailyPetWins + 1,
@@ -1619,6 +1624,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 },
                 character: updatedChar,
                 afterCommit: async () => {
+                    // Economy telemetry (I-19): only the committed paying win gets
+                    // here. Up to 100 wins a player a day, so off the recent list.
+                    void recordEconomyTxn({ txnId: `pet-casual:${casualBattleReceipt || reportKey}`, player: playerName, currency: 'ryo', delta: reward, source: 'pet.warfront', balanceAfter: Number(updatedChar.ryo ?? 0) }, { list: false });
                     if (casualBattleTokenKey) {
                         // AFTER the paying write, never before: a failed key write must
                         // not be able to swallow a reward the player earned. Until it

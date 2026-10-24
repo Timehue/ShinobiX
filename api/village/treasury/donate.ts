@@ -11,6 +11,7 @@ import { parseSettlementRequestId } from '../../_settlement-receipts.js';
 import { runSaveDebitSaga, SaveDebitRefusal } from '../../_save-debit-saga.js';
 import { VILLAGE_DONATION_SAGA } from '../../_save-debit-kinds.js';
 import { meritForDonation, meritNum } from '../_village-merit.js';
+import { itemDonationMeritRyoValue } from '../_donation-merit.js';
 import { CRAFT_POINTS } from '../../craft/_forge.js';
 import { villageStoresEnabled } from '../../_release-flags.js';
 import { routeStoresDonation, type StoresRouted } from '../../_treasury-stores-donate.js';
@@ -52,10 +53,10 @@ import {
  * treasury.materialPoints at its craft-point value — neither lands as a loose
  * treasury item. Per-donor daily caps 40 rations / 1,500 points (mirrored
  * client-side in shinobij.client/src/lib/village-stores.ts so the Town Hall
- * warns before the 429). Routing does NOT change Village Merit: every item
- * donation, routed or not, earns merit on the same flat 500-per-item basis it
- * always did. Response adds `stores: { provisions, materialPoints }` on a
- * routed donation.
+ * warns before the 429). Village Merit from an item follows that routing
+ * (../_donation-merit.ts): provisions 500 ryo-value each, materials their NPC
+ * sale value, loose items nothing. Response adds
+ * `stores: { provisions, materialPoints }` on a routed donation.
  */
 
 const VILLAGE_STATE_PREFIX = 'game:village-state:';
@@ -179,19 +180,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // Keyed by the settlement id, so a retry queues nothing new.
                 await queueEconomyLegacyIntent(playerName, txId, legacyDeltas);
                 // Personal Village Merit toward a Kage challenge, scaled by the
-                // ryo-value donated (items = 500 each, mirroring the villageDonations
-                // legacy bump below). Costs real currency, so no free farming.
-                //
-                // Every ITEM donation uses the same flat per-item basis, routed
-                // or not. Briefly switching routed donations to `routed.ryoValue`
-                // (craft points × 4) collapsed the merit on a material donation
-                // ~42× — a hunt-torn-hide went from 500 to 12 ryo-equivalent —
-                // which is a Kage-challenge balance change nobody asked for.
-                // A ration pack is an item donation too, and earns exactly what
-                // any other item donation earns. `routed.ryoValue` stays on the
-                // routing result for the stores' own accounting; it is NOT the
-                // merit basis.
-                const ryoValue = donation.kind === 'currency' ? Math.floor(donation.amount) : Math.floor(donation.count) * 500;
+                // ryo-value donated. Currency counts its own amount. Item merit
+                // follows where the item went (economy rebalance 2026-10, I-7;
+                // ../_donation-merit.ts): provisions keep their flat 500 each,
+                // materials count at their NPC sale value, and a loose item the
+                // Kage could gift straight back earns none. `routed.ryoValue`
+                // stays on the routing result for the stores' own accounting;
+                // it is NOT the merit basis.
+                const ryoValue = donation.kind === 'currency'
+                    ? Math.floor(donation.amount)
+                    : itemDonationMeritRyoValue(donation.itemId, donation.count, routed);
                 const creditedDonorChar = { ...outcome.nextDonorChar, villageMerit: meritNum((outcome.nextDonorChar as Record<string, unknown>).villageMerit) + meritForDonation(ryoValue) };
                 // Credit ONLY the treasury; every other village-state field is
                 // preserved (VILLAGE_DONATION_SAGA.applyCredit).

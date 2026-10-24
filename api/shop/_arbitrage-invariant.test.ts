@@ -3,12 +3,14 @@ import { strict as assert } from 'node:assert';
 import { shopDiscountPercent, discountedShopCost } from './_settlement.js';
 import { ITEM_CATALOG } from '../pvp/_item-catalog.js';
 import { HUNT_MATERIAL_SELL_RYO } from '../inventory/_sale.js';
+import { standardSaleUnitValue } from '../../shared/crafting-recipes.js';
 
 /*
  * ⛔ THE INFINITE-RYO GUARD.
  *
- * Sell-back is a hard `floor(item.cost / 2)` computed from the BASE catalog
- * cost (api/shop/_sale.ts and api/inventory/_sale.ts). Purchase price is
+ * Sell-back is at most `floor(item.cost / 2)` computed from the BASE catalog
+ * cost (api/shop/_sale.ts and api/inventory/_sale.ts; crafted goods sell for
+ * less, shared/crafting-recipes.ts standardSaleUnitValue). Purchase price is
  * `discountedShopCost(cost, shopDiscountPercent(...))`. Nothing in the codebase
  * binds those two numbers together — they live in different modules and neither
  * knows about the other.
@@ -55,6 +57,10 @@ describe('shop arbitrage invariant', () => {
             const buy = discountedShopCost(cost, pct);
             const sell = Math.floor(cost / 2);
             assert.ok(buy > sell, `${item.id}: buy ${buy} <= sell ${sell} — this item mints ryo on a buy/sell loop`);
+            // The shared NPC price (crafted goods capped at 7/10 of their inputs,
+            // 2026-10 rebalance #33) may only ever sit at or below that half-cost bound.
+            const shared = standardSaleUnitValue(item.id, cost);
+            assert.ok(shared <= sell, `${item.id}: shared sale price ${shared} exceeds half its cost ${sell}`);
         }
     });
 

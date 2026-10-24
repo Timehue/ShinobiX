@@ -1,15 +1,15 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { computeBankInterest, bankInterestPercent, BANK_INTEREST_WINDOW_MS } from './_bank-interest.js';
+import { computeBankInterest, bankInterestPercent, bankInterestPrincipalCap, BANK_INTEREST_PRINCIPAL_CAP_DIAL, BANK_INTEREST_WINDOW_MS } from './_bank-interest.js';
 import { projectedBankInterest } from '../shared/bank-interest.js';
 
 // Independent inline replica of the client (shinobij.client/src/screens/Bank.tsx
 // + lib/village-upgrades.ts), kept SEPARATE from the port so a drift on either
 // side fails the sweep below. If the client formula changes, both must change.
 const C_PER_LEVEL = 0.01, C_MAX_LEVEL = 50, C_WINDOW = 24 * 60 * 60 * 1000;
-// Mirror of Bank.tsx BANK_INTEREST_PRINCIPAL_CAP (M-2): interest is paid on at
-// most this much banked ryo.
-const C_PRINCIPAL_CAP = 10_000_000;
+// Mirror of Bank.tsx BANK_INTEREST_PRINCIPAL_CAP (M-2; 1M since the 2026-10
+// rebalance #14): interest is paid on at most this much banked ryo.
+const C_PRINCIPAL_CAP = 1_000_000;
 function cInterestPercent(char: Record<string, unknown>): number {
     const up = (char.villageUpgrades && typeof char.villageUpgrades === 'object') ? char.villageUpgrades as Record<string, unknown> : {};
     const lvl = Math.min(C_MAX_LEVEL, Math.max(0, Math.floor(Number(up.bank ?? 0)) || 0));
@@ -72,13 +72,34 @@ describe('computeBankInterest gate + reasons', () => {
         assert.equal(ok.eligible, true);
         assert.equal(ok.interest, 2); // floor(1000 * 0.2/100)
     });
-    it('caps the interest-earning principal at 10M ryo (M-2 anti-inflation guardrail)', () => {
+    it('caps the interest-earning principal at 1M ryo (rebalance #14 passive ceiling)', () => {
         const t = 10 * BANK_INTEREST_WINDOW_MS;
         // At max bank (0.5%): under the cap scales linearly; at/above the cap the
-        // payout flattens to floor(10M * 0.5%) = 50,000 regardless of balance.
-        assert.equal(computeBankInterest({ bankRyo: 8_000_000, villageUpgrades: { bank: 50 } }, t).interest, 40_000);
-        assert.equal(computeBankInterest({ bankRyo: 10_000_000, villageUpgrades: { bank: 50 } }, t).interest, 50_000);
-        assert.equal(computeBankInterest({ bankRyo: 50_000_000, villageUpgrades: { bank: 50 } }, t).interest, 50_000);
+        // payout flattens to floor(1M * 0.5%) = 5,000 regardless of balance.
+        assert.equal(computeBankInterest({ bankRyo: 800_000, villageUpgrades: { bank: 50 } }, t).interest, 4_000);
+        assert.equal(computeBankInterest({ bankRyo: 1_000_000, villageUpgrades: { bank: 50 } }, t).interest, 5_000);
+        assert.equal(computeBankInterest({ bankRyo: 50_000_000, villageUpgrades: { bank: 50 } }, t).interest, 5_000);
+    });
+    it('the BANK_INTEREST_PRINCIPAL_CAP dial restores the old ceiling and ignores junk', () => {
+        const t = 10 * BANK_INTEREST_WINDOW_MS;
+        const rich = { bankRyo: 50_000_000, villageUpgrades: { bank: 50 } };
+        const saved = process.env[BANK_INTEREST_PRINCIPAL_CAP_DIAL];
+        try {
+            delete process.env[BANK_INTEREST_PRINCIPAL_CAP_DIAL];
+            assert.equal(bankInterestPrincipalCap(), 1_000_000, 'code default');
+            process.env[BANK_INTEREST_PRINCIPAL_CAP_DIAL] = '10000000';
+            assert.equal(bankInterestPrincipalCap(), 10_000_000, 'kill value');
+            assert.equal(computeBankInterest(rich, t).interest, 50_000);
+            // Out of range or unparseable falls back to the default rather than
+            // zeroing or exploding the payout.
+            for (const junk of ['0', '-5', '99999', '10000001', 'lots']) {
+                process.env[BANK_INTEREST_PRINCIPAL_CAP_DIAL] = junk;
+                assert.equal(computeBankInterest(rich, t).interest, 5_000, `dial=${junk}`);
+            }
+        } finally {
+            if (saved === undefined) delete process.env[BANK_INTEREST_PRINCIPAL_CAP_DIAL];
+            else process.env[BANK_INTEREST_PRINCIPAL_CAP_DIAL] = saved;
+        }
     });
     it('reasons: no-upgrade / empty / too-small', () => {
         const t = 10 * BANK_INTEREST_WINDOW_MS;

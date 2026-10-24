@@ -144,7 +144,7 @@ describe('bounty placement is retry-safe (#179)', () => {
         const retry = await postBounty(2_000, 'bounty-place-retry-0001');
         assert.equal(retry.statusCode, 200, JSON.stringify(retry.body));
         assert.equal(retry.body?.replayed, true);
-        assert.equal(await ryo(PLACER), 48_000, 'one charge');
+        assert.equal(await ryo(PLACER), 47_700, 'one charge (stake + the 15% posting fee)');
         assert.equal(await pool(), 2_000, 'one escrow');
         const posts = ((await kv.get<Array<{ type: string }>>('game:announcements')) ?? []).filter((a) => a.type === 'bounty_placed');
         assert.equal(posts.length, 1, 'the herald posts the placement once');
@@ -153,7 +153,7 @@ describe('bounty placement is retry-safe (#179)', () => {
     test('concurrent duplicates escrow once', async () => {
         const outs = await Promise.all(Array.from({ length: 5 }, () => postBounty(3_000, 'bounty-place-dupes-0001')));
         for (const out of outs) assert.ok(out.statusCode === 200 || out.statusCode === 503, JSON.stringify(out));
-        assert.equal(await ryo(PLACER), 47_000);
+        assert.equal(await ryo(PLACER), 46_550);
         assert.equal(await pool(), 3_000);
     });
 
@@ -172,12 +172,12 @@ describe('bounty placement is retry-safe (#179)', () => {
         });
         const stuck = await postBounty(5_000, 'bounty-place-stopped-001');
         assert.equal(stuck.statusCode, 503, JSON.stringify(stuck.body));
-        assert.equal(await ryo(PLACER), 45_000);
+        assert.equal(await ryo(PLACER), 44_250);
         assert.equal(await pool(), 0);
         broken = false;
         const retry = await postBounty(5_000, 'bounty-place-stopped-001');
         assert.equal(retry.statusCode, 200, JSON.stringify(retry.body));
-        assert.equal(await ryo(PLACER), 45_000, 'no second charge');
+        assert.equal(await ryo(PLACER), 44_250, 'no second charge');
         assert.equal(await pool(), 5_000, 'the escrow landed once');
     });
 
@@ -195,7 +195,7 @@ describe('bounty placement is retry-safe (#179)', () => {
         const retry = await postBounty(4_000, 'bounty-place-debit-fail1');
         assert.equal(retry.statusCode, 200, JSON.stringify(retry.body));
         assert.equal(retry.body?.replayed, undefined, 'the retry is the first time it settles');
-        assert.equal(await ryo(PLACER), 46_000);
+        assert.equal(await ryo(PLACER), 45_400);
         assert.equal(await pool(), 4_000);
     });
 
@@ -212,7 +212,7 @@ describe('bounty placement is retry-safe (#179)', () => {
         assert.equal((await postBounty(1_000, 'bounty-place-reused-001')).statusCode, 200);
         const reused = await postBounty(2_000, 'bounty-place-reused-001');
         assert.equal(reused.statusCode, 409, 'one id, one placement');
-        assert.equal(await ryo(PLACER), 2_000, 'only the one real placement was charged');
+        assert.equal(await ryo(PLACER), 1_850, 'only the one real placement was charged');
         assert.equal(await pool(), 1_000);
         assert.equal(await ryo(RIVAL), 100, 'the forger was never charged');
     });

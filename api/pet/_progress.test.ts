@@ -2,10 +2,28 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { gainServerPetXp, PET_TRAINING_FOCI, removePetItem, settleServerPetExpedition, settleFinishedTraining } from './_progress.js';
+import { gainServerPetXp, PET_FEED_XP, PET_TRAINING_FOCI, removePetItem, settleServerPetExpedition, settleFinishedTraining } from './_progress.js';
 import { mergePreservingImages } from '../_utils.js';
+import { ITEM_CATALOG } from '../pvp/_item-catalog.js';
 
 describe('server pet progression', () => {
+    it('no ryo-priced treat costs more per pet XP than the basic Treats (2026-10 rebalance)', () => {
+        const cost = (id: string) => {
+            const item = ITEM_CATALOG[id];
+            assert.ok(item, `${id} is a catalog item`);
+            return Number(item.cost);
+        };
+        // 400 ryo for 100 XP since main's pet growth v2 (was 80 ryo).
+        const basic = cost('pet-treat') / PET_FEED_XP['pet-treat'];
+        assert.equal(basic, 4);
+        for (const [id, xp] of Object.entries(PET_FEED_XP)) {
+            // The Golden Apple is a Fate Shard item at the Grand Marketplace, and
+            // Elemental and Ancient Treats are Crafter-only (no shop price).
+            if (id === 'golden-apple' || cost(id) === 0) continue;
+            assert.ok(cost(id) / xp <= basic, `${id} costs ${cost(id) / xp} ryo per pet XP`);
+        }
+    });
+
     it('starts only neutral companion training while still settling legacy timers', () => {
         assert.deepEqual([...PET_TRAINING_FOCI], ['bond']);
     });
