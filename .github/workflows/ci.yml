@@ -1398,6 +1398,14 @@ jobs:
         shard: [1, 2]
     steps:
       - uses: actions/checkout@v7
+        with:
+          # Match the other live journeys: reviewed evidence is not a runtime input.
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /*
+            !/docs/screenshots/
+            !/docs/evidence/
+            !/docs/audits/
       - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
