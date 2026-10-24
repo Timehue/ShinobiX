@@ -83,7 +83,11 @@ export function rollTradeWanderer(sector: number, dayBucket: number): Wanderer |
     const rng = mulberry32(wandererHash32(`trade:${sector}:${dayBucket}`));
     if (rng() >= TRADE_WANDERER_CHANCE) return null;
     const node = nodes[Math.floor(rng() * nodes.length)];
-    const beside = tileNeighbors(node.approach).filter((tile) => tile !== node.target && isWalkableTile(sector, tile));
+    // Every node in the sector counts, not just this one: neighbouring shoals
+    // put one node's gatherer tile beside the other's, and a node's button
+    // drawn over the actor there hides it from taps.
+    const occupied = new Set(nodes.flatMap((other) => [other.approach, other.target]));
+    const beside = tileNeighbors(node.approach).filter((tile) => !occupied.has(tile) && isWalkableTile(sector, tile));
     const home = beside[0] ?? node.approach;
     const archetype: WandererArchetypeId = node.activity === "fishing" ? "angler" : "rivalMiner";
     return placeWanderer(slotWanderer(archetype, `w-${sector}-${dayBucket}-${WANDERER_TRADE_INDEX}`, sector, home, [home], rng), sector);

@@ -45,6 +45,22 @@ test('anglers and miners stand only beside resource nodes, about half the window
     assert.deepEqual(rollTradeWanderer(2, BUCKET), rollTradeWanderer(2, BUCKET), 'deterministic');
 });
 
+test('an angler or miner never stands where any gatherer in the sector stands', () => {
+    // Sector 6's two shoals sit side by side, so each one's gatherer tile is
+    // beside the other's. The angler used to land on it, under the node button.
+    let sector6 = 0;
+    for (let bucket = BUCKET; bucket < BUCKET + 400; bucket++) {
+        for (const sector of nodeSectors) {
+            const w = rollTradeWanderer(sector, bucket);
+            if (!w) continue;
+            if (sector === 6) sector6++;
+            const approaches = RESOURCE_NODES.filter((node) => node.sector === sector).map((node) => node.approach);
+            assert.ok(!approaches.includes(w.homeTile), `sector ${sector} bucket ${bucket}: stands on gatherer tile ${w.homeTile}`);
+        }
+    }
+    assert.ok(sector6 > 0, 'sector 6 rolled an angler in the sampled windows');
+});
+
 test('a rift creature hunts only in the target sector of the seal its player holds', () => {
     const seal = riftSealOf({ activeRiftQuest: { id: 'rift-a', targetSector: 12, stage: 'travel' } });
     assert.deepEqual(seal, { id: 'rift-a', targetSector: 12 });
