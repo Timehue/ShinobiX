@@ -22,6 +22,16 @@ defaults:
   run:
     shell: bash
 
+# SPARSE CHECKOUT. docs/screenshots, docs/evidence and docs/audits hold ~9 GB of
+# the ~10.5 GB tree, and a full checkout took 6-7 minutes in EVERY job: 267 of
+# the 704 runner-minutes on run 39994416239. The jobs that only build the server
+# or test the joined release artifact never read those folders, so they skip
+# them (sparse checkout also makes actions/checkout fetch with blob:none, so the
+# skipped blobs are never downloaded). Specs that WRITE audit output there still
+# can; the folder is simply untracked on the runner. client-quality and the
+# server-contracts jobs keep a full checkout: the pet certification and shape
+# review gates read evidence under docs/screenshots.
+
 env:
   VITE_SENTRY_DSN: https://public@example.invalid/1
   VITE_SENTRY_RELEASE: ci
@@ -164,6 +174,14 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
+        with:
+          # Skips the review-evidence folders; see SPARSE CHECKOUT at the top.
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /*
+            !/docs/screenshots/
+            !/docs/evidence/
+            !/docs/audits/
       - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
@@ -271,6 +289,14 @@ jobs:
           --health-retries 12
     steps:
       - uses: actions/checkout@v7
+        with:
+          # Skips the review-evidence folders; see SPARSE CHECKOUT at the top.
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /*
+            !/docs/screenshots/
+            !/docs/evidence/
+            !/docs/audits/
       - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
@@ -418,6 +444,14 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
+        with:
+          # Skips the review-evidence folders; see SPARSE CHECKOUT at the top.
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /*
+            !/docs/screenshots/
+            !/docs/evidence/
+            !/docs/audits/
       - name: Initialize evidence
         run: |
           mkdir -p .ci-evidence/release-artifact
@@ -498,6 +532,14 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
+        with:
+          # Skips the review-evidence folders; see SPARSE CHECKOUT at the top.
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /*
+            !/docs/screenshots/
+            !/docs/evidence/
+            !/docs/audits/
       - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
@@ -555,6 +597,14 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
+        with:
+          # Skips the review-evidence folders; see SPARSE CHECKOUT at the top.
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /*
+            !/docs/screenshots/
+            !/docs/evidence/
+            !/docs/audits/
       - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
@@ -617,6 +667,14 @@ jobs:
         shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
     steps:
       - uses: actions/checkout@v7
+        with:
+          # Skips the review-evidence folders; see SPARSE CHECKOUT at the top.
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /*
+            !/docs/screenshots/
+            !/docs/evidence/
+            !/docs/audits/
       - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
@@ -685,36 +743,39 @@ jobs:
     # before) a smoke slice, which put shards 2 and 5 at 32-34 of their 35
     # minutes on main and cancelled PR #407's shard 2 with every test green.
     # Here they run beside the smoke shards instead. The first two measured
-    # 11-13 minutes on main. Living-world source fixtures occupy eight further
+    # 11-13 minutes on main. Living-world source fixtures occupy twelve further
     # slices so they retain their own Vite servers and the same 29-minute limit.
     # Give dock journeys and their Chronicle/terrain companions separate jobs
     # so sector slices and checkout leave time for every case and cleanup.
     # Gathering now takes 19 minutes for all 273 cases. Give its two complete
     # slices their own jobs so flow 2 can finish the remaining recovery suites.
+    # Run 40008030861 spent over 15 minutes setting up life slice 4-of-8,
+    # then hit the ceiling in its final case. Twelve slices retain every case
+    # with setup and cleanup room under the existing 29-minute limit.
     timeout-minutes: 29
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
         include:
           - shard: 3
-            lifeShard: 1/8
+            lifeShard: 1/12
           - shard: 4
-            lifeShard: 2/8
+            lifeShard: 2/12
           - shard: 5
-            lifeShard: 3/8
+            lifeShard: 3/12
             groundProject: desktop
           - shard: 6
-            lifeShard: 4/8
+            lifeShard: 4/12
           - shard: 7
-            lifeShard: 5/8
+            lifeShard: 5/12
             groundProject: phone
           - shard: 8
-            lifeShard: 6/8
+            lifeShard: 6/12
           - shard: 9
-            lifeShard: 7/8
+            lifeShard: 7/12
           - shard: 10
-            lifeShard: 8/8
+            lifeShard: 8/12
           - shard: 11
             dockProject: desktop
           - shard: 12
@@ -723,8 +784,24 @@ jobs:
             resourceShard: 1/2
           - shard: 14
             resourceShard: 2/2
+          - shard: 16
+            lifeShard: 9/12
+          - shard: 17
+            lifeShard: 10/12
+          - shard: 18
+            lifeShard: 11/12
+          - shard: 19
+            lifeShard: 12/12
     steps:
       - uses: actions/checkout@v7
+        with:
+          # Skips the review-evidence folders; see SPARSE CHECKOUT at the top.
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /*
+            !/docs/screenshots/
+            !/docs/evidence/
+            !/docs/audits/
       - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
@@ -844,7 +921,7 @@ jobs:
         working-directory: shinobij.client
         run: npm run test:e2e:dojo-circuit 2>&1 | tee ../.ci-evidence/e2e-responsive-flows-${{ matrix.shard }}/dojo-circuit.log
       - name: Living sectors, weather and native actor routines
-        if: ${{ matrix.shard >= 3 && matrix.shard <= 10 }}
+        if: ${{ (matrix.shard >= 3 && matrix.shard <= 10) || (matrix.shard >= 16 && matrix.shard <= 19) }}
         working-directory: shinobij.client
         run: node --import tsx node_modules/@playwright/test/cli.js test --config playwright.sector-life.config.ts --fully-parallel --shard=${{ matrix.lifeShard }} --forbid-only 2>&1 | tee ../.ci-evidence/e2e-responsive-flows-${{ matrix.shard }}/sector-life.log
       - name: Painted terrain resource placement
@@ -940,6 +1017,14 @@ jobs:
             projects: --project=webkit-layout
     steps:
       - uses: actions/checkout@v7
+        with:
+          # Skips the review-evidence folders; see SPARSE CHECKOUT at the top.
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /*
+            !/docs/screenshots/
+            !/docs/evidence/
+            !/docs/audits/
       - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
@@ -1043,6 +1128,14 @@ jobs:
         shard: [1, 2]
     steps:
       - uses: actions/checkout@v7
+        with:
+          # Skips the review-evidence folders; see SPARSE CHECKOUT at the top.
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /*
+            !/docs/screenshots/
+            !/docs/evidence/
+            !/docs/audits/
       - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
@@ -1136,6 +1229,14 @@ jobs:
         shard: [1, 2, 3]
     steps:
       - uses: actions/checkout@v7
+        with:
+          # Skips the review-evidence folders; see SPARSE CHECKOUT at the top.
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /*
+            !/docs/screenshots/
+            !/docs/evidence/
+            !/docs/audits/
       - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
