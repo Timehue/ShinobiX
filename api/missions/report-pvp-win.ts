@@ -8,10 +8,10 @@ import { pvpSessionMayGrantProgress, type PvpSession } from '../pvp/session.js';
 import { loadPvpRewardRecoverySnapshot } from '../pvp/_reward-recovery.js';
 import { hasRecentIpOverlap } from '../_player-ips.js';
 import { settlePvpLegacyProgress } from '../_legacy-pvp-settlement.js';
+import { ACCOUNT_AGE_MIN_MS } from '../pvp/_pvp-anti-alt.js';
 
 // Quick-surrender protection: fights ending in <15s grant no mission progress.
 const MIN_FIGHT_DURATION_MS = 15_000;
-const ACCOUNT_AGE_MIN_MS = 72 * 60 * 60 * 1000;
 // Replay window: only sessions created in the last 24h can be reported.
 // PvP session KV records typically have a 60-min TTL, but a player could
 // re-submit a battleId pulled from browser history / logs much later if

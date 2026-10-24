@@ -11,6 +11,7 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { legacyEnabled, bumpLegacyStats } from '../_legacy-track.js';
 import { bumpEraContributionOnce } from '../_era.js';
 import { reportMissionEvent, type CompletedMissionInfo } from '../missions/_progress.js';
+import { withRosterEventContrib } from '../clan/_mission-catalog.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { isWarVillage, isWarSector, homeVillageForSector } from '../_war-map-sectors.js';
 import { normalizeVillageWarRecord, sectorConfigFor, villageWarKey } from '../_war-state.js';
@@ -488,7 +489,9 @@ async function doReportLocked(res: VercelResponse, identity: Identity, playerNam
                 const members = Array.isArray(rec.members) ? [...(rec.members as Record<string, unknown>[])] : [];
                 const i = members.findIndex(m => safeName(String((m as Record<string, unknown>)?.name ?? '')) === playerName);
                 if (i < 0) return;
-                members[i] = { ...members[i], eventContrib: (Number((members[i] as Record<string, unknown>).eventContrib) || 0) + 1 };
+                // A stale row restarts this month at zero, so the credit counts
+                // toward this month's clan missions (economy rebalance 2026-10, I-15).
+                members[i] = withRosterEventContrib(members[i] as Record<string, unknown>, 1, Date.now());
                 await kv.set(key, { ...rec, members });
             }); // default lock semantics — contrib is a counter, not currency
         }

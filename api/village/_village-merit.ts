@@ -2,12 +2,15 @@
  * Personal Village Merit — the server-owned, sanitizer-pinned metric that gates
  * a Kage challenge (KAGE_MIN_MERIT = 250 in _kage-challenge.ts). Accrued ONLY by
  * server-authoritative village-support actions; never by a client save write
- * (the save sanitizer pins `villageMerit` with maxDelta 0 — see api/save/[name].ts).
+ * (the ownership manifest mirrors the stored value over every generic save:
+ * api/save/_state-ownership.ts, guarded by api/save/_village-merit-ownership.test.ts).
+ * Item donations earn on their routed value, not a flat 500 (./_donation-merit.ts).
  *
  * Phase 1 sources (all already server-authoritative + idempotent):
  *   - daily village agenda claim   (+MERIT_DAILY_AGENDA, once/day NX marker)
  *   - village-treasury donation    (meritForDonation, scaled by ryo-value; costs
- *                                    real currency, so no free farming)
+ *                                    real currency, so no free farming; items
+ *                                    per ./_donation-merit.ts)
  *   - map-control claim            (+MERIT_MAP_CONTROL, once/day NX marker)
  *   - war-crate win                (+MERIT_WAR_WIN, once/war via the same NX key
  *                                    that guards the legacy warsWon bump)

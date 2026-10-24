@@ -5,7 +5,12 @@ export const LEGENDARY_WAR_CRATE_ID = 'legendary-war-crate';
 export const WARFORGED_RELIC_ID = 'warforged-relic';
 export const DUNGEON_KEY_ID = 'dungeon-key';
 export const WAR_CRATE_RYO = 500;
-export const WAR_CRATE_HONOR = 10;
+// Honor on a winner's crate: 10 before the 2026-10 rebalance, which moves Honor
+// Seals from PvE toward war (framework #28). The crate's Bone Charm is its own
+// constant: it was derived from the honor (floor(10 / 8) = 1), so raising the
+// honor would have raised the charms too, which the rebalance never priced.
+export const WAR_CRATE_HONOR = 25;
+export const WAR_CRATE_BONE_CHARMS = 1;
 export const WAR_CRATE_KEY_CHANCE = 0.35;
 const MAX_ITEM_STACK = 9999;
 
@@ -64,7 +69,7 @@ export function applyWarCrateOpen(character: Record<string, unknown>, randomValu
         return { ok: false, status: 409, error: 'Stored reward balances are invalid. Contact support.' };
     }
     const honorGain = character.profession === 'vanguard' ? WAR_CRATE_HONOR : 0;
-    const charmGain = Math.max(1, Math.floor(WAR_CRATE_HONOR / 8));
+    const charmGain = WAR_CRATE_BONE_CHARMS;
     const gotKey = Number.isFinite(randomValue) && randomValue >= 0 && randomValue < WAR_CRATE_KEY_CHANCE;
     if (!Number.isSafeInteger(ryo + WAR_CRATE_RYO)
         || !Number.isSafeInteger(honorSeals + honorGain)

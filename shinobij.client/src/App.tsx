@@ -4673,7 +4673,7 @@ export default function App() {
             dungeonActionRef.current = false;
         }
         setActiveDungeonRunToken(null);
-        alert(`${activeDungeonEvent.name} cleared. +10 Bone Charms, +5 Aura Stones, +5 Fate Shards, +1 Dungeon Legendary Relic.${gearFound ? `\n${gearDropRewardLine(gearFound) ?? ""}` : ""}`);
+        const pay = hiddenDungeonVnEvent.currencyRewards; alert(`${activeDungeonEvent.name} cleared. +${pay?.boneCharms ?? 0} Bone Charms, +${pay?.auraStones ?? 0} Aura Stones, +${pay?.fateShards ?? 0} Fate Shards, +1 Dungeon Legendary Relic.${gearFound ? `\n${gearDropRewardLine(gearFound) ?? ""}` : ""}`);
         setActiveDungeonEvent(null);
         setScreen(dungeonReturnScreen);
     }
@@ -5923,14 +5923,14 @@ export default function App() {
                 )}
                 {!activeTriggeredEvent && screen === "villageWar" && character && <VillageWarScreen character={character} playerRoster={playerRoster} onBack={goBack} onVersionedCharacter={commitVersionedCharacter} sharedImages={sharedImages} />}
                 {!activeTriggeredEvent && screen === "villageWarMap" && villageWarScreenMountAllowed(screen, villageWarAvailability) && character && <VillageWarMap character={character} onBack={goBack} setScreen={setScreen} />}
-                {!activeTriggeredEvent && screen === "sectorCard" && villageWarScreenMountAllowed(screen, villageWarAvailability) && character && <SectorWarCardBattle character={character} setScreen={setScreen} />}
+                {!activeTriggeredEvent && screen === "sectorCard" && villageWarScreenMountAllowed(screen, villageWarAvailability) && character && <SectorWarCardBattle character={character} setScreen={setScreen} onVersionedCharacter={commitVersionedCharacter} />}
                 {!activeTriggeredEvent && screen === "sectorPet" && villageWarScreenMountAllowed(screen, villageWarAvailability) && character && <SectorWarPetBattle character={character} setScreen={setScreen} />}
                 {!activeTriggeredEvent && screen === "sectorGarrison" && villageWarScreenMountAllowed(screen, villageWarAvailability) && character && <SectorWarGarrisonAssault character={character} sharedImages={sharedImages} onVersionedCharacter={commitVersionedCharacter} setScreen={setScreen} />}
                 {!activeTriggeredEvent && screen === "clanWarPet" && character && <ClanWarPetBattle character={character} setScreen={setScreen} />}
                 {!activeTriggeredEvent && screen === "clanWar2v2" && character && <ClanWar2v2Battle character={character} setScreen={setScreen} sharedImages={sharedImages} onVersionedCharacter={commitVersionedCharacter} />}
-                {!activeTriggeredEvent && screen === "cardClashFreePlay" && character && <CardClashFreePlay character={character} setScreen={setScreen} />}
+                {!activeTriggeredEvent && screen === "cardClashFreePlay" && character && <CardClashFreePlay character={character} setScreen={setScreen} onVersionedCharacter={commitVersionedCharacter} />}
                 {!activeTriggeredEvent && screen === "shinobiCouncil" && character && <ShinobiCouncilHall character={character} setScreen={setScreen} playerRoster={playerRoster} launchClanWarBattle={launchClanWarBattle} onBack={goBack} />}
-                {!activeTriggeredEvent && screen === "tilecardsDuel" && character && <ClanWarTileCardDuel character={character} setScreen={setScreen} sharedImages={sharedImages} />}
+                {!activeTriggeredEvent && screen === "tilecardsDuel" && character && <ClanWarTileCardDuel character={character} setScreen={setScreen} sharedImages={sharedImages} onVersionedCharacter={commitVersionedCharacter} />}
                 {!activeTriggeredEvent && screen === "userHub" && character && (
                     <UserHub
                         currentName={character.name}

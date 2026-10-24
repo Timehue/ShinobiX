@@ -53,6 +53,28 @@ export function rankedDelta(winnerRating: number, loserRating: number): number {
 // values rather than recomputing locally — so the server-side repeat-opponent
 // decay (PvP audit #1) sticks instead of being clobbered by the client's own
 // grant on the next save flush.
+/** How the server credited one PvP fight (api/pvp/_valid-fight.ts pvpCreditView). */
+export type PvpRewardCredit = {
+    credited: boolean;
+    reason?: 'level-gap' | 'too-young';
+    kind: 'ko' | 'round-cap' | 'flee' | 'afk' | 'unknown';
+    short: boolean;
+    pairOrdinal: number;
+    pairWeight: number;
+    sideMult: number;
+    /** Loss only: the loser was engaged, but the winner is not established. */
+    lossBlocked?: 'too-young';
+    /** The live thresholds behind the credit (server dials); absent on older replies. */
+    rules?: {
+        minRounds: number;
+        minFightSeconds: number;
+        lossMinDamagePct: number;
+        minAccountAgeHours: number;
+        establishedLevel: number;
+        levelGapMax: number;
+    };
+};
+
 export type PvpWinBaseSummary = {
     ryo: number;
     xp: number;
@@ -68,7 +90,7 @@ export type PvpWinBaseSummary = {
     monthlyPvpKills?: number;
     pvpKillMonth?: string;
     /** Exact gains from this battle, separate from the post-credit totals above. */
-    reward?: { ryo: number; combatGrowth: number; auraDust: number; jutsuXp?: number };
+    reward?: { ryo: number; combatGrowth: number; auraDust: number; jutsuXp?: number; credit?: PvpRewardCredit };
     // PvP combat growth is credited server-side to `unspentStats`; `allocated`
     // remains in the response shape for compatibility and is empty for these wins.
     statGrowth?: { allocated: Partial<Record<string, number>>; unspentGain: number };

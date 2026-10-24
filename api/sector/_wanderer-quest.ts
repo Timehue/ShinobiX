@@ -9,7 +9,14 @@
  * can't forge an early claim. The reward is RECOMPUTED from this catalog at claim,
  * scaled by the quest's effort `weight` (decoupled from the raw target count, so a
  * "scout 10 tiles" task doesn't pay like "win 10 battles").
+ *
+ * The server also picks the errand (framework I-13): a road sage offers exactly
+ * the one its id hashes to (shared/wanderer-quest-offer.ts), and a Legacy
+ * Emissary only its own two, so a modded client can no longer choose the
+ * best-paying errand of the catalog.
  */
+
+import { lockedQuestMetrics, questIdForWanderer } from '../../shared/wanderer-quest-offer.js';
 
 // Each quest's objective counter — a field the game already increments on the
 // character save. Mirrored (label + target + metric) by the client catalog in
@@ -98,11 +105,55 @@ export function parseWandererQuestSeal(raw: unknown): WandererQuestSeal | null {
 const clamp = (n: number, lo: number, hi: number) =>
     Math.max(lo, Math.min(hi, Math.floor(Number(n) || 0)));
 
-/** Conservative, level- and effort-scaled ryo. Tunable. */
+/** Level- and effort-scaled ryo, recomputed at claim. The errand itself is the
+ *  server's pick (validateWandererQuestPick), so the weight is never the client's. */
 export function wandererQuestRyo(level: number, weight: number): number {
     const lvl = clamp(level, 1, 100);
     const w = clamp(weight, 1, 20);
-    return w * (20 + lvl * 3); // e.g. L50/w3 ≈ 510, L50/w6 ≈ 1020 — modest
+    return w * (20 + lvl * 3); // e.g. L50/w3 ≈ 510, L50/w6 ≈ 1020
+}
+
+/** Legacy Emissary errands by the emissary that gives them. Mirrors
+ *  EMISSARY_DEFS[].quests in shinobij.client/src/lib/legacy-emissaries.ts
+ *  (pinned by legacy-emissaries.test.ts). */
+export const EMISSARY_WANDERER_PREFIX = 'legacy-emissary-';
+export const EMISSARY_MIN_LEVEL = 40;
+export const EMISSARY_ERRAND_GIVER: Readonly<Record<string, string>> = {
+    'eq-storm-conduits': 'storm-caller-ryn', 'eq-storm-skyward': 'storm-caller-ryn',
+    'eq-veil-unseen': 'veil-mother-suzu', 'eq-veil-moths': 'veil-mother-suzu',
+    'eq-iron-tally': 'iron-pilgrim-daigo', 'eq-iron-road': 'iron-pilgrim-daigo',
+    'eq-blade-rites': 'blade-keeper-hana', 'eq-blade-vigil': 'blade-keeper-hana',
+    'eq-broker-ledger': 'duel-broker-kesshi', 'eq-broker-debts': 'duel-broker-kesshi',
+    'eq-hollow-toll': 'hollow-warden', 'eq-hollow-depths': 'hollow-warden',
+    'eq-lantern-rounds': 'lantern-warden-mei', 'eq-lantern-watch': 'lantern-warden-mei',
+    'eq-mapless-edges': 'mapless-ojii', 'eq-mapless-companions': 'mapless-ojii',
+};
+
+/**
+ * I-13: the quest id an accept names must be one this NPC actually offers this
+ * character. A road sage offers exactly the errand its id hashes to, drawn from
+ * the objectives the stored save can progress; an emissary offers only its own
+ * two, from level 40, minus any locked objective. A `wq-*` errand from anything
+ * but a road sage (no id, a synthetic id, an emissary) is refused, which also
+ * closes the no-id path that skipped the wanderer cooldown.
+ */
+export function validateWandererQuestPick(
+    questId: string,
+    wandererId: string,
+    isNaturalWanderer: boolean,
+    character: Record<string, unknown>,
+): { ok: true } | { ok: false; reason: 'invalid-quest' } {
+    const refuse = { ok: false as const, reason: 'invalid-quest' as const };
+    if (!isWandererQuestId(questId)) return refuse;
+    const locked = lockedQuestMetrics(character);
+    if (questId.startsWith('eq-')) {
+        const giver = EMISSARY_ERRAND_GIVER[questId];
+        if (!giver || wandererId !== `${EMISSARY_WANDERER_PREFIX}${giver}`) return refuse;
+        if (clamp(Number(character.level), 1, 100) < EMISSARY_MIN_LEVEL) return refuse;
+        return (locked as string[]).includes(WANDERER_QUESTS[questId].metric) ? refuse : { ok: true };
+    }
+    if (!isNaturalWanderer) return refuse;
+    return questId === questIdForWanderer(wandererId, locked) ? { ok: true } : refuse;
 }
 
 /** Objective met when (current − baseline) on the metric reaches target. */

@@ -133,7 +133,8 @@ export const eventItems: GameItem[] = authoredEventItems.map(item => {
     if (relic) return { ...item, ...relic };
     if ((RETIRED_RELIC_IDS as readonly string[]).includes(item.id)) return {
         ...item, slot: 'item', bonuses: {},
-        description: item.description + ' A story keepsake; not equippable.',
+        // Handed over at the reckoning's turn-in (api/sector/_story-reckoning.ts).
+        description: item.description + ' Proof for its reckoning: you hand it over at the turn-in. Not equippable.',
     };
     return item;
 });

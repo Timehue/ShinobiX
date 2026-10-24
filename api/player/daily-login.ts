@@ -8,12 +8,14 @@ import { retryOnSaveVersionConflict } from '../save/_projected-write.js';
 import { computeLoginReward, daysUntilShardBonus, STREAK_SHARD_INTERVAL, type LoginReward } from './_daily-login.js';
 import { bumpLegacyStats, reconcileLegacyStatsFromSave } from '../_legacy-track.js';
 import { deliverPendingEconomyLegacyIntents } from '../_legacy-economy-outbox.js';
+import { recordEconomyTxn } from '../_economy.js';
 
 /*
  * /api/player/daily-login — POST only
  *
  * Server-authoritative daily login-streak reward. Grants level-scaled ryo once
- * per UTC day, plus 5 fate shards on every 7th consecutive day. The credit
+ * per UTC day, plus 5 Fate Shards on every 7th claim day and 2 on claim days 2
+ * and 3 (the streak counts claim days and never resets). The credit
  * commits through mutatePlayerSave (the fail-closed save lock and an exact
  * compare-and-set), so a concurrent /api/save can't clobber it, and the idle
  * recovery the player earned since their last save is settled into the same
@@ -97,6 +99,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             saveVersion: committed._saveVersion,
             legacyCharacter: committed.character,
         };
+        // Economy telemetry (I-19): the day's login grant, after the commit and
+        // only on the claim that paid it; a same-day retry answers alreadyClaimed.
+        if (!out.alreadyClaimed) {
+            if (out.ryo > 0) void recordEconomyTxn({ txnId: `daily-login:${playerName}:${today}:ryo`, player: playerName, currency: 'ryo', delta: out.ryo, source: 'daily.login', balanceAfter: out.totalRyo });
+            if (out.fateShards > 0) void recordEconomyTxn({ txnId: `daily-login:${playerName}:${today}:fateShards`, player: playerName, currency: 'fateShards', delta: out.fateShards, source: 'daily.login', balanceAfter: out.totalFateShards });
+        }
 
         // Legacy tracking (ENABLE_LEGACY): one tenure day per claimed login day
         // (already once-per-UTC-day by the alreadyClaimed gate above), plus the

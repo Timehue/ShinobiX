@@ -4,10 +4,12 @@ import { bumpLegacyStats } from '../_legacy-track.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
+import { recordEconomyTxn } from '../_economy.js';
 import { cors, safeName } from '../_utils.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import {
     cleanDungeonProbeRequestId,
+    DUNGEON_CLEAR_REWARD,
     freeDungeonProbeReceipt,
     FREE_DUNGEON_DAILY_PROBE_LIMIT,
     mutateDungeonRun,
@@ -134,6 +136,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             } };
         });
         if (!result.ok) return res.status(result.status).json({ error: result.error, ...(failureReason ? { reason: failureReason } : {}) });
+        // Economy telemetry (I-19), logged before the Legacy step: its 503 retry
+        // replays as alreadyApplied, so a retry can neither skip nor repeat it.
+        if (action === 'settle' && !result.value.alreadyApplied) {
+            const runToken = String(result.value.token);
+            await Promise.allSettled((['fateShards', 'boneCharms', 'auraStones'] as const).map((currency) => recordEconomyTxn({
+                txnId: `dungeon:${runToken}:${currency}`, player: playerName, currency, delta: DUNGEON_CLEAR_REWARD[currency], source: 'dungeon.clear',
+            })));
+        }
         if (action === 'settle' && !(await bumpLegacyStats(playerName, { dungeonClears: 1 }, {
             characterForBootstrap: result.character,
             receiptId: `dungeon:${String(result.value.token)}`,

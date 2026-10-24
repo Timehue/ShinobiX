@@ -14,18 +14,58 @@ test('awardClanPoints rejects unsupported sources', () => {
     assert.equal(result.reason, 'invalid-source');
 });
 
-test('awardClanPoints applies an all-or-nothing weekly cap', () => {
-    const weekKey = clanPointWeekKey(new Date('2026-01-01T12:00:00Z'));
+test('awardClanPoints clamps an award that would cross the weekly cap to the headroom left', () => {
+    const now = new Date('2026-01-01T12:00:00Z');
+    const weekKey = clanPointWeekKey(now);
     const result = awardClanPoints(
-        { name: 'capper', clan: 'Leaf', clanPoints: 900, weeklyClanPoints: 990, weeklyClanPointsWeek: weekKey },
+        { name: 'capper', clan: 'Leaf', clanPoints: 900, weeklyClanPoints: 990, weeklyClanPointsWeek: weekKey, lifetimeClanPoints: 5_000 },
+        'clanWarWin',
+        25,
+        { eventId: 'war:clamp' },
+        now,
+    );
+    assert.equal(result.awarded, 10);
+    assert.equal(result.requested, 25);
+    assert.equal(result.reason, 'weekly-cap');
+    assert.equal(result.weeklyEarned, CLAN_POINTS_WEEKLY_CAP);
+    const character = result.character as Record<string, unknown>;
+    assert.equal(character.clanPoints, 910);
+    assert.equal(character.weeklyClanPoints, 1_000);
+    assert.equal(character.lifetimeClanPoints, 5_010);
+    assert.equal((character.clanPointHistory as Array<{ id: string; amount: number }>)[0].amount, 10, 'history records what was paid');
+    // The partial decision is final: the same event is a duplicate, never topped up.
+    const retry = awardClanPoints({ ...character, weeklyClanPoints: 0 }, 'clanWarWin', 25, { eventId: 'war:clamp' }, now);
+    assert.equal(retry.awarded, 0);
+    assert.equal(retry.reason, 'duplicate-event');
+});
+
+test('awardClanPoints pays nothing once the weekly cap is reached', () => {
+    const now = new Date('2026-01-01T12:00:00Z');
+    const result = awardClanPoints(
+        { name: 'capped', clan: 'Leaf', clanPoints: 900, weeklyClanPoints: CLAN_POINTS_WEEKLY_CAP, weeklyClanPointsWeek: clanPointWeekKey(now) },
         'clanWarWin',
         25,
         {},
-        new Date('2026-01-01T12:00:00Z'),
+        now,
     );
     assert.equal(result.awarded, 0);
     assert.equal(result.reason, 'weekly-cap');
-    assert.equal(result.weeklyEarned, 990);
+    assert.equal(result.weeklyEarned, CLAN_POINTS_WEEKLY_CAP);
+    assert.equal((result.character as Record<string, unknown>).clanPoints, 900);
+});
+
+test('awardClanPoints pays an award that fits in full, with no cap reason', () => {
+    const now = new Date('2026-01-01T12:00:00Z');
+    const result = awardClanPoints(
+        { name: 'fits', clan: 'Leaf', clanPoints: 0, weeklyClanPoints: 975, weeklyClanPointsWeek: clanPointWeekKey(now) },
+        'clanWarWin',
+        25,
+        {},
+        now,
+    );
+    assert.equal(result.awarded, 25);
+    assert.equal(result.reason, undefined);
+    assert.equal(result.weeklyEarned, CLAN_POINTS_WEEKLY_CAP);
 });
 
 test('awardClanPoints ignores duplicate event IDs', () => {

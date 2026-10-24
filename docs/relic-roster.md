@@ -21,7 +21,7 @@ Every bonus below applies only against PvE enemies. “Offense” matches the at
 | 2 | Umbral Knot | 45 | +6% Genjutsu | Shadow Ancient Chest, 0.30% |
 | 3 | Stormglass Pendulum | 60 | +8% Lightning | Central Ancient Chest, 0.15% |
 | 3 | Gravewatch Fang | 60 | +8% Taijutsu | Central Ancient Chest, 0.15% |
-| 3 | Drownstone Compass | 70 | +8% Wind | Central Ancient Chest, 0.15% |
+| 3 | Drownstone Compass | 70 | +8% Water | Central Ancient Chest, 0.15% |
 | 6 | Duelist's Red Cord | 100 | +14% Bukijutsu | Shared endgame sources below |
 | 6 | Mirror-Mask Shard | 100 | +14% Genjutsu | Shared endgame sources below |
 | 6 | Conqueror's War Seal | 100 | +14% Taijutsu | Shared endgame sources below |

@@ -94,7 +94,7 @@ All cited from the live code (not the older docs, which predate the `×3` value)
 | Endless Tower | `(15 + 2·level)·factor·milestone`, **+8%/wave compounding** | **UNCAPPED** ⚠️ | `lib/endless-tower.ts:21` |
 | Story bosses | 120 → 10,000 (one-time per milestone) | one-time | `data/storylines.ts:19` |
 | Hollow Gate chests | `50 + sectorEq·2` | dungeon RNG | `lib/hollow-gate-dungeon.ts:924` |
-| Weekly boss | share of `hpMax·0.25` | top-damage, 72h cycle | `api/weekly-boss.ts:220` |
+| Weekly boss | share of a fixed 100,000 reference, capped 60,000 (MVP 90,000) | top-damage, 72h cycle | `shared/weekly-boss-rewards.ts` |
 
 **Throttle model:** there is **no global energy bar**. Pacing is per-activity
 daily caps + per-mission once-a-day idempotency. Stamina is an in-battle/training

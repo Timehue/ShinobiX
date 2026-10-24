@@ -19,6 +19,7 @@ import {
     findBounty,
     findPendingBountyClaim,
     finishBountyClaim,
+    isBountyContributor,
     reserveBountyClaim,
     restoreBountyClaim,
     BOUNTY_KEY,
@@ -36,6 +37,8 @@ import {
 import { pushOfflineNotice } from '../player/_offline-notices.js';
 import { announce } from '../_announce.js';
 import { contractHunterCooldownKey, contractHunterIdFor } from '../../shared/contract-hunter.js';
+import { bountyPlacementFee } from '../../shared/pvp-bounty-fee.js';
+import { recordEconomyTxn } from '../_economy.js';
 
 /*
  * /api/pvp/bounty — GET (board) + POST (place / claim)
@@ -150,7 +153,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 sharedKey: BOUNTY_KEY,
                 resource: 'ryo',
                 amount,
-                meta: { target: targetSlug },
+                meta: { target: targetSlug, fee: bountyPlacementFee(amount) },
                 decide: ({ character, shared }) => {
                     const passedExams = Array.isArray(character.examsPassed)
                         ? character.examsPassed.map((exam) => String(exam).toLowerCase())
@@ -163,10 +166,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const board = shared ?? normalizeBoard(null);
                     const result = placeBounty({ placerName: placer, targetName: targetDisplay, amount, placerRyo: num(character.ryo), targetExists, board }, now);
                     if (!result.ok) return { ok: false, status: 400, error: result.reason };
+                    // The stake is escrowed; the 15% posting fee is burned (#30).
                     return {
                         ok: true,
-                        character: { ...character, ryo: num(character.ryo) - result.amount },
-                        plan: { target: targetDisplay, amount: result.amount, placer },
+                        character: { ...character, ryo: num(character.ryo) - result.amount - result.fee },
+                        plan: { target: targetDisplay, amount: result.amount, placer, fee: result.fee },
                         result: { placer },
                     };
                 },
@@ -191,6 +195,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             };
 
             if (out.placed) await kv.set(`${BOUNTY_AUDIT_PREFIX}place:${Date.now()}`, { ts: now, placer: playerName, target: targetSlug, amount }, { ex: 30 * 24 * 60 * 60 }).catch(() => undefined);
+            const burned = out.placed ? Math.max(0, Math.floor(num(settled.plan.fee))) : 0;
+            if (burned > 0) {
+                // Sink telemetry (I-19), after the placement landed, once.
+                void recordEconomyTxn({
+                    txnId: `bounty-fee:${requestId ?? `${playerName}:${targetSlug}:${now}`}`,
+                    player: playerName,
+                    currency: 'ryo',
+                    delta: -burned,
+                    source: 'pvp.bounty.burn',
+                });
+            }
             if (out.placed) {
                 // Feed-only ("medium") — the board write is durable; the receipt
                 // is the head + its updatedAt stamp (the stamp placeBounty wrote),
@@ -340,7 +355,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         }
                     }
                     // No bounty on the loser — a harmless no-op.
-                    if (!findBounty(board, loserName)) return settleWithoutPayout({ ok: true, amount: 0 }, { ts: now, amount: 0 });
+                    const head = findBounty(board, loserName);
+                    if (!head) return settleWithoutPayout({ ok: true, amount: 0 }, { ts: now, amount: 0 });
+                    // A contributor cannot win back their own stake (I-14). The
+                    // head stays on the board for another hunter.
+                    if (isBountyContributor(head, winnerName, winnerSlug)) {
+                        return settleWithoutPayout({ ok: true, amount: 0, voided: 'contributor' }, { ts: now, amount: 0, voided: 'contributor' });
+                    }
                     // A shared connection voids only the optional bounty payout; it
                     // does not invalidate the already-authoritative battle result.
                     // Return a successful no-payout settlement so the winner's PvP

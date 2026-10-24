@@ -10,7 +10,9 @@ import { isDeepStrictEqual } from 'node:util';
  *   - a LOWER ryo is a stale client echoing an older wallet, so the stored
  *     balance is kept — accepting it would erase a server credit;
  *   - the acknowledgement carries the stored ryo, so a drifted client converges.
- * ALLOW_CLIENT_RYO_DECREASE=1 restores the old decrease-free rule (rollback).
+ * ALLOW_CLIENT_RYO_DECREASE=1 restores the old decrease-free rule (rollback),
+ * outside the strict ledger only: strict (the code default, owner A13) always
+ * keeps the stored balance.
  */
 
 process.env.SESSION_SECRET = 'ryo-server-owned-test-secret-with-enough-entropy';
@@ -65,7 +67,7 @@ function withoutSavePacingHint(body: unknown): unknown {
 
 function character(name: string, ryo: number): Record<string, unknown> {
     return {
-        name, level: 1, xp: 0, experience: 0, ryo,
+        name, level: 1, xp: 0, experience: 0, ryo, fateShards: 0,
         rank: 'Academy Student', rankTitle: 'Academy Student', village: '',
         stats: {}, inventory: [], itemStacks: [], pets: [], equipment: {},
         earnedTitles: [], serverTitles: [],
@@ -294,16 +296,25 @@ test('a higher ryo is still rejected atomically with the authoritative balance',
     assert.equal(out.stored._saveVersion, 4, 'a rejected write does not advance the version');
 });
 
-test('ALLOW_CLIENT_RYO_DECREASE=1 restores the old decrease-free rule', async () => {
+test('ALLOW_CLIENT_RYO_DECREASE=1 restores the old decrease-free rule with the strict ledger off', async () => {
     const previous = process.env.ALLOW_CLIENT_RYO_DECREASE;
+    const previousLedger = process.env.STRICT_RAW_SAVE_LEDGER;
     process.env.ALLOW_CLIENT_RYO_DECREASE = '1';
     try {
+        process.env.STRICT_RAW_SAVE_LEDGER = '0';
         const out = await autosave('ryo-rollback', 500, 200);
         assert.equal(out.statusCode, 200);
         assert.deepEqual(out.body, { ok: true, _saveVersion: 5, ryo: 200, fateShards: 0 });
         assert.equal(out.stored.character.ryo, 200);
+        // The strict ledger (the code default) keeps the stored balance regardless.
+        delete process.env.STRICT_RAW_SAVE_LEDGER;
+        const strict = await autosave('ryo-rollback-strict', 500, 200);
+        assert.equal(strict.statusCode, 200);
+        assert.equal(strict.stored.character.ryo, 500);
     } finally {
         if (previous === undefined) delete process.env.ALLOW_CLIENT_RYO_DECREASE;
         else process.env.ALLOW_CLIENT_RYO_DECREASE = previous;
+        if (previousLedger === undefined) delete process.env.STRICT_RAW_SAVE_LEDGER;
+        else process.env.STRICT_RAW_SAVE_LEDGER = previousLedger;
     }
 });

@@ -18,13 +18,16 @@ let consumable: Handler;
 let event: Handler;
 let step: Handler;
 let settle: Handler;
+let sanctifyCost: number;
 
 before(async () => {
     const storage = await import('../_storage.js');
     assert.equal(storage.saveStoreKind, 'memory-qa');
     kv = storage.kv;
     ({ issuePlayerToken } = await import('../_auth.js'));
-    consumable = (await import('./use-consumable.js')).default as unknown as Handler;
+    const consumables = await import('./use-consumable.js');
+    consumable = consumables.default as unknown as Handler;
+    sanctifyCost = consumables.HOLLOW_GATE_CONSUMABLE_COSTS.sanctify;
     event = (await import('./event.js')).default as unknown as Handler;
     step = (await import('./step.js')).default as unknown as Handler;
     settle = (await import('./settle.js')).default as unknown as Handler;
@@ -129,7 +132,7 @@ test('different extract route recovers a committed Sanctify checkpoint after ACK
     }));
     const committed = (await kv.get<Save>(f.saveKey))!;
     assert.equal(committed._saveVersion, 2);
-    assert.equal(committed.character.hollowShards, 86);
+    assert.equal(committed.character.hollowShards, 100 - sanctifyCost);
     assert.equal(committed.character.ryo, 1290);
     assert.ok(committed.character.hollowGatePendingOperation);
     const lagging = (await kv.get<HollowGateRunToken>(f.runKey))!;
@@ -141,7 +144,7 @@ test('different extract route recovers a committed Sanctify checkpoint after ACK
     assert.equal(extracted.status, 200, String(extracted.body?.error));
     const after = (await kv.get<Save>(f.saveKey))!;
     assert.equal(after.character.ryo, 1290, 'the recovered checkpoint contains the earlier legitimate external credit');
-    assert.equal(after.character.hollowShards, 86, 'Sanctify was charged exactly once');
+    assert.equal(after.character.hollowShards, 100 - sanctifyCost, 'Sanctify was charged exactly once');
     assert.equal(after.character.hollowGateRun, null);
     assert.equal(await kv.get(f.runKey), null);
     const retry = await call(settle, f.name, { token: f.token, action: 'extract' });

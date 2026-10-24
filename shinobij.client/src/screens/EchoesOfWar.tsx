@@ -22,6 +22,7 @@ import {
     ECHOES_HERO_COPY,
     ECHOES_OPPONENTS,
     ECHOES_REWARD_DISPLAY,
+    echoesFirstDailyWinAvailable,
     echoesRepeatWinsLeftToday,
     ECHOES_TOWER_HERO,
     echoesBandForFloor,
@@ -233,6 +234,8 @@ function EchoesOfWarContent({ character, creatorCards, updateCharacter, onVersio
 
     const progress = echoesClientProgress(character.echoesOfWar);
     const repeatWinsLeft = echoesRepeatWinsLeftToday(character.echoesOfWar);
+    // The server pays +35 on the day's first paid repeat win (_echoes-catalog.ts).
+    const firstWinToday = echoesFirstDailyWinAvailable(character.echoesOfWar);
     const storySeen = character.echoesStorySeen ?? {};
     const witnessChoices = normalizeEchoesWitnessChoices(character.echoesWitnessChoices);
     const effectiveWitnessChoiceId = witnessEraId
@@ -615,7 +618,7 @@ function EchoesOfWarContent({ character, creatorCards, updateCharacter, onVersio
                             <div><dt>Deck</dt><dd>{selected.deckName}. {selected.deckTheme}</dd></div>
                             <div><dt>Difficulty</dt><dd>{selected.difficultyLabel}</dd></div>
                             <div><dt>First clear</dt><dd>{firstClearTotal} Chronicle Points</dd></div>
-                            <div><dt>Repeat win</dt><dd>{ECHOES_REWARD_DISPLAY.repeatWin} Chronicle Points, for the first {ECHOES_REWARD_DISPLAY.repeatWinsPerDay} repeat wins each day ({repeatWinsLeft} left today)</dd></div>
+                            <div><dt>Repeat win</dt><dd>{ECHOES_REWARD_DISPLAY.repeatWin} Chronicle Points for each of the first {ECHOES_REWARD_DISPLAY.repeatWinsPerDay} repeat wins each day. The first of them pays {ECHOES_REWARD_DISPLAY.firstDailyWinBonus} more ({repeatWinsLeft} left today)</dd></div>
                             {cleared ? <div><dt>Wins</dt><dd>{entry?.wins ?? 0}</dd></div> : null}
                         </dl>
                         {cleared ? <p className="echoes-chronicle-note">Chronicle note: {selected.chronicleNote}</p> : null}
@@ -687,7 +690,9 @@ function EchoesOfWarContent({ character, creatorCards, updateCharacter, onVersio
                             <span className="echoes-node-meta">{opponent.deckName} · {opponent.difficultyLabel}{cleared ? ` · ${entry?.wins ?? 0} ${(entry?.wins ?? 0) === 1 ? "win" : "wins"}` : ""}</span>
                             <span className="echoes-node-reward">
                                 {cleared
-                                    ? repeatWinsLeft > 0
+                                    ? firstWinToday
+                                        ? `Repeat win: ${ECHOES_REWARD_DISPLAY.repeatWin + ECHOES_REWARD_DISPLAY.firstDailyWinBonus} Chronicle Points for today's first win (${repeatWinsLeft} left today)`
+                                        : repeatWinsLeft > 0
                                         ? `Repeat win: ${ECHOES_REWARD_DISPLAY.repeatWin} Chronicle Points (${repeatWinsLeft} left today)`
                                         : "Repeat win: no Chronicle Points left today"
                                     : `First clear: ${ECHOES_REWARD_DISPLAY.repeatWin + ECHOES_REWARD_DISPLAY.firstClearBonus + (opponent.isBoss ? ECHOES_REWARD_DISPLAY.bossFirstClearBonus : 0)} Chronicle Points`}

@@ -74,12 +74,12 @@ test("key forge: locked until attuned, then converts shards into a key", () => {
     assert.equal(keyForgeUnlocked(locked), false);
     assert.equal(forgeHollowGateKey(locked).ok, false);
 
-    const unlocked = char({ hollowGateAttunement: { "key-forge": 1 }, hollowShards: 100, inventory: [], itemStacks: [] });
+    const unlocked = char({ hollowGateAttunement: { "key-forge": 1 }, hollowShards: 200, inventory: [], itemStacks: [] });
     assert.equal(keyForgeUnlocked(unlocked), true);
     const r = forgeHollowGateKey(unlocked);
     assert.ok(r.ok);
     if (r.ok) {
-        assert.equal(r.character.hollowShards, 100 - KEY_FORGE_COST);
+        assert.equal(r.character.hollowShards, 200 - KEY_FORGE_COST);
         // a key landed somewhere (inventory[] for uniques, itemStacks[] for stackables)
         const added = (r.character.inventory?.length ?? 0) + (r.character.itemStacks?.length ?? 0);
         assert.ok(added > 0, "a Hollow Gate Key was added to the character");
@@ -89,4 +89,7 @@ test("key forge: locked until attuned, then converts shards into a key", () => {
 test("key forge: fails when shards are too few", () => {
     const c = char({ hollowGateAttunement: { "key-forge": 1 }, hollowShards: 5, inventory: [], itemStacks: [] });
     assert.equal(forgeHollowGateKey(c).ok, false);
+    // 2026-10 rebalance: a key costs 120 shards, so 100 no longer forges one.
+    assert.equal(KEY_FORGE_COST, 120);
+    assert.equal(forgeHollowGateKey({ ...c, hollowShards: 100 }).ok, false);
 });

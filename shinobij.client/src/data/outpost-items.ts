@@ -1,6 +1,6 @@
 import type { GameItem } from '../types/combat';
 import { GATHERING_TOOLS } from '../../../shared/gathering-tool-items';
-import { RESOURCE_ITEMS } from '../../../shared/resource-items';
+import { RESOURCE_ITEMS, resourceItemRarity } from '../../../shared/resource-items';
 import { gatheringToolArtwork } from '../lib/gathering-tool-art';
 
 export const outpostItems: GameItem[] = [
@@ -11,10 +11,10 @@ export const outpostItems: GameItem[] = [
     })),
     // Common minerals already exist; their ids and exploration uses stay compatible.
     ...RESOURCE_ITEMS.filter(item => item.grade > 0 || item.activity === 'fishing').map(item => ({
-        id: item.id, name: item.name, slot: 'item' as const, cost: 0, rarity: 'common' as const,
+        id: item.id, name: item.name, slot: 'item' as const, cost: 0, rarity: resourceItemRarity(item.family, item.grade),
         bonuses: {}, image: item.activity === 'fishing' ? '/items/gather-river-fish.svg' : `/items/${item.family}-v1.webp`,
         description: item.activity === 'fishing'
-            ? `${['Common', 'Fine', 'Superior', 'Pristine'][item.grade]} fish. Cook five with a Field Herb and Heartwood Bark at the Noodle Den for ${(item.grade + 1) * 5} Ration Packs.`
-            : `${['Common', 'Fine', 'Superior', 'Pristine'][item.grade]} mineral. Used in grade-specific forging recipes at the Crafter.`,
+            ? `${['Common', 'Fine', 'Superior', 'Pristine'][item.grade]} fish. Cook five with a Field Herb and Heartwood Bark at the Noodle Den for ${(item.grade + 1) * 5} Ration Packs, or turn four into Treats at the Crafter.`
+            : `${['Common', 'Fine', 'Superior', 'Pristine'][item.grade]} mineral. Used in grade-specific forging recipes at the Crafter${item.grade > 0 ? '; the Shinobi Outpost refinery breaks it down into Common grade' : ''}.`,
     })),
 ];

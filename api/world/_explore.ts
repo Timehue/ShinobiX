@@ -1,6 +1,7 @@
 import { gainXp } from '../_xp-engine.js';
 import { recordFirstContractActivity } from '../../shared/first-contract.js';
 import { isPlayableWildSector, sectorBiomeOf } from '../../shared/sector-geo.js';
+import { WILD_HIT_CEILING } from '../pet/_encounter.js';
 
 export const DAILY_SECTOR_EXPLORE_LIMIT = 100;
 
@@ -46,9 +47,12 @@ export function rollSectorExploreOutcome(
     return { kind: 'gather' };
 }
 
-/** Move exactly 15 and 5 overall percentage points after earlier probes. */
+/** Move exactly 15 and 5 overall percentage points after earlier probes: the
+ *  level-50 dungeon probe (2%), then the wild-pet probe (WILD_HIT_CEILING, 5.9%
+ *  since the 2026-10 rare-band change). */
 export function sectorExplorePostChestRates(level: number, chestAvailable: boolean) {
-    const survival = level >= 50 ? 0.98 * 0.95 : 0.95;
+    const petSurvival = 1 - WILD_HIT_CEILING;
+    const survival = level >= 50 ? 0.98 * petSurvival : petSurvival;
     const d = survival * (chestAvailable ? 1 - SECTOR_EXPLORE_CHEST_CHANCE : 1);
     return { battle: (0.8 * d - 0.15) / d, quiet: (0.2 * d - 0.05) / d, gather: 0.20 / d, survival, d };
 }

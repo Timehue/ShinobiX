@@ -335,15 +335,19 @@ its structures go **dormant** (§7) — being conquered also strips your bonuses
 reclaim land. That is the taut ceiling, sized to the 0–8 economy.
 
 ### 6.3 War & mercenary costs (move onto WR)
-| Action | Mock | **Proposed v1 (WR)** | Notes |
-|---|---|---|---|
-| Declare war on a village | 5,000 | **800** | ≈5–7 days of a full‑8 village's *net* income (after light upkeep) → ~weekly war for a strong village; a besieged one can't afford it (defend first) |
-| Sector war (contest 1 enemy sector) | 2,000 | **250** | a couple of skirmishes/week |
-| Mercenary Lv75 (ronin) | — | **60** | 2‑day contract |
-| Mercenary Lv80 (reaver) | 500 | **110** | 2‑day |
-| Mercenary Lv85 (shadow) | — | **170** | 2‑day |
-| Mercenary Lv95 (oni) | 1,000* | **280** | 2‑day |
-| Mercenary Lv100 (warlord) | 1,500 | **420** | 2‑day |
+| Action | Mock | **Proposed v1 (WR)** | Treasury ryo (2026-10) | Notes |
+|---|---|---|---|---|
+| Declare war on a village | 5,000 | **800** | — | ≈5–7 days of a full‑8 village's *net* income (after light upkeep) → ~weekly war for a strong village; a besieged one can't afford it (defend first) |
+| Sector war (contest 1 enemy sector) | 2,000 | **250** | — | a couple of skirmishes/week |
+| Mercenary Lv75 (ronin) | — | **60** | 15,000 | 2‑day contract |
+| Mercenary Lv80 (reaver) | 500 | **110** | 27,500 | 2‑day |
+| Mercenary Lv85 (shadow) | — | **170** | 42,500 | 2‑day |
+| Mercenary Lv95 (oni) | 1,000* | **280** | 70,000 | 2‑day |
+| Mercenary Lv100 (warlord) | 1,500 | **420** | 105,000 | 2‑day |
+
+The treasury ryo column is 250 per War Resource charged (dial `WAR_RYO_PER_WR`),
+after the comeback and Barracks discounts; a hire that costs the treasury anything
+needs the seated Kage.
 
 \*Mock lists Lv80/90/100; code has 75/80/85/95/100. Keep the **existing 5 tiers**
 (don't churn the sealed table), switch currency Honor Seals → **WR**, add a **2‑day
@@ -454,7 +458,7 @@ churn on every player. Hard‑rule territory.
 | **Supply Depot** | +5 flat village WR/day per level; increased materials conversion allowance | Permanent, ten levels |
 | **Treasury Vault** | −3% relative occupation-tax rate per level | Permanent, ten levels |
 
-- **Upgrade cost:** temporary tiers use 40 / 80 / 120 WR for the selected declaration; permanent projects use the existing treasury Honor Seal curve and L6+ material costs.
+- **Upgrade cost:** temporary tiers use 40 / 80 / 120 WR plus 10,000 / 20,000 / 30,000 treasury ryo and 20 / 40 / 60 treasury Bone Charms for the selected declaration; permanent projects use the existing treasury Honor Seal curve and L6+ material costs.
 - **Daily maintenance:** permanent levels keep §6.2; temporary instances use `ceil(2 × total tiers × (1 − 0.1 × Barracks tier))`. Expired or surrendered instances are removed before billing.
 - **Shared state:** stored on the village record (`shared:village-war:<slug>`), not on
   characters — so there is exactly one source of truth and the Kage manages it.

@@ -74,9 +74,9 @@ export interface QuestBookEntry {
     fateShards: number;
     /** cosmetic title granted on completion (a choice may override it) */
     award: string;
-    /** only offered while the player's village is in an active war (client-gated availability) */
+    /** only offered while the player's village is in an active war (enforced by questbook accept) */
     requiresWar?: boolean;
-    /** only offered while the player carries a wanderer nemesis (client-gated availability) */
+    /** only offered while the player carries a wanderer nemesis (enforced by questbook accept) */
     requiresRivalry?: boolean;
     /** on claim, ends the player's wanderer rivalry (the capstone's whole point) */
     clearsRivalry?: boolean;
@@ -168,6 +168,19 @@ export function isQuestBookId(id: string): boolean {
 
 export function questBookEntry(id: string): QuestBookEntry | null {
     return isQuestBookId(id) ? QUEST_BOOK[id] : null;
+}
+
+/** The availability gate the client's epicForWanderer applies, enforced at
+ *  accept (framework I-13) so an API caller cannot take a war or rivalry epic
+ *  it was never offered. Only accept is gated: a war or rivalry that ends
+ *  mid-epic never strands the stages already under way. */
+export function questBookGate(
+    entry: QuestBookEntry,
+    ctx: { atWar: boolean; hasRivalry: boolean },
+): 'ok' | 'requires-war' | 'requires-rivalry' {
+    if (entry.requiresWar && !ctx.atWar) return 'requires-war';
+    if (entry.requiresRivalry && !ctx.hasRivalry) return 'requires-rivalry';
+    return 'ok';
 }
 
 /** The sealed epic state — persisted BOTH in KV (`questbook:<player>`, 14d TTL)

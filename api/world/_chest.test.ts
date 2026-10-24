@@ -3,11 +3,16 @@ import { strict as assert } from 'node:assert';
 import {
     applyAncientChestLoot, rollAncientChestLoot, settleAncientChestLoot, wildRelicForRoll,
     relicBandForSector, CHEST_RELIC_IDS, WILD_RELIC_IDS, DUPLICATE_RELIC_FATE_SHARDS, WILD_RELIC_DROP_CHANCE,
-    DAILY_ANCIENT_CHEST_LIMIT,
+    DAILY_ANCIENT_CHEST_LIMIT, chestDuplicateGearValue, chestDuplicateCardPoints,
+    isStackedChestGear, withChestStepDrop,
 } from './_chest.js';
 import { SECTOR_CHEST_POOL_PER_DAY, OWNER_VILLAGE_POOL_BONUS } from './_sector-pool.js';
 import { ITEM_CATALOG } from '../pvp/_item-catalog.js';
 import { MAX_WILD_SECTOR } from '../../shared/sector-geo.js';
+import * as saleModule from '../inventory/_sale.js';
+import { CARD_DUPLICATE_CONVERSION } from '../card-clash/_pack.js';
+import type { SettlementItem } from '../shop/_catalog.js';
+import { craftedSaleCapRyo } from '../../shared/crafting-recipes.js';
 
 function sequence(...values: number[]) { let i = 0; return () => values[i++] ?? 0; }
 
@@ -166,6 +171,134 @@ describe('ancient chest settlement', () => {
         assert.equal(room.loot.cardId, 'tc-01');
         assert.equal((room.character.tileCards as string[]).length, 1_200);
     });
+});
+
+/*
+ * A completed chest roll never pays nothing (economy rebalance 2026-10, #38):
+ * gear the backpack already holds pays its NPC sale value, and a card already
+ * owned pays Chronicle Points. Values follow the live item catalog, so these
+ * tests read it rather than pinning prices another change may move.
+ */
+describe('ancient chest duplicates pay instead of vanishing', () => {
+    const half = (id: string) => Math.floor(Number(ITEM_CATALOG[id]?.cost ?? 0) / 2);
+    /** What /api/inventory/sell credits for one unit of `id` from the backpack. */
+    const soldFor = (id: string) => {
+        const item = { ...ITEM_CATALOG[id], cost: Math.max(0, Math.floor(Number(ITEM_CATALOG[id]?.cost) || 0)) } as SettlementItem;
+        const sold = saleModule.applyInventorySale({ ryo: 0, inventory: [id] }, item, 'backpack', 1, undefined, `chest-parity-${id}`, 1_000);
+        return sold.ok ? sold.value.ryo : 0;
+    };
+
+    it('a duplicate common gear roll pays its NPC sale value, and keeps one copy', () => {
+        const settled = settleAncientChestLoot({ ryo: 10, inventory: ['cloth-hood'], tileCards: [] }, { xp: 0, ryo: 50, itemId: 'cloth-hood' });
+        assert.ok(half('cloth-hood') > 0);
+        assert.equal(settled.loot.duplicateSaleRyo, half('cloth-hood'));
+        assert.equal(settled.loot.ryo, 50 + half('cloth-hood'), 'the sale value rides inside the loot ryo');
+        assert.equal(settled.loot.itemId, 'cloth-hood', 'the reveal can still name the item');
+        assert.equal(settled.character.ryo, 10 + 50 + half('cloth-hood'));
+        assert.deepEqual(settled.character.inventory, ['cloth-hood'], 'no second copy');
+    });
+
+    it('a duplicate rare gear roll pays its NPC sale value', () => {
+        const settled = settleAncientChestLoot({ inventory: ['iron-fang-knuckles'], tileCards: [] }, { xp: 0, itemId: 'iron-fang-knuckles' });
+        assert.equal(settled.loot.duplicateSaleRyo, half('iron-fang-knuckles'));
+        assert.equal(settled.character.ryo, half('iron-fang-knuckles'));
+    });
+
+    it('every chest gear id pays exactly what the sale route credits, or is exempt', () => {
+        // Sweep both gear slots of the real roll so a pool edit cannot add an
+        // unpriced id. Exempt: a relic (its own Fate Shard rule) and stacking
+        // gear, which is granted one more unit instead (2026-10 item-use pass).
+        const ids = new Set<string>();
+        for (const slot of [0.3, 0.6]) {
+            for (let i = 0; i < 400; i++) {
+                const loot = rollAncientChestLoot(1, sequence(0.9, slot, i / 400, 0.9));
+                if (loot?.itemId) ids.add(loot.itemId);
+            }
+        }
+        assert.ok(ids.size >= 26, `${ids.size} gear ids swept`);
+        for (const id of ids) {
+            const value = chestDuplicateGearValue({ inventory: [id] }, id);
+            if (id === 'chakra-ring') { assert.equal(value, 0, 'a relic keeps the relic rule'); continue; }
+            if (isStackedChestGear(id)) { assert.equal(value, 0, `${id} stacks, so it is granted, never converted`); continue; }
+            assert.equal(value, soldFor(id), `${id} pays its sale value`);
+            // Exempt from "has a value": an item the shop will not buy, and a craft made
+            // only of gathered materials (Shuriken, Senbon), which the crafted-goods cap
+            // prices at 0 (shared/crafting-recipes.ts).
+            if (id !== 'potion-rejuvenation' && craftedSaleCapRyo(id) !== 0) assert.ok(value > 0, `${id} has a sale value`);
+        }
+        assert.equal(chestDuplicateGearValue({ inventory: ['potion-rejuvenation'] }, 'potion-rejuvenation'), 0, 'the potion stacks, so it never converts');
+    });
+
+    it('a stacking gear roll (throwable, potion) always adds one more unit to its stack', () => {
+        for (const id of ['thrown-shuriken', 'thrown-senbon', 'thrown-serpent-dust', 'potion-rejuvenation']) {
+            assert.ok(isStackedChestGear(id), `${id} is stacking chest gear`);
+            // Today a second copy paid nothing: a legacy inventory[] copy counted as owned.
+            const legacy = settleAncientChestLoot({ ryo: 0, inventory: [id], itemStacks: [], tileCards: [] }, { xp: 0, ryo: 50, itemId: id });
+            assert.equal(legacy.loot.duplicateSaleRyo, undefined, `${id} is not converted`);
+            assert.equal(legacy.character.ryo, 50, 'only the chest floor ryo');
+            assert.deepEqual(legacy.character.inventory, [id], 'the legacy copy stays where it was');
+            assert.deepEqual(legacy.character.itemStacks, [{ itemId: id, count: 1 }]);
+            const stacked = settleAncientChestLoot({ inventory: [], itemStacks: [{ itemId: id, count: 7 }], tileCards: [] }, { xp: 0, itemId: id });
+            assert.deepEqual(stacked.character.itemStacks, [{ itemId: id, count: 8 }]);
+            assert.deepEqual(stacked.character.inventory, []);
+        }
+        assert.equal(isStackedChestGear('cloth-hood'), false, 'unique gear keeps the sale-value rule');
+        assert.equal(isStackedChestGear('pet-treat'), false, 'treats keep their own path');
+    });
+
+    it('a gear step drop never replaces a chase relic, but still replaces ordinary loot', () => {
+        const relic: Parameters<typeof withChestStepDrop>[0] = { xp: 0, ryo: 60, itemId: CHEST_RELIC_IDS[0] };
+        assert.deepEqual(withChestStepDrop(relic, 'cloth-hood-s1'), relic, 'the relic survives the 5% step');
+        const card = withChestStepDrop({ xp: 0, ryo: 60, cardId: 'tc-01', fateShards: 1 }, 'cloth-hood-s1');
+        assert.equal(card.itemId, 'cloth-hood-s1');
+        assert.equal(card.cardId, undefined);
+        assert.equal(card.fateShards, undefined);
+        assert.equal(card.ryo, 60, 'the ryo floor is kept');
+        // The Chakra Ring is ordinary rare gear, not a chase relic.
+        assert.equal(withChestStepDrop({ xp: 0, itemId: 'chakra-ring' }, 'cloth-hood-s1').itemId, 'cloth-hood-s1');
+        assert.deepEqual(withChestStepDrop({ xp: 0, itemId: 'cloth-hood' }, null), { xp: 0, itemId: 'cloth-hood' });
+    });
+
+    it('a first copy and a gear step are granted as before', () => {
+        const fresh = settleAncientChestLoot({ inventory: [], tileCards: [] }, { xp: 0, ryo: 50, itemId: 'cloth-hood' });
+        assert.equal(fresh.loot.duplicateSaleRyo, undefined);
+        assert.deepEqual(fresh.character.inventory, ['cloth-hood']);
+        assert.equal(fresh.character.ryo, 50);
+        const step = settleAncientChestLoot({ inventory: ['cloth-hood-s1'], tileCards: [] }, { xp: 0, itemId: 'cloth-hood-s1' });
+        assert.equal(step.loot.duplicateSaleRyo, undefined);
+        assert.deepEqual(step.character.inventory, ['cloth-hood-s1', 'cloth-hood-s1']);
+        assert.equal(chestDuplicateGearValue({ inventory: ['pet-treat'] }, 'pet-treat'), 0, 'treats stack, never a duplicate');
+    });
+
+    it('a duplicate card pays 5 Chronicle Points, common or rare', () => {
+        assert.equal(chestDuplicateCardPoints('tc-01'), CARD_DUPLICATE_CONVERSION.common.chroniclePoints);
+        assert.equal(chestDuplicateCardPoints('tc-71'), CARD_DUPLICATE_CONVERSION.rare.chroniclePoints);
+        assert.equal(chestDuplicateCardPoints('tc-01'), 5);
+        const settled = settleAncientChestLoot({ tileCards: ['tc-01'], chroniclePoints: 7 }, { xp: 0, cardId: 'tc-01' });
+        assert.equal(settled.loot.chroniclePoints, 5);
+        assert.equal(settled.character.chroniclePoints, 12);
+        assert.deepEqual(settled.character.tileCards, ['tc-01']);
+        const rare = settleAncientChestLoot({ tileCards: ['tc-71'] }, { xp: 0, cardId: 'tc-71' });
+        assert.equal(rare.character.chroniclePoints, 5);
+    });
+
+    it('a duplicate at the collection cap pays CP, and a new card at the cap still pays 1 Fate Shard', () => {
+        // 1,200 packable cards plus tc-01 (a Traveler's Codex card the cap does not count).
+        const full = ['tc-01', ...Array.from({ length: 1_200 }, (_, index) => `owned-${index}`)];
+        const dup = settleAncientChestLoot({ fateShards: 2, tileCards: full }, { xp: 0, cardId: 'tc-01' });
+        assert.equal(dup.loot.chroniclePoints, 5);
+        assert.equal(dup.loot.fateShards, undefined);
+        assert.equal(dup.character.fateShards, 2);
+        const fresh = settleAncientChestLoot({ fateShards: 2, tileCards: full }, { xp: 0, cardId: 'tc-02' });
+        assert.equal(fresh.loot.chroniclePoints, undefined);
+        assert.equal(fresh.loot.fateShards, 1);
+    });
+
+    it('adds no Chronicle Point key to a save when none is paid', () => {
+        const settled = settleAncientChestLoot({ tileCards: [] }, { xp: 0, cardId: 'tc-01' });
+        assert.equal('chroniclePoints' in settled.character, false);
+    });
+
 });
 
 /*

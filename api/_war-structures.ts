@@ -57,7 +57,9 @@ export function isPerWarStructure(key: string): key is 'ramparts' | 'watchtower'
     return key === 'ramparts' || key === 'watchtower' || key === 'barracks' || key === 'warAcademy';
 }
 
-/** Three temporary tiers cost 40 / 80 / 120 WR. Purchase requires a live instance. */
+/** Three temporary tiers cost 40 / 80 / 120 WR. Purchase requires a live instance.
+ *  Since the 2026-10 rebalance each tier also costs treasury ryo and Bone Charms
+ *  per WR (shared/war-preparations.ts preparationTreasuryCost); this is the WR part. */
 export function perWarStructureWrCost(level: number): number {
     return preparationCost(level);
 }

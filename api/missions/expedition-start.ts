@@ -19,6 +19,7 @@ import {
     PET_EXPEDITION_ROUTES,
     PET_EXPEDITION_TYPES,
     PET_EXPEDITION_REWARD_VERSION,
+    PET_EXPEDITION_RYO_SCALE,
     petExpeditionRewardPreview,
     type PetExpeditionProvision,
     type PetExpeditionRisk,
@@ -26,6 +27,13 @@ import {
 } from '../../shared/pet-expedition-contract.js';
 import { sectorBiomeOf, sectorName, sectorRegionLabel } from '../../shared/sector-geo.js';
 import { rollPetExpeditionMaterials } from '../../shared/pet-expedition-materials.js';
+import { economyDial } from '../_economy-dials.js';
+
+/** EXPEDITION_RYO_SCALE (default 0.2, range 0-1; kill value 1): the share of a
+ *  route's ryo an expedition pays, sealed at launch. */
+export function expeditionRyoScale(): number {
+    return economyDial('EXPEDITION_RYO_SCALE', PET_EXPEDITION_RYO_SCALE, { min: 0, max: 1 });
+}
 
 /*
  * /api/missions/expedition-start - POST only
@@ -229,6 +237,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const rewards = petExpeditionRewardPreview(expType, {
                 profession: character.profession, risk, provision,
                 rewardMastery: expRewardMult, materialMastery: expMaterialMult,
+                ryoScale: expeditionRyoScale(),
             });
             const materialRewards = rollPetExpeditionMaterials(expType, biome, rewards.materialMultiplier,
                 () => randomInt(0, 0x1_0000_0000) / 0x1_0000_0000);

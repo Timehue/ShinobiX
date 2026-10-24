@@ -61,6 +61,36 @@ describe('Chronicle progression entitlements', () => {
         assert.deepEqual(replay.character.tileCards, first.character.tileCards);
     });
 
+    it('a transferred character back-fills only its story village\'s cards', () => {
+        const storyCards = (village: string) => CHRONICLE_STORY_SOURCES
+            .filter((source) => source.village === village)
+            .map((source) => `story-${source.aiProfileId}`);
+        const home = 'Ashen Leaf Village';
+        const destination = 'Frostfang Village';
+        assert.equal(storyCards(home).length, 9);
+        assert.equal(storyCards(destination).length, 9);
+        // What api/village/transfer.ts leaves behind: a new `village`, the home
+        // story kept in `storyVillage`, and the same story progress.
+        const transferred = { village: destination, storyVillage: home, storyProgress: 9, tileCards: [] };
+        assert.deepEqual(storyProgressionCardsForCharacter(transferred), storyCards(home));
+        const repaired = backfillChronicleProgressionCards(transferred);
+        assert.deepEqual(repaired.granted, storyCards(home));
+        for (const id of storyCards(destination)) {
+            assert.equal((repaired.character.tileCards as string[]).includes(id), false, `${id} was never earned`);
+        }
+    });
+
+    it('without storyVillage the current village still decides (saves from before the field)', () => {
+        const character = { village: 'Moonshadow Village', storyProgress: 3, tileCards: [] };
+        const expected = CHRONICLE_STORY_SOURCES
+            .filter((source) => source.village === 'Moonshadow Village')
+            .slice(0, 3)
+            .map((source) => `story-${source.aiProfileId}`);
+        assert.deepEqual(storyProgressionCardsForCharacter(character), expected);
+        assert.deepEqual(storyProgressionCardsForCharacter({ ...character, storyVillage: '' }), expected);
+        assert.deepEqual(storyProgressionCardsForCharacter({ ...character, storyVillage: 42 }), expected);
+    });
+
     it('ignores forged ids and never duplicates an owned progression card', () => {
         const valid = STORY_PROGRESSION_CARD_IDS[0];
         const result = grantChronicleProgressionCards(

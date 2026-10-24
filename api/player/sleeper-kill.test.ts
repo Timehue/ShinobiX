@@ -19,8 +19,7 @@ let settleSleeperKo: typeof import('./sleeper-kill.js').settleSleeperKo;
 let handler: (req: never, res: never) => Promise<unknown>;
 let onlineStore: typeof import('../_realtime/online-store.js').onlineStore;
 let issuePlayerToken: typeof import('../_auth.js').issuePlayerToken;
-let computePvpWinGains: typeof import('../_xp-engine.js').computePvpWinGains;
-let repeatWinDecayMultiplier: typeof import('../pvp/_reward-farm.js').repeatWinDecayMultiplier;
+let pvpWinPurse: typeof import('../pvp/_valid-fight.js').pvpWinPurse;
 let setSleeperCamp: typeof import('../_realtime/sleeper-camps.js').setSleeperCamp;
 let stampPlayerIp: typeof import('../_player-ips.js').stampPlayerIp;
 let hasRecentIpOrFpOverlap: typeof import('../_player-ips.js').hasRecentIpOrFpOverlap;
@@ -32,8 +31,7 @@ before(async () => {
     handler = (await import('./sleeper-kill.js')).default as unknown as typeof handler;
     ({ onlineStore } = await import('../_realtime/online-store.js'));
     ({ issuePlayerToken } = await import('../_auth.js'));
-    ({ computePvpWinGains } = await import('../_xp-engine.js'));
-    ({ repeatWinDecayMultiplier } = await import('../pvp/_reward-farm.js'));
+    ({ pvpWinPurse } = await import('../pvp/_valid-fight.js'));
     ({ setSleeperCamp, getSleeperCamp } = await import('../_realtime/sleeper-camps.js'));
     ({ stampPlayerIp, hasRecentIpOrFpOverlap } = await import('../_player-ips.js'));
 });
@@ -99,8 +97,9 @@ test('settleSleeperKo: an already-hospitalized camper is not hit twice', async (
 // ── The PLAYER handler: rewards + the notify wiring ──────────────────────────
 //
 // Everything above settles a KO with no attacker. The handler is the only path
-// that PAYS, and it was previously untested end to end: ryo (with the repeat-
-// opponent decay), the PvP kill credit, Vanguard seals, and the victim notice.
+// that PAYS, and it was previously untested end to end: ryo (a quarter of the
+// PvP purse inside the daily pair weights), the PvP kill credit, Vanguard
+// seals, and the victim notice.
 
 type ResponseOut = { statusCode: number; body: Record<string, unknown> };
 
@@ -152,8 +151,9 @@ test('sleeper-kill handler: pays the base ryo + a PvP kill credit, and tells the
     assert.equal(reward.rewardEligible, true);
     assert.equal(reward.target, 'sleepy');
 
-    // Base ryo is the live PvP-win primitive, undecayed on a first win.
-    const expected = computePvpWinGains(await charOf('raiden') as never, 11).ryoGain;
+    // A quarter of the live PvP purse at the lower level (both are Lv12), at
+    // full pair weight on the pair's first KO of the day.
+    const expected = Math.floor(0.25 * pvpWinPurse({ lMin: 12, sector: 11 }));
     assert.ok(expected > 0);
     assert.equal(reward.ryo, expected, 'first win against this opponent pays in full');
     assert.equal(reward.xp, 0, 'character XP is retired — a sleeper KO grants no stat growth');
@@ -220,7 +220,9 @@ test('sleeper-kill handler: the attacker keeps the recovery earned since their l
     assert.ok(Number(attacker.stamina) >= 30, `stamina ${attacker.stamina} lost the idle recovery`);
 });
 
-test('sleeper-kill handler: the repeat-opponent counter advances once, and only for a credit that landed', async () => {
+test('sleeper-kill handler: the pair counter advances once, and only for a credit that landed', async (t) => {
+    t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
+    const day = new Date().toISOString().slice(0, 10);
     await seedSave('stalker', 0, { ryo: 0 });
     await stage('stalker', 'quarry', 6);
     // The KO commits first; then the attacker's credit write fails.
@@ -237,13 +239,13 @@ test('sleeper-kill handler: the repeat-opponent counter advances once, and only 
     }
     assert.equal(failed.statusCode, 500, JSON.stringify(failed.body));
     assert.equal((await charOf('quarry')).hospitalized, true, 'the KO landed, as before');
-    assert.equal(await kv.get('pvp:pairwins:stalker:quarry'), null,
+    assert.equal(await kv.get(`pvp:pair:quarry:stalker:${day}`), null,
         'a credit that never landed is not counted against the next kill');
 
     await stage('stalker', 'prey', 6);
     const ok = await postKill('stalker', 'prey', '10.9.0.7');
     assert.equal(ok.statusCode, 200, JSON.stringify(ok.body));
-    assert.equal(Number(await kv.get('pvp:pairwins:stalker:prey')), 1, 'a clean kill counts exactly once');
+    assert.equal(Number(await kv.get(`pvp:pair:prey:stalker:${day}`)), 1, 'a clean kill counts exactly once');
 });
 
 test('sleeper-kill handler: collects the head bounty, once, and clears it from the board', async () => {
@@ -298,7 +300,8 @@ test('sleeper-kill handler: an ineligible (same-device) KO leaves the bounty for
     assert.equal(board?.bounties[0].amount, 9_000);
 });
 
-test('sleeper-kill handler: repeat kills on the SAME victim taper by the repeat-opponent decay', async () => {
+test('sleeper-kill handler: repeat kills on the SAME victim taper by the daily pair weights', async (t) => {
+    t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
     await seedSave('kaido', 0, { ryo: 0 });
 
     const ryoAfter: number[] = [];
@@ -309,11 +312,36 @@ test('sleeper-kill handler: repeat kills on the SAME victim taper by the repeat-
         ryoAfter.push(Number((out.body.reward as Record<string, unknown>).ryo));
     }
 
-    const base = computePvpWinGains(await charOf('kaido') as never, 14).ryoGain;
-    assert.deepEqual(ryoAfter, [0, 1, 2].map((prior) => Math.floor(base * repeatWinDecayMultiplier(prior))));
+    const base = pvpWinPurse({ lMin: 12, sector: 14 });
+    assert.deepEqual(ryoAfter, [1, 1, 0.5].map((w) => Math.floor(0.25 * base * w)));
     assert.ok(ryoAfter[2] < ryoAfter[0], 'the third win in the window pays less than the first');
     assert.equal(await charOf('kaido').then((c) => c.ryo), ryoAfter.reduce((a, b) => a + b, 0));
     assert.equal(await charOf('kaido').then((c) => c.totalPvpKills), 3);
+});
+
+test('sleeper-kill handler: a target under 72 h old pays no ryo, and the KO still counts', async () => {
+    await seedSave('freshhunter', 0, { ryo: 0, totalPvpKills: 0 });
+    await stage('freshhunter', 'newbie', 7, { createdAt: Date.now() - 71 * 3_600_000 });
+    const out = await postKill('freshhunter', 'newbie', '10.9.0.10');
+    assert.equal(out.statusCode, 200, JSON.stringify(out.body));
+    assert.equal((out.body.reward as Record<string, unknown>).ryo, 0, 'a too-young target pays nothing');
+    const hunter = await charOf('freshhunter');
+    assert.equal(hunter.ryo, 0);
+    assert.equal(hunter.totalPvpKills, 1, 'the KO is still a PvP kill credit');
+    assert.equal((await charOf('newbie')).hospitalized, true);
+});
+
+test('sleeper-kill handler: a contributor cannot collect the bounty they funded (I-14)', async () => {
+    const BOUNTY_KEY = 'pvp:bounties';
+    await kv.set(BOUNTY_KEY, { bounties: [{ target: 'funded', amount: 4_000, contributors: ['patron'], updatedAt: Date.now() }] });
+    await seedSave('patron', 0, { ryo: 0 });
+    await stage('patron', 'funded', 8);
+    const out = await postKill('patron', 'funded', '10.9.0.11');
+    assert.equal(out.statusCode, 200, JSON.stringify(out.body));
+    assert.equal((out.body.reward as Record<string, unknown>).bounty, 0, 'the patron is paid no bounty');
+    const board = await kv.get<{ bounties: { target: string; amount: number }[] }>(BOUNTY_KEY);
+    assert.equal(board?.bounties.length, 1, 'the head stays on the board for another hunter');
+    assert.equal(board?.bounties[0].amount, 4_000);
 });
 
 test('sleeper-kill handler: a Vanguard attacker banks capped Honor Seals; anyone else banks none', async () => {
@@ -383,6 +411,24 @@ test('notifySleeperKill: queues a sleeper-kill notice for the victim and a low-i
     assert.equal(post.importance, 'low');
     assert.equal(post.title, 'Camp Ambushed');
     assert.equal(post.message, "Raiden ambushed Zed's camp in Sector 17.");
+});
+
+test('sleeper-kill handler: Vanguard XP from repeat KOs on one target follows the pair weights (I-17)', async (t) => {
+    // Needs A-pvp-ranked handoff 1 (the sleeper KO priced by the unordered daily
+    // pair counter, with Vanguard XP scaled by the same factor). A rank-2 Vanguard
+    // earns 1 seal a KO, so three KOs stay inside the 3-per-target seal cap and
+    // only the XP factor moves: vanguardXpForLevel(12) = 100, x 1.1 at rank 2 =
+    // 110, weights 1 / 1 / 0.5 (it was 110 every time).
+    t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
+    await seedSave('pairvan', 0, { profession: 'vanguard', professionRank: 2, professionXp: 100, honorSeals: 0 });
+    for (let i = 0; i < 3; i++) {
+        await stage('pairvan', 'pairmark', 10, { createdAt: 1 });
+        const out = await postKill('pairvan', 'pairmark', '10.9.0.9');
+        assert.equal(out.statusCode, 200, JSON.stringify(out.body));
+    }
+    const vanguard = await charOf('pairvan');
+    assert.equal(vanguard.honorSeals, 3, 'seals keep their own caps');
+    assert.equal(vanguard.professionXp, 100 + 110 + 110 + 55);
 });
 
 test('raidSleeperCamp (NPC merc raid): a successful raid leaves a merc-raid notice naming the raiding village', async () => {

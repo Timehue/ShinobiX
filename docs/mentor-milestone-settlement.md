@@ -23,7 +23,8 @@ Per milestone: sensei +50 Honor Seals and +5 `clanEventContrib`, student
 `min(100, milestones × 25)` from source `mentorMilestone`
 (`mentorClanPointsRequest`). That request goes through the existing pure
 `awardClanPoints` as a single request, so a batch that would cross the weekly
-cap is still refused whole. `clanEventContrib` and the Clan Points fields
+cap is clamped to the remaining weekly headroom (economy rebalance 2026-10),
+and the clamped receipt is final. `clanEventContrib` and the Clan Points fields
 (`clanPoints`, `weeklyClanPoints`, `lifetimeClanPoints`) stay separate fields.
 Eligibility, milestones, the three-student limit and the anti-alt check are
 untouched.

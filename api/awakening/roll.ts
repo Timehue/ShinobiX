@@ -6,6 +6,7 @@ import { enforceRateLimitKv } from '../_ratelimit.js';
 import { cors, safeName } from '../_utils.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { rollAwakening } from './_roll.js';
+import { recordEconomyTxn } from '../_economy.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
@@ -19,12 +20,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         if (!identity.admin && identity.name !== playerName) return res.status(403).json({ error: 'Not your awakening.' });
         if (!identity.admin && !(await enforceRateLimitKv(req, res, 'awakening-roll', 12, 60_000, identity.name))) return;
+        // Fate Shards the committed attempt spent. Reset on every attempt, since
+        // the callback re-runs when its compare-and-set loses.
+        let spent = 0;
         const result = await mutatePlayerSave(playerName, ({ character }) => {
+            spent = 0;
             const rolled = rollAwakening(character, body.kind, body.actionId, randomInt);
             if (!rolled.ok) return { ok: false as const, status: 409, error: rolled.reason };
+            if (!rolled.alreadyApplied) {
+                spent = Math.max(0, Math.floor(Number(character.fateShards) || 0) - Math.floor(Number(rolled.character.fateShards) || 0));
+            }
             return { ok: true as const, character: rolled.character, value: { alreadyApplied: rolled.alreadyApplied } };
         });
         if (!result.ok) return res.status(result.status).json({ error: result.error });
+        // Economy telemetry (I-19): paid rerolls only, after the commit. A replayed
+        // actionId answers alreadyApplied and spends nothing, so it logs nothing.
+        if (!result.value.alreadyApplied && spent > 0) {
+            void recordEconomyTxn({
+                txnId: `awakening:${playerName}:${String(body.actionId ?? '').trim().slice(0, 80)}`,
+                player: playerName,
+                currency: 'fateShards',
+                delta: -spent,
+                source: 'awakening.reroll',
+                balanceAfter: Number(result.character.fateShards ?? 0),
+            });
+        }
         return res.status(200).json({ ok: true, ...result.value, character: result.character, _saveVersion: result._saveVersion });
     } catch (error) {
         console.error('[awakening/roll]', safeLogValue(error));

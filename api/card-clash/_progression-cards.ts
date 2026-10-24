@@ -51,7 +51,13 @@ export function petWitnessProgressionCardId(element: unknown): string | null {
 }
 
 export function storyProgressionCardsForCharacter(character: Record<string, unknown>): string[] {
-    const village = typeof character.village === 'string' ? character.village : '';
+    // storyProgress counts chapters of the HOME village's story. A village
+    // transfer moves `village` but keeps `storyVillage` and the progress, so
+    // keying on `village` handed out the destination's story cards for free
+    // (economy rebalance CC-08). Resolve it the way the story itself does
+    // (story/interlude.ts, story/road-event.ts): storyVillage, else village.
+    const storyVillage = typeof character.storyVillage === 'string' ? character.storyVillage : '';
+    const village = storyVillage || (typeof character.village === 'string' ? character.village : '');
     const completed = Math.max(0, Math.floor(Number(character.storyProgress) || 0));
     if (!village || completed <= 0) return [];
     return CHRONICLE_STORY_SOURCES

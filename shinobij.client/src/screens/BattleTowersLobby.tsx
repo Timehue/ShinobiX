@@ -712,6 +712,7 @@ function SpireLadder({
                         <span className="spire-tag"><GameArtIcon kind="warning" size={16} /> {towerStrikeLabel(sel.boss.strike, sel.boss.mechanic)}</span>
                         {sel.isMilestone && <span className="spire-tag milestone"><GameArtIcon kind="crown" size={16} /> Milestone — {sel.milestoneTitle}</span>}
                         <span className="spire-tag reward"><GameArtIcon kind="fateShard" size={16} /> Weekly best · +{SPIRE_SHARDS_PER_TIER} Fate Shards</span>
+                        <span className="spire-tag reward"><GameArtIcon kind="ryo" size={16} /> Every clear · ryo purse by time in the fight</span>
                     </div>
                     <p className="spire-hero-blurb">{sel.boss.blurb} {TOWER_SIGNATURES[towerSignatureForMechanic(sel.boss.mechanic)].counter}</p>
 

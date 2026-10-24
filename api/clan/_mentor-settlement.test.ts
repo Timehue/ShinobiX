@@ -237,7 +237,7 @@ describe('mentor claim economics', { concurrency: false }, () => {
         assert.equal(history[0].source, 'mentorMilestone');
     });
 
-    test('2c) a batch that would cross the weekly cap is refused whole, exactly as awardClanPoints decides', async () => {
+    test('2c) a batch that would cross the weekly cap is clamped to the headroom, exactly as awardClanPoints decides', async () => {
         const sensei = await read(SENSEI_KEY);
         sensei.character.weeklyClanPoints = 950;
         sensei.character.weeklyClanPointsWeek = clanPointWeekKey(new Date(time));
@@ -245,11 +245,11 @@ describe('mentor claim economics', { concurrency: false }, () => {
         await setStudent({ level: 25, rankedWins: 1 });
         assert.equal((await claim()).status, 200);
         const after = await economy();
-        assert.equal(after.clanPoints, BASE.clanPoints, '950 + 75 > 1000 → the whole batch earns 0');
-        assert.equal(after.weekly, 950);
+        assert.equal(after.clanPoints, BASE.clanPoints + 50, '950 + 75 crosses 1,000 → the batch earns the 50 left');
+        assert.equal(after.weekly, 1_000);
         assert.equal(after.seals, paid(3, 0).seals, 'the other rewards are unaffected');
         assert.equal(after.studentRyo, paid(3, 0).studentRyo);
-        assert.deepEqual(receipts(await read(SENSEI_KEY))[0].clanPoints, { requested: 75, awarded: 0, weekKey: '2026-W38', reason: 'weekly-cap' });
+        assert.deepEqual(receipts(await read(SENSEI_KEY))[0].clanPoints, { requested: 75, awarded: 50, weekKey: '2026-W38', reason: 'weekly-cap' });
     });
 
     test('3) no eligible milestone fabricates nothing', async () => {
@@ -578,7 +578,7 @@ describe('mentor settlement recovery without the browser', { concurrency: false 
 // ── 13–14: weekly cap, rollover, eviction ──────────────────────────────────
 
 describe('mentor Clan Points and durable replay protection', { concurrency: false }, () => {
-    test('13a) a capped zero outcome is final: a retry next week does not grant the points', async () => {
+    test('13a) a capped outcome is final: a retry next week does not top the points up', async () => {
         const sensei = await read(SENSEI_KEY);
         sensei.character.weeklyClanPoints = 950;
         sensei.character.weeklyClanPointsWeek = '2026-W38';
@@ -590,9 +590,9 @@ describe('mentor Clan Points and durable replay protection', { concurrency: fals
         time += 8 * 86_400_000; // next ISO week
         await settlement.recoverPendingMentorSettlements({ now: time });
         const after = await economy();
-        assert.equal(after.clanPoints, BASE.clanPoints, 'the recorded weekly-cap decision stands');
+        assert.equal(after.clanPoints, BASE.clanPoints + 50, 'the recorded weekly-cap decision stands');
         assert.equal(after.studentRyo, paid(3, 0).studentRyo);
-        assert.deepEqual(receipts(await read(SENSEI_KEY))[0].clanPoints, { requested: 75, awarded: 0, weekKey: '2026-W38', reason: 'weekly-cap' });
+        assert.deepEqual(receipts(await read(SENSEI_KEY))[0].clanPoints, { requested: 75, awarded: 50, weekKey: '2026-W38', reason: 'weekly-cap' });
     });
 
     test('13b) recovery in a later week never resets that week\'s accumulated Clan Points', async () => {
