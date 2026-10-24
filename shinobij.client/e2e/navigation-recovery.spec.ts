@@ -1,5 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { installUiAuditRuntime, uiAuditSave } from './helpers/ui-audit-runtime';
+import { reloadWithTransientAssetRecovery } from './helpers/navigation-reload';
+import { collectNavigationPageErrors } from './helpers/navigation-page-errors';
 
 // These navigation fixtures contain no AI fight. A painted route is ready for
 // Back only after the initial saved-fight probe commits its empty release.
@@ -20,13 +22,11 @@ async function restoreBattleHistory(page: Page, origin: string) {
         history.replaceState({ shinobiNavigation: { account: 'AuditNinja', stack: [origin] } }, '', '#/' + origin);
         history.pushState({ shinobiNavigation: { account: 'AuditNinja', stack: [origin, 'pvpBattle'] } }, '', '#/pvpBattle');
     }, origin);
-    await page.reload();
-    await expect(screen(page, 'pvpBattle')).toBeVisible();
+    await reloadWithTransientAssetRecovery(page, () => expect(screen(page, 'pvpBattle')).toBeVisible());
 }
 
-test('Back and Forward follow screens; refresh retains the Back destination', async ({ page }) => {
-    const errors: string[] = [];
-    page.on('pageerror', error => errors.push(error.message));
+test('Back and Forward follow screens; refresh retains the Back destination', async ({ page, browserName }) => {
+    const { errors } = collectNavigationPageErrors(page, browserName);
     await installUiAuditRuntime(page, { ...uiAuditSave(), currentSector: 0 });
     await page.goto('/#/village');
     await expect(screen(page, 'village')).toBeVisible();
@@ -38,8 +38,7 @@ test('Back and Forward follow screens; refresh retains the Back destination', as
     await expect(screen(page, 'training')).toBeVisible();
     await page.goForward();
     await expect(screen(page, 'inventory')).toBeVisible();
-    await page.reload();
-    await expect(screen(page, 'inventory')).toBeVisible();
+    await reloadWithTransientAssetRecovery(page, () => expect(screen(page, 'inventory')).toBeVisible());
     await page.goBack();
     await expect(screen(page, 'training')).toBeVisible();
     await page.getByRole('button', { name: /back/i }).filter({ visible: true }).first().click();
@@ -58,8 +57,7 @@ test('Pet Home remembers a field origin after refresh', async ({ page }, testInf
     await expect(screen(page, 'worldMap')).toBeVisible();
     await openMenuScreen(page, 'Pet Home');
     await expect(screen(page, 'home')).toBeVisible();
-    await page.reload();
-    await expect(screen(page, 'home')).toBeVisible();
+    await reloadWithTransientAssetRecovery(page, () => expect(screen(page, 'home')).toBeVisible());
     await page.getByRole('button', { name: 'Back to World Map', exact: true }).click();
     await expect(screen(page, 'worldMap')).toBeVisible();
     await expect(page.locator('.sector-hud-region')).toContainText('Sector 13');
@@ -97,8 +95,7 @@ for (const exit of ['Stop watching', 'browser Back'] as const) test(`leaving a r
     await expect(page.getByRole('button', { name: 'Spectate', exact: true })).toHaveClass(/active/);
     await expect.poll(() => leaves.length).toBeGreaterThan(0);
     expect(await page.evaluate(() => localStorage.getItem('pvpSession.v1'))).toBeNull();
-    await page.reload();
-    await expect(screen(page, 'arenaDistrict')).toBeVisible();
+    await reloadWithTransientAssetRecovery(page, () => expect(screen(page, 'arenaDistrict')).toBeVisible());
     await expect(page.getByRole('button', { name: 'Spectate', exact: true })).toHaveClass(/active/);
 });
 
@@ -114,6 +111,48 @@ test('a recovered participant cannot use browser Back to abandon an unresolved f
     await page.goBack();
     await expect(page).toHaveURL(/#\/pvpBattle$/);
     await expect(screen(page, 'pvpBattle')).toBeVisible();
-    await page.reload();
-    await expect(screen(page, 'pvpBattle')).toBeVisible();
+    await reloadWithTransientAssetRecovery(page, () => expect(screen(page, 'pvpBattle')).toBeVisible());
+});
+
+
+test('WebKit reload cancellations retain genuine page errors', async ({ page, browserName }) => {
+    test.skip(browserName !== 'webkit', 'Exercises WebKit document-replacement fetch cancellation');
+    const replacementStarted = Promise.withResolvers<void>();
+    const releaseReplacement = Promise.withResolvers<void>();
+    let visits = 0;
+    let dispatchedProbes = 0;
+    await page.route('**/__navigation-reload-regression__', async route => {
+        if (++visits > 1) {
+            replacementStarted.resolve();
+            await releaseReplacement.promise;
+        }
+        await route.fulfill({ contentType: 'text/html', body: '<!doctype html><h1>Navigation fixture</h1>' });
+    });
+    await page.route('**/api/pvp/session?*', async route => {
+        dispatchedProbes++;
+        await route.fulfill({ status: 204 });
+    });
+    const captured = collectNavigationPageErrors(page, browserName);
+    await page.goto('/__navigation-reload-regression__');
+    const reload = page.reload();
+    try {
+        await replacementStarted.promise;
+        // Force the original race: an old-document retry starts after the
+        // replacement request, before commit. Its rejection is already caught.
+        await page.evaluate(() => {
+            void fetch('/api/pvp/session?pending=1&playerName=AuditNinja&recoveryProbeVersion=2').catch(() => {});
+        });
+        await expect.poll(() => captured.documentReplacementErrors.length).toBe(1);
+        expect(dispatchedProbes).toBe(0);
+        expect(captured.errors).toEqual([]);
+    } finally {
+        releaseReplacement.resolve();
+        await reload;
+    }
+    await expect(page.getByRole('heading', { name: 'Navigation fixture' })).toBeVisible();
+    await page.evaluate(() => {
+        setTimeout(() => { throw new Error('navigation regression sentinel'); }, 0);
+    });
+    await expect.poll(() => captured.errors).toEqual(['navigation regression sentinel']);
+    captured.dispose();
 });
