@@ -1,4 +1,6 @@
 import test from 'node:test';
+import {execFileSync} from 'node:child_process';
+import {fileURLToPath} from 'node:url';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import * as THREE from 'three';
@@ -8,6 +10,16 @@ import {parseStudioGlb,readStudioAccessor} from './lib/pet-studio-glb.mjs';
 const original=await readFile(new URL('./fixtures/pet-sky-falcon-tabs-20261021/original.glb',import.meta.url));
 const selection=JSON.parse(await readFile(new URL('./fixtures/pet-sky-falcon-tabs-20261021/frozen-selection.json',import.meta.url))).vertexUnion.sourceVertexIds;
 const repaired=await repairSkyFalconTabs(original);
+
+test('the hash-pinned Sky Falcon selection stays LF with Windows autocrlf enabled', async()=>{
+    const fixture='shinobij.client/scripts/fixtures/pet-sky-falcon-tabs-20261021/frozen-selection.json';
+    const attributes=execFileSync('git',['-c','core.autocrlf=true','check-attr','text','eol','--',fixture],{
+        cwd:fileURLToPath(new URL('../../',import.meta.url)),encoding:'utf8',windowsHide:true,
+    }).trim().split(/\r?\n/);
+    assert.deepEqual(attributes,[fixture+': text: set',fixture+': eol: lf']);
+    const bytes=await readFile(new URL('./fixtures/pet-sky-falcon-tabs-20261021/frozen-selection.json',import.meta.url));
+    assert.equal(bytes.includes(13),false,'Checkout must preserve the original LF bytes and strict hash pin');
+});
 test('Sky Falcon tab repair changes only the diagnosed skin palettes and preserves all actual wing bindings',async()=>{
     const a=parseStudioGlb(original),b=parseStudioGlb(repaired.bytes),selected=new Set(repaired.report.selectedVertexIds);
     assert.equal(repaired.report.changedVertices,303);
