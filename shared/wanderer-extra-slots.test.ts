@@ -30,6 +30,10 @@ test('anglers and miners stand only beside resource nodes, about half the window
             assert.ok(isWalkableTile(sector, w.homeTile), `sector ${sector}: stands on a walkable tile`);
             const nodes = RESOURCE_NODES.filter((node) => node.sector === sector);
             assert.ok(!nodes.some((node) => node.target === w.homeTile), 'never on the water or rock itself');
+            // Any node's gatherer tile, not only its own: sector 22's Cove
+            // angler used to stand on the Moonlit gatherer's tile.
+            assert.ok(!nodes.some((node) => node.approach === w.homeTile),
+                `sector ${sector} bucket ${bucket}: on gatherer tile ${w.homeTile}`);
             if (w.archetype === 'angler') {
                 assert.equal(w.verb, 'angler');
                 assert.ok(nodes.some((node) => node.activity === 'fishing'));
