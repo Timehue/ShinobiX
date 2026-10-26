@@ -6,7 +6,7 @@ have current evidence.
 
 ## Build
 
-- [ ] Node 22 confirmed locally and on deploy hosts (`node --version`)
+- [ ] Node 24 confirmed locally and on deploy hosts; match the exact version in `.nvmrc` (`node --version`)
 - [ ] `npm ci`
 - [ ] `npm test`
 - [ ] `npm run build`

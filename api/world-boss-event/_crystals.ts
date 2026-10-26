@@ -21,6 +21,14 @@ export type WorldBossCrystalPlayer = {
     clan: string;
 };
 
+function updatePlayerEntry<T>(record: Record<string, T>, slug: string, value: T): Record<string, T> {
+    // Identities are dictionary keys, including retained prototype-shaped
+    // names. Map keeps them as data; fromEntries defines JSON-safe own entries.
+    const entries = new Map(Object.entries(record));
+    entries.set(slug, value);
+    return Object.fromEntries(entries);
+}
+
 export async function worldBossCrystalCanBeMined(nodeId: string, now = Date.now()): Promise<boolean> {
     const event = await readActiveWorldBossEvent();
     if (!event || !worldBossEventIsOpen({ ...event, status: worldBossEventStatus(event, now) }, now)) return false;
@@ -42,15 +50,19 @@ export async function applyWorldBossCrystalHarvest(
         if (!mined.includes(nodeId) && mined.length < WORLD_BOSS_CRYSTAL_MAX_NODES) {
             event.minedCrystalNodeIds = [...mined, nodeId];
             const held = event.hollowShardsHeldByPlayer ?? {};
-            held[player.slug] = Math.max(0, Math.floor(Number(held[player.slug]) || 0)) + 1;
-            event.hollowShardsHeldByPlayer = held;
+            const priorHeld = Object.hasOwn(held, player.slug) ? held[player.slug] : 0;
+            event.hollowShardsHeldByPlayer = updatePlayerEntry(
+                held, player.slug, Math.max(0, Math.floor(Number(priorHeld) || 0)) + 1,
+            );
             const profiles = event.hollowShardProfileByPlayer ?? {};
-            profiles[player.slug] ??= {
-                name: player.name.slice(0, 40),
-                village: player.village.slice(0, 40),
-                clan: player.clan.slice(0, 40),
-            };
-            event.hollowShardProfileByPlayer = profiles;
+            const priorProfile = Object.hasOwn(profiles, player.slug) ? profiles[player.slug] : undefined;
+            event.hollowShardProfileByPlayer = updatePlayerEntry(
+                profiles, player.slug, priorProfile ?? {
+                    name: player.name.slice(0, 40),
+                    village: player.village.slice(0, 40),
+                    clan: player.clan.slice(0, 40),
+                },
+            );
             event.updatedAt = now;
             await writeWorldBossEvent(event);
             harvested = true;
@@ -109,21 +121,21 @@ export async function depositWorldBossHollowShards(
         }
 
         const held = event.hollowShardsHeldByPlayer ?? {};
-        const heldCount = Math.max(0, Math.floor(Number(held[player.slug]) || 0));
+        const heldCount = Math.max(0, Math.floor(Number(Object.hasOwn(held, player.slug) ? held[player.slug] : 0) || 0));
         if (heldCount < 1) return { ok: false, error: 'You have no Hollow Shards ready to turn in.' };
         const previousTotal = Math.max(0, Math.min(WORLD_BOSS_CRYSTAL_MAX_NODES, Math.floor(Number(event.hollowShardsDeposited) || 0)));
         const deposited = Math.min(heldCount, WORLD_BOSS_CRYSTAL_MAX_NODES - previousTotal);
         if (deposited < 1) return { ok: false, error: 'The Hollow Shard meter is already full.' };
         const points = deposited * WORLD_BOSS_HOLLOW_SHARD_POINTS;
         const totalDeposited = previousTotal + deposited;
-        held[player.slug] = heldCount - deposited;
-        event.hollowShardsHeldByPlayer = held;
+        event.hollowShardsHeldByPlayer = updatePlayerEntry(held, player.slug, heldCount - deposited);
         event.hollowShardsDeposited = totalDeposited;
 
-        const profile = event.hollowShardProfileByPlayer?.[player.slug];
+        const profiles = event.hollowShardProfileByPlayer ?? {};
+        const profile = Object.hasOwn(profiles, player.slug) ? profiles[player.slug] : undefined;
         const participants = event.participants ?? {};
-        const prior = participants[player.slug];
-        participants[player.slug] = {
+        const prior = Object.hasOwn(participants, player.slug) ? participants[player.slug] : undefined;
+        const participant = {
             slug: player.slug,
             name: prior?.name ?? profile?.name ?? player.name.slice(0, 40),
             village: prior?.village ?? profile?.village ?? player.village.slice(0, 40),
@@ -136,7 +148,7 @@ export async function depositWorldBossHollowShards(
             matches: Math.max(0, Math.floor(Number(prior?.matches) || 0)),
             firstAt: prior?.firstAt ?? now,
         };
-        event.participants = participants;
+        event.participants = updatePlayerEntry(participants, player.slug, participant);
         event.crystalDepositReceipts = {
             ...receipts,
             [receiptKey]: { playerSlug: player.slug, shards: deposited, points, depositedAt: now },
@@ -148,7 +160,7 @@ export async function depositWorldBossHollowShards(
             replayed: false,
             deposited,
             points,
-            heldHollowShards: held[player.slug],
+            heldHollowShards: heldCount - deposited,
             totalDeposited,
             effects: worldBossCrystalEffects(totalDeposited),
         };

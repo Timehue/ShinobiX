@@ -5,6 +5,8 @@ shinobij.client/node_modules
 # Build output — rebuilt inside the image (avoid shipping stale committed dist/)
 dist
 shinobij.client/dist
+shinobij.client/dist-perf
+shinobij.client/.playwright-dist-*
 
 # Secrets — never bake into the image; set env vars in the platform dashboard
 .env
@@ -51,6 +53,8 @@ Dockerfile
 .dockerignore
 
 # Logs and local artifacts
+/output/
+/outputs/
 **/test-results
 **/playwright-report
 **/.tmp
