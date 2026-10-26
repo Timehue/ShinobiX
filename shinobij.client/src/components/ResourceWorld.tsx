@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import type { Character, VersionedCharacterCommit } from '../types/character';
+import type { Character, PlayerRecord, VersionedCharacterCommit } from '../types/character';
 import { RESOURCE_NODES, WORLD_BOSS_CRYSTAL_NODES, resourceNode, resourceNodePosition, type ResourceNode } from '../../../shared/resource-nodes';
-import { readResourceGathering, resourceNodeState, resourceSkillLevel, resourceSuccessRate, resourceActionsToday, RESOURCE_GRADES, type ResourceReceipt } from '../../../shared/resource-gathering';
+import { readResourceGathering, resourceSkillLevel, resourceSuccessRate, resourceActionsToday, RESOURCE_GRADES, type ResourceReceipt } from '../../../shared/resource-gathering';
+import { useSharedResourceNodes } from '../lib/use-shared-resource-nodes';
+import { ResourceNodeContest } from './ResourceNodeContest';
+import { playerSlug } from '../lib/utils';
 import { resourceRequest, type ResourceResponse } from '../lib/resource-api';
 import { Modal } from './ui/Modal';
 import { ResourceMinigame } from './ResourceMinigames';
@@ -12,10 +15,12 @@ import { gatheringTool, gatheringToolRemaining } from '../../../shared/gathering
 import { gatheringToolArtwork } from '../lib/gathering-tool-art';
 import './resource-gathering.css';
 
-export function ResourceWorld({ character, sector, tile, commit, walk, worldBossCrystals }: {
+export function ResourceWorld({ character, sector, tile, commit, walk, worldBossCrystals, onContest }: {
     character: Character; sector: number; tile: number; commit: VersionedCharacterCommit; walk: (sector: number, tile: number) => void;
     worldBossCrystals?: { active?: boolean; eventId?: string; minedNodeIds?: readonly string[] };
+    onContest?: (player: PlayerRecord) => void | Promise<void>;
 }) {
+    const shared = useSharedResourceNodes(character.name, sector);
     const [selected, setSelected] = useState<ResourceNode | null>(null), [mode, setMode] = useState<'active' | 'relaxed'>(character.resourceGathering?.active?.mode ?? 'active');
     const [busy, setBusy] = useState(false), [error, setError] = useState(''), [receipt, setReceipt] = useState<ResourceReceipt | null>(null);
     const [worldBossHollowShard, setWorldBossHollowShard] = useState<ResourceResponse['worldBossHollowShard']>();
@@ -59,7 +64,9 @@ export function ResourceWorld({ character, sector, tile, commit, walk, worldBoss
     const toolSlot = node?.activity === 'mining' ? 'pickaxe' : 'fishingPole';
     const toolId = character.equipment[toolSlot];
     const usableTool = gatheringTool(toolId)?.slot === toolSlot && gatheringToolRemaining(character, toolId!) !== 0;
-    const charges = node ? 3 - resourceNodeState(state.nodes[node.id], now).attempts : 0;
+    const availability = node ? shared.nodes?.[node.id] : undefined;
+    const charges = availability?.remaining ?? 0;
+    const occupied = !!availability?.gatherer && availability.gatherer !== playerSlug(character.name);
     const today = resourceActionsToday(character, now);
     async function request(action: 'start' | 'resolve' | 'cancel', input: Record<string, unknown> = {}) {
         if (inFlight.current || !node || !ready) return;
@@ -92,7 +99,7 @@ export function ResourceWorld({ character, sector, tile, commit, walk, worldBoss
                 setReceipt(result.receipt);
             }
             return true;
-        } finally { inFlight.current = false; setBusy(false); }
+        } finally { inFlight.current = false; setBusy(false); shared.refresh(); }
     }
     function close() {
         if (busy || (active && !ready)) return;
@@ -106,23 +113,23 @@ export function ResourceWorld({ character, sector, tile, commit, walk, worldBoss
     ];
     return <>
         <div className="resource-node-layer" aria-label="Fishing, mining, and event crystal nodes">{visibleNodes.filter(candidate => candidate.sector === sector).map(candidate => {
-            const remaining = 3 - resourceNodeState(state.nodes[candidate.id], now).attempts;
+            const sharedNode = shared.nodes?.[candidate.id], remaining = sharedNode?.remaining ?? '?';
             const pos = resourceNodePosition(candidate);
             return <button type="button" key={candidate.id} className={`resource-world-node resource-world-node--${candidate.activity}${candidate.worldBossCrystal ? ' resource-world-node--world-boss-crystal' : ''}${remaining === 0 ? ' depleted' : ''}`}
-                style={{ left: `${pos.left}%`, top: `${pos.top}%` }} aria-label={`${candidate.name}, ${candidate.activity}, ${remaining} attempts remaining, skill ${candidate.difficulty}`}
+                style={{ left: `${pos.left}%`, top: `${pos.top}%` }} aria-label={`${candidate.name}, ${candidate.activity}, ${remaining} attempts remaining, skill ${candidate.difficulty}${sharedNode?.gatherer ? ', occupied by ' + sharedNode.gatherer : ''}`}
                 title={candidate.name + ' · Skill ' + candidate.difficulty + (candidate.worldBossCrystal ? ' · yields one Hollow Shard for the World Boss event' : ' · ' + remaining + '/3 attempts')}
                 onPointerDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); setSelected(candidate); setReceipt(null); setError(''); }}>
                 <span className="resource-node-medallion" aria-hidden="true">
                     <img className="resource-node-art" src={candidate.worldBossCrystal ? '/items/gather-stormglass-shard-v1.webp' : candidate.activity === 'fishing' ? '/items/gather-river-fish.svg' : gatheringToolArtwork('tool-basic-pickaxe')} alt="" draggable={false} />
                 </span>
-                <small className="resource-node-charges" aria-hidden="true">{candidate.worldBossCrystal ? 'EVENT' : `${remaining}/3`}</small>
+                <small className="resource-node-charges" aria-hidden="true">{sharedNode?.gatherer ? 'BUSY' : candidate.worldBossCrystal ? 'EVENT' : `${remaining}/3`}</small>
             </button>;
         })}</div>
         <Modal open={Boolean(node || receipt)} onClose={close} title={node?.name ?? 'Gathering result'} className={`resource-dialog${receipt ? ' resource-dialog--report' : active ? ' resource-dialog--working' : ''}`} disableBackdropClose={Boolean(active)} disableEscapeClose={busy}>
             {!ready ? <div className="resource-node-intro">
                 <p role="status">{recovery.status === 'failed' ? 'Gathering could not be checked. Your attempt has not been restarted.' : 'Checking your gathering attempt…'}</p>
                 {recovery.status === 'failed' && <button type="button" className="resource-primary" onClick={() => { setRecovery({ name: character.name, status: 'checking' }); setError(''); setRecoveryRetry(value => value + 1); }}>Check gathering again</button>}
-            </div> : receipt ? <GatheringResult character={character} receipt={receipt} node={node} charges={charges} today={today} busy={busy}
+            </div> : receipt ? <GatheringResult character={character} receipt={receipt} node={node} charges={charges} today={today} busy={busy || occupied || !availability}
                 onBack={close} onAgain={() => { void request('start').then(started => { if (started) setReceipt(null); }); }} /> : active ? <><div className="resource-attempt-strip"><span>Action spent · {today}/100 today</span><span>{Math.max(0, Math.min(Math.ceil((active.expiresAt - active.startedAt) / 1000), Math.ceil((active.expiresAt - now) / 1000)))}s remaining</span></div>
                 {now >= active.expiresAt && <p role="status">This attempt expired. Close it to return to the map.</p>}
                 <ResourceMinigame key={active.id} attempt={active} busy={busy || now >= active.expiresAt} fishingGold={toolId === 'tool-golden-fishing-pole'} resolve={input => void request('resolve', input)} />
@@ -132,9 +139,12 @@ export function ResourceWorld({ character, sector, tile, commit, walk, worldBoss
                 <div className="resource-node-stats"><span>Your skill <strong>{level}</strong></span><span>Attempts <strong>{charges}/3</strong></span><span>{node.activity === 'fishing' ? 'Relaxed success' : 'Baseline success'} <strong>{resourceSuccessRate(level, node.difficulty)}%</strong></span></div>
                 <p>{node.difficulty === 1 ? 'Basic' : node.difficulty === 4 ? 'Rich' : 'Master'} site · Requires skill {node.difficulty} · Quality up to {RESOURCE_GRADES[node.ceiling]}</p>
                 {node.worldBossCrystal && <p>This vein is shared across the world. A successful mine stores one Hollow Shard for you. Turn it in on the World Bosses screen for contribution points and to fill the world's weakening meter.</p>}
-                <p>Explore, fishing and mining share 100 total actions per UTC day. Failures and abandoned attempts count. Empty nodes replenish after 10 minutes.</p>
+                <p>These three attempts are shared by everyone. Empty nodes replenish after 10 minutes. Explore, fishing and mining share your 100 actions per UTC day. Failures and abandoned attempts count.</p>
+                <p>Gathering does not protect you from PvP. Fighting or leaving ends your claim; prolonged disconnection can also end it. An unfinished attempt grants no reward.</p>
                 <p><strong>{100 - Math.min(100, today)} actions left today</strong></p>
-                {charges === 0 ? <p role="status">Replenishes in {Math.max(1, Math.ceil((resourceNodeState(state.nodes[node.id], now).refillAt - now) / 60_000))} {Math.ceil((resourceNodeState(state.nodes[node.id], now).refillAt - now) / 60_000) <= 1 ? 'minute' : 'minutes'}.</p>
+                {!availability ? <p role="status">{shared.error || 'Checking shared node availability…'}</p>
+                    : occupied ? <ResourceNodeContest gatherer={availability.gatherer!} selfName={character.name} onContest={onContest} />
+                    : charges === 0 ? <p role="status">Replenishes in {Math.max(1, Math.ceil((availability.refillAt - now) / 60_000))} {Math.ceil((availability.refillAt - now) / 60_000) <= 1 ? 'minute' : 'minutes'}.</p>
                     : level < node.difficulty ? <p role="status">Train your {node.activity} skill to {node.difficulty} to use this node.</p>
                     : !usableTool ? <p role="status">Equip a {toolSlot === 'pickaxe' ? 'pickaxe' : 'fishing kunai'} in Inventory first. Basic tools are available at the Ryo Shop.</p>
                     : tile !== node.approach || sector !== node.sector ? <button type="button" className="resource-primary" onClick={() => { setSelected(null); requestAnimationFrame(() => walk(node.sector, node.approach)); }}>Approach {node.activity === 'mining' ? 'rock base' : 'shore'}</button>

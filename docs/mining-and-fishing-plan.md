@@ -10,7 +10,9 @@ Implementation specification dated October 7, 2026, updated October 8 to match t
 - Central's Hunter Guild becomes **Shinobi Outpost**, containing Hunting, Fishing, and Mining tabs.
 - Fishing uses **cast, hook, and reel**. Mining uses **Fracture Chain** with chakra charge placement and cascading cracks.
 
-Hunting retains its existing contract, combat, rank, presentation, and allowance rules while moving into the Outpost. Initial gathering uses three charges per personal node, a ten minute refill, a ninety second attempt expiry, ten XP per success and three per completed failure. Abandonment and expiry award no XP.
+Hunting retains its existing contract, combat, rank, presentation, and allowance rules while moving into the Outpost. Gathering uses three charges per shared world node, a ten minute refill, a ninety second attempt expiry, ten XP per success and three per completed failure. Abandonment and expiry award no XP.
+
+The shared-node revision was approved October 26, 2026 and is implemented on `codex/shared-resource-nodes`, awaiting validation and release. It supersedes the original personal depletion rule. No deployment or merge is authorized by this revision.
 
 Hunting also retains its current presentation. The new minigames and animations apply only to Fishing and Mining.
 
@@ -90,15 +92,19 @@ Launch nodes inside authored sector paintings. Defer extended connecting terrain
 
 One fishing cast, including its hook and reel stages, is one attempt. Placing all chakra charges and triggering one Fracture Chain is one mining attempt. Charge placement does not spend additional node attempts; the node's three attempts are three complete puzzles.
 
-A successful extraction, escaped fish, failed extraction, or missed committed minigame spends one daily action and one node attempt. After three attempts the node is depleted for that player even if every attempt failed. Personal depletion lets another player use the same site independently.
+A successful extraction, escaped fish, failed extraction, or missed committed minigame spends one daily action and one shared node attempt. After three attempts the node is depleted for everyone even if every attempt failed. Only one player can hold a live gathering claim on a node at a time.
 
 Selecting, inspecting, and walking toward a node are free. Pressing Start commits the daily action and node attempt on the server before play begins. Moving or cancelling after commitment still spends the attempt, preventing free retries until a favorable outcome appears. Show that cost before Start. Network retries recover the same attempt without spending again.
 
-Propose a 10 minute personal refill timer after the third committed attempt, restoring all three attempts. Daily counters reset at midnight UTC; node cooldowns keep their actual expiry across midnight. An attempt started before midnight belongs to its start day even if the result arrives afterward.
+A 10 minute shared refill timer starts after the third admitted attempt, restoring all three attempts. Daily counters reset at midnight UTC; node cooldowns keep their actual expiry across midnight. An attempt started before midnight belongs to its start day even if the result arrives afterward.
+
+Occupied nodes identify their gatherer and offer **Contest node** through the existing sector PvP entry point. Existing newcomer, recovery, and sector contest rules still apply. Battle entry invalidates gathering; movement, travel, disconnect, cancellation, and expiry also end the claim. The old attempt cannot pay out or release a replacement player's claim. Winning a fight does not automatically grant a node: an eligible player must return to its approach and start a new attempt, using any remaining shared charges.
+
+Shared state lives in `world:resource-node:<nodeId>` KV records, separate from player saves and the sector's daily pool. The server supplies availability for the player's authoritative current sector. Old personal node counters remain compatible save data but do not gate newly admitted shared attempts. Existing sealed attempts retain their original settlement rules.
 
 Both Explore admission and resource Start must enforce the same combined count under the player save lock. Keep actual exploration statistics, discoveries, survey progress, and quest credit specific to Explore. Extract only shared admission logic; calling the [exploration reward helper](../api/world/_explore.ts) for mining would incorrectly grant exploration progress.
 
-The existing [shared sector scarcity](../api/world/_sector-pool.ts) remains a separate constraint when Village Stores pools are enabled: one admitted resource attempt spends one shared sector explore slot, including failures and voluntary cancellation. The existing owner village pool advantage and feature flag behavior remain in effect. Personal node depletion, shared sector scarcity, and the 100 action player allowance are separate counters.
+The existing [shared sector scarcity](../api/world/_sector-pool.ts) remains a separate constraint when Village Stores pools are enabled: one admitted resource attempt spends one shared sector explore slot, including failures and voluntary cancellation. The existing owner village pool advantage and feature flag behavior remain in effect. Shared node depletion, shared sector scarcity, and the 100 action player allowance are separate counters.
 
 ## Implemented minigames and animations
 
@@ -226,7 +232,7 @@ The registered `/api/world/resource` operations are status, start, resolve, canc
 
 At Start, validate the node, layout, accepted approach, sector, required skill, remaining node attempts, combined daily allowance, and battle or travel restrictions. Reserve the shared sector slot, then persist the attempt and debit the player's daily and node counters. Seal the rules version, starting skill level, success and quality random values, difficulty, reward table, grade unlocks and ceiling, input mode, and expiry in the server economy journal. The character save and API responses hold only public attempt details and interaction timing, without reward draws. Seal the fishing cue schedule or Fracture Chain template and variant. An identical Start request recovers the original attempt and counters.
 
-The shared pool and player save are separate records. Implement an idempotent reservation and economy journal consistent with the settlement contract, so failed admission releases an uncommitted reservation and retrying an admitted attempt never reserves or spends again. Do not claim two writes are atomic. Once Start is accepted, normal failure or cancellation retains the spent action and sector slot.
+The shared node, sector pool and player save are separate records. Idempotent reservations and the economy journal recover uncertain writes; a confirmed failed admission releases its reservation, while retrying an admitted attempt never reserves or spends again. Lock order is sorted shared node keys, then player save, then sector pool. An old-generation refund cannot restore charges in a newer refill cycle. Once Start is accepted, normal failure or cancellation retains the spent action, shared charge and sector slot. World-boss crystal credit completes under the node lock, including receipt recovery, before another harvest can be admitted.
 
 Only one resource attempt is active per character. Movement, travel, and battle entry cancel it through authority boundaries serialized against resolution, with a documented lock order. Gathering grants no PvP protection.
 
