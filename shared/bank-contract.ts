@@ -4,6 +4,11 @@ import { parseSettlementRequestId } from './settlement-request-id.js';
 export const BANK_TRANSFER_MAX_AMOUNT = 10_000_000;
 const actions = ['deposit', 'withdraw'] as const;
 
+function storedBalance(value: unknown, message: string): number {
+    if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) throw new ContractError(message);
+    return value;
+}
+
 export function parseBankTransferAction(raw: unknown) {
     return raw === 'deposit' || raw === 'withdraw' ? raw : null;
 }
@@ -37,8 +42,9 @@ export const bankTransferResponseContract = contract((value: unknown) => {
     const authoritative = {
         ...character,
         name: text(character.name, 'Missing character name.'),
-        ryo: whole(character.ryo, 'Invalid wallet balance.'),
-        bankRyo: whole(character.bankRyo, 'Invalid vault balance.'),
+        // Replays return the current save, which can retain legacy fractions.
+        ryo: storedBalance(character.ryo, 'Invalid wallet balance.'),
+        bankRyo: storedBalance(character.bankRyo, 'Invalid vault balance.'),
     };
     return {
         ...body,
@@ -48,7 +54,7 @@ export const bankTransferResponseContract = contract((value: unknown) => {
         ryo: whole(body.ryo, 'Invalid receipt wallet balance.'),
         bankRyo: whole(body.bankRyo, 'Invalid receipt vault balance.'),
         character: authoritative,
-        _saveVersion: whole(body._saveVersion, 'Invalid save version.', 1),
+        _saveVersion: whole(body._saveVersion, 'Invalid save version.', body.replayed === true ? 0 : 1),
         ...(body.replayed === undefined ? {} : { replayed: boolean(body.replayed, 'Invalid replay flag.') }),
         ...taxFields(body),
     };
@@ -59,7 +65,8 @@ export const bankInterestResponseContract = contract((value: unknown) => {
     const common = {
         ok: true as const,
         nextClaimAt: whole(body.nextClaimAt, 'Invalid next claim time.'),
-        _saveVersion: whole(body._saveVersion, 'Invalid save version.', 1),
+        // A read-only refusal can come from a legacy save with no version yet.
+        _saveVersion: whole(body._saveVersion, 'Invalid save version.', body.eligible === false ? 0 : 1),
         ...taxFields(body),
     };
     if (body.eligible === false) return {
@@ -73,7 +80,7 @@ export const bankInterestResponseContract = contract((value: unknown) => {
         ...common,
         eligible: true as const,
         claimed: whole(body.claimed, 'Invalid credited interest.', 1),
-        bankRyo: whole(body.bankRyo, 'Invalid interest balance.'),
+        bankRyo: storedBalance(body.bankRyo, 'Invalid interest balance.'),
         lastBankInterestAt: whole(body.lastBankInterestAt, 'Invalid claim time.', 1),
     };
 });
