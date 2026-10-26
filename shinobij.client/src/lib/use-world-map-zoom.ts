@@ -583,7 +583,6 @@ export function useWorldMapZoom(initialRegion: WorldMapRegionId = "ashen"): Worl
             el.removeEventListener("touchmove", onTouchMove);
             touchGuardAttached = false;
         };
-        let animationFrame = 0;
         const measure = () => {
             activationRef.current();
             const previousSize = sizeRef.current;
@@ -592,45 +591,49 @@ export function useWorldMapZoom(initialRegion: WorldMapRegionId = "ashen"): Worl
             sizeRef.current = nextSize;
             if (!activeRef.current) return;
 
-            cancelAnimationFrame(animationFrame);
-            animationFrame = requestAnimationFrame(() => {
-                commitView((current) => {
-                    if (regionRef.current !== null) {
-                        return getWorldMapRegionView(nextSize, regionRef.current);
-                    }
-                    // "At home" means the camera IS the home view — at the
-                    // floor zoom AND at the cover pan — not merely at the floor
-                    // zoom. A trail focus or a player's pan can sit at the floor
-                    // too (focusPoint clamps its zoom up to the floor on tall
-                    // phones), and snapping those back to centre on every
-                    // address-bar resize threw the Academy target off camera.
-                    const previousCover = coverViewForSize(previousSize);
-                    const atHome = !previousSize.w || (
-                        current.zoom <= previousCover.zoom + 0.05
-                        && Math.abs(current.tx - previousCover.tx) <= 1
-                        && Math.abs(current.ty - previousCover.ty) <= 1
-                    );
-                    if (atHome) {
-                        const next = coverViewForSize(nextSize);
-                        return sameView(current, next) ? current : next;
-                    }
-
-                    // Keep the same logical map point under the viewport center
-                    // while the base map width changes during resize/rotation.
-                    const logicalX = (previousSize.w / 2 - current.tx)
-                        / (previousSize.w * current.zoom);
-                    const logicalY = (previousSize.h / 2 - current.ty)
-                        / ((previousSize.w / WORLD_MAP_ASPECT_RATIO) * current.zoom);
-                    const zoom = clamp(current.zoom, coverZoomForSize(nextSize), MAX_ZOOM);
-                    const point = clampPanForSize(
-                        nextSize,
-                        zoom,
-                        nextSize.w / 2 - logicalX * nextSize.w * zoom,
-                        nextSize.h / 2 - logicalY * (nextSize.w / WORLD_MAP_ASPECT_RATIO) * zoom,
-                    );
-                    const next = { zoom, tx: point.x, ty: point.y };
+            // Remap NOW, in the same task that moves sizeRef. Every camera move
+            // after this line (a keyboard focus reveal, a focusPoint, a pan)
+            // is computed against nextSize. A remap deferred to the next frame
+            // would then shift that newer view as if it still assumed
+            // previousSize: on a 360px phone the map frame settles from 251px
+            // to 120px just after mount, and a reveal in that frame landed its
+            // marker half the difference (65px) above the visible map.
+            commitView((current) => {
+                if (regionRef.current !== null) {
+                    return getWorldMapRegionView(nextSize, regionRef.current);
+                }
+                // "At home" means the camera IS the home view — at the
+                // floor zoom AND at the cover pan — not merely at the floor
+                // zoom. A trail focus or a player's pan can sit at the floor
+                // too (focusPoint clamps its zoom up to the floor on tall
+                // phones), and snapping those back to centre on every
+                // address-bar resize threw the Academy target off camera.
+                const previousCover = coverViewForSize(previousSize);
+                const atHome = !previousSize.w || (
+                    current.zoom <= previousCover.zoom + 0.05
+                    && Math.abs(current.tx - previousCover.tx) <= 1
+                    && Math.abs(current.ty - previousCover.ty) <= 1
+                );
+                if (atHome) {
+                    const next = coverViewForSize(nextSize);
                     return sameView(current, next) ? current : next;
-                });
+                }
+
+                // Keep the same logical map point under the viewport center
+                // while the base map width changes during resize/rotation.
+                const logicalX = (previousSize.w / 2 - current.tx)
+                    / (previousSize.w * current.zoom);
+                const logicalY = (previousSize.h / 2 - current.ty)
+                    / ((previousSize.w / WORLD_MAP_ASPECT_RATIO) * current.zoom);
+                const zoom = clamp(current.zoom, coverZoomForSize(nextSize), MAX_ZOOM);
+                const point = clampPanForSize(
+                    nextSize,
+                    zoom,
+                    nextSize.w / 2 - logicalX * nextSize.w * zoom,
+                    nextSize.h / 2 - logicalY * (nextSize.w / WORLD_MAP_ASPECT_RATIO) * zoom,
+                );
+                const next = { zoom, tx: point.x, ty: point.y };
+                return sameView(current, next) ? current : next;
             });
         };
         measureRef.current = measure;
@@ -639,7 +642,6 @@ export function useWorldMapZoom(initialRegion: WorldMapRegionId = "ashen"): Worl
         ro?.observe(el);
         resizeCleanupRef.current = () => {
             ro?.disconnect();
-            cancelAnimationFrame(animationFrame);
         };
     }, [commitView]);
 
