@@ -71,6 +71,17 @@ async function dismissNotice(page: Page) {
     if (await notice.count()) await notice.getByRole('button', { name: 'OK', exact: true }).click();
 }
 
+async function reloadBank(page: Page) {
+    // Background polls are intentional; screen readiness, not a quiet network,
+    // proves that this new document restored the Bank and its authoritative save.
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.bringToFront();
+    const shell = page.locator('.app-shell[data-screen="bank"]');
+    await shell.waitFor({ state: 'visible' });
+    await shell.locator('.lazy-screen-fallback').waitFor({ state: 'hidden' });
+    await expect(page.locator('.bank-screen')).toBeVisible();
+}
+
 test('Bank associates validation with fields and preserves entered amounts', async ({ page }) => {
     const { runtime } = await bankFixture(page);
     let mutations = 0;
@@ -161,7 +172,7 @@ test('Bank confirms accepted moves, including one whose reply arrives after a ne
     await page.getByRole('button', { name: 'Enter Bank', exact: true }).click();
     await expect(page.locator('.app-shell')).toHaveAttribute('data-screen', 'bank');
     await expect(page.locator('.bank-balance-rail')).toContainText('20,200');
-    await page.reload({ waitUntil: 'networkidle' });
+    await reloadBank(page);
     await expect(page.locator('.app-shell')).toHaveAttribute('data-screen', 'bank');
     await expect(page.locator('.bank-balance-rail')).toContainText('9,800');
     await expect(page.locator('.bank-balance-rail')).toContainText('20,200');
@@ -203,7 +214,7 @@ test('Bank keeps its receipt ID through refresh and a temporary rate limit', asy
     await page.getByRole('button', { name: 'Deposit to vault', exact: true }).click();
     await expect(page.getByRole('alertdialog', { name: 'Notice', exact: true })).toContainText('That action may not have gone through. Wait until the game has saved, then refresh to check before you try again.');
     await dismissNotice(page);
-    await page.reload({ waitUntil: 'networkidle' });
+    await reloadBank(page);
     await expect(page.locator('.app-shell')).toHaveAttribute('data-screen', 'bank');
     await expect(page.locator('.bank-balance-rail')).toContainText('500');
     await amount.fill('500');
@@ -336,7 +347,7 @@ test('a delayed interest receipt cannot overwrite a newer deposit after leaving 
     release();
     await expect(page.locator('.game-toast-stack')).toContainText(/interest.*100.*ryo/i);
     await expect(page.locator('.bank-balance-rail')).toContainText('20,600');
-    await page.reload({ waitUntil: 'networkidle' });
+    await reloadBank(page);
     await expect(page.locator('.bank-balance-rail')).toContainText('20,600');
 });
 
@@ -415,7 +426,7 @@ test('a lost wire receipt survives refresh and a rate limit even after the walle
     await submit();
     await expect(page.getByRole('alertdialog', { name: 'Notice', exact: true })).toContainText('may not have gone through');
     await dismissNotice(page);
-    await page.reload({ waitUntil: 'networkidle' });
+    await reloadBank(page);
     await expect(page.locator('.bank-balance-rail')).toContainText('20,000');
     await submit();
     await expect(page.locator('.game-toast-stack')).toContainText('Too many requests. Retry shortly.');
@@ -459,7 +470,7 @@ test('a delayed wire acknowledgement adopts the current save after a newer depos
     await expect(page.locator('.game-toast-stack')).toContainText('Sent 1,000 Ryo');
     await expect(page.locator('.bank-balance-rail')).toContainText('8,500');
     await expect(page.locator('.bank-balance-rail')).toContainText('20,500');
-    await page.reload({ waitUntil: 'networkidle' });
+    await reloadBank(page);
     await expect(page.locator('.bank-balance-rail')).toContainText('8,500');
 });
 
@@ -553,11 +564,16 @@ for (const state of [
 });
 
 test('Bank interest availability updates while the player is idle at full vitals', async ({ page }) => {
-    const deadline = Date.now() + 8000;
+    const now = Date.now();
+    // Hold wall time through boot while leaving the real display interval
+    // running. A slow browser must not consume the eligibility window.
+    await page.clock.setFixedTime(now);
+    const deadline = now + 8000;
     const { runtime } = await bankFixture(page, { lastBankInterestAt: deadline - 86400000 });
     await expectUiAuditBoot(page, runtime, 'bank');
     const collect = page.getByRole('button', { name: 'Collect interest', exact: true });
     await expect(collect).toBeDisabled();
-    await expect(collect).toBeEnabled({ timeout: Math.max(1000, deadline - Date.now()) + 4000 });
+    await page.clock.setFixedTime(deadline);
+    await expect(collect).toBeEnabled();
     await expect(page.locator('.bank-interest-callout')).toContainText('Ready now');
 });
