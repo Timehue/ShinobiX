@@ -1,6 +1,5 @@
-export const BANK_TRANSFER_MAX_AMOUNT = 10_000_000;
-
-export type BankTransferAction = 'deposit' | 'withdraw';
+import { BANK_TRANSFER_MAX_AMOUNT, parseBankTransferAmount, type BankTransferAction } from '../../shared/bank-contract.js';
+export { BANK_TRANSFER_MAX_AMOUNT, parseBankTransferAction, parseBankTransferAmount, type BankTransferAction } from '../../shared/bank-contract.js';
 export type BankCharacter = Record<string, unknown>;
 
 export type BankTransferResult =
@@ -13,20 +12,6 @@ export type BankTransferResult =
         bankRyo: number;
     }
     | { ok: false; status: 400 | 409; error: string };
-
-export function parseBankTransferAction(raw: unknown): BankTransferAction | null {
-    return raw === 'deposit' || raw === 'withdraw' ? raw : null;
-}
-
-/** Require a bounded, whole-number move before entering the save lock. */
-export function parseBankTransferAmount(raw: unknown): number | null {
-    return typeof raw === 'number'
-        && Number.isSafeInteger(raw)
-        && raw > 0
-        && raw <= BANK_TRANSFER_MAX_AMOUNT
-        ? raw
-        : null;
-}
 
 function storedBalance(raw: unknown): number | null {
     // Missing balances are valid only for legacy saves and mean zero. Any

@@ -99,7 +99,7 @@ describe("permanent action interaction safety", () => {
     test("resource-spending screens use synchronous duplicate guards", () => {
         const cases: Array<[string, string]> = [
             ["../components/Shop.tsx", "purchaseBusyRef"],
-            ["../screens/Bank.tsx", "sendingRef"],
+            ["./use-bank-controller.ts", "sendingRef"],
             ["../screens/ClanBattlesTab.tsx", "busyRef"],
             ["../screens/ClanHall.tsx", "donateBusyRef"],
             ["../screens/ClanSealPool.tsx", "busyRef"],

@@ -421,9 +421,9 @@ test('all daily request representations withhold balance-only versions while oth
     for (const request of ['/api/player/daily-login?retry=1',
         new URL('https://shinobijourney.com/api/player/daily-login'),
         new Request('https://shinobijourney.com/api/player/daily-login', { method: 'POST' })]) {
-        assert.equal(buildSaveVersionEventDetail({ _saveVersion: 9 }, 'owner', 'mutation', request), null);
+        assert.equal(buildSaveVersionEventDetail({ ok: true, eligible: false, claimed: 0, reason: 'cooldown', nextClaimAt: 1000, _saveVersion: 9 }, 'owner', 'mutation', request), null);
     }
-    assert.equal(buildSaveVersionEventDetail({ _saveVersion: 9 }, 'owner', 'mutation',
+    assert.equal(buildSaveVersionEventDetail({ ok: true, eligible: false, claimed: 0, reason: 'cooldown', nextClaimAt: 1000, _saveVersion: 9 }, 'owner', 'mutation',
         '/api/bank/claim-interest').version, 9);
 });
 
