@@ -39,11 +39,17 @@ test('replay receipt balances can differ from the current authoritative save', (
     assert.equal(parsed.ryo, 700);
     assert.equal(parsed.character.ryo, 400);
     assert.equal(parsed._saveVersion, 7);
+    assert.equal(response.parse({ ...valid, replayed: true, _saveVersion: 0,
+        character: { ...valid.character, ryo: 400.5 } }).character.ryo, 400.5);
 });
 
 test('interest separates an uncredited refusal from a credited claim', () => {
     const base = { ok: true, nextClaimAt: 100_000, _saveVersion: 3 };
     assert.equal(interest.parse({ ...base, eligible: false, claimed: 0, reason: 'cooldown' }).eligible, false);
+    assert.equal(interest.parse({ ...base, _saveVersion: 0, eligible: false, claimed: 0, reason: 'no-upgrade' })._saveVersion, 0);
+    const fractional = interest.parse({ ...base, eligible: true, claimed: 5, bankRyo: 1005.5, lastBankInterestAt: 10 });
+    assert.equal(fractional.eligible, true);
+    if (fractional.eligible) assert.equal(fractional.bankRyo, 1005.5);
     assert.equal(interest.parse({ ...base, eligible: true, claimed: 5, bankRyo: 1005, lastBankInterestAt: 10 }).eligible, true);
     for (const fields of [{ eligible: false, claimed: 5, reason: 'cooldown' }, { eligible: false, claimed: 0, reason: 'oops' },
         { eligible: true, claimed: 0, bankRyo: 1000, lastBankInterestAt: 10 }, { eligible: true, claimed: 5 }]) {
