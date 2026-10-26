@@ -152,6 +152,16 @@ test("the mount focus survives activation and the address-bar resize", () => {
     assert.match(source, /const atHome = !previousSize\.w \|\| \([\s\S]*?Math\.abs\(current\.tx - previousCover\.tx\) <= 1/);
 });
 
+test("a resize remaps the camera in the same task that records the new size", () => {
+    const source = readFileSync(new URL("./use-world-map-zoom.ts", import.meta.url), "utf8");
+    // A focus reveal or focusPoint after sizeRef moves is computed against the
+    // new size. A remap deferred a frame shifted that newer view by half the
+    // height change, and the revealed marker landed above the map.
+    const measure = source.match(/const measure = \(\) => \{[\s\S]*?\n {8}\};/)?.[0] ?? "";
+    assert.match(measure, /sizeRef\.current = nextSize;[\s\S]*?commitView\(\(current\) =>/);
+    assert.doesNotMatch(measure, /requestAnimationFrame/);
+});
+
 test("a touch tap's focus never pans the camera out from under the finger", () => {
     const source = readFileSync(new URL("./use-world-map-zoom.ts", import.meta.url), "utf8");
     // A touch tap's compatibility mousedown focuses after its pointer-up, so the

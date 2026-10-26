@@ -8,10 +8,12 @@ import {isWalkableTile} from '../../shared/sector-walk-mask';
 type Pose={col:number;row:number;visible:boolean;activity?:string;original:boolean};
 declare global{interface Window{roadVisitOriginal:HTMLElement;roadVisitRead:()=>Pose}}
 const evidence=process.env.ROAD_VISIT_EVIDENCE_DIR??'../output/living-world/road-visits/browser';mkdirSync(evidence,{recursive:true});
+// Fixed, not Date.now(): a roaming Legacy Emissary ignores quietRoadCooldowns, and no sector has one at any hour of 2026-10-10 (01:00 UTC is world noon).
+const ROAD_VISIT_SCENARIO_EPOCH=Date.UTC(2026,9,10,1);
 for(const mode of ['recurring traveler','injured courier'] as const)test(`cached road visit: ${mode}`,async({page},info)=>{
     test.setTimeout(600_000);page.setDefaultTimeout(15_000);
     const recurring=mode==='recurring traveler',sector=recurring?26:52,id=recurring?'sumi':'courier:52';
-    let slot=Math.floor(Date.now()/300_000);
+    let slot=Math.floor(ROAD_VISIT_SCENARIO_EPOCH/300_000);
     if(recurring)for(let i=0;i<100;i++,slot++)if(lifeActorsAt(sector,slot*300_000+1000,'clear').some(a=>a.id===id))break;
     const now=slot*300_000+1000,route=lifeCourierRoute(sector);let completedAt=now,step=recurring?3:2,offline=false;
     const scene=(at:number)=>lifeSceneView(sector,{...parseLifeState(null,at),step,updatedAt:recurring?Math.floor(at/300_000)*300_000:completedAt},at,'clear');
