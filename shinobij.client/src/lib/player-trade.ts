@@ -124,7 +124,7 @@ export async function sendCurrency(playerName: string, toPlayer: string, currenc
         // an earlier attempt committed. They must retain that attempt's nonce.
         // Anything else may have moved money, so the nonce is kept and the
         // retry resumes the SAME operation.
-        const pending = error.success && error.data.pending === true;
+        const pending = error.success && 'pending' in error.data && error.data.pending === true;
         const refused = [400, 404, 409, 422].includes(res.status) && error.success && !pending;
         settleTradeNonce(key, confirmed || refused, nonce);
         if (!confirmed) return {
