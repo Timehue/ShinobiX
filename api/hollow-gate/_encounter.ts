@@ -155,7 +155,10 @@ export function buildHollowGateSoloPveEncounter(params: {
         : 'Hunter stance: ranged pressure and afflictions. Close distance or move beyond technique range; Cleanse active afflictions.');
     const healText = session.shrineAi.healLimit === 0 ? 'cannot use Basic Heal' : `can use Basic Heal ${session.shrineAi.healLimit === 1 ? 'once' : 'twice'}`;
     session.log.push(`Shrine tactics: ${session.enemy.name} ${healText}. After a support technique it must return to offense for a round. Clear removes active defenses; Cleanse removes afflictions.`);
-    if (corridor) session.log.push('This creature has one shared use of Basic Heal or a purely defensive technique for the entire fight. Damaging techniques, movement, Clear and Cleanse remain available.');
+    // Basic Heal is only part of the shared allowance when the heal limit lets
+    // this creature cast it at all (a Bruiser); otherwise the one shared use is
+    // a purely defensive technique, and the Basic Heal line above already said so.
+    if (corridor) session.log.push(`This creature has one shared use of ${session.shrineAi.healLimit === 0 ? 'a purely defensive technique' : 'Basic Heal or a purely defensive technique'} for the entire fight. Damaging techniques, movement, Clear and Cleanse remain available.`);
     if (wanderer) session.enemy.character.avatarImage = hollowGateWandererArt(wanderer);
     return session;
 }

@@ -63,8 +63,3 @@ export async function loadAdminEventObjects(): Promise<ReadonlyMap<string, Admin
     })();
     return inflight;
 }
-
-export function __resetAdminEventCatalogCache(): void {
-    cache = null;
-    inflight = null;
-}

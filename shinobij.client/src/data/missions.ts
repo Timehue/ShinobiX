@@ -94,15 +94,3 @@ export function sortFieldMissions(missions: CreatorMission[]) {
         || left.name.localeCompare(right.name)
     );
 }
-
-export function allProgressMissions(customMissions: CreatorMission[]) {
-    const customById = new Map(customMissions.map((mission) => [mission.id, mission]));
-    return [
-        ...builtinFetchMissions.map((mission) => customById.get(mission.id) ?? mission),
-        ...builtinHuntMissions.map((mission) => customById.get(mission.id) ?? mission),
-        ...customMissions.filter((mission) =>
-            !builtinFetchMissions.some((builtin) => builtin.id === mission.id) &&
-            !builtinHuntMissions.some((builtin) => builtin.id === mission.id)
-        ),
-    ];
-}

@@ -55,19 +55,9 @@ export type TowerPvpBinding =
      */
     | { kind: 'ranked-2v2'; amberDuoId: string; violetDuoId: string; amberRating: number; violetRating: number };
 
-/** True for any binding whose outcome moves a persistent ladder or war score. */
-export function isRatedTowerPvpMatch(match: { binding?: TowerPvpBinding }): boolean {
-    const kind = towerPvpBindingOf(match).kind;
-    return kind === 'clan-war' || kind === 'ranked-2v2';
-}
-
 /** Public matchmaking is the default so existing stored matches stay valid. */
 export function towerPvpBindingOf(match: { binding?: TowerPvpBinding }): TowerPvpBinding {
     return match.binding ?? { kind: 'public-queue' };
-}
-
-export function isPublicQueueTowerPvpMatch(match: { binding?: TowerPvpBinding }): boolean {
-    return towerPvpBindingOf(match).kind === 'public-queue';
 }
 
 export type TowerPvpSettlement = {

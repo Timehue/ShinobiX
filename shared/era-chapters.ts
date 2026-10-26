@@ -93,7 +93,7 @@ const examination = (floor: number, signature?: 'avoid' | 'bait'): EraCampaignOb
 const spireExamination = (tier: number, signature: 'avoid' | 'bait'): EraCampaignObjective => ({
     ...examination(tier, signature), id: `spire-examination-${tier}`,
     label: `Pass the Endless Spire tier ${tier} examination`, proof: { kind: 'tower', mode: 'spire', floor: tier, disrupt: true, signature },
-    hint: `Start a new public Spire run after this stage opens. Clear within that run's scoring par with no squad knockouts, disrupt a pylon, and ${signature === 'bait' ? 'bait a charge into a pillar' : 'evade a signature strike'}. All conditions must happen in the same run. Story and embedded encounters do not count.`,
+    hint: `Start a new public Spire run after this stage opens. The squad must be exactly four live players, and AI recruits do not count. Clear within that run's scoring par with no squad knockouts, disrupt a pylon, and ${signature === 'bait' ? 'bait a charge into a pillar' : 'evade a signature strike'}. All conditions must happen in the same run. Story and embedded encounters do not count.`,
 });
 export const ERA_CAMPAIGN_STAGES: Readonly<Record<string, EraCampaignStage[]>> = {
     'shinobi-awakening': [

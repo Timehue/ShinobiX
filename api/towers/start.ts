@@ -339,7 +339,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
             spireBossId = spireBossForFloor(spireTier);
             const blessing = weeklySpireBlessing(weekIndex(Date.now()));
-            ascension = resolveAscensionModifiers(spireTier, spireBossId ?? 'sovereign', floor.roundBudget, blessing.modifier);
+            ascension = resolveAscensionModifiers(spireTier, floor.roundBudget, blessing.modifier);
         }
 
         let runId = `tower-${randomUUID().replace(/-/g, '')}`;

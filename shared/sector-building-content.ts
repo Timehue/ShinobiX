@@ -1,5 +1,5 @@
 import { RESOURCE_ITEMS } from './resource-items.js';
-import { craftMaterialName, type CraftIngredient } from './crafting-recipes.js';
+import type { CraftIngredient } from './crafting-recipes.js';
 import { SECTOR_BUILDINGS, sectorBuilding } from './sector-buildings.js';
 import { SECTOR_ROAD_PAIRS } from './sector-links.js';
 import type { BuildingPoint, BuildingWorkOrder, BuildingWorkView, SectorBuilding, SectorBuildingProgress } from './sector-building-types.js';
@@ -27,7 +27,6 @@ export const BUILDING_WORKSHOP_RECIPES: Readonly<Record<string, readonly string[
 };
 export const buildingWorkshopRecipes = (building: SectorBuilding): readonly string[] => BUILDING_WORKSHOP_RECIPES[building.region] ?? ['consum-cleansing-incense','pet-treat'];
 export const buildingRecipeTrust = (building:SectorBuilding,id:string):number => buildingWorkshopRecipes(building).indexOf(id)>=2?5:0;
-export const buildingMaterialName = craftMaterialName;
 const point = (building: SectorBuilding, label: string, description: string): BuildingPoint => ({ sector:building.sector,tile:building.approach,label,description });
 export const buildingOnTetsuCircuit=(building:SectorBuilding)=>(TETSU_ROUTE as readonly number[]).includes(building.sector);
 /** Eda serves at the existing outdoor ledge, so its actual packed/open state
@@ -40,7 +39,6 @@ export function buildingTeaClosure(building:SectorBuilding,now:number,territory?
         'Eda’s serving ledge is covered while the counter prepares, packs up or waits out the weather. The public book remains open. Return when the kettle counter reopens.';
 }
 export const INTELLIGENCE_SIGNS = ['Observe the speaking window','Read the entrusted seal','Make the agreed handoff'] as const;
-export const FESTIVAL_STEPS = ['bow','left','right','bow'] as const;
 export function buildingConditions(building:SectorBuilding,now:number,territory?:Record<string,unknown>|null):string{
     const weather=resolveSectorWeather(sectorBiomeOf(building.sector),building.sector,now,territory);
     const sky={clear:'clear sky',rain:'rain',ashfall:'ashfall',thunderstorm:'a thunderstorm',tornado:'a windstorm',desertHaze:'desert haze'}[weather];

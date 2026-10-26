@@ -21,10 +21,6 @@ export function isPatreonSubscriber(character: WithPatreon): boolean {
     return true;
 }
 
-export function subscriberTier(character: WithPatreon): string | null {
-    return isPatreonSubscriber(character) ? (character?.patreon?.tier ?? 'shinobi-supporter') : null;
-}
-
 // Perk caps: base = non-subscriber, sub = $15 "Shinobi Supporter".
 export const LOADOUT_CAP_BASE = 12;
 export const LOADOUT_CAP_SUB = 15;

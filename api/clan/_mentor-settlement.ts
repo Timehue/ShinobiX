@@ -67,12 +67,6 @@ export function mentorRecordKey(senseiSlug: string): string { return `clan-mento
  */
 export function mentorStudentPaidKey(studentSlug: string): string { return `clan-mentor-paid:${studentSlug}`; }
 
-export async function readMentorStudentPaid(studentSlug: string): Promise<Record<string, number>> {
-    const raw = await kv.get(mentorStudentPaidKey(studentSlug));
-    try { return parseMentorPaidRecord(raw); }
-    catch { throw new MentorRecordError('Mentor payment history needs review.'); }
-}
-
 /** Merge milestones into the student's ever-paid record (idempotent; never removes). */
 export async function recordMentorStudentPaid(studentSlug: string, claimed: Record<string, unknown> | undefined, sourceSave?: unknown): Promise<void> {
     const entries = Object.entries(claimed ?? {}).filter(([m, at]) => MENTOR_MILESTONES.includes(m as MentorMilestone)

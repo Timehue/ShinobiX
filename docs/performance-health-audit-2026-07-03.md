@@ -1,5 +1,7 @@
 # Shinobi Journey Performance, Scalability, and Health Audit
 
+> **Historical document.** It was written while Vercel and cPanel were still hosts. Both are retired: Railway is the only host, `dist/` is never committed, and new endpoints are registered in `server-api-routes.ts`. Instructions below about committing `dist/`, cPanel or Vercel parity, or `server.ts` registration no longer apply. Current rules live in `CLAUDE.md`.
+
 Date: 2026-07-03
 Repo: `C:\Users\Tyler R\source\repos\NinjaK`
 Remote: `https://github.com/Timehue/ShinobiX.git`

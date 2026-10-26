@@ -1,5 +1,7 @@
 # Pet Battle Coliseum Remake — Handoff
 
+> **Historical document.** It was written while Vercel and cPanel were still hosts. Both are retired: Railway is the only host, `dist/` is never committed, and new endpoints are registered in `server-api-routes.ts`. Instructions below about committing `dist/`, cPanel or Vercel parity, or `server.ts` registration no longer apply. Current rules live in `CLAUDE.md`.
+
 > Status: **PLANNED, not started.** This doc is the full handoff so a fresh
 > session can begin cold. Written 2026-06-10.
 

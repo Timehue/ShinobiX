@@ -16,7 +16,6 @@ import {
 } from '../pvp/_ranked-format.js';
 import type { TowerKv, TowerLock } from './_tower-store.js';
 import {
-    battleLockKey,
     claimTowerBattleLeases,
     recoverConfirmedMissingTowerBattleLease,
     releaseTowerBattleLeases,
@@ -631,16 +630,3 @@ export async function refreshTowerPvpLeases(
 export async function readTowerPvpQueue(deps: TowerPvpStoreDeps = {}): Promise<TowerPvpQueueEntry[]> {
     return readQueue(deps.kv ?? realKv, deps.now?.() ?? Date.now());
 }
-
-/** Remove a queued pointer when a foreign mode claims the shared battle lock. */
-export async function evictBusyTowerPvpQueueMember(slug: string, deps: TowerPvpStoreDeps = {}): Promise<void> {
-    const resolved = depsOf(deps);
-    await resolved.lock(TOWER_PVP_QUEUE_LOCK, async () => {
-        const queue = await readQueue(resolved.kv, resolved.now());
-        await writeQueue(resolved.kv, queue.filter(entry => entry.slug !== slug));
-        await clearPointerIf(slug, pointer => pointer?.state === 'queued', resolved);
-    }, { failClosed: true });
-}
-
-/** Shared battle-lock key is deliberately referenced here for contract-level isolation tests. */
-export const towerPvpBattleLockKey = battleLockKey;

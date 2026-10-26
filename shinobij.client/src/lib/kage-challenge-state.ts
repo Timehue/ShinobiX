@@ -131,17 +131,6 @@ export function formatObligation(ms: number): string {
     return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
-/** Coarse "Nd Nh" / "Nh Nm" / "Nm" relative span for grace / tenure displays. */
-export function formatKageDuration(ms: number): string {
-    const total = Math.max(0, ms);
-    const d = Math.floor(total / 86_400_000);
-    const h = Math.floor((total % 86_400_000) / 3_600_000);
-    const m = Math.floor((total % 3_600_000) / 60_000);
-    if (d > 0) return `${d}d ${h}h`;
-    if (h > 0) return `${h}h ${m}m`;
-    return `${m}m`;
-}
-
 export const KAGE_END_REASON_LABEL: Record<KageEndReason, string> = {
     defeated: "Defeated in a duel",
     forfeit: "Forfeited the seat",

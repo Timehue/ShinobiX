@@ -1756,7 +1756,7 @@ export function simulateFight(p1Build: BuildTemplate, p2Build: BuildTemplate, op
         if (!winner) {
             state.p1 = tickStatuses(state.p1, round);
             state.p2 = tickStatuses(state.p2, round);
-            const groundEffects = tickGroundEffects(state.groundEffects, round, opener);
+            const groundEffects = tickGroundEffects(state.groundEffects, round);
             finalizeExpiredGroundTags(state, groundEffects);
             state.groundEffects = groundEffects;
         }

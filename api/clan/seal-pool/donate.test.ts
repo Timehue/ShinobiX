@@ -162,6 +162,15 @@ describe('clan seal-pool donation settlement', { concurrency: false }, () => {
         assert.equal((await donor())?.character?.honorSeals, 90);
     });
 
+    it('a malformed JSON body is a 400, not a rejected handler', { concurrency: false }, async () => {
+        const { res, out } = fakeRes();
+        const req = { ...(fakeReq({}) as unknown as Record<string, unknown>), body: '{"playerName": "sealdonor", ' } as never;
+        await handler(req, res);
+        assert.equal(out.statusCode, 400);
+        assert.equal((await donor())?.character?.honorSeals, 100);
+        assert.equal((await pool())?.balance, 0);
+    });
+
     it('a busy pool is a retryable answer and moves nothing', { concurrency: false }, async () => {
         await kv.set(`lock:${POOL_KEY}`, 'held-by-another-request', { nx: true, ex: 5 });
         try {
