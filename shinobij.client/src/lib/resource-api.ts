@@ -2,6 +2,7 @@ import type { Character } from '../types/character';
 import type { ResourceReceipt, ResourcePublicAttempt } from '../../../shared/resource-gathering';
 import { pendingEconomyIntent, readPendingEconomyIntent, economyIntentSettled } from './economy-request-intent';
 export type ResourceResponse = {
+    nodes?: Record<string, import('../../../shared/shared-resource-node').SharedResourceNodeView>; sector?: number;
     ok: boolean; error?: string; character?: Character; _saveVersion?: number; receipt?: ResourceReceipt; attempt?: ResourcePublicAttempt; nodeId?: string;
     worldBossHollowShard?: { harvested: boolean; heldHollowShards: number; totalMined: number; pointsPerShard: number; filledTiers: number; maxTiers: number; damageDealtReductionPct: number; damageReceivedBonusPct: number; crystalNodeCount: number };
 };

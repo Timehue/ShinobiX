@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { before, test } from 'node:test';
+import { before, beforeEach, test } from 'node:test';
 import { resourceNode, RETIRED_RESOURCE_NODE_IDS } from '../../shared/resource-nodes.js';
 import { readResourceGathering, resourceActionsToday } from '../../shared/resource-gathering.js';
 import { kunaiFish, kunaiFlightMs, kunaiSeed } from '../../shared/kunai-fishing.js';
@@ -8,6 +8,150 @@ import { countOwned } from '../craft/_forge.js';
 import { sectorPoolKey, cleanSectorPoolRow } from './_sector-pool.js';
 process.env.NODE_ENV = 'test'; process.env.SHINOBIX_QA_MEMORY_KV = '1'; process.env.SESSION_SECRET = 'resource-integration-secret';
 type Json = Record<string, unknown>;
+
+test('contesting a gatherer creates and joins a real PvP session with gathering locked for both fighters', async () => {
+    await seed('realnodeattacker'); await seed('realnodedefender');
+    const attemptId = 'real-node-defender-attempt';
+    assert.equal((await post('realnodedefender', { action: 'start', nodeId: 'resource-17', mode: 'relaxed', requestId: attemptId })).status, 200);
+    const attack = (await import('../player/attack.js')).default as unknown as Handler;
+    const sessions = (await import('../pvp/session.js')).default as unknown as Handler;
+    const move = (await import('../pvp/move.js')).default as unknown as Handler;
+    const attacked = await post('realnodeattacker', { targetName: 'realnodedefender' }, true, attack);
+    assert.equal(attacked.status, 200, JSON.stringify(attacked.body));
+    const created = await post('realnodeattacker', { p1Character: { name: 'realnodeattacker' },
+        p2Character: { name: 'realnodedefender' }, useCurrentVitals: true, requireWorldCoLocation: true,
+        baseRewards: true, rewardSector: 29 }, true, sessions);
+    assert.equal(created.status, 200, JSON.stringify(created.body));
+    const battleId = String(created.body.battleId);
+    for (const [name, role] of [['realnodeattacker', 'p1'], ['realnodedefender', 'p2']]) {
+        const joined = await post(name, { battleId, role, action: 'join' }, true, move);
+        assert.equal(joined.status, 200, JSON.stringify(joined.body));
+        assert.equal((await post(name, { action: 'start', nodeId: 'resource-17', mode: 'relaxed', requestId: `blocked-${name}-attempt` })).status, 409);
+    }
+    // A process restart or missed presence hook cannot erase the persisted
+    // combat pointer. No client heartbeat is sent between restore and resolve.
+    online.remove('realnodedefender');
+    online.upsert({ name: 'realnodedefender', sector: 29, tile: resourceNode('resource-17')!.approach, character: { level: 100 } });
+    assert.equal(online.get('realnodedefender')?.inBattle, undefined);
+    const interrupted = await post('realnodedefender', { action: 'resolve', requestId: attemptId });
+    assert.equal(interrupted.status, 200);
+    assert.equal((interrupted.body.receipt as Json).outcome, 'cancelled');
+    assert.equal(online.get('realnodedefender')?.inBattle, true);
+    const cancelled = await post('realnodedefender', { action: 'cancel', requestId: attemptId });
+    assert.equal(cancelled.status, 200); assert.equal((cancelled.body.receipt as Json).outcome, 'cancelled');
+    const availability = (await post('realnodeattacker', { action: 'nodes' })).body.nodes as Record<string, Json>;
+    assert.equal(availability['resource-17'].gatherer, undefined);
+    assert.equal(availability['resource-17'].remaining, 2);
+    assert.equal(countOwned((await kv.get<Json>('save:realnodedefender'))!.character as Json, 'gather-iron-sand'), 0);
+});
+
+test('crystal settlement recovers event credit after a lost write without exposing a second harvest', async (t) => {
+    t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
+    const { WORLD_BOSS_CRYSTAL_NODES, validResourceNodeTerrain } = await import('../../shared/resource-nodes.js');
+    const { WORLD_BOSS_ACTIVE_KEY, worldBossEventKey } = await import('../world-boss-event/_event.js');
+    const node = WORLD_BOSS_CRYSTAL_NODES.find(validResourceNodeTerrain)!;
+    const eventId = 'shared-crystal-recovery', eventKey = worldBossEventKey(eventId), now = Date.now();
+    await kv.set(WORLD_BOSS_ACTIVE_KEY, eventId);
+    await kv.set(eventKey, { version: 1, eventId, bossId: 'hollow-beast', bossName: 'Chicxulub', status: 'roaming',
+        startedAt: now - 1000, roamEndsAt: now + 600_000, endsAt: now + 900_000, endedAt: null,
+        hpMax: 100000, hp: 100000, participants: {}, settledMatchIds: [], updatedAt: now });
+    for (const name of ['crystalowner', 'crystalrival']) {
+        await seed(name, { resourceGathering: { ...readResourceGathering(null), miningXp: 3200 } });
+        online.startTravel(name, node.sector, now, 29, node.approach);
+    }
+    const id = 'shared-crystal-recovery-001';
+    const started = await post('crystalowner', { action: 'start', nodeId: node.id, mode: 'relaxed', requestId: id });
+    assert.equal(started.status, 200, JSON.stringify(started.body));
+    const txKey = `economy-tx:resource-gathering:${createHash('sha256').update(`crystalowner:${id}`).digest('hex')}`;
+    const journal = (await kv.get<{ meta: Json }>(txKey))!;
+    await kv.set(txKey, { ...journal, meta: { ...journal.meta, seal: { ...(journal.meta.seal as Json), successDraw: 0 } } });
+    t.mock.timers.tick(4000);
+    const originalSet = kv.set;
+    kv.set = async (key, value, options) => {
+        if (key === eventKey) throw new Error('fixture-event-write-unavailable');
+        return originalSet.call(kv, key, value, options);
+    };
+    try { assert.equal((await post('crystalowner', { action: 'resolve', requestId: id })).status, 503); }
+    finally { kv.set = originalSet; }
+    const blocked = await post('crystalrival', { action: 'start', nodeId: node.id, mode: 'relaxed', requestId: 'shared-crystal-rival-001' });
+    assert.equal(blocked.status, 409);
+    const recovered = await post('crystalowner', { action: 'status', requestId: id });
+    assert.equal(recovered.status, 200, JSON.stringify(recovered.body));
+    assert.equal((recovered.body.worldBossHollowShard as Json).heldHollowShards, 1);
+    const replay = await post('crystalowner', { action: 'resolve', requestId: id });
+    assert.equal(replay.status, 200); assert.equal((replay.body.worldBossHollowShard as Json).heldHollowShards, 1);
+    assert.equal((await post('crystalrival', { action: 'start', nodeId: node.id, mode: 'relaxed', requestId: 'shared-crystal-rival-002' })).status, 409);
+    await kv.del(WORLD_BOSS_ACTIVE_KEY);
+});
+
+test('two players racing for one node admit exactly one and expose its gatherer', async () => {
+    await seed('nodealice'); await seed('nodebob');
+    const results = await Promise.all(['nodealice', 'nodebob'].map(name => post(name, {
+        action: 'start', nodeId: 'resource-17', mode: 'relaxed', requestId: `shared-race-${name}-001`,
+    })));
+    assert.equal(results.filter(result => result.status === 200).length, 1);
+    assert.equal(results.filter(result => result.status === 409).length, 1);
+    const winner = results[0].status === 200 ? 'nodealice' : 'nodebob';
+    const loser = winner === 'nodealice' ? 'nodebob' : 'nodealice';
+    const status = await post(loser, { action: 'nodes', sector: 2 });
+    assert.equal(status.body.sector, 29, 'client cannot inspect a forged sector');
+    const view = (status.body.nodes as Record<string, Json>)['resource-17'];
+    assert.equal(view.remaining, 2); assert.equal(view.gatherer, winner);
+    assert.equal(JSON.stringify(status.body).includes('successDraw'), false);
+    const saved = (await kv.get<Json>(`save:${loser}`))!.character as Json;
+    assert.equal(resourceActionsToday(saved), 0);
+});
+
+test('depletion and refill belong to the world, including failures and cancellations', async (t) => {
+    t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
+    for (let i = 0; i < 3; i++) {
+        const name = `sharedempty${i}`, id = `shared-empty-attempt-00${i}`;
+        await seed(name);
+        assert.equal((await post(name, { action: 'start', nodeId: 'resource-17', mode: 'relaxed', requestId: id })).status, 200);
+        assert.equal((await post(name, { action: 'cancel', requestId: id })).status, 200);
+    }
+    await seed('sharedfourth');
+    const start = { action: 'start', nodeId: 'resource-17', mode: 'relaxed', requestId: 'shared-fourth-attempt-001' };
+    const denied = await post('sharedfourth', start);
+    assert.equal(denied.status, 409); assert.match(String(denied.body.error), /shared node is empty/);
+    t.mock.timers.tick(600_001);
+    online.upsert({ name: 'sharedfourth', sector: 29, tile: resourceNode('resource-17')!.approach, character: { level: 100 } });
+    assert.equal((await post('sharedfourth', { ...start, requestId: 'shared-fourth-after-refill' })).status, 200);
+    assert.equal(((await post('sharedfourth', { action: 'nodes' })).body.nodes as Record<string, Json>)['resource-17'].remaining, 2);
+});
+
+test('a real world attack can target a gatherer; entering combat releases the node without paying the interrupted attempt', async () => {
+    const attack = (await import('../player/attack.js')).default as unknown as Handler;
+    await seed('nodefighter'); await seed('nodedefender');
+    const id = 'shared-defender-attempt-001';
+    assert.equal((await post('nodedefender', { action: 'start', nodeId: 'resource-17', mode: 'relaxed', requestId: id })).status, 200);
+    const challenged = await post('nodefighter', { targetName: 'nodedefender' }, true, attack);
+    assert.equal(challenged.status, 200, JSON.stringify(challenged.body));
+    online.setInBattle('nodedefender', true);
+    const view = await post('nodefighter', { action: 'nodes' });
+    assert.equal((view.body.nodes as Record<string, Json>)['resource-17'].gatherer, undefined);
+    assert.equal((await post('nodefighter', { action: 'start', nodeId: 'resource-17', mode: 'relaxed', requestId: 'shared-fighter-attempt-001' })).status, 200);
+    online.setInBattle('nodedefender', false);
+    const closed = await post('nodedefender', { action: 'resolve', requestId: id });
+    assert.equal(closed.status, 200);
+    assert.equal((closed.body.receipt as Json).outcome, 'cancelled');
+    assert.equal((closed.body.receipt as Json).xp, 0);
+    assert.equal(countOwned(closed.body.character as Json, 'gather-iron-sand'), 0);
+    assert.equal(((await post('nodefighter', { action: 'nodes' })).body.nodes as Record<string, Json>)['resource-17'].gatherer, 'nodefighter',
+        'late settlement cannot release the replacement claim');
+});
+
+test('a gatherer who leaves cannot collect from a replaced claim', async () => {
+    await seed('nodewalker'); await seed('nodereplacement');
+    const id = 'shared-walker-attempt-001';
+    assert.equal((await post('nodewalker', { action: 'start', nodeId: 'resource-17', mode: 'relaxed', requestId: id })).status, 200);
+    online.startTravel('nodewalker', 2, Date.now(), 29, 99);
+    assert.equal((await post('nodereplacement', { action: 'start', nodeId: 'resource-17', mode: 'relaxed', requestId: 'shared-replacement-001' })).status, 200);
+    online.startTravel('nodewalker', 29, Date.now(), 2, resourceNode('resource-17')!.approach);
+    const closed = await post('nodewalker', { action: 'resolve', requestId: id });
+    assert.equal(closed.status, 200); assert.equal((closed.body.receipt as Json).outcome, 'cancelled');
+});
+
 let kv: typeof import('../_storage.js').kv, token: typeof import('../_auth.js').issuePlayerToken;
 let online: typeof import('../_realtime/online-store.js').onlineStore;
 type Handler = (req: never, res: never) => Promise<unknown>;
@@ -23,9 +167,12 @@ before(async () => {
 async function post(name: string, body: Json, auth = true, target = handler) {
     const out = { status: 200, body: {} as Json };
     const res = { setHeader() { return res; }, status(value: number) { out.status = value; return res; }, json(value: Json) { out.body = value; return res; }, end() { return res; } };
-    await target({ method: 'POST', body, headers: auth ? { 'x-player-token': token(name) } : {}, socket: { remoteAddress: '127.4.8.9' } } as never, res as never);
+    await target({ method: 'POST', body, query: {}, headers: auth ? { 'x-player-token': token(name) } : {}, socket: { remoteAddress: '127.4.8.9' } } as never, res as never);
     return out;
 }
+beforeEach(async () => {
+    for (const key of await kv.keys('world:resource-node:*')) await kv.del(key);
+});
 async function seed(name: string, patch: Json = {}) {
     const node = resourceNode('resource-17')!;
     const character = { name, level: 100, hp: 100, maxHp: 100, chakra: 100, maxChakra: 100, stamina: 100, maxStamina: 100,
@@ -223,6 +370,7 @@ test('a committed admission with a lost save acknowledgement spends one action a
     const replay = await post(name, body); assert.equal(replay.status, 200);
     assert.equal(resourceActionsToday(replay.body.character as Json), 1);
     assert.equal(cleanSectorPoolRow(await kv.get(poolKey)).explores, beforePool + 1);
+    assert.equal(((await post(name, { action: 'nodes' })).body.nodes as Record<string, Json>)['resource-17'].remaining, 2);
 });
 
 test('a refused save CAS releases its reservation without spending a tool use or daily action', async () => {
@@ -237,6 +385,7 @@ test('a refused save CAS releases its reservation without spending a tool use or
     assert.equal((saved.gatheringToolUses as Json)['tool-basic-pickaxe'], 49);
     assert.equal((saved.equipment as Json).pickaxe, 'tool-basic-pickaxe');
     assert.equal(cleanSectorPoolRow(await kv.get(poolKey)).explores, beforePool);
+    assert.equal(((await post(name, { action: 'nodes' })).body.nodes as Record<string, Json>)['resource-17'].remaining, 3);
     assert.equal((await post(name, body)).status, 409, 'a refunded admission ID cannot be reused');
 });
 
