@@ -10,9 +10,11 @@ import { addChronicleStop } from '../../api/sector/_life-chronicle';
 import {isWalkableTile} from '../../shared/sector-walk-mask';
 
 const evidence = process.env.CHRONICLE_STOP_EVIDENCE_DIR??'../output/living-world/chronicle-browser'; mkdirSync(evidence, { recursive: true });
+// Fixed, not Date.now(): a roaming Legacy Emissary ignores quietRoadCooldowns, and no sector has one at any hour of 2026-10-10 (01:00 UTC is world noon).
+const CHRONICLE_SCENARIO_EPOCH = Date.UTC(2026, 9, 10, 1);
 for (const mode of ['complete', 'rain', 'offline', 'visibility resume', 'crowded stop'] as const) test(`travelers play Chronicle at the painted tea table: ${mode}`, async ({ page }, info) => {
     if(mode==='offline')test.setTimeout(600_000);
-    let start = Math.floor(Date.now() / WORLD_DAY_MS) * WORLD_DAY_MS + 20 * WORLD_HOUR_MS;
+    let start = Math.floor(CHRONICLE_SCENARIO_EPOCH / WORLD_DAY_MS) * WORLD_DAY_MS + 20 * WORLD_HOUR_MS;
     if (mode === 'crowded stop') for (let day = 0; day < 10; day++) { if (lifeActorsAt(42, start + 60_000, 'clear').some(actor => actor.id === 'gen')) break; start += WORLD_DAY_MS; }
     const window = Math.floor(start / WORLD_HOUR_MS);
     const game = stopChronicleGame(window), plan = chronicleStopPlan({ window }, game);

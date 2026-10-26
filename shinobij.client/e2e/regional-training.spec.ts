@@ -9,10 +9,12 @@ import {isWalkableTile} from '../../shared/sector-walk-mask';
 type Pose={col:number;row:number;visible:boolean;activity:string|undefined};
 declare global{interface Window{trainingReadPose:()=>Pose[]}}
 const evidence='../output/living-world/training/browser';mkdirSync(evidence,{recursive:true});
+// Fixed, not Date.now(): a roaming Legacy Emissary ignores quietRoadCooldowns, and no sector has one at any hour of 2026-10-10 (01:00 UTC is world noon).
+const TRAINING_SCENARIO_EPOCH=Date.UTC(2026,9,10,1);
 
 for(const mode of ['drill','rain','cached shift'] as const)test(`Ashen training ${mode}: the existing pair uses clear grass, actual steps and real road exits`,async({page},info)=>{
     test.setTimeout(240_000);
-    const base=Math.floor(Date.now()/WORLD_DAY_MS)*WORLD_DAY_MS+8*WORLD_HOUR_MS;
+    const base=Math.floor(TRAINING_SCENARIO_EPOCH/WORLD_DAY_MS)*WORLD_DAY_MS+8*WORLD_HOUR_MS;
     const pair=lifeActorsAt(9,base,'clear').filter(actor=>actor.id.startsWith('crew:'));
     const motion=pair[0].motion!,practice=pair[0].cyclePhases!.find(phase=>phase.activity==='Practising footwork')!.at;
     const cycle=motion.start+Math.ceil((base-motion.start)/motion.repeat!)*motion.repeat!,now=cycle+practice+1000;

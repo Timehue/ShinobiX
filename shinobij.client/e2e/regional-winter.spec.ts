@@ -8,10 +8,12 @@ import {isWalkableTile} from '../../shared/sector-walk-mask';
 type Pose={col:number;row:number;visible:boolean};
 declare global{interface Window{winterReadPose:()=>Pose[]}}
 const evidence=process.env.REGIONAL_WINTER_EVIDENCE_DIR??'../output/living-world/winter/browser';mkdirSync(evidence,{recursive:true});
+// Fixed, not Date.now(): a roaming Legacy Emissary ignores quietRoadCooldowns, and no sector has one at any hour of 2026-10-10 (01:00 UTC is world noon).
+const WINTER_SCENARIO_EPOCH=Date.UTC(2026,9,10,1);
 
 test('winter supply stop: actual staff, warming pair and cached departure keep the painted supplies clear',async({page},info)=>{
     test.setTimeout(300_000);
-    let day=Math.floor(Date.now()/WORLD_DAY_MS)*WORLD_DAY_MS+8*WORLD_HOUR_MS;
+    let day=Math.floor(WINTER_SCENARIO_EPOCH/WORLD_DAY_MS)*WORLD_DAY_MS+8*WORLD_HOUR_MS;
     let now=day;
     for(let attempt=0;attempt<100;attempt++,day+=WORLD_DAY_MS){
         const pair=lifeActorsAt(31,day,'clear').filter(a=>a.id.startsWith('crew:'));
