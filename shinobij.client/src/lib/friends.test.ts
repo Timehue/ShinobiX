@@ -83,3 +83,16 @@ test('Friends keeps canonical names from the server and validates acknowledgemen
     await assert.rejects(addFriend('friends-player', 'Other'), /confirm/);
     assert.deepEqual(list, ['CanonicalName']);
 });
+
+test('returning to the same account refreshes changes made while the social screen was closed', async () => {
+    let following = ['Before']; let reads = 0;
+    globalThis.fetch = async () => { reads++; return response({ following, friends: [] }); };
+    const leave = subscribeFollowing('returning-player', () => {});
+    cleanups.push(leave); await refreshSocialLists(); leave();
+    following = ['ChangedElsewhere'];
+    let visible: string[] = [];
+    cleanups.push(subscribeFollowing('returning-player', list => { visible = list; }));
+    await tick();
+    assert.equal(reads, 2, 'a remount must revalidate the cached server list');
+    assert.deepEqual(visible, ['ChangedElsewhere']);
+});

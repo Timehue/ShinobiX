@@ -14,6 +14,16 @@ export function parseBankTransferAction(raw: unknown) {
 }
 export type BankTransferAction = NonNullable<ReturnType<typeof parseBankTransferAction>>;
 
+/** Legacy saves can omit balances; retain their opaque fields for hydration. */
+export const bankSnapshotCharacterContract = contract((value: unknown) => {
+    const character = record(value, 'Missing authoritative character.');
+    return {
+        ...character, name: text(character.name, 'Missing character name.'),
+        ...(character.ryo === undefined ? {} : { ryo: storedBalance(character.ryo, 'Invalid wallet balance.') }),
+        ...(character.bankRyo === undefined ? {} : { bankRyo: storedBalance(character.bankRyo, 'Invalid vault balance.') }),
+    };
+});
+
 export function parseBankTransferAmount(raw: unknown): number | null {
     return typeof raw === 'number' && Number.isSafeInteger(raw) && raw > 0 && raw <= BANK_TRANSFER_MAX_AMOUNT ? raw : null;
 }
@@ -64,6 +74,8 @@ export const bankInterestResponseContract = contract((value: unknown) => {
     const body = acknowledged(value);
     const common = {
         ok: true as const,
+        // Additive snapshot: older servers' balance-only receipts remain valid.
+        ...(body.character === undefined ? {} : { character: bankSnapshotCharacterContract.parse(body.character) }),
         nextClaimAt: whole(body.nextClaimAt, 'Invalid next claim time.'),
         // A read-only refusal can come from a legacy save with no version yet.
         _saveVersion: whole(body._saveVersion, 'Invalid save version.', body.eligible === false ? 0 : 1),

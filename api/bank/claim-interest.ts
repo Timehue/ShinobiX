@@ -11,7 +11,7 @@ import { recordEconomyTxn } from '../_economy.js';
 import { recordBetaMetric } from '../_beta-metrics.js';
 import { assessVillageTax } from '../_war-tax-apply.js';
 import { villageTaxEcho } from '../village/_village-tax-echo.js';
-import { bankInterestRequestContract, bankInterestResponseContract } from '../../shared/bank-contract.js';
+import { bankInterestRequestContract, bankInterestResponseContract, bankSnapshotCharacterContract } from '../../shared/bank-contract.js';
 import { contractResponse } from '../_contract-response.js';
 
 /*
@@ -30,9 +30,9 @@ import { contractResponse } from '../_contract-response.js';
  * the verbatim-ported `computeBankInterest` (server clock for the 24h gate → no
  * clock-rollback repeat), credits `bankRyo` and stamps `lastBankInterestAt`
  * atomically, contention → 503/retry. The same write settles the idle recovery
- * earned since the player's last save instead of discarding it. The client adds the
- * returned `claimed` delta to its OWN `bankRyo` (preserving concurrent deposits/
- * withdrawals) and re-asserts via autosave; the two converge. There is no
+ * earned since the player's last save instead of discarding it. The client adopts
+ * the committed character and version together, rejecting late snapshots after
+ * a newer financial action. There is no
  * separate completion to verify — claiming interest IS the action, fully owned
  * here. Body: { playerName }. Caller MUST be the player (or admin). 30/min.
  */
@@ -96,8 +96,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return reply(committed.status, { error: committed.error, ...villageTaxEcho(villageTax) });
         }
         const out = { ...committed.value, saveVersion: committed._saveVersion };
+        // Return the exact committed/read character with its version so a late
+        // interest reply cannot rewind a newer deposit. Keep legacy malformed
+        // character envelopes on the old response shape rather than changing
+        // a previously valid refusal into a 500.
+        const snapshot = bankSnapshotCharacterContract.safeParse(committed.record.character);
+        const authority = snapshot.success ? { character: snapshot.data } : {};
         if (!out.credited) {
-            return reply(200, { ok: true, eligible: false, claimed: 0, reason: out.reason, nextClaimAt: out.nextClaimAt, _saveVersion: out.saveVersion, ...villageTaxEcho(villageTax) });
+            return reply(200, { ok: true, eligible: false, claimed: 0, reason: out.reason, nextClaimAt: out.nextClaimAt, _saveVersion: out.saveVersion, ...authority, ...villageTaxEcho(villageTax) });
         }
 
         await kv.set(`${AUDIT_LOG_PREFIX}${playerName}:${now}`, {
@@ -118,6 +124,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             lastBankInterestAt: now,
             nextClaimAt: out.nextClaimAt,
             _saveVersion: out.saveVersion,
+            ...authority,
             ...villageTaxEcho(villageTax),
         });
     } catch (err) {

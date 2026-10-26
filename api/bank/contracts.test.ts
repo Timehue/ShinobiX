@@ -62,6 +62,8 @@ test('interest credits once; a repeated request returns a validated cooldown wit
     assert.equal(again._saveVersion, credit._saveVersion);
     const saved = await kv.get<{ character: { bankRyo: number } }>(`save:${name}`);
     assert.equal(saved?.character.bankRyo, 10050);
+    assert.deepEqual(credit.character, saved?.character, 'the credited snapshot and version describe the same commit');
+    assert.deepEqual(again.character, saved?.character, 'a cooldown reply recovers a previously lost credit');
 });
 
 test('a legacy unversioned no-upgrade refusal remains a read-only success', async () => {
@@ -72,6 +74,7 @@ test('a legacy unversioned no-upgrade refusal remains a read-only success', asyn
     const reply = bankInterestResponseContract.parse(result.data);
     assert.equal(reply.eligible, false);
     assert.equal(reply._saveVersion, 0);
+    assert.deepEqual(reply.character, save.character);
     assert.deepEqual(await kv.get(`save:${name}`), save);
 });
 

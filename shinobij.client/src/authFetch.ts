@@ -354,7 +354,7 @@ export function buildSaveVersionEventDetail(
     // The daily caller owns adoption even against an older balance-only API.
     if (request !== undefined && requestPath(request) === "/api/player/daily-login") return null;
     // Transfer callers own the atomic character/version adoption.
-    if (request !== undefined && ["/api/bank/transfer", "/api/shop/purchase"].includes(requestPath(request))) return null;
+    if (request !== undefined && ["/api/bank/transfer", "/api/bank/claim-interest", "/api/player/trade", "/api/shop/purchase"].includes(requestPath(request))) return null;
     const record = data as Record<string, unknown>;
     // Character-bearing responses must be adopted through the App's atomic
     // character+version commit. Advancing only the version here could let a
@@ -367,12 +367,8 @@ export function buildSaveVersionEventDetail(
 export async function validatedSaveVersionEventDetail(
     data: unknown, accountName: string | null, source: SaveVersionEventDetail["source"], request: RequestInfo | URL,
 ): Promise<SaveVersionEventDetail | null> {
-    // Validate before publishing authority, but keep banking contracts out of
-    // the initial login bundle. Credential selection is unchanged.
-    if (requestPath(request) === "/api/bank/claim-interest") {
-        const { bankInterestResponseContract } = await import('../../shared/bank-contract');
-        if (!bankInterestResponseContract.safeParse(data).success) return null;
-    }
+    // Validate before publishing save authority. Mutation callers above own
+    // atomic character/version adoption; credential selection is unchanged.
     if (source === "full-save") {
         const { playerSaveAcknowledgementContract } = await import('../../shared/save-contract');
         if (!playerSaveAcknowledgementContract.safeParse(data).success) return null;
