@@ -354,7 +354,7 @@ export function buildSaveVersionEventDetail(
     // The daily caller owns adoption even against an older balance-only API.
     if (request !== undefined && requestPath(request) === "/api/player/daily-login") return null;
     // Transfer callers own the atomic character/version adoption.
-    if (request !== undefined && requestPath(request) === "/api/bank/transfer") return null;
+    if (request !== undefined && ["/api/bank/transfer", "/api/shop/purchase"].includes(requestPath(request))) return null;
     const record = data as Record<string, unknown>;
     // Character-bearing responses must be adopted through the App's atomic
     // character+version commit. Advancing only the version here could let a
