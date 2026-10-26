@@ -101,9 +101,15 @@ export function rollTradeWanderer(sector: number, dayBucket: number): Wanderer |
     const beside = tileNeighbors(node.approach).filter((tile) => tile !== node.target && isWalkableTile(sector, tile));
     const archetype: WandererArchetypeId = node.activity === "fishing" ? "angler" : "rivalMiner";
     const preferred = beside[0] ?? node.approach;
+    // Every node in the sector counts, not only this one. Sector 22's two
+    // shoals sit side by side, so the Cove angler's authored tile was the
+    // Moonlit gatherer's own tile, under that shoal's button. Step to the next
+    // free neighbour only then, so every other authored position holds.
+    const gathererTiles = new Set(nodes.flatMap((other) => [other.approach, other.target]));
+    const free = gathererTiles.has(preferred) ? beside.find((tile) => !gathererTiles.has(tile)) ?? preferred : preferred;
     // Stillwater's compact pond needs extra portrait headroom; retain the
     // authored encounter positions of every other trader.
-    const home = archetype === 'angler' && sector === 6 ? anglerBank(sector, nodes, preferred) : preferred;
+    const home = archetype === 'angler' && sector === 6 ? anglerBank(sector, nodes, preferred) : free;
     return placeWanderer(slotWanderer(archetype, `w-${sector}-${dayBucket}-${WANDERER_TRADE_INDEX}`, sector, home, [home], rng), sector);
 }
 
