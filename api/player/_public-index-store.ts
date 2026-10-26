@@ -1,4 +1,5 @@
 import { kv } from '../_storage.js';
+import { readPublicIndexCharacters } from './_list-save-projections.js';
 import {
     REGISTRY_KEY,
     buildPublicPlayerIndexEntry,
@@ -30,13 +31,12 @@ export async function readPublicPlayerIndex(options: { backfill?: boolean; logCo
     let backfilled = 0;
     if (options.backfill && staleKeys.length > 0) {
         try {
-            const saves = await kv.mget<Record<string, unknown>[]>(...staleKeys.map((key) => `save:${key}`));
+            const characters = await readPublicIndexCharacters(kv, staleKeys.map((key) => `save:${key}`));
             const patch: Record<string, PublicPlayerIndexEntry> = {};
             const now = Date.now();
             for (let i = 0; i < staleKeys.length; i++) {
                 const key = staleKeys[i]!;
-                const save = saves[i] ?? null;
-                const char = (save?.character ?? null) as Record<string, unknown> | null;
+                const char = characters[i] ?? null;
                 if (!char) continue;
                 const prior = entries.get(key);
                 const entry = buildPublicPlayerIndexEntry(char, key, now, prior?.lastSeen ?? 0);
