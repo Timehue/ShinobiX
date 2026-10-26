@@ -16,7 +16,8 @@ describe("AdminPanel source budgets", () => {
         // 6,629 -> 6,589 (2026-09-14): the full-server-reset flow (dry-run
         // preview, confirmation copy, local cache clearing) moved out to
         // screens/admin-server-reset.ts.
-        const measuredPostExtractionLines = 6589;
+        // Relic dungeon image operations and markup moved verbatim to a feature panel.
+        const measuredPostExtractionLines = 6293;
         const maximumLines = Math.min(measuredPostExtractionLines + 5, 6745);
         assert.ok(sourceLineCount("AdminPanel.tsx") <= maximumLines, `AdminPanel.tsx exceeds ${maximumLines} lines`);
     });
