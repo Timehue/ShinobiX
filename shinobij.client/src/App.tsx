@@ -260,7 +260,6 @@ import { useWarRewardClaims } from "./lib/use-war-reward-claims";
 import { useVillageTax } from "./lib/use-village-tax";
 import { requireServerSettlement } from "./lib/server-settlement-gate";
 import { createHeartbeatGate, scheduleHeartbeat } from "./lib/heartbeat-cadence";
-import { noteTowerPartyInvites } from "./lib/tower-party-invite-toast";
 import { attackSectorPlayer, routeOpenSectorBattleNotice } from "./lib/sector-attack";
 import { strikeDownSleeper } from "./lib/sleeper-kill";
 const StartScreen = lazyWithRetry(() => import("./screens/StartScreen").then(m => ({ default: m.StartScreen })));
@@ -1913,7 +1912,7 @@ export default function App() {
                         return [...merged, ...incoming];
                     });
                 }
-                void noteTowerPartyInvites(data.towerPartyInvites, char.name);
+                void import('./lib/tower-party-invite-toast').then(({ noteTowerPartyInvites }) => noteTowerPartyInvites(data.towerPartyInvites, char.name)).catch(() => {});
                 if (data.pendingAttacker && !isTraveling) {
                     // Heartbeat says someone is attacking us, but we haven't received the
                     // DuelChallenge with the server battleId yet (it arrives a beat
