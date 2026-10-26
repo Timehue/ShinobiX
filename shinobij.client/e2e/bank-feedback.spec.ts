@@ -401,7 +401,7 @@ test('a lost wire receipt survives refresh and a rate limit even after the walle
             runtime.commitServerCharacter({ ...save.character, ryo: 0 }, version);
             return route.abort('failed');
         }
-        if (nonces.length === 2) return route.fulfill({ status: 429, json: { error: 'Please wait before sending again.' } });
+        if (nonces.length === 2) return route.fulfill({ status: 429, json: { error: 'Too many requests. Retry shortly.' } });
         return route.fulfill({ json: { ok: true, duplicate: true, senderBalance: 0, debit: 1000, credit: 900,
             burned: 100, toPlayer: 'RivalNinja', _saveVersion: version } });
     });
@@ -418,7 +418,7 @@ test('a lost wire receipt survives refresh and a rate limit even after the walle
     await page.reload({ waitUntil: 'networkidle' });
     await expect(page.locator('.bank-balance-rail')).toContainText('20,000');
     await submit();
-    await expect(page.locator('.game-toast-stack')).toContainText('Please wait before sending again.');
+    await expect(page.locator('.game-toast-stack')).toContainText('Too many requests. Retry shortly.');
     await submit();
     await expect(page.locator('.game-toast-stack')).toContainText('That transfer was already sent.');
     await expect(page.locator('#bank-send-amount')).toHaveValue('0');
