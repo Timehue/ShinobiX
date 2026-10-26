@@ -168,3 +168,27 @@ test('the stale-write guard is still armed after an owner read', async () => {
     assert.equal(stale.statusCode, 409, 'a genuinely stale base version must still conflict');
     assert.equal((stale.body as Json).currentVersion, 5);
 });
+
+test('malformed save envelopes and missing versions preserve status codes and stored progress', async () => {
+    const name = `${TEST_PREFIX}contract`;
+    const token = issuePlayerToken(name);
+    assert.ok(token);
+    await seed(name, 5);
+    const initial = await kv.get(`save:${name}`);
+    for (const [body, status] of [[[], 400], [{ character: [] }, 400], [{ character: character(name) }, 426],
+        [{ character: character(name), _baseSaveVersion: '5' }, 426]] as const) {
+        const response = fakeRes();
+        await handler({ method: 'POST', query: { name }, body, headers: headers(name, token),
+            socket: { remoteAddress: '203.0.113.77' } } as never, response.res);
+        assert.equal(response.out.statusCode, status, JSON.stringify(response.out.body));
+        assert.equal(typeof (response.out.body as Json).error, 'string');
+        assert.deepEqual(await kv.get(`save:${name}`), initial);
+    }
+    const first = await autosave(name, token, 5);
+    assert.equal(first.statusCode, 200, JSON.stringify(first.body));
+    assert.equal((first.body as Json).ok, true);
+    assert.equal((first.body as Json)._saveVersion, 6);
+    const repeated = await autosave(name, token, 5);
+    assert.equal(repeated.statusCode, 409);
+    assert.equal((repeated.body as Json).currentVersion, 6);
+});
