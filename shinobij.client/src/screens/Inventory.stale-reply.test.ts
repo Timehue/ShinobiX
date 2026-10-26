@@ -23,7 +23,7 @@ const REFUSAL_STOPS = /!\s*(?:onVersionedCharacter|commitServerCharacter|onChara
 const cases: Array<[file: string, names: string[]]> = [
     ["./CentralHub.tsx", ["rollAwakening", "awakeningCreateBloodline", "craftHollowGateKeyWithDungeonKeys", "craftHollowGateKeyWithFateShards", "forgeRelicFromFragments", "forgeCoreFromShards"]],
     ["./Inventory.tsx", ["applyElementalCore", "consumeItem", "sellSelectedItem"]],
-    ["./Bank.tsx", ["moveRyo"]],
+    ["../lib/use-bank-controller.ts", ["moveRyo"]],
     ["./Cafeteria.tsx", ["eat", "cook"]],
     ["../components/MasteryPanel.tsx", ["mutateMastery"]],
     ["../components/GatheringFind.tsx", ["collect"]],

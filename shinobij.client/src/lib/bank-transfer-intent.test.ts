@@ -46,12 +46,12 @@ test('a confirmed operation releases its ID; a late response cannot clear a newe
 });
 
 test('Bank sends the retained ID and allows the server to replay after its first debit', () => {
-    const source = readFileSync('shinobij.client/src/screens/Bank.tsx', 'utf8');
+    const source = readFileSync('shinobij.client/src/lib/use-bank-controller.ts', 'utf8');
     const move = source.slice(source.indexOf('async function moveRyo'), source.indexOf('async function claimInterest'));
     assert.match(move, /readPendingBankTransferIntent\(character\.name, direction, value\)/);
     assert.match(move, /!pending && direction === "deposit" && value > character\.ryo/);
-    assert.match(move, /requestId: intent\.requestId/);
+    assert.match(move, /transferBankRyo\(character\.name, direction, value, intent\.requestId\)/);
     // A confirmed transfer releases its intent whatever the commit returns; a
     // stale refusal is not an unconfirmed outcome (api/bank/_transfer.test.ts).
-    assert.match(move, /onVersionedCharacter\(data\.character, data\._saveVersion\);\s*intent\.complete\(\)/);
+    assert.match(move, /onVersionedCharacter\(data\.character as Character, data\._saveVersion\);\s*intent\.complete\(\)/);
 });

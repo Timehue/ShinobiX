@@ -179,7 +179,7 @@ describe('authoritative balance response migration', () => {
 
     it('bank interest adopts the committed bank balance', () => {
         const api = read('api/bank/claim-interest.ts');
-        const client = read('shinobij.client/src/screens/Bank.tsx');
+        const client = read('shinobij.client/src/lib/use-bank-controller.ts');
         assert.match(api, /bankRyo: out\.bankRyo/);
         assert.match(client, /bankRyo: data\.bankRyo \?\? prev\.bankRyo/);
         assert.doesNotMatch(client, /bankRyo: prev\.bankRyo \+ claimed/);
@@ -187,17 +187,17 @@ describe('authoritative balance response migration', () => {
 
     it('player transfers return and adopt the committed sender balance', () => {
         const api = read('api/player/trade.ts');
-        const client = read('shinobij.client/src/screens/Bank.tsx');
+        const client = read('shinobij.client/src/lib/use-bank-controller.ts');
         assert.match(api, /toPlayer: toDisplay, senderBalance/);
         assert.match(client, /\[sendCurr\]: res\.senderBalance \?\?/);
     });
 
     it('bank deposits and withdrawals adopt the atomically committed character', () => {
         const api = read('api/bank/transfer.ts');
-        const client = read('shinobij.client/src/screens/Bank.tsx');
+        const client = read('shinobij.client/src/lib/use-bank-controller.ts');
         assert.match(api, /mutatePlayerSave\(playerName/);
-        assert.match(client, /fetch\("\/api\/bank\/transfer"/);
-        assert.match(client, /onVersionedCharacter\(data\.character, data\._saveVersion\)/);
+        assert.match(client, /transferBankRyo\(/);
+        assert.match(client, /onVersionedCharacter\(data\.character as Character, data\._saveVersion\)/);
         assert.doesNotMatch(client, /bankRyo: character\.bankRyo [+-] value/);
     });
 
