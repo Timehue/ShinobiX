@@ -48,7 +48,8 @@ async function install(page: Page, nodeId = 'resource-13', uses = 0, miningXp = 
         if (body.action === 'status') receipt = readResourceGathering(character.resourceGathering).receipts.find(receipt => receipt.id === body.requestId);
         return route.fulfill({ json: { ok: true, character, _saveVersion: version, receipt, nodeId: receipt ? body.nodeId : undefined } });
     });
-    return { node, character: () => character, settlements: () => settlements, loseAckOnce: () => { loseAck = true; }, staleAckOnce: () => { staleAck = true; } };
+    return { node, character: () => character, settlements: () => settlements, loseAckOnce: () => { loseAck = true; }, staleAckOnce: () => { staleAck = true; },
+        publishSave: () => { character = { ...character, ryo: Number(character.ryo) + 1 }; return ++version; } };
 }
 async function noOverflow(page: Page) {
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
@@ -569,6 +570,49 @@ test('a missing gathering tool explains the prerequisite before spending an acti
 });
 
 for (const activity of ['mining', 'fishing'] as const) {
+    test(`${activity} first open recovers an overtaken status without a manual retry`, async ({ page }, info) => {
+        const nodeId = activity === 'mining' ? 'resource-13' : 'resource-1';
+        const runtime = await install(page, nodeId);
+        let statusCalls = 0, version = 1;
+        let release!: () => void;
+        const delayed = () => new Promise<void>(resolve => { release = resolve; });
+        let waiting = delayed();
+        await page.route('**/api/world/resource', async route => {
+            if (route.request().postDataJSON().action !== 'status') return route.fallback();
+            const snapshot = { ...runtime.character() }, snapshotVersion = version;
+            statusCalls++;
+            if (statusCalls % 2 === 1) await waiting;
+            await route.fulfill({ json: { ok: true, character: snapshot, _saveVersion: snapshotVersion } });
+        });
+        await page.goto(`/e2e/fixtures/resource-gathering.html?node=${nodeId}&lifecycle=1`);
+        for (let opening = 0; opening < 3; opening++) {
+            await expect.poll(() => statusCalls).toBe(opening * 2 + 1);
+            // Another normal save wins while the mount-time status is in flight.
+            version = runtime.publishSave();
+            await page.getByTestId('gathering-publish-save').click();
+            await page.getByRole('button', { name: new RegExp(`^${runtime.node.name}, ${activity}`) }).click();
+            await expect(page.getByRole('status')).toContainText('Checking your gathering attempt');
+            release();
+            await expect(page.getByRole('button', { name: activity === 'mining' ? 'Begin mining · 1 action' : 'Ready kunai · 1 action' })).toBeEnabled();
+            expect(statusCalls).toBe((opening + 1) * 2);
+            await expect(page.getByRole('button', { name: 'Check gathering again', exact: true })).toHaveCount(0);
+            const state = JSON.parse(await page.getByTestId('resource-state').textContent() ?? '{}');
+            expect(state.version).toBe(version); expect(state.character.ryo).toBe(runtime.character().ryo);
+            expect(readResourceGathering(state.character.resourceGathering).attemptsToday).toBe(0);
+            if (opening < 2) {
+                await page.getByRole('button', { name: 'Close', exact: true }).click();
+                await page.getByTestId('gathering-mount').click();
+                waiting = delayed();
+                await page.getByTestId('gathering-mount').click();
+            }
+        }
+        await page.screenshot({ path: info.outputPath(`${activity}-first-open-recovered.png`), fullPage: true });
+        await page.getByRole('button', { name: activity === 'mining' ? 'Begin mining · 1 action' : 'Ready kunai · 1 action' }).click();
+        await expect(page.locator('.resource-attempt-strip')).toBeVisible();
+        expect(readResourceGathering(runtime.character().resourceGathering).attemptsToday).toBe(1);
+        expect(runtime.settlements()).toBe(0);
+    });
+
     test(`${activity} restored controls wait for status and retry rejected saves without spending twice`, async ({ page }, info) => {
         const nodeId = activity === 'mining' ? 'resource-13' : 'resource-1';
         const runtime = await install(page, nodeId);
@@ -603,6 +647,65 @@ for (const activity of ['mining', 'fishing'] as const) {
         await expect(activity === 'fishing' ? page.getByRole('application', { name: 'Kunai fishing pool' }) : page.getByRole('button', { name: 'Collect result', exact: true })).toBeVisible();
         expect(readResourceGathering(runtime.character().resourceGathering).attemptsToday).toBe(1);
         expect(runtime.settlements()).toBe(0);
+    });
+}
+
+test('changing selected nodes during the status readback keeps the current node and spends nothing', async ({ page }) => {
+    const runtime = await install(page);
+    let calls = 0, releaseInitial!: () => void, releaseCurrent!: () => void;
+    const initial = new Promise<void>(resolve => { releaseInitial = resolve; });
+    const current = new Promise<void>(resolve => { releaseCurrent = resolve; });
+    await page.route('**/api/world/resource', async route => {
+        const body = route.request().postDataJSON();
+        expect(body.action).toBe('status'); expect(body.nodeId).toBeUndefined();
+        const snapshot = { ...runtime.character() }, version = ++calls;
+        await (calls === 1 ? initial : current);
+        await route.fulfill({ json: { ok: true, character: snapshot, _saveVersion: version } });
+    });
+    await page.goto('/e2e/fixtures/resource-gathering.html?node=resource-13&lifecycle=1');
+    await expect.poll(() => calls).toBe(1);
+    runtime.publishSave(); await page.getByTestId('gathering-publish-save').click();
+    await page.getByRole('button', { name: /^Harbor iron seam, mining/ }).click();
+    releaseInitial(); await expect.poll(() => calls).toBe(2);
+    await page.getByRole('button', { name: 'Close', exact: true }).click();
+    await page.getByRole('button', { name: /^Dockside shoal, fishing/ }).click();
+    await expect(page.getByRole('status')).toContainText('Checking your gathering attempt');
+    releaseCurrent();
+    await expect(page.getByRole('dialog', { name: 'Dockside shoal', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Approach shore', exact: true })).toBeEnabled();
+    await expect(page.getByRole('button', { name: 'Begin mining · 1 action' })).toHaveCount(0);
+    const state = JSON.parse(await page.getByTestId('resource-state').textContent() ?? '{}');
+    expect(state.version).toBe(2); expect(readResourceGathering(state.character.resourceGathering).attemptsToday).toBe(0);
+    expect(calls).toBe(2); expect(runtime.settlements()).toBe(0);
+});
+
+for (const failure of ['service', 'stale'] as const) {
+    test(`initial ${failure} failure keeps recovery explicit and bounded`, async ({ page }) => {
+        const runtime = await install(page);
+        let calls = 0, release!: () => void, recover = false;
+        const waiting = new Promise<void>(resolve => { release = resolve; });
+        await page.route('**/api/world/resource', async route => {
+            calls++;
+            await waiting;
+            if (recover) return route.fulfill({ json: { ok: true, character: runtime.character(), _saveVersion: 2 } });
+            return route.fulfill(failure === 'service'
+                ? { status: 503, json: { ok: false, error: 'Gathering service unavailable.' } }
+                : { json: { ok: true, character: runtime.character(), _saveVersion: 1 } });
+        });
+        await page.goto('/e2e/fixtures/resource-gathering.html?node=resource-13&lifecycle=1');
+        await expect.poll(() => calls).toBe(1);
+        runtime.publishSave(); await page.getByTestId('gathering-publish-save').click();
+        await page.getByRole('button', { name: /^Harbor iron seam, mining/ }).click();
+        release();
+        const retry = page.getByRole('button', { name: 'Check gathering again', exact: true });
+        await expect(retry).toBeVisible();
+        expect(calls).toBe(failure === 'service' ? 1 : 2);
+        await expect(page.getByRole('button', { name: 'Begin mining · 1 action' })).toHaveCount(0);
+        if (failure === 'service') await expect(page.getByRole('alert')).toContainText('Gathering service unavailable.');
+        recover = true; await retry.click();
+        await expect(page.getByRole('button', { name: 'Begin mining · 1 action' })).toBeEnabled();
+        expect(calls).toBe(failure === 'service' ? 2 : 3);
+        expect(readResourceGathering(runtime.character().resourceGathering).attemptsToday).toBe(0);
     });
 }
 
