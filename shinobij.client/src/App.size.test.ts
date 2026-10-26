@@ -499,7 +499,8 @@ import { readFileSync } from "node:fs";
 // Clan battle launch now loads on use from lib/clan-war-battle-launch.ts.
 // → 6,289 after the self-roster row moved to lib/use-self-roster-row.ts and
 // the Hollow Gate shrine/fight warm-up to lib/hollow-gate-app-flow.ts.
-const MAX_LINES = 6280;
+// Heartbeat forced-reload recovery now has one transport owner in lib/forced-save-reload.
+const MAX_LINES = 6258;
 
 test("App.tsx stays within its line budget (drain, don't regrow)", () => {
   const src = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
