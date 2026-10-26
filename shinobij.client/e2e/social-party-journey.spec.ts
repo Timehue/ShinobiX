@@ -80,7 +80,9 @@ test('find, follow, add a friend, then invite and cancel through the existing Re
         return route.fulfill({ json: { ok: true, party: current, invitations: [] } });
     });
     // Reload through a supported navigation bookmark; social membership must survive.
-    await expectUiAuditBoot(page, runtime, 'centralHub');
+    await page.goto('/#/centralHub', { waitUntil: 'domcontentloaded' });
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await expect(page.locator('.app-shell')).toHaveAttribute('data-screen', 'centralHub');
     await enterTowers(page);
     await page.getByRole('button', { name: /^Story Floor 1/ }).click();
     await page.getByLabel('Invite a followed player').selectOption('RivalNinja');
