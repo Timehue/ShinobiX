@@ -138,7 +138,7 @@ export function ascensionDmgMult(tier: number): number {
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
 /**
- * PURE. Resolve a spire (tier, bossId, roundBudget, weekAffix?) into the sealed AscensionSeal.
+ * PURE. Resolve a spire (tier, roundBudget, weekAffix?) into the sealed AscensionSeal.
  * The engine reads the sealed values; it never calls this again. `roundBudget` is the floor's
  * authored budget (already carries headroom over the target kill time); Wave 1 uses it verbatim
  * as the hard cap (Waves 2/3 add the round-tightening keystones). `weekAffix`, if given, is
@@ -146,7 +146,6 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
  */
 export function resolveAscensionModifiers(
     tier: number,
-    bossId: string,
     roundBudget: number,
     weekAffix?: TowerModifier,
 ): AscensionSeal {

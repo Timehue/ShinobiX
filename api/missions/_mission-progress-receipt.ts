@@ -1,20 +1,7 @@
 import type { FieldMissionDef } from './_mission-catalog.js';
-import { createHash, randomUUID } from 'node:crypto';
 
 export type MissionProgressEventKind = 'field-explore' | 'field-raid' | 'hunt-track' | 'hunt-kill';
 export type MissionProgressType = 'field' | 'hunt';
-export type MissionProgressEvidenceSource = 'server-travel' | 'server-pvp' | 'server-ai-combat' | 'server-raid';
-
-export type MissionProgressEvidence = {
-    version: 1;
-    evidenceId: string;
-    playerName: string;
-    missionId: string;
-    kind: MissionProgressEventKind;
-    source: MissionProgressEvidenceSource;
-    issuedAt: number;
-    expiresAt: number;
-};
 
 export type MissionProgressReceipt = {
     playerName: string;
@@ -37,18 +24,6 @@ export function missionProgressReceiptKey(playerName: string, missionId: string)
 export function cleanMissionProgressEvidenceToken(raw: unknown): string {
     const token = typeof raw === 'string' ? raw.trim() : '';
     return /^[A-Za-z0-9_-]{16,96}$/.test(token) ? token : '';
-}
-
-export function missionProgressEvidenceKey(playerName: string, token: string): string {
-    return `missions:progress-evidence:${playerName}:${token}`;
-}
-
-export function missionProgressEvidencePendingKey(
-    playerName: string,
-    missionId: string,
-    kind: MissionProgressEventKind,
-): string {
-    return `missions:progress-evidence-pending:${playerName}:${missionId}:${kind}`;
 }
 
 /*
@@ -117,33 +92,6 @@ export function savedCurrentSector(source: Record<string, unknown> | null | unde
     return 0;
 }
 
-export function createMissionProgressEvidence(
-    opts: {
-        playerName: string;
-        missionId: string;
-        kind: MissionProgressEventKind;
-        source: MissionProgressEvidenceSource;
-        now?: number;
-        ttlMs?: number;
-        evidenceId?: string;
-    },
-): MissionProgressEvidence {
-    const issuedAt = opts.now ?? Date.now();
-    const ttlMs = Math.max(1_000, Math.min(EVIDENCE_MAX_LIFETIME_MS, Math.floor(opts.ttlMs ?? 5 * 60 * 1000)));
-    const evidenceId = cleanMissionProgressEvidenceToken(opts.evidenceId)
-        || randomUUID().replace(/-/g, '');
-    return {
-        version: 1,
-        evidenceId,
-        playerName: opts.playerName,
-        missionId: opts.missionId,
-        kind: opts.kind,
-        source: opts.source,
-        issuedAt,
-        expiresAt: issuedAt + ttlMs,
-    };
-}
-
 export function interactionMissionProgressEvidenceDecision(opts: {
     accepted: boolean;
     kind: MissionProgressEventKind;
@@ -171,13 +119,6 @@ export function interactionMissionProgressEvidenceDecision(opts: {
         return { ok: false, reason: 'progress-already-complete' };
     }
     return { ok: true };
-}
-
-export function missionProgressEvidenceBundleKey(playerName: string, receipt: MissionProgressReceipt): string {
-    const digest = createHash('sha256')
-        .update(`${playerName.toLowerCase()}\n${receipt.missionId}\n${[...receipt.evidenceIds].sort().join('\n')}`)
-        .digest('hex');
-    return `missions:progress-consumed:${playerName}:${digest}`;
 }
 
 export function missionProgressTypeForKind(kind: MissionProgressEventKind): MissionProgressType {
@@ -211,54 +152,6 @@ export function cleanMissionProgressReceipt(raw: unknown): MissionProgressReceip
             : [],
         updatedAt: Math.max(0, Math.floor(Number(rec.updatedAt ?? 0))),
     };
-}
-
-export function cleanMissionProgressEvidence(raw: unknown): MissionProgressEvidence | null {
-    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
-    const value = raw as Record<string, unknown>;
-    const evidenceId = cleanMissionProgressEvidenceToken(value.evidenceId);
-    const playerName = typeof value.playerName === 'string' ? value.playerName : '';
-    const missionId = typeof value.missionId === 'string' ? value.missionId : '';
-    const kind = cleanMissionProgressEventKind(value.kind);
-    const source = value.source === 'server-travel'
-        || value.source === 'server-pvp'
-        || value.source === 'server-ai-combat'
-        || value.source === 'server-raid'
-        ? value.source
-        : '';
-    const issuedAt = Number(value.issuedAt);
-    const expiresAt = Number(value.expiresAt);
-    if (value.version !== 1 || !evidenceId || !playerName || !missionId || !kind || !source
-        || !Number.isFinite(issuedAt) || !Number.isFinite(expiresAt)) return null;
-    return { version: 1, evidenceId, playerName, missionId, kind, source, issuedAt, expiresAt };
-}
-
-const EVIDENCE_MAX_LIFETIME_MS = 2 * 60 * 60 * 1000;
-const EVIDENCE_CLOCK_SKEW_MS = 5 * 60 * 1000;
-
-export function validateMissionProgressEvidence(
-    evidence: MissionProgressEvidence | null,
-    expected: { evidenceId: string; playerName: string; missionId: string; kind: MissionProgressEventKind; now?: number },
-): { ok: true } | { ok: false; reason: string } {
-    if (!evidence) return { ok: false, reason: 'invalid-server-evidence' };
-    if (evidence.evidenceId !== expected.evidenceId) return { ok: false, reason: 'wrong-server-evidence-id' };
-    if (evidence.playerName.toLowerCase() !== expected.playerName.toLowerCase()) return { ok: false, reason: 'wrong-server-evidence-player' };
-    if (evidence.missionId !== expected.missionId || evidence.kind !== expected.kind) return { ok: false, reason: 'wrong-server-evidence-event' };
-
-    const allowedSources: Record<MissionProgressEventKind, MissionProgressEvidenceSource[]> = {
-        'field-explore': ['server-travel', 'server-ai-combat'],
-        'field-raid': ['server-pvp', 'server-raid'],
-        'hunt-track': ['server-travel'],
-        'hunt-kill': ['server-ai-combat'],
-    };
-    if (!allowedSources[expected.kind].includes(evidence.source)) return { ok: false, reason: 'wrong-server-evidence-source' };
-
-    const now = expected.now ?? Date.now();
-    if (evidence.issuedAt > now + EVIDENCE_CLOCK_SKEW_MS
-        || evidence.expiresAt <= evidence.issuedAt
-        || evidence.expiresAt - evidence.issuedAt > EVIDENCE_MAX_LIFETIME_MS
-        || now > evidence.expiresAt) return { ok: false, reason: 'expired-server-evidence' };
-    return { ok: true };
 }
 
 export function applyMissionProgressEvent(

@@ -4,7 +4,7 @@ This is the Vite/React client for ShinobiX. The public game UI currently uses
 the **Shinobi Journey** brand while the repository and backend package use the
 **ShinobiX** name.
 
-![Client demo preview](../docs/screenshots/demo.gif)
+![Shinobi Journey landing page](../docs/screenshots/landing.jpg)
 
 ## What This Client Contains
 
@@ -22,7 +22,7 @@ the **Shinobi Journey** brand while the repository and backend package use the
 
 ## Requirements
 
-- Node.js 22 or newer.
+- Node.js 24 or newer (the exact version is pinned in the repo root `.nvmrc`).
 - Root dependencies installed if you are running the full repo build.
 
 ## Local Development
@@ -54,9 +54,11 @@ npm run preview  # Preview the production build
 
 Repository media lives in `../docs/screenshots/`.
 
-| Character creation | Tactical combat |
+| Character creation | Village selection |
 | --- | --- |
-| ![Character creator](../docs/screenshots/character-creator.png) | ![Combat screen](../docs/screenshots/combat.png) |
+| ![Character creator](../docs/screenshots/character-creator.jpg) | ![Village selection](../docs/screenshots/village-select.jpg) |
+
+Refresh them with `npm run capture:screenshots -- <url>` from this directory.
 
 ## Notes For Contributors
 

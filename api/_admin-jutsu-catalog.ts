@@ -113,15 +113,6 @@ export async function loadAdminJutsuObjects(): Promise<ReadonlyMap<string, Admin
     return inflight;
 }
 
-/**
- * Just the ids — for "does this jutsu exist / is it ownable" checks.
- * Ids come back exactly as authored; compare case-insensitively if the caller
- * normalizes the requested id (api/training/jutsu-ryo.ts lowercases it).
- */
-export async function loadAdminJutsuIds(): Promise<ReadonlySet<string>> {
-    return new Set((await loadAdminJutsuObjects()).keys());
-}
-
 /** Test hook — drop the memo so a test can control what the next read returns. */
 export function __resetAdminJutsuCatalogCache(): void {
     cache = null;

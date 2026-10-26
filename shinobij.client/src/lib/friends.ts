@@ -45,10 +45,6 @@ async function load(playerName: string): Promise<void> {
     } catch { /* offline — keep what we have */ }
 }
 
-export function getFollowing(): string[] {
-    return following;
-}
-
 export function isFollowing(name: string): boolean {
     return following.some((f) => eq(f, name));
 }

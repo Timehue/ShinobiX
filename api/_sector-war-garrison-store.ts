@@ -113,11 +113,6 @@ export async function writeGarrisonRun(run: GarrisonRun, deps: StoreDeps = {}): 
     await kv.set(garrisonRunKey(run.runId), run, { ex: run.settlement ? GARRISON_TERMINAL_RUN_TTL : GARRISON_RUN_TTL });
 }
 
-export async function deleteGarrisonRun(runId: string, deps: StoreDeps = {}): Promise<void> {
-    const { kv } = resolve(deps);
-    await kv.del(garrisonRunKey(runId));
-}
-
 function num(v: unknown, fallback = 0): number {
     const n = Number(v);
     return Number.isFinite(n) ? n : fallback;

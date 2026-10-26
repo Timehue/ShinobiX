@@ -1,5 +1,7 @@
 # ShinobiX Reliability & Observability Plan (2026-06-12)
 
+> **Historical document.** It was written while Vercel and cPanel were still hosts. Both are retired: Railway is the only host, `dist/` is never committed, and new endpoints are registered in `server-api-routes.ts`. Instructions below about committing `dist/`, cPanel or Vercel parity, or `server.ts` registration no longer apply. Current rules live in `CLAUDE.md`.
+
 Phased, rollback-safe plan covering the 10 priorities in the consistency/reliability
 brief. **No behavior changes land without a feature flag or a behavior-preserving
 guarantee.** This is a planning document — nothing here is built yet.

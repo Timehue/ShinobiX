@@ -50,9 +50,6 @@ export type StatKey = typeof STAT_GROWTH_KEYS[number];
 // sooner but never raises it (api/pvp/claim-rewards.ts, I-12).
 // Compatibility for older imports; new callers use the generic PvP name.
 export const PVP_CASUAL_STAT_POINTS_PER_WIN = PVP_STAT_POINTS_PER_WIN;
-// Retained for compatibility with older imports. Combat growth is now entirely
-// unspent so players choose how to allocate every point.
-export const COMBAT_USED_STAT_RATIO = 0;
 
 // ── Growth boosts (docs/leveling-without-xp-map.md §4.1) ────────────────────
 // Retired XP boosts apply to training and other eligible non-combat grants.

@@ -104,7 +104,7 @@ export function ProfessionChange({ character, onVersionedCharacter }: {
             <span>{isProfession(character.profession) ? '✓' : '○'} Profession chosen</span>
             <strong><GameIcon name="shard" size={16} /> {cost} Fate Shards</strong>
         </div>
-        <p className="hint">One scroll per change. Choose either of your other two professions and start at Rank 1 with 0 XP. Previous profession levels, XP, and mastery do not carry over. Your character level and XP stay the same.</p>
+        <p className="hint">One scroll per change. Choose either of your other two professions and start at Rank 1 with 0 XP. Previous profession levels, XP, and mastery do not carry over. Your character level and stats stay the same.</p>
         <p className="hint">Current profession: <strong>{isProfession(character.profession) ? PROFESSION_LABEL[character.profession] : 'Not chosen'}</strong></p>
         {unlockError && <p className="hint">{unlockError}</p>}
         {!retryPurchase && (ownsScroll || retryChange) ? <button type="button" disabled={busy || (!retryChange && !!unlockError)} onClick={() => setOpen(true)}>
@@ -125,7 +125,7 @@ export function ProfessionChange({ character, onVersionedCharacter }: {
                         <span><strong>{info.name}</strong><br /><small>{info.tagline}</small></span>
                     </label>)}
                 </fieldset>
-                <p className="hint">Your new profession begins at Rank 1 with 0 XP and no mastery. Your previous profession progress is lost, including if you switch back later. Your character level and XP are preserved.</p>
+                <p className="hint">Your new profession begins at Rank 1 with 0 XP and no mastery. Your previous profession progress is lost, including if you switch back later. Your character level and stats are preserved.</p>
                 {error && <p role="alert">{error}</p>}
             </div>
             <div className="village-transfer-actions">

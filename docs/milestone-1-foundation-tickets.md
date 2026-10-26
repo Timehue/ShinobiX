@@ -1,5 +1,7 @@
 # Milestone 1 — Foundation · Ticket Set
 
+> **Historical document.** It was written while Vercel and cPanel were still hosts. Both are retired: Railway is the only host, `dist/` is never committed, and new endpoints are registered in `server-api-routes.ts`. Instructions below about committing `dist/`, cPanel or Vercel parity, or `server.ts` registration no longer apply. Current rules live in `CLAUDE.md`.
+
 **Game:** Shinobi Journey · React+Vite client + Vercel-style TS handlers under one Express `server.ts` · Supabase one-table KV (`api/_storage.ts`) · Railway + cPanel.
 
 **Design pillar:** Foundation = balanced PvP. Power is a *ceiling, not a speed* — never bought/grinded/RNG'd. Anti-tamper serves the pillar; rewards stay power-neutral. P0.2 is anti-**tamper**, not a rarity nerf: legit faucets stay; the window only blocks minting past it.

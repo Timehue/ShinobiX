@@ -24,7 +24,7 @@ import { appendSettlementReceipt, inspectSettlementReceipt } from '../_settlemen
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { isPlayerSaveVersionConflict, retryOnSaveVersionConflict } from '../save/_projected-write.js';
 import { buildPublicPlayerIndexEntry, isPublicPlayerIndexKey, REGISTRY_KEY } from '../player/_public-index.js';
-import { creditRankedOutcome, DEFAULT_RANKED_RATING, rankedDelta } from '../_ranked-rating.js';
+import { creditRankedOutcome, DEFAULT_RANKED_RATING } from '../_ranked-rating.js';
 import { towerPvpBindingOf, type TowerPvpTeamId } from '../../shared/tower-pvp.js';
 import type { StoredTowerPvpMatch } from '../towers/_pvp-session.js';
 import { clearRanked2v2Match } from './_ranked-2v2.js';
@@ -67,20 +67,6 @@ export function ranked2v2Outcomes(match: StoredTowerPvpMatch): Array<{ slug: str
         teamId: member.teamId,
         outcome: winner === 'draw' ? 'draw' as const : member.teamId === winner ? 'win' as const : 'loss' as const,
     }));
-}
-
-/**
- * The swing both teams share, derived from the sealed team ratings. A draw moves
- * nothing — the Elo formula has no draw term here and inventing one would be a
- * balance change, not a settlement.
- */
-export function ranked2v2Delta(match: StoredTowerPvpMatch): number {
-    const binding = towerPvpBindingOf(match);
-    if (binding.kind !== 'ranked-2v2') return 0;
-    if (match.winner !== 'amber' && match.winner !== 'violet') return 0;
-    const winnerRating = match.winner === 'amber' ? binding.amberRating : binding.violetRating;
-    const loserRating = match.winner === 'amber' ? binding.violetRating : binding.amberRating;
-    return rankedDelta(winnerRating, loserRating);
 }
 
 /**

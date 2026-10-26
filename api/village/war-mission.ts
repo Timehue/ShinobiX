@@ -5,6 +5,7 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { kv } from '../_storage.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
+import { saveUnchangedSince } from '../save/_save-unchanged.js';
 import { applyVillageWarMissionClaim } from './_war-mission.js';
 import { warMissionTokenKey, WAR_MISSION_TOKEN_TTL_SEC, type WarMissionToken } from '../_war-battle-receipt.js';
 
@@ -50,39 +51,56 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const today = now.toISOString().slice(0, 10);
         const month = now.toISOString().slice(0, 7);
 
-        let village = '';
-        const result = await mutatePlayerSave(playerName, ({ character }) => {
+        // The single-use war-damage token for the HP half is minted INSIDE the
+        // decision, under the save lock and BEFORE the mission commits. The
+        // world-state war write refuses damage that isn't backed by a won battle,
+        // a breached war ground, or a token like this one, so the mission's 30 HP
+        // has to be authorized here, where the raid count is actually verified.
+        //
+        // Minted after the commit, a failed mint left the mission paid and spent
+        // (a retry is refused as out-of-order) with its 30 war HP lost for good.
+        // Minted first, a failed mint throws before anything is written, so the
+        // claim simply fails and the retry is a fresh one. A token whose mission
+        // does not commit is deleted again (onConflict, and onUnconfirmedWrite
+        // while the save provably did not move); an unconfirmed write that may
+        // have landed keeps it, so a mission that paid is never left without its
+        // damage. The token is not usable by anyone until the reply hands its id
+        // over, and it still dies on use or after WAR_MISSION_TOKEN_TTL_SEC.
+        let warMissionToken: string | undefined;
+        const result = await mutatePlayerSave(playerName, async ({ character, record, saveKey }) => {
             const applied = applyVillageWarMissionClaim(character, body.missionIndex, today, month);
             if (!applied.ok) {
                 return { ok: false as const, status: REFUSAL_STATUS[applied.reason] ?? 409, error: applied.reason };
             }
-            village = String((character as { village?: string })?.village ?? '').trim();
-            return { ok: true as const, character: applied.character, value: { completed: applied.completed } };
+            const village = String((character as { village?: string })?.village ?? '').trim();
+            let tokenKey = '';
+            if (village) {
+                const tokenId = `${playerName}:${Date.now()}:${Math.random().toString(36).slice(2, 10)}`;
+                const token: WarMissionToken = {
+                    playerName,
+                    village,
+                    damage: VILLAGE_WAR_MISSION_DAMAGE,
+                    expiresAt: Date.now() + WAR_MISSION_TOKEN_TTL_SEC * 1000,
+                };
+                tokenKey = warMissionTokenKey(tokenId);
+                await kv.set(tokenKey, token, { ex: WAR_MISSION_TOKEN_TTL_SEC } as never);
+                warMissionToken = tokenId;
+            }
+            const dropToken = async () => {
+                warMissionToken = undefined;
+                if (tokenKey) await kv.del(tokenKey);
+            };
+            return {
+                ok: true as const,
+                character: applied.character,
+                value: { completed: applied.completed },
+                onConflict: dropToken,
+                onUnconfirmedWrite: async () => {
+                    if (await saveUnchangedSince(saveKey, record)) await dropToken();
+                },
+            };
         });
         if (!result.ok) return res.status(result.status).json({ error: result.error });
-
-        // Mint the single-use war-damage token for the HP half. The world-state
-        // war write refuses damage that isn't backed by a won battle, a breached
-        // war ground, or a token like this one — so the mission's 30 HP has to be
-        // authorized here, where the raid count was actually verified.
-        let warMissionToken: string | undefined;
-        if (village) {
-            const tokenId = `${playerName}:${Date.now()}:${Math.random().toString(36).slice(2, 10)}`;
-            const token: WarMissionToken = {
-                playerName,
-                village,
-                damage: VILLAGE_WAR_MISSION_DAMAGE,
-                expiresAt: Date.now() + WAR_MISSION_TOKEN_TTL_SEC * 1000,
-            };
-            try {
-                await kv.set(warMissionTokenKey(tokenId), token, { ex: WAR_MISSION_TOKEN_TTL_SEC } as never);
-                warMissionToken = tokenId;
-            } catch (mintError) {
-                // Non-fatal: the mission reward is already committed. The war HP
-                // simply doesn't land, rather than the claim failing after payout.
-                console.error('[village/war-mission] token mint failed', safeLogValue(mintError));
-            }
-        }
         return res.status(200).json({ ok: true, ...result.value, warMissionToken, character: result.character, _saveVersion: result._saveVersion });
     } catch (error) {
         console.error('[village/war-mission]', safeLogValue(error));

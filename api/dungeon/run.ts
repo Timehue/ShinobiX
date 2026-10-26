@@ -108,6 +108,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         error = 'Hidden-dungeon searches unlock at level 50.';
                     }
                 }
+                if (action === 'start') {
+                    if (out.reason === 'dungeon-pet-required') error = 'Carry a pet before opening a relic dungeon. Your Dungeon Key was not used.';
+                    else if (out.reason === 'dungeon-key-required') error = 'You need a Dungeon Key to open this relic dungeon.';
+                }
                 return { ok: false as const, status: 409, error };
             }
             const activeAfter = out.character.activeDungeonRun && typeof out.character.activeDungeonRun === 'object'

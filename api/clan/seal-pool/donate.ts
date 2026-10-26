@@ -52,18 +52,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'POST') return res.status(405).end();
 
-    const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {});
-    const playerName = safeName(String(body.playerName ?? ''));
-    const amount = Math.floor(Number(body.amount ?? 0));
-    if (!playerName) return res.status(400).json({ error: 'Invalid player name.' });
-    if (!Number.isFinite(amount) || amount < MIN_DONATION) {
-        return res.status(400).json({ error: `Amount must be at least ${MIN_DONATION}.` });
-    }
-    if (amount > MAX_DONATION_PER_CALL) {
-        return res.status(400).json({ error: `Max ${MAX_DONATION_PER_CALL} Seals per donation call.` });
-    }
-
     try {
+        // The body is parsed inside the try: a malformed JSON string is a
+        // client error, not an unhandled rejection.
+        let body: Record<string, unknown>;
+        try {
+            body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {});
+        } catch {
+            return res.status(400).json({ error: 'Invalid request body.' });
+        }
+        if (!body || typeof body !== 'object') return res.status(400).json({ error: 'Invalid request body.' });
+        const playerName = safeName(String(body.playerName ?? ''));
+        const amount = Math.floor(Number(body.amount ?? 0));
+        if (!playerName) return res.status(400).json({ error: 'Invalid player name.' });
+        if (!Number.isFinite(amount) || amount < MIN_DONATION) {
+            return res.status(400).json({ error: `Amount must be at least ${MIN_DONATION}.` });
+        }
+        if (amount > MAX_DONATION_PER_CALL) {
+            return res.status(400).json({ error: `Max ${MAX_DONATION_PER_CALL} Seals per donation call.` });
+        }
+
         const identity = await authedPlayerOrAdmin(req, playerName);
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         if (!identity.admin && identity.name !== playerName) {

@@ -1,5 +1,7 @@
 # Tactical Arena — deeper utility-AI rewrite
 
+> **Historical document.** It was written while Vercel and cPanel were still hosts. Both are retired: Railway is the only host, `dist/` is never committed, and new endpoints are registered in `server-api-routes.ts`. Instructions below about committing `dist/`, cPanel or Vercel parity, or `server.ts` registration no longer apply. Current rules live in `CLAUDE.md`.
+
 Turning the tactical pet-arena AI (`shinobij.client/src/lib/pet-arena-sim.ts`) from
 four independent one-tick-greedy agents into a **coordinated squad with cheap
 lookahead and per-role personality** — without breaking determinism, the renderer

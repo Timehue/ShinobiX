@@ -39,15 +39,15 @@ const OLD_ACCOUNT = Date.now() - ANTI_ALT_ACCOUNT_AGE_MS - 1;
 describe("Vanguard hub daily allowance", () => {
     it("discards yesterday's earnings without altering the saved ledger", () => {
         const saved = character({ profession: "vanguard", dailyHonorSealsEarned: 50, vanguardDailyResetDate: "2026-09-16" });
-        assert.deepEqual(vanguardDailySealProgress(saved, "2026-09-17"), { earned: 0, cap: 50 });
+        assert.deepEqual(vanguardDailySealProgress(saved, "2026-09-17"), { earned: 0, cap: 150 });
         assert.equal(saved.dailyHonorSealsEarned, 50);
     });
     it("includes Relentless mastery in today's allowance", () => {
         const saved = character({ profession: "vanguard", professionXp: 100_000, masterySpec: { "seal-cap": 3 }, dailyHonorSealsEarned: 54, vanguardDailyResetDate: "2026-09-17" });
-        assert.deepEqual(vanguardDailySealProgress(saved, "2026-09-17"), { earned: 54, cap: 65 });
+        assert.deepEqual(vanguardDailySealProgress(saved, "2026-09-17"), { earned: 54, cap: 165 });
     });
     it("starts a missing ledger at zero and ignores negative saved earnings", () => {
-        assert.deepEqual(vanguardDailySealProgress(character({ profession: "vanguard" }), "2026-09-17"), { earned: 0, cap: 50 });
+        assert.deepEqual(vanguardDailySealProgress(character({ profession: "vanguard" }), "2026-09-17"), { earned: 0, cap: 150 });
         assert.equal(vanguardDailySealProgress(character({ profession: "vanguard", vanguardDailyResetDate: "2026-09-17", dailyHonorSealsEarned: -10 }), "2026-09-17").earned, 0);
     });
 });

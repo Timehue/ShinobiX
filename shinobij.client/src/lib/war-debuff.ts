@@ -69,15 +69,6 @@ export async function fetchWarMorale(village: string): Promise<WarMoraleStamps> 
     }
 }
 
-/** Back-compat: the loser-debuff expiry alone. */
-export async function fetchWarLossDebuff(village: string): Promise<number> {
-    return (await fetchWarMorale(village)).warLossDebuffUntil ?? 0;
-}
-
-export function isWarDebuffActive(until: number): boolean {
-    return until > Date.now();
-}
-
 /**
  * Resolve stamps into the multipliers to apply. Pure, so "which window wins" and
  * "what it does" are unit-testable without React.
@@ -135,6 +126,3 @@ export function useVillageWarMorale(village: string | undefined): VillageWarMora
     }, [village]);
     return resolveWarMorale(stamps);
 }
-
-/** Back-compat alias for callers still using the old hook name. */
-export const useWarLossDebuff = useVillageWarMorale;
