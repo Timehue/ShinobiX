@@ -63,3 +63,26 @@ test('interest credits once; a repeated request returns a validated cooldown wit
     const saved = await kv.get<{ character: { bankRyo: number } }>(`save:${name}`);
     assert.equal(saved?.character.bankRyo, 10050);
 });
+
+test('a legacy unversioned no-upgrade refusal remains a read-only success', async () => {
+    const save = { character: { name, ryo: 1000, bankRyo: 10000, villageUpgrades: { bank: 0 } } };
+    await kv.set(`save:${name}`, save);
+    const result = await call(handlers[1], { playerName: name });
+    assert.equal(result.status, 200);
+    const reply = bankInterestResponseContract.parse(result.data);
+    assert.equal(reply.eligible, false);
+    assert.equal(reply._saveVersion, 0);
+    assert.deepEqual(await kv.get(`save:${name}`), save);
+});
+
+test('interest preserves a legacy fractional principal while crediting once', async () => {
+    await kv.set(`save:${name}`, { _saveVersion: 1, character: { name, ryo: 1000, bankRyo: 10000.5, villageUpgrades: { bank: 50 }, lastBankInterestAt: 0 } });
+    const result = await call(handlers[1], { playerName: name });
+    assert.equal(result.status, 200);
+    const reply = bankInterestResponseContract.parse(result.data);
+    assert.equal(reply.eligible, true);
+    if (reply.eligible) assert.equal(reply.bankRyo, 10050.5);
+    const repeat = await call(handlers[1], { playerName: name });
+    assert.equal(repeat.status, 200);
+    assert.equal(bankInterestResponseContract.parse(repeat.data).claimed, 0);
+});
