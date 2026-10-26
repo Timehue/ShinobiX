@@ -2,7 +2,9 @@ import { apiErrorContract, type Contract, type ContractType } from '../../../sha
 import {
     bankTransferRequestContract, bankTransferResponseContract,
     bankInterestRequestContract, bankInterestResponseContract, type BankTransferAction,
+    bankSnapshotCharacterContract, type BankInterestResponse,
 } from '../../../shared/bank-contract';
+import { readPlayerSaveSnapshot } from './save-api';
 
 type ApiError = ContractType<typeof apiErrorContract>;
 export type BankReply<T> = { status: number; data: T | null; error: ApiError | null };
@@ -32,8 +34,31 @@ export async function transferBankRyo(playerName: string, action: BankTransferAc
     return reply;
 }
 
-export function claimBankInterest(playerName: string) {
-    return post('/api/bank/claim-interest', bankInterestRequestContract.parse({ playerName }), bankInterestResponseContract);
+export async function claimBankInterest(playerName: string) {
+    const reply = await post('/api/bank/claim-interest', bankInterestRequestContract.parse({ playerName }), bankInterestResponseContract);
+    if (reply.data?.character && accountKey(reply.data.character.name) !== accountKey(playerName)) return { ...reply, data: null };
+    return reply;
+}
+
+/** Older interest servers and tax-only refusals need a whole authoritative read,
+ * never a partial balance patch paired with a newly advanced save version. */
+export async function readBankAuthority(playerName: string, receipt?: BankInterestResponse) {
+    if (receipt?.character) {
+        if (accountKey(receipt.character.name) !== accountKey(playerName)) throw new Error('The bank receipt belongs to another account.');
+        return { character: receipt.character, _saveVersion: receipt._saveVersion };
+    }
+    return readBankSave(playerName, receipt?._saveVersion);
+}
+
+export async function readBankSave(playerName: string, minimumVersion = 0) {
+    const response = await fetch(`/api/save/${encodeURIComponent(playerName.toLowerCase())}`, {
+        cache: 'no-store', signal: AbortSignal.timeout(12_000),
+    });
+    if (!response.ok) throw new Error('Could not refresh the authoritative bank balance.');
+    const snapshot = await readPlayerSaveSnapshot(await response.json(), playerName);
+    const version = snapshot._saveVersion ?? 0;
+    if (version < minimumVersion) throw new Error('Bank recovery returned an older save.');
+    return { character: bankSnapshotCharacterContract.parse(snapshot.character), _saveVersion: version };
 }
 
 function accountKey(name: string) { return name.toLowerCase().replace(/[^a-z0-9\-_]/g, '').slice(0, 32); }

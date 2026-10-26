@@ -1,10 +1,11 @@
 import { AMBIGUOUS_ACTION_MESSAGE } from "./ambiguous-action";
+import { apiErrorContract } from '../../../shared/api-contract';
 
 /*
  * Client wrapper for direct player-to-player transfers (api/player/trade.ts).
  * Plain fetch (auth headers come from the global authFetch interceptor). The
- * server is authoritative for the debit/credit/burn; the caller reflects the
- * returned `debit` locally so the autosave converges. KEEP the tax + currency
+ * server is authoritative for the debit/credit/burn; the caller reads the whole
+ * saved character and adopts its version atomically. KEEP the tax + currency
  * list in sync with api/player/_trade-core.ts.
  */
 
@@ -30,7 +31,7 @@ export function previewCredit(amount: number): number {
     return Math.max(whole >= 1 ? 1 : 0, Math.floor(whole * (1 - TRADE_TAX_PCT)));
 }
 
-export type TradeResult = { ok: boolean; error?: string; debit?: number; credit?: number; burned?: number; toPlayer?: string; senderBalance?: number; duplicate?: boolean; pending?: boolean };
+export type TradeResult = { ok: boolean; error?: string; debit?: number; credit?: number; burned?: number; toPlayer?: string; senderBalance?: number; duplicate?: boolean; pending?: boolean; _saveVersion?: number };
 
 /*
  * Nonce retention (F15). The nonce is the transfer's replay identity on the
@@ -62,6 +63,24 @@ function storedNonce(key: string): string | null {
     } catch {
         return null;
     }
+}
+
+export function hasPendingTradeIntent(playerName: string, toPlayer: string, currency: TradeCurrency, amount: number): boolean {
+    const key = tradeIntentKey(playerName, toPlayer, currency, amount);
+    return unconfirmed.has(key) || storedNonce(key) !== null;
+}
+
+function confirmedReceipt(raw: unknown, toPlayer: string, currency: TradeCurrency, amount: number): raw is TradeResult {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return false;
+    const data = raw as Record<string, unknown>;
+    const account = (name: string) => name.toLowerCase().replace(/[^a-z0-9\-_]/g, '').slice(0, 32);
+    return data.ok === true && data.pending !== true
+        && data.debit === amount && data.credit === previewCredit(amount) && data.burned === amount - previewCredit(amount)
+        && typeof data.toPlayer === 'string' && account(data.toPlayer) === account(toPlayer)
+        && typeof data.senderBalance === 'number' && Number.isFinite(data.senderBalance) && data.senderBalance >= 0
+        && (data.currency === undefined || data.currency === currency)
+        && (data.duplicate === undefined || typeof data.duplicate === 'boolean')
+        && (data._saveVersion === undefined || (Number.isSafeInteger(data._saveVersion) && Number(data._saveVersion) >= 0));
 }
 
 export function tradeNonceFor(key: string): string {
@@ -98,24 +117,26 @@ export async function sendCurrency(playerName: string, toPlayer: string, currenc
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ playerName, toPlayer, currency, amount, nonce }),
         });
-        const data = await res.json().catch(() => ({})) as TradeResult;
-        // Definitive: a confirmed success, or a refusal (4xx) that is neither
-        // a timeout nor the "still settling" answer — those end the intent.
+        const raw: unknown = await res.json().catch(() => null);
+        const error = apiErrorContract.safeParse(raw);
+        const confirmed = res.ok && confirmedReceipt(raw, toPlayer, currency, amount);
+        // Login, access and rate-limit refusals can precede receipt lookup after
+        // an earlier attempt committed. They must retain that attempt's nonce.
         // Anything else may have moved money, so the nonce is kept and the
         // retry resumes the SAME operation.
-        const confirmed = res.ok && data.ok === true;
-        const refused = res.status >= 400 && res.status < 500 && res.status !== 408 && data.pending !== true;
+        const pending = error.success && error.data.pending === true;
+        const refused = [400, 404, 409, 422].includes(res.status) && error.success && !pending;
         settleTradeNonce(key, confirmed || refused, nonce);
-        if (!res.ok || !data.ok) return {
+        if (!confirmed) return {
             ok: false,
             // A lost acknowledgement can follow a committed transfer; do not
             // invite a blind retry. (The retained nonce makes a retry safe.)
-            error: res.status === 408 || res.status >= 500 || data.pending || (res.ok && !data.ok)
+            error: res.status === 408 || res.status >= 500 || pending || !error.success || res.ok
                 ? AMBIGUOUS_ACTION_MESSAGE
-                : data.error || 'Could not send.',
-            ...(data.pending ? { pending: true } : {}),
+                : error.data.error,
+            ...(pending ? { pending: true } : {}),
         };
-        return data;
+        return raw as TradeResult;
     } catch {
         return { ok: false, error: 'That transfer may not have gone through. Wait until the game has saved, then refresh to check before you try again.' };
     }
