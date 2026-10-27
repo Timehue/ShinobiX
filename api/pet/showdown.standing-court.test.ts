@@ -107,6 +107,30 @@ test('forfeiting a Standing Court sitting resets it once, including turn and for
     assert.equal((await progress()).standingCourt.round, 1, 'an old concession cannot reset the next run');
 });
 
+test('walking away from a sitting and starting it again resets the run, exactly like conceding', async () => {
+    const initial = await progress();
+    await kv.set(PROGRESS_KEY, { ...initial, standingCourt: { ...initial.standingCourt, round: 3, best: 3 } });
+    const sitting = FIRST_PACT_STANDING_COURT_ROUNDS[3].id;
+    const abandoned = await startRound();
+    const again = await post({ action: 'first-pact', encounterId: sitting, petIds: PET_IDS });
+    assert.equal(again.status, 409, 'the abandoned sitting settled as a loss, so the Court sits from the top');
+    assert.match(String(again.body.error), /left unfinished, so it counted as a loss/);
+    assert.equal((await progress()).standingCourt.round, 0);
+    assert.equal((await progress()).standingCourt.best, 3);
+    assert.equal(await kv.get(`pet:showdown:${PLAYER}:${abandoned}`), null, 'the abandoned fight cannot be finished later');
+    assert.equal((await claim(abandoned)).status, 404);
+});
+
+test('a sitting won but never claimed still advances the run when the next one starts', async () => {
+    const won = await terminalWin();
+    const next = await post({ action: 'first-pact', encounterId: FIRST_PACT_STANDING_COURT_ROUNDS[1].id, petIds: PET_IDS });
+    assert.equal(next.status, 200, JSON.stringify(next.body));
+    assert.equal((await progress()).standingCourt.round, 1);
+    const late = await claim(won);
+    assert.equal(late.status, 200, JSON.stringify(late.body));
+    assert.equal(late.body.firstPact.advanced, false, 'already settled once');
+});
+
 test('retained terminal sessions cannot repay after two clears churn the eight-proof history', async () => {
     const ids = await settleWins(10);
     const before = await progress();
