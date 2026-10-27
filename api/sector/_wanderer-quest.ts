@@ -3,7 +3,7 @@
  * Unit-testable without KV / auth / locks (same pattern as api/pvp/_bounty.ts).
  *
  * A "sage" wanderer offers a bounty tied to one of several server-tracked
- * progress counters (foes defeated, pet duels won, card rounds won, tiles
+ * progress counters (foes defeated, rewarded pet battles won, card rounds won, tiles
  * scouted). The objective baseline (the counter's value at accept) + quest id are
  * SEALED server-side in KV — the save copy is display-only, so a tampered save
  * can't forge an early claim. The reward is RECOMPUTED from this catalog at claim,

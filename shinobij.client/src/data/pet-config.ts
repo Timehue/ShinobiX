@@ -28,10 +28,10 @@ export const petTraits: PetTrait[] = ["Loyal", "Aggressive", "Guardian", "Swift"
 export const ultraPetTraits: PetTrait[] = ["Fateweaver", "Hollowborn", "Boonbringer"];
 
 /* What each trait does, by battle system. "Coliseum battles" means every fight
-   on the Showdown engine (Coliseum, Ladder, wild, story, dungeon, war and the
-   First Pact; api/_pet-showdown/engine.ts TRAIT_FX). "Warfront" is the
-   real-time Rite (pet-duel-cinematic.ts). Stat bonuses are baked in when the
-   pet is acquired. Pet Arena ignores owned traits; see PET_TRAIT_ARENA_NOTE. */
+   on the Showdown engine (Coliseum, Ladder, Pet Arena, wild, story, dungeon,
+   war and the First Pact; api/_pet-showdown/engine.ts TRAIT_FX). "Warfront" is
+   the real-time Rite (pet-duel-cinematic.ts). Stat bonuses are baked in when
+   the pet is acquired. */
 export const petTraitDescriptions: Record<PetTrait, string> = {
     Loyal: "Earns 50% more XP from every completed training timer. In Coliseum battles it charges its signature meter 20% faster.",
     Aggressive: "+15% attack. Deals 6% more damage in Coliseum battles and fights more aggressively in Warfront.",
@@ -43,9 +43,6 @@ export const petTraitDescriptions: Record<PetTrait, string> = {
     Hollowborn: "Apex · +5% to all stats. In Coliseum battles it drains 8% of the damage it deals. In Warfront it deals 12% more damage, drains 12%, and lands more critical hits.",
     Boonbringer: "Apex · doubles rewards and pet XP from pet expeditions. In Coliseum battles it strengthens its ally synergy bonus by 20%.",
 };
-
-/** Pet Arena builds every pet from its species' own kit, so owned traits do nothing there. */
-export const PET_TRAIT_ARENA_NOTE = "Pet Arena uses each species' own trait instead of this one.";
 
 // ── Training duration tiers + sealed XP ─────────────────────────────────
 
