@@ -8,6 +8,7 @@ import { kv } from '../_storage.js';
 import { getFloor, isPublicFloor } from './_floor-catalog.js';
 import { isValidSpireTier } from './_spire-catalog.js';
 import { towerModeDisabled } from './_mode-control.js';
+import { STORY_TOWER_MIN_LEVEL, towerLevelEligible } from './_story-eligibility.js';
 import { kickTowerPlayers } from '../_realtime/notify.js';
 import {
     TOWER_PARTY_ID,
@@ -146,6 +147,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const character = save?.character as Record<string, unknown> | undefined;
         if (!character) return res.status(404).json({ error: 'Your save was not found.', errorCode: 'save-not-found' });
         const displayName = String(character.name ?? playerName).slice(0, 40);
+
+        // Recovery, leaving and unreadiness remain available after a rule change.
+        const entering = ['create', 'join', 'accept'].includes(action)
+            || (action === 'ready' && body.ready !== false);
+        if (entering && !identity.admin && !towerLevelEligible(character)) {
+            return res.status(403).json({
+                error: `Battle Towers unlock at level ${STORY_TOWER_MIN_LEVEL}.`,
+                errorCode: 'member-ineligible',
+                members: [playerName],
+                requiredLevel: STORY_TOWER_MIN_LEVEL,
+            });
+        }
 
         if (action === 'create') {
             if (towerModeDisabled()) return res.status(503).json({ error: 'Battle Towers launches are temporarily disabled.', errorCode: 'tower-mode-disabled' });

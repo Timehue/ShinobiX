@@ -13,7 +13,7 @@ function encounter(floor: TowerFloor) {
 }
 
 test('every newly started Story floor resolves through enemies and bosses, without escort or timer objectives', () => {
-    assert.equal(TOWER_CATALOG_VERSION, 'story-tower-v6');
+    assert.equal(TOWER_CATALOG_VERSION, 'story-tower-v7');
     const allowed = new Set(['defeat-all', 'defeat-boss', 'defeat-all-then-boss', 'kill-adds-first']);
     for (const floor of FLOOR_CATALOG) {
         assert.ok(allowed.has(floor.objective), `floor ${floor.id} is a combat objective`);

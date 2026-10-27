@@ -15,6 +15,7 @@ import {
 } from './_battle-lease.js';
 import { activeTowerPartyForPlayer, repairStaleTowerPartyLifecycle } from './_party.js';
 import { compensateConfirmedMissingTowerEntry } from './_entry-recovery.js';
+import { isTowerSessionContention, TOWER_SESSION_RETRY_AFTER_SECONDS, towerSessionBusyErrorBody } from './_session-mutation.js';
 
 /** A KO changes turn eligibility; borrowed AI ownership never grants recovery access. */
 export function isDiscoverableTowerRun(session: TowerSession | null, slug: string): boolean {
@@ -136,6 +137,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             ...(lease.ok ? {} : { leaseConflict: true, members: lease.members }),
         });
     } catch (err) {
+        if (isTowerSessionContention(err)) {
+            res.setHeader('Retry-After', String(TOWER_SESSION_RETRY_AFTER_SECONDS));
+            return res.status(503).json(towerSessionBusyErrorBody());
+        }
         console.error('[towers/my-run]', err);
         return res.status(500).json({ error: 'Internal server error.' });
     }
