@@ -71,7 +71,7 @@ export function ChroniclePackGallery({ character, cardsById, onVersionedCharacte
   const pending = (type: CardPackType) => hasPendingCardPackRequest(character.name, type);
   const costOf = (pack: PackListing) => pack.currency === "chroniclePoints"
     ? pack.cost
-    : Math.max(1, Math.floor(pack.cost * (activeElderFocus(character) === "trade" ? 0.95 : 1)));
+    : Math.max(1, Math.round(pack.cost * (activeElderFocus(character) === "trade" ? 0.95 : 1)));
   const balanceOf = (pack: PackListing) => pack.currency === "chroniclePoints"
     ? character.chroniclePoints ?? 0
     : character.fateShards ?? 0;

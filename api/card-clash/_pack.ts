@@ -25,8 +25,9 @@ type PackDefinition = {
 const BASIC_PACK: PackDefinition = { currency: 'chroniclePoints', baseCost: 100, count: 5, rarities: ['common', 'rare'], pool: 'shop' };
 const PACKS: Record<CardPackType, PackDefinition> = {
     // Basic Card Pack: Commons and the weaker Rares. Costs Chronicle Points,
-    // earned only through Echoes of War (Celestial Tower) victories — it has
-    // NO ryo price and must never regain one (owner handoff 2026-09-02).
+    // earned from Echoes of War victories and, since 2026-10-22, PvP card duels
+    // and won Dungeon, Rift and garrison card battles (api/card-clash/_card-cp.ts).
+    // It has NO ryo price and must never regain one (owner handoff 2026-09-02).
     standard: BASIC_PACK,
     fire: { ...BASIC_PACK, element: 'Fire' },
     water: { ...BASIC_PACK, element: 'Water' },
@@ -135,7 +136,9 @@ export function cardPackDiscountPercent(character: PlayerCharacter, type: CardPa
 
 export function cardPackCost(character: PlayerCharacter, type: CardPackType): number {
     const def = PACKS[type];
-    return Math.max(1, Math.floor(def.baseCost * Math.max(0, 1 - cardPackDiscountPercent(character, type) / 100)));
+    // Nearest shard avoids turning 5% off a six-shard pack into 16.7%.
+    // Chronicle Point packs retain their fixed, undiscounted campaign price.
+    return Math.max(1, Math.round(def.baseCost * Math.max(0, 1 - cardPackDiscountPercent(character, type) / 100)));
 }
 
 export type CardPackOpen =
@@ -167,7 +170,7 @@ export function applyCardPackOpen(
     const balance = Math.max(0, Math.floor(Number(character[def.currency]) || 0));
     const cost = cardPackCost(character, type);
     const currencyLabel = def.currency === 'chroniclePoints'
-        ? 'Chronicle Points — win Showdowns in Echoes of War to earn more'
+        ? 'Chronicle Points — win card duels, Echoes of War, or Dungeon and Rift card battles to earn more'
         : def.currency === 'fateShards' ? 'Fate Shards' : 'ryo';
     if (balance < cost) return { ok: false, status: 409, error: `Not enough ${currencyLabel}.` };
     const pool = Object.entries(BUILTIN_CLASH)

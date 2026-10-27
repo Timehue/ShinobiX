@@ -65,6 +65,10 @@ const REPLACE_SUBTREE_KEYS = new Set<string>([
     // Gathering settlements remove the active attempt. Retaining its old key
     // would reopen a finished minigame and block the next node indefinitely.
     'resourceGathering',
+    // Counter settlements clear active work and reserved tea on completion or
+    // cancellation. Generic saves mirror this complete server-owned subtree.
+    // Retaining absent keys could reopen a paid order with a fresh request ID.
+    'sectorBuildings',
     // Era stage transitions reset counters and replace historical short-chapter
     // completion. Generic saves preserve this server-owned map before merging.
     'eraJourneys',
@@ -130,6 +134,17 @@ export function setSafeRecordValue<T>(target: Record<string, T>, key: string, va
 export function deleteSafeRecordValue<T>(target: Record<string, T>, key: string): boolean {
     if (!isSafeRecordKey(key)) return false;
     return Reflect.deleteProperty(target, key);
+}
+
+/**
+ * A positive count the record holds as its OWN entry, else 0. A player-slug key
+ * such as `constructor` must never read an inherited Object.prototype member:
+ * `byTarget[slug] ?? 0` returned the Object function there and priced NaN.
+ */
+export function ownCountValue(record: unknown, key: string): number {
+    if (!record || typeof record !== 'object' || !Object.hasOwn(record, key)) return 0;
+    const n = Number((record as Record<string, unknown>)[key]);
+    return Number.isFinite(n) && n > 0 ? n : 0;
 }
 
 export function mergePreservingImages(incoming: unknown, existing: unknown): unknown {

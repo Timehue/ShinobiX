@@ -4454,6 +4454,7 @@ function WorldMapContent({
                         onCrossExit={roadWalk.requestExit}
                         onWalkArrive={roadWalk.arriveAtTile}
                         onWorldAuthority={worldAuthority}
+                        onOpenAtlas={()=>setSelectedSector(null)}
                         worldMovementBlocked={() => isTraveling || travelRequestInFlight.current || warShrine.open || worldBossQueueOpen}
                         hudLayer={
                     <>{!vaultRaid && warShrine.tracker}<SectorHud

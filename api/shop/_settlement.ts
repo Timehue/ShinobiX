@@ -283,7 +283,7 @@ export function applyCardPackPurchase(
     if (balance === null) return { ok: false, status: 409, error: 'Stored currency balance is invalid. Contact support.' };
     const totalCost = cardPackCost(character as PlayerCharacter, packId);
     const packCurrencyLabel = pack.currency === 'chroniclePoints'
-        ? 'Chronicle Points — win Showdowns in Echoes of War to earn more'
+        ? 'Chronicle Points — win card duels, Echoes of War, or Dungeon and Rift card battles to earn more'
         : pack.currency === 'ryo' ? 'ryo' : 'Fate Shards';
     if (balance < totalCost) return { ok: false, status: 400, error: `Not enough ${packCurrencyLabel}.` };
 

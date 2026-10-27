@@ -3,17 +3,22 @@ import { installUiAuditRuntime, expectUiAuditBoot, uiAuditSave } from './helpers
 import { expectViewportSafe } from './helpers/adaptive-assertions';
 import { sectorArtKey } from '../../shared/sector-geo';
 
+// Fixed, not Date.now(): a roaming Legacy Emissary ignores wanderer cooldowns, and no sector has one at any hour of 2026-10-10 (01:00 UTC is world noon).
+const WAR_SCENARIO_EPOCH = Date.UTC(2026, 9, 10, 1);
+
 for (const version of [2, 3] as const) for (const capped of [false, true]) test(`v${version}: travelers enter, move and leave the golden shrine with ${capped ? "capped" : "zero"} scored bouts; control stays open until closing`, async ({ page }, testInfo) => {
     test.setTimeout(90_000);
+    const now = WAR_SCENARIO_EPOCH;
+    await page.clock.install({ time: new Date(now) });
     const save = { ...uiAuditSave(), currentSector: 40 };
-    const bucket = Math.floor(Date.now() / (6 * 3_600_000)), wandererCooldowns: Record<string, number> = {};
-    for (const offset of [-1, 0, 1]) for (const index of [0, 1, 2]) wandererCooldowns[`w-40-${bucket + offset}-${index}`] = Date.now() + 30 * 86_400_000;
+    const bucket = Math.floor(now / (6 * 3_600_000)), wandererCooldowns: Record<string, number> = {};
+    for (const offset of [-1, 0, 1]) for (const index of [0, 1, 2]) wandererCooldowns[`w-40-${bucket + offset}-${index}`] = now + 30 * 86_400_000;
     save.character = { ...save.character, wandererCooldowns };
     const runtime = await installUiAuditRuntime(page, save);
     await page.addInitScript(() => localStorage.setItem('legacyRumors.seen.v1:auditninja', JSON.stringify([10, 20, 30, 40, 45])));
     const village = 'Stormveil Village', enemy = 'Moonshadow Village', warId = 'moonshadowvillage-vs-stormveilvillage';
     const scoredBouts = capped ? (version === 2 ? 15 : 10) : 0;
-    const startsAt = Date.now() - (version === 2 ? 21 : 3) * 3_600_000, endsAt = startsAt + 5 * 86_400_000;
+    const startsAt = now - (version === 2 ? 21 : 3) * 3_600_000, endsAt = startsAt + 5 * 86_400_000;
     const objective = { id: 'shrine-0', sector: 40, mode: 'combat', opensAt: startsAt + (version === 2 ? 20 : 2) * 3_600_000,
         closesAt: startsAt + (version === 2 ? 24 : 4) * 3_600_000, bouts: scoredBouts, limit: version === 2 ? 15 : 10, wins: {}, controlTimeMs: { [village]: 120_000, [enemy]: 60_000 } };
     const campaign = { version, startsAt, endsAt, scores: { [village]: { pvp: 250, pve: 0, rawPve: 0, total: 250 },
@@ -37,7 +42,7 @@ for (const version of [2, 3] as const) for (const capped of [false, true]) test(
         return route.fulfill({ json: { campaign, defense: null, run: null,
             ...(String(body.action).startsWith('shrine-') ? { room: { objective: { ...objective, ...(!rivalInside ? { controlVillage: village } : {}),
                 ...(closedAt ? { closesAt: closedAt, bonusSettled: true, ...(scoredBouts === 0 ? { bonusWinner: village } : { controlTimeMs: { [village]: 120_000, [enemy]: 120_000 } }) } : {}) },
-                players, serverNow: Date.now() } } : {}) } });
+                players, serverNow: await page.evaluate(() => Date.now()) } } : {}) } });
     });
     await expectUiAuditBoot(page, runtime, 'worldMap');
     const returnToSector = page.getByRole('button', { name: '← Return to Sector 40', exact: true });
@@ -107,7 +112,7 @@ for (const version of [2, 3] as const) for (const capped of [false, true]) test(
     await testInfo.attach('golden-shrine-room', { body: await room.screenshot({ path: testInfo.outputPath('golden-shrine-room.png') }), contentType: 'image/png' });
     rivalInside = false;
     await expect(room.getByText('Your village controls the shrine and is adding uncontested time.', { exact: true })).toBeVisible({ timeout: 15_000 });
-    closedAt = Date.now() - 1;
+    closedAt = await page.evaluate(() => Date.now()) - 1;
     await expect(room.getByText(scoredBouts === 0 ? `${village} held the most uncontested time and earned ${version === 2 ? "1,000" : "100"} War Points.`
         : 'Uncontested time was tied or zero. No window bonus was awarded.', { exact: true })).toBeVisible({ timeout: 15_000 });
     await expect(room.getByText('This scoring window is complete.', { exact: true })).toBeVisible();

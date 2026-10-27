@@ -9,10 +9,12 @@ import {WORLD_DAY_MS,WORLD_HOUR_MS} from '../../shared/world-clock';
 type Pose={col:number;row:number;activity?:string;visible:boolean};
 declare global{interface Window{fieldWorkPoses:()=>Record<string,Pose>}}
 const evidence='../output/living-world/field-work/browser';mkdirSync(evidence,{recursive:true});
+// Fixed, not Date.now(): a roaming Legacy Emissary ignores quietRoadCooldowns, and no sector has one at any hour of 2026-10-10 (01:00 UTC is world noon).
+const FIELD_SCENARIO_EPOCH=Date.UTC(2026,9,10,1);
 for(const mode of ['round','weather','cached exit','missing garden','reduced motion'] as const)test(`Midlands field and courier: ${mode}`,async({page},info)=>{
     test.setTimeout(600_000);
     page.setDefaultTimeout(15_000);
-    let day=Math.floor(Date.now()/WORLD_DAY_MS)*WORLD_DAY_MS;
+    let day=Math.floor(FIELD_SCENARIO_EPOCH/WORLD_DAY_MS)*WORLD_DAY_MS;
     const fixture=(day:number)=>{
         const worker=lifeActorsAt(42,day+8*WORLD_HOUR_MS,'clear').find(a=>a.id==='crew:42:0')!;
         const phase=worker.cyclePhases!.find(p=>mode==='round'?p.activity==='Exchanging road news':p.working)!;

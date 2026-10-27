@@ -52,6 +52,7 @@ const FROZEN = {
         'editablePets', 'petEncounterVn', 'ancientChestVn', 'hollowGateEventConfig',
     ],
     COMBAT_STRIP_CHAR_FIELDS: [
+        'sectorBuildings', // Private building work, material escrow and payout receipts.
         'petShowdownAdmission',
         'brokerCertificates', 'brokerCrateLedger',
         'resourceGathering', 'gatheringToolUses',
@@ -206,6 +207,7 @@ const FROZEN = {
     // (exploration trio, chest trio, achievements quad, endless seven) — now
     // one uniform mirror loop; semantics per group were identical.
     SERVER_MIRRORED_CHARACTER_FIELDS: [
+        'sectorBuildings', // Only authoritative counter actions advance this state.
         'resourceGathering', 'gatheringToolUses',
         'professionChosenAt', // Scroll retry fencing must survive all generic saves.
         'gearTierUnlocks', // Only a shop purchase or a craft raises it.

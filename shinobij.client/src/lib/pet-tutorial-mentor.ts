@@ -21,7 +21,7 @@ export function petMentorWandererFor(
     ));
     if (sector == null || !lesson) return [];
     const order = PET_TUTORIAL_UNLOCKS.findIndex((entry) => entry.id === lesson.id) + 1;
-    const home = sectorWandererHomeTile(`${PET_MENTOR_WANDERER_ID}:${order}`, sector);
+    const home = sectorWandererHomeTile(`${PET_MENTOR_WANDERER_ID}:${order}`, sector, PET_MENTOR_WANDERER_ID);
     const greeting = lesson.id === "bond"
         ? "I'm Tomoe, a companion trainer. This is Kuro; he grew his second tail through years of working with me, a change called Bondwake. My first lesson covers your pet's role, element, and readiness for battle."
         : `Kuro found your trail. The next field note covers ${lesson.shortTitle.toLowerCase()}, if you're willing to work through it.`;

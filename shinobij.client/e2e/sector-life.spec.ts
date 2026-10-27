@@ -21,6 +21,7 @@ import { SCAR_TTL_MS,type SectorScar } from '../../shared/sector-scars';
 import { SHRINE_DEFS } from '../../shared/shrines';
 import { sectorFloorLayout } from '../src/lib/sector-floor-layout';
 import {wildlifeDiscovery,WILDLIFE_DISCOVERY_WINDOW} from '../../shared/sector-life-discovery';
+import {RESOURCE_NODES} from '../../shared/resource-nodes';
 import {currentWorkingAngler,nextAnglerState,anglerWorkRoutine,type AnglerState} from '../../shared/sector-angler-work';
 import {WANDERER_BUCKET_MS} from '../../shared/wanderer-roster';
 import {LIFE_ROAD_CREWS} from '../../shared/sector-life-routines';
@@ -29,8 +30,10 @@ import {FORAGER_SITE,FORAGER_LINES} from '../../shared/sector-forager-work';
 import {MIDLANDS_FIELD_LINES} from '../../shared/sector-midlands-work';
 
 const evidence='../output/living-world/browser';mkdirSync(evidence,{recursive:true});
+// Fixed, not Date.now(): a roaming Legacy Emissary ignores quietRoadCooldowns, and no sector has one at any hour of 2026-10-10 (01:00 UTC is world noon).
+const LIFE_SCENARIO_EPOCH=Date.UTC(2026,9,10,1);
 for(const cached of ['empty','working'] as const)test(`angler cache ${cached}: a later natural roll retains its ordinary service during a life API outage`,async({page},info)=>{
-    const sector=6,bucket=Math.floor(Date.now()/WANDERER_BUCKET_MS);
+    const sector=6,bucket=Math.floor(LIFE_SCENARIO_EPOCH/WANDERER_BUCKET_MS);
     let initial=0;
     for(let i=0;i<120;i++){const at=(bucket+i)*WANDERER_BUCKET_MS+10*WORLD_HOUR_MS;if(!!currentWorkingAngler(sector,at)===(cached==='working')){initial=at;break;}}
     expect(initial).toBeGreaterThan(0);
@@ -66,7 +69,7 @@ for(const cached of ['empty','working'] as const)test(`angler cache ${cached}: a
 });
 for(const sector of [6,18])for(const mode of ['weather','stale-night','unavailable'] as const)test(`working angler ${sector} ${mode}: the existing service fishes real water and uses the gatehouse`,async({page},info)=>{
     let initial=0,work:NonNullable<ReturnType<typeof currentWorkingAngler>>|undefined;
-    for(let i=0;i<120&&!work;i++){initial=(Math.floor(Date.now()/WANDERER_BUCKET_MS)+i)*WANDERER_BUCKET_MS+10*WORLD_HOUR_MS;work=currentWorkingAngler(sector,initial);}
+    for(let i=0;i<120&&!work;i++){initial=(Math.floor(LIFE_SCENARIO_EPOCH/WANDERER_BUCKET_MS)+i)*WANDERER_BUCKET_MS+10*WORLD_HOUR_MS;work=currentWorkingAngler(sector,initial);}
     expect(work).toBeTruthy();const {wanderer,site}=work!;
     await page.clock.install({time:new Date(initial)});
     const save=uiAuditSave(),cooldowns=quietRoadCooldowns([sector],initial);delete cooldowns[wanderer.id];
@@ -96,6 +99,11 @@ for(const sector of [6,18])for(const mode of ['weather','stale-night','unavailab
     await expect(gear).toHaveAttribute('data-water',String(site.water));await expect(gear).toBeVisible();await expect(figure).toHaveAttribute('data-activity','Fishing by the bank');await page.clock.fastForward(4000);await snap('fishing');
     await figure.click();const dialog=page.getByRole('dialog');await expect(dialog).toContainText("I'm watching the float.");
     await dialog.getByRole('button',{name:'Ask about the water',exact:true}).click();await expect(dialog).toContainText(/Try .+ shoal\./);await dialog.getByRole('button',{name:'Close',exact:true}).click();
+    for(const node of RESOURCE_NODES.filter(node=>node.sector===sector&&node.activity==='fishing')){
+        await page.getByRole('button',{name:`${node.name}, fishing, 3 attempts remaining, skill ${node.difficulty}`,exact:true}).click();
+        const shoal=page.getByRole('dialog',{name:node.name,exact:true});await expect(shoal).toBeVisible();
+        await shoal.getByRole('button',{name:/Close/}).click();
+    }
     const cover=async()=>{await page.evaluate(()=>{const node=document.createElement('div');node.className='combat-instance';document.body.append(node);});await page.waitForTimeout(80);};
     const uncover=async()=>{await page.evaluate(()=>document.querySelector('body>.combat-instance')?.remove());await page.waitForTimeout(80);};
     const advanceTo=async(time:number)=>{const now=await page.evaluate(()=>Date.now());if(time>now)await page.clock.fastForward(time-now);};
@@ -115,7 +123,7 @@ for(const sector of [6,18])for(const mode of ['weather','stale-night','unavailab
     expect(errors).toEqual([]);
 });
 for(const mode of ['live','expires','quiet','reduced'] as const)test(`wildlife discovery ${mode}: an existing bird investigates actual ground and remains an animal`,async({page},info)=>{
-    let slot=Math.floor(Date.now()/WILDLIFE_DISCOVERY_WINDOW);
+    let slot=Math.floor(LIFE_SCENARIO_EPOCH/WILDLIFE_DISCOVERY_WINDOW);
     const candidates=Array.from({length:144},(_,tile)=>tile).filter(tile=>harvestGroundTile(42,tile)===tile)
         .sort((a,b)=>Math.abs(a%12-6)+Math.abs(Math.floor(a/12)-7)-Math.abs(b%12-6)-Math.abs(Math.floor(b/12)-7));
     let selectedTarget:number|undefined;
@@ -183,7 +191,7 @@ for(const mode of ['live','expires','quiet','reduced'] as const)test(`wildlife d
     }else{await page.clock.fastForward(25_000);expect(firstFlight).toBeUndefined();expect((await stats()).points.length).toBe(count);await screenshot('ordinary');}
 });
 for(const sector of [2,15,23,31])test(`ownership cloth sector ${sector}: live server capture and release recolor existing painted flags`,async({page},info)=>{
-    let start=Math.floor(Date.now()/LIFE_WINDOW_MS)*LIFE_WINDOW_MS+35*60_000;while(isWorldNight(start))start+=LIFE_WINDOW_MS;
+    let start=Math.floor(LIFE_SCENARIO_EPOCH/LIFE_WINDOW_MS)*LIFE_WINDOW_MS+35*60_000;while(isWorldNight(start))start+=LIFE_WINDOW_MS;
     await page.clock.install({time:new Date(start)});
     const save=uiAuditSave();save.currentSector=sector;save.currentTile=sectorFloorLayout(sector).sites.stronghold!.approach;
     save.character={...save.character,starterCardsClaimed:true,wandererCooldowns:quietRoadCooldowns([sector],start)};
@@ -215,7 +223,7 @@ for(const shrine of SHRINE_DEFS.filter(s=>s.sector!==15))test(`regional shrine $
     // A late unattended round has finished the courier's return/departure.
     // It leaves room to review both supported visitors; busy rounds retain the
     // same five-person budget and may show only one visitor alongside a requester.
-    let start=Math.floor(Date.now()/LIFE_WINDOW_MS)*LIFE_WINDOW_MS+35*60_000;while(isWorldNight(start))start+=LIFE_WINDOW_MS;
+    let start=Math.floor(LIFE_SCENARIO_EPOCH/LIFE_WINDOW_MS)*LIFE_WINDOW_MS+35*60_000;while(isWorldNight(start))start+=LIFE_WINDOW_MS;
     const sector=shrine.sector,previewFunded=start-100_000;
     const preview=lifeSceneView(sector,parseLifeState(null,start),start,'clear',undefined,undefined,{tier:2,maintainedAt:0,by:'',supportStartedAt:previewFunded});
     const visitingWindows=preview.actors.filter(a=>a.id.startsWith('pilgrim:')).map(a=>{const frames=a.motion!.frames,index=frames.findIndex((frame,i)=>i>0&&frame[1]===frames[i-1][1]&&frame[0]-frames[i-1][0]===120_000);expect(index).toBeGreaterThan(0);return [a.motion!.start-previewFunded+frames[index-1][0],a.motion!.start-previewFunded+frames[index][0]];});
@@ -296,12 +304,12 @@ for(const sector of [42,15,21,31,58])test(`committed gathering ${sector}: paints
     await terrain.screenshot({path:shot('expired-verge')});
 });
 function shrineRoundTime() {
-    let round=Math.floor(Date.now()/LIFE_WINDOW_MS);if(round%2===0)round++;
+    let round=Math.floor(LIFE_SCENARIO_EPOCH/LIFE_WINDOW_MS);if(round%2===0)round++;
     while(isWorldNight(round*LIFE_WINDOW_MS+60_000))round+=2;
     return round*LIFE_WINDOW_MS+60_000;
 }
 function worldTrackingSite() {
-    const base=Math.floor(Date.now()/21_600_000)*21_600_000;
+    const base=Math.floor(LIFE_SCENARIO_EPOCH/21_600_000)*21_600_000;
     for(let round=0;round<24;round++){const now=base+round*LIFE_WINDOW_MS+60_000;if(isWorldNight(now))continue;
         for(const sector of PLAYABLE_WILD_SECTOR_IDS){const view=lifeEventView(sector,parseLifeState(null,now),now);if(view.kind==='tracks'&&view.tracker)return {now,sector,tracker:view.tracker,tile:view.tile};}}
     throw new Error('No daytime natural tracker site found');
@@ -511,7 +519,7 @@ test('an initial floor still decodes when a newer shrine state is waiting behind
 });
 for(const sector of Object.keys(LIFE_ROAD_CREWS).map(Number))test(`regional workers ${sector} meet a real partner at the handover and wait out bad weather`,async({page},info)=>{
     const errors:string[]=[];page.on('pageerror',error=>{errors.push(error.message);console.log('[handover page error]',error.stack);});
-    let day=Math.floor(Date.now()/WORLD_DAY_MS)*WORLD_DAY_MS+(LIFE_ROAD_CREWS[sector].night?21:8)*WORLD_HOUR_MS;
+    let day=Math.floor(LIFE_SCENARIO_EPOCH/WORLD_DAY_MS)*WORLD_DAY_MS+(LIFE_ROAD_CREWS[sector].night?21:8)*WORLD_HOUR_MS;
     // Review a naturally populated handover. Busy events may correctly omit the
     // complete pair to keep five figures; do not fabricate an uncapped cast.
     for(let attempt=0;attempt<100;attempt++){
@@ -572,7 +580,7 @@ for(const sector of Object.keys(LIFE_ROAD_CREWS).map(Number))test(`regional work
 });
 
 test('the recurring Chronicle scribe remembers a meeting and discusses weather and a recorded local duel',async({page},info)=>{
-    const start=Math.floor(Date.now()/WORLD_DAY_MS)*WORLD_DAY_MS+8*WORLD_HOUR_MS+150_000;
+    const start=Math.floor(LIFE_SCENARIO_EPOCH/WORLD_DAY_MS)*WORLD_DAY_MS+8*WORLD_HOUR_MS+150_000;
     const route=travelerRoute(3),sector=route[(Math.floor(start/300_000)+6)%route.length];
     const sample=lifeActorsAt(sector,start,'clear').find(a=>a.id==='sumi')!;
     await page.clock.install({time:new Date(start)});
@@ -598,7 +606,7 @@ test('the recurring Chronicle scribe remembers a meeting and discusses weather a
     await page.getByRole('dialog').screenshot({path:`${evidence}/${info.project.name}-scribe-local-duel-record.png`});
 });
 for(const visitor of ['Ashen Leaf Village','Frostfang Village'])test(`village reactions: Frostfang patrol and quartermaster meet ${visitor}`,async({page},info)=>{
-    let bucket=Math.floor(Date.now()/21_600_000),now=bucket*21_600_000+12*WORLD_HOUR_MS;
+    let bucket=Math.floor(LIFE_SCENARIO_EPOCH/21_600_000),now=bucket*21_600_000+12*WORLD_HOUR_MS;
     let guard=wandererCastAt(31,bucket,now).find(w=>w.verb==='patrol');
     for(let i=0;!guard&&i<200;i++) {bucket++;now=bucket*21_600_000+12*WORLD_HOUR_MS;guard=wandererCastAt(31,bucket,now).find(w=>w.verb==='patrol');}
     expect(guard).toBeTruthy();
@@ -649,11 +657,12 @@ async function doRoadWork(page:Page,view:ReturnType<typeof lifeEventView>,clocke
 }
 for (const sector of [2,15,42]) test(`sector ${sector}: painted workplace stays staffed through the shared errand`,async({page},info)=>{
     const errors:string[]=[];page.on('pageerror',error=>errors.push(error.message));
-    let now=Math.floor(Date.now()/LIFE_WINDOW_MS)*LIFE_WINDOW_MS+60_000;
+    let now=Math.floor(LIFE_SCENARIO_EPOCH/LIFE_WINDOW_MS)*LIFE_WINDOW_MS+60_000;
     let state=parseLifeState(null,now),actions=0;
-    if(sector===2){await page.clock.install({time:new Date(now)});await page.clock.setFixedTime(new Date(now));}
+    // Every sector starts on the scenario clock; only the dock pins it, for its delivery wait.
+    await page.clock.install({time:new Date(now)});if(sector===2)await page.clock.setFixedTime(new Date(now));
     const save=uiAuditSave();save.currentSector=sector;save.currentTile=sector===42?112:lifeAnchors(sector)[0];
-    save.character={...save.character,wandererCooldowns:quietRoadCooldowns([sector]),avatarImage:'/portraits/corvo-latch.webp'};
+    save.character={...save.character,wandererCooldowns:quietRoadCooldowns([sector],now),avatarImage:'/portraits/corvo-latch.webp'};
     await installUiAuditRuntime(page,save);
     await page.addInitScript(()=>localStorage.setItem('legacyRumors.seen.v1:auditninja',JSON.stringify([10,20,30,40,45])));
     await page.route('**/api/sector/life**',async route=>{
@@ -661,9 +670,9 @@ for (const sector of [2,15,42]) test(`sector ${sector}: painted workplace stays 
             const body=route.request().postDataJSON(),next=advanceLifeEvent(sector,state,body.window,body.step,'AuditNinja',now);
             if(next.changed)actions++;state=next.state;
         }
-        await route.fulfill({json:{ok:true,view:lifeSceneView(sector,state,now,'clear'),serverNow:sector===2?now:Date.now()}});
+        await route.fulfill({json:{ok:true,view:lifeSceneView(sector,state,now,'clear'),serverNow:sector===2?now:await page.evaluate(()=>Date.now())}});
     });
-    await page.route('**/api/sector/traces**',route=>route.fulfill({json:{ok:true,sector,footfallToday:7,signs:[],mySparked:[],scars:[{kind:'duel',victor:'Rin',fallen:'Kota',at:Date.now()-60_000}]}}));
+    await page.route('**/api/sector/traces**',async route=>route.fulfill({json:{ok:true,sector,footfallToday:7,signs:[],mySparked:[],scars:[{kind:'duel',victor:'Rin',fallen:'Kota',at:await page.evaluate(()=>Date.now())-60_000}]}}));
     if(sector===42) now=Math.floor(now/LIFE_WINDOW_MS)*LIFE_WINDOW_MS+19*60_000;
     await page.goto('/#/worldMap');
     await expect(page.locator('.app-shell')).toHaveAttribute('data-screen','worldMap',{timeout:60_000});
@@ -705,8 +714,9 @@ for (const sector of [2,15,42]) test(`sector ${sector}: painted workplace stays 
 });
 
 test('daytime wildlife reacts to walking and stays visible without animation under reduced motion',async({page},info)=>{
+    await page.clock.install({time:new Date(LIFE_SCENARIO_EPOCH)});
     const save=uiAuditSave();save.currentSector=42;save.currentTile=112;
-    save.character={...save.character,wandererCooldowns:quietRoadCooldowns([42])};
+    save.character={...save.character,wandererCooldowns:quietRoadCooldowns([42],LIFE_SCENARIO_EPOCH)};
     await installUiAuditRuntime(page,save);
     await page.addInitScript(()=>{
         localStorage.setItem('dayCycle.hour','12');localStorage.setItem('legacyRumors.seen.v1:auditninja',JSON.stringify([10,20,30,40,45]));
@@ -715,12 +725,11 @@ test('daytime wildlife reacts to walking and stays visible without animation und
         CanvasRenderingContext2D.prototype.clearRect=function(...args){if(this.canvas.closest('.sector-life-wildlife')){state.frames++;state.points=[];}return clear.apply(this,args);};
         CanvasRenderingContext2D.prototype.translate=function(x,y){if(this.canvas.closest('.sector-life-wildlife'))state.points.push([x,y,this.canvas.clientWidth,this.canvas.clientHeight]);return translate.call(this,x,y);};
     });
-    await page.route('**/api/sector/life**',request=>{const now=Date.now();return request.fulfill({json:{ok:true,serverNow:now,view:lifeSceneView(42,parseLifeState(null,now),now,'clear')}});});
+    await page.route('**/api/sector/life**',async request=>{const now=await page.evaluate(()=>Date.now());return request.fulfill({json:{ok:true,serverNow:now,view:lifeSceneView(42,parseLifeState(null,now),now,'clear')}});});
     const stats=()=>page.evaluate(()=>(window as unknown as {wildlifeQa:{frames:number;points:number[][]}}).wildlifeQa);
     async function enter() {
-        await page.goto('/#/worldMap');const back=page.getByRole('button',{name:'Return to Sector 42',exact:false});
-        await expect.poll(async()=>await back.isVisible()||await page.locator('.continuous-world-map').isVisible(),{timeout:60_000}).toBe(true);
-        if(await back.isVisible())await back.click();
+        await page.goto('/#/worldMap');
+        await waitForCurrentSectorMap(page,42);
         await expect(page.locator('.sector-life-wildlife canvas')).toBeAttached();
     }
     await enter();await expect.poll(async()=>(await stats()).frames).toBeGreaterThan(3);
@@ -746,13 +755,13 @@ test('daytime wildlife reacts to walking and stays visible without animation und
 });
 
 test('a recurring traveler remembers a meeting and walks out along the road',async({page},info)=>{
-    const route=travelerRoute(1);let slot=Math.floor(Date.now()/3_000_000)*10+8;
+    const route=travelerRoute(1);let slot=Math.floor(LIFE_SCENARIO_EPOCH/3_000_000)*10+8;
     while(isWorldNight(slot*300_000+120_000))slot+=10;
     const start=slot*300_000;
     expect(route[(slot+2)%route.length]).toBe(15);
     await page.clock.install({time:new Date(start+120_000)});
     const save=uiAuditSave();save.currentSector=15;save.currentTile=115;
-    save.character={...save.character,wandererCooldowns:quietRoadCooldowns([15])};
+    save.character={...save.character,wandererCooldowns:quietRoadCooldowns([15],start)};
     await installUiAuditRuntime(page,save);
     await page.addInitScript(()=>{localStorage.setItem('dayCycle.hour','12');localStorage.setItem('legacyRumors.seen.v1:auditninja',JSON.stringify([10,20,30,40,45]));});
     let polls=0;
@@ -796,10 +805,10 @@ test('a recurring traveler remembers a meeting and walks out along the road',asy
 });
 
 test('tea staff follow server weather and night while staying beside the painted table',async({page},info)=>{
-    const day=Math.floor(Date.now()/WORLD_DAY_MS)*WORLD_DAY_MS;
+    const day=Math.floor(LIFE_SCENARIO_EPOCH/WORLD_DAY_MS)*WORLD_DAY_MS;
     await page.clock.install({time:new Date(day+8*WORLD_HOUR_MS)});
     const save=uiAuditSave();save.currentSector=42;save.currentTile=112;
-    save.character={...save.character,wandererCooldowns:quietRoadCooldowns([42])};
+    save.character={...save.character,wandererCooldowns:quietRoadCooldowns([42],day+8*WORLD_HOUR_MS)};
     await installUiAuditRuntime(page,save);
     await page.addInitScript(()=>localStorage.setItem('legacyRumors.seen.v1:auditninja',JSON.stringify([10,20,30,40,45])));
     let weather='clear';
@@ -823,11 +832,11 @@ test('tea staff follow server weather and night while staying beside the painted
 
 test('helping the winter courier brings them back to the staffed warming stop',async({page},info)=>{
     test.setTimeout(180_000);
-    const start=Math.floor(Date.now()/LIFE_WINDOW_MS)*LIFE_WINDOW_MS+60_000;
+    const start=Math.floor(LIFE_SCENARIO_EPOCH/LIFE_WINDOW_MS)*LIFE_WINDOW_MS+60_000;
     await page.clock.install({time:new Date(start)});
     let state=parseLifeState(null,start),actions=0;
     const path=lifeCourierRoute(31),save=uiAuditSave();save.currentSector=31;save.currentTile=path.search;
-    save.character={...save.character,wandererCooldowns:quietRoadCooldowns([31])};
+    save.character={...save.character,wandererCooldowns:quietRoadCooldowns([31],start)};
     await installUiAuditRuntime(page,save);
     await page.addInitScript(()=>{localStorage.setItem('dayCycle.hour','12');localStorage.setItem('legacyRumors.seen.v1:auditninja',JSON.stringify([10,20,30,40,45]));});
     await page.route('**/api/sector/life**',async request=>{
@@ -855,7 +864,7 @@ test('helping the winter courier brings them back to the staffed warming stop',a
 });
 
 test('the helped winter courier resumes deliveries and their departure survives a return visit',async({page},info)=>{
-    const path=lifeCourierRoute(31),start=Math.floor(Date.now()/LIFE_WINDOW_MS)*LIFE_WINDOW_MS+300_000;
+    const path=lifeCourierRoute(31),start=Math.floor(LIFE_SCENARIO_EPOCH/LIFE_WINDOW_MS)*LIFE_WINDOW_MS+300_000;
     await page.clock.install({time:new Date(start)});const state={...parseLifeState(null,start),step:3,updatedAt:start-COURIER_REST_MS-6000,contributors:['AuditNinja']};
     const save=uiAuditSave();save.currentSector=31;save.currentTile=path.onward[1];save.character={...save.character,wandererCooldowns:quietRoadCooldowns([31],start)};
     await installUiAuditRuntime(page,save);await page.addInitScript(()=>localStorage.setItem('legacyRumors.seen.v1:auditninja',JSON.stringify([10,20,30,40,45])));
@@ -869,7 +878,7 @@ test('the helped winter courier resumes deliveries and their departure survives 
 });
 
 test('an unattended winter courier returns and rests without claiming player help',async({page},info)=>{
-    const path=lifeCourierRoute(31),start=Math.floor(Date.now()/LIFE_WINDOW_MS)*LIFE_WINDOW_MS+LIFE_ACTIVE_MS+path.returnMs+3000;
+    const path=lifeCourierRoute(31),start=Math.floor(LIFE_SCENARIO_EPOCH/LIFE_WINDOW_MS)*LIFE_WINDOW_MS+LIFE_ACTIVE_MS+path.returnMs+3000;
     await page.clock.install({time:new Date(start)});const save=uiAuditSave();save.currentSector=31;save.currentTile=path.meet;
     save.character={...save.character,wandererCooldowns:quietRoadCooldowns([31],start)};await installUiAuditRuntime(page,save);
     await page.addInitScript(()=>localStorage.setItem('legacyRumors.seen.v1:auditninja',JSON.stringify([10,20,30,40,45])));
@@ -883,7 +892,7 @@ test('an unattended winter courier returns and rests without claiming player hel
 
 for(const kind of ['tea','shrine'] as const)test(`two independent players share ${kind} stages and keep the aftermath after a reload`,async({page,browser},info)=>{
     const other=await browser.newPage({viewport:page.viewportSize()!});
-    const start=(Math.floor(Date.now()/LIFE_WINDOW_MS/2)*2+(kind==='shrine'?1:0))*LIFE_WINDOW_MS+60_000;
+    const start=(Math.floor(LIFE_SCENARIO_EPOCH/LIFE_WINDOW_MS/2)*2+(kind==='shrine'?1:0))*LIFE_WINDOW_MS+60_000;
     let state=parseLifeState(null,start);
     const pages=[page,other],names=['AuditNinja','Mika'];
     async function enter(target:Page) {
@@ -895,7 +904,7 @@ for(const kind of ['tea','shrine'] as const)test(`two independent players share 
         for(let i=0;i<pages.length;i++) {
             const target=pages[i],name=names[i],save=uiAuditSave();
             await target.clock.install({time:new Date(start)});
-            save.currentSector=15;save.currentTile=lifeEventView(15,state,start).tile;save.character={...save.character,name,wandererCooldowns:quietRoadCooldowns([15])};
+            save.currentSector=15;save.currentTile=lifeEventView(15,state,start).tile;save.character={...save.character,name,wandererCooldowns:quietRoadCooldowns([15],start)};
             await installUiAuditRuntime(target,save,false,name);
             await target.addInitScript(name=>{localStorage.setItem('dayCycle.hour','12');localStorage.setItem(`legacyRumors.seen.v1:${name.toLowerCase()}`,JSON.stringify([10,20,30,40,45]));},name);
             await target.route('**/api/sector/life**',async request=>{
@@ -923,7 +932,7 @@ for(const kind of ['tea','shrine'] as const)test(`two independent players share 
 });
 
 for(const weather of ['clear','rain'] as const)test(`courier tea stop ${weather}: Tetsu rests by the staffed painted table and leaves during an outage`,async({page},info)=>{
-    let slot=Math.floor(Date.now()/300_000);
+    let slot=Math.floor(LIFE_SCENARIO_EPOCH/300_000);
     const visit=weather==='clear'?TETSU_ROUTE.indexOf(15):TETSU_ROUTE.lastIndexOf(15);
     while(slot%TETSU_ROUTE.length!==visit||isWorldNight(slot*300_000+150_000))slot++;
     const initial=slot*300_000+150_000;
@@ -966,7 +975,7 @@ for(const weather of ['clear','rain'] as const)test(`courier tea stop ${weather}
 
 for(const mode of ['round','rain'] as const)test(`Ashen herbalist ${mode}: inspects actual fern edges and walks into the painted village`,async({page},info)=>{
     test.setTimeout(240_000);
-    const sector=FORAGER_SITE.sector,start=Math.floor(Date.now()/WORLD_DAY_MS)*WORLD_DAY_MS+8*WORLD_HOUR_MS;
+    const sector=FORAGER_SITE.sector,start=Math.floor(LIFE_SCENARIO_EPOCH/WORLD_DAY_MS)*WORLD_DAY_MS+8*WORLD_HOUR_MS;
     const sample=lifeActorsAt(sector,start,'clear').find(a=>a.id==='resident:9')!;
     const first=sample.phases![0].at,second=sample.phases![2].at;
     await page.clock.install({time:new Date(first+4000)});await page.clock.setFixedTime(new Date(first+4000));

@@ -6,7 +6,7 @@ import { SECTOR_FLOOR_LAYOUTS } from './sector-floor-layouts.js';
 import { SECTOR_ROAD_PAIRS, sectorExits } from './sector-links.js';
 import { nearestWalkableTile, walkPath, isWalkableTile } from './sector-walk-mask.js';
 import { isWorldNight } from './world-phase.js';
-import { lifeRegionFor, LIFE_TRAVELERS, LIFE_EVENTS, type LifeArt } from './sector-life-content.js';
+import { lifeRegionFor, lifeResidentName, LIFE_TRAVELERS, LIFE_EVENTS, type LifeArt } from './sector-life-content.js';
 import type { Wanderer, WandererArchetypeId } from './wanderer-roster.js';
 import type { LifeMotion,LifePhase } from './sector-life-motion.js';
 import { localVillageReaction } from './sector-life-villages.js';
@@ -193,9 +193,7 @@ export function lifeActorsAt(sector: number, now: number, weather: string, met: 
     // The figure stands at the working edge of the actual table/cargo/brazier.
     const rest=LIFE_WORK_SITES[sector]?work:shrineStandingSpots(sector).length||anglerReservedTiles(sector).length?lifeRestTile(sector,0):camp;
     const shelter = ['rain','thunderstorm','tornado','ashfall'].includes(weather), night = isWorldNight(now);
-    const localNames = ['Aki', 'Ume', 'Ren', 'Eda', 'Jun', 'Mako', 'Ise', 'Hatsu', 'Fumi', 'En', 'Seki', 'Kiyo'];
-    const roleName = region.resident.split(' ').slice(0,-1).join(' ');
-    const actors: LifeActor[] = [{ id: `resident:${sector}`, name: `${roleName} ${localNames[(sector - 1) % localNames.length]}`, art: region.role, tile: rest, workTile: work, restTile: rest,
+    const actors: LifeActor[] = [{ id: `resident:${sector}`, name: lifeResidentName(sector), art: region.role, tile: rest, workTile: work, restTile: rest,
         activity: shelter ? 'Waiting out the weather' : night ? 'Resting at the stop' : region.work, atRest: shelter || night,
         line: shelter ? region.shelter : night ? region.night : region.greeting }];
     LIFE_TRAVELERS.forEach((traveler, index) => {

@@ -8,6 +8,8 @@ import {MOONWELL_MOTH_LAMPS} from '../src/lib/sector-local-fauna';
 import {SECTOR_FLOOR_LAYOUTS} from '../../shared/sector-floor-layouts';
 import {sectorArtKey} from '../../shared/sector-geo';
 const evidence='../output/living-world/local-fauna/browser';mkdirSync(evidence,{recursive:true});
+// Fixed, not Date.now(): a roaming Legacy Emissary ignores quietRoadCooldowns, and no sector has one at any hour of 2026-10-10 (01:00 UTC is world noon).
+const FAUNA_SCENARIO_EPOCH=Date.UTC(2026,9,10,1);
 type Kind='gull'|'moth';
 type Probe={draws:Record<Kind,number>;max:Record<Kind,number>;points:Record<Kind,{x:number;y:number}[]>};
 declare global{interface Window{localFaunaQa:Probe}}
@@ -31,7 +33,7 @@ async function probe(page:Page){await page.addInitScript(()=>{
 const reset=(page:Page)=>page.evaluate(()=>{window.localFaunaQa={draws:{gull:0,moth:0},max:{gull:0,moth:0},points:{gull:[],moth:[]}};});
 const stats=(page:Page)=>page.evaluate(()=>window.localFaunaQa);
 async function open(page:Page,sector:number,night:boolean,lite:boolean,missing=false){
-    const now=Math.floor(Date.now()/WORLD_DAY_MS)*WORLD_DAY_MS+(night?21:9)*WORLD_HOUR_MS;
+    const now=Math.floor(FAUNA_SCENARIO_EPOCH/WORLD_DAY_MS)*WORLD_DAY_MS+(night?21:9)*WORLD_HOUR_MS;
     await page.emulateMedia({reducedMotion:lite?'reduce':'no-preference'});await page.clock.install({time:new Date(now)});await page.clock.setFixedTime(now);await probe(page);
     const save=uiAuditSave();save.currentSector=sector;save.currentTile=sector===23?112:88;
     save.character={...save.character,starterCardsClaimed:true,wandererCooldowns:quietRoadCooldowns([sector],now)};

@@ -59,7 +59,7 @@ export function warRewardAlert(reward: { crates: number; mvp: boolean; consolati
     const lead = reward.crates > 0
         ? `You received ${reward.crates} Legendary War Crate${reward.crates > 1 ? "s" : ""} from recent war rewards! Check your inventory.`
         : reward.mvp ? "MVP rewards delivered: bonus ryo, honor seals, and fate shards added to your account."
-            : reward.consolation ? "Consolation rewards from a recent war loss have been added to your account." : "";
+            : reward.consolation ? "Your recent war-loss rewards have been settled." : "";
     return [lead, purseLine].filter(Boolean).join(" ") || null;
 }
 
