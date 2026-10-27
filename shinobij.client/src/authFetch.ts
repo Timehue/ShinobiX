@@ -353,6 +353,8 @@ export function buildSaveVersionEventDetail(
     if (!data || typeof data !== "object") return null;
     // The daily caller owns adoption even against an older balance-only API.
     if (request !== undefined && requestPath(request) === "/api/player/daily-login") return null;
+    // Transfer callers own the atomic character/version adoption.
+    if (request !== undefined && requestPath(request) === "/api/bank/transfer") return null;
     const record = data as Record<string, unknown>;
     // Character-bearing responses must be adopted through the App's atomic
     // character+version commit. Advancing only the version here could let a
@@ -360,6 +362,18 @@ export function buildSaveVersionEventDetail(
     if (record.character && typeof record.character === "object") return null;
     if (!Number.isSafeInteger(record._saveVersion) || Number(record._saveVersion) <= 0) return null;
     return { version: Number(record._saveVersion), accountName, source };
+}
+
+export async function validatedSaveVersionEventDetail(
+    data: unknown, accountName: string | null, source: SaveVersionEventDetail["source"], request: RequestInfo | URL,
+): Promise<SaveVersionEventDetail | null> {
+    // Validate before publishing authority, but keep banking contracts out of
+    // the initial login bundle. Credential selection is unchanged.
+    if (requestPath(request) === "/api/bank/claim-interest") {
+        const { bankInterestResponseContract } = await import('../../shared/bank-contract');
+        if (!bankInterestResponseContract.safeParse(data).success) return null;
+    }
+    return buildSaveVersionEventDetail(data, accountName, source, request);
 }
 
 function requestPath(input: RequestInfo | URL): string {
@@ -379,9 +393,9 @@ function observeSaveVersion(response: Response, accountName: string | null, inpu
     try {
         const contentType = response.headers.get('content-type') ?? '';
         if (!contentType.toLowerCase().includes('application/json')) return response;
-        void response.clone().json().then((data: unknown) => {
+        void response.clone().json().then(async (data: unknown) => {
             const path = requestPath(input);
-            const detail = buildSaveVersionEventDetail(data, accountName,
+            const detail = await validatedSaveVersionEventDetail(data, accountName,
                 path === "/api/save" || path.startsWith("/api/save/") ? "full-save" : "mutation", input);
             if (!detail) return;
             window.dispatchEvent(new CustomEvent(SAVE_VERSION_EVENT, { detail }));
