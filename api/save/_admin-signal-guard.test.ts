@@ -22,7 +22,7 @@ describe('legacy ?signal=1 publish path', () => {
     it('still requires admin auth (unchanged P0-1 boundary)', () => {
         assert.match(
             src,
-            /if \(isAdminSave\) \{\s*if \(!adminSaveTargetAllowed\(name, isFullAdmin\(req\), isAdmin\(req\)\)\) \{\s*return res\.status\(401\)/s,
+            /if \(isAdminSave\) \{\s*if \(!adminSaveTargetAllowed\(name, isFullAdmin\(req\), isAdmin\(req\)\)\) \{\s*return reply\(401,/s,
         );
     });
 
@@ -31,7 +31,7 @@ describe('legacy ?signal=1 publish path', () => {
         assert.match(adminBranch, /withKvLock\(`save:\$\{name\.toLowerCase\(\)\}`/, 'the admin RMW must hold the save lock');
         assert.match(adminBranch, /\{ failClosed: true \}/);
         assert.match(adminBranch, /LockContendedError/);
-        assert.match(adminBranch, /status\(429\)/, 'contention returns the same 429 the player path does');
+        assert.match(adminBranch, /reply\(429,/, 'contention returns the same 429 the player path does');
     });
 
     it('checks the persistent deletion generation INSIDE the lock before establishing its own admin signal', () => {
@@ -47,12 +47,12 @@ describe('legacy ?signal=1 publish path', () => {
 
     it('serializes DELETE through the same fail-closed save lock', () => {
         const deleteBranch = src.slice(src.indexOf("if (req.method === 'DELETE')"));
-        assert.match(deleteBranch, /if \(isAdmin\(req\) && !fullAdminAuth\) \{\s*return res\.status\(403\)/s,
+        assert.match(deleteBranch, /if \(isAdmin\(req\) && !fullAdminAuth\) \{\s*return reply\(403,/s,
             'content-admin credentials must not bypass the full-admin player-reset boundary');
         assert.match(deleteBranch, /withKvLock\(`save:\$\{lowered\}`/);
         assert.match(deleteBranch, /\{ failClosed: true \}/);
         assert.match(deleteBranch, /LockContendedError/);
-        assert.match(deleteBranch, /status\(429\)/);
+        assert.match(deleteBranch, /reply\(429,/);
         const floorSetIdx = deleteBranch.indexOf('await kv.set(deletionFenceKey, deletionVersion)');
         const deleteIdx = deleteBranch.indexOf('kv.del(key)');
         assert.ok(floorSetIdx >= 0 && floorSetIdx < deleteIdx,
@@ -71,7 +71,7 @@ describe('legacy ?signal=1 publish path', () => {
 
     it('rejects a stale admin write instead of reverting newer content', () => {
         assert.match(adminBranch, /incomingVersion < adminStoredVersion/, 'a stale base version must be detected');
-        assert.match(adminBranch, /status\(409\)/);
+        assert.match(adminBranch, /reply\(409,/);
         assert.match(adminBranch, /Reload before saving/);
     });
 

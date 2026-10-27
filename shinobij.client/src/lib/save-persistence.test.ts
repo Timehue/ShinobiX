@@ -136,6 +136,32 @@ const requiredSave = (overrides?: Partial<{
 });
 
 describe("server-owned ryo on save acknowledgements", () => {
+    it('keeps a pending save and its balances until a complete success acknowledgement arrives', async () => {
+        for (const required of [false, true]) for (const body of [{ _saveVersion: 6 }, { ok: false, _saveVersion: 6 },
+            { ok: true, _saveVersion: 6, ryo: '100' }, { ok: true, _saveVersion: 6, savedBloodlineIds: [1] }]) {
+            const h = harness({ latestVersion: 5, dirty: true });
+            globalThis.fetch = async () => jsonResponse(200, body);
+            if (required) await assert.rejects(h.persistence.persistRequired(() => requiredSave()), /could not be confirmed/);
+            else await h.persistence.persistAutosave(snapshot());
+            assert.equal(h.latestVersion.current, 5);
+            assert.equal(h.dirty.current, true);
+            assert.ok(h.persistence.getUnresolvedPost());
+            assert.deepEqual(h.ryoAdoptions, []);
+            assert.deepEqual(h.acknowledgedSnapshots, []);
+        }
+    });
+
+    it('refuses an authoritative GET for another account during conflict recovery', async () => {
+        const h = harness({ latestVersion: 5 });
+        globalThis.fetch = async (_url, init) => init?.method === 'POST'
+            ? jsonResponse(409, { error: 'Save conflict', currentVersion: 6 })
+            : jsonResponse(200, { character: { name: 'Other', level: 99 }, _saveVersion: 6 });
+        await h.persistence.persistAutosave(snapshot());
+        assert.equal(h.latestVersion.current, 5);
+        assert.deepEqual(h.applied, []);
+        assert.ok(h.persistence.getUnresolvedPost());
+        assert.equal(h.captured.length, 1);
+    });
     it("adopts valid stored shards for autosave and required save without requiring a Ryo field", async () => {
         for (const required of [false, true]) {
             const h = harness({ latestVersion: 5 });
@@ -306,7 +332,7 @@ describe("extracted save persistence", () => {
         globalThis.fetch = (async (_input, init) => {
             if (init?.method === "POST") {
                 h.events.push("post");
-                return jsonResponse(409, { code: "RYO_SERVER_AUTHORITY", authoritativeRyo: 120, _saveVersion: 5 });
+                return jsonResponse(409, { error: "Ryo is server-authoritative.", code: "RYO_SERVER_AUTHORITY", authoritativeRyo: 120, _saveVersion: 5 });
             }
             h.events.push("get");
             return jsonResponse(200, {
@@ -336,7 +362,7 @@ describe("extracted save persistence", () => {
                 revision: 7,
             };
             globalThis.fetch = (async (_input, init) => init?.method === "POST"
-                ? jsonResponse(409, { code: "RYO_SERVER_AUTHORITY", authoritativeRyo })
+                ? jsonResponse(409, { error: "Ryo is server-authoritative.", code: "RYO_SERVER_AUTHORITY", authoritativeRyo })
                 : jsonResponse(200, {
                     character: { name: "Kaya", level: 8, ryo: 120 },
                     currentBiome: "central",
@@ -505,7 +531,7 @@ describe("extracted save persistence", () => {
 
     it("does not adopt an autosave acknowledgement after the account epoch changes during JSON", async () => {
         const h = harness({ latestVersion: 5 });
-        const jsonGate = deferred<{ persisted: true; _saveVersion: number }>();
+        const jsonGate = deferred<{ ok: true; persisted: true; _saveVersion: number }>();
         globalThis.fetch = (async () => ({
             ok: true,
             status: 200,
@@ -516,7 +542,7 @@ describe("extracted save persistence", () => {
         await Promise.resolve();
         h.state.accountKey = saveConflictAccountKey("Ren");
         h.state.epoch += 1;
-        jsonGate.resolve({ persisted: true, _saveVersion: 50 });
+        jsonGate.resolve({ ok: true, persisted: true, _saveVersion: 50 });
 
         assert.deepEqual(await write, { status: "completed", value: undefined });
         assert.equal(h.latestVersion.current, 5);
@@ -526,7 +552,7 @@ describe("extracted save persistence", () => {
 
     it("does not adopt a required-save acknowledgement after the account epoch changes during JSON", async () => {
         const h = harness({ latestVersion: 5 });
-        const jsonGate = deferred<{ persisted: true; _saveVersion: number }>();
+        const jsonGate = deferred<{ ok: true; persisted: true; _saveVersion: number }>();
         let committed = 0;
         globalThis.fetch = (async () => ({
             ok: true,
@@ -538,7 +564,7 @@ describe("extracted save persistence", () => {
         await Promise.resolve();
         h.state.accountKey = saveConflictAccountKey("Ren");
         h.state.epoch += 1;
-        jsonGate.resolve({ persisted: true, _saveVersion: 50 });
+        jsonGate.resolve({ ok: true, persisted: true, _saveVersion: 50 });
 
         await assert.rejects(write, /active save account changed/i);
         assert.equal(h.latestVersion.current, 5);
@@ -578,7 +604,7 @@ describe("extracted save persistence", () => {
         globalThis.fetch = (async (_input, init) => {
             if (init?.method === "POST") {
                 h.events.push("post");
-                return jsonResponse(409, { code: "RYO_SERVER_AUTHORITY", authoritativeRyo: 120, _saveVersion: 5 });
+                return jsonResponse(409, { error: "Ryo is server-authoritative.", code: "RYO_SERVER_AUTHORITY", authoritativeRyo: 120, _saveVersion: 5 });
             }
             h.events.push("get");
             return jsonResponse(200, {
@@ -609,7 +635,7 @@ describe("extracted save persistence", () => {
         const h = harness({ latestVersion: 10, payloadRevision: 4, dirty: true });
         const acknowledgements = [8, 11, 12];
         globalThis.fetch = (async () => jsonResponse(200, {
-            persisted: true,
+            ok: true, persisted: true,
             _saveVersion: acknowledgements.shift(),
         })) as typeof fetch;
         let committed = 0;
@@ -651,7 +677,7 @@ describe("extracted save persistence", () => {
         globalThis.fetch = (async (_input, init) => {
             const body = JSON.parse(String(init?.body)) as { character?: { level?: number } };
             postedLevel = Number(body.character?.level ?? 0);
-            return jsonResponse(200, { persisted: true, _saveVersion: 4 });
+            return jsonResponse(200, { ok: true, persisted: true, _saveVersion: 4 });
         }) as typeof fetch;
 
         const first = flight.runRequired(async () => firstGate.promise);
@@ -673,7 +699,7 @@ describe("extracted save persistence", () => {
         let fetchCalls = 0;
         globalThis.fetch = (async () => {
             fetchCalls += 1;
-            return jsonResponse(200, { persisted: true, _saveVersion: 6 });
+            return jsonResponse(200, { ok: true, persisted: true, _saveVersion: 6 });
         }) as typeof fetch;
 
         const blocker = flight.runRequired(async () => release.promise);
@@ -703,7 +729,7 @@ describe("extracted save persistence", () => {
                     firstPostStarted.resolve();
                     return firstPostResponse.promise;
                 }
-                return jsonResponse(200, { persisted: true, _saveVersion: 7 });
+                return jsonResponse(200, { ok: true, persisted: true, _saveVersion: 7 });
             }
             return jsonResponse(200, {
                 character: { name: "Kaya", level: 9 },
@@ -767,7 +793,7 @@ describe("extracted save persistence", () => {
         const h = harness({ flight });
         const release = deferred<void>();
         let posts = 0;
-        globalThis.fetch = (async () => { posts += 1; return jsonResponse(200, { persisted: true, _saveVersion: 6 }); }) as typeof fetch;
+        globalThis.fetch = (async () => { posts += 1; return jsonResponse(200, { ok: true, persisted: true, _saveVersion: 6 }); }) as typeof fetch;
         const blocker = flight.runRequired(async () => release.promise);
         const queued = h.persistence.persistRequired(() => requiredSave());
         h.persistence.invalidateAuthority();
@@ -799,7 +825,7 @@ describe("extracted save persistence", () => {
         const h = harness({ latestVersion: 10, payloadRevision: 4, failureCount: 1 });
         const acknowledgements = [8, 11];
         globalThis.fetch = (async () => jsonResponse(200, {
-            persisted: true,
+            ok: true, persisted: true,
             _saveVersion: acknowledgements.shift(),
         })) as typeof fetch;
 
@@ -857,7 +883,7 @@ describe("extracted save persistence", () => {
         await h.persistence.persistAutosave(snapshot());
         assert.equal(h.dirty.current, true);
         assert.ok(h.persistence.getUnresolvedPost(), "an unverifiable 200 cannot retire the exact pending body");
-        await assert.rejects(h.persistence.persistRequired(() => requiredSave()), /valid authoritative version/i);
+        await assert.rejects(h.persistence.persistRequired(() => requiredSave()), /could not be confirmed/i);
         assert.ok(h.persistence.getUnresolvedPost());
         assert.equal(h.latestVersion.current, 4);
     });
@@ -1005,7 +1031,7 @@ describe("save pacing against the server's one-save-per-3s window", () => {
 
     it("never stalls a player's action on a long server hint", async () => {
         const h = harness();
-        globalThis.fetch = (async () => jsonResponse(429, { retryAfterMs: 45_000 })) as typeof fetch;
+        globalThis.fetch = (async () => jsonResponse(429, { error: "Rate limit exceeded.", retryAfterMs: 45_000 })) as typeof fetch;
         await assert.rejects(h.persistence.persistRequired(() => requiredSave()), SaveRateLimitError);
         const sentAt = acceptingServer(h);
         await h.persistence.persistRequired(() => requiredSave());
@@ -1013,7 +1039,7 @@ describe("save pacing against the server's one-save-per-3s window", () => {
         assert.deepEqual(h.clock.sleeps, []);
 
         const later = harness();
-        globalThis.fetch = (async () => jsonResponse(429, { retryAfterMs: 45_000 })) as typeof fetch;
+        globalThis.fetch = (async () => jsonResponse(429, { error: "Rate limit exceeded.", retryAfterMs: 45_000 })) as typeof fetch;
         await later.persistence.persistAutosave(snapshot());
         let posts = 0;
         globalThis.fetch = (async () => { posts += 1; return jsonResponse(200, { _saveVersion: 9 }); }) as typeof fetch;
