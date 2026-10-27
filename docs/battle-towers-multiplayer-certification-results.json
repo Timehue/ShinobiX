@@ -1,0 +1,6012 @@
+{
+  "date": "2026-10-26",
+  "validationState": "earned-player-curve-and-focused-checks-passed-release-ci-pending",
+  "source": {
+    "head": "a60f9ceda51f3a0ff13cfe5f8d3d30af4823ddd6",
+    "uncommittedTowerCandidate": true,
+    "server": "built dist/server.js",
+    "localStorage": "isolated in-memory QA backend"
+  },
+  "live": {
+    "initialPreparation": {
+      "origin": "https://shinobijourney.com",
+      "mode": "prepare",
+      "startedAt": "2026-10-24T10:38:29.047Z",
+      "checks": [
+        {
+          "name": "live shallow health",
+          "passed": true,
+          "detail": {
+            "ok": true,
+            "commit": "3ba1431be36ad68f2188f7573fa55c37c3f42d43",
+            "commitShort": "3ba1431b",
+            "commitSource": "environment",
+            "startedAt": "2026-10-24T02:22:59.312Z"
+          }
+        },
+        {
+          "name": "all fifteen Story floors are publicly readable",
+          "passed": true
+        },
+        {
+          "name": "qatw6c8f19685e0 authenticates",
+          "passed": false,
+          "detail": {
+            "status": 503
+          }
+        }
+      ],
+      "requests": 3,
+      "socketEvents": [],
+      "status": "failed",
+      "commit": "3ba1431be36ad68f2188f7573fa55c37c3f42d43",
+      "catalogHasNewBalance": false,
+      "error": "qatw6c8f19685e0 authenticates",
+      "finishedAt": "2026-10-24T10:38:29.868Z"
+    },
+    "latestBoundaryChecks": {
+      "origin": "https://shinobijourney.com",
+      "startedAt": "2026-10-26T16:06:57.967Z",
+      "checks": [
+        {
+          "path": "/health",
+          "status": 200,
+          "expected": 200,
+          "passed": true,
+          "data": {
+            "ok": true,
+            "commit": "3601556f59e4f4f7b319a7cfd26fa1d75c8e7232",
+            "commitShort": "3601556f",
+            "commitSource": "environment",
+            "startedAt": "2026-10-26T05:08:49.987Z"
+          }
+        },
+        {
+          "path": "/api/towers/floors",
+          "status": 200,
+          "expected": 200,
+          "passed": true,
+          "data": {
+            "count": 15,
+            "ids": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10,
+              11,
+              12,
+              13,
+              14,
+              15
+            ]
+          }
+        },
+        {
+          "path": "/api/player/capabilities",
+          "status": 200,
+          "expected": 200,
+          "passed": true,
+          "data": {
+            "ok": true,
+            "capabilities": {
+              "gameplay": {
+                "state": "available",
+                "reason": "available"
+              },
+              "gameplayMutations": {
+                "state": "available",
+                "reason": "available"
+              },
+              "registrations": {
+                "state": "available",
+                "reason": "available"
+              },
+              "googleSignIn": {
+                "state": "available",
+                "reason": "available"
+              },
+              "guestPlay": {
+                "state": "available",
+                "reason": "available"
+              },
+              "villageWar": {
+                "state": "available",
+                "reason": "available"
+              },
+              "anbuInfiltration": {
+                "state": "available",
+                "reason": "available"
+              },
+              "clanBoss": {
+                "state": "available",
+                "reason": "available"
+              },
+              "clanBossParties": {
+                "state": "available",
+                "reason": "available"
+              },
+              "legacy": {
+                "state": "available",
+                "reason": "available"
+              },
+              "petBreedingStarts": {
+                "state": "available",
+                "reason": "available"
+              },
+              "weeklyBossGuardCycle": {
+                "state": "available",
+                "reason": "available"
+              }
+            }
+          }
+        },
+        {
+          "path": "/api/towers/party",
+          "status": 401,
+          "expected": 401,
+          "passed": true,
+          "data": {
+            "error": "Authentication required."
+          }
+        },
+        {
+          "path": "/api/towers/state",
+          "status": 401,
+          "expected": 401,
+          "passed": true,
+          "data": {
+            "error": "Authentication required."
+          }
+        },
+        {
+          "path": "/api/towers/start",
+          "status": 401,
+          "expected": 401,
+          "passed": true,
+          "data": {
+            "error": "Authentication required."
+          }
+        },
+        {
+          "path": "/api/towers/join",
+          "status": 401,
+          "expected": 401,
+          "passed": true,
+          "data": {
+            "error": "Authentication required."
+          }
+        },
+        {
+          "path": "/api/towers/action",
+          "status": 401,
+          "expected": 401,
+          "passed": true,
+          "data": {
+            "error": "Authentication required."
+          }
+        },
+        {
+          "path": "/api/towers/settle",
+          "status": 401,
+          "expected": 401,
+          "passed": true,
+          "data": {
+            "error": "Authentication required."
+          }
+        },
+        {
+          "path": "/api/player-auth",
+          "status": 200,
+          "expected": 200,
+          "passed": true,
+          "data": {
+            "ok": true
+          }
+        }
+      ],
+      "finishedAt": "2026-10-26T16:06:59.194Z"
+    },
+    "logEvidence": {
+      "observedAtUtc": "2026-10-24T21:49:00Z",
+      "url": "https://railway.com/project/8a48dce3-f6ec-47dc-ba23-4759c8e8c2f8/service/fcf94393-fdb1-4d13-8bc9-4f2fcd307616?environmentId=0a9692e9-a5a3-492b-86fd-0455dcc1f94f&id=f6d53a8f-cdab-4261-8201-1a4dc021cac2#deploy",
+      "messages": [
+        "password authentication failed for user \"postgres\"",
+        "(ECIRCUITBREAKER) too many authentication failures, new connections are temporarily blocked"
+      ]
+    },
+    "successfulFourAccountLaunch": true,
+    "latestCommit": "b154a648455799cf12022a9520a123d6603968bc",
+    "newBalanceMetadataPresent": false,
+    "blocker": "The candidate is unpublished and lacks exact-deployed-commit certification. Earlier commit 3601556f had polling/settlement contention; the latest deployment received public read-only checks, not a strict four-client candidate test.",
+    "credentialAccess": "After the earlier automatic rejection, the user explicitly approved limited ADMIN_PASSWORD use for only the four disposable qatw accounts and Tower diagnostics. The credential was retrieved from Railway, transferred as one-use RSA-OAEP ciphertext to a scoped API preparer, used in memory, and cleared; no plaintext credential was printed or saved by the preparer. The privileged game session was logged out.",
+    "latestStorageRecheck": {
+      "origin": "https://shinobijourney.com",
+      "mode": "prepare",
+      "startedAt": "2026-10-26T15:43:59.216Z",
+      "checks": [
+        {
+          "name": "live shallow health",
+          "passed": true,
+          "detail": {
+            "ok": true,
+            "commit": "3601556f59e4f4f7b319a7cfd26fa1d75c8e7232",
+            "commitShort": "3601556f",
+            "commitSource": "environment",
+            "startedAt": "2026-10-26T05:08:49.987Z"
+          }
+        },
+        {
+          "name": "all fifteen Story floors are publicly readable",
+          "passed": true
+        },
+        {
+          "name": "qatw6c8f19685e0 authenticates",
+          "passed": true,
+          "detail": {
+            "status": 200
+          }
+        },
+        {
+          "name": "qatw6c8f19685e0 receives a canonical first save",
+          "passed": true,
+          "detail": {
+            "status": 200
+          }
+        },
+        {
+          "name": "qatw6c8f19685e0 ordinary level is recorded",
+          "passed": true,
+          "detail": {
+            "level": 1
+          }
+        },
+        {
+          "name": "qatw5c9eef69921 authenticates",
+          "passed": true,
+          "detail": {
+            "status": 200
+          }
+        },
+        {
+          "name": "qatw5c9eef69921 receives a canonical first save",
+          "passed": true,
+          "detail": {
+            "status": 200
+          }
+        },
+        {
+          "name": "qatw5c9eef69921 ordinary level is recorded",
+          "passed": true,
+          "detail": {
+            "level": 1
+          }
+        },
+        {
+          "name": "qatwca302a99582 authenticates",
+          "passed": true,
+          "detail": {
+            "status": 200
+          }
+        },
+        {
+          "name": "qatwca302a99582 receives a canonical first save",
+          "passed": true,
+          "detail": {
+            "status": 200
+          }
+        },
+        {
+          "name": "qatwca302a99582 ordinary level is recorded",
+          "passed": true,
+          "detail": {
+            "level": 1
+          }
+        },
+        {
+          "name": "qatw6f8751e8983 authenticates",
+          "passed": true,
+          "detail": {
+            "status": 200
+          }
+        },
+        {
+          "name": "qatw6f8751e8983 receives a canonical first save",
+          "passed": true,
+          "detail": {
+            "status": 200
+          }
+        },
+        {
+          "name": "qatw6f8751e8983 ordinary level is recorded",
+          "passed": true,
+          "detail": {
+            "level": 1
+          }
+        },
+        {
+          "name": "four distinct authenticated websocket clients connected",
+          "passed": true
+        },
+        {
+          "name": "forced websocket transport loss reconnects",
+          "passed": true,
+          "detail": {
+            "latencyMs": 715
+          }
+        },
+        {
+          "name": "under-level ready-room admission requires level 30",
+          "passed": false,
+          "detail": {
+            "status": 200
+          }
+        },
+        {
+          "name": "deployed commit remains stable during the test",
+          "passed": true,
+          "detail": {
+            "before": "3601556f59e4f4f7b319a7cfd26fa1d75c8e7232",
+            "after": "3601556f59e4f4f7b319a7cfd26fa1d75c8e7232"
+          }
+        }
+      ],
+      "requests": 29,
+      "status": "findings",
+      "commit": "3601556f59e4f4f7b319a7cfd26fa1d75c8e7232",
+      "catalogHasNewBalance": false,
+      "accounts": [
+        "qatw6c8f19685e0",
+        "qatw5c9eef69921",
+        "qatwca302a99582",
+        "qatw6f8751e8983"
+      ],
+      "unexpectedPartyId": "tparty-b10680eecf9f443192a058ff855d56d2",
+      "combatPending": "Four accounts must be legitimately prepared at level 30 before --run.",
+      "finishedAt": "2026-10-26T15:44:05.706Z",
+      "socketDelivery": {
+        "qatw6c8f19685e0": 2
+      }
+    },
+    "latestLogEvidence": {
+      "capturedAt": "2026-10-26T16:08:03.517Z",
+      "source": "Railway active deployment logs, 2f827ce2-1ad5-4926-bfcf-0ef94cdee2ce",
+      "errors": [
+        "[towers/state] LockContendedError: Could not acquire lock for \"battle-lock:qatw5c9eef69921\" — contended or KV unavailable.",
+        "[towers/settle] LockContendedError: Could not acquire lock for \"battle-lock:qatw5c9eef69921\" — contended or KV unavailable."
+      ]
+    },
+    "researchAuditRecheck": {
+      "origin": "https://shinobijourney.com",
+      "mode": "prepare",
+      "startedAt": "2026-10-25T01:24:51.618Z",
+      "checks": [
+        {
+          "name": "live shallow health",
+          "passed": true,
+          "detail": {
+            "ok": true,
+            "commit": "bed1dc722512331c5012a51ba36f15b143ea0d27",
+            "commitShort": "bed1dc72",
+            "commitSource": "environment",
+            "startedAt": "2026-10-24T22:56:34.276Z"
+          }
+        },
+        {
+          "name": "all fifteen Story floors are publicly readable",
+          "passed": true
+        },
+        {
+          "name": "qatw6c8f19685e0 authenticates",
+          "passed": false,
+          "detail": {
+            "status": 503,
+            "error": "Storage unavailable. Try again."
+          }
+        }
+      ],
+      "requests": 3,
+      "socketEvents": [],
+      "status": "failed",
+      "commit": "bed1dc722512331c5012a51ba36f15b143ea0d27",
+      "catalogHasNewBalance": false,
+      "error": "qatw6c8f19685e0 authenticates",
+      "finishedAt": "2026-10-25T01:24:52.002Z"
+    },
+    "historicalStorageBlocker": "Production PostgreSQL rejects authentication; disposable registration and verification return HTTP 503 Storage unavailable.",
+    "storageRecovered": true,
+    "candidateCertified": false,
+    "storageRecoveryFollowup": {
+      "date": "2026-10-26",
+      "fixture": {
+        "origin": "https://shinobijourney.com",
+        "level": 30,
+        "fixture": "prepared-catalog-v2",
+        "startedAt": "2026-10-26T15:55:35.109Z",
+        "accounts": [
+          {
+            "player": "qatw6c8f19685e0",
+            "specialty": "Ninjutsu",
+            "bloodline": "Inferno Cataclysm",
+            "level": 30,
+            "hp": 3400,
+            "chakra": 3636,
+            "stamina": 3636,
+            "jutsuCount": 6,
+            "armor": [
+              "iron-kabuto",
+              "rare-chest-plate",
+              "chain-obi",
+              "rare-greaves",
+              "rare-tabi"
+            ],
+            "status": 200
+          },
+          {
+            "player": "qatw5c9eef69921",
+            "specialty": "Bukijutsu",
+            "bloodline": "Shadow Lotus",
+            "level": 30,
+            "hp": 3400,
+            "chakra": 3636,
+            "stamina": 3636,
+            "jutsuCount": 6,
+            "armor": [
+              "iron-kabuto",
+              "rare-chest-plate",
+              "chain-obi",
+              "rare-greaves",
+              "rare-tabi"
+            ],
+            "status": 200
+          },
+          {
+            "player": "qatwca302a99582",
+            "specialty": "Taijutsu",
+            "bloodline": "Iron Fang",
+            "level": 30,
+            "hp": 3400,
+            "chakra": 3636,
+            "stamina": 3636,
+            "jutsuCount": 6,
+            "armor": [
+              "iron-kabuto",
+              "rare-chest-plate",
+              "chain-obi",
+              "rare-greaves",
+              "rare-tabi"
+            ],
+            "status": 200
+          },
+          {
+            "player": "qatw6f8751e8983",
+            "specialty": "Genjutsu",
+            "bloodline": "Ashen Eyes",
+            "level": 30,
+            "hp": 3400,
+            "chakra": 3636,
+            "stamina": 3636,
+            "jutsuCount": 6,
+            "armor": [
+              "iron-kabuto",
+              "rare-chest-plate",
+              "chain-obi",
+              "rare-greaves",
+              "rare-tabi"
+            ],
+            "status": 200
+          }
+        ],
+        "status": "passed",
+        "finishedAt": "2026-10-26T15:55:59.723Z"
+      },
+      "preparation": {
+        "origin": "https://shinobijourney.com",
+        "mode": "prepare",
+        "startedAt": "2026-10-26T15:43:59.216Z",
+        "checks": [
+          {
+            "name": "live shallow health",
+            "passed": true,
+            "detail": {
+              "ok": true,
+              "commit": "3601556f59e4f4f7b319a7cfd26fa1d75c8e7232",
+              "commitShort": "3601556f",
+              "commitSource": "environment",
+              "startedAt": "2026-10-26T05:08:49.987Z"
+            }
+          },
+          {
+            "name": "all fifteen Story floors are publicly readable",
+            "passed": true
+          },
+          {
+            "name": "qatw6c8f19685e0 authenticates",
+            "passed": true,
+            "detail": {
+              "status": 200
+            }
+          },
+          {
+            "name": "qatw6c8f19685e0 receives a canonical first save",
+            "passed": true,
+            "detail": {
+              "status": 200
+            }
+          },
+          {
+            "name": "qatw6c8f19685e0 ordinary level is recorded",
+            "passed": true,
+            "detail": {
+              "level": 1
+            }
+          },
+          {
+            "name": "qatw5c9eef69921 authenticates",
+            "passed": true,
+            "detail": {
+              "status": 200
+            }
+          },
+          {
+            "name": "qatw5c9eef69921 receives a canonical first save",
+            "passed": true,
+            "detail": {
+              "status": 200
+            }
+          },
+          {
+            "name": "qatw5c9eef69921 ordinary level is recorded",
+            "passed": true,
+            "detail": {
+              "level": 1
+            }
+          },
+          {
+            "name": "qatwca302a99582 authenticates",
+            "passed": true,
+            "detail": {
+              "status": 200
+            }
+          },
+          {
+            "name": "qatwca302a99582 receives a canonical first save",
+            "passed": true,
+            "detail": {
+              "status": 200
+            }
+          },
+          {
+            "name": "qatwca302a99582 ordinary level is recorded",
+            "passed": true,
+            "detail": {
+              "level": 1
+            }
+          },
+          {
+            "name": "qatw6f8751e8983 authenticates",
+            "passed": true,
+            "detail": {
+              "status": 200
+            }
+          },
+          {
+            "name": "qatw6f8751e8983 receives a canonical first save",
+            "passed": true,
+            "detail": {
+              "status": 200
+            }
+          },
+          {
+            "name": "qatw6f8751e8983 ordinary level is recorded",
+            "passed": true,
+            "detail": {
+              "level": 1
+            }
+          },
+          {
+            "name": "four distinct authenticated websocket clients connected",
+            "passed": true
+          },
+          {
+            "name": "forced websocket transport loss reconnects",
+            "passed": true,
+            "detail": {
+              "latencyMs": 715
+            }
+          },
+          {
+            "name": "under-level ready-room admission requires level 30",
+            "passed": false,
+            "detail": {
+              "status": 200
+            }
+          },
+          {
+            "name": "deployed commit remains stable during the test",
+            "passed": true,
+            "detail": {
+              "before": "3601556f59e4f4f7b319a7cfd26fa1d75c8e7232",
+              "after": "3601556f59e4f4f7b319a7cfd26fa1d75c8e7232"
+            }
+          }
+        ],
+        "requests": 29,
+        "status": "findings",
+        "commit": "3601556f59e4f4f7b319a7cfd26fa1d75c8e7232",
+        "catalogHasNewBalance": false,
+        "accounts": [
+          "qatw6c8f19685e0",
+          "qatw5c9eef69921",
+          "qatwca302a99582",
+          "qatw6f8751e8983"
+        ],
+        "unexpectedPartyId": "tparty-b10680eecf9f443192a058ff855d56d2",
+        "combatPending": "Four accounts must be legitimately prepared at level 30 before --run.",
+        "finishedAt": "2026-10-26T15:44:05.706Z",
+        "socketDelivery": {
+          "qatw6c8f19685e0": 2
+        }
+      },
+      "underlevelDiagnostic": {
+        "origin": "https://shinobijourney.com",
+        "mode": "run",
+        "startedAt": "2026-10-26T15:46:44.183Z",
+        "checks": [
+          {
+            "name": "live shallow health",
+            "passed": true,
+            "detail": {
+              "ok": true,
+              "commit": "3601556f59e4f4f7b319a7cfd26fa1d75c8e7232",
+              "commitShort": "3601556f",
+              "commitSource": "environment",
+              "startedAt": "2026-10-26T05:08:49.987Z"
+            }
+          },
+          {
+            "name": "all fifteen Story floors are publicly readable",
+            "passed": true
+          },
+          {
+            "name": "DIAGNOSTIC ONLY: all four accounts meet level 30",
+            "passed": false,
+            "detail": [
+              {
+                "player": "qatw6c8f19685e0",
+                "level": 1
+              },
+              {
+                "player": "qatw5c9eef69921",
+                "level": 1
+              },
+              {
+                "player": "qatwca302a99582",
+                "level": 1
+              },
+              {
+                "player": "qatw6f8751e8983",
+                "level": 1
+              }
+            ]
+          },
+          {
+            "name": "four distinct authenticated websocket clients connected",
+            "passed": true
+          },
+          {
+            "name": "forced websocket transport loss reconnects",
+            "passed": true,
+            "detail": {
+              "latencyMs": 750
+            }
+          },
+          {
+            "name": "host creates a private Story ready room",
+            "passed": true,
+            "detail": {
+              "status": 200
+            }
+          },
+          {
+            "name": "qatw5c9eef69921 joins the shared room",
+            "passed": true,
+            "detail": {
+              "status": 200
+            }
+          },
+          {
+            "name": "qatwca302a99582 joins the shared room",
+            "passed": true,
+            "detail": {
+              "status": 200
+            }
+          },
+          {
+            "name": "qatw6f8751e8983 joins the shared room",
+            "passed": true,
+            "detail": {
+              "status": 200
+            }
+          },
+          {
+            "name": "qatw6c8f19685e0 readies",
+            "passed": true,
+            "detail": {
+              "status": 200
+            }
+          },
+          {
+            "name": "qatw5c9eef69921 readies",
+            "passed": true,
+            "detail": {
+              "status": 200
+            }
+          },
+          {
+            "name": "qatwca302a99582 readies",
+            "passed": true,
+            "detail": {
+              "status": 200
+            }
+          },
+          {
+            "name": "qatw6f8751e8983 readies",
+            "passed": true,
+            "detail": {
+              "status": 200
+            }
+          },
+          {
+            "name": "one run launches with four live actors",
+            "passed": false,
+            "detail": {
+              "status": 403
+            }
+          }
+        ],
+        "requests": 19,
+        "status": "failed",
+        "commit": "3601556f59e4f4f7b319a7cfd26fa1d75c8e7232",
+        "catalogHasNewBalance": false,
+        "accounts": [
+          "qatw6c8f19685e0",
+          "qatw5c9eef69921",
+          "qatwca302a99582",
+          "qatw6f8751e8983"
+        ],
+        "partyId": "tparty-25142c6ae6324f968e13c905a56bb490",
+        "error": "one run launches with four live actors",
+        "finishedAt": "2026-10-26T15:46:48.130Z",
+        "socketDelivery": {
+          "qatw6c8f19685e0": 8,
+          "qatw5c9eef69921": 7,
+          "qatwca302a99582": 6,
+          "qatw6f8751e8983": 5
+        }
+      },
+      "launch": {
+        "origin": "https://shinobijourney.com",
+        "mode": "run",
+        "startedAt": "2026-10-26T15:56:34.029Z",
+        "checks": [
+          {
+            "name": "live shallow health",
+            "passed": true,
+            "detail": {
+              "ok": true,
+              "commit": "3601556f59e4f4f7b319a7cfd26fa1d75c8e7232",
+              "commitShort": "3601556f",
+              "commitSource": "environment",
+              "startedAt": "2026-10-26T05:08:49.987Z"
+            }
+          },
+          {
+            "name": "all fifteen Story floors are publicly readable",
+            "passed": true
+          },
+          {
+            "name": "all four test accounts meet level 30",
+            "passed": true,
+            "detail": [
+              {
+                "player": "qatw6c8f19685e0",
+                "level": 30
+              },
+              {
+                "player": "qatw5c9eef69921",
+                "level": 30
+              },
+              {
+                "player": "qatwca302a99582",
+                "level": 30
+              },
+              {
+                "player": "qatw6f8751e8983",
+                "level": 30
+              }
+            ]
+          },
+          {
+            "name": "four distinct authenticated websocket clients connected",
+            "passed": true
+          },
+          {
+            "name": "forced websocket transport loss reconnects",
+            "passed": true,
+            "detail": {
+              "latencyMs": 970
+            }
+          },
+          {
+            "name": "host creates a private Story ready room",
+            "passed": true,
+            "detail": {
+              "status": 200
+            }
+          },
+          {
+            "name": "qatw5c9eef69921 joins the shared room",
+            "passed": true,
+            "detail": {
+              "status": 200
+            }
+          },
+          {
+            "name": "qatwca302a99582 joins the shared room",
+            "passed": true,
+            "detail": {
+              "status": 200
+            }
+          },
+          {
+            "name": "qatw6f8751e8983 joins the shared room",
+            "passed": true,
+            "detail": {
+              "status": 200
+            }
+          },
+          {
+            "name": "qatw6c8f19685e0 readies",
+            "passed": true,
+            "detail": {
+              "status": 200
+            }
+          },
+          {
+            "name": "qatw5c9eef69921 readies",
+            "passed": true,
+            "detail": {
+              "status": 200
+            }
+          },
+          {
+            "name": "qatwca302a99582 readies",
+            "passed": true,
+            "detail": {
+              "status": 200
+            }
+          },
+          {
+            "name": "qatw6f8751e8983 readies",
+            "passed": true,
+            "detail": {
+              "status": 200
+            }
+          },
+          {
+            "name": "one run launches with four live actors",
+            "passed": true,
+            "detail": {
+              "status": 200
+            }
+          },
+          {
+            "name": "lost launch acknowledgement recovers the same run",
+            "passed": true,
+            "detail": {
+              "status": 200
+            }
+          },
+          {
+            "name": "all four clients converge on one authoritative board",
+            "passed": false
+          }
+        ],
+        "requests": 28,
+        "status": "failed",
+        "commit": "3601556f59e4f4f7b319a7cfd26fa1d75c8e7232",
+        "catalogHasNewBalance": false,
+        "accounts": [
+          "qatw6c8f19685e0",
+          "qatw5c9eef69921",
+          "qatwca302a99582",
+          "qatw6f8751e8983"
+        ],
+        "partyId": "tparty-9d19bcb618c24f35a9bd4ca238ca6d53",
+        "runId": "tower-ffe9edeb85674314a02b776e38ffdff6",
+        "error": "all four clients converge on one authoritative board",
+        "finishedAt": "2026-10-26T15:56:40.979Z",
+        "socketDelivery": {
+          "qatw6c8f19685e0": 12,
+          "qatw5c9eef69921": 11,
+          "qatwca302a99582": 10,
+          "qatw6f8751e8983": 9
+        }
+      },
+      "resumed": {
+        "origin": "https://shinobijourney.com",
+        "mode": "run",
+        "startedAt": "2026-10-26T16:00:05.098Z",
+        "checks": [
+          {
+            "name": "live shallow health",
+            "passed": true,
+            "detail": {
+              "ok": true,
+              "commit": "3601556f59e4f4f7b319a7cfd26fa1d75c8e7232",
+              "commitShort": "3601556f",
+              "commitSource": "environment",
+              "startedAt": "2026-10-26T05:08:49.987Z"
+            }
+          },
+          {
+            "name": "all fifteen Story floors are publicly readable",
+            "passed": true
+          },
+          {
+            "name": "all four test accounts meet level 30",
+            "passed": true,
+            "detail": [
+              {
+                "player": "qatw6c8f19685e0",
+                "level": 30
+              },
+              {
+                "player": "qatw5c9eef69921",
+                "level": 30
+              },
+              {
+                "player": "qatwca302a99582",
+                "level": 30
+              },
+              {
+                "player": "qatw6f8751e8983",
+                "level": 30
+              }
+            ]
+          },
+          {
+            "name": "four distinct authenticated websocket clients connected",
+            "passed": true
+          },
+          {
+            "name": "forced websocket transport loss reconnects",
+            "passed": true,
+            "detail": {
+              "latencyMs": 836
+            }
+          },
+          {
+            "name": "interrupted live run resumes from persisted state",
+            "passed": true,
+            "detail": {
+              "status": 200
+            }
+          },
+          {
+            "name": "all four clients converge after bounded recovery",
+            "passed": true
+          },
+          {
+            "name": "qatw6c8f19685e0 reconnect preserves its sealed actor",
+            "passed": true
+          },
+          {
+            "name": "qatw5c9eef69921 reconnect preserves its sealed actor",
+            "passed": true
+          },
+          {
+            "name": "qatwca302a99582 reconnect preserves its sealed actor",
+            "passed": true
+          },
+          {
+            "name": "qatw6f8751e8983 reconnect preserves its sealed actor",
+            "passed": true
+          },
+          {
+            "name": "another member cannot take the active turn",
+            "passed": true
+          },
+          {
+            "name": "committed action response can be lost without rejecting the write",
+            "passed": true
+          },
+          {
+            "name": "retry after discarded response advances exactly once",
+            "passed": true
+          },
+          {
+            "name": "stale commands cannot overwrite newer combat",
+            "passed": true
+          },
+          {
+            "name": "an absent human turn passes and the run remains recoverable",
+            "passed": true
+          },
+          {
+            "name": "live concurrent poll batch is available and synchronized",
+            "passed": false,
+            "detail": {
+              "attempt": 1,
+              "statuses": [
+                200,
+                200,
+                200,
+                500
+              ]
+            }
+          },
+          {
+            "name": "live concurrent poll batch is available and synchronized",
+            "passed": false,
+            "detail": {
+              "attempt": 2,
+              "statuses": [
+                500,
+                200,
+                200,
+                200
+              ]
+            }
+          },
+          {
+            "name": "live concurrent poll batch is available and synchronized",
+            "passed": false,
+            "detail": {
+              "attempt": 3,
+              "statuses": [
+                500,
+                200,
+                200,
+                200
+              ]
+            }
+          },
+          {
+            "name": "live concurrent poll batch is available and synchronized",
+            "passed": false,
+            "detail": {
+              "attempt": 4,
+              "statuses": [
+                200,
+                500,
+                200,
+                200
+              ]
+            }
+          },
+          {
+            "name": "live concurrent poll batch is available and synchronized",
+            "passed": false,
+            "detail": {
+              "attempt": 5,
+              "statuses": [
+                200,
+                200,
+                200,
+                500
+              ]
+            }
+          },
+          {
+            "name": "all four clients converge after bounded recovery",
+            "passed": false
+          }
+        ],
+        "requests": 40,
+        "status": "failed",
+        "commit": "3601556f59e4f4f7b319a7cfd26fa1d75c8e7232",
+        "catalogHasNewBalance": false,
+        "accounts": [
+          "qatw6c8f19685e0",
+          "qatw5c9eef69921",
+          "qatwca302a99582",
+          "qatw6f8751e8983"
+        ],
+        "runId": "tower-ffe9edeb85674314a02b776e38ffdff6",
+        "partyId": "tparty-9d19bcb618c24f35a9bd4ca238ca6d53",
+        "scope": "Continuation of the production run after a recorded HTTP 500 polling failure; does not certify the local candidate.",
+        "error": "all four clients converge after bounded recovery",
+        "finishedAt": "2026-10-26T16:01:36.256Z",
+        "socketDelivery": {
+          "qatw5c9eef69921": 3,
+          "qatw6f8751e8983": 3,
+          "qatwca302a99582": 3,
+          "qatw6c8f19685e0": 3
+        }
+      },
+      "terminal": {
+        "origin": "https://shinobijourney.com",
+        "mode": "run",
+        "startedAt": "2026-10-26T16:03:00.891Z",
+        "checks": [
+          {
+            "name": "live shallow health",
+            "passed": true,
+            "detail": {
+              "ok": true,
+              "commit": "3601556f59e4f4f7b319a7cfd26fa1d75c8e7232",
+              "commitShort": "3601556f",
+              "commitSource": "environment",
+              "startedAt": "2026-10-26T05:08:49.987Z"
+            }
+          },
+          {
+            "name": "all fifteen Story floors are publicly readable",
+            "passed": true
+          },
+          {
+            "name": "all four test accounts meet level 30",
+            "passed": true,
+            "detail": [
+              {
+                "player": "qatw6c8f19685e0",
+                "level": 30
+              },
+              {
+                "player": "qatw5c9eef69921",
+                "level": 30
+              },
+              {
+                "player": "qatwca302a99582",
+                "level": 30
+              },
+              {
+                "player": "qatw6f8751e8983",
+                "level": 30
+              }
+            ]
+          },
+          {
+            "name": "four distinct authenticated websocket clients connected",
+            "passed": true
+          },
+          {
+            "name": "forced websocket transport loss reconnects",
+            "passed": true,
+            "detail": {
+              "latencyMs": 975
+            }
+          },
+          {
+            "name": "interrupted live run resumes from persisted state",
+            "passed": true,
+            "detail": {
+              "status": 200
+            }
+          },
+          {
+            "name": "live concurrent poll batch is available and synchronized",
+            "passed": false,
+            "detail": {
+              "attempt": 1,
+              "statuses": [
+                200,
+                500,
+                200,
+                200
+              ]
+            }
+          },
+          {
+            "name": "clients converge using sequential reads after recorded live polling failure",
+            "passed": true
+          },
+          {
+            "name": "qatw6c8f19685e0 reconnect preserves its sealed actor",
+            "passed": true
+          },
+          {
+            "name": "qatw5c9eef69921 reconnect preserves its sealed actor",
+            "passed": true
+          },
+          {
+            "name": "qatwca302a99582 reconnect preserves its sealed actor",
+            "passed": true
+          },
+          {
+            "name": "qatw6f8751e8983 reconnect preserves its sealed actor",
+            "passed": true
+          },
+          {
+            "name": "previous diagnostic verified wrong-owner, retry, stale-version and real AFK recovery",
+            "passed": true
+          },
+          {
+            "name": "all four accounts submit legal combat actions",
+            "passed": true
+          },
+          {
+            "name": "normal combat reaches a terminal result",
+            "passed": true,
+            "detail": {
+              "actions": 15,
+              "winner": "squad",
+              "rounds": 3
+            }
+          },
+          {
+            "name": "clients converge using sequential reads after recorded live polling failure",
+            "passed": true
+          },
+          {
+            "name": "live settlement request avoids HTTP 500",
+            "passed": false,
+            "detail": {
+              "player": "qatw6f8751e8983",
+              "attempt": 1
+            }
+          },
+          {
+            "name": "four concurrent settlement callers reach confirmed receipts",
+            "passed": true
+          },
+          {
+            "name": "winning members retain their confirmed floor clear",
+            "passed": true
+          },
+          {
+            "name": "every fresh first clear receives its currency reward",
+            "passed": true
+          },
+          {
+            "name": "reward retry changes no currency or progression twice",
+            "passed": true
+          },
+          {
+            "name": "settlement releases every party member",
+            "passed": true
+          },
+          {
+            "name": "every websocket received Tower revision hints",
+            "passed": true
+          },
+          {
+            "name": "deployed commit remains stable during the test",
+            "passed": true,
+            "detail": {
+              "before": "3601556f59e4f4f7b319a7cfd26fa1d75c8e7232",
+              "after": "3601556f59e4f4f7b319a7cfd26fa1d75c8e7232"
+            }
+          }
+        ],
+        "requests": 57,
+        "status": "findings",
+        "commit": "3601556f59e4f4f7b319a7cfd26fa1d75c8e7232",
+        "catalogHasNewBalance": false,
+        "accounts": [
+          "qatw6c8f19685e0",
+          "qatw5c9eef69921",
+          "qatwca302a99582",
+          "qatw6f8751e8983"
+        ],
+        "runId": "tower-ffe9edeb85674314a02b776e38ffdff6",
+        "partyId": "tparty-9d19bcb618c24f35a9bd4ca238ca6d53",
+        "scope": "Continuation of the production run after a recorded HTTP 500 polling failure; does not certify the local candidate.",
+        "combat": {
+          "acceptedActions": 15,
+          "controllers": [
+            "qatw6c8f19685e0",
+            "qatw5c9eef69921",
+            "qatwca302a99582",
+            "qatw6f8751e8983"
+          ],
+          "winner": "squad",
+          "rounds": 3
+        },
+        "settlement": [
+          {
+            "player": "qatw6c8f19685e0",
+            "result": {
+              "paid": true,
+              "score": 240,
+              "relic": {
+                "reason": "ineligible"
+              }
+            },
+            "ryoDelta": 400
+          },
+          {
+            "player": "qatw5c9eef69921",
+            "result": {
+              "paid": false,
+              "reason": "already-paid",
+              "relic": {
+                "reason": "ineligible"
+              }
+            },
+            "ryoDelta": 400
+          },
+          {
+            "player": "qatwca302a99582",
+            "result": {
+              "paid": false,
+              "reason": "already-paid",
+              "relic": {
+                "reason": "ineligible"
+              }
+            },
+            "ryoDelta": 400
+          },
+          {
+            "player": "qatw6f8751e8983",
+            "result": {
+              "paid": false,
+              "reason": "already-paid",
+              "relic": {
+                "reason": "ineligible"
+              }
+            },
+            "ryoDelta": 400
+          }
+        ],
+        "finishedAt": "2026-10-26T16:03:22.230Z",
+        "socketDelivery": {
+          "qatw5c9eef69921": 26,
+          "qatw6c8f19685e0": 26,
+          "qatw6f8751e8983": 26,
+          "qatwca302a99582": 26
+        }
+      },
+      "boundaries": {
+        "origin": "https://shinobijourney.com",
+        "startedAt": "2026-10-26T16:06:57.967Z",
+        "checks": [
+          {
+            "path": "/health",
+            "status": 200,
+            "expected": 200,
+            "passed": true,
+            "data": {
+              "ok": true,
+              "commit": "3601556f59e4f4f7b319a7cfd26fa1d75c8e7232",
+              "commitShort": "3601556f",
+              "commitSource": "environment",
+              "startedAt": "2026-10-26T05:08:49.987Z"
+            }
+          },
+          {
+            "path": "/api/towers/floors",
+            "status": 200,
+            "expected": 200,
+            "passed": true,
+            "data": {
+              "count": 15,
+              "ids": [
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10,
+                11,
+                12,
+                13,
+                14,
+                15
+              ]
+            }
+          },
+          {
+            "path": "/api/player/capabilities",
+            "status": 200,
+            "expected": 200,
+            "passed": true,
+            "data": {
+              "ok": true,
+              "capabilities": {
+                "gameplay": {
+                  "state": "available",
+                  "reason": "available"
+                },
+                "gameplayMutations": {
+                  "state": "available",
+                  "reason": "available"
+                },
+                "registrations": {
+                  "state": "available",
+                  "reason": "available"
+                },
+                "googleSignIn": {
+                  "state": "available",
+                  "reason": "available"
+                },
+                "guestPlay": {
+                  "state": "available",
+                  "reason": "available"
+                },
+                "villageWar": {
+                  "state": "available",
+                  "reason": "available"
+                },
+                "anbuInfiltration": {
+                  "state": "available",
+                  "reason": "available"
+                },
+                "clanBoss": {
+                  "state": "available",
+                  "reason": "available"
+                },
+                "clanBossParties": {
+                  "state": "available",
+                  "reason": "available"
+                },
+                "legacy": {
+                  "state": "available",
+                  "reason": "available"
+                },
+                "petBreedingStarts": {
+                  "state": "available",
+                  "reason": "available"
+                },
+                "weeklyBossGuardCycle": {
+                  "state": "available",
+                  "reason": "available"
+                }
+              }
+            }
+          },
+          {
+            "path": "/api/towers/party",
+            "status": 401,
+            "expected": 401,
+            "passed": true,
+            "data": {
+              "error": "Authentication required."
+            }
+          },
+          {
+            "path": "/api/towers/state",
+            "status": 401,
+            "expected": 401,
+            "passed": true,
+            "data": {
+              "error": "Authentication required."
+            }
+          },
+          {
+            "path": "/api/towers/start",
+            "status": 401,
+            "expected": 401,
+            "passed": true,
+            "data": {
+              "error": "Authentication required."
+            }
+          },
+          {
+            "path": "/api/towers/join",
+            "status": 401,
+            "expected": 401,
+            "passed": true,
+            "data": {
+              "error": "Authentication required."
+            }
+          },
+          {
+            "path": "/api/towers/action",
+            "status": 401,
+            "expected": 401,
+            "passed": true,
+            "data": {
+              "error": "Authentication required."
+            }
+          },
+          {
+            "path": "/api/towers/settle",
+            "status": 401,
+            "expected": 401,
+            "passed": true,
+            "data": {
+              "error": "Authentication required."
+            }
+          },
+          {
+            "path": "/api/player-auth",
+            "status": 200,
+            "expected": 200,
+            "passed": true,
+            "data": {
+              "ok": true
+            }
+          }
+        ],
+        "finishedAt": "2026-10-26T16:06:59.194Z"
+      },
+      "logEvidence": {
+        "capturedAt": "2026-10-26T16:08:03.517Z",
+        "source": "Railway active deployment logs, 2f827ce2-1ad5-4926-bfcf-0ef94cdee2ce",
+        "errors": [
+          "[towers/state] LockContendedError: Could not acquire lock for \"battle-lock:qatw5c9eef69921\" — contended or KV unavailable.",
+          "[towers/settle] LockContendedError: Could not acquire lock for \"battle-lock:qatw5c9eef69921\" — contended or KV unavailable."
+        ]
+      },
+      "liveEncounter": {
+        "floor": 1,
+        "squadLevels": [
+          30,
+          30,
+          30,
+          30
+        ],
+        "squadMaxHp": 3400,
+        "initialEnemyCount": 8,
+        "initialEnemyMaxHp": 500
+      },
+      "candidateFixes": [
+        "Healthy Tower lease/projection observations avoid member mutexes and projection writes. Missing/conflicting leases, missing/expired/mismatched authority projections, or Clan Boss markers retain locked fresh-read repair.",
+        "Polling/settlement account-lock contention returns HTTP 503 with Retry-After: 1 and preserves fail-closed writes."
+      ],
+      "validation": {
+        "focusedRegressionTests": 34,
+        "focusedPass": 34,
+        "focusedFail": 0,
+        "focusedSkip": 0,
+        "serverBuild": "passed",
+        "runnerTypecheck": "passed (strict ESNext/Bundler resolution, matching the client dependencies)",
+        "runnerGuards": "5 passed before network access",
+        "fullSuite": {
+          "command": "npm run test:ci",
+          "status": "passed",
+          "tests": 18155,
+          "pass": 18126,
+          "fail": 0,
+          "cancelled": 0,
+          "skip": 29,
+          "durationMs": 1161606.3396,
+          "log": ".tmp/tower-storage-recovery-full-suite.log",
+          "scope": "Includes the concurrent poll/repair/settlement regressions. The final projection-presence guard and its additional regression were added afterward; all 34 focused checks and the server build were then rerun successfully."
+        }
+      },
+      "limitations": [
+        "The live winner was the older deployed catalog, not the unpublished balance candidate.",
+        "The strict initial run failed on concurrent polls. The continued run explicitly recorded polling failures and used sequential reads; settlement also recorded an HTTP 500 before bounded retries confirmed receipts.",
+        "The reported final 15 accepted actions exclude earlier diagnostic wait/AFK actions in the same run.",
+        "This is four automated authenticated HTTP/Socket.IO clients, not four manual browser players."
+      ],
+      "localFourClientRegression": {
+        "preparation": {
+          "origin": "http://127.0.0.1:15389",
+          "mode": "prepare",
+          "startedAt": "2026-10-26T16:12:54.727Z",
+          "checks": [
+            {
+              "name": "live shallow health",
+              "passed": true,
+              "detail": {
+                "ok": true,
+                "commit": "unknown",
+                "commitShort": "unknown",
+                "commitSource": "unknown",
+                "startedAt": "2026-10-26T16:12:26.992Z"
+              }
+            },
+            {
+              "name": "all fifteen Story floors are publicly readable",
+              "passed": true
+            },
+            {
+              "name": "qatwf7fc142c940 authenticates",
+              "passed": true,
+              "detail": {
+                "status": 200
+              }
+            },
+            {
+              "name": "qatwf7fc142c940 receives a canonical first save",
+              "passed": true,
+              "detail": {
+                "status": 200
+              }
+            },
+            {
+              "name": "qatwf7fc142c940 ordinary level is recorded",
+              "passed": true,
+              "detail": {
+                "level": 1
+              }
+            },
+            {
+              "name": "qatw83b2f4dd931 authenticates",
+              "passed": true,
+              "detail": {
+                "status": 200
+              }
+            },
+            {
+              "name": "qatw83b2f4dd931 receives a canonical first save",
+              "passed": true,
+              "detail": {
+                "status": 200
+              }
+            },
+            {
+              "name": "qatw83b2f4dd931 ordinary level is recorded",
+              "passed": true,
+              "detail": {
+                "level": 1
+              }
+            },
+            {
+              "name": "qatw3079ba3d892 authenticates",
+              "passed": true,
+              "detail": {
+                "status": 200
+              }
+            },
+            {
+              "name": "qatw3079ba3d892 receives a canonical first save",
+              "passed": true,
+              "detail": {
+                "status": 200
+              }
+            },
+            {
+              "name": "qatw3079ba3d892 ordinary level is recorded",
+              "passed": true,
+              "detail": {
+                "level": 1
+              }
+            },
+            {
+              "name": "qatwf963b384963 authenticates",
+              "passed": true,
+              "detail": {
+                "status": 200
+              }
+            },
+            {
+              "name": "qatwf963b384963 receives a canonical first save",
+              "passed": true,
+              "detail": {
+                "status": 200
+              }
+            },
+            {
+              "name": "qatwf963b384963 ordinary level is recorded",
+              "passed": true,
+              "detail": {
+                "level": 1
+              }
+            },
+            {
+              "name": "four distinct authenticated websocket clients connected",
+              "passed": true
+            },
+            {
+              "name": "forced websocket transport loss reconnects",
+              "passed": true,
+              "detail": {
+                "latencyMs": 414
+              }
+            },
+            {
+              "name": "under-level ready-room admission requires level 30",
+              "passed": true,
+              "detail": {
+                "status": 403,
+                "errorCode": "member-ineligible",
+                "requiredLevel": 30
+              }
+            },
+            {
+              "name": "deployed commit remains stable during the test",
+              "passed": true,
+              "detail": {
+                "before": "unknown",
+                "after": "unknown"
+              }
+            }
+          ],
+          "requests": 24,
+          "status": "passed",
+          "commit": "unknown",
+          "catalogHasNewBalance": true,
+          "accounts": [
+            "qatwf7fc142c940",
+            "qatw83b2f4dd931",
+            "qatw3079ba3d892",
+            "qatwf963b384963"
+          ],
+          "combatPending": "Four accounts must be legitimately prepared at level 30 before --run.",
+          "finishedAt": "2026-10-26T16:12:56.743Z",
+          "socketDelivery": {}
+        },
+        "combat": {
+          "origin": "http://127.0.0.1:15389",
+          "mode": "run",
+          "startedAt": "2026-10-26T16:14:37.150Z",
+          "checks": [
+            {
+              "name": "live shallow health",
+              "passed": true,
+              "detail": {
+                "ok": true,
+                "commit": "unknown",
+                "commitShort": "unknown",
+                "commitSource": "unknown",
+                "startedAt": "2026-10-26T16:12:26.992Z"
+              }
+            },
+            {
+              "name": "all fifteen Story floors are publicly readable",
+              "passed": true
+            },
+            {
+              "name": "all four test accounts meet level 30",
+              "passed": true,
+              "detail": [
+                {
+                  "player": "qatwf7fc142c940",
+                  "level": 30
+                },
+                {
+                  "player": "qatw83b2f4dd931",
+                  "level": 30
+                },
+                {
+                  "player": "qatw3079ba3d892",
+                  "level": 30
+                },
+                {
+                  "player": "qatwf963b384963",
+                  "level": 30
+                }
+              ]
+            },
+            {
+              "name": "four distinct authenticated websocket clients connected",
+              "passed": true
+            },
+            {
+              "name": "forced websocket transport loss reconnects",
+              "passed": true,
+              "detail": {
+                "latencyMs": 517
+              }
+            },
+            {
+              "name": "host creates a private Story ready room",
+              "passed": true,
+              "detail": {
+                "status": 200
+              }
+            },
+            {
+              "name": "qatw83b2f4dd931 joins the shared room",
+              "passed": true,
+              "detail": {
+                "status": 200
+              }
+            },
+            {
+              "name": "qatw3079ba3d892 joins the shared room",
+              "passed": true,
+              "detail": {
+                "status": 200
+              }
+            },
+            {
+              "name": "qatwf963b384963 joins the shared room",
+              "passed": true,
+              "detail": {
+                "status": 200
+              }
+            },
+            {
+              "name": "qatwf7fc142c940 readies",
+              "passed": true,
+              "detail": {
+                "status": 200
+              }
+            },
+            {
+              "name": "qatw83b2f4dd931 readies",
+              "passed": true,
+              "detail": {
+                "status": 200
+              }
+            },
+            {
+              "name": "qatw3079ba3d892 readies",
+              "passed": true,
+              "detail": {
+                "status": 200
+              }
+            },
+            {
+              "name": "qatwf963b384963 readies",
+              "passed": true,
+              "detail": {
+                "status": 200
+              }
+            },
+            {
+              "name": "one run launches with four live actors",
+              "passed": true,
+              "detail": {
+                "status": 200
+              }
+            },
+            {
+              "name": "lost launch acknowledgement recovers the same run",
+              "passed": true,
+              "detail": {
+                "status": 200
+              }
+            },
+            {
+              "name": "all four clients converge on one authoritative board",
+              "passed": true
+            },
+            {
+              "name": "qatwf7fc142c940 reconnect preserves its sealed actor",
+              "passed": true
+            },
+            {
+              "name": "qatw83b2f4dd931 reconnect preserves its sealed actor",
+              "passed": true
+            },
+            {
+              "name": "qatw3079ba3d892 reconnect preserves its sealed actor",
+              "passed": true
+            },
+            {
+              "name": "qatwf963b384963 reconnect preserves its sealed actor",
+              "passed": true
+            },
+            {
+              "name": "another member cannot take the active turn",
+              "passed": true
+            },
+            {
+              "name": "committed action response can be lost without rejecting the write",
+              "passed": true
+            },
+            {
+              "name": "retry after discarded response advances exactly once",
+              "passed": true
+            },
+            {
+              "name": "stale commands cannot overwrite newer combat",
+              "passed": true
+            },
+            {
+              "name": "an absent human turn passes and the run remains recoverable",
+              "passed": true
+            },
+            {
+              "name": "all four clients converge on one authoritative board",
+              "passed": true
+            },
+            {
+              "name": "all four clients converge on one authoritative board",
+              "passed": true
+            },
+            {
+              "name": "all four clients converge on one authoritative board",
+              "passed": true
+            },
+            {
+              "name": "all four accounts submit legal combat actions",
+              "passed": true
+            },
+            {
+              "name": "normal combat reaches a terminal result",
+              "passed": true,
+              "detail": {
+                "actions": 50,
+                "winner": "squad",
+                "rounds": 8
+              }
+            },
+            {
+              "name": "all four clients converge on one authoritative board",
+              "passed": true
+            },
+            {
+              "name": "four concurrent settlement callers reach confirmed receipts",
+              "passed": true
+            },
+            {
+              "name": "winning members retain their confirmed floor clear",
+              "passed": true
+            },
+            {
+              "name": "every fresh first clear receives its currency reward",
+              "passed": true
+            },
+            {
+              "name": "reward retry changes no currency or progression twice",
+              "passed": true
+            },
+            {
+              "name": "settlement releases every party member",
+              "passed": true
+            },
+            {
+              "name": "every websocket received Tower revision hints",
+              "passed": true
+            },
+            {
+              "name": "deployed commit remains stable during the test",
+              "passed": true,
+              "detail": {
+                "before": "unknown",
+                "after": "unknown"
+              }
+            }
+          ],
+          "requests": 117,
+          "status": "passed",
+          "commit": "unknown",
+          "catalogHasNewBalance": true,
+          "accounts": [
+            "qatwf7fc142c940",
+            "qatw83b2f4dd931",
+            "qatw3079ba3d892",
+            "qatwf963b384963"
+          ],
+          "partyId": "tparty-e26174a1524a4cb1a30da2c3215c3f46",
+          "runId": "tower-0f5f572d7f79458284629f9776fd8f6c",
+          "combat": {
+            "acceptedActions": 50,
+            "controllers": [
+              "qatw3079ba3d892",
+              "qatwf963b384963",
+              "qatwf7fc142c940",
+              "qatw83b2f4dd931"
+            ],
+            "winner": "squad",
+            "rounds": 8
+          },
+          "settlement": [
+            {
+              "player": "qatwf7fc142c940",
+              "result": {
+                "paid": true,
+                "score": 131,
+                "relic": {
+                  "reason": "ineligible"
+                }
+              },
+              "ryoDelta": 400
+            },
+            {
+              "player": "qatw83b2f4dd931",
+              "result": {
+                "paid": false,
+                "reason": "already-paid",
+                "relic": {
+                  "reason": "ineligible"
+                }
+              },
+              "ryoDelta": 400
+            },
+            {
+              "player": "qatw3079ba3d892",
+              "result": {
+                "paid": false,
+                "reason": "already-paid",
+                "relic": {
+                  "reason": "ineligible"
+                }
+              },
+              "ryoDelta": 400
+            },
+            {
+              "player": "qatwf963b384963",
+              "result": {
+                "paid": false,
+                "reason": "already-paid",
+                "relic": {
+                  "reason": "ineligible"
+                }
+              },
+              "ryoDelta": 400
+            }
+          ],
+          "finishedAt": "2026-10-26T16:16:13.273Z",
+          "socketDelivery": {
+            "qatwf7fc142c940": 65,
+            "qatw83b2f4dd931": 65,
+            "qatw3079ba3d892": 64,
+            "qatwf963b384963": 62
+          }
+        },
+        "storage": "isolated in-memory QA backend",
+        "server": "rebuilt dist/server.js",
+        "candidateUncommitted": true,
+        "serverStopped": true,
+        "scope": "The strict 38-check run verifies the polling/settlement corrections with catalog level-30 fixtures, without workarounds. The subsequent projection-presence guard retains this healthy path and is covered by the final focused regression run; the full network scenario was not repeated after that guard."
+      }
+    },
+    "historicalBoundaryChecks": {
+      "origin": "https://shinobijourney.com",
+      "startedAt": "2026-10-24T21:47:21.995Z",
+      "checks": [
+        {
+          "path": "/health",
+          "status": 200,
+          "expected": 200,
+          "passed": true,
+          "data": {
+            "ok": true,
+            "commit": "8b8976ad8c203385a5ba5a85feeca6ae7b7d046e",
+            "commitShort": "8b8976ad",
+            "commitSource": "environment",
+            "startedAt": "2026-10-24T11:10:59.402Z"
+          }
+        },
+        {
+          "path": "/api/towers/floors",
+          "status": 200,
+          "expected": 200,
+          "passed": true,
+          "data": {
+            "count": 15,
+            "ids": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10,
+              11,
+              12,
+              13,
+              14,
+              15
+            ]
+          }
+        },
+        {
+          "path": "/api/player/capabilities",
+          "status": 200,
+          "expected": 200,
+          "passed": true,
+          "data": {
+            "ok": true,
+            "capabilities": {
+              "gameplay": {
+                "state": "available",
+                "reason": "available"
+              },
+              "gameplayMutations": {
+                "state": "available",
+                "reason": "available"
+              },
+              "registrations": {
+                "state": "available",
+                "reason": "available"
+              },
+              "googleSignIn": {
+                "state": "available",
+                "reason": "available"
+              },
+              "guestPlay": {
+                "state": "available",
+                "reason": "available"
+              },
+              "villageWar": {
+                "state": "available",
+                "reason": "available"
+              },
+              "anbuInfiltration": {
+                "state": "available",
+                "reason": "available"
+              },
+              "clanBoss": {
+                "state": "available",
+                "reason": "available"
+              },
+              "clanBossParties": {
+                "state": "available",
+                "reason": "available"
+              },
+              "legacy": {
+                "state": "available",
+                "reason": "available"
+              },
+              "petBreedingStarts": {
+                "state": "available",
+                "reason": "available"
+              },
+              "weeklyBossGuardCycle": {
+                "state": "available",
+                "reason": "available"
+              }
+            }
+          }
+        },
+        {
+          "path": "/api/towers/party",
+          "status": 401,
+          "expected": 401,
+          "passed": true,
+          "data": {
+            "error": "Authentication required."
+          }
+        },
+        {
+          "path": "/api/towers/state",
+          "status": 401,
+          "expected": 401,
+          "passed": true,
+          "data": {
+            "error": "Authentication required."
+          }
+        },
+        {
+          "path": "/api/towers/start",
+          "status": 401,
+          "expected": 401,
+          "passed": true,
+          "data": {
+            "error": "Authentication required."
+          }
+        },
+        {
+          "path": "/api/towers/join",
+          "status": 401,
+          "expected": 401,
+          "passed": true,
+          "data": {
+            "error": "Authentication required."
+          }
+        },
+        {
+          "path": "/api/towers/action",
+          "status": 401,
+          "expected": 401,
+          "passed": true,
+          "data": {
+            "error": "Authentication required."
+          }
+        },
+        {
+          "path": "/api/towers/settle",
+          "status": 401,
+          "expected": 401,
+          "passed": true,
+          "data": {
+            "error": "Authentication required."
+          }
+        },
+        {
+          "path": "/api/player-auth",
+          "status": 503,
+          "expected": 200,
+          "passed": false,
+          "data": {
+            "ok": false,
+            "error": "Storage unavailable. Try again."
+          }
+        }
+      ],
+      "finishedAt": "2026-10-24T21:47:23.914Z"
+    },
+    "storageRecheckBeforeRecovery": {
+      "origin": "https://shinobijourney.com",
+      "mode": "prepare",
+      "startedAt": "2026-10-24T23:30:26.088Z",
+      "checks": [
+        {
+          "name": "live shallow health",
+          "passed": true,
+          "detail": {
+            "ok": true,
+            "commit": "bed1dc722512331c5012a51ba36f15b143ea0d27",
+            "commitShort": "bed1dc72",
+            "commitSource": "environment",
+            "startedAt": "2026-10-24T22:56:34.276Z"
+          }
+        },
+        {
+          "name": "all fifteen Story floors are publicly readable",
+          "passed": true
+        },
+        {
+          "name": "qatw6c8f19685e0 authenticates",
+          "passed": false,
+          "detail": {
+            "status": 503,
+            "error": "Storage unavailable. Try again."
+          }
+        }
+      ],
+      "requests": 3,
+      "socketEvents": [],
+      "status": "failed",
+      "commit": "bed1dc722512331c5012a51ba36f15b143ea0d27",
+      "catalogHasNewBalance": false,
+      "error": "qatw6c8f19685e0 authenticates",
+      "finishedAt": "2026-10-24T23:30:26.537Z"
+    },
+    "databaseLogEvidenceBeforeRecovery": {
+      "observedAtUtc": "2026-10-24T23:31:15Z",
+      "url": "https://railway.com/project/8a48dce3-f6ec-47dc-ba23-4759c8e8c2f8/service/fcf94393-fdb1-4d13-8bc9-4f2fcd307616?environmentId=0a9692e9-a5a3-492b-86fd-0455dcc1f94f&id=d7b106f8-0d47-499c-8ce7-8ef30e25bb3e#deploy",
+      "messages": [
+        "(ECIRCUITBREAKER) too many authentication failures, new connections are temporarily blocked",
+        "[world-state] GET read failed error: (ECIRCUITBREAKER) too many authentication failures, new connections are temporarily blocked"
+      ]
+    },
+    "latestReadOnlyPreflight": {
+      "origin": "https://shinobijourney.com",
+      "startedAt": "2026-10-26T21:47:49.264Z",
+      "readOnly": true,
+      "requests": 2,
+      "health": {
+        "status": 200,
+        "ok": true,
+        "commit": "b154a648455799cf12022a9520a123d6603968bc"
+      },
+      "catalog": {
+        "status": 200,
+        "count": 15,
+        "fourPlayerMetadata": false
+      },
+      "finishedAt": "2026-10-26T21:47:49.744Z"
+    },
+    "successfulFourAccountLaunchCommit": "3601556f59e4f4f7b319a7cfd26fa1d75c8e7232"
+  },
+  "local": [
+    {
+      "fixture": "Four canonical new characters at level 1; ordinary auth/save/socket APIs; level-30 admission gate.",
+      "origin": "http://127.0.0.1:15389",
+      "mode": "prepare",
+      "status": "passed",
+      "startedAt": "2026-10-24T21:53:28.551Z",
+      "finishedAt": "2026-10-24T21:53:29.351Z",
+      "commit": "unknown",
+      "requests": 16,
+      "catalogHasNewBalance": true,
+      "passed": 14,
+      "failed": 0,
+      "checks": [
+        {
+          "name": "live shallow health",
+          "passed": true,
+          "detail": {
+            "ok": true,
+            "commit": "unknown",
+            "commitShort": "unknown",
+            "commitSource": "unknown",
+            "startedAt": "2026-10-24T10:44:11.099Z"
+          }
+        },
+        {
+          "name": "all fifteen Story floors are publicly readable",
+          "passed": true
+        },
+        {
+          "name": "qatw3d38c7ff850 authenticates",
+          "passed": true,
+          "detail": {
+            "status": 200
+          }
+        },
+        {
+          "name": "qatw3d38c7ff850 ordinary level is recorded",
+          "passed": true,
+          "detail": {
+            "level": 1
+          }
+        },
+        {
+          "name": "qatwb9fe03edef1 authenticates",
+          "passed": true,
+          "detail": {
+            "status": 200
+          }
+        },
+        {
+          "name": "qatwb9fe03edef1 ordinary level is recorded",
+          "passed": true,
+          "detail": {
+            "level": 1
+          }
+        },
+        {
+          "name": "qatwfe0fdb58f82 authenticates",
+          "passed": true,
+          "detail": {
+            "status": 200
+          }
+        },
+        {
+          "name": "qatwfe0fdb58f82 ordinary level is recorded",
+          "passed": true,
+          "detail": {
+            "level": 1
+          }
+        },
+        {
+          "name": "qatw81519f990e3 authenticates",
+          "passed": true,
+          "detail": {
+            "status": 200
+          }
+        },
+        {
+          "name": "qatw81519f990e3 ordinary level is recorded",
+          "passed": true,
+          "detail": {
+            "level": 1
+          }
+        },
+        {
+          "name": "four distinct authenticated websocket clients connected",
+          "passed": true
+        },
+        {
+          "name": "forced websocket transport loss reconnects",
+          "passed": true,
+          "detail": {
+            "latencyMs": 500
+          }
+        },
+        {
+          "name": "under-level ready-room admission requires level 30",
+          "passed": true,
+          "detail": {
+            "status": 403,
+            "errorCode": "member-ineligible",
+            "requiredLevel": 30
+          }
+        },
+        {
+          "name": "deployed commit remains stable during the test",
+          "passed": true,
+          "detail": {
+            "before": "unknown",
+            "after": "unknown"
+          }
+        }
+      ],
+      "socketDelivery": {}
+    },
+    {
+      "fixture": "Lost local registration and first-save acknowledgement; generated password verification recovers existing save without replacing it.",
+      "origin": "http://127.0.0.1:15389",
+      "mode": "prepare",
+      "status": "passed",
+      "startedAt": "2026-10-24T21:52:31.921Z",
+      "finishedAt": "2026-10-24T21:52:32.805Z",
+      "commit": "unknown",
+      "requests": 17,
+      "catalogHasNewBalance": true,
+      "passed": 15,
+      "failed": 0,
+      "checks": [
+        {
+          "name": "live shallow health",
+          "passed": true,
+          "detail": {
+            "ok": true,
+            "commit": "unknown",
+            "commitShort": "unknown",
+            "commitSource": "unknown",
+            "startedAt": "2026-10-24T10:44:11.099Z"
+          }
+        },
+        {
+          "name": "all fifteen Story floors are publicly readable",
+          "passed": true
+        },
+        {
+          "name": "qatw3d38c7ff850 authenticates",
+          "passed": true,
+          "detail": {
+            "status": 200
+          }
+        },
+        {
+          "name": "qatw3d38c7ff850 recovers its existing save",
+          "passed": true
+        },
+        {
+          "name": "qatw3d38c7ff850 ordinary level is recorded",
+          "passed": true,
+          "detail": {
+            "level": 1
+          }
+        },
+        {
+          "name": "qatwb9fe03edef1 authenticates",
+          "passed": true,
+          "detail": {
+            "status": 200
+          }
+        },
+        {
+          "name": "qatwb9fe03edef1 ordinary level is recorded",
+          "passed": true,
+          "detail": {
+            "level": 1
+          }
+        },
+        {
+          "name": "qatwfe0fdb58f82 authenticates",
+          "passed": true,
+          "detail": {
+            "status": 200
+          }
+        },
+        {
+          "name": "qatwfe0fdb58f82 ordinary level is recorded",
+          "passed": true,
+          "detail": {
+            "level": 1
+          }
+        },
+        {
+          "name": "qatw81519f990e3 authenticates",
+          "passed": true,
+          "detail": {
+            "status": 200
+          }
+        },
+        {
+          "name": "qatw81519f990e3 ordinary level is recorded",
+          "passed": true,
+          "detail": {
+            "level": 1
+          }
+        },
+        {
+          "name": "four distinct authenticated websocket clients connected",
+          "passed": true
+        },
+        {
+          "name": "forced websocket transport loss reconnects",
+          "passed": true,
+          "detail": {
+            "latencyMs": 511
+          }
+        },
+        {
+          "name": "level-one ready-room admission is refused",
+          "passed": true,
+          "detail": {
+            "status": 403,
+            "errorCode": "member-ineligible"
+          }
+        },
+        {
+          "name": "deployed commit remains stable during the test",
+          "passed": true,
+          "detail": {
+            "before": "unknown",
+            "after": "unknown"
+          }
+        }
+      ],
+      "socketDelivery": {}
+    },
+    {
+      "fixture": "Four level-30 local fixtures, level-based vitals and mastery, starter bloodline jutsu, AI-level trained stats, basic nearest-target controller; intentional AFK. Loss tests recovery and no-reward settlement, not coordinated squad balance.",
+      "origin": "http://127.0.0.1:15389",
+      "mode": "run",
+      "status": "passed",
+      "startedAt": "2026-10-24T10:51:19.473Z",
+      "finishedAt": "2026-10-24T10:52:49.575Z",
+      "commit": "unknown",
+      "requests": 98,
+      "catalogHasNewBalance": true,
+      "passed": 35,
+      "failed": 0,
+      "checks": [
+        {
+          "name": "live shallow health",
+          "passed": true,
+          "detail": {
+            "ok": true,
+            "commit": "unknown",
+            "commitShort": "unknown",
+            "commitSource": "unknown",
+            "startedAt": "2026-10-24T10:44:11.099Z"
+          }
+        },
+        {
+          "name": "all fifteen Story floors are publicly readable",
+          "passed": true
+        },
+        {
+          "name": "all four test accounts meet level 30",
+          "passed": true,
+          "detail": [
+            {
+              "player": "qatw883ee2662a0",
+              "level": 30
+            },
+            {
+              "player": "qatw88305387c91",
+              "level": 30
+            },
+            {
+              "player": "qatw98fb446d452",
+              "level": 30
+            },
+            {
+              "player": "qatw9fb389981e3",
+              "level": 30
+            }
+          ]
+        },
+        {
+          "name": "four distinct authenticated websocket clients connected",
+          "passed": true
+        },
+        {
+          "name": "forced websocket transport loss reconnects",
+          "passed": true,
+          "detail": {
+            "latencyMs": 414
+          }
+        },
+        {
+          "name": "host creates a private Story ready room",
+          "passed": true,
+          "detail": {
+            "status": 200
+          }
+        },
+        {
+          "name": "qatw88305387c91 joins the shared room",
+          "passed": true,
+          "detail": {
+            "status": 200
+          }
+        },
+        {
+          "name": "qatw98fb446d452 joins the shared room",
+          "passed": true,
+          "detail": {
+            "status": 200
+          }
+        },
+        {
+          "name": "qatw9fb389981e3 joins the shared room",
+          "passed": true,
+          "detail": {
+            "status": 200
+          }
+        },
+        {
+          "name": "qatw883ee2662a0 readies",
+          "passed": true,
+          "detail": {
+            "status": 200
+          }
+        },
+        {
+          "name": "qatw88305387c91 readies",
+          "passed": true,
+          "detail": {
+            "status": 200
+          }
+        },
+        {
+          "name": "qatw98fb446d452 readies",
+          "passed": true,
+          "detail": {
+            "status": 200
+          }
+        },
+        {
+          "name": "qatw9fb389981e3 readies",
+          "passed": true,
+          "detail": {
+            "status": 200
+          }
+        },
+        {
+          "name": "one run launches with four live actors",
+          "passed": true,
+          "detail": {
+            "status": 200
+          }
+        },
+        {
+          "name": "lost launch acknowledgement recovers the same run",
+          "passed": true,
+          "detail": {
+            "status": 200
+          }
+        },
+        {
+          "name": "all four clients converge on one authoritative board",
+          "passed": true
+        },
+        {
+          "name": "qatw883ee2662a0 reconnect preserves its sealed actor",
+          "passed": true
+        },
+        {
+          "name": "qatw88305387c91 reconnect preserves its sealed actor",
+          "passed": true
+        },
+        {
+          "name": "qatw98fb446d452 reconnect preserves its sealed actor",
+          "passed": true
+        },
+        {
+          "name": "qatw9fb389981e3 reconnect preserves its sealed actor",
+          "passed": true
+        },
+        {
+          "name": "another member cannot take the active turn",
+          "passed": true
+        },
+        {
+          "name": "committed action response can be lost without rejecting the write",
+          "passed": true
+        },
+        {
+          "name": "retry after discarded response advances exactly once",
+          "passed": true
+        },
+        {
+          "name": "stale commands cannot overwrite newer combat",
+          "passed": true
+        },
+        {
+          "name": "an absent human turn passes and the run remains recoverable",
+          "passed": true
+        },
+        {
+          "name": "all four clients converge on one authoritative board",
+          "passed": true
+        },
+        {
+          "name": "all four clients converge on one authoritative board",
+          "passed": true
+        },
+        {
+          "name": "all four accounts submit legal combat actions",
+          "passed": true
+        },
+        {
+          "name": "normal combat reaches a terminal result",
+          "passed": true,
+          "detail": {
+            "actions": 35,
+            "winner": "enemy",
+            "rounds": 7
+          }
+        },
+        {
+          "name": "all four clients converge on one authoritative board",
+          "passed": true
+        },
+        {
+          "name": "four concurrent settlement callers reach confirmed receipts",
+          "passed": true
+        },
+        {
+          "name": "reward retry changes no currency or progression twice",
+          "passed": true
+        },
+        {
+          "name": "settlement releases every party member",
+          "passed": true
+        },
+        {
+          "name": "every websocket received Tower revision hints",
+          "passed": true
+        },
+        {
+          "name": "deployed commit remains stable during the test",
+          "passed": true,
+          "detail": {
+            "before": "unknown",
+            "after": "unknown"
+          }
+        }
+      ],
+      "combat": {
+        "acceptedActions": 35,
+        "controllers": [
+          "qatw98fb446d452",
+          "qatw9fb389981e3",
+          "qatw883ee2662a0",
+          "qatw88305387c91"
+        ],
+        "winner": "enemy",
+        "rounds": 7
+      },
+      "socketDelivery": {
+        "qatw883ee2662a0": {
+          "party": 15,
+          "session": 44
+        },
+        "qatw88305387c91": {
+          "party": 14,
+          "session": 44
+        },
+        "qatw98fb446d452": {
+          "party": 13,
+          "session": 44
+        },
+        "qatw9fb389981e3": {
+          "party": 12,
+          "session": 44
+        }
+      }
+    },
+    {
+      "fixture": "Same disposable fixtures admin-seeded locally to level 100 for the winning settlement path; no production seeding. Starter bloodline jutsu, level-based vitals/mastery and AI-level stats; intentional AFK.",
+      "origin": "http://127.0.0.1:15389",
+      "mode": "run",
+      "status": "passed",
+      "startedAt": "2026-10-24T21:48:43.540Z",
+      "finishedAt": "2026-10-24T21:50:25.579Z",
+      "commit": "unknown",
+      "requests": 140,
+      "catalogHasNewBalance": true,
+      "passed": 40,
+      "failed": 0,
+      "checks": [
+        {
+          "name": "live shallow health",
+          "passed": true,
+          "detail": {
+            "ok": true,
+            "commit": "unknown",
+            "commitShort": "unknown",
+            "commitSource": "unknown",
+            "startedAt": "2026-10-24T10:44:11.099Z"
+          }
+        },
+        {
+          "name": "all fifteen Story floors are publicly readable",
+          "passed": true
+        },
+        {
+          "name": "all four test accounts meet level 30",
+          "passed": true,
+          "detail": [
+            {
+              "player": "qatw883ee2662a0",
+              "level": 100
+            },
+            {
+              "player": "qatw88305387c91",
+              "level": 100
+            },
+            {
+              "player": "qatw98fb446d452",
+              "level": 100
+            },
+            {
+              "player": "qatw9fb389981e3",
+              "level": 100
+            }
+          ]
+        },
+        {
+          "name": "four distinct authenticated websocket clients connected",
+          "passed": true
+        },
+        {
+          "name": "forced websocket transport loss reconnects",
+          "passed": true,
+          "detail": {
+            "latencyMs": 563
+          }
+        },
+        {
+          "name": "host creates a private Story ready room",
+          "passed": true,
+          "detail": {
+            "status": 200
+          }
+        },
+        {
+          "name": "qatw88305387c91 joins the shared room",
+          "passed": true,
+          "detail": {
+            "status": 200
+          }
+        },
+        {
+          "name": "qatw98fb446d452 joins the shared room",
+          "passed": true,
+          "detail": {
+            "status": 200
+          }
+        },
+        {
+          "name": "qatw9fb389981e3 joins the shared room",
+          "passed": true,
+          "detail": {
+            "status": 200
+          }
+        },
+        {
+          "name": "qatw883ee2662a0 readies",
+          "passed": true,
+          "detail": {
+            "status": 200
+          }
+        },
+        {
+          "name": "qatw88305387c91 readies",
+          "passed": true,
+          "detail": {
+            "status": 200
+          }
+        },
+        {
+          "name": "qatw98fb446d452 readies",
+          "passed": true,
+          "detail": {
+            "status": 200
+          }
+        },
+        {
+          "name": "qatw9fb389981e3 readies",
+          "passed": true,
+          "detail": {
+            "status": 200
+          }
+        },
+        {
+          "name": "one run launches with four live actors",
+          "passed": true,
+          "detail": {
+            "status": 200
+          }
+        },
+        {
+          "name": "lost launch acknowledgement recovers the same run",
+          "passed": true,
+          "detail": {
+            "status": 200
+          }
+        },
+        {
+          "name": "all four clients converge on one authoritative board",
+          "passed": true
+        },
+        {
+          "name": "qatw883ee2662a0 reconnect preserves its sealed actor",
+          "passed": true
+        },
+        {
+          "name": "qatw88305387c91 reconnect preserves its sealed actor",
+          "passed": true
+        },
+        {
+          "name": "qatw98fb446d452 reconnect preserves its sealed actor",
+          "passed": true
+        },
+        {
+          "name": "qatw9fb389981e3 reconnect preserves its sealed actor",
+          "passed": true
+        },
+        {
+          "name": "another member cannot take the active turn",
+          "passed": true
+        },
+        {
+          "name": "committed action response can be lost without rejecting the write",
+          "passed": true
+        },
+        {
+          "name": "retry after discarded response advances exactly once",
+          "passed": true
+        },
+        {
+          "name": "stale commands cannot overwrite newer combat",
+          "passed": true
+        },
+        {
+          "name": "an absent human turn passes and the run remains recoverable",
+          "passed": true
+        },
+        {
+          "name": "all four clients converge on one authoritative board",
+          "passed": true
+        },
+        {
+          "name": "all four clients converge on one authoritative board",
+          "passed": true
+        },
+        {
+          "name": "all four clients converge on one authoritative board",
+          "passed": true
+        },
+        {
+          "name": "all four clients converge on one authoritative board",
+          "passed": true
+        },
+        {
+          "name": "all four accounts submit legal combat actions",
+          "passed": true
+        },
+        {
+          "name": "normal combat reaches a terminal result",
+          "passed": true,
+          "detail": {
+            "actions": 69,
+            "winner": "squad",
+            "rounds": 9
+          }
+        },
+        {
+          "name": "combat reaches the requested outcome",
+          "passed": true
+        },
+        {
+          "name": "all four clients converge on one authoritative board",
+          "passed": true
+        },
+        {
+          "name": "four concurrent settlement callers reach confirmed receipts",
+          "passed": true
+        },
+        {
+          "name": "winning members retain their confirmed floor clear",
+          "passed": true
+        },
+        {
+          "name": "every fresh first clear receives its currency reward",
+          "passed": true
+        },
+        {
+          "name": "reward retry changes no currency or progression twice",
+          "passed": true
+        },
+        {
+          "name": "settlement releases every party member",
+          "passed": true
+        },
+        {
+          "name": "every websocket received Tower revision hints",
+          "passed": true
+        },
+        {
+          "name": "deployed commit remains stable during the test",
+          "passed": true,
+          "detail": {
+            "before": "unknown",
+            "after": "unknown"
+          }
+        }
+      ],
+      "combat": {
+        "acceptedActions": 69,
+        "controllers": [
+          "qatw98fb446d452",
+          "qatw9fb389981e3",
+          "qatw883ee2662a0",
+          "qatw88305387c91"
+        ],
+        "winner": "squad",
+        "rounds": 9
+      },
+      "settlement": [
+        {
+          "player": "qatw883ee2662a0",
+          "result": {
+            "paid": true,
+            "score": 206,
+            "relic": {
+              "reason": "ineligible"
+            }
+          },
+          "ryoDelta": 400
+        },
+        {
+          "player": "qatw88305387c91",
+          "result": {
+            "paid": false,
+            "reason": "already-paid",
+            "relic": {
+              "reason": "ineligible"
+            }
+          },
+          "ryoDelta": 400
+        },
+        {
+          "player": "qatw98fb446d452",
+          "result": {
+            "paid": false,
+            "reason": "already-paid",
+            "relic": {
+              "reason": "ineligible"
+            }
+          },
+          "ryoDelta": 400
+        },
+        {
+          "player": "qatw9fb389981e3",
+          "result": {
+            "paid": false,
+            "reason": "already-paid",
+            "relic": {
+              "reason": "ineligible"
+            }
+          },
+          "ryoDelta": 400
+        }
+      ],
+      "socketDelivery": {
+        "qatw883ee2662a0": {
+          "party": 10,
+          "session": 56
+        },
+        "qatw88305387c91": {
+          "party": 9,
+          "session": 56
+        },
+        "qatw98fb446d452": {
+          "party": 8,
+          "session": 55
+        },
+        "qatw9fb389981e3": {
+          "party": 7,
+          "session": 55
+        }
+      }
+    }
+  ],
+  "tooling": {
+    "strictTypeScript": "passed",
+    "preNetworkGuards": [
+      {
+        "name": "unconfirmed remote origin",
+        "passed": true
+      },
+      {
+        "name": "plaintext remote origin",
+        "passed": true
+      },
+      {
+        "name": "origin with embedded credentials",
+        "passed": true
+      },
+      {
+        "name": "origin with a path",
+        "passed": true
+      },
+      {
+        "name": "invalid expected winner",
+        "passed": true
+      }
+    ]
+  },
+  "limitations": [
+    "Four automated authenticated HTTP/Socket.IO clients; not four manual browser playthroughs.",
+    "Actual websocket transport loss is tested before party launch; sealed-actor rejoin and four-view state convergence are tested after launch.",
+    "Lost HTTP acknowledgement is modeled by discarding the committed response body before retrying the same command token.",
+    "Four-client HTTP evidence covers Story floors 1, 9 and 15 with distinct fixture/version boundaries. Current source is exercised at floor 15 with level-100 gear.",
+    "Local memory storage cannot certify the unpublished fixes on production Postgres or deployment recovery/latency. Live testing did expose actual lock contention.",
+    "No balance changes were deployed by this task."
+  ],
+  "localEvidenceScope": "Final rank-adjusted Story candidate: four level-100 clients with server-sealed mid-roll forged equipment on floor 15. Historical floor-1 and level-70 floor-9 results retain their own fixture/version boundaries.",
+  "researchAudit": {
+    "report": "battle-towers-research-audit-2026-10-24.md",
+    "balanceArtifact": "battle-towers-squad-balance-results.json",
+    "fixture": "prepared-catalog-v2",
+    "runtimeCorrections": [
+      "Apply Story defense floor to boss construction while retaining authored HP, offense, kits and stronger defenses."
+    ],
+    "validationCorrections": [
+      "Replace synthetic damaging 40-AP rotation with canonical saved-character loadouts and server-derived equipment multipliers.",
+      "Test mixed squads and each of the four same-discipline compositions; include summoned-add opening-hit coverage."
+    ],
+    "focusedTower": {
+      "passed": 666,
+      "failed": 0,
+      "skipped": 0
+    },
+    "finalBalance": {
+      "passed": 9,
+      "failed": 0,
+      "skipped": 0
+    },
+    "serverBuild": "passed",
+    "balanceToolStrictTypeScript": "passed",
+    "broadRun": {
+      "tests": 18148,
+      "passed": 18118,
+      "failed": 1,
+      "skipped": 29,
+      "durationMs": 623035.5165,
+      "failureFile": "shinobij.client/scripts/pet-sky-falcon-tabs.test.mjs",
+      "failureCause": "CRLF checkout changed the raw-byte hash of the otherwise HEAD-identical frozen-selection JSON.",
+      "recovery": "Restored exact Git-pinned bytes after proving normalized content unchanged; expected hash and game content unchanged.",
+      "affectedRerun": {
+        "passed": 2,
+        "failed": 0,
+        "skipped": 0
+      },
+      "fullRunRepeated": false,
+      "recurrencePrevention": "Added an exact-file eol=lf rule in .gitattributes for the pinned frozen-selection JSON; git check-attr confirms LF."
+    },
+    "sources": [
+      "https://na.finalfantasyxiv.com/lodestone/playguide/contentsguide/deepdungeon/",
+      "https://www.guildwars2.com/en/news/the-brand-new-fractals-of-the-mists-legendary-backpacks-ascended-salvaging-and-more/",
+      "https://www.bungie.net/7/en/News/Article/twid_05_15_2025",
+      "https://cdn.cloudflare.steamstatic.com/apps/valve/2009/ai_systems_of_l4d_mike_booth.pdf"
+    ],
+    "evidenceState": "historical; current balance belongs to rankProgressionFollowup and the progression-gear-v4 numeric artifact"
+  },
+  "gapAuditFollowup": {
+    "date": "2026-10-26",
+    "fixture": "progression-gear-v4",
+    "ownerDecisions": [
+      "Upgraded gear is easy to obtain; level-70 players normally use upgraded, level-appropriate equipment.",
+      "Keep Elite demanding for upgraded teams."
+    ],
+    "runtimeCorrections": [
+      "Seal mastery on delayed Tower/Spire wave actors and future summon templates.",
+      "Elite route HP and damage bonuses reach future summons exactly once; preserve legacy undersized-party HP scaling independently.",
+      "Return retryable 503 from my-run discovery on contended lease repair, matching state/settle.",
+      "Raise opted-in Story ordinary-enemy HP to (4400 + 300 * floorStep) times role weight to account for upgraded equipment and real weapon rotations."
+    ],
+    "preparation": {
+      "origin": "http://127.0.0.1:15389",
+      "mode": "prepare",
+      "floor": 1,
+      "route": "rest-shrine",
+      "startedAt": "2026-10-26T19:42:09.911Z",
+      "checks": [
+        {
+          "name": "live shallow health",
+          "passed": true,
+          "detail": {
+            "ok": true,
+            "commit": "unknown",
+            "commitShort": "unknown",
+            "commitSource": "unknown",
+            "startedAt": "2026-10-26T19:41:40.811Z"
+          }
+        },
+        {
+          "name": "all fifteen Story floors are publicly readable",
+          "passed": true
+        },
+        {
+          "name": "qatwea913463490 authenticates",
+          "passed": true,
+          "detail": {
+            "status": 200
+          }
+        },
+        {
+          "name": "qatwea913463490 receives a canonical first save",
+          "passed": true,
+          "detail": {
+            "status": 200
+          }
+        },
+        {
+          "name": "qatwea913463490 ordinary level is recorded",
+          "passed": true,
+          "detail": {
+            "level": 1
+          }
+        },
+        {
+          "name": "qatw5280d339851 authenticates",
+          "passed": true,
+          "detail": {
+            "status": 200
+          }
+        },
+        {
+          "name": "qatw5280d339851 receives a canonical first save",
+          "passed": true,
+          "detail": {
+            "status": 200
+          }
+        },
+        {
+          "name": "qatw5280d339851 ordinary level is recorded",
+          "passed": true,
+          "detail": {
+            "level": 1
+          }
+        },
+        {
+          "name": "qatw420800f6482 authenticates",
+          "passed": true,
+          "detail": {
+            "status": 200
+          }
+        },
+        {
+          "name": "qatw420800f6482 receives a canonical first save",
+          "passed": true,
+          "detail": {
+            "status": 200
+          }
+        },
+        {
+          "name": "qatw420800f6482 ordinary level is recorded",
+          "passed": true,
+          "detail": {
+            "level": 1
+          }
+        },
+        {
+          "name": "qatw1fdd3348073 authenticates",
+          "passed": true,
+          "detail": {
+            "status": 200
+          }
+        },
+        {
+          "name": "qatw1fdd3348073 receives a canonical first save",
+          "passed": true,
+          "detail": {
+            "status": 200
+          }
+        },
+        {
+          "name": "qatw1fdd3348073 ordinary level is recorded",
+          "passed": true,
+          "detail": {
+            "level": 1
+          }
+        },
+        {
+          "name": "four distinct authenticated websocket clients connected",
+          "passed": true
+        },
+        {
+          "name": "forced websocket transport loss reconnects",
+          "passed": true,
+          "detail": {
+            "latencyMs": 552
+          }
+        },
+        {
+          "name": "under-level ready-room admission requires level 30",
+          "passed": true,
+          "detail": {
+            "status": 403,
+            "errorCode": "member-ineligible",
+            "requiredLevel": 30
+          }
+        },
+        {
+          "name": "deployed commit remains stable during the test",
+          "passed": true,
+          "detail": {
+            "before": "unknown",
+            "after": "unknown"
+          }
+        }
+      ],
+      "requests": 24,
+      "status": "passed",
+      "commit": "unknown",
+      "catalogHasNewBalance": true,
+      "accounts": [
+        "qatwea913463490",
+        "qatw5280d339851",
+        "qatw420800f6482",
+        "qatw1fdd3348073"
+      ],
+      "combatPending": "Four accounts must be legitimately prepared at level 30 before --run.",
+      "finishedAt": "2026-10-26T19:42:12.169Z",
+      "socketDelivery": {}
+    },
+    "setup": {
+      "origin": "http://127.0.0.1:15389",
+      "level": 70,
+      "fixture": "progression-gear-v4",
+      "startedAt": "2026-10-26T19:43:12.121Z",
+      "accounts": [
+        {
+          "player": "qatwea913463490",
+          "specialty": "Ninjutsu",
+          "bloodline": "Inferno Cataclysm",
+          "level": 70,
+          "hp": 7400,
+          "chakra": 7272,
+          "stamina": 7272,
+          "jutsuCount": 6,
+          "gear": {
+            "head": "legendary-crown",
+            "body": "legendary-chest",
+            "waist": "legendary-waist",
+            "legs": "legendary-legs",
+            "feet": "legendary-feet",
+            "hand": "elderbranch-katana",
+            "gloves": "legendary-gloves"
+          },
+          "status": 200
+        },
+        {
+          "player": "qatw5280d339851",
+          "specialty": "Bukijutsu",
+          "bloodline": "Shadow Lotus",
+          "level": 70,
+          "hp": 7400,
+          "chakra": 7272,
+          "stamina": 7272,
+          "jutsuCount": 6,
+          "gear": {
+            "head": "legendary-crown",
+            "body": "legendary-chest",
+            "waist": "legendary-waist",
+            "legs": "legendary-legs",
+            "feet": "legendary-feet",
+            "hand": "tempest-fang-blade",
+            "gloves": "legendary-gloves"
+          },
+          "status": 200
+        },
+        {
+          "player": "qatw420800f6482",
+          "specialty": "Taijutsu",
+          "bloodline": "Iron Fang",
+          "level": 70,
+          "hp": 7400,
+          "chakra": 7272,
+          "stamina": 7272,
+          "jutsuCount": 6,
+          "gear": {
+            "head": "legendary-crown",
+            "body": "legendary-chest",
+            "waist": "legendary-waist",
+            "legs": "legendary-legs",
+            "feet": "legendary-feet",
+            "hand": "embercoil-scythe",
+            "gloves": "legendary-gloves"
+          },
+          "status": 200
+        },
+        {
+          "player": "qatw1fdd3348073",
+          "specialty": "Genjutsu",
+          "bloodline": "Ashen Eyes",
+          "level": 70,
+          "hp": 7400,
+          "chakra": 7272,
+          "stamina": 7272,
+          "jutsuCount": 6,
+          "gear": {
+            "head": "legendary-crown",
+            "body": "legendary-chest",
+            "waist": "legendary-waist",
+            "legs": "legendary-legs",
+            "feet": "legendary-feet",
+            "hand": "black-lotus-dagger",
+            "gloves": "legendary-gloves"
+          },
+          "status": 200
+        }
+      ],
+      "status": "passed",
+      "finishedAt": "2026-10-26T19:43:12.467Z"
+    },
+    "runtime": {
+      "origin": "http://127.0.0.1:15389",
+      "mode": "run",
+      "floor": 9,
+      "route": "elite-shortcut",
+      "startedAt": "2026-10-26T19:43:48.486Z",
+      "checks": [
+        {
+          "name": "live shallow health",
+          "passed": true,
+          "detail": {
+            "ok": true,
+            "commit": "unknown",
+            "commitShort": "unknown",
+            "commitSource": "unknown",
+            "startedAt": "2026-10-26T19:41:40.811Z"
+          }
+        },
+        {
+          "name": "all fifteen Story floors are publicly readable",
+          "passed": true
+        },
+        {
+          "name": "all four test accounts meet level 30",
+          "passed": true,
+          "detail": [
+            {
+              "player": "qatwea913463490",
+              "level": 70
+            },
+            {
+              "player": "qatw5280d339851",
+              "level": 70
+            },
+            {
+              "player": "qatw420800f6482",
+              "level": 70
+            },
+            {
+              "player": "qatw1fdd3348073",
+              "level": 70
+            }
+          ]
+        },
+        {
+          "name": "four distinct authenticated websocket clients connected",
+          "passed": true
+        },
+        {
+          "name": "forced websocket transport loss reconnects",
+          "passed": true,
+          "detail": {
+            "latencyMs": 582
+          }
+        },
+        {
+          "name": "host creates a private Story ready room",
+          "passed": true,
+          "detail": {
+            "status": 200
+          }
+        },
+        {
+          "name": "qatw5280d339851 joins the shared room",
+          "passed": true,
+          "detail": {
+            "status": 200
+          }
+        },
+        {
+          "name": "qatw420800f6482 joins the shared room",
+          "passed": true,
+          "detail": {
+            "status": 200
+          }
+        },
+        {
+          "name": "qatw1fdd3348073 joins the shared room",
+          "passed": true,
+          "detail": {
+            "status": 200
+          }
+        },
+        {
+          "name": "qatwea913463490 readies",
+          "passed": true,
+          "detail": {
+            "status": 200
+          }
+        },
+        {
+          "name": "qatw5280d339851 readies",
+          "passed": true,
+          "detail": {
+            "status": 200
+          }
+        },
+        {
+          "name": "qatw420800f6482 readies",
+          "passed": true,
+          "detail": {
+            "status": 200
+          }
+        },
+        {
+          "name": "qatw1fdd3348073 readies",
+          "passed": true,
+          "detail": {
+            "status": 200
+          }
+        },
+        {
+          "name": "one run launches with four live actors",
+          "passed": true,
+          "detail": {
+            "status": 200
+          }
+        },
+        {
+          "name": "lost launch acknowledgement recovers the same run",
+          "passed": true,
+          "detail": {
+            "status": 200
+          }
+        },
+        {
+          "name": "all four clients converge on one authoritative board",
+          "passed": true,
+          "detail": {
+            "views": [
+              {
+                "player": "qatwea913463490",
+                "status": 200,
+                "version": 0
+              },
+              {
+                "player": "qatw5280d339851",
+                "status": 200,
+                "version": 0
+              },
+              {
+                "player": "qatw420800f6482",
+                "status": 200,
+                "version": 0
+              },
+              {
+                "player": "qatw1fdd3348073",
+                "status": 200,
+                "version": 0
+              }
+            ]
+          }
+        },
+        {
+          "name": "qatwea913463490 reconnect preserves its sealed actor",
+          "passed": true
+        },
+        {
+          "name": "qatw5280d339851 reconnect preserves its sealed actor",
+          "passed": true
+        },
+        {
+          "name": "qatw420800f6482 reconnect preserves its sealed actor",
+          "passed": true
+        },
+        {
+          "name": "qatw1fdd3348073 reconnect preserves its sealed actor",
+          "passed": true
+        },
+        {
+          "name": "another member cannot take the active turn",
+          "passed": true
+        },
+        {
+          "name": "committed action response can be lost without rejecting the write",
+          "passed": true
+        },
+        {
+          "name": "retry after discarded response advances exactly once",
+          "passed": true
+        },
+        {
+          "name": "stale commands cannot overwrite newer combat",
+          "passed": true
+        },
+        {
+          "name": "an absent human turn passes and the run remains recoverable",
+          "passed": true
+        },
+        {
+          "name": "all four clients converge on one authoritative board",
+          "passed": true,
+          "detail": {
+            "views": [
+              {
+                "player": "qatwea913463490",
+                "status": 200,
+                "version": 2
+              },
+              {
+                "player": "qatw5280d339851",
+                "status": 200,
+                "version": 2
+              },
+              {
+                "player": "qatw420800f6482",
+                "status": 200,
+                "version": 2
+              },
+              {
+                "player": "qatw1fdd3348073",
+                "status": 200,
+                "version": 2
+              }
+            ]
+          }
+        },
+        {
+          "name": "all four clients converge on one authoritative board",
+          "passed": true,
+          "detail": {
+            "views": [
+              {
+                "player": "qatwea913463490",
+                "status": 200,
+                "version": 22
+              },
+              {
+                "player": "qatw5280d339851",
+                "status": 200,
+                "version": 22
+              },
+              {
+                "player": "qatw420800f6482",
+                "status": 200,
+                "version": 22
+              },
+              {
+                "player": "qatw1fdd3348073",
+                "status": 200,
+                "version": 22
+              }
+            ]
+          }
+        },
+        {
+          "name": "all four clients converge on one authoritative board",
+          "passed": true,
+          "detail": {
+            "views": [
+              {
+                "player": "qatwea913463490",
+                "status": 200,
+                "version": 42
+              },
+              {
+                "player": "qatw5280d339851",
+                "status": 200,
+                "version": 42
+              },
+              {
+                "player": "qatw420800f6482",
+                "status": 200,
+                "version": 42
+              },
+              {
+                "player": "qatw1fdd3348073",
+                "status": 200,
+                "version": 42
+              }
+            ]
+          }
+        },
+        {
+          "name": "all four clients converge on one authoritative board",
+          "passed": true,
+          "detail": {
+            "views": [
+              {
+                "player": "qatwea913463490",
+                "status": 200,
+                "version": 62
+              },
+              {
+                "player": "qatw5280d339851",
+                "status": 200,
+                "version": 62
+              },
+              {
+                "player": "qatw420800f6482",
+                "status": 200,
+                "version": 62
+              },
+              {
+                "player": "qatw1fdd3348073",
+                "status": 200,
+                "version": 62
+              }
+            ]
+          }
+        },
+        {
+          "name": "all four clients converge on one authoritative board",
+          "passed": true,
+          "detail": {
+            "views": [
+              {
+                "player": "qatwea913463490",
+                "status": 200,
+                "version": 82
+              },
+              {
+                "player": "qatw5280d339851",
+                "status": 200,
+                "version": 82
+              },
+              {
+                "player": "qatw420800f6482",
+                "status": 200,
+                "version": 82
+              },
+              {
+                "player": "qatw1fdd3348073",
+                "status": 200,
+                "version": 82
+              }
+            ]
+          }
+        },
+        {
+          "name": "all four accounts submit legal combat actions",
+          "passed": true
+        },
+        {
+          "name": "normal combat reaches a terminal result",
+          "passed": true,
+          "detail": {
+            "actions": 97,
+            "winner": "squad",
+            "rounds": 12
+          }
+        },
+        {
+          "name": "phase reinforcements actually entered the tested run",
+          "passed": true
+        },
+        {
+          "name": "combat reaches the requested outcome",
+          "passed": true
+        },
+        {
+          "name": "all four clients converge on one authoritative board",
+          "passed": true,
+          "detail": {
+            "views": [
+              {
+                "player": "qatwea913463490",
+                "status": 200,
+                "version": 99
+              },
+              {
+                "player": "qatw5280d339851",
+                "status": 200,
+                "version": 99
+              },
+              {
+                "player": "qatw420800f6482",
+                "status": 200,
+                "version": 99
+              },
+              {
+                "player": "qatw1fdd3348073",
+                "status": 200,
+                "version": 99
+              }
+            ]
+          }
+        },
+        {
+          "name": "four concurrent settlement callers reach confirmed receipts",
+          "passed": true
+        },
+        {
+          "name": "winning members retain their confirmed floor clear",
+          "passed": true
+        },
+        {
+          "name": "every fresh first clear receives its currency reward",
+          "passed": true
+        },
+        {
+          "name": "reward retry changes no currency or progression twice",
+          "passed": true
+        },
+        {
+          "name": "settlement releases every party member",
+          "passed": true
+        },
+        {
+          "name": "every websocket received Tower revision hints",
+          "passed": true
+        },
+        {
+          "name": "deployed commit remains stable during the test",
+          "passed": true,
+          "detail": {
+            "before": "unknown",
+            "after": "unknown"
+          }
+        }
+      ],
+      "requests": 172,
+      "status": "passed",
+      "commit": "unknown",
+      "catalogHasNewBalance": true,
+      "accounts": [
+        "qatwea913463490",
+        "qatw5280d339851",
+        "qatw420800f6482",
+        "qatw1fdd3348073"
+      ],
+      "partyId": "tparty-b8b0ccbff8f24491b1e1cf41a885f73d",
+      "runId": "tower-92457e046669464d8ef1843d7b3eeeac",
+      "combat": {
+        "acceptedActions": 97,
+        "controllers": [
+          "qatw420800f6482",
+          "qatw1fdd3348073",
+          "qatwea913463490",
+          "qatw5280d339851"
+        ],
+        "winner": "squad",
+        "rounds": 12
+      },
+      "reinforcements": [
+        {
+          "id": "add-0",
+          "maxHp": 8024,
+          "damageScale": 1.1,
+          "mastery": [
+            {
+              "jutsuId": "bandit-hamstring",
+              "level": 50
+            }
+          ]
+        },
+        {
+          "id": "add-1",
+          "maxHp": 8024,
+          "damageScale": 1.1,
+          "mastery": [
+            {
+              "jutsuId": "bandit-hamstring",
+              "level": 50
+            }
+          ]
+        },
+        {
+          "id": "add-2",
+          "maxHp": 8024,
+          "damageScale": 1.1,
+          "mastery": [
+            {
+              "jutsuId": "bandit-hamstring",
+              "level": 50
+            }
+          ]
+        },
+        {
+          "id": "add-3",
+          "maxHp": 8024,
+          "damageScale": 1.1,
+          "mastery": [
+            {
+              "jutsuId": "bandit-hamstring",
+              "level": 50
+            }
+          ]
+        },
+        {
+          "id": "add-4",
+          "maxHp": 8024,
+          "damageScale": 1.1,
+          "mastery": [
+            {
+              "jutsuId": "bandit-hamstring",
+              "level": 50
+            }
+          ]
+        },
+        {
+          "id": "add-5",
+          "maxHp": 8024,
+          "damageScale": 1.1,
+          "mastery": [
+            {
+              "jutsuId": "bandit-hamstring",
+              "level": 50
+            }
+          ]
+        }
+      ],
+      "settlement": [
+        {
+          "player": "qatwea913463490",
+          "result": {
+            "paid": true,
+            "score": 1906,
+            "relic": {
+              "reason": "ineligible"
+            }
+          },
+          "ryoDelta": 3750
+        },
+        {
+          "player": "qatw5280d339851",
+          "result": {
+            "paid": false,
+            "reason": "already-paid",
+            "relic": {
+              "reason": "ineligible"
+            }
+          },
+          "ryoDelta": 3750
+        },
+        {
+          "player": "qatw420800f6482",
+          "result": {
+            "paid": false,
+            "reason": "already-paid",
+            "relic": {
+              "reason": "ineligible"
+            }
+          },
+          "ryoDelta": 3750
+        },
+        {
+          "player": "qatw1fdd3348073",
+          "result": {
+            "paid": false,
+            "reason": "already-paid",
+            "relic": {
+              "reason": "ineligible"
+            }
+          },
+          "ryoDelta": 3750
+        }
+      ],
+      "finishedAt": "2026-10-26T19:45:44.561Z",
+      "socketDelivery": {
+        "qatwea913463490": 65,
+        "qatw5280d339851": 64,
+        "qatw420800f6482": 64,
+        "qatw1fdd3348073": 63
+      }
+    },
+    "validation": {
+      "networkChecks": 42,
+      "networkPassed": 42,
+      "networkFailed": 0,
+      "serverBuild": "passed",
+      "strictToolTypeScript": "passed",
+      "runnerPreNetworkGuards": 7,
+      "precedingFocusedTowerRun": {
+        "passed": 688,
+        "failed": 0,
+        "scope": "Includes reinforcement and my-run fixes; predates final upgraded-equipment curve and model revision."
+      },
+      "precedingBroadRun": {
+        "tests": 18162,
+        "passed": 18132,
+        "failed": 1,
+        "skipped": 29,
+        "durationMs": 1876622.8833,
+        "failure": "api/_runtime-metrics.test.ts blocked-main-thread utilization timing assertion under loaded parallel run",
+        "isolatedRerun": {
+          "passed": 2,
+          "failed": 0
+        },
+        "scope": "Predates final upgraded-equipment curve; retained as historical evidence."
+      },
+      "finalModel": {
+        "state": "superseded",
+        "log": ".tmp/tower-upgraded-final-model-tests.log",
+        "scope": "Pre-rank/controller calibration; current results are in rankProgressionFollowup."
+      },
+      "finalBroadSuite": {
+        "state": "interrupted-by-tool-reset",
+        "finalSummary": false,
+        "log": ".tmp/tower-upgraded-full-suite.log"
+      }
+    },
+    "limitations": [
+      "Isolated in-memory localhost server, not production Postgres or a deployed candidate.",
+      "Four automated HTTP/Socket.IO controllers, not four manual browser playthroughs.",
+      "The network controller uses shipped AI; the separate balance model uses coordinated tactical actions.",
+      "No production credential was accessed and no production save was modified during this gap audit.",
+      "No deployment or main push performed."
+    ],
+    "evidenceState": "preceding rank/controller calibration; level-70 floor-9 evidence is mid-progression"
+  },
+  "rankProgressionFollowup": {
+    "date": "2026-10-26",
+    "fixture": "progression-gear-v4",
+    "ownerDecisions": [
+      "Level 70 is mid-progression; level 100 is endgame. Challenge must span the recommended level-30-to-100 climb.",
+      "Upgraded gear is normal preparation; a level-70 player is not modeled in starter gear.",
+      "Keep Elite demanding for upgraded teams."
+    ],
+    "source": {
+      "head": "a60f9ceda51f3a0ff13cfe5f8d3d30af4823ddd6",
+      "uncommitted": true,
+      "sourceFiles": [
+        {
+          "path": "api/towers/_story-balance.ts",
+          "sha256": "13226c1a275c926d99c0cddd615970933f80b2302ba0ed728f947ad5b06b438b"
+        },
+        {
+          "path": "api/towers/_floor-catalog.ts",
+          "sha256": "fe7f25dc442749bd95a27ebbea72da6ded8cb249d46054c32e6800a1bc82e14c"
+        },
+        {
+          "path": "api/towers/_engine.ts",
+          "sha256": "9c6fa7a992fa58c17133a50cbc530859b42a532697b980ebaed588f7df7b8427"
+        },
+        {
+          "path": "api/towers/_route-choice.ts",
+          "sha256": "f0bbf067fe55804f1f2572a3e03903995fd94db9dbec8c579f6fed805a5caf9a"
+        },
+        {
+          "path": "api/_pve-ai-mastery.ts",
+          "sha256": "adc5443efca2a5626c852e0d8936ea9017aa5e000ff1fecd3df1892a9a948c06"
+        },
+        {
+          "path": "api/towers/_battle-lease.ts",
+          "sha256": "88bf2654f22556359c8b037cc378ef804ab0d6a2c5f43435b2bf6e9d7b2b1bc9"
+        },
+        {
+          "path": "api/towers/my-run.ts",
+          "sha256": "258c39508de7b2396bf1c8c48696b7a851a0e034ebd2f315345317ae5bfd701d"
+        },
+        {
+          "path": "scripts/tower-story-balance-sim.ts",
+          "sha256": "a6202f9ac2cc7a5702d63fd3b3b43eb995be4437c8f06eb4cb360729284318fb"
+        },
+        {
+          "path": "scripts/spire-balance-sim.ts",
+          "sha256": "719a09f4446b88028bdd1ac0f4678b26380eba4ce441001a4a15aa239825f8b9"
+        },
+        {
+          "path": "scripts/tower-story-balance.test.ts",
+          "sha256": "f15409548f5e5fd0730de4caf94809453fdf19a2651310d462b39ea228c38b52"
+        },
+        {
+          "path": "shinobij.client/scripts/tower-multiplayer-live.mts",
+          "sha256": "eccd09387087cc43ffadcb72f741982bf16bdb96d79199ac992086f6793e8df9"
+        }
+      ]
+    },
+    "localServerStopped": true,
+    "runtimeCorrections": [
+      "Ordinary HP uses (4400 + 300 * floorStep) times role weight.",
+      "From floor 5, authored offense fields have a 600 + 110 * floorStep minimum; general stats have a max(0, recommendedLevel - 45) * 30 minimum.",
+      "Story boss HP overrides: level-50 Warden 30000, level-60 Revenant 38000, level-75 Sovereign 60000.",
+      "Engine exposes its existing read-only Barrier, adjusted-AP and Elemental Seal predicates for faithful test planning; their game behavior is unchanged."
+    ],
+    "controllerCorrections": [
+      "Uses legal equipped weapons, canonical utilities, Clear and Cleanse.",
+      "Avoids authoritative active Barriers and respects Lag AP and Elemental Seal.",
+      "Loads game modules after argument validation but before opening HTTP connections; adds credential-free transport diagnostics.",
+      "Endgame action cap 360 remains within the 650-request hard cap."
+    ],
+    "preparation": {
+      "origin": "http://127.0.0.1:15389",
+      "mode": "prepare",
+      "floor": 1,
+      "route": "rest-shrine",
+      "controller": "shipped-ai",
+      "startedAt": "2026-10-26T21:40:15.693Z",
+      "checks": [
+        {
+          "name": "live shallow health",
+          "passed": true,
+          "detail": {
+            "ok": true,
+            "commit": "unknown",
+            "commitShort": "unknown",
+            "commitSource": "unknown",
+            "startedAt": "2026-10-26T21:35:37.495Z"
+          }
+        },
+        {
+          "name": "all fifteen Story floors are publicly readable",
+          "passed": true
+        },
+        {
+          "name": "qatw5f2016c3e40 authenticates",
+          "passed": true,
+          "detail": {
+            "status": 200
+          }
+        },
+        {
+          "name": "qatw5f2016c3e40 receives a canonical first save",
+          "passed": true,
+          "detail": {
+            "status": 200
+          }
+        },
+        {
+          "name": "qatw5f2016c3e40 ordinary level is recorded",
+          "passed": true,
+          "detail": {
+            "level": 1
+          }
+        },
+        {
+          "name": "qatw9c9069a3b81 authenticates",
+          "passed": true,
+          "detail": {
+            "status": 200
+          }
+        },
+        {
+          "name": "qatw9c9069a3b81 receives a canonical first save",
+          "passed": true,
+          "detail": {
+            "status": 200
+          }
+        },
+        {
+          "name": "qatw9c9069a3b81 ordinary level is recorded",
+          "passed": true,
+          "detail": {
+            "level": 1
+          }
+        },
+        {
+          "name": "qatwce859e08662 authenticates",
+          "passed": true,
+          "detail": {
+            "status": 200
+          }
+        },
+        {
+          "name": "qatwce859e08662 receives a canonical first save",
+          "passed": true,
+          "detail": {
+            "status": 200
+          }
+        },
+        {
+          "name": "qatwce859e08662 ordinary level is recorded",
+          "passed": true,
+          "detail": {
+            "level": 1
+          }
+        },
+        {
+          "name": "qatwb1c76aa2353 authenticates",
+          "passed": true,
+          "detail": {
+            "status": 200
+          }
+        },
+        {
+          "name": "qatwb1c76aa2353 receives a canonical first save",
+          "passed": true,
+          "detail": {
+            "status": 200
+          }
+        },
+        {
+          "name": "qatwb1c76aa2353 ordinary level is recorded",
+          "passed": true,
+          "detail": {
+            "level": 1
+          }
+        },
+        {
+          "name": "four distinct authenticated websocket clients connected",
+          "passed": true
+        },
+        {
+          "name": "forced websocket transport loss reconnects",
+          "passed": true,
+          "detail": {
+            "latencyMs": 698
+          }
+        },
+        {
+          "name": "under-level ready-room admission requires level 30",
+          "passed": true,
+          "detail": {
+            "status": 403,
+            "errorCode": "member-ineligible",
+            "requiredLevel": 30
+          }
+        },
+        {
+          "name": "deployed commit remains stable during the test",
+          "passed": true,
+          "detail": {
+            "before": "unknown",
+            "after": "unknown"
+          }
+        }
+      ],
+      "requests": 24,
+      "status": "passed",
+      "commit": "unknown",
+      "catalogHasNewBalance": true,
+      "accounts": [
+        "qatw5f2016c3e40",
+        "qatw9c9069a3b81",
+        "qatwce859e08662",
+        "qatwb1c76aa2353"
+      ],
+      "combatPending": "Four accounts must be legitimately prepared at level 30 before --run.",
+      "finishedAt": "2026-10-26T21:40:17.403Z",
+      "socketDelivery": {}
+    },
+    "setup": {
+      "origin": "http://127.0.0.1:15389",
+      "level": 100,
+      "fixture": "progression-gear-v4",
+      "startedAt": "2026-10-26T21:45:02.284Z",
+      "accounts": [
+        {
+          "player": "qatw5f2016c3e40",
+          "level": 100,
+          "specialty": "Ninjutsu",
+          "bloodline": "Inferno Cataclysm",
+          "gear": {
+            "head": "named-armor-00000001000040008000000000000002",
+            "body": "named-armor-00000001000040008000000000000003",
+            "waist": "named-armor-00000001000040008000000000000004",
+            "legs": "named-armor-00000001000040008000000000000005",
+            "feet": "named-armor-00000001000040008000000000000006",
+            "hand": "named-weapon-00000001000040008000000000000001",
+            "gloves": "named-armor-00000001000040008000000000000007"
+          },
+          "forgedDefinitions": 7,
+          "hp": 10000,
+          "status": 200
+        },
+        {
+          "player": "qatw9c9069a3b81",
+          "level": 100,
+          "specialty": "Bukijutsu",
+          "bloodline": "Shadow Lotus",
+          "gear": {
+            "head": "named-armor-00000002000040008000000000000002",
+            "body": "named-armor-00000002000040008000000000000003",
+            "waist": "named-armor-00000002000040008000000000000004",
+            "legs": "named-armor-00000002000040008000000000000005",
+            "feet": "named-armor-00000002000040008000000000000006",
+            "hand": "named-weapon-00000002000040008000000000000001",
+            "gloves": "named-armor-00000002000040008000000000000007"
+          },
+          "forgedDefinitions": 7,
+          "hp": 10000,
+          "status": 200
+        },
+        {
+          "player": "qatwce859e08662",
+          "level": 100,
+          "specialty": "Taijutsu",
+          "bloodline": "Iron Fang",
+          "gear": {
+            "head": "named-armor-00000003000040008000000000000002",
+            "body": "named-armor-00000003000040008000000000000003",
+            "waist": "named-armor-00000003000040008000000000000004",
+            "legs": "named-armor-00000003000040008000000000000005",
+            "feet": "named-armor-00000003000040008000000000000006",
+            "hand": "named-weapon-00000003000040008000000000000001",
+            "gloves": "named-armor-00000003000040008000000000000007"
+          },
+          "forgedDefinitions": 7,
+          "hp": 10000,
+          "status": 200
+        },
+        {
+          "player": "qatwb1c76aa2353",
+          "level": 100,
+          "specialty": "Genjutsu",
+          "bloodline": "Ashen Eyes",
+          "gear": {
+            "head": "named-armor-00000004000040008000000000000002",
+            "body": "named-armor-00000004000040008000000000000003",
+            "waist": "named-armor-00000004000040008000000000000004",
+            "legs": "named-armor-00000004000040008000000000000005",
+            "feet": "named-armor-00000004000040008000000000000006",
+            "hand": "named-weapon-00000004000040008000000000000001",
+            "gloves": "named-armor-00000004000040008000000000000007"
+          },
+          "forgedDefinitions": 7,
+          "hp": 10000,
+          "status": 200
+        }
+      ],
+      "status": "passed",
+      "finishedAt": "2026-10-26T21:45:02.793Z"
+    },
+    "runtime": {
+      "origin": "http://127.0.0.1:15389",
+      "mode": "run",
+      "floor": 15,
+      "route": "rest-shrine",
+      "controller": "coordinated-catalog",
+      "startedAt": "2026-10-26T21:51:42.926Z",
+      "checks": [
+        {
+          "name": "live shallow health",
+          "passed": true,
+          "detail": {
+            "ok": true,
+            "commit": "unknown",
+            "commitShort": "unknown",
+            "commitSource": "unknown",
+            "startedAt": "2026-10-26T21:35:37.495Z"
+          }
+        },
+        {
+          "name": "all fifteen Story floors are publicly readable",
+          "passed": true
+        },
+        {
+          "name": "all four test accounts meet level 30",
+          "passed": true,
+          "detail": [
+            {
+              "player": "qatw5f2016c3e40",
+              "level": 100
+            },
+            {
+              "player": "qatw9c9069a3b81",
+              "level": 100
+            },
+            {
+              "player": "qatwce859e08662",
+              "level": 100
+            },
+            {
+              "player": "qatwb1c76aa2353",
+              "level": 100
+            }
+          ]
+        },
+        {
+          "name": "four distinct authenticated websocket clients connected",
+          "passed": true
+        },
+        {
+          "name": "forced websocket transport loss reconnects",
+          "passed": true,
+          "detail": {
+            "latencyMs": 708
+          }
+        },
+        {
+          "name": "host creates a private Story ready room",
+          "passed": true,
+          "detail": {
+            "status": 200
+          }
+        },
+        {
+          "name": "qatw9c9069a3b81 joins the shared room",
+          "passed": true,
+          "detail": {
+            "status": 200
+          }
+        },
+        {
+          "name": "qatwce859e08662 joins the shared room",
+          "passed": true,
+          "detail": {
+            "status": 200
+          }
+        },
+        {
+          "name": "qatwb1c76aa2353 joins the shared room",
+          "passed": true,
+          "detail": {
+            "status": 200
+          }
+        },
+        {
+          "name": "qatw5f2016c3e40 readies",
+          "passed": true,
+          "detail": {
+            "status": 200
+          }
+        },
+        {
+          "name": "qatw9c9069a3b81 readies",
+          "passed": true,
+          "detail": {
+            "status": 200
+          }
+        },
+        {
+          "name": "qatwce859e08662 readies",
+          "passed": true,
+          "detail": {
+            "status": 200
+          }
+        },
+        {
+          "name": "qatwb1c76aa2353 readies",
+          "passed": true,
+          "detail": {
+            "status": 200
+          }
+        },
+        {
+          "name": "one run launches with four live actors",
+          "passed": true,
+          "detail": {
+            "status": 200
+          }
+        },
+        {
+          "name": "saved levels and equipped gear survive authoritative combat sealing",
+          "passed": true
+        },
+        {
+          "name": "lost launch acknowledgement recovers the same run",
+          "passed": true,
+          "detail": {
+            "status": 200
+          }
+        },
+        {
+          "name": "all four clients converge on one authoritative board",
+          "passed": true,
+          "detail": {
+            "views": [
+              {
+                "player": "qatw5f2016c3e40",
+                "status": 200,
+                "version": 0
+              },
+              {
+                "player": "qatw9c9069a3b81",
+                "status": 200,
+                "version": 0
+              },
+              {
+                "player": "qatwce859e08662",
+                "status": 200,
+                "version": 0
+              },
+              {
+                "player": "qatwb1c76aa2353",
+                "status": 200,
+                "version": 0
+              }
+            ]
+          }
+        },
+        {
+          "name": "qatw5f2016c3e40 reconnect preserves its sealed actor",
+          "passed": true
+        },
+        {
+          "name": "qatw9c9069a3b81 reconnect preserves its sealed actor",
+          "passed": true
+        },
+        {
+          "name": "qatwce859e08662 reconnect preserves its sealed actor",
+          "passed": true
+        },
+        {
+          "name": "qatwb1c76aa2353 reconnect preserves its sealed actor",
+          "passed": true
+        },
+        {
+          "name": "another member cannot take the active turn",
+          "passed": true
+        },
+        {
+          "name": "committed action response can be lost without rejecting the write",
+          "passed": true
+        },
+        {
+          "name": "retry after discarded response advances exactly once",
+          "passed": true
+        },
+        {
+          "name": "stale commands cannot overwrite newer combat",
+          "passed": true
+        },
+        {
+          "name": "an absent human turn passes and the run remains recoverable",
+          "passed": true
+        },
+        {
+          "name": "all four clients converge on one authoritative board",
+          "passed": true,
+          "detail": {
+            "views": [
+              {
+                "player": "qatw5f2016c3e40",
+                "status": 200,
+                "version": 2
+              },
+              {
+                "player": "qatw9c9069a3b81",
+                "status": 200,
+                "version": 2
+              },
+              {
+                "player": "qatwce859e08662",
+                "status": 200,
+                "version": 2
+              },
+              {
+                "player": "qatwb1c76aa2353",
+                "status": 200,
+                "version": 2
+              }
+            ]
+          }
+        },
+        {
+          "name": "all four clients converge on one authoritative board",
+          "passed": true,
+          "detail": {
+            "views": [
+              {
+                "player": "qatw5f2016c3e40",
+                "status": 200,
+                "version": 22
+              },
+              {
+                "player": "qatw9c9069a3b81",
+                "status": 200,
+                "version": 22
+              },
+              {
+                "player": "qatwce859e08662",
+                "status": 200,
+                "version": 22
+              },
+              {
+                "player": "qatwb1c76aa2353",
+                "status": 200,
+                "version": 22
+              }
+            ]
+          }
+        },
+        {
+          "name": "all four clients converge on one authoritative board",
+          "passed": true,
+          "detail": {
+            "views": [
+              {
+                "player": "qatw5f2016c3e40",
+                "status": 200,
+                "version": 42
+              },
+              {
+                "player": "qatw9c9069a3b81",
+                "status": 200,
+                "version": 42
+              },
+              {
+                "player": "qatwce859e08662",
+                "status": 200,
+                "version": 42
+              },
+              {
+                "player": "qatwb1c76aa2353",
+                "status": 200,
+                "version": 42
+              }
+            ]
+          }
+        },
+        {
+          "name": "all four clients converge on one authoritative board",
+          "passed": true,
+          "detail": {
+            "views": [
+              {
+                "player": "qatw5f2016c3e40",
+                "status": 200,
+                "version": 62
+              },
+              {
+                "player": "qatw9c9069a3b81",
+                "status": 200,
+                "version": 62
+              },
+              {
+                "player": "qatwce859e08662",
+                "status": 200,
+                "version": 62
+              },
+              {
+                "player": "qatwb1c76aa2353",
+                "status": 200,
+                "version": 62
+              }
+            ]
+          }
+        },
+        {
+          "name": "all four clients converge on one authoritative board",
+          "passed": true,
+          "detail": {
+            "views": [
+              {
+                "player": "qatw5f2016c3e40",
+                "status": 200,
+                "version": 82
+              },
+              {
+                "player": "qatw9c9069a3b81",
+                "status": 200,
+                "version": 82
+              },
+              {
+                "player": "qatwce859e08662",
+                "status": 200,
+                "version": 82
+              },
+              {
+                "player": "qatwb1c76aa2353",
+                "status": 200,
+                "version": 82
+              }
+            ]
+          }
+        },
+        {
+          "name": "all four clients converge on one authoritative board",
+          "passed": true,
+          "detail": {
+            "views": [
+              {
+                "player": "qatw5f2016c3e40",
+                "status": 200,
+                "version": 102
+              },
+              {
+                "player": "qatw9c9069a3b81",
+                "status": 200,
+                "version": 102
+              },
+              {
+                "player": "qatwce859e08662",
+                "status": 200,
+                "version": 102
+              },
+              {
+                "player": "qatwb1c76aa2353",
+                "status": 200,
+                "version": 102
+              }
+            ]
+          }
+        },
+        {
+          "name": "all four clients converge on one authoritative board",
+          "passed": true,
+          "detail": {
+            "views": [
+              {
+                "player": "qatw5f2016c3e40",
+                "status": 200,
+                "version": 122
+              },
+              {
+                "player": "qatw9c9069a3b81",
+                "status": 200,
+                "version": 122
+              },
+              {
+                "player": "qatwce859e08662",
+                "status": 200,
+                "version": 122
+              },
+              {
+                "player": "qatwb1c76aa2353",
+                "status": 200,
+                "version": 122
+              }
+            ]
+          }
+        },
+        {
+          "name": "all four clients converge on one authoritative board",
+          "passed": true,
+          "detail": {
+            "views": [
+              {
+                "player": "qatw5f2016c3e40",
+                "status": 200,
+                "version": 142
+              },
+              {
+                "player": "qatw9c9069a3b81",
+                "status": 200,
+                "version": 142
+              },
+              {
+                "player": "qatwce859e08662",
+                "status": 200,
+                "version": 142
+              },
+              {
+                "player": "qatwb1c76aa2353",
+                "status": 200,
+                "version": 142
+              }
+            ]
+          }
+        },
+        {
+          "name": "all four clients converge on one authoritative board",
+          "passed": true,
+          "detail": {
+            "views": [
+              {
+                "player": "qatw5f2016c3e40",
+                "status": 200,
+                "version": 162
+              },
+              {
+                "player": "qatw9c9069a3b81",
+                "status": 200,
+                "version": 162
+              },
+              {
+                "player": "qatwce859e08662",
+                "status": 200,
+                "version": 162
+              },
+              {
+                "player": "qatwb1c76aa2353",
+                "status": 200,
+                "version": 162
+              }
+            ]
+          }
+        },
+        {
+          "name": "all four accounts submit legal combat actions",
+          "passed": true
+        },
+        {
+          "name": "normal combat reaches a terminal result",
+          "passed": true,
+          "detail": {
+            "actions": 170,
+            "winner": "squad",
+            "rounds": 20
+          }
+        },
+        {
+          "name": "phase reinforcements actually entered the tested run",
+          "passed": true
+        },
+        {
+          "name": "all four clients converge on one authoritative board",
+          "passed": true,
+          "detail": {
+            "views": [
+              {
+                "player": "qatw5f2016c3e40",
+                "status": 200,
+                "version": 172
+              },
+              {
+                "player": "qatw9c9069a3b81",
+                "status": 200,
+                "version": 172
+              },
+              {
+                "player": "qatwce859e08662",
+                "status": 200,
+                "version": 172
+              },
+              {
+                "player": "qatwb1c76aa2353",
+                "status": 200,
+                "version": 172
+              }
+            ]
+          }
+        },
+        {
+          "name": "four concurrent settlement callers reach confirmed receipts",
+          "passed": true
+        },
+        {
+          "name": "winning members retain their confirmed floor clear",
+          "passed": true
+        },
+        {
+          "name": "every fresh first clear receives its currency reward",
+          "passed": true
+        },
+        {
+          "name": "reward retry changes no currency or progression twice",
+          "passed": true
+        },
+        {
+          "name": "settlement releases every party member",
+          "passed": true
+        },
+        {
+          "name": "every websocket received Tower revision hints",
+          "passed": true
+        },
+        {
+          "name": "deployed commit remains stable during the test",
+          "passed": true,
+          "detail": {
+            "before": "unknown",
+            "after": "unknown"
+          }
+        }
+      ],
+      "requests": 261,
+      "status": "passed",
+      "commit": "unknown",
+      "catalogHasNewBalance": true,
+      "accounts": [
+        "qatw5f2016c3e40",
+        "qatw9c9069a3b81",
+        "qatwce859e08662",
+        "qatwb1c76aa2353"
+      ],
+      "partyId": "tparty-a4230de1132f4a1fb725ce964a3ae2f6",
+      "runId": "tower-bb65beda12784c608dd9f72ee20bb15c",
+      "sealedSquad": [
+        {
+          "player": "qatw5f2016c3e40",
+          "savedLevel": 100,
+          "sealedLevel": 100,
+          "equipment": {
+            "head": "named-armor-00000001000040008000000000000002",
+            "body": "named-armor-00000001000040008000000000000003",
+            "waist": "named-armor-00000001000040008000000000000004",
+            "legs": "named-armor-00000001000040008000000000000005",
+            "feet": "named-armor-00000001000040008000000000000006",
+            "hand": "named-weapon-00000001000040008000000000000001",
+            "gloves": "named-armor-00000001000040008000000000000007"
+          },
+          "armorRawDR": 0.35000000000000003,
+          "itemDamagePct": 6.779999999999999,
+          "weapon": {
+            "id": "named-weapon-00000001000040008000000000000001",
+            "name": "Audit Blade",
+            "slot": "hand",
+            "rarity": "legendary",
+            "cost": 0,
+            "levelReq": 90,
+            "description": "A master-forged weapon. Tags: Increase Damage Given 35%.",
+            "weaponEp": 25.5,
+            "apCost": 40,
+            "weaponRange": 4,
+            "weaponCooldown": 5,
+            "weaponTags": [
+              {
+                "name": "Increase Damage Given",
+                "percent": 35
+              }
+            ],
+            "bonuses": {
+              "ninjutsuOffense": 174,
+              "taijutsuOffense": 174,
+              "bukijutsuOffense": 174,
+              "genjutsuOffense": 174
+            }
+          },
+          "gearRetained": true
+        },
+        {
+          "player": "qatw9c9069a3b81",
+          "savedLevel": 100,
+          "sealedLevel": 100,
+          "equipment": {
+            "head": "named-armor-00000002000040008000000000000002",
+            "body": "named-armor-00000002000040008000000000000003",
+            "waist": "named-armor-00000002000040008000000000000004",
+            "legs": "named-armor-00000002000040008000000000000005",
+            "feet": "named-armor-00000002000040008000000000000006",
+            "hand": "named-weapon-00000002000040008000000000000001",
+            "gloves": "named-armor-00000002000040008000000000000007"
+          },
+          "armorRawDR": 0.35000000000000003,
+          "itemDamagePct": 6.779999999999999,
+          "weapon": {
+            "id": "named-weapon-00000002000040008000000000000001",
+            "name": "Audit Blade",
+            "slot": "hand",
+            "rarity": "legendary",
+            "cost": 0,
+            "levelReq": 90,
+            "description": "A master-forged weapon. Tags: Increase Damage Given 35%.",
+            "weaponEp": 25.5,
+            "apCost": 40,
+            "weaponRange": 4,
+            "weaponCooldown": 5,
+            "weaponTags": [
+              {
+                "name": "Increase Damage Given",
+                "percent": 35
+              }
+            ],
+            "bonuses": {
+              "ninjutsuOffense": 174,
+              "taijutsuOffense": 174,
+              "bukijutsuOffense": 174,
+              "genjutsuOffense": 174
+            }
+          },
+          "gearRetained": true
+        },
+        {
+          "player": "qatwce859e08662",
+          "savedLevel": 100,
+          "sealedLevel": 100,
+          "equipment": {
+            "head": "named-armor-00000003000040008000000000000002",
+            "body": "named-armor-00000003000040008000000000000003",
+            "waist": "named-armor-00000003000040008000000000000004",
+            "legs": "named-armor-00000003000040008000000000000005",
+            "feet": "named-armor-00000003000040008000000000000006",
+            "hand": "named-weapon-00000003000040008000000000000001",
+            "gloves": "named-armor-00000003000040008000000000000007"
+          },
+          "armorRawDR": 0.35000000000000003,
+          "itemDamagePct": 6.779999999999999,
+          "weapon": {
+            "id": "named-weapon-00000003000040008000000000000001",
+            "name": "Audit Blade",
+            "slot": "hand",
+            "rarity": "legendary",
+            "cost": 0,
+            "levelReq": 90,
+            "description": "A master-forged weapon. Tags: Increase Damage Given 35%.",
+            "weaponEp": 25.5,
+            "apCost": 40,
+            "weaponRange": 4,
+            "weaponCooldown": 5,
+            "weaponTags": [
+              {
+                "name": "Increase Damage Given",
+                "percent": 35
+              }
+            ],
+            "bonuses": {
+              "ninjutsuOffense": 174,
+              "taijutsuOffense": 174,
+              "bukijutsuOffense": 174,
+              "genjutsuOffense": 174
+            }
+          },
+          "gearRetained": true
+        },
+        {
+          "player": "qatwb1c76aa2353",
+          "savedLevel": 100,
+          "sealedLevel": 100,
+          "equipment": {
+            "head": "named-armor-00000004000040008000000000000002",
+            "body": "named-armor-00000004000040008000000000000003",
+            "waist": "named-armor-00000004000040008000000000000004",
+            "legs": "named-armor-00000004000040008000000000000005",
+            "feet": "named-armor-00000004000040008000000000000006",
+            "hand": "named-weapon-00000004000040008000000000000001",
+            "gloves": "named-armor-00000004000040008000000000000007"
+          },
+          "armorRawDR": 0.35000000000000003,
+          "itemDamagePct": 6.779999999999999,
+          "weapon": {
+            "id": "named-weapon-00000004000040008000000000000001",
+            "name": "Audit Blade",
+            "slot": "hand",
+            "rarity": "legendary",
+            "cost": 0,
+            "levelReq": 90,
+            "description": "A master-forged weapon. Tags: Increase Damage Given 35%.",
+            "weaponEp": 25.5,
+            "apCost": 40,
+            "weaponRange": 4,
+            "weaponCooldown": 5,
+            "weaponTags": [
+              {
+                "name": "Increase Damage Given",
+                "percent": 35
+              }
+            ],
+            "bonuses": {
+              "ninjutsuOffense": 174,
+              "taijutsuOffense": 174,
+              "bukijutsuOffense": 174,
+              "genjutsuOffense": 174
+            }
+          },
+          "gearRetained": true
+        }
+      ],
+      "combat": {
+        "acceptedActions": 170,
+        "controllers": [
+          "qatwce859e08662",
+          "qatwb1c76aa2353",
+          "qatw5f2016c3e40",
+          "qatw9c9069a3b81"
+        ],
+        "winner": "squad",
+        "rounds": 20
+      },
+      "reinforcements": [
+        {
+          "id": "add-0",
+          "maxHp": 12463,
+          "mastery": [
+            {
+              "jutsuId": "stormglass-weaver-static-loom",
+              "level": 50
+            },
+            {
+              "jutsuId": "stormglass-weaver-seal-thread",
+              "level": 50
+            },
+            {
+              "jutsuId": "stormglass-weaver-refraction",
+              "level": 50
+            }
+          ]
+        },
+        {
+          "id": "add-1",
+          "maxHp": 12463,
+          "mastery": [
+            {
+              "jutsuId": "stormglass-weaver-static-loom",
+              "level": 50
+            },
+            {
+              "jutsuId": "stormglass-weaver-seal-thread",
+              "level": 50
+            },
+            {
+              "jutsuId": "stormglass-weaver-refraction",
+              "level": 50
+            }
+          ]
+        },
+        {
+          "id": "add-2",
+          "maxHp": 12463,
+          "mastery": [
+            {
+              "jutsuId": "stormglass-weaver-static-loom",
+              "level": 50
+            },
+            {
+              "jutsuId": "stormglass-weaver-seal-thread",
+              "level": 50
+            },
+            {
+              "jutsuId": "stormglass-weaver-refraction",
+              "level": 50
+            }
+          ]
+        },
+        {
+          "id": "add-3",
+          "maxHp": 12463,
+          "mastery": [
+            {
+              "jutsuId": "stormglass-weaver-static-loom",
+              "level": 50
+            },
+            {
+              "jutsuId": "stormglass-weaver-seal-thread",
+              "level": 50
+            },
+            {
+              "jutsuId": "stormglass-weaver-refraction",
+              "level": 50
+            }
+          ]
+        }
+      ],
+      "settlement": [
+        {
+          "player": "qatw5f2016c3e40",
+          "result": {
+            "paid": true,
+            "score": 1817,
+            "relic": {}
+          },
+          "ryoDelta": 9000
+        },
+        {
+          "player": "qatw9c9069a3b81",
+          "result": {
+            "paid": false,
+            "reason": "already-paid",
+            "relic": {
+              "id": "tower-bb65beda12784c608dd9f72ee20bb15c"
+            }
+          },
+          "ryoDelta": 9000
+        },
+        {
+          "player": "qatwce859e08662",
+          "result": {
+            "paid": false,
+            "reason": "already-paid",
+            "relic": {
+              "id": "tower-bb65beda12784c608dd9f72ee20bb15c"
+            }
+          },
+          "ryoDelta": 9000
+        },
+        {
+          "player": "qatwb1c76aa2353",
+          "result": {
+            "paid": false,
+            "reason": "already-paid",
+            "relic": {
+              "id": "tower-bb65beda12784c608dd9f72ee20bb15c"
+            }
+          },
+          "ryoDelta": 9000
+        }
+      ],
+      "finishedAt": "2026-10-26T21:55:49.591Z",
+      "socketDelivery": {
+        "qatw5f2016c3e40": 66,
+        "qatw9c9069a3b81": 65,
+        "qatwce859e08662": 63,
+        "qatwb1c76aa2353": 62
+      }
+    },
+    "livePreflight": {
+      "origin": "https://shinobijourney.com",
+      "startedAt": "2026-10-26T21:47:49.264Z",
+      "readOnly": true,
+      "requests": 2,
+      "health": {
+        "status": 200,
+        "ok": true,
+        "commit": "b154a648455799cf12022a9520a123d6603968bc"
+      },
+      "catalog": {
+        "status": 200,
+        "count": 15,
+        "fourPlayerMetadata": false
+      },
+      "finishedAt": "2026-10-26T21:47:49.744Z"
+    },
+    "failureHistory": {
+      "blockedNavigation": {
+        "origin": "http://127.0.0.1:15389",
+        "mode": "run",
+        "floor": 15,
+        "route": "rest-shrine",
+        "controller": "coordinated-catalog",
+        "startedAt": "2026-10-26T21:06:25.444Z",
+        "checks": [
+          {
+            "name": "live shallow health",
+            "passed": true,
+            "detail": {
+              "ok": true,
+              "commit": "unknown",
+              "commitShort": "unknown",
+              "commitSource": "unknown",
+              "startedAt": "2026-10-26T21:01:31.344Z"
+            }
+          },
+          {
+            "name": "all fifteen Story floors are publicly readable",
+            "passed": true
+          },
+          {
+            "name": "all four test accounts meet level 30",
+            "passed": true,
+            "detail": [
+              {
+                "player": "qatw9b1cd9a22f0",
+                "level": 100
+              },
+              {
+                "player": "qatw53c1eb5fdf1",
+                "level": 100
+              },
+              {
+                "player": "qatw5c039522d72",
+                "level": 100
+              },
+              {
+                "player": "qatw7a37c930433",
+                "level": 100
+              }
+            ]
+          },
+          {
+            "name": "four distinct authenticated websocket clients connected",
+            "passed": true
+          },
+          {
+            "name": "forced websocket transport loss reconnects",
+            "passed": true,
+            "detail": {
+              "latencyMs": 740
+            }
+          },
+          {
+            "name": "host creates a private Story ready room",
+            "passed": true,
+            "detail": {
+              "status": 200
+            }
+          },
+          {
+            "name": "qatw53c1eb5fdf1 joins the shared room",
+            "passed": true,
+            "detail": {
+              "status": 200
+            }
+          },
+          {
+            "name": "qatw5c039522d72 joins the shared room",
+            "passed": true,
+            "detail": {
+              "status": 200
+            }
+          },
+          {
+            "name": "qatw7a37c930433 joins the shared room",
+            "passed": true,
+            "detail": {
+              "status": 200
+            }
+          },
+          {
+            "name": "qatw9b1cd9a22f0 readies",
+            "passed": true,
+            "detail": {
+              "status": 200
+            }
+          },
+          {
+            "name": "qatw53c1eb5fdf1 readies",
+            "passed": true,
+            "detail": {
+              "status": 200
+            }
+          },
+          {
+            "name": "qatw5c039522d72 readies",
+            "passed": true,
+            "detail": {
+              "status": 200
+            }
+          },
+          {
+            "name": "qatw7a37c930433 readies",
+            "passed": true,
+            "detail": {
+              "status": 200
+            }
+          },
+          {
+            "name": "one run launches with four live actors",
+            "passed": true,
+            "detail": {
+              "status": 200
+            }
+          },
+          {
+            "name": "saved levels and equipped gear survive authoritative combat sealing",
+            "passed": true
+          },
+          {
+            "name": "lost launch acknowledgement recovers the same run",
+            "passed": true,
+            "detail": {
+              "status": 200
+            }
+          },
+          {
+            "name": "all four clients converge on one authoritative board",
+            "passed": true,
+            "detail": {
+              "views": [
+                {
+                  "player": "qatw9b1cd9a22f0",
+                  "status": 200,
+                  "version": 0
+                },
+                {
+                  "player": "qatw53c1eb5fdf1",
+                  "status": 200,
+                  "version": 0
+                },
+                {
+                  "player": "qatw5c039522d72",
+                  "status": 200,
+                  "version": 0
+                },
+                {
+                  "player": "qatw7a37c930433",
+                  "status": 200,
+                  "version": 0
+                }
+              ]
+            }
+          },
+          {
+            "name": "qatw9b1cd9a22f0 reconnect preserves its sealed actor",
+            "passed": true
+          },
+          {
+            "name": "qatw53c1eb5fdf1 reconnect preserves its sealed actor",
+            "passed": true
+          },
+          {
+            "name": "qatw5c039522d72 reconnect preserves its sealed actor",
+            "passed": true
+          },
+          {
+            "name": "qatw7a37c930433 reconnect preserves its sealed actor",
+            "passed": true
+          },
+          {
+            "name": "another member cannot take the active turn",
+            "passed": true
+          },
+          {
+            "name": "committed action response can be lost without rejecting the write",
+            "passed": true
+          },
+          {
+            "name": "retry after discarded response advances exactly once",
+            "passed": true
+          },
+          {
+            "name": "stale commands cannot overwrite newer combat",
+            "passed": true
+          },
+          {
+            "name": "an absent human turn passes and the run remains recoverable",
+            "passed": true
+          },
+          {
+            "name": "all four clients converge on one authoritative board",
+            "passed": true,
+            "detail": {
+              "views": [
+                {
+                  "player": "qatw9b1cd9a22f0",
+                  "status": 200,
+                  "version": 2
+                },
+                {
+                  "player": "qatw53c1eb5fdf1",
+                  "status": 200,
+                  "version": 2
+                },
+                {
+                  "player": "qatw5c039522d72",
+                  "status": 200,
+                  "version": 2
+                },
+                {
+                  "player": "qatw7a37c930433",
+                  "status": 200,
+                  "version": 2
+                }
+              ]
+            }
+          },
+          {
+            "name": "all four clients converge on one authoritative board",
+            "passed": true,
+            "detail": {
+              "views": [
+                {
+                  "player": "qatw9b1cd9a22f0",
+                  "status": 200,
+                  "version": 22
+                },
+                {
+                  "player": "qatw53c1eb5fdf1",
+                  "status": 200,
+                  "version": 22
+                },
+                {
+                  "player": "qatw5c039522d72",
+                  "status": 200,
+                  "version": 22
+                },
+                {
+                  "player": "qatw7a37c930433",
+                  "status": 200,
+                  "version": 22
+                }
+              ]
+            }
+          },
+          {
+            "name": "all four clients converge on one authoritative board",
+            "passed": true,
+            "detail": {
+              "views": [
+                {
+                  "player": "qatw9b1cd9a22f0",
+                  "status": 200,
+                  "version": 42
+                },
+                {
+                  "player": "qatw53c1eb5fdf1",
+                  "status": 200,
+                  "version": 42
+                },
+                {
+                  "player": "qatw5c039522d72",
+                  "status": 200,
+                  "version": 42
+                },
+                {
+                  "player": "qatw7a37c930433",
+                  "status": 200,
+                  "version": 42
+                }
+              ]
+            }
+          }
+        ],
+        "requests": 103,
+        "status": "failed",
+        "commit": "unknown",
+        "catalogHasNewBalance": true,
+        "accounts": [
+          "qatw9b1cd9a22f0",
+          "qatw53c1eb5fdf1",
+          "qatw5c039522d72",
+          "qatw7a37c930433"
+        ],
+        "partyId": "tparty-8c3de6d007e64ae79851ceefa2abc563",
+        "runId": "tower-02b739b717a543a49a1cb83a400dca46",
+        "sealedSquad": [
+          {
+            "player": "qatw9b1cd9a22f0",
+            "savedLevel": 100,
+            "sealedLevel": 100,
+            "equipment": {
+              "head": "named-armor-00000001000040008000000000000002",
+              "body": "named-armor-00000001000040008000000000000003",
+              "waist": "named-armor-00000001000040008000000000000004",
+              "legs": "named-armor-00000001000040008000000000000005",
+              "feet": "named-armor-00000001000040008000000000000006",
+              "hand": "named-weapon-00000001000040008000000000000001",
+              "gloves": "named-armor-00000001000040008000000000000007"
+            },
+            "armorRawDR": 0.35000000000000003,
+            "itemDamagePct": 6.779999999999999,
+            "weapon": {
+              "id": "named-weapon-00000001000040008000000000000001",
+              "name": "Audit Blade",
+              "slot": "hand",
+              "rarity": "legendary",
+              "cost": 0,
+              "levelReq": 90,
+              "description": "A master-forged weapon. Tags: Increase Damage Given 35%.",
+              "weaponEp": 25.5,
+              "apCost": 40,
+              "weaponRange": 4,
+              "weaponCooldown": 5,
+              "weaponTags": [
+                {
+                  "name": "Increase Damage Given",
+                  "percent": 35
+                }
+              ],
+              "bonuses": {
+                "ninjutsuOffense": 174,
+                "taijutsuOffense": 174,
+                "bukijutsuOffense": 174,
+                "genjutsuOffense": 174
+              }
+            },
+            "gearRetained": true
+          },
+          {
+            "player": "qatw53c1eb5fdf1",
+            "savedLevel": 100,
+            "sealedLevel": 100,
+            "equipment": {
+              "head": "named-armor-00000002000040008000000000000002",
+              "body": "named-armor-00000002000040008000000000000003",
+              "waist": "named-armor-00000002000040008000000000000004",
+              "legs": "named-armor-00000002000040008000000000000005",
+              "feet": "named-armor-00000002000040008000000000000006",
+              "hand": "named-weapon-00000002000040008000000000000001",
+              "gloves": "named-armor-00000002000040008000000000000007"
+            },
+            "armorRawDR": 0.35000000000000003,
+            "itemDamagePct": 6.779999999999999,
+            "weapon": {
+              "id": "named-weapon-00000002000040008000000000000001",
+              "name": "Audit Blade",
+              "slot": "hand",
+              "rarity": "legendary",
+              "cost": 0,
+              "levelReq": 90,
+              "description": "A master-forged weapon. Tags: Increase Damage Given 35%.",
+              "weaponEp": 25.5,
+              "apCost": 40,
+              "weaponRange": 4,
+              "weaponCooldown": 5,
+              "weaponTags": [
+                {
+                  "name": "Increase Damage Given",
+                  "percent": 35
+                }
+              ],
+              "bonuses": {
+                "ninjutsuOffense": 174,
+                "taijutsuOffense": 174,
+                "bukijutsuOffense": 174,
+                "genjutsuOffense": 174
+              }
+            },
+            "gearRetained": true
+          },
+          {
+            "player": "qatw5c039522d72",
+            "savedLevel": 100,
+            "sealedLevel": 100,
+            "equipment": {
+              "head": "named-armor-00000003000040008000000000000002",
+              "body": "named-armor-00000003000040008000000000000003",
+              "waist": "named-armor-00000003000040008000000000000004",
+              "legs": "named-armor-00000003000040008000000000000005",
+              "feet": "named-armor-00000003000040008000000000000006",
+              "hand": "named-weapon-00000003000040008000000000000001",
+              "gloves": "named-armor-00000003000040008000000000000007"
+            },
+            "armorRawDR": 0.35000000000000003,
+            "itemDamagePct": 6.779999999999999,
+            "weapon": {
+              "id": "named-weapon-00000003000040008000000000000001",
+              "name": "Audit Blade",
+              "slot": "hand",
+              "rarity": "legendary",
+              "cost": 0,
+              "levelReq": 90,
+              "description": "A master-forged weapon. Tags: Increase Damage Given 35%.",
+              "weaponEp": 25.5,
+              "apCost": 40,
+              "weaponRange": 4,
+              "weaponCooldown": 5,
+              "weaponTags": [
+                {
+                  "name": "Increase Damage Given",
+                  "percent": 35
+                }
+              ],
+              "bonuses": {
+                "ninjutsuOffense": 174,
+                "taijutsuOffense": 174,
+                "bukijutsuOffense": 174,
+                "genjutsuOffense": 174
+              }
+            },
+            "gearRetained": true
+          },
+          {
+            "player": "qatw7a37c930433",
+            "savedLevel": 100,
+            "sealedLevel": 100,
+            "equipment": {
+              "head": "named-armor-00000004000040008000000000000002",
+              "body": "named-armor-00000004000040008000000000000003",
+              "waist": "named-armor-00000004000040008000000000000004",
+              "legs": "named-armor-00000004000040008000000000000005",
+              "feet": "named-armor-00000004000040008000000000000006",
+              "hand": "named-weapon-00000004000040008000000000000001",
+              "gloves": "named-armor-00000004000040008000000000000007"
+            },
+            "armorRawDR": 0.35000000000000003,
+            "itemDamagePct": 6.779999999999999,
+            "weapon": {
+              "id": "named-weapon-00000004000040008000000000000001",
+              "name": "Audit Blade",
+              "slot": "hand",
+              "rarity": "legendary",
+              "cost": 0,
+              "levelReq": 90,
+              "description": "A master-forged weapon. Tags: Increase Damage Given 35%.",
+              "weaponEp": 25.5,
+              "apCost": 40,
+              "weaponRange": 4,
+              "weaponCooldown": 5,
+              "weaponTags": [
+                {
+                  "name": "Increase Damage Given",
+                  "percent": 35
+                }
+              ],
+              "bonuses": {
+                "ninjutsuOffense": 174,
+                "taijutsuOffense": 174,
+                "bukijutsuOffense": 174,
+                "genjutsuOffense": 174
+              }
+            },
+            "gearRetained": true
+          }
+        ],
+        "error": "Legal combat action rejected: 200 blocked",
+        "finishedAt": "2026-10-26T21:08:07.843Z",
+        "socketDelivery": {
+          "qatw9b1cd9a22f0": 65,
+          "qatw53c1eb5fdf1": 65,
+          "qatw5c039522d72": 64,
+          "qatw7a37c930433": 62
+        }
+      },
+      "transportBeforeCombat": {
+        "origin": "http://127.0.0.1:15389",
+        "mode": "run",
+        "floor": 15,
+        "route": "rest-shrine",
+        "controller": "coordinated-catalog",
+        "startedAt": "2026-10-26T21:46:43.756Z",
+        "checks": [
+          {
+            "name": "live shallow health",
+            "passed": true,
+            "detail": {
+              "ok": true,
+              "commit": "unknown",
+              "commitShort": "unknown",
+              "commitSource": "unknown",
+              "startedAt": "2026-10-26T21:35:37.495Z"
+            }
+          },
+          {
+            "name": "all fifteen Story floors are publicly readable",
+            "passed": true
+          }
+        ],
+        "requests": 6,
+        "status": "failed",
+        "commit": "unknown",
+        "catalogHasNewBalance": true,
+        "accounts": [
+          "qatw5f2016c3e40",
+          "qatw9c9069a3b81",
+          "qatwce859e08662",
+          "qatwb1c76aa2353"
+        ],
+        "error": "fetch failed",
+        "finishedAt": "2026-10-26T21:46:55.291Z",
+        "socketDelivery": {}
+      },
+      "classification": "Local harness findings. The server correctly rejected an attempted Barrier move. A later startup transport failure occurred before party creation; initialization ordering and diagnostics were corrected. Failed reports are retained rather than counted as passes.",
+      "staleFixturePreparation": "Resetting the isolated backend invalidated old test tokens; the failed recovery was retained in .tmp/tower-rank-local-prepare-stale-reset-token.json. Four fresh local identities were then prepared."
+    },
+    "validation": {
+      "finalModel": {
+        "tests": 24,
+        "passed": 24,
+        "failed": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "durationMs": 109530.4526,
+        "log": ".tmp/tower-rank-final-tests.log"
+      },
+      "finalPressure": {
+        "tests": 1,
+        "passed": 1,
+        "failed": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "durationMs": 19696.4363,
+        "log": ".tmp/tower-rank-pressure-final.log"
+      },
+      "serverBuild": "passed",
+      "strictToolTypeScript": "passed",
+      "runnerPreNetworkGuards": 7,
+      "finalBroadSuite": {
+        "tests": 18170,
+        "passed": 18140,
+        "failed": 1,
+        "cancelled": 0,
+        "skipped": 29,
+        "durationMs": 2428719.403,
+        "log": ".tmp/tower-rank-full-suite.log",
+        "scope": "Run began before the final controller/Cleanse/Elite-fixture revisions. All other tests passed. One intermediate assertion applied the ordinary mid-roll fixture to the demanding Elite finale; the finalized benchmark preserves that diagnostic and tests the optimized forged profile.",
+        "currentFailureCoveredByFocusedRerun": true,
+        "singleCleanFinalFullRun": false
+      },
+      "precedingInterruptedRun": {
+        "log": ".tmp/tower-upgraded-full-suite.log",
+        "finalSummary": false,
+        "reason": "Tool connection reset; partial pass counts are not a completed run."
+      }
+    },
+    "limitations": [
+      "Four automated authenticated HTTP/Socket.IO clients; not four manual browser players.",
+      "Isolated in-memory storage; not production Postgres, deployment recovery or latency certification.",
+      "The final run uses the coordinated legal catalog controller.",
+      "Production admin credentials and production saves were not accessed or modified during this follow-up.",
+      "No deployment or main push was performed. Exact deployed-commit certification remains required."
+    ]
+  },
+  "normalPveComparisonFollowup": {
+    "date": "2026-10-26T23:47:20.810Z",
+    "numericOwner": "docs/battle-towers-squad-balance-results.json",
+    "evidenceField": "normalPveComparison",
+    "scenarios": {
+      "tower": 210,
+      "normalPve": 35,
+      "matchedBeforeAfterTower": 190
+    },
+    "sourceHashes": {
+      "api/towers/_engine.ts": "435ca982cbb08c8be25a0a267afe8c71b0e99cd5012e162723277d36083e7f09",
+      "api/_pve-ai-mastery.ts": "adc5443efca2a5626c852e0d8936ea9017aa5e000ff1fecd3df1892a9a948c06",
+      "api/_pve-difficulty.ts": "409da182a9dfe05370873bcea1b14044062c0b8fd6d291663bd9130054a03d1f",
+      "api/towers/_story-balance.ts": "13226c1a275c926d99c0cddd615970933f80b2302ba0ed728f947ad5b06b438b",
+      "api/solo-pve/_engine.ts": "c3326b3afb003ca60cad062c3f89ed5808d1296f68fa225727ece489b7cbc22e",
+      "api/_pve-challenge-weapon.ts": "221a3f7f27a591aec6b7e727761baa97efbf79448b3bb04f5f43f8aa19e8eb52",
+      "scripts/pve-close-fights-benchmark.ts": "230c7036eb4b38f181e609c7165b8f9f57aa5af536d7199a5fc01a54dc65a749",
+      "scripts/tower-pve-comparison.ts": "eb35ba7a39c73426635eeb8268671c3a48fc3f18b135da82deee803c4f928ea2",
+      "scripts/spire-balance-sim.ts": "719a09f4446b88028bdd1ac0f4678b26380eba4ce441001a4a15aa239825f8b9",
+      "scripts/pve-level75-prepared-probe.ts": "1ca5540f3896fc6303d0e512a6f579117a89f7ba8cf81681cfde8f6b8906d1ad",
+      "scripts/pve-kage-acceptance.ts": "3150b9ba4bfdf8335551b09b0fb514d24ab4bff5edaf044c1a547444853a8216",
+      "scripts/pve-viability-diagnostic.ts": "b333eadb9ceb6ecf22e4ea4076255e685c43610d98c9127ad755221db8167677",
+      "scripts/pve-pressure-benchmark.ts": "67c4392fee3efe4289d690eddcec0c460f90ebda260b72fb44725cbd28c563e4",
+      "scripts/_pve-pressure-fixture-audit.ts": "eba0452ee02e589bd167e5eaceb699aebb693851b044187fd368e02ec3e6017c",
+      "scripts/tower-story-balance-sim.ts": "78391d635602f9f72a0799cf0cc493a41e4b809fa8d2932d173b874d7e42ad05",
+      "api/_ai-level-curves.ts": "ddeb1a846b0ae09afb6fcc2cd109a1c7d6e86eb13d0fe01340d79dbbf4d0c1ad",
+      "api/_xp-engine.ts": "aa3033184d40094a63ae225d8886ecc382bdf746b3c258b9f680543bb0ad719b",
+      "api/towers/_seal.ts": "afd18f48efbff126a7ec67c860e4f5ee7129089dc029ec271d23d7f2bd16e697",
+      "api/towers/_encounter.ts": "8e31b47633da5e7839b71f869205537509f2488a45b97ab992627790585516b7",
+      "api/towers/_floor-catalog.ts": "1d59b92e328549470ee4a657b582dfd401b7d618eafe3cd9120778834d513505",
+      "api/towers/_enemy-templates.ts": "0d794fa48039bb65897810bce2ba48a3708afafdcc5ef02b87b5607b678aa1f2",
+      "api/towers/_route-choice.ts": "f0bbf067fe55804f1f2572a3e03903995fd94db9dbec8c579f6fed805a5caf9a",
+      "api/solo-pve/_ai-encounter.ts": "d09081eacc9898aa7d6467d03e3b8880d234a8049011f2b0b38b5c4ff1c2d5b1",
+      "api/solo-pve/_ai-turn-policy.ts": "6810533b637a5f08a1bbc45a36112190be84ea91bfc2673ca8d8116e3d7e329d",
+      "api/pvp/_multipliers.ts": "9d3e7b75b9ebd075f616ef2ebaf8b7b32684b88b95abd04a04044f20715d27df",
+      "api/pvp/_item-catalog.ts": "ee0f79bc6ab7b30c54bc1c2e18929752189a37d182e3094e581dbbfbe454b07d",
+      "api/pvp/_jutsu-catalog.ts": "b764dad13c814076de37bd1cfc5259645cfed2b5f9e2a17c056c29c96022d548",
+      "api/pvp/move.ts": "1608a5c4309b3dc94284f7b6d48b41ba3ca6178f0ddfc96f906a45633492c561",
+      "api/pvp/session.ts": "b62abf6f269150ce985b1225e46d37f7572cf29349ebe991fc4baa55feaffa80",
+      "api/combat-core/formulas.ts": "fdef11ed07e70a6c78a848051f52eb229b003b0f2e00741c76c2f5e861be38b2"
+    },
+    "conclusions": [
+      "Do not copy solo HP/stat discounts or the Solo own-turn search into a four-player wave encounter. Story retains its authored group curve, roles, hazards and phase budgets.",
+      "Story AI now uses the recent Solo planner visible counter vocabulary: substantial shields are worthwhile Clear targets; active Clear/Cleanse Prevent suppresses ineffective counters; pending removable negatives count for Cleanse.",
+      "Other Tower-engine hosts, including Spire, keep their prior counter policy. No shared player damage, AP, mastery, equipment or reward formula changed.",
+      "Keep the30-to100 rank curve and demanding optional Elite route. Prepared S-rank/twelve-slot/current-forge teams still show individual health pressure and finale knockout risk; an extra blanket damage increase is not justified by team-average ending HP.",
+      "All recorded245 current comparisons completed, with no refused enemy choice in the210 Tower runs. Current legal upgraded opening hits in the focused checks do not one-shot ordinary enemies."
+    ],
+    "validation": {
+      "fullRepository": {
+        "tests": 18178,
+        "passed": 18149,
+        "failed": 0,
+        "cancelled": 0,
+        "skipped": 29,
+        "durationMs": 3957100.7982,
+        "log": ".tmp/tower-pve-full-suite-bounded.log",
+        "concurrency": 4,
+        "method": "Exact root run-tests discovery/reporting with only concurrency true replaced by4 in an ignored local copy; source runner unchanged.",
+        "runnerSha256": "d527bacb5cc8e5d2f9b1290292acbd3150497a0fc0df05657ce81c720ddf66b7",
+        "isolatedRunnerSha256": "6122a65caa9ecaa9e5b1e27112b3cc0097b1e05c6662a2f3dbca93f90378c845"
+      },
+      "focused": {
+        "tests": 26,
+        "passed": 26,
+        "failed": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "durationMs": 71678.5581,
+        "log": ".tmp/tower-pve-final-focused.log"
+      },
+      "progression": {
+        "tests": 26,
+        "passed": 26,
+        "failed": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "durationMs": 303594.5463,
+        "log": ".tmp/tower-pve-balance-tests.log"
+      },
+      "normalPve": {
+        "tests": 67,
+        "passed": 67,
+        "failed": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "durationMs": 148710.4288,
+        "log": ".tmp/tower-pve-counter-tests.log"
+      },
+      "serverBuild": "passed",
+      "strictToolTypeScript": "passed",
+      "initialNpmTest": "Stopped during dependency-install prehook before any tests; client dependencies restored from the offline npm cache. Not counted as a test run."
+    },
+    "networkScope": "The46-check four-client localhost finale remains earlier rank-calibration evidence, with its original source hashes. This follow-up changes Story enemy choices and has no new network certification.",
+    "productionScope": "Uncommitted/unpublished local candidate. No live admin credential, production save or deployment was accessed in this follow-up.",
+    "currentCurve": {
+      "scenarios": 3840,
+      "gatesPassed": true,
+      "sourceHashes": {
+        "api/towers/_engine.ts": "435ca982cbb08c8be25a0a267afe8c71b0e99cd5012e162723277d36083e7f09",
+        "api/_pve-ai-mastery.ts": "adc5443efca2a5626c852e0d8936ea9017aa5e000ff1fecd3df1892a9a948c06",
+        "api/_pve-difficulty.ts": "409da182a9dfe05370873bcea1b14044062c0b8fd6d291663bd9130054a03d1f",
+        "api/towers/_story-balance.ts": "13226c1a275c926d99c0cddd615970933f80b2302ba0ed728f947ad5b06b438b",
+        "api/solo-pve/_engine.ts": "c3326b3afb003ca60cad062c3f89ed5808d1296f68fa225727ece489b7cbc22e",
+        "api/_pve-challenge-weapon.ts": "221a3f7f27a591aec6b7e727761baa97efbf79448b3bb04f5f43f8aa19e8eb52",
+        "scripts/pve-close-fights-benchmark.ts": "230c7036eb4b38f181e609c7165b8f9f57aa5af536d7199a5fc01a54dc65a749",
+        "scripts/tower-pve-comparison.ts": "eb35ba7a39c73426635eeb8268671c3a48fc3f18b135da82deee803c4f928ea2",
+        "scripts/spire-balance-sim.ts": "719a09f4446b88028bdd1ac0f4678b26380eba4ce441001a4a15aa239825f8b9",
+        "scripts/pve-level75-prepared-probe.ts": "1ca5540f3896fc6303d0e512a6f579117a89f7ba8cf81681cfde8f6b8906d1ad",
+        "scripts/pve-kage-acceptance.ts": "3150b9ba4bfdf8335551b09b0fb514d24ab4bff5edaf044c1a547444853a8216",
+        "scripts/pve-viability-diagnostic.ts": "b333eadb9ceb6ecf22e4ea4076255e685c43610d98c9127ad755221db8167677",
+        "scripts/pve-pressure-benchmark.ts": "67c4392fee3efe4289d690eddcec0c460f90ebda260b72fb44725cbd28c563e4",
+        "scripts/_pve-pressure-fixture-audit.ts": "eba0452ee02e589bd167e5eaceb699aebb693851b044187fd368e02ec3e6017c",
+        "scripts/tower-story-balance-sim.ts": "78391d635602f9f72a0799cf0cc493a41e4b809fa8d2932d173b874d7e42ad05",
+        "api/_ai-level-curves.ts": "ddeb1a846b0ae09afb6fcc2cd109a1c7d6e86eb13d0fe01340d79dbbf4d0c1ad",
+        "api/_xp-engine.ts": "aa3033184d40094a63ae225d8886ecc382bdf746b3c258b9f680543bb0ad719b",
+        "api/towers/_seal.ts": "afd18f48efbff126a7ec67c860e4f5ee7129089dc029ec271d23d7f2bd16e697",
+        "api/towers/_encounter.ts": "8e31b47633da5e7839b71f869205537509f2488a45b97ab992627790585516b7",
+        "api/towers/_floor-catalog.ts": "1d59b92e328549470ee4a657b582dfd401b7d618eafe3cd9120778834d513505",
+        "api/towers/_enemy-templates.ts": "0d794fa48039bb65897810bce2ba48a3708afafdcc5ef02b87b5607b678aa1f2",
+        "api/towers/_route-choice.ts": "f0bbf067fe55804f1f2572a3e03903995fd94db9dbec8c579f6fed805a5caf9a",
+        "api/solo-pve/_ai-encounter.ts": "d09081eacc9898aa7d6467d03e3b8880d234a8049011f2b0b38b5c4ff1c2d5b1",
+        "api/solo-pve/_ai-turn-policy.ts": "6810533b637a5f08a1bbc45a36112190be84ea91bfc2673ca8d8116e3d7e329d",
+        "api/pvp/_multipliers.ts": "9d3e7b75b9ebd075f616ef2ebaf8b7b32684b88b95abd04a04044f20715d27df",
+        "api/pvp/_item-catalog.ts": "ee0f79bc6ab7b30c54bc1c2e18929752189a37d182e3094e581dbbfbe454b07d",
+        "api/pvp/_jutsu-catalog.ts": "b764dad13c814076de37bd1cfc5259645cfed2b5f9e2a17c056c29c96022d548",
+        "api/pvp/move.ts": "1608a5c4309b3dc94284f7b6d48b41ba3ca6178f0ddfc96f906a45633492c561",
+        "api/pvp/session.ts": "b62abf6f269150ce985b1225e46d37f7572cf29349ebe991fc4baa55feaffa80",
+        "api/combat-core/formulas.ts": "fdef11ed07e70a6c78a848051f52eb229b003b0f2e00741c76c2f5e861be38b2"
+      },
+      "summary": {
+        "routes": {
+          "rest-shrine": {
+            "fights": 900,
+            "wins": 886
+          },
+          "focused-assault": {
+            "fights": 900,
+            "wins": 887
+          },
+          "elite-shortcut": {
+            "fights": 900,
+            "wins": 827
+          }
+        },
+        "freshFinales": {
+          "fights": 120,
+          "wins": 107
+        },
+        "highRoll": {
+          "fights": 180,
+          "wins": 151
+        },
+        "alternateGear": {
+          "fights": 720,
+          "wins": 634
+        },
+        "lowerPowerControls": {
+          "fights": 72,
+          "wins": 49
+        },
+        "solo": {
+          "fights": 48,
+          "wins": 0
+        },
+        "entry": {
+          "floor": 1,
+          "level": 30,
+          "size": 4,
+          "seeds": 12,
+          "composition": "mixed",
+          "prepared": true,
+          "routeChoice": "rest-shrine",
+          "seedOffset": 0,
+          "gearProfile": "progression",
+          "wins": 12,
+          "winRate": 1,
+          "rounds": 9.333333333333334,
+          "survivors": 3.0833333333333335,
+          "hpFraction": 0.5615379901960784
+        },
+        "normalFinale": {
+          "floor": 15,
+          "level": 100,
+          "size": 4,
+          "seeds": 12,
+          "composition": "mixed",
+          "prepared": true,
+          "routeChoice": "rest-shrine",
+          "seedOffset": 0,
+          "gearProfile": "progression",
+          "wins": 11,
+          "winRate": 0.9166666666666666,
+          "rounds": 20.416666666666668,
+          "survivors": 3.25,
+          "hpFraction": 0.34608749999999994
+        }
+      }
+    }
+  },
+  "earnedPlayerRelease": {
+    "date": "2026-10-27T00:40:43.040Z",
+    "status": "earned-player-curve-and-focused-checks-passed-release-ci-pending",
+    "fixture": "progression-gear-v5",
+    "sourceHashes": {
+      "api/towers/_engine.ts": "435ca982cbb08c8be25a0a267afe8c71b0e99cd5012e162723277d36083e7f09",
+      "api/_pve-ai-mastery.ts": "adc5443efca2a5626c852e0d8936ea9017aa5e000ff1fecd3df1892a9a948c06",
+      "api/_pve-difficulty.ts": "409da182a9dfe05370873bcea1b14044062c0b8fd6d291663bd9130054a03d1f",
+      "api/towers/_story-balance.ts": "13226c1a275c926d99c0cddd615970933f80b2302ba0ed728f947ad5b06b438b",
+      "api/solo-pve/_engine.ts": "c3326b3afb003ca60cad062c3f89ed5808d1296f68fa225727ece489b7cbc22e",
+      "api/_pve-challenge-weapon.ts": "221a3f7f27a591aec6b7e727761baa97efbf79448b3bb04f5f43f8aa19e8eb52",
+      "scripts/pve-close-fights-benchmark.ts": "230c7036eb4b38f181e609c7165b8f9f57aa5af536d7199a5fc01a54dc65a749",
+      "scripts/tower-pve-comparison.ts": "eb35ba7a39c73426635eeb8268671c3a48fc3f18b135da82deee803c4f928ea2",
+      "scripts/spire-balance-sim.ts": "719a09f4446b88028bdd1ac0f4678b26380eba4ce441001a4a15aa239825f8b9",
+      "scripts/pve-level75-prepared-probe.ts": "1ca5540f3896fc6303d0e512a6f579117a89f7ba8cf81681cfde8f6b8906d1ad",
+      "scripts/pve-kage-acceptance.ts": "3150b9ba4bfdf8335551b09b0fb514d24ab4bff5edaf044c1a547444853a8216",
+      "scripts/pve-viability-diagnostic.ts": "b333eadb9ceb6ecf22e4ea4076255e685c43610d98c9127ad755221db8167677",
+      "scripts/pve-pressure-benchmark.ts": "67c4392fee3efe4289d690eddcec0c460f90ebda260b72fb44725cbd28c563e4",
+      "scripts/_pve-pressure-fixture-audit.ts": "eba0452ee02e589bd167e5eaceb699aebb693851b044187fd368e02ec3e6017c",
+      "scripts/tower-story-balance-sim.ts": "78391d635602f9f72a0799cf0cc493a41e4b809fa8d2932d173b874d7e42ad05",
+      "api/_ai-level-curves.ts": "ddeb1a846b0ae09afb6fcc2cd109a1c7d6e86eb13d0fe01340d79dbbf4d0c1ad",
+      "api/_xp-engine.ts": "aa3033184d40094a63ae225d8886ecc382bdf746b3c258b9f680543bb0ad719b",
+      "api/towers/_seal.ts": "afd18f48efbff126a7ec67c860e4f5ee7129089dc029ec271d23d7f2bd16e697",
+      "api/towers/_encounter.ts": "8e31b47633da5e7839b71f869205537509f2488a45b97ab992627790585516b7",
+      "api/towers/_floor-catalog.ts": "1d59b92e328549470ee4a657b582dfd401b7d618eafe3cd9120778834d513505",
+      "api/towers/_enemy-templates.ts": "0d794fa48039bb65897810bce2ba48a3708afafdcc5ef02b87b5607b678aa1f2",
+      "api/towers/_route-choice.ts": "f0bbf067fe55804f1f2572a3e03903995fd94db9dbec8c579f6fed805a5caf9a",
+      "api/solo-pve/_ai-encounter.ts": "d09081eacc9898aa7d6467d03e3b8880d234a8049011f2b0b38b5c4ff1c2d5b1",
+      "api/solo-pve/_ai-turn-policy.ts": "6810533b637a5f08a1bbc45a36112190be84ea91bfc2673ca8d8116e3d7e329d",
+      "api/pvp/_multipliers.ts": "9d3e7b75b9ebd075f616ef2ebaf8b7b32684b88b95abd04a04044f20715d27df",
+      "api/pvp/_item-catalog.ts": "ee0f79bc6ab7b30c54bc1c2e18929752189a37d182e3094e581dbbfbe454b07d",
+      "api/pvp/_jutsu-catalog.ts": "b764dad13c814076de37bd1cfc5259645cfed2b5f9e2a17c056c29c96022d548",
+      "api/pvp/move.ts": "1608a5c4309b3dc94284f7b6d48b41ba3ca6178f0ddfc96f906a45633492c561",
+      "api/pvp/session.ts": "b62abf6f269150ce985b1225e46d37f7572cf29349ebe991fc4baa55feaffa80",
+      "api/combat-core/formulas.ts": "fdef11ed07e70a6c78a848051f52eb229b003b0f2e00741c76c2f5e861be38b2"
+    },
+    "validation": {
+      "balance": {
+        "tests": 15,
+        "passed": 15,
+        "failed": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "log": ".tmp/tower-earned-final-tests.log"
+      },
+      "towerApi": {
+        "tests": 662,
+        "passed": 662,
+        "failed": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "log": ".tmp/tower-earned-api-tests.log"
+      },
+      "serverBuild": "passed",
+      "fullRepository": {
+        "tests": 18178,
+        "passed": 18149,
+        "failed": 0,
+        "cancelled": 0,
+        "skipped": 29,
+        "durationMs": 3957100.7982,
+        "log": ".tmp/tower-pve-full-suite-bounded.log",
+        "concurrency": 4,
+        "method": "Exact root run-tests discovery/reporting with only concurrency true replaced by4 in an ignored local copy; source runner unchanged.",
+        "runnerSha256": "d527bacb5cc8e5d2f9b1290292acbd3150497a0fc0df05657ce81c720ddf66b7",
+        "isolatedRunnerSha256": "6122a65caa9ecaa9e5b1e27112b3cc0097b1e05c6662a2f3dbca93f90378c845",
+        "scope": "Earlier v4 source before main integration and earned-player correction; current CI is pending."
+      },
+      "network": {
+        "scope": "Historical localhost46 checks only; exact deployed four-player certification is pending."
+      }
+    },
+    "mainIntegration": "993df56aad7de25b6710e5869762b5eb8b009864",
+    "deployment": "Await green CI then verify Railway lean-branch SHA and live four-player runs."
+  }
+}

@@ -36,7 +36,7 @@ import {
     reserveTowerDirectEntry,
     reserveTowerPartyEntry,
 } from './_party-entry.js';
-import { STORY_TOWER_MIN_LEVEL, storyTowerMemberRequirements } from './_story-eligibility.js';
+import { STORY_TOWER_MIN_LEVEL, storyTowerMemberRequirements, towerLevelEligible } from './_story-eligibility.js';
 import { initializeTowerActionVersion } from './_action-idempotency.js';
 import { floorForSession, sealTowerCatalogFloor, sealedStoryFloorForSession } from './_session-floor.js';
 import { recordTowerRunStarted } from './_telemetry.js';
@@ -213,6 +213,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const unavailable: string[] = [];
         const ineligible: string[] = [];
         const admitted: string[] = [];
+        const levelLocked: string[] = [];
         const storyMembers: { member: string; character: Record<string, unknown> }[] = [];
         let hostAscensionUnlocked = 0;
         let availableMemberCount = 0;
@@ -229,6 +230,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 continue;
             }
             availableMemberCount++;
+            if (!identity.admin && !towerLevelEligible(character)) levelLocked.push(slug);
             // A Tower run seals each actor at FULL vitals (_encounter.ts) and
             // spends a daily-capped entry — the same reasoning that gates the
             // ranked queue, Team Arena and the Hollow Gate dive. Admitting a
@@ -261,6 +263,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             });
         }
         if (availableMemberCount === 0) return res.status(400).json({ error: 'No valid squad members.' });
+        if (mode === 'spire' && levelLocked.length) {
+            return res.status(403).json({
+                error: `Every party member must reach level ${STORY_TOWER_MIN_LEVEL} before entering the Spire.`,
+                errorCode: 'member-ineligible',
+                members: levelLocked,
+                requiredLevel: STORY_TOWER_MIN_LEVEL,
+                party: authoritativeParty ? towerPartyView(authoritativeParty) : null,
+            });
+        }
         const storyRequirements = mode === 'story' && !identity.admin
             ? storyTowerMemberRequirements(storyMembers, floorNum)
             : [];
@@ -501,6 +512,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             loadAdminCombatContent(),
             kv.mget<Record<string, unknown>[]>(...memberSlugs.map(slug => `save:${slug}`)),
         ]);
+        const lockedAfterClaim = identity.admin ? [] : memberSlugs.filter((_, index) => {
+            const character = sealedRecords[index]?.character as Record<string, unknown> | undefined;
+            return !!character && !towerLevelEligible(character);
+        });
+        if (lockedAfterClaim.length) {
+            await releaseClaimedLease();
+            if (preparedParty) {
+                await reopenTowerPartyLaunch(preparedParty.partyId, preparedParty.requestId);
+                preparedParty = null;
+            }
+            return res.status(403).json({
+                error: `Every party member must reach level ${STORY_TOWER_MIN_LEVEL} before entering Battle Towers.`,
+                errorCode: 'member-ineligible',
+                members: lockedAfterClaim,
+                requiredLevel: STORY_TOWER_MIN_LEVEL,
+                party: authoritativeParty ? towerPartyView(authoritativeParty) : null,
+            });
+        }
         const squad: SquadMemberInput[] = [];
         const unavailableAfterClaim: string[] = [];
         for (let index = 0; index < memberSlugs.length; index++) {

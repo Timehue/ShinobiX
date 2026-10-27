@@ -5,6 +5,8 @@ import { safeName } from '../_utils.js';
 import { sessionKey, TOWER_LAPSED_RETENTION_SECONDS, TOWER_SESSION_TTL, type TowerKv, type TowerLock } from './_tower-store.js';
 import type { TowerSession } from './_tower-session.js';
 import {
+    battleStateKey,
+    isBattleStateProjection,
     noteBattleEnded,
     noteBattleStarted,
     publishBattleProjection,
@@ -381,6 +383,27 @@ export async function ensureTowerBattleLeases(input: {
     members: readonly string[];
     partyId?: string;
 }, deps: TowerBattleLeaseDeps = {}): Promise<TowerBattleLeaseClaim> {
+    const kv = deps.kv ?? realKv;
+    const members = normalizedMembers(input.members);
+    if (members.length) {
+        const rows = await Promise.all(members.map(member => Promise.all([
+            kv.get<unknown>(battleLockKey(member)),
+            kv.get<unknown>(clanBossBattleMarkerKey(member)),
+            kv.get<unknown>(battleStateKey(member)),
+        ])));
+        // Ordinary four-client polls only observe existing leases. Taking every
+        // account mutex (and republishing projections) here serializes identical
+        // reads across the whole squad and can exhaust the lock retry budget.
+        // Missing/conflicting leases, projections or Clan Boss markers still use
+        // locked, fresh-read repair below; this path creates or extends nothing.
+        const now = (deps.now ?? Date.now)();
+        if (rows.every(([lease, marker, projection]) => matchingTowerLease(lease, input.runId)
+            && marker === null && isBattleStateProjection(projection)
+            && projection.kind === 'tower' && projection.sessionId === input.runId && projection.expiresAt > now)) {
+            for (const member of members) noteBattleStarted(member);
+            return { ok: true, members, replayed: true };
+        }
+    }
     return claimTowerBattleLeases({ ...input, refreshExisting: false }, deps);
 }
 

@@ -19,6 +19,7 @@ import {
 import { applyPartyScaling, towerNeighbors } from './_engine.js';
 import { startingItemShield } from '../combat-core/shields.js';
 import { requireEnemyTemplate, type EnemyTemplate } from './_enemy-templates.js';
+import { storyTowerEnemy } from './_story-balance.js';
 import { hexZone, type TowerFloor, type TowerFeature } from './_floor-catalog.js';
 import { pickTowerElements, rollTowerEnvironment, placeTowerEnvironment } from '../../shared/tower-environment.js';
 export { pickTowerElements } from '../../shared/tower-environment.js';
@@ -415,7 +416,8 @@ export function buildTowerEncounter(p: BuildEncounterParams): TowerSession {
     let enemyIdx = 0;
     const pendingEnemyWaves = new Map<number, TowerActor[]>();
     for (const pod of floor.enemies) {
-        const tpl = p.enemyTemplates?.[pod.aiId] ?? requireEnemyTemplate(pod.aiId);
+        const rawTemplate = p.enemyTemplates?.[pod.aiId] ?? requireEnemyTemplate(pod.aiId);
+        const tpl = publicTactics && !p.ascension ? storyTowerEnemy(rawTemplate, floor) : rawTemplate;
         const spawnRound = Math.max(1, Math.floor(Number(pod.spawnRound ?? 1)));
         for (let k = 0; k < pod.count; k++) {
             const enemy = templateActor(`en-${enemyIdx}`, 'enemy', tpl, spawnRound > 1 ? spawnEnemyWave() : spawnEnemy(tpl.role));
@@ -433,7 +435,9 @@ export function buildTowerEncounter(p: BuildEncounterParams): TowerSession {
     if (floor.boss) {
         bossId = 'boss';
         bossPhases = floor.boss.phases;
-        const bossActor = templateActor('boss', 'enemy', p.bossTemplate ?? requireEnemyTemplate(floor.boss.aiId), spawnEnemy('boss'));
+        const rawBossTemplate = p.bossTemplate ?? requireEnemyTemplate(floor.boss.aiId);
+        const bossTemplate = publicTactics && !p.ascension ? storyTowerEnemy(rawBossTemplate, floor) : rawBossTemplate;
+        const bossActor = templateActor('boss', 'enemy', bossTemplate, spawnEnemy('boss'));
         // Endless Spire: per-floor authored boss HP (overrides the template hp so the same boss
         // is tuned floor-by-floor, sidestepping the HP-scaled-mechanic × big-HP blow-up).
         if (typeof floor.boss.hp === 'number' && floor.boss.hp > 0) {
@@ -445,7 +449,9 @@ export function buildTowerEncounter(p: BuildEncounterParams): TowerSession {
             bossActor.character.mechanic = floor.boss.mechanic;
             if (floor.boss.mechanic === 'summon') {
                 // Pre-resolve the add template so the engine can clone it without a lookup.
-                bossActor.character.summonTemplate = requireEnemyTemplate(floor.boss.summonAiId ?? 'grunt-bandit');
+                const summonTemplate = requireEnemyTemplate(floor.boss.summonAiId ?? 'grunt-bandit');
+                bossActor.character.summonTemplate = publicTactics && !p.ascension
+                    ? storyTowerEnemy(summonTemplate, floor) : summonTemplate;
                 bossActor.character.summonCount = Math.max(1, Math.min(4, Number(floor.boss.summonCount ?? 2)));
             }
         }
@@ -489,9 +495,8 @@ export function buildTowerEncounter(p: BuildEncounterParams): TowerSession {
             .map(([round, waveActors]): TowerEnemyWave => ({ round, actors: waveActors }));
     }
 
-    // Story floors scale enemy HP/damage DOWN for a party smaller than the balance baseline.
-    // Endless Spire is ALWAYS full-strength (the tier is the escalation, never a party discount),
-    // so skip party scaling entirely when this is an ascension run.
+    // Story's sealed four-player profile and all Spire runs retain full strength.
+    // Legacy/custom floors without that profile keep their authored party scaling.
     // Version-two clan operations retain authored enemy strength. Missing
     // versions keep the deployed legacy discount, even after the rollout date.
     if (!p.ascension && p.clanBossRulesVersion !== 2) applyPartyScaling(session, floor);

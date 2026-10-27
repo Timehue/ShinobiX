@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { resetTradeNonceState, sendCurrency, settleTradeNonce, tradeIntentKey, tradeNonceFor } from './player-trade';
+import { hasPendingTradeIntent, resetTradeNonceState, sendCurrency, settleTradeNonce, tradeIntentKey, tradeNonceFor } from './player-trade';
 
 const originalStorage = Object.getOwnPropertyDescriptor(globalThis, 'sessionStorage');
 let stored: Map<string, string>;
@@ -77,6 +77,9 @@ test('a stored value that is not a nonce is never sent', () => {
 
 for (const scenario of [
     { name: 'confirmed refusal', status: 400, body: { error: 'Recipient not found.' }, message: 'Recipient not found.', retained: false },
+    { name: 'expired session after a lost reply', status: 401, body: { error: 'Sign in again.' }, message: 'Sign in again.', retained: true },
+    { name: 'temporary rate limit after a lost reply', status: 429, body: { error: 'Please wait.' }, message: 'Please wait.', retained: true },
+    { name: 'changed access after a lost reply', status: 403, body: { error: 'Not allowed.' }, message: 'Not allowed.', retained: true },
     // A timeout and a reply without a confirmation are both unconfirmed: the
     // transfer may have run, so the retry must carry the same nonce.
     { name: 'request timeout', status: 408, body: { error: 'Please retry.' }, message: 'That action may not have gone through. Wait until the game has saved, then refresh to check before you try again.', retained: true },
@@ -106,4 +109,27 @@ test('sendCurrency returns the authoritative receipt unchanged and ends the inte
     t.mock.method(globalThis, 'fetch', async () => new Response(JSON.stringify(receipt)));
     assert.deepEqual(await sendCurrency('Rill', 'Dopey', 'ryo', 5_000), receipt);
     assert.equal(stored.size, 0, 'nothing is left in tab storage');
+});
+
+test('a malformed or unrelated wire acknowledgement cannot release the retry identity', async t => {
+    const receipt = { ok: true, debit: 5000, credit: 4500, burned: 500, senderBalance: 8000, toPlayer: 'Dopey' };
+    const key = tradeIntentKey('Rill', 'Dopey', 'ryo', 5000);
+    const nonce = tradeNonceFor(key);
+    for (const raw of [null, [], { ok: true }, { ...receipt, debit: 6000 }, { ...receipt, credit: 5000 },
+        { ...receipt, toPlayer: 'Other' }, { ...receipt, currency: 'auraStones' }, { ...receipt, senderBalance: '8000' },
+        { ...receipt, _saveVersion: '2' }, { ...receipt, duplicate: 'yes' }]) {
+        t.mock.method(globalThis, 'fetch', async () => Response.json(raw));
+        assert.equal((await sendCurrency('Rill', 'Dopey', 'ryo', 5000)).ok, false);
+        assert.equal(tradeNonceFor(key), nonce);
+        t.mock.restoreAll();
+    }
+});
+
+test('a pending wire is discoverable without allocating a fresh nonce', () => {
+    assert.equal(hasPendingTradeIntent('Rill', 'Dopey', 'ryo', 5000), false);
+    const key = tradeIntentKey('Rill', 'Dopey', 'ryo', 5000);
+    tradeNonceFor(key);
+    assert.equal(hasPendingTradeIntent('rill', 'DOPEY', 'ryo', 5000), true);
+    settleTradeNonce(key, true);
+    assert.equal(hasPendingTradeIntent('Rill', 'Dopey', 'ryo', 5000), false);
 });

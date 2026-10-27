@@ -75,7 +75,7 @@ describe('applyBankTransfer', () => {
 
 describe('bank transfer endpoint contract', () => {
     const handlerSource = readFileSync(join(process.cwd(), 'api', 'bank', 'transfer.ts'), 'utf8');
-    const bankScreenSource = readFileSync(join(process.cwd(), 'shinobij.client', 'src', 'screens', 'Bank.tsx'), 'utf8');
+    const bankScreenSource = readFileSync(join(process.cwd(), 'shinobij.client', 'src', 'lib', 'use-bank-controller.ts'), 'utf8');
 
     it('requires player auth, a strict rate limit, and the fail-closed save mutation helper', () => {
         assert.match(handlerSource, /await authedPlayer\(req, playerName\)/);
@@ -91,14 +91,14 @@ describe('bank transfer endpoint contract', () => {
         const end = bankScreenSource.indexOf('async function claimInterest', start);
         assert.ok(start >= 0 && end > start, 'moveRyo function must remain present');
         const moveSource = bankScreenSource.slice(start, end);
-        assert.match(moveSource, /fetch\("\/api\/bank\/transfer"/);
+        assert.match(moveSource, /transferBankRyo\(/);
         // Only an unconfirmed outcome keeps the intent and inputs. A confirmed
         // transfer releases them even when its commit is refused as stale (a
         // newer save was adopted first): the move is done, and "unconfirmed"
         // would be a false alarm.
-        assert.match(moveSource, /if \(!response\.ok \|\| !data\?\.character\) \{[\s\S]*?if \(response\.status === 400 \|\| response\.status === 409 \|\| response\.status === 422\) intent\.complete\(\);\s*return alert\(/,
+        assert.match(moveSource, /if \(!data\) \{[\s\S]*?if \(bankTransferRefused\(reply\)\) intent\.complete\(\);\s*return alert\(/,
             'an unconfirmed transfer must retain the intent and inputs; only a definitive rejection releases them');
-        assert.match(moveSource, /onVersionedCharacter\(data\.character, data\._saveVersion\);\s*intent\.complete\(\);\s*setAmount\(0\)/,
+        assert.match(moveSource, /onVersionedCharacter\(data\.character as Character, data\._saveVersion\);\s*intent\.complete\(\);\s*setAmount\(0\)/,
             'a confirmed transfer must release the intent and inputs');
         assert.doesNotMatch(moveSource, /if \(!onVersionedCharacter\(/);
         assert.doesNotMatch(moveSource, /updateCharacter\([^)]*\.\.\.character/);
