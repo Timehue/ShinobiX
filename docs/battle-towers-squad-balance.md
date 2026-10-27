@@ -1,9 +1,9 @@
-# Battle Towers squad balance — updated 2026-10-26
+# Battle Towers squad balance — updated 2026-10-27
 
-Lifecycle: earned-player v5 release candidate. All 4,085 current model scenarios and
-focused checks pass. Main integration was pushed; green release CI and exact
-production four-player certification are pending. Historical full-suite and
-localhost evidence below retain their older fixture/source scope.
+Lifecycle: released and verified on production. The level-30 gate, 30–100 squad
+curve and multiplayer checks passed on the deployed source. The follow-up save-
+ownership correction also passed exact-release live verification.
+Historical full-suite and localhost evidence retain their original source scope.
 This document owns the current Story balance decisions. The numeric owner is
 [the balance results](battle-towers-squad-balance-results.json); network and test
 history live in [the certification results](battle-towers-multiplayer-certification-results.json).
@@ -256,7 +256,10 @@ gate passes. The preceding matrix is retained in preCounterplayCalibration;
 the 46-check four-client result keeps its earlier source scope. This AI follow-up
 has no new live multiplayer certification and changes no production save.
 
-## Multiplayer, regressions and remaining release evidence
+## Historical multiplayer and release boundaries
+
+The following paragraphs preserve the pre-release test history. The current
+production verdict and exact deployment evidence appear in the next section.
 
 Recorded rank-calibration candidate, isolated localhost storage, four level-100
 HTTP/Socket.IO clients with actual server-sealed mid-roll forged equipment,
@@ -319,12 +322,72 @@ The [research audit](battle-towers-research-audit-2026-10-24.md) records first-p
 FFXIV, Guild Wars 2, Destiny and Left 4 Dead comparisons. Its older weak-gear
 numbers are superseded by this document and the current numeric owner.
 
-The release is integrated on main. Release completion requires deploying
-the reviewed source and repeating strict four-client checks on that exact live
-commit. Production Postgres, failover/latency and real-player clarity/coordination
-remain outside local certification. Revisit the curve when actual entry loadouts,
-clear time or knockout telemetry disagree with these preparation assumptions.
+Before the v5 rollout, the integrated release still required exact production
+four-client checks. The local in-memory results did not certify production
+storage, failover or player coordination. The next section records the completed
+live checks. Revisit the curve when actual loadouts, clear times or knockout
+telemetry disagree with these preparation assumptions.
 
-The earned-player correction passed15 balance tests and662 Tower API tests,
-plus a fresh server build. The earlier18,149-pass full local run certifies its
-recorded v4 source; fresh main CI must pass for v5 before Railway promotion.
+The earned-player correction passed 15 balance tests and 662 Tower API tests,
+plus a fresh server build. The earlier 18,149-pass full local run certifies its
+recorded v4 source; v5 subsequently passed main CI before Railway promotion.
+
+<!-- current-live-certification:start -->
+## Current live production evidence — 2026-10-27
+
+The [complete live report](battle-towers-live-certification-2026-10-27.json) owns
+the current deployment mapping, exact checks, sealed snapshots and economics.
+The first deployment `7868b7f7` maps to main
+`24d9b29ed`, whose 56 CI jobs passed. Four authenticated
+clients controlled four human actors (AI disabled) through actual production APIs.
+
+| Level | Floor | Route | Result | Rounds | Checks |
+| --- | --- | --- | --- | --- | --- |
+| 30 | 1 | rest-shrine | Squad win | 8 | 39 |
+| 40 | 3 | rest-shrine | Squad win | 17 | 44 |
+| 70 | 9 | elite-shortcut | Squad win | 13 | 44 |
+| 100 | 15 | rest-shrine | Squad win | 19 | 47 |
+| 100 | 15 repeat | focused-assault | Squad win | 19 | 46 |
+
+All scenarios exercised authenticated sockets, reconnect, shared-state polling,
+ownership rejection, stale/replayed commands, discarded acknowledgements, a real
+75-second AFK timeout, four-controller combat, concurrent settlement, reward
+retry stability and room release. The level-29 boundary passed 16 more checks
+across all four players for both Story and Spire. All 15 catalog recommendations
+rise from 30 through 100. The 4,085 model/comparison scenarios retain their v5
+earned-point and upgraded-equipment source hashes.
+
+After other game changes merged, all 3,840 model cases and the 245 PvE comparisons were rerun on main `5149c7c74`. Every Tower numeric row and all 35 ordinary-PvE deterministic outcomes matched the initial release. Timing measurements were excluded from equality checks. The current source manifest and the original24d and925 proofs are retained. The later pet-feature merge was checked against an expanded graph of 545 local runtime inputs; all current input hashes are verified again against the final working source. A subsequent presentation merge changed only two of those inputs: comments and an unused text export. Both complete compiled model bundles remained byte-identical; this carries the model proof forward without claiming another simulation run.
+
+F1 is a repeat-clear test: these accounts were paid on the earlier release.
+An initial admin fixture accidentally erased displayed clears while permanent
+receipts correctly blocked duplicate payment. That failed test is preserved;
+the fixture now retains verified paid history. F3 paid 800 each; the host also
+earned 4,000 from authoritative level-40/profession-chosen achievement claims.
+F9 Elite paid 3,750 each. F15 paid 9,000 each, with the host's 1,500 daily entry fee
+confirmed by its saved reservation receipt. The repeat finale paid no second
+first-clear currency. Every settlement retry left currency/progression unchanged.
+
+F3's opening six and round-five four-enemy wave were observed in the live browser;
+its HUD, waiting controls, cooldowns and inspection worked without console errors.
+F9 summoned six 8,024-HP adds with 1.1 Elite damage and level-50 mastery. F15's
+reinforcement phases also executed. Screenshots and initial/terminal snapshots
+are retained in the live report.
+
+A separate controlled wipe passed 22 checks: all four players deliberately passed turns, lost in round 24, received no currency, retained earned clears/claims, and were released from both room membership and active-run recovery. Repeated loss settlement changed no currency or progression. This is a recovery-path test, not a balance loss-rate sample.
+
+A separate CI setup run created only 23 of 24 accounts and correctly failed. Its exact original rejection was not logged, so its cause remains unknown. The [harness repair](https://github.com/Timehue/ShinobiX/pull/516) fixes a reproduced name-generation flaw and adds credential-free phase/status diagnostics. Nine focused tests and a local 24-account/176-request run passed; the frozen Tower branch's own complete 24-client CI check passed independently. The local capacity run uses in-memory storage and is not production load certification.
+
+One intermediate browser job recovered a Creator-control retry. Trace review established a separate deferred-scroll navigation race; the [presentation repair](https://github.com/Timehue/ShinobiX/pull/517) passed 20 repeated compact cases and 28 production-preview cases across seven browser/viewports, all with retries disabled. It changes no credential or gameplay calculations. The original retry and failing-before regression remain explicit in the evidence. Its first full-CI client job reached the 35-minute ceiling during the initial git fetch, before build or lint; that infrastructure failure is preserved separately from browser-test results.
+
+The [save-ownership fix](https://github.com/Timehue/ShinobiX/pull/514) is on main and live at `13a6de72`. It preserves server-confirmed cleared floors on ordinary saves, closing both erased-replay charges and forged-free-entry paths. Exact-release live save probes and a fresh four-client finale repeat passed.
+
+The corrected deployment maps to main `2a2e401a1`, with all 56 CI jobs, image, CodeQL and post-deploy deep-storage checks passed. The final four-client Rest Shrine replay won floor15 in 20 rounds and 168 accepted actions, passing 46 assertions. Another 54 ordinary-save assertions and 7 receipt/economy assertions passed on that exact release: 107 follow-up assertions and 365 total live assertions. All four replay currency deltas were zero; entry was free and uncounted. The deployment workflow is confirmed disabled after the one-shot promotion.
+
+All 41 final-main browser-job logs were reviewed. The sole recovered Firefox page-readiness timeout is preserved with its trace classification and test-only follow-up in PR518; no unresolved product regression was identified.
+
+These are automated four-client production runs with prepared disposable profiles.
+The live checkpoints cover four floors and all three routes; the model covers
+the full climb and five compositions. This is not a population clear-rate,
+four-human usability, large-scale load or failover certification.
+<!-- current-live-certification:end -->
