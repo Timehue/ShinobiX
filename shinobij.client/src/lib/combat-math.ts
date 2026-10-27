@@ -60,20 +60,6 @@ export function getDefenseStat(stats: Stats, type: JutsuType | string, generalsB
     return stats.ninjutsuDefense + wil + spd;
 }
 
-export function diminishingPercent(percent: number, stackIndex: number) {
-    const raw = Math.max(0, percent) / 100;
-    return raw / (1 + stackIndex * 0.35 + raw * 0.25);
-}
-
-export function multiplicativeTagMultiplier(tags: { percent?: number }[], direction: "increase" | "decrease") {
-    return tags.reduce((multiplier, tag, index) => {
-        const effective = diminishingPercent(tag.percent ?? 0, index);
-        return direction === "increase"
-            ? multiplier * (1 + effective)
-            : multiplier / (1 + effective);
-    }, 1);
-}
-
 export function getBloodlineMultiplier(char: Character, allSavedBloodlines: SavedBloodline[]): number {
     if (!char.equippedBloodlineId) return 1.0;
     const adminBl = allSavedBloodlines.find(b => b.id === char.equippedBloodlineId);

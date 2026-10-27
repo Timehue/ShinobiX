@@ -3,7 +3,8 @@ import type { ResourceActivity, ResourceGrade } from './resource-items';
 import type { KunaiCatch } from './kunai-fishing';
 export { RESOURCE_GRADES, RESOURCE_FAMILIES, RESOURCE_ITEMS, resourceItemId } from './resource-items';
 export type { ResourceActivity, ResourceGrade, ResourceFamily } from './resource-items';
-export const RESOURCE_DAILY_LIMIT = 100;
+/** Gathers a shared world node allows before it empties and starts its refill
+ *  (api/world/_shared-resource-nodes.ts). */
 export const RESOURCE_NODE_ATTEMPTS = 3;
 export const RESOURCE_REFILL_MS = 10 * 60_000;
 export const RESOURCE_ATTEMPT_MS = 90_000;

@@ -1,6 +1,6 @@
 /*
  * Pet COLISEUM scene math — PURE helpers for the HD-2D react-three-fiber
- * renderer (PetColiseum.tsx). Two jobs:
+ * renderer (PetColiseum.tsx, retired 2026-10-16). Two jobs:
  *   1. tileToWorld()  — map a sim grid tile (14×7) to 3D floor coordinates, so
  *      pet positions still come straight from the deterministic simulator.
  *   2. poseMotion()   — map a PetVisualState (resolved by the existing
@@ -8,7 +8,7 @@
  *      the CSS pose classes (lunge forward, recoil back, guard hunker, KO
  *      topple…). The renderer eases the live billboard toward this target.
  *
- * Like pet-battle-anim.ts / pet-battle-camera.ts, this imports ONLY types and
+ * Like pet-battle-anim.ts (and the removed pet-battle-camera.ts), this imports ONLY types and
  * does NO randomness / clock read, so it is node-testable and can never affect
  * the deterministic battle outcome — it is a cosmetic derive of sim frames.
  */

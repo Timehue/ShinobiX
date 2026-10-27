@@ -57,7 +57,7 @@ export function petTamerExpeditionMult(profession: Profession | undefined, _rank
 
 // Vanguard rank table (Seals per PvP kill). Idx = rank (0 unused).
 export const VANGUARD_SEALS_PER_KILL = [0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5] as const;
-export const VANGUARD_DAILY_SEAL_CAP = 50;
+export const VANGUARD_DAILY_SEAL_CAP = 150; // mirrors api/pvp/_vanguard-rewards.ts DAILY_SEAL_CAP
 export const VANGUARD_PER_TARGET_DAILY_CAP = 3;
 
 // ── Healer rank perks ─────────────────────────────────────────────────────
@@ -85,10 +85,6 @@ function clampRank(rank: number): number {
 export function healerHealXpBonusPct(profession: Profession | undefined, rank: number): number {
     if (profession !== "healer") return 0;
     return HEALER_HEAL_XP_BONUS_PCT[clampRank(rank)];
-}
-export function healerPerTargetCooldownSec(profession: Profession | undefined, rank: number): number {
-    if (profession !== "healer") return 300; // non-healers fall through to base
-    return HEALER_PER_TARGET_COOLDOWN_SEC[clampRank(rank)];
 }
 
 // Anti-abuse: zero rewards for targets whose account is <72 hours old.

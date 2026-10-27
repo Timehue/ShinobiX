@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { PLAY_GAMES_REWARD_PRODUCTS, playGamesRewardProduct, type PlayGamesRewardBundle } from '../../shared/play-games-rewards.js';
+import { playGamesRewardProduct, type PlayGamesRewardBundle } from '../../shared/play-games-rewards.js';
 
 export type PlayRewardPurchaseVerification = {
     purchaseState: number;
@@ -176,5 +176,3 @@ export async function claimPlayGamesReward(
         };
     });
 }
-
-export const PLAY_REWARD_PRODUCT_IDS = PLAY_GAMES_REWARD_PRODUCTS.map((product) => product.productId);

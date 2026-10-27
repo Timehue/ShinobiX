@@ -12,7 +12,6 @@ import { clampNumber } from "./utils";
 import { MAX_LEVEL, MAX_STAT, STARTING_STAT_POINTS } from "../constants/game";
 import type { Jutsu, Stats } from "../types/combat";
 import type { JutsuType } from "../types/core";
-import type { CreatorAi } from "../types/creator-ai";
 
 export function aiPrimaryJutsuType(jutsus: Jutsu[] = []): JutsuType | undefined {
     const counts = jutsus.reduce<Record<JutsuType, number>>((acc, jutsu) => {
@@ -111,15 +110,4 @@ export function aiRawDamageReductionForLevel(level: number, toughness = 0) {
 
 export function aiArmorFactorFromRaw(rawDR: number) {
     return clampNumber(1 - rawDR, 0.45, 0.97);
-}
-
-export function aiArmorFactorForLevel(level: number, toughness = 0) {
-    return aiArmorFactorFromRaw(aiRawDamageReductionForLevel(level, toughness));
-}
-
-export function aiArmorFactorForProfile(ai?: Pick<CreatorAi, "level" | "armorRawDR" | "armorFactor"> | null) {
-    if (!ai) return 1.0;
-    if (typeof ai.armorFactor === "number") return clampNumber(ai.armorFactor, 0.45, 1.0);
-    if (typeof ai.armorRawDR === "number") return aiArmorFactorFromRaw(ai.armorRawDR);
-    return aiArmorFactorForLevel(ai.level);
 }

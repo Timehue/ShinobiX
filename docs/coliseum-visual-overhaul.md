@@ -1,5 +1,7 @@
 # Coliseum Visual Overhaul — Plan
 
+> **Historical document.** It was written while Vercel and cPanel were still hosts. Both are retired: Railway is the only host, `dist/` is never committed, and new endpoints are registered in `server-api-routes.ts`. Instructions below about committing `dist/`, cPanel or Vercel parity, or `server.ts` registration no longer apply. Current rules live in `CLAUDE.md`.
+
 > Status: **Phases 1–3 SHIPPED to main (2026-06-11).** Written 2026-06-11 after
 > auditing the shipped HD-2D coliseum (commits 902b3a8 → c283de0) against a real
 > battle screenshot. Scope: presentation only. The deterministic engine

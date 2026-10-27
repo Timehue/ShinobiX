@@ -8,7 +8,7 @@
  * row stays frozen, nothing paid is lost, and nothing is charged twice. The
  * saga below is kept intact for exactly that, and for its replay receipts.
  */
-import { createHash, randomUUID } from 'node:crypto';
+import { createHash } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
 import { kv, type KvLike } from './_storage.js';
 import { withKvLock } from './_lock.js';
@@ -119,10 +119,6 @@ function canonicalJson(value: unknown): string {
 
 export function warMercenaryHireFingerprint(identity: WarMercenaryHireIdentity): string {
     return createHash('sha256').update(canonicalJson(identity)).digest('hex');
-}
-
-export function newWarMercenaryFundingOwnerId(): string {
-    return randomUUID();
 }
 
 function positiveSafeInteger(value: unknown): number | null {

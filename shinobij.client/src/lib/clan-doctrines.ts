@@ -32,9 +32,6 @@ export function normalizeDoctrine(d: unknown): ClanDoctrine {
 export function doctrineName(d: ClanDoctrine): string {
     return CLAN_DOCTRINES.find(x => x.id === d)?.name ?? "No Doctrine";
 }
-export function doctrineIcon(d: ClanDoctrine): string {
-    return CLAN_DOCTRINES.find(x => x.id === d)?.icon ?? "🏳️";
-}
 
 // Per-domain bonus accessors — each returns 0 unless the clan's doctrine matches.
 export function doctrineShopDiscount(d: ClanDoctrine): number { return d === "merchant" ? DOCTRINE_SHOP_DISCOUNT : 0; }

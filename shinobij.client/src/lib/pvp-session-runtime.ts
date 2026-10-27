@@ -308,8 +308,6 @@ export async function fetchInitialPvpProjection(options: {
     };
 }
 
-export type PvpContinuationFence = ReturnType<typeof createPvpContinuationFence>;
-
 /**
  * Captures whether an async continuation still belongs to the mounted account
  * + battle scope. `activate` deliberately advances the generation even for an

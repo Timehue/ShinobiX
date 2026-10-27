@@ -30,7 +30,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const result = await mutatePlayerSave(playerName, ({ character }) => {
             deltas = null;
             const receipts = Array.isArray(character.redeemedCrafts) ? character.redeemedCrafts as string[] : [];
-            if (receipts.includes(id)) return { ok: true as const, character, value: { replayed: true } };
+            if (receipts.includes(id)) return { ok: true as const, character, value: { replayed: true }, write: false as const };
             if (kind !== 'relic' && !Array.isArray(body.materials))
                 return { ok: false as const, status: 400, error: 'Choose the exact materials for this craft first.' };
             if (isVillageSupplyGood(recipeId) && !villageStoresEnabled())

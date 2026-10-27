@@ -233,9 +233,3 @@ function residentMotion(sector:number,actor:LifeActor):LifeMotion|undefined {
         [travel*2+44_000,actor.restTile],
     ]};
 }
-
-/** Flee along the ground graph, keeping wildlife out of walls and painted water. */
-export function wildlifeRetreat(sector: number, tile: number, player: LifePoint): number {
-    return Array.from({length:144},(_,t)=>t).filter(t => { const path = walkPath(sector,tile,t); return path && path.length <= 5; })
-        .sort((a,b)=> Math.hypot(b%12-player.col,Math.floor(b/12)-player.row)-Math.hypot(a%12-player.col,Math.floor(a/12)-player.row))[0] ?? tile;
-}

@@ -344,10 +344,6 @@ export function projectTowerPvpMatchForViewer(
     };
 }
 
-export function towerPvpTeamForActor(match: StoredTowerPvpMatch, actorId: string): TowerPvpTeamId | undefined {
-    return match.roster.find(member => member.actorId === actorId)?.teamId;
-}
-
 function totalVitality(match: StoredTowerPvpMatch, team: TowerPvpTeamId): number {
     return match.roster
         .filter(member => member.teamId === team)

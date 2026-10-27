@@ -61,9 +61,7 @@ import {
     activeCombatStatuses,
     addCombatStatus,
     capDeferredCombatStatusStacks,
-    countActiveCombatStatuses,
     hasCombatStatus,
-    isCombatStatusActive,
     removeActiveCombatStatusesByKind,
     removeActiveCombatStatusesByName,
     removeCombatStatusesByKind,
@@ -411,9 +409,6 @@ function disciplineBonuses(f: PvpFighter, round: number): Record<string, number>
     return disciplineBonusesFromStatuses(activeStatuses(f, round), nameMatches);
 }
 // ─── Fighter helpers ──────────────────────────────────────────────────────────
-function isStatusActive(status: PvpStatus, round: number) {
-    return isCombatStatusActive(status, round);
-}
 function activeStatuses(f: PvpFighter, round: number) {
     return activeCombatStatuses(f.statuses, round);
 }
@@ -436,9 +431,6 @@ function addStatus(f: PvpFighter, s: PvpStatus, currentRound?: number): PvpFight
             currentRound,
         }),
     };
-}
-function countActive(f: PvpFighter, name: string, round: number): number {
-    return countActiveCombatStatuses(f.statuses, name, round, nameMatches);
 }
 // Sum the percents of every active stack of a status. Used by the post-damage
 // defensive tags (Absorb/Reflect/Lifesteal): they stack additively and the
@@ -571,7 +563,7 @@ function applyGroundEffects(session: PvpSession, round: number, targetOnly?: Pvp
     return { session: { ...session, p1, p2 }, lines };
 }
 // Exported for the ground-effect timing test (_combat-tags.test.ts).
-export function tickGroundEffects(effects: PvpGroundEffect[] | undefined, completedRound = Number.POSITIVE_INFINITY, roundOpener?: PvpRole): PvpGroundEffect[] {
+export function tickGroundEffects(effects: PvpGroundEffect[] | undefined, completedRound = Number.POSITIVE_INFINITY): PvpGroundEffect[] {
     return (effects ?? [])
         .map(effect => {
             const activeRound = effect.activeRound;
@@ -1392,7 +1384,7 @@ function endTurn(session: PvpSession): PvpSession {
             ...s,
             p1,
             p2,
-            groundEffects: tickGroundEffects(s.groundEffects, session.round, roundOpenerFor(session)),
+            groundEffects: tickGroundEffects(s.groundEffects, session.round),
         };
     }
     s = {
@@ -2459,7 +2451,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
 
                 if (groundTarget && plan.targetTile !== undefined) {
-                    const targetTile = plan.targetTile;
                     if (plan.createsGroundEffect) {
                         let groundEffect: PvpGroundEffect = {
                             ...createCanonicalGroundEffect({

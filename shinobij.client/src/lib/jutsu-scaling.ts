@@ -10,7 +10,7 @@
  */
 
 import { effectiveTagPercent } from "./tags";
-import { JUTSU_MAX_LEVEL, MASTERY_MIN_DAMAGE_FRAC, jutsuLevelCapForLevel, MAX_LEVEL, COMBAT_RESOURCES_V2 } from "../constants/game";
+import { JUTSU_MAX_LEVEL, MASTERY_MIN_DAMAGE_FRAC, MAX_LEVEL, COMBAT_RESOURCES_V2 } from "../constants/game";
 import { isLegacyJutsuId, legacySignatureMasteryLevel, LEGACY_SIGNATURE_MIN_STAGE } from "./legacy-jutsu-id";
 import type { Jutsu, JutsuMastery } from "../types/combat";
 import type { Character } from "../types/character";
@@ -61,15 +61,6 @@ export function gainJutsuXp(character: Character, jutsuId: string, amount: numbe
     return { ...character, jutsuMastery: [...existing.filter((j) => j.jutsuId !== jutsuId), { jutsuId, level, xp }] };
 }
 
-// Rank-capped XP gain. Stops accruing once the jutsu reaches the player's rank
-// jutsu-level cap, and NEVER downgrades a jutsu already above the cap (saves from
-// before the cap existed are grandfathered — it just stops adding). Save-safe.
-export function gainJutsuXpForRank(character: Character, jutsuId: string, amount: number): Character {
-    const cap = jutsuLevelCapForLevel(Number(character.level) || 1);
-    if (getJutsuMastery(character, jutsuId).level >= cap) return character;
-    return gainJutsuXp(character, jutsuId, amount, cap);
-}
-
 export function scaleJutsuByLevel(jutsu: Jutsu, level: number) {
     // EP at the jutsu's current mastery — MUST mirror the dealt-damage formula in
     // combat-math.ts / api/pvp/move.ts so the inspect card shows what actually
@@ -103,11 +94,6 @@ function jutsuResourceCostPercent(jutsu: Pick<Jutsu, "ap">, masteryLevel = 0) {
         percent = 2;
     }
     return percent > 0 ? Math.max(1, percent - masteryReduction) : 0;
-}
-function jutsuResourceCost(maxResource: number, jutsu: Pick<Jutsu, "ap" | "chakraCost" | "staminaCost">, resource: "chakra" | "stamina", masteryLevel = 0) {
-    const originalCost = resource === "chakra" ? jutsu.chakraCost : jutsu.staminaCost;
-    if (!originalCost || originalCost <= 0) return 0;
-    return Math.max(1, Math.floor(maxResource * (jutsuResourceCostPercent(jutsu, masteryLevel) / 100)));
 }
 export function formatJutsuResourcePercent(jutsu: Pick<Jutsu, "ap" | "chakraCost" | "staminaCost">, resource: "chakra" | "stamina", masteryLevel = 0) {
     const originalCost = resource === "chakra" ? jutsu.chakraCost : jutsu.staminaCost;
@@ -217,17 +203,6 @@ export function jutsuResourceDisplay(
     return formatJutsuResourcePercent(jutsu, resource, masteryLevel);
 }
 
-export function scaleJutsuCostsForCharacter(jutsu: Jutsu, level: number, character: Pick<Character, "maxChakra" | "maxStamina"> & { specialty?: string | null }) {
-    const scaled = scaleJutsuByLevel(jutsu, level);
-    if (COMBAT_RESOURCES_V2) {
-        return { ...scaled, ...v2JutsuCosts(jutsu, level, character.specialty) };
-    }
-    return {
-        ...scaled,
-        chakraCost: jutsuResourceCost(character.maxChakra, jutsu, "chakra", level),
-        staminaCost: jutsuResourceCost(character.maxStamina, jutsu, "stamina", level),
-    };
-}
 // A recurring ground zone: a tile-targeted INSTANT_EFFECT or AOE_SPIRAL jutsu that lays a
 // persistent zone instead of resolving through the direct-cast tag ramp.
 export function isRecurringGroundZone(jutsu: Pick<Jutsu, "target" | "method">): boolean {
