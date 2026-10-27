@@ -11,9 +11,9 @@ The combat format is fixed at four player pets: two begin active and exactly two
 1. Open the Celestial Tower in Central Hub. Characters below level 100 see the sealed entry.
 2. Cross into the Sunken Court and freely traverse one continuous top-down tile world.
 3. Follow Scribe Vey's Chronicle through three investigations and three server-sealed pet confrontations.
-4. Optionally help Sena Vale preserve her stable by winning a three-round tournament.
-5. Return to the Arrival Court after defeating the Balanced Court and complete the three-part epilogue.
-6. Re-enter the fixed crossing after completion to revisit the city and its people.
+4. Optionally help Sena Vale preserve her stable by winning a three-round tournament, and answer the four district writs.
+5. Earn 1,600 Court Standing, win the four sittings of the Balancing, walk back through the changed city, then return to the Arrival Court and complete the three-part epilogue.
+6. After completion, the city stays open as a postgame: the Standing Court, unanswered writs, findings, Vale Stable if it is unfinished, and a "Read the epilogue" button.
 
 Desktop supports WASD, arrow keys, click-to-path, `E`, and Space. Mobile exposes a five-button directional/interact pad. The tracked objective can calculate a path to the next story actor, and the minimap shows the entire connected court, the player, citizens, and objective destination.
 
@@ -42,7 +42,7 @@ Static NPCs hold authored story positions. Wandering NPCs choose deterministic, 
 | I — A City Still Breathing | Meet Vey; preserve the Bell, Gardens, and Aqueduct omens in any order; report all three | — | The Court can no longer separate the warnings into harmless rumors |
 | II — The Courtesy of Teeth | Enter the omens; confront the Menagerie; recover the Withheld record | Court Menagerie | Reveals that the first handlers asked their companions to witness them |
 | III — What the Gate Keeps | Carry the record to Tam; open the old Gateworks route; name all four companions as witnesses with Sena | Lattice Wardens | Reconstructs the original pact as consent rather than ownership |
-| IV — Four Wills, One Answer | Return to the Grand Colosseum | Echo of the Balanced Court | Opens the return to the threshold and epilogue |
+| IV — Four Wills, One Answer | Reach 1,600 Court Standing (story beats, district writs, Vale Stable), then return to the Grand Colosseum | The Balancing: four sittings, the fourth against the Echo of the Balanced Court | Opens the return to the threshold and epilogue |
 
 Before the final battle, the player chooses one of three pact promises. The server stores exactly one answer. Each answer connects the bond to the four qualities taken by the modern village anchors: reason, future, exit, and trust. The Court uses that promise against the formation in the final confrontation, and the return-to-present epilogue remembers it.
 
@@ -81,6 +81,14 @@ Sena Vale asks the player to preserve Vale Stable's place in the record. Accepti
 
 Three wins mark the stable saved. Losses do not consume the round; the same encounter remains open for a new four-pet formation.
 
+## District writs, rewards and the postgame
+
+- Four district writs (175 Court Standing each) are served on citizens across the city and stay open after the crossing closes. Registrar Orin also offers Vale Stable's next round while the player is short of the Balancing threshold, because the tournament is one of the roads to it.
+- Closing the crossing credits titles into the server-owned vault: `Pactbound`, one vow title, and `The Withheld` for every writ plus Vale Stable. Aura Stones pay 15 for the crossing, +5 for every writ and +5 for Vale Stable, and First Pact fights pay nothing else.
+- Each Aura Stone part pays once, whenever it is earned, including after the crossing has closed. `character.firstPactAuraPaid` records which parts were paid and is written in the same save mutation. Crossings closed before 2026-10-26 were not backfilled: what they had earned by then counts as paid.
+- The Standing Court is the postgame. Five sittings in a row, with a loss sending the player back to the first. Each full clear pays 400 Court Standing, and the first credits the title `Court Overruled`. The Arbiter offers the docket and any affordable findings side by side.
+- A grant credited after closing (a late writ, the stable, a Standing Court title) shows the "What the crossing left you" record with its own copy.
+
 ## Progression and recovery
 
 - Court Standing records permanent campaign and side-quest progress in the First Pact server state.
@@ -109,12 +117,12 @@ Production routes:
 - Authored 4×4 top-down environment atlas with deterministic sub-crops for non-repeating floors.
 - Purpose-built 4×4 transparent exterior architecture atlas: High Court archive, civic homes, record halls, stable and kennel compounds, market arcades and stalls, garden pavilion, Bell Tower, and cyan-lit Gateworks buildings.
 - Purpose-built transparent Grand Colosseum with a walkable central sand floor and four gates aligned to the collision-authoritative north, east, south, and west entrances.
-- Purpose-built 4×4 transparent street-dressing atlas used for eight story-relevant landmarks: an archive notice, garden fountain and tree, Vale Stable equipment, a market cart, and exposed waterworks machinery. Repeated decorative props are intentionally omitted so the public routes remain visually quiet.
+- Purpose-built 4×4 transparent street-dressing atlas used for fourteen story-relevant landmarks (`FIRST_PACT_CITY_PROPS`): among them an archive notice, garden fountain and tree, Vale Stable equipment, a market cart, exposed waterworks machinery, and the Gateworks lanterns, notice board, crates and trough. Repeated decorative props are intentionally omitted so the public routes remain visually quiet.
 - Eighteen registered architecture placements carry explicit tile collision masks derived from their rendered alpha silhouettes. Movement, click-to-path, wandering AI, and the minimap consume the same walkability result, so visible buildings cannot be crossed and transparent gaps remain part of the street network.
 - Exterior rendering uses continuous material sampling across neighboring tiles, outlined civic curbs, cyan water boundaries, a lit city-shelf edge, and a short eased camera glide. Reduced-motion users receive an immediate camera.
 - The static world cache caps coarse-pointer devices at 1× backing resolution; the visible canvas follows that cap. Battle presentation loads during squad preparation through a retrying lazy boundary, with a loading status while the arena is prepared. The city steps below the shared battle takeover while a bout is mounted so battle controls remain reachable. See the [performance review and pet RPG proposal](first-pact-performance-and-rpg-proposal-2026-10-02.md) for evidence and proposed follow-up work.
 - Battle preparation locks movement and signals an active battle to App during fresh starts, rematches and saved-session recovery. A pending start seals formation selection and closing, and late responses cannot mount after exit or an account change. Failed rematches reopen their formation; concession errors portal above the battle and retain the recovery handle until the server confirms the concession. Background pet-array updates do not cancel recovery.
-- Ten individual cast portraits covering every named static and wandering NPC.
+- Seventeen individual cast portraits: eleven for the named street cast (including the Arbiter) and six for the interior keepers, one per enterable room. The six interiors are in the High Court and the Gardens; Vale Stable has no interior.
 - Source atlases, generation briefs, and deterministic Sharp processing scripts remain beside the production assets.
 
 ## Verification
@@ -141,4 +149,4 @@ node scripts/verify-first-pact-visual.mjs http://127.0.0.1:5186
 
 The broad visual verifier is intended to cover exterior views of High Court, Guardian Gardens, Kennel Ward, Market & Scriptorium, Gateworks, Bell Quarter, the Aqueduct, and the Grand Colosseum; start/in-motion/settled camera frames; grounded player/NPC pins; desktop dialogue and Chronicle; the four-slot tournament formation; keyboard-operable mobile controls; mobile crossing and level lock; the three-option pact scene at desktop and mobile sizes; the Court's final argument; recoverable loading failure; every pact-specific epilogue callback; and desktop/mobile epilogues. It also fails on missing architecture, Colosseum, or street-dressing resources; console errors; blank canvases; missing portraits; viewport overflow in the pact scene; malformed formations; and serious or critical accessibility violations.
 
-As of the 2026-10-02 review, that broad verifier has stale render-proof and dialogue expectations and does not certify the current whole campaign. The focused battle-loading verifier above passes city deferral, formation order, guarded launch/retry, settlement, next-round rematch/retry, mobile recovery, concession error visibility/retry, and terminal receipt recovery with deterministic network fixtures and the current source engine. See the linked review for verification limits and artifacts.
+As of the 2026-10-02 review, that broad verifier has stale render-proof and dialogue expectations (the High Court render-proof key was updated to `highCourtV3` on 2026-10-26; the dialogue expectations were not re-checked) and does not certify the current whole campaign. The focused battle-loading verifier above passes city deferral, formation order, guarded launch/retry, settlement, next-round rematch/retry, mobile recovery, concession error visibility/retry, and terminal receipt recovery with deterministic network fixtures and the current source engine. See the linked review for verification limits and artifacts.

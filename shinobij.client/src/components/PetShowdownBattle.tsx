@@ -125,7 +125,7 @@ import {
     type PetVisualQuality,
     type PetVisualQualityConfig,
 } from "../lib/pet-visual-quality";
-import { SHOWDOWN_ELEMENT_BEATS, SHOWDOWN_GUARD_COST, SHOWDOWN_REST_PCT, SHOWDOWN_METER_ON_GUARDED_HIT, SHOWDOWN_METER_ON_HIT_TAKEN, SHOWDOWN_WEATHER_BOOST, SHOWDOWN_WEATHER_DAMPEN, SHOWDOWN_WEATHER_ROUNDS } from "../../../shared/pet-showdown-contract";
+import { showdownBondsFor, SHOWDOWN_ELEMENT_BEATS, SHOWDOWN_GUARD_COST, SHOWDOWN_REST_PCT, SHOWDOWN_METER_ON_GUARDED_HIT, SHOWDOWN_METER_ON_HIT_TAKEN, SHOWDOWN_WEATHER_BOOST, SHOWDOWN_WEATHER_DAMPEN, SHOWDOWN_WEATHER_ROUNDS } from "../../../shared/pet-showdown-contract";
 import type { Pet } from "../types/pet";
 import type {
     ShowdownCommand,
@@ -1798,7 +1798,7 @@ interface MenuRowSpec {
 
 /** Builds the inspector readout for one technique. Every number here is a
  *  server-sent field on the move view — nothing is recomputed client-side. */
-function moveInspector(move: ShowdownMoveView, fallbackElement: string, staminaNow: number, readiness: number): InspectorSpec {
+function moveInspector(move: ShowdownMoveView, fallbackElement: string, staminaNow: number, readiness: number, partnerNote?: string): InspectorSpec {
     const deficit = Math.max(0, move.cost - staminaNow);
     const holding = move.hold > readiness;
     const pace = move.priority > 1 ? "Fast" : move.priority < 1 ? "Slow" : "Even";
@@ -1813,9 +1813,9 @@ function moveInspector(move: ShowdownMoveView, fallbackElement: string, staminaN
         category: move.signature
             ? `Signature · ${clsLabel}`
             : `${element === "None" ? "Neutral" : element} · ${clsLabel} · ${move.kind}`,
-        description: move.synergyElement
-            ? `${move.effect} Synergy: a fielded ${move.synergyElement} ally empowers it.`
-            : move.effect,
+        description: [move.effect,
+            move.synergyElement ? `Synergy: a fielded ${move.synergyElement} ally empowers it.` : '',
+            partnerNote ?? ''].filter(Boolean).join(' '),
         stats: [
             { k: "PWR", v: move.power > 0 ? String(move.power) : "—" },
             { k: "STA", v: move.signature ? "meter" : String(move.cost) },
@@ -1841,9 +1841,11 @@ function moveInspector(move: ShowdownMoveView, fallbackElement: string, staminaN
  *  Attack/Skill submenu in front of them, which cost a tap every single round
  *  to reach the only decision the round actually asks. */
 function buildMenuRows({
-    commander, mustSwitch, moves, signature, staminaNow, meterNow, benchCount, fieldCount, commandRound,
+    commander, mustSwitch, moves, signature, staminaNow, meterNow, benchCount, fieldCount, commandRound, partnerNote,
 }: {
     commander: ShowdownPetView | null;
+    /** The commander's active role bonds, when the session seals partner rules. */
+    partnerNote?: string;
     mustSwitch: boolean;
     /** Non-signature moves, each carrying its REAL index in `commander.moves`. */
     moves: { move: ShowdownMoveView; index: number }[];
@@ -1920,7 +1922,7 @@ function buildMenuRows({
             tone: "attack",
             disabled: gate.blocked,
             action: { t: "move", moveIndex: entry.index, super: false },
-            detail: { ...moveInspector(entry.move, element, staminaNow, commander.readiness),
+            detail: { ...moveInspector(entry.move, element, staminaNow, commander.readiness, partnerNote),
                 ...(gate.reason ? { warn: gate.reason } : {}) },
         };
     });
@@ -1937,7 +1939,7 @@ function buildMenuRows({
             disabled: !ready,
             action: { t: "move", moveIndex: -1, super: true },
             detail: {
-                ...moveInspector(signature, element, staminaNow, commander.readiness),
+                ...moveInspector(signature, element, staminaNow, commander.readiness, partnerNote),
                 warn: signatureGate.reason ?? (ready ? undefined : "The signature meter is not full yet."),
             },
         });
@@ -2208,7 +2210,7 @@ const SR_ONLY: React.CSSProperties = {
 };
 
 export const PetShowdownBattle = withPetSceneRecall(PetShowdownBattleView, ['onExit', 'onRematch', 'onForfeit']);
-function PetShowdownBattleView({ initialState, playerPets, sharedImages, submitTurn, onForfeit, forfeitStatus, onFinished, onExit, onRematch, resultNote, resultTitle, exitLabel = "Leave the Showdown", hideRematch = false, eventLabel, spectator = false, reducedMotion: motionPreference, wildBinding, onRenderMode, onCommandReady, inputLocked = false, externalControls, hidePlayerHud = false, onRoundPresented }: {
+function PetShowdownBattleView({ initialState, playerPets, sharedImages, submitTurn, onForfeit, forfeitStatus, onFinished, onExit, onRematch, resultNote, resultTitle, exitLabel = "Leave the Showdown", hideRematch = false, eventLabel, spectator = false, reducedMotion: motionPreference, wildBinding, onRenderMode, onCommandReady, inputLocked = false, externalControls, hidePlayerHud = false, onRoundPresented, turnDeadline: hostTurnDeadline }: {
     eventLabel?: string;
     initialState: ShowdownStateView;
     /** The player's real roster Pets (for 3D model + art resolution). */
@@ -2236,6 +2238,10 @@ function PetShowdownBattleView({ initialState, playerPets, sharedImages, submitT
     /** The host's planning cards already display the friendly resources. */
     hidePlayerHud?: boolean;
     onRoundPresented?: (round: number) => void;
+    /** A live two-player host's planning deadline, on this browser's clock.
+     *  A round's after-state carries no deadline (the next one is set only once
+     *  both players finish playback), so the host supplies it. */
+    turnDeadline?: number;
     /** Fired once when the end event has played; settlement may carry rewards. */
     onFinished: (outcome: "win" | "loss", settlement: ShowdownTurnResponse | null) => void;
     onExit: () => void;
@@ -3251,9 +3257,18 @@ function PetShowdownBattleView({ initialState, playerPets, sharedImages, submitT
                 }
                 // Name the trait/gear that bent the number — these used to
                 // mutate damage with nothing on screen to attribute it to.
-                const firedProcs = [...new Set(event.targets.flatMap((t) => t.procs ?? []))].filter(proc => proc !== "STAB");
+                const firedProcs = [...new Set(event.targets.flatMap((t) => t.procs ?? []))].filter(proc => proc !== "STAB" && !proc.startsWith("Partner: "));
                 if (firedProcs.length && event.actorSide === "player") {
                     later(() => addPopup(event.actorId, firedProcs[0], "proc"), 180);
+                }
+                // Partner bonds read on BOTH sides, so a player learns the
+                // pairing from the rival as well. Bulwark protects the target,
+                // so its label rises over the pet it covered.
+                for (const hit of event.targets) {
+                    const bond = hit.procs?.find(proc => proc.startsWith("Partner: "));
+                    if (!bond) continue;
+                    const name = bond.slice("Partner: ".length);
+                    later(() => addPopup(name === "Bulwark" ? hit.id : event.actorId, `${name} bond`, "proc"), 320);
                 }
                 if (anySynergy && event.actorSide === "player") showBanner("SYNERGY", "effective", 850 / speed);
                 else if (bestEffect === "super") {
@@ -3567,8 +3582,11 @@ function PetShowdownBattleView({ initialState, playerPets, sharedImages, submitT
     const staminaNow = commanderDisplay?.stamina ?? commander?.stamina ?? 0;
     const meterNow = commanderDisplay?.meter ?? commander?.meter ?? 0;
     const commanderElement = commander?.element ?? "None";
+    const commanderBonds = stateView.partnerRules && commander ? showdownBondsFor(commander, livingPlayer) : [];
+    const partnerNote = commanderBonds.length ? commanderBonds.map(bond => `Partner bond ${bond.name}: ${bond.text}`).join(' ') : undefined;
     const menuRows = buildMenuRows({
         commander,
+        partnerNote,
         mustSwitch: commanderMustSwitch,
         moves: commanderMoves,
         signature: commanderSignature,
@@ -3597,7 +3615,7 @@ function PetShowdownBattleView({ initialState, playerPets, sharedImages, submitT
         : null);
     const matchupElement = phase === "command" ? showdownMatchupElement(inspectedMove, commanderElement) : undefined;
     const inspectorSpec: InspectorSpec | null = pendingMoveView && commander
-        ? moveInspector(pendingMoveView, commanderElement, staminaNow, commander.readiness)
+        ? moveInspector(pendingMoveView, commanderElement, staminaNow, commander.readiness, partnerNote)
         : pickingSwitch
             ? { title: "Switch", element: commanderElement, category: "Rotation", description: "Click the reserve you want on the field." }
             : menuRows[focusIndex]?.detail ?? null;
@@ -3874,8 +3892,8 @@ function PetShowdownBattleView({ initialState, playerPets, sharedImages, submitT
                                 </span>
                             </div>
                         )}
-                        {stateView.turnDeadline !== undefined && phase === "command" && !spectator && (
-                            <TurnTimer deadline={stateView.turnDeadline} onLapse={() => { void submitRound(draft); }} />
+                        {(hostTurnDeadline ?? stateView.turnDeadline) !== undefined && phase === "command" && !spectator && (
+                            <TurnTimer deadline={(hostTurnDeadline ?? stateView.turnDeadline)!} onLapse={() => { void submitRound(draft); }} />
                         )}
                         <div className="showdown-vs" title={stateView.enemyTeamName}>{eventLabel ?? stateView.enemyTeamName}</div>
                         <button

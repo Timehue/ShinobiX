@@ -34,6 +34,7 @@ const PREVIEW_FIRST_PACT_TITLES: Record<string, string> = {
     "shared-reason": "Reason Kept",
     "kept-future": "Future Unedited",
     thorough: "The Withheld",
+    standing: "Court Overruled",
 };
 
 const previewParams = new URLSearchParams(window.location.search);

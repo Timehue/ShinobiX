@@ -129,8 +129,6 @@ export function echoesFirstDailyWinAvailable(raw: unknown, now: number = Date.no
     return echoesRepeatWinsLeftToday(raw, now) === ECHOES_REWARD_DISPLAY.repeatWinsPerDay;
 }
 
-export const ECHOES_FLOOR_COUNT = 10;
-
 /** Player-facing landing copy for the mode. Held as DATA (not inline JSX) so it
  * rides the same canon + tone gates as the scene text: these strings are folded
  * into the tone `pages` scan and the Gate-origin `echoesPages` corpus. The

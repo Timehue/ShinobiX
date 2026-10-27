@@ -1,7 +1,6 @@
 import { expect, test, type Route } from '@playwright/test';
 import { createRequire } from 'node:module';
 import type { RankedPetMatchToken } from '../../api/pet/_ranked-authority';
-import { tacticsPreset } from '../../shared/pet-tactics-roster';
 import { expectUiAuditBoot, installUiAuditRuntime, uiAuditSave } from './helpers/ui-audit-runtime';
 
 const matchToken = '11111111-1111-4111-8111-111111111111';
@@ -183,8 +182,9 @@ for (const mode of ['active', 'completed', 'without-webgl2'] as const) {
 }
 
 test('Pet Arena queues the selected squad for a ranked match', async ({ page }) => {
-    // The Colosseum is player-controlled now: the queue sends the squad's builds,
-    // and the battle itself is played through the tactics endpoints. This covers
+    // The Colosseum is player-controlled with the players' real companions
+    // (2026-10-26): the queue sends four carried pet ids and nothing else, and
+    // the battle itself is played through the tactics endpoints. This covers
     // the queue hand-off; resolution and Elo are covered server-side by
     // api/pet/ranked-player-control.integration.test.ts.
     test.setTimeout(60_000);
@@ -200,9 +200,9 @@ test('Pet Arena queues the selected squad for a ranked match', async ({ page }) 
     }));
     save.character = { ...save.character, pets, activePetId: pets[0].id };
     const runtime = await installUiAuditRuntime(page, save);
-    const joins: Array<{ action: string; builds?: Array<{ speciesId: string; ownedPetId?: string }> }> = [];
+    const joins: Array<Record<string, unknown> & { action: string; petIds?: string[] }> = [];
     await page.route('**/api/pvp/pet-ranked-queue', route => {
-        const body = route.request().postDataJSON() as { action: string; builds?: Array<{ speciesId: string; ownedPetId?: string }> };
+        const body = route.request().postDataJSON() as Record<string, unknown> & { action: string; petIds?: string[] };
         if (body.action === 'join') { joins.push(body); return json(route, { state: 'queued' }); }
         return json(route, { state: 'idle' });
     });
@@ -218,12 +218,11 @@ test('Pet Arena queues the selected squad for a ranked match', async ({ page }) 
     const chosen = [2, 0, 3, 1];
     for (const index of chosen) await carried.filter({ hasText: pets[index].name }).click();
     await expect(findMatch).toBeEnabled({ timeout: showdownLoadTimeout });
-    await expect(page.getByRole('heading', { name: /Choose your carried companions.*4\/4 selected/ })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /Choose four companions.*4\/4 selected/ })).toBeVisible();
     await findMatch.click();
     await expect.poll(() => joins.length).toBe(1);
-    expect(joins[0].builds?.map(build => build.ownedPetId)).toEqual(chosen.map(index => pets[index].id));
-    expect(joins[0].builds?.map(build => build.speciesId))
-        .toEqual(chosen.map(index => tacticsPreset(pets[index].templateId).speciesId));
+    expect(joins[0].petIds).toEqual(chosen.map(index => pets[index].id));
+    expect(joins[0]).not.toHaveProperty('builds');
     expect(errors).toEqual([]);
 });
 

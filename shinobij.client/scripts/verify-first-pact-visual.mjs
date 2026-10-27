@@ -18,7 +18,7 @@ async function waitForExteriorArt(page) {
         requestAnimationFrame(() => requestAnimationFrame(() => resolveFrame(element.getAttribute("data-fp-render-proof"))));
     }));
     const proof = JSON.parse(await canvas.getAttribute("data-fp-render-proof") ?? "{}");
-    if (!proof.sources?.architectureAtlas || !proof.sources?.highCourtAnnex || !proof.sources?.propsAtlas || !proof.sources?.colosseum) {
+    if (!proof.sources?.architectureAtlas || !proof.sources?.highCourtV3 || !proof.sources?.propsAtlas || !proof.sources?.colosseum) {
         throw new Error(`decoded exterior-art proof is incomplete: ${JSON.stringify(proof.sources)}`);
     }
 }

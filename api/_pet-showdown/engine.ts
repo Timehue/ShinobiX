@@ -62,6 +62,9 @@ import {
     SHOWDOWN_SUPER_POWER_MULT,
     SHOWDOWN_SUPER_SPLASH_SCALE,
     SHOWDOWN_SYNERGY_MULT,
+    SHOWDOWN_PARTNER_BULWARK_TAKEN_MULT,
+    SHOWDOWN_PARTNER_HUNT_MARK_MULT,
+    SHOWDOWN_PARTNER_SANCTUARY_MULT,
     SHOWDOWN_STAB_MULT,
     SHOWDOWN_MAX_STATUSES,
     SHOWDOWN_WEATHER_ROUNDS,
@@ -215,6 +218,9 @@ export interface ShowdownPet {
     moves: ShowdownMove[];
     /** The full-meter finisher — excluded from the normal move list. */
     signatureMove: ShowdownMove;
+    /** Live Pet Arena only: the owner's collar and palette, sealed from the
+     *  save so the opponent sees the real companion. Absent everywhere else. */
+    appearance?: { collarId?: string; paletteVariantId?: string };
 }
 
 export interface ShowdownSession {
@@ -242,8 +248,22 @@ export interface ShowdownSession {
     /** Sealed at start: a live player-vs-player session. Turns the endpoint's
      *  45s command timer on (SHOWDOWN_PVP_TURN_SECONDS) — the engine itself
      *  never reads a clock, so the deadline bookkeeping lives endpoint-side
-     *  (`turnDeadlineAt` below). False for every AI entry. */
+     *  (`turnDeadlineAt` below). True for Pet Arena rooms
+     *  (api/_pet-tactics/arena-showdown.ts); false for every AI entry. */
     pvp: boolean;
+    /** Sealed at start on live fights from 2026-10-26: the role partner bonds
+     *  (SHOWDOWN_PARTNER_BONDS) apply, and the AI also values ally element
+     *  synergy. Absent on older sessions and on stored-input war duels, which
+     *  therefore resolve and replay exactly as before. */
+    partnerRules?: boolean;
+    /** Live PvP only: both teams fell in the same tick. `outcome` stays
+     *  'loss' (the contract has no draw); the Pet Arena room reads this flag
+     *  and records a draw. Never set outside `pvp`. */
+    pvpDraw?: boolean;
+    /** Live PvP only: the enemy seat's "technique unavailable" notes, kept
+     *  apart from `commandFeedback` (the player seat's) so neither player
+     *  reads the other's. */
+    enemyCommandFeedback?: string[];
     /** Endpoint-maintained epoch-ms deadline for the CURRENT round's orders.
      *  Only meaningful while `pvp`; the engine ignores it entirely. */
     turnDeadlineAt?: number;
@@ -1277,6 +1297,35 @@ function affordable(moves: ShowdownMove[], maxStamina: number): ShowdownMove[] {
     return moves.map((m) => (m.cost > ceiling ? { ...m, cost: ceiling } : m));
 }
 
+/** Seal one team: the first `format`-size pets field, the rest bench. Live
+ *  Pet Arena seals each seat's team on its own (the creator's before the
+ *  challenger arrives), so this is exported apart from createShowdownSession. */
+export function sealShowdownTeam(
+    pets: Pet[],
+    format: ShowdownFormat,
+    rulesetVersion: NonNullable<ShowdownSession['rulesetVersion']>,
+    commitConsumables: boolean,
+): ShowdownPet[] {
+    const size = SHOWDOWN_FORMAT_SIZE[format];
+    return pets.slice(0, SHOWDOWN_MAX_TEAM_ANY).map((raw, i) => {
+        const sealed = { ...sealShowdownPet(raw, rulesetVersion), benched: i >= size };
+        // Gear proc: Aegis-style start shields raise before round one.
+        if (sealed.gear?.shieldStartPctOfHp) {
+            sealed.statuses = [{
+                kind: 'shield', rounds: 99, bornRound: 0,
+                magnitude: Math.round(sealed.maxHp * sealed.gear.shieldStartPctOfHp / 100),
+            }];
+        }
+        // Entering a fight that can PAY commits the one-use item, the same
+        // way summoning into a PvE fight does (api/pet/_progress.ts). A
+        // practice fight keeps it: the charges still fire, so a build can
+        // be tested, but burning a 1,600-ryo item for a mode that pays
+        // nothing would make equipping one strictly irrational.
+        if (commitConsumables && sealed.consumable) sealed.consumableSpent = true;
+        return sealed;
+    });
+}
+
 export function createShowdownSession(input: {
     sessionId: string;
     playerName: string;
@@ -1292,37 +1341,24 @@ export function createShowdownSession(input: {
      *  burns the items this commits (showdownConsumableSpends); practice,
      *  Hollow Gate, wanderer and the other unpaid entries pass false. */
     rewardEligible: boolean;
-    /** Live player-vs-player. Arms the endpoint's 45s command timer; every
-     *  caller today is an AI entry and omits it. */
+    /** Live player-vs-player. Arms the endpoint's 45s command timer. Pet Arena
+     *  rooms pass true; AI entries omit it. */
     pvp?: boolean;
     damageRules?: ShowdownSession['damageRules'];
     rulesetVersion?: ShowdownSession['rulesetVersion'];
+    /** Live entries pass true. Stored-input replays never do, so their
+     *  re-derived fights stay byte-identical. Ignored outside progression-v3. */
+    partnerRules?: boolean;
 }): ShowdownSession {
     const rulesetVersion = input.rulesetVersion ?? (input.damageRules === 'legacy-v1' ? 'legacy-v2' : 'progression-v3');
-    const size = SHOWDOWN_FORMAT_SIZE[input.format];
     const sealTeam = (pets: Pet[], commitConsumables: boolean): ShowdownPet[] =>
-        pets.slice(0, SHOWDOWN_MAX_TEAM_ANY).map((raw, i) => {
-            const sealed = { ...sealShowdownPet(raw, rulesetVersion), benched: i >= size };
-            // Gear proc: Aegis-style start shields raise before round one.
-            if (sealed.gear?.shieldStartPctOfHp) {
-                sealed.statuses = [{
-                    kind: 'shield', rounds: 99, bornRound: 0,
-                    magnitude: Math.round(sealed.maxHp * sealed.gear.shieldStartPctOfHp / 100),
-                }];
-            }
-            // Entering a fight that can PAY commits the one-use item, the same
-            // way summoning into a PvE fight does (api/pet/_progress.ts). A
-            // practice fight keeps it: the charges still fire, so a build can
-            // be tested, but burning a 1,600-ryo item for a mode that pays
-            // nothing would make equipping one strictly irrational.
-            if (commitConsumables && sealed.consumable) sealed.consumableSpent = true;
-            return sealed;
-        });
+        sealShowdownTeam(pets, input.format, rulesetVersion, commitConsumables);
     return {
         sessionId: input.sessionId,
         damageRules: input.damageRules ?? 'response-v2',
         rulesetVersion,
         ...(rulesetVersion === 'progression-v3' ? { participationIds: [] } : {}),
+        ...(rulesetVersion === 'progression-v3' && input.partnerRules === true ? { partnerRules: true } : {}),
         playerName: input.playerName,
         format: input.format,
         tier: input.tier,
@@ -1523,6 +1559,18 @@ type Side = 'player' | 'enemy';
 
 
 /** Living FIELD pets — the ones who can act and be targeted. */
+function sideOfPet(session: ShowdownSession, pet: ShowdownPet): Side {
+    return session.player.some(p => p.id === pet.id) ? 'player' : 'enemy';
+}
+
+/** Whether `pet` has a living, fielded ally of `partnerRole` under sealed
+ *  partner rules. Matched by id, so the AI's cloned forecasts agree with the
+ *  engine. Exported for the AI's support scoring. */
+export function showdownPartnerBondActive(session: ShowdownSession, pet: ShowdownPet, partnerRole: string): boolean {
+    if (!session.partnerRules || pet.ko || pet.benched) return false;
+    return livingOf(session, sideOfPet(session, pet)).some(ally => ally.id !== pet.id && ally.role === partnerRole);
+}
+
 function livingOf(session: ShowdownSession, side: Side): ShowdownPet[] {
     return (side === 'player' ? session.player : session.enemy).filter((p) => !p.ko && !p.benched);
 }
@@ -1856,9 +1904,19 @@ function rawDamage(session: ShowdownSession, attacker: ShowdownPet, defender: Sh
     // Mark: the stored bonus hit is consumed by the first damage that lands.
     const mark = defender.statuses.find((s) => s.kind === 'mark');
     if (mark) {
-        mult *= 1.25;
+        // Hunt (partner rules): an Assassin beside a Tracker cashes it harder.
+        const hunt = attacker.role === 'assassin' && showdownPartnerBondActive(session, attacker, 'tracker');
+        mult *= hunt ? SHOWDOWN_PARTNER_HUNT_MARK_MULT : 1.25;
         defender.statuses = defender.statuses.filter((s) => s !== mark);
         procs?.push('Mark');
+        if (hunt) procs?.push('Partner: Hunt');
+    }
+    // Bulwark (partner rules): a guarding Defender covers its Assassin partner
+    // against direct techniques. Ticks and reflects carry no move and are not covered.
+    if (move && defender.role === 'assassin' && session.partnerRules && !defender.ko && !defender.benched
+        && livingOf(session, sideOfPet(session, defender)).some(ally => ally.id !== defender.id && ally.role === 'defender' && ally.guarding)) {
+        mult *= SHOWDOWN_PARTNER_BULWARK_TAKEN_MULT;
+        procs?.push('Partner: Bulwark');
     }
     // Price extreme low-level bursts and all-level ultimates before Guard,
     // so a healthy opponent gets a response and guarding still halves the
@@ -1900,7 +1958,11 @@ export function estimateShowdownMoveDamage(session: ShowdownSession, attacker: S
     const forecast = { ...session, rng: 0 };
     const factor = KIND_FX[move.kind]?.mult ?? 1;
     const power = Math.round(move.power * factor * (superCast && session.rulesetVersion !== 'progression-v3' ? SHOWDOWN_SUPER_POWER_MULT : 1));
-    const raw = rawDamage(forecast, actor, target, power, 1, undefined, move, superCast);
+    // Under partner rules the AI also sees the ally element synergy the real
+    // hit will get (older sessions keep their original, synergy-blind choices).
+    const synergy = session.partnerRules && !!move.synergyElement && livingOf(session, sideOfPet(session, attacker))
+        .some(ally => ally.id !== attacker.id && ally.element === move.synergyElement);
+    const raw = rawDamage(forecast, actor, target, power, synergy ? tableMult(TRAIT_FX.synergyMult, traitOf(attacker), SHOWDOWN_SYNERGY_MULT) : 1, undefined, move, superCast);
     const shield = target.statuses.filter(s => s.kind === 'shield').reduce((sum, s) => sum + s.magnitude, 0);
     return Math.max(0, Math.round(raw * (1 - (target.consumable?.mitigate ?? 0) / 100)) - shield);
 }
@@ -1967,6 +2029,8 @@ function executeMove(
     // the action event so the script reads blow-then-save.
     const reactions: ShowdownEvent[] = [];
     const teamBudget = progression && superCast ? 1 / (1 + Math.max(0, livingOf(session, actorSide === 'player' ? 'enemy' : 'player').length - 1) * .35) : 1;
+    // Sanctuary (partner rules): a Sage's heal and own shield beside a Defender.
+    const sanctuary = actor.role === 'sage' && showdownPartnerBondActive(session, actor, 'defender');
     let drainRemaining = actor.maxHp * .1;
     const healFromHit = (amount: number) => {
         const healed = applyHeal(actor, progression ? Math.min(drainRemaining, amount) : amount, session.round);
@@ -2140,11 +2204,12 @@ function executeMove(
         switch (stored) {
             case 'buff': addStatus(session, actor, 'buff', move.power > 150 ? 3 : 2, mastery.buffMult); break;
             case 'haste': addStatus(session, actor, 'haste', 2, mastery.buffMult); break;
-            case 'shield': addStatus(session, actor, 'shield', 2, progression ? Math.round(actor.maxHp * mastery.shieldPct) : Math.max(40, Math.round(power * 1.05))); break;
+            case 'shield': addStatus(session, actor, 'shield', 2, progression ? Math.round(actor.maxHp * mastery.shieldPct * (sanctuary ? SHOWDOWN_PARTNER_SANCTUARY_MULT : 1)) : Math.max(40, Math.round(power * 1.05))); break;
             case 'taunt': addStatus(session, actor, 'taunt', mastery.tauntRounds, 1); break;
             case 'tauntGuard': addStatus(session, actor, 'tauntGuard', mastery.tauntRounds, mastery.tauntGuardMult); break;
         }
-        targets.push({ id: actor.id, damage: 0, heal: 0, effectiveness: 'neutral', guarded: false, ko: false, applied: stored });
+        targets.push({ id: actor.id, damage: 0, heal: 0, effectiveness: 'neutral', guarded: false, ko: false, applied: stored,
+            ...(sanctuary && stored === 'shield' && progression ? { procs: ['Partner: Sanctuary'] } : {}) });
     } else if (kind === 'heal') {
         const ally = resolveAllyTarget(session, actorSide, action.targetId, actor);
         targetId = ally.id;
@@ -2155,8 +2220,9 @@ function executeMove(
         // 0.7pt while pushing judged matches 5.3% -> 8.0%, so sustain is not
         // what holds that role back — its 43 attack is (see ROLE_DAMAGE_MULT).
         const sageBonus = actor.role === 'sage' ? SAGE_HEAL_MULT : 1;
-        const healed = applyHeal(ally, ally.maxHp * (progression ? mastery.healPct : Math.min(0.3, (Math.max(60, power) / 700) * sageBonus)), session.round);
-        targets.push({ id: ally.id, damage: 0, heal: healed, effectiveness: 'neutral', guarded: false, ko: false, applied: 'heal' });
+        const healed = applyHeal(ally, ally.maxHp * (progression ? mastery.healPct : Math.min(0.3, (Math.max(60, power) / 700) * sageBonus)) * (sanctuary ? SHOWDOWN_PARTNER_SANCTUARY_MULT : 1), session.round);
+        targets.push({ id: ally.id, damage: 0, heal: healed, effectiveness: 'neutral', guarded: false, ko: false, applied: 'heal',
+            ...(sanctuary && healed > 0 ? { procs: ['Partner: Sanctuary'] } : {}) });
     } else {
         const target = resolveTarget(session, actorSide, action.targetId);
         targetId = target?.id;
@@ -2357,6 +2423,20 @@ function finish(session: ShowdownSession, outcome: ShowdownOutcome, events: Show
     events.push({ t: 'end', outcome });
 }
 
+/** End the fight if a side has no living pet. Outside PvP the enemy side is
+ *  checked first, which hands a mutual wipe to the player, as it always has
+ *  (sealed replays depend on it). Between two players that would hand the
+ *  match to whoever sits in seat A, so a mutual wipe is a draw there. */
+function finishIfDefeated(session: ShowdownSession, events: ShowdownEvent[]): void {
+    const enemyDown = sideDefeated(session, 'enemy');
+    const playerDown = sideDefeated(session, 'player');
+    if (session.pvp && enemyDown && playerDown) {
+        session.pvpDraw = true;
+        finish(session, 'loss', events);
+    } else if (enemyDown) finish(session, 'win', events);
+    else if (playerDown) finish(session, 'loss', events);
+}
+
 /**
  * Resolve one full round: both sides' commands execute in speed order, then
  * end-of-round upkeep (DoTs, status decay, stamina regen).
@@ -2448,8 +2528,10 @@ export function resolveShowdownRound(
         .map((entry) => {
             const requested = commandFor(entry.pet, entry.side);
             const command = sanitizeCommand(session, entry.pet, requested);
-            if (session.rulesetVersion === 'progression-v3' && entry.side === 'player' && command !== requested) {
-                session.commandFeedback?.push(`${entry.pet.name}: that technique is unavailable. Guard was used instead.`);
+            if (session.rulesetVersion === 'progression-v3' && command !== requested) {
+                const note = `${entry.pet.name}: that technique is unavailable. Guard was used instead.`;
+                if (entry.side === 'player') session.commandFeedback?.push(note);
+                else if (session.pvp) (session.enemyCommandFeedback ??= []).push(note);
             }
             return {
                 ...entry,
@@ -2524,8 +2606,7 @@ export function resolveShowdownRound(
         // ('switch' never reaches here: successful swaps left the order, and
         // sanitizeCommand downgrades a failed swap to guard above.)
 
-        if (sideDefeated(session, 'enemy')) { finish(session, 'win', events); }
-        else if (sideDefeated(session, 'player')) { finish(session, 'loss', events); }
+        finishIfDefeated(session, events);
     }
 
     // ── End-of-round upkeep ──────────────────────────────────────────────────
@@ -2564,8 +2645,7 @@ export function resolveShowdownRound(
             // Hold timers tick for EVERYONE, field or bench (the reference rule).
             for (const pet of livingTeam(session, side)) pet.readiness += 1;
         }
-        if (sideDefeated(session, 'enemy')) finish(session, 'win', events);
-        else if (sideDefeated(session, 'player')) finish(session, 'loss', events);
+        finishIfDefeated(session, events);
     }
 
     // ── Reinforcements: the bench fills empty field slots at round end ──────
@@ -2606,8 +2686,7 @@ export function resolveShowdownRound(
                     for (const reaction of reactions) events.push(reaction);
                 }
             }
-            if (sideDefeated(session, 'enemy')) finish(session, 'win', events);
-            else if (sideDefeated(session, 'player')) finish(session, 'loss', events);
+            finishIfDefeated(session, events);
         }
     }
 
@@ -2688,6 +2767,7 @@ function petView(pet: ShowdownPet): ShowdownPetView {
         role: pet.role,
         rarity: pet.rarity,
         ...(pet.templateId ? { templateId: pet.templateId } : {}),
+        ...(pet.appearance ? { appearance: { ...pet.appearance } } : {}),
         level: pet.level,
         ...(progression ? { attack: pet.attack, defense: pet.defense, spAttack: pet.spAttack, spDefense: pet.spDefense } : {}),
         hp: Math.round(pet.hp),
@@ -2737,6 +2817,7 @@ function petView(pet: ShowdownPet): ShowdownPetView {
 export function showdownStateView(session: ShowdownSession): ShowdownStateView {
     return {
         ...(session.rulesetVersion === 'progression-v3' ? { rulesetVersion: session.rulesetVersion, commandFeedback: session.commandFeedback ?? [] } : {}),
+        ...(session.partnerRules ? { partnerRules: true } : {}),
         damageRules: session.damageRules ?? 'legacy-v1',
         sessionId: session.sessionId,
         format: session.format,

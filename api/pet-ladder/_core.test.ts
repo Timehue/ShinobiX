@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-    resolveColiseum, resolveTactical, buildOffer, canChallenge, applyChallenge,
+    resolveColiseum, resolveLadderWarfront, buildOffer, canChallenge, applyChallenge,
     chooseOwnedLadderPets, ladderRoles, snapshotLadderPet, CLIMB_BAND, OFFER_SIZE,
     type LadderPet, type LadderEntry, type DefenseDoc, type OfferOpponent,
 } from "./_core.js";
@@ -10,7 +10,7 @@ import { petStatCeil } from "../_pet-stat-ceil.js";
 /*
  * Pet-ladder core. Also the server-side smoke test that the resolution engines
  * load + run in the server build: resolveColiseum runs the Showdown engine
- * (api/_pet-showdown/) and resolveTactical runs the Beastbound Warfront Rite.
+ * (api/_pet-showdown/) and resolveLadderWarfront runs the Beastbound Warfront Rite.
  * Determinism + stronger-wins are the invariants both must hold; the offer/swap
  * logic guards the Sword-x-Staff ladder math.
  */
@@ -52,11 +52,12 @@ test("resolveColiseum: equipped PvP gear is applied (wins more over many seeds)"
     assert.ok(wins(true) > wins(false), `gear should win more (off=${wins(false)}, on=${wins(true)})`);
 });
 
-test("resolveTactical: deterministic, and a clearly stronger team wins", () => {
+test("resolveLadderWarfront: deterministic, and a clearly stronger team wins", () => {
     const strong = team("S", 2), weak = team("W", 0.5);
-    assert.equal(resolveTactical(strong, weak, 7), true);
-    assert.equal(resolveTactical(weak, strong, 7), false);
-    assert.equal(resolveTactical(strong, weak, 99), resolveTactical(strong, weak, 99));
+    const blueWins = (a: DefenseDoc, b: DefenseDoc, seed: number) => resolveLadderWarfront(a, b, seed).winner === "blue";
+    assert.equal(blueWins(strong, weak, 7), true);
+    assert.equal(blueWins(weak, strong, 7), false);
+    assert.equal(blueWins(strong, weak, 99), blueWins(strong, weak, 99));
 });
 
 // ── offer matchmaking ─────────────────────────────────────────────────────────

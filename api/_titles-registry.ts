@@ -88,14 +88,31 @@ export const KAGE_LIBERATOR_TITLES: Readonly<Record<string, string>> = {
  *  crossing itself; the three vow titles record which answer the player gave
  *  the Court, so a second run through a different vow earns a different one;
  *  `The Withheld` is the run that also answered every district writ and kept
- *  Vale Stable on the ledger. */
+ *  Vale Stable on the ledger. `Court Overruled` is the postgame: one full
+ *  Standing Court challenge won after the crossing. */
 export const FIRST_PACT_TITLES: Readonly<Record<string, string>> = {
     complete: 'Pactbound',
     'open-road': 'Road Unclosed',
     'shared-reason': 'Reason Kept',
     'kept-future': 'Future Unedited',
     thorough: 'The Withheld',
+    standing: 'Court Overruled',
+    // Postgame (2026-10-26): Orin's Stable Exhibition and the Court Replays.
+    exhibition: 'Stable Champion',
+    unbent: 'Unbent',
+    'iron-docket': 'Iron Docket',
 };
+
+/** Echoes of War's completion title — server-credited by
+ *  card-clash/echoes-witness when the fourth age's witness record is sealed,
+ *  into the serverTitles vault. No currency rides with it. */
+export const ECHOES_TITLES: Readonly<Record<string, string>> = {
+    chapterOne: 'Chronicler of the Sunken Court',
+};
+
+/** Keeper's Path's first full run -- server-credited by card-clash/ai-move in
+ *  the same write as the run's last settlement. */
+export const KEEPER_PATH_TITLE = 'Pathbreaker';
 
 /** Every title the game can grant, lowercased for comparisons. */
 export const KNOWN_EARNED_TITLES: ReadonlySet<string> = new Set([
@@ -105,6 +122,8 @@ export const KNOWN_EARNED_TITLES: ReadonlySet<string> = new Set([
     ...ERA_CHAPTERS.map(chapter => chapter.rewardTitle),
     ...Object.values(KAGE_LIBERATOR_TITLES),
     ...Object.values(FIRST_PACT_TITLES),
+    ...Object.values(ECHOES_TITLES),
+    KEEPER_PATH_TITLE,
     ...SUNSCAR_TITLES,
     ...PLAY_GAMES_REWARD_TITLES,
 ].map((t) => t.toLowerCase()));
@@ -156,11 +175,11 @@ const LIBERATOR_TITLE_SET: ReadonlySet<string> = new Set(
     Object.values(KAGE_LIBERATOR_TITLES).map((t) => t.toLowerCase()),
 );
 
-/** First Pact titles, lowercased. Like era and liberator titles they are only
+/** First Pact and Echoes of War titles, lowercased. Like era and liberator titles they are only
  *  ever written into the server-owned vault, so a tampered save cannot wear
  *  one by listing it in the client-writable earnedTitles. */
 const FIRST_PACT_TITLE_SET: ReadonlySet<string> = new Set(
-    Object.values(FIRST_PACT_TITLES).map((t) => t.toLowerCase()),
+    [...Object.values(FIRST_PACT_TITLES), ...Object.values(ECHOES_TITLES), KEEPER_PATH_TITLE].map((t) => t.toLowerCase()),
 );
 const PLAY_GAMES_REWARD_TITLE_SET: ReadonlySet<string> = new Set(
     PLAY_GAMES_REWARD_TITLES.map((title) => title.toLowerCase()),

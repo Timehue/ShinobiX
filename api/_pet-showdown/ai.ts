@@ -22,10 +22,11 @@ import {
     SHOWDOWN_ELEMENT_BEATS,
     SHOWDOWN_GUARD_COST,
     SHOWDOWN_METER_MAX,
+    SHOWDOWN_PARTNER_SANCTUARY_MULT,
     type ShowdownCommand,
     type ShowdownTier,
 } from '../../shared/pet-showdown-contract.js';
-import { estimateShowdownMoveDamage, nextRand, SELF_KINDS, showdownPetSpeed, storedStatusKind, type ShowdownMove, type ShowdownPet, type ShowdownSession } from './engine.js';
+import { estimateShowdownMoveDamage, nextRand, SELF_KINDS, showdownPartnerBondActive, showdownPetSpeed, storedStatusKind, type ShowdownMove, type ShowdownPet, type ShowdownSession } from './engine.js';
 
 // Local deterministic sampler for team generation (session rng not built yet).
 function makeRand(seed: number): () => number {
@@ -523,6 +524,8 @@ function choosePetCommand(
     // and became 24.8% of all AI commands — more than plain damage.
     const foeStatuses = new Map(target.statuses.map((s) => [s.kind, s]));
     const selfStatuses = new Map(pet.statuses.map((s) => [s.kind, s]));
+    // Sanctuary (partner rules): a Sage beside a Defender heals and shields more.
+    const sanctuary = pet.role === 'sage' && showdownPartnerBondActive(session, pet, 'defender') ? SHOWDOWN_PARTNER_SANCTUARY_MULT : 1;
     const best = affordable
         .map(({ m, i }) => {
             let score = m.power * (elementBeats(pet.element, target.element) ? 1.3 : 1);
@@ -574,7 +577,7 @@ function choosePetCommand(
                 const stored = storedStatusKind(m.kind, session.format, foes.length);
                 const held = (SELF_KINDS.has(m.kind) ? selfStatuses : foeStatuses).has(stored);
                 if (['stun', 'freeze', 'confuse'].includes(m.kind)) score += foeStatuses.has('steadfast') || held ? 0 : m.kind === 'stun' ? 38 : 22;
-                else if (m.kind === 'heal') score = worstAllyHp < .8 ? Math.min(.175, 1 - worstAllyHp) * 300 : -100;
+                else if (m.kind === 'heal') score = worstAllyHp < .8 ? Math.min(.175 * sanctuary, 1 - worstAllyHp) * 300 : -100;
                 else if (['shield', 'barrier', 'absorb'].includes(m.kind)) {
                     const pool = selfStatuses.get('shield')?.magnitude ?? 0;
                     const incoming = Math.max(0, ...foes
@@ -583,7 +586,7 @@ function choosePetCommand(
                             ...foe.moves.filter(move => readyForAi(session, foe, move) && move.cost <= foe.stamina),
                             ...(signatureReadyForAi(session, foe) ? [foe.signatureMove] : []),
                         ].map(move => estimateShowdownMoveDamage(session, foe, pet, move, move === foe.signatureMove))));
-                    score = Math.max(0, Math.min(pet.maxHp * .225 - pool, incoming)) / pet.maxHp * (pet.hp / pet.maxHp < .4 ? 330 : 220);
+                    score = Math.max(0, Math.min(pet.maxHp * .225 * sanctuary - pool, incoming)) / pet.maxHp * (pet.hp / pet.maxHp < .4 ? 330 : 220);
                 } else if (m.kind === 'haste' || m.kind === 'move') {
                     // A speed setup buys tempo only if it reverses an actual
                     // matchup. Recasting it or remaining on the same side of

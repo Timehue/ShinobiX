@@ -467,10 +467,6 @@ export function firstPactInteriorNpcLines(
     return npc.stepLines?.find((entry) => entry.step === mainStep)?.lines ?? npc.lines;
 }
 
-export function firstPactInterior(id: string): FirstPactInterior | null {
-    return FIRST_PACT_INTERIORS.find((interior) => interior.id === id) ?? null;
-}
-
 /** The room a world tile opens into, or null for ordinary ground. */
 export function firstPactInteriorAtDoor(point: FirstPactPoint): FirstPactInterior | null {
     return BY_DOOR.get(`${point.x},${point.y}`) ?? null;

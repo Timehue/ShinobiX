@@ -129,13 +129,13 @@ export const QUEST_BOOK: Record<string, QuestBookEntry> = {
             { key: "silencer", text: "Defeat Shirakawa and both members of the erasure team using this quest's Fight button to protect the signaler.", metric: "totalAiKills", count: 1, bossId: "hunter-shirakawa" },
         ],
     },
-    // Q4 — pet-mode campaign. Scales to the player's pets; ends on a mythic boss pet.
+    // Q4 — pet-mode campaign: four rewarded pet wins over two stages, no boss fight.
     "qb-gauntlet": {
         id: "qb-gauntlet", title: "The Colosseum Gauntlet", giver: "Tamer Tomoe",
         bandMin: 1, bandMax: 100, weight: 9, fateShards: 1, award: "Beast-Crowned",
         stages: [
-            { key: "gauntlet", text: "Win 3 pet battles to prepare your companion for Tomoe's gauntlet.", metric: "totalPetWins", count: 3 },
-            { key: "stormhound", text: "Win 1 more pet battle against any opponent to finish Tomoe's gauntlet. You can find a match in the Pet Colosseum.", metric: "totalPetWins", count: 1 },
+            { key: "gauntlet", text: "Win 3 rewarded pet battles to prepare your companion for Tomoe's gauntlet.", metric: "totalPetWins", count: 3 },
+            { key: "stormhound", text: "Win 1 more rewarded pet battle to finish Tomoe's gauntlet. Pet Colosseum wins count until its daily reward limit; practice fights do not.", metric: "totalPetWins", count: 1 },
         ],
     },
     // Q5 — band any, MEDIUM. Card-flavored but cheat-safe: the real reward hangs on a

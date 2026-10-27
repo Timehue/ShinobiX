@@ -100,8 +100,8 @@ export const QUEST_BOOK: Record<string, QuestBookEntry> = {
         id: "qb-gauntlet", title: "The Colosseum Gauntlet", giver: "Tamer Tomoe",
         bandMin: 1, bandMax: 100, weight: 9, fateShards: 1, award: "Beast-Crowned",
         stages: [
-            { key: "gauntlet",   text: "Win 3 pet battles to prepare your companion for Tomoe's gauntlet.", metric: "totalPetWins", count: 3 },
-            { key: "stormhound", text: "Win 1 more pet battle against any opponent to finish Tomoe's gauntlet. You can find a match in the Pet Colosseum.", metric: "totalPetWins", count: 1 },
+            { key: "gauntlet",   text: "Win 3 rewarded pet battles to prepare your companion for Tomoe's gauntlet.", metric: "totalPetWins", count: 3 },
+            { key: "stormhound", text: "Win 1 more rewarded pet battle to finish Tomoe's gauntlet. Pet Colosseum wins count until its daily reward limit; practice fights do not.", metric: "totalPetWins", count: 1 },
         ],
     },
     "qb-debt": {

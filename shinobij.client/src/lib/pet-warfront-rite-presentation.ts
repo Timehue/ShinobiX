@@ -408,35 +408,3 @@ export function livingActors(result: DuelResult, t: number): Array<{ team: "play
         .filter((actor) => actor.hp > 0)
         .map((actor) => ({ team: actor.team, lane: actor.slot }));
 }
-
-/** Every actor in the clash, alive or not — the renderer mounts one rig each. */
-export function clashRoster(result: DuelResult): Array<{ team: "player" | "enemy"; lane: number }> {
-    const first = result.snapshots[0];
-    return (first?.actors ?? []).map((actor) => ({ team: actor.team, lane: actor.slot }));
-}
-
-/**
- * The centre and radius of the LIVING action at `t`.
- *
- * A squad clash has no single pair to frame, so the camera tracks the cloud of
- * fighters still standing: as pets fall the shot naturally tightens onto what is
- * left, which is the behaviour a hand-placed camera would need scripting to get.
- */
-export function actionFocus(result: DuelResult, t: number): { x: number; z: number; radius: number; count: number } {
-    const living = livingActors(result, t);
-    if (!living.length) return { x: 0, z: 0, radius: 3, count: 0 };
-    let sx = 0;
-    let sz = 0;
-    const points: Array<{ x: number; z: number }> = [];
-    for (const who of living) {
-        const pose = sampleActor(result, who.team, who.lane, t);
-        points.push({ x: pose.x, z: pose.z });
-        sx += pose.x;
-        sz += pose.z;
-    }
-    const cx = sx / points.length;
-    const cz = sz / points.length;
-    let radius = 0;
-    for (const p of points) radius = Math.max(radius, Math.hypot(p.x - cx, p.z - cz));
-    return { x: cx, z: cz, radius, count: points.length };
-}

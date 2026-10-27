@@ -24,8 +24,9 @@
  * Every band at 50+ behaves EXACTLY as it did before this module existed. The
  * new penalties bite only below 50, which is somewhere a maintained pet never
  * goes: the decay is 10/day and the free budget alone restores 50/day. A pet
- * pinned at 100 sits at 50 (still restless, still unpenalised) after five
- * ignored days; the first penalty lands on the SIXTH, at 40.
+ * pinned at 100 sits at 50 (still restless, with only the old 35% disobedience
+ * below 71) after five ignored days; the first NEW penalty lands on the SIXTH,
+ * at 40.
  *
  *   content    80-100  train x1.15   combat x1.00   disobey  0%   (unchanged)
  *   steady     71-79   train x1.05   combat x1.00   disobey  0%   (unchanged)
@@ -71,12 +72,10 @@ export const PET_HAPPINESS_PET_GAIN = 10;
  *   - It must exceed PET_HAPPINESS_DAILY_DECAY, or the loop is unwinnable for a
  *     player with no treats. A player who opens the Pet Yard daily never loses
  *     ground; the pressure comes from SKIPPING days, not from a daily chore.
- *   - It must not be lower than 5 interactions. The breeding elemental-bond
- *     requirement (`elemental-bond:interaction:5` in _breeding-requirements.ts)
- *     asks for five pet interactions with a matching-element companion, and a
- *     player who owns exactly one such pet must still be able to clear it in a
- *     day — rationing petting harder would silently slow breeding down, which is
- *     not what this mechanic is for.
+ *   - It must not be lower than 5 interactions. It was first sized for a
+ *     breeding requirement of five interactions in a day; that requirement is
+ *     retired, but five a day remains the floor: +50 lifts even a pet at 0 out
+ *     of the unhappy and neglected bands in a single day.
  */
 export const PET_HAPPINESS_DAILY_PET_BUDGET = 50;
 
@@ -177,11 +176,14 @@ export function petHappinessTrainingMult(happiness: number): number {
 }
 
 /**
- * One-line "what is this costing me?" for the Pet Yard. Empty above 50.
+ * One-line "what is this costing me?" for the Pet Yard. Empty at 71 and above,
+ * where a companion always obeys. Restless pets (every new pet starts there at
+ * 60) already ignore a third of their battle commands, so they get a line too.
  * Deliberately does NOT restate the tier name — the UI already shows it.
  */
 export function petHappinessPenaltyNote(happiness: number): string {
     const tier = petHappinessTier(happiness);
+    if (tier === 'restless') return 'It ignores about a third of your commands in battle.';
     if (tier === 'unhappy') return 'It ignores half your commands in battle and strikes for 10% less.';
     if (tier === 'neglected') return 'It ignores most commands in battle, strikes for 20% less, and trains 15% slower.';
     return '';

@@ -124,6 +124,7 @@ export const EXPECTED_RUNTIME_MODE_CONTRACTS = deepFreeze([
   C('card-clash-freeplay', [route('/card-clash/queue', 'lifecycle+start'), route('/card-clash/challenge', 'lifecycle+start'), route('/card-clash/match', 'action+settlement+state')]),
   C('card-clash-ai', [route('/card-clash/ai-start', 'start'), route('/card-clash/ai-move', 'action+settlement+state')]),
   C('echoes-of-war', [route('/card-clash/ai-start', 'start'), route('/card-clash/ai-move', 'action+settlement+state')]),
+  C('keeper-path', [route('/card-clash/keeper-run', 'lifecycle+start+state'), route('/card-clash/ai-start', 'start'), route('/card-clash/ai-move', 'action+settlement+state')]),
   C('dungeon-card', [route('/card-clash/ai-start', 'start'), route('/card-clash/ai-move', 'action+settlement+state'), route('/dungeon/run', 'settlement')]),
   C('hollow-gate-rift-card', [route('/hollow-gate/card-start', 'recovery+start'), route('/card-clash/ai-move', 'action+settlement+state'), route('/hollow-gate/card-settle', 'settlement')]),
 ]);
@@ -195,10 +196,10 @@ export const EXPECTED_RUNTIME_MODE_FACTS = deepFreeze({
   'pet-arena-ai-1v1': F(null, 'pet-cinematic-duel', 'solo', 'none', 'surface-gap'),
   'pet-arena-ai-2v2': F(null, 'pet-cinematic-duel', 'solo', 'none', 'surface-gap'),
   'pet-arena-ai-issued-token-compat': F('pet-cinematic-duel', null, 'solo', 'server-capped', 'match'),
-  'pet-arena-pvp-1v1': F('pet-cinematic-duel', 'pet-tactics', 'two-player', 'none', 'match'),
-  'pet-arena-pvp-2v2': F('pet-cinematic-duel', 'pet-tactics', 'two-player', 'none', 'match'),
-  'pet-tactics-prototype': F('pet-tactics', null, 'two-player', 'none', 'match'),
-  'pet-ranked-live': F('pet-tactics', null, 'two-player', 'server-settled', 'match'),
+  'pet-arena-pvp-1v1': F('pet-cinematic-duel', 'pet-showdown', 'two-player', 'none', 'match'),
+  'pet-arena-pvp-2v2': F('pet-cinematic-duel', 'pet-showdown', 'two-player', 'none', 'match'),
+  'pet-tactics-prototype': F('pet-showdown', null, 'two-player', 'none', 'match'),
+  'pet-ranked-live': F('pet-showdown', null, 'two-player', 'server-settled', 'match'),
   'pet-ranked-legacy-compat': F('pet-showdown', null, 'two-player', 'server-settled', 'match'),
   'hollow-gate-pet-showdown': F('pet-showdown', null, 'solo', 'parent-mode-settlement', 'match'),
   'dungeon-pet-showdown': F('pet-showdown', null, 'solo', 'parent-mode-settlement', 'match'),
@@ -206,6 +207,7 @@ export const EXPECTED_RUNTIME_MODE_FACTS = deepFreeze({
   'card-clash-freeplay': F('chronicle', null, 'two-player', 'server-progression', 'match'),
   'card-clash-ai': F('chronicle', null, 'solo', 'server-capped', 'match'),
   'echoes-of-war': F('chronicle', null, 'solo', 'server-settled', 'match'),
+  'keeper-path': F('chronicle', null, 'solo', 'server-settled', 'match'),
   'dungeon-card': F('chronicle', null, 'solo', 'parent-mode-settlement', 'match'),
   'hollow-gate-rift-card': F('chronicle', null, 'solo', 'parent-mode-settlement', 'match'),
 });
@@ -294,6 +296,7 @@ export const EXPECTED_RUNTIME_MODE_METADATA = deepFreeze({
   'card-clash-freeplay': M('card', 'expiring-chronicle-projection'),
   'card-clash-ai': M('card', 'expiring-chronicle-projection'),
   'echoes-of-war': M('card', 'expiring-chronicle-projection'),
+  'keeper-path': M('card', 'expiring-chronicle-projection'),
   'dungeon-card': M('card', 'expiring-chronicle-projection-and-parent-run-proof-receipt', 'dungeon'),
   'hollow-gate-rift-card': M('card', 'expiring-chronicle-projection-and-parent-run-proof-receipt', 'hollow-gate'),
 });

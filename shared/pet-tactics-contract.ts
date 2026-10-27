@@ -1,4 +1,4 @@
-import type { ShowdownEvent, ShowdownStateView } from './pet-showdown-contract.js';
+import type { ShowdownCommand, ShowdownEvent, ShowdownStateView } from './pet-showdown-contract.js';
 
 export const PET_TACTICS_RULESET = 'pet-tactics-v1' as const;
 export const TACTICS_PLAN_MS = 45_000;
@@ -37,7 +37,13 @@ export type TacticsPetSheet = {
 };
 export type TacticsRound = { round: number; initialState: ShowdownStateView; state: ShowdownStateView; events: ShowdownEvent[]; notes: string[] };
 export type TacticsView = {
-    ruleset: typeof PET_TACTICS_RULESET; roomId: string; revision: number; seat: TacticsSeat; opponent: string | null;
+    ruleset: typeof PET_TACTICS_RULESET;
+    /** 'showdown-v1': the room fights with real companions on the Coliseum
+     *  engine (2026-10-26). `own`/`enemy` are empty there; `battle` carries the
+     *  teams, and orders are Showdown commands (`ownCommands`). */
+    engine?: 'showdown-v1';
+    ownCommands?: ShowdownCommand[] | null;
+    roomId: string; revision: number; seat: TacticsSeat; opponent: string | null;
     phase: 'waiting' | 'preview' | 'planning' | 'playback' | 'finished'; round: number; serverNow: number;
     deadline: number; ready: { own: boolean; opponent: boolean }; ownOrders: TacticsOrder[] | null;
     ownLeads: number[] | null; own: TacticsPetSheet[]; enemy: TacticsPetSheet[];

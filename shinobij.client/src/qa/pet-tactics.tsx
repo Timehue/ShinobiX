@@ -40,5 +40,11 @@ function RankedHarness() {
             onVersionedCharacter={adopt} onServerVersion={() => true} setScreen={() => setYard(false)} onBack={() => setYard(false)} />
             : <PetLadderQueuePanel character={character} onVersionedCharacter={adopt} onBattleActiveChange={setActive} onFullscreenActiveChange={setFullscreen} />}</>;
 }
+/** Sparring brings the seat's real carried companions, so it needs the save. */
+function SparringHarness() {
+    const [character, setCharacter] = useState<Character | null>(null);
+    useEffect(() => { void fetch(`/api/save/${player}`).then(res => res.json()).then(data => setCharacter({ ...createCharacter(player, 'Stormveil Village', 'Ninjutsu', 'Ashen Eyes'), ...data.character })); }, []);
+    return character ? <PetTacticsArena playerName={player} character={character} onExit={() => location.reload()} /> : <p role="status">Loading the QA save…</p>;
+}
 createRoot(document.getElementById('root')!).render(new URLSearchParams(location.search).get('ranked') === '1'
-    ? <RankedHarness /> : <PetTacticsArena playerName={player} onExit={() => location.reload()} />);
+    ? <RankedHarness /> : <SparringHarness />);

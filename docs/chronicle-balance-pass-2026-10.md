@@ -262,3 +262,42 @@ Left as they are, by decision:
   change how the existing revival Jutsu present.
 - Eren (Echoes floor 8) runs Windless Edict with three Wind Monsters. That
   predates this pass, and it passes the new catalog test.
+
+## Keeper play fixes (2026-10-26)
+
+A readiness audit found the Keeper misplaying in ways that were bugs, not
+balance. No card stat or rule changed.
+
+- It never changed a Monster's position, so anything left in Defense (a revive,
+  a Snare-Summoned defender, a Monster that drops to Defense after it attacks)
+  sat there for the rest of the duel. Medium and Hard now stand one back up
+  before the Battle Phase when the field in front of it is empty or it beats a
+  Monster it can see. Easy is unchanged.
+- A refused Main Phase 1 choice ended the turn and threw the Battle Phase away.
+  It now tries to start the Battle Phase first.
+- Its battle read was its own copy of the formula. It now uses
+  `previewChronicleBattle` over its own projection, so it accounts for a
+  defender switching to Defense when attacked, a defender that survives, and
+  the guard rule that makes other targets illegal, and it still cannot read a
+  hidden card.
+- Four upside effects (`gainAttackPerOpponentMonster`,
+  `drawWhenDestroyedByBattle`, `returnToDeckWhenDestroyed`,
+  `weakenAttackerOnFlip`; 28 Monsters, most Epic and up) fell through to the
+  150 default in its Summon scoring. They now score 350.
+
+Keeper ladder, starter deck, 2,000 games a row (1,000 a cell), seed 1, same
+catalog for both runs. The sim pilots both sides with the Keeper, so the fixes
+apply to the player side too.
+
+| Player pilot | Keeper | vs Easy | vs Medium | vs Hard |
+| --- | --- | --- | --- | --- |
+| Easy | before | 50.4% | 43.5% | 17.1% |
+| Easy | after | 50.5% | 42.7% | 16.6% |
+| Medium | before | 50.5% | 44.7% | 18.1% |
+| Medium | after | 50.9% | 44.7% | 18.0% |
+| Hard | before | 50.7% | 43.9% | 18.2% |
+| Hard | after | 51.0% | 44.5% | 17.9% |
+
+Every cell moved by 1.5 points or less, and the rungs keep their order. The
+"before" row differs from the 2026-10-14 table above because the catalog has
+changed since then; both rows here were measured on today's catalog.

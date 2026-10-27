@@ -41,6 +41,7 @@ import {
   createAiMatch,
   forfeit,
   generateAiServerDeck,
+  keeperMonsterEffectValue,
   projectAiMatch,
 } from "./_ai-engine.js";
 
@@ -92,6 +93,111 @@ for (const difficulty of ["easy", "medium"] as const) {
     assert.equal(session.state.p2.monsterZones[0]?.lastAttackTurn, 0);
   });
 }
+
+// The Keeper never issued change-position, so anything that left one of its
+// Monsters in Defense (a revive, a Snare-Summoned defender, its own "after
+// attacking" effect) sat there for the rest of the duel.
+for (const faceUp of [true, false]) {
+  const how = faceUp ? "face-up Defense" : "Set non-FLIP";
+  const standUpSession = (difficulty: "easy" | "medium" | "hard") => {
+    const session = createAiMatch(`match-stand-up-${difficulty}-${faceUp}`, "Tester", [...CHRONICLE_FIXED_FALLBACK_DECK], difficulty, 1_000, () => 0);
+    const state = session.state;
+    Object.assign(state, { activePlayer: "p2", turnNumber: 17, phase: "main1", responseWindow: null, normalSummonUsed: false });
+    state.p2.hand = [];
+    state.p1.lifePoints = 200;
+    state.p1.monsterZones.fill(null); state.p2.monsterZones.fill(null);
+    state.p1.magicTrapZones.fill(null); state.p2.magicTrapZones.fill(null);
+    assert.equal(getChronicleCard("tc-09")?.cardClass, "monster");
+    assert.notEqual((getChronicleCard("tc-09") as { monsterEffect?: { trigger?: string } }).monsterEffect?.trigger, "onFlip");
+    state.p2.monsterZones[0] = {
+      instanceId: "p2-tc-09-0", cardId: "tc-09", owner: "p2", zoneIndex: 0, position: "defense",
+      faceUp, summonedOnTurn: 1, lastPositionChangeTurn: 1, lastAttackTurn: 0,
+      temporaryAttack: 0, temporaryDefense: 0,
+    };
+    return session;
+  };
+  for (const difficulty of ["medium", "hard"] as const) {
+    test(`${difficulty} Keeper stands a ${how} Monster back up to attack an open field`, () => {
+      const session = standUpSession(difficulty);
+      advanceAi(session, 2_000);
+      assert.equal(session.state.winner, "p2");
+    });
+  }
+  test(`easy Keeper still leaves a ${how} Monster where it is`, () => {
+    const session = standUpSession("easy");
+    advanceAi(session, 2_000);
+    assert.equal(session.state.winner, null);
+    assert.equal(session.state.p1.lifePoints, 200);
+  });
+}
+
+// The Keeper used to keep its own copy of the battle formula. It now reads the
+// same preview the player's board shows, so public battle effects count.
+function battleBoard(name: string) {
+  const session = createAiMatch(name, "Tester", [...CHRONICLE_FIXED_FALLBACK_DECK], "hard", 1_000, () => 0);
+  const state = session.state;
+  Object.assign(state, { activePlayer: "p2", turnNumber: 17, phase: "battle", responseWindow: null });
+  state.p2.hand = [];
+  state.p1.monsterZones.fill(null); state.p2.monsterZones.fill(null);
+  state.p1.magicTrapZones.fill(null); state.p2.magicTrapZones.fill(null);
+  const body = (cardId: string, owner: "p1" | "p2", zoneIndex: number, position: "attack" | "defense" = "attack") => ({
+    instanceId: `${owner}-${cardId}-${zoneIndex}`, cardId, owner, zoneIndex, position,
+    faceUp: true, summonedOnTurn: 1, lastPositionChangeTurn: 1, lastAttackTurn: 0,
+    temporaryAttack: 0, temporaryDefense: 0,
+  });
+  return { session, state, body };
+}
+const plainMonsters = () => CHRONICLE_CARD_CATALOG.filter(
+  (card): card is Extract<typeof card, { cardClass: "monster" }> => card.cardClass === "monster" && !card.monsterEffect,
+);
+
+test("hard Keeper attacks a Monster that drops to a weaker Defense when attacked", () => {
+  const shifter = CHRONICLE_CARD_CATALOG.find(
+    (card): card is Extract<typeof card, { cardClass: "monster" }> =>
+      card.cardClass === "monster" && card.monsterEffect?.kind === "changeToDefenseWhenAttacked" && card.defense < card.attack,
+  );
+  assert.ok(shifter, "a Monster that switches to a lower Defense when attacked");
+  const attacker = plainMonsters().find((card) =>
+    card.attack > shifter.defense && card.attack < shifter.attack
+    && elementBattleBonus(card.element, shifter.element) === 0
+    && elementBattleBonus(shifter.element, card.element) === 0);
+  assert.ok(attacker, "an attacker between its Defense and its ATK");
+  const { session, state, body } = battleBoard("match-shift-defense");
+  state.p2.monsterZones[0] = body(attacker.id, "p2", 0);
+  state.p1.monsterZones[0] = body(shifter.id, "p1", 0);
+  advanceAi(session, 2_000);
+  assert.equal(session.state.p1.monsterZones[0], null, "the attack breaks its Defense");
+});
+
+test("hard Keeper attacks the guard instead of a target the guard makes illegal", () => {
+  const guard = getChronicleCard("tc-121");
+  assert.equal(guard?.cardClass === "monster" && guard.monsterEffect?.kind, "guardOtherMonsters");
+  if (guard?.cardClass !== "monster") return;
+  const attacker = plainMonsters().find((card) => card.attack >= guard.defense + 600);
+  const weak = plainMonsters().find((card) => card.attack + 600 <= (attacker?.attack ?? 0) && card.id !== attacker?.id);
+  assert.ok(attacker && weak);
+  const { session, state, body } = battleBoard("match-guarded");
+  state.p1.lifePoints = 8_000;
+  state.p2.monsterZones[0] = body(attacker.id, "p2", 0);
+  state.p1.monsterZones[0] = body(guard.id, "p1", 0, "defense");
+  state.p1.monsterZones[1] = body(weak.id, "p1", 1);
+  advanceAi(session, 2_000);
+  assert.equal(session.state.p1.monsterZones[0], null, "the guard is the only legal target, and it breaks");
+  assert.equal(session.state.p1.monsterZones[1]?.cardId, weak.id);
+});
+
+test("the Keeper values every upside Monster effect above the plain floor", () => {
+  // Four upside effects (28 Monsters, most Epic and up) used to fall through to
+  // the 150 default that plain drawbacks get.
+  const plain = keeperMonsterEffectValue(CHRONICLE_CARD_CATALOG.find((card) => card.cardClass === "monster" && !card.monsterEffect)!);
+  for (const kind of ["gainAttackPerOpponentMonster", "drawWhenDestroyedByBattle", "returnToDeckWhenDestroyed", "weakenAttackerOnFlip"]) {
+    const cards = CHRONICLE_CARD_CATALOG.filter((card) => card.cardClass === "monster" && card.monsterEffect?.kind === kind);
+    assert.ok(cards.length > 0, `${kind} is in the catalog`);
+    for (const card of cards) assert.ok(keeperMonsterEffectValue(card) > plain, `${card.id} (${kind}) is valued above a plain body`);
+  }
+  const drawback = CHRONICLE_CARD_CATALOG.find((card) => card.cardClass === "monster" && card.monsterEffect?.kind === "shiftToDefenseAfterAttack")!;
+  assert.equal(keeperMonsterEffectValue(drawback), plain, "dropping to Defense after attacking is not an upside");
+});
 
 test("AI deck is a legal 40-card Chronicle deck at every difficulty band", () => {
   for (const difficulty of CHRONICLE_AI_DIFFICULTIES) {

@@ -26,17 +26,25 @@ export const petTraits: PetTrait[] = ["Loyal", "Aggressive", "Guardian", "Swift"
 /** Shrine apex traits. Kept separate so ordinary acquisition rolls cannot mint them. */
 export const ultraPetTraits: PetTrait[] = ["Fateweaver", "Hollowborn", "Boonbringer"];
 
+/* What each trait does, by battle system. "Coliseum battles" means every fight
+   on the Showdown engine (Coliseum, Ladder, wild, story, dungeon, war and the
+   First Pact; api/_pet-showdown/engine.ts TRAIT_FX). "Warfront" is the
+   real-time Rite (pet-duel-cinematic.ts). Stat bonuses are baked in when the
+   pet is acquired. Pet Arena ignores owned traits; see PET_TRAIT_ARENA_NOTE. */
 export const petTraitDescriptions: Record<PetTrait, string> = {
-    Loyal: "Earns 50% more XP from every completed training timer",
-    Aggressive: "Pet spawns with +15% attack",
-    Guardian: "Pet spawns with +20% HP & defense — reduces your incoming battle damage by 8% while active",
-    Swift: "Pet spawns with +20% speed",
-    Lucky: "You earn 15 extra ryo for each ordinary fight or PvP win while this pet is active. Ordinary fights have a pay ceiling, so the bonus fades out at high level.",
-    Battleborn: "Pet spawns with +10% to all stats",
-    Fateweaver: "Apex · +20% to all stats, 18% dodge, greatly raised critical chance, and immunity to freeze and confusion",
-    Hollowborn: "Apex · +5% to all stats; deals 12% more pet-battle damage, drains 12% of damage dealt, and has greatly raised critical chance",
-    Boonbringer: "Apex · doubles rewards and pet XP from pet expeditions",
+    Loyal: "Earns 50% more XP from every completed training timer. In Coliseum battles it charges its signature meter 20% faster.",
+    Aggressive: "+15% attack. Deals 6% more damage in Coliseum battles and fights more aggressively in Warfront.",
+    Guardian: "+20% HP and defense. Its guard blocks more damage in Coliseum battles. Outside PvP it also cuts your incoming battle damage by 8% while active.",
+    Swift: "+20% speed. Acts 8% faster in Coliseum battles and dodges more in Warfront.",
+    Lucky: "You earn 15 extra ryo for each ordinary fight or PvP win while this pet is active. Ordinary fights have a pay ceiling, so the bonus fades out at high level. Its damage rolls run slightly higher in Coliseum battles, and it lands more critical hits in Warfront.",
+    Battleborn: "+10% to all stats. Starts Coliseum battles with 25 signature meter already charged.",
+    Fateweaver: "Apex · +20% to all stats. In Coliseum battles it deals 8% more damage and charges its meter 10% faster. In Warfront it has 18% dodge, more critical hits, and immunity to freeze and confusion.",
+    Hollowborn: "Apex · +5% to all stats. In Coliseum battles it drains 8% of the damage it deals. In Warfront it deals 12% more damage, drains 12%, and lands more critical hits.",
+    Boonbringer: "Apex · doubles rewards and pet XP from pet expeditions. In Coliseum battles it strengthens its ally synergy bonus by 20%.",
 };
+
+/** Pet Arena builds every pet from its species' own kit, so owned traits do nothing there. */
+export const PET_TRAIT_ARENA_NOTE = "Pet Arena uses each species' own trait instead of this one.";
 
 // ── Training duration tiers + sealed XP ─────────────────────────────────
 

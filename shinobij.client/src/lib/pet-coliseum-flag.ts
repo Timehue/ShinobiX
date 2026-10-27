@@ -34,10 +34,6 @@ export function petBloomEnabled(): boolean {
     } catch { return false; }
 }
 
-export function setPetBloomEnabled(on: boolean): void {
-    try { localStorage.setItem(BLOOM_KEY, on ? "1" : "0"); } catch { /* storage disabled — ignore */ }
-}
-
 /*
  * Pet EVOLUTION cutscene flag (the Digimon-style reveal — see
  * docs/pet-starter-evolution-plan.md §4). When ON, evolving a starter in the Pet
@@ -52,10 +48,6 @@ const EVOLVE_CUTSCENE_KEY = "petEvolveCutscene.v1";
 
 export function petEvolveCutsceneEnabled(): boolean {
     try { return localStorage.getItem(EVOLVE_CUTSCENE_KEY) !== "0"; } catch { return true; }
-}
-
-export function setPetEvolveCutsceneEnabled(on: boolean): void {
-    try { localStorage.setItem(EVOLVE_CUTSCENE_KEY, on ? "1" : "0"); } catch { /* storage disabled — ignore */ }
 }
 
 /*
@@ -125,29 +117,6 @@ export function petDuelEngineEnabled(): boolean {
  * the deterministic sim as a param (never read inside it) so replays stay pure/testable;
  * the sim's own default is still v2=false so its golden/back-compat tests stay green.
  */
-/*
- * Tactical Arena TRUE-3D stage (PetArena3DStage, since removed) — the LoL-style spectator
- * renderer: approved roster GLBs on a walkmask-generated 3D floor with a
- * pitched broadcast follow-camera + corner PiP chase cam. Applies only when
- * EVERY pet in the match has an approved 3D model (petCombatModel) — otherwise
- * the match falls back to the classic top-down diorama regardless of this flag.
- * Purely presentational: the deterministic sim, seed, rewards and replays are
- * identical either way, so flipping this is always safe. DEFAULT ON; instant
- * rollback with localStorage.setItem("petArena3d.v1","0"). Per-device persisted.
- */
-const ARENA_3D_KEY = "petArena3d.v1";
-
-export function petArena3dEnabled(): boolean {
-    try {
-        const v = localStorage.getItem(ARENA_3D_KEY);
-        if (v === "0") return false;   // explicit kill-switch → classic diorama stage
-        return true;                   // DEFAULT ON — the true-3D stage is the Tactical Arena
-    } catch { return true; }
-}
-
-export function setPetArena3dEnabled(on: boolean): void {
-    try { localStorage.setItem(ARENA_3D_KEY, on ? "1" : "0"); } catch { /* storage disabled — ignore */ }
-}
 
 /*
  * PLAYER CONTROL for the Pet Coliseum (docs/pet-coliseum-player-control-plan.md).

@@ -20,11 +20,12 @@ import type {
     ShowdownTurnResponse,
 } from "../../../shared/pet-showdown-contract";
 import type { FirstPactEncounterId, FirstPactProgress } from "../../../shared/first-pact-contract";
-import { fetchFirstPactProgress, type FirstPactGrant } from "./first-pact-api";
+import { fetchFirstPactProgress, type FirstPactExhibitionView, type FirstPactGrant } from "./first-pact-api";
 
 export {
     SHOWDOWN_BENCH_SIZE,
     SHOWDOWN_FORMAT_SIZE,
+    showdownPartnerLines,
     showdownTeamSize,
 } from "../../../shared/pet-showdown-contract";
 
@@ -99,8 +100,10 @@ export async function startFirstPactShowdown(
     playerName: string,
     encounterId: FirstPactEncounterId,
     petIds: string[],
+    /** Court Replays only: re-fight a cleared battle on these settings. */
+    replay?: { hard: boolean; unbroken: boolean },
 ): Promise<{ state: ShowdownStateView; progress: FirstPactProgress } | { error: string }> {
-    const r = await post({ action: "first-pact", playerName, encounterId, petIds });
+    const r = await post({ action: "first-pact", playerName, encounterId, petIds, ...(replay ? { replay } : {}) });
     if (!r) return { error: "The Celestial crossing could not reach the Colosseum." };
     const data = await r.json().catch(() => null) as {
         state?: ShowdownStateView;
@@ -264,12 +267,18 @@ export async function forfeitShowdown(playerName: string, sessionId: string, onC
 export async function forfeitFirstPactShowdown(
     playerName: string,
     sessionId: string,
-): Promise<({ progress: FirstPactProgress } & FirstPactGrant) | { error: string }> {
+): Promise<({ progress: FirstPactProgress; exhibition?: FirstPactExhibitionView | null } & FirstPactGrant) | { error: string }> {
     const r = await post({ action: "forfeit", playerName, sessionId });
     if (!r?.ok) return { error: "The Court could not record the concession. The bout is still recoverable; try again before leaving." };
-    const data = await r.json().catch(() => null) as { ok?: boolean; firstPact?: { progress?: FirstPactProgress } } | null;
+    const data = await r.json().catch(() => null) as {
+        ok?: boolean;
+        firstPact?: { progress?: FirstPactProgress; exhibition?: FirstPactExhibitionView | null };
+    } | null;
     if (data?.ok !== true) return { error: "The Court did not confirm the concession. Retry before leaving." };
-    if (data?.firstPact?.progress) return { progress: data.firstPact.progress };
+    // A conceded Exhibition round ends the run; its view rides along.
+    if (data?.firstPact?.progress) {
+        return { progress: data.firstPact.progress, ...(data.firstPact.exhibition !== undefined ? { exhibition: data.firstPact.exhibition } : {}) };
+    }
     // An expired/already-removed session still answers ok. Read today's record
     // before closing, retaining any versioned completion grant it carries.
     return fetchFirstPactProgress(playerName);

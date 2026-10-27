@@ -139,11 +139,9 @@ describe('pet happiness — free petting budget', () => {
         );
     });
 
-    it('still allows the five interactions a breeding elemental bond asks for', () => {
-        // elemental-bond:interaction:5 (api/pet/_breeding-requirements.ts) needs
-        // five pet interactions with a matching-element companion. A player who
-        // owns exactly ONE such pet must still clear it in a day — rationing
-        // petting below this would silently slow breeding down.
+    it('still allows five free interactions a day', () => {
+        // The budget was first sized for a (since retired) five-interaction
+        // breeding requirement; five a day remains the documented floor.
         assert.ok(PET_HAPPINESS_DAILY_PET_BUDGET >= 5 * PET_HAPPINESS_PET_GAIN);
         let state = settlePetHappinessState({ happiness: 0 }, DAY_0);
         for (let i = 0; i < 5; i += 1) {
@@ -232,7 +230,7 @@ describe('pet happiness — tiers and penalties', () => {
         }
         assert.deepEqual(tierEachDay, ['content', 'content', 'restless', 'restless', 'restless', 'unhappy']);
         assert.equal(state.happiness, 40);
-        assert.notEqual(petHappinessPenaltyNote(state.happiness), '', 'day six is the first day that costs the player something');
+        assert.match(petHappinessPenaltyNote(state.happiness), /ignores half/, 'day six is the first day a new penalty applies');
     });
 
     it('gets strictly worse as happiness falls', () => {
@@ -246,7 +244,10 @@ describe('pet happiness — tiers and penalties', () => {
 
     it('explains the penalty only when there is one', () => {
         assert.equal(petHappinessPenaltyNote(80), '');
-        assert.equal(petHappinessPenaltyNote(50), '');
+        assert.equal(petHappinessPenaltyNote(71), '');
+        // Restless pets disobey 35% of the time as battle summons; say so.
+        assert.match(petHappinessPenaltyNote(70), /a third of your commands/);
+        assert.match(petHappinessPenaltyNote(50), /a third of your commands/);
         assert.match(petHappinessPenaltyNote(30), /ignores half your commands/);
         assert.match(petHappinessPenaltyNote(10), /trains 15% slower/);
         // The UI prints the tier label right next to this line — do not repeat it.

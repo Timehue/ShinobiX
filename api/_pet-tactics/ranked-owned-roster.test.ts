@@ -1,15 +1,20 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { rankedArenaQueue, type RankedArenaDependencies } from './ranked.js';
-import { tacticsPreset } from '../../shared/pet-tactics-roster.js';
-import { tacticsRoomKey, type TacticsSession } from './session.js';
-import { cinematicView, petSheets } from './engine.js';
+import { tacticsRoomKey, tacticsView, type TacticsSession } from './session.js';
 
+// Owner ruling 2026-10-26: ranked Pet Arena fights with each player's real
+// companions on the Coliseum engine. The queue names four carried pets; the
+// server seals them from the save at pairing.
 function harness() {
     const rows = new Map<string, any>();
-    const petIds = ['standard-0', 'rare-24', 'mythic-9', 'starter-fire'];
-    const pets = petIds.map((templateId, i) => ({ id: `my-${i}`, templateId, name: `Companion ${i}`, nickname: i === 0 ? 'Foxglove' : undefined, rarity: 'standard' }));
-    const builds = petIds.map((id, i) => ({ ...tacticsPreset(id), ownedPetId: pets[i].id }));
+    const templates = ['standard-0', 'rare-24', 'mythic-9', 'starter-fire'];
+    const pets = templates.map((templateId, i) => ({
+        id: `my-${i}`, templateId, name: `Companion ${i}`, nickname: i === 0 ? 'Foxglove' : undefined,
+        rarity: 'standard', level: 30 + i, element: 'Fire', role: 'assassin', hp: 800, attack: 120, defense: 90, speed: 100,
+        jutsus: [{ name: 'Ember Bite', power: 90, kind: 'damage' }],
+    }));
+    const petIds = pets.map(pet => pet.id);
     for (const name of ['alice', 'bob', 'carol']) rows.set(`save:${name}`, { character: { name, level: 40, pets: structuredClone(pets), petRankedRating: 1000 } });
     const deps: RankedArenaDependencies = { store: {
         get: async (key: string) => structuredClone(rows.get(key) ?? null),
@@ -18,64 +23,56 @@ function harness() {
         delIfEqual: async (key: string, value: unknown) => rows.get(key) === value && rows.delete(key),
     } as RankedArenaDependencies['store'], lock: async (_key, fn) => fn(), now: () => 1_900_000_000_000,
         roomId: () => 'aabbccdd', matchToken: () => '50dd9962-a37a-4583-9467-c78df7b11020', seed: () => 123 };
-    return { rows, deps, builds };
+    return { rows, deps, petIds };
 }
-test('matchmaking binds the selected carried instances and their saved names into the sealed battle', async () => {
-    const { rows, deps, builds } = harness();
-    assert.equal((await rankedArenaQueue('alice', 'join', { builds }, deps)).state, 'queued');
-    const result = await rankedArenaQueue('bob', 'join', { builds }, deps);
+const seatOf = (session: TacticsSession, name: string) => session.names.a === name ? 'a' as const : 'b' as const;
+
+test('matchmaking seals the chosen carried companions, with their real levels and names', async () => {
+    const { rows, deps, petIds } = harness();
+    assert.equal((await rankedArenaQueue('alice', 'join', { petIds }, deps)).state, 'queued');
+    const result = await rankedArenaQueue('bob', 'join', { petIds }, deps);
     const session: TacticsSession = rows.get(tacticsRoomKey(String(result.roomId)));
-    assert.deepEqual(session.battle!.teams.a.map(p => p.ownedPetId), builds.map(b => b.ownedPetId));
-    assert.equal(session.battle!.teams.b[0].name, 'Foxglove');
+    assert.equal(session.engine, 'showdown-v1');
+    const bob = seatOf(session, 'bob');
+    const team = bob === 'a' ? session.arena!.player : session.arena!.enemy;
+    assert.deepEqual(team.map(p => p.id), petIds.map(id => `${bob}:${id}`));
+    assert.deepEqual(team.map(p => p.level), [30, 31, 32, 33], 'real levels, not a normalized level-50 sheet');
+    assert.equal(team[0].name, 'Foxglove');
+    const token = rows.get(`pet:ranked-token:${result.matchToken}`);
+    assert.deepEqual(token.aTeam.map((p: { id: string }) => p.id), petIds, 'settlement credits the owner\'s own pet ids');
+    assert.equal(token.aTeam[0].level, 30);
 });
+
 test('a queued companion sent on expedition cannot be matched from the stale queue snapshot', async () => {
-    const { rows, deps, builds } = harness();
-    await rankedArenaQueue('alice', 'join', { builds }, deps);
-    rows.get('save:alice').character.pets[0].expedition = { endsAt: 1 };
-    assert.equal((await rankedArenaQueue('bob', 'join', { builds }, deps)).state, 'queued');
+    const { rows, deps, petIds } = harness();
+    await rankedArenaQueue('alice', 'join', { petIds }, deps);
+    rows.get('save:alice').character.pets[0].expedition = { endsAt: Date.now() + 60_000 };
+    assert.equal((await rankedArenaQueue('bob', 'join', { petIds }, deps)).state, 'queued');
     assert.equal((await rankedArenaQueue('alice', 'poll', {}, deps)).state, 'idle');
 });
-test('missing or foreign builds never create a loan-pet ranked admission', async () => {
-    const { rows, deps, builds } = harness();
-    await assert.rejects(() => rankedArenaQueue('alice', 'join', {}, deps), /four distinct/);
+
+test('missing or foreign companions never create a ranked admission', async () => {
+    const { rows, deps, petIds } = harness();
+    await assert.rejects(() => rankedArenaQueue('alice', 'join', {}, deps), /four different companions/);
     rows.get('save:alice').character.pets = [];
-    await assert.rejects(() => rankedArenaQueue('alice', 'join', { builds }, deps), /carrying/);
+    await assert.rejects(() => rankedArenaQueue('alice', 'join', { petIds }, deps), /carrying/);
 });
 
-test('ranked seals chosen custom moves and saving a future kit cannot rewrite the queued team', async () => {
-    const { rows, deps, builds } = harness();
-    const selected = builds.map(build => ({ ...tacticsPreset(build.speciesId, 1), ownedPetId: build.ownedPetId, item: 'focus-lens' as const }));
-    await rankedArenaQueue('alice', 'join', { builds: selected }, deps);
-    rows.get('save:alice').character.pets[0].rankedBuild = builds[0];
-    const result = await rankedArenaQueue('bob', 'join', { builds }, deps);
-    const session: TacticsSession = rows.get(tacticsRoomKey(String(result.roomId)));
-    const seat = session.names.a === 'alice' ? 'a' : 'b';
-    assert.deepEqual(session.battle!.teams[seat][0].moves.map(move => move.id), selected[0].moveIds);
-    assert.equal(session.battle!.teams[seat][0].item, 'focus-lens');
-});
-
-test('ranked seals saved cosmetics for both sides and ignores client preview metadata', async () => {
-    const { rows, deps, builds } = harness();
+test('ranked seals saved cosmetics for both sides, and later save edits cannot change the match', async () => {
+    const { rows, deps, petIds } = harness();
     rows.get('save:alice').character.pets[0].loadout = { collar: 'collar-prismatic' };
     rows.get('save:alice').character.pets[0].paletteVariantId = 'chromatic';
     rows.get('save:bob').character.pets[0].loadout = { collar: 'collar-crimson' };
-    const preview = builds.map(build => ({ ...build, appearance: { collarId: 'collar-azure', paletteVariantId: 'preview' } }));
-    await rankedArenaQueue('alice', 'join', { builds: preview }, deps);
-    const result = await rankedArenaQueue('bob', 'join', { builds }, deps);
+    await rankedArenaQueue('alice', 'join', { petIds, appearance: { collarId: 'collar-azure' } }, deps);
+    const result = await rankedArenaQueue('bob', 'join', { petIds }, deps);
     const session: TacticsSession = rows.get(tacticsRoomKey(String(result.roomId)));
-    const battle = session.battle!;
-    const alice = session.names.a === 'alice' ? 'a' : 'b';
-    const bob = alice === 'a' ? 'b' : 'a';
+    const alice = seatOf(session, 'alice'), bob = seatOf(session, 'bob');
     const expected = { collarId: 'collar-prismatic', paletteVariantId: 'chromatic' };
-    assert.deepEqual(petSheets(battle, alice)[0].appearance, expected);
-    assert.deepEqual(cinematicView(battle, alice, 'bob').player[0].appearance, expected);
-    assert.deepEqual(cinematicView(battle, bob, 'alice').enemy[0].appearance, expected);
-    assert.deepEqual(cinematicView(battle, alice, 'bob').enemy[0].appearance, { collarId: 'collar-crimson' });
-    assert.deepEqual(battle.teams[alice][1].appearance, {}, 'an empty appearance is also sealed');
+    assert.deepEqual(tacticsView(session, alice, 0).battle.player[0].appearance, expected);
+    assert.deepEqual(tacticsView(session, bob, 0).battle.enemy[0].appearance, expected);
+    assert.deepEqual(tacticsView(session, alice, 0).battle.enemy[0].appearance, { collarId: 'collar-crimson' });
+    assert.deepEqual(tacticsView(session, alice, 0).battle.player[1].appearance, {}, 'an empty appearance is also sealed');
     rows.get('save:alice').character.pets[0].loadout.collar = 'collar-azure';
-    const refreshed = structuredClone(battle);
-    assert.deepEqual(cinematicView(refreshed, bob, 'alice').enemy[0].appearance, expected, 'reload and later equipment changes retain the match snapshot');
-    const sheet = petSheets(refreshed, alice)[0];
-    sheet.appearance!.collarId = 'tampered';
-    assert.deepEqual(refreshed.teams[alice][0].appearance, expected, 'public projections cannot mutate the sealed cosmetics');
+    const reloaded: TacticsSession = rows.get(tacticsRoomKey(String(result.roomId)));
+    assert.deepEqual(tacticsView(reloaded, bob, 0).battle.enemy[0].appearance, expected, 'the match keeps its snapshot');
 });
