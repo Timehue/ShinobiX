@@ -29,7 +29,7 @@ defaults:
 # them (sparse checkout also makes actions/checkout fetch with blob:none, so the
 # skipped blobs are never downloaded). Specs that WRITE audit output there still
 # can; the folder is simply untracked on the runner. client-quality and the
-# server-contracts jobs keep a full checkout: the pet certification and shape
+# server-contracts matrix jobs keep a full checkout: the pet certification and shape
 # review gates read evidence under docs/screenshots.
 
 env:
@@ -124,6 +124,17 @@ jobs:
     # sends nothing during build or smoke.)
     steps:
       - uses: actions/checkout@v7
+        with:
+          # These six contracts read source, runtime assets and generated data.
+          # Review evidence is only needed by the full matrix and
+          # client-quality jobs, whose checkouts remain unchanged. Fetching it
+          # here exhausted the 15-minute gate before any contract could run.
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /*
+            !/docs/screenshots/
+            !/docs/evidence/
+            !/docs/audits/
       - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc

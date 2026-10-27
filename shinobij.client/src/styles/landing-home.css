@@ -29,7 +29,7 @@
 html.landing-lightbox-open { overflow: hidden; scrollbar-gutter: stable; }
 .landing-skip { position: absolute; top: 10px; left: 16px; transform: translateY(-200%); z-index: 100; padding: 10px 18px; background: #e1c594; color: #111; }
 .landing-skip:focus { transform: none; }
-.landing-topbar { position: sticky; top: 0; z-index: 50; background: #0e0d0df5; border-bottom: 1px solid var(--landing-line); backdrop-filter: blur(16px); }
+.landing-topbar { position: sticky; top: 0; z-index: 50; background: #0e0d0dfa; border-bottom: 1px solid var(--landing-line); }
 .landing-topbar-inner { max-width: 1440px; margin: auto; min-height: 88px; padding: 4px 4%; display: flex; align-items: center; justify-content: space-between; gap: 24px; }
 .landing-brand { display: flex; align-items: center; background: none; border: 0; padding: 0; flex-shrink: 0; box-shadow: none; }
 .landing-logo { display: block; }

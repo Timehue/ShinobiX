@@ -21,7 +21,7 @@ describe("Clan Boss operation client contract", () => {
         assert.match(activity, /!!capabilityIds\?\.length && capabilityIds\.every/);
         assert.doesNotMatch(activity, /runtime-mode-(?:registry|capabilities)/);
         assert.match(activity, /const blocked = activity\.eligibility === "blocked" \|\| !liveAdmissionAllowed/);
-        assert.match(activity, /disabled=\{blocked\}/);
+        assert.match(activity, /disabled=\{blocked \|\| stale\}/);
         assert.match(activity, /onClick=\{blocked \? undefined :/);
     });
 

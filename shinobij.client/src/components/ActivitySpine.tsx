@@ -40,7 +40,7 @@ export function ActivitySpine({
 
     const source = activitySourceKey(character, trainingState);
     // Omit a client override so the endpoint can honor the saved server focus.
-    const { spine, status } = useActivitySpine(character.name, undefined, source, capabilityStateSignature, retry);
+    const { spine, status, stale } = useActivitySpine(character.name, undefined, source, capabilityStateSignature, retry);
     const navigate = useCallback((activity: ActivitySpineItem, horizon: ActivityHorizon) => {
         if (openActivityDestination(activity, onNavigate)) {
             captureProductEvent("activity_recommendation_viewed", { screenId: "daily-briefing", mode: "recommendation-opened", focus: spine?.resolvedFocus ?? character.masteryFocus ?? "auto", horizon });
@@ -71,7 +71,7 @@ export function ActivitySpine({
     }
 
     return (
-        <section className="db-section activity-spine" aria-label="Activity recommendations by time horizon">
+        <section className="db-section activity-spine" aria-label="Activity recommendations by time horizon" aria-busy={stale || undefined}>
             {heading}
             <div className="activity-spine-grid">
                 {(Object.keys(HORIZON_LABEL) as ActivityHorizon[]).map((horizon) => (
@@ -89,7 +89,9 @@ export function ActivitySpine({
                                 // Re-evaluate against wall-clock freshness at the
                                 // click boundary; a long-idle render must not admit
                                 // an action from an expired capability snapshot.
-                                if (!projectedAdmissionAllowed(activity.requiredCapabilityIds)) return;
+                                // The previous spine stays on screen during a refetch so the
+                                // briefing does not resize; it must not admit an action.
+                                if (stale || !projectedAdmissionAllowed(activity.requiredCapabilityIds)) return;
                                 navigate(activity, horizon);
                             };
                             return <article className={`activity-card is-${effectiveEligibility}`} key={activity.id}>
@@ -102,7 +104,7 @@ export function ActivitySpine({
                                 <button
                                     type="button"
                                     aria-describedby={effectiveBlocker ? blockerId : undefined}
-                                    disabled={blocked}
+                                    disabled={blocked || stale}
                                     onClick={blocked ? undefined : openActivity}
                                 >
                                     {activity.cta}

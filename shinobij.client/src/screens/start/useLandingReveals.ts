@@ -10,6 +10,9 @@ export function useLandingReveals() {
         const elements = Array.from(root.querySelectorAll<HTMLElement>('[data-landing-reveal]'));
         const seen = new WeakSet<Element>();
         const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+        // Fire while the section is still just below the fold. Waiting until a
+        // slice was on screen made it visible, snap to opacity 0, then fade in,
+        // which reads as a flicker (worst on phones, where sections are tall).
         const observer = new IntersectionObserver(entries => {
             for (const entry of entries) {
                 if (!entry.isIntersecting) continue;
@@ -17,7 +20,7 @@ export function useLandingReveals() {
                 if (!reducedMotion.matches) entry.target.classList.add('is-revealed');
                 observer.unobserve(entry.target);
             }
-        }, { rootMargin: '0px 0px -32px 0px', threshold: 0.08 });
+        }, { rootMargin: '0px 0px 120px 0px', threshold: 0 });
 
         function syncMotion() {
             observer.disconnect();
