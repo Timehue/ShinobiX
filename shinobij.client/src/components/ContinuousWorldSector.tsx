@@ -69,7 +69,7 @@ export function ContinuousWorldSector(props: WorldSectorCanvasProps) {
                         traces={props.lifeTraces} openReports={props.onOpenLifeTraces} onTrack={props.onLifeTrack} walk={(sector, tile) => engine.current?.go(sector, tile)} />}
                     {!props.suspended && ready && props.gatheringCharacter && props.onGatheringCommit && <SectorBuildings key={props.gatheringCharacter.name} character={props.gatheringCharacter} sector={props.sector} tile={props.playerTile} commit={props.onGatheringCommit} onAtlas={props.onOpenAtlas} walk={(sector,tile)=>engine.current?.go(sector,tile)} />}
                 </WorldPlayerPosition.Provider>
-                {!props.suspended && props.gatheringCharacter && props.onGatheringCommit && <ResourceWorld character={props.gatheringCharacter} sector={props.sector} tile={props.playerTile} commit={props.onGatheringCommit} walk={(sector, tile) => { engine.current?.go(sector, tile); }} worldBossCrystals={props.worldBossCrystals} />}
+                {!props.suspended && props.gatheringCharacter && props.onGatheringCommit && <ResourceWorld character={props.gatheringCharacter} sector={props.sector} tile={props.playerTile} commit={props.onGatheringCommit} walk={(sector, tile) => { engine.current?.go(sector, tile); }} worldBossCrystals={props.worldBossCrystals} onContest={props.onContestResource} />}
             </div>
             <div ref={marker} className="sector-avatar-figure continuous-world-self" aria-hidden="true" data-world-self="true">
                 <span className="sector-avatar-shadow" /><span className="sector-avatar-sprite"><span className="sector-avatar-body">
