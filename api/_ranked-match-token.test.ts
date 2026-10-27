@@ -97,6 +97,13 @@ test('pet proof is battle-bound by exact CAS and an ambiguous ACK replays only f
     ), false, 'another session cannot steal the bound proof');
 });
 
+test('pet-ranked proof fails closed: with no minted token neither prove nor consume succeeds', async () => {
+    const base = _makeMemoryKv();
+    const battleId = 'pvp-12345678-1234-4123-8123-1234567890ab';
+    assert.equal(await proveRankedMatchTokenForBattleWithStore(base, 'alice', 'bob', 'pet', battleId), false);
+    assert.equal(await consumeRankedMatchTokenForBattleWithStore(base, 'alice', 'bob', 'pet', battleId), false);
+});
+
 const NOW = 1_800_000_000_000;
 const MATCH = 'player-ranked-12345678-1234-4123-8123-1234567890ab';
 

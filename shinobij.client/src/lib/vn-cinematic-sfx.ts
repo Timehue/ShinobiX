@@ -1,6 +1,4 @@
-import type { VnSoundCue } from "../types/vn";
 import {
-  playGameSfx,
   primeGameAudio,
   startGameAmbience,
   stopGameAmbience,
@@ -18,38 +16,6 @@ const AMBIENCE_CUES: Record<
   interior: { cue: "ambience-interior", gain: 0.03 },
   hollow: { cue: "ambience-hollow", gain: 0.036 },
 };
-
-let lastCue: VnSoundCue = "none";
-let lastCueAt = 0;
-
-export function playVnCue(cue: VnSoundCue): void {
-  if (cue === "none") return;
-  const now = performance.now();
-  if (lastCue === cue && now - lastCueAt < 180) return;
-  lastCue = cue;
-  lastCueAt = now;
-
-  switch (cue) {
-    case "title":
-      playGameSfx("chapter-seal", { gain: 0.86 });
-      break;
-    case "paper":
-      playGameSfx("paper", { gain: 0.82 });
-      break;
-    case "reveal":
-      playGameSfx("reveal", { gain: 0.8 });
-      break;
-    case "omen":
-      playGameSfx("omen", { gain: 0.82 });
-      break;
-    case "decision":
-      playGameSfx("decision", { gain: 0.86 });
-      break;
-    case "battle":
-      playGameSfx("battle-transition", { gain: 0.86 });
-      break;
-  }
-}
 
 export function startVnAmbience(kind: VnAmbience): void {
   if (kind === "none") {

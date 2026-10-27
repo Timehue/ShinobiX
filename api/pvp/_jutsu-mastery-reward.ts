@@ -7,9 +7,6 @@ import {
 } from './_valid-fight.js';
 import type { PvpSession } from './session.js';
 
-/** Once per distinct successful cast, per victory. Repeated casts cannot farm XP. */
-export const PVP_JUTSU_XP_PER_WIN = PVP_MASTERY_BASE_XP.win;
-
 /**
  * Per-row mastery for one valid fight. Lv40-49 rows sit past the seal-lesson
  * ladder, where 10 XP a win took years; with PVP_MASTERY_40_49 on they earn

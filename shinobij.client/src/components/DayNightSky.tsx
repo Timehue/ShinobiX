@@ -33,8 +33,8 @@ export function DayNightSky({
     // from NOON_SKY and let the mount effect swap the real sky in, but whenever
     // the browser painted in between, the tint's 2s transition then played that
     // swap: at night every entry to a scene began in daylight and dimmed. The
-    // disable check is a plain localStorage read in render (same gate pattern as
-    // SectorScene3D) — kept out of state so the effect never calls setState
+    // disable check is a plain localStorage read in render (same gate pattern the
+    // since-removed SectorScene3D used) — kept out of state so the effect never calls setState
     // synchronously.
     const [sky, setSky] = useState<SkyState>(() => (dayCycleDisabled() ? NOON_SKY : skyNow()));
     const disabled = dayCycleDisabled();

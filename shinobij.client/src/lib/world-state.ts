@@ -67,15 +67,6 @@ export type VillageWarRecord = {
     pendingUntil?: number;
 };
 
-export type TerritoryRecord = {
-    sector: number;
-    ownerClan?: string;
-    ownerVillage?: string;
-    hp: number;
-    controlScore?: number;
-    warSupply: number;
-};
-
 export type ArenaTournament = {
     id: string;
     name: string;
@@ -157,17 +148,6 @@ export async function finalizeArenaTournamentWinner(tournamentId: string, winner
 
 export function loadArenaActiveFights(): ArenaSpectatorFight[] {
     return sharedArenaActiveFightsCache.filter((fight) => Date.now() - fight.startedAt < 2 * 60 * 60 * 1000);
-}
-
-export function saveArenaActiveFights(fights: ArenaSpectatorFight[]) {
-    sharedArenaActiveFightsCache = fights.slice(0, 20);
-    // Track locally-added fights so CDN-stale hydrations don't wipe them
-    for (const f of sharedArenaActiveFightsCache) locallyRegisteredFights.set(f.id, f);
-    persistSharedGameState({ kind: "arenaActiveFights", fights: sharedArenaActiveFightsCache });
-}
-
-export function unregisterLocalFight(fightId: string) {
-    locallyRegisteredFights.delete(fightId);
 }
 
 /** Publish one battle without replacing other fighters' board entries. */
@@ -1155,12 +1135,6 @@ export function territoryRewardsSuspended(territory: SectorTerritory, now = Date
 export function territoryBreachMinsLeft(territory: SectorTerritory, now = Date.now()) {
     const deadline = territoryBreachDeadline(territory);
     return deadline > now ? Math.ceil((deadline - now) / 60_000) : 0;
-}
-
-export function territoryInactiveReleaseMinsLeft(territory: SectorTerritory, now = Date.now()) {
-    return territory.inactiveReleaseAt && territory.inactiveReleaseAt > now
-        ? Math.ceil((territory.inactiveReleaseAt - now) / 60_000)
-        : 0;
 }
 
 export function loadAllSectorTerritories() {

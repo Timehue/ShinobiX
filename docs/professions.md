@@ -17,7 +17,7 @@ Support profession. Heals other players from the hospital screen. Visibility of 
 - **No global healing cooldown.** Healers can heal as often as they want.
 - **Per-target cooldown: 5 minutes.** Any Healer healing the same target triggers this lockout — prevents two-Healer ping-pong farming. Cooldown is on the target, not on the (Healer, target) pair.
 - **Healer must be at the hospital screen to cast heals.** Heal actions are issued from the hospital UI.
-- **Cannot heal players in active battle.** Target must not be `inBattle` or have `pendingAttacker` set. (See [api/pvp/session.ts](api/pvp/session.ts) for battle state.)
+- **Cannot heal players in active battle.** Target must not be `inBattle` or have `pendingAttacker` set. (See [api/pvp/session.ts](../api/pvp/session.ts) for battle state.)
 - **Cannot heal cross-village.** Healer and target must be in the same village, even for clan members.
 - **Self-heal allowed but grants no Healer XP.**
 
@@ -114,7 +114,7 @@ Mission counters track **unique targets** where applicable.
 | Level gap for full Seal reward | Within 10 levels of attacker |
 | Level gap with reduced reward | 10–20 levels below = 50% Seals |
 | Level gap with no reward | >20 levels below attacker = 0 Seals |
-| Daily Honor Seal cap | 50 per day |
+| Daily Honor Seal cap | 150 per day |
 | Quick-surrender protection | Fights ending in <15 seconds = 0 Seals |
 | Friendly duels | 0 Seals |
 | Same-IP within last 7 days | 0 Seals (alt-account protection) |
@@ -371,14 +371,14 @@ After clicking a card, a modal appears:
 
 - Add `profession` field to character save (alongside existing `rank` / `clan` / `bloodline` / `village`).
 - Add `professionRank` and `professionXp` fields (or a nested object) — store per-profession progress so future profession-swap support doesn't lose data.
-- Honor Seals already exist in [api/save/[name].ts](api/save/[name].ts) with a 200/save cap — no schema work needed for the currency itself.
-- **Healing endpoint rework:** [api/player/heal.ts](api/player/heal.ts) currently enforces `identity.name === targetName`. Healer profession needs this gate relaxed for Healers, with checks for: target consent, target not in battle (`inBattle`/`pendingAttacker`), per-target 5-min cooldown, same-village requirement, and Rank 10 unlock for world-wide visibility.
-- **Hospital screen UI work:** [shinobij.client/src/screens/Hospital.tsx](shinobij.client/src/screens/Hospital.tsx) today only shows the self-heal timer. The Healer profession needs:
+- Honor Seals already exist in [api/save/[name].ts](../api/save/[name].ts) with a 200/save cap — no schema work needed for the currency itself.
+- **Healing endpoint rework:** [api/player/heal.ts](../api/player/heal.ts) currently enforces `identity.name === targetName`. Healer profession needs this gate relaxed for Healers, with checks for: target consent, target not in battle (`inBattle`/`pendingAttacker`), per-target 5-min cooldown, same-village requirement, and Rank 10 unlock for world-wide visibility.
+- **Hospital screen UI work:** [shinobij.client/src/screens/Hospital.tsx](../shinobij.client/src/screens/Hospital.tsx) today only shows the self-heal timer. The Healer profession needs:
   - List of hospitalized players in village (Ranks 1–9)
   - World map / list of injured village mates (Rank 10)
   - Heal button per row with per-target cooldown indicator
   - Min-HP filter, name search
-- Village Guard system at [api/village-guard/](api/village-guard/) already handles raid defense — Vanguard missions plug in here.
+- Village Guard system at [api/village-guard/](../api/village-guard/) already handles raid defense — Vanguard missions plug in here.
 - **Vanguard PvP kill attribution:** distinguish AI defender vs human defender kills in raid resolution — only human kills grant XP/Seals.
 - **Clan Honor Seal pool:** new shared clan-scoped storage (`save:clan-<slug>` already exists for clan data). Add `honorSealPool` field + leader-distribution endpoint.
 - **Daily reset timing:** Pet Tamer "First Expedition" bonus, Vanguard Seal cap, Vanguard alt-account checks all need a consistent server-side daily reset (suggest UTC midnight).

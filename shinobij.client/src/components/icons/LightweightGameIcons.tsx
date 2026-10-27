@@ -69,7 +69,6 @@ const attack = artGlyph("attack");
 const admin = gameGlyph("admin");
 const bag = artGlyph("supply");
 const bone = artGlyph("boneCharm");
-const chakra = artGlyph("auraStone");
 const clock = gameGlyph("clock");
 const crystal = artGlyph("auraStone");
 const defense = artGlyph("guard");
@@ -84,15 +83,12 @@ const health = artGlyph("vitality");
 const rations = artGlyph("rations");
 const hazard = artGlyph("warning");
 const map = artGlyph("map");
-const medal = artGlyph("crown");
 const menu = gameGlyph("menu");
-const moon = artGlyph("biomeShadow");
 const paw = artGlyph("petTamer");
 const petHome = artGlyph("petHome");
 const person = artGlyph("roleDefender");
 const ryo = artGlyph("ryo");
 const scroll = artGlyph("scroll");
-const sigil = artGlyph("roleSage");
 const snow = artGlyph("biomeSnow");
 const sparkle = artGlyph("auraStone");
 const speed = artGlyph("speed");
@@ -107,7 +103,6 @@ const travel = artGlyph("gate");
 const book = artGlyph("logbook");
 const storyBook = artGlyph("storyHall");
 const tavern = artGlyph("tavern");
-const shop = artGlyph("shop");
 const premiumShop = artGlyph("premiumShop");
 const chat = pathGlyph("M4 4.5h16v11H9l-5 4v-15Z");
 const discord = gameGlyph("discord");
@@ -117,21 +112,16 @@ const crown = artGlyph("crown");
 const eye = pathGlyph("M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Zm9.5-2.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5Z");
 const exit = pathGlyph("M10 4H5v16h5M13 8l4 4-4 4M8 12h9");
 const flag = pathGlyph("M5 21V4m0 1h11l-2 3 2 3H5");
-const gears = pathGlyph("M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Zm0-5v2m0 13v2M3.5 12h2m13 0h2M6 6l1.4 1.4M16.6 16.6 18 18M18 6l-1.4 1.4M7.4 16.6 6 18");
 const settings = gameGlyph("settings");
 const lock = pathGlyph("M7 10V7a5 5 0 0 1 10 0v3m-11 0h12v10H6V10Z");
-const speaker = pathGlyph("M4 10h4l5-4v12l-5-4H4v-4Zm12-1c1.3 1.7 1.3 4.3 0 6m2.5-8.5c2.7 3.1 2.7 7.9 0 11");
-const speakerOff = pathGlyph("M4 10h4l5-4v5m0 4v3l-5-4H4v-4Zm12-5 5 5m0-5-5 5M3 3l18 18");
 const trash = pathGlyph("M5 7h14M9 7V4h6v3m2 0-1 13H8L7 7m3 4v5m4-5v5");
 const trophy = artGlyph("crown");
 
 export {
-    clock as GiAlarmClock,
     paw as GiAnimalHide,
     blacksmith as GiAnvil,
     tavern as GiBeerStein,
     strength as GiBiceps,
-    defense as GiBlackBelt,
     flag as GiBlackFlag,
     blacksmith as GiBlacksmith,
     book as GiBookCover,
@@ -139,18 +129,10 @@ export {
     speed as GiBootPrints,
     rations as GiBowlOfRice,
     attack as GiBoxingGlove,
-    chakra as GiBrain,
-    chakra as GiBrainstorm,
     defense as GiBreastplate,
-    defense as GiBrickWall,
     bag as GiBriefcase,
-    attack as GiBroadsword,
-    clock as GiCalendar,
-    fire as GiCampfire,
     scroll as GiCardPickup,
-    tower as GiCastle,
     chat as GiChatBubble,
-    gift as GiChest,
     paw as GiClawSlashes,
     coliseum as GiColiseum,
     map as GiCompass,
@@ -160,10 +142,7 @@ export {
     crystal as GiCrystalBall,
     crystal as GiCrystalCluster,
     crystal as GiCrystalGrowth,
-    attack as GiDaggers,
     discord as GiDiscord,
-    dice as GiDiceSixFacesSix,
-    sigil as GiDna1,
     target as GiDragonHead,
     travel as GiDungeonGate,
     envelope as GiEnvelope,
@@ -175,12 +154,9 @@ export {
     fire as GiFireSpellCast,
     paw as GiFishScales,
     fire as GiFlame,
-    attack as GiGauntlet,
-    gears as GiGears,
     admin as GiAdmin,
     settings as GiSettings,
     crystal as GiGems,
-    medal as GiGraduateCap,
     tower as GiGreekTemple,
     menu as GiHamburgerMenu,
     hazard as GiHazardSign,
@@ -188,21 +164,14 @@ export {
     health as GiHealthIncrease,
     health as GiHealthNormal,
     health as GiHealthPotion,
-    health as GiHearts,
     defense as GiHood,
     bone as GiHornInternal,
     bag as GiKnapsack,
     tower as GiLadder,
     crown as GiLaurelCrown,
-    trophy as GiLaurelsTrophy,
     sparkle as GiMagicSwirl,
     paw as GiMeat,
-    chat as GiMegaphone,
-    ryo as GiMoneyStack,
-    moon as GiMoon,
-    moon as GiNightSleep,
     person as GiNinjaHeroicStance,
-    book as GiNotebook,
     target as GiOgre,
     storyBook as GiOpenBook,
     gift as GiOpenTreasureChest,
@@ -210,32 +179,21 @@ export {
     tower as GiPagoda,
     paw as GiPawPrint,
     petHome as GiPetHome,
-    map as GiPositionMarker,
-    attack as GiPunchBlast,
-    medal as GiRank3,
-    medal as GiRibbonMedal,
     dice as GiRollingDices,
     speed as GiRun,
     clock as GiSandsOfTime,
     scroll as GiScrollUnfurled,
     defense as GiShield,
-    shop as GiShop,
     premiumShop as GiPremiumShop,
     snow as GiSnowflake1,
     sparkle as GiSparkles,
-    speaker as GiSpeaker,
-    speakerOff as GiSpeakerOff,
     target as GiSpikedDragonHead,
     bone as GiSpinalCoil,
     sparkle as GiSpiralThrust,
-    speed as GiSprint,
     eye as GiSpyglass,
     crystal as GiStoneStack,
     tower as GiStoneTower,
-    clock as GiStopwatch,
-    sparkle as GiSun,
     bag as GiSwapBag,
-    chakra as GiSwirlString,
     chat as GiTalk,
     target as GiTargeted,
     travel as GiTempleGate,
@@ -246,12 +204,7 @@ export {
     map as GiTreasureMap,
     trophy as GiTrophy,
     ryo as GiTwoCoins,
-    sigil as GiUpgrade,
-    chakra as GiVortex,
     crystal as GiWaterDrop,
-    crystal as GiWaterSplash,
     target as GiWolfHead,
-    menu as FiGrid,
-    bag as FiPackage,
     close as FiX,
 };

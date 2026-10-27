@@ -1,5 +1,7 @@
 # Native Pet Roles — design + implementation plan
 
+> **Historical document.** It was written while Vercel and cPanel were still hosts. Both are retired: Railway is the only host, `dist/` is never committed, and new endpoints are registered in `server-api-routes.ts`. Instructions below about committing `dist/`, cPanel or Vercel parity, or `server.ts` registration no longer apply. Current rules live in `CLAUDE.md`.
+
 **Status:** Phases 0–3 BUILT + green (uncommitted). **Date:** 2026-06-14.
 
 ## Implementation status (2026-06-14)

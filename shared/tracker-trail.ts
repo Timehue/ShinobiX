@@ -19,9 +19,6 @@ import { isPlayableWildSector, MAX_WILD_SECTOR } from "./sector-geo.js";
 /** A trail goes cold if it is not followed to the end within this window. */
 export const TRACKER_TRAIL_TTL_MS = 2 * 60 * 60 * 1000;
 
-/** Number of sectors the tracks cross. The pet waits in the last one. */
-export const TRACKER_TRAIL_LEGS = 2;
-
 export type TrackerTrail = {
     id: string;
     /** The sealed wild-encounter request id the final sector mints under. */

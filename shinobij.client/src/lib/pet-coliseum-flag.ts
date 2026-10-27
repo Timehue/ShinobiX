@@ -6,8 +6,8 @@
  *     They used to be localStorage switches, which meant two browsers — or a
  *     browser and the server's Node replay — could resolve the same seeded fight
  *     under different rules. Never reintroduce a localStorage read for those.
- * The HD-2D coliseum is THE arena renderer for every pet-battle call site (Pet
- * Arena, Hollow Gate dungeon duels) — there is no classic-battlefield toggle.
+ * The HD-2D coliseum renderer (PetColiseum.tsx, PetColiseumDuel) was retired on
+ * 2026-10-16; the comments below that name it describe the old renderer.
  */
 
 /*
@@ -94,9 +94,9 @@ export function petRankedChallengeEnabled(): boolean {
  * redesign (docs/pet-combat-redesign-plan.md). When ON, NON-RANKED pet battles
  * (Pet Arena 1v1 + 2v2, Hollow Gate / dungeon duels, clan-war pet2v2) resolve
  * with the new CONTINUOUS duel engine (lib/pet-duel-sim.ts) rendered by
- * PetColiseumDuel — pets approach, hold spacing, kite, trade homing elemental
+ * the (since retired) PetColiseumDuel — pets approach, hold spacing, kite, trade homing elemental
  * projectiles, dodge, and unleash ultimates. When OFF, those fights fall back to
- * the old round-based resolver (lib/pet-battle-sim.ts) + the PetColiseum renderer.
+ * the old round-based resolver (lib/pet-battle-sim.ts) + the retired PetColiseum renderer.
  *
  * RANKED pet battles are NOT affected by this flag — they stay on the old engine
  * until balance + server-side validation are proven (plan Phases E/F). Flipping
@@ -126,7 +126,7 @@ export function petDuelEngineEnabled(): boolean {
  * the sim's own default is still v2=false so its golden/back-compat tests stay green.
  */
 /*
- * Tactical Arena TRUE-3D stage (PetArena3DStage) — the LoL-style spectator
+ * Tactical Arena TRUE-3D stage (PetArena3DStage, since removed) — the LoL-style spectator
  * renderer: approved roster GLBs on a walkmask-generated 3D floor with a
  * pitched broadcast follow-camera + corner PiP chase cam. Applies only when
  * EVERY pet in the match has an approved 3D model (petCombatModel) — otherwise

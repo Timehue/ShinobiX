@@ -128,7 +128,9 @@ test('shop tools equip, survive reload, spend durability, and connect to refinin
     const registered = await request.post('/api/player-auth', { data: { action: 'register', name, password: 'GatheringJourney!1234' } });
     expect(registered.status(), await registered.text()).toBe(200);
     const token = String((await registered.json()).token), headers = { 'x-player-name': name, 'x-player-token': token };
-    const save = uiAuditSave(); save.currentSector = 2; save.currentTile = 74; save.worldGeoV = 2; save.currentBiome = 'central';
+    // The minigame journey uses the iron seam. Keep this journey on the other
+    // real seam so desktop and mobile share charges without exhausting it.
+    const save = uiAuditSave(); save.currentSector = 2; save.currentTile = 130; save.worldGeoV = 2; save.currentBiome = 'central';
     save.character = { ...save.character, name, level: 85, ryo: 5000, fateShards: 200, elderFocus: undefined,
         villageUpgrades: {}, clanUpgradeLevels: {}, clanDoctrine: undefined,
         equippedJutsuIds: [], jutsuMastery: [], equipment: {}, inventory: [], tileCards: [], gatheringToolUses: {},
@@ -211,21 +213,25 @@ test('shop tools equip, survive reload, spend durability, and connect to refinin
     await expect.poll(async () => await returnButton.isVisible() || await page.locator('.continuous-world-map').isVisible()).toBe(true);
     if (await returnButton.isVisible()) await returnButton.click();
     await expect(page.locator('.continuous-world-map')).toHaveAttribute('aria-busy', 'false');
-    await page.getByRole('button', { name: /^Harbor iron seam, mining/ }).click();
-    await expect(page.getByRole('dialog', { name: 'Harbor iron seam', exact: true })).toBeVisible();
+    await page.getByRole('button', { name: /^Harbor stormglass seam, mining/ }).click();
+    await expect(page.getByRole('dialog', { name: 'Harbor stormglass seam', exact: true })).toBeVisible();
     const approach = page.getByRole('button', { name: 'Approach rock base', exact: true });
     if (await approach.isVisible()) {
         await approach.click();
-        await expect.poll(async () => (await (await request.get('/api/player/world-move', { headers })).json()).tile, { timeout: 30_000 }).toBe(74);
-        await expect(page.locator('.sector-player-tile')).toHaveAttribute('aria-label', 'Current tile row 7 column 3');
-        await page.getByRole('button', { name: /^Harbor iron seam, mining/ }).click();
+        await expect.poll(async () => (await (await request.get('/api/player/world-move', { headers })).json()).tile, { timeout: 30_000 }).toBe(130);
+        await expect(page.locator('.sector-player-tile')).toHaveAttribute('aria-label', 'Current tile row 11 column 11');
+        await page.getByRole('button', { name: /^Harbor stormglass seam, mining/ }).click();
     }
     await page.getByRole('radio', { name: /Watch animation/ }).check();
+    const availability = await request.post('/api/world/resource', { headers, data: { action: 'nodes' } });
+    expect(availability.status(), await availability.text()).toBe(200);
+    const chargesBefore = (await availability.json()).nodes['resource-14'].remaining as number;
+    expect(chargesBefore).toBeGreaterThan(0);
     await page.getByRole('button', { name: 'Begin mining · 1 action' }).click();
     await expect(page.getByRole('button', { name: 'Abandon attempt (action stays spent)', exact: true })).toBeVisible();
     await page.reload();
     await page.getByRole('button', { name: 'Abandon attempt (action stays spent)', exact: true }).click();
-    await expect(page.getByRole('region', { name: 'Mining result' })).toContainText('2/3');
+    await expect(page.getByRole('region', { name: 'Mining result' })).toContainText(`${chargesBefore - 1}/3`);
     await expect(page.getByRole('button', { name: 'Mine again' })).toBeVisible();
     current = await readSave(); expect(current.gatheringToolUses['tool-basic-pickaxe']).toBe(1);
     expect(readResourceGathering(current.resourceGathering).attemptsToday).toBe(1);

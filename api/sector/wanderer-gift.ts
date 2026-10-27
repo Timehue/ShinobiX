@@ -7,6 +7,7 @@ import { enforceRateLimitKv } from '../_ratelimit.js';
 import { LockContendedError } from '../_lock.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { isPlayerSaveVersionConflict } from '../save/_projected-write.js';
+import { saveUnchangedSince } from '../save/_save-unchanged.js';
 import { decideWandererGift, rollWandererGift, WANDERER_GIFTS_PER_DAY } from './_wanderer-gift.js';
 import {
     claimWandererUseCooldown,
@@ -79,7 +80,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         let legacyWandererId = '';
 
         type Reply = Record<string, unknown>;
-        const committed = await mutatePlayerSave<Reply>(playerName, async ({ character: char }) => {
+        const committed = await mutatePlayerSave<Reply>(playerName, async ({ character: char, record, saveKey }) => {
             const refuse = (body: Reply) => ({ ok: true as const, write: false, character: char, value: body });
             const now = Date.now();
 
@@ -113,6 +114,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // The save lock serializes this player's gift requests, so a full
             // daily cap rejects above without spending this wanderer cooldown.
             const countAfter = await kv.incr(dayKey, { ex: 25 * 60 * 60 });
+            const handBack = async () => {
+                await kv.delIfEqual(wandererUseCooldownKey(playerName, wandererId), { cooldownUntil: hardCooldown.cooldownUntil });
+                if (await kv.get<number>(dayKey) === countAfter) await kv.set(dayKey, countAfter - 1, { ex: 25 * 60 * 60 });
+            };
             // Roll the bundle SERVER-SIDE (never trust the client) and grant it.
             const gift = rollWandererGift(Number(char.level ?? 1), Math.random);
             const rewarded = {
@@ -139,9 +144,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // player's retry is a fresh claim rather than "cooldown". Only
                 // this player's gift path touches either key, always under this
                 // save lock.
-                onConflict: async () => {
-                    await kv.delIfEqual(wandererUseCooldownKey(playerName, wandererId), { cooldownUntil: hardCooldown.cooldownUntil });
-                    if (await kv.get<number>(dayKey) === countAfter) await kv.set(dayKey, countAfter - 1, { ex: 25 * 60 * 60 });
+                onConflict: handBack,
+                // A write that failed without a confirmed commit may still have
+                // landed. Hand the cooldown and the slot back only when the stored
+                // save provably still holds the version this read; an unreadable
+                // or moved save keeps both spent, so a gift that DID land can
+                // never be claimed a second time.
+                onUnconfirmedWrite: async () => {
+                    if (await saveUnchangedSince(saveKey, record)) await handBack();
                 },
             };
         });

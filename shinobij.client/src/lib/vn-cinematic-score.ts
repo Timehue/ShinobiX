@@ -9,7 +9,6 @@
 import { getAudioVolume, isAudioMuted, subscribeAudioMute } from "./pet-music";
 import { musicDeliverySrc } from "./audio-delivery";
 import { isAudioBackgrounded, subscribeAudioLifecycle } from "./audio-lifecycle";
-import type { VnSoundCue } from "../types/vn";
 
 export type VnScoreKey = "stormveil" | "ashen" | "frostfang" | "moonshadow" | "hollow";
 
@@ -29,8 +28,6 @@ let activeDeck = 0;
 let currentKey: VnScoreKey | null = null;
 let mix: [number, number] = [0, 0];
 let mixFrame: number | null = null;
-let duckFrame: number | null = null;
-let duckMultiplier = 1;
 let listenersInstalled = false;
 let unsubscribeMute: (() => void) | null = null;
 let unsubscribeLifecycle: (() => void) | null = null;
@@ -60,20 +57,14 @@ function easeInOut(value: number): number {
 
 function renderMix(): void {
     if (!decks) return;
-    decks[0].volume = Math.min(1, BASE_VOLUME * getAudioVolume() * mix[0] * duckMultiplier);
-    decks[1].volume = Math.min(1, BASE_VOLUME * getAudioVolume() * mix[1] * duckMultiplier);
+    decks[0].volume = Math.min(1, BASE_VOLUME * getAudioVolume() * mix[0]);
+    decks[1].volume = Math.min(1, BASE_VOLUME * getAudioVolume() * mix[1]);
 }
 
 function cancelMixFrame(): void {
     if (mixFrame === null || typeof window === "undefined") return;
     window.cancelAnimationFrame(mixFrame);
     mixFrame = null;
-}
-
-function cancelDuckFrame(): void {
-    if (duckFrame === null || typeof window === "undefined") return;
-    window.cancelAnimationFrame(duckFrame);
-    duckFrame = null;
 }
 
 function installListeners(): void {
@@ -90,8 +81,6 @@ function installListeners(): void {
         });
         if (muted) {
             cancelMixFrame();
-            cancelDuckFrame();
-            duckMultiplier = 1;
             mix = currentKey ? (activeDeck === 0 ? [1, 0] : [0, 1]) : [0, 0];
             renderMix();
             decks.forEach((deck) => deck.pause());
@@ -197,8 +186,6 @@ export function startVnScore(key: VnScoreKey | null): void {
 export function stopVnScore(fadeMs = 900): void {
     try {
         currentKey = null;
-        cancelDuckFrame();
-        duckMultiplier = 1;
         if (!decks) return;
         if (fadeMs <= 0 || isAudioMuted() || isAudioBackgrounded()) {
             cancelMixFrame();
@@ -216,45 +203,6 @@ export function stopVnScore(fadeMs = 900): void {
     } catch {
         // Optional audio.
     }
-}
-
-const DUCKING: Readonly<Partial<Record<VnSoundCue, { floor: number; holdMs: number }>>> = {
-    title: { floor: 0.72, holdMs: 850 },
-    reveal: { floor: 0.56, holdMs: 1_150 },
-    omen: { floor: 0.58, holdMs: 1_050 },
-    decision: { floor: 0.78, holdMs: 300 },
-    battle: { floor: 0.48, holdMs: 800 },
-};
-
-/** Make a sparse authored cue readable without making either bus loud. */
-export function duckVnScore(cue: VnSoundCue): void {
-    const duck = DUCKING[cue];
-    if (!duck || !decks || typeof window === "undefined" || isAudioMuted() || isAudioBackgrounded()) return;
-    cancelDuckFrame();
-    const startedAt = performance.now();
-    const attackMs = 65;
-    const releaseMs = 520;
-    const finishAt = attackMs + duck.holdMs + releaseMs;
-    const frame = (now: number) => {
-        const elapsed = now - startedAt;
-        if (elapsed < attackMs) {
-            duckMultiplier = 1 - (1 - duck.floor) * easeInOut(elapsed / attackMs);
-        } else if (elapsed < attackMs + duck.holdMs) {
-            duckMultiplier = duck.floor;
-        } else {
-            const release = (elapsed - attackMs - duck.holdMs) / releaseMs;
-            duckMultiplier = duck.floor + (1 - duck.floor) * easeInOut(release);
-        }
-        renderMix();
-        if (elapsed < finishAt) {
-            duckFrame = window.requestAnimationFrame(frame);
-            return;
-        }
-        duckMultiplier = 1;
-        duckFrame = null;
-        renderMix();
-    };
-    duckFrame = window.requestAnimationFrame(frame);
 }
 
 if (import.meta.hot) {

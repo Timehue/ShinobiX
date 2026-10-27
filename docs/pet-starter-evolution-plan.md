@@ -1,5 +1,7 @@
 # Starter Pet Evolution + Digivolution-Style Cutscene — Full Plan
 
+> **Historical document.** It was written while Vercel and cPanel were still hosts. Both are retired: Railway is the only host, `dist/` is never committed, and new endpoints are registered in `server-api-routes.ts`. Instructions below about committing `dist/`, cPanel or Vercel parity, or `server.ts` registration no longer apply. Current rules live in `CLAUDE.md`.
+
 _Last updated 2026-06-13._
 
 > **PHASES 1 & 2 SHIPPED (working tree, uncommitted, tests green — 753 pass; my
@@ -100,10 +102,10 @@ rotatable `.glb` for a few dollars total, with the existing key.
 | Items / inventory | [shinobij.client/src/data/starter-items.ts](../shinobij.client/src/data/starter-items.ts) |
 | Marketplace (collars/gear with `cost`) | [shinobij.client/src/data/pet-config.ts](../shinobij.client/src/data/pet-config.ts) |
 | Pet screen (Evolve button goes here) | [shinobij.client/src/screens/PetYard.tsx](../shinobij.client/src/screens/PetYard.tsx) |
-| Coliseum renderer (r3f, billboards, bloom) | [shinobij.client/src/components/PetColiseum.tsx](../shinobij.client/src/components/PetColiseum.tsx) |
+| Coliseum renderer (r3f, billboards, bloom) | `shinobij.client/src/components/PetColiseum.tsx` (retired) |
 | Sprite/pose resolution + image namespaces | [shinobij.client/src/lib/pet-battle-anim.ts](../shinobij.client/src/lib/pet-battle-anim.ts) |
 | Beat choreography (deterministic) | [shinobij.client/src/lib/pet-coliseum-scene.ts](../shinobij.client/src/lib/pet-coliseum-scene.ts) |
-| Pose flipbook manifest | [shinobij.client/src/assets/coliseum/pet-poses-manifest.ts](../shinobij.client/src/assets/coliseum/pet-poses-manifest.ts) |
+| Pose flipbook manifest | `shinobij.client/src/assets/coliseum/pet-poses-manifest.ts` (retired) |
 | Pose webp files | `shinobij.client/public/pet-poses/<id>-<cat>.webp` |
 | Relevant flags (`petEvolveCutscene.v1`, `petDuelEngine.v1`, `petBloom.v1`) | `shinobij.client/src/lib/pet-coliseum-flag.ts` |
 | Asset gen scripts | `shinobij.client/scripts/{gen-asset,gen-pet-anim,slice-pet-poses,gen-pet-run,gen-all-pet-poses,finalize-pet-poses,gen-bg}.mjs` |
