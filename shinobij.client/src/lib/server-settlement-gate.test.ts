@@ -78,7 +78,7 @@ describe("server settlement policy", () => {
         assert.ok((profile.match(/requireServerSettlement\("profileFateShardTitle"\)/g) ?? []).length >= 3);
 
         const shop = source("../components/Shop.tsx");
-        assertGuardBefore(shop, "buy", "shopPurchase", "fetch('/api/shop/purchase'");
+        assertGuardBefore(shop, "buy", "shopPurchase", "purchaseShopItem(");
         const packs = source("../components/ChroniclePackGallery.tsx");
         assertGuardBefore(packs, "open", "shopCardPack", "openCardPack(");
 
@@ -147,8 +147,8 @@ describe("server settlement policy", () => {
             "the single-flight Claim button must delegate to the guarded settlement");
         assertGuardBefore(hunter, "claimHuntOnce", "fieldHuntMissions", "postClaimMission(");
 
-        const bank = source("../screens/Bank.tsx");
-        assertGuardBefore(bank, "moveRyo", "bankDeposit", "fetch(\"/api/bank/transfer\"");
+        const bank = source("./use-bank-controller.ts");
+        assertGuardBefore(bank, "moveRyo", "bankDeposit", "transferBankRyo(");
 
         // joinRankedQueue moved with the rest of the ranked queue lifecycle into
         // the Arena hook; the rankedPvp release gate must still precede the first

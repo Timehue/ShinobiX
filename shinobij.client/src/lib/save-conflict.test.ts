@@ -458,7 +458,9 @@ describe("save-conflict App and accessibility contracts", () => {
         assert.ok(ryoRepair > 0 && ryoRepair < ryoClassify && ryoClassify < ryoProtect,
             "a Ryo rejection must compare the repaired atomic body to server authority before protecting recoverable fields");
         assert.ok(unloadSource.indexOf("params.captureConflict(name, body)") < unloadSource.indexOf("params.request ?? fetch"));
-        assert.match(unloadSource, /acknowledgement\?\.persisted !== false/);
+        const validateUnloadAck = unloadSource.indexOf('await readSaveAcknowledgement(');
+        assert.ok(validateUnloadAck > 0 && validateUnloadAck < unloadSource.indexOf('params.discardRevision(guard)'),
+            'the shared success contract must validate before retiring the durable unload guard');
         assert.match(unloadSource, /params\.discardRevision\(guard\)/);
     });
 

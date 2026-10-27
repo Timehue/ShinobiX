@@ -899,6 +899,18 @@ describe('kv.compareSetMany on a real Postgres', () => {
         assert.deepEqual(await storage.kv.mgetProjected!(['pgit:proj:full'], {}), [{}], 'an empty projection of an object is {}');
     });
 
+    pgTest('player list projections preserve database results while reducing received bytes', async () => {
+        const { benchmarkListSaveReads } = await import('../scripts/storage-read-benchmark.js');
+        const metrics = await benchmarkListSaveReads(storage.kv, seed);
+        console.log(`[list-read-benchmark] ${JSON.stringify(metrics)}`);
+        const { readPublicIndexCharacters } = await import('./player/_list-save-projections.js');
+        await seed('pgit:read-legacy:empty', { character: {}, unrelated: 'kept' });
+        await seed('pgit:read-legacy:absent', { unrelated: 'kept' });
+        await seed('pgit:read-legacy:expired', { character: { name: 'Expired' } }, 'past');
+        assert.deepEqual(await readPublicIndexCharacters(storage.kv, ['pgit:read-legacy:empty', 'pgit:read-legacy:absent', 'pgit:read-legacy:expired']), [{}, null, null]);
+        assert.deepEqual(await storage.kv.get('pgit:read-legacy:empty'), { character: {}, unrelated: 'kept' }, 'partial projections must never contaminate full-save reads');
+    });
+
     // hkeys(nonEmptyStrings) lists image-manifest ids. It used jsonb_each, which
     // spilled every multi-MB value to temp files (73 GB in production); it now
     // lists keys only and tests values in memory. This proves the rows are the
