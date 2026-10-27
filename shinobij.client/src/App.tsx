@@ -1912,7 +1912,7 @@ export default function App() {
                         return [...merged, ...incoming];
                     });
                 }
-                void import('./lib/tower-party-invite-toast').then(({ noteTowerPartyInvites }) => noteTowerPartyInvites(data.towerPartyInvites, char.name)).catch(() => {});
+                void import('./lib/tower-party-invite-toast').then(({ noteTowerPartyInvites }) => noteTowerPartyInvites(data.towerPartyInvites, char.name, { isCurrent: heartbeatIsCurrent })).catch(() => {});
                 if (data.pendingAttacker && !isTraveling) {
                     // Heartbeat says someone is attacking us, but we haven't received the
                     // DuelChallenge with the server battleId yet (it arrives a beat
