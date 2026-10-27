@@ -190,6 +190,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             _saveVersion: Number(committed?._saveVersion ?? 0),
         });
     } catch (err) {
+        if (isTowerSessionContention(err)) {
+            res.setHeader('Retry-After', String(TOWER_SESSION_RETRY_AFTER_SECONDS));
+            return res.status(503).json({ ...towerSessionBusyErrorBody(), settled: false });
+        }
         console.error('[towers/settle]', err);
         return res.status(500).json({ error: 'Internal server error.' });
     }

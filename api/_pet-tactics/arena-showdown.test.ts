@@ -126,10 +126,15 @@ test('missed rounds and concession still decide a room', () => {
         if (session.phase === 'playback') { session.deadline = 0; advanceTacticsSession(session, 20_000 + i); }
     }
     assert.equal(roomResult(session), 'draw', 'both seats missed three rounds');
+    // The battle itself ends too, so both screens reach their result panel.
+    assert.equal(session.arena!.finished, true);
+    assert.equal(session.arena!.pvpDraw, true);
 
     const conceded = room();
     concedeTacticsSession(conceded, 'b');
     assert.equal(roomResult(conceded), 'a');
     assert.equal(tacticsView(conceded, 'a', 3_000).result, 'win');
     assert.equal(tacticsView(conceded, 'b', 3_000).result, 'loss');
+    assert.equal(conceded.arena!.finished, true);
+    assert.equal(conceded.arena!.outcome, 'win', 'seat A\'s view of a seat-B concession');
 });

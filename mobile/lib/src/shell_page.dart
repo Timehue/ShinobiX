@@ -13,6 +13,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'app_update.dart';
 import 'book_welcome_deck.dart';
 import 'google_auth_return.dart';
+import 'game_recovery.dart';
 import 'navigation_policy.dart';
 import 'play_experience.dart';
 import 'shell_config.dart';
@@ -57,6 +58,7 @@ class _ShellPageState extends State<ShellPage> with WidgetsBindingObserver {
 
   PlayExperienceStore? _store;
   Uri? _launchUri;
+  Uri? _recoveryUri;
 
   bool _splash = true;
   bool _offline = false;
@@ -120,6 +122,7 @@ class _ShellPageState extends State<ShellPage> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       unawaited(_store?.countSession(_now()));
+      unawaited(_resumeGame());
     }
   }
 
@@ -273,10 +276,43 @@ class _ShellPageState extends State<ShellPage> with WidgetsBindingObserver {
   }
 
   void _onLoadStop(InAppWebViewController c, WebUri? url) {
+    if (!mounted || !identical(c, _controller)) return;
+    _onUpdateVisitedHistory(c, url, false);
     _gameDocumentReady = true;
+    if (_offline) setState(() => _offline = false);
     unawaited(_flushPlayRewardPurchases());
     unawaited(_syncFoldNavigation());
     _hideSplash();
+  }
+
+  void _onUpdateVisitedHistory(
+    InAppWebViewController c,
+    WebUri? url,
+    bool? isReload,
+  ) {
+    final launch = _launchUri;
+    if (launch == null || !mounted || !identical(c, _controller)) return;
+    _recoveryUri = gameRecoveryUri(launch, url, _recoveryUri ?? launch);
+  }
+
+  Future<void> _resumeGame() async {
+    final c = _controller;
+    if (c == null || !_gameDocumentReady || _offline) return;
+    try {
+      // Reconcile through the client's existing visibility/focus listeners.
+      // Keep the document, live encounter and sign-in nonce intact.
+      await c.evaluateJavascript(
+        source: '''
+        if (!document.hidden) {
+          window.dispatchEvent(new Event('focus'));
+          document.dispatchEvent(new Event('visibilitychange'));
+        }
+      ''',
+      );
+      if (mounted && identical(c, _controller)) await _syncFoldNavigation();
+    } catch (_) {
+      // A renderer disappearing during resume is handled by its crash callback.
+    }
   }
 
   void _onWebViewCreated(InAppWebViewController controller) {
@@ -490,7 +526,8 @@ class _ShellPageState extends State<ShellPage> with WidgetsBindingObserver {
     }
     unawaited(
       controller.evaluateJavascript(
-        source: '''
+        source:
+            '''
           (() => document.querySelector('$selector')?.click())();
         ''',
       ),
@@ -606,9 +643,10 @@ class _ShellPageState extends State<ShellPage> with WidgetsBindingObserver {
         error.type == WebResourceErrorType.CANCELLED) {
       return;
     }
-    if (!mounted) return;
+    if (!mounted || !identical(c, _controller)) return;
     setState(() {
       _offline = true;
+      _gameDocumentReady = false;
       _splash = false;
     });
   }
@@ -619,12 +657,16 @@ class _ShellPageState extends State<ShellPage> with WidgetsBindingObserver {
   ) {
     // The renderer is gone and this WebView cannot be used again. Build a new
     // one; the game restores the session from its own storage.
-    if (!mounted) return;
+    if (!mounted || !identical(c, _controller)) return;
     setState(() {
       _controller = null;
       _webViewKey = UniqueKey();
       _splash = true;
+      _offline = false;
+      _gameDocumentReady = false;
     });
+    _splashTimeout?.cancel();
+    _splashTimeout = Timer(ShellConfig.splashTimeout, _hideSplash);
   }
 
   Future<PermissionResponse?> _onPermissionRequest(
@@ -644,11 +686,12 @@ class _ShellPageState extends State<ShellPage> with WidgetsBindingObserver {
   }
 
   Future<void> _retry() async {
-    final uri = _launchUri;
+    final uri = _recoveryUri ?? _launchUri;
     if (uri == null) return;
     setState(() {
       _offline = false;
       _splash = true;
+      _gameDocumentReady = false;
     });
     _splashTimeout?.cancel();
     _splashTimeout = Timer(ShellConfig.splashTimeout, _hideSplash);
@@ -824,13 +867,17 @@ class _ShellPageState extends State<ShellPage> with WidgetsBindingObserver {
                                       InAppWebView(
                                         key: _webViewKey,
                                         initialUrlRequest: URLRequest(
-                                          url: WebUri.uri(launchUri),
+                                          url: WebUri.uri(
+                                            _recoveryUri ?? launchUri,
+                                          ),
                                         ),
                                         initialSettings: _settings,
                                         onWebViewCreated: _onWebViewCreated,
                                         shouldOverrideUrlLoading: _onNavigation,
                                         onCreateWindow: _onCreateWindow,
                                         onLoadStop: _onLoadStop,
+                                        onUpdateVisitedHistory:
+                                            _onUpdateVisitedHistory,
                                         onReceivedError: _onReceivedError,
                                         onRenderProcessGone:
                                             _onRenderProcessGone,

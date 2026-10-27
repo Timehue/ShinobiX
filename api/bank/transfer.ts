@@ -8,16 +8,15 @@ import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import {
     appendSettlementReceipt,
     inspectSettlementReceipt,
-    parseSettlementRequestId,
 } from '../_settlement-receipts.js';
 import {
     applyBankTransfer,
-    parseBankTransferAction,
-    parseBankTransferAmount,
     type BankTransferAction,
 } from './_transfer.js';
 import { assessVillageTax } from '../_war-tax-apply.js';
 import { villageTaxEcho } from '../village/_village-tax-echo.js';
+import { bankTransferRequestContract, bankTransferResponseContract } from '../../shared/bank-contract.js';
+import { contractResponse } from '../_contract-response.js';
 
 /*
  * /api/bank/transfer - POST { playerName, action, amount, requestId? }
@@ -45,23 +44,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'POST') return res.status(405).end();
+    const reply = contractResponse(res, bankTransferResponseContract);
 
     try {
-        const body = (typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {})) as Record<string, unknown>;
-        const playerName = safeName(String(body.playerName ?? ''));
-        const action = parseBankTransferAction(body.action ?? body.direction);
-        const amount = parseBankTransferAmount(body.amount);
-        const requestId = parseSettlementRequestId(body.requestId);
-        if (!playerName) return res.status(400).json({ error: 'Missing playerName.' });
-        if (!action) return res.status(400).json({ error: 'Action must be deposit or withdraw.' });
-        if (amount === null) return res.status(400).json({ error: 'Amount must be a whole number from 1 to 10,000,000.' });
-        if (body.requestId !== undefined && body.requestId !== null && !requestId) {
-            return res.status(400).json({ error: 'Invalid requestId.' });
-        }
+        const parsed = bankTransferRequestContract.safeParse(typeof req.body === 'string' ? JSON.parse(req.body) : req.body);
+        if (!parsed.success) return reply(400, { error: parsed.error });
+        const { action, amount, requestId } = parsed.data;
+        const playerName = safeName(parsed.data.playerName);
+        if (!playerName) return reply(400, { error: 'Missing playerName.' });
 
         const identityName = await authedPlayer(req, playerName);
-        if (!identityName) return res.status(401).json({ error: 'Authentication required.' });
-        if (identityName !== playerName) return res.status(403).json({ error: 'You can only use your own bank account.' });
+        if (!identityName) return reply(401, { error: 'Authentication required.' });
+        if (identityName !== playerName) return reply(403, { error: 'You can only use your own bank account.' });
         if (!(await enforceRateLimitKv(req, res, 'bank-transfer', 20, 60_000, identityName, { strict: true }))) return;
         // The day's occupation tax, assessed by the server before the move (2026-10
         // rebalance, I-11): a conqueror's modded client that never called
@@ -120,8 +114,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             });
             // A refusal still echoes the tax: its day stamp moved the save version,
             // and the client adopts that so its next autosave is not stale.
-            if (!out.ok) return res.status(out.status).json({ error: out.error, ...villageTaxEcho(villageTax) });
-            return res.status(200).json({
+            if (!out.ok) return reply(out.status, { error: out.error, ...villageTaxEcho(villageTax) });
+            return reply(200, {
                 ok: true,
                 ...out.value,
                 character: out.character,
@@ -130,10 +124,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             });
         } catch (err) {
             console.error('[bank/transfer] locked mutation failed', safeLogValue(err));
-            return res.status(503).json({ error: 'Could not update your bank account. Please retry.', ...villageTaxEcho(villageTax) });
+            return reply(503, { error: 'Could not update your bank account. Please retry.', ...villageTaxEcho(villageTax) });
         }
     } catch (err) {
         console.error('[bank/transfer]', safeLogValue(err));
-        return res.status(500).json({ error: 'Internal server error.' });
+        return reply(500, { error: 'Internal server error.' });
     }
 }

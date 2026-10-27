@@ -926,7 +926,13 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // 9.722 MB) with no duplicated chunk; all of it is lazy screen code. The owner
 // approved 9.74 MB. Startup raw/gzip (398,446 B gzip), per-chunk, CSS and
 // runtime-asset gates stay fixed.
-const TOTAL_JS_CSS_FAIL_BYTES = 9_740_000;
+// 2026-10-27: the same branch merged with current main (the banking, save and
+// purchase contract slices, Battle Towers and the social journeys) measures
+// 9,754,730 B locally and 9,755,032 B in CI. Allow 9.765 MB: about 10 KB of
+// headroom, the same margin earlier raises kept. Startup gzip measures
+// 396,975 B against the unchanged 399,000 B gate; per-chunk, CSS and
+// runtime-asset gates stay fixed.
+const TOTAL_JS_CSS_FAIL_BYTES = 9_765_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai

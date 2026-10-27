@@ -12,6 +12,7 @@ import {
     type SaveConflictRevision,
 } from "./save-conflict";
 import type { SaveSnapshot } from "./save-persistence";
+import { readSaveAcknowledgement, readPlayerSaveSnapshot } from './save-api';
 
 type MutableNumberRef = { current: number };
 
@@ -128,17 +129,15 @@ export async function restoreSaveConflictRevision<TPayload extends Record<string
             throw new Error("The server changed again. Its newest save is now active and your same local draft is protected; try Restore again when ready.");
         }
         if (!response.ok) throw new Error(`The server could not restore this draft (status ${response.status}).`);
-        const acknowledgement = await response.json().catch(() => null);
+        const acknowledgement = await readSaveAcknowledgement(await response.json().catch(() => null));
         assertCurrent(draft.accountKey);
-        if (!isRecord(acknowledgement)) throw new Error("The restore response could not be read. Your device draft is still available.");
-        if (acknowledgement.persisted === false) throw new Error(`The server deferred this restore (${String(acknowledgement.reason ?? "save locked")}). Your draft is still protected.`);
         const acknowledgedVersion = exactSaveVersion(acknowledgement._saveVersion);
         if (acknowledgedVersion === null) throw new Error("The restored save could not be confirmed. Your device draft is still available.");
 
         const verifyResponse = await request(`/api/save/${encodeURIComponent(draft.accountName.toLowerCase())}`, requestInit({ cache: "no-store" }));
         assertCurrent(draft.accountKey);
         if (!verifyResponse.ok) throw new Error("Your draft was accepted, but the updated save could not be checked yet. Your device draft is still available.");
-        const verifiedRaw = await verifyResponse.json().catch(() => null);
+        const verifiedRaw = await readPlayerSaveSnapshot<TPayload>(await verifyResponse.json().catch(() => null), draft.accountName);
         assertCurrent(draft.accountKey);
         if (!isRecord(verifiedRaw) || !isRecord(verifiedRaw.character)) throw new Error("The restored save could not be read. Your device draft is still available.");
         const verified = verifiedRaw as TPayload & { _saveVersion?: number };

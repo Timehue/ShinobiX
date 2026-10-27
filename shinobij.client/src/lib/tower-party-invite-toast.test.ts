@@ -185,4 +185,66 @@ describe('Battle Towers invite toast', () => {
         await noteTowerPartyInvites(['party-1'], 'bob', deps);
         assert.equal(toasts.length, 2, 'the second player has not seen this invitation');
     });
+
+    it('delivers overflow in readable batches without marking unseen notices delivered', async () => {
+        const ids = ['one', 'two', 'three', 'four'];
+        const toasts: string[] = [];
+        let now = 0;
+        const deps = { fetchParty: async () => envelopeOf(ids.map(id => invitation(id))),
+            toast: (message: string) => { toasts.push(message); }, now: () => now };
+        await noteTowerPartyInvites(ids, 'alice', deps);
+        assert.equal(toasts.length, 3);
+        now = 1000;
+        await noteTowerPartyInvites(ids, 'alice', deps);
+        assert.equal(toasts.length, 3, 'leave time to read the first batch');
+        now = 8000;
+        await noteTowerPartyInvites(ids, 'alice', deps);
+        assert.equal(toasts.length, 4);
+        await noteTowerPartyInvites(ids, 'alice', deps);
+        assert.equal(toasts.length, 4);
+    });
+
+    it('rechecks visibility after validation and keeps the receipt unseen until return', async () => {
+        const originalDoc = Object.getOwnPropertyDescriptor(globalThis, 'document');
+        let hidden = false;
+        Object.defineProperty(globalThis, 'document', { configurable: true, value: { get hidden() { return hidden; } } });
+        const toasts: string[] = [];
+        let finish!: (value: TowerPartyEnvelope) => void;
+        try {
+            const pending = noteTowerPartyInvites(['one'], 'alice', {
+                fetchParty: () => new Promise(resolve => { finish = resolve; }),
+                toast: text => { toasts.push(text); },
+            });
+            hidden = true; finish(envelopeOf([invitation('one')])); await pending;
+            assert.equal(toasts.length, 0);
+            hidden = false;
+            await noteTowerPartyInvites(['one'], 'alice', { fetchParty: async () => envelopeOf([invitation('one')]), toast: text => { toasts.push(text); } });
+            assert.equal(toasts.length, 1);
+        } finally {
+            if (originalDoc) Object.defineProperty(globalThis, 'document', originalDoc);
+            else delete (globalThis as { document?: Document }).document;
+        }
+    });
+
+    it('cancellation during validation cannot announce the cancelled offer', async () => {
+        let finish!: (value: TowerPartyEnvelope) => void;
+        const toasts: string[] = [];
+        const pending = noteTowerPartyInvites(['one'], 'alice', { fetchParty: () => new Promise(resolve => { finish = resolve; }), toast: text => { toasts.push(text); } });
+        await noteTowerPartyInvites([], 'alice');
+        finish(envelopeOf([invitation('one')])); await pending;
+        assert.equal(toasts.length, 0);
+    });
+
+    it('a previous session cannot announce into a new account or block its validation', async () => {
+        let current = true;
+        let finish!: (value: TowerPartyEnvelope) => void;
+        const toasts: string[] = [];
+        const old = noteTowerPartyInvites(['old'], 'alice', { isCurrent: () => current,
+            fetchParty: () => new Promise(resolve => { finish = resolve; }), toast: text => { toasts.push(text); } });
+        current = false;
+        await noteTowerPartyInvites(['new'], 'bob', { fetchParty: async () => envelopeOf([invitation('new', 'New Host')]), toast: text => { toasts.push(text); } });
+        finish(envelopeOf([invitation('old', 'Old Host')])); await old;
+        assert.equal(toasts.length, 1);
+        assert.match(toasts[0], /New Host/);
+    });
 });

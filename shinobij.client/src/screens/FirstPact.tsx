@@ -86,6 +86,7 @@ import {
     fetchFirstPactProgress,
     visitFirstPactAftermath,
     abandonFirstPactExhibition,
+    abandonFirstPactUnbroken,
     draftFirstPactExhibition,
     orderFirstPactExhibition,
     startFirstPactExhibition,
@@ -306,7 +307,9 @@ const FIRST_PACT_DIALOGUE_LAST_LINE = Number.MAX_SAFE_INTEGER;
 
 const FIRST_PACT_SESSION_KEY = "first-pact.showdown.v1";
 const FIRST_PACT_SESSION_TTL_MS = 45 * 60 * 1000;
-type FirstPactSessionBreadcrumb = { sessionId: string; encounterId: FirstPactEncounterId; petIds: string[]; playerName: string };
+/** `replay` keeps a Court Replay's settings, so a resumed replay's rematch
+ *  stays a replay instead of opening the Standing Court. */
+type FirstPactSessionBreadcrumb = { sessionId: string; encounterId: FirstPactEncounterId; petIds: string[]; playerName: string; replay?: FirstPactReplaySettings };
 
 function readFirstPactSession(playerName: string): FirstPactSessionBreadcrumb | null {
     try {
@@ -319,7 +322,11 @@ function readFirstPactSession(playerName: string): FirstPactSessionBreadcrumb | 
         if (!encounter) return null;
         const petIds = parsed.petIds.map(String).slice(0, FIRST_PACT_TEAM_SIZE);
         if (petIds.length !== FIRST_PACT_TEAM_SIZE || new Set(petIds).size !== FIRST_PACT_TEAM_SIZE) return null;
-        return { playerName, sessionId: parsed.sessionId, encounterId: encounter.id, petIds };
+        const replay = parsed.replay as Record<string, unknown> | undefined;
+        return {
+            playerName, sessionId: parsed.sessionId, encounterId: encounter.id, petIds,
+            ...(replay && typeof replay === "object" ? { replay: { hard: replay.hard === true, unbroken: replay.unbroken === true } } : {}),
+        };
     } catch {
         return null;
     }
@@ -4802,7 +4809,7 @@ export function FirstPact({
                     await warmFirstPactBattle(state, characterPetsRef.current);
                     if (cancelled) return;
                     setSelectedPets(crumb.petIds);
-                    setBattle({ state, encounterId: crumb.encounterId });
+                    setBattle({ state, encounterId: crumb.encounterId, ...(crumb.replay ? { replay: crumb.replay } : {}) });
                     resumed = true;
                     return;
                 }
@@ -4813,6 +4820,17 @@ export function FirstPact({
                 const firstPact = (settlement as FirstPactSettlement).firstPact;
                 if (firstPact?.progress) setProgress(firstPact.progress);
                 if (firstPact?.exhibition !== undefined) setExhibition(firstPact.exhibition);
+                // As in finishBattle: after the crossing, only the state read
+                // credits the titles a postgame win earned.
+                if (!firstPact?.progress || firstPact.progress.mainStep === "complete") {
+                    const result = await fetchFirstPactProgress(character.name);
+                    if (cancelled || "error" in result || applyGrantCharacter(result, character.name) !== "accepted") return;
+                    setProgress(result.progress);
+                    if ("exhibition" in result) setExhibition(result.exhibition ?? null);
+                    if (result.grantedTitles?.length || result.grantedAuraStones) {
+                        setCrossingGrant({ titles: result.grantedTitles ?? [], auraStones: result.grantedAuraStones ?? 0, late: true });
+                    }
+                }
             } finally {
                 battleStartInFlightRef.current = false;
                 if (!cancelled) {
@@ -4822,7 +4840,7 @@ export function FirstPact({
             }
         })();
         return () => { cancelled = true; };
-    }, [character.name, loading, onBattleActiveChange]);
+    }, [applyGrantCharacter, character.name, loading, onBattleActiveChange]);
 
     useEffect(() => {
         const element = viewportRef.current;
@@ -5835,8 +5853,9 @@ export function FirstPact({
             const result = await request(requestAccount);
             if (!mountedRef.current || accountNameRef.current !== requestAccount) return;
             if ("error" in result) {
-                // Opened first, so the refusal is shown inside the ledger.
-                showExhibition(exhibition);
+                // Opened first, so the refusal is shown inside the ledger, on
+                // the run as the server now holds it when it sent one.
+                showExhibition(result.exhibition !== undefined ? result.exhibition : exhibition);
                 setBattleError(result.error);
                 return;
             }
@@ -5869,8 +5888,27 @@ export function FirstPact({
             openSquad(expectedFirstPactUnbrokenRound(progress)?.id, "replay");
             return;
         }
-        const hard = choice === "unbroken-hard";
         const requestAccount = character.name;
+        if (choice === "unbroken-abandon") {
+            setStoryActionPending(true);
+            try {
+                // The Arbiter's dialogue stays open and re-offers a fresh attempt.
+                const result = await abandonFirstPactUnbroken(requestAccount);
+                if (!mountedRef.current || accountNameRef.current !== requestAccount) return;
+                if ("error" in result) {
+                    if (result.progress) setProgress(result.progress);
+                    setError(result.error);
+                } else {
+                    setProgress(result.progress);
+                    playGameSfx("paper", { gain: 0.7 });
+                    setDialogLine(FIRST_PACT_DIALOGUE_LAST_LINE);
+                }
+            } finally {
+                if (mountedRef.current) setStoryActionPending(false);
+            }
+            return;
+        }
+        const hard = choice === "unbroken-hard";
         setStoryActionPending(true);
         try {
             const started = await startFirstPactUnbroken(requestAccount, hard);
@@ -5927,7 +5965,7 @@ export function FirstPact({
                 onBattleActiveChange?.(false);
                 return;
             }
-            writeFirstPactSession({ playerName: requestAccount, sessionId: result.state.sessionId, encounterId: encounter.id, petIds });
+            writeFirstPactSession({ playerName: requestAccount, sessionId: result.state.sessionId, encounterId: encounter.id, petIds, ...(replay ? { replay } : {}) });
             await warmFirstPactBattle(result.state, rental ? [...characterPetsRef.current, ...(exhibition?.team ?? [])] : characterPetsRef.current);
             if (!mountedRef.current || accountNameRef.current !== requestAccount) return;
             setProgress(result.progress);
@@ -5994,6 +6032,7 @@ export function FirstPact({
             return;
         }
         setProgress(result.progress);
+        if ("exhibition" in result && result.exhibition !== undefined) setExhibition(result.exhibition);
         closeBattle();
     }, [applyGrantCharacter, battle, character.name, closeBattle]);
 

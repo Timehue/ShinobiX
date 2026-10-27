@@ -1,5 +1,6 @@
 import { latestSaveConflictRevision, saveConflictAccountKey, stringifySaveConflictPayload, type SaveConflictDraft, type SaveConflictRevision } from "./save-conflict";
 import type { SaveSnapshot, UnresolvedSavePost } from "./save-persistence";
+import { readSaveAcknowledgement } from "./save-api";
 
 /**
  * The unload save without the drawn Hollow Gate board. A reload rebuilds a live
@@ -60,9 +61,7 @@ export function protectSaveOnUnload<TPayload extends Record<string, unknown>>(pa
         body: serializedBody,
     }).then(async (response) => {
         if (!response.ok) return;
-        const acknowledgement = await response.clone().json().catch(() => null) as { persisted?: boolean; _saveVersion?: number } | null;
-        if (acknowledgement?.persisted !== false
-            && Number.isSafeInteger(acknowledgement?._saveVersion) && Number(acknowledgement?._saveVersion) > 0
-            && params.isCurrentSession(params.accountKey, params.sessionEpoch)) params.discardRevision(guard);
+        await readSaveAcknowledgement(await response.clone().json().catch(() => null));
+        if (params.isCurrentSession(params.accountKey, params.sessionEpoch)) params.discardRevision(guard);
     }).catch(() => undefined);
 }

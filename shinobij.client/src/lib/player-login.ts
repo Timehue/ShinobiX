@@ -6,6 +6,7 @@
 // account all reuse the same second half without re-implementing this first one.
 
 import { sessionLoadFetch } from "./session-load-authority";
+import { readPlayerSaveSnapshot } from './save-api';
 import { isTokenExpired } from "../authFetch";
 import { accountKey, forgetAccountToken, loadPlayerAccounts } from "./player-accounts";
 import { resumeGuestFor } from "./guest-play";
@@ -45,6 +46,11 @@ export async function fetchPlayerSave(name: string, isCurrent: () => boolean): P
             // authFetch attaches the minted token to this relative /api/ URL.
             response = await sessionLoadFetch(`/api/save/${encodeURIComponent(name.toLowerCase())}`, undefined, 20000);
             if (!isCurrent()) return null;
+            if (response.ok) {
+                try { await readPlayerSaveSnapshot(await response.clone().json(), name); }
+                catch { response = new Response(null, { status: 503 }); }
+                if (!isCurrent()) return null;
+            }
             if (response.status !== 503) break; // 503 = storage unavailable, retry
         } catch { /* timeout/network — retry */ }
     }

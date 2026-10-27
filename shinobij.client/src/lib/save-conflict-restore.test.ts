@@ -80,7 +80,7 @@ function createHarness(options?: {
 
     const defaultRequest = (async (_input, init) => {
         requestCalls += 1;
-        if (init?.method === "POST") return jsonResponse(200, { persisted: true, _saveVersion: 6 });
+        if (init?.method === "POST") return jsonResponse(200, { ok: true, persisted: true, _saveVersion: 6 });
         return jsonResponse(200, { ...selected.payload, _saveVersion: 6 });
     }) as typeof fetch;
 
@@ -147,11 +147,11 @@ describe("exclusive save-conflict restore", () => {
             let calls = 0;
             const request = (async () => {
                 calls += 1;
-                return jsonResponse(200, { persisted: true, _saveVersion: invalidVersion });
+                return jsonResponse(200, { ok: true, persisted: true, _saveVersion: invalidVersion });
             }) as typeof fetch;
             const h = createHarness({ request });
 
-            await assert.rejects(h.restore(), /restored save could not be confirmed/i, `version ${String(invalidVersion)} must be rejected`);
+            await assert.rejects(h.restore(), /could not be confirmed/i, `version ${String(invalidVersion)} must be rejected`);
             assert.equal(calls, 1, "an invalid acknowledgement must not trigger verification");
             assertNoAuthoritySideEffects(h);
         }
@@ -165,7 +165,7 @@ describe("exclusive save-conflict restore", () => {
         let calls = 0;
         const request = (async (_input, init) => {
             calls += 1;
-            if (init?.method === "POST") return jsonResponse(200, { persisted: true, _saveVersion: 6 });
+            if (init?.method === "POST") return jsonResponse(200, { ok: true, persisted: true, _saveVersion: 6 });
             return jsonResponse(200, {
                 character: { name: "Kaya", level: 12 },
                 currentBiome: "central",
@@ -187,7 +187,7 @@ describe("exclusive save-conflict restore", () => {
         let calls = 0;
         const request = (async (_input, init) => {
             calls += 1;
-            if (init?.method === "POST") return jsonResponse(200, { persisted: true, _saveVersion: 6 });
+            if (init?.method === "POST") return jsonResponse(200, { ok: true, persisted: true, _saveVersion: 6 });
             // Version 7 could have landed AFTER the restore at version 6. Its
             // client-owned biome no longer matches the selected draft, so version
             // ordering alone cannot prove that the restored progress is live.
@@ -212,7 +212,7 @@ describe("exclusive save-conflict restore", () => {
         let calls = 0;
         const request = (async (_input, init) => {
             calls += 1;
-            if (init?.method === "POST") return jsonResponse(200, { persisted: true, _saveVersion: 9 });
+            if (init?.method === "POST") return jsonResponse(200, { ok: true, persisted: true, _saveVersion: 9 });
             return jsonResponse(200, {
                 character: { name: "Kaya", level: 10 },
                 currentBiome: "central",
@@ -237,7 +237,7 @@ describe("exclusive save-conflict restore", () => {
                 attempt += 1;
                 return attempt === 1
                     ? jsonResponse(409, { error: "save-version-conflict" })
-                    : jsonResponse(200, { persisted: true, _saveVersion: 8 });
+                    : jsonResponse(200, { ok: true, persisted: true, _saveVersion: 8 });
             }
             if (attempt === 1) {
                 holder.harness!.setCurrent({
@@ -283,7 +283,7 @@ describe("exclusive save-conflict restore", () => {
         let calls = 0;
         const request = (async (_input, init) => {
             calls += 1;
-            if (init?.method === "POST") return jsonResponse(200, { persisted: true, _saveVersion: 6 });
+            if (init?.method === "POST") return jsonResponse(200, { ok: true, persisted: true, _saveVersion: 6 });
             return jsonResponse(200, {
                 character: { name: "Kaya", level: 12 },
                 currentBiome: "coast",
@@ -319,7 +319,7 @@ describe("exclusive save-conflict restore", () => {
         const latestVersion = { current: 5 };
         let rehydrate: Promise<SaveConflictDraft | null> | null = null;
         const request = (async (_input, init) => init?.method === "POST"
-            ? jsonResponse(200, { persisted: true, _saveVersion: 6 })
+            ? jsonResponse(200, { ok: true, persisted: true, _saveVersion: 6 })
             : jsonResponse(200, {
                 character: { name: "Kaya", level: 10 },
                 currentBiome: "coast",
@@ -408,7 +408,7 @@ describe("exclusive save-conflict restore", () => {
         const restoring = h.restore();
         await jsonStarted.promise;
         h.state.epoch += 1;
-        acknowledgement.resolve({ persisted: true, _saveVersion: 6 });
+        acknowledgement.resolve({ ok: true, persisted: true, _saveVersion: 6 });
 
         await assert.rejects(restoring, /active account changed/i);
         assert.equal(calls, 1);
@@ -421,7 +421,7 @@ describe("exclusive save-conflict restore", () => {
         let calls = 0;
         const request = (async (_input, init) => {
             calls += 1;
-            if (init?.method === "POST") return jsonResponse(200, { persisted: true, _saveVersion: 6 });
+            if (init?.method === "POST") return jsonResponse(200, { ok: true, persisted: true, _saveVersion: 6 });
             return {
                 ok: true,
                 status: 200,
@@ -446,7 +446,7 @@ describe("exclusive save-conflict restore", () => {
     it("captures a local edit made during restore before applying the server snapshot", async () => {
         const holder: { harness?: ReturnType<typeof createHarness> } = {};
         const request = (async (_input, init) => {
-            if (init?.method === "POST") return jsonResponse(200, { persisted: true, _saveVersion: 6 });
+            if (init?.method === "POST") return jsonResponse(200, { ok: true, persisted: true, _saveVersion: 6 });
             holder.harness!.setCurrent({
                 name: "Kaya",
                 payload: { character: { name: "Kaya", level: 99 }, currentBiome: "coast" },
@@ -485,7 +485,7 @@ describe("exclusive save-conflict restore", () => {
             calls += 1;
             assert.ok(init?.signal instanceof AbortSignal);
             signals.push(init.signal);
-            if (init.method === "POST") return jsonResponse(200, { persisted: true, _saveVersion: 6 });
+            if (init.method === "POST") return jsonResponse(200, { ok: true, persisted: true, _saveVersion: 6 });
             return new Promise<Response>((_resolve, reject) => {
                 const signal = init.signal!;
                 if (signal.aborted) reject(signal.reason);

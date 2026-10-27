@@ -30,15 +30,32 @@ async function keeperRunRequest(playerName: string, action: string, extra: Recor
     }
 }
 
-const RESUME_KEY = "keeperPathMatch.v1";
-function readResume(): string | null {
-    try { return window.sessionStorage.getItem(RESUME_KEY); } catch { return null; }
-}
-function writeResume(matchId: string | null): void {
+/** A reload mid-duel rejoins that duel instead of dealing (and forfeiting) a
+ *  new one. The pointer belongs to one account, run and node: anything else in
+ *  the tab is ignored, so another account or a later run never resumes it. */
+const RESUME_KEY = "keeperPathMatch.v2";
+function readResume(owner: string): string | null {
     try {
-        if (matchId) window.sessionStorage.setItem(RESUME_KEY, matchId);
+        const stored = JSON.parse(window.sessionStorage.getItem(RESUME_KEY) ?? "null") as { owner?: string; matchId?: string } | null;
+        return stored?.owner === owner && typeof stored.matchId === "string" ? stored.matchId : null;
+    } catch { return null; }
+}
+function writeResume(owner: string | null, matchId?: string): void {
+    try {
+        if (owner && matchId) window.sessionStorage.setItem(RESUME_KEY, JSON.stringify({ owner, matchId }));
         else window.sessionStorage.removeItem(RESUME_KEY);
     } catch { /* Storage may be disabled; the server keeps the duel either way. */ }
+}
+
+/** An Echoes Keeper wears its campaign portrait; the house Path Keepers wear
+ *  their own (scripts/gen-keeper-path-art.mjs). */
+const PATH_KEEPER_PORTRAIT: Record<string, string> = {
+    "ai:easy": "/chronicle/path-warden.webp",
+    "ai:medium": "/chronicle/path-sentinel.webp",
+    "ai:hard": "/chronicle/path-arbiter.webp",
+};
+function keeperPortrait(opponent: NonNullable<KeeperNode["opponent"]>): string {
+    return PATH_KEEPER_PORTRAIT[opponent.key] ?? `/portraits/${opponent.name.toLowerCase()}.webp`;
 }
 
 const KIND_LABEL: Record<KeeperNode["kind"], string> = { fight: "Duel", elite: "Elite duel", shrine: "Shrine", boss: "Keeper" };
@@ -79,12 +96,12 @@ export function KeeperPath({ character, creatorCards, deck, onVersionedCharacter
     const run = record?.run ?? null;
     const current = run ? keeperNode(run, run.current) : null;
     if (fighting && current?.opponent) {
+        const owner = `${character.name}:${run!.runId}:${current.id}`;
         const back = () => { writeResume(null); setFighting(false); void send("state"); };
-        // A reload mid-duel rejoins that duel; starting a new one would forfeit it.
-        const resumeMatchId = readResume() ?? undefined;
-        return <CardClashDuel character={character} creatorCards={creatorCards}
+        const resumeMatchId = readResume(owner) ?? undefined;
+        return <CardClashDuel character={character} creatorCards={creatorCards} opponentAvatar={keeperPortrait(current.opponent)}
             keeperRun={{ label: `Act ${current.act + 1} · ${KIND_LABEL[current.kind]} · ${current.opponent.name}`, opponentName: current.opponent.name, resumeMatchId }}
-            onMatchStarted={(matchId) => writeResume(matchId)}
+            onMatchStarted={(matchId) => writeResume(owner, matchId)}
             onVersionedCharacter={onVersionedCharacter} onDungeonWin={back} onDungeonLose={back} onDungeonDraw={back} onDungeonLeave={() => { setFighting(false); void send("state"); }} />;
     }
 
@@ -96,6 +113,8 @@ export function KeeperPath({ character, creatorCards, deck, onVersionedCharacter
     };
 
     return <section className="chronicle-panel" aria-label="Keeper's Path">
+        <img src="/chronicle/keeper-path-hero.webp" alt="" width={1536} height={640} decoding="async"
+            style={{ width: "100%", height: "auto", aspectRatio: "1536 / 640", objectFit: "cover", borderRadius: 8, display: "block" }} />
         <h2>Keeper's Path</h2>
         <p>Three acts of Keeper duels with your saved deck. Pick a route through each act: duels, harder Elites that restore Resolve, or Shrines that grant a boon for the rest of the run. Each loss costs one Resolve, and the run ends when the last one is gone.</p>
         <p>A full run pays {KEEPER_PATH_CHRONICLE_POINTS} Chronicle Points once a day. Runs completed: {record?.clears ?? 0} · most duels won in a run: {record?.best ?? 0}.</p>
@@ -118,12 +137,14 @@ export function KeeperPath({ character, creatorCards, deck, onVersionedCharacter
                         {nodes.filter((node) => node.row === row).map((node) => <button key={node.id} type="button"
                             aria-pressed={node.id === run.position || node.id === run.current}
                             disabled={busy || !reachable.has(node.id)} onClick={() => void choose(node)}>
+                            {node.opponent ? <img src={keeperPortrait(node.opponent)} alt="" width={32} height={32} loading="lazy"
+                                style={{ width: 32, height: 32, borderRadius: "50%", objectFit: "cover", verticalAlign: "middle", marginRight: 6 }} /> : null}
                             <strong>{KIND_LABEL[node.kind]}</strong>{node.opponent ? ` ${node.opponent.name} (${node.opponent.difficulty})` : " Choose a boon"}
                         </button>)}
                     </div>)}
                 </div>;
             })}
-            <button type="button" disabled={busy} onClick={() => void send("abandon")}>Abandon the run</button>
+            <button type="button" disabled={busy} onClick={() => { writeResume(null); void send("abandon"); }}>Abandon the run</button>
         </> : <>
             {run?.status === "won" ? <p role="status"><strong>The path is yours.</strong> Every Keeper fell in that run.</p> : null}
             {run?.status === "lost" ? <p role="status">The last run ended after {run.wins} duel{run.wins === 1 ? "" : "s"} won.</p> : null}

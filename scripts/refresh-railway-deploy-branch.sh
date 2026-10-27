@@ -23,7 +23,8 @@ SHA="${1:?usage: refresh-railway-deploy-branch.sh <commit-sha> [target-branch]}"
 TARGET="${2:-railway-deploy}"
 
 # Mirrors .dockerignore: none of these end up in the image.
-DROP=(docs release-audit mobile android shinobij.client/art-source shinobij.client/art-references .ci-evidence)
+DROP=(docs release-audit mobile android shinobij.client/art-source shinobij.client/art-references .ci-evidence
+  output outputs shinobij.client/dist-perf 'shinobij.client/.playwright-dist-*')
 # The build verifies portrait hashes against this manifest, so it ships.
 KEEP='shinobij.client/art-source/pet-portrait-refresh/production.json'
 
