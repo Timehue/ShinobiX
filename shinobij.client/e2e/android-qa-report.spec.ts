@@ -237,6 +237,31 @@ test('supporters can open the avatar picker from the profile button', async ({ p
     expect((await picker).isMultiple()).toBe(false);
 });
 
+test('creator step changes settle before the next interaction with reduced motion', async ({ page }) => {
+    await page.setViewportSize({ width: 360, height: 640 });
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.addInitScript(() => localStorage.setItem('shinobix:storage-notice-ack', '1'));
+    await page.route('**/api/**', route => route.fulfill({ contentType: 'application/json', body: '{}' }));
+    await page.goto('/');
+    await page.getByTestId('start-create').click();
+    for (const [label, heading] of [
+        ['Choose village', 'Where Your Record Begins'],
+        ['Choose bloodline', 'Your First Jutsu Kit'],
+        ['Choose avatar', 'Two Starter Shinobi Portraits'],
+        ['Preview shinobi', 'Check the First Record'],
+        ['Name and password', 'Name and Enter the World'],
+    ]) {
+        await page.getByRole('button', { name: label, exact: true }).click();
+        const title = page.getByRole('heading', { name: heading, exact: true });
+        await expect(title).toBeVisible();
+        // Read after paint without polling away an unwanted scroll animation.
+        await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+        const box = (await title.boundingBox())!;
+        expect(box.y, `${heading} should be at the start of the new step`).toBeGreaterThanOrEqual(0);
+        expect(box.y + box.height).toBeLessThanOrEqual(640);
+    }
+});
+
 for (const viewport of [{ width: 286, height: 821 }, { width: 360, height: 640 }, { width: 844, height: 390 }]) {
     test(`creator password controls stay within their fields at ${viewport.width}x${viewport.height}`, async ({ page }) => {
         await page.setViewportSize(viewport);
