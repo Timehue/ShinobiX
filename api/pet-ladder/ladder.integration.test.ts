@@ -304,6 +304,25 @@ test('latest rematch and daily-cap guards are rechecked inside the commit lock w
     assert.deepEqual(await kv.get(ORDER), f.entries);
 });
 
+test('a standings write that fails gives the daily challenge back', async (t) => {
+    // The slot is spent inside the lock before the standings are written, so a
+    // failed write used to cost a challenge that was never recorded.
+    t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
+    const f = await fixture();
+    await kv.set(dailyKey(f.attacker), 3);
+    const set = kv.set.bind(kv);
+    t.mock.method(console, 'error', () => undefined);
+    t.mock.method(kv, 'set', async (key: string, ...rest: unknown[]) => {
+        if (key === ORDER) throw new Error('injected standings write failure');
+        return (set as (...args: unknown[]) => Promise<unknown>)(key, ...rest);
+    });
+    const result = await call(f.attacker, 'challenge', { targetId: f.defender, warfrontRules: WARFRONT_LADDER_RULES });
+    assert.ok(result.status >= 500, `expected a server error, got ${result.status}`);
+    assert.equal(await kv.get(dailyKey(f.attacker)), 3);
+    assert.deepEqual(await kv.get(ORDER), f.entries);
+    assert.equal(await kv.get(lastKey(f.attacker)), null);
+});
+
 test('a just-recorded same-opponent match blocks a second result at the ranking lock', async (t) => {
     const f = await fixture();
     const get = kv.get.bind(kv);

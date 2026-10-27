@@ -13,6 +13,7 @@ import { activePartyForPlayer } from '../clan-boss/_party.js';
 import { clanBossAttemptsLeft, clanBossWeekId, loadClanBossProgress, loadClanBossWeek, resolveClanBossDef } from '../clan-boss/_storage.js';
 import { loadSectorState } from '../clan-boss/_sector-state.js';
 import { discoverActivityTowerRecovery } from './_activity-spine-tower-recovery.js';
+import { discoverActivityPetRecovery } from './_activity-spine-pet-recovery.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
@@ -34,11 +35,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const weekId = clanBossWeekId(now);
         const week = clanName ? await loadClanBossWeek(weekId) : null;
         const boss = resolveClanBossDef(week);
-        const [progress, party, sector, towerRecovery] = await Promise.all([
+        const [progress, party, sector, towerRecovery, petRecovery] = await Promise.all([
             clanName && week ? loadClanBossProgress(weekId, clanName) : null,
             clanName ? activePartyForPlayer(playerName, false, true) : null,
             boss && week ? loadSectorState(weekId, boss) : null,
             discoverActivityTowerRecovery(playerName),
+            discoverActivityPetRecovery(playerName, character),
         ]);
         const activeTraining = record?.activeTraining as { endsAt?: number } | null | undefined;
         const activeJutsuTraining = record?.activeJutsuTraining as { endsAt?: number } | null | undefined;
@@ -68,7 +70,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             lastLoginRewardDate: typeof character.lastLoginRewardDate === 'string' ? character.lastLoginRewardDate : '',
             focus: req.query.focus ?? character.masteryFocus,
             progressionHold: progressionHoldForCharacter(character),
-            resume: towerRecovery ?? (hollowRun && hollowRun.completed !== true
+            resume: towerRecovery ?? petRecovery ?? (hollowRun && hollowRun.completed !== true
                 ? { title: 'Resume your Hollow Gate run', screen: 'hollowGateShrine', runtimeModeId: 'hollow-gate-shinobi' }
                 : endlessRun
                     ? { title: 'Resume your Endless Tower run', screen: 'endlessTower', context: 'towers', runtimeModeId: 'endless' }

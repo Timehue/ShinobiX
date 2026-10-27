@@ -1145,7 +1145,7 @@
     "quickTake": [
       "Carry five companions, or six with supporter capacity. Sanctuary has no ownership cap and keeps extra companions safe.",
       "Showdown lets you give orders each turn. Warfront tests the formation you set before each clash.",
-      "Ranked Pet Colosseum uses four carried companions in a player-controlled 2v2 battle with two reserves. Save their ranked loadouts before queuing."
+      "Ranked Pet Colosseum uses four of your carried companions, as they are, in a player-controlled 2v2 battle with two on the bench. Save their techniques before queuing."
     ],
     "relatedGuideIds": [
       "endgame",
@@ -1258,15 +1258,15 @@
         "blocks": [
           {
             "type": "p",
-            "text": "Ranked Pet Colosseum is a live 2v2 battle with two reserves. Select four available carried companions, then choose your opening pair after reviewing the opposing squad. Both players give their own orders each round. Competitive stats are balanced at level 50; your companions keep their species, evolved forms, and training outside the match."
+            "text": "Ranked Pet Colosseum is a live 2v2 battle with two reserves. Select four available carried companions, then choose your opening pair after reviewing the opposing squad. Both players give their own orders each round. Your companions fight as they are, with their own level, rarity, gear, battle item, and trait. Players are matched by Pet Elo."
           },
           {
             "type": "p",
-            "text": "In the Yard's Battle & techniques section, equip four learnable techniques alongside the companion's permanent signature. Choose a preset or adjust its competitive attributes and item, then save the ranked loadout. The same choices appear in the ranked squad builder, where you can review them before queuing."
+            "text": "In the Yard's Battle & techniques section, equip four learnable techniques alongside the companion's permanent signature. Choose a preset or your own four, then save the loadout. Pet Arena and the Colosseum both use these saved techniques."
           },
           {
             "type": "p",
-            "text": "Lock orders for both active companions before the planning clock runs out. Rest and switching help manage stamina; repeated Guard becomes more expensive and less effective. Ranked results change Pet Elo. Unranked player-controlled rooms use the sparring roster and a room code. Neither mode spends ryo or battle items."
+            "text": "Lock orders for both active companions before the planning clock runs out. Guard blunts direct hits, Rest restores stamina, and switching brings a benched companion in before attacks. Ranked results change Pet Elo. Unranked sparring rooms use your own companions and a room code. Neither mode spends ryo, and battle items fire their charges without being used up."
           }
         ]
       },
@@ -1394,7 +1394,7 @@
           },
           {
             "type": "p",
-            "text": "Each Call Jutsu Summons its own matching Level 8 beast for 1,000 Health. You need that beast in hand, the Call uses your Normal Summon, and the beast cannot attack that turn. Called beasts cannot be Summoned another way. Other level 7 to 8 Monsters are Warded: Snares cannot destroy them or return them to the hand during the turn they are Summoned. Jutsu can still affect them."
+            "text": "Each Call Jutsu Summons its own matching Level 8 beast for 1,000 Health. You need that beast in hand, the Call uses your Normal Summon, and the beast cannot attack that turn. Called beasts cannot be Summoned another way. About half of the other Level 7 and 8 Monsters are Warded, and the card says so: Snares cannot destroy them or return them to the hand during the turn they are Summoned. Jutsu can still affect them."
           },
           {
             "type": "p",

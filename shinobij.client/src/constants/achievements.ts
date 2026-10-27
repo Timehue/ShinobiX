@@ -145,7 +145,7 @@ export const ACHIEVEMENTS: ReadonlyArray<Achievement> = [
     { id: "spire-10",     name: "Spire Conqueror", desc: "Ascend to Endless Spire floor 10.", category: "Trials", icon: "⚔️", check: c => (c.battleTowerAscension ?? 0) >= 10 },
     { id: "spire-15",     name: "Spire Vanquisher",desc: "Ascend to Endless Spire floor 15.", category: "Trials", icon: "🔥", check: c => (c.battleTowerAscension ?? 0) >= 15 },
     { id: "spire-20",     name: "Spire Immortal",  desc: "Conquer the Endless Spire — floor 20.", category: "Trials", icon: "👑", check: c => (c.battleTowerAscension ?? 0) >= 20 },
-    { id: "pet-100",      name: "Beast Tamer",    desc: "Win 100 pet battles.",        category: "Trials", icon: "🐺", check: c => (c.totalPetWins ?? 0) >= 100 },
+    { id: "pet-100",      name: "Beast Tamer",    desc: "Win 100 rewarded pet battles.", category: "Trials", icon: "🐺", check: c => (c.totalPetWins ?? 0) >= 100 },
 
     // Bloodline
     { id: "bloodline-equipped", name: "Bloodline Awakened", desc: "Equip a bloodline.", category: "Bloodline", icon: "🩸", check: c => !!c.equippedBloodlineId },

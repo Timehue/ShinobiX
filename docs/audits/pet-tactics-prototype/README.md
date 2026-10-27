@@ -4,36 +4,39 @@ This directory contains automated local evidence, not human playtesting or
 production telemetry. The QA server uses signed local Alice/Bob accounts and
 isolated memory storage with the production command/queue/settlement handlers.
 
-## Current interface
+## Current interface (real companions on the Coliseum engine, 2026-10-26)
 
-- `ranked-battle-desktop.png` and `ranked-battle-mobile.png`: initial planning.
-- `ranked-battle-selected-desktop.png` and
-  `ranked-battle-selected-mobile.png`: two local orders and selected targeting.
-- `ranked-command-preview-report.json`: integrated resource-card preview;
-  keyboard selection, draft privacy, Escape dismissal and pinned mobile controls
-  passed, alongside the arena/menu boundary and removal of duplicate friendly
-  plates, with no browser errors or failed assets. This preview deliberately
-  ends before submitting either player's orders and does not claim a match.
+`shinobij.client/scripts/verify-pet-tactics.mjs` drives Alice (desktop) and Bob
+(phone width) through a whole match. Each seat brings four of its own carried
+companions, and orders go through the Coliseum battle's own console. The two
+runs recorded on 2026-10-26 were:
 
-The current captures use `command-ink-v2.webp`. The rejected ornate background
-has been removed from the project and runtime references. The generator's
-original output remains outside the project; see the shipping asset README for
-the final prompt and provenance.
+- **Sparring** (no `ranked-` prefix; `browser-report.json`): the room used the
+  `showdown-v1` engine, and both seats brought four of their own companions.
+  - Enemy leads stayed private until both seats locked.
+  - After one seat locked its orders and reloaded, its locked orders survived.
+  - The match ran 17 committed two-player rounds and ended in a knockout win.
+- **Ranked** (`ranked-` prefix; `ranked-browser-report.json`): the same checks,
+  plus three more.
+  - Ranked search could be cancelled and rejoined.
+  - Rating settled exactly once per player: Alice/Bob ended at 1012/988 Elo
+    with one receipt each.
+  - Both saves kept their 500 ryo and all five pets.
+- No browser errors or failed assets were reported in either run.
 
-## Full ranked and balance checks
+The captures from these runs:
 
-- `ranked-browser-report.json`: 14 committed two-player rounds, knockout win,
-  sealed-order reconnect recovery and exact-once two-player rating settlement.
-  Alice/Bob ended at 1012/988 Elo, one receipt each, save version two, with owned
-  pets and currency preserved. No browser errors or failed assets were reported.
-  This full match includes the integrated friendly HP/energy cards, direct
-  arena/menu boundary, restored playback HUD and resource updates after a round.
-  The latest lifecycle check also covers search cancellation, parent battle and
-  fullscreen flags, and both participants returning to their builder.
-- `ranked-battle-resource-update-desktop.png`: second-round planning with server
-  HP and energy changes reflected in both left pet cards.
-- `ranked-result-desktop.png`: the full match's recorded result.
-- `ranked-squad-builder-*.png`: the equal-access 12-species builder.
+- `*squad-builder-*.png`: the companion picker. It shows each carried pet with
+  its real level.
+- `*preview-*.png`: the opposing squad and the opening-pair choice.
+- `*battle-*.png`: round-one planning in the Coliseum console.
+- `*result-desktop.png`: the recorded result.
+
+## Earlier Pet Tactics checks (history)
+
+The level-50 Pet Tactics deck that the captures below describe was retired on
+2026-10-26. Its own screenshots have been replaced or removed.
+
 - `balance-report.json`: 960 deterministic heuristic policy comparisons and
   480 unprepared damage-signature probes. No unprepared full-health signature KO
   was observed; earliest signature was round four. The repeating squads and
@@ -43,10 +46,6 @@ the final prompt and provenance.
   allocation extremes and setup/Guard states. Source hashes and limitations are
   included. Interpretation and remaining watch items are in
   [the integration/balance review](review-2026-10-10.md).
-
-`browser-report.json` and files without the `ranked-` prefix are the earlier
-unrated prototype checkpoint (21 rounds, knockout draw). Their older interface
-captures are historical evidence, not the current visual acceptance captures.
 
 Earlier integration/regression suites passed 137 tests; the camera/playback/
 HUD/timer/postprocessing selection passed another 25. The final combined run

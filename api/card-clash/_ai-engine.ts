@@ -5,16 +5,17 @@ import {
   CHRONICLE_RULES_VERSION,
   applyAction,
   createMatch,
-  elementBattleBonus,
   getChronicleCard,
   isChronicleToken,
   meetsSnareElementRequirement,
   monsterAttack,
   monsterDefense,
+  previewChronicleBattle,
   projectMatchForViewer,
   tributeCountForLevel,
   type ChronicleActionIntent,
   type ChronicleAiDifficulty,
+  type ChronicleCard,
   type ChronicleElement,
   type ChronicleMatch,
   type ChronicleProjection,
@@ -47,6 +48,8 @@ export interface AiMatchSession {
   hollowGateCard?: { tokenDigest: string; nodeId: string; loanerDeck?: boolean };
   /** Display-only override for the AI deck's board name (campaign decks). */
   opponentDeckName?: string;
+  /** Keeper's Path: the run and node this duel was sealed for at ai-start. */
+  keeperRun?: { runId: string; nodeId: string };
 }
 
 export type AiMatchProjection = ChronicleProjection & {
@@ -163,6 +166,8 @@ export function createAiMatch(
   settlementMode: "standard" | "external" = "standard",
   onAiStep?: AiStepListener,
   opponent?: { name?: string; deck?: readonly string[]; deckName?: string },
+  /** Adjust the fresh match before the AI's first decision (Keeper's Path boons). */
+  prepare?: (state: ChronicleMatch) => void,
 ): AiMatchSession {
   const session: AiMatchSession = {
     matchId,
@@ -182,6 +187,7 @@ export function createAiMatch(
     settlementMode,
     ...(opponent?.deckName ? { opponentDeckName: opponent.deckName } : {}),
   };
+  prepare?.(session.state);
   advanceAi(session, now, onAiStep);
   return session;
 }
@@ -339,6 +345,99 @@ function trapSetPriority(cardId: string): number {
   }
 }
 
+/** How much a Monster's effect is worth to the Keeper when it chooses what to
+ *  Summon, on top of ATK + DEF. Exported for tests. */
+export function keeperMonsterEffectValue(card: ChronicleCard): number {
+  if (card.cardClass !== "monster") return 0;
+  switch (card.monsterEffect?.kind) {
+    case "sealAllTraps":
+    case "destroyStrongestOpponentOnFlip":
+    case "recoverMagicOnFlip":
+    case "recoverFieldMagicWhenDestroyedByBattle":
+    case "setStrongestOpponentFaceDownOnSummon":
+    case "destroySetMagicTrapOnTributeSummon":
+    case "phaseOutBattlePairAfterDamage":
+    case "destroyAttackerOnFlip":
+    case "reviveNormalWhenDestroyedByBattle":
+    case "sealAttackTraps":
+      return 700;
+    case "drawOnFlip":
+    case "cycleHandsOnFlip":
+    case "drawOnBattleDamage":
+    case "discardOpponentCardOnBattleDamage":
+    case "searchNormalWhenDestroyedByBattle":
+    case "drawOnTributeSummon":
+    case "surviveBattleOncePerTurn":
+    case "alliedElementAttackBoost":
+    case "gainAttackOnMagicActivated":
+    case "guardOtherMonsters":
+      return 500;
+    case "healOnFlip":
+    case "returnBattleOpponentWhenDestroyed":
+    case "destroyAttackerWhenDefenseHolds":
+    case "reflectDamageWhenAttacked":
+    case "piercingBattleDamage":
+    case "changeStrongestOpponentPositionOnFlip":
+    case "changeToDefenseWhenAttacked":
+    case "gainAttackWhenBattlingStronger":
+    case "gainAttackWhileOnlyMonster":
+    // These four used to fall through to the 150 default, so the Keeper
+    // undervalued 28 Monsters, most of them Epic and up.
+    case "gainAttackPerOpponentMonster":
+    case "drawWhenDestroyedByBattle":
+    case "returnToDeckWhenDestroyed":
+    case "weakenAttackerOnFlip":
+      return 350;
+    // A drawback rather than an upside: the Monster drops to Defense after it
+    // attacks. The Keeper now stands it back up, so it keeps the floor value.
+    case "shiftToDefenseAfterAttack":
+      return 150;
+    default:
+      return 150;
+  }
+}
+
+/** A Keeper Monster left in Defense (revived, Summoned by a Snare, pushed back
+ *  by its own "after attacking" effect, or Set with no FLIP worth spending)
+ *  used to stay there for the rest of the duel, because the Keeper never
+ *  changed a position. Before the Battle Phase it now stands one back up, but
+ *  only when the field in front of it is empty or it beats a Monster it can
+ *  see. A face-down opponent stays unknown. */
+function standUpIntent(state: ChronicleMatch): ChronicleActionIntent | null {
+  const opposing = state.p1.monsterZones.flatMap((monster, index) =>
+    monster ? [index] : [],
+  );
+  const view = projectMatchForViewer(state, "p2");
+  for (let zoneIndex = 0; zoneIndex < state.p2.monsterZones.length; zoneIndex++) {
+    const monster = state.p2.monsterZones[zoneIndex];
+    if (
+      !monster ||
+      monster.position !== "defense" ||
+      isChronicleToken(monster.cardId) ||
+      monster.summonedOnTurn === state.turnNumber ||
+      monster.lastPositionChangeTurn === state.turnNumber ||
+      monster.lastAttackTurn === state.turnNumber ||
+      (monster.positionLockedUntilTurn ?? 0) >= state.turnNumber
+    )
+      continue;
+    const card = getChronicleCard(monster.cardId);
+    if (card?.cardClass !== "monster") continue;
+    // A Set FLIP Monster is waiting to be attacked; the flip pass above owns it.
+    if (!monster.faceUp && card.monsterEffect?.trigger === "onFlip") continue;
+    if (monsterAttack(monster, state.activeField, state) <= 0) continue;
+    const wins =
+      opposing.length === 0 ||
+      opposing.some(
+        (targetIndex) => (knownBattleMargin(view, zoneIndex, targetIndex) ?? -1) > 0,
+      );
+    if (!wins) continue;
+    return monster.faceUp
+      ? { action: "change-position", zoneIndex, position: "attack" }
+      : { action: "flip-summon", zoneIndex };
+  }
+  return null;
+}
+
 function chooseMainAction(
   state: ChronicleMatch,
   difficulty: ChronicleAiDifficulty,
@@ -369,6 +468,14 @@ function chooseMainAction(
     );
   });
   if (usefulFlip >= 0) return { action: "flip-summon", zoneIndex: usefulFlip };
+  if (
+    state.phase === "main1" &&
+    difficulty !== "easy" &&
+    !(state.turnNumber === 1 && state.firstPlayer === "p2")
+  ) {
+    const standUp = standUpIntent(state);
+    if (standUp) return standUp;
+  }
   // Use the closed Magic vocabulary with server-selected legal targets.
   const openMagicTrap = side.magicTrapZones.findIndex((zone) => zone === null);
   const fieldMagicIndex = side.hand
@@ -594,44 +701,7 @@ function chooseMainAction(
     candidates.sort((a, b) => {
       // Prefer a playable low-Level body, but take a Tribute line only when
       // its canonical board value clearly exceeds the expendable bodies.
-      const effectValue = (card: (typeof a)["card"]): number => {
-        switch (card.monsterEffect?.kind) {
-          case "sealAllTraps":
-          case "destroyStrongestOpponentOnFlip":
-          case "recoverMagicOnFlip":
-          case "recoverFieldMagicWhenDestroyedByBattle":
-          case "setStrongestOpponentFaceDownOnSummon":
-          case "destroySetMagicTrapOnTributeSummon":
-          case "phaseOutBattlePairAfterDamage":
-          case "destroyAttackerOnFlip":
-          case "reviveNormalWhenDestroyedByBattle":
-          case "sealAttackTraps":
-            return 700;
-          case "drawOnFlip":
-          case "cycleHandsOnFlip":
-          case "drawOnBattleDamage":
-          case "discardOpponentCardOnBattleDamage":
-          case "searchNormalWhenDestroyedByBattle":
-          case "drawOnTributeSummon":
-          case "surviveBattleOncePerTurn":
-          case "alliedElementAttackBoost":
-          case "gainAttackOnMagicActivated":
-          case "guardOtherMonsters":
-            return 500;
-          case "healOnFlip":
-          case "returnBattleOpponentWhenDestroyed":
-          case "destroyAttackerWhenDefenseHolds":
-          case "reflectDamageWhenAttacked":
-          case "piercingBattleDamage":
-          case "changeStrongestOpponentPositionOnFlip":
-          case "changeToDefenseWhenAttacked":
-          case "gainAttackWhenBattlingStronger":
-          case "gainAttackWhileOnlyMonster":
-            return 350;
-          default:
-            return 150;
-        }
-      };
+      const effectValue = keeperMonsterEffectValue;
       // A Tribute paid with a Shadow Double costs nothing on the board, so only
       // the real bodies a Summon would spend count against it.
       const realTributes = (tributes: number) => Math.max(0, tributes - spareDoubles);
@@ -706,52 +776,44 @@ function chooseMainAction(
   return { action: "enter-end-phase" };
 }
 
+/**
+ * What the Keeper can know about one battle: the attacker's value minus the
+ * defender's, read through `previewChronicleBattle`, the same calculation the
+ * player's board shows, over the Keeper's own projection, so it never reads a
+ * hidden card. It used to keep its own copy of that formula, which missed a
+ * defender switching to Defense when attacked, a defender that survives the
+ * battle, and the guard rule that makes other targets illegal.
+ *
+ * null = the defender is face-down, so the outcome is unknown. -1 = the attack
+ * is illegal, or it would win but the defender survives.
+ */
 function knownBattleMargin(
-  state: ChronicleMatch,
-  attacker: NonNullable<ChronicleMatch["p2"]["monsterZones"][number]>,
-  defender: NonNullable<ChronicleMatch["p1"]["monsterZones"][number]>,
+  view: ChronicleProjection,
+  attackerIndex: number,
+  targetIndex: number,
 ): number | null {
-  if (!defender.faceUp) return null;
-  const attackerCard = getChronicleCard(attacker.cardId);
-  const defenderCard = getChronicleCard(defender.cardId);
-  if (
-    attackerCard?.cardClass !== "monster" ||
-    defenderCard?.cardClass !== "monster"
-  )
-    return null;
-  const attackerAttack = monsterAttack(attacker, state.activeField, state);
-  const defenderAttack = monsterAttack(defender, state.activeField, state);
-  // A face-up "gains X ATK vs a stronger Monster" is public, and resolveAttack
-  // and the player's battle preview both apply it. The Keeper used to ignore
-  // it and kept attacking into those cards and losing the battle.
-  const strongerBonus = (
-    card: typeof attackerCard,
-    own: number,
-    opposing: number,
-  ): number =>
-    defender.position === "attack" &&
-    card.monsterEffect?.kind === "gainAttackWhenBattlingStronger" &&
-    opposing > own
-      ? (card.monsterEffect.amount ?? 0)
-      : 0;
-  const attackerValue =
-    attackerAttack +
-    strongerBonus(attackerCard, attackerAttack, defenderAttack) +
-    elementBattleBonus(
-      attackerCard.element,
-      defenderCard.element,
-      state.activeField,
-    );
-  const defenderValue =
-    (defender.position === "attack"
-      ? defenderAttack + strongerBonus(defenderCard, defenderAttack, attackerAttack)
-      : monsterDefense(defender)) +
-    elementBattleBonus(
-      defenderCard.element,
-      attackerCard.element,
-      state.activeField,
-    );
-  return attackerValue - defenderValue;
+  const own = view.p2.monsterZones[attackerIndex];
+  if (!own) return -1;
+  // A Monster the Keeper is about to stand up may still be Set. It knows its
+  // own card, so it reads it as face-up.
+  const readable: ChronicleProjection = own.faceUp
+    ? view
+    : {
+        ...view,
+        p2: {
+          ...view.p2,
+          monsterZones: view.p2.monsterZones.map((zone, index) =>
+            index === attackerIndex && zone ? { ...zone, faceUp: true } : zone,
+          ),
+        },
+      };
+  const preview = previewChronicleBattle(readable, attackerIndex, targetIndex);
+  if (!preview || !preview.legal) return -1;
+  if (preview.kind === "unknown") return null;
+  const margin = (preview.attackerValue ?? 0) - (preview.defenderValue ?? 0);
+  if (margin > 0 && view.p1.monsterZones[targetIndex]?.battleSurvivalAvailable)
+    return -1;
+  return margin;
 }
 
 function chooseBattleAction(
@@ -783,14 +845,11 @@ function chooseBattleAction(
     };
   }
 
+  const view = projectMatchForViewer(state, "p2");
   if (difficulty === "hard") {
     const favorable = attackers.flatMap((attacker) =>
       targets.flatMap((target) => {
-        const margin = knownBattleMargin(
-          state,
-          attacker.monster,
-          target.monster,
-        );
+        const margin = knownBattleMargin(view, attacker.index, target.index);
         return margin !== null && margin >= 0
           ? [
               {
@@ -814,7 +873,10 @@ function chooseBattleAction(
 
     // A face-down Monster is intentionally treated as unknown. Hard AI uses
     // its strongest available attacker, but never reads the hidden card.
-    const hiddenTarget = targets.find(({ monster }) => !monster.faceUp);
+    const hiddenTarget = targets.find(
+      ({ monster, index }) =>
+        !monster.faceUp && knownBattleMargin(view, attackers[0].index, index) === null,
+    );
     if (hiddenTarget) {
       attackers.sort(
         (a, b) =>
@@ -833,8 +895,8 @@ function chooseBattleAction(
   // Preserve the simple zone order and hidden-card uncertainty, but a weak
   // first body must not stop stronger, unused attackers from taking a turn.
   for (const attacker of attackers) {
-    const knownFavorable = targets.find(({ monster }) => {
-      const margin = knownBattleMargin(state, attacker.monster, monster);
+    const knownFavorable = targets.find(({ index }) => {
+      const margin = knownBattleMargin(view, attacker.index, index);
       return margin === null || margin >= 0;
     });
     if (knownFavorable) return {
@@ -894,16 +956,24 @@ export function advanceAi(
             : chooseMainAction(state, session.difficulty);
     const out = applyAction(state, "p2", intent, now);
     if (!out.ok) {
-      const fallback: ChronicleActionIntent =
+      // A refused Main Phase 1 choice used to end the turn outright and throw
+      // the Battle Phase away with it; try to fight first.
+      const fallbacks: ChronicleActionIntent[] =
         state.phase === "draw" || state.phase === "standby"
-          ? { action: "advance-phase" }
+          ? [{ action: "advance-phase" }]
           : state.phase === "battle"
-            ? { action: "enter-main-2" }
+            ? [{ action: "enter-main-2" }]
             : state.phase === "end"
-              ? { action: "end-turn" }
-              : { action: "enter-end-phase" };
-      const recovered = applyAction(state, "p2", fallback, now);
-      if (!recovered.ok) break;
+              ? [{ action: "end-turn" }]
+              : state.phase === "main1"
+                ? [{ action: "start-battle" }, { action: "enter-end-phase" }]
+                : [{ action: "enter-end-phase" }];
+      let recovered: ReturnType<typeof applyAction> | undefined;
+      for (const fallback of fallbacks) {
+        recovered = applyAction(state, "p2", fallback, now);
+        if (recovered.ok) break;
+      }
+      if (!recovered?.ok) break;
       session.state = recovered.state;
     } else session.state = out.state;
     onAiStep?.(session.state);

@@ -283,6 +283,74 @@ test("a failed completion grant is reported and the sealed completion repairs on
     assert.equal((afterRepair?.character as { auraStones?: number }).auraStones, 18);
 });
 
+test("writs answered after the crossing closes pay their Aura Stones once", async () => {
+    // Writs stay open after the crossing, but the stones used to be keyed on
+    // the first closing only, so a writ finished afterwards paid nothing.
+    const { FIRST_PACT_DISTRICT_WRITS, advanceFirstPactMainBeat, createFirstPactProgress } = await import("../../shared/first-pact-contract.js");
+    const ready = { ...createFirstPactProgress(100), chapter: 4 as const, mainStep: "return-to-threshold" as const };
+    const complete = advanceFirstPactMainBeat(ready, "complete-crossing", 101).progress;
+    await kv.set(`first-pact:${PLAYER}`, complete);
+    await kv.set(`save:${PLAYER}`, {
+        _saveVersion: 2,
+        character: { name: PLAYER, level: 100, pets: [], auraStones: 0, serverTitles: [] },
+    });
+    const closed = await post({ action: "state" });
+    assert.equal(closed.body?.grantedAuraStones, 15);
+
+    await kv.set(`first-pact:${PLAYER}`, { ...complete, writs: FIRST_PACT_DISTRICT_WRITS.map((writ) => writ.id) });
+    const late = await post({ action: "state" });
+    assert.equal(late.statusCode, 200);
+    assert.equal(late.body?.grantedAuraStones, 5);
+    const again = await post({ action: "state" });
+    assert.equal(again.body?.grantedAuraStones, undefined, "a repeat read pays nothing");
+    const stored = await kv.get<Record<string, unknown>>(`save:${PLAYER}`);
+    const character = stored?.character as { auraStones?: number; firstPactAuraPaid?: unknown };
+    assert.equal(character.auraStones, 20);
+    assert.deepEqual(character.firstPactAuraPaid, { base: true, writs: true, stable: false });
+});
+
+test("a crossing closed before the paid stamp existed is not backfilled", async () => {
+    const { FIRST_PACT_DISTRICT_WRITS, advanceFirstPactMainBeat, createFirstPactProgress } = await import("../../shared/first-pact-contract.js");
+    const ready = { ...createFirstPactProgress(100), chapter: 4 as const, mainStep: "return-to-threshold" as const };
+    const complete = {
+        ...advanceFirstPactMainBeat(ready, "complete-crossing", 101).progress,
+        writs: FIRST_PACT_DISTRICT_WRITS.map((writ) => writ.id),
+    };
+    await kv.set(`first-pact:${PLAYER}`, complete);
+    await kv.set(`save:${PLAYER}`, {
+        _saveVersion: 2,
+        character: { name: PLAYER, level: 100, pets: [], auraStones: 15, serverTitles: ["Pactbound"] },
+    });
+    const first = await post({ action: "state" });
+    assert.equal(first.statusCode, 200);
+    assert.equal(first.body?.grantedAuraStones, undefined, "what was earned before the stamp is treated as paid");
+    const stamped = await kv.get<Record<string, unknown>>(`save:${PLAYER}`);
+    assert.deepEqual((stamped?.character as { firstPactAuraPaid?: unknown }).firstPactAuraPaid, { base: true, writs: true, stable: false });
+
+    // Anything earned after the stamp still pays.
+    await kv.set(`first-pact:${PLAYER}`, { ...complete, stableQuest: { status: "complete", tournamentWins: 3, battleProofs: [], completedAt: 200 } });
+    const stable = await post({ action: "state" });
+    assert.equal(stable.body?.grantedAuraStones, 5);
+    const stored = await kv.get<Record<string, unknown>>(`save:${PLAYER}`);
+    assert.equal((stored?.character as { auraStones?: number }).auraStones, 20);
+});
+
+test("a won Standing Court challenge credits its own title and no currency", async () => {
+    const { advanceFirstPactMainBeat, createFirstPactProgress } = await import("../../shared/first-pact-contract.js");
+    const ready = { ...createFirstPactProgress(100), chapter: 4 as const, mainStep: "return-to-threshold" as const };
+    const complete = advanceFirstPactMainBeat(ready, "complete-crossing", 101).progress;
+    await kv.set(`first-pact:${PLAYER}`, complete);
+    await kv.set(`save:${PLAYER}`, {
+        _saveVersion: 2,
+        character: { name: PLAYER, level: 100, pets: [], auraStones: 0, serverTitles: [] },
+    });
+    assert.equal((await post({ action: "state" })).body?.grantedAuraStones, 15);
+    await kv.set(`first-pact:${PLAYER}`, { ...complete, standingCourt: { round: 0, best: 5, clears: 1, battleProofs: [] } });
+    const cleared = await post({ action: "state" });
+    assert.deepEqual(cleared.body?.grantedTitles, ["Court Overruled"]);
+    assert.equal(cleared.body?.grantedAuraStones, undefined);
+});
+
 test("concurrent completion replays serialize the title receipt and currency", async () => {
     const { advanceFirstPactMainBeat, createFirstPactProgress } = await import("../../shared/first-pact-contract.js");
     const ready = { ...createFirstPactProgress(100), chapter: 4 as const, mainStep: "return-to-threshold" as const };

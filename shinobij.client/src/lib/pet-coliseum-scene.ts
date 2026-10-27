@@ -26,11 +26,6 @@ export const COLISEUM_ROWS = 7;
 const ARENA_HALF_W = 7.0; // x extent (left ↔ right)
 const ARENA_HALF_D = 4.0; // z extent (depth: back rows far, front rows near)
 
-/** One grid tile's world footprint — used to size obstacle blocks + floor decals
- *  so they line up with the tiles pets path through. */
-export const TILE_WORLD_W = (2 * ARENA_HALF_W) / (COLISEUM_COLS - 1); // ≈ 0.86
-export const TILE_WORLD_D = (2 * ARENA_HALF_D) / (COLISEUM_ROWS - 1); // ≈ 1.07
-
 /** Map a tile index on the COLISEUM_COLS×COLISEUM_ROWS grid to floor (x,z).
  *  col → x (left→right), row → z (back→front). Out-of-range tiles clamp via
  *  modulo so a stray index can never NaN the scene. */

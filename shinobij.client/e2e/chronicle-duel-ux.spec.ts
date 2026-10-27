@@ -277,3 +277,109 @@ test("Card Hall AI showdown stays wired and comfortably sized across the device 
   expect(moveBodies.at(-1)).toMatchObject({ matchId, action: "enter-end-phase" });
   expect(pageErrors).toEqual([]);
 });
+
+/* The layout matrix above only ever sees Main Phase 1. The three surfaces a
+   duel actually turns on were never measured: the Snare response dock, attack
+   targeting with its battle preview, and the result. */
+for (const viewport of [{ width: 390, height: 844 }, { width: 1366, height: 768 }]) {
+  test(`Snare response, battle preview and result stay usable at ${viewport.width}x${viewport.height}`, async ({ page }) => {
+    const pageErrors: string[] = [];
+    page.on("pageerror", (error) => pageErrors.push(error.message));
+    await page.setViewportSize(viewport);
+    const save = uiAuditSave();
+    save.character = { ...save.character, starterCardsClaimed: true, cardClashTutorialVersion: 999 };
+    const runtime = await installUiAuditRuntime(page, save);
+
+    const matchId = "chronicle-turning-points";
+    const monster = (owner: "p1" | "p2", cardId: string, attack: number, defense: number, level: number, canAttack = false) => ({
+      instanceId: `${owner}-${cardId}`, owner, zoneIndex: 0, position: "attack", faceUp: true,
+      cardId, attack, defense, level,
+      ...(owner === "p1" ? { canAttack, canFlipSummon: false, canChangePosition: false, canTribute: true } : {}),
+    });
+    const side = (name: string, monsters: unknown[], extra: Record<string, unknown> = {}) => ({
+      name, lifePoints: 8_000, deckCount: 30, handCount: 2,
+      monsterZones: [...monsters, null, null, null, null].slice(0, 5),
+      magicTrapZones: [null, null, null, null, null], graveyard: [], ...extra,
+    });
+    const base = {
+      rulesVersion: 10, firstPlayer: "p1", normalSummonUsed: true, status: "active", winner: null,
+      viewerSide: "p1", activeField: null, events: [], turnStartedAt: Date.now(),
+      log: ["The Veiled Keeper declares an attack."],
+    };
+    // Stage 1: the Keeper attacks and our set Snare may answer.
+    let projection: Record<string, unknown> = {
+      ...base, turnNumber: 4, activePlayer: "p2", phase: "battle",
+      responseWindow: { id: "rw-1", trigger: "onAttackDeclared", responder: "p1", expiresAt: Date.now() + 120_000, eligibleZoneIndexes: [0] },
+      p1: side("AuditNinja", [monster("p1", "tc-03", 2000, 2100, 5)], {
+        hand: ["tc-01", "tc-02"],
+        magicTrapZones: [{ instanceId: "p1-snare", owner: "p1", zoneIndex: 0, faceUp: false, cardId: "chronicle-smoke-bomb" }, null, null, null, null],
+      }),
+      p2: side("The Veiled Keeper", [monster("p2", "tc-09", 2600, 2500, 7)]),
+    };
+    const moves: string[] = [];
+    await page.route("**/api/card-clash/**", async (route) => {
+      const path = new URL(route.request().url()).pathname;
+      if (path === "/api/card-clash/sync-progression") {
+        return json(route, { granted: [], character: save.character, _saveVersion: runtime.currentVersion() });
+      }
+      const session = () => ({ ...projection, matchId, aiDifficulty: "medium", aiDeckName: "Veiled Keeper Founding Deck" });
+      if (path === "/api/card-clash/ai-start") return json(route, { ok: true, matchId, session: session() });
+      if (path === "/api/card-clash/ai-move") {
+        const body = route.request().postDataJSON() as Record<string, unknown>;
+        moves.push(String(body.action));
+        if (body.action === "pass-response") {
+          // Stage 2: our turn, Battle Phase, a weaker Monster across the field.
+          projection = {
+            ...base, turnNumber: 5, activePlayer: "p1", phase: "battle", responseWindow: null,
+            log: ["AuditNinja enters the Battle Phase."],
+            p1: side("AuditNinja", [monster("p1", "tc-03", 2000, 2100, 5, true)], { hand: ["tc-01", "tc-02"] }),
+            p2: side("The Veiled Keeper", [monster("p2", "tc-01", 300, 800, 1)]),
+          };
+        } else if (body.action === "attack") {
+          // Stage 3: the attack ends the duel. With no typed events the board
+          // announces the result directly instead of waiting for a finishing
+          // effect to play.
+          projection = {
+            ...(projection as object), status: "complete", winner: "p1", events: undefined,
+            p2: { ...(projection.p2 as object), lifePoints: 0, monsterZones: [null, null, null, null, null] },
+            log: ["Stone Turtle destroys Training Dummy.", "AuditNinja wins the Showdown."],
+          };
+        }
+        return json(route, { ok: true, matchId, session: session() });
+      }
+      return json(route, { ok: false, error: "Unexpected Chronicle audit route." }, 404);
+    });
+
+    await expectUiAuditBoot(page, runtime, "shinobiTiles");
+    await page.getByRole("button", { name: "Play", exact: true }).click();
+    await page.getByRole("button", { name: "Start Showdown vs AI" }).click();
+
+    const dock = page.getByRole("group", { name: "Snare response" });
+    await expect(dock).toBeVisible({ timeout: 10_000 });
+    await expect(dock.getByRole("button", { name: "Activate Smoke Bomb" })).toBeVisible();
+    await expect(async () => {
+      await expectViewportSafe(page, { horizontalScrollers: [".chronicle-hand"], overlays: [".chronicle-card-detail-panel"] });
+      const box = await dock.boundingBox();
+      expect(box).not.toBeNull();
+      expectContained({ ...box!, top: box!.y, left: box!.x, right: box!.x + box!.width, bottom: box!.y + box!.height }, viewport, "Snare response dock");
+    }).toPass({ timeout: 10_000 });
+    await dock.getByRole("button", { name: "Pass · Continue" }).click();
+
+    await page.getByRole("button", { name: /Choose attacker in your Monster Zone 1/ }).click();
+    const target = page.getByRole("button", { name: /Attack opponent Monster Zone 1: Training Dummy/ });
+    await expect(target).toBeVisible();
+    const preview = page.locator("#chronicle-target-preview-0");
+    await expect(preview).toContainText("BREAK");
+    await expect(async () => {
+      await expectViewportSafe(page, { horizontalScrollers: [".chronicle-hand"], overlays: [".chronicle-card-detail-panel"] });
+      const box = await preview.boundingBox();
+      expect(box).not.toBeNull();
+      expectContained({ ...box!, top: box!.y, left: box!.x, right: box!.x + box!.width, bottom: box!.y + box!.height }, viewport, "battle preview");
+    }).toPass({ timeout: 10_000 });
+    await target.click();
+
+    await expect(page.getByRole("heading", { name: "Victory" })).toBeVisible({ timeout: 15_000 });
+    expect(moves).toEqual(["pass-response", "attack"]);
+    expect(pageErrors).toEqual([]);
+  });
+}

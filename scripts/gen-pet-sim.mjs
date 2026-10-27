@@ -134,17 +134,9 @@ const bond = read("lib/pet-bond-meter.ts")
     .replace(/from "\.\/pet-duel-sim"/g, 'from "./pet-duel-sim.js"');
 write("pet-bond-meter.ts", "lib/pet-bond-meter.ts", bond);
 
-// 10. pet-duel-doctrine.ts → pet-duel-doctrine.ts. A sector-war garrison and a
-//     dropped lockstep player both fight to STANDING ORDERS rather than bare AI,
-//     and those orders are issued by an evaluator running inside the fight. The
-//     server has to run the identical evaluator when it replays, or its verdict
-//     would diverge from the fight both clients actually watched.
-const doctrine = read("lib/pet-duel-doctrine.ts")
-    .replace(/from "\.\.\/types\/pet"/g, 'from "./pet-types.js"')
-    .replace(/from "\.\/pet-duel-sim"/g, 'from "./pet-duel-sim.js"')
-    .replace(/from "\.\/pet-duel-cinematic"/g, 'from "./pet-duel-cinematic.js"')
-    .replace(/from "\.\/pet-bond-meter"/g, 'from "./pet-bond-meter.js"');
-write("pet-duel-doctrine.ts", "lib/pet-duel-doctrine.ts", doctrine);
+// 10. (retired) pet-duel-doctrine.ts. The standing-orders evaluator lost its
+//     last caller with the lockstep duel and the sector-war garrison, and was
+//     deleted on 2026-10-26.
 
 // 12. pet-warfront-rite.ts → pet-warfront-rite.ts. Hollow Warfront's AUTOBATTLER
 //     mode: an ordered chain of cinematic duels where the last band standing
@@ -163,7 +155,7 @@ const STRAY = ['../types/pet', '../data/pet-config', './pet-coliseum-flag', '../
     // A client-depth shared/ path compiles on the client and NOT on the server,
     // so without this the mirror ships broken and only tsc notices.
     '../../../shared/'];
-for (const name of ["pet-types.ts", "pet-config.ts", "pet-duel-sim.ts", "pet-duel-cinematic.ts", "pet-warfront-map.ts", "pet-warfront-contract.ts", "pet-roles.ts", "pet-bond-meter.ts", "pet-duel-doctrine.ts", "pet-warfront-rite.ts"]) {
+for (const name of ["pet-types.ts", "pet-config.ts", "pet-duel-sim.ts", "pet-duel-cinematic.ts", "pet-warfront-map.ts", "pet-warfront-contract.ts", "pet-roles.ts", "pet-bond-meter.ts", "pet-warfront-rite.ts"]) {
     const body = readFileSync(join(OUT, name), "utf8");
     for (const s of STRAY) if (body.includes(s)) throw new Error(`gen-pet-sim: stray client import "${s}" left in ${name} — a rewrite rule missed it`);
 }

@@ -12,6 +12,7 @@ import {
     type ChronicleAiResult,
     type ChronicleProjection,
     type EchoesSettleSummary,
+    type KeeperSettleSummary,
 } from "../lib/chronicle-duel";
 import { chronicleDuelistAvatar } from "../lib/chronicle-duelist-art";
 import { playEchoesSfx } from "../lib/echoes-sfx";
@@ -44,9 +45,11 @@ export type EchoesDuelBinding = {
  * torch and seal consequences; the showdown server owns every card-game decision. */
 export function CardClashDuel({
     character, creatorCards, tileDifficulty = "normal", dungeonSceneImage,
-    opponentAvatar, dungeonRunToken, echoes, hollowGateCardMatchId, onVersionedCharacter, onEchoesSettled, onMatchStarted,
+    opponentAvatar, dungeonRunToken, echoes, keeperRun, hollowGateCardMatchId, onVersionedCharacter, onEchoesSettled, onMatchStarted,
     onDungeonWin, onDungeonLose, onDungeonDraw, onDungeonLeave,
 }: {
+    /** Keeper's Path: the server names this node's Keeper; these fields frame the board. */
+    keeperRun?: { label: string; opponentName: string; resumeMatchId?: string };
     character: Character;
     creatorCards: TileCard[];
     tileDifficulty?: TileDifficulty;
@@ -77,6 +80,7 @@ export function CardClashDuel({
     const [resolutionReady, setResolutionReady] = useState(false);
     const [dungeonTerminalReady, setDungeonTerminalReady] = useState(false);
     const [echoesSummary, setEchoesSummary] = useState<EchoesSettleSummary | null>(null);
+    const [keeperSummary, setKeeperSummary] = useState<KeeperSettleSummary | null>(null);
     /** Chronicle Points the server paid with a won Dungeon Card seal. */
     const [sealPoints, setSealPoints] = useState(0);
     const started = useRef(false);
@@ -88,20 +92,21 @@ export function CardClashDuel({
         const final = result.session;
         if (!final) return false;
         if (hollowGateCardMatchId && final.status === "complete") setDungeonTerminalReady(true);
-        if ((dungeonRunToken || echoes) && final.status === "complete") {
+        if ((dungeonRunToken || echoes || keeperRun) && final.status === "complete") {
             const version = Number(result._saveVersion);
             if (!result.character || !Number.isSafeInteger(version) || version < 1) {
-                setError(echoes
+                setError(echoes || keeperRun
                     ? "The showdown result is not confirmed yet. Retry the final action — nothing is lost."
                     : "Your Dungeon card battle result could not be confirmed. Retry the final action.");
                 return false;
             }
             if (!onVersionedCharacter?.(result.character, version)) {
-                setError(echoes
+                setError(echoes || keeperRun
                     ? "This showdown belongs to an older game session. Reopen it to load your current progress."
                     : "This Dungeon card battle belongs to an older game session. Reopen the Dungeon to load your current progress.");
                 return false;
             }
+            if (keeperRun) setKeeperSummary(result.reward?.keeperPath ?? null);
             if (echoes) {
                 const summary = result.reward?.echoes ?? null;
                 setEchoesSummary(summary);
@@ -139,20 +144,22 @@ export function CardClashDuel({
         // busy=true with the encounter unfinishable.
         void (async () => {
             try {
+                const resumeMatchId = echoes?.resumeMatchId ?? keeperRun?.resumeMatchId;
                 const result = hollowGateCardMatchId
                     ? await chronicleAiAction(hollowGateCardMatchId, { action: "state" })
-                    : echoes?.resumeMatchId
-                    ? await chronicleAiAction(echoes.resumeMatchId, { action: "state" })
+                    : resumeMatchId
+                    ? await chronicleAiAction(resumeMatchId, { action: "state" })
                     : await startChronicleAi(
                         character.name,
                         deck,
                         ENCOUNTER_AI_DIFFICULTY[tileDifficulty],
-                        !echoes,
+                        !echoes && !keeperRun,
                         dungeonRunToken,
                         echoes?.encounterId,
+                        !!keeperRun,
                     );
                 if (!result.ok || !result.session) { setError(result.error ?? "The card battle could not be prepared."); return; }
-                const liveMatchId = hollowGateCardMatchId ?? echoes?.resumeMatchId ?? result.matchId ?? result.session.matchId;
+                const liveMatchId = hollowGateCardMatchId ?? resumeMatchId ?? result.matchId ?? result.session.matchId;
                 setMatchId(liveMatchId);
                 if (result.session.status !== "complete") onMatchStarted?.(liveMatchId);
                 let authoritative = result;
@@ -189,7 +196,7 @@ export function CardClashDuel({
     }
 
     async function resolve() {
-        if ((dungeonRunToken || echoes || hollowGateCardMatchId) && !dungeonTerminalReady) {
+        if ((dungeonRunToken || echoes || keeperRun || hollowGateCardMatchId) && !dungeonTerminalReady) {
             setError(hollowGateCardMatchId
                 ? "The rift card result is still waiting for server confirmation."
                 : echoes
@@ -242,6 +249,8 @@ export function CardClashDuel({
         ? "Rift · Chronicle Ambush"
         : echoes
         ? `Echoes of War · Floor ${echoes.floor} · ${echoes.opponentName}, ${echoes.opponentTitle}`
+        : keeperRun
+        ? `Keeper's Path · ${keeperRun.label}`
         : tileDifficulty === "hard" ? "Card battle · Hard" : tileDifficulty === "easy" ? "Card battle · Easy" : "Card battle · Medium";
 
     return <main className={`chronicle-shell chronicle-encounter ${duel && !done ? "chronicle-shell--duel-active" : ""}`} style={sceneStyle}>
@@ -286,6 +295,22 @@ export function CardClashDuel({
                     <p>The record is complete. No Chronicle Points this time — the win came too fast to enter the Chronicle.</p>
                 ) : null}
                 <button className="echoes-primary" onClick={resolve}>Continue</button>
+            </section>
+        ) : done && keeperRun ? (
+            <section className={`chronicle-panel echoes-result-panel ${won ? "" : "echoes-result--defeat"}`} style={{ marginBottom: 12, textAlign: "center" }}>
+                <h2 className="echoes-result-title">{keeperSummary?.finished ? "The Path Is Yours" : won ? "Victory" : draw ? "Draw" : "Defeat"}</h2>
+                <p className="echoes-result-sub">
+                    {keeperSummary?.finished
+                        ? "Every Keeper on the path has fallen."
+                        : won
+                            ? `${keeperRun.opponentName} steps aside. The path goes on.`
+                            : draw
+                                ? `A draw costs nothing. ${keeperRun.opponentName} is waiting for a rematch.`
+                                : `${keeperRun.opponentName} holds the path. Losing cost one Resolve.`}
+                </p>
+                {keeperSummary?.chroniclePoints ? <div className="echoes-reward-lines"><span className="echoes-reward-row">Run complete <strong>+{keeperSummary.chroniclePoints}</strong> Chronicle Points</span></div> : null}
+                {keeperSummary?.title ? <p className="echoes-result-unlock">New title: {keeperSummary.title}</p> : null}
+                <button className="echoes-primary" onClick={() => void resolve()} disabled={busy}>Back to the path</button>
             </section>
         ) : done ? (
             <section className="chronicle-panel" style={{ marginBottom: 12, textAlign: "center" }}><h2>{won ? "Seal Claimed" : hollowGateCardMatchId ? draw ? "Draw — Ambush Fades" : "Keeper Wins" : draw ? "Draw — Seal Holds" : "Seal Holds"}</h2><p>{won ? `You won the Chronicle Showdown.${sealPoints > 0 ? ` +${sealPoints} Chronicle Points.` : ""}` : hollowGateCardMatchId ? "The ambush fades after 33% max HP recoil, stopping at 1 HP." : draw ? "A draw is not enough to break the seal." : "The Chronicle Keeper won the showdown."}</p><button onClick={() => void resolve()} disabled={busy}>Continue</button></section>

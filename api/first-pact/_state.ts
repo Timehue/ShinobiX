@@ -12,7 +12,10 @@ import {
     settleFirstPactTournamentEncounter,
     settleFirstPactMainEncounter,
     settleFirstPactWritEncounter,
+    settleFirstPactReplay,
+    startFirstPactUnbroken,
     visitFirstPactAftermath,
+    type FirstPactReplaySettings,
     type FirstPactAftermathId,
     type FirstPactMainBeat,
     type FirstPactMainEncounterId,
@@ -225,6 +228,38 @@ export async function settleFirstPactWritBattle(
         return settled.progress;
     }, now);
     return { progress, advanced };
+}
+
+/** Court Replays: a replayed story battle. Writes only the replay record. */
+export async function settleFirstPactReplayBattle(
+    playerName: string,
+    encounterId: string,
+    settings: FirstPactReplaySettings,
+    outcome: "win" | "loss",
+    proofId: string,
+    now = Date.now(),
+): Promise<{ progress: FirstPactProgress; advanced: boolean }> {
+    let advanced = false;
+    const progress = await updateFirstPactProgress(playerName, (current) => {
+        const settled = settleFirstPactReplay(current, encounterId, settings, outcome, proofId, now);
+        advanced = settled.advanced;
+        return settled.progress;
+    }, now);
+    return { progress, advanced };
+}
+
+/** Begin (or restart) an Unbroken attempt at the Balancing. */
+export function startFirstPactUnbrokenForPlayer(playerName: string, hard: boolean, now = Date.now()): Promise<FirstPactProgress> {
+    return updateFirstPactProgress(playerName, (current) => startFirstPactUnbroken(current, hard, now), now);
+}
+
+/** Walk away from an Unbroken attempt; the furthest round reached is kept. */
+export function abandonFirstPactUnbrokenForPlayer(playerName: string, now = Date.now()): Promise<FirstPactProgress> {
+    return updateFirstPactProgress(playerName, (current) => {
+        const run = current.replays.run;
+        if (!run) return current;
+        return { ...current, lastVisitedAt: now, replays: { ...current.replays, run: null, unbrokenBest: Math.max(current.replays.unbrokenBest, run.round) } };
+    }, now);
 }
 
 export async function settleFirstPactMainBattle(

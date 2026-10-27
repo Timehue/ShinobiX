@@ -264,10 +264,10 @@ export const PET_TUTORIAL_LESSONS: readonly PetTutorialLesson[] = [
             {
                 kicker: "Lesson 5 · Live Colosseum",
                 title: "Your first move is made before the fight",
-                body: "Ranked Pet Colosseum pairs two players who choose their own orders each round. Bring four available carried companions for two active positions and two reserves. Competitive stats are balanced at level 50, while your companions keep their training outside the match.",
+                body: "Ranked Pet Colosseum pairs two players who choose their own orders each round. Bring four available carried companions for two active positions and two on the bench. They fight as they are, with their own level, gear, battle item and trait.",
                 points: [
                     "Equip four techniques alongside each pet's permanent signature. Choose a preset if you are still learning its moves.",
-                    "Use Edit loadout in the companion viewer to save abilities for all battles, including PvE summons at pet level 50. You can also edit them in Battle & techniques or the ranked squad builder.",
+                    "Use Edit loadout in the companion viewer to save abilities for all battles, including PvE summons at pet level 50. You can also edit them in Battle & techniques.",
                     "Choose your opening pair after reviewing the opponent's squad. Both players must lock orders before the planning clock ends.",
                 ],
             },

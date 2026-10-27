@@ -1857,3 +1857,44 @@ re-learned on a different layer).
 - Per-pet mastery/bond progression and seasonal track.
 - Migrating Hollow Gate / clan war / sector war / ladder onto the turn engine,
   then deleting the legacy sim stack (~45k lines client+server).
+
+## Partner bonds (2026-10-26)
+
+Live 2v2 and 3v3 fights now reward building pairs, not just strong pets.
+Sessions created from 2026-10-26 by a live entry carry `partnerRules`.
+That covers the Coliseum, Pet Arena, First Pact, Hollow Gate, wanderers and
+encounters. Three role bonds apply only while both partners are alive and
+fielded:
+
+| Bond | Pair | Effect |
+| --- | --- | --- |
+| Sanctuary | Sage + Defender | The Sage's heal and own shield are 15% stronger. |
+| Hunt | Tracker + Assassin | The Assassin cashes a Mark for x1.35 instead of x1.25. |
+| Bulwark | Defender + Assassin | While the Defender guards, the Assassin takes 10% less from direct techniques. |
+
+The existing element synergy (x1.1 when a fielded ally has the element your
+technique beats) is unchanged. Under partner rules the AI now values it, and
+it values Sanctuary when choosing heals and shields.
+
+**Replays are untouched.** Sessions without the flag resolve exactly as
+before. That covers every stored-input war, sector, clan and PvP duel, and
+every legacy-v2 fight, so their re-derived logs stay byte-identical. The
+`replay-compat` digests still pass.
+
+**Balance.** The full `scripts/showdown-balance.mjs --format 2v2` sweep
+(3 seeds) was run before and after:
+
+| Role | Before | After |
+| --- | --- | --- |
+| defender | 58.8% | 59.4% |
+| tracker | 43.9% | 44.4% |
+| assassin | 39.7% | 39.2% |
+| sage | 57.2% | 56.6% |
+
+- Every element moved by 0.7 points or less.
+- The assassin's 39.7% already sat outside the analyzer's 40–60 band before
+  this change; the bonds do not cause it.
+- The CI ratchet (`scripts/showdown-balance.test.ts`) now runs the live
+  shape, with `partnerRules` on. It passes 1v1, 2v2 and 3v3.
+- The sweep's shared, rotating companions only rarely form the Tracker +
+  Assassin pair. So it cannot measure what a team built around a pair gains.

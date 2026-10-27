@@ -192,6 +192,8 @@ export async function startHollowGatePetShowdown(playerName: string, rawRef: unk
                 return { ok: false as const, status: 500, error: 'The Hounds could not assemble.' };
             }
             const session = createShowdownSession({
+                // Live fight: role partner bonds apply (SHOWDOWN_PARTNER_BONDS).
+                partnerRules: true,
                 sessionId, playerName, format, tier: HOUND_TACTICS, seed: randomInt(1, 0x7fffffff),
                 playerPets: chosen, enemyPets: hounds.pets, enemyTeamName: hounds.teamName,
                 // The Gate pays this encounter from its own run ledger; the duel never does.

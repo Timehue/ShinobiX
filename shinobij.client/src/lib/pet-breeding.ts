@@ -3,7 +3,6 @@ import { balanceBuiltInPetTemplate } from "./pet-balance";
 import type { Character } from "../types/character";
 import type { Pet } from "../types/pet";
 import { BRED_APEX_TRAIT_CHANCE_PERCENT } from "../../../shared/shrines";
-import { activeCarriedPets } from "./entitlements";
 
 // Mirror the authoritative server breeding pool exactly. Breeding-only species
 // deliberately set wildSpawnable:false, so encounter eligibility must not hide
@@ -58,10 +57,6 @@ export function breedingOddsForPets(parent1: Pet, parent2: Pet): PetBreedingOdds
         chromatic: 0.05,
         apexTrait: BRED_APEX_TRAIT_CHANCE_PERCENT,
     };
-}
-
-export function compatibleBreedingPets(character: Character, first: Pet | null, now = Date.now()): Pet[] {
-    return activeCarriedPets<Pet>(character).filter((pet) => !clientPetBreedingBlocker(character, pet, now) && (!first || pet.id === first.id || pet.element === first.element));
 }
 
 export function formatBreedingDuration(milliseconds: number): string {

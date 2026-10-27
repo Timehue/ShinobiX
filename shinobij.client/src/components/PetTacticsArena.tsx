@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { TACTICS_ITEMS, TACTICS_ROSTER, tacticsPreset, tacticsSpecies } from '../../../shared/pet-tactics-roster';
-import type { TacticsBuild, TacticsMoveOption, TacticsOrder, TacticsPetSheet, TacticsRound, TacticsView } from '../../../shared/pet-tactics-contract';
-import type { ShowdownStateView } from '../../../shared/pet-showdown-contract';
+import { TACTICS_ITEMS, tacticsSpecies } from '../../../shared/pet-tactics-roster';
+import type { TacticsMoveOption, TacticsOrder, TacticsPetSheet, TacticsRound, TacticsView } from '../../../shared/pet-tactics-contract';
+import { showdownPartnerLines, type ShowdownCommand, type ShowdownPetView, type ShowdownStateView } from '../../../shared/pet-showdown-contract';
 import type { Pet } from '../types/pet';
 import type { ShowdownTurnResult } from '../lib/pet-showdown-api';
 import { petTacticsRequest } from '../lib/pet-tactics-api';
@@ -10,13 +10,10 @@ import { PetShowdownBattle } from './PetShowdownBattle';
 import { warmShowdownModels } from '../lib/pet-model-preload';
 import { petRankedQueue, settleRankedPetMatch } from '../lib/pet-ranked-queue-api';
 import type { Character } from '../types/character';
-import { rankedBattlePresentationPets, rankedCarriedRoster } from '../lib/pet-ranked-roster';
+import { arenaCarriedRoster, arenaPresentationPets, rankedBattlePresentationPets } from '../lib/pet-ranked-roster';
 import { ShowdownIcon, type ShowdownIconName } from './icons/ShowdownIcon';
 import { elementCrest } from './pet-showdown/presentation-tokens';
 import { ELEMENT_ICON } from '../lib/element-icons';
-import { PetTacticsBuildEditor } from './PetTacticsBuildEditor';
-import { savePetRankedBuild } from '../lib/pet-ranked-build-api';
-import { tacticsBuildIssue } from '../../../shared/pet-tactics-build';
 import '../styles/pet-tactics.css';
 import '../styles/pet-arena-presentation.css';
 
@@ -24,17 +21,31 @@ function portrait(speciesId: string, images: Record<string, string>): string {
     const pet = tacticsSpecies(speciesId)!;
     return petCardImage({ id: speciesId, templateId: speciesId, name: pet.name, rarity: pet.rarity, element: pet.element, level: 50 } as Pet, images);
 }
+/** A sealed Coliseum fighter, drawn from what the room shows of it. */
+function viewPortrait(pet: ShowdownPetView, images: Record<string, string>): string {
+    const id = pet.templateId ?? pet.id.replace(/^[ab]:/, '');
+    return petCardImage({ id, templateId: pet.templateId, name: pet.name, rarity: pet.rarity, element: pet.element, level: pet.level } as Pet, images);
+}
 const errorMessage = (error: unknown) => error instanceof Error ? error.message : 'The arena could not answer.';
+const SQUAD_SLOTS = ['Lead 1', 'Lead 2', 'Bench 1', 'Bench 2'];
 
 export function PetTacticsArena({ playerName, character, sharedImages = {}, onExit, onActiveChange, onFullscreenChange, ranked = false, rankedEligible = true, onVersionedCharacter }: {
     playerName: string; sharedImages?: Record<string, string>; onExit: () => void;
     onActiveChange?: (active: boolean) => void; onFullscreenChange?: (active: boolean) => void;
     character?: Character; ranked?: boolean; rankedEligible?: boolean; onVersionedCharacter?: (character: Character, version: number) => boolean;
 }) {
-    const roster = ranked ? rankedCarriedRoster(character) : TACTICS_ROSTER.map(p => ({ ...p, key: p.id, unavailable: null, build: tacticsPreset(p.id) }));
-    const [builds, setBuilds] = useState<TacticsBuild[]>(() => ranked ? [] : ['starter-fire', 'starter-water', 'starter-lightning', 'starter-earth'].map(id => tacticsPreset(id)));
-    const usableBuilds = ranked ? builds.filter(b => roster.some(p => p.key === b.ownedPetId && p.id === b.speciesId && !p.unavailable)) : builds;
-    const buildIssue = usableBuilds.map(build => tacticsBuildIssue(build)).find(Boolean);
+    // Owner ruling 2026-10-26: ranked and sparring alike fight with the
+    // player's own carried companions, sealed by the server from the save.
+    const roster = arenaCarriedRoster(character);
+    // Ranked starts empty, so the companions a rating rides on are always a
+    // deliberate choice; sparring starts with the first four ready to go.
+    const [picked, setPicked] = useState<string[]>(() => ranked ? [] : roster.filter(entry => !entry.unavailable).slice(0, 4).map(entry => entry.pet.id));
+    const squad = picked.filter(id => roster.some(entry => entry.pet.id === id && !entry.unavailable));
+    const squadReady = squad.length === 4;
+    const squadPartners = showdownPartnerLines(squad.flatMap(id => {
+        const pet = roster.find(entry => entry.pet.id === id)?.pet;
+        return pet ? [{ name: pet.nickname || pet.name, role: pet.role, element: pet.element }] : [];
+    }));
     const [view, setView] = useState<TacticsView | null>(null);
     const [initial, setInitial] = useState<ShowdownStateView | null>(null);
     const [presented, setPresented] = useState(0);
@@ -68,14 +79,17 @@ export function PetTacticsArena({ playerName, character, sharedImages = {}, onEx
         live.current = next; setOffset(next.serverNow - receivedAt); setClock(receivedAt);
         for (const turn of next.transcript) rounds.current.set(turn.round, turn);
         if (!initialRef.current && next.opponent && ['planning', 'playback', 'finished'].includes(next.phase)) {
-            initialRef.current = next.battle; presentedRef.current = next.round; setInitial(next.battle); setPresented(next.round);
+            // A Coliseum room's deadline is on the server clock and is handed to
+            // the battle separately (turnDeadline), already converted.
+            const opening = next.engine ? { ...next.battle, turnDeadline: undefined } : next.battle;
+            initialRef.current = opening; presentedRef.current = next.round; setInitial(opening); setPresented(next.round);
         }
         setView(next);
     }, []);
     const request = useCallback(async (action: string, payload: Record<string, unknown> = {}) => {
         if (ranked && ['recover', 'queue', 'queue-leave', 'queue-poll'].includes(action)) {
             const queue = await petRankedQueue(action === 'queue' ? 'join' : action === 'queue-leave' ? 'leave' : 'poll', playerName,
-                undefined, undefined, payload.builds as TacticsBuild[] | undefined);
+                undefined, payload.petIds as string[] | undefined);
             if (!alive.current) return null;
             if ((queue.state === 'active' || queue.state === 'completed') && queue.control === 'pet-arena-player-v1' && queue.roomId) {
                 const next = await petTacticsRequest('poll', { roomId: queue.roomId }); ingest(next); setQueued(false); return next;
@@ -165,13 +179,40 @@ export function PetTacticsArena({ playerName, character, sharedImages = {}, onEx
         // absence of a script is a waiting state, not a refused command batch.
         while (alive.current) {
             const next = rounds.current.get(expectedRound + 1);
-            if (next) return { ok: true, practice: true, events: next.events, state: next.state };
+            if (next) return { ok: true, events: next.events, state: next.state };
             const current = live.current;
-            if (current?.phase === 'finished') return { ok: true, practice: true, events: [], state: current.battle };
+            if (current?.phase === 'finished') return { ok: true, events: [], state: current.battle };
             await new Promise(resolve => window.setTimeout(resolve, 200));
         }
         return { expired: true };
     }, []);
+    // Coliseum rooms: the battle's own console builds the commands. Lock them
+    // for the planning round, then wait for the round both players resolved.
+    const arenaTurn = useCallback(async (commands: ShowdownCommand[], expectedRound: number): Promise<ShowdownTurnResult> => {
+        const current = live.current;
+        // The battle may ask for the next round one render before this host
+        // marks the last one presented (the auto-fetch races acknowledge). No
+        // newer round exists and no planning is open, so hand the console back
+        // on the state already shown instead of waiting on a round nobody can order.
+        if (current && current.phase !== 'finished' && !rounds.current.has(expectedRound + 1)
+            && !(current.phase === 'planning' && current.round === expectedRound)) {
+            return { ok: true, events: [], state: rounds.current.get(expectedRound)?.state ?? current.battle };
+        }
+        if (current?.phase === 'planning' && current.round === expectedRound && !current.ready.own) {
+            try { await request('orders', { round: expectedRound + 1, orders: commands }); }
+            catch (e) {
+                // A lapsed clock resolves the round on the server, so the refusal
+                // may only mean the round has already been fought. Look before failing.
+                try { await request('poll', { afterRound: presentedRef.current }); } catch { /* the wait below retries */ }
+                const after = live.current;
+                if (!after || after.phase === 'planning' && after.round === expectedRound && !after.ready.own) {
+                    if (alive.current) setError(errorMessage(e));
+                    return null;
+                }
+            }
+        }
+        return playback(commands, expectedRound);
+    }, [request, playback]);
     const seconds = view ? Math.max(0, Math.ceil((view.deadline - clock - offset) / 1000)) : 0;
     const recordRanked = useCallback(async () => {
         const current = live.current;
@@ -199,6 +240,30 @@ export function PetTacticsArena({ playerName, character, sharedImages = {}, onEx
     };
     const network = error ? <div className="pta-error" role="alert">{error}<button type="button" onClick={() => void run(view ? 'poll' : 'recover')}>Reconnect</button></div> : null;
 
+    if (initial && view?.engine === 'showdown-v1') {
+        // The console opens only while this seat owes orders for the round on
+        // screen. Once its orders are locked, a newer round exists or the room
+        // has ended, the battle fetches that round with no input (spectator).
+        const commandReady = view.phase === 'planning' && view.round === presented && !view.ready.own;
+        const fetchRound = view.round > presented || view.phase === 'finished' || view.phase === 'planning' && view.ready.own;
+        const waiting = view.phase === 'finished' ? 'Playing the confirmed battle result…'
+            : view.phase === 'planning' && view.ready.own ? `Orders locked · waiting for ${view.opponent}`
+                : view.round > presented ? 'Round resolving' : `Waiting for ${view.opponent} to finish the round`;
+        return <PetShowdownBattle key={view.roomId} spectator={fetchRound} initialState={initial}
+            playerPets={arenaPresentationPets(character, view.seat, initial.player)} sharedImages={sharedImages}
+            submitTurn={arenaTurn} inputLocked={!commandReady && !fetchRound}
+            // A second early, so a draft sent at zero still reaches the server inside the window.
+            turnDeadline={commandReady ? view.deadline - offset - 1000 : undefined}
+            onRoundPresented={acknowledge} onForfeit={async () => { await run('concede'); }} onExit={leaveResult}
+            onFinished={() => setTerminalPresented(true)} onRematch={leaveResult} hideRematch
+            exitLabel={view.ranked && settlement !== 'recorded' ? 'Record ranked result' : 'Back to Pet Arena'} eventLabel={`Pet Arena · ${view.opponent}`}
+            resultTitle={() => view.result === 'draw' ? 'DRAW' : view.result === 'win' ? 'VICTORY' : 'DEFEAT'}
+            resultNote={() => `${view.ranked ? settlement === 'recorded' ? 'Pet Elo recorded' : 'Recording Pet Elo' : 'Unrated sparring'} · ${view.reason ?? 'Battle complete'} · ${view.round} rounds`}
+            externalControls={terminalPresented && !error || commandReady && !error ? undefined : <div className="pta-console">
+                {network}
+                {!commandReady && <div className="pta-wait" role="status">{waiting}<small>{view.phase === 'finished' ? 'Both players see the same result.' : `Both players share the same planning clock · ${seconds}s`}</small></div>}
+            </div>} />;
+    }
     if (initial && view) {
         const commandReady = view.phase === 'planning' && presented === view.round;
         const ownPresentationPets = rankedBattlePresentationPets(character, view.own);
@@ -217,43 +282,37 @@ export function PetTacticsArena({ playerName, character, sharedImages = {}, onEx
             </div> : null} />;
     }
     return <section className="pet-tactics" aria-label="Pet Arena">
-        <header className="pta-heading"><div><span className="pta-kicker">{ranked ? 'Ranked Pet Colosseum · player controlled' : 'Live PvP · sparring'}</span><h1>Pet Arena</h1><p>Two minds. Four companions. Every order matters.</p></div>{!ranked && <button type="button" onClick={onExit}>Back to Pet Arena</button>}</header>
+        <header className="pta-heading"><div><span className="pta-kicker">{ranked ? 'Ranked Pet Colosseum · player controlled' : 'Live PvP · sparring'}</span><h1>Pet Arena</h1><p>Two players. Four companions each. Every order matters.</p></div>{!ranked && <button type="button" onClick={onExit}>Back to Pet Arena</button>}</header>
         {network}
-        {recovering ? <p role="status">Recovering your arena session…</p> : queued && !view ? <div className="pta-invite"><h2>Finding a ranked opponent</h2><p role="status">Your loadout is locked for this match. Both players choose their own orders each round.</p><button type="button" disabled={busy} onClick={() => void run('queue-leave')}>Cancel ranked search</button></div> : view?.phase === 'waiting' ? <div className="pta-invite">
-            <span className="pta-kicker">Your squad is locked in</span><h2>Bring a challenger</h2><p>Give this code to another player. They join with their own account and squad.</p>
+        {recovering ? <p role="status">Recovering your arena session…</p> : queued && !view ? <div className="pta-invite"><h2>Finding a ranked opponent</h2><p role="status">Your four companions are set for this match. Both players choose their own orders each round.</p><button type="button" disabled={busy} onClick={() => void run('queue-leave')}>Cancel ranked search</button></div> : view?.phase === 'waiting' ? <div className="pta-invite">
+            <span className="pta-kicker">Your squad is locked in</span><h2>Bring a challenger</h2><p>Give this code to another player. They join with their own account and companions.</p>
             <strong className="pta-room-code" aria-label="Arena room code">{view.roomId.toUpperCase()}</strong>
-            <p>Room closes in {seconds}s. Your owned pets and rating are unaffected.</p>
+            <p>Room closes in {seconds}s. Your companions and rating are unaffected.</p>
             <button type="button" disabled={busy} onClick={() => void run('concede')}>Close room</button>
-        </div> : view?.phase === 'preview' ? <Preview view={view} seconds={seconds} images={sharedImages} busy={busy} onLock={leads => void run('leads', { leads })} onConcede={() => void run('concede')} />
+        </div> : view?.phase === 'preview' ? view.engine === 'showdown-v1'
+            ? <ArenaPreview view={view} seconds={seconds} images={sharedImages} busy={busy} onLock={leads => void run('leads', { leads })} onConcede={() => void run('concede')} />
+            : <Preview view={view} seconds={seconds} images={sharedImages} busy={busy} onLock={leads => void run('leads', { leads })} onConcede={() => void run('concede')} />
             : <>
-                <div className="pta-rules"><span>Level 50 · balanced stats</span><span>2 active + 2 reserves</span><span>4 equipped moves + signature</span><span>45s simultaneous orders</span></div>
+                <div className="pta-rules"><span>Your own companions</span><span>Real level, gear and trait</span><span>2 active + 2 on the bench</span><span>45s simultaneous orders</span></div>
                 <div className="pta-builder-layout"><div>
-                    <h2>{ranked ? 'Choose your carried companions' : 'Build your squad'} <small>{usableBuilds.length}/4 selected</small></h2>
-                    {ranked && roster.filter(p => !p.unavailable).length < 4 && <p role="status">Carry four available pets to enter ranked. Manage your companions in the Pet Yard.</p>}
-                    <div className="pta-roster">{roster.map(pet => {
-                        const index = usableBuilds.findIndex(b => ranked ? b.ownedPetId === pet.key : b.speciesId === pet.id);
-                        return <button type="button" key={pet.key} aria-pressed={index >= 0} disabled={!!pet.unavailable || (index < 0 && usableBuilds.length >= 4)}
-                            className={`pta-roster-pet element-${pet.element}`} onClick={() => setBuilds(index >= 0 ? usableBuilds.filter((_, i) => i !== index) : [...usableBuilds, pet.build])}>
-                            <img src={portrait(pet.id, sharedImages)} alt="" loading="lazy" /><span><strong>{pet.name}</strong><small>{pet.unavailable ?? `${pet.element} · ${pet.role}`}</small></span>{index >= 0 && <b>{index + 1}</b>}
+                    <h2>Choose four companions <small>{squad.length}/4 selected</small></h2>
+                    {roster.filter(entry => !entry.unavailable).length < 4 && <p role="status">Carry four available companions to enter the Pet Arena. Manage your companions in the Pet Yard.</p>}
+                    <div className="pta-roster">{roster.map(({ pet, unavailable }) => {
+                        const index = squad.indexOf(pet.id);
+                        return <button type="button" key={pet.id} aria-pressed={index >= 0} disabled={!!unavailable || (index < 0 && squad.length >= 4)}
+                            className={`pta-roster-pet element-${pet.element}`} onClick={() => setPicked(index >= 0 ? squad.filter(id => id !== pet.id) : [...squad, pet.id])}>
+                            <img src={petCardImage(pet, sharedImages)} alt="" loading="lazy" /><span><strong>{pet.nickname || pet.name}</strong><small>{unavailable ?? `Lv ${pet.level} · ${pet.rarity} · ${pet.element}`}</small></span>{index >= 0 && <b aria-label={SQUAD_SLOTS[index]}>{index + 1}</b>}
                         </button>;
                     })}</div>
-                    <div className="pta-builds">{usableBuilds.map((build, index) => <PetTacticsBuildEditor key={build.ownedPetId ?? build.speciesId} build={build}
-                        defaultExpanded={index === 0}
-                        name={roster.find(p => p.key === (build.ownedPetId ?? build.speciesId))?.name}
-                        onChange={next => setBuilds(usableBuilds.map((b, i) => i === index ? next : b))}
-                        savedBuild={character?.pets.find(p => p.id === build.ownedPetId)?.rankedBuild}
-                        onSave={ranked && onVersionedCharacter ? async next => {
-                            const result = await savePetRankedBuild(playerName, next);
-                            onVersionedCharacter(result.character, result._saveVersion);
-                        } : undefined} />)}</div>
-                </div><aside className="pta-admission"><span className="pta-kicker">{ranked ? 'Pet Colosseum ranked queue' : 'Challenge room'}</span><h2>Meet on equal ground</h2>
-                    <p>{ranked ? 'Bring the companions you carry. Their species and evolved forms stay their own; competitive stats are balanced at level 50.' : 'Choose from the sparring roster. Rarity changes identity, never your damage multiplier.'}</p>
-                    {buildIssue && <p role="status">Complete each pet’s move loadout before entering.</p>}
-                    {ranked ? <><p>Player-controlled 2v2 with two reserves. Pet Elo changes only after the committed battle ends.</p>{!rankedEligible && <p role="alert">Reach the ranked level requirement before joining.</p>}<button className="pta-primary" type="button" disabled={busy || usableBuilds.length !== 4 || !!buildIssue || !rankedEligible} onClick={() => void run('queue', { builds: usableBuilds })}>Find ranked match</button></> : <><button className="pta-primary" type="button" disabled={busy || builds.length !== 4 || !!buildIssue} onClick={() => void run('create', { builds })}>Create arena room</button>
+                    {squadPartners.length > 0 && <p role="note"><strong>Partners when fielded together:</strong> {squadPartners.join(' ')}</p>}
+                    <p role="status">{squad.length ? squad.map((id, index) => `${SQUAD_SLOTS[index]}: ${roster.find(entry => entry.pet.id === id)?.pet.nickname || roster.find(entry => entry.pet.id === id)?.pet.name}`).join(' · ') : 'Pick in order: your first two lead, the next two wait on the bench. You choose the opening pair again once you see the other squad.'}</p>
+                </div><aside className="pta-admission"><span className="pta-kicker">{ranked ? 'Pet Colosseum ranked queue' : 'Challenge room'}</span><h2>Bring your best</h2>
+                    <p>Your companions fight as they are: their level, rarity, gear, battle item and trait, with the moves you chose for them in the Coliseum.</p>
+                    {ranked ? <><p>Matched by Pet Elo. Player-controlled 2v2 with two on the bench. Pet Elo changes only after the committed battle ends.</p>{!rankedEligible && <p role="alert">Reach the ranked level requirement before joining.</p>}<button className="pta-primary" type="button" disabled={busy || !squadReady || !rankedEligible} onClick={() => void run('queue', { petIds: squad })}>Find ranked match</button></> : <><button className="pta-primary" type="button" disabled={busy || !squadReady} onClick={() => void run('create', { petIds: squad })}>Create arena room</button>
                     <div className="pta-divider">or join a challenger</div><label htmlFor="pta-room">Arena code</label>
                     <input id="pta-room" value={code} maxLength={8} autoComplete="off" spellCheck={false} placeholder="8-character code" onChange={e => setCode(e.target.value)} />
-                    <button type="button" disabled={busy || builds.length !== 4 || !!buildIssue || !/^[0-9a-f]{8}$/i.test(code.trim())} onClick={() => void run('join', { roomId: code, builds })}>Join arena</button></>}
-                    <details><summary>How to create an advantage</summary><p>Expose a target, then focus fire. Intercept covers your partner. Switch before attacks to change an elemental matchup. Rest or rotate to recover stamina. Save a signature for the right opening; it costs stamina and takes at least three field rounds to prepare.</p><p>Guard resolves before attacks, but repeated Guard costs more and blocks less. Purify answers marks, wounds and control. Read the other team’s four moves before choosing your leads.</p><p>{ranked ? 'Ranked changes Pet Elo for both participants. Your companions keep their training. No ryo or battle items are spent.' : 'Sparring is unrated. No ryo or battle items are spent.'}</p></details>
+                    <button type="button" disabled={busy || !squadReady || !/^[0-9a-f]{8}$/i.test(code.trim())} onClick={() => void run('join', { roomId: code, petIds: squad })}>Join arena</button></>}
+                    <details><summary>How to create an advantage</summary><p>Read the other squad before you choose your opening pair. Switch a benched companion in to change an elemental matchup, Guard to blunt a big hit, and Rest to recover stamina. Save a signature for the right opening.</p><p>{ranked ? 'Ranked changes Pet Elo for both players. Battle items fire their charges but are not used up, and no ryo changes hands.' : 'Sparring is unrated. Battle items fire their charges but are not used up, and no ryo changes hands.'}</p></details>
                 </aside></div>
             </>}
     </section>;
@@ -278,6 +337,29 @@ function Preview({ view, seconds, images, busy, onLock, onConcede }: { view: Tac
         </button>)}</div>
         <TeamSheet pets={view.own} label="Your squad" images={images} />
         <p>Lead selections stay private until both sides lock. At the deadline, unlocked selections use the first two squad pets.</p>
+        <button className="pta-primary" type="button" disabled={busy || view.ready.own || leads.length !== 2} onClick={() => onLock(leads)}>{view.ready.own ? 'Leads locked · waiting for challenger' : 'Lock opening pair'}</button>
+        <button type="button" onClick={onConcede} disabled={busy}>Concede</button>
+    </div>;
+}
+
+function ArenaSquadSheet({ pets, label, images }: { pets: ShowdownPetView[]; label: string; images: Record<string, string> }) {
+    return <details className="pta-sheet" open><summary>{label}</summary><div className="pta-sheet-grid">{pets.map(p => <article key={p.id}>
+        <img src={viewPortrait(p, images)} alt="" /><strong>{p.name}</strong><small>Lv {p.level} · {p.rarity} · {p.element} · {p.role}</small>
+        <dl><div><dt>HP</dt><dd>{p.maxHp}</dd></div><div><dt>Speed</dt><dd>{p.speed}</dd></div></dl>
+        {p.trait && <p>Trait: {p.trait}</p>}{p.gearName && <p>Gear: {p.gearName}</p>}
+    </article>)}</div></details>;
+}
+/** Coliseum rooms: both squads are the players' real companions. */
+function ArenaPreview({ view, seconds, images, busy, onLock, onConcede }: { view: TacticsView; seconds: number; images: Record<string, string>; busy: boolean; onLock: (leads: number[]) => void; onConcede: () => void }) {
+    const [draftLeads, setLeads] = useState<number[]>(() => view.ownLeads ?? [0, 1]);
+    const leads = view.ownLeads ?? draftLeads;
+    return <div className="pta-preview"><div className="pta-preview-title"><span className="pta-kicker">{view.opponent} has entered</span><h2>Read their squad. Choose your opening.</h2><strong>{seconds}s</strong></div>
+        <ArenaSquadSheet pets={view.battle.enemy} label={`${view.opponent ?? 'Challenger'}’s companions`} images={images} />
+        <div className="pta-leads">{view.battle.player.map((pet, index) => <button type="button" aria-pressed={leads.includes(index)} disabled={busy || view.ready.own}
+            key={pet.id} onClick={() => setLeads(old => old.includes(index) ? old.filter(i => i !== index) : old.length < 2 ? [...old, index] : [old[1], index])}>
+            <img src={viewPortrait(pet, images)} alt="" /><strong>{pet.name}</strong><small>Lv {pet.level} · {pet.element}</small><b>{leads.includes(index) ? `Lead ${leads.indexOf(index) + 1}` : 'Bench'}</b>
+        </button>)}</div>
+        <p>Lead selections stay private until both sides lock. At the deadline, unlocked selections use your first two companions.</p>
         <button className="pta-primary" type="button" disabled={busy || view.ready.own || leads.length !== 2} onClick={() => onLock(leads)}>{view.ready.own ? 'Leads locked · waiting for challenger' : 'Lock opening pair'}</button>
         <button type="button" onClick={onConcede} disabled={busy}>Concede</button>
     </div>;

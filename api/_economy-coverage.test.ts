@@ -75,7 +75,7 @@ const INSTRUMENTED: { file: string; sources: string[] }[] = [
     { file: 'api/pet/progress.ts', sources: ['pet.nickname.fee'] },
     // The Chronicle Point faucet and the card-pack sinks.
     { file: 'api/card-clash/open-pack.ts', sources: ['cardpack.open', 'cardpack.duplicate'] },
-    { file: 'api/card-clash/ai-move.ts', sources: ['echoes.win'] },
+    { file: 'api/card-clash/ai-move.ts', sources: ['echoes.win', 'keeper.path'] },
     // Card-battle Chronicle Points (owner request 2026-10-22): every faucet
     // records through this one helper, which owns the five tags.
     { file: 'api/card-clash/_card-cp.ts', sources: ['card.pvp.win', 'card.pvp.loss', 'card.pve.dungeon', 'card.pve.gate', 'card.pve.garrison'] },

@@ -15,6 +15,8 @@ export type EchoesWitnessResponse = {
     choiceId: EchoesWitnessChoiceId;
     choices: EchoesWitnessChoices;
     alreadySealed: boolean;
+    /** Titles the server credited with this seal (Chapter One closes on the fourth). */
+    grantedTitles: string[];
 };
 
 /** Server clear + missing cosmetic post flag means the authoritative reward
@@ -56,5 +58,8 @@ export async function recordEchoesWitness(
         choiceId: returnedChoice,
         choices,
         alreadySealed: data.alreadySealed === true,
+        grantedTitles: Array.isArray(data.grantedTitles)
+            ? data.grantedTitles.filter((title): title is string => typeof title === "string" && title.length > 0)
+            : [],
     };
 }

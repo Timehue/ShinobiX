@@ -1,5 +1,5 @@
 import { FirstPactCrossingPanel } from './first-pact/FirstPactCrossingPanel';
-import { firstPactEpilogue, firstPactReactiveDialogue, mainQuestCopy, questCopy } from './first-pact/narrative';
+import { firstPactEpilogue, firstPactReactiveDialogue, mainQuestCopy, questCopy, type FirstPactPostgameChoice } from './first-pact/narrative';
 import {
     Suspense,
     useCallback,
@@ -15,7 +15,7 @@ import { createPortal } from "react-dom";
 import "./FirstPact.css";
 import type { Character } from "../types/character";
 import type { Pet } from "../types/pet";
-import { FIRST_PACT_MIN_LEVEL, FIRST_PACT_TEAM_SIZE, FIRST_PACT_MAIN_ENCOUNTERS, createFirstPactProgress, expectedFirstPactMainEncounter, expectedFirstPactTournamentEncounter, FIRST_PACT_DISTRICT_WRITS, FIRST_PACT_TRIAL_ROUNDS, firstPactEncounter, FIRST_PACT_STANDING_COURT_LENGTH, expectedFirstPactStandingCourtRound, firstPactStandingCourtOpen, firstPactVow, firstPactAvailableAftermath, type FirstPactEncounterId, type FirstPactAftermathId, type FirstPactMainBeat, type FirstPactProgress } from "../../../shared/first-pact-contract";
+import { FIRST_PACT_MIN_LEVEL, FIRST_PACT_TEAM_SIZE, FIRST_PACT_MAIN_ENCOUNTERS, createFirstPactProgress, expectedFirstPactMainEncounter, expectedFirstPactTournamentEncounter, FIRST_PACT_DISTRICT_WRITS, FIRST_PACT_TRIAL_ROUNDS, firstPactEncounter, FIRST_PACT_STANDING_COURT_LENGTH, expectedFirstPactStandingCourtRound, firstPactStandingCourtOpen, firstPactVow, firstPactAvailableAftermath, FIRST_PACT_TOURNAMENT, FIRST_PACT_UNBROKEN_ROUNDS, FIRST_PACT_EXHIBITION_LENGTH, expectedFirstPactUnbrokenRound, firstPactExhibitionRound, firstPactReplayOpen, firstPactWithPostgame, type FirstPactReplaySettings, type FirstPactEncounterId, type FirstPactAftermathId, type FirstPactMainBeat, type FirstPactProgress } from "../../../shared/first-pact-contract";
 import {
     FIRST_PACT_AQUEDUCT_CENTRAL_CROSSING,
     FIRST_PACT_AQUEDUCT_CIVIC_CROSSING,
@@ -85,6 +85,13 @@ import {
     enterFirstPact,
     fetchFirstPactProgress,
     visitFirstPactAftermath,
+    abandonFirstPactExhibition,
+    draftFirstPactExhibition,
+    orderFirstPactExhibition,
+    startFirstPactExhibition,
+    startFirstPactUnbroken,
+    tradeFirstPactExhibition,
+    type FirstPactExhibitionView,
     type FirstPactGrant,
 } from "../lib/first-pact-api";
 import { firstPactAftermathScene, firstPactPresentPetIds, resolveFirstPactCompanions } from "../lib/first-pact-aftermath";
@@ -93,6 +100,7 @@ import {
     fetchShowdownState,
     startFirstPactShowdown,
     submitShowdownTurn,
+    showdownPartnerLines,
     type ShowdownCommand,
     type ShowdownStateView,
     type ShowdownTurnResponse,
@@ -110,7 +118,7 @@ import stableTackAnnexV3 from "../assets/first-pact/v3-architecture/v3-stable-ta
 import handlerLodgeV3 from "../assets/first-pact/v3-architecture/v3-handler-lodge.png";
 import kennelInfirmaryV3 from "../assets/first-pact/v3-architecture/v3-kennel-infirmary.png";
 import kennelHouseV3 from "../assets/first-pact/v3-architecture/v3-kennel-service-house.png";
-import feedStoreV3 from "../assets/first-pact/v3-architecture/v3-feed-store-temporary.png";
+import feedStoreV3 from "../assets/first-pact/v3-architecture/v3-feed-store.png";
 import kennelPavilionV3 from "../assets/first-pact/v3-architecture/v3-kennel-pavilion.png";
 import bondingCedarV3 from "../assets/first-pact/v3-architecture/v3-bonding-cedar.png";
 import highCourtMainArchiveV3 from "../assets/first-pact/high-court-v3/high-court-main-archive.png";
@@ -139,9 +147,14 @@ import valveHouseGw from "../assets/first-pact/gateworks-v2/valve-house.png";
 import marketStallV2 from "../assets/first-pact/market-v2/market-stall-module-v2.png";
 import marketRowhouseV2 from "../assets/first-pact/market-v2/market-merchant-rowhouse-v2.png";
 import marketWorkshopV2 from "../assets/first-pact/market-v2/market-waterside-workshop-v2.png";
-// The shipped bowl with its arena floor raked. Everything outside the sand is
-// byte-identical to sunken-court-colosseum.webp, which stays as the source.
-import sunkenCourtColosseum from "../assets/first-pact/gateworks-v2/colosseum-raked.webp";
+// The raked bowl (gateworks-v2/colosseum-raked.webp) with a stair forecourt
+// laid under each of its four gates, composed by
+// scripts/compose-first-pact-colosseum.mjs. The forecourts replace the bare
+// procedural stair stripes the street showed past each gate.
+import sunkenCourtColosseum from "../assets/first-pact/gateworks-v2/colosseum-gates.webp";
+/** Where the composed Colosseum art sits, in tiles. Must match ART in
+ *  scripts/compose-first-pact-colosseum.mjs. */
+const FIRST_PACT_COLOSSEUM_ART = { x: 29, y: 13, width: 26, height: 30 } as const;
 import sunkenCourtStreetProps from "../assets/first-pact/sunken-court-street-props.webp";
 import sunkenCourtTileAtlas from "../assets/first-pact/sunken-court-tile-atlas.webp";
 import senaPortrait from "../assets/first-pact/portraits/sena-vale.webp";
@@ -246,8 +259,13 @@ type FirstPactSettlement = ShowdownTurnResponse & {
         encounterId: FirstPactEncounterId;
         progress: FirstPactProgress;
         advanced: boolean;
+        /** Orin's Stable Exhibition: the run after this round settled. */
+        exhibition?: FirstPactExhibitionView | null;
     };
 };
+
+/** What the squad dialog is preparing: your own four, Orin's rentals, or a Court Replay. */
+type SquadMode = "own" | "exhibition" | "replay";
 
 /** Indoor conversations reuse the street dialogue frame without its quest verbs. */
 type InteriorSpeech = {
@@ -3073,11 +3091,12 @@ function drawArchitecture(
         && architectureScope !== "gardens-north"
         && architectureScope !== "gardens-full"
         && colosseum?.complete && colosseum.naturalWidth > 0) {
-        const x = 31 * FIRST_PACT_TILE_SIZE - camera.x;
-        const y = 17 * FIRST_PACT_TILE_SIZE - camera.y;
-        const size = 22 * FIRST_PACT_TILE_SIZE;
-        if (x < camera.width && y < camera.height && x + size > 0 && y + size > 0) {
-            context.drawImage(colosseum, x, y, size, size);
+        const x = FIRST_PACT_COLOSSEUM_ART.x * FIRST_PACT_TILE_SIZE - camera.x;
+        const y = FIRST_PACT_COLOSSEUM_ART.y * FIRST_PACT_TILE_SIZE - camera.y;
+        const width = FIRST_PACT_COLOSSEUM_ART.width * FIRST_PACT_TILE_SIZE;
+        const height = FIRST_PACT_COLOSSEUM_ART.height * FIRST_PACT_TILE_SIZE;
+        if (x < camera.width && y < camera.height && x + width > 0 && y + height > 0) {
+            context.drawImage(colosseum, x, y, width, height);
         }
     }
 
@@ -4434,7 +4453,10 @@ export function FirstPact({
     const interiorSpotRef = useRef<FirstPactPoint>({ x: 0, y: 0 });
     /** The door the player just stepped out of, so leaving does not re-enter. */
     const reenterGuardRef = useRef<ReturnType<typeof firstPactPointKey> | null>(null);
-    const [progress, setProgress] = useState<FirstPactProgress>(() => createFirstPactProgress());
+    const [storedProgress, setProgress] = useState<FirstPactProgress>(() => createFirstPactProgress());
+    // A reply from a server that predates the postgame carries no postgame
+    // records; read it as empty rather than breaking the journal or dialogue.
+    const progress = useMemo(() => firstPactWithPostgame(storedProgress), [storedProgress]);
     const [loading, setLoading] = useState(character.level >= FIRST_PACT_MIN_LEVEL);
     const [loadRevision, setLoadRevision] = useState(0);
     const [storyActionPending, setStoryActionPending] = useState(false);
@@ -4462,7 +4484,14 @@ export function FirstPact({
     const [selectedPets, setSelectedPets] = useState<string[]>([]);
     const [battleStarting, setBattleStarting] = useState(() => readFirstPactSession(character.name) !== null);
     const [battleError, setBattleError] = useState<string | null>(null);
-    const [battle, setBattle] = useState<{ state: ShowdownStateView; encounterId: FirstPactEncounterId } | null>(null);
+    const [battle, setBattle] = useState<{ state: ShowdownStateView; encounterId: FirstPactEncounterId; replay?: FirstPactReplaySettings } | null>(null);
+    // Postgame: Orin's Stable Exhibition and the Arbiter's Court Replays.
+    const [exhibition, setExhibition] = useState<FirstPactExhibitionView | null>(null);
+    const [squadMode, setSquadMode] = useState<SquadMode>("own");
+    const [replaySettings, setReplaySettings] = useState<FirstPactReplaySettings>({ hard: false, unbroken: false });
+    /** Exhibition rentals in play order: the draft while drafting, the team afterwards. */
+    const [exhibitionPick, setExhibitionPick] = useState<string[]>([]);
+    const [tradeOut, setTradeOut] = useState<string>("");
     const [viewport, setViewport] = useState({ width: 1280, height: 720 });
     const [tileAtlasReady, setTileAtlasReady] = useState(false);
     const [architectureAtlasReady, setArchitectureAtlasReady] = useState(false);
@@ -4507,7 +4536,9 @@ export function FirstPact({
     const [journalOpen, setJournalOpen] = useState(false);
     const [epiloguePage, setEpiloguePage] = useState<number | null>(null);
     /** What closing the crossing credited, exactly as the server reported it. */
-    const [crossingGrant, setCrossingGrant] = useState<{ titles: string[]; auraStones: number } | null>(null);
+    // `late` marks a grant credited after the crossing closed (a writ, Vale
+    // Stable or the Standing Court finished afterwards), which needs its own copy.
+    const [crossingGrant, setCrossingGrant] = useState<{ titles: string[]; auraStones: number; late?: boolean } | null>(null);
     const lastDistrictRef = useRef(firstPactDistrictAt(FIRST_PACT_PLAYER_START));
 
     const breedingParents = useMemo(() => activeClientBreedingParentIds(character), [character]);
@@ -4522,9 +4553,14 @@ export function FirstPact({
     const activePet = useMemo(() => (
         availablePets.find((pet) => pet.id === character.activePetId) ?? availablePets[0] ?? null
     ), [availablePets, character.activePetId]);
-    const battlePets = useMemo(() => selectedPets
-        .map((id) => character.pets.find((pet) => pet.id === id))
-        .filter(Boolean) as Pet[], [character.pets, selectedPets]);
+    // An Exhibition round fields Orin's rentals, which the server sealed under
+    // the same ids, so the battle draws them from the run rather than the save.
+    const rentalBattle = !!battle && !!firstPactExhibitionRound(battle.encounterId);
+    const battlePets = useMemo(() => rentalBattle
+        ? exhibition?.team ?? []
+        : selectedPets
+            .map((id) => character.pets.find((pet) => pet.id === id))
+            .filter(Boolean) as Pet[], [character.pets, exhibition?.team, rentalBattle, selectedPets]);
     const pactCompanions = useMemo(
         () => resolveFirstPactCompanions(progress, character.pets ?? [], storyPresentPetIds),
         [character.pets, progress, storyPresentPetIds],
@@ -4714,6 +4750,12 @@ export function FirstPact({
                 return;
             }
             setProgress(result.progress);
+            if ("exhibition" in result) setExhibition(result.exhibition ?? null);
+            // A state read on a finished crossing credits anything earned since.
+            // It used to land in the vault without a word.
+            if (result.grantedTitles?.length || result.grantedAuraStones) {
+                setCrossingGrant({ titles: result.grantedTitles ?? [], auraStones: result.grantedAuraStones ?? 0, late: true });
+            }
             const saved = result.progress.lastPosition;
             const occupied = new Set(FIRST_PACT_NPCS.map((npc) => firstPactPointKey(npc.position)));
             const restored = nearestFirstPactWalkable(saved, occupied) ?? FIRST_PACT_PLAYER_START;
@@ -4770,6 +4812,7 @@ export function FirstPact({
                 if ("expired" in settlement) return;
                 const firstPact = (settlement as FirstPactSettlement).firstPact;
                 if (firstPact?.progress) setProgress(firstPact.progress);
+                if (firstPact?.exhibition !== undefined) setExhibition(firstPact.exhibition);
             } finally {
                 battleStartInFlightRef.current = false;
                 if (!cancelled) {
@@ -5752,15 +5795,16 @@ export function FirstPact({
         }
     };
 
-    const openSquad = (encounterId?: FirstPactEncounterId) => {
+    const openSquad = (encounterId?: FirstPactEncounterId, mode: SquadMode = "own") => {
         // Fetch in parallel with the player's formation choice; a failed
         // prefetch is handled by the battle's retrying lazy boundary later.
         void loadFirstPactBattle().catch(() => undefined);
         void import("../lib/pet-model-preload").catch(() => undefined);
+        setSquadMode(mode);
         const prioritized = [character.activePetId, character.activePetId2v2, ...availablePets.map((pet) => pet.id)]
             .filter((id): id is string => !!id && availablePets.some((pet) => pet.id === id));
         setSelectedPets([...new Set(prioritized)].slice(0, FIRST_PACT_TEAM_SIZE));
-        setPendingEncounterId(encounterId
+        setPendingEncounterId(mode !== "own" ? encounterId ?? null : encounterId
             ?? expectedFirstPactStandingCourtRound(progress)?.id
             ?? expectedFirstPactMainEncounter(progress)?.id
             ?? expectedFirstPactTournamentEncounter(progress)?.id
@@ -5770,18 +5814,109 @@ export function FirstPact({
         setSquadOpen(true);
     };
 
-    const launchEncounter = useCallback(async (encounterId?: FirstPactEncounterId) => {
+    /** Cleared story battles the Arbiter will argue again. */
+    const replayableEncounters = useMemo(() => [...FIRST_PACT_UNBROKEN_ROUNDS, ...FIRST_PACT_DISTRICT_WRITS, ...FIRST_PACT_TOURNAMENT]
+        .filter((entry) => firstPactReplayOpen(progress, entry.id)), [progress]);
+
+    /** Adopt an Exhibition run and show it in the squad dialog. */
+    const showExhibition = (view: FirstPactExhibitionView | null) => {
+        setExhibition(view);
+        setExhibitionPick(view && view.status !== "drafting" ? view.team.map((pet) => pet.id) : []);
+        setTradeOut("");
+        openSquad((view?.nextRoundId ?? undefined) as FirstPactEncounterId | undefined, "exhibition");
+    };
+
+    /** Run one Exhibition ledger action and keep the dialog on the run it returns. */
+    const exhibitionAction = async (request: (account: string) => ReturnType<typeof startFirstPactExhibition>) => {
+        const requestAccount = character.name;
+        setStoryActionPending(true);
+        setBattleError(null);
+        try {
+            const result = await request(requestAccount);
+            if (!mountedRef.current || accountNameRef.current !== requestAccount) return;
+            if ("error" in result) {
+                // Opened first, so the refusal is shown inside the ledger.
+                showExhibition(exhibition);
+                setBattleError(result.error);
+                return;
+            }
+            setProgress(result.progress);
+            showExhibition(result.exhibition ?? null);
+        } finally {
+            if (mountedRef.current) setStoryActionPending(false);
+        }
+    };
+
+    /** The postgame doors behind Orin and the Arbiter. */
+    const openPostgame = async (choice: FirstPactPostgameChoice) => {
+        setBattleError(null);
+        if (choice === "exhibition") {
+            // An open run (or a finished one, to read its result) is shown as
+            // it stands; only a player who never opened one gets a fresh draft.
+            if (exhibition) showExhibition(exhibition);
+            else await exhibitionAction(startFirstPactExhibition);
+            return;
+        }
+        if (choice === "replays") {
+            setReplaySettings({ hard: false, unbroken: false });
+            openSquad(replayableEncounters[0]?.id, "replay");
+            return;
+        }
+        if (choice === "unbroken-continue") {
+            const run = progress.replays.run;
+            if (!run) return;
+            setReplaySettings({ hard: run.hard, unbroken: true });
+            openSquad(expectedFirstPactUnbrokenRound(progress)?.id, "replay");
+            return;
+        }
+        const hard = choice === "unbroken-hard";
+        const requestAccount = character.name;
+        setStoryActionPending(true);
+        try {
+            const started = await startFirstPactUnbroken(requestAccount, hard);
+            if (!mountedRef.current || accountNameRef.current !== requestAccount) return;
+            if ("error" in started) {
+                openSquad(undefined, "replay");
+                setBattleError(started.error);
+                return;
+            }
+            setProgress(started.progress);
+            setReplaySettings({ hard, unbroken: true });
+            openSquad(expectedFirstPactUnbrokenRound(started.progress)?.id, "replay");
+        } finally {
+            if (mountedRef.current) setStoryActionPending(false);
+        }
+    };
+    // The battle's rematch callback is memoised; it reaches the latest opener here.
+    const openPostgameRef = useRef(openPostgame);
+    useEffect(() => { openPostgameRef.current = openPostgame; });
+
+    const launchEncounter = useCallback(async (encounterId?: FirstPactEncounterId, replay?: FirstPactReplaySettings | null) => {
         const encounter = encounterId
             ? firstPactEncounter(encounterId)
             : pendingEncounterId ? firstPactEncounter(pendingEncounterId) : null;
-        if (!encounter || selectedPets.length !== FIRST_PACT_TEAM_SIZE || battleStartInFlightRef.current) return;
+        const rental = !!encounter && !!firstPactExhibitionRound(encounter.id);
+        // The Exhibition fields the run's rentals in the order chosen here; the
+        // server reads them from its own record and ignores what is sent.
+        const petIds = rental ? exhibitionPick : selectedPets;
+        if (!encounter || petIds.length !== FIRST_PACT_TEAM_SIZE || battleStartInFlightRef.current) return;
         battleStartInFlightRef.current = true;
         const requestAccount = character.name;
         setBattleStarting(true);
         setBattleError(null);
         onBattleActiveChange?.(true);
         try {
-            const result = await startFirstPactShowdown(requestAccount, encounter.id, selectedPets);
+            if (rental && exhibition && exhibition.team.map((pet) => pet.id).join() !== petIds.join()) {
+                const ordered = await orderFirstPactExhibition(requestAccount, petIds);
+                if (!mountedRef.current || accountNameRef.current !== requestAccount) return;
+                if ("error" in ordered) {
+                    setBattleError(ordered.error);
+                    onBattleActiveChange?.(false);
+                    return;
+                }
+                setExhibition(ordered.exhibition ?? null);
+            }
+            const result = await startFirstPactShowdown(requestAccount, encounter.id, petIds, replay ?? undefined);
             if (!mountedRef.current || accountNameRef.current !== requestAccount) return;
             if ("error" in result) {
                 setBattleError(result.error);
@@ -5792,13 +5927,13 @@ export function FirstPact({
                 onBattleActiveChange?.(false);
                 return;
             }
-            writeFirstPactSession({ playerName: requestAccount, sessionId: result.state.sessionId, encounterId: encounter.id, petIds: selectedPets });
-            await warmFirstPactBattle(result.state, characterPetsRef.current);
+            writeFirstPactSession({ playerName: requestAccount, sessionId: result.state.sessionId, encounterId: encounter.id, petIds });
+            await warmFirstPactBattle(result.state, rental ? [...characterPetsRef.current, ...(exhibition?.team ?? [])] : characterPetsRef.current);
             if (!mountedRef.current || accountNameRef.current !== requestAccount) return;
             setProgress(result.progress);
             setSquadOpen(false);
             setPendingEncounterId(null);
-            setBattle({ state: result.state, encounterId: encounter.id });
+            setBattle({ state: result.state, encounterId: encounter.id, ...(replay ? { replay } : {}) });
             // Sounded before the ambience effect swaps the city out, so the two
             // cross rather than leaving a hole where the street used to be.
             playGameSfx("battle-transition", { gain: 0.66 });
@@ -5806,7 +5941,7 @@ export function FirstPact({
             battleStartInFlightRef.current = false;
             if (mountedRef.current && accountNameRef.current === requestAccount) setBattleStarting(false);
         }
-    }, [character.name, onBattleActiveChange, pendingEncounterId, selectedPets]);
+    }, [character.name, exhibition, exhibitionPick, onBattleActiveChange, pendingEncounterId, selectedPets]);
 
     const submitTurn = useCallback((commands: ShowdownCommand[], expectedRound: number) => {
         if (!battle) return Promise.resolve(null);
@@ -5818,13 +5953,21 @@ export function FirstPact({
         onBattleActiveChange?.(false);
         const firstPact = (settlement as FirstPactSettlement | null)?.firstPact;
         if (firstPact?.progress) setProgress(firstPact.progress);
-        else {
-            const requestAccount = character.name;
-            void fetchFirstPactProgress(requestAccount).then((result) => {
-                if (mountedRef.current && accountNameRef.current === requestAccount && !("error" in result)) setProgress(result.progress);
-            });
-        }
-    }, [character.name, onBattleActiveChange]);
+        if (firstPact?.exhibition !== undefined) setExhibition(firstPact.exhibition);
+        // After the crossing closes, writs, Vale Stable and the Standing Court
+        // still settle here, and only the state read credits what they earned.
+        if (firstPact?.progress && firstPact.progress.mainStep !== "complete") return;
+        const requestAccount = character.name;
+        void fetchFirstPactProgress(requestAccount).then((result) => {
+            if (!mountedRef.current || accountNameRef.current !== requestAccount || "error" in result) return;
+            if (applyGrantCharacter(result, requestAccount) !== "accepted") return;
+            setProgress(result.progress);
+            if ("exhibition" in result) setExhibition(result.exhibition ?? null);
+            if (result.grantedTitles?.length || result.grantedAuraStones) {
+                setCrossingGrant({ titles: result.grantedTitles ?? [], auraStones: result.grantedAuraStones ?? 0, late: true });
+            }
+        });
+    }, [applyGrantCharacter, character.name, onBattleActiveChange]);
 
     const closeBattle = useCallback(() => {
         writeFirstPactSession(null);
@@ -5855,6 +5998,24 @@ export function FirstPact({
     }, [applyGrantCharacter, battle, character.name, closeBattle]);
 
     const rematch = useCallback(() => {
+        // An Exhibition round returns to Orin's ledger, where the trade (or a
+        // fresh run after a loss) is decided before the next bell.
+        if (battle && firstPactExhibitionRound(battle.encounterId)) {
+            setBattle(null);
+            onBattleActiveChange?.(false);
+            void openPostgameRef.current("exhibition");
+            return;
+        }
+        // A replay runs again on the same settings: the next Unbroken round, or
+        // the same argument once more.
+        if (battle?.replay) {
+            const settings = battle.replay;
+            const again = settings.unbroken ? expectedFirstPactUnbrokenRound(progress)?.id : battle.encounterId;
+            setBattle(null);
+            onBattleActiveChange?.(false);
+            if (again) void launchEncounter(again, settings);
+            return;
+        }
         const next = expectedFirstPactStandingCourtRound(progress)?.id
             ?? expectedFirstPactMainEncounter(progress)?.id
             ?? expectedFirstPactTournamentEncounter(progress)?.id
@@ -5862,7 +6023,7 @@ export function FirstPact({
         setBattle(null);
         onBattleActiveChange?.(false);
         if (next) void launchEncounter(next);
-    }, [battle?.encounterId, launchEncounter, onBattleActiveChange, progress]);
+    }, [battle, launchEncounter, onBattleActiveChange, progress]);
 
     /**
      * The Court answers a loss.
@@ -5898,6 +6059,23 @@ export function FirstPact({
     const nextAftermathNpc = nextAftermath ? FIRST_PACT_NPCS.find((npc) => npc.id === nextAftermath.npcId) : null;
     const district = firstPactDistrictAt(player);
     const pendingEncounter = pendingEncounterId ? firstPactEncounter(pendingEncounterId) : null;
+    // The squad dialog serves three doors. Its roster and pick follow the door:
+    // your carried pets, or Orin's rentals (the draft, then the run's four).
+    const rentalSquad = squadMode === "exhibition";
+    const exhibitionDrafting = rentalSquad && exhibition?.status === "drafting";
+    const exhibitionLive = rentalSquad && exhibition?.status === "active";
+    const squadRoster: Pet[] = rentalSquad ? (exhibitionDrafting ? exhibition?.pool ?? [] : exhibitionLive ? exhibition?.team ?? [] : []) : availablePets;
+    const squadPick = rentalSquad ? exhibitionPick : selectedPets;
+    const setSquadPick = rentalSquad ? setExhibitionPick : setSelectedPets;
+    const squadPartners = showdownPartnerLines(squadPick
+        .map((id) => squadRoster.find((pet) => pet.id === id))
+        .filter((pet): pet is Pet => !!pet)
+        .map((pet) => ({ name: pet.nickname || pet.name, role: pet.role, element: pet.element })));
+    const squadEyebrow = rentalSquad
+        ? `Orin's Stable Exhibition${exhibitionLive && exhibition ? ` · Round ${exhibition.round + 1} of ${exhibition.length}` : ""}`
+        : squadMode === "replay"
+            ? `Court Replay${replaySettings.hard ? " · Hard" : ""}${replaySettings.unbroken ? ` · Unbroken, round ${(progress.replays.run?.round ?? 0) + 1} of ${FIRST_PACT_UNBROKEN_ROUNDS.length}` : ""}`
+            : pendingEncounter && FIRST_PACT_MAIN_ENCOUNTERS.some((entry) => entry.id === pendingEncounter.id) ? "Main Chronicle" : "Vale Stable · Tournament roster";
 
     if (character.level < FIRST_PACT_MIN_LEVEL) {
         return (
@@ -6090,6 +6268,7 @@ export function FirstPact({
                         approachNpc(nextAftermathNpc);
                     }}>Walk back: {nextAftermath.title}</button>}
                     {progress.mainStep === "return-to-threshold" && district === "arrival-court" && <button type="button" className="fp-complete-crossing" onClick={(event) => { event.stopPropagation(); setEpiloguePage(0); }}>Complete the crossing</button>}
+                    {progress.mainStep === "complete" && <button type="button" onClick={(event) => { event.stopPropagation(); setEpiloguePage(0); }}>Read the epilogue</button>}
                 </div>}
 
                 {entered && !criticCapture && <div className="fp-dpad" aria-label="Movement controls">
@@ -6156,13 +6335,17 @@ export function FirstPact({
                                             {dialog.choices.map((choice) => (
                                                 <button
                                                     type="button"
-                                                    key={"beat" in choice ? choice.beat : "writId" in choice ? choice.writId : choice.aftermathId}
+                                                    key={"beat" in choice ? choice.beat : "writId" in choice ? choice.writId : "encounterId" in choice ? choice.encounterId : "postgame" in choice ? choice.postgame : choice.aftermathId}
                                                     disabled={storyActionPending}
                                                     onClick={() => void ("beat" in choice
                                                         ? advanceMain(choice.beat)
                                                         : "writId" in choice
                                                             ? enterFinding(choice.writId)
-                                                            : visitAftermath(choice.aftermathId))}
+                                                            : "encounterId" in choice
+                                                                ? openSquad(choice.encounterId)
+                                                                : "postgame" in choice
+                                                                    ? openPostgame(choice.postgame)
+                                                                    : visitAftermath(choice.aftermathId))}
                                                 >{choice.label}</button>
                                             ))}
                                         </div>
@@ -6185,40 +6368,89 @@ export function FirstPact({
                 <div className="fp-overlay" role="presentation" onPointerDown={(event) => event.stopPropagation()}>
                     <section className="fp-squad" role="dialog" aria-modal="true" aria-label="Prepare tournament squad">
                         <header>
-                            <div><span className="fp-eyebrow">{pendingEncounter && FIRST_PACT_MAIN_ENCOUNTERS.some((entry) => entry.id === pendingEncounter.id) ? "Main Chronicle" : "Vale Stable · Tournament roster"}</span><h2>{pendingEncounter?.title ?? "Two on the sand. Two in reserve."}</h2></div>
+                            <div><span className="fp-eyebrow">{squadEyebrow}</span><h2>{rentalSquad && !exhibitionLive
+                                ? exhibitionDrafting ? "Draft four rentals" : exhibition?.status === "won" ? "The Exhibition is yours" : "The run has ended"
+                                : pendingEncounter?.title ?? "Two on the sand. Two in reserve."}</h2></div>
                             <button type="button" className="fp-quiet-button" disabled={battleStarting} onClick={() => setSquadOpen(false)}>Close</button>
                         </header>
-                        <div className="fp-formation">
+                        {squadMode === "replay" && !replaySettings.unbroken && (
+                            // A plain replay picks any cleared argument; Hard is a per-fight setting.
+                            <div className="fp-encounter-brief">
+                                <label>Argument <select value={pendingEncounterId ?? ""} disabled={battleStarting}
+                                    onChange={(event) => setPendingEncounterId(event.target.value as FirstPactEncounterId)}>
+                                    {replayableEncounters.map((entry) => <option key={entry.id} value={entry.id}>{entry.title} ({entry.opponent})</option>)}
+                                </select></label>
+                                <label><input type="checkbox" checked={replaySettings.hard} disabled={battleStarting}
+                                    onChange={(event) => setReplaySettings({ hard: event.target.checked, unbroken: false })} /> Hard: stronger, geared opponents eight levels up</label>
+                            </div>
+                        )}
+                        {rentalSquad && !exhibitionDrafting && !exhibitionLive && exhibition && (
+                            <p className="fp-encounter-brief"><strong>{exhibition.status === "won" ? `All ${exhibition.length} stables beaten` : `${exhibition.round} of ${exhibition.length} stables beaten`}</strong>
+                                <span>Best run {progress.exhibition.best} of {exhibition.length}. {progress.exhibition.clears > 0 ? `${progress.exhibition.clears} full run${progress.exhibition.clears === 1 ? "" : "s"} won.` : "Win all seven in one run to earn Court Standing."}</span></p>
+                        )}
+                        {(!rentalSquad || exhibitionDrafting || exhibitionLive) && <div className="fp-formation">
                             {[0, 1, 2, 3].map((slot) => {
-                                const pet = availablePets.find((entry) => entry.id === selectedPets[slot]);
+                                const pet = squadRoster.find((entry) => entry.id === squadPick[slot]);
                                 return <div key={slot} className={`fp-formation-slot ${slot < 2 ? "active" : "reserve"}`}><span>{slot < 2 ? `Active ${slot + 1}` : `Reserve ${slot - 1}`}</span><strong>{pet?.name ?? "Open"}</strong></div>;
                             })}
-                        </div>
-                        {pendingEncounter && <p className="fp-encounter-brief"><strong>{pendingEncounter.opponent}</strong><span>{pendingEncounter.lesson}</span></p>}
-                        <div className="fp-roster">
-                            {availablePets.map((pet) => {
-                                const selectedIndex = selectedPets.indexOf(pet.id);
+                        </div>}
+                        {squadPartners.length > 0 && <p className="fp-encounter-brief"><strong>Partners</strong><span>{squadPartners.join(" ")}</span></p>}
+                        {pendingEncounter && (!rentalSquad || exhibitionLive) && <p className="fp-encounter-brief"><strong>{pendingEncounter.opponent}</strong><span>{pendingEncounter.lesson}</span></p>}
+                        {exhibitionLive && exhibition?.offered?.length ? (
+                            // After a win: one trade from the stable just beaten, open until the next bell.
+                            <div className="fp-encounter-brief">
+                                <strong>Trade one rental</strong>
+                                <span>Send one rental away and take one companion you just beat. Starting the next round closes the offer.</span>
+                                <label>Send away <select value={tradeOut} disabled={storyActionPending || battleStarting} onChange={(event) => setTradeOut(event.target.value)}>
+                                    <option value="">Choose a rental</option>
+                                    {exhibition.team.map((pet) => <option key={pet.id} value={pet.id}>{pet.name}</option>)}
+                                </select></label>
+                                <div className="fp-roster">
+                                    {exhibition.offered.map((pet) => {
+                                        const image = petCardImage(pet, sharedImages);
+                                        return <button type="button" key={pet.id} disabled={!tradeOut || storyActionPending || battleStarting}
+                                            onClick={() => void exhibitionAction((account) => tradeFirstPactExhibition(account, tradeOut, pet.id))}>
+                                            <span className="fp-pet-art">{image ? <img src={image} alt="" /> : pet.name.slice(0, 2).toUpperCase()}</span>
+                                            <span><strong>Take {pet.name}</strong><small>Lv {pet.level} · {pet.element} · {pet.role}</small></span>
+                                        </button>;
+                                    })}
+                                </div>
+                            </div>
+                        ) : null}
+                        {(!rentalSquad || exhibitionDrafting || exhibitionLive) && <div className="fp-roster">
+                            {squadRoster.map((pet) => {
+                                const selectedIndex = squadPick.indexOf(pet.id);
                                 const image = petCardImage(pet, sharedImages);
                                 return <button
                                     type="button"
                                     key={pet.id}
                                     disabled={battleStarting}
                                     className={selectedIndex >= 0 ? "selected" : ""}
-                                    onClick={() => setSelectedPets((current) => current.includes(pet.id)
+                                    onClick={() => setSquadPick((current) => current.includes(pet.id)
                                         ? current.filter((id) => id !== pet.id)
                                         : current.length < FIRST_PACT_TEAM_SIZE ? [...current, pet.id] : current)}
                                 >
                                     <span className="fp-pet-art">{image ? <img src={image} alt="" /> : pet.name.slice(0, 2).toUpperCase()}</span>
-                                    <span><strong>{pet.name}</strong><small>Lv {pet.level} · {pet.element}</small></span>
+                                    <span><strong>{pet.name}</strong><small>Lv {pet.level} · {pet.element}{rentalSquad && pet.role ? ` · ${pet.role}` : ""}</small></span>
                                     {selectedIndex >= 0 && <b>{selectedIndex < 2 ? `A${selectedIndex + 1}` : `R${selectedIndex - 1}`}</b>}
                                 </button>;
                             })}
-                        </div>
-                        {availablePets.length < FIRST_PACT_TEAM_SIZE && <p className="fp-squad-warning">Four available carried pets are required. Return resting pets from the Sanctuary or wait for breeding and expeditions to finish.</p>}
+                        </div>}
+                        {!rentalSquad && availablePets.length < FIRST_PACT_TEAM_SIZE && <p className="fp-squad-warning">Four available carried pets are required. Return resting pets from the Sanctuary or wait for breeding and expeditions to finish.</p>}
                         {battleError && <p className="fp-squad-warning" role="alert">{battleError}</p>}
                         <footer>
-                            <div><strong>{selectedPets.length}/{FIRST_PACT_TEAM_SIZE} selected</strong><span>The first two start active. Selection order matters.</span></div>
-                            <button type="button" disabled={selectedPets.length !== FIRST_PACT_TEAM_SIZE || battleStarting || !pendingEncounter} onClick={() => void launchEncounter()}>{battleStarting ? "Opening the gates…" : "Commit this formation"}</button>
+                            <div><strong>{squadPick.length}/{FIRST_PACT_TEAM_SIZE} selected</strong><span>{rentalSquad ? "Rentals only. Your own companions stay home." : "The first two start active. Selection order matters."}</span></div>
+                            {rentalSquad && (exhibitionLive || exhibitionDrafting) && (
+                                <button type="button" className="fp-quiet-button" disabled={storyActionPending || battleStarting}
+                                    onClick={() => void exhibitionAction(abandonFirstPactExhibition)}>Abandon the run</button>
+                            )}
+                            {rentalSquad && exhibitionDrafting
+                                ? <button type="button" disabled={squadPick.length !== FIRST_PACT_TEAM_SIZE || storyActionPending}
+                                    onClick={() => void exhibitionAction((account) => draftFirstPactExhibition(account, exhibitionPick))}>{storyActionPending ? "Signing the ledger…" : "Draft these four"}</button>
+                                : rentalSquad && !exhibitionLive
+                                    ? <button type="button" disabled={storyActionPending} onClick={() => void exhibitionAction(startFirstPactExhibition)}>{storyActionPending ? "Opening the ledger…" : "Start a new run"}</button>
+                                    : <button type="button" disabled={squadPick.length !== FIRST_PACT_TEAM_SIZE || battleStarting || !pendingEncounter}
+                                        onClick={() => void launchEncounter(undefined, squadMode === "replay" ? replaySettings : null)}>{battleStarting ? "Opening the gates…" : rentalSquad ? "Ring the bell" : "Commit this formation"}</button>}
                         </footer>
                     </section>
                 </div>
@@ -6257,6 +6489,16 @@ export function FirstPact({
                                     : `best ${progress.standingCourt.best} / ${FIRST_PACT_STANDING_COURT_LENGTH}`}</strong></div>
                             )}
                             <div><span>Vale Stable</span><strong>{progress.stableQuest.status === "complete" ? "Saved" : progress.stableQuest.status === "accepted" ? `${progress.stableQuest.tournamentWins} / 3 wins` : "Unmet"}</strong></div>
+                            {progress.mainStep === "complete" && (
+                                <div><span>Stable Exhibition</span><strong>{progress.exhibition.clears > 0
+                                    ? `${progress.exhibition.clears} won`
+                                    : `best ${progress.exhibition.best} / ${FIRST_PACT_EXHIBITION_LENGTH}`}</strong></div>
+                            )}
+                            {progress.mainStep === "complete" && (
+                                <div><span>Court Replays</span><strong>{progress.replays.unbrokenClears > 0
+                                    ? `Unbroken ${progress.replays.unbrokenClears}${progress.replays.hardUnbrokenClears ? `, Hard ${progress.replays.hardUnbrokenClears}` : ""}`
+                                    : `${progress.replays.hardClears.length} won on Hard`}</strong></div>
+                            )}
                         </footer>
                     </section>
                 </div>
@@ -6273,22 +6515,30 @@ export function FirstPact({
                             {epiloguePage > 0 && <button type="button" className="fp-quiet-button" onClick={() => setEpiloguePage((page) => Math.max(0, (page ?? 0) - 1))}>Back</button>}
                             {epiloguePage < epiloguePages.length - 1
                                 ? <button type="button" onClick={() => setEpiloguePage((page) => Math.min(epiloguePages.length - 1, (page ?? 0) + 1))}>Continue</button>
-                                : <button type="button" disabled={storyActionPending} onClick={() => void advanceMain("complete-crossing").then((completed) => { if (completed) setEpiloguePage(null); })}>{storyActionPending ? "Holding the crossing…" : "Return to the present"}</button>}
+                                : progress.mainStep === "complete"
+                                    // Re-reading a closed crossing changes nothing, so it only closes.
+                                    ? <button type="button" onClick={() => setEpiloguePage(null)}>Close the epilogue</button>
+                                    : <button type="button" disabled={storyActionPending} onClick={() => void advanceMain("complete-crossing").then((completed) => { if (completed) setEpiloguePage(null); })}>{storyActionPending ? "Holding the crossing…" : "Return to the present"}</button>}
                         </div>
                     </section>
                 </div>
             )}
 
-            {crossingGrant && epiloguePage == null && (
+            {crossingGrant && epiloguePage == null && !battle && (
                 <div className="fp-epilogue" role="dialog" aria-modal="true" aria-label="What the crossing left you">
                     <div className="fp-epilogue-shade" />
                     <section>
-                        <span className="fp-eyebrow">Crossing complete</span>
+                        <span className="fp-eyebrow">{crossingGrant.late ? "The record grows" : "Crossing complete"}</span>
                         <h2>What the crossing left you</h2>
-                        <p>
-                            The city fell on the day it was always going to fall. Vey's original left with you, with
-                            your name beside the testimony and findings the Court failed to replace.
-                        </p>
+                        {crossingGrant.late
+                            ? <p>
+                                Vey added your latest work to the original you carried home. The Court cannot reopen
+                                what is written there.
+                            </p>
+                            : <p>
+                                The city fell on the day it was always going to fall. Vey's original left with you, with
+                                your name beside the testimony and findings the Court failed to replace.
+                            </p>}
                         {/* first-pact:reward-copy */}
                         {crossingGrant.auraStones > 0 && (
                             <p>

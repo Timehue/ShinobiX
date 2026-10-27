@@ -25,6 +25,7 @@ import { fetchFirstPactProgress, type FirstPactGrant } from "./first-pact-api";
 export {
     SHOWDOWN_BENCH_SIZE,
     SHOWDOWN_FORMAT_SIZE,
+    showdownPartnerLines,
     showdownTeamSize,
 } from "../../../shared/pet-showdown-contract";
 
@@ -99,8 +100,10 @@ export async function startFirstPactShowdown(
     playerName: string,
     encounterId: FirstPactEncounterId,
     petIds: string[],
+    /** Court Replays only: re-fight a cleared battle on these settings. */
+    replay?: { hard: boolean; unbroken: boolean },
 ): Promise<{ state: ShowdownStateView; progress: FirstPactProgress } | { error: string }> {
-    const r = await post({ action: "first-pact", playerName, encounterId, petIds });
+    const r = await post({ action: "first-pact", playerName, encounterId, petIds, ...(replay ? { replay } : {}) });
     if (!r) return { error: "The Celestial crossing could not reach the Colosseum." };
     const data = await r.json().catch(() => null) as {
         state?: ShowdownStateView;

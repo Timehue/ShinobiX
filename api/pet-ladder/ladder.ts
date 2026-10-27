@@ -264,7 +264,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const applied = applyChallenge(order, myEntry, targetId, won);
                 // Bound the public list projection, never the stored standings:
                 // trimming here silently evicts the lowest players and records.
-                await kv.set(orderKey(mode), applied.order);
+                try { await kv.set(orderKey(mode), applied.order); }
+                catch (error) {
+                    // The fight was never recorded, so it must not cost the
+                    // day's slot. Every increment of this counter happens
+                    // under this lock, so restoring it cannot erase another
+                    // challenge's spend.
+                    try {
+                        if (used - 1 > 0) await kv.set(dKey, used - 1, { ex: 36 * 3600 });
+                        else await kv.del(dKey);
+                    } catch (refundError) { console.error('[pet-ladder] challenge slot refund failed', refundError); }
+                    throw error;
+                }
                 committed = true;
                 notifySlug = applied.notifySlug;
                 const i = applied.order.findIndex((e) => e.slug === me);

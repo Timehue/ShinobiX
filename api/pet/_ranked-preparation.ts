@@ -1159,31 +1159,6 @@ export async function loadPetRankedPreparation(
     return admitted;
 }
 
-export async function findPetRankedPreparationForPlayer(
-    store: PreparationStore,
-    playerName: string,
-): Promise<PetRankedPreparation | null> {
-    const player = safeName(playerName);
-    if (!player) return null;
-    const gate = await readPetRankedSeasonGateFresh(store);
-    const matches = gate?.admissions.filter((entry) => entry.a === player || entry.b === player) ?? [];
-    if (matches.length > 1) throw new Error('pet-ranked-player-preparation-conflict');
-    if (!matches[0]) return null;
-    await putImmutablePreparation(store, matches[0]);
-    return matches[0];
-}
-
-export async function assertPetRankedPreparationAdmitted(
-    store: Pick<KvLike, 'get' | 'compareSet'>,
-    preparation: PetRankedPreparation,
-): Promise<void> {
-    const gate = await readPetRankedSeasonGateFresh(store);
-    const admitted = gate?.admissions.find((entry) => entry.matchId === preparation.matchId);
-    if (!admitted || !isDeepStrictEqual(admitted, preparation)) {
-        throw new Error('pet-ranked-preparation-no-longer-admitted');
-    }
-}
-
 export async function closePetRankedSeasonGate(
     store: Pick<KvLike, 'get' | 'compareSet'>,
     seasonId: number,
@@ -1299,27 +1274,4 @@ export async function reopenPetRankedSeasonGate(
         }
     }
     throw new Error('pet-ranked-season-gate-busy');
-}
-
-export async function listPetRankedPreparations(store: PreparationStore): Promise<PetRankedPreparation[]> {
-    const keys = await store.keys(`${PET_RANKED_PREPARATION_PREFIX}*`);
-    const out: PetRankedPreparation[] = [];
-    for (const key of keys) {
-        const matchId = key.slice(PET_RANKED_PREPARATION_PREFIX.length);
-        if (!isPetRankedMatchId(matchId)) continue;
-        const preparation = await loadPetRankedPreparation(store, matchId);
-        if (preparation) out.push(preparation);
-    }
-    return out;
-}
-
-export function rankedSeasonTransitionFingerprint(gate: PetRankedSeasonGate): string {
-    return createHash('sha256').update(JSON.stringify({
-        version: gate.version,
-        seasonId: gate.seasonId,
-        epoch: gate.epoch,
-        transitionId: gate.transitionId,
-        nextSeasonId: gate.nextSeasonId,
-        changedAt: gate.changedAt,
-    })).digest('hex');
 }

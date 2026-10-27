@@ -37,6 +37,8 @@ export type EchoesSettleSummary = {
     unlockedFloor: number | null;
     battleBeat?: EchoesBattleBeat;
 };
+/** What a Keeper's Path duel did to its run, from the server's settle receipt. */
+export type KeeperSettleSummary = { result: "win" | "loss" | "draw"; finished: boolean; chroniclePoints: number; title?: string };
 export type ChronicleAiResult = {
     ok: boolean;
     error?: string;
@@ -52,7 +54,7 @@ export type ChronicleAiResult = {
     /** The committed player action followed by individual AI replies. These
      * snapshots let the client show each cause before the next response. */
     aiSteps?: ChronicleProjection[];
-    reward?: { result: "player" | "opponent" | "draw"; ryo: number; dailyBonus: boolean; echoes?: EchoesSettleSummary };
+    reward?: { result: "player" | "opponent" | "draw"; ryo: number; dailyBonus: boolean; echoes?: EchoesSettleSummary; keeperPath?: KeeperSettleSummary };
     /** Chronicle Points a won Dungeon Card seal paid (absent when it paid none). */
     chroniclePoints?: number;
     character?: Character;
@@ -130,6 +132,8 @@ export async function startChronicleAi(
     externalStakes = false,
     dungeonRunToken?: string,
     echoesEncounterId?: string,
+    /** Keeper's Path: fight the run's chosen node; the server names the opponent. */
+    keeperRun = false,
 ): Promise<ChronicleAiResult> {
     try {
         const response = await fetch("/api/card-clash/ai-start", {
@@ -146,6 +150,7 @@ export async function startChronicleAi(
                 // Echoes of War campaign seal: the server fixes the opponent
                 // deck, difficulty and Chronicle Point reward from this id.
                 ...(echoesEncounterId ? { echoes: { encounterId: echoesEncounterId } } : {}),
+                ...(keeperRun ? { keeperRun: true } : {}),
             }),
         });
         const body = await response.json().catch(() => ({})) as ChronicleAiResult;

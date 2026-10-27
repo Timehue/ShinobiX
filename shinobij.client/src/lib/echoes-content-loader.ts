@@ -11,10 +11,6 @@ const loader = createContentLoader<EchoesContentKey, EchoesContentPayload>({
 
 const resource = createContentResource<EchoesContentKey, EchoesContentPayload>({ load: loader.load, refresh: loader.refresh });
 
-export function loadEchoesContent(): Promise<EchoesContentPayload> {
-    return loader.load(ECHOES_CONTENT_KEY);
-}
-
 /** Suspense read for the EchoesOfWar screen: throws the pending promise on the
  * first render, then serves the validated payload synchronously. */
 export function readEchoesContent(): EchoesContentPayload {

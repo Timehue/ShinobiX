@@ -61,7 +61,10 @@ describe("quest stage copy", () => {
         assert.match(QUEST_BOOK["qb-gauntlet"].stages[0].text, /prepare/i);
         assert.doesNotMatch(QUEST_BOOK["qb-gauntlet"].stages[0].text, /Tomoe's wandering beasts/i);
         const finale = QUEST_BOOK["qb-gauntlet"].stages[1];
-        assert.match(finale.text, /against any opponent.*Pet Colosseum/);
+        // Only rewarded wins raise totalPetWins: practice fights and wins past
+        // the Colosseum's daily cap do not, so the copy must not say "any opponent".
+        assert.match(finale.text, /rewarded pet battle.*Pet Colosseum/);
+        assert.doesNotMatch(finale.text, /any opponent/);
         assert.equal(finale.bossId, undefined, "no specific Storm-Hound fight exists at the quest giver");
         assert.equal(questbookStageProgress({ totalPetWins: 4 }, { id: "qb-gauntlet", stage: 1, baseline: 3 }, finale), 1);
     });

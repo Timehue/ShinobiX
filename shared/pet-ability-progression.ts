@@ -4,7 +4,6 @@
  * remain unchanged. Competitive Tactics opts into its normalized rules explicitly.
  */
 export const PET_ABILITY_MILESTONES = [1, 5, 10, 20, 30, 50, 75] as const;
-export const PET_ABILITY_RULESET_VERSION = 'progression-v3' as const;
 export type PetAbilityRuleset = 'progression' | 'competitive-tactics';
 export type PetAbilityTier = 'basic' | 'utility' | 'advanced' | 'signature';
 export type PetAbilityUpgrade = 'utility-mastery' | 'offense-mastery' | 'signature-mastery';

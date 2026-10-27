@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
 import { before, test } from 'node:test';
-import { tacticsPreset } from '../../shared/pet-tactics-roster.js';
 import { tacticsPlayerKey, tacticsRoomKey, type TacticsSession } from '../_pet-tactics/session.js';
 import { PET_ARENA_RANKED_CONTROL, isRankedPetMatchToken, type RankedPetMatchToken } from './_ranked-authority.js';
 import { resolveRankedPetDuel } from './_ranked-duel.js';
@@ -24,13 +23,15 @@ async function call(handler: Handler, name: string, body: Record<string, unknown
     await handler({ method: 'POST', body, headers: { 'x-player-token': issuePlayerToken(name) }, socket: { remoteAddress: '203.0.113.147' } } as never, res as never);
     return output;
 }
-const builds = () => ['starter-fire', 'starter-water', 'starter-lightning', 'starter-earth'].map(id => ({ ...tacticsPreset(id), ownedPetId: id }));
-const ownedPets = () => builds().map(b => ({ id: b.ownedPetId, templateId: b.speciesId, name: b.speciesId, rarity: 'standard', element: 'Fire' }));
+// Ranked Pet Arena fights with real companions (owner ruling 2026-10-26).
+const PET_IDS = ['starter-fire', 'starter-water', 'starter-lightning', 'starter-earth'];
+const ownedPets = () => PET_IDS.map(id => ({ id, templateId: id, name: id, rarity: 'standard', element: 'Fire', role: 'assassin', level: 30,
+    hp: 800, attack: 120, defense: 90, speed: 100, jutsus: [{ name: 'Ember Bite', power: 90, kind: 'damage' }] }));
 async function pair(prefix: string) {
     const a = `${prefix}a`, b = `${prefix}b`;
     for (const name of [a, b]) await kv.set(`save:${name}`, { _saveVersion: 1, character: { name, level: 40, ryo: 500, petRankedRating: 1000, pets: ownedPets() } });
-    const first = await call(queue, a, { action: 'join', builds: builds() }); assert.equal(first.body.state, 'queued');
-    const second = await call(queue, b, { action: 'join', builds: builds() }); assert.equal(second.body.state, 'active');
+    const first = await call(queue, a, { action: 'join', petIds: PET_IDS }); assert.equal(first.body.state, 'queued');
+    const second = await call(queue, b, { action: 'join', petIds: PET_IDS }); assert.equal(second.body.state, 'active');
     assert.equal(second.body.control, PET_ARENA_RANKED_CONTROL);
     return { a, b, roomId: second.body.roomId as string, matchToken: second.body.matchToken as string };
 }
@@ -44,14 +45,15 @@ test('ranked pairs into private preview, waits for both human locks, and forbids
     assert.equal((await call(watch, a, { matchToken })).body.arena.phase, 'preview');
     assert.equal((await call(watch, 'outside', { matchToken })).status, 403);
     await call(commands, a, { action: 'leads', roomId, leads: [0, 1] }); await call(commands, b, { action: 'leads', roomId, leads: [0, 1] });
-    const orders = [{ actorId: 'b-0', kind: 'move', moveId: 'fire-pulse', targetSlot: 0 }, { actorId: 'b-1', kind: 'rest' }];
+    // The first-queued player is seat B; the player who completes the pairing is seat A.
+    const orders = [{ petId: 'b:starter-fire', kind: 'move', moveIndex: 0, targetId: 'a:starter-fire' }, { petId: 'b:starter-water', kind: 'rest' }];
     await call(commands, a, { action: 'orders', roomId, round: 1, orders });
     const before = (await call(commands, b, { action: 'poll', roomId })).body;
-    assert.equal(before.round, 0); assert.equal(before.ready.opponent, true); assert.equal(before.ownOrders, null);
-    const own = [{ actorId: 'a-0', kind: 'guard' }, { actorId: 'a-1', kind: 'rest' }];
+    assert.equal(before.round, 0); assert.equal(before.ready.opponent, true); assert.equal(before.ownCommands, null);
+    const own = [{ petId: 'a:starter-fire', kind: 'guard' }, { petId: 'a:starter-water', kind: 'rest' }];
     const responses = await Promise.all(Array.from({ length: 6 }, () => call(commands, b, { action: 'orders', roomId, round: 1, orders: own })));
     assert.ok(responses.every(r => r.status === 200));
-    const saved = await kv.get<TacticsSession>(tacticsRoomKey(roomId)); assert.equal(saved?.battle?.round, 1); assert.equal(saved?.transcript.length, 1);
+    const saved = await kv.get<TacticsSession>(tacticsRoomKey(roomId)); assert.equal(saved?.arena?.round, 1); assert.equal(saved?.arenaTranscript?.length, 1);
     assert.equal((await kv.get<any>(`save:${a}`)).character.petRankedRating, 1000);
 });
 
@@ -77,48 +79,48 @@ test('premature reports cannot rate a match; terminal concession rates both save
     assert.equal((await call(queue, b, { action: 'acknowledge', matchToken })).body.state, 'idle');
     assert.equal(await kv.get(tacticsPlayerKey(b)), null);
     assert.equal((await call(queue, a, { action: 'acknowledge', matchToken })).body.state, 'idle');
-    assert.equal((await call(queue, a, { action: 'join', builds: builds() })).body.state, 'queued');
-    const nextMatch = await call(queue, b, { action: 'join', builds: builds() });
+    assert.equal((await call(queue, a, { action: 'join', petIds: PET_IDS })).body.state, 'queued');
+    const nextMatch = await call(queue, b, { action: 'join', petIds: PET_IDS });
     assert.equal(nextMatch.body.state, 'active', 'both the winner and loser can queue another pet battle');
     assert.notEqual(nextMatch.body.matchToken, matchToken);
 });
 
 test('active ranked reservations recover rather than opening another room, and foreign commands cannot touch them', async () => {
     const { a, b, roomId, matchToken } = await pair('reserverank');
-    const duplicate = await call(queue, a, { action: 'join', builds: builds() }); assert.equal(duplicate.body.matchToken, matchToken);
+    const duplicate = await call(queue, a, { action: 'join', petIds: PET_IDS }); assert.equal(duplicate.body.matchToken, matchToken);
     assert.equal((await call(commands, 'outsider', { action: 'orders', roomId, round: 1, orders: [] })).status, 403);
     assert.equal((await call(queue, b, { action: 'acknowledge', matchToken })).body.state, 'active');
-    assert.equal((await call(commands, a, { action: 'create', builds: builds() })).body.roomId, roomId);
+    assert.equal((await call(commands, a, { action: 'create', petIds: PET_IDS })).body.roomId, roomId);
 });
 
 test('a failed half-admission repairs from durable intent and never resets accepted commands', async () => {
     const a = 'repairranka', b = 'repairrankb';
     for (const name of [a, b]) await kv.set(`save:${name}`, { _saveVersion: 1, character: { name, level: 40, petRankedRating: 1000, pets: ownedPets() } });
-    await rankedArenaQueue(a, 'join', { builds: builds() });
+    await rankedArenaQueue(a, 'join', { petIds: PET_IDS });
     let failed = false;
     const faulty = { ...rankedArenaDependencies, store: { ...kv, set: async (...args: Parameters<typeof kv.set>) => {
         if (args[0] === tacticsPlayerKey(a) && !failed) { failed = true; throw new Error('Injected second-seat pointer write failure'); }
         return kv.set(...args);
     } } };
-    await assert.rejects(() => rankedArenaQueue(b, 'join', { builds: builds() }, faulty), /Injected/);
+    await assert.rejects(() => rankedArenaQueue(b, 'join', { petIds: PET_IDS }, faulty), /Injected/);
     const intent = await kv.get<any>('pet:tactics:ranked:admission'); assert.ok(intent);
     const repaired = await rankedArenaQueue(a, 'poll', {}); assert.equal(repaired.roomId, intent.session.roomId);
     assert.equal(await kv.get('pet:tactics:ranked:admission'), null);
     const roomId = intent.session.roomId;
     await call(commands, a, { action: 'leads', roomId, leads: [0, 1] }); await call(commands, b, { action: 'leads', roomId, leads: [0, 1] });
-    const orders = [{ actorId: 'b-0', kind: 'guard' }, { actorId: 'b-1', kind: 'rest' }];
+    const orders = [{ petId: 'b:starter-fire', kind: 'guard' }, { petId: 'b:starter-water', kind: 'rest' }];
     assert.equal((await call(commands, a, { action: 'orders', roomId, round: 1, orders })).status, 200);
     // Simulate a lost admission-cleanup acknowledgement after the room started.
     await kv.set('pet:tactics:ranked:admission', intent);
     await rankedArenaQueue(a, 'poll', {});
     const saved = await kv.get<TacticsSession>(tacticsRoomKey(roomId));
-    assert.deepEqual(saved?.orders.b, orders); assert.equal(saved?.phase, 'planning'); assert.equal(saved?.seed, intent.session.seed);
+    assert.deepEqual(saved?.commands?.b, orders); assert.equal(saved?.phase, 'planning'); assert.equal(saved?.seed, intent.session.seed);
 });
 
 test('expiry of an old reservation cannot admit a second ranked match or invent an AI winner', async () => {
     const { a, roomId, matchToken } = await pair('expiryrank');
     const now = Date.now() + 3 * 60 * 60_000;
-    const recovered = await rankedArenaQueue(a, 'join', { builds: builds() }, { ...rankedArenaDependencies, now: () => now });
+    const recovered = await rankedArenaQueue(a, 'join', { petIds: PET_IDS }, { ...rankedArenaDependencies, now: () => now });
     assert.equal(recovered.matchToken, matchToken); assert.equal(recovered.roomId, roomId);
     const token = await kv.get<RankedPetMatchToken>(`pet:ranked-token:${matchToken}`); assert.ok(token);
     await assert.rejects(() => rankedArenaWinner(token!), /must finish/);

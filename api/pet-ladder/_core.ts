@@ -437,7 +437,3 @@ export function hydrateLadderVisualIdentity(defense: DefenseDoc, owned: Array<Re
         }),
     };
 }
-
-/** Compatibility export for callers using the historical ladder key. */
-export const resolveTactical = (attacker: DefenseDoc, defender: DefenseDoc, seed: number): boolean =>
-    resolveLadderWarfront(attacker, defender, seed).winner === "blue";

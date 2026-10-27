@@ -48,7 +48,7 @@ export type ActivitySpineInput = {
     lastLoginRewardDate: string;
     focus?: unknown;
     progressionHold?: { exam: string; level: number } | null;
-    resume?: { title: string; screen: ActivityScreen; runtimeModeId: string; context?: 'clan-boss' | 'towers' } | null;
+    resume?: { title: string; screen: ActivityScreen; runtimeModeId: string; context?: 'clan-boss' | 'towers' | 'companions' } | null;
     facts?: Partial<FocusFacts>;
     clanBoss?: {
         active: boolean;

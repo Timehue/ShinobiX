@@ -6,6 +6,8 @@ import { FIRST_PACT_NPCS } from "./first-pact-world.js";
 import { firstPactReactiveDialogue } from "../screens/first-pact/narrative.js";
 import {
     FIRST_PACT_ANCHOR_QUALITIES,
+    FIRST_PACT_BALANCING_STANDING,
+    FIRST_PACT_FINDING_COST,
     FIRST_PACT_MAIN_BEATS,
     FIRST_PACT_TOURNAMENT,
     FIRST_PACT_VOWS,
@@ -102,4 +104,64 @@ test("the return walk renders every proven result and remains optional", () => {
     assert.match(screen, /Complete the crossing/);
     assert.match(screen, /visitFirstPactAftermath\(character\.name, aftermathId\)/);
     assert.match(screen, /The four who answered/);
+});
+
+test("after the crossing the Arbiter offers the Standing Court AND the findings it pays for", () => {
+    // The Standing Court never closes once the crossing is complete, and it
+    // used to return before the findings branch, so the standing every clear
+    // paid had nothing left to buy.
+    const arbiter = FIRST_PACT_NPCS.find(npc => npc.id === "court-arbiter")!;
+    const progress = createFirstPactProgress(1);
+    progress.mainStep = "complete";
+    progress.writs = ["writ-silencing"];
+    progress.courtStanding = FIRST_PACT_FINDING_COST;
+    const dialogue = firstPactReactiveDialogue(arbiter, progress, []);
+    const choices = dialogue.choices ?? [];
+    assert.ok(choices.some(choice => "encounterId" in choice), "the docket must stay open beside the findings");
+    assert.ok(choices.some(choice => "writId" in choice && choice.writId === "writ-silencing"));
+
+    // With nothing affordable, the docket stays first, beside the Court Replays.
+    progress.courtStanding = FIRST_PACT_FINDING_COST - 1;
+    const poor = firstPactReactiveDialogue(arbiter, progress, []);
+    assert.ok(!(poor.choices ?? []).some(choice => "writId" in choice));
+    assert.ok("encounterId" in (poor.choices?.[0] ?? {}), "the docket leads the list");
+    assert.deepEqual((poor.choices ?? []).flatMap(choice => "postgame" in choice ? [choice.postgame] : []),
+        ["unbroken", "unbroken-hard", "replays"]);
+});
+
+test("the postgame doors open only after the crossing, and an Unbroken attempt offers to continue", () => {
+    const arbiter = FIRST_PACT_NPCS.find(npc => npc.id === "court-arbiter")!;
+    const orin = FIRST_PACT_NPCS.find(npc => npc.id === "registrar-orin")!;
+    const progress = createFirstPactProgress(1);
+    progress.mainStep = "return-to-threshold";
+    progress.chapter = 4;
+    for (const npc of [arbiter, orin]) {
+        assert.ok(!(firstPactReactiveDialogue(npc, progress, []).choices ?? []).some(choice => "postgame" in choice));
+    }
+    progress.mainStep = "complete";
+    const ledger = firstPactReactiveDialogue(orin, progress, []);
+    assert.ok((ledger.choices ?? []).some(choice => "postgame" in choice && choice.postgame === "exhibition"));
+    progress.replays = { ...progress.replays, run: { hard: true, round: 2 } };
+    const docket = firstPactReactiveDialogue(arbiter, progress, []).choices ?? [];
+    const resume = docket.find(choice => "postgame" in choice && choice.postgame === "unbroken-continue");
+    assert.match(resume?.label ?? "", /on Hard: round 3 of 4/);
+    assert.ok(!docket.some(choice => "postgame" in choice && choice.postgame === "unbroken"), "one attempt at a time");
+});
+
+test("Orin keeps Vale Stable's entry slate open while the player is short of standing", () => {
+    // The tournament is one of the roads to the Balancing threshold, and the
+    // side-quest tracker sends the player to Orin for it.
+    const orin = FIRST_PACT_NPCS.find(npc => npc.id === "registrar-orin")!;
+    const progress = createFirstPactProgress(1);
+    progress.chapter = 4;
+    progress.mainStep = "challenge-court-echo";
+    progress.courtStanding = FIRST_PACT_BALANCING_STANDING - 500;
+    progress.stableQuest = { status: "accepted", tournamentWins: 0, battleProofs: [] };
+    const dialogue = firstPactReactiveDialogue(orin, progress, []);
+    assert.match(dialogue.lines.join(" "), /short of the required/);
+    assert.equal(dialogue.action?.kind, "stable-battle");
+    assert.equal(dialogue.action?.kind === "stable-battle" ? dialogue.action.encounterId : null, FIRST_PACT_TOURNAMENT[0].id);
+
+    progress.stableQuest = { status: "complete", tournamentWins: 3, battleProofs: [] };
+    assert.equal(firstPactReactiveDialogue(orin, progress, []).action, undefined);
 });
