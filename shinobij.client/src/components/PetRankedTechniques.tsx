@@ -25,7 +25,7 @@ export function PetRankedTechniques({ pet, onSave, disabled, lockedReason, onOpe
             inactivePreferenceIds={inactivePreferenceIds}
             preferenceState={preferenceState}
             summaryLabel={inspector ? 'Edit loadout' : undefined} defaultExpanded={!inspector}
-            description="Save four preferred ordinary techniques. Progression needs an affordable basic attack: when none is preferred, your native basic takes one ordinary slot and the first three earned preferences fit. Extra and locked choices stay saved. Your native Final Art unlocks at level 20 and stays with your companion. Competitive Tactics uses its separate normalized kit and signature."
+            description="Save four preferred ordinary techniques. Progression needs an affordable basic attack: when none is preferred, your native basic takes one ordinary slot and the first three earned preferences fit. Extra and locked choices stay saved. Your native Final Art unlocks at level 20 and stays with your companion."
             savedBuild={pet.rankedBuild} onSave={onSave} disabled={disabled} lockedReason={lockedReason} />
         {onOpenRanked && <div className="pet-ranked-techniques-navigation">
             <button type="button" disabled={unsaved} onClick={onOpenRanked}>Open ranked Pet Colosseum</button>

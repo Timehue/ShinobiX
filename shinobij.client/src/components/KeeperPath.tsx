@@ -97,7 +97,7 @@ export function KeeperPath({ character, creatorCards, deck, onVersionedCharacter
 
     return <section className="chronicle-panel" aria-label="Keeper's Path">
         <h2>Keeper's Path</h2>
-        <p>Three acts of Keeper duels with your saved deck. Pick a route through each act: duels, harder Elites that restore Resolve, or Shrines that grant a boon for the rest of the run. Lose with no Resolve left and the run ends.</p>
+        <p>Three acts of Keeper duels with your saved deck. Pick a route through each act: duels, harder Elites that restore Resolve, or Shrines that grant a boon for the rest of the run. Each loss costs one Resolve, and the run ends when the last one is gone.</p>
         <p>A full run pays {KEEPER_PATH_CHRONICLE_POINTS} Chronicle Points once a day. Runs completed: {record?.clears ?? 0} · most duels won in a run: {record?.best ?? 0}.</p>
         {error ? <div className="chronicle-error" role="alert">{error}</div> : null}
         {live && run ? <>

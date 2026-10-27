@@ -6,7 +6,7 @@ import { villages } from "../data/sectors";
 import { rankFromLevel } from "./stats";
 import { normalizeCharacter } from "./normalize-character";
 import { tacticsPreset } from "../../../shared/pet-tactics-roster";
-import { rankedCarriedRoster } from "./pet-ranked-roster";
+import { rankedBuildForPet } from "../../../shared/pet-tactics-build";
 import { petPool } from "./pet-roster";
 
 /*
@@ -142,13 +142,13 @@ describe("the caller's object is not mutated", () => {
 });
 
 describe("ranked pet loadout hydration", () => {
-    it("keeps saved techniques, attributes and item through login and the ranked picker", () => {
+    it("keeps saved techniques, attributes and item through login and the loadout reader", () => {
         const template = petPool.find(pet => pet.id === 'standard-0')!;
         const rankedBuild = { ...tacticsPreset(template.id, 1), ownedPetId: 'owned-fox', item: 'focus-lens' as const };
         const input = save({ level: 40, pets: [{ ...template, id: 'owned-fox', templateId: template.id, rankedBuild }] });
         const loaded = normalizeCharacter(JSON.parse(JSON.stringify(input)));
         assert.deepEqual(loaded.pets[0].rankedBuild, rankedBuild);
-        assert.deepEqual(rankedCarriedRoster(loaded)[0].build, rankedBuild);
+        assert.deepEqual(rankedBuildForPet(loaded.pets[0]), rankedBuild);
         assert.deepEqual(normalizeCharacter(loaded).pets[0].rankedBuild, rankedBuild);
     });
 });

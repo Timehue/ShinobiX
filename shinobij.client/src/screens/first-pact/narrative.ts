@@ -254,7 +254,7 @@ function npcDialogue(npc: FirstPactNpcDefinition, progress: FirstPactProgress): 
         const replayChoices = courtReplayChoices(progress);
         if (replayChoices.length) {
             lines.push(
-                "Every argument you won is still on file. Ask, and the Court will argue any of them again, on Hard if you want. A replay changes nothing in the story.",
+                "The Balancing rounds, the writs you answered and the tournament rounds you beat are still on file. Ask, and the Court will argue any of them again, on Hard if you want. A replay changes nothing in the story.",
                 ...(progress.replays.unbrokenClears > 0
                     ? [`You have won the Balancing without a loss ${progress.replays.unbrokenClears === 1 ? "once" : `${progress.replays.unbrokenClears} times`}.`]
                     : ["An Unbroken attempt is the whole Balancing in one sitting. Lose once and the attempt is over."]),
