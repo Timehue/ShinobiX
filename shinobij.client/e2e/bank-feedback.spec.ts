@@ -127,7 +127,7 @@ test('Bank confirms accepted moves, including one whose reply arrives after a ne
         const heldVersion = runtime.currentVersion();
         character = next;
         runtime.commitServerCharacter(character, heldVersion + 1);
-        return route.fulfill({ json: { character: next, _saveVersion: stale ? heldVersion - 1 : heldVersion + 1 } });
+        return route.fulfill({ json: { ok: true, action: body.action, amount: body.amount, ryo: next.ryo, bankRyo: next.bankRyo, character: next, _saveVersion: stale ? heldVersion - 1 : heldVersion + 1 } });
     });
     await expectUiAuditBoot(page, runtime, 'bank');
     const amount = page.locator('#bank-transfer-amount');
@@ -195,7 +195,7 @@ test('Bank keeps its receipt ID through refresh and a temporary rate limit', asy
             return route.abort('failed'); // the server committed, but its response was lost
         }
         if (requests.length === 2) return route.fulfill({ status: 429, json: { error: 'Too many requests. Retry shortly.' } });
-        return route.fulfill({ json: { character: settled, _saveVersion: settledVersion, replayed: true } });
+        return route.fulfill({ json: { ok: true, action: body.action, amount: body.amount, ryo: settled.ryo, bankRyo: settled.bankRyo, character: settled, _saveVersion: settledVersion, replayed: true } });
     });
     await expectUiAuditBoot(page, runtime, 'bank');
     const amount = page.locator('#bank-transfer-amount');
@@ -223,6 +223,39 @@ test('Bank keeps its receipt ID through refresh and a temporary rate limit', asy
     await expect(amount).toHaveValue('0');
     await expect(page.locator('.game-toast-stack')).toContainText('Transfer already completed.');
     await expect(page.locator('.bank-balance-rail')).toContainText('500');
+});
+
+test('Bank preserves its receipt after an invalid acknowledgement and safely replays it', async ({ page }) => {
+    const { save, runtime } = await bankFixture(page);
+    const requests: Array<{ requestId: string; action: string; amount: number }> = [];
+    const settled = { ...save.character, ryo: 9700, bankRyo: 20300 };
+    let version = 0;
+    await page.route('**/api/bank/transfer', async route => {
+        const body = route.request().postDataJSON();
+        requests.push(body);
+        if (requests.length === 1) {
+            version = runtime.currentVersion() + 1;
+            runtime.commitServerCharacter(settled, version);
+            return route.fulfill({ json: { character: settled, _saveVersion: version } });
+        }
+        return route.fulfill({ json: {
+            ok: true, action: body.action, amount: body.amount, ryo: 9700, bankRyo: 20300,
+            character: settled, _saveVersion: version, replayed: true,
+        } });
+    });
+    await expectUiAuditBoot(page, runtime, 'bank');
+    await page.locator('#bank-transfer-amount').fill('300');
+    await page.getByRole('button', { name: 'Deposit to vault', exact: true }).click();
+    await expect(page.getByRole('alertdialog', { name: 'Notice', exact: true })).toContainText('That action may not have gone through.');
+    await expect(page.locator('#bank-transfer-amount')).toHaveValue('300');
+    await expect(page.locator('.bank-balance-rail')).toContainText('10,000');
+    await dismissNotice(page);
+    await page.getByRole('button', { name: 'Deposit to vault', exact: true }).click();
+    await expect(page.locator('#bank-transfer-amount')).toHaveValue('0');
+    await expect(page.locator('.bank-balance-rail')).toContainText('9,700');
+    await expect(page.locator('.game-toast-stack')).toContainText('Transfer already completed.');
+    expect(requests).toHaveLength(2);
+    expect(requests[1].requestId).toBe(requests[0].requestId);
 });
 
 test('Bank distinguishes server rejection from uncertain responses without reporting success', async ({ page }) => {
@@ -254,7 +287,7 @@ test('Bank distinguishes server rejection from uncertain responses without repor
 
 test('Bank announces confirmed interest without a blocking acknowledgement', async ({ page }) => {
     const { runtime } = await bankFixture(page);
-    await page.route('**/api/bank/claim-interest', route => route.fulfill({ json: { ok: true, eligible: true, claimed: 100, bankRyo: 20100, lastBankInterestAt: Date.now() } }));
+    await page.route('**/api/bank/claim-interest', route => route.fulfill({ json: { ok: true, eligible: true, claimed: 100, bankRyo: 20100, lastBankInterestAt: Date.now(), nextClaimAt: Date.now() + 86400000, _saveVersion: runtime.currentVersion() + 1 } }));
     await expectUiAuditBoot(page, runtime, 'bank');
     await page.getByRole('button', { name: 'Collect interest', exact: true }).click();
     await expect(page.locator('.bank-balance-rail')).toContainText('20,100');
