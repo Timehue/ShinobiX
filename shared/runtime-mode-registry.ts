@@ -822,6 +822,7 @@ export const RUNTIME_MODE_REGISTRY: readonly RuntimeMode[] = Object.freeze([
         clientEntries: [
             'screens/PetLadder.tsx', 'components/PetLadderQueuePanel.tsx',
             'components/PetTacticsArena.tsx', 'lib/pet-tactics-api.ts', 'lib/pet-ranked-queue-api.ts',
+            'lib/pet-ranked-watch-api.ts',
         ],
         routes: [
             mountedRoute('/pvp/pet-ranked-queue', 'pvp/pet-ranked-queue', ['start', 'lifecycle']),

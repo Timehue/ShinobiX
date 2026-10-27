@@ -6031,8 +6031,8 @@ export function FirstPact({
             setBattleError("A newer save is already active. Retry the concession to refresh the Court's record.");
             return;
         }
-        setProgress(result.progress);
         if ("exhibition" in result && result.exhibition !== undefined) setExhibition(result.exhibition);
+        setProgress(result.progress);
         closeBattle();
     }, [applyGrantCharacter, battle, character.name, closeBattle]);
 
