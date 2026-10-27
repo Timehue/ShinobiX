@@ -165,7 +165,7 @@ test("Tower AI teammates use one authenticated novice-recruit Ready Room path", 
     assert.match(api, /Start a host-only Story run/);
     assert.match(api, /postJson\('\/api\/towers\/start', \{ hostName, floor, hostLoadout, routeChoice \}\)/);
     assert.match(readyRoom, /Live squad · optional novice recruits/);
-    assert.match(readyRoom, /one AI helper, which acts automatically and earns no rewards/);
+    assert.match(readyRoom, /one novice AI helper, which acts automatically and earns no rewards/);
     assert.match(readyRoom, /action: "add-ai"/);
     assert.match(readyRoom, /action: "remove-ai"/);
     assert.match(readyRoom, /novice AI · no rewards/);

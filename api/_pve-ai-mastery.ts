@@ -83,7 +83,8 @@ export function pveAiMasteryEnabled(mode: PveMasteryMode, env: NodeJS.ProcessEnv
 }
 
 /**
- * Seal `jutsuMastery` onto every AI enemy that lacks one, in place.
+ * Seal `jutsuMastery` onto every AI enemy that lacks one, in place. Tower/Spire
+ * delayed waves and future phase-summon templates use the same launch-time policy.
  *
  * NEVER OVERWRITES an existing array. That is what keeps this safe for actors
  * sealed from a real save (`sealTowerFighter` carries the player's own mastery)
@@ -93,7 +94,8 @@ export function pveAiMasteryEnabled(mode: PveMasteryMode, env: NodeJS.ProcessEnv
  * Scoped to `side === 'enemy'`: squad members carry their real mastery and NPC
  * allies (merc fighters) are already built with 50.
  *
- * Returns the number of actors sealed, so callers/tests can assert it did work.
+ * Returns the number of actors sealed (including queued waves); future template
+ * copies are not actors yet and are excluded from this count.
  */
 export function sealPveAiMastery(
     session: TowerSession,
@@ -101,11 +103,21 @@ export function sealPveAiMastery(
 ): number {
     if (!pveAiMasteryEnabled(opts.mode, opts.env ?? process.env)) return 0;
 
+    const towerReinforcements = opts.mode === 'TOWER' || opts.mode === 'SPIRE';
+    const actors = towerReinforcements
+        ? [...session.actors, ...(session.pendingEnemyWaves ?? []).flatMap(wave => wave.actors)]
+        : session.actors;
     let sealed = 0;
-    for (const actor of session.actors) {
+    for (const actor of actors) {
         if (actor.side !== 'enemy') continue;
-        if (!applyAiMasteryToActor(actor)) continue;
-        sealed++;
+        if (applyAiMasteryToActor(actor)) sealed++;
+        // Phase adds do not exist yet. Seal their own level/kit in a private
+        // template copy so they keep the launch-time policy and rollback choice.
+        const template = actor.character.summonTemplate;
+        if (towerReinforcements && template && typeof template === 'object' && !Array.isArray(template)) {
+            const character = structuredClone(template) as Record<string, unknown>;
+            if (applyAiMasteryToCharacter(character)) actor.character.summonTemplate = character;
+        }
     }
     return sealed;
 }
@@ -113,15 +125,19 @@ export function sealPveAiMastery(
 /** Seal one actor; returns false when it was skipped. Exported for the AI-fight
  *  path, which seals a single boss and wants the identical arithmetic. */
 export function applyAiMasteryToActor(actor: TowerActor): boolean {
-    const jutsu = actor.character.jutsu;
-    if (!Array.isArray(jutsu) || jutsu.length === 0) return false;
-    if (Array.isArray(actor.character.jutsuMastery)) return false; // already sealed — never overwrite
+    return applyAiMasteryToCharacter(actor.character);
+}
 
-    const level = pveAiMasteryForLevel(Number(actor.character.level) || 1);
+function applyAiMasteryToCharacter(character: Record<string, unknown>): boolean {
+    const jutsu = character.jutsu;
+    if (!Array.isArray(jutsu) || jutsu.length === 0) return false;
+    if (Array.isArray(character.jutsuMastery)) return false; // already sealed — never overwrite
+
+    const level = pveAiMasteryForLevel(Number(character.level) || 1);
     const mastery = (jutsu as Array<{ id?: unknown }>)
         .map(entry => ({ jutsuId: String(entry?.id ?? ''), level }))
         .filter(entry => entry.jutsuId);
     if (mastery.length === 0) return false;
-    actor.character.jutsuMastery = mastery;
+    character.jutsuMastery = mastery;
     return true;
 }

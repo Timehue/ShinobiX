@@ -31,7 +31,7 @@ const TOWER_MIN_LEVEL = BATTLE_TOWERS_MIN_LEVEL;
 // Bump whenever the public floor DTO changes. v5 invalidates pre-adaptive-arena
 // snapshots so the lobby and the authoritative encounter cannot describe
 // different footprints during the five-minute cache window.
-const FLOOR_CACHE_KEY = "tower-floors:v5";
+const FLOOR_CACHE_KEY = "tower-floors:v6";
 const FLOOR_CACHE_TTL_MS = 5 * 60_000;
 
 function isTowerFloorList(value: unknown): value is TowerFloorMeta[] {
@@ -382,7 +382,7 @@ export function BattleTowersLobby({
                     <span className="tower-lobby-hero-kicker">Squad tactical ascent</span>
                     <h1 id="tower-lobby-title">Battle Towers</h1>
                     <p>
-                        Squad battles with objectives, hazards, and boss mechanics.
+                        Built for four players, starting at level {TOWER_MIN_LEVEL}. Enemy strength grows with each floor and stays at full squad strength with fewer fighters.
                         Your first three entries into uncleared floors each UTC day are free; later entries cost 1,500 ryo. Replaying a cleared floor is free.
                     </p>
                 </div>
@@ -558,6 +558,7 @@ export function BattleTowersLobby({
                         <h2 id="tower-floor-briefing-title">Floor {selFloor.id} · {selFloor.name}</h2>
                         {selFloor.briefing?.situation ? <p className="tower-floor-situation">{selFloor.briefing.situation}</p> : null}
                         <div className="tower-floor-briefing-tags">
+                            <span>Level {selFloor.recommendedLevel ?? TOWER_MIN_LEVEL}+ recommended · {selFloor.recommendedPartySize ?? 4} players</span>
                             <span><GameArtIcon kind="attack" size={16} /> {selFloor.objective === "protect-npc"
                                 ? "Protect the ally"
                                 : OBJECTIVE_LABEL[selFloor.objective] ?? readableTowerSlug(selFloor.objective)}</span>
