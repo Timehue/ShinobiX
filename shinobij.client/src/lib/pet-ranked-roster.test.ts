@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { rankedBattlePresentationPets, rankedCarriedRoster } from './pet-ranked-roster';
+import { arenaCarriedRoster, arenaPresentationPets, rankedBattlePresentationPets, rankedCarriedRoster } from './pet-ranked-roster';
 import { petCombatModel } from './pet-3d-models';
 import type { Character } from '../types/character';
 import { PET_TACTICS_IDENTITIES } from '../../../shared/pet-tactics-catalog';
@@ -15,6 +15,21 @@ test('picker shows carried instances, evolved forms and availability without sub
     assert.equal(roster.length, 5); assert.equal(roster[0].id, 'starter-fire-l'); assert.equal(roster[0].name, 'Flame');
     assert.equal(roster[0].build.ownedPetId, 'owned-0'); assert.equal(roster[1].unavailable, 'On expedition');
     assert.deepEqual(rankedCarriedRoster(undefined), []);
+});
+test('Pet Arena picker lists every carried companion as itself, with the server\'s availability reasons', () => {
+    const character = { pets: Array.from({ length: 3 }, (_, i) => ({ id: `owned-${i}`, templateId: 'standard-0', name: `My pet ${i}`, level: 20 + i,
+        expedition: i === 1 ? { endsAt: 1 } : undefined })) } as unknown as Character;
+    const roster = arenaCarriedRoster(character);
+    assert.deepEqual(roster.map(entry => entry.pet.id), ['owned-0', 'owned-1', 'owned-2']);
+    assert.equal(roster[0].pet.level, 20, 'the real pet, not a level-50 sheet');
+    assert.deepEqual(roster.map(entry => entry.unavailable), [null, 'On expedition', null]);
+    assert.deepEqual(arenaCarriedRoster(undefined), []);
+});
+test('Pet Arena fighters map back to the owner\'s pets through the seat prefix only', () => {
+    const character = { pets: [{ id: 'p1', name: 'Mine', templateId: 'standard-0' }] } as unknown as Character;
+    const mine = arenaPresentationPets(character, 'b', [{ id: 'b:p1' }, { id: 'a:p1' }]);
+    assert.equal(mine.length, 1, 'the other seat\'s same-id pet is never drawn as mine');
+    assert.equal(mine[0].id, 'b:p1'); assert.equal(mine[0].name, 'Mine');
 });
 test('every canonical species and evolved form has legal competitive presets', () => {
     for (const [id] of PET_TACTICS_IDENTITIES) for (const preset of [0, 1]) {

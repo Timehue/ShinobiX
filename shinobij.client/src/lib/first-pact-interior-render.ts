@@ -403,11 +403,3 @@ export function renderFirstPactInterior(
         }),
     );
 }
-
-/** Screen position for an actor standing on a room cell. */
-export function firstPactInteriorActorOffset(point: FirstPactPoint, camera: FirstPactInteriorCamera): { x: number; y: number } {
-    return {
-        x: point.x * FIRST_PACT_TILE_SIZE + FIRST_PACT_TILE_SIZE / 2 - camera.x,
-        y: point.y * FIRST_PACT_TILE_SIZE + FIRST_PACT_TILE_SIZE / 2 - camera.y,
-    };
-}

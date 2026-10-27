@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { after, before, beforeEach, describe, it } from 'node:test';
-import { tacticsPreset } from '../../shared/pet-tactics-roster.js';
 
 process.env.NODE_ENV = 'test';
 process.env.SHINOBIX_QA_MEMORY_KV = '1';
@@ -96,7 +95,7 @@ describe('live ranked pet matchmaking', { concurrency: false }, () => {
                 end: () => res,
             };
             await queueHandler({ method: 'POST', body: { action: 'join', name,
-                builds: ['starter-fire', 'starter-water', 'starter-lightning', 'starter-earth'].map(id => ({ ...tacticsPreset(id), ownedPetId: id })) }, headers: {
+                petIds: ['starter-fire', 'starter-water', 'starter-lightning', 'starter-earth'] }, headers: {
                 'content-type': 'application/json', 'x-player-token': issuePlayerToken(name) ?? '',
             }, socket: { remoteAddress: '127.0.0.88' } } as never, res as never);
             return out;

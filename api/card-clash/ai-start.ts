@@ -35,6 +35,8 @@ import {
   echoesFloorUnlocked,
   echoesProgressOf,
 } from "./_echoes-catalog.js";
+import { keeperNode, keeperPathOf } from "../../shared/keeper-path-contract.js";
+import { applyKeeperModifiers, KEEPER_MATCH_BINDING_TTL_SECONDS, keeperMatchBindingKey, keeperOpponentDeck } from "./_keeper-path.js";
 
 function submittedIds(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
@@ -171,6 +173,93 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const requested = submittedIds(body.deck);
+    if (body.keeperRun === true && !dungeonRunToken && !echoesDef) {
+      // Keeper's Path: the run (in the server-owned save record) names the
+      // node, its opponent, the sealed deck and the boons. The browser asks to
+      // fight; it chooses none of those. One start at a time per player, so a
+      // double click cannot deal two playable duels for the same node.
+      const out = await withKvLock(`cc-keeper-start:${playerName}`, async () => {
+        const readRun = async () => {
+          const save = await kv.get<Record<string, unknown>>(`save:${playerName}`);
+          const character = save?.character as Record<string, unknown> | undefined;
+          return character ? keeperPathOf(character).run : undefined;
+        };
+        const before = await readRun();
+        if (before === undefined) return { status: 404, body: { error: "Character not found." } };
+        // The same one-live-showdown rule as Card Hall: a duel walked away from
+        // is forfeited (a loss, which costs Resolve) before the next is dealt.
+        const previous = await kv.get<string>(cardClashAiActiveKey(playerName)).catch(() => null);
+        // ...unless it is this node's duel, still being played: a new tab or a
+        // restarted browser has lost the match id, not walked away. Hand the
+        // live duel back instead of charging Resolve for it.
+        if (typeof previous === "string" && previous && before?.status === "active") {
+          const live = await kv.get<ReturnType<typeof createAiMatch>>(cardClashAiTokenKey(previous)).catch(() => null);
+          if (live && live.playerName.toLowerCase() === playerName.toLowerCase() && live.state.status !== "complete"
+            && live.keeperRun?.runId === before.runId && live.keeperRun.nodeId === before.current) {
+            return {
+              status: 200,
+              body: { ok: true, matchId: previous, session: projectAiMatch(live), keeperRun: live.keeperRun, resumed: true },
+            };
+          }
+        }
+        let settledPrevious = false;
+        if (typeof previous === "string" && previous) {
+          settledPrevious = await forfeitAbandonedAiMatch(previous, playerName).catch((error) => {
+            console.error("[card-clash/ai-start] could not resolve the previous showdown", error);
+            return false;
+          });
+        }
+        // Re-read: that forfeit may have cost the last Resolve and ended the run.
+        const run = settledPrevious ? await readRun() : before;
+        const node = run && run.status === "active" ? keeperNode(run, run.current) : null;
+        const opponentDeck = node?.opponent ? keeperOpponentDeck(node.opponent.key) : null;
+        const snapshot = settledPrevious ? await authoritativePlayerSnapshot(playerName) : {};
+        if (!run || !node?.opponent || !opponentDeck) {
+          return { status: 409, body: { error: run && run.status !== "active" ? "This Keeper's Path run has ended." : "Choose a Keeper on the path before the duel begins.", ...snapshot } };
+        }
+        const matchId = randomUUID();
+        const aiSteps: ChronicleProjection[] = [];
+        const boons = run.boons;
+        let session: ReturnType<typeof createAiMatch>;
+        try {
+          session = createAiMatch(
+            matchId,
+            playerName,
+            run.deck,
+            node.opponent.difficulty,
+            Date.now(),
+            Math.random,
+            "standard",
+            (state) => captureAiStep(aiSteps, state),
+            { name: node.opponent.name, deck: opponentDeck, deckName: node.opponent.deckName },
+            (state) => applyKeeperModifiers(state, boons),
+          );
+        } catch (error) {
+          // A sealed deck that a later rules change made illegal: say so
+          // plainly. Abandoning and starting a new run seals a fresh deck.
+          console.error("[card-clash/ai-start] keeper duel could not be dealt", error);
+          return { status: 409, body: { error: "This run's sealed deck is no longer legal. Abandon the run and start a new one.", ...snapshot } };
+        }
+        session.keeperRun = { runId: run.runId, nodeId: node.id };
+        await kv.set(cardClashAiTokenKey(matchId), session, { ex: CARD_CLASH_AI_TOKEN_TTL_SECONDS });
+        await kv.set(cardClashAiActiveKey(playerName), matchId, { ex: CARD_CLASH_AI_ACTIVE_TTL_SECONDS });
+        // Kept beyond the session's lease, so a duel left to expire is still
+        // charged to its run when the next start forfeits it.
+        await kv.set(keeperMatchBindingKey(matchId), session.keeperRun, { ex: KEEPER_MATCH_BINDING_TTL_SECONDS });
+        return {
+          status: 200,
+          body: {
+            ok: true,
+            matchId,
+            session: projectAiMatch(session),
+            ...(aiSteps.length ? { aiSteps } : {}),
+            keeperRun: { runId: run.runId, nodeId: node.id },
+            ...snapshot,
+          },
+        };
+      }, { failClosed: true });
+      return res.status(out.status).json(out.body);
+    }
     if (dungeonRunToken) {
       // The Dungeon Card seal has one stable match id. Its Chronicle lock is
       // always acquired before the nested save mutation, establishing the

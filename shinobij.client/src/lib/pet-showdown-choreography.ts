@@ -380,12 +380,6 @@ export function showdownReactionAge(now: number, hitAt: number, hitStopUntil: nu
     return Math.max(0, now - hitAt - frozen);
 }
 
-/** Compatibility for presentation callers that do not know a profile. New
- * Coliseum fighters use showdownReactionRecoil with their certified profile. */
-export function showdownHitRecoil(ageMs: number, impactPower: number): number {
-    return showdownReactionRecoil(impactPower, "quadruped", ageMs);
-}
-
 /** Stable three-way take selection. Identity—not wall-clock time—chooses a
  * pet's cadence, so replays and screenshot tests remain deterministic. */
 export function showdownPerformanceVariant(identity: string): ShowdownPerformanceVariant {

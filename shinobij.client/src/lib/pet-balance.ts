@@ -718,8 +718,6 @@ export function petXpNeeded(level: number): number {
 export const PET_CORE_GROWTH_PER_LEVEL = 0.0075;
 export const PET_SPECIALIZATION_GROWTH = 0.01;
 export const PET_AGILITY_GROWTH = 0.005;
-/** Compatibility alias for older imports; specialization now grows at 1%. */
-export const PET_LEVEL_GROWTH = PET_SPECIALIZATION_GROWTH;
 export const PET_GROWTH_VERSION = 2;
 
 type GrowthStat = "hp" | "attack" | "defense" | "speed";

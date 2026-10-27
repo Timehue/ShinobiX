@@ -52,9 +52,3 @@ export function selectRankedTeam(character: Record<string, unknown>, requestedId
     const unique = [...new Map(ordered.map((pet) => [String(pet.id), pet])).values()];
     return unique.length >= 4 ? unique.slice(0, 4) : null;
 }
-
-/** True when the account can actually field a ranked pet right now. */
-export function hasRankedReadyPet(save: Record<string, unknown> | null): boolean {
-    const character = (save?.character ?? null) as Record<string, unknown> | null;
-    return !!character && selectRankedPet(character) !== null;
-}

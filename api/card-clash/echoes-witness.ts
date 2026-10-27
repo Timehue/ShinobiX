@@ -33,6 +33,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     choiceId: recorded.choiceId,
                     choices: recorded.choices,
                     alreadySealed: recorded.alreadySealed,
+                    ...(recorded.grantedTitles.length ? { grantedTitles: recorded.grantedTitles } : {}),
                 },
                 write: recorded.write,
             };

@@ -74,6 +74,8 @@ function fight(tplA: Record<string, unknown>, tplB: Record<string, unknown>, see
         && Array.isArray(tpl.jutsus) && tpl.rarity === tplA.rarity && tpl.id !== tplA.id && tpl.id !== tplB.id);
     const companions = Array.from({ length: SHOWDOWN_FORMAT_SIZE[format] - 1 }, (_, i) => pool[(Math.abs(seed) + i * 13) % pool.length]);
     const session = createShowdownSession({
+        // The live shape: every live fight seals the role partner bonds (2026-10-26).
+        partnerRules: true,
         sessionId: 'ratchet', playerName: 'A', format, tier: 'warrior', seed,
         playerPets: teamFor(tplA, 'a', companions), enemyPets: teamFor(tplB, 'b', companions), enemyTeamName: 'B',
     });

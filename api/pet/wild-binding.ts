@@ -180,6 +180,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     level: rollWildPetLevel(mine.level, roll),
                 };
                 const battle = createShowdownSession({
+                    // Live fight: role partner bonds apply (SHOWDOWN_PARTNER_BONDS).
+                    partnerRules: true,
                     sessionId: token, playerName, format: '1v1', tier: tutorial ? 'scrapper' : 'warrior',
                     seed: randomInt(1, 0x7fffffff), playerPets: [mine],
                     enemyPets: [wildPet as unknown as Pet], enemyTeamName: String(wildPet.name ?? 'Wild companion'),

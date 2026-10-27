@@ -1,18 +1,16 @@
 import type { Character } from "../types/character";
-import type { TacticsBuild } from '../../../shared/pet-tactics-contract';
 
 /*
  * Live ranked pet matchmaking — client transport.
  *
- * The queue only produces a PAIRING. Everything that decides or rates the fight
- * is server-owned and already existed:
- *   /api/pet/ranked-start  mints one sealed match token for the pair
- *   /api/pet/ranked-watch  re-derives the rated fight for both players
- *   /api/pet/battle-result rates that same derivation
+ * Everything that decides or rates the fight is server-owned:
+ *   /api/pvp/pet-ranked-queue pairs two players by rating, seals both teams
+ *                          and opens a Pet Arena room for them
+ *   /api/pet/tactics       plays that room, both players issuing commands live
+ *   /api/pet/battle-result rates the room's finished result
  *
  * So nothing here simulates a duel, invents a seed, or reports an outcome it
- * decided locally — that combination is exactly the defect this mode was
- * retired for.
+ * decided locally.
  */
 
 export type PetRankedQueueState =
@@ -61,13 +59,14 @@ export async function petRankedQueue(
     action: "join" | "leave" | "poll" | "acknowledge",
     playerName: string,
     matchToken?: string,
+    /** The four carried companions to fight with (Pet Arena). The server
+     *  seals them from the save; nothing about them is sent but the ids. */
     petIds?: string[],
-    builds?: TacticsBuild[],
 ): Promise<PetRankedQueueState> {
     // Never trust the body's shape: a proxy, an error page, or a preview build
     // with no API mounted all answer 200 with HTML, which parses to `{}`.
     // Adopting that would blank `state` and throw on the next render.
-    const raw = await post({ action, name: playerName, ...(matchToken ? { matchToken } : {}), ...(petIds ? { petIds } : {}), ...(builds ? { builds } : {}) });
+    const raw = await post({ action, name: playerName, ...(matchToken ? { matchToken } : {}), ...(petIds ? { petIds } : {}) });
     return typeof raw.state === "string"
         ? raw as unknown as PetRankedQueueState
         : { state: "idle" };

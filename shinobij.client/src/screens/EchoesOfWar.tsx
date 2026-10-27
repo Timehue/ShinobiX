@@ -195,7 +195,7 @@ function EchoesOfWarContent({ character, creatorCards, updateCharacter, onVersio
     const [vnLine, setVnLine] = useState(0);
     const [battle, setBattle] = useState<ActiveBattle | null>(null);
     const [witnessView, setWitnessView] = useState<{ playerName: string; eraId: EchoesWitnessEraId } | null>(null);
-    const [witnessReceipt, setWitnessReceipt] = useState<{ playerName: string; eraId: EchoesWitnessEraId; choiceId: EchoesWitnessChoiceId } | null>(null);
+    const [witnessReceipt, setWitnessReceipt] = useState<{ playerName: string; eraId: EchoesWitnessEraId; choiceId: EchoesWitnessChoiceId; grantedTitles?: string[] } | null>(null);
     const [witnessPending, setWitnessPending] = useState<EchoesWitnessChoiceId | null>(null);
     const [witnessError, setWitnessError] = useState("");
     const witnessRequest = useRef(0);
@@ -440,6 +440,10 @@ function EchoesOfWarContent({ character, creatorCards, updateCharacter, onVersio
         const era = ECHOES_ERAS.find(({ id }) => id === witnessEraId);
         const content = echoesWitness[witnessEraId];
         const sealedChoice = content?.choices.find(({ id }) => id === effectiveWitnessChoiceId);
+        // The fourth seal closes Chapter One; the server names the title it credited.
+        const chapterTitles = witnessReceipt?.playerName === character.name && witnessReceipt.eraId === witnessEraId
+            ? witnessReceipt.grantedTitles ?? []
+            : [];
         if (era && content) {
             const submit = async (choiceId: EchoesWitnessChoiceId) => {
                 const playerName = character.name;
@@ -453,7 +457,7 @@ function EchoesOfWarContent({ character, creatorCards, updateCharacter, onVersio
                         setWitnessError("A newer save arrived first. Review the record and try again.");
                         return;
                     }
-                    setWitnessReceipt({ playerName, eraId: response.eraId, choiceId: response.choiceId });
+                    setWitnessReceipt({ playerName, eraId: response.eraId, choiceId: response.choiceId, grantedTitles: response.grantedTitles });
                 } catch (error) {
                     if (requestId !== witnessRequest.current || characterNameRef.current !== playerName) return;
                     setWitnessError(error instanceof Error ? error.message : "Your witness record could not be saved. Try again.");
@@ -479,6 +483,16 @@ function EchoesOfWarContent({ character, creatorCards, updateCharacter, onVersio
                                 <span>Sealed entry · {sealedChoice.label}</span>
                                 <p>{sealedChoice.record}</p>
                                 <small>The first answer remains part of this character's record.</small>
+                                {chapterTitles.length > 0 ? (
+                                    <div className="echoes-chapter-complete" role="status">
+                                        <strong>Chapter One complete</strong>
+                                        <p>
+                                            All four ages of the Sunken Court are now on your record. You earned the title{" "}
+                                            <b>{chapterTitles.join(", ")}</b>, and you can wear it from your profile.
+                                            Every floor stays open for rematches.
+                                        </p>
+                                    </div>
+                                ) : null}
                             </div>
                         ) : (
                             <div className="echoes-witness-choices">

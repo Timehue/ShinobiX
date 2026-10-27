@@ -1021,6 +1021,19 @@ button.chronicle-card {
   border-color: rgba(132, 148, 160, 0.4);
   color: #9ba7b4;
 }
+/* Draw, Standby and End resolve automatically: passive, never a stop. */
+.chronicle-phase-rail li.is-automatic:not(.active) {
+  border-style: dashed;
+  opacity: 0.62;
+}
+.chronicle-phase-rail .chronicle-phase-auto {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
 .chronicle-phase-rail li.active {
   border-color: #d4aa62;
   background: linear-gradient(

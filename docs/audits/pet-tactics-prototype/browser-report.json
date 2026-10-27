@@ -1,11 +1,13 @@
 {
+  "mode": "sparring",
+  "engine": "showdown-v1",
   "desktop": true,
   "mobile": true,
-  "twoPlayerCommandRounds": 21,
+  "twoPlayerCommandRounds": 17,
   "reconnect": true,
-  "terminal": "draw",
+  "terminal": "win",
   "errors": [],
   "badResponses": [],
-  "reason": "knockout",
-  "rounds": 21
+  "reason": "battle",
+  "rounds": 17
 }

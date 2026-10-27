@@ -7296,16 +7296,6 @@ function finish(
   state.log.push(reason);
 }
 
-export function determineWinner(
-  state: ChronicleMatch,
-): ChronicleSideKey | "draw" | null {
-  if (state.status === "complete") return state.winner;
-  if (state.p1.lifePoints <= 0 && state.p2.lifePoints <= 0) return "draw";
-  if (state.p1.lifePoints <= 0) return "p2";
-  if (state.p2.lifePoints <= 0) return "p1";
-  return null;
-}
-
 export function forfeit(
   state: ChronicleMatch,
   actor: ChronicleSideKey,

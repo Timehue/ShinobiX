@@ -655,6 +655,13 @@
 .echoes-witness-sealed span { color: #e8d9aa; font-weight: 800; }
 .echoes-witness-sealed p { color: #ded5bf; line-height: 1.55; }
 .echoes-witness-sealed small { color: #9f967f; }
+.echoes-chapter-complete {
+    margin-top: 1rem;
+    padding-top: 0.85rem;
+    border-top: 1px solid rgba(217, 200, 138, 0.3);
+}
+.echoes-chapter-complete strong { color: #e8d9aa; }
+.echoes-chapter-complete b { color: #f2e6bd; }
 .echoes-witness-status { color: #b9d3af !important; }
 .echoes-witness-error { color: #efad9f !important; }
 

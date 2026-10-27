@@ -9,10 +9,12 @@ import {
     FIRST_PACT_AFTERMATH_IDS,
     FIRST_PACT_WORLD_HEIGHT,
     FIRST_PACT_WORLD_WIDTH,
-    firstPactAuraStoneReward,
+    firstPactAuraStoneParts,
+    firstPactAuraStonesOwed,
     firstPactDistrictAt,
     firstPactEarnedTitleKeys,
     firstPactWritEncounter,
+    type FirstPactAuraParts,
     type FirstPactMainBeat,
     type FirstPactAftermathId,
     type FirstPactProgress,
@@ -27,7 +29,20 @@ import {
     enterFirstPactFindingForPlayer,
     visitFirstPactAftermathForPlayer,
     readFirstPactProgress,
+    startFirstPactUnbrokenForPlayer,
+    abandonFirstPactUnbrokenForPlayer,
 } from "./_state.js";
+import {
+    ExhibitionError,
+    abandonExhibition,
+    draftExhibition,
+    exhibitionView,
+    orderExhibition,
+    readExhibition,
+    startExhibition,
+    swapExhibition,
+} from "./_exhibition.js";
+import { settlePendingRunBattle } from "./_pending-run-battle.js";
 
 const MAIN_BEATS = new Set<string>(FIRST_PACT_MAIN_BEATS);
 
@@ -51,12 +66,38 @@ const MAIN_BEATS = new Set<string>(FIRST_PACT_MAIN_BEATS);
  * adopts that pair atomically, so a version observation can never move ahead
  * of the title and currency snapshot it describes.
  *
- * Aura Stones ride in the SAME mutation, and are paid only in the pass that
- * first credits `Pactbound`. That title is the idempotency key: the save
- * sanitizer re-injects the stored serverTitles vault unconditionally, so a
- * client cannot drop the title to be paid twice, and because both writes are
- * one closure the currency can never land without the marker that says it did.
+ * Aura Stones ride in the SAME mutation. Each part of the reward (the
+ * crossing, every writ, Vale Stable) is paid once, whenever it is earned, and
+ * `firstPactAuraPaid` records which parts have been paid. That stamp is the
+ * idempotency key: it is server-owned (the save sanitizer copies the stored
+ * value over anything a client sends), and because the stamp and the currency
+ * are one closure the stones can never land without the record that says so.
+ *
+ * Writs and Vale Stable stay open after the crossing closes. Before the stamp
+ * existed, `Pactbound` was the only key, so a writ or the stable finished
+ * afterwards credited its title but never its stones.
  */
+type AuraPaid = FirstPactAuraParts;
+
+function storedAuraPaid(
+    character: Record<string, unknown>,
+    vault: readonly string[],
+    progress: FirstPactProgress,
+): { paid: AuraPaid; stamped: boolean } {
+    const raw = character.firstPactAuraPaid;
+    if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+        const record = raw as Record<string, unknown>;
+        return { paid: { base: record.base === true, writs: record.writs === true, stable: record.stable === true }, stamped: true };
+    }
+    // A crossing closed before the stamp existed. What was paid then cannot be
+    // proven, and the owner ruled no backfill: every part already earned counts
+    // as paid, and only parts earned from here on pay.
+    if (FIRST_PACT_TITLES.complete && vault.includes(FIRST_PACT_TITLES.complete)) {
+        return { paid: firstPactAuraStoneParts(progress), stamped: false };
+    }
+    return { paid: { base: false, writs: false, stable: false }, stamped: false };
+}
+
 async function grantFirstPactCompletion(
     playerName: string,
     progress: FirstPactProgress,
@@ -67,8 +108,7 @@ async function grantFirstPactCompletion(
     const earned = firstPactEarnedTitleKeys(progress)
         .map((key) => FIRST_PACT_TITLES[key])
         .filter((title): title is string => typeof title === "string" && title.length > 0);
-    const crossingTitle = FIRST_PACT_TITLES.complete;
-    const stones = Math.max(0, Math.floor(firstPactAuraStoneReward(progress)));
+    const parts = firstPactAuraStoneParts(progress);
     if (!earned.length || !playerName) return { ok: false };
     try {
         const mutation = await mutatePlayerSave<{ titles: string[]; auraStones: number }>(playerName, ({ character }) => {
@@ -76,10 +116,16 @@ async function grantFirstPactCompletion(
                 ? (character.serverTitles as unknown[]).filter((t): t is string => typeof t === "string")
                 : [];
             const fresh = earned.filter((title) => !vault.includes(title));
-            // First time the crossing has ever been closed on this character.
-            const firstClosing = Boolean(crossingTitle) && !vault.includes(crossingTitle);
-            const payStones = firstClosing ? stones : 0;
-            if (!fresh.length && !payStones) {
+            const { paid, stamped } = storedAuraPaid(character, vault, progress);
+            const payStones = Math.max(0, Math.floor(firstPactAuraStonesOwed(parts, paid)));
+            const nextPaid: AuraPaid = {
+                base: paid.base || parts.base,
+                writs: paid.writs || parts.writs,
+                stable: paid.stable || parts.stable,
+            };
+            const stampChanged = !stamped
+                || nextPaid.base !== paid.base || nextPaid.writs !== paid.writs || nextPaid.stable !== paid.stable;
+            if (!fresh.length && !payStones && !stampChanged) {
                 return { ok: true, character, value: { titles: [], auraStones: 0 }, write: false };
             }
             const held = Number(character.auraStones);
@@ -89,6 +135,7 @@ async function grantFirstPactCompletion(
                 character: {
                     ...character,
                     serverTitles: [...vault, ...fresh],
+                    firstPactAuraPaid: nextPaid,
                     ...(payStones ? { auraStones: (Number.isFinite(held) ? held : 0) + payStones } : {}),
                 },
             };
@@ -210,6 +257,39 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
             aftermathReplayed = result.replayed;
             progress = result.progress;
+        } else if (action.startsWith("exhibition-")) {
+            // Orin's Stable Exhibition. Every rental and trade is read back from
+            // the server's own run record; the browser only names ids from it.
+            // A round walked away from settles first, so a fresh draft or a
+            // withdrawal cannot bury a loss the run already took.
+            if (action === "exhibition-start" || action === "exhibition-abandon") await settlePendingRunBattle(playerName);
+            const current = await readFirstPactProgress(playerName);
+            try {
+                if (action === "exhibition-start") await startExhibition(playerName, current);
+                else if (action === "exhibition-draft") await draftExhibition(playerName, body.petIds);
+                else if (action === "exhibition-order") await orderExhibition(playerName, body.petIds);
+                else if (action === "exhibition-swap") await swapExhibition(playerName, body.outPetId, body.inPetId);
+                else if (action === "exhibition-abandon") await abandonExhibition(playerName);
+                else return res.status(400).json({ error: "Unknown Exhibition action." });
+            } catch (error) {
+                // The run as it stands rides along, so a refused action never
+                // leaves the ledger showing a draft or trade that is gone.
+                if (error instanceof ExhibitionError) {
+                    return res.status(error.status).json({ error: error.message, progress: current, exhibition: exhibitionView(await readExhibition(playerName)) });
+                }
+                throw error;
+            }
+            progress = current;
+        } else if (action === "replay-unbroken-start" || action === "replay-unbroken-abandon") {
+            // Settled against the attempt it belongs to, before a new one begins.
+            await settlePendingRunBattle(playerName);
+            const current = await readFirstPactProgress(playerName);
+            if (current.mainStep !== "complete") {
+                return res.status(409).json({ error: "The Court replays its arguments only after the crossing is closed.", progress: current });
+            }
+            progress = action === "replay-unbroken-start"
+                ? await startFirstPactUnbrokenForPlayer(playerName, body.hard === true)
+                : await abandonFirstPactUnbrokenForPlayer(playerName);
         } else if (action === "checkpoint") {
             const position = body.position && typeof body.position === "object" && !Array.isArray(body.position)
                 ? body.position as Record<string, unknown>
@@ -242,10 +322,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             grantedSaveVersion = granted.saveVersion;
         }
 
+        // The postgame run rides along once the crossing is closed, so the
+        // screen never shows a stale draft, trade or round.
+        const exhibition = progress.mainStep === "complete" ? exhibitionView(await readExhibition(playerName)) : null;
+
         res.setHeader("Cache-Control", "private, no-store");
         return res.status(200).json({
             ok: true,
             progress,
+            ...(exhibition ? { exhibition } : {}),
             ...(mainReplayed === undefined && aftermathReplayed === undefined
                 ? {}
                 : { replayed: mainReplayed ?? aftermathReplayed }),

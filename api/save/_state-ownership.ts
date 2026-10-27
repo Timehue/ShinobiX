@@ -282,6 +282,7 @@ export const SAVE_FIELD_CONTRACT: readonly SaveFieldDef[] = [
     f('redeemedCardClashAiSessions', 'character', 'server-payout-stamp', 'card-clash', ['server-array-ledger-char'], 'P0-2: per-session AI-match payout receipts (card-clash/ai-move settle)'),
     f('echoesOfWar', 'character', 'server-owned', 'card-clash', ['server-mirror-char', 'combat-strip-char'], 'Echoes of War campaign record (per-encounter wins + first-clear stamps) — card-clash/ai-move echoes settle only'),
     f('echoesWitnessChoices', 'character', 'server-owned', 'card-clash', ['server-mirror-char', 'combat-strip-char'], 'Echoes of War witness decisions — bounded, first-answer-wins records written only by card-clash/echoes-witness'),
+    f('keeperPath', 'character', 'server-owned', 'card-clash', ['server-mirror-char', 'combat-strip-char'], "Keeper's Path run and record (map, Resolve, boons, clears, daily pay stamp) -- card-clash/keeper-run and the ai-move settle only"),
     f('echoesStorySeen', 'character', 'client-state', 'card-clash', [], 'Echoes of War story-seen display flags — cosmetic, client-owned'),
     f('redeemedPetRankedMatchTokens', 'character', 'server-payout-stamp', 'pets', ['server-array-ledger-char'], 'exact-once ranked pet rating and witness settlement'),
     f('chroniclePetWitnesses', 'character', 'server-owned', 'cards', ['server-array-ledger-char'], 'pet arena recognition provenance; grants fixed Living Witness cards'),
@@ -429,6 +430,7 @@ export const SAVE_FIELD_CONTRACT: readonly SaveFieldDef[] = [
     // ── Titles / legacy / server vaults ─────────────────────────────────────
     f('eraJourneys', 'character', 'server-owned', 'eras', ['server-mirror-char', 'combat-strip-char'], 'Permanent campaigns and chapters; journey admission/completion and mission, Gate, Tower settlements write server proof.'),
     f('serverTitles', 'character', 'server-owned', 'titles', [], 'era grants; stored copy always wins'),
+    f('firstPactAuraPaid', 'character', 'server-payout-stamp', 'first-pact', ['server-mirror-char', 'combat-strip-char'], 'which First Pact Aura Stone parts (crossing, every writ, Vale Stable) first-pact/state has paid; written with the payout'),
     f('legacy', 'character', 'server-owned', 'legacy', [], 'legacy endpoints only; stored copy always wins'),
     f('customTitleStyle', 'character', 'cosmetic-ref', 'titles', [], 'allowlisted when legacy live; non-first saves frozen to stored'),
     f('customTitleIcon', 'character', 'cosmetic-ref', 'titles', [], 'same as customTitleStyle'),

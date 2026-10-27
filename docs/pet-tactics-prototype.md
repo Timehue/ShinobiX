@@ -1,5 +1,25 @@
 # Pet Arena — player-controlled battles
 
+> **Superseded on 2026-10-26.** By owner ruling, Pet Arena (ranked and
+> sparring) now fights with each player's **real carried companions** on the
+> Coliseum (Showdown) engine, not the level-50 loan profiles described below.
+> - **Format:** four per side, two on the field and two on the bench, sealed
+>   from each player's save. Each pet keeps its own level, rarity, gear, battle
+>   item and trait, and the moves saved in its loadout.
+> - **Matchmaking:** ranked pairs on Pet Elo only.
+> - **Room and plumbing:** the room, seats, deadlines, ranked queue and
+>   settlement below are unchanged. `api/_pet-tactics/arena-showdown.ts` adapts
+>   Showdown to that room (`engine: 'showdown-v1'`).
+> - **Commands:** orders are Showdown commands entered in the Coliseum battle's
+>   own console.
+> - **Outcomes and items:** a mutual wipe is a draw. Battle items fire their
+>   charges but are not used up.
+> - **Older rooms:** rooms opened before the change finish on the Pet Tactics
+>   resolver.
+>
+> The rest of this document describes that earlier Pet Tactics design and is
+> kept as history.
+
 Pet Arena has an **Enter player-controlled battles** entry for unrated sparring.
 The **Pet Colosseum ranked queue** uses the same command system. Two signed-in
 players build four-pet squads, share a sparring code or find a ranked opponent,
@@ -174,9 +194,7 @@ screenshots. It does not simulate a human playtest.
 
 Evidence is saved under [prototype audit artifacts](audits/pet-tactics-prototype/):
 `balance-report.json`, `ranked-browser-report.json`, desktop/mobile builder and
-battle captures, and the result capture. `ranked-command-preview-report.json`
-records the final material/background preview independently of match settlement.
-Server and production client builds pass, as
+battle captures, and the result capture. Server and production client builds pass, as
 do 137 selected combat/ranked/runtime/route/Beastfront regression tests, including
 22 combat/lifecycle/endpoint tests and five production-handler ranked tests.
 The browser check verifies enemy plates and friendly resource cards fit the

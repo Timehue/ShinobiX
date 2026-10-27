@@ -170,9 +170,62 @@ export const SHOWDOWN_SUPER_POWER_MULT = 1.6;
 /** In 2v2/3v3 a signature also SPLASHES every other living foe at this rate —
  *  the ultimate is a screen-wide moment, not a single-target nuke. */
 export const SHOWDOWN_SUPER_SPLASH_SCALE = 0.72;
-/** reference-style ally synergy: in team formats, an offensive move gains this
- *  multiplier when a LIVING ally's element beats the target's element. */
+/** Ally element synergy: in team formats, an offensive technique gains this
+ *  multiplier while a LIVING fielded ally has the element the technique's own
+ *  element beats (a Fire move wants a Wind partner). Partner-driven, not
+ *  target-driven: the engine reads the actor's field, never the target. */
 export const SHOWDOWN_SYNERGY_MULT = 1.1;
+
+/** Role partner bonuses (owner ruling 2026-10-26). They apply only to sessions
+ *  sealed with `partnerRules` (live fights from that date on), and only while
+ *  both partners are alive and fielded. Each rewards building a PAIR without
+ *  raising any single pet's raw power. */
+/** Sanctuary: a Sage's heal and its own shield beside a fielded Defender. */
+export const SHOWDOWN_PARTNER_SANCTUARY_MULT = 1.15;
+/** Hunt: an Assassin beside a fielded Tracker cashes a Mark for this instead of x1.25. */
+export const SHOWDOWN_PARTNER_HUNT_MARK_MULT = 1.35;
+/** Bulwark: an Assassin takes this much of a direct hit while its fielded Defender partner guards. */
+export const SHOWDOWN_PARTNER_BULWARK_TAKEN_MULT = 0.9;
+
+export type ShowdownPartnerBond = {
+    id: 'sanctuary' | 'hunt' | 'bulwark';
+    name: string;
+    roles: readonly [string, string];
+    text: string;
+};
+/** The role pairs, in one place for the engine's procs and every squad picker. */
+export const SHOWDOWN_PARTNER_BONDS: readonly ShowdownPartnerBond[] = Object.freeze([
+    { id: 'sanctuary', name: 'Sanctuary', roles: ['sage', 'defender'], text: 'The Sage heals and shields 15% more beside the Defender.' },
+    { id: 'hunt', name: 'Hunt', roles: ['tracker', 'assassin'], text: 'The Assassin cashes Marks for 35% extra damage instead of 25%.' },
+    { id: 'bulwark', name: 'Bulwark', roles: ['defender', 'assassin'], text: 'While the Defender guards, the Assassin takes 10% less from direct hits.' },
+]);
+
+/** The role bonds `pet` forms with any of `allies` (its fielded, living partners). */
+export function showdownBondsFor(pet: { id: string; role?: string }, allies: readonly { id: string; role?: string }[]): ShowdownPartnerBond[] {
+    return SHOWDOWN_PARTNER_BONDS.filter(bond => allies.some(ally => ally.id !== pet.id
+        && ((bond.roles[0] === pet.role && bond.roles[1] === ally.role) || (bond.roles[1] === pet.role && bond.roles[0] === ally.role))));
+}
+
+/** Role and element pairings two companions would form if fielded together.
+ *  Used by squad pickers to show "Partners" before a fight. */
+export function showdownPartnerLines(pets: readonly { name: string; role?: string; element?: string }[]): string[] {
+    const lines: string[] = [];
+    for (let i = 0; i < pets.length; i++) {
+        for (let j = i + 1; j < pets.length; j++) {
+            const a = pets[i], b = pets[j];
+            for (const bond of SHOWDOWN_PARTNER_BONDS) {
+                const [x, y] = bond.roles;
+                if ((a.role === x && b.role === y) || (a.role === y && b.role === x)) lines.push(`${a.name} + ${b.name}: ${bond.name}. ${bond.text}`);
+            }
+            for (const [first, second] of [[a, b], [b, a]] as const) {
+                if (first.element && first.element !== 'None' && SHOWDOWN_ELEMENT_BEATS[first.element] === second.element) {
+                    lines.push(`${second.name} powers up ${first.name}'s ${first.element} techniques by 10%.`);
+                }
+            }
+        }
+    }
+    return lines;
+}
 
 /** reference-style MULTIPLICATIVE move priority (order = pet speed × priority of
  *  the chosen action). Multiplicative — not absolute brackets — so a slow
@@ -367,56 +420,19 @@ export const SHOWDOWN_STATUS_CANCELS: Readonly<Record<string, readonly string[]>
     cleanse: [],
 });
 
+/** Paid arena wins allowed per UTC day. ONE definition: the settle path floors
+ *  it, the arena entry refuses a bout past it, and the lobby tells the player
+ *  the number — all from here, so the three can never disagree. */
+export const SHOWDOWN_DAILY_WIN_CAP = 100;
+
 /** The competitive turn cap, back by owner ruling (it replaced "no round
  *  limit" when full reference parity was ordered). A fight that reaches the end
  *  of this round is judged on the reference ladder: surviving pets, then combined
  *  HP%, then combined stamina%, then the speed arrow (a seeded coin). Attrition
  *  still bleeds from SHOWDOWN_ATTRITION_START, so the last stretch before the
  *  judge is a closing fight, not a stall. */
-/** Paid arena wins allowed per UTC day. ONE definition: the settle path floors
- *  it, the arena entry refuses a bout past it, and the lobby tells the player
- *  the number — all from here, so the three can never disagree. */
-export const SHOWDOWN_DAILY_WIN_CAP = 100;
-
 export const SHOWDOWN_TURN_CAP = 25;
 export type ShowdownJudgeReason = "pets" | "hp" | "stamina" | "speed";
-
-/** A stored Showdown match, small enough to sit in a journal row.
- *
- *  It carries the INPUTS, not the fight: the engine is deterministic over
- *  (pets, seed), so the whole event log is re-derivable on demand and never
- *  has to be persisted. That matters because a log is thousands of events and
- *  these rows live in KV under a TTL.
- *
- *  This is the Showdown twin of the ladder's existing
- *  `{ kind: "coliseum", seed, player, enemy }` row, deliberately the same shape
- *  so the two can sit side by side in one journal — the legacy rows keep their
- *  own reader, forever, and nothing is ever migrated in place.
- *
- *  The ONE asymmetry worth knowing: a coliseum row is replayed by the CLIENT,
- *  which owns a byte-identical mirror of that sim. Showdown has no client
- *  mirror by design, so a showdown row is replayed by asking the server for the
- *  log. The row is the request, not the answer. */
-export interface ShowdownReplayDescriptor {
-    rulesetVersion?: 'progression-v3' | 'legacy-v2';
-    /** Missing on historical records. The server replays those under legacy rules. */
-    damageRules?: 'legacy-v1' | 'response-v2';
-    kind: "showdown";
-    /** Bumped only if a stored descriptor's MEANING changes. Readers refuse a
-     *  version they do not know rather than silently replaying it wrong. */
-    version: 1;
-    seed: number;
-    format: ShowdownFormat;
-    tier: ShowdownTier;
-    enemyTeamName: string;
-    /** Unsealed pets, exactly as handed to createShowdownSession. Sealing is
-     *  part of the deterministic derivation, so storing sealed pets would
-     *  freeze today's seal rules into old rows. */
-    playerPets: unknown[];
-    enemyPets: unknown[];
-}
-
-export const SHOWDOWN_REPLAY_VERSION = 1;
 
 /** A watchable, fully-derived match: the pre-fight view, the event log, and the
  *  post-fight view. This is what a "watch" endpoint returns after re-deriving a
@@ -526,6 +542,8 @@ export interface ShowdownPetView {
 
 export interface ShowdownStateView {
     rulesetVersion?: 'progression-v3' | 'legacy-v2';
+    /** Present when the role partner bonds apply (SHOWDOWN_PARTNER_BONDS). */
+    partnerRules?: boolean;
     commandFeedback?: string[];
     damageRules?: 'legacy-v1' | 'response-v2';
     sessionId: string;
@@ -673,9 +691,4 @@ export interface ShowdownTurnResponse {
     practice?: boolean;
     _saveVersion?: number;
     character?: unknown;
-}
-
-export interface ShowdownStartResponse {
-    ok: boolean;
-    state: ShowdownStateView;
 }

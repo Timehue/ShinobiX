@@ -24,8 +24,6 @@ import {
 
 export type { ServerResolvedPetRankedToken } from './_ranked-engine.js';
 
-export const PET_RANKED_DISABLED_REASON = 'ranked-pet-server-authority-required';
-export const PET_RANKED_PUBLIC_PRESENTATION_DISABLED_REASON = 'ranked-pet-public-presentation-required';
 export const PET_RANKED_QUEUE_DISABLED_REASON = 'Ranked pet matchmaking is temporarily unavailable.';
 
 /*

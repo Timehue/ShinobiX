@@ -32,7 +32,7 @@ import {
 } from "../../../shared/pet-happiness";
 import { petPoseImage } from "../lib/pet-battle-anim";
 import { versionPetArtUrl } from "../lib/pet-art-revision";
-import { PET_PVE_DURABILITY, petCollarById, petCollarVisual, petCollars, petConsumableById, petConsumables, petExpeditionOptions, petFeedItems, petPveGear, petPveGearById, petPvpGear, petPvpGearById, petTrainingDurations, petTrainingOptions, petTraitDescriptions, ultraPetTraits } from "../data/pet-config";
+import { PET_PVE_DURABILITY, petCollarById, petCollarVisual, petCollars, petConsumableById, petConsumables, petExpeditionOptions, petFeedItems, petPveGear, petPveGearById, petPvpGear, petPvpGearById, petTrainingDurations, petTrainingOptions, petTraitDescriptions, PET_TRAIT_ARENA_NOTE, ultraPetTraits } from "../data/pet-config";
 
 import { itemCountsById, ownsItem } from "../lib/inventory";
 import { requireServerSettlement } from "../lib/server-settlement-gate";
@@ -1584,6 +1584,7 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                                         <>
                                             <strong>{selectedPet.trait}</strong>
                                             <p>{petTraitDescriptions[selectedPet.trait]}</p>
+                                            <small>{PET_TRAIT_ARENA_NOTE}</small>
                                         </>
                                     ) : (
                                         <p>No trait discovered.</p>

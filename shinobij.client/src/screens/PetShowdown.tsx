@@ -37,6 +37,7 @@ import {
     SHOWDOWN_BENCH_SIZE,
     SHOWDOWN_FORMAT_SIZE,
     showdownTeamSize,
+    showdownPartnerLines,
     startArenaBout,
     type ShowdownCommand,
     type ShowdownFormat,
@@ -198,6 +199,12 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
     const selectedPets = useMemo(
         () => selected.map((id) => pets.find((p) => p.id === id)).filter(Boolean) as Pet[],
         [selected, pets],
+    );
+
+    // Pairs that power each other up when fielded together (partner bonds).
+    const partnerLines = useMemo(
+        () => showdownPartnerLines(selectedPets.map((p) => ({ name: p.nickname || p.name, role: p.role, element: p.element }))),
+        [selectedPets],
     );
 
     // Warm the GLB + atlas caches while the player is still picking.
@@ -604,6 +611,11 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
                         );
                     })}
                 </div>
+                {size > 1 && partnerLines.length > 0 && (
+                    <p className="showdown-launch-hint" role="note">
+                        <strong>Partners when fielded together:</strong> {partnerLines.join(" ")}
+                    </p>
+                )}
             </div>
 
             {error && <div className="showdown-error" role="alert">{error}</div>}

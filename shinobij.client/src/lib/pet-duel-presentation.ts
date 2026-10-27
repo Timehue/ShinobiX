@@ -2,9 +2,6 @@ import { DUEL_TPS, type DuelEvent, type DuelSnapshot } from "./pet-duel-sim";
 
 export type DuelPlanarPoint = readonly [number, number];
 
-/** Minimum wall-clock gap between full-screen presentation beats in a party duel. */
-export const PARTY_SPOTLIGHT_COOLDOWN_SECONDS = 0.38;
-
 /** Rank simultaneous combat events so a 2v2 frame has one clear visual subject. */
 export function duelSpectaclePriority(event: DuelEvent): number {
     if (event.type === "ko") return 1_000;
@@ -318,7 +315,6 @@ export const PET_OPENING_TACTICS: readonly PetOpeningTactic[] = [
 
 export const PET_DUEL_NEUTRAL_PLAYBACK_SCALE = 1.38;
 export const PET_DUEL_COMMAND_CATCHUP_SCALE = 1.72;
-export const PET_DUEL_COMMAND_CATCHUP_SECONDS = 2.2;
 
 export function petDuelImpactStrength(damageFraction: number, critical: boolean): number {
     const fraction = Number.isFinite(damageFraction) ? Math.max(0, damageFraction) : 0;

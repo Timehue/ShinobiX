@@ -32,6 +32,7 @@ import chronicleScribeArt from "../assets/chronicle/chronicle-scribe-lock.webp";
 import { chronicleDuelistAvatar } from "../lib/chronicle-duelist-art";
 import { ChronicleDuelBoard } from "../components/ChronicleDuelBoard";
 import { CardClashTutorial } from "../components/CardClashTutorial";
+import { KeeperPath } from "../components/KeeperPath";
 import {
   advanceFreePlayQueueAuthority,
   FreePlayQueueError,
@@ -188,6 +189,8 @@ function CardHallInner({
     useState<ChronicleAiDifficulty>("medium");
   const [reward, setReward] = useState<ChronicleAiResult["reward"]>();
   const [error, setError] = useState("");
+  /** Keeper's Path opens inside the Play tab, in place of the AI duel panel. */
+  const [pathOpen, setPathOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [aiActing, setAiActing] = useState(false);
   const [resolutionReady, setResolutionReady] = useState(false);
@@ -610,7 +613,16 @@ function CardHallInner({
           onMigrate={() => setDeck([...migratedDeck])}
         />
       ) : null}
-      {tab === "play" ? (
+      {tab === "play" && pathOpen && !duel ? (
+        <KeeperPath character={character} creatorCards={creatorCards} deck={deck}
+          onVersionedCharacter={(next, version) => {
+            if (onVersionedCharacter) return onVersionedCharacter(next, version);
+            if (onServerVersion?.(version) === false) return false;
+            updateCharacter(next);
+            return true;
+          }}
+          onClose={() => setPathOpen(false)} />
+      ) : tab === "play" ? (
         duel ? (
           <div>
             {resolutionReady && duel.status === "complete" && rememberedCircuitTrial(character.name) === 'cards' && onReturnCircuit ? <CircuitCardResult won={duel.winner === duel.viewerSide} draw={duel.winner === 'draw'} onReturn={onReturnCircuit} /> : resolutionReady && duel.status === "complete" ? (
@@ -727,6 +739,11 @@ function CardHallInner({
             <button onClick={() => setTab("deck")} style={{ marginLeft: 8 }}>
               Review deck
             </button>
+            <p>
+              <button onClick={() => setPathOpen(true)} disabled={busy}>
+                Walk the Keeper's Path
+              </button>
+            </p>
           </div>
         )
       ) : null}

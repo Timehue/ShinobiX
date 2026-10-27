@@ -1019,6 +1019,9 @@ export function ChronicleDuelBoard({
         }
       >
         {CHRONICLE_FOUNDING_FORMAT.phases.map((phase, index) => {
+          // Draw, Standby and End resolve on the server inside the action that
+          // reaches them, so they are shown as passive steps, not stops.
+          const automatic = phase.id === "draw" || phase.id === "standby" || phase.id === "end";
           return (
             <li
               key={phase.id}
@@ -1028,11 +1031,13 @@ export function ChronicleDuelBoard({
                   : index < phaseIndex
                     ? "passed"
                     : ""
-              }`}
+              }${automatic ? " is-automatic" : ""}`}
               aria-current={index === phaseIndex ? "step" : undefined}
+              title={automatic ? `${phase.label} happens automatically` : undefined}
             >
               <b>{phase.shortLabel}</b>
               <span>{phase.label}</span>
+              {automatic ? <i className="chronicle-phase-auto">, automatic</i> : null}
             </li>
           );
         })}

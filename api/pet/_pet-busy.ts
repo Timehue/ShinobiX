@@ -102,7 +102,3 @@ export function petBreedingEligibility(
     if (busy) return { ok: false, code: busy, message: petBusyMessage(busy) };
     return { ok: true, templateId, element };
 }
-
-export function isPetBreedingEligible(character: Record<string, unknown>, pet: Record<string, unknown>, now = Date.now()): boolean {
-    return petBreedingEligibility(character, pet, now).ok;
-}

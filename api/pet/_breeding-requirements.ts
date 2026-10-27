@@ -34,48 +34,10 @@ export type PetBreedingProgressEvent = {
     receipt?: string;
 };
 
-const CARE_CATALOG = [
-    { id: 'care:training:1', kind: 'training', label: 'Complete one pet training session.', target: 1 },
-    { id: 'care:feed:2', kind: 'feed', label: 'Feed owned pets two times.', target: 2 },
-] as const;
-
-const ADVENTURE_CATALOG = [
-    { id: 'adventure:missions:1', kind: 'mission-complete', label: 'Complete one mission.', target: 1 },
-    { id: 'adventure:missions:2', kind: 'mission-complete', label: 'Complete two missions.', target: 2 },
-] as const;
-
-const ELEMENTAL_CATALOG = [
-    { id: 'elemental-bond:interaction:3', kind: 'pet-interaction', target: 3 },
-    { id: 'elemental-bond:interaction:5', kind: 'pet-interaction', target: 5 },
-] as const;
-
-function choose<T>(items: readonly T[], secureInt: SecureInt): T {
-    return items[secureInt(0, items.length)];
-}
-
-export function rollPetBreedingRequirements(
-    character: Record<string, unknown>,
-    element: string,
-    secureInt: SecureInt = randomInt,
-): PetBreedingRequirement[] {
-    const pets = Array.isArray(character.pets) ? character.pets as Array<Record<string, unknown>> : [];
-    const hasTrainablePet = pets.some((pet) => Number(pet.level ?? 1) < Number(pet.maxLevel ?? 100));
-    const carePool = hasTrainablePet ? CARE_CATALOG : CARE_CATALOG.filter((entry) => entry.kind === 'feed');
-    const care = choose(carePool, secureInt);
-    const adventure = choose(ADVENTURE_CATALOG, secureInt);
-    const elemental = choose(ELEMENTAL_CATALOG, secureInt);
-    return [
-        { ...care, category: 'care', progress: 0 },
-        { ...adventure, category: 'adventure', progress: 0 },
-        {
-            ...elemental,
-            category: 'elementalBond',
-            progress: 0,
-            element,
-            label: `Interact with ${element} pets ${elemental.target} times.`,
-        },
-    ];
-}
+// Egg incubation replaced rolled requirements. Nothing rolls a new list (the
+// roller and its catalogs were deleted on 2026-10-26), but a session saved
+// before that can still carry one, so recordPetBreedingProgress keeps
+// advancing it.
 
 export function settlePetBreedingSession(
     character: Record<string, unknown>,

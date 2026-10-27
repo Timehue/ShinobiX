@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
 import { before, test } from 'node:test';
 import { randomUUID } from 'node:crypto';
-import { tacticsPreset } from '../../shared/pet-tactics-roster.js';
 import type { ShowdownReplayScript } from '../../shared/pet-showdown-contract.js';
 import { PET_RANKED_ACTIVE_REGISTRY_KEY, petRankedCompletedKey, petRankedResultKey } from './_ranked-authority.js';
 import { REGISTRY_KEY } from '../player/_public-index.js';
@@ -61,13 +60,13 @@ async function pair(prefix: string) {
     return { a, b, matchToken: String(begun.body.matchToken) };
 }
 
-test('queue rejects duplicate and unknown competitive species before entering matchmaking', async () => {
+test('queue rejects duplicate and uncarried companions before entering matchmaking', async () => {
     const name = 'rankedinvalidlineup';
     const pets = Array.from({ length: 4 }, (_, index) => ({ id: `${name}-${index}`, templateId: ownedTemplates[index], name: `Pet ${index}` }));
     await kv.set(`save:${name}`, { _saveVersion: 1, character: { name, level: 40, pets, activePetId: pets[0].id } });
-    const valid = ownedTemplates.map((id, index) => ({ ...tacticsPreset(id), ownedPetId: pets[index].id }));
-    assert.equal((await call(queue, name, { name, action: 'join', builds: [valid[0], valid[0], valid[2], valid[3]] })).status, 400);
-    assert.equal((await call(queue, name, { name, action: 'join', builds: [valid[0], valid[1], valid[2], { ...valid[3], speciesId: 'unknown-species' }] })).status, 400);
+    const ids = pets.map(pet => pet.id);
+    assert.equal((await call(queue, name, { name, action: 'join', petIds: [ids[0], ids[0], ids[2], ids[3]] })).status, 400);
+    assert.equal((await call(queue, name, { name, action: 'join', petIds: [ids[0], ids[1], ids[2], 'someone-elses-pet'] })).status, 409);
     assert.equal((await call(queue, name, { name, action: 'poll' })).body.state, 'idle');
 });
 
@@ -186,7 +185,7 @@ test('peer settlement preserves discovery and viewer-relative replays, without r
     assert.deepEqual(await Promise.all([kv.get(`save:${a}`), kv.get(`save:${b}`)]), savesBefore);
     assert.equal((await call(queue, b, { name: b, action: 'acknowledge', matchToken })).body.state, 'idle');
     assert.equal((await call(queue, a, { name: a, action: 'poll' })).body.state, 'completed');
-    const rejoined = await call(queue, b, { name: b, action: 'join', builds: ownedTemplates.map((id, index) => ({ ...tacticsPreset(id), ownedPetId: `${b}-pet-${index}` })) });
+    const rejoined = await call(queue, b, { name: b, action: 'join', petIds: ownedTemplates.map((_id, index) => `${b}-pet-${index}`) });
     assert.equal(rejoined.status, 200, JSON.stringify(rejoined.body));
     assert.equal(rejoined.body.state, 'queued');
     await call(queue, b, { name: b, action: 'leave' });
