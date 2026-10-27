@@ -2516,6 +2516,10 @@
             "line": 1550
           },
           {
+            "source": "shinobij.client/src/styles/keeper-path-entrance.css",
+            "line": 161
+          },
+          {
             "source": "shinobij.client/src/styles/pet-progression.css",
             "line": 18
           },
@@ -4097,6 +4101,10 @@
           {
             "source": "shinobij.client/src/styles/index/34-hollow-gate-combat-director.css",
             "line": 174
+          },
+          {
+            "source": "shinobij.client/src/styles/keeper-path-entrance.css",
+            "line": 154
           },
           {
             "source": "shinobij.client/src/styles/pet-arena-lobby.css",

@@ -33,6 +33,7 @@ import { chronicleDuelistAvatar } from "../lib/chronicle-duelist-art";
 import { ChronicleDuelBoard } from "../components/ChronicleDuelBoard";
 import { CardClashTutorial } from "../components/CardClashTutorial";
 import { KeeperPath } from "../components/KeeperPath";
+import { KeeperPathEntrance } from "../components/KeeperPathEntrance";
 import {
   advanceFreePlayQueueAuthority,
   FreePlayQueueError,
@@ -191,6 +192,12 @@ function CardHallInner({
   const [error, setError] = useState("");
   /** Keeper's Path opens inside the Play tab, in place of the AI duel panel. */
   const [pathOpen, setPathOpen] = useState(false);
+  const keeperPathEntryRef = useRef<HTMLButtonElement>(null);
+  const previousPathOpenRef = useRef(false);
+  useEffect(() => {
+    if (previousPathOpenRef.current && !pathOpen) keeperPathEntryRef.current?.focus();
+    previousPathOpenRef.current = pathOpen;
+  }, [pathOpen]);
   const [busy, setBusy] = useState(false);
   const [aiActing, setAiActing] = useState(false);
   const [resolutionReady, setResolutionReady] = useState(false);
@@ -614,7 +621,7 @@ function CardHallInner({
         />
       ) : null}
       {tab === "play" && pathOpen && !duel ? (
-        <KeeperPath character={character} creatorCards={creatorCards} deck={deck}
+        <KeeperPath key={character.name} character={character} creatorCards={creatorCards} deck={deck}
           onVersionedCharacter={(next, version) => {
             if (onVersionedCharacter) return onVersionedCharacter(next, version);
             if (onServerVersion?.(version) === false) return false;
@@ -694,57 +701,55 @@ function CardHallInner({
             />
           </div>
         ) : (
-          <div className="chronicle-panel" style={{ textAlign: "center" }}>
-            <h2>{CHRONICLE_ROOM_TITLE}</h2>
-            <p>
-              The founding Shinobi card format — the original card pool and its
-              Limited Scroll, six visible turn phases and the opening-turn draw
-              rule.
-            </p>
-            {!savedValid ? (
+          <>
+            <div className="chronicle-panel" style={{ textAlign: "center" }}>
+              <h2>{CHRONICLE_ROOM_TITLE}</h2>
               <p>
-                Your saved deck uses retired rules. The Hall can deal a fixed
-                starter deck, or you can review and save the migrated 40-card
-                list in Deck Builder.
+                The founding Shinobi card format — the original card pool and its
+                Limited Scroll, six visible turn phases and the opening-turn draw
+                rule.
               </p>
-            ) : null}
-            <label className="chronicle-toolbar">
-              <strong>AI difficulty</strong>
-              <select
-                value={aiDifficulty}
-                onChange={(event) =>
-                  setAiDifficulty(event.target.value as ChronicleAiDifficulty)
-                }
-                disabled={busy}
-              >
-                <option value="easy">Easy</option>
-                <option value="medium">Medium</option>
-                <option value="hard">Hard</option>
-              </select>
-            </label>
-            {error ? <div className="chronicle-error">{error}</div> : null}
-            {resumableMatchId ? (
-              <p>
-                <button
-                  onClick={() => void resumeShowdown()}
+              {!savedValid ? (
+                <p>
+                  Your saved deck uses retired rules. The Hall can deal a fixed
+                  starter deck, or you can review and save the migrated 40-card
+                  list in Deck Builder.
+                </p>
+              ) : null}
+              <label className="chronicle-toolbar">
+                <strong>AI difficulty</strong>
+                <select
+                  value={aiDifficulty}
+                  onChange={(event) =>
+                    setAiDifficulty(event.target.value as ChronicleAiDifficulty)
+                  }
                   disabled={busy}
                 >
-                  Resume interrupted Showdown
-                </button>
-              </p>
-            ) : null}
-            <button onClick={() => void startFreshShowdown()} disabled={busy}>
-              {busy ? "Preparing showdown…" : "Start Showdown vs AI"}
-            </button>
-            <button onClick={() => setTab("deck")} style={{ marginLeft: 8 }}>
-              Review deck
-            </button>
-            <p>
-              <button onClick={() => setPathOpen(true)} disabled={busy}>
-                Walk the Keeper's Path
+                  <option value="easy">Easy</option>
+                  <option value="medium">Medium</option>
+                  <option value="hard">Hard</option>
+                </select>
+              </label>
+              {error ? <div className="chronicle-error">{error}</div> : null}
+              {resumableMatchId ? (
+                <p>
+                  <button
+                    onClick={() => void resumeShowdown()}
+                    disabled={busy}
+                  >
+                    Resume interrupted Showdown
+                  </button>
+                </p>
+              ) : null}
+              <button onClick={() => void startFreshShowdown()} disabled={busy}>
+                {busy ? "Preparing showdown…" : "Start Showdown vs AI"}
               </button>
-            </p>
-          </div>
+              <button onClick={() => setTab("deck")} style={{ marginLeft: 8 }}>
+                Review deck
+              </button>
+            </div>
+            <KeeperPathEntrance buttonRef={keeperPathEntryRef} busy={busy} onEnter={() => setPathOpen(true)} />
+          </>
         )
       ) : null}
       {tab === "pvp" ? (
