@@ -1,7 +1,7 @@
 import { createCharacter } from "../../lib/create-character";
 import { displayPlayerName } from "../../../../shared/player-name";
 import { starterBloodlineOffense, starterBloodlines, starterSavedBloodlines } from "../../data/jutsu";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
     type Character
 } from "../../App";
@@ -45,6 +45,7 @@ export function CharacterCreatorFlow({ onCreate, onBack, compact = false, google
     const signupMode: SignupCredential["mode"] = googleSignup ? "google" : guest ? "guest" : "password";
     const wantsPassword = signupMode === "password";
 
+    const flowRef = useRef<HTMLElement>(null);
     const [step, setStep] = useState<CreatorStep>("welcome");
     const [name, setName] = useState(googleSignup?.suggestedName ?? "");
     const [password, setPassword] = useState("");
@@ -66,7 +67,10 @@ export function CharacterCreatorFlow({ onCreate, onBack, compact = false, google
 
     function goToStep(nextStep: CreatorStep) {
         setStep(nextStep);
-        window.setTimeout(() => document.querySelector(".cc-flow")?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
+        // Finish repositioning in this action. A deferred smooth scroll can
+        // move the next control between pointer-down and pointer-up, even when
+        // the player requested reduced motion.
+        flowRef.current?.scrollIntoView({ behavior: "instant", block: "start" });
     }
 
     function previousStep() {
@@ -373,7 +377,7 @@ export function CharacterCreatorFlow({ onCreate, onBack, compact = false, google
     }
 
     return (
-        <section className={`cc-flow ${compact ? "is-compact" : ""}`}>
+        <section ref={flowRef} className={`cc-flow ${compact ? "is-compact" : ""}`}>
             <div className="cc-shell">
                 <div className="cc-topline">
                     <button type="button" className="cc-back-link" onClick={previousStep} disabled={submitting}>
