@@ -11,6 +11,7 @@ import { scoreKunaiFishing, kunaiSeed } from '../../shared/kunai-fishing.js';
 import type { OnlinePlayer } from '../_realtime/types.js';
 
 export type ResourceSeal = ResourcePublicAttempt & {
+    sharedNode?: true;
     successDraw: number; qualityDraw: number; traceDraw: number; toolBroke: boolean; authorityEpoch: number;
     worldBossEventId?: string;
     rules: { version: 1; difficulty: number; ceiling: ResourceGrade; family: ResourceFamily; trace?: ResourceFamily };
@@ -22,14 +23,14 @@ export function resourcePositionError(player: OnlinePlayer | null, node: Resourc
     if (player.sector !== node.sector || player.tile !== node.approach) return 'Walk to the marked shore or rock base first.';
     return null;
 }
-export function resourceAdmissionError(character: Record<string, unknown>, node: ResourceNode, now: number) {
+export function resourceAdmissionError(character: Record<string, unknown>, node: ResourceNode, now: number, shared = false) {
     if (!validResourceNodeTerrain(node)) return 'This gathering spot is no longer available.';
     const state = readResourceGathering(character.resourceGathering);
     if (state.active) return 'Finish or cancel your current gathering attempt first.';
     if (character.hospitalized) return 'Leave the hospital before gathering.';
     if (resourceSkillLevel(state[`${node.activity}Xp`]) < node.difficulty) return `Requires ${node.activity === 'mining' ? 'Mining' : 'Fishing'} skill ${node.difficulty}.`;
     if (resourceActionsToday(character, now) >= 100) return 'You have used all 100 Explore, Fishing and Mining actions today.';
-    if (resourceNodeState(state.nodes[node.id], now).attempts >= 3) return 'This node is empty. Return after it replenishes.';
+    if (!shared && resourceNodeState(state.nodes[node.id], now).attempts >= 3) return 'This node is empty. Return after it replenishes.';
     const slot = node.activity === 'mining' ? 'pickaxe' : 'fishingPole';
     const id = (character.equipment as Record<string, string> | undefined)?.[slot];
     if (gatheringTool(id)?.slot !== slot || gatheringToolRemaining(character, id!) === 0) return `Equip a ${slot === 'pickaxe' ? 'pickaxe' : 'fishing kunai'} in Inventory first.`;
