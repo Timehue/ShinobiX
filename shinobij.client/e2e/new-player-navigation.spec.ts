@@ -83,9 +83,9 @@ test("mobile profile shows the live field weather and the World Map shortcut ope
     await expect(page.locator(".sector-image-map")).toHaveCount(0);
     await page.reload();
     await expect(page.locator('.app-shell[data-screen="worldMap"]')).toBeVisible();
-    if (await page.locator(".world-atlas-card").isVisible()) {
-        await page.getByRole("button", { name: /Return to Sector 1/ }).click();
-    }
+    // Reload restores the current field after the map mounts. The initial atlas
+    // is transient: clicking its Return button can race the restoration that
+    // removes it. Require the restored field itself before reading its weather.
     await expect(page.locator(".sector-image-map")).toBeVisible();
     const refreshedCurrentSky = await page.locator(".sector-hud-weather .sector-sky-current").innerText();
     await page.getByRole("button", { name: "You", exact: true }).click();
