@@ -604,7 +604,7 @@ export function TowerReadyRoomPanel({
                 </div>
             </header>
             <p className="tower-ready-room-intro">
-                Bring 2–4 fighters for Story floors or exactly four players for the Spire. Each player controls their own turn. Story parties can include one AI helper, which acts automatically and earns no rewards.
+                Bring four players at level {BATTLE_TOWERS_MIN_LEVEL} or above. Story allows smaller squads at full difficulty; the Spire requires exactly four players. Each player controls their own turn. Story parties can include one novice AI helper, which acts automatically and earns no rewards.
             </p>
             {error && (
                 <div className="tower-ready-room-error" role="alert">

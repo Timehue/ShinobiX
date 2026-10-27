@@ -5,6 +5,8 @@ import { isFullAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { onlineStore } from '../_realtime/online-store.js';
 import { readImageValues } from '../images.js';
+import { readKvProjection } from '../_storage-projection.js';
+import { ADMIN_PLAYER_SAVE_PROJECTION } from '../player/_list-save-projections.js';
 
 const REGISTRY_KEY = 'player:registry';
 const ADMIN_CONTENT_SLOTS = new Set(['admin1', 'admin2']);
@@ -74,14 +76,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         };
         const bloodlineEntries: BloodlineEntry[] = [];
 
-        // Single mget round-trip instead of N individual kv.get() calls
-        // (audit #29: the old map+get pattern issued one KV request per player,
-        // which scaled linearly and hammered the connection pool). mget returns
-        // values positionally aligned to saveKeys.
+        // One projected batch: directory identity and submitted bloodlines only.
+        // Results remain aligned to saveKeys; partial records never enter save writes.
         let saveValues: (Record<string, unknown> | null)[] = [];
         try {
             saveValues = saveKeys.length > 0
-                ? await kv.mget<Record<string, unknown>[]>(...saveKeys)
+                ? await readKvProjection(kv, saveKeys, ADMIN_PLAYER_SAVE_PROJECTION)
                 : [];
         } catch (err) {
             console.warn('[admin/players] save mget failed', err);
@@ -91,7 +91,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         for (const { key, snap } of saveSnaps) {
             const name = key.replace('save:', '');
-            const char = snap?.character as Record<string, unknown> | undefined;
+            const char = snap;
 
             // Add to player list if not already present from registry
             if (!players.some(p => p.name.toLowerCase() === name.toLowerCase())) {

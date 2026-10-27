@@ -9,6 +9,8 @@ import { PROFESSION_INFO, PROFESSION_LABEL } from '../data/professions';
 import { countItem } from '../lib/inventory';
 import { activeElderFocus } from '../lib/village-elder-focus';
 import { discountCost } from '../lib/village-upgrades';
+import { readShopPurchaseReply } from '../lib/shop-purchase-api';
+import { shopPurchaseRequestContract } from '../../../shared/shop-purchase-contract';
 import {
     clearProfessionChangeIntent, readProfessionChangeIntent, retainProfessionChangeIntent, type ProfessionChangeIntent,
 } from '../lib/profession-change-intent';
@@ -53,12 +55,14 @@ export function ProfessionChange({ character, onVersionedCharacter }: {
                 ? { playerName: character.name, itemId: PROFESSION_CHANGE_APPROVAL_ID, qty: 1, requestId: intent.requestId }
                 : { playerName: character.name, profession: intent.profession, fromProfession: intent.fromProfession, fromProfessionChosenAt: intent.fromProfessionChosenAt, respec: true };
             const response = await fetch(action === 'purchase' ? '/api/shop/purchase' : '/api/profession/choose', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(action === 'purchase' ? shopPurchaseRequestContract.parse(body) : body),
                 signal: AbortSignal.timeout(20_000),
             });
-            const result = await response.json().catch(() => null) as { error?: string; character?: Character; _saveVersion?: number } | null;
+            const raw: unknown = await response.json().catch(() => null);
+            const result = action === 'purchase' ? readShopPurchaseReply(response, raw, shopPurchaseRequestContract.parse(body))
+                : raw as { error?: string; character?: Character; _saveVersion?: number } | null;
             if (!response.ok || !result?.character) {
-                const uncertain = response.status >= 500 || response.ok || [401, 408, 429].includes(response.status);
+                const uncertain = !result || response.status >= 500 || response.ok || [401, 408, 429].includes(response.status);
                 if (!uncertain) {
                     clearProfessionChangeIntent(character.name);
                     intentRef.current = null;

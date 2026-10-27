@@ -179,6 +179,10 @@ const NUMBER_FIELDS: readonly NumberField[] = [
 ];
 
 const STRING_FIELDS = ['name', 'village', 'specialty', 'clan', 'pvpKillMonth'] as const;
+/** Input fields used by this read model, including the earned-stat calculation. */
+export const PUBLIC_INDEX_CHARACTER_FIELDS = [...new Set([
+    ...NUMBER_FIELDS.map(({ key }) => key), ...STRING_FIELDS, 'accountName', 'stats', 'unspentStats',
+])];
 const MAX_PUBLIC_NUMBER = 9_000_000_000_000;
 const NON_PUBLIC_PLAYER_KEYS = new Set(['admin', 'admin1', 'admin2', 'system', 'server']);
 

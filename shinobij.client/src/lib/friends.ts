@@ -1,166 +1,128 @@
-/*
- * Shared social-list store — the original one-way Following list plus the
- * player's explicit Friends address book, fetched together once per logged-in
- * player and mutated optimistically. Mirrors lib/mail-unread's subscribe pattern
- * so every screen shares ONE fetch and stays in sync. Auth rides the global
- * window.fetch interceptor (authFetch.ts), so a bare /api/ fetch is signed.
- *
- * Stores display names; all comparisons are case-insensitive. The store
- * auto-reloads when the subscribing player changes (account switch), so callers
- * never have to reset it on logout.
- */
+/** Account-scoped social lists. Server replies own membership; mutations serialize
+ * per list so a late response or rollback cannot erase another successful edit. */
+type ListKind = 'following' | 'friends';
+type Listener = (list: string[]) => void;
+const subscribers: Record<ListKind, Map<Listener, string>> = { following: new Map(), friends: new Map() };
+let owner = '';
+let epoch = 0;
+let lists: Record<ListKind, string[]> = { following: [], friends: [] };
+let revisions: Record<ListKind, number> = { following: 0, friends: 0 };
+let queues: Record<ListKind, Promise<void>> = { following: Promise.resolve(), friends: Promise.resolve() };
+let loading: Promise<void> | null = null;
+let pending: Record<ListKind, number> = { following: 0, friends: 0 };
+let removeRefreshListeners: (() => void) | null = null;
+const eq = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
+const validList = (value: unknown): value is string[] => Array.isArray(value) && value.every(item => typeof item === 'string');
 
-let following: string[] = [];
-let friends: string[] = [];
-let loadedFor: string | null = null;
-const followingSubs = new Set<(list: string[]) => void>();
-const friendSubs = new Set<(list: string[]) => void>();
-
-function emitFollowing(): void {
-    followingSubs.forEach((cb) => { try { cb(following); } catch { /* a bad subscriber must not break the rest */ } });
+function emit(kind: ListKind) {
+    subscribers[kind].forEach((name, callback) => {
+        try { callback(eq(name, owner) ? lists[kind] : []); } catch { /* isolated subscriber */ }
+    });
 }
 
-function emitFriends(): void {
-    friendSubs.forEach((cb) => { try { cb(friends); } catch { /* a bad subscriber must not break the rest */ } });
+export function refreshSocialLists(): Promise<void> {
+    if (loading || !owner) return loading ?? Promise.resolve();
+    const started = epoch;
+    const versions = { ...revisions };
+    const busy = { ...pending };
+    const name = owner;
+    const request = (async () => {
+        try {
+            const response = await fetch(`/api/player/friends?playerName=${encodeURIComponent(name)}`);
+            const data: unknown = await response.json();
+            if (!response.ok || started !== epoch || !data || typeof data !== 'object') return;
+            for (const kind of ['following', 'friends'] as const) {
+                const value = (data as Record<string, unknown>)[kind];
+                if (!busy[kind] && !pending[kind] && versions[kind] === revisions[kind] && validList(value)) { lists[kind] = value; emit(kind); }
+            }
+        } catch { /* retain the last confirmed list and refresh on reconnect */ }
+    })();
+    loading = request;
+    void request.finally(() => { if (loading === request) loading = null; });
+    return request;
 }
 
-function emitAll(): void {
-    emitFollowing();
-    emitFriends();
+function selectOwner(playerName: string) {
+    if (eq(owner, playerName)) return;
+    owner = playerName;
+    epoch++;
+    lists = { following: [], friends: [] };
+    revisions = { following: 0, friends: 0 };
+    queues = { following: Promise.resolve(), friends: Promise.resolve() };
+    loading = null;
+    pending = { following: 0, friends: 0 };
+    emit('following'); emit('friends');
+    void refreshSocialLists();
 }
 
-function eq(a: string, b: string): boolean {
-    return a.toLowerCase() === b.toLowerCase();
-}
-
-async function load(playerName: string): Promise<void> {
-    try {
-        const r = await fetch(`/api/player/friends?playerName=${encodeURIComponent(playerName)}`);
-        if (!r.ok) return;
-        const j = await r.json();
-        if (loadedFor !== playerName) return; // a newer player subscribed mid-flight
-        following = Array.isArray(j?.following) ? j.following : [];
-        friends = Array.isArray(j?.friends) ? j.friends : [];
-        emitAll();
-    } catch { /* offline — keep what we have */ }
-}
-
-export function getFollowing(): string[] {
-    return following;
-}
-
-export function isFollowing(name: string): boolean {
-    return following.some((f) => eq(f, name));
-}
-
-/** Subscribe to the follow list; immediately invoked with the current value.
- *  Loads (or reloads, on account switch) for the given player. */
-export function subscribeFollowing(playerName: string, cb: (list: string[]) => void): () => void {
-    followingSubs.add(cb);
-    cb(following);
-    if (loadedFor !== playerName) {
-        loadedFor = playerName;
-        following = [];
-        friends = [];
-        void load(playerName);
+function subscribe(kind: ListKind, playerName: string, callback: Listener): () => void {
+    selectOwner(playerName);
+    subscribers[kind].set(callback, playerName);
+    callback(lists[kind]);
+    // A same-account remount may follow edits on another device while no
+    // refresh listeners were installed. Coalesce with an existing GET.
+    void refreshSocialLists();
+    if (!removeRefreshListeners && typeof window !== 'undefined') {
+        const refresh = () => { if (!document.hidden) void refreshSocialLists(); };
+        window.addEventListener('online', refresh);
+        window.addEventListener('focus', refresh);
+        document.addEventListener('visibilitychange', refresh);
+        removeRefreshListeners = () => {
+            window.removeEventListener('online', refresh); window.removeEventListener('focus', refresh);
+            document.removeEventListener('visibilitychange', refresh);
+        };
     }
-    return () => { followingSubs.delete(cb); };
+    return () => {
+        subscribers[kind].delete(callback);
+        if (!subscribers.following.size && !subscribers.friends.size) { removeRefreshListeners?.(); removeRefreshListeners = null; }
+    };
 }
 
-/** Subscribe to the explicit Friends list. It shares the same account-scoped
- *  load as Following so mounting both controls still performs one request. */
-export function subscribeFriends(playerName: string, cb: (list: string[]) => void): () => void {
-    friendSubs.add(cb);
-    cb(friends);
-    if (loadedFor !== playerName) {
-        loadedFor = playerName;
-        following = [];
-        friends = [];
-        void load(playerName);
-    }
-    return () => { friendSubs.delete(cb); };
-}
+export const subscribeFollowing = (name: string, callback: Listener) => subscribe('following', name, callback);
+export const subscribeFriends = (name: string, callback: Listener) => subscribe('friends', name, callback);
+export const getFollowing = () => lists.following;
+export const isFollowing = (name: string) => lists.following.some(item => eq(item, name));
+export const isFriend = (name: string) => lists.friends.some(item => eq(item, name));
 
-export async function follow(playerName: string, target: string): Promise<void> {
-    if (isFollowing(target)) return;
-    following = [...following, target]; // optimistic
-    emitFollowing();
-    try {
-        const r = await fetch('/api/player/friends', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ playerName, targetName: target }),
-        });
-        if (r.ok) {
-            const j = await r.json();
-            if (Array.isArray(j?.following)) { following = j.following; emitFollowing(); }
-        } else {
-            following = following.filter((f) => !eq(f, target)); emitFollowing(); // rollback
+function mutate(kind: ListKind, playerName: string, target: string, method: 'POST' | 'DELETE'): Promise<void> {
+    const clean = target.trim();
+    if (!clean) return Promise.reject(new Error('Enter a player name.'));
+    selectOwner(playerName);
+    const started = epoch;
+    // Invalidate GETs both when queued and when committed, including reads that
+    // begin while a mutation is in flight.
+    revisions[kind]++;
+    pending[kind]++;
+    const operation = queues[kind].then(async () => {
+        if (started !== epoch) throw new Error('Your account changed. Please try again.');
+        const previous = lists[kind];
+        const present = previous.some(item => eq(item, clean));
+        if ((method === 'POST') === present) return;
+        lists[kind] = method === 'POST' ? [...previous, clean] : previous.filter(item => !eq(item, clean));
+        emit(kind);
+        try {
+            const response = await fetch('/api/player/friends', {
+                method, headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ playerName, targetName: clean, ...(kind === 'friends' ? { list: kind } : {}) }),
+            });
+            const data = await response.json().catch(() => null) as Record<string, unknown> | null;
+            if (started !== epoch) throw new Error('Your account changed. Please try again.');
+            if (!response.ok) throw new Error(typeof data?.error === 'string' ? data.error : 'Could not update your social list. Try again.');
+            if (!validList(data?.[kind])) throw new Error('Could not confirm your social list. Reconnect and try again.');
+            lists[kind] = data[kind];
+            emit(kind);
+        } catch (error) {
+            if (started === epoch) { lists[kind] = previous; emit(kind); }
+            throw error instanceof Error ? error : new Error('Could not update your social list. Try again.');
         }
-    } catch {
-        following = following.filter((f) => !eq(f, target)); emitFollowing(); // rollback
-    }
+    }).finally(() => {
+        if (started === epoch) { revisions[kind]++; pending[kind]--; }
+    });
+    queues[kind] = operation.catch(() => {});
+    return operation;
 }
 
-export async function unfollow(playerName: string, target: string): Promise<void> {
-    const prev = following;
-    following = following.filter((f) => !eq(f, target)); // optimistic
-    emitFollowing();
-    try {
-        const r = await fetch('/api/player/friends', {
-            method: 'DELETE',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ playerName, targetName: target }),
-        });
-        if (r.ok) {
-            const j = await r.json();
-            if (Array.isArray(j?.following)) { following = j.following; emitFollowing(); }
-        } else {
-            following = prev; emitFollowing(); // rollback
-        }
-    } catch {
-        following = prev; emitFollowing(); // rollback
-    }
-}
-
-export function isFriend(name: string): boolean {
-    return friends.some((friend) => eq(friend, name));
-}
-
-async function friendMutation(playerName: string, target: string, method: 'POST' | 'DELETE'): Promise<void> {
-    const cleanTarget = target.trim();
-    if (!cleanTarget) throw new Error('Enter a player name.');
-
-    const previous = friends;
-    if (method === 'POST') {
-        if (isFriend(cleanTarget)) return;
-        friends = [...friends, cleanTarget];
-    } else {
-        friends = friends.filter((friend) => !eq(friend, cleanTarget));
-    }
-    emitFriends();
-
-    try {
-        const r = await fetch('/api/player/friends', {
-            method,
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ playerName, targetName: cleanTarget, list: 'friends' }),
-        });
-        const data = await r.json().catch(() => ({})) as { error?: string; friends?: unknown };
-        if (!r.ok) throw new Error(data.error || 'Could not update your friends list.');
-        friends = Array.isArray(data.friends) ? data.friends.map(String) : previous;
-        emitFriends();
-    } catch (cause) {
-        friends = previous;
-        emitFriends();
-        throw cause instanceof Error ? cause : new Error('Could not update your friends list.');
-    }
-}
-
-export function addFriend(playerName: string, target: string): Promise<void> {
-    return friendMutation(playerName, target, 'POST');
-}
-
-export function removeFriend(playerName: string, target: string): Promise<void> {
-    return friendMutation(playerName, target, 'DELETE');
-}
+export const follow = (player: string, target: string) => mutate('following', player, target, 'POST');
+export const unfollow = (player: string, target: string) => mutate('following', player, target, 'DELETE');
+export const addFriend = (player: string, target: string) => mutate('friends', player, target, 'POST');
+export const removeFriend = (player: string, target: string) => mutate('friends', player, target, 'DELETE');

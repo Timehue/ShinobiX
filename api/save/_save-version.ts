@@ -2,18 +2,8 @@
 // Split out from the IO-heavy handler so the parsing + key logic is
 // unit-testable on its own (same pattern as the _*-validate.ts cores).
 import { recordHollowGateExternalCredits, type HollowGateCurrencySource } from '../hollow-gate/_external-credits.js';
-
-/**
- * Parse a client-supplied `_baseSaveVersion`. Returns the numeric version only
- * for a non-negative safe integer. Missing, fractional, negative, unsafe,
- * non-finite, and wrong-type values return null; player saves reject null.
- */
-export function parseBaseSaveVersion(raw: unknown): number | null {
-    // A version is a persisted counter, not an arbitrary number. Accepting a
-    // fraction, negative value, or unsafe/future sentinel weakens the exact
-    // compare in the save handler and can let a stale writer clobber data.
-    return typeof raw === 'number' && Number.isSafeInteger(raw) && raw >= 0 ? raw : null;
-}
+import { parseBaseSaveVersion } from '../../shared/save-contract.js';
+export { parseBaseSaveVersion } from '../../shared/save-contract.js';
 
 /** Validate a stored version, treating only a truly absent legacy stamp as 0. */
 export function storedSaveVersion(raw: unknown): number {
