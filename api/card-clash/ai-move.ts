@@ -42,6 +42,7 @@ import {
 import { echoesBattleBeatForMatch } from "./_echoes-battle-beat.js";
 import { keeperPathOf, settleKeeperFight } from "../../shared/keeper-path-contract.js";
 import { KEEPER_PATH_TITLE } from "../_titles-registry.js";
+import { keeperMatchBindingKey } from "./_keeper-path.js";
 import {
   addChroniclePoints,
   cardPveDungeonCp,
@@ -275,9 +276,11 @@ async function settle(
       }
       const alreadyWonToday =
         String(character.cardClashDailyWinDate ?? "") === today;
-      // An AI spar never pays (owner rule: only world events, wandering AI,
+      // An AI spar never pays ryo (owner rule: only world events, wandering AI,
       // PvP and missions pay). cardClashAiReward is pinned to zero; the
       // settlement receipt keeps its shape so clients and replays are stable.
+      // Echoes of War and Keeper's Path pay Chronicle Points below, from their
+      // own sealed definitions.
       const reward = forfeited || quickWin
         ? { ryo: 0, dailyBonus: false }
         : cardClashAiReward(winner, alreadyWonToday);
@@ -517,8 +520,14 @@ export async function forfeitAbandonedAiMatch(matchId: string, playerName: strin
       const session = await kv.get<StoredSession>(key);
       if (!session) {
         // Only a standard Card Hall start writes the pointer, so this was one.
+        // A Keeper's Path duel left its run binding beside it (ai-start), so an
+        // expired one still costs the run its Resolve.
+        const keeperRun = await kv.get<{ runId: string; nodeId: string }>(keeperMatchBindingKey(matchId)).catch(() => null);
         const expired = await settle(
-          { playerName, createdAt: 0, winner: "opponent", endedBy: "forfeit", state: { events: [] } },
+          {
+            playerName, createdAt: 0, winner: "opponent", endedBy: "forfeit", state: { events: [] },
+            ...(keeperRun && typeof keeperRun.runId === "string" && typeof keeperRun.nodeId === "string" ? { keeperRun } : {}),
+          },
           Date.now(),
           key,
         );

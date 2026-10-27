@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Raw generator output for scripts/gen-keeper-path-art.mjs (the shipped WebPs live in public/chronicle).
+scripts/.keeper-path-art/

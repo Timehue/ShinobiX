@@ -46,8 +46,6 @@ export type ExhibitionRun = {
     team: string[];
     /** Rounds won in this run. */
     round: number;
-    /** The stable sealed for the round in progress. Server-only. */
-    opponents: Pet[] | null;
     /** After a win: the beaten stable, open to one trade until the next round starts. */
     offered: Pet[] | null;
     battleProofs: string[];
@@ -124,7 +122,6 @@ export function startExhibition(playerName: string, progress: FirstPactProgress,
             pool: rollExhibitionPool(seed),
             team: [],
             round: 0,
-            opponents: null,
             offered: null,
             battleProofs: [],
             startedAt: now,
@@ -186,34 +183,31 @@ export function swapExhibition(playerName: string, outPetId: unknown, inPetId: u
 export function abandonExhibition(playerName: string, now = Date.now()): Promise<ExhibitionRun | null> {
     return mutateExhibition(playerName, (current) => {
         if (!current || (current.status !== "drafting" && current.status !== "active")) return { run: current, value: current };
-        const run: ExhibitionRun = { ...current, status: "lost", offered: null, opponents: null, updatedAt: now };
+        const run: ExhibitionRun = { ...current, status: "lost", offered: null, updatedAt: now };
         return { run, value: run };
     });
 }
 
 /**
- * The rentals for the round the run is due to fight, in play order. Throws
- * unless that round is the one asked for.
+ * Open the round the run is due to fight: the rentals in play order. Starting a
+ * round closes any trade still open. Throws unless that round is the one asked
+ * for. The stable the round faces is sealed with the battle, not here, so a
+ * second start of the same round cannot change what an earlier fight offers.
  */
-export async function exhibitionTeamForRound(playerName: string, roundId: string): Promise<{ run: ExhibitionRun; team: Pet[] }> {
-    const run = await readExhibition(playerName);
-    if (!run || run.status !== "active") throw new ExhibitionError("Draft your rentals with Orin before the Exhibition bell.");
-    if (FIRST_PACT_EXHIBITION_ROUNDS[run.round]?.id !== roundId) throw new ExhibitionError("That Exhibition round is not next.");
-    const team = run.team.map((id) => run.pool.find((pet) => pet.id === id)).filter((pet): pet is Pet => !!pet);
-    if (team.length !== FIRST_PACT_TEAM_SIZE) throw new ExhibitionError("The Exhibition run is missing a rental. Abandon it and start again.");
-    return { run, team };
-}
-
-/** Seal the stable this round faces. Starting a round closes any trade still open. */
-export function recordExhibitionOpponents(playerName: string, runId: string, opponents: Pet[], now = Date.now()): Promise<void> {
+export function beginExhibitionRound(playerName: string, roundId: string, now = Date.now()): Promise<{ runId: string; team: Pet[] }> {
     return mutateExhibition(playerName, (current) => {
-        if (!current || current.runId !== runId || current.status !== "active") throw new ExhibitionError("The Exhibition run changed. Reopen it with Orin.");
-        return { run: { ...current, opponents, offered: null, updatedAt: now }, value: undefined };
+        if (!current || current.status !== "active") throw new ExhibitionError("Draft your rentals with Orin before the Exhibition bell.");
+        if (FIRST_PACT_EXHIBITION_ROUNDS[current.round]?.id !== roundId) throw new ExhibitionError("That Exhibition round is not next.");
+        const team = current.team.map((id) => current.pool.find((pet) => pet.id === id)).filter((pet): pet is Pet => !!pet);
+        if (team.length !== FIRST_PACT_TEAM_SIZE) throw new ExhibitionError("The Exhibition run is missing a rental. Abandon it and start again.");
+        const run = current.offered ? { ...current, offered: null, updatedAt: now } : current;
+        return { run, value: { runId: current.runId, team } };
     });
 }
 
 /**
- * Settle one Exhibition battle. The lasting summary is written first and is
+ * Settle one Exhibition battle. `opponents` is the stable sealed with this
+ * battle; a win offers it in trade. The lasting summary is written first and is
  * idempotent by proof; the run then advances (or ends) under its own lock. A
  * retried settlement after either write is therefore a no-op for both.
  */
@@ -223,6 +217,7 @@ export async function settleExhibitionBattle(
     roundId: string,
     outcome: "win" | "loss",
     proofId: string,
+    opponents: Pet[],
     now = Date.now(),
 ): Promise<{ progress: FirstPactProgress; advanced: boolean; standingPaid: number; exhibition: ExhibitionView | null }> {
     const safeProof = String(proofId).slice(0, 96);
@@ -246,8 +241,7 @@ export async function settleExhibitionBattle(
             ...run,
             status: !won ? "lost" : finished ? "won" : "active",
             round: reached,
-            offered: won && !finished ? run.opponents : null,
-            opponents: null,
+            offered: won && !finished && opponents.length ? opponents : null,
             battleProofs: [...run.battleProofs, safeProof].slice(-12),
             updatedAt: now,
         };

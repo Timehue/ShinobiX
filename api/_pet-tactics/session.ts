@@ -89,7 +89,14 @@ export function joinArenaSession(session: TacticsSession, name: string, team: Sh
 function finish(session: TacticsSession, winner: TacticsSeat | 'draw', reason: string): void {
     if (isArena(session)) {
         session.arenaResult = winner; session.arenaReason = reason;
-        if (session.arena) session.arena.finished = true;
+        if (session.arena && !session.arena.finished) {
+            // A concession, missed turns or an expired room end the fight
+            // outside the engine. Give the battle its outcome (seat A's view;
+            // seat B's is mirrored) so both screens reach their result panel.
+            session.arena.finished = true;
+            session.arena.outcome = winner === 'a' ? 'win' : 'loss';
+            if (winner === 'draw') session.arena.pvpDraw = true;
+        }
         session.commands = emptySeats();
     } else if (session.battle) { session.battle.result = winner; session.battle.reason = reason; }
     session.phase = 'finished'; session.orders = { a: null, b: null }; session.deadline = 0;

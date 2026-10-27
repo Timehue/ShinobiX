@@ -18,7 +18,7 @@ function freshRun() {
   };
 }
 
-test("Keeper's Path opens in the Play tab, offers boons at a Shrine and seals its duel server-side", async ({ page }) => {
+test("Keeper's Path opens in the Play tab, offers boons at a Shrine and asks the server for its duel", async ({ page }) => {
   const pageErrors: string[] = [];
   page.on("pageerror", (error) => pageErrors.push(error.message));
   const save = uiAuditSave();

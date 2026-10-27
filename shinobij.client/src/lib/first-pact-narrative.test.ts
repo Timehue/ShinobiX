@@ -146,6 +146,7 @@ test("the postgame doors open only after the crossing, and an Unbroken attempt o
     const resume = docket.find(choice => "postgame" in choice && choice.postgame === "unbroken-continue");
     assert.match(resume?.label ?? "", /on Hard: round 3 of 4/);
     assert.ok(!docket.some(choice => "postgame" in choice && choice.postgame === "unbroken"), "one attempt at a time");
+    assert.ok(docket.some(choice => "postgame" in choice && choice.postgame === "unbroken-abandon"), "an attempt can be withdrawn");
 });
 
 test("Orin keeps Vale Stable's entry slate open while the player is short of standing", () => {

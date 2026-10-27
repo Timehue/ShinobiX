@@ -56,7 +56,7 @@ type FirstPactDialogueChoice =
     | { label: string; postgame: FirstPactPostgameChoice };
 
 /** Postgame doors: Orin's Stable Exhibition and the Arbiter's Court Replays. */
-export type FirstPactPostgameChoice = "exhibition" | "replays" | "unbroken" | "unbroken-hard" | "unbroken-continue";
+export type FirstPactPostgameChoice = "exhibition" | "replays" | "unbroken" | "unbroken-hard" | "unbroken-continue" | "unbroken-abandon";
 
 /** The Arbiter's Court Replay offers, once the crossing is closed. */
 function courtReplayChoices(progress: FirstPactProgress): FirstPactDialogueChoice[] {
@@ -64,7 +64,10 @@ function courtReplayChoices(progress: FirstPactProgress): FirstPactDialogueChoic
     const run = progress.replays.run;
     return [
         ...(run
-            ? [{ label: `Continue the Unbroken attempt${run.hard ? " on Hard" : ""}: round ${run.round + 1} of ${FIRST_PACT_UNBROKEN_ROUNDS.length}`, postgame: "unbroken-continue" as const }]
+            ? [
+                { label: `Continue the Unbroken attempt${run.hard ? " on Hard" : ""}: round ${run.round + 1} of ${FIRST_PACT_UNBROKEN_ROUNDS.length}`, postgame: "unbroken-continue" as const },
+                { label: "Withdraw the Unbroken attempt", postgame: "unbroken-abandon" as const },
+            ]
             : [
                 { label: "Begin an Unbroken attempt", postgame: "unbroken" as const },
                 { label: "Begin an Unbroken attempt on Hard", postgame: "unbroken-hard" as const },

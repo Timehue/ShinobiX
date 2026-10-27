@@ -1457,7 +1457,7 @@ const EXHIBITION_ROUNDS = [
     {
         id: "exhibition-7", title: "The Exhibition Final", opponent: "The Gilded Fang", tier: "champion",
         lesson: "The Fang opens with two defenders. Break their protection with your partner pairs before you spend a signature.",
-        defeat: "The Fang's owner bows to the stands. Orin returns your rentals to the stalls and tells you the bell rings again tomorrow.",
+        defeat: "The Fang's owner bows to the stands. Orin returns your rentals to the stalls and tells you a fresh draft is waiting whenever you want it.",
         roster: { roles: ["defender", "defender", "assassin", "sage"], elements: ["Fire", "Earth", "Fire", "Lightning"], growthShareBonus: .22 },
     },
 ] as const;
