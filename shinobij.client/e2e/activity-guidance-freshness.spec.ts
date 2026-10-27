@@ -55,6 +55,49 @@ test('a successful authoritative mutation refreshes once; unchanged autosaves do
     expect(await count(page)).toBe(2);
 });
 
+test('same-account refresh preserves priorities and their height while actions wait for fresh readiness', async ({ page }) => {
+    await settle(page, 0, 'Before collection');
+    const priorities = page.getByRole('region', { name: 'Activity recommendations by time horizon' });
+    const action = page.getByRole('button', { name: 'Visit Clan Hall' });
+    await expect(action).toBeEnabled();
+    const height = await priorities.evaluate(element => element.getBoundingClientRect().height);
+
+    await page.getByRole('button', { name: 'Complete chapter' }).click();
+    await expect(priorities).toHaveAttribute('aria-busy', 'true');
+    await expect(page.getByText('Before collection')).toBeVisible();
+    await expect(action).toBeDisabled();
+    expect(await priorities.evaluate(element => element.getBoundingClientRect().height)).toBe(height);
+    await expect(page.getByTestId('destination')).toHaveText('');
+
+    await expect.poll(() => count(page)).toBe(2);
+    await settle(page, 1, 'After collection');
+    await expect(page.getByText('After collection')).toBeVisible();
+    await expect(priorities).not.toHaveAttribute('aria-busy', 'true');
+    await expect(action).toBeEnabled();
+    await action.click();
+    await expect(page.getByTestId('destination')).toHaveText('clan');
+});
+
+test('a failed same-account refresh replaces retained priorities with a recoverable error', async ({ page }) => {
+    await settle(page, 0, 'Before collection');
+    await expect(page.getByText('Before collection')).toBeVisible();
+    await page.evaluate(() => window.dispatchEvent(new CustomEvent('shinobix:save-version', {
+        detail: { accountName: 'First', version: 2, source: 'mutation' },
+    })));
+    await expect.poll(() => count(page)).toBe(2);
+    await expect(page.getByText('Before collection')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Visit Clan Hall' })).toBeDisabled();
+
+    await settle(page, 1, 'Unavailable refresh', true);
+    await expect(page.getByText('Before collection')).toHaveCount(0);
+    await expect(page.getByText('Current priorities could not be loaded.')).toBeVisible();
+    await page.getByRole('button', { name: 'Retry', exact: true }).click();
+    await expect.poll(() => count(page)).toBe(3);
+    await settle(page, 2, 'Recovered priorities');
+    await expect(page.getByText('Recovered priorities')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Visit Clan Hall' })).toBeEnabled();
+});
+
 test('empty capability projections and pauses keep navigation inert', async ({ page }) => {
     await settle(page, 0, 'Missing gates', false, []);
     await expect(page.getByRole('button', { name: 'Visit Clan Hall' })).toBeDisabled();
