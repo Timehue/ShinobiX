@@ -5,7 +5,9 @@ import { quietRoadCooldowns } from '../e2e-live/helpers/quiet-road';
 test('saved find survives dismissal and refresh; exact choice claims once', async ({page}, testInfo) => {
     const save={...uiAuditSave(),currentSector:40};
     const find={id:'gather-browser-001',sector:33,biome:'volcano',rareTrace:true,at:Date.now()};
-    save.character={...save.character,unspentStats:0,statPoints:0,gatherIntroSeen:true,pendingGatherFinds:[find]};
+    // Reload restores the field, where random road encounters otherwise cover
+    // the saved-find controls. Keep this claim/reload fixture free of combat.
+    save.character={...save.character,unspentStats:0,statPoints:0,gatherIntroSeen:true,pendingGatherFinds:[find],wandererCooldowns:quietRoadCooldowns([40])};
     const runtime=await installUiAuditRuntime(page,save);
     let claims=0;
     await page.route('**/api/world/claim-gather',async route=>{
@@ -45,7 +47,7 @@ test('saved find survives dismissal and refresh; exact choice claims once', asyn
     await expect(page.getByRole('button',{name:'Resume find',exact:true})).toHaveCount(0);
 });
 test('first find uses the VN renderer and skipping leaves an explicit unclaimed choice',async({page},testInfo)=>{
-    const save={...uiAuditSave(),currentSector:40};save.character={...save.character,unspentStats:0,statPoints:0,gatherIntroSeen:false,
+    const save={...uiAuditSave(),currentSector:40};save.character={...save.character,unspentStats:0,statPoints:0,gatherIntroSeen:false,wandererCooldowns:quietRoadCooldowns([40]),
         pendingGatherFinds:[{id:'gather-browser-first',sector:12,biome:'forest',rareTrace:false,at:Date.now()}]};
     const runtime=await installUiAuditRuntime(page,save);
     let claims=0;page.on('request',r=>{if(r.url().includes('/world/claim-gather'))claims++;});

@@ -81,8 +81,11 @@ async function expectLoadedVisibleImages(page: Page): Promise<void> {
 
 test('landing and creator journey render without runtime, image, or responsive failures', async ({ page }) => {
     const runtimeFailures = captureRuntimeFailures(page);
-    await page.goto('/', { waitUntil: 'networkidle' });
+    // Firefox can retain unfinished duplicate image requests after the visible
+    // assets load. Certify the rendered page instead of global network idleness.
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
     await expect(startCreateButton(page)).toBeVisible();
+    await page.evaluate(() => document.fonts.ready);
     await expectNoHorizontalOverflow(page);
     await expectLoadedVisibleImages(page);
 
