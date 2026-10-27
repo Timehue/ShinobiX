@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { Character } from "../types/character";
 import type { TileCard } from "../data/tile-cards";
 import { CardClashDuel } from "../screens/CardClashDuel";
@@ -76,17 +76,46 @@ export function KeeperPath({ character, creatorCards, deck, onVersionedCharacter
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState("");
     const [fighting, setFighting] = useState(false);
+    const headingRef = useRef<HTMLHeadingElement>(null);
+    const mountedRef = useRef(false);
+    const busyRef = useRef(false);
+    const commitRef = useRef(onVersionedCharacter);
+    useEffect(() => { commitRef.current = onVersionedCharacter; }, [onVersionedCharacter]);
+    useEffect(() => {
+        mountedRef.current = true;
+        return () => { mountedRef.current = false; };
+    }, []);
+    useEffect(() => { if (!fighting) headingRef.current?.focus(); }, [fighting]);
 
     const send = useCallback(async (action: string, extra: Record<string, unknown> = {}) => {
+        if (busyRef.current) return null;
+        busyRef.current = true;
         setBusy(true);
         setError("");
-        const reply = await keeperRunRequest(character.name, action, extra);
-        setBusy(false);
-        if (reply.error || !reply.keeperPath) { setError(reply.error ?? "The path could not be reached."); return null; }
-        if (reply.character && reply._saveVersion) onVersionedCharacter?.(reply.character, reply._saveVersion);
-        setRecord(reply.keeperPath);
-        return reply.keeperPath;
-    }, [character.name, onVersionedCharacter]);
+        try {
+            const reply = await keeperRunRequest(character.name, action, extra);
+            if (!mountedRef.current) return null;
+            if (reply.error || !reply.keeperPath) { setError(reply.error ?? "The path could not be reached."); return null; }
+            if (reply.character) {
+                if (!Number.isSafeInteger(reply._saveVersion) || reply._saveVersion! < 1) {
+                    setError("Your updated character could not be confirmed. Refresh the path before continuing.");
+                    return null;
+                }
+                if (commitRef.current?.(reply.character, reply._saveVersion!) === false) {
+                    setError("Your character changed while this action was pending. Refresh the path to load your current progress.");
+                    return null;
+                }
+            }
+            setRecord(reply.keeperPath);
+            return reply.keeperPath;
+        } catch {
+            if (mountedRef.current) setError("The path could not be updated. Refresh the path and try again.");
+            return null;
+        } finally {
+            busyRef.current = false;
+            if (mountedRef.current) setBusy(false);
+        }
+    }, [character.name]);
 
     useEffect(() => {
         const timer = window.setTimeout(() => void send("state"), 0);
@@ -115,10 +144,12 @@ export function KeeperPath({ character, creatorCards, deck, onVersionedCharacter
     return <section className="chronicle-panel" aria-label="Keeper's Path">
         <img src="/chronicle/keeper-path-hero.webp" alt="" width={1536} height={640} decoding="async"
             style={{ width: "100%", height: "auto", aspectRatio: "1536 / 640", objectFit: "cover", borderRadius: 8, display: "block" }} />
-        <h2>Keeper's Path</h2>
+        <h2 ref={headingRef} tabIndex={-1}>Keeper's Path</h2>
         <p>Three acts of Keeper duels with your saved deck. Pick a route through each act: duels, harder Elites that restore Resolve, or Shrines that grant a boon for the rest of the run. Each loss costs one Resolve, and the run ends when the last one is gone.</p>
         <p>A full run pays {KEEPER_PATH_CHRONICLE_POINTS} Chronicle Points once a day. Runs completed: {record?.clears ?? 0} · most duels won in a run: {record?.best ?? 0}.</p>
-        {error ? <div className="chronicle-error" role="alert">{error}</div> : null}
+        {error ? <div className="chronicle-error" role="alert"><p>{error}</p>
+            <button type="button" disabled={busy} onClick={() => void send("state")}>Refresh path</button>
+        </div> : null}
         {live && run ? <>
             <p role="status"><strong>Resolve {run.resolve} / {KEEPER_PATH_RESOLVE}</strong> · duels won {run.wins}
                 {Object.entries(run.boons).filter(([, count]) => count).map(([id, count]) => ` · ${KEEPER_BOONS[id as KeeperBoonId].name}${count! > 1 ? ` x${count}` : ""}`).join("")}</p>

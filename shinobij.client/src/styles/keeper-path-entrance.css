@@ -1,0 +1,165 @@
+.chronicle-panel.keeper-path-entrance {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+  width: 100%;
+  margin-top: 20px;
+  padding: 0;
+  overflow: hidden;
+  border-color: #716043;
+  background: linear-gradient(125deg, #142325, #0b141c 70%);
+}
+.keeper-path-entrance__art {
+  position: relative;
+  min-height: 340px;
+  overflow: hidden;
+  background: #101c25;
+}
+.keeper-path-entrance__art img {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 59% center;
+}
+.keeper-path-entrance__art::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  pointer-events: none;
+  background: linear-gradient(0deg, rgba(5, 13, 20, .8), transparent 40%);
+}
+.keeper-path-entrance__art-label {
+  position: absolute;
+  z-index: 1;
+  bottom: 20px;
+  left: 24px;
+  right: 20px;
+  color: #f3dca7;
+  font: 600 .72rem/1.5 system-ui, sans-serif;
+  letter-spacing: .15em;
+  text-transform: uppercase;
+}
+.keeper-path-entrance__content {
+  min-width: 0;
+  align-self: center;
+  padding: clamp(20px, 3vw, 36px);
+}
+.keeper-path-entrance__content .keeper-path-entrance__eyebrow {
+  margin: 0 0 8px;
+  color: #c9aa71;
+  font-size: .68rem;
+  font-weight: 700;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+}
+.keeper-path-entrance__content h2 {
+  margin: 0;
+  color: #f4ddb0;
+  font: 700 clamp(1.8rem, 3vw, 2.5rem)/1.15 Georgia, serif;
+}
+.keeper-path-entrance__content .keeper-path-entrance__intro {
+  margin: 10px 0;
+  color: #e0e8e9;
+  font-size: .95rem;
+  line-height: 1.5;
+}
+.keeper-path-entrance__content .keeper-path-entrance__description {
+  max-width: 58ch;
+  margin: 0;
+  color: #aebec9;
+  font-size: .85rem;
+  line-height: 1.65;
+}
+.keeper-path-entrance__facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 18px 0 10px;
+  padding: 0;
+  list-style: none;
+}
+.keeper-path-entrance__facts li {
+  padding: 5px 10px;
+  border: 1px solid #405052;
+  border-radius: 5px;
+  background: #16272b;
+  color: #d3e0dd;
+  font-size: .76rem;
+  line-height: 1.5;
+}
+.keeper-path-entrance__facts strong { color: #f3dca7; }
+.keeper-path-entrance__content .keeper-path-entrance__stakes {
+  margin: 0;
+  color: #b5becb;
+  font-size: .75rem;
+  line-height: 1.6;
+}
+.keeper-path-entrance__footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid #36413e;
+}
+.keeper-path-entrance__content .keeper-path-entrance__reward {
+  flex: 1 1 170px;
+  margin: 0;
+  line-height: 1.6;
+}
+.keeper-path-entrance__reward strong {
+  display: block;
+  color: #f1d39b;
+  font-size: .88rem;
+}
+.keeper-path-entrance__reward span {
+  display: block;
+  color: #aebec9;
+  font-size: .72rem;
+}
+.keeper-path-entrance button.keeper-path-entrance__enter {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  min-height: 48px;
+  padding: 12px 18px;
+  border: 1px solid #cead6d;
+  border-radius: 6px;
+  background: linear-gradient(135deg, #ead09b, #c6a15e);
+  color: #171b20;
+  font: 750 .84rem/1.4 system-ui, sans-serif;
+  white-space: normal;
+  cursor: pointer;
+}
+.keeper-path-entrance__enter:focus-visible {
+  outline: 3px solid #7cc8ff;
+  outline-offset: 4px;
+}
+.keeper-path-entrance__enter:disabled { opacity: .5; cursor: not-allowed; }
+@media (hover: hover) {
+  .keeper-path-entrance__enter:hover:not(:disabled) {
+    filter: brightness(1.1);
+  }
+}
+.keeper-path-entrance__content .keeper-path-entrance__note {
+  margin: 12px 0 0;
+  color: #a6b5c1;
+  font-size: .72rem;
+  line-height: 1.6;
+}
+@media (max-width: 760px) {
+  .chronicle-panel.keeper-path-entrance { grid-template-columns: minmax(0, 1fr); }
+  .keeper-path-entrance__art { min-height: 0; aspect-ratio: 2.2 / 1; }
+  .keeper-path-entrance__art img { object-position: center; }
+  .keeper-path-entrance__art-label { bottom: 14px; left: 20px; font-size: .62rem; }
+  .keeper-path-entrance__content { padding: 22px 20px; }
+}
+@media (max-width: 440px) {
+  .keeper-path-entrance__footer { align-items: stretch; gap: 12px; }
+  .keeper-path-entrance__reward,
+  .keeper-path-entrance__enter { flex-basis: 100%; }
+}
