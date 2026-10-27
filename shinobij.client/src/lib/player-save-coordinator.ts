@@ -94,7 +94,13 @@ export function createPlayerSaveCoordinator({
         savePayloadRevisionRef.current = nextSavePayloadRevision(savePayloadRevisionRef.current);
         const mergedCharacter = preserveAcademyCinematicState(preserveNarrativeState(nextCharacter, characterRef.current), characterRef.current);
         const current = latestSaveRef.current;
-        if (current && saveConflictAccountKey(current.name) === accountKey) installAuthoritativeSaveRef({ ...current, revision: savePayloadRevisionRef.current, payload: { ...current.payload, character: mergedCharacter } });
+        if (current && saveConflictAccountKey(current.name) === accountKey) {
+            installAuthoritativeSaveRef({ ...current, revision: savePayloadRevisionRef.current, payload: { ...current.payload, character: mergedCharacter } });
+            // A newer mutation can overtake the boot owner read, which is then
+            // correctly refused. Mirror the accepted character now: a clean
+            // server update needs no autosave to replace a defeated preview.
+            writeSavePreview(nextCharacter.name, { ...latestSaveRef.current!.payload, _saveVersion: decision.latestVersion }, storage);
+        }
         setCharacter(mergedCharacter); return true;
     }
 

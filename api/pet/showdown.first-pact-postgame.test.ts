@@ -102,6 +102,67 @@ test('a win offers one trade from the beaten stable; the trade swaps in place, o
     assert.equal((await pact({ action: 'exhibition-swap', outPetId: 'own-a', inPetId: incoming.id })).status, 409);
 });
 
+test('walking away from an Exhibition round and starting it again costs the run', async () => {
+    await draftRun();
+    const round = FIRST_PACT_EXHIBITION_ROUNDS[0].id;
+    const first = await battle({ action: 'first-pact', encounterId: round });
+    assert.equal(first.status, 200, JSON.stringify(first.body));
+    const again = await battle({ action: 'first-pact', encounterId: round });
+    assert.equal(again.status, 409, 'the abandoned round settled as a loss, so the run is over');
+    assert.equal((await pact({ action: 'state' })).body.exhibition.status, 'lost');
+    assert.equal(await kv.get(`pet:showdown:${PLAYER}:${first.body.state.sessionId}`), null, 'the abandoned fight cannot be finished later');
+});
+
+test('a won round left unclaimed still counts, and offers the stable it faced', async () => {
+    await draftRun();
+    const first = await battle({ action: 'first-pact', encounterId: FIRST_PACT_EXHIBITION_ROUNDS[0].id });
+    const firstId = String(first.body.state.sessionId);
+    const key = `pet:showdown:${PLAYER}:${firstId}`;
+    const session = (await kv.get<ShowdownSession>(key))!;
+    await kv.set(key, { ...session, finished: true, outcome: 'win' }, { ex: 45 * 60 });
+    const next = await battle({ action: 'first-pact', encounterId: FIRST_PACT_EXHIBITION_ROUNDS[1].id });
+    assert.equal(next.status, 200, JSON.stringify(next.body));
+    const progressed = await finish(String(next.body.state.sessionId), 'win');
+    assert.equal(progressed.firstPact.exhibition.round, 2);
+    // The second round's own win replaced the first's offer: the trade is
+    // always the stable that was just beaten.
+    const faced = (await kv.get<ShowdownSession>(`pet:showdown:${PLAYER}:${next.body.state.sessionId}`))!.enemy.map((pet) => pet.id);
+    assert.deepEqual(progressed.firstPact.exhibition.offered.map((pet: { id: string }) => pet.id), faced);
+});
+
+test('an Unbroken fight walked away from ends the attempt; a withdrawn attempt does not haunt the next', async () => {
+    assert.equal((await pact({ action: 'replay-unbroken-start', hard: false })).status, 200);
+    const round = FIRST_PACT_UNBROKEN_ROUNDS[0].id;
+    const settings = { hard: false, unbroken: true };
+    assert.equal((await battle({ action: 'first-pact', encounterId: round, petIds: PET_IDS, replay: settings })).status, 200);
+    const restarted = await battle({ action: 'first-pact', encounterId: round, petIds: PET_IDS, replay: settings });
+    assert.equal(restarted.status, 409, 'the walked-away fight was the loss that ended the attempt');
+    assert.equal((await progress()).replays.run, null);
+
+    assert.equal((await pact({ action: 'replay-unbroken-start', hard: false })).status, 200);
+    assert.equal((await battle({ action: 'first-pact', encounterId: round, petIds: PET_IDS, replay: settings })).status, 200);
+    assert.equal((await pact({ action: 'replay-unbroken-abandon' })).status, 200);
+    assert.equal((await pact({ action: 'replay-unbroken-start', hard: false })).status, 200);
+    assert.deepEqual((await progress()).replays.run, { hard: false, round: 0 }, 'the old fight settled against the old attempt');
+    assert.equal((await battle({ action: 'first-pact', encounterId: round, petIds: PET_IDS, replay: settings })).status, 200);
+});
+
+test('a refused Exhibition action returns the run as it stands', async () => {
+    const run = await draftRun();
+    const refused = await pact({ action: 'exhibition-swap', outPetId: run.team[0].id, inPetId: 'nobody' });
+    assert.equal(refused.status, 409);
+    assert.equal(refused.body.exhibition.runId, run.runId);
+    assert.equal(refused.body.exhibition.status, 'active');
+});
+
+test('a conceded Exhibition round ends the run and returns its view', async () => {
+    await draftRun();
+    const started = await battle({ action: 'first-pact', encounterId: FIRST_PACT_EXHIBITION_ROUNDS[0].id });
+    const conceded = await battle({ action: 'forfeit', sessionId: String(started.body.state.sessionId) });
+    assert.equal(conceded.status, 200, JSON.stringify(conceded.body));
+    assert.equal(conceded.body.firstPact.exhibition.status, 'lost');
+});
+
 test('a loss ends the run, keeps the best streak and pays nothing', async () => {
     await draftRun();
     const first = await battle({ action: 'first-pact', encounterId: FIRST_PACT_EXHIBITION_ROUNDS[0].id });

@@ -75,6 +75,8 @@ export type EnemyTemplate = {
      *  The encounter builder already copies jutsu with a spread, so this is a
      *  type-only widening: no runtime behavior changes for existing templates. */
     jutsu?: EnemyJutsu[];
+    /** Optional run-sealed mastery for future phase summons; never author player mastery here. */
+    jutsuMastery?: Array<{ jutsuId: string; level: number }>;
     /** chakra/stamina pool override (bosses that cast want a bigger pool than the 100 default) */
     maxChakra?: number;
     maxStamina?: number;

@@ -76,6 +76,27 @@ test('a refused shop purchase logs nothing', async () => {
     assert.deepEqual(await txns(player), []);
 });
 
+test('malformed purchase lines do not debit or advance the save, and a replay still returns its original receipt', async () => {
+    const player = 'shopcontract1';
+    await seed(player, { ryo: 5000 });
+    const initial = await kv.get(`save:${player}`);
+    for (const patch of [{ itemId: {} }, { qty: {} }, { qty: 'not-a-number' }, { requestId: 'short' }]) {
+        const refused = await call(purchase, player, { requestId: 'shop-contract-0001', itemId: 'shinobi-vest', qty: 1, ...patch });
+        assert.equal(refused.status, 'requestId' in patch ? 400 : 409);
+        assert.equal(typeof refused.body.error, 'string');
+        assert.deepEqual(await kv.get(`save:${player}`), initial);
+    }
+    const first = await call(purchase, player, { requestId: 'shop-contract-0001', itemId: 'shinobi-vest', qty: '1' });
+    assert.equal(first.status, 200, JSON.stringify(first.body));
+    const replay = await call(purchase, player, { requestId: 'shop-contract-0001', itemId: {}, qty: {} });
+    assert.equal(replay.status, 200, JSON.stringify(replay.body));
+    assert.equal(replay.body.replayed, true);
+    assert.deepEqual(replay.body.purchase, first.body.purchase);
+    assert.equal((replay.body.character as Json).ryo, (first.body.character as Json).ryo);
+    assert.ok(Number(replay.body._saveVersion) >= Number(first.body._saveVersion));
+    assert.equal((await txns(player)).length, 1);
+});
+
 test('a bloodline forge logs the material it debits; resuming the paid entitlement logs nothing', async () => {
     const player = 'forgetelemetry1';
     await seed(player, { boneCharms: 250 });

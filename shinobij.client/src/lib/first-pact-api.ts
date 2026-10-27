@@ -38,7 +38,7 @@ export type FirstPactGrant = {
 
 type FirstPactPostResult =
     | ({ progress: FirstPactProgress; exhibition?: FirstPactExhibitionView | null } & FirstPactGrant)
-    | { error: string; progress?: FirstPactProgress };
+    | { error: string; progress?: FirstPactProgress; exhibition?: FirstPactExhibitionView | null };
 
 function exhibitionOf(value: unknown): FirstPactExhibitionView | null {
     if (!value || typeof value !== "object" || Array.isArray(value)) return null;
@@ -70,6 +70,8 @@ async function firstPactPost(
             return {
                 error: data?.error ?? "The Celestial record did not answer.",
                 ...(data?.progress ? { progress: data.progress } : {}),
+                // A refused Exhibition action carries the run as it stands.
+                ...(data && "exhibition" in data ? { exhibition: exhibitionOf(data.exhibition) } : {}),
             };
         }
         const titles = Array.isArray(data.grantedTitles)

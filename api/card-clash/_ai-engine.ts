@@ -816,6 +816,26 @@ function knownBattleMargin(
   return margin;
 }
 
+/** After a refused attack: every other attack the AI would still take (an
+ *  unused attacker into a known-favorable or unknown target, or straight in on
+ *  an empty field), then the end of the Battle Phase. */
+function battleFallbacks(state: ChronicleMatch, refused: ChronicleActionIntent): ChronicleActionIntent[] {
+  const view = projectMatchForViewer(state, "p2");
+  const targets = state.p1.monsterZones.flatMap((monster, index) => (monster ? [index] : []));
+  const attacks = state.p2.monsterZones.flatMap((monster, attackerZoneIndex): ChronicleActionIntent[] => {
+    if (!monster?.faceUp || monster.position !== "attack" || monster.lastAttackTurn === state.turnNumber) return [];
+    if (targets.length === 0) return [{ action: "attack", attackerZoneIndex, targetZoneIndex: null }];
+    return targets
+      .filter((target) => {
+        const margin = knownBattleMargin(view, attackerZoneIndex, target);
+        return margin === null || margin >= 0;
+      })
+      .map((targetZoneIndex): ChronicleActionIntent => ({ action: "attack", attackerZoneIndex, targetZoneIndex }));
+  });
+  const same = (intent: ChronicleActionIntent) => JSON.stringify(intent) === JSON.stringify(refused);
+  return [...attacks.filter((intent) => !same(intent)), { action: "enter-main-2" }];
+}
+
 function chooseBattleAction(
   state: ChronicleMatch,
   difficulty: ChronicleAiDifficulty,
@@ -957,12 +977,13 @@ export function advanceAi(
     const out = applyAction(state, "p2", intent, now);
     if (!out.ok) {
       // A refused Main Phase 1 choice used to end the turn outright and throw
-      // the Battle Phase away with it; try to fight first.
+      // the Battle Phase away with it; try to fight first. A refused attack
+      // likewise tries the other attacks before the Battle Phase ends.
       const fallbacks: ChronicleActionIntent[] =
         state.phase === "draw" || state.phase === "standby"
           ? [{ action: "advance-phase" }]
           : state.phase === "battle"
-            ? [{ action: "enter-main-2" }]
+            ? battleFallbacks(state, intent)
             : state.phase === "end"
               ? [{ action: "end-turn" }]
               : state.phase === "main1"

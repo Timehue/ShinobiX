@@ -666,6 +666,175 @@ function combatAnimationFamily(frame: PetModelFrame): CombatAnimationFamily {
     return "idle";
 }
 
+/** Elemental silhouette pieces turn the approved animal bases into authored battle
+ * familiars. They use the same hard toon ramp and ink hull as the base model, so the
+ * additions read as part of one anime design instead of glowing VFX glued on top. */
+export function LegacyAnimePetAccents({ config }: { config: PetCombatModelConfig }) {
+    const h = config.targetHeight;
+    const ink = "#160d1c";
+    const orbit = useRef<THREE.Group>(null);
+    const detailOrbit = useRef<THREE.Group>(null);
+
+    useFrame((state) => {
+        const t = state.clock.elapsedTime + (config.visualId.endsWith("-l") ? 1.7 : 0);
+        if (orbit.current) {
+            orbit.current.rotation.y = Math.sin(t * 0.42) * 0.18;
+            orbit.current.position.y = Math.sin(t * 1.18) * h * 0.012;
+        }
+        if (detailOrbit.current) {
+            detailOrbit.current.rotation.y = -Math.sin(t * 0.36) * 0.13;
+            detailOrbit.current.position.y = Math.cos(t * 1.08) * h * 0.01;
+        }
+    });
+    const outlinedOctahedron = (
+        key: string,
+        position: [number, number, number],
+        scale: [number, number, number],
+        color: string,
+        rotation: [number, number, number] = [0, 0, 0],
+        opacity = 1,
+        glow = 0,
+    ) => (
+        <group key={key} position={position} rotation={rotation}>
+            <mesh scale={[scale[0] * 1.14, scale[1] * 1.14, scale[2] * 1.14]}>
+                <octahedronGeometry args={[1, 0]} />
+                <meshBasicMaterial color={ink} side={THREE.BackSide} toneMapped={false} transparent={opacity < 1} opacity={Math.min(1, opacity + 0.16)} />
+            </mesh>
+            <mesh scale={scale} castShadow>
+                <octahedronGeometry args={[1, 0]} />
+                <meshToonMaterial color={color} gradientMap={toonGradient()} transparent={opacity < 1} opacity={opacity} emissive={color} emissiveIntensity={glow} />
+            </mesh>
+        </group>
+    );
+    const outlinedSpike = (
+        key: string,
+        position: [number, number, number],
+        scale: [number, number, number],
+        color: string,
+        rotation: [number, number, number],
+        opacity = 1,
+        glow = 0,
+    ) => (
+        <group key={key} position={position} rotation={rotation}>
+            <mesh scale={[scale[0] * 1.15, scale[1] * 1.1, scale[2] * 1.15]}>
+                <coneGeometry args={[1, 2, 4]} />
+                <meshBasicMaterial color={ink} side={THREE.BackSide} toneMapped={false} transparent={opacity < 1} opacity={Math.min(1, opacity + 0.16)} />
+            </mesh>
+            <mesh scale={scale} castShadow>
+                <coneGeometry args={[1, 2, 4]} />
+                <meshToonMaterial color={color} gradientMap={toonGradient()} transparent={opacity < 1} opacity={opacity} emissive={color} emissiveIntensity={glow} />
+            </mesh>
+        </group>
+    );
+    const outlinedPlate = (
+        key: string,
+        position: [number, number, number],
+        scale: [number, number, number],
+        color: string,
+        rotation: [number, number, number] = [0, 0, 0],
+        opacity = 1,
+        detail = 1,
+        glow = 0,
+    ) => (
+        <group key={key} position={position} rotation={rotation}>
+            <mesh scale={[scale[0] * 1.09, scale[1] * 1.09, scale[2] * 1.28]}>
+                <icosahedronGeometry args={[1, detail]} />
+                <meshBasicMaterial color={ink} side={THREE.BackSide} toneMapped={false} transparent={opacity < 1} opacity={Math.min(1, opacity + 0.14)} />
+            </mesh>
+            <mesh scale={scale} castShadow>
+                <icosahedronGeometry args={[1, detail]} />
+                <meshToonMaterial color={color} gradientMap={toonGradient()} transparent={opacity < 1} opacity={opacity} emissive={color} emissiveIntensity={glow} />
+            </mesh>
+        </group>
+    );
+    const faceEye = (key: string, position: [number, number, number], scale: [number, number, number], color: string, rotation: [number, number, number] = [0, 0, 0]) => (
+        <group key={key} position={position} rotation={rotation}>
+            <mesh scale={[scale[0] * 1.28, scale[1] * 1.36, scale[2] * 1.12]}>
+                <sphereGeometry args={[1, 10, 8]} />
+                <meshBasicMaterial color={ink} toneMapped={false} />
+            </mesh>
+            <mesh position={[0, 0, scale[2] * 0.3]} scale={scale}>
+                <sphereGeometry args={[1, 10, 8]} />
+                <meshBasicMaterial color={color} toneMapped={false} />
+            </mesh>
+        </group>
+    );
+
+    if (config.visualId.startsWith("starter-fire")) {
+        return (
+            // The rig is normalized by its long nose-to-tail axis, so its rendered
+            // height is about 62% of targetHeight. Match that proportion here; using
+            // the longitudinal measure directly produced oversized crystal armor.
+            <group scale={[0.62, 0.62, 1]}>
+                {/* Layered burgundy fur establishes the wolf silhouette. The orange
+                    blaze is repeated from brow to chest to tail like an authored skin. */}
+                {outlinedSpike("fire-ear-l", [-h * 0.13, h * 0.79, h * 0.13], [h * 0.052, h * 0.11, h * 0.046], "#5a1727", [0.08, 0, -0.46])}
+                {outlinedSpike("fire-ear-r", [h * 0.13, h * 0.79, h * 0.13], [h * 0.052, h * 0.11, h * 0.046], "#5a1727", [0.08, 0, 0.46])}
+                {outlinedSpike("fire-brow", [0, h * 0.735, h * 0.335], [h * 0.045, h * 0.09, h * 0.018], "#ff6a32", [0, 0, Math.PI])}
+                {outlinedPlate("fire-mask-l", [-h * 0.055, h * 0.67, h * 0.355], [h * 0.07, h * 0.038, h * 0.016], "#ff6530", [0, 0, -0.16], 1, 0)}
+                {outlinedPlate("fire-mask-r", [h * 0.055, h * 0.67, h * 0.355], [h * 0.07, h * 0.038, h * 0.016], "#ff6530", [0, 0, 0.16], 1, 0)}
+                {faceEye("fire-eye-l", [-h * 0.064, h * 0.715, h * 0.375], [h * 0.029, h * 0.011, h * 0.009], "#ffd65a", [0, 0, 0.08])}
+                {faceEye("fire-eye-r", [h * 0.064, h * 0.715, h * 0.375], [h * 0.029, h * 0.011, h * 0.009], "#ffd65a", [0, 0, -0.08])}
+
+                {outlinedSpike("fire-mane-l-top", [-h * 0.17, h * 0.6, h * 0.045], [h * 0.055, h * 0.125, h * 0.048], "#4a1424", [-0.2, 0.14, -0.82])}
+                {outlinedSpike("fire-mane-r-top", [h * 0.17, h * 0.6, h * 0.045], [h * 0.055, h * 0.125, h * 0.048], "#4a1424", [-0.2, -0.14, 0.82])}
+                {outlinedSpike("fire-mane-l-low", [-h * 0.205, h * 0.49, h * 0.02], [h * 0.05, h * 0.105, h * 0.043], "#6c1c2b", [-0.2, 0.18, -1.02])}
+                {outlinedSpike("fire-mane-r-low", [h * 0.205, h * 0.49, h * 0.02], [h * 0.05, h * 0.105, h * 0.043], "#6c1c2b", [-0.2, -0.18, 1.02])}
+                {outlinedSpike("fire-chest-top", [0, h * 0.53, h * 0.285], [h * 0.075, h * 0.095, h * 0.026], "#ff542c", [0.08, 0, Math.PI])}
+                {outlinedSpike("fire-chest-mid", [0, h * 0.455, h * 0.275], [h * 0.065, h * 0.09, h * 0.025], "#ed3927", [0.08, 0, Math.PI])}
+                {outlinedSpike("fire-chest-tip", [0, h * 0.39, h * 0.255], [h * 0.047, h * 0.07, h * 0.023], "#ff8b35", [0.08, 0, Math.PI])}
+
+                {outlinedSpike("fire-tail-dark", [-h * 0.045, h * 0.47, -h * 0.42], [h * 0.075, h * 0.17, h * 0.062], "#591528", [-0.72, 0.15, -0.24])}
+                {outlinedSpike("fire-tail-orange", [h * 0.06, h * 0.43, -h * 0.48], [h * 0.052, h * 0.13, h * 0.047], "#ff542c", [-0.9, -0.25, 0.28])}
+                {outlinedSpike("fire-tail-gold", [-h * 0.075, h * 0.4, -h * 0.51], [h * 0.038, h * 0.095, h * 0.036], "#ffab32", [-1.0, 0.1, -0.35])}
+
+                {/* The shards are a slow, asymmetrical familiar accessory. Keeping
+                    them off the joints preserves the rig and avoids armor-like blocks. */}
+                <group ref={orbit}>
+                    {outlinedOctahedron("fire-shard-l", [-h * 0.31, h * 0.62, -h * 0.03], [h * 0.038, h * 0.09, h * 0.035], "#ff3d2e", [0.12, 0.22, -0.24], 1, 0.12)}
+                    {outlinedOctahedron("fire-shard-r", [h * 0.32, h * 0.51, h * 0.02], [h * 0.045, h * 0.1, h * 0.038], "#ff7138", [-0.14, -0.18, 0.26], 1, 0.1)}
+                    {outlinedOctahedron("fire-shard-back", [h * 0.19, h * 0.69, -h * 0.25], [h * 0.028, h * 0.067, h * 0.027], "#d52b32", [0.2, 0.35, 0.18], 1, 0.08)}
+                </group>
+            </group>
+        );
+    }
+
+    if (config.visualId.startsWith("starter-water")) {
+        return (
+            <group>
+                {/* A large dark visor, pale face and belly, and simple eyes create
+                    the friendly sea-spirit read before any combat VFX turns on. */}
+                {outlinedPlate("water-visor", [0, h * 0.715, h * 0.245], [h * 0.205, h * 0.105, h * 0.105], "#063b54", [-0.08, 0, 0], 1, 2)}
+                {outlinedPlate("water-visor-shine", [-h * 0.055, h * 0.76, h * 0.34], [h * 0.075, h * 0.035, h * 0.012], "#d9fbff", [-0.08, 0, -0.18], 0.92, 2, 0.03)}
+                {outlinedPlate("water-face", [0, h * 0.64, h * 0.345], [h * 0.15, h * 0.085, h * 0.025], "#d9f4f1", [0.08, 0, 0], 1, 2)}
+                {faceEye("water-eye-l", [-h * 0.072, h * 0.666, h * 0.382], [h * 0.027, h * 0.033, h * 0.012], "#081827")}
+                {faceEye("water-eye-r", [h * 0.072, h * 0.666, h * 0.382], [h * 0.027, h * 0.033, h * 0.012], "#081827")}
+                {outlinedPlate("water-belly", [0, h * 0.435, h * 0.255], [h * 0.13, h * 0.205, h * 0.024], "#bfecea", [0.1, 0, 0], 1, 2)}
+
+                {outlinedSpike("water-cheek-fin-l", [-h * 0.17, h * 0.59, h * 0.2], [h * 0.047, h * 0.125, h * 0.035], "#37b8cd", [0.05, 0.12, -1.08], 0.95)}
+                {outlinedSpike("water-cheek-fin-r", [h * 0.17, h * 0.59, h * 0.2], [h * 0.047, h * 0.125, h * 0.035], "#37b8cd", [0.05, -0.12, 1.08], 0.95)}
+                {outlinedSpike("water-side-fin-l", [-h * 0.205, h * 0.43, h * 0.02], [h * 0.05, h * 0.145, h * 0.035], "#72dce2", [0.08, 0.18, -1.06], 0.92)}
+                {outlinedSpike("water-side-fin-r", [h * 0.205, h * 0.43, h * 0.02], [h * 0.05, h * 0.145, h * 0.035], "#72dce2", [0.08, -0.18, 1.06], 0.92)}
+                {outlinedSpike("water-tail-fin-l", [-h * 0.075, h * 0.3, -h * 0.46], [h * 0.045, h * 0.13, h * 0.034], "#3cc7d5", [-0.82, 0.25, -0.55], 0.94)}
+                {outlinedSpike("water-tail-fin-r", [h * 0.075, h * 0.3, -h * 0.46], [h * 0.045, h * 0.13, h * 0.034], "#82e5e0", [-0.82, -0.25, 0.55], 0.94)}
+
+                {/* Translucent fin shards hover in two loose arcs, mirroring the
+                    concept sheet while staying visibly separate from attack effects. */}
+                <group ref={orbit}>
+                    {outlinedSpike("water-shard-l-high", [-h * 0.3, h * 0.65, h * 0.02], [h * 0.035, h * 0.105, h * 0.021], "#77e8ef", [0.12, 0.2, -0.72], 0.72, 0.04)}
+                    {outlinedSpike("water-shard-r-high", [h * 0.3, h * 0.62, h * 0.01], [h * 0.035, h * 0.105, h * 0.021], "#a9f2ef", [0.12, -0.2, 0.72], 0.72, 0.04)}
+                </group>
+                <group ref={detailOrbit}>
+                    {outlinedOctahedron("water-shard-l-low", [-h * 0.27, h * 0.42, -h * 0.18], [h * 0.028, h * 0.07, h * 0.024], "#35bdd8", [0.2, 0.3, -0.2], 0.76, 0.04)}
+                    {outlinedOctahedron("water-shard-r-low", [h * 0.26, h * 0.38, -h * 0.22], [h * 0.025, h * 0.064, h * 0.022], "#8de9e9", [-0.16, -0.24, 0.22], 0.76, 0.04)}
+                </group>
+            </group>
+        );
+    }
+
+    return null;
+}
+
 function LoadedPetModel3D({ config, frame, element, showIdentity = true, surfaceTreatment, signature, quality: qualityOverride, silhouette = "inverted-hull" }: {
     config: PetCombatModelConfig;
     frame: MutableRefObject<PetModelFrame>;

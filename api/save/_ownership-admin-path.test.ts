@@ -38,7 +38,7 @@ test('the ?signal=1 admin path requires admin auth and an allowed target', () =>
     // risk is locking/version consistency, which is P0-4 scope.
     assert.match(
         src,
-        /if \(isAdminSave\) \{\s*if \(!adminSaveTargetAllowed\(name, isFullAdmin\(req\), isAdmin\(req\)\)\) \{\s*return res\.status\(401\)/s,
+        /if \(isAdminSave\) \{\s*if \(!adminSaveTargetAllowed\(name, isFullAdmin\(req\), isAdmin\(req\)\)\) \{\s*return reply\(401,/s,
         'an admin-flagged save must 401 without admin auth',
     );
 });
@@ -60,6 +60,6 @@ test('the ?signal=1 path strips forged gear before writing a content slot', () =
 
 test('stale-save guards remain on the ordinary path (426 versionless, 409 stale)', () => {
     assert.match(src, /isVersionlessPlayerSave\(/, 'versionless player saves must be rejected');
-    assert.match(src, /status\(426\)/, 'the versionless rejection must stay a 426');
-    assert.match(src, /status\(409\)/, 'the stale-version rejection must stay a 409');
+    assert.match(src, /reply\(426,/, 'the versionless rejection must stay a 426');
+    assert.match(src, /reply\(409,/, 'the stale-version rejection must stay a 409');
 });

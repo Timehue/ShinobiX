@@ -8,7 +8,7 @@ async function setup(page: Page, query = '', failFirstTransfer = false) {
         const current = JSON.parse((await page.getByTestId('transfer-state').textContent())!);
         if (route.request().url().endsWith('/shop/purchase')) {
             purchases.push(body);
-            return route.fulfill({ json: { character: { ...current, fateShards: current.fateShards - 250, inventory: [...current.inventory, 'village-transfer-scroll'] }, _saveVersion: 2 } });
+            return route.fulfill({ json: { ok: true, replayed: false, purchase: { id: body.itemId, qty: 1, currency: 'fateShards', unitCost: 250, totalCost: 250 }, character: { ...current, fateShards: current.fateShards - 250, inventory: [...current.inventory, 'village-transfer-scroll'] }, _saveVersion: 2 } });
         }
         transfers.push(body);
         if (failFirstTransfer && transfers.length === 1) return route.fulfill({ status: 503, json: { error: 'Temporary connection failure. Retry transfer.' } });
@@ -112,7 +112,7 @@ test('an uncertain purchase keeps its request across reload and can recover with
         requests.push(route.request().postDataJSON());
         if (requests.length === 1) return route.fulfill({ status: 503, json: { error: 'Purchase reply interrupted.' } });
         const current = JSON.parse((await page.getByTestId('transfer-state').textContent())!);
-        return route.fulfill({ json: { character: { ...current, inventory: ['village-transfer-scroll'] }, _saveVersion: 2 } });
+        return route.fulfill({ json: { ok: true, replayed: true, purchase: { id: 'village-transfer-scroll', qty: 1, currency: 'fateShards', unitCost: 250, totalCost: 250 }, character: { ...current, inventory: ['village-transfer-scroll'] }, _saveVersion: 2 } });
     });
     await page.getByRole('button', { name: 'Buy scroll · 250 Fate Shards' }).click();
     await expect(page.getByRole('alert')).toContainText('Purchase reply interrupted');

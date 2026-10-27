@@ -121,6 +121,31 @@ test('a non-throttling save failure retains the existing stay-or-leave guard', a
     await expect(page.locator('.app-shell')).toHaveAttribute('data-screen', 'village');
 });
 
+test('a malformed save acknowledgement keeps the session until a valid retry succeeds', async ({ page }) => {
+    const runtime = await installUiAuditRuntime(page, completedContractSave());
+    await expectUiAuditBoot(page, runtime, 'village');
+    const token = await page.evaluate(() => localStorage.getItem('shinobix:activeTokenPersist'));
+    const savedVersion = runtime.currentVersion();
+    let malformed = true;
+    const bases: number[] = [];
+    await page.route('**/api/save/auditninja', async route => {
+        if (route.request().method() !== 'POST') return route.fallback();
+        bases.push(route.request().postDataJSON()._baseSaveVersion);
+        return malformed ? route.fulfill({ json: { _saveVersion: 999 } }) : route.fallback();
+    });
+    await logout(page);
+    const dialog = page.getByRole('alertdialog', { name: 'Save Failed' });
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole('button', { name: 'Stay in game' }).click();
+    expect(await page.evaluate(() => localStorage.getItem('shinobix:activeTokenPersist'))).toBe(token);
+    expect(runtime.currentVersion()).toBe(savedVersion);
+    malformed = false;
+    await logout(page);
+    await expect(page.getByTestId('start-create')).toBeVisible();
+    expect(bases.at(-1)).toBe(savedVersion);
+    expect(runtime.acknowledgedVersion()).toBeGreaterThan(savedVersion);
+});
+
 test('leaving after a throttled save still requires the explicit Log out anyway choice', async ({ page }) => {
     const runtime = await installUiAuditRuntime(page, completedContractSave());
     await expectUiAuditBoot(page, runtime, 'village');

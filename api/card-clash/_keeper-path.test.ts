@@ -52,20 +52,23 @@ test("a node must be reachable, a shrine offers three boons, and a boon is kept 
     assert.equal(chooseKeeperNode(record, second.id).changed, false, "row two is not open from the start");
     const opening = keeperReachableNodes(run);
     assert.deepEqual(opening.map((node) => node.row), opening.map(() => 0));
-    record = chooseKeeperNode(record, opening[0].id).record;
-    assert.equal(record.run!.current, opening[0].id);
+    // Row two always holds a Shrine; take an opening fight that leads to it.
+    const isShrine = (id: string) => run.nodes.find((node) => node.id === id)?.kind === "shrine";
+    const first = opening.find((node) => node.links.some(isShrine));
+    assert.ok(first, "some opening fight leads to row two's Shrine");
+    record = chooseKeeperNode(record, first.id).record;
+    assert.equal(record.run!.current, first.id);
     assert.deepEqual(keeperReachableNodes(record.run!), [], "nothing else opens until the duel is won");
-    record = settleKeeperFight(record, "run1", opening[0].id, "win", "p1", DAY).record;
+    record = settleKeeperFight(record, "run1", first.id, "win", "p1", DAY).record;
     const shrine = keeperReachableNodes(record.run!).find((node) => node.kind === "shrine");
-    if (shrine) {
-        record = chooseKeeperNode(record, shrine.id).record;
-        const offer = record.run!.boonOffer!;
-        assert.equal(offer.length, 3);
-        assert.equal(chooseKeeperBoon(record, "not-a-boon").changed, false);
-        record = chooseKeeperBoon(record, offer[0]).record;
-        assert.equal(record.run!.boons[offer[0]], 1);
-        assert.equal(record.run!.boonOffer, null);
-    }
+    assert.ok(shrine);
+    record = chooseKeeperNode(record, shrine.id).record;
+    const offer = record.run!.boonOffer!;
+    assert.equal(offer.length, 3);
+    assert.equal(chooseKeeperBoon(record, "not-a-boon").changed, false);
+    record = chooseKeeperBoon(record, offer[0]).record;
+    assert.equal(record.run!.boons[offer[0]], 1);
+    assert.equal(record.run!.boonOffer, null);
 });
 
 test("a loss costs Resolve and keeps the node; losing all Resolve ends the run; a draw changes nothing", () => {

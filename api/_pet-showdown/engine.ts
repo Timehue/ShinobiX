@@ -248,7 +248,8 @@ export interface ShowdownSession {
     /** Sealed at start: a live player-vs-player session. Turns the endpoint's
      *  45s command timer on (SHOWDOWN_PVP_TURN_SECONDS) — the engine itself
      *  never reads a clock, so the deadline bookkeeping lives endpoint-side
-     *  (`turnDeadlineAt` below). False for every AI entry. */
+     *  (`turnDeadlineAt` below). True for Pet Arena rooms
+     *  (api/_pet-tactics/arena-showdown.ts); false for every AI entry. */
     pvp: boolean;
     /** Sealed at start on live fights from 2026-10-26: the role partner bonds
      *  (SHOWDOWN_PARTNER_BONDS) apply, and the AI also values ally element
@@ -1340,8 +1341,8 @@ export function createShowdownSession(input: {
      *  burns the items this commits (showdownConsumableSpends); practice,
      *  Hollow Gate, wanderer and the other unpaid entries pass false. */
     rewardEligible: boolean;
-    /** Live player-vs-player. Arms the endpoint's 45s command timer; every
-     *  caller today is an AI entry and omits it. */
+    /** Live player-vs-player. Arms the endpoint's 45s command timer. Pet Arena
+     *  rooms pass true; AI entries omit it. */
     pvp?: boolean;
     damageRules?: ShowdownSession['damageRules'];
     rulesetVersion?: ShowdownSession['rulesetVersion'];

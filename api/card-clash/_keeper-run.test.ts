@@ -5,7 +5,7 @@ import { test, before } from "node:test";
 import assert from "node:assert/strict";
 import { isDeepStrictEqual } from "node:util";
 import { CHRONICLE_FIXED_FALLBACK_DECK } from "../../shared/chronicle-duel.js";
-import { KEEPER_PATH_RESOLVE, keeperReachableNodes, type KeeperPathRecord } from "../../shared/keeper-path-contract.js";
+import { KEEPER_PATH_ACTS, KEEPER_PATH_CHRONICLE_POINTS, KEEPER_PATH_RESOLVE, keeperReachableNodes, type KeeperPathRecord } from "../../shared/keeper-path-contract.js";
 
 process.env.ADMIN_PASSWORD = "keeper-test-admin";
 process.env.SUPABASE_URL ??= "http://localhost:1";
@@ -101,6 +101,69 @@ test("a win clears the node once; a retry of the same duel changes nothing", asy
     assert.equal(record().run!.wins, 1);
     await call(aiMove, { matchId, action: "state" });
     assert.equal(record().run!.wins, 1);
+});
+
+test("beating the last Keeper completes the run: Pathbreaker once, Chronicle Points once a day", async () => {
+    seed();
+    for (let pass = 0; pass < 2; pass++) {
+        if (pass) {
+            const save = store.get(`save:${NAME}`) as { character: { keeperPath: KeeperPathRecord } };
+            save.character.keeperPath = { ...save.character.keeperPath, run: null };
+            store.set(`save:${NAME}`, save);
+        }
+        assert.equal((await call(keeperRun, { playerName: NAME, action: "start" })).statusCode, 200);
+        // Walk straight to the final boss; the map itself is covered in _keeper-path.test.ts.
+        const save = store.get(`save:${NAME}`) as { character: { keeperPath: KeeperPathRecord } };
+        save.character.keeperPath.run!.current = `a${KEEPER_PATH_ACTS - 1}boss`;
+        store.set(`save:${NAME}`, save);
+        const started = await call(aiStart, { playerName: NAME, deck: [], keeperRun: true });
+        assert.equal(started.statusCode, 200, JSON.stringify(started.body));
+        forceTerminal(String(started.body.matchId), "p1");
+        const settled = await call(aiMove, { matchId: started.body.matchId, action: "state" });
+        assert.equal(settled.body.reward.keeperPath.finished, true);
+        assert.equal(settled.body.reward.keeperPath.chroniclePoints, pass ? 0 : KEEPER_PATH_CHRONICLE_POINTS, "paid once per UTC day");
+        assert.equal(settled.body.reward.keeperPath.title, pass ? undefined : "Pathbreaker");
+    }
+    const character = (store.get(`save:${NAME}`) as { character: { chroniclePoints: number; serverTitles: string[]; keeperPath: KeeperPathRecord } }).character;
+    assert.equal(character.keeperPath.clears, 2);
+    assert.equal(character.chroniclePoints, KEEPER_PATH_CHRONICLE_POINTS);
+    assert.deepEqual(character.serverTitles.filter((title) => title === "Pathbreaker"), ["Pathbreaker"]);
+});
+
+test("starting again on a node whose duel is still live hands that duel back, at no cost", async () => {
+    seed();
+    await call(keeperRun, { playerName: NAME, action: "start" });
+    const { matchId } = await startFight();
+    const again = await call(aiStart, { playerName: NAME, deck: [], keeperRun: true });
+    assert.equal(again.statusCode, 200, JSON.stringify(again.body));
+    assert.equal(again.body.matchId, matchId, "a lost match id is not a walk-away");
+    assert.equal(again.body.resumed, true);
+    assert.equal(record().run!.resolve, KEEPER_PATH_RESOLVE);
+});
+
+test("a duel left to expire still costs Resolve when the next one is dealt", async () => {
+    seed();
+    await call(keeperRun, { playerName: NAME, action: "start" });
+    const { matchId } = await startFight();
+    store.delete(`cc-ai:${matchId}`); // the 2-hour session lease ran out
+    const again = await call(aiStart, { playerName: NAME, deck: [], keeperRun: true });
+    assert.equal(again.statusCode, 200, JSON.stringify(again.body));
+    assert.equal(record().run!.resolve, KEEPER_PATH_RESOLVE - 1, "the expired duel was charged to the run");
+});
+
+test("a forfeit that spends the last Resolve ends the run instead of dealing a dead duel", async () => {
+    seed();
+    await call(keeperRun, { playerName: NAME, action: "start" });
+    const first = await startFight();
+    forceTerminal(first.matchId, "p2");
+    await call(aiMove, { matchId: first.matchId, action: "state" });
+    assert.equal(record().run!.resolve, 1);
+    const second = await call(aiStart, { playerName: NAME, deck: [], keeperRun: true });
+    forceTerminal(String(second.body.matchId), "p2"); // lost, and never claimed
+    const refused = await call(aiStart, { playerName: NAME, deck: [], keeperRun: true });
+    assert.equal(refused.statusCode, 409);
+    assert.match(String(refused.body.error), /run has ended/);
+    assert.equal(record().run!.status, "lost");
 });
 
 test("a loss and a forfeit each cost one Resolve, and the second ends the run", async () => {

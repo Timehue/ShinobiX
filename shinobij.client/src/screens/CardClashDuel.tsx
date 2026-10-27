@@ -144,20 +144,28 @@ export function CardClashDuel({
         // busy=true with the encounter unfinishable.
         void (async () => {
             try {
-                const resumeMatchId = echoes?.resumeMatchId ?? keeperRun?.resumeMatchId;
-                const result = hollowGateCardMatchId
+                let resumeMatchId = echoes?.resumeMatchId ?? keeperRun?.resumeMatchId;
+                const startFresh = () => startChronicleAi(
+                    character.name,
+                    deck,
+                    ENCOUNTER_AI_DIFFICULTY[tileDifficulty],
+                    !echoes && !keeperRun,
+                    dungeonRunToken,
+                    echoes?.encounterId,
+                    !!keeperRun,
+                );
+                let result = hollowGateCardMatchId
                     ? await chronicleAiAction(hollowGateCardMatchId, { action: "state" })
                     : resumeMatchId
                     ? await chronicleAiAction(resumeMatchId, { action: "state" })
-                    : await startChronicleAi(
-                        character.name,
-                        deck,
-                        ENCOUNTER_AI_DIFFICULTY[tileDifficulty],
-                        !echoes && !keeperRun,
-                        dungeonRunToken,
-                        echoes?.encounterId,
-                        !!keeperRun,
-                    );
+                    : await startFresh();
+                // A Keeper's Path pointer can outlive its duel (expired, or
+                // settled in another tab). The server seals the node anyway,
+                // so a dead resume simply deals the node's duel afresh.
+                if (keeperRun?.resumeMatchId && (!result.ok || !result.session)) {
+                    resumeMatchId = undefined;
+                    result = await startFresh();
+                }
                 if (!result.ok || !result.session) { setError(result.error ?? "The card battle could not be prepared."); return; }
                 const liveMatchId = hollowGateCardMatchId ?? resumeMatchId ?? result.matchId ?? result.session.matchId;
                 setMatchId(liveMatchId);

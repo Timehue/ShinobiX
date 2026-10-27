@@ -136,6 +136,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         res.setHeader('Cache-Control', 'no-store');
         return res.status(200).json({ session: responseSession });
     } catch (err) {
+        if (isTowerSessionContention(err)) {
+            res.setHeader('Retry-After', String(TOWER_SESSION_RETRY_AFTER_SECONDS));
+            return res.status(503).json(towerSessionBusyErrorBody());
+        }
         console.error('[towers/state]', err);
         return res.status(500).json({ error: 'Internal server error.' });
     }
