@@ -1,5 +1,14 @@
 # Battle Towers research and implementation audit — 2026-10-24
 
+<!-- current-live-status:start -->
+Current status (2026-10-27): the earned-player v5 release has passed live
+four-client checkpoints at levels30/40/70/100 and a repeat finale on the third
+route. The save-ownership follow-up is also deployed and live-verified.
+The [current balance owner](battle-towers-squad-balance.md) and
+[production evidence](battle-towers-live-certification-2026-10-27.json) supersede
+the older fixture/release boundary statements retained below.
+<!-- current-live-status:end -->
+
 > October 26 supersession: the upgraded progression-gear-v4 calibration and reinforcement/lease fixes are now owned by [the current balance specification](battle-towers-squad-balance.md) and [its numeric artifact](battle-towers-squad-balance-results.json). The prepared-catalog-v2 figures below are historical lower-power evidence, not the normal level-70 baseline. Elite remains demanding for upgraded teams.
 
 Status (updated October 26): local candidate verified; production storage recovered;
