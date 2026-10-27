@@ -42,7 +42,7 @@ for (const from of ['healer', 'vanguard', 'petTamer']) {
             expect(body.requestId).toBeTruthy();
             purchases++;
             saved = { ...saved, fateShards: saved.fateShards - 200, inventory: ['profession-change-approval'] };
-            await route.fulfill({ json: { character: saved, _saveVersion: 2 } });
+            await route.fulfill({ json: { ok: true, replayed: false, purchase: { id: body.itemId, qty: 1, currency: 'fateShards', unitCost: 200, totalCost: 200 }, character: saved, _saveVersion: 2 } });
         });
         const to = from === 'healer' ? 'petTamer' : 'healer';
         await page.route('**/api/profession/choose', async route => {
@@ -81,18 +81,20 @@ for (const from of ['healer', 'vanguard', 'petTamer']) {
     });
 }
 
-test('an uncertain purchase reuses its request ID after reload', async ({ page }) => {
+for (const failure of ['connection', 'malformed success'] as const) test(`a purchase with ${failure} reuses its request ID after reload`, async ({ page }) => {
     await page.goto(fixture);
     const original = JSON.parse((await page.getByTestId('profession-state').textContent())!);
     const ids: string[] = [];
     await page.route('**/api/shop/purchase', async route => {
         ids.push(route.request().postDataJSON().requestId);
-        if (ids.length === 1) return route.abort('failed');
-        return route.fulfill({ json: { character: { ...original, fateShards: 300, inventory: ['profession-change-approval'] }, _saveVersion: 2 } });
+        if (ids.length === 1) return failure === 'connection' ? route.abort('failed')
+            : route.fulfill({ json: { character: { ...original, fateShards: 0 }, _saveVersion: 999 } });
+        return route.fulfill({ json: { ok: true, replayed: true, purchase: { id: 'profession-change-approval', qty: 1, currency: 'fateShards', unitCost: 200, totalCost: 200 }, character: { ...original, fateShards: 300, inventory: ['profession-change-approval'] }, _saveVersion: 2 } });
     });
     const scroll = page.getByRole('region', { name: 'Profession Change Scroll' });
     await scroll.getByRole('button', { name: /Buy scroll/ }).click();
     await expect(scroll.getByRole('alert')).toBeVisible();
+    expect(JSON.parse((await page.getByTestId('profession-state').textContent())!)).toEqual(original);
     await page.reload();
     await scroll.getByRole('button', { name: 'Retry scroll purchase' }).click();
     await expect(page.getByRole('dialog', { name: 'Choose your new profession' })).toBeVisible();
@@ -115,7 +117,7 @@ test('a paid purchase closes its popup even when a newer save was adopted first'
     await page.route('**/api/shop/purchase', async route => {
         purchases++;
         await replyHeld;
-        await route.fulfill({ json: { ok: true, character: paid, _saveVersion: 2 } });
+        await route.fulfill({ json: { ok: true, replayed: false, purchase: { id: 'tool-golden-pickaxe', qty: 1, currency: 'fateShards', unitCost: 50, totalCost: 50 }, character: paid, _saveVersion: 2 } });
     });
     await page.getByRole('button', { name: /Golden Pickaxe/ }).click();
     const popup = page.getByRole('dialog', { name: 'Golden Pickaxe item details' });

@@ -4,6 +4,8 @@ process.env.SESSION_SECRET = 'bank-handler-test-secret-32-bytes-long';
 
 import { after, before, beforeEach, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import { bankTransferResponseContract } from '../../shared/bank-contract.js';
+import { apiErrorContract } from '../../shared/api-contract.js';
 
 /*
  * /api/bank/transfer — F16, driven through the mounted handler.
@@ -49,6 +51,8 @@ async function post(body: Json) {
         headers: { 'content-type': 'application/json', 'x-player-name': PLAYER, 'x-player-token': token, 'x-forwarded-for': ip },
         socket: { remoteAddress: ip },
     } as never, res);
+    if (out.statusCode === 200) bankTransferResponseContract.parse(out.body);
+    else apiErrorContract.parse(out.body);
     return out;
 }
 
@@ -77,6 +81,26 @@ after(async () => {
 });
 
 describe('bank transfer — operation identity', { concurrency: false }, () => {
+    it('malformed financial payloads cannot move money or advance the save version', async () => {
+        const before = await stored();
+        for (const amount of ['100', 0, -1, 0.5, 10_000_001, null, [], {}]) {
+            assert.equal((await post({ action: 'deposit', amount })).statusCode, 400);
+        }
+        assert.equal((await post({ action: 'mint', amount: 1 })).statusCode, 400);
+        assert.deepEqual(await stored(), before);
+    });
+
+    it('a replay returns the current version and character after another operation', async () => {
+        await post({ action: 'deposit', amount: 300, requestId: REQUEST_ID });
+        await post({ action: 'deposit', amount: 200, requestId: `${REQUEST_ID}-next` });
+        const current = await stored();
+        const retry = await post({ action: 'deposit', amount: 300, requestId: REQUEST_ID });
+        assert.equal(retry.body?.ryo, 700, 'the receipt describes the original move');
+        assert.equal((retry.body?.character as Json).ryo, 500, 'the snapshot describes current money');
+        assert.equal(retry.body?._saveVersion, current.version);
+        assert.deepEqual(await stored(), current);
+    });
+
     it('a same-id retry returns the previous operation; the money moves once', async () => {
         const first = await post({ action: 'deposit', amount: 300, requestId: REQUEST_ID });
         assert.equal(first.statusCode, 200, JSON.stringify(first.body));

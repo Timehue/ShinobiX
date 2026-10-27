@@ -11,9 +11,7 @@
  * monolith and re-enable React Fast Refresh on this screen.
  */
 
-// Relative-time display reads Date.now() in render by design; verbatim-moved from App.tsx (rule disabled file-wide there).
-/* eslint-disable react-hooks/purity */
-import { useState, useEffect, useMemo, type FormEvent } from "react";
+import { useState, useEffect, useMemo, useRef, type FormEvent } from "react";
 import "../styles/profile-skin.css";
 import type { PlayerRecord, ServerPlayerSummary } from "../types/character";
 import { addFriend, follow, removeFriend, subscribeFollowing, subscribeFriends, unfollow } from "../lib/friends";
@@ -55,6 +53,7 @@ export function UserHub({
     const [friendName, setFriendName] = useState("");
     const [blockName, setBlockName] = useState("");
     const [listBusy, setListBusy] = useState(false);
+    const followInFlight = useRef(false);
     const [listNotice, setListNotice] = useState<{ tone: 'success' | 'error'; text: string } | null>(null);
 
     useEffect(() => subscribeFollowing(currentName, setFollowing), [currentName]);
@@ -75,9 +74,20 @@ export function UserHub({
     const isFollowed = (name: string) => following.some(f => f.toLowerCase() === name.toLowerCase());
     const isOnList = (list: string[], name: string) => list.some(entry => entry.toLowerCase() === name.toLowerCase());
 
-    function toggleFollow(name: string) {
-        if (isFollowed(name)) void unfollow(currentName, name);
-        else void follow(currentName, name);
+    async function toggleFollow(name: string) {
+        if (followInFlight.current) return;
+        followInFlight.current = true;
+        setListBusy(true);
+        setListNotice(null);
+        try {
+            if (isFollowed(name)) await unfollow(currentName, name);
+            else await follow(currentName, name);
+        } catch (cause) {
+            setListNotice({ tone: 'error', text: cause instanceof Error ? cause.message : 'Could not update Following. Try again.' });
+        } finally {
+            followInFlight.current = false;
+            setListBusy(false);
+        }
     }
 
     function selectTab(next: UserHubTab) {
@@ -210,7 +220,7 @@ export function UserHub({
     }
 
     const q = search.trim().toLowerCase();
-    const searched = q ? candidates.filter(p => (p.accountName || p.name).toLowerCase().includes(q)) : candidates;
+    const searched = q ? candidates.filter(p => p.name.toLowerCase().includes(q) || p.accountName?.toLowerCase().includes(q)) : candidates;
     const filtered = selectedList ? searched.filter(p => isOnList(selectedList, p.name)) : searched;
 
     // Split into online + offline so we can render section headers.
@@ -280,9 +290,9 @@ export function UserHub({
                             {listBusy ? 'Saving…' : tab === 'friends' ? 'Add friend' : 'Block player'}
                         </button>
                     </div>
-                    {listNotice && <p className={`user-hub-list-notice ${listNotice.tone}`} role="status">{listNotice.text}</p>}
                 </form>
             )}
+            {listNotice && <p className={`user-hub-list-notice ${listNotice.tone}`} role="status">{listNotice.text}</p>}
 
             {filtered.length === 0 ? (
                 <p className="hint">{
@@ -301,7 +311,7 @@ export function UserHub({
                                 <span className="user-hub-section-count">{online.length}</span>
                             </div>
                             <div className="user-hub-list">
-                                {online.map(p => renderRow(p, sharedImages, timeAgo, onSelect, tab, isFollowed(p.name), toggleFollow, listBusy, deleteFriend, setPlayerBlocked))}
+                                {online.map(p => <UserHubRow key={p.name} p={p} sharedImages={sharedImages} timeAgo={timeAgo} onSelect={onSelect} tab={tab} isFollowed={isFollowed(p.name)} onToggleFollow={toggleFollow} listBusy={listBusy} onRemoveFriend={deleteFriend} onUnblock={setPlayerBlocked} />)}
                             </div>
                         </>
                     )}
@@ -313,7 +323,7 @@ export function UserHub({
                                 <span className="user-hub-section-count">{offline.length}</span>
                             </div>
                             <div className="user-hub-list">
-                                {offline.map(p => renderRow(p, sharedImages, timeAgo, onSelect, tab, isFollowed(p.name), toggleFollow, listBusy, deleteFriend, setPlayerBlocked))}
+                                {offline.map(p => <UserHubRow key={p.name} p={p} sharedImages={sharedImages} timeAgo={timeAgo} onSelect={onSelect} tab={tab} isFollowed={isFollowed(p.name)} onToggleFollow={toggleFollow} listBusy={listBusy} onRemoveFriend={deleteFriend} onUnblock={setPlayerBlocked} />)}
                             </div>
                         </>
                     )}
@@ -325,18 +335,18 @@ export function UserHub({
 
 // Row renderer extracted so the online/offline sections share the same
 // markup without duplication.
-function renderRow(
-    p: HubPlayer,
-    sharedImages: Record<string, string>,
-    timeAgo: (ts: number) => string,
-    onSelect: (name: string) => void,
-    tab: UserHubTab,
-    isFollowed: boolean,
-    onToggleFollow: (name: string) => void,
-    listBusy: boolean,
-    onRemoveFriend: (name: string) => Promise<void>,
-    onUnblock: (name: string, value: boolean) => Promise<void>,
-) {
+function UserHubRow({ p, sharedImages, timeAgo, onSelect, tab, isFollowed, onToggleFollow, listBusy, onRemoveFriend, onUnblock }: {
+    p: HubPlayer;
+    sharedImages: Record<string, string>;
+    timeAgo: (ts: number) => string;
+    onSelect: (name: string) => void;
+    tab: UserHubTab;
+    isFollowed: boolean;
+    onToggleFollow: (name: string) => void;
+    listBusy: boolean;
+    onRemoveFriend: (name: string) => Promise<void>;
+    onUnblock: (name: string, value: boolean) => Promise<void>;
+}) {
     const sharedAvatar = sharedImages['avatar:' + p.name.toLowerCase()];
     const avatar = sharedAvatar || p.avatar || "";
     return (
@@ -346,7 +356,7 @@ function renderRow(
             tabIndex={0}
             className={`user-hub-row${p.online ? " online" : ""}`}
             onClick={() => onSelect(p.name)}
-            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelect(p.name); } }}
+            onKeyDown={(e) => { if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); onSelect(p.name); } }}
         >
             <div className="user-hub-avatar">
                 {avatar
@@ -388,6 +398,7 @@ function renderRow(
                     className={`user-hub-follow-star${isFollowed ? " following" : ""}`}
                     aria-label={isFollowed ? "Unfollow" : "Follow"}
                     title={isFollowed ? "Unfollow" : "Follow"}
+                    disabled={listBusy}
                     onClick={(e) => { e.stopPropagation(); onToggleFollow(p.name); }}
                 >{isFollowed ? "★" : "☆"}</button>
             )}

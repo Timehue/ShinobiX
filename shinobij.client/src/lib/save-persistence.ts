@@ -9,6 +9,8 @@ import {
 } from "./save-conflict";
 import { acceptVersionedSnapshot } from "./versioned-snapshot";
 import { adoptSaveVersion } from "./save-version";
+import { readSaveAcknowledgement, readPlayerSaveSnapshot, readSaveError } from "./save-api";
+import type { PlayerSaveAcknowledgement } from '../../../shared/save-contract';
 
 export type SaveSnapshot<TPayload> = {
     name: string;
@@ -110,10 +112,6 @@ export type UnresolvedSavePost = Readonly<{
 }>;
 
 type MutableRef<T> = { current: T };
-
-function validAcknowledgementVersion(value: unknown): value is number {
-    return Number.isSafeInteger(value) && Number(value) > 0;
-}
 
 type CurrencyAuthorityConflict = Readonly<{ authoritativeRyo: number }>;
 
@@ -284,7 +282,7 @@ export function createSavePersistence<TPayload extends Record<string, unknown>>(
                         signal: requestSignal(),
                     });
                     if (!response.ok || !params.isCurrentSession(accountKey, epoch)) return false;
-                    snapshot = await response.json() as TPayload & { _saveVersion?: number };
+                    snapshot = await readPlayerSaveSnapshot<TPayload>(await response.json(), accountName);
                     if (!params.isCurrentSession(accountKey, epoch)) return false;
                     // A version adopted while this GET was in flight (a mutation
                     // response, or the server's push after it settles a travel
@@ -380,7 +378,7 @@ export function createSavePersistence<TPayload extends Record<string, unknown>>(
                 if (!params.isCurrentSession(accountKey, epoch)) return;
                 if (response.status === 409) {
                     authorityGeneration += 1;
-                    const currencyAuthority = currencyAuthorityConflict(await response.json().catch(() => null));
+                    const currencyAuthority = currencyAuthorityConflict(await readSaveError(await response.json().catch(() => null)));
                     try {
                         if (!currencyAuthority) params.captureConflict(snapshot.name, body);
                         const current = params.currentSnapshot();
@@ -395,7 +393,7 @@ export function createSavePersistence<TPayload extends Record<string, unknown>>(
                     return;
                 }
                 if (response.status === 429) {
-                    const retryAfterMs = validRetryAfterMs((await response.json().catch(() => null) as { retryAfterMs?: unknown } | null)?.retryAfterMs);
+                    const retryAfterMs = validRetryAfterMs((await readSaveError(await response.json().catch(() => null)))?.retryAfterMs);
                     // A short hinted 429 (the save window from another tab, or a
                     // travel or reward write briefly holding the save lock) says when
                     // to come back, so it is not a failing save: keep the state dirty
@@ -424,14 +422,12 @@ export function createSavePersistence<TPayload extends Record<string, unknown>>(
                     if (params.failureCount.current >= SAVE_FAILURE_BANNER_THRESHOLD) params.setBlocked(true);
                     return;
                 }
-                const acknowledgement = await response.json().catch((error: unknown) => {
+                const acknowledgement = await readSaveAcknowledgement(await response.json().catch((error: unknown) => {
                     if (signal.aborted) throw error;
                     return null;
-                }) as { _saveVersion?: number; persisted?: boolean; reason?: string; ryo?: number; fateShards?: number } | null;
+                }));
                 noteSaveAccepted(accountKey, acknowledgement);
                 if (!params.isCurrentSession(accountKey, epoch)) return;
-                if (acknowledgement?.persisted === false) throw new Error(`Save deferred by the server (${acknowledgement.reason ?? "locked"}).`);
-                if (!validAcknowledgementVersion(acknowledgement?._saveVersion)) throw new Error("Save acknowledgement did not include a valid authoritative version.");
                 params.latestVersion.current = adoptSaveVersion(params.latestVersion.current, acknowledgement?._saveVersion);
                 clearUnresolvedPost(pending);
                 if (params.latestVersion.current === acknowledgement._saveVersion) params.onAcknowledgedSnapshot?.(snapshot);
@@ -485,7 +481,7 @@ export function createSavePersistence<TPayload extends Record<string, unknown>>(
         }
         if (response.status === 409) {
             authorityGeneration += 1;
-            const currencyAuthority = currencyAuthorityConflict(await response.json().catch(() => null));
+            const currencyAuthority = currencyAuthorityConflict(await readSaveError(await response.json().catch(() => null)));
             try {
                 if (!currencyAuthority) params.captureConflict(save.name, body);
                 if (!save.echoVersion) throw new Error("The target save changed before this update could be applied.");
@@ -503,42 +499,39 @@ export function createSavePersistence<TPayload extends Record<string, unknown>>(
             } finally { authorityGeneration += 1; }
         }
         if (response.status === 429) {
-            const rejection = await response.json().catch(() => null) as { retryAfterMs?: unknown } | null;
+            const rejection = await readSaveError(await response.json().catch(() => null));
             const error = new SaveRateLimitError(rejection?.retryAfterMs);
             noteSaveThrottled(accountKey, error.retryAfterMs);
             throw error;
         }
         if (response.status === 422) {
-            const rejection = await response.json().catch(() => null) as { error?: unknown } | null;
+            const rejection = await readSaveError(await response.json().catch(() => null));
             throw new Error(typeof rejection?.error === "string" ? rejection.error : `Server returned ${response.status}`);
         }
         if (!response.ok) throw new Error(`Server returned ${response.status}`);
         if (save.echoVersion && !params.isCurrentSession(accountKey, epoch)) {
             throw new Error("The active save account changed before this write completed.");
         }
-        const acknowledgement = await response.json().catch((error: unknown) => {
+        const raw: unknown = await response.json().catch((error: unknown) => {
             if (signal.aborted) throw error;
             return null;
-        }) as {
-            _saveVersion?: number;
-            persisted?: boolean;
-            reason?: string;
-            ryo?: number;
-            fateShards?: number;
-            savedBloodlineIds?: string[];
-            savedBloodlineRanks?: Record<string, string>;
-            equippedBloodlineId?: string | null;
-        } | null;
+        });
+        // Shared clan records and admin writes keep their legacy empty/versionless replies.
+        // Ordinary player writes require an explicit durable acknowledgement.
+        let acknowledgement: (Partial<PlayerSaveAcknowledgement> & { persisted?: boolean }) | null;
+        try {
+            acknowledgement = save.echoVersion ? await readSaveAcknowledgement(raw) : raw as typeof acknowledgement;
+            if (acknowledgement?.persisted === false) throw new Error('Save deferred by the server. Your draft is still protected.');
+        } catch (error) {
+            if (params.isCurrentSession(accountKey, epoch)) params.dirty.current = true;
+            throw error;
+        }
         noteSaveAccepted(accountKey, acknowledgement);
         if (save.echoVersion && !params.isCurrentSession(accountKey, epoch)) {
             throw new Error("The active save account changed before this write completed.");
         }
-        if (acknowledgement?.persisted === false) {
-            params.dirty.current = true;
-            throw new Error(`Save deferred by the server (${acknowledgement.reason ?? "locked"})`);
-        }
         if (!save.echoVersion) { clearUnresolvedPost(pending); return acknowledgement; }
-        if (!validAcknowledgementVersion(acknowledgement?._saveVersion)) throw new Error("Save acknowledgement did not include a valid authoritative version.");
+        if (!acknowledgement) throw new Error("Save acknowledgement could not be confirmed.");
         clearUnresolvedPost(pending);
         params.latestVersion.current = adoptSaveVersion(params.latestVersion.current, acknowledgement?._saveVersion);
         if (params.latestVersion.current === acknowledgement._saveVersion) params.onAcknowledgedSnapshot?.(save);
