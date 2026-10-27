@@ -30,6 +30,13 @@ import { randomBytes } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { freePort } from './lib/free-port.mjs';
+import { createSoakName, setupFailureDiagnostic } from './lib/soak-fixtures.mjs';
+
+// Prefer the exact built server rules used by CI; Node 24 can also load this
+// standalone, erasable-TypeScript module when running the source fallback.
+const builtModeration = new URL('../dist/api/_text-moderation.js', import.meta.url);
+const moderation = await import(existsSync(builtModeration)
+    ? builtModeration.href : new URL('../api/_text-moderation.ts', import.meta.url).href);
 
 const argv = process.argv.slice(2);
 const numArg = (name, fallback) => {
@@ -149,25 +156,35 @@ function syntheticIp(index) {
 }
 
 async function provisionPlayer(index) {
-    const name = `soak${randomBytes(3).toString('hex')}${index}`;
-    // Spread players across sectors. Presence lookups are sector-scoped
-    // (onlineStore.listSector), so parking every virtual player in ONE sector
-    // measures a worst-case hub crush rather than normal play. Use --sectors=1
-    // deliberately to measure that hub case.
-    const sector = SECTORS <= 1 ? 12 : 1 + (index % SECTORS);
-    const password = `Soak-${randomBytes(6).toString('hex')}A1!`;
-    const ip = syntheticIp(index);
-    for (let attempt = 0; attempt < 6; attempt += 1) {
-        const reg = await api('/api/player-auth', { method: 'POST', body: { action: 'register', name, password }, ip });
-        if (reg.status === 200 && reg.body.token) {
-            const created = await api(`/api/save/${name}`, {
-                method: 'POST', token: reg.body.token, ip,
-                body: { character: character(name), _baseSaveVersion: 0 },
-            });
-            if (created.status !== 200) { await sleep(400); continue; }
-            return { name, token: reg.body.token, ip, sector, version: Number(created.body._saveVersion ?? 0) };
+    let phase = 'name-generation';
+    let attempt = 0;
+    try {
+        const name = createSoakName(index, moderation);
+        // Presence lookups are sector-scoped; --sectors=1 measures hub contention.
+        const sector = SECTORS <= 1 ? 12 : 1 + (index % SECTORS);
+        const password = `Soak-${randomBytes(6).toString('hex')}A1!`;
+        const ip = syntheticIp(index);
+        for (attempt = 0; attempt < 6; attempt += 1) {
+            phase = 'register';
+            const reg = await api('/api/player-auth', { method: 'POST', body: { action: 'register', name, password }, ip });
+            if (reg.status === 200 && reg.body.token) {
+                phase = 'initial-save';
+                const created = await api(`/api/save/${name}`, {
+                    method: 'POST', token: reg.body.token, ip,
+                    body: { character: character(name), _baseSaveVersion: 0 },
+                });
+                if (created.status !== 200) {
+                    console.warn(setupFailureDiagnostic({ player: index, phase, attempt: attempt + 1, status: created.status, reason: 'rejected' }));
+                    await sleep(400);
+                    continue;
+                }
+                return { name, token: reg.body.token, ip, sector, version: Number(created.body._saveVersion ?? 0) };
+            }
+            console.warn(setupFailureDiagnostic({ player: index, phase, attempt: attempt + 1, status: reg.status, reason: reg.status === 200 ? 'missing-token' : 'rejected' }));
+            await sleep(300 + attempt * 300 + Math.random() * 200);
         }
-        await sleep(300 + attempt * 300 + Math.random() * 200);
+    } catch {
+        console.warn(setupFailureDiagnostic({ player: index, phase, attempt: attempt + 1, status: null, reason: 'exception' }));
     }
     return null;
 }
