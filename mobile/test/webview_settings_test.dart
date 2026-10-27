@@ -139,12 +139,13 @@ const _expectedSettings = <String, String>{
 
 const _expectedGameWebView = <String, String>{
   'key': '_webViewKey',
-  'initialUrlRequest': 'URLRequest(url: WebUri.uri(launchUri))',
+  'initialUrlRequest': 'URLRequest(url: WebUri.uri(_recoveryUri ?? launchUri))',
   'initialSettings': '_settings',
   'onWebViewCreated': '_onWebViewCreated',
   'shouldOverrideUrlLoading': '_onNavigation',
   'onCreateWindow': '_onCreateWindow',
   'onLoadStop': '_onLoadStop',
+  'onUpdateVisitedHistory': '_onUpdateVisitedHistory',
   'onReceivedError': '_onReceivedError',
   'onRenderProcessGone': '_onRenderProcessGone',
   'onPermissionRequest': '_onPermissionRequest',
@@ -363,14 +364,27 @@ void main() {
     // ...so the WebView must see those insets as zero. WebView 144+ forwards them
     // to the page as env(safe-area-inset-*), and the game padded for them a
     // second time: an empty bar-high band under the bottom menu and above the HUD.
-    final activity = _read('android/app/src/main/kotlin/com/shinobijourney/app/MainActivity.kt');
-    expect(activity, contains('setOnHierarchyChangeListener(ShellInsetsGuard)'));
-    expect(activity, contains('WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()'));
+    final activity = _read(
+      'android/app/src/main/kotlin/com/shinobijourney/app/MainActivity.kt',
+    );
+    expect(
+      activity,
+      contains('setOnHierarchyChangeListener(ShellInsetsGuard)'),
+    );
+    expect(
+      activity,
+      contains(
+        'WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()',
+      ),
+    );
     expect(activity, contains('.setInsets(handledByShell, Insets.NONE)'));
     expect(activity, contains('.setDisplayCutout(null)'));
     // Flutter's keyboard-animation listener owns the FlutterView's own insets
     // listener; replacing it would break the keyboard animation.
-    expect(activity, isNot(contains('setOnApplyWindowInsetsListener(flutterView')));
+    expect(
+      activity,
+      isNot(contains('setOnApplyWindowInsetsListener(flutterView')),
+    );
   });
 
   test('the manifest asks only for required internet, vibration, and Play Billing permissions', () {
