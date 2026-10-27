@@ -1855,42 +1855,16 @@ export default function App() {
                 noteServerTime(data.serverNow); // the beat is our reference for the clock that mints every deadline
                 // Admin reset this account — wipe local state and reload from server
                 if (data.forceReload) {
-                    const accountName = heartbeatAccountKey;
-                    // Admin accounts never respond to force-reload signals — admin writes
-                    // to player keys, not their own, so a signal on "admin1" should not
-                    // disrupt the admin session. Just ack and continue.
-                    if (adminLoggedIn) {
-                        if (!heartbeatIsCurrent()) return;
-                        await fetch(`/api/save/${encodeURIComponent(accountName)}?ack=1`, { method: "POST", signal: AbortSignal.timeout(12000) });
-                        return;
-                    }
-                    const saveRes = await fetch(`/api/save/${encodeURIComponent(accountName)}`, { signal: AbortSignal.timeout(12000) });
-                    if (!heartbeatIsCurrent()) return;
-                    if (saveRes.ok) {
-                        const snap = await saveRes.json() as ReturnType<typeof buildPlayerSavePayload>;
-                        if (!heartbeatIsCurrent()) return;
-                        const unresolved = savePersistenceRef.current?.getUnresolvedPost();
-                        if (unresolved?.accountKey === heartbeatAccountKey && unresolved.sessionEpoch === heartbeatSessionEpoch) captureSaveConflictDraft(unresolved.accountName, unresolved.body);
-                        else if (charDirtyRef.current && latestSaveRef.current) captureSaveConflictDraft(latestSaveRef.current.name, { ...latestSaveRef.current.payload, _baseSaveVersion: latestSaveVersionRef.current });
-                        // Apply full snapshot so all admin-given changes (pets, currencies,
-                        // items, etc.) are reflected across the entire player state.
-                        applyServerSnapshot(snap);
-                        if (!heartbeatIsCurrent()) return;
-                        await fetch(`/api/save/${encodeURIComponent(accountName)}?ack=1`, { method: "POST", signal: AbortSignal.timeout(12000) });
-                    } else {
-                        // Save was deleted (account reset) — also clear localStorage so the
-                        // stale level-100 snapshot can't be reloaded on the next login.
-                        if (!heartbeatIsCurrent()) return;
-                        const ack = fetch(`/api/save/${encodeURIComponent(accountName)}?ack=1`, { method: "POST", signal: AbortSignal.timeout(12000) });
-                        const lsKey = accountKey(accountName);
-                        if (lsKey) {
-                            const accounts = loadPlayerAccounts();
-                            delete accounts[lsKey];
-                            savePlayerAccounts(accounts);
-                        }
-                        unwindToLoginForm();
-                        await ack;
-                    }
+                    const { reloadSignaledSave } = await import('./lib/forced-save-reload');
+                    await reloadSignaledSave<ReturnType<typeof buildPlayerSavePayload>>({
+                        accountName: heartbeatAccountKey, admin: adminLoggedIn, isCurrent: heartbeatIsCurrent,
+                        protectDraft: () => {
+                            const unresolved = savePersistenceRef.current?.getUnresolvedPost();
+                            if (unresolved?.accountKey === heartbeatAccountKey && unresolved.sessionEpoch === heartbeatSessionEpoch) captureSaveConflictDraft(unresolved.accountName, unresolved.body);
+                            else if (charDirtyRef.current && latestSaveRef.current) captureSaveConflictDraft(latestSaveRef.current.name, { ...latestSaveRef.current.payload, _baseSaveVersion: latestSaveVersionRef.current });
+                        },
+                        applySnapshot: applyServerSnapshot, unwindToLogin: unwindToLoginForm,
+                    });
                     return;
                 }
                 // Live sector-mates → the presence store (external store) so the ~1s

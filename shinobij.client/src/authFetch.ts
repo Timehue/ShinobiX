@@ -373,6 +373,10 @@ export async function validatedSaveVersionEventDetail(
         const { bankInterestResponseContract } = await import('../../shared/bank-contract');
         if (!bankInterestResponseContract.safeParse(data).success) return null;
     }
+    if (source === "full-save") {
+        const { playerSaveAcknowledgementContract } = await import('../../shared/save-contract');
+        if (!playerSaveAcknowledgementContract.safeParse(data).success) return null;
+    }
     return buildSaveVersionEventDetail(data, accountName, source, request);
 }
 

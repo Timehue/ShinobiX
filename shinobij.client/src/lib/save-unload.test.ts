@@ -93,7 +93,7 @@ describe("save unload protection", () => {
             isCurrentSession: () => true,
             request: (async (_input, init) => {
                 sent = String(init?.body);
-                return new Response(JSON.stringify({ persisted: true, _saveVersion: 9 }), { status: 200 });
+                return new Response(JSON.stringify({ ok: true, persisted: true, _saveVersion: 9 }), { status: 200 });
             }) as typeof fetch,
         });
         assert.equal((captures[0] as { character: { level: number } }).character.level, 12);
