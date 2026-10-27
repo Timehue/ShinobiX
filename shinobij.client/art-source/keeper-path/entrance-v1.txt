@@ -1,0 +1,6 @@
+Generated with the built-in image_gen tool on 2026-10-27.
+Final runtime asset: public/chronicle/keeper-path-entrance-v1.webp
+Converted to WebP at 1400px width, quality 85.
+
+Final prompt:
+Use case: stylized-concept. Asset type: dedicated wide environment artwork for Keeper's Path, a single-player shinobi fantasy card-dueling RPG mode. Create a cinematic panoramic painted illustration, wide 3:2 or wider landscape composition: an ancient mountain stairway divides into branching stone paths leading through three distant shrine gates in a misty moonlit forest, with a solitary hooded masked Keeper standing at the nearest gate, small in the scene, holding a fan of glowing amber cards. Dark ink navy and muted jade architecture, antique gold light from stone lanterns and faint glowing scroll talismans. Rich painterly anime-inspired fantasy, weathered stone, layered atmospheric depth, inviting but ominous pilgrimage mood. Compose the strongest path and keeper in the center-right, scenic forest across the full image, suitable for a cropped wide 2.2:1 website card image. No text, no letters, no logos, no UI, no border, no watermark. Original artwork.
