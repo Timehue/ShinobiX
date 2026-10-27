@@ -4,7 +4,7 @@ import { SAVE_VERSION_EVENT, type SaveVersionEventDetail } from '../authFetch';
 import { captureProductEvent } from './analytics';
 import { activitySpineRequestPath } from './activity-spine-request';
 
-type Result = { key: string; spine: ActivitySpine | null; status: 'loading' | 'ready' | 'offline' | 'error' };
+type Result = { key: string; player: string; spine: ActivitySpine | null; status: 'loading' | 'ready' | 'offline' | 'error' };
 
 export function useActivitySpine(player: string, focus: string | undefined, source: string, capabilities: string, retry: number) {
     const [revision, setRevision] = useState(0);
@@ -43,19 +43,29 @@ export function useActivitySpine(player: string, focus: string | undefined, sour
                 .then(data => {
                     if (controller.signal.aborted) return;
                     if (!data.spine) throw new Error('Missing activity spine');
-                    setResult({ key, spine: data.spine, status: 'ready' });
+                    setResult({ key, player, spine: data.spine, status: 'ready' });
                     captureProductEvent('activity_recommendation_viewed', { screenId: 'daily-briefing', horizon: 'all', focus: data.spine.resolvedFocus });
                 })
                 .catch((error: unknown) => {
                     if (controller.signal.aborted) return;
-                    setResult({ key, spine: null, status: navigator.onLine ? 'error' : 'offline' });
+                    setResult({ key, player, spine: null, status: navigator.onLine ? 'error' : 'offline' });
                     if (import.meta.env.DEV) console.warn('[activity-spine]', error);
                 });
         }, 150);
         return () => { clearTimeout(timer); controller.abort(); };
     }, [player, focus, key]);
 
-    // A different account/source never gets a single render of old readiness,
-    // even before effect cleanup or when a fetch ignores AbortSignal.
-    return result?.key === key ? result : { key, spine: null, status: 'loading' as const };
+    if (result?.key === key) return { ...result, stale: false };
+    // A different account never gets a single render of old readiness, even
+    // before effect cleanup or when a fetch ignores AbortSignal.
+    //
+    // The SAME account does: claiming the daily reward (or any save) changes
+    // `source`, and swapping the whole priorities block for a one-line
+    // "Checking…" placeholder collapses and re-grows the briefing, which reads
+    // as the modal reloading. Keep the last good spine on screen while the
+    // refetch runs, flagged `stale` so callers can refuse to act on it.
+    if (result?.status === 'ready' && result.spine && result.player === player) {
+        return { ...result, key, stale: true };
+    }
+    return { key, player, spine: null, status: 'loading' as const, stale: false };
 }
