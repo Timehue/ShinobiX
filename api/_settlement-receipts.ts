@@ -1,3 +1,6 @@
+import { parseSettlementRequestId } from '../shared/settlement-request-id.js';
+export { parseSettlementRequestId } from '../shared/settlement-request-id.js';
+
 export const SERVER_SETTLEMENT_RECEIPTS_FIELD = 'serverSettlementReceipts';
 export const SERVER_SETTLEMENT_RECEIPT_LIMIT = 50;
 
@@ -13,12 +16,6 @@ export type SettlementReceiptInspection =
     | { status: 'replay'; receipt: ServerSettlementReceipt; receipts: ServerSettlementReceipt[] }
     | { status: 'conflict'; receipts: ServerSettlementReceipt[] }
     | { status: 'invalid'; receipts: ServerSettlementReceipt[] };
-
-export function parseSettlementRequestId(raw: unknown): string | null {
-    if (typeof raw !== 'string') return null;
-    const value = raw.trim();
-    return value.length >= 16 && value.length <= 80 && /^[A-Za-z0-9_-]+$/.test(value) ? value : null;
-}
 
 function parseReceipt(raw: unknown): ServerSettlementReceipt | null {
     if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;

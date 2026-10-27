@@ -24,6 +24,7 @@ import { CentralDestinationHeader } from "./CentralDestinationHeader";
 import type { Character, VersionedCharacterCommit } from "../types/character";
 import type { GameItem, EquipmentSlot } from "../types/combat";
 import { makeId } from "../lib/utils";
+import { purchaseShopItem } from "../lib/shop-purchase-api";
 import { requireServerSettlement } from "../lib/server-settlement-gate";
 import { AMBIGUOUS_ACTION_MESSAGE } from "../lib/ambiguous-action";
 import { Modal } from "./ui/Modal";
@@ -252,11 +253,7 @@ function ShopBase({
         purchaseBusyRef.current = true;
         setPurchaseBusy(true);
         try {
-            const response = await fetch('/api/shop/purchase', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ playerName: character.name, itemId: item.id, qty: n, requestId: makeId() }),
-            });
-            const result = await response.json().catch(() => null) as { error?: string; character?: Character; _saveVersion?: number } | null;
+            const { response, result } = await purchaseShopItem({ playerName: character.name, itemId: item.id, qty: n, requestId: makeId() });
             if (!response.ok || !result?.character) return alert(result?.error || AMBIGUOUS_ACTION_MESSAGE);
             // The server has settled this purchase. A request it settled later (an
             // achievement sync, a settle pushed over the socket) can have its newer

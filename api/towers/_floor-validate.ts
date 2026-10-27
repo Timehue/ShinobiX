@@ -44,6 +44,12 @@ export function validateFloor(floor: TowerFloor): string[] {
     if (floor.balanceFor != null && (!Number.isInteger(floor.balanceFor) || floor.balanceFor < 2 || floor.balanceFor > 4)) {
         errs.push(`${where}: balanceFor must be an integer in [2,4]`);
     }
+    if (floor.squadBalance != null && floor.squadBalance !== 'four-player-v1') {
+        errs.push(`${where}: unknown squad balance profile`);
+    }
+    if (floor.recommendedLevel != null && (!Number.isInteger(floor.recommendedLevel) || floor.recommendedLevel < 30 || floor.recommendedLevel > 100)) {
+        errs.push(`${where}: recommendedLevel must be an integer in [30,100]`);
+    }
     if (floor.chapter != null && (!Number.isInteger(floor.chapter) || floor.chapter < 1 || floor.chapter > 99)) {
         errs.push(`${where}: chapter must be an integer in [1,99]`);
     }

@@ -6,7 +6,7 @@ const source = readFileSync(new URL("./BattleTowersLobby.tsx", import.meta.url),
 
 describe("Tower floor cache schema", () => {
     it("versions the DTO cache for the authored campaign, reinforcements, and adaptive arenas", () => {
-        assert.match(source, /const FLOOR_CACHE_KEY = "tower-floors:v5"/);
+        assert.match(source, /const FLOOR_CACHE_KEY = "tower-floors:v6"/);
         assert.doesNotMatch(source, /const FLOOR_CACHE_KEY = "tower-floors";/);
     });
 

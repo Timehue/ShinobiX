@@ -63,7 +63,9 @@ function describe(invitation: TowerPartyInvitationView): string {
 }
 
 /** In flight guard: the heartbeat beats every second and must never stack fetches. */
-let validating = false;
+const validating = new Set<string>();
+const latestInvites = new Map<string, readonly string[]>();
+const nextBatchAt = new Map<string, number>();
 
 /**
  * Called from the heartbeat handler with whatever `towerPartyInvites` the beat
@@ -75,24 +77,30 @@ export async function noteTowerPartyInvites(
     deps: {
         fetchParty?: typeof fetchTowerParty;
         toast?: (message: string) => void;
+        isCurrent?: () => boolean;
+        now?: () => number;
     } = {},
 ): Promise<void> {
     if (!playerName) return;
+    const account = playerName.toLowerCase();
+    const live = [...new Set((ids ?? []).filter((id) => typeof id === "string" && !!id))];
+    latestInvites.set(account, live);
 
     // The toast is the ONLY signal an invited player gets, so firing it into a
     // hidden tab would lose it outright — the receipt would be written, nothing
     // would ever be seen, and we would be back to the bug this fixes. Hold
     // instead: the heartbeat keeps beating while hidden (deliberately — see
     // lib/heartbeat-cadence), so the invitation is announced on return.
-    if (typeof document !== "undefined" && document.hidden) return;
+    const canAnnounce = () => (deps.isCurrent?.() ?? true) && (typeof document === "undefined" || !document.hidden);
+    if (!canAnnounce()) return;
 
-    const live = (ids ?? []).filter((id) => typeof id === "string" && !!id);
     const seen = readSeen(playerName);
 
     // Prune ids that are no longer offered, so a re-invitation to the same party
     // toasts again rather than being silently swallowed by a stale receipt.
     const pruned = seen.filter((id) => live.includes(id));
     if (!live.length) {
+        nextBatchAt.delete(account);
         if (pruned.length !== seen.length) writeSeen(playerName, pruned);
         return;
     }
@@ -102,31 +110,42 @@ export async function noteTowerPartyInvites(
         if (pruned.length !== seen.length) writeSeen(playerName, pruned);
         return;
     }
-    if (validating) return;
+    if (validating.has(account)) return;
+    const now = deps.now ?? Date.now;
+    if (now() < (nextBatchAt.get(account) ?? 0)) return;
 
-    validating = true;
+    validating.add(account);
     try {
         const fetchParty = deps.fetchParty ?? fetchTowerParty;
         const toast = deps.toast ?? ((message: string) => gameToast(message, { kind: "info" }));
         const envelope = await fetchParty(playerName);
+        if (!canAnnounce()) return;
         const invitations = envelope?.invitations ?? [];
 
         // Only ids the SERVER still vouches for. An index entry whose party has
         // expired is dropped here and recorded as seen, so it cannot re-trigger
         // this fetch on the next beat.
-        const confirmed = invitations.filter((invitation) => unseen.includes(invitation.partyId));
-        for (const invitation of confirmed.slice(0, MAX_TOASTS_PER_BEAT)) toast(describe(invitation));
-
-        writeSeen(playerName, [...pruned, ...unseen]);
+        const stillLive = latestInvites.get(account) ?? [];
+        const confirmed = invitations.filter((invitation) => unseen.includes(invitation.partyId) && stillLive.includes(invitation.partyId));
+        const shown = confirmed.slice(0, MAX_TOASTS_PER_BEAT);
+        for (const invitation of shown) toast(describe(invitation));
+        if (confirmed.length > shown.length) nextBatchAt.set(account, now() + 8_000);
+        else nextBatchAt.delete(account);
+        // Overflow remains unseen for a later beat; cancelled/expired index
+        // entries can be retired without announcing a nonexistent invitation.
+        const invalid = unseen.filter(id => !invitations.some(invitation => invitation.partyId === id));
+        writeSeen(playerName, [...new Set([...pruned, ...invalid, ...shown.map(invitation => invitation.partyId)])].filter(id => stillLive.includes(id)));
     } catch {
         // Offline or a transient 5xx: record nothing, so the next beat retries.
         // The unseen ids stay unseen and the toast is delayed, never lost.
     } finally {
-        validating = false;
+        validating.delete(account);
     }
 }
 
 /** Test seam: the in-flight guard is module state and must be resettable. */
 export function resetTowerPartyInviteToastState(): void {
-    validating = false;
+    validating.clear();
+    latestInvites.clear();
+    nextBatchAt.clear();
 }

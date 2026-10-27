@@ -29,6 +29,8 @@ export function publicTowerFloorMeta(f: TowerFloor) {
         biome: f.biome,
         objective: f.objective,
         roundBudget: f.roundBudget,
+        recommendedLevel: f.recommendedLevel,
+        recommendedPartySize: f.balanceFor ?? 4,
         isBoss: !!f.boss,
         bossMechanic: f.boss?.mechanic ?? null,
         bossTargetMode: f.boss?.targetMode ?? null,

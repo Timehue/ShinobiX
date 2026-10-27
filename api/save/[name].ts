@@ -53,6 +53,8 @@ import { maxLoadout, isPatreonSubscriber, isPresetAvatar, isOwnAvatarReference }
 import { loadAdminCombatContent } from '../_admin-content.js';
 import { slimPlayerSaveRecord, slimPlayerSavesEnabled } from './_slim-player-save.js';
 import { firstSlimKeepsEveryFight, isFirstSlim } from './_slim-parity.js';
+import { saveDocumentContract, saveCharacterContract, playerSaveRequestContract, saveWriteResponseContract, saveErrorContract } from '../../shared/save-contract.js';
+import { contractResponse } from '../_contract-response.js';
 
 // Clan dissolution scans global territory/war indexes and detaches every
 // member. The ordinary five-second save lease is intentionally too short for
@@ -612,6 +614,7 @@ async function validateClanAndVillageIdentity(
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
+    const reply = contractResponse(res, req.method === 'GET' ? saveDocumentContract : saveWriteResponseContract, saveErrorContract);
     if (req.method === 'OPTIONS') return res.status(200).end();
 
     // Player saves must NEVER be cached. The GET is authed via custom headers
@@ -623,7 +626,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.setHeader('Cache-Control', 'no-store');
 
     const name = safeName(String(req.query.name ?? ''));
-    if (!name) return res.status(400).json({ error: 'Invalid name.' });
+    if (!name) return reply(400, { error: 'Invalid name.' });
 
     const key = `save:${name}`;
     // Clan saves use `save:clan-<slug>` keys — they're shared per-clan. Members
@@ -639,7 +642,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // lookups, etc.) but at least we know who's doing it.
         // Sensitive economy fields (ryo, inventory, etc.) are stripped for non-owners.
         const identity = await authedPlayerOrAdmin(req, name, { allowContentAdmin: true });
-        if (!identity) return res.status(401).json({ error: 'Authentication required.' });
+        if (!identity) return reply(401, { error: 'Authentication required.' });
         // Only owner reads advance the version stream. A client loading-mask
         // descriptor is never consulted for arrival; the durable lease is.
         const ownerTravel = !isClanSave && !identity.admin && identity.name === name
@@ -659,7 +662,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const travel = await import('../_realtime/travel-lease.js');
                 await travel.settleTravelLease(name, ownerTravel, undefined, travel.TRAVEL_ACTION_SETTLE_ATTEMPTS);
             } catch {
-                return res.status(503).json({ error: 'Your arrival is still settling. Please retry.' });
+                return reply(503, { error: 'Your arrival is still settling. Please retry.' });
             }
         }
         const stored = await kv.get<Record<string, unknown>>(key);
@@ -711,7 +714,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const arrived = await kv.get<Record<string, unknown>>(key);
                     if (arrived) data = arrived;
                 } catch {
-                    return res.status(503).json({ error: 'Your arrival is still settling. Please retry.' });
+                    return reply(503, { error: 'Your arrival is still settling. Please retry.' });
                 }
             }
         }
@@ -772,7 +775,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 .catch((err) => { console.error('[save] pending world rewards', safeLogValue(err)); return []; });
             if (pendingWorldRewards.length) payload = { ...payload, pendingWorldRewards };
         }
-        return res.status(200).json(payload);
+        return reply(200, payload);
     }
 
     if (req.method === 'POST') {
@@ -786,34 +789,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const contentLengthHeader = req.headers['content-length'];
             const contentLength = Array.isArray(contentLengthHeader) ? Number(contentLengthHeader[0]) : Number(contentLengthHeader);
             if (Number.isFinite(contentLength) && contentLength > 1_000_000) {
-                return res.status(413).json({ error: 'Save payload too large. Strip embedded images and retry.' });
+                return reply(413, { error: 'Save payload too large. Strip embedded images and retry.' });
             }
             const resetSignalKey = `reset-signal:${name.toLowerCase()}`;
             const adminLockKey = `admin-lock:${name.toLowerCase()}`;
             if (req.query.ack === '1') {
                 // Ack just clears two short-lived keys for this player.
                 const ackIdentity = await authedPlayerOrAdmin(req, name, { allowContentAdmin: true });
-                if (!ackIdentity) return res.status(401).json({ error: 'Authentication required.' });
+                if (!ackIdentity) return reply(401, { error: 'Authentication required.' });
                 if (ackIdentity.admin && !adminSaveTargetAllowed(name, isFullAdmin(req), isAdmin(req))) {
-                    return res.status(403).json({ error: 'Full admin authentication required for that save.' });
+                    return reply(403, { error: 'Full admin authentication required for that save.' });
                 }
                 if (!ackIdentity.admin && !isClanSave && ackIdentity.name !== name) {
-                    return res.status(403).json({ error: 'Cannot ack another player.' });
+                    return reply(403, { error: 'Cannot ack another player.' });
                 }
                 await Promise.all([
                     kv.del(resetSignalKey),
                     kv.del(adminLockKey),
                 ]);
-                return res.status(200).json({ ok: true });
+                return reply(200, { ok: true });
             }
 
             const isAdminSave = req.query.signal === '1';
             const parsed = parseJsonBody(req.body);
-            if (!parsed.ok) return res.status(400).json({ error: parsed.error });
-            const incoming = parsed.body;
-            if (!incoming || typeof incoming !== 'object') {
-                return res.status(400).json({ error: 'Invalid save payload.' });
+            if (!parsed.ok) return reply(400, { error: parsed.error });
+            const envelope = saveDocumentContract.safeParse(parsed.body);
+            if (!envelope.success) {
+                return reply(400, { error: 'Invalid save payload.' });
             }
+            const incoming = envelope.data;
 
             // Admin-flagged writes require admin auth (constant-time compare in isAdmin).
             let identityName: string | null = null;
@@ -822,10 +826,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             let clanActorCharacter: Record<string, unknown> | null = null;
             if (isAdminSave) {
                 if (!adminSaveTargetAllowed(name, isFullAdmin(req), isAdmin(req))) {
-                    return res.status(401).json({ error: 'Admin authentication required.' });
+                    return reply(401, { error: 'Admin authentication required.' });
                 }
                 if (adminPlayerSaveOwnerMismatch(name, incoming as Record<string, unknown>, isClanSave)) {
-                    return res.status(409).json({
+                    return reply(409, {
                         error: 'Save character identity does not match the target player. Reload before saving.',
                     });
                 }
@@ -834,12 +838,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // gated by clan membership (the actor's character.clan must
                 // match the clan-<slug> being written).
                 const identity = await authedPlayerOrAdmin(req, name, { allowContentAdmin: true });
-                if (!identity) return res.status(401).json({ error: 'Authentication required.' });
+                if (!identity) return reply(401, { error: 'Authentication required.' });
                 if (identity.admin && !adminSaveTargetAllowed(name, isFullAdmin(req), isAdmin(req))) {
-                    return res.status(403).json({ error: 'Full admin authentication required for that save.' });
+                    return reply(403, { error: 'Full admin authentication required for that save.' });
                 }
                 if (!identity.admin && !isClanSave && identity.name !== name) {
-                    return res.status(403).json({ error: 'Cannot save another player.' });
+                    return reply(403, { error: 'Cannot save another player.' });
                 }
                 if (!identity.admin && isClanSave) {
                     // Verify the actor belongs to this clan before letting them
@@ -898,7 +902,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             const allowJoinRequest = !!existingClan && callerInRequests && !callerInMembers;
 
                             if (!allowCreate && !allowJoinRequest) {
-                                return res.status(403).json({ error: 'Only members of this clan can write its shared record.' });
+                                return reply(403, { error: 'Only members of this clan can write its shared record.' });
                             }
                             if (allowCreate) {
                                 // Per-player rate limit on first-time clan creation
@@ -915,7 +919,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             }
                         }
                     } catch {
-                        return res.status(500).json({ error: 'Unable to verify clan membership.' });
+                        return reply(500, { error: 'Unable to verify clan membership.' });
                     }
                 }
                 identityName = identity.admin ? null : identity.name;
@@ -929,8 +933,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // the whole payload, so this refuses only hand-built bodies.
                 if (identityName && !isClanSave) {
                     const character = (incoming as Record<string, unknown>).character;
-                    if (!character || typeof character !== 'object' || Array.isArray(character)) {
-                        return res.status(400).json({ error: 'Invalid save payload.' });
+                    if (!saveCharacterContract.safeParse(character).success) {
+                        return reply(400, { error: 'Invalid save payload.' });
                     }
                 }
             }
@@ -1013,7 +1017,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     // `persisted:false` tells the client to keep the state dirty
                     // and retry.
                     if (pendingSignal || adminLock) {
-                        return res.status(200).json({ ok: false, persisted: false, reason: 'reset-pending' });
+                        return reply(200, { ok: false, persisted: false, reason: 'reset-pending' });
                     }
 
                     // Validate optimistic concurrency before sanitization, logs, or
@@ -1030,14 +1034,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const existingObj = (existing as Record<string, unknown> | null) ?? null;
                     const storedVersion = Number(existingObj?._saveVersion ?? 0);
                     const incomingBody = incoming as Record<string, unknown>;
-                    const baseVersion = parseBaseSaveVersion(incomingBody?._baseSaveVersion);
+                    const request = identityName && !isClanSave ? playerSaveRequestContract.safeParse(incomingBody) : null;
+                    const baseVersion = request ? (request.success ? request.data._baseSaveVersion : null)
+                        : parseBaseSaveVersion(incomingBody?._baseSaveVersion);
 
                     if (isVersionlessPlayerSave(isClanSave, identityName, baseVersion)) {
                         // This telemetry is deliberately part of the rejection path:
                         // it measures obsolete clients without touching gameplay state.
                         console.warn('[save-version] REJECT player save missing _baseSaveVersion (client too old):', identityName);
                         await recordMissingSaveVersion(identityName!);
-                        return res.status(426).json({
+                        return reply(426, {
                             error: 'Your game client is out of date. Please refresh the page to keep saving.',
                             code: 'CLIENT_REFRESH_REQUIRED',
                         });
@@ -1050,7 +1056,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         if (!(await enforceRateLimitKv(req, res, 'save-conflict', 20, 60_000, identityName, { strict: true }))) {
                             return; // 429 already written
                         }
-                        return res.status(409).json({
+                        return reply(409, {
                             error: 'Save conflict — another tab or device wrote first.',
                             currentVersion: storedVersion,
                         });
@@ -1123,7 +1129,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             ? hasRejectedBloodlineSubmission(submittedBloodlines, retainedBloodlines)
                             : hasRejectedBloodlineForgeAttempt(submittedBloodlines, retainedBloodlines,
                                 (existing as Record<string, unknown> | null)?.pendingBloodlineForges)) {
-                            return res.status(422).json({
+                            return reply(422, {
                                 error: 'Bloodline was not saved. Refresh the game and retry the Awakening ritual.',
                                 code: 'BLOODLINE_SAVE_REJECTED',
                             });
@@ -1141,7 +1147,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         const requestedRyo = Math.max(0, Number(requestedCharacter?.ryo ?? 0));
                         if (requestedRyo > storedRyo) {
                             console.warn('[save] blocked client-originated ryo increase', { player: identityName, storedRyo, requestedRyo });
-                            return res.status(409).json({
+                            return reply(409, {
                                 error: 'Ryo is server-authoritative. Refresh your balance and retry.',
                                 code: 'RYO_SERVER_AUTHORITY',
                                 authoritativeRyo: storedRyo,
@@ -1210,18 +1216,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             for (const [k, d] of Object.entries(currencyDelta)) nextCurrency[k] = (nextCurrency[k] ?? 0) + d;
 
                             if (nextRyo > MAX_RYO_PER_MINUTE) {
-                                return res.status(429).json({
+                                return reply(429, {
                                     error: `Ryo gain rate-limited (over ${MAX_RYO_PER_MINUTE} / 60s).`,
                                 });
                             }
                             if (nextXp > MAX_XP_PER_MINUTE) {
-                                return res.status(429).json({
+                                return reply(429, {
                                     error: `XP gain rate-limited (over ${MAX_XP_PER_MINUTE} / 60s).`,
                                 });
                             }
                             for (const [k, total] of Object.entries(nextStat)) {
                                 if (total > MAX_STAT_PER_MINUTE) {
-                                    return res.status(429).json({
+                                    return reply(429, {
                                         error: `Stat ${k} gain rate-limited (over ${MAX_STAT_PER_MINUTE} / 60s).`,
                                     });
                                 }
@@ -1234,7 +1240,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                                 for (const [k, total] of Object.entries(nextCurrency)) {
                                     const cap = MAX_CURRENCY_PER_MINUTE[k];
                                     if (cap != null && total > cap) {
-                                        return res.status(429).json({
+                                        return reply(429, {
                                             error: `${k} gain rate-limited (over ${cap} / 60s).`,
                                         });
                                     }
@@ -1333,7 +1339,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         });
                     if (!committed) {
                         const current = await kv.get<Record<string, unknown>>(key).catch(() => null);
-                        return res.status(409).json({
+                        return reply(409, {
                             error: 'Save conflict — another tab or device wrote first.',
                             currentVersion: Number(current?._saveVersion ?? 0),
                         });
@@ -1406,7 +1412,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const persistedRyo = Number(((payload as Record<string, unknown>).character as Record<string, unknown> | undefined)?.ryo);
                     const persistedFateShards = Number(((payload as Record<string, unknown>).character as Record<string, unknown> | undefined)?.fateShards);
                     const persistedBloodlines = (payload as Record<string, unknown>).savedBloodlines;
-                    return res.status(200).json(isClanSave
+                    return reply(200, isClanSave
                         ? { ok: true }
                         : { ok: true, _saveVersion: nextVersion,
                             ...(typeof req.headers['x-bloodline-equip-intent'] === 'string' && req.headers['x-bloodline-equip-intent']
@@ -1440,7 +1446,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         // reward settlement) holds the save for well under the lock's
                         // 5s TTL, so the client keeps the change dirty and retries
                         // instead of counting it toward the "Couldn't save" banner.
-                        return res.status(429).json({ error: 'Concurrent save in flight. Retry.', retryAfterMs: 1_000 });
+                        return reply(429, { error: 'Concurrent save in flight. Retry.', retryAfterMs: 1_000 });
                     }
                     throw lockErr;
                 }
@@ -1482,7 +1488,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         && incomingVersion < adminStoredVersion
                     );
                     if (missingDeletedGenerationAuthority || staleVersionedSnapshot) {
-                        return res.status(409).json({
+                        return reply(409, {
                             error: 'This record changed since you loaded it. Reload before saving so you do not revert newer content.',
                             storedVersion: adminStoredVersion,
                             baseVersion: Number.isFinite(incomingVersion) ? incomingVersion : null,
@@ -1538,7 +1544,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         // signal set above: otherwise this player's autosaves would
                         // be dropped for its 5-minute TTL with no reload signal.
                         await kv.del(adminLockKey);
-                        return res.status(409).json({
+                        return reply(409, {
                             error: 'This record changed while it was being saved. Reload before saving so you do not revert newer content.',
                             storedVersion: adminStoredVersion,
                             baseVersion: Number.isFinite(incomingVersion) ? incomingVersion : null,
@@ -1559,13 +1565,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }, { failClosed: true });
             } catch (lockErr) {
                 if (lockErr instanceof LockContendedError) {
-                    return res.status(429).json({ error: 'Concurrent save in flight. Retry.' });
+                    return reply(429, { error: 'Concurrent save in flight. Retry.' });
                 }
                 throw lockErr;
             }
         } catch (err) {
             console.error('[save POST]', safeLogValue(err));
-            return res.status(500).json({ error: 'Internal server error.' });
+            return reply(500, { error: 'Internal server error.' });
         }
     }
 
@@ -1574,11 +1580,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const fullAdminAuth = isFullAdmin(req);
             let deletionActor: string | null = null;
             if (isAdmin(req) && !fullAdminAuth) {
-                return res.status(403).json({ error: 'Full admin authentication required to delete player saves.' });
+                return reply(403, { error: 'Full admin authentication required to delete player saves.' });
             }
             if (!fullAdminAuth) {
                 const identity = await authedPlayerOrAdmin(req, name);
-                if (!identity) return res.status(401).json({ error: 'Authentication required.' });
+                if (!identity) return reply(401, { error: 'Authentication required.' });
                 if (!identity.admin) deletionActor = identity.name;
                 if (!identity.admin && isClanSave) {
                     // Clan record: only the clan FOUNDER (or an admin) may delete
@@ -1592,7 +1598,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const clanRec = await kv.get<{ founderName?: string }>(key);
                     const founder = safeName(String(clanRec?.founderName ?? ''));
                     if (clanRec && founder !== identity.name) {
-                        return res.status(403).json({ error: 'Only the clan founder can delete this clan.' });
+                        return reply(403, { error: 'Only the clan founder can delete this clan.' });
                     }
                 } else if (!identity.admin && identity.name !== name) {
                     // Deleting ANOTHER player's save requires that player's own
@@ -1607,7 +1613,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const playerPw = req.headers['x-player-password'] as string | undefined;
                     const authRecord = await kv.get(`auth:${name.toLowerCase()}`);
                     if (!authRecord || !playerPw || !(await verifyPlayerPasswordBudgeted(req, name, playerPw))) {
-                        return res.status(403).json({ error: 'Cannot delete another player\'s save.' });
+                        return reply(403, { error: 'Cannot delete another player\'s save.' });
                     }
                 }
             }
@@ -1697,17 +1703,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             for (const war of deletionResult.finalizedWars) {
                 await awardWarEndClanXp(war).catch((error) => console.error('[save DELETE] clan-war XP award failed', safeLogValue(error)));
             }
-            return res.status(200).json(deletionResult.body);
+            return reply(200, deletionResult.body);
         } catch (err) {
-            if (err instanceof AccountDeletionWaitError) return res.status(409).json({ error: err.message });
+            if (err instanceof AccountDeletionWaitError) return reply(409, { error: err.message });
             if (err instanceof ClanDissolutionForbiddenError) {
-                return res.status(403).json({ error: err.message });
+                return reply(403, { error: err.message });
             }
             if (err instanceof LockContendedError) {
-                return res.status(429).json({ error: 'Concurrent save in flight. Retry.' });
+                return reply(429, { error: 'Concurrent save in flight. Retry.' });
             }
             console.error('[save DELETE]', safeLogValue(err));
-            return res.status(500).json({ error: 'Internal server error.' });
+            return reply(500, { error: 'Internal server error.' });
         }
     }
 
