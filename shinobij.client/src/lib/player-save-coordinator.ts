@@ -30,6 +30,7 @@ export function createPlayerSaveCoordinator({
     storage: Storage;
     applyServerSnapshot: (snapshot: PlayerSavePayload) => boolean;
 }) {
+    const writePreview = (name: string, payload: unknown) => writeSavePreview(name, payload, storage);
     const latestSaveRef = box<{
         character: Character;
         name: string;
@@ -94,7 +95,14 @@ export function createPlayerSaveCoordinator({
         savePayloadRevisionRef.current = nextSavePayloadRevision(savePayloadRevisionRef.current);
         const mergedCharacter = preserveAcademyCinematicState(preserveNarrativeState(nextCharacter, characterRef.current), characterRef.current);
         const current = latestSaveRef.current;
-        if (current && saveConflictAccountKey(current.name) === accountKey) installAuthoritativeSaveRef({ ...current, revision: savePayloadRevisionRef.current, payload: { ...current.payload, character: mergedCharacter } });
+        if (current && saveConflictAccountKey(current.name) === accountKey) {
+            const payload = { ...current.payload, character: mergedCharacter };
+            installAuthoritativeSaveRef({ ...current, revision: savePayloadRevisionRef.current, payload });
+            // A newer mutation can overtake the boot save read. That read is
+            // then rejected, so mirror recovery now instead of relying on a
+            // later autosave to replace an old hospital or wallet preview.
+            writePreview(nextCharacter.name, { ...payload, _saveVersion: decision.latestVersion });
+        }
         setCharacter(mergedCharacter); return true;
     }
 
@@ -223,7 +231,7 @@ export function createPlayerSaveCoordinator({
             currentSnapshot: () => latestSaveRef.current,
             installSnapshot: installAuthoritativeSaveRef,
             onConflictSnapshot: (snapshot) => applyServerSnapshot(snapshot),
-            writePreview: writeSavePreview,
+            writePreview,
             setBlocked: setSaveBlocked,
             onAuthoritativeRyo: applyAuthoritativeRyo,
             onAuthoritativeFateShards: applyAuthoritativeFateShards,

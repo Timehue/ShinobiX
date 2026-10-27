@@ -39,7 +39,7 @@ function fixture(applyServerSnapshot: (snapshot: PlayerSavePayload) => boolean =
     owner.latestSaveVersionRef.current = 5;
     owner.prevCharRef.current = initial;
     refreshPlayerSaveSnapshot(initial, initial.name, fields, owner);
-    return { owner, fields, initial, characterRef, currentAccountNameRef, saveSessionEpochRef, pvpCreateScopeAbortRef };
+    return { owner, fields, initial, characterRef, currentAccountNameRef, saveSessionEpochRef, pvpCreateScopeAbortRef, storage };
 }
 
 test("restoration publishes a clean snapshot; identical renders neither dirty it nor create another revision", () => {
@@ -150,6 +150,41 @@ test("versioned commits reject stale or foreign characters and synchronously pub
     assert.equal(f.owner.latestSaveVersionRef.current, 6);
     assert.equal(f.owner.latestSaveRef.current?.character.level, 2);
     assert.equal(f.characterRef.current?.level, 2);
+});
+
+test("accepted recovery refreshes the preview before autosave and rejected replies cannot rewind it", async () => {
+    const f = fixture(() => false);
+    const previews = f.storage;
+    const admitted = { ...f.initial, hp: 0, hospitalized: true, ryo: 10000 };
+    const recovered = { ...admitted, hp: admitted.maxHp, hospitalized: false, ryo: 9925 };
+    f.characterRef.current = admitted;
+    refreshPlayerSaveSnapshot(admitted, admitted.name, f.fields, f.owner);
+    const stale = { ...f.owner.latestSaveRef.current!.payload, _saveVersion: 5 };
+    previews.set("ninjav-save-preview-v1:rookie", JSON.stringify(stale));
+    const requests: string[] = [];
+    globalThis.fetch = async url => {
+        requests.push(String(url));
+        return new Response(JSON.stringify(stale), { status: 200 });
+    };
+
+    // An achievement reply can recover the character before the boot save GET.
+    // That older GET is rejected, so it cannot be relied on to refresh the cache.
+    assert.equal(f.owner.commitVersionedCharacter(recovered, 6), true);
+    const preview = () => JSON.parse(previews.get("ninjav-save-preview-v1:rookie")!);
+    assert.equal(preview()._saveVersion, 6);
+    assert.equal(preview().character.hospitalized, false);
+    assert.equal(preview().character.hp, recovered.hp);
+    assert.equal(preview().character.ryo, recovered.ryo);
+    assert.deepEqual(preview().acceptedMissionIds, f.fields.acceptedMissionIds);
+    assert.deepEqual(requests, [], "cache adoption must not wait for a server write");
+
+    const acceptedPreview = previews.get("ninjav-save-preview-v1:rookie");
+    assert.equal(f.owner.commitVersionedCharacter(admitted, 5), false);
+    assert.equal(f.owner.commitVersionedCharacter({ ...admitted, name: "Other" }, 7), false);
+    assert.equal(f.owner.commitVersionedCharacter(admitted, undefined), false);
+    for (let i = 0; i < 5; i++) await tick();
+    assert.equal(previews.get("ninjav-save-preview-v1:rookie"), acceptedPreview);
+    assert.equal(previews.has("ninjav-save-preview-v1:other"), false);
 });
 
 // Reproduced live on 2026-10-09 (e2e-live/resource-gathering.spec.ts): a tool
