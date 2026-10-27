@@ -10,8 +10,8 @@ import { creditElderWins } from '../../shared/elder-elections.js';
  *     public-floor binding (never an embedded, reserved, clan-boss, or client floor);
  *   - the score is computed from the server session;
  *   - the one-time-first-clear gate is a PERMANENT server NX receipt
- *     (tower-firstclear:<slug>:<floor>) — NOT the client-writable battleTowerClearedFloors
- *     array, which is forgeable; the per-run receipt guards replay;
+ *     (tower-firstclear:<slug>:<floor>) — NOT the displayed battleTowerClearedFloors
+ *     array; the per-run receipt guards replay;
  *   - each member's credit commits through mutatePlayerSave (the failClosed save lock,
  *     an exact compare-and-set, and the idle recovery settled into the same write);
  *     the external receipts are published under that lock only after the commit, and

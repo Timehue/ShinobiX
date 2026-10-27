@@ -351,7 +351,7 @@ export const SAVE_FIELD_CONTRACT: readonly SaveFieldDef[] = [
     f('battleTowerRecords', 'character', 'server-owned', 'towers', ['server-mirror-char', 'combat-strip-char'], 'towers/settle only'),
     f('battleTowerBestFloor', 'character', 'server-owned', 'towers', ['lifetime-counter-char', 'combat-strip-char'], 'towers/settle only'),
     f('battleTowerRating', 'character', 'server-owned', 'towers', ['lifetime-counter-char', 'combat-strip-char']),
-    f('battleTowerClearedFloors', 'character', 'server-owned', 'towers', ['combat-strip-char'], 'towers/settle only'),
+    f('battleTowerClearedFloors', 'character', 'server-owned', 'towers', ['server-mirror-char', 'combat-strip-char'], 'towers/settle only; confirmed clears also authorize free Story replays'),
     f('totalTournamentsCompleted', 'character', 'server-owned', 'counters', ['lifetime-counter-char', 'combat-strip-char']),
     f('totalTilesExplored', 'character', 'server-owned', 'exploration', ['lifetime-counter-char', 'combat-strip-char']),
     f('hollowGateWardenKills', 'character', 'server-owned', 'hollow-gate', ['lifetime-counter-char', 'combat-strip-char']),
