@@ -30,6 +30,7 @@
         "api/_jutsu-points-parity.test.ts",
         "api/_training-parity.test.ts",
         "api/hollow-gate/_expired-run-escape.test.ts",
+        "api/pvp/_vanguard-daily-cap-parity.test.ts",
         "api/sector/_story-reckoning.test.ts"
     ]
 }

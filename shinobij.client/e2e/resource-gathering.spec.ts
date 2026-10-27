@@ -3,7 +3,7 @@ import AxeBuilder from '@axe-core/playwright';
 import { createRequire } from 'node:module';
 import { uiAuditSave } from './helpers/ui-audit-runtime';
 import { kunaiFish, kunaiFlightMs, kunaiSeed } from '../../shared/kunai-fishing';
-import { resourceNode } from '../../shared/resource-nodes';
+import { resourceNode, RESOURCE_NODES } from '../../shared/resource-nodes';
 import { readResourceGathering } from '../../shared/resource-gathering';
 import { FRACTURE_TEMPLATES } from '../../shared/fracture-chain';
 import type { OnlinePlayer } from '../../api/_realtime/types';
@@ -25,6 +25,14 @@ async function install(page: Page, nodeId = 'resource-13', uses = 0, miningXp = 
     await page.route('**/api/**', async route => {
         if (!route.request().url().endsWith('/world/resource')) return route.fulfill({ json: { ok: true, hunts: [], contracts: [] } });
         const body = route.request().postDataJSON(); let receipt;
+        if (body.action === 'nodes') {
+            const state = readResourceGathering(character.resourceGathering);
+            const nodes = Object.fromEntries(RESOURCE_NODES.filter(candidate => candidate.sector === node.sector).map(candidate => [candidate.id, {
+                remaining: Math.max(0, 3 - (state.nodes[candidate.id]?.attempts ?? 0)),
+                refillAt: state.nodes[candidate.id]?.refillAt ?? 0,
+            }]));
+            return route.fulfill({ json: { ok: true, sector: node.sector, nodes } });
+        }
         if (body.action === 'equip') character = equipGatheringTool(character, body.itemId, body.unequip)!;
         if (body.action === 'start') {
             // Match the handler's admission replay: an acknowledgement lost to
@@ -56,6 +64,43 @@ async function noOverflow(page: Page) {
     const dialog = page.getByRole('dialog');
     if (await dialog.isVisible()) expect(await dialog.evaluate(element => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
 }
+
+test('shared occupied nodes offer a working contest action and never offer a second harvest', async ({ page }, info) => {
+    const runtime = await install(page);
+    await page.addInitScript(peer => { (window as unknown as { resourcePeers: unknown[] }).resourcePeers = [peer]; },
+        { name: 'Rival Shinobi', level: 100, village: 'Frostfang', specialty: 'ninjutsu', character: runtime.character(), currentSector: 2 });
+    await page.route('**/api/world/resource', async route => {
+        if (route.request().postDataJSON().action !== 'nodes') return route.fallback();
+        return route.fulfill({ json: { ok: true, sector: 2, nodes: { 'resource-13': {
+            remaining: 2, refillAt: 0, gatherer: 'rivalshinobi', claimExpiresAt: Date.now() + 90_000,
+        } } } });
+    });
+    await page.goto('/e2e/fixtures/resource-gathering.html?node=resource-13');
+    await page.getByRole('button', { name: /^Harbor iron seam, mining/ }).click();
+    await expect(page.getByRole('button', { name: 'Contest node', exact: true })).toBeEnabled();
+    await expect(page.getByRole('button', { name: 'Begin mining · 1 action' })).toHaveCount(0);
+    await noOverflow(page);
+    await page.screenshot({ path: info.outputPath('shared-node-contest.png'), fullPage: true });
+    await page.getByRole('button', { name: 'Contest node', exact: true }).click();
+    await expect(page.getByTestId('resource-contested')).toHaveText('Rival Shinobi');
+    expect(readResourceGathering(runtime.character().resourceGathering).attemptsToday).toBe(0);
+});
+
+test('a depleted shared node blocks a fresh player who has never gathered there', async ({ page }) => {
+    const runtime = await install(page);
+    await page.route('**/api/world/resource', async route => {
+        if (route.request().postDataJSON().action !== 'nodes') return route.fallback();
+        return route.fulfill({ json: { ok: true, sector: 2, nodes: {
+            'resource-13': { remaining: 0, refillAt: Date.now() + 600_000 },
+        } } });
+    });
+    await page.goto('/e2e/fixtures/resource-gathering.html?node=resource-13');
+    await page.getByRole('button', { name: /^Harbor iron seam, mining/ }).click();
+    await expect(page.getByText(/Replenishes in 10 minutes/)).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Begin mining · 1 action' })).toHaveCount(0);
+    expect(readResourceGathering(runtime.character().resourceGathering).attemptsToday).toBe(0);
+    await noOverflow(page);
+});
 
 test('map resource nodes stay anchored when hovered and open on the first click', async ({ page }, info) => {
     await install(page);
@@ -642,7 +687,8 @@ for (const activity of ['mining', 'fishing'] as const) {
         await page.unroute('**/api/world/resource');
         // Reinstall the successful status responder without replacing the
         // attempt or private seal held by the original broader fixture route.
-        await page.route('**/api/world/resource', route => route.fulfill({ json: { ok: true, character: admitted, _saveVersion: 2 } }));
+        await page.route('**/api/world/resource', route => route.request().postDataJSON().action === 'status'
+            ? route.fulfill({ json: { ok: true, character: admitted, _saveVersion: 2 } }) : route.fallback());
         await page.getByRole('button', { name: 'Check gathering again', exact: true }).click();
         await expect(activity === 'fishing' ? page.getByRole('application', { name: 'Kunai fishing pool' }) : page.getByRole('button', { name: 'Collect result', exact: true })).toBeVisible();
         expect(readResourceGathering(runtime.character().resourceGathering).attemptsToday).toBe(1);
@@ -657,7 +703,8 @@ test('changing selected nodes during the status readback keeps the current node 
     const current = new Promise<void>(resolve => { releaseCurrent = resolve; });
     await page.route('**/api/world/resource', async route => {
         const body = route.request().postDataJSON();
-        expect(body.action).toBe('status'); expect(body.nodeId).toBeUndefined();
+        if (body.action !== 'status') return route.fallback();
+        expect(body.nodeId).toBeUndefined();
         const snapshot = { ...runtime.character() }, version = ++calls;
         await (calls === 1 ? initial : current);
         await route.fulfill({ json: { ok: true, character: snapshot, _saveVersion: version } });
@@ -685,6 +732,7 @@ for (const failure of ['service', 'stale'] as const) {
         let calls = 0, release!: () => void, recover = false;
         const waiting = new Promise<void>(resolve => { release = resolve; });
         await page.route('**/api/world/resource', async route => {
+            if (route.request().postDataJSON().action !== 'status') return route.fallback();
             calls++;
             await waiting;
             if (recover) return route.fulfill({ json: { ok: true, character: runtime.character(), _saveVersion: 2 } });
@@ -715,13 +763,14 @@ test('a late status response cannot commit after the gathering surface unmounts'
     const incoming = new Promise<void>(resolve => { received = resolve; });
     const delayed = new Promise<void>(resolve => { release = resolve; });
     await page.route('**/api/world/resource', async route => {
+        if (route.request().postDataJSON().action !== 'status') return route.fallback();
         received(); await delayed;
         await route.fulfill({ json: { ok: true, character: { ...runtime.character(), ryo: 99999999 }, _saveVersion: 99 } });
     });
     await page.goto('/e2e/fixtures/resource-gathering.html?lifecycle=1'); await incoming;
     await page.getByTestId('gathering-mount').click();
     await expect(page.getByRole('button', { name: /^Harbor iron seam, mining/ })).toHaveCount(0);
-    const response = page.waitForResponse(response => response.url().endsWith('/world/resource'));
+    const response = page.waitForResponse(response => response.url().endsWith('/world/resource') && response.request().postDataJSON().action === 'status');
     release(); await response;
     // Two paint frames let the asynchronous callback run; it must keep both
     // the save and its accepted version untouched after the screen has left.

@@ -33,6 +33,7 @@ export type WorldSectorCanvasProps = {
     onLifeTrack?:(wanderer:import('../../../shared/wanderer-roster').Wanderer)=>void;
     gatheringCharacter?: import('../types/character').Character;
     onGatheringCommit?: import('../types/character').VersionedCharacterCommit;
+    onContestResource?: (player: import('../types/character').PlayerRecord) => void | Promise<void>;
     worldBossCrystals?: { active?: boolean; eventId?: string; minedNodeIds?: readonly string[] };
     sector: number;
     obstacles?: boolean;

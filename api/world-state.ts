@@ -73,7 +73,6 @@ import {
     stampEmbeddedWarBattleReplay,
     warBattleDeclineMessage,
     warBattleReceiptKey,
-    WAR_BATTLE_DAMAGE_BUDGET,
     warMissionTokenKey,
     normalizeWarMissionToken,
     warMissionTokenAuthorizes,
@@ -952,10 +951,6 @@ export async function seedHomeSectorOwnership(now: number = Date.now()): Promise
     }
     return { seeded: seeded.length, sectors: seeded };
 }
-
-// Minimum damage contribution required to qualify for the loss-
-// consolation crate. Keeps the consolation away from AFK villagers.
-const VILLAGE_WAR_LOSER_MIN_CONTRIB = 50;
 
 /**
  * Apply daily war decay. After VILLAGE_WAR_DECAY_GRACE_DAYS days of

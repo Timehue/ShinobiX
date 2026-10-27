@@ -316,6 +316,17 @@ export async function activatePvpPendingSessionPointer(
 ): Promise<PvpPendingSessionPointer> {
     const normalized = safeName(playerName);
     const key = pvpPendingSessionKey(normalized);
+    async function activated(pointer: PvpPendingSessionPointer) {
+        // Creation and join publish one pointer at a time; they do not pass
+        // through publishPvpPendingSessionPointers' presence hook. Prove the
+        // live session before setting attack immunity and invalidating any
+        // gathering seal, even when a lost acknowledgement replays activation.
+        const session = await store.get<PvpSession>(`pvp:${pointer.battleId}`);
+        if (session?.status === 'active' && pendingPointerMatchesSession(pointer, session)) {
+            noteBattleStarted(pointer.playerName);
+        }
+        return pointer;
+    }
     for (let attempt = 0; attempt < 12; attempt += 1) {
         const raw = await store.get<unknown>(key);
         const current = parsePointer(raw, normalized);
@@ -325,7 +336,7 @@ export async function activatePvpPendingSessionPointer(
             || current.createRequestFingerprint !== createRequestFingerprint) {
             throw new Error('pvp-pending-session-activation-conflict');
         }
-        if (current.phase === 'active') return current;
+        if (current.phase === 'active') return activated(current);
         const active: PvpPendingSessionPointer = {
             version: 1,
             playerName: current.playerName,
@@ -345,11 +356,11 @@ export async function activatePvpPendingSessionPointer(
             if (await store.compareSet(key, raw, activeRaw, {
                 ex: pointerTtlSeconds(active, Date.now()),
             })) {
-                return active;
+                return activated(active);
             }
         } catch (error) {
             const recovered = await store.get<unknown>(key).catch(() => null);
-            if (recovered === activeRaw) return active;
+            if (recovered === activeRaw) return activated(active);
             throw error;
         }
     }

@@ -46,18 +46,7 @@ Refresh resumes an unconfirmed trade. A rejected stale character response retain
 - Desktop and 390px mobile layouts were inspected. Axe WCAG A/AA checks passed for the hall and inspection dialogs.
 - Client and server TypeScript checks and scoped ESLint checks passed. The production Vite build passed in an isolated output directory.
 
-Repeat browser checks:
-
-```powershell
-cd shinobij.client
-node node_modules/vite/bin/vite.js build --config scripts/vite.sunscar-exchange-qa.config.mjs
-cd ..
-node --import tsx scripts/sunscar-exchange-qa-server.mts
-# In a second terminal:
-node shinobij.client/scripts/sunscar-exchange-browser-qa.mjs
-```
-
-The QA server binds only to localhost, serves a production-mode preview, creates disposable in-memory saves, and is not part of the production build. The browser script resets these fixtures before each run. Screenshots and the browser report live in `docs/screenshots/sunscar-exchange/`.
+The Exchange browser QA harness (`sunscar-exchange-qa-server.mts`, `sunscar-exchange-browser-qa.mjs` and `vite.sunscar-exchange-qa.config.mjs`) was removed in the 2026-10 dead-code cleanup. Recover it from git history if the browser checks need repeating. It bound only to localhost, served a production-mode preview, and reset disposable in-memory saves before each run. Screenshots and the browser report live in `docs/screenshots/sunscar-exchange/`.
 
 The release candidate was prepared on `origin/main` revision `96b892d0b63fa2e4f3ed28c224b9bf2c6a853330` with the locked dependencies and Node 22.23.1. The current-main test set covers 120 tests, including the App size ratchet; the ownership fixture explicitly includes the new Exchange receipt. Browser flows were repeated successfully from that clean checkout. Test trading uses disposable local accounts.
 

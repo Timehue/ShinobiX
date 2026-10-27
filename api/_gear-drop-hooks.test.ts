@@ -66,7 +66,7 @@ describe('dungeon run drop', () => {
         throw new Error('no token found');
     };
     function settle(token: string) {
-        const start = mutateDungeonRun({ name: 'Kiri', inventory: ['dungeon-key'], itemStacks: [] }, 'start', '', token, 1000, 0, undefined, undefined, 'craft-dungeon-snow');
+        const start = mutateDungeonRun({ name: 'Kiri', inventory: ['dungeon-key'], itemStacks: [], pets: [{ id: 'pet-1' }] }, 'start', '', token, 1000, 0, undefined, undefined, 'craft-dungeon-snow');
         assert.equal(start.ok, true); if (!start.ok) throw new Error('start');
         const warden = applyDungeonWardenSettlement({ character: start.character, dungeonRunToken: token, opponentId: 'dungeon-warden-50', proofId: 'aifightproof123', outcome: 'win', now: 2000 });
         assert.equal(warden.ok, true); if (!warden.ok) throw new Error('warden');

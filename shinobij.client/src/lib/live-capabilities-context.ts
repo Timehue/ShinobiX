@@ -49,10 +49,6 @@ export function useLiveCapabilities(): LiveCapabilitiesContextValue {
     }), [availability, mutationAvailability, snapshot, store, viewAvailability]);
 }
 
-export function useCapabilityAvailability(id: PublicCapabilityId): CapabilityAvailability {
-    return useLiveCapabilities().availability(id);
-}
-
 export function useCapabilityViewAvailability(id?: PublicCapabilityId): CapabilityAvailability {
     return useLiveCapabilities().viewAvailability(id);
 }

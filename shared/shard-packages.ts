@@ -158,9 +158,6 @@ export const PROVIDER_PACKAGE_IDS: ProviderPackageMap = {
 /** The catalogue id the client names to buy the recurring supporter tier. */
 export const SUBSCRIPTION_ID = 'shinobi-supporter';
 
-/** Reference monthly price, for the same planning-only purpose as `usd` above. */
-export const SUBSCRIPTION_REFERENCE_USD = 15;
-
 /*
  * The Tebex product id itself is read from the environment SERVER-SIDE (see
  * api/tebex/_basket-core.ts). It is deliberately not here: this module is

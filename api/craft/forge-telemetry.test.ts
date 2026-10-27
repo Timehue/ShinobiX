@@ -109,12 +109,12 @@ test('a refused craft logs nothing', async () => {
 
 test('a mastery respec logs its 50,000-ryo fee as a sink', async () => {
     const player = 'respectelemetry1';
-    await kv.set(`save:${player}`, { _saveVersion: 1, character: { name: player, level: 50, ryo: 60_000, profession: 'vanguard', professionXp: 40_000, masterySpec: {} } });
+    await kv.set(`save:${player}`, { _saveVersion: 1, character: { name: player, level: 50, ryo: 60_000, profession: 'vanguard', professionXp: 40_000, masterySpec: { sealDailyCapFlat: 1 } } });
     const out = await call(mastery, player, { action: 'respec' });
     assert.equal(out.status, 200, JSON.stringify(out.body));
     assert.equal((out.body.character as Json).ryo, 10_000);
     const refused = await call(mastery, player, { action: 'respec' });
-    assert.equal(refused.status, 409, 'cannot afford a second respec');
+    assert.equal(refused.status, 409, 'a second respec is refused: nothing left to respec and no ryo for the fee');
     assert.deepEqual(await txns(player), [
         { txnId: `profession-respec:${player}:${out.body._saveVersion}`, currency: 'ryo', delta: -50_000, source: 'profession.respec' },
     ]);

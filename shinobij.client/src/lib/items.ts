@@ -155,10 +155,6 @@ export function cleanTreasuryItems(items?: TreasuryItemStack[]): TreasuryItemSta
         .map(([itemId, count]) => ({ itemId, count }));
 }
 
-export function addTreasuryItem(items: TreasuryItemStack[] | undefined, itemId: string, count = 1) {
-    return cleanTreasuryItems([...(items ?? []), { itemId, count }]);
-}
-
 export function removeTreasuryItem(items: TreasuryItemStack[] | undefined, itemId: string, count = 1) {
     let remaining = Math.max(1, Math.floor(count));
     return cleanTreasuryItems(items)
@@ -175,19 +171,6 @@ export function removeTreasuryItem(items: TreasuryItemStack[] | undefined, itemI
 // stackables → itemStacks). Thin wrapper over lib/inventory `addItems`.
 export function addInventoryItems(character: Character, itemIds: string[]) {
     return addItems(character, itemIds);
-}
-
-// LEGACY array-only remover — kept for any caller that only has the raw
-// inventory[] and is removing NON-stackable ids. For stackable-aware removal
-// (the common case) use `removeItem` / `removeItems` from lib/inventory, which
-// also drains itemStacks.
-export function removeInventoryItems(inventory: string[], requirements: Record<string, number>) {
-    const remaining = { ...requirements };
-    return inventory.filter((itemId) => {
-        if (!remaining[itemId]) return true;
-        remaining[itemId] -= 1;
-        return false;
-    });
 }
 
 // Display stacks across BOTH stores (inventory[] + itemStacks), named + sorted.

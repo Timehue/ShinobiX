@@ -60,9 +60,6 @@ async function post(playerName: string, token: string, action: string, fields: R
 export const startWildBattle = (playerName: string, token: string, petId: string) =>
     post(playerName, token, 'start', { petId });
 
-export const readWildBattle = (playerName: string, token: string) =>
-    post(playerName, token, 'state');
-
 export const turnWildBattle = (playerName: string, token: string, commands: ShowdownCommand[], expectedRound: number) =>
     post(playerName, token, 'turn', { commands, expectedRound });
 
