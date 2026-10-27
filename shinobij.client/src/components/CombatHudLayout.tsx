@@ -82,25 +82,6 @@ export function CombatCommandBar({ children, className, ...props }: DivProps) {
     return <div className={classNames("basic-action-bar shinobi-command-bar", className)} {...props}>{children}</div>;
 }
 
-/** Shared lower-right desktop frame for mode-specific combat controls. */
-export function CombatModePanel({
-    children,
-    className,
-    headerAction,
-    title,
-    ...props
-}: DivProps & { title: ReactNode; headerAction?: ReactNode }) {
-    return (
-        <aside className={classNames("combat-mode-panel", className)} {...props}>
-            <div className="battle-side-header combat-mode-panel-header">
-                <span>{title}</span>
-                {headerAction}
-            </div>
-            <div className="combat-mode-panel-body">{children}</div>
-        </aside>
-    );
-}
-
 /** Shared accessible battle-log frame. Callers may provide plain or structured log content. */
 export const CombatBattleLogPanel = forwardRef<HTMLDivElement, DivProps & {
     turnLabel: ReactNode;

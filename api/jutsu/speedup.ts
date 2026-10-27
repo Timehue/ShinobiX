@@ -8,6 +8,7 @@ import { masteryBonus, masteryHasCapstone } from '../_profession-mastery.js';
 import { kv } from '../_storage.js';
 import { weekEndsAt, weekKey } from '../missions/_weekly-board.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
+import { saveUnchangedSince } from '../save/_save-unchanged.js';
 import { randomUUID } from 'node:crypto';
 
 // Honor Seal training speedup. Each Seal reduces the active jutsu lesson's
@@ -93,6 +94,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method !== 'POST') return res.status(405).end();
 
     let freeClaim: { key: string; token: string } | null = null;
+    let writeOwnsFreeClaim = false;
     try {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
         const playerName = safeName(String(body.playerName ?? ''));
@@ -128,7 +130,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // its next autosave hit a 409.
         const refuse = (character: Record<string, unknown>, reply: Reply) =>
             ({ ok: true as const, character, value: reply, write: false });
-        const result = await mutatePlayerSave<Reply>(playerName, async ({ record, character: char }) => {
+        const result = await mutatePlayerSave<Reply>(playerName, async ({ record, character: char, saveKey }) => {
             // Verify there's actually an active jutsu lesson that isn't already
             // finished — otherwise the player would lose Seals for nothing.
             const activeJutsuTraining = record.activeJutsuTraining as { endsAt?: number; jutsuId?: string } | undefined | null;
@@ -163,9 +165,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     freeClaim = null;
                     return refuse(char, { status: 409, body: { error: 'You already used this week\'s free speedup.', resetsAt: weekEndsAt(now) } });
                 }
+                // From here the claim belongs to the save write below, whose
+                // onConflict / onUnconfirmedWrite decide whether to hand it back.
+                // The catch must not: a write that threw may have landed.
+                const heldClaim = freeClaim;
+                writeOwnsFreeClaim = true;
                 return {
                     ok: true as const,
                     character: char,
+                    // A lost compare-and-set committed nothing: the free speedup is
+                    // unspent. Any other failed write may have landed, so the claim
+                    // goes back only while the stored save still holds the version
+                    // this read; an unreadable or moved save keeps it spent.
+                    onConflict: () => releaseFreeClaim(heldClaim),
+                    onUnconfirmedWrite: async () => {
+                        if (await saveUnchangedSince(saveKey, record)) await releaseFreeClaim(heldClaim);
+                    },
                     recordPatch: { activeJutsuTraining: { ...activeJutsuTraining, endsAt: now } },
                     value: {
                         status: 200,
@@ -231,8 +246,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const { status, body: reply } = result.value;
         return res.status(status).json(status === 200 ? { ...reply, _saveVersion: result._saveVersion } : reply);
     } catch (err) {
-        // A claimed free speedup whose save write never landed is handed back.
-        await releaseFreeClaim(freeClaim);
+        // A free speedup claimed but never handed to the save write (the claim
+        // itself threw) is handed back here. Once the write owns the claim, its
+        // hooks decide: a write that threw may have landed, and handing the
+        // claim back then lets the free speedup be used a second time.
+        if (!writeOwnsFreeClaim) await releaseFreeClaim(freeClaim);
         if (err instanceof LockContendedError) {
             res.setHeader('Retry-After', '1');
             return res.status(503).json({ error: 'Your save is being updated. Retrying is safe.' });

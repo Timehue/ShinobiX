@@ -3,6 +3,7 @@ import { dungeonWardenWasDefeated } from './_ai-fight.js';
 import { dungeonCardWasWon, dungeonPetWasWon } from './_encounter-proof.js';
 import { dungeonPresentationId } from '../../shared/dungeon-presentation.js';
 import { DAILY_SECTOR_EXPLORE_LIMIT } from '../world/_explore.js';
+import { activeCarriedPets } from '../_entitlements.js';
 
 export const DUNGEON_KEY_ID = 'dungeon-key';
 export const DUNGEON_RELIC_ID = 'dungeon-legendary-relic';
@@ -217,6 +218,9 @@ export function mutateDungeonRun(
     }
     if (action === 'start') {
         if (active?.token) return { ok: true as const, alreadyApplied: true, token: String(active.token), character };
+        // The Rare Beast seal needs a carried pet and the run cannot settle without
+        // it, so refuse before the key is spent instead of stranding a keyless run.
+        if (activeCarriedPets(character).length === 0) return { ok: false as const, reason: 'dungeon-pet-required' as const };
         const removed = removeOne(character, DUNGEON_KEY_ID);
         if (!removed) return { ok: false as const, reason: 'dungeon-key-required' as const };
         return { ok: true as const, alreadyApplied: false, token: issuedToken, character: { ...character, ...removed, activeDungeonRun: { token: issuedToken, startedAt: now, entry: 'key', presentationEventId: dungeonPresentationId(presentationEventIdRaw) } } };

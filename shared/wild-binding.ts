@@ -21,7 +21,6 @@ export const WILD_BINDING_BASE_CHANCE: Readonly<Record<string, number>> = {
     mythic: 12,
 };
 
-export const WILD_BINDING_FOCUS_RESOLVE = 14;
 export const WILD_BINDING_CHEST_DROP_CHANCE = 0.04;
 
 /** Wild traits affect how the pet responds to battle choices, not capture odds. */

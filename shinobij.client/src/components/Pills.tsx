@@ -1,7 +1,6 @@
 /*
- * Tiny in-line pills / portraits used by various screens.
+ * Tiny in-line pill used by various screens.
  *
- *   • FestivalPortrait — NPC bust shown in the Sunscar Festival screen.
  *   • VillagePill — village panorama thumbnail + name on a dark capsule,
  *     used in the Shinobi Council Hall war cards.
  *
@@ -10,16 +9,6 @@
  */
 
 import { villagePageImage } from "../lib/village-page-image";
-
-export function FestivalPortrait({
-    image,
-    icon,
-    name,
-}: { image?: string; icon: string; name: string }) {
-    return image
-        ? <img className="sunscar-portrait" src={image} alt={name} />
-        : <div className="sunscar-npc" aria-label={name}>{icon}</div>;
-}
 
 export function VillagePill({
     village,

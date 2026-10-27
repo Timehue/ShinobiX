@@ -348,14 +348,6 @@ export function serializeSaveConflictDownload(draft: SaveConflictDraft, exported
     }, 2);
 }
 
-export function saveConflictDownloadFilename(draft: SaveConflictDraft): string {
-    const safeAccount = draft.accountKey.replace(/[^a-z0-9_-]+/g, "-") || "player";
-    const stamp = new Date(latestSaveConflictRevision(draft).detectedAt).toISOString().replace(/[:.]/g, "-");
-    return `shinobi-local-draft-${safeAccount}-${stamp}.json`;
-}
-
-export type SaveConflictDraftStore = ReturnType<typeof createSaveConflictDraftStore>;
-
 /**
  * Owns the browser-storage and in-memory lifecycle for recoverable save drafts.
  * Network recovery remains in App because it must coordinate the active account

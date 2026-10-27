@@ -126,11 +126,6 @@ export function buildCompanionJourney(character: Pick<Character, "onboardingStep
     };
 }
 
-/** Compatibility selector for the village checklist. */
-export function buildCompanionSteps(character: Pick<Character, "onboardingStep">): CompanionStep[] | null {
-    return buildCompanionJourney(character)?.steps ?? null;
-}
-
 /** Shared coach/checklist metadata so phase, step count, and "up next" copy
  * cannot drift between the bottom speech bubble and village roadmap. */
 export function companionStepMeta(step: CanonicalOnboardingStep): {

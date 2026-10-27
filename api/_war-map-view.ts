@@ -14,7 +14,6 @@ import {
     taxRateForSectors,
 } from './_war-economy.js';
 import {
-    STRUCTURE_KEYS,
     sectorConfigFor,
     totalUpkeepWr,
     type StructureKey,
@@ -183,6 +182,3 @@ export function publicVillageWarMapView(view: VillageWarMapView): VillageWarMapP
         restricted: true,
     };
 }
-
-/** The structure keys, in display order, for the client (mirror of STRUCTURE_KEYS). */
-export const WAR_MAP_STRUCTURE_KEYS: readonly StructureKey[] = STRUCTURE_KEYS;

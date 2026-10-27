@@ -234,3 +234,11 @@ test('a lost pool transaction reply cannot charge twice, create half a war or tr
     assert.equal((await declare(input)).character.honorSeals,500);assert.equal((await kv.get<Record<string,any>>('clan-seal-pool:azure'))!.balance,400);
     for(const clan of ['Azure','Ember'])assert.equal((await kv.get<Record<string,unknown>>(key(clan)))!.state,'active');
 });
+
+test('a plain clan member cannot declare war: refused before any seal is charged or war created', async () => {
+    await seedClan('Azure', 'azure'); await seedClan('Ember', 'ember');
+    await assert.rejects(declare({ playerName: 'azure-1', toClan: 'Ember', requestId: 'campaign-declare-member-0001' }), /leadership/);
+    assert.equal((await kv.get<Record<string, any>>('save:azure-1'))!.character.honorSeals, 500);
+    const { clanWarKey } = await import('./_storage.js');
+    assert.equal(await kv.get(clanWarKey('Azure', 'Ember')), null);
+});

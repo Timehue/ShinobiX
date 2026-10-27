@@ -53,7 +53,7 @@ describe('endless spire client mirror', () => {
         const keystoneCounts = (tier: number): Map<string, number> => {
             const counts = new Map<string, number>();
             if (tier < 1) return counts;
-            for (const mod of resolveAscensionModifiers(tier, 'parity-probe', 12).modifierStack) {
+            for (const mod of resolveAscensionModifiers(tier, 12).modifierStack) {
                 if (BASE_KINDS.has(mod.kind)) continue;
                 counts.set(mod.kind, (counts.get(mod.kind) ?? 0) + 1);
             }

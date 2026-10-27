@@ -438,8 +438,9 @@ token deletion for exactly-once semantics.
       Academy Trial needs the sealed spar latch (`academySparClaimed`), and the
       Academy Checklist the server-owned goals (`academyChecklistGoalsMet`), so a
       fresh account cannot claim them from a client-reported step.
-- [ ] **Register the new endpoint in `server.ts`** (cPanel parity) and confirm
-      the client call path matches the handler file path (Vercel parity).
+- [ ] **Import and `route()`-register the new endpoint in `server-api-routes.ts`**
+      (there is no auto-routing; an unregistered handler is unreachable) and
+      confirm the client call path matches the registered route.
 - [ ] `npm test` (repo root) + `npm run lint` (`shinobij.client/`).
 
 ---

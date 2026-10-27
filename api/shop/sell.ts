@@ -19,7 +19,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity.admin && !(await enforceRateLimitKv(req, res, 'shop-sell', 60, 60_000, identity.name))) return;
         const result = await mutatePlayerSave(playerName, ({ character }) => {
             const receipts = Array.isArray(character.redeemedShopSales) ? character.redeemedShopSales as Array<Record<string, unknown>> : [];
-            const prior = receipts.find((entry) => entry?.id === requestId); if (prior) return { ok: true as const, character, value: { sale: prior.sale, replayed: true } };
+            const prior = receipts.find((entry) => entry?.id === requestId); if (prior) return { ok: true as const, character, value: { sale: prior.sale, replayed: true }, write: false as const };
             const sold = sellCatalogItem(character, body.itemId, body.qty, body.equipmentSlot); if (!sold.ok) return { ok: false as const, status: 409, error: sold.reason };
             const receipt = { id: requestId, sale: sold.sale, at: Date.now() };
             return { ok: true as const, character: { ...sold.character, redeemedShopSales: [...receipts.slice(-99), receipt] }, value: { sale: sold.sale, replayed: false } };

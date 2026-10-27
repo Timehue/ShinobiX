@@ -17,7 +17,9 @@
 // Indexed by rank — idx 0 unused, rank 1..10 follows the docs/professions.md table.
 export const VANGUARD_SEALS_PER_KILL = [0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5] as const;
 
-export const VANGUARD_DAILY_SEAL_CAP = 50;
+// Mirrors DAILY_SEAL_CAP in api/pvp/_vanguard-rewards.ts (raised 50 -> 150 there);
+// api/pvp/_vanguard-daily-cap-parity.test.ts pins the two together.
+export const VANGUARD_DAILY_SEAL_CAP = 150;
 export const VANGUARD_PER_TARGET_DAILY_CAP = 3;
 
 // Anti-alt: zero rewards for killing targets whose account is < 72 hours old.

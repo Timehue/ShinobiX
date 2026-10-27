@@ -304,11 +304,6 @@ export const TITLE_ACHIEVEMENT_IDS: ReadonlySet<string> = new Set<string>([
     "war-mvp-10", "tournament-10", "ranked-season-3", "achievements-100", "achievements-125",
 ]);
 
-/** The wearable title an achievement confers, or null if it grants none. */
-export function achievementTitle(a: Achievement): string | null {
-    return TITLE_ACHIEVEMENT_IDS.has(a.id) ? a.name : null;
-}
-
 /** Collect the wearable titles for a set of unlocked achievement ids (deduped). */
 export function titlesForAchievementIds(ids: Iterable<string>): string[] {
     const out: string[] = [];

@@ -27,18 +27,6 @@ export function effectiveCharacterXpGain(
     return testingBoostedAmount + trainingFocusBonus;
 }
 
-// Variant for UI labels — applies the elder-focus bonus when a character
-// is supplied, otherwise just the testing-phase multiplier. Used by
-// "Reward: X XP" displays that may or may not have a character in scope.
-export function displayCharacterXpGain(
-    amount: number,
-    character?: Pick<Character, "elderFocus"> & Partial<Pick<Character, "village">>,
-): number {
-    return character
-        ? effectiveCharacterXpGain(character, amount)
-        : Math.floor(Math.max(0, amount) * CHARACTER_XP_GAIN_MULTIPLIER);
-}
-
 // Standard ELO-style ranked rating delta. Returns the amount the winner
 // gains (loser loses the same). K-factor = 24, floor = 8 so even big
 // upsets give the winner something to show for it.

@@ -10,6 +10,7 @@ import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
+import { saveUnchangedSince } from '../save/_save-unchanged.js';
 import { applySectorExploreReward, rollSectorExploreOutcome } from './_explore.js';
 import { isPlayableWildSector } from '../../shared/sector-geo.js';
 import { DAILY_ANCIENT_CHEST_LIMIT } from './_chest.js';
@@ -142,7 +143,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             pool.frame = await loadSectorPoolFrame(requestedSector).catch(() => null);
         }
         const result = await withKvLock(activePetKey, async () => {
-            const mutation = await mutatePlayerSave(playerName, async ({ character }) => {
+            const mutation = await mutatePlayerSave(playerName, async ({ character, record, saveKey }) => {
             pool.village = typeof character.village === 'string' ? character.village : undefined;
             const receipts = Array.isArray(character.redeemedSectorExplorations)
                 ? (character.redeemedSectorExplorations as Array<Record<string, unknown>>).filter((entry) => entry && typeof entry.id === 'string')
@@ -440,6 +441,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const nextCharacter = resolveFreeDungeonMiss(nextCharacterBeforeDungeonResolution, requestId);
             return {
                 ok: true as const,
+                // A save write that threw without a confirmed commit may still have
+                // landed. The reservation is handed back (by the catch below) only
+                // when the stored save provably still holds the version this read.
+                // Anything else - a moved version, an unreadable store - latches the
+                // debit as owed, since the same-id retry replays a landed receipt
+                // without reserving again and a release would refund a spent slot.
+                onUnconfirmedWrite: async () => {
+                    if (!(await saveUnchangedSince(saveKey, record))) pool.committed = true;
+                },
                 character: { ...nextCharacter, redeemedSectorExplorations: [...receipts.slice(-149), receipt],
                     ...(outcome?.kind === 'gather' && outcome.find ? { pendingGatherFinds: [...pendingGatherFinds(character), outcome.find] } : {}),
                 },

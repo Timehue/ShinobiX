@@ -149,9 +149,6 @@ export function wingThemeAt(run: HollowGateShrineRun, idx: number): string | und
     return undefined;
 }
 
-export const WING_TINT: Record<string, string> = { treasure: "rgba(180,150,60,0.14)", beast: "rgba(190,70,70,0.14)", trial: "rgba(150,90,210,0.15)" };
-export const WING_GLYPH: Record<string, string> = { treasure: "🏆", beast: "🐺", trial: "⚔" };
-
 export function generateHollowGateWingRun(floor: number, isFinalFloor: boolean): HollowGateShrineRun {
     const w = HOLLOW_GATE_SHRINE_W;
     const h = HOLLOW_GATE_SHRINE_H;
