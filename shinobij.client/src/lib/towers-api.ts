@@ -312,6 +312,8 @@ export type TowerFloorMeta = {
     biome: string;
     objective: string;
     roundBudget: number;
+    recommendedLevel?: number;
+    recommendedPartySize?: number;
     isBoss: boolean;
     bossMechanic: string | null;
     bossTargetMode: 'lowest-hp' | 'squishiest' | 'support' | null;

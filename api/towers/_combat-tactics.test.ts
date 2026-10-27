@@ -111,6 +111,70 @@ export function tacticsFixture() {
     const s=createTowerSession({towerId:'celestial',runId:'tactics-test',floor:1,seed:42,partySize:1,now:1000,map:{width:16,height:10,blockedTiles:[],hazardTiles:[],objectiveTiles:[]},actors:[actor('sq','squad',34),actor('boss','enemy',38)],bossId:'boss',objectiveKind:'defeat-all'});
     initializeTowerTactics(s); s.round=2; s.turnQueue=['sq','boss'];s.activeIndex=0;s.activeAp=100; return s;
 }
+
+function counterFixture(level = 95) {
+    const s = tacticsFixture();
+    const [player, enemy] = s.actors;
+    enemy.pos = 35;
+    enemy.character.jutsu = [{ id: 'counter-test-hit', type: 'Ninjutsu', element: 'None', ap: 60, range: 4, effectPower: 30 }];
+    s.activeIndex = 1;
+    s.pveGuard = { enemyLevel: level, turnStartHp: {}, dealtThisTurn: {} };
+    return { s, player, enemy };
+}
+
+test('public Tower AI recognizes shield-only Clear value, while small shields keep the medium threshold', () => {
+    for (const [level, shield, expected] of [[95, 150, 'clear'], [40, 150, 'clear'], [40, 1, 'jutsu']] as const) {
+        const { s, player, enemy } = counterFixture(level);
+        player.maxHp = 1000; player.hp = 1000; player.shield = shield;
+        const action = pickAiAction(s, enemy, () => .5);
+        assert.equal(action.type, expected);
+        assert.equal(applyAction(s, getFloor(1)!, action, () => .5).applied, true);
+        if (expected === 'clear') assert.equal(player.shield, 0);
+    }
+    const { s, player, enemy } = counterFixture(30);
+    player.shield = 500;
+    assert.notEqual(pickAiAction(s, enemy, () => .5).type, 'clear', 'onboarding competence remains unchanged');
+});
+
+test('Tower AI preserves a useful attack instead of spending AP against visible Clear/Cleanse Prevent', () => {
+    for (const prevention of ['Clear Prevent', 'Cleanse Prevent'] as const) {
+        const { s, player, enemy } = counterFixture();
+        if (prevention === 'Clear Prevent') {
+            player.statuses = [{ name: prevention, kind: 'positive', rounds: 2, activeRound: s.round }];
+        } else {
+            enemy.statuses = ['Cleanse Prevent', 'Poison', 'Wound'].map(name => ({ name, kind: 'negative' as const, rounds: 2, activeRound: s.round }));
+        }
+        const action = pickAiAction(s, enemy, () => .5);
+        assert.equal(action.type, 'jutsu');
+        assert.equal(applyAction(s, getFloor(1)!, action, () => .5).applied, true);
+        assert.equal(s.activeAp, 40);
+    }
+});
+
+test('Tower Cleanse accounts for removable pending debuffs but Clear waits for active buffs', () => {
+    const { s, player, enemy } = counterFixture();
+    player.statuses = [{ name: 'Reflect', kind: 'positive', rounds: 2, activeRound: s.round + 1 }];
+    enemy.statuses = ['Poison', 'Wound'].map(name => ({ name, kind: 'negative' as const, rounds: 2, activeRound: s.round + 1 }));
+    const action = pickAiAction(s, enemy, () => .5);
+    assert.equal(action.type, 'cleanse');
+    assert.equal(applyAction(s, getFloor(1)!, action, () => .5).applied, true);
+    assert.equal(enemy.statuses.length, 0);
+    assert.equal(player.statuses.length, 1);
+    assert.equal(s.activeAp, 40);
+});
+
+test('counter perception keeps embedded encounters without public Tower tactics on their prior policy', () => {
+    const { s, player, enemy } = counterFixture();
+    delete s.towerTactics;
+    player.shield = 500;
+    assert.equal(pickAiAction(s, enemy, () => .5).type, 'jutsu');
+    player.statuses = [{ name: 'Clear Prevent', kind: 'positive', rounds: 2, activeRound: s.round }];
+    assert.equal(pickAiAction(s, enemy, () => .5).type, 'clear');
+    const spire = counterFixture();
+    spire.s.towerId = 'endless-spire';
+    spire.player.shield = 500;
+    assert.equal(pickAiAction(spire.s, spire.enemy, () => .5).type, 'jutsu', 'Spire keeps its separate balance policy');
+});
 test('charge locks a deterministic lane and colliding with a pillar breaks guard',()=>{
     const probe=tacticsFixture(); primeTowerSignature(probe);
     assert.ok(probe.bossStrike!.tiles.includes(34));
@@ -163,6 +227,18 @@ test('controller restoration is bounded, cooldown limited, and inaccessible as a
     const action=pickAiAction(s,healer,()=>.5);assert.equal(action.type,'support');
     assert.equal(applyAction(s,getFloor(1)!,action,()=>.5).applied,true);assert.equal(s.actors[1].hp,280);assert.equal(s.activeAp,40);
     s.activeAp=100;assert.equal(applyAction(s,getFloor(1)!,action,()=>.5).applied,false);assert.equal(isTowerActionType('support'),false);assert.equal(isTowerActionType('disrupt'),true);
+});
+
+test('skirmishers take an available attack instead of chasing a distant isolated player', () => {
+    const session = tacticsFixture();
+    const skirmisher = actor('skirmisher', 'enemy', 35);
+    skirmisher.character.combatRole = 'skirmisher';
+    session.actors.push(skirmisher, actor('support', 'squad', 33), actor('isolated', 'squad', 159));
+    session.turnQueue = [skirmisher.id]; session.activeIndex = 0;
+    const action = pickAiAction(session, skirmisher, () => .5);
+    assert.equal(action.type, 'attack');
+    assert.equal('targetId' in action && action.targetId, 'sq');
+    assert.equal(applyAction(session, getFloor(1)!, action, () => .5).applied, true);
 });
 test('knockout evidence survives revival and ignores expired pets',()=>{
     const s=tacticsFixture();s.actors[0].hp=0;const pet=actor('pet','squad',1);pet.character.companion=true;pet.hp=0;s.actors.push(pet);recordTowerKnockouts(s);s.actors[0].hp=100;recordTowerKnockouts(s);assert.deepEqual(s.towerTactics!.squadKnockouts,['sq']);

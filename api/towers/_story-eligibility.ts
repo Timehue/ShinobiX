@@ -5,6 +5,13 @@ import { hasClearedTowerFloor, type TowerEntryCharacter } from './_entry-fee.js'
  *  re-export so existing importers and error payloads are unchanged. */
 export const STORY_TOWER_MIN_LEVEL: number = BATTLE_TOWERS_MIN_LEVEL;
 
+/** Fail closed for missing, non-finite or malformed saved levels. */
+export function towerLevelEligible(character: TowerEntryCharacter): boolean {
+    if (typeof character.level !== 'number' && typeof character.level !== 'string') return false;
+    const level = Number(character.level);
+    return Number.isFinite(level) && level >= BATTLE_TOWERS_MIN_LEVEL;
+}
+
 export type StoryTowerEligibility = {
     eligible: boolean;
     replay: boolean;
@@ -36,7 +43,7 @@ export function storyTowerEligibility(
     const floor = whole(requestedFloor);
     const replay = hasClearedTowerFloor(character, floor);
     const bestFloor = whole(character.battleTowerBestFloor);
-    const requiredLevel = whole(character.level) < STORY_TOWER_MIN_LEVEL
+    const requiredLevel = !towerLevelEligible(character)
         ? STORY_TOWER_MIN_LEVEL
         : undefined;
     const requiredFloor = !replay && floor > bestFloor + 1

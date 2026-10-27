@@ -82,7 +82,7 @@ test("no gameToast() carries a failure message", () => {
 test("the demoted call sites are actually using gameToast", () => {
     // Spot-check one per migrated screen so a bad merge that reverts them is caught.
     const expectations: Array<[string, RegExp]> = [
-        ["screens/Bank.tsx", /gameToast\(`Sent \$\{/],
+        ["lib/use-bank-controller.ts", /gameToast\(`Sent \$\{/],
         ["screens/CentralHub.tsx", /gameToast\(`Crafted \$\{/],
         ["screens/ClanHall.tsx", /gameToast\(`Collected \$\{/],
         ["screens/Hospital.tsx", /gameToast\(hospitalDischargeMessage\(data\),\s*\{ kind: "success" \}\)/],

@@ -12,7 +12,7 @@
  */
 
 import { displayPlayerName } from "../../../shared/player-name";
-import { useState, useEffect, type CSSProperties } from "react";
+import { useState, useEffect, useRef, type CSSProperties } from "react";
 import { ReportControl } from "../components/ReportControl";
 import "../styles/index/25-mobile-profile-tabs.css";
 import "../styles/profile-skin.css";
@@ -82,6 +82,9 @@ export function UserView({
     const viewedCharacter: Character | null = rosterEntry?.character ?? serverEntry?.character ?? null;
 
     const [tab, setTab] = useState<'overview' | 'achievements'>('overview');
+    const followInFlight = useRef(false);
+    const [followBusy, setFollowBusy] = useState(false);
+    const [followError, setFollowError] = useState<string | null>(null);
     const [selectedAchievement, setSelectedAchievement] = useState<Achievement | null>(null);
 
     useEffect(() => {
@@ -131,8 +134,19 @@ export function UserView({
     const isSelf = lower === viewerCharacter.name.toLowerCase();
     const isFollowed = following.some(f => f.toLowerCase() === lower);
     async function toggleFollow() {
-        if (isFollowed) await unfollow(viewerCharacter.name, viewingName);
-        else await follow(viewerCharacter.name, viewingName);
+        if (followInFlight.current) return;
+        followInFlight.current = true;
+        setFollowBusy(true);
+        setFollowError(null);
+        try {
+            if (isFollowed) await unfollow(viewerCharacter.name, viewingName);
+            else await follow(viewerCharacter.name, viewingName);
+        } catch (cause) {
+            setFollowError(cause instanceof Error ? cause.message : 'Could not update Following. Try again.');
+        } finally {
+            followInFlight.current = false;
+            setFollowBusy(false);
+        }
     }
     async function sendChallenge() {
         if (challengeBusy) return;
@@ -194,12 +208,14 @@ export function UserView({
                         </button>
                         <button
                             className={`profile-action-btn${isFollowed ? " following" : ""}`}
+                            disabled={followBusy}
                             onClick={() => void toggleFollow()}
                         >{isFollowed ? "★ Following" : "☆ Follow"}</button>
                         <ReportControl targetType="player" targetName={viewingName} context="profile" style={{ alignSelf: "center", marginLeft: 2 }} />
                     </div>
                 )}
 
+                {followError && <p role="status">{followError}</p>}
                 <section className="profile-build-panel" style={{ display: "flex", gap: 18, alignItems: "center", flexWrap: "wrap" }}>
                     <div
                         className={(viewedCharacter.legacy?.stage ?? 0) >= 2 ? `legacy-aura-s${Math.min(5, viewedCharacter.legacy!.stage)}` : undefined}

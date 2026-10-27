@@ -203,7 +203,7 @@ const TOWER_BARRIER_SOURCE_PREFIX = 'tower-grid:';
  * Barrier amounts emitted by the shared resolver are PvP-grid coordinates.  Only
  * statuses stamped by the Tower's own placement policy are board authority here.
  */
-function towerBarrierTiles(session: TowerSession): Set<number> {
+export function towerBarrierTiles(session: TowerSession): Set<number> {
     const limit = session.map.width * session.map.height;
     const out = new Set<number>();
     for (const actor of session.actors) {
@@ -586,7 +586,8 @@ function summonAdds(session: TowerSession): void {
     for (const feature of session.map.features ?? []) for (const tile of feature.tiles) forbidden.add(tile);
     for (const object of session.map.boardObjects ?? []) for (const tile of object.tiles ?? []) forbidden.add(tile);
     for (const hazard of session.map.dynamicHazards ?? []) for (const tile of hazard.tiles) forbidden.add(tile);
-    const scale = Math.max(0, Number(boss.character.towerDmgScale ?? 1)); // adds inherit the boss's party scaling
+    const scale = Math.max(0, Number(boss.character.towerDmgScale ?? 1)); // party + route damage
+    const hpScale = Math.max(0, Number(boss.character.towerSummonHpScale ?? Math.min(1, scale)));
     const allActorIds = [
         ...session.actors.map(a => a.id),
         ...(session.pendingEnemyWaves ?? []).flatMap(wave => wave.actors.map(a => a.id)),
@@ -602,7 +603,7 @@ function summonAdds(session: TowerSession): void {
         .sort((a, b) => hexDistance(a, boss.pos, w) - hexDistance(b, boss.pos, w) || a - b);
     const candidates = [...immediate, ...expanded];
     const makeAdd = (id: string, pos: number): TowerActor => {
-        const hp = Math.max(1, Math.round(Number(tpl.hp ?? 300) * (scale < 1 ? scale : 1)));
+        const hp = Math.max(1, Math.round(Number(tpl.hp ?? 300) * hpScale));
         const maxChakra = Math.max(1, Math.floor(Number(tpl.maxChakra ?? 100)));
         const maxStamina = Math.max(1, Math.floor(Number(tpl.maxStamina ?? 100)));
         return {
@@ -618,7 +619,8 @@ function summonAdds(session: TowerSession): void {
                 ...(tpl.targetMode ? { aiTargetMode: tpl.targetMode } : {}),
                 ...(tpl.armorRawDR != null ? { armorRawDR: tpl.armorRawDR } : {}),
                 ...(tpl.jutsu ? { jutsu: tpl.jutsu.map(jutsu => structuredClone(jutsu)) } : {}),
-                ...(scale < 1 ? { towerDmgScale: scale } : {}),
+                ...(tpl.jutsuMastery ? { jutsuMastery: tpl.jutsuMastery.map(entry => ({ ...entry })) } : {}),
+                ...(scale !== 1 ? { towerDmgScale: scale } : {}),
             },
         };
     };
@@ -1900,7 +1902,7 @@ function hasActionStatus(actor: TowerActor, name: string, round: number): boolea
 }
 
 /** One AP authority for validation and commitment across every paid Tower action. */
-function towerAdjustedApCost(session: TowerSession, actor: TowerActor, base: number): number {
+export function towerAdjustedApCost(session: TowerSession, actor: TowerActor, base: number): number {
     return adjustedApCost(base, {
         lagged: hasActionStatus(actor, 'Lag', session.round),
         overclocked: hasActionStatus(actor, 'Overclock', session.round),
@@ -1917,7 +1919,7 @@ function spendActionAp(session: TowerSession, actor: TowerActor, baseCost: numbe
 }
 
 const BASIC_JUTSU_ELEMENTS = new Set(['Earth', 'Wind', 'Water', 'Lightning', 'Fire']);
-function isElementallySealed(session: TowerSession, actor: TowerActor, jutsu: JutsuLike): boolean {
+export function isElementallySealed(session: TowerSession, actor: TowerActor, jutsu: JutsuLike): boolean {
     return BASIC_JUTSU_ELEMENTS.has(String(jutsu.element ?? ''))
         && activeCombatStatuses(actor.statuses, session.round)
             .some(status => canonicalTagName(status.name) === 'Elemental Seal');
@@ -3405,10 +3407,14 @@ export function pickAiAction(session: TowerSession, actor: TowerActor, rng: () =
         ? String((actor.character as { aiTargetMode?: unknown }).aiTargetMode ?? '')
         : '';
     const isolated = session.towerTactics && actor.side === 'enemy' && actor.character.combatRole === 'skirmisher'
-        ? session.actors.filter(a => a.side === 'squad' && a.hp > 0).sort((a,b) => {
-            const alliesNear = (target: TowerActor) => session.actors.filter(other => other.id !== target.id && other.side === 'squad' && other.hp > 0 && hexDistance(other.pos,target.pos,session.map.width) <= 2).length;
-            return alliesNear(a)-alliesNear(b) || hexDistance(actor.pos,a.pos,session.map.width)-hexDistance(actor.pos,b.pos,session.map.width) || a.id.localeCompare(b.id);
-        })[0] : undefined;
+        ? (() => {
+            const opponents = opponentsOf(session, actor);
+            const hittable = opponents.filter(opponent => canHitThisTurn(session, actor, opponent));
+            return [...(hittable.length ? hittable : opponents)].sort((a,b) => {
+                const alliesNear = (target: TowerActor) => session.actors.filter(other => other.id !== target.id && other.side === 'squad' && other.hp > 0 && hexDistance(other.pos,target.pos,session.map.width) <= 2).length;
+                return alliesNear(a)-alliesNear(b) || hexDistance(actor.pos,a.pos,session.map.width)-hexDistance(actor.pos,b.pos,session.map.width) || a.id.localeCompare(b.id);
+            })[0];
+        })() : undefined;
     const guardTarget = session.towerTactics && actor.side === 'squad'
         ? session.actors.filter(a => a.side === 'enemy' && a.hp > 0 && a.id !== session.phaseState.bossId)
             .sort((a,b) => hexDistance(actor.pos,a.pos,session.map.width)-hexDistance(actor.pos,b.pos,session.map.width) || a.id.localeCompare(b.id))[0] : undefined;
@@ -3430,15 +3436,28 @@ export function pickAiAction(session: TowerSession, actor: TowerActor, rng: () =
     const band = pveBandFor(session, actor);
     if (band) {
         const comp = pveAiCompetence(band.enemyLevel);
+        // Public Story Towers use the same visible counterplay vocabulary as
+        // the progressive Solo-PvE planner. Other Tower-engine hosts and sessions
+        // without public tactics retain their policy. No AP or damage changes.
+        const tacticalCounters = !!session.towerTactics && session.towerId === 'celestial';
+        const targetStatuses = activeCombatStatuses(target.statuses, session.round);
+        const shieldValue = !tacticalCounters ? 0
+            : target.shield >= Math.max(1, target.maxHp * 0.1) ? comp.clearBuffThreshold : Number(target.shield > 0);
         if (Number.isFinite(comp.clearBuffThreshold)
             && canAct(session, CLEAR_AP, actor) && (actor.cooldowns['clear'] ?? 0) <= 0
             && hexDistance(actor.pos, target.pos, session.map.width) <= BASIC_CLEAR_RANGE
-            && pveMeaningfulBuffCount(activeCombatStatuses(target.statuses, session.round)) >= comp.clearBuffThreshold) {
+            && (!tacticalCounters || !hasActiveStatus(target, 'Clear Prevent', session.round))
+            && pveMeaningfulBuffCount(targetStatuses) + shieldValue >= comp.clearBuffThreshold) {
             return { actorId: actor.id, type: 'clear', targetId: target.id };
         }
         if (Number.isFinite(comp.cleanseSelfThreshold)
-            && canAct(session, CLEANSE_AP, actor) && (actor.cooldowns['cleanse'] ?? 0) <= 0) {
-            const debuffs = activeCombatStatuses(actor.statuses, session.round).filter(s => s.kind === 'negative').length;
+            && canAct(session, CLEANSE_AP, actor) && (actor.cooldowns['cleanse'] ?? 0) <= 0
+            && (!tacticalCounters || !hasActiveStatus(actor, 'Cleanse Prevent', session.round))) {
+            // Cleanse removes pending negatives too. Clear only removes active
+            // positives, so its perception above deliberately stays active-only.
+            const statuses = tacticalCounters ? actor.statuses.filter(s => s.rounds > 0)
+                : activeCombatStatuses(actor.statuses, session.round);
+            const debuffs = statuses.filter(s => s.kind === 'negative').length;
             if (debuffs >= comp.cleanseSelfThreshold) return { actorId: actor.id, type: 'cleanse' };
         }
     }
@@ -3496,6 +3515,7 @@ export function pickAiAction(session: TowerSession, actor: TowerActor, rng: () =
 // Scale enemy HP for a party smaller than the floor's balance baseline. Called by the
 // encounter builder (start.ts, P1.B1) after enemies are built. Squad/npc untouched.
 export function applyPartyScaling(session: TowerSession, floor: TowerFloor): void {
+    if (floor.squadBalance === 'four-player-v1') return;
     const factor = partyScaleFactor(session.partySize, getFloorBalanceFor(floor));
     if (factor >= 1) return;
     const actors = [

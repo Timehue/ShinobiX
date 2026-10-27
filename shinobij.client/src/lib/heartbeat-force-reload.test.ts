@@ -24,38 +24,14 @@ describe("heartbeat force-reload account authority", () => {
             "retired heartbeat JSON must not mutate the next account's clock or UI");
     });
 
-    it("guards every force-reload await and mutation boundary", () => {
-        const forceReload = heartbeat.indexOf("if (data.forceReload)");
-        const adminAck = heartbeat.indexOf("await fetch(`/api/save/", forceReload);
-        assert.ok(heartbeat.lastIndexOf("if (!heartbeatIsCurrent()) return", adminAck) > forceReload,
-            "the admin acknowledgement must remain account-scoped");
-
-        const saveGet = heartbeat.indexOf("const saveRes = await fetch", adminAck);
-        const postGetGuard = heartbeat.indexOf("if (!heartbeatIsCurrent()) return", saveGet);
-        const saveBranch = heartbeat.indexOf("if (saveRes.ok)", saveGet);
-        assert.ok(saveGet < postGetGuard && postGetGuard < saveBranch);
-
-        const saveJson = heartbeat.indexOf("await saveRes.json()", saveBranch);
-        const postSaveJsonGuard = heartbeat.indexOf("if (!heartbeatIsCurrent()) return", saveJson);
-        const apply = heartbeat.indexOf("applyServerSnapshot(snap)", saveJson);
-        const preAckGuard = heartbeat.indexOf("if (!heartbeatIsCurrent()) return", apply);
-        const successAck = heartbeat.indexOf("await fetch(`/api/save/", preAckGuard);
-        assert.ok(saveJson < postSaveJsonGuard && postSaveJsonGuard < apply,
-            "a save response for the former account must never be painted");
-        assert.ok(apply < preAckGuard && preAckGuard < successAck,
-            "snapshot application may retire the session and must be rechecked before acknowledgement");
-
-        const deletedBranch = heartbeat.indexOf("} else {", successAck);
-        const deleteGuard = heartbeat.indexOf("if (!heartbeatIsCurrent()) return", deletedBranch);
-        const deleteAck = heartbeat.indexOf("const ack = fetch", deleteGuard);
-        const localDelete = heartbeat.indexOf("delete accounts[lsKey]", deleteAck);
-        // The six teardown setters are unwindToLoginForm() now; what this pins is
-        // unchanged — the local cache must be dropped BEFORE the session is torn down.
-        const logout = heartbeat.indexOf("unwindToLoginForm()", localDelete);
-        assert.ok(deletedBranch < deleteGuard && deleteGuard < deleteAck && deleteAck < localDelete && localDelete < logout,
-            "a deleted-save reply must be current before acknowledgement, cache deletion, or logout");
+    it("binds the extracted forced-reload flow to the heartbeat session and draft owner", () => {
+        const forceReload = heartbeat.slice(heartbeat.indexOf("if (data.forceReload)"), heartbeat.indexOf("// Live sector-mates"));
+        assert.match(forceReload, /reloadSignaledSave/);
+        assert.match(forceReload, /accountName: heartbeatAccountKey, admin: adminLoggedIn, isCurrent: heartbeatIsCurrent/);
+        assert.match(forceReload, /unresolved\?\.accountKey === heartbeatAccountKey && unresolved.sessionEpoch === heartbeatSessionEpoch/);
+        assert.match(forceReload, /protectDraft: \(\) =>/);
+        assert.match(forceReload, /applySnapshot: applyServerSnapshot, unwindToLogin: unwindToLoginForm/);
     });
-
     it("retires in-flight work on every effect cleanup and preserves bounded requests", () => {
         const retire = heartbeat.indexOf("const retireHeartbeat = () => {");
         const deactivate = heartbeat.indexOf("heartbeatEffectActive = false", retire);

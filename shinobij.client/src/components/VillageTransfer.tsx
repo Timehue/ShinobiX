@@ -8,6 +8,8 @@ import { Modal } from "./ui/Modal";
 import { GameIcon } from "./icons/GameIcon";
 import { clearVillageTransferIntent, readVillageTransferIntent, retainVillageTransferIntent, type VillageTransferIntent } from "../lib/village-transfer-intent";
 import { countItem } from "../lib/inventory";
+import { readShopPurchaseReply } from "../lib/shop-purchase-api";
+import { shopPurchaseRequestContract } from "../../../shared/shop-purchase-contract";
 import "../styles/village-transfer.css";
 
 export function VillageTransfer({ character, onVersionedCharacter }: {
@@ -44,14 +46,16 @@ export function VillageTransfer({ character, onVersionedCharacter }: {
                 ? { playerName: character.name, itemId: VILLAGE_TRANSFER_SCROLL_ID, qty: 1, requestId: intent.requestId }
                 : { playerName: character.name, ...intent };
             const response = await fetch(action === "purchase" ? "/api/shop/purchase" : "/api/village/transfer", {
-                method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+                method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(action === "purchase" ? shopPurchaseRequestContract.parse(body) : body),
                 signal: AbortSignal.timeout(20_000),
             });
-            const result = await response.json().catch(() => null) as { error?: string; character?: Character; _saveVersion?: number } | null;
+            const raw: unknown = await response.json().catch(() => null);
+            const result = action === "purchase" ? readShopPurchaseReply(response, raw, shopPurchaseRequestContract.parse(body))
+                : raw as { error?: string; character?: Character; _saveVersion?: number } | null;
             if (!response.ok || !result?.character) {
                 // Preserve the same intent after ambiguous failures; retries cannot
                 // spend twice or silently switch the destination of an in-flight transfer.
-                const uncertain = response.status >= 500 || response.ok || [401, 408, 429].includes(response.status);
+                const uncertain = !result || response.status >= 500 || response.ok || [401, 408, 429].includes(response.status);
                 if (!uncertain) {
                     clearVillageTransferIntent(character.name);
                     intentRef.current = null;

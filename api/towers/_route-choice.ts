@@ -66,9 +66,17 @@ export function applyTowerRouteChoice(session: TowerSession, requested: unknown)
         for (const actor of [...session.actors, ...(session.pendingEnemyWaves ?? []).flatMap(wave => wave.actors)].filter(candidate => candidate.side === 'enemy')) {
             actor.maxHp = Math.max(1, Math.ceil(actor.maxHp * 1.18));
             actor.hp = actor.maxHp;
+            const template = actor.character.summonTemplate as { hp: number } | undefined;
+            const damageScale = Math.max(0, Number(actor.character.towerDmgScale ?? 1));
             actor.character = {
                 ...actor.character,
-                towerDmgScale: Math.max(0, Number(actor.character.towerDmgScale ?? 1)) * 1.1,
+                towerDmgScale: damageScale * 1.1,
+                ...(template ? {
+                    summonTemplate: { ...structuredClone(template), hp: Math.max(1, Math.ceil(template.hp * 1.18)) },
+                    // Legacy party scaling used one scalar for HP and damage.
+                    // Preserve its HP component before adding the route damage.
+                    towerSummonHpScale: Math.min(1, damageScale),
+                } : {}),
             };
         }
     }

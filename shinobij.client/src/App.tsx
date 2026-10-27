@@ -260,7 +260,6 @@ import { useWarRewardClaims } from "./lib/use-war-reward-claims";
 import { useVillageTax } from "./lib/use-village-tax";
 import { requireServerSettlement } from "./lib/server-settlement-gate";
 import { createHeartbeatGate, scheduleHeartbeat } from "./lib/heartbeat-cadence";
-import { noteTowerPartyInvites } from "./lib/tower-party-invite-toast";
 import { attackSectorPlayer, routeOpenSectorBattleNotice } from "./lib/sector-attack";
 import { strikeDownSleeper } from "./lib/sleeper-kill";
 const StartScreen = lazyWithRetry(() => import("./screens/StartScreen").then(m => ({ default: m.StartScreen })));
@@ -1856,42 +1855,16 @@ export default function App() {
                 noteServerTime(data.serverNow); // the beat is our reference for the clock that mints every deadline
                 // Admin reset this account — wipe local state and reload from server
                 if (data.forceReload) {
-                    const accountName = heartbeatAccountKey;
-                    // Admin accounts never respond to force-reload signals — admin writes
-                    // to player keys, not their own, so a signal on "admin1" should not
-                    // disrupt the admin session. Just ack and continue.
-                    if (adminLoggedIn) {
-                        if (!heartbeatIsCurrent()) return;
-                        await fetch(`/api/save/${encodeURIComponent(accountName)}?ack=1`, { method: "POST", signal: AbortSignal.timeout(12000) });
-                        return;
-                    }
-                    const saveRes = await fetch(`/api/save/${encodeURIComponent(accountName)}`, { signal: AbortSignal.timeout(12000) });
-                    if (!heartbeatIsCurrent()) return;
-                    if (saveRes.ok) {
-                        const snap = await saveRes.json() as ReturnType<typeof buildPlayerSavePayload>;
-                        if (!heartbeatIsCurrent()) return;
-                        const unresolved = savePersistenceRef.current?.getUnresolvedPost();
-                        if (unresolved?.accountKey === heartbeatAccountKey && unresolved.sessionEpoch === heartbeatSessionEpoch) captureSaveConflictDraft(unresolved.accountName, unresolved.body);
-                        else if (charDirtyRef.current && latestSaveRef.current) captureSaveConflictDraft(latestSaveRef.current.name, { ...latestSaveRef.current.payload, _baseSaveVersion: latestSaveVersionRef.current });
-                        // Apply full snapshot so all admin-given changes (pets, currencies,
-                        // items, etc.) are reflected across the entire player state.
-                        applyServerSnapshot(snap);
-                        if (!heartbeatIsCurrent()) return;
-                        await fetch(`/api/save/${encodeURIComponent(accountName)}?ack=1`, { method: "POST", signal: AbortSignal.timeout(12000) });
-                    } else {
-                        // Save was deleted (account reset) — also clear localStorage so the
-                        // stale level-100 snapshot can't be reloaded on the next login.
-                        if (!heartbeatIsCurrent()) return;
-                        const ack = fetch(`/api/save/${encodeURIComponent(accountName)}?ack=1`, { method: "POST", signal: AbortSignal.timeout(12000) });
-                        const lsKey = accountKey(accountName);
-                        if (lsKey) {
-                            const accounts = loadPlayerAccounts();
-                            delete accounts[lsKey];
-                            savePlayerAccounts(accounts);
-                        }
-                        unwindToLoginForm();
-                        await ack;
-                    }
+                    const { reloadSignaledSave } = await import('./lib/forced-save-reload');
+                    await reloadSignaledSave<ReturnType<typeof buildPlayerSavePayload>>({
+                        accountName: heartbeatAccountKey, admin: adminLoggedIn, isCurrent: heartbeatIsCurrent,
+                        protectDraft: () => {
+                            const unresolved = savePersistenceRef.current?.getUnresolvedPost();
+                            if (unresolved?.accountKey === heartbeatAccountKey && unresolved.sessionEpoch === heartbeatSessionEpoch) captureSaveConflictDraft(unresolved.accountName, unresolved.body);
+                            else if (charDirtyRef.current && latestSaveRef.current) captureSaveConflictDraft(latestSaveRef.current.name, { ...latestSaveRef.current.payload, _baseSaveVersion: latestSaveVersionRef.current });
+                        },
+                        applySnapshot: applyServerSnapshot, unwindToLogin: unwindToLoginForm,
+                    });
                     return;
                 }
                 // Live sector-mates → the presence store (external store) so the ~1s
@@ -1939,7 +1912,7 @@ export default function App() {
                         return [...merged, ...incoming];
                     });
                 }
-                void noteTowerPartyInvites(data.towerPartyInvites, char.name);
+                void import('./lib/tower-party-invite-toast').then(({ noteTowerPartyInvites }) => noteTowerPartyInvites(data.towerPartyInvites, char.name, { isCurrent: heartbeatIsCurrent })).catch(() => {});
                 if (data.pendingAttacker && !isTraveling) {
                     // Heartbeat says someone is attacking us, but we haven't received the
                     // DuelChallenge with the server battleId yet (it arrives a beat
@@ -5820,7 +5793,7 @@ export default function App() {
                 {!activeTriggeredEvent && screen === "logbook" && character && <Logbook character={character} updateCharacter={setCharacter} creatorAis={playableAis} savedBloodlines={savedBloodlines} creatorJutsus={creatorJutsus} creatorMissions={creatorMissions} creatorEvents={creatorEvents} creatorRaids={creatorRaids} acceptedMissionIds={acceptedMissionIds} setAcceptedMissionIds={setAcceptedMissionIds} missionProgress={missionProgress} setMissionProgress={setMissionProgress} currentSector={currentSector} setScreen={navigate} onVersionedCharacter={commitVersionedCharacter} onServerVersion={(version) => acceptExternalSaveVersion(version, character.name) === "accepted"} />}
                 {!activeTriggeredEvent && screen === "townHall" && character && <TownHall character={character} updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} onServerVersion={(version) => acceptExternalSaveVersion(version, character.name) === "accepted"} creatorItems={creatorItems} allServerPlayers={allServerPlayers} savedBloodlines={savedBloodlines} creatorJutsus={creatorJutsus} sharedImages={sharedImages} setScreen={navigate} onBack={goBack} />}
                 {!activeTriggeredEvent && screen === "clan" && character && <ClanHall character={character} updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} creatorItems={creatorItems} savedBloodlines={savedBloodlines} setScreen={navigate} sharedImages={sharedImages} onRecordBattle={recordBattle} onLaunchClanWarBattle={launchClanWarBattle} />}
-                {!activeTriggeredEvent && screen === "bank" && character && <Bank character={character} updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} onBack={goBack} />}
+                {!activeTriggeredEvent && screen === "bank" && character && <Bank character={character} onVersionedCharacter={commitVersionedCharacter} onBack={goBack} />}
                 {!activeTriggeredEvent && screen === "shop" && character && <Shop character={character} creatorItems={creatorItems} onBack={goBack} onVersionedCharacter={commitVersionedCharacter} />}
                 {!activeTriggeredEvent && screen === "premiumShop" && character && <PremiumShop character={character} onBack={goBack} onVersionedCharacter={commitVersionedCharacter} />}
                 {!activeTriggeredEvent && screen === "grandMarketplace" && character && <GrandMarketplace character={character} creatorItems={creatorItems} onBack={goBack} onVersionedCharacter={commitVersionedCharacter} />}
