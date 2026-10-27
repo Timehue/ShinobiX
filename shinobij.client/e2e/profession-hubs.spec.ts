@@ -163,20 +163,20 @@ test('Vanguard mastery investment and respec update the live Seal allowance and 
     await expectUiAuditBoot(page, runtime, 'professions');
     const ledger = page.getByRole('progressbar', { name: 'Daily Honor Seal progress' });
     await expect(ledger).toHaveAttribute('aria-valuenow', '18');
-    await expect(ledger).toHaveAttribute('aria-valuemax', '50');
+    await expect(ledger).toHaveAttribute('aria-valuemax', '150');
     await page.locator('.profession-mastery-node').filter({ hasText: 'Relentless' }).getByRole('button').click();
-    await expect(ledger).toHaveAttribute('aria-valuemax', '55');
+    await expect(ledger).toHaveAttribute('aria-valuemax', '155');
     await expect(page.getByText('3 points to spend', { exact: true })).toBeVisible();
     expect(requests[0]).toEqual({ playerName: 'AuditNinja', action: 'invest', nodeId: 'seal-cap' });
     await reloadSettled(page);
-    await expect(ledger).toHaveAttribute('aria-valuemax', '55');
+    await expect(ledger).toHaveAttribute('aria-valuemax', '155');
     await page.getByRole('button', { name: 'Respec all (50,000 ryo)', exact: true }).click();
     await page.getByRole('button', { name: 'Confirm', exact: true }).click();
-    await expect(ledger).toHaveAttribute('aria-valuemax', '50');
+    await expect(ledger).toHaveAttribute('aria-valuemax', '150');
     await expect(page.getByText('4 points to spend', { exact: true })).toBeVisible();
     expect(requests[1]).toEqual({ playerName: 'AuditNinja', action: 'respec' });
     await reloadSettled(page);
-    await expect(ledger).toHaveAttribute('aria-valuemax', '50');
+    await expect(ledger).toHaveAttribute('aria-valuemax', '150');
     expect(runtime.saveConflictCount()).toBe(0);
 });
 

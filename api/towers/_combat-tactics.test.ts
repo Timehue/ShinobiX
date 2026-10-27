@@ -8,7 +8,7 @@ import { buildTowerEncounter } from './_encounter.js';
 import { filledDiskTiles } from '../combat-core/aoe.js';
 import { isTowerActionType } from './_action-types.js';
 import { hexDistance } from '../combat-core/grid.js';
-import { getSpireFloor, spireBossForFloor } from './_spire-catalog.js';
+import { getSpireFloor } from './_spire-catalog.js';
 import { resolveAscensionModifiers } from './_modifiers.js';
 
 test('the four authored campaign examination floors provide their required tactical opportunities', () => {
@@ -62,7 +62,7 @@ test('every Master and Grandmaster Spire examination has an executable pylon and
     for (const tier of [12, 15, 16, 17, 18, 20]) {
         const floor = getSpireFloor(tier)!;
         const session = buildTowerEncounter({ floor, runId: `era-spire-mechanics-${tier}`, seed: 51, partySize: 4, now: 1000,
-            ascension: resolveAscensionModifiers(tier, spireBossForFloor(tier)!, floor.roundBudget),
+            ascension: resolveAscensionModifiers(tier, floor.roundBudget),
             squad: Array.from({ length: 4 }, (_, n) => ({ id: `sq-${n}`, name: `Rill ${n}`, ownerSlug: `rill${n}`, ai: false, character: { maxHp: 10000 } })) });
         const player = session.actors.find(actor => actor.id === 'sq-0')!;
         const boss = session.actors.find(actor => actor.id === session.phaseState.bossId)!;

@@ -12,7 +12,6 @@
  */
 
 import type { CreatorEvent, StoryStep } from "../types/vn";
-import type { Character } from "../types/character";
 import { bossScaleByLevel, storyAiId } from "./story-boss-meta";
 import { villageBiomeMap } from "./village-biomes";
 
@@ -2477,8 +2476,3 @@ export const storylines: Record<string, StoryStep[]> = {
         ]),
     ],
 };
-
-export function getCurrentStory(character: Character) {
-    const storyLine = storylines[character.storyVillage || character.village] || storylines["Stormveil Village"];
-    return storyLine[character.storyProgress] ?? null;
-}

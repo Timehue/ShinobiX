@@ -1708,37 +1708,6 @@ export function sealItemCharges(
     return charges;
 }
 
-/** Preserve every legacy-recognized tracked id while pinning its spend to 0. */
-export function zeroItemCharges(charges: Record<string, number>): Record<string, number> {
-    return Object.fromEntries(Object.keys(charges).sort().map((id) => [id, 0] as const));
-}
-
-export function zeroPlayerRankedItemCharges(
-    fighterCharacter: Record<string, unknown>,
-    sealed: Record<string, number>,
-): Record<string, number> {
-    const ids = new Set(Object.keys(sealed));
-    const equipment = fighterCharacter.equipment
-        && typeof fighterCharacter.equipment === 'object'
-        && !Array.isArray(fighterCharacter.equipment)
-        ? fighterCharacter.equipment as Record<string, unknown>
-        : {};
-    const equippedIds = new Set(Object.values(equipment).filter((id): id is string => (
-        typeof id === 'string' && !!id
-    )));
-    const definitions = Array.isArray(fighterCharacter.pvpItems)
-        ? fighterCharacter.pvpItems as Array<Record<string, unknown>>
-        : [];
-    for (const item of definitions) {
-        const id = typeof item.id === 'string' ? item.id : '';
-        // A residual legacy worker accepts every non-hand/non-thrown definition
-        // through its generic item action. Zero every authoritative equipped
-        // definition id; hand ids are harmless because that path never spends.
-        if (id && equippedIds.has(id)) ids.add(id);
-    }
-    return Object.fromEntries([...ids].sort().map((id) => [id, 0] as const));
-}
-
 export function makePvpFighter(
     char: Record<string, unknown>,
     pos: number,

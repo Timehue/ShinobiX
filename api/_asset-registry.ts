@@ -18,7 +18,6 @@ import type { KvLike } from './_storage.js';
 
 const META_PREFIX = 'asset:meta:';
 export function assetMetaKey(id: string): string { return `${META_PREFIX}${id}`; }
-export { META_PREFIX as ASSET_META_PREFIX };
 
 export type AssetType = 'icon' | 'portrait' | 'background' | 'animation' | 'static';
 

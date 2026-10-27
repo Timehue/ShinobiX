@@ -1,5 +1,7 @@
 # Gameplay Systems Depth Audit & Gap-Fill Plan — 2026-06-09
 
+> **Historical document.** It was written while Vercel and cPanel were still hosts. Both are retired: Railway is the only host, `dist/` is never committed, and new endpoints are registered in `server-api-routes.ts`. Instructions below about committing `dist/`, cPanel or Vercel parity, or `server.ts` registration no longer apply. Current rules live in `CLAUDE.md`.
+
 A whole-game audit of every major gameplay system, scoring how *deep* each one
 is today and laying out an incremental plan to fill the shallow spots. Researched
 across the codebase plus genre peers (shinobi browser RPGs, PBBGs, ARPGs,

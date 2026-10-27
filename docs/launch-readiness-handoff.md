@@ -2,6 +2,8 @@
 
 Self-contained handoff so a fresh session can continue without re-reading the prior chat.
 
+> **Historical (June 2026).** The cPanel host named below is retired: Railway is the only host, so "set flags on both hosts" now means Railway only, `tsconfig.cpanel.json` is just the server build config (`npm run build:server`), and `dist/` must **not** be committed. See `CLAUDE.md` for current deployment rules.
+
 ## 1. Snapshot  (updated 2026-06-30 — see §10 for the latest session)
 - **Branch:** `claude/great-swartz-b8b2a5` (feature branch off `main`). **NOT pushed.** Working tree clean. Tip `c2bcba59`.
 - **Tests:** `npm test` (repo root) = **1917 passing, 0 failing**. Server typecheck (`npx tsc -p tsconfig.cpanel.json --noEmit`) clean. Client (`cd shinobij.client && npx tsc -b && npm run lint`) clean. Both dists rebuilt + committed.

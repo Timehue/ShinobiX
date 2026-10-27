@@ -1,5 +1,7 @@
 # Refactor pass plan — 2026-09-08
 
+> **Historical document.** It was written while Vercel and cPanel were still hosts. Both are retired: Railway is the only host, `dist/` is never committed, and new endpoints are registered in `server-api-routes.ts`. Instructions below about committing `dist/`, cPanel or Vercel parity, or `server.ts` registration no longer apply. Current rules live in `CLAUDE.md`.
+
 Goal: make the main application and pet presentation code easier to change and test while preserving gameplay, player saves, API behavior, and visual output. Use incremental extractions with compatible entry points.
 
 This preserves the initial planning assessment and scope. The work subsequently continued through all six phases. See the [completion audit](refactor-roadmap-completion-audit.md) for requirement-by-requirement evidence and final gate status, the [first-pass report](refactor-pass-report-2026-09-08.md) for original measurements, and the [integration report](refactor-integration-report-2026-09-08.md) for conflict resolution and Tower layout repair.

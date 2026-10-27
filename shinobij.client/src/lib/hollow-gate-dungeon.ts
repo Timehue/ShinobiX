@@ -17,10 +17,8 @@ import { generateHollowGateFloor } from "./hollow-gate-generate";
 import { hollowGateRunMaxFloor, hollowGateVariantDims } from "./hollow-gate-variant";
 import { pickRoomTheme } from "../data/hollow-gate-atlas";
 import { HOLLOW_GATE_SHRINE_W, HOLLOW_GATE_SHRINE_H, HOLLOW_GATE_MAX_FLOOR } from "../constants/game";
-import { petRarityOrder } from "../data/pet-config";
-import { cloneEncounterPet } from "./pet-balance";
 import type { HollowGateShrineRun, HollowGateTile, HollowGateTileKind, HollowGateTerrain, HollowGateVariant } from "../types/character";
-import type { Pet, PetRarity } from "../types/pet";
+import type { Pet } from "../types/pet";
 import {
     HOLLOW_HOUND_MODEL_SOURCE_ID,
     HOLLOW_HOUND_NAME as SHARED_HOLLOW_HOUND_NAME,
@@ -791,20 +789,6 @@ function generateHollowGateShrineRunBSP(floor = 1, isFinal?: boolean, dims?: { w
 // layouts + BSP + maze + atlas) onto the startup graph. Re-exported here so
 // existing importers and tests keep working unchanged.
 export { computeHollowGateVisible } from "./hollow-gate-visibility";
-
-// Pick a random pet from the player's available pool (editablePets) of the
-// given rarity, falling back to lower rarities if no template of that rarity
-// exists. Returns a cloned encounter copy ready to befriend.
-export function pickHollowGateEncounterPet(pets: Pet[], rarity: PetRarity): Pet | null {
-    const rarityIndex = petRarityOrder.indexOf(rarity);
-    const fallbackRarities = petRarityOrder.slice(0, rarityIndex + 1).reverse();
-    for (const fallback of fallbackRarities) {
-        const pool = pets.filter((pet) => pet.rarity === fallback);
-        const chosen = pool[Math.floor(Math.random() * pool.length)];
-        if (chosen) return cloneEncounterPet(chosen);
-    }
-    return null;
-}
 
 export const HOLLOW_HOUND_TEMPLATE_ID = HOLLOW_HOUND_MODEL_SOURCE_ID;
 export const HOLLOW_HOUND_NAME = SHARED_HOLLOW_HOUND_NAME;

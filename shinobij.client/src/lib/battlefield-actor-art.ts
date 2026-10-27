@@ -175,11 +175,6 @@ const HUNT_MISSION_TO_PROFILE = Object.keys(HUNT_BATTLE_SPRITES).map((profileId)
     profileId,
 ] as const);
 
-export const BUNDLED_HUNT_SPRITE_IDS = Object.freeze(Object.keys(HUNT_BATTLE_SPRITES));
-export const BUNDLED_APEX_SPRITE_IDS = Object.freeze(Object.keys(APEX_BATTLE_SPRITES));
-export const BUNDLED_RIFT_SPRITE_IDS = Object.freeze(Object.keys(RIFT_BOSS_SPRITES));
-export const BUNDLED_TOWER_SPRITE_IDS = Object.freeze(Object.keys(TOWER_BATTLE_SPRITES));
-
 function canonicalAiId(id: string): string {
     return /^endless-(.+)-w\d+$/.exec(id)?.[1] ?? id;
 }

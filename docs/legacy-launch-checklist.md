@@ -11,29 +11,20 @@ week, and turning it off cleanly if needed. Design source of truth:
 
 | Flag | Where | Default | Meaning |
 |---|---|---|---|
-| `ENABLE_LEGACY` | server env (Railway **and** cPanel) | unset (**off**) | The real gate. Off = every legacy endpoint 404s, every hook no-ops, save behavior is byte-identical. |
+| `ENABLE_LEGACY` | server env (Railway) | unset (**off**) | The real gate. Off = every legacy endpoint 404s, every hook no-ops, save behavior is byte-identical. |
 | `legacy.v1` | client localStorage | **on** | Per-device kill-switch only. Set to `"off"` in a device's console to hide legacy client surfaces there. No server effect. |
 | `DISCORD_ANNOUNCE_WEBHOOK_URL` | server env | unset | Optional. When set, mythic announcements also post a rich embed to Discord. |
 | `LEGACY_SPECIALTY_PVP` | — | retired (never wired) | Historical plan flag — **no code ever read it**. Specialty Jutsu shipped PvP-enabled (owner signed off) gated only by `ENABLE_LEGACY`. Setting this does nothing; the only kill-switch for signatures in PvP/Towers is the full `ENABLE_LEGACY` rollback (§6). |
 
 ## 2. The flip (launch)
 
-1. **Deploy first, flip second.** Make sure the latest `main` (with committed
-   root `dist/` — cPanel serves it verbatim, Railway self-builds) is live on
-   both hosts *before* touching the flag. The flag-off build is byte-identical,
-   so deploying early is safe.
-   ⚠ **Dist discipline when committing a build:** `shinobij.client/dist` is
-   gitignored — after `npm run build`, new hashed bundles must be force-added
-   (`git add -f -A shinobij.client/dist/`) or cPanel serves an index.html whose
-   scripts 404 (white screen). Commit only js/css/html there — never
-   re-compressed images. Root `dist/` churns line-endings on rebuild; commit
-   only files with real changes (`git -c core.autocrlf=true diff --numstat dist/`).
+1. **Deploy first, flip second.** Make sure the latest `main` is live on
+   Railway (it self-builds from source; do not commit `dist/`) *before*
+   touching the flag. The flag-off build is byte-identical, so deploying early
+   is safe.
 2. Set `ENABLE_LEGACY=1` in **Railway → Variables** (service restarts itself).
-3. Set `ENABLE_LEGACY=1` in the **cPanel `.env`** and restart the Passenger app
-   (env-parity rule: the fallback host must match or behavior drifts between
-   hosts; same rule as `SESSION_SECRET`).
-4. Optionally set `DISCORD_ANNOUNCE_WEBHOOK_URL` on both hosts.
-5. No client action is needed — `legacy.v1` is already default-on.
+3. Optionally set `DISCORD_ANNOUNCE_WEBHOOK_URL` in Railway as well.
+4. No client action is needed — `legacy.v1` is already default-on.
 
 ## 3. Smoke test (5 minutes, test account at level 50+)
 
@@ -84,7 +75,7 @@ week, and turning it off cleanly if needed. Design source of truth:
 
 ## 6. Rollback
 
-Unset `ENABLE_LEGACY` (or set `0`) on **both** hosts and restart.
+Unset `ENABLE_LEGACY` (or set `0`) in Railway and restart.
 
 What happens: every legacy endpoint 404s; the Sage, emissaries, briefing
 sections, LegacyPanel content, and emissary trial panel hide themselves (their

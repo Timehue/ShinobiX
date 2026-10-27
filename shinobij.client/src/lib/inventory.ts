@@ -134,13 +134,6 @@ export function removeItem(character: Character, id: string, n = 1): Character {
     return { ...character, inventory, itemStacks: stacks };
 }
 
-/** Remove a map of id → quantity (e.g. crafting / mission requirements). */
-export function removeItems(character: Character, requirements: Record<string, number>): Character {
-    let next = character;
-    for (const [id, n] of Object.entries(requirements)) next = removeItem(next, id, n);
-    return next;
-}
-
 /** Unified {id,count} view across both stores — for display / selling. */
 export function unifiedItemStacks(character: Character): ItemStack[] {
     const counts = new Map<string, number>();

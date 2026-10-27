@@ -1,5 +1,7 @@
 # Economy, Progression & Drop-Rate Redesign — Master Plan
 
+> **Historical document.** It was written while Vercel and cPanel were still hosts. Both are retired: Railway is the only host, `dist/` is never committed, and new endpoints are registered in `server-api-routes.ts`. Instructions below about committing `dist/`, cPanel or Vercel parity, or `server.ts` registration no longer apply. Current rules live in `CLAUDE.md`. Character XP and the XP curve it plans around were later retired (level is now derived from the stat ledger); see `leveling-without-xp-map.md`.
+
 > **Status:** PLAN ONLY — no code changes. Balance-sensitive; everything here
 > needs sign-off before implementation (CLAUDE.md hard rules).
 > **Goal (owner direction):** a **daily-active** player goes **level 1 → 90 in

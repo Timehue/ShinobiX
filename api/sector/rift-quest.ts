@@ -7,6 +7,7 @@ import { enforceRateLimitKv } from '../_ratelimit.js';
 import { LockContendedError } from '../_lock.js';
 import { mutatePlayerSave, type PlayerSaveMutationResult } from '../save/_mutate-player-save.js';
 import { isPlayerSaveVersionConflict } from '../save/_projected-write.js';
+import { saveUnchangedSince } from '../save/_save-unchanged.js';
 import {
     RIFT_QUESTS, RIFT_DAILY_CAP, RIFT_COOLDOWN_MS,
     isRiftQuestId, riftQuestRyo, riftTargetSector,
@@ -111,7 +112,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // ── COMPLETE: verify the boss kill, pay, stamp cooldown ──────────────
         if (action === 'complete' && def) {
             const today = utcDateKey();
-            const committed = await mutatePlayerSave<Reply>(playerName, async ({ record: rec, character: char }) => {
+            const committed = await mutatePlayerSave<Reply>(playerName, async ({ record: rec, character: char, saveKey }) => {
                 const answer = (reply: Record<string, unknown>) => ({ ok: true as const, write: false, character: char, value: { body: reply } });
                 // Durable seal first, KV fallback — a legit rift accepted before the KV
                 // TTL lapsed (or before the cutover) still pays out from the durable seal.
@@ -157,6 +158,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const consumed = await kv.del(questKey);
                 if (!durable && consumed <= 0) return answer({ ok: false, reason: 'none' });
                 const countAfter = await kv.incr(countKey, { ex: 25 * 60 * 60 });
+                // Put back what the payout spent ahead of its write: the KV seal
+                // (for a KV-only rift it is the only proof of the run) and the
+                // daily slot. Only this path writes either key, always under this
+                // save lock.
+                const handBack = async () => {
+                    if (consumed > 0 && !(await kv.get(questKey))) {
+                        const remaining = QUEST_TTL_SECONDS - Math.floor((Date.now() - num(sealed.at)) / 1000);
+                        if (remaining > 0) await kv.set(questKey, sealed, { ex: remaining });
+                    }
+                    if (await kv.get<number>(countKey) === countAfter) await kv.set(countKey, countAfter - 1, { ex: 25 * 60 * 60 });
+                };
 
                 const ryo = riftQuestRyo(num(char.level) || 1, def.weight);
                 const totalRyo = num(char.ryo) + ryo;
@@ -206,12 +218,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     // what it spent ahead of the write: the KV seal (for a KV-only
                     // rift it is the only proof of the run) and the daily slot. Only
                     // this path writes either key, always under this save lock.
-                    onConflict: async () => {
-                        if (consumed > 0 && !(await kv.get(questKey))) {
-                            const remaining = QUEST_TTL_SECONDS - Math.floor((Date.now() - num(sealed.at)) / 1000);
-                            if (remaining > 0) await kv.set(questKey, sealed, { ex: remaining });
-                        }
-                        if (await kv.get<number>(countKey) === countAfter) await kv.set(countKey, countAfter - 1, { ex: 25 * 60 * 60 });
+                    onConflict: handBack,
+                    // A write that failed without a confirmed commit may still have
+                    // landed. Hand the seal and the slot back only when the stored
+                    // save provably still holds the version this read, so a payout
+                    // that DID land is never paid a second time; an unreadable or
+                    // moved save keeps both spent.
+                    onUnconfirmedWrite: async () => {
+                        if (await saveUnchangedSince(saveKey, rec)) await handBack();
                     },
                 };
             });

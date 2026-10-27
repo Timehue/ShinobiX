@@ -56,8 +56,3 @@ export function bundledJutsuFxFrames(element?: string | null): string[] | null {
     const frames = folder ? framesByElement[folder] : null;
     return frames && frames.length ? frames : null;
 }
-
-/** Element keys that currently have a bundled sprite (for diagnostics/tests). */
-export function bundledFxElements(): string[] {
-    return Object.keys(framesByElement).sort();
-}

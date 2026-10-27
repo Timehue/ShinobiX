@@ -26,6 +26,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 return { ok: true as const, character: { ...character, masterySpec }, value: { action } };
             }
             if (action === 'respec') {
+                // A respec with nothing invested refunds nothing, so it must not charge.
+                // A retried or repeated request (lost reply, two tabs) reaches here after
+                // the first one already emptied the spec and would otherwise bill again.
+                const spec = character.masterySpec && typeof character.masterySpec === 'object' ? character.masterySpec as Record<string, unknown> : {};
+                if (!Object.values(spec).some((rank) => Number(rank) > 0)) return { ok: false as const, status: 409, error: 'You have no mastery points to respec.' };
                 const ryo = Math.max(0, Number(character.ryo) || 0); if (ryo < RESPEC_COST) return { ok: false as const, status: 409, error: `Respec costs ${RESPEC_COST} ryo.` };
                 return { ok: true as const, character: { ...character, ryo: ryo - RESPEC_COST, masterySpec: {} }, value: { action } };
             }

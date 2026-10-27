@@ -1,5 +1,7 @@
 # Chakra / Stamina Combat Resource Redesign — Plan
 
+> **Historical document.** It was written while Vercel and cPanel were still hosts. Both are retired: Railway is the only host, `dist/` is never committed, and new endpoints are registered in `server-api-routes.ts`. Instructions below about committing `dist/`, cPanel or Vercel parity, or `server.ts` registration no longer apply. Current rules live in `CLAUDE.md`.
+
 **Status:** PLAN ONLY (no code changed). Behind a feature flag when built.
 **Goal:** replace the percentage-of-max cost model with **concrete, level-scaling numbers**. A big
 chakra/stamina pool that visibly grows with level, jutsu costs shown as real numbers (never a "%"), a fight
