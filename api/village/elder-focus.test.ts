@@ -218,12 +218,12 @@ test('defense focus requires a real elder and an active war with the opponent vi
 test('real shop purchases use the occupied trade seat and stop discounting after removal', async () => {
     const shop = (await import('../shop/purchase.js')).default as unknown as typeof handler;
     // Level 70: the golden apple is a legendary pet item, gated at the Level 65 tier floor.
-    await seed('villager', { level: 70, ryo: 1000, fateShards: 1000, inventory: [] });
+    await seed('villager', { level: 70, ryo: 10_000, fateShards: 1000, inventory: [] });
     await council(['', 'rin', '']);
     await request('villager');
     const discounted = await request('villager', { requestId: 'elder-shop-00001', itemId: 'shinobi-vest', qty: 1 }, 'POST', shop);
     assert.equal(discounted.status, 200, JSON.stringify(discounted.body));
-    assert.equal(discounted.body.character.ryo, 943);
+    assert.equal(discounted.body.character.ryo, 10_000 - 4275, 'the 4,500-ryo vest at the 5% elder discount');
     await council(['', '', '']);
     const regular = await request('villager', { requestId: 'elder-shop-00002', itemId: 'golden-apple', qty: 1 }, 'POST', shop);
     assert.equal(regular.status, 200, JSON.stringify(regular.body));

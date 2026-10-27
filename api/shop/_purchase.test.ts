@@ -18,9 +18,9 @@ describe('catalog shop purchase', () => {
         }
     });
     it('atomically debits ryo and grants an ordinary catalog item', () => {
-        const result = purchaseCatalogItem({ level: 10, ryo: 1000, inventory: [] }, 'shinobi-vest', 99);
+        const result = purchaseCatalogItem({ level: 10, ryo: 10_000, inventory: [] }, 'shinobi-vest', 99);
         assert.equal(result.ok, true);
-        if (result.ok) { assert.equal(result.item.qty, 1); assert.equal(result.character.ryo, 940); assert.deepEqual(result.character.inventory, ['shinobi-vest']); }
+        if (result.ok) { assert.equal(result.item.qty, 1); assert.equal(result.character.ryo, 10_000 - Number(ITEM_CATALOG['shinobi-vest'].cost)); assert.deepEqual(result.character.inventory, ['shinobi-vest']); }
     });
     it('derives premium currency and stored discounts', () => {
         const result = purchaseCatalogItem({ level: 100, fateShards: 1000, elderFocus: 'trade', inventory: [] }, 'golden-apple', 1);
@@ -76,13 +76,14 @@ describe('catalog shop purchase', () => {
     });
 
     it('buys more Beast Seals after owning one and respects the 99-seal carry limit', () => {
-        const owned = { level: 1, ryo: 30_000, inventory: [], itemStacks: [{ itemId: 'beast-seal-reinforced', count: 1 }] };
+        const owned = { level: 1, ryo: 1_000_000, inventory: [], itemStacks: [{ itemId: 'beast-seal-reinforced', count: 1 }] };
         const bought = purchaseCatalogItem(owned, 'beast-seal-reinforced', 9);
         assert.equal(bought.ok, true);
         if (!bought.ok) return;
         assert.equal(bought.item.qty, 9);
-        assert.equal(bought.item.totalCost, 2160);
-        assert.equal(bought.character.ryo, 27_840);
+        const sealCost = Number(ITEM_CATALOG['beast-seal-reinforced'].cost);
+        assert.equal(bought.item.totalCost, 9 * sealCost);
+        assert.equal(bought.character.ryo, 1_000_000 - 9 * sealCost);
         assert.deepEqual(bought.character.itemStacks, [{ itemId: 'beast-seal-reinforced', count: 10 }]);
 
         const filled = purchaseCatalogItem(bought.character, 'beast-seal-reinforced', 99);
@@ -105,7 +106,7 @@ describe('catalog shop purchase', () => {
     });
 
     it('still spends a real inventory slot for non-stackable gear', () => {
-        const result = purchaseCatalogItem({ level: 10, ryo: 1000, inventory: [], itemStacks: [] }, 'shinobi-vest', 1);
+        const result = purchaseCatalogItem({ level: 10, ryo: 10_000, inventory: [], itemStacks: [] }, 'shinobi-vest', 1);
         assert.equal(result.ok, true);
         if (!result.ok) return;
         assert.deepEqual(result.character.inventory, ['shinobi-vest'], 'gear is the only thing the capacity gate should ever see');
@@ -254,14 +255,14 @@ describe('pet supplies buy in bulk; pet unlocks stay single', () => {
 
 describe('the shop discount is the one capped rule', () => {
     it('reads the village shop and blacksmith levels capped at 50, as /shop/settle does', () => {
-        const capped = purchaseCatalogItem({ level: 10, ryo: 10_000, inventory: [], villageUpgrades: { shop: 50 }, clanUpgradeLevels: { blacksmith: 50 } }, 'cloth-robe', 1);
-        const corrupt = purchaseCatalogItem({ level: 10, ryo: 10_000, inventory: [], villageUpgrades: { shop: 400 }, clanUpgradeLevels: { blacksmith: 999 } }, 'cloth-robe', 1);
+        const capped = purchaseCatalogItem({ level: 10, ryo: 100_000, inventory: [], villageUpgrades: { shop: 50 }, clanUpgradeLevels: { blacksmith: 50 } }, 'cloth-robe', 1);
+        const corrupt = purchaseCatalogItem({ level: 10, ryo: 100_000, inventory: [], villageUpgrades: { shop: 400 }, clanUpgradeLevels: { blacksmith: 999 } }, 'cloth-robe', 1);
         assert.equal(capped.ok, true);
         assert.equal(corrupt.ok, true);
         if (capped.ok && corrupt.ok) {
             assert.equal(corrupt.item.unitCost, capped.item.unitCost, 'a level past the cap buys nothing more');
-            // 12.5% village + 10% blacksmith on the 150-ryo robe.
-            assert.equal(capped.item.unitCost, Math.floor(150 * (1 - 22.5 / 100)));
+            // 12.5% village + 10% blacksmith on the robe's shelf price.
+            assert.equal(capped.item.unitCost, Math.floor(Number(ITEM_CATALOG['cloth-robe'].cost) * (1 - 22.5 / 100)));
         }
     });
 });

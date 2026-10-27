@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { applyForge, countOwned } from './_forge.js';
 
 type Stack = { itemId: string; count: number };
-const save = (itemStacks: Stack[], extra: Record<string, unknown> = {}) => ({ level: 100, ryo: 10_000, inventory: [] as string[], itemStacks, ...extra });
+const save = (itemStacks: Stack[], extra: Record<string, unknown> = {}) => ({ level: 100, ryo: 1_000_000, inventory: [] as string[], itemStacks, ...extra });
 
 describe('Crafter substitutions (item-use pass)', () => {
     it('burns Ember Ore or Ember Scale as forge fuel when the player picks it', () => {

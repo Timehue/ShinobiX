@@ -49,6 +49,9 @@ const OUT = join(ROOT, "api", "pvp", "_item-catalog.ts");
 function pickCombatFields(item) {
     const out = { id: item.id, name: item.name, slot: item.slot, rarity: item.rarity };
     out.cost = Math.max(0, Math.floor(Number(item.cost) || 0));
+    // Pre-scale cost of an item whose shelf price was raised (shared/shop-pricing.ts):
+    // server NPC buy-back prices from it, so the new prices do not raise any sale.
+    if (item.saleBasis != null) out.saleBasis = Math.max(0, Math.floor(Number(item.saleBasis) || 0));
     if (item.levelReq != null) out.levelReq = Math.max(1, Math.floor(Number(item.levelReq) || 1));
     if (item.serviceItem === true) out.serviceItem = true;
     if (stackableItemIds.has(item.id)) out.stackable = true;
@@ -132,6 +135,7 @@ export type CatalogItem = {
     slot: string;
     rarity: string;
     cost?: number;
+    saleBasis?: number;
     levelReq?: number;
     serviceItem?: boolean;
     stackable?: boolean;
