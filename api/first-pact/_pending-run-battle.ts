@@ -1,7 +1,8 @@
 /**
  * A run's battle that was walked away from still counts.
  *
- * Orin's Exhibition and an Unbroken attempt end on the first loss. A player who
+ * Orin's Exhibition, an Unbroken attempt and the Standing Court all turn on the
+ * first loss (the Court sends the player back to its first sitting). A player who
  * closed the tab on a losing fight and started the round again would dodge
  * that, so each run battle leaves a pointer here when it starts. The next run
  * action (another start, a fresh draft, a new or withdrawn attempt) settles the
@@ -11,9 +12,9 @@
  */
 import { kv } from "../_storage.js";
 import type { Pet } from "../_pet-sim/pet-types.js";
-import { firstPactExhibitionRound, type FirstPactReplaySettings } from "../../shared/first-pact-contract.js";
+import { firstPactExhibitionRound, firstPactStandingCourtRound, type FirstPactReplaySettings } from "../../shared/first-pact-contract.js";
 import { settleExhibitionBattle } from "./_exhibition.js";
-import { settleFirstPactReplayBattle } from "./_state.js";
+import { settleFirstPactReplayBattle, settleFirstPactStandingCourtBattle } from "./_state.js";
 
 /** Outlives the 45-minute showdown session, so an expired fight still settles. */
 const PENDING_RUN_BATTLE_TTL_SECONDS = 30 * 24 * 60 * 60;
@@ -29,9 +30,11 @@ export type PendingRunBattle = {
 export const pendingRunBattleKey = (playerName: string) => `first-pact-run-battle:${playerName}`;
 const showdownSessionKey = (playerName: string, sessionId: string) => `pet:showdown:${playerName}:${sessionId}`;
 
-/** Only Exhibition rounds and Unbroken attempts are runs a loss can end. */
+/** Only Exhibition rounds, Unbroken attempts and Standing Court sittings are runs a loss can end. */
 export function isRunBattle(battle: Omit<PendingRunBattle, "sessionId">): boolean {
-    return (!!battle.exhibitionRunId && !!firstPactExhibitionRound(battle.encounterId)) || battle.replay?.unbroken === true;
+    return (!!battle.exhibitionRunId && !!firstPactExhibitionRound(battle.encounterId))
+        || battle.replay?.unbroken === true
+        || (!battle.replay && !!firstPactStandingCourtRound(battle.encounterId));
 }
 
 export async function recordPendingRunBattle(playerName: string, battle: PendingRunBattle): Promise<void> {
@@ -44,10 +47,16 @@ export async function clearPendingRunBattle(playerName: string, sessionId: strin
     if (pending?.sessionId === sessionId) await kv.del(pendingRunBattleKey(playerName));
 }
 
-/** Settle the run battle left behind, if any. Safe to call before every run action. */
-export async function settlePendingRunBattle(playerName: string): Promise<void> {
+/** Said when a refusal follows from a run fight that was just settled as a loss. */
+export const PENDING_RUN_LOSS_NOTE = "Your last run fight was left unfinished, so it counted as a loss.";
+
+/**
+ * Settle the run battle left behind, if any. Safe to call before every run
+ * action. Returns the outcome it settled, or null when nothing was pending.
+ */
+export async function settlePendingRunBattle(playerName: string): Promise<"win" | "loss" | null> {
     const pending = await kv.get<PendingRunBattle>(pendingRunBattleKey(playerName));
-    if (!pending || typeof pending.sessionId !== "string" || typeof pending.encounterId !== "string") return;
+    if (!pending || typeof pending.sessionId !== "string" || typeof pending.encounterId !== "string") return null;
     const sessionKey = showdownSessionKey(playerName, pending.sessionId);
     const session = await kv.get<{ finished?: boolean; outcome?: "win" | "loss" }>(sessionKey);
     const outcome = session?.finished && session.outcome ? session.outcome : "loss";
@@ -57,8 +66,12 @@ export async function settlePendingRunBattle(playerName: string): Promise<void> 
         await settleExhibitionBattle(playerName, pending.exhibitionRunId, round.id, outcome, proof, pending.exhibitionOpponents ?? []);
     } else if (pending.replay?.unbroken) {
         await settleFirstPactReplayBattle(playerName, pending.encounterId, pending.replay, outcome, proof);
+    } else if (!pending.replay) {
+        const sitting = firstPactStandingCourtRound(pending.encounterId);
+        if (sitting) await settleFirstPactStandingCourtBattle(playerName, sitting.id, outcome, proof);
     }
     // Decided now, so an unfinished fight can no longer be played on and claimed.
     if (session && !session.finished) await kv.del(sessionKey);
     await clearPendingRunBattle(playerName, pending.sessionId);
+    return outcome;
 }
