@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { before, test } from 'node:test';
+import { GEAR_CRAFT_RYO, SUPPLY_CRAFT_RYO } from '../../shared/craft-fees.js';
 
 process.env.NODE_ENV = 'test';
 process.env.SHINOBIX_QA_MEMORY_KV = '1';
@@ -64,23 +65,23 @@ test('a gear craft logs its ryo fee as a sink once; the replay logs nothing', as
     const weapon = Object.values(ITEM_CATALOG).find((item) => item.slot === 'hand' && item.rarity === 'rare'
         && item.weaponEp != null && !item.id.startsWith('named-') && gearCraftIngredients(item).length > 0)!;
     assert.ok(weapon, 'a craftable rare weapon exists');
-    const materials = await seedFor(player, gearCraftIngredients(weapon), { ryo: 1000 });
+    const materials = await seedFor(player, gearCraftIngredients(weapon), { ryo: GEAR_CRAFT_RYO.rare + 400 });
     const body = { requestId: 'craft-telemetry-0001', kind: 'weapon', recipeId: weapon.id, quantity: 1, materials };
     const first = await call(forge, player, body);
     assert.equal(first.status, 200, JSON.stringify(first.body));
-    assert.equal((first.body.character as Json).ryo, 400, 'the rare craft fee is 600');
+    assert.equal((first.body.character as Json).ryo, 400, 'the rare craft fee comes off the balance');
     const replay = await call(forge, player, body);
     assert.equal(replay.status, 200);
     assert.equal(replay.body.replayed, true);
     assert.deepEqual(await txns(player), [
-        { txnId: `craft:${player}:craft-telemetry-0001:ryo`, currency: 'ryo', delta: -600, source: 'craft.fee' },
+        { txnId: `craft:${player}:craft-telemetry-0001:ryo`, currency: 'ryo', delta: -GEAR_CRAFT_RYO.rare, source: 'craft.fee' },
     ]);
 });
 
-test('a currency recipe logs the Aura Dust or Bone Charms it makes, with no fee', async () => {
+test('a currency recipe logs the Aura Dust or Bone Charms it makes, and the ryo fee it burns', async () => {
     const player = 'crafttelemetry2';
     const dust = SUPPLY_CRAFT_RECIPES['currency:aura-dust'];
-    const materials = await seedFor(player, dust.ingredients, { ryo: 0, auraDust: 5 });
+    const materials = await seedFor(player, dust.ingredients, { ryo: 10_000, auraDust: 5 });
     const made = await call(forge, player, { requestId: 'craft-telemetry-0002', kind: 'supply', recipeId: 'currency:aura-dust', quantity: 1, materials });
     assert.equal(made.status, 200, JSON.stringify(made.body));
     assert.equal((made.body.character as Json).auraDust, 55);
@@ -95,7 +96,9 @@ test('a currency recipe logs the Aura Dust or Bone Charms it makes, with no fee'
     const byId = (a: { txnId: string }, b: { txnId: string }) => a.txnId.localeCompare(b.txnId);
     assert.deepEqual((await txns(player)).sort(byId), [
         { txnId: `craft:${player}:craft-telemetry-0002:auraDust`, currency: 'auraDust', delta: 50, source: 'craft.currency' },
+        { txnId: `craft:${player}:craft-telemetry-0002:ryo`, currency: 'ryo', delta: -SUPPLY_CRAFT_RYO['currency:aura-dust'], source: 'craft.fee' },
         { txnId: `craft:${player}:craft-telemetry-0003:boneCharms`, currency: 'boneCharms', delta: 1, source: 'craft.currency' },
+        { txnId: `craft:${player}:craft-telemetry-0003:ryo`, currency: 'ryo', delta: -SUPPLY_CRAFT_RYO['currency:bone-charm'], source: 'craft.fee' },
     ]);
 });
 

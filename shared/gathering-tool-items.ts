@@ -1,4 +1,6 @@
 export type GatheringToolSlot = 'fishingPole' | 'pickaxe';
+// `cost` is the authored, pre-scale price. The Shop sells the basic tools at 75x
+// this (shared/shop-pricing.ts raises it when starter-items.ts builds the catalog).
 export const GATHERING_TOOLS = [
     { id: 'tool-basic-fishing-pole', name: 'Basic Fishing Kunai', slot: 'fishingPole', cost: 150, rarity: 'common', durability: 50 },
     { id: 'tool-basic-pickaxe', name: 'Basic Pickaxe', slot: 'pickaxe', cost: 150, rarity: 'common', durability: 50 },

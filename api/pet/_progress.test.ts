@@ -13,9 +13,9 @@ describe('server pet progression', () => {
             assert.ok(item, `${id} is a catalog item`);
             return Number(item.cost);
         };
-        // 400 ryo for 100 XP since main's pet growth v2 (was 80 ryo).
+        // 1,600 ryo for 100 XP since the 2026-10-27 shelf-price rise (400 before, 80 before pet growth v2).
         const basic = cost('pet-treat') / PET_FEED_XP['pet-treat'];
-        assert.equal(basic, 4);
+        assert.equal(basic, 16);
         for (const [id, xp] of Object.entries(PET_FEED_XP)) {
             // The Golden Apple is a Fate Shard item at the Grand Marketplace, and
             // Elemental and Ancient Treats are Crafter-only (no shop price).

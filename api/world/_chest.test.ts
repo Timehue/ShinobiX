@@ -13,6 +13,7 @@ import * as saleModule from '../inventory/_sale.js';
 import { CARD_DUPLICATE_CONVERSION } from '../card-clash/_pack.js';
 import type { SettlementItem } from '../shop/_catalog.js';
 import { craftedSaleCapRyo } from '../../shared/crafting-recipes.js';
+import { saleCostBasis } from '../../shared/shop-pricing.js';
 
 function sequence(...values: number[]) { let i = 0; return () => values[i++] ?? 0; }
 
@@ -180,7 +181,8 @@ describe('ancient chest settlement', () => {
  * tests read it rather than pinning prices another change may move.
  */
 describe('ancient chest duplicates pay instead of vanishing', () => {
-    const half = (id: string) => Math.floor(Number(ITEM_CATALOG[id]?.cost ?? 0) / 2);
+    // Buy-back prices from the pre-scale cost (shared/shop-pricing.ts), not the shelf price.
+    const half = (id: string) => Math.floor(saleCostBasis({ cost: Number(ITEM_CATALOG[id]?.cost ?? 0), saleBasis: ITEM_CATALOG[id]?.saleBasis }) / 2);
     /** What /api/inventory/sell credits for one unit of `id` from the backpack. */
     const soldFor = (id: string) => {
         const item = { ...ITEM_CATALOG[id], cost: Math.max(0, Math.floor(Number(ITEM_CATALOG[id]?.cost) || 0)) } as SettlementItem;

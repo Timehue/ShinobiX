@@ -226,7 +226,7 @@ describe('server-authoritative wild binding', { concurrency: false }, () => {
 
     it('carries a bulk shop purchase into the encounter and spends one seal on capture', async () => {
         const save = await kv.get<Record<string, unknown>>(`save:${player}`);
-        await kv.set(`save:${player}`, { ...save, character: { ...(save?.character as Record<string, unknown>), ryo: 2500 } });
+        await kv.set(`save:${player}`, { ...save, character: { ...(save?.character as Record<string, unknown>), ryo: 40_000 } });
         const purchase = { itemId: 'beast-seal-reinforced', qty: 9, requestId: 'bulksealpurchase001' };
         const bought = await post(purchaseHandler, purchase);
         assert.equal(bought.status, 200);

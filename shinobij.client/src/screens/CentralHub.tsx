@@ -88,6 +88,7 @@ import { VILLAGE_SUPPLY_GOODS } from "../../../shared/gathering-materials";
 import { namedForgeIngredients, namedForgeShortfall } from '../../../shared/named-forge-materials';
 import { CRAFT_MATERIAL_NAMES, SUPPLY_CRAFT_RECIPES, gearCraftIngredients, planCraftIngredients, craftIngredientProgress, type CraftMaterialSelection } from '../../../shared/crafting-recipes';
 import { CraftMaterialPicker, type CraftPickerRecipe } from '../components/CraftMaterialPicker';
+import { gearCraftRyo, supplyCraftRyo } from '../../../shared/craft-fees';
 import { Modal } from "../components/ui/Modal";
 import { NamedForgeRevealModal, type NamedForgeAnimation } from "../components/NamedForgeRevealModal";
 import {
@@ -618,11 +619,8 @@ export function CentralHub({
     // share with MVP 2× bonus). No client-side claim handler is needed.
 
     // All workshop tabs use the server's material-specific recipe definitions.
-    function craftRyoForRarity(rarity: string): number {
-        if (rarity === "rare") return 600;
-        if (rarity === "epic") return 1400;
-        return 3500; // legendary
-    }
+    // Fees live in shared/craft-fees.ts, the table the server charges from.
+    const craftRyoForRarity = gearCraftRyo;
     function recipeIngredients(id: string) {
         const supply = SUPPLY_CRAFT_RECIPES[id];
         if (supply) return supply.ingredients;
@@ -632,7 +630,7 @@ export function CentralHub({
 
     function gatheredIngredientsReady(id: string, quantity = 1): boolean {
         return recipeIngredients(id).length > 0 && planCraftIngredients(recipeIngredients(id), ownedCount, quantity) !== null
-            && character.ryo >= (VILLAGE_SUPPLY_GOODS[id]?.ryo ?? 0) * quantity;
+            && character.ryo >= supplyCraftRyo(id) * quantity;
     }
     function gatheredIngredientsLine(id: string, quantity = 1): string {
         return recipeIngredients(id).map(ingredient =>
@@ -647,7 +645,7 @@ export function CentralHub({
             materialImages: Object.fromEntries(recipeIngredients(id).flatMap(group => group.ids).map(material =>
                 [material, sharedImages['item:' + material] || allHubItems.find(entry => entry.id === material)?.image || ''])),
             output: (SUPPLY_CRAFT_RECIPES[id]?.count ?? SUPPLY_CRAFT_RECIPES[id]?.amount ?? 1) * quantity,
-            ryo: (kind === 'supply' ? VILLAGE_SUPPLY_GOODS[id]?.ryo ?? 0 : craftRyoForRarity(item?.rarity ?? 'rare')) * quantity };
+            ryo: (kind === 'supply' ? supplyCraftRyo(id) : craftRyoForRarity(item?.rarity ?? 'rare')) * quantity };
         setPendingCraft(craft);
     }
     async function completeCraft(materials: CraftMaterialSelection): Promise<string | undefined> {
@@ -1652,6 +1650,7 @@ export function CentralHub({
                                     const img = itemImage(recipe.itemId);
                                     const ingredientsLine = gatheredIngredientsLine(recipe.itemId, craftQty);
                                     const supplyGood = VILLAGE_SUPPLY_GOODS[recipe.itemId];
+                                    const supplyFee = supplyCraftRyo(recipe.itemId);
                                     return (
                                         <div key={recipe.name} className="cf-card">
                                             <div className="cf-card-top">
@@ -1673,7 +1672,7 @@ export function CentralHub({
                                             </div>
                                             <small className="cf-points">Materials {fillPct}% · Output ×{(recipe.per ?? 1) * craftQty}</small>
                                             {ingredientsLine && <small className="cf-cost">{ingredientsLine}</small>}
-                                            {supplyGood && <small className="cf-cost">Costs {(supplyGood.ryo * craftQty).toLocaleString()} ryo (you have {character.ryo.toLocaleString()}). Supplies you donate count toward your shared limit of 40 provisions a day.</small>}
+                                            {supplyFee > 0 && <small className="cf-cost">Costs {(supplyFee * craftQty).toLocaleString()} ryo (you have {character.ryo.toLocaleString()}).{supplyGood ? " Supplies you donate count toward your shared limit of 40 provisions a day." : ""}</small>}
                                             <button onClick={event => selectCraftMaterials('supply', recipe.itemId, recipe.name, craftQty, event.currentTarget)} disabled={craftBusy || !canAffordOne || atCap || character.level < (recipe.levelReq ?? 1)}>
                                                 {character.level < (recipe.levelReq ?? 1) ? `Level ${recipe.levelReq} required` : atCap ? "At carry limit" : `Craft ×${craftQty}`}
                                             </button>

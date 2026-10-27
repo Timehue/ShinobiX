@@ -131,7 +131,7 @@ test('shop tools equip, survive reload, spend durability, and connect to refinin
     // The minigame journey uses the iron seam. Keep this journey on the other
     // real seam so desktop and mobile share charges without exhausting it.
     const save = uiAuditSave(); save.currentSector = 2; save.currentTile = 130; save.worldGeoV = 2; save.currentBiome = 'central';
-    save.character = { ...save.character, name, level: 85, ryo: 5000, fateShards: 200, elderFocus: undefined,
+    save.character = { ...save.character, name, level: 85, ryo: 100_000, fateShards: 200, elderFocus: undefined,
         villageUpgrades: {}, clanUpgradeLevels: {}, clanDoctrine: undefined,
         equippedJutsuIds: [], jutsuMastery: [], equipment: {}, inventory: [], tileCards: [], gatheringToolUses: {},
         itemStacks: [{ itemId: 'gather-iron-sand-fine', count: 8 }, { itemId: 'gather-iron-sand-superior', count: 2 },
@@ -178,11 +178,11 @@ test('shop tools equip, survive reload, spend durability, and connect to refinin
         await expect(popup).toContainText('50 gathering attempts');
         await healthy(); await page.screenshot({ path: info.outputPath(`${tool.id}-shop.png`), fullPage: true });
         const purchased = page.waitForResponse(response => response.url().endsWith('/shop/purchase') && response.request().postDataJSON().itemId === tool.id);
-        await popup.getByRole('button', { name: 'Buy for 150 ryo', exact: true }).click();
+        await popup.getByRole('button', { name: 'Buy for 11,250 ryo', exact: true }).click();
         expect((await purchased).status()).toBe(200);
         await expect(popup).toHaveCount(0);
     }
-    let current = await readSave(); expect(current.ryo).toBe(4700);
+    let current = await readSave(); expect(current.ryo).toBe(100_000 - 2 * 11_250);
     expect(current.gatheringToolUses).toMatchObject({ 'tool-basic-pickaxe': 0, 'tool-basic-fishing-pole': 0 });
     await navigate('inventory');
     // The tools equip into the active loadout, like any other gear.
@@ -278,7 +278,7 @@ test('shop tools equip, survive reload, spend durability, and connect to refinin
     const forgeResponse = page.waitForResponse(response => response.url().endsWith('/craft/forge') && response.request().postDataJSON().recipeId === 'ashen-leaf-saber');
     await picker.getByRole('button', { name: 'Confirm craft', exact: true }).click();
     // Achievement sync may reward this first forge immediately after settlement.
-    expect((await (await forgeResponse).json()).character.ryo).toBe(beforeForgeRyo - 600);
+    expect((await (await forgeResponse).json()).character.ryo).toBe(beforeForgeRyo - 24_000); // the rare gear fee, shared/craft-fees.ts
     await expect.poll(async () => (await readSave()).inventory.includes('ashen-leaf-saber')).toBe(true);
     await picker.getByRole('button', { name: 'Back to Crafter', exact: true }).click();
     current = await readSave();
@@ -315,7 +315,7 @@ test('a tool purchase overtaken by a later save keeps the tool and closes its po
     expect(registered.status(), await registered.text()).toBe(200);
     const token = String((await registered.json()).token), headers = { 'x-player-name': name, 'x-player-token': token };
     const save = uiAuditSave(); save.currentSector = 2; save.currentTile = 74; save.worldGeoV = 2; save.currentBiome = 'central';
-    save.character = { ...save.character, name, level: 85, ryo: 5000, elderFocus: undefined, villageUpgrades: {}, clanUpgradeLevels: {},
+    save.character = { ...save.character, name, level: 85, ryo: 100_000, elderFocus: undefined, villageUpgrades: {}, clanUpgradeLevels: {},
         clanDoctrine: undefined, equippedJutsuIds: [], jutsuMastery: [], equipment: {}, inventory: [], tileCards: [], gatheringToolUses: {},
         wandererCooldowns: quietRoadCooldowns(Array.from({ length: 65 }, (_, i) => i + 1)) };
     expect('unlockedAchievements' in save.character, 'a first achievement sync runs at boot').toBe(false);
@@ -359,7 +359,7 @@ test('a tool purchase overtaken by a later save keeps the tool and closes its po
     await page.getByRole('button', { name: /Basic Pickaxe/ }).click();
     const popup = page.getByRole('dialog', { name: 'Basic Pickaxe item details' });
     const purchased = page.waitForResponse(response => response.url().endsWith('/shop/purchase'));
-    await popup.getByRole('button', { name: 'Buy for 150 ryo', exact: true }).click();
+    await popup.getByRole('button', { name: 'Buy for 11,250 ryo', exact: true }).click();
     expect((await purchased).status()).toBe(200);
     expect(order).toEqual(['sync-held', 'sync', 'purchase']);
     await expect(popup).toHaveCount(0);
@@ -367,7 +367,7 @@ test('a tool purchase overtaken by a later save keeps the tool and closes its po
     // Give the autosave its debounce window: it must not store a copy without the tool.
     await page.waitForResponse(response => response.request().method() === 'POST' && new URL(response.url()).pathname.endsWith(`/save/${name}`), { timeout: 10_000 }).catch(() => null);
     const stored = await readSave();
-    expect(stored.ryo).toBe(4850);
+    expect(stored.ryo).toBe(100_000 - 11_250);
     expect(stored.inventory).toContain('tool-basic-pickaxe');
     expect(errors).toEqual([]);
 });
