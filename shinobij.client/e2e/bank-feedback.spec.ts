@@ -71,6 +71,17 @@ async function dismissNotice(page: Page) {
     if (await notice.count()) await notice.getByRole('button', { name: 'OK', exact: true }).click();
 }
 
+async function reloadBank(page: Page) {
+    // Background polls are intentional; screen readiness, not a quiet network,
+    // proves that this new document restored the Bank and its authoritative save.
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.bringToFront();
+    const shell = page.locator('.app-shell[data-screen="bank"]');
+    await shell.waitFor({ state: 'visible' });
+    await shell.locator('.lazy-screen-fallback').waitFor({ state: 'hidden' });
+    await expect(page.locator('.bank-screen')).toBeVisible();
+}
+
 test('Bank associates validation with fields and preserves entered amounts', async ({ page }) => {
     const { runtime } = await bankFixture(page);
     let mutations = 0;
@@ -161,7 +172,7 @@ test('Bank confirms accepted moves, including one whose reply arrives after a ne
     await page.getByRole('button', { name: 'Enter Bank', exact: true }).click();
     await expect(page.locator('.app-shell')).toHaveAttribute('data-screen', 'bank');
     await expect(page.locator('.bank-balance-rail')).toContainText('20,200');
-    await page.reload({ waitUntil: 'networkidle' });
+    await reloadBank(page);
     await expect(page.locator('.app-shell')).toHaveAttribute('data-screen', 'bank');
     await expect(page.locator('.bank-balance-rail')).toContainText('9,800');
     await expect(page.locator('.bank-balance-rail')).toContainText('20,200');
@@ -203,7 +214,7 @@ test('Bank keeps its receipt ID through refresh and a temporary rate limit', asy
     await page.getByRole('button', { name: 'Deposit to vault', exact: true }).click();
     await expect(page.getByRole('alertdialog', { name: 'Notice', exact: true })).toContainText('That action may not have gone through. Wait until the game has saved, then refresh to check before you try again.');
     await dismissNotice(page);
-    await page.reload({ waitUntil: 'networkidle' });
+    await reloadBank(page);
     await expect(page.locator('.app-shell')).toHaveAttribute('data-screen', 'bank');
     await expect(page.locator('.bank-balance-rail')).toContainText('500');
     await amount.fill('500');
@@ -285,9 +296,16 @@ test('Bank distinguishes server rejection from uncertain responses without repor
     expect(requests).toBe(5);
 });
 
-test('Bank announces confirmed interest without a blocking acknowledgement', async ({ page }) => {
-    const { runtime } = await bankFixture(page);
-    await page.route('**/api/bank/claim-interest', route => route.fulfill({ json: { ok: true, eligible: true, claimed: 100, bankRyo: 20100, lastBankInterestAt: Date.now(), nextClaimAt: Date.now() + 86400000, _saveVersion: runtime.currentVersion() + 1 } }));
+for (const snapshot of [true, false]) test(`Bank announces confirmed interest without a blocking acknowledgement (${snapshot ? 'snapshot' : 'legacy receipt'})`, async ({ page }) => {
+    const { save, runtime } = await bankFixture(page);
+    await page.route('**/api/bank/claim-interest', route => {
+        const character = { ...save.character, bankRyo: 20100, lastBankInterestAt: Date.now() };
+        const version = runtime.currentVersion() + 1;
+        runtime.commitServerCharacter(character, version);
+        return route.fulfill({ json: { ok: true, eligible: true, claimed: 100, bankRyo: 20100,
+            lastBankInterestAt: character.lastBankInterestAt, nextClaimAt: character.lastBankInterestAt + 86400000,
+            _saveVersion: version, ...(snapshot ? { character } : {}) } });
+    });
     await expectUiAuditBoot(page, runtime, 'bank');
     await page.getByRole('button', { name: 'Collect interest', exact: true }).click();
     await expect(page.locator('.bank-balance-rail')).toContainText('20,100');
@@ -297,12 +315,49 @@ test('Bank announces confirmed interest without a blocking acknowledgement', asy
     await capture(page, 'bank-interest-success');
 });
 
+test('a delayed interest receipt cannot overwrite a newer deposit after leaving and reopening Bank', async ({ page }) => {
+    const { save, runtime } = await bankFixture(page);
+    let release!: () => void;
+    const held = new Promise<void>(resolve => { release = resolve; });
+    let credited = false;
+    const interestCharacter = { ...save.character, bankRyo: 20100, lastBankInterestAt: Date.now() };
+    await page.route('**/api/bank/claim-interest', async route => {
+        const version = runtime.currentVersion() + 1;
+        runtime.commitServerCharacter(interestCharacter, version); credited = true;
+        await held;
+        await route.fulfill({ json: { ok: true, eligible: true, claimed: 100, bankRyo: 20100,
+            character: interestCharacter, lastBankInterestAt: interestCharacter.lastBankInterestAt,
+            nextClaimAt: interestCharacter.lastBankInterestAt + 86400000, _saveVersion: version } });
+    });
+    await page.route('**/api/bank/transfer', route => {
+        const next = { ...interestCharacter, ryo: 9500, bankRyo: 20600 };
+        const version = runtime.currentVersion() + 1;
+        runtime.commitServerCharacter(next, version);
+        return route.fulfill({ json: { ok: true, action: 'deposit', amount: 500, ryo: 9500,
+            bankRyo: 20600, character: next, _saveVersion: version } });
+    });
+    await expectUiAuditBoot(page, runtime, 'bank');
+    await page.getByRole('button', { name: 'Collect interest', exact: true }).click();
+    await expect.poll(() => credited).toBe(true);
+    await page.locator('.bank-screen').getByRole('button', { name: /Village/ }).click();
+    await page.getByRole('button', { name: 'Enter Bank', exact: true }).click();
+    await page.locator('#bank-transfer-amount').fill('500');
+    await page.getByRole('button', { name: 'Deposit to vault', exact: true }).click();
+    await expect(page.locator('.bank-balance-rail')).toContainText('20,600');
+    release();
+    await expect(page.locator('.game-toast-stack')).toContainText(/interest.*100.*ryo/i);
+    await expect(page.locator('.bank-balance-rail')).toContainText('20,600');
+    await reloadBank(page);
+    await expect(page.locator('.bank-balance-rail')).toContainText('20,600');
+});
+
 test('Bank keeps wire confirmation and retries an uncertain intent with the same nonce', async ({ page }) => {
-    const { runtime } = await bankFixture(page);
+    const { save, runtime } = await bankFixture(page);
     const requests: Record<string, unknown>[] = [];
     let confirmed = false;
     await page.route('**/api/player/trade', route => {
         requests.push(route.request().postDataJSON());
+        if (confirmed) runtime.commitServerCharacter({ ...save.character, ryo: 9000 }, runtime.currentVersion() + 1);
         return confirmed ? route.fulfill({ json: { ok: true, senderBalance: 9000, debit: 1000, credit: 900, burned: 100, toPlayer: 'RivalNinja' } }) : route.fulfill({ status: 503, json: {} });
     });
     await expectUiAuditBoot(page, runtime, 'bank');
@@ -334,6 +389,7 @@ test('Bank keeps wire confirmation and retries an uncertain intent with the same
     expect(requests).toHaveLength(2);
     expect(requests[0].nonce).toBeTruthy();
     expect(requests[1].nonce).toBe(requests[0].nonce);
+    await expect(page.locator('.bank-balance-rail')).toContainText('9,000');
     await capture(page, 'bank-wire-success');
 });
 
@@ -344,6 +400,79 @@ async function keyboardTabTo(page: Page, selector: string) {
     }
     throw new Error(`Keyboard could not reach ${selector}`);
 }
+
+test('a lost wire receipt survives refresh and a rate limit even after the wallet is debited', async ({ page }) => {
+    const { save, runtime } = await bankFixture(page, { ryo: 1000 });
+    const nonces: string[] = [];
+    let version = 0;
+    await page.route('**/api/player/trade', route => {
+        nonces.push(route.request().postDataJSON().nonce);
+        if (nonces.length === 1) {
+            version = runtime.currentVersion() + 1;
+            runtime.commitServerCharacter({ ...save.character, ryo: 0 }, version);
+            return route.abort('failed');
+        }
+        if (nonces.length === 2) return route.fulfill({ status: 429, json: { error: 'Too many requests. Retry shortly.' } });
+        return route.fulfill({ json: { ok: true, duplicate: true, senderBalance: 0, debit: 1000, credit: 900,
+            burned: 100, toPlayer: 'RivalNinja', _saveVersion: version } });
+    });
+    await expectUiAuditBoot(page, runtime, 'bank');
+    const submit = async () => {
+        await page.locator('#bank-recipient').fill('RivalNinja');
+        await page.locator('#bank-send-amount').fill('1000');
+        await page.getByRole('button', { name: 'Review & send', exact: true }).click();
+        await page.getByRole('alertdialog', { name: 'Confirm', exact: true }).getByRole('button', { name: 'Confirm', exact: true }).click();
+    };
+    await submit();
+    await expect(page.getByRole('alertdialog', { name: 'Notice', exact: true })).toContainText('may not have gone through');
+    await dismissNotice(page);
+    await reloadBank(page);
+    await expect(page.locator('.bank-balance-rail')).toContainText('20,000');
+    await submit();
+    await expect(page.locator('.game-toast-stack')).toContainText('Too many requests. Retry shortly.');
+    await submit();
+    await expect(page.locator('.game-toast-stack')).toContainText('That transfer was already sent.');
+    await expect(page.locator('#bank-send-amount')).toHaveValue('0');
+    expect(nonces).toHaveLength(3);
+    expect(new Set(nonces).size).toBe(1);
+});
+
+test('a delayed wire acknowledgement adopts the current save after a newer deposit', async ({ page }) => {
+    const { save, runtime } = await bankFixture(page);
+    let release!: () => void;
+    const held = new Promise<void>(resolve => { release = resolve; });
+    let debited = false;
+    await page.route('**/api/player/trade', async route => {
+        const version = runtime.currentVersion() + 1;
+        runtime.commitServerCharacter({ ...save.character, ryo: 9000 }, version); debited = true;
+        await held;
+        await route.fulfill({ json: { ok: true, senderBalance: 9000, debit: 1000, credit: 900, burned: 100,
+            toPlayer: 'RivalNinja', _saveVersion: version } });
+    });
+    await page.route('**/api/bank/transfer', route => {
+        const character = { ...save.character, ryo: 8500, bankRyo: 20500 };
+        const version = runtime.currentVersion() + 1;
+        runtime.commitServerCharacter(character, version);
+        return route.fulfill({ json: { ok: true, action: 'deposit', amount: 500, ryo: 8500, bankRyo: 20500, character, _saveVersion: version } });
+    });
+    await expectUiAuditBoot(page, runtime, 'bank');
+    await page.locator('#bank-recipient').fill('RivalNinja');
+    await page.locator('#bank-send-amount').fill('1000');
+    await page.getByRole('button', { name: 'Review & send', exact: true }).click();
+    await page.getByRole('alertdialog', { name: 'Confirm', exact: true }).getByRole('button', { name: 'Confirm', exact: true }).click();
+    await expect.poll(() => debited).toBe(true);
+    await page.locator('.bank-screen').getByRole('button', { name: /Village/ }).click();
+    await page.getByRole('button', { name: 'Enter Bank', exact: true }).click();
+    await page.locator('#bank-transfer-amount').fill('500');
+    await page.getByRole('button', { name: 'Deposit to vault', exact: true }).click();
+    await expect(page.locator('.bank-balance-rail')).toContainText('8,500');
+    release();
+    await expect(page.locator('.game-toast-stack')).toContainText('Sent 1,000 Ryo');
+    await expect(page.locator('.bank-balance-rail')).toContainText('8,500');
+    await expect(page.locator('.bank-balance-rail')).toContainText('20,500');
+    await reloadBank(page);
+    await expect(page.locator('.bank-balance-rail')).toContainText('8,500');
+});
 
 test('Bank wire correction and cancellation work entirely from the keyboard', async ({ page }) => {
     const { runtime } = await bankFixture(page);
@@ -376,13 +505,14 @@ test('Bank wire correction and cancellation work entirely from the keyboard', as
 });
 
 test('Bank wire freezes the submitted fields until a pending response settles', async ({ page }) => {
-    const { runtime } = await bankFixture(page);
+    const { save, runtime } = await bankFixture(page);
     let release: (() => void) | undefined;
     let success = false;
     const payloads: Record<string, unknown>[] = [];
     await page.route('**/api/player/trade', async route => {
         payloads.push(route.request().postDataJSON());
         await new Promise<void>(resolve => { release = resolve; });
+        if (success) runtime.commitServerCharacter({ ...save.character, ryo: 9000 }, runtime.currentVersion() + 1);
         return success
             ? route.fulfill({ json: { ok: true, senderBalance: 9000, debit: 1000, credit: 900, burned: 100, toPlayer: 'RivalNinja' } })
             : route.fulfill({ status: 503, json: {} });
@@ -434,11 +564,16 @@ for (const state of [
 });
 
 test('Bank interest availability updates while the player is idle at full vitals', async ({ page }) => {
-    const deadline = Date.now() + 8000;
+    const now = Date.now();
+    // Hold wall time through boot while leaving the real display interval
+    // running. A slow browser must not consume the eligibility window.
+    await page.clock.setFixedTime(now);
+    const deadline = now + 8000;
     const { runtime } = await bankFixture(page, { lastBankInterestAt: deadline - 86400000 });
     await expectUiAuditBoot(page, runtime, 'bank');
     const collect = page.getByRole('button', { name: 'Collect interest', exact: true });
     await expect(collect).toBeDisabled();
-    await expect(collect).toBeEnabled({ timeout: Math.max(1000, deadline - Date.now()) + 4000 });
+    await page.clock.setFixedTime(deadline);
+    await expect(collect).toBeEnabled();
     await expect(page.locator('.bank-interest-callout')).toContainText('Ready now');
 });
