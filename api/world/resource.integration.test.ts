@@ -9,6 +9,21 @@ import { sectorPoolKey, cleanSectorPoolRow } from './_sector-pool.js';
 process.env.NODE_ENV = 'test'; process.env.SHINOBIX_QA_MEMORY_KV = '1'; process.env.SESSION_SECRET = 'resource-integration-secret';
 type Json = Record<string, unknown>;
 
+test('a late admission refund preserves a shared refill that has already elapsed', async (t) => {
+    t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
+    const { withKvLock } = await import('../_lock.js');
+    const { sharedResourceNodeKey, sharedResourceViews, finishSharedResourceAdmission } = await import('./_shared-resource-nodes.js');
+    const key = sharedResourceNodeKey('resource-17'), txId = 'late-uncommitted-admission';
+    await kv.set(key, { generation: 0, attempts: 3, refillAt: Date.now() + 600_000,
+        reservations: { [txId]: { generation: 0, committed: false } } });
+    assert.equal((await sharedResourceViews(29, Date.now()))['resource-17'].remaining, 0);
+    t.mock.timers.tick(600_001);
+    assert.equal((await sharedResourceViews(29, Date.now()))['resource-17'].remaining, 3);
+    await withKvLock(key, () => finishSharedResourceAdmission('resource-17', txId, false), { failClosed: true });
+    assert.equal((await sharedResourceViews(29, Date.now()))['resource-17'].remaining, 3);
+    assert.equal((await kv.get<Json>(key))!.generation, 1);
+});
+
 test('contesting a gatherer creates and joins a real PvP session with gathering locked for both fighters', async () => {
     await seed('realnodeattacker'); await seed('realnodedefender');
     const attemptId = 'real-node-defender-attempt';

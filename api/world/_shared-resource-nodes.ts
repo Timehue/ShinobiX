@@ -72,7 +72,7 @@ export async function reserveSharedResourceNode(nodeId: string, player: string, 
 }
 export async function finishSharedResourceAdmission(nodeId: string, txId: string, committed: boolean) {
     assertLocked(nodeId);
-    const row = await kv.get<SharedResourceNodeRow>(sharedResourceNodeKey(nodeId));
+    const row = normalize(await kv.get<SharedResourceNodeRow>(sharedResourceNodeKey(nodeId)), Date.now());
     const reservation = row?.reservations[txId];
     if (!row || !reservation || reservation.committed) return;
     if (committed) reservation.committed = true;
