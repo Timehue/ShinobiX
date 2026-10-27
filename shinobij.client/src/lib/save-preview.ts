@@ -25,10 +25,10 @@ function stripImagesForPreview(_key: string, value: unknown) {
     return typeof value === "string" && value.startsWith("data:image") ? "" : value;
 }
 
-export function writeSavePreview(name: string, payload: unknown) {
+export function writeSavePreview(name: string, payload: unknown, storage?: Pick<Storage, "setItem">) {
     if (!name) return;
     try {
-        localStorage.setItem(savePreviewKey(name), JSON.stringify(payload, stripImagesForPreview));
+        (storage ?? localStorage).setItem(savePreviewKey(name), JSON.stringify(payload, stripImagesForPreview));
     } catch (error) {
         warnLocalSaveUnavailable(error);
         // Quota exceeded or SSR — server save is still authoritative.
