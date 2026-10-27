@@ -172,11 +172,6 @@ export function cachesForSkim(skim: number): number {
     return Math.max(0, Math.floor(num(skim)));
 }
 
-/** The cache type minted by skimming a given pool. */
-export function cacheTypeForPool(pool: WarPool): WarPool {
-    return pool;
-}
-
 /** The itemStacks item ids for the two caches (the client's event-inventory entries). */
 export const CACHE_ITEM_IDS = {
     warSupply: 'war-supply-cache',
@@ -185,13 +180,6 @@ export const CACHE_ITEM_IDS = {
 
 export function cacheItemIdForPool(pool: WarPool): string {
     return CACHE_ITEM_IDS[pool];
-}
-
-/** Reverse lookup: itemStacks id → pool ('war-supply-cache' → 'warSupply'); null for other items. */
-export function poolForCacheItemId(itemId: unknown): WarPool | null {
-    if (itemId === CACHE_ITEM_IDS.warSupply) return 'warSupply';
-    if (itemId === CACHE_ITEM_IDS.warResources) return 'warResources';
-    return null;
 }
 
 // ── Turn-in (type-locked) ────────────────────────────────────────────────────

@@ -517,7 +517,3 @@ export const storyFieldScenes: Record<string, StoryFieldSceneJourney> = {
         }],
     },
 };
-
-export function storyFieldSceneJourney(questId: string): StoryFieldSceneJourney | null {
-    return Object.prototype.hasOwnProperty.call(storyFieldScenes, questId) ? storyFieldScenes[questId] : null;
-}

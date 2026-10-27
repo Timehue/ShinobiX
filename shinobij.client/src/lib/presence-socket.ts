@@ -266,11 +266,6 @@ export function updatePresenceTile(tile: number): void {
     if (socket?.connected) socket.emit('presence:move', { tile });
 }
 
-/** Ask the server for a sector's current roster (e.g. right after reconnect). */
-export function requestSector(sector: number): void {
-    if (socket?.connected) socket.emit('presence:request', { sector });
-}
-
 /** Tear down the connection (call on logout). */
 export function disconnectRealtime(): void {
     if (pingTimer) {

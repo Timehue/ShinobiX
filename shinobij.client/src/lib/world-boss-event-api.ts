@@ -1,4 +1,4 @@
-import type { WorldBossContribution, WorldBossEventStatus, WorldBossEventPosition, WorldBossId } from '../../../shared/world-boss-event';
+import type { WorldBossContribution, WorldBossEventStatus, WorldBossId } from '../../../shared/world-boss-event';
 import type { TowerHostLoadout, TowerSession } from './towers-api';
 
 export type WorldBossEventClientState = {
@@ -177,5 +177,3 @@ export async function settleWorldBossEvent(runId: string, playerName: string): P
     if (!response.ok) throw new Error(body.error ?? 'Your world boss result could not be confirmed.');
     return body as WorldBossSettlement;
 }
-
-export type WorldBossPositionClient = WorldBossEventPosition;

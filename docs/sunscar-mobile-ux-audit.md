@@ -37,7 +37,7 @@ The isolated Sunscar review entry now calls the same `useViewportContract` hook 
 
 ## Evidence and limits
 
-The reproducible mobile audit is `shinobij.client/scripts/sunscar-mobile-ux-qa.mjs`. It accepts `SUNSCAR_QA_URL` for an isolated festival QA server. Captures and machine-readable findings are in `.tmp/sunscar-mobile-ux-qa`; the pre-fix measurements remain in `.tmp/sunscar-mobile-review`.
+The mobile audit was reproducible through `shinobij.client/scripts/sunscar-mobile-ux-qa.mjs` (removed in the 2026-10 dead-code cleanup; recover it from git history). It accepted `SUNSCAR_QA_URL` for an isolated festival QA server. Captures and machine-readable findings are in `.tmp/sunscar-mobile-ux-qa`; the pre-fix measurements remain in `.tmp/sunscar-mobile-review`.
 
 Additional evidence: `.tmp/sunscar-mobile-review-integration.log`, `.tmp/sunscar-mobile-full-flow.log`, `.tmp/sunscar-mobile-app-final.log`, `.tmp/sunscar-mobile-combat-flow.log`, `.tmp/sunscar-mobile-final-full-tests.log`, `.tmp/sunscar-mobile-save-recovery-tests.log`, `.tmp/sunscar-mobile-final-lint.log`, `.tmp/sunscar-mobile-final-dist-checks.log`, `.tmp/sunscar-mobile-smoke.log`, `.tmp/sunscar-mobile-final-smoke-retry.log` and `.tmp/sunscar-mobile-combat.log`.
 

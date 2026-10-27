@@ -44,7 +44,7 @@ UTC days plus boundary headroom, then prune on later activity; permanent
 milestone and war receipts remain. The main game audit confirmed that the final
 combined server typecheck passed after the retention correction and a test-only
 observation-namespace typing correction. Its log is
-[remediation-server-build-final.log](../full-game-2026-10-02/remediation-server-build-final.log).
+`remediation-server-build-final.log` (removed from the tree; recover it from git history).
 
 The first full runner finished with 12,380 passes and 107 failures. Two old
 Card Clash lifetime-key expectations were then corrected and passed their

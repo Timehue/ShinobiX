@@ -200,9 +200,6 @@ export type HallEntryView = {
 export const RARITY_COLORS: Record<LegacyRarity, string> = {
     basic: "#9aa3b2", rare: "#60a5fa", legendary: "#f59e0b", mythic: "#c084fc",
 };
-export const RARITY_LABELS: Record<LegacyRarity, string> = {
-    basic: "Basic", rare: "Rare", legendary: "Legendary", mythic: "Mythic",
-};
 
 async function getJson<T>(url: string): Promise<T | null> {
     try {

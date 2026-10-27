@@ -8,7 +8,6 @@ const loader = createStoryFieldContentLoader({
 });
 const resource = createStoryFieldContentResource(loader);
 
-export const loadStoryFieldContent = loader.load;
 export const readStoryFieldContent = resource.read;
 export const resetStoryFieldContent = resource.reset;
 

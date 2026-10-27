@@ -62,12 +62,6 @@ export async function fetchSectorRoster(playerName: string, village: string, sec
     };
 }
 
-/** Kept as the original roster-only signature for callers that don't need the
- *  contest. Same request; the wrapper just drops the second half. */
-export async function fetchMercRoster(playerName: string, village: string, sector: number): Promise<RoamingMercView[]> {
-    return (await fetchSectorRoster(playerName, village, sector)).mercs;
-}
-
 /** What the player reads after a roaming-merc clash. A sector band belongs to
  *  the village DEFENDING that sector, so the reader is an attacker there: a
  *  merc win scores the defence; cutting it down scores the attack a little. */

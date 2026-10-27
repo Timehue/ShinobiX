@@ -302,9 +302,6 @@ export function setGarrisonFeed(playerName: string, sectorWarId: string, on: boo
 export function abandonSectorWar(playerName: string, sector: number) {
     return postJson("/api/village/sector-war", { action: "abandon", playerName, sector });
 }
-export function sectorWarStatus(playerName: string, sector?: number) {
-    return postJson("/api/village/sector-war", { action: "status", playerName, sector });
-}
 export function registerSectorBattle(playerName: string, sector: number, battleId: string, signal?: AbortSignal) {
     return postJson("/api/village/sector-war", { action: "attack", playerName, sector, battleId }, signal);
 }

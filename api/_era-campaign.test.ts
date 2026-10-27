@@ -136,3 +136,23 @@ test('IV and V require all S-rank workloads, full descents and distinct fresh pu
         assert.equal(eraChapterProgress(ERA_CHAPTERS.find(chapter => chapter.eraId === id)!, c.eraJourneys[id], {}, true).ready, true);
     }
 });
+
+test('every Spire examination hint tells the player the run needs exactly four live players', () => {
+    // The evidence rule above credits a Spire run only when humanMembers === 4,
+    // so the copy on the objective must say so (AI recruits are not allowed in a
+    // Spire party and do not count). Story examinations accept a smaller squad.
+    let spire = 0;
+    for (const stages of Object.values(ERA_CAMPAIGN_STAGES)) {
+        for (const objective of stages.flatMap(stage => stage.objectives)) {
+            if (objective.proof.kind !== 'tower') continue;
+            if (objective.proof.mode === 'spire') {
+                spire++;
+                assert.match(objective.hint ?? '', /exactly four live players/, objective.id);
+                assert.match(objective.hint ?? '', /AI recruits do not count/, objective.id);
+            } else {
+                assert.doesNotMatch(objective.hint ?? '', /four live players/, objective.id);
+            }
+        }
+    }
+    assert.equal(spire, 6);
+});
