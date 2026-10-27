@@ -95,10 +95,10 @@ import {
 } from '../../shared/first-pact-contract.js';
 import {
     ExhibitionError,
-    exhibitionTeamForRound,
-    recordExhibitionOpponents,
+    beginExhibitionRound,
     settleExhibitionBattle,
 } from '../first-pact/_exhibition.js';
+import { clearPendingRunBattle, isRunBattle, recordPendingRunBattle, settlePendingRunBattle } from '../first-pact/_pending-run-battle.js';
 import {
     readFirstPactProgress,
     settleFirstPactReplayBattle,
@@ -191,14 +191,10 @@ function petArenaRyoReward(opponentLevel: number): number {
 /** PvP command clock. The engine never reads a wall clock, so the deadline is
  *  ENDPOINT bookkeeping: stamped onto the session at start and re-armed by
  *  every resolved round, surfaced to the client via `turnDeadline` on the
- *  state view. Dormant today — paid Coliseum and practice entries are both AI
- *  fights (`pvp: false`), so `armTurnDeadline` is a no-op and no view carries a
- *  deadline. When live PvP lands on this engine its start path seals
- *  `pvp: true` and this arms itself; the turn handler must then ALSO resolve a
- *  lapsed round with defaults for the absent side, so a walked-away opponent
- *  cannot hold the fight hostage (the engine already defaults any missing
- *  command to guard — the enforcement is one deadline check, not new combat
- *  rules). */
+ *  state view. Every entry this endpoint starts is an AI fight (`pvp: false`),
+ *  so here it is a no-op. Live player-vs-player fights on this engine are Pet
+ *  Arena rooms (api/_pet-tactics), which keep their own turn clock and resolve
+ *  a lapsed round there. */
 function armTurnDeadline(session: ShowdownSession): void {
     if (!session.pvp || session.finished) return;
     session.turnDeadlineAt = Date.now() + SHOWDOWN_PVP_TURN_SECONDS * 1000;
@@ -256,6 +252,8 @@ interface ShowdownFirstPactBinding {
     encounterId: FirstPactEncounterId;
     /** Orin's Stable Exhibition: the run this round belongs to. */
     exhibitionRunId?: string;
+    /** The stable this Exhibition round faces; a win offers it in trade. */
+    exhibitionOpponents?: Pet[];
     /** Court Replays: a cleared story battle fought again. Changes no story record. */
     replay?: FirstPactReplaySettings;
 }
@@ -546,6 +544,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (Math.floor(Number(myChar.level) || 0) < FIRST_PACT_MIN_LEVEL) {
                 return res.status(403).json({ error: `The First Pact unlocks at level ${FIRST_PACT_MIN_LEVEL}.` });
             }
+            // An Exhibition round or Unbroken fight walked away from is settled
+            // (as a loss, unless it finished) before anything new is dealt.
+            await settlePendingRunBattle(playerName);
             const progress = await readFirstPactProgress(playerName);
             const exhibitionRound = firstPactExhibitionRound(encounter.id);
             const replay = exhibitionRound ? null : firstPactReplaySettings(body.replay);
@@ -610,9 +611,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // The Exhibition fields the run's rentals, read from the server's
                 // own record; the browser's pet ids are not consulted at all.
                 try {
-                    const prepared = await exhibitionTeamForRound(playerName, exhibitionRound.id);
+                    const prepared = await beginExhibitionRound(playerName, exhibitionRound.id);
                     chosen = prepared.team;
-                    exhibitionRunId = prepared.run.runId;
+                    exhibitionRunId = prepared.runId;
                 } catch (error) {
                     if (error instanceof ExhibitionError) return res.status(error.status).json({ error: error.message });
                     throw error;
@@ -662,9 +663,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (built.pets.length !== FIRST_PACT_TEAM_SIZE) {
                 return res.status(500).json({ error: 'The Court could not assemble the opposing stable.' });
             }
-            // An Exhibition win offers one of these companions in trade, so the
-            // run keeps the stable it faced (and closes any trade still open).
-            if (exhibitionRunId) await recordExhibitionOpponents(playerName, exhibitionRunId, built.pets);
             const sessionId = randomUUID().replace(/-/g, '');
             const session = createShowdownSession({
                 // Live fight: role partner bonds apply (SHOWDOWN_PARTNER_BONDS).
@@ -682,13 +680,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             session.bindingKind = 'first-pact';
             const binding: ShowdownFirstPactBinding = {
                 encounterId: encounter.id,
-                ...(exhibitionRunId ? { exhibitionRunId } : {}),
+                // An Exhibition win offers one of these companions in trade, so
+                // the battle keeps the exact stable it faced.
+                ...(exhibitionRunId ? { exhibitionRunId, exhibitionOpponents: built.pets } : {}),
                 ...(replay ? { replay } : {}),
             };
             armTurnDeadline(session);
             await kv.set(sessionKey(playerName, sessionId), session, { ex: SESSION_TTL_SECONDS });
             await publishShowdownPresence(kv, playerName, sessionId); // F01: a live showdown is provable presence
             await kv.set(showdownFirstPactKey(playerName, sessionId), binding, { ex: SESSION_TTL_SECONDS });
+            if (isRunBattle(binding)) await recordPendingRunBattle(playerName, { sessionId, ...binding });
             return res.status(200).json({ ok: true, state: viewOf(session), firstPact: { encounterId: encounter.id, progress } });
         }
 
@@ -1155,7 +1156,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // way a loss would. Story battles and plain replays record nothing.
                 const settled = exhibitionRound && firstPactBinding.exhibitionRunId
                     ? await settleExhibitionBattle(playerName, firstPactBinding.exhibitionRunId, exhibitionRound.id,
-                        concededSession.outcome ?? 'loss', concededProof)
+                        concededSession.outcome ?? 'loss', concededProof, firstPactBinding.exhibitionOpponents ?? [])
                     : firstPactBinding.replay?.unbroken
                     ? await settleFirstPactReplayBattle(playerName, firstPactBinding.encounterId, firstPactBinding.replay,
                         concededSession.outcome ?? 'loss', concededProof)
@@ -1163,6 +1164,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     ? await settleFirstPactStandingCourtBattle(playerName, standingRound.id,
                         concededSession.outcome ?? 'loss', concededProof)
                     : { progress: await readFirstPactProgress(playerName), advanced: false };
+                await clearPendingRunBattle(playerName, concededSession.sessionId);
                 return res.status(200).json({
                     ok: true,
                     conceded: true,
@@ -1359,7 +1361,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const exhibitionRound = firstPactExhibitionRound(firstPactBinding.encounterId);
                 const proof = `showdown:${session.sessionId}`;
                 const firstPact = exhibitionRound && firstPactBinding.exhibitionRunId
-                    ? await settleExhibitionBattle(playerName, firstPactBinding.exhibitionRunId, exhibitionRound.id, session.outcome, proof)
+                    ? await settleExhibitionBattle(playerName, firstPactBinding.exhibitionRunId, exhibitionRound.id, session.outcome, proof,
+                        firstPactBinding.exhibitionOpponents ?? [])
                     : firstPactBinding.replay
                     // A replay writes only its own record, never the story's.
                     ? await settleFirstPactReplayBattle(playerName, firstPactBinding.encounterId, firstPactBinding.replay, session.outcome, proof)
@@ -1378,6 +1381,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         session.player.map((pet) => pet.id),
                     )
                     : await settleFirstPactTournamentBattle(playerName, firstPactBinding.encounterId as FirstPactTournamentEncounterId, session.outcome, `showdown:${session.sessionId}`);
+                await clearPendingRunBattle(playerName, session.sessionId);
                 settlement = {
                     ...settlement,
                     firstPact: { encounterId: firstPactBinding.encounterId, ...firstPact },

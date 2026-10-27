@@ -32,6 +32,11 @@ const ACT_POOLS: readonly { fights: readonly string[]; elites: readonly string[]
     { fights: ["echoes-7-nima", "echoes-9-lyra", "ai:hard", "echoes-6-korin"], elites: ["echoes-9-lyra", "echoes-8-eren"], boss: "echoes-10-halden" },
 ];
 
+/** A Keeper's Path duel's run binding, kept beside (and longer than) its
+ *  2-hour session, so a duel left to expire is still charged to its run. */
+export const keeperMatchBindingKey = (matchId: string) => `cc-keeper-match:${matchId}`;
+export const KEEPER_MATCH_BINDING_TTL_SECONDS = 7 * 24 * 60 * 60;
+
 const PATH_KEEPER_NAMES: Record<KeeperDifficulty, string> = { easy: "Path Warden", medium: "Path Sentinel", hard: "Path Arbiter" };
 
 export function keeperOpponent(key: string): KeeperOpponent | null {

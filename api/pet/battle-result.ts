@@ -1284,9 +1284,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (settlementIntent?.winnerName !== simulatedWinner) {
                 return res.status(409).json({ error: 'Ranked settlement intent does not match the sealed server replay.' });
             }
-            // Showdown's judge always decides, so this branch is unreachable for
-            // any token resolved by the current engine. It stays because a draw
-            // is still representable in the receipt shape.
+            // A live Pet Arena match can end in a draw: both teams fall on the
+            // same round, which the pvp ruleset scores as a draw rather than
+            // asking the judge.
             if (simulatedWinner === null) {
                 // Each side's receipt rides in its own save write, so a side
                 // that already settled is left as it is.

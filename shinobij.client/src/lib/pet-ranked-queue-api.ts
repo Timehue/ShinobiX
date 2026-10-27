@@ -3,15 +3,14 @@ import type { Character } from "../types/character";
 /*
  * Live ranked pet matchmaking — client transport.
  *
- * The queue only produces a PAIRING. Everything that decides or rates the fight
- * is server-owned and already existed:
- *   /api/pet/ranked-start  mints one sealed match token for the pair
- *   /api/pet/ranked-watch  re-derives the rated fight for both players
- *   /api/pet/battle-result rates that same derivation
+ * Everything that decides or rates the fight is server-owned:
+ *   /api/pvp/pet-ranked-queue pairs two players by rating, seals both teams
+ *                          and opens a Pet Arena room for them
+ *   /api/pet/tactics       plays that room, both players issuing commands live
+ *   /api/pet/battle-result rates the room's finished result
  *
  * So nothing here simulates a duel, invents a seed, or reports an outcome it
- * decided locally — that combination is exactly the defect this mode was
- * retired for.
+ * decided locally.
  */
 
 export type PetRankedQueueState =

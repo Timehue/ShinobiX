@@ -1739,7 +1739,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                 : "Choose the contender, read the matchup, then call every stance and technique from ringside.";
 
     if (showTactics) return <Suspense fallback={<div role="status">Preparing Pet Arena…</div>}>
-        <PetTacticsArena key={character.name} playerName={character.name} sharedImages={sharedImages}
+        <PetTacticsArena key={character.name} playerName={character.name} character={character} sharedImages={sharedImages}
             onExit={() => setShowTactics(false)} onActiveChange={setTacticsActive} onFullscreenChange={setTacticsFullscreen} />
     </Suspense>;
 

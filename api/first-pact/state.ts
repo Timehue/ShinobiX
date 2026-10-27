@@ -42,6 +42,7 @@ import {
     startExhibition,
     swapExhibition,
 } from "./_exhibition.js";
+import { settlePendingRunBattle } from "./_pending-run-battle.js";
 
 const MAIN_BEATS = new Set<string>(FIRST_PACT_MAIN_BEATS);
 
@@ -259,6 +260,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         } else if (action.startsWith("exhibition-")) {
             // Orin's Stable Exhibition. Every rental and trade is read back from
             // the server's own run record; the browser only names ids from it.
+            // A round walked away from settles first, so a fresh draft or a
+            // withdrawal cannot bury a loss the run already took.
+            if (action === "exhibition-start" || action === "exhibition-abandon") await settlePendingRunBattle(playerName);
             const current = await readFirstPactProgress(playerName);
             try {
                 if (action === "exhibition-start") await startExhibition(playerName, current);
@@ -268,11 +272,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 else if (action === "exhibition-abandon") await abandonExhibition(playerName);
                 else return res.status(400).json({ error: "Unknown Exhibition action." });
             } catch (error) {
-                if (error instanceof ExhibitionError) return res.status(error.status).json({ error: error.message, progress: current });
+                // The run as it stands rides along, so a refused action never
+                // leaves the ledger showing a draft or trade that is gone.
+                if (error instanceof ExhibitionError) {
+                    return res.status(error.status).json({ error: error.message, progress: current, exhibition: exhibitionView(await readExhibition(playerName)) });
+                }
                 throw error;
             }
             progress = current;
         } else if (action === "replay-unbroken-start" || action === "replay-unbroken-abandon") {
+            // Settled against the attempt it belongs to, before a new one begins.
+            await settlePendingRunBattle(playerName);
             const current = await readFirstPactProgress(playerName);
             if (current.mainStep !== "complete") {
                 return res.status(409).json({ error: "The Court replays its arguments only after the crossing is closed.", progress: current });
