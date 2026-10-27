@@ -199,7 +199,7 @@ describe('credited-fight gate', () => {
 });
 
 describe('credit slots', () => {
-    it('assigns once per fight, shares one counter per unordered pair, and fails open', async () => {
+    it('assigns once per fight, shares one counter per unordered pair, and leaves storage failures pending', async () => {
         const store = _makeMemoryKv();
         const counterKey = pvpPairCounterKey('alpha', 'beta', '2026-10-21');
         assert.equal(counterKey, pvpPairCounterKey('beta', 'alpha', '2026-10-21'));
@@ -212,7 +212,7 @@ describe('credit slots', () => {
         await store.set('pvp:pairslot:f3', 7);
         assert.equal(await assignPvpCreditSlot(store, { slotKey: 'pvp:pairslot:f3', counterKey }), 7);
         const broken = { get: async () => { throw new Error('down'); }, set: async () => 'OK' as const, incr: async () => 1 };
-        assert.equal(await assignPvpCreditSlot(broken, { slotKey: 'x', counterKey: 'y' }), 1);
+        await assert.rejects(assignPvpCreditSlot(broken, { slotKey: 'x', counterKey: 'y' }), /pvp-credit-slot-pending/);
         assert.ok(PVP_COUNTER_TTL_SECONDS >= 74 * 3600);
     });
 });

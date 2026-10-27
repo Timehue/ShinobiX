@@ -642,7 +642,7 @@ test("open Fold landing uses compact navigation and keeps both entry actions cle
     const menu = page.getByRole("button", { name: "Open navigation" });
     const notice = page.getByRole("region", { name: "Data storage notice" });
     const enter = page.getByTestId("start-create");
-    const explore = page.getByRole("button", { name: /See gameplay/ });
+    const explore = page.getByRole("button", { name: /See gameplay/i });
     await expect(utility).toBeHidden();
     await expect(menu).toBeVisible();
     await expect(navigation).toBeHidden();

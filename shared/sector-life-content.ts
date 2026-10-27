@@ -46,3 +46,9 @@ export const LIFE_STOP_REGIONS: Readonly<Record<number,LifeRegion>> = {
     42:teaStop,
 };
 export function lifeRegionFor(sector: number) { return LIFE_STOP_REGIONS[sector]??LIFE_REGIONS[sectorRegionKey(sector)??'midlands']; }
+/** Keep a painted workplace's counter and its existing resident in agreement. */
+export function lifeResidentName(sector:number):string{
+    const names=['Aki','Ume','Ren','Eda','Jun','Mako','Ise','Hatsu','Fumi','En','Seki','Kiyo'];
+    const role=lifeRegionFor(sector).resident.split(' ').slice(0,-1).join(' ');
+    return `${role} ${names[(sector-1)%names.length]}`;
+}

@@ -15,6 +15,7 @@ import { GameArtIcon } from "./GameArtIcon";
 import { isWalkableTile, nearestWalkableTile, sectorWalkMask } from "../../../shared/sector-walk-mask";
 import { safeSectorTile } from "../lib/sector-obstacles";
 import { ContinuousWorldSector } from "./ContinuousWorldSector";
+import { SectorBuildings } from "./SectorBuildings";
 
 const GRID_SIZE = 12;
 const TILE_COUNT = GRID_SIZE * GRID_SIZE;
@@ -60,6 +61,7 @@ export type WorldSectorCanvasProps = {
     onCrossExit: (exit: SectorExit) => void;
     onWalkArrive?: (tile: number, sector: number | null) => void;
     onWorldAuthority?: (sector: number, tile: number) => void;
+    onOpenAtlas?: () => void;
     worldMovementBlocked?: () => boolean;
     hudLayer: ReactNode;
     overlayLayer: ReactNode;
@@ -208,6 +210,7 @@ export function WorldSectorCanvas(props: WorldSectorCanvasProps) { const {
                 </>}
 
                 {overlayLayer}
+                {!suspended && isCurrent && props.gatheringCharacter && props.onGatheringCommit && <SectorBuildings key={props.gatheringCharacter.name} character={props.gatheringCharacter} sector={sector} tile={playerTile} commit={props.onGatheringCommit} directRoadWalking={false} onAtlas={props.onOpenAtlas} walk={(targetSector,targetTile)=>{if(targetSector===sector)onSelectTile(targetTile);}} />}
                 {props.mapHudLayer}
                 {encounterLayer}
             </div>

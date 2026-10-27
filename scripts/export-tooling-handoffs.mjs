@@ -2,6 +2,7 @@
 import { readdir, readFile, mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
+import { economyIncomeForecasts } from './_economy-income-forecasts.ts';
 import { fileURLToPath } from 'node:url';
 
 import { ECON_CURRENCIES } from '../api/_economy.ts';
@@ -43,7 +44,7 @@ import { BLOODLINE_FORGE_COSTS } from '../api/bloodlines/_forge.ts';
 import { KEY_FORGE_COSTS } from '../api/hollow-gate/_forge-key.ts';
 import { PROFILE_RESPEC_COST, PROFILE_TITLE_COST, PROFILE_TITLE_ICON_COST, PROFILE_TITLE_STYLE_COST } from '../api/profile/_settlement.ts';
 import { STAT_RESPEC_FATE_COST } from '../api/save/_stat-entitlement.ts';
-import { BLACK_MARKET_COST } from '../api/festival/_black-market.ts';
+import { BLACK_MARKET_COST, BLACK_MARKET_CERTIFICATE_COST } from '../api/festival/_black-market.ts';
 import { NAMED_FORGE_FATE_SHARD_COST } from '../shared/named-forge-economy.ts';
 import { KAGE_DECLARE_RYO_COST } from '../api/village/_kage-challenge.ts';
 import { LOGIN_RYO_BASE, LOGIN_RYO_CAP, LOGIN_RYO_PER_LEVEL, STREAK_EARLY_SHARD_DAYS, STREAK_EARLY_SHARD_REWARD, STREAK_SHARD_INTERVAL, STREAK_SHARD_REWARD } from '../api/player/_daily-login.ts';
@@ -170,6 +171,7 @@ function csv(rows) {
 function economyExport() {
   const faucets = [];
   const sinks = [];
+  const incomeForecasts = economyIncomeForecasts();
   const source = (authority) => authority;
   const addFlow = (target, system, id, currency, amount, cadence, authority, notes = '') => target.push({ system, id, currency, amount, cadence, authority, notes });
 
@@ -211,9 +213,21 @@ function economyExport() {
   for (const [id, amount] of Object.entries({ profileRespec: PROFILE_RESPEC_COST, statRespec: STAT_RESPEC_FATE_COST, customTitle: PROFILE_TITLE_COST, titleStyle: PROFILE_TITLE_STYLE_COST, titleIcon: PROFILE_TITLE_ICON_COST })) {
     addFlow(sinks, 'profile', id, 'fateShards', amount, 'per action', source(id === 'statRespec' ? 'api/save/_stat-entitlement.ts' : 'api/profile/_settlement.ts'));
   }
-  addFlow(sinks, 'festival', 'black-market-pull', 'ryo', BLACK_MARKET_COST, 'per pull', source('api/festival/_black-market.ts'));
+  addFlow(sinks, 'festival', 'black-market-pull', 'ryo', BLACK_MARKET_COST, 'per paid ryo pull only', source('api/festival/_black-market.ts'), 'Gross debit, before the returned ryo faucet; certificate pulls debit the separate half stake below.');
+  addFlow(sinks, 'festival', 'black-market-certificate-pull', 'ryo', BLACK_MARKET_CERTIFICATE_COST, 'per certificate pull', source('api/festival/_black-market.ts'), 'A certificate covers half the stake (owner ruling 2026-10-23); gross debit, before the returned ryo faucet.');
   addFlow(faucets, 'festival', 'sunscar-rally', 'ryo', '30%-50% of daily login reward', 'per three-race daily championship', source('api/festival/_rally.ts'), 'Placement scales the payout; practice pays nothing.');
   addFlow(faucets, 'festival', 'sunscar-caravan', 'ryo', '1.05-1.7 times daily login reward', 'per daily delivery', source('api/festival/_caravan.ts'), 'Scaled by cargo preserved and bounded objectives/bonuses. Defeat pays no Ryo.');
+  for (const payment of ['paid', 'certificate']) {
+    for (const [currency, amount] of Object.entries(incomeForecasts.broker.expectedRewardPerPull)) {
+      addFlow(faucets, 'festival', 'black-market-' + payment + '-pull', currency, amount, 'expected per ' + payment + ' redemption', source('api/_black-market-loop.ts'),
+        payment === 'paid' ? 'Gross expected payout; subtract the separate paid-pull ryo debit for net flow.' : 'Gross expected payout; subtract the separate certificate-pull ryo debit for net flow, and do not also count this as ryo when the certificate is earned.');
+    }
+  }
+  addFlow(faucets, 'festival', 'rally-first-place-certificates', 'brokerCertificates', incomeForecasts.broker.certificateAwards.rallyFirstPlace, 'per first-place daily championship', source('shared/sunscar/broker-certificates.ts'), 'Conditional certificate award, not immediate ryo; second place earns one.');
+  addFlow(faucets, 'festival', 'caravan-success-certificate', 'brokerCertificates', incomeForecasts.broker.certificateAwards.caravanSuccess, 'per successful daily delivery', source('shared/sunscar/broker-certificates.ts'), 'Failure earns none; redemption value is modeled separately.');
+  for (const forecast of incomeForecasts.expeditions.filter(row => row.scenario === 'ordinary-safe' || row.scenario === 'tamer-safe')) {
+    addFlow(faucets, 'pet-expedition', forecast.route + '-' + forecast.scenario, 'ryo', forecast.secureRyoPerClaim, 'per version-2 secure claim', source('shared/pet-expedition-contract.ts'), 'Code default, safe route, no mastery or trait bonus; use incomeForecasts for conditional advanced scenarios.');
+  }
   addFlow(sinks, 'craft', 'named-forge', 'fateShards', NAMED_FORGE_FATE_SHARD_COST, 'per forge', source('shared/named-forge-economy.ts'));
   addFlow(sinks, 'kage', 'declare-challenge', 'ryo', KAGE_DECLARE_RYO_COST, 'per challenge', source('api/village/_kage-challenge.ts'));
   addFlow(sinks, 'shrine', 'communal-offering', 'ryo', `${SHRINE_MIN_OFFERING}-${SHRINE_MAX_OFFERING}`, 'per offering', source('shared/shrines.ts'), 'Pure sink; no payout.');
@@ -238,11 +252,12 @@ function economyExport() {
       schemaVersion: 'shinobix.economy-model.v1',
       generatedBy: 'scripts/export-tooling-handoffs.mjs',
       authority: 'server-authoritative source modules listed on every flow; generated artifacts are read-only handoffs',
-      currencies: [...ECON_CURRENCIES, 'warResources', 'territoryControlScrolls', 'statPoints'],
+      currencies: [...ECON_CURRENCIES, 'warResources', 'territoryControlScrolls', 'statPoints', 'brokerCertificates'],
       dailyCaps: { missions: DAILY_MISSION_LIMIT, huntsBase: DAILY_HUNT_LIMIT },
       faucets,
       sinks,
       shopItems,
+      incomeForecasts,
       petBreeding: {
         authority: ['api/pet/_breeding.ts', 'api/pet/_owned-pet.ts', 'api/pet/_pet-busy.ts', 'shared/pet-incubation.ts', 'shared/shrines.ts'],
         rulesVersion: PET_BREEDING_RULES_VERSION,
@@ -266,7 +281,7 @@ function economyExport() {
       notes: [
         'Amounts are base values. Runtime discounts, village upgrades, entitlements, and idempotency gates remain in code.',
         'Legacy XP fields are exported for fidelity, but field/hunt progression is modeled as statPoints drawn from the shared daily stat-point budget.',
-        'Custom/admin content and probabilistic/event rewards are intentionally excluded unless represented by a stable server constant.',
+        'Custom/admin content and probabilistic/event rewards are excluded unless represented by a stable server constant; Broker expected values and conditional expedition scenarios are explicitly labeled.',
       ],
     },
     faucets,

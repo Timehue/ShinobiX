@@ -16,8 +16,8 @@
  * daily AI-fight cap.
  */
 import { isPlayableWildSector, playableFieldObjectiveSector } from "./sector-geo.js";
-import { RESOURCE_NODES } from "./resource-nodes.js";
-import { isWalkableTile, tileNeighbors } from "./sector-walk-mask.js";
+import { RESOURCE_NODES, resourceNodePosition, type ResourceNode } from "./resource-nodes.js";
+import { isWalkableTile, tileNeighbors, walkPath } from "./sector-walk-mask.js";
 import {
     WANDERER_ARCHETYPES,
     WANDERER_RIFT_INDEX,
@@ -74,6 +74,21 @@ function slotWanderer(
     };
 }
 
+/** Portraits rise above their feet. Keep their centres clear of the 54px shoal
+ * buttons, including on small maps, while retaining a reachable natural bank. */
+function anglerBank(sector: number, nodes: readonly ResourceNode[], preferred: number): number {
+    const fishing = nodes.filter(node => node.activity === 'fishing');
+    const markers = nodes.map(resourceNodePosition);
+    const gap = (a: number, b: number) => Math.hypot(a % 12 - b % 12, Math.floor(a / 12) - Math.floor(b / 12));
+    const banks = [...new Set(fishing.flatMap(node => tileNeighbors(node.target).flatMap(tile => [tile, ...tileNeighbors(tile)])))];
+    return banks.filter(tile => isWalkableTile(sector, tile)
+        && !nodes.some(node => node.approach === tile || node.target === tile)
+        && fishing.some(node => gap(tile, node.target) <= 1.5)
+        && markers.every(marker => Math.hypot(tile % 12 + .5 - marker.left * .12, Math.floor(tile / 12) - marker.top * .12) >= 1.4)
+        && walkPath(sector, preferred, tile))
+        .sort((a, b) => gap(a, preferred) - gap(b, preferred) || a - b)[0] ?? preferred;
+}
+
 /** The angler or rival miner working a node in `sector` this window, or null.
  *  They stand beside the node, never on the tile a gatherer stands on. */
 export function rollTradeWanderer(sector: number, dayBucket: number): Wanderer | null {
@@ -84,8 +99,17 @@ export function rollTradeWanderer(sector: number, dayBucket: number): Wanderer |
     if (rng() >= TRADE_WANDERER_CHANCE) return null;
     const node = nodes[Math.floor(rng() * nodes.length)];
     const beside = tileNeighbors(node.approach).filter((tile) => tile !== node.target && isWalkableTile(sector, tile));
-    const home = beside[0] ?? node.approach;
     const archetype: WandererArchetypeId = node.activity === "fishing" ? "angler" : "rivalMiner";
+    const preferred = beside[0] ?? node.approach;
+    // Every node in the sector counts, not only this one. Sector 22's two
+    // shoals sit side by side, so the Cove angler's authored tile was the
+    // Moonlit gatherer's own tile, under that shoal's button. Step to the next
+    // free neighbour only then, so every other authored position holds.
+    const gathererTiles = new Set(nodes.flatMap((other) => [other.approach, other.target]));
+    const free = gathererTiles.has(preferred) ? beside.find((tile) => !gathererTiles.has(tile)) ?? preferred : preferred;
+    // Stillwater's compact pond needs extra portrait headroom; retain the
+    // authored encounter positions of every other trader.
+    const home = archetype === 'angler' && sector === 6 ? anglerBank(sector, nodes, preferred) : free;
     return placeWanderer(slotWanderer(archetype, `w-${sector}-${dayBucket}-${WANDERER_TRADE_INDEX}`, sector, home, [home], rng), sector);
 }
 

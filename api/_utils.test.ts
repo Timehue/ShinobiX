@@ -10,7 +10,25 @@ import {
     isMalformedJsonBodyError,
     setSafeRecordValue,
     deleteSafeRecordValue,
+    ownCountValue,
 } from './_utils.js';
+
+describe('ownCountValue', () => {
+    it('reads only a positive count the record owns', () => {
+        assert.equal(ownCountValue({ kaze: 3 }, 'kaze'), 3);
+        assert.equal(ownCountValue({ kaze: 3 }, 'missing'), 0);
+        assert.equal(ownCountValue({ kaze: -2, mira: 'x', ren: Number.NaN }, 'kaze'), 0);
+        assert.equal(ownCountValue({ mira: 'x' }, 'mira'), 0);
+        assert.equal(ownCountValue(null, 'kaze'), 0);
+    });
+
+    it('never reads an inherited Object.prototype member as a count', () => {
+        for (const key of ['constructor', '__proto__', 'toString', 'valueOf', 'hasOwnProperty']) {
+            assert.equal(ownCountValue({}, key), 0, key);
+        }
+        assert.equal(ownCountValue({ constructor: 4 }, 'constructor'), 4, 'an own entry under that name still counts');
+    });
+});
 
 describe('safe dynamic record writes', () => {
     it('creates ordinary own properties and rejects prototype keys', () => {

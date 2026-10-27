@@ -14,8 +14,8 @@ docs/screenshots/oni-all-clips-v2-final-2026-10-18/*.log text eol=lf
 docs/audits/oni-*.json text eol=lf
 docs/audits/pet-omitted-*.json text eol=lf
 shinobij.client/scripts/fixtures/pet-omitted-limb-performances/*.json text eol=lf
-# The Sky Falcon repair verifies this frozen selection by its exact SHA-256.
-shinobij.client/scripts/fixtures/pet-sky-falcon-tabs-20261021/frozen-selection.json text eol=lf
+# The Sky Falcon repair pins this selection's exact SHA, including newlines.
+shinobij.client/scripts/fixtures/pet-sky-falcon-tabs-20261021/*.json text eol=lf
 shinobij.client/src/generated/story-content/*.json text eol=lf
 shinobij.client/src/generated/story-content/*.ts text eol=lf
 
@@ -201,6 +201,8 @@ docs/screenshots/pet-shrine-salamander-*/*.txt text eol=lf
 docs/screenshots/pet-pyre-kestrel-*/*.txt text eol=lf
 docs/screenshots/pet-shrine-salamander-*/**/*.mjs text eol=lf
 shinobij.client/scripts/fixtures/pet-visible-ground-20261020/manifest.json text eol=lf
+# The Sky Falcon repair validates this frozen selection by its exact SHA-256.
+shinobij.client/scripts/fixtures/pet-sky-falcon-tabs-20261021/frozen-selection.json text eol=lf
 
 # Audit hashes describe committed text bytes, including on Windows.
 docs/audits/pet-*.json text eol=lf

@@ -1,0 +1,89 @@
+# Keeps the `railway-deploy` branch in step with main, after CI is green.
+#
+# Railway builds the service from the `railway-deploy` branch, not from main.
+# Our tree is about 10.5 GB (docs/screenshots alone is 8.4 GB of review
+# evidence) and Railway's builder could not fetch a snapshot that large: every
+# build failed with "failed to fetch snapshot" (2026-10-24..26). The Docker image
+# never contained those folders, so the deploy branch is the same commit with
+# them removed. scripts/refresh-railway-deploy-branch.sh builds it.
+#
+# It starts only when CI finished green on main, so a red main still never
+# deploys: Railway watches `railway-deploy`, which has no checks of its own, and
+# this workflow is the gate that stands in for them.
+#
+# Safe from the deadlock described in post-deploy-health.yml: that one came from
+# Railway waiting on check suites of main's newest commit. Railway now follows
+# `railway-deploy`, so a run tied to main's commit holds nothing up.
+name: Railway deploy branch
+
+permissions:
+  contents: read
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  # Manual refresh from main's current tip (or a given commit). Use it after a
+  # revert, or to rebuild the branch if it was deleted.
+  workflow_dispatch:
+    inputs:
+      commit:
+        description: "Full SHA to deploy (default: the tip of the branch this run was started on)"
+        required: false
+        type: string
+
+# Only the newest refresh matters; an older run must not overwrite a newer one.
+concurrency:
+  group: railway-deploy-branch
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  refresh:
+    name: Railway deploy branch / refresh
+    if: >-
+      github.repository == 'Timehue/ShinobiX' &&
+      (github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    env:
+      SHA: ${{ github.event.workflow_run.head_sha || inputs.commit || github.sha }}
+    steps:
+      # Blob-less and shallow: this job only needs the commit's tree and the one
+      # script, never the 10 GB of file contents.
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.SHA }}
+          fetch-depth: 1
+          filter: blob:none
+          sparse-checkout: scripts
+
+      # A CI run that finished late must not roll the branch back over a newer
+      # main. Only the commit that is main's tip right now is published; the
+      # newer commit's own CI run publishes itself.
+      - name: Skip if main has moved on
+        id: tip
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_run" ]; then
+            tip="$(git ls-remote origin refs/heads/main | cut -f1)"
+            if [ "$tip" != "$SHA" ]; then
+              echo "main is at $tip, not $SHA; a newer run will publish it."
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          fi
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+
+      - name: Publish the lean deploy branch
+        if: steps.tip.outputs.skip != 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          bash scripts/refresh-railway-deploy-branch.sh "$SHA" railway-deploy

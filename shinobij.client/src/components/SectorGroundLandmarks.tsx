@@ -1,6 +1,7 @@
 import type { WorldSectorRiftMarker, WorldSectorVaultMarker, WorldSectorShrineMarker } from "./WorldSectorOverlayLayer";
 import { sectorFloorLayout, sectorSiteImage } from "../lib/sector-floor-layout";
 import { shrineForSector } from "../../../shared/shrines";
+import { openBuildingCounter } from '../lib/sector-building-counter';
 
 /** Regional painted cutouts occupy authored footprints; small persistent names identify their use. */
 export function SectorGroundLandmarks({ sector, rift, vault, shrine, onOpenShrine, fieldPointId }: {
@@ -25,9 +26,14 @@ export function SectorGroundLandmarks({ sector, rift, vault, shrine, onOpenShrin
         const [left, top, size] = site.footprint;
         const footprint = Array.from({ length: size! * size! }, (_, k) => (top! + Math.floor(k / size!)) * 12 + left! + k % size!).join(" ");
         return <button type="button" key={entry.kind} data-footprint={footprint}
-            className={`sector-ground-landmark sector-ground-${entry.kind}${entry.kind === "shrine" ? ` shrine-tier-${shrine?.tier ?? 0}` : ""}${entry.onOpen ? " is-active" : " is-dormant"}`}
+            className={`sector-ground-landmark sector-ground-${entry.kind}${entry.kind === "shrine" ? ` shrine-tier-${shrine?.tier ?? 0}` : ""} is-active`}
             style={{ left: `${site.left}%`, top: `${site.top}%`, width: `${site.width}%` }}
-            title={entry.title} aria-label={entry.title} disabled={!entry.onOpen} onClick={entry.onOpen}>
+            title={entry.title} aria-label={entry.title} onClick={entry.kind === 'rift' ? entry.onOpen : () => openBuildingCounter({
+                buildingId: entry.kind === 'stronghold' ? `stronghold-${sector}` : `shrine-${shrineDef?.id}`,
+                entrance:{sector,tile:site.approach},
+                interior: entry.onOpen, interiorLabel: entry.kind === 'shrine' ? 'Make an offering' : 'Enter the stronghold',
+                restriction: entry.onOpen ? undefined : entry.kind === 'stronghold' ? 'The public counter is open. Interior admission depends on your level, current war duty and stronghold availability.' : 'The keeper’s register is open. Offerings are currently unavailable.',
+            })}>
             {(!layout.bakedLandmarks || entry.kind === "rift") && <img src={sectorSiteImage(sector, entry.kind)} alt="" draggable={false} />}
             <span className="sector-ground-landmark-label">{entry.name}</span>
         </button>;

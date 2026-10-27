@@ -1,0 +1,144 @@
+{
+  "version": 1,
+  "provider": "built-in image_gen",
+  "assets": [
+    {
+      "id": "gatehouse",
+      "prompt": "Create a finished in-game illustration for Shinobi Journey, an original shinobi fantasy MMORPG. Asset: public gatehouse counter, landscape 16:9 composition, painterly hand-painted game art matching weathered Japanese-inspired tiled roofs, slate masonry, cedar beams, muted jade and indigo cloth, warm paper lantern light and moss. View from the public stone threshold into a small staffed duty office, one adult shinobi quartermaster in practical layered indigo clothing behind a cedar speaking counter, an open paper road register with illegible marks, tied sealed letter pouches, mineral fittings and a few rolled shelter blankets. Quiet inhabited civilian duty, restrained grounded fantasy, no combat pose, no franchise symbols, no modern technology, no written words, no typography, no UI frame, no floating icons. The counter and person are readable at small in-game modal banner size; keep focal action in center and ample atmospheric space at edges. Professionally polished detailed brushwork, convincing practical architecture, soft light, warm respectful tone. This is a scene illustration, not a map or mockup.",
+      "source": "C:\\Users\\Tyler R\\.codex\\generated_images\\01a166f5-d313-7e32-81be-1d6e1fd17b76\\exec-a28955a1-00e3-4d14-9891-8a8b7d9bdae4.png",
+      "file": "shinobij.client/public/sector-buildings/gatehouse-v1.webp",
+      "sourceSha256": "668c040c972e45d0be566e00a94f20ff8842891627eae8439857d399914b3061",
+      "sha256": "580c26a97b530a39c1d762caad1081c1622d46eefd3223742edb35393cffb72f",
+      "bytes": 84140
+    },
+    {
+      "id": "teahouse",
+      "prompt": "Finished landscape 16:9 in-game scene illustration for Shinobi Journey, an original shinobi fantasy MMORPG. Detailed hand-painted game art, weathered Japanese-inspired timber and tiled-roof architecture, indigo and jade cloth, slate stone, warm paper lantern light, muted natural palette. Practical lived-in world, adult civilians and shinobi in simple layered travel clothing, restrained grounded fantasy, no franchise symbols, no text, no typography, no modern objects, no UI or frame. Clear center focal action readable in a small game dialog banner, polished brushwork and soft atmospheric light. A hospitable roadside tea house beside rows of herbs: an adult cook pours tea into two ceramic bowls on a low cedar table. A folded set of Chronicle record cards is visible on a dry mat; a friendly living fox companion rests beside its adult shinobi traveler. Show an open shelter, practical kettle, woven mats, garden edges and the onward stone road.",
+      "source": "C:\\Users\\Tyler R\\.codex\\generated_images\\01a166f5-d313-7e32-81be-1d6e1fd17b76\\exec-7f5389a5-0060-46ac-b020-7ca0f9ec6536.png",
+      "file": "shinobij.client/public/sector-buildings/teahouse-v1.webp",
+      "sourceSha256": "47b8bb21d4e288e2e405e510f3dc968634b00e46b6849897932e0f17212d21a6",
+      "sha256": "5d9e795984a99a08ff3915b6ac9c79d5121b4e3aabcf277548b2238a8e183ba5",
+      "bytes": 100076
+    },
+    {
+      "id": "archive",
+      "prompt": "Finished landscape 16:9 in-game scene illustration for Shinobi Journey, an original shinobi fantasy MMORPG. Detailed hand-painted game art, weathered Japanese-inspired timber and tiled-roof architecture, indigo and jade cloth, slate stone, warm paper lantern light, muted natural palette. Practical lived-in world, adult civilians and shinobi in simple layered travel clothing, restrained grounded fantasy, no franchise symbols, no text, no typography, no modern objects, no UI or frame. Clear center focal action readable in a small game dialog banner, polished brushwork and soft atmospheric light. A Chronicle field scribe examining a damaged roofless old record house. An adult scribe compares a surviving carved stone fragment with an open paper field notebook, while another adult caretaker holds a repaired timber joint for inspection. Broken dark slate tiles, moss, tiny white meadow flowers, and a safe clear public path. The mood is patient investigation and care for evidence, not magical souls or a treasure dungeon.",
+      "source": "C:\\Users\\Tyler R\\.codex\\generated_images\\01a166f5-d313-7e32-81be-1d6e1fd17b76\\exec-bd4ffe80-31d6-4ce2-889d-aa0d84efb02a.png",
+      "file": "shinobij.client/public/sector-buildings/archive-v1.webp",
+      "sourceSha256": "a83d19f22c93d94e4f9a607fd5aba0a37440230b7b0e6de1c233afb21f1f1c01",
+      "sha256": "99cb610a6ec63a8c06e7ec1d14dc90ee734f8284385d68aa298b904a4e06e943",
+      "bytes": 97826
+    },
+    {
+      "id": "workshop",
+      "prompt": "Finished landscape 16:9 in-game scene illustration for Shinobi Journey, an original shinobi fantasy MMORPG. Detailed hand-painted game art, weathered Japanese-inspired timber and tiled-roof architecture, indigo and jade cloth, slate stone, warm paper lantern light, muted natural palette. Practical lived-in world, adult civilians and shinobi in simple layered travel clothing, restrained grounded fantasy, no franchise symbols, no text, no typography, no modern objects, no UI or frame. Clear center focal action readable in a small game dialog banner, polished brushwork and soft atmospheric light. A roadside public repair workshop. An adult carpenter fits small iron fasteners to a cedar shelter frame while another adult keeper records exact materials in a ledger. Neatly separated ore, hunting hides, harvested binding fibers and a covered basket of fish for the crew meal are all readable supporting objects. A partial timber awning, tools on a practical bench, safe orderly working yard, no combat or modern machines.",
+      "source": "C:\\Users\\Tyler R\\.codex\\generated_images\\01a166f5-d313-7e32-81be-1d6e1fd17b76\\exec-f466296c-8ede-480d-9e80-112885c2274b.png",
+      "file": "shinobij.client/public/sector-buildings/workshop-v1.webp",
+      "sourceSha256": "c4da7324bb7094b15edeead582ee21b9792e0636600f8cbcf44a38c11bfcdf0d",
+      "sha256": "d585a9eed1ee353b517e439c948943750dd5d92c1881a7f0d38942a1c95c4f82",
+      "bytes": 111574
+    },
+    {
+      "id": "watchtower",
+      "prompt": "Finished landscape 16:9 in-game scene illustration for Shinobi Journey, original shinobi fantasy MMORPG. Rich hand-painted game illustration, weathered Japanese-inspired slate masonry, cedar beams and tiled roofs, indigo and muted jade cloth, warm paper lanterns. Adult people in simple practical layered shinobi travel clothes. Polished detailed brushwork, believable architecture, grounded civilian duties, restrained fantasy. No readable words, no text, no UI frame, no modern objects, no franchise logos. Clear focal action readable as an in-game banner. A damaged old bridge-watch tower beside a narrow river gorge and a practical stone bridge. An adult watcher at the tower's open lower speaking window compares a river-bank marker with a timber footing and signal lantern. Mossy slate walls, modest indigo banner, a repaired timber brace, safe stone public approach, forested meadow beyond. Repair and observation, no battle or military spectacle.",
+      "source": "C:\\Users\\Tyler R\\.codex\\generated_images\\01a166f5-d313-7e32-81be-1d6e1fd17b76\\exec-d4b4a2c3-4c2c-4449-8185-dcc092e91fbc.png",
+      "file": "shinobij.client/public/sector-buildings/watchtower-v1.webp",
+      "sourceSha256": "712499108f5ccfd75690d87bcd24827d540870f1a8278d90956ccffcd33e10c6",
+      "sha256": "8b8315b40cad195e1b1bbc402b5095e70b49f35c7f33f376399ea66fefe687da",
+      "bytes": 112708
+    },
+    {
+      "id": "courier",
+      "prompt": "Finished landscape 16:9 in-game scene illustration for Shinobi Journey, original shinobi fantasy MMORPG. Rich hand-painted game illustration, weathered Japanese-inspired slate masonry, cedar beams and tiled roofs, indigo and muted jade cloth, warm paper lanterns. Adult people in simple practical layered shinobi travel clothes. Polished detailed brushwork, believable architecture, grounded civilian duties, restrained fantasy. No readable words, no text, no UI frame, no modern objects, no franchise logos. Clear focal action readable as an in-game banner. An inhabited letter relay counter inside a partly restored roofless old landing house. One adult traveling courier hands a carefully tied sealed indigo pouch to an adult road clerk, who stamps an open paper ledger with illegible markings. Blue slate roof fragments, new cedar shelter awning, a map roll with no readable lettering, spare bindings, warm lantern, clear onward road. Emphasize entrusted delivery and careful bookkeeping.",
+      "source": "C:\\Users\\Tyler R\\.codex\\generated_images\\01a166f5-d313-7e32-81be-1d6e1fd17b76\\exec-715a624b-87e7-43d0-82c4-ea9c3f855f0a.png",
+      "file": "shinobij.client/public/sector-buildings/courier-v1.webp",
+      "sourceSha256": "729afc72ce3efc5e9a4b1753062f26a38ec8a4d631899557f907df33537d9a38",
+      "sha256": "8e266add83ec8f72a8cbbc93acc2827e455e26879ecc7a6e52bd5fc839b9593c",
+      "bytes": 97426
+    },
+    {
+      "id": "frontier",
+      "prompt": "Finished landscape 16:9 in-game scene illustration for Shinobi Journey, original shinobi fantasy MMORPG. Rich hand-painted game illustration, weathered Japanese-inspired slate masonry, cedar beams and tiled roofs, indigo and muted jade cloth, warm paper lanterns. Adult people in simple practical layered shinobi travel clothes. Polished detailed brushwork, believable architecture, grounded civilian duties, restrained fantasy. No readable words, no text, no UI frame, no modern objects, no franchise logos. Clear focal action readable as an in-game banner. An ash-road public station in broken black basalt fortifications, weathered red cloth banners, restrained distant ember light, grey ash and cooling rock outside. One adult shinobi scout points out the safe return road to a traveler from a small repaired cedar speaking shelter under the ruined walls. Orderly tied carrying frames, a signal lantern, practical warm light. Dangerous landscape but a calm staffed threshold, no demons, no active battle, no erupting ground under people.",
+      "source": "C:\\Users\\Tyler R\\.codex\\generated_images\\01a166f5-d313-7e32-81be-1d6e1fd17b76\\exec-0a118e7f-9178-4cd8-9177-b2a65ff00ff4.png",
+      "file": "shinobij.client/public/sector-buildings/frontier-v1.webp",
+      "sourceSha256": "fa8f7e2948c6904daae883c20d489e23bbe5df8dae83fd3f21fb80b8e6f80b28",
+      "sha256": "a1869e4f0601ce89c5755bfcedfee5297cb006371461d39bdc561196b8a6fb5d",
+      "bytes": 87206
+    },
+    {
+      "id": "safehouse",
+      "prompt": "Finished landscape 16:9 in-game scene illustration for Shinobi Journey, original shinobi fantasy MMORPG. Rich hand-painted game art, Japanese-inspired cedar and slate-tile architecture, muted indigo, jade, weathered stone, soft warm paper lanterns. Adult people in practical layered clothing. Restrained grounded fantasy and inhabited civilian places, polished detailed brushwork, no text, no lettering, no UI frames, no modern objects, no franchise emblems. Readable focal action at in-game banner scale. A discreet shuttered boathouse speaking window in violet moonlit woodland. An adult shinobi traveler quietly shows the exterior mark of an intact sealed paper pouch to an adult broker behind a half-open cedar shutter. Lavender leaves, reflected moonlight, a narrow safe stone approach and a small shaded lantern. Mutual trust and careful observation, no glamorous assassin pose, no violence, no breaking into a home.",
+      "source": "C:\\Users\\Tyler R\\.codex\\generated_images\\01a166f5-d313-7e32-81be-1d6e1fd17b76\\exec-3c751a41-0514-4fee-8143-0024ee685ec8.png",
+      "file": "shinobij.client/public/sector-buildings/safehouse-v1.webp",
+      "sourceSha256": "455daec87cfba1725b0b91e137a2bb053b43a446d5c4f79df6265c4dedc0e445",
+      "sha256": "3ce08111bdab2f9c7389c519d225bd52d902439fcb1565317c6c67393979df35",
+      "bytes": 81452
+    },
+    {
+      "id": "shrine",
+      "prompt": "Finished landscape 16:9 in-game scene illustration for Shinobi Journey, original shinobi fantasy MMORPG. Rich hand-painted game art, Japanese-inspired cedar and slate-tile architecture, muted indigo, jade, weathered stone, soft warm paper lanterns. Adult people in practical layered clothing. Restrained grounded fantasy and inhabited civilian places, polished detailed brushwork, no text, no lettering, no UI frames, no modern objects, no franchise emblems. Readable focal action at in-game banner scale. A quiet cedar roadside shrine with a living old tree, mossy stone and two warm lamps. An adult keeper carefully recuts a worn name on a winter-roll stone while an adult traveler compares an open witness register beside them. A few blank entrusted clay tablets and restrained paper offerings, ordinary maintained civic memory. No spirits, no ghosts, no souls trapped in objects, no spectacular magic.",
+      "source": "C:\\Users\\Tyler R\\.codex\\generated_images\\01a166f5-d313-7e32-81be-1d6e1fd17b76\\exec-24cf2d72-40ff-421a-8c64-dc726d15acef.png",
+      "file": "shinobij.client/public/sector-buildings/shrine-v1.webp",
+      "sourceSha256": "5ed40000de8d62ce404a9e49afe5ee490c3ff7a31057c7b499315e1b242515ae",
+      "sha256": "ca26b7865c5e1a271268342898702e14847528820918579aadec0c678173c226",
+      "bytes": 102874
+    },
+    {
+      "id": "festival",
+      "prompt": "Finished landscape 16:9 in-game scene illustration for Shinobi Journey, original shinobi fantasy MMORPG. Rich hand-painted game art, Japanese-inspired cedar and slate-tile architecture, muted indigo, jade, weathered stone, soft warm paper lanterns. Adult people in practical layered clothing. Restrained grounded fantasy and inhabited civilian places, polished detailed brushwork, no text, no lettering, no UI frames, no modern objects, no franchise emblems. Readable focal action at in-game banner scale. An intimate Sunscar festival welcome courtyard, practical orange-brown tiled houses and weathered red cloth pennants. Two adult travelers rehearse a small bow and sidestep with an adult local guide, beside neatly prepared lantern frames and a closed tea counter. The clear public stone path remains visible; golden dry grass, dusk lantern light, warm social gathering, no modern carnival rides, no massive crowd or combat.",
+      "source": "C:\\Users\\Tyler R\\.codex\\generated_images\\01a166f5-d313-7e32-81be-1d6e1fd17b76\\exec-0b9f05c6-bc7c-4377-ba0e-3c00b703fa13.png",
+      "file": "shinobij.client/public/sector-buildings/festival-v1.webp",
+      "sourceSha256": "532f8a425ede23675f4ecded5a6aa006d26db568532d59e0a2e9ebdfbd21eb1b",
+      "sha256": "26f821783e27d276b3a4af535faf7bf1e7b571ffd4ae9a808390992aee5d0ad5",
+      "bytes": 93082
+    },
+    {
+      "id": "restoration-stage-1",
+      "source": "C:\\Users\\Tyler R\\.codex\\generated_images\\01a166f5-d313-7e32-81be-1d6e1fd17b76\\exec-f6621abc-b4a6-469c-ac29-64be1fb8daab.png",
+      "transparent": true,
+      "prompt": "Production game sprite, one isolated small square public shelter scaffold for Shinobi Journey, original shinobi fantasy MMORPG. TRUE TRANSPARENT background. Strict overhead orthographic top-down view, north at image top and entrance south at bottom, matching a hand-painted overhead adventure map. Centered entire square cedar frame, four wooden corner uprights seen from above, rope lashings, cross braces and exposed roof beams, open central square with transparent empty air, no roof yet. Slight front edge visible only enough to read the south entrance; no isometric camera, no perspective horizon. One small practical Japanese-inspired work shelter, no wall enclosure, no people, no tools outside its square footprint, no floor slab, no ground, no background, no terrain, no drop shadow, no lettering, no UI. Muted weathered brown wood and dull iron fittings, detailed painterly game asset, crisp readable shape. Leave a uniform transparent margin around all sides. This is restoration stage one, braced shelter, and will later receive a cloth cover and a permanent slate roof in aligned variants.",
+      "file": "shinobij.client/public/sector-buildings/restoration-stage-1-v1.webp",
+      "sourceSha256": "376f3cf2381e4492b6ad9044906ff6bacf7385bb5ffd1a2b8af3f17dbb9a5bdc",
+      "sha256": "6615a1cdfb9855cae485c1e26f336244ee3739b98ec227e46efcd6509b97a7cf",
+      "bytes": 67686
+    },
+    {
+      "id": "restoration-stage-2",
+      "source": "C:\\Users\\Tyler R\\.codex\\generated_images\\01a166f5-d313-7e32-81be-1d6e1fd17b76\\exec-6147787a-1e24-45f6-9499-54a9dcb96f60.png",
+      "transparent": true,
+      "prompt": "Edit this production overhead game sprite into restoration stage TWO, a weatherproof public shelter. Preserve the exact orthographic overhead camera, square footprint, four corner posts, south/bottom entrance gap, scale, center, uniform outside margin and actual transparent background of the reference scaffold. Add a practical taut muted sand-colored waxed cloth cover tied over its top beams with visible rope lashings, leaving a small open south doorway. The beige cloth now fills most of the roof plane; the cedar support frame should remain visible around its edges. Hand-painted detailed shinobi fantasy game asset, weathered cedar, dull iron, no people, no floor slab, no ground, no shadows outside the object, no text, no UI, no isometric tilt. The result is ONE isolated aligned shelter sprite on transparent alpha.",
+      "file": "shinobij.client/public/sector-buildings/restoration-stage-2-v1.webp",
+      "sourceSha256": "fdfc4cba94b07aaae6ddf506876ae3b4c8fd23117cb7a459a58a7fa311079a80",
+      "sha256": "698ac96b0eb59d8c3234ffdab76b5ccb6d9a21c24dcb146ddfaa3da569e2049e",
+      "bytes": 73524
+    },
+    {
+      "id": "restoration-stage-3",
+      "source": "C:\\Users\\Tyler R\\.codex\\generated_images\\01a166f5-d313-7e32-81be-1d6e1fd17b76\\exec-c54b8a39-accf-4ef5-bf22-aed3414e09d6.png",
+      "transparent": true,
+      "prompt": "Edit this aligned production overhead shelter sprite into restoration stage THREE, a finished public road shelter. Keep the exact square footprint, strict orthographic overhead top-down camera, four cedar corner supports, center, outer transparent margin and south/bottom entrance orientation. Replace the waxed cloth roof cover with a well-built dark indigo-gray Japanese-inspired slate-tile hipped roof on the same frame. Show repaired ridge caps, dull metal fasteners, subtle weathering and one modest small indigo cloth pennant attached inside the footprint. The object is a practical public shelter, not a castle or shrine. Preserve the original rope-and-cedar structure where visible at the south entrance; roof should be unmistakably completed and distinct from stage two. One isolated painterly game sprite on genuine transparent alpha. No ground, no floor slab, no background, no cast shadow outside its square, no people, no letters, no UI, no isometric camera.",
+      "file": "shinobij.client/public/sector-buildings/restoration-stage-3-v1.webp",
+      "sourceSha256": "630abb282de57787277f25bbdc506fb9bf18a715219b35d29590a93b9a29202d",
+      "sha256": "71be5c72d72be43920cdfee27b1a862de2dc9a34fd3d57cc60c452f993b312a8",
+      "bytes": 83202
+    },
+    {
+      "id": "gatehouse-winter",
+      "prompt": "Create the Frostfang winter counterpart of this finished Shinobi Journey game illustration. Preserve the beautiful detailed painterly art style, practical original shinobi fantasy design, 16:9 landscape composition, sheltered cedar public speaking counter, adult duty officer recording road work in an open paper register, slate masonry, indigo cloth, rolled blankets and tied sealed pouches. Transform the visible outdoors into a convincing snowy mountain village: snow-laden blue-grey tiled roofs, bare winter branches and firs, a maintained snow-cleared approach with packed snow at its margins, breath-cold outdoor light contrasting the warm lantern-lit counter. The officer wears a warm layered indigo winter duty coat. Replace all autumn foliage and green moss with winter-appropriate stone and snow. Quiet inhabited civilian service. No modern objects, no franchise emblems, no text, no typography, no UI. Polished production illustration readable in a small game modal banner.",
+      "source": "C:\\Users\\Tyler R\\.codex\\generated_images\\01a166f5-d313-7e32-81be-1d6e1fd17b76\\exec-6e10d713-9f60-47ce-a6d3-bee86807a26f.png",
+      "file": "shinobij.client/public/sector-buildings/gatehouse-winter-v1.webp",
+      "sourceSha256": "6e5cbbc0b15f7e28560ef5be08ca9f0154ad20d68cd45fc2815137c02884feb6",
+      "sha256": "270af1200195a7b4290e40984db52c92ee4da4f4413cb907336c36a6e85d67da",
+      "bytes": 105192
+    },
+    {
+      "id": "teahouse-winter",
+      "prompt": "Create the Frostfang winter counterpart of this finished Shinobi Journey game illustration. Preserve the beautiful detailed painterly art style, practical original shinobi fantasy architecture, 16:9 landscape composition and warm hospitable civilian tea service. This is the Lower-Road Kitchen on a snowy rescue road: a warmly sheltered cedar kitchen with an adult winter cook pouring steaming tea beside a hot broth pot, a bundled adult shinobi traveler and a living fox resting on a dry woven mat, a folded Chronicle record sheet at the low table. Through the open shelter show snow-covered firs, blue-grey snowy mountain rooftops, a maintained packed-snow return road and winter travelers with covered supply baskets. Remove the outdoor flowering garden, spring blossoms and green herb rows; dried herbs can hang under the protected eaves. Warm paper lanterns and practical indigo winter clothing against cold outdoor light. No franchise symbols, no modern objects, no text, no typography or UI. A polished production game illustration with focal tea service readable at small dialog banner size.",
+      "source": "C:\\Users\\Tyler R\\.codex\\generated_images\\01a166f5-d313-7e32-81be-1d6e1fd17b76\\exec-c64121fa-cb35-4ea2-972f-88c759efcd1f.png",
+      "file": "shinobij.client/public/sector-buildings/teahouse-winter-v1.webp",
+      "sourceSha256": "e614a22f808ac76d036f6571e7d910efe2bfa2375962a31f9954a699cc823abb",
+      "sha256": "4d8a791fe754713bbb619e6620b47b74ab9f9234322c1dc561e8d54d9c83c66d",
+      "bytes": 112814
+    }
+  ]
+}

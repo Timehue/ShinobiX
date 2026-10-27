@@ -143,7 +143,8 @@ profile,statRespec,fateShards,50,per action,api/save/_stat-entitlement.ts,
 profile,customTitle,fateShards,10,per action,api/profile/_settlement.ts,
 profile,titleStyle,fateShards,40,per action,api/profile/_settlement.ts,
 profile,titleIcon,fateShards,25,per action,api/profile/_settlement.ts,
-festival,black-market-pull,ryo,75000,per pull,api/festival/_black-market.ts,
+festival,black-market-pull,ryo,75000,per paid ryo pull only,api/festival/_black-market.ts,"Gross debit, before the returned ryo faucet; certificate pulls debit the separate half stake below."
+festival,black-market-certificate-pull,ryo,37500,per certificate pull,api/festival/_black-market.ts,"A certificate covers half the stake (owner ruling 2026-10-23); gross debit, before the returned ryo faucet."
 craft,named-forge,fateShards,200,per forge,shared/named-forge-economy.ts,
 kage,declare-challenge,ryo,400000,per challenge,api/village/_kage-challenge.ts,
 shrine,communal-offering,ryo,10-250000,per offering,shared/shrines.ts,Pure sink; no payout.

@@ -220,7 +220,7 @@ test('sleeper-kill handler: the attacker keeps the recovery earned since their l
     assert.ok(Number(attacker.stamina) >= 30, `stamina ${attacker.stamina} lost the idle recovery`);
 });
 
-test('sleeper-kill handler: the pair counter advances once, and only for a credit that landed', async (t) => {
+test('sleeper-kill handler: reserves the pair before save writes and keeps a failed credit conservative', async (t) => {
     t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
     const day = new Date().toISOString().slice(0, 10);
     await seedSave('stalker', 0, { ryo: 0 });
@@ -239,8 +239,8 @@ test('sleeper-kill handler: the pair counter advances once, and only for a credi
     }
     assert.equal(failed.statusCode, 500, JSON.stringify(failed.body));
     assert.equal((await charOf('quarry')).hospitalized, true, 'the KO landed, as before');
-    assert.equal(await kv.get(`pvp:pair:quarry:stalker:${day}`), null,
-        'a credit that never landed is not counted against the next kill');
+    assert.equal(await kv.get(`pvp:pair:quarry:stalker:${day}`), 1,
+        'an unpaid reservation stays durable instead of allowing another full-credit attempt');
 
     await stage('stalker', 'prey', 6);
     const ok = await postKill('stalker', 'prey', '10.9.0.7');
@@ -306,6 +306,7 @@ test('sleeper-kill handler: repeat kills on the SAME victim taper by the daily p
 
     const ryoAfter: number[] = [];
     for (let i = 0; i < 3; i++) {
+        t.mock.timers.tick(1); // Each new logout has a distinct server camp identity.
         await stage('kaido', 'mark', 14);
         const out = await postKill('kaido', 'mark', '10.9.0.2');
         assert.equal(out.statusCode, 200, JSON.stringify(out.body));
@@ -422,6 +423,7 @@ test('sleeper-kill handler: Vanguard XP from repeat KOs on one target follows th
     t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
     await seedSave('pairvan', 0, { profession: 'vanguard', professionRank: 2, professionXp: 100, honorSeals: 0 });
     for (let i = 0; i < 3; i++) {
+        t.mock.timers.tick(1); // Each new logout has a distinct server camp identity.
         await stage('pairvan', 'pairmark', 10, { createdAt: 1 });
         const out = await postKill('pairvan', 'pairmark', '10.9.0.9');
         assert.equal(out.statusCode, 200, JSON.stringify(out.body));
@@ -448,4 +450,40 @@ test('raidSleeperCamp (NPC merc raid): a successful raid leaves a merc-raid noti
     // A refused raid (camp gone) leaves no notice.
     assert.equal(await raidSleeperCamp({ targetPlayer: 'raided', sector: 9, now: NOW + 1, attackerVillage: 'Frostfang' }), false);
     assert.deepEqual(await takeOfflineNotices('raided'), []);
+});
+
+
+test('sleeper-kill handler: a lost pair commit reply retries the same legitimate reward weight', async (t) => {
+    t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
+    const day = new Date().toISOString().slice(0, 10);
+    await seedSave('retrycamphunter', 0, { ryo: 0 });
+    await stage('retrycamphunter', 'retrycampvictim', 6);
+    const counterKey = 'pvp:pair:retrycamphunter:retrycampvictim:' + day;
+    await kv.set(counterKey, 2);
+    const commit = kv.compareSetMany!.bind(kv);
+    let loseReply = true;
+    t.mock.method(kv as typeof kv & { compareSetMany: NonNullable<typeof kv.compareSetMany> }, 'compareSetMany', async (ops: Parameters<NonNullable<typeof kv.compareSetMany>>[0]) => {
+        const landed = await commit(ops);
+        if (landed && loseReply && ops.some(op => op.key === counterKey)) {
+            loseReply = false;
+            throw new Error('lost pair commit acknowledgement');
+        }
+        return landed;
+    });
+    const failed = await postKill('retrycamphunter', 'retrycampvictim', '10.9.8.1');
+    assert.equal(failed.statusCode, 503, JSON.stringify(failed.body));
+    assert.equal((await charOf('retrycampvictim')).hospitalized, undefined, 'neither save moved before eligibility was confirmed');
+    assert.equal((await charOf('retrycamphunter')).ryo, 0);
+    assert.ok(await getSleeperCamp('retrycampvictim'), 'the same camp is still available for retry');
+    assert.equal(await kv.get(counterKey), 3, 'counter and slot committed together despite the lost reply');
+    const level = Math.min(Number((await charOf('retrycamphunter')).level), Number((await charOf('retrycampvictim')).level));
+    const retried = await postKill('retrycamphunter', 'retrycampvictim', '10.9.8.2');
+    assert.equal(retried.statusCode, 200, JSON.stringify(retried.body));
+    const reward = retried.body.reward as Record<string, unknown>;
+    assert.equal(reward.ryo, Math.floor(0.25 * pvpWinPurse({ lMin: level }) * 0.5));
+    assert.equal(await kv.get(counterKey), 3, 'retry must keep ordinal three, not consume ordinal four');
+    const balance = Number((await charOf('retrycamphunter')).ryo);
+    const replay = await postKill('retrycamphunter', 'retrycampvictim', '10.9.8.3');
+    assert.notEqual(replay.statusCode, 200, 'a committed KO cannot be paid again');
+    assert.equal((await charOf('retrycamphunter')).ryo, balance);
 });

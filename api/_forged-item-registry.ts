@@ -6,7 +6,8 @@
  * client-mirrored save field. Lose that entry (stale POST, historical data
  * loss) while the id stays in `character.equipment`, and the piece resolves to
  * nothing and is dropped from every fight (logged since de50b3385, but still
- * dropped). This is the named-weapon risk gating STRICT_RAW_SAVE_LEDGER=1.
+ * dropped). This was once thought to gate STRICT_RAW_SAVE_LEDGER=1, but strict
+ * mode never reads this registry; it is fight-time recovery only.
  *
  * Fix: api/craft/named.ts now records every minted definition under its own
  * KV key (`forged-item:<id>`, no TTL — a forged item is permanent), and the

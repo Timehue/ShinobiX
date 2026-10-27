@@ -9,9 +9,11 @@ import {WORLD_DAY_MS,WORLD_HOUR_MS} from '../../shared/world-clock';
 type Pose={col:number;row:number;activity?:string;visible:boolean};
 declare global{interface Window{festivalWorkPoses:()=>Record<string,Pose>}}
 const evidence=process.env.FESTIVAL_WORK_EVIDENCE_DIR??'../output/living-world/festival/browser';mkdirSync(evidence,{recursive:true});
+// Fixed, not Date.now(): a roaming Legacy Emissary ignores quietRoadCooldowns, and no sector has one at any hour of 2026-10-10 (01:00 UTC is world noon).
+const FESTIVAL_SCENARIO_EPOCH=Date.UTC(2026,9,10,1);
 for(const mode of ['square steps','opening','packing','rain','cached closure','missing counter','reduced motion','crowded counter'] as const)test(`Festival work: ${mode}`,async({page},info)=>{
     test.setTimeout(600_000);page.setDefaultTimeout(15_000);
-    let day=Math.floor(Date.now()/WORLD_DAY_MS)*WORLD_DAY_MS;
+    let day=Math.floor(FESTIVAL_SCENARIO_EPOCH/WORLD_DAY_MS)*WORLD_DAY_MS;
     const crowded=mode==='square steps'||mode==='crowded counter';
     const fixture=(day:number)=>{
         const pair=lifeActorsAt(52,day+8*WORLD_HOUR_MS,'clear').filter(a=>a.id.startsWith('crew:'));

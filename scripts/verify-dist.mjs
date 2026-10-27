@@ -97,7 +97,13 @@ const maxOtherClientBytes = 451 * 1024 * 1024 + maxPetShapeReviewGrowthBytes;
 // The 161 scenic companion portraits ship separately from their unchanged
 // battle/model assets. Keep unrelated runtime growth under the existing cap.
 const maxPetPortraitBytes = 16 * 1024 * 1024;
-const maxClientArtifactBytes = maxChronicleArtBytes + maxOtherClientBytes + maxPetPortraitBytes;
+// Fifteen reviewed building illustrations/restoration sprites have a fixed
+// 1,410,782-byte receipt (shared/sector-building-art.test.ts verifies its hashes).
+// Give these assets their own partition so they cannot consume or relax the
+// existing non-building runtime allowance when merged with newer main assets.
+const sectorBuildingArtCount = 15;
+const maxSectorBuildingArtBytes = 1_410_782;
+const maxClientArtifactBytes = maxChronicleArtBytes + maxOtherClientBytes + maxPetPortraitBytes + maxSectorBuildingArtBytes;
 const maxRallyAtlasBytes = 4 * 1024 * 1024;
 
 function fail(msg) {
@@ -152,6 +158,21 @@ try {
 console.log('[verify:dist] Retired pet battle UI is absent from executable client assets.');
 const clientRelativeFiles = clientFiles.map((file) => relative(clientDist, file).replaceAll('\\', '/'));
 const clientRelativeFileSet = new Set(clientRelativeFiles);
+const sectorBuildingFiles = clientRelativeFiles.filter((file) => file.startsWith('sector-buildings/'));
+if (sectorBuildingFiles.length !== sectorBuildingArtCount || sectorBuildingFiles.some((file) => !/^sector-buildings\/[a-z0-9-]+\.webp$/.test(file))) {
+    fail('sector buildings must ship exactly the fifteen reviewed WebP assets');
+}
+let sectorBuildingArtBytes = 0;
+for (const file of sectorBuildingFiles) {
+    const delivered = readFileSync(join(clientDist, file));
+    const source = readFileSync(join(root, 'shinobij.client', 'public', file));
+    if (createHash('sha256').update(delivered).digest('hex') !== createHash('sha256').update(source).digest('hex')) {
+        fail(`sector-building delivery differs from its reviewed source: ${file}`);
+    }
+    sectorBuildingArtBytes += delivered.length;
+}
+if (sectorBuildingArtBytes !== maxSectorBuildingArtBytes) fail(`sector-building art differs from its ${maxSectorBuildingArtBytes}-byte receipt`);
+console.log(`[verify:dist] Sector buildings: ${sectorBuildingArtCount} reviewed assets / ${sectorBuildingArtBytes} B, matching source delivery bytes.`);
 const portraitProduction = JSON.parse(readFileSync(join(root, 'shinobij.client', 'art-source', 'pet-portrait-refresh', 'production.json'), 'utf8'));
 const portraitEntries = portraitProduction.entries;
 if (!portraitProduction.symbolPolicy?.required) fail('scenic companion artwork must require a current visual symbol review');
@@ -316,7 +337,7 @@ const chronicleArtBytes = clientFiles
 if (chronicleArtBytes > maxChronicleArtBytes) {
     fail(`Chronicle art is ${(chronicleArtBytes / 1024 / 1024).toFixed(1)} MiB; ceiling is ${maxChronicleArtBytes / 1024 / 1024} MiB`);
 }
-const otherClientBytes = clientArtifactBytes - chronicleArtBytes - petPortraitBytes;
+const otherClientBytes = clientArtifactBytes - chronicleArtBytes - petPortraitBytes - sectorBuildingArtBytes;
 if (otherClientBytes > maxOtherClientBytes) {
     fail(`client excluding Chronicle art and scenic companions is ${(otherClientBytes / 1024 / 1024).toFixed(1)} MiB; ceiling is ${maxOtherClientBytes / 1024 / 1024} MiB`);
 }

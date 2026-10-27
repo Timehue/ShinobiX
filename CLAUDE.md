@@ -60,6 +60,17 @@ in-process daily snapshot cron.
   it **self-builds from source** — committed `dist/` is NOT used. Health check
   `/health`. **Do not commit `dist/`** — it is served by no one, and a source
   rebuild churns ~600 files on line-endings alone.
+- **Railway follows the `railway-deploy` branch, not `main`** (since 2026-10-26).
+  The tree is ~10.5 GB (`docs/screenshots` alone is 8.4 GB) and Railway's
+  builder could not fetch a snapshot that large: every build failed with
+  `failed to fetch snapshot`. `railway-deploy` is the same commit as `main` with
+  the folders `.dockerignore` already excludes removed, so the image is
+  identical. `.github/workflows/railway-deploy-branch.yml` rebuilds it with
+  `scripts/refresh-railway-deploy-branch.sh` after CI is green on `main`; run it
+  by hand from the Actions tab after a revert. **Never commit to
+  `railway-deploy`** (it is force-pushed). If you add a large folder to
+  `.dockerignore`, add it to `DROP` in that script too. The real fix is keeping
+  the review evidence out of git; until then this branch is why deploys work.
 
 **Do not add `vercel.json`**, Vercel routes, builds, env, cron, or runtime
 settings back to this repo (`scripts/verify-dist.mjs` fails on a `vercel.json`).

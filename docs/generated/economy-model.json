@@ -14,7 +14,8 @@
     "chroniclePoints",
     "warResources",
     "territoryControlScrolls",
-    "statPoints"
+    "statPoints",
+    "brokerCertificates"
   ],
   "dailyCaps": {
     "missions": 20,
@@ -668,6 +669,150 @@
       "cadence": "per daily delivery",
       "authority": "api/festival/_caravan.ts",
       "notes": "Scaled by cargo preserved and bounded objectives/bonuses. Defeat pays no Ryo."
+    },
+    {
+      "system": "festival",
+      "id": "black-market-paid-pull",
+      "currency": "ryo",
+      "amount": 24100,
+      "cadence": "expected per paid redemption",
+      "authority": "api/_black-market-loop.ts",
+      "notes": "Gross expected payout; subtract the separate paid-pull ryo debit for net flow."
+    },
+    {
+      "system": "festival",
+      "id": "black-market-paid-pull",
+      "currency": "fateShards",
+      "amount": 0.32,
+      "cadence": "expected per paid redemption",
+      "authority": "api/_black-market-loop.ts",
+      "notes": "Gross expected payout; subtract the separate paid-pull ryo debit for net flow."
+    },
+    {
+      "system": "festival",
+      "id": "black-market-paid-pull",
+      "currency": "boneCharms",
+      "amount": 0.53,
+      "cadence": "expected per paid redemption",
+      "authority": "api/_black-market-loop.ts",
+      "notes": "Gross expected payout; subtract the separate paid-pull ryo debit for net flow."
+    },
+    {
+      "system": "festival",
+      "id": "black-market-paid-pull",
+      "currency": "auraStones",
+      "amount": 0.26,
+      "cadence": "expected per paid redemption",
+      "authority": "api/_black-market-loop.ts",
+      "notes": "Gross expected payout; subtract the separate paid-pull ryo debit for net flow."
+    },
+    {
+      "system": "festival",
+      "id": "black-market-certificate-pull",
+      "currency": "ryo",
+      "amount": 24100,
+      "cadence": "expected per certificate redemption",
+      "authority": "api/_black-market-loop.ts",
+      "notes": "Gross expected payout; subtract the separate certificate-pull ryo debit for net flow, and do not also count this as ryo when the certificate is earned."
+    },
+    {
+      "system": "festival",
+      "id": "black-market-certificate-pull",
+      "currency": "fateShards",
+      "amount": 0.32,
+      "cadence": "expected per certificate redemption",
+      "authority": "api/_black-market-loop.ts",
+      "notes": "Gross expected payout; subtract the separate certificate-pull ryo debit for net flow, and do not also count this as ryo when the certificate is earned."
+    },
+    {
+      "system": "festival",
+      "id": "black-market-certificate-pull",
+      "currency": "boneCharms",
+      "amount": 0.53,
+      "cadence": "expected per certificate redemption",
+      "authority": "api/_black-market-loop.ts",
+      "notes": "Gross expected payout; subtract the separate certificate-pull ryo debit for net flow, and do not also count this as ryo when the certificate is earned."
+    },
+    {
+      "system": "festival",
+      "id": "black-market-certificate-pull",
+      "currency": "auraStones",
+      "amount": 0.26,
+      "cadence": "expected per certificate redemption",
+      "authority": "api/_black-market-loop.ts",
+      "notes": "Gross expected payout; subtract the separate certificate-pull ryo debit for net flow, and do not also count this as ryo when the certificate is earned."
+    },
+    {
+      "system": "festival",
+      "id": "rally-first-place-certificates",
+      "currency": "brokerCertificates",
+      "amount": 2,
+      "cadence": "per first-place daily championship",
+      "authority": "shared/sunscar/broker-certificates.ts",
+      "notes": "Conditional certificate award, not immediate ryo; second place earns one."
+    },
+    {
+      "system": "festival",
+      "id": "caravan-success-certificate",
+      "currency": "brokerCertificates",
+      "amount": 1,
+      "cadence": "per successful daily delivery",
+      "authority": "shared/sunscar/broker-certificates.ts",
+      "notes": "Failure earns none; redemption value is modeled separately."
+    },
+    {
+      "system": "pet-expedition",
+      "id": "scout-ordinary-safe",
+      "currency": "ryo",
+      "amount": 36,
+      "cadence": "per version-2 secure claim",
+      "authority": "shared/pet-expedition-contract.ts",
+      "notes": "Code default, safe route, no mastery or trait bonus; use incomeForecasts for conditional advanced scenarios."
+    },
+    {
+      "system": "pet-expedition",
+      "id": "scout-tamer-safe",
+      "currency": "ryo",
+      "amount": 54,
+      "cadence": "per version-2 secure claim",
+      "authority": "shared/pet-expedition-contract.ts",
+      "notes": "Code default, safe route, no mastery or trait bonus; use incomeForecasts for conditional advanced scenarios."
+    },
+    {
+      "system": "pet-expedition",
+      "id": "forage-ordinary-safe",
+      "currency": "ryo",
+      "amount": 144,
+      "cadence": "per version-2 secure claim",
+      "authority": "shared/pet-expedition-contract.ts",
+      "notes": "Code default, safe route, no mastery or trait bonus; use incomeForecasts for conditional advanced scenarios."
+    },
+    {
+      "system": "pet-expedition",
+      "id": "forage-tamer-safe",
+      "currency": "ryo",
+      "amount": 216,
+      "cadence": "per version-2 secure claim",
+      "authority": "shared/pet-expedition-contract.ts",
+      "notes": "Code default, safe route, no mastery or trait bonus; use incomeForecasts for conditional advanced scenarios."
+    },
+    {
+      "system": "pet-expedition",
+      "id": "ruins-ordinary-safe",
+      "currency": "ryo",
+      "amount": 432,
+      "cadence": "per version-2 secure claim",
+      "authority": "shared/pet-expedition-contract.ts",
+      "notes": "Code default, safe route, no mastery or trait bonus; use incomeForecasts for conditional advanced scenarios."
+    },
+    {
+      "system": "pet-expedition",
+      "id": "ruins-tamer-safe",
+      "currency": "ryo",
+      "amount": 648,
+      "cadence": "per version-2 secure claim",
+      "authority": "shared/pet-expedition-contract.ts",
+      "notes": "Code default, safe route, no mastery or trait bonus; use incomeForecasts for conditional advanced scenarios."
     }
   ],
   "sinks": [
@@ -1972,9 +2117,18 @@
       "id": "black-market-pull",
       "currency": "ryo",
       "amount": 75000,
-      "cadence": "per pull",
+      "cadence": "per paid ryo pull only",
       "authority": "api/festival/_black-market.ts",
-      "notes": ""
+      "notes": "Gross debit, before the returned ryo faucet; certificate pulls debit the separate half stake below."
+    },
+    {
+      "system": "festival",
+      "id": "black-market-certificate-pull",
+      "currency": "ryo",
+      "amount": 37500,
+      "cadence": "per certificate pull",
+      "authority": "api/festival/_black-market.ts",
+      "notes": "A certificate covers half the stake (owner ruling 2026-10-23); gross debit, before the returned ryo faucet."
     },
     {
       "system": "craft",
@@ -3392,6 +3546,266 @@
       "currency": "fateShards"
     }
   ],
+  "incomeForecasts": {
+    "basis": "Code defaults; gross conditional scenarios, not measured completion times or a forecast for every player.",
+    "activityAnchor": [
+      {
+        "level": 10,
+        "ryoPerActiveMinute": 60,
+        "standard90MinuteRyo": 5400
+      },
+      {
+        "level": 30,
+        "ryoPerActiveMinute": 140,
+        "standard90MinuteRyo": 12600
+      },
+      {
+        "level": 50,
+        "ryoPerActiveMinute": 220,
+        "standard90MinuteRyo": 19800
+      },
+      {
+        "level": 70,
+        "ryoPerActiveMinute": 300,
+        "standard90MinuteRyo": 27000
+      },
+      {
+        "level": 90,
+        "ryoPerActiveMinute": 300,
+        "standard90MinuteRyo": 27000
+      }
+    ],
+    "expeditions": [
+      {
+        "route": "scout",
+        "scenario": "ordinary-safe",
+        "profession": "vanguard",
+        "requiredPetLevel": 20,
+        "durationMinutes": 45,
+        "dailyClaims": 12,
+        "rewardMastery": 1,
+        "risk": "safe",
+        "traitMultiplier": 1,
+        "sealedRyoPerClaim": 36,
+        "secureRyoPerClaim": 36,
+        "secureRyoPerDay": 432,
+        "investigateRyoExpectedPerDay": 429.6,
+        "allInvestigationsSucceedRyoPerDay": 540
+      },
+      {
+        "route": "scout",
+        "scenario": "tamer-safe",
+        "profession": "petTamer",
+        "requiredPetLevel": 20,
+        "durationMinutes": 45,
+        "dailyClaims": 12,
+        "rewardMastery": 1,
+        "risk": "safe",
+        "traitMultiplier": 1,
+        "sealedRyoPerClaim": 54,
+        "secureRyoPerClaim": 54,
+        "secureRyoPerDay": 648,
+        "investigateRyoExpectedPerDay": 643.2,
+        "allInvestigationsSucceedRyoPerDay": 816
+      },
+      {
+        "route": "scout",
+        "scenario": "tamer-mastery-bold-caravan",
+        "profession": "petTamer",
+        "requiredPetLevel": 20,
+        "durationMinutes": 45,
+        "dailyClaims": 14,
+        "rewardMastery": 1.15,
+        "risk": "bold",
+        "traitMultiplier": 1,
+        "sealedRyoPerClaim": 70,
+        "secureRyoPerClaim": 70,
+        "secureRyoPerDay": 980,
+        "investigateRyoExpectedPerDay": 974.4,
+        "allInvestigationsSucceedRyoPerDay": 1232
+      },
+      {
+        "route": "scout",
+        "scenario": "tamer-mastery-bold-caravan-boonbringer",
+        "profession": "petTamer",
+        "requiredPetLevel": 20,
+        "durationMinutes": 45,
+        "dailyClaims": 14,
+        "rewardMastery": 1.15,
+        "risk": "bold",
+        "traitMultiplier": 2,
+        "sealedRyoPerClaim": 70,
+        "secureRyoPerClaim": 140,
+        "secureRyoPerDay": 1960,
+        "investigateRyoExpectedPerDay": 1940.4,
+        "allInvestigationsSucceedRyoPerDay": 2450
+      },
+      {
+        "route": "forage",
+        "scenario": "ordinary-safe",
+        "profession": "vanguard",
+        "requiredPetLevel": 50,
+        "durationMinutes": 120,
+        "dailyClaims": 12,
+        "rewardMastery": 1,
+        "risk": "safe",
+        "traitMultiplier": 1,
+        "sealedRyoPerClaim": 144,
+        "secureRyoPerClaim": 144,
+        "secureRyoPerDay": 1728,
+        "investigateRyoExpectedPerDay": 1708.8,
+        "allInvestigationsSucceedRyoPerDay": 2160
+      },
+      {
+        "route": "forage",
+        "scenario": "tamer-safe",
+        "profession": "petTamer",
+        "requiredPetLevel": 50,
+        "durationMinutes": 120,
+        "dailyClaims": 12,
+        "rewardMastery": 1,
+        "risk": "safe",
+        "traitMultiplier": 1,
+        "sealedRyoPerClaim": 216,
+        "secureRyoPerClaim": 216,
+        "secureRyoPerDay": 2592,
+        "investigateRyoExpectedPerDay": 2568,
+        "allInvestigationsSucceedRyoPerDay": 3240
+      },
+      {
+        "route": "forage",
+        "scenario": "tamer-mastery-bold-caravan",
+        "profession": "petTamer",
+        "requiredPetLevel": 50,
+        "durationMinutes": 120,
+        "dailyClaims": 14,
+        "rewardMastery": 1.15,
+        "risk": "bold",
+        "traitMultiplier": 1,
+        "sealedRyoPerClaim": 278,
+        "secureRyoPerClaim": 278,
+        "secureRyoPerDay": 3892,
+        "investigateRyoExpectedPerDay": 3858.4,
+        "allInvestigationsSucceedRyoPerDay": 4872
+      },
+      {
+        "route": "forage",
+        "scenario": "tamer-mastery-bold-caravan-boonbringer",
+        "profession": "petTamer",
+        "requiredPetLevel": 50,
+        "durationMinutes": 120,
+        "dailyClaims": 14,
+        "rewardMastery": 1.15,
+        "risk": "bold",
+        "traitMultiplier": 2,
+        "sealedRyoPerClaim": 278,
+        "secureRyoPerClaim": 556,
+        "secureRyoPerDay": 7784,
+        "investigateRyoExpectedPerDay": 7708.4,
+        "allInvestigationsSucceedRyoPerDay": 9730
+      },
+      {
+        "route": "ruins",
+        "scenario": "ordinary-safe",
+        "profession": "vanguard",
+        "requiredPetLevel": 80,
+        "durationMinutes": 240,
+        "dailyClaims": 12,
+        "rewardMastery": 1,
+        "risk": "safe",
+        "traitMultiplier": 1,
+        "sealedRyoPerClaim": 432,
+        "secureRyoPerClaim": 432,
+        "secureRyoPerDay": 5184,
+        "investigateRyoExpectedPerDay": 5131.2,
+        "allInvestigationsSucceedRyoPerDay": 6480
+      },
+      {
+        "route": "ruins",
+        "scenario": "tamer-safe",
+        "profession": "petTamer",
+        "requiredPetLevel": 80,
+        "durationMinutes": 240,
+        "dailyClaims": 12,
+        "rewardMastery": 1,
+        "risk": "safe",
+        "traitMultiplier": 1,
+        "sealedRyoPerClaim": 648,
+        "secureRyoPerClaim": 648,
+        "secureRyoPerDay": 7776,
+        "investigateRyoExpectedPerDay": 7699.2,
+        "allInvestigationsSucceedRyoPerDay": 9720
+      },
+      {
+        "route": "ruins",
+        "scenario": "tamer-mastery-bold-caravan",
+        "profession": "petTamer",
+        "requiredPetLevel": 80,
+        "durationMinutes": 240,
+        "dailyClaims": 14,
+        "rewardMastery": 1.15,
+        "risk": "bold",
+        "traitMultiplier": 1,
+        "sealedRyoPerClaim": 835,
+        "secureRyoPerClaim": 835,
+        "secureRyoPerDay": 11690,
+        "investigateRyoExpectedPerDay": 11575.2,
+        "allInvestigationsSucceedRyoPerDay": 14616
+      },
+      {
+        "route": "ruins",
+        "scenario": "tamer-mastery-bold-caravan-boonbringer",
+        "profession": "petTamer",
+        "requiredPetLevel": 80,
+        "durationMinutes": 240,
+        "dailyClaims": 14,
+        "rewardMastery": 1.15,
+        "risk": "bold",
+        "traitMultiplier": 2,
+        "sealedRyoPerClaim": 835,
+        "secureRyoPerClaim": 1670,
+        "secureRyoPerDay": 23380,
+        "investigateRyoExpectedPerDay": 23150.4,
+        "allInvestigationsSucceedRyoPerDay": 29232
+      }
+    ],
+    "expeditionAssumptions": [
+      "Reward version 2 at the code-default scale; in-flight sealed rewards are unchanged.",
+      "Relevant pet levels, sufficient available pets/slots, timely restarts, and happiness upkeep are required.",
+      "Gross ryo excludes feeding, provisions and opportunity costs; daily claim caps are not proof every roster can fill them.",
+      "All-investigation-success is a tail outcome, not expected income. Return rounding precedes daily aggregation."
+    ],
+    "broker": {
+      "paidPullCostRyo": 75000,
+      "certificatePullCostRyo": 37500,
+      "expectedRewardPerPull": {
+        "ryo": 24100,
+        "fateShards": 0.32,
+        "boneCharms": 0.53,
+        "auraStones": 0.26
+      },
+      "paidPullNetRyo": -50900,
+      "certificatePullNetRyo": -13400,
+      "certificateAwards": {
+        "rallyFirstPlace": 2,
+        "rallySecondPlace": 1,
+        "caravanSuccess": 1,
+        "caravanFailure": 0
+      },
+      "dailySuccessScenario": {
+        "certificates": 3,
+        "expectedRedemptionRyo": 72300,
+        "expectedRedemptionNetRyo": -40200
+      },
+      "netRyoFormula": "(expectedRewardRyo - certificateCostRyo) * certificatePulls + (expectedRewardRyo - paidCostRyo) * paidPulls; subtract actual Exchange fees separately",
+      "assumptions": [
+        "First place in the daily Rally and a successful daily Caravan are conditional; their certificate sources predate the rebalance.",
+        "A certificate covers half the stake (owner ruling 2026-10-23): redemption pays the gross reward, debits the other half, and consumes the existing daily Broker pull allowance. Earning a certificate is not immediate ryo.",
+        "Direct Rally/Caravan rewards are additional; do not count certificate value again as activity ryo.",
+        "Selling rewards to other players transfers existing ryo and burns the fee; resale profit is not new currency issuance."
+      ]
+    }
+  },
   "petBreeding": {
     "authority": [
       "api/pet/_breeding.ts",
@@ -3468,6 +3882,6 @@
   "notes": [
     "Amounts are base values. Runtime discounts, village upgrades, entitlements, and idempotency gates remain in code.",
     "Legacy XP fields are exported for fidelity, but field/hunt progression is modeled as statPoints drawn from the shared daily stat-point budget.",
-    "Custom/admin content and probabilistic/event rewards are intentionally excluded unless represented by a stable server constant."
+    "Custom/admin content and probabilistic/event rewards are excluded unless represented by a stable server constant; Broker expected values and conditional expedition scenarios are explicitly labeled."
   ]
 }

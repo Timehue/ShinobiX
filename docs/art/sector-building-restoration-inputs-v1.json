@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "provider": "built-in image_gen",
+  "assets": [
+    {
+      "id": "restoration-stage-1",
+      "source": "C:\\Users\\Tyler R\\.codex\\generated_images\\01a166f5-d313-7e32-81be-1d6e1fd17b76\\exec-f6621abc-b4a6-469c-ac29-64be1fb8daab.png",
+      "transparent": true,
+      "prompt": "Production game sprite, one isolated small square public shelter scaffold for Shinobi Journey, original shinobi fantasy MMORPG. TRUE TRANSPARENT background. Strict overhead orthographic top-down view, north at image top and entrance south at bottom, matching a hand-painted overhead adventure map. Centered entire square cedar frame, four wooden corner uprights seen from above, rope lashings, cross braces and exposed roof beams, open central square with transparent empty air, no roof yet. Slight front edge visible only enough to read the south entrance; no isometric camera, no perspective horizon. One small practical Japanese-inspired work shelter, no wall enclosure, no people, no tools outside its square footprint, no floor slab, no ground, no background, no terrain, no drop shadow, no lettering, no UI. Muted weathered brown wood and dull iron fittings, detailed painterly game asset, crisp readable shape. Leave a uniform transparent margin around all sides. This is restoration stage one, braced shelter, and will later receive a cloth cover and a permanent slate roof in aligned variants."
+    },
+    {
+      "id": "restoration-stage-2",
+      "source": "C:\\Users\\Tyler R\\.codex\\generated_images\\01a166f5-d313-7e32-81be-1d6e1fd17b76\\exec-6147787a-1e24-45f6-9499-54a9dcb96f60.png",
+      "transparent": true,
+      "prompt": "Edit this production overhead game sprite into restoration stage TWO, a weatherproof public shelter. Preserve the exact orthographic overhead camera, square footprint, four corner posts, south/bottom entrance gap, scale, center, uniform outside margin and actual transparent background of the reference scaffold. Add a practical taut muted sand-colored waxed cloth cover tied over its top beams with visible rope lashings, leaving a small open south doorway. The beige cloth now fills most of the roof plane; the cedar support frame should remain visible around its edges. Hand-painted detailed shinobi fantasy game asset, weathered cedar, dull iron, no people, no floor slab, no ground, no shadows outside the object, no text, no UI, no isometric tilt. The result is ONE isolated aligned shelter sprite on transparent alpha."
+    },
+    {
+      "id": "restoration-stage-3",
+      "source": "C:\\Users\\Tyler R\\.codex\\generated_images\\01a166f5-d313-7e32-81be-1d6e1fd17b76\\exec-c54b8a39-accf-4ef5-bf22-aed3414e09d6.png",
+      "transparent": true,
+      "prompt": "Edit this aligned production overhead shelter sprite into restoration stage THREE, a finished public road shelter. Keep the exact square footprint, strict orthographic overhead top-down camera, four cedar corner supports, center, outer transparent margin and south/bottom entrance orientation. Replace the waxed cloth roof cover with a well-built dark indigo-gray Japanese-inspired slate-tile hipped roof on the same frame. Show repaired ridge caps, dull metal fasteners, subtle weathering and one modest small indigo cloth pennant attached inside the footprint. The object is a practical public shelter, not a castle or shrine. Preserve the original rope-and-cedar structure where visible at the south entrance; roof should be unmistakably completed and distinct from stage two. One isolated painterly game sprite on genuine transparent alpha. No ground, no floor slab, no background, no cast shadow outside its square, no people, no letters, no UI, no isometric camera."
+    }
+  ]
+}

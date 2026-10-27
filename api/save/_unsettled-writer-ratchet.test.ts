@@ -51,6 +51,9 @@ const DEFINERS = new Set(['save/_save-version.ts', 'save/_mutate-player-save.ts'
 // acknowledgement (some through an injected store), so it settles in place
 // (settleIdleRecovery) rather than moving onto mutatePlayerSave.
 const SETTLES_ITSELF = new Set([
+    // Communal counter work appends the shared frontage CAS to the sanctioned
+    // save/ledger commit, settling idle recovery before evaluating the action.
+    'sector/_building-settlement.ts',
     'pvp/_consumable-settlement.ts',
     // Both ranked fighters; the other one is usually offline.
     'pvp/_player-ranked-journal.ts',
