@@ -205,7 +205,7 @@ export function replayCasualPetDuel(
     let rejected = 0;
     // Ticks of recently ACCEPTED commands, for the sliding per-second cap.
     const recent: number[] = [];
-    // Tick of the last Bond Break spend, mirroring PetColiseum's `bondSpentAt`.
+    // Tick of the last Bond Break spend, mirroring the retired PetColiseum renderer's `bondSpentAt`.
     // The client stamps it from the PLAYBACK clock, one tick behind the tick the
     // order lands on, so mirror that offset — being a tick more generous here
     // can only ever accept a press the player legitimately made.

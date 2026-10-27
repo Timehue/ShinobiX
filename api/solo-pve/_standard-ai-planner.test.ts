@@ -227,11 +227,13 @@ describe('standard-PvE turn planner — turn economy and legality', () => {
         assert.equal(turn.status, 'active');
     });
 
-    it('uses a legal option when Elemental Seal locks its elemental jutsu — the original runner wasted the whole turn', () => {
+    it('uses a legal option when Elemental Seal locks its elemental jutsu — the original runner no longer wastes the whole turn', () => {
         const kit = [jutsu('fire-burst', 60, { element: 'Fire', effectPower: 40 })];
         const sealed = { statuses: [{ name: 'Elemental Seal', rounds: 3, kind: 'negative' as const }] };
         const original = enemyTurn(scenario({ kit, distance: 1, enemy: sealed, sealed: false }));
-        assert.equal(enemyEvents(original).length, 0, 'the original runner re-picked the rejected cast until its guard ran out');
+        const originalActions = enemyEvents(original).map((event) => event.action);
+        assert.ok(originalActions.length > 0 && originalActions.every((action) => action === 'basicAttack'),
+            `the original runner falls back to a basic attack when its cast is refused: ${originalActions.join(',')}`);
         for (const level of [10, 40, 60]) {
             const planned = enemyTurn(scenario({ level, kit, distance: 1, enemy: sealed }));
             const actions = enemyEvents(planned).map((event) => event.action);

@@ -160,10 +160,6 @@ export async function saveSectorWar(session: SectorWarSession, ttlSeconds?: numb
     }
 }
 
-export async function deleteSectorWar(id: string): Promise<void> {
-    await kv.del(sectorWarKey(id));
-}
-
 /**
  * How a contest scan treats a row it cannot read.
  *
@@ -740,11 +736,6 @@ export async function loadSectorWarToken(battleId: string): Promise<SectorWarBat
     const token = normalizeSectorWarBattleToken(raw as Partial<SectorWarBattleToken>);
     if (!token || token.battleId !== battleId) throw new Error('sector-war-token-invalid');
     return token;
-}
-
-/** Single-use consumption — delete the token so a battle counts exactly once. */
-export async function consumeSectorWarToken(battleId: string): Promise<void> {
-    await kv.del(sectorWarTokenKey(battleId));
 }
 
 // ── Territory ownership read (source of truth for the declare target) ──

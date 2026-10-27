@@ -232,7 +232,15 @@ export async function provePlayerRankedMatchToken(
     return provePlayerRankedMatchTokenWithStore(kv, input);
 }
 
-/** Legacy pet-PvP session proof; private pet ranked uses its own authority. */
+/**
+ * Legacy pet-PvP session proof; private pet ranked uses its own authority.
+ *
+ * Nothing in production calls this any more, so a pet-ranked start through
+ * api/pvp/session.ts never finds a proof and is refused with a 409. That is the
+ * intended fail-closed state for the retired route: do not remove the proof
+ * check in session.ts without replacing it, or an unproven ranked start would
+ * run as ordinary PvP. Re-enabling the route means minting here again.
+ */
 export async function mintRankedMatchToken(a: string, b: string, ladder: RankedLadder): Promise<void> {
     if (ladder === 'player') throw new Error('use-mintPlayerRankedMatchToken');
     await kv.set(rankedMatchTokenKey(a, b, ladder), { mintedAt: Date.now() }, { ex: RANKED_TOKEN_TTL_SECONDS });
@@ -297,8 +305,3 @@ export async function consumeRankedMatchTokenForBattle(
     return consumeRankedMatchTokenForBattleWithStore(kv, a, b, ladder, battleId);
 }
 
-/** @deprecated Only old callers may use destructive pair-token consumption. */
-export async function consumeRankedMatchToken(a: string, b: string, ladder: RankedLadder): Promise<boolean> {
-    if (ladder === 'player') throw new Error('use-provePlayerRankedMatchToken');
-    return (await kv.del(rankedMatchTokenKey(a, b, ladder))) > 0;
-}

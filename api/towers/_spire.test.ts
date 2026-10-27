@@ -21,35 +21,35 @@ import type { TowerSession, TowerActor } from './_tower-session.js';
 // ─── resolveAscensionModifiers (pure single source of truth) ─────────────────
 describe('Endless Spire — resolveAscensionModifiers', () => {
     it('is PURE: same inputs → deep-equal output', () => {
-        const a = resolveAscensionModifiers(12, 'warden', 16);
-        const b = resolveAscensionModifiers(12, 'warden', 16);
+        const a = resolveAscensionModifiers(12, 16);
+        const b = resolveAscensionModifiers(12, 16);
         assert.deepEqual(a, b);
     });
     it('hp/dmg mults follow the additive curve and CLAMP at the caps', () => {
         assert.equal(ascensionHpMult(1), 1.1);
         assert.equal(ascensionDmgMult(1), 1.06);
-        assert.equal(resolveAscensionModifiers(10, 'sovereign', 20).hpMult, 2.0);
+        assert.equal(resolveAscensionModifiers(10, 20).hpMult, 2.0);
         // tier 20: hp 1+20*0.10 = 3.0 (== cap), dmg 1+20*0.06 = 2.2 (== cap)
-        const t20 = resolveAscensionModifiers(20, 'sovereign', 20);
+        const t20 = resolveAscensionModifiers(20, 20);
         assert.equal(t20.hpMult, HP_MULT_CAP);
         assert.equal(t20.dmgMult, DMG_MULT_CAP);
         // a hypothetical over-cap tier still clamps (clampTier caps at SPIRE_MAX_TIER)
-        assert.equal(resolveAscensionModifiers(999, 'sovereign', 20).hpMult, HP_MULT_CAP);
+        assert.equal(resolveAscensionModifiers(999, 20).hpMult, HP_MULT_CAP);
     });
     it('always seals the spire enrage cap (2 stacks) and a >=1 round cap', () => {
-        const s = resolveAscensionModifiers(5, 'sovereign', 20);
+        const s = resolveAscensionModifiers(5, 20);
         assert.equal(s.enrageCap, SPIRE_ENRAGE_CAP);
         assert.equal(s.roundCap, 20);
-        assert.ok(resolveAscensionModifiers(1, 'warden', 0).roundCap >= 1); // never 0/negative
+        assert.ok(resolveAscensionModifiers(1, 0).roundCap >= 1); // never 0/negative
     });
     it('folds a NUMBER weekly affix into the effective mults + manifest', () => {
         const affix: TowerModifier = { kind: 'dmg', value: 0.10, label: 'Blood Moon' };
-        const base = resolveAscensionModifiers(5, 'sovereign', 20);
-        const withAffix = resolveAscensionModifiers(5, 'sovereign', 20, affix);
+        const base = resolveAscensionModifiers(5, 20);
+        const withAffix = resolveAscensionModifiers(5, 20, affix);
         assert.equal(withAffix.dmgMult, Math.round((base.dmgMult + 0.10) * 100) / 100);
         assert.ok(withAffix.modifierStack.some(m => m.label === 'Blood Moon'));
         // affix never breaks the cap
-        assert.ok(resolveAscensionModifiers(20, 'sovereign', 20, affix).dmgMult <= DMG_MULT_CAP);
+        assert.ok(resolveAscensionModifiers(20, 20, affix).dmgMult <= DMG_MULT_CAP);
     });
 });
 
@@ -75,11 +75,11 @@ describe('Endless Spire — weekly blessing', () => {
     it('folds into the sealed run: a roundCap blessing adds time; a dmg blessing softens foes', () => {
         const floorRounds = 16;
         const roundBoon = SPIRE_WEEKLY_BLESSINGS.find(b => b.modifier.kind === 'roundCap')!;
-        const withRound = resolveAscensionModifiers(20, 'sovereign', floorRounds, roundBoon.modifier);
+        const withRound = resolveAscensionModifiers(20, floorRounds, roundBoon.modifier);
         assert.equal(withRound.roundCap, floorRounds + Math.floor(roundBoon.modifier.value));
         const dmgBoon = SPIRE_WEEKLY_BLESSINGS.find(b => b.modifier.kind === 'dmg')!;
-        const base = resolveAscensionModifiers(20, 'sovereign', floorRounds);
-        const withDmg = resolveAscensionModifiers(20, 'sovereign', floorRounds, dmgBoon.modifier);
+        const base = resolveAscensionModifiers(20, floorRounds);
+        const withDmg = resolveAscensionModifiers(20, floorRounds, dmgBoon.modifier);
         assert.ok(withDmg.dmgMult < base.dmgMult, `dmg boon lowers dmgMult (${withDmg.dmgMult} < ${base.dmgMult})`);
         assert.equal(withDmg.roundCap, floorRounds + SPIRE_WEEKLY_ROUND_BUFFER, 'damage weeks retain the release-tested time buffer');
         assert.ok(withDmg.modifierStack.some(m => m.label.includes('Blessing')), 'blessing shown as a chip');
@@ -199,7 +199,7 @@ describe('Endless Spire — encounter sealing', () => {
     it('a spire build seals ascension onto the session + applies per-floor boss HP', () => {
         const tier = 20;
         const floor = getSpireFloor(tier)!;
-        const seal = resolveAscensionModifiers(tier, 'sovereign', floor.roundBudget);
+        const seal = resolveAscensionModifiers(tier, floor.roundBudget);
         const s = buildTowerEncounter({ floor, squad: [squadInput('hero')], runId: 'r1', seed: 1, partySize: 1, now: 0, ascension: seal, spireBossId: 'sovereign' });
         assert.equal(s.ascensionTier, tier);
         assert.equal(s.roundCap, floor.roundBudget);
@@ -246,7 +246,7 @@ function endgameSquad(n: number): SquadMemberInput[] {
 describe('Endless Spire — real engine smoke run', () => {
     it('runs a spire floor to a terminal state, within the round cap, via the real engine', () => {
         const floor = getSpireFloor(1)!;                       // Warden (bulwark) + guard pod
-        const seal = resolveAscensionModifiers(1, 'warden', floor.roundBudget);
+        const seal = resolveAscensionModifiers(1, floor.roundBudget);
         const s = buildTowerEncounter({ floor, squad: endgameSquad(4), runId: 'rt', seed: 7, partySize: 4, now: 0, ascension: seal, spireBossId: 'warden' });
         const boss = s.actors.find(a => a.id === 'boss')!;
         assert.equal(boss.maxHp, floor.boss!.hp);              // endgame per-floor HP applied
@@ -260,7 +260,7 @@ describe('Endless Spire — real engine smoke run', () => {
     });
     it('a maxed 4-squad clears the intro floor (not a wall) and does real damage to the boss', () => {
         const floor = getSpireFloor(1)!;
-        const seal = resolveAscensionModifiers(1, 'warden', floor.roundBudget);
+        const seal = resolveAscensionModifiers(1, floor.roundBudget);
         const s = buildTowerEncounter({ floor, squad: endgameSquad(4), runId: 'rt2', seed: 3, partySize: 4, now: 0, ascension: seal, spireBossId: 'warden' });
         runTowerFloor(s, floor, makeRng(s.seed));
         // intro floor should be winnable by a maxed squad (sanity: not an accidental wall)
@@ -274,7 +274,7 @@ describe('Endless Spire — real engine smoke run', () => {
 // incoming-damage debuff, healing throttle) — all squad-side, all story-safe.
 describe('Endless Spire — Wave 2 keystone emission', () => {
     const keystoneKinds = new Set(['hazard', 'debuff', 'healcut']);
-    const stackAt = (tier: number) => resolveAscensionModifiers(tier, 'sovereign', 16).modifierStack;
+    const stackAt = (tier: number) => resolveAscensionModifiers(tier, 16).modifierStack;
     const has = (tier: number, kind: string, variant?: string) =>
         stackAt(tier).some(m => m.kind === kind && (!variant || m.variant === variant));
 
@@ -295,7 +295,7 @@ describe('Endless Spire — Wave 2 keystone emission', () => {
         assert.equal(s20.filter(m => m.kind === 'healcut').length, 1);
     });
     it('stays PURE with keystones live (deep-equal) and keeps every value modest', () => {
-        assert.deepEqual(resolveAscensionModifiers(14, 'ravager', 14), resolveAscensionModifiers(14, 'ravager', 14));
+        assert.deepEqual(resolveAscensionModifiers(14, 14), resolveAscensionModifiers(14, 14));
         for (const m of stackAt(20)) if (keystoneKinds.has(m.kind)) assert.ok(m.value > 0 && m.value <= 60, `${m.kind}=${m.value}`);
     });
 });
@@ -428,7 +428,7 @@ describe('Endless Spire — Wave 2 damage-taken debuff', () => {
 
 // ─── Wave 3: capstones (extraPhase / objective / dualAugment) ─────────────────
 describe('Endless Spire — Wave 3 capstone emission', () => {
-    const stackAt = (tier: number) => resolveAscensionModifiers(tier, 'sovereign', 16).modifierStack;
+    const stackAt = (tier: number) => resolveAscensionModifiers(tier, 16).modifierStack;
     const has = (tier: number, kind: string) => stackAt(tier).some(m => m.kind === kind);
     it('gates each capstone at its own tier (extraPhase 15 / objective 17 / dualAugment 18)', () => {
         assert.ok(!has(14, 'extraPhase'));
@@ -445,13 +445,13 @@ describe('Endless Spire — Wave 3 capstone emission', () => {
 describe('Endless Spire — Wave 3 extraPhase (desperation blast)', () => {
     it('injects the sealed 40% gate into the boss phase ladder + seals the threshold', () => {
         const floor = getSpireFloor(15)!;
-        const seal = resolveAscensionModifiers(15, 'sovereign', floor.roundBudget);
+        const seal = resolveAscensionModifiers(15, floor.roundBudget);
         const s = buildTowerEncounter({ floor, squad: [squadInput('hero')], runId: 'ep', seed: 1, partySize: 1, now: 0, ascension: seal, spireBossId: 'sovereign' });
         assert.equal(s.extraPhaseThreshold, 40);
         assert.ok(s.phaseState.pendingPhases.includes(40), 'desperation gate merged into pendingPhases');
         // a tier-14 build seals NO extra gate
         const f14 = getSpireFloor(14)!;
-        const s14 = buildTowerEncounter({ floor: f14, squad: [squadInput('hero')], runId: 'ep2', seed: 1, partySize: 1, now: 0, ascension: resolveAscensionModifiers(14, 'warden', f14.roundBudget), spireBossId: 'warden' });
+        const s14 = buildTowerEncounter({ floor: f14, squad: [squadInput('hero')], runId: 'ep2', seed: 1, partySize: 1, now: 0, ascension: resolveAscensionModifiers(14, f14.roundBudget), spireBossId: 'warden' });
         assert.equal(s14.extraPhaseThreshold, undefined);
         assert.ok(!s14.phaseState.pendingPhases.includes(40));
     });

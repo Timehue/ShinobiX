@@ -1,5 +1,7 @@
 # Early-Game Progression — Build Plan (followable)
 
+> **Historical document.** It was written while Vercel and cPanel were still hosts. Both are retired: Railway is the only host, `dist/` is never committed, and new endpoints are registered in `server-api-routes.ts`. Instructions below about committing `dist/`, cPanel or Vercel parity, or `server.ts` registration no longer apply. Current rules live in `CLAUDE.md`.
+
 The concrete, sequenced runbook to implement the
 [master layout](./early-progression-layout.md). Each task lists exact files,
 the change, how to verify, and parity/balance notes. Grounded in a final code

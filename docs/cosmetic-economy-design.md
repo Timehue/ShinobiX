@@ -1,5 +1,7 @@
 # Cosmetic-Only Player Economy — Design Doc
 
+> **Historical document.** It was written while Vercel and cPanel were still hosts. Both are retired: Railway is the only host, `dist/` is never committed, and new endpoints are registered in `server-api-routes.ts`. Instructions below about committing `dist/`, cPanel or Vercel parity, or `server.ts` registration no longer apply. Current rules live in `CLAUDE.md`.
+
 **Status:** Plan / not built. Read-only survey + implementation-ready design.
 **Author target:** Lead Systems Designer + engineer.
 **Model:** Dota 2 / a deep action RPG cosmetic economy — deep, lively, monetized, **zero pay-to-win**.

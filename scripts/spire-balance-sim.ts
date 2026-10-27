@@ -216,7 +216,7 @@ export function simFloor(
     let wins = 0, roundsSum = 0, survSum = 0, timeouts = 0, wipes = 0, bossLeftSum = 0, failN = 0;
     for (let s = 0; s < seeds; s++) {
         const seed = 1000 + s * 7 + tier;
-        const seal = resolveAscensionModifiers(tier, bossKey, floor.roundBudget, blessing.modifier);
+        const seal = resolveAscensionModifiers(tier, floor.roundBudget, blessing.modifier);
         const session = buildTowerEncounter({ floor, squad: gearedSquad(n), runId: `sim-${tier}-${s}`, seed, partySize: n, now: 0, ascension: seal, spireBossId: bossKey });
         for (const a of session.actors) if (a.side === 'squad') a.shield = KNOBS.itemShield; // model armour shield pool
         runFloorSmart(session, floor, makeRng(seed));

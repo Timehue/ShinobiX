@@ -1,5 +1,7 @@
 # Security Audit #7 / "Stage 3" — Server-Authoritative Personal Rewards (PLAN)
 
+> **Historical document.** It was written while Vercel and cPanel were still hosts. Both are retired: Railway is the only host, `dist/` is never committed, and new endpoints are registered in `server-api-routes.ts`. Instructions below about committing `dist/`, cPanel or Vercel parity, or `server.ts` registration no longer apply. Current rules live in `CLAUDE.md`.
+
 Status: **PLAN + sign-off granted for Phase 0 + Phase 1** (2026-06-01).
 Companion: `docs/security-audit-handoff.md` (overall audit status),
 `docs/security-audit-triage.md` (per-item evidence). This doc is the design +

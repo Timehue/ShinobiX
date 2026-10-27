@@ -1,5 +1,7 @@
 # Sector Multiplayer Smoothness Plan — making crowded sectors feel seamless
 
+> **Historical document.** It was written while Vercel and cPanel were still hosts. Both are retired: Railway is the only host, `dist/` is never committed, and new endpoints are registered in `server-api-routes.ts`. Instructions below about committing `dist/`, cPanel or Vercel parity, or `server.ts` registration no longer apply. Current rules live in `CLAUDE.md`.
+
 **Date:** 2026-06-25
 **Status:** SHIPPED TO MAIN (`origin/main` `694edb4c`) — Phases 1, 2, 2D (live peer movement), 2C
 (grounded peer look). A **scaling/futureproofing pass** (overlay render-isolation + marker cap +

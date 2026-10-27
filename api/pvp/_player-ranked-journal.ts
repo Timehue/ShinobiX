@@ -617,18 +617,6 @@ export async function publishPlayerRankedTerminal(
     return materializeJournal(store, terminal, journalItemsFromSession(session, terminal));
 }
 
-export async function materializePlayerRankedJournalFromAdmission(
-    store: JournalStore,
-    admission: PlayerRankedAdmission,
-): Promise<PlayerRankedJournal> {
-    const terminal = terminalFromAdmission(admission);
-    const journal = await getPlayerRankedJournal(store, admission.matchId);
-    if (!journal || !isDeepStrictEqual(journal.terminal, terminal)) {
-        throw new Error('player-ranked-journal-missing');
-    }
-    return journal;
-}
-
 type SettlementStamp = {
     fingerprint: string;
     seasonId: number;

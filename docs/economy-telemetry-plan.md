@@ -146,8 +146,8 @@ of guessing.
 - Tests: `api/_economy.test.ts` — delta sign per source, aggregate
   created/destroyed accounting, duplicate-txnId detection, and the
   wealth-vs-level / negative-balance thresholds.
-- After the `api/` change: `npm run build` + commit `dist/` (cPanel serves
-  committed `dist/`; Railway self-builds).
+- After the `api/` change: `npm run build` to verify. Do not commit `dist/`
+  (Railway self-builds from source; cPanel, which served a committed `dist/`, is retired).
 
 ## Performance / cost
 

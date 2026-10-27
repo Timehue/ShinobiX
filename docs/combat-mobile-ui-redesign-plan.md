@@ -1,5 +1,7 @@
 # Combat Mobile UI Redesign — Plan
 
+> **Historical document.** It was written while Vercel and cPanel were still hosts. Both are retired: Railway is the only host, `dist/` is never committed, and new endpoints are registered in `server-api-routes.ts`. Instructions below about committing `dist/`, cPanel or Vercel parity, or `server.ts` registration no longer apply. Current rules live in `CLAUDE.md`.
+
 **Status:** IN PROGRESS (uncommitted, not pushed).
 - ✅ **Phase 1 done + visually verified** — shared `components/FighterHpBadge.tsx`; on-board HP bars for both fighters in Arena + PvP (pet badge refactored onto it; enemy ungated). `tsc`/lint clean.
 - ✅ **Phase 2a done + verified** — mobile side-HUD trim: hide the now-redundant HP line + avatar (kept chakra/stamina/shield/effects). `resource-line--hp` class on the HP line + a rule in the authoritative mobile block.

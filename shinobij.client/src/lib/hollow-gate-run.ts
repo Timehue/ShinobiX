@@ -112,18 +112,6 @@ export function hollowShardDrop(floor: number, source: "chest" | "lockedChest" |
     }
 }
 
-/**
- * Elemental Shard (ITEM — distinct from the Hollow Shard currency above) drop for
- * a Hollow Gate BOSS kill: 0 or 1 Shard, where the drop CHANCE scales gently with
- * floor depth. 10 Shards forge one Elemental Core at the Crafter; a Core attunes a
- * legendary/mythic weapon (api/weapon/apply-elemental-core.ts). Client-side reward
- * roll (like the awakening rolls) — Tunable: adjust the base/step/cap below.
- */
-export function elementalShardBossDrop(floor: number): number {
-    const f = Math.max(1, Math.floor(floor));
-    return Math.random() < Math.min(0.8, 0.5 + f * 0.03) ? 1 : 0;
-}
-
 /** Stable, Date-shaped seed for a sealed pet encounter. A refresh must replay
  * the same Hollow Hound rather than rerolling an easier duel. The 13-digit base
  * also preserves the server's sealed encounter-id contract. */

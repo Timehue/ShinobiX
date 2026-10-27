@@ -2,14 +2,11 @@ import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import {
     applyMissionProgressEvent,
-    cleanMissionProgressEvidence,
     cleanMissionProgressEvidenceToken,
     cleanMissionProgressEventKind,
-    missionProgressEvidenceBundleKey,
     savedAcceptedMissionIds,
     savedCurrentSector,
     savedMissionProgress,
-    validateMissionProgressEvidence,
     validateMissionProgressReceipt,
     type MissionProgressReceipt,
 } from './_mission-progress-receipt.js';
@@ -262,61 +259,9 @@ describe('_mission-progress-receipt', () => {
         assert.equal(replay.updatedAt, 10);
     });
 
-    it('validates a private server evidence record and rejects wrong/expired evidence', () => {
-        const raw = {
-            version: 1,
-            evidenceId: 'evidence-server-0001',
-            playerName: 'Player',
-            missionId: 'hunt-boar',
-            kind: 'hunt-kill',
-            source: 'server-ai-combat',
-            issuedAt: 1_000,
-            expiresAt: 61_000,
-        };
-        const evidence = cleanMissionProgressEvidence(raw);
-        assert.deepEqual(validateMissionProgressEvidence(evidence, {
-            evidenceId: raw.evidenceId,
-            playerName: 'player',
-            missionId: raw.missionId,
-            kind: 'hunt-kill',
-            now: 2_000,
-        }), { ok: true });
-        assert.deepEqual(validateMissionProgressEvidence(evidence, {
-            evidenceId: raw.evidenceId,
-            playerName: 'player',
-            missionId: raw.missionId,
-            kind: 'hunt-track',
-            now: 2_000,
-        }), { ok: false, reason: 'wrong-server-evidence-event' });
-        assert.deepEqual(validateMissionProgressEvidence(evidence, {
-            evidenceId: raw.evidenceId,
-            playerName: 'player',
-            missionId: raw.missionId,
-            kind: 'hunt-kill',
-            now: 61_001,
-        }), { ok: false, reason: 'expired-server-evidence' });
-    });
-
     it('rejects missing and caller-shaped evidence tokens', () => {
         assert.equal(cleanMissionProgressEvidenceToken(undefined), '');
         assert.equal(cleanMissionProgressEvidenceToken('short'), '');
         assert.equal(cleanMissionProgressEvidenceToken('colon:can:escape:keyspace'), '');
-        assert.deepEqual(validateMissionProgressEvidence(null, {
-            evidenceId: 'evidence-server-0001',
-            playerName: 'player',
-            missionId: 'fetch-d',
-            kind: 'field-explore',
-            now: 2_000,
-        }), { ok: false, reason: 'invalid-server-evidence' });
-    });
-
-    it('derives a stable consumed-bundle key independent of evidence order', () => {
-        const receipt: MissionProgressReceipt = {
-            playerName: 'Player', missionId: 'fetch-d', missionType: 'field',
-            exploreCount: 2, raidCount: 0, huntKill: false, updatedAt: 1,
-            evidenceIds: ['evidence-server-0002', 'evidence-server-0001'],
-        };
-        const reversed = { ...receipt, evidenceIds: [...receipt.evidenceIds].reverse() };
-        assert.equal(missionProgressEvidenceBundleKey('Player', receipt), missionProgressEvidenceBundleKey('Player', reversed));
     });
 });

@@ -94,11 +94,6 @@ const CATEGORY_GLYPH: Readonly<Record<BattleLogCategory, string>> = {
     effect: "◈",
 };
 
-/** Leading glyph for a known category (caller already classified the line). */
-export function glyphForCategory(category: BattleLogCategory): string {
-    return CATEGORY_GLYPH[category];
-}
-
 /** Leading glyph for a line's semantic category (for the effect-line marker). */
 export function glyphForBattleLogLine(line: string): string {
     return CATEGORY_GLYPH[classifyBattleLogLine(line)];

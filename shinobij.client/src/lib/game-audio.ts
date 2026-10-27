@@ -573,11 +573,6 @@ export function stopGameAmbience(fadeMs = 700): void {
   }
 }
 
-export const gameAudioManifest = {
-  sfx: SFX_DEFINITIONS,
-  ambience: AMBIENCE_PATHS,
-} as const;
-
 // Keep module teardown explicit for hot reload without adding duplicate mute
 // listeners. Production bundles never call this path.
 if (import.meta.hot) {
