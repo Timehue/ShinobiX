@@ -118,20 +118,11 @@ export function cardPackDiscountPercent(character: PlayerCharacter, type: CardPa
     // Chronicle Point packs have one fixed campaign price — no shop, clan or
     // elder discount applies (the currency sits outside the ryo economy).
     if (PACKS[type].currency === 'chroniclePoints') return 0;
-    // Grand Marketplace packs use only the trade-focus discount in the client.
-    if (type !== 'standard') return character.elderFocus === 'trade' ? 5 : 0;
-    const village = character.villageUpgrades && typeof character.villageUpgrades === 'object'
-        ? character.villageUpgrades as Record<string, unknown>
-        : {};
-    const clan = character.clanUpgradeLevels && typeof character.clanUpgradeLevels === 'object'
-        ? character.clanUpgradeLevels as Record<string, unknown>
-        : {};
-    const shopLevel = Math.max(0, Math.min(50, Math.floor(Number(village.shop) || 0)));
-    const blacksmithLevel = Math.max(0, Math.floor(Number(clan.blacksmith) || 0));
-    const blacksmith = Math.min(10, blacksmithLevel * 0.2);
-    const elder = character.elderFocus === 'trade' ? 5 : 0;
-    const doctrine = character.clanDoctrine === 'merchant' ? 5 : 0;
-    return shopLevel * 0.25 + blacksmith + elder + doctrine;
+    // Every remaining pack is a Grand Marketplace Fate Shard pack, which uses only
+    // the trade-focus discount in the client. The village shop, clan blacksmith and
+    // merchant-doctrine discounts belonged to the ryo "standard" pack, which is now
+    // a Chronicle Point pack and returns above.
+    return character.elderFocus === 'trade' ? 5 : 0;
 }
 
 export function cardPackCost(character: PlayerCharacter, type: CardPackType): number {
