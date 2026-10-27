@@ -352,7 +352,10 @@ const AUTHORED_STORY_FLOORS: readonly TowerFloor[] = [
         // field rule bleeds chakra — the well is the counter-play if you go claim it.
         boardObjects: [{ kind: 'font', resource: 'chakra', percent: 20, cap: 40, label: 'Chakra Well' }],
         dynamicHazards: [{ kind: 'geyser', count: 4, pct: 4, everyRounds: 3 }],
-        enemies: [{ aiId: 'grunt-blocker', count: 6 }, { aiId: 'grunt-archer', count: 4 }],
+        // Six opening opponents establish the shield/well puzzle; the second
+        // line arrives after squads have had time to reposition and break it.
+        enemies: [{ aiId: 'grunt-blocker', count: 4 }, { aiId: 'grunt-archer', count: 2 },
+            { aiId: 'grunt-blocker', count: 2, spawnRound: 5 }, { aiId: 'grunt-archer', count: 2, spawnRound: 5 }],
         features: [pylon(12, 8), hazard(12, 8), hazard(12, 8)],
         firstClearReward: { ryo: 800, xp: 300 },
         ...CHAPTER_ONE_PRESENTATION,
@@ -364,7 +367,7 @@ const AUTHORED_STORY_FLOORS: readonly TowerFloor[] = [
                 'Flank Iron Brace and avoid Shield Bash rather than feeding attacks into the shield wall.',
                 'Use safe pillar lanes to close on the Archers before crossfire overwhelms the court.',
             ],
-            warnings: ['All ten enemies begin together.', 'Drain returns every round; four geysers begin on round 3 and two static hazard zones remain active.'],
+            warnings: ['Four Shieldmen and two Archers open the fight; two of each reinforce on round 5.', 'Drain returns every round; four geysers begin on round 3 and two static hazard zones remain active.'],
         },
     },
     {

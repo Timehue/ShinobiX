@@ -1,12 +1,9 @@
 # Battle Towers squad balance — updated 2026-10-26
 
-Lifecycle: review candidate. All 4,085 balance scenarios completed; the focused
-checks and final full repository suite passed. The earlier four-client
-level-100 finale passed on its recorded rank-calibration engine.
-The exact deployed candidate remains unverified.
-The normal-PvE comparison below adds a Story-only counterplay correction. The
-full curve matrix has been refreshed on that engine; the earlier four-client
-result retains its recorded source scope.
+Lifecycle: earned-player v5 release candidate. All 4,085 current model scenarios and
+focused checks pass. Main integration was pushed; green release CI and exact
+production four-player certification are pending. Historical full-suite and
+localhost evidence below retain their older fixture/source scope.
 This document owns the current Story balance decisions. The numeric owner is
 [the balance results](battle-towers-squad-balance-results.json); network and test
 history live in [the certification results](battle-towers-multiplayer-certification-results.json).
@@ -64,12 +61,14 @@ growth and phase rules; the counterplay correction below applies to public
 Story sessions carrying Tower tactics.
 
 Frozen Gauntlet Drain is 2%, replacing 5% to avoid excessive attrition once its
-ten enemies survive longer. Skirmishers attack an isolated hittable player before
+ten enemies survive longer. Four Shieldmen and two Archers open; two of each
+reinforce on round 5, preserving durability while giving legal level-40 squads
+time to break the first line. Skirmishers attack an isolated hittable player before
 chasing a distant target. Actions still use ordinary server AP/range/cooldown checks.
 
 ## Reproducible preparation assumptions
 
-The current progression-gear-v4 model constructs owned saves and calls the
+The current progression-gear-v5 model constructs owned saves and calls the
 production Tower hydrator. It checks effectiveItemLevelReq, including rarity
 floors rather than the catalog's sometimes lower raw levelReq:
 
@@ -89,10 +88,15 @@ quality, 30 offense/defense, 75 glove offense and 1.13% damage per piece. These
 are legal roll values, not perfect rolls. High-roll named gear, lifesteal builds
 and shield builds are separate stress scenarios.
 
-Training uses aiStatsForLevel, vitals/mastery use production level caps, and the
-canonical A-rank bloodline supplies 1.15 damage. These are explicit assumptions,
-not measured live cohorts. No injected gear multipliers or invented techniques.
-The former five-rare-piece/no-weapon fixture is now catalog-control only.
+Training spends exactly earnedForLevel(level) above base 10, with archetype
+priorities and rank caps. Vitals/mastery use production level caps; the canonical
+A-rank bloodline supplies 1.15 damage. Gear bonuses are added by the hydrator.
+The live preparation guard exposed that v4 incorrectly used the frozen AI point
+budget (8,767 vs 6,100 earned points at30;20,832 vs16,086 at70). Its results and
+older full-suite/network checks are historical controls, not ordinary player
+preparation evidence. The curve and independent PvE comparisons were rerun.
+These remain explicit fixtures, not measured live cohorts.
+The former five-rare-piece/no-weapon fixture is catalog-control only.
 
 The controller focuses fire, clears mandatory guards, follows authoritative
 Barrier/terrain blocking, disrupts pylons, heals, uses canonical Clear and
@@ -114,41 +118,29 @@ Optional flags: --gear=high-roll, --gear=sustain, --gear=shield,
 All five compositions (mixed and four of each discipline) were tested at every
 recommended floor level, across three routes and 12 deterministic seeds:
 
-- Rest Shrine: 887/900 clears. Every composition meets every progression gate.
-- Focused Assault: 888/900. Elite Shortcut: 856/900.
-- Level-100 normal finale: mixed 11/12, Ninjutsu 9/12, Bukijutsu 9/12,
-  Taijutsu 12/12 and Genjutsu 10/12. Elite mid-roll finale: 9/12, 6/12, 4/12,
-  9/12 and 7/12 respectively. Four Bukijutsu players using all-offense mid-roll gear are
-  the hardest Elite composition; the optional route retains that challenge.
-- Independent level-100 normal-finale seeds: 108/120 across five compositions.
-- Optimized high-roll forged Elite floors 13–15: 163/180; the level-100 finale
-  is 8/12 mixed, 9/12 Ninjutsu, 9/12 Bukijutsu, 9/12 Taijutsu and 10/12 Genjutsu.
-  These are legal ceiling scenarios, not assumed ordinary player rolls.
-- Lifesteal and shield checkpoint builds: 647/720; every normal cell meets its
-  corresponding progression gate. The weakest is four shield-equipped Bukijutsu
-  players on the normal level-100 finale at 8/12, above its 50% gate.
-- Entry mixed squad: 12/12, 8.3 rounds, 64.4% squad HP remaining. Level-100 normal
-  finale: 11/12, 20.3 rounds, 36.2% squad HP remaining.
-- Same individual progression loadout, solo checkpoints 1/5/10/15: 0/48 clears.
-  Full four-player enemy strength applies throughout.
-- Catalog jutsu and equipped-weapon opening-hit tests leave ordinary enemies
-  alive across the climb, including delayed and summoned templates and high-roll
-  forged gear at levels 90+. There is no artificial player damage cap.
+- Rest Shrine: 886/900; Focused Assault: 887/900. Every normal progression gate passes.
+- Elite Shortcut: 827/900; optional mid-roll failures remain visible.
+- Level-100 normal finale: mixed 11/12, ninjutsu 9/12, bukijutsu 8/12, taijutsu 12/12, genjutsu 11/12.
+- Level-100 Elite mid-roll finale: mixed 8/12, ninjutsu 6/12, bukijutsu 5/12, taijutsu 9/12, genjutsu 5/12.
+- Independent normal finale seeds: 107/120. High-roll Elite13–15: 151/180.
+- Lifesteal/shield checkpoints: 634/720. Lower-power catalog controls: 49/72.
+- Same individual progression loadout, solo checkpoints1/5/10/15: 0/48.
+- Opening-hit checks leave ordinary enemies alive, including delayed/summoned templates and high-roll forged endgame gear.
 
-Representative mixed-squad normal pacing by recommended rank, from the
-refreshed progression-gear-v4 matrix with the Story counterplay correction:
+Representative mixed-squad normal pacing with actual earned points:
 
 | Level | Floor | Average rounds | Remaining squad HP |
 | --- | --- | --- | --- |
-| 30 | 1 | 8.3 | 64.4% |
-| 50 | 5 | 8.7 | 70.7% |
-| 60 | 7 | 8.5 | 71.9% |
-| 70 | 9 | 10.7 | 73.1% |
-| 75 | 10 | 10.9 | 81.3% |
-| 85 | 12 | 12.8 | 48.5% |
-| 90 | 13 | 18.1 | 64.0% |
-| 95 | 14 | 18.8 | 74.3% |
-| 100 | 15 | 20.3 | 36.2% |
+| 30 | 1 | 9.3 | 56.2% |
+| 40 | 3 | 15.1 | 44.6% |
+| 50 | 5 | 10.3 | 49.6% |
+| 60 | 7 | 9.5 | 63.2% |
+| 70 | 9 | 11.1 | 68.4% |
+| 75 | 10 | 11.2 | 81.1% |
+| 85 | 12 | 13.8 | 43.1% |
+| 90 | 13 | 18.9 | 54.4% |
+| 95 | 14 | 19.3 | 72.9% |
+| 100 | 15 | 20.4 | 34.6% |
 
 Normal gates remain >=90% entry clears, <=10% entry solo clears, <80% mean entry
 squad HP, >=70% floors 1–14, >=50% finale and 5–24 average terminal rounds.
@@ -327,8 +319,12 @@ The [research audit](battle-towers-research-audit-2026-10-24.md) records first-p
 FFXIV, Guild Wars 2, Destiny and Left 4 Dead comparisons. Its older weak-gear
 numbers are superseded by this document and the current numeric owner.
 
-The candidate remains uncommitted and unpublished. Release requires deploying
+The release is integrated on main. Release completion requires deploying
 the reviewed source and repeating strict four-client checks on that exact live
 commit. Production Postgres, failover/latency and real-player clarity/coordination
 remain outside local certification. Revisit the curve when actual entry loadouts,
 clear time or knockout telemetry disagree with these preparation assumptions.
+
+The earned-player correction passed15 balance tests and662 Tower API tests,
+plus a fresh server build. The earlier18,149-pass full local run certifies its
+recorded v4 source; fresh main CI must pass for v5 before Railway promotion.
