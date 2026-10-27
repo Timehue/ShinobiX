@@ -14,7 +14,7 @@
  */
 
 /** Increment only when shipped Story-Tower rules/rewards change. Active runs seal this value. */
-export const TOWER_CATALOG_VERSION = 'story-tower-v6' as const;
+export const TOWER_CATALOG_VERSION = 'story-tower-v7' as const;
 
 export const TOWER_OBJECTIVES = [
     'defeat-all',           // clear every enemy
@@ -240,6 +240,10 @@ export type TowerFloor = {
     /** party size the enemy counts / boss HP are tuned for (2–4); default 4. Smaller
      *  parties face enemies scaled by partyScaleFactor(partySize, balanceFor). */
     balanceFor?: number;
+    /** Sealed opt-in: fixed four-player strength and floor-banded enemy growth. */
+    squadBalance?: 'four-player-v1';
+    /** Suggested progression band; only the mode-wide level-30 gate is mandatory. */
+    recommendedLevel?: number;
     firstClearReward: TowerReward;
     /** Optional story presentation metadata. It is cosmetic, but sealed with the floor so
      *  an active run always retains the chapter copy it launched with across deploys. */
@@ -301,7 +305,7 @@ const CHAPTER_ONE_PRESENTATION = {
     chapterSubtitle: 'Ten occupied floors separate the forest gate from the summit command post.',
     chapterSummary: 'Dispatcher Aya orders a strike against the rogue shinobi occupying the Spire. Defeat their squads, break the commanders holding the upper platforms, and remove the self-appointed Sovereign from the summit.',
 } as const;
-export const FLOOR_CATALOG: readonly TowerFloor[] = [
+const AUTHORED_STORY_FLOORS: readonly TowerFloor[] = [
     {
         id: 1, name: 'Foothold', biome: 'forest', objective: 'defeat-all',
         roundBudget: 8, map: towerArenaMap('compact'), fieldRule: { kind: 'none' },
@@ -342,7 +346,7 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
     },
     {
         id: 3, name: 'Frozen Gauntlet', biome: 'snow', objective: 'defeat-all',
-        roundBudget: 9, map: towerArenaMap('compact'), fieldRule: { kind: 'hazard', tag: 'Drain', percent: 5 },
+        roundBudget: 9, map: towerArenaMap('compact'), fieldRule: { kind: 'hazard', tag: 'Drain', percent: 2 },
         terrainPillars: 8,
         // Reworked off "reach the goal" (too easy here) into a hazard-strewn brawl. The Drain
         // field rule bleeds chakra — the well is the counter-play if you go claim it.
@@ -396,7 +400,7 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
         // the player's first boss teaches "break the guards, burn the shield, protect your
         // squishy" — strikes debut on floor 7.
         enemies: [{ aiId: 'grunt-bandit', count: 3 }, { aiId: 'grunt-acolyte', count: 2, spawnRound: 2 }],
-        boss: { aiId: 'boss-warden', phases: [60, 30], mechanic: 'bulwark', targetMode: 'squishiest', aegis: { shieldPct: 17 } },
+        boss: { aiId: 'boss-warden', hp: 30000, phases: [60, 30], mechanic: 'bulwark', targetMode: 'squishiest', aegis: { shieldPct: 17 } },
         features: [pylon(14, 10), pylon(14, 10), pylon(14, 10), ward(14, 10, 25)],
         firstClearReward: { ryo: 2000, xp: 800, fateShards: 10, milestone: 'tower-floor-5' },
         ...CHAPTER_ONE_PRESENTATION,
@@ -444,7 +448,7 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
         enemies: [{ aiId: 'grunt-acolyte', count: 3 }],
         // VOLLEY — telegraphed strikes DEBUT here: a barrage at the nearest shinobi every 3
         // rounds. Violet tiles + a full round to scatter teach the read on a forgiving 11%.
-        boss: { aiId: 'boss-revenant', phases: [66, 33], mechanic: 'regen', regenFlatCap: 650, targetMode: 'support', strike: { kind: 'volley', pct: 11, radius: 1, everyRounds: 3 } },
+        boss: { aiId: 'boss-revenant', hp: 38000, phases: [66, 33], mechanic: 'regen', regenFlatCap: 650, targetMode: 'support', strike: { kind: 'volley', pct: 11, radius: 1, everyRounds: 3 } },
         features: [pylon(12, 10), pylon(12, 10), pylon(12, 10), ward(12, 10, 25)],
         firstClearReward: { ryo: 2400, xp: 950, fateShards: 12 },
         ...CHAPTER_ONE_PRESENTATION,
@@ -516,7 +520,7 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
         // The chips are flat %-maxHp OUTSIDE wMult, so nothing compounds the uncapped story enrage.
         // NOT a slam: a knockback would un-cluster the party away from the Sovereign's radius nuke,
         // trivializing the final wall. Its threat is the collapsing ring squeezing you IN — a nova fits.
-        boss: { aiId: 'boss-sovereign', phases: [75, 50, 25], mechanic: 'enrage', targetMode: 'lowest-hp', strike: { kind: 'nova', pct: 14, radius: 1, everyRounds: 2 }, phasePillars: 2 },
+        boss: { aiId: 'boss-sovereign', hp: 60000, phases: [75, 50, 25], mechanic: 'enrage', targetMode: 'lowest-hp', strike: { kind: 'nova', pct: 14, radius: 1, everyRounds: 2 }, phasePillars: 2 },
         closingRing: { pct: 3, fromRound: 11, minRadius: 3 },
         features: [pylon(14, 10), pylon(14, 10), pylon(14, 10), pylon(14, 10), ward(14, 10, 25), hazard(14, 10)],
         firstClearReward: { ryo: 6000, xp: 2500, fateShards: 30, milestone: 'tower-floor-10' },
@@ -688,6 +692,13 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
         },
     },
 ];
+
+export const FLOOR_CATALOG: readonly TowerFloor[] = AUTHORED_STORY_FLOORS.map(floor => ({
+    ...floor,
+    balanceFor: 4,
+    squadBalance: 'four-player-v1',
+    recommendedLevel: Math.min(100, 30 + (floor.id - 1) * 5),
+}));
 
 // ─── Clan Boss floors (api/clan-boss) ────────────────────────────────────────
 // A SEPARATE registry in a reserved id range (9001+), so the public tower catalog
