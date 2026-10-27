@@ -687,7 +687,8 @@ for (const activity of ['mining', 'fishing'] as const) {
         await page.unroute('**/api/world/resource');
         // Reinstall the successful status responder without replacing the
         // attempt or private seal held by the original broader fixture route.
-        await page.route('**/api/world/resource', route => route.fulfill({ json: { ok: true, character: admitted, _saveVersion: 2 } }));
+        await page.route('**/api/world/resource', route => route.request().postDataJSON().action === 'status'
+            ? route.fulfill({ json: { ok: true, character: admitted, _saveVersion: 2 } }) : route.fallback());
         await page.getByRole('button', { name: 'Check gathering again', exact: true }).click();
         await expect(activity === 'fishing' ? page.getByRole('application', { name: 'Kunai fishing pool' }) : page.getByRole('button', { name: 'Collect result', exact: true })).toBeVisible();
         expect(readResourceGathering(runtime.character().resourceGathering).attemptsToday).toBe(1);
@@ -702,7 +703,8 @@ test('changing selected nodes during the status readback keeps the current node 
     const current = new Promise<void>(resolve => { releaseCurrent = resolve; });
     await page.route('**/api/world/resource', async route => {
         const body = route.request().postDataJSON();
-        expect(body.action).toBe('status'); expect(body.nodeId).toBeUndefined();
+        if (body.action !== 'status') return route.fallback();
+        expect(body.nodeId).toBeUndefined();
         const snapshot = { ...runtime.character() }, version = ++calls;
         await (calls === 1 ? initial : current);
         await route.fulfill({ json: { ok: true, character: snapshot, _saveVersion: version } });
@@ -730,6 +732,7 @@ for (const failure of ['service', 'stale'] as const) {
         let calls = 0, release!: () => void, recover = false;
         const waiting = new Promise<void>(resolve => { release = resolve; });
         await page.route('**/api/world/resource', async route => {
+            if (route.request().postDataJSON().action !== 'status') return route.fallback();
             calls++;
             await waiting;
             if (recover) return route.fulfill({ json: { ok: true, character: runtime.character(), _saveVersion: 2 } });
@@ -760,13 +763,14 @@ test('a late status response cannot commit after the gathering surface unmounts'
     const incoming = new Promise<void>(resolve => { received = resolve; });
     const delayed = new Promise<void>(resolve => { release = resolve; });
     await page.route('**/api/world/resource', async route => {
+        if (route.request().postDataJSON().action !== 'status') return route.fallback();
         received(); await delayed;
         await route.fulfill({ json: { ok: true, character: { ...runtime.character(), ryo: 99999999 }, _saveVersion: 99 } });
     });
     await page.goto('/e2e/fixtures/resource-gathering.html?lifecycle=1'); await incoming;
     await page.getByTestId('gathering-mount').click();
     await expect(page.getByRole('button', { name: /^Harbor iron seam, mining/ })).toHaveCount(0);
-    const response = page.waitForResponse(response => response.url().endsWith('/world/resource'));
+    const response = page.waitForResponse(response => response.url().endsWith('/world/resource') && response.request().postDataJSON().action === 'status');
     release(); await response;
     // Two paint frames let the asynchronous callback run; it must keep both
     // the save and its accepted version untouched after the screen has left.
