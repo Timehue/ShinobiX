@@ -39,7 +39,7 @@ function fixture(applyServerSnapshot: (snapshot: PlayerSavePayload) => boolean =
     owner.latestSaveVersionRef.current = 5;
     owner.prevCharRef.current = initial;
     refreshPlayerSaveSnapshot(initial, initial.name, fields, owner);
-    return { owner, fields, initial, characterRef, currentAccountNameRef, saveSessionEpochRef, pvpCreateScopeAbortRef };
+    return { owner, fields, initial, characterRef, currentAccountNameRef, saveSessionEpochRef, pvpCreateScopeAbortRef, storage };
 }
 
 test("restoration publishes a clean snapshot; identical renders neither dirty it nor create another revision", () => {
@@ -150,6 +150,23 @@ test("versioned commits reject stale or foreign characters and synchronously pub
     assert.equal(f.owner.latestSaveVersionRef.current, 6);
     assert.equal(f.owner.latestSaveRef.current?.character.level, 2);
     assert.equal(f.characterRef.current?.level, 2);
+});
+
+test("a newer recovery mutation replaces the defeated preview even when it overtakes the boot owner read", () => {
+    const f = fixture();
+    const key = "ninjav-save-preview-v1:rookie";
+    const defeated = { ...f.initial, hp: 0, hospitalized: true, ryo: 10000 };
+    f.storage.set(key, JSON.stringify({ ...f.owner.latestSaveRef.current!.payload, character: defeated, _saveVersion: 5 }));
+    const healthy = { ...defeated, hp: defeated.maxHp, hospitalized: false, ryo: 9925 };
+    assert.equal(f.owner.commitVersionedCharacter(healthy, 7), true);
+    const preview = JSON.parse(f.storage.get(key)!);
+    assert.equal(preview._saveVersion, 7);
+    assert.equal(preview.character.hp, healthy.maxHp);
+    assert.equal(preview.character.hospitalized, false);
+    assert.equal(preview.character.ryo, 9925);
+    assert.equal(f.owner.charDirtyRef.current, false, "an authoritative recovery does not require an autosave");
+    assert.equal(f.owner.commitVersionedCharacter({ ...healthy, name: "Other", hp: 0 }, 8), false);
+    assert.equal(f.storage.get(key), JSON.stringify(preview), "a foreign response cannot replace the recovery preview");
 });
 
 // Reproduced live on 2026-10-09 (e2e-live/resource-gathering.spec.ts): a tool
