@@ -2,7 +2,7 @@ import { BANK_INTEREST_WINDOW_MS, projectedBankInterest } from "../../../shared/
 import { getBankInterestPercent } from "../lib/village-upgrades";
 import { useRef, useState, useSyncExternalStore } from "react";
 import { type Character } from "../types/character";
-import { sendCurrency, previewCredit, TRADE_CURRENCY_LABELS, TRADE_MINS, TRADE_CAPS, TRADE_TAX_PCT, type TradeCurrency } from "../lib/player-trade";
+import { sendCurrency, hasPendingTradeIntent, previewCredit, TRADE_CURRENCY_LABELS, TRADE_MINS, TRADE_CAPS, TRADE_TAX_PCT, type TradeCurrency } from "../lib/player-trade";
 import { gameConfirm } from "../components/GameAlert";
 import { requireServerSettlement } from "../lib/server-settlement-gate";
 import { AMBIGUOUS_ACTION_MESSAGE } from "../lib/ambiguous-action";
@@ -10,20 +10,19 @@ import { gameToast } from "../components/GameToast";
 import { getSharedNow, subscribeSharedNow } from "../lib/shared-now-store";
 import { pendingBankTransferIntent, readPendingBankTransferIntent } from "../lib/bank-transfer-intent";
 import type { VersionedCharacterCommit } from "../types/character";
-import { characterWithVillageTax, readVillageTaxEcho, villageTaxNotice } from "../lib/village-tax-echo";
+import { readVillageTaxEcho, villageTaxNotice } from "../lib/village-tax-echo";
 
-import { transferBankRyo, claimBankInterest, bankTransferRefused } from "./bank-api";
+import { transferBankRyo, claimBankInterest, bankTransferRefused, readBankAuthority, readBankSave } from "./bank-api";
 import type { BankInterestResponse } from "../../../shared/bank-contract";
 
 const noSubscription = () => () => undefined;
 
 export type BankControllerProps = {
     character: Character;
-    updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>;
     onVersionedCharacter: VersionedCharacterCommit;
 };
 
-export function useBankController({ character, updateCharacter, onVersionedCharacter }: BankControllerProps) {
+export function useBankController({ character, onVersionedCharacter }: BankControllerProps) {
     const [amount, setAmount] = useState(0);
     const [amountError, setAmountError] = useState<string | null>(null);
     const [recipientError, setRecipientError] = useState<string | null>(null);
@@ -57,7 +56,7 @@ export function useBankController({ character, updateCharacter, onVersionedChara
             ? `Minimum transfer is ${TRADE_MINS[sendCurr].toLocaleString()} ${TRADE_CURRENCY_LABELS[sendCurr]}.`
             : value > TRADE_CAPS[sendCurr]
                 ? `Maximum per transfer is ${TRADE_CAPS[sendCurr].toLocaleString()} ${TRADE_CURRENCY_LABELS[sendCurr]}.`
-                : value > sendBalance
+                : value > sendBalance && !hasPendingTradeIntent(character.name, to, sendCurr, value)
                     ? `You don't have ${value.toLocaleString()} ${TRADE_CURRENCY_LABELS[sendCurr]}.`
                     : null;
         if (validation) {
@@ -71,14 +70,14 @@ export function useBankController({ character, updateCharacter, onVersionedChara
             if (!(await gameConfirm(`Send ${value.toLocaleString()} ${TRADE_CURRENCY_LABELS[sendCurr]} to ${to}? They receive ${previewCredit(value).toLocaleString()} after a ${Math.round(TRADE_TAX_PCT * 100)}% transfer tax.`))) return;
             const res = await sendCurrency(character.name, to, sendCurr, value);
             if (!res.ok) return alert(res.error || "Could not send.");
-            if (res.duplicate) return alert("That transfer was already sent.");
-            // Server is authoritative — reflect the debit locally so autosave converges.
-            updateCharacter((prev) => prev ? ({
-                ...prev,
-                [sendCurr]: res.senderBalance ?? Math.max(0, Math.floor(Number((prev as unknown as Record<string, unknown>)[sendCurr]) || 0)),
-            }) : prev);
+            // A replay can carry an old balance. Read current authority and let
+            // the coordinator reject replies for a newer save or another login.
+            const authority = await readBankSave(character.name, res._saveVersion).catch(() => null);
+            if (authority) onVersionedCharacter({ ...character, ...authority.character } as Character, authority._saveVersion);
             setSendAmount(0);
             setSendTo("");
+            if (!authority) return alert("Transfer confirmed. Your balance could not be refreshed. Reload to see your current funds.");
+            if (res.duplicate) return gameToast("That transfer was already sent. Your balance is up to date.");
             gameToast(`Sent ${(res.debit ?? value).toLocaleString()} ${TRADE_CURRENCY_LABELS[sendCurr]} to ${res.toPlayer ?? to}. They received ${(res.credit ?? 0).toLocaleString()} (${(res.burned ?? 0).toLocaleString()} burned as tax).`);
         } finally {
             sendingRef.current = false;
@@ -140,7 +139,8 @@ export function useBankController({ character, updateCharacter, onVersionedChara
             const villageTax = readVillageTaxEcho(data ?? error);
             const taxNotice = villageTaxNotice(villageTax);
             if (villageTax?._saveVersion && !data) {
-                onVersionedCharacter(characterWithVillageTax(character, villageTax), villageTax._saveVersion);
+                const authority = await readBankAuthority(character.name).catch(() => null);
+                if (authority) onVersionedCharacter({ ...character, ...authority.character } as Character, authority._saveVersion);
             }
             if (taxNotice) gameToast(taxNotice);
             if (!data) {
@@ -189,19 +189,25 @@ export function useBankController({ character, updateCharacter, onVersionedChara
         // the interest from the SAVED bankRyo + bank-upgrade rate under the save
         // lock and stamps lastBankInterestAt against its own clock, so the client
         // can no longer inflate the amount or replay via a rolled-back clock.
-        // Preserve the existing adoption of the returned bank balance and claim time.
+        // Adopt the character and version together, including late/unmounted replies.
         bankBusyRef.current = true;
         setBankBusy(true);
         let data: BankInterestResponse;
         try {
             const reply = await claimBankInterest(character.name);
+            if (reply.data) {
+                const authority = await readBankAuthority(character.name, reply.data);
+                onVersionedCharacter({ ...character, ...authority.character } as Character, authority._saveVersion);
+            }
             // The day's occupation tax, assessed by the server first (2026-10
             // rebalance): adopt its post-tax wallet, and on a refusal its
             // stamped version too, so the next autosave is not stale.
             const villageTax = readVillageTaxEcho(reply.data ?? reply.error);
             if (villageTax) {
-                if (villageTax._saveVersion && !reply.data) onVersionedCharacter(characterWithVillageTax(character, villageTax), villageTax._saveVersion);
-                else if (villageTax.applied) updateCharacter((prev) => prev ? characterWithVillageTax(prev, villageTax) : prev);
+                if (villageTax._saveVersion && !reply.data) {
+                    const authority = await readBankAuthority(character.name).catch(() => null);
+                    if (authority) onVersionedCharacter({ ...character, ...authority.character } as Character, authority._saveVersion);
+                }
                 const taxNotice = villageTaxNotice(villageTax);
                 if (taxNotice) gameToast(taxNotice);
             }
@@ -229,8 +235,6 @@ export function useBankController({ character, updateCharacter, onVersionedChara
                             ? "Your vault balance is too small to earn interest yet."
                             : "Bank interest isn't available yet — try again later.");
         }
-        const claimedAt = data.lastBankInterestAt ?? Date.now();
-        updateCharacter((prev) => prev ? ({ ...prev, bankRyo: data.bankRyo ?? prev.bankRyo, lastBankInterestAt: claimedAt }) : prev);
         gameToast(`Bank interest claimed: +${data.claimed.toLocaleString()} ryo.`);
     }
 

@@ -59,6 +59,9 @@ function subscribe(kind: ListKind, playerName: string, callback: Listener): () =
     selectOwner(playerName);
     subscribers[kind].set(callback, playerName);
     callback(lists[kind]);
+    // A same-account remount may follow edits on another device while no
+    // refresh listeners were installed. Coalesce with an existing GET.
+    void refreshSocialLists();
     if (!removeRefreshListeners && typeof window !== 'undefined') {
         const refresh = () => { if (!document.hidden) void refreshSocialLists(); };
         window.addEventListener('online', refresh);

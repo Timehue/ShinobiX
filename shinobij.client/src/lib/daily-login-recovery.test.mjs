@@ -7,6 +7,7 @@ import { createPlayerSaveCoordinator } from './player-save-coordinator.ts';
 import { usePlayerSaveState } from './use-player-save-state.ts';
 import { refreshPlayerSaveSnapshot } from './player-save-tracking.ts';
 import { claimDailyLogin } from './daily-login-api.ts';
+import { claimBankInterest, readBankAuthority } from './bank-api.ts';
 import { buildSaveVersionEventDetail } from '../authFetch.ts';
 
 // Actual authenticated handlers and the actual client transport/coordinator,
@@ -191,7 +192,7 @@ test('an ordinary player cannot claim another account daily reward', async () =>
     assert.equal((await kv.get(`save:${f.name}`)).character.fateShards, 20);
 });
 
-test('lost daily reply → bank interest → actual autosave preserves and reconciles the shard credit', async () => {
+for (const legacy of [false, true]) test(`lost daily reply → ${legacy ? 'legacy' : 'snapshot'} bank interest → actual autosave preserves and reconciles the shard credit`, async () => {
     const { default: bankInterest } = await import('../../../api/bank/claim-interest.ts');
     const f = await fixture({ bankRyo: 10000, villageUpgrades: { bank: 10 }, lastBankInterestAt: 0 });
     const realFetch = globalThis.fetch;
@@ -201,15 +202,33 @@ test('lost daily reply → bank interest → actual autosave preserves and recon
     };
     assert.equal(await f.claim(), null);
     assert.equal((await kv.get(`save:${f.name}`)).character.fateShards, 25);
-    const bank = await call(bankInterest, f.name, f.token, { playerName: f.name });
+    let recoveryReads = 0;
+    globalThis.fetch = async (url, init) => {
+        if (url === `/api/save/${f.name}`) {
+            recoveryReads++;
+            const result = await call(save, f.name, f.token, undefined, 'GET');
+            return Response.json(result.body, { status: result.status });
+        }
+        assert.equal(url, '/api/bank/claim-interest');
+        const result = await call(bankInterest, f.name, f.token, JSON.parse(init.body));
+        if (legacy) delete result.body.character;
+        return Response.json(result.body, { status: result.status });
+    };
+    const bank = await claimBankInterest(f.name);
     assert.equal(bank.status, 200);
-    assert.equal(bank.body.claimed, 10);
-    const event = buildSaveVersionEventDetail(bank.body, f.name, 'mutation');
-    assert.equal(f.owner.saveAuthority.acceptExternalVersion(event.version, f.name), 'accepted');
-    const local = { ...f.characterRef.current, bankRyo: bank.body.bankRyo, lastBankInterestAt: bank.body.lastBankInterestAt };
-    f.characterRef.current = local;
-    f.owner.latestSaveRef.current = { ...f.owner.latestSaveRef.current, character: local,
-        payload: { ...f.owner.latestSaveRef.current.payload, character: local } };
+    assert.equal(bank.data.claimed, 10);
+    assert.equal(bank.data._saveVersion, 12);
+    assert.equal(buildSaveVersionEventDetail(bank.data, f.name, 'mutation', '/api/bank/claim-interest'), null,
+        'interest cannot publish a version before its whole character is adopted');
+    assert.equal(f.owner.latestSaveVersionRef.current, 10);
+    const authority = await readBankAuthority(f.name, bank.data);
+    assert.equal(f.owner.commitVersionedCharacter(authority.character, authority._saveVersion), true);
+    assert.equal(recoveryReads, legacy ? 1 : 0);
+    assert.ok(authority._saveVersion >= bank.data._saveVersion, 'legacy readback may include a newer owner-load repair');
+    assert.equal(authority._saveVersion, (await kv.get(`save:${f.name}`))._saveVersion);
+    assert.equal(f.owner.latestSaveVersionRef.current, authority._saveVersion);
+    assert.equal(f.characterRef.current.fateShards, 25, 'the lost daily reward is recovered before autosave');
+    assert.equal(f.owner.latestSaveRef.current.character.fateShards, 25, 'the synchronous payload shares the adopted authority');
     let writes = 0;
     globalThis.fetch = async (url, init) => {
         assert.equal(url, `/api/save/${f.name}`);
@@ -225,7 +244,7 @@ test('lost daily reply → bank interest → actual autosave preserves and recon
     const stored = await kv.get(`save:${f.name}`);
     assert.equal(stored.character.fateShards, 25);
     assert.equal(stored.character.bankRyo, 10010);
-    assert.equal(stored._saveVersion, 13);
+    assert.equal(stored._saveVersion, authority._saveVersion + 1);
 });
 
 test('a genuine paid profile action after daily credit remains paid through receipt retry and stale save', async () => {
@@ -417,14 +436,15 @@ test('daily claims across UTC midnight advance once per date without duplicating
     assert.equal(stored.character.lastLoginRewardDate, '2026-09-15');
 });
 
-test('all daily request representations withhold balance-only versions while other mutations still publish', () => {
-    for (const request of ['/api/player/daily-login?retry=1',
-        new URL('https://shinobijourney.com/api/player/daily-login'),
-        new Request('https://shinobijourney.com/api/player/daily-login', { method: 'POST' })]) {
-        assert.equal(buildSaveVersionEventDetail({ ok: true, eligible: false, claimed: 0, reason: 'cooldown', nextClaimAt: 1000, _saveVersion: 9 }, 'owner', 'mutation', request), null);
+test('atomic daily and bank callers withhold balance-only versions in every request representation', () => {
+    for (const path of ['/api/player/daily-login', '/api/bank/claim-interest', '/api/player/trade']) {
+        for (const request of [`${path}?retry=1`, new URL(`https://shinobijourney.com${path}`),
+            new Request(`https://shinobijourney.com${path}`, { method: 'POST' })]) {
+            assert.equal(buildSaveVersionEventDetail({ ok: true, eligible: false, claimed: 0, reason: 'cooldown', nextClaimAt: 1000, _saveVersion: 9 }, 'owner', 'mutation', request), null);
+        }
     }
-    assert.equal(buildSaveVersionEventDetail({ ok: true, eligible: false, claimed: 0, reason: 'cooldown', nextClaimAt: 1000, _saveVersion: 9 }, 'owner', 'mutation',
-        '/api/bank/claim-interest').version, 9);
+    assert.equal(buildSaveVersionEventDetail({ _saveVersion: 9 }, 'owner', 'mutation').version, 9,
+        'legacy version-only observers outside these atomic callers retain their contract');
 });
 
 test('acknowledged edits become the baseline, while an edit made during that write stays pending', async t => {

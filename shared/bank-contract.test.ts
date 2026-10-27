@@ -64,3 +64,15 @@ test('errors validate the message and optional authoritative tax echo', () => {
         assert.equal(apiErrorContract.safeParse(value).success, false);
     }
 });
+
+test('interest snapshots are additive, preserve legacy fields, and reject malformed authority', () => {
+    const legacy = { ok: true, eligible: false, claimed: 0, reason: 'empty', nextClaimAt: 0, _saveVersion: 0 };
+    assert.deepEqual(interest.parse(legacy), legacy);
+    const character = { name: 'Ninja', futureField: { keep: true } };
+    assert.deepEqual(interest.parse({ ...legacy, character }).character, character, 'missing legacy balances stay absent for hydration');
+    assert.equal(interest.parse({ ...legacy, character: { ...character, bankRyo: 100.5 } }).character?.bankRyo, 100.5);
+    for (const invalid of [null, [], {}, { name: '' }, { name: 'Ninja', bankRyo: '100' },
+        { name: 'Ninja', ryo: -1 }, { name: 'Ninja', bankRyo: Infinity }]) {
+        assert.equal(interest.safeParse({ ...legacy, character: invalid }).success, false);
+    }
+});

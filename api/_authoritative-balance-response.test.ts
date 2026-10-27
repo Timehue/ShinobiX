@@ -181,7 +181,8 @@ describe('authoritative balance response migration', () => {
         const api = read('api/bank/claim-interest.ts');
         const client = read('shinobij.client/src/lib/use-bank-controller.ts');
         assert.match(api, /bankRyo: out\.bankRyo/);
-        assert.match(client, /bankRyo: data\.bankRyo \?\? prev\.bankRyo/);
+        assert.match(client, /readBankAuthority\(character\.name, reply\.data\)/);
+        assert.match(client, /onVersionedCharacter\(\{ \.\.\.character, \.\.\.authority\.character \} as Character, authority\._saveVersion\)/);
         assert.doesNotMatch(client, /bankRyo: prev\.bankRyo \+ claimed/);
     });
 
@@ -189,7 +190,8 @@ describe('authoritative balance response migration', () => {
         const api = read('api/player/trade.ts');
         const client = read('shinobij.client/src/lib/use-bank-controller.ts');
         assert.match(api, /toPlayer: toDisplay, senderBalance/);
-        assert.match(client, /\[sendCurr\]: res\.senderBalance \?\?/);
+        assert.match(client, /readBankSave\(character\.name, res\._saveVersion\)/);
+        assert.doesNotMatch(client, /\[sendCurr\]: res\.senderBalance/);
     });
 
     it('bank deposits and withdrawals adopt the atomically committed character', () => {
