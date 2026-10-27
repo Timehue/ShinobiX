@@ -1,4 +1,4 @@
-import { kv as realKv, type KvLike } from '../_storage.js';
+import type { KvLike } from '../_storage.js';
 import { safeName } from '../_utils.js';
 import type { WorldPosition } from '../../shared/world-position.js';
 import { worldPositionModel } from '../../shared/continuous-world-layout.js';
@@ -158,5 +158,3 @@ export async function recordArrivalTile(
     });
 }
 
-/** Production store, for callers that do not inject one. */
-export const walkedTileStore: WalkedTileStore = realKv;

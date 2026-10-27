@@ -14,7 +14,6 @@ import {
     clanWarKey,
     clanWarPairId,
     loadClanContext,
-    canActAsClanLeadership,
     redactClanWarForViewer,
     type ClanWar,
 } from './_storage.js';
@@ -34,18 +33,13 @@ import {
 //     war when only one of them was intended.
 //   • Pair-cooldown: same two clans cannot re-war within 7 days of
 //     the previous war ending
-//   • Declaring player must hold ≥ CLAN_WAR_DECLARATION_COST honor seals
-//     (charged off their save on success — same model as the Village War
-//     declaration in api/world-state.ts). Free clan wars previously let
-//     officers grief-pair every other clan into 7-day cooldowns.
+//   • Declaring player must hold ≥ CLAN_WAR_RULES.declarationCost honor seals
+//     (shared/clan-war-campaign.ts; charged by _campaign-declare.ts, which
+//     every non-admin declaration is delegated to below). Free clan wars
+//     previously let officers grief-pair every other clan into 7-day
+//     cooldowns. Admin declarations (testing) charge nothing.
 //
 // Server-managed: war record + HP (500/500), war crate ID, declaredBy.
-
-// Honor-seal cost to declare. 100 is lower than the 500-seal village war
-// cost — clan wars are more frequent and at a smaller scale — but enough
-// to make grief-locking a clan into the 7-day cooldown carry real economic
-// weight. Admin bypasses (testing).
-const CLAN_WAR_DECLARATION_COST = 100;
 
 // War Room clan-upgrade bonus to the starting war-HP pool, +2 HP per level.
 // KEEP IN SYNC with shinobij.client/src/lib/clan-upgrades.ts (WAR_ROOM_HP_PER_LEVEL).
@@ -91,10 +85,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const fromClan = identity.admin ? (String(body?.fromClan ?? '') || ctx.clan) : ctx.clan;
         if (!fromClan) return res.status(400).json({ error: 'You must be in a clan to declare war.' });
         if (fromClan === requestedToClan) return res.status(400).json({ error: 'Cannot declare war on your own clan.' });
-
-        if (!identity.admin && !canActAsClanLeadership(ctx.role)) {
-            return res.status(403).json({ error: 'Only Clan Founder, Leader, or Officer can declare war.' });
-        }
 
         // Resolve the target clan record + its village. This also acts
         // as the "does the clan exist?" check.
@@ -162,21 +152,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             };
         };
 
-        if (identity.admin) {
-            // An admin declaration (testing) charges nothing, so there is
-            // nothing to settle: re-check under the pair lock and write.
-            const result = await withKvLock(key, async () => {
-                const existing = await kv.get<ClanWar>(key);
-                if (existing && !existing.endedAt) {
-                    return { status: 409 as const, body: { error: 'War already exists for this clan pair.', war: existing } };
-                }
-                const war = buildWar(Date.now());
-                await kv.set(key, war);
-                return { status: 200 as const, body: { war } };
-            }, { failClosed: true });
-            return res.status(result.status).json(result.body);
-        }
-
+        // Only an admin reaches here (every player declaration returned above).
+        // An admin declaration (testing) charges nothing, so there is nothing
+        // to settle: re-check under the pair lock and write.
+        const result = await withKvLock(key, async () => {
+            const existing = await kv.get<ClanWar>(key);
+            if (existing && !existing.endedAt) {
+                return { status: 409 as const, body: { error: 'War already exists for this clan pair.', war: existing } };
+            }
+            const war = buildWar(Date.now());
+            await kv.set(key, war);
+            return { status: 200 as const, body: { war } };
+        }, { failClosed: true });
+        return res.status(result.status).json(result.body);
     } catch (err) {
         if (err instanceof SaveDebitRefusal) return res.status(err.status).json({ ...err.details, error: err.message });
         if (err instanceof LockContendedError) return res.status(503).json({ error: 'The war table is busy. Nothing was spent; try again.', retryable: true });

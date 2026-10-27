@@ -1,5 +1,7 @@
 # Village War Map — Sectors, War Resources, Tax & Structure Maintenance — Master Plan
 
+> **Historical document.** It was written while Vercel and cPanel were still hosts. Both are retired: Railway is the only host, `dist/` is never committed, and new endpoints are registered in `server-api-routes.ts`. Instructions below about committing `dist/`, cPanel or Vercel parity, or `server.ts` registration no longer apply. Current rules live in `CLAUDE.md`.
+
 > **Status:** PLAN ONLY — no code written. Balance‑sensitive and economy‑touching;
 > needs owner sign‑off before any implementation (CLAUDE.md hard rules: no
 > reward/currency/balance changes without explicit approval).

@@ -1,6 +1,5 @@
 import { RESOURCE_GRADES, resourceItemId, type ResourceGrade } from './resource-items';
 export type OreRequirement = { ids: string[]; count: number; label: string; grade: ResourceGrade };
-export const namedForgeOreCount = (kind: 'weapon' | 'armor') => kind === 'weapon' ? 20 : 16;
 /** Stronger weapons need purer ore. Higher grades may satisfy a lower requirement,
  * consumed lowest-first; refining cannot bypass the required grade. */
 export function resourceForgeRequirement(item: { slot: string; rarity: string; weaponEp?: number; armorQuality?: string }): OreRequirement | null {

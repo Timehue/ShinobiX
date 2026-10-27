@@ -1,5 +1,7 @@
 # Plan — Stackable items as counted stacks (Option B)
 
+> **Historical document.** It was written while Vercel and cPanel were still hosts. Both are retired: Railway is the only host, `dist/` is never committed, and new endpoints are registered in `server-api-routes.ts`. Instructions below about committing `dist/`, cPanel or Vercel parity, or `server.ts` registration no longer apply. Current rules live in `CLAUDE.md`.
+
 **Status:** PROPOSED — needs owner approval before any code (changes the save
 shape; CLAUDE.md Hard Rule).
 **Goal:** Stop the "items into the void" bug by storing stackable / non-unique

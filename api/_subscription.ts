@@ -284,9 +284,3 @@ export function promoSupporterFlag(
 
 export { isPatreonSubscriber };
 
-/** Tier id for an active subscriber, or null when the flag is inactive/absent. */
-export function subscriptionTier(character: unknown): string | null {
-    if (!isPatreonSubscriber(character)) return null;
-    const tier = (character as { patreon?: { tier?: string } }).patreon?.tier;
-    return String(tier ?? SUBSCRIBER_TIER);
-}

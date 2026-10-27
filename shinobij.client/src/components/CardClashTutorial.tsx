@@ -72,15 +72,17 @@ export function CardClashTutorial({ onClose }: { onClose: () => void }) {
           {current.lines.map((line) => (
             <p key={line}>{line}</p>
           ))}
+          {/* Enter is on every page and first, so it takes the dialog's
+              opening focus: a returning player (or a controller's A) leaves
+              in one press, and a new one pages on with Next. */}
           <div className="chronicle-tutorial__foot">
+            <button type="button" onClick={onClose}>Enter the Card Hall</button>
             {page > 0 ? (
               <button type="button" className="secondary" onClick={() => setPage(page - 1)}>
                 Back
               </button>
             ) : null}
-            {last ? (
-              <button type="button" onClick={onClose}>Enter the Card Hall</button>
-            ) : (
+            {last ? null : (
               <button type="button" onClick={() => setPage(page + 1)}>Next</button>
             )}
           </div>

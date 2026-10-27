@@ -512,6 +512,15 @@ export function normalizeAiProfile(ai: Partial<CreatorAi>, allJutsus: Jutsu[] = 
             value: Number(rule.value ?? 0),
             action: rule.action ?? "use_highest_power_jutsu",
             jutsuId: rule.jutsuId,
+            // The editor authors these and the server program validator
+            // (api/combat-core/ai-authoring.ts) REQUIRES them for status,
+            // resource, recent-action and objective rules; dropping them here
+            // made the whole published program invalid.
+            ...(rule.target !== undefined ? { target: rule.target } : {}),
+            ...(rule.resource !== undefined ? { resource: rule.resource } : {}),
+            ...(rule.status !== undefined ? { status: rule.status } : {}),
+            ...(rule.pattern !== undefined ? { pattern: rule.pattern } : {}),
+            ...(rule.state !== undefined ? { state: rule.state } : {}),
         })),
     };
 }

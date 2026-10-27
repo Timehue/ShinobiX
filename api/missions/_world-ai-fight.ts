@@ -206,13 +206,6 @@ export function sameWorldAiFightRequest(a: WorldAiFightRequest, b: WorldAiFightR
         && (a.encounterId ?? '') === (b.encounterId ?? '');
 }
 
-export function worldContextWinProofExists(
-    character: Record<string, unknown>,
-    expected: { kind: 'questbook-boss' | 'story-reckoning'; sourceId: string; stage: number; sealVersion: string },
-): boolean {
-    return worldContextWinProofCount(character, expected) > 0;
-}
-
 export function worldContextWinProofCount(
     character: Record<string, unknown>,
     expected: { kind: 'questbook-boss' | 'story-reckoning'; sourceId: string; stage: number; sealVersion: string },

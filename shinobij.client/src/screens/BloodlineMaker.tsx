@@ -522,9 +522,9 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
                                 <select value={damageMode} onChange={(e) => handleDamageMode(e.target.value)}>
                                     <option value="standard">40 — Standard · Lv.1 ˜ 30.2</option>
                                     <option value="nuke" disabled={strongUsedElsewhere}>50 — Nuke · Lv.1 ˜ 40.2{strongUsedElsewhere ? " [already used]" : " (+1 pt)"}</option>
-                                    <option value="pierce" disabled={pierceUsedElsewhere}>Pierce — 900 true damage{pierceUsedElsewhere ? " [already used]" : " (+1 pt)"}</option>
+                                    <option value="pierce" disabled={pierceUsedElsewhere}>Pierce — true damage, up to 900{pierceUsedElsewhere ? " [already used]" : " (+1 pt)"}</option>
                                 </select>
-                                <small className="tag-effect-help">Standard 60 AP is 0 points. Nuke (+1 pt) scales with level. Pierce (+1 pt) deals 900 unblockable damage — ignores shields, armor, and all damage modifiers. Only one Nuke and one Pierce allowed per bloodline.</small>
+                                <small className="tag-effect-help">Standard 60 AP is 0 points. Nuke (+1 pt) scales with level. Pierce (+1 pt) deals unblockable true damage, scaled by your offense and mastery up to 900 — ignores shields, armor, and all damage modifiers. Only one Nuke and one Pierce allowed per bloodline.</small>
                             </div>
                         );
                     })()}

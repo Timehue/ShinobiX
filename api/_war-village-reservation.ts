@@ -526,17 +526,3 @@ export function villageWarReservationFromRow(value: unknown): VillageWarReservat
     return cleanReservation(value);
 }
 
-/** Whether an exact reservation belongs to a specific declaration plan. */
-export function villageWarReservationMatchesPlan(
-    value: unknown,
-    plan: VillageWarReservationPlan,
-): value is VillageWarReservationRow {
-    const row = cleanReservation(value);
-    return !!row && sameDeclaration(row, plan);
-}
-
-/** Funding-field presence helper retained here so callers can fail closed on malformed rows. */
-export function villageWarRowHasFundingAuthority(value: unknown): boolean {
-    return !!value && typeof value === 'object' && !Array.isArray(value)
-        && Object.prototype.hasOwnProperty.call(value, WAR_DECLARATION_FUNDING_FIELD);
-}

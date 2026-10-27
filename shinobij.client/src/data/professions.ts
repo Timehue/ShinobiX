@@ -80,7 +80,7 @@ export const PROFESSION_INFO: ProfessionInfo[] = [
             "Rank 10: +1 Honor Seal per raid completed",
         ],
         rankHighlights: [
-            { rank: "Rank 1", perk: "1 Seal per kill · daily seal cap 50" },
+            { rank: "Rank 1", perk: "1 Seal per kill · daily seal cap 150" },
             { rank: "Rank 10", perk: "5 Seals per kill · bonus raid Seals · training discount" },
         ],
     },

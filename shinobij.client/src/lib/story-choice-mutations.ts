@@ -16,18 +16,6 @@ export function addStoryTrait(character: Character, trait: string): Character {
     return { ...character, storyTraits: [...existing, t] };
 }
 
-// Record a choice trait, then run the derived-trait pass so composite states
-// (e.g. al88-better-winter-ready) materialize immediately — a later page in
-// the same scene can then gate on them. Wraps addStoryTrait; the derivation is
-// pure and idempotent, so this never corrupts a save.
-export function applyStoryChoice(character: Character, trait: string): Character {
-    const withTrait = addStoryTrait(character, trait);
-    const before = withTrait.storyTraits ?? [];
-    const derived = deriveStoryTraits(before, withTrait.storyChoices);
-    const unchanged = derived.length === before.length && derived.every((trait) => before.includes(trait));
-    return unchanged ? withTrait : { ...withTrait, storyTraits: derived };
-}
-
 /** Atomically preserve exact choice identity and its compatibility trait projection. */
 export function applyStoryChoiceReceipt(character: Character, receipt: StoryChoiceReceipt): Character {
     const priorDecision = sanitizeStoryChoices(character.storyChoices).find((row) => storyDecisionKey(row) === storyDecisionKey(receipt));

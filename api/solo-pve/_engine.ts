@@ -50,7 +50,6 @@ import { MAX_COMBAT_VFX_TILES, semanticJutsuVfx } from '../combat-core/jutsu-vfx
 import { filledDiskTiles } from '../combat-core/aoe.js';
 import { canonicalTagName, OPPONENT_AFFECTING_TAGS, REQUIRES_DAMAGE_TAGS, STACKABLE_STATUS } from '../pvp/_tags.js';
 import {
-    canonicalGroundTags,
     createCanonicalGroundEffect,
     resolveJutsuActionPlan,
     type JutsuActionPlan,
@@ -1034,10 +1033,6 @@ function spendItemCharge(session: SoloPveSession, itemId: string): boolean {
     session.itemCharges[itemId] -= 1;
     session.itemsUsed[itemId] = (session.itemsUsed[itemId] ?? 0) + 1;
     return true;
-}
-
-function groundTags(jutsu: SoloPveJutsu): PvpGroundEffect['tags'] {
-    return canonicalGroundTags(jutsu.tags);
 }
 
 // Zone timing is PvP's (api/pvp/move.ts): the zone recurs from next round at the start of
@@ -2327,16 +2322,17 @@ export function runSoloPveAiUntilPlayer(session: SoloPveSession): void {
         const tactic = missionTactics ? null : aiTacticalAction(session);
         const authored = tactic ? null : (authoredAiAction(session, missionTactics) ?? (missionTactics ? { type: 'wait' as const } : null));
         const jutsu = tactic || authored ? null : aiJutsu(session);
-        if (tactic) {
-            directAction(session, 'enemy', tactic, {});
-        } else if (authored) {
-            directAction(session, 'enemy', authored, {});
-        } else if (jutsu) {
-            directAction(session, 'enemy', { type: 'jutsu', jutsuId: jutsu.jutsu.id, ...(jutsu.tile === undefined ? {} : { tile: jutsu.tile }) }, {});
-        } else if (hexDistance(session.enemy.pos, session.player.pos) <= 1 && canAct(session, 'enemy', BASIC_ATTACK_AP) && session.enemy.stamina >= BASIC_ATTACK_STAMINA) {
-            directAction(session, 'enemy', { type: 'basicAttack' }, {});
-        } else if (!moveEnemyTowardPlayer(session)) {
-            endSoloPveTurn(session);
+        // A chosen action the resolver refuses (Elemental Seal on an elemental
+        // jutsu, a jutsu range the scorer treats as unlimited) changes nothing, so
+        // re-picking it only burns the guard and forfeits the turn. Fall through to
+        // the same basic-attack / move chain used when nothing was chosen.
+        const chosen: SoloPveAction | null = tactic ?? authored
+            ?? (jutsu ? { type: 'jutsu', jutsuId: jutsu.jutsu.id, ...(jutsu.tile === undefined ? {} : { tile: jutsu.tile }) } : null);
+        const chosenApplied = chosen ? directAction(session, 'enemy', chosen, {}).applied : false;
+        if (!chosenApplied) {
+            const attacked = hexDistance(session.enemy.pos, session.player.pos) <= 1 && canAct(session, 'enemy', BASIC_ATTACK_AP) && session.enemy.stamina >= BASIC_ATTACK_STAMINA
+                && directAction(session, 'enemy', { type: 'basicAttack' }, {}).applied;
+            if (!attacked && !moveEnemyTowardPlayer(session)) endSoloPveTurn(session);
         }
         if (session.status === 'active' && session.activeSide === 'enemy' && (session.actionsThisTurn >= MAX_ACTIONS || session.ap.enemy < 30)) {
             endSoloPveTurn(session);

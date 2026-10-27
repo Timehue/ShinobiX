@@ -9,7 +9,7 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const SRC = path.join(HERE, '..', 'src', 'assets', 'coliseum', 'tactics-diorama.webp');
 const MAP_W = 1536, MAP_H = 1024;
 const ARENA_X = 14.0, ARENA_Y = 7.5;
-// arenaPlace region (must match PetColiseum ARENA_PLAY + gen-walkmask --full region)
+// arenaPlace region (must match the retired PetColiseum ARENA_PLAY + gen-walkmask --full region)
 const PLAY = { x0: 150, x1: 1386, y0: 96, y1: 930 };
 
 const { data, info } = await sharp(SRC).resize(MAP_W, MAP_H, { fit: 'fill' }).raw().toBuffer({ resolveWithObject: true });

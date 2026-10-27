@@ -2851,19 +2851,19 @@
           },
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 5537
+            "line": 5550
           },
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 6060
+            "line": 6073
           },
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 6266
+            "line": 6279
           },
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 6294
+            "line": 6307
           },
           {
             "source": "shinobij.client/src/styles/mission-arena-fight.css",
@@ -3137,7 +3137,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/screens/EchoesOfWar.css",
-            "line": 1033
+            "line": 1040
           },
           {
             "source": "shinobij.client/src/screens/PetLadder.css",
@@ -3153,7 +3153,7 @@
           },
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 1934
+            "line": 1947
           },
           {
             "source": "shinobij.client/src/styles/chronicle-packs.css",
@@ -3362,11 +3362,11 @@
           },
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 2811
+            "line": 2824
           },
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 6286
+            "line": 6299
           },
           {
             "source": "shinobij.client/src/styles/index/11-sector-explore-village-themes.css",
@@ -3882,7 +3882,7 @@
           },
           {
             "source": "shinobij.client/src/screens/EchoesOfWar.css",
-            "line": 876
+            "line": 883
           },
           {
             "source": "shinobij.client/src/styles/clan-overview.css",
@@ -4009,7 +4009,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 2314
+            "line": 2327
           }
         ]
       },
@@ -4060,23 +4060,23 @@
           },
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 2567
+            "line": 2580
           },
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 2780
+            "line": 2793
           },
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 3989
+            "line": 4002
           },
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 5108
+            "line": 5121
           },
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 6329
+            "line": 6342
           },
           {
             "source": "shinobij.client/src/styles/index/01-base-app-chrome.css",
@@ -4134,15 +4134,15 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 4221
+            "line": 4234
           },
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 4360
+            "line": 4373
           },
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 6060
+            "line": 6073
           }
         ]
       },
@@ -4520,7 +4520,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 2434
+            "line": 2447
           },
           {
             "source": "shinobij.client/src/styles/tower-tactical.css",
@@ -4563,15 +4563,15 @@
           },
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 4360
+            "line": 4373
           },
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 5537
+            "line": 5550
           },
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 6266
+            "line": 6279
           },
           {
             "source": "shinobij.client/src/styles/index/02-world-map.css",
@@ -4664,11 +4664,11 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 5537
+            "line": 5550
           },
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 6060
+            "line": 6073
           }
         ]
       },
@@ -5109,55 +5109,55 @@
           },
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 4626
+            "line": 4639
           },
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 4675
+            "line": 4688
           },
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 4705
+            "line": 4718
           },
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 4747
+            "line": 4760
           },
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 4848
+            "line": 4861
           },
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 4885
+            "line": 4898
           },
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 4915
+            "line": 4928
           },
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 4965
+            "line": 4978
           },
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 5002
+            "line": 5015
           },
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 5113
+            "line": 5126
           },
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 5163
+            "line": 5176
           },
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 5369
+            "line": 5382
           },
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 6324
+            "line": 6337
           },
           {
             "source": "shinobij.client/src/styles/index/24-combat-mobile-restore.css",
@@ -5245,7 +5245,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 2282
+            "line": 2295
           },
           {
             "source": "shinobij.client/src/styles/index/06-combat-core.css",
@@ -5280,11 +5280,11 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 2314
+            "line": 2327
           },
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 2434
+            "line": 2447
           }
         ]
       },

@@ -1,6 +1,8 @@
 import { expect, type Page, type Route } from "@playwright/test";
 import { PUBLIC_CAPABILITY_IDS } from "../../../shared/public-capabilities";
 import { worldPositionModel } from "../../../shared/continuous-world-layout";
+import { RESOURCE_NODES, WORLD_BOSS_CRYSTAL_NODES } from "../../../shared/resource-nodes";
+import { RESOURCE_NODE_ATTEMPTS } from "../../../shared/resource-gathering";
 
 export type UiAuditSave = {
     character?: Record<string, unknown>;
@@ -148,6 +150,15 @@ export async function installUiAuditRuntime(page: Page, initialSave: UiAuditSave
             ? (url.searchParams.get("ver") === "1" ? { version: "1", ids: [] } : [])
             : {});
         if (path === "/api/player-auth") return json(route, { ok: true, token: "ui-audit-token" });
+        if (path === "/api/world/resource" && request.method() === "POST" && request.postDataJSON().action === "nodes") {
+            // Each isolated UI audit starts in a fresh shared world. Gathering
+            // mutations use their dedicated fixture or the live Express server.
+            const sector = Number(save.currentSector ?? 0);
+            return json(route, { ok: true, sector, nodes: Object.fromEntries(
+                [...RESOURCE_NODES, ...WORLD_BOSS_CRYSTAL_NODES].filter(node => node.sector === sector)
+                    .map(node => [node.id, { remaining: RESOURCE_NODE_ATTEMPTS, refillAt: 0 }]),
+            ) });
+        }
         if (path === "/api/missions/ai-fight-start" && request.method() === "POST") {
             const body = request.postDataJSON();
             // No saved fight is the server's empty 204 response. The generic

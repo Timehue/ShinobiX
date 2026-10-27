@@ -1,5 +1,7 @@
 # Cleanup, Hardening & Performance Plan — 2026-06-18
 
+> **Historical document.** It was written while Vercel and cPanel were still hosts. Both are retired: Railway is the only host, `dist/` is never committed, and new endpoints are registered in `server-api-routes.ts`. Instructions below about committing `dist/`, cPanel or Vercel parity, or `server.ts` registration no longer apply. Current rules live in `CLAUDE.md`.
+
 Consolidated roadmap from the health/speed audit + the HollowGate vet. Branch
 `claude/intelligent-dewdney-bfce1b` (synced to `origin/main`, which includes the
 full HollowGate push).

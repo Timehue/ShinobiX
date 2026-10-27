@@ -1,5 +1,7 @@
 # Pet Coliseum feel overhaul — "make it read like a the leading creature-battler battle"
 
+> **Historical document.** It was written while Vercel and cPanel were still hosts. Both are retired: Railway is the only host, `dist/` is never committed, and new endpoints are registered in `server-api-routes.ts`. Instructions below about committing `dist/`, cPanel or Vercel parity, or `server.ts` registration no longer apply. Current rules live in `CLAUDE.md`.
+
 Goal: the live Pet Coliseum duel looked like the pets *"ran in place and dashed for
 no reason."* This pass makes casual pet fights read as a **planted, legible,
 dramatic face-off** instead of an illegible MOBA-style spacing skirmish — without

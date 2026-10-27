@@ -1,5 +1,7 @@
 # Autobattler Visual & Combat Overhaul — make the stage and the fight worthy of the art
 
+> **Historical document.** It was written while Vercel and cPanel were still hosts. Both are retired: Railway is the only host, `dist/` is never committed, and new endpoints are registered in `server-api-routes.ts`. Instructions below about committing `dist/`, cPanel or Vercel parity, or `server.ts` registration no longer apply. Current rules live in `CLAUDE.md`.
+
 > Status: **PLAN, not started.** Written 2026-06-12 after the flipbook pilots
 > (Eclipse Kitsune / Abyssal Oni Hound) landed and read clean. Scope:
 > **presentation only.** The deterministic engine (`runPetArenaBattle` /
