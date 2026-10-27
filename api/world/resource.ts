@@ -181,6 +181,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (seal.sharedNode) {
                 const blocked = await reserveSharedResourceNode(node.id, identity.name, txId, seal, Date.now());
                 if (blocked) {
+                    // A prior uncertain admission can have lost its claim to a
+                    // replacement. Close its reservations before hiding the journal.
+                    await finishSharedResourceAdmission(node.id, txId, false);
+                    if (usesPool) await finishResourcePool(node.sector, reservedAt, txId, false);
                     await markEconomyTx(txId, 'refunded', { note: blocked });
                     return { ok: false, status: 409, error: blocked };
                 }

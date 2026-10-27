@@ -9,6 +9,30 @@ import { sectorPoolKey, cleanSectorPoolRow } from './_sector-pool.js';
 process.env.NODE_ENV = 'test'; process.env.SHINOBIX_QA_MEMORY_KV = '1'; process.env.SESSION_SECRET = 'resource-integration-secret';
 type Json = Record<string, unknown>;
 
+test('retrying a replaced uncommitted claim refunds only its own node and pool reservations', async (t) => {
+    t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
+    const name = 'uncommittedowner', rival = 'replacementowner';
+    await seed(name); await seed(rival);
+    const poolKey = sectorPoolKey(29, Date.now()), beforePool = cleanSectorPoolRow(await kv.get(poolKey)).explores;
+    const body = { action: 'start', nodeId: 'resource-17', mode: 'relaxed', requestId: 'replaced-uncommitted-start' };
+    const original = kv.compareSet;
+    kv.compareSet = async (key, expected, value, options) => {
+        if (key === `save:${name}`) throw new Error('fixture-save-write-unavailable');
+        return original.call(kv, key, expected, value, options);
+    };
+    try { assert.equal((await post(name, body)).status, 503); } finally { kv.compareSet = original; }
+    online.startTravel(name, 2, Date.now(), 29, 99);
+    assert.equal((await post(rival, { ...body, requestId: 'replacement-admitted-start' })).status, 200);
+    online.startTravel(name, 29, Date.now(), 2, resourceNode('resource-17')!.approach);
+    assert.equal((await post(name, body)).status, 409);
+    const view = ((await post(rival, { action: 'nodes' })).body.nodes as Record<string, Json>)['resource-17'];
+    assert.equal(view.remaining, 2, 'only the admitted replacement spends a shared charge');
+    assert.equal(view.gatherer, rival, 'refund must preserve the replacement claim');
+    assert.equal(cleanSectorPoolRow(await kv.get(poolKey)).explores, beforePool + 1);
+    assert.equal(resourceActionsToday((await kv.get<Json>(`save:${name}`))!.character as Json), 0);
+    assert.equal((await post(name, body)).status, 409, 'refund is terminal and idempotent');
+    assert.equal(cleanSectorPoolRow(await kv.get(poolKey)).explores, beforePool + 1);
+});
 test('a late admission refund preserves a shared refill that has already elapsed', async (t) => {
     t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
     const { withKvLock } = await import('../_lock.js');
