@@ -213,6 +213,7 @@ const FROZEN = {
         'gearTierUnlocks', // Only a shop purchase or a craft raises it.
         'pendingGatherFinds', 'redeemedGatherFinds', 'gatherIntroSeen',
         'battleTowerRecords', // Tower settlement is the only writer.
+        'battleTowerBestFloor', 'battleTowerRating', 'battleTowerClearedFloors', // Preserve confirmed progress and free Story replays.
         'accountName',
         'sunscarRally', 'sunscarCaravan', 'brokerCertificates', 'brokerCrateLedger',
         'firstContract', // journal milestones are committed by existing authoritative actions, never generic saves
