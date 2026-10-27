@@ -181,7 +181,7 @@ export function epicForWanderer(wandererId: string, level: number, opts?: { atWa
 /** Short, honest label for a stage's counter (the foe name carries the flavor). */
 export function metricLabel(metric: QuestMetric): string {
     switch (metric) {
-        case "totalPetWins": return "pet duels won";
+        case "totalPetWins": return "rewarded pet battles won";
         case "cardClashWins": return "Chronicle Showdowns won";
         case "totalTilesExplored": return "Explore actions completed";
         case "relicSurveyCount": return "regions explored";

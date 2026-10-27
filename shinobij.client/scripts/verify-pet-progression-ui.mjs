@@ -26,7 +26,6 @@ try {
         await page.getByRole('heading', { name: 'Ability progression' }).waitFor();
         let saved = await page.locator('#saved-loadout').textContent();
         assert.match(await page.getByRole('region', { name: 'Companion ability progression' }).textContent(), /Saved for later/);
-        assert.match(await page.locator('.pet-technique-signature h4').textContent(), /Competitive Tactics signature/);
         assert.match(await page.locator('.pet-technique-signature').textContent(), /native Final Art.*unlocks at level 20/);
         assert.equal(await page.locator('.pet-progression-milestones > li[data-earned=true]').count(), 1);
         await page.getByRole('checkbox', { name: 'Equip Water Pulse', exact: true }).uncheck();

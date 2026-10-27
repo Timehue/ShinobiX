@@ -196,7 +196,7 @@ export function emissaryByQuestId(id: string): EmissaryDef | null {
  */
 export const EMISSARY_METRIC_LABELS: Record<WandererQuestMetric, string> = {
     totalAiKills: "foes defeated",
-    totalPetWins: "pet duels won",
+    totalPetWins: "rewarded pet battles won",
     cardClashWins: "card rounds won",
     totalTilesExplored: "tiles scouted",
     // Not an emissary errand, but the wanderer dialog resolves BOTH catalogs

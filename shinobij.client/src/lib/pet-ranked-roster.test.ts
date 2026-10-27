@@ -1,21 +1,13 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { arenaCarriedRoster, arenaPresentationPets, rankedBattlePresentationPets, rankedCarriedRoster } from './pet-ranked-roster';
+import { arenaCarriedRoster, arenaPresentationPets, rankedBattlePresentationPets } from './pet-ranked-roster';
+import { rankedBuildForPet } from '../../../shared/pet-tactics-build';
 import { petCombatModel } from './pet-3d-models';
 import type { Character } from '../types/character';
 import { PET_TACTICS_IDENTITIES } from '../../../shared/pet-tactics-catalog';
 import { validateBuilds } from '../../../api/_pet-tactics/engine';
 import { tacticsPreset } from '../../../shared/pet-tactics-roster';
 
-test('picker shows carried instances, evolved forms and availability without substituting loan pets', () => {
-    const character = { pets: Array.from({ length: 7 }, (_, i) => ({ id: `owned-${i}`, templateId: i === 0 ? 'starter-fire' : 'standard-0',
-        name: `My pet ${i}`, nickname: i === 0 ? 'Flame' : undefined, rarity: i === 0 ? 'legendary' : 'standard', evolutionStage: i === 0 ? 2 : 0,
-        expedition: i === 1 ? { endsAt: 1 } : undefined })) } as unknown as Character;
-    const roster = rankedCarriedRoster(character);
-    assert.equal(roster.length, 5); assert.equal(roster[0].id, 'starter-fire-l'); assert.equal(roster[0].name, 'Flame');
-    assert.equal(roster[0].build.ownedPetId, 'owned-0'); assert.equal(roster[1].unavailable, 'On expedition');
-    assert.deepEqual(rankedCarriedRoster(undefined), []);
-});
 test('Pet Arena picker lists every carried companion as itself, with the server\'s availability reasons', () => {
     const character = { pets: Array.from({ length: 3 }, (_, i) => ({ id: `owned-${i}`, templateId: 'standard-0', name: `My pet ${i}`, level: 20 + i,
         expedition: i === 1 ? { endsAt: 1 } : undefined })) } as unknown as Character;
@@ -55,7 +47,7 @@ test('carried instances load their own saved moves and evolved pets discard outd
         { id: 'legacy', templateId: 'starter-fire' },
         { id: 'malformed', templateId: 'starter-fire', rankedBuild: { ...custom, moveIds: ['unknown'] } },
     ] } as unknown as Character;
-    const roster = rankedCarriedRoster(character);
+    const roster = character.pets.map(pet => ({ build: rankedBuildForPet(pet)! }));
     assert.deepEqual(roster[0].build, custom);
     assert.equal(roster[1].build.ownedPetId, 'second');
     assert.deepEqual(roster[2].build.moveIds, tacticsPreset('starter-fire-r').moveIds);
