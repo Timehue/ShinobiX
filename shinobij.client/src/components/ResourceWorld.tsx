@@ -6,6 +6,7 @@ import { useSharedResourceNodes } from '../lib/use-shared-resource-nodes';
 import { ResourceNodeContest } from './ResourceNodeContest';
 import { playerSlug } from '../lib/utils';
 import { resourceRequest, type ResourceResponse } from '../lib/resource-api';
+import { recoverResourceStatus } from '../lib/resource-recovery';
 import { Modal } from './ui/Modal';
 import { ResourceMinigame } from './ResourceMinigames';
 import { GatheringResult } from './GatheringResult';
@@ -39,9 +40,12 @@ export function ResourceWorld({ character, sector, tile, commit, walk, worldBoss
         let alive = true;
         const target = recoveryTargetRef.current;
         const attempt = target?.name === character.name ? target : recoveryAttemptRef.current;
-        void resourceRequest({ action: 'status', playerName: character.name, requestId: attempt?.id, nodeId: attempt?.nodeId }).then(result => {
-            if (!alive) return;
-            if (!result.ok || !result.character || !commitRef.current(result.character, result._saveVersion)) {
+        void recoverResourceStatus({ playerName: character.name, attempt,
+            commit: (next, version) => commitRef.current(next, version), isCurrent: () => alive }).then(recovered => {
+            if (!alive || !recovered) return;
+            const result = recovered.response;
+            if (!recovered.accepted || !result.character) {
+                if (recovered.target) recoveryTargetRef.current = { name: character.name, ...recovered.target };
                 setRecovery({ name: character.name, status: 'failed' });
                 setError(result.error ?? 'A newer save arrived. Check gathering again to recover your attempt.');
                 return;

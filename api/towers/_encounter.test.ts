@@ -203,6 +203,13 @@ describe('Battle Towers static terrain scatter', () => {
     it('a terrain floor is deterministic end-to-end and a strong squad still clears it (BFS, no stall)', () => {
         const floor = FLOOR_CATALOG.find(f => f.terrainPillars && f.objective === 'defeat-all')!;
         const squad = [strongMember('a'), strongMember('b'), strongMember('c'), strongMember('d')];
+        // This is a pathfinding/determinism fixture. Supply a complete combat
+        // loadout now that public floors no longer have disposable 500-HP pods.
+        for (const member of squad) {
+            member.character.level = 100;
+            member.character.jutsu = [{ id: 'terrain-strike', type: 'Taijutsu', ap: 60, range: 4, effectPower: 50 }];
+            member.character.jutsuMastery = [{ jutsuId: 'terrain-strike', level: 30 }];
+        }
         const mk = () => runTowerFloor(buildTowerEncounter({ floor, squad, runId: 'r', seed: 99, partySize: 4, now: 1 }), floor, makeRng(99));
         const a = mk(), b = mk();
         assert.equal(JSON.stringify(a), JSON.stringify(b), 'terrain run replays byte-identically');

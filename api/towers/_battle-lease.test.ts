@@ -1,6 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { _makeMemoryKv } from '../_storage.js';
+import { battleStateKey, isBattleStateProjection } from '../_realtime/battle-projection.js';
 import {
     battleLockKey,
     bindClanBossBattleMarkers,
@@ -90,6 +91,61 @@ describe('Tower account-wide multi-member battle leases', () => {
         assert.deepEqual(result, { ok: true, members: ['alice', 'bob'], replayed: false });
         assert.equal((await d.kv.get<{ battleId: string }>(battleLockKey('alice')))?.battleId, 'tower-partial');
         assert.equal((await d.kv.get<{ battleId: string }>(battleLockKey('bob')))?.battleId, 'tower-partial');
+    });
+
+    it('serves four concurrent healthy polls without account locks or storage writes', async () => {
+        const d = deps();
+        const members = ['alice', 'bob', 'carol', 'dave'];
+        await claimTowerBattleLeases({ runId: 'tower-four-polls', members }, d);
+        const readOnlyKv: TowerKv = {
+            ...d.kv,
+            set: async () => { throw new Error('A healthy poll must not extend leases or projections'); },
+        };
+        const noLock: TowerLock = async () => { throw new Error('A healthy poll must not acquire member locks'); };
+        const results = await Promise.all(members.map(() => ensureTowerBattleLeases({
+            runId: 'tower-four-polls', members,
+        }, { ...d, kv: readOnlyKv, lock: noLock })));
+        for (const result of results) assert.deepEqual(result, { ok: true, members, replayed: true });
+    });
+
+    it('does not skip a conflicting battle or live Clan Boss marker on polling', async () => {
+        for (const conflict of ['battle', 'clan-boss']) {
+            const d = deps();
+            await claimTowerBattleLeases({ runId: 'tower-poll-conflict', members: ['alice', 'bob'] }, d);
+            if (conflict === 'battle') {
+                await d.kv.set(battleLockKey('bob'), { battleId: 'arena-new', kind: 'arena', screen: 'arena', startedAt: 2 });
+            } else {
+                await d.kv.set(clanBossBattleMarkerKey('bob'), {
+                    kind: 'clanBoss', requestId: 'clan-request-poll', startedAt: 1234, runId: 'cboss-poll',
+                });
+            }
+            assert.deepEqual(await ensureTowerBattleLeases({ runId: 'tower-poll-conflict', members: ['alice', 'bob'] }, d), {
+                ok: false, code: 'member-busy', members: ['bob'],
+            });
+        }
+    });
+
+    it('fails closed if the healthy-poll lease read fails', async () => {
+        const d = deps();
+        await claimTowerBattleLeases({ runId: 'tower-read-failure', members: ['alice'] }, d);
+        const broken: TowerKv = { ...d.kv, get: async () => { throw new Error('Storage unavailable'); } };
+        await assert.rejects(() => ensureTowerBattleLeases({ runId: 'tower-read-failure', members: ['alice'] }, {
+            ...d, kv: broken,
+        }), /Storage unavailable/);
+    });
+
+    it('repairs missing battle authority evidence without replacing healthy account leases', async () => {
+        const d = deps();
+        await claimTowerBattleLeases({ runId: 'tower-projection-repair', members: ['alice', 'bob'] }, d);
+        const before = await d.kv.get(battleLockKey('alice'));
+        await d.kv.del(battleStateKey('alice'));
+        assert.deepEqual(await ensureTowerBattleLeases({ runId: 'tower-projection-repair', members: ['alice', 'bob'] }, d), {
+            ok: true, members: ['alice', 'bob'], replayed: true,
+        });
+        assert.deepEqual(await d.kv.get(battleLockKey('alice')), before);
+        const projection = await d.kv.get<unknown>(battleStateKey('alice'));
+        assert.ok(isBattleStateProjection(projection));
+        assert.equal(projection.sessionId, 'tower-projection-repair');
     });
 
     it('never rolls back a pre-existing same-run lease when a later member write fails', async () => {

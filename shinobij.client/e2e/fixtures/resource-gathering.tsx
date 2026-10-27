@@ -9,6 +9,7 @@ import { resourceNode } from '../../../shared/resource-nodes';
 import { SECTOR_PLACES } from '../../../shared/sector-geo';
 import { pushLiveSectorPlayers } from '../../src/lib/presence-store';
 import type { PlayerRecord } from '../../src/types/character';
+import { acceptVersionedSnapshot } from '../../src/lib/versioned-snapshot';
 
 const query = new URLSearchParams(location.search);
 const node = resourceNode(query.get('node') ?? 'resource-13')!;
@@ -24,12 +25,14 @@ export function Fixture() {
     const [accepted, setAccepted] = useState<string[]>([]), [progress, setProgress] = useState<Record<string, number>>({});
     const [mounted, setMounted] = useState(true);
     const commit: VersionedCharacterCommit = (next, nextVersion) => {
-        if (typeof nextVersion !== 'number' || nextVersion < version) return false;
-        setCharacter(next); setVersion(nextVersion); return true;
+        const decision = acceptVersionedSnapshot(version, nextVersion);
+        if (!decision.accepted) return false;
+        setCharacter(next); setVersion(decision.latestVersion); return true;
     };
     if (!character) return null;
     return <main style={{ maxWidth: 1080, margin: '20px auto', padding: 12 }}>
         {query.has('lifecycle') && <button type="button" data-testid="gathering-mount" onClick={() => setMounted(value => !value)}>Toggle gathering mount</button>}
+        {query.has('lifecycle') && <button type="button" data-testid="gathering-publish-save" onClick={() => commit({ ...character, ryo: character.ryo + 1 }, version + 1)}>Publish newer save</button>}
         {query.get('screen') === 'kit' ? <div style={{ width: 260, maxWidth: '100%' }}><GatheringEquipment character={character} commit={commit} /></div>
             : query.get('screen') === 'outpost' ? <ShinobiOutpost character={character} updateCharacter={setCharacter} onVersionedCharacter={commit}
             onServerVersion={() => true} creatorAis={[]} acceptedMissionIds={accepted} setAcceptedMissionIds={setAccepted}
