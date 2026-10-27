@@ -78,7 +78,7 @@ describe("server settlement policy", () => {
         assert.ok((profile.match(/requireServerSettlement\("profileFateShardTitle"\)/g) ?? []).length >= 3);
 
         const shop = source("../components/Shop.tsx");
-        assertGuardBefore(shop, "buy", "shopPurchase", "fetch('/api/shop/purchase'");
+        assertGuardBefore(shop, "buy", "shopPurchase", "purchaseShopItem(");
         const packs = source("../components/ChroniclePackGallery.tsx");
         assertGuardBefore(packs, "open", "shopCardPack", "openCardPack(");
 
