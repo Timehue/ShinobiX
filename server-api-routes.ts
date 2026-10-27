@@ -189,6 +189,7 @@ import cardClashMatchHandler   from './api/card-clash/match.js';
 import cardClashAiStartHandler from './api/card-clash/ai-start.js';
 import cardClashAiMoveHandler  from './api/card-clash/ai-move.js';
 import cardClashEchoesWitnessHandler from './api/card-clash/echoes-witness.js';
+import cardClashKeeperRunHandler from './api/card-clash/keeper-run.js';
 // Clan — seal pool
 import clanSealPoolGetHandler        from './api/clan/seal-pool/get.js';
 import clanSealPoolDonateHandler     from './api/clan/seal-pool/donate.js';
@@ -641,6 +642,7 @@ export function registerApiRoutes(route: (path: string, handler: AnyHandler) => 
     route('/card-clash/ai-start', cardClashAiStartHandler);
     route('/card-clash/ai-move', cardClashAiMoveHandler);
     route('/card-clash/echoes-witness', cardClashEchoesWitnessHandler);
+    route('/card-clash/keeper-run', cardClashKeeperRunHandler);
 
     // ─── Clan: seal pool ───────────────────────────────────────────────────────────
     route('/clan/seal-pool/get',        clanSealPoolGetHandler);

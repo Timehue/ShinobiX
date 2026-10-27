@@ -1,5 +1,6 @@
 import type { TacticsAllocation, TacticsBuild, TacticsElement, TacticsMove, TacticsSpecies } from './pet-tactics-contract.js';
 import { PET_TACTICS_IDENTITIES } from './pet-tactics-catalog.js';
+import { PET_TACTICS_KITS, petTacticsElementMove } from './pet-tactics-kits.js';
 
 const move = (id: string, name: string, kind: TacticsMove['kind'], target: TacticsMove['target'], cost: number,
     effect: string, options: Partial<TacticsMove> = {}): TacticsMove => ({
@@ -49,14 +50,19 @@ const offense: TacticsAllocation = { vitality: 12, power: 25, guard: 6, agility:
 const support: TacticsAllocation = { vitality: 18, power: 6, guard: 19, agility: 6 };
 const tempo: TacticsAllocation = { vitality: 12, power: 12, guard: 0, agility: 25 };
 
+/** An authored kit (shared/pet-tactics-kits.ts): two moves added to the pool,
+ *  the first of which the Tactics preset equips, and the signature's name. */
+type SpeciesKit = { extras: readonly [string, string]; signatureName: string };
+
 function species(id: string, name: string, element: TacticsElement, rarity: string, role: string,
-    trait: TacticsSpecies['trait'], tools: string[], signatureKind: 'damage' | 'heal' | 'shield' | 'buff' = 'damage'): TacticsSpecies {
+    trait: TacticsSpecies['trait'], tools: string[], signatureKind: 'damage' | 'heal' | 'shield' | 'buff' = 'damage',
+    kit?: SpeciesKit): TacticsSpecies {
     const key = element.toLowerCase();
     const coverage = `${({ Fire: 'Earth', Water: 'Wind', Wind: 'Water', Lightning: 'Fire', Earth: 'Lightning', None: 'Earth' } as const)[element].toLowerCase()}-pulse`;
     const base = [`${key}-strike`, `${key}-pulse`, `${key}-breaker`, coverage];
-    const pool = [...base, ...tools];
+    const pool = [...base, ...tools, ...(kit?.extras ?? [])];
     const traitText = { steady: 'First cast earns 5 extra meter once per battle.', medic: 'Healing you cast is 10% stronger.', sentinel: 'Shields you cast are 10% stronger.', scout: 'Rest restores 5 extra stamina.' }[trait];
-    const signature = move(`${id}-signature`, `${name}: ${signatureKind === 'damage' ? 'Final Art' : signatureKind === 'heal' ? 'Renewal' : signatureKind === 'shield' ? 'Sanctuary' : 'Ascendance'}`,
+    const signature = move(`${id}-signature`, kit?.signatureName ?? `${name}: ${signatureKind === 'damage' ? 'Final Art' : signatureKind === 'heal' ? 'Renewal' : signatureKind === 'shield' ? 'Sanctuary' : 'Ascendance'}`,
         signatureKind, signatureKind === 'damage' ? 'foe' : 'team', 30,
         signatureKind === 'damage' ? 'Single-target strike: capped at 60% target maximum HP, or 75% with Rally, Expose or matching Sky. Full meter, three field rounds and 30 stamina. One signature per team per round.'
             : signatureKind === 'heal' ? 'Heal both active allies for 20% maximum HP. Wounds reduce it. Full meter and 30 stamina.'
@@ -65,7 +71,7 @@ function species(id: string, name: string, element: TacticsElement, rarity: stri
         { element, cls: signatureKind === 'damage' ? role === 'striker' || role === 'scout' ? 'physical' : 'special' : 'status', power: signatureKind === 'damage' ? 180 : 0, hold: 3, priority: .75 });
     return { id, name, element, rarity, role, stats: profiles[role], trait, traitText, pool, signature, builds: [
         { name: 'Pressure', moves: [base[0], base[1], base[2], tools[0]], allocation: role === 'scout' ? tempo : offense },
-        { name: 'Tactics', moves: [base[1], coverage, ...tools.slice(1, 3)], allocation: role === 'scout' ? tempo : support },
+        { name: 'Tactics', moves: [base[1], coverage, ...(kit ? [tools[1], kit.extras[0]] : tools.slice(1, 3))], allocation: role === 'scout' ? tempo : support },
     ] };
 }
 
@@ -100,8 +106,12 @@ for (const [id, name, element, rarity, catalogRole] of PET_TACTICS_IDENTITIES) {
     if (allSpecies.has(id)) continue;
     const role = roleMap[catalogRole] ?? 'balanced';
     const trait = role === 'sentinel' ? 'sentinel' : role === 'medic' ? 'medic' : role === 'scout' ? 'scout' : 'steady';
+    const authored = PET_TACTICS_KITS[id];
+    const kit: SpeciesKit | undefined = authored
+        ? { extras: [petTacticsElementMove(element as TacticsElement, role), authored[0]], signatureName: authored[1] }
+        : undefined;
     allSpecies.set(id, species(id, name, element as TacticsElement, rarity, role, trait, toolsByRole[role],
-        role === 'medic' ? 'heal' : role === 'sentinel' ? 'shield' : 'damage'));
+        role === 'medic' ? 'heal' : role === 'sentinel' ? 'shield' : 'damage', kit));
 }
 export const tacticsSpecies = (id: string): TacticsSpecies | undefined => allSpecies.get(id);
 

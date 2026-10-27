@@ -3,7 +3,7 @@
  * other species OF THE SAME RARITY through the real server engine, both sides
  * driven by the same AI policy, and reports the spread:
  *
- *   node --import tsx scripts/showdown-balance.mjs [--level 50] [--seeds 3] [--bench 2] [--format 2v2] [--seed-offset 500000]
+ *   node --import tsx scripts/showdown-balance.mjs [--level 50] [--seeds 3] [--bench 2] [--format 2v2] [--seed-offset 500000] [--partner-rules]
  *
  * What "balanced" means for Showdown (mirrors the pet-role-balance ratchet):
  *   - no ROLE outside ~40-60% overall win rate,
@@ -44,6 +44,8 @@ const BENCH = flag('bench', SHOWDOWN_BENCH_SIZE);
 const FORMAT = args.includes('--format') ? args[args.indexOf('--format') + 1] : '1v1';
 const FIELD_SIZE = SHOWDOWN_FORMAT_SIZE[FORMAT];
 const SEED_OFFSET = flag('seed-offset', 0);
+/** --partner-rules: seal the role partner bonds, as live fights do since 2026-10-26. */
+const PARTNER_RULES = args.includes('--partner-rules');
 if (!FIELD_SIZE || !Number.isInteger(LEVEL) || LEVEL < 1 || LEVEL > 100
     || !Number.isInteger(SEEDS) || SEEDS < 1 || !Number.isInteger(BENCH) || BENCH < 0 || BENCH > SHOWDOWN_BENCH_SIZE
     || !Number.isSafeInteger(SEED_OFFSET)) {
@@ -113,6 +115,7 @@ function fight(tplA, tplB, seed) {
         && Array.isArray(tpl.jutsus) && tpl.rarity === tplA.rarity && tpl.id !== tplA.id && tpl.id !== tplB.id);
     const companions = Array.from({ length: FIELD_SIZE - 1 }, (_, i) => pool[(Math.abs(seed) + i * 13) % pool.length]);
     const session = createShowdownSession({
+        partnerRules: PARTNER_RULES,
         sessionId: 'balance', playerName: 'A', format: FORMAT, tier: 'warrior', seed: seed + SEED_OFFSET,
         playerPets: teamFor(tplA, 'a', companions), enemyPets: teamFor(tplB, 'b', companions), enemyTeamName: 'B',
     });
@@ -269,6 +272,7 @@ console.log(`  ${kindRows.filter(([, s]) => s.species < KIND_SIGNAL_MIN).map(fmt
 const TRAIN_SAMPLES = 60;
 const aiFightWin = (trainedTpl, baseTpl, seed) => {
     const session = createShowdownSession({
+        partnerRules: PARTNER_RULES,
         sessionId: 'train', playerName: 'A', format: '1v1', tier: 'warrior', seed,
         playerPets: [scaled(trainedTpl, 'a')], enemyPets: [scaled(baseTpl, 'b')], enemyTeamName: 'B',
     });

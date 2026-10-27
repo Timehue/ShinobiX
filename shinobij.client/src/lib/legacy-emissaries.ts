@@ -162,7 +162,7 @@ export const EMISSARY_DEFS: readonly EmissaryDef[] = [
         trialLine: "Follow the objectives in your trial record. Tell me what you find along the way; my maps could use the corrections.",
         quests: [
             { id: "eq-mapless-edges", label: "Use Explore 25 times for Ojii", metric: "totalTilesExplored", target: 25 },
-            { id: "eq-mapless-companions", label: "Win 3 pet battles for Ojii", metric: "totalPetWins", target: 3 },
+            { id: "eq-mapless-companions", label: "Win 3 rewarded pet battles for Ojii", metric: "totalPetWins", target: 3 },
         ],
     },
 ];

@@ -44,30 +44,6 @@ export function mirrorPetTile(tile: number): number {
     return row * PET_GRID_COLS + (PET_GRID_COLS - 1 - col);
 }
 
-// Render a canonical (deterministic) ranked replay from the OTHER side's
-// perspective: swap every player/enemy frame field and mirror positions so
-// the local player's pet still appears on the left. Used by ranked 1v1 pet
-// battles, where both clients run an identical canonical simulation but the
-// non-canonical side needs its own pet shown as "player". Pure transform.
-export function swapPetArenaFrame(f: PetArenaFrame): PetArenaFrame {
-    return {
-        ...f,
-        playerHp: f.enemyHp,
-        enemyHp: f.playerHp,
-        playerPos: mirrorPetTile(f.enemyPos),
-        enemyPos: mirrorPetTile(f.playerPos),
-        actor: f.actor === "player" ? "enemy" : f.actor === "enemy" ? "player" : "system",
-        traitFlash: f.traitFlash
-            ? { ...f.traitFlash, actor: f.traitFlash.actor === "player" ? "enemy" : "player" }
-            : f.traitFlash,
-        signatureMove: f.signatureMove
-            ? { ...f.signatureMove, side: f.signatureMove.side === "player" ? "enemy" : "player" }
-            : f.signatureMove,
-        playerStatus: f.enemyStatus,
-        enemyStatus: f.playerStatus,
-    };
-}
-
 /** BFS: returns the next tile to step onto when moving from `from` toward `to`, avoiding obstacles. */
 function bfsNextStep(from: number, to: number, obstacles: ReadonlySet<number>): number {
     if (from === to) return from;
@@ -677,37 +653,6 @@ function petSignatureJutsu(pet: Pet): string | undefined {
         if (!best || j.power > best.power) best = j;
     }
     return best && best.power > 0 ? best.name : undefined;
-}
-
-// Cinematic pacing — how long each replay frame should linger. Dramatic beats
-// (KO, finisher, signature cut-in, clutch save, crit) breathe; routine actions
-// snap by. Shared by every pet-battle replay loop.
-export function petFramePace(f: PetArenaFrame | undefined): number {
-    if (!f) return 1000;
-    if (f.isPrefight) return 5000;                                       // pre-fight card: pets + ranked record, 5s
-    if (f.actionKind === "result") return 2800;                          // final outcome
-    if (f.isKO) return 2200;                                             // KO — slow-mo
-    if (f.signatureMove) return 1800;                                   // cut-in dwell
-    if (/endures at 1 HP|Lifeline heals/.test(f.message)) return 1700;  // clutch survival
-    if (f.crit) return 1600;                                            // savor the crit
-    if (/dodges|evades|blunts the blow/.test(f.message)) return 1150;   // a near-miss
-    switch (f.actionKind) {
-        case "damage":
-        case "lifesteal": return 1100;
-        case "debuff":
-        case "heal":      return 950;
-        case "movelock":  return 900;
-        case "dot":       return 850;
-        case "shield":
-        case "barrier":
-        case "absorb":    return 800;
-        case "basic":     return 750;
-        case "buff":      return 700;
-        case "move":      return 600;
-        default:          break;
-    }
-    if (f.traitFlash) return 1300;
-    return 1000;
 }
 
 function seededPetBattleRandom(seed: number) {

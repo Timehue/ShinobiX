@@ -147,6 +147,8 @@ export async function startNaturalWandererShowdown(playerName: string, rawRef: u
                 ? wandererBeastName(challenger.name, String(species.name))
                 : challenger?.name ?? built.teamName;
             session = createShowdownSession({
+                // Live fight: role partner bonds apply (SHOWDOWN_PARTNER_BONDS).
+                partnerRules: true,
                 sessionId, playerName, format, tier: 'warrior', seed,
                 playerPets: chosen, enemyPets: built.pets, enemyTeamName: beastName,
                 rewardEligible: false, rulesetVersion: 'progression-v3',

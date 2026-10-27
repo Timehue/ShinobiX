@@ -6,8 +6,9 @@ import { cors } from '../_utils.js';
 import { kv } from '../_storage.js';
 import { LockContendedError, withKvLock } from '../_lock.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
-import { TacticsError, validateBuilds } from '../_pet-tactics/engine.js';
-import { acknowledgeTacticsRound, advanceTacticsSession, concedeTacticsSession, createTacticsSession, joinTacticsSession, lockTacticsLeads, lockTacticsOrders,
+import { TacticsError } from '../_pet-tactics/engine.js';
+import { chooseArenaPets, sealArenaTeam } from '../_pet-tactics/arena-showdown.js';
+import { acknowledgeTacticsRound, advanceTacticsSession, concedeTacticsSession, createArenaSession, joinArenaSession, lockTacticsLeads, lockTacticsOrders,
     sessionSeat, tacticsPlayerKey, tacticsRoomKey, tacticsView, TACTICS_SESSION_TTL_SECONDS, type TacticsSession } from '../_pet-tactics/session.js';
 
 type Store = { get(key: string): Promise<unknown>; set(key: string, value: unknown, options: { ex?: number }): Promise<unknown> };
@@ -41,7 +42,12 @@ export function createTacticsHandler(deps: Dependencies) {
             if (!['create', 'join', 'recover', 'poll', 'leads', 'orders', 'ack', 'concede'].includes(action)) throw new TacticsError('Unknown arena action.');
             const now = deps.now();
             if (action === 'create' || action === 'join') {
-                const builds = validateBuilds(body.builds);
+                // Owner ruling 2026-10-26: Pet Arena fights with the player's
+                // real companions. The browser names four carried pets; the
+                // team is sealed from the player's own save, never from the body.
+                const record = await deps.store.get(`save:${name}`) as { character?: Record<string, unknown> } | null;
+                if (!record?.character) throw new TacticsError('Your character save was not found.', 404);
+                const team = sealArenaTeam(chooseArenaPets(record.character, body.petIds), action === 'create' ? 'a' : 'b');
                 const view = await deps.lock('pet:tactics:admission', async () => {
                     await deps.beforeAdmission?.();
                     const pointer = await deps.store.get(tacticsPlayerKey(name));
@@ -58,7 +64,7 @@ export function createTacticsHandler(deps: Dependencies) {
                     if (action === 'create') {
                         const roomId = deps.roomId();
                         if (await deps.store.get(tacticsRoomKey(roomId))) throw new TacticsError('Arena code is busy. Retry creation.', 503);
-                        const session = createTacticsSession(roomId, name, builds, deps.seed(), now);
+                        const session = createArenaSession(roomId, name, team, deps.seed(), now);
                         await save(session);
                         await deps.store.set(tacticsPlayerKey(name), roomId, { ex: TACTICS_SESSION_TTL_SECONDS });
                         return tacticsView(session, 'a', now);
@@ -67,7 +73,7 @@ export function createTacticsHandler(deps: Dependencies) {
                     if (!/^[0-9a-f]{8}$/.test(id)) throw new TacticsError('Enter an eight-character arena code.');
                     return deps.lock(tacticsRoomKey(id), async () => {
                         const session = await read(id);
-                        joinTacticsSession(session, name, builds, now); await save(session);
+                        joinArenaSession(session, name, team, now); await save(session);
                         await deps.store.set(tacticsPlayerKey(name), id, { ex: TACTICS_SESSION_TTL_SECONDS });
                         return tacticsView(session, 'b', now);
                     });

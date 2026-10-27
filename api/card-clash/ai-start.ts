@@ -35,6 +35,8 @@ import {
   echoesFloorUnlocked,
   echoesProgressOf,
 } from "./_echoes-catalog.js";
+import { keeperNode, keeperPathOf } from "../../shared/keeper-path-contract.js";
+import { applyKeeperModifiers, keeperOpponentDeck } from "./_keeper-path.js";
 
 function submittedIds(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
@@ -171,6 +173,57 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const requested = submittedIds(body.deck);
+    if (body.keeperRun === true && !dungeonRunToken && !echoesDef) {
+      // Keeper's Path: the run (in the server-owned save record) names the
+      // node, its opponent, the sealed deck and the boons. The browser asks to
+      // fight; it chooses none of those.
+      const save = await kv.get<Record<string, unknown>>(`save:${playerName}`);
+      const character = save?.character as Record<string, unknown> | undefined;
+      if (!character) return res.status(404).json({ error: "Character not found." });
+      const run = keeperPathOf(character).run;
+      const node = run && run.status === "active" ? keeperNode(run, run.current) : null;
+      const opponentDeck = node?.opponent ? keeperOpponentDeck(node.opponent.key) : null;
+      if (!run || !node?.opponent || !opponentDeck) {
+        return res.status(409).json({ error: "Choose a Keeper on the path before the duel begins." });
+      }
+      // The same one-live-showdown rule as Card Hall: a duel walked away from
+      // is forfeited (a loss, which costs Resolve) before the next is dealt.
+      const previous = await kv.get<string>(cardClashAiActiveKey(playerName)).catch(() => null);
+      let settledPrevious = false;
+      if (typeof previous === "string" && previous) {
+        settledPrevious = await forfeitAbandonedAiMatch(previous, playerName).catch((error) => {
+          console.error("[card-clash/ai-start] could not resolve the previous showdown", error);
+          return false;
+        });
+      }
+      const matchId = randomUUID();
+      const aiSteps: ChronicleProjection[] = [];
+      const boons = run.boons;
+      const session = createAiMatch(
+        matchId,
+        playerName,
+        run.deck,
+        node.opponent.difficulty,
+        Date.now(),
+        Math.random,
+        "standard",
+        (state) => captureAiStep(aiSteps, state),
+        { name: node.opponent.name, deck: opponentDeck, deckName: node.opponent.deckName },
+        (state) => applyKeeperModifiers(state, boons),
+      );
+      session.keeperRun = { runId: run.runId, nodeId: node.id };
+      await kv.set(cardClashAiTokenKey(matchId), session, { ex: CARD_CLASH_AI_TOKEN_TTL_SECONDS });
+      await kv.set(cardClashAiActiveKey(playerName), matchId, { ex: CARD_CLASH_AI_ACTIVE_TTL_SECONDS });
+      const settledSnapshot = settledPrevious ? await authoritativePlayerSnapshot(playerName) : {};
+      return res.status(200).json({
+        ok: true,
+        matchId,
+        session: projectAiMatch(session),
+        ...(aiSteps.length ? { aiSteps } : {}),
+        keeperRun: { runId: run.runId, nodeId: node.id },
+        ...settledSnapshot,
+      });
+    }
     if (dungeonRunToken) {
       // The Dungeon Card seal has one stable match id. Its Chronicle lock is
       // always acquired before the nested save mutation, establishing the

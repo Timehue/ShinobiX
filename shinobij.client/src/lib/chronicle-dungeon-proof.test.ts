@@ -56,13 +56,13 @@ test("Dungeon Card host waits for a versioned authoritative terminal before adva
     assert.match(source, /dungeonRunToken\?: string/);
     assert.match(source, /onVersionedCharacter\?: \(character: Character, saveVersion: number\)/);
     // Dungeon hosts still run external stakes; the Dungeon token rides the
-    // nested envelope. Echoes uses standard settlement, while a Hollow Gate
-    // card match resumes its already sealed match id.
-    assert.match(source, /startChronicleAi\([\s\S]{0,260}!echoes,\s*dungeonRunToken/);
+    // nested envelope. Echoes and Keeper's Path use standard settlement, while
+    // a Hollow Gate card match resumes its already sealed match id.
+    assert.match(source, /startChronicleAi\([\s\S]{0,260}!echoes && !keeperRun,\s*dungeonRunToken/);
     assert.match(source, /result\.session\.status === "complete"[\s\S]{0,220}action: "state"/,
         "a completed deterministic start must reconcile a lost terminal response");
     assert.match(source, /!result\.character \|\| !Number\.isSafeInteger\(version\)/);
     assert.match(source, /onVersionedCharacter\?\.\(result\.character, version\)/);
-    assert.match(source, /\(dungeonRunToken \|\| echoes \|\| hollowGateCardMatchId\) && !dungeonTerminalReady/);
+    assert.match(source, /\(dungeonRunToken \|\| echoes \|\| keeperRun \|\| hollowGateCardMatchId\) && !dungeonTerminalReady/);
     assert.match(source, /Your Dungeon card battle result has not been confirmed yet/);
 });

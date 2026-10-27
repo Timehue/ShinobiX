@@ -424,8 +424,8 @@ function buildWorld(): void {
     // way through the district read as walking across a field.
     paintRect({ x: 64, y: 41, width: 2, height: 11 }, FirstPactTile.Road);
 
-    // The yard lane between the pump house and the maintenance store, so the
-    // service row is entered from a street rather than from open ground.
+    // The yard lane east of the pump house, so the service row is entered from
+    // a street rather than from open ground.
     paintRect({ x: 73, y: 41, width: 2, height: 11 }, FirstPactTile.Road);
 
     // The valve's masonry cradle. Painted after the lane so it reads as a plinth
@@ -554,9 +554,11 @@ export const FIRST_PACT_ARCHITECTURE: readonly FirstPactArchitecturePlacement[] 
     // threshold the maintenance street serves.
     { id: "gateworks-engine-hall", atlasCell: 13, bounds: { x: 57, y: 40, width: 7, height: 8 }, collisionMask: ["...#...", ".#####.", ".#####.", "#######", ".#####.", ".#####.", ".#####.", "......."] },
     { id: "gateworks-pump-house", atlasCell: 14, bounds: { x: 66, y: 40, width: 7, height: 6 }, collisionMask: [".#####.", ".######", "######.", ".#####.", ".#####.", "......."] },
-    // The ordinary working architecture the queue asks for: a keeper's rowhouse,
-    // a maintenance store and a valve house, all at house scale so the two halls
-    // finally have something to be larger THAN.
+    // The ordinary working architecture the queue asks for: a keeper's rowhouse
+    // and a valve house, at house scale so the two halls finally have something
+    // to be larger THAN. A maintenance store was drawn with them
+    // (gateworks-v2/maintenance-shed.png) but is not placed: the yard has no
+    // free 6x4 footprint for it.
     { id: "gateworks-keeper-rowhouse", atlasCell: 13, bounds: { x: 75, y: 40, width: 3, height: 6 }, collisionMask: ["###", "###", "###", "###", "###", "..."] },
     { id: "gateworks-cistern-head", atlasCell: 13, bounds: { x: 67, y: 48, width: 3, height: 3 }, // The canopy and its posts are visual overhang; only the stone kerb is solid.
         collisionMask: ["...", "...", "###"] },
@@ -803,7 +805,9 @@ export const FIRST_PACT_PLAYER_START: FirstPactPoint = { x: 42, y: 50 };
 
 export const FIRST_PACT_NPCS: readonly FirstPactNpcDefinition[] = [
     { id: "keeper-sena", name: "Sena Vale", title: "Keeper of Vale Stable", position: { x: 24, y: 40 }, behavior: "static", facing: "west", palette: "rose", portrait: "keeper" },
-    { id: "registrar-orin", name: "Registrar Orin", title: "Colosseum Registrar", position: { x: 42, y: 34 }, behavior: "static", facing: "south", palette: "amber", portrait: "registrar" },
+    // At the foot of the south gate's stair forecourt, beside the entry he keeps.
+    // He used to stand inside the bowl's south passage, on the arena side of the gate.
+    { id: "registrar-orin", name: "Registrar Orin", title: "Colosseum Registrar", position: { x: 44, y: 41 }, behavior: "static", facing: "south", palette: "amber", portrait: "registrar" },
     { id: "scribe-vey", name: "Scribe Vey", title: "Scribe of Rejected Records", position: { x: 42, y: 12 }, behavior: "static", facing: "south", palette: "cyan", portrait: "scribe" },
     /*
      * The Court, standing in its own square.
@@ -831,10 +835,6 @@ export const FIRST_PACT_NPCS: readonly FirstPactNpcDefinition[] = [
 export function firstPactTileAt(x: number, y: number): FirstPactTile {
     if (!inBounds(x, y)) return FirstPactTile.Void;
     return tiles[indexOf(x, y)] as FirstPactTile;
-}
-
-export function firstPactTileSnapshot(): Uint8Array {
-    return tiles.slice();
 }
 
 /** Mossed public routes inside Bell Quarter, including its west approach. */

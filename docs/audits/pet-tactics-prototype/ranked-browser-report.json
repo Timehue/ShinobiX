@@ -1,40 +1,31 @@
 {
   "mode": "ranked-player-controlled",
+  "engine": "showdown-v1",
   "desktop": true,
   "mobile": true,
-  "twoPlayerCommandRounds": 14,
+  "twoPlayerCommandRounds": 17,
   "reconnect": true,
   "terminal": "win",
   "errors": [],
   "badResponses": [],
   "rankedSearchCancel": true,
-  "commandMenu": {
-    "keyboard": true,
-    "localDraftPrivacy": true,
-    "intelEscape": true,
-    "mobilePinnedControls": true,
-    "integratedResources": true,
-    "arenaMeetsMenu": true,
-    "playbackHud": true,
-    "resourcesAfterRound": true,
-    "lifecycleSignals": true
-  },
-  "reason": "knockout",
-  "rounds": 14,
+  "reason": "battle",
+  "rounds": 17,
   "settlement": [
     {
       "rating": 1012,
       "receipts": 1,
       "version": 2,
       "ryo": 500,
-      "pets": 0
+      "pets": 5
     },
     {
       "rating": 988,
       "receipts": 1,
       "version": 2,
       "ryo": 500,
-      "pets": 0
+      "pets": 5
     }
-  ]
+  ],
+  "lifecycleSignals": true
 }

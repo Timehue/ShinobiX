@@ -1074,21 +1074,6 @@ export function CentralHub({
                     <div className="celestial-panel">
                         <h2><GiStoneTower style={HDR_ICON} />Celestial Tower</h2>
                         <p className="celestial-panel-sub">Four ways to climb: the endless gauntlet, curated Battle Tower squad floors, the tower's preserved memories, or a crossing into the living past.</p>
-                        <div style={{ background: "rgba(15,23,42,0.5)", border: "1px solid rgba(148,163,184,0.25)", borderRadius: 6, padding: "0.7rem 0.9rem", margin: "0.4rem 0 0.8rem", fontSize: "0.85rem", lineHeight: 1.5 }}>
-                            <div><strong>How it works</strong></div>
-                            <div>· Fight a stronger AI opponent each wave. Every 10th wave is a boss.</div>
-                            <div>· Win to add ryo to your unclaimed haul. Carry your remaining HP into the next wave.</div>
-                            <div>· Defeat loses the run’s unclaimed ryo and sends you to the Hospital. <strong>Milestone currencies stay credited.</strong></div>
-                            <div>· Ryo per wave stops rising after wave {ENDLESS_FACTOR_CAP_WAVE}, but milestone waves still pay double or triple.</div>
-                            <div style={{ marginTop: 6 }}><strong>Kill milestones</strong> (auto-credited, repeat every 20 kills):</div>
-                            <div>· Kills 5, 10 → <span style={{ color: "#a78bfa" }}>+5 Bone Charms</span></div>
-                            <div>· Kill 15 → <span style={{ color: "var(--gold)" }}>+5 Fate Shards</span></div>
-                            <div>· Kill 20 → <span style={{ color: "#a78bfa" }}>+5 Bone Charms</span> &amp; <span style={{ color: "var(--gold)" }}>+5 Fate Shards</span></div>
-                            <div>· Pattern repeats: 25/30 bone, 35 fate, 40 both, and so on.</div>
-                            {ENDLESS_BC_FIRST_RUN_OF_DAY && <div>· Bone Charm milestones pay only on your first run each UTC day.</div>}
-                            {ENDLESS_FS_LIFETIME_FIRST && <div>· Fate Shard milestones pay only on a wave you have never cleared before.</div>}
-                            <div style={{ marginTop: 6 }}><strong>Rest stops:</strong> every 10th kill automatically restores 33% HP and 50% chakra &amp; stamina.</div>
-                        </div>
                         <div className="celestial-panel-options">
                             <button
                                 className="celestial-option-btn celestial-story-btn"
@@ -1115,6 +1100,21 @@ export function CentralHub({
                                 <strong>Echoes of War</strong>
                                 <small>Relive the unfinished Showdowns of a fallen civilization. A Shinobi Chronicle Showdown story campaign; victories pay Chronicle Points.</small>
                             </button>
+                        </div>
+                        <div style={{ background: "rgba(15,23,42,0.5)", border: "1px solid rgba(148,163,184,0.25)", borderRadius: 6, padding: "0.7rem 0.9rem", margin: "0.9rem 0 0", fontSize: "0.85rem", lineHeight: 1.5 }}>
+                            <div><strong>How the endless climb works</strong></div>
+                            <div>· Fight a stronger AI opponent each wave. Every 10th wave is a boss.</div>
+                            <div>· Win to add ryo to your unclaimed haul. Carry your remaining HP into the next wave.</div>
+                            <div>· Defeat loses the run’s unclaimed ryo and sends you to the Hospital. <strong>Milestone currencies stay credited.</strong></div>
+                            <div>· Ryo per wave stops rising after wave {ENDLESS_FACTOR_CAP_WAVE}, but milestone waves still pay double or triple.</div>
+                            <div style={{ marginTop: 6 }}><strong>Kill milestones</strong> (auto-credited, repeat every 20 kills):</div>
+                            <div>· Kills 5, 10 → <span style={{ color: "#a78bfa" }}>+5 Bone Charms</span></div>
+                            <div>· Kill 15 → <span style={{ color: "var(--gold)" }}>+5 Fate Shards</span></div>
+                            <div>· Kill 20 → <span style={{ color: "#a78bfa" }}>+5 Bone Charms</span> &amp; <span style={{ color: "var(--gold)" }}>+5 Fate Shards</span></div>
+                            <div>· Pattern repeats: 25/30 bone, 35 fate, 40 both, and so on.</div>
+                            {ENDLESS_BC_FIRST_RUN_OF_DAY && <div>· Bone Charm milestones pay only on your first run each UTC day.</div>}
+                            {ENDLESS_FS_LIFETIME_FIRST && <div>· Fate Shard milestones pay only on a wave you have never cleared before.</div>}
+                            <div style={{ marginTop: 6 }}><strong>Rest stops:</strong> every 10th kill automatically restores 33% HP and 50% chakra &amp; stamina.</div>
                         </div>
                         <button className="back-btn" style={{ marginTop: "1rem" }} onClick={() => setShowCelestialPanel(false)}>× Close</button>
                     </div>

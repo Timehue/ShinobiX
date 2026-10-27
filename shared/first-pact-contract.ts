@@ -11,7 +11,7 @@ export const FIRST_PACT_MIN_LEVEL = 100;
 export const FIRST_PACT_FIELD_SIZE = 2;
 export const FIRST_PACT_RESERVE_SIZE = 2;
 export const FIRST_PACT_TEAM_SIZE = FIRST_PACT_FIELD_SIZE + FIRST_PACT_RESERVE_SIZE;
-export const FIRST_PACT_PROGRESS_VERSION = 8;
+export const FIRST_PACT_PROGRESS_VERSION = 9;
 export const FIRST_PACT_WORLD_WIDTH = 84;
 export const FIRST_PACT_WORLD_HEIGHT = 56;
 
@@ -498,7 +498,8 @@ export type FirstPactEncounterId =
     | FirstPactTournamentEncounterId
     | FirstPactMainEncounterId
     | FirstPactWritId
-    | FirstPactStandingCourtRoundId;
+    | FirstPactStandingCourtRoundId
+    | FirstPactExhibitionRoundId;
 
 export type FirstPactWorldPosition = {
     x: number;
@@ -570,6 +571,18 @@ export type FirstPactProgress = {
         clears: number;
         battleProofs: string[];
     };
+    /** Orin's Stable Exhibition (postgame): a run with rented companions.
+     *  The live run itself is a server-only record (api/first-pact/_exhibition.ts);
+     *  this keeps only what the player has earned from it. */
+    exhibition: {
+        best: number;
+        clears: number;
+        /** UTC day (YYYY-MM-DD) a completed run last paid Court Standing. */
+        paidDay?: string;
+        battleProofs: string[];
+    };
+    /** Court Replays (postgame): cleared story battles fought again with settings. */
+    replays: FirstPactReplayRecord;
 };
 
 const ENCOUNTER_SET = new Set<string>(FIRST_PACT_TOURNAMENT.map((entry) => entry.id));
@@ -602,6 +615,8 @@ export function createFirstPactProgress(now = Date.now()): FirstPactProgress {
         findings: [],
         aftermathVisits: [],
         standingCourt: { round: 0, best: 0, clears: 0, battleProofs: [] },
+        exhibition: { best: 0, clears: 0, battleProofs: [] },
+        replays: emptyFirstPactReplays(),
     };
 }
 
@@ -741,6 +756,8 @@ export function normalizeFirstPactProgress(value: unknown, now = Date.now()): Fi
                 .map((entry) => entry.slice(0, 96))
                 .filter(Boolean))].slice(-8),
         },
+        exhibition: normalizeExhibitionSummary(source.exhibition),
+        replays: normalizeFirstPactReplays(source.replays),
     };
 }
 
@@ -788,7 +805,8 @@ export function firstPactEncounter(id: unknown) {
     return firstPactTournamentEncounter(id)
         ?? firstPactMainEncounter(id)
         ?? firstPactWritEncounter(id)
-        ?? firstPactStandingCourtRound(id);
+        ?? firstPactStandingCourtRound(id)
+        ?? firstPactExhibitionRound(id);
 }
 
 /** Writs are served once the Court has a claim to answer, and each is answered
@@ -815,6 +833,10 @@ export function firstPactEarnedTitleKeys(progress: FirstPactProgress): string[] 
     if (progress.mainQuest.pactVow) keys.push(progress.mainQuest.pactVow);
     const everyWrit = FIRST_PACT_DISTRICT_WRITS.every((writ) => progress.writs.includes(writ.id));
     if (everyWrit && progress.stableQuest.status === "complete") keys.push("thorough");
+    if (progress.standingCourt.clears > 0) keys.push("standing");
+    if (progress.exhibition.clears > 0) keys.push("exhibition");
+    if (progress.replays.unbrokenClears > 0) keys.push("unbent");
+    if (progress.replays.hardUnbrokenClears > 0) keys.push("iron-docket");
     return keys;
 }
 
@@ -835,14 +857,29 @@ export const FIRST_PACT_AURA_BASE = 15;
 export const FIRST_PACT_AURA_EVERY_WRIT = 5;
 export const FIRST_PACT_AURA_STABLE_KEPT = 5;
 
+/** Which parts of the Aura Stone reward the progress has earned. Writs and
+ *  Vale Stable stay open after the crossing closes, so the server pays each
+ *  part once, whenever it is earned, against its own record of what it paid. */
+export type FirstPactAuraParts = { base: boolean; writs: boolean; stable: boolean };
+
+export function firstPactAuraStoneParts(progress: FirstPactProgress): FirstPactAuraParts {
+    if (progress.mainStep !== "complete") return { base: false, writs: false, stable: false };
+    return {
+        base: true,
+        writs: FIRST_PACT_DISTRICT_WRITS.every((writ) => progress.writs.includes(writ.id)),
+        stable: progress.stableQuest.status === "complete",
+    };
+}
+
+/** Aura Stones owed for the earned parts not yet recorded as paid. */
+export function firstPactAuraStonesOwed(earned: FirstPactAuraParts, paid: FirstPactAuraParts): number {
+    return (earned.base && !paid.base ? FIRST_PACT_AURA_BASE : 0)
+        + (earned.writs && !paid.writs ? FIRST_PACT_AURA_EVERY_WRIT : 0)
+        + (earned.stable && !paid.stable ? FIRST_PACT_AURA_STABLE_KEPT : 0);
+}
+
 export function firstPactAuraStoneReward(progress: FirstPactProgress): number {
-    if (progress.mainStep !== "complete") return 0;
-    let stones = FIRST_PACT_AURA_BASE;
-    if (FIRST_PACT_DISTRICT_WRITS.every((writ) => progress.writs.includes(writ.id))) {
-        stones += FIRST_PACT_AURA_EVERY_WRIT;
-    }
-    if (progress.stableQuest.status === "complete") stones += FIRST_PACT_AURA_STABLE_KEPT;
-    return stones;
+    return firstPactAuraStonesOwed(firstPactAuraStoneParts(progress), { base: false, writs: false, stable: false });
 }
 
 /**
@@ -1358,4 +1395,279 @@ export function settleFirstPactTournamentEncounter(
         },
     };
     return { progress: next, advanced: true };
+}
+
+// ── Postgame: Orin's Stable Exhibition ─────────────────────────────────────
+
+/**
+ * Orin's Stable Exhibition: a rental tournament for a claimant who has closed
+ * the crossing. The player drafts four of six rented champions, fights seven
+ * stables in a row, and after each win may trade one rental for one of the
+ * companions they just beat. A loss ends the run. Rentals never touch the
+ * player's own pets, so the run can be lost freely.
+ *
+ * The rentals and the current run live in a server-only record
+ * (api/first-pact/_exhibition.ts). This contract holds the authored stables and
+ * the pure reducer for what a run earns.
+ */
+export const FIRST_PACT_EXHIBITION_LENGTH = 7;
+export const FIRST_PACT_EXHIBITION_POOL_SIZE = 6;
+/** Court Standing for a completed run, paid at most once per UTC day. */
+export const FIRST_PACT_EXHIBITION_STANDING = 250;
+/** How strong the rented champions are: the champion tier's stat share plus this. */
+export const FIRST_PACT_EXHIBITION_RENTAL_GROWTH = .08;
+
+const EXHIBITION_ROUNDS = [
+    {
+        id: "exhibition-1", title: "Opening Bell", opponent: "Saltmarsh Ropers", tier: "warrior",
+        lesson: "None of these companions are yours yet. Learn what each rental does before you trust it with a lead slot.",
+        defeat: "The Ropers coil their leads and leave the sand. Orin returns your rentals to the stalls and opens a fresh ledger for the next try.",
+        roster: { roles: ["tracker", "defender", "assassin", "sage"], elements: ["Water", "Earth", "Fire", "Wind"] },
+    },
+    {
+        id: "exhibition-2", title: "Fast Hands", opponent: "Lantern Row Kennel", tier: "champion",
+        lesson: "The Kennel leads with two assassins. Guard the first exchange instead of trading blows with them.",
+        defeat: "The Kennel's runners are back in their crates before the dust settles. Orin marks the round and opens a fresh ledger.",
+        roster: { roles: ["assassin", "assassin", "tracker", "defender"], elements: ["Lightning", "Fire", "Wind", "Earth"], growthShareBonus: 0 },
+    },
+    {
+        id: "exhibition-3", title: "Wind Over the Rail", opponent: "Bellwater Aviary", tier: "champion",
+        lesson: "The Aviary brings two sages and changes the weather often. Keep a reserve that can use whatever sky they leave.",
+        defeat: "The Aviary's birds settle on the rail and preen. Orin returns your rentals to the stalls and opens a fresh ledger.",
+        roster: { roles: ["sage", "tracker", "sage", "defender"], elements: ["Wind", "Wind", "Water", "Lightning"], growthShareBonus: .04 },
+    },
+    {
+        id: "exhibition-4", title: "The Jackals Return", opponent: "Copper Jackals", tier: "champion",
+        lesson: "The Jackals stack defenders and wear you down. Rotate your rentals before their stamina runs out.",
+        defeat: "The Jackals' handler collects his purse again. Orin returns your rentals to the stalls and opens a fresh ledger.",
+        roster: { roles: ["defender", "tracker", "defender", "assassin"], elements: ["Earth", "Earth", "Water", "Wind"], growthShareBonus: .08 },
+    },
+    {
+        id: "exhibition-5", title: "Rain at the Fifth Bell", opponent: "Rainbell Menagerie", tier: "champion",
+        lesson: "The Menagerie fights under rain. Bring something that is not Fire into the lead, or swap it out early.",
+        defeat: "Rain keeps falling on the empty sand. Orin returns your rentals to the stalls and opens a fresh ledger.",
+        roster: { roles: ["sage", "sage", "tracker", "assassin"], elements: ["Water", "Wind", "Lightning", "Water"], growthShareBonus: .12 },
+    },
+    {
+        id: "exhibition-6", title: "Ashfall", opponent: "Ashfall Pride", tier: "champion",
+        lesson: "The Pride hits hard and early. A guarded defender beside your assassin keeps the pair standing.",
+        defeat: "The Pride walks the sand once more before leaving. Orin returns your rentals to the stalls and opens a fresh ledger.",
+        roster: { roles: ["assassin", "defender", "sage", "assassin"], elements: ["Fire", "Fire", "Earth", "Lightning"], growthShareBonus: .16 },
+    },
+    {
+        id: "exhibition-7", title: "The Exhibition Final", opponent: "The Gilded Fang", tier: "champion",
+        lesson: "The Fang opens with two defenders. Break their protection with your partner pairs before you spend a signature.",
+        defeat: "The Fang's owner bows to the stands. Orin returns your rentals to the stalls and tells you the bell rings again tomorrow.",
+        roster: { roles: ["defender", "defender", "assassin", "sage"], elements: ["Fire", "Earth", "Fire", "Lightning"], growthShareBonus: .22 },
+    },
+] as const;
+
+export type FirstPactExhibitionRoundId = typeof EXHIBITION_ROUNDS[number]["id"];
+export type FirstPactExhibitionRound = (typeof EXHIBITION_ROUNDS)[number] & { round: number };
+export const FIRST_PACT_EXHIBITION_ROUNDS: readonly FirstPactExhibitionRound[] = EXHIBITION_ROUNDS.map((entry, round) => ({ ...entry, round }));
+const EXHIBITION_SET = new Set<string>(EXHIBITION_ROUNDS.map((entry) => entry.id));
+
+export function firstPactExhibitionRound(id: unknown): FirstPactExhibitionRound | null {
+    const safe = String(id ?? "");
+    return EXHIBITION_SET.has(safe) ? FIRST_PACT_EXHIBITION_ROUNDS.find((entry) => entry.id === safe) ?? null : null;
+}
+
+/** The Exhibition opens with the postgame, once the crossing is closed. */
+export function firstPactExhibitionOpen(progress: FirstPactProgress): boolean {
+    return progress.mainStep === "complete";
+}
+
+function utcDay(now: number): string {
+    return new Date(now).toISOString().slice(0, 10);
+}
+
+function normalizeExhibitionSummary(value: unknown): FirstPactProgress["exhibition"] {
+    const source = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+    const paidDay = typeof source.paidDay === "string" && /^\d{4}-\d{2}-\d{2}$/.test(source.paidDay) ? source.paidDay : undefined;
+    return {
+        best: finiteInt(source.best, 0, 0, FIRST_PACT_EXHIBITION_LENGTH),
+        clears: finiteInt(source.clears, 0, 0, 9_999),
+        ...(paidDay ? { paidDay } : {}),
+        battleProofs: [...new Set((Array.isArray(source.battleProofs) ? source.battleProofs : [])
+            .filter((entry): entry is string => typeof entry === "string")
+            .map((entry) => entry.slice(0, 96))
+            .filter(Boolean))].slice(-8),
+    };
+}
+
+/**
+ * Record one Exhibition battle against the player's lasting summary.
+ * `reached` is how many rounds the run has won after this battle. A finished
+ * run pays Court Standing once per UTC day; every other result only moves the
+ * record. The proof makes a retried settlement a no-op.
+ */
+export function settleFirstPactExhibitionSummary(
+    progress: FirstPactProgress,
+    outcome: "win" | "loss",
+    reached: number,
+    proofId: string,
+    now = Date.now(),
+): { progress: FirstPactProgress; advanced: boolean; standingPaid: number } {
+    const safeProof = String(proofId).slice(0, 96);
+    if (!safeProof || progress.exhibition.battleProofs.includes(safeProof) || !firstPactExhibitionOpen(progress)) {
+        return { progress, advanced: false, standingPaid: 0 };
+    }
+    const rounds = Math.max(0, Math.min(FIRST_PACT_EXHIBITION_LENGTH, Math.floor(reached)));
+    const finished = outcome === "win" && rounds >= FIRST_PACT_EXHIBITION_LENGTH;
+    const day = utcDay(now);
+    const pays = finished && progress.exhibition.paidDay !== day;
+    const standingPaid = pays ? Math.min(FIRST_PACT_EXHIBITION_STANDING, 10_000 - progress.courtStanding) : 0;
+    return {
+        progress: {
+            ...progress,
+            lastVisitedAt: now,
+            courtStanding: progress.courtStanding + standingPaid,
+            exhibition: {
+                best: Math.max(progress.exhibition.best, rounds),
+                clears: progress.exhibition.clears + (finished ? 1 : 0),
+                ...(pays ? { paidDay: day } : progress.exhibition.paidDay ? { paidDay: progress.exhibition.paidDay } : {}),
+                battleProofs: [...progress.exhibition.battleProofs, safeProof].slice(-8),
+            },
+        },
+        advanced: true,
+        standingPaid,
+    };
+}
+
+// ── Postgame: Court Replays ────────────────────────────────────────────────
+
+/**
+ * Court Replays let a claimant who closed the crossing fight its story
+ * battles again. They change no story record and pay no currency: Hard and
+ * Unbroken are earned as titles alone.
+ *
+ * Hard: every opponent is champion grade with gear, eight levels above the
+ * mirrored level (still capped at 100), and +.05 stat share over the authored
+ * roster (still under the builder's .35 clamp).
+ * Unbroken: the four Balancing rounds back to back; a loss ends the attempt.
+ */
+export const FIRST_PACT_HARD_LEVEL_BONUS = 8;
+export const FIRST_PACT_HARD_GROWTH_BONUS = .05;
+
+export type FirstPactReplaySettings = { hard: boolean; unbroken: boolean };
+export type FirstPactReplayRecord = {
+    /** Encounters won on Hard. */
+    hardClears: string[];
+    unbrokenBest: number;
+    unbrokenClears: number;
+    hardUnbrokenClears: number;
+    /** An Unbroken attempt in progress, or null. */
+    run: { hard: boolean; round: number } | null;
+    battleProofs: string[];
+};
+
+/** The Balancing, in the order an Unbroken attempt fights it. */
+export const FIRST_PACT_UNBROKEN_ROUNDS = FIRST_PACT_MAIN_ENCOUNTERS
+    .filter((entry) => firstPactTrialWinsRequired(entry) !== undefined)
+    .sort((a, b) => (firstPactTrialWinsRequired(a) ?? 0) - (firstPactTrialWinsRequired(b) ?? 0));
+
+function emptyFirstPactReplays(): FirstPactReplayRecord {
+    return { hardClears: [], unbrokenBest: 0, unbrokenClears: 0, hardUnbrokenClears: 0, run: null, battleProofs: [] };
+}
+
+function normalizeFirstPactReplays(value: unknown): FirstPactReplayRecord {
+    const source = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+    const runSource = source.run && typeof source.run === "object" && !Array.isArray(source.run) ? source.run as Record<string, unknown> : null;
+    return {
+        hardClears: [...new Set((Array.isArray(source.hardClears) ? source.hardClears : [])
+            .filter((entry): entry is string => typeof entry === "string" && !!firstPactEncounter(entry)))],
+        unbrokenBest: finiteInt(source.unbrokenBest, 0, 0, FIRST_PACT_UNBROKEN_ROUNDS.length),
+        unbrokenClears: finiteInt(source.unbrokenClears, 0, 0, 9_999),
+        hardUnbrokenClears: finiteInt(source.hardUnbrokenClears, 0, 0, 9_999),
+        run: runSource ? { hard: runSource.hard === true, round: finiteInt(runSource.round, 0, 0, FIRST_PACT_UNBROKEN_ROUNDS.length - 1) } : null,
+        battleProofs: [...new Set((Array.isArray(source.battleProofs) ? source.battleProofs : [])
+            .filter((entry): entry is string => typeof entry === "string")
+            .map((entry) => entry.slice(0, 96))
+            .filter(Boolean))].slice(-8),
+    };
+}
+
+/** Whether a story battle has been cleared and may be replayed. Writs and the
+ *  stable tournament count once won; the Balancing once the crossing closes. */
+export function firstPactReplayOpen(progress: FirstPactProgress, id: unknown): boolean {
+    if (progress.mainStep !== "complete") return false;
+    if (FIRST_PACT_UNBROKEN_ROUNDS.some((entry) => entry.id === id)) return true;
+    const writ = firstPactWritEncounter(id);
+    if (writ) return progress.writs.includes(writ.id);
+    const round = firstPactTournamentEncounter(id);
+    if (round) return progress.stableQuest.tournamentWins > round.requiredWins;
+    return false;
+}
+
+/** A progress record as a pre-postgame server may have sent it, with the
+ *  postgame records filled in empty. The server's own copy is always normalized. */
+export function firstPactWithPostgame(progress: FirstPactProgress): FirstPactProgress {
+    if (progress.exhibition && progress.replays) return progress;
+    return {
+        ...progress,
+        exhibition: progress.exhibition ?? { best: 0, clears: 0, battleProofs: [] },
+        replays: progress.replays ?? emptyFirstPactReplays(),
+    };
+}
+
+/** The Balancing round an Unbroken attempt is due to fight, or null. */
+export function expectedFirstPactUnbrokenRound(progress: FirstPactProgress) {
+    const run = progress.replays.run;
+    return run ? FIRST_PACT_UNBROKEN_ROUNDS[run.round] ?? null : null;
+}
+
+export function startFirstPactUnbroken(progress: FirstPactProgress, hard: boolean, now = Date.now()): FirstPactProgress {
+    if (progress.mainStep !== "complete") return progress;
+    return { ...progress, lastVisitedAt: now, replays: { ...progress.replays, run: { hard, round: 0 } } };
+}
+
+/** Settle one replay battle. A plain replay records only a Hard win; an
+ *  Unbroken battle advances or ends the attempt. Story progress is untouched. */
+export function settleFirstPactReplay(
+    progress: FirstPactProgress,
+    encounterId: string,
+    settings: FirstPactReplaySettings,
+    outcome: "win" | "loss",
+    proofId: string,
+    now = Date.now(),
+): { progress: FirstPactProgress; advanced: boolean } {
+    const safeProof = String(proofId).slice(0, 96);
+    const replays = progress.replays;
+    if (!safeProof || replays.battleProofs.includes(safeProof) || !firstPactReplayOpen(progress, encounterId)) {
+        return { progress, advanced: false };
+    }
+    const battleProofs = [...replays.battleProofs, safeProof].slice(-8);
+    const hardClears = outcome === "win" && settings.hard && !replays.hardClears.includes(encounterId)
+        ? [...replays.hardClears, encounterId]
+        : replays.hardClears;
+    if (!settings.unbroken) {
+        return { progress: { ...progress, lastVisitedAt: now, replays: { ...replays, hardClears, battleProofs } }, advanced: true };
+    }
+    const run = replays.run;
+    const expected = expectedFirstPactUnbrokenRound(progress);
+    if (!run || run.hard !== settings.hard || !expected || expected.id !== encounterId) return { progress, advanced: false };
+    if (outcome !== "win") {
+        return {
+            progress: { ...progress, lastVisitedAt: now, replays: { ...replays, hardClears, battleProofs, run: null, unbrokenBest: Math.max(replays.unbrokenBest, run.round) } },
+            advanced: true,
+        };
+    }
+    const won = run.round + 1;
+    const finished = won >= FIRST_PACT_UNBROKEN_ROUNDS.length;
+    return {
+        progress: {
+            ...progress,
+            lastVisitedAt: now,
+            replays: {
+                ...replays,
+                hardClears,
+                battleProofs,
+                run: finished ? null : { hard: run.hard, round: won },
+                unbrokenBest: Math.max(replays.unbrokenBest, won),
+                unbrokenClears: replays.unbrokenClears + (finished ? 1 : 0),
+                hardUnbrokenClears: replays.hardUnbrokenClears + (finished && run.hard ? 1 : 0),
+            },
+        },
+        advanced: true,
+    };
 }

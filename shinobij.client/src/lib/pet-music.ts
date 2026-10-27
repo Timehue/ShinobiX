@@ -182,21 +182,6 @@ export function setBattleMusicIntensity(intensity: BattleMusicIntensity): void {
     applyBattleMix(intensity);
 }
 
-/** Temporarily clear space in the score for an order, clash, or finishing hit. */
-export function duckBattleMusic(level = 0.42, holdMs = 520): void {
-    if (!audioEl || currentTheme === null || isAudioMuted() || isAudioBackgrounded()) return;
-    if (duckRestoreTimer !== null) window.clearTimeout(duckRestoreTimer);
-    const base = currentTheme === "hollow-gate"
-        ? hollowGateMusicMix(currentIntensity).musicVolume
-        : standardBattleMusicMix(currentIntensity).musicVolume;
-    battleVolume = Math.max(0.04, base * Math.max(0.15, Math.min(1, level)));
-    audioEl.volume = battleVolume * getAudioVolume();
-    duckRestoreTimer = window.setTimeout(() => {
-        duckRestoreTimer = null;
-        applyBattleMix(currentIntensity);
-    }, Math.max(80, holdMs));
-}
-
 /** Start (or restart) battle music from the same gesture that primes SFX. */
 export function startBattleMusic(theme: BattleMusicTheme = "standard"): void {
     if (isAudioMuted()) return;

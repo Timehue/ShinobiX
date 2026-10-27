@@ -163,7 +163,7 @@ describe('executable multi-engine runtime registry', () => {
     // 67 as of 2026-10-01: caravan ambushes use the Tower engine while
     // preserving the parent caravan run as their settlement owner.
     // 68 as of 2026-10-10: live simultaneous-order Pet Tactics prototype.
-    assert.equal(ids.length, 69, 'The inventory must retain the independently pinned 69-row model including Dungeon command authority.');
+    assert.equal(ids.length, 70, "The inventory must retain the independently pinned 70-row model including Dungeon command authority and Keeper's Path.");
     assert.equal(new Set(ids).size, ids.length, 'Runtime mode ids must be unique.');
     assert.equal(new Set(labels).size, labels.length, 'Runtime mode labels must be unique.');
     assert.equal(new Set(expectedIds).size, expectedIds.length, 'Independent expected mode ids must be unique.');
@@ -634,7 +634,7 @@ describe('executable multi-engine runtime registry', () => {
     // fight is the one both players watch.
     const rankedPet = runtimeModeById('pet-ranked-live');
     assert.equal(rankedPet.status, 'match');
-    assert.equal(rankedPet.authorityEngine, E.PET_TACTICS);
+    assert.equal(rankedPet.authorityEngine, E.PET_SHOWDOWN);
     assert.equal(rankedPet.rewardPolicy, 'server-settled');
     assert.match(petLadderSource, /<PetLadderQueuePanel/);
     assert.doesNotMatch(petLadderSource, /PetDuelLiveHost|autoAcceptFrom|queuedAgainst/);

@@ -1,15 +1,10 @@
 import { petBattleJutsus } from '../../shared/pet-battle-loadout.js';
 import { rankedBuildForPet } from '../../shared/pet-tactics-build.js';
-import { createHash } from 'node:crypto';
-import { activeCarriedPets } from '../_entitlements.js';
-import { DEFAULT_RANKED_RATING, rankedDelta } from '../_ranked-rating.js';
+import { rankedDelta } from '../_ranked-rating.js';
 import { petJutsuPowerCeil, petStatCeil } from '../_pet-stat-ceil.js';
-import { resolveWarDuel } from '../_pet-showdown/war-duel.js';
-import { buildWarTeam } from '../_pet-showdown/war-team.js';
 import type { Pet, PetJutsu } from '../_pet-sim/pet-types.js';
 import type { KvLike } from '../_storage.js';
 import { safeName } from '../_utils.js';
-import { petCombatBusyReason } from './_pet-busy.js';
 
 /**
  * Private ranked-pet authority primitives.
@@ -75,10 +70,6 @@ export type ServerResolvedPetRankedToken = {
     };
 };
 
-export type AuthoritativeRankedPetChoice =
-    | { ok: true; pet: Pet }
-    | { ok: false; reason: 'missing-character' | 'no-entitled-pet' | 'all-entitled-pets-busy' };
-
 export type PetRankedActiveClaim =
     | { ok: true; freshKeys: string[] }
     | { ok: false; conflictPlayer: string };
@@ -102,12 +93,6 @@ const PET_RANKED_STARTING_PREFIX = 'pet-ranked-starting:';
 export function petRankedStartingLeaseToken(matchId: string): string {
     if (!isPetRankedMatchId(matchId)) throw new Error('invalid-pet-ranked-starting-intent');
     return `${PET_RANKED_STARTING_PREFIX}${matchId}`;
-}
-
-export function petRankedMatchIdFromStartingLease(value: unknown): string | null {
-    if (typeof value !== 'string' || !value.startsWith(PET_RANKED_STARTING_PREFIX)) return null;
-    const matchId = value.slice(PET_RANKED_STARTING_PREFIX.length);
-    return isPetRankedMatchId(matchId) ? matchId : null;
 }
 
 export function isPetRankedMatchId(value: unknown): value is string {
@@ -241,169 +226,6 @@ export function snapshotPetForRanked(raw: Record<string, unknown>): Pet | null {
             ? { loadout: { ...(pvp ? { pvp } : {}), ...(consumable ? { consumable } : {}) } }
             : {}),
     };
-}
-
-/**
- * The server picks the first ready pet from the entitlement-projected carried
- * roster (active slot first, then reserve/roster order). Body pet ids are never
- * accepted by the ranked start endpoint.
- */
-export function chooseAuthoritativeRankedPet(
-    character: Record<string, unknown> | null | undefined,
-    now = Date.now(),
-): AuthoritativeRankedPetChoice {
-    if (!character) return { ok: false, reason: 'missing-character' };
-    const entitled = activeCarriedPets<Record<string, unknown>>(character);
-    if (!entitled.length) return { ok: false, reason: 'no-entitled-pet' };
-    for (const raw of entitled) {
-        if (petCombatBusyReason(character, raw, now)) continue;
-        const pet = snapshotPetForRanked(raw);
-        if (pet) return { ok: true, pet };
-    }
-    return { ok: false, reason: 'all-entitled-pets-busy' };
-}
-
-function rating(value: unknown): number {
-    const n = Number(value);
-    return Number.isFinite(n) ? Math.max(0, Math.floor(n)) : DEFAULT_RANKED_RATING;
-}
-
-function digestMaterial(pet: Pet): Record<string, unknown> {
-    return {
-        id: pet.id,
-        name: pet.name,
-        rarity: pet.rarity,
-        level: pet.level,
-        hp: pet.hp,
-        attack: pet.attack,
-        defense: pet.defense,
-        speed: pet.speed,
-        element: pet.element,
-        trait: pet.trait,
-        jutsus: pet.jutsus,
-        loadout: pet.loadout,
-    };
-}
-
-/** Resolve a queue-owned pair with the deterministic private server engine. */
-export function resolveAuthoritativePetRankedMatch(input: {
-    matchId: string;
-    a: string;
-    b: string;
-    aCharacter: Record<string, unknown>;
-    bCharacter: Record<string, unknown>;
-    aPet: Pet;
-    bPet: Pet;
-    seed: number;
-    now?: number;
-}): ServerResolvedPetRankedToken {
-    const a = safeName(input.a);
-    const b = safeName(input.b);
-    if (!isPetRankedMatchId(input.matchId) || !a || !b || a === b) {
-        throw new Error('invalid-pet-ranked-pair');
-    }
-    if (!Number.isSafeInteger(input.seed) || input.seed < 1 || input.seed > 0x7fffffff) {
-        throw new Error('invalid-pet-ranked-seed');
-    }
-    const createdAt = Math.max(1, Math.floor(Number(input.now ?? Date.now())));
-    const aRating = rating(input.aCharacter.petRankedRating);
-    const bRating = rating(input.bCharacter.petRankedRating);
-    // Resolved on the SHOWDOWN engine, headlessly: ranked is asynchronous (no
-    // player is present at resolve), so both sides run the same AI over their
-    // own sealed kits. Gear applies to both; the consumable slot is inert,
-    // since a ranked settlement has no transaction to charge it against.
-    // No per-device flag can change the result — Showdown has none.
-    // 2v2 with a two-pet bench (owner ruling), same as every other war duel.
-    // The queued pet LEADS and the rest of the team fills from that player's own
-    // carried roster — the characters are already in hand here, so this stays a
-    // pure synchronous resolve with no storage read and no new failure mode.
-    const aTeam = buildWarTeam(input.aCharacter, [String(input.aPet.id)]) ?? [input.aPet];
-    const bTeam = buildWarTeam(input.bCharacter, [String(input.bPet.id)]) ?? [input.bPet];
-    const simulated = resolveWarDuel({
-        rulesetVersion: 'progression-v3',
-        sessionId: `ranked:${input.matchId}`,
-        seed: input.seed,
-        fromName: a,
-        toName: b,
-        fromPets: aTeam,
-        toPets: bTeam,
-    });
-    // Showdown's judge always decides, so ranked no longer produces draws. The
-    // 'draw' branch below stays reachable only for tokens minted by the retired
-    // engine, which the version check refuses anyway.
-    const winner: 'a' | 'b' | 'draw' = simulated.outcome === 'from' ? 'a' : 'b';
-    const delta = winner === 'a'
-        ? rankedDelta(aRating, bRating)
-        : winner === 'b'
-            ? rankedDelta(bRating, aRating)
-            : 0;
-    const reward: PetRankedRatingReward = {
-        kind: 'pet-rating-v1',
-        ryo: 0,
-        aDelta: winner === 'a' ? delta : winner === 'b' ? -delta : 0,
-        bDelta: winner === 'b' ? delta : winner === 'a' ? -delta : 0,
-    };
-    const engineDigest = createHash('sha256').update(JSON.stringify({
-        engineVersion: PET_RANKED_ENGINE_VERSION,
-        matchId: input.matchId,
-        seed: input.seed,
-        a: aTeam.map(digestMaterial),
-        b: bTeam.map(digestMaterial),
-        result: winner,
-        rounds: simulated.rounds,
-        reward,
-    })).digest('hex');
-
-    return {
-        version: 'pet-ranked-token-v1',
-        matchId: input.matchId,
-        a,
-        b,
-        aRating,
-        bRating,
-        createdAt,
-        seed: input.seed,
-        aPetId: input.aPet.id,
-        bPetId: input.bPet.id,
-        resolution: {
-            authority: 'server-engine-v1',
-            engineVersion: PET_RANKED_ENGINE_VERSION,
-            winner,
-            resolvedAt: createdAt,
-            engineDigest,
-            reward,
-        },
-    };
-}
-
-/**
- * Validate the reciprocal queue records. One client cannot manufacture a
- * pairing by writing an opponent name into ranked-start's body.
- */
-export function validateReciprocalPetRankedQueueMatch(
-    playerName: string,
-    mine: PetRankedQueueMatch | null,
-    theirs: PetRankedQueueMatch | null,
-    now = Date.now(),
-): { ok: true; matchId: string; opponent: string } | { ok: false; reason: string } {
-    const me = safeName(playerName);
-    const opponent = safeName(mine?.opponent ?? '');
-    if (!me || !mine || !isPetRankedMatchId(mine.matchId) || !opponent || opponent === me) {
-        return { ok: false, reason: 'missing-server-pairing' };
-    }
-    if (!Number.isFinite(mine.createdAt)
-        || mine.createdAt > now + 5_000
-        || now - mine.createdAt > PET_RANKED_QUEUE_MATCH_TTL_SECONDS * 1_000) {
-        return { ok: false, reason: 'expired-server-pairing' };
-    }
-    if (!theirs
-        || theirs.matchId !== mine.matchId
-        || safeName(theirs.opponent) !== me
-        || theirs.initiator === mine.initiator
-        || theirs.createdAt !== mine.createdAt) {
-        return { ok: false, reason: 'nonreciprocal-server-pairing' };
-    }
-    return { ok: true, matchId: mine.matchId, opponent };
 }
 
 /**

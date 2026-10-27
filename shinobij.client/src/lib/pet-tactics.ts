@@ -546,14 +546,6 @@ export function petShrineSeekGoal(
 // naturally converge on the frontline + use cover, so not every tile is needed.
 export type ArenaZone = "backline" | "midline" | "frontline" | "cover" | "danger";
 
-export function petTacticalZone(col: number, tileType?: ArenaTileType): ArenaZone {
-    if (tileType === "cover") return "cover";
-    if (tileType === "hazard") return "danger";
-    if (col >= 6 && col <= 7) return "frontline";
-    if (col >= 4 && col <= 9) return "midline";
-    return "backline";
-}
-
 /** Manhattan adjacency test against a tile Set (used for the cover bonus). */
 export function isAdjacentToAny(pos: number, tiles: ReadonlySet<number>): boolean {
     if (!tiles.size) return false;

@@ -21,6 +21,9 @@ import {
     FIRST_PACT_BALANCING_STANDING,
     expectedFirstPactTournamentEncounter,
     firstPactAvailableAftermath,
+    FIRST_PACT_EXHIBITION_LENGTH,
+    FIRST_PACT_EXHIBITION_STANDING,
+    FIRST_PACT_UNBROKEN_ROUNDS,
 } from "../../../../shared/first-pact-contract";
 import {
     type FirstPactCompanionView,
@@ -42,12 +45,33 @@ type DialogueAction =
     | { kind: "main-beat"; beat: FirstPactMainBeat; label: string }
     | { kind: "main-battle"; encounterId: FirstPactEncounterId; label: string };
 
-/** A branch the player picks from inside the dialogue frame. Either it moves
- *  the story on, or it spends Court Standing on a finding. */
+/** A branch the player picks from inside the dialogue frame. It moves the
+ *  story on, spends Court Standing on a finding, or opens a battle offered
+ *  beside those findings. */
 type FirstPactDialogueChoice =
     | { label: string; beat: FirstPactMainBeat }
     | { label: string; writId: string }
-    | { label: string; aftermathId: FirstPactAftermathId };
+    | { label: string; aftermathId: FirstPactAftermathId }
+    | { label: string; encounterId: FirstPactEncounterId }
+    | { label: string; postgame: FirstPactPostgameChoice };
+
+/** Postgame doors: Orin's Stable Exhibition and the Arbiter's Court Replays. */
+export type FirstPactPostgameChoice = "exhibition" | "replays" | "unbroken" | "unbroken-hard" | "unbroken-continue";
+
+/** The Arbiter's Court Replay offers, once the crossing is closed. */
+function courtReplayChoices(progress: FirstPactProgress): FirstPactDialogueChoice[] {
+    if (progress.mainStep !== "complete") return [];
+    const run = progress.replays.run;
+    return [
+        ...(run
+            ? [{ label: `Continue the Unbroken attempt${run.hard ? " on Hard" : ""}: round ${run.round + 1} of ${FIRST_PACT_UNBROKEN_ROUNDS.length}`, postgame: "unbroken-continue" as const }]
+            : [
+                { label: "Begin an Unbroken attempt", postgame: "unbroken" as const },
+                { label: "Begin an Unbroken attempt on Hard", postgame: "unbroken-hard" as const },
+            ]),
+        { label: "Replay a cleared battle", postgame: "replays" as const },
+    ];
+}
 
 type FirstPactDialogue = {
     lines: string[];
@@ -222,18 +246,23 @@ function npcDialogue(npc: FirstPactNpcDefinition, progress: FirstPactProgress): 
                 "Bring me a claim with named witnesses and a chain of evidence I can examine. Vey knows which rejected records still carry signatures.",
             );
         }
-        if (standingRound) {
-            return {
-                lines,
-                action: {
-                    kind: "main-battle",
-                    encounterId: standingRound.id,
-                    label: standingRound.round === 0
-                        ? `Open the docket: ${standingRound.title}`
-                        : `Sitting ${standingRound.round + 1} of ${FIRST_PACT_STANDING_COURT_LENGTH}: ${standingRound.title}`,
-                },
-            };
+        const courtLabel = standingRound
+            ? standingRound.round === 0
+                ? `Open the docket: ${standingRound.title}`
+                : `Sitting ${standingRound.round + 1} of ${FIRST_PACT_STANDING_COURT_LENGTH}: ${standingRound.title}`
+            : "";
+        const replayChoices = courtReplayChoices(progress);
+        if (replayChoices.length) {
+            lines.push(
+                "Every argument you won is still on file. Ask, and the Court will argue any of them again, on Hard if you want. A replay changes nothing in the story.",
+                ...(progress.replays.unbrokenClears > 0
+                    ? [`You have won the Balancing without a loss ${progress.replays.unbrokenClears === 1 ? "once" : `${progress.replays.unbrokenClears} times`}.`]
+                    : ["An Unbroken attempt is the whole Balancing in one sitting. Lose once and the attempt is over."]),
+            );
         }
+        // The Standing Court is open for good once the crossing is complete, so
+        // it cannot be allowed to shadow the findings: each clear pays standing,
+        // and the findings are the only thing that standing buys.
         if (open.length && spendable >= FIRST_PACT_FINDING_COST) {
             lines.push(
                 "Your answered writs are still marked inconclusive. That status lets another clerk reopen them.",
@@ -241,11 +270,30 @@ function npcDialogue(npc: FirstPactNpcDefinition, progress: FirstPactProgress): 
             );
             return {
                 lines,
-                choicesLabel: "Choose a finding to enter into the permanent record",
-                choices: open.map((id) => ({
-                    label: `Enter the finding: ${firstPactWritEncounter(id)?.title ?? id}`,
-                    writId: id,
-                })),
+                choicesLabel: standingRound
+                    ? "Open the docket or choose a finding to enter into the permanent record"
+                    : "Choose a finding to enter into the permanent record",
+                choices: [
+                    ...(standingRound ? [{ label: courtLabel, encounterId: standingRound.id }] : []),
+                    ...replayChoices,
+                    ...open.map((id) => ({
+                        label: `Enter the finding: ${firstPactWritEncounter(id)?.title ?? id}`,
+                        writId: id,
+                    })),
+                ],
+            };
+        }
+        if (standingRound && replayChoices.length) {
+            return {
+                lines,
+                choicesLabel: "Open the docket or ask the Court to replay an argument",
+                choices: [{ label: courtLabel, encounterId: standingRound.id }, ...replayChoices],
+            };
+        }
+        if (standingRound) {
+            return {
+                lines,
+                action: { kind: "main-battle", encounterId: standingRound.id, label: courtLabel },
             };
         }
         if (open.length) {
@@ -259,16 +307,47 @@ function npcDialogue(npc: FirstPactNpcDefinition, progress: FirstPactProgress): 
     }
 
     if (npc.id === "registrar-orin") {
+        if (progress.mainStep === "complete") {
+            // The postgame: the stable yards run exhibitions again. Sena's
+            // tournament stays open beside it for a claimant who never finished it.
+            const bout = expectedFirstPactTournamentEncounter(progress);
+            const record = progress.exhibition.clears > 0
+                ? `You have won ${progress.exhibition.clears === 1 ? "one full Exhibition" : `${progress.exhibition.clears} full Exhibitions`}.`
+                : progress.exhibition.best > 0
+                    ? `Your best Exhibition run reached round ${progress.exhibition.best} of ${FIRST_PACT_EXHIBITION_LENGTH}.`
+                    : "";
+            return {
+                lines: [
+                    "The Court closed its case, so the stable yards run exhibitions again. Rent four of my champions and fight seven stables in a row.",
+                    "After each win you may trade one rental for a companion you just beat. Lose once and the run ends. Your own companions stay home, so you risk nothing you own.",
+                    `A full run is worth ${FIRST_PACT_EXHIBITION_STANDING} Court Standing, once a day.`,
+                    ...(record ? [record] : []),
+                ],
+                choicesLabel: "Choose a stable entry",
+                choices: [
+                    { label: "Open the Exhibition ledger", postgame: "exhibition" },
+                    ...(bout ? [{ label: `Vale Stable: ${bout.title}`, encounterId: bout.id }] : []),
+                ],
+            };
+        }
         const mainEncounter = expectedFirstPactMainEncounter(progress);
         const trial = firstPactTrialRound(progress);
         const owed = firstPactBalancingOwed(progress);
-        if (!mainEncounter && progress.mainStep === "challenge-court-echo" && owed > 0) return {
-            lines: [
-                "The Arbiter refused your hearing. You need enough public standing to force it onto the schedule.",
-                `You are ${owed.toLocaleString()} short of the required ${FIRST_PACT_BALANCING_STANDING.toLocaleString()}.`,
-                "Four Court squads are active in the city districts. Defeat them to earn standing, then report back here.",
-            ],
-        };
+        if (!mainEncounter && progress.mainStep === "challenge-court-echo" && owed > 0) {
+            // Sena's tournament is the other road to the threshold, and the
+            // side-quest tracker sends the player to this desk for it, so the
+            // refusal cannot also close the entry slate.
+            const bout = expectedFirstPactTournamentEncounter(progress);
+            return {
+                lines: [
+                    "The Arbiter refused your hearing. You need enough public standing to force it onto the schedule.",
+                    `You are ${owed.toLocaleString()} short of the required ${FIRST_PACT_BALANCING_STANDING.toLocaleString()}.`,
+                    "Four Court squads are active in the city districts. Defeat them to earn standing, then report back here.",
+                    ...(bout ? [`Vale Stable's entry also stands, and a public win counts. Next bell: ${bout.title}. ${bout.opponent} waits across the line.`] : []),
+                ],
+                action: bout ? { kind: "stable-battle", encounterId: bout.id } : undefined,
+            };
+        }
         if (mainEncounter && trial) {
             // The Balancing runs as four sittings. Orin announces the round, and
             // the Court's finding is read out once, before the first of them.

@@ -3,16 +3,13 @@ import assert from 'node:assert/strict';
 import { petJutsuPowerCeil, petStatCeil } from '../_pet-stat-ceil.js';
 import { _makeMemoryKv, type KvLike } from '../_storage.js';
 import {
-    chooseAuthoritativeRankedPet,
     claimPetRankedActivePair,
     claimPetRankedStartingPair,
     commitPetRankedStartingPair,
     petRankedActiveKey,
     releasePetRankedActivePair,
     releasePetRankedStartingPair,
-    resolveAuthoritativePetRankedMatch,
     snapshotPetForRanked,
-    validateReciprocalPetRankedQueueMatch,
     PET_RANKED_TOKEN_TTL_SECONDS,
 } from './_ranked-engine.js';
 
@@ -35,37 +32,6 @@ const pet = (id: string, patch: Record<string, unknown> = {}) => ({
 });
 
 describe('private ranked pet engine', () => {
-    it('selects only entitlement-carried, ready pets in server priority order', () => {
-        const character = {
-            name: 'alpha',
-            activePetId: 'p1',
-            pets: [
-                pet('p1', { training: { endsAt: 1 } }),
-                pet('p2'),
-                pet('p3'),
-                pet('p4'),
-                pet('p5', { level: 100 }),
-                pet('overflow-p6', { level: 100 }),
-            ],
-        };
-        const choice = chooseAuthoritativeRankedPet(character, 100);
-        assert.equal(choice.ok, true);
-        if (choice.ok) assert.equal(choice.pet.id, 'p1');
-
-        const busy = chooseAuthoritativeRankedPet({
-            ...character,
-            pets: [
-                pet('p1', { expedition: { endsAt: 1 } }),
-                pet('p2', { expedition: { endsAt: 1 } }),
-                pet('p3', { expedition: { endsAt: 1 } }),
-                pet('p4', { expedition: { endsAt: 1 } }),
-                pet('p5', { expedition: { endsAt: 1 } }),
-                pet('overflow-p6'),
-            ],
-        }, 100);
-        assert.deepEqual(busy, { ok: false, reason: 'all-entitled-pets-busy' });
-    });
-
     it('bounds legacy/corrupt combat snapshots before simulation', () => {
         const snapshot = snapshotPetForRanked(pet('bounded', {
             hp: 999_999,
@@ -101,45 +67,6 @@ describe('private ranked pet engine', () => {
         assert.ok(snapshot.jutsus.every(move => move.unlockLevel === 1 && !move.signature));
         const earned = snapshotPetForRanked({ ...raw, level: 20 })!;
         assert.ok(earned.jutsus.some(move => move.signature && move.unlockLevel === 20));
-    });
-
-    it('replays deterministically and seals the winner plus rating reward in its digest', () => {
-        const aPet = snapshotPetForRanked(pet('alpha-pet'))!;
-        const bPet = snapshotPetForRanked(pet('bravo-pet', { element: 'Water', attack: 63 }))!;
-        const input = {
-            matchId: MATCH_A,
-            a: 'Alpha',
-            b: 'Bravo',
-            aCharacter: { petRankedRating: 1025 },
-            bCharacter: { petRankedRating: 975 },
-            aPet,
-            bPet,
-            seed: 123456,
-            now: 1_750_000_000_000,
-        };
-        const first = resolveAuthoritativePetRankedMatch(input);
-        const replay = resolveAuthoritativePetRankedMatch(input);
-        assert.deepEqual(replay, first);
-        assert.equal(first.a, 'alpha');
-        assert.equal(first.b, 'bravo');
-        assert.match(first.resolution.engineDigest, /^[a-f0-9]{64}$/);
-        assert.equal(first.resolution.reward.ryo, 0);
-        assert.equal(first.resolution.reward.aDelta + first.resolution.reward.bDelta, 0);
-        assert.ok(['a', 'b', 'draw'].includes(first.resolution.winner));
-    });
-
-    it('requires reciprocal, fresh queue records with the same server match id', () => {
-        const now = 10_000;
-        const mine = { matchId: MATCH_A, opponent: 'bravo', opponentElo: 1000, opponentLevel: 20, initiator: true, createdAt: now };
-        const theirs = { matchId: MATCH_A, opponent: 'alpha', opponentElo: 1000, opponentLevel: 20, initiator: false, createdAt: now };
-        assert.deepEqual(validateReciprocalPetRankedQueueMatch('alpha', mine, theirs, now), {
-            ok: true,
-            matchId: MATCH_A,
-            opponent: 'bravo',
-        });
-        assert.equal(validateReciprocalPetRankedQueueMatch('alpha', mine, { ...theirs, matchId: MATCH_B }, now).ok, false);
-        assert.equal(validateReciprocalPetRankedQueueMatch('alpha', mine, { ...theirs, initiator: true }, now).ok, false);
-        assert.equal(validateReciprocalPetRankedQueueMatch('alpha', { ...mine, createdAt: 1 }, { ...theirs, createdAt: 1 }, now + 100_000).ok, false);
     });
 
     it('claims at most one active pair and compare-deletes only its own token', async () => {

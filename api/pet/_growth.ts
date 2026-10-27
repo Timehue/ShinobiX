@@ -107,14 +107,6 @@ export function petGrowthBaseStats(pet: Record<string, unknown>): PetGrowthStats
         : fallbackBaseStats(pet);
 }
 
-export function agilityGrowthPerPoint(levelRaw: unknown): number {
-    void levelRaw;
-    // Initiative is already an intrinsic multiplier in Showdown. At the same
-    // displayed-stat rate as other attributes, a modest Agility tilt still won
-    // 65.8% against a balanced twin. Half-rate prices that intrinsic value.
-    return PET_AGILITY_GROWTH;
-}
-
 /** Tiers are independent per attribute; Agility buys half the stat bonus. */
 export function specializationGrowth(pointsRaw: unknown, agility = false): number {
     const points = Math.max(0, whole(pointsRaw));
