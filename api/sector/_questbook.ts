@@ -5,8 +5,8 @@
  * Where the single wanderer bounties (_wanderer-quest.ts) are one objective →
  * one reward, an EPIC is an ordered chain of STAGES the player advances through
  * one at a time. A stage is one of:
- *   - a COUNTER stage: tracks one real character counter (foes defeated / pet duels
- *     won / card rounds won / tiles scouted) and advances when (current − the stage's
+ *   - a COUNTER stage: tracks one real character counter (foes defeated / rewarded pet
+ *     battles won / card rounds won / tiles scouted) and advances when (current − the stage's
  *     sealed baseline) reaches its count. May carry a `bossId` the client renders.
  *   - a CHOICE stage (a BRANCH): the player picks one option; the choice is sealed
  *     and its effects (bonus ryo %, fate shards, a mutually-exclusive title, a later

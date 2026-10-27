@@ -235,6 +235,10 @@ export function CardClashDuel({
     const done = duel?.status === "complete" && resolutionReady;
     const won = Boolean(done && duel && duel.winner === duel.viewerSide);
     const draw = done && duel.winner === "draw";
+    // The server settles a Keeper win under its minimum duration as a draw, so the
+    // settled result outranks the board's winner once it has arrived.
+    const keeperWon = keeperSummary ? keeperSummary.result === "win" : won;
+    const keeperDraw = keeperSummary ? keeperSummary.result === "draw" : draw;
 
     // One result cue per campaign duel, when the outcome panel first shows.
     // Sound only — no state writes — so the effect stays lint-clean.
@@ -305,14 +309,14 @@ export function CardClashDuel({
                 <button className="echoes-primary" onClick={resolve}>Continue</button>
             </section>
         ) : done && keeperRun ? (
-            <section className={`chronicle-panel echoes-result-panel ${won ? "" : "echoes-result--defeat"}`} style={{ marginBottom: 12, textAlign: "center" }}>
-                <h2 className="echoes-result-title">{keeperSummary?.finished ? "The Path Is Yours" : won ? "Victory" : draw ? "Draw" : "Defeat"}</h2>
+            <section className={`chronicle-panel echoes-result-panel ${keeperWon ? "" : "echoes-result--defeat"}`} style={{ marginBottom: 12, textAlign: "center" }}>
+                <h2 className="echoes-result-title">{keeperSummary?.finished ? "The Path Is Yours" : keeperWon ? "Victory" : keeperDraw ? "Draw" : "Defeat"}</h2>
                 <p className="echoes-result-sub">
                     {keeperSummary?.finished
                         ? "Every Keeper on the path has fallen."
-                        : won
+                        : keeperWon
                             ? `${keeperRun.opponentName} steps aside. The path goes on.`
-                            : draw
+                            : keeperDraw
                                 ? `A draw costs nothing. ${keeperRun.opponentName} is waiting for a rematch.`
                                 : `${keeperRun.opponentName} holds the path. Losing cost one Resolve.`}
                 </p>

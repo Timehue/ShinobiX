@@ -2,8 +2,6 @@ import type { Character } from '../types/character';
 import type { Pet } from '../types/pet';
 import { activeCarriedPets } from './entitlements';
 import { activeClientBreedingParentIds } from './pet-breeding';
-import { tacticsSpecies } from '../../../shared/pet-tactics-roster';
-import { rankedBuildForPet } from '../../../shared/pet-tactics-build';
 import type { TacticsPetSheet } from '../../../shared/pet-tactics-contract';
 
 export function rankedBattlePresentationPets(character: Character | undefined,
@@ -35,18 +33,5 @@ export function arenaPresentationPets(character: Character | undefined, seat: 'a
     return fighters.flatMap(fighter => {
         const pet = owned.get(fighter.id);
         return pet ? [{ ...pet, id: fighter.id }] : [];
-    });
-}
-
-export function rankedCarriedRoster(character?: Character) {
-    if (!character) return [];
-    const breeding = activeClientBreedingParentIds(character);
-    return activeCarriedPets(character).flatMap(pet => {
-        const build = rankedBuildForPet(pet);
-        if (!build) return [];
-        const species = tacticsSpecies(build.speciesId)!;
-        return [{ ...species, key: pet.id, name: pet.nickname || pet.name || species.name,
-            unavailable: pet.expedition ? 'On expedition' : breeding.has(pet.id) ? 'In the hatchery' : null,
-            build }];
     });
 }

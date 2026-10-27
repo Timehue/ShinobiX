@@ -1444,7 +1444,7 @@ const EXHIBITION_ROUNDS = [
     },
     {
         id: "exhibition-5", title: "Rain at the Fifth Bell", opponent: "Rainbell Menagerie", tier: "champion",
-        lesson: "The Menagerie fights under rain. Bring something that is not Fire into the lead, or swap it out early.",
+        lesson: "The Menagerie leans on Water and Wind, and its sages may turn the sky to rain. Keep Fire out of the lead, or swap it out early.",
         defeat: "Rain keeps falling on the empty sand. Orin returns your rentals to the stalls and opens a fresh ledger.",
         roster: { roles: ["sage", "sage", "tracker", "assassin"], elements: ["Water", "Wind", "Lightning", "Water"], growthShareBonus: .12 },
     },
