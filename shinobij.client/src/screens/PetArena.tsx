@@ -1869,7 +1869,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
 
             {showPetHomeTabs ? <PetHomeTabs active="arena" setScreen={setScreen} /> : null}
             <section className="pet-tactics-entry">
-                <div><strong>Pet Arena · Live PvP</strong><p>Build from 12 equal-access companions. Two active, two reserves, private simultaneous orders and real counterplay.</p></div>
+                <div><strong>Pet Arena · Live PvP</strong><p>Bring four of your own companions. Two active, two reserves, private simultaneous orders and real counterplay.</p></div>
                 <button type="button" className="btn-primary" onClick={() => setShowTactics(true)}>Enter player-controlled battles</button>
             </section>
 
@@ -1891,7 +1891,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                         <strong>{combatEligiblePets.length} rostered</strong>
                     </div>
                     {combatEligiblePets.length === 0 ? (
-                        <p className="hint">Own a companion for NPC bouts. Player battles use the equal-access arena squad.</p>
+                        <p className="hint">Own a companion for NPC bouts. Player battles use four of your own companions.</p>
                     ) : (
                         <div className="pet-pick-panel">
                             {petPicker(
@@ -1957,7 +1957,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                             <div>
                                 <p className="hint" style={{ marginTop: 4 }}>Type a player's name above to find and challenge them.</p>
                                 <div className="pet-arena-tips">
-                                    <div><GameArtIcon kind="attack" size={17} /> Sparring uses equal competitive stats and an equal-access roster.</div>
+                                    <div><GameArtIcon kind="attack" size={17} /> Sparring is unrated and uses the companions you carry.</div>
                                     <div><GameArtIcon kind="petTamer" size={17} /> Build a four-pet squad with two active and two reserves.</div>
                                     <div><GameArtIcon kind="roleDefender" size={17} /> Roles &amp; element edge decide close fights — check the matchup hint.</div>
                                     <div><GameArtIcon kind="arena" size={17} /> Want a fight right now? The Colosseum matches you against the arena.</div>

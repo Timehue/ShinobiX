@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import type { TacticsBuild, TacticsMove } from '../../../shared/pet-tactics-contract';
 import { sameTacticsBuild, tacticsBuildIssue } from '../../../shared/pet-tactics-build';
-import { TACTICS_ITEMS, TACTICS_MOVES, tacticsPreset, tacticsSpecies } from '../../../shared/pet-tactics-roster';
+import { TACTICS_MOVES, tacticsPreset, tacticsSpecies } from '../../../shared/pet-tactics-roster';
 import { petTacticsAbilityUnlockLevel } from '../../../shared/pet-ability-progression';
 import { ShowdownIcon, type ShowdownIconName } from './icons/ShowdownIcon';
 import '../styles/pet-techniques.css';
@@ -33,7 +33,6 @@ export function PetTacticsBuildEditor({ build, name, onChange, onSave, savedBuil
     preferenceState?: 'default' | 'draft' | 'saved';
 }) {
     const pet = tacticsSpecies(build.speciesId)!;
-    const points = Object.values(build.allocation).reduce((a, b) => a + b, 0);
     const issue = tacticsBuildIssue(build);
     const [saving, setSaving] = useState(false);
     const [expanded, setExpanded] = useState(defaultExpanded);
@@ -49,15 +48,14 @@ export function PetTacticsBuildEditor({ build, name, onChange, onSave, savedBuil
         finally { saveLock.current = false; setSaving(false); }
     }
     return <details className={`pta-build pet-techniques-editor${issue ? ' has-issue' : ''}`} open={expanded}
-        onToggle={event => setExpanded(event.currentTarget.open)}><summary><strong>{summaryLabel ?? name ?? pet.name}</strong><span>{build.moveIds.length}/4 abilities{!summaryLabel && ` · ${points}/49 points`}</span></summary>
+        onToggle={event => setExpanded(event.currentTarget.open)}><summary><strong>{summaryLabel ?? name ?? pet.name}</strong><span>{build.moveIds.length}/4 abilities</span></summary>
         <fieldset disabled={disabled || saving} aria-busy={saving}>
             {description && <p>{description}</p>}
             {preferenceState === 'default' && <p className="pet-techniques-hint">These checked default choices have not been saved and do not replace the native loadout above.</p>}
-            {progressionLevel != null && <p className="pet-techniques-hint">The technique library below shows Competitive Tactics costs and effects. Progression costs, mastery and reuse are shown in the sealed battle menu.</p>}
-            <p className="pta-trait">{pet.traitText}</p>
+            {progressionLevel != null && <p className="pet-techniques-hint">The technique library below lists each technique&apos;s base cost and effect. Costs, mastery and reuse that apply in battle are shown in the battle menu.</p>}
             <div className="pta-preset">{pet.builds.map((preset, i) => <button type="button" key={preset.name} onClick={() => onChange({ ...tacticsPreset(pet.id, i), ...(build.ownedPetId ? { ownedPetId: build.ownedPetId } : {}) })}>{preset.name} build</button>)}</div>
             <h4>Learnable techniques</h4>
-            <p className="pet-techniques-hint">{progressionLevel == null ? 'Equip four abilities for Competitive Tactics.' : 'Choose four preferences. Locked moves can be saved for later; eligible defaults fill their slots in progression battles.'} Unequip a move to make room for another.</p>
+            <p className="pet-techniques-hint">{progressionLevel == null ? 'Equip four abilities.' : 'Choose four preferences. Locked moves can be saved for later; eligible defaults fill their slots in progression battles.'} Unequip a move to make room for another.</p>
             <div className="pta-move-pool">{pet.pool.map(id => {
                 const move = TACTICS_MOVES[id], checked = build.moveIds.includes(id);
                 const unlock = petTacticsAbilityUnlockLevel(id);
@@ -69,17 +67,11 @@ export function PetTacticsBuildEditor({ build, name, onChange, onSave, savedBuil
                     onChange={() => onChange({ ...build, moveIds: checked ? build.moveIds.filter(m => m !== id) : [...build.moveIds, id] })} />
                     <span><MoveTitle move={move} /><MoveDescription move={move} /><b className="pet-technique-state">{stateLabel}</b></span></label>;
             })}</div>
-            <div className="pet-technique-signature"><h4>Competitive Tactics signature · normalized format only</h4><MoveTitle move={pet.signature} /><MoveDescription move={pet.signature} />
-                {progressionLevel != null && <p>Progression battles keep your companion&apos;s native Final Art, shown above. It {progressionLevel >= 20 ? 'is earned at level 20' : 'unlocks at level 20'}; saved ordinary techniques do not replace it.</p>}
+            <div className="pet-technique-signature">
+                {progressionLevel == null
+                    ? <><h4>Signature</h4><MoveTitle move={pet.signature} /><MoveDescription move={pet.signature} /></>
+                    : <p>Battles use your companion&apos;s native Final Art, shown above. It {progressionLevel >= 20 ? 'is earned at level 20' : 'unlocks at level 20'}; saved ordinary techniques do not replace it.</p>}
             </div>
-            <details className="pet-techniques-advanced"><summary>Competitive attributes & item · {points}/49 points</summary>
-                <p>Competitive Tactics normalizes the battle level, gives every build 49 points and 100 stamina, and uses these attributes and this item. Adventure Growth Points and equipment are separate.</p>
-                <div className="pta-allocation">{(['vitality', 'power', 'guard', 'agility'] as const).map(key => <label key={key}>{key}<input aria-label={`${name ?? pet.name} ${key}`} type="number" min={0} max={25} step={1} value={build.allocation[key]}
-                    onChange={e => onChange({ ...build, allocation: { ...build.allocation, [key]: Number(e.target.value) } })} /></label>)}</div>
-                <p className="pta-item-effect">Vitality: HP · Power: physical and special offense · Guard: both defenses, with +1 passive stamina at 10 points and another +1 at 20 · Agility: speed and initiative. Maximum 25 per attribute.</p>
-                <label className="pta-item">Competitive item<select value={build.item} onChange={e => onChange({ ...build, item: e.target.value as TacticsBuild['item'] })}>{TACTICS_ITEMS.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
-                <p className="pta-item-effect">{TACTICS_ITEMS.find(i => i.id === build.item)?.effect}</p>
-            </details>
             <p className={`pet-techniques-validity${issue ? ' has-issue' : ''}`} role="status">{issue ?? 'Ready for battle.'}</p>
             {onSave && <button className="pet-techniques-save" type="button" disabled={!!issue || saved} onClick={() => void save()}>{saving ? 'Saving loadout…' : saved ? 'Loadout saved' : 'Save loadout'}</button>}
         </fieldset>
