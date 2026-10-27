@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { simulateStoryFloor, storySquad, storyGear, STORY_SQUAD_GEAR, STORY_COMPOSITIONS } from './tower-story-balance-sim.js';
+import { simulateStoryFloor, storySquad, storyGear, storyPlayerStats, STORY_SQUAD_GEAR, STORY_COMPOSITIONS } from './tower-story-balance-sim.js';
+import { earnedForLevel, STAT_KEYS } from '../api/_xp-engine.js';
+import { statCapForLevel } from '../api/combat-core/formulas.js';
 import { FLOOR_CATALOG } from '../api/towers/_floor-catalog.js';
 import { buildTowerEncounter } from '../api/towers/_encounter.js';
 import { applyAction, type TowerAction } from '../api/towers/_engine.js';
@@ -9,6 +11,20 @@ import { JUTSU_CATALOG } from '../api/pvp/_jutsu-catalog.js';
 import { starterSavedBloodlines } from '../shinobij.client/src/data/jutsu.js';
 import { smartSquadAction } from './spire-balance-sim.js';
 import { effectiveItemLevelReq } from '../shared/item-level-gate.js';
+
+test('Story player preparation spends exactly the earned player budget within rank caps across the full climb', () => {
+    for (let level = 29; level <= 100; level++) for (const type of ['Ninjutsu', 'Taijutsu', 'Bukijutsu', 'Genjutsu']) {
+        const stats = storyPlayerStats(level, [{ type }]);
+        assert.equal(STAT_KEYS.reduce((sum, key) => sum + stats[key] - 10, 0), earnedForLevel(level));
+        assert.ok(STAT_KEYS.every(key => Number.isInteger(stats[key]) && stats[key] >= 10 && stats[key] <= statCapForLevel(level)));
+    }
+    for (const level of [30, 50, 70, 85, 100]) for (const actor of storySquad(level)) {
+        assert.equal(actor.character.earnedStatPoints, earnedForLevel(level));
+        assert.equal(actor.character.unspentStats, 0);
+        // Sealed combat stats also contain the server-derived equipment bonuses;
+        // the training ledger above and the raw allocation are the budget check.
+    }
+});
 
 test('the coordinated balance controller clears living guards instead of wasting turns on an immune low-HP boss', () => {
     for (const floor of FLOOR_CATALOG.filter(f => ['defeat-all-then-boss', 'kill-adds-first'].includes(f.objective))) {

@@ -3,8 +3,8 @@
  */
 import { pathToFileURL } from 'node:url';
 import { aiStatsForLevel } from '../api/_ai-level-curves.js';
-import { maxHpForLevel, maxChakraForLevel, maxStaminaForLevel } from '../api/_xp-engine.js';
-import { jutsuLevelCapForLevel } from '../api/combat-core/formulas.js';
+import { maxHpForLevel, maxChakraForLevel, maxStaminaForLevel, earnedForLevel, rankFromLevel, STAT_KEYS, type Stats } from '../api/_xp-engine.js';
+import { jutsuLevelCapForLevel, statCapForLevel } from '../api/combat-core/formulas.js';
 import { buildTowerEncounter, type SquadMemberInput } from '../api/towers/_encounter.js';
 import { FLOOR_CATALOG, getFloor } from '../api/towers/_floor-catalog.js';
 import { makeRng } from '../api/towers/_sim.js';
@@ -20,7 +20,7 @@ import { ITEM_CATALOG } from '../api/pvp/_item-catalog.js';
 import { effectiveItemLevelReq } from '../shared/item-level-gate.js';
 import { buildNamedItem } from '../api/craft/_named.js';
 
-export const STORY_BALANCE_FIXTURE = 'progression-gear-v4';
+export const STORY_BALANCE_FIXTURE = 'progression-gear-v5';
 export const STORY_COMPOSITIONS = ['mixed', 'ninjutsu', 'bukijutsu', 'taijutsu', 'genjutsu'] as const;
 export type StoryComposition = typeof STORY_COMPOSITIONS[number];
 /** Retained lower-power control, never the expected equipment of a level-70 player. */
@@ -81,6 +81,30 @@ export function storyGear(level: number, profile: StoryGearProfile = 'progressio
     return { equipment, creatorItems };
 }
 
+/** Preserve the reference archetype's priorities, but spend the PLAYER's earned
+ * points and obey its rank caps. The frozen linear AI budget is not a player
+ * progression curve and overstates ordinary mid-level preparation. */
+export function storyPlayerStats(level: number, jutsu: Array<{ type?: string }> = []): Stats {
+    const reference = aiStatsForLevel(level, jutsu);
+    const stats = Object.fromEntries(STAT_KEYS.map(key => [key, 10])) as Stats;
+    const cap = statCapForLevel(level);
+    let remaining = earnedForLevel(level);
+    while (remaining > 0) {
+        const active = STAT_KEYS.filter(key => stats[key] < cap);
+        if (!active.length) throw new Error('Player fixture cannot allocate its earned points within rank caps');
+        const totalWeight = active.reduce((sum, key) => sum + Math.max(1, reference[key] - 10), 0);
+        const budget = remaining;
+        let spent = 0;
+        for (const key of active) {
+            const points = Math.min(cap - stats[key], Math.floor(budget * Math.max(1, reference[key] - 10) / totalWeight));
+            stats[key] += points; spent += points;
+        }
+        if (!spent) for (const key of active) { if (spent >= remaining) break; stats[key]++; spent++; }
+        remaining -= spent;
+    }
+    return stats;
+}
+
 export function storySquad(level: number, size = 4, composition: StoryComposition = 'mixed', prepared = true,
     gearProfile: StoryGearProfile = 'progression'): SquadMemberInput[] {
     return Array.from({ length: size }, (_, index) => {
@@ -94,7 +118,8 @@ export function storySquad(level: number, size = 4, composition: StoryCompositio
         const raw = createCharacter(`Hero ${index}`, 'Ashen Leaf', specialty, bloodline.name);
         const gear = storyGear(level, gearProfile, specialty);
         Object.assign(raw, {
-            level, stats: aiStatsForLevel(level, bloodline.jutsus),
+            level, rankTitle: rankFromLevel(level), stats: storyPlayerStats(level, bloodline.jutsus),
+            earnedStatPoints: earnedForLevel(level), unspentStats: 0, examsPassed: ['genin', 'chunin', 'jonin'],
             maxHp: maxHpForLevel(level), maxChakra: maxChakraForLevel(level), maxStamina: maxStaminaForLevel(level),
             equippedBloodlineId: bloodline.id,
             equippedJutsuIds: jutsu.map(technique => technique.id),

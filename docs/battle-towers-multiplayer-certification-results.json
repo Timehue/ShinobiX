@@ -1,6 +1,6 @@
 {
   "date": "2026-10-26",
-  "validationState": "current-normal-pve-comparison-focused-and-full-repository-passed-prior-calibration-and-network-source-scoped",
+  "validationState": "earned-player-curve-and-focused-checks-passed-release-ci-pending",
   "source": {
     "head": "a60f9ceda51f3a0ff13cfe5f8d3d30af4823ddd6",
     "uncommittedTowerCandidate": true,
@@ -5758,12 +5758,12 @@
       "scripts/pve-viability-diagnostic.ts": "b333eadb9ceb6ecf22e4ea4076255e685c43610d98c9127ad755221db8167677",
       "scripts/pve-pressure-benchmark.ts": "67c4392fee3efe4289d690eddcec0c460f90ebda260b72fb44725cbd28c563e4",
       "scripts/_pve-pressure-fixture-audit.ts": "eba0452ee02e589bd167e5eaceb699aebb693851b044187fd368e02ec3e6017c",
-      "scripts/tower-story-balance-sim.ts": "a6202f9ac2cc7a5702d63fd3b3b43eb995be4437c8f06eb4cb360729284318fb",
+      "scripts/tower-story-balance-sim.ts": "78391d635602f9f72a0799cf0cc493a41e4b809fa8d2932d173b874d7e42ad05",
       "api/_ai-level-curves.ts": "ddeb1a846b0ae09afb6fcc2cd109a1c7d6e86eb13d0fe01340d79dbbf4d0c1ad",
       "api/_xp-engine.ts": "aa3033184d40094a63ae225d8886ecc382bdf746b3c258b9f680543bb0ad719b",
       "api/towers/_seal.ts": "afd18f48efbff126a7ec67c860e4f5ee7129089dc029ec271d23d7f2bd16e697",
       "api/towers/_encounter.ts": "8e31b47633da5e7839b71f869205537509f2488a45b97ab992627790585516b7",
-      "api/towers/_floor-catalog.ts": "fe7f25dc442749bd95a27ebbea72da6ded8cb249d46054c32e6800a1bc82e14c",
+      "api/towers/_floor-catalog.ts": "1d59b92e328549470ee4a657b582dfd401b7d618eafe3cd9120778834d513505",
       "api/towers/_enemy-templates.ts": "0d794fa48039bb65897810bce2ba48a3708afafdcc5ef02b87b5607b678aa1f2",
       "api/towers/_route-choice.ts": "f0bbf067fe55804f1f2572a3e03903995fd94db9dbec8c579f6fed805a5caf9a",
       "api/solo-pve/_ai-encounter.ts": "d09081eacc9898aa7d6467d03e3b8880d234a8049011f2b0b38b5c4ff1c2d5b1",
@@ -5847,12 +5847,12 @@
         "scripts/pve-viability-diagnostic.ts": "b333eadb9ceb6ecf22e4ea4076255e685c43610d98c9127ad755221db8167677",
         "scripts/pve-pressure-benchmark.ts": "67c4392fee3efe4289d690eddcec0c460f90ebda260b72fb44725cbd28c563e4",
         "scripts/_pve-pressure-fixture-audit.ts": "eba0452ee02e589bd167e5eaceb699aebb693851b044187fd368e02ec3e6017c",
-        "scripts/tower-story-balance-sim.ts": "a6202f9ac2cc7a5702d63fd3b3b43eb995be4437c8f06eb4cb360729284318fb",
+        "scripts/tower-story-balance-sim.ts": "78391d635602f9f72a0799cf0cc493a41e4b809fa8d2932d173b874d7e42ad05",
         "api/_ai-level-curves.ts": "ddeb1a846b0ae09afb6fcc2cd109a1c7d6e86eb13d0fe01340d79dbbf4d0c1ad",
         "api/_xp-engine.ts": "aa3033184d40094a63ae225d8886ecc382bdf746b3c258b9f680543bb0ad719b",
         "api/towers/_seal.ts": "afd18f48efbff126a7ec67c860e4f5ee7129089dc029ec271d23d7f2bd16e697",
         "api/towers/_encounter.ts": "8e31b47633da5e7839b71f869205537509f2488a45b97ab992627790585516b7",
-        "api/towers/_floor-catalog.ts": "fe7f25dc442749bd95a27ebbea72da6ded8cb249d46054c32e6800a1bc82e14c",
+        "api/towers/_floor-catalog.ts": "1d59b92e328549470ee4a657b582dfd401b7d618eafe3cd9120778834d513505",
         "api/towers/_enemy-templates.ts": "0d794fa48039bb65897810bce2ba48a3708afafdcc5ef02b87b5607b678aa1f2",
         "api/towers/_route-choice.ts": "f0bbf067fe55804f1f2572a3e03903995fd94db9dbec8c579f6fed805a5caf9a",
         "api/solo-pve/_ai-encounter.ts": "d09081eacc9898aa7d6467d03e3b8880d234a8049011f2b0b38b5c4ff1c2d5b1",
@@ -5868,32 +5868,32 @@
         "routes": {
           "rest-shrine": {
             "fights": 900,
-            "wins": 887
+            "wins": 886
           },
           "focused-assault": {
             "fights": 900,
-            "wins": 888
+            "wins": 887
           },
           "elite-shortcut": {
             "fights": 900,
-            "wins": 856
+            "wins": 827
           }
         },
         "freshFinales": {
           "fights": 120,
-          "wins": 108
+          "wins": 107
         },
         "highRoll": {
           "fights": 180,
-          "wins": 163
+          "wins": 151
         },
         "alternateGear": {
           "fights": 720,
-          "wins": 647
+          "wins": 634
         },
         "lowerPowerControls": {
           "fights": 72,
-          "wins": 50
+          "wins": 49
         },
         "solo": {
           "fights": 48,
@@ -5911,9 +5911,9 @@
           "gearProfile": "progression",
           "wins": 12,
           "winRate": 1,
-          "rounds": 8.25,
-          "survivors": 3.75,
-          "hpFraction": 0.6443259803921567
+          "rounds": 9.333333333333334,
+          "survivors": 3.0833333333333335,
+          "hpFraction": 0.5615379901960784
         },
         "normalFinale": {
           "floor": 15,
@@ -5927,11 +5927,86 @@
           "gearProfile": "progression",
           "wins": 11,
           "winRate": 0.9166666666666666,
-          "rounds": 20.333333333333332,
-          "survivors": 3.3333333333333335,
-          "hpFraction": 0.3617791666666666
+          "rounds": 20.416666666666668,
+          "survivors": 3.25,
+          "hpFraction": 0.34608749999999994
         }
       }
     }
+  },
+  "earnedPlayerRelease": {
+    "date": "2026-10-27T00:40:43.040Z",
+    "status": "earned-player-curve-and-focused-checks-passed-release-ci-pending",
+    "fixture": "progression-gear-v5",
+    "sourceHashes": {
+      "api/towers/_engine.ts": "435ca982cbb08c8be25a0a267afe8c71b0e99cd5012e162723277d36083e7f09",
+      "api/_pve-ai-mastery.ts": "adc5443efca2a5626c852e0d8936ea9017aa5e000ff1fecd3df1892a9a948c06",
+      "api/_pve-difficulty.ts": "409da182a9dfe05370873bcea1b14044062c0b8fd6d291663bd9130054a03d1f",
+      "api/towers/_story-balance.ts": "13226c1a275c926d99c0cddd615970933f80b2302ba0ed728f947ad5b06b438b",
+      "api/solo-pve/_engine.ts": "c3326b3afb003ca60cad062c3f89ed5808d1296f68fa225727ece489b7cbc22e",
+      "api/_pve-challenge-weapon.ts": "221a3f7f27a591aec6b7e727761baa97efbf79448b3bb04f5f43f8aa19e8eb52",
+      "scripts/pve-close-fights-benchmark.ts": "230c7036eb4b38f181e609c7165b8f9f57aa5af536d7199a5fc01a54dc65a749",
+      "scripts/tower-pve-comparison.ts": "eb35ba7a39c73426635eeb8268671c3a48fc3f18b135da82deee803c4f928ea2",
+      "scripts/spire-balance-sim.ts": "719a09f4446b88028bdd1ac0f4678b26380eba4ce441001a4a15aa239825f8b9",
+      "scripts/pve-level75-prepared-probe.ts": "1ca5540f3896fc6303d0e512a6f579117a89f7ba8cf81681cfde8f6b8906d1ad",
+      "scripts/pve-kage-acceptance.ts": "3150b9ba4bfdf8335551b09b0fb514d24ab4bff5edaf044c1a547444853a8216",
+      "scripts/pve-viability-diagnostic.ts": "b333eadb9ceb6ecf22e4ea4076255e685c43610d98c9127ad755221db8167677",
+      "scripts/pve-pressure-benchmark.ts": "67c4392fee3efe4289d690eddcec0c460f90ebda260b72fb44725cbd28c563e4",
+      "scripts/_pve-pressure-fixture-audit.ts": "eba0452ee02e589bd167e5eaceb699aebb693851b044187fd368e02ec3e6017c",
+      "scripts/tower-story-balance-sim.ts": "78391d635602f9f72a0799cf0cc493a41e4b809fa8d2932d173b874d7e42ad05",
+      "api/_ai-level-curves.ts": "ddeb1a846b0ae09afb6fcc2cd109a1c7d6e86eb13d0fe01340d79dbbf4d0c1ad",
+      "api/_xp-engine.ts": "aa3033184d40094a63ae225d8886ecc382bdf746b3c258b9f680543bb0ad719b",
+      "api/towers/_seal.ts": "afd18f48efbff126a7ec67c860e4f5ee7129089dc029ec271d23d7f2bd16e697",
+      "api/towers/_encounter.ts": "8e31b47633da5e7839b71f869205537509f2488a45b97ab992627790585516b7",
+      "api/towers/_floor-catalog.ts": "1d59b92e328549470ee4a657b582dfd401b7d618eafe3cd9120778834d513505",
+      "api/towers/_enemy-templates.ts": "0d794fa48039bb65897810bce2ba48a3708afafdcc5ef02b87b5607b678aa1f2",
+      "api/towers/_route-choice.ts": "f0bbf067fe55804f1f2572a3e03903995fd94db9dbec8c579f6fed805a5caf9a",
+      "api/solo-pve/_ai-encounter.ts": "d09081eacc9898aa7d6467d03e3b8880d234a8049011f2b0b38b5c4ff1c2d5b1",
+      "api/solo-pve/_ai-turn-policy.ts": "6810533b637a5f08a1bbc45a36112190be84ea91bfc2673ca8d8116e3d7e329d",
+      "api/pvp/_multipliers.ts": "9d3e7b75b9ebd075f616ef2ebaf8b7b32684b88b95abd04a04044f20715d27df",
+      "api/pvp/_item-catalog.ts": "ee0f79bc6ab7b30c54bc1c2e18929752189a37d182e3094e581dbbfbe454b07d",
+      "api/pvp/_jutsu-catalog.ts": "b764dad13c814076de37bd1cfc5259645cfed2b5f9e2a17c056c29c96022d548",
+      "api/pvp/move.ts": "1608a5c4309b3dc94284f7b6d48b41ba3ca6178f0ddfc96f906a45633492c561",
+      "api/pvp/session.ts": "b62abf6f269150ce985b1225e46d37f7572cf29349ebe991fc4baa55feaffa80",
+      "api/combat-core/formulas.ts": "fdef11ed07e70a6c78a848051f52eb229b003b0f2e00741c76c2f5e861be38b2"
+    },
+    "validation": {
+      "balance": {
+        "tests": 15,
+        "passed": 15,
+        "failed": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "log": ".tmp/tower-earned-final-tests.log"
+      },
+      "towerApi": {
+        "tests": 662,
+        "passed": 662,
+        "failed": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "log": ".tmp/tower-earned-api-tests.log"
+      },
+      "serverBuild": "passed",
+      "fullRepository": {
+        "tests": 18178,
+        "passed": 18149,
+        "failed": 0,
+        "cancelled": 0,
+        "skipped": 29,
+        "durationMs": 3957100.7982,
+        "log": ".tmp/tower-pve-full-suite-bounded.log",
+        "concurrency": 4,
+        "method": "Exact root run-tests discovery/reporting with only concurrency true replaced by4 in an ignored local copy; source runner unchanged.",
+        "runnerSha256": "d527bacb5cc8e5d2f9b1290292acbd3150497a0fc0df05657ce81c720ddf66b7",
+        "isolatedRunnerSha256": "6122a65caa9ecaa9e5b1e27112b3cc0097b1e05c6662a2f3dbca93f90378c845",
+        "scope": "Earlier v4 source before main integration and earned-player correction; current CI is pending."
+      },
+      "network": {
+        "scope": "Historical localhost46 checks only; exact deployed four-player certification is pending."
+      }
+    },
+    "mainIntegration": "993df56aad7de25b6710e5869762b5eb8b009864",
+    "deployment": "Await green CI then verify Railway lean-branch SHA and live four-player runs."
   }
 }
