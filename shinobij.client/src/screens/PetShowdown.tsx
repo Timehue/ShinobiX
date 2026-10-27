@@ -557,8 +557,7 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
                         reduce the hit further.</li>
                     <li><b>Sealed rules</b> - your roster, level, equipment and earned moves are
                         fixed when you enter. Happiness affects adventure summons and training,
-                        while Colosseum stats do not use it. Competitive Tactics has separate
-                        normalized attributes and a full competitive kit.</li>
+                        while Colosseum stats do not use it.</li>
                     <li><b>25 rounds, then the judges</b> — most fights end well before. From
                         round 14 <b>attrition</b> bleeds both sides and healing fades; a fight
                         still standing after round 25 is judged by pets remaining, total
