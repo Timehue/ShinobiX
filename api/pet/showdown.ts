@@ -98,7 +98,9 @@ import {
     beginExhibitionRound,
     settleExhibitionBattle,
 } from '../first-pact/_exhibition.js';
-import { clearPendingRunBattle, isRunBattle, recordPendingRunBattle, settlePendingRunBattle } from '../first-pact/_pending-run-battle.js';
+import {
+    clearPendingRunBattle, isRunBattle, PENDING_RUN_LOSS_NOTE, recordPendingRunBattle, settlePendingRunBattle,
+} from '../first-pact/_pending-run-battle.js';
 import {
     readFirstPactProgress,
     settleFirstPactReplayBattle,
@@ -544,9 +546,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (Math.floor(Number(myChar.level) || 0) < FIRST_PACT_MIN_LEVEL) {
                 return res.status(403).json({ error: `The First Pact unlocks at level ${FIRST_PACT_MIN_LEVEL}.` });
             }
-            // An Exhibition round or Unbroken fight walked away from is settled
-            // (as a loss, unless it finished) before anything new is dealt.
-            await settlePendingRunBattle(playerName);
+            // An Exhibition round, Unbroken fight or Standing Court sitting
+            // walked away from is settled (as a loss, unless it finished)
+            // before anything new is dealt. A refusal that follows says why.
+            const swept = await settlePendingRunBattle(playerName);
+            const refuse = (error: string, status = 409) =>
+                res.status(status).json({ error: swept === 'loss' ? `${PENDING_RUN_LOSS_NOTE} ${error}` : error });
             const progress = await readFirstPactProgress(playerName);
             const exhibitionRound = firstPactExhibitionRound(encounter.id);
             const replay = exhibitionRound ? null : firstPactReplaySettings(body.replay);
@@ -564,7 +569,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (replay.unbroken) {
                     const due = expectedFirstPactUnbrokenRound(progress);
                     if (!progress.replays.run || progress.replays.run.hard !== replay.hard || due?.id !== encounter.id) {
-                        return res.status(409).json({ error: 'Begin an Unbroken attempt with the Arbiter, then fight the Balancing in order.' });
+                        return refuse('Begin an Unbroken attempt with the Arbiter, then fight the Balancing in order.');
                     }
                 }
             } else if (writEncounter) {
@@ -590,19 +595,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 ? expectedFirstPactMainEncounter(progress)
                 : expectedFirstPactTournamentEncounter(progress);
             if (!expected || expected.id !== encounter.id) {
-                return res.status(409).json({
-                    error: standingRound
-                        ? progress.mainStep === 'complete'
-                            ? 'The Court is not sitting on that argument. Answer its sittings in order.'
-                            : 'The Court sits again only for a claimant who has already closed the crossing.'
-                        : mainEncounter
-                        ? 'That Court confrontation is not open in the current chapter.'
-                        : progress.stableQuest.status === 'not-started'
-                        ? 'Speak with Sena Vale before entering her stable in the tournament.'
-                        : progress.stableQuest.status === 'complete'
-                            ? 'Vale Stable already holds its place in the Court.'
-                            : 'That tournament round is not open yet.',
-                });
+                return refuse(standingRound
+                    ? progress.mainStep === 'complete'
+                        ? 'The Court is not sitting on that argument. Answer its sittings in order.'
+                        : 'The Court sits again only for a claimant who has already closed the crossing.'
+                    : mainEncounter
+                    ? 'That Court confrontation is not open in the current chapter.'
+                    : progress.stableQuest.status === 'not-started'
+                    ? 'Speak with Sena Vale before entering her stable in the tournament.'
+                    : progress.stableQuest.status === 'complete'
+                        ? 'Vale Stable already holds its place in the Court.'
+                        : 'That tournament round is not open yet.');
             }
 
             let chosen: Pet[];
@@ -615,7 +618,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     chosen = prepared.team;
                     exhibitionRunId = prepared.runId;
                 } catch (error) {
-                    if (error instanceof ExhibitionError) return res.status(error.status).json({ error: error.message });
+                    if (error instanceof ExhibitionError) return refuse(error.message, error.status);
                     throw error;
                 }
             } else {

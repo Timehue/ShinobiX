@@ -15,7 +15,7 @@ import { createPortal } from "react-dom";
 import "./FirstPact.css";
 import type { Character } from "../types/character";
 import type { Pet } from "../types/pet";
-import { FIRST_PACT_MIN_LEVEL, FIRST_PACT_TEAM_SIZE, FIRST_PACT_MAIN_ENCOUNTERS, createFirstPactProgress, expectedFirstPactMainEncounter, expectedFirstPactTournamentEncounter, FIRST_PACT_DISTRICT_WRITS, FIRST_PACT_TRIAL_ROUNDS, firstPactEncounter, FIRST_PACT_STANDING_COURT_LENGTH, expectedFirstPactStandingCourtRound, firstPactStandingCourtOpen, firstPactVow, firstPactAvailableAftermath, FIRST_PACT_TOURNAMENT, FIRST_PACT_UNBROKEN_ROUNDS, FIRST_PACT_EXHIBITION_LENGTH, expectedFirstPactUnbrokenRound, firstPactExhibitionRound, firstPactReplayOpen, firstPactWithPostgame, type FirstPactReplaySettings, type FirstPactEncounterId, type FirstPactAftermathId, type FirstPactMainBeat, type FirstPactProgress } from "../../../shared/first-pact-contract";
+import { FIRST_PACT_MIN_LEVEL, FIRST_PACT_TEAM_SIZE, FIRST_PACT_MAIN_ENCOUNTERS, createFirstPactProgress, expectedFirstPactMainEncounter, expectedFirstPactTournamentEncounter, FIRST_PACT_DISTRICT_WRITS, FIRST_PACT_TRIAL_ROUNDS, firstPactEncounter, FIRST_PACT_STANDING_COURT_LENGTH, expectedFirstPactStandingCourtRound, firstPactStandingCourtRound,firstPactStandingCourtOpen, firstPactVow, firstPactAvailableAftermath, FIRST_PACT_TOURNAMENT, FIRST_PACT_UNBROKEN_ROUNDS, FIRST_PACT_EXHIBITION_LENGTH, expectedFirstPactUnbrokenRound, firstPactExhibitionRound, firstPactReplayOpen, firstPactWithPostgame, type FirstPactReplaySettings, type FirstPactEncounterId, type FirstPactAftermathId, type FirstPactMainBeat, type FirstPactProgress } from "../../../shared/first-pact-contract";
 import {
     FIRST_PACT_AQUEDUCT_CENTRAL_CROSSING,
     FIRST_PACT_AQUEDUCT_CIVIC_CROSSING,
@@ -5963,6 +5963,17 @@ export function FirstPact({
                 setPendingEncounterId(encounter.id);
                 setSquadOpen(true);
                 onBattleActiveChange?.(false);
+                // A refusal can follow from the server settling a run fight
+                // left unfinished (the Court back at its first sitting, a run
+                // ended). Re-read the record so the dialog offers what is due.
+                void fetchFirstPactProgress(requestAccount).then((fresh) => {
+                    if (!mountedRef.current || accountNameRef.current !== requestAccount || "error" in fresh) return;
+                    setProgress(fresh.progress);
+                    if ("exhibition" in fresh) setExhibition(fresh.exhibition ?? null);
+                    if (firstPactStandingCourtRound(encounter.id)) {
+                        setPendingEncounterId(expectedFirstPactStandingCourtRound(fresh.progress)?.id ?? encounter.id);
+                    }
+                });
                 return;
             }
             writeFirstPactSession({ playerName: requestAccount, sessionId: result.state.sessionId, encounterId: encounter.id, petIds, ...(replay ? { replay } : {}) });
