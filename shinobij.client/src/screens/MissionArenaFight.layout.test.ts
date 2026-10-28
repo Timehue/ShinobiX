@@ -743,3 +743,13 @@ test("the compact command chip keeps its cost readable and its full copy announc
         /#combat \.battle-tab \{[^}]*min-height: 44px !important;/s,
     );
 });
+
+test("mobile rejection feedback stays inside the loadout instead of adding an outer combat grid item", () => {
+    const tray = missionSource.match(/<CombatActionTray>([\s\S]*?)<\/CombatActionTray>/)?.[1];
+    assert.ok(tray);
+    assert.match(tray, /^\s*<CombatCommandBar/);
+    const loadout = tray.indexOf('className="jutsu-layout-card combat-jutsu-bar"');
+    const feedback = tray.indexOf('className="combat-mobile-feedback"');
+    assert.ok(loadout >= 0 && feedback > loadout, "the live alert belongs to the existing loadout scroll surface on portrait and short landscape");
+    assert.equal((tray.match(/className="combat-mobile-feedback"/g) ?? []).length, 1);
+});

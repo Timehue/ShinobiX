@@ -1686,7 +1686,6 @@ export function MissionArenaFight({
                         `display: contents` everywhere else so each surface keeps
                         the grid area it already had. */}
                     <CombatActionTray>
-                        {mobileCombat && reject && <div className="combat-mobile-feedback" role="alert">{reject}</div>}
                         <CombatCommandBar>
                             <button onClick={() => armBasicAction("attack")} aria-pressed={mode === "attack"}
                                 data-academy-action="attack"
@@ -1740,6 +1739,7 @@ export function MissionArenaFight({
                             role="region"
                             aria-label="Jutsu, weapons, and items"
                         >
+                            {mobileCombat && reject && <div className="combat-mobile-feedback" role="alert">{reject}</div>}
                             {myJutsu.length === 0 && myWeapons.length === 0 && myConsumables.length === 0 ? (
                                 <div className="summary-box">No equipped jutsu or combat items.</div>
                             ) : (
