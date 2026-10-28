@@ -344,6 +344,92 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
+  # The client release artifact is built here, on its own, so the ~45 browser jobs
+  # that consume it no longer wait for client-quality. On run 40713008054 the
+  # browser jobs started at +21 min, after client-quality's 6.7m full checkout,
+  # its pet certifications and lint, and only 1.5m of that job was the build. For
+  # those 16 minutes five jobs ran and the rest of the runner pool sat idle; the
+  # browser jobs then queued for the pool for another 54. Build and size gate are
+  # about 5 minutes with a sparse checkout, so release-artifact can start at +5.
+  #
+  # Nothing is gated less. client-quality still certifies the pet assets, lints
+  # and audits, and `CI / test-build` still requires it, so a red client-quality
+  # fails the run whatever the browser jobs said. What changed is only that a PR
+  # which fails those checks now also spends its browser minutes. This artifact
+  # is for the browser jobs alone: Railway builds from source (see CLAUDE.md), so
+  # certification no longer has to precede the build for the deploy to be safe.
+  client_build:
+    name: CI / client-build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # Skips the review-evidence folders; see SPARSE CHECKOUT at the top.
+          # The Docker build runs without them, so this build does not need them.
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /*
+            !/docs/screenshots/
+            !/docs/evidence/
+            !/docs/audits/
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            shinobij.client/package-lock.json
+      - name: Initialize evidence
+        run: |
+          mkdir -p .ci-evidence/client-build
+          printf 'sha=%s\nrun_id=%s\nrun_attempt=%s\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" > .ci-evidence/client-build/provenance.txt
+      - name: Install root tooling dependencies
+        run: npm ci 2>&1 | tee .ci-evidence/client-build/root-install.log
+      - name: Install client dependencies
+        run: npm ci --prefix shinobij.client 2>&1 | tee .ci-evidence/client-build/client-install.log
+      - name: Story-content, TypeScript, and production client build
+        run: npm run build --prefix shinobij.client 2>&1 | tee .ci-evidence/client-build/client-build.log
+      - name: Build-size gate
+        # This step once carried its own `shell: bash`, because `| tee` under the
+        # default pipefail-less shell reported success while the gate printed its
+        # own failure. It mattered — an over-budget initial graph reached main
+        # under a green check, and the next thing to notice was the Railway image
+        # build, which runs `npm run build` (sizecheck included) unpiped and simply
+        # stops deploying. That per-step override was the right call when it was
+        # the only one; the workflow-level `defaults.run.shell` above now does the
+        # same for all the piped steps, so keeping it here would only imply the
+        # other steps lack the protection. The history is the point of this note.
+        # It runs before the upload so an over-budget build never reaches the
+        # browser jobs: release-artifact needs this job to succeed.
+        run: npm run sizecheck 2>&1 | tee .ci-evidence/client-build/build-size.log
+      - name: Package immutable client artifact
+        run: |
+          mkdir -p .ci-artifacts/client
+          tar -czf .ci-artifacts/client/client-dist.tgz shinobij.client/dist
+          cd .ci-artifacts/client
+          sha256sum client-dist.tgz > client-dist.tgz.sha256
+          printf 'sha=%s\nrun_id=%s\nrun_attempt=%s\nnode=%s\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "$(node -v)" > provenance.txt
+      - name: Upload client artifact
+        uses: actions/upload-artifact@v7
+        with:
+          include-hidden-files: true
+          name: client-dist-${{ github.sha }}-${{ github.run_id }}
+          overwrite: true
+          path: .ci-artifacts/client/
+          if-no-files-found: error
+          retention-days: 14
+      - name: Retain client build evidence
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v7
+        with:
+          include-hidden-files: true
+          name: evidence-client-build-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .ci-evidence/client-build/
+          if-no-files-found: warn
+          retention-days: 14
+
   client_quality:
     name: CI / client-quality
     runs-on: ubuntu-latest
@@ -379,19 +465,8 @@ jobs:
         run: npm run check:warfront-pet-impostors --prefix shinobij.client 2>&1 | tee .ci-evidence/client-quality/pet-impostors.log
       - name: Client lint
         run: npm run lint --prefix shinobij.client 2>&1 | tee .ci-evidence/client-quality/lint.log
-      - name: Story-content, TypeScript, and production client build
-        run: npm run build --prefix shinobij.client 2>&1 | tee .ci-evidence/client-quality/client-build.log
-      - name: Build-size gate
-        # This step once carried its own `shell: bash`, because `| tee` under the
-        # default pipefail-less shell reported success while the gate printed its
-        # own failure. It mattered — an over-budget initial graph reached main
-        # under a green check, and the next thing to notice was the Railway image
-        # build, which runs `npm run build` (sizecheck included) unpiped and simply
-        # stops deploying. That per-step override was the right call when it was
-        # the only one; the workflow-level `defaults.run.shell` above now does the
-        # same for all 42 piped steps, so keeping it here would only imply the
-        # other steps lack the protection. The history is the point of this note.
-        run: npm run sizecheck 2>&1 | tee .ci-evidence/client-quality/build-size.log
+      # The production build and the build-size gate run in client-build, in
+      # parallel with this job; see the comment above that job.
       - name: Visual-baseline size gate
         run: npm run test:e2e:visual:size --prefix shinobij.client 2>&1 | tee .ci-evidence/client-quality/visual-size.log
       - name: Client dependency audit
@@ -422,22 +497,6 @@ jobs:
           done
           echo "::error::npm audit endpoint returned no verdict in 3 attempts."
           exit 1
-      - name: Package immutable client artifact
-        run: |
-          mkdir -p .ci-artifacts/client
-          tar -czf .ci-artifacts/client/client-dist.tgz shinobij.client/dist
-          cd .ci-artifacts/client
-          sha256sum client-dist.tgz > client-dist.tgz.sha256
-          printf 'sha=%s\nrun_id=%s\nrun_attempt=%s\nnode=%s\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "$(node -v)" > provenance.txt
-      - name: Upload client artifact
-        uses: actions/upload-artifact@v7
-        with:
-          include-hidden-files: true
-          name: client-dist-${{ github.sha }}-${{ github.run_id }}
-          overwrite: true
-          path: .ci-artifacts/client/
-          if-no-files-found: error
-          retention-days: 14
       - name: Retain client quality evidence
         if: always()
         continue-on-error: true
@@ -451,7 +510,7 @@ jobs:
 
   release_artifact:
     name: CI / release-artifact
-    needs: [server_build_security, client_quality]
+    needs: [server_build_security, client_build]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     # The joined server and client distributions occasionally take longer than
@@ -473,11 +532,11 @@ jobs:
           mkdir -p .ci-evidence/release-artifact
           printf 'sha=%s\nrun_id=%s\nrun_attempt=%s\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" > .ci-evidence/release-artifact/provenance.txt
       - name: Require successful build inputs
-        if: ${{ needs.server_build_security.result != 'success' || needs.client_quality.result != 'success' }}
+        if: ${{ needs.server_build_security.result != 'success' || needs.client_build.result != 'success' }}
         run: |
           printf '%s\n' \
             "server-build-security=${{ needs.server_build_security.result }}" \
-            "client-quality=${{ needs.client_quality.result }}" \
+            "client-build=${{ needs.client_build.result }}" \
             | tee .ci-evidence/release-artifact/upstream-results.log
           exit 1
       - uses: actions/setup-node@v7
@@ -1486,6 +1545,7 @@ jobs:
       - server_contracts
       - server_build_security
       - pg_integration
+      - client_build
       - client_quality
       - release_artifact
       - release_certification
@@ -1503,6 +1563,7 @@ jobs:
           SERVER_CONTRACTS: ${{ needs.server_contracts.result }}
           SERVER_BUILD_SECURITY: ${{ needs.server_build_security.result }}
           PG_INTEGRATION: ${{ needs.pg_integration.result }}
+          CLIENT_BUILD: ${{ needs.client_build.result }}
           CLIENT_QUALITY: ${{ needs.client_quality.result }}
           RELEASE_ARTIFACT: ${{ needs.release_artifact.result }}
           RELEASE_CERTIFICATION: ${{ needs.release_certification.result }}
@@ -1519,6 +1580,7 @@ jobs:
             "server-contracts=$SERVER_CONTRACTS" \
             "server-build-security=$SERVER_BUILD_SECURITY" \
             "pg-integration=$PG_INTEGRATION" \
+            "client-build=$CLIENT_BUILD" \
             "client-quality=$CLIENT_QUALITY" \
             "release-artifact=$RELEASE_ARTIFACT" \
             "release-certification=$RELEASE_CERTIFICATION" \
@@ -1532,6 +1594,7 @@ jobs:
           test "$SERVER_CONTRACTS" = success
           test "$SERVER_BUILD_SECURITY" = success
           test "$PG_INTEGRATION" = success
+          test "$CLIENT_BUILD" = success
           test "$CLIENT_QUALITY" = success
           test "$RELEASE_ARTIFACT" = success
           test "$RELEASE_CERTIFICATION" = success

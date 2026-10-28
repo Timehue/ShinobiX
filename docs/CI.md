@@ -41,7 +41,7 @@ same commit as the workflow.
 | `CI / server-contracts` | `server_contracts` | 15 min | Fail-closed aggregate over the three root test shards (see below). Locked root install; deployment, rollback, mission, asset, pet-breeding, and tooling contracts; then requires every shard to have succeeded. |
 | `CI / server-build-security` | `server_build_security` | 30 min | Locked root install; backup/restore contract, root audit, one server build, checksum/provenance generation, and server artifact production. A high-severity advisory fails the audit at once; only an audit endpoint that returns no verdict is retried, for up to three attempts. |
 | `CI / pg-integration` | `pg_integration` | 30 min | Locked root install; runs `kv.compareSetMany` (the multi-key compare-and-set every currency-moving save write commits through) against a real `postgres:16` service container: jsonb equality, `ON CONFLICT ... WHERE`, `FOR SHARE` holds, rollback, opposite-order batches, and lock-lease fencing. The schema is read from `supabase-schema.sql`. `PG_INTEGRATION_REQUIRED=1` fails the job if the suite would skip. Required through `CI / test-build` (see below), not yet as its own context. The ceiling includes checkout of the immutable visual evidence as well as the complete test suite. |
-| `CI / client-quality` | `client_quality` | 35 min | Locked root/client installs; shipped pet rig/animation, Warfront/Rally LOD, and Warfront impostor certification ahead of the build; lint, story-content/TypeScript/production build, build-size and visual-baseline-size gates, client audit (with the same retry rule as the root audit), and checksum-backed client artifact production. |
+| `CI / client-quality` | `client_quality` | 35 min | Locked root/client installs; shipped pet rig/animation, Warfront/Rally LOD, and Warfront impostor certification; lint, the visual-baseline-size gate, and the client audit (with the same retry rule as the root audit). It does not build: `client_build` does, in parallel. |
 | `CI / release-certification` | `release_certification` | 15 min | Downloads and verifies the exact compiled release artifacts, then runs the fresh-account/combat certification against them. |
 | `CI / concurrency-smoke` | `concurrency_smoke` | 15 min | Downloads and verifies the release artifacts, then runs the short real-server concurrent-player smoke. It is not a database capacity test. |
 | `CI / e2e-responsive` | `e2e_responsive` | 5 min | Fail-closed aggregate requiring every responsive smoke slice (`e2e_responsive_matrix`) and all nineteen flow jobs with the CSP, Stronghold, and dedicated suites (`e2e_responsive_flows`) to succeed. |
@@ -49,13 +49,23 @@ same commit as the workflow.
 | `CI / e2e-warfront` | `e2e_warfront` | 5 min | Fail-closed aggregate requiring both Warfront browser shards (`e2e_warfront_matrix`) to succeed. |
 | `CI / e2e-village-stores` | `e2e_village_stores` | 5 min | Requires all three gameplay shards; ten live Express player-journey steps retain separate real servers and all existing cases. |
 
+`CI / client-build` (`client_build`, 20 minutes) is where the client release
+artifact is built: locked installs, the story-content/TypeScript/production
+build, the build-size gate, then the checksum-backed artifact. It is separate
+from `CI / client-quality` so the browser jobs, which consume that artifact, can
+start about 15 minutes sooner instead of waiting for the pet certifications and
+lint. Both are required through `CI / test-build`, so a red `client_quality`
+still fails the run; the cost is that a PR failing those checks also spends its
+browser minutes. Railway builds from source, so the artifact is for the browser
+jobs only.
+
 `CI / release-artifact` (`release_artifact`, 20 minutes) is an internal join that
 assembles and verifies the server and client outputs and distribution contract
 for downstream jobs. Its ceiling was raised from 10 minutes because downloading,
 verifying, packaging, and uploading the joined outputs sometimes took longer on
-hosted runners. The build-size contract remains in `CI / client-quality`. The
-join is not a separately required context because every required artifact
-consumer fails closed if that join or its inputs fail.
+hosted runners. The build-size contract lives in `CI / client-build`, ahead of
+the artifact upload. The join is not a separately required context because every
+required artifact consumer fails closed if that join or its inputs fail.
 
 Building player journeys run as two `e2e_sector_buildings` shards, named
 `CI / e2e-sector-buildings / 1-of-2` through `CI / e2e-sector-buildings / 2-of-2`,
